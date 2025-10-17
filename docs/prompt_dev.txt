@@ -1,0 +1,200 @@
+**Rol y Contexto:**
+Eres un ingeniero de software senior especializado en Python, con experiencia demostrable en visión por computadora (OpenCV, imagehash), gestión de archivos multimedia y desarrollo de aplicaciones GUI robustas con PyQt5. Has desarrollado múltiples herramientas de gestión de medios digitales con más de 10,000 archivos procesados.
+
+**Objetivo Principal:**
+Desarrollar una aplicación Python de escritorio con interfaz gráfica llamada "photokit Manager" para detectar y gestionar archivos multimedia duplicados mediante análisis de similitud perceptual, no solo por nombre de archivo.
+
+**Alcance de Archivos:**
+Cuando se menciona "fotos" en este documento, se incluyen imágenes (HEIC, JPG, JPEG, PNG, TIFF, BMP, WebP) y videos (MP4, MOV, AVI, MKV, WMV, FLV).
+
+***
+
+### Requisitos Funcionales de la aplicacion
+
+**Análisis de Archivos:**
+
+- Escanear recursivamente un directorio raíz y todos sus subdirectorios
+- Procesar archivos independientemente del nombre (archivos con mismo nombre pero diferente contenido deben analizarse por contenido)
+- Detectar duplicados incluso con variaciones en resolución, compresión, metadatos EXIF o ligeras modificaciones
+
+**Detección de Duplicados:**
+
+- Implementar hashing perceptual usando imagehash (phash, dhash, average hash) con hash_size configurable (valor recomendado: 8)
+- Para imágenes: calcular similitud mediante comparación de hashes con threshold ajustable (Hamming distance)
+- Para videos: extraer frames clave (primer frame, frame medio, frame final) y aplicar hashing perceptual
+- Agrupar archivos similares con score de similitud visible para el usuario
+
+***
+
+### Requisitos Técnicos e Interfaz
+
+**Tecnología Base:**
+
+- Python 3.9+
+- GUI: PyQt5 (preferido por robustez y Qt Designer) o Tkinter (alternativa ligera)
+
+**Componentes de la Interfaz:**
+
+1. **Panel de Configuración:**
+    - Selector de directorio raíz con botón "Examinar"
+    - Selector de carpeta para logs
+    - Configuración de sensibilidad de detección (slider de 0-20 para Hamming distance threshold)
+    - Filtros de formato de archivo (checkboxes por tipo)
+    - Barra de progreso con indicador de archivos procesados/total
+	- Checkbox para permitir borrado de ficheros .HEIC con misma imagen duplicada en otro formato
+2. **Panel de Resultados:**
+    - Vista de grupos de duplicados en lista o grid
+    - Miniaturas/previews en color con información: ruta completa, tamaño, resolución, fecha de creación/modificación
+    - Indicador visual del archivo seleccionado por defecto (mayor tamaño o mejor resolución)
+    - Permitir cambiar selección manualmente con radio buttons
+    - Mostrar score de similitud entre archivos del grupo
+3. **Panel de Acciones:**
+    - Funcionalidad "Analizar" (escaneo sin modificación)
+    - Funcionalidad "Normalización" (Renombra archivos a un formato estandard)
+    - Funcionalidad "Live Photos" (limpia imagenes o videos duplicados de Live Photos)
+    - Funcionalidad "Unificar Directorio" (mover todos los archivos al directorio raiz)
+    - Funcionalidad "Duplicados HEIC" (eliminar ficheros HEIC que duplican una foto)
+    - Funcionalidad futura "Eliminar duplicados" (eliminar imagenes duplicadas)
+    - Funcionalidad futura "Categorizar por fechas" (permite crear subcarpetas para años o meses)
+
+4. **Sistema de Renombrado (Opcional):**
+    - Formato: `YYYYMMDD_HHMMSS_XXX_nnn.extension`
+    - XXX: "PHOTO" o "VIDEO" según tipo de archivo
+    - nnn: número secuencial de 3 dígitos si hay múltiples archivos en la misma fecha. En caso de que no haya múltiples archivos no se pone sufijo.
+    - Fecha: la más antigua entre fecha de creación, modificación o EXIF DateTimeOriginal
+    - Ejemplo: `20251103_PHOTO_001.jpg`, `20251103_VIDEO_001.mp4`
+    - Preview del renombrado antes de aplicar
+
+***
+
+### Requisitos de Funcionamiento
+
+**Logging Completo:**
+
+- Archivo de log con timestamp: `duplicate_finder_YYYYMMDD_HHMMSS.log`
+- Registrar: rutas analizadas, número total de archivos, grupos de duplicados detectados, decisiones del usuario (conservar/eliminar), errores, tiempo de procesamiento
+- Formato estructurado para facilitar auditoría posterior
+
+**Flujo de Trabajo Seguro:**
+
+1. Análisis sin modificación del filesystem
+2. Presentación de resultados para revisión
+3. Confirmación explícita del usuario
+4. Ejecución de acciones con registro detallado
+5. Opción de deshacer mediante respaldo temporal (opcional pero recomendado)
+
+**Algoritmo de Detección:**
+
+- Usar `imagehash.dhash()` con hash_size=8 como baseline
+- Comparar hashes mediante Hamming distance
+- Threshold configurable (recomendado: 5-10 para duplicados exactos, 10-15 para similares)
+- Para videos: extraer 3 frames y promediar similitud
+
+**Manejo de Errores:**
+
+- Archivos corruptos o inaccesibles: registrar en log y continuar
+- Permisos insuficientes: alertar al usuario
+- Timeout para archivos muy grandes (configurable)
+
+***
+
+
+### Estructura del Código actual
+photokit_manager/
+├── main.py # Punto de entrada
+├── config.py # Configuración
+├── requirements.txt # Dependencias
+├── ui/ # Interfaz de usuario
+│ ├── main_window.py
+│ ├── dialogs.py
+│ ├── styles.py
+│ └── workers.py
+├── services/ # Lógica de negocio
+│ ├── file_normalizer.py
+│ ├── live_photo_detector.py
+│ ├── live_photo_cleaner.py
+│ ├── directory_unifier.py
+│ └── heic_remover.py
+└── utils/ # Utilidades
+├── logger.py
+└── date_utils.py
+
+## Funcionalidades
+
+- ✅ **Normalización de archivos**: Renombrado automático con formato `YYYYMMDD_HHMMSS_TIPO_NNN.ext`
+- ✅ **Detección de Live Photos**: Identifica pares imagen+video de iPhone
+- ✅ **Limpieza de Live Photos**: Elimina videos o imágenes de Live Photos
+- ✅ **Unificación de directorios**: Mueve archivos de subdirectorios al directorio raíz
+- ✅ **Eliminación de duplicados HEIC/JPG**: Detecta y elimina duplicados
+
+**Documentación Incluida que tendrá la aplicación:**
+
+1. Código completamente comentado con docstrings en español
+2. README.md con:
+    - Descripción del proyecto
+    - Requisitos del sistema
+    - Instrucciones de instalación paso a paso
+    - Guía de uso con capturas de pantalla simuladas (ASCII art)
+    - Troubleshooting común
+3. requirements.txt con versiones específicas
+4. Ejemplo de configuración y uso básico
+
+**Librerías Requeridas:**
+
+```
+PyQt5>=5.15.0
+Pillow>=10.0.0
+imagehash>=4.3.0
+opencv-python>=4.8.0
+numpy>=1.24.0
+pillow-heif>=0.13.0  # soporte HEIC
+```
+
+**Instrucciones de Instalación:**
+Generar comandos explícitos para:
+
+- Crear entorno virtual
+- Instalar dependencias
+- Ejecutar la aplicación
+- Configuración inicial recomendada
+
+***
+
+### Criterios de Calidad
+
+**Código:**
+
+- Seguir PEP 8
+- Type hints en funciones principales
+- Manejo robusto de excepciones
+- Testing unitario básico (opcional pero valorado)
+- Comentarios en español explicando lógica compleja
+
+**Performance:**
+
+- Procesamiento asíncrono/multithreading para no bloquear UI
+- Caché de hashes calculados para evitar reprocesamiento
+- Estimación de tiempo restante durante análisis
+
+**Experiencia de Usuario:**
+
+- Interfaz intuitiva y responsiva
+- Feedback visual claro del progreso
+- Confirmaciones antes de acciones destructivas
+- Mensajes de error informativos
+
+***
+
+### Entregable Esperado
+Codigo para cambiar los nombres de algunas funcionalidades principales y el codigo asociado. Concretamente estas:
+- La funcionalidad de "Normalización". Deben cambiarse todas sus referencias y nombres de funciones o variables desde "Normalizacion" a "Renombrado". La tab se llamará "Renombrar". El codigo será en ingles usando "rename".
+- La funcionalidad de Live Photos debe cambiarse a "Gestionar Live Photos"
+- La funcionalidad de "unificar" debe añadir "Unificar Directorio"
+- La funcionalidad de Duplicados HEIC pasa a "Eliminar HEIC"
+- Debes cambiar también los textos en los ficheros de logs o en todo lo que se le muestra al usuario.
+- Dame el codigo COMPLETO refactorizado de todos los archivos que se modifiquen
+- EL usuario no debe notar NINGUN cambio funcional o de diseño. Debe verse igual con excepción de los textos relacionados con las funcionalidades.
+- Solo debes modificar textos o nombres de funciones/clases en el codigo.
+- No modifiques los botones, dialogos o diseño.
+
+Te adjunto los ficheros del codigo actual.

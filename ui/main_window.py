@@ -1,0 +1,1718 @@
+"""
+Ventana principal de PhotoKit Manager
+"""
+import sys
+import os
+import logging
+from pathlib import Path
+from datetime import datetime
+
+from PyQt5.QtWidgets import (
+    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
+    QLineEdit, QFileDialog, QMessageBox, QTextEdit, QDialog, QCheckBox,
+    QProgressBar, QGroupBox, QTabWidget, QComboBox, QSplitter, QFrame, QMenu, QApplication
+)
+from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtGui import QDesktopServices
+from PyQt5.QtCore import QUrl
+
+import config
+from services.file_normalizer import FileNormalizer
+from ui import styles
+from ui.workers import (
+    AnalysisWorker, NormalizationWorker, LivePhotoCleanupWorker,
+    DirectoryUnificationWorker, HEICRemovalWorker
+)
+from ui.dialogs import (
+    NormalizationPreviewDialog, LivePhotoCleanupDialog,
+    DirectoryUnificationDialog, HEICDuplicateRemovalDialog, SettingsDialog
+)
+from services.live_photo_cleaner import LivePhotoCleaner
+from services.live_photo_detector import LivePhotoDetector
+from services.directory_unifier import DirectoryUnifier
+from services.heic_remover import HEICDuplicateRemover
+from utils.date_utils import get_file_date, format_normalized_name, is_normalized_filename
+
+# ============================================================================
+# VERIFICAR DISPONIBILIDAD DE MÓDULOS
+# ============================================================================
+# Todos los módulos están disponibles en la refactorización
+NORMALIZATION_AVAILABLE = True
+LIVE_PHOTOS_AVAILABLE = True
+DIRECTORY_UNIFICATION_AVAILABLE = True
+HEIC_REMOVAL_AVAILABLE = True
+
+class MainWindow(QMainWindow):
+    """Ventana principal de la aplicación"""
+
+    def __init__(self):
+        super().__init__()
+
+        # Variables de estado
+        self.current_directory = None
+        self.analysis_results = None
+        self.last_analyzed_directory = None
+
+        # Configuración de logging
+        self.logs_directory = config.Config.DEFAULT_LOG_DIR
+        self.log_level = config.Config.LOG_LEVEL
+        self.logs_directory.mkdir(parents=True, exist_ok=True)
+
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        self.log_file = self.logs_directory / f"photokit_manager_{timestamp}.log"
+
+        logging.basicConfig(
+            level=self.log_level,
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            handlers=[
+                logging.FileHandler(self.log_file, encoding='utf-8'),
+                logging.StreamHandler()
+            ],
+            force=True
+        )
+
+        self.app_logger = logging.getLogger('PhotokitManager')
+        self.app_logger.info("=" * 70)
+        self.app_logger.info("Aplicación iniciada")
+        self.app_logger.info(f"Archivo de log: {self.log_file}")
+        self.app_logger.info("=" * 70)
+
+        # Inicializar servicios
+        self.normalizer = FileNormalizer()
+        self.live_photo_detector = LivePhotoDetector()
+        self.live_photo_cleaner = LivePhotoCleaner()
+        self.directory_unifier = DirectoryUnifier()
+        self.heic_remover = HEICDuplicateRemover()
+
+        # Workers
+        self.analysis_worker = None
+        self.execution_worker = None
+        self.active_workers = []
+        
+        # Inicializar UI
+        self.init_ui()
+
+    def init_ui(self):
+        self.setWindowTitle(f"{config.config.APP_NAME} v{config.config.APP_VERSION}")
+        self.setGeometry(100, 100, 1600, 900)
+
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+
+        main_layout = QVBoxLayout(central_widget)
+        main_layout.setSpacing(10)
+        main_layout.setContentsMargins(15, 15, 15, 15)
+
+        # ===== HEADER CON MENÚ DESPLEGABLE =====
+        header_layout = QHBoxLayout()
+
+        # Título
+        title = QLabel(f"🎬 {config.config.APP_NAME}")
+        title.setStyleSheet(styles.STYLE_TITLE_LABEL)
+        header_layout.addWidget(title)
+
+        header_layout.addStretch()
+
+        # Botón de menú con dropdown
+        menu_btn = QPushButton("⋮")
+        menu_btn.setFixedSize(40, 40)
+        menu_btn.setCursor(Qt.PointingHandCursor)
+        menu_btn.setToolTip("Menú de opciones")
+        menu_btn.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                color: #6c757d;
+                border: 2px solid #dee2e6;
+                border-radius: 8px;
+                padding: 0px;
+                font-size: 22px;
+                font-weight: bold;
+                text-align: center;  /* ✅ Centrado horizontal */
+                qproperty-iconSize: 0px 0px;  /* ✅ Sin espacio para icono */
+            }
+            QPushButton:hover {
+                background-color: #f8f9fa;
+                border-color: #adb5bd;
+            }
+            QPushButton:pressed {
+                background-color: #e9ecef;
+            }
+            QPushButton::menu-indicator {
+                image: none;
+                width: 0px;  /* ✅ Ancho 0 para eliminar espacio reservado */
+            }
+        """)
+
+        # Crear menú desplegable
+        menu = QMenu(self)
+        menu.setStyleSheet("""
+            QMenu {
+                background-color: white;
+                border: 1px solid #dee2e6;
+                border-radius: 8px;
+                padding: 4px;
+            }
+            QMenu::item {
+                padding: 8px 24px 8px 12px;
+                border-radius: 4px;
+            }
+            QMenu::item:selected {
+                background-color: #f8f9fa;
+            }
+        """)
+
+        # Añadir acciones al menú
+        config_action = menu.addAction("⚙️  Configuración")
+        config_action.triggered.connect(self.toggle_config)
+
+        menu.addSeparator()
+
+        about_action = menu.addAction("ℹ️  Acerca de")
+        about_action.triggered.connect(self.show_about_dialog)
+
+        # Asignar menú al botón
+        menu_btn.setMenu(menu)
+
+        header_layout.addWidget(menu_btn)
+        main_layout.addLayout(header_layout)
+
+        # ===== SELECTOR ESTILO SEARCH BAR =====
+        search_container = QFrame()
+        search_container.setStyleSheet("""
+            QFrame {
+                background-color: white;
+                border: 2px solid #dee2e6;
+                border-radius: 12px;
+                padding: 4px;
+            }
+            /* Sin hover - el contenedor no es interactivo */
+        """)
+
+        search_layout = QHBoxLayout(search_container)
+        search_layout.setSpacing(10)
+        search_layout.setContentsMargins(14, 10, 10, 10)
+
+        # Icono de carpeta (sin hover)
+        folder_icon = QLabel("📂")
+        folder_icon.setStyleSheet("font-size: 20px; padding-top: 2px;")
+        search_layout.addWidget(folder_icon)
+
+        # Campo de texto (readonly, sin hover necesario)
+        self.directory_edit = QLineEdit()
+        self.directory_edit.setPlaceholderText("Selecciona un directorio para analizar...")
+        self.directory_edit.setReadOnly(True)
+        self.directory_edit.setStyleSheet("""
+            QLineEdit {
+                border: none;
+                background: transparent;
+                font-size: 14px;
+                color: #495057;
+                padding: 8px 4px;
+            }
+            QLineEdit[readOnly="true"] {
+                color: #6c757d;
+            }
+        """)
+        search_layout.addWidget(self.directory_edit, stretch=1)
+
+        # Botón (ÚNICO elemento con hover - es clickable)
+        analyze_btn = QPushButton("📁 Seleccionar y Analizar")
+        analyze_btn.setMinimumWidth(200)
+        analyze_btn.setFixedHeight(42)
+        analyze_btn.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                            stop:0 #2196F3, stop:1 #1976D2);
+                color: white;
+                border: none;
+                border-radius: 21px;
+                padding: 10px 32px;
+                font-size: 14px;
+                font-weight: 600;
+                letter-spacing: 0.3px;
+                min-width: 200px;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                            stop:0 #1E88E5, stop:1 #0D47A1);
+                padding: 10px 32px;
+            }
+            QPushButton:pressed {
+                background-color: #0D47A1;
+                padding: 10px 30px;
+            }
+            QPushButton:disabled {
+                background-color: #BDBDBD;
+                color: #EEEEEE;
+            }
+        """)
+        analyze_btn.setCursor(Qt.PointingHandCursor)
+        analyze_btn.clicked.connect(self.select_and_analyze_directory)
+        self.analyze_btn = analyze_btn
+        search_layout.addWidget(analyze_btn)
+
+        main_layout.addWidget(search_container)
+        main_layout.addSpacing(10)
+
+
+        # ===== SPLITTER: PANEL RESUMEN + PESTAÑAS =====
+        splitter = QSplitter(Qt.Horizontal)
+        self.summary_panel = self._create_summary_panel()
+        splitter.addWidget(self.summary_panel)
+        self.tabs_widget = self._create_tabs_widget()
+        splitter.addWidget(self.tabs_widget)
+        splitter.setStretchFactor(0, 1)
+        splitter.setStretchFactor(1, 3)
+        splitter.setSizes([300, 900])
+        main_layout.addWidget(splitter, 1)
+
+        # ===== BARRA DE PROGRESO =====
+        self._create_progress_bar(main_layout)
+
+        # ===== ÁREA DE RESULTADOS =====
+        results_label = QLabel("📋 Log de Operaciones")
+        results_label.setStyleSheet(styles.STYLE_RESULTS_LABEL)
+        main_layout.addWidget(results_label)
+
+        self.results_area = QTextEdit()
+        self.results_area.setMaximumHeight(150)
+        self.results_area.setPlaceholderText("Los resultados de las operaciones aparecerán aquí...")
+        self.results_area.setHtml("""
+            <div style='text-align: center; color: #7f8c8d; padding: 20px;'>
+                <h3>👋 Bienvenido</h3>
+                <p>Selecciona el directorio con tus fotos y videos pulsando <strong>📁 Seleccionar y Analizar</strong></p>
+            </div>
+        """)
+        main_layout.addWidget(self.results_area)
+
+    def _create_advanced_config_panel(self, parent_layout):
+        """Crea el panel de configuración avanzada que se despliega desde arriba"""
+        # Contenedor para el panel de configuración
+        self.config_panel = QFrame()
+        self.config_panel.setFrameStyle(QFrame.StyledPanel)
+        self.config_panel.setStyleSheet(styles.STYLE_CONFIG_PANEL)
+        self.config_panel.setVisible(False)  # Inicialmente oculto
+
+        config_layout = QVBoxLayout(self.config_panel)
+        config_layout.setSpacing(15)
+
+        # Título del panel
+        config_title = QLabel("⚙️ Configuración Avanzada")
+        config_title.setStyleSheet(styles.STYLE_CONFIG_TITLE)
+        config_layout.addWidget(config_title)
+
+        # Separador
+        separator = QFrame()
+        separator.setFrameShape(QFrame.HLine)
+        separator.setFrameShadow(QFrame.Sunken)
+        separator.setStyleSheet("background-color: #dee2e6;")
+        config_layout.addWidget(separator)
+
+        # === SECCIÓN: SEGURIDAD Y LOGS ===
+        safety_section = QGroupBox("💾 Seguridad y Logs")
+        safety_section.setStyleSheet(styles.STYLE_SAFETY_SECTION)
+        safety_layout = QVBoxLayout(safety_section)
+        safety_layout.setSpacing(10)
+
+        # Directorio de logs
+        logs_row = QHBoxLayout()
+        logs_label = QLabel("Carpeta de logs:")
+        logs_label.setMinimumWidth(110)
+        logs_row.addWidget(logs_label)
+
+        self.logs_edit = QLineEdit()
+        self.logs_edit.setText(str(self.logs_directory))
+        self.logs_edit.setReadOnly(True)
+        self.logs_edit.setStyleSheet(styles.STYLE_LOGS_EDIT)
+        logs_row.addWidget(self.logs_edit)
+
+        browse_logs_btn = QPushButton("📂 Cambiar")
+        browse_logs_btn.setMaximumWidth(100)
+        browse_logs_btn.setStyleSheet(styles.STYLE_BROWSE_LOGS_BUTTON)
+        browse_logs_btn.clicked.connect(self.browse_logs_directory)
+        logs_row.addWidget(browse_logs_btn)
+
+        safety_layout.addLayout(logs_row)
+
+        # Nivel de log
+        log_level_row = QHBoxLayout()
+        log_level_label = QLabel("Nivel de detalle:")
+        log_level_label.setMinimumWidth(110)
+        log_level_row.addWidget(log_level_label)
+
+        self.log_level_combo = QComboBox()
+        self.log_level_combo.addItems(["DEBUG", "INFO", "WARNING", "ERROR"])
+        self.log_level_combo.setCurrentText("INFO")
+        self.log_level_combo.currentTextChanged.connect(self.change_log_level)
+        self.log_level_combo.setStyleSheet(styles.STYLE_LOG_LEVEL_COMBO)
+        log_level_row.addWidget(self.log_level_combo)
+        log_level_row.addStretch()
+
+        safety_layout.addLayout(log_level_row)
+
+        # Botón abrir logs
+        open_logs_btn = QPushButton("📄 Abrir carpeta de logs")
+        open_logs_btn.setStyleSheet(styles.STYLE_OPEN_LOGS_BUTTON)
+        open_logs_btn.clicked.connect(self.open_logs_folder)
+        safety_layout.addWidget(open_logs_btn)
+
+        config_layout.addWidget(safety_section)
+
+        # === SECCIÓN: PREFERENCIAS ===
+        prefs_section = QGroupBox("🎨 Preferencias")
+        prefs_section.setStyleSheet(styles.STYLE_SAFETY_SECTION)
+        prefs_layout = QVBoxLayout(prefs_section)
+        prefs_layout.setSpacing(8)
+
+        self.auto_backup_checkbox = QCheckBox("Crear backup automáticamente antes de cada operación")
+        self.auto_backup_checkbox.setChecked(True)
+        self.auto_backup_checkbox.setStyleSheet(styles.STYLE_CHECKBOX)
+        prefs_layout.addWidget(self.auto_backup_checkbox)
+
+        self.confirm_operations_checkbox = QCheckBox("Pedir confirmación antes de ejecutar operaciones")
+        self.confirm_operations_checkbox.setChecked(True)
+        self.confirm_operations_checkbox.setStyleSheet(styles.STYLE_CHECKBOX)
+        prefs_layout.addWidget(self.confirm_operations_checkbox)
+
+        self.remember_dir_checkbox = QCheckBox("Recordar último directorio al iniciar")
+        self.remember_dir_checkbox.setChecked(True)
+        self.remember_dir_checkbox.setStyleSheet(styles.STYLE_CHECKBOX)
+        prefs_layout.addWidget(self.remember_dir_checkbox)
+
+        config_layout.addWidget(prefs_section)
+
+        parent_layout.addWidget(self.config_panel)
+
+    def toggle_config(self):
+        """Abre el diálogo de configuración"""
+        dialog = SettingsDialog(self)
+        dialog.exec_()
+
+    def open_logs_folder(self):
+        """Abre la carpeta de logs en el explorador del sistema"""
+        import platform
+        import subprocess
+
+        try:
+            if platform.system() == 'Windows':
+                os.startfile(self.logs_directory)
+            elif platform.system() == 'Darwin':  # macOS
+                subprocess.Popen(['open', self.logs_directory])
+            else:  # Linux
+                subprocess.Popen(['xdg-open', self.logs_directory])
+
+            self.app_logger.info(f"Carpeta de logs abierta: {self.logs_directory}")
+        except Exception as e:
+            QMessageBox.warning(
+                self,
+                "Error",
+                f"No se pudo abrir la carpeta:\n{str(e)}"
+            )
+
+    def show_about_dialog(self):
+        """Muestra un diálogo Acerca de con información de la aplicación"""
+        about_text = f"""
+        <center>
+        <h2>{config.config.APP_NAME}</h2>
+        <p><b>Versión:</b> {config.config.APP_VERSION}</p>
+        <p>{config.config.APP_DESCRIPTION}</p>
+        <br>
+        <p><b>Funcionalidades:</b></p>
+        <ul style="text-align: left;">
+            <li>📝 Renombrado automático de archivos</li>
+            <li>📱 Limpieza de Live Photos</li>
+            <li>📁 Unificación de directorios</li>
+            <li>🖼️ Eliminación de duplicados HEIC/JPG</li>
+        </ul>
+        <br>
+        <p><small>Desarrollado con ❤️ usando PyQt5</small></p>
+        </center>
+        """
+
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Acerca de")
+        msg.setTextFormat(Qt.RichText)
+        msg.setText(about_text)
+        msg.setIcon(QMessageBox.Information)
+        msg.exec_()
+
+    def change_log_level(self, level_str):
+        """Cambia el nivel de logging"""
+        # Extraer solo el nivel (DEBUG, INFO, etc.)
+        level_name = level_str.split(" ")[0]
+
+        level_map = {
+            'DEBUG': logging.DEBUG,
+            'INFO': logging.INFO,
+            'WARNING': logging.WARNING,
+            'ERROR': logging.ERROR
+        }
+
+        level = level_map.get(level_name, logging.INFO)
+        self.app_logger.setLevel(level)
+        self.app_logger.info(f"Nivel de log cambiado a: {level_name}")
+
+    def _create_config_panel(self, parent_layout):
+        """Crea el panel de configuración mejorado y más organizado"""
+        config_container = QFrame()
+        config_container.setFrameStyle(QFrame.StyledPanel | QFrame.Sunken)
+        config_container.setStyleSheet(styles.STYLE_CONFIG_CONTAINER)
+
+        config_main_layout = QVBoxLayout(config_container)
+        config_main_layout.setContentsMargins(10, 10, 10, 10)
+
+        # Header mejorado con botón de colapsar
+        config_header = QHBoxLayout()
+
+        config_title = QLabel("⚙️ Configuración")
+        config_title.setStyleSheet(styles.STYLE_CONFIG_TITLE)
+        config_header.addWidget(config_title)
+
+        config_header.addStretch()
+
+        # Botón de colapsar mejorado
+        self.collapse_btn = QPushButton("▼ Mostrar")
+        self.collapse_btn.setMaximumWidth(100)
+        self.collapse_btn.setStyleSheet(styles.STYLE_COLLAPSE_BUTTON)
+        self.collapse_btn.clicked.connect(self.toggle_config)
+        config_header.addWidget(self.collapse_btn)
+
+        config_main_layout.addLayout(config_header)
+
+        # Panel de configuración (inicialmente oculto)
+        self.config_group = QWidget()
+        config_layout = QVBoxLayout(self.config_group)
+        config_layout.setSpacing(15)
+
+        # === SECCIÓN 1: DIRECTORIO DE TRABAJO ===
+        dir_section = QGroupBox("📁 Directorio de Trabajo")
+        dir_section.setStyleSheet(styles.STYLE_DIR_SECTION)
+        dir_layout = QVBoxLayout(dir_section)
+
+        # Directorio actual
+        dir_row = QHBoxLayout()
+        dir_label = QLabel("Directorio:")
+        dir_label.setMinimumWidth(80)
+        dir_row.addWidget(dir_label)
+
+        self.directory_edit = QLineEdit()
+        self.directory_edit.setPlaceholderText("Selecciona un directorio para analizar...")
+        self.directory_edit.setReadOnly(True)
+        self.directory_edit.setStyleSheet(styles.STYLE_DIRECTORY_EDIT_ALT)
+        dir_row.addWidget(self.directory_edit)
+
+        browse_btn = QPushButton("📂 Examinar...")
+        browse_btn.setMinimumWidth(120)
+        browse_btn.setStyleSheet(styles.STYLE_BROWSE_BUTTON)
+        browse_btn.clicked.connect(self.browse_directory)
+        dir_row.addWidget(browse_btn)
+
+        dir_layout.addLayout(dir_row)
+
+        # Checkbox: Recordar último directorio
+        self.remember_dir_checkbox = QCheckBox("Recordar último directorio al iniciar")
+        self.remember_dir_checkbox.setChecked(True)
+        dir_layout.addWidget(self.remember_dir_checkbox)
+
+        config_layout.addWidget(dir_section)
+
+        # === SECCIÓN 2: CONFIGURACIÓN DE LOGS Y BACKUPS ===
+        safety_section = QGroupBox("💾 Seguridad y Logs")
+        safety_section.setStyleSheet(dir_section.styleSheet())
+        safety_layout = QVBoxLayout(safety_section)
+
+        # Directorio de logs
+        logs_row = QHBoxLayout()
+        logs_label = QLabel("Logs:")
+        logs_label.setMinimumWidth(80)
+        logs_row.addWidget(logs_label)
+
+        self.logs_edit = QLineEdit()
+        self.logs_edit.setText(str(self.logs_directory))
+        self.logs_edit.setReadOnly(True)
+        self.logs_edit.setStyleSheet(styles.STYLE_DIRECTORY_EDIT_ALT)
+        logs_row.addWidget(self.logs_edit)
+
+        browse_logs_btn = QPushButton("📂 Cambiar...")
+        browse_logs_btn.setMinimumWidth(120)
+        browse_logs_btn.setStyleSheet(browse_btn.styleSheet())
+        browse_logs_btn.clicked.connect(self.browse_logs_directory)
+        logs_row.addWidget(browse_logs_btn)
+
+        safety_layout.addLayout(logs_row)
+
+        # Nivel de log mejorado
+        log_level_row = QHBoxLayout()
+        log_level_label = QLabel("Nivel de detalle:")
+        log_level_label.setMinimumWidth(80)
+        log_level_row.addWidget(log_level_label)
+
+        self.log_level_combo = QComboBox()
+        self.log_level_combo.addItems(["DEBUG (Todo)", "INFO (Normal)", "WARNING (Avisos)", "ERROR (Solo errores)"])
+        self.log_level_combo.setCurrentIndex(1)  # INFO por defecto
+        self.log_level_combo.currentTextChanged.connect(self.change_log_level)
+        self.log_level_combo.setStyleSheet(styles.STYLE_LOG_LEVEL_COMBO)
+        log_level_row.addWidget(self.log_level_combo)
+        log_level_row.addStretch()
+
+        safety_layout.addLayout(log_level_row)
+
+        # Checkbox: Backup automático
+        self.auto_backup_checkbox = QCheckBox("Crear backup automáticamente antes de cada operación")
+        self.auto_backup_checkbox.setChecked(True)
+        safety_layout.addWidget(self.auto_backup_checkbox)
+
+        # Botón para abrir carpeta de logs
+        open_logs_btn = QPushButton("📄 Abrir carpeta de logs")
+        open_logs_btn.setStyleSheet(styles.STYLE_OPEN_LOGS_BUTTON)
+        open_logs_btn.clicked.connect(self.open_logs_folder)
+        safety_layout.addWidget(open_logs_btn)
+
+        config_layout.addWidget(safety_section)
+
+        # === SECCIÓN 3: PREFERENCIAS GENERALES ===
+        prefs_section = QGroupBox("🎨 Preferencias")
+        prefs_section.setStyleSheet(dir_section.styleSheet())
+        prefs_layout = QVBoxLayout(prefs_section)
+
+        # Confirmaciones
+        self.confirm_operations_checkbox = QCheckBox("Pedir confirmación antes de cada operación")
+        self.confirm_operations_checkbox.setChecked(True)
+        prefs_layout.addWidget(self.confirm_operations_checkbox)
+
+        # Mostrar notificaciones
+        self.show_notifications_checkbox = QCheckBox("Mostrar notificaciones al completar operaciones")
+        self.show_notifications_checkbox.setChecked(True)
+        prefs_layout.addWidget(self.show_notifications_checkbox)
+
+        # Auto-cerrar diálogos
+        self.auto_close_dialogs_checkbox = QCheckBox("Cerrar diálogos automáticamente tras éxito")
+        self.auto_close_dialogs_checkbox.setChecked(False)
+        prefs_layout.addWidget(self.auto_close_dialogs_checkbox)
+
+        config_layout.addWidget(prefs_section)
+
+        # === SECCIÓN 4: INFORMACIÓN ===
+        info_section = QFrame()
+        info_section.setStyleSheet(styles.STYLE_INFO_SECTION)
+        info_layout = QHBoxLayout(info_section)
+
+        info_icon = QLabel("ℹ️")
+        info_icon.setStyleSheet("font-size: 20px;")
+        info_layout.addWidget(info_icon)
+
+        info_text = QLabel(
+            f"<b>{config.config.APP_NAME}</b> v{config.config.APP_VERSION}<br>"
+            f"<small>Organiza, renombra y optimiza tu biblioteca de fotos</small>"
+        )
+        info_text.setTextFormat(Qt.RichText)
+        info_layout.addWidget(info_text)
+        info_layout.addStretch()
+
+        about_btn = QPushButton("Acerca de...")
+        about_btn.setStyleSheet(styles.STYLE_ABOUT_BUTTON)
+        about_btn.clicked.connect(self.show_about_dialog)
+        info_layout.addWidget(about_btn)
+
+        config_layout.addWidget(info_section)
+
+        # Agregar al contenedor principal
+        config_main_layout.addWidget(self.config_group)
+        self.config_group.setVisible(False)  # Inicialmente oculto
+
+        parent_layout.addWidget(config_container)
+
+    def _create_summary_panel(self):
+        """Crea el panel lateral de resumen"""
+        panel = QFrame()
+        panel.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
+        panel.setStyleSheet(styles.STYLE_SUMMARY_PANEL)
+        
+        layout = QVBoxLayout(panel)
+        
+        # Título
+        title = QLabel("📊 RESUMEN")
+        title.setStyleSheet("font-size: 16px; font-weight: bold; color: #2c3e50; padding: 5px;")
+        title.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title)
+        
+        # Separador
+        separator = QFrame()
+        separator.setFrameShape(QFrame.HLine)
+        separator.setFrameShadow(QFrame.Sunken)
+        layout.addWidget(separator)
+        
+        # Estadísticas generales
+        stats_group = QGroupBox("📁 Directorio")
+        stats_layout = QVBoxLayout(stats_group)
+        
+        self.stats_labels = {
+            'directory': QLabel("—"),
+            'images': QLabel("🖼️ Imágenes: —"),
+            'videos': QLabel("🎥 Videos: —"),
+            'total': QLabel("📊 Total: —")
+        }
+        
+        self.stats_labels['directory'].setWordWrap(True)
+        self.stats_labels['directory'].setStyleSheet("font-weight: bold; color: #495057;")
+        stats_layout.addWidget(self.stats_labels['directory'])
+        
+        for key in ['images', 'videos', 'total']:
+            self.stats_labels[key].setStyleSheet("color: #6c757d; padding: 2px;")
+            stats_layout.addWidget(self.stats_labels[key])
+        
+        layout.addWidget(stats_group)
+        
+        # Tareas detectadas
+        tasks_group = QGroupBox("⚡ Tareas Detectadas")
+        tasks_layout = QVBoxLayout(tasks_group)
+        
+        self.task_labels = {
+            'normalization': QLabel("📝 Normalizar: —"),
+            'live_photos': QLabel("📱 Live Photos: —"),
+            'unification': QLabel("📁 Mover: —"),
+            'heic': QLabel("🖼️ HEIC: —")
+        }
+        
+        for label in self.task_labels.values():
+            label.setStyleSheet(styles.STYLE_CATEGORY_LABEL)
+            tasks_layout.addWidget(label)
+        
+        layout.addWidget(tasks_group)
+        
+        layout.addStretch()
+        
+        # Inicialmente oculto
+        panel.setVisible(False)
+        
+        return panel
+    
+    def _create_tabs_widget(self):
+        """Crea el widget de pestañas"""
+        tabs = QTabWidget()
+        tabs.setVisible(False)
+        
+        if NORMALIZATION_AVAILABLE:
+            tabs.addTab(self._create_normalization_tab(), "📝 Normalización")
+        
+        if LIVE_PHOTOS_AVAILABLE:
+            tabs.addTab(self._create_live_photos_tab(), "📱 Live Photos")
+        
+        if DIRECTORY_UNIFICATION_AVAILABLE:
+            tabs.addTab(self._create_unification_tab(), "📁 Unificar Directorios")
+        
+        if HEIC_REMOVAL_AVAILABLE:
+            tabs.addTab(self._create_heic_tab(), "🖼️ Duplicados HEIC")
+        
+        return tabs
+    
+    def _create_normalization_tab(self):
+        """Crea la pestaña de normalización"""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        
+        info = QLabel("Renombra archivos al formato: YYYYMMDD_HHMMSS.EXT")
+        info.setStyleSheet(styles.STYLE_INFO_LABEL)
+        layout.addWidget(info)
+        
+        self.norm_details = QTextEdit()
+        self.norm_details.setReadOnly(True)
+        self.norm_details.setMaximumHeight(200)
+        self.norm_details.setPlaceholderText("Los detalles aparecerán después del análisis...")
+        layout.addWidget(self.norm_details)
+        
+        # Botones con NUEVOS colores
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+        
+        self.preview_norm_btn = QPushButton("📋 Ver Preview")
+        self.preview_norm_btn.setEnabled(False)
+        self.preview_norm_btn.clicked.connect(self.preview_normalization)
+        # Azul más suave para preview
+        self.preview_norm_btn.setStyleSheet(styles.get_button_style("#007bff"))
+        button_layout.addWidget(self.preview_norm_btn)
+        
+        self.exec_norm_btn = QPushButton("⚡ Ejecutar Normalización")
+        self.exec_norm_btn.setEnabled(False)
+        self.exec_norm_btn.clicked.connect(self.execute_normalization)
+        # Verde profesional para ejecutar
+        self.exec_norm_btn.setStyleSheet(styles.get_button_style("#28a745"))
+        button_layout.addWidget(self.exec_norm_btn)
+        
+        layout.addLayout(button_layout)
+        layout.addStretch()
+        
+        return widget
+    
+    def _create_live_photos_tab(self):
+        """Crea la pestaña de Live Photos"""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        
+        info = QLabel("Limpia archivos duplicados de Live Photos de iPhone")
+        info.setStyleSheet("color: #6c757d; padding: 10px; font-style: italic;")
+        layout.addWidget(info)
+        
+        # Área de detalles
+        self.lp_details = QTextEdit()
+        self.lp_details.setReadOnly(True)
+        self.lp_details.setMaximumHeight(200)
+        self.lp_details.setPlaceholderText("Los detalles aparecerán después del análisis...")
+        layout.addWidget(self.lp_details)
+        
+        # Botones
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+        
+        self.exec_lp_btn = QPushButton("⚡ Limpiar Live Photos")
+        self.exec_lp_btn.setEnabled(False)
+        self.exec_lp_btn.clicked.connect(self.cleanup_live_photos)
+        self.exec_lp_btn.setStyleSheet(styles.get_button_style("#28a745"))
+        button_layout.addWidget(self.exec_lp_btn)
+        
+        layout.addLayout(button_layout)
+        layout.addStretch()
+        
+        return widget
+    
+    def _create_unification_tab(self):
+        """Crea la pestaña de unificación"""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        
+        info = QLabel("Mueve todos los archivos al directorio raíz")
+        info.setStyleSheet("color: #6c757d; padding: 10px; font-style: italic;")
+        layout.addWidget(info)
+        
+        # Área de detalles
+        self.unif_details = QTextEdit()
+        self.unif_details.setReadOnly(True)
+        self.unif_details.setMaximumHeight(200)
+        self.unif_details.setPlaceholderText("Los detalles aparecerán después del análisis...")
+        layout.addWidget(self.unif_details)
+        
+        # Botones
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+        
+        self.exec_unif_btn = QPushButton("⚡ Unificar Directorios")
+        self.exec_unif_btn.setEnabled(False)
+        self.exec_unif_btn.clicked.connect(self.unify_directories)
+        self.exec_unif_btn.setStyleSheet(styles.get_button_style("#28a745"))
+        button_layout.addWidget(self.exec_unif_btn)
+        
+        layout.addLayout(button_layout)
+        layout.addStretch()
+        
+        return widget
+    
+    def _create_heic_tab(self):
+        """Crea la pestaña de HEIC"""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        
+        info = QLabel("Elimina duplicados cuando existen archivos HEIC y JPG con el mismo nombre")
+        info.setStyleSheet("color: #6c757d; padding: 10px; font-style: italic;")
+        layout.addWidget(info)
+        
+        # Área de detalles
+        self.heic_details = QTextEdit()
+        self.heic_details.setReadOnly(True)
+        self.heic_details.setMaximumHeight(200)
+        self.heic_details.setPlaceholderText("Los detalles aparecerán después del análisis...")
+        layout.addWidget(self.heic_details)
+        
+        # Botones
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+        
+        self.exec_heic_btn = QPushButton("⚡ Eliminar Duplicados")
+        self.exec_heic_btn.setEnabled(False)
+        self.exec_heic_btn.clicked.connect(self.remove_heic)
+        self.exec_heic_btn.setStyleSheet(styles.get_button_style("#28a745"))
+        button_layout.addWidget(self.exec_heic_btn)
+        
+        layout.addLayout(button_layout)
+        layout.addStretch()
+        
+        return widget
+    
+    def _create_progress_bar(self, parent_layout):
+        """Crea la barra de progreso"""
+        self.progress_group = QGroupBox("📊 Progreso")
+        progress_layout = QVBoxLayout(self.progress_group)
+        
+        self.progress_label = QLabel("Listo para procesar")
+        self.progress_label.setStyleSheet(styles.STYLE_PROGRESS_LABEL)
+        progress_layout.addWidget(self.progress_label)
+        
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setStyleSheet(styles.STYLE_PROGRESS_BAR)
+        progress_layout.addWidget(self.progress_bar)
+        
+        self.progress_group.setVisible(False)
+        parent_layout.addWidget(self.progress_group)
+    
+
+
+    # ========================================================================
+    # GESTIÓN DE CIERRE Y LIMPIEZA
+    # ========================================================================
+    
+    def closeEvent(self, event):
+        """Asegurar limpieza correcta al cerrar"""
+        for worker in self.active_workers:
+            if worker and worker.isRunning():
+                worker.quit()
+                worker.wait(1000)
+        event.accept()
+    
+    # ========================================================================
+    # MÉTODOS DE CONFIGURACIÓN
+    # ========================================================================
+
+    def select_and_analyze_directory(self):
+        """Selecciona directorio y analiza automáticamente con confirmación inteligente"""
+        directory = QFileDialog.getExistingDirectory(
+            self,
+            "Seleccionar Directorio",
+            str(Path.home()),
+            QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks
+        )
+
+        if not directory:
+            return  # Usuario canceló
+
+        new_directory = Path(directory)
+
+        # Verificar si hay un cambio de directorio tras un análisis
+        if self.last_analyzed_directory and new_directory != self.last_analyzed_directory:
+            reply = QMessageBox.question(
+                self,
+                "Cambio de Directorio",
+                f"Has solicitado cambiar el directorio de análisis.\n\n"
+                f"📂 Directorio anterior: {self.last_analyzed_directory.name}\n"
+                f"📂 Directorio nuevo: {new_directory.name}\n\n"
+                f"⚠️ El análisis anterior se perderá y será necesario realizar un nuevo análisis.\n\n"
+                f"¿Deseas continuar?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            if reply == QMessageBox.No:
+                return
+
+            # Usuario confirmó, limpiar análisis previo
+            self._reset_analysis_ui()
+            self.app_logger.info(f"Directorio cambiado de {self.last_analyzed_directory} a {new_directory}")
+
+        # Actualizar directorio actual
+        self.current_directory = new_directory
+        # Mostrar nombre real del directorio (no ruta completa)
+        self.directory_edit.setText(f"{self.current_directory.name}")
+        self.directory_edit.setToolTip(str(self.current_directory))  # Tooltip con ruta completa
+
+        # Contar archivos rápidamente para dar feedback
+        try:
+            all_files = list(new_directory.rglob('*'))
+            file_count = sum(1 for f in all_files if f.is_file())
+        except Exception as e:
+            QMessageBox.warning(
+                self,
+                "Error",
+                f"No se pudo acceder al directorio:\n{str(e)}"
+            )
+            return
+
+        # Confirmación inteligente solo para directorios grandes
+        if file_count > config.config.LARGE_DIRECTORY_THRESHOLD:
+            reply = QMessageBox.question(
+                self,
+                "Directorio Grande Detectado",
+                f"📁 Directorio: {new_directory.name}\n\n"
+                f"📊 Se detectaron aproximadamente {file_count:,} archivos.\n\n"
+                f"⏱️ Aviso: El análisis de esta cantidad de archivos podría tardar\n"
+                f"varios minutos dependiendo de la potencia de tu equipo.\n\n"
+                f"¿Deseas iniciar el análisis ahora?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes
+            )
+
+            if reply != QMessageBox.Yes:
+                self.app_logger.info(f"Análisis cancelado por el usuario para: {new_directory}")
+                return
+
+        # Ejecutar análisis automáticamente
+        self.analyze_directory()
+
+    def browse_logs_directory(self):
+        """Cambia directorio de logs"""
+        directory = QFileDialog.getExistingDirectory(
+            self, 
+            "Seleccionar Directorio de Logs",
+            str(self.logs_directory)
+        )
+        if directory:
+            self.logs_directory = Path(directory)
+            self.logs_edit.setText(str(self.logs_directory))
+            self.app_logger.info(f"Directorio de logs cambiado a: {self.logs_directory}")
+    
+
+    # ========================================================================
+    # ANÁLISIS
+    # ========================================================================
+    
+    def analyze_directory(self):
+        """Análisis completo del directorio"""
+        if not self.current_directory:
+            QMessageBox.warning(self, "Advertencia", "Selecciona un directorio primero")
+            return
+        
+        if not self.current_directory.exists():
+            QMessageBox.critical(self, "Error", "El directorio no existe")
+            return
+        
+        # NUEVO: Advertir si hay análisis previo de otro directorio
+        if (self.last_analyzed_directory and 
+            self.last_analyzed_directory != self.current_directory):
+            
+            reply = QMessageBox.warning(
+                self,
+                "Directorio Diferente",
+                f"El directorio actual es diferente al último analizado.\n\n"
+                f"Último analizado: {self.last_analyzed_directory.name}\n"
+                f"Actual: {self.current_directory.name}\n\n"
+                "Se realizará un nuevo análisis y se descartará el anterior.\n\n"
+                "¿Continuar?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes
+            )
+            
+            if reply == QMessageBox.No:
+                return
+            
+            # Limpiar análisis previo
+            self._reset_analysis_ui()
+        
+        # Limpiar worker anterior si existe
+        if self.analysis_worker and self.analysis_worker.isRunning():
+            self.analysis_worker.quit()
+            self.analysis_worker.wait()
+        
+        # Mostrar progreso
+        self.show_progress(100, "Iniciando análisis...")
+        self.progress_bar.setMaximum(0)
+        
+        # Deshabilitar botones
+        self.preview_norm_btn.setEnabled(False)
+        self.exec_norm_btn.setEnabled(False)
+        self.exec_lp_btn.setEnabled(False)
+        self.exec_unif_btn.setEnabled(False)
+        self.exec_heic_btn.setEnabled(False)
+        
+        # Crear y configurar worker
+        self.analysis_worker = AnalysisWorker(
+            self.current_directory,
+            self.normalizer,
+            self.live_photo_detector,
+            self.directory_unifier,
+            self.heic_remover
+        )
+        
+        # Conectar señales
+        self.analysis_worker.phase_update.connect(self.update_phase)
+        self.analysis_worker.progress_update.connect(self.update_analysis_progress)
+        self.analysis_worker.finished.connect(self.on_analysis_finished)
+        self.analysis_worker.error.connect(self.on_analysis_error)
+        
+        # Autoeliminación cuando termine
+        self.analysis_worker.finished.connect(self.analysis_worker.deleteLater)
+        self.analysis_worker.error.connect(self.analysis_worker.deleteLater)
+        
+        # Mantener referencia
+        self.active_workers.append(self.analysis_worker)
+        
+        # Iniciar
+        self.analysis_worker.start()
+        
+        self.app_logger.info(f"Iniciando análisis de: {self.current_directory}")
+
+    def update_analysis_progress(self, current: int, total: int, message: str):
+        """Actualiza barra de progreso con conteo detallado"""
+        if self.progress_bar.maximum() == 0:  # Si está en modo indeterminado
+            self.progress_bar.setMaximum(total)
+
+        self.progress_bar.setValue(current)
+        self.progress_label.setText(message)
+
+
+    def update_phase(self, phase_text):
+        """Actualiza la fase actual del análisis"""
+        self.progress_label.setText(phase_text)
+        QApplication.processEvents()
+    
+    def on_analysis_finished(self, results):
+        """Callback cuando termina el análisis"""
+        # Cambiar texto del botón para permitir re-análisis
+        self.analyze_btn.setText("🔄 Re-analizar")
+        if self.analysis_worker:
+            self.analysis_worker.quit()
+            self.analysis_worker.wait(2000)  # Esperar máximo 2 segundos
+            if self.analysis_worker in self.active_workers:
+                self.active_workers.remove(self.analysis_worker)
+            self.analysis_worker = None
+
+        self.hide_progress()
+        self.analysis_results = results
+        
+        # Registrar el directorio que fue analizado
+        self.last_analyzed_directory = self.current_directory
+        
+        # Actualizar panel de resumen
+        self._update_summary_panel(results)
+        
+        # Actualizar detalles de cada pestaña
+        self._update_tab_details(results)
+        
+        # Mostrar paneles
+        self.summary_panel.setVisible(True)
+        self.tabs_widget.setVisible(True)
+        
+        # Habilitar botones según resultados
+        if results.get('normalization') and results['normalization'].get('need_normalization', 0) > 0:
+            self.preview_norm_btn.setEnabled(True)
+        
+        if results.get('live_photos') and results['live_photos'].get('live_photos_found', 0) > 0:
+            self.exec_lp_btn.setEnabled(True)
+        
+        if results.get('unification') and results['unification'].get('total_files_to_move', 0) > 0:
+            self.exec_unif_btn.setEnabled(True)
+        
+        # CORRECCIÓN: Cambiar de False a True
+        if results.get('heic') and results['heic'].get('total_duplicates', 0) > 0:
+            self.exec_heic_btn.setEnabled(True)  # ← ERA False, ahora es True
+        
+        self.results_area.setHtml("""
+            <div style='color: #28a745; font-weight: bold;'>
+                ✅ Análisis completado con éxito
+            </div>
+        """)
+        
+        self.app_logger.info(f"Análisis completado para: {self.last_analyzed_directory}")
+        
+        # Limpiar referencia
+        if self.analysis_worker in self.active_workers:
+            self.active_workers.remove(self.analysis_worker)
+        self.analysis_worker = None
+    
+    def on_analysis_error(self, error):
+        """Callback cuando hay error en el análisis"""
+        self.hide_progress()
+        QMessageBox.critical(self, "Error", f"Error durante el análisis:\n{error}")
+        self.app_logger.error(f"Error en análisis: {error}")
+
+        if self.analysis_worker:
+            self.analysis_worker.quit()
+            self.analysis_worker.wait(2000)
+            if self.analysis_worker in self.active_workers:
+                self.active_workers.remove(self.analysis_worker)
+            self.analysis_worker = None
+        
+
+    def _update_summary_panel(self, results):
+        """Actualiza el panel de resumen con los resultados"""
+        stats = results.get('stats', {})
+        
+        # Estadísticas generales - MEJORADO con indicador de análisis
+        dir_name = self.current_directory.name
+        self.stats_labels['directory'].setText(f"📁 {dir_name}\n✅ Analizado")
+        self.stats_labels['directory'].setStyleSheet(styles.STYLE_STATS_DIRECTORY)
+        self.stats_labels['directory'].setCursor(Qt.PointingHandCursor)
+
+        self.stats_labels['images'].setText(f"🖼️ Imágenes: {stats.get('images', 0):,}")
+        self.stats_labels['videos'].setText(f"🎥 Videos: {stats.get('videos', 0):,}")
+        self.stats_labels['total'].setText(f"📊 Total: {stats.get('total', 0):,}")
+        
+        # Tareas
+        norm = results.get('normalization', {})
+        self.task_labels['normalization'].setText(
+            f"📝 Normalizar: {norm.get('need_normalization', 0):,}"
+        )
+        
+        lp = results.get('live_photos', {})
+        self.task_labels['live_photos'].setText(
+            f"📱 Live Photos: {lp.get('live_photos_found', 0):,}"
+        )
+        
+        unif = results.get('unification', {})
+        self.task_labels['unification'].setText(
+            f"📁 Mover: {unif.get('total_files_to_move', 0):,}"
+        )
+        
+        heic = results.get('heic', {})
+        self.task_labels['heic'].setText(
+            f"🖼️ HEIC: {heic.get('total_duplicates', 0):,}"
+        )
+    
+    def _update_tab_details(self, results):
+        """Actualiza los detalles en cada pestaña"""
+        
+        # Normalización
+        if results.get('normalization'):
+            norm = results['normalization']
+            html = f"""
+                <p><strong>Total archivos:</strong> {norm.get('total_files', 0):,}</p>
+                <p><strong>✅ Ya normalizados:</strong> {norm.get('already_normalized', 0):,}</p>
+                <p><strong>📝 A normalizar:</strong> {norm.get('need_normalization', 0):,}</p>
+                <p><strong>⚠️ No procesables:</strong> {norm.get('cannot_process', 0):,}</p>
+                <p><strong>🔄 Conflictos:</strong> {norm.get('conflicts', 0):,}</p>
+            """
+            self.norm_details.setHtml(html)
+        
+        # Live Photos - CON FORMATEO MEJORADO
+        if results.get('live_photos'):
+            lp = results['live_photos']
+            total_space = lp.get('total_space', 0)
+            space_to_free = lp.get('space_to_free', 0)
+            
+            html = f"""
+                <p><strong>📱 Live Photos encontrados:</strong> {lp.get('live_photos_found', 0):,}</p>
+                <p><strong>💾 Espacio total:</strong> {self._format_size(total_space)}</p>
+                <p><strong>💾 Espacio a liberar (mantener imagen):</strong> {self._format_size(space_to_free)}</p>
+            """
+            self.lp_details.setHtml(html)
+        
+        # Unificación - CON FORMATEO MEJORADO
+        if results.get('unification'):
+            unif = results['unification']
+            total_size = unif.get('total_size_to_move', 0)
+            
+            html = f"""
+                <p><strong>📁 Subdirectorios:</strong> {len(unif.get('subdirectories', {})):,}</p>
+                <p><strong>📄 Archivos a mover:</strong> {unif.get('total_files_to_move', 0):,}</p>
+                <p><strong>💾 Tamaño total:</strong> {self._format_size(total_size)}</p>
+                <p><strong>⚠️ Conflictos potenciales:</strong> {unif.get('potential_conflicts', 0):,}</p>
+            """
+            self.unif_details.setHtml(html)
+        
+        # HEIC - CON FORMATEO MEJORADO
+        if results.get('heic'):
+            heic = results['heic']
+            savings_jpg = heic.get('potential_savings_keep_jpg', 0)
+            savings_heic = heic.get('potential_savings_keep_heic', 0)
+            
+            html = f"""
+                <p><strong>♻️ Pares detectados:</strong> {heic.get('total_duplicates', 0):,}</p>
+                <p><strong>🖼️ Archivos HEIC:</strong> {heic.get('total_heic_files', 0):,}</p>
+                <p><strong>📸 Archivos JPG:</strong> {heic.get('total_jpg_files', 0):,}</p>
+                <p><strong>💾 Ahorro (mantener JPG):</strong> {self._format_size(savings_jpg)}</p>
+                <p><strong>💾 Ahorro (mantener HEIC):</strong> {self._format_size(savings_heic)}</p>
+            """
+        self.heic_details.setHtml(html)
+    
+    # ========================================================================
+    # NORMALIZACIÓN
+    # ========================================================================
+    
+    def preview_normalization(self):
+        """Muestra preview de normalización"""
+        if not self.analysis_results or not self.analysis_results.get('normalization'):
+            QMessageBox.warning(self, "Advertencia", "No hay análisis disponible")
+            return
+        
+        dialog = NormalizationPreviewDialog(self.analysis_results['normalization'], self)
+        if dialog.exec_() == QDialog.Accepted and dialog.accepted_plan:
+            self.normalization_plan = dialog.accepted_plan
+            self.exec_norm_btn.setEnabled(True)
+    
+    def execute_normalization(self):
+        """Ejecuta la normalización"""
+        if not hasattr(self, 'normalization_plan'):
+            return
+        
+        reply = QMessageBox.question(
+            self, 
+            "Confirmar",
+            f"¿Renombrar {len(self.normalization_plan['plan'])} archivos?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        
+        if reply != QMessageBox.Yes:
+            return
+        
+        # Limpiar worker anterior
+        if self.execution_worker and self.execution_worker.isRunning():
+            self.execution_worker.quit()
+            self.execution_worker.wait()
+        
+        self.show_progress(len(self.normalization_plan['plan']), "Normalizando archivos...")
+        
+        self.execution_worker = NormalizationWorker(
+            self.normalizer,
+            self.normalization_plan['plan'],
+            self.normalization_plan['create_backup']
+        )
+        
+        self.execution_worker.finished.connect(self.on_normalization_finished)
+        self.execution_worker.error.connect(self.on_operation_error)
+        self.execution_worker.finished.connect(self.execution_worker.deleteLater)
+        self.execution_worker.error.connect(self.execution_worker.deleteLater)
+        
+        self.active_workers.append(self.execution_worker)
+        self.execution_worker.start()
+        
+        self.exec_norm_btn.setEnabled(False)
+        self.preview_norm_btn.setEnabled(False)
+    
+    def on_normalization_finished(self, results):
+        """Callback al terminar normalización"""
+        self.hide_progress()
+        
+        html = f"""
+            <div style='color: #28a745;'>
+                <h4>✅ Normalización Completada</h4>
+                <p><strong>Archivos renombrados:</strong> {results.get('files_renamed', 0)}</p>
+                <p><strong>Errores:</strong> {len(results.get('errors', []))}</p>
+        """
+        
+        if results.get('backup_path'):
+            html += f"<p><strong>💾 Backup:</strong> {results['backup_path']}</p>"
+        
+        html += "</div>"
+        
+        self.results_area.setHtml(html)
+        
+        if results.get('success'):
+            QMessageBox.information(
+                self, 
+                "Completado",
+                f"Se renombraron {results.get('files_renamed', 0)} archivos correctamente"
+            )
+        
+        self.preview_norm_btn.setEnabled(False)
+        self.exec_norm_btn.setEnabled(False)
+        
+        if self.execution_worker in self.active_workers:
+            self.active_workers.remove(self.execution_worker)
+        self.execution_worker = None
+    
+    # ========================================================================
+    # LIVE PHOTOS
+    # ========================================================================
+    
+    def cleanup_live_photos(self):
+        """Limpia Live Photos"""
+        if not self.analysis_results or not self.analysis_results.get('live_photos'):
+            return
+        
+        lp_results = self.analysis_results['live_photos']
+        
+        if lp_results.get('live_photos_found', 0) == 0:
+            QMessageBox.information(self, "Live Photos", "No hay Live Photos para limpiar")
+            return
+        
+        try:
+            
+            lp_groups = lp_results.get('groups', [])
+            
+            if not lp_groups:
+                QMessageBox.information(self, "Live Photos", "No hay grupos de Live Photos disponibles")
+                return
+            
+            cleanup_analysis = {
+                'live_photos_found': len(lp_groups),
+                'total_space': lp_results.get('total_space', 0),
+                'space_to_free': lp_results.get('space_to_free', 0),
+                'files_to_delete': [lp.video_path for lp in lp_groups],
+                'files_to_keep': [lp.image_path for lp in lp_groups],
+                'groups': lp_groups
+            }
+            
+            dialog = LivePhotoCleanupDialog(cleanup_analysis, self)
+            if dialog.exec_() == QDialog.Accepted and dialog.accepted_plan:
+                self._execute_lp_cleanup(dialog.accepted_plan)
+                
+        except Exception as e:
+            import traceback
+            error_msg = f"{str(e)}\n{traceback.format_exc()}"
+            QMessageBox.critical(self, "Error", f"Error preparando limpieza LP:\n{error_msg}")
+            self.app_logger.error(f"Error preparando limpieza LP: {error_msg}")
+    
+    def _execute_lp_cleanup(self, plan):
+        """Ejecuta la limpieza de Live Photos"""
+        count = len(plan['analysis'].get('files_to_delete', []))
+        space = plan['analysis'].get('space_to_free', 0)
+        space_formatted = self._format_size(space)
+        
+        reply = QMessageBox.question(
+            self,
+            "Confirmar",
+            f"¿Eliminar {count} archivos ({space_formatted})?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        
+        if reply != QMessageBox.Yes:
+            return
+        
+        # Limpiar worker anterior
+        if self.execution_worker and self.execution_worker.isRunning():
+            self.execution_worker.quit()
+            self.execution_worker.wait()
+        
+        self.show_progress(count, "Limpiando Live Photos...")
+        
+        self.execution_worker = LivePhotoCleanupWorker(self.live_photo_cleaner, plan)
+        self.execution_worker.finished.connect(self.on_lp_finished)
+        self.execution_worker.error.connect(self.on_operation_error)
+        self.execution_worker.finished.connect(self.execution_worker.deleteLater)
+        self.execution_worker.error.connect(self.execution_worker.deleteLater)
+        
+        self.active_workers.append(self.execution_worker)
+        self.execution_worker.start()
+        
+        self.exec_lp_btn.setEnabled(False)
+    
+    def on_lp_finished(self, results):
+        """Callback al terminar limpieza de Live Photos"""
+        self.hide_progress()
+        
+        space_freed = results.get('space_freed', 0)
+        
+        html = f"""
+            <div style='color: #28a745;'>
+                <h4>✅ Limpieza de Live Photos Completada</h4>
+                <p><strong>Archivos eliminados:</strong> {results.get('files_deleted', 0)}</p>
+                <p><strong>Espacio liberado:</strong> {self._format_size(space_freed)}</p>
+                <p><strong>Errores:</strong> {len(results.get('errors', []))}</p>
+        """
+        
+        if results.get('backup_path'):
+            html += f"<p><strong>💾 Backup:</strong> {results['backup_path']}</p>"
+        
+        if results.get('dry_run'):
+            html += "<p><strong>ℹ️ Modo simulación</strong> - No se eliminaron archivos realmente</p>"
+        
+        html += "</div>"
+        
+        self.results_area.setHtml(html)
+        
+        if results.get('success'):
+            QMessageBox.information(
+                self,
+                "Completado",
+                f"Se eliminaron {results.get('files_deleted', 0)} archivos"
+            )
+        
+        self.exec_lp_btn.setEnabled(False)
+        
+        if self.execution_worker in self.active_workers:
+            self.active_workers.remove(self.execution_worker)
+        self.execution_worker = None
+    
+    # ========================================================================
+    # UNIFICACIÓN
+    # ========================================================================
+    
+    def unify_directories(self):
+        """Unifica directorios"""
+        if not self.analysis_results or not self.analysis_results.get('unification'):
+            return
+        
+        unif_analysis = self.analysis_results['unification']
+        
+        if unif_analysis.get('total_files_to_move', 0) == 0:
+            QMessageBox.information(self, "Unificación", "No hay archivos para mover")
+            return
+        
+        dialog = DirectoryUnificationDialog(unif_analysis, self)
+        if dialog.exec_() == QDialog.Accepted and dialog.accepted_plan:
+            self._execute_unification(dialog.accepted_plan)
+    
+    def _execute_unification(self, plan):
+        """Ejecuta la unificación"""
+        count = len(plan['move_plan'])
+        
+        reply = QMessageBox.question(
+            self,
+            "Confirmar",
+            f"¿Mover {count} archivos al directorio raíz?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        
+        if reply != QMessageBox.Yes:
+            return
+        
+        # Limpiar worker anterior
+        if self.execution_worker and self.execution_worker.isRunning():
+            self.execution_worker.quit()
+            self.execution_worker.wait()
+        
+        self.show_progress(count, "Unificando directorios...")
+        
+        self.execution_worker = DirectoryUnificationWorker(
+            self.directory_unifier,
+            plan['move_plan'],
+            plan['create_backup']
+        )
+        
+        self.execution_worker.finished.connect(self.on_unification_finished)
+        self.execution_worker.error.connect(self.on_operation_error)
+        self.execution_worker.finished.connect(self.execution_worker.deleteLater)
+        self.execution_worker.error.connect(self.execution_worker.deleteLater)
+        
+        self.active_workers.append(self.execution_worker)
+        self.execution_worker.start()
+        
+        self.exec_unif_btn.setEnabled(False)
+    
+    def on_unification_finished(self, results):
+        """Callback al terminar unificación"""
+        self.hide_progress()
+        
+        html = f"""
+            <div style='color: #28a745;'>
+                <h4>✅ Unificación Completada</h4>
+                <p><strong>Archivos movidos:</strong> {results.get('files_moved', 0)}</p>
+                <p><strong>Directorios eliminados:</strong> {results.get('empty_directories_removed', 0)}</p>
+                <p><strong>Errores:</strong> {len(results.get('errors', []))}</p>
+        """
+        
+        if results.get('backup_path'):
+            html += f"<p><strong>💾 Backup:</strong> {results['backup_path']}</p>"
+        
+        html += "</div>"
+        
+        self.results_area.setHtml(html)
+        
+        if results.get('success'):
+            QMessageBox.information(
+                self,
+                "Completado",
+                f"Se movieron {results.get('files_moved', 0)} archivos"
+            )
+        
+        self.exec_unif_btn.setEnabled(False)
+        
+        if self.execution_worker in self.active_workers:
+            self.active_workers.remove(self.execution_worker)
+        self.execution_worker = None
+    
+    # ========================================================================
+    # HEIC
+    # ========================================================================
+    
+    def remove_heic(self):
+        """Elimina duplicados HEIC"""
+        if not self.analysis_results or not self.analysis_results.get('heic'):
+            return
+        
+        heic_analysis = self.analysis_results['heic']
+        
+        if heic_analysis.get('total_duplicates', 0) == 0:
+            QMessageBox.information(self, "HEIC", "No hay duplicados para eliminar")
+            return
+        
+        dialog = HEICDuplicateRemovalDialog(heic_analysis, self)
+        if dialog.exec_() == QDialog.Accepted and dialog.accepted_plan:
+            self._execute_heic_removal(dialog.accepted_plan)
+    
+    def _execute_heic_removal(self, plan):
+        """Ejecuta la eliminación de duplicados HEIC"""
+        count = len(plan['duplicate_pairs'])
+        format_del = 'HEIC' if plan['keep_format'] == 'jpg' else 'JPG'
+        
+        reply = QMessageBox.question(
+            self,
+            "Confirmar",
+            f"¿Eliminar {count} archivos {format_del}?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        
+        if reply != QMessageBox.Yes:
+            return
+        
+        # Limpiar worker anterior
+        if self.execution_worker and self.execution_worker.isRunning():
+            self.execution_worker.quit()
+            self.execution_worker.wait()
+        
+        self.show_progress(count, f"Eliminando archivos {format_del}...")
+        
+        self.execution_worker = HEICRemovalWorker(
+            self.heic_remover,
+            plan['duplicate_pairs'],
+            plan['keep_format'],
+            plan['create_backup']
+        )
+        
+        self.execution_worker.finished.connect(self.on_heic_finished)
+        self.execution_worker.error.connect(self.on_operation_error)
+        self.execution_worker.finished.connect(self.execution_worker.deleteLater)
+        self.execution_worker.error.connect(self.execution_worker.deleteLater)
+        
+        self.active_workers.append(self.execution_worker)
+        self.execution_worker.start()
+        
+        self.exec_heic_btn.setEnabled(False)
+    
+    def on_heic_finished(self, results):
+        """Callback al terminar eliminación HEIC"""
+        self.hide_progress()
+        
+        space_freed = results.get('space_freed', 0)
+        
+        html = f"""
+            <div style='color: #28a745;'>
+                <h4>✅ Eliminación de Duplicados HEIC Completada</h4>
+                <p><strong>Archivos eliminados:</strong> {results.get('files_removed', 0)}</p>
+                <p><strong>Espacio liberado:</strong> {self._format_size(space_freed)}</p>
+                <p><strong>Errores:</strong> {len(results.get('errors', []))}</p>
+        """
+        
+        if results.get('backup_path'):
+            html += f"<p><strong>💾 Backup:</strong> {results['backup_path']}</p>"
+        
+        if results.get('kept_format'):
+            html += f"<p><strong>📋 Formato mantenido:</strong> {results['kept_format'].upper()}</p>"
+        
+        html += "</div>"
+        
+        self.results_area.setHtml(html)
+        
+        if results.get('success'):
+            QMessageBox.information(
+                self,
+                "Completado",
+                f"Se eliminaron {results.get('files_removed', 0)} duplicados"
+            )
+        
+        self.exec_heic_btn.setEnabled(False)
+        
+        if self.execution_worker in self.active_workers:
+            self.active_workers.remove(self.execution_worker)
+        self.execution_worker = None
+
+    def _get_button_style(self, color):
+        """Genera estilo para botones"""
+        return styles.get_button_style(color)
+
+    # ========================================================================
+    # UTILIDADES
+    # ========================================================================
+    
+    def show_progress(self, maximum, message="Procesando"):
+        """Muestra la barra de progreso"""
+        self.progress_group.setVisible(True)
+        self.progress_bar.setMaximum(maximum)
+        self.progress_bar.setValue(0)
+        self.progress_label.setText(message)
+    
+    def hide_progress(self):
+        """Oculta la barra de progreso"""
+        QTimer.singleShot(1000, lambda: self.progress_group.setVisible(False))
+    
+    def on_operation_error(self, error):
+        """Callback genérico para errores"""
+        self.hide_progress()
+        QMessageBox.critical(self, "Error", f"Error durante la operación:\n{error}")
+        self.app_logger.error(f"Error: {error}")
+        
+        # Limpiar referencia
+        if self.execution_worker in self.active_workers:
+            self.active_workers.remove(self.execution_worker)
+        self.execution_worker = None
+    
+    def _format_size(self, bytes_size):
+        """
+        Formatea el tamaño en bytes a una representación legible.
+        Usa GB si es >= 1024 MB, sino usa MB.
+        
+        Args:
+            bytes_size: Tamaño en bytes
+            
+        Returns:
+            str: Tamaño formateado con unidad (ej: "1.5 GB" o "512 MB")
+        """
+        mb_size = bytes_size / (1024 * 1024)
+        
+        if mb_size >= 1024:
+            gb_size = mb_size / 1024
+            return f"{gb_size:.2f} GB"
+        else:
+            return f"{mb_size:.1f} MB"
+
+    def _reset_analysis_ui(self):
+        """Reinicia la UI tras cambiar de directorio"""
+        # Restaurar texto original del botón
+        self.analyze_btn.setText("🔍 Seleccionar Directorio y Analizar")
+        # Ocultar paneles
+        self.summary_panel.setVisible(False)
+        self.tabs_widget.setVisible(False)
+        
+        # Deshabilitar todos los botones de acción
+        self.preview_norm_btn.setEnabled(False)
+        self.exec_norm_btn.setEnabled(False)
+        self.exec_lp_btn.setEnabled(False)
+        self.exec_unif_btn.setEnabled(False)
+        self.exec_heic_btn.setEnabled(False)
+        
+        # Limpiar áreas de detalles
+        self.norm_details.clear()
+        self.lp_details.clear()
+        self.unif_details.clear()
+        self.heic_details.clear()
+
+        # Limpiar campo de directorio
+        if hasattr(self, 'directory_edit'):
+            self.directory_edit.clear()
+            self.directory_edit.setPlaceholderText("Selecciona un directorio para analizar...")
+
+        # Limpiar labels del resumen
+        self.stats_labels['directory'].setText("—")
+        self.stats_labels['images'].setText("🖼️ Imágenes: —")
+        self.stats_labels['videos'].setText("🎥 Videos: —")
+        self.stats_labels['total'].setText("📊 Total: —")
+        
+        self.task_labels['normalization'].setText("📝 Normalizar: —")
+        self.task_labels['live_photos'].setText("📱 Live Photos: —")
+        self.task_labels['unification'].setText("📁 Mover: —")
+        self.task_labels['heic'].setText("🖼️ HEIC: —")
+        
+        # Limpiar resultados
+        self.analysis_results = None
+        self.last_analyzed_directory = None
+        
+        # Mensaje informativo
+        self.results_area.setHtml("""
+            <div style='text-align: center; color: #ff9800; padding: 20px;'>
+                <h3>⚠️ Directorio Cambiado</h3>
+                <p>El análisis anterior se ha limpiado.</p>
+                <p>Pulsa <strong>🔍 Seleccionar Directorio y Analizar</strong> para analizar el nuevo directorio</p>
+            </div>
+        """)
+        
+        self.app_logger.info("UI reiniciada tras cambio de directorio")
+
+
+# ============================================================================
+# MAIN
+# ============================================================================
+
+def main():
+    app = QApplication(sys.argv)
+    app.setApplicationName(config.config.APP_NAME)
+    app.setApplicationVersion(config.config.APP_VERSION)
+    
+    window = MainWindow()
+    window.show()
+    
+    return app.exec_()
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except Exception as e:
+        print(f"Error crítico: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
