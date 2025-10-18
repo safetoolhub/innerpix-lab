@@ -249,7 +249,7 @@ class MainWindow(QMainWindow):
         analyze_btn.setCursor(Qt.PointingHandCursor)
         analyze_btn.clicked.connect(self.select_and_analyze_directory)
         self.analyze_btn = analyze_btn
-        search_layout.addWidget(analyze_btn)
+    # search_layout.addWidget(analyze_btn)  # moved into actions container below
 
         main_layout.addWidget(search_container)
         main_layout.addSpacing(10)
@@ -284,6 +284,49 @@ class MainWindow(QMainWindow):
             </div>
         """)
         main_layout.addWidget(self.results_area)
+
+        # Reemplazar el botón analyze en el search_layout por un contenedor
+        # para que analyze_btn y los botones posteriores ocupen exactamente
+        # el mismo lugar (no se verán juntos los tres)
+        self.actions_container = QFrame()
+        self.actions_container.setFrameStyle(QFrame.NoFrame)
+        # Asegurar que el contenedor no tenga fondo ni borde visibles
+        self.actions_container.setStyleSheet("background: transparent; border: none;")
+        self.actions_container.setAttribute(Qt.WA_TranslucentBackground)
+        self.actions_layout = QHBoxLayout(self.actions_container)
+        self.actions_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Ya existe analyze_btn creado arriba; lo movemos al nuevo contenedor
+        # Se añade la referencia guardada en self.analyze_btn
+        self.actions_layout.addWidget(self.analyze_btn)
+
+        # Botones que reemplazarán al analyze_btn tras análisis
+        # Usar exactamente el mismo estilo y tamaño que el analyze_btn
+        self.reanalyze_btn = QPushButton("🔄 Re-analizar")
+        self.reanalyze_btn.setVisible(False)
+        # Igualar tamaño y estilo exactamente al analyze_btn
+        self.reanalyze_btn.setMinimumWidth(200)
+        self.reanalyze_btn.setFixedHeight(42)
+        self.reanalyze_btn.setCursor(Qt.PointingHandCursor)
+        # Reutilizar la hoja de estilos literal del analyze_btn para garantizar
+        # identidad visual exacta (incluye gradiente, bordes redondeados, etc.)
+        self.reanalyze_btn.setStyleSheet(self.analyze_btn.styleSheet())
+        self.reanalyze_btn.clicked.connect(self._reanalyze_same_directory)
+
+        self.change_dir_btn = QPushButton("📂 Cambiar directorio")
+        self.change_dir_btn.setVisible(False)
+        self.change_dir_btn.setMinimumWidth(200)
+        self.change_dir_btn.setFixedHeight(42)
+        self.change_dir_btn.setCursor(Qt.PointingHandCursor)
+        self.change_dir_btn.setStyleSheet(self.analyze_btn.styleSheet())
+        self.change_dir_btn.clicked.connect(self._change_directory_after_analysis)
+
+        # Añadir a layout (serán visibles/ocultos según flujo)
+        self.actions_layout.addWidget(self.reanalyze_btn)
+        self.actions_layout.addWidget(self.change_dir_btn)
+
+        # Añadir el contenedor de acciones al search_layout donde estaba el analyze_btn
+        search_layout.addWidget(self.actions_container)
 
     def _create_advanced_config_panel(self, parent_layout):
         """Crea el panel de configuración avanzada que se despliega desde arriba"""
@@ -1052,8 +1095,20 @@ class MainWindow(QMainWindow):
     
     def on_analysis_finished(self, results):
         """Callback cuando termina el análisis"""
-        # Cambiar texto del botón para permitir re-análisis
+        # Mostrar botones para re-analizar o cambiar directorio
         self.analyze_btn.setText("🔄 Re-analizar")
+        # Quitar el botón principal del layout para que no ocupe espacio
+        try:
+            self.analyze_btn.setParent(None)
+        except Exception:
+            # si falla, al menos ocultarlo
+            self.analyze_btn.setVisible(False)
+        self.reanalyze_btn.setVisible(True)
+        self.change_dir_btn.setVisible(True)
+        # Asegurar que los botones alternativos estén habilitados al terminar el análisis
+        # (especialmente importante después de un re-análisis que los deshabilita)
+        self.reanalyze_btn.setEnabled(True)
+        self.change_dir_btn.setEnabled(True)
         if self.analysis_worker:
             self.analysis_worker.quit()
             self.analysis_worker.wait(2000)  # Esperar máximo 2 segundos
@@ -1103,6 +1158,105 @@ class MainWindow(QMainWindow):
         if self.analysis_worker in self.active_workers:
             self.active_workers.remove(self.analysis_worker)
         self.analysis_worker = None
+
+    def _reanalyze_same_directory(self):
+        """Reinicia el análisis sobre el mismo directorio sin pedir confirmaciones"""
+        # Mantener los botones adicionales visibles pero deshabilitados durante el re-análisis
+        # para evitar que el analyze_btn vuelva a aparecer temporalmente.
+        self.reanalyze_btn.setVisible(True)
+        self.change_dir_btn.setVisible(True)
+        self.reanalyze_btn.setEnabled(False)
+        self.change_dir_btn.setEnabled(False)
+
+        # Llamar al análisis directamente (analyze_directory maneja la ejecución)
+        self.analyze_directory()
+
+    def _change_directory_after_analysis(self):
+        """Permite cambiar el directorio tras un análisis, manteniendo el flujo de confirmación actual"""
+        # Simular comportamiento de select_and_analyze_directory pero conservando aviso
+        directory = QFileDialog.getExistingDirectory(
+            self,
+            "Seleccionar Directorio",
+            str(Path.home()),
+            QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks
+        )
+
+        if not directory:
+            return  # Usuario canceló
+
+        new_directory = Path(directory)
+
+        # Si el usuario selecciona el mismo directorio, simplemente re-analizar
+        if self.last_analyzed_directory and new_directory == self.last_analyzed_directory:
+            # Ocultar botones adicionales antes de re-analizar
+            self.reanalyze_btn.setVisible(False)
+            self.change_dir_btn.setVisible(False)
+            self.analyze_btn.setEnabled(True)
+            self.analyze_directory()
+            return
+
+        # Preguntar confirmación de cambio de directorio (pérdida de análisis)
+        reply = QMessageBox.question(
+            self,
+            "Cambio de Directorio",
+            f"Has solicitado cambiar el directorio de análisis.\n\n"
+            f"� Directorio anterior: {self.last_analyzed_directory.name if self.last_analyzed_directory else '—'}\n"
+            f"� Directorio nuevo: {new_directory.name}\n\n"
+            f"⚠️ El análisis anterior se perderá y será necesario realizar un nuevo análisis.\n\n"
+            f"¿Deseas continuar?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+
+        if reply == QMessageBox.No:
+            return
+
+        # Tras aceptar el cambio, comprobar tamaño y mostrar advertencia si es grande
+        try:
+            all_files = list(new_directory.rglob('*'))
+            file_count = sum(1 for f in all_files if f.is_file())
+        except Exception as e:
+            QMessageBox.warning(
+                self,
+                "Error",
+                f"No se pudo acceder al directorio:\n{str(e)}"
+            )
+            return
+
+        if file_count > config.config.LARGE_DIRECTORY_THRESHOLD:
+            reply2 = QMessageBox.question(
+                self,
+                "Directorio Grande Detectado",
+                f"� Directorio: {new_directory.name}\n\n"
+                f"� Se detectaron aproximadamente {file_count:,} archivos.\n\n"
+                f"⏱️ Aviso: El análisis de esta cantidad de archivos podría tardar\n"
+                f"varios minutos dependiendo de la potencia de tu equipo.\n\n"
+                f"¿Deseas iniciar el análisis ahora?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes
+            )
+
+            if reply2 != QMessageBox.Yes:
+                self.app_logger.info(f"Cambio de directorio cancelado por el usuario para: {new_directory}")
+                return
+
+        # Usuario confirmó, aplicar cambio
+        self.current_directory = new_directory
+        self.directory_edit.setText(f"{self.current_directory.name}")
+        self.directory_edit.setToolTip(str(self.current_directory))
+
+        # Limpiar análisis previo pero NO reinsertar analyze_btn (dejamos
+        # visibles los botones alternativos, aunque deshabilitados durante
+        # el análisis)
+        self._reset_analysis_ui(reinsert_analyze=False)
+        # Mostrar alternativas pero deshabilitadas hasta que termine el análisis
+        self.reanalyze_btn.setVisible(True)
+        self.change_dir_btn.setVisible(True)
+        self.reanalyze_btn.setEnabled(False)
+        self.change_dir_btn.setEnabled(False)
+
+        # Iniciar nuevo análisis automáticamente
+        self.analyze_directory()
     
     def on_analysis_error(self, error):
         """Callback cuando hay error en el análisis"""
@@ -1640,10 +1794,31 @@ class MainWindow(QMainWindow):
         else:
             return f"{mb_size:.1f} MB"
 
-    def _reset_analysis_ui(self):
-        """Reinicia la UI tras cambiar de directorio"""
+    def _reset_analysis_ui(self, reinsert_analyze=True):
+        """Reinicia la UI tras cambiar de directorio
+
+        Args:
+            reinsert_analyze (bool): si True (por defecto) se reinsertará el
+                `analyze_btn` en el layout; si False no se tocará (útil cuando
+                el flujo actual debe mantener los botones alternativos visibles).
+        """
         # Restaurar texto original del botón
         self.analyze_btn.setText("🔍 Seleccionar Directorio y Analizar")
+        self.analyze_btn.setEnabled(True)
+
+        # Asegurar que los botones adicionales estén ocultos
+        if hasattr(self, 'reanalyze_btn'):
+            self.reanalyze_btn.setVisible(False)
+        if hasattr(self, 'change_dir_btn'):
+            self.change_dir_btn.setVisible(False)
+        # Reinsertar analyze_btn en el layout si fue removido y se solicita
+        if reinsert_analyze:
+            try:
+                if self.analyze_btn.parent() is None:
+                    self.actions_layout.addWidget(self.analyze_btn)
+                self.analyze_btn.setVisible(True)
+            except Exception:
+                pass
         # Ocultar paneles
         self.summary_panel.setVisible(False)
         self.tabs_widget.setVisible(False)
@@ -1661,8 +1836,12 @@ class MainWindow(QMainWindow):
         self.unif_details.clear()
         self.heic_details.clear()
 
-        # Limpiar campo de directorio
-        if hasattr(self, 'directory_edit'):
+        # Limpiar campo de directorio solo si se solicita reinsertar el botón
+        # principal (flujo de 'nuevo análisis' completo). En casos donde
+        # reinsert_analyze=False (por ejemplo: cambiar directorio y mantener
+        # los botones alternativos visibles mientras se inicia un análisis),
+        # preservamos el texto del directorio seleccionado.
+        if hasattr(self, 'directory_edit') and reinsert_analyze:
             self.directory_edit.clear()
             self.directory_edit.setPlaceholderText("Selecciona un directorio para analizar...")
 
