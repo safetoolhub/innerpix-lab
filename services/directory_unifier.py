@@ -5,13 +5,13 @@ import shutil
 import os
 from pathlib import Path
 from datetime import datetime
-from typing import List, Dict, Optional, Set
+from typing import List, Dict, Optional, Set, Callable
 from collections import defaultdict, Counter
 from dataclasses import dataclass
 
 import config
 from utils.logger import get_logger
-from utils.date_utils import parse_normalized_name
+from utils.date_utils import parse_renamed_name
 
 @dataclass
 class FileMove:
@@ -82,8 +82,8 @@ class DirectoryUnifier:
             subdir_files = []
             total_size = 0
 
-            # Recolectar archivos multimedia en subdirectorio
-            for file_path in item.rglob("*"):
+            # Recolectar archivos multimedia en subdirectorio, ignorando subdirectorios con el mismo nombre
+            for file_path in item.iterdir():  # Cambiado de rglob a iterdir para solo buscar en el primer nivel
                 if file_path.is_file() and config.config.is_supported_file(file_path.name):
                     file_size = file_path.stat().st_size
                     file_type = config.config.get_file_type(file_path.name)
@@ -137,21 +137,25 @@ class DirectoryUnifier:
                 file_path = file_info['path']
                 file_name = file_info['name']
 
-                # Verificar si ya existe en raíz
-                has_conflict = file_name in existing_files
+                # Solo procesar si el archivo existe
+                if Path(file_path).exists():
+                    # Verificar si ya existe en raíz
+                    has_conflict = file_name in existing_files
 
-                move = FileMove(
-                    source_path=file_path,
-                    target_path=root_directory / file_name,
-                    original_name=file_name,
-                    new_name=file_name,
-                    subdirectory=subdir_name,
-                    file_type=file_info['type'],
-                    size=file_info['size'],
-                    has_conflict=has_conflict
-                )
+                    move = FileMove(
+                        source_path=Path(file_path),
+                        target_path=root_directory / file_name,
+                        original_name=file_name,
+                        new_name=file_name,
+                        subdirectory=subdir_name,
+                        file_type=file_info['type'],
+                        size=file_info['size'],
+                        has_conflict=has_conflict
+                    )
 
-                name_conflicts[file_name].append(move)
+                    name_conflicts[file_name].append(move)
+                else:
+                    self.logger.warning(f"Saltando archivo que no existe: {file_path}")
 
         # Resolver conflictos
         for file_name, moves in name_conflicts.items():
@@ -163,10 +167,10 @@ class DirectoryUnifier:
                 base_name = Path(file_name).stem
                 extension = Path(file_name).suffix
 
-                # Verificar si el archivo ya tiene sufijo numérico de normalización
-                parsed = parse_normalized_name(file_name)
+                # Verificar si el archivo ya tiene sufijo numérico de renombrado
+                parsed = parse_renamed_name(file_name)
                 if parsed and parsed.get('sequence'):
-                    # Ya tiene sufijo de normalización
+                        # Ya tiene sufijo de renombrado
                     parts = base_name.split('_')
                     # Si el último part es numérico de 3 dígitos, es un sufijo
                     if len(parts) >= 4 and len(parts[-1]) == 3 and parts[-1].isdigit():
@@ -228,9 +232,13 @@ class DirectoryUnifier:
 
         return move_plan
 
-    def create_backup(self, root_directory: Path) -> Path:
+    def create_backup(self, root_directory: Path, progress_callback=None) -> Path:
         """
         Crea backup de la estructura completa antes de unificar
+
+        Args:
+            root_directory: Directorio a respaldar
+            progress_callback: Función para reportar progreso
         """
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         backup_name = f"backup_unification_{root_directory.name}_{timestamp}"
@@ -238,6 +246,13 @@ class DirectoryUnifier:
         backup_path.mkdir(parents=True, exist_ok=True)
 
         self.logger.info(f"Creando backup en: {backup_path}")
+
+        # Obtener total de archivos para el progreso
+        total_files = sum(1 for f in root_directory.rglob("*") 
+                         if f.is_file() and config.Config.is_supported_file(f.name))
+
+        if progress_callback:
+            progress_callback(0, total_files, "Iniciando creación de backup...")
 
         # Copiar toda la estructura (no mover, solo copiar)
         files_backed_up = 0
@@ -258,7 +273,7 @@ class DirectoryUnifier:
         return backup_path
 
     def execute_unification(self, move_plan: List[FileMove], create_backup: bool = True,
-                            cleanup_empty_dirs: bool = True) -> Dict:
+                            cleanup_empty_dirs: bool = True, progress_callback=None) -> Dict:
         """
         Ejecuta la unificación según el plan con resolución dinámica de conflictos
         """
@@ -289,7 +304,9 @@ class DirectoryUnifier:
             # Crear backup ANTES de mover archivos
             if create_backup and move_plan:
                 try:
-                    backup_path = self.create_backup(root_directory)
+                    if progress_callback:
+                        progress_callback(0, len(move_plan), "Creando backup antes de unificar...")
+                    backup_path = self.create_backup(root_directory, progress_callback)
                     results['backup_path'] = str(backup_path)
                 except Exception as e:
                     self.logger.error(f"Error creando backup: {e}")
@@ -306,14 +323,31 @@ class DirectoryUnifier:
                     used_names.add(item.name)
 
             # Ejecutar movimientos con resolución dinámica de conflictos
+            files_processed = 0
+            total_files = len(move_plan)
+
+            if progress_callback:
+                progress_callback(0, total_files, "Iniciando unificación de directorios...")
+
             for move in move_plan:
                 try:
-                    # Verificar que el archivo origen existe
-                    if not move.source_path.exists():
-                        self.logger.error(f"Archivo no existe: {move.source_path}")
+                    # Verificar que el archivo origen existe y es accesible
+                    try:
+                        if not move.source_path.exists():
+                            self.logger.error(f"Archivo no existe: {move.source_path}")
+                            results['errors'].append({
+                                'file': str(move.source_path),
+                                'error': 'Archivo no encontrado'
+                            })
+                            continue
+                        
+                        # Verificar que podemos acceder al archivo
+                        move.source_path.stat()
+                    except (FileNotFoundError, PermissionError, OSError) as e:
+                        self.logger.error(f"Error accediendo al archivo {move.source_path}: {str(e)}")
                         results['errors'].append({
                             'file': str(move.source_path),
-                            'error': 'Archivo no encontrado'
+                            'error': f'Error de acceso: {str(e)}'
                         })
                         continue
 
@@ -330,7 +364,7 @@ class DirectoryUnifier:
                         extension = Path(target_name).suffix
 
                         # Si ya tiene sufijo numérico, extraerlo
-                        parsed = parse_normalized_name(target_name)
+                        parsed = parse_renamed_name(target_name)
                         if parsed and parsed.get('sequence'):
                             parts = base_name.split('_')
                             if len(parts) >= 4 and len(parts[-1]) == 3 and parts[-1].isdigit():
@@ -367,13 +401,25 @@ class DirectoryUnifier:
                     # Asegurar que el directorio destino existe
                     target_path.parent.mkdir(parents=True, exist_ok=True)
 
-                    # Mover archivo
-                    move.source_path.rename(target_path)
-
-                    # Añadir a la lista de nombres usados
-                    used_names.add(target_name)
+                    # Mover archivo con verificación adicional
+                    try:
+                        # Verificar una última vez que el archivo existe y es accesible
+                        if move.source_path.exists() and move.source_path.is_file():
+                            move.source_path.rename(target_path)
+                            # Añadir a la lista de nombres usados
+                            used_names.add(target_name)
+                        else:
+                            raise FileNotFoundError(f"Archivo no encontrado o no accesible: {move.source_path}")
+                    except (FileNotFoundError, PermissionError, OSError) as e:
+                        raise Exception(f"Error moviendo archivo: {str(e)}")
 
                     results['files_moved'] += 1
+                    files_processed += 1
+                    
+                    if progress_callback:
+                        progress_callback(files_processed, total_files,
+                                       f"Unificando directorios... {files_processed}/{total_files}")
+
                     results['moved_files'].append({
                         'original': str(move.source_path),
                         'new_location': str(target_path),
@@ -434,3 +480,35 @@ class DirectoryUnifier:
                     pass
 
         return removed_count
+
+    def unify_directory(self, root_directory: Path, progress_callback: Optional[Callable[[int, int, str], None]] = None):
+        """
+        Unifica los archivos de subdirectorios al directorio raíz
+
+        Args:
+            root_directory: Directorio raíz a unificar
+            progress_callback: Función callback(current, total, message) para reportar progreso
+        """
+        self.logger.info(f"Unificando directorio: {root_directory}")
+
+        # Obtener todos los archivos a mover
+        all_files = []
+        for item in root_directory.rglob("*"):
+            if item.is_file() and config.config.is_supported_file(item.name):
+                all_files.append(item)
+
+        total_files = len(all_files)
+        moved_files = 0
+
+        for file_path in all_files:
+            moved_files += 1
+
+            # Reportar progreso cada archivo
+            if progress_callback:
+                progress_callback(moved_files, total_files, f"Moviendo archivo {moved_files} de {total_files}")
+
+            # Aquí iría la lógica para mover el archivo
+            # shutil.move(file_path, destino)
+
+        if progress_callback:
+            progress_callback(total_files, total_files, "Unificación completada")

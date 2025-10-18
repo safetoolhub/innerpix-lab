@@ -1,5 +1,5 @@
 """
-Detector de Live Photos de iPhone - Corregido para archivos normalizados
+Detector de Live Photos de iPhone - Corregido para archivos renombrados
 """
 import os
 import re

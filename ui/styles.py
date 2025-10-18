@@ -1,5 +1,5 @@
 """
-UI Styles para Multimedia Normalizer
+UI Styles para PhotoKit Manager
 Contiene todas las definiciones de estilos CSS para la interfaz
 """
 

@@ -14,10 +14,10 @@ class AnalysisWorker(QThread):
     finished = pyqtSignal(dict)
     error = pyqtSignal(str)
 
-    def __init__(self, directory, normalizer, lp_detector, unifier, heic_remover):
+    def __init__(self, directory, renamer, lp_detector, unifier, heic_remover):
         super().__init__()
         self.directory = directory
-        self.normalizer = normalizer
+        self.renamer = renamer
         self.lp_detector = lp_detector
         self.unifier = unifier
         self.heic_remover = heic_remover
@@ -26,7 +26,7 @@ class AnalysisWorker(QThread):
         try:
             results = {
                 'stats': {},
-                'normalization': None,
+                'renaming': None,
                 'live_photos': None,
                 'unification': None,
                 'heic': None
@@ -58,19 +58,19 @@ class AnalysisWorker(QThread):
                 'others': len(others)
             }
 
-            # Fase 2: Análisis de normalización
-            if self.normalizer:
+            # Fase 2: Análisis de renombrado
+            if self.renamer:
                 self.phase_update.emit("📝 Analizando nombres de archivo...")
 
                 # Crear callback que emita progress_update SIN procesar eventos
                 # El callback solo emite la señal, el procesamiento lo hace Qt internamente
-                def norm_progress_callback(current: int, total: int, message: str):
+                def rename_progress_callback(current: int, total: int, message: str):
                     # Emitir señal con el formato deseado
                     self.progress_update.emit(current, total, f"{message} ({current}/{total})")
 
-                results['normalization'] = self.normalizer.analyze_directory(
+                results['renaming'] = self.renamer.analyze_directory(
                     self.directory,
-                    progress_callback=norm_progress_callback
+                    progress_callback=rename_progress_callback
                 )
 
             # Fase 3: Detección de Live Photos
@@ -114,23 +114,27 @@ class AnalysisWorker(QThread):
             self.error.emit(error_msg)
 
 
-class NormalizationWorker(QThread):
-    """Worker para ejecutar normalización de nombres de archivo"""
+class RenamingWorker(QThread):
+    """Worker para ejecutar renombrado de nombres de archivo"""
     progress_update = pyqtSignal(int, int, str)
     finished = pyqtSignal(dict)
     error = pyqtSignal(str)
 
-    def __init__(self, normalizer, plan, create_backup=True):
+    def __init__(self, renamer, plan, create_backup=True):
         super().__init__()
-        self.normalizer = normalizer
+        self.renamer = renamer
         self.plan = plan
         self.create_backup = create_backup
 
     def run(self):
         try:
-            results = self.normalizer.execute_normalization(
+            def progress_callback(current: int, total: int, message: str):
+                self.progress_update.emit(current, total, message)
+
+            results = self.renamer.execute_renaming(
                 self.plan,
-                create_backup=self.create_backup
+                create_backup=self.create_backup,
+                progress_callback=progress_callback
             )
             self.finished.emit(results)
         except Exception as e:
@@ -179,9 +183,13 @@ class DirectoryUnificationWorker(QThread):
 
     def run(self):
         try:
+            def progress_callback(current: int, total: int, message: str):
+                self.progress_update.emit(current, total, message)
+
             results = self.unifier.execute_unification(
                 self.plan,
-                create_backup=self.create_backup
+                create_backup=self.create_backup,
+                progress_callback=progress_callback
             )
             self.finished.emit(results)
         except Exception as e:
