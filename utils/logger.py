@@ -10,7 +10,7 @@ class SimpleLogger:
 
     def __init__(self, name="PhotokitManager"):
         self.logger = logging.getLogger(name)
-        self.logger.setLevel(logging.DEBUG)
+        self.logger.setLevel(logging.INFO)
 
         if not self.logger.handlers:
             # Handler para consola
