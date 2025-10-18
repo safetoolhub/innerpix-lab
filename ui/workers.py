@@ -14,10 +14,10 @@ class AnalysisWorker(QThread):
     finished = pyqtSignal(dict)
     error = pyqtSignal(str)
 
-    def __init__(self, directory, normalizer, lp_detector, unifier, heic_remover):
+    def __init__(self, directory, renamer, lp_detector, unifier, heic_remover):
         super().__init__()
         self.directory = directory
-        self.normalizer = normalizer
+        self.renamer = renamer
         self.lp_detector = lp_detector
         self.unifier = unifier
         self.heic_remover = heic_remover
@@ -59,18 +59,18 @@ class AnalysisWorker(QThread):
             }
 
             # Fase 2: Análisis de renombrado
-            if self.normalizer:
+            if self.renamer:
                 self.phase_update.emit("📝 Analizando nombres de archivo...")
 
                 # Crear callback que emita progress_update SIN procesar eventos
                 # El callback solo emite la señal, el procesamiento lo hace Qt internamente
-                def norm_progress_callback(current: int, total: int, message: str):
+                def rename_progress_callback(current: int, total: int, message: str):
                     # Emitir señal con el formato deseado
                     self.progress_update.emit(current, total, f"{message} ({current}/{total})")
 
-                results['renaming'] = self.normalizer.analyze_directory(
+                results['renaming'] = self.renamer.analyze_directory(
                     self.directory,
-                    progress_callback=norm_progress_callback
+                    progress_callback=rename_progress_callback
                 )
 
             # Fase 3: Detección de Live Photos
@@ -120,9 +120,9 @@ class RenamingWorker(QThread):
     finished = pyqtSignal(dict)
     error = pyqtSignal(str)
 
-    def __init__(self, normalizer, plan, create_backup=True):
+    def __init__(self, renamer, plan, create_backup=True):
         super().__init__()
-        self.normalizer = normalizer
+        self.renamer = renamer
         self.plan = plan
         self.create_backup = create_backup
 
@@ -131,7 +131,7 @@ class RenamingWorker(QThread):
             def progress_callback(current: int, total: int, message: str):
                 self.progress_update.emit(current, total, message)
 
-            results = self.normalizer.execute_renaming(
+            results = self.renamer.execute_renaming(
                 self.plan,
                 create_backup=self.create_backup,
                 progress_callback=progress_callback

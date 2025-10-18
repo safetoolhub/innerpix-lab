@@ -187,7 +187,7 @@ Generar comandos explícitos para:
 
 ### Entregable Esperado
 Codigo para cambiar los nombres de algunas funcionalidades principales y el codigo asociado. Concretamente estas:
-- La funcionalidad de "Normalización". Deben cambiarse todas sus referencias y nombres de funciones o variables desde "Normalizacion" a "Renombrado". La tab se llamará "Renombrar". El codigo será en ingles usando "rename".
+- La funcionalidad de "Renombrado". Deben cambiarse todas sus referencias y nombres de funciones o variables desde "Normalizacion" a "Renombrado". La tab se llamará "Renombrar". El codigo será en ingles usando "rename".
 - La funcionalidad de Live Photos debe cambiarse a "Gestionar Live Photos"
 - La funcionalidad de "unificar" debe añadir "Unificar Directorio"
 - La funcionalidad de Duplicados HEIC pasa a "Eliminar HEIC"

@@ -1329,7 +1329,7 @@ class MainWindow(QMainWindow):
             ren = results['renaming']
             html = f"""
                 <p><strong>Total archivos:</strong> {ren.get('total_files', 0):,}</p>
-                <p><strong>✅ Ya renombrados:</strong> {ren.get('already_normalized', 0):,}</p>
+                <p><strong>✅ Ya renombrados:</strong> {ren.get('already_renamed', 0):,}</p>
                 <p><strong>📝 A renombrar:</strong> {ren.get('need_renaming', 0):,}</p>
                 <p><strong>⚠️ No procesables:</strong> {ren.get('cannot_process', 0):,}</p>
                 <p><strong>🔄 Conflictos:</strong> {ren.get('conflicts', 0):,}</p>
@@ -1479,7 +1479,7 @@ class MainWindow(QMainWindow):
         files_renamed = int(results.get('files_renamed', 0))
         if self.analysis_results and self.analysis_results.get('renaming'):
             ren = self.analysis_results['renaming']
-            ren['already_normalized'] = ren.get('already_normalized', 0) + files_renamed
+            ren['already_renamed'] = ren.get('already_renamed', 0) + files_renamed
             # Reducir need_renaming preservando >= 0
             ren['need_renaming'] = max(0, ren.get('need_renaming', 0) - files_renamed)
             # Si el worker devuelve errores, añadirlos a cannot_process longitud
@@ -1704,7 +1704,31 @@ class MainWindow(QMainWindow):
             )
         
         self.exec_unif_btn.setEnabled(False)
-        
+        # Actualizar análisis interno para reflejar cambios en la estructura
+        try:
+            if self.current_directory and self.directory_unifier:
+                # Re-analizar la estructura para obtener valores actualizados
+                updated_unif = self.directory_unifier.analyze_directory_structure(self.current_directory)
+
+                if not self.analysis_results:
+                    self.analysis_results = {}
+
+                self.analysis_results['unification'] = updated_unif
+
+                # Refrescar UI
+                self._update_summary_panel(self.analysis_results)
+                self._update_tab_details(self.analysis_results)
+
+                # Ajustar estado del botón según queden archivos por mover
+                if updated_unif.get('total_files_to_move', 0) > 0:
+                    self.exec_unif_btn.setEnabled(True)
+                else:
+                    self.exec_unif_btn.setEnabled(False)
+
+        except Exception as e:
+            # Registrar pero no interrumpir
+            self.app_logger.error(f"Error re-analizando después de unificación: {e}")
+
         if self.execution_worker in self.active_workers:
             self.active_workers.remove(self.execution_worker)
         self.execution_worker = None
