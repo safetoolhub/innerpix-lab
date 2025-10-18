@@ -55,7 +55,8 @@ class MainWindow(QMainWindow):
 
         # Configuración de logging
         self.logs_directory = config.Config.DEFAULT_LOG_DIR
-        self.log_level = config.Config.LOG_LEVEL
+        self.log_level = config.Config.LOG_LEVEL.upper()
+        # Asegurar que existe el directorio de logs
         self.logs_directory.mkdir(parents=True, exist_ok=True)
 
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -385,8 +386,18 @@ class MainWindow(QMainWindow):
 
         self.log_level_combo = QComboBox()
         self.log_level_combo.addItems(["DEBUG", "INFO", "WARNING", "ERROR"])
-        self.log_level_combo.setCurrentText("INFO")
-        self.log_level_combo.currentTextChanged.connect(self.change_log_level)
+        # Sincronizar el combo con el nivel efectivo del logger de la aplicación
+        try:
+            level_num = self.app_logger.getEffectiveLevel()
+            current_level = logging.getLevelName(level_num).upper()
+        except Exception:
+            current_level = config.Config.LOG_LEVEL.upper()
+
+        idx = self.log_level_combo.findText(current_level, Qt.MatchFixedString)
+        if idx >= 0:
+            self.log_level_combo.setCurrentIndex(idx)
+
+        # El cambio solo se aplica al guardar en el diálogo; aquí solo mostramos el estado
         self.log_level_combo.setStyleSheet(styles.STYLE_LOG_LEVEL_COMBO)
         log_level_row.addWidget(self.log_level_combo)
         log_level_row.addStretch()
@@ -427,7 +438,7 @@ class MainWindow(QMainWindow):
         parent_layout.addWidget(self.config_panel)
 
     def toggle_config(self):
-        """Abre el diálogo de configuración"""
+        """Abre el diálogo de configuración avanzada"""
         dialog = SettingsDialog(self)
         dialog.exec_()
 
@@ -480,19 +491,19 @@ class MainWindow(QMainWindow):
         msg.exec_()
 
     def change_log_level(self, level_str):
-        """Cambia el nivel de logging"""
-        # Extraer solo el nivel (DEBUG, INFO, etc.)
-        level_name = level_str.split(" ")[0]
-
+        """Cambia el nivel de logging y lo guarda en config.Config.LOG_LEVEL"""
+        level_name = level_str.split()[0].upper()
         level_map = {
             'DEBUG': logging.DEBUG,
             'INFO': logging.INFO,
             'WARNING': logging.WARNING,
             'ERROR': logging.ERROR
         }
-
         level = level_map.get(level_name, logging.INFO)
         self.app_logger.setLevel(level)
+        config.Config.LOG_LEVEL = level_name  # Actualiza el config global
+        self.log_level = level_name
+        # Registrar como mensaje informativo (semánticamente correcto)
         self.app_logger.info(f"Nivel de log cambiado a: {level_name}")
 
     def _create_config_panel(self, parent_layout):
@@ -592,8 +603,8 @@ class MainWindow(QMainWindow):
 
         self.log_level_combo = QComboBox()
         self.log_level_combo.addItems(["DEBUG (Todo)", "INFO (Normal)", "WARNING (Avisos)", "ERROR (Solo errores)"])
-        self.log_level_combo.setCurrentIndex(1)  # INFO por defecto
-        self.log_level_combo.currentTextChanged.connect(self.change_log_level)
+    # no seleccionar por defecto aquí, se sincroniza justo después
+    # El cambio de nivel de log solo se aplica al pulsar guardar configuración en el diálogo
         self.log_level_combo.setStyleSheet(styles.STYLE_LOG_LEVEL_COMBO)
         log_level_row.addWidget(self.log_level_combo)
         log_level_row.addStretch()

@@ -11,6 +11,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QColor
+import logging
 
 from services.live_photo_cleaner import CleanupMode
 import config
@@ -629,7 +630,7 @@ class SettingsDialog(QDialog):
             "WARNING (Solo advertencias)",
             "ERROR (Solo errores)"
         ])
-        self.log_level_combo.setCurrentIndex(1)  # INFO por defecto
+    # No seleccionar por defecto aquí; la sincronización posterior ajustará la selección
         self.log_level_combo.setStyleSheet("""
             QComboBox {
                 padding: 5px 10px;
@@ -640,6 +641,24 @@ class SettingsDialog(QDialog):
         log_level_layout.addWidget(self.log_level_combo)
         log_level_layout.addStretch()
 
+        # Sincronizar con el valor actual (usar el nivel efectivo del logger de la ventana padre si existe)
+        try:
+            if hasattr(self, 'parent_window') and getattr(self.parent_window, 'app_logger', None):
+                level_num = self.parent_window.app_logger.getEffectiveLevel()
+                current_level = logging.getLevelName(level_num).upper()
+            else:
+                current_level = config.Config.LOG_LEVEL.upper()
+        except Exception:
+            current_level = config.Config.LOG_LEVEL.upper()
+
+        found_idx = -1
+        for i in range(self.log_level_combo.count()):
+            text = self.log_level_combo.itemText(i).upper()
+            if text.startswith(current_level):
+                found_idx = i
+                break
+        if found_idx >= 0:
+            self.log_level_combo.setCurrentIndex(found_idx)
         logs_layout.addLayout(log_level_layout)
 
         # Botón abrir carpeta de logs
@@ -862,7 +881,12 @@ class SettingsDialog(QDialog):
 
         # Aquí guardarías el resto de configuraciones en un archivo o variables
 
-        self.parent_window.app_logger.info("Configuración guardada exitosamente")
+        # Registrar usando el nivel efectivo actual del logger (para que WARNING/ERROR sean visibles)
+        try:
+            lvl = self.parent_window.app_logger.getEffectiveLevel()
+            self.parent_window.app_logger.log(lvl, "Configuración guardada exitosamente")
+        except Exception:
+            self.parent_window.app_logger.info("Configuración guardada exitosamente")
 
         QMessageBox.information(
             self,
