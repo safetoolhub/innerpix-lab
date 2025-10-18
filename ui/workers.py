@@ -26,7 +26,7 @@ class AnalysisWorker(QThread):
         try:
             results = {
                 'stats': {},
-                'normalization': None,
+                'renaming': None,
                 'live_photos': None,
                 'unification': None,
                 'heic': None
@@ -58,7 +58,7 @@ class AnalysisWorker(QThread):
                 'others': len(others)
             }
 
-            # Fase 2: Análisis de normalización
+            # Fase 2: Análisis de renombrado
             if self.normalizer:
                 self.phase_update.emit("📝 Analizando nombres de archivo...")
 
@@ -68,7 +68,7 @@ class AnalysisWorker(QThread):
                     # Emitir señal con el formato deseado
                     self.progress_update.emit(current, total, f"{message} ({current}/{total})")
 
-                results['normalization'] = self.normalizer.analyze_directory(
+                results['renaming'] = self.normalizer.analyze_directory(
                     self.directory,
                     progress_callback=norm_progress_callback
                 )
@@ -114,8 +114,8 @@ class AnalysisWorker(QThread):
             self.error.emit(error_msg)
 
 
-class NormalizationWorker(QThread):
-    """Worker para ejecutar normalización de nombres de archivo"""
+class RenamingWorker(QThread):
+    """Worker para ejecutar renombrado de nombres de archivo"""
     progress_update = pyqtSignal(int, int, str)
     finished = pyqtSignal(dict)
     error = pyqtSignal(str)
@@ -128,9 +128,13 @@ class NormalizationWorker(QThread):
 
     def run(self):
         try:
-            results = self.normalizer.execute_normalization(
+            def progress_callback(current: int, total: int, message: str):
+                self.progress_update.emit(current, total, message)
+
+            results = self.normalizer.execute_renaming(
                 self.plan,
-                create_backup=self.create_backup
+                create_backup=self.create_backup,
+                progress_callback=progress_callback
             )
             self.finished.emit(results)
         except Exception as e:
@@ -179,9 +183,13 @@ class DirectoryUnificationWorker(QThread):
 
     def run(self):
         try:
+            def progress_callback(current: int, total: int, message: str):
+                self.progress_update.emit(current, total, message)
+
             results = self.unifier.execute_unification(
                 self.plan,
-                create_backup=self.create_backup
+                create_backup=self.create_backup,
+                progress_callback=progress_callback
             )
             self.finished.emit(results)
         except Exception as e:

@@ -1,5 +1,5 @@
 """
-Normalizador de nombres de archivos multimedia - VERSIÓN FINAL
+Renombrador de nombres de archivos multimedia - VERSIÓN FINAL
 Con logs detallados y resolución inteligente de conflictos
 """
 import shutil
@@ -18,14 +18,12 @@ from utils.date_utils import (
     parse_renamed_name
 )
 
-
-class FileNormalizer:
+class FileRenamer:
     """
-    Normalizador de nombres de archivos multimedia
+    Renombrador de nombres de archivos multimedia
     """
-
     def __init__(self):
-        self.logger = get_logger("FileNormalizer")
+        self.logger = get_logger("FileRenamer")
         self.backup_dir = None
 
     def analyze_directory(
@@ -34,7 +32,7 @@ class FileNormalizer:
         progress_callback: Optional[Callable[[int, int, str], None]] = None
     ) -> Dict:
         """
-        Analiza un directorio para normalización
+        Analiza un directorio para renombrado
 
         Args:
             directory: Directorio a analizar
@@ -48,7 +46,7 @@ class FileNormalizer:
 
         results = {
             'total_files': 0,
-            'already_normalized': 0,
+            'already_renamed': 0,
             'need_renaming': 0,
             'cannot_process': 0,
             'conflicts': 0,
@@ -67,7 +65,7 @@ class FileNormalizer:
         total_files = len(all_files)
 
         # Analizar cada archivo
-        normalization_map = {}  # nombre_normalizado -> lista de archivos
+        renaming_map = {}  # nombre_renombrado -> lista de archivos
         processed = 0
 
         for file_path in all_files:
@@ -79,7 +77,7 @@ class FileNormalizer:
 
             # Verificar si ya está renombrado
             if is_renamed_filename(file_path.name):
-                results['already_normalized'] += 1
+                results['already_renamed'] += 1
                 continue
 
             # Obtener fecha del archivo
@@ -89,7 +87,7 @@ class FileNormalizer:
                 results['issues'].append(f"No se pudo obtener fecha: {file_path.name}")
                 continue
 
-            # Generar nombre normalizado
+            # Generar nombre renombrado
             file_type = config.config.get_file_type(file_path.name)
             if file_type == 'OTHER':
                 results['cannot_process'] += 1
@@ -97,13 +95,13 @@ class FileNormalizer:
                 continue
 
             extension = file_path.suffix
-            normalized_name = format_renamed_name(file_date, file_type, extension)
+            renamed_name = format_renamed_name(file_date, file_type, extension)
 
             # Agregar al mapa para detectar conflictos
-            if normalized_name not in normalization_map:
-                normalization_map[normalized_name] = []
+            if renamed_name not in renaming_map:
+                renaming_map[renamed_name] = []
 
-            normalization_map[normalized_name].append({
+            renaming_map[renamed_name].append({
                 'original_path': file_path,
                 'date': file_date,
                 'type': file_type,
@@ -117,13 +115,13 @@ class FileNormalizer:
             progress_callback(total_files, total_files, "Analizando nombres de archivos")
 
         # Resolver conflictos y crear plan final
-        for normalized_name, file_list in normalization_map.items():
+        for renamed_name, file_list in renaming_map.items():
             if len(file_list) == 1:
                 # Sin conflicto
                 file_info = file_list[0]
                 results['renaming_plan'].append({
                     'original_path': file_info['original_path'],
-                    'new_name': normalized_name,
+                    'new_name': renamed_name,
                     'date': file_info['date'],
                     'has_conflict': False,
                     'sequence': None
@@ -160,11 +158,11 @@ class FileNormalizer:
 
     def create_backup(self, directory: Path, progress_callback=None) -> Path:
         """
-        Crea backup del directorio antes de normalizar
+        Crea backup del directorio antes de renombrar
 
         Args:
             directory: Directorio a respaldar
-            progress_callback: Callback para actualizar progreso
+            progress_callback: Función para reportar progreso
 
         Returns:
             Ruta del backup creado
@@ -181,7 +179,7 @@ class FileNormalizer:
         # Obtener total de archivos para el progreso
         total_files = sum(1 for f in directory.rglob("*") 
                          if f.is_file() and config.config.is_supported_file(f.name))
-
+        
         if progress_callback:
             progress_callback(0, total_files, "Iniciando creación de backup...")
 
@@ -260,7 +258,8 @@ class FileNormalizer:
     def execute_renaming(
         self,
         renaming_plan: List[Dict],
-        create_backup: bool = True
+        create_backup: bool = True,
+        progress_callback=None
     ) -> Dict:
         """
         Ejecuta el renombrado según el plan
@@ -308,10 +307,15 @@ class FileNormalizer:
                     except ValueError:
                         break
 
-                backup_path = self.create_backup(directory)
+                if progress_callback:
+                    progress_callback(0, len(renaming_plan), "Creando backup...")
+                    
+                backup_path = self.create_backup(directory, progress_callback)
                 results['backup_path'] = str(backup_path)
 
             # Ejecutar renombrados
+            total_files = len(renaming_plan)
+            files_processed = 0
             for item in renaming_plan:
                 original_path = item['original_path']
                 new_name = item['new_name']
@@ -354,12 +358,17 @@ class FileNormalizer:
 
                     # Registrar éxito
                     results['files_renamed'] += 1
+                    files_processed += 1
                     results['renamed_files'].append({
                         'original': original_path.name,
                         'new_name': new_name,
                         'date': item['date'].strftime('%Y-%m-%d %H:%M:%S'),
                         'had_conflict': item['has_conflict']
                     })
+
+                    if progress_callback:
+                        progress_callback(files_processed, total_files,
+                                       f"Renombrando archivos... {files_processed}/{total_files}")
 
                     self.logger.info(f"Renombrado: {original_path.name} -> {new_name}")
 
@@ -409,3 +418,37 @@ class FileNormalizer:
             })
 
         return results
+
+    def rename_files(self, directory: Path, progress_callback: Optional[Callable[[int, int, str], None]] = None):
+        """
+        Renombra los archivos en el directorio dado
+
+        Args:
+            directory: Directorio donde se renombrarán los archivos
+            progress_callback: Función callback(current, total, message) para reportar progreso
+        """
+        self.logger.info(f"Renombrando archivos en: {directory}")
+
+        # Obtener todos los archivos a renombrar
+        all_files = []
+        for file_path in directory.rglob("*"):
+            if file_path.is_file() and config.config.is_supported_file(file_path.name):
+                all_files.append(file_path)
+
+        total_files = len(all_files)
+        renamed_files = 0
+
+        for file_path in all_files:
+            renamed_files += 1
+
+            # Reportar progreso cada archivo
+            if progress_callback:
+                progress_callback(renamed_files, total_files, f"Renombrando archivo {renamed_files} de {total_files}")
+
+            # Aquí iría la lógica para renombrar el archivo
+            # nuevo_nombre = generar_nombre(file_path)
+            # file_path.rename(nuevo_nombre)
+
+        # Actualizar progreso final
+        if progress_callback:
+            progress_callback(total_files, total_files, "Renombrado completado")

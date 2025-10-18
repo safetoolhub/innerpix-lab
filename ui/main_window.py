@@ -17,27 +17,27 @@ from PyQt5.QtGui import QDesktopServices
 from PyQt5.QtCore import QUrl
 
 import config
-from services.file_normalizer import FileNormalizer
+from services.file_renamer import FileRenamer
 from ui import styles
 from ui.workers import (
-    AnalysisWorker, NormalizationWorker, LivePhotoCleanupWorker,
+    AnalysisWorker, RenamingWorker, LivePhotoCleanupWorker,
     DirectoryUnificationWorker, HEICRemovalWorker
 )
 from ui.dialogs import (
-    NormalizationPreviewDialog, LivePhotoCleanupDialog,
+    RenamingPreviewDialog, LivePhotoCleanupDialog,
     DirectoryUnificationDialog, HEICDuplicateRemovalDialog, SettingsDialog
 )
 from services.live_photo_cleaner import LivePhotoCleaner
 from services.live_photo_detector import LivePhotoDetector
 from services.directory_unifier import DirectoryUnifier
 from services.heic_remover import HEICDuplicateRemover
-from utils.date_utils import get_file_date, format_normalized_name, is_normalized_filename
+from utils.date_utils import get_file_date, format_renamed_name, is_renamed_filename
 
 # ============================================================================
 # VERIFICAR DISPONIBILIDAD DE MÓDULOS
 # ============================================================================
 # Todos los módulos están disponibles en la refactorización
-NORMALIZATION_AVAILABLE = True
+RENAMING_AVAILABLE = True
 LIVE_PHOTOS_AVAILABLE = True
 DIRECTORY_UNIFICATION_AVAILABLE = True
 HEIC_REMOVAL_AVAILABLE = True
@@ -78,7 +78,7 @@ class MainWindow(QMainWindow):
         self.app_logger.info("=" * 70)
 
         # Inicializar servicios
-        self.normalizer = FileNormalizer()
+        self.renamer = FileRenamer()
         self.live_photo_detector = LivePhotoDetector()
         self.live_photo_cleaner = LivePhotoCleaner()
         self.directory_unifier = DirectoryUnifier()
@@ -711,7 +711,7 @@ class MainWindow(QMainWindow):
         tasks_layout = QVBoxLayout(tasks_group)
         
         self.task_labels = {
-            'normalization': QLabel("📝 Normalizar: —"),
+            'renaming': QLabel("📝 Renombrar: —"),
             'live_photos': QLabel("📱 Live Photos: —"),
             'unification': QLabel("📁 Mover: —"),
             'heic': QLabel("🖼️ HEIC: —")
@@ -735,8 +735,8 @@ class MainWindow(QMainWindow):
         tabs = QTabWidget()
         tabs.setVisible(False)
         
-        if NORMALIZATION_AVAILABLE:
-            tabs.addTab(self._create_normalization_tab(), "📝 Normalización")
+        if RENAMING_AVAILABLE:
+            tabs.addTab(self._create_renaming_tab(), "📝 Renombrar")
         
         if LIVE_PHOTOS_AVAILABLE:
             tabs.addTab(self._create_live_photos_tab(), "📱 Live Photos")
@@ -749,42 +749,41 @@ class MainWindow(QMainWindow):
         
         return tabs
     
-    def _create_normalization_tab(self):
-        """Crea la pestaña de normalización"""
+    def _create_renaming_tab(self):
+        """Crea la pestaña de renombrado"""
         widget = QWidget()
         layout = QVBoxLayout(widget)
         
         info = QLabel("Renombra archivos al formato: YYYYMMDD_HHMMSS.EXT")
         info.setStyleSheet(styles.STYLE_INFO_LABEL)
         layout.addWidget(info)
-        
-        self.norm_details = QTextEdit()
-        self.norm_details.setReadOnly(True)
-        self.norm_details.setMaximumHeight(200)
-        self.norm_details.setPlaceholderText("Los detalles aparecerán después del análisis...")
-        layout.addWidget(self.norm_details)
-        
+
+        self.rename_details = QTextEdit()
+        self.rename_details.setReadOnly(True)
+        self.rename_details.setMaximumHeight(200)
+        self.rename_details.setPlaceholderText("Los detalles aparecerán después del análisis...")
+        layout.addWidget(self.rename_details)
+
         # Botones con NUEVOS colores
         button_layout = QHBoxLayout()
         button_layout.addStretch()
-        
-        self.preview_norm_btn = QPushButton("📋 Ver Preview")
-        self.preview_norm_btn.setEnabled(False)
-        self.preview_norm_btn.clicked.connect(self.preview_normalization)
+
+        self.preview_rename_btn = QPushButton("📋 Renombrar archivos")
+        self.preview_rename_btn.setEnabled(False)
+        self.preview_rename_btn.clicked.connect(self.preview_renaming)
         # Azul más suave para preview
-        self.preview_norm_btn.setStyleSheet(styles.get_button_style("#007bff"))
-        button_layout.addWidget(self.preview_norm_btn)
-        
-        self.exec_norm_btn = QPushButton("⚡ Ejecutar Normalización")
-        self.exec_norm_btn.setEnabled(False)
-        self.exec_norm_btn.clicked.connect(self.execute_normalization)
-        # Verde profesional para ejecutar
-        self.exec_norm_btn.setStyleSheet(styles.get_button_style("#28a745"))
-        button_layout.addWidget(self.exec_norm_btn)
-        
+        self.preview_rename_btn.setStyleSheet(styles.get_button_style("#007bff"))
+        button_layout.addWidget(self.preview_rename_btn)
+
         layout.addLayout(button_layout)
+
+        # Nota: la información adicional sobre el renombrado se mostrará
+        # dentro de `self.rename_details` como HTML sólo cuando existan
+        # archivos para renombrar. Evitamos aquí widgets adicionales para
+        # simplificar el control de visibilidad.
+
         layout.addStretch()
-        
+
         return widget
     
     def _create_live_photos_tab(self):
@@ -1046,8 +1045,7 @@ class MainWindow(QMainWindow):
         self.progress_bar.setMaximum(0)
         
         # Deshabilitar botones
-        self.preview_norm_btn.setEnabled(False)
-        self.exec_norm_btn.setEnabled(False)
+        self.preview_rename_btn.setEnabled(False)
         self.exec_lp_btn.setEnabled(False)
         self.exec_unif_btn.setEnabled(False)
         self.exec_heic_btn.setEnabled(False)
@@ -1055,7 +1053,7 @@ class MainWindow(QMainWindow):
         # Crear y configurar worker
         self.analysis_worker = AnalysisWorker(
             self.current_directory,
-            self.normalizer,
+            self.renamer,
             self.live_photo_detector,
             self.directory_unifier,
             self.heic_remover
@@ -1078,6 +1076,22 @@ class MainWindow(QMainWindow):
         self.analysis_worker.start()
         
         self.app_logger.info(f"Iniciando análisis de: {self.current_directory}")
+
+        # Conectar señales de progreso para DirectoryUnifier
+        self.directory_unifier.unify_directory(
+            self.current_directory,
+            progress_callback=self.update_analysis_progress
+        )
+
+        # Conectar señales de progreso para FileRenamer
+        self.renamer.rename_files(
+            self.current_directory,
+            progress_callback=self.update_analysis_progress
+        )
+
+        # Asegurar que la barra de progreso se actualice correctamente
+        self.progress_bar.setValue(0)
+        self.progress_bar.setMaximum(100)
 
     def update_analysis_progress(self, current: int, total: int, message: str):
         """Actualiza barra de progreso con conteo detallado"""
@@ -1133,8 +1147,8 @@ class MainWindow(QMainWindow):
         self.tabs_widget.setVisible(True)
         
         # Habilitar botones según resultados
-        if results.get('normalization') and results['normalization'].get('need_normalization', 0) > 0:
-            self.preview_norm_btn.setEnabled(True)
+        if results.get('renaming') and results['renaming'].get('need_renaming', 0) > 0:
+            self.preview_rename_btn.setEnabled(True)
         
         if results.get('live_photos') and results['live_photos'].get('live_photos_found', 0) > 0:
             self.exec_lp_btn.setEnabled(True)
@@ -1287,9 +1301,9 @@ class MainWindow(QMainWindow):
         self.stats_labels['total'].setText(f"📊 Total: {stats.get('total', 0):,}")
         
         # Tareas
-        norm = results.get('normalization', {})
-        self.task_labels['normalization'].setText(
-            f"📝 Normalizar: {norm.get('need_normalization', 0):,}"
+        ren = results.get('renaming', {})
+        self.task_labels['renaming'].setText(
+            f"📝 Renombrar: {ren.get('need_renaming', 0):,}"
         )
         
         lp = results.get('live_photos', {})
@@ -1310,17 +1324,28 @@ class MainWindow(QMainWindow):
     def _update_tab_details(self, results):
         """Actualiza los detalles en cada pestaña"""
         
-        # Normalización
-        if results.get('normalization'):
-            norm = results['normalization']
+        # Renombrado
+        if results.get('renaming'):
+            ren = results['renaming']
             html = f"""
-                <p><strong>Total archivos:</strong> {norm.get('total_files', 0):,}</p>
-                <p><strong>✅ Ya normalizados:</strong> {norm.get('already_normalized', 0):,}</p>
-                <p><strong>📝 A normalizar:</strong> {norm.get('need_normalization', 0):,}</p>
-                <p><strong>⚠️ No procesables:</strong> {norm.get('cannot_process', 0):,}</p>
-                <p><strong>🔄 Conflictos:</strong> {norm.get('conflicts', 0):,}</p>
+                <p><strong>Total archivos:</strong> {ren.get('total_files', 0):,}</p>
+                <p><strong>✅ Ya renombrados:</strong> {ren.get('already_normalized', 0):,}</p>
+                <p><strong>📝 A renombrar:</strong> {ren.get('need_renaming', 0):,}</p>
+                <p><strong>⚠️ No procesables:</strong> {ren.get('cannot_process', 0):,}</p>
+                <p><strong>🔄 Conflictos:</strong> {ren.get('conflicts', 0):,}</p>
             """
-            self.norm_details.setHtml(html)
+            # Añadir cuadro informativo dentro del contenido HTML sólo si hay archivos a renombrar
+            if ren.get('need_renaming', 0) > 0:
+                info_html = f"""
+                    <div style='margin-top:10px; padding:10px; border-radius:8px; background:#f8f9fa; color:#6c757d;'>
+                        <strong>Información:</strong>
+                        <div>Al aceptar el diálogo de preview se ejecutará el renombrado automáticamente.</div>
+                        <div>Marca la opción de backup en el diálogo si deseas crear una copia antes de renombrar.</div>
+                    </div>
+                """
+                html += info_html
+
+            self.rename_details.setHtml(html)
         
         # Live Photos - CON FORMATEO MEJORADO
         if results.get('live_photos'):
@@ -1364,49 +1389,53 @@ class MainWindow(QMainWindow):
         self.heic_details.setHtml(html)
     
     # ========================================================================
-    # NORMALIZACIÓN
+    # RENOMBRADO
     # ========================================================================
     
-    def preview_normalization(self):
-        """Muestra preview de normalización"""
-        if not self.analysis_results or not self.analysis_results.get('normalization'):
+    def preview_renaming(self):
+        """Muestra preview de renombrado"""
+        if not self.analysis_results or not self.analysis_results.get('renaming'):
             QMessageBox.warning(self, "Advertencia", "No hay análisis disponible")
             return
-        
-        dialog = NormalizationPreviewDialog(self.analysis_results['normalization'], self)
+
+        dialog = RenamingPreviewDialog(self.analysis_results['renaming'], self)
         if dialog.exec_() == QDialog.Accepted and dialog.accepted_plan:
-            self.normalization_plan = dialog.accepted_plan
-            self.exec_norm_btn.setEnabled(True)
+            self.renaming_plan = dialog.accepted_plan
+            # Ejecutar renombrado directamente desde el diálogo
+            # Si el diálogo solo quería preparar el plan sin ejecutar, puede
+            # modificarse aquí. Actualmente acepted_plan implica ejecutar.
+            self.execute_renaming(skip_confirmation=True)
     
-    def execute_normalization(self):
-        """Ejecuta la normalización"""
-        if not hasattr(self, 'normalization_plan'):
+    def execute_renaming(self, skip_confirmation=False):
+        """Ejecuta el renombrado"""
+        if not hasattr(self, 'renaming_plan'):
             return
-        
-        reply = QMessageBox.question(
-            self, 
-            "Confirmar",
-            f"¿Renombrar {len(self.normalization_plan['plan'])} archivos?",
-            QMessageBox.Yes | QMessageBox.No
-        )
-        
-        if reply != QMessageBox.Yes:
-            return
+
+        # Si no se solicita omitir confirmación, pedir confirmación al usuario
+        if not skip_confirmation:
+            reply = QMessageBox.question(
+                self,
+                "Confirmar",
+                f"¿Renombrar {len(self.renaming_plan['plan'])} archivos?",
+                QMessageBox.Yes | QMessageBox.No
+            )
+            if reply != QMessageBox.Yes:
+                return
         
         # Limpiar worker anterior
         if self.execution_worker and self.execution_worker.isRunning():
             self.execution_worker.quit()
             self.execution_worker.wait()
         
-        self.show_progress(len(self.normalization_plan['plan']), "Normalizando archivos...")
-        
-        self.execution_worker = NormalizationWorker(
-            self.normalizer,
-            self.normalization_plan['plan'],
-            self.normalization_plan['create_backup']
+        self.show_progress(len(self.renaming_plan['plan']), "Renombrando archivos...")
+
+        self.execution_worker = RenamingWorker(
+            self.renamer,
+            self.renaming_plan['plan'],
+            self.renaming_plan['create_backup']
         )
-        
-        self.execution_worker.finished.connect(self.on_normalization_finished)
+
+        self.execution_worker.finished.connect(self.on_renaming_finished)
         self.execution_worker.error.connect(self.on_operation_error)
         self.execution_worker.finished.connect(self.execution_worker.deleteLater)
         self.execution_worker.error.connect(self.execution_worker.deleteLater)
@@ -1414,16 +1443,19 @@ class MainWindow(QMainWindow):
         self.active_workers.append(self.execution_worker)
         self.execution_worker.start()
         
-        self.exec_norm_btn.setEnabled(False)
-        self.preview_norm_btn.setEnabled(False)
+        self.preview_rename_btn.setEnabled(False)
     
-    def on_normalization_finished(self, results):
-        """Callback al terminar normalización"""
+    def on_renaming_finished(self, results):
+        """Callback al terminar renombrado"""
         self.hide_progress()
+
+        # Actualizar estadísticas si el diálogo está abierto
+        for dialog in self.findChildren(RenamingPreviewDialog):
+            dialog.update_statistics(results)
         
         html = f"""
             <div style='color: #28a745;'>
-                <h4>✅ Normalización Completada</h4>
+                <h4>✅ Renombrado Completado</h4>
                 <p><strong>Archivos renombrados:</strong> {results.get('files_renamed', 0)}</p>
                 <p><strong>Errores:</strong> {len(results.get('errors', []))}</p>
         """
@@ -1441,10 +1473,37 @@ class MainWindow(QMainWindow):
                 "Completado",
                 f"Se renombraron {results.get('files_renamed', 0)} archivos correctamente"
             )
-        
-        self.preview_norm_btn.setEnabled(False)
-        self.exec_norm_btn.setEnabled(False)
-        
+        # REFRESCAR datos de análisis internos para que la UI muestre el
+        # estado actualizado (p. ej. eliminar el cuadro informativo si ya no
+        # quedan archivos a renombrar)
+        files_renamed = int(results.get('files_renamed', 0))
+        if self.analysis_results and self.analysis_results.get('renaming'):
+            ren = self.analysis_results['renaming']
+            ren['already_normalized'] = ren.get('already_normalized', 0) + files_renamed
+            # Reducir need_renaming preservando >= 0
+            ren['need_renaming'] = max(0, ren.get('need_renaming', 0) - files_renamed)
+            # Si el worker devuelve errores, añadirlos a cannot_process longitud
+            errors_count = len(results.get('errors', [])) if results.get('errors') else 0
+            if errors_count:
+                ren['cannot_process'] = ren.get('cannot_process', 0) + errors_count
+
+            # Ajustar contador de conflictos según los conflictos resueltos durante la operación
+            conflicts_resolved = int(results.get('conflicts_resolved', 0)) if results.get('conflicts_resolved') is not None else 0
+            if conflicts_resolved:
+                ren['conflicts'] = max(0, ren.get('conflicts', 0) - conflicts_resolved)
+
+            self.analysis_results['renaming'] = ren
+
+            # Actualizar paneles y pestañas para reflejar los nuevos valores
+            self._update_summary_panel(self.analysis_results)
+            self._update_tab_details(self.analysis_results)
+
+            # Habilitar/deshabilitar botón de preview según queden archivos
+            self.preview_rename_btn.setEnabled(ren.get('need_renaming', 0) > 0)
+        else:
+            # Si no hay análisis en memoria, simplemente deshabilitar preview
+            self.preview_rename_btn.setEnabled(False)
+
         if self.execution_worker in self.active_workers:
             self.active_workers.remove(self.execution_worker)
         self.execution_worker = None
@@ -1822,16 +1881,19 @@ class MainWindow(QMainWindow):
         # Ocultar paneles
         self.summary_panel.setVisible(False)
         self.tabs_widget.setVisible(False)
-        
+
         # Deshabilitar todos los botones de acción
-        self.preview_norm_btn.setEnabled(False)
-        self.exec_norm_btn.setEnabled(False)
+        self.preview_rename_btn.setEnabled(False)
         self.exec_lp_btn.setEnabled(False)
         self.exec_unif_btn.setEnabled(False)
         self.exec_heic_btn.setEnabled(False)
-        
+
         # Limpiar áreas de detalles
-        self.norm_details.clear()
+        if hasattr(self, 'rename_details'):
+            self.rename_details.clear()
+        if hasattr(self, 'norm_details'):
+            # backward-compat: in case some code still uses norm_details
+            self.norm_details.clear()
         self.lp_details.clear()
         self.unif_details.clear()
         self.heic_details.clear()
@@ -1850,16 +1912,16 @@ class MainWindow(QMainWindow):
         self.stats_labels['images'].setText("🖼️ Imágenes: —")
         self.stats_labels['videos'].setText("🎥 Videos: —")
         self.stats_labels['total'].setText("📊 Total: —")
-        
-        self.task_labels['normalization'].setText("📝 Normalizar: —")
+
+        self.task_labels['renaming'].setText("📝 Renombrar: —")
         self.task_labels['live_photos'].setText("📱 Live Photos: —")
         self.task_labels['unification'].setText("📁 Mover: —")
         self.task_labels['heic'].setText("🖼️ HEIC: —")
-        
+
         # Limpiar resultados
         self.analysis_results = None
         self.last_analyzed_directory = None
-        
+
         # Mensaje informativo
         self.results_area.setHtml("""
             <div style='text-align: center; color: #ff9800; padding: 20px;'>
@@ -1868,7 +1930,7 @@ class MainWindow(QMainWindow):
                 <p>Pulsa <strong>🔍 Seleccionar Directorio y Analizar</strong> para analizar el nuevo directorio</p>
             </div>
         """)
-        
+
         self.app_logger.info("UI reiniciada tras cambio de directorio")
 
 

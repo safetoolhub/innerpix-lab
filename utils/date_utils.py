@@ -94,9 +94,9 @@ def get_exif_date(file_path: Path) -> Optional[datetime]:
         # Error accediendo a EXIF
         return None
 
-def format_normalized_name(date: datetime, file_type: str, extension: str, sequence: Optional[int] = None) -> str:
+def format_renamed_name(date: datetime, file_type: str, extension: str, sequence: Optional[int] = None) -> str:
     """
-    Genera nombre normalizado en formato YYYYMMDD_HHMMSS_TIPO_NNN.ext
+    Genera nombre de renombrado en formato YYYYMMDD_HHMMSS_TIPO_NNN.ext
 
     Args:
         date: Fecha del archivo
@@ -105,7 +105,7 @@ def format_normalized_name(date: datetime, file_type: str, extension: str, seque
         sequence: Número de secuencia opcional (para resolver conflictos)
 
     Returns:
-        Nombre de archivo normalizado
+        Nombre de archivo renombrado
     """
     date_str = date.strftime('%Y%m%d')
     time_str = date.strftime('%H%M%S')
@@ -117,15 +117,15 @@ def format_normalized_name(date: datetime, file_type: str, extension: str, seque
 
     return base_name + extension.upper()  # Usuario prefiere extensiones en mayúscula
 
-def parse_normalized_name(filename: str) -> Optional[dict]:
+def parse_renamed_name(filename: str) -> Optional[dict]:
     """
-    Analiza si un nombre está ya normalizado y extrae sus componentes
+    Analiza si un nombre ya corresponde al formato renombrado y extrae sus componentes
 
     Args:
         filename: Nombre del archivo
 
     Returns:
-        Dict con componentes o None si no está normalizado
+        Dict con componentes o None si no está en formato renombrado
     """
     try:
         # Formato esperado: YYYYMMDD_HHMMSS_TIPO[_NNN].ext
@@ -174,20 +174,20 @@ def parse_normalized_name(filename: str) -> Optional[dict]:
             'type': type_part,
             'sequence': sequence,
             'extension': extension,
-            'is_normalized': True
+            'is_renamed': True
         }
 
     except Exception:
         return None
 
-def is_normalized_filename(filename: str) -> bool:
+def is_renamed_filename(filename: str) -> bool:
     """
-    Verifica rápidamente si un archivo ya está normalizado
+    Verifica rápidamente si un archivo ya está en formato renombrado
 
     Args:
         filename: Nombre del archivo
 
     Returns:
-        True si ya está normalizado
+        True si ya tiene formato de renombrado
     """
-    return parse_normalized_name(filename) is not None
+    return parse_renamed_name(filename) is not None
