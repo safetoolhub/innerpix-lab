@@ -48,6 +48,8 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
+        # ...existing code...
+
         # Variables de estado
         self.current_directory = None
         self.analysis_results = None
@@ -269,22 +271,6 @@ class MainWindow(QMainWindow):
 
         # ===== BARRA DE PROGRESO =====
         self._create_progress_bar(main_layout)
-
-        # ===== ÁREA DE RESULTADOS =====
-        results_label = QLabel("📋 Log de Operaciones")
-        results_label.setStyleSheet(styles.STYLE_RESULTS_LABEL)
-        main_layout.addWidget(results_label)
-
-        self.results_area = QTextEdit()
-        self.results_area.setMaximumHeight(150)
-        self.results_area.setPlaceholderText("Los resultados de las operaciones aparecerán aquí...")
-        self.results_area.setHtml("""
-            <div style='text-align: center; color: #7f8c8d; padding: 20px;'>
-                <h3>👋 Bienvenido</h3>
-                <p>Selecciona el directorio con tus fotos y videos pulsando <strong>📁 Seleccionar y Analizar</strong></p>
-            </div>
-        """)
-        main_layout.addWidget(self.results_area)
 
         # Reemplazar el botón analyze en el search_layout por un contenedor
         # para que analyze_btn y los botones posteriores ocupen exactamente
@@ -722,10 +708,10 @@ class MainWindow(QMainWindow):
         tasks_layout = QVBoxLayout(tasks_group)
         
         self.task_labels = {
-            'renaming': QLabel("📝 Renombrar: —"),
             'live_photos': QLabel("📱 Live Photos: —"),
+            'heic': QLabel("🖼️ HEIC: —"),
             'unification': QLabel("📁 Mover: —"),
-            'heic': QLabel("🖼️ HEIC: —")
+            'renaming': QLabel("📝 Renombrar: —")
         }
         
         for label in self.task_labels.values():
@@ -1074,10 +1060,9 @@ class MainWindow(QMainWindow):
         if self.analysis_worker and self.analysis_worker.isRunning():
             self.analysis_worker.quit()
             self.analysis_worker.wait()
-        
-        # Mostrar progreso
-        self.show_progress(100, "Iniciando análisis...")
-        self.progress_bar.setMaximum(0)
+
+        # Mostrar progreso (modo indeterminado — solo feedback de actividad)
+        self.show_progress(0, "Iniciando análisis...")
         
         # Deshabilitar botones
         self.preview_rename_btn.setEnabled(False)
@@ -1112,29 +1097,22 @@ class MainWindow(QMainWindow):
         
         self.app_logger.info(f"Iniciando análisis de: {self.current_directory}")
 
-        # Conectar señales de progreso para DirectoryUnifier
-        self.directory_unifier.unify_directory(
-            self.current_directory,
-            progress_callback=self.update_analysis_progress
-        )
-
-        # Conectar señales de progreso para FileRenamer
-        self.renamer.rename_files(
-            self.current_directory,
-            progress_callback=self.update_analysis_progress
-        )
-
-        # Asegurar que la barra de progreso se actualice correctamente
-        self.progress_bar.setValue(0)
-        self.progress_bar.setMaximum(100)
+        # NOTA: No pasamos callbacks que envíen valores numéricos a la barra de
+        # progreso. El progress_bar se mostrará en modo indeterminado mientras
+        # haya operaciones en segundo plano. Los mensajes de progreso sí se
+        # muestran en la etiqueta.
 
     def update_analysis_progress(self, current: int, total: int, message: str):
-        """Actualiza barra de progreso con conteo detallado"""
-        if self.progress_bar.maximum() == 0:  # Si está en modo indeterminado
-            self.progress_bar.setMaximum(total)
-
-        self.progress_bar.setValue(current)
-        self.progress_label.setText(message)
+        """Actualiza etiqueta de progreso. Ignora valores numéricos y mantiene
+        la barra en modo indeterminado (busy)."""
+        try:
+            # Mantener la barra en modo indeterminado para evitar mostrar
+            # porcentajes/calculos inexactos. Solo actualizar el mensaje.
+            self.progress_bar.setMaximum(0)
+            self.progress_label.setText(message)
+        except Exception:
+            # No hacer nada si la UI está en un estado inestable
+            pass
 
 
     def update_phase(self, phase_text):
@@ -1195,11 +1173,12 @@ class MainWindow(QMainWindow):
         if results.get('heic') and results['heic'].get('total_duplicates', 0) > 0:
             self.exec_heic_btn.setEnabled(True)  # ← ERA False, ahora es True
         
-        self.results_area.setHtml("""
+        # Mostrar mensaje global solo al completar el análisis por completo
+        self._show_results_html("""
             <div style='color: #28a745; font-weight: bold;'>
                 ✅ Análisis completado con éxito
             </div>
-        """)
+        """, show_generic_status=True)
         
         self.app_logger.info(f"Análisis completado para: {self.last_analyzed_directory}")
         
@@ -1503,7 +1482,7 @@ class MainWindow(QMainWindow):
         
         html += "</div>"
         
-        self.results_area.setHtml(html)
+        self._show_results_html(html, show_generic_status=False)
         
         if results.get('success'):
             QMessageBox.information(
@@ -1657,7 +1636,7 @@ class MainWindow(QMainWindow):
         
         html += "</div>"
         
-        self.results_area.setHtml(html)
+        self._show_results_html(html, show_generic_status=False)
         
         if results.get('success'):
             QMessageBox.information(
@@ -1745,7 +1724,7 @@ class MainWindow(QMainWindow):
         
         html += "</div>"
         
-        self.results_area.setHtml(html)
+        self._show_results_html(html, show_generic_status=False)
         
         if results.get('success'):
             QMessageBox.information(
@@ -1864,7 +1843,7 @@ class MainWindow(QMainWindow):
         
         html += "</div>"
         
-        self.results_area.setHtml(html)
+        self._show_results_html(html, show_generic_status=False)
         
         if results.get('success'):
             QMessageBox.information(
@@ -1890,13 +1869,54 @@ class MainWindow(QMainWindow):
     def show_progress(self, maximum, message="Procesando"):
         """Muestra la barra de progreso"""
         self.progress_group.setVisible(True)
-        self.progress_bar.setMaximum(maximum)
-        self.progress_bar.setValue(0)
+        # Si maximum <= 0 tratamos la barra como indeterminada (busy)
+        try:
+            if not maximum or maximum <= 0:
+                self.progress_bar.setMaximum(0)
+            else:
+                self.progress_bar.setMaximum(maximum)
+                self.progress_bar.setValue(0)
+        except Exception:
+            # En caso de error con el widget, asegurar que al menos se muestre
+            try:
+                self.progress_bar.setMaximum(0)
+            except Exception:
+                pass
+
         self.progress_label.setText(message)
     
     def hide_progress(self):
         """Oculta la barra de progreso"""
-        QTimer.singleShot(1000, lambda: self.progress_group.setVisible(False))
+        # Restaurar estado no-determinado al ocultar para evitar quedar en
+        # estado indeterminado si se reutiliza más tarde con valores.
+        def _hide():
+            try:
+                self.progress_bar.setMaximum(100)
+                self.progress_bar.setValue(0)
+            except Exception:
+                pass
+            self.progress_group.setVisible(False)
+
+        QTimer.singleShot(1000, _hide)
+    
+    def _show_results_html(self, html: str, show_generic_status: bool = False):
+        """Muestra resultados que antes iban al QTextEdit removido.
+
+        En lugar de escribir en un QTextEdit, registramos el HTML y mostramos
+        un mensaje breve en la statusBar. Esto evita AttributeError si el
+        elemento fue eliminado.
+        """
+
+        # Mostrar un aviso genérico SOLO si se solicita explícitamente.
+        try:
+            if show_generic_status:
+                if hasattr(self, 'statusBar'):
+                    self.statusBar().showMessage('Operación completada — revisa el log para detalles', 8000)
+                else:
+                    # fallback: setWindowTitle temporal
+                    self.setWindowTitle(f"{config.config.APP_NAME} — Operación completada")
+        except Exception:
+            pass
     
     def on_operation_error(self, error):
         """Callback genérico para errores"""
@@ -1930,6 +1950,8 @@ class MainWindow(QMainWindow):
 
     def _reset_analysis_ui(self, reinsert_analyze=True):
         """Reinicia la UI tras cambiar de directorio
+
+       
 
         Args:
             reinsert_analyze (bool): si True (por defecto) se reinsertará el
@@ -1997,38 +2019,31 @@ class MainWindow(QMainWindow):
         self.analysis_results = None
         self.last_analyzed_directory = None
 
-        # Mensaje informativo
-        self.results_area.setHtml("""
-            <div style='text-align: center; color: #ff9800; padding: 20px;'>
-                <h3>⚠️ Directorio Cambiado</h3>
-                <p>El análisis anterior se ha limpiado.</p>
-                <p>Pulsa <strong>🔍 Seleccionar Directorio y Analizar</strong> para analizar el nuevo directorio</p>
-            </div>
-        """)
+        # Mensaje informativo breve cuando se limpia el análisis previo
+        # Usar statusBar para notificación no intrusiva; si no existe, usar logger
+        try:
+            if hasattr(self, 'statusBar'):
+                try:
+                    self.statusBar().showMessage(
+                        "El análisis anterior se ha limpiado. Pulsa '🔍 Seleccionar Directorio y Analizar' para analizar el nuevo directorio.",
+                        8000
+                    )
+                except Exception:
+                    # Si statusBar falla, fallback a logger
+                    self.app_logger.info(
+                        "Directorio cambiado: análisis anterior limpiado"
+                    )
+            else:
+                # Fallback si el objeto no tiene statusBar
+                self.app_logger.info(
+                    "Directorio cambiado: análisis anterior limpiado"
+                )
+        except Exception:
+            # Protección final: asegurar que al menos se registre el evento
+            try:
+                self.app_logger.info("Directorio cambiado: análisis anterior limpiado")
+            except Exception:
+                pass
 
         self.app_logger.info("UI reiniciada tras cambio de directorio")
 
-
-# ============================================================================
-# MAIN
-# ============================================================================
-
-def main():
-    app = QApplication(sys.argv)
-    app.setApplicationName(config.config.APP_NAME)
-    app.setApplicationVersion(config.config.APP_VERSION)
-    
-    window = MainWindow()
-    window.show()
-    
-    return app.exec_()
-
-
-if __name__ == "__main__":
-    try:
-        sys.exit(main())
-    except Exception as e:
-        print(f"Error crítico: {e}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)

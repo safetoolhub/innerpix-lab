@@ -49,7 +49,8 @@ class AnalysisWorker(QThread):
                         others.append(f)
                     processed += 1
                     if processed % 10 == 0:
-                        self.progress_update.emit(processed, total_files, "Escaneando archivos")
+                        # Emitir solo mensaje (números se ignoran por la UI)
+                        self.progress_update.emit(0, 0, "Escaneando archivos")
 
             results['stats'] = {
                 'total': total_files,
@@ -65,8 +66,8 @@ class AnalysisWorker(QThread):
                 # Crear callback que emita progress_update SIN procesar eventos
                 # El callback solo emite la señal, el procesamiento lo hace Qt internamente
                 def rename_progress_callback(current: int, total: int, message: str):
-                    # Emitir señal con el formato deseado
-                    self.progress_update.emit(current, total, f"{message} ({current}/{total})")
+                    # No enviar números; solo emitir mensaje para la UI
+                    self.progress_update.emit(0, 0, f"{message} ({current}/{total})")
 
                 results['renaming'] = self.renamer.analyze_directory(
                     self.directory,
@@ -130,7 +131,8 @@ class RenamingWorker(QThread):
     def run(self):
         try:
             def progress_callback(current: int, total: int, message: str):
-                self.progress_update.emit(current, total, message)
+                # Enviar solo el mensaje; los valores numéricos serán ignorados
+                self.progress_update.emit(0, 0, message)
 
             results = self.renamer.execute_renaming(
                 self.plan,
@@ -189,7 +191,7 @@ class DirectoryUnificationWorker(QThread):
     def run(self):
         try:
             def progress_callback(current: int, total: int, message: str):
-                self.progress_update.emit(current, total, message)
+                self.progress_update.emit(0, 0, message)
 
             results = self.unifier.execute_unification(
                 self.plan,

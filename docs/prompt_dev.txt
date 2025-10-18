@@ -186,15 +186,6 @@ Generar comandos explícitos para:
 ***
 
 ### Entregable Esperado
-Codigo para cambiar los nombres de algunas funcionalidades principales y el codigo asociado. Concretamente estas:
-- La funcionalidad de "Renombrado". Deben cambiarse todas sus referencias y nombres de funciones o variables desde "Normalizacion" a "Renombrado". La tab se llamará "Renombrar". El codigo será en ingles usando "rename".
-- La funcionalidad de Live Photos debe cambiarse a "Gestionar Live Photos"
-- La funcionalidad de "unificar" debe añadir "Unificar Directorio"
-- La funcionalidad de Duplicados HEIC pasa a "Eliminar HEIC"
-- Debes cambiar también los textos en los ficheros de logs o en todo lo que se le muestra al usuario.
-- Dame el codigo COMPLETO refactorizado de todos los archivos que se modifiquen
-- EL usuario no debe notar NINGUN cambio funcional o de diseño. Debe verse igual con excepción de los textos relacionados con las funcionalidades.
-- Solo debes modificar textos o nombres de funciones/clases en el codigo.
-- No modifiques los botones, dialogos o diseño.
+Codigo para mejorar el diseño y usabilidad de las pestañas y el resumen izquierdo
 
 Te adjunto los ficheros del codigo actual.

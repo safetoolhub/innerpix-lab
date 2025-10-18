@@ -1,50 +1,105 @@
+# PhotoKit Manager
 
-- **📄 28 archivos Python** con código completo y funcional
-- **📝 6,357 líneas de código** con documentación extensa en español
-- **💾 218.5 KB** de código fuente bien estructurado
-- **🔧 Cumplimiento estricto de PEP 8** con type hints y docstrings
+PhotoKit Manager es una aplicación de escritorio (PyQt5) para analizar y normalizar colecciones de fotos y vídeos. Está pensada especialmente para flujos provenientes de dispositivos iOS y ofrece herramientas para:
 
-## Tecnologías y Librerías Utilizadas
+- Detectar y limpiar Live Photos
+- Unificar estructuras de directorios
+- Renombrado automático inteligente
+- Eliminación/gestión de archivos HEIC/HEIF
 
-### Dependencias Principales
-- **PyQt5**: Interfaz gráfica robusta y profesional
-- **Pillow + pillow-heif**: Procesamiento de imágenes HEIC
-- **imagehash**: Cálculo de hashes perceptuales para comparación
-- **exifread**: Extracción de metadatos EXIF
-- **OpenCV**: Procesamiento de imágenes alternativo
-- **numpy + scipy**: Operaciones matemáticas para hashes
+El objetivo principal es permitir operaciones masivas sobre colecciones multimedia manteniendo un flujo seguro: primero análisis, luego previsualización y, finalmente, ejecución con confirmación del usuario.
 
-### Características Técnicas Avanzadas
-- **Threading responsivo**: Workers en segundo plano para UI fluida
-- **Caché inteligente**: Sistema LRU para optimizar cálculos repetitivos
-- **Manejo robusto de errores**: Categorización y recuperación automática
-- **Logging estructurado**: Registros detallados para auditoría
-- **Configuración flexible**: Parámetros ajustables para diferentes casos de uso
+## Estructura del repositorio
 
-## Flujo de Trabajo Seguro
+- `main.py` — Punto de entrada de la aplicación.
+- `config.py` — Configuración global (nombre, versión, ajustes por defecto).
+- `requirements.txt` — Dependencias Python.
+- `ui/` — Componentes de interfaz gráfica (ventanas, diálogos, estilos y workers).
+- `services/` — Lógica de negocio (renombrado, unificación de directorios, detección de Live Photos, limpieza de HEIC, etc.).
+- `utils/` — Utilidades (logging, manejo de fechas, helpers).
+- `docs/` — Documentación adicional y notas de instalación.
 
-1. **Análisis sin modificar**: Escaneo completo sin tocar archivos
-2. **Previsualización**: Mostrar exactamente qué se va a hacer
-3. **Confirmación explícita**: El usuario debe confirmar operaciones destructivas
-4. **Backup automático**: Creación de respaldos antes de cambios críticos
-5. **Logging completo**: Registro de cada operación para auditoría
-6. **Recuperación**: Posibilidad de deshacer cambios usando backups
+## Requisitos
 
-## Instrucciones de Uso
+- Python 3.9 o superior
+- Plataformas soportadas: Linux, macOS, Windows
 
-### Instalación
-1. Extraer `multimedia_normalizer_completo.zip`
-2. Crear entorno virtual: `python -m venv venv`
-3. Activar entorno: `venv\Scripts\activate` (Windows) o `source venv/bin/activate` (Linux/Mac)
-4. Instalar dependencias: `pip install -r requirements.txt`
-5. Ejecutar: `python src/main.py`
+Se recomienda usar un entorno virtual para aislar dependencias.
 
-### Operación
-1. Seleccionar directorio con fotos/videos de iPhone
-2. Configurar opciones (umbral de similitud, filtros, etc.)
-3. Hacer clic en "Analizar Directorio"
-4. Revisar resultados en pestaña "Análisis"
-5. Seleccionar operaciones en pestaña "Acciones"
-6. Confirmar y ejecutar con seguridad
+## Instalación (Linux / macOS / WSL)
 
-La aplicación está **completamente funcional** y lista para usar, implementando todos los requisitos técnicos y funcionales que especificaste en tu prompt detallado. El código es robusto, bien documentado y sigue las mejores prácticas de desarrollo en Python.
+1. Clona el repositorio:
+
+```bash
+git clone <url-del-repositorio>
+cd photokit-manager
+```
+
+2. Crea y activa un entorno virtual:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
+
+3. Instala dependencias:
+
+```bash
+pip install -r requirements.txt
+```
+
+Nota: Algunas dependencias como `pillow-heif` pueden requerir librerías del sistema (por ejemplo `libheif`). Si la instalación falla, instala las dependencias nativas con el gestor de paquetes de tu distribución (apt, dnf, brew) y vuelve a intentar.
+
+## Ejecución
+
+Con el entorno virtual activo, ejecuta:
+
+```bash
+python main.py
+```
+
+Esto abrirá la interfaz gráfica principal (`ui.main_window.MainWindow`).
+
+## Uso básico
+
+1. Selecciona un directorio raíz que contenga tus fotos y vídeos.
+2. Ejecuta el análisis para inspeccionar contenido, metadatos y detectar Live Photos o duplicados.
+3. Revisa los resultados y previsualiza las operaciones propuestas.
+4. Ajusta parámetros (umbral de similitud, filtros por fecha/tipo, reglas de renombrado).
+5. Confirma la ejecución. La aplicación intenta operar de forma segura (backups/confirmaciones).
+
+## Desarrollo
+
+Puntos de interés para desarrolladores:
+
+- `ui/workers.py` — implementación de tareas en segundo plano para mantener la UI responsiva.
+- `services/` — módulos que contienen la lógica para renombrado, unificación y detección de Live Photos.
+- `utils/logger.py` — configuración y utilidades de logging.
+
+Para contribuir:
+
+1. Crea una rama nueva: `git checkout -b feat/mi-cambio`
+2. Añade tests y documentación para cambios relevantes.
+3. Mantén el estilo PEP 8 y añade type hints donde aplique.
+4. Abre un Pull Request describiendo el cambio.
+
+## Problemas comunes y soluciones
+
+- ImportError de PyQt5: asegúrate de que el entorno virtual está activado y que la instalación de PyQt5 fue exitosa.
+- Problemas con HEIC/HEIF: instala `libheif` y vuelve a instalar `pillow-heif`.
+- Errores al renombrar/borar: verifica permisos en los directorios objetivo.
+- Ejecución en entornos headless: PyQt5 requiere servidor X para mostrar UI; usa Xvfb si necesitas ejecutar pruebas en CI sin display.
+
+Revisa los logs en `utils/logger.py` si algo falla para obtener trazas detalladas.
+
+## Licencia
+
+Consulta el archivo `LICENSE` en la raíz del repositorio para detalles sobre la licencia.
+
+## Contacto
+
+Si detectas fallos o tienes mejoras, abre un issue o PR en el repositorio. Para consultas urgentes, contacta con los mantenedores referenciados en la cabecera del proyecto.
+
+---
+
+README actualizado: instrucciones de instalación, ejecución, desarrollo y troubleshooting adaptadas al contenido real del repositorio.
