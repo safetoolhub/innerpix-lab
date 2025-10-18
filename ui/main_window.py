@@ -1910,11 +1910,17 @@ class MainWindow(QMainWindow):
         # Mostrar un aviso genérico SOLO si se solicita explícitamente.
         try:
             if show_generic_status:
-                if hasattr(self, 'statusBar'):
-                    self.statusBar().showMessage('Operación completada — revisa el log para detalles', 8000)
-                else:
-                    # fallback: setWindowTitle temporal
-                    self.setWindowTitle(f"{config.config.APP_NAME} — Operación completada")
+                # Reemplazamos la barra de estado por un log informativo y un
+                # cambio temporal del título de la ventana como alternativa.
+                try:
+                    self.app_logger.info('Operación completada — revisa el log para detalles')
+                except Exception:
+                    # Si no hay logger disponible, usamos setWindowTitle como
+                    # último recurso (manteniendo el comportamiento previo).
+                    try:
+                        self.setWindowTitle(f"{config.config.APP_NAME} — Operación completada")
+                    except Exception:
+                        pass
         except Exception:
             pass
     
@@ -2020,26 +2026,18 @@ class MainWindow(QMainWindow):
         self.last_analyzed_directory = None
 
         # Mensaje informativo breve cuando se limpia el análisis previo
-        # Usar statusBar para notificación no intrusiva; si no existe, usar logger
+        # Reemplazamos la notificación en la status bar por un log informativo
+        # y (opcional) un cambio temporal del título de la ventana.
         try:
-            if hasattr(self, 'statusBar'):
+            try:
+                self.app_logger.info("Directorio cambiado: análisis anterior limpiado")
+            except Exception:
                 try:
-                    self.statusBar().showMessage(
-                        "El análisis anterior se ha limpiado. Pulsa '🔍 Seleccionar Directorio y Analizar' para analizar el nuevo directorio.",
-                        8000
-                    )
+                    self.setWindowTitle(f"{config.config.APP_NAME} — Análisis limpiado")
                 except Exception:
-                    # Si statusBar falla, fallback a logger
-                    self.app_logger.info(
-                        "Directorio cambiado: análisis anterior limpiado"
-                    )
-            else:
-                # Fallback si el objeto no tiene statusBar
-                self.app_logger.info(
-                    "Directorio cambiado: análisis anterior limpiado"
-                )
+                    pass
         except Exception:
-            # Protección final: asegurar que al menos se registre el evento
+            # Protección final: intentar logging básico
             try:
                 self.app_logger.info("Directorio cambiado: análisis anterior limpiado")
             except Exception:
