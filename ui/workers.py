@@ -77,24 +77,25 @@ class AnalysisWorker(QThread):
             if self.lp_detector:
                 self.phase_update.emit("📱 Detectando Live Photos...")
                 lp_groups = self.lp_detector.detect_in_directory(self.directory)
-                if lp_groups:
-                    lp_analysis = self.lp_detector.analyze_live_photos(lp_groups)
-                    # Convertir al formato esperado
-                    results['live_photos'] = {
-                        'live_photos_found': lp_analysis.get('total_live_photos', 0),
-                        'total_space': lp_analysis.get('total_size', 0),
-                        'space_to_free': lp_analysis.get('potential_savings_keep_image', 0),
-                        'groups': lp_groups,
-                        'analysis': lp_analysis
-                    }
-                else:
-                    results['live_photos'] = {
-                        'live_photos_found': 0,
-                        'total_space': 0,
-                        'space_to_free': 0,
-                        'groups': [],
-                        'analysis': {}
-                    }
+                # Calcular estadísticas directamente de los grupos
+                total_space = sum(group.total_size for group in lp_groups)
+                video_space = sum(group.video_size for group in lp_groups)
+                
+                results['live_photos'] = {
+                    'groups': [
+                        {
+                            'image_path': str(group.image_path),
+                            'video_path': str(group.video_path),
+                            'base_name': group.base_name,
+                            'total_size': group.total_size,
+                            'video_size': group.video_size,
+                            'image_size': group.image_size
+                        }
+                        for group in lp_groups
+                    ],
+                    'total_space': total_space,
+                    'space_to_free': video_space
+                }
 
             # Fase 4: Análisis de estructura
             if self.unifier:
@@ -156,9 +157,13 @@ class LivePhotoCleanupWorker(QThread):
 
     def run(self):
         try:
-            analysis = self.plan['analysis']
+            # Convertimos el plan en el formato que espera el cleaner
+            cleanup_analysis = {
+                'files_to_delete': self.plan['files_to_delete']
+            }
+            
             results = self.cleaner.execute_cleanup(
-                analysis,
+                cleanup_analysis,
                 create_backup=self.plan['create_backup'],
                 dry_run=self.plan['dry_run']
             )

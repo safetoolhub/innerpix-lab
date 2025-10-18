@@ -57,9 +57,12 @@ class LivePhotoDetector:
     def __init__(self):
         self.logger = get_logger("LivePhotoDetector")
 
-        # Patrones de nombres
-        self.image_extensions = {'.heic', '.jpg', '.jpeg', '.png'}
-        self.video_extensions = {'.mov', '.mp4'}
+        # Extensiones para Live Photos - Convertir todas a mayúsculas para comparación
+        self.photo_extensions = {ext.upper() for ext in {'.heic', '.jpg', '.jpeg'}}
+        self.video_extensions = {'.MOV'}  # Live Photos usan específicamente .MOV
+        
+        self.logger.debug(f"Extensiones de foto configuradas: {self.photo_extensions}")
+        self.logger.debug(f"Extensiones de video configuradas: {self.video_extensions}")
 
         # Tolerancia de tiempo
         self.time_tolerance = 2.0
@@ -81,7 +84,7 @@ class LivePhotoDetector:
             raise ValueError(f"Directorio no existe: {directory}")
 
         # Recopilar archivos
-        images = []
+        photos = []
         videos = []
 
         iterator = directory.rglob("*") if recursive else directory.iterdir()
@@ -90,21 +93,24 @@ class LivePhotoDetector:
             if not file_path.is_file():
                 continue
 
-            ext = file_path.suffix.lower()
-            if ext in self.image_extensions:
-                images.append(file_path)
+            ext = file_path.suffix.upper()  # Convertir la extensión a mayúsculas
+            self.logger.debug(f"Analizando archivo: {file_path.name} con extensión {ext}")
+            
+            if ext in self.photo_extensions:
+                self.logger.debug(f"Encontrada foto: {file_path.name}")
+                photos.append(file_path)
             elif ext in self.video_extensions:
+                self.logger.debug(f"Encontrado video: {file_path.name}")
                 videos.append(file_path)
 
-        self.logger.info(f"Encontrados: {len(images)} imágenes, {len(videos)} videos")
+        self.logger.info(f"Encontrados: {len(photos)} fotos, {len(videos)} videos")
 
-        if not images or not videos:
+        if not photos or not videos:
             return []
 
         # Detectar grupos
         groups = []
-        groups.extend(self._detect_by_base_name(images, videos))
-        groups.extend(self._detect_by_timestamp(images, videos))
+        groups.extend(self._detect_live_photos(photos, videos))
 
         # Eliminar duplicados
         unique_groups = self._remove_duplicate_groups(groups)
@@ -113,41 +119,52 @@ class LivePhotoDetector:
 
         return unique_groups
 
-    def _detect_by_base_name(self, images: List[Path], videos: List[Path]) -> List[LivePhotoGroup]:
-        """Detecta por nombre base idéntico"""
+    def _normalize_name(self, name: str) -> str:
+        """Normaliza el nombre eliminando sufijos comunes de fotos y videos"""
+        name = name.lower()
+        # Eliminar sufijos comunes que se añaden al renombrar
+        suffixes = ['_photo', '_video', ' photo', ' video', '-photo', '-video']
+        for suffix in suffixes:
+            if name.endswith(suffix):
+                name = name[:-len(suffix)]
+        return name
+
+    def _detect_live_photos(self, photos: List[Path], videos: List[Path]) -> List[LivePhotoGroup]:
+        """Detecta Live Photos buscando parejas de fotos con videos .MOV"""
         groups = []
-
-        image_map = defaultdict(list)
-        for img in images:
-            image_map[img.stem].append(img)
-
+        
+        # Crear un mapa de nombres base a videos .MOV
         video_map = defaultdict(list)
-        for vid in videos:
-            video_map[vid.stem].append(vid)
+        for video in videos:
+            normalized_name = self._normalize_name(video.stem)
+            video_map[normalized_name].append(video)
+            self.logger.debug(f"Video registrado: {video.name} con nombre normalizado: {normalized_name}")
 
-        for base_name in image_map.keys():
-            if base_name in video_map:
-                for img in image_map[base_name]:
-                    for vid in video_map[base_name]:
-                        if img.parent == vid.parent:
-                            try:
-                                group = LivePhotoGroup(
-                                    image_path=img,
-                                    video_path=vid,
-                                    base_name=base_name,
-                                    directory=img.parent,
-                                    image_size=img.stat().st_size,
-                                    video_size=vid.stat().st_size
-                                )
-                                groups.append(group)
-                            except Exception as e:
-                                self.logger.warning(f"Error creando grupo: {e}")
+        # Por cada foto, buscar su video .MOV correspondiente usando nombres normalizados
+        for photo in photos:
+            normalized_name = self._normalize_name(photo.stem)
+            self.logger.debug(f"Buscando video para foto: {photo.name} con nombre normalizado: {normalized_name}")
+            self.logger.debug(f"Videos disponibles: {[k for k in video_map.keys()]}")
+            if normalized_name in video_map:
+                self.logger.debug(f"¡Match encontrado para {photo.name}!")
+                original_name = photo.stem
+                for video in video_map[normalized_name]:
+                    if photo.parent == video.parent:
+                        try:
+                            group = LivePhotoGroup(
+                                image_path=photo,
+                                video_path=video,
+                                base_name=original_name,
+                                directory=photo.parent,
+                                image_size=photo.stat().st_size,
+                                video_size=video.stat().st_size
+                            )
+                            groups.append(group)
+                            self.logger.debug(f"Live Photo encontrado: {original_name}")
+                        except Exception as e:
+                            self.logger.warning(f"Error creando grupo para {original_name}: {e}")
 
         return groups
-
-    def _detect_by_timestamp(self, images: List[Path], videos: List[Path]) -> List[LivePhotoGroup]:
-        """Detecta por timestamp en nombre normalizado"""
-        groups = []
         timestamp_pattern = re.compile(r'(\d{8}_\d{6})')
 
         image_timestamps = defaultdict(list)

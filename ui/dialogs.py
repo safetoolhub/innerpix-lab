@@ -11,6 +11,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QColor
+import logging
 
 from services.live_photo_cleaner import CleanupMode
 import config
@@ -151,15 +152,16 @@ class LivePhotoCleanupDialog(QDialog):
         total_space = 0
         if mode == CleanupMode.KEEP_IMAGE:
             for group in groups:
-                total_space += group.video_size
+                total_space += group['video_size']
         elif mode == CleanupMode.KEEP_VIDEO:
             for group in groups:
-                total_space += group.image_size
+                total_space += group['image_size']
         return total_space
 
     def _update_button_text(self):
         """Actualiza el texto del botón según el modo seleccionado"""
-        lp_found = self.analysis.get('live_photos_found', 0)
+        groups = self.analysis.get('groups', [])
+        lp_found = len(groups)
         if lp_found > 0:
             space = self._calculate_space_for_mode(self.selected_mode)
             space_formatted = self._format_size(space)
@@ -256,11 +258,15 @@ class LivePhotoCleanupDialog(QDialog):
         self._update_button_text()
 
     def accept(self):
+        # Preparamos el plan de limpieza asegurándonos de que las rutas son objetos Path
         self.accepted_plan = {
             'mode': self.selected_mode,
             'create_backup': self.backup_checkbox.isChecked(),
             'dry_run': self.dry_run_checkbox.isChecked(),
-            'analysis': self.analysis
+            'files_to_delete': (
+                self.analysis['files_to_delete'] if self.selected_mode == CleanupMode.KEEP_IMAGE
+                else self.analysis['files_to_keep']
+            )
         }
         super().accept()
 
@@ -624,7 +630,7 @@ class SettingsDialog(QDialog):
             "WARNING (Solo advertencias)",
             "ERROR (Solo errores)"
         ])
-        self.log_level_combo.setCurrentIndex(1)  # INFO por defecto
+    # No seleccionar por defecto aquí; la sincronización posterior ajustará la selección
         self.log_level_combo.setStyleSheet("""
             QComboBox {
                 padding: 5px 10px;
@@ -635,6 +641,24 @@ class SettingsDialog(QDialog):
         log_level_layout.addWidget(self.log_level_combo)
         log_level_layout.addStretch()
 
+        # Sincronizar con el valor actual (usar el nivel efectivo del logger de la ventana padre si existe)
+        try:
+            if hasattr(self, 'parent_window') and getattr(self.parent_window, 'app_logger', None):
+                level_num = self.parent_window.app_logger.getEffectiveLevel()
+                current_level = logging.getLevelName(level_num).upper()
+            else:
+                current_level = config.Config.LOG_LEVEL.upper()
+        except Exception:
+            current_level = config.Config.LOG_LEVEL.upper()
+
+        found_idx = -1
+        for i in range(self.log_level_combo.count()):
+            text = self.log_level_combo.itemText(i).upper()
+            if text.startswith(current_level):
+                found_idx = i
+                break
+        if found_idx >= 0:
+            self.log_level_combo.setCurrentIndex(found_idx)
         logs_layout.addLayout(log_level_layout)
 
         # Botón abrir carpeta de logs
@@ -857,7 +881,12 @@ class SettingsDialog(QDialog):
 
         # Aquí guardarías el resto de configuraciones en un archivo o variables
 
-        self.parent_window.app_logger.info("Configuración guardada exitosamente")
+        # Registrar usando el nivel efectivo actual del logger (para que WARNING/ERROR sean visibles)
+        try:
+            lvl = self.parent_window.app_logger.getEffectiveLevel()
+            self.parent_window.app_logger.log(lvl, "Configuración guardada exitosamente")
+        except Exception:
+            self.parent_window.app_logger.info("Configuración guardada exitosamente")
 
         QMessageBox.information(
             self,
