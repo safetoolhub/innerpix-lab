@@ -735,17 +735,17 @@ class MainWindow(QMainWindow):
         tabs = QTabWidget()
         tabs.setVisible(False)
         
-        if RENAMING_AVAILABLE:
-            tabs.addTab(self._create_renaming_tab(), "📝 Renombrar")
-        
         if LIVE_PHOTOS_AVAILABLE:
-            tabs.addTab(self._create_live_photos_tab(), "📱 Live Photos")
-        
-        if DIRECTORY_UNIFICATION_AVAILABLE:
-            tabs.addTab(self._create_unification_tab(), "📁 Unificar Directorios")
+            tabs.addTab(self._create_live_photos_tab(), "(1) 📱 Live Photos")
         
         if HEIC_REMOVAL_AVAILABLE:
-            tabs.addTab(self._create_heic_tab(), "🖼️ Duplicados HEIC")
+            tabs.addTab(self._create_heic_tab(), "(2) 🖼️ Duplicados HEIC")
+        
+        if DIRECTORY_UNIFICATION_AVAILABLE:
+            tabs.addTab(self._create_unification_tab(), "(3) 📁 Unificar Directorios")
+        
+        if RENAMING_AVAILABLE:
+            tabs.addTab(self._create_renaming_tab(), "(4) 📝 Renombrar")
         
         return tabs
     
@@ -754,8 +754,27 @@ class MainWindow(QMainWindow):
         widget = QWidget()
         layout = QVBoxLayout(widget)
         
-        info = QLabel("Renombra archivos al formato: YYYYMMDD_HHMMSS.EXT")
-        info.setStyleSheet(styles.STYLE_INFO_LABEL)
+        info = QLabel("""
+            <p><strong>⚠️ IMPORTANTE: Ejecutar como último paso</strong></p>
+            <p>Renombra archivos al formato: YYYYMMDD_HHMMSS.EXT</p>
+            <p style='color: #dc3545;'><strong>ADVERTENCIA:</strong> Renombrar los archivos puede afectar a:</p>
+            <ul style='color: #dc3545;'>
+                <li>Detección de Live Photos</li>
+                <li>Gestión de duplicados HEIC/JPG</li>
+            </ul>
+            <p style='color: #495057;'><em>Asegúrate de haber completado esas tareas antes de renombrar</em></p>
+        """)
+        info.setTextFormat(Qt.RichText)
+        info.setStyleSheet("""
+            QLabel {
+                color: #495057;
+                padding: 15px;
+                background-color: #fff3cd;
+                border: 1px solid #ffeeba;
+                border-radius: 4px;
+                margin-bottom: 10px;
+            }
+        """)
         layout.addWidget(info)
 
         self.rename_details = QTextEdit()
@@ -791,8 +810,13 @@ class MainWindow(QMainWindow):
         widget = QWidget()
         layout = QVBoxLayout(widget)
         
-        info = QLabel("Limpia archivos duplicados de Live Photos de iPhone")
-        info.setStyleSheet("color: #6c757d; padding: 10px; font-style: italic;")
+        info = QLabel("""
+            <p><strong>⚠️ IMPORTANTE: Ejecutar ANTES de renombrar archivos</strong></p>
+            <p>Detecta y limpia Live Photos de iPhone (parejas de foto + video .MOV)</p>
+            <p style='color: #dc3545;'><em>Si los archivos ya han sido renombrados, la detección puede fallar</em></p>
+        """)
+        info.setTextFormat(Qt.RichText)
+        info.setStyleSheet("color: #495057; padding: 10px; background-color: #fff3cd; border: 1px solid #ffeeba; border-radius: 4px;")
         layout.addWidget(info)
         
         # Área de detalles
@@ -1150,7 +1174,7 @@ class MainWindow(QMainWindow):
         if results.get('renaming') and results['renaming'].get('need_renaming', 0) > 0:
             self.preview_rename_btn.setEnabled(True)
         
-        if results.get('live_photos') and results['live_photos'].get('live_photos_found', 0) > 0:
+        if results.get('live_photos') and len(results['live_photos'].get('groups', [])) > 0:
             self.exec_lp_btn.setEnabled(True)
         
         if results.get('unification') and results['unification'].get('total_files_to_move', 0) > 0:
@@ -1350,11 +1374,14 @@ class MainWindow(QMainWindow):
         # Live Photos - CON FORMATEO MEJORADO
         if results.get('live_photos'):
             lp = results['live_photos']
-            total_space = lp.get('total_space', 0)
-            space_to_free = lp.get('space_to_free', 0)
+            self.app_logger.debug(f"Resultados Live Photos: {lp}")
+            
+            total_groups = len(lp.get('groups', []))
+            total_space = sum(group.get('total_size', 0) for group in lp.get('groups', []))
+            space_to_free = sum(group.get('video_size', 0) for group in lp.get('groups', []))
             
             html = f"""
-                <p><strong>📱 Live Photos encontrados:</strong> {lp.get('live_photos_found', 0):,}</p>
+                <p><strong>📱 Live Photos encontrados:</strong> {total_groups:,}</p>
                 <p><strong>💾 Espacio total:</strong> {self._format_size(total_space)}</p>
                 <p><strong>💾 Espacio a liberar (mantener imagen):</strong> {self._format_size(space_to_free)}</p>
             """
@@ -1519,25 +1546,38 @@ class MainWindow(QMainWindow):
         
         lp_results = self.analysis_results['live_photos']
         
-        if lp_results.get('live_photos_found', 0) == 0:
+        lp_groups = lp_results.get('groups', [])
+            
+        if not lp_groups:
             QMessageBox.information(self, "Live Photos", "No hay Live Photos para limpiar")
             return
         
         try:
-            
-            lp_groups = lp_results.get('groups', [])
-            
-            if not lp_groups:
-                QMessageBox.information(self, "Live Photos", "No hay grupos de Live Photos disponibles")
-                return
-            
+            # Por defecto, eliminamos los videos y mantenemos las imágenes
             cleanup_analysis = {
                 'live_photos_found': len(lp_groups),
                 'total_space': lp_results.get('total_space', 0),
                 'space_to_free': lp_results.get('space_to_free', 0),
-                'files_to_delete': [lp.video_path for lp in lp_groups],
-                'files_to_keep': [lp.image_path for lp in lp_groups],
-                'groups': lp_groups
+                'cleanup_mode': 'keep_image',
+                'files_to_delete': [
+                    {
+                        'path': Path(group['video_path']),
+                        'size': group['video_size'],
+                        'type': 'video',
+                        'base_name': group['base_name']
+                    } 
+                    for group in lp_groups
+                ],
+                'files_to_keep': [
+                    {
+                        'path': Path(group['image_path']),
+                        'size': group['image_size'],
+                        'type': 'image',
+                        'base_name': group['base_name']
+                    }
+                    for group in lp_groups
+                ],
+                'groups': lp_groups  # mantener la referencia a los grupos originales
             }
             
             dialog = LivePhotoCleanupDialog(cleanup_analysis, self)
@@ -1552,8 +1592,8 @@ class MainWindow(QMainWindow):
     
     def _execute_lp_cleanup(self, plan):
         """Ejecuta la limpieza de Live Photos"""
-        count = len(plan['analysis'].get('files_to_delete', []))
-        space = plan['analysis'].get('space_to_free', 0)
+        count = len(plan['files_to_delete'])
+        space = sum(file_info['size'] for file_info in plan['files_to_delete'])
         space_formatted = self._format_size(space)
         
         reply = QMessageBox.question(

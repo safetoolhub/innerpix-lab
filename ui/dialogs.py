@@ -151,15 +151,16 @@ class LivePhotoCleanupDialog(QDialog):
         total_space = 0
         if mode == CleanupMode.KEEP_IMAGE:
             for group in groups:
-                total_space += group.video_size
+                total_space += group['video_size']
         elif mode == CleanupMode.KEEP_VIDEO:
             for group in groups:
-                total_space += group.image_size
+                total_space += group['image_size']
         return total_space
 
     def _update_button_text(self):
         """Actualiza el texto del botón según el modo seleccionado"""
-        lp_found = self.analysis.get('live_photos_found', 0)
+        groups = self.analysis.get('groups', [])
+        lp_found = len(groups)
         if lp_found > 0:
             space = self._calculate_space_for_mode(self.selected_mode)
             space_formatted = self._format_size(space)
@@ -256,11 +257,15 @@ class LivePhotoCleanupDialog(QDialog):
         self._update_button_text()
 
     def accept(self):
+        # Preparamos el plan de limpieza asegurándonos de que las rutas son objetos Path
         self.accepted_plan = {
             'mode': self.selected_mode,
             'create_backup': self.backup_checkbox.isChecked(),
             'dry_run': self.dry_run_checkbox.isChecked(),
-            'analysis': self.analysis
+            'files_to_delete': (
+                self.analysis['files_to_delete'] if self.selected_mode == CleanupMode.KEEP_IMAGE
+                else self.analysis['files_to_keep']
+            )
         }
         super().accept()
 
