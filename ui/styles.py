@@ -378,3 +378,52 @@ def get_button_style(color):
             color: #757575;
         }}
     """
+
+# ============================================================================
+# ESTILOS DE PESTAÑAS (NUEVO DISEÑO MODERNO)
+# ============================================================================
+
+STYLE_TAB_WIDGET = """
+QTabWidget::pane {
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    background-color: white;
+    top: -2px;
+}
+
+QTabBar::tab {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #f8f9fa, stop:1 #e9ecef);
+    border: 2px solid #dee2e6;
+    border-bottom: none;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    padding: 12px 24px;
+    margin-right: 4px;
+    margin-top: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #6c757d;
+    min-width: 120px;
+}
+
+QTabBar::tab:hover {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #ffffff, stop:1 #f8f9fa);
+    color: #495057;
+    border-color: #adb5bd;
+}
+
+QTabBar::tab:selected {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #2196F3, stop:1 #1976D2);
+    color: white;
+    border-color: #2196F3;
+    font-weight: 600;
+    padding-bottom: 14px;
+}
+
+QTabBar::tab:!selected {
+    margin-top: 6px;
+}
+"""

@@ -41,7 +41,6 @@ Cuando se menciona "fotos" en este documento, se incluyen imágenes (HEIC, JPG, 
     - Configuración de sensibilidad de detección (slider de 0-20 para Hamming distance threshold)
     - Filtros de formato de archivo (checkboxes por tipo)
     - Barra de progreso con indicador de archivos procesados/total
-	- Checkbox para permitir borrado de ficheros .HEIC con misma imagen duplicada en otro formato
 2. **Panel de Resultados:**
     - Vista de grupos de duplicados en lista o grid
     - Miniaturas/previews en color con información: ruta completa, tamaño, resolución, fecha de creación/modificación
@@ -50,10 +49,10 @@ Cuando se menciona "fotos" en este documento, se incluyen imágenes (HEIC, JPG, 
     - Mostrar score de similitud entre archivos del grupo
 3. **Panel de Acciones:**
     - Funcionalidad "Analizar" (escaneo sin modificación)
-    - Funcionalidad "Normalización" (Renombra archivos a un formato estandard)
     - Funcionalidad "Live Photos" (limpia imagenes o videos duplicados de Live Photos)
-    - Funcionalidad "Unificar Directorio" (mover todos los archivos al directorio raiz)
     - Funcionalidad "Duplicados HEIC" (eliminar ficheros HEIC que duplican una foto)
+    - Funcionalidad "Unificar Directorio" (mover todos los archivos al directorio raiz)
+    - Funcionalidad "Renombrado" (Renombra archivos a un formato estandard)
     - Funcionalidad futura "Eliminar duplicados" (eliminar imagenes duplicadas)
     - Funcionalidad futura "Categorizar por fechas" (permite crear subcarpetas para años o meses)
 
@@ -110,7 +109,7 @@ photokit_manager/
 │ ├── styles.py
 │ └── workers.py
 ├── services/ # Lógica de negocio
-│ ├── file_normalizer.py
+│ ├── file_renamer.py
 │ ├── live_photo_detector.py
 │ ├── live_photo_cleaner.py
 │ ├── directory_unifier.py
@@ -121,7 +120,7 @@ photokit_manager/
 
 ## Funcionalidades
 
-- ✅ **Normalización de archivos**: Renombrado automático con formato `YYYYMMDD_HHMMSS_TIPO_NNN.ext`
+- ✅ **Renombrado de archivos**: Renombrado automático con formato `YYYYMMDD_HHMMSS_TIPO_NNN.ext`
 - ✅ **Detección de Live Photos**: Identifica pares imagen+video de iPhone
 - ✅ **Limpieza de Live Photos**: Elimina videos o imágenes de Live Photos
 - ✅ **Unificación de directorios**: Mueve archivos de subdirectorios al directorio raíz
@@ -186,6 +185,10 @@ Generar comandos explícitos para:
 ***
 
 ### Entregable Esperado
-Codigo para mejorar el diseño y usabilidad de las pestañas y el resumen izquierdo
+- Quiero que mejores el diseño de la aplicación, sindo mas boniot y cumpliendo reglas de usabilidad. 
+- El resumen de la izquierda no debe mostrar el directorio, porque es redundante al verse ya arriba
+- El resumen de la izquierda no debe tener scroll vertical, debe mejorarse pero de forma compacta, ya que deben caber las 4 funcionalidades actuales y dos más futuras
+- Las pestañas deben ser más bonitas, dando feedback al usuario de cual tiene el foco, y con los botones más modernos, al etilo del de "analizar"
+- Si tienes otras propuestas de mejora, dimelas.
 
 Te adjunto los ficheros del codigo actual.
