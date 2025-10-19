@@ -61,7 +61,7 @@ class AnalysisWorker(QThread):
 
             # Fase 2: Análisis de renombrado
             if self.renamer:
-                self.phase_update.emit("📝 Analizando nombres de archivo...")
+                self.phase_update.emit("📝 Analizando nombres de archivos...")
 
                 # Crear callback que emita progress_update SIN procesar eventos
                 # El callback solo emite la señal, el procesamiento lo hace Qt internamente
@@ -100,7 +100,7 @@ class AnalysisWorker(QThread):
 
             # Fase 4: Análisis de estructura
             if self.unifier:
-                self.phase_update.emit("📁 Analizando estructura de directorios...")
+                self.phase_update.emit("📁 Analizando estructura de directorios para unificación...")
                 results['unification'] = self.unifier.analyze_directory_structure(self.directory)
 
             # Fase 5: Duplicados HEIC
@@ -117,7 +117,7 @@ class AnalysisWorker(QThread):
 
 
 class RenamingWorker(QThread):
-    """Worker para ejecutar renombrado de nombres de archivo"""
+    """Worker para ejecutar renombrado de nombres de archivos"""
     progress_update = pyqtSignal(int, int, str)
     finished = pyqtSignal(dict)
     error = pyqtSignal(str)

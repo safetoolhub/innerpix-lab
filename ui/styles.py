@@ -168,11 +168,11 @@ STYLE_INFO_ICON = "font-size: 20px;"
 
 STYLE_SEPARATOR = "background-color: #dee2e6;"
 
-STYLE_STATS_DIRECTORY = """
-font-weight: bold;
-color: #007bff;
-text-decoration: underline;
-"""
+#STYLE_STATS_DIRECTORY = """
+#font-weight: bold;
+#color: #007bff;
+#text-decoration: underline;
+#"""
 
 # ============================================================================
 # ESTILOS DE INPUT FIELDS
