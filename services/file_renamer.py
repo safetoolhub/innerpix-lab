@@ -176,12 +176,20 @@ class FileRenamer:
 
         self.logger.info(f"Creando backup en: {backup_path}")
 
+        # Informar al UI/worker sobre la ruta del backup
+        if progress_callback:
+            try:
+                # total_files ya calculado más abajo; enviar mensaje con ruta
+                progress_callback(0, 0, f"Creando backup en: {backup_path}")
+            except Exception:
+                pass
+
         # Obtener total de archivos para el progreso
         total_files = sum(1 for f in directory.rglob("*") 
                          if f.is_file() and config.config.is_supported_file(f.name))
         
         if progress_callback:
-            progress_callback(0, total_files, "Iniciando creación de backup...")
+            progress_callback(0, total_files, f"Iniciando creación de backup en: {backup_path}")
 
         # Copiar solo archivos multimedia (no todo el directorio)
         files_backed_up = 0

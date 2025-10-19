@@ -95,7 +95,8 @@ class AnalysisWorker(QThread):
                         for group in lp_groups
                     ],
                     'total_space': total_space,
-                    'space_to_free': video_space
+                    'space_to_free': video_space,
+                    'live_photos_found': len(lp_groups)
                 }
 
             # Fase 4: Análisis de estructura
@@ -163,11 +164,14 @@ class LivePhotoCleanupWorker(QThread):
             cleanup_analysis = {
                 'files_to_delete': self.plan['files_to_delete']
             }
-            
+            def progress_callback(current: int, total: int, message: str):
+                self.progress_update.emit(0, 0, message)
+
             results = self.cleaner.execute_cleanup(
                 cleanup_analysis,
                 create_backup=self.plan['create_backup'],
-                dry_run=self.plan['dry_run']
+                dry_run=self.plan['dry_run'],
+                progress_callback=progress_callback
             )
             self.finished.emit(results)
         except Exception as e:
@@ -220,11 +224,26 @@ class HEICRemovalWorker(QThread):
 
     def run(self):
         try:
+            def progress_callback(current: int, total: int, message: str):
+                self.progress_update.emit(0, 0, message)
+
+            # Attach callback to remover so create_backup (which may not accept
+            # progress_callback explicitly) can use it via attribute
+            try:
+                setattr(self.remover, '_progress_callback', progress_callback)
+            except Exception:
+                pass
+
             results = self.remover.execute_removal(
                 self.pairs,
                 keep_format=self.keep_format,
                 create_backup=self.create_backup
             )
+            # Clean up attribute
+            try:
+                delattr(self.remover, '_progress_callback')
+            except Exception:
+                pass
             self.finished.emit(results)
         except Exception as e:
             import traceback
