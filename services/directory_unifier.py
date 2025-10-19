@@ -247,6 +247,13 @@ class DirectoryUnifier:
 
         self.logger.info(f"Creando backup en: {backup_path}")
 
+        # Informar al UI/worker sobre la ruta del backup
+        if progress_callback:
+            try:
+                progress_callback(0, 0, f"Creando backup en: {backup_path}")
+            except Exception:
+                pass
+
         # Obtener total de archivos para el progreso
         total_files = sum(1 for f in root_directory.rglob("*") 
                          if f.is_file() and config.Config.is_supported_file(f.name))
@@ -267,6 +274,13 @@ class DirectoryUnifier:
                     files_backed_up += 1
                 except Exception as e:
                     self.logger.warning(f"Error copiando {item.name} al backup: {e}")
+                finally:
+                    # Emitir progreso intermedio incluyendo la ruta del backup
+                    if progress_callback:
+                        try:
+                            progress_callback(files_backed_up, total_files, f"Creando backup en: {backup_path} ({files_backed_up}/{total_files})")
+                        except Exception:
+                            pass
 
         self.logger.info(f"Backup completado: {files_backed_up} archivos")
         self.backup_dir = backup_path

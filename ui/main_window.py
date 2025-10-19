@@ -33,6 +33,13 @@ from services.live_photo_detector import LivePhotoDetector
 from services.directory_unifier import DirectoryUnifier
 from services.heic_remover import HEICDuplicateRemover
 from utils.date_utils import get_file_date, format_renamed_name, is_renamed_filename
+from ui.ui_helpers import (
+    create_summary_panel, create_tabs_widget, open_summary_action,
+    create_renaming_tab, create_live_photos_tab, create_unification_tab,
+    create_heic_tab, create_progress_bar, update_summary_panel,
+    update_tab_details, show_results_html, format_size, reset_analysis_ui,
+    show_progress, hide_progress, get_button_style
+)
 
 # ============================================================================
 # VERIFICAR DISPONIBILIDAD DE MÓDULOS
@@ -663,370 +670,33 @@ class MainWindow(QMainWindow):
         parent_layout.addWidget(config_container)
 
     def _create_summary_panel(self):
-        """Crea el panel lateral de resumen (diseño moderno y compacto)."""
-        panel = QFrame()
-        panel.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
-        panel.setStyleSheet(styles.STYLE_SUMMARY_PANEL)
-        # Mantener panel compacto y sin scroll vertical
-        panel.setMaximumWidth(360)
-
-        layout = QVBoxLayout(panel)
-        layout.setSpacing(8)
-        layout.setContentsMargins(8, 8, 8, 8)
-
-        # Título compacto
-        title = QLabel("📊 RESUMEN")
-        title.setStyleSheet(styles.STYLE_SUMMARY_TITLE)
-        title.setAlignment(Qt.AlignCenter)
-        layout.addWidget(title)
-
-        # --- Estadísticas compactas ---
-        info_card = QFrame()
-        # Usar un estilo más limpio y moderno para la tarjeta
-        info_card.setStyleSheet(
-            "background: linear-gradient(#ffffff, #fbfdff);"
-            "border: 1px solid #e6eef6; border-radius: 10px;"
-            "padding: 10px;"
-        )
-        info_layout = QVBoxLayout(info_card)
-        info_layout.setSpacing(8)
-        info_layout.setContentsMargins(8, 8, 8, 8)
-
-        # Mantener solo estadísticas (sin ruta de directorio redundante)
-        # Crear widgets para imágenes/videos en la misma línea y total en otra
-        stats_top_row = QHBoxLayout()
-        stats_top_row.setSpacing(8)
-
-        self.stats_labels = {
-            'images': QLabel("🖼️ —"),
-            'videos': QLabel("🎥 —"),
-            'total': QLabel("📊 —")
-        }
-
-        # Estilo actualizado para chips: ligero, con sombra suave y borde
-        chip_style = (
-            "background: #ffffff;"
-            "border: 1px solid #e1eef9;"
-            "border-radius: 8px;"
-            "padding: 6px 10px;"
-            "color: #1f2d3d;"
-        )
-
-        # Images and videos inline
-        for key in ['images', 'videos']:
-            chip = QLabel(self.stats_labels[key].text())
-            chip.setAlignment(Qt.AlignCenter)
-            chip.setStyleSheet(chip_style)
-            chip.setContentsMargins(6, 4, 6, 4)
-            stats_top_row.addWidget(chip)
-            # mantener referencia para actualizaciones posteriores
-            self.stats_labels[key] = chip
-
-        # Spacer + total on separate line below
-        info_layout.addLayout(stats_top_row)
-
-        stats_bottom_row = QHBoxLayout()
-        stats_bottom_row.setSpacing(8)
-        total_chip = QLabel(self.stats_labels['total'].text())
-        total_chip.setAlignment(Qt.AlignCenter)
-        # Emphasize total (darker background)
-        total_chip.setStyleSheet(
-            "background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #f0f8ff, stop:1 #e6f2ff);"
-            "border: 1px solid #cfe8ff; border-radius: 8px; padding: 8px 10px; font-weight: 600; color: #0b3b66;"
-        )
-        total_chip.setContentsMargins(6, 6, 6, 6)
-        stats_bottom_row.addWidget(total_chip)
-        # mantener referencia
-        self.stats_labels['total'] = total_chip
-
-        info_layout.addLayout(stats_bottom_row)
-        layout.addWidget(info_card)
-
-        # --- Acciones / funcionalidades disponibles ---
-        actions_card = QFrame()
-        actions_card.setStyleSheet("background: transparent;")
-        actions_layout = QVBoxLayout(actions_card)
-        actions_layout.setSpacing(6)
-        actions_layout.setContentsMargins(0, 0, 0, 0)
-
-        actions_title = QLabel("⚙️ Funcionalidades")
-        actions_title.setStyleSheet("font-weight: bold; color: #2c3e50;")
-        actions_layout.addWidget(actions_title)
-
-        # Botones apilados (full-width) que combinan etiqueta + contador
-        self.summary_action_buttons = {}
-        stack_layout = QVBoxLayout()
-        stack_layout.setSpacing(6)
-
-        def make_full_btn(key, emoji, label_text):
-            btn = QPushButton(f"{emoji} {label_text}")
-            btn.setCursor(Qt.PointingHandCursor)
-            btn.setFixedHeight(36)
-            btn.setStyleSheet(styles.STYLE_SUMMARY_ACTION_BUTTON + "QPushButton { text-align: left; padding-left: 12px; }")
-            btn.clicked.connect(lambda: self._open_summary_action(label_text))
-            # expandir horizontalmente dentro del layout
-            # expandir horizontalmente y mantener altura fija
-            btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-            self.summary_action_buttons[key] = btn
-            return btn
-
-        if LIVE_PHOTOS_AVAILABLE:
-            stack_layout.addWidget(make_full_btn('live_photos', '📱', 'Live Photos'))
-        if HEIC_REMOVAL_AVAILABLE:
-            stack_layout.addWidget(make_full_btn('heic', '🖼️', 'Duplicados HEIC'))
-        if DIRECTORY_UNIFICATION_AVAILABLE:
-            stack_layout.addWidget(make_full_btn('unification', '📁', 'Unificar Directorios'))
-        if RENAMING_AVAILABLE:
-            stack_layout.addWidget(make_full_btn('renaming', '📝', 'Renombrado'))
-
-        actions_layout.addLayout(stack_layout)
-
-        # Lista compacta de tareas detectadas (resumen breve)
-        tasks_brief = QFrame()
-        tasks_layout = QVBoxLayout(tasks_brief)
-        tasks_layout.setSpacing(4)
-        tasks_layout.setContentsMargins(0, 6, 0, 0)
-
-
-        actions_layout.addWidget(tasks_brief)
-        layout.addWidget(actions_card)
-
-        layout.addStretch()
-
-        # Inicialmente oculto
-        panel.setVisible(False)
-        return panel
+        """Delegar a helper para mantener el archivo más compacto."""
+        return create_summary_panel(self)
     
     def _create_tabs_widget(self):
-        """Crea el widget de pestañas"""
-        tabs = QTabWidget()
-        tabs.setStyleSheet(styles.STYLE_TAB_WIDGET)
-        tabs.setVisible(False)
-        # Construir pestañas en orden conocido y guardar índices para acceso rápido
-        self.tab_index_map = {}
-        idx = 0
-        if LIVE_PHOTOS_AVAILABLE:
-            tabs.addTab(self._create_live_photos_tab(), "(1) 📱 Live Photos")
-            self.tab_index_map['live_photos'] = idx
-            idx += 1
-
-        if HEIC_REMOVAL_AVAILABLE:
-            tabs.addTab(self._create_heic_tab(), "(2) 🖼️ Duplicados HEIC")
-            self.tab_index_map['heic'] = idx
-            idx += 1
-
-        if DIRECTORY_UNIFICATION_AVAILABLE:
-            tabs.addTab(self._create_unification_tab(), "(3) 📁 Unificar Directorios")
-            self.tab_index_map['unification'] = idx
-            idx += 1
-
-        if RENAMING_AVAILABLE:
-            tabs.addTab(self._create_renaming_tab(), "(4) 📝 Renombrado")
-            self.tab_index_map['renaming'] = idx
-            idx += 1
-
-        return tabs
+        return create_tabs_widget(self)
 
     def _open_summary_action(self, label_substr):
         """Selecciona la pestaña correspondiente según el botón del summary.
 
         label_substr: una breve cadena que identifica la funcionalidad (p.ej. 'Live Photos')
         """
-        if not hasattr(self, 'tabs_widget') or self.tabs_widget.count() == 0:
-            return
-
-        # Usar el mapa de índices creado al construir las pestañas
-        if hasattr(self, 'tab_index_map'):
-            key_map = {
-                'live photos': 'live_photos',
-                'duplicados heic': 'heic',
-                'unificar directorios': 'unification',
-                'renombrado': 'renaming'
-            }
-            lookup = key_map.get(label_substr.lower())
-            if lookup and lookup in self.tab_index_map:
-                self.tabs_widget.setCurrentIndex(self.tab_index_map[lookup])
-                self.tabs_widget.setVisible(True)
-                return
-
-        # Fallback: seleccionar la primera pestaña disponible
-        if self.tabs_widget.count() > 0:
-            self.tabs_widget.setCurrentIndex(0)
-            self.tabs_widget.setVisible(True)
-        return
-        # Si no encontró coincidencia, seleccionar la primera pestaña
-        self.tabs_widget.setCurrentIndex(0)
-        self.tabs_widget.setVisible(True)
+        return open_summary_action(self, label_substr)
     
     def _create_renaming_tab(self):
-        """Crea la pestaña de renombrado"""
-        widget = QWidget()
-        layout = QVBoxLayout(widget)
-        
-        info = QLabel("""
-            <p><strong>⚠️ IMPORTANTE: Ejecutar como último paso</strong></p>
-            <p>Renombra archivos al formato: YYYYMMDD_HHMMSS.EXT</p>
-            <p style='color: #dc3545;'><strong>ADVERTENCIA:</strong> Renombrar los archivos puede afectar a:</p>
-            <ul style='color: #dc3545;'>
-                <li>Detección de Live Photos</li>
-                <li>Gestión de duplicados HEIC/JPG</li>
-            </ul>
-            <p style='color: #495057;'><em>Asegúrate de haber completado esas tareas antes de renombrar</em></p>
-        """)
-        info.setTextFormat(Qt.RichText)
-        info.setStyleSheet("""
-            QLabel {
-                color: #495057;
-                padding: 15px;
-                background-color: #fff3cd;
-                border: 1px solid #ffeeba;
-                border-radius: 4px;
-                margin-bottom: 10px;
-            }
-        """)
-        layout.addWidget(info)
-
-        self.rename_details = QTextEdit()
-        self.rename_details.setReadOnly(True)
-        self.rename_details.setMaximumHeight(200)
-        self.rename_details.setPlaceholderText("Los detalles aparecerán después del análisis...")
-        layout.addWidget(self.rename_details)
-
-        # Botones con NUEVOS colores
-        button_layout = QHBoxLayout()
-        button_layout.addStretch()
-
-        self.preview_rename_btn = QPushButton("📋 Renombrar archivos")
-        self.preview_rename_btn.setEnabled(False)
-        self.preview_rename_btn.clicked.connect(self.preview_renaming)
-        # Azul más suave para preview
-        self.preview_rename_btn.setStyleSheet(styles.get_button_style("#007bff"))
-        button_layout.addWidget(self.preview_rename_btn)
-
-        layout.addLayout(button_layout)
-
-        # Nota: la información adicional sobre el renombrado se mostrará
-        # dentro de `self.rename_details` como HTML sólo cuando existan
-        # archivos para renombrar. Evitamos aquí widgets adicionales para
-        # simplificar el control de visibilidad.
-
-        layout.addStretch()
-
-        return widget
+        return create_renaming_tab(self)
     
     def _create_live_photos_tab(self):
-        """Crea la pestaña de Live Photos"""
-        widget = QWidget()
-        layout = QVBoxLayout(widget)
-        
-        info = QLabel("""
-            <p><strong>⚠️ IMPORTANTE: Ejecutar ANTES de renombrar archivos</strong></p>
-            <p>Detecta y limpia Live Photos de iPhone (parejas de foto + video .MOV)</p>
-            <p style='color: #dc3545;'><em>Si los archivos ya han sido renombrados, la detección puede fallar</em></p>
-        """)
-        info.setTextFormat(Qt.RichText)
-        info.setStyleSheet("color: #495057; padding: 10px; background-color: #fff3cd; border: 1px solid #ffeeba; border-radius: 4px;")
-        layout.addWidget(info)
-        
-        # Área de detalles
-        self.lp_details = QTextEdit()
-        self.lp_details.setReadOnly(True)
-        self.lp_details.setMaximumHeight(200)
-        self.lp_details.setPlaceholderText("Los detalles aparecerán después del análisis...")
-        layout.addWidget(self.lp_details)
-        
-        # Botones
-        button_layout = QHBoxLayout()
-        button_layout.addStretch()
-        
-        self.exec_lp_btn = QPushButton("⚡ Limpiar Live Photos")
-        self.exec_lp_btn.setEnabled(False)
-        self.exec_lp_btn.clicked.connect(self.cleanup_live_photos)
-        self.exec_lp_btn.setStyleSheet(styles.get_button_style("#28a745"))
-        button_layout.addWidget(self.exec_lp_btn)
-        
-        layout.addLayout(button_layout)
-        layout.addStretch()
-        
-        return widget
+        return create_live_photos_tab(self)
     
     def _create_unification_tab(self):
-        """Crea la pestaña de unificación"""
-        widget = QWidget()
-        layout = QVBoxLayout(widget)
-        
-        info = QLabel("Mueve todos los archivos al directorio raíz")
-        info.setStyleSheet("color: #6c757d; padding: 10px; font-style: italic;")
-        layout.addWidget(info)
-        
-        # Área de detalles
-        self.unif_details = QTextEdit()
-        self.unif_details.setReadOnly(True)
-        self.unif_details.setMaximumHeight(200)
-        self.unif_details.setPlaceholderText("Los detalles aparecerán después del análisis...")
-        layout.addWidget(self.unif_details)
-        
-        # Botones
-        button_layout = QHBoxLayout()
-        button_layout.addStretch()
-        
-        self.exec_unif_btn = QPushButton("⚡ Unificar Directorios")
-        self.exec_unif_btn.setEnabled(False)
-        self.exec_unif_btn.clicked.connect(self.unify_directories)
-        self.exec_unif_btn.setStyleSheet(styles.get_button_style("#28a745"))
-        button_layout.addWidget(self.exec_unif_btn)
-        
-        layout.addLayout(button_layout)
-        layout.addStretch()
-        
-        return widget
+        return create_unification_tab(self)
     
     def _create_heic_tab(self):
-        """Crea la pestaña de HEIC"""
-        widget = QWidget()
-        layout = QVBoxLayout(widget)
-        
-        info = QLabel("Elimina duplicados cuando existen archivos HEIC y JPG con el mismo nombre")
-        info.setStyleSheet("color: #6c757d; padding: 10px; font-style: italic;")
-        layout.addWidget(info)
-        
-        # Área de detalles
-        self.heic_details = QTextEdit()
-        self.heic_details.setReadOnly(True)
-        self.heic_details.setMaximumHeight(200)
-        self.heic_details.setPlaceholderText("Los detalles aparecerán después del análisis...")
-        layout.addWidget(self.heic_details)
-        
-        # Botones
-        button_layout = QHBoxLayout()
-        button_layout.addStretch()
-        
-        self.exec_heic_btn = QPushButton("⚡ Eliminar Duplicados")
-        self.exec_heic_btn.setEnabled(False)
-        self.exec_heic_btn.clicked.connect(self.remove_heic)
-        self.exec_heic_btn.setStyleSheet(styles.get_button_style("#28a745"))
-        button_layout.addWidget(self.exec_heic_btn)
-        
-        layout.addLayout(button_layout)
-        layout.addStretch()
-        
-        return widget
+        return create_heic_tab(self)
     
     def _create_progress_bar(self, parent_layout):
-        """Crea la barra de progreso"""
-        self.progress_group = QGroupBox("📊 Progreso")
-        progress_layout = QVBoxLayout(self.progress_group)
-        
-        self.progress_label = QLabel("Listo para procesar")
-        self.progress_label.setStyleSheet(styles.STYLE_PROGRESS_LABEL)
-        progress_layout.addWidget(self.progress_label)
-        
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setStyleSheet(styles.STYLE_PROGRESS_BAR)
-        progress_layout.addWidget(self.progress_bar)
-        
-        self.progress_group.setVisible(False)
-        parent_layout.addWidget(self.progress_group)
+        return create_progress_bar(self, parent_layout)
     
 
 
@@ -1413,111 +1083,10 @@ class MainWindow(QMainWindow):
         
 
     def _update_summary_panel(self, results):
-        """Actualiza el panel de resumen con los resultados"""
-        stats = results.get('stats', {})
-
-        # Actualizar chips de estadísticas (sin mostrar la ruta)
-        images_txt = f"🖼️ Imágenes: {stats.get('images', 0):,}"
-        videos_txt = f"🎥 Videos: {stats.get('videos', 0):,}"
-        total_txt = f"📊 Total: {stats.get('total', 0):,}"
-
-        try:
-            if 'images' in self.stats_labels:
-                self.stats_labels['images'].setText(images_txt)
-            if 'videos' in self.stats_labels:
-                self.stats_labels['videos'].setText(videos_txt)
-            if 'total' in self.stats_labels:
-                self.stats_labels['total'].setText(total_txt)
-        except Exception:
-            # No bloquear la UI por problemas menores de actualización
-            pass
-        
-        # Tareas y actualizar botones del summary (fusionados con etiquetas)
-        ren = results.get('renaming', {})
-        lp = results.get('live_photos', {})
-        unif = results.get('unification', {})
-        heic = results.get('heic', {})
-
-        # Actualizar botones del panel de funcionalidades con contadores para evitar corte
-        if hasattr(self, 'summary_action_buttons'):
-            if 'live_photos' in self.summary_action_buttons:
-                self.summary_action_buttons['live_photos'].setText(f"📱 Live Photos   {lp.get('live_photos_found', 0):,}")
-            if 'heic' in self.summary_action_buttons:
-                self.summary_action_buttons['heic'].setText(f"🖼️ Duplicados HEIC   {heic.get('total_duplicates', 0):,}")
-            if 'unification' in self.summary_action_buttons:
-                self.summary_action_buttons['unification'].setText(f"📁 Unificar Directorios   {unif.get('total_files_to_move', 0):,}")
-            if 'renaming' in self.summary_action_buttons:
-                self.summary_action_buttons['renaming'].setText(f"� Renombrado   {ren.get('need_renaming', 0):,}")
+        return update_summary_panel(self, results)
     
     def _update_tab_details(self, results):
-        """Actualiza los detalles en cada pestaña"""
-        
-        # Renombrado
-        if results.get('renaming'):
-            ren = results['renaming']
-            html = f"""
-                <p><strong>Total archivos:</strong> {ren.get('total_files', 0):,}</p>
-                <p><strong>✅ Ya renombrados:</strong> {ren.get('already_renamed', 0):,}</p>
-                <p><strong>📝 A renombrar:</strong> {ren.get('need_renaming', 0):,}</p>
-                <p><strong>⚠️ No procesables:</strong> {ren.get('cannot_process', 0):,}</p>
-                <p><strong>🔄 Conflictos:</strong> {ren.get('conflicts', 0):,}</p>
-            """
-            # Añadir cuadro informativo dentro del contenido HTML sólo si hay archivos a renombrar
-            if ren.get('need_renaming', 0) > 0:
-                info_html = f"""
-                    <div style='margin-top:10px; padding:10px; border-radius:8px; background:#f8f9fa; color:#6c757d;'>
-                        <strong>Información:</strong>
-                        <div>Al aceptar el diálogo de preview se ejecutará el renombrado automáticamente.</div>
-                        <div>Marca la opción de backup en el diálogo si deseas crear una copia antes de renombrar.</div>
-                    </div>
-                """
-                html += info_html
-
-            self.rename_details.setHtml(html)
-        
-        # Live Photos - CON FORMATEO MEJORADO
-        if results.get('live_photos'):
-            lp = results['live_photos']
-            self.app_logger.debug(f"Resultados Live Photos: {lp}")
-            
-            total_groups = len(lp.get('groups', []))
-            total_space = sum(group.get('total_size', 0) for group in lp.get('groups', []))
-            space_to_free = sum(group.get('video_size', 0) for group in lp.get('groups', []))
-            
-            html = f"""
-                <p><strong>📱 Live Photos encontrados:</strong> {total_groups:,}</p>
-                <p><strong>💾 Espacio total:</strong> {self._format_size(total_space)}</p>
-                <p><strong>💾 Espacio a liberar (mantener imagen):</strong> {self._format_size(space_to_free)}</p>
-            """
-            self.lp_details.setHtml(html)
-        
-        # Unificación - CON FORMATEO MEJORADO
-        if results.get('unification'):
-            unif = results['unification']
-            total_size = unif.get('total_size_to_move', 0)
-            
-            html = f"""
-                <p><strong>📁 Subdirectorios:</strong> {len(unif.get('subdirectories', {})):,}</p>
-                <p><strong>📄 Archivos a mover:</strong> {unif.get('total_files_to_move', 0):,}</p>
-                <p><strong>💾 Tamaño total:</strong> {self._format_size(total_size)}</p>
-                <p><strong>⚠️ Conflictos potenciales:</strong> {unif.get('potential_conflicts', 0):,}</p>
-            """
-            self.unif_details.setHtml(html)
-        
-        # HEIC - CON FORMATEO MEJORADO
-        if results.get('heic'):
-            heic = results['heic']
-            savings_jpg = heic.get('potential_savings_keep_jpg', 0)
-            savings_heic = heic.get('potential_savings_keep_heic', 0)
-            
-            html = f"""
-                <p><strong>♻️ Pares detectados:</strong> {heic.get('total_duplicates', 0):,}</p>
-                <p><strong>🖼️ Archivos HEIC:</strong> {heic.get('total_heic_files', 0):,}</p>
-                <p><strong>📸 Archivos JPG:</strong> {heic.get('total_jpg_files', 0):,}</p>
-                <p><strong>💾 Ahorro (mantener JPG):</strong> {self._format_size(savings_jpg)}</p>
-                <p><strong>💾 Ahorro (mantener HEIC):</strong> {self._format_size(savings_heic)}</p>
-            """
-        self.heic_details.setHtml(html)
+        return update_tab_details(self, results)
     
     # ========================================================================
     # RENOMBRADO
@@ -1565,6 +1134,11 @@ class MainWindow(QMainWindow):
             self.renaming_plan['plan'],
             self.renaming_plan['create_backup']
         )
+        # Conectar actualizaciones de progreso para mostrar mensajes (ej. backup)
+        try:
+            self.execution_worker.progress_update.connect(self.update_analysis_progress)
+        except Exception:
+            pass
 
         self.execution_worker.finished.connect(self.on_renaming_finished)
         self.execution_worker.error.connect(self.on_operation_error)
@@ -1638,6 +1212,12 @@ class MainWindow(QMainWindow):
         if self.execution_worker in self.active_workers:
             self.active_workers.remove(self.execution_worker)
         self.execution_worker = None
+        # Programar re-análisis automático para mantener consistencia
+        try:
+            self._schedule_reanalysis()
+        except Exception:
+            # No interrumpir el flujo por un fallo en el reanálisis
+            self.app_logger.exception("Error al programar re-análisis tras renombrado")
     
     # ========================================================================
     # LIVE PHOTOS
@@ -1718,6 +1298,12 @@ class MainWindow(QMainWindow):
         self.show_progress(count, "Limpiando Live Photos...")
         
         self.execution_worker = LivePhotoCleanupWorker(self.live_photo_cleaner, plan)
+        # Mostrar mensajes de progreso del worker (p.ej. creación de backup)
+        try:
+            self.execution_worker.progress_update.connect(self.update_analysis_progress)
+        except Exception:
+            pass
+
         self.execution_worker.finished.connect(self.on_lp_finished)
         self.execution_worker.error.connect(self.on_operation_error)
         self.execution_worker.finished.connect(self.execution_worker.deleteLater)
@@ -1764,6 +1350,11 @@ class MainWindow(QMainWindow):
         if self.execution_worker in self.active_workers:
             self.active_workers.remove(self.execution_worker)
         self.execution_worker = None
+        # Programar re-análisis automático (estructura de ficheros ha cambiado)
+        try:
+            self._schedule_reanalysis()
+        except Exception:
+            self.app_logger.exception("Error al programar re-análisis tras limpieza Live Photos")
     
     # ========================================================================
     # UNIFICACIÓN
@@ -1810,7 +1401,12 @@ class MainWindow(QMainWindow):
             plan['move_plan'],
             plan['create_backup']
         )
-        
+        # Mostrar mensajes de progreso del worker (p.ej. "Creando backup antes de unificar...")
+        try:
+            self.execution_worker.progress_update.connect(self.update_analysis_progress)
+        except Exception:
+            pass
+
         self.execution_worker.finished.connect(self.on_unification_finished)
         self.execution_worker.error.connect(self.on_operation_error)
         self.execution_worker.finished.connect(self.execution_worker.deleteLater)
@@ -1876,6 +1472,11 @@ class MainWindow(QMainWindow):
         if self.execution_worker in self.active_workers:
             self.active_workers.remove(self.execution_worker)
         self.execution_worker = None
+        # Programar re-análisis completo tras la unificación para evitar inconsistencias
+        try:
+            self._schedule_reanalysis()
+        except Exception:
+            self.app_logger.exception("Error al programar re-análisis tras unificación")
     
     # ========================================================================
     # HEIC
@@ -1924,7 +1525,12 @@ class MainWindow(QMainWindow):
             plan['keep_format'],
             plan['create_backup']
         )
-        
+        # Mostrar mensajes de progreso del worker (p.ej. creación de backup)
+        try:
+            self.execution_worker.progress_update.connect(self.update_analysis_progress)
+        except Exception:
+            pass
+
         self.execution_worker.finished.connect(self.on_heic_finished)
         self.execution_worker.error.connect(self.on_operation_error)
         self.execution_worker.finished.connect(self.execution_worker.deleteLater)
@@ -1972,9 +1578,40 @@ class MainWindow(QMainWindow):
             self.active_workers.remove(self.execution_worker)
         self.execution_worker = None
 
+        # Programar re-análisis automático tras eliminación HEIC
+        try:
+            self._schedule_reanalysis()
+        except Exception:
+            self.app_logger.exception("Error al programar re-análisis tras eliminación HEIC")
+
+    def _schedule_reanalysis(self, delay_ms: int = 500):
+        """Programa un re-análisis del directorio actual tras operaciones que cambian archivos.
+
+        Usa QTimer.singleShot para evitar reentradas inmediatas y dar tiempo al FS a estabilizarse.
+        Si no hay directorio analizado previamente, no hace nada.
+        """
+        # Si no hay un directorio actual o no se analizó previamente, no re-analizar
+        if not self.current_directory:
+            self.app_logger.debug("No hay directorio actual: se omite re-análisis programado")
+            return
+
+        # Si el último directorio analizado es distinto, aún así forzamos re-análisis del actual
+        def _do_reanalyze():
+            try:
+                self.app_logger.info("Iniciando re-análisis automático tras operación que modifica archivos")
+                # Asegurarse de que los botones estén en estado adecuado y llamar a analyze_directory
+                # Llamamos a _reanalyze_same_directory para respetar el flujo existente
+                # Que deshabilita/gestiona botones correctamente
+                self._reanalyze_same_directory()
+            except Exception:
+                self.app_logger.exception("Fallo durante re-análisis automático")
+
+        # Usar un pequeño retardo para dejar que el sistema de ficheros se estabilice
+        QTimer.singleShot(delay_ms, _do_reanalyze)
+
     def _get_button_style(self, color):
         """Genera estilo para botones"""
-        return styles.get_button_style(color)
+        return get_button_style(self, color)
 
     # ========================================================================
     # UTILIDADES
@@ -1982,36 +1619,11 @@ class MainWindow(QMainWindow):
     
     def show_progress(self, maximum, message="Procesando"):
         """Muestra la barra de progreso"""
-        self.progress_group.setVisible(True)
-        # Si maximum <= 0 tratamos la barra como indeterminada (busy)
-        try:
-            if not maximum or maximum <= 0:
-                self.progress_bar.setMaximum(0)
-            else:
-                self.progress_bar.setMaximum(maximum)
-                self.progress_bar.setValue(0)
-        except Exception:
-            # En caso de error con el widget, asegurar que al menos se muestre
-            try:
-                self.progress_bar.setMaximum(0)
-            except Exception:
-                pass
-
-        self.progress_label.setText(message)
+        return show_progress(self, maximum, message)
     
     def hide_progress(self):
         """Oculta la barra de progreso"""
-        # Restaurar estado no-determinado al ocultar para evitar quedar en
-        # estado indeterminado si se reutiliza más tarde con valores.
-        def _hide():
-            try:
-                self.progress_bar.setMaximum(100)
-                self.progress_bar.setValue(0)
-            except Exception:
-                pass
-            self.progress_group.setVisible(False)
-
-        QTimer.singleShot(1000, _hide)
+        return hide_progress(self)
     
     def _show_results_html(self, html: str, show_generic_status: bool = False):
         """Muestra resultados que antes iban al QTextEdit removido.
@@ -2021,22 +1633,7 @@ class MainWindow(QMainWindow):
         elemento fue eliminado.
         """
 
-        # Mostrar un aviso genérico SOLO si se solicita explícitamente.
-        try:
-            if show_generic_status:
-                # Reemplazamos la barra de estado por un log informativo y un
-                # cambio temporal del título de la ventana como alternativa.
-                try:
-                    self.app_logger.info('Operación completada — revisa el log para detalles')
-                except Exception:
-                    # Si no hay logger disponible, usamos setWindowTitle como
-                    # último recurso (manteniendo el comportamiento previo).
-                    try:
-                        self.setWindowTitle(f"{config.config.APP_NAME} — Operación completada")
-                    except Exception:
-                        pass
-        except Exception:
-            pass
+        return show_results_html(self, html, show_generic_status)
     
     def on_operation_error(self, error):
         """Callback genérico para errores"""
@@ -2060,103 +1657,15 @@ class MainWindow(QMainWindow):
         Returns:
             str: Tamaño formateado con unidad (ej: "1.5 GB" o "512 MB")
         """
-        mb_size = bytes_size / (1024 * 1024)
-        
-        if mb_size >= 1024:
-            gb_size = mb_size / 1024
-            return f"{gb_size:.2f} GB"
-        else:
-            return f"{mb_size:.1f} MB"
+        return format_size(bytes_size)
 
     def _reset_analysis_ui(self, reinsert_analyze=True):
         """Reinicia la UI tras cambiar de directorio
-
-       
-
         Args:
             reinsert_analyze (bool): si True (por defecto) se reinsertará el
                 `analyze_btn` en el layout; si False no se tocará (útil cuando
                 el flujo actual debe mantener los botones alternativos visibles).
         """
-        # Restaurar texto original del botón
-        self.analyze_btn.setText("🔍 Seleccionar Directorio y Analizar")
-        self.analyze_btn.setEnabled(True)
+        return reset_analysis_ui(self, reinsert_analyze)
 
-        # Asegurar que los botones adicionales estén ocultos
-        if hasattr(self, 'reanalyze_btn'):
-            self.reanalyze_btn.setVisible(False)
-        if hasattr(self, 'change_dir_btn'):
-            self.change_dir_btn.setVisible(False)
-        # Reinsertar analyze_btn en el layout si fue removido y se solicita
-        if reinsert_analyze:
-            try:
-                if self.analyze_btn.parent() is None:
-                    self.actions_layout.addWidget(self.analyze_btn)
-                self.analyze_btn.setVisible(True)
-            except Exception:
-                pass
-        # Ocultar paneles
-        self.summary_panel.setVisible(False)
-        self.tabs_widget.setVisible(False)
-
-        # Deshabilitar todos los botones de acción
-        self.preview_rename_btn.setEnabled(False)
-        self.exec_lp_btn.setEnabled(False)
-        self.exec_unif_btn.setEnabled(False)
-        self.exec_heic_btn.setEnabled(False)
-
-        # Limpiar áreas de detalles
-        if hasattr(self, 'rename_details'):
-            self.rename_details.clear()
-        if hasattr(self, 'norm_details'):
-            # backward-compat: in case some code still uses norm_details
-            self.norm_details.clear()
-        self.lp_details.clear()
-        self.unif_details.clear()
-        self.heic_details.clear()
-
-        # Limpiar campo de directorio solo si se solicita reinsertar el botón
-        # principal (flujo de 'nuevo análisis' completo). En casos donde
-        # reinsert_analyze=False (por ejemplo: cambiar directorio y mantener
-        # los botones alternativos visibles mientras se inicia un análisis),
-        # preservamos el texto del directorio seleccionado.
-        if hasattr(self, 'directory_edit') and reinsert_analyze:
-            self.directory_edit.clear()
-            self.directory_edit.setPlaceholderText("Selecciona un directorio para analizar...")
-
-        # Limpiar labels del resumen (compatibilidad con la nueva estructura)
-        try:
-            if 'images' in self.stats_labels:
-                self.stats_labels['images'].setText("🖼️ Imágenes: —")
-            if 'videos' in self.stats_labels:
-                self.stats_labels['videos'].setText("🎥 Videos: —")
-            if 'total' in self.stats_labels:
-                self.stats_labels['total'].setText("📊 Total: —")
-        except Exception:
-            # Ignorar errores menores de actualización de UI
-            pass
-
-        # Limpiar resultados
-        self.analysis_results = None
-        self.last_analyzed_directory = None
-
-        # Mensaje informativo breve cuando se limpia el análisis previo
-        # Reemplazamos la notificación en la status bar por un log informativo
-        # y (opcional) un cambio temporal del título de la ventana.
-        try:
-            try:
-                self.app_logger.info("Directorio cambiado: análisis anterior limpiado")
-            except Exception:
-                try:
-                    self.setWindowTitle(f"{config.config.APP_NAME} — Análisis limpiado")
-                except Exception:
-                    pass
-        except Exception:
-            # Protección final: intentar logging básico
-            try:
-                self.app_logger.info("Directorio cambiado: análisis anterior limpiado")
-            except Exception:
-                pass
-
-        self.app_logger.info("UI reiniciada tras cambio de directorio")
 

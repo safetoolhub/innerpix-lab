@@ -213,6 +213,9 @@ class HEICDuplicateRemover:
         return results
 
     def create_backup(self, files_to_delete: List[Path], root_directory: Path) -> Path:
+        # Note: accept progress_callback via caller by using attribute if provided
+        # (workers will pass a callback when available)
+        progress_callback = getattr(self, '_progress_callback', None)
         """
         Crea backup de archivos antes de eliminarlos
 
@@ -231,6 +234,13 @@ class HEICDuplicateRemover:
         backup_path.mkdir(parents=True, exist_ok=True)
 
         self.logger.info(f"Creando backup de archivos HEIC en: {backup_path}")
+
+        # Informar al UI/worker sobre la ruta del backup
+        if progress_callback:
+            try:
+                progress_callback(0, len(files_to_delete), f"Creando backup en: {backup_path}")
+            except Exception:
+                pass
 
         files_backed_up = 0
         backup_size = 0
@@ -256,6 +266,12 @@ class HEICDuplicateRemover:
                 backup_size += file_path.stat().st_size
 
                 self.logger.debug(f"Backup creado: {file_path.name}")
+
+                if progress_callback:
+                    try:
+                        progress_callback(files_backed_up, len(files_to_delete), f"Creando backup en: {backup_path} ({files_backed_up}/{len(files_to_delete)})")
+                    except Exception:
+                        pass
 
             except Exception as e:
                 self.logger.error(f"Error creando backup de {file_path}: {e}")

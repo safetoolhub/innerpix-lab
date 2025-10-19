@@ -174,7 +174,7 @@ class LivePhotoCleaner:
 
         return plan
 
-    def create_backup(self, files_to_delete: List[Dict], base_directory: Path) -> Path:
+    def create_backup(self, files_to_delete: List[Dict], base_directory: Path, progress_callback=None) -> Path:
         """
         Crea backup de archivos antes de eliminarlos
 
@@ -193,6 +193,14 @@ class LivePhotoCleaner:
         backup_path.mkdir(parents=True, exist_ok=True)
 
         self.logger.info(f"Creando backup de Live Photos en: {backup_path}")
+
+        # Informar al UI/worker sobre la ruta del backup
+        total_files = len(files_to_delete)
+        if progress_callback:
+            try:
+                progress_callback(0, total_files, f"Creando backup en: {backup_path}")
+            except Exception:
+                pass
 
         files_backed_up = 0
         backup_size = 0
@@ -221,6 +229,13 @@ class LivePhotoCleaner:
 
                 self.logger.debug(f"Backup creado: {file_path.name}")
 
+                # Emitir progreso intermedio incluyendo la ruta del backup
+                if progress_callback:
+                    try:
+                        progress_callback(files_backed_up, total_files, f"Creando backup en: {backup_path} ({files_backed_up}/{total_files})")
+                    except Exception:
+                        pass
+
             except Exception as e:
                 self.logger.error(f"Error creando backup de {file_path}: {e}")
                 raise
@@ -237,14 +252,14 @@ class LivePhotoCleaner:
             for file_info in files_to_delete:
                 f.write(f"- {file_info['path']} ({file_info['type']})\n")
 
-        self.backup_dir = backup_path
-        self.cleanup_stats['backup_created'] = True
+            self.backup_dir = backup_path
+            self.cleanup_stats['backup_created'] = True
 
-        self.logger.info(f"Backup completado: {files_backed_up} archivos, {backup_size/(1024*1024):.2f} MB")
-        return backup_path
+            self.logger.info(f"Backup completado: {files_backed_up} archivos, {backup_size/(1024*1024):.2f} MB")
+            return backup_path
 
     def execute_cleanup(self, cleanup_analysis: Dict, create_backup: bool = True, 
-                       dry_run: bool = False) -> Dict:
+                       dry_run: bool = False, progress_callback=None) -> Dict:
         """
         Ejecuta la limpieza de Live Photos
 
@@ -299,7 +314,7 @@ class LivePhotoCleaner:
 
             # Crear backup si se solicita
             if create_backup and not dry_run:
-                backup_path = self.create_backup(files_to_delete, base_directory)
+                backup_path = self.create_backup(files_to_delete, base_directory, progress_callback=progress_callback)
                 results['backup_path'] = str(backup_path)
 
             # Ejecutar eliminaciones
