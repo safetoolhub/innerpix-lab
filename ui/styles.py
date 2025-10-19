@@ -285,6 +285,55 @@ STYLE_SUMMARY_PANEL = """
     }
 """
 
+# Estilos adicionales para el panel de resumen moderno
+STYLE_STAT_CHIP = """
+    QLabel {
+        background-color: white;
+        border: 1px solid #e6ecf1;
+        border-radius: 12px;
+        padding: 4px 8px;
+        color: #495057;
+        font-size: 12px;
+    }
+"""
+
+STYLE_SUMMARY_ACTION_BUTTON = """
+    QPushButton {
+        background-color: #ffffff;
+        color: #495057;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 6px 10px;
+        font-size: 13px;
+    }
+    QPushButton:hover {
+        background-color: #f1f5f9;
+        border-color: #cfd8e3;
+    }
+    QPushButton:pressed {
+        background-color: #e9eef4;
+    }
+"""
+
+STYLE_SUMMARY_ACTION_BUTTON_FULL = """
+    QPushButton {
+        background-color: #ffffff;
+        color: #495057;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 8px 12px;
+        font-size: 13px;
+        text-align: left;
+    }
+    QPushButton:hover {
+        background-color: #f8fafc;
+        border-color: #dfe7ef;
+    }
+    QPushButton:pressed {
+        background-color: #eef4f9;
+    }
+"""
+
 # ============================================================================
 # ESTILOS DE PROGRESS BAR
 # ============================================================================
