@@ -12,6 +12,7 @@ from PyQt5.QtWidgets import (
     QLineEdit, QFileDialog, QMessageBox, QTextEdit, QDialog, QCheckBox,
     QProgressBar, QGroupBox, QTabWidget, QComboBox, QSplitter, QFrame, QMenu, QApplication
 )
+from PyQt5.QtWidgets import QSizePolicy
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QDesktopServices
 from PyQt5.QtCore import QUrl
@@ -252,7 +253,6 @@ class MainWindow(QMainWindow):
         analyze_btn.setCursor(Qt.PointingHandCursor)
         analyze_btn.clicked.connect(self.select_and_analyze_directory)
         self.analyze_btn = analyze_btn
-    # search_layout.addWidget(analyze_btn)  # moved into actions container below
 
         main_layout.addWidget(search_container)
         main_layout.addSpacing(10)
@@ -663,68 +663,111 @@ class MainWindow(QMainWindow):
         parent_layout.addWidget(config_container)
 
     def _create_summary_panel(self):
-        """Crea el panel lateral de resumen"""
+        """Crea el panel lateral de resumen (diseño moderno y compacto)."""
         panel = QFrame()
         panel.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
         panel.setStyleSheet(styles.STYLE_SUMMARY_PANEL)
-        
+        # Mantener panel compacto y sin scroll vertical
+        panel.setMaximumWidth(360)
+
         layout = QVBoxLayout(panel)
-        
-        # Título
+        layout.setSpacing(8)
+        layout.setContentsMargins(8, 8, 8, 8)
+
+        # Título compacto
         title = QLabel("📊 RESUMEN")
-        title.setStyleSheet("font-size: 16px; font-weight: bold; color: #2c3e50; padding: 5px;")
+        title.setStyleSheet(styles.STYLE_SUMMARY_TITLE)
         title.setAlignment(Qt.AlignCenter)
         layout.addWidget(title)
-        
-        # Separador
-        separator = QFrame()
-        separator.setFrameShape(QFrame.HLine)
-        separator.setFrameShadow(QFrame.Sunken)
-        layout.addWidget(separator)
-        
-        # Estadísticas generales
-        stats_group = QGroupBox("📁 Directorio")
-        stats_layout = QVBoxLayout(stats_group)
-        
+
+        # --- Info card: directorio + estadísticas en fila ---
+        info_card = QFrame()
+        info_card.setStyleSheet(styles.STYLE_DIR_SECTION)
+        info_layout = QVBoxLayout(info_card)
+        info_layout.setSpacing(6)
+        info_layout.setContentsMargins(8, 8, 8, 8)
+
+        # Ruta / nombre del directorio (una sola línea)
         self.stats_labels = {
             'directory': QLabel("—"),
-            'images': QLabel("🖼️ Imágenes: —"),
-            'videos': QLabel("🎥 Videos: —"),
-            'total': QLabel("📊 Total: —")
+            'images': QLabel("🖼️ —"),
+            'videos': QLabel("🎥 —"),
+            'total': QLabel("📊 —")
         }
-        
-        self.stats_labels['directory'].setWordWrap(True)
-        self.stats_labels['directory'].setStyleSheet("font-weight: bold; color: #495057;")
-        stats_layout.addWidget(self.stats_labels['directory'])
-        
+
+        self.stats_labels['directory'].setWordWrap(False)
+        self.stats_labels['directory'].setStyleSheet(styles.STYLE_STATS_DIRECTORY)
+        self.stats_labels['directory'].setToolTip('Ruta completa del directorio')
+        info_layout.addWidget(self.stats_labels['directory'])
+
+        # Stats en una sola fila (chips compactos)
+        stats_row = QHBoxLayout()
+        stats_row.setSpacing(6)
         for key in ['images', 'videos', 'total']:
-            self.stats_labels[key].setStyleSheet("color: #6c757d; padding: 2px;")
-            stats_layout.addWidget(self.stats_labels[key])
-        
-        layout.addWidget(stats_group)
-        
-        # Tareas detectadas
-        tasks_group = QGroupBox("⚡ Tareas Detectadas")
-        tasks_layout = QVBoxLayout(tasks_group)
-        
-        self.task_labels = {
-            'live_photos': QLabel("📱 Live Photos: —"),
-            'heic': QLabel("🖼️ Duplicados HEIC: —"),
-            'unification': QLabel("📁 Unificar directorios: —"),
-            'renaming': QLabel("📝 Renombrar: —")
-        }
-        
-        for label in self.task_labels.values():
-            label.setStyleSheet(styles.STYLE_CATEGORY_LABEL)
-            tasks_layout.addWidget(label)
-        
-        layout.addWidget(tasks_group)
-        
+            chip = QLabel(self.stats_labels[key].text())
+            chip.setAlignment(Qt.AlignCenter)
+            chip.setStyleSheet(styles.STYLE_STAT_CHIP)
+            chip.setContentsMargins(6, 4, 6, 4)
+            stats_row.addWidget(chip)
+            # mantener referencia para actualizaciones posteriores
+            self.stats_labels[key] = chip
+
+        info_layout.addLayout(stats_row)
+        layout.addWidget(info_card)
+
+        # --- Acciones / funcionalidades disponibles ---
+        actions_card = QFrame()
+        actions_card.setStyleSheet("background: transparent;")
+        actions_layout = QVBoxLayout(actions_card)
+        actions_layout.setSpacing(6)
+        actions_layout.setContentsMargins(0, 0, 0, 0)
+
+        actions_title = QLabel("⚙️ Funcionalidades")
+        actions_title.setStyleSheet("font-weight: bold; color: #2c3e50;")
+        actions_layout.addWidget(actions_title)
+
+        # Botones apilados (full-width) que combinan etiqueta + contador
+        self.summary_action_buttons = {}
+        stack_layout = QVBoxLayout()
+        stack_layout.setSpacing(6)
+
+        def make_full_btn(key, emoji, label_text):
+            btn = QPushButton(f"{emoji} {label_text}")
+            btn.setCursor(Qt.PointingHandCursor)
+            btn.setFixedHeight(36)
+            btn.setStyleSheet(styles.STYLE_SUMMARY_ACTION_BUTTON + "QPushButton { text-align: left; padding-left: 12px; }")
+            btn.clicked.connect(lambda: self._open_summary_action(label_text))
+            # expandir horizontalmente dentro del layout
+            # expandir horizontalmente y mantener altura fija
+            btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+            self.summary_action_buttons[key] = btn
+            return btn
+
+        if LIVE_PHOTOS_AVAILABLE:
+            stack_layout.addWidget(make_full_btn('live_photos', '📱', 'Live Photos'))
+        if HEIC_REMOVAL_AVAILABLE:
+            stack_layout.addWidget(make_full_btn('heic', '🖼️', 'Duplicados HEIC'))
+        if DIRECTORY_UNIFICATION_AVAILABLE:
+            stack_layout.addWidget(make_full_btn('unification', '📁', 'Unificar Directorios'))
+        if RENAMING_AVAILABLE:
+            stack_layout.addWidget(make_full_btn('renaming', '📝', 'Renombrado'))
+
+        actions_layout.addLayout(stack_layout)
+
+        # Lista compacta de tareas detectadas (resumen breve)
+        tasks_brief = QFrame()
+        tasks_layout = QVBoxLayout(tasks_brief)
+        tasks_layout.setSpacing(4)
+        tasks_layout.setContentsMargins(0, 6, 0, 0)
+
+
+        actions_layout.addWidget(tasks_brief)
+        layout.addWidget(actions_card)
+
         layout.addStretch()
-        
+
         # Inicialmente oculto
         panel.setVisible(False)
-        
         return panel
     
     def _create_tabs_widget(self):
@@ -732,20 +775,61 @@ class MainWindow(QMainWindow):
         tabs = QTabWidget()
         tabs.setStyleSheet(styles.STYLE_TAB_WIDGET)
         tabs.setVisible(False)
-        
+        # Construir pestañas en orden conocido y guardar índices para acceso rápido
+        self.tab_index_map = {}
+        idx = 0
         if LIVE_PHOTOS_AVAILABLE:
             tabs.addTab(self._create_live_photos_tab(), "(1) 📱 Live Photos")
-        
+            self.tab_index_map['live_photos'] = idx
+            idx += 1
+
         if HEIC_REMOVAL_AVAILABLE:
             tabs.addTab(self._create_heic_tab(), "(2) 🖼️ Duplicados HEIC")
-        
+            self.tab_index_map['heic'] = idx
+            idx += 1
+
         if DIRECTORY_UNIFICATION_AVAILABLE:
             tabs.addTab(self._create_unification_tab(), "(3) 📁 Unificar Directorios")
-        
+            self.tab_index_map['unification'] = idx
+            idx += 1
+
         if RENAMING_AVAILABLE:
             tabs.addTab(self._create_renaming_tab(), "(4) 📝 Renombrado")
-        
+            self.tab_index_map['renaming'] = idx
+            idx += 1
+
         return tabs
+
+    def _open_summary_action(self, label_substr):
+        """Selecciona la pestaña correspondiente según el botón del summary.
+
+        label_substr: una breve cadena que identifica la funcionalidad (p.ej. 'Live Photos')
+        """
+        if not hasattr(self, 'tabs_widget') or self.tabs_widget.count() == 0:
+            return
+
+        # Usar el mapa de índices creado al construir las pestañas
+        if hasattr(self, 'tab_index_map'):
+            key_map = {
+                'live photos': 'live_photos',
+                'duplicados heic': 'heic',
+                'unificar directorios': 'unification',
+                'renombrado': 'renaming'
+            }
+            lookup = key_map.get(label_substr.lower())
+            if lookup and lookup in self.tab_index_map:
+                self.tabs_widget.setCurrentIndex(self.tab_index_map[lookup])
+                self.tabs_widget.setVisible(True)
+                return
+
+        # Fallback: seleccionar la primera pestaña disponible
+        if self.tabs_widget.count() > 0:
+            self.tabs_widget.setCurrentIndex(0)
+            self.tabs_widget.setVisible(True)
+        return
+        # Si no encontró coincidencia, seleccionar la primera pestaña
+        self.tabs_widget.setCurrentIndex(0)
+        self.tabs_widget.setVisible(True)
     
     def _create_renaming_tab(self):
         """Crea la pestaña de renombrado"""
@@ -1315,26 +1399,22 @@ class MainWindow(QMainWindow):
         self.stats_labels['videos'].setText(f"🎥 Videos: {stats.get('videos', 0):,}")
         self.stats_labels['total'].setText(f"📊 Total: {stats.get('total', 0):,}")
         
-        # Tareas
+        # Tareas y actualizar botones del summary (fusionados con etiquetas)
         ren = results.get('renaming', {})
-        self.task_labels['renaming'].setText(
-            f"📝 Renombrar: {ren.get('need_renaming', 0):,}"
-        )
-        
         lp = results.get('live_photos', {})
-        self.task_labels['live_photos'].setText(
-            f"📱 Live Photos: {lp.get('live_photos_found', 0):,}"
-        )
-        
         unif = results.get('unification', {})
-        self.task_labels['unification'].setText(
-            f"📁 Mover: {unif.get('total_files_to_move', 0):,}"
-        )
-        
         heic = results.get('heic', {})
-        self.task_labels['heic'].setText(
-            f"🖼️ HEIC: {heic.get('total_duplicates', 0):,}"
-        )
+
+        # Actualizar botones del panel de funcionalidades con contadores para evitar corte
+        if hasattr(self, 'summary_action_buttons'):
+            if 'live_photos' in self.summary_action_buttons:
+                self.summary_action_buttons['live_photos'].setText(f"📱 Live Photos   {lp.get('live_photos_found', 0):,}")
+            if 'heic' in self.summary_action_buttons:
+                self.summary_action_buttons['heic'].setText(f"🖼️ Duplicados HEIC   {heic.get('total_duplicates', 0):,}")
+            if 'unification' in self.summary_action_buttons:
+                self.summary_action_buttons['unification'].setText(f"📁 Unificar Directorios   {unif.get('total_files_to_move', 0):,}")
+            if 'renaming' in self.summary_action_buttons:
+                self.summary_action_buttons['renaming'].setText(f"� Renombrado   {ren.get('need_renaming', 0):,}")
     
     def _update_tab_details(self, results):
         """Actualiza los detalles en cada pestaña"""
@@ -2016,11 +2096,6 @@ class MainWindow(QMainWindow):
         self.stats_labels['images'].setText("🖼️ Imágenes: —")
         self.stats_labels['videos'].setText("🎥 Videos: —")
         self.stats_labels['total'].setText("📊 Total: —")
-
-        self.task_labels['renaming'].setText("📝 Renombrar: —")
-        self.task_labels['live_photos'].setText("📱 Live Photos: —")
-        self.task_labels['unification'].setText("📁 Mover: —")
-        self.task_labels['heic'].setText("🖼️ HEIC: —")
 
         # Limpiar resultados
         self.analysis_results = None
