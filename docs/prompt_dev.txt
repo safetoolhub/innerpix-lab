@@ -107,6 +107,7 @@ photokit_manager/
 │ ├── main_window.py
 │ ├── dialogs.py
 │ ├── styles.py
+│ ├── ui_helpers.py
 │ └── workers.py
 ├── services/ # Lógica de negocio
 │ ├── file_renamer.py
@@ -185,10 +186,153 @@ Generar comandos explícitos para:
 ***
 
 ### Entregable Esperado
-- Quiero que mejores el diseño de la aplicación, sindo mas boniot y cumpliendo reglas de usabilidad. 
-- El resumen de la izquierda no debe mostrar el directorio, porque es redundante al verse ya arriba
-- El resumen de la izquierda no debe tener scroll vertical, debe mejorarse pero de forma compacta, ya que deben caber las 4 funcionalidades actuales y dos más futuras
-- Las pestañas deben ser más bonitas, dando feedback al usuario de cual tiene el foco, y con los botones más modernos, al etilo del de "analizar"
-- Si tienes otras propuestas de mejora, dimelas.
+- Quiero añadir una nueva funcionalidad (la quinta) de "Deteccion de duplicados"
+- Te hago una propuesta de UX, ya que es una operacion compleja con dos modos diferentes, de busqueda de duplicados exacta y perceptual
+- Estructura de la Pestaña Unificada
+┌─────────────────────────────────────────────────────────┐
+│ 🔍 Duplicados                                  [Tab]    │
+├─────────────────────────────────────────────────────────┤
+│                                                          │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │ 🎯 Modo de Detección                    [Selector]│  │
+│  │                                                    │  │
+│  │  ○ Exactos (SHA256)     - Rápido, 100% idénticos │  │
+│  │  ○ Similares (Perceptual) - Lento, detect. visual│  │
+│  │                                                    │  │
+│  │  [Sensibilidad: ████████░░ Alta]   (solo visible │  │
+│  │                                     en "Similares")│  │
+│  └──────────────────────────────────────────────────┘  │
+│                                                          │
+│  ┌──────────────────────────────────────────────────┐  │
+│  │ 📊 Resultados del Análisis               [Panel] │  │
+│  │                                                    │  │
+│  │  [Contenido dinámico según modo seleccionado]    │  │
+│  │                                                    │  │
+│  │  Modo Exactos:                                    │  │
+│  │  • Grupos encontrados: 45                         │  │
+│  │  • Archivos duplicados: 127                       │  │
+│  │  • Espacio desperdiciado: 2.3 GB                  │  │
+│  │                                                    │  │
+│  │  Modo Similares:                                  │  │
+│  │  • Grupos de similitud: 23                        │  │
+│  │  • Archivos similares: 68                         │  │
+│  │  • Rango de similitud: 85-98%                     │  │
+│  │  • Espacio potencial: 1.8 GB                      │  │
+│  │                                                    │  │
+│  │  ⚠️ Requiere revisión manual antes de eliminar   │  │
+│  └──────────────────────────────────────────────────┘  │
+│                                                          │
+│  [Botones de acción según contexto]                    │
+│                                                          │
+│  Modo Exactos:                                          │
+│  [⚡ Eliminar Duplicados Exactos]                       │
+│                                                          │
+│  Modo Similares:                                        │
+│  [🔍 Revisar y Seleccionar] [⚡ Eliminar Seleccionados] │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+Flujo de Usuario Detallado
+Fase 1: Análisis Inicial (Automático)
+Cuando el usuario hace clic en "Analizar directorio":
 
-Te adjunto los ficheros del codigo actual.
+Análisis exactos SIEMPRE se ejecuta primero (rápido, ~30 segundos)​
+
+El modo "Similares" queda deshabilitado hasta que termine el análisis exacto​
+
+Mostrar resultados de exactos inmediatamente​
+
+# Pseudo-flujo
+análisis_exactos()  # Siempre ejecutar
+mostrar_resultados_exactos()
+habilitar_modo_similares()  # Ahora el usuario puede elegir
+
+Fase 2: Selección de Modo
+El usuario ve dos radio buttons grandes y descriptivos:
+
+Opción A: Duplicados Exactos (Predeterminada)
+text
+┌────────────────────────────────────────────┐
+│ ⚡ Duplicados Exactos (SHA256)             │
+│                                            │
+│ ✓ Archivos 100% idénticos bit a bit      │
+│ ✓ Rápido (ya analizado)                   │
+│ ✓ Eliminación segura automática           │
+│ ✓ Diferentes nombres OK                    │
+│                                            │
+│ Ideal para: Copias exactas, backups       │
+└────────────────────────────────────────────┘
+Opción B: Duplicados Similares (Requiere nuevo análisis)
+text
+┌────────────────────────────────────────────┐
+│ 🎨 Duplicados Similares (Perceptual)       │
+│                                            │
+│ • Misma imagen en distintas resoluciones  │
+│ • Videos con compresiones diferentes       │
+│ • Requiere revisión manual                 │
+│ • Análisis más lento (~5-10 min)          │
+│                                            │
+│ Sensibilidad: [██████████░] 90%           │
+│ Baja ←────────────────────────→ Alta      │
+│                                            │
+│ [🚀 Iniciar Análisis de Similares]        │
+│                                            │
+│ Ideal para: Cleanup profundo, duplicados  │
+│ visualmente idénticos pero técnicamente   │
+│ diferentes (redimensionados, recomprimidos)│
+└────────────────────────────────────────────┘
+Diálogos Diferenciados
+Diálogo para Duplicados Exactos
+┌──────────────────────────────────────────────┐
+│ Eliminar Duplicados Exactos           [X]   │
+├──────────────────────────────────────────────┤
+│                                              │
+│ 📊 Se encontraron 127 archivos duplicados   │
+│    en 45 grupos                              │
+│                                              │
+│ Estrategia de eliminación:                  │
+│ ● Mantener el más antiguo (recomendado)    │
+│ ○ Mantener el más reciente                  │
+│                                              │
+│ ☑ Crear backup antes de eliminar            │
+│                                              │
+│ ⚠️ Estos son duplicados exactos (100%).     │
+│ Eliminarlos es seguro.                       │
+│                                              │
+│ [Lista de grupos colapsable]                │
+│                                              │
+│          [Cancelar]  [Eliminar Ahora]       │
+└──────────────────────────────────────────────┘
+Diálogo para Duplicados Similares
+┌──────────────────────────────────────────────┐
+│ Revisar Duplicados Similares          [X]   │
+├──────────────────────────────────────────────┤
+│                                              │
+│ ⚠️ Estos archivos son similares pero NO     │
+│ idénticos. Revisa cada grupo.               │
+│                                              │
+│ ┌──────────────────────────────────────┐   │
+│ │ Grupo 1 - Similitud: 95%             │   │
+│ │                                       │   │
+│ │ [Miniatura 1]  [Miniatura 2]         │   │
+│ │ IMG_1234.jpg   foto_editada.jpg      │   │
+│ │ 4032x3024      1920x1080             │   │
+│ │ 3.2 MB         850 KB                │   │
+│ │                                       │   │
+│ │ ☑ Mantener     ☑ Eliminar            │   │
+│ │                                       │   │
+│ │ [Detalles] [Abrir archivos]          │   │
+│ └──────────────────────────────────────┘   │
+│                                              │
+│ [Navegación: ← 1/23 →]                      │
+│                                              │
+│ ☑ Crear backup antes de eliminar            │
+│                                              │
+│ Archivos seleccionados para eliminar: 34    │
+│ Espacio a liberar: 1.2 GB                   │
+│                                              │
+│    [Cancelar]  [Eliminar Seleccionados]     │
+└──────────────────────────────────────────────┘
+
+
+- Te adjunto los ficheros del codigo actual.
+- QUiero que me des completos los archivos que cambies o añadas, para facilitar la integracion
