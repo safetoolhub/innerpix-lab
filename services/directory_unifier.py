@@ -55,7 +55,7 @@ class DirectoryUnifier:
         Returns:
             Diccionario con análisis detallado
         """
-        self.logger.info(f"Analizando estructura de directorios: {root_directory}")
+        self.logger.info(f"Analizando estructura de directorios para unificación: {root_directory}")
 
         results = {
             'root_directory': str(root_directory),

@@ -680,39 +680,66 @@ class MainWindow(QMainWindow):
         title.setAlignment(Qt.AlignCenter)
         layout.addWidget(title)
 
-        # --- Info card: directorio + estadísticas en fila ---
+        # --- Estadísticas compactas ---
         info_card = QFrame()
-        info_card.setStyleSheet(styles.STYLE_DIR_SECTION)
+        # Usar un estilo más limpio y moderno para la tarjeta
+        info_card.setStyleSheet(
+            "background: linear-gradient(#ffffff, #fbfdff);"
+            "border: 1px solid #e6eef6; border-radius: 10px;"
+            "padding: 10px;"
+        )
         info_layout = QVBoxLayout(info_card)
-        info_layout.setSpacing(6)
+        info_layout.setSpacing(8)
         info_layout.setContentsMargins(8, 8, 8, 8)
 
-        # Ruta / nombre del directorio (una sola línea)
+        # Mantener solo estadísticas (sin ruta de directorio redundante)
+        # Crear widgets para imágenes/videos en la misma línea y total en otra
+        stats_top_row = QHBoxLayout()
+        stats_top_row.setSpacing(8)
+
         self.stats_labels = {
-            'directory': QLabel("—"),
             'images': QLabel("🖼️ —"),
             'videos': QLabel("🎥 —"),
             'total': QLabel("📊 —")
         }
 
-        self.stats_labels['directory'].setWordWrap(False)
-        self.stats_labels['directory'].setStyleSheet(styles.STYLE_STATS_DIRECTORY)
-        self.stats_labels['directory'].setToolTip('Ruta completa del directorio')
-        info_layout.addWidget(self.stats_labels['directory'])
+        # Estilo actualizado para chips: ligero, con sombra suave y borde
+        chip_style = (
+            "background: #ffffff;"
+            "border: 1px solid #e1eef9;"
+            "border-radius: 8px;"
+            "padding: 6px 10px;"
+            "color: #1f2d3d;"
+        )
 
-        # Stats en una sola fila (chips compactos)
-        stats_row = QHBoxLayout()
-        stats_row.setSpacing(6)
-        for key in ['images', 'videos', 'total']:
+        # Images and videos inline
+        for key in ['images', 'videos']:
             chip = QLabel(self.stats_labels[key].text())
             chip.setAlignment(Qt.AlignCenter)
-            chip.setStyleSheet(styles.STYLE_STAT_CHIP)
+            chip.setStyleSheet(chip_style)
             chip.setContentsMargins(6, 4, 6, 4)
-            stats_row.addWidget(chip)
+            stats_top_row.addWidget(chip)
             # mantener referencia para actualizaciones posteriores
             self.stats_labels[key] = chip
 
-        info_layout.addLayout(stats_row)
+        # Spacer + total on separate line below
+        info_layout.addLayout(stats_top_row)
+
+        stats_bottom_row = QHBoxLayout()
+        stats_bottom_row.setSpacing(8)
+        total_chip = QLabel(self.stats_labels['total'].text())
+        total_chip.setAlignment(Qt.AlignCenter)
+        # Emphasize total (darker background)
+        total_chip.setStyleSheet(
+            "background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #f0f8ff, stop:1 #e6f2ff);"
+            "border: 1px solid #cfe8ff; border-radius: 8px; padding: 8px 10px; font-weight: 600; color: #0b3b66;"
+        )
+        total_chip.setContentsMargins(6, 6, 6, 6)
+        stats_bottom_row.addWidget(total_chip)
+        # mantener referencia
+        self.stats_labels['total'] = total_chip
+
+        info_layout.addLayout(stats_bottom_row)
         layout.addWidget(info_card)
 
         # --- Acciones / funcionalidades disponibles ---
@@ -1388,16 +1415,22 @@ class MainWindow(QMainWindow):
     def _update_summary_panel(self, results):
         """Actualiza el panel de resumen con los resultados"""
         stats = results.get('stats', {})
-        
-        # Estadísticas generales - MEJORADO con indicador de análisis
-        dir_name = self.current_directory.name
-        self.stats_labels['directory'].setText(f"📁 {dir_name}\n✅ Analizado")
-        self.stats_labels['directory'].setStyleSheet(styles.STYLE_STATS_DIRECTORY)
-        self.stats_labels['directory'].setCursor(Qt.PointingHandCursor)
 
-        self.stats_labels['images'].setText(f"🖼️ Imágenes: {stats.get('images', 0):,}")
-        self.stats_labels['videos'].setText(f"🎥 Videos: {stats.get('videos', 0):,}")
-        self.stats_labels['total'].setText(f"📊 Total: {stats.get('total', 0):,}")
+        # Actualizar chips de estadísticas (sin mostrar la ruta)
+        images_txt = f"🖼️ Imágenes: {stats.get('images', 0):,}"
+        videos_txt = f"🎥 Videos: {stats.get('videos', 0):,}"
+        total_txt = f"📊 Total: {stats.get('total', 0):,}"
+
+        try:
+            if 'images' in self.stats_labels:
+                self.stats_labels['images'].setText(images_txt)
+            if 'videos' in self.stats_labels:
+                self.stats_labels['videos'].setText(videos_txt)
+            if 'total' in self.stats_labels:
+                self.stats_labels['total'].setText(total_txt)
+        except Exception:
+            # No bloquear la UI por problemas menores de actualización
+            pass
         
         # Tareas y actualizar botones del summary (fusionados con etiquetas)
         ren = results.get('renaming', {})
@@ -2091,11 +2124,17 @@ class MainWindow(QMainWindow):
             self.directory_edit.clear()
             self.directory_edit.setPlaceholderText("Selecciona un directorio para analizar...")
 
-        # Limpiar labels del resumen
-        self.stats_labels['directory'].setText("—")
-        self.stats_labels['images'].setText("🖼️ Imágenes: —")
-        self.stats_labels['videos'].setText("🎥 Videos: —")
-        self.stats_labels['total'].setText("📊 Total: —")
+        # Limpiar labels del resumen (compatibilidad con la nueva estructura)
+        try:
+            if 'images' in self.stats_labels:
+                self.stats_labels['images'].setText("🖼️ Imágenes: —")
+            if 'videos' in self.stats_labels:
+                self.stats_labels['videos'].setText("🎥 Videos: —")
+            if 'total' in self.stats_labels:
+                self.stats_labels['total'].setText("📊 Total: —")
+        except Exception:
+            # Ignorar errores menores de actualización de UI
+            pass
 
         # Limpiar resultados
         self.analysis_results = None
