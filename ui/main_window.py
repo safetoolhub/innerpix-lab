@@ -709,8 +709,8 @@ class MainWindow(QMainWindow):
         
         self.task_labels = {
             'live_photos': QLabel("📱 Live Photos: —"),
-            'heic': QLabel("🖼️ HEIC: —"),
-            'unification': QLabel("📁 Mover: —"),
+            'heic': QLabel("🖼️ Duplicados HEIC: —"),
+            'unification': QLabel("📁 Unificar directorios: —"),
             'renaming': QLabel("📝 Renombrar: —")
         }
         
@@ -730,6 +730,7 @@ class MainWindow(QMainWindow):
     def _create_tabs_widget(self):
         """Crea el widget de pestañas"""
         tabs = QTabWidget()
+        tabs.setStyleSheet(styles.STYLE_TAB_WIDGET)
         tabs.setVisible(False)
         
         if LIVE_PHOTOS_AVAILABLE:
@@ -742,7 +743,7 @@ class MainWindow(QMainWindow):
             tabs.addTab(self._create_unification_tab(), "(3) 📁 Unificar Directorios")
         
         if RENAMING_AVAILABLE:
-            tabs.addTab(self._create_renaming_tab(), "(4) 📝 Renombrar")
+            tabs.addTab(self._create_renaming_tab(), "(4) 📝 Renombrado")
         
         return tabs
     
