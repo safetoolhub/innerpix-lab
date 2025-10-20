@@ -187,10 +187,45 @@ Generar comandos explícitos para:
 ***
 
 ### Entregable Esperado
-- Quiero que modifiques la funcionalidad de Detectar duplicados (perceptuales)
-- Concretamente en el dialog de "revisar manualmente" quiero que de al usuario la opcion al usuario de abrir cada una de las imagenes que forman el grupo detectado.
-- Esto debe hacerse pidiendo al sistema operativo que la abra. 
-- implementalo de forma usable
+- Quiero que modifiques la funcionalidad de Detectar duplicados añadiendo una tercera opcion a las que duplciado exacto y perceptual
+- La nueva opcioón será "Eliminar duplicados de whatsapp"
+- Quiero que la detección de duplicados incluya la siguiente lógica adicional:
+- Buscar archivos cuya carpeta y patrón de nombre coincidan con los típicos de cámaras digitales (iOS, Android, DCIM), ejemplos:
+iOS/Android: IMG_XXXX.JPG, IMG-YYYYMMDD-HHmmss.JPG, IMG_EXXXX.JPG (Live Photos)
+DCIM: DCIM/100ABCDE/IMG_0001.JPG, DSC_XXXX.JPG
+Videos de cámara o dashcam: VID_XXXX.mp4, PXL_XXXX.JPG
+
+- Buscar archivos con nombres que corresponden a patrones típicos de WhatsApp y otras apps de mensajería:
+Nombres con cadenas aleatorias de al menos"Quiero que la detección de duplicados incluya la siguiente lógica adicional:
+
+Buscar archivos cuya carpeta y patrón de nombre coincidan con los típicos de cámaras digitales (iOS, Android, DCIM), ejemplos:
+
+iOS/Android: IMG_XXXX.JPG, IMG-YYYYMMDD-HHmmss.JPG, IMG_EXXXX.JPG (Live Photos)
+
+DCIM: DCIM/100ABCDE/IMG_0001.JPG, DSC_XXXX.JPG
+
+Videos de cámara o dashcam: VID_XXXX.mp4, PXL_XXXX.JPG
+
+Buscar archivos con nombres que corresponden a patrones típicos de WhatsApp y otras apps de mensajería:
+
+Nombres con cadenas aleatorias de al menos 27 caracteres alfanuméricos y guiones, como: AB12CD34-EF56-7890-ABCD-EF1234567890.jpg o VID-YYYYMMDD-WAxxxx.mp4
+
+Nombres en formato IMG-xxxx-WAxxxx.jpg o .webp
+
+Nombres con UUID o hash: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx.jpg
+
+La comparación debe validar que ambos archivos contienen el mismo contenido visual, aunque difieran en resolución y tamaño. Se usará detección perceptual (hash dhash u otro método similar).
+
+Opcionalmente, para optimizar la búsqueda, filtrar los archivos por tamaño en rangos apropiados.
+
+Otros patrones que puedan identificarse de archivos de mensajes, multimedia u otros dispositivos que puedan tener nombres extensos y aleatorios pero el mismo contenido visual.
+
+La lógica debe identificar que un archivo aparentemente diferente en nombre y resolución, pero con el mismo contenido visual, sea considerado un duplicado." 27 caracteres alfanuméricos y guiones, como: AB12CD34-EF56-7890-ABCD-EF1234567890.jpg o VID-YYYYMMDD-WAxxxx.mp4
+Nombres en formato IMG-xxxx-WAxxxx.jpg o .webp
+Nombres con UUID o hash: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx.jpg
+
+- La comparación debe validar que ambos archivos contienen el mismo contenido visual, aunque difieran en resolución y tamaño. Se usará detección perceptual (hash dhash u otro método similar).
+- La lógica debe identificar que un archivo aparentemente diferente en nombre y resolución, pero con el mismo contenido visual, sea considerado un duplicado."
 
 - Te adjunto los ficheros del codigo actual.
 - QUiero que me des completos los archivos que cambies o añadas, para facilitar la integracion
