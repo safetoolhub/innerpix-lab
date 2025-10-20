@@ -3,19 +3,23 @@ Diálogos para la aplicación PhotoKit Manager
 Este módulo contiene todos los diálogos de la interfaz gráfica.
 """
 from pathlib import Path
+
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QTableWidget,
     QTableWidgetItem, QHeaderView, QCheckBox, QDialogButtonBox,
     QGroupBox, QRadioButton, QButtonGroup, QWidget, QTabWidget, QLineEdit,
     QMessageBox, QPushButton, QFileDialog, QComboBox, QFrame
 )
+
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QColor
+from PyQt5.QtGui import QDesktopServices
+from PyQt5.QtCore import QUrl
 import logging
-
 from services.live_photo_cleaner import CleanupMode
 from services.duplicate_detector import DuplicateGroup
 import config
+
 
 class RenamingPreviewDialog(QDialog):
     """Diálogo de preview para renombrado"""
@@ -1036,7 +1040,7 @@ class ExactDuplicatesDialog(QDialog):
 
 class SimilarDuplicatesDialog(QDialog):
     """Diálogo para revisión de duplicados similares"""
-    
+
     def __init__(self, analysis, parent=None):
         super().__init__(parent)
         self.analysis = analysis
@@ -1044,23 +1048,22 @@ class SimilarDuplicatesDialog(QDialog):
         self.selections = {}  # {group_index: [files_to_delete]}
         self.accepted_plan = None
         self.init_ui()
-    
+
     def _format_size(self, bytes_size):
         mb_size = bytes_size / (1024 * 1024)
         if mb_size >= 1024:
             return f"{mb_size / 1024:.2f} GB"
         return f"{mb_size:.1f} MB"
-    
+
     def init_ui(self):
         self.setWindowTitle("Revisar Duplicados Similares")
         self.setModal(True)
         self.resize(900, 700)
-        
         layout = QVBoxLayout(self)
-        
+
         # Advertencia
         warning = QLabel(
-            "⚠️ **Estos archivos son similares pero NO idénticos.** "
+            "⚠️ <b>Estos archivos son similares pero NO idénticos.</b> "
             "Revisa cada grupo cuidadosamente antes de eliminar."
         )
         warning.setTextFormat(Qt.RichText)
@@ -1070,45 +1073,40 @@ class SimilarDuplicatesDialog(QDialog):
             "padding: 12px; border-radius: 6px; color: #856404; font-weight: bold;"
         )
         layout.addWidget(warning)
-        
+
         # Navegación de grupos
         nav_layout = QHBoxLayout()
-        
         self.prev_btn = QPushButton("◀ Anterior")
         self.prev_btn.clicked.connect(self._previous_group)
         nav_layout.addWidget(self.prev_btn)
-        
         self.group_label = QLabel()
         self.group_label.setAlignment(Qt.AlignCenter)
         self.group_label.setStyleSheet("font-weight: bold; font-size: 14px;")
         nav_layout.addWidget(self.group_label, 1)
-        
         self.next_btn = QPushButton("Siguiente ▶")
         self.next_btn.clicked.connect(self._next_group)
         nav_layout.addWidget(self.next_btn)
-        
         layout.addLayout(nav_layout)
-        
+
         # Contenedor de grupo actual
         self.group_container = QGroupBox()
         self.group_layout = QVBoxLayout(self.group_container)
         layout.addWidget(self.group_container)
-        
+
         # Resumen
         summary_group = QGroupBox("📊 Resumen")
         summary_layout = QVBoxLayout(summary_group)
-        
         self.summary_label = QLabel()
         self.summary_label.setTextFormat(Qt.RichText)
         summary_layout.addWidget(self.summary_label)
-        
+        summary_group.setLayout(summary_layout)
         layout.addWidget(summary_group)
-        
+
         # Opciones
         self.backup_checkbox = QCheckBox("☑ Crear backup antes de eliminar")
         self.backup_checkbox.setChecked(True)
         layout.addWidget(self.backup_checkbox)
-        
+
         # Botones
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         self.ok_btn = buttons.button(QDialogButtonBox.Ok)
@@ -1117,127 +1115,134 @@ class SimilarDuplicatesDialog(QDialog):
         buttons.button(QDialogButtonBox.Cancel).setText("Cancelar")
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
-        
         layout.addWidget(buttons)
-        
+
         # Cargar primer grupo
         self._load_group(0)
-    
+
     def _load_group(self, index):
         """Carga y muestra un grupo específico"""
         if not 0 <= index < len(self.analysis['groups']):
             return
-        
         self.current_group_index = index
         group = self.analysis['groups'][index]
-        
+
         # Actualizar navegación
         total_groups = len(self.analysis['groups'])
         self.group_label.setText(f"Grupo {index + 1} de {total_groups}")
         self.prev_btn.setEnabled(index > 0)
         self.next_btn.setEnabled(index < total_groups - 1)
-        
+
         # Limpiar layout anterior
         for i in reversed(range(self.group_layout.count())):
-            self.group_layout.itemAt(i).widget().setParent(None)
-        
+            widget = self.group_layout.itemAt(i).widget()
+            if widget:
+                widget.setParent(None)
+
         # Info del grupo
         info_label = QLabel(
-            f"**Similitud:** {group.similarity_score:.1f}% | "
-            f"**Archivos:** {group.file_count} | "
-            f"**Tamaño total:** {self._format_size(group.total_size)}"
+            f"<b>Similitud:</b> {group.similarity_score:.1f}% | "
+            f"<b>Archivos:</b> {group.file_count} | "
+            f"<b>Tamaño total:</b> {self._format_size(group.total_size)}"
         )
         info_label.setTextFormat(Qt.RichText)
         info_label.setStyleSheet("padding: 8px; background-color: #f8f9fa; border-radius: 4px;")
         self.group_layout.addWidget(info_label)
-        
+
         # Tabla de archivos
         table = QTableWidget()
-        table.setColumnCount(4)
-        table.setHorizontalHeaderLabels(["Eliminar", "Archivo", "Tamaño", "Fecha Modificación"])
+        # Añadimos una columna extra para el botón "Abrir"
+        table.setColumnCount(5)
+        table.setHorizontalHeaderLabels(["Eliminar", "Archivo", "Tamaño", "Fecha Modificación", "Abrir archivo"])
         table.setRowCount(len(group.files))
-        
+
         # Obtener selección previa si existe
         previous_selection = self.selections.get(index, [])
-        
+
         for row, file_path in enumerate(group.files):
             # Checkbox
             checkbox = QCheckBox()
             checkbox.setChecked(file_path in previous_selection)
             checkbox.stateChanged.connect(lambda state, f=file_path: self._on_selection_changed(f, state))
             table.setCellWidget(row, 0, checkbox)
-            
+
             # Nombre
             table.setItem(row, 1, QTableWidgetItem(file_path.name))
-            
+
             # Tamaño
             table.setItem(row, 2, QTableWidgetItem(self._format_size(file_path.stat().st_size)))
-            
+
             # Fecha
             from datetime import datetime
             mtime = datetime.fromtimestamp(file_path.stat().st_mtime)
             table.setItem(row, 3, QTableWidgetItem(mtime.strftime("%Y-%m-%d %H:%M")))
-        
+
+            # Botón "Abrir archivo"
+            open_btn = QPushButton("Abrir")
+            open_btn.setToolTip(f"Abrir {file_path}")
+            open_btn.clicked.connect(lambda _, f=file_path: self._open_file(f))
+            table.setCellWidget(row, 4, open_btn)
+
+        # Ajustar columnas
         table.resizeColumnsToContents()
         self.group_layout.addWidget(table)
-        
+
         self._update_summary()
-    
+
     def _on_selection_changed(self, file_path, state):
         """Maneja cambios en la selección"""
         if self.current_group_index not in self.selections:
             self.selections[self.current_group_index] = []
-        
         if state == Qt.Checked:
             if file_path not in self.selections[self.current_group_index]:
                 self.selections[self.current_group_index].append(file_path)
         else:
             if file_path in self.selections[self.current_group_index]:
                 self.selections[self.current_group_index].remove(file_path)
-        
         self._update_summary()
-    
+
     def _previous_group(self):
         self._load_group(self.current_group_index - 1)
-    
+
     def _next_group(self):
         self._load_group(self.current_group_index + 1)
-    
+
     def _update_summary(self):
         """Actualiza el resumen de archivos seleccionados"""
         total_selected = sum(len(files) for files in self.selections.values())
-        
         total_size = 0
         for files in self.selections.values():
             total_size += sum(f.stat().st_size for f in files)
-        
         self.summary_label.setText(
-            f"**Archivos seleccionados para eliminar:** {total_selected}<br>"
-            f"**Espacio a liberar:** {self._format_size(total_size)}"
+            f"<b>Archivos seleccionados para eliminar:</b> {total_selected} "
+            f"<br><b>Espacio a liberar:</b> {self._format_size(total_size)}"
         )
-        
         self.ok_btn.setEnabled(total_selected > 0)
-    
+
     def accept(self):
         # Crear grupos filtrados solo con archivos a eliminar
         groups_to_process = []
-        
         for group_idx, files_to_delete in self.selections.items():
             if files_to_delete:
                 original_group = self.analysis['groups'][group_idx]
                 # Crear un nuevo grupo solo con archivos a eliminar
-                # (el detector sabrá que estos deben eliminarse)
                 groups_to_process.append(DuplicateGroup(
                     hash_value=original_group.hash_value,
                     files=files_to_delete,
                     total_size=sum(f.stat().st_size for f in files_to_delete),
                     similarity_score=original_group.similarity_score
                 ))
-        
         self.accepted_plan = {
             'groups': groups_to_process,
             'keep_strategy': 'manual',  # El usuario ya seleccionó manualmente
             'create_backup': self.backup_checkbox.isChecked()
         }
-        
         super().accept()
+
+    def _open_file(self, file_path: Path):
+        """Abre un archivo con la aplicación predeterminada del sistema operativo"""
+        if file_path.is_file():
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(file_path)))
+        else:
+            QMessageBox.warning(self, "Archivo no encontrado", f"No se encontró el archivo:\n{file_path}")
+
