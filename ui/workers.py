@@ -249,3 +249,75 @@ class HEICRemovalWorker(QThread):
             import traceback
             error_msg = f"{str(e)}\n{traceback.format_exc()}"
             self.error.emit(error_msg)
+
+class DuplicateAnalysisWorker(QThread):
+    """Worker para análisis de duplicados (exactos o similares)"""
+    
+    progress_update = pyqtSignal(int, int, str)
+    finished = pyqtSignal(dict)
+    error = pyqtSignal(str)
+    
+    def __init__(self, detector, directory, mode='exact', sensitivity=10):
+        super().__init__()
+        self.detector = detector
+        self.directory = directory
+        self.mode = mode
+        self.sensitivity = sensitivity
+    
+    def run(self):
+        try:
+            def progress_callback(current: int, total: int, message: str):
+                self.progress_update.emit(0, 0, message)
+            
+            if self.mode == 'exact':
+                results = self.detector.analyze_exact_duplicates(
+                    self.directory,
+                    progress_callback=progress_callback
+                )
+            else:  # perceptual
+                results = self.detector.analyze_similar_duplicates(
+                    self.directory,
+                    sensitivity=self.sensitivity,
+                    progress_callback=progress_callback
+                )
+            
+            self.finished.emit(results)
+        
+        except Exception as e:
+            import traceback
+            error_msg = f"{str(e)}\n{traceback.format_exc()}"
+            self.error.emit(error_msg)
+
+
+class DuplicateDeletionWorker(QThread):
+    """Worker para eliminación de duplicados"""
+    
+    progress_update = pyqtSignal(int, int, str)
+    finished = pyqtSignal(dict)
+    error = pyqtSignal(str)
+    
+    def __init__(self, detector, groups, keep_strategy, create_backup=True):
+        super().__init__()
+        self.detector = detector
+        self.groups = groups
+        self.keep_strategy = keep_strategy
+        self.create_backup = create_backup
+    
+    def run(self):
+        try:
+            def progress_callback(current: int, total: int, message: str):
+                self.progress_update.emit(0, 0, message)
+            
+            results = self.detector.execute_deletion(
+                self.groups,
+                keep_strategy=self.keep_strategy,
+                create_backup=self.create_backup,
+                progress_callback=progress_callback
+            )
+            
+            self.finished.emit(results)
+        
+        except Exception as e:
+            import traceback
+            error_msg = f"{str(e)}\n{traceback.format_exc()}"
+            self.error.emit(error_msg)

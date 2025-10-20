@@ -476,3 +476,31 @@ QTabBar::tab:!selected {
     margin-top: 6px;
 }
 """
+
+# ============================================================================
+# ESTILOS PARA DUPLICADOS: TODO. hay que usarlos, hazlo a mano
+# ============================================================================
+
+STYLE_DUPLICATE_MODE_FRAME_EXACT = """
+QFrame {
+    background-color: #e7f3ff;
+    border: 2px solid #2196F3;
+    border-radius: 8px;
+    padding: 12px;
+}
+QFrame:hover {
+    background-color: #d0e9ff;
+}
+"""
+
+STYLE_DUPLICATE_MODE_FRAME_SIMILAR = """
+QFrame {
+    background-color: #fff3e0;
+    border: 2px solid #ff9800;
+    border-radius: 8px;
+    padding: 12px;
+}
+QFrame:hover {
+    background-color: #ffe0b2;
+}
+"""

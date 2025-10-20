@@ -10,8 +10,11 @@ from datetime import datetime
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QLineEdit, QFileDialog, QMessageBox, QTextEdit, QDialog, QCheckBox,
-    QProgressBar, QGroupBox, QTabWidget, QComboBox, QSplitter, QFrame, QMenu, QApplication
+    QProgressBar, QGroupBox, QTabWidget, QComboBox, QSplitter, QFrame, QMenu, QApplication,
+    QSizePolicy, QTabWidget, QWidget, QTextEdit, QGroupBox, 
+    QProgressBar, QLineEdit, QButtonGroup, QSlider, QRadioButton
 )
+
 from PyQt5.QtWidgets import QSizePolicy
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QDesktopServices
@@ -40,6 +43,11 @@ from ui.ui_helpers import (
     update_tab_details, show_results_html, format_size, reset_analysis_ui,
     show_progress, hide_progress, get_button_style
 )
+
+from services.duplicate_detector import DuplicateDetector
+from ui.workers import DuplicateAnalysisWorker, DuplicateDeletionWorker
+from ui.dialogs import ExactDuplicatesDialog, SimilarDuplicatesDialog
+
 
 # ============================================================================
 # VERIFICAR DISPONIBILIDAD DE MÓDULOS
@@ -82,11 +90,13 @@ class MainWindow(QMainWindow):
             force=True
         )
 
-        self.app_logger = logging.getLogger('PhotokitManager')
-        self.app_logger.info("=" * 70)
-        self.app_logger.info("Aplicación iniciada")
-        self.app_logger.info(f"Archivo de log: {self.log_file}")
-        self.app_logger.info("=" * 70)
+        # Inicializar logger de instancia como `self.logger` (nombre usado en
+        # todo el proyecto). Esto centraliza el logger de la ventana principal.
+        self.logger = logging.getLogger('PhotokitManager')
+        self.logger.info("=" * 70)
+        self.logger.info("Aplicación iniciada")
+        self.logger.info(f"Archivo de log: {self.log_file}")
+        self.logger.info("=" * 70)
 
         # Inicializar servicios
         self.renamer = FileRenamer()
@@ -94,6 +104,11 @@ class MainWindow(QMainWindow):
         self.live_photo_cleaner = LivePhotoCleaner()
         self.directory_unifier = DirectoryUnifier()
         self.heic_remover = HEICDuplicateRemover()
+
+        # Detector de duplicados
+        self.duplicate_detector = DuplicateDetector()
+        self.duplicate_analysis_results = None
+
 
         # Workers
         self.analysis_worker = None
@@ -381,7 +396,7 @@ class MainWindow(QMainWindow):
         self.log_level_combo.addItems(["DEBUG", "INFO", "WARNING", "ERROR"])
         # Sincronizar el combo con el nivel efectivo del logger de la aplicación
         try:
-            level_num = self.app_logger.getEffectiveLevel()
+            level_num = self.logger.getEffectiveLevel()
             current_level = logging.getLevelName(level_num).upper()
         except Exception:
             current_level = config.Config.LOG_LEVEL.upper()
@@ -448,7 +463,7 @@ class MainWindow(QMainWindow):
             else:  # Linux
                 subprocess.Popen(['xdg-open', self.logs_directory])
 
-            self.app_logger.info(f"Carpeta de logs abierta: {self.logs_directory}")
+            self.logger.info(f"Carpeta de logs abierta: {self.logs_directory}")
         except Exception as e:
             QMessageBox.warning(
                 self,
@@ -493,11 +508,11 @@ class MainWindow(QMainWindow):
             'ERROR': logging.ERROR
         }
         level = level_map.get(level_name, logging.INFO)
-        self.app_logger.setLevel(level)
+        self.logger.setLevel(level)
         config.Config.LOG_LEVEL = level_name  # Actualiza el config global
         self.log_level = level_name
         # Registrar como mensaje informativo (semánticamente correcto)
-        self.app_logger.info(f"Nivel de log cambiado a: {level_name}")
+        self.logger.info(f"Nivel de log cambiado a: {level_name}")
 
     def _create_config_panel(self, parent_layout):
         """Crea el panel de configuración mejorado y más organizado"""
@@ -748,7 +763,7 @@ class MainWindow(QMainWindow):
 
             # Usuario confirmó, limpiar análisis previo
             self._reset_analysis_ui()
-            self.app_logger.info(f"Directorio cambiado de {self.last_analyzed_directory} a {new_directory}")
+            self.logger.info(f"Directorio cambiado de {self.last_analyzed_directory} a {new_directory}")
 
         # Actualizar directorio actual
         self.current_directory = new_directory
@@ -783,7 +798,7 @@ class MainWindow(QMainWindow):
             )
 
             if reply != QMessageBox.Yes:
-                self.app_logger.info(f"Análisis cancelado por el usuario para: {new_directory}")
+                self.logger.info(f"Análisis cancelado por el usuario para: {new_directory}")
                 return
 
         # Ejecutar análisis automáticamente
@@ -799,7 +814,7 @@ class MainWindow(QMainWindow):
         if directory:
             self.logs_directory = Path(directory)
             self.logs_edit.setText(str(self.logs_directory))
-            self.app_logger.info(f"Directorio de logs cambiado a: {self.logs_directory}")
+            self.logger.info(f"Directorio de logs cambiado a: {self.logs_directory}")
     
 
     # ========================================================================
@@ -877,7 +892,7 @@ class MainWindow(QMainWindow):
         # Iniciar
         self.analysis_worker.start()
         
-        self.app_logger.info(f"Iniciando análisis de: {self.current_directory}")
+        self.logger.info(f"Iniciando análisis de: {self.current_directory}")
 
         # NOTA: No pasamos callbacks que envíen valores numéricos a la barra de
         # progreso. El progress_bar se mostrará en modo indeterminado mientras
@@ -962,7 +977,7 @@ class MainWindow(QMainWindow):
             </div>
         """, show_generic_status=True)
         
-        self.app_logger.info(f"Análisis completado para: {self.last_analyzed_directory}")
+        self.logger.info(f"Análisis completado para: {self.last_analyzed_directory}")
         
         # Limpiar referencia
         if self.analysis_worker in self.active_workers:
@@ -1047,7 +1062,7 @@ class MainWindow(QMainWindow):
             )
 
             if reply2 != QMessageBox.Yes:
-                self.app_logger.info(f"Cambio de directorio cancelado por el usuario para: {new_directory}")
+                self.logger.info(f"Cambio de directorio cancelado por el usuario para: {new_directory}")
                 return
 
         # Usuario confirmó, aplicar cambio
@@ -1072,7 +1087,7 @@ class MainWindow(QMainWindow):
         """Callback cuando hay error en el análisis"""
         self.hide_progress()
         QMessageBox.critical(self, "Error", f"Error durante el análisis:\n{error}")
-        self.app_logger.error(f"Error en análisis: {error}")
+        self.logger.error(f"Error en análisis: {error}")
 
         if self.analysis_worker:
             self.analysis_worker.quit()
@@ -1217,7 +1232,7 @@ class MainWindow(QMainWindow):
             self._schedule_reanalysis()
         except Exception:
             # No interrumpir el flujo por un fallo en el reanálisis
-            self.app_logger.exception("Error al programar re-análisis tras renombrado")
+            self.logger.exception("Error al programar re-análisis tras renombrado")
     
     # ========================================================================
     # LIVE PHOTOS
@@ -1272,7 +1287,7 @@ class MainWindow(QMainWindow):
             import traceback
             error_msg = f"{str(e)}\n{traceback.format_exc()}"
             QMessageBox.critical(self, "Error", f"Error preparando limpieza LP:\n{error_msg}")
-            self.app_logger.error(f"Error preparando limpieza LP: {error_msg}")
+            self.logger.error(f"Error preparando limpieza LP: {error_msg}")
     
     def _execute_lp_cleanup(self, plan):
         """Ejecuta la limpieza de Live Photos"""
@@ -1354,7 +1369,7 @@ class MainWindow(QMainWindow):
         try:
             self._schedule_reanalysis()
         except Exception:
-            self.app_logger.exception("Error al programar re-análisis tras limpieza Live Photos")
+            self.logger.exception("Error al programar re-análisis tras limpieza Live Photos")
     
     # ========================================================================
     # UNIFICACIÓN
@@ -1467,7 +1482,7 @@ class MainWindow(QMainWindow):
 
         except Exception as e:
             # Registrar pero no interrumpir
-            self.app_logger.error(f"Error re-analizando después de unificación: {e}")
+            self.logger.error(f"Error re-analizando después de unificación: {e}")
 
         if self.execution_worker in self.active_workers:
             self.active_workers.remove(self.execution_worker)
@@ -1476,7 +1491,7 @@ class MainWindow(QMainWindow):
         try:
             self._schedule_reanalysis()
         except Exception:
-            self.app_logger.exception("Error al programar re-análisis tras unificación")
+            self.logger.exception("Error al programar re-análisis tras unificación")
     
     # ========================================================================
     # HEIC
@@ -1582,7 +1597,7 @@ class MainWindow(QMainWindow):
         try:
             self._schedule_reanalysis()
         except Exception:
-            self.app_logger.exception("Error al programar re-análisis tras eliminación HEIC")
+            self.logger.exception("Error al programar re-análisis tras eliminación HEIC")
 
     def _schedule_reanalysis(self, delay_ms: int = 500):
         """Programa un re-análisis del directorio actual tras operaciones que cambian archivos.
@@ -1592,19 +1607,19 @@ class MainWindow(QMainWindow):
         """
         # Si no hay un directorio actual o no se analizó previamente, no re-analizar
         if not self.current_directory:
-            self.app_logger.debug("No hay directorio actual: se omite re-análisis programado")
+            self.logger.debug("No hay directorio actual: se omite re-análisis programado")
             return
 
         # Si el último directorio analizado es distinto, aún así forzamos re-análisis del actual
         def _do_reanalyze():
             try:
-                self.app_logger.info("Iniciando re-análisis automático tras operación que modifica archivos")
+                self.logger.info("Iniciando re-análisis automático tras operación que modifica archivos")
                 # Asegurarse de que los botones estén en estado adecuado y llamar a analyze_directory
                 # Llamamos a _reanalyze_same_directory para respetar el flujo existente
                 # Que deshabilita/gestiona botones correctamente
                 self._reanalyze_same_directory()
             except Exception:
-                self.app_logger.exception("Fallo durante re-análisis automático")
+                self.logger.exception("Fallo durante re-análisis automático")
 
         # Usar un pequeño retardo para dejar que el sistema de ficheros se estabilice
         QTimer.singleShot(delay_ms, _do_reanalyze)
@@ -1639,8 +1654,8 @@ class MainWindow(QMainWindow):
         """Callback genérico para errores"""
         self.hide_progress()
         QMessageBox.critical(self, "Error", f"Error durante la operación:\n{error}")
-        self.app_logger.error(f"Error: {error}")
-        
+        self.logger.error(f"Error: {error}")
+
         # Limpiar referencia
         if self.execution_worker in self.active_workers:
             self.active_workers.remove(self.execution_worker)
@@ -1669,3 +1684,289 @@ class MainWindow(QMainWindow):
         return reset_analysis_ui(self, reinsert_analyze)
 
 
+    # =========================================================================
+    # MÉTODOS PARA DUPLICADOS
+    # =========================================================================
+    
+    def on_analyze_duplicates(self):
+        """Inicia el análisis de duplicados según el modo seleccionado"""
+        if not self.current_directory:
+            QMessageBox.warning(
+                self,
+                "Directorio no seleccionado",
+                "Por favor selecciona un directorio primero."
+            )
+            return
+        
+        # Determinar modo
+        is_exact_mode = self.exact_mode_radio.isChecked()
+        mode = 'exact' if is_exact_mode else 'perceptual'
+        sensitivity = self.sensitivity_slider.value()
+        
+        self.logger.info(f"Iniciando análisis de duplicados: modo={mode}, sensitivity={sensitivity}")
+        
+        # Deshabilitar botones
+        self.analyze_duplicates_btn.setEnabled(False)
+        self.delete_exact_duplicates_btn.setVisible(False)
+        self.review_similar_btn.setVisible(False)
+        
+        # Actualizar UI
+        mode_text = "exactos" if is_exact_mode else "similares"
+        self.duplicates_results_label.setText(
+            f"🔄 Analizando duplicados {mode_text}...\n"
+            f"Por favor espera, esto puede tardar varios minutos."
+        )
+        
+        # Crear y ejecutar worker
+        self.duplicate_worker = DuplicateAnalysisWorker(
+            self.duplicate_detector,
+            self.current_directory,
+            mode=mode,
+            sensitivity=sensitivity
+        )
+        
+        self.duplicate_worker.progress_update.connect(self._update_duplicate_progress)
+        self.duplicate_worker.finished.connect(self._on_duplicate_analysis_finished)
+        self.duplicate_worker.error.connect(self._on_duplicate_analysis_error)
+        
+        self.duplicate_worker.start()
+    
+    def _update_duplicate_progress(self, current, total, message):
+        """Actualiza el progreso del análisis de duplicados"""
+        self.duplicates_results_label.setText(f"🔄 {message}")
+    
+    def _on_duplicate_analysis_finished(self, results):
+        """Maneja la finalización del análisis de duplicados"""
+        self.logger.info(f"Análisis completado: {results.get('mode')}")
+        
+        self.duplicate_analysis_results = results
+        self.analyze_duplicates_btn.setEnabled(True)
+        
+        if results.get('error'):
+            QMessageBox.critical(
+                self,
+                "Error en Análisis",
+                f"Error: {results['error']}\n\n"
+                "Asegúrate de tener instalados imagehash y opencv-python para detección perceptual."
+            )
+            self.duplicates_results_label.setText(
+                f"❌ Error: {results['error']}"
+            )
+            return
+        
+        # Mostrar resultados según el modo
+        if results['mode'] == 'exact':
+            self._show_exact_results(results)
+        else:  # perceptual
+            self._show_similar_results(results)
+    
+    def _show_exact_results(self, results):
+        """Muestra resultados de duplicados exactos"""
+        total_groups = results['total_groups']
+        total_duplicates = results['total_duplicates']
+        space_wasted = results['space_wasted']
+        
+        if total_groups == 0:
+            self.duplicates_results_label.setText(
+                "✅ **¡Excelente!** No se encontraron duplicados exactos.\n\n"
+                "Tu biblioteca está limpia de copias idénticas."
+            )
+            return
+        
+        # Formatear tamaño
+        mb_size = space_wasted / (1024 * 1024)
+        if mb_size >= 1024:
+            size_str = f"{mb_size / 1024:.2f} GB"
+        else:
+            size_str = f"{mb_size:.1f} MB"
+        
+        self.duplicates_results_label.setText(
+            f"**📊 Duplicados Exactos Encontrados:**\n\n"
+            f"• **Grupos encontrados:** {total_groups}\n"
+            f"• **Archivos duplicados:** {total_duplicates}\n"
+            f"• **Espacio desperdiciado:** {size_str}\n\n"
+            f"✅ Estos son duplicados 100% idénticos.\n"
+            f"Puedes eliminarlos de forma segura."
+        )
+        
+        # Mostrar botón de eliminación
+        self.delete_exact_duplicates_btn.setVisible(True)
+    
+    def _show_similar_results(self, results):
+        """Muestra resultados de duplicados similares"""
+        total_groups = results['total_groups']
+        total_similar = results['total_similar']
+        space_potential = results['space_potential']
+        min_sim = results.get('min_similarity', 0)
+        max_sim = results.get('max_similarity', 0)
+        
+        if total_groups == 0:
+            self.duplicates_results_label.setText(
+                "✅ **No se encontraron duplicados similares** con la sensibilidad actual.\n\n"
+                "Prueba aumentar la sensibilidad si quieres detectar archivos menos similares."
+            )
+            return
+        
+        # Formatear tamaño
+        mb_size = space_potential / (1024 * 1024)
+        if mb_size >= 1024:
+            size_str = f"{mb_size / 1024:.2f} GB"
+        else:
+            size_str = f"{mb_size:.1f} MB"
+        
+        self.duplicates_results_label.setText(
+            f"**🎨 Duplicados Similares Encontrados:**\n\n"
+            f"• **Grupos de similitud:** {total_groups}\n"
+            f"• **Archivos similares:** {total_similar}\n"
+            f"• **Rango de similitud:** {min_sim}-{max_sim}%\n"
+            f"• **Espacio potencial:** {size_str}\n\n"
+            f"⚠️ **Requiere revisión manual** antes de eliminar.\n"
+            f"Estos archivos NO son idénticos."
+        )
+        
+        # Mostrar botón de revisión
+        self.review_similar_btn.setVisible(True)
+    
+    def _on_duplicate_analysis_error(self, error_msg):
+        """Maneja errores en el análisis de duplicados"""
+        self.logger.error(f"Error en análisis: {error_msg}")
+        
+        QMessageBox.critical(
+            self,
+            "Error en Análisis",
+            f"Ocurrió un error durante el análisis:\n\n{error_msg}"
+        )
+        
+        self.duplicates_results_label.setText(
+            "❌ Error en el análisis. Revisa el log para más detalles."
+        )
+        
+        self.analyze_duplicates_btn.setEnabled(True)
+    
+    def on_delete_exact_duplicates(self):
+        """Muestra diálogo para eliminar duplicados exactos"""
+        if not self.duplicate_analysis_results:
+            return
+        
+        dialog = ExactDuplicatesDialog(self.duplicate_analysis_results, self)
+        
+        if dialog.exec_() == QDialog.Accepted and dialog.accepted_plan:
+            self._execute_duplicate_deletion(dialog.accepted_plan)
+    
+    def on_review_similar_duplicates(self):
+        """Muestra diálogo para revisar duplicados similares"""
+        if not self.duplicate_analysis_results:
+            return
+        
+        dialog = SimilarDuplicatesDialog(self.duplicate_analysis_results, self)
+        
+        if dialog.exec_() == QDialog.Accepted and dialog.accepted_plan:
+            self._execute_duplicate_deletion(dialog.accepted_plan)
+    
+    def _execute_duplicate_deletion(self, plan):
+        """Ejecuta la eliminación de duplicados"""
+        groups = plan['groups']
+        keep_strategy = plan['keep_strategy']
+        create_backup = plan['create_backup']
+        
+        # Confirmación final
+        reply = QMessageBox.question(
+            self,
+            "Confirmar Eliminación",
+            f"¿Estás seguro de que deseas eliminar los archivos seleccionados?\n\n"
+            f"Se eliminarán archivos de {len(groups)} grupos.\n"
+            f"{'Se creará un backup de seguridad.' if create_backup else 'NO se creará backup.'}",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        
+        if reply != QMessageBox.Yes:
+            return
+        
+        self.logger.info(f"Ejecutando eliminación de duplicados: {len(groups)} grupos")
+        
+        # Deshabilitar botones
+        self.delete_exact_duplicates_btn.setEnabled(False)
+        self.review_similar_btn.setEnabled(False)
+        self.analyze_duplicates_btn.setEnabled(False)
+        
+        self.duplicates_results_label.setText(
+            "🗑️ Eliminando archivos...\nPor favor espera."
+        )
+        
+        # Crear y ejecutar worker
+        self.deletion_worker = DuplicateDeletionWorker(
+            self.duplicate_detector,
+            groups,
+            keep_strategy,
+            create_backup
+        )
+        
+        self.deletion_worker.progress_update.connect(self._update_deletion_progress)
+        self.deletion_worker.finished.connect(self._on_deletion_finished)
+        self.deletion_worker.error.connect(self._on_deletion_error)
+        
+        self.deletion_worker.start()
+    
+    def _update_deletion_progress(self, current, total, message):
+        """Actualiza progreso de eliminación"""
+        self.duplicates_results_label.setText(f"🗑️ {message}")
+    
+    def _on_deletion_finished(self, results):
+        """Maneja finalización de eliminación"""
+        files_deleted = results['files_deleted']
+        space_freed = results['space_freed']
+        errors = results['errors']
+        backup_path = results.get('backup_path')
+        
+        # Formatear tamaño
+        mb_size = space_freed / (1024 * 1024)
+        if mb_size >= 1024:
+            size_str = f"{mb_size / 1024:.2f} GB"
+        else:
+            size_str = f"{mb_size:.1f} MB"
+        
+        self.logger.info(f"Eliminación completada: {files_deleted} archivos, {size_str} liberados")
+        
+        # Mostrar mensaje de éxito
+        msg = (
+            f"✅ **Eliminación Completada**\n\n"
+            f"• Archivos eliminados: {files_deleted}\n"
+            f"• Espacio liberado: {size_str}\n"
+        )
+        
+        if backup_path:
+            msg += f"\n📦 Backup guardado en:\n{backup_path}"
+        
+        if errors:
+            msg += f"\n\n⚠️ Errores: {len(errors)}"
+        
+        QMessageBox.information(self, "Eliminación Completada", msg)
+        
+        # Actualizar UI
+        self.duplicates_results_label.setText(
+            f"✅ **Eliminación completada exitosamente**\n\n"
+            f"• {files_deleted} archivos eliminados\n"
+            f"• {size_str} liberados\n\n"
+            f"Ejecuta un nuevo análisis para verificar."
+        )
+        
+        # Limpiar resultados y restaurar botones
+        self.duplicate_analysis_results = None
+        self.analyze_duplicates_btn.setEnabled(True)
+        self.delete_exact_duplicates_btn.setVisible(False)
+        self.review_similar_btn.setVisible(False)
+    
+    def _on_deletion_error(self, error_msg):
+        """Maneja errores en eliminación"""
+        self.logger.error(f"Error en eliminación: {error_msg}")
+        
+        QMessageBox.critical(
+            self,
+            "Error en Eliminación",
+            f"Ocurrió un error durante la eliminación:\n\n{error_msg}"
+        )
+        
+        self.analyze_duplicates_btn.setEnabled(True)
+        self.delete_exact_duplicates_btn.setEnabled(True)
+        self.review_similar_btn.setEnabled(True)
