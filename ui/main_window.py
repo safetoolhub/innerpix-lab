@@ -1773,12 +1773,8 @@ class MainWindow(QMainWindow):
             )
             return
         
-        # Formatear tamaño
-        mb_size = space_wasted / (1024 * 1024)
-        if mb_size >= 1024:
-            size_str = f"{mb_size / 1024:.2f} GB"
-        else:
-            size_str = f"{mb_size:.1f} MB"
+        # Formatear tamaño usando helper central
+        size_str = self._format_size(space_wasted)
         
         self.duplicates_results_label.setText(
             f"**📊 Duplicados Exactos Encontrados:**\n\n"
@@ -1807,12 +1803,8 @@ class MainWindow(QMainWindow):
             )
             return
         
-        # Formatear tamaño
-        mb_size = space_potential / (1024 * 1024)
-        if mb_size >= 1024:
-            size_str = f"{mb_size / 1024:.2f} GB"
-        else:
-            size_str = f"{mb_size:.1f} MB"
+        # Formatear tamaño usando helper central
+        size_str = self._format_size(space_potential)
         
         self.duplicates_results_label.setText(
             f"**🎨 Duplicados Similares Encontrados:**\n\n"
@@ -1826,6 +1818,10 @@ class MainWindow(QMainWindow):
         
         # Mostrar botón de revisión
         self.review_similar_btn.setVisible(True)
+        # Asegurarse de que el botón esté habilitado (puede haber quedado deshabilitado
+        # por operaciones previas como una eliminación). Esto evita que el botón
+        # no responda cuando solo hay un grupo encontrado.
+        self.review_similar_btn.setEnabled(True)
     
     def _on_duplicate_analysis_error(self, error_msg):
         """Maneja errores en el análisis de duplicados"""
@@ -1919,12 +1915,8 @@ class MainWindow(QMainWindow):
         errors = results['errors']
         backup_path = results.get('backup_path')
         
-        # Formatear tamaño
-        mb_size = space_freed / (1024 * 1024)
-        if mb_size >= 1024:
-            size_str = f"{mb_size / 1024:.2f} GB"
-        else:
-            size_str = f"{mb_size:.1f} MB"
+        # Formatear tamaño usando helper central
+        size_str = self._format_size(space_freed)
         
         self.logger.info(f"Eliminación completada: {files_deleted} archivos, {size_str} liberados")
         

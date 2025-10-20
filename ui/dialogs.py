@@ -140,13 +140,21 @@ class LivePhotoCleanupDialog(QDialog):
         self.init_ui()
 
     def _format_size(self, bytes_size):
-        """Formatea tamaño en bytes a MB o GB"""
-        mb_size = bytes_size / (1024 * 1024)
-        if mb_size >= 1024:
-            gb_size = mb_size / 1024
-            return f"{gb_size:.2f} GB"
-        else:
-            return f"{mb_size:.1f} MB"
+        """Formatea tamaño en bytes usando format_size central"""
+        try:
+            from ui.ui_helpers import format_size
+            return format_size(bytes_size)
+        except Exception:
+            # Fallback simple
+            try:
+                if bytes_size is None:
+                    return "0 B"
+                mb_size = bytes_size / (1024 * 1024)
+                if mb_size >= 1024:
+                    return f"{mb_size / 1024:.2f} GB"
+                return f"{mb_size:.1f} MB"
+            except Exception:
+                return "0 B"
 
     def _calculate_space_for_mode(self, mode):
         """Calcula el espacio a liberar según el modo seleccionado"""
@@ -913,11 +921,17 @@ class ExactDuplicatesDialog(QDialog):
         self.init_ui()
     
     def _format_size(self, bytes_size):
-        """Formatea tamaño en bytes"""
-        mb_size = bytes_size / (1024 * 1024)
-        if mb_size >= 1024:
-            return f"{mb_size / 1024:.2f} GB"
-        return f"{mb_size:.1f} MB"
+        try:
+            from ui.ui_helpers import format_size
+            return format_size(bytes_size)
+        except Exception:
+            try:
+                mb_size = bytes_size / (1024 * 1024)
+                if mb_size >= 1024:
+                    return f"{mb_size / 1024:.2f} GB"
+                return f"{mb_size:.1f} MB"
+            except Exception:
+                return "0 B"
     
     def init_ui(self):
         self.setWindowTitle("Eliminar Duplicados Exactos")
@@ -955,13 +969,6 @@ class ExactDuplicatesDialog(QDialog):
         self.strategy_buttons.addButton(r2, 1)
         strategy_layout.addWidget(r2)
         
-        r3 = QRadioButton("📊 Mantener el más grande (mayor calidad)")
-        self.strategy_buttons.addButton(r3, 2)
-        strategy_layout.addWidget(r3)
-        
-        r4 = QRadioButton("📉 Mantener el más pequeño (ahorrar espacio)")
-        self.strategy_buttons.addButton(r4, 3)
-        strategy_layout.addWidget(r4)
         
         self.strategy_buttons.buttonClicked.connect(self._on_strategy_changed)
         
@@ -1026,7 +1033,8 @@ class ExactDuplicatesDialog(QDialog):
         layout.addWidget(buttons)
     
     def _on_strategy_changed(self, button):
-        strategies = {0: 'oldest', 1: 'newest', 2: 'largest', 3: 'smallest'}
+        """Handle strategy change: only 'oldest' and 'newest' are supported."""
+        strategies = {0: 'oldest', 1: 'newest'}
         self.keep_strategy = strategies[self.strategy_buttons.id(button)]
     
     def accept(self):

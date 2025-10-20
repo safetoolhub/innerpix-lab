@@ -659,12 +659,39 @@ def show_results_html(window, html: str, show_generic_status: bool = False):
 
 
 def format_size(bytes_size):
-    mb_size = bytes_size / (1024 * 1024)
-    if mb_size >= 1024:
-        gb_size = mb_size / 1024
-        return f"{gb_size:.2f} GB"
-    else:
-        return f"{mb_size:.1f} MB"
+    """Formatea un tamaño en bytes a una cadena legible.
+
+    Soporta Bytes, KB, MB y GB. Usa potencias de 1024.
+    Maneja valores None o negativos de forma segura.
+    """
+    try:
+        if bytes_size is None:
+            return "0 B"
+        size = float(bytes_size)
+    except Exception:
+        return "0 B"
+
+    if size < 0:
+        # Mantener el signo y formatear el absoluto
+        return f"-{format_size(abs(size))}"
+
+    # Bytes
+    if size < 1024:
+        return f"{int(size)} B"
+
+    # Kilobytes
+    kb = size / 1024
+    if kb < 1024:
+        return f"{kb:.1f} KB"
+
+    # Megabytes
+    mb = kb / 1024
+    if mb < 1024:
+        return f"{mb:.1f} MB"
+
+    # Gigabytes and above
+    gb = mb / 1024
+    return f"{gb:.2f} GB"
 
 
 def reset_analysis_ui(window, reinsert_analyze=True):

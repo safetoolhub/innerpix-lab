@@ -369,49 +369,91 @@ class DuplicateDetector:
             backup_path = config.Config.DEFAULT_BACKUP_DIR / f"duplicates_backup_{timestamp}"
             backup_path.mkdir(parents=True, exist_ok=True)
             self.logger.info(f"Backup creado en: {backup_path}")
-        
+
         deleted_files = []
         kept_files = []
         errors = []
-        total_operations = sum(len(g.files) - 1 for g in groups)
+        # Si la estrategia es 'manual', los grupos contienen los archivos seleccionados
+        # para eliminar, por lo que el número de operaciones es la suma de esos archivos.
+        if keep_strategy == 'manual':
+            total_operations = sum(len(g.files) for g in groups)
+        else:
+            total_operations = sum(len(g.files) - 1 for g in groups)
         processed = 0
-        
+        space_freed = 0
+
         for group in groups:
             try:
-                # Seleccionar archivo a mantener
-                keep_file = self._select_file_to_keep(group.files, keep_strategy)
-                kept_files.append(keep_file)
-                
-                # Eliminar el resto
-                for file_path in group.files:
-                    if file_path == keep_file:
-                        continue
-                    
-                    try:
-                        # Backup
-                        if create_backup:
-                            backup_file = backup_path / file_path.name
-                            shutil.copy2(file_path, backup_file)
-                        
-                        # Eliminar
-                        file_path.unlink()
-                        deleted_files.append(file_path)
-                        
-                        processed += 1
-                        if progress_callback:
-                            progress_callback(processed, total_operations,
-                                            f"Eliminado: {file_path.name}")
-                    
-                    except Exception as e:
-                        errors.append({'file': str(file_path), 'error': str(e)})
-                        self.logger.error(f"Error eliminando {file_path}: {e}")
-            
+                # Si el usuario seleccionó manualmente los archivos a borrar,
+                # los grupos contienen exactamente esos archivos: borramos todos.
+                if keep_strategy == 'manual':
+                    for file_path in group.files:
+                        try:
+                            if create_backup and backup_path:
+                                backup_file = backup_path / file_path.name
+                                shutil.copy2(file_path, backup_file)
+
+                            # Obtener tamaño antes de eliminar
+                            try:
+                                file_size = file_path.stat().st_size
+                            except Exception:
+                                file_size = 0
+
+                            file_path.unlink()
+                            deleted_files.append(file_path)
+                            space_freed += file_size
+
+                            processed += 1
+                            if progress_callback:
+                                progress_callback(processed, total_operations,
+                                                  f"Eliminado: {file_path.name}")
+                        except Exception as e:
+                            errors.append({'file': str(file_path), 'error': str(e)})
+                            self.logger.error(f"Error eliminando {file_path}: {e}")
+
+                else:
+                    # Seleccionar archivo a mantener
+                    keep_file = self._select_file_to_keep(group.files, keep_strategy)
+                    kept_files.append(keep_file)
+
+                    # Eliminar el resto
+                    for file_path in group.files:
+                        if file_path == keep_file:
+                            continue
+
+                        try:
+                            # Backup
+                            if create_backup and backup_path:
+                                backup_file = backup_path / file_path.name
+                                shutil.copy2(file_path, backup_file)
+
+                            # Obtener tamaño antes de eliminar
+                            try:
+                                file_size = file_path.stat().st_size
+                            except Exception:
+                                file_size = 0
+
+                            # Eliminar
+                            file_path.unlink()
+                            deleted_files.append(file_path)
+                            space_freed += file_size
+
+                            processed += 1
+                            if progress_callback:
+                                progress_callback(processed, total_operations,
+                                                  f"Eliminado: {file_path.name}")
+
+                        except Exception as e:
+                            errors.append({'file': str(file_path), 'error': str(e)})
+                            self.logger.error(f"Error eliminando {file_path}: {e}")
+
             except Exception as e:
                 errors.append({'group': str(group.hash_value), 'error': str(e)})
                 self.logger.error(f"Error procesando grupo: {e}")
         
-        space_freed = sum(f.stat().st_size for f in deleted_files if f.exists())
-        
+    # space_freed fue acumulado durante la eliminación (se obtiene el tamaño
+    # antes de llamar a unlink). No recomputar usando deleted_files porque
+    # los archivos ya pueden no existir.
         result = {
             'files_deleted': len(deleted_files),
             'files_kept': len(kept_files),
@@ -421,8 +463,13 @@ class DuplicateDetector:
             'keep_strategy': keep_strategy
         }
         
-        self.logger.info(f"Eliminación completada: {len(deleted_files)} archivos, "
-                        f"{space_freed / (1024*1024):.2f} MB liberados")
+        try:
+            from ui.ui_helpers import format_size
+            freed_str = format_size(space_freed)
+        except Exception:
+            freed_str = f"{space_freed / (1024*1024):.2f} MB"
+
+        self.logger.info(f"Eliminación completada: {len(deleted_files)} archivos, {freed_str} liberados")
         
         return result
     
