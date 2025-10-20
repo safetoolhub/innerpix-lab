@@ -284,13 +284,21 @@ class HEICDuplicateRemover:
             f.write(f"Creado: {datetime.now()}\n")
             f.write(f"Directorio original: {root_directory}\n")
             f.write(f"Archivos respaldados: {files_backed_up}\n")
-            f.write(f"Tamaño total: {backup_size / (1024*1024):.2f} MB\n")
+            try:
+                from ui.ui_helpers import format_size
+                f.write(f"Tamaño total: {format_size(backup_size)}\n")
+            except Exception:
+                f.write(f"Tamaño total: {backup_size / (1024*1024):.2f} MB\n")
             f.write(f"\nARCHIVOS RESPALDADOS:\n")
             for file_path in files_to_delete:
                 f.write(f"- {file_path}\n")
 
         self.backup_dir = backup_path
-        self.logger.info(f"Backup completado: {files_backed_up} archivos, {backup_size/(1024*1024):.2f} MB")
+        try:
+            from ui.ui_helpers import format_size
+            self.logger.info(f"Backup completado: {files_backed_up} archivos, {format_size(backup_size)}")
+        except Exception:
+            self.logger.info(f"Backup completado: {files_backed_up} archivos, {backup_size/(1024*1024):.2f} MB")
         return backup_path
 
     def execute_removal(self, duplicate_pairs: List[DuplicatePair], 
@@ -394,8 +402,14 @@ class HEICDuplicateRemover:
             if results['errors']:
                 results['success'] = len(results['errors']) < len(duplicate_pairs)
 
+            try:
+                from ui.ui_helpers import format_size
+                freed = format_size(results['space_freed'])
+            except Exception:
+                freed = f"{results['space_freed']/(1024*1024):.2f} MB"
+
             self.logger.info(f"Eliminación completada: {results['files_deleted']} archivos eliminados, "
-                           f"{results['space_freed']/(1024*1024):.2f} MB liberados, {len(results['errors'])} errores")
+                           f"{freed} liberados, {len(results['errors'])} errores")
 
         except Exception as e:
             error_msg = f"Error durante eliminación: {str(e)}"
