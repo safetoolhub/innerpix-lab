@@ -37,12 +37,11 @@ from services.directory_unifier import DirectoryUnifier
 from services.heic_remover import HEICDuplicateRemover
 from utils.date_utils import get_file_date, format_renamed_name, is_renamed_filename
 from ui.ui_helpers import (
-    create_summary_panel, create_tabs_widget, open_summary_action,
-    create_renaming_tab, create_live_photos_tab, create_unification_tab,
-    create_heic_tab, create_progress_bar, update_summary_panel,
+    create_summary_panel, create_progress_bar, update_summary_panel,
     update_tab_details, show_results_html, format_size, reset_analysis_ui,
     show_progress, hide_progress, get_button_style
 )
+from ui import tabs
 
 from services.duplicate_detector import DuplicateDetector
 from ui.workers import DuplicateAnalysisWorker, DuplicateDeletionWorker
@@ -689,26 +688,27 @@ class MainWindow(QMainWindow):
         return create_summary_panel(self)
     
     def _create_tabs_widget(self):
-        return create_tabs_widget(self)
+        # Crear mediante el módulo tabs directamente
+        return tabs.create_tabs_widget(self)
 
     def _open_summary_action(self, label_substr):
         """Selecciona la pestaña correspondiente según el botón del summary.
 
         label_substr: una breve cadena que identifica la funcionalidad (p.ej. 'Live Photos')
         """
-        return open_summary_action(self, label_substr)
+        return tabs.open_summary_action(self, label_substr)
     
     def _create_renaming_tab(self):
-        return create_renaming_tab(self)
+        return tabs.create_renaming_tab(self)
     
     def _create_live_photos_tab(self):
-        return create_live_photos_tab(self)
+        return tabs.create_live_photos_tab(self)
     
     def _create_unification_tab(self):
-        return create_unification_tab(self)
+        return tabs.create_unification_tab(self)
     
     def _create_heic_tab(self):
-        return create_heic_tab(self)
+        return tabs.create_heic_tab(self)
     
     def _create_progress_bar(self, parent_layout):
         return create_progress_bar(self, parent_layout)
