@@ -90,6 +90,107 @@ STYLE_COLLAPSE_BUTTON = """
     }
 """
 
+STYLE_MENU_BUTTON = """
+    QPushButton {
+        background-color: transparent;
+        color: #6c757d;
+        border: 2px solid #dee2e6;
+        border-radius: 8px;
+        padding: 0px;
+        font-size: 22px;
+        font-weight: bold;
+        text-align: center;
+        qproperty-iconSize: 0px 0px;
+    }
+    QPushButton:hover {
+        background-color: #f8f9fa;
+        border-color: #adb5bd;
+    }
+    QPushButton:pressed {
+        background-color: #e9ecef;
+    }
+    QPushButton::menu-indicator {
+        image: none;
+        width: 0px;
+    }
+"""
+
+# Estilo para menús contextuales / QMenu del header
+STYLE_MENU = """
+    QMenu {
+        background-color: white;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 4px;
+    }
+    QMenu::item {
+        padding: 8px 24px 8px 12px;
+        border-radius: 4px;
+    }
+    QMenu::item:selected {
+        background-color: #f8f9fa;
+    }
+"""
+
+# Contenedor del selector de directorio en la barra de búsqueda
+STYLE_SEARCH_CONTAINER = """
+    QFrame {
+        background-color: white;
+        border: 2px solid #dee2e6;
+        border-radius: 12px;
+        padding: 4px;
+    }
+"""
+
+# Icono de carpeta del search bar
+STYLE_FOLDER_ICON = "font-size: 20px; padding-top: 2px;"
+
+# Estilo específico para el QLineEdit readonly usado en la barra de búsqueda
+STYLE_DIRECTORY_EDIT_READONLY = """
+    QLineEdit {
+        border: none;
+        background: transparent;
+        font-size: 14px;
+        color: #495057;
+        padding: 8px 4px;
+    }
+    QLineEdit[readOnly="true"] {
+        color: #6c757d;
+    }
+"""
+
+# Botón principal de seleccionar y analizar (estilo específico usado en header)
+STYLE_ANALYZE_BUTTON_PRIMARY = """
+    QPushButton {
+        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                    stop:0 #2196F3, stop:1 #1976D2);
+        color: white;
+        border: none;
+        border-radius: 21px;
+        padding: 10px 32px;
+        font-size: 14px;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+        min-width: 200px;
+    }
+    QPushButton:hover {
+        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                    stop:0 #1E88E5, stop:1 #0D47A1);
+        padding: 10px 32px;
+    }
+    QPushButton:pressed {
+        background-color: #0D47A1;
+        padding: 10px 30px;
+    }
+    QPushButton:disabled {
+        background-color: #BDBDBD;
+        color: #EEEEEE;
+    }
+"""
+
+# Contenedor transparente para acciones (sin fondo ni borde)
+STYLE_ACTIONS_CONTAINER = "background: transparent; border: none;"
+
 STYLE_BROWSE_LOGS_BUTTON = """
     QPushButton {
         background-color: transparent;
