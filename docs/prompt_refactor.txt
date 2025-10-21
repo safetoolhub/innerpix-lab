@@ -1,0 +1,230 @@
+### 1. Contexto y Rol del Experto
+
+Actúa como arquitecto de software senior especializado en Python y PyQt5, con experiencia comprobada en:
+
+- Aplicación de principios SOLID y patrones de diseño
+- Refactorización de aplicaciones GUI complejas siguiendo arquitectura Model-View-Controller (MVC)
+- Desacoplamiento de código mediante separación de responsabilidades
+- Implementación de patrones de diseño en aplicaciones Qt de producción
+
+
+### 2. Objetivo del Refactor
+
+**Problema Principal:**
+El archivo `main_window.py` actual viola el principio de responsabilidad única (SRP), conteniendo lógica de negocio, gestión de estado, manejo de eventos UI y coordinación de servicios en un único módulo acoplado.
+
+**Objetivo:**
+Realizar un refactor arquitectónico completo aplicando principios SOLID para desacoplar `main_window.py`, reducir su complejidad y mejorar la mantenibilidad del código sin alterar la funcionalidad, diseño visual ni experiencia de usuario
+
+### 3. Restricciones Críticas del Refactor
+
+**Invariantes (NO DEBEN cambiar):**
+
+- ✅ Funcionalidad exacta para el usuario final
+- ✅ Interfaz gráfica y disposición de elementos
+- ✅ Flujo de interacción y usabilidad
+- ✅ Comportamiento de todas las características existentes
+- ✅ Formato de logs y archivos de salida
+
+**Permitido:**
+
+- ✅ Reestructuración interna del código
+- ✅ Creación de nuevas clases y módulos
+- ✅ Refactorización de métodos y funciones
+- ✅ Mejora de la arquitectura sin impacto en la UI
+
+
+### 4. Principios Arquitectónicos a Aplicar
+
+#### 4.1 Separación de Responsabilidades (SRP)
+
+- **MainWindow:** Solo gestión de la interfaz gráfica y delegación de eventos
+- **Controllers:** Coordinación entre UI y servicios de negocio
+- **Services:** Lógica de negocio pura (ya implementados en `/services/`)
+- **Models:** Gestión de estado y datos de la aplicación
+- **ViewModels/Presenters:** Preparación de datos para la vista
+
+
+#### 4.2 Principio de Inversión de Dependencias (DIP)
+
+- MainWindow debe depender de abstracciones, no de implementaciones concretas
+- Implementar interfaces/protocolos cuando sea necesario para desacoplar componentes
+
+
+#### 4.3 Patrón Command para Operaciones
+
+- Encapsular cada operación (renombrar, detectar duplicados, limpiar) como comandos ejecutables[^5]
+- Facilitar implementación futura de undo/redo
+
+
+### 5. Estructura Propuesta Tras el Refactor
+
+```
+photokit_manager/
+├── main.py                          # Punto de entrada (sin cambios)
+├── config.py                        # Configuración (sin cambios)
+├── requirements.txt                 # Dependencias (sin cambios)
+│
+├── ui/                              # Capa de Presentación
+│   ├── main_window.py              # [REFACTORIZAR] Solo UI y delegación
+│   ├── dialogs.py                  # [REVISAR] Diálogos específicos
+│   ├── styles.py                   # [SIN CAMBIOS] Estilos visuales
+│   ├── ui_helpers.py               # [EXPANDIR] Helpers de UI
+│   └── workers.py                  # [REVISAR] Workers para threading
+│
+├── controllers/                     # [NUEVO, EXPANDIR SI ES NECESARIO] Capa de Controladores
+│   ├── __init__.py
+│   ├── base_controller.py          # Controlador base abstracto
+│   ├── file_operations_controller.py   # Coordina operaciones de archivos
+│   ├── duplicate_detection_controller.py # Coordina detección de duplicados
+│   └── live_photo_controller.py    # Coordina operaciones de Live Photos
+│
+├── models/                          # [NUEVO] Capa de Modelos
+│   ├── __init__.py
+│   ├── app_state.py                # Estado global de la aplicación
+│   ├── operation_result.py         # Modelos de resultados
+│   └── file_metadata.py            # Metadatos de archivos
+│
+├── services/                        # [SIN CAMBIOS] Lógica de Negocio
+│   ├── file_renamer.py
+│   ├── duplicate_detector.py
+│   ├── live_photo_detector.py
+│   ├── live_photo_cleaner.py
+│   ├── directory_unifier.py
+│   └── heic_remover.py
+│
+└── utils/                           # [EXPANDIR SI ES NECESARIO] Utilidades
+    ├── logger.py
+    ├── date_utils.py
+    └── signals.py                   # [NUEVO] Señales personalizadas centralizadas
+```
+
+
+### 6. Estrategia de Refactorización por Fases
+
+#### Fase 1: Extracción de Modelos
+
+- Crear clases de modelo para representar el estado de la aplicación
+- Extraer toda la lógica de gestión de estado de `main_window.py`
+
+
+#### Fase 2: Creación de Controladores
+
+- Implementar controladores que coordinen entre UI y servicios
+- MainWindow delegará toda la lógica de negocio a estos controladores
+
+
+#### Fase 3: Refactorización de MainWindow
+
+- Reducir `main_window.py` a:
+    - Inicialización de la UI
+    - Conexión de señales a métodos de controladores
+    - Actualización de la UI basada en modelos
+- Métodos de MainWindow deben ser principalmente one-liners que deleguen
+
+
+#### Fase 4: Implementación de Señales Centralizadas
+
+- Crear un sistema de señales personalizado para comunicación entre componentes
+- Evitar acoplamiento directo entre vistas y controladores
+
+
+### 7. Patrones de Diseño Recomendados[^5]
+
+- **MVC/MVP:** Separación clara entre Vista, Modelo y Controlador/Presenter
+- **Command:** Para operaciones reversibles y auditables
+- **Observer:** Para notificaciones de cambios de estado (PyQt signals/slots)
+- **Factory:** Para creación de workers y servicios si es necesario
+- **Strategy:** Para diferentes algoritmos de detección de duplicados
+
+
+### 8. Criterios de Calidad del Refactor[^7][^8]
+
+**Métricas de Éxito:**
+
+- `main_window.py` debe tener < 400 líneas de código
+- Cada clase debe tener una única responsabilidad claramente definida
+- Acoplamiento reducido: clases deben depender de abstracciones
+- Cohesión alta: métodos relacionados agrupados en la misma clase
+- Cobertura de comentarios y docstrings en español
+
+**Testing:**
+
+- El código refactorizado debe producir resultados idénticos al original
+- Todas las funcionalidades existentes deben seguir operando sin cambios
+- No debe haber regresiones en el comportamiento de la UI
+
+
+### 9. Instrucciones de Implementación
+
+**Formato de Entrega:**
+Para cada archivo modificado o creado, proporciona:
+
+1. **Encabezado del archivo:**
+
+```python
+# Ruta: photokit_manager/[ruta_completa]/[nombre_archivo].py
+# Descripción: [Breve descripción del propósito]
+```
+
+2. **Código completo:** Archivo completo sin omisiones ni placeholders
+3. **Explicación de cambios:** Breve resumen de las modificaciones realizadas y su justificación arquitectónica
+4. **Dependencias:** Indicar qué otros archivos se ven afectados por este cambio
+
+**Orden de Entrega:**
+
+1. Nuevos modelos (`models/`)
+2. Nuevos controladores (`controllers/`)
+3. `main_window.py` refactorizado
+4. Archivos auxiliares modificados (`ui_helpers.py`, `workers.py`, etc.)
+5. Archivo de migración/guía de cambios
+
+### 10. Documentación Requerida
+
+Al finalizar el refactor, incluir:
+
+- **REFACTOR_GUIDE.md:** Documentación explicando la nueva arquitectura, decisiones de diseño y cómo mantener el código[^8]
+- **MIGRATION_NOTES.md:** Guía para entender los cambios si se necesita modificar código en el futuro
+- Diagramas UML simplificados (formato ASCII/text) mostrando las relaciones entre componentes principales
+- Comentarios inline explicando patrones de diseño aplicados
+
+
+### 11. Contexto de la Aplicación Existente
+
+**Funcionalidades Actuales:**
+
+- ✅ Limpieza de Live Photos (detección y eliminación de componentes)
+- ✅ Unificación de directorios (mover archivos de subdirectorios a raíz)
+- ✅ Eliminación de duplicados HEIC/JPG
+- ✅ Renombrado automático con formato `YYYYMMDD_HHMMSS_TIPO_NNN.ext`
+- ✅ Detección de duplicados perceptuales (fotos y videos)
+
+**Stack Tecnológico:**
+
+- Python 3.9+
+- PyQt5 para interfaz gráfica
+- imagehash para detección perceptual
+- OpenCV para procesamiento de video
+- Pillow/pillow-heif para imágenes
+
+**Usuarios Objetivo:**
+
+- Usuarios finales no técnicos que gestionan grandes colecciones multimedia
+- La interfaz debe ser intuitiva y no requerir conocimientos técnicos
+
+***
+
+### 12. Archivos del Proyecto a Adjuntar
+
+Por favor, adjunta los siguientes archivos actuales para realizar el refactor:
+
+- `main_window.py` (archivo principal a refactorizar)
+- `workers.py` (puede requerir modificaciones)
+- `ui_helpers.py` (puede expandirse)
+- `dialogs.py` (revisar interacciones)
+- Archivos de `/services/` (para entender las interfaces)
+- `config.py` (para entender configuración global)
+
+***
+
+**Nota Final:** Recuerda que el objetivo es mejorar la arquitectura interna manteniendo intacta la experiencia del usuario. Aplica refactorización incremental y asegura que cada cambio mantiene la equivalencia funcional.

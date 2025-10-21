@@ -171,13 +171,14 @@ Generar comandos explícitos para:
 ***
 
 ### Entregable Esperado
-- Se va aa realizar un refactor total del código con el objetivo de desacoplar y mejorar el fichero main_window.py
+- Se va va realizar un refactor total del código con el objetivo de desacoplar y mejorar el fichero main_window.py
 - main_windows.py no sigue las buenas prácticas de diseño y es muy largo y muy acoplado
 - La funcionalidad tras el refactor no debe cambiar para el usuario
 - El diseño y la usabilidad no deben cambiar
 - Solo se realizarán cambios en los archivos del proyecto, los que sean necesarios, pero no debe notarlo el usuario final
 
-
+- Te adjunto los ficheros del codigo actual.
+- QUiero que me des completos los archivos que cambies o añadas, para facilitar la integracion
 
 
 - Quiero que modifiques la funcionalidad de Detectar duplicados añadiendo una tercera opcion a las que duplciado exacto y perceptual
