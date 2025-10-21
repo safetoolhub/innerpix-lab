@@ -398,6 +398,115 @@ STYLE_STAT_CHIP = """
     }
 """
 
+# ---------------------------------------------------------------------------
+# Additional styles extracted from dialogs.py
+# ---------------------------------------------------------------------------
+
+STYLE_ITALIC_GRAY = "font-style: italic; color: gray;"
+
+STYLE_INFO_HIGHLIGHT = (
+    "color: #495057; padding: 10px; background-color: #e7f3ff; "
+    "border-radius: 5px; margin-bottom: 10px;"
+)
+
+STYLE_DESC_SMALL_INDENT = "color: #6c757d; font-size: 11px; margin-left: 20px;"
+
+STYLE_WARNING_LIGHT = "padding: 10px; background-color: #fff3cd; border-radius: 5px;"
+
+STYLE_TABS = """
+QTabWidget::pane {
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    padding: 10px;
+    background-color: white;
+}
+QTabBar::tab {
+    padding: 8px 16px;
+    margin-right: 2px;
+}
+QTabBar::tab:selected {
+    background-color: #007bff;
+    color: white;
+}
+"""
+
+STYLE_FOOTER = "background-color: #f8f9fa; border-top: 1px solid #dee2e6;"
+
+STYLE_RESTORE_BUTTON = """
+QPushButton {
+    background-color: transparent;
+    color: #6c757d;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    padding: 6px 12px;
+}
+QPushButton:hover {
+    background-color: #e9ecef;
+}
+"""
+
+STYLE_SAVE_BUTTON = """
+QPushButton {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 20px;
+    font-weight: bold;
+}
+QPushButton:hover {
+    background-color: #218838;
+}
+"""
+
+STYLE_CANCEL_BUTTON = """
+QPushButton {
+    background-color: transparent;
+    color: #6c757d;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    padding: 8px 20px;
+}
+QPushButton:hover {
+    background-color: #e9ecef;
+}
+"""
+
+STYLE_SMALL_INFO_LABEL = "color: #6c757d; font-size: 11px;"
+
+STYLE_LOGS_EDIT_ALT = (
+    "QLineEdit { padding: 8px 12px; border: 1px solid #ced4da; "
+    "border-radius: 4px; background-color: #f8f9fa; }"
+)
+
+STYLE_LOG_LEVEL_COMBO_ALT = (
+    "QComboBox { padding: 5px 10px; border: 1px solid #ced4da; "
+    "border-radius: 4px; }"
+)
+
+STYLE_WARNING_LABEL = "color: #856404; background-color: #fff3cd; padding: 8px; border-radius: 4px;"
+
+STYLE_GROUPS_LABEL = "font-weight: bold; margin-top: 10px;"
+
+STYLE_DANGER_BUTTON = """
+QPushButton {
+    background-color: #dc3545;
+    color: white;
+    padding: 8px 20px;
+    border-radius: 4px;
+    font-weight: bold;
+}
+QPushButton:hover {
+    background-color: #c82333;
+}
+"""
+
+STYLE_GROUP_LABEL = "font-weight: bold; font-size: 14px;"
+
+STYLE_PANEL_LABEL = "padding: 8px; background-color: #f8f9fa; border-radius: 4px;"
+
+STYLE_MORE_ITALIC = "color: #6c757d; font-style: italic;"
+
 STYLE_SUMMARY_ACTION_BUTTON = """
     QPushButton {
         background-color: #ffffff;

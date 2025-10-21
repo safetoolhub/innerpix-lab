@@ -1,7 +1,6 @@
 """
 Ventana principal de PhotoKit Manager
 """
-import sys
 import os
 import logging
 from pathlib import Path
@@ -48,22 +47,12 @@ from ui.workers import DuplicateAnalysisWorker, DuplicateDeletionWorker
 from ui.dialogs import ExactDuplicatesDialog, SimilarDuplicatesDialog
 
 
-# ============================================================================
-# VERIFICAR DISPONIBILIDAD DE MÓDULOS
-# ============================================================================
-# Todos los módulos están disponibles en la refactorización
-RENAMING_AVAILABLE = True
-LIVE_PHOTOS_AVAILABLE = True
-DIRECTORY_UNIFICATION_AVAILABLE = True
-HEIC_REMOVAL_AVAILABLE = True
 
 class MainWindow(QMainWindow):
     """Ventana principal de la aplicación"""
 
     def __init__(self):
         super().__init__()
-
-        # ...existing code...
 
         # Variables de estado
         self.current_directory = None
@@ -107,7 +96,6 @@ class MainWindow(QMainWindow):
         # Detector de duplicados
         self.duplicate_detector = DuplicateDetector()
         self.duplicate_analysis_results = None
-
 
         # Workers
         self.analysis_worker = None
@@ -1211,8 +1199,8 @@ class MainWindow(QMainWindow):
         """Ejecuta la limpieza de Live Photos"""
         count = len(plan['files_to_delete'])
         space = sum(file_info['size'] for file_info in plan['files_to_delete'])
-        space_formatted = self._format_size(space)
-        
+        space_formatted = format_size(space)
+
         reply = QMessageBox.question(
             self,
             "Confirmar",
@@ -1257,7 +1245,7 @@ class MainWindow(QMainWindow):
             <div style='color: #28a745;'>
                 <h4>✅ Limpieza de Live Photos Completada</h4>
                 <p><strong>Archivos eliminados:</strong> {results.get('files_deleted', 0)}</p>
-                <p><strong>Espacio liberado:</strong> {self._format_size(space_freed)}</p>
+                <p><strong>Espacio liberado:</strong> {format_size(space_freed)}</p>
                 <p><strong>Errores:</strong> {len(results.get('errors', []))}</p>
         """
         
@@ -1484,7 +1472,7 @@ class MainWindow(QMainWindow):
             <div style='color: #28a745;'>
                 <h4>✅ Eliminación de Duplicados HEIC Completada</h4>
                 <p><strong>Archivos eliminados:</strong> {results.get('files_removed', 0)}</p>
-                <p><strong>Espacio liberado:</strong> {self._format_size(space_freed)}</p>
+                <p><strong>Espacio liberado:</strong> {format_size(space_freed)}</p>
                 <p><strong>Errores:</strong> {len(results.get('errors', []))}</p>
         """
         
@@ -1579,18 +1567,7 @@ class MainWindow(QMainWindow):
             self.active_workers.remove(self.execution_worker)
         self.execution_worker = None
     
-    def _format_size(self, bytes_size):
-        """
-        Formatea el tamaño en bytes a una representación legible.
-        Usa GB si es >= 1024 MB, sino usa MB.
-        
-        Args:
-            bytes_size: Tamaño en bytes
-            
-        Returns:
-            str: Tamaño formateado con unidad (ej: "1.5 GB" o "512 MB")
-        """
-        return format_size(bytes_size)
+    # Nota: se usa `format_size` desde `ui.ui_helpers` directamente.
 
     def _reset_analysis_ui(self, reinsert_analyze=True):
         """Reinicia la UI tras cambiar de directorio
@@ -1692,7 +1669,7 @@ class MainWindow(QMainWindow):
             return
         
         # Formatear tamaño usando helper central
-        size_str = self._format_size(space_wasted)
+        size_str = format_size(space_wasted)
         
         self.duplicates_results_label.setText(
             f"**📊 Duplicados Exactos Encontrados:**\n\n"
@@ -1722,7 +1699,7 @@ class MainWindow(QMainWindow):
             return
         
         # Formatear tamaño usando helper central
-        size_str = self._format_size(space_potential)
+        size_str = format_size(space_potential)
         
         self.duplicates_results_label.setText(
             f"**🎨 Duplicados Similares Encontrados:**\n\n"
@@ -1834,7 +1811,7 @@ class MainWindow(QMainWindow):
         backup_path = results.get('backup_path')
         
         # Formatear tamaño usando helper central
-        size_str = self._format_size(space_freed)
+        size_str = format_size(space_freed)
         
         self.logger.info(f"Eliminación completada: {files_deleted} archivos, {size_str} liberados")
         
