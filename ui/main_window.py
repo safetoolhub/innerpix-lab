@@ -1,7 +1,6 @@
 """
 Ventana principal de PhotoKit Manager
 """
-import sys
 import os
 import logging
 from pathlib import Path
@@ -48,22 +47,12 @@ from ui.workers import DuplicateAnalysisWorker, DuplicateDeletionWorker
 from ui.dialogs import ExactDuplicatesDialog, SimilarDuplicatesDialog
 
 
-# ============================================================================
-# VERIFICAR DISPONIBILIDAD DE MÓDULOS
-# ============================================================================
-# Todos los módulos están disponibles en la refactorización
-RENAMING_AVAILABLE = True
-LIVE_PHOTOS_AVAILABLE = True
-DIRECTORY_UNIFICATION_AVAILABLE = True
-HEIC_REMOVAL_AVAILABLE = True
 
 class MainWindow(QMainWindow):
     """Ventana principal de la aplicación"""
 
     def __init__(self):
         super().__init__()
-
-        # ...existing code...
 
         # Variables de estado
         self.current_directory = None
@@ -107,7 +96,6 @@ class MainWindow(QMainWindow):
         # Detector de duplicados
         self.duplicate_detector = DuplicateDetector()
         self.duplicate_analysis_results = None
-
 
         # Workers
         self.analysis_worker = None
