@@ -143,48 +143,11 @@ class MainWindow(QMainWindow):
         menu_btn.setFixedSize(40, 40)
         menu_btn.setCursor(Qt.PointingHandCursor)
         menu_btn.setToolTip("Menú de opciones")
-        menu_btn.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                color: #6c757d;
-                border: 2px solid #dee2e6;
-                border-radius: 8px;
-                padding: 0px;
-                font-size: 22px;
-                font-weight: bold;
-                text-align: center;  /* ✅ Centrado horizontal */
-                qproperty-iconSize: 0px 0px;  /* ✅ Sin espacio para icono */
-            }
-            QPushButton:hover {
-                background-color: #f8f9fa;
-                border-color: #adb5bd;
-            }
-            QPushButton:pressed {
-                background-color: #e9ecef;
-            }
-            QPushButton::menu-indicator {
-                image: none;
-                width: 0px;  /* ✅ Ancho 0 para eliminar espacio reservado */
-            }
-        """)
+        menu_btn.setStyleSheet(styles.STYLE_MENU_BUTTON)
 
         # Crear menú desplegable
         menu = QMenu(self)
-        menu.setStyleSheet("""
-            QMenu {
-                background-color: white;
-                border: 1px solid #dee2e6;
-                border-radius: 8px;
-                padding: 4px;
-            }
-            QMenu::item {
-                padding: 8px 24px 8px 12px;
-                border-radius: 4px;
-            }
-            QMenu::item:selected {
-                background-color: #f8f9fa;
-            }
-        """)
+        menu.setStyleSheet(styles.STYLE_MENU)
 
         # Añadir acciones al menú
         config_action = menu.addAction("⚙️  Configuración")
@@ -203,15 +166,7 @@ class MainWindow(QMainWindow):
 
         # ===== SELECTOR ESTILO SEARCH BAR =====
         search_container = QFrame()
-        search_container.setStyleSheet("""
-            QFrame {
-                background-color: white;
-                border: 2px solid #dee2e6;
-                border-radius: 12px;
-                padding: 4px;
-            }
-            /* Sin hover - el contenedor no es interactivo */
-        """)
+        search_container.setStyleSheet(styles.STYLE_SEARCH_CONTAINER)
 
         search_layout = QHBoxLayout(search_container)
         search_layout.setSpacing(10)
@@ -219,58 +174,21 @@ class MainWindow(QMainWindow):
 
         # Icono de carpeta (sin hover)
         folder_icon = QLabel("📂")
-        folder_icon.setStyleSheet("font-size: 20px; padding-top: 2px;")
+        folder_icon.setStyleSheet(styles.STYLE_FOLDER_ICON)
         search_layout.addWidget(folder_icon)
 
         # Campo de texto (readonly, sin hover necesario)
         self.directory_edit = QLineEdit()
         self.directory_edit.setPlaceholderText("Selecciona un directorio para analizar...")
         self.directory_edit.setReadOnly(True)
-        self.directory_edit.setStyleSheet("""
-            QLineEdit {
-                border: none;
-                background: transparent;
-                font-size: 14px;
-                color: #495057;
-                padding: 8px 4px;
-            }
-            QLineEdit[readOnly="true"] {
-                color: #6c757d;
-            }
-        """)
+        self.directory_edit.setStyleSheet(styles.STYLE_DIRECTORY_EDIT_READONLY)
         search_layout.addWidget(self.directory_edit, stretch=1)
 
         # Botón (ÚNICO elemento con hover - es clickable)
         analyze_btn = QPushButton("📁 Seleccionar y Analizar")
         analyze_btn.setMinimumWidth(200)
         analyze_btn.setFixedHeight(42)
-        analyze_btn.setStyleSheet("""
-            QPushButton {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                            stop:0 #2196F3, stop:1 #1976D2);
-                color: white;
-                border: none;
-                border-radius: 21px;
-                padding: 10px 32px;
-                font-size: 14px;
-                font-weight: 600;
-                letter-spacing: 0.3px;
-                min-width: 200px;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                            stop:0 #1E88E5, stop:1 #0D47A1);
-                padding: 10px 32px;
-            }
-            QPushButton:pressed {
-                background-color: #0D47A1;
-                padding: 10px 30px;
-            }
-            QPushButton:disabled {
-                background-color: #BDBDBD;
-                color: #EEEEEE;
-            }
-        """)
+        analyze_btn.setStyleSheet(styles.STYLE_ANALYZE_BUTTON_PRIMARY)
         analyze_btn.setCursor(Qt.PointingHandCursor)
         analyze_btn.clicked.connect(self.select_and_analyze_directory)
         self.analyze_btn = analyze_btn
@@ -299,7 +217,7 @@ class MainWindow(QMainWindow):
         self.actions_container = QFrame()
         self.actions_container.setFrameStyle(QFrame.NoFrame)
         # Asegurar que el contenedor no tenga fondo ni borde visibles
-        self.actions_container.setStyleSheet("background: transparent; border: none;")
+        self.actions_container.setStyleSheet(styles.STYLE_ACTIONS_CONTAINER)
         self.actions_container.setAttribute(Qt.WA_TranslucentBackground)
         self.actions_layout = QHBoxLayout(self.actions_container)
         self.actions_layout.setContentsMargins(0, 0, 0, 0)
@@ -356,7 +274,7 @@ class MainWindow(QMainWindow):
         separator = QFrame()
         separator.setFrameShape(QFrame.HLine)
         separator.setFrameShadow(QFrame.Sunken)
-        separator.setStyleSheet("background-color: #dee2e6;")
+        separator.setStyleSheet(styles.STYLE_SEPARATOR)
         config_layout.addWidget(separator)
 
         # === SECCIÓN: SEGURIDAD Y LOGS ===
