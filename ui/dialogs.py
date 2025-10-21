@@ -19,6 +19,8 @@ import logging
 from services.live_photo_cleaner import CleanupMode
 from services.duplicate_detector import DuplicateGroup
 import config
+from ui.ui_helpers import format_size
+from ui import styles as ui_styles
 
 
 class RenamingPreviewDialog(QDialog):
@@ -100,7 +102,7 @@ class RenamingPreviewDialog(QDialog):
 
             if len(self.analysis_results['renaming_plan']) > 50:
                 more_label = QLabel(f"... y {len(self.analysis_results['renaming_plan']) - 50} más")
-                more_label.setStyleSheet("font-style: italic; color: gray;")
+                more_label.setStyleSheet(ui_styles.STYLE_ITALIC_GRAY)
                 layout.addWidget(more_label)
 
         # Opciones
@@ -141,20 +143,8 @@ class LivePhotoCleanupDialog(QDialog):
 
     def _format_size(self, bytes_size):
         """Formatea tamaño en bytes usando format_size central"""
-        try:
-            from ui.ui_helpers import format_size
-            return format_size(bytes_size)
-        except Exception:
-            # Fallback simple
-            try:
-                if bytes_size is None:
-                    return "0 B"
-                mb_size = bytes_size / (1024 * 1024)
-                if mb_size >= 1024:
-                    return f"{mb_size / 1024:.2f} GB"
-                return f"{mb_size:.1f} MB"
-            except Exception:
-                return "0 B"
+        """Delegar en el helper central `format_size`"""
+        return format_size(bytes_size)
 
     def _calculate_space_for_mode(self, mode):
         """Calcula el espacio a liberar según el modo seleccionado"""
@@ -192,8 +182,7 @@ class LivePhotoCleanupDialog(QDialog):
             "Los Live Photos de iPhone contienen una imagen JPG y un video MOV.\n"
             "Selecciona qué componente deseas conservar:"
         )
-        info_label.setStyleSheet("color: #495057; padding: 10px; background-color: #e7f3ff; "
-                                 "border-radius: 5px; margin-bottom: 10px;")
+        info_label.setStyleSheet(ui_styles.STYLE_INFO_HIGHLIGHT)
         info_label.setWordWrap(True)
         layout.addWidget(info_label)
 
@@ -209,7 +198,7 @@ class LivePhotoCleanupDialog(QDialog):
 
         desc1 = QLabel(" → Se eliminarán los videos MOV asociados\n"
                        " → Recomendado para ahorrar espacio manteniendo las fotos")
-        desc1.setStyleSheet("color: #6c757d; font-size: 11px; margin-left: 20px;")
+        desc1.setStyleSheet(ui_styles.STYLE_DESC_SMALL_INDENT)
         mode_layout.addWidget(desc1)
         mode_layout.addSpacing(10)
 
@@ -219,7 +208,7 @@ class LivePhotoCleanupDialog(QDialog):
 
         desc2 = QLabel(" → Se eliminarán las imágenes JPG asociadas\n"
                        " → Útil si prefieres mantener el movimiento/audio de Live Photos")
-        desc2.setStyleSheet("color: #6c757d; font-size: 11px; margin-left: 20px;")
+        desc2.setStyleSheet(ui_styles.STYLE_DESC_SMALL_INDENT)
         mode_layout.addWidget(desc2)
 
         self.mode_buttons.buttonClicked.connect(self._on_mode_changed)
@@ -295,12 +284,8 @@ class DirectoryUnificationDialog(QDialog):
 
     def _format_size(self, bytes_size):
         """Formatea tamaño en bytes a MB o GB"""
-        mb_size = bytes_size / (1024 * 1024)
-        if mb_size >= 1024:
-            gb_size = mb_size / 1024
-            return f"{gb_size:.2f} GB"
-        else:
-            return f"{mb_size:.1f} MB"
+        """Delegar en el helper central `format_size`"""
+        return format_size(bytes_size)
 
     def init_ui(self):
         self.setWindowTitle("Unificación de Directorios")
@@ -312,7 +297,7 @@ class DirectoryUnificationDialog(QDialog):
         info = QLabel("Esta operación moverá todos los archivos al directorio raíz "
                       "y eliminará los subdirectorios vacíos.")
         info.setWordWrap(True)
-        info.setStyleSheet("padding: 10px; background-color: #fff3cd; border-radius: 5px;")
+        info.setStyleSheet(ui_styles.STYLE_WARNING_LIGHT)
         layout.addWidget(info)
 
         # Lista de subdirectorios
@@ -382,12 +367,8 @@ class HEICDuplicateRemovalDialog(QDialog):
 
     def _format_size(self, bytes_size):
         """Formatea tamaño en bytes a MB o GB"""
-        mb_size = bytes_size / (1024 * 1024)
-        if mb_size >= 1024:
-            gb_size = mb_size / 1024
-            return f"{gb_size:.2f} GB"
-        else:
-            return f"{mb_size:.1f} MB"
+        """Delegar en el helper central `format_size`"""
+        return format_size(bytes_size)
 
     def _update_button_text(self):
         """Actualiza el texto del botón según el formato seleccionado"""
@@ -494,22 +475,7 @@ class SettingsDialog(QDialog):
 
         # Crear pestañas para mejor organización
         tabs = QTabWidget()
-        tabs.setStyleSheet("""
-            QTabWidget::pane {
-                border: 1px solid #ced4da;
-                border-radius: 4px;
-                padding: 10px;
-                background-color: white;
-            }
-            QTabBar::tab {
-                padding: 8px 16px;
-                margin-right: 2px;
-            }
-            QTabBar::tab:selected {
-                background-color: #007bff;
-                color: white;
-            }
-        """)
+        tabs.setStyleSheet(ui_styles.STYLE_TABS)
 
         # === PESTAÑA 1: DIRECTORIOS Y LOGS ===
         dirs_tab = self._create_directories_tab()
@@ -527,24 +493,13 @@ class SettingsDialog(QDialog):
 
         # Footer con botones
         footer = QFrame()
-        footer.setStyleSheet("background-color: #f8f9fa; border-top: 1px solid #dee2e6;")
+        footer.setStyleSheet(ui_styles.STYLE_FOOTER)
         footer_layout = QHBoxLayout(footer)
         footer_layout.setContentsMargins(15, 10, 15, 10)
 
         # Botón restaurar valores por defecto
         restore_btn = QPushButton("🔄 Restaurar valores por defecto")
-        restore_btn.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                color: #6c757d;
-                border: 1px solid #ced4da;
-                border-radius: 4px;
-                padding: 6px 12px;
-            }
-            QPushButton:hover {
-                background-color: #e9ecef;
-            }
-        """)
+        restore_btn.setStyleSheet(ui_styles.STYLE_RESTORE_BUTTON)
         restore_btn.clicked.connect(self.restore_defaults)
         footer_layout.addWidget(restore_btn)
 
@@ -555,32 +510,9 @@ class SettingsDialog(QDialog):
             QDialogButtonBox.Save | QDialogButtonBox.Cancel
         )
         buttons.button(QDialogButtonBox.Save).setText("Guardar Cambios")
-        buttons.button(QDialogButtonBox.Save).setStyleSheet("""
-            QPushButton {
-                background-color: #28a745;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                padding: 8px 20px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #218838;
-            }
-        """)
+        buttons.button(QDialogButtonBox.Save).setStyleSheet(ui_styles.STYLE_SAVE_BUTTON)
         buttons.button(QDialogButtonBox.Cancel).setText("Cancelar")
-        buttons.button(QDialogButtonBox.Cancel).setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                color: #6c757d;
-                border: 1px solid #ced4da;
-                border-radius: 4px;
-                padding: 8px 20px;
-            }
-            QPushButton:hover {
-                background-color: #e9ecef;
-            }
-        """)
+        buttons.button(QDialogButtonBox.Cancel).setStyleSheet(ui_styles.STYLE_CANCEL_BUTTON)
         buttons.accepted.connect(self.save_settings)
         buttons.rejected.connect(self.reject)
         footer_layout.addWidget(buttons)
@@ -594,7 +526,7 @@ class SettingsDialog(QDialog):
         layout.setContentsMargins(15, 15, 15, 15)
         layout.setSpacing(20)
 
-        # === LOGS - TODO JUNTO ===
+    # === LOGS - TODO JUNTO ===
         logs_group = QGroupBox("📄 Logs y Diagnóstico")
         logs_layout = QVBoxLayout(logs_group)
         logs_layout.setSpacing(12)
@@ -603,7 +535,7 @@ class SettingsDialog(QDialog):
         logs_info = QLabel(
             "Los archivos de log se guardan aquí para diagnóstico, auditoría y seguimiento de operaciones."
         )
-        logs_info.setStyleSheet("color: #6c757d; font-size: 11px;")
+        logs_info.setStyleSheet(ui_styles.STYLE_SMALL_INFO_LABEL)
         logs_info.setWordWrap(True)
         logs_layout.addWidget(logs_info)
 
@@ -614,14 +546,7 @@ class SettingsDialog(QDialog):
         self.logs_edit = QLineEdit()
         self.logs_edit.setText(str(self.parent_window.logs_directory))
         self.logs_edit.setReadOnly(True)
-        self.logs_edit.setStyleSheet("""
-            QLineEdit {
-                padding: 8px 12px;
-                border: 1px solid #ced4da;
-                border-radius: 4px;
-                background-color: #f8f9fa;
-            }
-        """)
+        self.logs_edit.setStyleSheet(ui_styles.STYLE_LOGS_EDIT_ALT)
         logs_dir_layout.addWidget(self.logs_edit)
 
         browse_logs_btn = QPushButton("📂 Cambiar")
@@ -636,6 +561,7 @@ class SettingsDialog(QDialog):
         log_level_layout = QHBoxLayout()
         log_level_layout.addWidget(QLabel("Nivel de detalle:"))
 
+        # Combo de nivel de log
         self.log_level_combo = QComboBox()
         self.log_level_combo.addItems([
             "DEBUG (Máximo detalle)",
@@ -643,14 +569,8 @@ class SettingsDialog(QDialog):
             "WARNING (Solo advertencias)",
             "ERROR (Solo errores)"
         ])
-    # No seleccionar por defecto aquí; la sincronización posterior ajustará la selección
-        self.log_level_combo.setStyleSheet("""
-            QComboBox {
-                padding: 5px 10px;
-                border: 1px solid #ced4da;
-                border-radius: 4px;
-            }
-        """)
+        # No seleccionar por defecto aquí; la sincronización posterior ajustará la selección
+        self.log_level_combo.setStyleSheet(ui_styles.STYLE_LOG_LEVEL_COMBO_ALT)
         log_level_layout.addWidget(self.log_level_combo)
         log_level_layout.addStretch()
 
@@ -676,20 +596,7 @@ class SettingsDialog(QDialog):
 
         # Botón abrir carpeta de logs
         open_logs_btn = QPushButton("📂 Abrir carpeta de logs")
-        open_logs_btn.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                color: #007bff;
-                border: 1px solid #007bff;
-                border-radius: 4px;
-                padding: 6px 12px;
-                text-align: left;
-            }
-            QPushButton:hover {
-                background-color: #007bff;
-                color: white;
-            }
-        """)
+        open_logs_btn.setStyleSheet(ui_styles.STYLE_OPEN_LOGS_BUTTON)
         open_logs_btn.clicked.connect(self.open_logs_folder)
         logs_layout.addWidget(open_logs_btn)
 
@@ -700,7 +607,7 @@ class SettingsDialog(QDialog):
         backup_layout = QVBoxLayout(backup_group)
 
         backup_info = QLabel("Los backups automáticos se guardan aquí antes de cada operación.")
-        backup_info.setStyleSheet("color: #6c757d; font-size: 11px;")
+        backup_info.setStyleSheet(ui_styles.STYLE_SMALL_INFO_LABEL)
         backup_info.setWordWrap(True)
         backup_layout.addWidget(backup_info)
 
@@ -792,8 +699,7 @@ class SettingsDialog(QDialog):
         backup_info = QLabel(
             "⚠️ Recomendado: Los backups te permiten recuperar archivos en caso de error o problema."
         )
-        backup_info.setStyleSheet("color: #856404; background-color: #fff3cd; padding: 8px; "
-                                  "border-radius: 4px; font-size: 11px;")
+        backup_info.setStyleSheet(ui_styles.STYLE_WARNING_LABEL)
         backup_info.setWordWrap(True)
         backup_layout.addWidget(backup_info)
 
@@ -812,7 +718,7 @@ class SettingsDialog(QDialog):
             "En modo simulación, las operaciones se analizan y muestran pero no se ejecutan realmente. "
             "Útil para verificar qué hará la aplicación antes de aplicar cambios."
         )
-        dryrun_info.setStyleSheet("color: #6c757d; font-size: 11px;")
+        dryrun_info.setStyleSheet(ui_styles.STYLE_SMALL_INFO_LABEL)
         dryrun_info.setWordWrap(True)
         dryrun_layout.addWidget(dryrun_info)
 
@@ -921,18 +827,7 @@ class ExactDuplicatesDialog(QDialog):
         self.init_ui()
     
     def _format_size(self, bytes_size):
-        try:
-            from ui.ui_helpers import format_size
-            return format_size(bytes_size)
-        except Exception:
-            try:
-                mb_size = bytes_size / (1024 * 1024)
-                if mb_size >= 1024:
-                    return f"{mb_size / 1024:.2f} GB"
-                return f"{mb_size:.1f} MB"
-            except Exception:
-                return "0 B"
-    
+        return format_size(bytes_size)
     def init_ui(self):
         self.setWindowTitle("Eliminar Duplicados Exactos")
         self.setModal(True)
@@ -948,10 +843,7 @@ class ExactDuplicatesDialog(QDialog):
         )
         info.setTextFormat(Qt.RichText)
         info.setWordWrap(True)
-        info.setStyleSheet(
-            "background-color: #e7f3ff; border: 1px solid #b3d9ff; "
-            "border-radius: 6px; padding: 12px; color: #495057;"
-        )
+        info.setStyleSheet(ui_styles.STYLE_INFO_SECTION)
         layout.addWidget(info)
         
         # Estrategia
@@ -976,7 +868,7 @@ class ExactDuplicatesDialog(QDialog):
         
         # Lista de grupos (primeros 10)
         groups_label = QLabel("📋 Vista previa de grupos:")
-        groups_label.setStyleSheet("font-weight: bold; margin-top: 10px;")
+        groups_label.setStyleSheet(ui_styles.STYLE_GROUPS_LABEL)
         layout.addWidget(groups_label)
         
         table = QTableWidget()
@@ -996,7 +888,7 @@ class ExactDuplicatesDialog(QDialog):
         
         if len(self.analysis['groups']) > 10:
             more_label = QLabel(f"... y {len(self.analysis['groups']) - 10} grupos más")
-            more_label.setStyleSheet("color: #6c757d; font-style: italic;")
+            more_label.setStyleSheet(ui_styles.STYLE_MORE_ITALIC)
             layout.addWidget(more_label)
         
         # Opciones
@@ -1008,24 +900,13 @@ class ExactDuplicatesDialog(QDialog):
         warning = QLabel(
             "⚠️ Estos son duplicados exactos (100%). Eliminarlos es seguro."
         )
-        warning.setStyleSheet("color: #856404; background-color: #fff3cd; padding: 8px; border-radius: 4px;")
+        warning.setStyleSheet(ui_styles.STYLE_WARNING_LABEL)
         layout.addWidget(warning)
         
         # Botones
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.button(QDialogButtonBox.Ok).setText("🗑️ Eliminar Ahora")
-        buttons.button(QDialogButtonBox.Ok).setStyleSheet("""
-            QPushButton {
-                background-color: #dc3545;
-                color: white;
-                padding: 8px 20px;
-                border-radius: 4px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #c82333;
-            }
-        """)
+        buttons.button(QDialogButtonBox.Ok).setStyleSheet(ui_styles.STYLE_DANGER_BUTTON)
         buttons.button(QDialogButtonBox.Cancel).setText("Cancelar")
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
@@ -1076,10 +957,7 @@ class SimilarDuplicatesDialog(QDialog):
         )
         warning.setTextFormat(Qt.RichText)
         warning.setWordWrap(True)
-        warning.setStyleSheet(
-            "background-color: #fff3cd; border: 1px solid #ffc107; "
-            "padding: 12px; border-radius: 6px; color: #856404; font-weight: bold;"
-        )
+        warning.setStyleSheet(ui_styles.STYLE_SAFETY_SECTION)
         layout.addWidget(warning)
 
         # Navegación de grupos
@@ -1089,7 +967,7 @@ class SimilarDuplicatesDialog(QDialog):
         nav_layout.addWidget(self.prev_btn)
         self.group_label = QLabel()
         self.group_label.setAlignment(Qt.AlignCenter)
-        self.group_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        self.group_label.setStyleSheet(ui_styles.STYLE_GROUP_LABEL)
         nav_layout.addWidget(self.group_label, 1)
         self.next_btn = QPushButton("Siguiente ▶")
         self.next_btn.clicked.connect(self._next_group)
@@ -1154,7 +1032,7 @@ class SimilarDuplicatesDialog(QDialog):
             f"<b>Tamaño total:</b> {self._format_size(group.total_size)}"
         )
         info_label.setTextFormat(Qt.RichText)
-        info_label.setStyleSheet("padding: 8px; background-color: #f8f9fa; border-radius: 4px;")
+        info_label.setStyleSheet(ui_styles.STYLE_PANEL_LABEL)
         self.group_layout.addWidget(info_label)
 
         # Tabla de archivos
