@@ -33,38 +33,6 @@ Cuando se menciona "fotos" en este documento, se incluyen imágenes (HEIC, JPG, 
 - Python 3.9+
 - GUI: PyQt5 (preferido por robustez y Qt Designer) o Tkinter (alternativa ligera)
 
-**Componentes de la Interfaz:**
-
-1. **Panel de Configuración:**
-    - Selector de directorio raíz con botón "Examinar"
-    - Selector de carpeta para logs
-    - Configuración de sensibilidad de detección (slider de 0-20 para Hamming distance threshold)
-    - Filtros de formato de archivo (checkboxes por tipo)
-    - Barra de progreso con indicador de archivos procesados/total
-2. **Panel de Resultados:**
-    - Vista de grupos de duplicados en lista o grid
-    - Miniaturas/previews en color con información: ruta completa, tamaño, resolución, fecha de creación/modificación
-    - Indicador visual del archivo seleccionado por defecto (mayor tamaño o mejor resolución)
-    - Permitir cambiar selección manualmente con radio buttons
-    - Mostrar score de similitud entre archivos del grupo
-3. **Panel de Acciones:**
-    - Funcionalidad "Analizar" (escaneo sin modificación)
-    - Funcionalidad "Live Photos" (limpia imagenes o videos duplicados de Live Photos)
-    - Funcionalidad "Duplicados HEIC" (eliminar ficheros HEIC que duplican una foto)
-    - Funcionalidad "Unificar Directorio" (mover todos los archivos al directorio raiz)
-    - Funcionalidad "Renombrado" (Renombra archivos a un formato estandard)
-    - Funcionalidad futura "Eliminar duplicados" (eliminar imagenes duplicadas)
-    - Funcionalidad futura "Categorizar por fechas" (permite crear subcarpetas para años o meses)
-
-4. **Sistema de Renombrado (Opcional):**
-    - Formato: `YYYYMMDD_HHMMSS_XXX_nnn.extension`
-    - XXX: "PHOTO" o "VIDEO" según tipo de archivo
-    - nnn: número secuencial de 3 dígitos si hay múltiples archivos en la misma fecha. En caso de que no haya múltiples archivos no se pone sufijo.
-    - Fecha: la más antigua entre fecha de creación, modificación o EXIF DateTimeOriginal
-    - Ejemplo: `20251103_PHOTO_001.jpg`, `20251103_VIDEO_001.mp4`
-    - Preview del renombrado antes de aplicar
-
-***
 
 ### Requisitos de Funcionamiento
 
@@ -143,12 +111,29 @@ photokit_manager/
 **Librerías Requeridas:**
 
 ```
-PyQt5>=5.15.0
+PyQt5>=5.15.10
+PyQt5-Qt5>=5.15.2
+PyQt5-sip>=12.13.0
+
+# ============================================================================
+# Procesamiento de Imágenes (Opcional - para EXIF)
+# ============================================================================
 Pillow>=10.0.0
-imagehash>=4.3.0
+Pillow>=9.5.0
+pillow-heif>=0.10.1
+
+# ============================================================================
+# Otros
+# ============================================================================
+imagehash>=4.3.1
+exifread>=3.0.0
+numpy>=1.24.3
+scipy>=1.10.1
+requests>=2.31.0
+psutil>=5.9.5
+pathlib2>=2.3.7
+typing-extensions>=4.6.3
 opencv-python>=4.8.0
-numpy>=1.24.0
-pillow-heif>=0.13.0  # soporte HEIC
 ```
 
 **Instrucciones de Instalación:**
@@ -157,7 +142,6 @@ Generar comandos explícitos para:
 - Crear entorno virtual
 - Instalar dependencias
 - Ejecutar la aplicación
-- Configuración inicial recomendada
 
 ***
 
@@ -187,6 +171,15 @@ Generar comandos explícitos para:
 ***
 
 ### Entregable Esperado
+- Se va aa realizar un refactor total del código con el objetivo de desacoplar y mejorar el fichero main_window.py
+- main_windows.py no sigue las buenas prácticas de diseño y es muy largo y muy acoplado
+- La funcionalidad tras el refactor no debe cambiar para el usuario
+- El diseño y la usabilidad no deben cambiar
+- Solo se realizarán cambios en los archivos del proyecto, los que sean necesarios, pero no debe notarlo el usuario final
+
+
+
+
 - Quiero que modifiques la funcionalidad de Detectar duplicados añadiendo una tercera opcion a las que duplciado exacto y perceptual
 - La nueva opcioón será "Eliminar duplicados de whatsapp"
 - Quiero que la detección de duplicados incluya la siguiente lógica adicional:
