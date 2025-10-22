@@ -1,14 +1,15 @@
 from PyQt5.QtWidgets import (
-    QDialog, QVBoxLayout, QLabel, QGroupBox, QVBoxLayout as QVLayout,
-    QRadioButton, QButtonGroup, QCheckBox, QDialogButtonBox
+    QVBoxLayout, QLabel, QGroupBox, QVBoxLayout as QVLayout,
+    QRadioButton, QButtonGroup, QDialogButtonBox
 )
 from PyQt5.QtCore import Qt
 from services.live_photo_cleaner import CleanupMode
 from ui.ui_helpers import format_size
 from ui import styles as ui_styles
+from .base_dialog import BaseDialog
 
 
-class LivePhotoCleanupDialog(QDialog):
+class LivePhotoCleanupDialog(BaseDialog):
     """Diálogo para limpieza de Live Photos"""
 
     def __init__(self, analysis, parent=None):
@@ -103,10 +104,10 @@ class LivePhotoCleanupDialog(QDialog):
         options_group = QGroupBox("Opciones de seguridad")
         options_layout = QVLayout(options_group)
 
-        self.backup_checkbox = QCheckBox("Crear backup antes de eliminar (Recomendado)")
-        self.backup_checkbox.setChecked(True)
-        options_layout.addWidget(self.backup_checkbox)
+        # Backup checkbox desde BaseDialog
+        self.add_backup_checkbox(options_layout, "Crear backup antes de eliminar (Recomendado)", True)
 
+        from PyQt5.QtWidgets import QCheckBox
         self.dry_run_checkbox = QCheckBox("Modo simulación (no eliminar archivos realmente)")
         options_layout.addWidget(self.dry_run_checkbox)
         layout.addWidget(options_group)

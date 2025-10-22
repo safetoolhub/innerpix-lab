@@ -1,12 +1,14 @@
 from PyQt5.QtWidgets import (
-    QDialog, QVBoxLayout, QLabel, QTableWidget, QTableWidgetItem,
-    QGroupBox, QCheckBox, QDialogButtonBox
+    QVBoxLayout, QLabel, QTableWidget, QTableWidgetItem,
+    QGroupBox, QDialogButtonBox, QCheckBox
 )
+
 from ui.ui_helpers import format_size
 from ui import styles as ui_styles
+from .base_dialog import BaseDialog
 
 
-class DirectoryUnificationDialog(QDialog):
+class DirectoryUnificationDialog(BaseDialog):
     """Diálogo para unificación de directorios"""
 
     def __init__(self, analysis, parent=None):
@@ -50,9 +52,9 @@ class DirectoryUnificationDialog(QDialog):
         options_group = QGroupBox("Opciones")
         options_layout = QVBoxLayout(options_group)
 
-        self.backup_checkbox = QCheckBox("Crear backup")
-        self.backup_checkbox.setChecked(True)
-        options_layout.addWidget(self.backup_checkbox)
+        # Backup checkbox desde BaseDialog
+        self.add_backup_checkbox(options_layout, "Crear backup antes de eliminar (Recomendado)", True)
+
 
         self.cleanup_checkbox = QCheckBox("Eliminar directorios vacíos")
         self.cleanup_checkbox.setChecked(True)

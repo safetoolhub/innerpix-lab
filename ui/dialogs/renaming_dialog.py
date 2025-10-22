@@ -1,15 +1,16 @@
 from pathlib import Path
 from PyQt5.QtWidgets import (
-    QDialog, QVBoxLayout, QGroupBox, QTableWidget, QTableWidgetItem,
-    QHeaderView, QCheckBox, QDialogButtonBox, QLabel
+    QVBoxLayout, QGroupBox, QTableWidget, QTableWidgetItem,
+    QHeaderView, QDialogButtonBox, QLabel
 )
 from PyQt5.QtGui import QColor
 from PyQt5.QtCore import Qt
 from ui.ui_helpers import format_size
 from ui import styles as ui_styles
+from .base_dialog import BaseDialog
 
 
-class RenamingPreviewDialog(QDialog):
+class RenamingPreviewDialog(BaseDialog):
     """Diálogo de preview para renombrado"""
 
     def __init__(self, analysis_results, parent=None):
@@ -91,10 +92,8 @@ class RenamingPreviewDialog(QDialog):
                 more_label.setStyleSheet(ui_styles.STYLE_ITALIC_GRAY)
                 layout.addWidget(more_label)
 
-        # Opciones
-        self.backup_checkbox = QCheckBox("Crear backup (Recomendado)")
-        self.backup_checkbox.setChecked(True)
-        layout.addWidget(self.backup_checkbox)
+        # Opciones: checkbox de backup (desde BaseDialog)
+        self.add_backup_checkbox(layout, "Crear backup antes de eliminar (Recomendado)", True)
 
         # Botones
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
