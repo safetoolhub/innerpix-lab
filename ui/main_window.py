@@ -22,6 +22,7 @@ from PyQt5.QtCore import QUrl
 import config
 from services.file_renamer import FileRenamer
 from ui import styles
+from ui.components import Header
 from ui.workers import (
     AnalysisWorker, RenamingWorker, LivePhotoCleanupWorker,
     DirectoryUnificationWorker, HEICRemovalWorker
@@ -36,7 +37,7 @@ from services.directory_unifier import DirectoryUnifier
 from services.heic_remover import HEICDuplicateRemover
 from utils.date_utils import get_file_date, format_renamed_name, is_renamed_filename
 from ui.ui_helpers import (
-    create_summary_panel, create_progress_bar, update_summary_panel,
+    create_progress_bar,
     update_tab_details, show_results_html, format_size, reset_analysis_ui,
     show_progress, hide_progress
 )
@@ -119,77 +120,28 @@ class MainWindow(QMainWindow):
         main_layout.setContentsMargins(15, 15, 15, 15)
 
         # ===== HEADER CON MENÚ DESPLEGABLE =====
-        header_layout = QHBoxLayout()
-
-        # Título
-        title = QLabel(f"🎬 {config.config.APP_NAME}")
-        title.setStyleSheet(styles.STYLE_TITLE_LABEL)
-        header_layout.addWidget(title)
-
-        header_layout.addStretch()
-
-        # Botón de menú con dropdown
-        menu_btn = QPushButton("⋮")
-        menu_btn.setFixedSize(40, 40)
-        menu_btn.setCursor(Qt.PointingHandCursor)
-        menu_btn.setToolTip("Menú de opciones")
-        menu_btn.setStyleSheet(styles.STYLE_MENU_BUTTON)
-
-        # Crear menú desplegable
-        menu = QMenu(self)
-        menu.setStyleSheet(styles.STYLE_MENU)
-
-        # Añadir acciones al menú
-        config_action = menu.addAction("⚙️  Configuración")
-        config_action.triggered.connect(self.toggle_config)
-
-        menu.addSeparator()
-
-        about_action = menu.addAction("ℹ️  Acerca de")
-        about_action.triggered.connect(self.show_about_dialog)
-
-        # Asignar menú al botón
-        menu_btn.setMenu(menu)
-
-        header_layout.addWidget(menu_btn)
-        main_layout.addLayout(header_layout)
+        header = Header(self)
+        main_layout.addWidget(header)
 
         # ===== SELECTOR ESTILO SEARCH BAR =====
-        search_container = QFrame()
-        search_container.setStyleSheet(styles.STYLE_SEARCH_CONTAINER)
+        from ui.components import SearchBar
 
-        search_layout = QHBoxLayout(search_container)
-        search_layout.setSpacing(10)
-        search_layout.setContentsMargins(14, 10, 10, 10)
+        search_bar = SearchBar(self)
+        # Exponer los controles usados por el resto de MainWindow
+        self.directory_edit = search_bar.directory_edit
+        self.analyze_btn = search_bar.analyze_btn
 
-        # Icono de carpeta (sin hover)
-        folder_icon = QLabel("📂")
-        folder_icon.setStyleSheet(styles.STYLE_FOLDER_ICON)
-        search_layout.addWidget(folder_icon)
-
-        # Campo de texto (readonly, sin hover necesario)
-        self.directory_edit = QLineEdit()
-        self.directory_edit.setPlaceholderText("Selecciona un directorio para analizar...")
-        self.directory_edit.setReadOnly(True)
-        self.directory_edit.setStyleSheet(styles.STYLE_DIRECTORY_EDIT_READONLY)
-        search_layout.addWidget(self.directory_edit, stretch=1)
-
-        # Botón (ÚNICO elemento con hover - es clickable)
-        analyze_btn = QPushButton("📁 Seleccionar y Analizar")
-        analyze_btn.setMinimumWidth(200)
-        analyze_btn.setFixedHeight(42)
-        analyze_btn.setStyleSheet(styles.STYLE_ANALYZE_BUTTON_PRIMARY)
-        analyze_btn.setCursor(Qt.PointingHandCursor)
-        analyze_btn.clicked.connect(self.select_and_analyze_directory)
-        self.analyze_btn = analyze_btn
-
-        main_layout.addWidget(search_container)
+        main_layout.addWidget(search_bar)
         main_layout.addSpacing(10)
 
 
         # ===== SPLITTER: PANEL RESUMEN + PESTAÑAS =====
         splitter = QSplitter(Qt.Horizontal)
-        self.summary_panel = self._create_summary_panel()
+        from ui.components import SummaryPanel
+        # Guardar la instancia del componente para poder actualizarlo luego
+        self.summary_component = SummaryPanel(self)
+        # `create_summary_panel` retorna un widget; mantener compatibilidad
+        self.summary_panel = self.summary_component.get_widget()
         splitter.addWidget(self.summary_panel)
         self.tabs_widget = self._create_tabs_widget()
         splitter.addWidget(self.tabs_widget)
@@ -241,8 +193,13 @@ class MainWindow(QMainWindow):
         self.actions_layout.addWidget(self.reanalyze_btn)
         self.actions_layout.addWidget(self.change_dir_btn)
 
-        # Añadir el contenedor de acciones al search_layout donde estaba el analyze_btn
-        search_layout.addWidget(self.actions_container)
+        # Añadir el contenedor de acciones al SearchBar donde estaba el analyze_btn
+        # `search_bar` se creó arriba en init_ui; inyectamos el contenedor allí
+        try:
+            search_bar.add_actions_widget(self.actions_container)
+        except NameError:
+            # Fallback por seguridad: si no existe search_bar, intentar añadir a un layout global
+            pass
 
     def _create_advanced_config_panel(self, parent_layout):
         """Crea el panel de configuración avanzada que se despliega desde arriba"""
@@ -592,8 +549,10 @@ class MainWindow(QMainWindow):
         parent_layout.addWidget(config_container)
 
     def _create_summary_panel(self):
-        """Delegar a helper para mantener el archivo más compacto."""
-        return create_summary_panel(self)
+        """Crear el panel de resumen usando el componente SummaryPanel."""
+        from ui.components import SummaryPanel
+        comp = SummaryPanel(self)
+        return comp.get_widget()
     
     def _create_tabs_widget(self):
         # Crear mediante el módulo tabs directamente
@@ -840,7 +799,7 @@ class MainWindow(QMainWindow):
         self.last_analyzed_directory = self.current_directory
         
         # Actualizar panel de resumen
-        update_summary_panel(self, results)
+        self.summary_component.update(results)
         
         # Actualizar detalles de cada pestaña
         update_tab_details(self, results)
@@ -1104,7 +1063,7 @@ class MainWindow(QMainWindow):
             self.analysis_results['renaming'] = ren
 
             # Actualizar paneles y pestañas para reflejar los nuevos valores
-            update_summary_panel(self, self.analysis_results)
+            self.summary_component.update(self.analysis_results)
             update_tab_details(self, self.analysis_results)
 
             # Habilitar/deshabilitar botón de preview según queden archivos
@@ -1360,7 +1319,7 @@ class MainWindow(QMainWindow):
                 self.analysis_results['unification'] = updated_unif
 
                 # Refrescar UI
-                update_summary_panel(self, self.analysis_results)
+                self.summary_component.update(self.analysis_results)
                 update_tab_details(self, self.analysis_results)
 
                 # Ajustar estado del botón según queden archivos por mover
