@@ -22,7 +22,7 @@ def main():
     # Configurar la aplicación
     app.setApplicationName(config.Config.APP_NAME)
     app.setApplicationVersion(config.Config.APP_VERSION)
-    app.setOrganizationName("PhotoKit")
+    app.setOrganizationName("Novacode-labs")
 
     # Crear y mostrar ventana principal
     window = MainWindow()
