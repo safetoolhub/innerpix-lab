@@ -8,16 +8,10 @@ from datetime import datetime
 
 from PyQt5.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QLineEdit, QFileDialog, QMessageBox, QTextEdit, QDialog, QCheckBox,
-    QProgressBar, QGroupBox, QTabWidget, QComboBox, QSplitter, QFrame, QMenu, QApplication,
-    QSizePolicy, QTabWidget, QWidget, QTextEdit, QGroupBox, 
-    QProgressBar, QLineEdit, QButtonGroup, QSlider, QRadioButton
+    QLineEdit, QFileDialog, QMessageBox, QDialog, QCheckBox,
+    QGroupBox, QComboBox, QSplitter, QFrame, QApplication, QSizePolicy
 )
-
-from PyQt5.QtWidgets import QSizePolicy
 from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QDesktopServices
-from PyQt5.QtCore import QUrl
 
 import config
 from services.file_renamer import FileRenamer
@@ -37,10 +31,9 @@ from services.directory_unifier import DirectoryUnifier
 from services.heic_remover import HEICDuplicateRemover
 from utils.date_utils import get_file_date, format_renamed_name, is_renamed_filename
 from ui.ui_helpers import (
-    create_progress_bar,
     update_tab_details, show_results_html, format_size, reset_analysis_ui,
-    show_progress, hide_progress
 )
+from ui.components.progress_bar import create_progress_group as create_progress_bar, show_progress, hide_progress
 from ui import tabs
 
 from services.duplicate_detector import DuplicateDetector
@@ -548,11 +541,6 @@ class MainWindow(QMainWindow):
 
         parent_layout.addWidget(config_container)
 
-    def _create_summary_panel(self):
-        """Crear el panel de resumen usando el componente SummaryPanel."""
-        from ui.components import SummaryPanel
-        comp = SummaryPanel(self)
-        return comp.get_widget()
     
     def _create_tabs_widget(self):
         # Crear mediante el módulo tabs directamente
