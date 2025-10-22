@@ -87,22 +87,19 @@ class ExactDuplicatesDialog(BaseDialog):
         
         # Opciones: backup checkbox desde BaseDialog
         self.add_backup_checkbox(layout, "☑ Crear backup antes de eliminar (Recomendado)", True)
-        
+
         # Advertencia
         warning = QLabel(
             "⚠️ Estos son duplicados exactos (100%). Eliminarlos es seguro."
         )
         warning.setStyleSheet(ui_styles.STYLE_WARNING_LABEL)
         layout.addWidget(warning)
-        
+
         # Botones
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        buttons.button(QDialogButtonBox.Ok).setText("🗑️ Eliminar Ahora")
-        buttons.button(QDialogButtonBox.Ok).setStyleSheet(ui_styles.STYLE_DANGER_BUTTON)
-        buttons.button(QDialogButtonBox.Cancel).setText("Cancelar")
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
-        
+        buttons = self.make_ok_cancel_buttons(ok_text="🗑️ Eliminar Ahora")
+        # apply danger style to ok button
+        ok_btn = buttons.button(QDialogButtonBox.Ok)
+        ok_btn.setStyleSheet(ui_styles.STYLE_DANGER_BUTTON)
         layout.addWidget(buttons)
     
     def _on_strategy_changed(self, button):
@@ -178,13 +175,8 @@ class SimilarDuplicatesDialog(BaseDialog):
         self.add_backup_checkbox(layout, "Crear backup antes de eliminar (Recomendado)", True)
 
         # Botones
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons = self.make_ok_cancel_buttons(ok_text="🗑️ Eliminar Seleccionados", ok_enabled=False)
         self.ok_btn = buttons.button(QDialogButtonBox.Ok)
-        self.ok_btn.setText("🗑️ Eliminar Seleccionados")
-        self.ok_btn.setEnabled(False)
-        buttons.button(QDialogButtonBox.Cancel).setText("Cancelar")
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
         # Cargar primer grupo

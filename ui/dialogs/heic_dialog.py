@@ -75,16 +75,11 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         self.add_backup_checkbox(layout, "Crear backup antes de eliminar (Recomendado)", True)
 
         # Botones
-        self.buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        ok_enabled = self.analysis.get('total_duplicates', 0) > 0
+        self.buttons = self.make_ok_cancel_buttons(ok_enabled=ok_enabled)
         self.ok_button = self.buttons.button(QDialogButtonBox.Ok)
-
-        if self.analysis.get('total_duplicates', 0) > 0:
+        if ok_enabled:
             self._update_button_text()
-        else:
-            self.ok_button.setEnabled(False)
-
-        self.buttons.accepted.connect(self.accept)
-        self.buttons.rejected.connect(self.reject)
         layout.addWidget(self.buttons)
 
     def _on_format_changed(self, button):
@@ -92,9 +87,8 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         self._update_button_text()
 
     def accept(self):
-        self.accepted_plan = {
+        self.accepted_plan = self.build_accepted_plan({
             'duplicate_pairs': self.analysis['duplicate_pairs'],
             'keep_format': self.selected_format,
-            'create_backup': self.backup_checkbox.isChecked()
-        }
+        })
         super().accept()
