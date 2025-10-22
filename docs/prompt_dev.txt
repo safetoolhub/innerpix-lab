@@ -31,7 +31,7 @@ Cuando se menciona "fotos" en este documento, se incluyen imágenes (HEIC, JPG, 
 **Tecnología Base:**
 
 - Python 3.9+
-- GUI: PyQt5 (preferido por robustez y Qt Designer) o Tkinter (alternativa ligera)
+- GUI: PyQt5 (preferido por robustez y Qt Designer)
 
 
 ### Requisitos de Funcionamiento
@@ -76,6 +76,7 @@ photokit_manager/
 │ ├── dialogs.py
 │ ├── styles.py
 │ ├── ui_helpers.py
+│ ├── tabs.py
 │ └── workers.py
 ├── services/ # Lógica de negocio
 │ ├── file_renamer.py
