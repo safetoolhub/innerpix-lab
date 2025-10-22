@@ -12,8 +12,7 @@ from PyQt5.QtCore import Qt, QTimer
 from ui import styles
 
 
-def _service_available(window, attr_name: str) -> bool:
-    return hasattr(window, attr_name) and getattr(window, attr_name) is not None
+from ui.ui_helpers import service_available
 
 
 def create_tabs_widget(window):
@@ -22,19 +21,19 @@ def create_tabs_widget(window):
     tabs.setVisible(False)
     window.tab_index_map = {}
     idx = 0
-    if _service_available(window, 'live_photo_detector'):
+    if service_available(window, 'live_photo_detector'):
         tabs.addTab(create_live_photos_tab(window), "(1) 📱 Live Photos")
         window.tab_index_map['live_photos'] = idx
         idx += 1
-    if _service_available(window, 'heic_remover'):
+    if service_available(window, 'heic_remover'):
         tabs.addTab(create_heic_tab(window), "(2) 🖼️ Duplicados HEIC")
         window.tab_index_map['heic'] = idx
         idx += 1
-    if _service_available(window, 'directory_unifier'):
+    if service_available(window, 'directory_unifier'):
         tabs.addTab(create_unification_tab(window), "(3) 📁 Unificar Directorios")
         window.tab_index_map['unification'] = idx
         idx += 1
-    if _service_available(window, 'renamer'):
+    if service_available(window, 'renamer'):
         tabs.addTab(create_renaming_tab(window), "(4) 📝 Renombrado")
         window.tab_index_map['renaming'] = idx
         idx += 1
