@@ -8,7 +8,7 @@ import traceback
 
 from PyQt5.QtWidgets import (
     QFrame, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QSizePolicy,
-    QTextEdit, QGroupBox, QProgressBar, QLineEdit, QButtonGroup,
+    QTextEdit, QLineEdit, QButtonGroup,
     QRadioButton
 )
 from PyQt5.QtCore import Qt, QTimer
@@ -22,36 +22,15 @@ except Exception:
     _tabs_module = None
 
 
+from ui.components.progress_bar import (
+    create_progress_group as create_progress_bar,
+    show_progress,
+    hide_progress,
+)
+
+
 def service_available(window, attr_name: str) -> bool:
     return hasattr(window, attr_name) and getattr(window, attr_name) is not None
-
-
-
-# NOTE: tab-creation helpers were moved to `ui.tabs` to improve modularity.
-# `main_window` importa `ui.tabs` directamente y `ui_helpers` ya no expone
-# esas funciones. Los botones del panel de resumen llaman a `ui.tabs` vía
-# el helper `_invoke` definido en `make_full_btn` arriba.
-
-
-
-def create_progress_bar(window, parent_layout):
-    window.progress_group = QGroupBox("📊 Progreso")
-    progress_layout = QVBoxLayout(window.progress_group)
-
-    window.progress_label = QLabel("Listo para procesar")
-    window.progress_label.setStyleSheet(styles.STYLE_PROGRESS_LABEL)
-    progress_layout.addWidget(window.progress_label)
-
-    window.progress_bar = QProgressBar()
-    window.progress_bar.setStyleSheet(styles.STYLE_PROGRESS_BAR)
-    progress_layout.addWidget(window.progress_bar)
-
-    window.progress_group.setVisible(False)
-    parent_layout.addWidget(window.progress_group)
-
-
- 
-
 
 def update_tab_details(window, results):
     if results.get('renaming'):
@@ -110,51 +89,6 @@ def update_tab_details(window, results):
             """
         window.heic_details.setHtml(html)
 
-
-# Note: call `styles.get_button_style(color)` directly where needed; removed redundant wrapper.
-
-
-def show_progress(window, maximum, message="Procesando"):
-    """Muestra la barra de progreso en modo indeterminado y actualiza la etiqueta.
-
-    El parámetro `maximum` se ignora intencionalmente para operaciones que
-    modifican archivos: siempre mostramos un feedback "busy" en lugar de
-    porcentajes que pueden ser engañosos o permanecer en 0%.
-    """
-    try:
-        window.progress_group.setVisible(True)
-    except Exception:
-        # Si la UI no está en estado de mostrar, simplemente no hacer nada
-        return
-
-    # Forzar modo indeterminado para dar feedback continuo al usuario
-    try:
-        window.progress_bar.setMaximum(0)
-    except Exception:
-        try:
-            # intento de fallback leve
-            window.progress_bar.setMaximum(100)
-            window.progress_bar.setValue(0)
-        except Exception:
-            pass
-
-    # Actualizar etiqueta siempre con el mensaje proporcionado (incluye estado de backup)
-    try:
-        window.progress_label.setText(message)
-    except Exception:
-        pass
-
-
-def hide_progress(window):
-    def _hide():
-        try:
-            window.progress_bar.setMaximum(100)
-            window.progress_bar.setValue(0)
-        except Exception:
-            pass
-        window.progress_group.setVisible(False)
-
-    QTimer.singleShot(1000, _hide)
 
 
 def show_results_html(window, html: str, show_generic_status: bool = False):
