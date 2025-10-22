@@ -8,11 +8,12 @@ from PyQt5.QtCore import Qt
 from services.duplicate_detector import DuplicateGroup
 from ui.ui_helpers import format_size
 from ui import styles as ui_styles
+from .base_dialog import BaseDialog
 from PyQt5.QtGui import QDesktopServices
 from PyQt5.QtCore import QUrl
 
 
-class ExactDuplicatesDialog(QDialog):
+class ExactDuplicatesDialog(BaseDialog):
     """Diálogo para eliminación de duplicados exactos"""
     
     def __init__(self, analysis, parent=None):
@@ -84,10 +85,8 @@ class ExactDuplicatesDialog(QDialog):
             more_label.setStyleSheet(ui_styles.STYLE_MORE_ITALIC)
             layout.addWidget(more_label)
         
-        # Opciones
-        self.backup_checkbox = QCheckBox("☑ Crear backup antes de eliminar (Recomendado)")
-        self.backup_checkbox.setChecked(True)
-        layout.addWidget(self.backup_checkbox)
+        # Opciones: backup checkbox desde BaseDialog
+        self.add_backup_checkbox(layout, "☑ Crear backup antes de eliminar (Recomendado)", True)
         
         # Advertencia
         warning = QLabel(
@@ -120,7 +119,7 @@ class ExactDuplicatesDialog(QDialog):
         super().accept()
 
 
-class SimilarDuplicatesDialog(QDialog):
+class SimilarDuplicatesDialog(BaseDialog):
     """Diálogo para revisión de duplicados similares"""
 
     def __init__(self, analysis, parent=None):
@@ -175,10 +174,8 @@ class SimilarDuplicatesDialog(QDialog):
         summary_group.setLayout(summary_layout)
         layout.addWidget(summary_group)
 
-        # Opciones
-        self.backup_checkbox = QCheckBox("☑ Crear backup antes de eliminar")
-        self.backup_checkbox.setChecked(True)
-        layout.addWidget(self.backup_checkbox)
+        # Opciones: backup checkbox desde BaseDialog
+        self.add_backup_checkbox(layout, "Crear backup antes de eliminar (Recomendado)", True)
 
         # Botones
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)

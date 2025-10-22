@@ -4,9 +4,10 @@ from PyQt5.QtWidgets import (
 )
 from ui.ui_helpers import format_size
 from ui import styles as ui_styles
+from .base_dialog import BaseDialog
 
 
-class HEICDuplicateRemovalDialog(QDialog):
+class HEICDuplicateRemovalDialog(BaseDialog):
     """Diálogo para eliminación de duplicados HEIC"""
 
     def __init__(self, analysis, parent=None):
@@ -70,10 +71,8 @@ class HEICDuplicateRemovalDialog(QDialog):
             table.setMaximumHeight(300)
             layout.addWidget(table)
 
-        # Opciones
-        self.backup_checkbox = QCheckBox("Crear backup")
-        self.backup_checkbox.setChecked(True)
-        layout.addWidget(self.backup_checkbox)
+        # Opciones: backup checkbox desde BaseDialog
+        self.add_backup_checkbox(layout, "Crear backup antes de eliminar (Recomendado)", True)
 
         # Botones
         self.buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
