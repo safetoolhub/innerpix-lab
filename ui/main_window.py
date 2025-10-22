@@ -38,7 +38,7 @@ from utils.date_utils import get_file_date, format_renamed_name, is_renamed_file
 from ui.ui_helpers import (
     create_summary_panel, create_progress_bar, update_summary_panel,
     update_tab_details, show_results_html, format_size, reset_analysis_ui,
-    show_progress, hide_progress, get_button_style
+    show_progress, hide_progress
 )
 from ui import tabs
 
@@ -81,6 +81,8 @@ class MainWindow(QMainWindow):
         # Inicializar logger de instancia como `self.logger` (nombre usado en
         # todo el proyecto). Esto centraliza el logger de la ventana principal.
         self.logger = logging.getLogger('PhotokitManager')
+        # Alias compatible con otros módulos que esperan `app_logger`
+        self.app_logger = self.logger
         self.logger.info("=" * 70)
         self.logger.info("Aplicación iniciada")
         self.logger.info(f"Archivo de log: {self.log_file}")
@@ -197,7 +199,7 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(splitter, 1)
 
         # ===== BARRA DE PROGRESO =====
-        self._create_progress_bar(main_layout)
+        create_progress_bar(self, main_layout)
 
         # Reemplazar el botón analyze en el search_layout por un contenedor
         # para que analyze_btn y los botones posteriores ocupen exactamente
@@ -604,21 +606,6 @@ class MainWindow(QMainWindow):
         """
         return tabs.open_summary_action(self, label_substr)
     
-    def _create_renaming_tab(self):
-        return tabs.create_renaming_tab(self)
-    
-    def _create_live_photos_tab(self):
-        return tabs.create_live_photos_tab(self)
-    
-    def _create_unification_tab(self):
-        return tabs.create_unification_tab(self)
-    
-    def _create_heic_tab(self):
-        return tabs.create_heic_tab(self)
-    
-    def _create_progress_bar(self, parent_layout):
-        return create_progress_bar(self, parent_layout)
-    
 
 
     # ========================================================================
@@ -853,10 +840,10 @@ class MainWindow(QMainWindow):
         self.last_analyzed_directory = self.current_directory
         
         # Actualizar panel de resumen
-        self._update_summary_panel(results)
+        update_summary_panel(self, results)
         
         # Actualizar detalles de cada pestaña
-        self._update_tab_details(results)
+        update_tab_details(self, results)
         
         # Mostrar paneles
         self.summary_panel.setVisible(True)
@@ -1003,11 +990,7 @@ class MainWindow(QMainWindow):
             self.analysis_worker = None
         
 
-    def _update_summary_panel(self, results):
-        return update_summary_panel(self, results)
-    
-    def _update_tab_details(self, results):
-        return update_tab_details(self, results)
+    # Note: summary/tab update helpers are called directly via ui.ui_helpers
     
     # ========================================================================
     # RENOMBRADO
@@ -1121,8 +1104,8 @@ class MainWindow(QMainWindow):
             self.analysis_results['renaming'] = ren
 
             # Actualizar paneles y pestañas para reflejar los nuevos valores
-            self._update_summary_panel(self.analysis_results)
-            self._update_tab_details(self.analysis_results)
+            update_summary_panel(self, self.analysis_results)
+            update_tab_details(self, self.analysis_results)
 
             # Habilitar/deshabilitar botón de preview según queden archivos
             self.preview_rename_btn.setEnabled(ren.get('need_renaming', 0) > 0)
@@ -1377,8 +1360,8 @@ class MainWindow(QMainWindow):
                 self.analysis_results['unification'] = updated_unif
 
                 # Refrescar UI
-                self._update_summary_panel(self.analysis_results)
-                self._update_tab_details(self.analysis_results)
+                update_summary_panel(self, self.analysis_results)
+                update_tab_details(self, self.analysis_results)
 
                 # Ajustar estado del botón según queden archivos por mover
                 if updated_unif.get('total_files_to_move', 0) > 0:
@@ -1530,9 +1513,8 @@ class MainWindow(QMainWindow):
         # Usar un pequeño retardo para dejar que el sistema de ficheros se estabilice
         QTimer.singleShot(delay_ms, _do_reanalyze)
 
-    def _get_button_style(self, color):
-        """Genera estilo para botones"""
-        return get_button_style(self, color)
+    # Nota: `get_button_style` proviene de `ui.ui_helpers` y puede llamarse
+    # directamente como `get_button_style(self, color)` o usar `styles.get_button_style(color)`.
 
     # ========================================================================
     # UTILIDADES
@@ -1567,7 +1549,6 @@ class MainWindow(QMainWindow):
             self.active_workers.remove(self.execution_worker)
         self.execution_worker = None
     
-    # Nota: se usa `format_size` desde `ui.ui_helpers` directamente.
 
     def _reset_analysis_ui(self, reinsert_analyze=True):
         """Reinicia la UI tras cambiar de directorio

@@ -271,8 +271,7 @@ def update_tab_details(window, results):
         window.heic_details.setHtml(html)
 
 
-def get_button_style(window, color):
-    return styles.get_button_style(color)
+# Note: call `styles.get_button_style(color)` directly where needed; removed redundant wrapper.
 
 
 def show_progress(window, maximum, message="Procesando"):
