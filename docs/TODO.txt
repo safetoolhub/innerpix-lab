@@ -1,1 +1,3 @@
+Meter en directory unifier lo de clasificar en carpetas por fecha y por whatsapp
+meter en duplicados las previews de las fotos
 Al cambiar el nivel de log en la configuraicon debe cambiarse en todos los loggers de lso ficheros auxiliares, porque tienen su propia configuracion

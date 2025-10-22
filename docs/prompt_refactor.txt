@@ -61,42 +61,59 @@ Realizar un refactor arquitectónico completo aplicando principios SOLID para de
 
 ```
 photokit_manager/
-├── main.py                          # Punto de entrada (sin cambios)
-├── config.py                        # Configuración (sin cambios)
-├── requirements.txt                 # Dependencias (sin cambios)
+├── main.py                          # Punto de entrada (< 50 líneas)
+├── config.py                        # Configuración
+├── requirements.txt                 # Dependencias
 │
-├── ui/                              # Capa de Presentación
-│   ├── main_window.py              # [REFACTORIZAR] Solo UI y delegación
-│   ├── dialogs.py                  # [REVISAR] Diálogos específicos
-│   ├── styles.py                   # [SIN CAMBIOS] Estilos visuales
-│   ├── ui_helpers.py               # [EXPANDIR] Helpers de UI
-│   └── workers.py                  # [REVISAR] Workers para threading
-│
-├── controllers/                     # [NUEVO, EXPANDIR SI ES NECESARIO] Capa de Controladores
+├── ui/                              # Interfaz de usuario
 │   ├── __init__.py
-│   ├── base_controller.py          # Controlador base abstracto
-│   ├── file_operations_controller.py   # Coordina operaciones de archivos
-│   ├── duplicate_detection_controller.py # Coordina detección de duplicados
-│   └── live_photo_controller.py    # Coordina operaciones de Live Photos
+│   ├── main_window.py              # Ventana principal (reorganizada)
+│   ├── styles.py                    # Estilos CSS (mantener)
+│   │
+│   ├── components/                  # NUEVO: Componentes reutilizables
+│   │   ├── __init__.py
+│   │   ├── progress_bar.py         # Barra de progreso
+│   │   ├── summary_panel.py        # Panel resumen lateral
+│   │   ├── search_bar.py           # Barra de búsqueda/selector
+│   │   └── header.py               # Header con menú
+│   │
+│   ├── tabs/                        # NUEVO: Separar pestañas
+│   │   ├── __init__.py
+│   │   ├── base_tab.py             # Clase base común
+│   │   ├── renaming_tab.py         # Pestaña renombrado
+│   │   ├── live_photos_tab.py      # Pestaña Live Photos
+│   │   ├── duplicates_tab.py       # Pestaña duplicados
+│   │   ├── heic_tab.py             # Pestaña HEIC
+│   │   └── unifier_tab.py          # Pestaña unificación
+│   │
+│   ├── dialogs/                     # REORGANIZAR: Separar diálogos
+│   │   ├── __init__.py
+│   │   ├── base_dialog.py          # Clase base común
+│   │   ├── renaming_dialog.py      # Diálogo preview renombrado
+│   │   ├── live_photos_dialog.py   # Diálogo limpieza Live Photos
+│   │   ├── duplicates_dialogs.py   # Diálogos duplicados (exact + similar)
+│   │   ├── directory_dialog.py     # Diálogo unificación directorios
+│   │   ├── heic_dialog.py          # Diálogo HEIC
+│   │   └── settings_dialog.py      # Diálogo configuración
+│   │
+│   ├── workers.py                   # Workers de threading (mantener)
+│   └── helpers.py                   # RENOMBRAR: ui_helpers.py → helpers.py
 │
-├── models/                          # [NUEVO] Capa de Modelos
+├── services/                        # Lógica de negocio
 │   ├── __init__.py
-│   ├── app_state.py                # Estado global de la aplicación
-│   ├── operation_result.py         # Modelos de resultados
-│   └── file_metadata.py            # Metadatos de archivos
+│   ├── file_renamer.py             # Mantener
+│   ├── duplicate_detector.py        # Mantener
+│   ├── live_photo_detector.py      # Mantener
+│   ├── live_photo_cleaner.py       # Mantener
+│   ├── directory_unifier.py        # Mantener
+│   └── heic_remover.py             # Mantener
 │
-├── services/                        # [SIN CAMBIOS] Lógica de Negocio
-│   ├── file_renamer.py
-│   ├── duplicate_detector.py
-│   ├── live_photo_detector.py
-│   ├── live_photo_cleaner.py
-│   ├── directory_unifier.py
-│   └── heic_remover.py
-│
-└── utils/                           # [EXPANDIR SI ES NECESARIO] Utilidades
-    ├── logger.py
-    ├── date_utils.py
-    └── signals.py                   # [NUEVO] Señales personalizadas centralizadas
+└── utils/                           # Utilidades
+    ├── __init__.py
+    ├── logger.py                    # Mantener
+    ├── date_utils.py                # Mantener
+    ├── file_utils.py                # NUEVO: Utilidades de archivos
+    └── format_utils.py              # NUEVO: Formateo (format_size, etc.)
 ```
 
 
