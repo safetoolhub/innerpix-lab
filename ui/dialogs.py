@@ -142,9 +142,7 @@ class LivePhotoCleanupDialog(QDialog):
         self.init_ui()
 
     def _format_size(self, bytes_size):
-        """Formatea tamaño en bytes usando format_size central"""
-        """Delegar en el helper central `format_size`"""
-        return format_size(bytes_size)
+        pass
 
     def _calculate_space_for_mode(self, mode):
         """Calcula el espacio a liberar según el modo seleccionado"""
@@ -167,7 +165,7 @@ class LivePhotoCleanupDialog(QDialog):
         lp_found = len(groups)
         if lp_found > 0:
             space = self._calculate_space_for_mode(self.selected_mode)
-            space_formatted = self._format_size(space)
+            space_formatted = format_size(space)
             files_type = "videos" if self.selected_mode == CleanupMode.KEEP_IMAGE else "imágenes"
             self.ok_button.setText(f"Eliminar {lp_found} {files_type} ({space_formatted})")
 
@@ -221,7 +219,7 @@ class LivePhotoCleanupDialog(QDialog):
         total_space = self.analysis.get('total_space', 0)
         stats_label = QLabel(
             f"📱 Live Photos detectados: <b>{lp_found}</b><br>"
-            f"💾 Espacio total ocupado: <b>{self._format_size(total_space)}</b>"
+            f"💾 Espacio total ocupado: <b>{format_size(total_space)}</b>"
         )
         stats_label.setTextFormat(Qt.RichText)
         stats_layout.addWidget(stats_label)
@@ -283,9 +281,7 @@ class DirectoryUnificationDialog(QDialog):
         self.init_ui()
 
     def _format_size(self, bytes_size):
-        """Formatea tamaño en bytes a MB o GB"""
-        """Delegar en el helper central `format_size`"""
-        return format_size(bytes_size)
+        pass
 
     def init_ui(self):
         self.setWindowTitle("Unificación de Directorios")
@@ -312,7 +308,7 @@ class DirectoryUnificationDialog(QDialog):
             for row, (name, info) in enumerate(subdirs):
                 table.setItem(row, 0, QTableWidgetItem(name))
                 table.setItem(row, 1, QTableWidgetItem(str(info['file_count'])))
-                size_formatted = self._format_size(info['total_size'])
+                size_formatted = format_size(info['total_size'])
                 table.setItem(row, 2, QTableWidgetItem(size_formatted))
 
             table.setMaximumHeight(300)
@@ -335,7 +331,7 @@ class DirectoryUnificationDialog(QDialog):
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         if self.analysis.get('total_files_to_move', 0) > 0:
             size = self.analysis.get('total_size_to_move', 0)
-            size_formatted = self._format_size(size)
+            size_formatted = format_size(size)
             buttons.button(QDialogButtonBox.Ok).setText(
                 f"Proceder ({self.analysis['total_files_to_move']}, {size_formatted})"
             )
@@ -366,9 +362,7 @@ class HEICDuplicateRemovalDialog(QDialog):
         self.init_ui()
 
     def _format_size(self, bytes_size):
-        """Formatea tamaño en bytes a MB o GB"""
-        """Delegar en el helper central `format_size`"""
-        return format_size(bytes_size)
+        pass
 
     def _update_button_text(self):
         """Actualiza el texto del botón según el formato seleccionado"""
@@ -378,7 +372,7 @@ class HEICDuplicateRemovalDialog(QDialog):
             else:
                 savings = self.analysis.get('potential_savings_keep_heic', 0)
 
-            space_formatted = self._format_size(savings)
+            space_formatted = format_size(savings)
             self.ok_button.setText(
                 f"Proceder ({self.analysis['total_duplicates']}, {space_formatted})"
             )
@@ -827,7 +821,7 @@ class ExactDuplicatesDialog(QDialog):
         self.init_ui()
     
     def _format_size(self, bytes_size):
-        return format_size(bytes_size)
+        pass
     def init_ui(self):
         self.setWindowTitle("Eliminar Duplicados Exactos")
         self.setModal(True)
@@ -839,7 +833,7 @@ class ExactDuplicatesDialog(QDialog):
         info = QLabel(
             f"📊 Se encontraron **{self.analysis['total_duplicates']} archivos duplicados** "
             f"en **{self.analysis['total_groups']} grupos**\n\n"
-            f"💾 Espacio a liberar: **{self._format_size(self.analysis['space_wasted'])}**"
+            f"💾 Espacio a liberar: **{format_size(self.analysis['space_wasted'])}**"
         )
         info.setTextFormat(Qt.RichText)
         info.setWordWrap(True)
@@ -881,7 +875,7 @@ class ExactDuplicatesDialog(QDialog):
         for row, group in enumerate(groups):
             table.setItem(row, 0, QTableWidgetItem(f"Grupo {row + 1}"))
             table.setItem(row, 1, QTableWidgetItem(str(group.file_count)))
-            table.setItem(row, 2, QTableWidgetItem(self._format_size(group.total_size)))
+            table.setItem(row, 2, QTableWidgetItem(format_size(group.total_size)))
         
         table.setMaximumHeight(250)
         layout.addWidget(table)
@@ -939,10 +933,7 @@ class SimilarDuplicatesDialog(QDialog):
         self.init_ui()
 
     def _format_size(self, bytes_size):
-        mb_size = bytes_size / (1024 * 1024)
-        if mb_size >= 1024:
-            return f"{mb_size / 1024:.2f} GB"
-        return f"{mb_size:.1f} MB"
+        pass
 
     def init_ui(self):
         self.setWindowTitle("Revisar Duplicados Similares")
@@ -1029,7 +1020,7 @@ class SimilarDuplicatesDialog(QDialog):
         info_label = QLabel(
             f"<b>Similitud:</b> {group.similarity_score:.1f}% | "
             f"<b>Archivos:</b> {group.file_count} | "
-            f"<b>Tamaño total:</b> {self._format_size(group.total_size)}"
+            f"<b>Tamaño total:</b> {format_size(group.total_size)}"
         )
         info_label.setTextFormat(Qt.RichText)
         info_label.setStyleSheet(ui_styles.STYLE_PANEL_LABEL)
@@ -1056,7 +1047,7 @@ class SimilarDuplicatesDialog(QDialog):
             table.setItem(row, 1, QTableWidgetItem(file_path.name))
 
             # Tamaño
-            table.setItem(row, 2, QTableWidgetItem(self._format_size(file_path.stat().st_size)))
+            table.setItem(row, 2, QTableWidgetItem(format_size(file_path.stat().st_size)))
 
             # Fecha
             from datetime import datetime
@@ -1101,7 +1092,7 @@ class SimilarDuplicatesDialog(QDialog):
             total_size += sum(f.stat().st_size for f in files)
         self.summary_label.setText(
             f"<b>Archivos seleccionados para eliminar:</b> {total_selected} "
-            f"<br><b>Espacio a liberar:</b> {self._format_size(total_size)}"
+            f"<br><b>Espacio a liberar:</b> {format_size(total_size)}"
         )
         self.ok_btn.setEnabled(total_selected > 0)
 
