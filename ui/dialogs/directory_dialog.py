@@ -62,24 +62,21 @@ class DirectoryUnificationDialog(BaseDialog):
         layout.addWidget(options_group)
 
         # Botones
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        if self.analysis.get('total_files_to_move', 0) > 0:
+        ok_enabled = self.analysis.get('total_files_to_move', 0) > 0
+        if ok_enabled:
             size = self.analysis.get('total_size_to_move', 0)
             size_formatted = format_size(size)
-            buttons.button(QDialogButtonBox.Ok).setText(
-                f"Proceder ({self.analysis['total_files_to_move']}, {size_formatted})"
-            )
+            ok_text = f"Proceder ({self.analysis['total_files_to_move']}, {size_formatted})"
         else:
-            buttons.button(QDialogButtonBox.Ok).setEnabled(False)
-
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
+            ok_text = None
+        buttons = self.make_ok_cancel_buttons(ok_text=ok_text, ok_enabled=ok_enabled)
+        self.buttons = buttons
+        self.ok_button = buttons.button(QDialogButtonBox.Ok)
         layout.addWidget(buttons)
 
     def accept(self):
-        self.accepted_plan = {
+        self.accepted_plan = self.build_accepted_plan({
             'move_plan': self.analysis['move_plan'],
-            'create_backup': self.backup_checkbox.isChecked(),
             'cleanup_empty_dirs': self.cleanup_checkbox.isChecked()
-        }
+        })
         super().accept()

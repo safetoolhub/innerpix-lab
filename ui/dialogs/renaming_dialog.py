@@ -96,21 +96,17 @@ class RenamingPreviewDialog(BaseDialog):
         self.add_backup_checkbox(layout, "Crear backup antes de eliminar (Recomendado)", True)
 
         # Botones
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        if self.analysis_results.get('need_renaming', 0) > 0:
-            buttons.button(QDialogButtonBox.Ok).setText(
-                f"Proceder ({self.analysis_results['need_renaming']})"
-            )
-        else:
-            buttons.button(QDialogButtonBox.Ok).setEnabled(False)
-
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
+        ok_enabled = self.analysis_results.get('need_renaming', 0) > 0
+        ok_text = (f"Proceder ({self.analysis_results['need_renaming']})"
+                   if ok_enabled else None)
+        buttons = self.make_ok_cancel_buttons(ok_text=ok_text, ok_enabled=ok_enabled)
+        # expose names used elsewhere
+        self.buttons = buttons
+        self.ok_button = buttons.button(QDialogButtonBox.Ok)
         layout.addWidget(buttons)
 
     def accept(self):
-        self.accepted_plan = {
-            'plan': self.analysis_results['renaming_plan'],
-            'create_backup': self.backup_checkbox.isChecked()
-        }
+        self.accepted_plan = self.build_accepted_plan({
+            'plan': self.analysis_results['renaming_plan']
+        })
         super().accept()

@@ -113,18 +113,13 @@ class LivePhotoCleanupDialog(BaseDialog):
         layout.addWidget(options_group)
 
         # Botones
-        self.buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        ok_enabled = lp_found > 0
+        ok_text = None if ok_enabled else "No hay Live Photos para limpiar"
+        self.buttons = self.make_ok_cancel_buttons(ok_text=ok_text, ok_enabled=ok_enabled)
         self.ok_button = self.buttons.button(QDialogButtonBox.Ok)
-        self.buttons.button(QDialogButtonBox.Cancel).setText("Cancelar")
-
+        # If there are items, update text according to mode
         if lp_found > 0:
             self._update_button_text()
-        else:
-            self.ok_button.setEnabled(False)
-            self.ok_button.setText("No hay Live Photos para limpiar")
-
-        self.buttons.accepted.connect(self.accept)
-        self.buttons.rejected.connect(self.reject)
         layout.addWidget(self.buttons)
 
     def _on_mode_changed(self, button):
@@ -134,13 +129,12 @@ class LivePhotoCleanupDialog(BaseDialog):
 
     def accept(self):
         # Preparamos el plan de limpieza asegurándonos de que las rutas son objetos Path
-        self.accepted_plan = {
+        self.accepted_plan = self.build_accepted_plan({
             'mode': self.selected_mode,
-            'create_backup': self.backup_checkbox.isChecked(),
             'dry_run': self.dry_run_checkbox.isChecked(),
             'files_to_delete': (
                 self.analysis['files_to_delete'] if self.selected_mode == CleanupMode.KEEP_IMAGE
                 else self.analysis['files_to_keep']
             )
-        }
+        })
         super().accept()
