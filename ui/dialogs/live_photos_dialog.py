@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt
 from services.live_photo_cleaner import CleanupMode
-from ui.ui_helpers import format_size
+from ui.helpers import format_size
 from ui import styles as ui_styles
 from .base_dialog import BaseDialog
 

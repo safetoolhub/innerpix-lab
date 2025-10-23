@@ -18,8 +18,8 @@ def create_tabs_widget(window):
     tabs.setVisible(False)
     window.tab_index_map = {}
     idx = 0
-    # Import service_available lazily to avoid circular imports with ui.ui_helpers
-    from ui.ui_helpers import service_available
+    # Import service_available lazily to avoid circular imports with ui.helpers
+    from ui.helpers import service_available
 
     if service_available(window, 'live_photo_detector'):
         tabs.addTab(create_live_photos_tab(window), "(1) 📱 Live Photos")

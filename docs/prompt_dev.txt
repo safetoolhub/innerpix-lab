@@ -75,7 +75,7 @@ photokit_manager/
 │ ├── main_window.py
 │ ├── dialogs.py
 │ ├── styles.py
-│ ├── ui_helpers.py
+│ ├── helpers.py
 │ ├── tabs.py
 │ └── workers.py
 ├── services/ # Lógica de negocio
