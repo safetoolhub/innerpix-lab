@@ -1,5 +1,8 @@
 from pathlib import Path
 import logging
+import os
+import platform
+import subprocess
 from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QTabWidget, QWidget, QGroupBox, QVBoxLayout as QVLayout,
     QHBoxLayout, QLabel, QLineEdit, QPushButton, QComboBox, QFrame, QDialogButtonBox, QMessageBox, QCheckBox
@@ -311,8 +314,83 @@ class SettingsDialog(QDialog):
             self.settings_changed = True
 
     def open_logs_folder(self):
-        """Abre la carpeta de logs"""
-        self.parent_window.open_logs_folder()
+        """Abre la carpeta de logs sin delegar a la ventana principal.
+
+        Intenta abrir la carpeta de logs usando el método apropiado según
+        el sistema operativo y registra el intento en el logger de la
+        ventana principal cuando esté disponible.
+        """
+        try:
+            logs_dir = None
+            if hasattr(self, 'parent_window') and getattr(self.parent_window, 'logs_directory', None):
+                logs_dir = str(self.parent_window.logs_directory)
+            else:
+                logs_dir = str(config.config.DEFAULT_LOG_DIR)
+
+            if platform.system() == 'Windows':
+                os.startfile(logs_dir)
+            elif platform.system() == 'Darwin':  # macOS
+                subprocess.Popen(['open', logs_dir])
+            else:  # Linux and others
+                subprocess.Popen(['xdg-open', logs_dir])
+
+            # Registrar la acción si el padre tiene logger
+            try:
+                if hasattr(self.parent_window, 'logger'):
+                    self.parent_window.logger.info(f"Carpeta de logs abierta: {logs_dir}")
+                else:
+                    logging.getLogger('PhotokitManager').info(f"Carpeta de logs abierta: {logs_dir}")
+            except Exception:
+                logging.getLogger('PhotokitManager').info(f"Carpeta de logs abierta: {logs_dir}")
+
+        except Exception as e:
+            QMessageBox.warning(
+                self,
+                "Error",
+                f"No se pudo abrir la carpeta:\n{str(e)}"
+            )
+
+    def change_log_level(self, level_str):
+        """Cambia el nivel de logging y actualiza config y logger del padre.
+
+        level_str: texto del combo (p.ej. 'DEBUG (Máximo detalle)') o solo el nivel.
+        """
+        try:
+            level_name = str(level_str).split()[0].upper()
+            level_map = {
+                'DEBUG': logging.DEBUG,
+                'INFO': logging.INFO,
+                'WARNING': logging.WARNING,
+                'ERROR': logging.ERROR
+            }
+            level = level_map.get(level_name, logging.INFO)
+
+            # Actualizar config global
+            config.Config.LOG_LEVEL = level_name
+
+            # Actualizar logger de la ventana principal si existe
+            if hasattr(self, 'parent_window') and getattr(self.parent_window, 'logger', None):
+                try:
+                    self.parent_window.logger.setLevel(level)
+                    # Mantener alias app_logger si existe
+                    if getattr(self.parent_window, 'app_logger', None):
+                        self.parent_window.app_logger.setLevel(level)
+                    # También actualizar atributo de conveniencia
+                    self.parent_window.log_level = level_name
+                    # Registrar cambio
+                    try:
+                        self.parent_window.app_logger.info(f"Nivel de log cambiado a: {level_name}")
+                    except Exception:
+                        self.parent_window.logger.info(f"Nivel de log cambiado a: {level_name}")
+                except Exception:
+                    logging.getLogger('PhotokitManager').info(f"Nivel de log cambiado a: {level_name}")
+            else:
+                # Fallback: actualizar el logger raíz del módulo
+                logging.getLogger('PhotokitManager').setLevel(level)
+                logging.getLogger('PhotokitManager').info(f"Nivel de log cambiado a: {level_name}")
+
+        except Exception:
+            logging.getLogger('PhotokitManager').exception("Error cambiando nivel de log")
 
     def restore_defaults(self):
         """Restaura valores por defecto"""
@@ -344,14 +422,24 @@ class SettingsDialog(QDialog):
         """Guarda la configuración"""
         # Actualizar directorio de logs
         new_logs_dir = Path(self.logs_edit.text())
-        if new_logs_dir != self.parent_window.logs_directory:
-            self.parent_window.logs_directory = new_logs_dir
-            self.parent_window.app_logger.info(f"Directorio de logs cambiado a: {new_logs_dir}")
+        try:
+            if new_logs_dir != self.parent_window.logs_directory:
+                self.parent_window.logs_directory = new_logs_dir
+                try:
+                    self.parent_window.app_logger.info(f"Directorio de logs cambiado a: {new_logs_dir}")
+                except Exception:
+                    if getattr(self.parent_window, 'logger', None):
+                        self.parent_window.logger.info(f"Directorio de logs cambiado a: {new_logs_dir}")
 
-        # Actualizar nivel de log
+        except Exception:
+            # Si por alguna razón parent_window no está disponible, registrar globalmente
+            logging.getLogger('PhotokitManager').info(f"Directorio de logs cambiado a: {new_logs_dir}")
+
+        # Actualizar nivel de log usando el método local que también actualiza el parent
         level_text = self.log_level_combo.currentText()
         level = level_text.split(" ")[0]  # Extraer DEBUG, INFO, etc.
-        self.parent_window.change_log_level(level)
+        # Usar el método del diálogo para manejar la actualización y el logging
+        self.change_log_level(level)
 
         # Aquí guardarías el resto de configuraciones en un archivo o variables
 
@@ -360,7 +448,13 @@ class SettingsDialog(QDialog):
             lvl = self.parent_window.app_logger.getEffectiveLevel()
             self.parent_window.app_logger.log(lvl, "Configuración guardada exitosamente")
         except Exception:
-            self.parent_window.app_logger.info("Configuración guardada exitosamente")
+            try:
+                self.parent_window.app_logger.info("Configuración guardada exitosamente")
+            except Exception:
+                if getattr(self.parent_window, 'logger', None):
+                    self.parent_window.logger.info("Configuración guardada exitosamente")
+                else:
+                    logging.getLogger('PhotokitManager').info("Configuración guardada exitosamente")
 
         QMessageBox.information(
             self,
