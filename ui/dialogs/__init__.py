@@ -9,6 +9,7 @@ from .heic_dialog import HEICDuplicateRemovalDialog
 from .settings_dialog import SettingsDialog
 from .duplicates_dialogs import ExactDuplicatesDialog, SimilarDuplicatesDialog
 from .base_dialog import BaseDialog
+from .about_dialog import AboutDialog
 
 __all__ = [
     'BaseDialog',
@@ -19,4 +20,5 @@ __all__ = [
     'SettingsDialog',
     'ExactDuplicatesDialog',
     'SimilarDuplicatesDialog',
+    'AboutDialog',
 ]

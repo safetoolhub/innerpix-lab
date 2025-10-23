@@ -25,6 +25,7 @@ from ui.dialogs import (
     RenamingPreviewDialog, LivePhotoCleanupDialog,
     DirectoryUnificationDialog, HEICDuplicateRemovalDialog, SettingsDialog
 )
+from ui.dialogs import AboutDialog
 from services.live_photo_cleaner import LivePhotoCleaner
 from services.live_photo_detector import LivePhotoDetector
 from services.directory_unifier import DirectoryUnifier
@@ -39,7 +40,7 @@ from ui import tabs
 from services.duplicate_detector import DuplicateDetector
 from ui.workers import DuplicateAnalysisWorker, DuplicateDeletionWorker
 from ui.dialogs import ExactDuplicatesDialog, SimilarDuplicatesDialog
-
+from ui.components import SearchBar
 
 
 class MainWindow(QMainWindow):
@@ -117,9 +118,8 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(header)
 
         # ===== SELECTOR ESTILO SEARCH BAR =====
-        from ui.components import SearchBar
-
         search_bar = SearchBar(self)
+
         # Exponer los controles usados por el resto de MainWindow
         self.directory_edit = search_bar.directory_edit
         self.analyze_btn = search_bar.analyze_btn
@@ -194,352 +194,17 @@ class MainWindow(QMainWindow):
             # Fallback por seguridad: si no existe search_bar, intentar añadir a un layout global
             pass
 
-    def _create_advanced_config_panel(self, parent_layout):
-        """Crea el panel de configuración avanzada que se despliega desde arriba"""
-        # Contenedor para el panel de configuración
-        self.config_panel = QFrame()
-        self.config_panel.setFrameStyle(QFrame.StyledPanel)
-        self.config_panel.setStyleSheet(styles.STYLE_CONFIG_PANEL)
-        self.config_panel.setVisible(False)  # Inicialmente oculto
-
-        config_layout = QVBoxLayout(self.config_panel)
-        config_layout.setSpacing(15)
-
-        # Título del panel
-        config_title = QLabel("⚙️ Configuración Avanzada")
-        config_title.setStyleSheet(styles.STYLE_CONFIG_TITLE)
-        config_layout.addWidget(config_title)
-
-        # Separador
-        separator = QFrame()
-        separator.setFrameShape(QFrame.HLine)
-        separator.setFrameShadow(QFrame.Sunken)
-        separator.setStyleSheet(styles.STYLE_SEPARATOR)
-        config_layout.addWidget(separator)
-
-        # === SECCIÓN: SEGURIDAD Y LOGS ===
-        safety_section = QGroupBox("💾 Seguridad y Logs")
-        safety_section.setStyleSheet(styles.STYLE_SAFETY_SECTION)
-        safety_layout = QVBoxLayout(safety_section)
-        safety_layout.setSpacing(10)
-
-        # Directorio de logs
-        logs_row = QHBoxLayout()
-        logs_label = QLabel("Carpeta de logs:")
-        logs_label.setMinimumWidth(110)
-        logs_row.addWidget(logs_label)
-
-        self.logs_edit = QLineEdit()
-        self.logs_edit.setText(str(self.logs_directory))
-        self.logs_edit.setReadOnly(True)
-        self.logs_edit.setStyleSheet(styles.STYLE_LOGS_EDIT)
-        logs_row.addWidget(self.logs_edit)
-
-        browse_logs_btn = QPushButton("📂 Cambiar")
-        browse_logs_btn.setMaximumWidth(100)
-        browse_logs_btn.setStyleSheet(styles.STYLE_BROWSE_LOGS_BUTTON)
-        browse_logs_btn.clicked.connect(self.browse_logs_directory)
-        logs_row.addWidget(browse_logs_btn)
-
-        safety_layout.addLayout(logs_row)
-
-        # Nivel de log
-        log_level_row = QHBoxLayout()
-        log_level_label = QLabel("Nivel de detalle:")
-        log_level_label.setMinimumWidth(110)
-        log_level_row.addWidget(log_level_label)
-
-        self.log_level_combo = QComboBox()
-        self.log_level_combo.addItems(["DEBUG", "INFO", "WARNING", "ERROR"])
-        # Sincronizar el combo con el nivel efectivo del logger de la aplicación
-        try:
-            level_num = self.logger.getEffectiveLevel()
-            current_level = logging.getLevelName(level_num).upper()
-        except Exception:
-            current_level = config.Config.LOG_LEVEL.upper()
-
-        idx = self.log_level_combo.findText(current_level, Qt.MatchFixedString)
-        if idx >= 0:
-            self.log_level_combo.setCurrentIndex(idx)
-
-        # El cambio solo se aplica al guardar en el diálogo; aquí solo mostramos el estado
-        self.log_level_combo.setStyleSheet(styles.STYLE_LOG_LEVEL_COMBO)
-        log_level_row.addWidget(self.log_level_combo)
-        log_level_row.addStretch()
-
-        safety_layout.addLayout(log_level_row)
-
-        # Botón abrir logs
-        open_logs_btn = QPushButton("📄 Abrir carpeta de logs")
-        open_logs_btn.setStyleSheet(styles.STYLE_OPEN_LOGS_BUTTON)
-        open_logs_btn.clicked.connect(self.open_logs_folder)
-        safety_layout.addWidget(open_logs_btn)
-
-        config_layout.addWidget(safety_section)
-
-        # === SECCIÓN: PREFERENCIAS ===
-        prefs_section = QGroupBox("🎨 Preferencias")
-        prefs_section.setStyleSheet(styles.STYLE_SAFETY_SECTION)
-        prefs_layout = QVBoxLayout(prefs_section)
-        prefs_layout.setSpacing(8)
-
-        self.auto_backup_checkbox = QCheckBox("Crear backup automáticamente antes de cada operación")
-        self.auto_backup_checkbox.setChecked(True)
-        self.auto_backup_checkbox.setStyleSheet(styles.STYLE_CHECKBOX)
-        prefs_layout.addWidget(self.auto_backup_checkbox)
-
-        self.confirm_operations_checkbox = QCheckBox("Pedir confirmación antes de ejecutar operaciones")
-        self.confirm_operations_checkbox.setChecked(True)
-        self.confirm_operations_checkbox.setStyleSheet(styles.STYLE_CHECKBOX)
-        prefs_layout.addWidget(self.confirm_operations_checkbox)
-
-        self.remember_dir_checkbox = QCheckBox("Recordar último directorio al iniciar")
-        self.remember_dir_checkbox.setChecked(True)
-        self.remember_dir_checkbox.setStyleSheet(styles.STYLE_CHECKBOX)
-        prefs_layout.addWidget(self.remember_dir_checkbox)
-
-        config_layout.addWidget(prefs_section)
-
-        parent_layout.addWidget(self.config_panel)
+    # Config panel UI moved to `ui.dialogs.settings_dialog.SettingsDialog`.
 
     def toggle_config(self):
         """Abre el diálogo de configuración avanzada"""
         dialog = SettingsDialog(self)
         dialog.exec_()
 
-    def open_logs_folder(self):
-        """Abre la carpeta de logs en el explorador del sistema"""
-        import platform
-        import subprocess
-
-        try:
-            if platform.system() == 'Windows':
-                os.startfile(self.logs_directory)
-            elif platform.system() == 'Darwin':  # macOS
-                subprocess.Popen(['open', self.logs_directory])
-            else:  # Linux
-                subprocess.Popen(['xdg-open', self.logs_directory])
-
-            self.logger.info(f"Carpeta de logs abierta: {self.logs_directory}")
-        except Exception as e:
-            QMessageBox.warning(
-                self,
-                "Error",
-                f"No se pudo abrir la carpeta:\n{str(e)}"
-            )
-
     def show_about_dialog(self):
-        """Muestra un diálogo Acerca de con información de la aplicación"""
-        about_text = f"""
-        <center>
-        <h2>{config.config.APP_NAME}</h2>
-        <p><b>Versión:</b> {config.config.APP_VERSION}</p>
-        <p>{config.config.APP_DESCRIPTION}</p>
-        <br>
-        <p><b>Funcionalidades:</b></p>
-        <ul style="text-align: left;">
-            <li>📝 Renombrado automático de archivos</li>
-            <li>📱 Limpieza de Live Photos</li>
-            <li>📁 Unificación de directorios</li>
-            <li>🖼️ Eliminación de duplicados HEIC/JPG</li>
-        </ul>
-        <br>
-        <p><small>Desarrollado con ❤️ usando PyQt5</small></p>
-        </center>
-        """
-
-        msg = QMessageBox(self)
-        msg.setWindowTitle("Acerca de")
-        msg.setTextFormat(Qt.RichText)
-        msg.setText(about_text)
-        msg.setIcon(QMessageBox.Information)
-        msg.exec_()
-
-    def change_log_level(self, level_str):
-        """Cambia el nivel de logging y lo guarda en config.Config.LOG_LEVEL"""
-        level_name = level_str.split()[0].upper()
-        level_map = {
-            'DEBUG': logging.DEBUG,
-            'INFO': logging.INFO,
-            'WARNING': logging.WARNING,
-            'ERROR': logging.ERROR
-        }
-        level = level_map.get(level_name, logging.INFO)
-        self.logger.setLevel(level)
-        config.Config.LOG_LEVEL = level_name  # Actualiza el config global
-        self.log_level = level_name
-        # Registrar como mensaje informativo (semánticamente correcto)
-        self.logger.info(f"Nivel de log cambiado a: {level_name}")
-
-    def _create_config_panel(self, parent_layout):
-        """Crea el panel de configuración mejorado y más organizado"""
-        config_container = QFrame()
-        config_container.setFrameStyle(QFrame.StyledPanel | QFrame.Sunken)
-        config_container.setStyleSheet(styles.STYLE_CONFIG_CONTAINER)
-
-        config_main_layout = QVBoxLayout(config_container)
-        config_main_layout.setContentsMargins(10, 10, 10, 10)
-
-        # Header mejorado con botón de colapsar
-        config_header = QHBoxLayout()
-
-        config_title = QLabel("⚙️ Configuración")
-        config_title.setStyleSheet(styles.STYLE_CONFIG_TITLE)
-        config_header.addWidget(config_title)
-
-        config_header.addStretch()
-
-        # Botón de colapsar mejorado
-        self.collapse_btn = QPushButton("▼ Mostrar")
-        self.collapse_btn.setMaximumWidth(100)
-        self.collapse_btn.setStyleSheet(styles.STYLE_COLLAPSE_BUTTON)
-        self.collapse_btn.clicked.connect(self.toggle_config)
-        config_header.addWidget(self.collapse_btn)
-
-        config_main_layout.addLayout(config_header)
-
-        # Panel de configuración (inicialmente oculto)
-        self.config_group = QWidget()
-        config_layout = QVBoxLayout(self.config_group)
-        config_layout.setSpacing(15)
-
-        # === SECCIÓN 1: DIRECTORIO DE TRABAJO ===
-        dir_section = QGroupBox("📁 Directorio de Trabajo")
-        dir_section.setStyleSheet(styles.STYLE_DIR_SECTION)
-        dir_layout = QVBoxLayout(dir_section)
-
-        # Directorio actual
-        dir_row = QHBoxLayout()
-        dir_label = QLabel("Directorio:")
-        dir_label.setMinimumWidth(80)
-        dir_row.addWidget(dir_label)
-
-        self.directory_edit = QLineEdit()
-        self.directory_edit.setPlaceholderText("Selecciona un directorio para analizar...")
-        self.directory_edit.setReadOnly(True)
-        self.directory_edit.setStyleSheet(styles.STYLE_DIRECTORY_EDIT_ALT)
-        dir_row.addWidget(self.directory_edit)
-
-        browse_btn = QPushButton("📂 Examinar...")
-        browse_btn.setMinimumWidth(120)
-        browse_btn.setStyleSheet(styles.STYLE_BROWSE_BUTTON)
-        browse_btn.clicked.connect(self.browse_directory)
-        dir_row.addWidget(browse_btn)
-
-        dir_layout.addLayout(dir_row)
-
-        # Checkbox: Recordar último directorio
-        self.remember_dir_checkbox = QCheckBox("Recordar último directorio al iniciar")
-        self.remember_dir_checkbox.setChecked(True)
-        dir_layout.addWidget(self.remember_dir_checkbox)
-
-        config_layout.addWidget(dir_section)
-
-        # === SECCIÓN 2: CONFIGURACIÓN DE LOGS Y BACKUPS ===
-        safety_section = QGroupBox("💾 Seguridad y Logs")
-        safety_section.setStyleSheet(dir_section.styleSheet())
-        safety_layout = QVBoxLayout(safety_section)
-
-        # Directorio de logs
-        logs_row = QHBoxLayout()
-        logs_label = QLabel("Logs:")
-        logs_label.setMinimumWidth(80)
-        logs_row.addWidget(logs_label)
-
-        self.logs_edit = QLineEdit()
-        self.logs_edit.setText(str(self.logs_directory))
-        self.logs_edit.setReadOnly(True)
-        self.logs_edit.setStyleSheet(styles.STYLE_DIRECTORY_EDIT_ALT)
-        logs_row.addWidget(self.logs_edit)
-
-        browse_logs_btn = QPushButton("📂 Cambiar...")
-        browse_logs_btn.setMinimumWidth(120)
-        browse_logs_btn.setStyleSheet(browse_btn.styleSheet())
-        browse_logs_btn.clicked.connect(self.browse_logs_directory)
-        logs_row.addWidget(browse_logs_btn)
-
-        safety_layout.addLayout(logs_row)
-
-        # Nivel de log mejorado
-        log_level_row = QHBoxLayout()
-        log_level_label = QLabel("Nivel de detalle:")
-        log_level_label.setMinimumWidth(80)
-        log_level_row.addWidget(log_level_label)
-
-        self.log_level_combo = QComboBox()
-        self.log_level_combo.addItems(["DEBUG (Todo)", "INFO (Normal)", "WARNING (Avisos)", "ERROR (Solo errores)"])
-    # no seleccionar por defecto aquí, se sincroniza justo después
-    # El cambio de nivel de log solo se aplica al pulsar guardar configuración en el diálogo
-        self.log_level_combo.setStyleSheet(styles.STYLE_LOG_LEVEL_COMBO)
-        log_level_row.addWidget(self.log_level_combo)
-        log_level_row.addStretch()
-
-        safety_layout.addLayout(log_level_row)
-
-        # Checkbox: Backup automático
-        self.auto_backup_checkbox = QCheckBox("Crear backup automáticamente antes de cada operación")
-        self.auto_backup_checkbox.setChecked(True)
-        safety_layout.addWidget(self.auto_backup_checkbox)
-
-        # Botón para abrir carpeta de logs
-        open_logs_btn = QPushButton("📄 Abrir carpeta de logs")
-        open_logs_btn.setStyleSheet(styles.STYLE_OPEN_LOGS_BUTTON)
-        open_logs_btn.clicked.connect(self.open_logs_folder)
-        safety_layout.addWidget(open_logs_btn)
-
-        config_layout.addWidget(safety_section)
-
-        # === SECCIÓN 3: PREFERENCIAS GENERALES ===
-        prefs_section = QGroupBox("🎨 Preferencias")
-        prefs_section.setStyleSheet(dir_section.styleSheet())
-        prefs_layout = QVBoxLayout(prefs_section)
-
-        # Confirmaciones
-        self.confirm_operations_checkbox = QCheckBox("Pedir confirmación antes de cada operación")
-        self.confirm_operations_checkbox.setChecked(True)
-        prefs_layout.addWidget(self.confirm_operations_checkbox)
-
-        # Mostrar notificaciones
-        self.show_notifications_checkbox = QCheckBox("Mostrar notificaciones al completar operaciones")
-        self.show_notifications_checkbox.setChecked(True)
-        prefs_layout.addWidget(self.show_notifications_checkbox)
-
-        # Auto-cerrar diálogos
-        self.auto_close_dialogs_checkbox = QCheckBox("Cerrar diálogos automáticamente tras éxito")
-        self.auto_close_dialogs_checkbox.setChecked(False)
-        prefs_layout.addWidget(self.auto_close_dialogs_checkbox)
-
-        config_layout.addWidget(prefs_section)
-
-        # === SECCIÓN 4: INFORMACIÓN ===
-        info_section = QFrame()
-        info_section.setStyleSheet(styles.STYLE_INFO_SECTION)
-        info_layout = QHBoxLayout(info_section)
-
-        info_icon = QLabel("ℹ️")
-        info_icon.setStyleSheet("font-size: 20px;")
-        info_layout.addWidget(info_icon)
-
-        info_text = QLabel(
-            f"<b>{config.config.APP_NAME}</b> v{config.config.APP_VERSION}<br>"
-            f"<small>Organiza, renombra y optimiza tu biblioteca de fotos</small>"
-        )
-        info_text.setTextFormat(Qt.RichText)
-        info_layout.addWidget(info_text)
-        info_layout.addStretch()
-
-        about_btn = QPushButton("Acerca de...")
-        about_btn.setStyleSheet(styles.STYLE_ABOUT_BUTTON)
-        about_btn.clicked.connect(self.show_about_dialog)
-        info_layout.addWidget(about_btn)
-
-        config_layout.addWidget(info_section)
-
-        # Agregar al contenedor principal
-        config_main_layout.addWidget(self.config_group)
-        self.config_group.setVisible(False)  # Inicialmente oculto
-
-        parent_layout.addWidget(config_container)
+        """Muestra el diálogo Acerca de usando `AboutDialog`."""
+        dialog = AboutDialog(self)
+        dialog.exec_()
 
     
     def _create_tabs_widget(self):
@@ -653,8 +318,8 @@ class MainWindow(QMainWindow):
         )
         if directory:
             self.logs_directory = Path(directory)
-            self.logs_edit.setText(str(self.logs_directory))
             self.logger.info(f"Directorio de logs cambiado a: {self.logs_directory}")
+    
     
 
     # ========================================================================
