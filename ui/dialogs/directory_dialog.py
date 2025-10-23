@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import (
     QGroupBox, QDialogButtonBox, QCheckBox
 )
 
-from ui.helpers import format_size
+from utils.format_utils import format_size
 from ui import styles as ui_styles
 from .base_dialog import BaseDialog
 

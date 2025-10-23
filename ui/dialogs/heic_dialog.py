@@ -2,7 +2,7 @@ from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QGroupBox, QVBoxLayout as QVLayout, QRadioButton,
     QButtonGroup, QTableWidget, QTableWidgetItem, QCheckBox, QDialogButtonBox, QLabel
 )
-from ui.helpers import format_size
+from utils.format_utils import format_size
 from ui import styles as ui_styles
 from .base_dialog import BaseDialog
 

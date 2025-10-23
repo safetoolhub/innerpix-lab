@@ -90,15 +90,16 @@ class DuplicateDetector:
         hash_map = defaultdict(list)
         processed = 0
         
+        from utils.file_utils import calculate_file_hash
         for file_path in all_files:
             try:
-                file_hash = self._calculate_file_hash(file_path)
+                file_hash = calculate_file_hash(file_path, cache=self._hash_cache)
                 hash_map[file_hash].append(file_path)
-                
+
                 processed += 1
                 if progress_callback and processed % 10 == 0:
-                    progress_callback(processed, total_files, 
-                                    f"Procesando: {file_path.name}")
+                    progress_callback(processed, total_files,
+                                      f"Procesando: {file_path.name}")
             except Exception as e:
                 self.logger.error(f"Error procesando {file_path}: {e}")
         
@@ -237,22 +238,7 @@ class DuplicateDetector:
             'max_similarity': self._calculate_max_similarity(similar_groups)
         }
     
-    def _calculate_file_hash(self, file_path: Path) -> str:
-        """Calcula SHA256 hash de un archivo"""
-        if self._hash_cache is not None and str(file_path) in self._hash_cache:
-            return self._hash_cache[str(file_path)]
-        
-        sha256 = hashlib.sha256()
-        with open(file_path, 'rb') as f:
-            for chunk in iter(lambda: f.read(8192), b''):
-                sha256.update(chunk)
-        
-        file_hash = sha256.hexdigest()
-        
-        if self._hash_cache is not None:
-            self._hash_cache[str(file_path)] = file_hash
-        
-        return file_hash
+    # SHA256 hashing is delegated to utils.file_utils.calculate_file_hash
     
     def _calculate_perceptual_hash(self, image_path: Path) -> Optional[imagehash.ImageHash]:
         """Calcula hash perceptual de una imagen"""
@@ -464,7 +450,7 @@ class DuplicateDetector:
         }
         
         try:
-            from ui.helpers import format_size
+            from utils.format_utils import format_size
             freed_str = format_size(space_freed)
         except Exception:
             freed_str = f"{space_freed / (1024*1024):.2f} MB"

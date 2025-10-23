@@ -28,6 +28,8 @@ from ui.components.progress_bar import (
     hide_progress,
 )
 
+from utils.format_utils import format_size
+
 
 def service_available(window, attr_name: str) -> bool:
     return hasattr(window, attr_name) and getattr(window, attr_name) is not None
@@ -103,42 +105,6 @@ def show_results_html(window, html: str, show_generic_status: bool = False):
                     pass
     except Exception:
         pass
-
-
-def format_size(bytes_size):
-    """Formatea un tamaño en bytes a una cadena legible.
-
-    Soporta Bytes, KB, MB y GB. Usa potencias de 1024.
-    Maneja valores None o negativos de forma segura.
-    """
-    try:
-        if bytes_size is None:
-            return "0 B"
-        size = float(bytes_size)
-    except Exception:
-        return "0 B"
-
-    if size < 0:
-        # Mantener el signo y formatear el absoluto
-        return f"-{format_size(abs(size))}"
-
-    # Bytes
-    if size < 1024:
-        return f"{int(size)} B"
-
-    # Kilobytes
-    kb = size / 1024
-    if kb < 1024:
-        return f"{kb:.1f} KB"
-
-    # Megabytes
-    mb = kb / 1024
-    if mb < 1024:
-        return f"{mb:.1f} MB"
-
-    # Gigabytes and above
-    gb = mb / 1024
-    return f"{gb:.2f} GB"
 
 
 def reset_analysis_ui(window, reinsert_analyze=True):

@@ -17,6 +17,7 @@ from utils.date_utils import (
     is_renamed_filename,
     parse_renamed_name
 )
+from utils.file_utils import launch_backup_creation, find_next_available_name
 
 class FileRenamer:
     """
@@ -156,112 +157,9 @@ class FileRenamer:
         )
         return results
 
-    def create_backup(self, directory: Path, progress_callback=None) -> Path:
-        """
-        Crea backup del directorio antes de renombrar
+    # Backup creation delegated to utils.file_utils.create_backup
 
-        Args:
-            directory: Directorio a respaldar
-            progress_callback: Función para reportar progreso
-
-        Returns:
-            Ruta del backup creado
-        """
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        backup_name = f"backup_renaming_{directory.name}_{timestamp}"
-
-        # Usar directorio de backups de la configuración
-        backup_path = config.config.DEFAULT_BACKUP_DIR / backup_name
-        backup_path.mkdir(parents=True, exist_ok=True)
-
-        self.logger.info(f"Creando backup en: {backup_path}")
-
-        # Informar al UI/worker sobre la ruta del backup
-        if progress_callback:
-            try:
-                # total_files ya calculado más abajo; enviar mensaje con ruta
-                progress_callback(0, 0, f"Creando backup en: {backup_path}")
-            except Exception:
-                pass
-
-        # Obtener total de archivos para el progreso
-        total_files = sum(1 for f in directory.rglob("*") 
-                         if f.is_file() and config.config.is_supported_file(f.name))
-        
-        if progress_callback:
-            progress_callback(0, total_files, f"Iniciando creación de backup en: {backup_path}")
-
-        # Copiar solo archivos multimedia (no todo el directorio)
-        files_backed_up = 0
-        for file_path in directory.rglob("*"):
-            if file_path.is_file() and config.config.is_supported_file(file_path.name):
-                # Mantener estructura relativa
-                relative_path = file_path.relative_to(directory)
-                backup_file_path = backup_path / relative_path
-
-                # Crear directorios padre si es necesario
-                backup_file_path.parent.mkdir(parents=True, exist_ok=True)
-
-                # Copiar archivo
-                shutil.copy2(file_path, backup_file_path)
-                files_backed_up += 1
-
-                if progress_callback:
-                    progress_callback(files_backed_up, total_files, 
-                                   f"Creando backup... {files_backed_up}/{total_files}")
-
-        self.logger.info(f"Backup completado: {files_backed_up} archivos respaldados")
-        self.backup_dir = backup_path
-        return backup_path
-
-    def _find_next_available_name(
-        self,
-        base_path: Path,
-        base_name: str,
-        extension: str
-    ) -> Tuple[str, int]:
-        """
-        Encuentra el siguiente nombre disponible con sufijo
-
-        Args:
-            base_path: Directorio donde buscar
-            base_name: Nombre base sin extensión (ej: 20240824_172920_PHOTO)
-            extension: Extensión del archivo (ej: .JPG)
-
-        Returns:
-            Tupla (nombre_completo, secuencia)
-        """
-        # Extraer base sin sufijo si ya lo tiene
-        parts = base_name.split('_')
-
-        # Si el último part es un número de 3 dígitos, es un sufijo existente
-        if len(parts) >= 4 and len(parts[-1]) == 3 and parts[-1].isdigit():
-            base_without_suffix = '_'.join(parts[:-1])
-            start_sequence = int(parts[-1])
-        else:
-            base_without_suffix = base_name
-            start_sequence = 0
-
-        # Buscar todas las secuencias existentes
-        existing_sequences = set()
-        for file_path in base_path.iterdir():
-            if file_path.is_file() and file_path.stem.startswith(base_without_suffix):
-                file_parts = file_path.stem.split('_')
-                if file_parts and len(file_parts[-1]) == 3 and file_parts[-1].isdigit():
-                    existing_sequences.add(int(file_parts[-1]))
-
-        # Encontrar siguiente secuencia disponible
-        if existing_sequences:
-            sequence = max(existing_sequences) + 1
-        else:
-            sequence = start_sequence + 1 if start_sequence > 0 else 1
-
-        # Asegurar que no existe
-        while sequence in existing_sequences:
-            sequence += 1
-
-        new_name = f"{base_without_suffix}_{sequence:03d}{extension}"
-        return new_name, sequence
+    # Name conflict resolution delegated to utils.file_utils.find_next_available_name
 
     def execute_renaming(
         self,
@@ -317,9 +215,16 @@ class FileRenamer:
 
                 if progress_callback:
                     progress_callback(0, len(renaming_plan), "Creando backup...")
-                    
-                backup_path = self.create_backup(directory, progress_callback)
+
+                backup_path = launch_backup_creation(
+                    (item['original_path'] for item in renaming_plan),
+                    directory,
+                    backup_prefix='backup_renaming',
+                    progress_callback=progress_callback,
+                    metadata_name='renaming_metadata.txt'
+                )
                 results['backup_path'] = str(backup_path)
+                self.backup_dir = backup_path
 
             # Ejecutar renombrados
             total_files = len(renaming_plan)
@@ -348,7 +253,7 @@ class FileRenamer:
                         extension = Path(new_name).suffix
 
                         # Buscar siguiente nombre disponible
-                        new_name, sequence = self._find_next_available_name(
+                        new_name, sequence = find_next_available_name(
                             original_path.parent,
                             base_name,
                             extension
@@ -367,11 +272,21 @@ class FileRenamer:
                     # Registrar éxito
                     results['files_renamed'] += 1
                     files_processed += 1
+                    # Safe date formatting: some callers may not include a date
+                    date_obj = item.get('date') if isinstance(item, dict) else None
+                    if date_obj is not None:
+                        try:
+                            date_str = date_obj.strftime('%Y-%m-%d %H:%M:%S')
+                        except Exception:
+                            date_str = str(date_obj)
+                    else:
+                        date_str = ''
+
                     results['renamed_files'].append({
                         'original': original_path.name,
                         'new_name': new_name,
-                        'date': item['date'].strftime('%Y-%m-%d %H:%M:%S'),
-                        'had_conflict': item['has_conflict']
+                        'date': date_str,
+                        'had_conflict': item.get('has_conflict', False) if isinstance(item, dict) else False
                     })
 
                     if progress_callback:

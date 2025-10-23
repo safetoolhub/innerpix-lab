@@ -245,46 +245,19 @@ class DirectoryUnifier:
         backup_path = config.Config.DEFAULT_BACKUP_DIR / backup_name
         backup_path.mkdir(parents=True, exist_ok=True)
 
-        self.logger.info(f"Creando backup en: {backup_path}")
-
-        # Informar al UI/worker sobre la ruta del backup
-        if progress_callback:
-            try:
-                progress_callback(0, 0, f"Creando backup en: {backup_path}")
-            except Exception:
-                pass
-
-        # Obtener total de archivos para el progreso
-        total_files = sum(1 for f in root_directory.rglob("*") 
-                         if f.is_file() and config.Config.is_supported_file(f.name))
-
-        if progress_callback:
-            progress_callback(0, total_files, "Iniciando creación de backup...")
-
-        # Copiar toda la estructura (no mover, solo copiar)
-        files_backed_up = 0
-        for item in root_directory.rglob("*"):
-            if item.is_file() and config.Config.is_supported_file(item.name):
-                relative_path = item.relative_to(root_directory)
-                backup_file_path = backup_path / relative_path
-                backup_file_path.parent.mkdir(parents=True, exist_ok=True)
-
-                try:
-                    shutil.copy2(item, backup_file_path)
-                    files_backed_up += 1
-                except Exception as e:
-                    self.logger.warning(f"Error copiando {item.name} al backup: {e}")
-                finally:
-                    # Emitir progreso intermedio incluyendo la ruta del backup
-                    if progress_callback:
-                        try:
-                            progress_callback(files_backed_up, total_files, f"Creando backup en: {backup_path} ({files_backed_up}/{total_files})")
-                        except Exception:
-                            pass
-
-        self.logger.info(f"Backup completado: {files_backed_up} archivos")
-        self.backup_dir = backup_path
-        return backup_path
+        # Delegate to utils.file_utils.launch_backup_creation when needed
+        from utils.file_utils import launch_backup_creation
+        # Use rglob to gather files
+        files = [p for p in root_directory.rglob("*") if p.is_file() and config.Config.is_supported_file(p.name)]
+        try:
+            backup_path = launch_backup_creation(files, root_directory, backup_prefix='backup_unification', progress_callback=progress_callback, metadata_name='unification_metadata.txt')
+            self.backup_dir = backup_path
+            return backup_path
+        except ValueError as ve:
+            err_msg = f"Backup abortado: entrada inválida para launch_backup_creation: {ve}"
+            self.logger.error(err_msg)
+            # Raise further so callers get a clear exception (or you could return result dict)
+            raise
 
     def execute_unification(self, move_plan: List[FileMove], create_backup: bool = True,
                             cleanup_empty_dirs: bool = True, progress_callback=None) -> Dict:
@@ -317,11 +290,22 @@ class DirectoryUnifier:
 
             # Crear backup ANTES de mover archivos
             if create_backup and move_plan:
+                if progress_callback:
+                    progress_callback(0, len(move_plan), "Creando backup antes de unificar...")
+                from utils.file_utils import launch_backup_creation
+                files = [m.source_path for m in move_plan]
                 try:
-                    if progress_callback:
-                        progress_callback(0, len(move_plan), "Creando backup antes de unificar...")
-                    backup_path = self.create_backup(root_directory, progress_callback)
+                    backup_path = launch_backup_creation(files, root_directory, backup_prefix='backup_unification', progress_callback=progress_callback, metadata_name='unification_metadata.txt')
                     results['backup_path'] = str(backup_path)
+                except ValueError as ve:
+                    err_msg = f"Backup abortado: entrada inválida para launch_backup_creation: {ve}"
+                    self.logger.error(err_msg)
+                    results['errors'].append({
+                        'file': 'BACKUP',
+                        'error': err_msg
+                    })
+                    results['success'] = False
+                    return results
                 except Exception as e:
                     self.logger.error(f"Error creando backup: {e}")
                     results['errors'].append({
@@ -453,7 +437,8 @@ class DirectoryUnifier:
             # Limpiar directorios vacíos
             if cleanup_empty_dirs:
                 try:
-                    removed = self._cleanup_empty_directories(root_directory)
+                    from utils.file_utils import cleanup_empty_directories as _cleanup
+                    removed = _cleanup(root_directory)
                     results['empty_directories_removed'] = removed
                 except Exception as e:
                     self.logger.error(f"Error limpiando directorios: {e}")
@@ -477,23 +462,7 @@ class DirectoryUnifier:
 
         return results
 
-    def _cleanup_empty_directories(self, root_directory: Path) -> int:
-        """
-        Elimina directorios vacíos
-        """
-        removed_count = 0
-
-        for item in sorted(root_directory.rglob("*"), key=lambda p: len(p.parts), reverse=True):
-            if item.is_dir() and item != root_directory:
-                try:
-                    if not any(item.iterdir()):
-                        item.rmdir()
-                        removed_count += 1
-                        self.logger.info(f"Directorio vacío eliminado: {item.name}")
-                except OSError:
-                    pass
-
-        return removed_count
+    # Empty directory cleanup delegated to utils.file_utils.cleanup_empty_directories
 
     def unify_directory(self, root_directory: Path, progress_callback: Optional[Callable[[int, int, str], None]] = None):
         """

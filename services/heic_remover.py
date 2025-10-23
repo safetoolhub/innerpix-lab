@@ -212,94 +212,7 @@ class HEICDuplicateRemover:
         self.logger.info(f"Análisis completado: {len(duplicate_pairs)} pares duplicados encontrados")
         return results
 
-    def create_backup(self, files_to_delete: List[Path], root_directory: Path) -> Path:
-        # Note: accept progress_callback via caller by using attribute if provided
-        # (workers will pass a callback when available)
-        progress_callback = getattr(self, '_progress_callback', None)
-        """
-        Crea backup de archivos antes de eliminarlos
-
-        Args:
-            files_to_delete: Lista de archivos a eliminar
-            root_directory: Directorio raíz
-
-        Returns:
-            Ruta del backup creado
-        """
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        backup_name = f"backup_heic_removal_{root_directory.name}_{timestamp}"
-
-        # Crear directorio de backup
-        backup_path = config.config.DEFAULT_BACKUP_DIR / backup_name
-        backup_path.mkdir(parents=True, exist_ok=True)
-
-        self.logger.info(f"Creando backup de archivos HEIC en: {backup_path}")
-
-        # Informar al UI/worker sobre la ruta del backup
-        if progress_callback:
-            try:
-                progress_callback(0, len(files_to_delete), f"Creando backup en: {backup_path}")
-            except Exception:
-                pass
-
-        files_backed_up = 0
-        backup_size = 0
-
-        for file_path in files_to_delete:
-            try:
-                # Mantener estructura relativa
-                try:
-                    relative_path = file_path.relative_to(root_directory)
-                except ValueError:
-                    # Si no está en root_directory, usar solo el nombre
-                    relative_path = file_path.name
-
-                backup_file_path = backup_path / relative_path
-
-                # Crear directorios padre si es necesario
-                backup_file_path.parent.mkdir(parents=True, exist_ok=True)
-
-                # Copiar archivo
-                shutil.copy2(file_path, backup_file_path)
-
-                files_backed_up += 1
-                backup_size += file_path.stat().st_size
-
-                self.logger.debug(f"Backup creado: {file_path.name}")
-
-                if progress_callback:
-                    try:
-                        progress_callback(files_backed_up, len(files_to_delete), f"Creando backup en: {backup_path} ({files_backed_up}/{len(files_to_delete)})")
-                    except Exception:
-                        pass
-
-            except Exception as e:
-                self.logger.error(f"Error creando backup de {file_path}: {e}")
-                raise
-
-        # Crear archivo de metadatos
-        metadata_path = backup_path / "heic_removal_metadata.txt"
-        with open(metadata_path, 'w', encoding='utf-8') as f:
-            f.write(f"BACKUP DE ELIMINACIÓN DE HEIC DUPLICADOS\n")
-            f.write(f"Creado: {datetime.now()}\n")
-            f.write(f"Directorio original: {root_directory}\n")
-            f.write(f"Archivos respaldados: {files_backed_up}\n")
-            try:
-                from ui.helpers import format_size
-                f.write(f"Tamaño total: {format_size(backup_size)}\n")
-            except Exception:
-                f.write(f"Tamaño total: {backup_size / (1024*1024):.2f} MB\n")
-            f.write(f"\nARCHIVOS RESPALDADOS:\n")
-            for file_path in files_to_delete:
-                f.write(f"- {file_path}\n")
-
-        self.backup_dir = backup_path
-        try:
-            from ui.helpers import format_size
-            self.logger.info(f"Backup completado: {files_backed_up} archivos, {format_size(backup_size)}")
-        except Exception:
-            self.logger.info(f"Backup completado: {files_backed_up} archivos, {backup_size/(1024*1024):.2f} MB")
-        return backup_path
+    # Backup creation delegated to utils.file_utils.create_backup
 
     def execute_removal(self, duplicate_pairs: List[DuplicatePair], 
                        keep_format: str = 'jpg', 
@@ -354,26 +267,72 @@ class HEICDuplicateRemover:
                         root_directory = Path(os.path.commonpath([root_directory, pair.directory]))
                     except ValueError:
                         break
-
-                backup_path = self.create_backup(files_to_delete, root_directory)
-                results['backup_path'] = str(backup_path)
+                # After determining common root_directory, create backup
+                from utils.file_utils import launch_backup_creation
+                try:
+                    backup_path = launch_backup_creation(
+                        files_to_delete,
+                        root_directory,
+                        backup_prefix='backup_heic_removal',
+                        metadata_name='heic_removal_metadata.txt'
+                    )
+                    results['backup_path'] = str(backup_path)
+                    self.backup_dir = backup_path
+                except ValueError as ve:
+                    # Log clearly and abort operation as requested
+                    err_msg = f"Backup abortado: entrada inválida para launch_backup_creation: {ve}"
+                    self.logger.error(err_msg)
+                    results['errors'].append(err_msg)
+                    results['success'] = False
+                    return results
 
             # Ejecutar eliminaciones
             for pair in duplicate_pairs:
-                file_to_delete = pair.heic_path if keep_format.lower() == 'jpg' else pair.jpg_path
-                file_to_keep = pair.jpg_path if keep_format.lower() == 'jpg' else pair.heic_path
+                # Normalize pair to obtain paths for delete/keep
+                def _to_path(obj, attr_names):
+                    # obj can be Path/str, dict, or object with attributes
+                    if isinstance(obj, (str, bytes)):
+                        return Path(obj)
+                    if isinstance(obj, Path):
+                        return obj
+                    if isinstance(obj, dict):
+                        for k in attr_names:
+                            if k in obj:
+                                return Path(obj[k])
+                        # fallback: try first value
+                        return Path(next(iter(obj.values())))
+                    # object with attributes
+                    for k in attr_names:
+                        if hasattr(obj, k):
+                            return Path(getattr(obj, k))
+                    # last resort: try to cast
+                    return Path(obj)
+
+                file_to_delete = _to_path(pair, ('heic_path', 'jpg_path', 'path', 'source_path', 'original_path')) if keep_format.lower() == 'jpg' else _to_path(pair, ('jpg_path', 'heic_path', 'path', 'source_path', 'original_path'))
+                file_to_keep = _to_path(pair, ('jpg_path', 'heic_path', 'path', 'source_path', 'original_path')) if keep_format.lower() == 'jpg' else _to_path(pair, ('heic_path', 'jpg_path', 'path', 'source_path', 'original_path'))
+                base_name = None
+                try:
+                    # Try to extract base_name for metadata
+                    if isinstance(pair, dict) and 'base_name' in pair:
+                        base_name = pair['base_name']
+                    elif hasattr(pair, 'base_name'):
+                        base_name = getattr(pair, 'base_name')
+                except Exception:
+                    base_name = None
 
                 try:
                     # Verificar que el archivo a eliminar existe
                     if not file_to_delete.exists():
-                        error_msg = f"Archivo no encontrado: {file_to_delete.name}"
+                        error_msg = f"Archivo no encontrado: {file_to_delete}"
                         results['errors'].append(error_msg)
+                        self.logger.error(error_msg)
                         continue
 
                     # Verificar que el archivo a mantener existe
                     if not file_to_keep.exists():
-                        error_msg = f"Archivo a mantener no existe: {file_to_keep.name}"
+                        error_msg = f"Archivo a mantener no existe: {file_to_keep}"
                         results['errors'].append(error_msg)
+                        self.logger.error(error_msg)
                         continue
 
                     # Eliminar archivo
@@ -386,7 +345,7 @@ class HEICDuplicateRemover:
                     results['deleted_files'].append({
                         'deleted': str(file_to_delete),
                         'kept': str(file_to_keep),
-                        'base_name': pair.base_name,
+                        'base_name': base_name,
                         'size_freed': file_size,
                         'format_deleted': file_to_delete.suffix.upper()
                     })
@@ -394,7 +353,7 @@ class HEICDuplicateRemover:
                     self.logger.info(f"Eliminado: {file_to_delete.name}, Mantenido: {file_to_keep.name}")
 
                 except Exception as e:
-                    error_msg = f"Error eliminando {file_to_delete.name}: {str(e)}"
+                    error_msg = f"Error eliminando {file_to_delete}: {str(e)}"
                     results['errors'].append(error_msg)
                     self.logger.error(error_msg)
 
@@ -403,10 +362,14 @@ class HEICDuplicateRemover:
                 results['success'] = len(results['errors']) < len(duplicate_pairs)
 
             try:
-                from ui.helpers import format_size
+                from utils.format_utils import format_size
                 freed = format_size(results['space_freed'])
             except Exception:
                 freed = f"{results['space_freed']/(1024*1024):.2f} MB"
+
+            # Provide compatibility aliases expected by UI
+            results['files_removed'] = results.get('files_deleted', 0)
+            results['kept_format'] = results.get('format_kept')
 
             self.logger.info(f"Eliminación completada: {results['files_deleted']} archivos eliminados, "
                            f"{freed} liberados, {len(results['errors'])} errores")
