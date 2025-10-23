@@ -243,28 +243,28 @@ class LivePhotoCleaner:
         # Crear archivo de metadatos del backup
         metadata_path = backup_path / "backup_metadata.txt"
         with open(metadata_path, 'w', encoding='utf-8') as f:
-            f.write(f"BACKUP DE LIMPIEZA DE LIVE PHOTOS\n")
+            f.write("BACKUP DE LIMPIEZA DE LIVE PHOTOS\n")
             f.write(f"Creado: {datetime.now()}\n")
             f.write(f"Directorio original: {base_directory}\n")
             f.write(f"Archivos respaldados: {files_backed_up}\n")
             try:
-                from ui.ui_helpers import format_size
+                from ui.helpers import format_size
                 f.write(f"Tamaño total: {format_size(backup_size)}\n")
             except Exception:
                 f.write(f"Tamaño total: {backup_size / (1024*1024):.2f} MB\n")
-            f.write(f"\nARCHIVOS RESPALDADOS:\n")
+            f.write("\nARCHIVOS RESPALDADOS:\n")
             for file_info in files_to_delete:
                 f.write(f"- {file_info['path']} ({file_info['type']})\n")
 
-            self.backup_dir = backup_path
-            self.cleanup_stats['backup_created'] = True
+        self.backup_dir = backup_path
+        self.cleanup_stats['backup_created'] = True
 
-            try:
-                from ui.ui_helpers import format_size
-                self.logger.info(f"Backup completado: {files_backed_up} archivos, {format_size(backup_size)}")
-            except Exception:
-                self.logger.info(f"Backup completado: {files_backed_up} archivos, {backup_size/(1024*1024):.2f} MB")
-            return backup_path
+        try:
+            from ui.helpers import format_size
+            self.logger.info(f"Backup completado: {files_backed_up} archivos, {format_size(backup_size)}")
+        except Exception:
+            self.logger.info(f"Backup completado: {files_backed_up} archivos, {backup_size/(1024*1024):.2f} MB")
+        return backup_path
 
     def execute_cleanup(self, cleanup_analysis: Dict, create_backup: bool = True, 
                        dry_run: bool = False, progress_callback=None) -> Dict:
@@ -386,7 +386,7 @@ class LivePhotoCleaner:
 
             operation_type = "Simulación" if dry_run else "Limpieza"
             try:
-                from ui.ui_helpers import format_size
+                from ui.helpers import format_size
                 freed = format_size(results['space_freed'])
             except Exception:
                 freed = f"{results['space_freed']/(1024*1024):.2f} MB"

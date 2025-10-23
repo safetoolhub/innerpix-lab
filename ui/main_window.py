@@ -31,7 +31,7 @@ from services.live_photo_detector import LivePhotoDetector
 from services.directory_unifier import DirectoryUnifier
 from services.heic_remover import HEICDuplicateRemover
 from utils.date_utils import get_file_date, format_renamed_name, is_renamed_filename
-from ui.ui_helpers import (
+from ui.helpers import (
     update_tab_details, show_results_html, format_size, reset_analysis_ui,
 )
 from ui.components.progress_bar import create_progress_group as create_progress_bar, show_progress, hide_progress
@@ -194,7 +194,6 @@ class MainWindow(QMainWindow):
             # Fallback por seguridad: si no existe search_bar, intentar añadir a un layout global
             pass
 
-    # Config panel UI moved to `ui.dialogs.settings_dialog.SettingsDialog`.
 
     def toggle_config(self):
         """Abre el diálogo de configuración avanzada"""
@@ -602,8 +601,7 @@ class MainWindow(QMainWindow):
             self.analysis_worker = None
         
 
-    # Note: summary/tab update helpers are called directly via ui.ui_helpers
-    
+   
     # ========================================================================
     # RENOMBRADO
     # ========================================================================
@@ -1125,8 +1123,6 @@ class MainWindow(QMainWindow):
         # Usar un pequeño retardo para dejar que el sistema de ficheros se estabilice
         QTimer.singleShot(delay_ms, _do_reanalyze)
 
-    # Nota: `get_button_style` proviene de `ui.ui_helpers` y puede llamarse
-    # directamente como `get_button_style(self, color)` o usar `styles.get_button_style(color)`.
 
     # ========================================================================
     # UTILIDADES

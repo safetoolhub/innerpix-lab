@@ -14,7 +14,7 @@ try:
 except Exception:
     _tabs_module = None
 
-from ui.ui_helpers import service_available
+from ui.helpers import service_available
 
 
 def create_summary_panel(window):

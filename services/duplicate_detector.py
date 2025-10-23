@@ -464,7 +464,7 @@ class DuplicateDetector:
         }
         
         try:
-            from ui.ui_helpers import format_size
+            from ui.helpers import format_size
             freed_str = format_size(space_freed)
         except Exception:
             freed_str = f"{space_freed / (1024*1024):.2f} MB"

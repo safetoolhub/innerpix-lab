@@ -7,7 +7,7 @@ from ui import styles
 def create_progress_group(window, parent_layout):
     """Crea el grupo de progreso y lo ancla al layout padre.
 
-    Esta función replica la lógica previa que vivía en `ui.ui_helpers.create_progress_bar`.
+    Esta función replica la lógica previa que vivía en `ui.helpers.create_progress_bar`.
     Se usa `window` para almacenar referencias a los widgets creados, manteniendo
     la API existente del resto de la aplicación.
     """
