@@ -174,97 +174,7 @@ class LivePhotoCleaner:
 
         return plan
 
-    def create_backup(self, files_to_delete: List[Dict], base_directory: Path, progress_callback=None) -> Path:
-        """
-        Crea backup de archivos antes de eliminarlos
-
-        Args:
-            files_to_delete: Lista de archivos a eliminar
-            base_directory: Directorio base para estructurar backup
-
-        Returns:
-            Ruta del backup creado
-        """
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        backup_name = f"backup_livephoto_cleanup_{base_directory.name}_{timestamp}"
-
-        # Crear directorio de backup
-        backup_path = config.config.DEFAULT_BACKUP_DIR / backup_name
-        backup_path.mkdir(parents=True, exist_ok=True)
-
-        self.logger.info(f"Creando backup de Live Photos en: {backup_path}")
-
-        # Informar al UI/worker sobre la ruta del backup
-        total_files = len(files_to_delete)
-        if progress_callback:
-            try:
-                progress_callback(0, total_files, f"Creando backup en: {backup_path}")
-            except Exception:
-                pass
-
-        files_backed_up = 0
-        backup_size = 0
-
-        for file_info in files_to_delete:
-            file_path = file_info['path']
-
-            try:
-                # Calcular ruta relativa desde el directorio base
-                if base_directory in file_path.parents:
-                    relative_path = file_path.relative_to(base_directory)
-                else:
-                    # Si no está en el directorio base, usar nombre del directorio padre + archivo
-                    relative_path = file_path.parent.name / file_path.name
-
-                backup_file_path = backup_path / relative_path
-
-                # Crear directorios padre si es necesario
-                backup_file_path.parent.mkdir(parents=True, exist_ok=True)
-
-                # Copiar archivo
-                shutil.copy2(file_path, backup_file_path)
-
-                files_backed_up += 1
-                backup_size += file_info['size']
-
-                self.logger.debug(f"Backup creado: {file_path.name}")
-
-                # Emitir progreso intermedio incluyendo la ruta del backup
-                if progress_callback:
-                    try:
-                        progress_callback(files_backed_up, total_files, f"Creando backup en: {backup_path} ({files_backed_up}/{total_files})")
-                    except Exception:
-                        pass
-
-            except Exception as e:
-                self.logger.error(f"Error creando backup de {file_path}: {e}")
-                raise
-
-        # Crear archivo de metadatos del backup
-        metadata_path = backup_path / "backup_metadata.txt"
-        with open(metadata_path, 'w', encoding='utf-8') as f:
-            f.write("BACKUP DE LIMPIEZA DE LIVE PHOTOS\n")
-            f.write(f"Creado: {datetime.now()}\n")
-            f.write(f"Directorio original: {base_directory}\n")
-            f.write(f"Archivos respaldados: {files_backed_up}\n")
-            try:
-                from ui.helpers import format_size
-                f.write(f"Tamaño total: {format_size(backup_size)}\n")
-            except Exception:
-                f.write(f"Tamaño total: {backup_size / (1024*1024):.2f} MB\n")
-            f.write("\nARCHIVOS RESPALDADOS:\n")
-            for file_info in files_to_delete:
-                f.write(f"- {file_info['path']} ({file_info['type']})\n")
-
-        self.backup_dir = backup_path
-        self.cleanup_stats['backup_created'] = True
-
-        try:
-            from ui.helpers import format_size
-            self.logger.info(f"Backup completado: {files_backed_up} archivos, {format_size(backup_size)}")
-        except Exception:
-            self.logger.info(f"Backup completado: {files_backed_up} archivos, {backup_size/(1024*1024):.2f} MB")
-        return backup_path
+    # Backup creation delegated to utils.file_utils.create_backup
 
     def execute_cleanup(self, cleanup_analysis: Dict, create_backup: bool = True, 
                        dry_run: bool = False, progress_callback=None) -> Dict:
@@ -322,8 +232,24 @@ class LivePhotoCleaner:
 
             # Crear backup si se solicita
             if create_backup and not dry_run:
-                backup_path = self.create_backup(files_to_delete, base_directory, progress_callback=progress_callback)
-                results['backup_path'] = str(backup_path)
+                    from utils.file_utils import launch_backup_creation
+                    try:
+                        backup_path = launch_backup_creation(
+                            (fi['path'] for fi in files_to_delete),
+                            base_directory,
+                            backup_prefix='backup_livephoto_cleanup',
+                            progress_callback=progress_callback,
+                            metadata_name='livephoto_cleanup_metadata.txt'
+                        )
+                        results['backup_path'] = str(backup_path)
+                        self.backup_dir = backup_path
+                        self.cleanup_stats['backup_created'] = True
+                    except ValueError as ve:
+                        err_msg = f"Backup abortado: entrada inválida para launch_backup_creation: {ve}"
+                        self.logger.error(err_msg)
+                        results['errors'].append(err_msg)
+                        results['success'] = False
+                        return results
 
             # Ejecutar eliminaciones
             for file_info in files_to_delete:
@@ -386,7 +312,7 @@ class LivePhotoCleaner:
 
             operation_type = "Simulación" if dry_run else "Limpieza"
             try:
-                from ui.helpers import format_size
+                from utils.format_utils import format_size
                 freed = format_size(results['space_freed'])
             except Exception:
                 freed = f"{results['space_freed']/(1024*1024):.2f} MB"

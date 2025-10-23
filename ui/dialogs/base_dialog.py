@@ -46,7 +46,9 @@ class BaseDialog(QDialog):
         Usage: return self.build_accepted_plan({'groups': ..., 'keep_strategy': 'oldest'})
         """
         result = {} if extra is None else dict(extra)
-        result.setdefault('create_backup', self.is_backup_enabled())
+        # Always set create_backup based on the current checkbox state so the
+        # dialog selection takes precedence over any provided extra value.
+        result['create_backup'] = self.is_backup_enabled()
         return result
 
     def make_ok_cancel_buttons(self, ok_text: Optional[str] = None, ok_style: Optional[str] = None,

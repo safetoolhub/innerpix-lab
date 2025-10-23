@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtGui import QColor
 from PyQt5.QtCore import Qt
-from ui.helpers import format_size
+from utils.format_utils import format_size
 from ui import styles as ui_styles
 from .base_dialog import BaseDialog
 

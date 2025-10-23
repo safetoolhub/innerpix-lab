@@ -32,8 +32,9 @@ from services.directory_unifier import DirectoryUnifier
 from services.heic_remover import HEICDuplicateRemover
 from utils.date_utils import get_file_date, format_renamed_name, is_renamed_filename
 from ui.helpers import (
-    update_tab_details, show_results_html, format_size, reset_analysis_ui,
+    update_tab_details, show_results_html, reset_analysis_ui,
 )
+from utils.format_utils import format_size
 from ui.components.progress_bar import create_progress_group as create_progress_bar, show_progress, hide_progress
 from ui import tabs
 
