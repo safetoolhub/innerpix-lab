@@ -21,24 +21,24 @@ def create_tabs_widget(window):
     # Añadir siempre las pestañas en un orden fijo. La disponibilidad real
     # (habilitada/visible) será controlada por `update_tabs_availability`
     # utilizando `window.tab_availability`.
-    tabs.addTab(create_live_photos_tab(window), "(1) 📱 Live Photos")
+    tabs.addTab(create_live_photos_tab(window), "📱 Live Photos")
     window.tab_index_map['live_photos'] = idx
     idx += 1
 
-    tabs.addTab(create_heic_tab(window), "(2) 🖼️ Duplicados HEIC")
+    tabs.addTab(create_heic_tab(window), "🖼️ Duplicados HEIC")
     window.tab_index_map['heic'] = idx
     idx += 1
 
-    tabs.addTab(create_unification_tab(window), "(3) 📁 Unificar Directorios")
+    tabs.addTab(create_unification_tab(window), "📁 Unificar Directorios")
     window.tab_index_map['unification'] = idx
     idx += 1
 
-    tabs.addTab(create_renaming_tab(window), "(4) 📝 Renombrado")
+    tabs.addTab(create_renaming_tab(window), "📝 Renombrado")
     window.tab_index_map['renaming'] = idx
     idx += 1
 
     duplicates_tab = create_duplicates_tab(window)
-    tabs.addTab(duplicates_tab, "(5) 🔍 Duplicados")
+    tabs.addTab(duplicates_tab, "🔍 Duplicados")
     window.tab_index_map['duplicates'] = idx
     idx += 1
 

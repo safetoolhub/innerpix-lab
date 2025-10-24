@@ -370,11 +370,19 @@ class DuplicateDetector:
 
         for group in groups:
             try:
+                from utils.file_utils import validate_file_exists
                 # Si el usuario seleccionó manualmente los archivos a borrar,
                 # los grupos contienen exactamente esos archivos: borramos todos.
                 if keep_strategy == 'manual':
                     for file_path in group.files:
                         try:
+                            # Verificar que el archivo exista antes de intentar copiar/eliminar
+                            try:
+                                validate_file_exists(file_path)
+                            except FileNotFoundError as e:
+                                errors.append({'file': str(file_path), 'error': str(e)})
+                                self.logger.error(f"Archivo no encontrado: {file_path}: {e}")
+                                continue
                             if create_backup and backup_path:
                                 backup_file = backup_path / file_path.name
                                 shutil.copy2(file_path, backup_file)
@@ -403,11 +411,27 @@ class DuplicateDetector:
                     kept_files.append(keep_file)
 
                     # Eliminar el resto
+                    # Verificar que el archivo a mantener exista antes de borrar el resto
+                    try:
+                        validate_file_exists(keep_file)
+                    except FileNotFoundError as e:
+                        errors.append({'file': str(keep_file), 'error': str(e)})
+                        self.logger.error(f"Archivo a mantener no existe: {keep_file}: {e}")
+                        continue
+
                     for file_path in group.files:
                         if file_path == keep_file:
                             continue
 
                         try:
+                            # Verificar que el archivo exista antes de intentar copiar/eliminar
+                            try:
+                                validate_file_exists(file_path)
+                            except FileNotFoundError as e:
+                                errors.append({'file': str(file_path), 'error': str(e)})
+                                self.logger.error(f"Archivo no encontrado: {file_path}: {e}")
+                                continue
+
                             # Backup
                             if create_backup and backup_path:
                                 backup_file = backup_path / file_path.name

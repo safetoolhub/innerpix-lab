@@ -12,6 +12,7 @@ import hashlib
 
 import config
 from utils.logger import get_logger
+from utils.file_utils import validate_file_exists
 
 @dataclass
 class DuplicatePair:
@@ -28,10 +29,16 @@ class DuplicatePair:
 
     def __post_init__(self):
         """Validaciones"""
-        if not self.heic_path.exists():
-            raise ValueError(f"Archivo HEIC no existe: {self.heic_path}")
-        if not self.jpg_path.exists():
-            raise ValueError(f"Archivo JPG no existe: {self.jpg_path}")
+        try:
+            validate_file_exists(self.heic_path)
+        except FileNotFoundError as e:
+            # Preserve previous behavior which raised ValueError
+            raise ValueError(str(e))
+
+        try:
+            validate_file_exists(self.jpg_path)
+        except FileNotFoundError as e:
+            raise ValueError(str(e))
 
         # Obtener fechas si no se proporcionaron
         if not self.heic_date:
@@ -322,17 +329,19 @@ class HEICDuplicateRemover:
 
                 try:
                     # Verificar que el archivo a eliminar existe
-                    if not file_to_delete.exists():
-                        error_msg = f"Archivo no encontrado: {file_to_delete}"
-                        results['errors'].append(error_msg)
-                        self.logger.error(error_msg)
+                    try:
+                        validate_file_exists(file_to_delete)
+                    except FileNotFoundError as e:
+                        results['errors'].append(str(e))
+                        self.logger.error(str(e))
                         continue
 
                     # Verificar que el archivo a mantener existe
-                    if not file_to_keep.exists():
-                        error_msg = f"Archivo a mantener no existe: {file_to_keep}"
-                        results['errors'].append(error_msg)
-                        self.logger.error(error_msg)
+                    try:
+                        validate_file_exists(file_to_keep)
+                    except FileNotFoundError as e:
+                        results['errors'].append(str(e))
+                        self.logger.error(str(e))
                         continue
 
                     # Eliminar archivo

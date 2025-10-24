@@ -17,7 +17,11 @@ from utils.date_utils import (
     is_renamed_filename,
     parse_renamed_name
 )
-from utils.file_utils import launch_backup_creation, find_next_available_name
+from utils.file_utils import (
+    launch_backup_creation,
+    find_next_available_name,
+    validate_file_exists,
+)
 
 class FileRenamer:
     """
@@ -236,7 +240,9 @@ class FileRenamer:
 
                 try:
                     # Verificar que el archivo original aún existe
-                    if not original_path.exists():
+                    try:
+                        validate_file_exists(original_path)
+                    except FileNotFoundError:
                         error_msg = f"Archivo no encontrado: {original_path.name}"
                         self.logger.error(error_msg)
                         self.logger.error(f"  → Ruta completa: {original_path}")

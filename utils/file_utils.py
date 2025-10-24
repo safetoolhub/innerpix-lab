@@ -18,6 +18,47 @@ import os
 from utils.format_utils import format_size
 
 
+def validate_file_exists(path) -> Path:
+    """Normalize input to Path and verify the file exists and is a file.
+
+    Args:
+        path: str or Path-like to validate
+
+    Returns:
+        Path object for the validated file
+
+    Raises:
+        FileNotFoundError: if the path does not exist or is not a file
+    """
+    p = Path(path)
+    if not p.exists():
+        raise FileNotFoundError(f"Archivo no encontrado: {p}")
+    if not p.is_file():
+        raise FileNotFoundError(f"No es un archivo válido: {p}")
+    return p
+
+
+def validate_files_list(paths: Iterable) -> Tuple[List[Path], List[str]]:
+    """Validate an iterable of paths and return a tuple (valid_paths, missing_paths).
+
+    This function will not raise on missing items. Instead it returns two
+    collections:
+      - valid_paths: list of Path objects that exist and are files
+      - missing_paths: list of string paths that were missing or not files
+
+    Callers can then decide whether to abort, log, or continue.
+    """
+    valid: List[Path] = []
+    missing: List[str] = []
+    for p in paths:
+        try:
+            valid.append(validate_file_exists(p))
+        except FileNotFoundError:
+            missing.append(str(p))
+
+    return valid, missing
+
+
 def calculate_file_hash(file_path: Path, chunk_size: int = 8192, cache: Optional[dict] = None) -> str:
     """Calculate SHA256 hash of a file.
 
