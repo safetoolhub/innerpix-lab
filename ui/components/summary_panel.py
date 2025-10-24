@@ -136,12 +136,6 @@ def create_summary_panel(window):
 
     actions_layout.addLayout(stack_layout)
 
-    tasks_brief = QFrame()
-    tasks_layout = QVBoxLayout(tasks_brief)
-    tasks_layout.setSpacing(4)
-    tasks_layout.setContentsMargins(0, 6, 0, 0)
-
-    actions_layout.addWidget(tasks_brief)
     layout.addWidget(actions_card)
 
     layout.addStretch()
