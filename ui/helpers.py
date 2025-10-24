@@ -83,8 +83,16 @@ def update_tab_details(window, results):
     if results.get('live_photos'):
         lp = results['live_photos']
         
-        # CORRECCIÓN: Acceder a los grupos desde 'detailed_analysis' si existe
-        total_groups = lp.get('total_live_photo_groups', 0)
+        # Obtener número de grupos de Live Photos.
+        # Preferir el campo 'live_photos_found' (producido por los workers).
+        # Si no existe, intentar inferirlo desde 'groups' o 'detailed_analysis'.
+        total_groups = lp.get('live_photos_found')
+        if total_groups is None:
+            groups_list = lp.get('groups') or lp.get('detailed_analysis', {}).get('groups') or []
+            try:
+                total_groups = len(groups_list)
+            except Exception:
+                total_groups = 0
         
         # Calcular espacio total y espacio a liberar
         total_space = lp.get('total_space', 0)

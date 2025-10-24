@@ -368,20 +368,22 @@ class SettingsDialog(QDialog):
             # Actualizar config global
             config.Config.LOG_LEVEL = level_name
 
-            # Actualizar logger de la ventana principal si existe
-            if hasattr(self, 'parent_window') and getattr(self.parent_window, 'logger', None):
+            # Actualizar logger de la ventana principal mediante el LoggingManager
+            if hasattr(self, 'parent_window') and getattr(self.parent_window, 'logging_manager', None):
                 try:
-                    self.parent_window.logger.setLevel(level)
-                    # Mantener alias app_logger si existe
+                    # Delegar al manager la actualización del nivel
+                    self.parent_window.logging_manager.set_level(level_name)
+                    # Mantener alias/app-level attrs consistentes
                     if getattr(self.parent_window, 'app_logger', None):
                         self.parent_window.app_logger.setLevel(level)
-                    # También actualizar atributo de conveniencia
+                    if getattr(self.parent_window, 'logger', None):
+                        self.parent_window.logger.setLevel(level)
                     self.parent_window.log_level = level_name
-                    # Registrar cambio
                     try:
                         self.parent_window.app_logger.info(f"Nivel de log cambiado a: {level_name}")
                     except Exception:
-                        self.parent_window.logger.info(f"Nivel de log cambiado a: {level_name}")
+                        if getattr(self.parent_window, 'logger', None):
+                            self.parent_window.logger.info(f"Nivel de log cambiado a: {level_name}")
                 except Exception:
                     logging.getLogger('PhotokitManager').info(f"Nivel de log cambiado a: {level_name}")
             else:
@@ -423,13 +425,35 @@ class SettingsDialog(QDialog):
         # Actualizar directorio de logs
         new_logs_dir = Path(self.logs_edit.text())
         try:
-            if new_logs_dir != self.parent_window.logs_directory:
-                self.parent_window.logs_directory = new_logs_dir
+            if getattr(self, 'parent_window', None) and getattr(self.parent_window, 'logging_manager', None):
+                # Delegar al LoggingManager
                 try:
-                    self.parent_window.app_logger.info(f"Directorio de logs cambiado a: {new_logs_dir}")
+                    self.parent_window.logging_manager.change_logs_directory(new_logs_dir)
+                    # Sincronizar atributos auxiliares en la ventana principal
+                    self.parent_window.logs_directory = self.parent_window.logging_manager.logs_directory
+                    self.parent_window.log_file = self.parent_window.logging_manager.log_file
+                    try:
+                        self.parent_window.app_logger.info(f"Directorio de logs cambiado a: {new_logs_dir}")
+                    except Exception:
+                        if getattr(self.parent_window, 'logger', None):
+                            self.parent_window.logger.info(f"Directorio de logs cambiado a: {new_logs_dir}")
                 except Exception:
-                    if getattr(self.parent_window, 'logger', None):
-                        self.parent_window.logger.info(f"Directorio de logs cambiado a: {new_logs_dir}")
+                    # Si falla el manager, como fallback actualizar el atributo directamente
+                    self.parent_window.logs_directory = new_logs_dir
+                    try:
+                        self.parent_window.app_logger.info(f"Directorio de logs cambiado a: {new_logs_dir}")
+                    except Exception:
+                        if getattr(self.parent_window, 'logger', None):
+                            self.parent_window.logger.info(f"Directorio de logs cambiado a: {new_logs_dir}")
+            else:
+                # Sin parent_window.logging_manager: comportarse como antes
+                if new_logs_dir != getattr(self.parent_window, 'logs_directory', None):
+                    self.parent_window.logs_directory = new_logs_dir
+                    try:
+                        self.parent_window.app_logger.info(f"Directorio de logs cambiado a: {new_logs_dir}")
+                    except Exception:
+                        if getattr(self.parent_window, 'logger', None):
+                            self.parent_window.logger.info(f"Directorio de logs cambiado a: {new_logs_dir}")
 
         except Exception:
             # Si por alguna razón parent_window no está disponible, registrar globalmente
