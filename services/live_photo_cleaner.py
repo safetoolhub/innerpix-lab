@@ -210,6 +210,9 @@ class LivePhotoCleaner:
             'success': True,
             'files_deleted': 0,
             'space_freed': 0,
+            # When dry_run=True we populate these simulated counters instead
+            'simulated_files_deleted': 0,
+            'simulated_space_freed': 0,
             'errors': [],
             'deleted_files': [],
             'dry_run': dry_run,
@@ -258,10 +261,10 @@ class LivePhotoCleaner:
 
                 try:
                     if dry_run:
-                        # Solo simular
+                        # Solo simular: no modificar counters reales, usar campos simulados
                         if file_path.exists():
-                            results['files_deleted'] += 1
-                            results['space_freed'] += file_size
+                            results['simulated_files_deleted'] += 1
+                            results['simulated_space_freed'] += file_size
                             results['deleted_files'].append({
                                 'path': str(file_path),
                                 'type': file_info['type'],
@@ -310,15 +313,30 @@ class LivePhotoCleaner:
             self.cleanup_stats['live_photos_processed'] = len(files_to_delete)
             results['success'] = len(results['errors']) == 0
 
-            operation_type = "Simulación" if dry_run else "Limpieza"
-            try:
-                from utils.format_utils import format_size
-                freed = format_size(results['space_freed'])
-            except Exception:
-                freed = f"{results['space_freed']/(1024*1024):.2f} MB"
+            # Preparar mensaje informativo teniendo en cuenta dry_run
+            if dry_run:
+                simulated_count = results.get('simulated_files_deleted', 0)
+                simulated_space = results.get('simulated_space_freed', 0)
+                try:
+                    from utils.format_utils import format_size
+                    freed = format_size(simulated_space)
+                except Exception:
+                    freed = f"{simulated_space/(1024*1024):.2f} MB"
 
-            self.logger.info(f"{operation_type} completada: {results['files_deleted']} archivos eliminados, "
-                           f"{freed} liberados, {len(results['errors'])} errores")
+                # Do not report simulated deletions as actual deletions in the
+                # returned `files_deleted`/`space_freed` fields (keep them 0),
+                # but log the simulated impact clearly.
+                self.logger.info(f"Simulación completada: {simulated_count} archivos (simulados), "
+                                 f"{freed} potencialmente liberados, {len(results['errors'])} errores")
+            else:
+                try:
+                    from utils.format_utils import format_size
+                    freed = format_size(results['space_freed'])
+                except Exception:
+                    freed = f"{results['space_freed']/(1024*1024):.2f} MB"
+
+                self.logger.info(f"Limpieza completada: {results['files_deleted']} archivos eliminados, "
+                                 f"{freed} liberados, {len(results['errors'])} errores")
 
         except Exception as e:
             error_msg = f"Error durante limpieza: {str(e)}"

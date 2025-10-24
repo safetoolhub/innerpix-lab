@@ -55,30 +55,23 @@ class MainWindow(QMainWindow):
         self.analysis_results = None
         self.last_analyzed_directory = None
 
-        # Configuración de logging
-        self.logs_directory = config.Config.DEFAULT_LOG_DIR
-        self.log_level = config.Config.LOG_LEVEL.upper()
-        # Asegurar que existe el directorio de logs
-        self.logs_directory.mkdir(parents=True, exist_ok=True)
+        # Configuración de logging delegada a un manager dedicado
+        # Se importa aquí para evitar dependencias circulares en el módulo
+        from ui.managers.logging_manager import LoggingManager
 
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        self.log_file = self.logs_directory / f"photokit_manager_{timestamp}.log"
-
-        logging.basicConfig(
-            level=self.log_level,
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            handlers=[
-                logging.FileHandler(self.log_file, encoding='utf-8'),
-                logging.StreamHandler()
-            ],
-            force=True
+        self.logging_manager = LoggingManager(
+            default_dir=config.Config.DEFAULT_LOG_DIR,
+            level=config.Config.LOG_LEVEL,
+            logger_name='PhotokitManager'
         )
 
-        # Inicializar logger de instancia como `self.logger` (nombre usado en
-        # todo el proyecto). Esto centraliza el logger de la ventana principal.
-        self.logger = logging.getLogger('PhotokitManager')
+        # Alinear atributos usados anteriormente por el resto de la app
+        self.logger = self.logging_manager.logger
         # Alias compatible con otros módulos que esperan `app_logger`
         self.app_logger = self.logger
+        self.logs_directory = self.logging_manager.logs_directory
+        self.log_file = self.logging_manager.log_file
+
         self.logger.info("=" * 70)
         self.logger.info("Aplicación iniciada")
         self.logger.info(f"Archivo de log: {self.log_file}")
@@ -853,33 +846,71 @@ class MainWindow(QMainWindow):
     def on_lp_finished(self, results):
         """Callback al terminar limpieza de Live Photos"""
         self.hide_progress()
-        
         space_freed = results.get('space_freed', 0)
-        
+
+        # Si fue una simulación, preferimos mostrar los contadores simulados
+        dry_run = bool(results.get('dry_run'))
+        simulated_count = results.get('simulated_files_deleted', 0)
+        simulated_space = results.get('simulated_space_freed', 0)
+
+        if dry_run:
+            space_display = format_size(simulated_space)
+            files_display = f"{simulated_count} (simulado)"
+        else:
+            space_display = format_size(space_freed)
+            files_display = f"{results.get('files_deleted', 0)}"
+
         html = f"""
             <div style='color: #28a745;'>
                 <h4>✅ Limpieza de Live Photos Completada</h4>
-                <p><strong>Archivos eliminados:</strong> {results.get('files_deleted', 0)}</p>
-                <p><strong>Espacio liberado:</strong> {format_size(space_freed)}</p>
+                <p><strong>Archivos eliminados:</strong> {files_display}</p>
+                <p><strong>Espacio liberado:</strong> {space_display}</p>
                 <p><strong>Errores:</strong> {len(results.get('errors', []))}</p>
         """
         
         if results.get('backup_path'):
             html += f"<p><strong>💾 Backup:</strong> {results['backup_path']}</p>"
         
-        if results.get('dry_run'):
+        if dry_run:
             html += "<p><strong>ℹ️ Modo simulación</strong> - No se eliminaron archivos realmente</p>"
+
+            # Añadir información adicional en el panel de Live Photos para indicar impacto simulado
+            try:
+                note = f"<p style='color: #0c5460;'><em>ℹ️ Simulación: se simularon {simulated_count} eliminaciones " \
+                       f"(potencialmente {format_size(simulated_space)} liberados)</em></p>"
+                # Append to existing lp_details without modifying core stats
+                try:
+                    current = self.lp_details.toHtml()
+                    # Evitar duplicar la nota si ya estaba presente
+                    if 'Simulación:' not in current:
+                        self.lp_details.setHtml(current + "<hr>" + note)
+                except Exception:
+                    # Si lp_details no está disponible o falla, ignorar
+                    pass
+            except Exception:
+                pass
         
         html += "</div>"
         
         self._show_results_html(html, show_generic_status=False)
         
         if results.get('success'):
-            QMessageBox.information(
-                self,
-                "Completado",
-                f"Se eliminaron {results.get('files_deleted', 0)} archivos"
-            )
+            try:
+                if dry_run:
+                    QMessageBox.information(
+                        self,
+                        "Simulación completada",
+                        f"Se simularon {simulated_count} eliminaciones (0 reales)"
+                    )
+                else:
+                    QMessageBox.information(
+                        self,
+                        "Completado",
+                        f"Se eliminaron {results.get('files_deleted', 0)} archivos"
+                    )
+            except Exception:
+                # En entornos sin GUI (pruebas) puede fallar; no romper flujo
+                pass
         
         self.exec_lp_btn.setEnabled(False)
         
