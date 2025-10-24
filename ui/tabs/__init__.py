@@ -41,6 +41,8 @@ def create_tabs_widget(window):
     # Duplicados siempre disponible en UI actual
     duplicates_tab = create_duplicates_tab(window)
     tabs.addTab(duplicates_tab, "(5) 🔍 Duplicados")
+    window.tab_index_map['duplicates'] = idx
+    idx += 1
 
     return tabs
 
@@ -52,6 +54,7 @@ def open_summary_action(window, label_substr):
         key_map = {
             'live photos': 'live_photos',
             'duplicados heic': 'heic',
+            'duplicados': 'duplicates',
             'unificar directorios': 'unification',
             'renombrado': 'renaming'
         }

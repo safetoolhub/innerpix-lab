@@ -1,5 +1,7 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QGroupBox, QFrame, QVBoxLayout as QVLayout, QHBoxLayout, QPushButton, QSizePolicy, QButtonGroup, QRadioButton, QTextEdit
 from PyQt5.QtCore import Qt, QTimer
+from ui.tabs.base_tab import create_details_textedit
+from utils.format_utils import markdown_like_to_html
 
 
 def create_duplicates_tab(window):
@@ -104,15 +106,11 @@ def create_duplicates_tab(window):
 
     layout.addWidget(panel)
 
-    # Resultados del análisis
+    # Resultados del análisis (usar detalles reutilizables)
     results_group = QGroupBox("Resultados")
     results_layout = QVBoxLayout(results_group)
-    window.duplicates_results_label = QLabel(
-        "<span style='color:#888;'>Haz clic en <b>Analizar Duplicados</b> para comenzar.</span>"
-    )
-    window.duplicates_results_label.setWordWrap(True)
-    window.duplicates_results_label.setStyleSheet("margin-top:2px; font-size:13px; background:none; border:none;")
-    results_layout.addWidget(window.duplicates_results_label)
+    # Crear QTextEdit de detalles y anexarlo al layout (se guarda en window)
+    create_details_textedit(window, 'duplicates_details', results_layout, placeholder="Haz clic en 'Analizar Duplicados' para comenzar.")
     layout.addWidget(results_group)
 
     layout.addStretch(1)
@@ -152,9 +150,10 @@ def _on_duplicate_mode_changed(window):
     window.review_similar_btn.setVisible(False)
 
     # Limpiar resultados previos
-    window.duplicates_results_label.setText(
-        "📂 Haz clic en 'Analizar' para comenzar la detección"
-    )
+    try:
+        window.duplicates_details.setHtml(markdown_like_to_html("📂 Haz clic en 'Analizar' para comenzar la detección"))
+    except Exception:
+        pass
     window.duplicate_analysis_results = None
 
 

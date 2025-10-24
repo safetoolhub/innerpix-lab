@@ -6,6 +6,8 @@ y truncate_path. Estas funciones no dependen de la UI y pueden importarse desde
 """
 from pathlib import Path
 from typing import Optional
+import re
+import html
 
 
 def format_size(bytes_size: Optional[float]) -> str:
@@ -111,29 +113,29 @@ def generate_stats_html(stats: dict, icon_prefix: str = "") -> str:
     """
     if not stats:
         return ""
-    
-    html_lines = []
-    
+
+    parts = []
     for label, value in stats.items():
-        # Manejar tuplas (valor, formato_especial)
+        # Normalizar display_value como string ya formateado
+        display_value = ""
         if isinstance(value, tuple):
-            display_value, value_format = value
-            if value_format == 'highlight':
-                line = f"**{icon_prefix}{label}:** *{display_value:,}*"
-            elif value_format == 'bold':
-                line = f"**{icon_prefix}{label}: {display_value:,}**"
-            else:
-                line = f"**{icon_prefix}{label}:** {display_value:,}"
-        # Manejar números
-        elif isinstance(value, (int, float)):
-            line = f"**{icon_prefix}{label}:** {value:,}"
-        # Manejar strings (ya formateados)
+            display_value = value[0]
         else:
-            line = f"**{icon_prefix}{label}:** {value}"
-        
-        html_lines.append(line)
-    
-    return "\n\n".join(html_lines)
+            display_value = value
+
+        # Escape de contenido
+        lbl = html.escape(str(icon_prefix + label))
+        val = html.escape(str(display_value))
+
+        # Aplicar formatos sencillos si vienen en la tupla
+        if isinstance(value, tuple) and len(value) > 1 and value[1] == 'highlight':
+            val_html = f"<strong style=\"color:#28a745;\">{val}</strong>"
+        else:
+            val_html = val
+
+        parts.append(f"<div style='margin-bottom:6px;'><strong>{lbl}:</strong> {val_html}</div>")
+
+    return "".join(parts)
 
 
 def generate_section_html(title: str, stats: dict, icon: str = "") -> str:
@@ -148,10 +150,63 @@ def generate_section_html(title: str, stats: dict, icon: str = "") -> str:
     Returns:
         str: HTML de la sección completa
     """
-    title_html = f"### {icon} {title}\n\n" if icon else f"### {title}\n\n"
+    title_html = f"<h3>{html.escape(icon + ' ' + title)}</h3>" if title else ""
     stats_html = generate_stats_html(stats)
-    
+
     return title_html + stats_html
+
+
+def markdown_like_to_html(text: str) -> str:
+    """Convierte un texto con marcado ligero (**bold**, listas con • o -) a HTML.
+
+    - **bold** -> <strong>
+    - Líneas que empiezan con •, - o * se agrupan en <ul><li>
+    - Saltos de línea simples se convierten en <br>, dobles en separación de párrafos
+    """
+    if not text:
+        return ""
+
+    # Normalizar entradas numéricas
+    text = str(text)
+
+    # Procesar por líneas para detectar listas
+    lines = text.splitlines()
+    out = []
+    in_list = False
+
+    def render_inline(s: str) -> str:
+        # Reemplazar **bold** por placeholder-safe handling
+        parts = re.split(r'(\*\*.*?\*\*)', s)
+        rendered = []
+        for p in parts:
+            if p.startswith('**') and p.endswith('**') and len(p) >= 4:
+                inner = p[2:-2]
+                rendered.append(f"<strong>{html.escape(inner)}</strong>")
+            else:
+                rendered.append(html.escape(p))
+        return ''.join(rendered).replace('\n', '<br/>')
+
+    for line in lines:
+        stripped = line.lstrip()
+        if stripped.startswith(('• ', '- ', '* ')):
+            if not in_list:
+                out.append('<ul>')
+                in_list = True
+            item_text = stripped[2:]
+            out.append(f"<li>{render_inline(item_text)}</li>")
+        else:
+            if in_list:
+                out.append('</ul>')
+                in_list = False
+            if stripped == '':
+                out.append('<p></p>')
+            else:
+                out.append(f"<p>{render_inline(stripped)}</p>")
+
+    if in_list:
+        out.append('</ul>')
+
+    return ''.join(out)
 
 
 def format_file_operation_summary(

@@ -125,6 +125,23 @@ def update_tab_details(window, results):
         html = generate_stats_html(stats)
         window.heic_details.setHtml(html)
 
+    # ===== PESTAÑA DUPLICADOS =====
+    if results.get('duplicates'):
+        dup = results['duplicates']
+        # Intentar usar campos diferentes según el modo (exact/perceptual)
+        space = dup.get('space_wasted', dup.get('space_potential', 0))
+        stats = {
+            '🔎 Modo': dup.get('mode', '—'),
+            '📊 Grupos': dup.get('total_groups', 0),
+            '🧾 Archivos duplicados': dup.get('total_duplicates', dup.get('total_similar', 0)),
+            '💾 Espacio potencial': format_size(space),
+        }
+        html = generate_stats_html(stats)
+        try:
+            window.duplicates_details.setHtml(html)
+        except Exception:
+            pass
+
 
 def show_results_html(window, html: str, show_generic_status: bool = False):
     """Muestra resultados HTML en el diálogo apropiado"""

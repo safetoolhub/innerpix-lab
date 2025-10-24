@@ -134,6 +134,8 @@ def create_summary_panel(window):
         stack_layout.addWidget(make_full_btn('unification', '📁', 'Unificar Directorios'))
     if service_available(window, 'renamer'):
         stack_layout.addWidget(make_full_btn('renaming', '📝', 'Renombrado'))
+    # Duplicados siempre disponible en la UI actual
+    stack_layout.addWidget(make_full_btn('duplicates', '🔍', 'Duplicados'))
 
     actions_layout.addLayout(stack_layout)
 
