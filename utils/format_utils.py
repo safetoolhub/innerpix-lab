@@ -88,3 +88,126 @@ def truncate_path(path: str, max_length: int = 40) -> str:
         return f"{s[:part]}...{s[-part:]}"
     except Exception:
         return ""
+
+def generate_stats_html(stats: dict, icon_prefix: str = "") -> str:
+    """
+    Genera HTML con formato consistente para mostrar estadísticas.
+    
+    Args:
+        stats: Diccionario con pares clave-valor de estadísticas
+               Formato: {'label': valor} o {'label': (valor, formato)}
+        icon_prefix: Emoji/icono opcional al inicio de cada línea
+        
+    Returns:
+        str: HTML formateado con las estadísticas
+        
+    Examples:
+        >>> stats = {
+        ...     'Total archivos': 150,
+        ...     'A renombrar': (25, 'highlight'),
+        ...     'Espacio': format_size(1024000)
+        ... }
+        >>> html = generate_stats_html(stats)
+    """
+    if not stats:
+        return ""
+    
+    html_lines = []
+    
+    for label, value in stats.items():
+        # Manejar tuplas (valor, formato_especial)
+        if isinstance(value, tuple):
+            display_value, value_format = value
+            if value_format == 'highlight':
+                line = f"**{icon_prefix}{label}:** *{display_value:,}*"
+            elif value_format == 'bold':
+                line = f"**{icon_prefix}{label}: {display_value:,}**"
+            else:
+                line = f"**{icon_prefix}{label}:** {display_value:,}"
+        # Manejar números
+        elif isinstance(value, (int, float)):
+            line = f"**{icon_prefix}{label}:** {value:,}"
+        # Manejar strings (ya formateados)
+        else:
+            line = f"**{icon_prefix}{label}:** {value}"
+        
+        html_lines.append(line)
+    
+    return "\n\n".join(html_lines)
+
+
+def generate_section_html(title: str, stats: dict, icon: str = "") -> str:
+    """
+    Genera una sección HTML completa con título y estadísticas.
+    
+    Args:
+        title: Título de la sección
+        stats: Diccionario de estadísticas
+        icon: Emoji/icono para el título
+        
+    Returns:
+        str: HTML de la sección completa
+    """
+    title_html = f"### {icon} {title}\n\n" if icon else f"### {title}\n\n"
+    stats_html = generate_stats_html(stats)
+    
+    return title_html + stats_html
+
+
+def format_file_operation_summary(
+    total: int,
+    processed: int,
+    errors: int = 0,
+    action_verb: str = "procesado"
+) -> str:
+    """
+    Formatea un resumen de operación sobre archivos.
+    
+    Args:
+        total: Total de archivos
+        processed: Archivos procesados exitosamente
+        errors: Archivos con error
+        action_verb: Verbo que describe la acción (ej: "renombrado", "eliminado")
+        
+    Returns:
+        str: Texto formateado del resumen
+        
+    Example:
+        >>> format_file_operation_summary(100, 95, 5, "renombrado")
+        '✅ 95/100 archivos renombrados correctamente (5 errores)'
+    """
+    if errors > 0:
+        return f"✅ {processed}/{total} archivos {action_verb}s correctamente ({errors} errores)"
+    else:
+        return f"✅ {processed}/{total} archivos {action_verb}s correctamente"
+
+
+def format_markdown_list(items: list, ordered: bool = False) -> str:
+    """
+    Convierte una lista Python en una lista Markdown.
+    
+    Args:
+        items: Lista de strings o tuplas (emoji, texto)
+        ordered: Si es True, crea lista numerada
+        
+    Returns:
+        str: Lista en formato Markdown
+    """
+    if not items:
+        return ""
+    
+    formatted_items = []
+    
+    for i, item in enumerate(items, 1):
+        if isinstance(item, tuple):
+            emoji, text = item
+            line = f"{emoji} {text}"
+        else:
+            line = str(item)
+        
+        if ordered:
+            formatted_items.append(f"{i}. {line}")
+        else:
+            formatted_items.append(f"- {line}")
+    
+    return "\n".join(formatted_items)

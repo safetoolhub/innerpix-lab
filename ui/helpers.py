@@ -1,18 +1,13 @@
 """
 Funciones auxiliares reutilizables para la UI extraídas de `main_window.py`.
-Cada función recibe la instancia principal `window` cuando necesita acceder a
-atributos o widgets de la ventana.
 """
 from pathlib import Path
 import traceback
-
 from PyQt5.QtWidgets import (
     QFrame, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QSizePolicy,
-    QTextEdit, QLineEdit, QButtonGroup,
-    QRadioButton
+    QTextEdit, QLineEdit, QButtonGroup, QRadioButton
 )
 from PyQt5.QtCore import Qt, QTimer
-
 import config
 from ui import styles
 
@@ -21,86 +16,125 @@ try:
 except Exception:
     _tabs_module = None
 
-
 from ui.components.progress_bar import (
     create_progress_group as create_progress_bar,
     show_progress,
     hide_progress,
 )
-
-from utils.format_utils import format_size
+from utils.format_utils import format_size, generate_stats_html
 
 
 def service_available(window, attr_name: str) -> bool:
     return hasattr(window, attr_name) and getattr(window, attr_name) is not None
 
+
 def update_tab_details(window, results):
+    """
+    Actualiza los detalles de cada pestaña con los resultados del análisis.
+    VERSIÓN REFACTORIZADA usando generate_stats_html()
+    """
+    
+    # ===== PESTAÑA RENAMING =====
     if results.get('renaming'):
         ren = results['renaming']
-        html = f"""
-                <p><strong>Total archivos:</strong> {ren.get('total_files', 0):,}</p>
-                <p><strong>✅ Ya renombrados:</strong> {ren.get('already_renamed', 0):,}</p>
-                <p><strong>📝 A renombrar:</strong> {ren.get('need_renaming', 0):,}</p>
-                <p><strong>⚠️ No procesables:</strong> {ren.get('cannot_process', 0):,}</p>
-                <p><strong>🔄 Conflictos:</strong> {ren.get('conflicts', 0):,}</p>
-            """
+        
+        stats = {
+            '📊 Total archivos': ren.get('total_files', 0),
+            '✅ Ya renombrados': ren.get('already_renamed', 0),
+            '📝 A renombrar': ren.get('need_renaming', 0),
+            '⚠️ No procesables': ren.get('cannot_process', 0),
+        }
+        
+        html = generate_stats_html(stats)
+        
+        # Añadir información adicional si hay archivos a renombrar
         if ren.get('need_renaming', 0) > 0:
-            info_html = f"""
-                    <div style='margin-top:10px; padding:10px; border-radius:8px; background:#f8f9fa; color:#6c757d;'>
-                        <strong>Información:</strong>
-                        <div>Al aceptar el diálogo de preview se ejecutará el renombrado automáticamente.</div>
-                        <div>Marca la opción de backup en el diálogo si deseas crear una copia antes de renombrar.</div>
-                    </div>
-                """
-            html += info_html
+            extra_stats = {
+                '🔄 Conflictos': ren.get('conflicts', 0),
+            }
+            html += "\n\n---\n\n" + generate_stats_html(extra_stats)
+        
         window.rename_details.setHtml(html)
-
+    
+    # ===== PESTAÑA LIVE PHOTOS =====
     if results.get('live_photos'):
         lp = results['live_photos']
-        total_groups = len(lp.get('groups', []))
-        total_space = sum(group.get('total_size', 0) for group in lp.get('groups', []))
-        space_to_free = sum(group.get('video_size', 0) for group in lp.get('groups', []))
-        html = f"""
-                <p><strong>📱 Live Photos encontrados:</strong> {total_groups:,}</p>
-                <p><strong>💾 Espacio total:</strong> {format_size(total_space)}</p>
-                <p><strong>💾 Espacio a liberar (mantener imagen):</strong> {format_size(space_to_free)}</p>
-            """
+        
+        # CORRECCIÓN: Acceder a los grupos desde 'detailed_analysis' si existe
+        total_groups = lp.get('total_live_photo_groups', 0)
+        
+        # Calcular espacio total y espacio a liberar
+        total_space = lp.get('total_space', 0)
+        space_to_free = lp.get('space_to_free', 0)
+        
+        # Si no están disponibles, intentar calcular desde detailed_analysis
+        if total_space == 0 and 'detailed_analysis' in lp:
+            analysis = lp['detailed_analysis']
+            total_space = analysis.get('total_size', 0)
+        
+        stats = {
+            '📱 Live Photos encontrados': total_groups,
+            '💾 Espacio total': format_size(total_space),
+            '💾 Espacio a liberar': format_size(space_to_free),
+        }
+        
+        # Añadir información del modo de limpieza si está disponible
+        if 'cleanup_mode' in lp:
+            mode_names = {
+                'keep_image': 'mantener imagen',
+                'keep_video': 'mantener video',
+                'keep_larger': 'mantener más grande',
+                'keep_smaller': 'mantener más pequeño'
+            }
+            mode = lp.get('cleanup_mode', '')
+            if mode in mode_names:
+                stats['🔧 Modo'] = mode_names[mode]
+        
+        html = generate_stats_html(stats)
         window.lp_details.setHtml(html)
-
+    
+    # ===== PESTAÑA UNIFICATION =====
     if results.get('unification'):
         unif = results['unification']
         total_size = unif.get('total_size_to_move', 0)
-        html = f"""
-                <p><strong>📁 Subdirectorios:</strong> {len(unif.get('subdirectories', {})):,}</p>
-                <p><strong>📄 Archivos a mover:</strong> {unif.get('total_files_to_move', 0):,}</p>
-                <p><strong>💾 Tamaño total:</strong> {format_size(total_size)}</p>
-                <p><strong>⚠️ Conflictos potenciales:</strong> {unif.get('potential_conflicts', 0):,}</p>
-            """
+        
+        stats = {
+            '📁 Subdirectorios': len(unif.get('subdirectories', {})),
+            '📄 Archivos a mover': unif.get('total_files_to_move', 0),
+            '💾 Tamaño total': format_size(total_size),
+            '⚠️ Conflictos potenciales': unif.get('potential_conflicts', 0),
+        }
+        
+        html = generate_stats_html(stats)
         window.unif_details.setHtml(html)
-
+    
+    # ===== PESTAÑA HEIC =====
     if results.get('heic'):
         heic = results['heic']
         savings_jpg = heic.get('potential_savings_keep_jpg', 0)
         savings_heic = heic.get('potential_savings_keep_heic', 0)
-        html = f"""
-                <p><strong>♻️ Pares detectados:</strong> {heic.get('total_duplicates', 0):,}</p>
-                <p><strong>🖼️ Archivos HEIC:</strong> {heic.get('total_heic_files', 0):,}</p>
-                <p><strong>📸 Archivos JPG:</strong> {heic.get('total_jpg_files', 0):,}</p>
-                <p><strong>💾 Ahorro (mantener JPG):</strong> {format_size(savings_jpg)}</p>
-                <p><strong>💾 Ahorro (mantener HEIC):</strong> {format_size(savings_heic)}</p>
-            """
+        
+        stats = {
+            '♻️ Pares detectados': heic.get('total_duplicates', 0),
+            '🖼️ Archivos HEIC': heic.get('total_heic_files', 0),
+            '📸 Archivos JPG': heic.get('total_jpg_files', 0),
+            '💾 Ahorro (mantener JPG)': format_size(savings_jpg),
+            '💾 Ahorro (mantener HEIC)': format_size(savings_heic),
+        }
+        
+        html = generate_stats_html(stats)
         window.heic_details.setHtml(html)
 
 
-
 def show_results_html(window, html: str, show_generic_status: bool = False):
+    """Muestra resultados HTML en el diálogo apropiado"""
     try:
         if show_generic_status:
             try:
                 window.logger.info('Operación completada — revisa el log para detalles')
             except Exception:
                 try:
-                    window.setWindowTitle(f"{config.config.APP_NAME} — Operación completada")
+                    window.setWindowTitle(f"{config.Config.APP_NAME} — Operación completada")
                 except Exception:
                     pass
     except Exception:
@@ -108,42 +142,54 @@ def show_results_html(window, html: str, show_generic_status: bool = False):
 
 
 def reset_analysis_ui(window, reinsert_analyze=True):
+    """
+    Resetea toda la interfaz al estado inicial.
+    """
+    # Resetear botón de análisis
     window.analyze_btn.setText("🔍 Seleccionar Directorio y Analizar")
     window.analyze_btn.setEnabled(True)
-
+    
+    # Ocultar botones adicionales
     if hasattr(window, 'reanalyze_btn'):
         window.reanalyze_btn.setVisible(False)
     if hasattr(window, 'change_dir_btn'):
         window.change_dir_btn.setVisible(False)
-
+    
+    # Reinsertar botón analizar si fue removido
     if reinsert_analyze:
         try:
             if window.analyze_btn.parent() is None:
                 window.actions_layout.addWidget(window.analyze_btn)
-            window.analyze_btn.setVisible(True)
+                window.analyze_btn.setVisible(True)
         except Exception:
             pass
-
+    
+    # Ocultar paneles principales
     window.summary_panel.setVisible(False)
     window.tabs_widget.setVisible(False)
-
+    
+    # Deshabilitar botones de ejecución
     window.preview_rename_btn.setEnabled(False)
     window.exec_lp_btn.setEnabled(False)
     window.exec_unif_btn.setEnabled(False)
     window.exec_heic_btn.setEnabled(False)
-
+    
+    # Limpiar detalles de pestañas
     if hasattr(window, 'rename_details'):
         window.rename_details.clear()
     if hasattr(window, 'norm_details'):
         window.norm_details.clear()
+    
     window.lp_details.clear()
     window.unif_details.clear()
     window.heic_details.clear()
-
+    
+    # Resetear campo de directorio
     if hasattr(window, 'directory_edit') and reinsert_analyze:
         window.directory_edit.clear()
         window.directory_edit.setPlaceholderText("Selecciona un directorio para analizar...")
-
+    
+    # Resetear labels de estadísticas
     try:
         if 'images' in window.stats_labels:
             window.stats_labels['images'].setText("🖼️ Imágenes: —")
@@ -153,22 +199,13 @@ def reset_analysis_ui(window, reinsert_analyze=True):
             window.stats_labels['total'].setText("📊 Total: —")
     except Exception:
         pass
-
+    
+    # Limpiar datos de análisis
     window.analysis_results = None
     window.last_analyzed_directory = None
-
+    
+    # Log
     try:
-        try:
-            window.logger.info("Directorio cambiado: análisis anterior limpiado")
-        except Exception:
-            try:
-                window.setWindowTitle(f"{config.config.APP_NAME} — Análisis limpiado")
-            except Exception:
-                pass
+        window.logger.info("UI reiniciada tras cambio de directorio")
     except Exception:
-        try:
-            window.logger.info("Directorio cambiado: análisis anterior limpiado")
-        except Exception:
-            pass
-
-    window.logger.info("UI reiniciada tras cambio de directorio")
+        pass

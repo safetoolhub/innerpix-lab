@@ -8,7 +8,7 @@ def create_unification_tab(window):
     info = create_info_label("Mueve todos los archivos al directorio raíz", rich=False, extra_style="color: #6c757d; padding: 10px; font-style: italic;")
     layout.addWidget(info)
 
-    create_details_textedit(window, 'unif_details')
+    create_details_textedit(window, 'unif_details', layout)
 
     button_layout = QHBoxLayout()
     button_layout.addStretch()
