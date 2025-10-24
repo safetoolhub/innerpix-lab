@@ -126,15 +126,12 @@ def create_summary_panel(window):
         window.summary_action_buttons[key] = btn
         return btn
 
-    if service_available(window, 'live_photo_detector'):
-        stack_layout.addWidget(make_full_btn('live_photos', '📱', 'Live Photos'))
-    if service_available(window, 'heic_remover'):
-        stack_layout.addWidget(make_full_btn('heic', '🖼️', 'Duplicados HEIC'))
-    if service_available(window, 'directory_unifier'):
-        stack_layout.addWidget(make_full_btn('unification', '📁', 'Unificar Directorios'))
-    if service_available(window, 'renamer'):
-        stack_layout.addWidget(make_full_btn('renaming', '📝', 'Renombrado'))
-    # Duplicados siempre disponible en la UI actual
+    # Añadir siempre los botones (la visibilidad/estado real se controlará
+    # más tarde mediante `window.tab_availability` y update_tabs_availability).
+    stack_layout.addWidget(make_full_btn('live_photos', '📱', 'Live Photos'))
+    stack_layout.addWidget(make_full_btn('heic', '🖼️', 'Duplicados HEIC'))
+    stack_layout.addWidget(make_full_btn('unification', '📁', 'Unificar Directorios'))
+    stack_layout.addWidget(make_full_btn('renaming', '📝', 'Renombrado'))
     stack_layout.addWidget(make_full_btn('duplicates', '🔍', 'Duplicados'))
 
     actions_layout.addLayout(stack_layout)

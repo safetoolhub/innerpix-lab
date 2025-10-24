@@ -25,7 +25,30 @@ from utils.format_utils import format_size, generate_stats_html
 
 
 def service_available(window, attr_name: str) -> bool:
-    return hasattr(window, attr_name) and getattr(window, attr_name) is not None
+    """Determina si una 'característica' o pestaña debe considerarse disponible.
+
+    En lugar de depender de atributos concretos creados por `MainWindow`,
+    esta función consulta `window.tab_availability` (un dict opcional) que
+    será gestionado por la lógica de análisis. Si no existe ese diccionario
+    se asume que la característica está disponible (True) para mantener el
+    comportamiento previo.
+
+    Args:
+        window: instancia principal de la app (MainWindow)
+        attr_name: nombre lógico de la característica/pestaña (p.ej. 'heic_remover')
+
+    Returns:
+        bool: True si la característica está disponible, False en caso contrario.
+    """
+    try:
+        availability = getattr(window, 'tab_availability', None)
+        if availability is None:
+            return True
+        # availability expected to be a dict-like mapping feature name -> bool
+        return bool(availability.get(attr_name, True))
+    except Exception:
+        # Fallback conservador: considerar el servicio disponible
+        return True
 
 
 def update_tab_details(window, results):
