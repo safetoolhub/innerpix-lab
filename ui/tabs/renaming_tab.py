@@ -22,7 +22,7 @@ def create_renaming_tab(window):
     )
     layout.addWidget(info)
 
-    create_details_textedit(window, 'rename_details')
+    create_details_textedit(window, 'rename_details', layout)
 
     button_layout = QHBoxLayout()
     button_layout.addStretch()

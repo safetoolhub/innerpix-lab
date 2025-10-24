@@ -8,7 +8,7 @@ def create_heic_tab(window):
     info = create_info_label("Elimina duplicados cuando existen archivos HEIC y JPG con el mismo nombre", rich=False, extra_style="color: #6c757d; padding: 10px; font-style: italic;")
     layout.addWidget(info)
 
-    create_details_textedit(window, 'heic_details')
+    create_details_textedit(window, 'heic_details', layout)
 
     button_layout = QHBoxLayout()
     button_layout.addStretch()
