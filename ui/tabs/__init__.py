@@ -18,31 +18,36 @@ def create_tabs_widget(window):
     tabs.setVisible(False)
     window.tab_index_map = {}
     idx = 0
-    # Import service_available lazily to avoid circular imports with ui.helpers
-    from ui.helpers import service_available
+    # Añadir siempre las pestañas en un orden fijo. La disponibilidad real
+    # (habilitada/visible) será controlada por `update_tabs_availability`
+    # utilizando `window.tab_availability`.
+    tabs.addTab(create_live_photos_tab(window), "(1) 📱 Live Photos")
+    window.tab_index_map['live_photos'] = idx
+    idx += 1
 
-    if service_available(window, 'live_photo_detector'):
-        tabs.addTab(create_live_photos_tab(window), "(1) 📱 Live Photos")
-        window.tab_index_map['live_photos'] = idx
-        idx += 1
-    if service_available(window, 'heic_remover'):
-        tabs.addTab(create_heic_tab(window), "(2) 🖼️ Duplicados HEIC")
-        window.tab_index_map['heic'] = idx
-        idx += 1
-    if service_available(window, 'directory_unifier'):
-        tabs.addTab(create_unification_tab(window), "(3) 📁 Unificar Directorios")
-        window.tab_index_map['unification'] = idx
-        idx += 1
-    if service_available(window, 'renamer'):
-        tabs.addTab(create_renaming_tab(window), "(4) 📝 Renombrado")
-        window.tab_index_map['renaming'] = idx
-        idx += 1
+    tabs.addTab(create_heic_tab(window), "(2) 🖼️ Duplicados HEIC")
+    window.tab_index_map['heic'] = idx
+    idx += 1
 
-    # Duplicados siempre disponible en UI actual
+    tabs.addTab(create_unification_tab(window), "(3) 📁 Unificar Directorios")
+    window.tab_index_map['unification'] = idx
+    idx += 1
+
+    tabs.addTab(create_renaming_tab(window), "(4) 📝 Renombrado")
+    window.tab_index_map['renaming'] = idx
+    idx += 1
+
     duplicates_tab = create_duplicates_tab(window)
     tabs.addTab(duplicates_tab, "(5) 🔍 Duplicados")
     window.tab_index_map['duplicates'] = idx
     idx += 1
+
+    # Guardar una lista inversa opcional (índice -> clave) por conveniencia
+    # Esto puede usarse más adelante si se necesita iterar por índices.
+    try:
+        window.tab_keys_by_index = {v: k for k, v in window.tab_index_map.items()}
+    except Exception:
+        window.tab_keys_by_index = {}
 
     return tabs
 
@@ -67,3 +72,49 @@ def open_summary_action(window, label_substr):
         window.tabs_widget.setCurrentIndex(0)
         window.tabs_widget.setVisible(True)
     return
+
+
+def set_tab_enabled(window, key: str, enabled: bool):
+    """Habilita o deshabilita la pestaña identificada por `key`.
+
+    Usa `window.tab_index_map` para encontrar el índice. Si la pestaña no
+    existe, no hace nada. En Qt5 no hay un método universal para ocultar/mostrar
+    completamente una pestaña de forma portable, por lo que por ahora se usa
+    `setTabEnabled` y también se asegura que el widget asociado reciba el mismo
+    estado.
+    """
+    if not hasattr(window, 'tabs_widget') or not hasattr(window, 'tab_index_map'):
+        return
+    idx = window.tab_index_map.get(key)
+    if idx is None:
+        return
+    try:
+        window.tabs_widget.setTabEnabled(idx, enabled)
+    except Exception:
+        pass
+    try:
+        w = window.tabs_widget.widget(idx)
+        if w is not None:
+            w.setEnabled(enabled)
+    except Exception:
+        pass
+
+
+def update_tabs_availability(window, results: dict):
+    """Punto central para decidir la disponibilidad de las pestañas según
+    `results` del análisis. Actualmente no restringe nada (habilita todo)
+    para mantener el comportamiento previo; pero la lógica para evaluar
+    `results` puede añadirse aquí en el futuro.
+
+    Esta función será llamada por `MainWindow.on_analysis_finished`.
+    """
+    if not hasattr(window, 'tab_index_map'):
+        return
+
+    # Placeholder: habilitar todas las pestañas por defecto
+    for key in window.tab_index_map.keys():
+        set_tab_enabled(window, key, True)
+
+    # Ejemplo futuro (comentado):
+    # if results.get('heic', {}).get('total_duplicates', 0) == 0:
+    #     set_tab_enabled(window, 'heic', False)

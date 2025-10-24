@@ -131,6 +131,21 @@ class MainWindow(QMainWindow):
 
         # ===== SPLITTER: PANEL RESUMEN + PESTAÑAS =====
         splitter = QSplitter(Qt.Horizontal)
+
+        # Inicializar el mapa de disponibilidad de pestañas/características.
+        # En el futuro `update_tabs_availability` lo actualizará según los
+        # resultados del análisis. Por defecto dejamos todas las pestañas
+        # habilitadas (True) para mantener el comportamiento actual.
+        self.tab_availability = {
+            'live_photo_detector': True,
+            'heic_remover': True,
+            'directory_unifier': True,
+            'renamer': True,
+            'duplicate_detector': True,
+            # clave 'duplicates' coincide con el nombre usado en tab_index_map
+            'duplicates': True,
+        }
+
         from ui.components import SummaryPanel
         # Guardar la instancia del componente para poder actualizarlo luego
         self.summary_component = SummaryPanel(self)
@@ -456,6 +471,12 @@ class MainWindow(QMainWindow):
         
         # Actualizar detalles de cada pestaña
         update_tab_details(self, results)
+
+        # Actualizar disponibilidad de pestañas según los resultados (hook para lógica futura)
+        try:
+            tabs.update_tabs_availability(self, results)
+        except Exception:
+            pass
         
         # Mostrar paneles
         self.summary_panel.setVisible(True)
