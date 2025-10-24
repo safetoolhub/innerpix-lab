@@ -1,17 +1,17 @@
 photokit-manager/ - Estructura del proyecto
 
 ```
-photokit_manager/
-├── main.py # Punto de entrada
-├── config.py # Configuración
-├── requirements.txt # Dependencias
-├── LICENSE # Licencia del proyecto
-├── README.md # Documentación principal
-├── PROJECT_TREE.md # Este archivo: esquema ASCII del proyecto
-├── docs/ # Documentación y notas de desarrollo
+photokit-manager/
+├── LICENSE
+├── README.md
+├── PROJECT_TREE.md
+├── main.py
+├── config.py
+├── requirements.txt
+├── docs/
 │   ├── prompt_dev.txt
 │   └── TODO.txt
-├── services/ # Lógica de negocio y procesamiento
+├── services/
 │   ├── __init_.py
 │   ├── directory_unifier.py
 │   ├── duplicate_detector.py
@@ -19,13 +19,12 @@ photokit_manager/
 │   ├── heic_remover.py
 │   ├── live_photo_cleaner.py
 │   └── live_photo_detector.py
-├── ui/ # Interfaz gráfica (PyQt5)
+├── ui/
 │   ├── __init__.py
 │   ├── helpers.py
-│   ├── main_window.py # Ventana principal (refactor pendiente)
+│   ├── main_window.py
 │   ├── styles.py
-│   ├── helpers.py
-│   ├── workers.py # Hilos y tareas en background para no bloquear UI
+│   ├── workers.py
 │   ├── components/
 │   │   ├── __init__.py
 │   │   ├── header.py
@@ -42,20 +41,21 @@ photokit_manager/
 │       ├── live_photos_dialog.py
 │       ├── renaming_dialog.py
 │       └── settings_dialog.py
-├── ui/tabs/ # Pestañas principales de la aplicación
+├── ui/tabs/
 │   ├── __init__.py
 │   ├── base_tab.py
-│   ├── duplicates_tab.py # Interfaz para gestionar duplicados
+│   ├── duplicates_tab.py
 │   ├── heic_tab.py
 │   ├── live_photos_tab.py
 │   ├── renaming_tab.py
 │   └── unifier_tab.py
-├── utils/ # Utilidades auxiliares
+├── utils/
 │   ├── __init__.py
 │   ├── date_utils.py
-│   └── logger.py # Logging estructurado a archivos timestamped
-
+│   ├── file_utils.py
+│   ├── format_utils.py
+│   └── logger.py
+└── .gitignore
 
 ```
-
 
