@@ -34,6 +34,11 @@ from utils.date_utils import get_file_date, format_renamed_name, is_renamed_file
 from ui.helpers import (
     update_tab_details, show_results_html, reset_analysis_ui,
 )
+from ui.validators.directory_validator import (
+    confirm_directory_change,
+    count_files_in_directory,
+    confirm_large_directory,
+)
 from utils.format_utils import format_size, markdown_like_to_html
 from ui.components.progress_bar import create_progress_group as create_progress_bar, show_progress, hide_progress
 from ui import tabs
@@ -258,61 +263,30 @@ class MainWindow(QMainWindow):
 
         new_directory = Path(directory)
 
-        # Verificar si hay un cambio de directorio tras un análisis
+        # Si hay un análisis previo en otro directorio, pedir confirmación
         if self.last_analyzed_directory and new_directory != self.last_analyzed_directory:
-            reply = QMessageBox.question(
-                self,
-                "Cambio de Directorio",
-                f"Has solicitado cambiar el directorio de análisis.\n\n"
-                f"📂 Directorio anterior: {self.last_analyzed_directory.name}\n"
-                f"📂 Directorio nuevo: {new_directory.name}\n\n"
-                f"⚠️ El análisis anterior se perderá y será necesario realizar un nuevo análisis.\n\n"
-                f"¿Deseas continuar?",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No
-            )
-            if reply == QMessageBox.No:
+            if not confirm_directory_change(self, self.last_analyzed_directory, new_directory, logger=self.logger):
                 return
-
             # Usuario confirmó, limpiar análisis previo
             self._reset_analysis_ui()
             self.logger.info(f"Directorio cambiado de {self.last_analyzed_directory} a {new_directory}")
 
-        # Actualizar directorio actual
+        # Actualizar directorio actual y mostrar en UI
         self.current_directory = new_directory
-        # Mostrar nombre real del directorio (no ruta completa)
         self.directory_edit.setText(f"{self.current_directory.name}")
-        self.directory_edit.setToolTip(str(self.current_directory))  # Tooltip con ruta completa
+        self.directory_edit.setToolTip(str(self.current_directory))
 
-        # Contar archivos rápidamente para dar feedback
+        # Contar archivos y manejar errores de acceso
         try:
-            all_files = list(new_directory.rglob('*'))
-            file_count = sum(1 for f in all_files if f.is_file())
+            file_count = count_files_in_directory(new_directory)
         except Exception as e:
-            QMessageBox.warning(
-                self,
-                "Error",
-                f"No se pudo acceder al directorio:\n{str(e)}"
-            )
+            QMessageBox.warning(self, "Error", f"No se pudo acceder al directorio:\n{str(e)}")
             return
 
-        # Confirmación inteligente solo para directorios grandes
-        if file_count > config.config.LARGE_DIRECTORY_THRESHOLD:
-            reply = QMessageBox.question(
-                self,
-                "Directorio Grande Detectado",
-                f"📁 Directorio: {new_directory.name}\n\n"
-                f"📊 Se detectaron aproximadamente {file_count:,} archivos.\n\n"
-                f"⏱️ Aviso: El análisis de esta cantidad de archivos podría tardar\n"
-                f"varios minutos dependiendo de la potencia de tu equipo.\n\n"
-                f"¿Deseas iniciar el análisis ahora?",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.Yes
-            )
-
-            if reply != QMessageBox.Yes:
-                self.logger.info(f"Análisis cancelado por el usuario para: {new_directory}")
-                return
+        # Confirmación para directorios grandes
+        if not confirm_large_directory(self, new_directory, file_count, config.config.LARGE_DIRECTORY_THRESHOLD):
+            self.logger.info(f"Análisis cancelado por el usuario para: {new_directory}")
+            return
 
         # Ejecutar análisis automáticamente
         self.analyze_directory()
@@ -529,7 +503,6 @@ class MainWindow(QMainWindow):
             return  # Usuario canceló
 
         new_directory = Path(directory)
-
         # Si el usuario selecciona el mismo directorio, simplemente re-analizar
         if self.last_analyzed_directory and new_directory == self.last_analyzed_directory:
             # Ocultar botones adicionales antes de re-analizar
@@ -539,50 +512,22 @@ class MainWindow(QMainWindow):
             self.analyze_directory()
             return
 
-        # Preguntar confirmación de cambio de directorio (pérdida de análisis)
-        reply = QMessageBox.question(
-            self,
-            "Cambio de Directorio",
-            f"Has solicitado cambiar el directorio de análisis.\n\n"
-            f"� Directorio anterior: {self.last_analyzed_directory.name if self.last_analyzed_directory else '—'}\n"
-            f"� Directorio nuevo: {new_directory.name}\n\n"
-            f"⚠️ El análisis anterior se perderá y será necesario realizar un nuevo análisis.\n\n"
-            f"¿Deseas continuar?",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
-
-        if reply == QMessageBox.No:
-            return
-
-        # Tras aceptar el cambio, comprobar tamaño y mostrar advertencia si es grande
-        try:
-            all_files = list(new_directory.rglob('*'))
-            file_count = sum(1 for f in all_files if f.is_file())
-        except Exception as e:
-            QMessageBox.warning(
-                self,
-                "Error",
-                f"No se pudo acceder al directorio:\n{str(e)}"
-            )
-            return
-
-        if file_count > config.config.LARGE_DIRECTORY_THRESHOLD:
-            reply2 = QMessageBox.question(
-                self,
-                "Directorio Grande Detectado",
-                f"� Directorio: {new_directory.name}\n\n"
-                f"� Se detectaron aproximadamente {file_count:,} archivos.\n\n"
-                f"⏱️ Aviso: El análisis de esta cantidad de archivos podría tardar\n"
-                f"varios minutos dependiendo de la potencia de tu equipo.\n\n"
-                f"¿Deseas iniciar el análisis ahora?",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.Yes
-            )
-
-            if reply2 != QMessageBox.Yes:
-                self.logger.info(f"Cambio de directorio cancelado por el usuario para: {new_directory}")
+        # Confirmar cambio de directorio (pérdida de análisis previo)
+        if self.last_analyzed_directory:
+            if not confirm_directory_change(self, self.last_analyzed_directory, new_directory, logger=self.logger):
                 return
+
+        # Comprobar acceso y contar archivos
+        try:
+            file_count = count_files_in_directory(new_directory)
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"No se pudo acceder al directorio:\n{str(e)}")
+            return
+
+        # Si es grande, pedir confirmación adicional
+        if not confirm_large_directory(self, new_directory, file_count, config.config.LARGE_DIRECTORY_THRESHOLD):
+            self.logger.info(f"Cambio de directorio cancelado por el usuario para: {new_directory}")
+            return
 
         # Usuario confirmó, aplicar cambio
         self.current_directory = new_directory
