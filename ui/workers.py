@@ -7,12 +7,46 @@ from PyQt5.QtCore import QThread, pyqtSignal
 import config
 
 
-class AnalysisWorker(QThread):
-    """Worker unificado para análisis completo"""
+class BaseWorker(QThread):
+    """Base worker that provides common signals and a helper to create
+    progress callbacks to avoid repeating the same small functions in
+    every worker.
+    """
     progress_update = pyqtSignal(int, int, str)
-    phase_update = pyqtSignal(str)
     finished = pyqtSignal(dict)
     error = pyqtSignal(str)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def _create_progress_callback(self, counts_in_message: bool = False, emit_numbers: bool = False):
+        """Return a progress callback(current, total, message) with consistent
+        behavior across workers.
+
+        - By default emits (0, 0, message) so the UI shows only the text.
+        - If counts_in_message is True, appends " (current/total)" to the
+          message and still emits numeric placeholders (0,0) for UI.
+        - If emit_numbers is True, emits (current, total, message) so the
+          UI can use real progress numbers.
+        """
+        def callback(current: int, total: int, message: str):
+            try:
+                if emit_numbers:
+                    self.progress_update.emit(current, total, message)
+                elif counts_in_message:
+                    self.progress_update.emit(0, 0, f"{message} ({current}/{total})")
+                else:
+                    self.progress_update.emit(0, 0, message)
+            except Exception:
+                # Never let a progress signal error crash the worker
+                pass
+
+        return callback
+
+
+class AnalysisWorker(BaseWorker):
+    """Worker unificado para análisis completo"""
+    phase_update = pyqtSignal(str)
 
     def __init__(self, directory, renamer, lp_detector, unifier, heic_remover):
         super().__init__()
@@ -65,13 +99,9 @@ class AnalysisWorker(QThread):
 
                 # Crear callback que emita progress_update SIN procesar eventos
                 # El callback solo emite la señal, el procesamiento lo hace Qt internamente
-                def rename_progress_callback(current: int, total: int, message: str):
-                    # No enviar números; solo emitir mensaje para la UI
-                    self.progress_update.emit(0, 0, f"{message} ({current}/{total})")
-
                 results['renaming'] = self.renamer.analyze_directory(
                     self.directory,
-                    progress_callback=rename_progress_callback
+                    progress_callback=self._create_progress_callback(counts_in_message=True)
                 )
 
             # Fase 3: Detección de Live Photos
@@ -117,11 +147,8 @@ class AnalysisWorker(QThread):
             self.error.emit(error_msg)
 
 
-class RenamingWorker(QThread):
+class RenamingWorker(BaseWorker):
     """Worker para ejecutar renombrado de nombres de archivos"""
-    progress_update = pyqtSignal(int, int, str)
-    finished = pyqtSignal(dict)
-    error = pyqtSignal(str)
 
     def __init__(self, renamer, plan, create_backup=True):
         super().__init__()
@@ -131,14 +158,10 @@ class RenamingWorker(QThread):
 
     def run(self):
         try:
-            def progress_callback(current: int, total: int, message: str):
-                # Enviar solo el mensaje; los valores numéricos serán ignorados
-                self.progress_update.emit(0, 0, message)
-
             results = self.renamer.execute_renaming(
                 self.plan,
                 create_backup=self.create_backup,
-                progress_callback=progress_callback
+                progress_callback=self._create_progress_callback()
             )
             self.finished.emit(results)
         except Exception as e:
@@ -147,11 +170,8 @@ class RenamingWorker(QThread):
             self.error.emit(error_msg)
 
 
-class LivePhotoCleanupWorker(QThread):
+class LivePhotoCleanupWorker(BaseWorker):
     """Worker para ejecutar limpieza de Live Photos"""
-    progress_update = pyqtSignal(int, int, str)
-    finished = pyqtSignal(dict)
-    error = pyqtSignal(str)
 
     def __init__(self, cleaner, plan):
         super().__init__()
@@ -164,14 +184,11 @@ class LivePhotoCleanupWorker(QThread):
             cleanup_analysis = {
                 'files_to_delete': self.plan['files_to_delete']
             }
-            def progress_callback(current: int, total: int, message: str):
-                self.progress_update.emit(0, 0, message)
-
             results = self.cleaner.execute_cleanup(
                 cleanup_analysis,
                 create_backup=self.plan['create_backup'],
                 dry_run=self.plan['dry_run'],
-                progress_callback=progress_callback
+                progress_callback=self._create_progress_callback()
             )
             self.finished.emit(results)
         except Exception as e:
@@ -180,11 +197,8 @@ class LivePhotoCleanupWorker(QThread):
             self.error.emit(error_msg)
 
 
-class DirectoryUnificationWorker(QThread):
+class DirectoryUnificationWorker(BaseWorker):
     """Worker para ejecutar unificación de directorios"""
-    progress_update = pyqtSignal(int, int, str)
-    finished = pyqtSignal(dict)
-    error = pyqtSignal(str)
 
     def __init__(self, unifier, plan, create_backup=True):
         super().__init__()
@@ -194,13 +208,10 @@ class DirectoryUnificationWorker(QThread):
 
     def run(self):
         try:
-            def progress_callback(current: int, total: int, message: str):
-                self.progress_update.emit(0, 0, message)
-
             results = self.unifier.execute_unification(
                 self.plan,
                 create_backup=self.create_backup,
-                progress_callback=progress_callback
+                progress_callback=self._create_progress_callback()
             )
             self.finished.emit(results)
         except Exception as e:
@@ -209,11 +220,8 @@ class DirectoryUnificationWorker(QThread):
             self.error.emit(error_msg)
 
 
-class HEICRemovalWorker(QThread):
+class HEICRemovalWorker(BaseWorker):
     """Worker para ejecutar eliminación de duplicados HEIC"""
-    progress_update = pyqtSignal(int, int, str)
-    finished = pyqtSignal(dict)
-    error = pyqtSignal(str)
 
     def __init__(self, remover, pairs, keep_format, create_backup=True):
         super().__init__()
@@ -224,13 +232,12 @@ class HEICRemovalWorker(QThread):
 
     def run(self):
         try:
-            def progress_callback(current: int, total: int, message: str):
-                self.progress_update.emit(0, 0, message)
+            progress_cb_local = self._create_progress_callback()
 
             # Attach callback to remover so create_backup (which may not accept
             # progress_callback explicitly) can use it via attribute
             try:
-                setattr(self.remover, '_progress_callback', progress_callback)
+                setattr(self.remover, '_progress_callback', progress_cb_local)
             except Exception:
                 pass
 
@@ -250,12 +257,8 @@ class HEICRemovalWorker(QThread):
             error_msg = f"{str(e)}\n{traceback.format_exc()}"
             self.error.emit(error_msg)
 
-class DuplicateAnalysisWorker(QThread):
+class DuplicateAnalysisWorker(BaseWorker):
     """Worker para análisis de duplicados (exactos o similares)"""
-    
-    progress_update = pyqtSignal(int, int, str)
-    finished = pyqtSignal(dict)
-    error = pyqtSignal(str)
     
     def __init__(self, detector, directory, mode='exact', sensitivity=10):
         super().__init__()
@@ -266,19 +269,16 @@ class DuplicateAnalysisWorker(QThread):
     
     def run(self):
         try:
-            def progress_callback(current: int, total: int, message: str):
-                self.progress_update.emit(0, 0, message)
-            
             if self.mode == 'exact':
                 results = self.detector.analyze_exact_duplicates(
                     self.directory,
-                    progress_callback=progress_callback
+                    progress_callback=self._create_progress_callback()
                 )
             else:  # perceptual
                 results = self.detector.analyze_similar_duplicates(
                     self.directory,
                     sensitivity=self.sensitivity,
-                    progress_callback=progress_callback
+                    progress_callback=self._create_progress_callback()
                 )
             
             self.finished.emit(results)
@@ -289,12 +289,8 @@ class DuplicateAnalysisWorker(QThread):
             self.error.emit(error_msg)
 
 
-class DuplicateDeletionWorker(QThread):
+class DuplicateDeletionWorker(BaseWorker):
     """Worker para eliminación de duplicados"""
-    
-    progress_update = pyqtSignal(int, int, str)
-    finished = pyqtSignal(dict)
-    error = pyqtSignal(str)
     
     def __init__(self, detector, groups, keep_strategy, create_backup=True):
         super().__init__()
@@ -305,14 +301,11 @@ class DuplicateDeletionWorker(QThread):
     
     def run(self):
         try:
-            def progress_callback(current: int, total: int, message: str):
-                self.progress_update.emit(0, 0, message)
-            
             results = self.detector.execute_deletion(
                 self.groups,
                 keep_strategy=self.keep_strategy,
                 create_backup=self.create_backup,
-                progress_callback=progress_callback
+                progress_callback=self._create_progress_callback()
             )
             
             self.finished.emit(results)
