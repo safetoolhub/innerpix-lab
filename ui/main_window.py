@@ -34,7 +34,7 @@ from utils.date_utils import get_file_date, format_renamed_name, is_renamed_file
 from ui.helpers import (
     update_tab_details, show_results_html, reset_analysis_ui,
 )
-from utils.format_utils import format_size
+from utils.format_utils import format_size, markdown_like_to_html
 from ui.components.progress_bar import create_progress_group as create_progress_bar, show_progress, hide_progress
 from ui import tabs
 
@@ -1197,10 +1197,13 @@ class MainWindow(QMainWindow):
         
         # Actualizar UI
         mode_text = "exactos" if is_exact_mode else "similares"
-        self.duplicates_results_label.setText(
-            f"🔄 Analizando duplicados {mode_text}...\n"
-            f"Por favor espera, esto puede tardar varios minutos."
-        )
+        try:
+            self.duplicates_details.setHtml(markdown_like_to_html(
+                f"🔄 Analizando duplicados {mode_text}...\n"
+                f"Por favor espera, esto puede tardar varios minutos."
+            ))
+        except Exception:
+            pass
         
         # Crear y ejecutar worker
         self.duplicate_worker = DuplicateAnalysisWorker(
@@ -1218,7 +1221,10 @@ class MainWindow(QMainWindow):
     
     def _update_duplicate_progress(self, current, total, message):
         """Actualiza el progreso del análisis de duplicados"""
-        self.duplicates_results_label.setText(f"🔄 {message}")
+        try:
+            self.duplicates_details.setHtml(markdown_like_to_html(f"🔄 {message}"))
+        except Exception:
+            pass
     
     def _on_duplicate_analysis_finished(self, results):
         """Maneja la finalización del análisis de duplicados"""
@@ -1234,9 +1240,10 @@ class MainWindow(QMainWindow):
                 f"Error: {results['error']}\n\n"
                 "Asegúrate de tener instalados imagehash y opencv-python para detección perceptual."
             )
-            self.duplicates_results_label.setText(
-                f"❌ Error: {results['error']}"
-            )
+            try:
+                self.duplicates_details.setHtml(markdown_like_to_html(f"❌ Error: {results['error']}"))
+            except Exception:
+                pass
             return
         
         # Mostrar resultados según el modo
@@ -1252,23 +1259,29 @@ class MainWindow(QMainWindow):
         space_wasted = results['space_wasted']
         
         if total_groups == 0:
-            self.duplicates_results_label.setText(
-                "✅ **¡Excelente!** No se encontraron duplicados exactos.\n\n"
-                "Tu biblioteca está limpia de copias idénticas."
-            )
+            try:
+                self.duplicates_details.setHtml(markdown_like_to_html(
+                    "✅ **¡Excelente!** No se encontraron duplicados exactos.\n\n"
+                    "Tu biblioteca está limpia de copias idénticas."
+                ))
+            except Exception:
+                pass
             return
         
         # Formatear tamaño usando helper central
         size_str = format_size(space_wasted)
         
-        self.duplicates_results_label.setText(
-            f"**📊 Duplicados Exactos Encontrados:**\n\n"
-            f"• **Grupos encontrados:** {total_groups}\n"
-            f"• **Archivos duplicados:** {total_duplicates}\n"
-            f"• **Espacio desperdiciado:** {size_str}\n\n"
-            f"✅ Estos son duplicados 100% idénticos.\n"
-            f"Puedes eliminarlos de forma segura."
-        )
+        try:
+            self.duplicates_details.setHtml(markdown_like_to_html(
+                f"**📊 Duplicados Exactos Encontrados:**\n\n"
+                f"• **Grupos encontrados:** {total_groups}\n"
+                f"• **Archivos duplicados:** {total_duplicates}\n"
+                f"• **Espacio desperdiciado:** {size_str}\n\n"
+                f"✅ Estos son duplicados 100% idénticos.\n"
+                f"Puedes eliminarlos de forma segura."
+            ))
+        except Exception:
+            pass
         
         # Mostrar botón de eliminación
         self.delete_exact_duplicates_btn.setVisible(True)
@@ -1282,24 +1295,30 @@ class MainWindow(QMainWindow):
         max_sim = results.get('max_similarity', 0)
         
         if total_groups == 0:
-            self.duplicates_results_label.setText(
-                "✅ **No se encontraron duplicados similares** con la sensibilidad actual.\n\n"
-                "Prueba aumentar la sensibilidad si quieres detectar archivos menos similares."
-            )
+            try:
+                self.duplicates_details.setHtml(markdown_like_to_html(
+                    "✅ **No se encontraron duplicados similares** con la sensibilidad actual.\n\n"
+                    "Prueba aumentar la sensibilidad si quieres detectar archivos menos similares."
+                ))
+            except Exception:
+                pass
             return
         
         # Formatear tamaño usando helper central
         size_str = format_size(space_potential)
         
-        self.duplicates_results_label.setText(
-            f"**🎨 Duplicados Similares Encontrados:**\n\n"
-            f"• **Grupos de similitud:** {total_groups}\n"
-            f"• **Archivos similares:** {total_similar}\n"
-            f"• **Rango de similitud:** {min_sim}-{max_sim}%\n"
-            f"• **Espacio potencial:** {size_str}\n\n"
-            f"⚠️ **Requiere revisión manual** antes de eliminar.\n"
-            f"Estos archivos NO son idénticos."
-        )
+        try:
+            self.duplicates_details.setHtml(markdown_like_to_html(
+                f"**🎨 Duplicados Similares Encontrados:**\n\n"
+                f"• **Grupos de similitud:** {total_groups}\n"
+                f"• **Archivos similares:** {total_similar}\n"
+                f"• **Rango de similitud:** {min_sim}-{max_sim}%\n"
+                f"• **Espacio potencial:** {size_str}\n\n"
+                f"⚠️ **Requiere revisión manual** antes de eliminar.\n"
+                f"Estos archivos NO son idénticos."
+            ))
+        except Exception:
+            pass
         
         # Mostrar botón de revisión
         self.review_similar_btn.setVisible(True)
@@ -1318,9 +1337,10 @@ class MainWindow(QMainWindow):
             f"Ocurrió un error durante el análisis:\n\n{error_msg}"
         )
         
-        self.duplicates_results_label.setText(
-            "❌ Error en el análisis. Revisa el log para más detalles."
-        )
+        try:
+            self.duplicates_details.setHtml(markdown_like_to_html("❌ Error en el análisis. Revisa el log para más detalles."))
+        except Exception:
+            pass
         
         self.analyze_duplicates_btn.setEnabled(True)
     
@@ -1371,9 +1391,10 @@ class MainWindow(QMainWindow):
         self.review_similar_btn.setEnabled(False)
         self.analyze_duplicates_btn.setEnabled(False)
         
-        self.duplicates_results_label.setText(
-            "🗑️ Eliminando archivos...\nPor favor espera."
-        )
+        try:
+            self.duplicates_details.setHtml(markdown_like_to_html("🗑️ Eliminando archivos...\nPor favor espera."))
+        except Exception:
+            pass
         
         # Crear y ejecutar worker
         self.deletion_worker = DuplicateDeletionWorker(
@@ -1391,7 +1412,10 @@ class MainWindow(QMainWindow):
     
     def _update_deletion_progress(self, current, total, message):
         """Actualiza progreso de eliminación"""
-        self.duplicates_results_label.setText(f"🗑️ {message}")
+        try:
+            self.duplicates_details.setHtml(markdown_like_to_html(f"🗑️ {message}"))
+        except Exception:
+            pass
     
     def _on_deletion_finished(self, results):
         """Maneja finalización de eliminación"""
@@ -1421,12 +1445,15 @@ class MainWindow(QMainWindow):
         QMessageBox.information(self, "Eliminación Completada", msg)
         
         # Actualizar UI
-        self.duplicates_results_label.setText(
-            f"✅ **Eliminación completada exitosamente**\n\n"
-            f"• {files_deleted} archivos eliminados\n"
-            f"• {size_str} liberados\n\n"
-            f"Ejecuta un nuevo análisis para verificar."
-        )
+        try:
+            self.duplicates_details.setHtml(markdown_like_to_html(
+                f"✅ **Eliminación completada exitosamente**\n\n"
+                f"• {files_deleted} archivos eliminados\n"
+                f"• {size_str} liberados\n\n"
+                f"Ejecuta un nuevo análisis para verificar."
+            ))
+        except Exception:
+            pass
         
         # Limpiar resultados y restaurar botones
         self.duplicate_analysis_results = None
