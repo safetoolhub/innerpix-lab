@@ -21,7 +21,7 @@ from services.live_photo_detector import LivePhotoDetector
 from services.directory_unifier import DirectoryUnifier
 from services.heic_remover import HEICDuplicateRemover
 from ui.helpers import (
-    update_tab_details, show_results_html, reset_analysis_ui,
+    update_tab_details, reset_analysis_ui,
 )
 from ui.validators.directory_validator import (
     confirm_directory_change,
@@ -142,11 +142,16 @@ class MainWindow(QMainWindow):
         from ui.controllers.analysis_controller import AnalysisController
         self.analysis_controller = AnalysisController(self)
 
+        # ===== CONTROLADOR DE RESULTADOS =====
+        # Centraliza la presentación de resultados HTML
+        from ui.controllers.results_controller import ResultsController
+        self.results_controller = ResultsController(self)
+
         # ===== CONTROLADOR DE OPERACIONES =====
         # Centraliza la lógica de operaciones de archivos (preview + ejecución)
         from ui.controllers.operations_controller import OperationsController
         self.operations_controller = OperationsController(
-            self, self.progress_controller, self.analysis_controller
+            self, self.progress_controller, self.analysis_controller, self.results_controller
         )
 
         # Crear y usar el componente de botones de acción para mantener
@@ -343,35 +348,7 @@ class MainWindow(QMainWindow):
         # Iniciar nuevo análisis automáticamente
         self.analyze_directory()
 
-   
-    # ========================================================================
-    # LIVE PHOTOS
-    # ========================================================================
     
-    # ========================================================================
-    # UNIFICACIÓN
-    # ========================================================================
-    
-    # ========================================================================
-    # HEIC
-    # ========================================================================
-    
-    # ========================================================================
-    # UTILIDADES
-    # ========================================================================
-    
-    
-    def _show_results_html(self, html: str, show_generic_status: bool = False):
-        """Muestra resultados que antes iban al QTextEdit removido.
-
-        En lugar de escribir en un QTextEdit, registramos el HTML y mostramos
-        un mensaje breve en la statusBar. Esto evita AttributeError si el
-        elemento fue eliminado.
-        """
-
-        return show_results_html(self, html, show_generic_status)
-    
-
     def _reset_analysis_ui(self, reinsert_analyze=True):
         """Reinicia la UI tras cambiar de directorio
         Args:
@@ -462,84 +439,9 @@ class MainWindow(QMainWindow):
         
         # Mostrar resultados según el modo
         if results['mode'] == 'exact':
-            self._show_exact_results(results)
+            self.results_controller.show_exact_results(results)
         else:  # perceptual
-            self._show_similar_results(results)
-    
-    def _show_exact_results(self, results):
-        """Muestra resultados de duplicados exactos"""
-        total_groups = results['total_groups']
-        total_duplicates = results['total_duplicates']
-        space_wasted = results['space_wasted']
-        
-        if total_groups == 0:
-            try:
-                self.duplicates_details.setHtml(markdown_like_to_html(
-                    "✅ **¡Excelente!** No se encontraron duplicados exactos.\n\n"
-                    "Tu biblioteca está limpia de copias idénticas."
-                ))
-            except Exception:
-                pass
-            return
-        
-        # Formatear tamaño usando helper central
-        size_str = format_size(space_wasted)
-        
-        try:
-            self.duplicates_details.setHtml(markdown_like_to_html(
-                f"**📊 Duplicados Exactos Encontrados:**\n\n"
-                f"• **Grupos encontrados:** {total_groups}\n"
-                f"• **Archivos duplicados:** {total_duplicates}\n"
-                f"• **Espacio desperdiciado:** {size_str}\n\n"
-                f"✅ Estos son duplicados 100% idénticos.\n"
-                f"Puedes eliminarlos de forma segura."
-            ))
-        except Exception:
-            pass
-        
-        # Mostrar botón de eliminación
-        self.delete_exact_duplicates_btn.setVisible(True)
-    
-    def _show_similar_results(self, results):
-        """Muestra resultados de duplicados similares"""
-        total_groups = results['total_groups']
-        total_similar = results['total_similar']
-        space_potential = results['space_potential']
-        min_sim = results.get('min_similarity', 0)
-        max_sim = results.get('max_similarity', 0)
-        
-        if total_groups == 0:
-            try:
-                self.duplicates_details.setHtml(markdown_like_to_html(
-                    "✅ **No se encontraron duplicados similares** con la sensibilidad actual.\n\n"
-                    "Prueba aumentar la sensibilidad si quieres detectar archivos menos similares."
-                ))
-            except Exception:
-                pass
-            return
-        
-        # Formatear tamaño usando helper central
-        size_str = format_size(space_potential)
-        
-        try:
-            self.duplicates_details.setHtml(markdown_like_to_html(
-                f"**🎨 Duplicados Similares Encontrados:**\n\n"
-                f"• **Grupos de similitud:** {total_groups}\n"
-                f"• **Archivos similares:** {total_similar}\n"
-                f"• **Rango de similitud:** {min_sim}-{max_sim}%\n"
-                f"• **Espacio potencial:** {size_str}\n\n"
-                f"⚠️ **Requiere revisión manual** antes de eliminar.\n"
-                f"Estos archivos NO son idénticos."
-            ))
-        except Exception:
-            pass
-        
-        # Mostrar botón de revisión
-        self.review_similar_btn.setVisible(True)
-        # Asegurarse de que el botón esté habilitado (puede haber quedado deshabilitado
-        # por operaciones previas como una eliminación). Esto evita que el botón
-        # no responda cuando solo hay un grupo encontrado.
-        self.review_similar_btn.setEnabled(True)
+            self.results_controller.show_similar_results(results)
     
     def _on_duplicate_analysis_error(self, error_msg):
         """Maneja errores en el análisis de duplicados"""
