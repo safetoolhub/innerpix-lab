@@ -9,7 +9,9 @@ from PyQt5.QtCore import Qt
 import config
 from ui import styles
 
-from ui.helpers import service_available
+# Nota: la disponibilidad real de las pestañas se decide mediante
+# `TabController` (accesible como `window.tab_controller`) y
+# `update_tabs_availability`.
 
 
 def create_summary_panel(window):
@@ -115,7 +117,8 @@ def create_summary_panel(window):
         return btn
 
     # Añadir siempre los botones (la visibilidad/estado real se controlará
-    # más tarde mediante `window.tab_availability` y update_tabs_availability).
+    # más tarde mediante el `TabController` y su método
+    # `update_tabs_availability`).
     stack_layout.addWidget(make_full_btn('live_photos', '📱', 'Live Photos'))
     stack_layout.addWidget(make_full_btn('heic', '🖼️', 'Duplicados HEIC'))
     stack_layout.addWidget(make_full_btn('unification', '📁', 'Unificar Directorios'))

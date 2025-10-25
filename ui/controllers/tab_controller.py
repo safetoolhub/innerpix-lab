@@ -5,7 +5,8 @@ disponibilidad de pestañas para separar esa responsabilidad de
 Este módulo centraliza:
 - creación del widget de pestañas
 - mapeo de índices
-- estado `tab_availability` expuesto en `window` para compatibilidad
+- estado `tab_availability` centralizado en la propia instancia de
+    `TabController` (no se inyecta en `window`)
 - lógica de actualización de disponibilidad basada en resultados
 """
 from typing import Dict
@@ -26,8 +27,8 @@ class TabController:
             'duplicates': True,
         }
 
-        # Mantener compatibilidad con código que consulta `window.tab_availability`
-        setattr(self.window, 'tab_availability', self.tab_availability)
+    # Nota: ya no inyectamos `tab_availability` en `window`.
+    # El código debe consultar `window.tab_controller.tab_availability`.
 
         self.tabs_widget = None
 

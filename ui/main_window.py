@@ -122,9 +122,10 @@ class MainWindow(QMainWindow):
         # ===== SPLITTER: PANEL RESUMEN + PESTAÑAS =====
         splitter = QSplitter(Qt.Horizontal)
 
-        # Controlador de pestañas: centraliza creación, navegación y lógica
-        # de disponibilidad de pestañas. Expone `window.tab_availability`
-        # para mantener compatibilidad con helpers existentes.
+    # Controlador de pestañas: centraliza creación, navegación y lógica
+    # de disponibilidad de pestañas. Usa `window.tab_controller` como
+    # fuente de verdad para la disponibilidad (ya no se inyecta
+    # `tab_availability` directamente en `window`).
         from ui.controllers.tab_controller import TabController
         self.tab_controller = TabController(self)
 
