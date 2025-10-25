@@ -41,7 +41,6 @@ from ui.validators.directory_validator import (
 )
 from utils.format_utils import format_size, markdown_like_to_html
 from ui.components.progress_bar import create_progress_group as create_progress_bar, show_progress, hide_progress
-from ui import tabs
 
 from services.duplicate_detector import DuplicateDetector
 from ui.workers import DuplicateAnalysisWorker, DuplicateDeletionWorker
@@ -130,19 +129,11 @@ class MainWindow(QMainWindow):
         # ===== SPLITTER: PANEL RESUMEN + PESTAÑAS =====
         splitter = QSplitter(Qt.Horizontal)
 
-        # Inicializar el mapa de disponibilidad de pestañas/características.
-        # En el futuro `update_tabs_availability` lo actualizará según los
-        # resultados del análisis. Por defecto dejamos todas las pestañas
-        # habilitadas (True) para mantener el comportamiento actual.
-        self.tab_availability = {
-            'live_photo_detector': True,
-            'heic_remover': True,
-            'directory_unifier': True,
-            'renamer': True,
-            'duplicate_detector': True,
-            # clave 'duplicates' coincide con el nombre usado en tab_index_map
-            'duplicates': True,
-        }
+        # Controlador de pestañas: centraliza creación, navegación y lógica
+        # de disponibilidad de pestañas. Expone `window.tab_availability`
+        # para mantener compatibilidad con helpers existentes.
+        from ui.controllers.tab_controller import TabController
+        self.tab_controller = TabController(self)
 
         from ui.components import SummaryPanel
         # Guardar la instancia del componente para poder actualizarlo luego
@@ -150,7 +141,7 @@ class MainWindow(QMainWindow):
         # `create_summary_panel` retorna un widget; mantener compatibilidad
         self.summary_panel = self.summary_component.get_widget()
         splitter.addWidget(self.summary_panel)
-        self.tabs_widget = self._create_tabs_widget()
+        self.tabs_widget = self.tab_controller.create_tabs_widget()
         splitter.addWidget(self.tabs_widget)
         splitter.setStretchFactor(0, 1)
         splitter.setStretchFactor(1, 3)
@@ -181,16 +172,9 @@ class MainWindow(QMainWindow):
         dialog.exec_()
 
     
-    def _create_tabs_widget(self):
-        # Crear mediante el módulo tabs directamente
-        return tabs.create_tabs_widget(self)
-
-    def _open_summary_action(self, label_substr):
-        """Selecciona la pestaña correspondiente según el botón del summary.
-
-        label_substr: una breve cadena que identifica la funcionalidad (p.ej. 'Live Photos')
-        """
-        return tabs.open_summary_action(self, label_substr)
+    # Nota: la creación y navegación de pestañas se gestiona ahora mediante
+    # `self.tab_controller`. Los métodos legacy `_create_tabs_widget` y
+    # `_open_summary_action` han sido eliminados para simplificar la clase.
     
 
 
@@ -389,11 +373,9 @@ class MainWindow(QMainWindow):
         # Actualizar detalles de cada pestaña
         update_tab_details(self, results)
 
-        # Actualizar disponibilidad de pestañas según los resultados (hook para lógica futura)
-        try:
-            tabs.update_tabs_availability(self, results)
-        except Exception:
-            pass
+        # Actualizar disponibilidad de pestañas según los resultados
+        # delegando en el `TabController` centralizado.
+        self.tab_controller.update_tabs_availability(results)
         
         # Mostrar paneles
         self.summary_panel.setVisible(True)

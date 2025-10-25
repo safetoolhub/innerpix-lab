@@ -9,11 +9,6 @@ from PyQt5.QtCore import Qt
 import config
 from ui import styles
 
-try:
-    from ui import tabs as _tabs_module
-except Exception:
-    _tabs_module = None
-
 from ui.helpers import service_available
 
 
@@ -107,19 +102,12 @@ def create_summary_panel(window):
         btn.setFixedHeight(36)
         btn.setStyleSheet(styles.STYLE_SUMMARY_ACTION_BUTTON + "QPushButton { text-align: left; padding-left: 12px; }")
         def _invoke():
-            try:
-                if _tabs_module:
-                    _tabs_module.open_summary_action(window, label_text)
-                    return
-            except Exception:
-                pass
-            # Fallback: ensure any existing tabs_widget is shown
-            try:
-                if hasattr(window, 'tabs_widget') and window.tabs_widget.count() > 0:
-                    window.tabs_widget.setCurrentIndex(0)
-                    window.tabs_widget.setVisible(True)
-            except Exception:
-                pass
+            # Usar TabController centralizado (se asume que existe en la app)
+            tc = getattr(window, 'tab_controller', None)
+            if tc is None:
+                # Si no existe, no hacemos nada (se asumió TabController siempre presente)
+                return
+            tc.open_summary_action(label_text)
 
         btn.clicked.connect(_invoke)
         btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
