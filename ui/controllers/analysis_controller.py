@@ -198,11 +198,21 @@ class AnalysisController:
         self.window.action_buttons.update_after_analysis(results)
 
         # Mostrar mensaje de éxito
-        self.window._show_results_html("""
-            <div style='color: #28a745; font-weight: bold;'>
-                ✅ Análisis completado con éxito
-            </div>
-        """, show_generic_status=True)
+        try:
+            self.window.results_controller.show_results_html(
+                """
+                <div style='color: #28a745; font-weight: bold;'>
+                    ✅ Análisis completado con éxito
+                </div>
+                """,
+                show_generic_status=True
+            )
+        except Exception:
+            # Fallback: registrar en logger si no existe el controller
+            try:
+                self.window.logger.info('Análisis completado — revisa el log para detalles')
+            except Exception:
+                pass
 
         self.window.logger.info(
             f"Análisis completado para: {self.window.last_analyzed_directory}"
