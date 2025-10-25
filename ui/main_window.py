@@ -14,15 +14,8 @@ from PyQt5.QtCore import Qt, QTimer
 import config
 from services.file_renamer import FileRenamer
 from ui.components import Header
-from ui.workers import (
-    AnalysisWorker, RenamingWorker, LivePhotoCleanupWorker,
-    DirectoryUnificationWorker, HEICRemovalWorker
-)
-from ui.dialogs import (
-    RenamingPreviewDialog, LivePhotoCleanupDialog,
-    DirectoryUnificationDialog, HEICDuplicateRemovalDialog, SettingsDialog
-)
-from ui.dialogs import AboutDialog
+from ui.workers import AnalysisWorker
+from ui.dialogs import SettingsDialog, AboutDialog
 from services.live_photo_cleaner import LivePhotoCleaner
 from services.live_photo_detector import LivePhotoDetector
 from services.directory_unifier import DirectoryUnifier
@@ -86,7 +79,6 @@ class MainWindow(QMainWindow):
         self.duplicate_detector = DuplicateDetector()
 
         # Workers
-        self.execution_worker = None
         self.active_workers = []
         
         # Inicializar UI
@@ -150,6 +142,13 @@ class MainWindow(QMainWindow):
         from ui.controllers.analysis_controller import AnalysisController
         self.analysis_controller = AnalysisController(self)
 
+        # ===== CONTROLADOR DE OPERACIONES =====
+        # Centraliza la lógica de operaciones de archivos (preview + ejecución)
+        from ui.controllers.operations_controller import OperationsController
+        self.operations_controller = OperationsController(
+            self, self.progress_controller, self.analysis_controller
+        )
+
         # Crear y usar el componente de botones de acción para mantener
         # la lógica encapsulada y reducir el tamaño de MainWindow.
         from ui.components.action_buttons import ActionButtons
@@ -159,6 +158,31 @@ class MainWindow(QMainWindow):
         # existente en esta clase.
         self.action_buttons = ActionButtons(self, search_bar)
 
+    # ========================================================================
+    # WRAPPER METHODS FOR OPERATIONS CONTROLLER
+    # ========================================================================
+    # Estos métodos delegan al operations_controller para mantener compatibilidad
+    # con las conexiones de botones existentes en las tabs
+    
+    def preview_renaming(self):
+        """Wrapper: delega a operations_controller"""
+        self.operations_controller.preview_renaming()
+    
+    def cleanup_live_photos(self):
+        """Wrapper: delega a operations_controller"""
+        self.operations_controller.preview_live_photo_cleanup()
+    
+    def unify_directories(self):
+        """Wrapper: delega a operations_controller"""
+        self.operations_controller.preview_unification()
+    
+    def remove_heic(self):
+        """Wrapper: delega a operations_controller"""
+        self.operations_controller.preview_heic_removal()
+
+    # ========================================================================
+    # CONFIGURACIÓN Y DIÁLOGOS
+    # ========================================================================
 
     def toggle_config(self):
         """Abre el diálogo de configuración avanzada"""
@@ -321,566 +345,17 @@ class MainWindow(QMainWindow):
 
    
     # ========================================================================
-    # RENOMBRADO
-    # ========================================================================
-
-    
-    def preview_renaming(self):
-        """Muestra preview de renombrado"""
-        if not self.analysis_results or not self.analysis_results.get('renaming'):
-            QMessageBox.warning(self, "Advertencia", "No hay análisis disponible")
-            return
-
-        dialog = RenamingPreviewDialog(self.analysis_results['renaming'], self)
-        if dialog.exec_() == QDialog.Accepted and dialog.accepted_plan:
-            self.renaming_plan = dialog.accepted_plan
-            # Ejecutar renombrado directamente desde el diálogo
-            # Si el diálogo solo quería preparar el plan sin ejecutar, puede
-            # modificarse aquí. Actualmente acepted_plan implica ejecutar.
-            self.execute_renaming(skip_confirmation=True)
-    
-    def execute_renaming(self, skip_confirmation=False):
-        """Ejecuta el renombrado"""
-        if not hasattr(self, 'renaming_plan'):
-            return
-
-        # Si no se solicita omitir confirmación, pedir confirmación al usuario
-        if not skip_confirmation:
-            reply = QMessageBox.question(
-                self,
-                "Confirmar",
-                f"¿Renombrar {len(self.renaming_plan['plan'])} archivos?",
-                QMessageBox.Yes | QMessageBox.No
-            )
-            if reply != QMessageBox.Yes:
-                return
-        
-        # Limpiar worker anterior
-        if self.execution_worker and self.execution_worker.isRunning():
-            self.execution_worker.quit()
-            self.execution_worker.wait()
-        
-        self.progress_controller.show_progress(len(self.renaming_plan['plan']), "Renombrando archivos...")
-
-        self.execution_worker = RenamingWorker(
-            self.renamer,
-            self.renaming_plan['plan'],
-            self.renaming_plan['create_backup']
-        )
-        # Conectar actualizaciones de progreso para mostrar mensajes (ej. backup)
-        try:
-            self.execution_worker.progress_update.connect(self.analysis_controller.update_progress)
-        except Exception:
-            pass
-
-        self.execution_worker.finished.connect(self.on_renaming_finished)
-        self.execution_worker.error.connect(self.on_operation_error)
-        self.execution_worker.finished.connect(self.execution_worker.deleteLater)
-        self.execution_worker.error.connect(self.execution_worker.deleteLater)
-        
-        self.active_workers.append(self.execution_worker)
-        self.execution_worker.start()
-        
-        self.preview_rename_btn.setEnabled(False)
-    
-    def on_renaming_finished(self, results):
-        """Callback al terminar renombrado"""
-        self.progress_controller.hide_progress()
-
-        # Actualizar estadísticas si el diálogo está abierto
-        for dialog in self.findChildren(RenamingPreviewDialog):
-            dialog.update_statistics(results)
-        
-        html = f"""
-            <div style='color: #28a745;'>
-                <h4>✅ Renombrado Completado</h4>
-                <p><strong>Archivos renombrados:</strong> {results.get('files_renamed', 0)}</p>
-                <p><strong>Errores:</strong> {len(results.get('errors', []))}</p>
-        """
-        
-        if results.get('backup_path'):
-            html += f"<p><strong>💾 Backup:</strong> {results['backup_path']}</p>"
-        
-        html += "</div>"
-        
-        self._show_results_html(html, show_generic_status=False)
-        
-        if results.get('success'):
-            QMessageBox.information(
-                self, 
-                "Completado",
-                f"Se renombraron {results.get('files_renamed', 0)} archivos correctamente"
-            )
-        # REFRESCAR datos de análisis internos para que la UI muestre el
-        # estado actualizado (p. ej. eliminar el cuadro informativo si ya no
-        # quedan archivos a renombrar)
-        files_renamed = int(results.get('files_renamed', 0))
-        if self.analysis_results and self.analysis_results.get('renaming'):
-            ren = self.analysis_results['renaming']
-            ren['already_renamed'] = ren.get('already_renamed', 0) + files_renamed
-            # Reducir need_renaming preservando >= 0
-            ren['need_renaming'] = max(0, ren.get('need_renaming', 0) - files_renamed)
-            # Si el worker devuelve errores, añadirlos a cannot_process longitud
-            errors_count = len(results.get('errors', [])) if results.get('errors') else 0
-            if errors_count:
-                ren['cannot_process'] = ren.get('cannot_process', 0) + errors_count
-
-            # Ajustar contador de conflictos según los conflictos resueltos durante la operación
-            conflicts_resolved = int(results.get('conflicts_resolved', 0)) if results.get('conflicts_resolved') is not None else 0
-            if conflicts_resolved:
-                ren['conflicts'] = max(0, ren.get('conflicts', 0) - conflicts_resolved)
-
-            self.analysis_results['renaming'] = ren
-
-            # Actualizar paneles y pestañas para reflejar los nuevos valores
-            self.summary_component.update(self.analysis_results)
-            update_tab_details(self, self.analysis_results)
-
-            # Habilitar/deshabilitar botón de preview según queden archivos
-            self.preview_rename_btn.setEnabled(ren.get('need_renaming', 0) > 0)
-        else:
-            # Si no hay análisis en memoria, simplemente deshabilitar preview
-            self.preview_rename_btn.setEnabled(False)
-
-        if self.execution_worker in self.active_workers:
-            self.active_workers.remove(self.execution_worker)
-        self.execution_worker = None
-        # Programar re-análisis automático para mantener consistencia
-        try:
-            self._schedule_reanalysis()
-        except Exception:
-            # No interrumpir el flujo por un fallo en el reanálisis
-            self.logger.exception("Error al programar re-análisis tras renombrado")
-    
-    # ========================================================================
     # LIVE PHOTOS
     # ========================================================================
-    
-    def cleanup_live_photos(self):
-        """Limpia Live Photos"""
-        if not self.analysis_results or not self.analysis_results.get('live_photos'):
-            return
-        
-        lp_results = self.analysis_results['live_photos']
-        
-        lp_groups = lp_results.get('groups', [])
-            
-        if not lp_groups:
-            QMessageBox.information(self, "Live Photos", "No hay Live Photos para limpiar")
-            return
-        
-        try:
-            # Por defecto, eliminamos los videos y mantenemos las imágenes
-            cleanup_analysis = {
-                'live_photos_found': len(lp_groups),
-                'total_space': lp_results.get('total_space', 0),
-                'space_to_free': lp_results.get('space_to_free', 0),
-                'cleanup_mode': 'keep_image',
-                'files_to_delete': [
-                    {
-                        'path': Path(group['video_path']),
-                        'size': group['video_size'],
-                        'type': 'video',
-                        'base_name': group['base_name']
-                    } 
-                    for group in lp_groups
-                ],
-                'files_to_keep': [
-                    {
-                        'path': Path(group['image_path']),
-                        'size': group['image_size'],
-                        'type': 'image',
-                        'base_name': group['base_name']
-                    }
-                    for group in lp_groups
-                ],
-                'groups': lp_groups  # mantener la referencia a los grupos originales
-            }
-            
-            dialog = LivePhotoCleanupDialog(cleanup_analysis, self)
-            if dialog.exec_() == QDialog.Accepted and dialog.accepted_plan:
-                self._execute_lp_cleanup(dialog.accepted_plan)
-                
-        except Exception as e:
-            import traceback
-            error_msg = f"{str(e)}\n{traceback.format_exc()}"
-            QMessageBox.critical(self, "Error", f"Error preparando limpieza LP:\n{error_msg}")
-            self.logger.error(f"Error preparando limpieza LP: {error_msg}")
-    
-    def _execute_lp_cleanup(self, plan):
-        """Ejecuta la limpieza de Live Photos"""
-        count = len(plan['files_to_delete'])
-        space = sum(file_info['size'] for file_info in plan['files_to_delete'])
-        space_formatted = format_size(space)
-
-        reply = QMessageBox.question(
-            self,
-            "Confirmar",
-            f"¿Eliminar {count} archivos ({space_formatted})?",
-            QMessageBox.Yes | QMessageBox.No
-        )
-        
-        if reply != QMessageBox.Yes:
-            return
-        
-        # Limpiar worker anterior
-        if self.execution_worker and self.execution_worker.isRunning():
-            self.execution_worker.quit()
-            self.execution_worker.wait()
-        
-        self.progress_controller.show_progress(count, "Limpiando Live Photos...")
-        
-        self.execution_worker = LivePhotoCleanupWorker(self.live_photo_cleaner, plan)
-        # Mostrar mensajes de progreso del worker (p.ej. creación de backup)
-        try:
-            self.execution_worker.progress_update.connect(self.analysis_controller.update_progress)
-        except Exception:
-            pass
-
-        self.execution_worker.finished.connect(self.on_lp_finished)
-        self.execution_worker.error.connect(self.on_operation_error)
-        self.execution_worker.finished.connect(self.execution_worker.deleteLater)
-        self.execution_worker.error.connect(self.execution_worker.deleteLater)
-        
-        self.active_workers.append(self.execution_worker)
-        self.execution_worker.start()
-        
-        self.exec_lp_btn.setEnabled(False)
-    
-    def on_lp_finished(self, results):
-        """Callback al terminar limpieza de Live Photos"""
-        self.progress_controller.hide_progress()
-        space_freed = results.get('space_freed', 0)
-
-        # Si fue una simulación, preferimos mostrar los contadores simulados
-        dry_run = bool(results.get('dry_run'))
-        simulated_count = results.get('simulated_files_deleted', 0)
-        simulated_space = results.get('simulated_space_freed', 0)
-
-        if dry_run:
-            space_display = format_size(simulated_space)
-            files_display = f"{simulated_count} (simulado)"
-        else:
-            space_display = format_size(space_freed)
-            files_display = f"{results.get('files_deleted', 0)}"
-
-        html = f"""
-            <div style='color: #28a745;'>
-                <h4>✅ Limpieza de Live Photos Completada</h4>
-                <p><strong>Archivos eliminados:</strong> {files_display}</p>
-                <p><strong>Espacio liberado:</strong> {space_display}</p>
-                <p><strong>Errores:</strong> {len(results.get('errors', []))}</p>
-        """
-        
-        if results.get('backup_path'):
-            html += f"<p><strong>💾 Backup:</strong> {results['backup_path']}</p>"
-        
-        if dry_run:
-            html += "<p><strong>ℹ️ Modo simulación</strong> - No se eliminaron archivos realmente</p>"
-
-            # Añadir información adicional en el panel de Live Photos para indicar impacto simulado
-            try:
-                note = f"<p style='color: #0c5460;'><em>ℹ️ Simulación: se simularon {simulated_count} eliminaciones " \
-                       f"(potencialmente {format_size(simulated_space)} liberados)</em></p>"
-                # Append to existing lp_details without modifying core stats
-                try:
-                    current = self.lp_details.toHtml()
-                    # Evitar duplicar la nota si ya estaba presente
-                    if 'Simulación:' not in current:
-                        self.lp_details.setHtml(current + "<hr>" + note)
-                except Exception:
-                    # Si lp_details no está disponible o falla, ignorar
-                    pass
-            except Exception:
-                pass
-        
-        html += "</div>"
-        
-        self._show_results_html(html, show_generic_status=False)
-        
-        if results.get('success'):
-            try:
-                if dry_run:
-                    QMessageBox.information(
-                        self,
-                        "Simulación completada",
-                        f"Se simularon {simulated_count} eliminaciones (0 reales)"
-                    )
-                else:
-                    QMessageBox.information(
-                        self,
-                        "Completado",
-                        f"Se eliminaron {results.get('files_deleted', 0)} archivos"
-                    )
-            except Exception:
-                # En entornos sin GUI (pruebas) puede fallar; no romper flujo
-                pass
-        
-        self.exec_lp_btn.setEnabled(False)
-        
-        if self.execution_worker in self.active_workers:
-            self.active_workers.remove(self.execution_worker)
-        self.execution_worker = None
-        # Programar re-análisis automático (estructura de ficheros ha cambiado)
-        try:
-            self._schedule_reanalysis()
-        except Exception:
-            self.logger.exception("Error al programar re-análisis tras limpieza Live Photos")
     
     # ========================================================================
     # UNIFICACIÓN
     # ========================================================================
     
-    def unify_directories(self):
-        """Unifica directorios"""
-        if not self.analysis_results or not self.analysis_results.get('unification'):
-            return
-        
-        unif_analysis = self.analysis_results['unification']
-        
-        if unif_analysis.get('total_files_to_move', 0) == 0:
-            QMessageBox.information(self, "Unificación", "No hay archivos para mover")
-            return
-        
-        dialog = DirectoryUnificationDialog(unif_analysis, self)
-        if dialog.exec_() == QDialog.Accepted and dialog.accepted_plan:
-            self._execute_unification(dialog.accepted_plan)
-    
-    def _execute_unification(self, plan):
-        """Ejecuta la unificación"""
-        count = len(plan['move_plan'])
-        
-        reply = QMessageBox.question(
-            self,
-            "Confirmar",
-            f"¿Mover {count} archivos al directorio raíz?",
-            QMessageBox.Yes | QMessageBox.No
-        )
-        
-        if reply != QMessageBox.Yes:
-            return
-        
-        # Limpiar worker anterior
-        if self.execution_worker and self.execution_worker.isRunning():
-            self.execution_worker.quit()
-            self.execution_worker.wait()
-        
-        self.progress_controller.show_progress(count, "Unificando directorios...")
-        
-        self.execution_worker = DirectoryUnificationWorker(
-            self.directory_unifier,
-            plan['move_plan'],
-            plan['create_backup']
-        )
-        # Mostrar mensajes de progreso del worker (p.ej. "Creando backup antes de unificar...")
-        try:
-            self.execution_worker.progress_update.connect(self.analysis_controller.update_progress)
-        except Exception:
-            pass
-
-        self.execution_worker.finished.connect(self.on_unification_finished)
-        self.execution_worker.error.connect(self.on_operation_error)
-        self.execution_worker.finished.connect(self.execution_worker.deleteLater)
-        self.execution_worker.error.connect(self.execution_worker.deleteLater)
-        
-        self.active_workers.append(self.execution_worker)
-        self.execution_worker.start()
-        
-        self.exec_unif_btn.setEnabled(False)
-    
-    def on_unification_finished(self, results):
-        """Callback al terminar unificación"""
-        self.progress_controller.hide_progress()
-        
-        html = f"""
-            <div style='color: #28a745;'>
-                <h4>✅ Unificación Completada</h4>
-                <p><strong>Archivos movidos:</strong> {results.get('files_moved', 0)}</p>
-                <p><strong>Directorios eliminados:</strong> {results.get('empty_directories_removed', 0)}</p>
-                <p><strong>Errores:</strong> {len(results.get('errors', []))}</p>
-        """
-        
-        if results.get('backup_path'):
-            html += f"<p><strong>💾 Backup:</strong> {results['backup_path']}</p>"
-        
-        html += "</div>"
-        
-        self._show_results_html(html, show_generic_status=False)
-        
-        if results.get('success'):
-            QMessageBox.information(
-                self,
-                "Completado",
-                f"Se movieron {results.get('files_moved', 0)} archivos"
-            )
-        
-        self.exec_unif_btn.setEnabled(False)
-        # Actualizar análisis interno para reflejar cambios en la estructura
-        try:
-            if self.current_directory and self.directory_unifier:
-                # Re-analizar la estructura para obtener valores actualizados
-                updated_unif = self.directory_unifier.analyze_directory_structure(self.current_directory)
-
-                if not self.analysis_results:
-                    self.analysis_results = {}
-
-                self.analysis_results['unification'] = updated_unif
-
-                # Refrescar UI
-                self.summary_component.update(self.analysis_results)
-                update_tab_details(self, self.analysis_results)
-
-                # Ajustar estado del botón según queden archivos por mover
-                if updated_unif.get('total_files_to_move', 0) > 0:
-                    self.exec_unif_btn.setEnabled(True)
-                else:
-                    self.exec_unif_btn.setEnabled(False)
-
-        except Exception as e:
-            # Registrar pero no interrumpir
-            self.logger.error(f"Error re-analizando después de unificación: {e}")
-
-        if self.execution_worker in self.active_workers:
-            self.active_workers.remove(self.execution_worker)
-        self.execution_worker = None
-        # Programar re-análisis completo tras la unificación para evitar inconsistencias
-        try:
-            self._schedule_reanalysis()
-        except Exception:
-            self.logger.exception("Error al programar re-análisis tras unificación")
-    
     # ========================================================================
     # HEIC
     # ========================================================================
     
-    def remove_heic(self):
-        """Elimina duplicados HEIC"""
-        if not self.analysis_results or not self.analysis_results.get('heic'):
-            return
-        
-        heic_analysis = self.analysis_results['heic']
-        
-        if heic_analysis.get('total_duplicates', 0) == 0:
-            QMessageBox.information(self, "HEIC", "No hay duplicados para eliminar")
-            return
-        
-        dialog = HEICDuplicateRemovalDialog(heic_analysis, self)
-        if dialog.exec_() == QDialog.Accepted and dialog.accepted_plan:
-            self._execute_heic_removal(dialog.accepted_plan)
-    
-    def _execute_heic_removal(self, plan):
-        """Ejecuta la eliminación de duplicados HEIC"""
-        count = len(plan['duplicate_pairs'])
-        format_del = 'HEIC' if plan['keep_format'] == 'jpg' else 'JPG'
-        
-        reply = QMessageBox.question(
-            self,
-            "Confirmar",
-            f"¿Eliminar {count} archivos {format_del}?",
-            QMessageBox.Yes | QMessageBox.No
-        )
-        
-        if reply != QMessageBox.Yes:
-            return
-        
-        # Limpiar worker anterior
-        if self.execution_worker and self.execution_worker.isRunning():
-            self.execution_worker.quit()
-            self.execution_worker.wait()
-        
-        self.progress_controller.show_progress(count, f"Eliminando archivos {format_del}...")
-        
-        self.execution_worker = HEICRemovalWorker(
-            self.heic_remover,
-            plan['duplicate_pairs'],
-            plan['keep_format'],
-            plan['create_backup']
-        )
-        # Mostrar mensajes de progreso del worker (p.ej. creación de backup)
-        try:
-            self.execution_worker.progress_update.connect(self.analysis_controller.update_progress)
-        except Exception:
-            pass
-
-        self.execution_worker.finished.connect(self.on_heic_finished)
-        self.execution_worker.error.connect(self.on_operation_error)
-        self.execution_worker.finished.connect(self.execution_worker.deleteLater)
-        self.execution_worker.error.connect(self.execution_worker.deleteLater)
-        
-        self.active_workers.append(self.execution_worker)
-        self.execution_worker.start()
-        
-        self.exec_heic_btn.setEnabled(False)
-    
-    def on_heic_finished(self, results):
-        """Callback al terminar eliminación HEIC"""
-        self.progress_controller.hide_progress()
-        
-        space_freed = results.get('space_freed', 0)
-        
-        html = f"""
-            <div style='color: #28a745;'>
-                <h4>✅ Eliminación de Duplicados HEIC Completada</h4>
-                <p><strong>Archivos eliminados:</strong> {results.get('files_removed', 0)}</p>
-                <p><strong>Espacio liberado:</strong> {format_size(space_freed)}</p>
-                <p><strong>Errores:</strong> {len(results.get('errors', []))}</p>
-        """
-        
-        if results.get('backup_path'):
-            html += f"<p><strong>💾 Backup:</strong> {results['backup_path']}</p>"
-        
-        if results.get('kept_format'):
-            html += f"<p><strong>📋 Formato mantenido:</strong> {results['kept_format'].upper()}</p>"
-        
-        html += "</div>"
-        
-        self._show_results_html(html, show_generic_status=False)
-        
-        if results.get('success'):
-            QMessageBox.information(
-                self,
-                "Completado",
-                f"Se eliminaron {results.get('files_removed', 0)} duplicados"
-            )
-        
-        self.exec_heic_btn.setEnabled(False)
-        
-        if self.execution_worker in self.active_workers:
-            self.active_workers.remove(self.execution_worker)
-        self.execution_worker = None
-
-        # Programar re-análisis automático tras eliminación HEIC
-        try:
-            self._schedule_reanalysis()
-        except Exception:
-            self.logger.exception("Error al programar re-análisis tras eliminación HEIC")
-
-    def _schedule_reanalysis(self, delay_ms: int = 500):
-        """Programa un re-análisis del directorio actual tras operaciones que cambian archivos.
-
-        Usa QTimer.singleShot para evitar reentradas inmediatas y dar tiempo al FS a estabilizarse.
-        Si no hay directorio analizado previamente, no hace nada.
-        """
-        # Si no hay un directorio actual o no se analizó previamente, no re-analizar
-        if not self.current_directory:
-            self.logger.debug("No hay directorio actual: se omite re-análisis programado")
-            return
-
-        # Si el último directorio analizado es distinto, aún así forzamos re-análisis del actual
-        def _do_reanalyze():
-            try:
-                self.logger.info("Iniciando re-análisis automático tras operación que modifica archivos")
-                # Asegurarse de que los botones estén en estado adecuado y llamar a analyze_directory
-                # Llamamos a _reanalyze_same_directory para respetar el flujo existente
-                # Que deshabilita/gestiona botones correctamente
-                self._reanalyze_same_directory()
-            except Exception:
-                self.logger.exception("Fallo durante re-análisis automático")
-
-        # Usar un pequeño retardo para dejar que el sistema de ficheros se estabilice
-        QTimer.singleShot(delay_ms, _do_reanalyze)
-
-
     # ========================================================================
     # UTILIDADES
     # ========================================================================
@@ -895,17 +370,6 @@ class MainWindow(QMainWindow):
         """
 
         return show_results_html(self, html, show_generic_status)
-    
-    def on_operation_error(self, error):
-        """Callback genérico para errores"""
-        self.progress_controller.hide_progress()
-        QMessageBox.critical(self, "Error", f"Error durante la operación:\n{error}")
-        self.logger.error(f"Error: {error}")
-
-        # Limpiar referencia
-        if self.execution_worker in self.active_workers:
-            self.active_workers.remove(self.execution_worker)
-        self.execution_worker = None
     
 
     def _reset_analysis_ui(self, reinsert_analyze=True):
