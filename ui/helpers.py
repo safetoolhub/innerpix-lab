@@ -16,20 +16,15 @@ try:
 except Exception:
     _tabs_module = None
 
-from ui.components.progress_bar import (
-    create_progress_group as create_progress_bar,
-    show_progress,
-    hide_progress,
-)
 from utils.format_utils import format_size, generate_stats_html
 
 
 def service_available(window, attr_name: str) -> bool:
     """Determina si una 'característica' o pestaña debe considerarse disponible.
 
-    En lugar de depender de atributos concretos creados por `MainWindow`,
-    esta función consulta `window.tab_availability` (un dict opcional) que
-    será gestionado por la lógica de análisis. Si no existe ese diccionario
+    En lugar de depender de un atributo libre en `window`, esta función
+    consulta el `TabController` centralizado en `window.tab_controller` y
+    su `tab_availability`. Si no existe el controlador o el diccionario,
     se asume que la característica está disponible (True) para mantener el
     comportamiento previo.
 
@@ -41,10 +36,13 @@ def service_available(window, attr_name: str) -> bool:
         bool: True si la característica está disponible, False en caso contrario.
     """
     try:
-        availability = getattr(window, 'tab_availability', None)
+        tc = getattr(window, 'tab_controller', None)
+        availability = None
+        if tc is not None:
+            availability = getattr(tc, 'tab_availability', None)
+        # Si no hay TabController o no tiene el dict, consideramos disponible
         if availability is None:
             return True
-        # availability expected to be a dict-like mapping feature name -> bool
         return bool(availability.get(attr_name, True))
     except Exception:
         # Fallback conservador: considerar el servicio disponible
@@ -54,7 +52,6 @@ def service_available(window, attr_name: str) -> bool:
 def update_tab_details(window, results):
     """
     Actualiza los detalles de cada pestaña con los resultados del análisis.
-    VERSIÓN REFACTORIZADA usando generate_stats_html()
     """
     
     # ===== PESTAÑA RENAMING =====

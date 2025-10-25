@@ -56,6 +56,23 @@ class DuplicateDetector:
     def __init__(self):
         self.logger = logging.getLogger('DuplicateDetector')
         self._hash_cache = {} if config.Config.ENABLE_HASH_CACHE else None
+        # Contenedor para almacenar los resultados del último análisis de duplicados
+        # Mantener esto dentro del servicio centraliza el estado y evita que la
+        # ventana principal tenga que sincronizarlo manualmente.
+        self.duplicate_analysis_results = None
+
+    # ---- Helpers para manejo del estado del último análisis ----
+    def get_last_results(self):
+        """Devuelve los resultados del último análisis de duplicados o None."""
+        return self.duplicate_analysis_results
+
+    def set_last_results(self, results: dict):
+        """Almacena los resultados del último análisis de duplicados."""
+        self.duplicate_analysis_results = results
+
+    def clear_last_results(self):
+        """Limpia el estado del último análisis de duplicados."""
+        self.duplicate_analysis_results = None
         
     def analyze_exact_duplicates(
         self,

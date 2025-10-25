@@ -9,12 +9,9 @@ from PyQt5.QtCore import Qt
 import config
 from ui import styles
 
-try:
-    from ui import tabs as _tabs_module
-except Exception:
-    _tabs_module = None
-
-from ui.helpers import service_available
+# Nota: la disponibilidad real de las pestañas se decide mediante
+# `TabController` (accesible como `window.tab_controller`) y
+# `update_tabs_availability`.
 
 
 def create_summary_panel(window):
@@ -107,19 +104,12 @@ def create_summary_panel(window):
         btn.setFixedHeight(36)
         btn.setStyleSheet(styles.STYLE_SUMMARY_ACTION_BUTTON + "QPushButton { text-align: left; padding-left: 12px; }")
         def _invoke():
-            try:
-                if _tabs_module:
-                    _tabs_module.open_summary_action(window, label_text)
-                    return
-            except Exception:
-                pass
-            # Fallback: ensure any existing tabs_widget is shown
-            try:
-                if hasattr(window, 'tabs_widget') and window.tabs_widget.count() > 0:
-                    window.tabs_widget.setCurrentIndex(0)
-                    window.tabs_widget.setVisible(True)
-            except Exception:
-                pass
+            # Usar TabController centralizado (se asume que existe en la app)
+            tc = getattr(window, 'tab_controller', None)
+            if tc is None:
+                # Si no existe, no hacemos nada (se asumió TabController siempre presente)
+                return
+            tc.open_summary_action(label_text)
 
         btn.clicked.connect(_invoke)
         btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
@@ -127,7 +117,8 @@ def create_summary_panel(window):
         return btn
 
     # Añadir siempre los botones (la visibilidad/estado real se controlará
-    # más tarde mediante `window.tab_availability` y update_tabs_availability).
+    # más tarde mediante el `TabController` y su método
+    # `update_tabs_availability`).
     stack_layout.addWidget(make_full_btn('live_photos', '📱', 'Live Photos'))
     stack_layout.addWidget(make_full_btn('heic', '🖼️', 'Duplicados HEIC'))
     stack_layout.addWidget(make_full_btn('unification', '📁', 'Unificar Directorios'))

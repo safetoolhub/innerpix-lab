@@ -1,21 +1,18 @@
 """
 Ventana principal de PhotoKit Manager
 """
-import os
-import logging
 from pathlib import Path
 from datetime import datetime
 
 from PyQt5.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QLineEdit, QFileDialog, QMessageBox, QDialog, QCheckBox,
-    QGroupBox, QComboBox, QSplitter, QFrame, QApplication, QSizePolicy
+    QMainWindow, QWidget, QVBoxLayout, 
+    QFileDialog, QMessageBox, QDialog, 
+    QSplitter, QApplication
 )
 from PyQt5.QtCore import Qt, QTimer
 
 import config
 from services.file_renamer import FileRenamer
-from ui import styles
 from ui.components import Header
 from ui.workers import (
     AnalysisWorker, RenamingWorker, LivePhotoCleanupWorker,
@@ -30,7 +27,6 @@ from services.live_photo_cleaner import LivePhotoCleaner
 from services.live_photo_detector import LivePhotoDetector
 from services.directory_unifier import DirectoryUnifier
 from services.heic_remover import HEICDuplicateRemover
-from utils.date_utils import get_file_date, format_renamed_name, is_renamed_filename
 from ui.helpers import (
     update_tab_details, show_results_html, reset_analysis_ui,
 )
@@ -40,8 +36,7 @@ from ui.validators.directory_validator import (
     confirm_large_directory,
 )
 from utils.format_utils import format_size, markdown_like_to_html
-from ui.components.progress_bar import create_progress_group as create_progress_bar, show_progress, hide_progress
-from ui import tabs
+from ui.controllers.progress_controller import ProgressController
 
 from services.duplicate_detector import DuplicateDetector
 from ui.workers import DuplicateAnalysisWorker, DuplicateDeletionWorker
@@ -88,10 +83,7 @@ class MainWindow(QMainWindow):
         self.live_photo_cleaner = LivePhotoCleaner()
         self.directory_unifier = DirectoryUnifier()
         self.heic_remover = HEICDuplicateRemover()
-
-        # Detector de duplicados
         self.duplicate_detector = DuplicateDetector()
-        self.duplicate_analysis_results = None
 
         # Workers
         self.analysis_worker = None
@@ -130,19 +122,12 @@ class MainWindow(QMainWindow):
         # ===== SPLITTER: PANEL RESUMEN + PESTAÑAS =====
         splitter = QSplitter(Qt.Horizontal)
 
-        # Inicializar el mapa de disponibilidad de pestañas/características.
-        # En el futuro `update_tabs_availability` lo actualizará según los
-        # resultados del análisis. Por defecto dejamos todas las pestañas
-        # habilitadas (True) para mantener el comportamiento actual.
-        self.tab_availability = {
-            'live_photo_detector': True,
-            'heic_remover': True,
-            'directory_unifier': True,
-            'renamer': True,
-            'duplicate_detector': True,
-            # clave 'duplicates' coincide con el nombre usado en tab_index_map
-            'duplicates': True,
-        }
+    # Controlador de pestañas: centraliza creación, navegación y lógica
+    # de disponibilidad de pestañas. Usa `window.tab_controller` como
+    # fuente de verdad para la disponibilidad (ya no se inyecta
+    # `tab_availability` directamente en `window`).
+        from ui.controllers.tab_controller import TabController
+        self.tab_controller = TabController(self)
 
         from ui.components import SummaryPanel
         # Guardar la instancia del componente para poder actualizarlo luego
@@ -150,7 +135,7 @@ class MainWindow(QMainWindow):
         # `create_summary_panel` retorna un widget; mantener compatibilidad
         self.summary_panel = self.summary_component.get_widget()
         splitter.addWidget(self.summary_panel)
-        self.tabs_widget = self._create_tabs_widget()
+        self.tabs_widget = self.tab_controller.create_tabs_widget()
         splitter.addWidget(self.tabs_widget)
         splitter.setStretchFactor(0, 1)
         splitter.setStretchFactor(1, 3)
@@ -158,7 +143,8 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(splitter, 1)
 
         # ===== BARRA DE PROGRESO =====
-        create_progress_bar(self, main_layout)
+        # Instanciar el nuevo controlador de progreso
+        self.progress_controller = ProgressController(self, main_layout)
 
         # Crear y usar el componente de botones de acción para mantener
         # la lógica encapsulada y reducir el tamaño de MainWindow.
@@ -181,18 +167,6 @@ class MainWindow(QMainWindow):
         dialog.exec_()
 
     
-    def _create_tabs_widget(self):
-        # Crear mediante el módulo tabs directamente
-        return tabs.create_tabs_widget(self)
-
-    def _open_summary_action(self, label_substr):
-        """Selecciona la pestaña correspondiente según el botón del summary.
-
-        label_substr: una breve cadena que identifica la funcionalidad (p.ej. 'Live Photos')
-        """
-        return tabs.open_summary_action(self, label_substr)
-    
-
 
     # ========================================================================
     # GESTIÓN DE CIERRE Y LIMPIEZA
@@ -307,7 +281,7 @@ class MainWindow(QMainWindow):
             self.analysis_worker.wait()
 
         # Mostrar progreso (modo indeterminado — solo feedback de actividad)
-        self.show_progress(0, "Iniciando análisis...")
+        self.progress_controller.show_progress(0, "Iniciando análisis...")
         
         # Deshabilitar botones
         self.preview_rename_btn.setEnabled(False)
@@ -351,10 +325,9 @@ class MainWindow(QMainWindow):
         """Actualiza etiqueta de progreso. Ignora valores numéricos y mantiene
         la barra en modo indeterminado (busy)."""
         try:
-            # Mantener la barra en modo indeterminado para evitar mostrar
-            # porcentajes/calculos inexactos. Solo actualizar el mensaje.
-            self.progress_bar.setMaximum(0)
-            self.progress_label.setText(message)
+            # Delegar la actualización al ProgressController que decide el modo
+            # (determinate / indeterminate) según `total`.
+            self.progress_controller.update_progress(current, total, message)
         except Exception:
             # No hacer nada si la UI está en un estado inestable
             pass
@@ -362,7 +335,11 @@ class MainWindow(QMainWindow):
 
     def update_phase(self, phase_text):
         """Actualiza la fase actual del análisis"""
-        self.progress_label.setText(phase_text)
+        # Mostrar el texto de fase en la etiqueta de progreso
+        try:
+            self.progress_controller.update_progress(0, 0, phase_text)
+        except Exception:
+            pass
         QApplication.processEvents()
     
     def on_analysis_finished(self, results):
@@ -377,7 +354,7 @@ class MainWindow(QMainWindow):
                 self.active_workers.remove(self.analysis_worker)
             self.analysis_worker = None
 
-        self.hide_progress()
+        self.progress_controller.hide_progress()
         self.analysis_results = results
         
         # Registrar el directorio que fue analizado
@@ -389,11 +366,9 @@ class MainWindow(QMainWindow):
         # Actualizar detalles de cada pestaña
         update_tab_details(self, results)
 
-        # Actualizar disponibilidad de pestañas según los resultados (hook para lógica futura)
-        try:
-            tabs.update_tabs_availability(self, results)
-        except Exception:
-            pass
+        # Actualizar disponibilidad de pestañas según los resultados
+        # delegando en el `TabController` centralizado.
+        self.tab_controller.update_tabs_availability(results)
         
         # Mostrar paneles
         self.summary_panel.setVisible(True)
@@ -477,7 +452,7 @@ class MainWindow(QMainWindow):
     
     def on_analysis_error(self, error):
         """Callback cuando hay error en el análisis"""
-        self.hide_progress()
+        self.progress_controller.hide_progress()
         QMessageBox.critical(self, "Error", f"Error durante el análisis:\n{error}")
         self.logger.error(f"Error en análisis: {error}")
 
@@ -529,7 +504,7 @@ class MainWindow(QMainWindow):
             self.execution_worker.quit()
             self.execution_worker.wait()
         
-        self.show_progress(len(self.renaming_plan['plan']), "Renombrando archivos...")
+        self.progress_controller.show_progress(len(self.renaming_plan['plan']), "Renombrando archivos...")
 
         self.execution_worker = RenamingWorker(
             self.renamer,
@@ -554,7 +529,7 @@ class MainWindow(QMainWindow):
     
     def on_renaming_finished(self, results):
         """Callback al terminar renombrado"""
-        self.hide_progress()
+        self.progress_controller.hide_progress()
 
         # Actualizar estadísticas si el diálogo está abierto
         for dialog in self.findChildren(RenamingPreviewDialog):
@@ -697,7 +672,7 @@ class MainWindow(QMainWindow):
             self.execution_worker.quit()
             self.execution_worker.wait()
         
-        self.show_progress(count, "Limpiando Live Photos...")
+        self.progress_controller.show_progress(count, "Limpiando Live Photos...")
         
         self.execution_worker = LivePhotoCleanupWorker(self.live_photo_cleaner, plan)
         # Mostrar mensajes de progreso del worker (p.ej. creación de backup)
@@ -718,7 +693,7 @@ class MainWindow(QMainWindow):
     
     def on_lp_finished(self, results):
         """Callback al terminar limpieza de Live Photos"""
-        self.hide_progress()
+        self.progress_controller.hide_progress()
         space_freed = results.get('space_freed', 0)
 
         # Si fue una simulación, preferimos mostrar los contadores simulados
@@ -834,7 +809,7 @@ class MainWindow(QMainWindow):
             self.execution_worker.quit()
             self.execution_worker.wait()
         
-        self.show_progress(count, "Unificando directorios...")
+        self.progress_controller.show_progress(count, "Unificando directorios...")
         
         self.execution_worker = DirectoryUnificationWorker(
             self.directory_unifier,
@@ -859,7 +834,7 @@ class MainWindow(QMainWindow):
     
     def on_unification_finished(self, results):
         """Callback al terminar unificación"""
-        self.hide_progress()
+        self.progress_controller.hide_progress()
         
         html = f"""
             <div style='color: #28a745;'>
@@ -957,7 +932,7 @@ class MainWindow(QMainWindow):
             self.execution_worker.quit()
             self.execution_worker.wait()
         
-        self.show_progress(count, f"Eliminando archivos {format_del}...")
+        self.progress_controller.show_progress(count, f"Eliminando archivos {format_del}...")
         
         self.execution_worker = HEICRemovalWorker(
             self.heic_remover,
@@ -983,7 +958,7 @@ class MainWindow(QMainWindow):
     
     def on_heic_finished(self, results):
         """Callback al terminar eliminación HEIC"""
-        self.hide_progress()
+        self.progress_controller.hide_progress()
         
         space_freed = results.get('space_freed', 0)
         
@@ -1054,13 +1029,6 @@ class MainWindow(QMainWindow):
     # UTILIDADES
     # ========================================================================
     
-    def show_progress(self, maximum, message="Procesando"):
-        """Muestra la barra de progreso"""
-        return show_progress(self, maximum, message)
-    
-    def hide_progress(self):
-        """Oculta la barra de progreso"""
-        return hide_progress(self)
     
     def _show_results_html(self, html: str, show_generic_status: bool = False):
         """Muestra resultados que antes iban al QTextEdit removido.
@@ -1074,7 +1042,7 @@ class MainWindow(QMainWindow):
     
     def on_operation_error(self, error):
         """Callback genérico para errores"""
-        self.hide_progress()
+        self.progress_controller.hide_progress()
         QMessageBox.critical(self, "Error", f"Error durante la operación:\n{error}")
         self.logger.error(f"Error: {error}")
 
@@ -1155,7 +1123,8 @@ class MainWindow(QMainWindow):
         """Maneja la finalización del análisis de duplicados"""
         self.logger.info(f"Análisis completado: {results.get('mode')}")
         
-        self.duplicate_analysis_results = results
+        # Guardar resultados en el servicio DuplicateDetector para centralizar estado
+        self.duplicate_detector.set_last_results(results)
         self.analyze_duplicates_btn.setEnabled(True)
         
         if results.get('error'):
@@ -1271,20 +1240,21 @@ class MainWindow(QMainWindow):
     
     def on_delete_exact_duplicates(self):
         """Muestra diálogo para eliminar duplicados exactos"""
-        if not self.duplicate_analysis_results:
+        # Leer resultados desde el servicio DuplicateDetector
+        if not self.duplicate_detector.get_last_results():
             return
-        
-        dialog = ExactDuplicatesDialog(self.duplicate_analysis_results, self)
+
+        dialog = ExactDuplicatesDialog(self.duplicate_detector.get_last_results(), self)
         
         if dialog.exec_() == QDialog.Accepted and dialog.accepted_plan:
             self._execute_duplicate_deletion(dialog.accepted_plan)
     
     def on_review_similar_duplicates(self):
         """Muestra diálogo para revisar duplicados similares"""
-        if not self.duplicate_analysis_results:
+        if not self.duplicate_detector.get_last_results():
             return
-        
-        dialog = SimilarDuplicatesDialog(self.duplicate_analysis_results, self)
+
+        dialog = SimilarDuplicatesDialog(self.duplicate_detector.get_last_results(), self)
         
         if dialog.exec_() == QDialog.Accepted and dialog.accepted_plan:
             self._execute_duplicate_deletion(dialog.accepted_plan)
@@ -1381,7 +1351,7 @@ class MainWindow(QMainWindow):
             pass
         
         # Limpiar resultados y restaurar botones
-        self.duplicate_analysis_results = None
+        self.duplicate_detector.clear_last_results()
         self.analyze_duplicates_btn.setEnabled(True)
         self.delete_exact_duplicates_btn.setVisible(False)
         self.review_similar_btn.setVisible(False)

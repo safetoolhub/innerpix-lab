@@ -19,8 +19,7 @@ def create_tabs_widget(window):
     window.tab_index_map = {}
     idx = 0
     # Añadir siempre las pestañas en un orden fijo. La disponibilidad real
-    # (habilitada/visible) será controlada por `update_tabs_availability`
-    # utilizando `window.tab_availability`.
+    # (habilitada/visible) será controlada por `update_tabs_availability`.
     tabs.addTab(create_live_photos_tab(window), "📱 Live Photos")
     window.tab_index_map['live_photos'] = idx
     idx += 1

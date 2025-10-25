@@ -154,7 +154,8 @@ def _on_duplicate_mode_changed(window):
         window.duplicates_details.setHtml(markdown_like_to_html("📂 Haz clic en 'Analizar' para comenzar la detección"))
     except Exception:
         pass
-    window.duplicate_analysis_results = None
+    # Resetear estado centralizado en el servicio DuplicateDetector
+    window.duplicate_detector.clear_last_results()
 
 
 def _on_sensitivity_changed(window, value):
