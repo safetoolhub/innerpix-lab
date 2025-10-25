@@ -86,7 +86,6 @@ class MainWindow(QMainWindow):
         self.duplicate_detector = DuplicateDetector()
 
         # Workers
-        self.analysis_worker = None
         self.execution_worker = None
         self.active_workers = []
         
@@ -146,6 +145,11 @@ class MainWindow(QMainWindow):
         # Instanciar el nuevo controlador de progreso
         self.progress_controller = ProgressController(self, main_layout)
 
+        # ===== CONTROLADOR DE ANÁLISIS =====
+        # Centraliza la lógica de análisis del directorio
+        from ui.controllers.analysis_controller import AnalysisController
+        self.analysis_controller = AnalysisController(self)
+
         # Crear y usar el componente de botones de acción para mantener
         # la lógica encapsulada y reducir el tamaño de MainWindow.
         from ui.components.action_buttons import ActionButtons
@@ -174,6 +178,10 @@ class MainWindow(QMainWindow):
     
     def closeEvent(self, event):
         """Asegurar limpieza correcta al cerrar"""
+        # Limpiar el análisis controller
+        self.analysis_controller.cleanup()
+
+        # Limpiar otros workers activos
         for worker in self.active_workers:
             if worker and worker.isRunning():
                 worker.quit()
@@ -244,152 +252,12 @@ class MainWindow(QMainWindow):
     # ========================================================================
     
     def analyze_directory(self):
-        """Análisis completo del directorio"""
+        """Análisis completo del directorio - delega al AnalysisController"""
         if not self.current_directory:
             QMessageBox.warning(self, "Advertencia", "Selecciona un directorio primero")
             return
-        
-        if not self.current_directory.exists():
-            QMessageBox.critical(self, "Error", "El directorio no existe")
-            return
-        
-        # NUEVO: Advertir si hay análisis previo de otro directorio
-        if (self.last_analyzed_directory and 
-            self.last_analyzed_directory != self.current_directory):
-            
-            reply = QMessageBox.warning(
-                self,
-                "Directorio Diferente",
-                f"El directorio actual es diferente al último analizado.\n\n"
-                f"Último analizado: {self.last_analyzed_directory.name}\n"
-                f"Actual: {self.current_directory.name}\n\n"
-                "Se realizará un nuevo análisis y se descartará el anterior.\n\n"
-                "¿Continuar?",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.Yes
-            )
-            
-            if reply == QMessageBox.No:
-                return
-            
-            # Limpiar análisis previo
-            self._reset_analysis_ui()
-        
-        # Limpiar worker anterior si existe
-        if self.analysis_worker and self.analysis_worker.isRunning():
-            self.analysis_worker.quit()
-            self.analysis_worker.wait()
 
-        # Mostrar progreso (modo indeterminado — solo feedback de actividad)
-        self.progress_controller.show_progress(0, "Iniciando análisis...")
-        
-        # Deshabilitar botones
-        self.preview_rename_btn.setEnabled(False)
-        self.exec_lp_btn.setEnabled(False)
-        self.exec_unif_btn.setEnabled(False)
-        self.exec_heic_btn.setEnabled(False)
-        
-        # Crear y configurar worker
-        self.analysis_worker = AnalysisWorker(
-            self.current_directory,
-            self.renamer,
-            self.live_photo_detector,
-            self.directory_unifier,
-            self.heic_remover
-        )
-        
-        # Conectar señales
-        self.analysis_worker.phase_update.connect(self.update_phase)
-        self.analysis_worker.progress_update.connect(self.update_analysis_progress)
-        self.analysis_worker.finished.connect(self.on_analysis_finished)
-        self.analysis_worker.error.connect(self.on_analysis_error)
-        
-        # Autoeliminación cuando termine
-        self.analysis_worker.finished.connect(self.analysis_worker.deleteLater)
-        self.analysis_worker.error.connect(self.analysis_worker.deleteLater)
-        
-        # Mantener referencia
-        self.active_workers.append(self.analysis_worker)
-        
-        # Iniciar
-        self.analysis_worker.start()
-        
-        self.logger.info(f"Iniciando análisis de: {self.current_directory}")
-
-        # NOTA: No pasamos callbacks que envíen valores numéricos a la barra de
-        # progreso. El progress_bar se mostrará en modo indeterminado mientras
-        # haya operaciones en segundo plano. Los mensajes de progreso sí se
-        # muestran en la etiqueta.
-
-    def update_analysis_progress(self, current: int, total: int, message: str):
-        """Actualiza etiqueta de progreso. Ignora valores numéricos y mantiene
-        la barra en modo indeterminado (busy)."""
-        try:
-            # Delegar la actualización al ProgressController que decide el modo
-            # (determinate / indeterminate) según `total`.
-            self.progress_controller.update_progress(current, total, message)
-        except Exception:
-            # No hacer nada si la UI está en un estado inestable
-            pass
-
-
-    def update_phase(self, phase_text):
-        """Actualiza la fase actual del análisis"""
-        # Mostrar el texto de fase en la etiqueta de progreso
-        try:
-            self.progress_controller.update_progress(0, 0, phase_text)
-        except Exception:
-            pass
-        QApplication.processEvents()
-    
-    def on_analysis_finished(self, results):
-        """Callback cuando termina el análisis"""
-        # La gestión de la UI relacionada con los botones de acción se
-        # realiza desde `ActionButtons.update_after_analysis(results)` más
-        # abajo, una vez que `results` está disponible.
-        if self.analysis_worker:
-            self.analysis_worker.quit()
-            self.analysis_worker.wait(2000)  # Esperar máximo 2 segundos
-            if self.analysis_worker in self.active_workers:
-                self.active_workers.remove(self.analysis_worker)
-            self.analysis_worker = None
-
-        self.progress_controller.hide_progress()
-        self.analysis_results = results
-        
-        # Registrar el directorio que fue analizado
-        self.last_analyzed_directory = self.current_directory
-        
-        # Actualizar panel de resumen
-        self.summary_component.update(results)
-        
-        # Actualizar detalles de cada pestaña
-        update_tab_details(self, results)
-
-        # Actualizar disponibilidad de pestañas según los resultados
-        # delegando en el `TabController` centralizado.
-        self.tab_controller.update_tabs_availability(results)
-        
-        # Mostrar paneles
-        self.summary_panel.setVisible(True)
-        self.tabs_widget.setVisible(True)
-        
-        # Delegar habilitación/deshabilitación de botones según resultados
-        self.action_buttons.update_after_analysis(results)
-        
-        # Mostrar mensaje global solo al completar el análisis por completo
-        self._show_results_html("""
-            <div style='color: #28a745; font-weight: bold;'>
-                ✅ Análisis completado con éxito
-            </div>
-        """, show_generic_status=True)
-        
-        self.logger.info(f"Análisis completado para: {self.last_analyzed_directory}")
-        
-        # Limpiar referencia
-        if self.analysis_worker in self.active_workers:
-            self.active_workers.remove(self.analysis_worker)
-        self.analysis_worker = None
+        self.analysis_controller.start_analysis(self.current_directory)
 
     def _reanalyze_same_directory(self):
         """Reinicia el análisis sobre el mismo directorio sin pedir confirmaciones"""
@@ -398,6 +266,7 @@ class MainWindow(QMainWindow):
 
         # Llamar al análisis directamente (analyze_directory maneja la ejecución)
         self.analyze_directory()
+
 
     def _change_directory_after_analysis(self):
         """Permite cambiar el directorio tras un análisis, manteniendo el flujo de confirmación actual"""
@@ -449,25 +318,12 @@ class MainWindow(QMainWindow):
 
         # Iniciar nuevo análisis automáticamente
         self.analyze_directory()
-    
-    def on_analysis_error(self, error):
-        """Callback cuando hay error en el análisis"""
-        self.progress_controller.hide_progress()
-        QMessageBox.critical(self, "Error", f"Error durante el análisis:\n{error}")
-        self.logger.error(f"Error en análisis: {error}")
-
-        if self.analysis_worker:
-            self.analysis_worker.quit()
-            self.analysis_worker.wait(2000)
-            if self.analysis_worker in self.active_workers:
-                self.active_workers.remove(self.analysis_worker)
-            self.analysis_worker = None
-        
 
    
     # ========================================================================
     # RENOMBRADO
     # ========================================================================
+
     
     def preview_renaming(self):
         """Muestra preview de renombrado"""
@@ -513,7 +369,7 @@ class MainWindow(QMainWindow):
         )
         # Conectar actualizaciones de progreso para mostrar mensajes (ej. backup)
         try:
-            self.execution_worker.progress_update.connect(self.update_analysis_progress)
+            self.execution_worker.progress_update.connect(self.analysis_controller.update_progress)
         except Exception:
             pass
 
@@ -677,7 +533,7 @@ class MainWindow(QMainWindow):
         self.execution_worker = LivePhotoCleanupWorker(self.live_photo_cleaner, plan)
         # Mostrar mensajes de progreso del worker (p.ej. creación de backup)
         try:
-            self.execution_worker.progress_update.connect(self.update_analysis_progress)
+            self.execution_worker.progress_update.connect(self.analysis_controller.update_progress)
         except Exception:
             pass
 
@@ -818,7 +674,7 @@ class MainWindow(QMainWindow):
         )
         # Mostrar mensajes de progreso del worker (p.ej. "Creando backup antes de unificar...")
         try:
-            self.execution_worker.progress_update.connect(self.update_analysis_progress)
+            self.execution_worker.progress_update.connect(self.analysis_controller.update_progress)
         except Exception:
             pass
 
@@ -942,7 +798,7 @@ class MainWindow(QMainWindow):
         )
         # Mostrar mensajes de progreso del worker (p.ej. creación de backup)
         try:
-            self.execution_worker.progress_update.connect(self.update_analysis_progress)
+            self.execution_worker.progress_update.connect(self.analysis_controller.update_progress)
         except Exception:
             pass
 
