@@ -16,11 +16,6 @@ try:
 except Exception:
     _tabs_module = None
 
-from ui.components.progress_bar import (
-    create_progress_group as create_progress_bar,
-    show_progress,
-    hide_progress,
-)
 from utils.format_utils import format_size, generate_stats_html
 
 
