@@ -22,7 +22,7 @@ class TabController:
         self.tab_availability: Dict[str, bool] = {
             'live_photos': True,
             'heic': True,
-            'unification': True,
+            'organization': True,
             'renaming': True,
             'duplicates': True,
         }
@@ -62,9 +62,9 @@ class TabController:
             heic_dups = results.get('heic', {}).get('total_duplicates', 0)
             self.tab_availability['heic'] = heic_dups > 0
 
-            # Unification: habilitar solo si hay archivos a mover
-            unif_count = results.get('unification', {}).get('total_files_to_move', 0)
-            self.tab_availability['unification'] = unif_count > 0
+            # Organización: habilitar solo si hay archivos a mover
+            org_count = results.get('organization', {}).get('total_files_to_move', 0)
+            self.tab_availability['organization'] = org_count > 0
 
             # Renaming: habilitar si hay necesidades de renombrado
             need_renaming = results.get('renaming', {}).get('need_renaming', 0)

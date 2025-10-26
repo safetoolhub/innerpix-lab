@@ -49,7 +49,7 @@ class ResultsController(QObject):
 
         Args:
             results: Resultados de la operación
-            operation_type: Tipo de operación ('renaming', 'live_photo', 'unification', 'heic')
+            operation_type: Tipo de operación ('renaming', 'live_photo', 'organization', 'heic')
         """
         try:
             if self.main_window.analysis_results:
@@ -137,18 +137,18 @@ class ResultsController(QObject):
         html += "</div>"
         return html
 
-    def format_unification_results(self, results: dict) -> str:
-        """Genera HTML para resultados de unificación
+    def format_organization_results(self, results: dict) -> str:
+        """Genera HTML para resultados de organización
 
         Args:
-            results: Diccionario con resultados de unificación
+            results: Diccionario con resultados de organización
 
         Returns:
             HTML formateado
         """
         html = f"""
             <div style='color: #28a745;'>
-                <h4>✅ Unificación Completada</h4>
+                <h4>✅ Organización Completada</h4>
                 <p><strong>Archivos movidos:</strong> {results.get('files_moved', 0)}</p>
                 <p><strong>Directorios eliminados:</strong> {results.get('empty_directories_removed', 0)}</p>
                 <p><strong>Errores:</strong> {len(results.get('errors', []))}</p>

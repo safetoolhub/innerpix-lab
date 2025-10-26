@@ -175,11 +175,11 @@ class ActionButtons:
         else:
             parent.exec_lp_btn.setEnabled(False)
 
-        # Directory unification
-        if results.get('unification') and results['unification'].get('total_files_to_move', 0) > 0:
-            parent.exec_unif_btn.setEnabled(True)
+        # Organización de archivos
+        if results.get('organization') and results['organization'].get('total_files_to_move', 0) > 0:
+            parent.exec_org_btn.setEnabled(True)
         else:
-            parent.exec_unif_btn.setEnabled(False)
+            parent.exec_org_btn.setEnabled(False)
 
         # HEIC duplicates
         if results.get('heic') and results['heic'].get('total_duplicates', 0) > 0:

@@ -97,7 +97,7 @@ class AnalysisController:
         # Deshabilitar botones
         self.window.preview_rename_btn.setEnabled(False)
         self.window.exec_lp_btn.setEnabled(False)
-        self.window.exec_unif_btn.setEnabled(False)
+        self.window.exec_org_btn.setEnabled(False)
         self.window.exec_heic_btn.setEnabled(False)
 
         # Crear y configurar worker
@@ -105,7 +105,7 @@ class AnalysisController:
             directory,
             self.window.renamer,
             self.window.live_photo_detector,
-            self.window.directory_unifier,
+            self.window.file_organizer,
             self.window.heic_remover
         )
 

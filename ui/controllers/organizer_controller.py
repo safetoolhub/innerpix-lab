@@ -1,69 +1,68 @@
 """
-Controlador de unificación de directorios (preview + ejecución)
-Extrae la lógica de unificación desde operations_controller.py
+Controlador de organización de archivos (preview + ejecución)
 """
 from PyQt5.QtWidgets import QMessageBox, QDialog
 from PyQt5.QtCore import QObject, QTimer
 
-from ui.workers import DirectoryUnificationWorker
-from ui.dialogs import DirectoryUnificationDialog
+from ui.workers import FileOrganizerWorker
+from ui.dialogs import FileOrganizationDialog
 from utils.logger import get_logger
 
 
-class UnifierController(QObject):
-    """Controlador especializado para operaciones de unificación de directorios"""
+class OrganizerController(QObject):
+    """Controlador especializado para operaciones de organización de archivos"""
 
-    def __init__(self, main_window, directory_unifier, progress_controller, results_controller):
+    def __init__(self, main_window, file_organizer, progress_controller, results_controller):
         """
-        Constructor del controlador de unificación
+        Constructor del controlador de organización
 
         Args:
             main_window: Instancia de MainWindow
-            directory_unifier: Servicio DirectoryUnifier
+            file_organizer: Servicio FileOrganizer
             progress_controller: Controlador de progreso
             results_controller: Controlador de presentación de resultados
         """
         super().__init__()
         self.main_window = main_window
-        self.directory_unifier = directory_unifier
+        self.file_organizer = file_organizer
         self.progress_controller = progress_controller
         self.results_controller = results_controller
 
-        # Plan de unificación
-        self.unification_plan = None
+        # Plan de organización
+        self.organization_plan = None
 
         # Worker de ejecución
         self.execution_worker = None
 
         # Logger
-        self.logger = get_logger('UnifierController')
+        self.logger = get_logger('OrganizerController')
 
     # ========================================================================
     # PREVIEW
     # ========================================================================
 
-    def preview_unification(self):
-        """Muestra preview de unificación de directorios"""
-        if not self.main_window.analysis_results or not self.main_window.analysis_results.get('unification'):
+    def preview_organization(self):
+        """Muestra preview de organización de archivos"""
+        if not self.main_window.analysis_results or not self.main_window.analysis_results.get('organization'):
             return
 
-        unif_analysis = self.main_window.analysis_results['unification']
+        org_analysis = self.main_window.analysis_results['organization']
 
-        if unif_analysis.get('total_files_to_move', 0) == 0:
-            QMessageBox.information(self.main_window, "Unificación", "No hay archivos para mover")
+        if org_analysis.get('total_files_to_move', 0) == 0:
+            QMessageBox.information(self.main_window, "Organización", "No hay archivos para mover")
             return
 
-        dialog = DirectoryUnificationDialog(unif_analysis, self.main_window)
+        dialog = FileOrganizationDialog(org_analysis, self.main_window)
         if dialog.exec_() == QDialog.Accepted and dialog.accepted_plan:
-            self.unification_plan = dialog.accepted_plan
-            self.execute_unification(dialog.accepted_plan)
+            self.organization_plan = dialog.accepted_plan
+            self.execute_organization(dialog.accepted_plan)
 
     # ========================================================================
     # EXECUTION
     # ========================================================================
 
-    def execute_unification(self, plan):
-        """Ejecuta la unificación"""
+    def execute_organization(self, plan):
+        """Ejecuta la organización"""
         count = len(plan['move_plan'])
 
         reply = QMessageBox.question(
@@ -81,10 +80,10 @@ class UnifierController(QObject):
             self.execution_worker.quit()
             self.execution_worker.wait()
 
-        self.progress_controller.show_progress(count, "Unificando directorios...")
+        self.progress_controller.show_progress(count, "Organizando archivos...")
 
-        self.execution_worker = DirectoryUnificationWorker(
-            self.directory_unifier,
+        self.execution_worker = FileOrganizerWorker(
+            self.file_organizer,
             plan['move_plan'],
             plan['create_backup']
         )
@@ -94,7 +93,7 @@ class UnifierController(QObject):
         except Exception:
             pass
 
-        self.execution_worker.finished.connect(self.on_unification_finished)
+        self.execution_worker.finished.connect(self.on_organization_finished)
         self.execution_worker.error.connect(self.on_operation_error)
         self.execution_worker.finished.connect(self.execution_worker.deleteLater)
         self.execution_worker.error.connect(self.execution_worker.deleteLater)
@@ -102,17 +101,17 @@ class UnifierController(QObject):
         self.main_window.active_workers.append(self.execution_worker)
         self.execution_worker.start()
 
-        self.main_window.exec_unif_btn.setEnabled(False)
+        self.main_window.exec_org_btn.setEnabled(False)
 
     # ========================================================================
     # CALLBACKS
     # ========================================================================
 
-    def on_unification_finished(self, results):
-        """Callback al terminar unificación"""
+    def on_organization_finished(self, results):
+        """Callback al terminar organización"""
         self.progress_controller.hide_progress()
 
-        html = self.results_controller.format_unification_results(results)
+        html = self.results_controller.format_organization_results(results)
         self.results_controller.show_results_html(html, show_generic_status=False)
 
         if results.get('success'):
@@ -122,30 +121,30 @@ class UnifierController(QObject):
                 f"Se movieron {results.get('files_moved', 0)} archivos"
             )
 
-        self.main_window.exec_unif_btn.setEnabled(False)
+        self.main_window.exec_org_btn.setEnabled(False)
 
         try:
-            if self.main_window.current_directory and self.directory_unifier:
-                updated_unif = self.directory_unifier.analyze_directory_structure(
+            if self.main_window.current_directory and self.file_organizer:
+                updated_org = self.file_organizer.analyze_directory_structure(
                     self.main_window.current_directory
                 )
 
                 if not self.main_window.analysis_results:
                     self.main_window.analysis_results = {}
 
-                self.main_window.analysis_results['unification'] = updated_unif
+                self.main_window.analysis_results['organization'] = updated_org
 
                 self.results_controller.update_ui_after_operation(
-                    self.main_window.analysis_results, 'unification'
+                    self.main_window.analysis_results, 'organization'
                 )
 
-                if updated_unif.get('total_files_to_move', 0) > 0:
-                    self.main_window.exec_unif_btn.setEnabled(True)
+                if updated_org.get('total_files_to_move', 0) > 0:
+                    self.main_window.exec_org_btn.setEnabled(True)
                 else:
-                    self.main_window.exec_unif_btn.setEnabled(False)
+                    self.main_window.exec_org_btn.setEnabled(False)
 
         except Exception as e:
-            self.logger.error(f"Error re-analizando después de unificación: {e}")
+            self.logger.error(f"Error re-analizando después de organización: {e}")
 
         if self.execution_worker in self.main_window.active_workers:
             self.main_window.active_workers.remove(self.execution_worker)

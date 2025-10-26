@@ -76,7 +76,7 @@ class AnalysisWorker(BaseWorker):
                 'stats': {},
                 'renaming': None,
                 'live_photos': None,
-                'unification': None,
+                'organization': None,
                 'heic': None
             }
 
@@ -160,8 +160,8 @@ class AnalysisWorker(BaseWorker):
                 return
             
             if self.unifier:
-                self.phase_update.emit("📁 Analizando estructura de directorios para unificación...")
-                results['unification'] = self.unifier.analyze_directory_structure(self.directory)
+                self.phase_update.emit("📁 Analizando estructura de directorios para organización...")
+                results['organization'] = self.unifier.analyze_directory_structure(self.directory)
 
             # Fase 5: Duplicados HEIC
             if self._stop_requested:
@@ -243,12 +243,12 @@ class LivePhotoCleanupWorker(BaseWorker):
                 self.error.emit(error_msg)
 
 
-class DirectoryUnificationWorker(BaseWorker):
-    """Worker para ejecutar unificación de directorios"""
+class FileOrganizerWorker(BaseWorker):
+    """Worker para ejecutar organización de archivos"""
 
-    def __init__(self, unifier, plan, create_backup=True):
+    def __init__(self, organizer, plan, create_backup=True):
         super().__init__()
-        self.unifier = unifier
+        self.organizer = organizer
         self.plan = plan
         self.create_backup = create_backup
 
@@ -257,7 +257,7 @@ class DirectoryUnificationWorker(BaseWorker):
             if self._stop_requested:
                 return
             
-            results = self.unifier.execute_unification(
+            results = self.organizer.execute_organization(
                 self.plan,
                 create_backup=self.create_backup,
                 progress_callback=self._create_progress_callback()
