@@ -61,6 +61,8 @@ class BaseWorker(QThread):
 class AnalysisWorker(BaseWorker):
     """Worker unificado para análisis completo"""
     phase_update = pyqtSignal(str)
+    stats_update = pyqtSignal(dict)  # Nueva señal para actualizar stats parciales
+    partial_results = pyqtSignal(dict)  # Nueva señal para resultados parciales de funcionalidades
 
     def __init__(self, directory, renamer, lp_detector, unifier, heic_remover, organization_type=None):
         super().__init__()
@@ -114,6 +116,9 @@ class AnalysisWorker(BaseWorker):
                 'others': len(others)
             }
 
+            # Emitir estadísticas parciales para actualizar el summary inmediatamente
+            self.stats_update.emit(results['stats'])
+
             # Fase 2: Análisis de renombrado
             if self._stop_requested:
                 return
@@ -127,6 +132,8 @@ class AnalysisWorker(BaseWorker):
                     self.directory,
                     progress_callback=self._create_progress_callback(counts_in_message=True)
                 )
+                # Emitir resultados parciales después de renombrado
+                self.partial_results.emit({'renaming': results['renaming']})
 
             # Fase 3: Detección de Live Photos
             if self._stop_requested:
@@ -155,6 +162,8 @@ class AnalysisWorker(BaseWorker):
                     'space_to_free': video_space,
                     'live_photos_found': len(lp_groups)
                 }
+                # Emitir resultados parciales después de Live Photos
+                self.partial_results.emit({'live_photos': results['live_photos']})
 
             # Fase 4: Análisis de estructura
             if self._stop_requested:
@@ -170,6 +179,8 @@ class AnalysisWorker(BaseWorker):
                     )
                 else:
                     results['organization'] = self.unifier.analyze_directory_structure(self.directory)
+                # Emitir resultados parciales después de organización
+                self.partial_results.emit({'organization': results['organization']})
 
             # Fase 5: Duplicados HEIC
             if self._stop_requested:
@@ -178,6 +189,8 @@ class AnalysisWorker(BaseWorker):
             if self.heic_remover:
                 self.phase_update.emit("🖼️ Buscando duplicados HEIC/JPG...")
                 results['heic'] = self.heic_remover.analyze_heic_duplicates(self.directory)
+                # Emitir resultados parciales después de HEIC
+                self.partial_results.emit({'heic': results['heic']})
 
             if not self._stop_requested:
                 self.finished.emit(results)

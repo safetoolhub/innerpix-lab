@@ -91,14 +91,25 @@ class AnalysisController:
             self.worker.quit()
             self.worker.wait()
 
+        # Mostrar panel de resumen pero ocultar pestañas hasta que termine
+        self.window.summary_panel.setVisible(True)
+        self.window.tabs_widget.setVisible(False)
+
         # Mostrar progreso (modo indeterminado)
         self.window.progress_controller.show_progress(0, "Iniciando análisis...")
 
-        # Deshabilitar botones
+        # Deshabilitar botones de ejecución
         self.window.preview_rename_btn.setEnabled(False)
         self.window.exec_lp_btn.setEnabled(False)
         self.window.exec_org_btn.setEnabled(False)
         self.window.exec_heic_btn.setEnabled(False)
+
+        # Deshabilitar botones de la search bar durante el análisis
+        self.window.analyze_btn.setEnabled(False)
+        if hasattr(self.window, 'reanalyze_btn'):
+            self.window.reanalyze_btn.setEnabled(False)
+        if hasattr(self.window, 'change_dir_btn'):
+            self.window.change_dir_btn.setEnabled(False)
 
         # Obtener tipo de organización seleccionado desde la UI
         organization_type = None
@@ -125,6 +136,8 @@ class AnalysisController:
         # Conectar señales
         self.worker.phase_update.connect(self.update_phase)
         self.worker.progress_update.connect(self.update_progress)
+        self.worker.stats_update.connect(self.update_stats)  # Nueva conexión
+        self.worker.partial_results.connect(self.update_partial_results)  # Resultados parciales
         self.worker.finished.connect(self.on_finished)
         self.worker.error.connect(self.on_error)
 
@@ -169,6 +182,62 @@ class AnalysisController:
             pass
         QApplication.processEvents()
 
+    def update_stats(self, stats: dict):
+        """Actualiza las estadísticas del summary panel durante el análisis.
+
+        Args:
+            stats: Diccionario con estadísticas parciales (images, videos, total)
+        """
+        try:
+            # Actualizar solo las etiquetas de stats en el summary panel
+            if hasattr(self.window, 'stats_labels'):
+                images_txt = f"🖼️ Imágenes: {stats.get('images', 0):,}"
+                videos_txt = f"🎥 Videos: {stats.get('videos', 0):,}"
+                total_txt = f"📊 Total: {stats.get('total', 0):,}"
+                
+                if 'images' in self.window.stats_labels:
+                    self.window.stats_labels['images'].setText(images_txt)
+                if 'videos' in self.window.stats_labels:
+                    self.window.stats_labels['videos'].setText(videos_txt)
+                if 'total' in self.window.stats_labels:
+                    self.window.stats_labels['total'].setText(total_txt)
+        except Exception:
+            pass
+
+    def update_partial_results(self, partial: dict):
+        """Actualiza los contadores de funcionalidades durante el análisis.
+
+        Args:
+            partial: Diccionario con resultados parciales de una funcionalidad
+        """
+        try:
+            if not hasattr(self.window, 'summary_action_buttons'):
+                return
+
+            # Actualizar cada funcionalidad según los datos recibidos
+            if 'renaming' in partial and 'renaming' in self.window.summary_action_buttons:
+                ren = partial['renaming']
+                count = ren.get('need_renaming', 0)
+                self.window.summary_action_buttons['renaming'].setText(f"📝 Renombrado   {count:,}")
+
+            if 'live_photos' in partial and 'live_photos' in self.window.summary_action_buttons:
+                lp = partial['live_photos']
+                count = lp.get('live_photos_found', 0)
+                self.window.summary_action_buttons['live_photos'].setText(f"📱 Live Photos   {count:,}")
+
+            if 'organization' in partial and 'organization' in self.window.summary_action_buttons:
+                org = partial['organization']
+                count = org.get('total_files_to_move', 0)
+                self.window.summary_action_buttons['organization'].setText(f"📁 Organizador   {count:,}")
+
+            if 'heic' in partial and 'heic' in self.window.summary_action_buttons:
+                heic = partial['heic']
+                count = heic.get('total_duplicates', 0)
+                self.window.summary_action_buttons['heic'].setText(f"🖼️ Duplicados HEIC   {count:,}")
+
+        except Exception:
+            pass
+
     def on_finished(self, results: dict):
         """Callback cuando termina el análisis exitosamente.
 
@@ -207,6 +276,13 @@ class AnalysisController:
         self.window.summary_panel.setVisible(True)
         self.window.tabs_widget.setVisible(True)
 
+        # Rehabilitar botones de la search bar
+        self.window.analyze_btn.setEnabled(True)
+        if hasattr(self.window, 'reanalyze_btn'):
+            self.window.reanalyze_btn.setEnabled(True)
+        if hasattr(self.window, 'change_dir_btn'):
+            self.window.change_dir_btn.setEnabled(True)
+
         # Delegar habilitación/deshabilitación de botones
         self.window.action_buttons.update_after_analysis(results)
 
@@ -244,6 +320,13 @@ class AnalysisController:
         """
         # Ocultar progreso
         self.window.progress_controller.hide_progress()
+
+        # Rehabilitar botones de la search bar
+        self.window.analyze_btn.setEnabled(True)
+        if hasattr(self.window, 'reanalyze_btn'):
+            self.window.reanalyze_btn.setEnabled(True)
+        if hasattr(self.window, 'change_dir_btn'):
+            self.window.change_dir_btn.setEnabled(True)
 
         # Mostrar mensaje de error
         QMessageBox.critical(

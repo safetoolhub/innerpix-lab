@@ -131,9 +131,9 @@ class MainWindow(QMainWindow):
         splitter.setSizes([300, 900])
         main_layout.addWidget(splitter, 1)
 
-        # ===== BARRA DE PROGRESO =====
-        # Instanciar el nuevo controlador de progreso
-        self.progress_controller = ProgressController(self, main_layout)
+        # ===== CONTROLADOR DE PROGRESO =====
+        # Instanciar después de crear el SummaryPanel para que los widgets estén disponibles
+        self.progress_controller = ProgressController(self)
 
         # ===== CONTROLADOR DE ANÁLISIS =====
         # Centraliza la lógica de análisis del directorio
