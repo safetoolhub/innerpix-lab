@@ -126,6 +126,31 @@ def create_duplicates_tab(window):
         window.similar_info.setVisible(is_similar)
         slider_container.setVisible(is_similar)
 
+        # Limpiar resultados antiguos al cambiar de modo
+        last_results = window.duplicate_detector.get_last_results()
+        if last_results:
+            # Verificar si el modo actual coincide con los resultados guardados
+            current_mode = 'exact' if is_exact else 'perceptual'
+            saved_mode = last_results.get('mode')
+            
+            if current_mode != saved_mode:
+                # El modo cambió, limpiar resultados y ocultar botones
+                window.duplicate_detector.clear_last_results()
+                window.delete_exact_duplicates_btn.setVisible(False)
+                window.review_similar_btn.setVisible(False)
+                
+                # Mostrar mensaje indicando que se necesita analizar de nuevo
+                from utils.format_utils import markdown_like_to_html
+                mode_text = "exactos" if is_exact else "similares"
+                try:
+                    window.duplicates_details.setHtml(markdown_like_to_html(
+                        f"ℹ️ **Modo cambiado a duplicados {mode_text}**\n\n"
+                        f"Los resultados anteriores han sido limpiados.\n"
+                        f"Haz clic en **'Analizar'** para buscar duplicados {mode_text}."
+                    ))
+                except Exception:
+                    pass
+
     window.exact_mode_radio.toggled.connect(update_mode)
     window.similar_mode_radio.toggled.connect(update_mode)
     window.sensitivity_slider.valueChanged.connect(
@@ -163,6 +188,13 @@ def create_duplicates_tab(window):
     window.analyze_duplicates_btn.setMinimumHeight(36)
     window.analyze_duplicates_btn.clicked.connect(window.on_analyze_duplicates)
     button_layout.addWidget(window.analyze_duplicates_btn)
+
+    window.cancel_duplicates_btn = QPushButton("⏹ Cancelar Análisis")
+    window.cancel_duplicates_btn.setStyleSheet(styles.get_button_style("#dc3545"))
+    window.cancel_duplicates_btn.setMinimumHeight(36)
+    window.cancel_duplicates_btn.setVisible(False)
+    window.cancel_duplicates_btn.clicked.connect(window.on_cancel_duplicate_analysis)
+    button_layout.addWidget(window.cancel_duplicates_btn)
 
     window.delete_exact_duplicates_btn = QPushButton("⚡ Eliminar Duplicados Exactos")
     window.delete_exact_duplicates_btn.setStyleSheet(styles.get_button_style("#28a745"))

@@ -114,9 +114,8 @@ class DuplicateDetector:
                 hash_map[file_hash].append(file_path)
 
                 processed += 1
-                if progress_callback and processed % 10 == 0:
-                    progress_callback(processed, total_files,
-                                      f"Procesando: {file_path.name}")
+                if progress_callback and (processed % 50 == 0 or processed == total_files):
+                    progress_callback(processed, total_files, "Calculando hashes SHA256...")
             except Exception as e:
                 self.logger.error(f"Error procesando {file_path}: {e}")
         
@@ -210,9 +209,8 @@ class DuplicateDetector:
                     perceptual_hashes[img_path] = phash
                 
                 processed += 1
-                if progress_callback and processed % 5 == 0:
-                    progress_callback(processed, total_files, 
-                                    f"Analizando: {img_path.name}")
+                if progress_callback and (processed % 50 == 0 or processed == total_files):
+                    progress_callback(processed, total_files, "Calculando hashes perceptuales...")
             except Exception as e:
                 self.logger.error(f"Error con {img_path}: {e}")
         
@@ -225,9 +223,8 @@ class DuplicateDetector:
                         perceptual_hashes[vid_path] = phash
                     
                     processed += 1
-                    if progress_callback and processed % 2 == 0:
-                        progress_callback(processed, total_files, 
-                                        f"Analizando video: {vid_path.name}")
+                    if progress_callback and (processed % 50 == 0 or processed == total_files):
+                        progress_callback(processed, total_files, "Calculando hashes perceptuales...")
                 except Exception as e:
                     self.logger.error(f"Error con video {vid_path}: {e}")
         
@@ -235,7 +232,7 @@ class DuplicateDetector:
         if progress_callback:
             progress_callback(total_files, total_files, "Agrupando similares...")
         
-        similar_groups = self._group_by_similarity(perceptual_hashes, sensitivity)
+        similar_groups = self._group_by_similarity(perceptual_hashes, sensitivity, progress_callback)
         
         total_similar = sum(len(group.files) - 1 for group in similar_groups)
         space_potential = sum(group.space_wasted for group in similar_groups)
@@ -260,9 +257,9 @@ class DuplicateDetector:
     def _calculate_perceptual_hash(self, image_path: Path) -> Optional[imagehash.ImageHash]:
         """Calcula hash perceptual de una imagen"""
         try:
-            img = Image.open(image_path)
-            # Usar dhash (difference hash) que funciona bien para redimensionados
-            return imagehash.dhash(img, hash_size=config.Config.DEFAULT_HASH_SIZE)
+            with Image.open(image_path) as img:
+                # Usar dhash (difference hash) que funciona bien para redimensionados
+                return imagehash.dhash(img, hash_size=config.Config.DEFAULT_HASH_SIZE)
         except Exception as e:
             self.logger.debug(f"No se pudo calcular hash perceptual para {image_path}: {e}")
             return None
@@ -290,19 +287,26 @@ class DuplicateDetector:
     def _group_by_similarity(
         self,
         hashes: Dict[Path, imagehash.ImageHash],
-        threshold: int
+        threshold: int,
+        progress_callback: Optional[Callable[[int, int, str], None]] = None
     ) -> List[DuplicateGroup]:
         """Agrupa archivos por similitud perceptual"""
         groups = []
         processed = set()
         
         hash_list = list(hashes.items())
+        total_items = len(hash_list)
         
         for i, (path1, hash1) in enumerate(hash_list):
             if path1 in processed:
                 continue
             
+            # Emitir progreso cada 50 archivos
+            if progress_callback and (i % 50 == 0 or i == total_items - 1):
+                progress_callback(i, total_items, "Agrupando similares...")
+            
             similar_files = [path1]
+            hamming_distances = []
             
             for j, (path2, hash2) in enumerate(hash_list[i+1:], start=i+1):
                 if path2 in processed:
@@ -313,17 +317,23 @@ class DuplicateDetector:
                 
                 if hamming_distance <= threshold:
                     similar_files.append(path2)
+                    hamming_distances.append(hamming_distance)
                     processed.add(path2)
             
             if len(similar_files) > 1:
-                # Calcular score de similitud promedio
-                avg_similarity = 100 - (threshold / config.Config.MAX_HAMMING_THRESHOLD * 100)
+                # Calcular score de similitud real basado en la distancia Hamming promedio del grupo
+                # Distancia 0 = 100% similar, distancia MAX_HAMMING_THRESHOLD = 0% similar
+                avg_hamming = sum(hamming_distances) / len(hamming_distances) if hamming_distances else 0
+                # Convertir a porcentaje de similitud (invertido)
+                similarity_percentage = 100 - (avg_hamming / config.Config.MAX_HAMMING_THRESHOLD * 100)
+                # Asegurar que esté en el rango [0, 100]
+                similarity_percentage = max(0, min(100, similarity_percentage))
                 
                 group = DuplicateGroup(
                     hash_value=str(hash1),
                     files=similar_files,
                     total_size=sum(f.stat().st_size for f in similar_files),
-                    similarity_score=avg_similarity
+                    similarity_score=similarity_percentage
                 )
                 groups.append(group)
                 processed.add(path1)
