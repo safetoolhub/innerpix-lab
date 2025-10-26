@@ -35,56 +35,37 @@ class ProgressController:
         - Si maximum > 0: se establece en modo determinate con ese máximo.
         - Si maximum <= 0 o None: se pone en modo indeterminado (busy).
         """
-        try:
-            if self.label:
-                self.label.setVisible(True)
-                # Añadir emoji de procesamiento
-                self.label.setText(f"⏳ {message}")
-        except Exception:
-            pass
+        if self.label:
+            self.label.setVisible(True)
+            self.label.setText(f"⏳ {message}")
 
-        try:
-            if self.bar:
-                self.bar.setVisible(True)
-                if maximum and maximum > 0:
-                    self.bar.setMaximum(maximum)
-                    self.bar.setValue(0)
-                else:
-                    # Modo indeterminado
-                    self.bar.setMaximum(0)
-        except Exception:
-            pass
+        if self.bar:
+            self.bar.setVisible(True)
+            if maximum and maximum > 0:
+                self.bar.setMaximum(maximum)
+                self.bar.setValue(0)
+            else:
+                # Modo indeterminado
+                self.bar.setMaximum(0)
 
-        try:
-            if self.detail:
-                self.detail.setVisible(True)
-                self.detail.setText("")
-        except Exception:
-            pass
+        if self.detail:
+            self.detail.setVisible(True)
+            self.detail.setText("")
 
     def hide_progress(self):
         """Oculta el contenido del área de progreso con un pequeño retraso."""
 
         def _hide():
-            try:
-                if self.bar:
-                    self.bar.setMaximum(100)
-                    self.bar.setValue(0)
-                    self.bar.setVisible(False)
-            except Exception:
-                pass
-            try:
-                if self.label:
-                    self.label.setText("✅ Listo")
-                    self.label.setVisible(False)
-            except Exception:
-                pass
-            try:
-                if self.detail:
-                    self.detail.setText("")
-                    self.detail.setVisible(False)
-            except Exception:
-                pass
+            if self.bar:
+                self.bar.setMaximum(100)
+                self.bar.setValue(0)
+                self.bar.setVisible(False)
+            if self.label:
+                self.label.setText("✅ Listo")
+                self.label.setVisible(False)
+            if self.detail:
+                self.detail.setText("")
+                self.detail.setVisible(False)
 
         QTimer.singleShot(1000, _hide)
 
@@ -94,25 +75,21 @@ class ProgressController:
         Si total>0 se muestra progreso determinístico; si no, se mantiene
         en modo indeterminado. message es opcional.
         """
-        try:
-            if self.bar and total and total > 0:
-                self.bar.setMaximum(total)
-                self.bar.setValue(min(current, total))
-            elif self.bar:
-                self.bar.setMaximum(0)
+        if self.bar and total and total > 0:
+            self.bar.setMaximum(total)
+            self.bar.setValue(min(current, total))
+        elif self.bar:
+            self.bar.setMaximum(0)
 
-            if message is not None and self.label:
-                # Añadir emoji de procesamiento si no lo tiene
-                if not message.startswith('⏳') and not message.startswith('📂') and not message.startswith('📝') and not message.startswith('📱') and not message.startswith('📁') and not message.startswith('🖼️'):
-                    self.label.setText(f"⏳ {message}")
-                else:
-                    self.label.setText(message)
+        if message is not None and self.label:
+            # Añadir emoji de procesamiento si no lo tiene
+            if not message.startswith('⏳') and not message.startswith('📂') and not message.startswith('📝') and not message.startswith('📱') and not message.startswith('📁') and not message.startswith('🖼️'):
+                self.label.setText(f"⏳ {message}")
+            else:
+                self.label.setText(message)
 
-            # Mostrar detalles adicionales si hay progreso numérico
-            if self.detail and total and total > 0:
-                percentage = int((current / total) * 100) if total > 0 else 0
-                self.detail.setText(f"📊 {current:,} / {total:,} ({percentage}%)")
-        except Exception:
-            # No romper la ejecución por fallos en la UI
-            pass
+        # Mostrar detalles adicionales si hay progreso numérico
+        if self.detail and total and total > 0:
+            percentage = int((current / total) * 100) if total > 0 else 0
+            self.detail.setText(f"📊 {current:,} / {total:,} ({percentage}%)")
 

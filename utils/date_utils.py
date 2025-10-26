@@ -22,27 +22,21 @@ def get_file_date(file_path: Path) -> Optional[datetime]:
         datetime o None si no se puede obtener
     """
     try:
-        # Intentar obtener fecha EXIF primero (requiere librerías adicionales)
         exif_date = get_exif_date(file_path)
         if exif_date:
             return exif_date
 
-        # Fallback a fechas del sistema de archivos
         stat = file_path.stat()
 
-        # En Windows st_birthtime, en Unix usar st_mtime como fallback
         if hasattr(stat, 'st_birthtime'):
-            # macOS/BSD
             creation_time = datetime.fromtimestamp(stat.st_birthtime)
         elif hasattr(stat, 'st_ctime'):
-            # Unix/Linux - puede no ser fecha de creación real
             creation_time = datetime.fromtimestamp(stat.st_ctime)
         else:
             creation_time = None
 
         modification_time = datetime.fromtimestamp(stat.st_mtime)
 
-        # Retornar la fecha más antigua
         if creation_time and modification_time:
             return min(creation_time, modification_time)
         elif modification_time:

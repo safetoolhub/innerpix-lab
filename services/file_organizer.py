@@ -100,21 +100,36 @@ class FileOrganizer:
             'root_directory': str(root_directory),
             'organization_type': organization_type.value,
             'subdirectories': {},
+            'root_files': [],  # Archivos en la raíz (para by_month y whatsapp_separate)
             'total_files_to_move': 0,
             'total_size_to_move': 0,
             'potential_conflicts': 0,
             'files_by_type': Counter(),
             'move_plan': [],
-            'folders_to_create': set()  # Carpetas que se crearán (para BY_MONTH o WHATSAPP)
+            'folders_to_create': set()
         }
 
-        # Obtener archivos en raíz (para detectar conflictos)
-        root_files = set()
+        # Obtener archivos en raíz
+        root_file_names = set()
+        root_file_info = []
+        
         for item in root_directory.iterdir():
             if item.is_file() and config.config.is_supported_file(item.name):
-                root_files.add(item.name)
+                root_file_names.add(item.name)
+                
+                # Para by_month y whatsapp_separate, también necesitamos info completa de archivos en raíz
+                if organization_type in (OrganizationType.BY_MONTH, OrganizationType.WHATSAPP_SEPARATE):
+                    file_size = item.stat().st_size
+                    file_type = config.config.get_file_type(item.name)
+                    
+                    root_file_info.append({
+                        'path': item,
+                        'name': item.name,
+                        'size': file_size,
+                        'type': file_type
+                    })
 
-        # Analizar subdirectorios
+        # Procesar subdirectorios
         for item in root_directory.iterdir():
             if not item.is_dir():
                 continue
@@ -123,8 +138,7 @@ class FileOrganizer:
             subdir_files = []
             total_size = 0
 
-            # Recolectar archivos multimedia en subdirectorio, ignorando subdirectorios con el mismo nombre
-            for file_path in item.iterdir():  # Cambiado de rglob a iterdir para solo buscar en el primer nivel
+            for file_path in item.iterdir():
                 if file_path.is_file() and config.config.is_supported_file(file_path.name):
                     file_size = file_path.stat().st_size
                     file_type = config.config.get_file_type(file_path.name)
@@ -150,50 +164,63 @@ class FileOrganizer:
                 results['total_files_to_move'] += len(subdir_files)
                 results['total_size_to_move'] += total_size
 
-        # Generar plan de movimiento según el tipo de organización
-        if results['subdirectories']:
+        # Para by_month y whatsapp_separate, agregar archivos de raíz
+        if organization_type in (OrganizationType.BY_MONTH, OrganizationType.WHATSAPP_SEPARATE):
+            if root_file_info:
+                results['root_files'] = root_file_info
+                results['total_files_to_move'] += len(root_file_info)
+                results['total_size_to_move'] += sum(f['size'] for f in root_file_info)
+                
+                for file_info in root_file_info:
+                    results['files_by_type'][file_info['type']] += 1
+
+        # Generar plan de movimiento si hay archivos
+        if results['subdirectories'] or results['root_files']:
             results['move_plan'] = self._generate_move_plan(
                 results['subdirectories'],
+                results.get('root_files', []),
                 root_directory,
-                root_files,
+                root_file_names,
                 organization_type
             )
             results['potential_conflicts'] = sum(1 for move in results['move_plan'] if move.has_conflict)
             results['folders_to_create'] = sorted(set(move.target_folder for move in results['move_plan'] if move.target_folder))
 
-        self.logger.info(f"Análisis completado: {results['total_files_to_move']} archivos para mover desde {len(results['subdirectories'])} subdirectorios")
+        self.logger.info(f"Análisis completado: {results['total_files_to_move']} archivos para mover desde {len(results['subdirectories'])} subdirectorios + {len(results.get('root_files', []))} en raíz")
 
         return results
 
-    def _generate_move_plan(self, subdirectories: Dict, root_directory: Path, existing_files: Set[str], organization_type: OrganizationType) -> List[FileMove]:
+    def _generate_move_plan(self, subdirectories: Dict, root_files: List[Dict], root_directory: Path, existing_file_names: Set[str], organization_type: OrganizationType) -> List[FileMove]:
         """
         Genera plan de movimiento con resolución de conflictos según el tipo de organización
+        
+        Args:
+            subdirectories: Diccionario de subdirectorios con sus archivos
+            root_files: Lista de archivos en la raíz (para by_month y whatsapp_separate)
+            root_directory: Path del directorio raíz
+            existing_file_names: Set de nombres de archivos existentes en raíz
+            organization_type: Tipo de organización
         """
         if organization_type == OrganizationType.TO_ROOT:
-            return self._generate_move_plan_to_root(subdirectories, root_directory, existing_files)
+            return self._generate_move_plan_to_root(subdirectories, root_directory, existing_file_names)
         elif organization_type == OrganizationType.BY_MONTH:
-            return self._generate_move_plan_by_month(subdirectories, root_directory)
+            return self._generate_move_plan_by_month(subdirectories, root_files, root_directory)
         elif organization_type == OrganizationType.WHATSAPP_SEPARATE:
-            return self._generate_move_plan_whatsapp(subdirectories, root_directory)
+            return self._generate_move_plan_whatsapp(subdirectories, root_files, root_directory)
         else:
             raise ValueError(f"Tipo de organización no soportado: {organization_type}")
 
     def _generate_move_plan_to_root(self, subdirectories: Dict, root_directory: Path, existing_files: Set[str]) -> List[FileMove]:
-        """
-        Genera plan de movimiento a directorio raíz (funcionalidad original)
-        """
+        """Genera plan de movimiento a directorio raíz"""
         move_plan = []
         name_conflicts = defaultdict(list)
 
-        # Agrupar archivos por nombre para detectar conflictos
         for subdir_name, subdir_data in subdirectories.items():
             for file_info in subdir_data['files']:
                 file_path = file_info['path']
                 file_name = file_info['name']
 
-                # Solo procesar si el archivo existe
                 if Path(file_path).exists():
-                    # Verificar si ya existe en raíz
                     has_conflict = file_name in existing_files
 
                     move = FileMove(
@@ -211,89 +238,74 @@ class FileOrganizer:
                 else:
                     self.logger.warning(f"Saltando archivo que no existe: {file_path}")
 
-        # Resolver conflictos
         for file_name, moves in name_conflicts.items():
             if len(moves) == 1 and not moves[0].has_conflict:
-                # Sin conflicto - un solo archivo y no existe en destino
                 move_plan.append(moves[0])
             else:
-                # Hay conflicto - resolver con secuencias
                 base_name = Path(file_name).stem
                 extension = Path(file_name).suffix
 
-                # Verificar si el archivo ya tiene sufijo numérico de renombrado
                 parsed = parse_renamed_name(file_name)
                 if parsed and parsed.get('sequence'):
-                    # Ya tiene sufijo de renombrado
                     parts = base_name.split('_')
-                    # Si el último part es numérico de 3 dígitos, es un sufijo
                     if len(parts) >= 4 and len(parts[-1]) == 3 and parts[-1].isdigit():
-                        # Reconstruir sin el último sufijo
                         base_name_without_suffix = '_'.join(parts[:-1])
                         start_sequence = int(parts[-1])
                     else:
                         base_name_without_suffix = base_name
                         start_sequence = 0
                 else:
-                    # No tiene sufijo, usar el nombre completo como base
                     base_name_without_suffix = base_name
                     start_sequence = 0
 
-                # Encontrar todas las secuencias que ya existen en el directorio destino
                 existing_sequences = set()
                 for item in root_directory.iterdir():
                     if item.is_file():
                         item_stem = item.stem
-                        # Verificar si empieza con nuestra base
                         if item_stem.startswith(base_name_without_suffix):
-                            # Extraer número al final si existe
                             parts = item_stem.split('_')
                             if parts and len(parts[-1]) == 3 and parts[-1].isdigit():
                                 existing_sequences.add(int(parts[-1]))
 
-                # También añadir la secuencia del nombre original si la tiene
                 if start_sequence > 0:
                     existing_sequences.add(start_sequence)
 
-                # Asignar secuencias ÚNICAS para cada archivo en moves
                 for i, move in enumerate(moves):
-                    # Encontrar la siguiente secuencia disponible
                     if existing_sequences:
                         sequence = max(existing_sequences) + 1
                     else:
                         sequence = start_sequence + 1 if start_sequence > 0 else 1
 
-                    # Asegurarse de que no existe
                     while sequence in existing_sequences:
                         sequence += 1
 
-                    # Crear nuevo nombre
                     new_name = f"{base_name_without_suffix}_{sequence:03d}{extension}"
 
-                    # Actualizar el move
                     move.new_name = new_name
                     move.target_path = root_directory / new_name
                     move.has_conflict = True
                     move.sequence = sequence
 
-                    # CRÍTICO: Añadir esta secuencia al set ANTES de procesar el siguiente archivo
                     existing_sequences.add(sequence)
 
-                    # Añadir al plan
                     move_plan.append(move)
 
                     self.logger.debug(f"Asignado {move.original_name} -> {new_name} (secuencia {sequence})")
 
         return move_plan
 
-    def _generate_move_plan_by_month(self, subdirectories: Dict, root_directory: Path) -> List[FileMove]:
-        """
-        Genera plan de movimiento clasificado por carpetas YYYY_MM
+    def _generate_move_plan_by_month(self, subdirectories: Dict, root_files: List[Dict], root_directory: Path) -> List[FileMove]:
+        """Genera plan de movimiento clasificado por carpetas YYYY_MM
+        
+        Args:
+            subdirectories: Archivos en subdirectorios
+            root_files: Archivos en la raíz
+            root_directory: Directorio raíz
         """
         move_plan = []
-        files_by_month = defaultdict(list)  # {folder_name: [file_info_with_path]}
+        files_by_month = defaultdict(list)
 
-        # Agrupar archivos por mes basándose en la fecha más antigua
+        # Procesar archivos de subdirectorios
         for subdir_name, subdir_data in subdirectories.items():
             for file_info in subdir_data['files']:
                 file_path = Path(file_info['path'])
@@ -302,13 +314,11 @@ class FileOrganizer:
                     self.logger.warning(f"Saltando archivo que no existe: {file_path}")
                     continue
 
-                # Obtener fecha más antigua del archivo
                 file_date = get_file_date(file_path)
                 if not file_date:
                     self.logger.warning(f"No se pudo obtener fecha para {file_path.name}, usando fecha actual")
                     file_date = datetime.now()
 
-                # Crear nombre de carpeta YYYY_MM
                 folder_name = file_date.strftime('%Y_%m')
 
                 files_by_month[folder_name].append({
@@ -317,19 +327,37 @@ class FileOrganizer:
                     'date': file_date
                 })
 
-        # Crear plan de movimiento con resolución de conflictos por carpeta
+        # Procesar archivos de la raíz
+        for file_info in root_files:
+            file_path = Path(file_info['path'])
+
+            if not file_path.exists():
+                self.logger.warning(f"Saltando archivo que no existe: {file_path}")
+                continue
+
+            file_date = get_file_date(file_path)
+            if not file_date:
+                self.logger.warning(f"No se pudo obtener fecha para {file_path.name}, usando fecha actual")
+                file_date = datetime.now()
+
+            folder_name = file_date.strftime('%Y_%m')
+
+            files_by_month[folder_name].append({
+                'file_info': file_info,
+                'subdir_name': '<root>',  # Indicar que viene de raíz
+                'date': file_date
+            })
+
         for folder_name, file_list in files_by_month.items():
             target_folder = root_directory / folder_name
             name_conflicts = defaultdict(list)
 
-            # Verificar archivos existentes en la carpeta destino si ya existe
             existing_files_in_folder = set()
             if target_folder.exists():
                 for item in target_folder.iterdir():
                     if item.is_file():
                         existing_files_in_folder.add(item.name)
 
-            # Agrupar por nombre para detectar conflictos
             for file_data in file_list:
                 file_info = file_data['file_info']
                 file_path = Path(file_info['path'])
@@ -351,20 +379,23 @@ class FileOrganizer:
 
                 name_conflicts[file_name].append(move)
 
-            # Resolver conflictos dentro de cada carpeta
             move_plan.extend(self._resolve_conflicts_in_folder(name_conflicts, target_folder))
 
         return move_plan
 
-    def _generate_move_plan_whatsapp(self, subdirectories: Dict, root_directory: Path) -> List[FileMove]:
-        """
-        Genera plan de movimiento separando archivos de WhatsApp
+    def _generate_move_plan_whatsapp(self, subdirectories: Dict, root_files: List[Dict], root_directory: Path) -> List[FileMove]:
+        """Genera plan de movimiento separando archivos de WhatsApp
+        
+        Args:
+            subdirectories: Archivos en subdirectorios
+            root_files: Archivos en la raíz
+            root_directory: Directorio raíz
         """
         move_plan = []
         whatsapp_files = []
         other_files = []
 
-        # Clasificar archivos
+        # Procesar archivos de subdirectorios
         for subdir_name, subdir_data in subdirectories.items():
             for file_info in subdir_data['files']:
                 file_path = Path(file_info['path'])
@@ -383,7 +414,24 @@ class FileOrganizer:
                 else:
                     other_files.append(file_data)
 
-        # Procesar archivos de WhatsApp -> carpeta "whatsapp"
+        # Procesar archivos de la raíz
+        for file_info in root_files:
+            file_path = Path(file_info['path'])
+
+            if not file_path.exists():
+                self.logger.warning(f"Saltando archivo que no existe: {file_path}")
+                continue
+
+            file_data = {
+                'file_info': file_info,
+                'subdir_name': '<root>'
+            }
+
+            if self.is_whatsapp_file(file_info['name']):
+                whatsapp_files.append(file_data)
+            else:
+                other_files.append(file_data)
+
         if whatsapp_files:
             whatsapp_folder = root_directory / "whatsapp"
             existing_in_whatsapp = set()
@@ -416,7 +464,6 @@ class FileOrganizer:
 
             move_plan.extend(self._resolve_conflicts_in_folder(name_conflicts, whatsapp_folder))
 
-        # Procesar otros archivos -> directorio raíz
         if other_files:
             existing_in_root = set()
             for item in root_directory.iterdir():
@@ -449,17 +496,13 @@ class FileOrganizer:
         return move_plan
 
     def _resolve_conflicts_in_folder(self, name_conflicts: Dict, target_folder: Path) -> List[FileMove]:
-        """
-        Resuelve conflictos de nombres dentro de una carpeta específica
-        """
+        """Resuelve conflictos de nombres dentro de una carpeta específica"""
         move_plan = []
 
         for file_name, moves in name_conflicts.items():
             if len(moves) == 1 and not moves[0].has_conflict:
-                # Sin conflicto
                 move_plan.append(moves[0])
             else:
-                # Hay conflicto - resolver con secuencias
                 base_name = Path(file_name).stem
                 extension = Path(file_name).suffix
 
@@ -476,7 +519,6 @@ class FileOrganizer:
                     base_name_without_suffix = base_name
                     start_sequence = 0
 
-                # Encontrar secuencias existentes en la carpeta destino
                 existing_sequences = set()
                 if target_folder.exists():
                     for item in target_folder.iterdir():
@@ -490,7 +532,6 @@ class FileOrganizer:
                 if start_sequence > 0:
                     existing_sequences.add(start_sequence)
 
-                # Asignar secuencias únicas
                 for move in moves:
                     if existing_sequences:
                         sequence = max(existing_sequences) + 1
@@ -508,9 +549,8 @@ class FileOrganizer:
                     move.sequence = sequence
 
                     existing_sequences.add(sequence)
-                    move_plan.append(move)
 
-                    self.logger.debug(f"Asignado {move.original_name} -> {new_name} en {target_folder.name}")
+                    move_plan.append(move)
 
         return move_plan
 
@@ -527,9 +567,7 @@ class FileOrganizer:
         backup_path = config.Config.DEFAULT_BACKUP_DIR / backup_name
         backup_path.mkdir(parents=True, exist_ok=True)
 
-        # Delegate to utils.file_utils.launch_backup_creation when needed
         from utils.file_utils import launch_backup_creation
-        # Use rglob to gather files
         files = [p for p in root_directory.rglob("*") if p.is_file() and config.Config.is_supported_file(p.name)]
         try:
             backup_path = launch_backup_creation(files, root_directory, backup_prefix='backup_organization', progress_callback=progress_callback, metadata_name='organization_metadata.txt')

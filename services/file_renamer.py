@@ -60,7 +60,6 @@ class FileRenamer:
             'issues': []
         }
 
-        # Obtener todos los archivos multimedia
         all_files = []
         for file_path in directory.rglob("*"):
             if file_path.is_file() and config.config.is_supported_file(file_path.name):
@@ -69,30 +68,25 @@ class FileRenamer:
         results['total_files'] = len(all_files)
         total_files = len(all_files)
 
-        # Analizar cada archivo
-        renaming_map = {}  # nombre_renombrado -> lista de archivos
+        renaming_map = {}
         processed = 0
 
         for file_path in all_files:
             processed += 1
 
-            # Reportar progreso cada 10 archivos para no saturar la UI
             if progress_callback and processed % 10 == 0:
                 progress_callback(processed, total_files, "Analizando nombres de archivos")
 
-            # Verificar si ya está renombrado
             if is_renamed_filename(file_path.name):
                 results['already_renamed'] += 1
                 continue
 
-            # Obtener fecha del archivo
             file_date = get_file_date(file_path)
             if not file_date:
                 results['cannot_process'] += 1
                 results['issues'].append(f"No se pudo obtener fecha: {file_path.name}")
                 continue
 
-            # Generar nombre renombrado
             file_type = config.config.get_file_type(file_path.name)
             if file_type == 'OTHER':
                 results['cannot_process'] += 1
@@ -102,7 +96,6 @@ class FileRenamer:
             extension = file_path.suffix
             renamed_name = format_renamed_name(file_date, file_type, extension)
 
-            # Agregar al mapa para detectar conflictos
             if renamed_name not in renaming_map:
                 renaming_map[renamed_name] = []
 
@@ -115,14 +108,11 @@ class FileRenamer:
 
             results['files_by_year'][file_date.year] += 1
 
-        # Enviar actualización final de progreso
         if progress_callback:
             progress_callback(total_files, total_files, "Analizando nombres de archivos")
 
-        # Resolver conflictos y crear plan final
         for renamed_name, file_list in renaming_map.items():
             if len(file_list) == 1:
-                # Sin conflicto
                 file_info = file_list[0]
                 results['renaming_plan'].append({
                     'original_path': file_info['original_path'],
@@ -133,10 +123,8 @@ class FileRenamer:
                 })
                 results['need_renaming'] += 1
             else:
-                # Conflicto - añadir secuencias
                 results['conflicts'] += len(file_list) - 1
 
-                # Ordenar por fecha de modificación para consistencia
                 file_list.sort(key=lambda x: x['original_path'].stat().st_mtime)
 
                 for i, file_info in enumerate(file_list, 1):
@@ -161,10 +149,6 @@ class FileRenamer:
         )
         return results
 
-    # Backup creation delegated to utils.file_utils.create_backup
-
-    # Name conflict resolution delegated to utils.file_utils.find_next_available_name
-
     def execute_renaming(
         self,
         renaming_plan: List[Dict],
@@ -172,9 +156,7 @@ class FileRenamer:
         progress_callback=None
     ) -> Dict:
         """
-        Ejecuta el renombrado según el plan
-
-        MEJORADO: Si el destino existe, busca siguiente sufijo disponible
+        Ejecuta el renombrado según el plan. Si el destino existe, busca siguiente sufijo disponible.
 
         Args:
             renaming_plan: Plan de renombrado del análisis
@@ -203,12 +185,10 @@ class FileRenamer:
         }
 
         try:
-            # Crear backup si se solicita
             if create_backup and renaming_plan:
                 first_file = renaming_plan[0]['original_path']
                 directory = first_file.parent
 
-                # Encontrar directorio común
                 for item in renaming_plan[1:]:
                     try:
                         directory = Path(
@@ -230,7 +210,6 @@ class FileRenamer:
                 results['backup_path'] = str(backup_path)
                 self.backup_dir = backup_path
 
-            # Ejecutar renombrados
             total_files = len(renaming_plan)
             files_processed = 0
             for item in renaming_plan:
@@ -239,7 +218,6 @@ class FileRenamer:
                 new_path = original_path.parent / new_name
 
                 try:
-                    # Verificar que el archivo original aún existe
                     try:
                         validate_file_exists(original_path)
                     except FileNotFoundError:
@@ -253,12 +231,10 @@ class FileRenamer:
                         })
                         continue
 
-                    # Si el destino ya existe, buscar siguiente disponible
                     if new_path.exists():
                         base_name = Path(new_name).stem
                         extension = Path(new_name).suffix
 
-                        # Buscar siguiente nombre disponible
                         new_name, sequence = find_next_available_name(
                             original_path.parent,
                             base_name,
@@ -272,13 +248,10 @@ class FileRenamer:
                         )
                         results['conflicts_resolved'] += 1
 
-                    # Renombrar archivo
                     original_path.rename(new_path)
 
-                    # Registrar éxito
                     results['files_renamed'] += 1
                     files_processed += 1
-                    # Safe date formatting: some callers may not include a date
                     date_obj = item.get('date') if isinstance(item, dict) else None
                     if date_obj is not None:
                         try:
@@ -302,7 +275,6 @@ class FileRenamer:
                     self.logger.info(f"Renombrado: {original_path.name} -> {new_name}")
 
                 except Exception as e:
-                    # Error renombrando este archivo específico
                     error_msg = f"Error renombrando {original_path.name}: {str(e)}"
                     self.logger.error(error_msg)
                     self.logger.error(f"  → Archivo origen: {original_path}")
@@ -316,7 +288,6 @@ class FileRenamer:
                         'type': type(e).__name__
                     })
 
-            # Verificar si hubo errores
             if results['errors']:
                 results['success'] = len(results['errors']) < len(renaming_plan)
 
@@ -326,7 +297,6 @@ class FileRenamer:
                 f"{len(results['errors'])} errores"
             )
 
-            # Mostrar resumen de errores si los hay
             if results['errors']:
                 self.logger.error("=" * 70)
                 self.logger.error(f"RESUMEN DE ERRORES ({len(results['errors'])} archivos):")
@@ -337,7 +307,6 @@ class FileRenamer:
                 self.logger.error("=" * 70)
 
         except Exception as e:
-            # Error general en todo el proceso
             self.logger.error(f"Error crítico en renombrado: {str(e)}")
             results['success'] = False
             results['errors'].append({
@@ -358,7 +327,6 @@ class FileRenamer:
         """
         self.logger.info(f"Renombrando archivos en: {directory}")
 
-        # Obtener todos los archivos a renombrar
         all_files = []
         for file_path in directory.rglob("*"):
             if file_path.is_file() and config.config.is_supported_file(file_path.name):
@@ -370,14 +338,8 @@ class FileRenamer:
         for file_path in all_files:
             renamed_files += 1
 
-            # Reportar progreso cada archivo
             if progress_callback:
                 progress_callback(renamed_files, total_files, f"Renombrando archivo {renamed_files} de {total_files}")
 
-            # Aquí iría la lógica para renombrar el archivo
-            # nuevo_nombre = generar_nombre(file_path)
-            # file_path.rename(nuevo_nombre)
-
-        # Actualizar progreso final
         if progress_callback:
             progress_callback(total_files, total_files, "Renombrado completado")

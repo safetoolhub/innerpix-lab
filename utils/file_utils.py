@@ -93,10 +93,6 @@ def launch_backup_creation(
 ) -> Path:
     """Create a backup directory and copy the given files preserving relative paths.
 
-    This function was previously named `create_backup`. It has been renamed to
-    `launch_backup_creation` to reduce the risk of accidental shadowing with
-    local variables named `create_backup` in caller scopes.
-
     Args:
         files: Iterable of Path objects to back up
         base_directory: Base directory used to compute relative paths
@@ -110,9 +106,6 @@ def launch_backup_creation(
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     backup_name = f"{backup_prefix}_{base_directory.name}_{timestamp}"
 
-    # Default backup dir location is taken from config at call sites; here we
-    # use base_directory.parent/backups as a safe fallback if DEFAULT_BACKUP_DIR
-    # is not accessible. Callers typically pass config.Config.DEFAULT_BACKUP_DIR.
     try:
         from config import config as _conf
         backup_root = _conf.DEFAULT_BACKUP_DIR
@@ -122,33 +115,25 @@ def launch_backup_creation(
     backup_path = backup_root / backup_name
     _ensure_backup_dir(backup_path)
 
-    # Normalize input elements to Path objects. Support:
-    # - Path or str
-    # - dicts with keys 'path' or 'original_path'
-    # - objects with attributes 'path', 'source_path' or 'original_path'
     files_list = []
     for item in files:
         normalized = None
-        # Strings/bytes or Path
         if isinstance(item, (str, bytes)):
             normalized = Path(item)
         elif isinstance(item, Path):
             normalized = item
         elif isinstance(item, dict):
-            # Accept common dict shapes
             if 'path' in item:
                 normalized = Path(item['path'])
             elif 'original_path' in item:
                 normalized = Path(item['original_path'])
             else:
-                # fallback: try first value
                 try:
                     val = next(iter(item.values()))
                     normalized = Path(val)
                 except Exception:
                     normalized = None
         else:
-            # Try attribute style (e.g., FileMove.source_path)
             try:
                 if hasattr(item, 'path'):
                     normalized = Path(getattr(item, 'path'))
@@ -157,15 +142,13 @@ def launch_backup_creation(
                 elif hasattr(item, 'original_path'):
                     normalized = Path(getattr(item, 'original_path'))
                 else:
-                    # last resort: attempt to construct Path directly
                     normalized = Path(item)
             except Exception:
                 normalized = None
 
         if normalized is None:
-            # Fail fast: caller passed an item we cannot interpret as a path
             raise ValueError(
-                f"create_backup: cannot normalize item to a path: type={type(item).__name__}, repr={repr(item)}"
+                f"launch_backup_creation: cannot normalize item to a path: type={type(item).__name__}, repr={repr(item)}"
             )
 
         files_list.append(normalized)
@@ -179,24 +162,16 @@ def launch_backup_creation(
             if base_directory in file_path.parents:
                 relative_path = file_path.relative_to(base_directory)
             else:
-                # If not under base_directory, place under a folder with the
-                # original parent name to avoid collisions
                 relative_path = file_path.parent.name / file_path.name
 
             dest = backup_path / relative_path
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(file_path, dest)
             copied += 1
-            try:
-                total_size += file_path.stat().st_size
-            except Exception:
-                pass
+            total_size += file_path.stat().st_size
 
             if progress_callback:
-                try:
-                    progress_callback(copied, total, f"Creando backup: {backup_path} ({copied}/{total})")
-                except Exception:
-                    pass
+                progress_callback(copied, total, f"Creando backup: {backup_path} ({copied}/{total})")
 
         except Exception:
             raise
@@ -209,10 +184,7 @@ def launch_backup_creation(
         f.write(f"Creado: {datetime.now()}\n")
         f.write(f"Directorio base: {base_directory}\n")
         f.write(f"Archivos respaldados: {copied}\n")
-        try:
-            f.write(f"Tamaño total: {format_size(total_size)}\n")
-        except Exception:
-            f.write(f"Tamaño total (bytes): {total_size}\n")
+        f.write(f"Tamaño total: {format_size(total_size)}\n")
         f.write("\nARCHIVOS RESPALDADOS:\n")
         for p in files_list:
             f.write(f"- {p}\n")
@@ -233,7 +205,6 @@ def cleanup_empty_directories(root_directory: Path) -> int:
                     item.rmdir()
                     removed_count += 1
             except OSError:
-                # Ignore permissions/locking errors
                 pass
     return removed_count
 
@@ -243,7 +214,6 @@ def find_next_available_name(base_path: Path, base_name: str, extension: str) ->
 
     Returns (new_name, sequence)
     """
-    # Detect existing numeric suffix
     parts = base_name.split('_')
     if len(parts) >= 4 and len(parts[-1]) == 3 and parts[-1].isdigit():
         base_without_suffix = '_'.join(parts[:-1])

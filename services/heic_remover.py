@@ -274,7 +274,6 @@ class HEICDuplicateRemover:
                         root_directory = Path(os.path.commonpath([root_directory, pair.directory]))
                     except ValueError:
                         break
-                # After determining common root_directory, create backup
                 from utils.file_utils import launch_backup_creation
                 try:
                     backup_path = launch_backup_creation(
@@ -286,18 +285,14 @@ class HEICDuplicateRemover:
                     results['backup_path'] = str(backup_path)
                     self.backup_dir = backup_path
                 except ValueError as ve:
-                    # Log clearly and abort operation as requested
                     err_msg = f"Backup abortado: entrada inválida para launch_backup_creation: {ve}"
                     self.logger.error(err_msg)
                     results['errors'].append(err_msg)
                     results['success'] = False
                     return results
 
-            # Ejecutar eliminaciones
             for pair in duplicate_pairs:
-                # Normalize pair to obtain paths for delete/keep
                 def _to_path(obj, attr_names):
-                    # obj can be Path/str, dict, or object with attributes
                     if isinstance(obj, (str, bytes)):
                         return Path(obj)
                     if isinstance(obj, Path):
@@ -306,20 +301,16 @@ class HEICDuplicateRemover:
                         for k in attr_names:
                             if k in obj:
                                 return Path(obj[k])
-                        # fallback: try first value
                         return Path(next(iter(obj.values())))
-                    # object with attributes
                     for k in attr_names:
                         if hasattr(obj, k):
                             return Path(getattr(obj, k))
-                    # last resort: try to cast
                     return Path(obj)
 
                 file_to_delete = _to_path(pair, ('heic_path', 'jpg_path', 'path', 'source_path', 'original_path')) if keep_format.lower() == 'jpg' else _to_path(pair, ('jpg_path', 'heic_path', 'path', 'source_path', 'original_path'))
                 file_to_keep = _to_path(pair, ('jpg_path', 'heic_path', 'path', 'source_path', 'original_path')) if keep_format.lower() == 'jpg' else _to_path(pair, ('heic_path', 'jpg_path', 'path', 'source_path', 'original_path'))
                 base_name = None
                 try:
-                    # Try to extract base_name for metadata
                     if isinstance(pair, dict) and 'base_name' in pair:
                         base_name = pair['base_name']
                     elif hasattr(pair, 'base_name'):
@@ -328,7 +319,6 @@ class HEICDuplicateRemover:
                     base_name = None
 
                 try:
-                    # Verificar que el archivo a eliminar existe
                     try:
                         validate_file_exists(file_to_delete)
                     except FileNotFoundError as e:
@@ -336,7 +326,6 @@ class HEICDuplicateRemover:
                         self.logger.error(str(e))
                         continue
 
-                    # Verificar que el archivo a mantener existe
                     try:
                         validate_file_exists(file_to_keep)
                     except FileNotFoundError as e:
@@ -344,11 +333,9 @@ class HEICDuplicateRemover:
                         self.logger.error(str(e))
                         continue
 
-                    # Eliminar archivo
                     file_size = file_to_delete.stat().st_size
                     file_to_delete.unlink()
 
-                    # Registrar éxito
                     results['files_deleted'] += 1
                     results['space_freed'] += file_size
                     results['deleted_files'].append({
@@ -366,7 +353,6 @@ class HEICDuplicateRemover:
                     results['errors'].append(error_msg)
                     self.logger.error(error_msg)
 
-            # Verificar éxito general
             if results['errors']:
                 results['success'] = len(results['errors']) < len(duplicate_pairs)
 
@@ -376,7 +362,6 @@ class HEICDuplicateRemover:
             except Exception:
                 freed = f"{results['space_freed']/(1024*1024):.2f} MB"
 
-            # Provide compatibility aliases expected by UI
             results['files_removed'] = results.get('files_deleted', 0)
             results['kept_format'] = results.get('format_kept')
 

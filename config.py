@@ -78,7 +78,7 @@ class Config:
     MAX_HAMMING_THRESHOLD = 20
 
     # ========================================================================
-    # MÉTODOS DE UTILIDAD (COMPATIBILIDAD CON CÓDIGO EXISTENTE)
+    # MÉTODOS DE UTILIDAD
     # ========================================================================
     @classmethod
     def is_image_file(cls, filename: str) -> bool:
@@ -124,7 +124,7 @@ class Config:
     @classmethod
     def is_supported_file(cls, filename: str) -> bool:
         """
-        Verifica si un archivo es soportado (alias para is_media_file)
+        Verifica si un archivo es soportado
 
         Args:
             filename: Nombre del archivo a verificar
@@ -155,52 +155,10 @@ class Config:
     @classmethod
     def ensure_directories_exist(cls):
         """Crea los directorios necesarios si no existen"""
-        try:
-            cls.DEFAULT_BASE_DIR.mkdir(parents=True, exist_ok=True)
-            cls.DEFAULT_LOG_DIR.mkdir(parents=True, exist_ok=True)
-            cls.DEFAULT_BACKUP_DIR.mkdir(parents=True, exist_ok=True)
-        except Exception as e:
-            print(f"Warning: No se pudieron crear directorios por defecto: {e}")
-
-    @classmethod
-    def create_default_directories(cls):
-        """Alias para ensure_directories_exist (compatibilidad)"""
-        cls.ensure_directories_exist()
+        cls.DEFAULT_BASE_DIR.mkdir(parents=True, exist_ok=True)
+        cls.DEFAULT_LOG_DIR.mkdir(parents=True, exist_ok=True)
+        cls.DEFAULT_BACKUP_DIR.mkdir(parents=True, exist_ok=True)
 
 
-
-    # ========================================================================
-    # CONFIGURACIÓN DE DETECCIÓN DE DUPLICADOS
-    # ========================================================================
-    
-    # Hashing perceptual
-    DEFAULT_HASH_SIZE = 8  # Tamaño del hash para imagehash (8x8 = 64 bits)
-    DEFAULT_HAMMING_THRESHOLD = 10  # Umbral de distancia Hamming para similitud
-    MAX_HAMMING_THRESHOLD = 20  # Máximo umbral permitido
-    
-    # Cache de hashes
-    ENABLE_HASH_CACHE = True  # Habilitar caché de hashes calculados
-    
-    # Backup
-    DEFAULT_BACKUP_DIR = Path.home() / "PhotoKit_Backups"
-    
-    # Métodos auxiliares para verificación de tipos de archivo
-    @staticmethod
-    def is_image_file(filename: str) -> bool:
-        """Verifica si un archivo es una imagen"""
-        return Path(filename).suffix.lower() in Config.SUPPORTED_IMAGE_EXTENSIONS
-    
-    @staticmethod
-    def is_video_file(filename: str) -> bool:
-        """Verifica si un archivo es un video"""
-        return Path(filename).suffix.lower() in Config.SUPPORTED_VIDEO_EXTENSIONS
-    
-    @staticmethod
-    def is_media_file(filename: str) -> bool:
-        """Verifica si un archivo es multimedia (imagen o video)"""
-        ext = Path(filename).suffix.lower()
-        return ext in Config.SUPPORTED_IMAGE_EXTENSIONS or ext in Config.SUPPORTED_VIDEO_EXTENSIONS
-
-
-# Instancia global para compatibilidad con código existente
+# Instancia global
 config = Config()

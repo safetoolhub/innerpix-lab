@@ -52,34 +52,26 @@ class TabController:
         Actualmente aplica reglas sencillas y delega en `ui.tabs.update_tabs_availability`
         para aplicar el estado sobre el widget.
         """
-        # Aquí se pueden implementar reglas más complejas. Ejemplos simples:
-        try:
-            # Si no hay live_photos, deshabilitar esa pestaña
-            lp_groups = results.get('live_photos', {}).get('groups') or []
-            self.tab_availability['live_photos'] = len(lp_groups) > 0
+        # Si no hay live_photos, deshabilitar esa pestaña
+        lp_groups = results.get('live_photos', {}).get('groups') or []
+        self.tab_availability['live_photos'] = len(lp_groups) > 0
 
-            # Si no hay duplicados HEIC detectados, deshabilitar pestaña
-            heic_dups = results.get('heic', {}).get('total_duplicates', 0)
-            self.tab_availability['heic'] = heic_dups > 0
+        # Si no hay duplicados HEIC detectados, deshabilitar pestaña
+        heic_dups = results.get('heic', {}).get('total_duplicates', 0)
+        self.tab_availability['heic'] = heic_dups > 0
 
-            # Organización: habilitar solo si hay archivos a mover
-            org_count = results.get('organization', {}).get('total_files_to_move', 0)
-            self.tab_availability['organization'] = org_count > 0
+        # Organización: habilitar solo si hay archivos a mover
+        org_count = results.get('organization', {}).get('total_files_to_move', 0)
+        self.tab_availability['organization'] = org_count > 0
 
-            # Renaming: habilitar si hay necesidades de renombrado
-            need_renaming = results.get('renaming', {}).get('need_renaming', 0)
-            self.tab_availability['renaming'] = need_renaming > 0
+        # Renaming: habilitar si hay necesidades de renombrado
+        need_renaming = results.get('renaming', {}).get('need_renaming', 0)
+        self.tab_availability['renaming'] = need_renaming > 0
 
-            # Duplicates tab: habilitar si hay grupos detectados
-            dup_groups = results.get('duplicates', {}).get('total_groups', 0)
-            self.tab_availability['duplicates'] = dup_groups > 0
-        except Exception:
-            # En caso de error, mantener los valores por defecto (no bloquear pestañas)
-            pass
+        # Duplicates tab: habilitar si hay grupos detectados
+        dup_groups = results.get('duplicates', {}).get('total_groups', 0)
+        self.tab_availability['duplicates'] = dup_groups > 0
 
-        # Aplicar los cambios en el widget (delegar a ui.tabs)
-        try:
-            tabs_module.update_tabs_availability(self.window, results)
-        except Exception:
-            # Silenciar errores de UI para no romper el flujo
-            pass
+        # Aplicar los cambios en el widget
+        tabs_module.update_tabs_availability(self.window, results)
+

@@ -314,12 +314,7 @@ class SettingsDialog(QDialog):
             self.settings_changed = True
 
     def open_logs_folder(self):
-        """Abre la carpeta de logs sin delegar a la ventana principal.
-
-        Intenta abrir la carpeta de logs usando el método apropiado según
-        el sistema operativo y registra el intento en el logger de la
-        ventana principal cuando esté disponible.
-        """
+        """Abre la carpeta de logs usando el método apropiado según el sistema operativo."""
         try:
             logs_dir = None
             if hasattr(self, 'parent_window') and getattr(self.parent_window, 'logs_directory', None):
@@ -329,12 +324,11 @@ class SettingsDialog(QDialog):
 
             if platform.system() == 'Windows':
                 os.startfile(logs_dir)
-            elif platform.system() == 'Darwin':  # macOS
+            elif platform.system() == 'Darwin':
                 subprocess.Popen(['open', logs_dir])
-            else:  # Linux and others
+            else:
                 subprocess.Popen(['xdg-open', logs_dir])
 
-            # Registrar la acción si el padre tiene logger
             try:
                 if hasattr(self.parent_window, 'logger'):
                     self.parent_window.logger.info(f"Carpeta de logs abierta: {logs_dir}")
@@ -351,10 +345,7 @@ class SettingsDialog(QDialog):
             )
 
     def change_log_level(self, level_str):
-        """Cambia el nivel de logging y actualiza config y logger del padre.
-
-        level_str: texto del combo (p.ej. 'DEBUG (Máximo detalle)') o solo el nivel.
-        """
+        """Cambia el nivel de logging y actualiza config y logger del padre."""
         try:
             level_name = str(level_str).split()[0].upper()
             level_map = {
@@ -365,15 +356,11 @@ class SettingsDialog(QDialog):
             }
             level = level_map.get(level_name, logging.INFO)
 
-            # Actualizar config global
             config.Config.LOG_LEVEL = level_name
 
-            # Actualizar logger de la ventana principal mediante el LoggingManager
             if hasattr(self, 'parent_window') and getattr(self.parent_window, 'logging_manager', None):
                 try:
-                    # Delegar al manager la actualización del nivel
                     self.parent_window.logging_manager.set_level(level_name)
-                    # Mantener alias/app-level attrs consistentes
                     if getattr(self.parent_window, 'app_logger', None):
                         self.parent_window.app_logger.setLevel(level)
                     if getattr(self.parent_window, 'logger', None):
@@ -387,7 +374,6 @@ class SettingsDialog(QDialog):
                 except Exception:
                     logging.getLogger('PhotokitManager').info(f"Nivel de log cambiado a: {level_name}")
             else:
-                # Fallback: actualizar el logger raíz del módulo
                 logging.getLogger('PhotokitManager').setLevel(level)
                 logging.getLogger('PhotokitManager').info(f"Nivel de log cambiado a: {level_name}")
 
@@ -422,14 +408,11 @@ class SettingsDialog(QDialog):
 
     def save_settings(self):
         """Guarda la configuración"""
-        # Actualizar directorio de logs
         new_logs_dir = Path(self.logs_edit.text())
         try:
             if getattr(self, 'parent_window', None) and getattr(self.parent_window, 'logging_manager', None):
-                # Delegar al LoggingManager
                 try:
                     self.parent_window.logging_manager.change_logs_directory(new_logs_dir)
-                    # Sincronizar atributos auxiliares en la ventana principal
                     self.parent_window.logs_directory = self.parent_window.logging_manager.logs_directory
                     self.parent_window.log_file = self.parent_window.logging_manager.log_file
                     try:
@@ -438,7 +421,6 @@ class SettingsDialog(QDialog):
                         if getattr(self.parent_window, 'logger', None):
                             self.parent_window.logger.info(f"Directorio de logs cambiado a: {new_logs_dir}")
                 except Exception:
-                    # Si falla el manager, como fallback actualizar el atributo directamente
                     self.parent_window.logs_directory = new_logs_dir
                     try:
                         self.parent_window.app_logger.info(f"Directorio de logs cambiado a: {new_logs_dir}")
@@ -446,7 +428,6 @@ class SettingsDialog(QDialog):
                         if getattr(self.parent_window, 'logger', None):
                             self.parent_window.logger.info(f"Directorio de logs cambiado a: {new_logs_dir}")
             else:
-                # Sin parent_window.logging_manager: comportarse como antes
                 if new_logs_dir != getattr(self.parent_window, 'logs_directory', None):
                     self.parent_window.logs_directory = new_logs_dir
                     try:
@@ -456,18 +437,12 @@ class SettingsDialog(QDialog):
                             self.parent_window.logger.info(f"Directorio de logs cambiado a: {new_logs_dir}")
 
         except Exception:
-            # Si por alguna razón parent_window no está disponible, registrar globalmente
             logging.getLogger('PhotokitManager').info(f"Directorio de logs cambiado a: {new_logs_dir}")
 
-        # Actualizar nivel de log usando el método local que también actualiza el parent
         level_text = self.log_level_combo.currentText()
-        level = level_text.split(" ")[0]  # Extraer DEBUG, INFO, etc.
-        # Usar el método del diálogo para manejar la actualización y el logging
+        level = level_text.split(" ")[0]
         self.change_log_level(level)
 
-        # Aquí guardarías el resto de configuraciones en un archivo o variables
-
-        # Registrar usando el nivel efectivo actual del logger (para que WARNING/ERROR sean visibles)
         try:
             lvl = self.parent_window.app_logger.getEffectiveLevel()
             self.parent_window.app_logger.log(lvl, "Configuración guardada exitosamente")

@@ -22,21 +22,18 @@ def create_details_textedit(window, attr_name: str, parent_layout, placeholder: 
 
     parent_layout (QLayout) es obligatorio y se usará para añadir el widget
     a la pestaña. Se guarda además como atributo en `window` con el nombre
-    `attr_name` para compatibilidad con el código existente.
+    `attr_name`.
     """
     te = QTextEdit()
     te.setReadOnly(True)
     te.setMaximumHeight(max_height)
     te.setPlaceholderText(placeholder)
 
-    # Attach to window attribute for compatibility with existing code
     setattr(window, attr_name, te)
 
-    # `parent_layout` es obligatorio: añadir el widget al layout proporcionado
     if parent_layout is None:
         raise ValueError("parent_layout es obligatorio para create_details_textedit")
 
-    # Añadir el widget al layout (dejar que excepciones se propaguen si hay un problema)
     parent_layout.addWidget(te)
 
     return te
@@ -45,7 +42,6 @@ def create_details_textedit(window, attr_name: str, parent_layout, placeholder: 
 def create_action_button(window, attr_name: str, text: str, callback_name: str, color: str = "#28a745") -> QPushButton:
     btn = QPushButton(text)
     btn.setEnabled(False)
-    # connect to callback if it exists on window otherwise leave disabled
     cb = getattr(window, callback_name, None)
     if cb is not None:
         try:
