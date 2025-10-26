@@ -23,12 +23,30 @@ class FileOrganizationDialog(BaseDialog):
         self.resize(800, 500)
         layout = QVBoxLayout(self)
 
-        # Información
-        info = QLabel("Esta operación moverá todos los archivos al directorio raíz "
-                      "y eliminará los subdirectorios vacíos.")
+        # Obtener tipo de organización
+        org_type = self.analysis.get('organization_type', 'to_root')
+        
+        # Información según tipo
+        if org_type == 'by_month':
+            info_text = "Esta operación organizará los archivos en carpetas mensuales (YYYY_MM) basándose en la fecha más antigua de cada archivo."
+        elif org_type == 'whatsapp_separate':
+            info_text = "Esta operación separará los archivos de WhatsApp en una carpeta específica y moverá el resto al directorio raíz."
+        else:  # to_root
+            info_text = "Esta operación moverá todos los archivos al directorio raíz y eliminará los subdirectorios vacíos."
+        
+        info = QLabel(info_text)
         info.setWordWrap(True)
         info.setStyleSheet(ui_styles.STYLE_WARNING_LIGHT)
         layout.addWidget(info)
+
+        # Mostrar carpetas a crear si las hay
+        folders_to_create = self.analysis.get('folders_to_create', [])
+        if folders_to_create:
+            folders_label = QLabel(f"Se crearán {len(folders_to_create)} carpetas: {', '.join(sorted(folders_to_create)[:10])}" + 
+                                  ("..." if len(folders_to_create) > 10 else ""))
+            folders_label.setWordWrap(True)
+            folders_label.setStyleSheet("color: #0066cc; font-weight: 600; margin: 8px 0;")
+            layout.addWidget(folders_label)
 
         # Lista de subdirectorios
         if self.analysis.get('subdirectories'):
@@ -77,7 +95,9 @@ class FileOrganizationDialog(BaseDialog):
     def accept(self):
         self.accepted_plan = self.build_accepted_plan({
             'move_plan': self.analysis['move_plan'],
-            'cleanup_empty_dirs': self.cleanup_checkbox.isChecked()
+            'cleanup_empty_dirs': self.cleanup_checkbox.isChecked(),
+            'organization_type': self.analysis.get('organization_type', 'to_root'),
+            'folders_to_create': self.analysis.get('folders_to_create', [])
         })
         super().accept()
 
