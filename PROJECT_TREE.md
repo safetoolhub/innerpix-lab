@@ -33,10 +33,14 @@ photokit-manager/
 │   │   └── summary_panel.py
 │   ├── controllers/
 │   │   ├── analysis_controller.py
-│   │   ├── operations_controller.py
+│   │   ├── duplicates_controller.py
+│   │   ├── heic_controller.py
+│   │   ├── live_photos_controller.py
 │   │   ├── progress_controller.py
+│   │   ├── renaming_controller.py
 │   │   ├── results_controller.py
-│   │   └── tab_controller.py
+│   │   ├── tab_controller.py
+│   │   └── unifier_controller.py
 │   ├── dialogs/
 │   │   ├── __init__.py
 │   │   ├── about_dialog.py

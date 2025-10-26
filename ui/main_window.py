@@ -28,12 +28,10 @@ from ui.validators.directory_validator import (
     count_files_in_directory,
     confirm_large_directory,
 )
-from utils.format_utils import format_size, markdown_like_to_html
+from utils.format_utils import format_size
 from ui.controllers.progress_controller import ProgressController
 
 from services.duplicate_detector import DuplicateDetector
-from ui.workers import DuplicateAnalysisWorker, DuplicateDeletionWorker
-from ui.dialogs import ExactDuplicatesDialog, SimilarDuplicatesDialog
 from ui.components import SearchBar
 
 
@@ -147,11 +145,37 @@ class MainWindow(QMainWindow):
         from ui.controllers.results_controller import ResultsController
         self.results_controller = ResultsController(self)
 
-        # ===== CONTROLADOR DE OPERACIONES =====
-        # Centraliza la lógica de operaciones de archivos (preview + ejecución)
-        from ui.controllers.operations_controller import OperationsController
-        self.operations_controller = OperationsController(
-            self, self.progress_controller, self.analysis_controller, self.results_controller
+        # ===== CONTROLLERS ESPECIALIZADOS POR FUNCIONALIDAD =====
+        # Cada funcionalidad tiene su propio controller especializado
+
+        # Controlador de duplicados
+        from ui.controllers.duplicates_controller import DuplicatesController
+        self.duplicates_controller = DuplicatesController(
+            self, self.duplicate_detector, self.results_controller
+        )
+
+        # Controlador de renombrado
+        from ui.controllers.renaming_controller import RenamingController
+        self.renaming_controller = RenamingController(
+            self, self.renamer, self.progress_controller, self.results_controller
+        )
+
+        # Controlador de Live Photos
+        from ui.controllers.live_photos_controller import LivePhotosController
+        self.live_photos_controller = LivePhotosController(
+            self, self.live_photo_cleaner, self.progress_controller, self.results_controller
+        )
+
+        # Controlador de unificación de directorios
+        from ui.controllers.unifier_controller import UnifierController
+        self.unifier_controller = UnifierController(
+            self, self.directory_unifier, self.progress_controller, self.results_controller
+        )
+
+        # Controlador de HEIC
+        from ui.controllers.heic_controller import HEICController
+        self.heic_controller = HEICController(
+            self, self.heic_remover, self.progress_controller, self.results_controller
         )
 
         # Crear y usar el componente de botones de acción para mantener
@@ -164,26 +188,38 @@ class MainWindow(QMainWindow):
         self.action_buttons = ActionButtons(self, search_bar)
 
     # ========================================================================
-    # WRAPPER METHODS FOR OPERATIONS CONTROLLER
+    # WRAPPER METHODS FOR SPECIALIZED CONTROLLERS
     # ========================================================================
-    # Estos métodos delegan al operations_controller para mantener compatibilidad
-    # con las conexiones de botones existentes en las tabs
-    
+    # Estos métodos delegan a los controllers especializados para mantener
+    # compatibilidad con las conexiones de botones existentes en las tabs
+
     def preview_renaming(self):
-        """Wrapper: delega a operations_controller"""
-        self.operations_controller.preview_renaming()
-    
+        """Wrapper: delega a renaming_controller"""
+        self.renaming_controller.preview_renaming()
+
     def cleanup_live_photos(self):
-        """Wrapper: delega a operations_controller"""
-        self.operations_controller.preview_live_photo_cleanup()
-    
+        """Wrapper: delega a live_photos_controller"""
+        self.live_photos_controller.preview_live_photo_cleanup()
+
     def unify_directories(self):
-        """Wrapper: delega a operations_controller"""
-        self.operations_controller.preview_unification()
-    
+        """Wrapper: delega a unifier_controller"""
+        self.unifier_controller.preview_unification()
+
     def remove_heic(self):
-        """Wrapper: delega a operations_controller"""
-        self.operations_controller.preview_heic_removal()
+        """Wrapper: delega a heic_controller"""
+        self.heic_controller.preview_heic_removal()
+
+    def on_analyze_duplicates(self):
+        """Wrapper: delega a duplicates_controller"""
+        self.duplicates_controller.analyze_duplicates()
+
+    def on_delete_exact_duplicates(self):
+        """Wrapper: delega a duplicates_controller"""
+        self.duplicates_controller.delete_exact_duplicates()
+
+    def on_review_similar_duplicates(self):
+        """Wrapper: delega a duplicates_controller"""
+        self.duplicates_controller.review_similar_duplicates()
 
     # ========================================================================
     # CONFIGURACIÓN Y DIÁLOGOS
@@ -209,6 +245,13 @@ class MainWindow(QMainWindow):
         """Asegurar limpieza correcta al cerrar"""
         # Limpiar el análisis controller
         self.analysis_controller.cleanup()
+
+        # Limpiar controllers especializados
+        self.duplicates_controller.cleanup()
+        self.renaming_controller.cleanup()
+        self.live_photos_controller.cleanup()
+        self.unifier_controller.cleanup()
+        self.heic_controller.cleanup()
 
         # Limpiar otros workers activos
         for worker in self.active_workers:
@@ -360,234 +403,6 @@ class MainWindow(QMainWindow):
 
 
     # =========================================================================
-    # MÉTODOS PARA DUPLICADOS
+    # MÉTODOS DE ANÁLISIS
     # =========================================================================
-    
-    def on_analyze_duplicates(self):
-        """Inicia el análisis de duplicados según el modo seleccionado"""
-        if not self.current_directory:
-            QMessageBox.warning(
-                self,
-                "Directorio no seleccionado",
-                "Por favor selecciona un directorio primero."
-            )
-            return
-        
-        # Determinar modo
-        is_exact_mode = self.exact_mode_radio.isChecked()
-        mode = 'exact' if is_exact_mode else 'perceptual'
-        sensitivity = self.sensitivity_slider.value()
-        
-        self.logger.info(f"Iniciando análisis de duplicados: modo={mode}, sensitivity={sensitivity}")
-        
-        # Deshabilitar botones
-        self.analyze_duplicates_btn.setEnabled(False)
-        self.delete_exact_duplicates_btn.setVisible(False)
-        self.review_similar_btn.setVisible(False)
-        
-        # Actualizar UI
-        mode_text = "exactos" if is_exact_mode else "similares"
-        try:
-            self.duplicates_details.setHtml(markdown_like_to_html(
-                f"🔄 Analizando duplicados {mode_text}...\n"
-                f"Por favor espera, esto puede tardar varios minutos."
-            ))
-        except Exception:
-            pass
-        
-        # Crear y ejecutar worker
-        self.duplicate_worker = DuplicateAnalysisWorker(
-            self.duplicate_detector,
-            self.current_directory,
-            mode=mode,
-            sensitivity=sensitivity
-        )
-        
-        self.duplicate_worker.progress_update.connect(self._update_duplicate_progress)
-        self.duplicate_worker.finished.connect(self._on_duplicate_analysis_finished)
-        self.duplicate_worker.error.connect(self._on_duplicate_analysis_error)
-        
-        self.duplicate_worker.start()
-    
-    def _update_duplicate_progress(self, current, total, message):
-        """Actualiza el progreso del análisis de duplicados"""
-        try:
-            self.duplicates_details.setHtml(markdown_like_to_html(f"🔄 {message}"))
-        except Exception:
-            pass
-    
-    def _on_duplicate_analysis_finished(self, results):
-        """Maneja la finalización del análisis de duplicados"""
-        self.logger.info(f"Análisis completado: {results.get('mode')}")
-        
-        # Guardar resultados en el servicio DuplicateDetector para centralizar estado
-        self.duplicate_detector.set_last_results(results)
-        self.analyze_duplicates_btn.setEnabled(True)
-        
-        if results.get('error'):
-            QMessageBox.critical(
-                self,
-                "Error en Análisis",
-                f"Error: {results['error']}\n\n"
-                "Asegúrate de tener instalados imagehash y opencv-python para detección perceptual."
-            )
-            try:
-                self.duplicates_details.setHtml(markdown_like_to_html(f"❌ Error: {results['error']}"))
-            except Exception:
-                pass
-            return
-        
-        # Mostrar resultados según el modo
-        if results['mode'] == 'exact':
-            self.results_controller.show_exact_results(results)
-        else:  # perceptual
-            self.results_controller.show_similar_results(results)
-    
-    def _on_duplicate_analysis_error(self, error_msg):
-        """Maneja errores en el análisis de duplicados"""
-        self.logger.error(f"Error en análisis: {error_msg}")
-        
-        QMessageBox.critical(
-            self,
-            "Error en Análisis",
-            f"Ocurrió un error durante el análisis:\n\n{error_msg}"
-        )
-        
-        try:
-            self.duplicates_details.setHtml(markdown_like_to_html("❌ Error en el análisis. Revisa el log para más detalles."))
-        except Exception:
-            pass
-        
-        self.analyze_duplicates_btn.setEnabled(True)
-    
-    def on_delete_exact_duplicates(self):
-        """Muestra diálogo para eliminar duplicados exactos"""
-        # Leer resultados desde el servicio DuplicateDetector
-        if not self.duplicate_detector.get_last_results():
-            return
 
-        dialog = ExactDuplicatesDialog(self.duplicate_detector.get_last_results(), self)
-        
-        if dialog.exec_() == QDialog.Accepted and dialog.accepted_plan:
-            self._execute_duplicate_deletion(dialog.accepted_plan)
-    
-    def on_review_similar_duplicates(self):
-        """Muestra diálogo para revisar duplicados similares"""
-        if not self.duplicate_detector.get_last_results():
-            return
-
-        dialog = SimilarDuplicatesDialog(self.duplicate_detector.get_last_results(), self)
-        
-        if dialog.exec_() == QDialog.Accepted and dialog.accepted_plan:
-            self._execute_duplicate_deletion(dialog.accepted_plan)
-    
-    def _execute_duplicate_deletion(self, plan):
-        """Ejecuta la eliminación de duplicados"""
-        groups = plan['groups']
-        keep_strategy = plan['keep_strategy']
-        create_backup = plan['create_backup']
-        
-        # Confirmación final
-        reply = QMessageBox.question(
-            self,
-            "Confirmar Eliminación",
-            f"¿Estás seguro de que deseas eliminar los archivos seleccionados?\n\n"
-            f"Se eliminarán archivos de {len(groups)} grupos.\n"
-            f"{'Se creará un backup de seguridad.' if create_backup else 'NO se creará backup.'}",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
-        
-        if reply != QMessageBox.Yes:
-            return
-        
-        self.logger.info(f"Ejecutando eliminación de duplicados: {len(groups)} grupos")
-        
-        # Deshabilitar botones
-        self.delete_exact_duplicates_btn.setEnabled(False)
-        self.review_similar_btn.setEnabled(False)
-        self.analyze_duplicates_btn.setEnabled(False)
-        
-        try:
-            self.duplicates_details.setHtml(markdown_like_to_html("🗑️ Eliminando archivos...\nPor favor espera."))
-        except Exception:
-            pass
-        
-        # Crear y ejecutar worker
-        self.deletion_worker = DuplicateDeletionWorker(
-            self.duplicate_detector,
-            groups,
-            keep_strategy,
-            create_backup
-        )
-        
-        self.deletion_worker.progress_update.connect(self._update_deletion_progress)
-        self.deletion_worker.finished.connect(self._on_deletion_finished)
-        self.deletion_worker.error.connect(self._on_deletion_error)
-        
-        self.deletion_worker.start()
-    
-    def _update_deletion_progress(self, current, total, message):
-        """Actualiza progreso de eliminación"""
-        try:
-            self.duplicates_details.setHtml(markdown_like_to_html(f"🗑️ {message}"))
-        except Exception:
-            pass
-    
-    def _on_deletion_finished(self, results):
-        """Maneja finalización de eliminación"""
-        files_deleted = results['files_deleted']
-        space_freed = results['space_freed']
-        errors = results['errors']
-        backup_path = results.get('backup_path')
-        
-        # Formatear tamaño usando helper central
-        size_str = format_size(space_freed)
-        
-        self.logger.info(f"Eliminación completada: {files_deleted} archivos, {size_str} liberados")
-        
-        # Mostrar mensaje de éxito
-        msg = (
-            f"✅ **Eliminación Completada**\n\n"
-            f"• Archivos eliminados: {files_deleted}\n"
-            f"• Espacio liberado: {size_str}\n"
-        )
-        
-        if backup_path:
-            msg += f"\n📦 Backup guardado en:\n{backup_path}"
-        
-        if errors:
-            msg += f"\n\n⚠️ Errores: {len(errors)}"
-        
-        QMessageBox.information(self, "Eliminación Completada", msg)
-        
-        # Actualizar UI
-        try:
-            self.duplicates_details.setHtml(markdown_like_to_html(
-                f"✅ **Eliminación completada exitosamente**\n\n"
-                f"• {files_deleted} archivos eliminados\n"
-                f"• {size_str} liberados\n\n"
-                f"Ejecuta un nuevo análisis para verificar."
-            ))
-        except Exception:
-            pass
-        
-        # Limpiar resultados y restaurar botones
-        self.duplicate_detector.clear_last_results()
-        self.analyze_duplicates_btn.setEnabled(True)
-        self.delete_exact_duplicates_btn.setVisible(False)
-        self.review_similar_btn.setVisible(False)
-    
-    def _on_deletion_error(self, error_msg):
-        """Maneja errores en eliminación"""
-        self.logger.error(f"Error en eliminación: {error_msg}")
-        
-        QMessageBox.critical(
-            self,
-            "Error en Eliminación",
-            f"Ocurrió un error durante la eliminación:\n\n{error_msg}"
-        )
-        
-        self.analyze_duplicates_btn.setEnabled(True)
-        self.delete_exact_duplicates_btn.setEnabled(True)
-        self.review_similar_btn.setEnabled(True)
