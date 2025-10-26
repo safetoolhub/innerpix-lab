@@ -12,13 +12,14 @@ photokit-manager/
 │   ├── prompt_dev.txt
 │   └── TODO.txt
 ├── services/
-│   ├── __init_.py
-│   ├── directory_unifier.py
+│   ├── __init__.py
 │   ├── duplicate_detector.py
+│   ├── file_organizer.py
 │   ├── file_renamer.py
 │   ├── heic_remover.py
 │   ├── live_photo_cleaner.py
 │   └── live_photo_detector.py
+├── tools/
 ├── ui/
 │   ├── __init__.py
 │   ├── helpers.py
@@ -27,8 +28,8 @@ photokit-manager/
 │   ├── workers.py
 │   ├── components/
 │   │   ├── __init__.py
+│   │   ├── action_buttons.py
 │   │   ├── header.py
-│   │   ├── progress_bar.py
 │   │   ├── search_bar.py
 │   │   └── summary_panel.py
 │   ├── controllers/
@@ -36,11 +37,11 @@ photokit-manager/
 │   │   ├── duplicates_controller.py
 │   │   ├── heic_controller.py
 │   │   ├── live_photos_controller.py
+│   │   ├── organizer_controller.py
 │   │   ├── progress_controller.py
 │   │   ├── renaming_controller.py
 │   │   ├── results_controller.py
-│   │   ├── tab_controller.py
-│   │   └── unifier_controller.py
+│   │   └── tab_controller.py
 │   ├── dialogs/
 │   │   ├── __init__.py
 │   │   ├── about_dialog.py
@@ -60,8 +61,8 @@ photokit-manager/
 │   │   ├── duplicates_tab.py
 │   │   ├── heic_tab.py
 │   │   ├── live_photos_tab.py
-│   │   ├── renaming_tab.py
-│   │   └── unifier_tab.py
+│   │   ├── organizer_tab.py
+│   │   └── renaming_tab.py
 │   └── validators/
 │       └── directory_validator.py
 ├── utils/
@@ -70,7 +71,7 @@ photokit-manager/
 │   ├── file_utils.py
 │   ├── format_utils.py
 │   └── logger.py
-└── .gitignore
+└── __pycache__/
 
 ```
 
