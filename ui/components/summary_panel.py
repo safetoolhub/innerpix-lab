@@ -119,11 +119,12 @@ def create_summary_panel(window):
     # Añadir siempre los botones (la visibilidad/estado real se controlará
     # más tarde mediante el `TabController` y su método
     # `update_tabs_availability`).
+    # ORDEN: Live Photos → HEIC → Duplicados → Organizador → Renombrado
     stack_layout.addWidget(make_full_btn('live_photos', '📱', 'Live Photos'))
     stack_layout.addWidget(make_full_btn('heic', '🖼️', 'Duplicados HEIC'))
-    stack_layout.addWidget(make_full_btn('organization', '📁', 'Organizador'))
-    stack_layout.addWidget(make_full_btn('renaming', '📝', 'Renombrado'))
-    stack_layout.addWidget(make_full_btn('duplicates', '🔍', 'Duplicados'))
+    stack_layout.addWidget(make_full_btn('duplicates', '�', 'Duplicados'))
+    stack_layout.addWidget(make_full_btn('organization', '�', 'Organizador'))
+    stack_layout.addWidget(make_full_btn('renaming', '�', 'Renombrado'))
 
     actions_layout.addLayout(stack_layout)
 
@@ -153,12 +154,19 @@ def update_summary_panel(window, results):
     lp = results.get('live_photos', {})
     org = results.get('organization', {})
     heic = results.get('heic', {})
+    dup = results.get('duplicates', {})
 
     if hasattr(window, 'summary_action_buttons'):
         if 'live_photos' in window.summary_action_buttons:
             window.summary_action_buttons['live_photos'].setText(f"📱 Live Photos   {lp.get('live_photos_found', 0):,}")
         if 'heic' in window.summary_action_buttons:
             window.summary_action_buttons['heic'].setText(f"🖼️ Duplicados HEIC   {heic.get('total_duplicates', 0):,}")
+        if 'duplicates' in window.summary_action_buttons:
+            # Mostrar "Pendiente" si no hay resultados de duplicados
+            if dup and dup.get('total_duplicates', 0) > 0:
+                window.summary_action_buttons['duplicates'].setText(f"🔍 Duplicados   {dup.get('total_duplicates', 0):,}")
+            else:
+                window.summary_action_buttons['duplicates'].setText("🔍 Duplicados   Pendiente")
         if 'organization' in window.summary_action_buttons:
             window.summary_action_buttons['organization'].setText(f"📁 Organizador   {org.get('total_files_to_move', 0):,}")
         if 'renaming' in window.summary_action_buttons:

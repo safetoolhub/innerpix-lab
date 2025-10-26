@@ -20,25 +20,31 @@ def create_tabs_widget(window):
     idx = 0
     # Añadir siempre las pestañas en un orden fijo. La disponibilidad real
     # (habilitada/visible) será controlada por `update_tabs_availability`.
+    
+    # 1. Live Photos (debe ejecutarse ANTES de renombrar)
     tabs.addTab(create_live_photos_tab(window), "📱 Live Photos")
     window.tab_index_map['live_photos'] = idx
     idx += 1
 
+    # 2. Duplicados HEIC (debe ejecutarse ANTES de renombrar)
     tabs.addTab(create_heic_tab(window), "🖼️ Duplicados HEIC")
     window.tab_index_map['heic'] = idx
     idx += 1
 
+    # 3. Duplicados (puede ejecutarse en cualquier momento)
+    duplicates_tab = create_duplicates_tab(window)
+    tabs.addTab(duplicates_tab, "🔍 Duplicados")
+    window.tab_index_map['duplicates'] = idx
+    idx += 1
+
+    # 4. Organizador (puede ejecutarse en cualquier momento)
     tabs.addTab(create_organizer_tab(window), "📁 Organizador")
     window.tab_index_map['organization'] = idx
     idx += 1
 
+    # 5. Renombrado (debe ejecutarse ÚLTIMO)
     tabs.addTab(create_renaming_tab(window), "📝 Renombrado")
     window.tab_index_map['renaming'] = idx
-    idx += 1
-
-    duplicates_tab = create_duplicates_tab(window)
-    tabs.addTab(duplicates_tab, "🔍 Duplicados")
-    window.tab_index_map['duplicates'] = idx
     idx += 1
 
     # Guardar una lista inversa opcional (índice -> clave) por conveniencia

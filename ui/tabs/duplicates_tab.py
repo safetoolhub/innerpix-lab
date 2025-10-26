@@ -1,161 +1,204 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QGroupBox, QFrame, QVBoxLayout as QVLayout, QHBoxLayout, QPushButton, QSizePolicy, QButtonGroup, QRadioButton, QTextEdit
+from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QLabel, QGroupBox, QFrame,
+                             QHBoxLayout, QPushButton, QSizePolicy, QButtonGroup,
+                             QRadioButton, QSlider)
 from PyQt5.QtCore import Qt, QTimer
 from ui.tabs.base_tab import create_details_textedit
-from utils.format_utils import markdown_like_to_html
+from ui import styles
 
 
 def create_duplicates_tab(window):
-    # Importes locales para reducir dependencias en el módulo superior
-    from PyQt5.QtWidgets import QSlider
+    """Crea la pestaña de detección de duplicados con diseño unificado"""
+    widget = QWidget()
+    layout = QVBoxLayout(widget)
+    layout.setSpacing(16)
+    layout.setContentsMargins(20, 20, 20, 20)
 
-    tab = QWidget()
-    layout = QVBoxLayout(tab)
-    layout.setSpacing(12)
-    layout.setContentsMargins(18, 18, 18, 18)
-
-    # Título
+    # ===== TÍTULO =====
     title = QLabel("🔍 Detección de Duplicados")
-    title.setStyleSheet("font-size:18px; font-weight:600; color:#223; margin-bottom:6px;")
+    title.setStyleSheet(
+        "font-size: 20px; font-weight: 600; color: #212529; margin-bottom: 8px;"
+    )
     layout.addWidget(title)
 
-    panel = QGroupBox()
-    panel.setFlat(True)
-    panel_layout = QVBoxLayout(panel)
-    panel_layout.setSpacing(10)
-    panel_layout.setContentsMargins(12, 12, 12, 12)
+    # ===== OPCIONES DE DETECCIÓN =====
+    options_group = QGroupBox("Opciones de Detección")
+    options_group.setStyleSheet(
+        "QGroupBox { font-weight: 600; color: #495057; border: 1px solid #dee2e6; "
+        "border-radius: 6px; margin-top: 12px; padding-top: 20px; } "
+        "QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 8px; background: white; }"
+    )
+    options_layout = QVBoxLayout(options_group)
+    options_layout.setSpacing(12)
+    options_layout.setContentsMargins(16, 8, 16, 16)
     window.duplicate_mode_group = QButtonGroup()
+
 
     # ---- Opción Exactos ----
     exact_block = QFrame()
     exact_block.setStyleSheet(
-        "QFrame {background:#f5f8fc; border-radius:8px; border: 1px solid #dbe7f3;}"
+        "QFrame { background: #f5f8fc; border-radius: 8px; border: 1px solid #d1e3f5; }"
     )
     exact_layout = QVBoxLayout(exact_block)
-    exact_layout.setContentsMargins(10, 8, 10, 8)
-    window.exact_mode_radio = QRadioButton("⚡ Exactos (SHA256)")
+    exact_layout.setContentsMargins(12, 10, 12, 10)
+    exact_layout.setSpacing(6)
+
+    window.exact_mode_radio = QRadioButton("⚡ Duplicados Exactos (SHA256)")
     window.exact_mode_radio.setChecked(True)
+    window.exact_mode_radio.setStyleSheet("font-weight: 500; font-size: 14px;")
     window.duplicate_mode_group.addButton(window.exact_mode_radio, 0)
     exact_layout.addWidget(window.exact_mode_radio)
-    window.exact_info = QLabel("100% idénticos bit a bit.<br><b>Rápido</b> y seguro.")
-    window.exact_info.setStyleSheet("margin-left:6px; color:#406283; font-size:13px; margin-bottom:2px;")
+
+    window.exact_info = QLabel("Archivos 100% idénticos bit a bit. Detección <b>rápida y segura</b>.")
+    window.exact_info.setStyleSheet(
+        "margin-left: 24px; color: #495057; font-size: 13px;"
+    )
     window.exact_info.setWordWrap(True)
     exact_layout.addWidget(window.exact_info)
-    panel_layout.addWidget(exact_block)
+    options_layout.addWidget(exact_block)
 
     # ---- Opción Similares ----
     similar_block = QFrame()
     similar_block.setStyleSheet(
-        "QFrame {background:#f4fcf7; border-radius:8px; border: 1px solid #cbead6;}"
+        "QFrame { background: #f4fcf7; border-radius: 8px; border: 1px solid #c3e6cb; }"
     )
     similar_layout = QVBoxLayout(similar_block)
-    similar_layout.setContentsMargins(10, 8, 10, 8)
-    window.similar_mode_radio = QRadioButton("🎨 Similares (Perceptual)")
+    similar_layout.setContentsMargins(12, 10, 12, 10)
+    similar_layout.setSpacing(6)
+
+    window.similar_mode_radio = QRadioButton("🎨 Duplicados Similares (Perceptual)")
+    window.similar_mode_radio.setStyleSheet("font-weight: 500; font-size: 14px;")
     window.duplicate_mode_group.addButton(window.similar_mode_radio, 1)
     similar_layout.addWidget(window.similar_mode_radio)
+
     window.similar_info = QLabel(
-        "Visualmente idénticos o muy parecidos.<br>"
-        "<b>Permite encontrar copias redimensionadas o recomprimidas</b>, requiere revisión manual."
+        "Archivos visualmente idénticos o muy parecidos. "
+        "Detecta copias <b>redimensionadas o recomprimidas</b>. Requiere revisión manual."
     )
-    window.similar_info.setStyleSheet("margin-left:6px; color:#2e7650; font-size:13px; margin-bottom:2px;")
+    window.similar_info.setStyleSheet(
+        "margin-left: 24px; color: #495057; font-size: 13px;"
+    )
     window.similar_info.setWordWrap(True)
     similar_layout.addWidget(window.similar_info)
 
-    # Slider y etiquetas siempre pegados (NUNCA stretch en medio)
-    slider_row = QHBoxLayout()
-    slider_row.setSpacing(8)
-    slider_row.setContentsMargins(0,0,0,0)
+    # Slider de sensibilidad
+    slider_container = QFrame()
+    slider_container.setStyleSheet("QFrame { background: transparent; border: none; }")
+    slider_layout = QHBoxLayout(slider_container)
+    slider_layout.setContentsMargins(24, 8, 12, 0)
+    slider_layout.setSpacing(10)
+
     window.sens_low_lbl = QLabel("Baja")
-    window.sens_low_lbl.setStyleSheet("color:#38845e; font-size:13px; margin-right:4px;")
+    window.sens_low_lbl.setStyleSheet("color: #6c757d; font-size: 12px;")
+
     window.sensitivity_slider = QSlider(Qt.Horizontal)
     window.sensitivity_slider.setRange(0, 20)
     window.sensitivity_slider.setValue(10)
-    window.sensitivity_slider.setFixedWidth(150)
+    window.sensitivity_slider.setFixedWidth(160)
     window.sensitivity_slider.setStyleSheet(
-        "QSlider::groove:horizontal { height:6px; background:#b6e1c6; border-radius: 3px;} "
-        "QSlider::handle:horizontal { background: #2e7650; border-radius:6px; width:18px;}"
+        "QSlider::groove:horizontal { height: 6px; background: #d4edda; border-radius: 3px; } "
+        "QSlider::handle:horizontal { background: #28a745; border-radius: 7px; width: 14px; height: 14px; margin: -4px 0; }"
     )
+
     window.sens_high_lbl = QLabel("Alta")
-    window.sens_high_lbl.setStyleSheet("color:#38845e; font-size:13px; margin-left:4px;")
+    window.sens_high_lbl.setStyleSheet("color: #6c757d; font-size: 12px;")
+
     window.sens_value_lbl = QLabel(f"Sensibilidad: {window.sensitivity_slider.value()}")
-    window.sens_value_lbl.setStyleSheet("color:#277248; font-size:13px; margin-left:16px;")
+    window.sens_value_lbl.setStyleSheet("color: #28a745; font-size: 13px; font-weight: 500;")
 
-    slider_row.addWidget(window.sens_low_lbl)
-    slider_row.addWidget(window.sensitivity_slider)
-    slider_row.addWidget(window.sens_high_lbl)
-    slider_row.addWidget(window.sens_value_lbl)
-    similar_layout.addLayout(slider_row)
-    panel_layout.addWidget(similar_block)
+    slider_layout.addWidget(window.sens_low_lbl)
+    slider_layout.addWidget(window.sensitivity_slider)
+    slider_layout.addWidget(window.sens_high_lbl)
+    slider_layout.addWidget(window.sens_value_lbl)
+    slider_layout.addStretch()
 
-    # Visibilidad/estado: el slider y etiquetas SIEMPRE en el layout, solo visibles en modo Similares
+    similar_layout.addWidget(slider_container)
+    options_layout.addWidget(similar_block)
+
+    layout.addWidget(options_group)
+
+    # Función de actualización de modo
     def update_mode():
-        ex = window.exact_mode_radio.isChecked()
-        window.exact_info.setVisible(ex)
-        window.similar_info.setVisible(not ex)
-        visible = window.similar_mode_radio.isChecked()
-        window.sensitivity_slider.setVisible(visible)
-        window.sens_low_lbl.setVisible(visible)
-        window.sens_high_lbl.setVisible(visible)
-        window.sens_value_lbl.setVisible(visible)
+        is_exact = window.exact_mode_radio.isChecked()
+        is_similar = window.similar_mode_radio.isChecked()
+
+        # Mostrar/ocultar info según el modo seleccionado
+        window.exact_info.setVisible(is_exact)
+        window.similar_info.setVisible(is_similar)
+        slider_container.setVisible(is_similar)
+
     window.exact_mode_radio.toggled.connect(update_mode)
     window.similar_mode_radio.toggled.connect(update_mode)
     window.sensitivity_slider.valueChanged.connect(
         lambda v: window.sens_value_lbl.setText(f"Sensibilidad: {v}")
     )
-    # Force initial mode update after setting defaults
+
+    # Aplicar estado inicial
     QTimer.singleShot(0, update_mode)
 
-    layout.addWidget(panel)
-
-    # Resultados del análisis (usar detalles reutilizables)
-    results_group = QGroupBox("Resultados")
+    # ===== RESULTADOS =====
+    results_group = QGroupBox("Resultados del Análisis")
+    results_group.setStyleSheet(
+        "QGroupBox { font-weight: 600; color: #495057; border: 1px solid #dee2e6; "
+        "border-radius: 6px; margin-top: 12px; padding-top: 20px; } "
+        "QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 8px; background: white; }"
+    )
     results_layout = QVBoxLayout(results_group)
-    # Crear QTextEdit de detalles y anexarlo al layout (se guarda en window)
-    create_details_textedit(window, 'duplicates_details', results_layout, placeholder="Haz clic en 'Analizar Duplicados' para comenzar.")
+    results_layout.setContentsMargins(16, 8, 16, 16)
+
+    create_details_textedit(
+        window, 'duplicates_details', results_layout,
+        placeholder="Haz clic en 'Analizar Duplicados' para comenzar la detección...",
+        max_height=250
+    )
     layout.addWidget(results_group)
 
-    layout.addStretch(1)
+    layout.addStretch()
 
-    btns = QHBoxLayout()
+    # ===== BOTONES DE ACCIÓN =====
+    button_layout = QHBoxLayout()
+    button_layout.setSpacing(10)
+
     window.analyze_duplicates_btn = QPushButton("🔍 Analizar Duplicados")
-    window.analyze_duplicates_btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-    btns.addWidget(window.analyze_duplicates_btn)
-    window.delete_exact_duplicates_btn = QPushButton("⚡ Eliminar Exactos")
-    window.delete_exact_duplicates_btn.setVisible(False)
-    btns.addWidget(window.delete_exact_duplicates_btn)
-    window.review_similar_btn = QPushButton("🔍 Revisar Similares")
-    window.review_similar_btn.setVisible(False)
-    btns.addWidget(window.review_similar_btn)
-    layout.addLayout(btns)
-
+    window.analyze_duplicates_btn.setStyleSheet(styles.get_button_style("#007bff"))
+    window.analyze_duplicates_btn.setMinimumHeight(36)
     window.analyze_duplicates_btn.clicked.connect(window.on_analyze_duplicates)
-    window.delete_exact_duplicates_btn.clicked.connect(window.on_delete_exact_duplicates)
-    window.review_similar_btn.clicked.connect(window.on_review_similar_duplicates)
+    button_layout.addWidget(window.analyze_duplicates_btn)
 
-    return tab
+    window.delete_exact_duplicates_btn = QPushButton("⚡ Eliminar Duplicados Exactos")
+    window.delete_exact_duplicates_btn.setStyleSheet(styles.get_button_style("#28a745"))
+    window.delete_exact_duplicates_btn.setMinimumHeight(36)
+    window.delete_exact_duplicates_btn.setVisible(False)
+    window.delete_exact_duplicates_btn.clicked.connect(window.on_delete_exact_duplicates)
+    button_layout.addWidget(window.delete_exact_duplicates_btn)
+
+    window.review_similar_btn = QPushButton("🔍 Revisar Similares")
+    window.review_similar_btn.setStyleSheet(styles.get_button_style("#17a2b8"))
+    window.review_similar_btn.setMinimumHeight(36)
+    window.review_similar_btn.setVisible(False)
+    window.review_similar_btn.clicked.connect(window.on_review_similar_duplicates)
+    button_layout.addWidget(window.review_similar_btn)
+
+    layout.addLayout(button_layout)
+
+    return widget
+
 
 
 def _on_duplicate_mode_changed(window):
     """Maneja cambio en el modo de detección de duplicados"""
-    is_similar_mode = window.similar_mode_radio.isChecked()
-    # Algunos cambios en nombres de widgets en el módulo original usan
-    # `sensitivity_container` y `sensitivity_value_label`; esta función
-    # intenta mantener compatibilidad mínima con el resto de la app.
-    try:
-        window.sensitivity_container.setVisible(is_similar_mode)
-    except Exception:
-        pass
-
     # Ocultar botones de acción al cambiar de modo
     window.delete_exact_duplicates_btn.setVisible(False)
     window.review_similar_btn.setVisible(False)
 
     # Limpiar resultados previos
-    try:
-        window.duplicates_details.setHtml(markdown_like_to_html("📂 Haz clic en 'Analizar' para comenzar la detección"))
-    except Exception:
-        pass
+    window.duplicates_details.clear()
+    window.duplicates_details.setPlaceholderText(
+        "Haz clic en 'Analizar Duplicados' para comenzar la detección..."
+    )
+
     # Resetear estado centralizado en el servicio DuplicateDetector
-    window.duplicate_detector.clear_last_results()
+    if hasattr(window, 'duplicate_detector'):
+        window.duplicate_detector.clear_last_results()
 
 
 def _on_sensitivity_changed(window, value):
@@ -169,11 +212,5 @@ def _on_sensitivity_changed(window, value):
     }
     closest = min(descriptions.keys(), key=lambda x: abs(x - value))
     desc = descriptions.get(value, descriptions[closest])
-    try:
-        window.sensitivity_value_label.setText(f"Valor: {value} ({desc})")
-    except Exception:
-        # Mantener compatibilidad si no existe ese label
-        try:
-            window.sens_value_lbl.setText(f"Sensibilidad: {value} ({desc})")
-        except Exception:
-            pass
+    window.sens_value_lbl.setText(f"Sensibilidad: {value} ({desc})")
+
