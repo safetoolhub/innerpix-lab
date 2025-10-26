@@ -58,10 +58,8 @@ class DuplicatesController(QObject):
 
         self.logger.info(f"Iniciando análisis de duplicados: modo={mode}, sensitivity={sensitivity}")
 
-        # Deshabilitar botones
-        self.main_window.analyze_duplicates_btn.setEnabled(False)
-        self.main_window.delete_exact_duplicates_btn.setVisible(False)
-        self.main_window.review_similar_btn.setVisible(False)
+        # Deshabilitar controles durante análisis
+        self._set_analysis_controls_enabled(False)
 
         # Actualizar UI
         mode_text = "exactos" if is_exact_mode else "similares"
@@ -87,10 +85,58 @@ class DuplicatesController(QObject):
 
         self.duplicate_worker.start()
 
+    def cancel_duplicate_analysis(self):
+        """Cancela el análisis de duplicados en curso"""
+        if self.duplicate_worker and self.duplicate_worker.isRunning():
+            self.logger.info("Cancelando análisis de duplicados...")
+            self.duplicate_worker.stop()
+            self.duplicate_worker.wait(2000)  # Esperar hasta 2 segundos
+            
+            try:
+                self.main_window.duplicates_details.setHtml(markdown_like_to_html(
+                    "⏹ **Análisis cancelado**\n\nEl análisis fue detenido por el usuario."
+                ))
+            except Exception:
+                pass
+            
+            self._set_analysis_controls_enabled(True)
+
+    def _set_analysis_controls_enabled(self, enabled: bool):
+        """Habilita/deshabilita controles durante el análisis"""
+        # Botones de análisis en la pestaña de duplicados
+        self.main_window.analyze_duplicates_btn.setVisible(enabled)
+        self.main_window.cancel_duplicates_btn.setVisible(not enabled)
+        
+        # Controles de modo y sensibilidad en la pestaña de duplicados
+        self.main_window.exact_mode_radio.setEnabled(enabled)
+        self.main_window.similar_mode_radio.setEnabled(enabled)
+        self.main_window.sensitivity_slider.setEnabled(enabled)
+        
+        # Deshabilitar cambio de pestañas (pero no el contenido)
+        # Esto evita que el usuario cambie de pestaña durante el análisis
+        for i in range(self.main_window.tabs_widget.count()):
+            if i != self.main_window.tabs_widget.currentIndex() or enabled:
+                self.main_window.tabs_widget.setTabEnabled(i, enabled)
+        
+        # Deshabilitar barra de búsqueda y botones de acción
+        self.main_window.directory_edit.setEnabled(enabled)
+        self.main_window.analyze_btn.setEnabled(enabled)
+        self.main_window.reanalyze_btn.setEnabled(enabled)
+        self.main_window.change_dir_btn.setEnabled(enabled)
+        
+        # Ocultar botones de acción si se está iniciando análisis
+        if not enabled:
+            self.main_window.delete_exact_duplicates_btn.setVisible(False)
+            self.main_window.review_similar_btn.setVisible(False)
+
     def _update_duplicate_progress(self, current, total, message):
         """Actualiza el progreso del análisis de duplicados"""
         try:
-            self.main_window.duplicates_details.setHtml(markdown_like_to_html(f"🔄 {message}"))
+            if total > 0:
+                progress_text = f"🔄 {message} ({current}/{total})"
+            else:
+                progress_text = f"🔄 {message}"
+            self.main_window.duplicates_details.setHtml(markdown_like_to_html(progress_text))
         except Exception:
             pass
 
@@ -100,7 +146,9 @@ class DuplicatesController(QObject):
 
         # Guardar resultados en el servicio DuplicateDetector para centralizar estado
         self.duplicate_detector.set_last_results(results)
-        self.main_window.analyze_duplicates_btn.setEnabled(True)
+        
+        # Rehabilitar controles
+        self._set_analysis_controls_enabled(True)
 
         if results.get('error'):
             QMessageBox.critical(
@@ -136,7 +184,8 @@ class DuplicatesController(QObject):
         except Exception:
             pass
 
-        self.main_window.analyze_duplicates_btn.setEnabled(True)
+        # Rehabilitar controles
+        self._set_analysis_controls_enabled(True)
 
     # ========================================================================
     # ELIMINACIÓN DE DUPLICADOS

@@ -194,6 +194,11 @@ class ResultsController(QObject):
         Args:
             results: Diccionario con resultados de duplicados exactos
         """
+        # Verificar que el modo actual sea exact antes de mostrar
+        if not self.main_window.exact_mode_radio.isChecked():
+            self.logger.warning("Modo actual no es 'exact', ignorando show_exact_results")
+            return
+
         total_groups = results['total_groups']
         total_duplicates = results['total_duplicates']
         space_wasted = results['space_wasted']
@@ -222,9 +227,10 @@ class ResultsController(QObject):
         except Exception:
             pass
 
-        # Mostrar botón de eliminación
+        # Mostrar botón de eliminación solo si hay grupos
         try:
-            self.main_window.delete_exact_duplicates_btn.setVisible(True)
+            self.main_window.delete_exact_duplicates_btn.setVisible(total_groups > 0)
+            self.main_window.delete_exact_duplicates_btn.setEnabled(total_groups > 0)
         except Exception:
             pass
 
@@ -234,6 +240,11 @@ class ResultsController(QObject):
         Args:
             results: Diccionario con resultados de duplicados similares
         """
+        # Verificar que el modo actual sea similar antes de mostrar
+        if not self.main_window.similar_mode_radio.isChecked():
+            self.logger.warning("Modo actual no es 'similar', ignorando show_similar_results")
+            return
+
         total_groups = results['total_groups']
         total_similar = results['total_similar']
         space_potential = results['space_potential']
@@ -265,8 +276,9 @@ class ResultsController(QObject):
         except Exception:
             pass
 
-        # Mostrar botón de revisión
+        # Mostrar botón de revisión solo si hay grupos
         try:
-            self.main_window.review_similar_btn.setVisible(True)
+            self.main_window.review_similar_btn.setVisible(total_groups > 0)
+            self.main_window.review_similar_btn.setEnabled(total_groups > 0)
         except Exception:
             pass

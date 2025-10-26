@@ -354,13 +354,13 @@ class DuplicateAnalysisWorker(BaseWorker):
             if self.mode == 'exact':
                 results = self.detector.analyze_exact_duplicates(
                     self.directory,
-                    progress_callback=self._create_progress_callback()
+                    progress_callback=self._create_progress_callback(emit_numbers=True)
                 )
             else:  # perceptual
                 results = self.detector.analyze_similar_duplicates(
                     self.directory,
                     sensitivity=self.sensitivity,
-                    progress_callback=self._create_progress_callback()
+                    progress_callback=self._create_progress_callback(emit_numbers=True)
                 )
             
             if not self._stop_requested:

@@ -213,6 +213,10 @@ class MainWindow(QMainWindow):
         """Wrapper: delega a duplicates_controller"""
         self.duplicates_controller.analyze_duplicates()
 
+    def on_cancel_duplicate_analysis(self):
+        """Wrapper: delega a duplicates_controller"""
+        self.duplicates_controller.cancel_duplicate_analysis()
+
     def on_delete_exact_duplicates(self):
         """Wrapper: delega a duplicates_controller"""
         self.duplicates_controller.delete_exact_duplicates()
