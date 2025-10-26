@@ -243,22 +243,42 @@ class MainWindow(QMainWindow):
     
     def closeEvent(self, event):
         """Asegurar limpieza correcta al cerrar"""
-        # Limpiar el análisis controller
-        self.analysis_controller.cleanup()
+        try:
+            # Limpiar el análisis controller
+            if hasattr(self, 'analysis_controller'):
+                self.analysis_controller.cleanup()
 
-        # Limpiar controllers especializados
-        self.duplicates_controller.cleanup()
-        self.renaming_controller.cleanup()
-        self.live_photos_controller.cleanup()
-        self.unifier_controller.cleanup()
-        self.heic_controller.cleanup()
+            # Limpiar controllers especializados
+            if hasattr(self, 'duplicates_controller'):
+                self.duplicates_controller.cleanup()
+            if hasattr(self, 'renaming_controller'):
+                self.renaming_controller.cleanup()
+            if hasattr(self, 'live_photos_controller'):
+                self.live_photos_controller.cleanup()
+            if hasattr(self, 'unifier_controller'):
+                self.unifier_controller.cleanup()
+            if hasattr(self, 'heic_controller'):
+                self.heic_controller.cleanup()
 
-        # Limpiar otros workers activos
-        for worker in self.active_workers:
-            if worker and worker.isRunning():
-                worker.quit()
-                worker.wait(1000)
-        event.accept()
+            # Limpiar otros workers activos con timeout
+            if hasattr(self, 'active_workers'):
+                for worker in self.active_workers[:]:  # Copy to avoid modification during iteration
+                    if worker and worker.isRunning():
+                        # Intentar stop() si está disponible
+                        if hasattr(worker, 'stop'):
+                            worker.stop()
+                        # Dar tiempo para terminar limpiamente
+                        if not worker.wait(2000):  # 2 segundos
+                            # Si no termina, forzar terminación
+                            worker.quit()
+                            if not worker.wait(1000):  # 1 segundo más
+                                worker.terminate()
+        except Exception as e:
+            # Log pero no bloquear el cierre
+            if hasattr(self, 'logger'):
+                self.logger.error(f"Error durante cleanup: {e}")
+        finally:
+            event.accept()
     
     # ========================================================================
     # MÉTODOS DE CONFIGURACIÓN
