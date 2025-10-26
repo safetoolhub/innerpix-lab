@@ -65,10 +65,23 @@ class OrganizerController(QObject):
         """Ejecuta la organización"""
         count = len(plan['move_plan'])
 
+        # Obtener tipo de organización del plan
+        org_type = plan.get('organization_type', 'to_root')
+        
+        # Generar mensaje apropiado según el tipo
+        if org_type == 'by_month':
+            folders = plan.get('folders_to_create', [])
+            folders_text = f" en {len(folders)} carpetas mensuales" if folders else ""
+            message = f"¿Organizar {count} archivos por fecha{folders_text}?"
+        elif org_type == 'whatsapp_separate':
+            message = f"¿Separar {count} archivos entre WhatsApp y otros?"
+        else:  # to_root
+            message = f"¿Mover {count} archivos al directorio raíz?"
+
         reply = QMessageBox.question(
             self.main_window,
             "Confirmar",
-            f"¿Mover {count} archivos al directorio raíz?",
+            message,
             QMessageBox.Yes | QMessageBox.No
         )
 
@@ -125,9 +138,28 @@ class OrganizerController(QObject):
 
         try:
             if self.main_window.current_directory and self.file_organizer:
-                updated_org = self.file_organizer.analyze_directory_structure(
-                    self.main_window.current_directory
-                )
+                # Obtener tipo de organización seleccionado
+                organization_type = None
+                if hasattr(self.main_window, 'org_type_button_group'):
+                    from services.file_organizer import OrganizationType
+                    selected_id = self.main_window.org_type_button_group.checkedId()
+                    if selected_id == 0:
+                        organization_type = OrganizationType.TO_ROOT
+                    elif selected_id == 1:
+                        organization_type = OrganizationType.BY_MONTH
+                    elif selected_id == 2:
+                        organization_type = OrganizationType.WHATSAPP_SEPARATE
+                
+                # Re-analizar con el tipo de organización
+                if organization_type:
+                    updated_org = self.file_organizer.analyze_directory_structure(
+                        self.main_window.current_directory,
+                        organization_type=organization_type
+                    )
+                else:
+                    updated_org = self.file_organizer.analyze_directory_structure(
+                        self.main_window.current_directory
+                    )
 
                 if not self.main_window.analysis_results:
                     self.main_window.analysis_results = {}

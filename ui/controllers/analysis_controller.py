@@ -100,13 +100,26 @@ class AnalysisController:
         self.window.exec_org_btn.setEnabled(False)
         self.window.exec_heic_btn.setEnabled(False)
 
+        # Obtener tipo de organización seleccionado desde la UI
+        organization_type = None
+        if hasattr(self.window, 'org_type_button_group'):
+            from services.file_organizer import OrganizationType
+            selected_id = self.window.org_type_button_group.checkedId()
+            if selected_id == 0:
+                organization_type = OrganizationType.TO_ROOT
+            elif selected_id == 1:
+                organization_type = OrganizationType.BY_MONTH
+            elif selected_id == 2:
+                organization_type = OrganizationType.WHATSAPP_SEPARATE
+
         # Crear y configurar worker
         self.worker = AnalysisWorker(
             directory,
             self.window.renamer,
             self.window.live_photo_detector,
             self.window.file_organizer,
-            self.window.heic_remover
+            self.window.heic_remover,
+            organization_type=organization_type
         )
 
         # Conectar señales

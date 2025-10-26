@@ -62,13 +62,14 @@ class AnalysisWorker(BaseWorker):
     """Worker unificado para análisis completo"""
     phase_update = pyqtSignal(str)
 
-    def __init__(self, directory, renamer, lp_detector, unifier, heic_remover):
+    def __init__(self, directory, renamer, lp_detector, unifier, heic_remover, organization_type=None):
         super().__init__()
         self.directory = directory
         self.renamer = renamer
         self.lp_detector = lp_detector
         self.unifier = unifier
         self.heic_remover = heic_remover
+        self.organization_type = organization_type  # None usará el default (TO_ROOT)
 
     def run(self):
         try:
@@ -161,7 +162,14 @@ class AnalysisWorker(BaseWorker):
             
             if self.unifier:
                 self.phase_update.emit("📁 Analizando estructura de directorios para organización...")
-                results['organization'] = self.unifier.analyze_directory_structure(self.directory)
+                # Pasar el tipo de organización si está disponible
+                if self.organization_type:
+                    results['organization'] = self.unifier.analyze_directory_structure(
+                        self.directory, 
+                        organization_type=self.organization_type
+                    )
+                else:
+                    results['organization'] = self.unifier.analyze_directory_structure(self.directory)
 
             # Fase 5: Duplicados HEIC
             if self._stop_requested:

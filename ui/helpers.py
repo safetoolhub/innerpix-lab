@@ -126,12 +126,27 @@ def update_tab_details(window, results):
         org = results['organization']
         total_size = org.get('total_size_to_move', 0)
         
+        # Determinar tipo de organización
+        org_type_labels = {
+            'to_root': 'Mover a raíz',
+            'by_month': 'Por meses (YYYY_MM)',
+            'whatsapp_separate': 'Separar WhatsApp'
+        }
+        org_type = org.get('organization_type', 'to_root')
+        org_type_label = org_type_labels.get(org_type, org_type)
+        
         stats = {
+            '🔧 Tipo de organización': org_type_label,
             '📁 Subdirectorios': len(org.get('subdirectories', {})),
             '📄 Archivos a mover': org.get('total_files_to_move', 0),
             '💾 Tamaño total': format_size(total_size),
             '⚠️ Conflictos potenciales': org.get('potential_conflicts', 0),
         }
+        
+        # Añadir carpetas a crear si existen
+        folders_to_create = org.get('folders_to_create', [])
+        if folders_to_create:
+            stats['📂 Carpetas a crear'] = f"{len(folders_to_create)} ({', '.join(folders_to_create[:5])}{'...' if len(folders_to_create) > 5 else ''})"
         
         html = generate_stats_html(stats)
         window.org_details.setHtml(html)
