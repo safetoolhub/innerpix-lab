@@ -20,13 +20,11 @@ from utils.format_utils import format_size, generate_stats_html
 
 
 def service_available(window, attr_name: str) -> bool:
-    """Determina si una 'característica' o pestaña debe considerarse disponible.
+    """Determina si una característica o pestaña debe considerarse disponible.
 
-    En lugar de depender de un atributo libre en `window`, esta función
-    consulta el `TabController` centralizado en `window.tab_controller` y
-    su `tab_availability`. Si no existe el controlador o el diccionario,
-    se asume que la característica está disponible (True) para mantener el
-    comportamiento previo.
+    Consulta el TabController centralizado en window.tab_controller y
+    su tab_availability. Si no existe el controlador o el diccionario,
+    se asume que la característica está disponible (True).
 
     Args:
         window: instancia principal de la app (MainWindow)
@@ -40,12 +38,10 @@ def service_available(window, attr_name: str) -> bool:
         availability = None
         if tc is not None:
             availability = getattr(tc, 'tab_availability', None)
-        # Si no hay TabController o no tiene el dict, consideramos disponible
         if availability is None:
             return True
         return bool(availability.get(attr_name, True))
     except Exception:
-        # Fallback conservador: considerar el servicio disponible
         return True
 
 
@@ -54,7 +50,6 @@ def update_tab_details(window, results):
     Actualiza los detalles de cada pestaña con los resultados del análisis.
     """
     
-    # ===== PESTAÑA RENAMING =====
     if results.get('renaming'):
         ren = results['renaming']
         
@@ -67,7 +62,6 @@ def update_tab_details(window, results):
         
         html = generate_stats_html(stats)
         
-        # Añadir información adicional si hay archivos a renombrar
         if ren.get('need_renaming', 0) > 0:
             extra_stats = {
                 '🔄 Conflictos': ren.get('conflicts', 0),
@@ -76,26 +70,17 @@ def update_tab_details(window, results):
         
         window.rename_details.setHtml(html)
     
-    # ===== PESTAÑA LIVE PHOTOS =====
     if results.get('live_photos'):
         lp = results['live_photos']
         
-        # Obtener número de grupos de Live Photos.
-        # Preferir el campo 'live_photos_found' (producido por los workers).
-        # Si no existe, intentar inferirlo desde 'groups' o 'detailed_analysis'.
         total_groups = lp.get('live_photos_found')
         if total_groups is None:
             groups_list = lp.get('groups') or lp.get('detailed_analysis', {}).get('groups') or []
-            try:
-                total_groups = len(groups_list)
-            except Exception:
-                total_groups = 0
+            total_groups = len(groups_list) if groups_list else 0
         
-        # Calcular espacio total y espacio a liberar
         total_space = lp.get('total_space', 0)
         space_to_free = lp.get('space_to_free', 0)
         
-        # Si no están disponibles, intentar calcular desde detailed_analysis
         if total_space == 0 and 'detailed_analysis' in lp:
             analysis = lp['detailed_analysis']
             total_space = analysis.get('total_size', 0)
@@ -106,7 +91,6 @@ def update_tab_details(window, results):
             '💾 Espacio a liberar': format_size(space_to_free),
         }
         
-        # Añadir información del modo de limpieza si está disponible
         if 'cleanup_mode' in lp:
             mode_names = {
                 'keep_image': 'mantener imagen',
@@ -121,12 +105,10 @@ def update_tab_details(window, results):
         html = generate_stats_html(stats)
         window.lp_details.setHtml(html)
     
-    # ===== PESTAÑA ORGANIZATION =====
     if results.get('organization'):
         org = results['organization']
         total_size = org.get('total_size_to_move', 0)
         
-        # Determinar tipo de organización
         org_type_labels = {
             'to_root': 'Mover a raíz',
             'by_month': 'Por meses (YYYY_MM)',
@@ -143,7 +125,6 @@ def update_tab_details(window, results):
             '⚠️ Conflictos potenciales': org.get('potential_conflicts', 0),
         }
         
-        # Añadir carpetas a crear si existen
         folders_to_create = org.get('folders_to_create', [])
         if folders_to_create:
             stats['📂 Carpetas a crear'] = f"{len(folders_to_create)} ({', '.join(folders_to_create[:5])}{'...' if len(folders_to_create) > 5 else ''})"
@@ -151,7 +132,6 @@ def update_tab_details(window, results):
         html = generate_stats_html(stats)
         window.org_details.setHtml(html)
     
-    # ===== PESTAÑA HEIC =====
     if results.get('heic'):
         heic = results['heic']
         savings_jpg = heic.get('potential_savings_keep_jpg', 0)
@@ -168,10 +148,8 @@ def update_tab_details(window, results):
         html = generate_stats_html(stats)
         window.heic_details.setHtml(html)
 
-    # ===== PESTAÑA DUPLICADOS =====
     if results.get('duplicates'):
         dup = results['duplicates']
-        # Intentar usar campos diferentes según el modo (exact/perceptual)
         space = dup.get('space_wasted', dup.get('space_potential', 0))
         stats = {
             '🔎 Modo': dup.get('mode', '—'),
@@ -180,25 +158,14 @@ def update_tab_details(window, results):
             '💾 Espacio potencial': format_size(space),
         }
         html = generate_stats_html(stats)
-        try:
+        if hasattr(window, 'duplicates_details'):
             window.duplicates_details.setHtml(html)
-        except Exception:
-            pass
 
 
 def show_results_html(window, html: str, show_generic_status: bool = False):
     """Muestra resultados HTML en el diálogo apropiado"""
-    try:
-        if show_generic_status:
-            try:
-                window.logger.info('Operación completada — revisa el log para detalles')
-            except Exception:
-                try:
-                    window.setWindowTitle(f"{config.Config.APP_NAME} — Operación completada")
-                except Exception:
-                    pass
-    except Exception:
-        pass
+    if show_generic_status and hasattr(window, 'logger'):
+        window.logger.info('Operación completada — revisa el log para detalles')
 
 
 def reset_analysis_ui(window, reinsert_analyze=True):
@@ -215,16 +182,10 @@ def reset_analysis_ui(window, reinsert_analyze=True):
     if hasattr(window, 'change_dir_btn'):
         window.change_dir_btn.setVisible(False)
     
-    # Reinsertar botón analizar si fue removido
-    if reinsert_analyze:
-        try:
-            if window.analyze_btn.parent() is None:
-                window.actions_layout.addWidget(window.analyze_btn)
-                window.analyze_btn.setVisible(True)
-        except Exception:
-            pass
+    if reinsert_analyze and window.analyze_btn.parent() is None:
+        window.actions_layout.addWidget(window.analyze_btn)
+        window.analyze_btn.setVisible(True)
     
-    # Ocultar paneles principales
     window.summary_panel.setVisible(False)
     window.tabs_widget.setVisible(False)
     
@@ -234,7 +195,6 @@ def reset_analysis_ui(window, reinsert_analyze=True):
     window.exec_org_btn.setEnabled(False)
     window.exec_heic_btn.setEnabled(False)
     
-    # Limpiar detalles de pestañas
     if hasattr(window, 'rename_details'):
         window.rename_details.clear()
     if hasattr(window, 'norm_details'):
@@ -244,7 +204,6 @@ def reset_analysis_ui(window, reinsert_analyze=True):
     window.org_details.clear()
     window.heic_details.clear()
     
-    # Resetear campo de directorio
     if hasattr(window, 'directory_edit') and reinsert_analyze:
         window.directory_edit.clear()
         window.directory_edit.setPlaceholderText("Selecciona un directorio para analizar...")

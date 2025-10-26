@@ -14,7 +14,7 @@ patterns (workers + services + UI) and avoid changing user-visible behaviour wit
   - `utils/` contains helper functions used across services and UI (e.g. `utils.file_utils.launch_backup_creation`, `utils.file_utils.calculate_file_hash`, `utils.logger.get_logger`). Prefer using these helpers rather than duplicating file/IO logic.
 
 - Important patterns & conventions (examples)
-  - Workers: use `BaseWorker._create_progress_callback()` in `ui/workers.py` so emitted progress messages match UI expectations. The UI often expects progress signals with `(0,0,message)` and uses `counts_in_message` or `emit_numbers` only when appropriate.
+
   - Backup-first: many destructive operations (unification, duplicate deletion, renaming) accept `create_backup=True`. Preserve that behaviour and prefer creating backups via `utils.file_utils.launch_backup_creation` when changing execute flows (see `services/directory_unifier.py`).
  
 - Developer workflow (what to run locally)
@@ -23,26 +23,16 @@ patterns (workers + services + UI) and avoid changing user-visible behaviour wit
   - Run app: `python main.py` (GUI). Use the logger and logs directory set in `config.Config.DEFAULT_LOG_DIR` for debugging.
 
 - When editing code
-  - Preserve signal names and payload shapes (progress: int,int,str; finished: dict; error: str). Tests and UI wiring assume these shapes.
-  - If updating a `service` API (e.g. change return dict keys), update callers in `ui/workers.py`, `ui/*` components, and `ui/tabs/*` which read analysis results.
   - For changes touching file operations, keep `create_backup` flows and metadata writing (see `unification_metadata.txt` usage in `directory_unifier.py`).
 - Do not implement legacy callbacks, as there is only one author for theis project
 - Do not add useless try/catch methods that only pass
 - Be strict with PEP 8
 
 
-- Files & locations to inspect for context
-  - `main.py` — app entry
-  - `config.py` — feature flags, paths, thresholds
-  - `ui/main_window.py` — orchestrates UI, workers and services
-  - `ui/workers.py` — worker patterns and expected signals
-  - `services/*` — business logic (look at `directory_unifier.py`, `duplicate_detector.py` for representative patterns)
-  - `utils/file_utils.py` — backup and file helpers (used widely)
-  - `utils/logger.py` and `ui/managers/logging_manager.py` — logging setup and file logging
 
 - Quick safety checklist for PRs
   1. Run static checks and fix obvious linting errors (PEP8, type hints where present).
   2. Run the app locally and exercise the relevant UI path (start analysis, preview and execution) if code touches UI or services that operate on files.
   3. Preserve `create_backup` defaults unless explicitly requested by the user.
-  4. Update callers if you rename keys in result dictionaries (search for `.get('unification')`, `.get('heic')`, etc.).
+  4. Update callers if you rename keys in result dictionaries (search for `.get('renaming')`, `.get('heic')`, etc.).
 

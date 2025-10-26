@@ -164,11 +164,7 @@ class AnalysisController:
             total: Total de elementos a procesar
             message: Mensaje descriptivo del progreso
         """
-        try:
-            self.window.progress_controller.update_progress(current, total, message)
-        except Exception:
-            # No hacer nada si la UI está en un estado inestable
-            pass
+        self.window.progress_controller.update_progress(current, total, message)
 
     def update_phase(self, phase_text: str):
         """Actualiza la fase actual del análisis.
@@ -176,10 +172,7 @@ class AnalysisController:
         Args:
             phase_text: Texto descriptivo de la fase actual
         """
-        try:
-            self.window.progress_controller.update_progress(0, 0, phase_text)
-        except Exception:
-            pass
+        self.window.progress_controller.update_progress(0, 0, phase_text)
         QApplication.processEvents()
 
     def update_stats(self, stats: dict):
@@ -188,21 +181,17 @@ class AnalysisController:
         Args:
             stats: Diccionario con estadísticas parciales (images, videos, total)
         """
-        try:
-            # Actualizar solo las etiquetas de stats en el summary panel
-            if hasattr(self.window, 'stats_labels'):
-                images_txt = f"🖼️ Imágenes: {stats.get('images', 0):,}"
-                videos_txt = f"🎥 Videos: {stats.get('videos', 0):,}"
-                total_txt = f"📊 Total: {stats.get('total', 0):,}"
-                
-                if 'images' in self.window.stats_labels:
-                    self.window.stats_labels['images'].setText(images_txt)
-                if 'videos' in self.window.stats_labels:
-                    self.window.stats_labels['videos'].setText(videos_txt)
-                if 'total' in self.window.stats_labels:
-                    self.window.stats_labels['total'].setText(total_txt)
-        except Exception:
-            pass
+        if hasattr(self.window, 'stats_labels'):
+            images_txt = f"🖼️ Imágenes: {stats.get('images', 0):,}"
+            videos_txt = f"🎥 Videos: {stats.get('videos', 0):,}"
+            total_txt = f"📊 Total: {stats.get('total', 0):,}"
+            
+            if 'images' in self.window.stats_labels:
+                self.window.stats_labels['images'].setText(images_txt)
+            if 'videos' in self.window.stats_labels:
+                self.window.stats_labels['videos'].setText(videos_txt)
+            if 'total' in self.window.stats_labels:
+                self.window.stats_labels['total'].setText(total_txt)
 
     def update_partial_results(self, partial: dict):
         """Actualiza los contadores de funcionalidades durante el análisis.
@@ -286,7 +275,6 @@ class AnalysisController:
         # Delegar habilitación/deshabilitación de botones
         self.window.action_buttons.update_after_analysis(results)
 
-        # Mostrar mensaje de éxito
         try:
             self.window.results_controller.show_results_html(
                 """
@@ -297,7 +285,6 @@ class AnalysisController:
                 show_generic_status=True
             )
         except Exception:
-            # Fallback: registrar en logger si no existe el controller
             try:
                 self.window.logger.info('Análisis completado — revisa el log para detalles')
             except Exception:
@@ -307,7 +294,6 @@ class AnalysisController:
             f"Análisis completado para: {self.window.last_analyzed_directory}"
         )
 
-        # Limpiar referencia del worker
         if self.worker in self.window.active_workers:
             self.window.active_workers.remove(self.worker)
         self.worker = None

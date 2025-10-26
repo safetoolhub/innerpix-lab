@@ -46,11 +46,7 @@ class ActionButtons:
         self.reanalyze_btn.setCursor(Qt.PointingHandCursor)
         if self.analyze_btn is not None:
             self.reanalyze_btn.setStyleSheet(self.analyze_btn.styleSheet())
-        # conectar con el slot del MainWindow (se espera que exista)
-        try:
-            self.reanalyze_btn.clicked.connect(parent._reanalyze_same_directory)
-        except Exception:
-            pass
+        self.reanalyze_btn.clicked.connect(parent._reanalyze_same_directory)
 
         self.change_dir_btn = QPushButton("📂 Cambiar directorio", parent)
         self.change_dir_btn.setVisible(False)
@@ -59,21 +55,14 @@ class ActionButtons:
         self.change_dir_btn.setCursor(Qt.PointingHandCursor)
         if self.analyze_btn is not None:
             self.change_dir_btn.setStyleSheet(self.analyze_btn.styleSheet())
-        try:
-            self.change_dir_btn.clicked.connect(parent._change_directory_after_analysis)
-        except Exception:
-            pass
+        self.change_dir_btn.clicked.connect(parent._change_directory_after_analysis)
 
         # Añadir los botones al layout
         self.layout.addWidget(self.reanalyze_btn)
         self.layout.addWidget(self.change_dir_btn)
 
-        # Intentar inyectar el contenedor dentro del SearchBar
-        try:
-            search_bar.add_actions_widget(self.container)
-        except Exception:
-            # Silenciar si la API del SearchBar no existe o falla
-            pass
+        # Inyectar el contenedor dentro del SearchBar
+        search_bar.add_actions_widget(self.container)
 
         # Exponer atributos en el parent para mantener compatibilidad
         # con el código existente en MainWindow

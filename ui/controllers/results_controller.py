@@ -267,6 +267,6 @@ class ResultsController(QObject):
 
         # Mostrar botón de revisión
         try:
-            self.main_window.review_similar_duplicates_btn.setVisible(True)
+            self.main_window.review_similar_btn.setVisible(True)
         except Exception:
             pass

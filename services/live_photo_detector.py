@@ -32,7 +32,6 @@ class LivePhotoGroup:
         if not self.video_path.exists():
             raise ValueError(f"Video no existe: {self.video_path}")
 
-        # Obtener fechas de modificación como fallback
         if not self.image_date:
             self.image_date = datetime.fromtimestamp(self.image_path.stat().st_mtime)
         if not self.video_date:
