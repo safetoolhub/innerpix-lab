@@ -4,7 +4,7 @@ Servicios de lógica de negocio para PhotoKit Manager
 from .file_renamer import FileRenamer
 from .live_photo_detector import LivePhotoDetector, LivePhotoGroup
 from .live_photo_cleaner import LivePhotoCleaner, CleanupMode
-from .directory_unifier import DirectoryUnifier, FileMove
+from .file_organizer import FileOrganizer, FileMove
 from .heic_remover import HEICDuplicateRemover, DuplicatePair
 
 __all__ = [
@@ -13,7 +13,7 @@ __all__ = [
     'LivePhotoGroup',
     'LivePhotoCleaner',
     'CleanupMode',
-    'DirectoryUnifier',
+    'FileOrganizer',
     'FileMove',
     'HEICDuplicateRemover',
     'DuplicatePair'

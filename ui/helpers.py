@@ -121,20 +121,20 @@ def update_tab_details(window, results):
         html = generate_stats_html(stats)
         window.lp_details.setHtml(html)
     
-    # ===== PESTAÑA UNIFICATION =====
-    if results.get('unification'):
-        unif = results['unification']
-        total_size = unif.get('total_size_to_move', 0)
+    # ===== PESTAÑA ORGANIZATION =====
+    if results.get('organization'):
+        org = results['organization']
+        total_size = org.get('total_size_to_move', 0)
         
         stats = {
-            '📁 Subdirectorios': len(unif.get('subdirectories', {})),
-            '📄 Archivos a mover': unif.get('total_files_to_move', 0),
+            '📁 Subdirectorios': len(org.get('subdirectories', {})),
+            '📄 Archivos a mover': org.get('total_files_to_move', 0),
             '💾 Tamaño total': format_size(total_size),
-            '⚠️ Conflictos potenciales': unif.get('potential_conflicts', 0),
+            '⚠️ Conflictos potenciales': org.get('potential_conflicts', 0),
         }
         
         html = generate_stats_html(stats)
-        window.unif_details.setHtml(html)
+        window.org_details.setHtml(html)
     
     # ===== PESTAÑA HEIC =====
     if results.get('heic'):
@@ -216,7 +216,7 @@ def reset_analysis_ui(window, reinsert_analyze=True):
     # Deshabilitar botones de ejecución
     window.preview_rename_btn.setEnabled(False)
     window.exec_lp_btn.setEnabled(False)
-    window.exec_unif_btn.setEnabled(False)
+    window.exec_org_btn.setEnabled(False)
     window.exec_heic_btn.setEnabled(False)
     
     # Limpiar detalles de pestañas
@@ -226,7 +226,7 @@ def reset_analysis_ui(window, reinsert_analyze=True):
         window.norm_details.clear()
     
     window.lp_details.clear()
-    window.unif_details.clear()
+    window.org_details.clear()
     window.heic_details.clear()
     
     # Resetear campo de directorio

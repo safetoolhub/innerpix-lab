@@ -121,7 +121,7 @@ def create_summary_panel(window):
     # `update_tabs_availability`).
     stack_layout.addWidget(make_full_btn('live_photos', '📱', 'Live Photos'))
     stack_layout.addWidget(make_full_btn('heic', '🖼️', 'Duplicados HEIC'))
-    stack_layout.addWidget(make_full_btn('unification', '📁', 'Unificar Directorios'))
+    stack_layout.addWidget(make_full_btn('organization', '📁', 'Organizador'))
     stack_layout.addWidget(make_full_btn('renaming', '📝', 'Renombrado'))
     stack_layout.addWidget(make_full_btn('duplicates', '🔍', 'Duplicados'))
 
@@ -151,7 +151,7 @@ def update_summary_panel(window, results):
 
     ren = results.get('renaming', {})
     lp = results.get('live_photos', {})
-    unif = results.get('unification', {})
+    org = results.get('organization', {})
     heic = results.get('heic', {})
 
     if hasattr(window, 'summary_action_buttons'):
@@ -159,8 +159,8 @@ def update_summary_panel(window, results):
             window.summary_action_buttons['live_photos'].setText(f"📱 Live Photos   {lp.get('live_photos_found', 0):,}")
         if 'heic' in window.summary_action_buttons:
             window.summary_action_buttons['heic'].setText(f"🖼️ Duplicados HEIC   {heic.get('total_duplicates', 0):,}")
-        if 'unification' in window.summary_action_buttons:
-            window.summary_action_buttons['unification'].setText(f"📁 Unificar Directorios   {unif.get('total_files_to_move', 0):,}")
+        if 'organization' in window.summary_action_buttons:
+            window.summary_action_buttons['organization'].setText(f"📁 Organizador   {org.get('total_files_to_move', 0):,}")
         if 'renaming' in window.summary_action_buttons:
             window.summary_action_buttons['renaming'].setText(f"📝 Renombrado   {ren.get('need_renaming', 0):,}")
 

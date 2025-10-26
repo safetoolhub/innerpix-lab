@@ -18,7 +18,7 @@ from ui.workers import AnalysisWorker
 from ui.dialogs import SettingsDialog, AboutDialog
 from services.live_photo_cleaner import LivePhotoCleaner
 from services.live_photo_detector import LivePhotoDetector
-from services.directory_unifier import DirectoryUnifier
+from services.file_organizer import FileOrganizer
 from services.heic_remover import HEICDuplicateRemover
 from ui.helpers import (
     update_tab_details, reset_analysis_ui,
@@ -72,7 +72,7 @@ class MainWindow(QMainWindow):
         self.renamer = FileRenamer()
         self.live_photo_detector = LivePhotoDetector()
         self.live_photo_cleaner = LivePhotoCleaner()
-        self.directory_unifier = DirectoryUnifier()
+        self.file_organizer = FileOrganizer()
         self.heic_remover = HEICDuplicateRemover()
         self.duplicate_detector = DuplicateDetector()
 
@@ -166,10 +166,10 @@ class MainWindow(QMainWindow):
             self, self.live_photo_cleaner, self.progress_controller, self.results_controller
         )
 
-        # Controlador de unificación de directorios
-        from ui.controllers.unifier_controller import UnifierController
-        self.unifier_controller = UnifierController(
-            self, self.directory_unifier, self.progress_controller, self.results_controller
+        # Controlador de organización de archivos
+        from ui.controllers.organizer_controller import OrganizerController
+        self.organizer_controller = OrganizerController(
+            self, self.file_organizer, self.progress_controller, self.results_controller
         )
 
         # Controlador de HEIC
@@ -201,9 +201,9 @@ class MainWindow(QMainWindow):
         """Wrapper: delega a live_photos_controller"""
         self.live_photos_controller.preview_live_photo_cleanup()
 
-    def unify_directories(self):
-        """Wrapper: delega a unifier_controller"""
-        self.unifier_controller.preview_unification()
+    def organize_files(self):
+        """Wrapper: delega a organizer_controller"""
+        self.organizer_controller.preview_organization()
 
     def remove_heic(self):
         """Wrapper: delega a heic_controller"""
@@ -255,8 +255,8 @@ class MainWindow(QMainWindow):
                 self.renaming_controller.cleanup()
             if hasattr(self, 'live_photos_controller'):
                 self.live_photos_controller.cleanup()
-            if hasattr(self, 'unifier_controller'):
-                self.unifier_controller.cleanup()
+            if hasattr(self, 'organizer_controller'):
+                self.organizer_controller.cleanup()
             if hasattr(self, 'heic_controller'):
                 self.heic_controller.cleanup()
 

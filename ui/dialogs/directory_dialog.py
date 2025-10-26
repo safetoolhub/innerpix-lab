@@ -8,8 +8,8 @@ from ui import styles as ui_styles
 from .base_dialog import BaseDialog
 
 
-class DirectoryUnificationDialog(BaseDialog):
-    """Diálogo para unificación de directorios"""
+class FileOrganizationDialog(BaseDialog):
+    """Diálogo para organización de archivos"""
 
     def __init__(self, analysis, parent=None):
         super().__init__(parent)
@@ -18,7 +18,7 @@ class DirectoryUnificationDialog(BaseDialog):
         self.init_ui()
 
     def init_ui(self):
-        self.setWindowTitle("Unificación de Directorios")
+        self.setWindowTitle("Organización de Archivos")
         self.setModal(True)
         self.resize(800, 500)
         layout = QVBoxLayout(self)
@@ -32,7 +32,7 @@ class DirectoryUnificationDialog(BaseDialog):
 
         # Lista de subdirectorios
         if self.analysis.get('subdirectories'):
-            layout.addWidget(QLabel("Subdirectorios a unificar:"))
+            layout.addWidget(QLabel("Subdirectorios a organizar:"))
             table = QTableWidget()
             table.setColumnCount(3)
             table.setHorizontalHeaderLabels(["Subdirectorio", "Archivos", "Tamaño"])
@@ -80,3 +80,4 @@ class DirectoryUnificationDialog(BaseDialog):
             'cleanup_empty_dirs': self.cleanup_checkbox.isChecked()
         })
         super().accept()
+

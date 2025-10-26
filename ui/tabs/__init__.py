@@ -7,7 +7,7 @@ from .renaming_tab import create_renaming_tab
 from .live_photos_tab import create_live_photos_tab
 from .duplicates_tab import create_duplicates_tab
 from .heic_tab import create_heic_tab
-from .unifier_tab import create_unification_tab
+from .organizer_tab import create_organizer_tab
 
 from PyQt5.QtWidgets import QTabWidget
 from ui import styles
@@ -28,8 +28,8 @@ def create_tabs_widget(window):
     window.tab_index_map['heic'] = idx
     idx += 1
 
-    tabs.addTab(create_unification_tab(window), "📁 Unificar Directorios")
-    window.tab_index_map['unification'] = idx
+    tabs.addTab(create_organizer_tab(window), "📁 Organizador")
+    window.tab_index_map['organization'] = idx
     idx += 1
 
     tabs.addTab(create_renaming_tab(window), "📝 Renombrado")
@@ -59,7 +59,7 @@ def open_summary_action(window, label_substr):
             'live photos': 'live_photos',
             'duplicados heic': 'heic',
             'duplicados': 'duplicates',
-            'unificar directorios': 'unification',
+            'organizador': 'organization',
             'renombrado': 'renaming'
         }
         lookup = key_map.get(label_substr.lower())

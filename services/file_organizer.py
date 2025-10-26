@@ -1,5 +1,5 @@
 """
-Unificador de Directorios
+Organizador de Archivos
 """
 import shutil
 import os
@@ -12,6 +12,7 @@ from dataclasses import dataclass
 import config
 from utils.logger import get_logger
 from utils.date_utils import parse_renamed_name
+
 
 @dataclass
 class FileMove:
@@ -36,18 +37,19 @@ class FileMove:
         """True si el archivo será renombrado"""
         return self.original_name != self.new_name
 
-class DirectoryUnifier:
+
+class FileOrganizer:
     """
-    Unificador de directorios - Mueve archivos multimedia de subdirectorios al directorio raíz
+    Organizador de archivos - Mueve archivos multimedia de subdirectorios al directorio raíz
     """
 
     def __init__(self):
-        self.logger = get_logger("DirectoryUnifier")
+        self.logger = get_logger("FileOrganizer")
         self.backup_dir = None
 
     def analyze_directory_structure(self, root_directory: Path) -> Dict:
         """
-        Analiza la estructura de directorios para unificación
+        Analiza la estructura de directorios para organización
 
         Args:
             root_directory: Directorio raíz a analizar
@@ -55,7 +57,7 @@ class DirectoryUnifier:
         Returns:
             Diccionario con análisis detallado
         """
-        self.logger.info(f"Analizando estructura de directorios para unificación: {root_directory}")
+        self.logger.info(f"Analizando estructura de directorios para organización: {root_directory}")
 
         results = {
             'root_directory': str(root_directory),
@@ -122,8 +124,7 @@ class DirectoryUnifier:
 
         return results
 
-    def _generate_move_plan(self, subdirectories: Dict, root_directory: Path, existing_files: Set[str]) -> List[
-        FileMove]:
+    def _generate_move_plan(self, subdirectories: Dict, root_directory: Path, existing_files: Set[str]) -> List[FileMove]:
         """
         Genera plan de movimiento con resolución de conflictos
         CORREGIDO: Maneja correctamente múltiples archivos con el mismo nombre
@@ -170,7 +171,7 @@ class DirectoryUnifier:
                 # Verificar si el archivo ya tiene sufijo numérico de renombrado
                 parsed = parse_renamed_name(file_name)
                 if parsed and parsed.get('sequence'):
-                        # Ya tiene sufijo de renombrado
+                    # Ya tiene sufijo de renombrado
                     parts = base_name.split('_')
                     # Si el último part es numérico de 3 dígitos, es un sufijo
                     if len(parts) >= 4 and len(parts[-1]) == 3 and parts[-1].isdigit():
@@ -234,14 +235,14 @@ class DirectoryUnifier:
 
     def create_backup(self, root_directory: Path, progress_callback=None) -> Path:
         """
-        Crea backup de la estructura completa antes de unificar
+        Crea backup de la estructura completa antes de organizar
 
         Args:
             root_directory: Directorio a respaldar
             progress_callback: Función para reportar progreso
         """
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        backup_name = f"backup_unification_{root_directory.name}_{timestamp}"
+        backup_name = f"backup_organization_{root_directory.name}_{timestamp}"
         backup_path = config.Config.DEFAULT_BACKUP_DIR / backup_name
         backup_path.mkdir(parents=True, exist_ok=True)
 
@@ -250,19 +251,18 @@ class DirectoryUnifier:
         # Use rglob to gather files
         files = [p for p in root_directory.rglob("*") if p.is_file() and config.Config.is_supported_file(p.name)]
         try:
-            backup_path = launch_backup_creation(files, root_directory, backup_prefix='backup_unification', progress_callback=progress_callback, metadata_name='unification_metadata.txt')
+            backup_path = launch_backup_creation(files, root_directory, backup_prefix='backup_organization', progress_callback=progress_callback, metadata_name='organization_metadata.txt')
             self.backup_dir = backup_path
             return backup_path
         except ValueError as ve:
             err_msg = f"Backup abortado: entrada inválida para launch_backup_creation: {ve}"
             self.logger.error(err_msg)
-            # Raise further so callers get a clear exception (or you could return result dict)
             raise
 
-    def execute_unification(self, move_plan: List[FileMove], create_backup: bool = True,
+    def execute_organization(self, move_plan: List[FileMove], create_backup: bool = True,
                             cleanup_empty_dirs: bool = True, progress_callback=None) -> Dict:
         """
-        Ejecuta la unificación según el plan con resolución dinámica de conflictos
+        Ejecuta la organización según el plan con resolución dinámica de conflictos
         """
         if not move_plan:
             return {
@@ -273,7 +273,7 @@ class DirectoryUnifier:
                 'message': 'No hay archivos para mover'
             }
 
-        self.logger.info(f"Iniciando unificación de {len(move_plan)} archivos")
+        self.logger.info(f"Iniciando organización de {len(move_plan)} archivos")
 
         results = {
             'success': True,
@@ -291,11 +291,11 @@ class DirectoryUnifier:
             # Crear backup ANTES de mover archivos
             if create_backup and move_plan:
                 if progress_callback:
-                    progress_callback(0, len(move_plan), "Creando backup antes de unificar...")
+                    progress_callback(0, len(move_plan), "Creando backup antes de organizar...")
                 from utils.file_utils import launch_backup_creation
                 files = [m.source_path for m in move_plan]
                 try:
-                    backup_path = launch_backup_creation(files, root_directory, backup_prefix='backup_unification', progress_callback=progress_callback, metadata_name='unification_metadata.txt')
+                    backup_path = launch_backup_creation(files, root_directory, backup_prefix='backup_organization', progress_callback=progress_callback, metadata_name='organization_metadata.txt')
                     results['backup_path'] = str(backup_path)
                 except ValueError as ve:
                     err_msg = f"Backup abortado: entrada inválida para launch_backup_creation: {ve}"
@@ -325,7 +325,7 @@ class DirectoryUnifier:
             total_files = len(move_plan)
 
             if progress_callback:
-                progress_callback(0, total_files, "Iniciando unificación de directorios...")
+                progress_callback(0, total_files, "Iniciando organización de directorios...")
 
             for move in move_plan:
                 try:
@@ -338,7 +338,7 @@ class DirectoryUnifier:
                                 'error': 'Archivo no encontrado'
                             })
                             continue
-                        
+
                         # Verificar que podemos acceder al archivo
                         move.source_path.stat()
                     except (FileNotFoundError, PermissionError, OSError) as e:
@@ -413,10 +413,10 @@ class DirectoryUnifier:
 
                     results['files_moved'] += 1
                     files_processed += 1
-                    
+
                     if progress_callback:
                         progress_callback(files_processed, total_files,
-                                       f"Unificando directorios... {files_processed}/{total_files}")
+                                       f"Organizando directorios... {files_processed}/{total_files}")
 
                     results['moved_files'].append({
                         'original': str(move.source_path),
@@ -448,12 +448,12 @@ class DirectoryUnifier:
                 results['success'] = len(results['errors']) < len(move_plan)
 
             self.logger.info(
-                f"Unificación completada: {results['files_moved']} archivos movidos, "
+                f"Organización completada: {results['files_moved']} archivos movidos, "
                 f"{len(results['errors'])} errores"
             )
 
         except Exception as e:
-            self.logger.error(f"Error crítico en unificación: {str(e)}")
+            self.logger.error(f"Error crítico en organización: {str(e)}")
             results['success'] = False
             results['errors'].append({
                 'file': 'GENERAL',
@@ -464,15 +464,15 @@ class DirectoryUnifier:
 
     # Empty directory cleanup delegated to utils.file_utils.cleanup_empty_directories
 
-    def unify_directory(self, root_directory: Path, progress_callback: Optional[Callable[[int, int, str], None]] = None):
+    def organize_directory(self, root_directory: Path, progress_callback: Optional[Callable[[int, int, str], None]] = None):
         """
-        Unifica los archivos de subdirectorios al directorio raíz
+        Organiza los archivos de subdirectorios al directorio raíz
 
         Args:
-            root_directory: Directorio raíz a unificar
+            root_directory: Directorio raíz a organizar
             progress_callback: Función callback(current, total, message) para reportar progreso
         """
-        self.logger.info(f"Unificando directorio: {root_directory}")
+        self.logger.info(f"Organizando directorio: {root_directory}")
 
         # Obtener todos los archivos a mover
         all_files = []
@@ -490,8 +490,5 @@ class DirectoryUnifier:
             if progress_callback:
                 progress_callback(moved_files, total_files, f"Moviendo archivo {moved_files} de {total_files}")
 
-            # Aquí iría la lógica para mover el archivo
-            # shutil.move(file_path, destino)
-
         if progress_callback:
-            progress_callback(total_files, total_files, "Unificación completada")
+            progress_callback(total_files, total_files, "Organización completada")
