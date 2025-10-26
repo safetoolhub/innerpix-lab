@@ -130,6 +130,89 @@ def create_summary_panel(window):
 
     layout.addWidget(actions_card)
 
+    # ===== ÁREA DE PROGRESO =====
+    # Crear un área fija para el progreso debajo de las funcionalidades
+    # para evitar desplazamientos verticales del interfaz
+    progress_area = QFrame()
+    progress_area.setStyleSheet(
+        "QFrame {"
+        "  background: transparent;"
+        "  border: none;"
+        "  padding: 0px;"
+        "}"
+    )
+    progress_area.setFixedHeight(90)  # Altura fija para mantener consistencia vertical
+    progress_layout = QVBoxLayout(progress_area)
+    progress_layout.setSpacing(6)
+    progress_layout.setContentsMargins(0, 8, 0, 0)
+
+    # Etiqueta de estado con emoji
+    progress_label = QLabel("⏸️ Listo")
+    progress_label.setStyleSheet(
+        "font-weight: 600; "
+        "color: #2c3e50; "
+        "font-size: 13px; "
+        "background: transparent; "
+        "border: none; "
+        "padding: 4px 0px;"
+    )
+    progress_label.setAlignment(Qt.AlignLeft)
+    progress_layout.addWidget(progress_label)
+
+    # Barra de progreso estilo moderno sin marco doble
+    from PyQt5.QtWidgets import QProgressBar
+    progress_bar = QProgressBar()
+    progress_bar.setStyleSheet(
+        "QProgressBar {"
+        "  border: none;"
+        "  border-radius: 6px;"
+        "  text-align: center;"
+        "  background-color: #e9ecef;"
+        "  height: 24px;"
+        "  font-size: 11px;"
+        "  font-weight: 600;"
+        "  color: #2c3e50;"
+        "}"
+        "QProgressBar::chunk {"
+        "  background: qlineargradient(x1:0, y1:0, x2:1, y2:0, "
+        "    stop:0 #4CAF50, stop:0.5 #66BB6A, stop:1 #81C784);"
+        "  border-radius: 6px;"
+        "}"
+    )
+    progress_bar.setMaximum(100)
+    progress_bar.setValue(0)
+    progress_bar.setTextVisible(True)
+    progress_layout.addWidget(progress_bar)
+
+    # Estado adicional (texto pequeño informativo)
+    progress_detail = QLabel("")
+    progress_detail.setStyleSheet(
+        "color: #6c757d; "
+        "font-size: 11px; "
+        "background: transparent; "
+        "border: none; "
+        "padding: 2px 0px;"
+    )
+    progress_detail.setAlignment(Qt.AlignLeft)
+    progress_detail.setWordWrap(True)
+    progress_layout.addWidget(progress_detail)
+
+    # Añadir stretch para empujar todo hacia arriba
+    progress_layout.addStretch()
+
+    # Inicialmente oculto (solo el contenido, el área mantiene espacio)
+    progress_label.setVisible(False)
+    progress_bar.setVisible(False)
+    progress_detail.setVisible(False)
+
+    # Guardar referencias en window para que ProgressController pueda accederlas
+    window.summary_progress_area = progress_area
+    window.summary_progress_label = progress_label
+    window.summary_progress_bar = progress_bar
+    window.summary_progress_detail = progress_detail
+
+    layout.addWidget(progress_area)
+
     layout.addStretch()
     panel.setVisible(False)
     return panel
