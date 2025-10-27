@@ -12,18 +12,12 @@ def create_organizer_tab(window):
 
     # ===== TÍTULO =====
     title = QLabel("📁 Organización de Archivos")
-    title.setStyleSheet(
-        "font-size: 20px; font-weight: 600; color: #212529; margin-bottom: 8px;"
-    )
+    title.setStyleSheet(styles.STYLE_TAB_TITLE)
     layout.addWidget(title)
 
     # ===== TIPO DE ORGANIZACIÓN =====
     org_type_group = QGroupBox("Tipo de Organización")
-    org_type_group.setStyleSheet(
-        "QGroupBox { font-weight: 600; color: #495057; border: 1px solid #dee2e6; "
-        "border-radius: 6px; margin-top: 12px; padding-top: 16px; } "
-        "QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 8px; background: white; }"
-    )
+    org_type_group.setStyleSheet(styles.STYLE_GROUPBOX_STANDARD)
     org_type_layout = QVBoxLayout(org_type_group)
     org_type_layout.setContentsMargins(16, 4, 16, 12)
     org_type_layout.setSpacing(4)
@@ -34,19 +28,19 @@ def create_organizer_tab(window):
     # Opción 1: Mover a raíz
     window.org_type_root = QRadioButton("Mover a raíz - Consolida archivos en el directorio principal")
     window.org_type_root.setChecked(True)  # Por defecto
-    window.org_type_root.setStyleSheet("QRadioButton { font-size: 13px; color: #495057; }")
+    window.org_type_root.setStyleSheet(styles.STYLE_RADIO_BUTTON)
     window.org_type_button_group.addButton(window.org_type_root, 0)
     org_type_layout.addWidget(window.org_type_root)
 
     # Opción 2: Clasificar por meses
     window.org_type_by_month = QRadioButton("Por meses (YYYY_MM) - Carpetas organizadas por fecha del archivo")
-    window.org_type_by_month.setStyleSheet("QRadioButton { font-size: 13px; color: #495057; }")
+    window.org_type_by_month.setStyleSheet(styles.STYLE_RADIO_BUTTON)
     window.org_type_button_group.addButton(window.org_type_by_month, 1)
     org_type_layout.addWidget(window.org_type_by_month)
 
     # Opción 3: Separar WhatsApp
     window.org_type_whatsapp = QRadioButton("Separar WhatsApp - Carpeta específica para archivos de WhatsApp")
-    window.org_type_whatsapp.setStyleSheet("QRadioButton { font-size: 13px; color: #495057; }")
+    window.org_type_whatsapp.setStyleSheet(styles.STYLE_RADIO_BUTTON)
     window.org_type_button_group.addButton(window.org_type_whatsapp, 2)
     org_type_layout.addWidget(window.org_type_whatsapp)
 
@@ -60,11 +54,7 @@ def create_organizer_tab(window):
 
     # ===== INFORMACIÓN =====
     info_group = QGroupBox("Información")
-    info_group.setStyleSheet(
-        "QGroupBox { font-weight: 600; color: #495057; border: 1px solid #dee2e6; "
-        "border-radius: 6px; margin-top: 12px; padding-top: 20px; } "
-        "QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 8px; background: white; }"
-    )
+    info_group.setStyleSheet(styles.STYLE_GROUPBOX_STANDARD)
     info_layout = QVBoxLayout(info_group)
     info_layout.setContentsMargins(16, 8, 16, 16)
 
@@ -72,20 +62,14 @@ def create_organizer_tab(window):
         "Esta función organiza archivos encontrados en subdirectorios según el tipo seleccionado.<br><br>"
         "Los conflictos de nombres se resuelven automáticamente añadiendo sufijos numéricos."
     )
-    info_label.setStyleSheet(
-        "color: #495057; font-size: 13px; line-height: 1.6;"
-    )
+    info_label.setStyleSheet(styles.STYLE_LABEL_INFO_STANDARD)
     info_label.setWordWrap(True)
     info_layout.addWidget(info_label)
     layout.addWidget(info_group)
 
     # ===== RESULTADOS =====
     results_group = QGroupBox("Resultados del Análisis")
-    results_group.setStyleSheet(
-        "QGroupBox { font-weight: 600; color: #495057; border: 1px solid #dee2e6; "
-        "border-radius: 6px; margin-top: 12px; padding-top: 20px; } "
-        "QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 8px; background: white; }"
-    )
+    results_group.setStyleSheet(styles.STYLE_GROUPBOX_STANDARD)
     results_layout = QVBoxLayout(results_group)
     results_layout.setContentsMargins(16, 8, 16, 16)
 

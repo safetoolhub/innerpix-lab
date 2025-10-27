@@ -15,18 +15,12 @@ def create_duplicates_tab(window):
 
     # ===== TÍTULO =====
     title = QLabel("🔍 Detección de Duplicados")
-    title.setStyleSheet(
-        "font-size: 20px; font-weight: 600; color: #212529; margin-bottom: 8px;"
-    )
+    title.setStyleSheet(styles.STYLE_TAB_TITLE)
     layout.addWidget(title)
 
     # ===== OPCIONES DE DETECCIÓN =====
     options_group = QGroupBox("Opciones de Detección")
-    options_group.setStyleSheet(
-        "QGroupBox { font-weight: 600; color: #495057; border: 1px solid #dee2e6; "
-        "border-radius: 6px; margin-top: 12px; padding-top: 20px; } "
-        "QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 8px; background: white; }"
-    )
+    options_group.setStyleSheet(styles.STYLE_GROUPBOX_STANDARD)
     options_layout = QVBoxLayout(options_group)
     options_layout.setSpacing(12)
     options_layout.setContentsMargins(16, 8, 16, 16)
@@ -35,38 +29,32 @@ def create_duplicates_tab(window):
 
     # ---- Opción Exactos ----
     exact_block = QFrame()
-    exact_block.setStyleSheet(
-        "QFrame { background: #f5f8fc; border-radius: 8px; border: 1px solid #d1e3f5; }"
-    )
+    exact_block.setStyleSheet(styles.STYLE_FRAME_EXACT_MODE)
     exact_layout = QVBoxLayout(exact_block)
     exact_layout.setContentsMargins(12, 10, 12, 10)
     exact_layout.setSpacing(6)
 
     window.exact_mode_radio = QRadioButton("⚡ Duplicados Exactos (SHA256)")
     window.exact_mode_radio.setChecked(True)
-    window.exact_mode_radio.setStyleSheet("font-weight: 500; font-size: 14px;")
+    window.exact_mode_radio.setStyleSheet(styles.STYLE_RADIO_BUTTON_BOLD)
     window.duplicate_mode_group.addButton(window.exact_mode_radio, 0)
     exact_layout.addWidget(window.exact_mode_radio)
 
     window.exact_info = QLabel("Archivos 100% idénticos bit a bit. Detección <b>rápida y segura</b>.")
-    window.exact_info.setStyleSheet(
-        "margin-left: 24px; color: #495057; font-size: 13px;"
-    )
+    window.exact_info.setStyleSheet(styles.STYLE_LABEL_INFO_MARGIN)
     window.exact_info.setWordWrap(True)
     exact_layout.addWidget(window.exact_info)
     options_layout.addWidget(exact_block)
 
     # ---- Opción Similares ----
     similar_block = QFrame()
-    similar_block.setStyleSheet(
-        "QFrame { background: #f4fcf7; border-radius: 8px; border: 1px solid #c3e6cb; }"
-    )
+    similar_block.setStyleSheet(styles.STYLE_FRAME_SIMILAR_MODE)
     similar_layout = QVBoxLayout(similar_block)
     similar_layout.setContentsMargins(12, 10, 12, 10)
     similar_layout.setSpacing(6)
 
     window.similar_mode_radio = QRadioButton("🎨 Duplicados Similares (Perceptual)")
-    window.similar_mode_radio.setStyleSheet("font-weight: 500; font-size: 14px;")
+    window.similar_mode_radio.setStyleSheet(styles.STYLE_RADIO_BUTTON_BOLD)
     window.duplicate_mode_group.addButton(window.similar_mode_radio, 1)
     similar_layout.addWidget(window.similar_mode_radio)
 
@@ -74,9 +62,7 @@ def create_duplicates_tab(window):
         "Archivos visualmente idénticos o muy parecidos. "
         "Detecta copias <b>redimensionadas o recomprimidas</b>. Requiere revisión manual."
     )
-    window.similar_info.setStyleSheet(
-        "margin-left: 24px; color: #495057; font-size: 13px;"
-    )
+    window.similar_info.setStyleSheet(styles.STYLE_LABEL_INFO_MARGIN)
     window.similar_info.setWordWrap(True)
     similar_layout.addWidget(window.similar_info)
 
@@ -88,22 +74,19 @@ def create_duplicates_tab(window):
     slider_layout.setSpacing(10)
 
     window.sens_low_lbl = QLabel("Baja")
-    window.sens_low_lbl.setStyleSheet("color: #6c757d; font-size: 12px;")
+    window.sens_low_lbl.setStyleSheet(styles.STYLE_LABEL_MUTED_SMALL)
 
     window.sensitivity_slider = QSlider(Qt.Horizontal)
     window.sensitivity_slider.setRange(0, 20)
     window.sensitivity_slider.setValue(10)
     window.sensitivity_slider.setFixedWidth(160)
-    window.sensitivity_slider.setStyleSheet(
-        "QSlider::groove:horizontal { height: 6px; background: #d4edda; border-radius: 3px; } "
-        "QSlider::handle:horizontal { background: #28a745; border-radius: 7px; width: 14px; height: 14px; margin: -4px 0; }"
-    )
+    window.sensitivity_slider.setStyleSheet(styles.STYLE_SLIDER_SENSITIVITY)
 
     window.sens_high_lbl = QLabel("Alta")
-    window.sens_high_lbl.setStyleSheet("color: #6c757d; font-size: 12px;")
+    window.sens_high_lbl.setStyleSheet(styles.STYLE_LABEL_MUTED_SMALL)
 
     window.sens_value_lbl = QLabel(f"Sensibilidad: {window.sensitivity_slider.value()}")
-    window.sens_value_lbl.setStyleSheet("color: #28a745; font-size: 13px; font-weight: 500;")
+    window.sens_value_lbl.setStyleSheet(styles.STYLE_LABEL_SUCCESS_BOLD)
 
     slider_layout.addWidget(window.sens_low_lbl)
     slider_layout.addWidget(window.sensitivity_slider)

@@ -12,18 +12,12 @@ def create_renaming_tab(window):
 
     # ===== TÍTULO =====
     title = QLabel("📝 Renombrado de Archivos")
-    title.setStyleSheet(
-        "font-size: 20px; font-weight: 600; color: #212529; margin-bottom: 8px;"
-    )
+    title.setStyleSheet(styles.STYLE_TAB_TITLE)
     layout.addWidget(title)
 
     # ===== INFORMACIÓN IMPORTANTE =====
     info_group = QGroupBox("⚠️ Información Importante")
-    info_group.setStyleSheet(
-        "QGroupBox { font-weight: 600; color: #dc3545; border: 2px solid #f5c6cb; "
-        "border-radius: 6px; margin-top: 12px; padding-top: 24px; background: #f8d7da; } "
-        "QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 8px; background: #f8d7da; }"
-    )
+    info_group.setStyleSheet(styles.STYLE_GROUPBOX_WARNING)
     info_layout = QVBoxLayout(info_group)
     info_layout.setContentsMargins(16, 8, 16, 16)
 
@@ -45,11 +39,7 @@ def create_renaming_tab(window):
 
     # ===== RESULTADOS =====
     results_group = QGroupBox("Resultados del Análisis")
-    results_group.setStyleSheet(
-        "QGroupBox { font-weight: 600; color: #495057; border: 1px solid #dee2e6; "
-        "border-radius: 6px; margin-top: 12px; padding-top: 20px; } "
-        "QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 8px; background: white; }"
-    )
+    results_group.setStyleSheet(styles.STYLE_GROUPBOX_STANDARD)
     results_layout = QVBoxLayout(results_group)
     results_layout.setContentsMargins(16, 8, 16, 16)
 

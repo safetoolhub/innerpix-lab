@@ -85,13 +85,13 @@ def create_summary_panel(window):
     layout.addWidget(info_card)
 
     actions_card = QFrame()
-    actions_card.setStyleSheet("background: transparent;")
+    actions_card.setStyleSheet(styles.STYLE_FRAME_TRANSPARENT)
     actions_layout = QVBoxLayout(actions_card)
     actions_layout.setSpacing(6)
     actions_layout.setContentsMargins(0, 0, 0, 0)
 
     actions_title = QLabel("⚙️ Funcionalidades disponibles")
-    actions_title.setStyleSheet("font-weight: bold; color: #2c3e50;")
+    actions_title.setStyleSheet(styles.STYLE_LABEL_TITLE_DARK)
     actions_layout.addWidget(actions_title)
 
     window.summary_action_buttons = {}

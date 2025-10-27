@@ -4,49 +4,136 @@ Contiene todas las definiciones de estilos CSS para la interfaz
 """
 
 # ============================================================================
+# PALETA DE COLORES CENTRALIZADA
+# ============================================================================
+
+COLORS = {
+    # Colores primarios
+    'primary': '#2196F3',
+    'primary_hover': '#1976D2',
+    'primary_pressed': '#0D47A1',
+    'primary_light': '#64B5F6',
+    
+    # Colores de estado
+    'success': '#28a745',
+    'success_hover': '#218838',
+    'success_pressed': '#1e7e34',
+    'success_light': '#d4edda',
+    
+    'danger': '#dc3545',
+    'danger_hover': '#c82333',
+    'danger_light': '#f8d7da',
+    'danger_border': '#f5c6cb',
+    
+    'warning': '#ffc107',
+    'warning_hover': '#e0a800',
+    'warning_pressed': '#d39e00',
+    'warning_light': '#fff3cd',
+    'warning_dark': '#856404',
+    'warning_border': '#ffeeba',
+    
+    'info': '#17a2b8',
+    'info_hover': '#138496',
+    'info_pressed': '#0f6674',
+    'info_light': '#e7f3ff',
+    'info_border': '#b3d9ff',
+    
+    # Colores de UI
+    'blue': '#007bff',
+    'blue_hover': '#0056b3',
+    'blue_pressed': '#004085',
+    'blue_light': '#0066cc',
+    
+    'cyan': '#17a2b8',
+    'orange': '#FFA500',
+    'green': '#28a745',
+    
+    # Grises y neutrales
+    'text_primary': '#212529',
+    'text_secondary': '#495057',
+    'text_muted': '#6c757d',
+    'text_light': '#7F8C8D',
+    'text_dark': '#2c3e50',
+    'text_darker': '#2C3E50',
+    'text_danger': '#721c24',
+    
+    # Bordes
+    'border_light': '#dee2e6',
+    'border_medium': '#ced4da',
+    'border_dark': '#adb5bd',
+    'border_info': '#d1e3f5',
+    'border_success': '#c3e6cb',
+    'border_danger': '#f5c6cb',
+    
+    # Fondos
+    'bg_white': '#ffffff',
+    'bg_light': '#f8f9fa',
+    'bg_lighter': '#f8fafc',
+    'bg_medium': '#e9ecef',
+    'bg_dark': '#e9eef4',
+    'bg_info': '#e7f3ff',
+    'bg_info_alt': '#f5f8fc',
+    'bg_success': '#f4fcf7',
+    'bg_warning': '#fff3cd',
+    'bg_danger': '#f8d7da',
+    'bg_disabled': '#BDBDBD',
+    'bg_gray': '#F5F5F5',
+    'bg_card': '#F8F9FA',
+    
+    # Colores específicos
+    'gray': 'gray',
+    'gray_light': '#CCC',
+    'gray_medium': '#DDD',
+    'red_light': '#FF6B6B',
+    'red_bg': '#FFE5E5',
+    'disabled_text': '#EEEEEE',
+    'disabled_bg': '#757575',
+}
+
+# ============================================================================
 # ESTILOS DE BOTONES PRINCIPALES
 # ============================================================================
 
-STYLE_CONFIG_BUTTON = """
-    QPushButton {
+STYLE_CONFIG_BUTTON = f"""
+    QPushButton {{
         background-color: transparent;
-        color: #6c757d;
-        border: 1px solid #dee2e6;
+        color: {COLORS['text_muted']};
+        border: 1px solid {COLORS['border_light']};
         border-radius: 20px;
         padding: 5px;
         font-size: 18px;
-    }
-    QPushButton:hover {
-        background-color: #f8f9fa;
-        border-color: #adb5bd;
-        color: #495057;
-    }
-    QPushButton:pressed {
-        background-color: #e9ecef;
-    }
+    }}
+    QPushButton:hover {{
+        background-color: {COLORS['bg_light']};
+        border-color: {COLORS['border_dark']};
+        color: {COLORS['text_secondary']};
+    }}
+    QPushButton:pressed {{
+        background-color: {COLORS['bg_medium']};
+    }}
 """
 
-STYLE_BROWSE_BUTTON = """
-    QPushButton {
-        background-color: #007bff;
+STYLE_BROWSE_BUTTON = f"""
+    QPushButton {{
+        background-color: {COLORS['blue']};
         color: white;
         border: none;
         border-radius: 4px;
         padding: 6px 12px;
         font-size: 13px;
         font-weight: bold;
-    }
-    QPushButton:hover {
-        background-color: #0056b3;
-    }
-    QPushButton:pressed {
-        background-color: #004085;
-    }
+    }}
+    QPushButton:hover {{
+        background-color: {COLORS['blue_hover']};
+    }}
+    QPushButton:pressed {{
+        background-color: {COLORS['blue_pressed']};
+    }}
 """
 
-STYLE_ANALYZE_BUTTON = """
-    QPushButton {
-        background-color: #2196F3;
+STYLE_ANALYZE_BUTTON = f"""
+    QPushButton {{
+        background-color: {COLORS['primary']};
         color: white;
         border: none;
         border-radius: 12px;
@@ -54,25 +141,25 @@ STYLE_ANALYZE_BUTTON = """
         font-size: 18px;
         font-weight: 600;
         letter-spacing: 0.5px;
-    }
-    QPushButton:hover {
-        background-color: #1976D2;
+    }}
+    QPushButton:hover {{
+        background-color: {COLORS['primary_hover']};
         padding: 20px 40px;
-    }
-    QPushButton:pressed {
-        background-color: #0D47A1;
+    }}
+    QPushButton:pressed {{
+        background-color: {COLORS['primary_pressed']};
         padding: 20px 40px;
-    }
-    QPushButton:focus {
+    }}
+    QPushButton:focus {{
         outline: none;
-        border: 3px solid #64B5F6;
+        border: 3px solid {COLORS['primary_light']};
         padding: 17px 37px;
-    }
-    QPushButton:disabled {
-        background-color: #BDBDBD;
-        color: #EEEEEE;
+    }}
+    QPushButton:disabled {{
+        background-color: {COLORS['bg_disabled']};
+        color: {COLORS['disabled_text']};
         padding: 20px 40px;
-    }
+    }}
 """
 
 STYLE_COLLAPSE_BUTTON = """
@@ -242,7 +329,9 @@ STYLE_ABOUT_BUTTON = """
 
 STYLE_TITLE_LABEL = "font-size: 20px; font-weight: bold; color: #2c3e50; padding: 10px;"
 
-STYLE_DIR_LABEL = "font-weight: bold; font-size: 13px; color: #495057;"
+STYLE_TAB_TITLE = f"font-size: 20px; font-weight: 600; color: {COLORS['text_primary']}; margin-bottom: 8px;"
+
+STYLE_DIR_LABEL = f"font-weight: bold; font-size: 13px; color: {COLORS['text_secondary']};"
 
 STYLE_RESULTS_LABEL = "font-weight: bold; color: #2c3e50; padding-top: 10px;"
 
@@ -290,25 +379,6 @@ STYLE_DIRECTORY_EDIT = """
     }
 """
 
-STYLE_DIRECTORY_EDIT_ALT = """
-    QLineEdit {
-        padding: 6px;
-        border: 1px solid #ced4da;
-        border-radius: 4px;
-        background-color: #e9ecef;
-    }
-"""
-
-STYLE_LOGS_EDIT = """
-    QLineEdit {
-        padding: 5px 8px;
-        border: 1px solid #ced4da;
-        border-radius: 4px;
-        background-color: #e9ecef;
-        font-size: 12px;
-    }
-"""
-
 # ============================================================================
 # ESTILOS DE COMBOBOX
 # ============================================================================
@@ -328,9 +398,48 @@ STYLE_LOG_LEVEL_COMBO = """
 
 STYLE_CHECKBOX = "font-size: 12px;"
 
+STYLE_RADIO_BUTTON = "QRadioButton { font-size: 13px; color: #495057; }"
+
+STYLE_RADIO_BUTTON_BOLD = "font-weight: 500; font-size: 14px;"
+
 # ============================================================================
 # ESTILOS DE PANELS Y FRAMES
 # ============================================================================
+
+STYLE_GROUPBOX_STANDARD = f"""
+    QGroupBox {{
+        font-weight: 600;
+        color: {COLORS['text_secondary']};
+        border: 1px solid {COLORS['border_light']};
+        border-radius: 6px;
+        margin-top: 12px;
+        padding-top: 20px;
+    }}
+    QGroupBox::title {{
+        subcontrol-origin: margin;
+        left: 12px;
+        padding: 0 8px;
+        background: white;
+    }}
+"""
+
+STYLE_GROUPBOX_WARNING = f"""
+    QGroupBox {{
+        font-weight: 600;
+        color: {COLORS['danger']};
+        border: 2px solid {COLORS['danger_border']};
+        border-radius: 6px;
+        margin-top: 12px;
+        padding-top: 24px;
+        background: {COLORS['danger_light']};
+    }}
+    QGroupBox::title {{
+        subcontrol-origin: margin;
+        left: 12px;
+        padding: 0 8px;
+        background: {COLORS['danger_light']};
+    }}
+"""
 
 STYLE_CONFIG_PANEL = """
     QFrame {
@@ -397,6 +506,73 @@ STYLE_STAT_CHIP = """
         font-size: 12px;
     }
 """
+
+STYLE_FRAME_EXACT_MODE = f"""
+    QFrame {{
+        background: {COLORS['bg_info_alt']};
+        border-radius: 8px;
+        border: 1px solid {COLORS['border_info']};
+    }}
+"""
+
+STYLE_FRAME_SIMILAR_MODE = f"""
+    QFrame {{
+        background: {COLORS['bg_success']};
+        border-radius: 8px;
+        border: 1px solid {COLORS['border_success']};
+    }}
+"""
+
+STYLE_SLIDER_SENSITIVITY = f"""
+    QSlider::groove:horizontal {{
+        height: 6px;
+        background: {COLORS['success_light']};
+        border-radius: 3px;
+    }}
+    QSlider::handle:horizontal {{
+        background: {COLORS['success']};
+        border-radius: 7px;
+        width: 14px;
+        height: 14px;
+        margin: -4px 0;
+    }}
+"""
+
+STYLE_LABEL_MUTED_SMALL = f"color: {COLORS['text_muted']}; font-size: 12px;"
+
+STYLE_LABEL_SUCCESS_BOLD = f"color: {COLORS['success']}; font-size: 13px; font-weight: 500;"
+
+STYLE_LABEL_INFO_MARGIN = f"margin-left: 24px; color: {COLORS['text_secondary']}; font-size: 13px;"
+
+STYLE_LABEL_INFO_STANDARD = f"color: {COLORS['text_secondary']}; font-size: 13px; line-height: 1.6;"
+
+# ============================================================================
+# ESTILOS ESPECÍFICOS DE DIÁLOGOS
+# ============================================================================
+
+STYLE_DIALOG_FOLDER_LABEL = f"color: {COLORS['blue_light']}; font-weight: 600; margin: 8px 0;"
+
+STYLE_DIALOG_WARNING_ORANGE = f"color: {COLORS['orange']}; padding: 5px; font-weight: bold;"
+
+STYLE_DIALOG_SMALL_GRAY = f"color: {COLORS['gray']}; font-size: 10px;"
+
+STYLE_DIALOG_TINY_TEXT = "font-size: 10px; padding: 2px;"
+
+STYLE_DIALOG_TINY_BUTTON = "font-size: 9px; padding: 2px;"
+
+STYLE_DIALOG_FRAME_SELECTED = f"QFrame {{ border: 2px solid {COLORS['red_light']}; background-color: {COLORS['red_bg']}; }}"
+
+STYLE_DIALOG_FRAME_UNSELECTED = f"QFrame {{ border: 1px solid {COLORS['gray_light']}; background-color: white; }}"
+
+STYLE_DIALOG_TITLE_BOLD = f"font-weight: bold; font-size: 14px; color: {COLORS['text_darker']};"
+
+STYLE_DIALOG_DESC_MUTED = f"color: {COLORS['text_light']}; font-size: 11px; padding: 5px;"
+
+STYLE_DIALOG_LABEL_DISABLED = f"border: 1px solid {COLORS['gray_medium']}; background-color: {COLORS['bg_gray']};"
+
+STYLE_FRAME_TRANSPARENT = "background: transparent;"
+
+STYLE_LABEL_TITLE_DARK = f"font-weight: bold; color: {COLORS['text_dark']};"
 
 # ---------------------------------------------------------------------------
 # Additional styles extracted from dialogs.py
@@ -474,17 +650,9 @@ QPushButton:hover {
 
 STYLE_SMALL_INFO_LABEL = "color: #6c757d; font-size: 11px;"
 
-STYLE_LOGS_EDIT_ALT = (
-    "QLineEdit { padding: 8px 12px; border: 1px solid #ced4da; "
-    "border-radius: 4px; background-color: #f8f9fa; }"
-)
-
-STYLE_LOG_LEVEL_COMBO_ALT = (
-    "QComboBox { padding: 5px 10px; border: 1px solid #ced4da; "
-    "border-radius: 4px; }"
-)
-
 STYLE_WARNING_LABEL = "color: #856404; background-color: #fff3cd; padding: 8px; border-radius: 4px;"
+
+STYLE_WARNING_LIGHT = "color: #495057; padding: 10px; background-color: #fff3cd; border: 1px solid #ffeeba; border-radius: 4px;"
 
 STYLE_GROUPS_LABEL = "font-weight: bold; margin-top: 10px;"
 
@@ -570,32 +738,53 @@ def get_button_style(color):
     Genera estilo para botones con color personalizado
 
     Args:
-        color: Color en formato hex (con o sin #)
+        color: Color en formato hex (con o sin #) o nombre de color de la paleta
 
     Returns:
         String con el estilo CSS completo
     """
-    # Mapeo de colores base a colores hover y pressed
+    # Mapeo de colores base a colores hover y pressed usando la paleta COLORS
     color_variants = {
-        "#17a2b8": {  # Cyan/Info - Para Preview
-            'base': "#17a2b8",
-            'hover': "#138496",
-            'pressed': "#0f6674"
+        COLORS['info']: {
+            'base': COLORS['info'],
+            'hover': COLORS['info_hover'],
+            'pressed': COLORS['info_pressed']
         },
-        "#28a745": {  # Verde - Para Ejecutar
-            'base': "#28a745",
-            'hover': "#218838",
-            'pressed': "#1e7e34"
+        COLORS['success']: {
+            'base': COLORS['success'],
+            'hover': COLORS['success_hover'],
+            'pressed': COLORS['success_pressed']
         },
-        "#007bff": {  # Azul - Alternativo
-            'base': "#007bff",
-            'hover': "#0056b3",
-            'pressed': "#004085"
+        COLORS['blue']: {
+            'base': COLORS['blue'],
+            'hover': COLORS['blue_hover'],
+            'pressed': COLORS['blue_pressed']
         },
-        "#ffc107": {  # Amarillo/Warning - Alternativo
-            'base': "#ffc107",
-            'hover': "#e0a800",
-            'pressed': "#d39e00"
+        COLORS['warning']: {
+            'base': COLORS['warning'],
+            'hover': COLORS['warning_hover'],
+            'pressed': COLORS['warning_pressed']
+        },
+        # Mantener retrocompatibilidad con códigos hex directos
+        "#17a2b8": {
+            'base': COLORS['info'],
+            'hover': COLORS['info_hover'],
+            'pressed': COLORS['info_pressed']
+        },
+        "#28a745": {
+            'base': COLORS['success'],
+            'hover': COLORS['success_hover'],
+            'pressed': COLORS['success_pressed']
+        },
+        "#007bff": {
+            'base': COLORS['blue'],
+            'hover': COLORS['blue_hover'],
+            'pressed': COLORS['blue_pressed']
+        },
+        "#ffc107": {
+            'base': COLORS['warning'],
+            'hover': COLORS['warning_hover'],
+            'pressed': COLORS['warning_pressed']
         }
     }
 
@@ -633,8 +822,8 @@ def get_button_style(color):
             border: 2px solid white;
         }}
         QPushButton:disabled {{
-            background-color: #BDBDBD;
-            color: #757575;
+            background-color: {COLORS['bg_disabled']};
+            color: {COLORS['disabled_bg']};
         }}
     """
 
@@ -684,33 +873,5 @@ QTabBar::tab:selected {
 
 QTabBar::tab:!selected {
     margin-top: 6px;
-}
-"""
-
-# ============================================================================
-# ESTILOS PARA DUPLICADOS: TODO. hay que usarlos, hazlo a mano
-# ============================================================================
-
-STYLE_DUPLICATE_MODE_FRAME_EXACT = """
-QFrame {
-    background-color: #e7f3ff;
-    border: 2px solid #2196F3;
-    border-radius: 8px;
-    padding: 12px;
-}
-QFrame:hover {
-    background-color: #d0e9ff;
-}
-"""
-
-STYLE_DUPLICATE_MODE_FRAME_SIMILAR = """
-QFrame {
-    background-color: #fff3e0;
-    border: 2px solid #ff9800;
-    border-radius: 8px;
-    padding: 12px;
-}
-QFrame:hover {
-    background-color: #ffe0b2;
 }
 """

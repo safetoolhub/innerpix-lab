@@ -104,7 +104,7 @@ class SettingsDialog(QDialog):
         self.logs_edit = QLineEdit()
         self.logs_edit.setText(str(self.parent_window.logs_directory))
         self.logs_edit.setReadOnly(True)
-        self.logs_edit.setStyleSheet(ui_styles.STYLE_LOGS_EDIT_ALT)
+        self.logs_edit.setStyleSheet(ui_styles.STYLE_DIRECTORY_EDIT)
         logs_dir_layout.addWidget(self.logs_edit)
 
         browse_logs_btn = QPushButton("📂 Cambiar")
@@ -127,7 +127,7 @@ class SettingsDialog(QDialog):
             "WARNING (Solo advertencias)",
             "ERROR (Solo errores)"
         ])
-        self.log_level_combo.setStyleSheet(ui_styles.STYLE_LOG_LEVEL_COMBO_ALT)
+        self.log_level_combo.setStyleSheet(ui_styles.STYLE_LOG_LEVEL_COMBO)
         log_level_layout.addWidget(self.log_level_combo)
         log_level_layout.addStretch()
 
