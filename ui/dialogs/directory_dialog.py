@@ -45,7 +45,7 @@ class FileOrganizationDialog(BaseDialog):
             folders_label = QLabel(f"Se crearán {len(folders_to_create)} carpetas: {', '.join(sorted(folders_to_create)[:10])}" + 
                                   ("..." if len(folders_to_create) > 10 else ""))
             folders_label.setWordWrap(True)
-            folders_label.setStyleSheet("color: #0066cc; font-weight: 600; margin: 8px 0;")
+            folders_label.setStyleSheet(ui_styles.STYLE_DIALOG_FOLDER_LABEL)
             layout.addWidget(folders_label)
 
         # Lista de subdirectorios

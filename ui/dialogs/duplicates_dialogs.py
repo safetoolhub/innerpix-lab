@@ -222,7 +222,7 @@ class SimilarDuplicatesDialog(BaseDialog):
                 f"⚠️ Este grupo tiene {len(group.files)} imágenes. "
                 f"Para mejor rendimiento, usa el scroll para navegar."
             )
-            warning_label.setStyleSheet("color: #FFA500; padding: 5px; font-weight: bold;")
+            warning_label.setStyleSheet(ui_styles.STYLE_DIALOG_WARNING_ORANGE)
             warning_label.setWordWrap(True)
             self.group_layout.addWidget(warning_label)
 
@@ -268,10 +268,10 @@ class SimilarDuplicatesDialog(BaseDialog):
                 frame_layout.addWidget(thumbnail_label, alignment=Qt.AlignCenter)
             else:
                 # Si no se puede cargar la imagen, mostrar placeholder
-                no_preview = QLabel("❌\nNo preview")
+                no_preview = QLabel("Sin vista previa")
                 no_preview.setAlignment(Qt.AlignCenter)
-                no_preview.setStyleSheet("color: gray; font-size: 10px;")
-                frame_layout.addWidget(no_preview, alignment=Qt.AlignCenter)
+                no_preview.setStyleSheet(ui_styles.STYLE_DIALOG_SMALL_GRAY)
+                frame_layout.addWidget(no_preview)
 
             # Información del archivo
             from datetime import datetime
@@ -285,21 +285,21 @@ class SimilarDuplicatesDialog(BaseDialog):
             info_label.setTextFormat(Qt.RichText)
             info_label.setAlignment(Qt.AlignCenter)
             info_label.setWordWrap(True)
-            info_label.setStyleSheet("font-size: 10px; padding: 2px;")
+            info_label.setStyleSheet(ui_styles.STYLE_DIALOG_TINY_TEXT)
             frame_layout.addWidget(info_label)
 
             # Botón abrir (alternativa al clic en la miniatura)
             open_btn = QPushButton("🔍 Abrir")
             open_btn.setToolTip(f"Abrir {file_path}")
             open_btn.clicked.connect(lambda _, f=file_path: self._open_file(f))
-            open_btn.setStyleSheet("font-size: 9px; padding: 2px;")
+            open_btn.setStyleSheet(ui_styles.STYLE_DIALOG_TINY_BUTTON)
             frame_layout.addWidget(open_btn)
 
             # Destacar el frame si está seleccionado
             if file_path in previous_selection:
-                frame.setStyleSheet("QFrame { border: 2px solid #FF6B6B; background-color: #FFE5E5; }")
+                frame.setStyleSheet(ui_styles.STYLE_DIALOG_FRAME_SELECTED)
             else:
-                frame.setStyleSheet("QFrame { border: 1px solid #CCC; background-color: white; }")
+                frame.setStyleSheet(ui_styles.STYLE_DIALOG_FRAME_UNSELECTED)
 
             # Conectar cambios de selección para actualizar el estilo del frame
             checkbox.stateChanged.connect(
@@ -323,7 +323,7 @@ class SimilarDuplicatesDialog(BaseDialog):
 
         # Título
         title_label = QLabel("🔍 Grado de Similitud")
-        title_label.setStyleSheet("font-weight: bold; font-size: 14px; color: #2C3E50;")
+        title_label.setStyleSheet(ui_styles.STYLE_DIALOG_TITLE_BOLD)
         layout.addWidget(title_label)
 
         # Barra de progreso visual
@@ -372,7 +372,7 @@ class SimilarDuplicatesDialog(BaseDialog):
         description = self._get_similarity_description(group.similarity_score)
         desc_label = QLabel(description)
         desc_label.setWordWrap(True)
-        desc_label.setStyleSheet("color: #7F8C8D; font-size: 11px; padding: 5px;")
+        desc_label.setStyleSheet(ui_styles.STYLE_DIALOG_DESC_MUTED)
         layout.addWidget(desc_label)
 
         container.setStyleSheet("""
@@ -462,7 +462,7 @@ class SimilarDuplicatesDialog(BaseDialog):
             label.setPixmap(scaled_pixmap)
             label.setAlignment(Qt.AlignCenter)
             label.setFixedSize(thumbnail_size, thumbnail_size)
-            label.setStyleSheet("border: 1px solid #DDD; background-color: #F5F5F5;")
+            label.setStyleSheet(ui_styles.STYLE_DIALOG_LABEL_DISABLED)
             return label
         except Exception:
             return None
@@ -470,9 +470,9 @@ class SimilarDuplicatesDialog(BaseDialog):
     def _update_frame_style(self, frame: QFrame, file_path: Path, state):
         """Actualiza el estilo visual del frame según el estado de selección"""
         if state == Qt.Checked:
-            frame.setStyleSheet("QFrame { border: 2px solid #FF6B6B; background-color: #FFE5E5; }")
+            frame.setStyleSheet(ui_styles.STYLE_DIALOG_FRAME_SELECTED)
         else:
-            frame.setStyleSheet("QFrame { border: 1px solid #CCC; background-color: white; }")
+            frame.setStyleSheet(ui_styles.STYLE_DIALOG_FRAME_UNSELECTED)
 
     def _on_selection_changed(self, file_path, state):
         """Maneja cambios en la selección"""

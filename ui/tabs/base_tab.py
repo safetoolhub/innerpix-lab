@@ -11,8 +11,7 @@ def create_info_label(text: str, rich: bool = True, extra_style: str = None) -> 
     if extra_style:
         lbl.setStyleSheet(extra_style)
     else:
-        # Default informative box style
-        lbl.setStyleSheet("color: #495057; padding: 10px; background-color: #fff3cd; border: 1px solid #ffeeba; border-radius: 4px;")
+        lbl.setStyleSheet(styles.STYLE_WARNING_LIGHT)
     lbl.setWordWrap(True)
     return lbl
 
