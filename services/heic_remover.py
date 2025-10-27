@@ -310,13 +310,10 @@ class HEICDuplicateRemover:
                 file_to_delete = _to_path(pair, ('heic_path', 'jpg_path', 'path', 'source_path', 'original_path')) if keep_format.lower() == 'jpg' else _to_path(pair, ('jpg_path', 'heic_path', 'path', 'source_path', 'original_path'))
                 file_to_keep = _to_path(pair, ('jpg_path', 'heic_path', 'path', 'source_path', 'original_path')) if keep_format.lower() == 'jpg' else _to_path(pair, ('heic_path', 'jpg_path', 'path', 'source_path', 'original_path'))
                 base_name = None
-                try:
-                    if isinstance(pair, dict) and 'base_name' in pair:
-                        base_name = pair['base_name']
-                    elif hasattr(pair, 'base_name'):
-                        base_name = getattr(pair, 'base_name')
-                except Exception:
-                    base_name = None
+                if isinstance(pair, dict) and 'base_name' in pair:
+                    base_name = pair['base_name']
+                elif hasattr(pair, 'base_name'):
+                    base_name = getattr(pair, 'base_name')
 
                 try:
                     try:
@@ -356,11 +353,8 @@ class HEICDuplicateRemover:
             if results['errors']:
                 results['success'] = len(results['errors']) < len(duplicate_pairs)
 
-            try:
-                from utils.format_utils import format_size
-                freed = format_size(results['space_freed'])
-            except Exception:
-                freed = f"{results['space_freed']/(1024*1024):.2f} MB"
+            from utils.format_utils import format_size
+            freed = format_size(results['space_freed'])
 
             results['files_removed'] = results.get('files_deleted', 0)
             results['kept_format'] = results.get('format_kept')

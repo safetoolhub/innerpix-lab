@@ -317,11 +317,8 @@ class LivePhotoCleaner:
             if dry_run:
                 simulated_count = results.get('simulated_files_deleted', 0)
                 simulated_space = results.get('simulated_space_freed', 0)
-                try:
-                    from utils.format_utils import format_size
-                    freed = format_size(simulated_space)
-                except Exception:
-                    freed = f"{simulated_space/(1024*1024):.2f} MB"
+                from utils.format_utils import format_size
+                freed = format_size(simulated_space)
 
                 # Do not report simulated deletions as actual deletions in the
                 # returned `files_deleted`/`space_freed` fields (keep them 0),

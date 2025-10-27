@@ -171,7 +171,7 @@ def parse_renamed_name(filename: str) -> Optional[dict]:
             'is_renamed': True
         }
 
-    except Exception:
+    except (AttributeError, ValueError, IndexError, OSError):
         return None
 
 def is_renamed_filename(filename: str) -> bool:

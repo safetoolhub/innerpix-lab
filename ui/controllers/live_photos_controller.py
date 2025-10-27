@@ -124,11 +124,7 @@ class LivePhotosController(QObject):
 
         self.execution_worker = LivePhotoCleanupWorker(self.live_photo_cleaner, plan)
 
-        try:
-            self.execution_worker.progress_update.connect(self.main_window.analysis_controller.update_progress)
-        except Exception:
-            pass
-
+        self.execution_worker.progress_update.connect(self.main_window.analysis_controller.update_progress)
         self.execution_worker.finished.connect(self.on_live_photo_finished)
         self.execution_worker.error.connect(self.on_operation_error)
         self.execution_worker.finished.connect(self.execution_worker.deleteLater)
@@ -155,37 +151,28 @@ class LivePhotosController(QObject):
         self.results_controller.show_results_html(html, show_generic_status=False)
 
         if dry_run:
-            try:
-                note = f"<p style='color: #0c5460;'><em>ℹ️ Simulación: se simularon {simulated_count} eliminaciones " \
-                       f"(potencialmente {format_size(simulated_space)} liberados)</em></p>"
-                try:
-                    current = self.main_window.lp_details.toHtml()
-                    if 'Simulación:' not in current:
-                        self.main_window.lp_details.setHtml(current + "<hr>" + note)
-                except Exception:
-                    pass
-            except Exception:
-                pass
+            note = f"<p style='color: #0c5460;'><em>ℹ️ Simulación: se simularon {simulated_count} eliminaciones " \
+                   f"(potencialmente {format_size(simulated_space)} liberados)</em></p>"
+            current = self.main_window.lp_details.toHtml()
+            if 'Simulación:' not in current:
+                self.main_window.lp_details.setHtml(current + "<hr>" + note)
 
         if results.get('success'):
-            try:
-                if dry_run:
-                    QMessageBox.information(
-                        self.main_window,
-                        "Simulación completada",
-                        f"Se simularon {simulated_count} eliminaciones (0 reales)"
-                    )
-                else:
-                    QMessageBox.information(
-                        self.main_window,
-                        "Completado",
-                        f"Se eliminaron {results.get('files_deleted', 0)} archivos"
-                    )
-            except Exception:
-                pass
+            if dry_run:
+                QMessageBox.information(
+                    self.main_window,
+                    "Simulación completada",
+                    f"Se simularon {simulated_count} eliminaciones (0 reales)"
+                )
+            else:
+                QMessageBox.information(
+                    self.main_window,
+                    "Completado",
+                    f"Se eliminaron {results.get('files_deleted', 0)} archivos"
+                )
 
         self.main_window.exec_lp_btn.setEnabled(False)
-
+        
         if self.execution_worker in self.main_window.active_workers:
             self.main_window.active_workers.remove(self.execution_worker)
         self.execution_worker = None
@@ -213,11 +200,8 @@ class LivePhotosController(QObject):
             return
 
         def _do_reanalyze():
-            try:
-                self.logger.info("Iniciando re-análisis automático tras operación que modifica archivos")
-                self.main_window._reanalyze_same_directory()
-            except Exception:
-                self.logger.exception("Fallo durante re-análisis automático")
+            self.logger.info("Iniciando re-análisis automático tras operación que modifica archivos")
+            self.main_window._reanalyze_same_directory()
 
         QTimer.singleShot(delay_ms, _do_reanalyze)
 

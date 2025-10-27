@@ -49,10 +49,7 @@ def create_tabs_widget(window):
 
     # Guardar una lista inversa opcional (índice -> clave) por conveniencia
     # Esto puede usarse más adelante si se necesita iterar por índices.
-    try:
-        window.tab_keys_by_index = {v: k for k, v in window.tab_index_map.items()}
-    except Exception:
-        window.tab_keys_by_index = {}
+    window.tab_keys_by_index = {v: k for k, v in window.tab_index_map.items()}
 
     return tabs
 
@@ -93,16 +90,11 @@ def set_tab_enabled(window, key: str, enabled: bool):
     idx = window.tab_index_map.get(key)
     if idx is None:
         return
-    try:
-        window.tabs_widget.setTabEnabled(idx, enabled)
-    except Exception:
-        pass
-    try:
-        w = window.tabs_widget.widget(idx)
-        if w is not None:
-            w.setEnabled(enabled)
-    except Exception:
-        pass
+    
+    window.tabs_widget.setTabEnabled(idx, enabled)
+    w = window.tabs_widget.widget(idx)
+    if w is not None:
+        w.setEnabled(enabled)
 
 
 def update_tabs_availability(window, results: dict):

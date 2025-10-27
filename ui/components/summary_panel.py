@@ -223,15 +223,13 @@ def update_summary_panel(window, results):
     images_txt = f"🖼️ Imágenes: {stats.get('images', 0):,}"
     videos_txt = f"🎥 Videos: {stats.get('videos', 0):,}"
     total_txt = f"📊 Total: {stats.get('total', 0):,}"
-    try:
-        if 'images' in window.stats_labels:
-            window.stats_labels['images'].setText(images_txt)
-        if 'videos' in window.stats_labels:
-            window.stats_labels['videos'].setText(videos_txt)
-        if 'total' in window.stats_labels:
-            window.stats_labels['total'].setText(total_txt)
-    except Exception:
-        pass
+    
+    if 'images' in window.stats_labels:
+        window.stats_labels['images'].setText(images_txt)
+    if 'videos' in window.stats_labels:
+        window.stats_labels['videos'].setText(videos_txt)
+    if 'total' in window.stats_labels:
+        window.stats_labels['total'].setText(total_txt)
 
     ren = results.get('renaming', {})
     lp = results.get('live_photos', {})

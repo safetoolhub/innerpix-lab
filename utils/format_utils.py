@@ -17,11 +17,12 @@ def format_size(bytes_size: Optional[float]) -> str:
     Maneja None y valores inválidos devolviendo '0 B'. Mantiene el signo para
     valores negativos.
     """
+    if bytes_size is None:
+        return "0 B"
+    
     try:
-        if bytes_size is None:
-            return "0 B"
         size = float(bytes_size)
-    except Exception:
+    except (TypeError, ValueError):
         return "0 B"
 
     if size < 0:
@@ -48,11 +49,12 @@ def format_file_count(count: Optional[int]) -> str:
     - Si count es None o inválido devuelve '0'.
     - Mantiene formateo con coma como separador de miles.
     """
+    if count is None:
+        return "0"
+    
     try:
-        if count is None:
-            return "0"
         return f"{int(count):,}"
-    except Exception:
+    except (TypeError, ValueError):
         return "0"
 
 
@@ -62,12 +64,13 @@ def format_percentage(numerator: float, denominator: float) -> str:
     - Si denominator es 0 devuelve '0%'.
     - Maneja entradas inválidas devolviendo '0%'.
     """
+    if denominator == 0:
+        return "0%"
+    
     try:
-        if denominator == 0:
-            return "0%"
         pct = (float(numerator) / float(denominator)) * 100
         return f"{pct:.1f}%"
-    except Exception:
+    except (TypeError, ValueError, ZeroDivisionError):
         return "0%"
 
 
@@ -77,19 +80,17 @@ def truncate_path(path: str, max_length: int = 40) -> str:
     - Si la longitud de la ruta es menor o igual a max_length devuelve la ruta tal cual.
     - Intenta preservar el inicio y el final de la ruta.
     """
-    try:
-        if path is None:
-            return ""
-        s = str(path)
-        if len(s) <= max_length:
-            return s
-        if max_length <= 6:
-            return s[:max_length]
-
-        part = (max_length - 3) // 2
-        return f"{s[:part]}...{s[-part:]}"
-    except Exception:
+    if path is None:
         return ""
+    
+    s = str(path)
+    if len(s) <= max_length:
+        return s
+    if max_length <= 6:
+        return s[:max_length]
+
+    part = (max_length - 3) // 2
+    return f"{s[:part]}...{s[-part:]}"
 
 def generate_stats_html(stats: dict, icon_prefix: str = "") -> str:
     """

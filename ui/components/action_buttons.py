@@ -120,13 +120,10 @@ class ActionButtons:
 
     def hide_alternatives_and_enable_analyze(self):
         """Oculta los botones alternativos y vuelve a habilitar el analyze_btn."""
-        try:
-            self.reanalyze_btn.setVisible(False)
-            self.change_dir_btn.setVisible(False)
-            if self.analyze_btn is not None:
-                self.analyze_btn.setEnabled(True)
-        except Exception:
-            pass
+        self.reanalyze_btn.setVisible(False)
+        self.change_dir_btn.setVisible(False)
+        if self.analyze_btn is not None:
+            self.analyze_btn.setEnabled(True)
 
     def show_alternatives_disabled(self):
         """Muestra las alternativas pero las deja deshabilitadas.

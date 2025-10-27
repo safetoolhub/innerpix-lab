@@ -101,11 +101,7 @@ class OrganizerController(QObject):
             plan['create_backup']
         )
 
-        try:
-            self.execution_worker.progress_update.connect(self.main_window.analysis_controller.update_progress)
-        except Exception:
-            pass
-
+        self.execution_worker.progress_update.connect(self.main_window.analysis_controller.update_progress)
         self.execution_worker.finished.connect(self.on_organization_finished)
         self.execution_worker.error.connect(self.on_operation_error)
         self.execution_worker.finished.connect(self.execution_worker.deleteLater)
@@ -205,11 +201,8 @@ class OrganizerController(QObject):
             return
 
         def _do_reanalyze():
-            try:
-                self.logger.info("Iniciando re-análisis automático tras operación que modifica archivos")
-                self.main_window._reanalyze_same_directory()
-            except Exception:
-                self.logger.exception("Fallo durante re-análisis automático")
+            self.logger.info("Iniciando re-análisis automático tras operación que modifica archivos")
+            self.main_window._reanalyze_same_directory()
 
         QTimer.singleShot(delay_ms, _do_reanalyze)
 

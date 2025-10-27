@@ -254,10 +254,7 @@ class FileRenamer:
                     files_processed += 1
                     date_obj = item.get('date') if isinstance(item, dict) else None
                     if date_obj is not None:
-                        try:
-                            date_str = date_obj.strftime('%Y-%m-%d %H:%M:%S')
-                        except Exception:
-                            date_str = str(date_obj)
+                        date_str = date_obj.strftime('%Y-%m-%d %H:%M:%S')
                     else:
                         date_str = ''
 
