@@ -8,14 +8,15 @@ patterns (workers + services + UI) and avoid changing user-visible behaviour wit
   - Launch: `python main.py` (creates a PyQt5 QApplication and instantiates `ui.main_window.MainWindow`).
   - Config values live in `config.py` (class `Config`). Note: some modules reference `config.Config` and others `config.config` (a module-level instance). Check both when making changes.
 
-- High-level architecture
-  - `ui/` holds GUI components, dialogs, controllers and `ui/workers.py` (QThread-based workers). UI must only be manipulated from the main thread; workers communicate via signals: `progress_update(int,int,str)`, `finished(dict)`, and `error(str)`.
-  - `services/` contains business logic (e.g. `directory_unifier.py`, `duplicate_detector.py`, `live_photo_cleaner.py`). Services generally expose `analyze_*` and `execute_*` methods and accept an optional `progress_callback` callable.
-  - `utils/` contains helper functions used across services and UI (e.g. `utils.file_utils.launch_backup_creation`, `utils.file_utils.calculate_file_hash`, `utils.logger.get_logger`). Prefer using these helpers rather than duplicating file/IO logic.
+- Platforms
+  - Primary: Windows 
+  - Secondary: Mac and Linux supported but not primary targets
+
+- Project structure
+  - Always updated in PROJECT_TREE.md file 
 
 - Important patterns & conventions (examples)
-
-  - Backup-first: many destructive operations (unification, duplicate deletion, renaming) accept `create_backup=True`. Preserve that behaviour and prefer creating backups via `utils.file_utils.launch_backup_creation` when changing execute flows (see `services/directory_unifier.py`).
+  - Backup-first: many destructive operations (live photos, organization, duplicate deletion, renaming, etc) accept `create_backup=True`. Preserve that behaviour and prefer creating backups via `utils.file_utils.launch_backup_creation` when changing execute flows (see `services/directory_unifier.py`).
  
 - Developer workflow (what to run locally)
   - Create virtualenv: `python -m venv .venv && source .venv/bin/activate`
@@ -24,15 +25,12 @@ patterns (workers + services + UI) and avoid changing user-visible behaviour wit
 
 - When editing code
   - For changes touching file operations, keep `create_backup` flows and metadata writing (see `unification_metadata.txt` usage in `directory_unifier.py`).
-- Do not implement legacy callbacks, as there is only one author for theis project
+- Do not implement legacy callbacks, as there is only one author for this project
 - Do not add useless try/catch methods that only pass
 - Be strict with PEP 8
-
-
 
 - Quick safety checklist for PRs
   1. Run static checks and fix obvious linting errors (PEP8, type hints where present).
   2. Run the app locally and exercise the relevant UI path (start analysis, preview and execution) if code touches UI or services that operate on files.
   3. Preserve `create_backup` defaults unless explicitly requested by the user.
-  4. Update callers if you rename keys in result dictionaries (search for `.get('renaming')`, `.get('heic')`, etc.).
 
