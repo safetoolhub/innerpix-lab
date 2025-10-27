@@ -41,10 +41,7 @@ class SearchBar(QWidget):
 
         # Conectar al método del MainWindow si existe
         if self.main_window is not None and hasattr(self.main_window, 'select_and_analyze_directory'):
-            try:
-                self.analyze_btn.clicked.connect(self.main_window.select_and_analyze_directory)
-            except Exception:
-                pass
+            self.analyze_btn.clicked.connect(self.main_window.select_and_analyze_directory)
 
         self.layout.addWidget(self.analyze_btn)
 

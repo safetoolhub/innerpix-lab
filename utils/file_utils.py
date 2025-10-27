@@ -106,11 +106,8 @@ def launch_backup_creation(
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     backup_name = f"{backup_prefix}_{base_directory.name}_{timestamp}"
 
-    try:
-        from config import config as _conf
-        backup_root = _conf.DEFAULT_BACKUP_DIR
-    except Exception:
-        backup_root = base_directory.parent / "backups"
+    from config import config as _conf
+    backup_root = _conf.DEFAULT_BACKUP_DIR
 
     backup_path = backup_root / backup_name
     _ensure_backup_dir(backup_path)
@@ -128,23 +125,17 @@ def launch_backup_creation(
             elif 'original_path' in item:
                 normalized = Path(item['original_path'])
             else:
-                try:
-                    val = next(iter(item.values()))
-                    normalized = Path(val)
-                except Exception:
-                    normalized = None
+                val = next(iter(item.values()))
+                normalized = Path(val)
         else:
-            try:
-                if hasattr(item, 'path'):
-                    normalized = Path(getattr(item, 'path'))
-                elif hasattr(item, 'source_path'):
-                    normalized = Path(getattr(item, 'source_path'))
-                elif hasattr(item, 'original_path'):
-                    normalized = Path(getattr(item, 'original_path'))
-                else:
-                    normalized = Path(item)
-            except Exception:
-                normalized = None
+            if hasattr(item, 'path'):
+                normalized = Path(getattr(item, 'path'))
+            elif hasattr(item, 'source_path'):
+                normalized = Path(getattr(item, 'source_path'))
+            elif hasattr(item, 'original_path'):
+                normalized = Path(getattr(item, 'original_path'))
+            else:
+                normalized = Path(item)
 
         if normalized is None:
             raise ValueError(

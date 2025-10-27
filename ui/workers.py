@@ -52,7 +52,7 @@ class BaseWorker(QThread):
                     self.progress_update.emit(0, 0, message)
                 return True  # Continue processing
             except Exception:
-                # Never let a progress signal error crash the worker
+                # La señal de progreso no debe bloquear el worker
                 return True
 
         return callback
@@ -312,10 +312,7 @@ class HEICRemovalWorker(BaseWorker):
 
             # Attach callback to remover so create_backup (which may not accept
             # progress_callback explicitly) can use it via attribute
-            try:
-                setattr(self.remover, '_progress_callback', progress_cb_local)
-            except Exception:
-                pass
+            setattr(self.remover, '_progress_callback', progress_cb_local)
 
             results = self.remover.execute_removal(
                 self.pairs,
@@ -323,10 +320,8 @@ class HEICRemovalWorker(BaseWorker):
                 create_backup=self.create_backup
             )
             # Clean up attribute
-            try:
+            if hasattr(self.remover, '_progress_callback'):
                 delattr(self.remover, '_progress_callback')
-            except Exception:
-                pass
             
             if not self._stop_requested:
                 self.finished.emit(results)

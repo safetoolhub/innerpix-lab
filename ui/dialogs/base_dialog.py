@@ -29,11 +29,7 @@ class BaseDialog(QDialog):
         cb.setChecked(checked)
         self.backup_checkbox = cb
         if layout is not None:
-            try:
-                layout.addWidget(cb)
-            except Exception:
-                # layout podría ser un QGroupBox o algo distinto; intentar addWidget falla
-                pass
+            layout.addWidget(cb)
         return cb
 
     def is_backup_enabled(self) -> bool:
@@ -82,11 +78,7 @@ class BaseDialog(QDialog):
     def set_ok_enabled(self, enabled: bool):
         """Enable/disable previously registered OK button (no-op if none)."""
         if self._ok_button_ref is not None:
-            try:
-                self._ok_button_ref.setEnabled(enabled)
-            except Exception:
-                # ignore if button is invalid
-                pass
+            self._ok_button_ref.setEnabled(enabled)
 
     def make_table(self, headers: List[str], max_height: Optional[int] = None) -> QTableWidget:
         """Create a QTableWidget with given headers and optional maximum height.
@@ -97,20 +89,14 @@ class BaseDialog(QDialog):
         table.setColumnCount(len(headers))
         table.setHorizontalHeaderLabels(headers)
         if max_height is not None:
-            try:
-                table.setMaximumHeight(max_height)
-            except Exception:
-                pass
+            table.setMaximumHeight(max_height)
         return table
 
     def add_dry_run_checkbox(self, layout, label: str = "Modo simulación (no eliminar archivos)", checked: bool = False):
         """Convenience: add a dry-run checkbox to dialog and return it."""
         cb = QCheckBox(label)
         cb.setChecked(checked)
-        try:
-            layout.addWidget(cb)
-        except Exception:
-            pass
+        layout.addWidget(cb)
         # store if there's a need to access later; name-based access is simplest
         self.dry_run_checkbox = cb
         return cb  

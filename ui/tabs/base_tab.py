@@ -43,10 +43,7 @@ def create_action_button(window, attr_name: str, text: str, callback_name: str, 
     btn.setEnabled(False)
     cb = getattr(window, callback_name, None)
     if cb is not None:
-        try:
-            btn.clicked.connect(cb)
-        except Exception:
-            pass
+        btn.clicked.connect(cb)
     btn.setStyleSheet(styles.get_button_style(color))
     setattr(window, attr_name, btn)
     return btn

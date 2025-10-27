@@ -33,16 +33,7 @@ class ResultsController(QObject):
         self.logger.info(f"Mostrando resultados HTML:\n{html}")
 
         if show_generic_status:
-            try:
-                self.logger.info('Operación completada — revisa el log para detalles')
-            except Exception:
-                try:
-                    import config
-                    self.main_window.setWindowTitle(
-                        f"{config.Config.APP_NAME} — Operación completada"
-                    )
-                except Exception:
-                    pass
+            self.logger.info('Operación completada — revisa el log para detalles')
 
     def update_ui_after_operation(self, results: dict, operation_type: str):
         """Actualiza summary panel y tabs tras una operación
@@ -204,35 +195,26 @@ class ResultsController(QObject):
         space_wasted = results['space_wasted']
 
         if total_groups == 0:
-            try:
-                self.main_window.duplicates_details.setHtml(markdown_like_to_html(
-                    "✅ **¡Excelente!** No se encontraron duplicados exactos.\n\n"
-                    "Tu biblioteca está limpia de copias idénticas."
-                ))
-            except Exception:
-                pass
+            self.main_window.duplicates_details.setHtml(markdown_like_to_html(
+                "✅ **¡Excelente!** No se encontraron duplicados exactos.\n\n"
+                "Tu biblioteca está limpia de copias idénticas."
+            ))
             return
 
         size_str = format_size(space_wasted)
 
-        try:
-            self.main_window.duplicates_details.setHtml(markdown_like_to_html(
-                f"**📊 Duplicados Exactos Encontrados:**\n\n"
-                f"• **Grupos encontrados:** {total_groups}\n"
-                f"• **Archivos duplicados:** {total_duplicates}\n"
-                f"• **Espacio desperdiciado:** {size_str}\n\n"
-                f"✅ Estos son duplicados 100% idénticos.\n"
-                f"Puedes eliminarlos de forma segura."
-            ))
-        except Exception:
-            pass
+        self.main_window.duplicates_details.setHtml(markdown_like_to_html(
+            f"**📊 Duplicados Exactos Encontrados:**\n\n"
+            f"• **Grupos encontrados:** {total_groups}\n"
+            f"• **Archivos duplicados:** {total_duplicates}\n"
+            f"• **Espacio desperdiciado:** {size_str}\n\n"
+            f"✅ Estos son duplicados 100% idénticos.\n"
+            f"Puedes eliminarlos de forma segura."
+        ))
 
         # Mostrar botón de eliminación solo si hay grupos
-        try:
-            self.main_window.delete_exact_duplicates_btn.setVisible(total_groups > 0)
-            self.main_window.delete_exact_duplicates_btn.setEnabled(total_groups > 0)
-        except Exception:
-            pass
+        self.main_window.delete_exact_duplicates_btn.setVisible(total_groups > 0)
+        self.main_window.delete_exact_duplicates_btn.setEnabled(total_groups > 0)
 
     def show_similar_results(self, results: dict):
         """Formatea y muestra resultados de duplicados similares
@@ -252,33 +234,24 @@ class ResultsController(QObject):
         max_sim = results.get('max_similarity', 0)
 
         if total_groups == 0:
-            try:
-                self.main_window.duplicates_details.setHtml(markdown_like_to_html(
-                    "✅ **No se encontraron duplicados similares** con la sensibilidad actual.\n\n"
-                    "Prueba aumentar la sensibilidad si quieres detectar archivos menos similares."
-                ))
-            except Exception:
-                pass
+            self.main_window.duplicates_details.setHtml(markdown_like_to_html(
+                "✅ **No se encontraron duplicados similares** con la sensibilidad actual.\n\n"
+                "Prueba aumentar la sensibilidad si quieres detectar archivos menos similares."
+            ))
             return
 
         size_str = format_size(space_potential)
 
-        try:
-            self.main_window.duplicates_details.setHtml(markdown_like_to_html(
-                f"**🎨 Duplicados Similares Encontrados:**\n\n"
-                f"• **Grupos de similitud:** {total_groups}\n"
-                f"• **Archivos similares:** {total_similar}\n"
-                f"• **Rango de similitud:** {min_sim}-{max_sim}%\n"
-                f"• **Espacio potencial:** {size_str}\n\n"
-                f"⚠️ **Requiere revisión manual** antes de eliminar.\n"
-                f"Estos archivos NO son idénticos."
-            ))
-        except Exception:
-            pass
+        self.main_window.duplicates_details.setHtml(markdown_like_to_html(
+            f"**🎨 Duplicados Similares Encontrados:**\n\n"
+            f"• **Grupos de similitud:** {total_groups}\n"
+            f"• **Archivos similares:** {total_similar}\n"
+            f"• **Rango de similitud:** {min_sim}-{max_sim}%\n"
+            f"• **Espacio potencial:** {size_str}\n\n"
+            f"⚠️ **Requiere revisión manual** antes de eliminar.\n"
+            f"Estos archivos NO son idénticos."
+        ))
 
         # Mostrar botón de revisión solo si hay grupos
-        try:
-            self.main_window.review_similar_btn.setVisible(total_groups > 0)
-            self.main_window.review_similar_btn.setEnabled(total_groups > 0)
-        except Exception:
-            pass
+        self.main_window.review_similar_btn.setVisible(total_groups > 0)
+        self.main_window.review_similar_btn.setEnabled(total_groups > 0)

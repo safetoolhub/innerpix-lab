@@ -63,13 +63,10 @@ class DuplicatesController(QObject):
 
         # Actualizar UI
         mode_text = "exactos" if is_exact_mode else "similares"
-        try:
-            self.main_window.duplicates_details.setHtml(markdown_like_to_html(
-                f"🔄 Analizando duplicados {mode_text}...\n"
-                f"Por favor espera, esto puede tardar varios minutos."
-            ))
-        except Exception:
-            pass
+        self.main_window.duplicates_details.setHtml(markdown_like_to_html(
+            f"🔄 Analizando duplicados {mode_text}...\n"
+            f"Por favor espera, esto puede tardar varios minutos."
+        ))
 
         # Crear y ejecutar worker
         self.duplicate_worker = DuplicateAnalysisWorker(
@@ -92,12 +89,9 @@ class DuplicatesController(QObject):
             self.duplicate_worker.stop()
             self.duplicate_worker.wait(2000)  # Esperar hasta 2 segundos
             
-            try:
-                self.main_window.duplicates_details.setHtml(markdown_like_to_html(
-                    "⏹ **Análisis cancelado**\n\nEl análisis fue detenido por el usuario."
-                ))
-            except Exception:
-                pass
+            self.main_window.duplicates_details.setHtml(markdown_like_to_html(
+                "⏹ **Análisis cancelado**\n\nEl análisis fue detenido por el usuario."
+            ))
             
             self._set_analysis_controls_enabled(True)
 
@@ -131,14 +125,11 @@ class DuplicatesController(QObject):
 
     def _update_duplicate_progress(self, current, total, message):
         """Actualiza el progreso del análisis de duplicados"""
-        try:
-            if total > 0:
-                progress_text = f"🔄 {message} ({current}/{total})"
-            else:
-                progress_text = f"🔄 {message}"
-            self.main_window.duplicates_details.setHtml(markdown_like_to_html(progress_text))
-        except Exception:
-            pass
+        if total > 0:
+            progress_text = f"🔄 {message} ({current}/{total})"
+        else:
+            progress_text = f"🔄 {message}"
+        self.main_window.duplicates_details.setHtml(markdown_like_to_html(progress_text))
 
     def _on_duplicate_analysis_finished(self, results):
         """Maneja la finalización del análisis de duplicados"""
@@ -157,10 +148,7 @@ class DuplicatesController(QObject):
                 f"Error: {results['error']}\n\n"
                 "Asegúrate de tener instalados imagehash y opencv-python para detección perceptual."
             )
-            try:
-                self.main_window.duplicates_details.setHtml(markdown_like_to_html(f"❌ Error: {results['error']}"))
-            except Exception:
-                pass
+            self.main_window.duplicates_details.setHtml(markdown_like_to_html(f"❌ Error: {results['error']}"))
             return
 
         # Mostrar resultados según el modo
@@ -179,10 +167,7 @@ class DuplicatesController(QObject):
             f"Ocurrió un error durante el análisis:\n\n{error_msg}"
         )
 
-        try:
-            self.main_window.duplicates_details.setHtml(markdown_like_to_html("❌ Error en el análisis. Revisa el log para más detalles."))
-        except Exception:
-            pass
+        self.main_window.duplicates_details.setHtml(markdown_like_to_html("❌ Error en el análisis. Revisa el log para más detalles."))
 
         # Rehabilitar controles
         self._set_analysis_controls_enabled(True)
@@ -239,10 +224,7 @@ class DuplicatesController(QObject):
         self.main_window.review_similar_btn.setEnabled(False)
         self.main_window.analyze_duplicates_btn.setEnabled(False)
 
-        try:
-            self.main_window.duplicates_details.setHtml(markdown_like_to_html("🗑️ Eliminando archivos...\nPor favor espera."))
-        except Exception:
-            pass
+        self.main_window.duplicates_details.setHtml(markdown_like_to_html("🗑️ Eliminando archivos...\nPor favor espera."))
 
         # Crear y ejecutar worker
         self.deletion_worker = DuplicateDeletionWorker(
@@ -260,10 +242,7 @@ class DuplicatesController(QObject):
 
     def _update_deletion_progress(self, current, total, message):
         """Actualiza progreso de eliminación"""
-        try:
-            self.main_window.duplicates_details.setHtml(markdown_like_to_html(f"🗑️ {message}"))
-        except Exception:
-            pass
+        self.main_window.duplicates_details.setHtml(markdown_like_to_html(f"🗑️ {message}"))
 
     def _on_deletion_finished(self, results):
         """Maneja finalización de eliminación"""
@@ -293,15 +272,12 @@ class DuplicatesController(QObject):
         QMessageBox.information(self.main_window, "Eliminación Completada", msg)
 
         # Actualizar UI
-        try:
-            self.main_window.duplicates_details.setHtml(markdown_like_to_html(
-                f"✅ **Eliminación completada exitosamente**\n\n"
-                f"• {files_deleted} archivos eliminados\n"
-                f"• {size_str} liberados\n\n"
-                f"Ejecuta un nuevo análisis para verificar."
-            ))
-        except Exception:
-            pass
+        self.main_window.duplicates_details.setHtml(markdown_like_to_html(
+            f"✅ **Eliminación completada exitosamente**\n\n"
+            f"• {files_deleted} archivos eliminados\n"
+            f"• {size_str} liberados\n\n"
+            f"Ejecuta un nuevo análisis para verificar."
+        ))
 
         # Limpiar resultados y restaurar botones
         self.duplicate_detector.clear_last_results()

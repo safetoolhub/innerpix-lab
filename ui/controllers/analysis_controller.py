@@ -199,20 +199,19 @@ class AnalysisController:
         Args:
             partial: Diccionario con resultados parciales de una funcionalidad
         """
-        try:
-            if not hasattr(self.window, 'summary_action_buttons'):
-                return
+        if not hasattr(self.window, 'summary_action_buttons'):
+            return
 
-            # Actualizar cada funcionalidad según los datos recibidos
-            if 'renaming' in partial and 'renaming' in self.window.summary_action_buttons:
-                ren = partial['renaming']
-                count = ren.get('need_renaming', 0)
-                self.window.summary_action_buttons['renaming'].setText(f"📝 Renombrado   {count:,}")
+        # Actualizar cada funcionalidad según los datos recibidos
+        if 'renaming' in partial and 'renaming' in self.window.summary_action_buttons:
+            ren = partial['renaming']
+            count = ren.get('need_renaming', 0)
+            self.window.summary_action_buttons['renaming'].setText(f"📝 Renombrado   {count:,}")
 
-            if 'live_photos' in partial and 'live_photos' in self.window.summary_action_buttons:
-                lp = partial['live_photos']
-                count = lp.get('live_photos_found', 0)
-                self.window.summary_action_buttons['live_photos'].setText(f"📱 Live Photos   {count:,}")
+        if 'live_photos' in partial and 'live_photos' in self.window.summary_action_buttons:
+            lp = partial['live_photos']
+            count = lp.get('live_photos_found', 0)
+            self.window.summary_action_buttons['live_photos'].setText(f"📱 Live Photos   {count:,}")
 
             if 'organization' in partial and 'organization' in self.window.summary_action_buttons:
                 org = partial['organization']
@@ -223,9 +222,6 @@ class AnalysisController:
                 heic = partial['heic']
                 count = heic.get('total_duplicates', 0)
                 self.window.summary_action_buttons['heic'].setText(f"🖼️ Duplicados HEIC   {count:,}")
-
-        except Exception:
-            pass
 
     def on_finished(self, results: dict):
         """Callback cuando termina el análisis exitosamente.
@@ -275,20 +271,14 @@ class AnalysisController:
         # Delegar habilitación/deshabilitación de botones
         self.window.action_buttons.update_after_analysis(results)
 
-        try:
-            self.window.results_controller.show_results_html(
-                """
-                <div style='color: #28a745; font-weight: bold;'>
-                    ✅ Análisis completado con éxito
-                </div>
-                """,
-                show_generic_status=True
-            )
-        except Exception:
-            try:
-                self.window.logger.info('Análisis completado — revisa el log para detalles')
-            except Exception:
-                pass
+        self.window.results_controller.show_results_html(
+            """
+            <div style='color: #28a745; font-weight: bold;'>
+                ✅ Análisis completado con éxito
+            </div>
+            """,
+            show_generic_status=True
+        )
 
         self.window.logger.info(
             f"Análisis completado para: {self.window.last_analyzed_directory}"

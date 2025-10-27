@@ -10,11 +10,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, QTimer
 import config
 from ui import styles
-
-try:
-    from ui import tabs as _tabs_module
-except Exception:
-    _tabs_module = None
+from ui import tabs as _tabs_module
 
 from utils.format_utils import format_size, generate_stats_html
 
@@ -33,16 +29,13 @@ def service_available(window, attr_name: str) -> bool:
     Returns:
         bool: True si la característica está disponible, False en caso contrario.
     """
-    try:
-        tc = getattr(window, 'tab_controller', None)
-        availability = None
-        if tc is not None:
-            availability = getattr(tc, 'tab_availability', None)
-        if availability is None:
-            return True
-        return bool(availability.get(attr_name, True))
-    except Exception:
+    tc = getattr(window, 'tab_controller', None)
+    availability = None
+    if tc is not None:
+        availability = getattr(tc, 'tab_availability', None)
+    if availability is None:
         return True
+    return bool(availability.get(attr_name, True))
 
 
 def update_tab_details(window, results):
@@ -209,22 +202,16 @@ def reset_analysis_ui(window, reinsert_analyze=True):
         window.directory_edit.setPlaceholderText("Selecciona un directorio para analizar...")
     
     # Resetear labels de estadísticas
-    try:
-        if 'images' in window.stats_labels:
-            window.stats_labels['images'].setText("🖼️ Imágenes: —")
-        if 'videos' in window.stats_labels:
-            window.stats_labels['videos'].setText("🎥 Videos: —")
-        if 'total' in window.stats_labels:
-            window.stats_labels['total'].setText("📊 Total: —")
-    except Exception:
-        pass
+    if 'images' in window.stats_labels:
+        window.stats_labels['images'].setText("🖼️ Imágenes: —")
+    if 'videos' in window.stats_labels:
+        window.stats_labels['videos'].setText("🎥 Videos: —")
+    if 'total' in window.stats_labels:
+        window.stats_labels['total'].setText("📊 Total: —")
     
     # Limpiar datos de análisis
     window.analysis_results = None
     window.last_analyzed_directory = None
     
     # Log
-    try:
-        window.logger.info("UI reiniciada tras cambio de directorio")
-    except Exception:
-        pass
+    window.logger.info("UI reiniciada tras cambio de directorio")
