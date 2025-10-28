@@ -7,6 +7,7 @@ from pathlib import Path
 from PyQt6.QtWidgets import QMessageBox, QDialog
 from PyQt6.QtCore import QObject
 
+from config import Config
 from ui.workers import DuplicateAnalysisWorker, DuplicateDeletionWorker
 from ui.dialogs import ExactDuplicatesDialog, SimilarDuplicatesDialog
 from utils.format_utils import format_size, markdown_like_to_html
@@ -87,7 +88,7 @@ class DuplicatesController(QObject):
         if self.duplicate_worker and self.duplicate_worker.isRunning():
             self.logger.info("Cancelando análisis de duplicados...")
             self.duplicate_worker.stop()
-            self.duplicate_worker.wait(2000)  # Esperar hasta 2 segundos
+            self.duplicate_worker.wait(Config.WORKER_SHUTDOWN_TIMEOUT_MS)
             
             self.main_window.duplicates_details.setHtml(markdown_like_to_html(
                 "⏹ **Análisis cancelado**\n\nEl análisis fue detenido por el usuario."

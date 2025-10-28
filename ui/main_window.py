@@ -272,7 +272,7 @@ class MainWindow(QMainWindow):
                         if hasattr(worker, 'stop'):
                             worker.stop()
                         # Dar tiempo para terminar limpiamente
-                        if not worker.wait(2000):  # 2 segundos
+                        if not worker.wait(config.Config.WORKER_SHUTDOWN_TIMEOUT_MS):
                             # Si no termina, forzar terminación
                             worker.quit()
                             if not worker.wait(1000):  # 1 segundo más

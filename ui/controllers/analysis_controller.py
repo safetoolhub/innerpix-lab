@@ -12,6 +12,7 @@ from typing import Optional
 
 from PyQt6.QtWidgets import QMessageBox, QApplication
 
+from config import Config
 from ui.workers import AnalysisWorker
 
 
@@ -235,7 +236,7 @@ class AnalysisController:
         # Limpiar worker
         if self.worker:
             self.worker.quit()
-            self.worker.wait(2000)
+            self.worker.wait(Config.WORKER_SHUTDOWN_TIMEOUT_MS)
             if self.worker in self.window.active_workers:
                 self.window.active_workers.remove(self.worker)
             self.worker = None
@@ -316,7 +317,7 @@ class AnalysisController:
         # Limpiar worker
         if self.worker:
             self.worker.quit()
-            self.worker.wait(2000)
+            self.worker.wait(Config.WORKER_SHUTDOWN_TIMEOUT_MS)
             if self.worker in self.window.active_workers:
                 self.window.active_workers.remove(self.worker)
             self.worker = None

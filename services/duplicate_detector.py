@@ -114,7 +114,7 @@ class DuplicateDetector:
                 hash_map[file_hash].append(file_path)
 
                 processed += 1
-                if progress_callback and (processed % 50 == 0 or processed == total_files):
+                if progress_callback and (processed % config.Config.PROGRESS_CALLBACK_INTERVAL == 0 or processed == total_files):
                     progress_callback(processed, total_files, "Calculando hashes SHA256...")
             except Exception as e:
                 self.logger.error(f"Error procesando {file_path}: {e}")
@@ -209,7 +209,7 @@ class DuplicateDetector:
                     perceptual_hashes[img_path] = phash
                 
                 processed += 1
-                if progress_callback and (processed % 50 == 0 or processed == total_files):
+                if progress_callback and (processed % config.Config.PROGRESS_CALLBACK_INTERVAL == 0 or processed == total_files):
                     progress_callback(processed, total_files, "Calculando hashes perceptuales...")
             except Exception as e:
                 self.logger.error(f"Error con {img_path}: {e}")
@@ -223,7 +223,7 @@ class DuplicateDetector:
                         perceptual_hashes[vid_path] = phash
                     
                     processed += 1
-                    if progress_callback and (processed % 50 == 0 or processed == total_files):
+                    if progress_callback and (processed % config.Config.PROGRESS_CALLBACK_INTERVAL == 0 or processed == total_files):
                         progress_callback(processed, total_files, "Calculando hashes perceptuales...")
                 except Exception as e:
                     self.logger.error(f"Error con video {vid_path}: {e}")
@@ -301,8 +301,8 @@ class DuplicateDetector:
             if path1 in processed:
                 continue
             
-            # Emitir progreso cada 50 archivos
-            if progress_callback and (i % 50 == 0 or i == total_items - 1):
+            # Emitir progreso cada N archivos
+            if progress_callback and (i % config.Config.PROGRESS_CALLBACK_INTERVAL == 0 or i == total_items - 1):
                 progress_callback(i, total_items, "Agrupando similares...")
             
             similar_files = [path1]
