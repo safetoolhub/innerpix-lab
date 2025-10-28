@@ -11,6 +11,7 @@ from collections import defaultdict, Counter
 
 import config
 from utils.logger import get_logger
+from utils.callback_utils import safe_progress_callback
 from utils.date_utils import (
     get_file_date,
     format_renamed_name,
@@ -74,8 +75,8 @@ class FileRenamer:
         for file_path in all_files:
             processed += 1
 
-            if progress_callback and processed % 10 == 0:
-                progress_callback(processed, total_files, "Analizando nombres de archivos")
+            if processed % 10 == 0:
+                safe_progress_callback(progress_callback, processed, total_files, "Analizando nombres de archivos")
 
             if is_renamed_filename(file_path.name):
                 results['already_renamed'] += 1
@@ -108,8 +109,7 @@ class FileRenamer:
 
             results['files_by_year'][file_date.year] += 1
 
-        if progress_callback:
-            progress_callback(total_files, total_files, "Analizando nombres de archivos")
+        safe_progress_callback(progress_callback, total_files, total_files, "Analizando nombres de archivos")
 
         for renamed_name, file_list in renaming_map.items():
             if len(file_list) == 1:
@@ -197,8 +197,7 @@ class FileRenamer:
                     except ValueError:
                         break
 
-                if progress_callback:
-                    progress_callback(0, len(renaming_plan), "Creando backup...")
+                safe_progress_callback(progress_callback, 0, len(renaming_plan), "Creando backup...")
 
                 backup_path = launch_backup_creation(
                     (item['original_path'] for item in renaming_plan),
@@ -265,8 +264,7 @@ class FileRenamer:
                         'had_conflict': item.get('has_conflict', False) if isinstance(item, dict) else False
                     })
 
-                    if progress_callback:
-                        progress_callback(files_processed, total_files,
+                    safe_progress_callback(progress_callback, files_processed, total_files,
                                        f"Renombrando archivos... {files_processed}/{total_files}")
 
                     self.logger.info(f"Renombrado: {original_path.name} -> {new_name}")
@@ -335,8 +333,6 @@ class FileRenamer:
         for file_path in all_files:
             renamed_files += 1
 
-            if progress_callback:
-                progress_callback(renamed_files, total_files, f"Renombrando archivo {renamed_files} de {total_files}")
+            safe_progress_callback(progress_callback, renamed_files, total_files, f"Renombrando archivo {renamed_files} de {total_files}")
 
-        if progress_callback:
-            progress_callback(total_files, total_files, "Renombrado completado")
+        safe_progress_callback(progress_callback, total_files, total_files, "Renombrado completado")

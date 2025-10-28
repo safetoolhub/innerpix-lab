@@ -54,64 +54,6 @@ Se han limpiado **más de 60 bloques `try/except`** que solo hacían `pass` sin 
 
 
 
-### 2. **Mejora en Manejo de Callbacks de Progreso**
-
-#### Problema:
-Patrón repetitivo en múltiples servicios:
-
-```python
-if progress_callback:
-    progress_callback(current, total, message)
-```
-
-#### Solución Recomendada:
-Crear helper en `utils/` para callback seguro:
-
-```python
-# utils/callback_utils.py
-def safe_progress_callback(callback, current, total, message):
-    """Ejecuta callback de progreso de forma segura"""
-    if callback and callable(callback):
-        try:
-            callback(current, total, message)
-        except Exception as e:
-            # Log pero no detener el proceso
-            from utils.logger import get_logger
-            logger = get_logger('callback_utils')
-            logger.warning(f"Error en progress callback: {e}")
-```
-
-### 3. **Constantes Mágicas en Código**
-
-#### Problema:
-Números y strings hardcodeados esparcidos por el código:
-
-```python
-# En multiple archivos
-table.setMaximumHeight(300)  # ¿Por qué 300?
-if processed % 50 == 0:       # ¿Por qué 50?
-self.duplicate_worker.wait(2000)  # ¿Por qué 2 segundos?
-```
-
-#### Solución Recomendada:
-Añadir a `config.py`:
-
-```python
-class Config:
-    # ... existing config ...
-    
-    # UI Constants
-    TABLE_MAX_HEIGHT = 300
-    THUMBNAIL_SIZE = 150
-    
-    # Worker Constants  
-    WORKER_SHUTDOWN_TIMEOUT_MS = 2000
-    PROGRESS_UPDATE_INTERVAL = 50  # Actualizar cada N archivos
-    
-    # Dialog Constants
-    PREVIEW_MAX_ITEMS = 20  # Máximo de items para preview en diálogos
-```
-
 ### 4. **Type Hints Inconsistentes**
 
 #### Problema:
@@ -235,7 +177,7 @@ Quedan algunos archivos con `except Exception:` que podrían necesitar revisión
 ### Alta Prioridad
 1. ✅ **Eliminar try/except redundantes** - COMPLETADO
 2. ✅ **Consolidar función `to_path()`** - Evita duplicación
-3. **Añadir constantes a config.py** - Mejora mantenibilidad
+3. ✅ **Añadir constantes a config.py** - Mejora mantenibilidad
 
 ### Media Prioridad
 4. **Type hints consistentes** - Mejora calidad de código

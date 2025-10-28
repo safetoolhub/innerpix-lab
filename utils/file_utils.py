@@ -16,6 +16,7 @@ import hashlib
 import os
 
 from utils.format_utils import format_size
+from utils.callback_utils import safe_progress_callback
 
 
 def validate_file_exists(path) -> Path:
@@ -172,8 +173,7 @@ def launch_backup_creation(
             copied += 1
             total_size += file_path.stat().st_size
 
-            if progress_callback:
-                progress_callback(copied, total, f"Creando backup: {backup_path} ({copied}/{total})")
+            safe_progress_callback(progress_callback, copied, total, f"Creando backup: {backup_path} ({copied}/{total})")
 
         except Exception:
             raise
