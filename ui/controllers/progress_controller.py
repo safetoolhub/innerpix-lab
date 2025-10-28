@@ -1,4 +1,5 @@
 from PyQt6.QtCore import QTimer
+from utils.logger import get_logger
 
 
 class ProgressController:
@@ -24,6 +25,7 @@ class ProgressController:
                 - summary_progress_detail
         """
         self.parent = parent
+        self.logger = get_logger('ProgressController')
         # Referencias a los widgets creados en SummaryPanel
         self.label = getattr(parent, 'summary_progress_label', None)
         self.bar = getattr(parent, 'summary_progress_bar', None)
@@ -35,6 +37,8 @@ class ProgressController:
         - Si maximum > 0: se establece en modo determinate con ese máximo.
         - Si maximum <= 0 o None: se pone en modo indeterminado (busy).
         """
+        self.logger.debug(f"Mostrando progreso: {message} (máximo: {maximum})")
+        
         if self.label:
             self.label.setVisible(True)
             self.label.setText(f"⏳ {message}")
@@ -54,6 +58,7 @@ class ProgressController:
 
     def hide_progress(self):
         """Oculta el contenido del área de progreso con un pequeño retraso."""
+        self.logger.debug("Ocultando progreso")
 
         def _hide():
             if self.bar:

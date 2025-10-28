@@ -196,7 +196,7 @@ class HEICDuplicateRemover:
                     self.logger.debug(f"Duplicado encontrado: {base_name}")
 
                 except Exception as e:
-                    self.logger.error(f"Error procesando par {base_name}: {e}")
+                    self.logger.warning(f"No se pudo procesar par {base_name}: {e}")
 
         results['duplicate_pairs'] = duplicate_pairs
         results['total_duplicates'] = len(duplicate_pairs)

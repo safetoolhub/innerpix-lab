@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from collections import defaultdict
 import config
 from utils.callback_utils import safe_progress_callback
+from utils.logger import get_logger
 
 # Importaciones opcionales para detección perceptual
 try:
@@ -55,7 +56,7 @@ class DuplicateDetector:
     """Detector de archivos duplicados (exactos y similares)"""
     
     def __init__(self):
-        self.logger = logging.getLogger('DuplicateDetector')
+        self.logger = get_logger('DuplicateDetector')
         self._hash_cache = {} if config.Config.ENABLE_HASH_CACHE else None
         # Contenedor para almacenar los resultados del último análisis de duplicados
         # Mantener esto dentro del servicio centraliza el estado y evita que la
@@ -117,7 +118,7 @@ class DuplicateDetector:
                 if processed % config.Config.PROGRESS_CALLBACK_INTERVAL == 0 or processed == total_files:
                     safe_progress_callback(progress_callback, processed, total_files, "Calculando hashes SHA256...")
             except Exception as e:
-                self.logger.error(f"Error procesando {file_path}: {e}")
+                self.logger.warning(f"No se pudo procesar {file_path}: {e}")
         
         # Filtrar solo grupos con duplicados
         duplicate_groups = []
@@ -211,7 +212,7 @@ class DuplicateDetector:
                 if processed % config.Config.PROGRESS_CALLBACK_INTERVAL == 0 or processed == total_files:
                     safe_progress_callback(progress_callback, processed, total_files, "Calculando hashes perceptuales...")
             except Exception as e:
-                self.logger.error(f"Error con {img_path}: {e}")
+                self.logger.warning(f"No se pudo procesar imagen {img_path}: {e}")
         
         # Videos (extraer frames si está disponible)
         if VIDEO_ANALYSIS_AVAILABLE:
@@ -225,7 +226,7 @@ class DuplicateDetector:
                     if processed % config.Config.PROGRESS_CALLBACK_INTERVAL == 0 or processed == total_files:
                         safe_progress_callback(progress_callback, processed, total_files, "Calculando hashes perceptuales...")
                 except Exception as e:
-                    self.logger.error(f"Error con video {vid_path}: {e}")
+                    self.logger.warning(f"No se pudo procesar video {vid_path}: {e}")
         
         # Agrupar por similitud
         safe_progress_callback(progress_callback, total_files, total_files, "Agrupando similares...")
