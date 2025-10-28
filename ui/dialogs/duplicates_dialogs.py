@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QSize, QUrl
 from PyQt6.QtGui import QPixmap, QDesktopServices
+from config import Config
 from services.duplicate_detector import DuplicateGroup
 from utils.format_utils import format_size
 from ui import styles as ui_styles
@@ -626,9 +627,8 @@ class SimilarDuplicatesDialog(BaseDialog):
                 return None, is_video
 
             # Redimensionar manteniendo aspecto (150x150 máximo)
-            thumbnail_size = 150
             scaled_pixmap = pixmap.scaled(
-                thumbnail_size, thumbnail_size,
+                Config.THUMBNAIL_SIZE, Config.THUMBNAIL_SIZE,
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation
             )
@@ -636,7 +636,7 @@ class SimilarDuplicatesDialog(BaseDialog):
             label = QLabel()
             label.setPixmap(scaled_pixmap)
             label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            label.setFixedSize(thumbnail_size, thumbnail_size)
+            label.setFixedSize(Config.THUMBNAIL_SIZE, Config.THUMBNAIL_SIZE)
             label.setStyleSheet(ui_styles.STYLE_DIALOG_LABEL_DISABLED)
             return label, is_video
         except Exception:

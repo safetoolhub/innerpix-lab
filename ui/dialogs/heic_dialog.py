@@ -2,6 +2,7 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QGroupBox, QVBoxLayout as QVLayout, QRadioButton,
     QButtonGroup, QTableWidget, QTableWidgetItem, QCheckBox, QDialogButtonBox, QLabel
 )
+from config import Config
 from utils.format_utils import format_size
 from ui import styles as ui_styles
 from .base_dialog import BaseDialog
@@ -68,7 +69,7 @@ class HEICDuplicateRemovalDialog(BaseDialog):
                 table.setItem(row, 2, QTableWidgetItem(f"{pair.jpg_size / 1024:.1f}"))
                 table.setItem(row, 3, QTableWidgetItem(f"{pair.compression_ratio:.2f}x"))
 
-            table.setMaximumHeight(300)
+            table.setMaximumHeight(Config.TABLE_MAX_HEIGHT)
             layout.addWidget(table)
 
         # Opciones: backup checkbox desde BaseDialog

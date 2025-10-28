@@ -60,6 +60,23 @@ class Config:
     DEFAULT_HASH_SIZE = 8
 
     # ========================================================================
+    # CONSTANTES DE UI
+    # ========================================================================
+    TABLE_MAX_HEIGHT = 300  # Altura máxima para tablas en diálogos
+    THUMBNAIL_SIZE = 150  # Tamaño de miniaturas en píxeles
+
+    # ========================================================================
+    # CONSTANTES DE WORKERS
+    # ========================================================================
+    WORKER_SHUTDOWN_TIMEOUT_MS = 2000  # Tiempo de espera para detener workers (milisegundos)
+    PROGRESS_CALLBACK_INTERVAL = 50  # Actualizar progreso cada N archivos procesados
+
+    # ========================================================================
+    # CONSTANTES DE DIÁLOGOS
+    # ========================================================================
+    PREVIEW_MAX_ITEMS = 20  # Máximo de items para preview en diálogos
+
+    # ========================================================================
     # CONFIGURACIÓN DE NORMALIZACIÓN
     # ========================================================================
     NORMALIZED_DATE_FORMAT = "%Y%m%d_%H%M%S"

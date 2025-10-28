@@ -3,6 +3,7 @@ from PyQt6.QtWidgets import (
     QGroupBox, QDialogButtonBox, QCheckBox
 )
 
+from config import Config
 from utils.format_utils import format_size
 from ui import styles as ui_styles
 from .base_dialog import BaseDialog
@@ -63,7 +64,7 @@ class FileOrganizationDialog(BaseDialog):
                 size_formatted = format_size(info['total_size'])
                 table.setItem(row, 2, QTableWidgetItem(size_formatted))
 
-            table.setMaximumHeight(300)
+            table.setMaximumHeight(Config.TABLE_MAX_HEIGHT)
             layout.addWidget(table)
 
         # Opciones
