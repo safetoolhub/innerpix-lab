@@ -59,6 +59,39 @@ def validate_files_list(paths: Iterable) -> Tuple[List[Path], List[str]]:
     return valid, missing
 
 
+def to_path(obj, attr_names=('path', 'source_path', 'original_path')) -> Path:
+    """Convierte un objeto flexible a Path.
+
+    Args:
+        obj: str, bytes, Path, dict o objeto con atributos
+        attr_names: tuple de nombres de atributos a buscar
+
+    Returns:
+        Path: ruta del archivo
+
+    Raises:
+        ValueError: si no se puede extraer una ruta válida
+    """
+    if isinstance(obj, (str, bytes)):
+        return Path(obj)
+    if isinstance(obj, Path):
+        return obj
+    if isinstance(obj, dict):
+        for k in attr_names:
+            if k in obj:
+                return Path(obj[k])
+        if obj:
+            return Path(next(iter(obj.values())))
+    for k in attr_names:
+        if hasattr(obj, k):
+            return Path(getattr(obj, k))
+
+    try:
+        return Path(obj)
+    except (TypeError, ValueError) as e:
+        raise ValueError(f"No se pudo convertir {type(obj).__name__} a Path") from e
+
+
 def calculate_file_hash(file_path: Path, chunk_size: int = 8192, cache: Optional[dict] = None) -> str:
     """Calculate SHA256 hash of a file.
 
@@ -114,35 +147,13 @@ def launch_backup_creation(
 
     files_list = []
     for item in files:
-        normalized = None
-        if isinstance(item, (str, bytes)):
-            normalized = Path(item)
-        elif isinstance(item, Path):
-            normalized = item
-        elif isinstance(item, dict):
-            if 'path' in item:
-                normalized = Path(item['path'])
-            elif 'original_path' in item:
-                normalized = Path(item['original_path'])
-            else:
-                val = next(iter(item.values()))
-                normalized = Path(val)
-        else:
-            if hasattr(item, 'path'):
-                normalized = Path(getattr(item, 'path'))
-            elif hasattr(item, 'source_path'):
-                normalized = Path(getattr(item, 'source_path'))
-            elif hasattr(item, 'original_path'):
-                normalized = Path(getattr(item, 'original_path'))
-            else:
-                normalized = Path(item)
-
-        if normalized is None:
+        try:
+            normalized = to_path(item)
+            files_list.append(normalized)
+        except ValueError as ve:
             raise ValueError(
                 f"launch_backup_creation: cannot normalize item to a path: type={type(item).__name__}, repr={repr(item)}"
-            )
-
-        files_list.append(normalized)
+            ) from ve
 
     total = len(files_list)
     copied = 0

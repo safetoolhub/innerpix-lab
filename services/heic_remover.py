@@ -12,7 +12,7 @@ import hashlib
 
 import config
 from utils.logger import get_logger
-from utils.file_utils import validate_file_exists
+from utils.file_utils import validate_file_exists, to_path
 
 @dataclass
 class DuplicatePair:
@@ -292,23 +292,8 @@ class HEICDuplicateRemover:
                     return results
 
             for pair in duplicate_pairs:
-                def _to_path(obj, attr_names):
-                    if isinstance(obj, (str, bytes)):
-                        return Path(obj)
-                    if isinstance(obj, Path):
-                        return obj
-                    if isinstance(obj, dict):
-                        for k in attr_names:
-                            if k in obj:
-                                return Path(obj[k])
-                        return Path(next(iter(obj.values())))
-                    for k in attr_names:
-                        if hasattr(obj, k):
-                            return Path(getattr(obj, k))
-                    return Path(obj)
-
-                file_to_delete = _to_path(pair, ('heic_path', 'jpg_path', 'path', 'source_path', 'original_path')) if keep_format.lower() == 'jpg' else _to_path(pair, ('jpg_path', 'heic_path', 'path', 'source_path', 'original_path'))
-                file_to_keep = _to_path(pair, ('jpg_path', 'heic_path', 'path', 'source_path', 'original_path')) if keep_format.lower() == 'jpg' else _to_path(pair, ('heic_path', 'jpg_path', 'path', 'source_path', 'original_path'))
+                file_to_delete = to_path(pair, ('heic_path', 'jpg_path', 'path', 'source_path', 'original_path')) if keep_format.lower() == 'jpg' else to_path(pair, ('jpg_path', 'heic_path', 'path', 'source_path', 'original_path'))
+                file_to_keep = to_path(pair, ('jpg_path', 'heic_path', 'path', 'source_path', 'original_path')) if keep_format.lower() == 'jpg' else to_path(pair, ('heic_path', 'jpg_path', 'path', 'source_path', 'original_path'))
                 base_name = None
                 if isinstance(pair, dict) and 'base_name' in pair:
                     base_name = pair['base_name']

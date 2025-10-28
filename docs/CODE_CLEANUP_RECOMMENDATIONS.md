@@ -52,69 +52,7 @@ Se han limpiado **más de 60 bloques `try/except`** que solo hacían `pass` sin 
 
 ## 📋 Recomendaciones de Mejora Adicionales
 
-### 1. **Consolidación de Funciones Helper Duplicadas**
 
-#### Problema:
-Existe código duplicado para conversión de objetos a `Path`:
-
-**En `services/heic_remover.py` (línea ~300)**:
-```python
-def _to_path(obj, attr_names):
-    if isinstance(obj, (str, bytes)):
-        return Path(obj)
-    if isinstance(obj, Path):
-        return obj
-    if isinstance(obj, dict):
-        for k in attr_names:
-            if k in obj:
-                return Path(obj[k])
-        return Path(next(iter(obj.values())))
-    for k in attr_names:
-        if hasattr(obj, k):
-            return Path(getattr(obj, k))
-    return Path(obj)
-```
-
-**En `utils/file_utils.py` (líneas ~120-140)**: Lógica similar pero extendida
-
-#### Solución Recomendada:
-Crear función centralizada en `utils/file_utils.py`:
-
-```python
-def to_path(obj, attr_names=('path', 'source_path', 'original_path')) -> Path:
-    """
-    Convierte un objeto flexible a Path.
-    
-    Args:
-        obj: str, bytes, Path, dict o objeto con atributos
-        attr_names: tuple de nombres de atributos a buscar
-        
-    Returns:
-        Path: ruta del archivo
-        
-    Raises:
-        ValueError: si no se puede extraer una ruta válida
-    """
-    if isinstance(obj, (str, bytes)):
-        return Path(obj)
-    if isinstance(obj, Path):
-        return obj
-    if isinstance(obj, dict):
-        for k in attr_names:
-            if k in obj:
-                return Path(obj[k])
-        if obj:  # dict no vacío
-            return Path(next(iter(obj.values())))
-    for k in attr_names:
-        if hasattr(obj, k):
-            return Path(getattr(obj, k))
-    
-    # Último intento: conversión directa
-    try:
-        return Path(obj)
-    except (TypeError, ValueError) as e:
-        raise ValueError(f"No se pudo convertir {type(obj).__name__} a Path") from e
-```
 
 ### 2. **Mejora en Manejo de Callbacks de Progreso**
 
@@ -296,7 +234,7 @@ Quedan algunos archivos con `except Exception:` que podrían necesitar revisión
 
 ### Alta Prioridad
 1. ✅ **Eliminar try/except redundantes** - COMPLETADO
-2. **Consolidar función `to_path()`** - Evita duplicación
+2. ✅ **Consolidar función `to_path()`** - Evita duplicación
 3. **Añadir constantes a config.py** - Mejora mantenibilidad
 
 ### Media Prioridad
