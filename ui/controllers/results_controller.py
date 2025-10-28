@@ -3,7 +3,7 @@
 Centraliza toda la lógica de presentación de resultados HTML,
 actualización de paneles y gestión de estadísticas.
 """
-from PyQt5.QtCore import QObject
+from PyQt6.QtCore import QObject
 
 from ui.helpers import update_tab_details
 from utils.format_utils import format_size, markdown_like_to_html

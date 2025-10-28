@@ -3,7 +3,7 @@ Workers para la aplicación PhotoKit Manager
 Este módulo contiene todos los QThread workers que ejecutan operaciones
 en segundo plano para no bloquear la interfaz gráfica.
 """
-from PyQt5.QtCore import QThread, pyqtSignal
+from PyQt6.QtCore import QThread, pyqtSignal
 import config
 
 

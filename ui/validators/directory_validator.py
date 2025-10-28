@@ -8,7 +8,7 @@ directorio es grande.
 from pathlib import Path
 from typing import Optional
 
-from PyQt5.QtWidgets import QMessageBox, QWidget
+from PyQt6.QtWidgets import QMessageBox, QWidget
 
 
 def confirm_directory_change(parent: QWidget, old_directory: Path, new_directory: Path, logger=None) -> bool:
@@ -26,10 +26,10 @@ def confirm_directory_change(parent: QWidget, old_directory: Path, new_directory
         f"📂 Directorio nuevo: {new_directory.name}\n\n"
         f"⚠️ El análisis anterior se perderá y será necesario realizar un nuevo análisis.\n\n"
         f"¿Deseas continuar?",
-        QMessageBox.Yes | QMessageBox.No,
-        QMessageBox.No
+        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        QMessageBox.StandardButton.No
     )
-    if reply == QMessageBox.No:
+    if reply == QMessageBox.StandardButton.No:
         if logger:
             logger.info("Cambio de directorio cancelado por el usuario")
         return False
@@ -65,8 +65,8 @@ def confirm_large_directory(parent: QWidget, new_directory: Path, file_count: in
         f"⏱️ Aviso: El análisis de esta cantidad de archivos podría tardar\n"
         f"varios minutos dependiendo de la potencia de tu equipo.\n\n"
         f"¿Deseas iniciar el análisis ahora?",
-        QMessageBox.Yes | QMessageBox.No,
-        QMessageBox.Yes
+        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        QMessageBox.StandardButton.Yes
     )
 
-    return reply == QMessageBox.Yes
+    return reply == QMessageBox.StandardButton.Yes

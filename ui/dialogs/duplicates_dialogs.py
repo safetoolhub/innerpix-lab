@@ -1,13 +1,12 @@
 from pathlib import Path
-from PyQt5.QtWidgets import (
+from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QLabel, QGroupBox, QButtonGroup, QRadioButton,
     QTableWidget, QTableWidgetItem, QCheckBox, QDialogButtonBox, QPushButton,
     QHBoxLayout, QVBoxLayout as QVLayout, QScrollArea, QWidget, QGridLayout,
     QFrame, QSizePolicy, QProgressBar
 )
-from PyQt5.QtCore import Qt, QSize
-from PyQt5.QtGui import QPixmap, QDesktopServices
-from PyQt5.QtCore import QUrl
+from PyQt6.QtCore import Qt, QSize, QUrl
+from PyQt6.QtGui import QPixmap, QDesktopServices
 from services.duplicate_detector import DuplicateGroup
 from utils.format_utils import format_size
 from ui import styles as ui_styles
@@ -36,7 +35,7 @@ class ExactDuplicatesDialog(BaseDialog):
             f"en **{self.analysis['total_groups']} grupos**\n\n"
             f"💾 Espacio a liberar: **{format_size(self.analysis['space_wasted'])}**"
         )
-        info.setTextFormat(Qt.RichText)
+        info.setTextFormat(Qt.TextFormat.RichText)
         info.setWordWrap(True)
         info.setStyleSheet(ui_styles.STYLE_INFO_SECTION)
         layout.addWidget(info)
@@ -99,7 +98,7 @@ class ExactDuplicatesDialog(BaseDialog):
         # Botones
         buttons = self.make_ok_cancel_buttons(ok_text="🗑️ Eliminar Ahora")
         # apply danger style to ok button
-        ok_btn = buttons.button(QDialogButtonBox.Ok)
+        ok_btn = buttons.button(QDialogButtonBox.StandardButton.Ok)
         ok_btn.setStyleSheet(ui_styles.STYLE_DANGER_BUTTON)
         layout.addWidget(buttons)
     
@@ -139,7 +138,7 @@ class SimilarDuplicatesDialog(BaseDialog):
             "⚠️ <b>Estos archivos son similares pero NO idénticos.</b> "
             "Revisa cada grupo cuidadosamente antes de eliminar."
         )
-        warning.setTextFormat(Qt.RichText)
+        warning.setTextFormat(Qt.TextFormat.RichText)
         warning.setWordWrap(True)
         warning.setStyleSheet(ui_styles.STYLE_SAFETY_SECTION)
         layout.addWidget(warning)
@@ -150,7 +149,7 @@ class SimilarDuplicatesDialog(BaseDialog):
         self.prev_btn.clicked.connect(self._previous_group)
         nav_layout.addWidget(self.prev_btn)
         self.group_label = QLabel()
-        self.group_label.setAlignment(Qt.AlignCenter)
+        self.group_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.group_label.setStyleSheet(ui_styles.STYLE_GROUP_LABEL)
         nav_layout.addWidget(self.group_label, 1)
         self.next_btn = QPushButton("Siguiente ▶")
@@ -165,9 +164,12 @@ class SimilarDuplicatesDialog(BaseDialog):
 
         # Resumen
         summary_group = QGroupBox("📊 Resumen")
+        summary_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
         summary_layout = QVLayout(summary_group)
         self.summary_label = QLabel()
-        self.summary_label.setTextFormat(Qt.RichText)
+        self.summary_label.setTextFormat(Qt.TextFormat.RichText)
+        self.summary_label.setWordWrap(True)
+        self.summary_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
         summary_layout.addWidget(self.summary_label)
         summary_group.setLayout(summary_layout)
         layout.addWidget(summary_group)
@@ -177,7 +179,7 @@ class SimilarDuplicatesDialog(BaseDialog):
 
         # Botones
         buttons = self.make_ok_cancel_buttons(ok_text="🗑️ Eliminar Seleccionados", ok_enabled=False)
-        self.ok_btn = buttons.button(QDialogButtonBox.Ok)
+        self.ok_btn = buttons.button(QDialogButtonBox.StandardButton.Ok)
         layout.addWidget(buttons)
 
         # Cargar primer grupo
@@ -193,8 +195,9 @@ class SimilarDuplicatesDialog(BaseDialog):
         # Actualizar navegación
         total_groups = len(self.analysis['groups'])
         self.group_label.setText(f"Grupo {index + 1} de {total_groups}")
-        self.prev_btn.setEnabled(index > 0)
-        self.next_btn.setEnabled(index < total_groups - 1)
+        # Con navegación circular, los botones siempre están habilitados
+        self.prev_btn.setEnabled(True)
+        self.next_btn.setEnabled(True)
 
         # Limpiar layout anterior
         for i in reversed(range(self.group_layout.count())):
@@ -211,7 +214,7 @@ class SimilarDuplicatesDialog(BaseDialog):
             f"<b>Archivos:</b> {group.file_count} | "
             f"<b>Tamaño total:</b> {format_size(group.total_size)}"
         )
-        info_label.setTextFormat(Qt.RichText)
+        info_label.setTextFormat(Qt.TextFormat.RichText)
         info_label.setStyleSheet(ui_styles.STYLE_PANEL_LABEL)
         self.group_layout.addWidget(info_label)
 
@@ -229,8 +232,8 @@ class SimilarDuplicatesDialog(BaseDialog):
         # Crear área con scroll para las miniaturas
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
-        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
 
         # Widget contenedor de miniaturas
         thumbnails_widget = QWidget()
@@ -247,59 +250,184 @@ class SimilarDuplicatesDialog(BaseDialog):
 
             # Frame contenedor para cada imagen
             frame = QFrame()
-            frame.setFrameStyle(QFrame.Box | QFrame.Raised)
-            frame.setLineWidth(2)
+            frame.setFrameStyle(QFrame.Shape.Box | QFrame.Shadow.Raised)
+            frame.setLineWidth(1)
             frame_layout = QVLayout(frame)
-            frame_layout.setSpacing(5)
-            frame_layout.setContentsMargins(5, 5, 5, 5)
+            frame_layout.setSpacing(0)
+            frame_layout.setContentsMargins(0, 0, 0, 0)
 
-            # Checkbox para selección
-            checkbox = QCheckBox("Eliminar")
+            # === SECCIÓN 1: CHECKBOX DE ELIMINACIÓN ===
+            delete_section = QWidget()
+            delete_section_layout = QVLayout(delete_section)
+            delete_section_layout.setContentsMargins(10, 10, 10, 10)
+            delete_section_layout.setSpacing(0)
+            
+            checkbox = QCheckBox("Eliminar este archivo")
             checkbox.setChecked(file_path in previous_selection)
+            checkbox.setStyleSheet("""
+                QCheckBox {
+                    font-weight: 600;
+                    font-size: 11px;
+                    padding: 5px;
+                    color: #DC3545;
+                }
+                QCheckBox::indicator {
+                    width: 20px;
+                    height: 20px;
+                    border: 2px solid #DC3545;
+                    border-radius: 4px;
+                    background-color: white;
+                }
+                QCheckBox::indicator:checked {
+                    background-color: #DC3545;
+                    border-color: #DC3545;
+                    image: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMTMuNSA0TDYgMTEuNSAyLjUgOCIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48L3N2Zz4=);
+                }
+                QCheckBox::indicator:hover {
+                    border-color: #BB2D3B;
+                }
+            """)
             checkbox.stateChanged.connect(lambda state, f=file_path: self._on_selection_changed(f, state))
-            frame_layout.addWidget(checkbox, alignment=Qt.AlignCenter)
+            delete_section_layout.addWidget(checkbox, alignment=Qt.AlignmentFlag.AlignCenter)
+            
+            # Diseño más limpio: borde rojo sutil en lugar de fondo amarillo
+            delete_section.setStyleSheet("""
+                QWidget {
+                    background-color: #FFFFFF;
+                    padding: 10px;
+                    border-bottom: 2px solid #F8D7DA;
+                }
+            """)
+            frame_layout.addWidget(delete_section)
 
-            # Miniatura
-            thumbnail_label = self._create_thumbnail(file_path)
+            # === SECCIÓN 2: MINIATURA (PREVIEW) ===
+            preview_section = QWidget()
+            preview_section_layout = QVLayout(preview_section)
+            preview_section_layout.setContentsMargins(5, 5, 5, 5)
+            preview_section_layout.setSpacing(3)
+            
+            thumbnail_label, is_video = self._create_thumbnail(file_path)
+            
+            # Si es video, añadir indicador visual
+            if is_video:
+                video_indicator = QLabel("🎬 VIDEO - Frame de comparación")
+                video_indicator.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                video_indicator.setStyleSheet("""
+                    background-color: #6F42C1;
+                    color: white;
+                    font-size: 9px;
+                    font-weight: bold;
+                    padding: 3px;
+                    border-radius: 3px;
+                    margin-bottom: 3px;
+                """)
+                preview_section_layout.addWidget(video_indicator)
+            
             if thumbnail_label:
                 thumbnail_label.mousePressEvent = lambda event, f=file_path: self._open_file(f)
-                thumbnail_label.setCursor(Qt.PointingHandCursor)
+                thumbnail_label.setCursor(Qt.CursorShape.PointingHandCursor)
                 thumbnail_label.setToolTip(f"Clic para abrir: {file_path.name}")
-                frame_layout.addWidget(thumbnail_label, alignment=Qt.AlignCenter)
+                preview_section_layout.addWidget(thumbnail_label, alignment=Qt.AlignmentFlag.AlignCenter)
             else:
                 # Si no se puede cargar la imagen, mostrar placeholder
-                no_preview = QLabel("Sin vista previa")
-                no_preview.setAlignment(Qt.AlignCenter)
-                no_preview.setStyleSheet(ui_styles.STYLE_DIALOG_SMALL_GRAY)
-                frame_layout.addWidget(no_preview)
+                no_preview = QLabel("❌ Sin vista previa")
+                no_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                no_preview.setStyleSheet("color: #6C757D; font-size: 10px; font-style: italic;")
+                preview_section_layout.addWidget(no_preview)
+            
+            preview_section.setStyleSheet("""
+                QWidget {
+                    background-color: #E9ECEF;
+                    padding: 10px;
+                    border-bottom: 1px solid #CED4DA;
+                }
+            """)
+            frame_layout.addWidget(preview_section)
 
-            # Información del archivo
+            # === SECCIÓN 3: INFORMACIÓN DEL ARCHIVO ===
+            info_section = QWidget()
+            info_section_layout = QVLayout(info_section)
+            info_section_layout.setContentsMargins(8, 8, 8, 8)
+            info_section_layout.setSpacing(4)
+            
             from datetime import datetime
             mtime = datetime.fromtimestamp(file_path.stat().st_mtime)
-            info_text = (
-                f"<b>{file_path.name[:20]}{'...' if len(file_path.name) > 20 else ''}</b><br>"
-                f"{format_size(file_path.stat().st_size)}<br>"
-                f"{mtime.strftime('%Y-%m-%d %H:%M')}"
-            )
-            info_label = QLabel(info_text)
-            info_label.setTextFormat(Qt.RichText)
-            info_label.setAlignment(Qt.AlignCenter)
-            info_label.setWordWrap(True)
-            info_label.setStyleSheet(ui_styles.STYLE_DIALOG_TINY_TEXT)
-            frame_layout.addWidget(info_label)
+            
+            # Nombre del archivo (con icono)
+            name_label = QLabel(f"📄 <b>{file_path.name[:25]}{'...' if len(file_path.name) > 25 else ''}</b>")
+            name_label.setTextFormat(Qt.TextFormat.RichText)
+            name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            name_label.setWordWrap(True)
+            name_label.setStyleSheet("font-size: 11px; color: #212529;")
+            info_section_layout.addWidget(name_label)
+            
+            # Tamaño
+            size_label = QLabel(f"💾 {format_size(file_path.stat().st_size)}")
+            size_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            size_label.setStyleSheet("font-size: 10px; color: #495057;")
+            info_section_layout.addWidget(size_label)
+            
+            # Fecha
+            date_label = QLabel(f"📅 {mtime.strftime('%Y-%m-%d %H:%M')}")
+            date_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            date_label.setStyleSheet("font-size: 10px; color: #6C757D;")
+            info_section_layout.addWidget(date_label)
+            
+            # Sin borde, solo fondo sutil
+            info_section.setStyleSheet("""
+                QWidget {
+                    background-color: transparent;
+                }
+            """)
+            frame_layout.addWidget(info_section)
 
-            # Botón abrir (alternativa al clic en la miniatura)
-            open_btn = QPushButton("🔍 Abrir")
+            # Separador sutil antes del botón
+            separator_btn = QFrame()
+            separator_btn.setFrameShape(QFrame.Shape.HLine)
+            separator_btn.setStyleSheet("background-color: #DEE2E6; max-height: 1px; margin: 5px 0;")
+            frame_layout.addWidget(separator_btn)
+
+            # Botón abrir en la parte inferior
+            open_btn = QPushButton("🔍 Abrir archivo")
             open_btn.setToolTip(f"Abrir {file_path}")
             open_btn.clicked.connect(lambda _, f=file_path: self._open_file(f))
-            open_btn.setStyleSheet(ui_styles.STYLE_DIALOG_TINY_BUTTON)
+            open_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #0D6EFD;
+                    color: white;
+                    border: none;
+                    border-radius: 0;
+                    padding: 8px;
+                    font-size: 10px;
+                    font-weight: bold;
+                    margin: 0;
+                }
+                QPushButton:hover {
+                    background-color: #0B5ED7;
+                }
+                QPushButton:pressed {
+                    background-color: #0A58CA;
+                }
+            """)
             frame_layout.addWidget(open_btn)
 
             # Destacar el frame si está seleccionado
             if file_path in previous_selection:
-                frame.setStyleSheet(ui_styles.STYLE_DIALOG_FRAME_SELECTED)
+                frame.setStyleSheet("""
+                    QFrame {
+                        border: 2px solid #DC3545;
+                        background-color: #FFFFFF;
+                        border-radius: 6px;
+                    }
+                """)
             else:
-                frame.setStyleSheet(ui_styles.STYLE_DIALOG_FRAME_UNSELECTED)
+                frame.setStyleSheet("""
+                    QFrame {
+                        border: 1px solid #CED4DA;
+                        background-color: #FFFFFF;
+                        border-radius: 6px;
+                    }
+                """)
 
             # Conectar cambios de selección para actualizar el estilo del frame
             checkbox.stateChanged.connect(
@@ -357,7 +485,7 @@ class SimilarDuplicatesDialog(BaseDialog):
         interpretation_label = QLabel(
             f"{similarity_icon} <b>Nivel:</b> {similarity_text}"
         )
-        interpretation_label.setTextFormat(Qt.RichText)
+        interpretation_label.setTextFormat(Qt.TextFormat.RichText)
         interpretation_label.setStyleSheet(f"""
             color: {similarity_color};
             font-size: 13px;
@@ -411,74 +539,134 @@ class SimilarDuplicatesDialog(BaseDialog):
         else:
             return "Las imágenes tienen pocas similitudes. Verifica que realmente sean duplicados antes de eliminar."
 
-    def _create_thumbnail(self, file_path: Path) -> QLabel:
-        """Crea una miniatura para un archivo de imagen"""
+    def _create_thumbnail(self, file_path: Path) -> tuple:
+        """Crea una miniatura para un archivo de imagen o video.
+        
+        Returns:
+            tuple: (QLabel con la miniatura, bool indicando si es video)
+        """
         try:
-            # Extensiones soportadas para preview
+            # Extensiones soportadas
             image_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.webp', '.heic', '.heif'}
-            if file_path.suffix.lower() not in image_extensions:
-                return None
-
-            # Intentar cargar con QPixmap (funciona para la mayoría de formatos)
-            pixmap = QPixmap(str(file_path))
+            video_extensions = {'.mov', '.mp4', '.avi', '.mkv', '.m4v', '.webm'}
             
-            # Si QPixmap falla (puede pasar con HEIC), intentar con pillow
-            if pixmap.isNull():
+            file_ext = file_path.suffix.lower()
+            is_video = file_ext in video_extensions
+            
+            # Si no es imagen ni video, retornar None
+            if file_ext not in image_extensions and file_ext not in video_extensions:
+                return None, False
+            
+            pixmap = None
+            
+            # Para videos, extraer un frame fijo (frame 1 segundo)
+            if is_video:
                 try:
-                    from PIL import Image
-                    from PyQt5.QtGui import QImage
-                    import io
+                    import cv2
+                    import numpy as np
+                    from PyQt6.QtGui import QImage
                     
-                    # Cargar con Pillow y convertir a QPixmap
-                    img = Image.open(str(file_path))
-                    img.thumbnail((150, 150), Image.Resampling.LANCZOS)
+                    # Abrir video
+                    cap = cv2.VideoCapture(str(file_path))
                     
-                    # Convertir PIL Image a QPixmap
-                    img_byte_arr = io.BytesIO()
-                    img.save(img_byte_arr, format='PNG')
-                    img_byte_arr.seek(0)
+                    # Ir al frame del segundo 1 (frame 30 aprox si es 30fps)
+                    # Usamos frame fijo para que sea consistente entre comparaciones
+                    cap.set(cv2.CAP_PROP_POS_FRAMES, 30)
                     
-                    qimage = QImage()
-                    qimage.loadFromData(img_byte_arr.read())
-                    pixmap = QPixmap.fromImage(qimage)
+                    # Leer frame
+                    ret, frame = cap.read()
+                    cap.release()
+                    
+                    if ret:
+                        # Convertir de BGR (OpenCV) a RGB
+                        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                        
+                        # Convertir a QImage
+                        h, w, ch = frame_rgb.shape
+                        bytes_per_line = ch * w
+                        qimage = QImage(frame_rgb.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
+                        
+                        # Convertir a QPixmap
+                        pixmap = QPixmap.fromImage(qimage)
+                    
                 except ImportError:
-                    # Pillow no está disponible
-                    return None
+                    # OpenCV no disponible, intentar con otro método
+                    pass
                 except Exception:
-                    return None
+                    pass
+            else:
+                # Para imágenes, intentar cargar con QPixmap
+                pixmap = QPixmap(str(file_path))
+                
+                # Si QPixmap falla (puede pasar con HEIC), intentar con pillow
+                if pixmap.isNull():
+                    try:
+                        from PIL import Image
+                        from PyQt6.QtGui import QImage
+                        import io
+                        
+                        # Cargar con Pillow y convertir a QPixmap
+                        img = Image.open(str(file_path))
+                        img.thumbnail((150, 150), Image.Resampling.LANCZOS)
+                        
+                        # Convertir PIL Image a QPixmap
+                        img_byte_arr = io.BytesIO()
+                        img.save(img_byte_arr, format='PNG')
+                        img_byte_arr.seek(0)
+                        
+                        qimage = QImage()
+                        qimage.loadFromData(img_byte_arr.read())
+                        pixmap = QPixmap.fromImage(qimage)
+                    except ImportError:
+                        pass
+                    except Exception:
+                        pass
 
-            if pixmap.isNull():
-                return None
+            if pixmap is None or pixmap.isNull():
+                return None, is_video
 
             # Redimensionar manteniendo aspecto (150x150 máximo)
             thumbnail_size = 150
             scaled_pixmap = pixmap.scaled(
                 thumbnail_size, thumbnail_size,
-                Qt.KeepAspectRatio,
-                Qt.SmoothTransformation
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation
             )
 
             label = QLabel()
             label.setPixmap(scaled_pixmap)
-            label.setAlignment(Qt.AlignCenter)
+            label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             label.setFixedSize(thumbnail_size, thumbnail_size)
             label.setStyleSheet(ui_styles.STYLE_DIALOG_LABEL_DISABLED)
-            return label
+            return label, is_video
         except Exception:
-            return None
+            return None, False
 
     def _update_frame_style(self, frame: QFrame, file_path: Path, state):
         """Actualiza el estilo visual del frame según el estado de selección"""
-        if state == Qt.Checked:
-            frame.setStyleSheet(ui_styles.STYLE_DIALOG_FRAME_SELECTED)
+        if state == Qt.CheckState.Checked:
+            frame.setStyleSheet("""
+                QFrame {
+                    border: 2px solid #DC3545;
+                    background-color: #FFFFFF;
+                    border-radius: 6px;
+                }
+            """)
         else:
-            frame.setStyleSheet(ui_styles.STYLE_DIALOG_FRAME_UNSELECTED)
+            frame.setStyleSheet("""
+                QFrame {
+                    border: 1px solid #CED4DA;
+                    background-color: #FFFFFF;
+                    border-radius: 6px;
+                }
+            """)
 
     def _on_selection_changed(self, file_path, state):
         """Maneja cambios en la selección"""
         if self.current_group_index not in self.selections:
             self.selections[self.current_group_index] = []
-        if state == Qt.Checked:
+        # Qt6 emite state como int: 0 (Unchecked), 2 (Checked)
+        if state == Qt.CheckState.Checked.value or state == Qt.CheckState.Checked:
             if file_path not in self.selections[self.current_group_index]:
                 self.selections[self.current_group_index].append(file_path)
         else:
@@ -487,10 +675,22 @@ class SimilarDuplicatesDialog(BaseDialog):
         self._update_summary()
 
     def _previous_group(self):
-        self._load_group(self.current_group_index - 1)
+        """Navega al grupo anterior (circular: desde el primero va al último)"""
+        total_groups = len(self.analysis['groups'])
+        if self.current_group_index == 0:
+            # Estamos en el primero, ir al último
+            self._load_group(total_groups - 1)
+        else:
+            self._load_group(self.current_group_index - 1)
 
     def _next_group(self):
-        self._load_group(self.current_group_index + 1)
+        """Navega al grupo siguiente (circular: desde el último va al primero)"""
+        total_groups = len(self.analysis['groups'])
+        if self.current_group_index >= total_groups - 1:
+            # Estamos en el último, ir al primero
+            self._load_group(0)
+        else:
+            self._load_group(self.current_group_index + 1)
 
     def _update_summary(self):
         """Actualiza el resumen de archivos seleccionados"""
@@ -528,5 +728,5 @@ class SimilarDuplicatesDialog(BaseDialog):
         if file_path.is_file():
             QDesktopServices.openUrl(QUrl.fromLocalFile(str(file_path)))
         else:
-            from PyQt5.QtWidgets import QMessageBox
+            from PyQt6.QtWidgets import QMessageBox
             QMessageBox.warning(self, "Archivo no encontrado", f"No se encontró el archivo:\n{file_path}")

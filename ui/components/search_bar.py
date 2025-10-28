@@ -1,5 +1,5 @@
-from PyQt5.QtWidgets import QWidget, QHBoxLayout, QLabel, QPushButton, QLineEdit, QFrame
-from PyQt5.QtCore import Qt
+from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel, QPushButton, QLineEdit, QFrame
+from PyQt6.QtCore import Qt
 
 import config
 from ui import styles
@@ -37,7 +37,7 @@ class SearchBar(QWidget):
         self.analyze_btn.setMinimumWidth(200)
         self.analyze_btn.setFixedHeight(42)
         self.analyze_btn.setStyleSheet(styles.STYLE_ANALYZE_BUTTON_PRIMARY)
-        self.analyze_btn.setCursor(Qt.PointingHandCursor)
+        self.analyze_btn.setCursor(Qt.CursorShape.PointingHandCursor)
 
         # Conectar al método del MainWindow si existe
         if self.main_window is not None and hasattr(self.main_window, 'select_and_analyze_directory'):

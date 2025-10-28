@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QGroupBox
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QGroupBox
 from ui.tabs.base_tab import create_details_textedit
 from ui import styles
 
@@ -57,7 +57,7 @@ def create_renaming_tab(window):
     button_layout.setSpacing(10)
     button_layout.addStretch()
 
-    from PyQt5.QtWidgets import QPushButton
+    from PyQt6.QtWidgets import QPushButton
     window.preview_rename_btn = QPushButton("📋 Renombrar Archivos")
     window.preview_rename_btn.setEnabled(False)
     window.preview_rename_btn.setStyleSheet(styles.get_button_style("#007bff"))

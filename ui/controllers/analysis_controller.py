@@ -10,7 +10,7 @@ Este módulo encapsula:
 from pathlib import Path
 from typing import Optional
 
-from PyQt5.QtWidgets import QMessageBox, QApplication
+from PyQt6.QtWidgets import QMessageBox, QApplication
 
 from ui.workers import AnalysisWorker
 
@@ -76,11 +76,11 @@ class AnalysisController:
                 f"Actual: {directory.name}\n\n"
                 "Se realizará un nuevo análisis y se descartará el anterior.\n\n"
                 "¿Continuar?",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.Yes
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.Yes
             )
 
-            if reply == QMessageBox.No:
+            if reply == QMessageBox.StandardButton.No:
                 return False
 
             # Limpiar análisis previo

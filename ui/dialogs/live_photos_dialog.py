@@ -1,8 +1,8 @@
-from PyQt5.QtWidgets import (
+from PyQt6.QtWidgets import (
     QVBoxLayout, QLabel, QGroupBox, QVBoxLayout as QVLayout,
     QRadioButton, QButtonGroup, QDialogButtonBox
 )
-from PyQt5.QtCore import Qt
+from PyQt6.QtCore import Qt
 from services.live_photo_cleaner import CleanupMode
 from utils.format_utils import format_size
 from ui import styles as ui_styles
@@ -96,7 +96,7 @@ class LivePhotoCleanupDialog(BaseDialog):
             f"📱 Live Photos detectados: <b>{lp_found}</b><br>"
             f"💾 Espacio total ocupado: <b>{format_size(total_space)}</b>"
         )
-        stats_label.setTextFormat(Qt.RichText)
+        stats_label.setTextFormat(Qt.TextFormat.RichText)
         stats_layout.addWidget(stats_label)
         layout.addWidget(stats_group)
 
@@ -107,7 +107,7 @@ class LivePhotoCleanupDialog(BaseDialog):
         # Backup checkbox desde BaseDialog
         self.add_backup_checkbox(options_layout, "Crear backup antes de eliminar (Recomendado)", True)
 
-        from PyQt5.QtWidgets import QCheckBox
+        from PyQt6.QtWidgets import QCheckBox
         self.dry_run_checkbox = QCheckBox("Modo simulación (no eliminar archivos realmente)")
         options_layout.addWidget(self.dry_run_checkbox)
         layout.addWidget(options_group)
@@ -116,7 +116,7 @@ class LivePhotoCleanupDialog(BaseDialog):
         ok_enabled = lp_found > 0
         ok_text = None if ok_enabled else "No hay Live Photos para limpiar"
         self.buttons = self.make_ok_cancel_buttons(ok_text=ok_text, ok_enabled=ok_enabled)
-        self.ok_button = self.buttons.button(QDialogButtonBox.Ok)
+        self.ok_button = self.buttons.button(QDialogButtonBox.StandardButton.Ok)
         # If there are items, update text according to mode
         if lp_found > 0:
             self._update_button_text()

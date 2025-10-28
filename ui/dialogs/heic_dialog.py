@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import (
+from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QGroupBox, QVBoxLayout as QVLayout, QRadioButton,
     QButtonGroup, QTableWidget, QTableWidgetItem, QCheckBox, QDialogButtonBox, QLabel
 )
@@ -77,7 +77,7 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         # Botones
         ok_enabled = self.analysis.get('total_duplicates', 0) > 0
         self.buttons = self.make_ok_cancel_buttons(ok_enabled=ok_enabled)
-        self.ok_button = self.buttons.button(QDialogButtonBox.Ok)
+        self.ok_button = self.buttons.button(QDialogButtonBox.StandardButton.Ok)
         if ok_enabled:
             self._update_button_text()
         layout.addWidget(self.buttons)

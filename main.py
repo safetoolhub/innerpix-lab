@@ -10,7 +10,7 @@ import os
 # Configurar Qt para evitar warnings de Wayland
 os.environ['QT_LOGGING_RULES'] = 'qt.qpa.wayland=false'
 
-from PyQt5.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication
 from ui.main_window import MainWindow
 import config
 
@@ -28,7 +28,7 @@ def main():
     window = MainWindow()
     window.show()
 
-    return app.exec_()
+    return app.exec()
 
 
 if __name__ == '__main__':

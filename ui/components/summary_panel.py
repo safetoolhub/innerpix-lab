@@ -1,10 +1,10 @@
 from pathlib import Path
 import traceback
 
-from PyQt5.QtWidgets import (
+from PyQt6.QtWidgets import (
     QWidget, QFrame, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QSizePolicy,
 )
-from PyQt5.QtCore import Qt
+from PyQt6.QtCore import Qt
 
 import config
 from ui import styles
@@ -19,7 +19,7 @@ def create_summary_panel(window):
     Devuelve el widget panel (QFrame).
     """
     panel = QFrame()
-    panel.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
+    panel.setFrameStyle(QFrame.Shape.StyledPanel | QFrame.Shadow.Raised)
     panel.setStyleSheet(styles.STYLE_SUMMARY_PANEL)
     panel.setMaximumWidth(360)
 
@@ -29,7 +29,7 @@ def create_summary_panel(window):
 
     title = QLabel("📊 RESUMEN")
     title.setStyleSheet(styles.STYLE_SUMMARY_TITLE)
-    title.setAlignment(Qt.AlignCenter)
+    title.setAlignment(Qt.AlignmentFlag.AlignCenter)
     layout.addWidget(title)
 
     info_card = QFrame()
@@ -61,7 +61,7 @@ def create_summary_panel(window):
 
     for key in ['images', 'videos']:
         chip = QLabel(window.stats_labels[key].text())
-        chip.setAlignment(Qt.AlignCenter)
+        chip.setAlignment(Qt.AlignmentFlag.AlignCenter)
         chip.setStyleSheet(chip_style)
         chip.setContentsMargins(6, 4, 6, 4)
         stats_top_row.addWidget(chip)
@@ -72,7 +72,7 @@ def create_summary_panel(window):
     stats_bottom_row = QHBoxLayout()
     stats_bottom_row.setSpacing(8)
     total_chip = QLabel(window.stats_labels['total'].text())
-    total_chip.setAlignment(Qt.AlignCenter)
+    total_chip.setAlignment(Qt.AlignmentFlag.AlignCenter)
     total_chip.setStyleSheet(
         "background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #f0f8ff, stop:1 #e6f2ff);"
         "border: 1px solid #cfe8ff; border-radius: 8px; padding: 8px 10px; font-weight: 600; color: #0b3b66;"
@@ -100,7 +100,7 @@ def create_summary_panel(window):
 
     def make_full_btn(key, emoji, label_text):
         btn = QPushButton(f"{emoji} {label_text}")
-        btn.setCursor(Qt.PointingHandCursor)
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setFixedHeight(36)
         btn.setStyleSheet(styles.STYLE_SUMMARY_ACTION_BUTTON + "QPushButton { text-align: left; padding-left: 12px; }")
         def _invoke():
@@ -112,7 +112,7 @@ def create_summary_panel(window):
             tc.open_summary_action(label_text)
 
         btn.clicked.connect(_invoke)
-        btn.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         window.summary_action_buttons[key] = btn
         return btn
 
@@ -156,11 +156,11 @@ def create_summary_panel(window):
         "border: none; "
         "padding: 4px 0px;"
     )
-    progress_label.setAlignment(Qt.AlignLeft)
+    progress_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
     progress_layout.addWidget(progress_label)
 
     # Barra de progreso estilo moderno sin marco doble
-    from PyQt5.QtWidgets import QProgressBar
+    from PyQt6.QtWidgets import QProgressBar
     progress_bar = QProgressBar()
     progress_bar.setStyleSheet(
         "QProgressBar {"
@@ -193,7 +193,7 @@ def create_summary_panel(window):
         "border: none; "
         "padding: 2px 0px;"
     )
-    progress_detail.setAlignment(Qt.AlignLeft)
+    progress_detail.setAlignment(Qt.AlignmentFlag.AlignLeft)
     progress_detail.setWordWrap(True)
     progress_layout.addWidget(progress_detail)
 

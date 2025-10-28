@@ -3,11 +3,11 @@ Funciones auxiliares reutilizables para la UI extraídas de `main_window.py`.
 """
 from pathlib import Path
 import traceback
-from PyQt5.QtWidgets import (
+from PyQt6.QtWidgets import (
     QFrame, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QSizePolicy,
     QTextEdit, QLineEdit, QButtonGroup, QRadioButton
 )
-from PyQt5.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer
 import config
 from ui import styles
 from ui import tabs as _tabs_module

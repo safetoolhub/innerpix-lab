@@ -9,7 +9,7 @@ from .duplicates_tab import create_duplicates_tab
 from .heic_tab import create_heic_tab
 from .organizer_tab import create_organizer_tab
 
-from PyQt5.QtWidgets import QTabWidget
+from PyQt6.QtWidgets import QTabWidget
 from ui import styles
 
 def create_tabs_widget(window):

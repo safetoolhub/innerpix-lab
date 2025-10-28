@@ -4,8 +4,8 @@ Extrae toda la lógica de duplicados desde main_window.py
 """
 from pathlib import Path
 
-from PyQt5.QtWidgets import QMessageBox, QDialog
-from PyQt5.QtCore import QObject
+from PyQt6.QtWidgets import QMessageBox, QDialog
+from PyQt6.QtCore import QObject
 
 from ui.workers import DuplicateAnalysisWorker, DuplicateDeletionWorker
 from ui.dialogs import ExactDuplicatesDialog, SimilarDuplicatesDialog
@@ -184,7 +184,7 @@ class DuplicatesController(QObject):
 
         dialog = ExactDuplicatesDialog(self.duplicate_detector.get_last_results(), self.main_window)
 
-        if dialog.exec_() == QDialog.Accepted and dialog.accepted_plan:
+        if dialog.exec() == QDialog.DialogCode.Accepted and dialog.accepted_plan:
             self._execute_duplicate_deletion(dialog.accepted_plan)
 
     def review_similar_duplicates(self):
@@ -194,7 +194,7 @@ class DuplicatesController(QObject):
 
         dialog = SimilarDuplicatesDialog(self.duplicate_detector.get_last_results(), self.main_window)
 
-        if dialog.exec_() == QDialog.Accepted and dialog.accepted_plan:
+        if dialog.exec() == QDialog.DialogCode.Accepted and dialog.accepted_plan:
             self._execute_duplicate_deletion(dialog.accepted_plan)
 
     def _execute_duplicate_deletion(self, plan):
@@ -210,11 +210,11 @@ class DuplicatesController(QObject):
             f"¿Estás seguro de que deseas eliminar los archivos seleccionados?\n\n"
             f"Se eliminarán archivos de {len(groups)} grupos.\n"
             f"{'Se creará un backup de seguridad.' if create_backup else 'NO se creará backup.'}",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
         )
 
-        if reply != QMessageBox.Yes:
+        if reply != QMessageBox.StandardButton.Yes:
             return
 
         self.logger.info(f"Ejecutando eliminación de duplicados: {len(groups)} grupos")
