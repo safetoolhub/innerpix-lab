@@ -13,6 +13,7 @@ from enum import Enum
 
 import config
 from utils.logger import get_logger
+from utils.callback_utils import safe_progress_callback
 from utils.date_utils import parse_renamed_name, get_file_date
 
 
@@ -632,8 +633,7 @@ class FileOrganizer:
 
             # Crear backup ANTES de mover archivos
             if create_backup and move_plan:
-                if progress_callback:
-                    progress_callback(0, len(move_plan), "Creando backup antes de organizar...")
+                safe_progress_callback(progress_callback, 0, len(move_plan), "Creando backup antes de organizar...")
                 from utils.file_utils import launch_backup_creation
                 files = [m.source_path for m in move_plan]
                 try:
@@ -674,8 +674,7 @@ class FileOrganizer:
             files_processed = 0
             total_files = len(move_plan)
 
-            if progress_callback:
-                progress_callback(0, total_files, "Iniciando organización de directorios...")
+            safe_progress_callback(progress_callback, 0, total_files, "Iniciando organización de directorios...")
 
             for move in move_plan:
                 try:
@@ -772,8 +771,7 @@ class FileOrganizer:
                     results['files_moved'] += 1
                     files_processed += 1
 
-                    if progress_callback:
-                        progress_callback(files_processed, total_files,
+                    safe_progress_callback(progress_callback, files_processed, total_files,
                                        f"Organizando directorios... {files_processed}/{total_files}")
 
                     results['moved_files'].append({
@@ -846,8 +844,6 @@ class FileOrganizer:
             moved_files += 1
 
             # Reportar progreso cada archivo
-            if progress_callback:
-                progress_callback(moved_files, total_files, f"Moviendo archivo {moved_files} de {total_files}")
+            safe_progress_callback(progress_callback, moved_files, total_files, f"Moviendo archivo {moved_files} de {total_files}")
 
-        if progress_callback:
-            progress_callback(total_files, total_files, "Organización completada")
+        safe_progress_callback(progress_callback, total_files, total_files, "Organización completada")

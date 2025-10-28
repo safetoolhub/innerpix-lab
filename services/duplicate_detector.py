@@ -13,6 +13,7 @@ from typing import List, Dict, Optional, Callable, Tuple
 from dataclasses import dataclass
 from collections import defaultdict
 import config
+from utils.callback_utils import safe_progress_callback
 
 # Importaciones opcionales para detección perceptual
 try:
@@ -100,8 +101,7 @@ class DuplicateDetector:
         total_files = len(all_files)
         self.logger.info(f"Archivos multimedia encontrados: {total_files}")
         
-        if progress_callback:
-            progress_callback(0, total_files, "Calculando hashes SHA256...")
+        safe_progress_callback(progress_callback, 0, total_files, "Calculando hashes SHA256...")
         
         # Calcular hashes
         hash_map = defaultdict(list)
@@ -114,8 +114,8 @@ class DuplicateDetector:
                 hash_map[file_hash].append(file_path)
 
                 processed += 1
-                if progress_callback and (processed % config.Config.PROGRESS_CALLBACK_INTERVAL == 0 or processed == total_files):
-                    progress_callback(processed, total_files, "Calculando hashes SHA256...")
+                if processed % config.Config.PROGRESS_CALLBACK_INTERVAL == 0 or processed == total_files:
+                    safe_progress_callback(progress_callback, processed, total_files, "Calculando hashes SHA256...")
             except Exception as e:
                 self.logger.error(f"Error procesando {file_path}: {e}")
         
@@ -195,8 +195,7 @@ class DuplicateDetector:
         self.logger.info(f"Archivos multimedia: {len(image_files)} imágenes, "
                         f"{len(video_files)} videos")
         
-        if progress_callback:
-            progress_callback(0, total_files, "Calculando hashes perceptuales...")
+        safe_progress_callback(progress_callback, 0, total_files, "Calculando hashes perceptuales...")
         
         # Calcular hashes perceptuales
         perceptual_hashes = {}
@@ -209,8 +208,8 @@ class DuplicateDetector:
                     perceptual_hashes[img_path] = phash
                 
                 processed += 1
-                if progress_callback and (processed % config.Config.PROGRESS_CALLBACK_INTERVAL == 0 or processed == total_files):
-                    progress_callback(processed, total_files, "Calculando hashes perceptuales...")
+                if processed % config.Config.PROGRESS_CALLBACK_INTERVAL == 0 or processed == total_files:
+                    safe_progress_callback(progress_callback, processed, total_files, "Calculando hashes perceptuales...")
             except Exception as e:
                 self.logger.error(f"Error con {img_path}: {e}")
         
@@ -223,14 +222,13 @@ class DuplicateDetector:
                         perceptual_hashes[vid_path] = phash
                     
                     processed += 1
-                    if progress_callback and (processed % config.Config.PROGRESS_CALLBACK_INTERVAL == 0 or processed == total_files):
-                        progress_callback(processed, total_files, "Calculando hashes perceptuales...")
+                    if processed % config.Config.PROGRESS_CALLBACK_INTERVAL == 0 or processed == total_files:
+                        safe_progress_callback(progress_callback, processed, total_files, "Calculando hashes perceptuales...")
                 except Exception as e:
                     self.logger.error(f"Error con video {vid_path}: {e}")
         
         # Agrupar por similitud
-        if progress_callback:
-            progress_callback(total_files, total_files, "Agrupando similares...")
+        safe_progress_callback(progress_callback, total_files, total_files, "Agrupando similares...")
         
         similar_groups = self._group_by_similarity(perceptual_hashes, sensitivity, progress_callback)
         
@@ -302,8 +300,8 @@ class DuplicateDetector:
                 continue
             
             # Emitir progreso cada N archivos
-            if progress_callback and (i % config.Config.PROGRESS_CALLBACK_INTERVAL == 0 or i == total_items - 1):
-                progress_callback(i, total_items, "Agrupando similares...")
+            if i % config.Config.PROGRESS_CALLBACK_INTERVAL == 0 or i == total_items - 1:
+                safe_progress_callback(progress_callback, i, total_items, "Agrupando similares...")
             
             similar_files = [path1]
             hamming_distances = []
@@ -425,8 +423,7 @@ class DuplicateDetector:
                             space_freed += file_size
 
                             processed += 1
-                            if progress_callback:
-                                progress_callback(processed, total_operations,
+                            safe_progress_callback(progress_callback, processed, total_operations,
                                                   f"Eliminado: {file_path.name}")
                         except Exception as e:
                             errors.append({'file': str(file_path), 'error': str(e)})
@@ -476,8 +473,7 @@ class DuplicateDetector:
                             space_freed += file_size
 
                             processed += 1
-                            if progress_callback:
-                                progress_callback(processed, total_operations,
+                            safe_progress_callback(progress_callback, processed, total_operations,
                                                   f"Eliminado: {file_path.name}")
 
                         except Exception as e:
