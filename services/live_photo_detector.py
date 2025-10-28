@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 import config
 from utils.logger import get_logger
+from services.result_types import LivePhotoAnalysisResult
 
 
 @dataclass
@@ -214,24 +215,26 @@ class LivePhotoDetector:
 
         return unique_groups
 
-    def analyze_live_photos(self, groups: List[LivePhotoGroup]) -> Dict:
+    def analyze_live_photos(self, groups: List[LivePhotoGroup]) -> LivePhotoAnalysisResult:
         """Obtiene estadísticas de los grupos detectados"""
         if not groups:
-            return {
-                'total_groups': 0,
-                'total_images': 0,
-                'total_videos': 0,
-                'total_size': 0,
-                'avg_time_diff': 0.0
-            }
+            return LivePhotoAnalysisResult(
+                total_files=0,
+                total_groups=0,
+                total_images=0,
+                total_videos=0,
+                total_size=0,
+                avg_time_diff=0.0
+            )
 
         total_size = sum(g.total_size for g in groups)
         avg_time_diff = sum(g.time_difference for g in groups) / len(groups)
 
-        return {
-            'total_groups': len(groups),
-            'total_images': len(groups),
-            'total_videos': len(groups),
-            'total_size': total_size,
-            'avg_time_diff': avg_time_diff
-        }
+        return LivePhotoAnalysisResult(
+            total_files=len(groups) * 2,
+            total_groups=len(groups),
+            total_images=len(groups),
+            total_videos=len(groups),
+            total_size=total_size,
+            avg_time_diff=avg_time_diff
+        )

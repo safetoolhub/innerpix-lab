@@ -5,12 +5,13 @@ import shutil
 import os
 from pathlib import Path
 from datetime import datetime
-from typing import List, Dict, Optional, Set
+from typing import List, Dict, Optional, Set, Union
 from enum import Enum
 
 import config
 from utils.logger import get_logger
 from services.live_photo_detector import LivePhotoGroup, LivePhotoDetector
+from services.result_types import LivePhotoCleanupAnalysisResult, LivePhotoCleanupResult
 
 class CleanupMode(Enum):
     """Modos de limpieza de Live Photos"""
@@ -43,7 +44,7 @@ class LivePhotoCleaner:
             'backup_created': False
         }
 
-    def analyze_cleanup(self, directory: Path, mode: CleanupMode = CleanupMode.KEEP_IMAGE) -> Dict:
+    def analyze_cleanup(self, directory: Path, mode: CleanupMode = CleanupMode.KEEP_IMAGE) -> LivePhotoCleanupAnalysisResult:
         """
         Analiza qué archivos se eliminarían con el modo dado
 
@@ -60,14 +61,15 @@ class LivePhotoCleaner:
         live_photos = self.detector.detect_in_directory(directory)
 
         if not live_photos:
-            return {
-                'live_photos_found': 0,
-                'files_to_delete': [],
-                'files_to_keep': [],
-                'space_to_free': 0,
-                'total_space': 0,
-                'cleanup_mode': mode.value
-            }
+            return LivePhotoCleanupAnalysisResult(
+                total_files=0,
+                live_photos_found=0,
+                files_to_delete=[],
+                files_to_keep=[],
+                space_to_free=0,
+                total_space=0,
+                cleanup_mode=mode.value
+            )
 
         # Generar plan de limpieza
         cleanup_plan = self._generate_cleanup_plan(live_photos, mode)
@@ -76,16 +78,15 @@ class LivePhotoCleaner:
         total_space = sum(lp.total_size for lp in live_photos)
         space_to_free = sum(item['size'] for item in cleanup_plan['files_to_delete'])
 
-        result = {
-            'live_photos_found': len(live_photos),
-            'files_to_delete': cleanup_plan['files_to_delete'],
-            'files_to_keep': cleanup_plan['files_to_keep'],
-            'space_to_free': space_to_free,
-            'total_space': total_space,
-            'cleanup_mode': mode.value,
-            'space_savings_percent': (space_to_free / total_space * 100) if total_space > 0 else 0,
-            'detailed_analysis': self.detector.analyze_live_photos(live_photos)
-        }
+        result = LivePhotoCleanupAnalysisResult(
+            total_files=len(live_photos) * 2,
+            live_photos_found=len(live_photos),
+            files_to_delete=cleanup_plan['files_to_delete'],
+            files_to_keep=cleanup_plan['files_to_keep'],
+            space_to_free=space_to_free,
+            total_space=total_space,
+            cleanup_mode=mode.value
+        )
 
         self.logger.info(f"Análisis completado: {len(cleanup_plan['files_to_delete'])} archivos a eliminar")
         return result
@@ -176,48 +177,47 @@ class LivePhotoCleaner:
 
     # Backup creation delegated to utils.file_utils.create_backup
 
-    def execute_cleanup(self, cleanup_analysis: Dict, create_backup: bool = True, 
-                       dry_run: bool = False, progress_callback=None) -> Dict:
+    def execute_cleanup(self, cleanup_analysis: Union[LivePhotoCleanupAnalysisResult, Dict], create_backup: bool = True, 
+                       dry_run: bool = False, progress_callback=None) -> LivePhotoCleanupResult:
         """
         Ejecuta la limpieza de Live Photos
 
         Args:
-            cleanup_analysis: Análisis de limpieza previo
+            cleanup_analysis: Análisis de limpieza previo (dataclass o dict para compatibilidad)
             create_backup: Si crear backup antes de eliminar
             dry_run: Si solo simular sin eliminar archivos reales
 
         Returns:
             Resultados de la limpieza
         """
-        files_to_delete = cleanup_analysis['files_to_delete']
+        # Convertir dict a dataclass si es necesario (para compatibilidad con código antiguo)
+        if isinstance(cleanup_analysis, dict):
+            cleanup_analysis = LivePhotoCleanupAnalysisResult(
+                total_files=cleanup_analysis.get('total_files', 0),
+                live_photos_found=cleanup_analysis.get('live_photos_found', 0),
+                files_to_delete=cleanup_analysis.get('files_to_delete', []),
+                files_to_keep=cleanup_analysis.get('files_to_keep', []),
+                space_to_free=cleanup_analysis.get('space_to_free', 0),
+                total_space=cleanup_analysis.get('total_space', 0),
+                cleanup_mode=cleanup_analysis.get('cleanup_mode', 'keep_image')
+            )
+        
+        files_to_delete = cleanup_analysis.files_to_delete
 
         if not files_to_delete:
-            return {
-                'success': True,
-                'files_deleted': 0,
-                'space_freed': 0,
-                'errors': [],
-                'dry_run': dry_run,
-                'backup_path': None,
-                'message': 'No hay archivos para eliminar'
-            }
+            return LivePhotoCleanupResult(
+                success=True,
+                files_deleted=0,
+                space_freed=0,
+                dry_run=dry_run,
+                message='No hay archivos para eliminar'
+            )
 
         self.logger.info(f"Iniciando limpieza de Live Photos: {len(files_to_delete)} archivos")
         self.dry_run = dry_run
         self._reset_cleanup_stats()
 
-        results = {
-            'success': True,
-            'files_deleted': 0,
-            'space_freed': 0,
-            # When dry_run=True we populate these simulated counters instead
-            'simulated_files_deleted': 0,
-            'simulated_space_freed': 0,
-            'errors': [],
-            'deleted_files': [],
-            'dry_run': dry_run,
-            'backup_path': None
-        }
+        results = LivePhotoCleanupResult(success=True, dry_run=dry_run)
 
         try:
             # Determinar directorio base para backup
@@ -244,14 +244,13 @@ class LivePhotoCleaner:
                             progress_callback=progress_callback,
                             metadata_name='livephoto_cleanup_metadata.txt'
                         )
-                        results['backup_path'] = str(backup_path)
+                        results.backup_path = str(backup_path)
                         self.backup_dir = backup_path
                         self.cleanup_stats['backup_created'] = True
                     except ValueError as ve:
                         err_msg = f"Backup abortado: entrada inválida para launch_backup_creation: {ve}"
                         self.logger.error(err_msg)
-                        results['errors'].append(err_msg)
-                        results['success'] = False
+                        results.add_error(err_msg)
                         return results
 
             # Ejecutar eliminaciones
@@ -263,24 +262,18 @@ class LivePhotoCleaner:
                     if dry_run:
                         # Solo simular: no modificar counters reales, usar campos simulados
                         if file_path.exists():
-                            results['simulated_files_deleted'] += 1
-                            results['simulated_space_freed'] += file_size
-                            results['deleted_files'].append({
-                                'path': str(file_path),
-                                'type': file_info['type'],
-                                'size': file_size,
-                                'base_name': file_info['base_name'],
-                                'simulated': True
-                            })
+                            results.simulated_files_deleted += 1
+                            results.simulated_space_freed += file_size
+                            results.deleted_files.append(str(file_path))
 
                             self.logger.debug(f"SIMULADO - Eliminaría: {file_path.name}")
                         else:
-                            results['errors'].append(f"Archivo no encontrado (simulación): {file_path.name}")
+                            results.add_error(f"Archivo no encontrado (simulación): {file_path.name}")
                     else:
                         # Eliminar realmente
                         if not file_path.exists():
                             error_msg = f"Archivo no encontrado: {file_path.name}"
-                            results['errors'].append(error_msg)
+                            results.add_error(error_msg)
                             self.cleanup_stats['errors'] += 1
                             continue
 
@@ -288,15 +281,9 @@ class LivePhotoCleaner:
                         file_path.unlink()
 
                         # Registrar éxito
-                        results['files_deleted'] += 1
-                        results['space_freed'] += file_size
-                        results['deleted_files'].append({
-                            'path': str(file_path),
-                            'type': file_info['type'],
-                            'size': file_size,
-                            'base_name': file_info['base_name'],
-                            'simulated': False
-                        })
+                        results.files_deleted += 1
+                        results.space_freed += file_size
+                        results.deleted_files.append(str(file_path))
 
                         self.cleanup_stats['files_deleted'] += 1
                         self.cleanup_stats['space_freed'] += file_size
@@ -305,40 +292,37 @@ class LivePhotoCleaner:
 
                 except Exception as e:
                     error_msg = f"Error eliminando {file_path.name}: {str(e)}"
-                    results['errors'].append(error_msg)
+                    results.add_error(error_msg)
                     self.cleanup_stats['errors'] += 1
+                    self.logger.error(error_msg)
                     self.logger.error(error_msg)
 
             # Verificar éxito general
             self.cleanup_stats['live_photos_processed'] = len(files_to_delete)
-            results['success'] = len(results['errors']) == 0
+            results.success = len(results.errors) == 0
 
             # Preparar mensaje informativo teniendo en cuenta dry_run
             if dry_run:
-                simulated_count = results.get('simulated_files_deleted', 0)
-                simulated_space = results.get('simulated_space_freed', 0)
+                simulated_count = results.simulated_files_deleted
+                simulated_space = results.simulated_space_freed
                 from utils.format_utils import format_size
                 freed = format_size(simulated_space)
 
-                # Do not report simulated deletions as actual deletions in the
-                # returned `files_deleted`/`space_freed` fields (keep them 0),
-                # but log the simulated impact clearly.
                 self.logger.info(f"Simulación completada: {simulated_count} archivos (simulados), "
-                                 f"{freed} potencialmente liberados, {len(results['errors'])} errores")
+                                 f"{freed} potencialmente liberados, {len(results.errors)} errores")
             else:
                 try:
                     from utils.format_utils import format_size
-                    freed = format_size(results['space_freed'])
+                    freed = format_size(results.space_freed)
                 except Exception:
-                    freed = f"{results['space_freed']/(1024*1024):.2f} MB"
+                    freed = f"{results.space_freed/(1024*1024):.2f} MB"
 
-                self.logger.info(f"Limpieza completada: {results['files_deleted']} archivos eliminados, "
-                                 f"{freed} liberados, {len(results['errors'])} errores")
+                self.logger.info(f"Limpieza completada: {results.files_deleted} archivos eliminados, "
+                                 f"{freed} liberados, {len(results.errors)} errores")
 
         except Exception as e:
             error_msg = f"Error durante limpieza: {str(e)}"
-            results['errors'].append(error_msg)
-            results['success'] = False
+            results.add_error(error_msg)
             self.logger.error(error_msg)
 
         return results

@@ -15,6 +15,7 @@ from collections import defaultdict
 import config
 from utils.callback_utils import safe_progress_callback
 from utils.logger import get_logger
+from services.result_types import DuplicateAnalysisResult
 
 # Importaciones opcionales para detección perceptual
 try:
@@ -140,14 +141,14 @@ class DuplicateDetector:
         self.logger.info(f"Duplicados exactos encontrados: {len(duplicate_groups)} grupos, "
                         f"{total_duplicates} archivos duplicados")
         
-        return {
-            'mode': 'exact',
-            'total_files': total_files,
-            'groups': duplicate_groups,
-            'total_groups': len(duplicate_groups),
-            'total_duplicates': total_duplicates,
-            'space_wasted': space_wasted
-        }
+        return DuplicateAnalysisResult(
+            mode='exact',
+            total_files=total_files,
+            groups=duplicate_groups,
+            total_groups=len(duplicate_groups),
+            total_duplicates=total_duplicates,
+            space_wasted=space_wasted
+        )
     
     def analyze_similar_duplicates(
         self,
@@ -168,15 +169,17 @@ class DuplicateDetector:
         """
         if not PERCEPTUAL_AVAILABLE:
             self.logger.error("imagehash no disponible para detección perceptual")
-            return {
-                'mode': 'perceptual',
-                'error': 'Librerías no disponibles',
-                'total_files': 0,
-                'groups': [],
-                'total_groups': 0,
-                'total_similar': 0,
-                'space_potential': 0
-            }
+            result = DuplicateAnalysisResult(
+                mode='perceptual',
+                total_files=0,
+                groups=[],
+                total_groups=0,
+                total_similar=0,
+                space_potential=0,
+                success=False
+            )
+            result.add_error('Librerías no disponibles')
+            return result
         
         self.logger.info(f"Iniciando análisis de duplicados similares en {directory} "
                         f"(sensibilidad: {sensitivity})")
@@ -239,17 +242,17 @@ class DuplicateDetector:
         self.logger.info(f"Grupos similares: {len(similar_groups)}, "
                         f"{total_similar} archivos similares")
         
-        return {
-            'mode': 'perceptual',
-            'total_files': total_files,
-            'groups': similar_groups,
-            'total_groups': len(similar_groups),
-            'total_similar': total_similar,
-            'space_potential': space_potential,
-            'sensitivity': sensitivity,
-            'min_similarity': self._calculate_min_similarity(similar_groups),
-            'max_similarity': self._calculate_max_similarity(similar_groups)
-        }
+        return DuplicateAnalysisResult(
+            mode='perceptual',
+            total_files=total_files,
+            groups=similar_groups,
+            total_groups=len(similar_groups),
+            total_similar=total_similar,
+            space_potential=space_potential,
+            sensitivity=sensitivity,
+            min_similarity=self._calculate_min_similarity(similar_groups),
+            max_similarity=self._calculate_max_similarity(similar_groups)
+        )
     
     # SHA256 hashing is delegated to utils.file_utils.calculate_file_hash
     

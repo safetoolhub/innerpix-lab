@@ -18,7 +18,8 @@ photokit-manager/
 │   ├── file_renamer.py
 │   ├── heic_remover.py
 │   ├── live_photo_cleaner.py
-│   └── live_photo_detector.py
+│   ├── live_photo_detector.py
+│   └── result_types.py
 ├── tools/
 ├── ui/
 │   ├── __init__.py
