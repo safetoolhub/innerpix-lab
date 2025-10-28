@@ -4,8 +4,8 @@ Extrae la lógica de Live Photos desde operations_controller.py
 """
 from pathlib import Path
 
-from PyQt5.QtWidgets import QMessageBox, QDialog
-from PyQt5.QtCore import QObject, QTimer
+from PyQt6.QtWidgets import QMessageBox, QDialog
+from PyQt6.QtCore import QObject, QTimer
 
 from ui.workers import LivePhotoCleanupWorker
 from ui.dialogs import LivePhotoCleanupDialog
@@ -85,7 +85,7 @@ class LivePhotosController(QObject):
             }
 
             dialog = LivePhotoCleanupDialog(cleanup_analysis, self.main_window)
-            if dialog.exec_() == QDialog.Accepted and dialog.accepted_plan:
+            if dialog.exec() == QDialog.DialogCode.Accepted and dialog.accepted_plan:
                 self.live_photo_plan = dialog.accepted_plan
                 self.execute_live_photo_cleanup(dialog.accepted_plan)
 
@@ -109,10 +109,10 @@ class LivePhotosController(QObject):
             self.main_window,
             "Confirmar",
             f"¿Eliminar {count} archivos ({space_formatted})?",
-            QMessageBox.Yes | QMessageBox.No
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
 
-        if reply != QMessageBox.Yes:
+        if reply != QMessageBox.StandardButton.Yes:
             return
 
         # Limpiar worker anterior

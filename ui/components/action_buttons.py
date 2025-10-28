@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from PyQt5.QtWidgets import QFrame, QHBoxLayout, QPushButton
-from PyQt5.QtCore import Qt
+from PyQt6.QtWidgets import QFrame, QHBoxLayout, QPushButton
+from PyQt6.QtCore import Qt
 
 from ui import styles
 
@@ -25,9 +25,9 @@ class ActionButtons:
 
         # Crear contenedor transparente para alojar los botones
         self.container = QFrame(parent)
-        self.container.setFrameStyle(QFrame.NoFrame)
+        self.container.setFrameStyle(QFrame.Shape.NoFrame)
         self.container.setStyleSheet(styles.STYLE_ACTIONS_CONTAINER)
-        self.container.setAttribute(Qt.WA_TranslucentBackground)
+        self.container.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
         self.layout = QHBoxLayout(self.container)
         self.layout.setContentsMargins(0, 0, 0, 0)
@@ -43,7 +43,7 @@ class ActionButtons:
         self.reanalyze_btn.setVisible(False)
         self.reanalyze_btn.setMinimumWidth(200)
         self.reanalyze_btn.setFixedHeight(42)
-        self.reanalyze_btn.setCursor(Qt.PointingHandCursor)
+        self.reanalyze_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         if self.analyze_btn is not None:
             self.reanalyze_btn.setStyleSheet(self.analyze_btn.styleSheet())
         self.reanalyze_btn.clicked.connect(parent._reanalyze_same_directory)
@@ -52,7 +52,7 @@ class ActionButtons:
         self.change_dir_btn.setVisible(False)
         self.change_dir_btn.setMinimumWidth(200)
         self.change_dir_btn.setFixedHeight(42)
-        self.change_dir_btn.setCursor(Qt.PointingHandCursor)
+        self.change_dir_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         if self.analyze_btn is not None:
             self.change_dir_btn.setStyleSheet(self.analyze_btn.styleSheet())
         self.change_dir_btn.clicked.connect(parent._change_directory_after_analysis)

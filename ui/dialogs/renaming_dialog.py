@@ -1,10 +1,10 @@
 from pathlib import Path
-from PyQt5.QtWidgets import (
+from PyQt6.QtWidgets import (
     QVBoxLayout, QGroupBox, QTableWidget, QTableWidgetItem,
     QHeaderView, QDialogButtonBox, QLabel
 )
-from PyQt5.QtGui import QColor
-from PyQt5.QtCore import Qt
+from PyQt6.QtGui import QColor
+from PyQt6.QtCore import Qt
 from utils.format_utils import format_size
 from ui import styles as ui_styles
 from .base_dialog import BaseDialog
@@ -44,8 +44,8 @@ class RenamingPreviewDialog(BaseDialog):
         self.stats_table.setRowCount(3)
         self.stats_table.setHorizontalHeaderLabels(["Concepto", "Cantidad"])
         header = self.stats_table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.Stretch)
-        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
 
         # Filas de estadísticas
         stats_rows = [
@@ -68,10 +68,10 @@ class RenamingPreviewDialog(BaseDialog):
             table.setColumnCount(4)
             table.setHorizontalHeaderLabels(["Original", "Nuevo", "Fecha", "Conflicto"])
             header = table.horizontalHeader()
-            header.setSectionResizeMode(0, QHeaderView.Stretch)
-            header.setSectionResizeMode(1, QHeaderView.Stretch)
-            header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
-            header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
+            header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+            header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+            header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+            header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
 
             plan = self.analysis_results['renaming_plan'][:50]
             table.setRowCount(len(plan))
@@ -102,7 +102,7 @@ class RenamingPreviewDialog(BaseDialog):
         buttons = self.make_ok_cancel_buttons(ok_text=ok_text, ok_enabled=ok_enabled)
         # expose names used elsewhere
         self.buttons = buttons
-        self.ok_button = buttons.button(QDialogButtonBox.Ok)
+        self.ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
         layout.addWidget(buttons)
 
     def accept(self):

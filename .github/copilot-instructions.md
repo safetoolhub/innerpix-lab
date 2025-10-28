@@ -5,7 +5,7 @@ PhotoKit Manager repository. Keep suggestions and edits aligned with the project
 patterns (workers + services + UI) and avoid changing user-visible behaviour without tests.
 
 - Entry point & runtime
-  - Launch: `python main.py` (creates a PyQt5 QApplication and instantiates `ui.main_window.MainWindow`).
+  - Launch: `python main.py` (creates a PyQt6 QApplication and instantiates `ui.main_window.MainWindow`).
   - Config values live in `config.py` (class `Config`). Note: some modules reference `config.Config` and others `config.config` (a module-level instance). Check both when making changes.
 
 - Platforms

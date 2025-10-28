@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import (
+from PyQt6.QtWidgets import (
     QVBoxLayout, QLabel, QTableWidget, QTableWidgetItem,
     QGroupBox, QDialogButtonBox, QCheckBox
 )
@@ -89,7 +89,7 @@ class FileOrganizationDialog(BaseDialog):
             ok_text = None
         buttons = self.make_ok_cancel_buttons(ok_text=ok_text, ok_enabled=ok_enabled)
         self.buttons = buttons
-        self.ok_button = buttons.button(QDialogButtonBox.Ok)
+        self.ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
         layout.addWidget(buttons)
 
     def accept(self):

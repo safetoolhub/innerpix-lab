@@ -1,7 +1,7 @@
-from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QLabel, QGroupBox, QFrame,
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QGroupBox, QFrame,
                              QHBoxLayout, QPushButton, QSizePolicy, QButtonGroup,
                              QRadioButton, QSlider)
-from PyQt5.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer
 from ui.tabs.base_tab import create_details_textedit
 from ui import styles
 
@@ -76,7 +76,7 @@ def create_duplicates_tab(window):
     window.sens_low_lbl = QLabel("Baja")
     window.sens_low_lbl.setStyleSheet(styles.STYLE_LABEL_MUTED_SMALL)
 
-    window.sensitivity_slider = QSlider(Qt.Horizontal)
+    window.sensitivity_slider = QSlider(Qt.Orientation.Horizontal)
     window.sensitivity_slider.setRange(0, 20)
     window.sensitivity_slider.setValue(10)
     window.sensitivity_slider.setFixedWidth(160)

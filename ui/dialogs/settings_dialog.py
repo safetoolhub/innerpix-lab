@@ -3,11 +3,11 @@ import logging
 import os
 import platform
 import subprocess
-from PyQt5.QtWidgets import (
+from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QTabWidget, QWidget, QGroupBox, QVBoxLayout as QVLayout,
     QHBoxLayout, QLabel, QLineEdit, QPushButton, QComboBox, QFrame, QDialogButtonBox, QMessageBox, QCheckBox
 )
-from PyQt5.QtCore import Qt
+from PyQt6.QtCore import Qt
 import config
 from ui import styles as ui_styles
 
@@ -65,12 +65,12 @@ class SettingsDialog(QDialog):
 
         # Botones estándar
         buttons = QDialogButtonBox(
-            QDialogButtonBox.Save | QDialogButtonBox.Cancel
+            QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
         )
-        buttons.button(QDialogButtonBox.Save).setText("Guardar Cambios")
-        buttons.button(QDialogButtonBox.Save).setStyleSheet(ui_styles.STYLE_SAVE_BUTTON)
-        buttons.button(QDialogButtonBox.Cancel).setText("Cancelar")
-        buttons.button(QDialogButtonBox.Cancel).setStyleSheet(ui_styles.STYLE_CANCEL_BUTTON)
+        buttons.button(QDialogButtonBox.StandardButton.Save).setText("Guardar Cambios")
+        buttons.button(QDialogButtonBox.StandardButton.Save).setStyleSheet(ui_styles.STYLE_SAVE_BUTTON)
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("Cancelar")
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setStyleSheet(ui_styles.STYLE_CANCEL_BUTTON)
         buttons.accepted.connect(self.save_settings)
         buttons.rejected.connect(self.reject)
         footer_layout.addWidget(buttons)
@@ -109,7 +109,7 @@ class SettingsDialog(QDialog):
 
         browse_logs_btn = QPushButton("📂 Cambiar")
         browse_logs_btn.setMinimumWidth(100)
-        browse_logs_btn.setCursor(Qt.PointingHandCursor)
+        browse_logs_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         browse_logs_btn.clicked.connect(self.browse_logs_directory)
         logs_dir_layout.addWidget(browse_logs_btn)
 
@@ -178,7 +178,7 @@ class SettingsDialog(QDialog):
 
         browse_backup_btn = QPushButton("📂 Cambiar")
         browse_backup_btn.setMinimumWidth(100)
-        browse_backup_btn.setCursor(Qt.PointingHandCursor)
+        browse_backup_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         browse_backup_btn.clicked.connect(self.browse_backup_directory)
         backup_row.addWidget(browse_backup_btn)
 
@@ -291,7 +291,7 @@ class SettingsDialog(QDialog):
 
     def browse_logs_directory(self):
         """Cambia directorio de logs"""
-        from PyQt5.QtWidgets import QFileDialog
+        from PyQt6.QtWidgets import QFileDialog
         directory = QFileDialog.getExistingDirectory(
             self,
             "Seleccionar Directorio de Logs",
@@ -303,7 +303,7 @@ class SettingsDialog(QDialog):
 
     def browse_backup_directory(self):
         """Cambia directorio de backups"""
-        from PyQt5.QtWidgets import QFileDialog
+        from PyQt6.QtWidgets import QFileDialog
         directory = QFileDialog.getExistingDirectory(
             self,
             "Seleccionar Directorio de Backups",
@@ -386,11 +386,11 @@ class SettingsDialog(QDialog):
             self,
             "Restaurar Valores",
             "¿Restaurar toda la configuración a los valores por defecto?",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
         )
 
-        if reply == QMessageBox.Yes:
+        if reply == QMessageBox.StandardButton.Yes:
             # Restaurar valores
             self.logs_edit.setText(str(config.config.DEFAULT_LOG_DIR))
             self.backup_edit.setText(str(config.config.DEFAULT_BACKUP_DIR))

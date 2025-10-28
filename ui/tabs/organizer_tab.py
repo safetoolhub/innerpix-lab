@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QGroupBox, QRadioButton, QButtonGroup
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QGroupBox, QRadioButton, QButtonGroup
 from ui.tabs.base_tab import create_details_textedit
 from ui import styles
 
@@ -87,7 +87,7 @@ def create_organizer_tab(window):
     button_layout.setSpacing(10)
     button_layout.addStretch()
 
-    from PyQt5.QtWidgets import QPushButton
+    from PyQt6.QtWidgets import QPushButton
     window.exec_org_btn = QPushButton("⚡ Organizar Archivos")
     window.exec_org_btn.setEnabled(False)
     window.exec_org_btn.setStyleSheet(styles.get_button_style("#28a745"))

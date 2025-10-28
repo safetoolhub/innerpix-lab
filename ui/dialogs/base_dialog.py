@@ -1,7 +1,7 @@
 """Clases/base utilities para diálogos."""
 from typing import Dict, List, Optional
 
-from PyQt5.QtWidgets import (
+from PyQt6.QtWidgets import (
     QDialog,
     QCheckBox,
     QDialogButtonBox,
@@ -54,9 +54,9 @@ class BaseDialog(QDialog):
         Does not mutate dialog state except wiring signals. The caller can further
         customize the returned button box or button texts/styles.
         """
-        box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        ok_btn = box.button(QDialogButtonBox.Ok)
-        cancel_btn = box.button(QDialogButtonBox.Cancel)
+        box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        ok_btn = box.button(QDialogButtonBox.StandardButton.Ok)
+        cancel_btn = box.button(QDialogButtonBox.StandardButton.Cancel)
         if ok_text is not None:
             ok_btn.setText(ok_text)
         if ok_style is not None:

@@ -2,8 +2,8 @@
 Controlador de HEIC (preview + ejecución)
 Extrae la lógica de eliminación de duplicados HEIC desde operations_controller.py
 """
-from PyQt5.QtWidgets import QMessageBox, QDialog
-from PyQt5.QtCore import QObject, QTimer
+from PyQt6.QtWidgets import QMessageBox, QDialog
+from PyQt6.QtCore import QObject, QTimer
 
 from ui.workers import HEICRemovalWorker
 from ui.dialogs import HEICDuplicateRemovalDialog
@@ -54,7 +54,7 @@ class HEICController(QObject):
             return
 
         dialog = HEICDuplicateRemovalDialog(heic_analysis, self.main_window)
-        if dialog.exec_() == QDialog.Accepted and dialog.accepted_plan:
+        if dialog.exec() == QDialog.DialogCode.Accepted and dialog.accepted_plan:
             self.heic_plan = dialog.accepted_plan
             self.execute_heic_removal(dialog.accepted_plan)
 
@@ -71,10 +71,10 @@ class HEICController(QObject):
             self.main_window,
             "Confirmar",
             f"¿Eliminar {count} archivos {format_del}?",
-            QMessageBox.Yes | QMessageBox.No
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
 
-        if reply != QMessageBox.Yes:
+        if reply != QMessageBox.StandardButton.Yes:
             return
 
         # Limpiar worker anterior

@@ -1,13 +1,13 @@
 # ---- Utilities for tabs (info labels, details, action buttons) ----
-from PyQt5.QtWidgets import QLabel, QTextEdit, QPushButton
-from PyQt5.QtCore import Qt
+from PyQt6.QtWidgets import QLabel, QTextEdit, QPushButton
+from PyQt6.QtCore import Qt
 from ui import styles
 
 
 def create_info_label(text: str, rich: bool = True, extra_style: str = None) -> QLabel:
     lbl = QLabel(text)
     if rich:
-        lbl.setTextFormat(Qt.RichText)
+        lbl.setTextFormat(Qt.TextFormat.RichText)
     if extra_style:
         lbl.setStyleSheet(extra_style)
     else:

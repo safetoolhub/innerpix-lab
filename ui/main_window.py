@@ -4,12 +4,12 @@ Ventana principal de PhotoKit Manager
 from pathlib import Path
 from datetime import datetime
 
-from PyQt5.QtWidgets import (
+from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, 
     QFileDialog, QMessageBox, QDialog, 
     QSplitter, QApplication
 )
-from PyQt5.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer
 
 import config
 from services.file_renamer import FileRenamer
@@ -109,7 +109,7 @@ class MainWindow(QMainWindow):
 
 
         # ===== SPLITTER: PANEL RESUMEN + PESTAÑAS =====
-        splitter = QSplitter(Qt.Horizontal)
+        splitter = QSplitter(Qt.Orientation.Horizontal)
 
     # Controlador de pestañas: centraliza creación, navegación y lógica
     # de disponibilidad de pestañas. Usa `window.tab_controller` como
@@ -232,12 +232,12 @@ class MainWindow(QMainWindow):
     def toggle_config(self):
         """Abre el diálogo de configuración avanzada"""
         dialog = SettingsDialog(self)
-        dialog.exec_()
+        dialog.exec()
 
     def show_about_dialog(self):
         """Muestra el diálogo Acerca de usando `AboutDialog`."""
         dialog = AboutDialog(self)
-        dialog.exec_()
+        dialog.exec()
 
     
 
@@ -294,7 +294,7 @@ class MainWindow(QMainWindow):
             self,
             "Seleccionar Directorio",
             str(Path.home()),
-            QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks
+            QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks
         )
 
         if not directory:
@@ -371,7 +371,7 @@ class MainWindow(QMainWindow):
             self,
             "Seleccionar Directorio",
             str(Path.home()),
-            QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks
+            QFileDialog.Option.ShowDirsOnly | QFileDialog.Option.DontResolveSymlinks
         )
 
         if not directory:

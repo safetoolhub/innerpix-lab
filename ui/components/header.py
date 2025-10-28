@@ -1,5 +1,5 @@
-from PyQt5.QtWidgets import QWidget, QHBoxLayout, QLabel, QPushButton, QMenu
-from PyQt5.QtCore import Qt
+from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel, QPushButton, QMenu
+from PyQt6.QtCore import Qt
 
 import config
 from ui import styles
@@ -28,7 +28,7 @@ class Header(QWidget):
         # Botón de menú con dropdown
         menu_btn = QPushButton("⋮")
         menu_btn.setFixedSize(40, 40)
-        menu_btn.setCursor(Qt.PointingHandCursor)
+        menu_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         menu_btn.setToolTip("Menú de opciones")
         menu_btn.setStyleSheet(styles.STYLE_MENU_BUTTON)
 

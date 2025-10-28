@@ -2,8 +2,8 @@
 Controlador de renombrado (preview + ejecución)
 Extrae la lógica de renombrado desde operations_controller.py
 """
-from PyQt5.QtWidgets import QMessageBox, QDialog
-from PyQt5.QtCore import QObject, QTimer
+from PyQt6.QtWidgets import QMessageBox, QDialog
+from PyQt6.QtCore import QObject, QTimer
 
 from ui.workers import RenamingWorker
 from ui.dialogs import RenamingPreviewDialog
@@ -49,7 +49,7 @@ class RenamingController(QObject):
             return
 
         dialog = RenamingPreviewDialog(self.main_window.analysis_results['renaming'], self.main_window)
-        if dialog.exec_() == QDialog.Accepted and dialog.accepted_plan:
+        if dialog.exec() == QDialog.DialogCode.Accepted and dialog.accepted_plan:
             self.renaming_plan = dialog.accepted_plan
             self.execute_renaming(skip_confirmation=True)
 
@@ -67,9 +67,9 @@ class RenamingController(QObject):
                 self.main_window,
                 "Confirmar",
                 f"¿Renombrar {len(self.renaming_plan['plan'])} archivos?",
-                QMessageBox.Yes | QMessageBox.No
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
             )
-            if reply != QMessageBox.Yes:
+            if reply != QMessageBox.StandardButton.Yes:
                 return
 
         # Limpiar worker anterior

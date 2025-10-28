@@ -1,8 +1,8 @@
 """
 Controlador de organización de archivos (preview + ejecución)
 """
-from PyQt5.QtWidgets import QMessageBox, QDialog
-from PyQt5.QtCore import QObject, QTimer
+from PyQt6.QtWidgets import QMessageBox, QDialog
+from PyQt6.QtCore import QObject, QTimer
 
 from ui.workers import FileOrganizerWorker
 from ui.dialogs import FileOrganizationDialog
@@ -53,7 +53,7 @@ class OrganizerController(QObject):
             return
 
         dialog = FileOrganizationDialog(org_analysis, self.main_window)
-        if dialog.exec_() == QDialog.Accepted and dialog.accepted_plan:
+        if dialog.exec() == QDialog.DialogCode.Accepted and dialog.accepted_plan:
             self.organization_plan = dialog.accepted_plan
             self.execute_organization(dialog.accepted_plan)
 
@@ -82,10 +82,10 @@ class OrganizerController(QObject):
             self.main_window,
             "Confirmar",
             message,
-            QMessageBox.Yes | QMessageBox.No
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
 
-        if reply != QMessageBox.Yes:
+        if reply != QMessageBox.StandardButton.Yes:
             return
 
         # Limpiar worker anterior

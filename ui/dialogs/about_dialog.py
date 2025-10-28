@@ -1,5 +1,5 @@
-from PyQt5.QtWidgets import QDialog, QVBoxLayout, QLabel, QPushButton
-from PyQt5.QtCore import Qt
+from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QPushButton
+from PyQt6.QtCore import Qt
 import config
 
 
@@ -37,7 +37,7 @@ class AboutDialog(QDialog):
         """
 
         label = QLabel()
-        label.setTextFormat(Qt.RichText)
+        label.setTextFormat(Qt.TextFormat.RichText)
         label.setText(about_text)
         label.setWordWrap(True)
         layout.addWidget(label)
@@ -46,4 +46,4 @@ class AboutDialog(QDialog):
         close_btn = QPushButton("Cerrar")
         close_btn.clicked.connect(self.accept)
         close_btn.setDefault(True)
-        layout.addWidget(close_btn, alignment=Qt.AlignCenter)
+        layout.addWidget(close_btn, alignment=Qt.AlignmentFlag.AlignCenter)
