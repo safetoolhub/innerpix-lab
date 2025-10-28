@@ -13,7 +13,7 @@ class BaseWorker(QThread):
     every worker.
     """
     progress_update = pyqtSignal(int, int, str)
-    finished = pyqtSignal(dict)
+    finished = pyqtSignal(object)  # Changed from dict to object to support dataclasses
     error = pyqtSignal(str)
 
     def __init__(self, *args, **kwargs):
@@ -61,8 +61,8 @@ class BaseWorker(QThread):
 class AnalysisWorker(BaseWorker):
     """Worker unificado para análisis completo"""
     phase_update = pyqtSignal(str)
-    stats_update = pyqtSignal(dict)  # Nueva señal para actualizar stats parciales
-    partial_results = pyqtSignal(dict)  # Nueva señal para resultados parciales de funcionalidades
+    stats_update = pyqtSignal(object)  # Changed from dict to object to support dataclasses
+    partial_results = pyqtSignal(object)  # Changed from dict to object to support dataclasses
 
     def __init__(self, directory, renamer, lp_detector, unifier, heic_remover, organization_type=None):
         super().__init__()
@@ -244,14 +244,16 @@ class LivePhotoCleanupWorker(BaseWorker):
             if self._stop_requested:
                 return
             
-            # Convertimos el plan en el formato que espera el cleaner
-            cleanup_analysis = {
-                'files_to_delete': self.plan['files_to_delete']
-            }
+            # El plan es un diccionario que incluye create_backup y dry_run
+            # Extraer estos parámetros del plan antes de pasarlo a execute_cleanup
+            create_backup = self.plan.get('create_backup', True)
+            dry_run = self.plan.get('dry_run', False)
+            
+            # Pasar el plan completo - execute_cleanup lo convertirá a dataclass si es necesario
             results = self.cleaner.execute_cleanup(
-                cleanup_analysis,
-                create_backup=self.plan['create_backup'],
-                dry_run=self.plan['dry_run'],
+                self.plan,
+                create_backup=create_backup,
+                dry_run=dry_run,
                 progress_callback=self._create_progress_callback()
             )
             

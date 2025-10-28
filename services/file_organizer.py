@@ -15,6 +15,7 @@ import config
 from utils.logger import get_logger
 from utils.callback_utils import safe_progress_callback
 from utils.date_utils import parse_renamed_name, get_file_date
+from services.result_types import OrganizationResult
 
 
 class OrganizationType(Enum):
@@ -585,25 +586,16 @@ class FileOrganizer:
         Ejecuta la organización según el plan con resolución dinámica de conflictos
         """
         if not move_plan:
-            return {
-                'success': True,
-                'files_moved': 0,
-                'empty_directories_removed': 0,
-                'errors': [],
-                'message': 'No hay archivos para mover'
-            }
+            return OrganizationResult(
+                success=True,
+                files_moved=0,
+                empty_directories_removed=0,
+                message='No hay archivos para mover'
+            )
 
         self.logger.info(f"Iniciando organización de {len(move_plan)} archivos")
 
-        results = {
-            'success': True,
-            'files_moved': 0,
-            'empty_directories_removed': 0,
-            'errors': [],
-            'moved_files': [],
-            'backup_path': None,
-            'folders_created': []
-        }
+        results = OrganizationResult(success=True)
 
         try:
             # Determinar el directorio raíz correctamente
@@ -628,7 +620,7 @@ class FileOrganizer:
                 folder_path = root_directory / folder_name
                 if not folder_path.exists():
                     folder_path.mkdir(parents=True, exist_ok=True)
-                    results['folders_created'].append(str(folder_path))
+                    results.folders_created.append(str(folder_path))
                     self.logger.info(f"Carpeta creada: {folder_name}")
 
             # Crear backup ANTES de mover archivos
@@ -638,22 +630,15 @@ class FileOrganizer:
                 files = [m.source_path for m in move_plan]
                 try:
                     backup_path = launch_backup_creation(files, root_directory, backup_prefix='backup_organization', progress_callback=progress_callback, metadata_name='organization_metadata.txt')
-                    results['backup_path'] = str(backup_path)
+                    results.backup_path = str(backup_path)
                 except ValueError as ve:
                     err_msg = f"Backup abortado: entrada inválida para launch_backup_creation: {ve}"
                     self.logger.error(err_msg)
-                    results['errors'].append({
-                        'file': 'BACKUP',
-                        'error': err_msg
-                    })
-                    results['success'] = False
+                    results.add_error(err_msg)
                     return results
                 except Exception as e:
                     self.logger.error(f"Error creando backup: {e}")
-                    results['errors'].append({
-                        'file': 'BACKUP',
-                        'error': f'Error creando backup: {str(e)}'
-                    })
+                    results.add_error(f'Error creando backup: {str(e)}')
 
             # Track de nombres ya usados durante la ejecución (por carpeta)
             used_names_by_folder = defaultdict(set)
@@ -768,54 +753,41 @@ class FileOrganizer:
                     except (FileNotFoundError, PermissionError, OSError) as e:
                         raise Exception(f"Error moviendo archivo: {str(e)}")
 
-                    results['files_moved'] += 1
+                    results.files_moved += 1
                     files_processed += 1
 
                     safe_progress_callback(progress_callback, files_processed, total_files,
                                        f"Organizando directorios... {files_processed}/{total_files}")
 
-                    results['moved_files'].append({
-                        'original': str(move.source_path),
-                        'new_location': str(target_path),
-                        'renamed': move.will_rename,
-                        'had_conflict': move.has_conflict,
-                        'target_folder': move.target_folder
-                    })
+                    results.moved_files.append(str(target_path))
 
                     self.logger.info(f"Movido: {move.source_path.name} -> {target_path}")
 
                 except Exception as e:
                     self.logger.error(f"Error moviendo {move.source_path.name}: {str(e)}")
-                    results['errors'].append({
-                        'file': str(move.source_path),
-                        'error': str(e)
-                    })
+                    results.add_error(f"{move.source_path.name}: {str(e)}")
 
             # Limpiar directorios vacíos
             if cleanup_empty_dirs:
                 try:
                     from utils.file_utils import cleanup_empty_directories as _cleanup
                     removed = _cleanup(root_directory)
-                    results['empty_directories_removed'] = removed
+                    results.empty_directories_removed = removed
                 except Exception as e:
                     self.logger.error(f"Error limpiando directorios: {e}")
 
             # Determinar éxito general
-            if results['errors']:
-                results['success'] = len(results['errors']) < len(move_plan)
+            if results.has_errors:
+                results.success = len(results.errors) < len(move_plan)
 
             self.logger.info(
-                f"Organización completada: {results['files_moved']} archivos movidos, "
-                f"{len(results['errors'])} errores"
+                f"Organización completada: {results.files_moved} archivos movidos, "
+                f"{len(results.errors)} errores"
             )
 
         except Exception as e:
             self.logger.error(f"Error crítico en organización: {str(e)}")
-            results['success'] = False
-            results['errors'].append({
-                'file': 'GENERAL',
-                'error': str(e)
-            })
+            results.add_error(f"Error crítico: {str(e)}")
 
         return results
 

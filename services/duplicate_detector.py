@@ -14,6 +14,8 @@ from dataclasses import dataclass
 from collections import defaultdict
 import config
 from utils.callback_utils import safe_progress_callback
+from utils.logger import get_logger
+from services.result_types import DuplicateAnalysisResult
 
 # Importaciones opcionales para detección perceptual
 try:
@@ -55,7 +57,7 @@ class DuplicateDetector:
     """Detector de archivos duplicados (exactos y similares)"""
     
     def __init__(self):
-        self.logger = logging.getLogger('DuplicateDetector')
+        self.logger = get_logger('DuplicateDetector')
         self._hash_cache = {} if config.Config.ENABLE_HASH_CACHE else None
         # Contenedor para almacenar los resultados del último análisis de duplicados
         # Mantener esto dentro del servicio centraliza el estado y evita que la
@@ -117,7 +119,7 @@ class DuplicateDetector:
                 if processed % config.Config.PROGRESS_CALLBACK_INTERVAL == 0 or processed == total_files:
                     safe_progress_callback(progress_callback, processed, total_files, "Calculando hashes SHA256...")
             except Exception as e:
-                self.logger.error(f"Error procesando {file_path}: {e}")
+                self.logger.warning(f"No se pudo procesar {file_path}: {e}")
         
         # Filtrar solo grupos con duplicados
         duplicate_groups = []
@@ -139,14 +141,14 @@ class DuplicateDetector:
         self.logger.info(f"Duplicados exactos encontrados: {len(duplicate_groups)} grupos, "
                         f"{total_duplicates} archivos duplicados")
         
-        return {
-            'mode': 'exact',
-            'total_files': total_files,
-            'groups': duplicate_groups,
-            'total_groups': len(duplicate_groups),
-            'total_duplicates': total_duplicates,
-            'space_wasted': space_wasted
-        }
+        return DuplicateAnalysisResult(
+            mode='exact',
+            total_files=total_files,
+            groups=duplicate_groups,
+            total_groups=len(duplicate_groups),
+            total_duplicates=total_duplicates,
+            space_wasted=space_wasted
+        )
     
     def analyze_similar_duplicates(
         self,
@@ -167,15 +169,17 @@ class DuplicateDetector:
         """
         if not PERCEPTUAL_AVAILABLE:
             self.logger.error("imagehash no disponible para detección perceptual")
-            return {
-                'mode': 'perceptual',
-                'error': 'Librerías no disponibles',
-                'total_files': 0,
-                'groups': [],
-                'total_groups': 0,
-                'total_similar': 0,
-                'space_potential': 0
-            }
+            result = DuplicateAnalysisResult(
+                mode='perceptual',
+                total_files=0,
+                groups=[],
+                total_groups=0,
+                total_similar=0,
+                space_potential=0,
+                success=False
+            )
+            result.add_error('Librerías no disponibles')
+            return result
         
         self.logger.info(f"Iniciando análisis de duplicados similares en {directory} "
                         f"(sensibilidad: {sensitivity})")
@@ -211,7 +215,7 @@ class DuplicateDetector:
                 if processed % config.Config.PROGRESS_CALLBACK_INTERVAL == 0 or processed == total_files:
                     safe_progress_callback(progress_callback, processed, total_files, "Calculando hashes perceptuales...")
             except Exception as e:
-                self.logger.error(f"Error con {img_path}: {e}")
+                self.logger.warning(f"No se pudo procesar imagen {img_path}: {e}")
         
         # Videos (extraer frames si está disponible)
         if VIDEO_ANALYSIS_AVAILABLE:
@@ -225,7 +229,7 @@ class DuplicateDetector:
                     if processed % config.Config.PROGRESS_CALLBACK_INTERVAL == 0 or processed == total_files:
                         safe_progress_callback(progress_callback, processed, total_files, "Calculando hashes perceptuales...")
                 except Exception as e:
-                    self.logger.error(f"Error con video {vid_path}: {e}")
+                    self.logger.warning(f"No se pudo procesar video {vid_path}: {e}")
         
         # Agrupar por similitud
         safe_progress_callback(progress_callback, total_files, total_files, "Agrupando similares...")
@@ -238,17 +242,17 @@ class DuplicateDetector:
         self.logger.info(f"Grupos similares: {len(similar_groups)}, "
                         f"{total_similar} archivos similares")
         
-        return {
-            'mode': 'perceptual',
-            'total_files': total_files,
-            'groups': similar_groups,
-            'total_groups': len(similar_groups),
-            'total_similar': total_similar,
-            'space_potential': space_potential,
-            'sensitivity': sensitivity,
-            'min_similarity': self._calculate_min_similarity(similar_groups),
-            'max_similarity': self._calculate_max_similarity(similar_groups)
-        }
+        return DuplicateAnalysisResult(
+            mode='perceptual',
+            total_files=total_files,
+            groups=similar_groups,
+            total_groups=len(similar_groups),
+            total_similar=total_similar,
+            space_potential=space_potential,
+            sensitivity=sensitivity,
+            min_similarity=self._calculate_min_similarity(similar_groups),
+            max_similarity=self._calculate_max_similarity(similar_groups)
+        )
     
     # SHA256 hashing is delegated to utils.file_utils.calculate_file_hash
     

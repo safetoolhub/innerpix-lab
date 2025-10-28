@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 import config
 from ui import styles as ui_styles
+from utils.logger import set_global_log_level
 
 
 class SettingsDialog(QDialog):
@@ -356,29 +357,28 @@ class SettingsDialog(QDialog):
             }
             level = level_map.get(level_name, logging.INFO)
 
+            # Actualizar config
             config.Config.LOG_LEVEL = level_name
-
-            if hasattr(self, 'parent_window') and getattr(self.parent_window, 'logging_manager', None):
-                try:
-                    self.parent_window.logging_manager.set_level(level_name)
-                    if getattr(self.parent_window, 'app_logger', None):
-                        self.parent_window.app_logger.setLevel(level)
-                    if getattr(self.parent_window, 'logger', None):
-                        self.parent_window.logger.setLevel(level)
-                    self.parent_window.log_level = level_name
+            
+            # Actualizar TODOS los loggers globalmente usando la nueva función
+            set_global_log_level(level)
+            
+            # Actualizar también el logger de la ventana padre si existe
+            if hasattr(self, 'parent_window'):
+                if hasattr(self.parent_window, 'logging_manager'):
                     try:
-                        self.parent_window.app_logger.info(f"Nivel de log cambiado a: {level_name}")
+                        self.parent_window.logging_manager.set_level(level_name)
                     except Exception:
-                        if getattr(self.parent_window, 'logger', None):
-                            self.parent_window.logger.info(f"Nivel de log cambiado a: {level_name}")
-                except Exception:
-                    logging.getLogger('PhotokitManager').info(f"Nivel de log cambiado a: {level_name}")
-            else:
-                logging.getLogger('PhotokitManager').setLevel(level)
-                logging.getLogger('PhotokitManager').info(f"Nivel de log cambiado a: {level_name}")
+                        pass
+                
+                if hasattr(self.parent_window, 'log_level'):
+                    self.parent_window.log_level = level_name
+            
+            # Log del cambio (se mostrará solo si el nivel lo permite)
+            logging.getLogger('PhotokitManager').info(f"Nivel de log cambiado a: {level_name}")
 
-        except Exception:
-            logging.getLogger('PhotokitManager').exception("Error cambiando nivel de log")
+        except Exception as e:
+            logging.getLogger('PhotokitManager').exception(f"Error cambiando nivel de log: {e}")
 
     def restore_defaults(self):
         """Restaura valores por defecto"""

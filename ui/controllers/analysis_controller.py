@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import QMessageBox, QApplication
 
 from config import Config
 from ui.workers import AnalysisWorker
+from utils.logger import get_logger
 
 
 class AnalysisController:
@@ -39,6 +40,7 @@ class AnalysisController:
         """
         self.window = window
         self.worker: Optional[AnalysisWorker] = None
+        self.logger = get_logger('AnalysisController')
 
     def start_analysis(self, directory: Path) -> bool:
         """Inicia el análisis completo del directorio.
@@ -152,7 +154,7 @@ class AnalysisController:
         # Iniciar
         self.worker.start()
 
-        self.window.logger.info(f"Iniciando análisis de: {directory}")
+        self.logger.info(f"Iniciando análisis de: {directory}")
         return True
 
     def update_progress(self, current: int, total: int, message: str):
@@ -281,7 +283,7 @@ class AnalysisController:
             show_generic_status=True
         )
 
-        self.window.logger.info(
+        self.logger.info(
             f"Análisis completado para: {self.window.last_analyzed_directory}"
         )
 
@@ -312,7 +314,7 @@ class AnalysisController:
             f"Error durante el análisis:\n{error}"
         )
 
-        self.window.logger.error(f"Error en análisis: {error}")
+        self.logger.error(f"Error en análisis: {error}")
 
         # Limpiar worker
         if self.worker:

@@ -70,18 +70,6 @@ def _on_deletion_finished(self, results):  # ← sin type hint para results
 #### Solución Recomendada:
 Añadir type hints consistentes en todos los métodos públicos. Considerar usar `mypy` para validación estática.
 
-### 5. **Logging Inconsistente**
-
-#### Problema:
-Algunos módulos tienen logger, otros no. Niveles de log inconsistentes.
-
-#### Solución Recomendada:
-- Asegurar que todos los servicios y controladores tengan logger
-- Establecer convención:
-  - `DEBUG`: detalles internos
-  - `INFO`: operaciones importantes completadas
-  - `WARNING`: situaciones recuperables
-  - `ERROR`: errores que requieren atención
 
 ### 6. **Strings de UI Hardcodeadas**
 
@@ -104,59 +92,7 @@ class UIStrings:
     # ...
 ```
 
-### 7. **Estructura de Resultados Heterogénea**
 
-#### Problema:
-Los diccionarios de resultados tienen estructuras variables entre servicios:
-
-```python
-# Algunos usan 'files_deleted', otros 'files_removed'
-# Algunos incluyen 'success', otros no
-# Inconsistencia en nombres de keys
-```
-
-#### Solución Recomendada:
-Definir dataclasses para resultados:
-
-```python
-# services/result_types.py
-from dataclasses import dataclass
-from typing import List, Optional
-
-@dataclass
-class AnalysisResult:
-    """Resultado base de análisis"""
-    success: bool = True
-    total_files: int = 0
-    errors: List[str] = None
-    
-    def __post_init__(self):
-        if self.errors is None:
-            self.errors = []
-
-@dataclass  
-class DeletionResult(AnalysisResult):
-    """Resultado de operación de eliminación"""
-    files_deleted: int = 0
-    space_freed: int = 0
-    backup_path: Optional[str] = None
-```
-
-### 8. **Responsabilidad de Workers**
-
-#### Observación:
-Los workers actuales mezclan lógica de señales Qt con ejecución del servicio.
-
-#### Sugerencia:
-Está bien estructurado actualmente. Los workers actúan correctamente como adaptadores entre servicios (que no conocen Qt) y la UI (que sí).
-
-### 9. **Gestión de Estado en Servicios**
-
-#### Observación:
-`DuplicateDetector` mantiene estado (`duplicate_analysis_results`), lo cual es coherente con el patrón del proyecto.
-
-#### Validación:
-✅ Correcto - centraliza el estado y evita duplicación en múltiples lugares.
 
 ### 10. **Archivos Restantes con Try/Except**
 

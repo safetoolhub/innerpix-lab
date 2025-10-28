@@ -12,6 +12,7 @@ from collections import defaultdict, Counter
 import config
 from utils.logger import get_logger
 from utils.callback_utils import safe_progress_callback
+from services.result_types import RenameResult
 from utils.date_utils import (
     get_file_date,
     format_renamed_name,
@@ -166,23 +167,15 @@ class FileRenamer:
             Resultados de la operación
         """
         if not renaming_plan:
-            return {
-                'success': True,
-                'files_renamed': 0,
-                'errors': [],
-                'message': 'No hay archivos para renombrar'
-            }
+            return RenameResult(
+                success=True,
+                files_renamed=0,
+                message='No hay archivos para renombrar'
+            )
 
         self.logger.info(f"Iniciando renombrado de {len(renaming_plan)} archivos")
 
-        results = {
-            'success': True,
-            'files_renamed': 0,
-            'errors': [],
-            'renamed_files': [],
-            'backup_path': None,
-            'conflicts_resolved': 0
-        }
+        results = RenameResult(success=True)
 
         try:
             if create_backup and renaming_plan:
@@ -206,7 +199,7 @@ class FileRenamer:
                     progress_callback=progress_callback,
                     metadata_name='renaming_metadata.txt'
                 )
-                results['backup_path'] = str(backup_path)
+                results.backup_path = str(backup_path)
                 self.backup_dir = backup_path
 
             total_files = len(renaming_plan)
@@ -223,11 +216,7 @@ class FileRenamer:
                         error_msg = f"Archivo no encontrado: {original_path.name}"
                         self.logger.error(error_msg)
                         self.logger.error(f"  → Ruta completa: {original_path}")
-                        results['errors'].append({
-                            'file': str(original_path),
-                            'error': error_msg,
-                            'type': 'FileNotFoundError'
-                        })
+                        results.add_error(f"{original_path}: {error_msg}")
                         continue
 
                     if new_path.exists():
@@ -245,11 +234,11 @@ class FileRenamer:
                             f"Conflicto resuelto: {original_path.name} -> "
                             f"{new_name} (secuencia {sequence})"
                         )
-                        results['conflicts_resolved'] += 1
+                        results.conflicts_resolved += 1
 
                     original_path.rename(new_path)
 
-                    results['files_renamed'] += 1
+                    results.files_renamed += 1
                     files_processed += 1
                     date_obj = item.get('date') if isinstance(item, dict) else None
                     if date_obj is not None:
@@ -257,7 +246,7 @@ class FileRenamer:
                     else:
                         date_str = ''
 
-                    results['renamed_files'].append({
+                    results.renamed_files.append({
                         'original': original_path.name,
                         'new_name': new_name,
                         'date': date_str,
@@ -277,38 +266,29 @@ class FileRenamer:
                     self.logger.error(f"  → Tipo de error: {type(e).__name__}")
                     self.logger.error(f"  → Detalle: {str(e)}")
 
-                    results['errors'].append({
-                        'file': str(original_path),
-                        'error': str(e),
-                        'type': type(e).__name__
-                    })
+                    results.add_error(f"{original_path.name}: {str(e)}")
 
-            if results['errors']:
-                results['success'] = len(results['errors']) < len(renaming_plan)
+            if results.has_errors:
+                results.success = len(results.errors) < len(renaming_plan)
 
             self.logger.info(
-                f"Renombrado completado: {results['files_renamed']} archivos renombrados, "
-                f"{results['conflicts_resolved']} conflictos resueltos, "
-                f"{len(results['errors'])} errores"
+                f"Renombrado completado: {results.files_renamed} archivos renombrados, "
+                f"{results.conflicts_resolved} conflictos resueltos, "
+                f"{len(results.errors)} errores"
             )
 
-            if results['errors']:
+            if results.has_errors:
                 self.logger.error("=" * 70)
-                self.logger.error(f"RESUMEN DE ERRORES ({len(results['errors'])} archivos):")
+                self.logger.error(f"RESUMEN DE ERRORES ({len(results.errors)} archivos):")
                 self.logger.error("=" * 70)
-                for i, error in enumerate(results['errors'], 1):
-                    self.logger.error(f"{i}. {Path(error['file']).name}")
-                    self.logger.error(f"   {error.get('type', 'Error')}: {error['error']}")
+                for i, error in enumerate(results.errors, 1):
+                    self.logger.error(f"{i}. {error}")
                 self.logger.error("=" * 70)
 
         except Exception as e:
             self.logger.error(f"Error crítico en renombrado: {str(e)}")
-            results['success'] = False
-            results['errors'].append({
-                'file': 'GENERAL',
-                'error': str(e),
-                'type': type(e).__name__
-            })
+            results.success = False
+            results.add_error(f"Error crítico: {str(e)}")
 
         return results
 

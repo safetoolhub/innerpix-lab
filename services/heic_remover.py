@@ -13,6 +13,7 @@ import hashlib
 import config
 from utils.logger import get_logger
 from utils.file_utils import validate_file_exists, to_path
+from services.result_types import HeicAnalysisResult, HeicDeletionResult
 
 @dataclass
 class DuplicatePair:
@@ -196,7 +197,7 @@ class HEICDuplicateRemover:
                     self.logger.debug(f"Duplicado encontrado: {base_name}")
 
                 except Exception as e:
-                    self.logger.error(f"Error procesando par {base_name}: {e}")
+                    self.logger.warning(f"No se pudo procesar par {base_name}: {e}")
 
         results['duplicate_pairs'] = duplicate_pairs
         results['total_duplicates'] = len(duplicate_pairs)
@@ -217,7 +218,15 @@ class HEICDuplicateRemover:
                 results['compression_stats']['avg_ratio'] = sum(compression_ratios) / len(compression_ratios)
 
         self.logger.info(f"Análisis completado: {len(duplicate_pairs)} pares duplicados encontrados")
-        return results
+        
+        return HeicAnalysisResult(
+            total_files=results['total_heic_files'] + results['total_jpg_files'],
+            duplicate_pairs=duplicate_pairs,
+            total_pairs=len(duplicate_pairs),
+            heic_files=results['total_heic_files'],
+            jpg_files=results['total_jpg_files'],
+            total_size=self.stats['total_heic_size'] + self.stats['total_jpg_size']
+        )
 
     # Backup creation delegated to utils.file_utils.create_backup
 
@@ -236,25 +245,17 @@ class HEICDuplicateRemover:
             Resultados de la operación
         """
         if not duplicate_pairs:
-            return {
-                'success': True,
-                'files_deleted': 0,
-                'space_freed': 0,
-                'errors': [],
-                'message': 'No hay archivos duplicados para eliminar'
-            }
+            return HeicDeletionResult(
+                success=True,
+                files_deleted=0,
+                space_freed=0,
+                message='No hay archivos duplicados para eliminar',
+                format_kept=keep_format
+            )
 
         self.logger.info(f"Iniciando eliminación de duplicados HEIC: {len(duplicate_pairs)} pares")
 
-        results = {
-            'success': True,
-            'files_deleted': 0,
-            'space_freed': 0,
-            'errors': [],
-            'deleted_files': [],
-            'backup_path': None,
-            'format_kept': keep_format
-        }
+        results = HeicDeletionResult(success=True, format_kept=keep_format)
 
         try:
             # Determinar archivos a eliminar
@@ -282,13 +283,12 @@ class HEICDuplicateRemover:
                         backup_prefix='backup_heic_removal',
                         metadata_name='heic_removal_metadata.txt'
                     )
-                    results['backup_path'] = str(backup_path)
+                    results.backup_path = str(backup_path)
                     self.backup_dir = backup_path
                 except ValueError as ve:
                     err_msg = f"Backup abortado: entrada inválida para launch_backup_creation: {ve}"
                     self.logger.error(err_msg)
-                    results['errors'].append(err_msg)
-                    results['success'] = False
+                    results.add_error(err_msg)
                     return results
 
             for pair in duplicate_pairs:
@@ -304,53 +304,43 @@ class HEICDuplicateRemover:
                     try:
                         validate_file_exists(file_to_delete)
                     except FileNotFoundError as e:
-                        results['errors'].append(str(e))
+                        results.add_error(str(e))
                         self.logger.error(str(e))
                         continue
 
                     try:
                         validate_file_exists(file_to_keep)
                     except FileNotFoundError as e:
-                        results['errors'].append(str(e))
+                        results.add_error(str(e))
                         self.logger.error(str(e))
                         continue
 
                     file_size = file_to_delete.stat().st_size
                     file_to_delete.unlink()
 
-                    results['files_deleted'] += 1
-                    results['space_freed'] += file_size
-                    results['deleted_files'].append({
-                        'deleted': str(file_to_delete),
-                        'kept': str(file_to_keep),
-                        'base_name': base_name,
-                        'size_freed': file_size,
-                        'format_deleted': file_to_delete.suffix.upper()
-                    })
+                    results.files_deleted += 1
+                    results.space_freed += file_size
+                    results.deleted_files.append(str(file_to_delete))
 
                     self.logger.info(f"Eliminado: {file_to_delete.name}, Mantenido: {file_to_keep.name}")
 
                 except Exception as e:
                     error_msg = f"Error eliminando {file_to_delete}: {str(e)}"
-                    results['errors'].append(error_msg)
+                    results.add_error(error_msg)
                     self.logger.error(error_msg)
 
-            if results['errors']:
-                results['success'] = len(results['errors']) < len(duplicate_pairs)
+            if results.has_errors:
+                results.success = len(results.errors) < len(duplicate_pairs)
 
             from utils.format_utils import format_size
-            freed = format_size(results['space_freed'])
+            freed = format_size(results.space_freed)
 
-            results['files_removed'] = results.get('files_deleted', 0)
-            results['kept_format'] = results.get('format_kept')
-
-            self.logger.info(f"Eliminación completada: {results['files_deleted']} archivos eliminados, "
-                           f"{freed} liberados, {len(results['errors'])} errores")
+            self.logger.info(f"Eliminación completada: {results.files_deleted} archivos eliminados, "
+                           f"{freed} liberados, {len(results.errors)} errores")
 
         except Exception as e:
             error_msg = f"Error durante eliminación: {str(e)}"
-            results['errors'].append(error_msg)
-            results['success'] = False
+            results.add_error(error_msg)
             self.logger.error(error_msg)
 
         return results
