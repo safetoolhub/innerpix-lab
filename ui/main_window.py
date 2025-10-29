@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QTimer
 
-import config
+from config import Config
 from services.file_renamer import FileRenamer
 from ui.components import Header
 from ui.workers import AnalysisWorker
@@ -57,17 +57,17 @@ class MainWindow(QMainWindow):
 
         # Actualizar config global con directorios personalizados
         if custom_log_dir:
-            config.Config.DEFAULT_LOG_DIR = custom_log_dir
+            Config.DEFAULT_LOG_DIR = custom_log_dir
         if custom_backup_dir:
-            config.Config.DEFAULT_BACKUP_DIR = custom_backup_dir
-        config.Config.LOG_LEVEL = log_level
+            Config.DEFAULT_BACKUP_DIR = custom_backup_dir
+        Config.LOG_LEVEL = log_level
 
         # Configuración de logging delegada a un manager dedicado
         # Se importa aquí para evitar dependencias circulares en el módulo
         from ui.managers.logging_manager import LoggingManager
 
         self.logging_manager = LoggingManager(
-            default_dir=config.Config.DEFAULT_LOG_DIR,
+            default_dir=Config.DEFAULT_LOG_DIR,
             level=log_level,
             logger_name='PhotokitManager'
         )
@@ -99,7 +99,7 @@ class MainWindow(QMainWindow):
         self.init_ui()
 
     def init_ui(self):
-        self.setWindowTitle(f"{config.config.APP_NAME} v{config.config.APP_VERSION}")
+        self.setWindowTitle(f"{Config.APP_NAME} v{Config.APP_VERSION}")
         self.setGeometry(100, 100, 1600, 900)
 
         central_widget = QWidget()
@@ -268,9 +268,9 @@ class MainWindow(QMainWindow):
         custom_backup_dir = self.settings_manager.get_backup_directory()
         
         if custom_log_dir:
-            config.Config.DEFAULT_LOG_DIR = custom_log_dir
+            Config.DEFAULT_LOG_DIR = custom_log_dir
         if custom_backup_dir:
-            config.Config.DEFAULT_BACKUP_DIR = custom_backup_dir
+            Config.DEFAULT_BACKUP_DIR = custom_backup_dir
 
     def show_about_dialog(self):
         """Muestra el diálogo Acerca de usando `AboutDialog`."""
@@ -310,7 +310,7 @@ class MainWindow(QMainWindow):
                         if hasattr(worker, 'stop'):
                             worker.stop()
                         # Dar tiempo para terminar limpiamente
-                        if not worker.wait(config.Config.WORKER_SHUTDOWN_TIMEOUT_MS):
+                        if not worker.wait(Config.WORKER_SHUTDOWN_TIMEOUT_MS):
                             # Si no termina, forzar terminación
                             worker.quit()
                             if not worker.wait(1000):  # 1 segundo más
@@ -364,7 +364,7 @@ class MainWindow(QMainWindow):
             return
 
         # Confirmación para directorios grandes
-        if not confirm_large_directory(self, new_directory, file_count, config.config.LARGE_DIRECTORY_THRESHOLD):
+        if not confirm_large_directory(self, new_directory, file_count, Config.LARGE_DIRECTORY_THRESHOLD):
             self.logger.info(f"Análisis cancelado por el usuario para: {new_directory}")
             return
 
@@ -439,7 +439,7 @@ class MainWindow(QMainWindow):
             return
 
         # Si es grande, pedir confirmación adicional
-        if not confirm_large_directory(self, new_directory, file_count, config.config.LARGE_DIRECTORY_THRESHOLD):
+        if not confirm_large_directory(self, new_directory, file_count, Config.LARGE_DIRECTORY_THRESHOLD):
             self.logger.info(f"Cambio de directorio cancelado por el usuario para: {new_directory}")
             return
 

@@ -4,7 +4,7 @@ Este módulo contiene todos los QThread workers que ejecutan operaciones
 en segundo plano para no bloquear la interfaz gráfica.
 """
 from PyQt6.QtCore import QThread, pyqtSignal
-import config
+from config import Config
 
 
 class BaseWorker(QThread):
@@ -100,9 +100,9 @@ class AnalysisWorker(BaseWorker):
                     return
                 
                 if f.is_file():
-                    if config.config.is_image_file(f.name):
+                    if Config.is_image_file(f.name):
                         images.append(f)
-                    elif config.config.is_video_file(f.name):
+                    elif Config.is_video_file(f.name):
                         videos.append(f)
                     else:
                         others.append(f)

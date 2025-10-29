@@ -12,7 +12,7 @@ os.environ['QT_LOGGING_RULES'] = 'qt.qpa.wayland=false'
 
 from PyQt6.QtWidgets import QApplication
 from ui.main_window import MainWindow
-import config
+from config import Config
 
 
 def main():
@@ -20,8 +20,8 @@ def main():
     app = QApplication(sys.argv)
 
     # Configurar la aplicación
-    app.setApplicationName(config.Config.APP_NAME)
-    app.setApplicationVersion(config.Config.APP_VERSION)
+    app.setApplicationName(Config.APP_NAME)
+    app.setApplicationVersion(Config.APP_VERSION)
     app.setOrganizationName("Novacode-labs")
 
     # Crear y mostrar ventana principal

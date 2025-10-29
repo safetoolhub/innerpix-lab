@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (
     QMessageBox, QCheckBox, QSpinBox
 )
 from PyQt6.QtCore import Qt, pyqtSignal
-import config
+from config import Config
 from ui import styles as ui_styles
 from utils.logger import set_global_log_level, get_logger
 from utils.settings_manager import settings_manager
@@ -188,7 +188,7 @@ class SettingsDialog(QDialog):
         logs_dir_layout.addWidget(logs_label)
 
         self.logs_edit = QLineEdit()
-        self.logs_edit.setText(str(self.parent_window.logs_directory if self.parent_window else config.Config.DEFAULT_LOG_DIR))
+        self.logs_edit.setText(str(self.parent_window.logs_directory if self.parent_window else Config.DEFAULT_LOG_DIR))
         self.logs_edit.setReadOnly(True)
         self.logs_edit.setStyleSheet(ui_styles.STYLE_DIRECTORY_EDIT)
         logs_dir_layout.addWidget(self.logs_edit)
@@ -251,7 +251,7 @@ class SettingsDialog(QDialog):
         backup_row.addWidget(backup_label)
 
         self.backup_edit = QLineEdit()
-        self.backup_edit.setText(str(config.Config.DEFAULT_BACKUP_DIR))
+        self.backup_edit.setText(str(Config.DEFAULT_BACKUP_DIR))
         self.backup_edit.setReadOnly(True)
         self.backup_edit.setStyleSheet(ui_styles.STYLE_DIRECTORY_EDIT)
         backup_row.addWidget(self.backup_edit)
@@ -340,12 +340,12 @@ class SettingsDialog(QDialog):
 
         self.max_workers_spin = QSpinBox()
         self.max_workers_spin.setMinimum(1)
-        self.max_workers_spin.setMaximum(config.Config.MAX_WORKER_THREADS)
-        self.max_workers_spin.setValue(config.Config.MAX_WORKERS)
+        self.max_workers_spin.setMaximum(Config.MAX_WORKER_THREADS)
+        self.max_workers_spin.setValue(Config.MAX_WORKERS)
         self.max_workers_spin.setToolTip(
             f"Número de hilos paralelos para procesar archivos.\n"
             f"Más hilos = más rápido, pero mayor uso de CPU.\n"
-            f"Recomendado: {config.Config.MAX_WORKERS}"
+            f"Recomendado: {Config.MAX_WORKERS}"
         )
         workers_layout.addWidget(self.max_workers_spin)
         workers_layout.addStretch()
@@ -430,7 +430,7 @@ class SettingsDialog(QDialog):
             self.auto_analyze_checkbox.setChecked(settings_manager.get_auto_analyze())
 
             # Advanced tab
-            self.max_workers_spin.setValue(settings_manager.get_max_workers(config.Config.MAX_WORKERS))
+            self.max_workers_spin.setValue(settings_manager.get_max_workers(Config.MAX_WORKERS))
 
             # Directories tab - Log level
             current_level = settings_manager.get_log_level("INFO")
@@ -548,7 +548,7 @@ class SettingsDialog(QDialog):
             level = level_map.get(level_name, logging.INFO)
 
             # Actualizar config
-            config.Config.LOG_LEVEL = level_name
+            Config.LOG_LEVEL = level_name
             
             # Actualizar TODOS los loggers globalmente
             set_global_log_level(level)
@@ -584,8 +584,8 @@ class SettingsDialog(QDialog):
 
         if reply == QMessageBox.StandardButton.Yes:
             # Restaurar valores
-            self.logs_edit.setText(str(config.Config.DEFAULT_LOG_DIR))
-            self.backup_edit.setText(str(config.Config.DEFAULT_BACKUP_DIR))
+            self.logs_edit.setText(str(Config.DEFAULT_LOG_DIR))
+            self.backup_edit.setText(str(Config.DEFAULT_BACKUP_DIR))
             self.log_level_combo.setCurrentIndex(1)  # INFO
             self.auto_backup_checkbox.setChecked(True)
             self.confirm_operations_checkbox.setChecked(True)
@@ -595,7 +595,7 @@ class SettingsDialog(QDialog):
             self.show_notifications_checkbox.setChecked(True)
             self.sound_notifications_checkbox.setChecked(False)
             self.dry_run_default_checkbox.setChecked(False)
-            self.max_workers_spin.setValue(config.Config.MAX_WORKERS)
+            self.max_workers_spin.setValue(Config.MAX_WORKERS)
 
             QMessageBox.information(self, "✓ Restaurado", "Configuración restaurada a valores por defecto.\n\n"
                                    "Presiona 'Guardar Cambios' para aplicar.")

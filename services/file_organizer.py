@@ -11,7 +11,7 @@ from collections import defaultdict, Counter
 from dataclasses import dataclass
 from enum import Enum
 
-import config
+from config import Config
 from utils.logger import get_logger
 from utils.callback_utils import safe_progress_callback
 from utils.date_utils import parse_renamed_name, get_file_date
@@ -116,13 +116,13 @@ class FileOrganizer:
         root_file_info = []
         
         for item in root_directory.iterdir():
-            if item.is_file() and config.config.is_supported_file(item.name):
+            if item.is_file() and Config.is_supported_file(item.name):
                 root_file_names.add(item.name)
                 
                 # Para by_month y whatsapp_separate, también necesitamos info completa de archivos en raíz
                 if organization_type in (OrganizationType.BY_MONTH, OrganizationType.WHATSAPP_SEPARATE):
                     file_size = item.stat().st_size
-                    file_type = config.config.get_file_type(item.name)
+                    file_type = Config.get_file_type(item.name)
                     
                     root_file_info.append({
                         'path': item,
@@ -141,9 +141,9 @@ class FileOrganizer:
             total_size = 0
 
             for file_path in item.iterdir():
-                if file_path.is_file() and config.config.is_supported_file(file_path.name):
+                if file_path.is_file() and Config.is_supported_file(file_path.name):
                     file_size = file_path.stat().st_size
-                    file_type = config.config.get_file_type(file_path.name)
+                    file_type = Config.get_file_type(file_path.name)
 
                     subdir_files.append({
                         'path': file_path,
@@ -566,11 +566,11 @@ class FileOrganizer:
         """
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         backup_name = f"backup_organization_{root_directory.name}_{timestamp}"
-        backup_path = config.Config.DEFAULT_BACKUP_DIR / backup_name
+        backup_path = Config.DEFAULT_BACKUP_DIR / backup_name
         backup_path.mkdir(parents=True, exist_ok=True)
 
         from utils.file_utils import launch_backup_creation
-        files = [p for p in root_directory.rglob("*") if p.is_file() and config.Config.is_supported_file(p.name)]
+        files = [p for p in root_directory.rglob("*") if p.is_file() and Config.is_supported_file(p.name)]
         try:
             backup_path = launch_backup_creation(files, root_directory, backup_prefix='backup_organization', progress_callback=progress_callback, metadata_name='organization_metadata.txt')
             self.backup_dir = backup_path
@@ -806,7 +806,7 @@ class FileOrganizer:
         # Obtener todos los archivos a mover
         all_files = []
         for item in root_directory.rglob("*"):
-            if item.is_file() and config.config.is_supported_file(item.name):
+            if item.is_file() and Config.is_supported_file(item.name):
                 all_files.append(item)
 
         total_files = len(all_files)

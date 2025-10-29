@@ -10,7 +10,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 import hashlib
 
-import config
+from config import Config
 from utils.logger import get_logger
 from utils.file_utils import validate_file_exists, to_path
 from services.result_types import HeicAnalysisResult, HeicDeletionResult

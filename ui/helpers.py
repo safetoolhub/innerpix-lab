@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
     QTextEdit, QLineEdit, QButtonGroup, QRadioButton
 )
 from PyQt6.QtCore import Qt, QTimer
-import config
+from config import Config
 from ui import styles
 from ui import tabs as _tabs_module
 

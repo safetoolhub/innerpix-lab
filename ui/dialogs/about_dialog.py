@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
-import config
+from config import Config
 
 
 class AboutDialog(QDialog):
@@ -15,7 +15,7 @@ class AboutDialog(QDialog):
         self.init_ui()
 
     def init_ui(self):
-        self.setWindowTitle(f"Acerca de {config.Config.APP_NAME}")
+        self.setWindowTitle(f"Acerca de {Config.APP_NAME}")
         self.setModal(True)
         self.setFixedSize(520, 480)
 
@@ -37,7 +37,7 @@ class AboutDialog(QDialog):
         header_layout.setSpacing(8)
 
         # Título
-        title = QLabel(config.Config.APP_NAME)
+        title = QLabel(Config.APP_NAME)
         title_font = QFont()
         title_font.setPointSize(22)
         title_font.setBold(True)
@@ -47,7 +47,7 @@ class AboutDialog(QDialog):
         header_layout.addWidget(title)
 
         # Versión
-        version = QLabel(f"Versión {config.Config.APP_VERSION}")
+        version = QLabel(f"Versión {Config.APP_VERSION}")
         version.setStyleSheet("color: rgba(255, 255, 255, 0.95); font-size: 13px;")
         version.setAlignment(Qt.AlignmentFlag.AlignCenter)
         header_layout.addWidget(version)
@@ -62,7 +62,7 @@ class AboutDialog(QDialog):
         content_layout.setSpacing(15)
 
         # Descripción
-        description = QLabel(config.Config.APP_DESCRIPTION)
+        description = QLabel(Config.APP_DESCRIPTION)
         description.setStyleSheet("font-size: 13px; color: #555;")
         description.setAlignment(Qt.AlignmentFlag.AlignCenter)
         description.setWordWrap(True)
