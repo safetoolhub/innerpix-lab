@@ -13,27 +13,27 @@ def create_heic_tab(window):
     # ===== TÍTULO =====
     title = QLabel("📸 Eliminación de Duplicados HEIC/JPG")
     title.setStyleSheet(
-        "font-size: 20px; font-weight: 600; color: #212529; margin-bottom: 8px;"
+        "font-size: 20px; font-weight: 600; color: #212529; margin-bottom: 4px;"
     )
     layout.addWidget(title)
+    
+    # ===== DESCRIPCIÓN BREVE =====
+    desc = QLabel("Elimina archivos HEIC duplicados cuando existe la versión JPG con el mismo nombre")
+    desc.setStyleSheet("font-size: 13px; color: #6c757d; margin-bottom: 8px;")
+    layout.addWidget(desc)
 
-    # ===== INFORMACIÓN =====
-    info_group = QGroupBox("Información")
-    info_group.setStyleSheet(
-        "QGroupBox { font-weight: 600; color: #495057; border: 1px solid #dee2e6; "
-        "border-radius: 6px; margin-top: 12px; padding-top: 20px; } "
-        "QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 8px; background: white; }"
-    )
+    # ===== RECOMENDACIONES =====
+    info_group = QGroupBox()
+    info_group.setStyleSheet(styles.STYLE_GROUPBOX_INFO)
     info_layout = QVBoxLayout(info_group)
-    info_layout.setContentsMargins(16, 8, 16, 16)
+    info_layout.setContentsMargins(12, 12, 12, 12)
 
     info_label = QLabel(
-        "Esta función elimina duplicados cuando existen archivos <b>HEIC</b> y <b>JPG</b> "
-        "con el mismo nombre en el directorio.<br><br>"
-        "Se conservarán los archivos JPG y se eliminarán los HEIC correspondientes."
-    )
-    info_label.setStyleSheet(
-        "color: #495057; font-size: 13px; line-height: 1.6;"
+        "<p style='margin: 0 0 6px 0;'><b style='color: #17a2b8;'>💡 Recomendación:</b> "
+        "Ejecutar antes de renombrar archivos</p>"
+        "<p style='margin: 0; color: #495057; font-size: 12px;'>"
+        "Se conservarán los archivos JPG y se eliminarán los HEIC correspondientes. "
+        "La detección funciona mejor con nombres originales.</p>"
     )
     info_label.setWordWrap(True)
     info_layout.addWidget(info_label)
@@ -52,7 +52,7 @@ def create_heic_tab(window):
     create_details_textedit(
         window, 'heic_details', results_layout,
         placeholder="Los detalles del análisis aparecerán aquí después de seleccionar un directorio...",
-        max_height=250
+        max_height=200
     )
     layout.addWidget(results_group)
 

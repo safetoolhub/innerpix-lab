@@ -87,6 +87,7 @@ class SettingsDialog(QDialog):
 
         # === LOGS - TODO JUNTO ===
         logs_group = QGroupBox("📄 Logs y Diagnóstico")
+        logs_group.setStyleSheet(ui_styles.STYLE_GROUPBOX_SETTINGS)
         logs_layout = QVLayout(logs_group)
         logs_layout.setSpacing(12)
 
@@ -100,7 +101,9 @@ class SettingsDialog(QDialog):
 
         # Directorio de logs
         logs_dir_layout = QHBoxLayout()
-        logs_dir_layout.addWidget(QLabel("Carpeta:"))
+        logs_label = QLabel("Carpeta:")
+        logs_label.setMinimumWidth(120)
+        logs_dir_layout.addWidget(logs_label)
 
         self.logs_edit = QLineEdit()
         self.logs_edit.setText(str(self.parent_window.logs_directory))
@@ -118,7 +121,9 @@ class SettingsDialog(QDialog):
 
         # Nivel de log
         log_level_layout = QHBoxLayout()
-        log_level_layout.addWidget(QLabel("Nivel de detalle:"))
+        log_level_label = QLabel("Nivel de detalle:")
+        log_level_label.setMinimumWidth(120)
+        log_level_layout.addWidget(log_level_label)
 
         # Combo de nivel de log
         self.log_level_combo = QComboBox()
@@ -161,6 +166,7 @@ class SettingsDialog(QDialog):
 
         # === BACKUPS ===
         backup_group = QGroupBox("💾 Directorio de Backups")
+        backup_group.setStyleSheet(ui_styles.STYLE_GROUPBOX_SETTINGS)
         backup_layout = QVLayout(backup_group)
 
         backup_info = QLabel("Los backups automáticos se guardan aquí antes de cada operación.")
@@ -169,7 +175,9 @@ class SettingsDialog(QDialog):
         backup_layout.addWidget(backup_info)
 
         backup_row = QHBoxLayout()
-        backup_row.addWidget(QLabel("Carpeta:"))
+        backup_label = QLabel("Carpeta:")
+        backup_label.setMinimumWidth(120)
+        backup_row.addWidget(backup_label)
 
         self.backup_edit = QLineEdit()
         self.backup_edit.setText(str(config.config.DEFAULT_BACKUP_DIR))
@@ -198,6 +206,7 @@ class SettingsDialog(QDialog):
 
         # Confirmaciones
         confirm_group = QGroupBox("❓ Confirmaciones")
+        confirm_group.setStyleSheet(ui_styles.STYLE_GROUPBOX_SETTINGS)
         confirm_layout = QVLayout(confirm_group)
 
         self.confirm_operations_checkbox = QCheckBox("Pedir confirmación antes de ejecutar operaciones")
@@ -212,6 +221,7 @@ class SettingsDialog(QDialog):
 
         # Notificaciones
         notif_group = QGroupBox("🔔 Notificaciones")
+        notif_group.setStyleSheet(ui_styles.STYLE_GROUPBOX_SETTINGS)
         notif_layout = QVLayout(notif_group)
 
         self.show_notifications_checkbox = QCheckBox("Mostrar notificación al completar operaciones")
@@ -226,6 +236,7 @@ class SettingsDialog(QDialog):
 
         # Inicio
         startup_group = QGroupBox("🚀 Al Iniciar")
+        startup_group.setStyleSheet(ui_styles.STYLE_GROUPBOX_SETTINGS)
         startup_layout = QVLayout(startup_group)
 
         self.remember_dir_checkbox = QCheckBox("Recordar último directorio utilizado")
@@ -250,6 +261,7 @@ class SettingsDialog(QDialog):
 
         # === BACKUPS AUTOMÁTICOS ===
         backup_group = QGroupBox("💾 Backups Automáticos")
+        backup_group.setStyleSheet(ui_styles.STYLE_GROUPBOX_SETTINGS)
         backup_layout = QVLayout(backup_group)
         backup_layout.setSpacing(12)
 
@@ -268,6 +280,7 @@ class SettingsDialog(QDialog):
 
         # === MODO SIMULACIÓN ===
         dryrun_group = QGroupBox("🧪 Modo Simulación")
+        dryrun_group.setStyleSheet(ui_styles.STYLE_GROUPBOX_SETTINGS)
         dryrun_layout = QVLayout(dryrun_group)
         dryrun_layout.setSpacing(12)
 

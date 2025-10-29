@@ -13,25 +13,26 @@ def create_live_photos_tab(window):
     # ===== TÍTULO =====
     title = QLabel("🎬 Limpieza de Live Photos")
     title.setStyleSheet(
-        "font-size: 20px; font-weight: 600; color: #212529; margin-bottom: 8px;"
+        "font-size: 20px; font-weight: 600; color: #212529; margin-bottom: 4px;"
     )
     layout.addWidget(title)
+    
+    # ===== DESCRIPCIÓN BREVE =====
+    desc = QLabel("Detecta y limpia Live Photos de iPhone (imagen JPG + video MOV)")
+    desc.setStyleSheet("font-size: 13px; color: #6c757d; margin-bottom: 8px;")
+    layout.addWidget(desc)
 
-    # ===== INFORMACIÓN IMPORTANTE =====
+    # ===== RECOMENDACIONES =====
     info_group = QGroupBox()
     info_group.setStyleSheet(styles.STYLE_GROUPBOX_INFO)
     info_layout = QVBoxLayout(info_group)
-    info_layout.setContentsMargins(16, 16, 16, 16)
+    info_layout.setContentsMargins(12, 12, 12, 12)
 
     info_label = QLabel(
-        "<p style='margin: 0 0 12px 0; font-size: 14px;'><b style='color: #17a2b8;'>💡 Recomendación de Uso</b></p>"
-        "<p style='margin: 0 0 8px 0; color: #0c5460;'><b>📌 Mejor momento para ejecutar:</b> Antes de renombrar archivos</p>"
-        "<p style='margin: 0 0 12px 0; color: #495057;'>"
-        "Esta función detecta y limpia <b>Live Photos de iPhone</b>, que consisten en una imagen JPG "
-        "acompañada de un video MOV corto.</p>"
-        "<p style='margin: 0; color: #0c5460;'>"
-        "<b>Nota:</b> La detección funciona mejor cuando los archivos mantienen sus nombres originales. "
-        "Si ya has renombrado los archivos, algunos Live Photos podrían no detectarse correctamente.</p>"
+        "<p style='margin: 0 0 6px 0;'><b style='color: #17a2b8;'>💡 Recomendación:</b> "
+        "Ejecutar antes de renombrar archivos</p>"
+        "<p style='margin: 0; color: #495057; font-size: 12px;'>"
+        "La detección funciona mejor con nombres originales. Si ya renombraste, algunos Live Photos podrían no detectarse.</p>"
     )
     info_label.setWordWrap(True)
     info_layout.addWidget(info_label)
@@ -50,7 +51,7 @@ def create_live_photos_tab(window):
     create_details_textedit(
         window, 'lp_details', results_layout,
         placeholder="Los detalles del análisis aparecerán aquí después de seleccionar un directorio...",
-        max_height=250
+        max_height=200
     )
     layout.addWidget(results_group)
 

@@ -12,15 +12,20 @@ def create_organizer_tab(window):
 
     # ===== TÍTULO =====
     title = QLabel("📁 Organización de Archivos")
-    title.setStyleSheet(styles.STYLE_TAB_TITLE)
+    title.setStyleSheet("font-size: 20px; font-weight: 600; color: #212529; margin-bottom: 4px;")
     layout.addWidget(title)
+    
+    # ===== DESCRIPCIÓN BREVE =====
+    desc = QLabel("Organiza archivos de subdirectorios según diferentes criterios de clasificación")
+    desc.setStyleSheet("font-size: 13px; color: #6c757d; margin-bottom: 8px;")
+    layout.addWidget(desc)
 
     # ===== TIPO DE ORGANIZACIÓN =====
     org_type_group = QGroupBox("Tipo de Organización")
     org_type_group.setStyleSheet(styles.STYLE_GROUPBOX_STANDARD)
     org_type_layout = QVBoxLayout(org_type_group)
-    org_type_layout.setContentsMargins(16, 4, 16, 12)
-    org_type_layout.setSpacing(4)
+    org_type_layout.setContentsMargins(12, 4, 12, 8)
+    org_type_layout.setSpacing(2)
 
     # Crear grupo de botones de radio
     window.org_type_button_group = QButtonGroup()
@@ -52,17 +57,16 @@ def create_organizer_tab(window):
 
     layout.addWidget(org_type_group)
 
-    # ===== INFORMACIÓN =====
-    info_group = QGroupBox("Información")
-    info_group.setStyleSheet(styles.STYLE_GROUPBOX_STANDARD)
+    # ===== RECOMENDACIONES =====
+    info_group = QGroupBox()
+    info_group.setStyleSheet(styles.STYLE_GROUPBOX_INFO)
     info_layout = QVBoxLayout(info_group)
-    info_layout.setContentsMargins(16, 8, 16, 16)
+    info_layout.setContentsMargins(12, 12, 12, 12)
 
     info_label = QLabel(
-        "Esta función organiza archivos encontrados en subdirectorios según el tipo seleccionado.<br><br>"
-        "Los conflictos de nombres se resuelven automáticamente añadiendo sufijos numéricos."
+        "<p style='margin: 0; color: #495057; font-size: 12px;'>"
+        "Los conflictos de nombres se resuelven automáticamente añadiendo sufijos numéricos.</p>"
     )
-    info_label.setStyleSheet(styles.STYLE_LABEL_INFO_STANDARD)
     info_label.setWordWrap(True)
     info_layout.addWidget(info_label)
     layout.addWidget(info_group)
@@ -76,7 +80,7 @@ def create_organizer_tab(window):
     create_details_textedit(
         window, 'org_details', results_layout,
         placeholder="Los detalles del análisis aparecerán aquí después de seleccionar un directorio...",
-        max_height=250
+        max_height=180
     )
     layout.addWidget(results_group)
 
