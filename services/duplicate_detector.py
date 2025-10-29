@@ -12,10 +12,12 @@ from pathlib import Path
 from typing import List, Dict, Optional, Callable, Tuple
 from dataclasses import dataclass
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from config import Config
 from utils.callback_utils import safe_progress_callback
 from utils.logger import get_logger
 from services.result_types import DuplicateAnalysisResult
+from utils.settings_manager import settings_manager
 
 # Importaciones opcionales para detección perceptual
 try:
@@ -105,21 +107,42 @@ class DuplicateDetector:
         
         safe_progress_callback(progress_callback, 0, total_files, "Calculando hashes SHA256...")
         
-        # Calcular hashes
+        # Obtener número de workers de configuración
+        max_workers = settings_manager.get_max_workers(Config.MAX_WORKERS)
+        self.logger.debug(f"Usando {max_workers} workers para procesamiento paralelo")
+        
+        # Calcular hashes en paralelo
         hash_map = defaultdict(list)
         processed = 0
         
         from utils.file_utils import calculate_file_hash
-        for file_path in all_files:
+        
+        # Función para calcular hash de un archivo
+        def process_file(file_path):
             try:
                 file_hash = calculate_file_hash(file_path, cache=self._hash_cache)
-                hash_map[file_hash].append(file_path)
-
+                return (file_path, file_hash, None)
+            except Exception as e:
+                return (file_path, None, str(e))
+        
+        # Procesar archivos en paralelo
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # Enviar todos los trabajos
+            futures = {executor.submit(process_file, f): f for f in all_files}
+            
+            # Recoger resultados a medida que se completan
+            for future in as_completed(futures):
+                file_path, file_hash, error = future.result()
+                
+                if error:
+                    self.logger.warning(f"No se pudo procesar {file_path}: {error}")
+                elif file_hash:
+                    hash_map[file_hash].append(file_path)
+                
                 processed += 1
                 if processed % Config.PROGRESS_CALLBACK_INTERVAL == 0 or processed == total_files:
-                    safe_progress_callback(progress_callback, processed, total_files, "Calculando hashes SHA256...")
-            except Exception as e:
-                self.logger.warning(f"No se pudo procesar {file_path}: {e}")
+                    safe_progress_callback(progress_callback, processed, total_files, 
+                                         f"Calculando hashes SHA256... ({processed}/{total_files})")
         
         # Filtrar solo grupos con duplicados
         duplicate_groups = []
@@ -201,35 +224,70 @@ class DuplicateDetector:
         
         safe_progress_callback(progress_callback, 0, total_files, "Calculando hashes perceptuales...")
         
-        # Calcular hashes perceptuales
+        # Obtener número de workers de configuración
+        max_workers = settings_manager.get_max_workers(Config.MAX_WORKERS)
+        self.logger.debug(f"Usando {max_workers} workers para hashing perceptual")
+        
+        # Calcular hashes perceptuales en paralelo
         perceptual_hashes = {}
         processed = 0
         
-        for img_path in image_files:
+        # Función para calcular hash perceptual de una imagen
+        def process_image(img_path):
             try:
                 phash = self._calculate_perceptual_hash(img_path)
-                if phash:
+                return (img_path, phash, None)
+            except Exception as e:
+                return (img_path, None, str(e))
+        
+        # Procesar imágenes en paralelo
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(process_image, f): f for f in image_files}
+            
+            for future in as_completed(futures):
+                img_path, phash, error = future.result()
+                
+                if error:
+                    self.logger.warning(f"No se pudo procesar imagen {img_path}: {error}")
+                elif phash:
                     perceptual_hashes[img_path] = phash
                 
                 processed += 1
                 if processed % Config.PROGRESS_CALLBACK_INTERVAL == 0 or processed == total_files:
-                    safe_progress_callback(progress_callback, processed, total_files, "Calculando hashes perceptuales...")
-            except Exception as e:
-                self.logger.warning(f"No se pudo procesar imagen {img_path}: {e}")
+                    safe_progress_callback(progress_callback, processed, total_files, 
+                                         f"Calculando hashes perceptuales... ({processed}/{total_files})")
         
         # Videos (extraer frames si está disponible)
-        if VIDEO_ANALYSIS_AVAILABLE:
-            for vid_path in video_files:
+        if VIDEO_ANALYSIS_AVAILABLE and video_files:
+            def process_video(vid_path):
                 try:
                     phash = self._calculate_video_hash(vid_path)
-                    if phash:
+                    return (vid_path, phash, None)
+                except Exception as e:
+                    return (vid_path, None, str(e))
+            
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = {executor.submit(process_video, f): f for f in video_files}
+                
+                for future in as_completed(futures):
+                    vid_path, phash, error = future.result()
+                    
+                    if error:
+                        self.logger.warning(f"No se pudo procesar video {vid_path}: {error}")
+                    elif phash:
                         perceptual_hashes[vid_path] = phash
                     
                     processed += 1
                     if processed % Config.PROGRESS_CALLBACK_INTERVAL == 0 or processed == total_files:
-                        safe_progress_callback(progress_callback, processed, total_files, "Calculando hashes perceptuales...")
-                except Exception as e:
-                    self.logger.warning(f"No se pudo procesar video {vid_path}: {e}")
+                        safe_progress_callback(progress_callback, processed, total_files, 
+                                             f"Calculando hashes perceptuales... ({processed}/{total_files})")
+        elif video_files:
+            # Si no hay soporte para videos, solo incrementar el contador
+            for vid_path in video_files:
+                processed += 1
+                if processed % Config.PROGRESS_CALLBACK_INTERVAL == 0 or processed == total_files:
+                    safe_progress_callback(progress_callback, processed, total_files, 
+                                         f"Calculando hashes perceptuales... ({processed}/{total_files})")
         
         # Agrupar por similitud
         safe_progress_callback(progress_callback, total_files, total_files, "Agrupando similares...")
