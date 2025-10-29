@@ -8,10 +8,12 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Optional, Tuple, Callable
 from collections import defaultdict, Counter
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from config import Config
 from utils.logger import get_logger
 from utils.callback_utils import safe_progress_callback
+from utils.settings_manager import settings_manager
 from services.result_types import RenameResult
 from utils.date_utils import (
     get_file_date,
@@ -71,44 +73,66 @@ class FileRenamer:
         total_files = len(all_files)
 
         renaming_map = {}
-        processed = 0
+        
+        # Obtener max_workers de la configuración
+        max_workers = settings_manager.get_max_workers(Config.MAX_WORKERS)
+        self.logger.debug(f"Usando {max_workers} workers para análisis paralelo")
 
-        for file_path in all_files:
-            processed += 1
-
-            if processed % 10 == 0:
-                safe_progress_callback(progress_callback, processed, total_files, "Analizando nombres de archivos")
-
+        # Función para procesar un archivo
+        def process_file(file_path):
+            """Procesa un archivo y retorna su información de renombrado"""
+            # Archivo ya renombrado
             if is_renamed_filename(file_path.name):
-                results['already_renamed'] += 1
-                continue
-
+                return ('already_renamed', file_path, None)
+            
+            # Obtener fecha del archivo
             file_date = get_file_date(file_path)
             if not file_date:
-                results['cannot_process'] += 1
-                results['issues'].append(f"No se pudo obtener fecha: {file_path.name}")
-                continue
-
+                return ('no_date', file_path, f"No se pudo obtener fecha: {file_path.name}")
+            
+            # Verificar tipo de archivo
             file_type = Config.get_file_type(file_path.name)
             if file_type == 'OTHER':
-                results['cannot_process'] += 1
-                results['issues'].append(f"Tipo de archivo no soportado: {file_path.name}")
-                continue
-
+                return ('unsupported', file_path, f"Tipo de archivo no soportado: {file_path.name}")
+            
             extension = file_path.suffix
             renamed_name = format_renamed_name(file_date, file_type, extension)
-
-            if renamed_name not in renaming_map:
-                renaming_map[renamed_name] = []
-
-            renaming_map[renamed_name].append({
+            
+            return ('rename', file_path, {
+                'renamed_name': renamed_name,
                 'original_path': file_path,
                 'date': file_date,
                 'type': file_type,
                 'extension': extension
             })
 
-            results['files_by_year'][file_date.year] += 1
+        # Procesar archivos en paralelo
+        processed = 0
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(process_file, f): f for f in all_files}
+            
+            for future in as_completed(futures):
+                processed += 1
+                
+                if processed % 10 == 0:
+                    safe_progress_callback(progress_callback, processed, total_files, "Analizando nombres de archivos")
+                
+                status, file_path, data = future.result()
+                
+                if status == 'already_renamed':
+                    results['already_renamed'] += 1
+                elif status == 'no_date':
+                    results['cannot_process'] += 1
+                    results['issues'].append(data)
+                elif status == 'unsupported':
+                    results['cannot_process'] += 1
+                    results['issues'].append(data)
+                elif status == 'rename':
+                    renamed_name = data['renamed_name']
+                    if renamed_name not in renaming_map:
+                        renaming_map[renamed_name] = []
+                    renaming_map[renamed_name].append(data)
+                    results['files_by_year'][data['date'].year] += 1
 
         safe_progress_callback(progress_callback, total_files, total_files, "Analizando nombres de archivos")
 

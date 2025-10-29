@@ -10,10 +10,12 @@ from typing import List, Dict, Optional, Set, Callable
 from collections import defaultdict, Counter
 from dataclasses import dataclass
 from enum import Enum
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from config import Config
 from utils.logger import get_logger
 from utils.callback_utils import safe_progress_callback
+from utils.settings_manager import settings_manager
 from utils.date_utils import parse_renamed_name, get_file_date
 from services.result_types import OrganizationResult
 
@@ -111,25 +113,47 @@ class FileOrganizer:
             'folders_to_create': set()
         }
 
+        # Obtener max_workers de la configuración
+        max_workers = settings_manager.get_max_workers(Config.MAX_WORKERS)
+        self.logger.debug(f"Usando {max_workers} workers para análisis paralelo")
+
+        # Función para procesar información de archivo
+        def get_file_info(file_path):
+            """Obtiene información de un archivo"""
+            try:
+                file_size = file_path.stat().st_size
+                file_type = Config.get_file_type(file_path.name)
+                return {
+                    'path': file_path,
+                    'name': file_path.name,
+                    'size': file_size,
+                    'type': file_type
+                }
+            except Exception as e:
+                self.logger.warning(f"Error al obtener info de {file_path}: {e}")
+                return None
+
         # Obtener archivos en raíz
         root_file_names = set()
         root_file_info = []
         
-        for item in root_directory.iterdir():
-            if item.is_file() and Config.is_supported_file(item.name):
-                root_file_names.add(item.name)
-                
-                # Para by_month y whatsapp_separate, también necesitamos info completa de archivos en raíz
-                if organization_type in (OrganizationType.BY_MONTH, OrganizationType.WHATSAPP_SEPARATE):
-                    file_size = item.stat().st_size
-                    file_type = Config.get_file_type(item.name)
+        root_files_list = [item for item in root_directory.iterdir() 
+                          if item.is_file() and Config.is_supported_file(item.name)]
+        
+        # Procesar archivos de raíz en paralelo si es necesario
+        if organization_type in (OrganizationType.BY_MONTH, OrganizationType.WHATSAPP_SEPARATE) and root_files_list:
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = {executor.submit(get_file_info, f): f for f in root_files_list}
+                for future in as_completed(futures):
+                    file_path = futures[future]
+                    root_file_names.add(file_path.name)
                     
-                    root_file_info.append({
-                        'path': item,
-                        'name': item.name,
-                        'size': file_size,
-                        'type': file_type
-                    })
+                    info = future.result()
+                    if info:
+                        root_file_info.append(info)
+        else:
+            # Solo necesitamos los nombres para TO_ROOT
+            root_file_names = {item.name for item in root_files_list}
 
         # Procesar subdirectorios
         for item in root_directory.iterdir():
@@ -137,23 +161,24 @@ class FileOrganizer:
                 continue
 
             subdir_name = item.name
+            subdir_files_list = [file_path for file_path in item.iterdir()
+                                if file_path.is_file() and Config.is_supported_file(file_path.name)]
+            
+            if not subdir_files_list:
+                continue
+
+            # Procesar archivos del subdirectorio en paralelo
             subdir_files = []
             total_size = 0
-
-            for file_path in item.iterdir():
-                if file_path.is_file() and Config.is_supported_file(file_path.name):
-                    file_size = file_path.stat().st_size
-                    file_type = Config.get_file_type(file_path.name)
-
-                    subdir_files.append({
-                        'path': file_path,
-                        'name': file_path.name,
-                        'size': file_size,
-                        'type': file_type
-                    })
-
-                    total_size += file_size
-                    results['files_by_type'][file_type] += 1
+            
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = {executor.submit(get_file_info, f): f for f in subdir_files_list}
+                for future in as_completed(futures):
+                    info = future.result()
+                    if info:
+                        subdir_files.append(info)
+                        total_size += info['size']
+                        results['files_by_type'][info['type']] += 1
 
             if subdir_files:
                 results['subdirectories'][subdir_name] = {
