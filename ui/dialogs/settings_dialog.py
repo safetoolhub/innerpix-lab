@@ -109,7 +109,7 @@ class SettingsDialog(QDialog):
         backup_info.setWordWrap(True)
         backup_layout.addWidget(backup_info)
 
-        self.auto_backup_checkbox = QCheckBox("✓ Crear backup automáticamente antes de cada operación destructiva")
+        self.auto_backup_checkbox = QCheckBox("Crear backup automáticamente antes de cada operación destructiva")
         self.auto_backup_checkbox.setChecked(True)
         self.auto_backup_checkbox.setToolTip(
             "Si está activado, se creará una copia de seguridad de los archivos antes de:\n"
@@ -148,13 +148,8 @@ class SettingsDialog(QDialog):
 
         self.show_notifications_checkbox = QCheckBox("Mostrar notificación al completar operaciones")
         self.show_notifications_checkbox.setChecked(True)
+        self.show_notifications_checkbox.setToolTip("Muestra una notificación cuando se completan las operaciones")
         notif_layout.addWidget(self.show_notifications_checkbox)
-
-        self.sound_notifications_checkbox = QCheckBox("Reproducir sonido con notificaciones")
-        self.sound_notifications_checkbox.setChecked(False)
-        self.sound_notifications_checkbox.setEnabled(False)  # Feature no implementada aún
-        self.sound_notifications_checkbox.setToolTip("Funcionalidad no implementada actualmente")
-        notif_layout.addWidget(self.sound_notifications_checkbox)
 
         layout.addWidget(notif_group)
 
@@ -286,36 +281,7 @@ class SettingsDialog(QDialog):
         self.remember_dir_checkbox.setToolTip("Al abrir la app, se pre-carga el último directorio usado")
         startup_layout.addWidget(self.remember_dir_checkbox)
 
-        self.auto_analyze_checkbox = QCheckBox("Analizar automáticamente al abrir un directorio")
-        self.auto_analyze_checkbox.setChecked(False)
-        self.auto_analyze_checkbox.setToolTip(
-            "Inicia el análisis automáticamente sin pulsar 'Analizar Directorio'.\n"
-            "¡Cuidado! Puede ser lento en directorios grandes."
-        )
-        startup_layout.addWidget(self.auto_analyze_checkbox)
-
         layout.addWidget(startup_group)
-
-        # === INTERFAZ ===
-        ui_group = QGroupBox("🎨 Interfaz")
-        ui_group.setStyleSheet(ui_styles.STYLE_GROUPBOX_SETTINGS)
-        ui_layout = QVLayout(ui_group)
-
-        theme_layout = QHBoxLayout()
-        theme_label = QLabel("Tema:")
-        theme_label.setMinimumWidth(100)
-        theme_layout.addWidget(theme_label)
-
-        self.theme_combo = QComboBox()
-        self.theme_combo.addItems(["Oscuro (por defecto)", "Claro", "Sistema"])
-        self.theme_combo.setCurrentIndex(0)
-        self.theme_combo.setEnabled(False)  # Feature no implementada
-        self.theme_combo.setToolTip("Funcionalidad no implementada actualmente")
-        theme_layout.addWidget(self.theme_combo)
-        theme_layout.addStretch()
-
-        ui_layout.addLayout(theme_layout)
-        layout.addWidget(ui_group)
 
         layout.addStretch()
         return widget
@@ -427,7 +393,6 @@ class SettingsDialog(QDialog):
             self.remember_dir_checkbox.setChecked(settings_manager.get_bool(
                 settings_manager.KEY_REMEMBER_DIR, True
             ))
-            self.auto_analyze_checkbox.setChecked(settings_manager.get_auto_analyze())
 
             # Advanced tab
             self.max_workers_spin.setValue(settings_manager.get_max_workers(Config.MAX_WORKERS))
@@ -591,9 +556,7 @@ class SettingsDialog(QDialog):
             self.confirm_operations_checkbox.setChecked(True)
             self.confirm_delete_checkbox.setChecked(True)
             self.remember_dir_checkbox.setChecked(True)
-            self.auto_analyze_checkbox.setChecked(False)
             self.show_notifications_checkbox.setChecked(True)
-            self.sound_notifications_checkbox.setChecked(False)
             self.dry_run_default_checkbox.setChecked(False)
             self.max_workers_spin.setValue(Config.MAX_WORKERS)
 
@@ -630,11 +593,9 @@ class SettingsDialog(QDialog):
             settings_manager.set(settings_manager.KEY_CONFIRM_OPERATIONS, self.confirm_operations_checkbox.isChecked())
             settings_manager.set(settings_manager.KEY_CONFIRM_DELETE, self.confirm_delete_checkbox.isChecked())
             settings_manager.set(settings_manager.KEY_SHOW_NOTIFICATIONS, self.show_notifications_checkbox.isChecked())
-            settings_manager.set(settings_manager.KEY_SOUND_NOTIFICATIONS, self.sound_notifications_checkbox.isChecked())
 
             # === COMPORTAMIENTO ===
             settings_manager.set(settings_manager.KEY_REMEMBER_DIR, self.remember_dir_checkbox.isChecked())
-            settings_manager.set(settings_manager.KEY_AUTO_ANALYZE, self.auto_analyze_checkbox.isChecked())
 
             # === AVANZADO ===
             settings_manager.set(settings_manager.KEY_MAX_WORKERS, self.max_workers_spin.value())
