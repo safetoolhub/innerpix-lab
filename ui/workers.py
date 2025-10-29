@@ -64,13 +64,14 @@ class AnalysisWorker(BaseWorker):
     stats_update = pyqtSignal(object)  # Changed from dict to object to support dataclasses
     partial_results = pyqtSignal(object)  # Changed from dict to object to support dataclasses
 
-    def __init__(self, directory, renamer, lp_detector, unifier, heic_remover, organization_type=None):
+    def __init__(self, directory, renamer, lp_detector, unifier, heic_remover, duplicate_detector=None, organization_type=None):
         super().__init__()
         self.directory = directory
         self.renamer = renamer
         self.lp_detector = lp_detector
         self.unifier = unifier
         self.heic_remover = heic_remover
+        self.duplicate_detector = duplicate_detector
         self.organization_type = organization_type  # None usará el default (TO_ROOT)
 
     def run(self):
@@ -80,7 +81,8 @@ class AnalysisWorker(BaseWorker):
                 'renaming': None,
                 'live_photos': None,
                 'organization': None,
-                'heic': None
+                'heic': None,
+                'duplicates': None
             }
 
             # Fase 1: Escaneo de archivos
@@ -191,6 +193,19 @@ class AnalysisWorker(BaseWorker):
                 results['heic'] = self.heic_remover.analyze_heic_duplicates(self.directory)
                 # Emitir resultados parciales después de HEIC
                 self.partial_results.emit({'heic': results['heic']})
+
+            # Fase 6: Duplicados exactos (SHA256)
+            if self._stop_requested:
+                return
+            
+            if self.duplicate_detector:
+                self.phase_update.emit("🔍 Detectando duplicados exactos...")
+                results['duplicates'] = self.duplicate_detector.analyze_exact_duplicates(
+                    self.directory,
+                    progress_callback=self._create_progress_callback(counts_in_message=True)
+                )
+                # Emitir resultados parciales después de duplicados
+                self.partial_results.emit({'duplicates': results['duplicates']})
 
             if not self._stop_requested:
                 self.finished.emit(results)

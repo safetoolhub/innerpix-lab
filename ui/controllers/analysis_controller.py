@@ -133,6 +133,7 @@ class AnalysisController:
             self.window.live_photo_detector,
             self.window.file_organizer,
             self.window.heic_remover,
+            self.window.duplicate_detector,
             organization_type=organization_type
         )
 
@@ -216,15 +217,21 @@ class AnalysisController:
             count = lp.get('live_photos_found', 0)
             self.window.summary_action_buttons['live_photos'].setText(f"📱 Live Photos   {count:,}")
 
-            if 'organization' in partial and 'organization' in self.window.summary_action_buttons:
-                org = partial['organization']
-                count = org.get('total_files_to_move', 0)
-                self.window.summary_action_buttons['organization'].setText(f"📁 Organizador   {count:,}")
+        if 'organization' in partial and 'organization' in self.window.summary_action_buttons:
+            org = partial['organization']
+            count = org.get('total_files_to_move', 0)
+            self.window.summary_action_buttons['organization'].setText(f"📁 Organizador   {count:,}")
 
-            if 'heic' in partial and 'heic' in self.window.summary_action_buttons:
-                heic = partial['heic']
-                count = heic.get('total_duplicates', 0)
-                self.window.summary_action_buttons['heic'].setText(f"🖼️ Duplicados HEIC   {count:,}")
+        if 'heic' in partial and 'heic' in self.window.summary_action_buttons:
+            heic = partial['heic']
+            # heic es un HeicAnalysisResult (dataclass)
+            count = heic.total_duplicates if hasattr(heic, 'total_duplicates') else 0
+            self.window.summary_action_buttons['heic'].setText(f"🖼️ Duplicados HEIC   {count:,}")
+
+        if 'duplicates' in partial and 'duplicates' in self.window.summary_action_buttons:
+            dup = partial['duplicates']
+            count = dup.get('total_duplicates', 0)
+            self.window.summary_action_buttons['duplicates'].setText(f"🔍 Duplicados   {count:,}")
 
     def on_finished(self, results: dict):
         """Callback cuando termina el análisis exitosamente.
@@ -260,6 +267,11 @@ class AnalysisController:
         # Actualizar disponibilidad de pestañas
         self.window.tab_controller.update_tabs_availability(results)
 
+        # Cargar resultados iniciales de duplicados si están disponibles
+        # Esto asegura que los botones y mensajes se muestren correctamente
+        if results.get('duplicates') and hasattr(self.window, 'duplicates_controller'):
+            self.window.duplicates_controller.show_initial_results_if_available()
+
         # Mostrar paneles
         self.window.summary_panel.setVisible(True)
         self.window.tabs_widget.setVisible(True)
@@ -286,6 +298,29 @@ class AnalysisController:
         self.logger.info(
             f"Análisis completado para: {self.window.last_analyzed_directory}"
         )
+
+        # Restaurar estado de la pestaña de duplicados si es un re-análisis tras eliminación
+        if hasattr(self.window, '_restore_duplicates_tab_state'):
+            state = self.window._restore_duplicates_tab_state
+            
+            # Restaurar modo de duplicados ANTES de cambiar de pestaña
+            # Esto es importante porque el evento de cambio de pestaña
+            # llamará a show_initial_results_if_available() automáticamente
+            if state.get('is_exact_mode') is not None:
+                if state['is_exact_mode']:
+                    self.window.exact_mode_radio.setChecked(True)
+                else:
+                    self.window.similar_mode_radio.setChecked(True)
+            
+            # Restaurar pestaña activa (esto disparará currentChanged que
+            # llamará a show_initial_results_if_available() automáticamente)
+            if state.get('tab_index') is not None:
+                self.window.tabs_widget.setCurrentIndex(state['tab_index'])
+            
+            # Limpiar el estado temporal
+            delattr(self.window, '_restore_duplicates_tab_state')
+            
+            self.logger.info("Estado de pestaña de duplicados restaurado tras re-análisis")
 
         if self.worker in self.window.active_workers:
             self.window.active_workers.remove(self.worker)

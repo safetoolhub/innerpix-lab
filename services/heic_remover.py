@@ -140,8 +140,11 @@ class HEICDuplicateRemover:
         }
 
         # Encontrar archivos HEIC y JPG
-        heic_files = {}
-        jpg_files = {}
+        # Usar listas para soportar múltiples archivos con el mismo nombre en diferentes directorios
+        heic_files = defaultdict(list)
+        jpg_files = defaultdict(list)
+        total_heic_count = 0
+        total_jpg_count = 0
 
         file_iterator = directory.rglob("*") if recursive else directory.iterdir()
 
@@ -153,51 +156,59 @@ class HEICDuplicateRemover:
             base_name = file_path.stem
 
             if extension in self.heic_extensions:
-                heic_files[base_name] = file_path
+                heic_files[base_name].append(file_path)
                 self.stats['total_heic_size'] += file_path.stat().st_size
+                total_heic_count += 1
             elif extension in self.jpg_extensions:
-                jpg_files[base_name] = file_path
+                jpg_files[base_name].append(file_path)
                 self.stats['total_jpg_size'] += file_path.stat().st_size
+                total_jpg_count += 1
 
-        results['total_heic_files'] = len(heic_files)
-        results['total_jpg_files'] = len(jpg_files)
+        results['total_heic_files'] = total_heic_count
+        results['total_jpg_files'] = total_jpg_count
 
-        self.stats['heic_files_found'] = len(heic_files)
-        self.stats['jpg_files_found'] = len(jpg_files)
+        self.stats['heic_files_found'] = total_heic_count
+        self.stats['jpg_files_found'] = total_jpg_count
 
         # Encontrar pares duplicados
+        # Ahora necesitamos emparejar cada HEIC con su JPG correspondiente en el mismo directorio
         duplicate_pairs = []
         matched_heic = set()
         matched_jpg = set()
 
-        for base_name, heic_path in heic_files.items():
+        for base_name, heic_paths in heic_files.items():
             if base_name in jpg_files:
-                jpg_path = jpg_files[base_name]
+                jpg_paths = jpg_files[base_name]
+                
+                # Emparejar HEICs y JPGs que estén en el mismo directorio
+                for heic_path in heic_paths:
+                    for jpg_path in jpg_paths:
+                        # Solo emparejar si están en el mismo directorio
+                        if heic_path.parent == jpg_path.parent:
+                            try:
+                                # Crear par de duplicados
+                                duplicate_pair = DuplicatePair(
+                                    heic_path=heic_path,
+                                    jpg_path=jpg_path,
+                                    base_name=base_name,
+                                    heic_size=heic_path.stat().st_size,
+                                    jpg_size=jpg_path.stat().st_size,
+                                    directory=heic_path.parent
+                                )
 
-                try:
-                    # Crear par de duplicados
-                    duplicate_pair = DuplicatePair(
-                        heic_path=heic_path,
-                        jpg_path=jpg_path,
-                        base_name=base_name,
-                        heic_size=heic_path.stat().st_size,
-                        jpg_size=jpg_path.stat().st_size,
-                        directory=heic_path.parent
-                    )
+                                duplicate_pairs.append(duplicate_pair)
+                                matched_heic.add(str(heic_path))  # Usar ruta completa como clave
+                                matched_jpg.add(str(jpg_path))
 
-                    duplicate_pairs.append(duplicate_pair)
-                    matched_heic.add(base_name)
-                    matched_jpg.add(base_name)
+                                # Actualizar estadísticas
+                                results['potential_savings_keep_jpg'] += duplicate_pair.heic_size
+                                results['potential_savings_keep_heic'] += duplicate_pair.jpg_size
+                                results['by_directory'][str(heic_path.parent)] += 1
 
-                    # Actualizar estadísticas
-                    results['potential_savings_keep_jpg'] += duplicate_pair.heic_size
-                    results['potential_savings_keep_heic'] += duplicate_pair.jpg_size
-                    results['by_directory'][str(heic_path.parent)] += 1
+                                self.logger.debug(f"Duplicado encontrado: {base_name} en {heic_path.parent}")
 
-                    self.logger.debug(f"Duplicado encontrado: {base_name}")
-
-                except Exception as e:
-                    self.logger.warning(f"No se pudo procesar par {base_name}: {e}")
+                            except Exception as e:
+                                self.logger.warning(f"No se pudo procesar par {base_name} en {heic_path.parent}: {e}")
 
         results['duplicate_pairs'] = duplicate_pairs
         results['total_duplicates'] = len(duplicate_pairs)
@@ -205,9 +216,22 @@ class HEICDuplicateRemover:
         self.stats['duplicate_pairs_found'] = len(duplicate_pairs)
         self.stats['potential_savings'] = results['potential_savings_keep_jpg']
 
-        # Encontrar huérfanos (archivos sin pareja)
-        results['orphan_heic'] = [heic_files[name] for name in heic_files.keys() if name not in matched_heic]
-        results['orphan_jpg'] = [jpg_files[name] for name in jpg_files.keys() if name not in matched_jpg]
+        # Encontrar huérfanos (archivos sin pareja en el mismo directorio)
+        orphan_heic = []
+        orphan_jpg = []
+        
+        for base_name, heic_paths in heic_files.items():
+            for heic_path in heic_paths:
+                if str(heic_path) not in matched_heic:
+                    orphan_heic.append(heic_path)
+        
+        for base_name, jpg_paths in jpg_files.items():
+            for jpg_path in jpg_paths:
+                if str(jpg_path) not in matched_jpg:
+                    orphan_jpg.append(jpg_path)
+        
+        results['orphan_heic'] = orphan_heic
+        results['orphan_jpg'] = orphan_jpg
 
         # Calcular estadísticas de compresión
         if duplicate_pairs:
@@ -225,7 +249,13 @@ class HEICDuplicateRemover:
             total_pairs=len(duplicate_pairs),
             heic_files=results['total_heic_files'],
             jpg_files=results['total_jpg_files'],
-            total_size=self.stats['total_heic_size'] + self.stats['total_jpg_size']
+            total_size=self.stats['total_heic_size'] + self.stats['total_jpg_size'],
+            potential_savings_keep_jpg=results['potential_savings_keep_jpg'],
+            potential_savings_keep_heic=results['potential_savings_keep_heic'],
+            orphan_heic=results.get('orphan_heic', []),
+            orphan_jpg=results.get('orphan_jpg', []),
+            compression_stats=results.get('compression_stats', {}),
+            by_directory=results.get('by_directory', {})
         )
 
     # Backup creation delegated to utils.file_utils.create_backup
