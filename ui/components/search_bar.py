@@ -23,8 +23,12 @@ class SearchBar(QWidget):
         self.layout.setSpacing(10)
         self.layout.setContentsMargins(14, 10, 10, 10)
 
+        # Icono decorativo de carpeta (no clickeable)
         folder_icon = QLabel("📂")
         folder_icon.setStyleSheet(styles.STYLE_FOLDER_ICON)
+        folder_icon.setToolTip("Directorio seleccionado")
+        # Hacer que sea visualmente claro que no es clickeable
+        folder_icon.setCursor(Qt.CursorShape.ArrowCursor)
         self.layout.addWidget(folder_icon)
 
         self.directory_edit = QLineEdit()

@@ -12,29 +12,26 @@ def create_renaming_tab(window):
 
     # ===== TÍTULO =====
     title = QLabel("📝 Renombrado de Archivos")
-    title.setStyleSheet(styles.STYLE_TAB_TITLE)
+    title.setStyleSheet("font-size: 20px; font-weight: 600; color: #212529; margin-bottom: 4px;")
     layout.addWidget(title)
+    
+    # ===== DESCRIPCIÓN BREVE =====
+    desc = QLabel("Renombra archivos al formato: YYYYMMDD_HHMMSS_[VIDEO|PHOTO]_nnn.EXT")
+    desc.setStyleSheet("font-size: 13px; color: #6c757d; margin-bottom: 8px;")
+    layout.addWidget(desc)
 
-    # ===== INFORMACIÓN IMPORTANTE =====
+    # ===== RECOMENDACIONES =====
     info_group = QGroupBox()
     info_group.setStyleSheet(styles.STYLE_GROUPBOX_INFO)
     info_layout = QVBoxLayout(info_group)
-    info_layout.setContentsMargins(16, 16, 16, 16)
+    info_layout.setContentsMargins(12, 12, 12, 12)
 
     info_label = QLabel(
-        "<p style='margin: 0 0 12px 0; font-size: 14px;'><b style='color: #17a2b8;'>💡 Recomendación de Uso</b></p>"
-        "<p style='margin: 0 0 8px 0; color: #0c5460;'><b>📌 Mejor momento para ejecutar:</b> Como paso final del proceso</p>"
-        "<p style='margin: 0 0 12px 0; color: #495057;'>"
-        "Esta función renombra tus archivos siguiendo el formato estándar: "
-        "<b>YYYYMMDD_HHMMSS_[VIDEO|PHOTO]_nnn.EXT</b></p>"
-        "<p style='margin: 0 0 8px 0; color: #0c5460;'><b>Nota importante:</b> "
-        "Te recomendamos completar primero las siguientes tareas:</p>"
-        "<ul style='margin: 0 0 0 20px; padding: 0; color: #495057;'>"
-        "<li>Limpieza de Live Photos (si aplica)</li>"
-        "<li>Gestión de duplicados HEIC/JPG (si aplica)</li>"
-        "</ul>"
-        "<p style='margin: 8px 0 0 0; color: #0c5460; font-size: 12px;'>"
-        "<em>💡 Renombrar los archivos primero hará que no funcione correctamente la detección automática de Live Photos y duplicados HEIC/JPG.</em></p>"
+        "<p style='margin: 0 0 6px 0;'><b style='color: #17a2b8;'>💡 Recomendación:</b> "
+        "Ejecutar como paso final del proceso</p>"
+        "<p style='margin: 0; color: #495057; font-size: 12px;'>"
+        "Completa primero la limpieza de Live Photos y duplicados HEIC/JPG. "
+        "Renombrar antes dificulta la detección automática.</p>"
     )
     info_label.setWordWrap(True)
     info_layout.addWidget(info_label)
@@ -49,7 +46,7 @@ def create_renaming_tab(window):
     create_details_textedit(
         window, 'rename_details', results_layout,
         placeholder="Los detalles del análisis aparecerán aquí después de seleccionar un directorio...",
-        max_height=250
+        max_height=200
     )
     layout.addWidget(results_group)
 

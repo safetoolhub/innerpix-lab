@@ -15,15 +15,20 @@ def create_duplicates_tab(window):
 
     # ===== TÍTULO =====
     title = QLabel("🔍 Detección de Duplicados")
-    title.setStyleSheet(styles.STYLE_TAB_TITLE)
+    title.setStyleSheet("font-size: 20px; font-weight: 600; color: #212529; margin-bottom: 4px;")
     layout.addWidget(title)
+    
+    # ===== DESCRIPCIÓN BREVE =====
+    desc = QLabel("Busca archivos duplicados exactos (SHA256) o similares (análisis perceptual)")
+    desc.setStyleSheet("font-size: 13px; color: #6c757d; margin-bottom: 8px;")
+    layout.addWidget(desc)
 
     # ===== OPCIONES DE DETECCIÓN =====
     options_group = QGroupBox("Opciones de Detección")
     options_group.setStyleSheet(styles.STYLE_GROUPBOX_STANDARD)
     options_layout = QVBoxLayout(options_group)
-    options_layout.setSpacing(12)
-    options_layout.setContentsMargins(16, 8, 16, 16)
+    options_layout.setSpacing(8)
+    options_layout.setContentsMargins(12, 8, 12, 12)
     window.duplicate_mode_group = QButtonGroup()
 
 
@@ -31,8 +36,8 @@ def create_duplicates_tab(window):
     exact_block = QFrame()
     exact_block.setStyleSheet(styles.STYLE_FRAME_EXACT_MODE)
     exact_layout = QVBoxLayout(exact_block)
-    exact_layout.setContentsMargins(12, 10, 12, 10)
-    exact_layout.setSpacing(6)
+    exact_layout.setContentsMargins(10, 8, 10, 8)
+    exact_layout.setSpacing(4)
 
     window.exact_mode_radio = QRadioButton("⚡ Duplicados Exactos (SHA256)")
     window.exact_mode_radio.setChecked(True)
@@ -40,7 +45,7 @@ def create_duplicates_tab(window):
     window.duplicate_mode_group.addButton(window.exact_mode_radio, 0)
     exact_layout.addWidget(window.exact_mode_radio)
 
-    window.exact_info = QLabel("Archivos 100% idénticos bit a bit. Detección <b>rápida y segura</b>.")
+    window.exact_info = QLabel("Archivos 100% idénticos. Detección rápida y segura.")
     window.exact_info.setStyleSheet(styles.STYLE_LABEL_INFO_MARGIN)
     window.exact_info.setWordWrap(True)
     exact_layout.addWidget(window.exact_info)
@@ -50,8 +55,8 @@ def create_duplicates_tab(window):
     similar_block = QFrame()
     similar_block.setStyleSheet(styles.STYLE_FRAME_SIMILAR_MODE)
     similar_layout = QVBoxLayout(similar_block)
-    similar_layout.setContentsMargins(12, 10, 12, 10)
-    similar_layout.setSpacing(6)
+    similar_layout.setContentsMargins(10, 8, 10, 8)
+    similar_layout.setSpacing(4)
 
     window.similar_mode_radio = QRadioButton("🎨 Duplicados Similares (Perceptual)")
     window.similar_mode_radio.setStyleSheet(styles.STYLE_RADIO_BUTTON_BOLD)
@@ -59,8 +64,7 @@ def create_duplicates_tab(window):
     similar_layout.addWidget(window.similar_mode_radio)
 
     window.similar_info = QLabel(
-        "Archivos visualmente idénticos o muy parecidos. "
-        "Detecta copias <b>redimensionadas o recomprimidas</b>. Requiere revisión manual."
+        "Imágenes visualmente idénticas o muy parecidas. Detecta copias redimensionadas. Requiere revisión."
     )
     window.similar_info.setStyleSheet(styles.STYLE_LABEL_INFO_MARGIN)
     window.similar_info.setWordWrap(True)
@@ -70,8 +74,8 @@ def create_duplicates_tab(window):
     slider_container = QFrame()
     slider_container.setStyleSheet("QFrame { background: transparent; border: none; }")
     slider_layout = QHBoxLayout(slider_container)
-    slider_layout.setContentsMargins(24, 8, 12, 0)
-    slider_layout.setSpacing(10)
+    slider_layout.setContentsMargins(20, 4, 10, 0)
+    slider_layout.setSpacing(8)
 
     window.sens_low_lbl = QLabel("Baja")
     window.sens_low_lbl.setStyleSheet(styles.STYLE_LABEL_MUTED_SMALL)
@@ -79,7 +83,7 @@ def create_duplicates_tab(window):
     window.sensitivity_slider = QSlider(Qt.Orientation.Horizontal)
     window.sensitivity_slider.setRange(0, 20)
     window.sensitivity_slider.setValue(10)
-    window.sensitivity_slider.setFixedWidth(160)
+    window.sensitivity_slider.setFixedWidth(140)
     window.sensitivity_slider.setStyleSheet(styles.STYLE_SLIDER_SENSITIVITY)
 
     window.sens_high_lbl = QLabel("Alta")
@@ -147,16 +151,16 @@ def create_duplicates_tab(window):
     results_group = QGroupBox("Resultados del Análisis")
     results_group.setStyleSheet(
         "QGroupBox { font-weight: 600; color: #495057; border: 1px solid #dee2e6; "
-        "border-radius: 6px; margin-top: 12px; padding-top: 20px; } "
+        "border-radius: 6px; margin-top: 8px; padding-top: 20px; } "
         "QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 8px; background: white; }"
     )
     results_layout = QVBoxLayout(results_group)
-    results_layout.setContentsMargins(16, 8, 16, 16)
+    results_layout.setContentsMargins(12, 8, 12, 12)
 
     create_details_textedit(
         window, 'duplicates_details', results_layout,
         placeholder="Haz clic en 'Analizar Duplicados' para comenzar la detección...",
-        max_height=250
+        max_height=180
     )
     layout.addWidget(results_group)
 

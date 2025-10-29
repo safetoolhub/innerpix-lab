@@ -229,8 +229,13 @@ STYLE_SEARCH_CONTAINER = """
     }
 """
 
-# Icono de carpeta del search bar
-STYLE_FOLDER_ICON = "font-size: 20px; padding-top: 2px;"
+# Icono de carpeta del search bar (decorativo, no clickeable)
+STYLE_FOLDER_ICON = """
+    font-size: 18px; 
+    padding-top: 2px; 
+    color: #adb5bd;
+    opacity: 0.7;
+"""
 
 # Estilo específico para el QLineEdit readonly usado en la barra de búsqueda
 STYLE_DIRECTORY_EDIT_READONLY = """
@@ -457,6 +462,28 @@ STYLE_GROUPBOX_INFO = f"""
         left: 12px;
         padding: 0 8px;
         background: {COLORS['info_light']};
+    }}
+"""
+
+# Estilo para QGroupBox en diálogos de configuración (títulos más anchos para emojis)
+STYLE_GROUPBOX_SETTINGS = f"""
+    QGroupBox {{
+        font-weight: 600;
+        color: {COLORS['text_secondary']};
+        border: 1px solid {COLORS['border_light']};
+        border-radius: 6px;
+        margin-top: 8px;
+        padding-top: 20px;
+        padding-left: 10px;
+        padding-right: 10px;
+        padding-bottom: 10px;
+    }}
+    QGroupBox::title {{
+        subcontrol-origin: margin;
+        left: 12px;
+        padding: 0 12px 0 8px;
+        background: white;
+        min-width: 150px;
     }}
 """
 
