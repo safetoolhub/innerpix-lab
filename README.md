@@ -1,6 +1,6 @@
-# PhotoKit Manager
+# Pixaro Lab
 
-PhotoKit Manager es una aplicación de escritorio (PyQt5) para analizar y normalizar colecciones de fotos y vídeos. Está pensada especialmente para flujos provenientes de dispositivos iOS y ofrece herramientas para:
+Pixaro Lab es una aplicación de escritorio (PyQt6) para analizar y normalizar colecciones de fotos y vídeos. Está pensada especialmente para flujos provenientes de dispositivos iOS y ofrece herramientas para:
 
 - Detectar y limpiar Live Photos
 - Unificar estructuras de directorios

@@ -1,5 +1,5 @@
 """
-Logger para PhotoKit Manager
+Logger para Pixaro Lab
 
 Convenciones de niveles de log:
 - DEBUG: detalles internos de bajo nivel, útiles para debugging
@@ -15,7 +15,7 @@ import re
 
 
 # Logger raíz para toda la aplicación
-_ROOT_LOGGER_NAME = 'PhotokitManager'
+_ROOT_LOGGER_NAME = 'PixaroLab'
 _root_logger = None
 _current_level = logging.INFO
 

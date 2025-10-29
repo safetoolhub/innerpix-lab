@@ -6,7 +6,7 @@
 **Archivo:** `utils/settings_manager.py` (NUEVO)
 
 - Implementado gestor centralizado usando `QSettings` de PyQt6
-- Configuración se guarda automáticamente en: `~/.config/PhotoKit/PhotoKit Manager.conf`
+- Configuración se guarda automáticamente en: `~/.config/PhotoKit/Pixaro Lab.conf`
 - API simple y consistente para leer/escribir configuración
 - Incluye métodos de conveniencia para opciones comunes
 
@@ -201,7 +201,7 @@ def _on_settings_saved(self):
 ## 🎯 Características Destacadas
 
 ### 1. **Persistencia Real**
-La configuración se guarda en `~/.config/PhotoKit/PhotoKit Manager.conf` usando QSettings, el estándar de Qt para configuración persistente multiplataforma.
+La configuración se guarda en `~/.config/PhotoKit/Pixaro Lab.conf` usando QSettings, el estándar de Qt para configuración persistente multiplataforma.
 
 ### 2. **Respeta Preferencias del Usuario**
 Todos los diálogos ahora respetan la configuración del usuario:

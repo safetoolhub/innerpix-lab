@@ -1,8 +1,8 @@
-# Convenciones de Logging - PhotoKit Manager
+# Convenciones de Logging - Pixaro Lab
 
 ## Introducción
 
-Este documento establece las convenciones de logging para el proyecto PhotoKit Manager. Todos los módulos deben seguir estas pautas para asegurar logs consistentes, informativos y fáciles de depurar.
+Este documento establece las convenciones de logging para el proyecto Pixaro Lab. Todos los módulos deben seguir estas pautas para asegurar logs consistentes, informativos y fáciles de depurar.
 
 ## Configuración del Logger
 
@@ -39,13 +39,13 @@ set_global_log_level(logging.ERROR)
 
 El logger está configurado para mostrar:
 - Fecha y hora (formato: YYYY-MM-DD HH:MM:SS)
-- Nombre del módulo (jerárquico: PhotokitManager.NombreModulo)
+- Nombre del módulo (jerárquico: PixaroLab.NombreModulo)
 - Nivel de log
 - Mensaje (siempre en una sola línea, sin HTML)
 
 Ejemplo de salida:
 ```
-2025-10-28 14:30:45 - PhotokitManager.DuplicateDetector - INFO - Iniciando análisis de duplicados exactos en /path/to/dir
+2025-10-28 14:30:45 - PixaroLab.DuplicateDetector - INFO - Iniciando análisis de duplicados exactos en /path/to/dir
 ```
 
 ## Niveles de Log
@@ -345,4 +345,4 @@ set_global_log_level(logging.INFO)
 ---
 
 **Última actualización:** 2025-10-28
-**Autor:** PhotoKit Manager Team
+**Autor:** Pixaro Lab Team

@@ -1,4 +1,4 @@
-# 🎨 Referencia de Paleta de Colores - PhotoKit Manager
+# 🎨 Referencia de Paleta de Colores - Pixaro Lab
 
 Este documento contiene la referencia completa de la paleta de colores centralizada del proyecto.
 

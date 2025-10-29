@@ -1,4 +1,4 @@
-# PhotoKit Manager - Gestor de archivos multimedia
+# Pixaro Lab - Gestor de archivos multimedia
 # Python 3.9+
 
 # ============================================================================

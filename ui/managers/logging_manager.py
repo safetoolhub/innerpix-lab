@@ -1,11 +1,11 @@
-"""Logging manager for PhotoKit Manager.
+"""Logging manager for Pixaro Lab.
 
 Encapsulates logging configuration so that the UI modules (and others)
 can rely on a single place to configure and obtain a logger, log file
 path and logs directory.
 
 Usage:
-    manager = LoggingManager(default_dir=..., level="INFO", logger_name="PhotokitManager")
+    manager = LoggingManager(default_dir=..., level="INFO", logger_name="PixaroLab")
     logger = manager.logger
 """
 from __future__ import annotations
@@ -29,7 +29,7 @@ class LoggingManager:
         self,
         default_dir: Optional[Path | str] = None,
         level: str = "INFO",
-        logger_name: str = "PhotokitManager",
+        logger_name: str = "PixaroLab",
     ) -> None:
         self.logs_directory = Path(default_dir or Path.cwd())
         self.log_level = (str(level) or "INFO").upper()
@@ -40,7 +40,7 @@ class LoggingManager:
             self.logs_directory = Path.cwd()
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.log_file = self.logs_directory / f"photokit_manager_{timestamp}.log"
+        self.log_file = self.logs_directory / f"pixaro_lab_{timestamp}.log"
 
         numeric_level = getattr(logging, self.log_level, logging.INFO)
         logging.basicConfig(
@@ -64,7 +64,7 @@ class LoggingManager:
             self.logs_directory = Path.cwd()
         
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.log_file = self.logs_directory / f"photokit_manager_{timestamp}.log"
+        self.log_file = self.logs_directory / f"pixaro_lab_{timestamp}.log"
 
         root_logger = logging.getLogger()
         

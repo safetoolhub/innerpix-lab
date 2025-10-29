@@ -1,5 +1,5 @@
 """
-PhotoKit Manager - Punto de entrada de la aplicación
+Pixaro Lab - Punto de entrada de la aplicación
 
 Aplicación de gestión de archivos multimedia con normalización,
 detección de Live Photos, unificación de directorios y limpieza de duplicados.
@@ -22,7 +22,7 @@ def main():
     # Configurar la aplicación
     app.setApplicationName(Config.APP_NAME)
     app.setApplicationVersion(Config.APP_VERSION)
-    app.setOrganizationName("Novacode-labs")
+    app.setOrganizationName("PixaroLab")
 
     # Crear y mostrar ventana principal
     window = MainWindow()

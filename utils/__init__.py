@@ -1,5 +1,5 @@
 """
-Utilidades compartidas para PhotoKit Manager
+Utilidades compartidas para Pixaro Lab
 """
 from .logger import get_logger, SimpleLogger
 from .date_utils import (
