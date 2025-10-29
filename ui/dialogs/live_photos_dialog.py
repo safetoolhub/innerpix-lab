@@ -105,7 +105,7 @@ class LivePhotoCleanupDialog(BaseDialog):
         options_layout = QVLayout(options_group)
 
         # Backup checkbox desde BaseDialog
-        self.add_backup_checkbox(options_layout, "Crear backup antes de eliminar (Recomendado)", True)
+        self.add_backup_checkbox(options_layout, "Crear backup antes de eliminar (Recomendado)")
 
         from PyQt6.QtWidgets import QCheckBox
         self.dry_run_checkbox = QCheckBox("Modo simulación (no eliminar archivos realmente)")

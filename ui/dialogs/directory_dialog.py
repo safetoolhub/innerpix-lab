@@ -72,7 +72,7 @@ class FileOrganizationDialog(BaseDialog):
         options_layout = QVBoxLayout(options_group)
 
         # Backup checkbox desde BaseDialog
-        self.add_backup_checkbox(options_layout, "Crear backup antes de eliminar (Recomendado)", True)
+        self.add_backup_checkbox(options_layout, "Crear backup antes de eliminar (Recomendado)")
 
 
         self.cleanup_checkbox = QCheckBox("Eliminar directorios vacíos")

@@ -73,7 +73,7 @@ class HEICDuplicateRemovalDialog(BaseDialog):
             layout.addWidget(table)
 
         # Opciones: backup checkbox desde BaseDialog
-        self.add_backup_checkbox(layout, "Crear backup antes de eliminar (Recomendado)", True)
+        self.add_backup_checkbox(layout, "Crear backup antes de eliminar (Recomendado)")
 
         # Botones
         ok_enabled = self.analysis.total_duplicates > 0
