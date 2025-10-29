@@ -83,6 +83,48 @@ class DuplicatesController(QObject):
 
         self.duplicate_worker.start()
 
+    def show_initial_results_if_available(self):
+        """Muestra los resultados del análisis inicial si están disponibles.
+        
+        Este método se llama cuando el usuario entra a la pestaña de duplicados
+        y ya hay resultados del análisis inicial de duplicados exactos.
+        """
+        # Verificar si hay resultados en analysis_results
+        if not self.main_window.analysis_results:
+            self.logger.debug("No hay analysis_results disponibles")
+            return
+        
+        dup_results = self.main_window.analysis_results.get('duplicates')
+        if not dup_results:
+            self.logger.debug("No hay resultados de duplicados en analysis_results")
+            return
+        
+        # Solo mostrar si es modo exacto (del análisis inicial)
+        if dup_results.get('mode') != 'exact':
+            self.logger.debug(f"Modo de duplicados es '{dup_results.get('mode')}', no 'exact'")
+            return
+        
+        self.logger.info(f"Mostrando resultados iniciales de duplicados exactos: {dup_results.get('total_groups', 0)} grupos")
+        
+        # Guardar en el detector para mantener consistencia
+        self.duplicate_detector.set_last_results(dup_results)
+        
+        # Asegurar que el radio button de exactos esté seleccionado ANTES de mostrar
+        # Esto es crítico porque show_exact_results verifica este estado
+        self.main_window.exact_mode_radio.setChecked(True)
+        
+        # Procesar eventos de Qt para asegurar que el radio button se actualice
+        from PyQt6.QtWidgets import QApplication
+        QApplication.processEvents()
+        
+        # Mostrar los resultados con el formato rico
+        self.results_controller.show_exact_results(dup_results)
+        
+        # Habilitar el botón de análisis para permitir re-analizar
+        self.main_window.analyze_duplicates_btn.setEnabled(True)
+        
+        self.logger.debug("Resultados iniciales de duplicados mostrados correctamente")
+
     def cancel_duplicate_analysis(self):
         """Cancela el análisis de duplicados en curso"""
         if self.duplicate_worker and self.duplicate_worker.isRunning():
@@ -246,7 +288,7 @@ class DuplicatesController(QObject):
         self.main_window.duplicates_details.setHtml(markdown_like_to_html(f"🗑️ {message}"))
 
     def _on_deletion_finished(self, results):
-        """Maneja finalización de eliminación"""
+        """Maneja la finalización de eliminación de duplicados"""
         files_deleted = results['files_deleted']
         space_freed = results['space_freed']
         errors = results['errors']
@@ -272,19 +314,89 @@ class DuplicatesController(QObject):
 
         QMessageBox.information(self.main_window, "Eliminación Completada", msg)
 
-        # Actualizar UI
+        # Actualizar UI inmediatamente antes del re-análisis
+        self._update_display_after_deletion(files_deleted, size_str)
+
+        # Limpiar resultados temporalmente
+        self.duplicate_detector.clear_last_results()
+        self.main_window.analyze_duplicates_btn.setEnabled(False)
+        self.main_window.delete_exact_duplicates_btn.setVisible(False)
+        self.main_window.review_similar_btn.setVisible(False)
+
+        # Limpiar el deletion_worker de la lista de workers activos
+        if self.deletion_worker in self.main_window.active_workers:
+            self.main_window.active_workers.remove(self.deletion_worker)
+        
+        self.logger.debug("Deletion worker limpiado de active_workers")
+
+        # Programar re-análisis completo para actualizar todos los contadores
+        # Nota: el worker se limpiará completamente en schedule_reanalysis
+        self.schedule_reanalysis()
+
+    def _update_display_after_deletion(self, files_deleted, size_str):
+        """Actualiza el display inmediatamente después de la eliminación"""
+        # Actualizar summary panel
+        if hasattr(self.main_window, 'summary_action_buttons') and 'duplicates' in self.main_window.summary_action_buttons:
+            self.main_window.summary_action_buttons['duplicates'].setText("🔍 Duplicados   0")
+        
+        # Actualizar detail panel con mensaje temporal
         self.main_window.duplicates_details.setHtml(markdown_like_to_html(
             f"✅ **Eliminación completada exitosamente**\n\n"
             f"• {files_deleted} archivos eliminados\n"
             f"• {size_str} liberados\n\n"
-            f"Ejecuta un nuevo análisis para verificar."
+            f"🔄 Re-analizando directorio..."
         ))
 
-        # Limpiar resultados y restaurar botones
-        self.duplicate_detector.clear_last_results()
-        self.main_window.analyze_duplicates_btn.setEnabled(True)
-        self.main_window.delete_exact_duplicates_btn.setVisible(False)
-        self.main_window.review_similar_btn.setVisible(False)
+    def schedule_reanalysis(self, delay_ms: int = 500):
+        """Programa un re-análisis del directorio actual tras eliminación de duplicados.
+        
+        Esto mantiene consistencia con otras funcionalidades (Live Photos, HEIC, etc.)
+        que también hacen re-análisis completo tras modificar archivos.
+        
+        Args:
+            delay_ms: Milisegundos de delay antes del re-análisis
+        """
+        from PyQt6.QtCore import QTimer
+        
+        if not self.main_window.current_directory:
+            self.logger.debug("No hay directorio actual: se omite re-análisis programado")
+            return
+
+        def _do_reanalyze():
+            self.logger.info("Iniciando re-análisis automático tras eliminación de duplicados")
+            
+            # Asegurar que el deletion_worker está completamente limpio
+            if self.deletion_worker:
+                self.logger.debug("Limpiando deletion_worker antes de re-análisis")
+                if self.deletion_worker.isRunning():
+                    self.deletion_worker.quit()
+                    self.deletion_worker.wait(1000)
+                self.deletion_worker = None
+            
+            # Guardar el modo actual y la pestaña antes del re-análisis
+            current_tab_index = self.main_window.tabs_widget.currentIndex()
+            is_exact_mode = self.main_window.exact_mode_radio.isChecked()
+            
+            # Almacenar en el main_window para restaurar después
+            self.main_window._restore_duplicates_tab_state = {
+                'tab_index': current_tab_index,
+                'is_exact_mode': is_exact_mode
+            }
+            
+            # Verificar que el directorio todavía existe antes de re-analizar
+            if not self.main_window.current_directory.exists():
+                self.logger.error(f"El directorio {self.main_window.current_directory} ya no existe")
+                QMessageBox.warning(
+                    self.main_window,
+                    "Directorio no encontrado",
+                    f"El directorio {self.main_window.current_directory} ya no existe."
+                )
+                return
+            
+            self.logger.debug("Ejecutando re-análisis del mismo directorio")
+            self.main_window._reanalyze_same_directory()
+
+        QTimer.singleShot(delay_ms, _do_reanalyze)
 
     def _on_deletion_error(self, error_msg):
         """Maneja errores en eliminación"""

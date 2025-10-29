@@ -177,7 +177,28 @@ class LivePhotosController(QObject):
             self.main_window.active_workers.remove(self.execution_worker)
         self.execution_worker = None
 
+        # Actualizar inmediatamente el display para mostrar que ya no hay Live Photos
+        # antes del re-análisis (para evitar confusión durante el delay)
+        if not dry_run and results.get('success'):
+            self._update_lp_display_after_deletion()
+
         self.schedule_reanalysis()
+
+    def _update_lp_display_after_deletion(self):
+        """Actualiza el display de Live Photos para indicar que ya no hay archivos pendientes"""
+        # Actualizar el summary panel
+        if hasattr(self.main_window, 'summary_action_buttons') and 'live_photos' in self.main_window.summary_action_buttons:
+            self.main_window.summary_action_buttons['live_photos'].setText("📱 Live Photos   0")
+        
+        # Actualizar el detail panel con un mensaje temporal
+        if hasattr(self.main_window, 'lp_details'):
+            temp_html = """
+            <div style='padding: 10px; background-color: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; color: #155724;'>
+                <p style='margin: 0; font-weight: 600;'>✅ Limpieza completada</p>
+                <p style='margin: 5px 0 0 0;'>Re-analizando directorio...</p>
+            </div>
+            """
+            self.main_window.lp_details.setHtml(temp_html)
 
     def on_operation_error(self, error):
         """Callback genérico para errores"""

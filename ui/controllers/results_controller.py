@@ -165,7 +165,7 @@ class ResultsController(QObject):
         html = f"""
             <div style='color: #28a745;'>
                 <h4>✅ Eliminación de Duplicados HEIC Completada</h4>
-                <p><strong>Archivos eliminados:</strong> {results.get('files_removed', 0)}</p>
+                <p><strong>Archivos eliminados:</strong> {results.get('files_deleted', 0)}</p>
                 <p><strong>Espacio liberado:</strong> {format_size(space_freed)}</p>
                 <p><strong>Errores:</strong> {len(results.get('errors', []))}</p>
         """

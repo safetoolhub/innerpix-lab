@@ -6,7 +6,7 @@ eliminando la heterogeneidad de diccionarios con keys variables.
 """
 
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List, Optional, Dict
 from pathlib import Path
 
 
@@ -115,6 +115,12 @@ class HeicAnalysisResult(AnalysisResult):
     heic_files: int = 0
     jpg_files: int = 0
     total_size: int = 0
+    potential_savings_keep_jpg: int = 0
+    potential_savings_keep_heic: int = 0
+    orphan_heic: List = field(default_factory=list)
+    orphan_jpg: List = field(default_factory=list)
+    compression_stats: Dict = field(default_factory=dict)
+    by_directory: Dict = field(default_factory=dict)
     
     @property
     def total_duplicates(self) -> int:

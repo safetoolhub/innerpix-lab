@@ -127,13 +127,14 @@ def update_tab_details(window, results):
     
     if results.get('heic'):
         heic = results['heic']
-        savings_jpg = heic.get('potential_savings_keep_jpg', 0)
-        savings_heic = heic.get('potential_savings_keep_heic', 0)
+        # heic es un HeicAnalysisResult (dataclass)
+        savings_jpg = heic.potential_savings_keep_jpg
+        savings_heic = heic.potential_savings_keep_heic
         
         stats = {
-            '♻️ Pares detectados': heic.get('total_duplicates', 0),
-            '🖼️ Archivos HEIC': heic.get('total_heic_files', 0),
-            '📸 Archivos JPG': heic.get('total_jpg_files', 0),
+            '♻️ Pares detectados': heic.total_duplicates,
+            '🖼️ Archivos HEIC': heic.heic_files,
+            '📸 Archivos JPG': heic.jpg_files,
             '💾 Ahorro (mantener JPG)': format_size(savings_jpg),
             '💾 Ahorro (mantener HEIC)': format_size(savings_heic),
         }
@@ -142,17 +143,9 @@ def update_tab_details(window, results):
         window.heic_details.setHtml(html)
 
     if results.get('duplicates'):
-        dup = results['duplicates']
-        space = dup.get('space_wasted', dup.get('space_potential', 0))
-        stats = {
-            '🔎 Modo': dup.get('mode', '—'),
-            '📊 Grupos': dup.get('total_groups', 0),
-            '🧾 Archivos duplicados': dup.get('total_duplicates', dup.get('total_similar', 0)),
-            '💾 Espacio potencial': format_size(space),
-        }
-        html = generate_stats_html(stats)
-        if hasattr(window, 'duplicates_details'):
-            window.duplicates_details.setHtml(html)
+        # No actualizar duplicates_details aquí - se maneja en show_initial_results_if_available
+        # para mantener el formato rico de ResultsController
+        pass
 
 
 def show_results_html(window, html: str, show_generic_status: bool = False):

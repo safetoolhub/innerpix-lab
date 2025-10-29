@@ -20,15 +20,15 @@ class HEICDuplicateRemovalDialog(BaseDialog):
 
     def _update_button_text(self):
         """Actualiza el texto del botón según el formato seleccionado"""
-        if self.analysis.get('total_duplicates', 0) > 0:
+        if self.analysis.total_duplicates > 0:
             if self.selected_format == 'jpg':
-                savings = self.analysis.get('potential_savings_keep_jpg', 0)
+                savings = self.analysis.potential_savings_keep_jpg
             else:
-                savings = self.analysis.get('potential_savings_keep_heic', 0)
+                savings = self.analysis.potential_savings_keep_heic
 
             space_formatted = format_size(savings)
             self.ok_button.setText(
-                f"Proceder ({self.analysis['total_duplicates']}, {space_formatted})"
+                f"Proceder ({self.analysis.total_duplicates}, {space_formatted})"
             )
 
     def init_ui(self):
@@ -55,13 +55,13 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         layout.addWidget(format_group)
 
         # Tabla de duplicados
-        if self.analysis.get('duplicate_pairs'):
+        if self.analysis.duplicate_pairs:
             layout.addWidget(QLabel("Pares detectados (primeros 20):"))
             table = QTableWidget()
             table.setColumnCount(4)
             table.setHorizontalHeaderLabels(["Nombre", "HEIC (KB)", "JPG (KB)", "Ratio"])
 
-            pairs = self.analysis['duplicate_pairs'][:20]
+            pairs = self.analysis.duplicate_pairs[:20]
             table.setRowCount(len(pairs))
             for row, pair in enumerate(pairs):
                 table.setItem(row, 0, QTableWidgetItem(pair.base_name))
@@ -76,7 +76,7 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         self.add_backup_checkbox(layout, "Crear backup antes de eliminar (Recomendado)", True)
 
         # Botones
-        ok_enabled = self.analysis.get('total_duplicates', 0) > 0
+        ok_enabled = self.analysis.total_duplicates > 0
         self.buttons = self.make_ok_cancel_buttons(ok_enabled=ok_enabled)
         self.ok_button = self.buttons.button(QDialogButtonBox.StandardButton.Ok)
         if ok_enabled:
@@ -89,7 +89,7 @@ class HEICDuplicateRemovalDialog(BaseDialog):
 
     def accept(self):
         self.accepted_plan = self.build_accepted_plan({
-            'duplicate_pairs': self.analysis['duplicate_pairs'],
+            'duplicate_pairs': self.analysis.duplicate_pairs,
             'keep_format': self.selected_format,
         })
         super().accept()

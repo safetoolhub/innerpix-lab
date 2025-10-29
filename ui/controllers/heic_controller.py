@@ -49,7 +49,7 @@ class HEICController(QObject):
 
         heic_analysis = self.main_window.analysis_results['heic']
 
-        if heic_analysis.get('total_duplicates', 0) == 0:
+        if heic_analysis.total_duplicates == 0:
             QMessageBox.information(self.main_window, "HEIC", "No hay duplicados para eliminar")
             return
 
@@ -117,8 +117,11 @@ class HEICController(QObject):
             QMessageBox.information(
                 self.main_window,
                 "Completado",
-                f"Se eliminaron {results.get('files_removed', 0)} duplicados"
+                f"Se eliminaron {results.get('files_deleted', 0)} duplicados"
             )
+            
+            # Actualizar display inmediatamente antes del re-análisis
+            self._update_heic_display_after_deletion()
 
         self.main_window.exec_heic_btn.setEnabled(False)
 
@@ -127,6 +130,22 @@ class HEICController(QObject):
         self.execution_worker = None
 
         self.schedule_reanalysis()
+
+    def _update_heic_display_after_deletion(self):
+        """Actualiza el display de HEIC para indicar que ya no hay archivos pendientes"""
+        # Actualizar summary panel
+        if hasattr(self.main_window, 'summary_action_buttons') and 'heic' in self.main_window.summary_action_buttons:
+            self.main_window.summary_action_buttons['heic'].setText("🖼️ Duplicados HEIC   0")
+        
+        # Actualizar detail panel con mensaje temporal
+        if hasattr(self.main_window, 'heic_details'):
+            temp_html = """
+            <div style='padding: 10px; background-color: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; color: #155724;'>
+                <p style='margin: 0; font-weight: 600;'>✅ Eliminación completada</p>
+                <p style='margin: 5px 0 0 0;'>Re-analizando directorio...</p>
+            </div>
+            """
+            self.main_window.heic_details.setHtml(temp_html)
 
     def on_operation_error(self, error):
         """Callback genérico para errores"""
@@ -142,13 +161,20 @@ class HEICController(QObject):
     # AUXILIARY METHODS
     # ========================================================================
 
-    def schedule_reanalysis(self, delay_ms: int = 500):
+    def schedule_reanalysis(self, delay_ms: int = 2000):
         """Programa un re-análisis del directorio actual tras operaciones que cambian archivos"""
         if not self.main_window.current_directory:
             self.logger.debug("No hay directorio actual: se omite re-análisis programado")
             return
 
         def _do_reanalyze():
+            # Forzar sincronización del filesystem antes del re-análisis
+            import os
+            try:
+                os.sync()
+            except (AttributeError, OSError):
+                pass  # sync() no disponible en todos los sistemas
+            
             self.logger.info("Iniciando re-análisis automático tras operación que modifica archivos")
             self.main_window._reanalyze_same_directory()
 

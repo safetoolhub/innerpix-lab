@@ -76,10 +76,10 @@ class TabController:
         self.tab_availability['renaming'] = need_renaming > 0
         self.logger.debug(f"Renombrado: {need_renaming} archivos - {'habilitado' if self.tab_availability['renaming'] else 'deshabilitado'}")
 
-        # Duplicates tab: habilitar si hay grupos detectados
-        dup_groups = results.get('duplicates', {}).get('total_groups', 0)
-        self.tab_availability['duplicates'] = dup_groups > 0
-        self.logger.debug(f"Duplicados: {dup_groups} grupos - {'habilitado' if self.tab_availability['duplicates'] else 'deshabilitado'}")
+        # Duplicates tab: siempre habilitar (ahora forma parte del análisis inicial)
+        # La pestaña mostrará los resultados de duplicados exactos del análisis inicial
+        self.tab_availability['duplicates'] = True
+        self.logger.debug(f"Duplicados: siempre habilitado (análisis inicial incluye duplicados exactos)")
 
         # Aplicar los cambios en el widget
         tabs_module.update_tabs_availability(self.window, results)

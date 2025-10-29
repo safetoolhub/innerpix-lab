@@ -51,7 +51,27 @@ def create_tabs_widget(window):
     # Esto puede usarse más adelante si se necesita iterar por índices.
     window.tab_keys_by_index = {v: k for k, v in window.tab_index_map.items()}
 
+    # Conectar evento de cambio de pestaña
+    tabs.currentChanged.connect(lambda index: _on_tab_changed(window, index))
+
     return tabs
+
+
+def _on_tab_changed(window, index):
+    """Callback cuando se cambia de pestaña.
+    
+    Args:
+        window: MainWindow instance
+        index: Índice de la pestaña actual
+    """
+    if not hasattr(window, 'tab_keys_by_index'):
+        return
+    
+    tab_key = window.tab_keys_by_index.get(index)
+    
+    # Si se entra a la pestaña de duplicados, mostrar resultados iniciales si existen
+    if tab_key == 'duplicates' and hasattr(window, 'duplicates_controller'):
+        window.duplicates_controller.show_initial_results_if_available()
 
 
 def open_summary_action(window, label_substr):

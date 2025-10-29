@@ -234,20 +234,23 @@ def update_summary_panel(window, results):
     ren = results.get('renaming', {})
     lp = results.get('live_photos', {})
     org = results.get('organization', {})
-    heic = results.get('heic', {})
-    dup = results.get('duplicates', {})
+    heic = results.get('heic')  # Puede ser HeicAnalysisResult o None
+    dup = results.get('duplicates')  # Puede ser DuplicateAnalysisResult o None
 
     if hasattr(window, 'summary_action_buttons'):
         if 'live_photos' in window.summary_action_buttons:
             window.summary_action_buttons['live_photos'].setText(f"📱 Live Photos   {lp.get('live_photos_found', 0):,}")
         if 'heic' in window.summary_action_buttons:
-            window.summary_action_buttons['heic'].setText(f"🖼️ Duplicados HEIC   {heic.get('total_duplicates', 0):,}")
+            heic_count = heic.total_duplicates if heic else 0
+            window.summary_action_buttons['heic'].setText(f"🖼️ Duplicados HEIC   {heic_count:,}")
         if 'duplicates' in window.summary_action_buttons:
-            # Mostrar "Pendiente" si no hay resultados de duplicados
-            if dup and dup.get('total_duplicates', 0) > 0:
-                window.summary_action_buttons['duplicates'].setText(f"🔍 Duplicados   {dup.get('total_duplicates', 0):,}")
+            # Mostrar contador si hay resultados del análisis inicial de duplicados exactos
+            if dup is not None:
+                dup_count = dup.total_duplicates if hasattr(dup, 'total_duplicates') else 0
+                window.summary_action_buttons['duplicates'].setText(f"🔍 Duplicados   {dup_count:,}")
             else:
-                window.summary_action_buttons['duplicates'].setText("🔍 Duplicados   Pendiente")
+                # Solo mostrar "Pendiente" si no se ha ejecutado el análisis inicial
+                window.summary_action_buttons['duplicates'].setText("🔍 Duplicados   —")
         if 'organization' in window.summary_action_buttons:
             window.summary_action_buttons['organization'].setText(f"📁 Organizador   {org.get('total_files_to_move', 0):,}")
         if 'renaming' in window.summary_action_buttons:
