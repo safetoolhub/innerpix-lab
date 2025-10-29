@@ -140,8 +140,8 @@ def launch_backup_creation(
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     backup_name = f"{backup_prefix}_{base_directory.name}_{timestamp}"
 
-    from config import config as _conf
-    backup_root = _conf.DEFAULT_BACKUP_DIR
+    from config import Config
+    backup_root = Config.DEFAULT_BACKUP_DIR
 
     backup_path = backup_root / backup_name
     _ensure_backup_dir(backup_path)

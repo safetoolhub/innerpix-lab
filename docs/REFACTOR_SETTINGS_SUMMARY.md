@@ -133,9 +133,9 @@ def _on_settings_saved(self):
     custom_backup_dir = self.settings_manager.get_backup_directory()
     
     if custom_log_dir:
-        config.Config.DEFAULT_LOG_DIR = custom_log_dir
+        Config.DEFAULT_LOG_DIR = custom_log_dir
     if custom_backup_dir:
-        config.Config.DEFAULT_BACKUP_DIR = custom_backup_dir
+        Config.DEFAULT_BACKUP_DIR = custom_backup_dir
 ```
 
 ---

@@ -9,7 +9,7 @@ from typing import List, Dict, Optional, Tuple, Set
 from collections import defaultdict
 from dataclasses import dataclass
 
-import config
+from config import Config
 from utils.logger import get_logger
 from services.result_types import LivePhotoAnalysisResult
 

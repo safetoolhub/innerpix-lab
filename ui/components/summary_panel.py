@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 
-import config
+from config import Config
 from ui import styles
 
 # Nota: la disponibilidad real de las pestañas se decide mediante

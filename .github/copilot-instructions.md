@@ -35,15 +35,16 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
 - Example pattern in `services/heic_remover.py:execute_removal()`, `services/live_photo_cleaner.py:execute_cleanup()`
 - UI: `BaseDialog.add_backup_checkbox()` provides user control, `is_backup_enabled()` reads state
 
-**Config access duality**: Both `config.Config` (class) and `config.config` (module instance) exist
-- Static values: `config.Config.APP_NAME`, `config.Config.DEFAULT_LOG_DIR`
-- Dynamic helpers: `config.config.is_supported_file()`, `config.config.get_file_type()`
-- Check both when adding config values
+**Config access**: All configuration is accessed via the `Config` class
+- Import: `from config import Config`
+- Static values: `Config.APP_NAME`, `Config.DEFAULT_LOG_DIR`, `Config.SUPPORTED_IMAGE_EXTENSIONS`
+- Helper methods: `Config.is_supported_file()`, `Config.get_file_type()`, `Config.is_image_file()`
+- All methods are @classmethod, no instance needed
 
 **Logging conventions** (see `docs/LOGGING_CONVENTIONS.md`)
 - Use `get_logger('ModuleName')` not print()
 - Levels: DEBUG for internals, INFO for operations/results, WARNING for recoverable issues, ERROR for failures
-- All logs written to timestamped file in `config.Config.DEFAULT_LOG_DIR`
+- All logs written to timestamped file in `Config.DEFAULT_LOG_DIR`
 
 **File utilities** (`utils/file_utils.py`)
 - `calculate_file_hash()`: SHA256 with optional caching

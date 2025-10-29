@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import List, Dict, Optional, Callable, Tuple
 from dataclasses import dataclass
 from collections import defaultdict
-import config
+from config import Config
 from utils.callback_utils import safe_progress_callback
 from utils.logger import get_logger
 from services.result_types import DuplicateAnalysisResult
@@ -58,7 +58,7 @@ class DuplicateDetector:
     
     def __init__(self):
         self.logger = get_logger('DuplicateDetector')
-        self._hash_cache = {} if config.Config.ENABLE_HASH_CACHE else None
+        self._hash_cache = {} if Config.ENABLE_HASH_CACHE else None
         # Contenedor para almacenar los resultados del último análisis de duplicados
         # Mantener esto dentro del servicio centraliza el estado y evita que la
         # ventana principal tenga que sincronizarlo manualmente.
@@ -97,7 +97,7 @@ class DuplicateDetector:
         # Recolectar todos los archivos multimedia
         all_files = []
         for f in directory.rglob("*"):
-            if f.is_file() and config.Config.is_media_file(f.name):
+            if f.is_file() and Config.is_media_file(f.name):
                 all_files.append(f)
         
         total_files = len(all_files)
@@ -116,7 +116,7 @@ class DuplicateDetector:
                 hash_map[file_hash].append(file_path)
 
                 processed += 1
-                if processed % config.Config.PROGRESS_CALLBACK_INTERVAL == 0 or processed == total_files:
+                if processed % Config.PROGRESS_CALLBACK_INTERVAL == 0 or processed == total_files:
                     safe_progress_callback(progress_callback, processed, total_files, "Calculando hashes SHA256...")
             except Exception as e:
                 self.logger.warning(f"No se pudo procesar {file_path}: {e}")
@@ -190,9 +190,9 @@ class DuplicateDetector:
         
         for f in directory.rglob("*"):
             if f.is_file():
-                if config.Config.is_image_file(f.name):
+                if Config.is_image_file(f.name):
                     image_files.append(f)
-                elif config.Config.is_video_file(f.name):
+                elif Config.is_video_file(f.name):
                     video_files.append(f)
         
         total_files = len(image_files) + len(video_files)
@@ -212,7 +212,7 @@ class DuplicateDetector:
                     perceptual_hashes[img_path] = phash
                 
                 processed += 1
-                if processed % config.Config.PROGRESS_CALLBACK_INTERVAL == 0 or processed == total_files:
+                if processed % Config.PROGRESS_CALLBACK_INTERVAL == 0 or processed == total_files:
                     safe_progress_callback(progress_callback, processed, total_files, "Calculando hashes perceptuales...")
             except Exception as e:
                 self.logger.warning(f"No se pudo procesar imagen {img_path}: {e}")
@@ -226,7 +226,7 @@ class DuplicateDetector:
                         perceptual_hashes[vid_path] = phash
                     
                     processed += 1
-                    if processed % config.Config.PROGRESS_CALLBACK_INTERVAL == 0 or processed == total_files:
+                    if processed % Config.PROGRESS_CALLBACK_INTERVAL == 0 or processed == total_files:
                         safe_progress_callback(progress_callback, processed, total_files, "Calculando hashes perceptuales...")
                 except Exception as e:
                     self.logger.warning(f"No se pudo procesar video {vid_path}: {e}")
@@ -261,7 +261,7 @@ class DuplicateDetector:
         try:
             with Image.open(image_path) as img:
                 # Usar dhash (difference hash) que funciona bien para redimensionados
-                return imagehash.dhash(img, hash_size=config.Config.DEFAULT_HASH_SIZE)
+                return imagehash.dhash(img, hash_size=Config.DEFAULT_HASH_SIZE)
         except Exception as e:
             self.logger.debug(f"No se pudo calcular hash perceptual para {image_path}: {e}")
             return None
@@ -280,7 +280,7 @@ class DuplicateDetector:
                 # Convertir BGR a RGB
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 img = Image.fromarray(frame_rgb)
-                return imagehash.dhash(img, hash_size=config.Config.DEFAULT_HASH_SIZE)
+                return imagehash.dhash(img, hash_size=Config.DEFAULT_HASH_SIZE)
         except Exception as e:
             self.logger.debug(f"No se pudo calcular hash para video {video_path}: {e}")
         
@@ -304,7 +304,7 @@ class DuplicateDetector:
                 continue
             
             # Emitir progreso cada N archivos
-            if i % config.Config.PROGRESS_CALLBACK_INTERVAL == 0 or i == total_items - 1:
+            if i % Config.PROGRESS_CALLBACK_INTERVAL == 0 or i == total_items - 1:
                 safe_progress_callback(progress_callback, i, total_items, "Agrupando similares...")
             
             similar_files = [path1]
@@ -327,7 +327,7 @@ class DuplicateDetector:
                 # Distancia 0 = 100% similar, distancia MAX_HAMMING_THRESHOLD = 0% similar
                 avg_hamming = sum(hamming_distances) / len(hamming_distances) if hamming_distances else 0
                 # Convertir a porcentaje de similitud (invertido)
-                similarity_percentage = 100 - (avg_hamming / config.Config.MAX_HAMMING_THRESHOLD * 100)
+                similarity_percentage = 100 - (avg_hamming / Config.MAX_HAMMING_THRESHOLD * 100)
                 # Asegurar que esté en el rango [0, 100]
                 similarity_percentage = max(0, min(100, similarity_percentage))
                 
@@ -381,7 +381,7 @@ class DuplicateDetector:
         backup_path = None
         if create_backup:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            backup_path = config.Config.DEFAULT_BACKUP_DIR / f"duplicates_backup_{timestamp}"
+            backup_path = Config.DEFAULT_BACKUP_DIR / f"duplicates_backup_{timestamp}"
             backup_path.mkdir(parents=True, exist_ok=True)
             self.logger.info(f"Backup creado en: {backup_path}")
 

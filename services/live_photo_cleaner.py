@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import List, Dict, Optional, Set, Union
 from enum import Enum
 
-import config
+from config import Config
 from utils.logger import get_logger
 from services.live_photo_detector import LivePhotoGroup, LivePhotoDetector
 from services.result_types import LivePhotoCleanupAnalysisResult, LivePhotoCleanupResult

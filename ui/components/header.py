@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel, QPushButton, QMenu
 from PyQt6.QtCore import Qt
 
-import config
+from config import Config
 from ui import styles
 
 
@@ -19,7 +19,7 @@ class Header(QWidget):
         layout = QHBoxLayout(self)
 
         # Título
-        title = QLabel(f"🎬 {config.config.APP_NAME}")
+        title = QLabel(f"🎬 {Config.APP_NAME}")
         title.setStyleSheet(styles.STYLE_TITLE_LABEL)
         layout.addWidget(title)
 

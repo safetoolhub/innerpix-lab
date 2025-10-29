@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import List, Dict, Optional, Tuple, Callable
 from collections import defaultdict, Counter
 
-import config
+from config import Config
 from utils.logger import get_logger
 from utils.callback_utils import safe_progress_callback
 from services.result_types import RenameResult
@@ -64,7 +64,7 @@ class FileRenamer:
 
         all_files = []
         for file_path in directory.rglob("*"):
-            if file_path.is_file() and config.config.is_supported_file(file_path.name):
+            if file_path.is_file() and Config.is_supported_file(file_path.name):
                 all_files.append(file_path)
 
         results['total_files'] = len(all_files)
@@ -89,7 +89,7 @@ class FileRenamer:
                 results['issues'].append(f"No se pudo obtener fecha: {file_path.name}")
                 continue
 
-            file_type = config.config.get_file_type(file_path.name)
+            file_type = Config.get_file_type(file_path.name)
             if file_type == 'OTHER':
                 results['cannot_process'] += 1
                 results['issues'].append(f"Tipo de archivo no soportado: {file_path.name}")
@@ -304,7 +304,7 @@ class FileRenamer:
 
         all_files = []
         for file_path in directory.rglob("*"):
-            if file_path.is_file() and config.config.is_supported_file(file_path.name):
+            if file_path.is_file() and Config.is_supported_file(file_path.name):
                 all_files.append(file_path)
 
         total_files = len(all_files)
