@@ -87,7 +87,7 @@ class ExactDuplicatesDialog(BaseDialog):
             layout.addWidget(more_label)
         
         # Opciones: backup checkbox desde BaseDialog
-        self.add_backup_checkbox(layout, "☑ Crear backup antes de eliminar (Recomendado)", True)
+        self.add_backup_checkbox(layout, "☑ Crear backup antes de eliminar (Recomendado)")
 
         # Advertencia
         warning = QLabel(
@@ -176,7 +176,7 @@ class SimilarDuplicatesDialog(BaseDialog):
         layout.addWidget(summary_group)
 
         # Opciones: backup checkbox desde BaseDialog
-        self.add_backup_checkbox(layout, "Crear backup antes de eliminar (Recomendado)", True)
+        self.add_backup_checkbox(layout, "Crear backup antes de eliminar (Recomendado)")
 
         # Botones
         buttons = self.make_ok_cancel_buttons(ok_text="🗑️ Eliminar Seleccionados", ok_enabled=False)

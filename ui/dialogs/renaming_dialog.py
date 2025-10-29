@@ -93,7 +93,7 @@ class RenamingPreviewDialog(BaseDialog):
                 layout.addWidget(more_label)
 
         # Opciones: checkbox de backup (desde BaseDialog)
-        self.add_backup_checkbox(layout, "Crear backup antes de eliminar (Recomendado)", True)
+        self.add_backup_checkbox(layout, "Crear backup antes de eliminar (Recomendado)")
 
         # Botones
         ok_enabled = self.analysis_results.get('need_renaming', 0) > 0

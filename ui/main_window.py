@@ -46,13 +46,29 @@ class MainWindow(QMainWindow):
         self.analysis_results = None
         self.last_analyzed_directory = None
 
+        # === CARGAR CONFIGURACIÓN PERSISTENTE ===
+        from utils.settings_manager import settings_manager
+        self.settings_manager = settings_manager
+
+        # Cargar directorios personalizados si existen
+        custom_log_dir = settings_manager.get_logs_directory()
+        custom_backup_dir = settings_manager.get_backup_directory()
+        log_level = settings_manager.get_log_level("INFO")
+
+        # Actualizar config global con directorios personalizados
+        if custom_log_dir:
+            config.Config.DEFAULT_LOG_DIR = custom_log_dir
+        if custom_backup_dir:
+            config.Config.DEFAULT_BACKUP_DIR = custom_backup_dir
+        config.Config.LOG_LEVEL = log_level
+
         # Configuración de logging delegada a un manager dedicado
         # Se importa aquí para evitar dependencias circulares en el módulo
         from ui.managers.logging_manager import LoggingManager
 
         self.logging_manager = LoggingManager(
             default_dir=config.Config.DEFAULT_LOG_DIR,
-            level=config.Config.LOG_LEVEL,
+            level=log_level,
             logger_name='PhotokitManager'
         )
 
@@ -187,6 +203,13 @@ class MainWindow(QMainWindow):
         # existente en esta clase.
         self.action_buttons = ActionButtons(self, search_bar)
 
+        # === CARGAR ÚLTIMO DIRECTORIO SI ESTÁ CONFIGURADO ===
+        last_dir = self.settings_manager.get_last_directory()
+        if last_dir and last_dir.exists():
+            self.logger.info(f"Cargando último directorio usado: {last_dir}")
+            self.directory_edit.setText(str(last_dir))
+            self.current_directory = last_dir
+
     # ========================================================================
     # WRAPPER METHODS FOR SPECIALIZED CONTROLLERS
     # ========================================================================
@@ -232,7 +255,22 @@ class MainWindow(QMainWindow):
     def toggle_config(self):
         """Abre el diálogo de configuración avanzada"""
         dialog = SettingsDialog(self)
+        # Conectar señal para recargar configuración si se guardan cambios
+        dialog.settings_saved.connect(self._on_settings_saved)
         dialog.exec()
+
+    def _on_settings_saved(self):
+        """Callback cuando se guardan cambios en la configuración"""
+        self.logger.info("Configuración actualizada, aplicando cambios...")
+        
+        # Recargar configuración en memoria
+        custom_log_dir = self.settings_manager.get_logs_directory()
+        custom_backup_dir = self.settings_manager.get_backup_directory()
+        
+        if custom_log_dir:
+            config.Config.DEFAULT_LOG_DIR = custom_log_dir
+        if custom_backup_dir:
+            config.Config.DEFAULT_BACKUP_DIR = custom_backup_dir
 
     def show_about_dialog(self):
         """Muestra el diálogo Acerca de usando `AboutDialog`."""
@@ -314,6 +352,9 @@ class MainWindow(QMainWindow):
         self.current_directory = new_directory
         self.directory_edit.setText(f"{self.current_directory.name}")
         self.directory_edit.setToolTip(str(self.current_directory))
+
+        # Guardar último directorio usado
+        self.settings_manager.set_last_directory(new_directory)
 
         # Contar archivos y manejar errores de acceso
         try:
@@ -406,6 +447,9 @@ class MainWindow(QMainWindow):
         self.current_directory = new_directory
         self.directory_edit.setText(f"{self.current_directory.name}")
         self.directory_edit.setToolTip(str(self.current_directory))
+
+        # Guardar último directorio usado
+        self.settings_manager.set_last_directory(new_directory)
 
         # Limpiar análisis previo pero NO reinsertar analyze_btn (delegar la
         # gestión de visibilidad al componente ActionButtons)

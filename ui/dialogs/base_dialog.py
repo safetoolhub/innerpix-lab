@@ -9,6 +9,8 @@ from PyQt6.QtWidgets import (
     QTableWidget,
 )
 
+from utils.settings_manager import settings_manager
+
 
 class BaseDialog(QDialog):
     """Clase base para diálogos con utilidades comunes.
@@ -19,14 +21,27 @@ class BaseDialog(QDialog):
         self.backup_checkbox = None
         self._ok_button_ref = None
 
-    def add_backup_checkbox(self, layout=None, label: str = "Crear backup", checked: bool = True):
+    def add_backup_checkbox(self, layout=None, label: str = "Crear backup", checked: Optional[bool] = None):
         """Crea y retorna un QCheckBox para la opción de backup.
 
         Si se pasa un layout, el checkbox se añadirá al layout.
         Guarda la referencia en `self.backup_checkbox`.
+        
+        Args:
+            layout: Layout opcional donde añadir el checkbox
+            label: Texto del checkbox
+            checked: Estado inicial. Si es None, usa la configuración guardada del usuario
         """
+        # Si no se especifica checked, usar la configuración del usuario
+        if checked is None:
+            checked = settings_manager.get_auto_backup_enabled()
+        
         cb = QCheckBox(label)
         cb.setChecked(checked)
+        cb.setToolTip(
+            "Crea una copia de seguridad de los archivos antes de la operación.\n"
+            "Puedes cambiar este comportamiento por defecto en Configuración."
+        )
         self.backup_checkbox = cb
         if layout is not None:
             layout.addWidget(cb)
