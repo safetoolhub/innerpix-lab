@@ -18,21 +18,20 @@ def create_live_photos_tab(window):
     layout.addWidget(title)
 
     # ===== INFORMACIÓN IMPORTANTE =====
-    info_group = QGroupBox("⚠️ Información Importante")
-    info_group.setStyleSheet(
-        "QGroupBox { font-weight: 600; color: #dc3545; border: 2px solid #f5c6cb; "
-        "border-radius: 6px; margin-top: 12px; padding-top: 24px; background: #f8d7da; } "
-        "QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 8px; background: #f8d7da; }"
-    )
+    info_group = QGroupBox()
+    info_group.setStyleSheet(styles.STYLE_GROUPBOX_INFO)
     info_layout = QVBoxLayout(info_group)
-    info_layout.setContentsMargins(16, 8, 16, 16)
+    info_layout.setContentsMargins(16, 16, 16, 16)
 
     info_label = QLabel(
-        "<p style='margin: 0 0 8px 0;'><b style='color: #721c24;'>⚠️ EJECUTAR ANTES DE RENOMBRAR ARCHIVOS</b></p>"
-        "<p style='margin: 0 0 8px 0; color: #495057;'>"
-        "Esta función detecta y limpia <b>Live Photos de iPhone</b> (parejas de foto + video .MOV).</p>"
-        "<p style='margin: 0; color: #721c24;'>"
-        "<b>ADVERTENCIA:</b> Si los archivos ya han sido renombrados, la detección puede fallar.</p>"
+        "<p style='margin: 0 0 12px 0; font-size: 14px;'><b style='color: #17a2b8;'>💡 Recomendación de Uso</b></p>"
+        "<p style='margin: 0 0 8px 0; color: #0c5460;'><b>📌 Mejor momento para ejecutar:</b> Antes de renombrar archivos</p>"
+        "<p style='margin: 0 0 12px 0; color: #495057;'>"
+        "Esta función detecta y limpia <b>Live Photos de iPhone</b>, que consisten en una imagen JPG "
+        "acompañada de un video MOV corto.</p>"
+        "<p style='margin: 0; color: #0c5460;'>"
+        "<b>Nota:</b> La detección funciona mejor cuando los archivos mantienen sus nombres originales. "
+        "Si ya has renombrado los archivos, algunos Live Photos podrían no detectarse correctamente.</p>"
     )
     info_label.setWordWrap(True)
     info_layout.addWidget(info_label)
