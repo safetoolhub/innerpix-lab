@@ -24,7 +24,7 @@ def create_renaming_tab(window):
     info_label = QLabel(
         "<p style='margin: 0 0 8px 0;'><b style='color: #721c24;'>⚠️ EJECUTAR COMO ÚLTIMO PASO</b></p>"
         "<p style='margin: 0 0 8px 0; color: #495057;'>"
-        "Esta función renombra archivos al formato: <b>YYYYMMDD_HHMMSS.EXT</b></p>"
+        "Esta función renombra archivos al formato: <b>YYYYMMDD_HHMMSS_[VIDEO|PHOTO]_nnn.EXT</b></p>"
         "<p style='margin: 0 0 4px 0; color: #721c24;'><b>ADVERTENCIA:</b> Renombrar los archivos puede afectar a:</p>"
         "<ul style='margin: 0 0 0 20px; padding: 0; color: #721c24;'>"
         "<li>Detección de Live Photos</li>"
