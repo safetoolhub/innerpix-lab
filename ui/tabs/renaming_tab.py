@@ -16,22 +16,25 @@ def create_renaming_tab(window):
     layout.addWidget(title)
 
     # ===== INFORMACIÓN IMPORTANTE =====
-    info_group = QGroupBox("⚠️ Información Importante")
-    info_group.setStyleSheet(styles.STYLE_GROUPBOX_WARNING)
+    info_group = QGroupBox()
+    info_group.setStyleSheet(styles.STYLE_GROUPBOX_INFO)
     info_layout = QVBoxLayout(info_group)
-    info_layout.setContentsMargins(16, 8, 16, 16)
+    info_layout.setContentsMargins(16, 16, 16, 16)
 
     info_label = QLabel(
-        "<p style='margin: 0 0 8px 0;'><b style='color: #721c24;'>⚠️ EJECUTAR COMO ÚLTIMO PASO</b></p>"
-        "<p style='margin: 0 0 8px 0; color: #495057;'>"
-        "Esta función renombra archivos al formato: <b>YYYYMMDD_HHMMSS_[VIDEO|PHOTO]_nnn.EXT</b></p>"
-        "<p style='margin: 0 0 4px 0; color: #721c24;'><b>ADVERTENCIA:</b> Renombrar los archivos puede afectar a:</p>"
-        "<ul style='margin: 0 0 0 20px; padding: 0; color: #721c24;'>"
-        "<li>Detección de Live Photos</li>"
-        "<li>Gestión de duplicados HEIC/JPG</li>"
+        "<p style='margin: 0 0 12px 0; font-size: 14px;'><b style='color: #17a2b8;'>💡 Recomendación de Uso</b></p>"
+        "<p style='margin: 0 0 8px 0; color: #0c5460;'><b>📌 Mejor momento para ejecutar:</b> Como paso final del proceso</p>"
+        "<p style='margin: 0 0 12px 0; color: #495057;'>"
+        "Esta función renombra tus archivos siguiendo el formato estándar: "
+        "<b>YYYYMMDD_HHMMSS_[VIDEO|PHOTO]_nnn.EXT</b></p>"
+        "<p style='margin: 0 0 8px 0; color: #0c5460;'><b>Nota importante:</b> "
+        "Te recomendamos completar primero las siguientes tareas:</p>"
+        "<ul style='margin: 0 0 0 20px; padding: 0; color: #495057;'>"
+        "<li>Limpieza de Live Photos (si aplica)</li>"
+        "<li>Gestión de duplicados HEIC/JPG (si aplica)</li>"
         "</ul>"
-        "<p style='margin: 8px 0 0 0; color: #495057;'>"
-        "<em>Asegúrate de haber completado esas tareas antes de renombrar.</em></p>"
+        "<p style='margin: 8px 0 0 0; color: #0c5460; font-size: 12px;'>"
+        "<em>💡 Renombrar los archivos primero hará que no funcione correctamente la detección automática de Live Photos y duplicados HEIC/JPG.</em></p>"
     )
     info_label.setWordWrap(True)
     info_layout.addWidget(info_label)

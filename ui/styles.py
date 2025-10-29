@@ -441,6 +441,25 @@ STYLE_GROUPBOX_WARNING = f"""
     }}
 """
 
+# Estilo de advertencia suave (información importante pero no alarmante)
+STYLE_GROUPBOX_INFO = f"""
+    QGroupBox {{
+        font-weight: 600;
+        color: {COLORS['info']};
+        border: 2px solid {COLORS['info_border']};
+        border-radius: 8px;
+        margin-top: 0px;
+        padding-top: 0px;
+        background: {COLORS['info_light']};
+    }}
+    QGroupBox::title {{
+        subcontrol-origin: margin;
+        left: 12px;
+        padding: 0 8px;
+        background: {COLORS['info_light']};
+    }}
+"""
+
 STYLE_CONFIG_PANEL = """
     QFrame {
         background-color: #f8f9fa;
