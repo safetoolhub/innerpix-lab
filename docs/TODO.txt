@@ -1,2 +1,3 @@
 Al cambiar el nivel de log en la configuraicon debe cambiarse en todos los loggers de lso ficheros auxiliares, porque tienen su propia configuracion
 Probar todo y  meterle tests unitarios
+Mejorar el interfaz de las pestañas y el about
