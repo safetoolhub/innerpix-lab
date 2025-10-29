@@ -1,6 +1,6 @@
-## PhotoKit Manager - AI coding assistant instructions
+## Pixaro Lab - AI coding assistant instructions
 
-PhotoKit Manager is a PyQt6 desktop app for managing photo/video collections (iOS-focused).
+Pixaro Lab is a PyQt6 desktop app for managing photo/video collections (iOS-focused).
 Core workflow: **analyze → preview → execute** with user confirmation at each step.
 
 ### Architecture (3-layer pattern)
@@ -63,7 +63,7 @@ Setup: `python -m venv .venv && source .venv/bin/activate && pip install -r requ
 - Note: `pillow-heif` requires system `libheif` library (apt/brew install)
 
 Run: `python main.py` (launches PyQt6 GUI)
-- Logs: `~/Documents/PhotoKit_Manager/logs/` by default
+- Logs: `~/Documents/Pixaro_Lab/logs/` by default
 - Use `utils.logger.set_global_log_level(logging.DEBUG)` for verbose output
 
 Debugging: Check `ui.managers.logging_manager.LoggingManager` for log file location

@@ -1,5 +1,5 @@
 """
-Workers para la aplicación PhotoKit Manager
+Workers para la aplicación Pixaro Lab
 Este módulo contiene todos los QThread workers que ejecutan operaciones
 en segundo plano para no bloquear la interfaz gráfica.
 """

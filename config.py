@@ -1,5 +1,5 @@
 """
-Configuración centralizada para PhotoKit Manager
+Configuración centralizada para Pixaro Lab
 """
 from pathlib import Path
 
@@ -10,7 +10,7 @@ class Config:
     # ========================================================================
     # INFORMACIÓN DE LA APLICACIÓN
     # ========================================================================
-    APP_NAME = "PhotoKit Manager"
+    APP_NAME = "Pixaro Lab"
     APP_VERSION = "1.0.0"
     APP_DESCRIPTION = "Organiza, renombra y optimiza tu biblioteca de fotos"
 
@@ -44,7 +44,7 @@ class Config:
     # ========================================================================
     # DIRECTORIOS POR DEFECTO
     # ========================================================================
-    DEFAULT_BASE_DIR = Path.home() / "Documents" / "PhotoKit_Manager"
+    DEFAULT_BASE_DIR = Path.home() / "Documents" / "Pixaro_Lab"
     DEFAULT_LOG_DIR = DEFAULT_BASE_DIR / "logs"
     DEFAULT_BACKUP_DIR = DEFAULT_BASE_DIR / "backups"
 

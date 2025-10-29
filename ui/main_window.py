@@ -1,5 +1,5 @@
 """
-Ventana principal de PhotoKit Manager
+Ventana principal de Pixaro Lab
 """
 from pathlib import Path
 from datetime import datetime
@@ -69,7 +69,7 @@ class MainWindow(QMainWindow):
         self.logging_manager = LoggingManager(
             default_dir=Config.DEFAULT_LOG_DIR,
             level=log_level,
-            logger_name='PhotokitManager'
+            logger_name='PixaroLab'
         )
 
         # Alinear atributos usados anteriormente por el resto de la app

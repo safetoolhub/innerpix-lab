@@ -1,7 +1,7 @@
-photokit-manager/ - Estructura del proyecto
+pixaro-lab/ - Estructura del proyecto
 
 ```
-photokit-manager/
+pixaro-lab/
 ├── LICENSE
 ├── README.md
 ├── PROJECT_TREE.md

@@ -39,7 +39,7 @@ class SettingsManager:
     KEY_WINDOW_GEOMETRY = "window/geometry"
     KEY_WINDOW_STATE = "window/state"
 
-    def __init__(self, organization: str = "PhotoKit", application: str = "PhotoKit Manager"):
+    def __init__(self, organization: str = "PixaroLab", application: str = "Pixaro Lab"):
         """
         Inicializa el gestor de configuración.
 

@@ -4,7 +4,7 @@
 
 ### Acceder a la Configuración
 
-1. **Abrir la aplicación** PhotoKit Manager
+1. **Abrir la aplicación** Pixaro Lab
 2. **Clic en el menú hamburguesa** (☰) en la esquina superior derecha
 3. **Seleccionar "⚙️ Configuración"**
 
@@ -133,17 +133,17 @@ La configuración se guarda en:
 
 **Linux:**
 ```
-~/.config/PhotoKit/PhotoKit Manager.conf
+~/.config/PhotoKit/Pixaro Lab.conf
 ```
 
 **Windows:**
 ```
-C:\Users\<usuario>\AppData\Roaming\PhotoKit\PhotoKit Manager.ini
+C:\Users\<usuario>\AppData\Roaming\PhotoKit\Pixaro Lab.ini
 ```
 
 **macOS:**
 ```
-~/Library/Preferences/com.PhotoKit.PhotoKit Manager.plist
+~/Library/Preferences/com.PhotoKit.Pixaro Lab.plist
 ```
 
 💡 **Nota:** Estos archivos se gestionan automáticamente. No es necesario editarlos manualmente.
