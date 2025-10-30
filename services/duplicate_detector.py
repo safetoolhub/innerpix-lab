@@ -16,7 +16,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from config import Config
 from utils.callback_utils import safe_progress_callback
 from utils.logger import get_logger
-from services.result_types import DuplicateAnalysisResult
+from services.result_types import DuplicateAnalysisResult, DuplicateDeletionResult
 from utils.settings_manager import settings_manager
 
 # Importaciones opcionales para detección perceptual
@@ -417,8 +417,9 @@ class DuplicateDetector:
         groups: List[DuplicateGroup],
         keep_strategy: str = 'oldest',
         create_backup: bool = True,
+        dry_run: bool = False,
         progress_callback: Optional[Callable[[int, int, str], None]] = None
-    ) -> Dict:
+    ) -> DuplicateDeletionResult:
         """
         Ejecuta eliminación de duplicados
         
@@ -426,10 +427,11 @@ class DuplicateDetector:
             groups: Grupos de duplicados
             keep_strategy: 'oldest', 'newest', 'largest', 'smallest'
             create_backup: Crear backup antes de eliminar
+            dry_run: Si solo simular sin eliminar archivos reales
             progress_callback: Callback de progreso
             
         Returns:
-            Resultados de la operación
+            DuplicateDeletionResult con resultados de la operación
         """
         from datetime import datetime
         import shutil
@@ -437,10 +439,12 @@ class DuplicateDetector:
         self.logger.info("=" * 80)
         self.logger.info("*** INICIANDO ELIMINACIÓN DE DUPLICADOS")
         self.logger.info(f"*** Estrategia: {keep_strategy}")
+        if dry_run:
+            self.logger.info("*** Modo: SIMULACIÓN")
         self.logger.info("=" * 80)
         
         backup_path = None
-        if create_backup:
+        if create_backup and not dry_run:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             backup_path = Config.DEFAULT_BACKUP_DIR / f"duplicates_backup_{timestamp}"
             backup_path.mkdir(parents=True, exist_ok=True)
@@ -449,6 +453,8 @@ class DuplicateDetector:
         deleted_files = []
         kept_files = []
         errors = []
+        simulated_files_deleted = 0
+        simulated_space_freed = 0
         # Si la estrategia es 'manual', los grupos contienen los archivos seleccionados
         # para eliminar, por lo que el número de operaciones es la suma de esos archivos.
         if keep_strategy == 'manual':
@@ -470,13 +476,11 @@ class DuplicateDetector:
                             try:
                                 validate_file_exists(file_path)
                             except FileNotFoundError as e:
+                                error_prefix = "[SIMULACIÓN] " if dry_run else ""
                                 errors.append({'file': str(file_path), 'error': str(e)})
-                                self.logger.error(f"Archivo no encontrado: {file_path}: {e}")
+                                self.logger.error(f"{error_prefix}Archivo no encontrado: {file_path}: {e}")
                                 continue
-                            if create_backup and backup_path:
-                                backup_file = backup_path / file_path.name
-                                shutil.copy2(file_path, backup_file)
-
+                            
                             # Obtener tamaño y análisis detallado de fechas antes de eliminar
                             try:
                                 file_size = file_path.stat().st_size
@@ -488,16 +492,28 @@ class DuplicateDetector:
                                 file_size = 0
                                 file_date_str = 'fecha desconocida'
                             
-                            file_path.unlink()
-                            deleted_files.append(file_path)
-                            space_freed += file_size
-
                             from utils.format_utils import format_size
-                            self.logger.info(f"✓ Eliminado duplicado (manual): {file_path} ({format_size(file_size)}, {file_date_str})")
+                            
+                            if dry_run:
+                                # Solo simular: no crear backup ni eliminar
+                                simulated_files_deleted += 1
+                                simulated_space_freed += file_size
+                                deleted_files.append(file_path)
+                                self.logger.info(f"[SIMULACIÓN] Eliminaría duplicado (manual): {file_path} ({format_size(file_size)}, {file_date_str})")
+                            else:
+                                # Eliminar realmente
+                                if create_backup and backup_path:
+                                    backup_file = backup_path / file_path.name
+                                    shutil.copy2(file_path, backup_file)
+                                
+                                file_path.unlink()
+                                deleted_files.append(file_path)
+                                space_freed += file_size
+                                self.logger.info(f"✓ Eliminado duplicado (manual): {file_path} ({format_size(file_size)}, {file_date_str})")
                             
                             processed += 1
-                            safe_progress_callback(progress_callback, processed, total_operations,
-                                                  f"Eliminado: {file_path.name}")
+                            progress_msg = f"{'Simularía' if dry_run else 'Eliminado'}: {file_path.name}"
+                            safe_progress_callback(progress_callback, processed, total_operations, progress_msg)
                         except Exception as e:
                             errors.append({'file': str(file_path), 'error': str(e)})
                             self.logger.error(f"Error eliminando {file_path}: {e}")
@@ -516,15 +532,17 @@ class DuplicateDetector:
                         self.logger.warning(f"Error obteniendo fecha de {keep_file}: {e}")
                         keep_date_str = 'fecha desconocida'
                     
-                    self.logger.info(f"  ✓ Conservado ({keep_strategy}): {keep_file} ({keep_date_str})")
+                    log_prefix = "[SIMULACIÓN] " if dry_run else ""
+                    self.logger.info(f"{log_prefix}  ✓ {'Conservaría' if dry_run else 'Conservado'} ({keep_strategy}): {keep_file} ({keep_date_str})")
 
                     # Eliminar el resto
                     # Verificar que el archivo a mantener exista antes de borrar el resto
                     try:
                         validate_file_exists(keep_file)
                     except FileNotFoundError as e:
+                        error_prefix = "[SIMULACIÓN] " if dry_run else ""
                         errors.append({'file': str(keep_file), 'error': str(e)})
-                        self.logger.error(f"Archivo a mantener no existe: {keep_file}: {e}")
+                        self.logger.error(f"{error_prefix}Archivo a mantener no existe: {keep_file}: {e}")
                         continue
 
                     for file_path in group.files:
@@ -536,14 +554,10 @@ class DuplicateDetector:
                             try:
                                 validate_file_exists(file_path)
                             except FileNotFoundError as e:
+                                error_prefix = "[SIMULACIÓN] " if dry_run else ""
                                 errors.append({'file': str(file_path), 'error': str(e)})
-                                self.logger.error(f"Archivo no encontrado: {file_path}: {e}")
+                                self.logger.error(f"{error_prefix}Archivo no encontrado: {file_path}: {e}")
                                 continue
-
-                            # Backup
-                            if create_backup and backup_path:
-                                backup_file = backup_path / file_path.name
-                                shutil.copy2(file_path, backup_file)
 
                             # Obtener tamaño y análisis detallado de fechas antes de eliminar
                             try:
@@ -555,17 +569,29 @@ class DuplicateDetector:
                                 file_size = 0
                                 file_date_str = 'fecha desconocida'
 
-                            # Eliminar
-                            file_path.unlink()
-                            deleted_files.append(file_path)
-                            space_freed += file_size
-
                             from utils.format_utils import format_size
-                            self.logger.info(f"✓ Eliminado duplicado: {file_path} ({format_size(file_size)}, {file_date_str})")
+                            
+                            if dry_run:
+                                # Solo simular: no crear backup ni eliminar
+                                simulated_files_deleted += 1
+                                simulated_space_freed += file_size
+                                deleted_files.append(file_path)
+                                self.logger.info(f"[SIMULACIÓN] Eliminaría duplicado: {file_path} ({format_size(file_size)}, {file_date_str})")
+                            else:
+                                # Backup
+                                if create_backup and backup_path:
+                                    backup_file = backup_path / file_path.name
+                                    shutil.copy2(file_path, backup_file)
+
+                                # Eliminar
+                                file_path.unlink()
+                                deleted_files.append(file_path)
+                                space_freed += file_size
+                                self.logger.info(f"✓ Eliminado duplicado: {file_path} ({format_size(file_size)}, {file_date_str})")
                             
                             processed += 1
-                            safe_progress_callback(progress_callback, processed, total_operations,
-                                                  f"Eliminado: {file_path.name}")
+                            progress_msg = f"{'Simularía' if dry_run else 'Eliminado'}: {file_path.name}"
+                            safe_progress_callback(progress_callback, processed, total_operations, progress_msg)
 
                         except Exception as e:
                             errors.append({'file': str(file_path), 'error': str(e)})
@@ -578,31 +604,57 @@ class DuplicateDetector:
     # space_freed fue acumulado durante la eliminación (se obtiene el tamaño
     # antes de llamar a unlink). No recomputar usando deleted_files porque
     # los archivos ya pueden no existir.
-        result = {
-            'files_deleted': len(deleted_files),
-            'files_kept': len(kept_files),
-            'space_freed': space_freed,
-            'errors': errors,
-            'backup_path': str(backup_path) if backup_path else None,
-            'keep_strategy': keep_strategy
-        }
+        
+        # Convertir errores de dict a strings para consistencia
+        error_messages = []
+        for error in errors:
+            if isinstance(error, dict):
+                error_messages.append(f"{error.get('file', 'Unknown')}: {error.get('error', 'Unknown error')}")
+            else:
+                error_messages.append(str(error))
+        
+        result = DuplicateDeletionResult(
+            success=len(error_messages) == 0,
+            files_deleted=len(deleted_files) if not dry_run else 0,
+            files_kept=len(kept_files),
+            space_freed=space_freed if not dry_run else 0,
+            errors=error_messages,
+            backup_path=str(backup_path) if backup_path else None,
+            deleted_files=[str(f) for f in deleted_files],
+            keep_strategy=keep_strategy,
+            dry_run=dry_run,
+            simulated_files_deleted=simulated_files_deleted if dry_run else 0,
+            simulated_space_freed=simulated_space_freed if dry_run else 0
+        )
         
         try:
             from utils.format_utils import format_size
-            freed_str = format_size(space_freed)
+            if dry_run:
+                freed_str = format_size(simulated_space_freed)
+                files_count = simulated_files_deleted
+            else:
+                freed_str = format_size(space_freed)
+                files_count = len(deleted_files)
         except Exception:
-            freed_str = f"{space_freed / (1024*1024):.2f} MB"
+            if dry_run:
+                freed_str = f"{simulated_space_freed / (1024*1024):.2f} MB"
+                files_count = simulated_files_deleted
+            else:
+                freed_str = f"{space_freed / (1024*1024):.2f} MB"
+                files_count = len(deleted_files)
 
         self.logger.info("=" * 80)
-        self.logger.info("*** ELIMINACIÓN DE DUPLICADOS COMPLETADA")
-        self.logger.info(f"*** Resultado: {len(deleted_files)} archivos eliminados, {freed_str} liberados")
-        if errors:
-            self.logger.info(f"*** Errores encontrados durante la eliminación:")
-            for error in errors:
-                if isinstance(error, dict):
-                    self.logger.error(f"  ✗ {error.get('file', 'Unknown')}: {error.get('error', 'Unknown error')}")
-                else:
-                    self.logger.error(f"  ✗ {error}")
+        if dry_run:
+            self.logger.info("*** SIMULACIÓN DE ELIMINACIÓN DE DUPLICADOS COMPLETADA")
+            self.logger.info(f"*** Resultado: {files_count} archivos se eliminarían, {freed_str} se liberarían")
+        else:
+            self.logger.info("*** ELIMINACIÓN DE DUPLICADOS COMPLETADA")
+            self.logger.info(f"*** Resultado: {files_count} archivos eliminados, {freed_str} liberados")
+        if result.has_errors:
+            error_prefix = "[SIMULACIÓN] " if dry_run else ""
+            self.logger.info(f"*** {error_prefix}Errores encontrados durante la {'simulación' if dry_run else 'eliminación'}:")
+            for error in result.errors:
+                self.logger.error(f"  ✗ {error}")
         self.logger.info("=" * 80)
         
         return result

@@ -268,14 +268,26 @@ class DuplicatesController(QObject):
         groups = plan['groups']
         keep_strategy = plan['keep_strategy']
         create_backup = plan['create_backup']
+        dry_run = plan.get('dry_run', False)
 
-        # Confirmación final
+        # Confirmación final con mensaje diferente según sea simulación
+        if dry_run:
+            confirm_msg = (
+                f"¿Simular la eliminación de archivos seleccionados?\n\n"
+                f"Se simularán eliminaciones de {len(groups)} grupos.\n\n"
+                f"No se eliminarán archivos realmente."
+            )
+        else:
+            confirm_msg = (
+                f"¿Estás seguro de que deseas eliminar los archivos seleccionados?\n\n"
+                f"Se eliminarán archivos de {len(groups)} grupos.\n"
+                f"{'Se creará un backup de seguridad.' if create_backup else 'NO se creará backup.'}"
+            )
+
         reply = QMessageBox.question(
             self.main_window,
-            "Confirmar Eliminación",
-            f"¿Estás seguro de que deseas eliminar los archivos seleccionados?\n\n"
-            f"Se eliminarán archivos de {len(groups)} grupos.\n"
-            f"{'Se creará un backup de seguridad.' if create_backup else 'NO se creará backup.'}",
+            "Confirmar",
+            confirm_msg,
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No
         )
@@ -283,21 +295,23 @@ class DuplicatesController(QObject):
         if reply != QMessageBox.StandardButton.Yes:
             return
 
-        self.logger.info(f"Ejecutando eliminación de duplicados: {len(groups)} grupos")
+        self.logger.info(f"{'Simulando' if dry_run else 'Ejecutando'} eliminación de duplicados: {len(groups)} grupos")
 
         # Deshabilitar botones
         self.main_window.delete_exact_duplicates_btn.setEnabled(False)
         self.main_window.review_similar_btn.setEnabled(False)
         self.main_window.analyze_duplicates_btn.setEnabled(False)
 
-        self.main_window.duplicates_details.setHtml(markdown_like_to_html("🗑️ Eliminando archivos...\nPor favor espera."))
+        progress_msg = "🔍 Simulando eliminación..." if dry_run else "🗑️ Eliminando archivos..."
+        self.main_window.duplicates_details.setHtml(markdown_like_to_html(f"{progress_msg}\nPor favor espera."))
 
         # Crear y ejecutar worker
         self.deletion_worker = DuplicateDeletionWorker(
             self.duplicate_detector,
             groups,
             keep_strategy,
-            create_backup
+            create_backup,
+            dry_run
         )
 
         self.deletion_worker.progress_update.connect(self._update_deletion_progress)
@@ -321,34 +335,82 @@ class DuplicatesController(QObject):
         self.main_window.duplicates_details.setHtml(markdown_like_to_html(f"🗑️ {message}"))
 
     def _on_deletion_finished(self, results):
-        """Maneja la finalización de eliminación de duplicados"""
-        files_deleted = results['files_deleted']
-        space_freed = results['space_freed']
-        errors = results['errors']
-        backup_path = results.get('backup_path')
+        """Maneja la finalización de eliminación de duplicados
+        
+        Args:
+            results: DuplicateDeletionResult (dataclass)
+        """
+        dry_run = results.dry_run
+        
+        if dry_run:
+            files_count = results.simulated_files_deleted
+            space_freed = results.simulated_space_freed
+        else:
+            files_count = results.files_deleted
+            space_freed = results.space_freed
+        
+        errors = results.errors
+        backup_path = results.backup_path
 
         # Formatear tamaño usando helper central
         size_str = format_size(space_freed)
 
-        self.logger.info(f"Eliminación completada: {files_deleted} archivos, {size_str} liberados")
+        if dry_run:
+            self.logger.info(f"Simulación completada: {files_count} archivos se eliminarían, {size_str} se liberarían")
+        else:
+            self.logger.info(f"Eliminación completada: {files_count} archivos, {size_str} liberados")
 
-        # Mostrar mensaje de éxito
-        msg = (
-            f"✅ **Eliminación Completada**\n\n"
-            f"• Archivos eliminados: {files_deleted}\n"
-            f"• Espacio liberado: {size_str}\n"
-        )
-
-        if backup_path:
-            msg += f"\n📦 Backup guardado en:\n{backup_path}"
+        # Mostrar mensaje de éxito diferenciado
+        if dry_run:
+            msg = (
+                f"🔍 **Simulación Completada**\n\n"
+                f"• Archivos que se eliminarían: {files_count}\n"
+                f"• Espacio que se liberaría: {size_str}\n\n"
+                f"⚠️ No se eliminó ningún archivo realmente."
+            )
+            title = "Simulación Completada"
+        else:
+            msg = (
+                f"✅ **Eliminación Completada**\n\n"
+                f"• Archivos eliminados: {files_count}\n"
+                f"• Espacio liberado: {size_str}\n"
+            )
+            title = "Eliminación Completada"
+            
+            if backup_path:
+                msg += f"\n📦 Backup guardado en:\n{backup_path}"
 
         if errors:
             msg += f"\n\n⚠️ Errores: {len(errors)}"
 
-        QMessageBox.information(self.main_window, "Eliminación Completada", msg)
+        QMessageBox.information(self.main_window, title, msg)
 
-        # Actualizar UI inmediatamente antes del re-análisis
-        self._update_display_after_deletion(files_deleted, size_str)
+        # Actualizar área de detalles con resumen
+        if dry_run:
+            # Mostrar resumen de simulación en el área de detalles
+            summary_html = markdown_like_to_html(
+                f"🔍 **Simulación Completada**\n\n"
+                f"• Archivos que se eliminarían: **{files_count}**\n"
+                f"• Espacio que se liberaría: **{size_str}**\n\n"
+                f"⚠️ No se eliminó ningún archivo realmente.\n\n"
+                f"Los archivos siguen disponibles. Puedes ejecutar la eliminación real si lo deseas."
+            )
+            self.main_window.duplicates_details.setHtml(summary_html)
+
+        # Gestionar estado de botones según si fue simulación o eliminación real
+        if dry_run:
+            # Fue simulación: re-habilitar botones (los archivos siguen ahí)
+            self.main_window.delete_exact_duplicates_btn.setEnabled(True)
+            self.main_window.review_similar_btn.setEnabled(True)
+            self.main_window.analyze_duplicates_btn.setEnabled(True)
+        else:
+            # Fue eliminación real: actualizar display y limpiar
+            self._update_display_after_deletion(files_count, size_str)
+            # Limpiar resultados temporalmente
+            self.duplicate_detector.clear_last_results()
+            self.main_window.analyze_duplicates_btn.setEnabled(False)
+            self.main_window.delete_exact_duplicates_btn.setVisible(False)
+            self.main_window.review_similar_btn.setVisible(False)
 
         # Limpiar worker
         if self.deletion_worker:
@@ -356,21 +418,15 @@ class DuplicatesController(QObject):
                 self.main_window.active_workers.remove(self.deletion_worker)
             self.deletion_worker = None
 
-        # Limpiar resultados temporalmente
-        self.duplicate_detector.clear_last_results()
-        self.main_window.analyze_duplicates_btn.setEnabled(False)
-        self.main_window.delete_exact_duplicates_btn.setVisible(False)
-        self.main_window.review_similar_btn.setVisible(False)
-
-        # Limpiar el deletion_worker de la lista de workers activos
+        # Limpiar el deletion_worker de la lista de workers activos (código duplicado, se mantiene por si acaso)
         if self.deletion_worker in self.main_window.active_workers:
             self.main_window.active_workers.remove(self.deletion_worker)
         
         self.logger.debug("Deletion worker limpiado de active_workers")
 
-        # Programar re-análisis completo para actualizar todos los contadores
-        # Nota: el worker se limpiará completamente en schedule_reanalysis
-        self.schedule_reanalysis()
+        # Programar re-análisis completo solo si no fue simulación
+        if not dry_run:
+            self.schedule_reanalysis()
 
     def _update_display_after_deletion(self, files_deleted, size_str):
         """Actualiza el display inmediatamente después de la eliminación"""

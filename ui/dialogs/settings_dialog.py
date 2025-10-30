@@ -343,10 +343,13 @@ class SettingsDialog(QDialog):
         dryrun_info.setWordWrap(True)
         dryrun_layout.addWidget(dryrun_info)
 
-        self.dry_run_default_checkbox = QCheckBox("Activar modo simulación por defecto")
+        self.dry_run_default_checkbox = QCheckBox("Activar modo simulación por defecto en todas las operaciones")
         self.dry_run_default_checkbox.setChecked(False)
-        self.dry_run_default_checkbox.setEnabled(False)  # Feature no implementada
-        self.dry_run_default_checkbox.setToolTip("Funcionalidad no implementada actualmente")
+        self.dry_run_default_checkbox.setToolTip(
+            "Si se activa, todos los diálogos de eliminación (HEIC, Live Photos, Duplicados)\n"
+            "mostrarán el checkbox de 'Modo simulación' marcado por defecto.\n"
+            "Esto añade una capa extra de seguridad para evitar eliminaciones accidentales."
+        )
         dryrun_layout.addWidget(self.dry_run_default_checkbox)
 
         layout.addWidget(dryrun_group)
