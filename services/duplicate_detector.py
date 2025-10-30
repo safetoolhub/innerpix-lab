@@ -105,7 +105,7 @@ class DuplicateDetector:
         total_files = len(all_files)
         self.logger.info(f"Archivos multimedia encontrados: {total_files}")
         
-        safe_progress_callback(progress_callback, 0, total_files, "Calculando hashes SHA256...")
+        safe_progress_callback(progress_callback, 0, total_files, "Calculando hashes SHA256")
         
         # Obtener número de workers de configuración
         max_workers = settings_manager.get_max_workers(Config.MAX_WORKERS)
@@ -142,7 +142,7 @@ class DuplicateDetector:
                 processed += 1
                 if processed % Config.PROGRESS_CALLBACK_INTERVAL == 0 or processed == total_files:
                     safe_progress_callback(progress_callback, processed, total_files, 
-                                         f"Calculando hashes SHA256... ({processed}/{total_files})")
+                                         "Calculando hashes SHA256")
         
         # Filtrar solo grupos con duplicados
         duplicate_groups = []
