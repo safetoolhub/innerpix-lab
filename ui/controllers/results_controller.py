@@ -160,17 +160,34 @@ class ResultsController(QObject):
         Returns:
             HTML formateado
         """
-        space_freed = results.space_freed
+        # Usar valores simulados o reales según dry_run
+        if results.dry_run:
+            files_count = results.simulated_files_deleted
+            space_freed = results.simulated_space_freed
+            title = "🔍 Simulación de Eliminación de Duplicados HEIC Completada"
+            color = "#0066cc"  # Azul para simulación
+            files_label = "Archivos que se eliminarían"
+            space_label = "Espacio que se liberaría"
+        else:
+            files_count = results.files_deleted
+            space_freed = results.space_freed
+            title = "✅ Eliminación de Duplicados HEIC Completada"
+            color = "#28a745"  # Verde para operación real
+            files_label = "Archivos eliminados"
+            space_label = "Espacio liberado"
 
         html = f"""
-            <div style='color: #28a745;'>
-                <h4>✅ Eliminación de Duplicados HEIC Completada</h4>
-                <p><strong>Archivos eliminados:</strong> {results.files_deleted}</p>
-                <p><strong>Espacio liberado:</strong> {format_size(space_freed)}</p>
+            <div style='color: {color};'>
+                <h4>{title}</h4>
+                <p><strong>{files_label}:</strong> {files_count}</p>
+                <p><strong>{space_label}:</strong> {format_size(space_freed)}</p>
                 <p><strong>Errores:</strong> {len(results.errors)}</p>
         """
 
-        if results.backup_path:
+        if results.dry_run:
+            html += "<p style='font-style: italic; color: #666;'>⚠️ Modo simulación: no se eliminó ningún archivo realmente</p>"
+
+        if results.backup_path and not results.dry_run:
             html += f"<p><strong>💾 Backup:</strong> {results.backup_path}</p>"
 
         if results.kept_format:

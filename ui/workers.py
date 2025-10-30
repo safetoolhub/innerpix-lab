@@ -313,12 +313,13 @@ class FileOrganizerWorker(BaseWorker):
 class HEICRemovalWorker(BaseWorker):
     """Worker para ejecutar eliminación de duplicados HEIC"""
 
-    def __init__(self, remover, pairs, keep_format, create_backup=True):
+    def __init__(self, remover, pairs, keep_format, create_backup=True, dry_run=False):
         super().__init__()
         self.remover = remover
         self.pairs = pairs
         self.keep_format = keep_format
         self.create_backup = create_backup
+        self.dry_run = dry_run
 
     def run(self):
         try:
@@ -334,7 +335,8 @@ class HEICRemovalWorker(BaseWorker):
             results = self.remover.execute_removal(
                 self.pairs,
                 keep_format=self.keep_format,
-                create_backup=self.create_backup
+                create_backup=self.create_backup,
+                dry_run=self.dry_run
             )
             # Clean up attribute
             if hasattr(self.remover, '_progress_callback'):

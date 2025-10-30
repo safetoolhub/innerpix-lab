@@ -179,7 +179,13 @@ class LivePhotosController(QObject):
                     f"Se eliminaron {results.files_deleted} archivos"
                 )
 
-        self.main_window.exec_lp_btn.setEnabled(False)
+        # Gestionar estado del botón según si fue simulación o eliminación real
+        if dry_run:
+            # Fue simulación: re-habilitar el botón (los archivos siguen ahí)
+            self.main_window.exec_lp_btn.setEnabled(True)
+        else:
+            # Fue eliminación real: deshabilitar el botón (los archivos ya no existen)
+            self.main_window.exec_lp_btn.setEnabled(False)
         
         if self.execution_worker in self.main_window.active_workers:
             self.main_window.active_workers.remove(self.execution_worker)
@@ -190,7 +196,9 @@ class LivePhotosController(QObject):
         if not dry_run and results.success:
             self._update_lp_display_after_deletion()
 
-        self.schedule_reanalysis()
+        # Solo re-analizar si no fue simulación
+        if not dry_run:
+            self.schedule_reanalysis()
 
     def _update_lp_display_after_deletion(self):
         """Actualiza el display de Live Photos para indicar que ya no hay archivos pendientes"""

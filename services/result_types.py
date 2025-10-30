@@ -151,6 +151,9 @@ class HeicAnalysisResult(AnalysisResult):
 class HeicDeletionResult(DeletionResult):
     """Resultado de eliminación de HEIC"""
     format_kept: Optional[str] = None
+    dry_run: bool = False
+    simulated_files_deleted: int = 0
+    simulated_space_freed: int = 0
     
     @property
     def kept_format(self) -> Optional[str]:

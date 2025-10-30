@@ -67,11 +67,19 @@ class HEICController(QObject):
         """Ejecuta la eliminación de duplicados HEIC"""
         count = len(plan['duplicate_pairs'])
         format_del = 'HEIC' if plan['keep_format'] == 'jpg' else 'JPG'
+        dry_run = plan.get('dry_run', False)
+
+        # Mensaje de confirmación diferente según sea simulación o no
+        if dry_run:
+            confirm_msg = f"¿Simular la eliminación de {count} archivos {format_del}?\n\n" \
+                          "No se eliminarán archivos realmente."
+        else:
+            confirm_msg = f"¿Eliminar {count} archivos {format_del}?"
 
         reply = QMessageBox.question(
             self.main_window,
             "Confirmar",
-            f"¿Eliminar {count} archivos {format_del}?",
+            confirm_msg,
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
 
@@ -83,13 +91,16 @@ class HEICController(QObject):
             self.execution_worker.quit()
             self.execution_worker.wait()
 
-        self.progress_controller.show_progress(count, f"Eliminando archivos {format_del}...")
+        # Mensaje de progreso según sea simulación o no
+        progress_msg = f"Simulando eliminación de archivos {format_del}..." if dry_run else f"Eliminando archivos {format_del}..."
+        self.progress_controller.show_progress(count, progress_msg)
 
         self.execution_worker = HEICRemovalWorker(
             self.heic_remover,
             plan['duplicate_pairs'],
             plan['keep_format'],
-            plan['create_backup']
+            plan['create_backup'],
+            dry_run
         )
 
         self.execution_worker.progress_update.connect(self.main_window.analysis_controller.update_progress)
@@ -122,22 +133,41 @@ class HEICController(QObject):
         self.results_controller.show_results_html(html, show_generic_status=False)
 
         if results.success:
-            QMessageBox.information(
-                self.main_window,
-                "Completado",
-                f"Se eliminaron {results.files_deleted} duplicados"
-            )
+            # Mensaje diferente según sea simulación o no
+            if results.dry_run:
+                files_count = results.simulated_files_deleted
+                QMessageBox.information(
+                    self.main_window,
+                    "Simulación Completada",
+                    f"Simulación completada: {files_count} archivos se eliminarían\n\n"
+                    "No se eliminó ningún archivo realmente."
+                )
+            else:
+                QMessageBox.information(
+                    self.main_window,
+                    "Completado",
+                    f"Se eliminaron {results.files_deleted} duplicados"
+                )
             
-            # Actualizar display inmediatamente antes del re-análisis
-            self._update_heic_display_after_deletion()
+            # Actualizar display inmediatamente antes del re-análisis (solo si no es simulación)
+            if not results.dry_run:
+                self._update_heic_display_after_deletion()
 
-        self.main_window.exec_heic_btn.setEnabled(False)
+        # Gestionar estado del botón según si fue simulación o eliminación real
+        if results.dry_run:
+            # Fue simulación: re-habilitar el botón (los archivos siguen ahí)
+            self.main_window.exec_heic_btn.setEnabled(True)
+        else:
+            # Fue eliminación real: deshabilitar el botón (los archivos ya no existen)
+            self.main_window.exec_heic_btn.setEnabled(False)
 
         if self.execution_worker in self.main_window.active_workers:
             self.main_window.active_workers.remove(self.execution_worker)
         self.execution_worker = None
 
-        self.schedule_reanalysis()
+        # Solo re-analizar si no fue simulación
+        if not results.dry_run:
+            self.schedule_reanalysis()
 
     def _update_heic_display_after_deletion(self):
         """Actualiza el display de HEIC para indicar que ya no hay archivos pendientes"""
