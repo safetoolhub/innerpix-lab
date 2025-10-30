@@ -3,6 +3,7 @@ Eliminador de HEIC Duplicados
 """
 import shutil
 import os
+import logging
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Optional, Set, Tuple
@@ -283,7 +284,11 @@ class HEICDuplicateRemover:
                 format_kept=keep_format
             )
 
-        self.logger.info(f"Iniciando eliminación de duplicados HEIC: {len(duplicate_pairs)} pares")
+        self.logger.info("=" * 80)
+        self.logger.info("*** INICIANDO ELIMINACIÓN DE DUPLICADOS HEIC/JPG")
+        self.logger.info(f"*** Pares a procesar: {len(duplicate_pairs)}")
+        self.logger.info(f"*** Formato a conservar: {keep_format.upper()}")
+        self.logger.info("=" * 80)
 
         results = HeicDeletionResult(success=True, format_kept=keep_format)
 
@@ -351,13 +356,17 @@ class HEICDuplicateRemover:
                     results.files_deleted += 1
                     results.space_freed += file_size
                     results.deleted_files.append(str(file_to_delete))
-
-                    self.logger.info(f"Eliminado: {file_to_delete.name}, Mantenido: {file_to_keep.name}")
+                    
+                    from utils.format_utils import format_size
+                    format_deleted = 'HEIC' if keep_format.lower() == 'jpg' else 'JPG'
+                    format_kept = 'JPG' if keep_format.lower() == 'jpg' else 'HEIC'
+                    self.logger.info(f"✓ Eliminado {format_deleted}: {file_to_delete} ({format_size(file_size)})")
+                    self.logger.info(f"  ✓ Conservado {format_kept}: {file_to_keep}")
 
                 except Exception as e:
                     error_msg = f"Error eliminando {file_to_delete}: {str(e)}"
                     results.add_error(error_msg)
-                    self.logger.error(error_msg)
+                    self.logger.error(f"✗ {error_msg}")
 
             if results.has_errors:
                 results.success = len(results.errors) < len(duplicate_pairs)
@@ -365,8 +374,14 @@ class HEICDuplicateRemover:
             from utils.format_utils import format_size
             freed = format_size(results.space_freed)
 
-            self.logger.info(f"Eliminación completada: {results.files_deleted} archivos eliminados, "
-                           f"{freed} liberados, {len(results.errors)} errores")
+            self.logger.info("=" * 80)
+            self.logger.info("*** ELIMINACIÓN DE DUPLICADOS HEIC/JPG COMPLETADA")
+            self.logger.info(f"*** Resultado: {results.files_deleted} archivos eliminados, {freed} liberados")
+            if results.errors:
+                self.logger.info(f"*** Errores encontrados durante la eliminación:")
+                for error in results.errors:
+                    self.logger.error(f"  ✗ {error}")
+            self.logger.info("=" * 80)
 
         except Exception as e:
             error_msg = f"Error durante eliminación: {str(e)}"

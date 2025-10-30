@@ -217,6 +217,8 @@ class SettingsDialog(QDialog):
             "WARNING: Situaciones inusuales\n"
             "ERROR: Solo errores graves"
         )
+        # Conectar cambio en caliente
+        self.log_level_combo.currentTextChanged.connect(self.change_log_level)
         log_level_layout.addWidget(self.log_level_combo)
         log_level_layout.addStretch()
 
@@ -501,7 +503,7 @@ class SettingsDialog(QDialog):
                 )
 
     def change_log_level(self, level_str):
-        """Cambia el nivel de logging y actualiza config y logger del padre."""
+        """Cambia el nivel de logging en caliente y actualiza config y logger del padre."""
         try:
             level_name = str(level_str).split()[0].split(" - ")[0].upper()
             level_map = {
@@ -515,8 +517,13 @@ class SettingsDialog(QDialog):
             # Actualizar config
             Config.LOG_LEVEL = level_name
             
-            # Actualizar TODOS los loggers globalmente
+            # Actualizar TODOS los loggers globalmente (cambio en caliente)
             set_global_log_level(level)
+            
+            # Registrar el cambio
+            self.logger.info("=" * 80)
+            self.logger.info(f"Nivel de log cambiado a: {level_name}")
+            self.logger.info("=" * 80)
             
             # Guardar en settings manager
             settings_manager.set_log_level(level_name)

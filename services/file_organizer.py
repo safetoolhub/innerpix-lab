@@ -4,6 +4,7 @@ Organizador de Archivos
 import shutil
 import os
 import re
+import logging
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Optional, Set, Callable
@@ -627,7 +628,10 @@ class FileOrganizer:
                 message='No hay archivos para mover'
             )
 
-        self.logger.info(f"Iniciando organización de {len(move_plan)} archivos")
+        self.logger.info("=" * 80)
+        self.logger.info("*** INICIANDO ORGANIZACIÓN DE ARCHIVOS")
+        self.logger.info(f"*** Archivos a mover: {len(move_plan)}")
+        self.logger.info("=" * 80)
 
         results = OrganizationResult(success=True)
 
@@ -731,6 +735,7 @@ class FileOrganizer:
 
                     # Si el destino ya existe o ya fue usado en esta ejecución, buscar nuevo nombre
                     if target_path.exists() or target_name in used_names_by_folder[folder_key]:
+                        move.has_conflict = True
                         self.logger.debug(f"Conflicto detectado para {target_name}, buscando nombre alternativo")
 
                         # Extraer partes del nombre
@@ -763,7 +768,6 @@ class FileOrganizer:
                                 move.new_name = new_name
                                 move.target_path = new_target_path
                                 move.sequence = sequence
-                                self.logger.info(f"Renombrado por conflicto: {move.original_name} -> {new_name}")
                                 break
 
                             sequence += 1
@@ -795,7 +799,24 @@ class FileOrganizer:
 
                     results.moved_files.append(str(target_path))
 
-                    self.logger.info(f"Movido: {move.source_path.name} -> {target_path}")
+                    # Determinar si mostrar análisis detallado de fechas (solo para organización BY_MONTH)
+                    # BY_MONTH usa carpetas con formato YYYY_MM (ej: 2023_07)
+                    import re
+                    is_by_month = move.target_folder and re.match(r'^\d{4}_\d{2}$', move.target_folder)
+                    
+                    # Obtener fecha del archivo (verbose solo para BY_MONTH)
+                    try:
+                        file_date = get_file_date(target_path, verbose=is_by_month)
+                        date_str = file_date.strftime('%Y-%m-%d %H:%M:%S') if file_date else 'fecha desconocida'
+                    except Exception as e:
+                        self.logger.warning(f"Error obteniendo fecha de {target_path.name}: {e}")
+                        date_str = 'fecha desconocida'
+
+                    # Mostrar log apropiado según si hubo conflicto
+                    if move.has_conflict or move.sequence:
+                        self.logger.info(f"⚠️  Conflicto resuelto: {move.source_path} → {target_path} (secuencia {move.sequence}, {date_str})")
+                    else:
+                        self.logger.info(f"✓ Movido: {move.source_path} → {target_path} ({date_str})")
 
                 except Exception as e:
                     self.logger.error(f"Error moviendo {move.source_path.name}: {str(e)}")
@@ -814,10 +835,14 @@ class FileOrganizer:
             if results.has_errors:
                 results.success = len(results.errors) < len(move_plan)
 
-            self.logger.info(
-                f"Organización completada: {results.files_moved} archivos movidos, "
-                f"{len(results.errors)} errores"
-            )
+            self.logger.info("=" * 80)
+            self.logger.info("*** ORGANIZACIÓN DE ARCHIVOS COMPLETADA")
+            self.logger.info(f"*** Resultado: {results.files_moved} archivos movidos")
+            if results.errors:
+                self.logger.info(f"*** Errores encontrados durante la organización:")
+                for error in results.errors:
+                    self.logger.error(f"  ✗ {error}")
+            self.logger.info("=" * 80)
 
         except Exception as e:
             self.logger.error(f"Error crítico en organización: {str(e)}")
