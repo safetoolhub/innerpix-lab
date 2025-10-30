@@ -32,9 +32,9 @@ class ExactDuplicatesDialog(BaseDialog):
         
         # Información
         info = QLabel(
-            f"📊 Se encontraron **{self.analysis['total_duplicates']} archivos duplicados** "
-            f"en **{self.analysis['total_groups']} grupos**\n\n"
-            f"💾 Espacio a liberar: **{format_size(self.analysis['space_wasted'])}**"
+            f"📊 Se encontraron **{self.analysis.total_duplicates} archivos duplicados** "
+            f"en **{self.analysis.total_groups} grupos**\n\n"
+            f"💾 Espacio a liberar: **{format_size(self.analysis.space_wasted)}**"
         )
         info.setTextFormat(Qt.TextFormat.RichText)
         info.setWordWrap(True)
@@ -70,7 +70,7 @@ class ExactDuplicatesDialog(BaseDialog):
         table.setColumnCount(3)
         table.setHorizontalHeaderLabels(["Grupo", "Archivos", "Tamaño Total"])
         
-        groups = self.analysis['groups'][:10]
+        groups = self.analysis.groups[:10]
         table.setRowCount(len(groups))
         
         for row, group in enumerate(groups):
@@ -78,11 +78,12 @@ class ExactDuplicatesDialog(BaseDialog):
             table.setItem(row, 1, QTableWidgetItem(str(group.file_count)))
             table.setItem(row, 2, QTableWidgetItem(format_size(group.total_size)))
         
+        
         table.setMaximumHeight(250)
         layout.addWidget(table)
         
-        if len(self.analysis['groups']) > 10:
-            more_label = QLabel(f"... y {len(self.analysis['groups']) - 10} grupos más")
+        if len(self.analysis.groups) > 10:
+            more_label = QLabel(f"... y {len(self.analysis.groups) - 10} grupos más")
             more_label.setStyleSheet(ui_styles.STYLE_MORE_ITALIC)
             layout.addWidget(more_label)
         
@@ -110,7 +111,7 @@ class ExactDuplicatesDialog(BaseDialog):
     
     def accept(self):
         self.accepted_plan = {
-            'groups': self.analysis['groups'],
+            'groups': self.analysis.groups,
             'keep_strategy': self.keep_strategy,
             'create_backup': self.backup_checkbox.isChecked()
         }
@@ -188,13 +189,13 @@ class SimilarDuplicatesDialog(BaseDialog):
 
     def _load_group(self, index):
         """Carga y muestra un grupo específico con miniaturas"""
-        if not 0 <= index < len(self.analysis['groups']):
+        if not 0 <= index < len(self.analysis.groups):
             return
         self.current_group_index = index
-        group = self.analysis['groups'][index]
+        group = self.analysis.groups[index]
 
         # Actualizar navegación
-        total_groups = len(self.analysis['groups'])
+        total_groups = len(self.analysis.groups)
         self.group_label.setText(f"Grupo {index + 1} de {total_groups}")
         # Con navegación circular, los botones siempre están habilitados
         self.prev_btn.setEnabled(True)
@@ -676,7 +677,7 @@ class SimilarDuplicatesDialog(BaseDialog):
 
     def _previous_group(self):
         """Navega al grupo anterior (circular: desde el primero va al último)"""
-        total_groups = len(self.analysis['groups'])
+        total_groups = len(self.analysis.groups)
         if self.current_group_index == 0:
             # Estamos en el primero, ir al último
             self._load_group(total_groups - 1)
@@ -685,7 +686,7 @@ class SimilarDuplicatesDialog(BaseDialog):
 
     def _next_group(self):
         """Navega al grupo siguiente (circular: desde el último va al primero)"""
-        total_groups = len(self.analysis['groups'])
+        total_groups = len(self.analysis.groups)
         if self.current_group_index >= total_groups - 1:
             # Estamos en el último, ir al primero
             self._load_group(0)
@@ -709,7 +710,7 @@ class SimilarDuplicatesDialog(BaseDialog):
         groups_to_process = []
         for group_idx, files_to_delete in self.selections.items():
             if files_to_delete:
-                original_group = self.analysis['groups'][group_idx]
+                original_group = self.analysis.groups[group_idx]
                 groups_to_process.append(DuplicateGroup(
                     hash_value=original_group.hash_value,
                     files=files_to_delete,

@@ -118,7 +118,8 @@ def create_duplicates_tab(window):
         if last_results:
             # Verificar si el modo actual coincide con los resultados guardados
             current_mode = 'exact' if is_exact else 'perceptual'
-            saved_mode = last_results.get('mode')
+            # last_results es un DuplicateAnalysisResult (dataclass)
+            saved_mode = last_results.mode
             
             if current_mode != saved_mode:
                 # El modo cambió, limpiar resultados y ocultar botones

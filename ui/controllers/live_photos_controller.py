@@ -140,12 +140,16 @@ class LivePhotosController(QObject):
     # ========================================================================
 
     def on_live_photo_finished(self, results):
-        """Callback al terminar limpieza de Live Photos"""
+        """Callback al terminar limpieza de Live Photos
+        
+        Args:
+            results: LivePhotoCleanupResult (dataclass)
+        """
         self.progress_controller.hide_progress()
 
-        dry_run = bool(results.get('dry_run'))
-        simulated_count = results.get('simulated_files_deleted', 0)
-        simulated_space = results.get('simulated_space_freed', 0)
+        dry_run = results.dry_run
+        simulated_count = results.simulated_files_deleted
+        simulated_space = results.simulated_space_freed
 
         html = self.results_controller.format_live_photo_results(results)
         self.results_controller.show_results_html(html, show_generic_status=False)
@@ -157,7 +161,7 @@ class LivePhotosController(QObject):
             if 'Simulación:' not in current:
                 self.main_window.lp_details.setHtml(current + "<hr>" + note)
 
-        if results.get('success'):
+        if results.success:
             if dry_run:
                 QMessageBox.information(
                     self.main_window,
@@ -168,7 +172,7 @@ class LivePhotosController(QObject):
                 QMessageBox.information(
                     self.main_window,
                     "Completado",
-                    f"Se eliminaron {results.get('files_deleted', 0)} archivos"
+                    f"Se eliminaron {results.files_deleted} archivos"
                 )
 
         self.main_window.exec_lp_btn.setEnabled(False)
@@ -179,7 +183,7 @@ class LivePhotosController(QObject):
 
         # Actualizar inmediatamente el display para mostrar que ya no hay Live Photos
         # antes del re-análisis (para evitar confusión durante el delay)
-        if not dry_run and results.get('success'):
+        if not dry_run and results.success:
             self._update_lp_display_after_deletion()
 
         self.schedule_reanalysis()

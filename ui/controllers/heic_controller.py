@@ -107,17 +107,21 @@ class HEICController(QObject):
     # ========================================================================
 
     def on_heic_finished(self, results):
-        """Callback al terminar eliminación HEIC"""
+        """Callback al terminar eliminación HEIC
+        
+        Args:
+            results: HeicDeletionResult (dataclass)
+        """
         self.progress_controller.hide_progress()
 
         html = self.results_controller.format_heic_results(results)
         self.results_controller.show_results_html(html, show_generic_status=False)
 
-        if results.get('success'):
+        if results.success:
             QMessageBox.information(
                 self.main_window,
                 "Completado",
-                f"Se eliminaron {results.get('files_deleted', 0)} duplicados"
+                f"Se eliminaron {results.files_deleted} duplicados"
             )
             
             # Actualizar display inmediatamente antes del re-análisis

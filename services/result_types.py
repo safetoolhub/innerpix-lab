@@ -38,14 +38,6 @@ class OperationResult:
         if self.success:
             self.success = False
 
-    def __getitem__(self, key):
-        """Permite acceso tipo diccionario para compatibilidad con código existente"""
-        return getattr(self, key)
-    
-    def get(self, key, default=None):
-        """Permite acceso tipo diccionario con valor por defecto"""
-        return getattr(self, key, default)
-
 
 @dataclass
 class AnalysisResult(OperationResult):
@@ -72,6 +64,18 @@ class RenameResult(OperationResult):
 
 
 @dataclass
+class RenameAnalysisResult(AnalysisResult):
+    """Resultado de análisis de renombrado"""
+    already_renamed: int = 0
+    need_renaming: int = 0
+    cannot_process: int = 0
+    conflicts: int = 0
+    files_by_year: Dict = field(default_factory=dict)
+    renaming_plan: List[Dict] = field(default_factory=list)
+    issues: List[str] = field(default_factory=list)
+
+
+@dataclass
 class OrganizationResult(OperationResult):
     """Resultado de operación de organización"""
     files_moved: int = 0
@@ -79,6 +83,21 @@ class OrganizationResult(OperationResult):
     moved_files: List[str] = field(default_factory=list)
     backup_path: Optional[str] = None
     folders_created: List[str] = field(default_factory=list)
+
+
+@dataclass
+class OrganizationAnalysisResult(AnalysisResult):
+    """Resultado de análisis de organización de archivos"""
+    root_directory: str = ''
+    organization_type: str = 'to_root'
+    subdirectories: Dict = field(default_factory=dict)
+    root_files: List = field(default_factory=list)
+    total_files_to_move: int = 0
+    total_size_to_move: int = 0
+    potential_conflicts: int = 0
+    files_by_type: Dict = field(default_factory=dict)
+    move_plan: List = field(default_factory=list)
+    folders_to_create: List[str] = field(default_factory=list)
 
 
 @dataclass

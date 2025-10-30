@@ -24,8 +24,8 @@ class FileOrganizationDialog(BaseDialog):
         self.resize(800, 500)
         layout = QVBoxLayout(self)
 
-        # Obtener tipo de organización
-        org_type = self.analysis.get('organization_type', 'to_root')
+        # self.analysis es un OrganizationAnalysisResult (dataclass)
+        org_type = self.analysis.organization_type
         
         # Información según tipo
         if org_type == 'by_month':
@@ -41,7 +41,7 @@ class FileOrganizationDialog(BaseDialog):
         layout.addWidget(info)
 
         # Mostrar carpetas a crear si las hay
-        folders_to_create = self.analysis.get('folders_to_create', [])
+        folders_to_create = self.analysis.folders_to_create
         if folders_to_create:
             folders_label = QLabel(f"Se crearán {len(folders_to_create)} carpetas: {', '.join(sorted(folders_to_create)[:10])}" + 
                                   ("..." if len(folders_to_create) > 10 else ""))
@@ -50,13 +50,13 @@ class FileOrganizationDialog(BaseDialog):
             layout.addWidget(folders_label)
 
         # Lista de subdirectorios
-        if self.analysis.get('subdirectories'):
+        if self.analysis.subdirectories:
             layout.addWidget(QLabel("Subdirectorios a organizar:"))
             table = QTableWidget()
             table.setColumnCount(3)
             table.setHorizontalHeaderLabels(["Subdirectorio", "Archivos", "Tamaño"])
 
-            subdirs = list(self.analysis['subdirectories'].items())
+            subdirs = list(self.analysis.subdirectories.items())
             table.setRowCount(len(subdirs))
             for row, (name, info) in enumerate(subdirs):
                 table.setItem(row, 0, QTableWidgetItem(name))
@@ -81,11 +81,11 @@ class FileOrganizationDialog(BaseDialog):
         layout.addWidget(options_group)
 
         # Botones
-        ok_enabled = self.analysis.get('total_files_to_move', 0) > 0
+        ok_enabled = self.analysis.total_files_to_move > 0
         if ok_enabled:
-            size = self.analysis.get('total_size_to_move', 0)
+            size = self.analysis.total_size_to_move
             size_formatted = format_size(size)
-            ok_text = f"Proceder ({self.analysis['total_files_to_move']}, {size_formatted})"
+            ok_text = f"Proceder ({self.analysis.total_files_to_move}, {size_formatted})"
         else:
             ok_text = None
         buttons = self.make_ok_cancel_buttons(ok_text=ok_text, ok_enabled=ok_enabled)
@@ -95,10 +95,10 @@ class FileOrganizationDialog(BaseDialog):
 
     def accept(self):
         self.accepted_plan = self.build_accepted_plan({
-            'move_plan': self.analysis['move_plan'],
+            'move_plan': self.analysis.move_plan,
             'cleanup_empty_dirs': self.cleanup_checkbox.isChecked(),
-            'organization_type': self.analysis.get('organization_type', 'to_root'),
-            'folders_to_create': self.analysis.get('folders_to_create', [])
+            'organization_type': self.analysis.organization_type,
+            'folders_to_create': self.analysis.folders_to_create
         })
         super().accept()
 

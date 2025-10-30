@@ -17,7 +17,7 @@ from utils.logger import get_logger
 from utils.callback_utils import safe_progress_callback
 from utils.settings_manager import settings_manager
 from utils.date_utils import parse_renamed_name, get_file_date
-from services.result_types import OrganizationResult
+from services.result_types import OrganizationResult, OrganizationAnalysisResult
 
 
 class OrganizationType(Enum):
@@ -87,7 +87,7 @@ class FileOrganizer:
                 return True
         return False
 
-    def analyze_directory_structure(self, root_directory: Path, organization_type: OrganizationType = OrganizationType.TO_ROOT) -> Dict:
+    def analyze_directory_structure(self, root_directory: Path, organization_type: OrganizationType = OrganizationType.TO_ROOT) -> OrganizationAnalysisResult:
         """
         Analiza la estructura de directorios para organización
 
@@ -96,22 +96,18 @@ class FileOrganizer:
             organization_type: Tipo de organización a realizar
 
         Returns:
-            Diccionario con análisis detallado
+            OrganizationAnalysisResult con análisis detallado
         """
         self.logger.info(f"Analizando estructura de directorios para organización ({organization_type.value}): {root_directory}")
 
-        results = {
-            'root_directory': str(root_directory),
-            'organization_type': organization_type.value,
-            'subdirectories': {},
-            'root_files': [],  # Archivos en la raíz (para by_month y whatsapp_separate)
-            'total_files_to_move': 0,
-            'total_size_to_move': 0,
-            'potential_conflicts': 0,
-            'files_by_type': Counter(),
-            'move_plan': [],
-            'folders_to_create': set()
-        }
+        subdirectories = {}
+        root_files = []
+        total_files_to_move = 0
+        total_size_to_move = 0
+        potential_conflicts = 0
+        files_by_type = Counter()
+        move_plan = []
+        folders_to_create = []
 
         # Obtener max_workers de la configuración
         max_workers = settings_manager.get_max_workers(Config.MAX_WORKERS)
@@ -178,44 +174,57 @@ class FileOrganizer:
                     if info:
                         subdir_files.append(info)
                         total_size += info['size']
-                        results['files_by_type'][info['type']] += 1
+                        files_by_type[info['type']] += 1
 
             if subdir_files:
-                results['subdirectories'][subdir_name] = {
+                subdirectories[subdir_name] = {
                     'path': str(item),
                     'file_count': len(subdir_files),
                     'total_size': total_size,
                     'files': subdir_files
                 }
 
-                results['total_files_to_move'] += len(subdir_files)
-                results['total_size_to_move'] += total_size
+                total_files_to_move += len(subdir_files)
+                total_size_to_move += total_size
 
         # Para by_month y whatsapp_separate, agregar archivos de raíz
         if organization_type in (OrganizationType.BY_MONTH, OrganizationType.WHATSAPP_SEPARATE):
             if root_file_info:
-                results['root_files'] = root_file_info
-                results['total_files_to_move'] += len(root_file_info)
-                results['total_size_to_move'] += sum(f['size'] for f in root_file_info)
+                root_files = root_file_info
+                total_files_to_move += len(root_file_info)
+                total_size_to_move += sum(f['size'] for f in root_file_info)
                 
                 for file_info in root_file_info:
-                    results['files_by_type'][file_info['type']] += 1
+                    files_by_type[file_info['type']] += 1
 
         # Generar plan de movimiento si hay archivos
-        if results['subdirectories'] or results['root_files']:
-            results['move_plan'] = self._generate_move_plan(
-                results['subdirectories'],
-                results.get('root_files', []),
+        if subdirectories or root_files:
+            move_plan = self._generate_move_plan(
+                subdirectories,
+                root_files,
                 root_directory,
                 root_file_names,
                 organization_type
             )
-            results['potential_conflicts'] = sum(1 for move in results['move_plan'] if move.has_conflict)
-            results['folders_to_create'] = sorted(set(move.target_folder for move in results['move_plan'] if move.target_folder))
+            potential_conflicts = sum(1 for move in move_plan if move.has_conflict)
+            folders_to_create = sorted(set(move.target_folder for move in move_plan if move.target_folder))
 
-        self.logger.info(f"Análisis completado: {results['total_files_to_move']} archivos para mover desde {len(results['subdirectories'])} subdirectorios + {len(results.get('root_files', []))} en raíz")
+        self.logger.info(f"Análisis completado: {total_files_to_move} archivos para mover desde {len(subdirectories)} subdirectorios + {len(root_files)} en raíz")
 
-        return results
+        return OrganizationAnalysisResult(
+            success=True,
+            total_files=total_files_to_move,
+            root_directory=str(root_directory),
+            organization_type=organization_type.value,
+            subdirectories=subdirectories,
+            root_files=root_files,
+            total_files_to_move=total_files_to_move,
+            total_size_to_move=total_size_to_move,
+            potential_conflicts=potential_conflicts,
+            files_by_type=dict(files_by_type),
+            move_plan=move_plan,
+            folders_to_create=folders_to_create
+        )
 
     def _generate_move_plan(self, subdirectories: Dict, root_files: List[Dict], root_directory: Path, existing_file_names: Set[str], organization_type: OrganizationType) -> List[FileMove]:
         """

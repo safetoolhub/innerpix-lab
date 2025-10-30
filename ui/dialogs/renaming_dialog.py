@@ -15,18 +15,21 @@ class RenamingPreviewDialog(BaseDialog):
 
     def __init__(self, analysis_results, parent=None):
         super().__init__(parent)
-        self.analysis_results = analysis_results
+        self.analysis_results = analysis_results  # RenameAnalysisResult (dataclass)
         self.accepted_plan = None
         self.init_ui()
 
     def update_statistics(self, results):
-        """Actualiza las estadísticas después del renombrado"""
+        """Actualiza las estadísticas después del renombrado
+        
+        Args:
+            results: RenameResult (dataclass)
+        """
         if hasattr(self, 'stats_table'):
-            self.stats_table.item(0, 1).setText(str(results['files_renamed']))
-            if 'conflicts_resolved' in results:
-                self.stats_table.item(1, 1).setText(str(results['conflicts_resolved']))
-            if len(results['errors']) > 0:
-                self.stats_table.item(2, 1).setText(str(len(results['errors'])))
+            self.stats_table.item(0, 1).setText(str(results.files_renamed))
+            self.stats_table.item(1, 1).setText(str(results.conflicts_resolved))
+            if len(results.errors) > 0:
+                self.stats_table.item(2, 1).setText(str(len(results.errors)))
             self.stats_table.viewport().update()
 
     def init_ui(self):
@@ -62,7 +65,7 @@ class RenamingPreviewDialog(BaseDialog):
         layout.addWidget(stats_group)
 
         # Tabla de cambios propuestos
-        if self.analysis_results.get('renaming_plan'):
+        if self.analysis_results.renaming_plan:
             layout.addWidget(QLabel("Cambios propuestos (primeros 50):"))
             table = QTableWidget()
             table.setColumnCount(4)
@@ -73,7 +76,7 @@ class RenamingPreviewDialog(BaseDialog):
             header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
             header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
 
-            plan = self.analysis_results['renaming_plan'][:50]
+            plan = self.analysis_results.renaming_plan[:50]
             table.setRowCount(len(plan))
             for row, item in enumerate(plan):
                 table.setItem(row, 0, QTableWidgetItem(item['original_path'].name))
@@ -87,8 +90,8 @@ class RenamingPreviewDialog(BaseDialog):
             table.setMaximumHeight(400)
             layout.addWidget(table)
 
-            if len(self.analysis_results['renaming_plan']) > 50:
-                more_label = QLabel(f"... y {len(self.analysis_results['renaming_plan']) - 50} más")
+            if len(self.analysis_results.renaming_plan) > 50:
+                more_label = QLabel(f"... y {len(self.analysis_results.renaming_plan) - 50} más")
                 more_label.setStyleSheet(ui_styles.STYLE_ITALIC_GRAY)
                 layout.addWidget(more_label)
 
@@ -96,8 +99,8 @@ class RenamingPreviewDialog(BaseDialog):
         self.add_backup_checkbox(layout, "Crear backup antes de eliminar (Recomendado)")
 
         # Botones
-        ok_enabled = self.analysis_results.get('need_renaming', 0) > 0
-        ok_text = (f"Proceder ({self.analysis_results['need_renaming']})"
+        ok_enabled = self.analysis_results.need_renaming > 0
+        ok_text = (f"Proceder ({self.analysis_results.need_renaming})"
                    if ok_enabled else None)
         buttons = self.make_ok_cancel_buttons(ok_text=ok_text, ok_enabled=ok_enabled)
         # expose names used elsewhere
@@ -107,6 +110,6 @@ class RenamingPreviewDialog(BaseDialog):
 
     def accept(self):
         self.accepted_plan = self.build_accepted_plan({
-            'plan': self.analysis_results['renaming_plan']
+            'plan': self.analysis_results.renaming_plan
         })
         super().accept()

@@ -14,7 +14,7 @@ from config import Config
 from utils.logger import get_logger
 from utils.callback_utils import safe_progress_callback
 from utils.settings_manager import settings_manager
-from services.result_types import RenameResult
+from services.result_types import RenameResult, RenameAnalysisResult
 from utils.date_utils import (
     get_file_date,
     format_renamed_name,
@@ -39,7 +39,7 @@ class FileRenamer:
         self,
         directory: Path,
         progress_callback: Optional[Callable[[int, int, str], None]] = None
-    ) -> Dict:
+    ) -> RenameAnalysisResult:
         """
         Analiza un directorio para renombrado
 
@@ -49,30 +49,23 @@ class FileRenamer:
                              reportar progreso
 
         Returns:
-            Diccionario con análisis detallado
+            RenameAnalysisResult con análisis detallado
         """
         self.logger.info(f"Analizando directorio para renombrado: {directory}")
-
-        results = {
-            'total_files': 0,
-            'already_renamed': 0,
-            'need_renaming': 0,
-            'cannot_process': 0,
-            'conflicts': 0,
-            'files_by_year': Counter(),
-            'renaming_plan': [],
-            'issues': []
-        }
 
         all_files = []
         for file_path in directory.rglob("*"):
             if file_path.is_file() and Config.is_supported_file(file_path.name):
                 all_files.append(file_path)
 
-        results['total_files'] = len(all_files)
         total_files = len(all_files)
-
         renaming_map = {}
+        already_renamed = 0
+        cannot_process = 0
+        conflicts = 0
+        files_by_year = Counter()
+        renaming_plan = []
+        issues = []
         
         # Obtener max_workers de la configuración
         max_workers = settings_manager.get_max_workers(Config.MAX_WORKERS)
@@ -120,35 +113,36 @@ class FileRenamer:
                 status, file_path, data = future.result()
                 
                 if status == 'already_renamed':
-                    results['already_renamed'] += 1
+                    already_renamed += 1
                 elif status == 'no_date':
-                    results['cannot_process'] += 1
-                    results['issues'].append(data)
+                    cannot_process += 1
+                    issues.append(data)
                 elif status == 'unsupported':
-                    results['cannot_process'] += 1
-                    results['issues'].append(data)
+                    cannot_process += 1
+                    issues.append(data)
                 elif status == 'rename':
                     renamed_name = data['renamed_name']
                     if renamed_name not in renaming_map:
                         renaming_map[renamed_name] = []
                     renaming_map[renamed_name].append(data)
-                    results['files_by_year'][data['date'].year] += 1
+                    files_by_year[data['date'].year] += 1
 
         safe_progress_callback(progress_callback, total_files, total_files, "Analizando nombres de archivos")
 
+        need_renaming = 0
         for renamed_name, file_list in renaming_map.items():
             if len(file_list) == 1:
                 file_info = file_list[0]
-                results['renaming_plan'].append({
+                renaming_plan.append({
                     'original_path': file_info['original_path'],
                     'new_name': renamed_name,
                     'date': file_info['date'],
                     'has_conflict': False,
                     'sequence': None
                 })
-                results['need_renaming'] += 1
+                need_renaming += 1
             else:
-                results['conflicts'] += len(file_list) - 1
+                conflicts += len(file_list) - 1
 
                 file_list.sort(key=lambda x: x['original_path'].stat().st_mtime)
 
@@ -160,19 +154,30 @@ class FileRenamer:
                         sequence=i
                     )
 
-                    results['renaming_plan'].append({
+                    renaming_plan.append({
                         'original_path': file_info['original_path'],
                         'new_name': sequenced_name,
                         'date': file_info['date'],
                         'has_conflict': True,
                         'sequence': i
                     })
-                    results['need_renaming'] += 1
+                    need_renaming += 1
 
         self.logger.info(
-            f"Análisis completado: {results['need_renaming']} archivos para renombrar"
+            f"Análisis completado: {need_renaming} archivos para renombrar"
         )
-        return results
+        
+        return RenameAnalysisResult(
+            success=True,
+            total_files=total_files,
+            already_renamed=already_renamed,
+            need_renaming=need_renaming,
+            cannot_process=cannot_process,
+            conflicts=conflicts,
+            files_by_year=dict(files_by_year),
+            renaming_plan=renaming_plan,
+            issues=issues
+        )
 
     def execute_renaming(
         self,

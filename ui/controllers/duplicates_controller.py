@@ -99,12 +99,13 @@ class DuplicatesController(QObject):
             self.logger.debug("No hay resultados de duplicados en analysis_results")
             return
         
+        # dup_results es un DuplicateAnalysisResult (dataclass)
         # Solo mostrar si es modo exacto (del análisis inicial)
-        if dup_results.get('mode') != 'exact':
-            self.logger.debug(f"Modo de duplicados es '{dup_results.get('mode')}', no 'exact'")
+        if dup_results.mode != 'exact':
+            self.logger.debug(f"Modo de duplicados es '{dup_results.mode}', no 'exact'")
             return
         
-        self.logger.info(f"Mostrando resultados iniciales de duplicados exactos: {dup_results.get('total_groups', 0)} grupos")
+        self.logger.info(f"Mostrando resultados iniciales de duplicados exactos: {dup_results.total_groups} grupos")
         
         # Guardar en el detector para mantener consistencia
         self.duplicate_detector.set_last_results(dup_results)
@@ -176,7 +177,7 @@ class DuplicatesController(QObject):
 
     def _on_duplicate_analysis_finished(self, results):
         """Maneja la finalización del análisis de duplicados"""
-        self.logger.info(f"Análisis completado: {results.get('mode')}")
+        self.logger.info(f"Análisis completado: {results.mode}")
 
         # Guardar resultados en el servicio DuplicateDetector para centralizar estado
         self.duplicate_detector.set_last_results(results)
@@ -184,18 +185,18 @@ class DuplicatesController(QObject):
         # Rehabilitar controles
         self._set_analysis_controls_enabled(True)
 
-        if results.get('error'):
+        if results.error:
             QMessageBox.critical(
                 self.main_window,
                 "Error en Análisis",
-                f"Error: {results['error']}\n\n"
+                f"Error: {results.error}\n\n"
                 "Asegúrate de tener instalados imagehash y opencv-python para detección perceptual."
             )
-            self.main_window.duplicates_details.setHtml(markdown_like_to_html(f"❌ Error: {results['error']}"))
+            self.main_window.duplicates_details.setHtml(markdown_like_to_html(f"❌ Error: {results.error}"))
             return
 
         # Mostrar resultados según el modo
-        if results['mode'] == 'exact':
+        if results.mode == 'exact':
             self.results_controller.show_exact_results(results)
         else:  # perceptual
             self.results_controller.show_similar_results(results)
