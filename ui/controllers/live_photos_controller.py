@@ -7,6 +7,7 @@ from pathlib import Path
 from PyQt6.QtWidgets import QMessageBox, QDialog
 from PyQt6.QtCore import QObject, QTimer
 
+from config import Config
 from ui.workers import LivePhotoCleanupWorker
 from ui.dialogs import LivePhotoCleanupDialog
 from utils.format_utils import format_size
@@ -127,7 +128,10 @@ class LivePhotosController(QObject):
         self.execution_worker.progress_update.connect(self.main_window.analysis_controller.update_progress)
         self.execution_worker.finished.connect(self.on_live_photo_finished)
         self.execution_worker.error.connect(self.on_operation_error)
+        worker_ref = self.execution_worker
+        self.execution_worker.finished.connect(lambda: worker_ref.setParent(None) if worker_ref else None)
         self.execution_worker.finished.connect(self.execution_worker.deleteLater)
+        self.execution_worker.error.connect(lambda: worker_ref.setParent(None) if worker_ref else None)
         self.execution_worker.error.connect(self.execution_worker.deleteLater)
 
         self.main_window.active_workers.append(self.execution_worker)
@@ -232,6 +236,11 @@ class LivePhotosController(QObject):
 
     def cleanup(self):
         """Limpia workers activos"""
-        if self.execution_worker and self.execution_worker.isRunning():
-            self.execution_worker.quit()
-            self.execution_worker.wait(1000)
+        if self.execution_worker:
+            if self.execution_worker.isRunning():
+                self.execution_worker.stop()
+                self.execution_worker.quit()
+                self.execution_worker.wait(Config.WORKER_SHUTDOWN_TIMEOUT_MS)
+            if self.execution_worker in self.main_window.active_workers:
+                self.main_window.active_workers.remove(self.execution_worker)
+            self.execution_worker = None

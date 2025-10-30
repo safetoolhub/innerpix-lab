@@ -53,7 +53,7 @@ class LivePhotoCleanupDialog(BaseDialog):
 
         # Información introductoria
         info_label = QLabel(
-            "Los Live Photos de iPhone contienen una imagen JPG y un video MOV.\n"
+            "Los Live Photos de iPhone contienen una imagen JPG y un video MOV con el mismo nombre.\n"
             "Selecciona qué componente deseas conservar:"
         )
         info_label.setStyleSheet(ui_styles.STYLE_INFO_HIGHLIGHT)

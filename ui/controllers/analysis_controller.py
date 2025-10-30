@@ -145,8 +145,11 @@ class AnalysisController:
         self.worker.finished.connect(self.on_finished)
         self.worker.error.connect(self.on_error)
 
-        # Autoeliminación cuando termine
+        # Autoeliminación cuando termine - capturar referencia al worker
+        worker_ref = self.worker
+        self.worker.finished.connect(lambda: worker_ref.setParent(None) if worker_ref else None)
         self.worker.finished.connect(self.worker.deleteLater)
+        self.worker.error.connect(lambda: worker_ref.setParent(None) if worker_ref else None)
         self.worker.error.connect(self.worker.deleteLater)
 
         # Mantener referencia en la lista de workers activos
@@ -366,9 +369,11 @@ class AnalysisController:
 
     def cleanup(self):
         """Limpia el worker si está ejecutándose."""
-        if self.worker and self.worker.isRunning():
-            self.worker.quit()
-            self.worker.wait(1000)
+        if self.worker:
+            if self.worker.isRunning():
+                self.worker.stop()  # Solicitar detención graceful
+                self.worker.quit()
+                self.worker.wait(Config.WORKER_SHUTDOWN_TIMEOUT_MS)
             if self.worker in self.window.active_workers:
                 self.window.active_workers.remove(self.worker)
             self.worker = None

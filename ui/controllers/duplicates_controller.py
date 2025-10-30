@@ -80,6 +80,16 @@ class DuplicatesController(QObject):
         self.duplicate_worker.progress_update.connect(self._update_duplicate_progress)
         self.duplicate_worker.finished.connect(self._on_duplicate_analysis_finished)
         self.duplicate_worker.error.connect(self._on_duplicate_analysis_error)
+        
+        # Autoeliminación cuando termine - capturar referencia al worker
+        worker_ref = self.duplicate_worker
+        self.duplicate_worker.finished.connect(lambda: worker_ref.setParent(None) if worker_ref else None)
+        self.duplicate_worker.finished.connect(self.duplicate_worker.deleteLater)
+        self.duplicate_worker.error.connect(lambda: worker_ref.setParent(None) if worker_ref else None)
+        self.duplicate_worker.error.connect(self.duplicate_worker.deleteLater)
+
+        # Añadir a lista de workers activos
+        self.main_window.active_workers.append(self.duplicate_worker)
 
         self.duplicate_worker.start()
 
@@ -182,6 +192,12 @@ class DuplicatesController(QObject):
         # Guardar resultados en el servicio DuplicateDetector para centralizar estado
         self.duplicate_detector.set_last_results(results)
         
+        # Limpiar worker
+        if self.duplicate_worker:
+            if self.duplicate_worker in self.main_window.active_workers:
+                self.main_window.active_workers.remove(self.duplicate_worker)
+            self.duplicate_worker = None
+        
         # Rehabilitar controles
         self._set_analysis_controls_enabled(True)
 
@@ -212,6 +228,12 @@ class DuplicatesController(QObject):
         )
 
         self.main_window.duplicates_details.setHtml(markdown_like_to_html("❌ Error en el análisis. Revisa el log para más detalles."))
+
+        # Limpiar worker
+        if self.duplicate_worker:
+            if self.duplicate_worker in self.main_window.active_workers:
+                self.main_window.active_workers.remove(self.duplicate_worker)
+            self.duplicate_worker = None
 
         # Rehabilitar controles
         self._set_analysis_controls_enabled(True)
@@ -281,6 +303,16 @@ class DuplicatesController(QObject):
         self.deletion_worker.progress_update.connect(self._update_deletion_progress)
         self.deletion_worker.finished.connect(self._on_deletion_finished)
         self.deletion_worker.error.connect(self._on_deletion_error)
+        
+        # Autoeliminación cuando termine - capturar referencia al worker
+        worker_ref = self.deletion_worker
+        self.deletion_worker.finished.connect(lambda: worker_ref.setParent(None) if worker_ref else None)
+        self.deletion_worker.finished.connect(self.deletion_worker.deleteLater)
+        self.deletion_worker.error.connect(lambda: worker_ref.setParent(None) if worker_ref else None)
+        self.deletion_worker.error.connect(self.deletion_worker.deleteLater)
+
+        # Añadir a lista de workers activos
+        self.main_window.active_workers.append(self.deletion_worker)
 
         self.deletion_worker.start()
 
@@ -317,6 +349,12 @@ class DuplicatesController(QObject):
 
         # Actualizar UI inmediatamente antes del re-análisis
         self._update_display_after_deletion(files_deleted, size_str)
+
+        # Limpiar worker
+        if self.deletion_worker:
+            if self.deletion_worker in self.main_window.active_workers:
+                self.main_window.active_workers.remove(self.deletion_worker)
+            self.deletion_worker = None
 
         # Limpiar resultados temporalmente
         self.duplicate_detector.clear_last_results()
@@ -409,6 +447,12 @@ class DuplicatesController(QObject):
             f"Ocurrió un error durante la eliminación:\n\n{error_msg}"
         )
 
+        # Limpiar worker
+        if self.deletion_worker:
+            if self.deletion_worker in self.main_window.active_workers:
+                self.main_window.active_workers.remove(self.deletion_worker)
+            self.deletion_worker = None
+
         self.main_window.analyze_duplicates_btn.setEnabled(True)
         self.main_window.delete_exact_duplicates_btn.setEnabled(True)
         self.main_window.review_similar_btn.setEnabled(True)
@@ -419,10 +463,20 @@ class DuplicatesController(QObject):
 
     def cleanup(self):
         """Limpia workers activos"""
-        if self.duplicate_worker and self.duplicate_worker.isRunning():
-            self.duplicate_worker.quit()
-            self.duplicate_worker.wait(1000)
+        if self.duplicate_worker:
+            if self.duplicate_worker.isRunning():
+                self.duplicate_worker.stop()
+                self.duplicate_worker.quit()
+                self.duplicate_worker.wait(Config.WORKER_SHUTDOWN_TIMEOUT_MS)
+            if self.duplicate_worker in self.main_window.active_workers:
+                self.main_window.active_workers.remove(self.duplicate_worker)
+            self.duplicate_worker = None
 
-        if self.deletion_worker and self.deletion_worker.isRunning():
-            self.deletion_worker.quit()
-            self.deletion_worker.wait(1000)
+        if self.deletion_worker:
+            if self.deletion_worker.isRunning():
+                self.deletion_worker.stop()
+                self.deletion_worker.quit()
+                self.deletion_worker.wait(Config.WORKER_SHUTDOWN_TIMEOUT_MS)
+            if self.deletion_worker in self.main_window.active_workers:
+                self.main_window.active_workers.remove(self.deletion_worker)
+            self.deletion_worker = None
