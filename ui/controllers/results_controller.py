@@ -77,14 +77,25 @@ class ResultsController(QObject):
         Returns:
             HTML formateado
         """
+        if results.dry_run:
+            # Simulación
+            title = "🔍 Simulación de Renombrado Completada"
+            color = "#0066cc"  # Azul para simulación
+            files_label = "Archivos que se renombrarían"
+        else:
+            # Ejecución real
+            title = "✅ Renombrado Completado"
+            color = "#28a745"  # Verde para éxito
+            files_label = "Archivos renombrados"
+
         html = f"""
-            <div style='color: #28a745;'>
-                <h4>✅ Renombrado Completado</h4>
-                <p><strong>Archivos renombrados:</strong> {results.files_renamed}</p>
+            <div style='color: {color};'>
+                <h4>{title}</h4>
+                <p><strong>{files_label}:</strong> {results.files_renamed}</p>
                 <p><strong>Errores:</strong> {len(results.errors)}</p>
         """
 
-        if results.backup_path:
+        if results.backup_path and not results.dry_run:
             html += f"<p><strong>💾 Backup:</strong> {results.backup_path}</p>"
 
         html += "</div>"
@@ -137,15 +148,28 @@ class ResultsController(QObject):
         Returns:
             HTML formateado
         """
+        if results.dry_run:
+            # Simulación
+            title = "🔍 Simulación de Organización Completada"
+            color = "#0066cc"  # Azul para simulación
+            files_label = "Archivos que se moverían"
+            dirs_label = "Directorios que se eliminarían"
+        else:
+            # Ejecución real
+            title = "✅ Organización Completada"
+            color = "#28a745"  # Verde para éxito
+            files_label = "Archivos movidos"
+            dirs_label = "Directorios eliminados"
+
         html = f"""
-            <div style='color: #28a745;'>
-                <h4>✅ Organización Completada</h4>
-                <p><strong>Archivos movidos:</strong> {results.files_moved}</p>
-                <p><strong>Directorios eliminados:</strong> {results.empty_directories_removed}</p>
+            <div style='color: {color};'>
+                <h4>{title}</h4>
+                <p><strong>{files_label}:</strong> {results.files_moved}</p>
+                <p><strong>{dirs_label}:</strong> {results.empty_directories_removed}</p>
                 <p><strong>Errores:</strong> {len(results.errors)}</p>
         """
 
-        if results.backup_path:
+        if results.backup_path and not results.dry_run:
             html += f"<p><strong>💾 Backup:</strong> {results.backup_path}</p>"
 
         html += "</div>"

@@ -184,6 +184,7 @@ class FileRenamer:
         self,
         renaming_plan: List[Dict],
         create_backup: bool = True,
+        dry_run: bool = False,
         progress_callback=None
     ) -> Dict:
         """
@@ -192,6 +193,7 @@ class FileRenamer:
         Args:
             renaming_plan: Plan de renombrado del análisis
             create_backup: Si crear backup antes de proceder
+            dry_run: Si True, simula la operación sin renombrar archivos
 
         Returns:
             Resultados de la operación
@@ -200,18 +202,20 @@ class FileRenamer:
             return RenameResult(
                 success=True,
                 files_renamed=0,
-                message='No hay archivos para renombrar'
+                message='No hay archivos para renombrar',
+                dry_run=dry_run
             )
 
+        mode_label = "[SIMULACIÓN]" if dry_run else ""
         self.logger.info("=" * 80)
-        self.logger.info("*** INICIANDO RENOMBRADO DE ARCHIVOS")
+        self.logger.info(f"*** {mode_label} INICIANDO RENOMBRADO DE ARCHIVOS")
         self.logger.info(f"*** Archivos a renombrar: {len(renaming_plan)}")
         self.logger.info("=" * 80)
 
-        results = RenameResult(success=True)
+        results = RenameResult(success=True, dry_run=dry_run)
 
         try:
-            if create_backup and renaming_plan:
+            if create_backup and renaming_plan and not dry_run:
                 first_file = renaming_plan[0]['original_path']
                 directory = first_file.parent
 
@@ -276,13 +280,16 @@ class FileRenamer:
                         )
 
                         new_path = original_path.parent / new_name
+                        conflict_label = f"{mode_label} " if dry_run else ""
                         self.logger.info(
-                            f"⚠️  Conflicto resuelto: {original_path.name} -> "
+                            f"{conflict_label}⚠️  Conflicto resuelto: {original_path.name} -> "
                             f"{new_name} (secuencia {sequence})"
                         )
                         results.conflicts_resolved += 1
 
-                    original_path.rename(new_path)
+                    # Solo renombrar si no es simulación
+                    if not dry_run:
+                        original_path.rename(new_path)
 
                     results.files_renamed += 1
                     files_processed += 1
@@ -299,10 +306,12 @@ class FileRenamer:
                         'had_conflict': item.get('has_conflict', False) if isinstance(item, dict) else False
                     })
 
+                    progress_label = "Simulando renombrado" if dry_run else "Renombrando archivos"
                     safe_progress_callback(progress_callback, files_processed, total_files,
-                                       f"Renombrando archivos... {files_processed}/{total_files}")
+                                       f"{progress_label}... {files_processed}/{total_files}")
 
-                    self.logger.info(f"✓ Renombrado: {original_path} → {new_path}")
+                    action_verb = "Se renombraría" if dry_run else "✓ Renombrado"
+                    self.logger.info(f"{action_verb}: {original_path} → {new_path}")
 
                 except Exception as e:
                     error_msg = f"Error renombrando {original_path.name}: {str(e)}"
@@ -317,9 +326,13 @@ class FileRenamer:
             if results.has_errors:
                 results.success = len(results.errors) < len(renaming_plan)
 
+            completion_label = f"{mode_label} RENOMBRADO DE ARCHIVOS COMPLETADO" if dry_run else "RENOMBRADO DE ARCHIVOS COMPLETADO"
+            result_verb = "se renombrarían" if dry_run else "archivos renombrados"
+            conflicts_verb = "se resolverían" if dry_run else "conflictos resueltos"
+            
             self.logger.info("=" * 80)
-            self.logger.info("*** RENOMBRADO DE ARCHIVOS COMPLETADO")
-            self.logger.info(f"*** Resultado: {results.files_renamed} archivos renombrados, {results.conflicts_resolved} conflictos resueltos")
+            self.logger.info(f"*** {completion_label}")
+            self.logger.info(f"*** Resultado: {results.files_renamed} {result_verb}, {results.conflicts_resolved} {conflicts_verb}")
             if results.has_errors:
                 self.logger.info(f"*** Errores encontrados durante el renombrado:")
                 for error in results.errors:

@@ -63,11 +63,15 @@ class RenamingController(QObject):
         if not self.renaming_plan:
             return
 
+        is_simulation = self.renaming_plan.get('dry_run', False)
+        mode_prefix = "[SIMULACIÓN] " if is_simulation else ""
+
         if not skip_confirmation:
+            action_text = "simular el renombrado de" if is_simulation else "renombrar"
             reply = QMessageBox.question(
                 self.main_window,
                 "Confirmar",
-                f"¿Renombrar {len(self.renaming_plan['plan'])} archivos?",
+                f"¿{action_text.capitalize()} {len(self.renaming_plan['plan'])} archivos?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
             )
             if reply != QMessageBox.StandardButton.Yes:
@@ -78,12 +82,14 @@ class RenamingController(QObject):
             self.execution_worker.quit()
             self.execution_worker.wait()
 
-        self.progress_controller.show_progress(len(self.renaming_plan['plan']), "Renombrando archivos...")
+        progress_message = f"{mode_prefix}Renombrando archivos..."
+        self.progress_controller.show_progress(len(self.renaming_plan['plan']), progress_message)
 
         self.execution_worker = RenamingWorker(
             self.renamer,
             self.renaming_plan['plan'],
-            self.renaming_plan['create_backup']
+            self.renaming_plan['create_backup'],
+            dry_run=is_simulation
         )
 
         self.execution_worker.progress_update.connect(self.main_window.analysis_controller.update_progress)
@@ -117,58 +123,71 @@ class RenamingController(QObject):
 
         # results es un RenameResult (dataclass)
         if results.success:
-            QMessageBox.information(
-                self.main_window,
-                "Completado",
-                f"Se renombraron {results.files_renamed} archivos correctamente"
-            )
+            if results.dry_run:
+                QMessageBox.information(
+                    self.main_window,
+                    "Simulación Completada",
+                    f"Se renombrarían {results.files_renamed} archivos"
+                )
+            else:
+                QMessageBox.information(
+                    self.main_window,
+                    "Completado",
+                    f"Se renombraron {results.files_renamed} archivos correctamente"
+                )
 
-        files_renamed = results.files_renamed
-        if self.main_window.analysis_results and self.main_window.analysis_results.get('renaming'):
-            ren = self.main_window.analysis_results['renaming']
-            # ren es un RenameAnalysisResult (dataclass inmutable)
-            # Necesitamos crear uno nuevo con valores actualizados
-            
-            new_already_renamed = ren.already_renamed + files_renamed
-            new_need_renaming = max(0, ren.need_renaming - files_renamed)
-
-            errors_count = len(results.errors)
-            new_cannot_process = ren.cannot_process + errors_count if errors_count else ren.cannot_process
-
-            conflicts_resolved = results.conflicts_resolved
-            new_conflicts = max(0, ren.conflicts - conflicts_resolved) if conflicts_resolved else ren.conflicts
-
-            # Crear nuevo resultado de análisis con valores actualizados
-            from services.result_types import RenameAnalysisResult
-            updated_ren = RenameAnalysisResult(
-                success=ren.success,
-                errors=ren.errors,
-                message=ren.message,
-                total_files=ren.total_files,
-                already_renamed=new_already_renamed,
-                need_renaming=new_need_renaming,
-                cannot_process=new_cannot_process,
-                conflicts=new_conflicts,
-                files_by_year=ren.files_by_year,
-                renaming_plan=ren.renaming_plan,
-                issues=ren.issues
-            )
-
-            self.main_window.analysis_results['renaming'] = updated_ren
-
-            self.results_controller.update_ui_after_operation(
-                self.main_window.analysis_results, 'renaming'
-            )
-
-            self.main_window.preview_rename_btn.setEnabled(updated_ren.need_renaming > 0)
+        # Si fue simulación, mantener botón activo. Si fue real, actualizar análisis
+        if results.dry_run:
+            self.main_window.preview_rename_btn.setEnabled(True)
         else:
-            self.main_window.preview_rename_btn.setEnabled(False)
+            files_renamed = results.files_renamed
+            if self.main_window.analysis_results and self.main_window.analysis_results.get('renaming'):
+                ren = self.main_window.analysis_results['renaming']
+                # ren es un RenameAnalysisResult (dataclass inmutable)
+                # Necesitamos crear uno nuevo con valores actualizados
+                
+                new_already_renamed = ren.already_renamed + files_renamed
+                new_need_renaming = max(0, ren.need_renaming - files_renamed)
+
+                errors_count = len(results.errors)
+                new_cannot_process = ren.cannot_process + errors_count if errors_count else ren.cannot_process
+
+                conflicts_resolved = results.conflicts_resolved
+                new_conflicts = max(0, ren.conflicts - conflicts_resolved) if conflicts_resolved else ren.conflicts
+
+                # Crear nuevo resultado de análisis con valores actualizados
+                from services.result_types import RenameAnalysisResult
+                updated_ren = RenameAnalysisResult(
+                    success=ren.success,
+                    errors=ren.errors,
+                    message=ren.message,
+                    total_files=ren.total_files,
+                    already_renamed=new_already_renamed,
+                    need_renaming=new_need_renaming,
+                    cannot_process=new_cannot_process,
+                    conflicts=new_conflicts,
+                    files_by_year=ren.files_by_year,
+                    renaming_plan=ren.renaming_plan,
+                    issues=ren.issues
+                )
+
+                self.main_window.analysis_results['renaming'] = updated_ren
+
+                self.results_controller.update_ui_after_operation(
+                    self.main_window.analysis_results, 'renaming'
+                )
+
+                self.main_window.preview_rename_btn.setEnabled(updated_ren.need_renaming > 0)
+            else:
+                self.main_window.preview_rename_btn.setEnabled(False)
 
         if self.execution_worker in self.main_window.active_workers:
             self.main_window.active_workers.remove(self.execution_worker)
         self.execution_worker = None
 
-        self.schedule_reanalysis()
+        # Solo programar re-análisis si no fue simulación
+        if not results.dry_run:
+            self.schedule_reanalysis()
 
     def on_operation_error(self, error):
         """Callback genérico para errores"""

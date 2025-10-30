@@ -616,9 +616,17 @@ class FileOrganizer:
             raise
 
     def execute_organization(self, move_plan: List[FileMove], create_backup: bool = True,
-                            cleanup_empty_dirs: bool = True, progress_callback=None) -> Dict:
+                            cleanup_empty_dirs: bool = True, dry_run: bool = False, 
+                            progress_callback=None) -> Dict:
         """
         Ejecuta la organización según el plan con resolución dinámica de conflictos
+        
+        Args:
+            move_plan: Plan de movimientos a ejecutar
+            create_backup: Si crear backup antes de mover
+            cleanup_empty_dirs: Si limpiar directorios vacíos al final
+            dry_run: Si solo simular sin mover archivos reales
+            progress_callback: Callback de progreso
         """
         if not move_plan:
             return OrganizationResult(
@@ -631,9 +639,11 @@ class FileOrganizer:
         self.logger.info("=" * 80)
         self.logger.info("*** INICIANDO ORGANIZACIÓN DE ARCHIVOS")
         self.logger.info(f"*** Archivos a mover: {len(move_plan)}")
+        if dry_run:
+            self.logger.info("*** Modo: SIMULACIÓN")
         self.logger.info("=" * 80)
 
-        results = OrganizationResult(success=True)
+        results = OrganizationResult(success=True, dry_run=dry_run)
 
         try:
             # Determinar el directorio raíz correctamente
@@ -652,17 +662,25 @@ class FileOrganizer:
                     root_directory = move.target_path.parent
                     break
 
-            # Crear carpetas necesarias (BY_MONTH o WHATSAPP_SEPARATE)
+            # Crear carpetas necesarias (BY_MONTH o WHATSAPP_SEPARATE) - solo si no es simulación
             folders_to_create = set(move.target_folder for move in move_plan if move.target_folder)
-            for folder_name in folders_to_create:
-                folder_path = root_directory / folder_name
-                if not folder_path.exists():
-                    folder_path.mkdir(parents=True, exist_ok=True)
-                    results.folders_created.append(str(folder_path))
-                    self.logger.info(f"Carpeta creada: {folder_name}")
+            if not dry_run:
+                for folder_name in folders_to_create:
+                    folder_path = root_directory / folder_name
+                    if not folder_path.exists():
+                        folder_path.mkdir(parents=True, exist_ok=True)
+                        results.folders_created.append(str(folder_path))
+                        self.logger.info(f"Carpeta creada: {folder_name}")
+            else:
+                # En simulación, solo reportar qué carpetas se crearían
+                for folder_name in folders_to_create:
+                    folder_path = root_directory / folder_name
+                    if not folder_path.exists():
+                        results.folders_created.append(str(folder_path))
+                        self.logger.info(f"[SIMULACIÓN] Se crearía carpeta: {folder_name}")
 
-            # Crear backup ANTES de mover archivos
-            if create_backup and move_plan:
+            # Crear backup ANTES de mover archivos - solo si no es simulación
+            if create_backup and move_plan and not dry_run:
                 safe_progress_callback(progress_callback, 0, len(move_plan), "Creando backup antes de organizar...")
                 from utils.file_utils import launch_backup_creation
                 files = [m.source_path for m in move_plan]
@@ -776,28 +794,9 @@ class FileOrganizer:
                             if sequence > 9999:
                                 raise Exception(f"No se pudo encontrar nombre único después de 9999 intentos")
 
-                    # Asegurar que el directorio destino existe
-                    target_path.parent.mkdir(parents=True, exist_ok=True)
-
-                    # Mover archivo con verificación adicional
-                    try:
-                        # Verificar una última vez que el archivo existe y es accesible
-                        if move.source_path.exists() and move.source_path.is_file():
-                            move.source_path.rename(target_path)
-                            # Añadir a la lista de nombres usados
-                            used_names_by_folder[folder_key].add(target_name)
-                        else:
-                            raise FileNotFoundError(f"Archivo no encontrado o no accesible: {move.source_path}")
-                    except (FileNotFoundError, PermissionError, OSError) as e:
-                        raise Exception(f"Error moviendo archivo: {str(e)}")
-
-                    results.files_moved += 1
-                    files_processed += 1
-
-                    safe_progress_callback(progress_callback, files_processed, total_files,
-                                       f"Organizando directorios... {files_processed}/{total_files}")
-
-                    results.moved_files.append(str(target_path))
+                    # Asegurar que el directorio destino existe (solo si no es simulación)
+                    if not dry_run:
+                        target_path.parent.mkdir(parents=True, exist_ok=True)
 
                     # Determinar si mostrar análisis detallado de fechas (solo para organización BY_MONTH)
                     # BY_MONTH usa carpetas con formato YYYY_MM (ej: 2023_07)
@@ -806,40 +805,82 @@ class FileOrganizer:
                     
                     # Obtener fecha del archivo (verbose solo para BY_MONTH)
                     try:
-                        file_date = get_file_date(target_path, verbose=is_by_month)
+                        file_date = get_file_date(move.source_path, verbose=is_by_month)
                         date_str = file_date.strftime('%Y-%m-%d %H:%M:%S') if file_date else 'fecha desconocida'
                     except Exception as e:
-                        self.logger.warning(f"Error obteniendo fecha de {target_path.name}: {e}")
+                        self.logger.warning(f"Error obteniendo fecha de {move.source_path.name}: {e}")
                         date_str = 'fecha desconocida'
 
-                    # Mostrar log apropiado según si hubo conflicto
-                    if move.has_conflict or move.sequence:
-                        self.logger.info(f"⚠️  Conflicto resuelto: {move.source_path} → {target_path} (secuencia {move.sequence}, {date_str})")
+                    if dry_run:
+                        # Solo simular: no mover archivos
+                        # Añadir a la lista de nombres usados para simular conflictos correctamente
+                        used_names_by_folder[folder_key].add(target_name)
+                        results.files_moved += 1
+                        files_processed += 1
+                        results.moved_files.append(str(target_path))
+                        
+                        # Mostrar log de simulación según si hubo conflicto
+                        if move.has_conflict or move.sequence:
+                            self.logger.info(f"[SIMULACIÓN] ⚠️  Se resolvería conflicto: {move.source_path} → {target_path} (secuencia {move.sequence}, {date_str})")
+                        else:
+                            self.logger.info(f"[SIMULACIÓN] Se movería: {move.source_path} → {target_path} ({date_str})")
                     else:
-                        self.logger.info(f"✓ Movido: {move.source_path} → {target_path} ({date_str})")
+                        # Mover archivo realmente
+                        try:
+                            # Verificar una última vez que el archivo existe y es accesible
+                            if move.source_path.exists() and move.source_path.is_file():
+                                move.source_path.rename(target_path)
+                                # Añadir a la lista de nombres usados
+                                used_names_by_folder[folder_key].add(target_name)
+                            else:
+                                raise FileNotFoundError(f"Archivo no encontrado o no accesible: {move.source_path}")
+                        except (FileNotFoundError, PermissionError, OSError) as e:
+                            raise Exception(f"Error moviendo archivo: {str(e)}")
+
+                        results.files_moved += 1
+                        files_processed += 1
+                        results.moved_files.append(str(target_path))
+                        
+                        # Mostrar log apropiado según si hubo conflicto
+                        if move.has_conflict or move.sequence:
+                            self.logger.info(f"⚠️  Conflicto resuelto: {move.source_path} → {target_path} (secuencia {move.sequence}, {date_str})")
+                        else:
+                            self.logger.info(f"✓ Movido: {move.source_path} → {target_path} ({date_str})")
+
+                    safe_progress_callback(progress_callback, files_processed, total_files,
+                                       f"{'Simulando' if dry_run else 'Organizando'} directorios... {files_processed}/{total_files}")
 
                 except Exception as e:
                     self.logger.error(f"Error moviendo {move.source_path.name}: {str(e)}")
                     results.add_error(f"{move.source_path.name}: {str(e)}")
 
-            # Limpiar directorios vacíos
-            if cleanup_empty_dirs:
+            # Limpiar directorios vacíos - solo si no es simulación
+            if cleanup_empty_dirs and not dry_run:
                 try:
                     from utils.file_utils import cleanup_empty_directories as _cleanup
                     removed = _cleanup(root_directory)
                     results.empty_directories_removed = removed
+                    if removed > 0:
+                        self.logger.info(f"Directorios vacíos eliminados: {removed}")
                 except Exception as e:
                     self.logger.error(f"Error limpiando directorios: {e}")
+            elif cleanup_empty_dirs and dry_run:
+                self.logger.info("[SIMULACIÓN] Se limpiarían directorios vacíos al finalizar")
 
             # Determinar éxito general
             if results.has_errors:
                 results.success = len(results.errors) < len(move_plan)
 
             self.logger.info("=" * 80)
-            self.logger.info("*** ORGANIZACIÓN DE ARCHIVOS COMPLETADA")
-            self.logger.info(f"*** Resultado: {results.files_moved} archivos movidos")
+            if dry_run:
+                self.logger.info("*** SIMULACIÓN DE ORGANIZACIÓN DE ARCHIVOS COMPLETADA")
+                self.logger.info(f"*** Resultado: {results.files_moved} archivos se moverían")
+            else:
+                self.logger.info("*** ORGANIZACIÓN DE ARCHIVOS COMPLETADA")
+                self.logger.info(f"*** Resultado: {results.files_moved} archivos movidos")
             if results.errors:
-                self.logger.info(f"*** Errores encontrados durante la organización:")
+                error_prefix = "[SIMULACIÓN] " if dry_run else ""
+                self.logger.info(f"*** {error_prefix}Errores encontrados durante la {'simulación' if dry_run else 'organización'}:")
                 for error in results.errors:
                     self.logger.error(f"  ✗ {error}")
             self.logger.info("=" * 80)

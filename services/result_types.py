@@ -61,6 +61,7 @@ class RenameResult(OperationResult):
     renamed_files: List[dict] = field(default_factory=list)
     backup_path: Optional[str] = None
     conflicts_resolved: int = 0
+    dry_run: bool = False
 
 
 @dataclass
@@ -83,6 +84,7 @@ class OrganizationResult(OperationResult):
     moved_files: List[str] = field(default_factory=list)
     backup_path: Optional[str] = None
     folders_created: List[str] = field(default_factory=list)
+    dry_run: bool = False
 
 
 @dataclass

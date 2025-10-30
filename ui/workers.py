@@ -220,11 +220,12 @@ class AnalysisWorker(BaseWorker):
 class RenamingWorker(BaseWorker):
     """Worker para ejecutar renombrado de nombres de archivos"""
 
-    def __init__(self, renamer, plan, create_backup=True):
+    def __init__(self, renamer, plan, create_backup=True, dry_run=False):
         super().__init__()
         self.renamer = renamer
         self.plan = plan
         self.create_backup = create_backup
+        self.dry_run = dry_run
 
     def run(self):
         try:
@@ -234,6 +235,7 @@ class RenamingWorker(BaseWorker):
             results = self.renamer.execute_renaming(
                 self.plan,
                 create_backup=self.create_backup,
+                dry_run=self.dry_run,
                 progress_callback=self._create_progress_callback()
             )
             
@@ -284,11 +286,12 @@ class LivePhotoCleanupWorker(BaseWorker):
 class FileOrganizerWorker(BaseWorker):
     """Worker para ejecutar organización de archivos"""
 
-    def __init__(self, organizer, plan, create_backup=True):
+    def __init__(self, organizer, plan, create_backup=True, dry_run=False):
         super().__init__()
         self.organizer = organizer
         self.plan = plan
         self.create_backup = create_backup
+        self.dry_run = dry_run
 
     def run(self):
         try:
@@ -298,6 +301,7 @@ class FileOrganizerWorker(BaseWorker):
             results = self.organizer.execute_organization(
                 self.plan,
                 create_backup=self.create_backup,
+                dry_run=self.dry_run,
                 progress_callback=self._create_progress_callback()
             )
             
