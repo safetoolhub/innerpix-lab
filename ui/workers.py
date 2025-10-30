@@ -390,12 +390,13 @@ class DuplicateAnalysisWorker(BaseWorker):
 class DuplicateDeletionWorker(BaseWorker):
     """Worker para eliminación de duplicados"""
     
-    def __init__(self, detector, groups, keep_strategy, create_backup=True):
+    def __init__(self, detector, groups, keep_strategy, create_backup=True, dry_run=False):
         super().__init__()
         self.detector = detector
         self.groups = groups
         self.keep_strategy = keep_strategy
         self.create_backup = create_backup
+        self.dry_run = dry_run
     
     def run(self):
         try:
@@ -406,6 +407,7 @@ class DuplicateDeletionWorker(BaseWorker):
                 self.groups,
                 keep_strategy=self.keep_strategy,
                 create_backup=self.create_backup,
+                dry_run=self.dry_run,
                 progress_callback=self._create_progress_callback()
             )
             

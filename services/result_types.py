@@ -127,6 +127,16 @@ class DuplicateAnalysisResult(AnalysisResult):
 
 
 @dataclass
+class DuplicateDeletionResult(DeletionResult):
+    """Resultado de eliminación de duplicados"""
+    files_kept: int = 0
+    keep_strategy: Optional[str] = None
+    dry_run: bool = False
+    simulated_files_deleted: int = 0
+    simulated_space_freed: int = 0
+
+
+@dataclass
 class HeicAnalysisResult(AnalysisResult):
     """Resultado de análisis de duplicados HEIC"""
     duplicate_pairs: List = field(default_factory=list)  # List[DuplicatePair]

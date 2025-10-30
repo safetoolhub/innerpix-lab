@@ -81,6 +81,13 @@ class HEICDuplicateRemovalDialog(BaseDialog):
 
         # Dry-run checkbox (similar a live photos)
         self.dry_run_checkbox = QCheckBox("Modo simulación (no eliminar archivos realmente)")
+        # Leer configuración para establecer estado por defecto
+        from utils.settings_manager import settings_manager
+        dry_run_default = settings_manager.get(settings_manager.KEY_DRY_RUN_DEFAULT, False)
+        # Asegurar que es un booleano
+        if isinstance(dry_run_default, str):
+            dry_run_default = dry_run_default.lower() in ('true', '1', 'yes')
+        self.dry_run_checkbox.setChecked(bool(dry_run_default))
         options_layout.addWidget(self.dry_run_checkbox)
         layout.addWidget(options_group)
 
