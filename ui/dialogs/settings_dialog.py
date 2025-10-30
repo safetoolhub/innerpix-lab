@@ -51,13 +51,9 @@ class SettingsDialog(QDialog):
         dirs_tab = self._create_directories_tab()
         tabs.addTab(dirs_tab, "📁 Directorios")
 
-        # === PESTAÑA 3: COMPORTAMIENTO ===
-        behavior_tab = self._create_behavior_tab()
-        tabs.addTab(behavior_tab, "⚡ Comportamiento")
-
-        # === PESTAÑA 4: AVANZADO ===
+        # === PESTAÑA 3: AVANZADO ===
         advanced_tab = self._create_advanced_tab()
-        tabs.addTab(advanced_tab, "� Avanzado")
+        tabs.addTab(advanced_tab, "🔧 Avanzado")
 
         main_layout.addWidget(tabs)
 
@@ -266,28 +262,6 @@ class SettingsDialog(QDialog):
         layout.addStretch()
         return widget
 
-    def _create_behavior_tab(self):
-        """Pestaña de comportamiento"""
-        widget = QWidget()
-        layout = QVLayout(widget)
-        layout.setContentsMargins(15, 15, 15, 15)
-        layout.setSpacing(15)
-
-        # === INICIO ===
-        startup_group = QGroupBox("🚀 Al Iniciar la Aplicación")
-        startup_group.setStyleSheet(ui_styles.STYLE_GROUPBOX_SETTINGS)
-        startup_layout = QVLayout(startup_group)
-
-        self.remember_dir_checkbox = QCheckBox("Recordar último directorio utilizado")
-        self.remember_dir_checkbox.setChecked(True)
-        self.remember_dir_checkbox.setToolTip("Al abrir la app, se pre-carga el último directorio usado")
-        startup_layout.addWidget(self.remember_dir_checkbox)
-
-        layout.addWidget(startup_group)
-
-        layout.addStretch()
-        return widget
-
     def _create_advanced_tab(self):
         """Pestaña de configuración avanzada"""
         widget = QWidget()
@@ -394,11 +368,6 @@ class SettingsDialog(QDialog):
             self.confirm_delete_checkbox.setChecked(settings_manager.get_confirm_delete())
             self.show_notifications_checkbox.setChecked(settings_manager.get_show_notifications())
 
-            # Behavior tab
-            self.remember_dir_checkbox.setChecked(settings_manager.get_bool(
-                settings_manager.KEY_REMEMBER_DIR, True
-            ))
-
             # Advanced tab
             self.max_workers_spin.setValue(settings_manager.get_max_workers(Config.MAX_WORKERS))
 
@@ -478,7 +447,6 @@ class SettingsDialog(QDialog):
             "• Preferencias de backup\n"
             "• Directorios personalizados\n"
             "• Nivel de logging\n"
-            "• Último directorio usado\n"
             "• Todas las demás configuraciones\n\n"
             "La aplicación volverá a los valores por defecto.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
@@ -565,7 +533,6 @@ class SettingsDialog(QDialog):
             self.auto_backup_checkbox.setChecked(True)
             self.confirm_operations_checkbox.setChecked(True)
             self.confirm_delete_checkbox.setChecked(True)
-            self.remember_dir_checkbox.setChecked(True)
             self.show_notifications_checkbox.setChecked(True)
             self.dry_run_default_checkbox.setChecked(False)
             self.max_workers_spin.setValue(Config.MAX_WORKERS)
@@ -603,9 +570,6 @@ class SettingsDialog(QDialog):
             settings_manager.set(settings_manager.KEY_CONFIRM_OPERATIONS, self.confirm_operations_checkbox.isChecked())
             settings_manager.set(settings_manager.KEY_CONFIRM_DELETE, self.confirm_delete_checkbox.isChecked())
             settings_manager.set(settings_manager.KEY_SHOW_NOTIFICATIONS, self.show_notifications_checkbox.isChecked())
-
-            # === COMPORTAMIENTO ===
-            settings_manager.set(settings_manager.KEY_REMEMBER_DIR, self.remember_dir_checkbox.isChecked())
 
             # === AVANZADO ===
             settings_manager.set(settings_manager.KEY_MAX_WORKERS, self.max_workers_spin.value())

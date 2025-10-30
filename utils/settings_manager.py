@@ -17,7 +17,6 @@ class SettingsManager:
     # === DIRECTORIOS ===
     KEY_LOGS_DIR = "directories/logs"
     KEY_BACKUP_DIR = "directories/backups"
-    KEY_LAST_DIR = "directories/last_used"
 
     # === COMPORTAMIENTO ===
     KEY_AUTO_BACKUP = "behavior/auto_backup_enabled"
@@ -25,7 +24,6 @@ class SettingsManager:
     KEY_CONFIRM_DELETE = "behavior/confirm_delete"
     KEY_SHOW_NOTIFICATIONS = "behavior/show_notifications"
     KEY_SOUND_NOTIFICATIONS = "behavior/sound_notifications"
-    KEY_REMEMBER_DIR = "behavior/remember_last_directory"
     KEY_AUTO_ANALYZE = "behavior/auto_analyze_on_open"
 
     # === LOGGING ===
@@ -190,16 +188,6 @@ class SettingsManager:
     def set_backup_directory(self, path: Path) -> None:
         """Establece el directorio de backups"""
         self.set(self.KEY_BACKUP_DIR, str(path))
-
-    def get_last_directory(self) -> Optional[Path]:
-        """Obtiene el último directorio usado"""
-        if self.get_bool(self.KEY_REMEMBER_DIR, True):
-            return self.get_path(self.KEY_LAST_DIR)
-        return None
-
-    def set_last_directory(self, path: Path) -> None:
-        """Establece el último directorio usado"""
-        self.set(self.KEY_LAST_DIR, str(path))
 
     def get_confirm_operations(self) -> bool:
         """Obtiene si se debe confirmar operaciones (por defecto True)"""
