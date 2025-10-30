@@ -4,7 +4,7 @@ Este paquete contiene los diálogos divididos en módulos más pequeños.
 """
 from .renaming_dialog import RenamingPreviewDialog
 from .live_photos_dialog import LivePhotoCleanupDialog
-from .directory_dialog import FileOrganizationDialog
+from .organization_dialog import FileOrganizationDialog
 from .heic_dialog import HEICDuplicateRemovalDialog
 from .settings_dialog import SettingsDialog
 from .duplicates_dialogs import ExactDuplicatesDialog, SimilarDuplicatesDialog

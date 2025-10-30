@@ -3,46 +3,80 @@ from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QLabel, QGroupBox, QButtonGroup, QRadioButton,
     QTableWidget, QTableWidgetItem, QCheckBox, QDialogButtonBox, QPushButton,
     QHBoxLayout, QVBoxLayout as QVLayout, QScrollArea, QWidget, QGridLayout,
-    QFrame, QSizePolicy, QProgressBar
+    QFrame, QSizePolicy, QProgressBar, QTreeWidget, QTreeWidgetItem, QLineEdit,
+    QComboBox, QMessageBox
 )
 from PyQt6.QtCore import Qt, QSize, QUrl
-from PyQt6.QtGui import QPixmap, QDesktopServices
+from PyQt6.QtGui import QPixmap, QDesktopServices, QIcon
 from config import Config
 from services.duplicate_detector import DuplicateGroup
 from utils.format_utils import format_size
 from ui import styles as ui_styles
 from .base_dialog import BaseDialog
+from datetime import datetime
 
 
 class ExactDuplicatesDialog(BaseDialog):
-    """Diálogo para eliminación de duplicados exactos"""
+    """Diálogo para eliminación de duplicados exactos con vista expandible"""
+    
+    # Constantes para paginación
+    INITIAL_LOAD = 50
+    LOAD_INCREMENT = 50
+    WARNING_THRESHOLD = 200
     
     def __init__(self, analysis, parent=None):
         super().__init__(parent)
         self.analysis = analysis
         self.keep_strategy = 'oldest'
         self.accepted_plan = None
+        
+        # Estado de grupos
+        self.all_groups = analysis.groups  # Todos los grupos originales
+        self.filtered_groups = analysis.groups  # Grupos después de filtrar
+        self.loaded_count = 0  # Cuántos grupos se han cargado en el tree
+        
+        # Referencias a widgets
+        self.tree_widget = None
+        self.search_input = None
+        self.filter_combo = None
+        self.groups_info_label = None
+        self.load_more_btn = None
+        
         self.init_ui()
     def init_ui(self):
         self.setWindowTitle("Eliminar Duplicados Exactos")
         self.setModal(True)
-        self.resize(800, 600)
+        self.resize(1000, 700)
         
         layout = QVBoxLayout(self)
         
-        # Información
-        info = QLabel(
-            f"📊 Se encontraron **{self.analysis.total_duplicates} archivos duplicados** "
-            f"en **{self.analysis.total_groups} grupos**\n\n"
-            f"💾 Espacio a liberar: **{format_size(self.analysis.space_wasted)}**"
+        # Información general - formato mejorado sin asteriscos
+        info_text = (
+            f"<div style='padding: 10px;'>"
+            f"<p style='margin: 5px 0; font-size: 14px;'>"
+            f"📊 <b>Archivos duplicados encontrados:</b> {self.analysis.total_duplicates} archivos en {self.analysis.total_groups} grupos"
+            f"</p>"
+            f"<p style='margin: 5px 0; font-size: 14px;'>"
+            f"💾 <b>Espacio total a liberar:</b> {format_size(self.analysis.space_wasted)}"
+            f"</p>"
+            f"</div>"
         )
+        info = QLabel(info_text)
         info.setTextFormat(Qt.TextFormat.RichText)
         info.setWordWrap(True)
-        info.setStyleSheet(ui_styles.STYLE_INFO_SECTION)
+        info.setStyleSheet("""
+            QLabel {
+                background-color: #e7f3ff;
+                border: 1px solid #b3d9ff;
+                border-radius: 6px;
+                padding: 8px;
+                color: #212529;
+            }
+        """)
         layout.addWidget(info)
         
-        # Estrategia
-        strategy_group = QGroupBox("🎯 Estrategia de Eliminación")
+        # Estrategia de eliminación - título completo visible
+        strategy_group = QGroupBox("🎯 Estrategia de Eliminación de Duplicados")
         strategy_layout = QVBoxLayout(strategy_group)
         
         self.strategy_buttons = QButtonGroup()
@@ -56,36 +90,171 @@ class ExactDuplicatesDialog(BaseDialog):
         self.strategy_buttons.addButton(r2, 1)
         strategy_layout.addWidget(r2)
         
-        
         self.strategy_buttons.buttonClicked.connect(self._on_strategy_changed)
-        
         layout.addWidget(strategy_group)
         
-        # Lista de grupos (primeros 10)
-        groups_label = QLabel("📋 Vista previa de grupos:")
-        groups_label.setStyleSheet(ui_styles.STYLE_GROUPS_LABEL)
-        layout.addWidget(groups_label)
+        # Advertencia si hay muchos grupos
+        if len(self.all_groups) > self.WARNING_THRESHOLD:
+            warning_many = QLabel(
+                f"⚠️ <b>Hay {len(self.all_groups)} grupos de duplicados.</b> "
+                f"Se cargarán inicialmente {self.INITIAL_LOAD} grupos. "
+                f"Usa la búsqueda y filtros para encontrar grupos específicos más rápido."
+            )
+            warning_many.setTextFormat(Qt.TextFormat.RichText)
+            warning_many.setWordWrap(True)
+            warning_many.setStyleSheet("""
+                background-color: #fff3cd;
+                border: 1px solid #ffeeba;
+                border-radius: 4px;
+                padding: 10px;
+                color: #856404;
+                font-size: 12px;
+            """)
+            layout.addWidget(warning_many)
         
-        table = QTableWidget()
-        table.setColumnCount(3)
-        table.setHorizontalHeaderLabels(["Grupo", "Archivos", "Tamaño Total"])
+        # Barra de búsqueda y filtros
+        search_filter_layout = QHBoxLayout()
         
-        groups = self.analysis.groups[:10]
-        table.setRowCount(len(groups))
+        # Búsqueda
+        search_label = QLabel("🔍 Buscar:")
+        search_filter_layout.addWidget(search_label)
         
-        for row, group in enumerate(groups):
-            table.setItem(row, 0, QTableWidgetItem(f"Grupo {row + 1}"))
-            table.setItem(row, 1, QTableWidgetItem(str(group.file_count)))
-            table.setItem(row, 2, QTableWidgetItem(format_size(group.total_size)))
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Nombre de archivo o ruta...")
+        self.search_input.textChanged.connect(self._on_search_changed)
+        self.search_input.setStyleSheet("""
+            QLineEdit {
+                padding: 6px;
+                border: 1px solid #ced4da;
+                border-radius: 4px;
+                font-size: 13px;
+            }
+            QLineEdit:focus {
+                border-color: #2196F3;
+            }
+        """)
+        search_filter_layout.addWidget(self.search_input, 2)
         
+        # Filtro por tamaño
+        filter_label = QLabel("📊 Filtrar:")
+        search_filter_layout.addWidget(filter_label)
         
-        table.setMaximumHeight(250)
-        layout.addWidget(table)
+        self.filter_combo = QComboBox()
+        self.filter_combo.addItems([
+            "Todos los grupos",
+            "Solo grupos >10 MB",
+            "Solo grupos >50 MB",
+            "Solo grupos >100 MB",
+            "Solo grupos con 3+ archivos",
+            "Solo grupos con 5+ archivos"
+        ])
+        self.filter_combo.currentIndexChanged.connect(self._on_filter_changed)
+        self.filter_combo.setStyleSheet("""
+            QComboBox {
+                padding: 6px;
+                border: 1px solid #ced4da;
+                border-radius: 4px;
+                font-size: 13px;
+            }
+        """)
+        search_filter_layout.addWidget(self.filter_combo, 1)
         
-        if len(self.analysis.groups) > 10:
-            more_label = QLabel(f"... y {len(self.analysis.groups) - 10} grupos más")
-            more_label.setStyleSheet(ui_styles.STYLE_MORE_ITALIC)
-            layout.addWidget(more_label)
+        layout.addLayout(search_filter_layout)
+        
+        # Información de grupos cargados/filtrados
+        self.groups_info_label = QLabel()
+        self.groups_info_label.setStyleSheet("""
+            color: #6c757d;
+            font-size: 12px;
+            padding: 5px;
+            background-color: #f8f9fa;
+            border-radius: 3px;
+        """)
+        layout.addWidget(self.groups_info_label)
+        
+        # Tree widget para mostrar grupos expandibles
+        self.tree_widget = QTreeWidget()
+        self.tree_widget.setHeaderLabels(["Archivo/Grupo", "Tamaño", "Fecha Modificación", "Ruta", "Estado"])
+        self.tree_widget.setColumnWidth(0, 250)
+        self.tree_widget.setColumnWidth(1, 100)
+        self.tree_widget.setColumnWidth(2, 150)
+        self.tree_widget.setColumnWidth(3, 300)
+        self.tree_widget.setColumnWidth(4, 100)
+        self.tree_widget.setAlternatingRowColors(True)
+        self.tree_widget.setStyleSheet("""
+            QTreeWidget {
+                border: 1px solid #ced4da;
+                border-radius: 4px;
+                background-color: white;
+                font-size: 12px;
+            }
+            QTreeWidget::item {
+                padding: 5px;
+            }
+            QTreeWidget::item:hover {
+                background-color: #e9ecef;
+            }
+            QTreeWidget::item:selected {
+                background-color: #d1e3f5;
+            }
+        """)
+        self.tree_widget.itemDoubleClicked.connect(self._on_item_double_clicked)
+        layout.addWidget(self.tree_widget)
+        
+        # Botones de paginación
+        pagination_layout = QHBoxLayout()
+        
+        self.load_more_btn = QPushButton(f"⏬ Cargar {self.LOAD_INCREMENT} Más Grupos")
+        self.load_more_btn.clicked.connect(self._load_more_groups)
+        self.load_more_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #6c757d;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 8px 16px;
+                font-size: 13px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #5a6268;
+            }
+            QPushButton:pressed {
+                background-color: #545b62;
+            }
+            QPushButton:disabled {
+                background-color: #dee2e6;
+                color: #6c757d;
+            }
+        """)
+        pagination_layout.addWidget(self.load_more_btn)
+        
+        load_all_btn = QPushButton("📥 Cargar Todos los Grupos")
+        load_all_btn.clicked.connect(self._load_all_groups)
+        load_all_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #17a2b8;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 8px 16px;
+                font-size: 13px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #138496;
+            }
+            QPushButton:pressed {
+                background-color: #0f6674;
+            }
+        """)
+        pagination_layout.addWidget(load_all_btn)
+        
+        pagination_layout.addStretch()
+        layout.addLayout(pagination_layout)
+        
+        # Cargar grupos iniciales
+        self._load_initial_groups()
         
         # Opciones de seguridad
         options_group = QGroupBox("Opciones de seguridad")
@@ -124,6 +293,213 @@ class ExactDuplicatesDialog(BaseDialog):
         """Handle strategy change: only 'oldest' and 'newest' are supported."""
         strategies = {0: 'oldest', 1: 'newest'}
         self.keep_strategy = strategies[self.strategy_buttons.id(button)]
+        # Actualizar visualización de estado en el tree
+        self._update_status_labels()
+    
+    def _load_initial_groups(self):
+        """Carga los primeros grupos según INITIAL_LOAD"""
+        self.loaded_count = 0
+        self._load_groups_batch(self.INITIAL_LOAD)
+    
+    def _load_more_groups(self):
+        """Carga el siguiente lote de grupos"""
+        self._load_groups_batch(self.LOAD_INCREMENT)
+    
+    def _load_all_groups(self):
+        """Carga todos los grupos restantes"""
+        remaining = len(self.filtered_groups) - self.loaded_count
+        if remaining > 100:
+            reply = QMessageBox.question(
+                self,
+                "Cargar Todos",
+                f"Esto cargará {remaining} grupos más. Puede tardar un momento. ¿Continuar?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            if reply == QMessageBox.StandardButton.No:
+                return
+        
+        self._load_groups_batch(remaining)
+    
+    def _load_groups_batch(self, count: int):
+        """Carga un lote de grupos en el tree widget"""
+        start_idx = self.loaded_count
+        end_idx = min(start_idx + count, len(self.filtered_groups))
+        
+        for i in range(start_idx, end_idx):
+            group = self.filtered_groups[i]
+            self._add_group_to_tree(group, i + 1)
+        
+        self.loaded_count = end_idx
+        self._update_info_label()
+        
+        # Deshabilitar botón si ya no hay más grupos
+        if self.loaded_count >= len(self.filtered_groups):
+            self.load_more_btn.setEnabled(False)
+            self.load_more_btn.setText("✓ Todos los Grupos Cargados")
+        else:
+            remaining = len(self.filtered_groups) - self.loaded_count
+            self.load_more_btn.setText(f"⏬ Cargar {min(self.LOAD_INCREMENT, remaining)} Más Grupos")
+    
+    def _add_group_to_tree(self, group: DuplicateGroup, group_number: int):
+        """Añade un grupo como nodo padre expandible en el tree"""
+        # Nodo padre del grupo
+        group_item = QTreeWidgetItem(self.tree_widget)
+        group_item.setText(0, f"📁 Grupo {group_number} - {group.file_count} archivos")
+        group_item.setText(1, format_size(group.total_size))
+        group_item.setText(2, "")
+        group_item.setText(3, "")
+        group_item.setText(4, f"Libera: {format_size(group.space_wasted)}")
+        
+        # Estilo del grupo padre
+        font = group_item.font(0)
+        font.setBold(True)
+        group_item.setFont(0, font)
+        group_item.setBackground(0, Qt.GlobalColor.lightGray)
+        
+        # Determinar qué archivo mantener según estrategia
+        if self.keep_strategy == 'oldest':
+            keep_file = min(group.files, key=lambda f: f.stat().st_mtime)
+        else:  # newest
+            keep_file = max(group.files, key=lambda f: f.stat().st_mtime)
+        
+        # Añadir archivos como hijos
+        for file_path in group.files:
+            file_item = QTreeWidgetItem(group_item)
+            
+            # Icono según tipo de archivo
+            ext = file_path.suffix.lower()
+            if ext in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp']:
+                icon = "🖼️"
+            elif ext in ['.mov', '.mp4', '.avi', '.mkv']:
+                icon = "🎬"
+            elif ext in ['.heic', '.heif']:
+                icon = "📷"
+            else:
+                icon = "📄"
+            
+            file_item.setText(0, f"{icon} {file_path.name}")
+            file_item.setText(1, format_size(file_path.stat().st_size))
+            
+            # Fecha de modificación
+            mtime = datetime.fromtimestamp(file_path.stat().st_mtime)
+            file_item.setText(2, mtime.strftime('%Y-%m-%d %H:%M:%S'))
+            
+            # Ruta (truncada si es muy larga)
+            path_str = str(file_path.parent)
+            if len(path_str) > 50:
+                path_str = "..." + path_str[-47:]
+            file_item.setText(3, path_str)
+            
+            # Estado: mantener o eliminar
+            is_keep = file_path == keep_file
+            if is_keep:
+                file_item.setText(4, "🔒 Mantener")
+                file_item.setForeground(4, Qt.GlobalColor.darkGreen)
+            else:
+                file_item.setText(4, "🗑️ Eliminar")
+                file_item.setForeground(4, Qt.GlobalColor.red)
+            
+            # Guardar referencia al archivo en el item
+            file_item.setData(0, Qt.ItemDataRole.UserRole, file_path)
+            
+            # Tooltip con ruta completa
+            file_item.setToolTip(0, str(file_path))
+            file_item.setToolTip(3, str(file_path))
+    
+    def _update_status_labels(self):
+        """Actualiza las etiquetas de estado según la estrategia seleccionada"""
+        # Recorrer todos los grupos y actualizar el estado
+        self.tree_widget.clear()
+        self.loaded_count = 0
+        self._load_initial_groups()
+    
+    def _update_info_label(self):
+        """Actualiza el label de información de grupos"""
+        total_filtered = len(self.filtered_groups)
+        total_original = len(self.all_groups)
+        
+        if total_filtered < total_original:
+            # Hay filtros aplicados
+            self.groups_info_label.setText(
+                f"📑 Mostrando grupos {1 if self.loaded_count > 0 else 0}-{self.loaded_count} "
+                f"de {total_filtered} grupos filtrados (de {total_original} totales)"
+            )
+        else:
+            # Sin filtros
+            self.groups_info_label.setText(
+                f"📑 Mostrando grupos {1 if self.loaded_count > 0 else 0}-{self.loaded_count} de {total_original}"
+            )
+    
+    def _on_search_changed(self):
+        """Maneja cambios en la búsqueda"""
+        search_text = self.search_input.text().strip().lower()
+        self._apply_filters(search_text)
+    
+    def _on_filter_changed(self):
+        """Maneja cambios en el filtro de tamaño/cantidad"""
+        search_text = self.search_input.text().strip().lower()
+        self._apply_filters(search_text)
+    
+    def _apply_filters(self, search_text: str = ""):
+        """Aplica búsqueda y filtros a los grupos"""
+        filtered = self.all_groups
+        
+        # Aplicar búsqueda por texto
+        if search_text:
+            filtered = [
+                group for group in filtered
+                if any(search_text in str(f).lower() for f in group.files)
+            ]
+        
+        # Aplicar filtro de combo
+        filter_idx = self.filter_combo.currentIndex()
+        if filter_idx == 1:  # >10 MB
+            filtered = [g for g in filtered if g.total_size > 10 * 1024 * 1024]
+        elif filter_idx == 2:  # >50 MB
+            filtered = [g for g in filtered if g.total_size > 50 * 1024 * 1024]
+        elif filter_idx == 3:  # >100 MB
+            filtered = [g for g in filtered if g.total_size > 100 * 1024 * 1024]
+        elif filter_idx == 4:  # 3+ archivos
+            filtered = [g for g in filtered if g.file_count >= 3]
+        elif filter_idx == 5:  # 5+ archivos
+            filtered = [g for g in filtered if g.file_count >= 5]
+        
+        # Actualizar grupos filtrados y recargar
+        self.filtered_groups = filtered
+        self.tree_widget.clear()
+        self.loaded_count = 0
+        
+        if len(self.filtered_groups) == 0:
+            # No hay resultados
+            self.groups_info_label.setText("❌ No se encontraron grupos que coincidan con los filtros")
+            self.load_more_btn.setEnabled(False)
+        else:
+            # Cargar primeros grupos
+            self._load_initial_groups()
+            self.load_more_btn.setEnabled(self.loaded_count < len(self.filtered_groups))
+    
+    def _on_item_double_clicked(self, item, column):
+        """Maneja doble click en un item del tree"""
+        # Obtener el archivo asociado al item
+        file_path = item.data(0, Qt.ItemDataRole.UserRole)
+        
+        if file_path and isinstance(file_path, Path):
+            # Es un archivo, abrirlo
+            self._open_file(file_path)
+        else:
+            # Es un grupo, expandir/colapsar
+            item.setExpanded(not item.isExpanded())
+    
+    def _open_file(self, file_path: Path):
+        """Abre un archivo con la aplicación predeterminada del sistema"""
+        if file_path.is_file():
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(file_path)))
+        else:
+            QMessageBox.warning(
+                self,
+                "Archivo no encontrado",
+                f"No se encontró el archivo:\n{file_path}"
+            )
     
     def accept(self):
         self.accepted_plan = {

@@ -122,9 +122,9 @@ def create_summary_panel(window):
     # ORDEN: Live Photos → HEIC → Duplicados → Organizador → Renombrado
     stack_layout.addWidget(make_full_btn('live_photos', '📱', 'Live Photos'))
     stack_layout.addWidget(make_full_btn('heic', '🖼️', 'Duplicados HEIC'))
-    stack_layout.addWidget(make_full_btn('duplicates', '�', 'Duplicados'))
-    stack_layout.addWidget(make_full_btn('organization', '�', 'Organizador'))
-    stack_layout.addWidget(make_full_btn('renaming', '�', 'Renombrado'))
+    stack_layout.addWidget(make_full_btn('duplicates', '🔍', 'Duplicados'))
+    stack_layout.addWidget(make_full_btn('organization', '📁', 'Organizador'))
+    stack_layout.addWidget(make_full_btn('renaming', '📝', 'Renombrado'))
 
     actions_layout.addLayout(stack_layout)
 
