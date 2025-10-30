@@ -3,6 +3,8 @@
 Pixaro Lab is a PyQt6 desktop app for managing photo/video collections (iOS-focused).
 Core workflow: **analyze → preview → execute** with user confirmation at each step.
 
+> **Project Structure:** See `PROJECT_TREE.md` for detailed directory layout and file descriptions.
+
 ### Architecture (3-layer pattern)
 
 **Services** (`services/`) - Pure business logic, no UI dependencies

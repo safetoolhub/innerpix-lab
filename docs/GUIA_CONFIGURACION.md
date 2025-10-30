@@ -46,19 +46,6 @@ Personaliza dónde se guardan logs y backups:
 
 ---
 
-### ⚡ Comportamiento
-Configura cómo se comporta la aplicación:
-
-- **🚀 Al Iniciar la Aplicación**
-  - **Recordar último directorio:** Pre-carga el último directorio usado
-  - **Analizar automáticamente:** Inicia el análisis sin pulsar "Analizar Directorio"
-    - ⚠️ Cuidado en directorios grandes
-
-- **🎨 Interfaz**
-  - Tema (Oscuro/Claro/Sistema) *(próximamente)*
-
----
-
 ### 🔧 Avanzado
 Opciones para usuarios avanzados:
 
@@ -99,16 +86,6 @@ Para diagnosticar problemas:
 3. Clic en **Guardar Cambios**
 4. **Resultado:** Los logs mostrarán información técnica detallada
 5. ⚠️ Los archivos de log serán más grandes
-
----
-
-### Ejemplo 3: Recordar Último Directorio
-Para continuar donde lo dejaste:
-
-1. Ve a **Comportamiento** → **Al Iniciar la Aplicación**
-2. Activa "✓ Recordar último directorio utilizado"
-3. Clic en **Guardar Cambios**
-4. **Resultado:** Al abrir la app, el último directorio estará pre-cargado
 
 ---
 
@@ -179,11 +156,6 @@ Estas opciones aparecen deshabilitadas o con tooltip indicando "Funcionalidad no
 1. Verifica que guardaste los cambios en Configuración
 2. Cierra y vuelve a abrir el diálogo de la operación
 3. Revisa que "Auto-backup" esté configurado correctamente en **General**
-
-### La aplicación no carga el último directorio
-1. Verifica que "Recordar último directorio" esté activado en **Comportamiento**
-2. Comprueba que el directorio aún existe
-3. Revisa los logs para ver si se intentó cargar
 
 ---
 

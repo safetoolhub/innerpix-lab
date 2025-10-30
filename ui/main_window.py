@@ -203,13 +203,6 @@ class MainWindow(QMainWindow):
         # existente en esta clase.
         self.action_buttons = ActionButtons(self, search_bar)
 
-        # === CARGAR ÚLTIMO DIRECTORIO SI ESTÁ CONFIGURADO ===
-        last_dir = self.settings_manager.get_last_directory()
-        if last_dir and last_dir.exists():
-            self.logger.info(f"Cargando último directorio usado: {last_dir}")
-            self.directory_edit.setText(str(last_dir))
-            self.current_directory = last_dir
-
     # ========================================================================
     # WRAPPER METHODS FOR SPECIALIZED CONTROLLERS
     # ========================================================================
@@ -353,9 +346,6 @@ class MainWindow(QMainWindow):
         self.directory_edit.setText(f"{self.current_directory.name}")
         self.directory_edit.setToolTip(str(self.current_directory))
 
-        # Guardar último directorio usado
-        self.settings_manager.set_last_directory(new_directory)
-
         # Contar archivos y manejar errores de acceso
         try:
             file_count = count_files_in_directory(new_directory)
@@ -447,9 +437,6 @@ class MainWindow(QMainWindow):
         self.current_directory = new_directory
         self.directory_edit.setText(f"{self.current_directory.name}")
         self.directory_edit.setToolTip(str(self.current_directory))
-
-        # Guardar último directorio usado
-        self.settings_manager.set_last_directory(new_directory)
 
         # Limpiar análisis previo pero NO reinsertar analyze_btn (delegar la
         # gestión de visibilidad al componente ActionButtons)
