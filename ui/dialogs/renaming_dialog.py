@@ -1,11 +1,12 @@
 from pathlib import Path
 from PyQt6.QtWidgets import (
     QVBoxLayout, QGroupBox, QTableWidget, QTableWidgetItem,
-    QHeaderView, QDialogButtonBox, QLabel
+    QHeaderView, QDialogButtonBox, QLabel, QCheckBox
 )
 from PyQt6.QtGui import QColor
 from PyQt6.QtCore import Qt
 from utils.format_utils import format_size
+from utils.settings_manager import settings_manager
 from ui import styles as ui_styles
 from .base_dialog import BaseDialog
 
@@ -95,8 +96,24 @@ class RenamingPreviewDialog(BaseDialog):
                 more_label.setStyleSheet(ui_styles.STYLE_ITALIC_GRAY)
                 layout.addWidget(more_label)
 
-        # Opciones: checkbox de backup (desde BaseDialog)
-        self.add_backup_checkbox(layout, "Crear backup antes de eliminar (Recomendado)")
+        # Opciones de seguridad
+        options_group = QGroupBox("Opciones de seguridad")
+        options_layout = QVBoxLayout()
+        
+        # Checkbox de simulación
+        self.dry_run_checkbox = QCheckBox("Modo simulación (no renombrar realmente)")
+        dry_run_default = settings_manager.get(settings_manager.KEY_DRY_RUN_DEFAULT, 'false')
+        # Convertir string a bool
+        if isinstance(dry_run_default, str):
+            dry_run_default = dry_run_default.lower() == 'true'
+        self.dry_run_checkbox.setChecked(dry_run_default)
+        options_layout.addWidget(self.dry_run_checkbox)
+        
+        # Checkbox de backup (desde BaseDialog)
+        self.add_backup_checkbox(options_layout, "Crear backup antes de renombrar (Recomendado)")
+        
+        options_group.setLayout(options_layout)
+        layout.addWidget(options_group)
 
         # Botones
         ok_enabled = self.analysis_results.need_renaming > 0
@@ -110,6 +127,7 @@ class RenamingPreviewDialog(BaseDialog):
 
     def accept(self):
         self.accepted_plan = self.build_accepted_plan({
-            'plan': self.analysis_results.renaming_plan
+            'plan': self.analysis_results.renaming_plan,
+            'dry_run': self.dry_run_checkbox.isChecked()
         })
         super().accept()

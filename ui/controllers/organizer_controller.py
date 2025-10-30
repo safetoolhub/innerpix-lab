@@ -66,6 +66,7 @@ class OrganizerController(QObject):
     def execute_organization(self, plan):
         """Ejecuta la organización"""
         count = len(plan['move_plan'])
+        dry_run = plan.get('dry_run', False)
 
         # Obtener tipo de organización del plan
         org_type = plan.get('organization_type', 'to_root')
@@ -79,6 +80,10 @@ class OrganizerController(QObject):
             message = f"¿Separar {count} archivos entre WhatsApp y otros?"
         else:  # to_root
             message = f"¿Mover {count} archivos al directorio raíz?"
+
+        # Añadir indicador de simulación al mensaje si corresponde
+        if dry_run:
+            message = f"[SIMULACIÓN] {message}"
 
         reply = QMessageBox.question(
             self.main_window,
@@ -95,12 +100,14 @@ class OrganizerController(QObject):
             self.execution_worker.quit()
             self.execution_worker.wait()
 
-        self.progress_controller.show_progress(count, "Organizando archivos...")
+        progress_message = "Simulando organización..." if dry_run else "Organizando archivos..."
+        self.progress_controller.show_progress(count, progress_message)
 
         self.execution_worker = FileOrganizerWorker(
             self.file_organizer,
             plan['move_plan'],
-            plan['create_backup']
+            plan['create_backup'],
+            dry_run=dry_run
         )
 
         self.execution_worker.progress_update.connect(self.main_window.analysis_controller.update_progress)
@@ -133,62 +140,77 @@ class OrganizerController(QObject):
         self.results_controller.show_results_html(html, show_generic_status=False)
 
         if results.success:
-            QMessageBox.information(
-                self.main_window,
-                "Completado",
-                f"Se movieron {results.files_moved} archivos"
-            )
-
-        self.main_window.exec_org_btn.setEnabled(False)
-
-        try:
-            if self.main_window.current_directory and self.file_organizer:
-                # Obtener tipo de organización seleccionado
-                organization_type = None
-                if hasattr(self.main_window, 'org_type_button_group'):
-                    from services.file_organizer import OrganizationType
-                    selected_id = self.main_window.org_type_button_group.checkedId()
-                    if selected_id == 0:
-                        organization_type = OrganizationType.TO_ROOT
-                    elif selected_id == 1:
-                        organization_type = OrganizationType.BY_MONTH
-                    elif selected_id == 2:
-                        organization_type = OrganizationType.WHATSAPP_SEPARATE
-                
-                # Re-analizar con el tipo de organización
-                if organization_type:
-                    updated_org = self.file_organizer.analyze_directory_structure(
-                        self.main_window.current_directory,
-                        organization_type=organization_type
-                    )
-                else:
-                    updated_org = self.file_organizer.analyze_directory_structure(
-                        self.main_window.current_directory
-                    )
-
-                if not self.main_window.analysis_results:
-                    self.main_window.analysis_results = {}
-
-                self.main_window.analysis_results['organization'] = updated_org
-
-                self.results_controller.update_ui_after_operation(
-                    self.main_window.analysis_results, 'organization'
+            if results.dry_run:
+                QMessageBox.information(
+                    self.main_window,
+                    "Simulación Completada",
+                    f"Se moverían {results.files_moved} archivos"
+                )
+            else:
+                QMessageBox.information(
+                    self.main_window,
+                    "Completado",
+                    f"Se movieron {results.files_moved} archivos"
                 )
 
-                # updated_org es un OrganizationAnalysisResult (dataclass)
-                if updated_org.total_files_to_move > 0:
-                    self.main_window.exec_org_btn.setEnabled(True)
-                else:
-                    self.main_window.exec_org_btn.setEnabled(False)
+        # Si fue simulación, mantener botón activo. Si fue real, desactivar
+        if results.dry_run:
+            self.main_window.exec_org_btn.setEnabled(True)
+        else:
+            self.main_window.exec_org_btn.setEnabled(False)
 
-        except Exception as e:
-            self.logger.error(f"Error re-analizando después de organización: {e}")
+        # Solo re-analizar si no fue simulación
+        if not results.dry_run:
+            try:
+                if self.main_window.current_directory and self.file_organizer:
+                    # Obtener tipo de organización seleccionado
+                    organization_type = None
+                    if hasattr(self.main_window, 'org_type_button_group'):
+                        from services.file_organizer import OrganizationType
+                        selected_id = self.main_window.org_type_button_group.checkedId()
+                        if selected_id == 0:
+                            organization_type = OrganizationType.TO_ROOT
+                        elif selected_id == 1:
+                            organization_type = OrganizationType.BY_MONTH
+                        elif selected_id == 2:
+                            organization_type = OrganizationType.WHATSAPP_SEPARATE
+                    
+                    # Re-analizar con el tipo de organización
+                    if organization_type:
+                        updated_org = self.file_organizer.analyze_directory_structure(
+                            self.main_window.current_directory,
+                            organization_type=organization_type
+                        )
+                    else:
+                        updated_org = self.file_organizer.analyze_directory_structure(
+                            self.main_window.current_directory
+                        )
+
+                    if not self.main_window.analysis_results:
+                        self.main_window.analysis_results = {}
+
+                    self.main_window.analysis_results['organization'] = updated_org
+
+                    self.results_controller.update_ui_after_operation(
+                        self.main_window.analysis_results, 'organization'
+                    )
+
+                    # updated_org es un OrganizationAnalysisResult (dataclass)
+                    if updated_org.total_files_to_move > 0:
+                        self.main_window.exec_org_btn.setEnabled(True)
+                    else:
+                        self.main_window.exec_org_btn.setEnabled(False)
+
+            except Exception as e:
+                self.logger.error(f"Error re-analizando después de organización: {e}")
 
         if self.execution_worker in self.main_window.active_workers:
             self.main_window.active_workers.remove(self.execution_worker)
         self.execution_worker = None
 
-        self.schedule_reanalysis()
+        # Solo programar re-análisis si no fue simulación
+        if not results.dry_run:
+            self.schedule_reanalysis()
 
     def on_operation_error(self, error):
         """Callback genérico para errores"""
