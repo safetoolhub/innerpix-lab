@@ -263,7 +263,8 @@ class HEICDuplicateRemover:
 
     def execute_removal(self, duplicate_pairs: List[DuplicatePair], 
                        keep_format: str = 'jpg', 
-                       create_backup: bool = True) -> Dict:
+                       create_backup: bool = True,
+                       dry_run: bool = False) -> Dict:
         """
         Ejecuta la eliminación de duplicados
 
@@ -271,6 +272,7 @@ class HEICDuplicateRemover:
             duplicate_pairs: Lista de pares duplicados
             keep_format: 'jpg' o 'heic' - formato a mantener
             create_backup: Si crear backup antes de eliminar
+            dry_run: Si solo simular sin eliminar archivos reales
 
         Returns:
             Resultados de la operación
@@ -281,16 +283,19 @@ class HEICDuplicateRemover:
                 files_deleted=0,
                 space_freed=0,
                 message='No hay archivos duplicados para eliminar',
-                format_kept=keep_format
+                format_kept=keep_format,
+                dry_run=dry_run
             )
 
         self.logger.info("=" * 80)
         self.logger.info("*** INICIANDO ELIMINACIÓN DE DUPLICADOS HEIC/JPG")
         self.logger.info(f"*** Pares a procesar: {len(duplicate_pairs)}")
         self.logger.info(f"*** Formato a conservar: {keep_format.upper()}")
+        if dry_run:
+            self.logger.info("*** Modo: SIMULACIÓN")
         self.logger.info("=" * 80)
 
-        results = HeicDeletionResult(success=True, format_kept=keep_format)
+        results = HeicDeletionResult(success=True, format_kept=keep_format, dry_run=dry_run)
 
         try:
             # Determinar archivos a eliminar
@@ -300,8 +305,8 @@ class HEICDuplicateRemover:
             else:  # keep_format == 'heic'
                 files_to_delete = [pair.jpg_path for pair in duplicate_pairs]
 
-            # Crear backup si se solicita
-            if create_backup and files_to_delete:
+            # Crear backup si se solicita (solo si no es simulación)
+            if create_backup and files_to_delete and not dry_run:
                 root_directory = duplicate_pairs[0].directory
 
                 # Encontrar directorio común
@@ -340,28 +345,39 @@ class HEICDuplicateRemover:
                         validate_file_exists(file_to_delete)
                     except FileNotFoundError as e:
                         results.add_error(str(e))
-                        self.logger.error(str(e))
+                        error_prefix = "[SIMULACIÓN] " if dry_run else ""
+                        self.logger.error(f"{error_prefix}{str(e)}")
                         continue
 
                     try:
                         validate_file_exists(file_to_keep)
                     except FileNotFoundError as e:
                         results.add_error(str(e))
-                        self.logger.error(str(e))
+                        error_prefix = "[SIMULACIÓN] " if dry_run else ""
+                        self.logger.error(f"{error_prefix}{str(e)}")
                         continue
 
                     file_size = file_to_delete.stat().st_size
-                    file_to_delete.unlink()
-
-                    results.files_deleted += 1
-                    results.space_freed += file_size
-                    results.deleted_files.append(str(file_to_delete))
                     
                     from utils.format_utils import format_size
                     format_deleted = 'HEIC' if keep_format.lower() == 'jpg' else 'JPG'
                     format_kept = 'JPG' if keep_format.lower() == 'jpg' else 'HEIC'
-                    self.logger.info(f"✓ Eliminado {format_deleted}: {file_to_delete} ({format_size(file_size)})")
-                    self.logger.info(f"  ✓ Conservado {format_kept}: {file_to_keep}")
+                    
+                    if dry_run:
+                        # Solo simular: no eliminar archivos
+                        results.simulated_files_deleted += 1
+                        results.simulated_space_freed += file_size
+                        results.deleted_files.append(str(file_to_delete))
+                        self.logger.info(f"[SIMULACIÓN] Eliminaría {format_deleted}: {file_to_delete} ({format_size(file_size)})")
+                        self.logger.info(f"[SIMULACIÓN]   Conservaría {format_kept}: {file_to_keep}")
+                    else:
+                        # Eliminar realmente
+                        file_to_delete.unlink()
+                        results.files_deleted += 1
+                        results.space_freed += file_size
+                        results.deleted_files.append(str(file_to_delete))
+                        self.logger.info(f"✓ Eliminado {format_deleted}: {file_to_delete} ({format_size(file_size)})")
+                        self.logger.info(f"  ✓ Conservado {format_kept}: {file_to_keep}")
 
                 except Exception as e:
                     error_msg = f"Error eliminando {file_to_delete}: {str(e)}"
@@ -372,13 +388,24 @@ class HEICDuplicateRemover:
                 results.success = len(results.errors) < len(duplicate_pairs)
 
             from utils.format_utils import format_size
-            freed = format_size(results.space_freed)
+            
+            if dry_run:
+                freed = format_size(results.simulated_space_freed)
+                files_count = results.simulated_files_deleted
+            else:
+                freed = format_size(results.space_freed)
+                files_count = results.files_deleted
 
             self.logger.info("=" * 80)
-            self.logger.info("*** ELIMINACIÓN DE DUPLICADOS HEIC/JPG COMPLETADA")
-            self.logger.info(f"*** Resultado: {results.files_deleted} archivos eliminados, {freed} liberados")
+            if dry_run:
+                self.logger.info("*** SIMULACIÓN DE ELIMINACIÓN DE DUPLICADOS HEIC/JPG COMPLETADA")
+                self.logger.info(f"*** Resultado: {files_count} archivos se eliminarían, {freed} se liberarían")
+            else:
+                self.logger.info("*** ELIMINACIÓN DE DUPLICADOS HEIC/JPG COMPLETADA")
+                self.logger.info(f"*** Resultado: {files_count} archivos eliminados, {freed} liberados")
             if results.errors:
-                self.logger.info(f"*** Errores encontrados durante la eliminación:")
+                error_prefix = "[SIMULACIÓN] " if dry_run else ""
+                self.logger.info(f"*** {error_prefix}Errores encontrados durante la {'simulación' if dry_run else 'eliminación'}:")
                 for error in results.errors:
                     self.logger.error(f"  ✗ {error}")
             self.logger.info("=" * 80)

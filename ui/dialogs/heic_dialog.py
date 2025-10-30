@@ -72,8 +72,17 @@ class HEICDuplicateRemovalDialog(BaseDialog):
             table.setMaximumHeight(Config.TABLE_MAX_HEIGHT)
             layout.addWidget(table)
 
-        # Opciones: backup checkbox desde BaseDialog
-        self.add_backup_checkbox(layout, "Crear backup antes de eliminar (Recomendado)")
+        # Opciones de seguridad
+        options_group = QGroupBox("Opciones de seguridad")
+        options_layout = QVLayout(options_group)
+
+        # Backup checkbox desde BaseDialog
+        self.add_backup_checkbox(options_layout, "Crear backup antes de eliminar (Recomendado)")
+
+        # Dry-run checkbox (similar a live photos)
+        self.dry_run_checkbox = QCheckBox("Modo simulación (no eliminar archivos realmente)")
+        options_layout.addWidget(self.dry_run_checkbox)
+        layout.addWidget(options_group)
 
         # Botones
         ok_enabled = self.analysis.total_duplicates > 0
@@ -91,5 +100,6 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         self.accepted_plan = self.build_accepted_plan({
             'duplicate_pairs': self.analysis.duplicate_pairs,
             'keep_format': self.selected_format,
+            'dry_run': self.dry_run_checkbox.isChecked(),
         })
         super().accept()
