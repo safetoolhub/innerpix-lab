@@ -111,34 +111,52 @@ class RenamingController(QObject):
         html = self.results_controller.format_renaming_results(results)
         self.results_controller.show_results_html(html, show_generic_status=False)
 
-        if results.get('success'):
+        # results es un RenameResult (dataclass)
+        if results.success:
             QMessageBox.information(
                 self.main_window,
                 "Completado",
-                f"Se renombraron {results.get('files_renamed', 0)} archivos correctamente"
+                f"Se renombraron {results.files_renamed} archivos correctamente"
             )
 
-        files_renamed = int(results.get('files_renamed', 0))
+        files_renamed = results.files_renamed
         if self.main_window.analysis_results and self.main_window.analysis_results.get('renaming'):
             ren = self.main_window.analysis_results['renaming']
-            ren['already_renamed'] = ren.get('already_renamed', 0) + files_renamed
-            ren['need_renaming'] = max(0, ren.get('need_renaming', 0) - files_renamed)
+            # ren es un RenameAnalysisResult (dataclass inmutable)
+            # Necesitamos crear uno nuevo con valores actualizados
+            
+            new_already_renamed = ren.already_renamed + files_renamed
+            new_need_renaming = max(0, ren.need_renaming - files_renamed)
 
-            errors_count = len(results.get('errors', [])) if results.get('errors') else 0
-            if errors_count:
-                ren['cannot_process'] = ren.get('cannot_process', 0) + errors_count
+            errors_count = len(results.errors)
+            new_cannot_process = ren.cannot_process + errors_count if errors_count else ren.cannot_process
 
-            conflicts_resolved = int(results.get('conflicts_resolved', 0)) if results.get('conflicts_resolved') is not None else 0
-            if conflicts_resolved:
-                ren['conflicts'] = max(0, ren.get('conflicts', 0) - conflicts_resolved)
+            conflicts_resolved = results.conflicts_resolved
+            new_conflicts = max(0, ren.conflicts - conflicts_resolved) if conflicts_resolved else ren.conflicts
 
-            self.main_window.analysis_results['renaming'] = ren
+            # Crear nuevo resultado de análisis con valores actualizados
+            from services.result_types import RenameAnalysisResult
+            updated_ren = RenameAnalysisResult(
+                success=ren.success,
+                errors=ren.errors,
+                message=ren.message,
+                total_files=ren.total_files,
+                already_renamed=new_already_renamed,
+                need_renaming=new_need_renaming,
+                cannot_process=new_cannot_process,
+                conflicts=new_conflicts,
+                files_by_year=ren.files_by_year,
+                renaming_plan=ren.renaming_plan,
+                issues=ren.issues
+            )
+
+            self.main_window.analysis_results['renaming'] = updated_ren
 
             self.results_controller.update_ui_after_operation(
                 self.main_window.analysis_results, 'renaming'
             )
 
-            self.main_window.preview_rename_btn.setEnabled(ren.get('need_renaming', 0) > 0)
+            self.main_window.preview_rename_btn.setEnabled(updated_ren.need_renaming > 0)
         else:
             self.main_window.preview_rename_btn.setEnabled(False)
 

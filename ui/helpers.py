@@ -41,23 +41,28 @@ def service_available(window, attr_name: str) -> bool:
 def update_tab_details(window, results):
     """
     Actualiza los detalles de cada pestaña con los resultados del análisis.
+    
+    Args:
+        results: dict con claves 'renaming', 'live_photos', 'organization', 'heic', 'duplicates'
+                 donde cada valor es una dataclass correspondiente
     """
     
     if results.get('renaming'):
         ren = results['renaming']
+        # ren es un RenameAnalysisResult (dataclass)
         
         stats = {
-            '📊 Total archivos': ren.get('total_files', 0),
-            '✅ Ya renombrados': ren.get('already_renamed', 0),
-            '📝 A renombrar': ren.get('need_renaming', 0),
-            '⚠️ No procesables': ren.get('cannot_process', 0),
+            '📊 Total archivos': ren.total_files,
+            '✅ Ya renombrados': ren.already_renamed,
+            '📝 A renombrar': ren.need_renaming,
+            '⚠️ No procesables': ren.cannot_process,
         }
         
         html = generate_stats_html(stats)
         
-        if ren.get('need_renaming', 0) > 0:
+        if ren.need_renaming > 0:
             extra_stats = {
-                '🔄 Conflictos': ren.get('conflicts', 0),
+                '🔄 Conflictos': ren.conflicts,
             }
             html += "\n\n---\n\n" + generate_stats_html(extra_stats)
         
@@ -66,17 +71,28 @@ def update_tab_details(window, results):
     if results.get('live_photos'):
         lp = results['live_photos']
         
-        total_groups = lp.get('live_photos_found')
-        if total_groups is None:
-            groups_list = lp.get('groups') or lp.get('detailed_analysis', {}).get('groups') or []
-            total_groups = len(groups_list) if groups_list else 0
-        
-        total_space = lp.get('total_space', 0)
-        space_to_free = lp.get('space_to_free', 0)
-        
-        if total_space == 0 and 'detailed_analysis' in lp:
-            analysis = lp['detailed_analysis']
-            total_space = analysis.get('total_size', 0)
+        # lp puede ser un dict (workers.py construye dicts actualmente)
+        # Necesitamos manejar ambos casos durante la transición
+        if isinstance(lp, dict):
+            total_groups = lp.get('live_photos_found')
+            if total_groups is None:
+                groups_list = lp.get('groups') or lp.get('detailed_analysis', {}).get('groups') or []
+                total_groups = len(groups_list) if groups_list else 0
+            
+            total_space = lp.get('total_space', 0)
+            space_to_free = lp.get('space_to_free', 0)
+            
+            if total_space == 0 and 'detailed_analysis' in lp:
+                analysis = lp['detailed_analysis']
+                total_space = analysis.get('total_size', 0)
+            
+            cleanup_mode = lp.get('cleanup_mode', '')
+        else:
+            # Es una dataclass LivePhotoCleanupAnalysisResult
+            total_groups = lp.live_photos_found
+            total_space = lp.total_space
+            space_to_free = lp.space_to_free
+            cleanup_mode = lp.cleanup_mode
         
         stats = {
             '📱 Live Photos encontrados': total_groups,
@@ -84,43 +100,41 @@ def update_tab_details(window, results):
             '💾 Espacio a liberar': format_size(space_to_free),
         }
         
-        if 'cleanup_mode' in lp:
+        if cleanup_mode:
             mode_names = {
                 'keep_image': 'mantener imagen',
                 'keep_video': 'mantener video',
                 'keep_larger': 'mantener más grande',
                 'keep_smaller': 'mantener más pequeño'
             }
-            mode = lp.get('cleanup_mode', '')
-            if mode in mode_names:
-                stats['🔧 Modo'] = mode_names[mode]
+            if cleanup_mode in mode_names:
+                stats['🔧 Modo'] = mode_names[cleanup_mode]
         
         html = generate_stats_html(stats)
         window.lp_details.setHtml(html)
     
     if results.get('organization'):
         org = results['organization']
-        total_size = org.get('total_size_to_move', 0)
+        # org es un OrganizationAnalysisResult (dataclass)
         
         org_type_labels = {
             'to_root': 'Mover a raíz',
             'by_month': 'Por meses (YYYY_MM)',
             'whatsapp_separate': 'Separar WhatsApp'
         }
-        org_type = org.get('organization_type', 'to_root')
-        org_type_label = org_type_labels.get(org_type, org_type)
+        org_type_label = org_type_labels.get(org.organization_type, org.organization_type)
         
         stats = {
             '🔧 Tipo de organización': org_type_label,
-            '📁 Subdirectorios': len(org.get('subdirectories', {})),
-            '📄 Archivos a mover': org.get('total_files_to_move', 0),
-            '💾 Tamaño total': format_size(total_size),
-            '⚠️ Conflictos potenciales': org.get('potential_conflicts', 0),
+            '📁 Subdirectorios': len(org.subdirectories),
+            '📄 Archivos a mover': org.total_files_to_move,
+            '💾 Tamaño total': format_size(org.total_size_to_move),
+            '⚠️ Conflictos potenciales': org.potential_conflicts,
         }
         
-        folders_to_create = org.get('folders_to_create', [])
-        if folders_to_create:
-            stats['📂 Carpetas a crear'] = f"{len(folders_to_create)} ({', '.join(folders_to_create[:5])}{'...' if len(folders_to_create) > 5 else ''})"
+        if org.folders_to_create:
+            folders_list = org.folders_to_create
+            stats['📂 Carpetas a crear'] = f"{len(folders_list)} ({', '.join(folders_list[:5])}{'...' if len(folders_list) > 5 else ''})"
         
         html = generate_stats_html(stats)
         window.org_details.setHtml(html)
@@ -128,15 +142,13 @@ def update_tab_details(window, results):
     if results.get('heic'):
         heic = results['heic']
         # heic es un HeicAnalysisResult (dataclass)
-        savings_jpg = heic.potential_savings_keep_jpg
-        savings_heic = heic.potential_savings_keep_heic
         
         stats = {
             '♻️ Pares detectados': heic.total_duplicates,
             '🖼️ Archivos HEIC': heic.heic_files,
             '📸 Archivos JPG': heic.jpg_files,
-            '💾 Ahorro (mantener JPG)': format_size(savings_jpg),
-            '💾 Ahorro (mantener HEIC)': format_size(savings_heic),
+            '💾 Ahorro (mantener JPG)': format_size(heic.potential_savings_keep_jpg),
+            '💾 Ahorro (mantener HEIC)': format_size(heic.potential_savings_keep_heic),
         }
         
         html = generate_stats_html(stats)

@@ -142,6 +142,10 @@ class ActionButtons:
         Encapsula:
         - acciones visuales generales (texto/retirada de analyze_btn)
         - habilitación/deshabilitación de botones según los `results`
+        
+        Args:
+            results: dict con claves 'renaming', 'live_photos', 'organization', 'heic'
+                     donde cada valor es una dataclass correspondiente
         """
         # 1) comportamiento visual general
         self.after_analysis()
@@ -150,25 +154,33 @@ class ActionButtons:
         parent = self.parent
 
         # Preview rename
-        if results.get('renaming') and results['renaming'].get('need_renaming', 0) > 0:
+        if results.get('renaming') and results['renaming'].need_renaming > 0:
             parent.preview_rename_btn.setEnabled(True)
         else:
             parent.preview_rename_btn.setEnabled(False)
 
         # Live Photos
-        if results.get('live_photos') and len(results['live_photos'].get('groups', [])) > 0:
-            parent.exec_lp_btn.setEnabled(True)
+        if results.get('live_photos'):
+            lp = results['live_photos']
+            # lp puede ser dict o dataclass durante transición
+            if isinstance(lp, dict):
+                has_groups = len(lp.get('groups', [])) > 0
+            else:
+                # Es LivePhotoCleanupAnalysisResult
+                has_groups = lp.live_photos_found > 0
+            
+            parent.exec_lp_btn.setEnabled(has_groups)
         else:
             parent.exec_lp_btn.setEnabled(False)
 
         # Organización de archivos
-        if results.get('organization') and results['organization'].get('total_files_to_move', 0) > 0:
+        if results.get('organization') and results['organization'].total_files_to_move > 0:
             parent.exec_org_btn.setEnabled(True)
         else:
             parent.exec_org_btn.setEnabled(False)
 
         # HEIC duplicates
-        if results.get('heic') and results['heic'].get('total_duplicates', 0) > 0:
+        if results.get('heic') and results['heic'].total_duplicates > 0:
             parent.exec_heic_btn.setEnabled(True)
         else:
             parent.exec_heic_btn.setEnabled(False)

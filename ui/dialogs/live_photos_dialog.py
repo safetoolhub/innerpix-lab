@@ -14,13 +14,14 @@ class LivePhotoCleanupDialog(BaseDialog):
 
     def __init__(self, analysis, parent=None):
         super().__init__(parent)
-        self.analysis = analysis
+        self.analysis = analysis  # dict con 'groups', 'live_photos_found', 'total_space', etc.
         self.selected_mode = CleanupMode.KEEP_IMAGE
         self.accepted_plan = None
         self.init_ui()
 
     def _calculate_space_for_mode(self, mode):
         """Calcula el espacio a liberar según el modo seleccionado"""
+        # analysis es un dict porque viene de workers.py
         groups = self.analysis.get('groups', [])
         if not groups:
             return 0

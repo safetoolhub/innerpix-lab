@@ -68,11 +68,11 @@ class ResultsController(QObject):
         except Exception as e:
             self.logger.error(f"Error refrescando display de análisis: {e}")
 
-    def format_renaming_results(self, results: dict) -> str:
+    def format_renaming_results(self, results) -> str:
         """Genera HTML para resultados de renombrado
 
         Args:
-            results: Diccionario con resultados de renombrado
+            results: RenameResult con resultados de renombrado
 
         Returns:
             HTML formateado
@@ -80,47 +80,47 @@ class ResultsController(QObject):
         html = f"""
             <div style='color: #28a745;'>
                 <h4>✅ Renombrado Completado</h4>
-                <p><strong>Archivos renombrados:</strong> {results.get('files_renamed', 0)}</p>
-                <p><strong>Errores:</strong> {len(results.get('errors', []))}</p>
+                <p><strong>Archivos renombrados:</strong> {results.files_renamed}</p>
+                <p><strong>Errores:</strong> {len(results.errors)}</p>
         """
 
-        if results.get('backup_path'):
-            html += f"<p><strong>💾 Backup:</strong> {results['backup_path']}</p>"
+        if results.backup_path:
+            html += f"<p><strong>💾 Backup:</strong> {results.backup_path}</p>"
 
         html += "</div>"
         return html
 
-    def format_live_photo_results(self, results: dict) -> str:
+    def format_live_photo_results(self, results) -> str:
         """Genera HTML para resultados de limpieza Live Photos
 
         Args:
-            results: Diccionario con resultados de limpieza
+            results: LivePhotoCleanupResult con resultados de limpieza
 
         Returns:
             HTML formateado
         """
-        dry_run = bool(results.get('dry_run'))
-        simulated_count = results.get('simulated_files_deleted', 0)
-        simulated_space = results.get('simulated_space_freed', 0)
-        space_freed = results.get('space_freed', 0)
+        dry_run = results.dry_run
+        simulated_count = results.simulated_files_deleted
+        simulated_space = results.simulated_space_freed
+        space_freed = results.space_freed
 
         if dry_run:
             space_display = format_size(simulated_space)
             files_display = f"{simulated_count} (simulado)"
         else:
             space_display = format_size(space_freed)
-            files_display = f"{results.get('files_deleted', 0)}"
+            files_display = f"{results.files_deleted}"
 
         html = f"""
             <div style='color: #28a745;'>
                 <h4>✅ Limpieza de Live Photos Completada</h4>
                 <p><strong>Archivos eliminados:</strong> {files_display}</p>
                 <p><strong>Espacio liberado:</strong> {space_display}</p>
-                <p><strong>Errores:</strong> {len(results.get('errors', []))}</p>
+                <p><strong>Errores:</strong> {len(results.errors)}</p>
         """
 
-        if results.get('backup_path'):
-            html += f"<p><strong>💾 Backup:</strong> {results['backup_path']}</p>"
+        if results.backup_path:
+            html += f"<p><strong>💾 Backup:</strong> {results.backup_path}</p>"
 
         if dry_run:
             html += "<p><strong>ℹ️ Modo simulación</strong> - No se eliminaron archivos realmente</p>"
@@ -128,11 +128,11 @@ class ResultsController(QObject):
         html += "</div>"
         return html
 
-    def format_organization_results(self, results: dict) -> str:
+    def format_organization_results(self, results) -> str:
         """Genera HTML para resultados de organización
 
         Args:
-            results: Diccionario con resultados de organización
+            results: OrganizationResult con resultados de organización
 
         Returns:
             HTML formateado
@@ -140,59 +140,59 @@ class ResultsController(QObject):
         html = f"""
             <div style='color: #28a745;'>
                 <h4>✅ Organización Completada</h4>
-                <p><strong>Archivos movidos:</strong> {results.get('files_moved', 0)}</p>
-                <p><strong>Directorios eliminados:</strong> {results.get('empty_directories_removed', 0)}</p>
-                <p><strong>Errores:</strong> {len(results.get('errors', []))}</p>
+                <p><strong>Archivos movidos:</strong> {results.files_moved}</p>
+                <p><strong>Directorios eliminados:</strong> {results.empty_directories_removed}</p>
+                <p><strong>Errores:</strong> {len(results.errors)}</p>
         """
 
-        if results.get('backup_path'):
-            html += f"<p><strong>💾 Backup:</strong> {results['backup_path']}</p>"
+        if results.backup_path:
+            html += f"<p><strong>💾 Backup:</strong> {results.backup_path}</p>"
 
         html += "</div>"
         return html
 
-    def format_heic_results(self, results: dict) -> str:
+    def format_heic_results(self, results) -> str:
         """Genera HTML para resultados de eliminación HEIC
 
         Args:
-            results: Diccionario con resultados de eliminación HEIC
+            results: HeicDeletionResult con resultados de eliminación HEIC
 
         Returns:
             HTML formateado
         """
-        space_freed = results.get('space_freed', 0)
+        space_freed = results.space_freed
 
         html = f"""
             <div style='color: #28a745;'>
                 <h4>✅ Eliminación de Duplicados HEIC Completada</h4>
-                <p><strong>Archivos eliminados:</strong> {results.get('files_deleted', 0)}</p>
+                <p><strong>Archivos eliminados:</strong> {results.files_deleted}</p>
                 <p><strong>Espacio liberado:</strong> {format_size(space_freed)}</p>
-                <p><strong>Errores:</strong> {len(results.get('errors', []))}</p>
+                <p><strong>Errores:</strong> {len(results.errors)}</p>
         """
 
-        if results.get('backup_path'):
-            html += f"<p><strong>💾 Backup:</strong> {results['backup_path']}</p>"
+        if results.backup_path:
+            html += f"<p><strong>💾 Backup:</strong> {results.backup_path}</p>"
 
-        if results.get('kept_format'):
-            html += f"<p><strong>📋 Formato mantenido:</strong> {results['kept_format'].upper()}</p>"
+        if results.kept_format:
+            html += f"<p><strong>📋 Formato mantenido:</strong> {results.kept_format.upper()}</p>"
 
         html += "</div>"
         return html
 
-    def show_exact_results(self, results: dict):
+    def show_exact_results(self, results):
         """Formatea y muestra resultados de duplicados exactos
 
         Args:
-            results: Diccionario con resultados de duplicados exactos
+            results: DuplicateAnalysisResult con resultados de duplicados exactos
         """
         # Verificar que el modo actual sea exact antes de mostrar
         if not self.main_window.exact_mode_radio.isChecked():
             self.logger.warning("Modo actual no es 'exact', ignorando show_exact_results")
             return
 
-        total_groups = results['total_groups']
-        total_duplicates = results['total_duplicates']
-        space_wasted = results['space_wasted']
+        total_groups = results.total_groups
+        total_duplicates = results.total_duplicates
+        space_wasted = results.space_wasted
 
         if total_groups == 0:
             self.main_window.duplicates_details.setHtml(markdown_like_to_html(
@@ -216,22 +216,22 @@ class ResultsController(QObject):
         self.main_window.delete_exact_duplicates_btn.setVisible(total_groups > 0)
         self.main_window.delete_exact_duplicates_btn.setEnabled(total_groups > 0)
 
-    def show_similar_results(self, results: dict):
+    def show_similar_results(self, results):
         """Formatea y muestra resultados de duplicados similares
 
         Args:
-            results: Diccionario con resultados de duplicados similares
+            results: DuplicateAnalysisResult con resultados de duplicados similares
         """
         # Verificar que el modo actual sea similar antes de mostrar
         if not self.main_window.similar_mode_radio.isChecked():
             self.logger.warning("Modo actual no es 'similar', ignorando show_similar_results")
             return
 
-        total_groups = results['total_groups']
-        total_similar = results['total_similar']
-        space_potential = results['space_potential']
-        min_sim = results.get('min_similarity', 0)
-        max_sim = results.get('max_similarity', 0)
+        total_groups = results.total_groups
+        total_similar = results.total_similar
+        space_potential = results.space_potential
+        min_sim = results.min_similarity or 0
+        max_sim = results.max_similarity or 0
 
         if total_groups == 0:
             self.main_window.duplicates_details.setHtml(markdown_like_to_html(

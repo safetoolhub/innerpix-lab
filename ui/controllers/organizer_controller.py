@@ -47,8 +47,9 @@ class OrganizerController(QObject):
             return
 
         org_analysis = self.main_window.analysis_results['organization']
+        # org_analysis es un OrganizationAnalysisResult (dataclass)
 
-        if org_analysis.get('total_files_to_move', 0) == 0:
+        if org_analysis.total_files_to_move == 0:
             QMessageBox.information(self.main_window, "Organización", "No hay archivos para mover")
             return
 
@@ -117,17 +118,21 @@ class OrganizerController(QObject):
     # ========================================================================
 
     def on_organization_finished(self, results):
-        """Callback al terminar organización"""
+        """Callback al terminar organización
+        
+        Args:
+            results: OrganizationResult (dataclass)
+        """
         self.progress_controller.hide_progress()
 
         html = self.results_controller.format_organization_results(results)
         self.results_controller.show_results_html(html, show_generic_status=False)
 
-        if results.get('success'):
+        if results.success:
             QMessageBox.information(
                 self.main_window,
                 "Completado",
-                f"Se movieron {results.get('files_moved', 0)} archivos"
+                f"Se movieron {results.files_moved} archivos"
             )
 
         self.main_window.exec_org_btn.setEnabled(False)
@@ -166,7 +171,8 @@ class OrganizerController(QObject):
                     self.main_window.analysis_results, 'organization'
                 )
 
-                if updated_org.get('total_files_to_move', 0) > 0:
+                # updated_org es un OrganizationAnalysisResult (dataclass)
+                if updated_org.total_files_to_move > 0:
                     self.main_window.exec_org_btn.setEnabled(True)
                 else:
                     self.main_window.exec_org_btn.setEnabled(False)

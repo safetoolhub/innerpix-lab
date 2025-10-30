@@ -202,6 +202,7 @@ class AnalysisController:
 
         Args:
             partial: Diccionario con resultados parciales de una funcionalidad
+                    Cada valor es una dataclass correspondiente (RenameAnalysisResult, etc.)
         """
         if not hasattr(self.window, 'summary_action_buttons'):
             return
@@ -209,28 +210,32 @@ class AnalysisController:
         # Actualizar cada funcionalidad según los datos recibidos
         if 'renaming' in partial and 'renaming' in self.window.summary_action_buttons:
             ren = partial['renaming']
-            count = ren.get('need_renaming', 0)
+            # ren es un RenameAnalysisResult (dataclass)
+            count = ren.need_renaming
             self.window.summary_action_buttons['renaming'].setText(f"📝 Renombrado   {count:,}")
 
         if 'live_photos' in partial and 'live_photos' in self.window.summary_action_buttons:
             lp = partial['live_photos']
+            # lp es un dict (construido en workers.py)
             count = lp.get('live_photos_found', 0)
             self.window.summary_action_buttons['live_photos'].setText(f"📱 Live Photos   {count:,}")
 
         if 'organization' in partial and 'organization' in self.window.summary_action_buttons:
             org = partial['organization']
-            count = org.get('total_files_to_move', 0)
+            # org es un OrganizationAnalysisResult (dataclass)
+            count = org.total_files_to_move
             self.window.summary_action_buttons['organization'].setText(f"📁 Organizador   {count:,}")
 
         if 'heic' in partial and 'heic' in self.window.summary_action_buttons:
             heic = partial['heic']
             # heic es un HeicAnalysisResult (dataclass)
-            count = heic.total_duplicates if hasattr(heic, 'total_duplicates') else 0
+            count = heic.total_duplicates
             self.window.summary_action_buttons['heic'].setText(f"🖼️ Duplicados HEIC   {count:,}")
 
         if 'duplicates' in partial and 'duplicates' in self.window.summary_action_buttons:
             dup = partial['duplicates']
-            count = dup.get('total_duplicates', 0)
+            # dup es un DuplicateAnalysisResult (dataclass)
+            count = dup.total_duplicates
             self.window.summary_action_buttons['duplicates'].setText(f"🔍 Duplicados   {count:,}")
 
     def on_finished(self, results: dict):

@@ -231,15 +231,16 @@ def update_summary_panel(window, results):
     if 'total' in window.stats_labels:
         window.stats_labels['total'].setText(total_txt)
 
-    ren = results.get('renaming', {})
-    lp = results.get('live_photos', {})
-    org = results.get('organization', {})
-    heic = results.get('heic')  # Puede ser HeicAnalysisResult o None
-    dup = results.get('duplicates')  # Puede ser DuplicateAnalysisResult o None
+    ren = results.get('renaming')  # RenameAnalysisResult (dataclass)
+    lp = results.get('live_photos', {})  # Todavía es dict (desde workers.py)
+    org = results.get('organization')  # OrganizationAnalysisResult (dataclass)
+    heic = results.get('heic')  # HEICAnalysisResult (dataclass) o None
+    dup = results.get('duplicates')  # DuplicateAnalysisResult (dataclass) o None
 
     if hasattr(window, 'summary_action_buttons'):
         if 'live_photos' in window.summary_action_buttons:
-            window.summary_action_buttons['live_photos'].setText(f"📱 Live Photos   {lp.get('live_photos_found', 0):,}")
+            lp_count = lp.get('live_photos_found', 0) if isinstance(lp, dict) else (lp.live_photos_found if lp else 0)
+            window.summary_action_buttons['live_photos'].setText(f"📱 Live Photos   {lp_count:,}")
         if 'heic' in window.summary_action_buttons:
             heic_count = heic.total_duplicates if heic else 0
             window.summary_action_buttons['heic'].setText(f"🖼️ Duplicados HEIC   {heic_count:,}")
@@ -252,9 +253,11 @@ def update_summary_panel(window, results):
                 # Solo mostrar "Pendiente" si no se ha ejecutado el análisis inicial
                 window.summary_action_buttons['duplicates'].setText("🔍 Duplicados   —")
         if 'organization' in window.summary_action_buttons:
-            window.summary_action_buttons['organization'].setText(f"📁 Organizador   {org.get('total_files_to_move', 0):,}")
+            org_count = org.total_files_to_move if org else 0
+            window.summary_action_buttons['organization'].setText(f"📁 Organizador   {org_count:,}")
         if 'renaming' in window.summary_action_buttons:
-            window.summary_action_buttons['renaming'].setText(f"📝 Renombrado   {ren.get('need_renaming', 0):,}")
+            ren_count = ren.need_renaming if ren else 0
+            window.summary_action_buttons['renaming'].setText(f"📝 Renombrado   {ren_count:,}")
 
 
 
