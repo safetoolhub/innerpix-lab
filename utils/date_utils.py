@@ -2,11 +2,15 @@
 Utilidades para extracción de fechas de archivos multimedia
 """
 import os
+import logging
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
+from utils.logger import get_logger
 
-def get_file_date(file_path: Path) -> Optional[datetime]:
+_logger = get_logger("DateUtils")
+
+def get_file_date(file_path: Path, verbose: bool = False) -> Optional[datetime]:
     """
     Obtiene la fecha más antigua disponible de un archivo
 
@@ -17,37 +21,77 @@ def get_file_date(file_path: Path) -> Optional[datetime]:
 
     Args:
         file_path: Ruta al archivo
+        verbose: Si True, muestra análisis detallado en modo INFO. Si False, solo en DEBUG
 
     Returns:
         datetime o None si no se puede obtener
     """
     try:
+        dates_found = {}
+        
+        # Determinar si mostrar logging detallado
+        show_details = verbose or _logger.isEnabledFor(logging.DEBUG)
+        log_func = _logger.info if verbose else _logger.debug
+        
+        if show_details:
+            log_func(f"Análisis de fechas para: {file_path.name}")
+        
+        # 1. Intentar obtener fecha EXIF
         exif_date = get_exif_date(file_path)
         if exif_date:
-            return exif_date
+            dates_found['EXIF'] = exif_date
+            if show_details:
+                log_func(f"  → Fecha EXIF: {exif_date.strftime('%Y-%m-%d %H:%M:%S')}")
 
+        # 2. Obtener fecha de creación
         stat = file_path.stat()
-
+        creation_time = None
+        
         if hasattr(stat, 'st_birthtime'):
             creation_time = datetime.fromtimestamp(stat.st_birthtime)
+            dates_found['Creación'] = creation_time
+            if show_details:
+                log_func(f"  → Fecha de creación: {creation_time.strftime('%Y-%m-%d %H:%M:%S')}")
         elif hasattr(stat, 'st_ctime'):
             creation_time = datetime.fromtimestamp(stat.st_ctime)
-        else:
-            creation_time = None
+            dates_found['Creación (ctime)'] = creation_time
+            if show_details:
+                log_func(f"  → Fecha de creación (ctime): {creation_time.strftime('%Y-%m-%d %H:%M:%S')}")
 
+        # 3. Obtener fecha de modificación
         modification_time = datetime.fromtimestamp(stat.st_mtime)
+        dates_found['Modificación'] = modification_time
+        if show_details:
+            log_func(f"  → Fecha de modificación: {modification_time.strftime('%Y-%m-%d %H:%M:%S')}")
 
-        if creation_time and modification_time:
-            return min(creation_time, modification_time)
+        # Seleccionar la fecha más antigua
+        selected_date = None
+        selected_source = None
+        
+        if exif_date:
+            selected_date = exif_date
+            selected_source = 'EXIF'
+        elif creation_time and modification_time:
+            if creation_time <= modification_time:
+                selected_date = creation_time
+                selected_source = 'Creación'
+            else:
+                selected_date = modification_time
+                selected_source = 'Modificación'
         elif modification_time:
-            return modification_time
+            selected_date = modification_time
+            selected_source = 'Modificación'
         elif creation_time:
-            return creation_time
+            selected_date = creation_time
+            selected_source = 'Creación'
 
-        return None
+        if selected_date and show_details:
+            log_func(f"  ✓ FECHA SELECCIONADA ({selected_source}): {selected_date.strftime('%Y-%m-%d %H:%M:%S')}")
+
+        return selected_date
 
     except Exception as e:
-        print(f"Error obteniendo fecha de {file_path}: {e}")
+        _logger.error(f"Error obteniendo fecha de {file_path}: {e}")
         return None
 
 def get_exif_date(file_path: Path) -> Optional[datetime]:

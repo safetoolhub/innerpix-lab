@@ -3,6 +3,7 @@ Limpiador de Live Photos - Eliminación segura con backup
 """
 import shutil
 import os
+import logging
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Optional, Set, Union
@@ -89,6 +90,19 @@ class LivePhotoCleaner:
         )
 
         self.logger.info(f"Análisis completado: {len(cleanup_plan['files_to_delete'])} archivos a eliminar")
+        
+        # Logging detallado de archivos a eliminar
+        from utils.format_utils import format_size
+        self.logger.info("=" * 80)
+        self.logger.info("ANÁLISIS DE LIVE PHOTOS - ARCHIVOS A ELIMINAR:")
+        for file_info in cleanup_plan['files_to_delete']:
+            self.logger.info(f"  → A eliminar: {file_info['path']} ({file_info['type']}, {format_size(file_info['size'])})")
+        
+        self.logger.info("ARCHIVOS A CONSERVAR:")
+        for file_info in cleanup_plan['files_to_keep']:
+            self.logger.info(f"  ✓ A conservar: {file_info['path']} ({file_info['type']}, {format_size(file_info['size'])})")
+        self.logger.info("=" * 80)
+        
         return result
 
     def _generate_cleanup_plan(self, live_photos: List[LivePhotoGroup], mode: CleanupMode) -> Dict:
@@ -213,7 +227,12 @@ class LivePhotoCleaner:
                 message='No hay archivos para eliminar'
             )
 
-        self.logger.info(f"Iniciando limpieza de Live Photos: {len(files_to_delete)} archivos")
+        self.logger.info("=" * 80)
+        self.logger.info("*** INICIANDO LIMPIEZA DE LIVE PHOTOS")
+        self.logger.info(f"*** Archivos a procesar: {len(files_to_delete)}")
+        if dry_run:
+            self.logger.info("*** Modo: SIMULACIÓN")
+        self.logger.info("=" * 80)
         self.dry_run = dry_run
         self._reset_cleanup_stats()
 
@@ -265,16 +284,19 @@ class LivePhotoCleaner:
                             results.simulated_files_deleted += 1
                             results.simulated_space_freed += file_size
                             results.deleted_files.append(str(file_path))
-
-                            self.logger.debug(f"SIMULADO - Eliminaría: {file_path.name}")
+                            from utils.format_utils import format_size
+                            self.logger.info(f"[SIMULACIÓN] Eliminaría: {file_path} ({file_info['type']}, {format_size(file_size)})")
                         else:
-                            results.add_error(f"Archivo no encontrado (simulación): {file_path.name}")
+                            error_msg = f"Archivo no encontrado (simulación): {file_path}"
+                            results.add_error(error_msg)
+                            self.logger.warning(f"[SIMULACIÓN] {error_msg}")
                     else:
                         # Eliminar realmente
                         if not file_path.exists():
-                            error_msg = f"Archivo no encontrado: {file_path.name}"
+                            error_msg = f"Archivo no encontrado: {file_path}"
                             results.add_error(error_msg)
                             self.cleanup_stats['errors'] += 1
+                            self.logger.error(error_msg)
                             continue
 
                         # Eliminar archivo
@@ -287,8 +309,9 @@ class LivePhotoCleaner:
 
                         self.cleanup_stats['files_deleted'] += 1
                         self.cleanup_stats['space_freed'] += file_size
-
-                        self.logger.info(f"Eliminado: {file_path.name} ({file_info['type']})")
+                        
+                        from utils.format_utils import format_size
+                        self.logger.info(f"✓ Eliminado: {file_path} ({file_info['type']}, {format_size(file_size)})")
 
                 except Exception as e:
                     error_msg = f"Error eliminando {file_path.name}: {str(e)}"
@@ -308,8 +331,12 @@ class LivePhotoCleaner:
                 from utils.format_utils import format_size
                 freed = format_size(simulated_space)
 
-                self.logger.info(f"Simulación completada: {simulated_count} archivos (simulados), "
-                                 f"{freed} potencialmente liberados, {len(results.errors)} errores")
+                self.logger.info("=" * 80)
+                self.logger.info("*** LIMPIEZA DE LIVE PHOTOS COMPLETADA [SIMULACIÓN]")
+                self.logger.info(f"*** Resultado: {simulated_count} archivos, {freed} potencialmente liberados")
+                if results.errors:
+                    self.logger.info(f"*** Errores: {len(results.errors)}")
+                self.logger.info("=" * 80)
             else:
                 try:
                     from utils.format_utils import format_size
@@ -317,8 +344,14 @@ class LivePhotoCleaner:
                 except Exception:
                     freed = f"{results.space_freed/(1024*1024):.2f} MB"
 
-                self.logger.info(f"Limpieza completada: {results.files_deleted} archivos eliminados, "
-                                 f"{freed} liberados, {len(results.errors)} errores")
+                self.logger.info("=" * 80)
+                self.logger.info("*** LIMPIEZA DE LIVE PHOTOS COMPLETADA")
+                self.logger.info(f"*** Resultado: {results.files_deleted} archivos eliminados, {freed} liberados")
+                if results.errors:
+                    self.logger.info(f"*** Errores encontrados durante la limpieza:")
+                    for error in results.errors:
+                        self.logger.error(f"  ✗ {error}")
+                self.logger.info("=" * 80)
 
         except Exception as e:
             error_msg = f"Error durante limpieza: {str(e)}"

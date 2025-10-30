@@ -434,7 +434,10 @@ class DuplicateDetector:
         from datetime import datetime
         import shutil
         
-        self.logger.info(f"Ejecutando eliminación con estrategia: {keep_strategy}")
+        self.logger.info("=" * 80)
+        self.logger.info("*** INICIANDO ELIMINACIÓN DE DUPLICADOS")
+        self.logger.info(f"*** Estrategia: {keep_strategy}")
+        self.logger.info("=" * 80)
         
         backup_path = None
         if create_backup:
@@ -474,16 +477,24 @@ class DuplicateDetector:
                                 backup_file = backup_path / file_path.name
                                 shutil.copy2(file_path, backup_file)
 
-                            # Obtener tamaño antes de eliminar
+                            # Obtener tamaño y análisis detallado de fechas antes de eliminar
                             try:
                                 file_size = file_path.stat().st_size
-                            except Exception:
+                                from utils.date_utils import get_file_date
+                                file_date = get_file_date(file_path, verbose=True)
+                                file_date_str = file_date.strftime('%Y-%m-%d %H:%M:%S') if file_date else 'fecha desconocida'
+                            except Exception as e:
+                                self.logger.warning(f"Error obteniendo información de {file_path}: {e}")
                                 file_size = 0
-
+                                file_date_str = 'fecha desconocida'
+                            
                             file_path.unlink()
                             deleted_files.append(file_path)
                             space_freed += file_size
 
+                            from utils.format_utils import format_size
+                            self.logger.info(f"✓ Eliminado duplicado (manual): {file_path} ({format_size(file_size)}, {file_date_str})")
+                            
                             processed += 1
                             safe_progress_callback(progress_callback, processed, total_operations,
                                                   f"Eliminado: {file_path.name}")
@@ -495,6 +506,17 @@ class DuplicateDetector:
                     # Seleccionar archivo a mantener
                     keep_file = self._select_file_to_keep(group.files, keep_strategy)
                     kept_files.append(keep_file)
+                    
+                    # Obtener análisis detallado de fechas del archivo conservado
+                    from utils.date_utils import get_file_date
+                    try:
+                        keep_date = get_file_date(keep_file, verbose=True)
+                        keep_date_str = keep_date.strftime('%Y-%m-%d %H:%M:%S') if keep_date else 'fecha desconocida'
+                    except Exception as e:
+                        self.logger.warning(f"Error obteniendo fecha de {keep_file}: {e}")
+                        keep_date_str = 'fecha desconocida'
+                    
+                    self.logger.info(f"  ✓ Conservado ({keep_strategy}): {keep_file} ({keep_date_str})")
 
                     # Eliminar el resto
                     # Verificar que el archivo a mantener exista antes de borrar el resto
@@ -523,17 +545,24 @@ class DuplicateDetector:
                                 backup_file = backup_path / file_path.name
                                 shutil.copy2(file_path, backup_file)
 
-                            # Obtener tamaño antes de eliminar
+                            # Obtener tamaño y análisis detallado de fechas antes de eliminar
                             try:
                                 file_size = file_path.stat().st_size
-                            except Exception:
+                                file_date = get_file_date(file_path, verbose=True)
+                                file_date_str = file_date.strftime('%Y-%m-%d %H:%M:%S') if file_date else 'fecha desconocida'
+                            except Exception as e:
+                                self.logger.warning(f"Error obteniendo información de {file_path}: {e}")
                                 file_size = 0
+                                file_date_str = 'fecha desconocida'
 
                             # Eliminar
                             file_path.unlink()
                             deleted_files.append(file_path)
                             space_freed += file_size
 
+                            from utils.format_utils import format_size
+                            self.logger.info(f"✓ Eliminado duplicado: {file_path} ({format_size(file_size)}, {file_date_str})")
+                            
                             processed += 1
                             safe_progress_callback(progress_callback, processed, total_operations,
                                                   f"Eliminado: {file_path.name}")
@@ -564,7 +593,17 @@ class DuplicateDetector:
         except Exception:
             freed_str = f"{space_freed / (1024*1024):.2f} MB"
 
-        self.logger.info(f"Eliminación completada: {len(deleted_files)} archivos, {freed_str} liberados")
+        self.logger.info("=" * 80)
+        self.logger.info("*** ELIMINACIÓN DE DUPLICADOS COMPLETADA")
+        self.logger.info(f"*** Resultado: {len(deleted_files)} archivos eliminados, {freed_str} liberados")
+        if errors:
+            self.logger.info(f"*** Errores encontrados durante la eliminación:")
+            for error in errors:
+                if isinstance(error, dict):
+                    self.logger.error(f"  ✗ {error.get('file', 'Unknown')}: {error.get('error', 'Unknown error')}")
+                else:
+                    self.logger.error(f"  ✗ {error}")
+        self.logger.info("=" * 80)
         
         return result
     

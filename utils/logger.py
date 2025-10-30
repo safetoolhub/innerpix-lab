@@ -95,6 +95,10 @@ class SimpleLogger:
     def setLevel(self, level):
         """Configura el nivel de log para este logger específico"""
         self.logger.setLevel(level)
+    
+    def isEnabledFor(self, level):
+        """Verifica si el logger está habilitado para el nivel especificado"""
+        return self.logger.isEnabledFor(level)
 
     @staticmethod
     def _sanitize_message(message):

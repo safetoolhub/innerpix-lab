@@ -158,7 +158,9 @@ class AnalysisController:
         # Iniciar
         self.worker.start()
 
-        self.logger.info(f"Iniciando análisis de: {directory}")
+        self.logger.info("*" * 80)
+        self.logger.info(f"*** INICIANDO ANÁLISIS: {directory}")
+        self.logger.info("*" * 80)
         return True
 
     def update_progress(self, current: int, total: int, message: str):
@@ -303,9 +305,9 @@ class AnalysisController:
             show_generic_status=True
         )
 
-        self.logger.info(
-            f"Análisis completado para: {self.window.last_analyzed_directory}"
-        )
+        self.logger.info("*" * 80)
+        self.logger.info(f"*** ANÁLISIS COMPLETADO: {self.window.last_analyzed_directory}")
+        self.logger.info("*" * 80)
 
         # Restaurar estado de la pestaña de duplicados si es un re-análisis tras eliminación
         if hasattr(self.window, '_restore_duplicates_tab_state'):

@@ -4,6 +4,7 @@ Con logs detallados y resolución inteligente de conflictos
 """
 import shutil
 import os
+import logging
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Optional, Tuple, Callable
@@ -202,7 +203,10 @@ class FileRenamer:
                 message='No hay archivos para renombrar'
             )
 
-        self.logger.info(f"Iniciando renombrado de {len(renaming_plan)} archivos")
+        self.logger.info("=" * 80)
+        self.logger.info("*** INICIANDO RENOMBRADO DE ARCHIVOS")
+        self.logger.info(f"*** Archivos a renombrar: {len(renaming_plan)}")
+        self.logger.info("=" * 80)
 
         results = RenameResult(success=True)
 
@@ -249,18 +253,31 @@ class FileRenamer:
                         continue
 
                     if new_path.exists():
+                        # Preservar sufijos no estándar del nombre original
+                        # (sufijos que no sean de 3 dígitos generados por este programa)
+                        original_stem = original_path.stem
+                        original_parts = original_stem.split('_')
+                        
+                        # Detectar si el original tiene un sufijo numérico que no sea de 3 dígitos
+                        preserved_suffix = ""
+                        if len(original_parts) > 0 and original_parts[-1].isdigit() and len(original_parts[-1]) != 3:
+                            preserved_suffix = f"_{original_parts[-1]}"
+                        
                         base_name = Path(new_name).stem
                         extension = Path(new_name).suffix
 
+                        # Añadir el sufijo preservado al nombre base antes de buscar secuencia
+                        base_name_with_preserved = base_name + preserved_suffix
+
                         new_name, sequence = find_next_available_name(
                             original_path.parent,
-                            base_name,
+                            base_name_with_preserved,
                             extension
                         )
 
                         new_path = original_path.parent / new_name
                         self.logger.info(
-                            f"Conflicto resuelto: {original_path.name} -> "
+                            f"⚠️  Conflicto resuelto: {original_path.name} -> "
                             f"{new_name} (secuencia {sequence})"
                         )
                         results.conflicts_resolved += 1
@@ -285,7 +302,7 @@ class FileRenamer:
                     safe_progress_callback(progress_callback, files_processed, total_files,
                                        f"Renombrando archivos... {files_processed}/{total_files}")
 
-                    self.logger.info(f"Renombrado: {original_path.name} -> {new_name}")
+                    self.logger.info(f"✓ Renombrado: {original_path} → {new_path}")
 
                 except Exception as e:
                     error_msg = f"Error renombrando {original_path.name}: {str(e)}"
@@ -300,19 +317,14 @@ class FileRenamer:
             if results.has_errors:
                 results.success = len(results.errors) < len(renaming_plan)
 
-            self.logger.info(
-                f"Renombrado completado: {results.files_renamed} archivos renombrados, "
-                f"{results.conflicts_resolved} conflictos resueltos, "
-                f"{len(results.errors)} errores"
-            )
-
+            self.logger.info("=" * 80)
+            self.logger.info("*** RENOMBRADO DE ARCHIVOS COMPLETADO")
+            self.logger.info(f"*** Resultado: {results.files_renamed} archivos renombrados, {results.conflicts_resolved} conflictos resueltos")
             if results.has_errors:
-                self.logger.error("=" * 70)
-                self.logger.error(f"RESUMEN DE ERRORES ({len(results.errors)} archivos):")
-                self.logger.error("=" * 70)
-                for i, error in enumerate(results.errors, 1):
-                    self.logger.error(f"{i}. {error}")
-                self.logger.error("=" * 70)
+                self.logger.info(f"*** Errores encontrados durante el renombrado:")
+                for error in results.errors:
+                    self.logger.error(f"  ✗ {error}")
+            self.logger.info("=" * 80)
 
         except Exception as e:
             self.logger.error(f"Error crítico en renombrado: {str(e)}")

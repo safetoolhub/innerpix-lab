@@ -215,12 +215,18 @@ def find_next_available_name(base_path: Path, base_name: str, extension: str) ->
     """Find next available filename with numeric suffix (XXX) in base_path.
 
     Returns (new_name, sequence)
+    
+    Si el nombre base termina en un sufijo numérico de 3 dígitos (_XXX), lo reemplaza.
+    Si termina en un sufijo numérico de otra longitud (_X, _XX, _XXXX), lo preserva y añade el nuevo sufijo.
     """
     parts = base_name.split('_')
+    
+    # Detectar si tiene un sufijo numérico de 3 dígitos (patrón estándar)
     if len(parts) >= 4 and len(parts[-1]) == 3 and parts[-1].isdigit():
         base_without_suffix = '_'.join(parts[:-1])
         start_sequence = int(parts[-1])
     else:
+        # No tiene sufijo de 3 dígitos, usar el nombre completo como base
         base_without_suffix = base_name
         start_sequence = 0
 

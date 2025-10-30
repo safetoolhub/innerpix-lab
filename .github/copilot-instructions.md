@@ -53,7 +53,7 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
 - `find_next_available_name()`: generates conflict-free names with `_XXX` suffix
 
 **Result types** (`services/result_types.py`)
-- All service results are dataclasses, not dicts (though support `__getitem__` for legacy compatibility)
+- All service results are dataclasses with type safety and validation
 - Base: `OperationResult` (success, errors list, message)
 - Specialized: `RenameResult`, `DeletionResult`, `OrganizationResult`, `LivePhotoAnalysisResult`, etc.
 
