@@ -199,6 +199,8 @@ class ExactDuplicatesDialog(BaseDialog):
             }
         """)
         self.tree_widget.itemDoubleClicked.connect(self._on_item_double_clicked)
+        self.tree_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.tree_widget.customContextMenuRequested.connect(self._show_context_menu)
         layout.addWidget(self.tree_widget)
         
         # Botones de paginación
@@ -489,6 +491,66 @@ class ExactDuplicatesDialog(BaseDialog):
         else:
             # Es un grupo, expandir/colapsar
             item.setExpanded(not item.isExpanded())
+    
+    def _show_context_menu(self, position):
+        """Muestra el menú contextual para un archivo"""
+        from PyQt6.QtWidgets import QMenu
+        from .dialog_utils import open_file, open_folder, show_file_details_dialog
+        
+        item = self.tree_widget.itemAt(position)
+        if not item:
+            return
+        
+        # Obtener el archivo asociado al item
+        file_path = item.data(0, Qt.ItemDataRole.UserRole)
+        if not file_path or not isinstance(file_path, Path):
+            return  # Es un grupo padre, no mostrar menú
+        
+        menu = QMenu(self)
+        
+        # Acción: Abrir archivo
+        open_action = menu.addAction("📂 Abrir archivo")
+        open_action.triggered.connect(lambda: open_file(file_path, self))
+        
+        # Acción: Abrir carpeta
+        open_folder_action = menu.addAction("📁 Abrir carpeta contenedora")
+        open_folder_action.triggered.connect(lambda: open_folder(file_path.parent, self))
+        
+        menu.addSeparator()
+        
+        # Acción: Ver detalles
+        details_action = menu.addAction("ℹ️ Ver detalles del archivo")
+        details_action.triggered.connect(lambda: self._show_file_details(file_path))
+        
+        menu.exec(self.tree_widget.viewport().mapToGlobal(position))
+    
+    def _show_file_details(self, file_path: Path):
+        """Muestra diálogo con detalles del archivo"""
+        from .dialog_utils import show_file_details_dialog
+        
+        # Determinar el estado del archivo (mantener/eliminar)
+        # Buscar en qué grupo está este archivo
+        status_info = None
+        for group in self.filtered_groups:
+            if file_path in group.files:
+                # Determinar qué archivo se mantiene
+                if self.keep_strategy == 'oldest':
+                    keep_file = min(group.files, key=lambda f: f.stat().st_mtime)
+                else:
+                    keep_file = max(group.files, key=lambda f: f.stat().st_mtime)
+                
+                is_keep = file_path == keep_file
+                status_info = {
+                    'metadata': {
+                        'Estado': '🔒 Se mantendrá' if is_keep else '🗑️ Se eliminará',
+                        'Grupo': f'{group.file_count} archivos duplicados',
+                        'Espacio grupo': format_size(group.total_size),
+                        'Estrategia': 'Mantener más antiguo' if self.keep_strategy == 'oldest' else 'Mantener más reciente'
+                    }
+                }
+                break
+        
+        show_file_details_dialog(file_path, self, status_info)
     
     def _open_file(self, file_path: Path):
         """Abre un archivo con la aplicación predeterminada del sistema"""
