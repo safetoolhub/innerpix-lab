@@ -139,7 +139,7 @@ class RenamingPreviewDialog(BaseDialog):
             info_text += f"   •   ⚡ Modo paginado"
         
         info_label = QLabel(info_text)
-        info_label.setStyleSheet("color: #666; font-size: 11px; padding: 5px;")
+        info_label.setStyleSheet(ui_styles.STYLE_DIALOG_INFO_SMALL)
         info_label.setWordWrap(True)  # Permitir wrap si es muy largo
         info_label.setMinimumHeight(20)
         layout.addWidget(info_label)
@@ -210,7 +210,7 @@ class RenamingPreviewDialog(BaseDialog):
         
         # Contador de resultados
         self.counter_label = QLabel()
-        self.counter_label.setStyleSheet("font-weight: bold; color: #2c5aa0; margin-left: 10px;")
+        self.counter_label.setStyleSheet(ui_styles.STYLE_DIALOG_COUNTER_BOLD)
         toolbar.addWidget(self.counter_label)
         
         toolbar.addStretch()
@@ -258,7 +258,7 @@ class RenamingPreviewDialog(BaseDialog):
         """Crea controles de paginación"""
         widget = QFrame()
         widget.setFrameStyle(QFrame.Shape.StyledPanel)
-        widget.setStyleSheet("QFrame { background-color: #f0f0f0; border-radius: 3px; }")
+        widget.setStyleSheet(ui_styles.STYLE_DIALOG_PAGINATION_FRAME)
         layout = QHBoxLayout(widget)
         
         # Botón primera página
@@ -275,7 +275,7 @@ class RenamingPreviewDialog(BaseDialog):
         
         # Label de página actual
         self.page_label = QLabel()
-        self.page_label.setStyleSheet("font-weight: bold; padding: 0 20px;")
+        self.page_label.setStyleSheet(ui_styles.STYLE_DIALOG_PAGE_LABEL)
         self.page_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.page_label)
         
@@ -347,7 +347,7 @@ class RenamingPreviewDialog(BaseDialog):
         layout = QVBoxLayout()
         
         info = QLabel("Estos archivos no pueden procesarse y serán ignorados:")
-        info.setStyleSheet("color: #e67e22; font-size: 10px;")
+        info.setStyleSheet(ui_styles.STYLE_DIALOG_PROBLEM_INFO)
         layout.addWidget(info)
         
         # Lista simple de problemas
@@ -357,7 +357,7 @@ class RenamingPreviewDialog(BaseDialog):
         
         problems_label = QLabel(problems_text)
         problems_label.setWordWrap(True)
-        problems_label.setStyleSheet("font-size: 10px; color: #666;")
+        problems_label.setStyleSheet(ui_styles.STYLE_DIALOG_PROBLEM_TEXT)
         layout.addWidget(problems_label)
         
         group.setLayout(layout)
@@ -368,7 +368,7 @@ class RenamingPreviewDialog(BaseDialog):
         options_group = QGroupBox("⚙️ Opciones de Seguridad")
         # Asegurar que el título no se corte
         options_group.setMinimumWidth(400)
-        options_group.setStyleSheet("QGroupBox { font-weight: bold; }")
+        options_group.setStyleSheet(ui_styles.STYLE_DIALOG_OPTIONS_GROUP)
         options_layout = QVBoxLayout()
         
         # Checkbox de backup (primero)
@@ -389,14 +389,7 @@ class RenamingPreviewDialog(BaseDialog):
         """Crea una métrica compacta inline"""
         frame = QFrame()
         frame.setFrameStyle(QFrame.Shape.StyledPanel | QFrame.Shadow.Raised)
-        frame.setStyleSheet(f"""
-            QFrame {{
-                background-color: #f8f9fa;
-                border-left: 3px solid {color};
-                padding: 5px;
-                margin: 2px;
-            }}
-        """)
+        frame.setStyleSheet(ui_styles.STYLE_DIALOG_METRIC_FRAME(color))
         
         layout = QHBoxLayout(frame)
         layout.setContentsMargins(8, 5, 8, 5)
@@ -408,11 +401,11 @@ class RenamingPreviewDialog(BaseDialog):
         font.setPointSize(16)
         font.setBold(True)
         value_label.setFont(font)
-        value_label.setStyleSheet(f"color: {color}; background: transparent; border: none;")
+        value_label.setStyleSheet(ui_styles.STYLE_DIALOG_VALUE_LABEL(color))
         
         # Label descriptivo
         desc_label = QLabel(label_text)
-        desc_label.setStyleSheet("font-size: 10px; color: #666; background: transparent; border: none;")
+        desc_label.setStyleSheet(ui_styles.STYLE_DIALOG_DESC_SMALL)
         
         layout.addWidget(value_label)
         layout.addWidget(desc_label)
@@ -540,11 +533,12 @@ class RenamingPreviewDialog(BaseDialog):
                 conflict_text = "Sí" if item['has_conflict'] else "No"
                 conflict_item = QTableWidgetItem(conflict_text)
                 conflict_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                from PyQt6.QtGui import QColor
                 if item['has_conflict']:
-                    conflict_item.setBackground(QColor(255, 193, 7))
+                    conflict_item.setBackground(QColor(255, 193, 7))  # ui_styles.COLOR_CONFLICT_BG
                     conflict_item.setForeground(QColor(0, 0, 0))
                 else:
-                    conflict_item.setBackground(QColor(76, 175, 80))
+                    conflict_item.setBackground(QColor(76, 175, 80))  # ui_styles.COLOR_SUCCESS_BG
                     conflict_item.setForeground(QColor(255, 255, 255))
                 self.changes_table.setItem(row, 4, conflict_item)
                 

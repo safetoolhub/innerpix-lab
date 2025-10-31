@@ -56,14 +56,15 @@ class AboutDialog(QDialog):
 
         # === CONTENIDO ===
         content = QFrame()
-        content.setStyleSheet("background-color: #ffffff;")
+        from ui import styles as ui_styles
+        content.setStyleSheet(ui_styles.STYLE_ABOUT_CONTENT_BG)
         content_layout = QVBoxLayout(content)
         content_layout.setContentsMargins(25, 20, 25, 20)
         content_layout.setSpacing(15)
 
         # Descripción
         description = QLabel(Config.APP_DESCRIPTION)
-        description.setStyleSheet("font-size: 13px; color: #555;")
+        description.setStyleSheet(ui_styles.STYLE_ABOUT_DESCRIPTION)
         description.setAlignment(Qt.AlignmentFlag.AlignCenter)
         description.setWordWrap(True)
         content_layout.addWidget(description)
@@ -72,12 +73,12 @@ class AboutDialog(QDialog):
         line1 = QFrame()
         line1.setFrameShape(QFrame.Shape.HLine)
         line1.setFrameShadow(QFrame.Shadow.Sunken)
-        line1.setStyleSheet("color: #e0e0e0;")
+        line1.setStyleSheet(ui_styles.STYLE_ABOUT_LINE)
         content_layout.addWidget(line1)
 
         # Título de herramientas
         tools_title = QLabel("<b>🛠️ Herramientas</b>")
-        tools_title.setStyleSheet("font-size: 13px; color: #333;")
+        tools_title.setStyleSheet(ui_styles.STYLE_ABOUT_TOOLS_TITLE)
         content_layout.addWidget(tools_title)
 
         # Grid de herramientas
@@ -100,7 +101,7 @@ class AboutDialog(QDialog):
             col = i % 2
             
             tool_widget = QLabel(f"{icon}  {name}")
-            tool_widget.setStyleSheet("font-size: 12px; color: #555;")
+            tool_widget.setStyleSheet(ui_styles.STYLE_ABOUT_TOOL_WIDGET)
             tools_grid.addWidget(tool_widget, row, col)
 
         content_layout.addLayout(tools_grid)
@@ -109,18 +110,18 @@ class AboutDialog(QDialog):
         line2 = QFrame()
         line2.setFrameShape(QFrame.Shape.HLine)
         line2.setFrameShadow(QFrame.Shadow.Sunken)
-        line2.setStyleSheet("color: #e0e0e0;")
+        line2.setStyleSheet(ui_styles.STYLE_ABOUT_LINE)
         content_layout.addWidget(line2)
 
         # Info técnica
         tech_info = QLabel("💻 <b>Tecnología:</b> PyQt6 • Python 3.x • Multiplataforma")
-        tech_info.setStyleSheet("font-size: 11px; color: #777;")
+        tech_info.setStyleSheet(ui_styles.STYLE_ABOUT_TECH_INFO)
         tech_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
         content_layout.addWidget(tech_info)
 
         # Créditos
         credits = QLabel("Desarrollado con ❤️ para simplificar la gestión de fotos")
-        credits.setStyleSheet("font-size: 11px; color: #999; font-style: italic;")
+        credits.setStyleSheet(ui_styles.STYLE_ABOUT_CREDITS)
         credits.setAlignment(Qt.AlignmentFlag.AlignCenter)
         content_layout.addWidget(credits)
 
@@ -128,7 +129,7 @@ class AboutDialog(QDialog):
 
         # === FOOTER ===
         footer = QFrame()
-        footer.setStyleSheet("background-color: #f8f8f8;")
+        footer.setStyleSheet(ui_styles.STYLE_ABOUT_FOOTER)
         footer_layout = QHBoxLayout(footer)
         footer_layout.setContentsMargins(20, 12, 20, 12)
 

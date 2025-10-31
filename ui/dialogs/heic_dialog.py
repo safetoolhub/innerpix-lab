@@ -113,7 +113,7 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         )
         explanation.setWordWrap(True)
         explanation.setTextFormat(Qt.TextFormat.RichText)
-        explanation.setStyleSheet("font-size: 9pt; color: #495057; background: transparent;")
+        explanation.setStyleSheet(ui_styles.STYLE_HEIC_EXPLANATION)
         layout.addWidget(explanation)
         
         return frame
@@ -135,7 +135,7 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         # Info de ahorro
         savings_text = f"💾 Ahorro potencial: {format_size(self.analysis.potential_savings_keep_jpg)}"
         savings_label = QLabel(savings_text)
-        savings_label.setStyleSheet("font-weight: bold; color: #27ae60; font-size: 12px; padding: 5px;")
+        savings_label.setStyleSheet(ui_styles.STYLE_HEIC_SAVINGS)
         layout.addWidget(savings_label)
         
         layout.addStretch()
@@ -144,14 +144,7 @@ class HEICDuplicateRemovalDialog(BaseDialog):
     def _create_inline_metric(self, label_text, value, color):
         """Crea una métrica compacta inline"""
         frame = QFrame()
-        frame.setStyleSheet(f"""
-            QFrame {{
-                background-color: #f8f9fa;
-                border-left: 3px solid {color};
-                padding: 5px;
-                margin: 2px;
-            }}
-        """)
+        frame.setStyleSheet(ui_styles.STYLE_DIALOG_METRIC_FRAME(color))
         
         layout = QHBoxLayout(frame)
         layout.setContentsMargins(8, 5, 8, 5)
@@ -162,11 +155,11 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         font.setPointSize(16)
         font.setBold(True)
         value_label.setFont(font)
-        value_label.setStyleSheet(f"color: {color}; background: transparent; border: none;")
+        value_label.setStyleSheet(ui_styles.STYLE_DIALOG_VALUE_LABEL(color))
         
         # Label descriptivo
         desc_label = QLabel(label_text)
-        desc_label.setStyleSheet("font-size: 10px; color: #666; background: transparent; border: none;")
+        desc_label.setStyleSheet(ui_styles.STYLE_DIALOG_DESC_SMALL)
         
         layout.addWidget(value_label)
         layout.addWidget(desc_label)
@@ -176,7 +169,7 @@ class HEICDuplicateRemovalDialog(BaseDialog):
     def _create_format_selection(self):
         """Crea sección de selección de formato mejorada"""
         format_group = QGroupBox("🎯 Formato a Mantener (Elige cuál conservar)")
-        format_group.setStyleSheet("QGroupBox { font-weight: bold; }")
+        format_group.setStyleSheet(ui_styles.STYLE_DIALOG_OPTIONS_GROUP)
         format_layout = QVLayout(format_group)
         
         self.format_buttons = QButtonGroup()
@@ -189,7 +182,7 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         format_layout.addWidget(r1)
         
         jpg_info = QLabel(f"   → Liberarás: {format_size(self.analysis.potential_savings_keep_jpg)}")
-        jpg_info.setStyleSheet("color: #666; font-size: 10px; margin-left: 20px;")
+        jpg_info.setStyleSheet(ui_styles.STYLE_HEIC_FORMAT_INFO)
         format_layout.addWidget(jpg_info)
         self.jpg_savings_label = jpg_info
         
@@ -200,7 +193,7 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         format_layout.addWidget(r2)
         
         heic_info = QLabel(f"   → Liberarás: {format_size(self.analysis.potential_savings_keep_heic)}")
-        heic_info.setStyleSheet("color: #666; font-size: 10px; margin-left: 20px;")
+        heic_info.setStyleSheet(ui_styles.STYLE_HEIC_FORMAT_INFO)
         format_layout.addWidget(heic_info)
         self.heic_savings_label = heic_info
         

@@ -12,12 +12,12 @@ def create_renaming_tab(window):
 
     # ===== TÍTULO =====
     title = QLabel("📝 Renombrado de Archivos")
-    title.setStyleSheet("font-size: 20px; font-weight: 600; color: #212529; margin-bottom: 4px;")
+    title.setStyleSheet(styles.STYLE_TAB_TITLE_LARGE)
     layout.addWidget(title)
     
     # ===== DESCRIPCIÓN BREVE =====
     desc = QLabel("Renombra archivos al formato: YYYYMMDD_HHMMSS_[VIDEO|PHOTO]_nnn.EXT")
-    desc.setStyleSheet("font-size: 13px; color: #6c757d; margin-bottom: 8px;")
+    desc.setStyleSheet(styles.STYLE_TAB_DESC)
     layout.addWidget(desc)
 
     # ===== RECOMENDACIONES =====

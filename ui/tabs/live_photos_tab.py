@@ -11,15 +11,13 @@ def create_live_photos_tab(window):
     layout.setContentsMargins(20, 20, 20, 20)
 
     # ===== TÍTULO =====
-    title = QLabel("🎬 Limpieza de Live Photos")
-    title.setStyleSheet(
-        "font-size: 20px; font-weight: 600; color: #212529; margin-bottom: 4px;"
-    )
+    title = QLabel("📸 Limpieza de Live Photos")
+    title.setStyleSheet(styles.STYLE_TAB_TITLE_LARGE)
     layout.addWidget(title)
     
     # ===== DESCRIPCIÓN BREVE =====
-    desc = QLabel("Detecta y limpia Live Photos de iPhone (imagen JPG + video MOV)")
-    desc.setStyleSheet("font-size: 13px; color: #6c757d; margin-bottom: 8px;")
+    desc = QLabel("Detecta y gestiona Live Photos (foto + video MOV asociado)")
+    desc.setStyleSheet(styles.STYLE_TAB_DESC)
     layout.addWidget(desc)
 
     # ===== RECOMENDACIONES =====

@@ -54,7 +54,7 @@ class SimilarDuplicatesDialog(BaseDialog):
         )
         warning.setTextFormat(Qt.TextFormat.RichText)
         warning.setWordWrap(True)
-        warning.setStyleSheet("font-size: 9pt; color: #495057; background: transparent;")
+        warning.setStyleSheet(ui_styles.STYLE_DIALOG_EXPLANATION_TEXT)
         warning_layout.addWidget(warning)
         
         layout.addWidget(warning_frame)
@@ -289,7 +289,7 @@ class SimilarDuplicatesDialog(BaseDialog):
                 # Si no se puede cargar la imagen, mostrar placeholder
                 no_preview = QLabel("❌ Sin vista previa")
                 no_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                no_preview.setStyleSheet("color: #6C757D; font-size: 10px; font-style: italic;")
+                no_preview.setStyleSheet(ui_styles.STYLE_DIALOG_NO_PREVIEW)
                 preview_section_layout.addWidget(no_preview)
             
             preview_section.setStyleSheet("""
@@ -321,7 +321,7 @@ class SimilarDuplicatesDialog(BaseDialog):
             name_label.setTextFormat(Qt.TextFormat.RichText)
             name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             name_label.setWordWrap(True)
-            name_label.setStyleSheet("font-size: 11px; color: #212529; background: transparent;")
+            name_label.setStyleSheet(ui_styles.STYLE_DIALOG_NAME_LABEL)
             info_section_layout.addWidget(name_label)
             
             # Tamaño y fecha en una línea compacta
@@ -330,7 +330,7 @@ class SimilarDuplicatesDialog(BaseDialog):
                 f"📅 {mtime.strftime('%Y-%m-%d %H:%M')}"
             )
             details_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            details_label.setStyleSheet("font-size: 9px; color: #6C757D; background: transparent;")
+            details_label.setStyleSheet(ui_styles.STYLE_DIALOG_DETAILS_LABEL)
             info_section_layout.addWidget(details_label)
             
             # Estilo con hover para indicar que es clickeable

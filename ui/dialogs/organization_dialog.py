@@ -143,7 +143,7 @@ class FileOrganizationDialog(BaseDialog):
         explanation = QLabel(f"{icon} <b>{title}</b><br>{description}")
         explanation.setWordWrap(True)
         explanation.setTextFormat(Qt.TextFormat.RichText)
-        explanation.setStyleSheet("font-size: 9pt; color: #495057; background: transparent;")
+        explanation.setStyleSheet(ui_styles.STYLE_HEIC_EXPLANATION)
         layout.addWidget(explanation)
         
         return frame
@@ -170,13 +170,13 @@ class FileOrganizationDialog(BaseDialog):
                 for file_type, count in sorted(self.analysis.files_by_type.items())
             ])
             types_label = QLabel(f"📊 {types_text}")
-            types_label.setStyleSheet("font-size: 10px; color: #666; padding: 5px;")
+            types_label.setStyleSheet(ui_styles.STYLE_ORG_TYPES_LABEL)
             layout.addWidget(types_label)
         
         # Advertencia de conflictos
         if self.analysis.potential_conflicts > 0:
             conflicts_label = QLabel(f"⚠️ {self.analysis.potential_conflicts} conflictos de nombres")
-            conflicts_label.setStyleSheet("font-weight: bold; color: #e74c3c; font-size: 11px; padding: 5px;")
+            conflicts_label.setStyleSheet(ui_styles.STYLE_ORG_CONFLICTS_LABEL)
             layout.addWidget(conflicts_label)
         
         layout.addStretch()

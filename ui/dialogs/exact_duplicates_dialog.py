@@ -74,7 +74,7 @@ class ExactDuplicatesDialog(BaseDialog):
         )
         explanation.setWordWrap(True)
         explanation.setTextFormat(Qt.TextFormat.RichText)
-        explanation.setStyleSheet("font-size: 9pt; color: #495057; background: transparent;")
+        explanation.setStyleSheet(ui_styles.STYLE_DIALOG_EXPLANATION_TEXT)
         explanation_layout.addWidget(explanation)
         
         # Métricas inline compactas (dentro del mismo frame)
@@ -93,7 +93,7 @@ class ExactDuplicatesDialog(BaseDialog):
         # Ahorro potencial destacado
         savings_text = f"💾 {format_size(self.analysis.space_wasted)}"
         savings_label = QLabel(savings_text)
-        savings_label.setStyleSheet("font-weight: bold; color: #27ae60; font-size: 11px; padding: 3px;")
+        savings_label.setStyleSheet(ui_styles.STYLE_DIALOG_SAVINGS_GREEN)
         metrics_layout.addWidget(savings_label)
         
         metrics_layout.addStretch()
@@ -356,7 +356,7 @@ class ExactDuplicatesDialog(BaseDialog):
         
         # Label descriptivo más pequeño
         desc_label = QLabel(label_text)
-        desc_label.setStyleSheet("font-size: 9px; color: #666; background: transparent; border: none;")
+        desc_label.setStyleSheet(ui_styles.STYLE_DIALOG_DESC_TINY)
         
         layout.addWidget(value_label)
         layout.addWidget(desc_label)
