@@ -115,6 +115,16 @@ class DuplicatesController(QObject):
             self.logger.debug(f"Modo de duplicados es '{dup_results.mode}', no 'exact'")
             return
         
+        # CRÍTICO: Verificar que el directorio analizado coincida con el directorio actual
+        # Esto previene mostrar resultados de un directorio anterior
+        if hasattr(dup_results, 'directory') and dup_results.directory:
+            if str(dup_results.directory) != str(self.main_window.current_directory):
+                self.logger.debug(
+                    f"Directorio de resultados ({dup_results.directory}) no coincide "
+                    f"con directorio actual ({self.main_window.current_directory}), ignorando"
+                )
+                return
+        
         self.logger.info(f"Mostrando resultados iniciales de duplicados exactos: {dup_results.total_groups} grupos")
         
         # Guardar en el detector para mantener consistencia
