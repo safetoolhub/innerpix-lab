@@ -4,3 +4,4 @@ Mejorar el interfaz de las pestañas y el about
 Comprobar backups
 Comprobar que funciona bien con extensiones en mayusculas y minusculas
 Probar todo con muchos archivos a ver ux y rendimiento
+En la opcion de deteccion de fotods de whatsapp no me detecta las de test

@@ -28,6 +28,10 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
 - Tabs inherit from patterns in `ui/tabs/base_tab.py` (info labels, action buttons, details text)
 - Dialogs extend `BaseDialog` which provides `add_backup_checkbox()` and `build_accepted_plan()` helpers
 - Main window: `ui/main_window.py` orchestrates controllers, maintains `self.analysis_results` state
+- Dialog utilities: `ui/dialogs/dialog_utils.py` provides shared functions:
+  * `open_file()`: Cross-platform file opener (xdg-open/open/start)
+  * `open_folder()`: Cross-platform folder opener with file selection
+  * `show_file_details_dialog()`: Professional 2-column dialog with file info (no scroll, compact layout)
 
 ### Critical Patterns
 
@@ -58,6 +62,42 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
 - All service results are dataclasses with type safety and validation
 - Base: `OperationResult` (success, errors list, message)
 - Specialized: `RenameResult`, `DeletionResult`, `OrganizationResult`, `LivePhotoAnalysisResult`, etc.
+
+**Dialog patterns** (all extend `BaseDialog` for consistent UX):
+
+- **Organization dialog** (`ui/dialogs/organization_dialog.py`):
+  * Three visualization modes: TO_ROOT, BY_MONTH, WHATSAPP_SEPARATE
+  * Dynamic column headers per mode (e.g., TO_ROOT shows "Estado", BY_MONTH shows "Fecha")
+  * TreeWidget with smart grouping (by destination/month/category)
+  * Pagination system: 200 items/page, auto-activates at 500+ files
+  * Context menu with file details and folder opening
+  * Fast plan regeneration: `main_window._regenerate_organization_plan()` avoids full re-analysis when switching types
+
+- **HEIC dialog** (`ui/dialogs/heic_dialog.py`):
+  * TableWidget showing HEIC/JPG duplicate pairs side by side
+  * Columns: HEIC file, size, JPG file, size
+  * Context menu with "Ver detalles" for both HEIC and JPG files
+  * Shows comparison metadata in details (file type, sizes)
+  * Checkbox for backup creation before deletion
+
+- **Renaming dialog** (`ui/dialogs/renaming_dialog.py`):
+  * TableWidget showing original → new filename mappings
+  * Columns: Original name, New name, Size, Conflict status
+  * Context menu with file details showing rename metadata
+  * Visual indicators for conflicts (⚠️) and sequences
+  * Checkbox for backup creation and dry run mode
+
+- **Live Photos dialog** (`ui/dialogs/live_photos_dialog.py`):
+  * TreeWidget grouping by base name (photo groups)
+  * Shows photo + video pairs for each Live Photo
+  * Displays file sizes and types
+  * Checkbox for backup creation before cleanup
+
+- **Duplicates dialogs** (`ui/dialogs/duplicates_dialogs.py`):
+  * Multiple strategies: keep first/last/largest/smallest
+  * Preview showing files to keep vs delete
+  * Hash-based duplicate detection
+  * Checkbox for backup creation before deletion
 
 ### Developer Workflow
 

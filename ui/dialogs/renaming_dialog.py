@@ -240,10 +240,17 @@ class RenamingPreviewDialog(BaseDialog):
         table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         
         # Tooltip informativo
-        table.setToolTip("💡 Doble clic en cualquier fila para abrir el archivo original")
+        table.setToolTip(
+            "💡 Doble clic en cualquier fila para abrir el archivo original\n"
+            "💡 Clic derecho para ver detalles y opciones"
+        )
         
         # Conectar doble clic para abrir archivos
         table.itemDoubleClicked.connect(self._on_file_double_clicked)
+        
+        # Conectar menú contextual
+        table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        table.customContextMenuRequested.connect(self._show_context_menu)
         
         return table
     
@@ -608,6 +615,87 @@ class RenamingPreviewDialog(BaseDialog):
                 "Error al abrir archivo",
                 f"No se pudo abrir el archivo:\n{str(e)}"
             )
+    
+    def _show_context_menu(self, position):
+        """Muestra menú contextual para archivos"""
+        from PyQt6.QtWidgets import QMenu
+        
+        # Obtener item seleccionado
+        item = self.changes_table.itemAt(position)
+        if not item:
+            return
+        
+        row = item.row()
+        first_column_item = self.changes_table.item(row, 0)
+        
+        if not first_column_item:
+            return
+        
+        file_path = first_column_item.data(Qt.ItemDataRole.UserRole)
+        if not file_path:
+            return
+        
+        file_path = Path(file_path)
+        
+        # Obtener información adicional del archivo desde filtered_plan
+        file_info = None
+        for plan_item in self.filtered_plan:
+            if plan_item['original_path'] == file_path:
+                file_info = plan_item
+                break
+        
+        if not file_info:
+            return
+        
+        menu = QMenu(self)
+        
+        # Opción para abrir archivo
+        open_file_action = menu.addAction("📂 Abrir archivo")
+        open_file_action.triggered.connect(lambda: self._open_file(file_path))
+        
+        # Opción para abrir carpeta
+        open_folder_action = menu.addAction("📁 Abrir carpeta")
+        open_folder_action.triggered.connect(lambda: self._open_folder(file_path.parent))
+        
+        menu.addSeparator()
+        
+        # Opción para ver detalles
+        details_action = menu.addAction("ℹ️ Ver detalles completos")
+        details_action.triggered.connect(lambda: self._show_file_details(file_info))
+        
+        menu.exec(self.changes_table.viewport().mapToGlobal(position))
+    
+    def _open_file(self, file_path):
+        """Abre un archivo específico"""
+        from .dialog_utils import open_file
+        open_file(file_path, self)
+    
+    def _open_folder(self, folder_path):
+        """Abre una carpeta en el explorador de archivos"""
+        from .dialog_utils import open_folder
+        open_folder(folder_path, self)
+    
+    def _show_file_details(self, file_info):
+        """Muestra un diálogo con detalles completos del archivo"""
+        from .dialog_utils import show_file_details_dialog
+        
+        file_path = file_info['original_path']
+        
+        additional_info = {
+            'original_name': file_path.name,
+            'new_name': file_info['new_name'],
+            'file_type': file_info.get('type', 'Desconocido'),
+            'conflict': file_info.get('conflict', False),
+            'metadata': {
+                'Fecha detectada': file_info['date'].strftime('%Y-%m-%d %H:%M:%S'),
+                'Año': str(file_info.get('year', 'N/A')),
+            }
+        }
+        
+        if file_info.get('conflict'):
+            additional_info['metadata']['Conflicto'] = 'Sí - Se resolverá con sufijo numérico'
+        
+        show_file_details_dialog(file_path, self, additional_info)
 
     def accept(self):
         self.accepted_plan = self.build_accepted_plan({

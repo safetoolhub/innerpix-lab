@@ -394,6 +394,82 @@ class MainWindow(QMainWindow):
         # Llamar al análisis directamente (analyze_directory maneja la ejecución)
         self.analyze_directory()
 
+    def _regenerate_organization_plan(self):
+        """
+        Regenera solo el plan de organización sin re-analizar toda la estructura.
+        OPTIMIZACIÓN: Evita re-escanear archivos cuando solo cambia el tipo de organización.
+        """
+        if not self.current_directory or not self.analysis_results:
+            return
+        
+        # Solo proceder si ya existe un análisis de organización previo
+        if 'organization' not in self.analysis_results:
+            return
+        
+        from services.file_organizer import OrganizationType
+        
+        # Obtener el tipo de organización seleccionado
+        if self.org_type_by_month.isChecked():
+            org_type = OrganizationType.BY_MONTH
+        elif self.org_type_whatsapp.isChecked():
+            org_type = OrganizationType.WHATSAPP_SEPARATE
+        else:
+            org_type = OrganizationType.TO_ROOT
+        
+        # Verificar si el tipo ya es el mismo (evitar trabajo innecesario)
+        current_org = self.analysis_results['organization']
+        if current_org.organization_type == org_type.value:
+            return  # Ya está en ese tipo, no hacer nada
+        
+        # Re-analizar solo la organización (rápido, no re-escanea archivos)
+        try:
+            from PyQt6.QtWidgets import QApplication
+            from PyQt6.QtGui import QCursor
+            from PyQt6.QtCore import Qt
+            
+            # Mostrar cursor de espera
+            QApplication.setOverrideCursor(QCursor(Qt.CursorShape.WaitCursor))
+            
+            # Re-generar plan de organización con el nuevo tipo
+            new_org_analysis = self.file_organizer.analyze_directory_structure(
+                self.current_directory,
+                org_type
+            )
+            
+            # Actualizar solo la parte de organización
+            self.analysis_results['organization'] = new_org_analysis
+            
+            # Actualizar la UI de organización
+            from utils.format_utils import format_size
+            from ui.helpers import generate_stats_html
+            
+            # Actualizar el texto de detalles del tab de organización
+            stats = {
+                '📁 Subdirectorios': len(new_org_analysis.subdirectories),
+                '📄 Archivos a mover': new_org_analysis.total_files_to_move,
+                '💾 Tamaño total': format_size(new_org_analysis.total_size_to_move),
+                '⚠️ Conflictos potenciales': new_org_analysis.potential_conflicts,
+            }
+            
+            if new_org_analysis.folders_to_create:
+                folders_list = new_org_analysis.folders_to_create
+                stats['📂 Carpetas a crear'] = f"{len(folders_list)} ({', '.join(folders_list[:5])}{'...' if len(folders_list) > 5 else ''})"
+            
+            html = generate_stats_html(stats)
+            self.org_details.setHtml(html)
+            
+            # Actualizar botón de acción en el resumen
+            if 'organization' in self.summary_action_buttons:
+                count = new_org_analysis.total_files_to_move
+                self.summary_action_buttons['organization'].setText(f"📁 Organizador   {count:,}")
+            
+            # Actualizar botón de ejecución
+            self.exec_org_btn.setEnabled(new_org_analysis.total_files_to_move > 0)
+            
+        except Exception as e:
+            self.logger.error(f"Error al regenerar plan de organización: {e}")
+        finally:
+            QApplication.restoreOverrideCursor()
 
     def _change_directory_after_analysis(self):
         """Permite cambiar el directorio tras un análisis, manteniendo el flujo de confirmación actual"""
