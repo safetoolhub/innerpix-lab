@@ -52,6 +52,13 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
 - Levels: DEBUG for internals, INFO for operations/results, WARNING for recoverable issues, ERROR for failures
 - All logs written to timestamped file in `Config.DEFAULT_LOG_DIR`
 
+**Storage abstraction** (`utils/storage.py`) - Platform-agnostic persistence
+- Interface: `StorageBackend` (ABC) defines `get()`, `set()`, `remove()`, `clear()`, `contains()`, `sync()`
+- `JsonStorageBackend`: File-based storage (default: `~/.pixaro_lab/settings.json`), no PyQt6 dependency
+- `QSettingsBackend`: Wrapper for PyQt6 QSettings, native OS storage (registry/plist/ini)
+- `SettingsManager` auto-detects: uses QSettings if PyQt6 available, else JSON
+- **Benefits**: Utils layer 100% PyQt6-free, enables CLI scripts, faster tests, easy framework migration
+
 **File utilities** (`utils/file_utils.py`)
 - `calculate_file_hash()`: SHA256 with optional caching
 - `to_path()`: flexible path extraction from objects/dicts (checks `path`, `source_path`, `original_path` attrs)
