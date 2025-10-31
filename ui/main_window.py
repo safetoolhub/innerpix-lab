@@ -225,13 +225,13 @@ class MainWindow(QMainWindow):
         """Wrapper: delega a heic_controller"""
         self.heic_controller.preview_heic_removal()
 
-    def on_analyze_duplicates(self):
-        """Wrapper: delega a duplicates_controller"""
-        self.duplicates_controller.analyze_duplicates()
+    def on_analyze_similar_duplicates(self):
+        """Wrapper: inicia análisis de duplicados similares"""
+        self.duplicates_controller.analyze_similar_duplicates()
 
-    def on_cancel_duplicate_analysis(self):
-        """Wrapper: delega a duplicates_controller"""
-        self.duplicates_controller.cancel_duplicate_analysis()
+    def on_cancel_similar_analysis(self):
+        """Wrapper: cancela análisis de duplicados similares"""
+        self.duplicates_controller.cancel_similar_analysis()
 
     def on_delete_exact_duplicates(self):
         """Wrapper: delega a duplicates_controller"""

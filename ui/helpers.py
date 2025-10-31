@@ -228,12 +228,14 @@ def reset_analysis_ui(window, reinsert_analyze=True):
     if hasattr(window, 'duplicate_detector'):
         window.duplicate_detector.clear_last_results()
     
-    # Limpiar área de detalles de duplicados
-    if hasattr(window, 'duplicates_details'):
-        window.duplicates_details.clear()
-        window.duplicates_details.setPlaceholderText(
-            "Haz clic en 'Analizar Duplicados' para comenzar la detección..."
-        )
+    # Limpiar áreas de detalles de duplicados (bloques separados)
+    if hasattr(window, 'exact_details_text'):
+        window.exact_details_text.clear()
+        window.exact_details_text.setVisible(False)
+    
+    if hasattr(window, 'similar_details_text'):
+        window.similar_details_text.clear()
+        window.similar_details_text.setVisible(False)
     
     # Log
     window.logger.info("UI reiniciada tras cambio de directorio")
