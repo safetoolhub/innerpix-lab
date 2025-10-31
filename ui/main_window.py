@@ -279,6 +279,8 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event):
         """Asegurar limpieza correcta al cerrar"""
         try:
+            self.logger.info("Iniciando cierre de la aplicación...")
+            
             # Limpiar el análisis controller
             if hasattr(self, 'analysis_controller'):
                 self.analysis_controller.cleanup()
@@ -295,19 +297,37 @@ class MainWindow(QMainWindow):
             if hasattr(self, 'heic_controller'):
                 self.heic_controller.cleanup()
 
-            # Limpiar otros workers activos con timeout
+            # Limpiar otros workers activos con timeout mejorado
             if hasattr(self, 'active_workers'):
+                active_count = sum(1 for w in self.active_workers if w and w.isRunning())
+                if active_count > 0:
+                    self.logger.info(f"Deteniendo {active_count} workers activos...")
+                
                 for worker in self.active_workers[:]:  # Copy to avoid modification during iteration
                     if worker and worker.isRunning():
-                        # Intentar stop() si está disponible
+                        worker_name = worker.__class__.__name__
+                        self.logger.debug(f"Deteniendo worker: {worker_name}")
+                        
+                        # Solicitar stop gracefully
                         if hasattr(worker, 'stop'):
                             worker.stop()
-                        # Dar tiempo para terminar limpiamente
+                        
+                        # Dar tiempo para terminar limpiamente (10 segundos)
                         if not worker.wait(Config.WORKER_SHUTDOWN_TIMEOUT_MS):
-                            # Si no termina, forzar terminación
+                            self.logger.warning(f"Worker {worker_name} no terminó en {Config.WORKER_SHUTDOWN_TIMEOUT_MS}ms, enviando quit()...")
                             worker.quit()
-                            if not worker.wait(1000):  # 1 segundo más
+                            
+                            # Dar 2 segundos más para quit()
+                            if not worker.wait(2000):
+                                self.logger.warning(f"Worker {worker_name} no respondió a quit(), terminando forzosamente...")
                                 worker.terminate()
+                                worker.wait()  # Esperar a que termine definitivamente
+                        else:
+                            self.logger.debug(f"Worker {worker_name} detenido correctamente")
+                
+                self.logger.info("Todos los workers detenidos")
+            
+            self.logger.info("Aplicación cerrada correctamente")
         except Exception as e:
             # Log pero no bloquear el cierre
             if hasattr(self, 'logger'):

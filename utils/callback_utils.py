@@ -16,7 +16,7 @@ def safe_progress_callback(
     current: int,
     total: int,
     message: str
-) -> None:
+) -> bool:
     """
     Ejecuta callback de progreso de forma segura.
 
@@ -26,20 +26,30 @@ def safe_progress_callback(
         total: Valor total del progreso
         message: Mensaje descriptivo del estado actual
 
+    Returns:
+        True si el proceso debe continuar, False si debe detenerse
+        (callback puede retornar False para señalar detención)
+
     Note:
         Si el callback falla, se registra un warning pero no se detiene el proceso.
         Esto evita que errores en la UI/callbacks rompan operaciones críticas.
     """
     if callback and callable(callback):
         try:
-            callback(current, total, message)
+            result = callback(current, total, message)
+            # Si el callback retorna False explícitamente, detener el proceso
+            if result is False:
+                return False
         except Exception as e:
             logger.warning(f"Error en progress callback: {e}")
+    
+    # Por defecto, continuar el proceso
+    return True
 
 
 def create_safe_callback(
     callback: Optional[Callable[[int, int, str], None]]
-) -> Callable[[int, int, str], None]:
+) -> Callable[[int, int, str], bool]:
     """
     Crea una versión segura de un callback que puede ser None.
 
@@ -48,12 +58,14 @@ def create_safe_callback(
 
     Returns:
         Función que ejecuta el callback de forma segura o no hace nada si callback es None
+        Retorna True para continuar, False para detener
 
     Example:
         >>> safe_cb = create_safe_callback(progress_callback)
-        >>> safe_cb(50, 100, "Processing...")  # Siempre seguro llamar
+        >>> if not safe_cb(50, 100, "Processing..."):
+        >>>     break  # Detener procesamiento
     """
-    def safe_wrapper(current: int, total: int, message: str) -> None:
-        safe_progress_callback(callback, current, total, message)
+    def safe_wrapper(current: int, total: int, message: str) -> bool:
+        return safe_progress_callback(callback, current, total, message)
 
     return safe_wrapper

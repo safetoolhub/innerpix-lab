@@ -141,8 +141,12 @@ class DuplicateDetector:
                 
                 processed += 1
                 if processed % Config.PROGRESS_CALLBACK_INTERVAL == 0 or processed == total_files:
-                    safe_progress_callback(progress_callback, processed, total_files, 
-                                         "Calculando hashes SHA256")
+                    # Si el callback retorna False, detener procesamiento
+                    if not safe_progress_callback(progress_callback, processed, total_files, 
+                                         "Calculando hashes SHA256"):
+                        self.logger.info("Análisis de duplicados exactos cancelado por el usuario")
+                        executor.shutdown(wait=False, cancel_futures=True)
+                        break
         
         # Filtrar solo grupos con duplicados
         duplicate_groups = []
@@ -254,8 +258,12 @@ class DuplicateDetector:
                 
                 processed += 1
                 if processed % Config.PROGRESS_CALLBACK_INTERVAL == 0 or processed == total_files:
-                    safe_progress_callback(progress_callback, processed, total_files, 
-                                         f"Calculando hashes perceptuales... ({processed}/{total_files})")
+                    # Si el callback retorna False, detener procesamiento
+                    if not safe_progress_callback(progress_callback, processed, total_files, 
+                                         f"Calculando hashes perceptuales... ({processed}/{total_files})"):
+                        self.logger.info("Análisis de duplicados perceptuales cancelado por el usuario")
+                        executor.shutdown(wait=False, cancel_futures=True)
+                        break
         
         # Videos (extraer frames si está disponible)
         if VIDEO_ANALYSIS_AVAILABLE and video_files:
@@ -274,6 +282,17 @@ class DuplicateDetector:
                     
                     if error:
                         self.logger.warning(f"No se pudo procesar video {vid_path}: {error}")
+                    elif phash:
+                        perceptual_hashes[vid_path] = phash
+                    
+                    processed += 1
+                    if processed % Config.PROGRESS_CALLBACK_INTERVAL == 0 or processed == total_files:
+                        # Si el callback retorna False, detener procesamiento
+                        if not safe_progress_callback(progress_callback, processed, total_files,
+                                             f"Calculando hashes de videos... ({processed}/{total_files})"):
+                            self.logger.info("Análisis de videos cancelado por el usuario")
+                            executor.shutdown(wait=False, cancel_futures=True)
+                            break
                     elif phash:
                         perceptual_hashes[vid_path] = phash
                     

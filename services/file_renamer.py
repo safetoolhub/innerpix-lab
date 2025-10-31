@@ -109,7 +109,11 @@ class FileRenamer:
                 processed += 1
                 
                 if processed % 10 == 0:
-                    safe_progress_callback(progress_callback, processed, total_files, "Analizando nombres de archivos")
+                    # Si el callback retorna False, detener procesamiento
+                    if not safe_progress_callback(progress_callback, processed, total_files, "Analizando nombres de archivos"):
+                        self.logger.info("Análisis de renombrado cancelado por el usuario")
+                        executor.shutdown(wait=False, cancel_futures=True)
+                        break
                 
                 status, file_path, data = future.result()
                 
@@ -307,8 +311,11 @@ class FileRenamer:
                     })
 
                     progress_label = "Simulando renombrado" if dry_run else "Renombrando archivos"
-                    safe_progress_callback(progress_callback, files_processed, total_files,
-                                       f"{progress_label}... {files_processed}/{total_files}")
+                    # Si el callback retorna False, detener procesamiento
+                    if not safe_progress_callback(progress_callback, files_processed, total_files,
+                                       f"{progress_label}... {files_processed}/{total_files}"):
+                        self.logger.info("Renombrado cancelado por el usuario")
+                        break
 
                     action_verb = "Se renombraría" if dry_run else "✓ Renombrado"
                     self.logger.info(f"{action_verb}: {original_path} → {new_path}")
