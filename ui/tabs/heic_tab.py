@@ -12,14 +12,12 @@ def create_heic_tab(window):
 
     # ===== TÍTULO =====
     title = QLabel("📸 Eliminación de Duplicados HEIC/JPG")
-    title.setStyleSheet(
-        "font-size: 20px; font-weight: 600; color: #212529; margin-bottom: 4px;"
-    )
+    title.setStyleSheet(styles.STYLE_TAB_TITLE_LARGE)
     layout.addWidget(title)
     
     # ===== DESCRIPCIÓN BREVE =====
     desc = QLabel("Elimina archivos HEIC duplicados cuando existe la versión JPG con el mismo nombre")
-    desc.setStyleSheet("font-size: 13px; color: #6c757d; margin-bottom: 8px;")
+    desc.setStyleSheet(styles.STYLE_TAB_DESC)
     layout.addWidget(desc)
 
     # ===== RECOMENDACIONES =====

@@ -350,7 +350,8 @@ class SettingsDialog(QDialog):
         debug_layout.addWidget(clear_settings_btn)
 
         debug_info = QLabel("⚠️ Esto eliminará todas las preferencias guardadas y volverá a los valores por defecto.")
-        debug_info.setStyleSheet("color: #ff5252; font-size: 11px;")
+        from ui import styles as ui_styles
+        debug_info.setStyleSheet(ui_styles.STYLE_SETTINGS_DEBUG_INFO)
         debug_info.setWordWrap(True)
         debug_layout.addWidget(debug_info)
 

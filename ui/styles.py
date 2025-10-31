@@ -633,7 +633,10 @@ STYLE_INFO_HIGHLIGHT = (
 
 STYLE_DESC_SMALL_INDENT = "color: #6c757d; font-size: 11px; margin-left: 20px;"
 
-STYLE_WARNING_LIGHT = "padding: 10px; background-color: #fff3cd; border-radius: 5px;"
+# Alias para mantener compatibilidad
+STYLE_SMALL_INFO_LABEL_INDENT = STYLE_DESC_SMALL_INDENT  
+
+STYLE_WARNING_LIGHT = "color: #495057; padding: 10px; background-color: #fff3cd; border: 1px solid #ffeeba; border-radius: 4px;"
 
 STYLE_TABS = """
 QTabWidget::pane {
@@ -697,8 +700,6 @@ QPushButton:hover {
 STYLE_SMALL_INFO_LABEL = "color: #6c757d; font-size: 11px;"
 
 STYLE_WARNING_LABEL = "color: #856404; background-color: #fff3cd; padding: 8px; border-radius: 4px;"
-
-STYLE_WARNING_LIGHT = "color: #495057; padding: 10px; background-color: #fff3cd; border: 1px solid #ffeeba; border-radius: 4px;"
 
 STYLE_GROUPS_LABEL = "font-weight: bold; margin-top: 10px;"
 
@@ -921,3 +922,351 @@ QTabBar::tab:!selected {
     margin-top: 6px;
 }
 """
+
+# ============================================================================
+# ESTILOS DE DIALOGS - RENAMING
+# ============================================================================
+
+STYLE_DIALOG_INFO_SMALL = f"color: {COLORS['text_muted']}; font-size: 11px; padding: 5px;"
+
+# Unificar con STYLE_SMALL_INFO_LABEL (muy similar)
+# STYLE_SMALL_INFO_LABEL = "color: #6c757d; font-size: 11px;" (sin padding)
+# Se mantienen separados por el padding
+
+STYLE_DIALOG_COUNTER_BOLD = f"font-weight: bold; color: #2c5aa0; margin-left: 10px;"
+
+STYLE_DIALOG_PAGINATION_FRAME = "QFrame { background-color: #f0f0f0; border-radius: 3px; }"
+
+STYLE_DIALOG_PAGE_LABEL = "font-weight: bold; padding: 0 20px;"
+
+STYLE_DIALOG_PROBLEM_INFO = f"color: {COLORS['orange']}; font-size: 10px;"
+
+STYLE_DIALOG_PROBLEM_TEXT = f"font-size: 10px; color: {COLORS['text_muted']};"
+
+# Unificar con estilos similares de labels tipo info
+STYLE_ORG_TYPES_LABEL = STYLE_DIALOG_PROBLEM_TEXT + " padding: 5px;"
+
+STYLE_DIALOG_OPTIONS_GROUP = "QGroupBox { font-weight: bold; }"
+
+STYLE_DIALOG_METRIC_FRAME = lambda color: f"""
+    QFrame {{
+        background-color: {COLORS['bg_light']};
+        border-left: 3px solid {color};
+        padding: 5px;
+        margin: 2px;
+    }}
+"""
+
+STYLE_DIALOG_VALUE_LABEL = lambda color: f"color: {color}; background: transparent; border: none;"
+
+STYLE_DIALOG_DESC_SMALL = f"font-size: 10px; color: {COLORS['text_muted']}; background: transparent; border: none;"
+
+# Background colors for table items (renaming conflicts)
+COLOR_WARNING_BG = COLORS['warning_light']  # RGB: 255, 243, 205
+COLOR_CONFLICT_BG = COLORS['warning']  # RGB: 255, 193, 7
+COLOR_SUCCESS_BG = COLORS['success']  # RGB: 76, 175, 80
+
+# ============================================================================
+# ESTILOS DE DIALOGS - HEIC
+# ============================================================================
+
+# Frame de header info unificado para dialogs
+STYLE_DIALOG_HEADER_INFO_FRAME = f"""
+    QFrame {{
+        background: {COLORS['bg_info']};
+        border: 1px solid {COLORS['border_info']};
+        border-radius: 8px;
+        padding: 12px;
+    }}
+"""
+
+# Alias para mantener compatibilidad
+STYLE_HEIC_HEADER_FRAME = STYLE_DIALOG_HEADER_INFO_FRAME
+
+# STYLE_HEIC_EXPLANATION ya definido como alias de STYLE_DIALOG_EXPLANATION_TEXT arriba
+# STYLE_HEIC_SAVINGS ya definido como alias de STYLE_DIALOG_SAVINGS_GREEN arriba
+
+STYLE_HEIC_FORMAT_INFO = f"color: {COLORS['text_muted']}; font-size: 10px; margin-left: 20px;"
+
+# TreeWidget estándar para dialogs (base unificada)
+STYLE_DIALOG_TREE_STANDARD = f"""
+    QTreeWidget {{
+        border: 1px solid {COLORS['border_light']};
+        border-radius: 4px;
+        background-color: white;
+        alternate-background-color: {COLORS['bg_light']};
+    }}
+    QTreeWidget::item {{
+        padding: 4px;
+        min-height: 22px;
+    }}
+    QTreeWidget::item:hover {{
+        background-color: {COLORS['bg_medium']};
+    }}
+    QTreeWidget::item:selected {{
+        background-color: {COLORS['primary_light']};
+        color: white;
+    }}
+"""
+
+# Alias para HEIC tree
+STYLE_HEIC_TREE = STYLE_DIALOG_TREE_STANDARD
+
+# HEIC tree colors
+COLOR_HEIC_PURPLE = "#9c27b0"
+COLOR_HEIC_ORANGE = "#ff9800"
+
+# ============================================================================
+# ESTILOS DE DIALOGS - ORGANIZATION
+# ============================================================================
+
+# Frame de header (usa el estilo unificado)
+STYLE_ORG_HEADER_FRAME = STYLE_DIALOG_HEADER_INFO_FRAME
+
+# STYLE_ORG_TYPES_LABEL ya definido como alias arriba
+
+STYLE_ORG_CONFLICTS_LABEL = f"font-weight: bold; color: #e74c3c; font-size: 11px; padding: 5px;"
+
+STYLE_ORG_LEGEND_FRAME = f"""
+    QFrame {{
+        background: white;
+        border: 1px solid {COLORS['border_light']};
+        border-radius: 4px;
+        padding: 6px;
+    }}
+"""
+
+STYLE_ORG_LEGEND_LABEL = f"font-size: 10px; color: #1976d2; background: transparent;"
+
+# Tree organization (con altura de item ligeramente diferente)
+STYLE_ORG_TREE = f"""
+    QTreeWidget {{
+        border: 1px solid {COLORS['border_light']};
+        border-radius: 4px;
+        background-color: white;
+        alternate-background-color: {COLORS['bg_light']};
+    }}
+    QTreeWidget::item {{
+        padding: 4px;
+        min-height: 24px;
+    }}
+    QTreeWidget::item:hover {{
+        background-color: {COLORS['bg_medium']};
+    }}
+    QTreeWidget::item:selected {{
+        background-color: {COLORS['primary_light']};
+        color: white;
+    }}
+"""
+
+# Organization tree colors
+COLOR_ORG_ERROR = "#e74c3c"
+COLOR_ORG_FOLDER = "#2c5aa0"
+COLOR_ORG_SUBFOLDER = "#666"
+COLOR_ORG_SUCCESS = "#27ae60"
+COLOR_ORG_WHATSAPP = "#25d366"
+
+# ============================================================================
+# ESTILOS DE TABS - DUPLICATES
+# ============================================================================
+
+STYLE_DUPLICATES_TITLE = f"font-size: 18px; font-weight: 600; color: {COLORS['text_primary']};"
+
+STYLE_DUPLICATES_DESC = f"font-size: 12px; color: {COLORS['text_muted']}; margin-bottom: 4px;"
+
+STYLE_DUPLICATES_EXACT_CARD = f"""
+    QGroupBox {{
+        font-weight: 700;
+        font-size: 13px;
+        color: #ffffff;
+        border: 2px solid #2c5aa0;
+        border-radius: 8px;
+        margin-top: 10px;
+        padding-top: 18px;
+        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                   stop:0 #e3f2fd, stop:1 #ffffff);
+    }}
+    QGroupBox::title {{
+        subcontrol-origin: margin;
+        left: 15px;
+        padding: 3px 12px;
+        background-color: #2c5aa0;
+        border-radius: 4px;
+        color: white;
+        font-size: 13px;
+    }}
+"""
+
+STYLE_DUPLICATES_HELP_LABEL = """
+    font-size: 11px; 
+    color: #495057; 
+    background-color: #e7f3ff;
+    padding: 4px 8px;
+    border-radius: 3px;
+    border-left: 3px solid #2c5aa0;
+"""
+
+STYLE_DUPLICATES_STATUS_LABEL = """
+    font-size: 12px; 
+    font-weight: 600; 
+    color: #2c5aa0;
+    padding: 4px;
+"""
+
+STYLE_DUPLICATES_REVIEW_BUTTON = """
+    QPushButton {
+        background-color: #28a745;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 5px 12px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    QPushButton:hover {
+        background-color: #218838;
+    }
+    QPushButton:pressed {
+        background-color: #1e7e34;
+    }
+"""
+
+STYLE_DUPLICATES_DETAILS_TEXT = f"""
+    QTextEdit {{
+        background-color: {COLORS['bg_light']};
+        border: 1px solid {COLORS['border_light']};
+        border-radius: 4px;
+        padding: 8px;
+        font-size: 11px;
+        color: {COLORS['text_secondary']};
+    }}
+"""
+
+STYLE_DUPLICATES_SIMILAR_CARD = f"""
+    QGroupBox {{
+        font-weight: 700;
+        font-size: 13px;
+        color: #ffffff;
+        border: 2px solid {COLORS['success']};
+        border-radius: 8px;
+        margin-top: 10px;
+        padding-top: 18px;
+        background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                   stop:0 {COLORS['success_light']}, stop:1 #ffffff);
+    }}
+    QGroupBox::title {{
+        subcontrol-origin: margin;
+        left: 15px;
+        padding: 3px 12px;
+        background-color: {COLORS['success']};
+        border-radius: 4px;
+        color: white;
+        font-size: 13px;
+    }}
+"""
+
+STYLE_DUPLICATES_SIMILAR_HELP = f"""
+    font-size: 11px; 
+    color: {COLORS['text_secondary']}; 
+    background-color: {COLORS['success_light']};
+    padding: 4px 8px;
+    border-radius: 3px;
+    border-left: 3px solid {COLORS['success']};
+"""
+
+STYLE_DUPLICATES_SENS_LABEL = f"font-size: 12px; color: {COLORS['text_secondary']}; font-weight: 600;"
+
+STYLE_DUPLICATES_SENS_VALUE = f"font-size: 11px; color: {COLORS['text_muted']};"
+
+STYLE_DUPLICATES_ANALYZE_BUTTON = f"""
+    QPushButton {{
+        background-color: {COLORS['success']};
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 5px 12px;
+        font-size: 12px;
+        font-weight: 600;
+    }}
+    QPushButton:hover {{
+        background-color: {COLORS['success_hover']};
+    }}
+    QPushButton:pressed {{
+        background-color: {COLORS['success_pressed']};
+    }}
+"""
+
+STYLE_DUPLICATES_CANCEL_BUTTON = f"""
+    QPushButton {{
+        background-color: {COLORS['danger']};
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 5px 12px;
+        font-size: 12px;
+        font-weight: 600;
+    }}
+    QPushButton:hover {{
+        background-color: {COLORS['danger_hover']};
+    }}
+"""
+
+# ============================================================================
+# ESTILOS GENERALES DE TABS
+# ============================================================================
+
+STYLE_TAB_TITLE_LARGE = f"font-size: 20px; font-weight: 600; color: {COLORS['text_primary']}; margin-bottom: 4px;"
+
+STYLE_TAB_DESC = f"font-size: 13px; color: {COLORS['text_muted']}; margin-bottom: 8px;"
+
+# ============================================================================
+# ESTILOS ADICIONALES PARA DIALOGS
+# ============================================================================
+
+STYLE_DIALOG_EXPLANATION_TEXT = f"font-size: 9pt; color: {COLORS['text_secondary']}; background: transparent;"
+
+# Alias unificado para explicaciones (HEIC y otros)
+STYLE_HEIC_EXPLANATION = STYLE_DIALOG_EXPLANATION_TEXT
+
+STYLE_DIALOG_NO_PREVIEW = f"color: {COLORS['text_muted']}; font-size: 10px; font-style: italic;"
+
+STYLE_DIALOG_NAME_LABEL = f"font-size: 11px; color: {COLORS['text_primary']}; background: transparent;"
+
+STYLE_DIALOG_DETAILS_LABEL = f"font-size: 9px; color: {COLORS['text_muted']}; background: transparent;"
+
+# Unificar descripciones pequeñas/tiny
+STYLE_DIALOG_DESC_TINY = f"font-size: 9px; color: {COLORS['text_muted']}; background: transparent; border: none;"
+STYLE_DIALOG_DESC_SMALL = f"font-size: 10px; color: {COLORS['text_muted']}; background: transparent; border: none;"
+
+STYLE_DIALOG_SEPARATOR = f"color: {COLORS['border_light']};"
+
+STYLE_DIALOG_SAVINGS_GREEN = f"font-weight: bold; color: #27ae60; font-size: 11px; padding: 3px;"
+
+# Alias para mantener compatibilidad
+STYLE_HEIC_SAVINGS = STYLE_DIALOG_SAVINGS_GREEN
+
+# ============================================================================
+# ESTILOS PARA ABOUT DIALOG
+# ============================================================================
+
+STYLE_ABOUT_CONTENT_BG = f"background-color: {COLORS['bg_white']};"
+
+STYLE_ABOUT_DESCRIPTION = f"font-size: 13px; color: #555;"
+
+STYLE_ABOUT_LINE = f"color: #e0e0e0;"
+
+STYLE_ABOUT_TOOLS_TITLE = f"font-size: 13px; color: #333;"
+
+STYLE_ABOUT_TOOL_WIDGET = f"font-size: 12px; color: #555;"
+
+STYLE_ABOUT_TECH_INFO = f"font-size: 11px; color: #777;"
+
+STYLE_ABOUT_CREDITS = f"font-size: 11px; color: #999; font-style: italic;"
+
+STYLE_ABOUT_FOOTER = f"background-color: #f8f8f8;"
+
+# ============================================================================
+# ESTILOS PARA SETTINGS DIALOG
+# ============================================================================
+
+STYLE_SETTINGS_DEBUG_INFO = f"color: #ff5252; font-size: 11px;"
