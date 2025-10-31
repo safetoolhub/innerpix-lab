@@ -49,10 +49,11 @@ def create_organizer_tab(window):
     window.org_type_button_group.addButton(window.org_type_whatsapp, 2)
     org_type_layout.addWidget(window.org_type_whatsapp)
 
-    # Conectar señal para re-analizar cuando cambie el tipo de organización
-    if hasattr(window, '_reanalyze_same_directory'):
+    # Conectar señal para re-generar plan cuando cambie el tipo de organización
+    # OPTIMIZACIÓN: No re-analiza la estructura completa, solo regenera el plan de movimiento
+    if hasattr(window, '_regenerate_organization_plan'):
         window.org_type_button_group.buttonClicked.connect(
-            lambda: window._reanalyze_same_directory() if window.current_directory else None
+            lambda: window._regenerate_organization_plan() if window.current_directory else None
         )
 
     layout.addWidget(org_type_group)

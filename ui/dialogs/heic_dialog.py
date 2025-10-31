@@ -565,6 +565,20 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         open_both_action = menu.addAction("📂 Abrir ambos archivos")
         open_both_action.triggered.connect(lambda: self._open_both_files(pair))
         
+        # Opción para abrir carpeta
+        open_folder_action = menu.addAction("📁 Abrir carpeta")
+        open_folder_action.triggered.connect(lambda: self._open_folder(pair.heic_path.parent))
+        
+        menu.addSeparator()
+        
+        # Opción para ver detalles de HEIC
+        details_heic_action = menu.addAction("ℹ️ Ver detalles HEIC")
+        details_heic_action.triggered.connect(lambda: self._show_file_details(pair, "heic"))
+        
+        # Opción para ver detalles de JPG
+        details_jpg_action = menu.addAction("ℹ️ Ver detalles JPG")
+        details_jpg_action.triggered.connect(lambda: self._show_file_details(pair, "jpg"))
+        
         menu.exec(self.files_tree.viewport().mapToGlobal(position))
     
     def _open_specific_file(self, file_path, file_type):
@@ -631,6 +645,42 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         else:
             from PyQt6.QtWidgets import QMessageBox
             QMessageBox.warning(self, "Error", "No se pudo abrir ningún archivo")
+    
+    def _open_folder(self, folder_path):
+        """Abre una carpeta en el explorador de archivos"""
+        from .dialog_utils import open_folder
+        open_folder(folder_path, self)
+    
+    def _show_file_details(self, pair, file_type):
+        """Muestra un diálogo con detalles completos del archivo"""
+        from .dialog_utils import show_file_details_dialog
+        
+        # Seleccionar archivo según tipo
+        if file_type == "heic":
+            file_path = pair.heic_path
+            file_size = pair.heic_size
+            other_format = "JPG"
+            other_size = pair.jpg_size
+        else:
+            file_path = pair.jpg_path
+            file_size = pair.jpg_size
+            other_format = "HEIC"
+            other_size = pair.heic_size
+        
+        additional_info = {
+            'original_name': pair.base_name,
+            'new_name': pair.base_name,
+            'file_type': file_type.upper(),
+            'metadata': {
+                'Nombre base': pair.base_name,
+                f'Tamaño {file_type.upper()}': format_size(file_size),
+                f'Tamaño {other_format}': format_size(other_size),
+                'Directorio': str(pair.directory),
+                'Par duplicado': f'Sí (con {other_format})',
+            }
+        }
+        
+        show_file_details_dialog(file_path, self, additional_info)
     
     def _update_button_text(self):
         """Actualiza el texto del botón según el formato seleccionado"""

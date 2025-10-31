@@ -67,11 +67,12 @@ pixaro-lab/
 │   │   ├── __init__.py
 │   │   ├── about_dialog.py          # Diálogo "Acerca de"
 │   │   ├── base_dialog.py           # Clase base para diálogos con backup
-│   │   ├── directory_dialog.py      # Selección de directorio
+│   │   ├── dialog_utils.py          # Utilidades compartidas (open_file, open_folder, show_file_details_dialog)
 │   │   ├── duplicates_dialogs.py    # Diálogos de duplicados
-│   │   ├── heic_dialog.py           # Diálogo de HEIC
+│   │   ├── heic_dialog.py           # Diálogo de HEIC con vista de detalles
 │   │   ├── live_photos_dialog.py    # Diálogo de Live Photos
-│   │   ├── renaming_dialog.py       # Diálogo de renombrado
+│   │   ├── organization_dialog.py   # Diálogo de organización (3 modos: raíz/mes/WhatsApp)
+│   │   ├── renaming_dialog.py       # Diálogo de renombrado con vista de detalles
 │   │   └── settings_dialog.py       # Diálogo de configuración
 │   │
 │   ├── managers/                    # Gestores de recursos
