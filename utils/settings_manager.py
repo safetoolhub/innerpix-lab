@@ -1,13 +1,17 @@
 """
-Gestor de configuración persistente usando QSettings.
+Gestor de configuración persistente.
 Maneja preferencias de usuario que persisten entre sesiones.
+
+Usa un backend de almacenamiento inyectable (StorageBackend) para desacoplar
+de PyQt6. Por defecto intenta usar QSettingsBackend si PyQt6 está disponible,
+sino usa JsonStorageBackend.
 """
 import logging
 from pathlib import Path
 from typing import Any, Optional
-from PyQt6.QtCore import QSettings
 
 from utils.logger import get_logger
+from utils.storage import StorageBackend, JsonStorageBackend
 
 
 class SettingsManager:
@@ -37,17 +41,31 @@ class SettingsManager:
     KEY_WINDOW_GEOMETRY = "window/geometry"
     KEY_WINDOW_STATE = "window/state"
 
-    def __init__(self, organization: str = "PixaroLab", application: str = "Pixaro Lab"):
+    def __init__(self, backend: Optional[StorageBackend] = None,
+                 organization: str = "PixaroLab", application: str = "Pixaro Lab"):
         """
         Inicializa el gestor de configuración.
 
         Args:
-            organization: Nombre de la organización
-            application: Nombre de la aplicación
+            backend: Backend de almacenamiento a usar. Si es None, intenta usar
+                    QSettingsBackend (si PyQt6 disponible), sino JsonStorageBackend.
+            organization: Nombre de la organización (solo para QSettingsBackend)
+            application: Nombre de la aplicación (solo para QSettingsBackend)
         """
-        self.settings = QSettings(organization, application)
         self.logger = get_logger('SettingsManager')
-        self.logger.debug(f"SettingsManager inicializado. Archivo: {self.settings.fileName()}")
+        
+        if backend is None:
+            # Intentar usar QSettings si está disponible, sino JSON
+            try:
+                from utils.storage import QSettingsBackend
+                backend = QSettingsBackend(organization, application)
+                self.logger.debug("Usando QSettingsBackend")
+            except ImportError:
+                backend = JsonStorageBackend()
+                self.logger.debug("PyQt6 no disponible, usando JsonStorageBackend")
+        
+        self.backend = backend
+        self.logger.debug(f"SettingsManager inicializado con {type(backend).__name__}")
 
     def get(self, key: str, default: Any = None) -> Any:
         """
@@ -60,7 +78,7 @@ class SettingsManager:
         Returns:
             Valor guardado o default
         """
-        value = self.settings.value(key, default)
+        value = self.backend.get(key, default)
         self.logger.debug(f"get({key}) = {value} (default={default})")
         return value
 
@@ -73,8 +91,7 @@ class SettingsManager:
             value: Valor a guardar
         """
         self.logger.debug(f"set({key}, {value})")
-        self.settings.setValue(key, value)
-        self.settings.sync()  # Forzar guardado inmediato
+        self.backend.set(key, value)
 
     def get_bool(self, key: str, default: bool = False) -> bool:
         """
@@ -87,7 +104,7 @@ class SettingsManager:
         Returns:
             Valor booleano
         """
-        value = self.settings.value(key, default)
+        value = self.backend.get(key, default)
         # QSettings puede devolver strings "true"/"false" en algunos casos
         if isinstance(value, str):
             return value.lower() in ('true', '1', 'yes')
@@ -104,7 +121,7 @@ class SettingsManager:
         Returns:
             Valor entero
         """
-        value = self.settings.value(key, default)
+        value = self.backend.get(key, default)
         try:
             return int(value)
         except (TypeError, ValueError):
@@ -121,7 +138,7 @@ class SettingsManager:
         Returns:
             Path o None
         """
-        value = self.settings.value(key, default)
+        value = self.backend.get(key, default)
         if value is None:
             return default
         return Path(value)
@@ -134,14 +151,12 @@ class SettingsManager:
             key: Clave a eliminar
         """
         self.logger.debug(f"remove({key})")
-        self.settings.remove(key)
-        self.settings.sync()
+        self.backend.remove(key)
 
     def clear_all(self) -> None:
         """Elimina toda la configuración guardada"""
         self.logger.warning("Limpiando toda la configuración")
-        self.settings.clear()
-        self.settings.sync()
+        self.backend.clear()
 
     def has_key(self, key: str) -> bool:
         """
@@ -153,7 +168,7 @@ class SettingsManager:
         Returns:
             True si existe
         """
-        return self.settings.contains(key)
+        return self.backend.contains(key)
 
     # === MÉTODOS DE CONVENIENCIA PARA CONFIGURACIÓN COMÚN ===
 
@@ -211,4 +226,5 @@ class SettingsManager:
 
 
 # Instancia global del gestor de configuración
+# Por defecto intenta usar QSettingsBackend si PyQt6 está disponible
 settings_manager = SettingsManager()
