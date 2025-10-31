@@ -68,7 +68,7 @@ class Config:
     # ========================================================================
     # CONSTANTES DE WORKERS
     # ========================================================================
-    WORKER_SHUTDOWN_TIMEOUT_MS = 2000  # Tiempo de espera para detener workers (milisegundos)
+    WORKER_SHUTDOWN_TIMEOUT_MS = 10000  # Tiempo de espera para detener workers (milisegundos)
     PROGRESS_CALLBACK_INTERVAL = 50  # Actualizar progreso cada N archivos procesados
 
     # ========================================================================

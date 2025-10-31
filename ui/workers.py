@@ -37,23 +37,28 @@ class BaseWorker(QThread):
           message and still emits numeric placeholders (0,0) for UI.
         - If emit_numbers is True, emits (current, total, message) so the
           UI can use real progress numbers.
+        
+        Returns:
+            Callable that returns False when stop is requested, True otherwise
         """
         def callback(current: int, total: int, message: str):
+            # Check if stop was requested BEFORE emitting
+            if self._stop_requested:
+                return False  # Signal to stop processing immediately
+            
             try:
-                # Check if stop was requested
-                if self._stop_requested:
-                    return False  # Signal to stop processing
-                
                 if emit_numbers:
                     self.progress_update.emit(current, total, message)
                 elif counts_in_message:
                     self.progress_update.emit(0, 0, f"{message} ({current}/{total})")
                 else:
                     self.progress_update.emit(0, 0, message)
-                return True  # Continue processing
             except Exception:
                 # La señal de progreso no debe bloquear el worker
-                return True
+                pass
+            
+            # Check again after emitting in case stop was requested during emit
+            return not self._stop_requested
 
         return callback
 
