@@ -365,22 +365,22 @@ class RenamingPreviewDialog(BaseDialog):
 
     def _create_options_group(self):
         """Crea el grupo de opciones de seguridad"""
-        options_group = QGroupBox("⚙️ Opciones de Ejecución")
+        options_group = QGroupBox("⚙️ Opciones de Seguridad")
         # Asegurar que el título no se corte
         options_group.setMinimumWidth(400)
         options_group.setStyleSheet("QGroupBox { font-weight: bold; }")
         options_layout = QVBoxLayout()
         
-        # Checkbox de simulación
+        # Checkbox de backup (primero)
+        self.add_backup_checkbox(options_layout, "💾 Crear backup antes de renombrar (Recomendado)")
+        
+        # Checkbox de simulación (segundo)
         self.dry_run_checkbox = QCheckBox("🔍 Modo simulación (no renombrar realmente)")
         dry_run_default = settings_manager.get(settings_manager.KEY_DRY_RUN_DEFAULT, 'false')
         if isinstance(dry_run_default, str):
             dry_run_default = dry_run_default.lower() == 'true'
         self.dry_run_checkbox.setChecked(dry_run_default)
         options_layout.addWidget(self.dry_run_checkbox)
-        
-        # Checkbox de backup
-        self.add_backup_checkbox(options_layout, "💾 Crear backup antes de renombrar (Recomendado)")
         
         options_group.setLayout(options_layout)
         return options_group

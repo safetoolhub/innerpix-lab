@@ -4,15 +4,16 @@ from PyQt6.QtWidgets import (
     QTableWidget, QTableWidgetItem, QCheckBox, QDialogButtonBox, QPushButton,
     QHBoxLayout, QVBoxLayout as QVLayout, QScrollArea, QWidget, QGridLayout,
     QFrame, QSizePolicy, QProgressBar, QTreeWidget, QTreeWidgetItem, QLineEdit,
-    QComboBox, QMessageBox
+    QComboBox, QMessageBox, QMenu
 )
 from PyQt6.QtCore import Qt, QSize, QUrl
-from PyQt6.QtGui import QPixmap, QDesktopServices, QIcon
+from PyQt6.QtGui import QPixmap, QDesktopServices, QIcon, QCursor
 from config import Config
 from services.duplicate_detector import DuplicateGroup
 from utils.format_utils import format_size
 from ui import styles as ui_styles
 from .base_dialog import BaseDialog
+from .dialog_utils import show_file_details_dialog
 from datetime import datetime
 
 
@@ -259,14 +260,16 @@ class ExactDuplicatesDialog(BaseDialog):
         self._load_initial_groups()
         
         # Opciones de seguridad
-        options_group = QGroupBox("Opciones de seguridad")
+        options_group = QGroupBox("⚙️ Opciones de Seguridad")
+        options_group.setMinimumWidth(400)
+        options_group.setStyleSheet("QGroupBox { font-weight: bold; }")
         options_layout = QVLayout(options_group)
         
-        # Backup checkbox desde BaseDialog
-        self.add_backup_checkbox(options_layout, "Crear backup antes de eliminar (Recomendado)")
+        # Backup checkbox (primero)
+        self.add_backup_checkbox(options_layout, "💾 Crear backup antes de eliminar (Recomendado)")
         
-        # Dry-run checkbox
-        self.dry_run_checkbox = QCheckBox("Modo simulación (no eliminar archivos realmente)")
+        # Simulación checkbox (segundo)
+        self.dry_run_checkbox = QCheckBox("🔍 Modo simulación (no eliminar archivos realmente)")
         # Leer configuración para establecer estado por defecto
         from utils.settings_manager import settings_manager
         dry_run_default = settings_manager.get(settings_manager.KEY_DRY_RUN_DEFAULT, False)
@@ -590,15 +593,32 @@ class SimilarDuplicatesDialog(BaseDialog):
         self.resize(900, 700)
         layout = QVBoxLayout(self)
 
-        # Advertencia
+        # Advertencia con estilo sutil similar a heic_dialog
+        warning_frame = QFrame()
+        warning_frame.setFrameShape(QFrame.Shape.NoFrame)
+        warning_frame.setStyleSheet("""
+            QFrame { 
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                           stop:0 #fff3cd, stop:1 #ffeaa7);
+                border-left: 4px solid #f39c12;
+                border-radius: 6px; 
+                padding: 10px;
+            }
+        """)
+        warning_layout = QVLayout(warning_frame)
+        warning_layout.setSpacing(2)
+        warning_layout.setContentsMargins(12, 8, 12, 8)
+        
         warning = QLabel(
             "⚠️ <b>Estos archivos son similares pero NO idénticos.</b> "
             "Revisa cada grupo cuidadosamente antes de eliminar."
         )
         warning.setTextFormat(Qt.TextFormat.RichText)
         warning.setWordWrap(True)
-        warning.setStyleSheet(ui_styles.STYLE_SAFETY_SECTION)
-        layout.addWidget(warning)
+        warning.setStyleSheet("font-size: 10pt; color: #856404; background: transparent;")
+        warning_layout.addWidget(warning)
+        
+        layout.addWidget(warning_frame)
 
         # Navegación de grupos
         nav_layout = QHBoxLayout()
@@ -621,25 +641,50 @@ class SimilarDuplicatesDialog(BaseDialog):
 
         # Resumen
         summary_group = QGroupBox("📊 Resumen")
-        summary_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        summary_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        summary_group.setMinimumHeight(80)
+        # Estilo para que el título quede dentro del cuadro
+        summary_group.setStyleSheet("""
+            QGroupBox {
+                font-weight: bold;
+                font-size: 10pt;
+                padding-top: 20px;
+                margin-top: 10px;
+                border: 1px solid #cccccc;
+                border-radius: 5px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                padding: 2px 8px;
+                left: 10px;
+                top: 5px;
+                color: #2c5aa0;
+                font-size: 9pt;
+            }
+        """)
         summary_layout = QVLayout(summary_group)
+        summary_layout.setContentsMargins(15, 15, 15, 15)
+        summary_layout.setSpacing(5)
         self.summary_label = QLabel()
         self.summary_label.setTextFormat(Qt.TextFormat.RichText)
         self.summary_label.setWordWrap(True)
-        self.summary_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.summary_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.summary_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         summary_layout.addWidget(self.summary_label)
-        summary_group.setLayout(summary_layout)
         layout.addWidget(summary_group)
 
         # Opciones de seguridad
-        options_group = QGroupBox("Opciones de seguridad")
+        options_group = QGroupBox("⚙️ Opciones de Seguridad")
+        options_group.setMinimumWidth(400)
+        options_group.setStyleSheet("QGroupBox { font-weight: bold; }")
         options_layout = QVLayout(options_group)
         
-        # Backup checkbox desde BaseDialog
-        self.add_backup_checkbox(options_layout, "Crear backup antes de eliminar (Recomendado)")
+        # Backup checkbox (primero)
+        self.add_backup_checkbox(options_layout, "💾 Crear backup antes de eliminar (Recomendado)")
         
-        # Dry-run checkbox
-        self.dry_run_checkbox = QCheckBox("Modo simulación (no eliminar archivos realmente)")
+        # Simulación checkbox (segundo)
+        self.dry_run_checkbox = QCheckBox("🔍 Modo simulación (no eliminar archivos realmente)")
         # Leer configuración para establecer estado por defecto
         from utils.settings_manager import settings_manager
         dry_run_default = settings_manager.get(settings_manager.KEY_DRY_RUN_DEFAULT, False)
@@ -812,16 +857,22 @@ class SimilarDuplicatesDialog(BaseDialog):
                 QWidget {
                     background-color: #E9ECEF;
                     padding: 10px;
-                    border-bottom: 1px solid #CED4DA;
                 }
             """)
             frame_layout.addWidget(preview_section)
 
-            # === SECCIÓN 3: INFORMACIÓN DEL ARCHIVO ===
+            # === SECCIÓN 3: INFORMACIÓN COMPACTA DEL ARCHIVO (con menú contextual) ===
             info_section = QWidget()
+            info_section.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+            info_section.customContextMenuRequested.connect(
+                lambda pos, f=file_path: self._show_file_context_menu(pos, f, info_section)
+            )
+            info_section.setCursor(Qt.CursorShape.PointingHandCursor)
+            info_section.setToolTip("Clic derecho para más opciones")
+            
             info_section_layout = QVLayout(info_section)
-            info_section_layout.setContentsMargins(8, 8, 8, 8)
-            info_section_layout.setSpacing(4)
+            info_section_layout.setContentsMargins(10, 8, 10, 8)
+            info_section_layout.setSpacing(3)
             
             from datetime import datetime
             mtime = datetime.fromtimestamp(file_path.stat().st_mtime)
@@ -831,58 +882,30 @@ class SimilarDuplicatesDialog(BaseDialog):
             name_label.setTextFormat(Qt.TextFormat.RichText)
             name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             name_label.setWordWrap(True)
-            name_label.setStyleSheet("font-size: 11px; color: #212529;")
+            name_label.setStyleSheet("font-size: 11px; color: #212529; background: transparent;")
             info_section_layout.addWidget(name_label)
             
-            # Tamaño
-            size_label = QLabel(f"💾 {format_size(file_path.stat().st_size)}")
-            size_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            size_label.setStyleSheet("font-size: 10px; color: #495057;")
-            info_section_layout.addWidget(size_label)
+            # Tamaño y fecha en una línea compacta
+            details_label = QLabel(
+                f"💾 {format_size(file_path.stat().st_size)} • "
+                f"📅 {mtime.strftime('%Y-%m-%d %H:%M')}"
+            )
+            details_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            details_label.setStyleSheet("font-size: 9px; color: #6C757D; background: transparent;")
+            info_section_layout.addWidget(details_label)
             
-            # Fecha
-            date_label = QLabel(f"📅 {mtime.strftime('%Y-%m-%d %H:%M')}")
-            date_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            date_label.setStyleSheet("font-size: 10px; color: #6C757D;")
-            info_section_layout.addWidget(date_label)
-            
-            # Sin borde, solo fondo sutil
+            # Estilo con hover para indicar que es clickeable
             info_section.setStyleSheet("""
                 QWidget {
-                    background-color: transparent;
+                    background-color: #F8F9FA;
+                    padding: 8px;
+                    border-radius: 4px;
+                }
+                QWidget:hover {
+                    background-color: #E9ECEF;
                 }
             """)
             frame_layout.addWidget(info_section)
-
-            # Separador sutil antes del botón
-            separator_btn = QFrame()
-            separator_btn.setFrameShape(QFrame.Shape.HLine)
-            separator_btn.setStyleSheet("background-color: #DEE2E6; max-height: 1px; margin: 5px 0;")
-            frame_layout.addWidget(separator_btn)
-
-            # Botón abrir en la parte inferior
-            open_btn = QPushButton("🔍 Abrir archivo")
-            open_btn.setToolTip(f"Abrir {file_path}")
-            open_btn.clicked.connect(lambda _, f=file_path: self._open_file(f))
-            open_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #0D6EFD;
-                    color: white;
-                    border: none;
-                    border-radius: 0;
-                    padding: 8px;
-                    font-size: 10px;
-                    font-weight: bold;
-                    margin: 0;
-                }
-                QPushButton:hover {
-                    background-color: #0B5ED7;
-                }
-                QPushButton:pressed {
-                    background-color: #0A58CA;
-                }
-            """)
-            frame_layout.addWidget(open_btn)
 
             # Destacar el frame si está seleccionado
             if file_path in previous_selection:
@@ -1171,8 +1194,8 @@ class SimilarDuplicatesDialog(BaseDialog):
         for files in self.selections.values():
             total_size += sum(f.stat().st_size for f in files)
         self.summary_label.setText(
-            f"<b>Archivos seleccionados para eliminar:</b> {total_selected} "
-            f"<br><b>Espacio a liberar:</b> {format_size(total_size)}"
+            f"<b>Archivos seleccionados:</b> {total_selected} &nbsp;&nbsp;|&nbsp;&nbsp; "
+            f"<b>Espacio a liberar:</b> {format_size(total_size)}"
         )
         self.ok_btn.setEnabled(total_selected > 0)
 
@@ -1203,3 +1226,44 @@ class SimilarDuplicatesDialog(BaseDialog):
         else:
             from PyQt6.QtWidgets import QMessageBox
             QMessageBox.warning(self, "Archivo no encontrado", f"No se encontró el archivo:\n{file_path}")
+    
+    def _show_file_context_menu(self, position, file_path: Path, widget: QWidget):
+        """Muestra menú contextual para un archivo con opciones de ver detalles"""
+        menu = QMenu(self)
+        
+        # Opción para ver detalles del archivo
+        details_action = menu.addAction("ℹ️ Ver detalles del archivo")
+        details_action.triggered.connect(lambda: self._show_file_details(file_path))
+        
+        menu.addSeparator()
+        
+        # Opción para abrir el archivo
+        open_action = menu.addAction("🔍 Abrir archivo")
+        open_action.triggered.connect(lambda: self._open_file(file_path))
+        
+        # Opción para abrir la carpeta
+        from .dialog_utils import open_folder
+        open_folder_action = menu.addAction("📁 Abrir carpeta")
+        open_folder_action.triggered.connect(lambda: open_folder(file_path.parent, self))
+        
+        # Mostrar el menú en la posición exacta del cursor
+        menu.exec(QCursor.pos())
+    
+    def _show_file_details(self, file_path: Path):
+        """Muestra diálogo con detalles del archivo"""
+        # Obtener el grupo actual para incluir contexto
+        current_group = self.analysis.groups[self.current_group_index]
+        
+        # Preparar información adicional
+        additional_info = {
+            'file_type': Config.get_file_type(file_path),
+            'metadata': {
+                'Grupo': f'{self.current_group_index + 1} de {len(self.analysis.groups)}',
+                'Similitud del grupo': f'{current_group.similarity_score:.1f}%',
+                'Archivos en grupo': str(current_group.file_count),
+                'Tamaño total del grupo': format_size(current_group.total_size),
+            }
+        }
+        
+        # Mostrar diálogo de detalles usando la utilidad
+        show_file_details_dialog(file_path, self, additional_info)
