@@ -102,14 +102,17 @@ class LivePhotoCleanupDialog(BaseDialog):
         layout.addWidget(stats_group)
 
         # Opciones
-        options_group = QGroupBox("Opciones de seguridad")
+        options_group = QGroupBox("⚙️ Opciones de Seguridad")
+        options_group.setMinimumWidth(400)
+        options_group.setStyleSheet("QGroupBox { font-weight: bold; }")
         options_layout = QVLayout(options_group)
 
-        # Backup checkbox desde BaseDialog
-        self.add_backup_checkbox(options_layout, "Crear backup antes de eliminar (Recomendado)")
+        # Backup checkbox (primero)
+        self.add_backup_checkbox(options_layout, "💾 Crear backup antes de eliminar (Recomendado)")
 
+        # Simulación checkbox (segundo)
         from PyQt6.QtWidgets import QCheckBox
-        self.dry_run_checkbox = QCheckBox("Modo simulación (no eliminar archivos realmente)")
+        self.dry_run_checkbox = QCheckBox("🔍 Modo simulación (no eliminar archivos realmente)")
         # Leer configuración para establecer estado por defecto
         from utils.settings_manager import settings_manager
         dry_run_default = settings_manager.get(settings_manager.KEY_DRY_RUN_DEFAULT, False)

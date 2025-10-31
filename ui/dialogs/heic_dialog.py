@@ -343,12 +343,15 @@ class HEICDuplicateRemovalDialog(BaseDialog):
     
     def _create_options_group(self):
         """Crea grupo de opciones de seguridad"""
-        options_group = QGroupBox("⚙️ Opciones de Ejecución")
+        options_group = QGroupBox("⚙️ Opciones de Seguridad")
         options_group.setMinimumWidth(400)
         options_group.setStyleSheet("QGroupBox { font-weight: bold; }")
         options_layout = QVLayout()
         
-        # Checkbox de simulación
+        # Checkbox de backup (primero)
+        self.add_backup_checkbox(options_layout, "💾 Crear backup antes de eliminar (Recomendado)")
+        
+        # Checkbox de simulación (segundo)
         self.dry_run_checkbox = QCheckBox("🔍 Modo simulación (no eliminar realmente)")
         from utils.settings_manager import settings_manager
         dry_run_default = settings_manager.get(settings_manager.KEY_DRY_RUN_DEFAULT, False)
@@ -356,9 +359,6 @@ class HEICDuplicateRemovalDialog(BaseDialog):
             dry_run_default = dry_run_default.lower() in ('true', '1', 'yes')
         self.dry_run_checkbox.setChecked(bool(dry_run_default))
         options_layout.addWidget(self.dry_run_checkbox)
-        
-        # Checkbox de backup
-        self.add_backup_checkbox(options_layout, "💾 Crear backup antes de eliminar (Recomendado)")
         
         options_group.setLayout(options_layout)
         return options_group

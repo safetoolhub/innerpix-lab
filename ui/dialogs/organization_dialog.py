@@ -77,7 +77,7 @@ class FileOrganizationDialog(BaseDialog):
         self.pagination_widget = self._create_pagination_controls()
         main_layout.addWidget(self.pagination_widget)
         
-        # Opciones de ejecución
+        # Opciones de seguridad
         options_group = self._create_options_group()
         main_layout.addWidget(options_group)
         
@@ -423,13 +423,16 @@ class FileOrganizationDialog(BaseDialog):
         return widget
     
     def _create_options_group(self):
-        """Crea grupo de opciones de ejecución"""
-        options_group = QGroupBox("⚙️ Opciones de Ejecución")
+        """Crea grupo de opciones de seguridad"""
+        options_group = QGroupBox("⚙️ Opciones de Seguridad")
         options_group.setMinimumWidth(400)
         options_group.setStyleSheet("QGroupBox { font-weight: bold; }")
         options_layout = QVLayout()
         
-        # Checkbox de simulación
+        # Checkbox de backup (primero)
+        self.add_backup_checkbox(options_layout, "💾 Crear backup antes de mover (Recomendado)")
+        
+        # Checkbox de simulación (segundo)
         self.dry_run_checkbox = QCheckBox("🔍 Modo simulación (no mover archivos realmente)")
         from utils.settings_manager import settings_manager
         dry_run_default = settings_manager.get(settings_manager.KEY_DRY_RUN_DEFAULT, False)
@@ -438,10 +441,7 @@ class FileOrganizationDialog(BaseDialog):
         self.dry_run_checkbox.setChecked(bool(dry_run_default))
         options_layout.addWidget(self.dry_run_checkbox)
         
-        # Checkbox de backup
-        self.add_backup_checkbox(options_layout, "💾 Crear backup antes de mover (Recomendado)")
-        
-        # Checkbox de limpieza
+        # Checkbox de limpieza (tercero)
         self.cleanup_checkbox = QCheckBox("🗑️ Eliminar directorios vacíos al finalizar")
         self.cleanup_checkbox.setChecked(True)
         options_layout.addWidget(self.cleanup_checkbox)
