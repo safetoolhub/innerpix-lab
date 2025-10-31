@@ -3,86 +3,64 @@ Utilidades compartidas para diálogos
 Funciones comunes para abrir archivos, carpetas y mostrar detalles
 """
 import os
-import subprocess
-import platform
 from datetime import datetime
 from pathlib import Path
 from PyQt6.QtWidgets import QMessageBox
 from PyQt6.QtCore import Qt
 from utils.format_utils import format_size
 from utils.date_utils import get_file_date
+from utils.platform_utils import open_file_with_default_app, open_folder_in_explorer
 
 
 def open_file(file_path: Path, parent_widget=None):
     """
-    Abre un archivo con la aplicación predeterminada del sistema operativo
+    Abre un archivo con la aplicación predeterminada del sistema operativo.
+    Wrapper de UI para utils.platform_utils.open_file_with_default_app()
     
     Args:
         file_path: Ruta del archivo a abrir
         parent_widget: Widget padre para mostrar mensajes de error
+        
+    Returns:
+        True si el archivo se abrió correctamente, False si hubo error
     """
-    if not file_path.exists():
+    def show_error(error_msg: str):
+        """Callback para mostrar errores en QMessageBox"""
         if parent_widget:
             QMessageBox.warning(
                 parent_widget,
-                "Archivo no encontrado",
-                f"El archivo no existe:\n{file_path}"
+                "Error al abrir archivo",
+                error_msg
             )
-        return False
     
-    try:
-        system = platform.system()
-        if system == 'Linux':
-            subprocess.Popen(['xdg-open', str(file_path)])
-        elif system == 'Darwin':
-            subprocess.Popen(['open', str(file_path)])
-        elif system == 'Windows':
-            subprocess.Popen(['start', str(file_path)], shell=True)
-        return True
-    except Exception as e:
-        if parent_widget:
-            QMessageBox.warning(
-                parent_widget,
-                "Error",
-                f"No se pudo abrir el archivo:\n{str(e)}"
-            )
-        return False
+    return open_file_with_default_app(file_path, error_callback=show_error)
 
 
-def open_folder(folder_path: Path, parent_widget=None):
+def open_folder(folder_path: Path, parent_widget=None, select_file: Path = None):
     """
-    Abre una carpeta en el explorador de archivos del sistema operativo
+    Abre una carpeta en el explorador de archivos del sistema operativo.
+    Wrapper de UI para utils.platform_utils.open_folder_in_explorer()
     
     Args:
         folder_path: Ruta de la carpeta a abrir
         parent_widget: Widget padre para mostrar mensajes de error
+        select_file: Archivo opcional dentro de la carpeta a seleccionar
+        
+    Returns:
+        True si la carpeta se abrió correctamente, False si hubo error
     """
-    if not folder_path.exists():
+    def show_error(error_msg: str):
+        """Callback para mostrar errores en QMessageBox"""
         if parent_widget:
             QMessageBox.warning(
                 parent_widget,
-                "Carpeta no encontrada",
-                f"La carpeta no existe:\n{folder_path}"
+                "Error al abrir carpeta",
+                error_msg
             )
-        return False
     
-    try:
-        system = platform.system()
-        if system == 'Linux':
-            subprocess.Popen(['xdg-open', str(folder_path)])
-        elif system == 'Darwin':
-            subprocess.Popen(['open', str(folder_path)])
-        elif system == 'Windows':
-            subprocess.Popen(['explorer', str(folder_path)])
-        return True
-    except Exception as e:
-        if parent_widget:
-            QMessageBox.warning(
-                parent_widget,
-                "Error",
-                f"No se pudo abrir la carpeta:\n{str(e)}"
-            )
-        return False
+    return open_folder_in_explorer(folder_path, 
+                                   select_file=select_file,
+                                   error_callback=show_error)
 
 
 def show_file_details_dialog(file_path: Path, parent_widget=None, additional_info=None):

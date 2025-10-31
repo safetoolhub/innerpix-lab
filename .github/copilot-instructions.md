@@ -59,6 +59,14 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
 - `SettingsManager` auto-detects: uses QSettings if PyQt6 available, else JSON
 - **Benefits**: Utils layer 100% PyQt6-free, enables CLI scripts, faster tests, easy framework migration
 
+**Platform utilities** (`utils/platform_utils.py`) - OS interaction without UI
+- `open_file_with_default_app(path, error_callback)`: Opens files with system default app (xdg-open/open/start)
+- `open_folder_in_explorer(path, select_file, error_callback)`: Opens folders with optional file selection
+- Platform detection: `is_linux()`, `is_macos()`, `is_windows()`, `get_platform_info()`
+- `get_default_file_manager()`: Detects system file manager (nautilus/Finder/explorer)
+- **Benefits**: Reusable in CLI scripts, no PyQt6 dependency, integrated logging, robust validation
+- UI wrappers in `dialog_utils.py` add QMessageBox for error display
+
 **File utilities** (`utils/file_utils.py`)
 - `calculate_file_hash()`: SHA256 with optional caching
 - `to_path()`: flexible path extraction from objects/dicts (checks `path`, `source_path`, `original_path` attrs)
