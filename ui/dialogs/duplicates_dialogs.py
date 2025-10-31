@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
     QComboBox, QMessageBox, QMenu
 )
 from PyQt6.QtCore import Qt, QSize, QUrl
-from PyQt6.QtGui import QPixmap, QDesktopServices, QIcon, QCursor
+from PyQt6.QtGui import QPixmap, QDesktopServices, QIcon, QCursor, QFont
 from config import Config
 from services.duplicate_detector import DuplicateGroup
 from utils.format_utils import format_size
@@ -50,46 +50,76 @@ class ExactDuplicatesDialog(BaseDialog):
         self.resize(1000, 700)
         
         layout = QVBoxLayout(self)
+        layout.setSpacing(8)  # Reducir espaciado general
         
-        # Información general - formato mejorado sin asteriscos
-        info_text = (
-            f"<div style='padding: 10px;'>"
-            f"<p style='margin: 5px 0; font-size: 14px;'>"
-            f"📊 <b>Archivos duplicados encontrados:</b> {self.analysis.total_duplicates} archivos en {self.analysis.total_groups} grupos"
-            f"</p>"
-            f"<p style='margin: 5px 0; font-size: 14px;'>"
-            f"💾 <b>Espacio total a liberar:</b> {format_size(self.analysis.space_wasted)}"
-            f"</p>"
-            f"</div>"
-        )
-        info = QLabel(info_text)
-        info.setTextFormat(Qt.TextFormat.RichText)
-        info.setWordWrap(True)
-        info.setStyleSheet("""
-            QLabel {
-                background-color: #e7f3ff;
-                border: 1px solid #b3d9ff;
-                border-radius: 6px;
+        # Explicación contextual con métricas integradas
+        explanation_frame = QFrame()
+        explanation_frame.setFrameShape(QFrame.Shape.NoFrame)
+        explanation_frame.setStyleSheet("""
+            QFrame { 
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                           stop:0 #f8f9fa, stop:1 #e9ecef);
+                border: none;
+                border-radius: 6px; 
                 padding: 8px;
-                color: #212529;
             }
         """)
-        layout.addWidget(info)
+        explanation_layout = QVBoxLayout(explanation_frame)
+        explanation_layout.setSpacing(4)
+        explanation_layout.setContentsMargins(10, 6, 10, 6)
         
-        # Estrategia de eliminación - título completo visible
-        strategy_group = QGroupBox("🎯 Estrategia de Eliminación de Duplicados")
-        strategy_layout = QVBoxLayout(strategy_group)
+        # Texto explicativo
+        explanation = QLabel(
+            "ℹ️ Los duplicados exactos son archivos idénticos (100%). <b>Eliminarlos es seguro.</b>"
+        )
+        explanation.setWordWrap(True)
+        explanation.setTextFormat(Qt.TextFormat.RichText)
+        explanation.setStyleSheet("font-size: 9pt; color: #495057; background: transparent;")
+        explanation_layout.addWidget(explanation)
+        
+        # Métricas inline compactas (dentro del mismo frame)
+        metrics_layout = QHBoxLayout()
+        metrics_layout.setSpacing(8)
+        
+        metrics_data = [
+            ("grupos", self.analysis.total_groups, "#2c5aa0"),
+            ("archivos", self.analysis.total_duplicates, "#ff9800"),
+        ]
+        
+        for label_text, value, color in metrics_data:
+            card = self._create_inline_metric(label_text, value, color)
+            metrics_layout.addWidget(card)
+        
+        # Ahorro potencial destacado
+        savings_text = f"💾 {format_size(self.analysis.space_wasted)}"
+        savings_label = QLabel(savings_text)
+        savings_label.setStyleSheet("font-weight: bold; color: #27ae60; font-size: 11px; padding: 3px;")
+        metrics_layout.addWidget(savings_label)
+        
+        metrics_layout.addStretch()
+        explanation_layout.addLayout(metrics_layout)
+        
+        layout.addWidget(explanation_frame)
+        
+        # Estrategia de eliminación - EN LÍNEA HORIZONTAL
+        strategy_group = QGroupBox("🎯 Estrategia")
+        strategy_group.setStyleSheet("QGroupBox { font-weight: bold; padding-top: 12px; }")
+        strategy_layout = QHBoxLayout(strategy_group)  # HORIZONTAL
+        strategy_layout.setContentsMargins(10, 8, 10, 8)
+        strategy_layout.setSpacing(15)
         
         self.strategy_buttons = QButtonGroup()
         
-        r1 = QRadioButton("🕐 Mantener el más antiguo (Recomendado)")
+        r1 = QRadioButton("Mantener el más antiguo (Recomendado)")
         r1.setChecked(True)
         self.strategy_buttons.addButton(r1, 0)
         strategy_layout.addWidget(r1)
         
-        r2 = QRadioButton("🕓 Mantener el más reciente")
+        r2 = QRadioButton("Mantener el más reciente")
         self.strategy_buttons.addButton(r2, 1)
         strategy_layout.addWidget(r2)
+        
+        strategy_layout.addStretch()
         
         self.strategy_buttons.buttonClicked.connect(self._on_strategy_changed)
         layout.addWidget(strategy_group)
@@ -97,28 +127,31 @@ class ExactDuplicatesDialog(BaseDialog):
         # Advertencia si hay muchos grupos
         if len(self.all_groups) > self.WARNING_THRESHOLD:
             warning_many = QLabel(
-                f"⚠️ <b>Hay {len(self.all_groups)} grupos de duplicados.</b> "
+                f"ℹ️ Hay {len(self.all_groups)} grupos de duplicados. "
                 f"Se cargarán inicialmente {self.INITIAL_LOAD} grupos. "
                 f"Usa la búsqueda y filtros para encontrar grupos específicos más rápido."
             )
             warning_many.setTextFormat(Qt.TextFormat.RichText)
             warning_many.setWordWrap(True)
             warning_many.setStyleSheet("""
-                background-color: #fff3cd;
-                border: 1px solid #ffeeba;
-                border-radius: 4px;
-                padding: 10px;
-                color: #856404;
-                font-size: 12px;
+                QLabel {
+                    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                               stop:0 #f8f9fa, stop:1 #e9ecef);
+                    border: none;
+                    border-radius: 6px;
+                    padding: 10px;
+                    color: #495057;
+                    font-size: 9pt;
+                }
             """)
             layout.addWidget(warning_many)
         
-        # Barra de búsqueda y filtros
-        search_filter_layout = QHBoxLayout()
+        # Barra de herramientas (búsqueda, filtros y acciones)
+        toolbar_layout = QHBoxLayout()
         
         # Búsqueda
         search_label = QLabel("🔍 Buscar:")
-        search_filter_layout.addWidget(search_label)
+        toolbar_layout.addWidget(search_label)
         
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Nombre de archivo o ruta...")
@@ -134,11 +167,11 @@ class ExactDuplicatesDialog(BaseDialog):
                 border-color: #2196F3;
             }
         """)
-        search_filter_layout.addWidget(self.search_input, 2)
+        toolbar_layout.addWidget(self.search_input, 2)
         
         # Filtro por tamaño
         filter_label = QLabel("📊 Filtrar:")
-        search_filter_layout.addWidget(filter_label)
+        toolbar_layout.addWidget(filter_label)
         
         self.filter_combo = QComboBox()
         self.filter_combo.addItems([
@@ -158,20 +191,48 @@ class ExactDuplicatesDialog(BaseDialog):
                 font-size: 13px;
             }
         """)
-        search_filter_layout.addWidget(self.filter_combo, 1)
+        toolbar_layout.addWidget(self.filter_combo, 1)
         
-        layout.addLayout(search_filter_layout)
+        # Separador visual
+        separator_line = QFrame()
+        separator_line.setFrameShape(QFrame.Shape.VLine)
+        separator_line.setFrameShadow(QFrame.Shadow.Sunken)
+        toolbar_layout.addWidget(separator_line)
         
-        # Información de grupos cargados/filtrados
+        # Botón "Mostrar Todos" integrado en la barra
+        show_all_btn = QPushButton("👁️ Ver Todos")
+        show_all_btn.setToolTip("Cargar y mostrar todos los grupos de duplicados")
+        show_all_btn.clicked.connect(self._load_all_groups)
+        show_all_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #17a2b8;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 6px 12px;
+                font-size: 12px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #138496;
+            }
+            QPushButton:pressed {
+                background-color: #0f6674;
+            }
+        """)
+        toolbar_layout.addWidget(show_all_btn)
+        
+        # Información de grupos cargados (inline, sin fondo)
         self.groups_info_label = QLabel()
         self.groups_info_label.setStyleSheet("""
             color: #6c757d;
-            font-size: 12px;
+            font-size: 11px;
             padding: 5px;
-            background-color: #f8f9fa;
-            border-radius: 3px;
         """)
-        layout.addWidget(self.groups_info_label)
+        toolbar_layout.addWidget(self.groups_info_label)
+        
+        toolbar_layout.addStretch()
+        layout.addLayout(toolbar_layout)
         
         # Tree widget para mostrar grupos expandibles
         self.tree_widget = QTreeWidget()
@@ -204,7 +265,7 @@ class ExactDuplicatesDialog(BaseDialog):
         self.tree_widget.customContextMenuRequested.connect(self._show_context_menu)
         layout.addWidget(self.tree_widget)
         
-        # Botones de paginación
+        # Botón de paginación (solo "Cargar Más")
         pagination_layout = QHBoxLayout()
         
         self.load_more_btn = QPushButton(f"⏬ Cargar {self.LOAD_INCREMENT} Más Grupos")
@@ -232,27 +293,6 @@ class ExactDuplicatesDialog(BaseDialog):
         """)
         pagination_layout.addWidget(self.load_more_btn)
         
-        load_all_btn = QPushButton("📥 Cargar Todos los Grupos")
-        load_all_btn.clicked.connect(self._load_all_groups)
-        load_all_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #17a2b8;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                padding: 8px 16px;
-                font-size: 13px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #138496;
-            }
-            QPushButton:pressed {
-                background-color: #0f6674;
-            }
-        """)
-        pagination_layout.addWidget(load_all_btn)
-        
         pagination_layout.addStretch()
         layout.addLayout(pagination_layout)
         
@@ -262,8 +302,10 @@ class ExactDuplicatesDialog(BaseDialog):
         # Opciones de seguridad
         options_group = QGroupBox("⚙️ Opciones de Seguridad")
         options_group.setMinimumWidth(400)
-        options_group.setStyleSheet("QGroupBox { font-weight: bold; }")
+        options_group.setStyleSheet("QGroupBox { font-weight: bold; padding-top: 12px; }")
         options_layout = QVLayout(options_group)
+        options_layout.setContentsMargins(10, 8, 10, 8)
+        options_layout.setSpacing(6)
         
         # Backup checkbox (primero)
         self.add_backup_checkbox(options_layout, "💾 Crear backup antes de eliminar (Recomendado)")
@@ -280,19 +322,46 @@ class ExactDuplicatesDialog(BaseDialog):
         options_layout.addWidget(self.dry_run_checkbox)
         layout.addWidget(options_group)
 
-        # Advertencia
-        warning = QLabel(
-            "⚠️ Estos son duplicados exactos (100%). Eliminarlos es seguro."
-        )
-        warning.setStyleSheet(ui_styles.STYLE_WARNING_LABEL)
-        layout.addWidget(warning)
-
         # Botones
         buttons = self.make_ok_cancel_buttons(ok_text="🗑️ Eliminar Ahora")
         # apply danger style to ok button
         ok_btn = buttons.button(QDialogButtonBox.StandardButton.Ok)
         ok_btn.setStyleSheet(ui_styles.STYLE_DANGER_BUTTON)
         layout.addWidget(buttons)
+    
+    def _create_inline_metric(self, label_text, value, color):
+        """Crea una métrica compacta inline con borde de color"""
+        frame = QFrame()
+        frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: #f8f9fa;
+                border-left: 3px solid {color};
+                padding: 3px;
+                margin: 1px;
+                border-radius: 3px;
+            }}
+        """)
+        
+        layout = QHBoxLayout(frame)
+        layout.setContentsMargins(6, 3, 6, 3)
+        layout.setSpacing(4)
+        
+        # Valor más pequeño
+        value_label = QLabel(str(value))
+        font = QFont()
+        font.setPointSize(12)  # Reducido de 16 a 12
+        font.setBold(True)
+        value_label.setFont(font)
+        value_label.setStyleSheet(f"color: {color}; background: transparent; border: none;")
+        
+        # Label descriptivo más pequeño
+        desc_label = QLabel(label_text)
+        desc_label.setStyleSheet("font-size: 9px; color: #666; background: transparent; border: none;")
+        
+        layout.addWidget(value_label)
+        layout.addWidget(desc_label)
+        
+        return frame
     
     def _on_strategy_changed(self, button):
         """Handle strategy change: only 'oldest' and 'newest' are supported."""
@@ -599,8 +668,8 @@ class SimilarDuplicatesDialog(BaseDialog):
         warning_frame.setStyleSheet("""
             QFrame { 
                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                           stop:0 #fff3cd, stop:1 #ffeaa7);
-                border-left: 4px solid #f39c12;
+                                           stop:0 #f8f9fa, stop:1 #e9ecef);
+                border: none;
                 border-radius: 6px; 
                 padding: 10px;
             }
@@ -610,12 +679,12 @@ class SimilarDuplicatesDialog(BaseDialog):
         warning_layout.setContentsMargins(12, 8, 12, 8)
         
         warning = QLabel(
-            "⚠️ <b>Estos archivos son similares pero NO idénticos.</b> "
+            "ℹ️ Estos archivos son similares pero NO idénticos. "
             "Revisa cada grupo cuidadosamente antes de eliminar."
         )
         warning.setTextFormat(Qt.TextFormat.RichText)
         warning.setWordWrap(True)
-        warning.setStyleSheet("font-size: 10pt; color: #856404; background: transparent;")
+        warning.setStyleSheet("font-size: 9pt; color: #495057; background: transparent;")
         warning_layout.addWidget(warning)
         
         layout.addWidget(warning_frame)

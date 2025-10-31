@@ -218,5 +218,22 @@ def reset_analysis_ui(window, reinsert_analyze=True):
     window.analysis_results = None
     window.last_analyzed_directory = None
     
+    # Ocultar botones de duplicados (prevenir mostrar resultados de directorio anterior)
+    if hasattr(window, 'delete_exact_duplicates_btn'):
+        window.delete_exact_duplicates_btn.setVisible(False)
+    if hasattr(window, 'review_similar_btn'):
+        window.review_similar_btn.setVisible(False)
+    
+    # Limpiar resultados de duplicados del detector
+    if hasattr(window, 'duplicate_detector'):
+        window.duplicate_detector.clear_last_results()
+    
+    # Limpiar área de detalles de duplicados
+    if hasattr(window, 'duplicates_details'):
+        window.duplicates_details.clear()
+        window.duplicates_details.setPlaceholderText(
+            "Haz clic en 'Analizar Duplicados' para comenzar la detección..."
+        )
+    
     # Log
     window.logger.info("UI reiniciada tras cambio de directorio")
