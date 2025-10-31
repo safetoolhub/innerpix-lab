@@ -13,12 +13,12 @@ def create_duplicates_tab(window):
 
     # ===== TÍTULO =====
     title = QLabel("🔍 Detección de Duplicados")
-    title.setStyleSheet("font-size: 18px; font-weight: 600; color: #212529;")
+    title.setStyleSheet("font-size: 16px; font-weight: 600; color: #212529;")
     layout.addWidget(title)
     
     # ===== DESCRIPCIÓN BREVE =====
     desc = QLabel("Busca archivos duplicados exactos (SHA256) o similares (análisis perceptual)")
-    desc.setStyleSheet("font-size: 12px; color: #6c757d; margin-bottom: 4px;")
+    desc.setStyleSheet("font-size: 11px; color: #6c757d; margin-bottom: 4px;")
     layout.addWidget(desc)
 
     # ========================================================================
@@ -40,71 +40,50 @@ def create_duplicates_tab(window):
 
 def _create_exact_duplicates_card(window) -> QGroupBox:
     """Crea el bloque de duplicados exactos con estado y acciones integradas"""
-    card = QGroupBox("⚡ DUPLICADOS EXACTOS (SHA256)")
+    card = QGroupBox("⚡ Duplicados Exactos (SHA256)")
     card.setStyleSheet("""
         QGroupBox {
-            font-weight: 700;
+            font-weight: 600;
             font-size: 13px;
-            color: #ffffff;
-            border: 2px solid #2c5aa0;
-            border-radius: 8px;
-            margin-top: 10px;
-            padding-top: 18px;
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                       stop:0 #e3f2fd, stop:1 #ffffff);
+            color: #2c5aa0;
+            border: 1px solid #e3f2fd;
+            border-radius: 6px;
+            margin-top: 8px;
+            padding-top: 16px;
+            background: #fafafa;
         }
         QGroupBox::title {
             subcontrol-origin: margin;
-            left: 15px;
-            padding: 3px 12px;
-            background-color: #2c5aa0;
-            border-radius: 4px;
-            color: white;
-            font-size: 13px;
+            left: 12px;
+            padding: 0 6px;
+            background: white;
         }
     """)
     
     card_layout = QVBoxLayout(card)
-    card_layout.setSpacing(8)
-    card_layout.setContentsMargins(12, 12, 12, 12)
-    
-    # Descripción de funcionamiento
-    help_label = QLabel("✓ Archivos 100% idénticos (hash SHA256)")
-    help_label.setStyleSheet("""
-        font-size: 11px; 
-        color: #495057; 
-        background-color: #e7f3ff;
-        padding: 4px 8px;
-        border-radius: 3px;
-        border-left: 3px solid #2c5aa0;
-    """)
-    card_layout.addWidget(help_label)
+    card_layout.setSpacing(6)
+    card_layout.setContentsMargins(10, 8, 10, 8)
     
     # Fila de estado + botón integrado
     status_row = QHBoxLayout()
-    status_row.setSpacing(10)
+    status_row.setSpacing(8)
     
-    # Label de estado con instrucciones
-    window.exact_status_label = QLabel("⏳ Analizando en el análisis inicial...")
-    window.exact_status_label.setStyleSheet("""
-        font-size: 12px; 
-        font-weight: 600; 
-        color: #2c5aa0;
-        padding: 4px;
-    """)
+    # Label de estado (más compacto)
+    window.exact_status_label = QLabel("⏳ Pendiente de análisis")
+    window.exact_status_label.setStyleSheet("font-size: 11px; font-weight: 600; color: #495057;")
     window.exact_status_label.setWordWrap(True)
     status_row.addWidget(window.exact_status_label, 1)
     
     # Botón de revisar/eliminar (compacto, alineado a la derecha)
-    window.delete_exact_duplicates_btn = QPushButton("📋 Revisar")
+    window.delete_exact_duplicates_btn = QPushButton("� Revisar")
     window.delete_exact_duplicates_btn.setStyleSheet("""
         QPushButton {
             background-color: #28a745;
             color: white;
             border: none;
             border-radius: 4px;
-            padding: 5px 12px;
-            font-size: 12px;
+            padding: 4px 10px;
+            font-size: 11px;
             font-weight: 600;
         }
         QPushButton:hover {
@@ -114,27 +93,25 @@ def _create_exact_duplicates_card(window) -> QGroupBox:
             background-color: #1e7e34;
         }
     """)
-    window.delete_exact_duplicates_btn.setMinimumHeight(28)
-    window.delete_exact_duplicates_btn.setMinimumWidth(100)
+    window.delete_exact_duplicates_btn.setMaximumHeight(24)
+    window.delete_exact_duplicates_btn.setMaximumWidth(90)
     window.delete_exact_duplicates_btn.setVisible(False)
     window.delete_exact_duplicates_btn.clicked.connect(window.on_delete_exact_duplicates)
     status_row.addWidget(window.delete_exact_duplicates_btn)
     
     card_layout.addLayout(status_row)
     
-    # Área de detalles (sin scroll, altura fija)
+    # Área de detalles (compacta, inicialmente oculta)
     window.exact_details_text = QTextEdit()
     window.exact_details_text.setReadOnly(True)
-    window.exact_details_text.setFixedHeight(105)
-    window.exact_details_text.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+    window.exact_details_text.setMaximumHeight(60)
     window.exact_details_text.setStyleSheet("""
         QTextEdit {
             background-color: white;
             border: 1px solid #dee2e6;
             border-radius: 4px;
-            padding: 8px;
-            font-size: 11px;
-            line-height: 1.4;
+            padding: 6px;
+            font-size: 10px;
         }
     """)
     window.exact_details_text.setVisible(False)
@@ -145,44 +122,29 @@ def _create_exact_duplicates_card(window) -> QGroupBox:
 
 def _create_similar_duplicates_card(window) -> QGroupBox:
     """Crea el bloque de duplicados similares con estado y acciones integradas"""
-    card = QGroupBox("🔍 DUPLICADOS SIMILARES (Perceptual)")
+    card = QGroupBox("🎨 Duplicados Similares (Perceptual)")
     card.setStyleSheet("""
         QGroupBox {
-            font-weight: 700;
+            font-weight: 600;
             font-size: 13px;
-            border: 2px solid #9c27b0;
-            border-radius: 8px;
-            margin-top: 12px;
-            padding-top: 12px;
-            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #f3e5f5, stop:1 #ffffff);
+            color: #9c27b0;
+            border: 1px solid #f3e5f5;
+            border-radius: 6px;
+            margin-top: 8px;
+            padding-top: 16px;
+            background: #fafafa;
         }
         QGroupBox::title {
             subcontrol-origin: margin;
-            subcontrol-position: top left;
-            left: 10px;
-            padding: 3px 12px;
-            background-color: #9c27b0;
-            color: white;
-            border-radius: 4px;
-            font-size: 13px;
+            left: 12px;
+            padding: 0 6px;
+            background: white;
         }
     """)
     
     card_layout = QVBoxLayout(card)
-    card_layout.setSpacing(8)
-    card_layout.setContentsMargins(12, 12, 12, 12)
-    
-    # Descripción de funcionamiento
-    help_label = QLabel("🎨 Imágenes visualmente parecidas - Requiere análisis manual")
-    help_label.setStyleSheet("""
-        font-size: 11px; 
-        color: #495057; 
-        background-color: #fce4ec;
-        padding: 4px 8px;
-        border-radius: 3px;
-        border-left: 3px solid #9c27b0;
-    """)
-    card_layout.addWidget(help_label)
+    card_layout.setSpacing(6)
+    card_layout.setContentsMargins(10, 8, 10, 8)
     
     # Control de sensibilidad (compacto)
     from PyQt6.QtWidgets import QSlider
@@ -191,7 +153,7 @@ def _create_similar_duplicates_card(window) -> QGroupBox:
     sens_layout.setSpacing(8)
     
     sens_label = QLabel("Sensibilidad:")
-    sens_label.setStyleSheet("font-size: 12px; color: #495057; font-weight: 600;")
+    sens_label.setStyleSheet("font-size: 11px; color: #495057; font-weight: 600;")
     sens_layout.addWidget(sens_label)
     
     window.sensitivity_slider = QSlider(Qt.Orientation.Horizontal)
@@ -203,7 +165,7 @@ def _create_similar_duplicates_card(window) -> QGroupBox:
     sens_layout.addWidget(window.sensitivity_slider)
     
     window.sens_value_label = QLabel("Media (10)")
-    window.sens_value_label.setStyleSheet("font-size: 11px; color: #6c757d;")
+    window.sens_value_label.setStyleSheet("font-size: 10px; color: #6c757d;")
     sens_layout.addWidget(window.sens_value_label)
     
     sens_layout.addStretch()
@@ -216,109 +178,54 @@ def _create_similar_duplicates_card(window) -> QGroupBox:
     
     # Fila de estado + botones integrados (en línea)
     status_row = QHBoxLayout()
-    status_row.setSpacing(10)
+    status_row.setSpacing(8)
     
-    # Label de estado con instrucciones
-    window.similar_status_label = QLabel("▶ Haz clic en 'Analizar' para buscar imágenes similares")
-    window.similar_status_label.setStyleSheet("""
-        font-size: 12px; 
-        font-weight: 600; 
-        color: #9c27b0;
-        padding: 4px;
-    """)
+    # Label de estado
+    window.similar_status_label = QLabel("⏳ No analizado")
+    window.similar_status_label.setStyleSheet("font-size: 12px; font-weight: 600; color: #495057;")
     window.similar_status_label.setWordWrap(True)
     status_row.addWidget(window.similar_status_label, 1)
     
     # Botón de analizar (compacto)
     window.analyze_similar_btn = QPushButton("🔍 Analizar")
-    window.analyze_similar_btn.setStyleSheet("""
-        QPushButton {
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 5px 12px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-        QPushButton:hover {
-            background-color: #0069d9;
-        }
-        QPushButton:pressed {
-            background-color: #0056b3;
-        }
-    """)
-    window.analyze_similar_btn.setMinimumHeight(28)
-    window.analyze_similar_btn.setMinimumWidth(100)
+    window.analyze_similar_btn.setStyleSheet(styles.get_button_style("#007bff"))
+    window.analyze_similar_btn.setMaximumHeight(28)
+    window.analyze_similar_btn.setMaximumWidth(100)
     window.analyze_similar_btn.clicked.connect(window.on_analyze_similar_duplicates)
     status_row.addWidget(window.analyze_similar_btn)
     
     # Botón de cancelar (compacto, solo visible durante análisis)
     window.cancel_similar_btn = QPushButton("⏹")
-    window.cancel_similar_btn.setStyleSheet("""
-        QPushButton {
-            background-color: #dc3545;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 5px 8px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-        QPushButton:hover {
-            background-color: #c82333;
-        }
-        QPushButton:pressed {
-            background-color: #bd2130;
-        }
-    """)
-    window.cancel_similar_btn.setMinimumHeight(28)
-    window.cancel_similar_btn.setMinimumWidth(35)
+    window.cancel_similar_btn.setStyleSheet(styles.get_button_style("#dc3545"))
+    window.cancel_similar_btn.setMaximumHeight(28)
+    window.cancel_similar_btn.setMaximumWidth(40)
     window.cancel_similar_btn.setVisible(False)
     window.cancel_similar_btn.setToolTip("Cancelar análisis")
     window.cancel_similar_btn.clicked.connect(window.on_cancel_similar_analysis)
     status_row.addWidget(window.cancel_similar_btn)
     
     # Botón de revisar (compacto, solo visible cuando hay resultados)
-    window.review_similar_btn = QPushButton("📋 Revisar")
-    window.review_similar_btn.setStyleSheet("""
-        QPushButton {
-            background-color: #17a2b8;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 5px 12px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-        QPushButton:hover {
-            background-color: #138496;
-        }
-        QPushButton:pressed {
-            background-color: #117a8b;
-        }
-    """)
-    window.review_similar_btn.setMinimumHeight(28)
-    window.review_similar_btn.setMinimumWidth(100)
+    window.review_similar_btn = QPushButton("� Revisar")
+    window.review_similar_btn.setStyleSheet(styles.get_button_style("#17a2b8"))
+    window.review_similar_btn.setMaximumHeight(28)
+    window.review_similar_btn.setMaximumWidth(100)
     window.review_similar_btn.setVisible(False)
     window.review_similar_btn.clicked.connect(window.on_review_similar_duplicates)
     status_row.addWidget(window.review_similar_btn)
     
     card_layout.addLayout(status_row)
     
-    # Área de detalles (sin scroll, altura fija)
+    # Área de detalles (compacta, inicialmente oculta)
     window.similar_details_text = QTextEdit()
     window.similar_details_text.setReadOnly(True)
-    window.similar_details_text.setFixedHeight(120)
-    window.similar_details_text.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+    window.similar_details_text.setMaximumHeight(60)
     window.similar_details_text.setStyleSheet("""
         QTextEdit {
             background-color: white;
             border: 1px solid #dee2e6;
             border-radius: 4px;
-            padding: 8px;
-            font-size: 11px;
-            line-height: 1.4;
+            padding: 6px;
+            font-size: 10px;
         }
     """)
     window.similar_details_text.setVisible(False)
@@ -345,3 +252,4 @@ def _update_sensitivity_label(window, value: int):
         desc = "Personalizada"
     
     window.sens_value_label.setText(f"{desc} ({value})")
+

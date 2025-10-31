@@ -221,53 +221,56 @@ class ResultsController(QObject):
         return html
 
     def show_exact_results(self, results):
-        """Formatea y muestra resultados de duplicados exactos
+        """Formatea y muestra resultados de duplicados exactos en el bloque específico
 
         Args:
             results: DuplicateAnalysisResult con resultados de duplicados exactos
         """
-        # Verificar que el modo actual sea exact antes de mostrar
-        if not self.main_window.exact_mode_radio.isChecked():
-            self.logger.warning("Modo actual no es 'exact', ignorando show_exact_results")
-            return
-
         total_groups = results.total_groups
         total_duplicates = results.total_duplicates
         space_wasted = results.space_wasted
 
         if total_groups == 0:
-            self.main_window.duplicates_details.setHtml(markdown_like_to_html(
-                "✅ **¡Excelente!** No se encontraron duplicados exactos.\n\n"
-                "Tu biblioteca está limpia de copias idénticas."
-            ))
+            # No hay duplicados
+            self.main_window.exact_status_label.setText(
+                "✅ Sin duplicados - Todos los archivos son únicos"
+            )
+            self.main_window.exact_status_label.setStyleSheet(
+                "font-size: 11px; font-weight: 600; color: #28a745; padding: 4px;"
+            )
+            self.main_window.exact_details_text.setVisible(False)
+            self.main_window.delete_exact_duplicates_btn.setVisible(False)
             return
 
         size_str = format_size(space_wasted)
 
-        self.main_window.duplicates_details.setHtml(markdown_like_to_html(
-            f"**📊 Duplicados Exactos Encontrados:**\n\n"
-            f"• **Grupos encontrados:** {total_groups}\n"
-            f"• **Archivos duplicados:** {total_duplicates}\n"
-            f"• **Espacio desperdiciado:** {size_str}\n\n"
-            f"✅ Estos son duplicados 100% idénticos.\n"
-            f"Puedes eliminarlos de forma segura."
-        ))
-
-        # Mostrar botón de eliminación solo si hay grupos
-        self.main_window.delete_exact_duplicates_btn.setVisible(total_groups > 0)
-        self.main_window.delete_exact_duplicates_btn.setEnabled(total_groups > 0)
+        # Actualizar label de estado con instrucción
+        self.main_window.exact_status_label.setText(
+            f"✅ {total_groups} grupos encontrados - Haz clic en 'Revisar' para ver detalles"
+        )
+        self.main_window.exact_status_label.setStyleSheet(
+            "font-size: 11px; font-weight: 600; color: #2c5aa0; padding: 4px;"
+        )
+        
+        # Mostrar detalles
+        details_html = markdown_like_to_html(
+            f"**Archivos duplicados:** {total_duplicates}\n"
+            f"**Espacio desperdiciado:** {size_str}\n\n"
+            f"✅ Estos archivos son 100% idénticos y pueden eliminarse de forma segura."
+        )
+        self.main_window.exact_details_text.setHtml(details_html)
+        self.main_window.exact_details_text.setVisible(True)
+        
+        # Mostrar botón de eliminación
+        self.main_window.delete_exact_duplicates_btn.setVisible(True)
+        self.main_window.delete_exact_duplicates_btn.setEnabled(True)
 
     def show_similar_results(self, results):
-        """Formatea y muestra resultados de duplicados similares
+        """Formatea y muestra resultados de duplicados similares en el bloque específico
 
         Args:
             results: DuplicateAnalysisResult con resultados de duplicados similares
         """
-        # Verificar que el modo actual sea similar antes de mostrar
-        if not self.main_window.similar_mode_radio.isChecked():
-            self.logger.warning("Modo actual no es 'similar', ignorando show_similar_results")
-            return
-
         total_groups = results.total_groups
         total_similar = results.total_similar
         space_potential = results.space_potential
@@ -275,24 +278,75 @@ class ResultsController(QObject):
         max_sim = results.max_similarity or 0
 
         if total_groups == 0:
-            self.main_window.duplicates_details.setHtml(markdown_like_to_html(
-                "✅ **No se encontraron duplicados similares** con la sensibilidad actual.\n\n"
-                "Prueba aumentar la sensibilidad si quieres detectar archivos menos similares."
-            ))
+            # No hay duplicados similares
+            self.main_window.similar_status_label.setText(
+                "✅ Sin duplicados similares - Prueba ajustar la sensibilidad"
+            )
+            self.main_window.similar_status_label.setStyleSheet(
+                "font-size: 11px; font-weight: 600; color: #28a745; padding: 4px;"
+            )
+            self.main_window.similar_details_text.setVisible(False)
+            self.main_window.review_similar_btn.setVisible(False)
             return
 
         size_str = format_size(space_potential)
 
-        self.main_window.duplicates_details.setHtml(markdown_like_to_html(
-            f"**🎨 Duplicados Similares Encontrados:**\n\n"
-            f"• **Grupos de similitud:** {total_groups}\n"
-            f"• **Archivos similares:** {total_similar}\n"
-            f"• **Rango de similitud:** {min_sim}-{max_sim}%\n"
-            f"• **Espacio potencial:** {size_str}\n\n"
-            f"⚠️ **Requiere revisión manual** antes de eliminar.\n"
-            f"Estos archivos NO son idénticos."
-        ))
-
-        # Mostrar botón de revisión solo si hay grupos
-        self.main_window.review_similar_btn.setVisible(total_groups > 0)
-        self.main_window.review_similar_btn.setEnabled(total_groups > 0)
+        # Actualizar label de estado con instrucción
+        self.main_window.similar_status_label.setText(
+            f"✅ {total_groups} grupos encontrados - Haz clic en 'Revisar' para seleccionar qué eliminar"
+        )
+        self.main_window.similar_status_label.setStyleSheet(
+            "font-size: 11px; font-weight: 600; color: #9c27b0; padding: 4px;"
+        )
+        
+        # Mostrar detalles
+        details_html = markdown_like_to_html(
+            f"**Archivos similares:** {total_similar}\n"
+            f"**Rango de similitud:** {min_sim:.1f}% - {max_sim:.1f}%\n"
+            f"**Espacio potencial:** {size_str}\n\n"
+            f"⚠️ **Requiere revisión manual** antes de eliminar."
+        )
+        self.main_window.similar_details_text.setHtml(details_html)
+        self.main_window.similar_details_text.setVisible(True)
+        
+        # Mostrar botón de revisión
+        self.main_window.review_similar_btn.setVisible(True)
+        self.main_window.review_similar_btn.setEnabled(True)
+    
+    def clear_exact_results(self):
+        """Limpia el estado de duplicados exactos"""
+        self.main_window.exact_status_label.setText("⏳ Analizando en el análisis inicial...")
+        self.main_window.exact_status_label.setStyleSheet(
+            "font-size: 11px; font-weight: 600; color: #2c5aa0; padding: 4px;"
+        )
+        self.main_window.exact_details_text.setVisible(False)
+        self.main_window.exact_details_text.clear()
+        self.main_window.delete_exact_duplicates_btn.setVisible(False)
+    
+    def clear_similar_results(self):
+        """Limpia el estado de duplicados similares"""
+        self.main_window.similar_status_label.setText("▶ Haz clic en 'Analizar' para buscar imágenes similares")
+        self.main_window.similar_status_label.setStyleSheet(
+            "font-size: 11px; font-weight: 600; color: #9c27b0; padding: 4px;"
+        )
+        self.main_window.similar_details_text.setVisible(False)
+        self.main_window.similar_details_text.clear()
+        self.main_window.review_similar_btn.setVisible(False)
+    
+    def show_exact_analyzing(self):
+        """Muestra estado de análisis en progreso para duplicados exactos"""
+        self.main_window.exact_status_label.setText("🔄 Analizando duplicados exactos...")
+        self.main_window.exact_status_label.setStyleSheet(
+            "font-size: 11px; font-weight: 600; color: #007bff; padding: 4px;"
+        )
+        self.main_window.exact_details_text.setVisible(False)
+        self.main_window.delete_exact_duplicates_btn.setVisible(False)
+    
+    def show_similar_analyzing(self):
+        """Muestra estado de análisis en progreso para duplicados similares"""
+        self.main_window.similar_status_label.setText("🔄 Analizando duplicados similares... (puede tardar varios minutos)")
+        self.main_window.similar_status_label.setStyleSheet(
+            "font-size: 11px; font-weight: 600; color: #007bff; padding: 4px;"
+        )
+        self.main_window.similar_details_text.setVisible(False)
+        self.main_window.review_similar_btn.setVisible(False)
