@@ -41,6 +41,9 @@ class SettingsManager:
     KEY_WINDOW_GEOMETRY = "window/geometry"
     KEY_WINDOW_STATE = "window/state"
 
+    # === INTERFAZ ===
+    KEY_SHOW_FULL_PATH = "interface/show_full_directory_path"
+
     def __init__(self, backend: Optional[StorageBackend] = None,
                  organization: str = "PixaroLab", application: str = "Pixaro Lab"):
         """
@@ -223,6 +226,14 @@ class SettingsManager:
     def get_max_workers(self, default: int = 4) -> int:
         """Obtiene el número máximo de workers"""
         return self.get_int(self.KEY_MAX_WORKERS, default)
+
+    def get_show_full_path(self) -> bool:
+        """Obtiene si se debe mostrar la ruta completa del directorio (por defecto True)"""
+        return self.get_bool(self.KEY_SHOW_FULL_PATH, True)
+
+    def set_show_full_path(self, enabled: bool) -> None:
+        """Establece si se debe mostrar la ruta completa del directorio"""
+        self.set(self.KEY_SHOW_FULL_PATH, enabled)
 
 
 # Instancia global del gestor de configuración

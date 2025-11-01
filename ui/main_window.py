@@ -115,6 +115,7 @@ class MainWindow(QMainWindow):
 
         # ===== SELECTOR ESTILO SEARCH BAR =====
         search_bar = SearchBar(self)
+        self.search_bar = search_bar  # Exponer para actualizar el display
 
         # Exponer los controles usados por el resto de MainWindow
         self.directory_edit = search_bar.directory_edit
@@ -263,6 +264,10 @@ class MainWindow(QMainWindow):
             Config.DEFAULT_LOG_DIR = custom_log_dir
         if custom_backup_dir:
             Config.DEFAULT_BACKUP_DIR = custom_backup_dir
+        
+        # Actualizar display del directorio actual si hay uno seleccionado
+        if hasattr(self, 'current_directory') and self.current_directory:
+            self.search_bar.update_directory_display(self.current_directory)
 
     def show_about_dialog(self):
         """Muestra el diálogo Acerca de usando `AboutDialog`."""
@@ -361,8 +366,7 @@ class MainWindow(QMainWindow):
 
         # Actualizar directorio actual y mostrar en UI
         self.current_directory = new_directory
-        self.directory_edit.setText(f"{self.current_directory.name}")
-        self.directory_edit.setToolTip(str(self.current_directory))
+        self.search_bar.update_directory_display(self.current_directory)
 
         # Contar archivos y manejar errores de acceso
         try:
@@ -529,8 +533,7 @@ class MainWindow(QMainWindow):
 
         # Usuario confirmó, aplicar cambio
         self.current_directory = new_directory
-        self.directory_edit.setText(f"{self.current_directory.name}")
-        self.directory_edit.setToolTip(str(self.current_directory))
+        self.search_bar.update_directory_display(self.current_directory)
 
         # Limpiar análisis previo pero NO reinsertar analyze_btn (delegar la
         # gestión de visibilidad al componente ActionButtons)

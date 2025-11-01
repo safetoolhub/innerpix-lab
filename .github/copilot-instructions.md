@@ -139,5 +139,6 @@ Debugging: Check `ui.managers.logging_manager.LoggingManager` for log file locat
 
 - Primary: Windows (some paths use `Path.home() / "Documents"`)
 - Secondary: macOS/Linux supported
+- Future: Android, iOS (that's why the UI must be separated from business logic)
 - Qt environment: `main.py` sets `QT_LOGGING_RULES='qt.qpa.wayland=false'` to suppress Wayland warnings
 
