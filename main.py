@@ -33,6 +33,10 @@ def main():
     app.setApplicationName(Config.APP_NAME)
     app.setApplicationVersion(Config.APP_VERSION)
     app.setOrganizationName("PixaroLab")
+    
+    # Aplicar estilo global para tooltips (debe ser a nivel de QApplication)
+    from ui.styles import STYLE_GLOBAL_TOOLTIP
+    app.setStyleSheet(STYLE_GLOBAL_TOOLTIP)
 
     # Crear y mostrar ventana principal
     window = MainWindow()

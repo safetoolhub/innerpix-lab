@@ -26,8 +26,8 @@ def create_tabs_widget(window):
     window.tab_index_map['live_photos'] = idx
     idx += 1
 
-    # 2. Duplicados HEIC (debe ejecutarse ANTES de renombrar)
-    tabs.addTab(create_heic_tab(window), "🖼️ Duplicados HEIC")
+    # 2. Limpieza HEIC/JPG (debe ejecutarse ANTES de renombrar)
+    tabs.addTab(create_heic_tab(window), "🖼️ Limpieza HEIC/JPG")
     window.tab_index_map['heic'] = idx
     idx += 1
 

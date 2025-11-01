@@ -61,14 +61,19 @@ class ActionButtons:
         self.layout.addWidget(self.reanalyze_btn)
         self.layout.addWidget(self.change_dir_btn)
 
-        # Inyectar el contenedor dentro del SearchBar
-        search_bar.add_actions_widget(self.container)
+        # Inyectar el contenedor dentro del SearchBar/TopBar solo si tiene el método
+        if hasattr(search_bar, 'add_actions_widget'):
+            search_bar.add_actions_widget(self.container)
+        else:
+            # TopBar ya tiene sus propios botones integrados, no necesita inyección
+            # Ocultar el container ya que TopBar maneja sus propios botones
+            self.container.setVisible(False)
 
         # Exponer atributos en el parent para mantener compatibilidad
         # con el código existente en MainWindow
         parent.actions_container = self.container
         parent.actions_layout = self.layout
-        # `analyze_btn` ya proviene del search_bar
+        # `analyze_btn` ya proviene del search_bar o top_bar
         if self.analyze_btn is not None:
             parent.analyze_btn = self.analyze_btn
         parent.reanalyze_btn = self.reanalyze_btn
