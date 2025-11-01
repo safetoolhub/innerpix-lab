@@ -43,6 +43,8 @@ class SettingsManager:
 
     # === INTERFAZ ===
     KEY_SHOW_FULL_PATH = "interface/show_full_directory_path"
+    KEY_DIRECTORY_HISTORY = "interface/directory_history"
+    KEY_ANALYSIS_TIMESTAMP = "interface/analysis_timestamp"  # Timestamp del último análisis
 
     def __init__(self, backend: Optional[StorageBackend] = None,
                  organization: str = "PixaroLab", application: str = "Pixaro Lab"):
@@ -234,6 +236,38 @@ class SettingsManager:
     def set_show_full_path(self, enabled: bool) -> None:
         """Establece si se debe mostrar la ruta completa del directorio"""
         self.set(self.KEY_SHOW_FULL_PATH, enabled)
+
+    def get_directory_history(self, max_items: int = 10) -> list:
+        """Obtiene el historial de directorios recientes (máximo 10)"""
+        history = self.get(self.KEY_DIRECTORY_HISTORY, [])
+        if not isinstance(history, list):
+            return []
+        return history[:max_items]
+
+    def add_to_directory_history(self, directory_path: str) -> None:
+        """Agrega un directorio al historial (mantiene últimos 10, sin duplicados)"""
+        history = self.get_directory_history()
+        path_str = str(directory_path)
+        
+        # Remover si ya existe (para moverlo al principio)
+        if path_str in history:
+            history.remove(path_str)
+        
+        # Agregar al principio
+        history.insert(0, path_str)
+        
+        # Mantener máximo 10 elementos
+        history = history[:10]
+        
+        self.set(self.KEY_DIRECTORY_HISTORY, history)
+
+    def get_analysis_timestamp(self) -> Optional[str]:
+        """Obtiene el timestamp del último análisis"""
+        return self.get(self.KEY_ANALYSIS_TIMESTAMP, None)
+
+    def set_analysis_timestamp(self, timestamp: str) -> None:
+        """Establece el timestamp del último análisis"""
+        self.set(self.KEY_ANALYSIS_TIMESTAMP, timestamp)
 
 
 # Instancia global del gestor de configuración

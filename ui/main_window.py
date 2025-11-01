@@ -109,19 +109,24 @@ class MainWindow(QMainWindow):
         main_layout.setSpacing(10)
         main_layout.setContentsMargins(15, 15, 15, 15)
 
-        # ===== HEADER CON MENÚ DESPLEGABLE =====
-        header = Header(self)
-        main_layout.addWidget(header)
-
-        # ===== SELECTOR ESTILO SEARCH BAR =====
-        search_bar = SearchBar(self)
-        self.search_bar = search_bar  # Exponer para actualizar el display
-
-        # Exponer los controles usados por el resto de MainWindow
-        self.directory_edit = search_bar.directory_edit
-        self.analyze_btn = search_bar.analyze_btn
-
-        main_layout.addWidget(search_bar)
+        # ===== TOP BAR UNIFICADA (Header + SearchBar integrados) =====
+        from ui.components import TopBar
+        self.top_bar = TopBar(self)
+        
+        # Conectar señales del TopBar
+        self.top_bar.select_directory_requested.connect(self._on_topbar_select_directory)
+        self.top_bar.analyze_requested.connect(self._on_topbar_analyze)
+        self.top_bar.reanalyze_requested.connect(self._on_topbar_reanalyze)
+        self.top_bar.stop_analysis_requested.connect(self._on_topbar_stop_analysis)
+        self.top_bar.open_folder_requested.connect(self._on_topbar_open_folder)
+        self.top_bar.directory_changed.connect(self._on_topbar_directory_changed)
+        
+        # Exponer controles para compatibilidad con código existente
+        self.directory_edit = self.top_bar.directory_edit
+        self.analyze_btn = self.top_bar.analyze_btn
+        self.search_bar = self.top_bar  # Para compatibilidad con update_directory_display
+        
+        main_layout.addWidget(self.top_bar)
         main_layout.addSpacing(10)
 
 
@@ -201,7 +206,7 @@ class MainWindow(QMainWindow):
         # ActionButtons registrará en `self` los atributos `reanalyze_btn`
         # y `change_dir_btn` para mantener compatibilidad con el código
         # existente en esta clase.
-        self.action_buttons = ActionButtons(self, search_bar)
+        self.action_buttons = ActionButtons(self, self.top_bar)
 
     # ========================================================================
     # WRAPPER METHODS FOR SPECIALIZED CONTROLLERS
@@ -367,6 +372,10 @@ class MainWindow(QMainWindow):
         # Actualizar directorio actual y mostrar en UI
         self.current_directory = new_directory
         self.search_bar.update_directory_display(self.current_directory)
+        
+        # Actualizar estado del TopBar a 'ready' antes del análisis
+        if hasattr(self, 'top_bar'):
+            self.top_bar.set_state('ready')
 
         # Contar archivos y manejar errores de acceso
         try:
@@ -381,6 +390,73 @@ class MainWindow(QMainWindow):
             return
 
         # Ejecutar análisis automáticamente
+        self.analyze_directory()
+
+    # ========================================================================
+    # CALLBACKS DEL TOP BAR
+    # ========================================================================
+
+    def _on_topbar_select_directory(self):
+        """Callback cuando se solicita seleccionar directorio desde el TopBar"""
+        self.select_and_analyze_directory()
+
+    def _on_topbar_analyze(self):
+        """Callback cuando se solicita analizar desde el TopBar"""
+        self.analyze_directory()
+
+    def _on_topbar_reanalyze(self):
+        """Callback cuando se solicita re-analizar desde el TopBar"""
+        self._reanalyze_same_directory()
+
+    def _on_topbar_stop_analysis(self):
+        """Callback cuando se solicita detener el análisis desde el TopBar"""
+        if hasattr(self, 'analysis_controller') and self.analysis_controller:
+            self.analysis_controller.stop_analysis()
+
+    def _on_topbar_open_folder(self):
+        """Callback cuando se solicita abrir carpeta desde el TopBar"""
+        if not self.current_directory:
+            return
+        
+        from ui.dialogs.dialog_utils import open_folder
+        open_folder(self.current_directory, parent_widget=self)
+
+    def _on_topbar_directory_changed(self, new_directory: Path):
+        """Callback cuando se selecciona un directorio del historial"""
+        # Verificar si hay análisis previo
+        if self.last_analyzed_directory and new_directory != self.last_analyzed_directory:
+            from ui.validators.directory_validator import confirm_directory_change
+            if not confirm_directory_change(self, self.last_analyzed_directory, new_directory, logger=self.logger):
+                return
+            # Usuario confirmó, limpiar análisis previo
+            self._reset_analysis_ui()
+            self.logger.info(f"Directorio cambiado de {self.last_analyzed_directory} a {new_directory}")
+
+        # Actualizar directorio actual
+        self.current_directory = new_directory
+        self.top_bar.set_directory(self.current_directory)
+        self.top_bar.set_state('ready')
+        
+        # Mostrar summary panel con estado "No analizado"
+        self.summary_panel.setVisible(True)
+        if hasattr(self, 'summary_component'):
+            self.summary_component.set_status_not_analyzed()
+        
+        # Contar archivos
+        from ui.validators.directory_validator import count_files_in_directory, confirm_large_directory
+        
+        try:
+            file_count = count_files_in_directory(new_directory)
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"No se pudo acceder al directorio:\n{str(e)}")
+            return
+
+        # Confirmación para directorios grandes
+        if not confirm_large_directory(self, new_directory, file_count, Config.LARGE_DIRECTORY_THRESHOLD):
+            self.logger.info(f"Cambio de directorio cancelado por el usuario para: {new_directory}")
+            return
+
+        # Analizar automáticamente
         self.analyze_directory()
 
     def browse_logs_directory(self):

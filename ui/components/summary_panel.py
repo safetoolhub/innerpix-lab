@@ -32,6 +32,21 @@ def create_summary_panel(window):
     title.setAlignment(Qt.AlignmentFlag.AlignCenter)
     layout.addWidget(title)
 
+    # Badge de estado del análisis
+    status_badge = QLabel("⏸️ Listo para analizar")
+    status_badge.setStyleSheet(
+        "background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #f8f9fa, stop:1 #e9ecef);"
+        "border: 1px solid #dee2e6;"
+        "border-radius: 6px;"
+        "padding: 6px 12px;"
+        "color: #495057;"
+        "font-size: 11px;"
+        "font-weight: 600;"
+    )
+    status_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    layout.addWidget(status_badge)
+    window.analysis_status_badge = status_badge
+
     info_card = QFrame()
     info_card.setStyleSheet(
         "background: linear-gradient(#ffffff, #fbfdff);"
@@ -90,7 +105,7 @@ def create_summary_panel(window):
     actions_layout.setSpacing(6)
     actions_layout.setContentsMargins(0, 0, 0, 0)
 
-    actions_title = QLabel("⚙️ Funcionalidades disponibles")
+    actions_title = QLabel("⚙️ Herramientas disponibles")
     actions_title.setStyleSheet(styles.STYLE_LABEL_TITLE_DARK)
     actions_layout.addWidget(actions_title)
 
@@ -121,7 +136,7 @@ def create_summary_panel(window):
     # `update_tabs_availability`).
     # ORDEN: Live Photos → HEIC → Duplicados → Organizador → Renombrado
     stack_layout.addWidget(make_full_btn('live_photos', '📱', 'Live Photos'))
-    stack_layout.addWidget(make_full_btn('heic', '🖼️', 'Duplicados HEIC'))
+    stack_layout.addWidget(make_full_btn('heic', '🖼️', 'Limpieza HEIC/JPG'))
     stack_layout.addWidget(make_full_btn('duplicates', '🔍', 'Duplicados'))
     stack_layout.addWidget(make_full_btn('organization', '📁', 'Organizador'))
     stack_layout.addWidget(make_full_btn('renaming', '📝', 'Renombrado'))
@@ -218,6 +233,30 @@ def create_summary_panel(window):
     return panel
 
 
+def _format_time_ago(timestamp_str: str) -> str:
+    """Formatea un timestamp ISO en texto 'hace X tiempo'"""
+    from datetime import datetime
+    try:
+        timestamp = datetime.fromisoformat(timestamp_str)
+        now = datetime.now()
+        delta = now - timestamp
+        
+        seconds = delta.total_seconds()
+        if seconds < 60:
+            return "hace menos de 1 minuto"
+        elif seconds < 3600:
+            minutes = int(seconds / 60)
+            return f"hace {minutes} min"
+        elif seconds < 86400:
+            hours = int(seconds / 3600)
+            return f"hace {hours}h"
+        else:
+            days = int(seconds / 86400)
+            return f"hace {days}d"
+    except Exception:
+        return "recientemente"
+
+
 def update_summary_panel(window, results):
     stats = results.get('stats', {})
     images_txt = f"🖼️ Imágenes: {stats.get('images', 0):,}"
@@ -230,6 +269,34 @@ def update_summary_panel(window, results):
         window.stats_labels['videos'].setText(videos_txt)
     if 'total' in window.stats_labels:
         window.stats_labels['total'].setText(total_txt)
+    
+    # Actualizar badge de estado del análisis
+    if hasattr(window, 'analysis_status_badge'):
+        from utils.settings_manager import settings_manager
+        timestamp = settings_manager.get_analysis_timestamp()
+        if timestamp:
+            time_ago = _format_time_ago(timestamp)
+            window.analysis_status_badge.setText(f"✓ Analizado {time_ago}")
+            window.analysis_status_badge.setStyleSheet(
+                "background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #d4edda, stop:1 #c3e6cb);"
+                "border: 1px solid #c3e6cb;"
+                "border-radius: 6px;"
+                "padding: 6px 12px;"
+                "color: #155724;"
+                "font-size: 11px;"
+                "font-weight: 600;"
+            )
+        else:
+            window.analysis_status_badge.setText("✓ Análisis completado")
+            window.analysis_status_badge.setStyleSheet(
+                "background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #d4edda, stop:1 #c3e6cb);"
+                "border: 1px solid #c3e6cb;"
+                "border-radius: 6px;"
+                "padding: 6px 12px;"
+                "color: #155724;"
+                "font-size: 11px;"
+                "font-weight: 600;"
+            )
 
     ren = results.get('renaming')  # RenameAnalysisResult (dataclass)
     lp = results.get('live_photos', {})  # Todavía es dict (desde workers.py)
@@ -243,7 +310,7 @@ def update_summary_panel(window, results):
             window.summary_action_buttons['live_photos'].setText(f"📱 Live Photos   {lp_count:,}")
         if 'heic' in window.summary_action_buttons:
             heic_count = heic.total_duplicates if heic else 0
-            window.summary_action_buttons['heic'].setText(f"🖼️ Duplicados HEIC   {heic_count:,}")
+            window.summary_action_buttons['heic'].setText(f"🖼️ Limpieza HEIC/JPG   {heic_count:,}")
         if 'duplicates' in window.summary_action_buttons:
             # Mostrar contador si hay resultados del análisis inicial de duplicados exactos
             if dup is not None:
@@ -261,6 +328,36 @@ def update_summary_panel(window, results):
 
 
 
+def set_analysis_status_not_analyzed(window):
+    """Establece el badge de estado a 'No analizado'"""
+    if hasattr(window, 'analysis_status_badge'):
+        window.analysis_status_badge.setText("⚠️ No analizado")
+        window.analysis_status_badge.setStyleSheet(
+            "background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #fff3cd, stop:1 #ffeaa7);"
+            "border: 1px solid #ffc107;"
+            "border-radius: 6px;"
+            "padding: 6px 12px;"
+            "color: #856404;"
+            "font-size: 11px;"
+            "font-weight: 600;"
+        )
+
+
+def set_analysis_status_analyzing(window):
+    """Establece el badge de estado a 'Analizando...'"""
+    if hasattr(window, 'analysis_status_badge'):
+        window.analysis_status_badge.setText("⏳ Analizando...")
+        window.analysis_status_badge.setStyleSheet(
+            "background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #d1ecf1, stop:1 #bee5eb);"
+            "border: 1px solid #bee5eb;"
+            "border-radius: 6px;"
+            "padding: 6px 12px;"
+            "color: #0c5460;"
+            "font-size: 11px;"
+            "font-weight: 600;"
+        )
+
+
 class SummaryPanel(QWidget):
     """Componente SummaryPanel que encapsula el widget creado por
     `create_summary_panel`.
@@ -276,3 +373,11 @@ class SummaryPanel(QWidget):
 
     def update(self, results):
         update_summary_panel(self.window, results)
+    
+    def set_status_not_analyzed(self):
+        """Establece estado a 'No analizado'"""
+        set_analysis_status_not_analyzed(self.window)
+    
+    def set_status_analyzing(self):
+        """Establece estado a 'Analizando...'"""
+        set_analysis_status_analyzing(self.window)

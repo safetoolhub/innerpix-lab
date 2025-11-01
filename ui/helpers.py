@@ -187,6 +187,10 @@ def reset_analysis_ui(window, reinsert_analyze=True):
     window.summary_panel.setVisible(False)
     window.tabs_widget.setVisible(False)
     
+    # Ocultar icono de carpeta (se muestra solo tras análisis)
+    if hasattr(window, 'top_bar') and hasattr(window.top_bar, 'hide_folder_icon'):
+        window.top_bar.hide_folder_icon()
+    
     # Deshabilitar botones de ejecución
     window.preview_rename_btn.setEnabled(False)
     window.exec_lp_btn.setEnabled(False)

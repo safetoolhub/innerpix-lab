@@ -23,13 +23,15 @@ class SearchBar(QWidget):
         self.layout.setContentsMargins(14, 10, 10, 10)
 
         # Icono decorativo de carpeta (no clickeable, solo visual)
-        folder_icon = QLabel("📂")
-        folder_icon.setStyleSheet(styles.STYLE_FOLDER_ICON)
-        folder_icon.setToolTip("Directorio actual - Usa el botón 'Seleccionar y Analizar' para cambiar →")
+        # Inicialmente OCULTO - se muestra solo tras análisis completado
+        self.folder_icon = QLabel("📂")
+        self.folder_icon.setStyleSheet(styles.STYLE_FOLDER_ICON)
+        self.folder_icon.setToolTip("Directorio actual - Usa el botón 'Seleccionar y Analizar' para cambiar →")
         # Hacer que sea visualmente claro que NO es clickeable
-        folder_icon.setCursor(Qt.CursorShape.ForbiddenCursor)
-        folder_icon.setEnabled(False)  # Desactivar para reforzar que no es interactivo
-        self.layout.addWidget(folder_icon)
+        self.folder_icon.setCursor(Qt.CursorShape.ForbiddenCursor)
+        self.folder_icon.setEnabled(False)  # Desactivar para reforzar que no es interactivo
+        self.folder_icon.setVisible(False)  # Oculto inicialmente
+        self.layout.addWidget(self.folder_icon)
 
         self.directory_edit = QLineEdit()
         self.directory_edit.setPlaceholderText("Selecciona un directorio para analizar...")
@@ -84,3 +86,21 @@ class SearchBar(QWidget):
         self.directory_edit.setText(display_text)
         # El tooltip siempre muestra la ruta completa para referencia
         self.directory_edit.setToolTip(str(path))
+
+    def show_folder_icon(self):
+        """Muestra el icono de carpeta (tras completarse el análisis)"""
+        self.folder_icon.setVisible(True)
+        self.folder_icon.setEnabled(True)
+        # Restaurar eventos de mouse
+        self.folder_icon.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, False)
+        # Restaurar tooltip
+        self.folder_icon.setToolTip("Directorio actual - Usa el botón 'Seleccionar y Analizar' para cambiar →")
+
+    def hide_folder_icon(self):
+        """Oculta el icono de carpeta y desactiva toda interacción"""
+        self.folder_icon.setVisible(False)
+        self.folder_icon.setEnabled(False)
+        # Eliminar tooltip para que no aparezca aunque el usuario intente hovering
+        self.folder_icon.setToolTip("")
+        # Bloquear eventos de mouse completamente
+        self.folder_icon.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)

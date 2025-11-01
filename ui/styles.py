@@ -1270,3 +1270,30 @@ STYLE_ABOUT_FOOTER = f"background-color: #f8f8f8;"
 # ============================================================================
 
 STYLE_SETTINGS_DEBUG_INFO = f"color: #ff5252; font-size: 11px;"
+
+# ============================================================================
+# ESTILO GLOBAL PARA TOOLTIPS
+# ============================================================================
+
+STYLE_GLOBAL_TOOLTIP = """
+QToolTip {
+    background-color: #ffffff !important;
+    color: #1e293b !important;
+    border: 1px solid #cbd5e0 !important;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 13px;
+}
+"""
+
+# Estilo oscuro compartido para tooltips (usado en diálogos como HEIC)
+STYLE_TOOLTIP_DARK = """
+QToolTip {
+    background-color: #2c3e50;
+    color: #ecf0f1;
+    border: 1px solid #34495e;
+    padding: 8px;
+    font-size: 11px;
+    border-radius: 4px;
+}
+"""

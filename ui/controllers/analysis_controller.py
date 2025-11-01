@@ -97,6 +97,10 @@ class AnalysisController:
         # Mostrar panel de resumen pero ocultar pestañas hasta que termine
         self.window.summary_panel.setVisible(True)
         self.window.tabs_widget.setVisible(False)
+        
+        # Actualizar badge de estado a "Analizando..."
+        if hasattr(self.window, 'summary_component'):
+            self.window.summary_component.set_status_analyzing()
 
         # Mostrar progreso (modo indeterminado)
         self.window.progress_controller.show_progress(0, "Iniciando análisis...")
@@ -113,6 +117,10 @@ class AnalysisController:
             self.window.reanalyze_btn.setEnabled(False)
         if hasattr(self.window, 'change_dir_btn'):
             self.window.change_dir_btn.setEnabled(False)
+        
+        # Cambiar estado del TopBar a 'analyzing'
+        if hasattr(self.window, 'top_bar'):
+            self.window.top_bar.set_state('analyzing')
 
         # Obtener tipo de organización seleccionado desde la UI
         organization_type = None
@@ -235,7 +243,7 @@ class AnalysisController:
             heic = partial['heic']
             # heic es un HeicAnalysisResult (dataclass)
             count = heic.total_duplicates
-            self.window.summary_action_buttons['heic'].setText(f"🖼️ Duplicados HEIC   {count:,}")
+            self.window.summary_action_buttons['heic'].setText(f"🖼️ Limpieza HEIC/JPG   {count:,}")
 
         if 'duplicates' in partial and 'duplicates' in self.window.summary_action_buttons:
             dup = partial['duplicates']
@@ -292,6 +300,18 @@ class AnalysisController:
             self.window.reanalyze_btn.setEnabled(True)
         if hasattr(self.window, 'change_dir_btn'):
             self.window.change_dir_btn.setEnabled(True)
+        
+        # Cambiar estado del TopBar a 'analyzed'
+        if hasattr(self.window, 'top_bar'):
+            self.window.top_bar.set_state('analyzed')
+            # Mostrar icono de carpeta tras análisis exitoso
+            if hasattr(self.window.top_bar, 'show_folder_icon'):
+                self.window.top_bar.show_folder_icon()
+            
+        # Actualizar timestamp del análisis
+        from datetime import datetime
+        from utils.settings_manager import settings_manager
+        settings_manager.set_analysis_timestamp(datetime.now().isoformat())
 
         # Delegar habilitación/deshabilitación de botones
         self.window.action_buttons.update_after_analysis(results)
@@ -351,6 +371,17 @@ class AnalysisController:
             self.window.reanalyze_btn.setEnabled(True)
         if hasattr(self.window, 'change_dir_btn'):
             self.window.change_dir_btn.setEnabled(True)
+        
+        # Actualizar estado del TopBar
+        if hasattr(self.window, 'top_bar'):
+            if self.window.current_directory:
+                self.window.top_bar.set_state('ready')
+            else:
+                self.window.top_bar.set_state('empty')
+        
+        # Actualizar badge de estado
+        if hasattr(self.window, 'summary_component'):
+            self.window.summary_component.set_status_not_analyzed()
 
         # Mostrar mensaje de error
         QMessageBox.critical(
@@ -368,6 +399,53 @@ class AnalysisController:
             if self.worker in self.window.active_workers:
                 self.window.active_workers.remove(self.worker)
             self.worker = None
+
+    def stop_analysis(self):
+        """Detiene el análisis en curso si hay uno."""
+        if self.worker and self.worker.isRunning():
+            self.logger.info("Deteniendo análisis...")
+            self.worker.stop()
+            self.worker.quit()
+            self.worker.wait(Config.WORKER_SHUTDOWN_TIMEOUT_MS)
+            
+            # Ocultar progreso
+            self.window.progress_controller.hide_progress()
+            
+            # Actualizar estado del TopBar
+            if hasattr(self.window, 'top_bar'):
+                # Volver a 'ready' si había directorio seleccionado
+                if self.window.current_directory:
+                    self.window.top_bar.set_state('ready')
+                else:
+                    self.window.top_bar.set_state('empty')
+            
+            # Actualizar badge de estado
+            if hasattr(self.window, 'summary_component'):
+                self.window.summary_component.set_status_not_analyzed()
+            
+            # Rehabilitar botones
+            self.window.analyze_btn.setEnabled(True)
+            if hasattr(self.window, 'reanalyze_btn'):
+                self.window.reanalyze_btn.setEnabled(True)
+            if hasattr(self.window, 'change_dir_btn'):
+                self.window.change_dir_btn.setEnabled(True)
+            
+            # Limpiar worker
+            if self.worker in self.window.active_workers:
+                self.window.active_workers.remove(self.worker)
+            self.worker = None
+            
+            self.logger.info("Análisis detenido por el usuario")
+            
+            # Mostrar mensaje
+            self.window.results_controller.show_results_html(
+                """
+                <div style='color: #ffc107; font-weight: bold;'>
+                    ⏸️ Análisis detenido por el usuario
+                </div>
+                """,
+                show_generic_status=True
+            )
 
     def cleanup(self):
         """Limpia el worker si está ejecutándose."""

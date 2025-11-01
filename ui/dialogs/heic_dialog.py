@@ -252,7 +252,8 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         tree.itemDoubleClicked.connect(self._on_file_double_clicked)
         tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         tree.customContextMenuRequested.connect(self._show_context_menu)
-        tree.setStyleSheet("""
+        tree.setStyleSheet(
+            """
             QTreeWidget {
                 border: 1px solid #ddd;
                 outline: none;
@@ -264,15 +265,8 @@ class HEICDuplicateRemovalDialog(BaseDialog):
             QTreeWidget::item:hover {
                 background-color: #f0f7ff;
             }
-            QToolTip {
-                background-color: #2c3e50;
-                color: #ecf0f1;
-                border: 1px solid #34495e;
-                padding: 8px;
-                font-size: 10pt;
-                border-radius: 4px;
-            }
-        """)
+            """ + ui_styles.STYLE_TOOLTIP_DARK
+        )
         tree.setToolTip(
             "💡 Doble clic en 'HEIC 📷' para abrir archivo HEIC\n"
             "💡 Doble clic en 'JPG 📷' para abrir archivo JPG\n"
