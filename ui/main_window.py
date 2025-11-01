@@ -129,8 +129,7 @@ class MainWindow(QMainWindow):
 
     # Controlador de pestañas: centraliza creación, navegación y lógica
     # de disponibilidad de pestañas. Usa `window.tab_controller` como
-    # fuente de verdad para la disponibilidad (ya no se inyecta
-    # `tab_availability` directamente en `window`).
+    # fuente de verdad para la disponibilidad 
         from ui.controllers.tab_controller import TabController
         self.tab_controller = TabController(self)
 
@@ -269,7 +268,6 @@ class MainWindow(QMainWindow):
         """Muestra el diálogo Acerca de usando `AboutDialog`."""
         dialog = AboutDialog(self)
         dialog.exec()
-
     
 
     # ========================================================================
@@ -551,9 +549,4 @@ class MainWindow(QMainWindow):
                 el flujo actual debe mantener los botones alternativos visibles).
         """
         return reset_analysis_ui(self, reinsert_analyze)
-
-
-    # =========================================================================
-    # MÉTODOS DE ANÁLISIS
-    # =========================================================================
 

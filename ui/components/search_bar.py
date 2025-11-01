@@ -1,7 +1,6 @@
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel, QPushButton, QLineEdit, QFrame
 from PyQt6.QtCore import Qt
 
-from config import Config
 from ui import styles
 
 

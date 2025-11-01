@@ -25,12 +25,14 @@ try:
     from PIL import Image
     PERCEPTUAL_AVAILABLE = True
 except ImportError:
+    imagehash = None  # Definir para evitar NameError en type hints
     PERCEPTUAL_AVAILABLE = False
     
 try:
     import cv2
     VIDEO_ANALYSIS_AVAILABLE = True
 except ImportError:
+    cv2 = None
     VIDEO_ANALYSIS_AVAILABLE = False
 
 
@@ -333,8 +335,10 @@ class DuplicateDetector:
     
     # SHA256 hashing is delegated to utils.file_utils.calculate_file_hash
     
-    def _calculate_perceptual_hash(self, image_path: Path) -> Optional[imagehash.ImageHash]:
+    def _calculate_perceptual_hash(self, image_path: Path) -> Optional[any]:
         """Calcula hash perceptual de una imagen"""
+        if not PERCEPTUAL_AVAILABLE:
+            return None
         try:
             with Image.open(image_path) as img:
                 # Usar dhash (difference hash) que funciona bien para redimensionados
@@ -343,9 +347,9 @@ class DuplicateDetector:
             self.logger.debug(f"No se pudo calcular hash perceptual para {image_path}: {e}")
             return None
     
-    def _calculate_video_hash(self, video_path: Path) -> Optional[imagehash.ImageHash]:
+    def _calculate_video_hash(self, video_path: Path) -> Optional[any]:
         """Calcula hash perceptual de un video (primer frame)"""
-        if not VIDEO_ANALYSIS_AVAILABLE:
+        if not VIDEO_ANALYSIS_AVAILABLE or not PERCEPTUAL_AVAILABLE:
             return None
         
         try:
@@ -365,7 +369,7 @@ class DuplicateDetector:
     
     def _group_by_similarity(
         self,
-        hashes: Dict[Path, imagehash.ImageHash],
+        hashes: Dict[Path, any],
         threshold: int,
         progress_callback: Optional[Callable[[int, int, str], None]] = None
     ) -> List[DuplicateGroup]:

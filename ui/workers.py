@@ -64,10 +64,14 @@ class BaseWorker(QThread):
 
 
 class AnalysisWorker(BaseWorker):
-    """Worker unificado para análisis completo"""
+    """
+    Worker unificado para análisis completo.
+    Delega la lógica de análisis a AnalysisOrchestrator y solo maneja
+    threading + señales Qt.
+    """
     phase_update = pyqtSignal(str)
-    stats_update = pyqtSignal(object)  # Changed from dict to object to support dataclasses
-    partial_results = pyqtSignal(object)  # Changed from dict to object to support dataclasses
+    stats_update = pyqtSignal(object)
+    partial_results = pyqtSignal(object)
 
     def __init__(self, directory, renamer, lp_detector, unifier, heic_remover, duplicate_detector=None, organization_type=None):
         super().__init__()
@@ -77,143 +81,46 @@ class AnalysisWorker(BaseWorker):
         self.unifier = unifier
         self.heic_remover = heic_remover
         self.duplicate_detector = duplicate_detector
-        self.organization_type = organization_type  # None usará el default (TO_ROOT)
+        self.organization_type = organization_type
 
     def run(self):
         try:
-            results = {
-                'stats': {},
-                'renaming': None,
-                'live_photos': None,
-                'organization': None,
-                'heic': None,
-                'duplicates': None
-            }
-
-            # Fase 1: Escaneo de archivos
-            if self._stop_requested:
-                return
+            # Importar orchestrator aquí para evitar dependencias circulares
+            from services.analysis_orchestrator import AnalysisOrchestrator
             
-            self.phase_update.emit("📂 Escaneando archivos...")
-            all_files = list(self.directory.rglob("*"))
-            total_files = len([f for f in all_files if f.is_file()])
-            images, videos, others = [], [], []
-            processed = 0
-
-            for f in all_files:
-                if self._stop_requested:
-                    return
-                
-                if f.is_file():
-                    if Config.is_image_file(f.name):
-                        images.append(f)
-                    elif Config.is_video_file(f.name):
-                        videos.append(f)
+            orchestrator = AnalysisOrchestrator()
+            
+            # Callbacks para conectar orchestrator con señales Qt
+            def phase_callback(phase: str):
+                """Emite cambios de fase"""
+                if not self._stop_requested:
+                    self.phase_update.emit(phase)
+            
+            def partial_callback(phase_name: str, data):
+                """Emite resultados parciales"""
+                if not self._stop_requested:
+                    if phase_name == 'stats':
+                        self.stats_update.emit(data)
                     else:
-                        others.append(f)
-                    processed += 1
-                    if processed % 10 == 0:
-                        # Emitir solo mensaje (números se ignoran por la UI)
-                        self.progress_update.emit(0, 0, "Escaneando archivos")
-
-            results['stats'] = {
-                'total': total_files,
-                'images': len(images),
-                'videos': len(videos),
-                'others': len(others)
-            }
-
-            # Emitir estadísticas parciales para actualizar el summary inmediatamente
-            self.stats_update.emit(results['stats'])
-
-            # Fase 2: Análisis de renombrado
-            if self._stop_requested:
-                return
+                        self.partial_results.emit({phase_name: data})
             
-            if self.renamer:
-                self.phase_update.emit("📝 Analizando nombres de archivos...")
-
-                # Crear callback que emita progress_update SIN procesar eventos
-                # El callback solo emite la señal, el procesamiento lo hace Qt internamente
-                results['renaming'] = self.renamer.analyze_directory(
-                    self.directory,
-                    progress_callback=self._create_progress_callback(counts_in_message=True)
-                )
-                # Emitir resultados parciales después de renombrado
-                self.partial_results.emit({'renaming': results['renaming']})
-
-            # Fase 3: Detección de Live Photos
-            if self._stop_requested:
-                return
+            # Ejecutar análisis completo usando orchestrator
+            result = orchestrator.run_full_analysis(
+                directory=self.directory,
+                renamer=self.renamer,
+                lp_detector=self.lp_detector,
+                organizer=self.unifier,
+                heic_remover=self.heic_remover,
+                duplicate_detector=self.duplicate_detector,
+                organization_type=self.organization_type,
+                progress_callback=self._create_progress_callback(counts_in_message=True),
+                phase_callback=phase_callback,
+                partial_callback=partial_callback
+            )
             
-            if self.lp_detector:
-                self.phase_update.emit("📱 Detectando Live Photos...")
-                lp_groups = self.lp_detector.detect_in_directory(self.directory)
-                # Calcular estadísticas directamente de los grupos
-                total_space = sum(group.total_size for group in lp_groups)
-                video_space = sum(group.video_size for group in lp_groups)
-                
-                results['live_photos'] = {
-                    'groups': [
-                        {
-                            'image_path': str(group.image_path),
-                            'video_path': str(group.video_path),
-                            'base_name': group.base_name,
-                            'total_size': group.total_size,
-                            'video_size': group.video_size,
-                            'image_size': group.image_size
-                        }
-                        for group in lp_groups
-                    ],
-                    'total_space': total_space,
-                    'space_to_free': video_space,
-                    'live_photos_found': len(lp_groups)
-                }
-                # Emitir resultados parciales después de Live Photos
-                self.partial_results.emit({'live_photos': results['live_photos']})
-
-            # Fase 4: Análisis de estructura
-            if self._stop_requested:
-                return
-            
-            if self.unifier:
-                self.phase_update.emit("📁 Analizando estructura de directorios para organización...")
-                # Pasar el tipo de organización si está disponible
-                if self.organization_type:
-                    results['organization'] = self.unifier.analyze_directory_structure(
-                        self.directory, 
-                        organization_type=self.organization_type
-                    )
-                else:
-                    results['organization'] = self.unifier.analyze_directory_structure(self.directory)
-                # Emitir resultados parciales después de organización
-                self.partial_results.emit({'organization': results['organization']})
-
-            # Fase 5: Duplicados HEIC
-            if self._stop_requested:
-                return
-            
-            if self.heic_remover:
-                self.phase_update.emit("🖼️ Buscando duplicados HEIC/JPG...")
-                results['heic'] = self.heic_remover.analyze_heic_duplicates(self.directory)
-                # Emitir resultados parciales después de HEIC
-                self.partial_results.emit({'heic': results['heic']})
-
-            # Fase 6: Duplicados exactos (SHA256)
-            if self._stop_requested:
-                return
-            
-            if self.duplicate_detector:
-                self.phase_update.emit("🔍 Detectando duplicados exactos...")
-                results['duplicates'] = self.duplicate_detector.analyze_exact_duplicates(
-                    self.directory,
-                    progress_callback=self._create_progress_callback(counts_in_message=True)
-                )
-                # Emitir resultados parciales después de duplicados
-                self.partial_results.emit({'duplicates': results['duplicates']})
-
+            # Emitir resultado final
             if not self._stop_requested:
-                self.finished.emit(results)
+                self.finished.emit(result.to_dict())
 
         except Exception as e:
             if not self._stop_requested:

@@ -12,12 +12,13 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
 - All use centralized logger: `from utils.logger import get_logger; self.logger = get_logger('ServiceName')`
 - Return types: standardized dataclasses from `services/result_types.py` (e.g., `AnalysisResult`, `DeletionResult`, `OrganizationResult`)
 - Examples: `FileRenamer.analyze_directory()`, `LivePhotoCleaner.execute_cleanup(create_backup=True)`
+- Orchestrator: `AnalysisOrchestrator.run_full_analysis()` coordinates multiple services with callback system (progress/phase/partial), 100% PyQt6-free
 
 **Workers** (`ui/workers.py`) - QThread background tasks to keep UI responsive
 - Base class: `BaseWorker` provides `progress_update`, `finished`, `error` signals
 - Pattern: use `_create_progress_callback()` for consistent progress reporting
 - All inherit stop mechanism: `self._stop_requested` flag checked during long operations
-- Unified worker: `AnalysisWorker` runs full directory analysis (renaming, live photos, organization, HEIC, duplicates)
+- Unified worker: `AnalysisWorker` delegates to `AnalysisOrchestrator` (services/), only handles Qt threading/signals (~50 lines)
 
 **Controllers** (`ui/controllers/`) - Bridge between UI and services, manage worker lifecycle
 - Pattern: instantiate worker → connect signals → start thread → update UI on completion
