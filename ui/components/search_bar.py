@@ -22,12 +22,13 @@ class SearchBar(QWidget):
         self.layout.setSpacing(10)
         self.layout.setContentsMargins(14, 10, 10, 10)
 
-        # Icono decorativo de carpeta (no clickeable)
+        # Icono decorativo de carpeta (no clickeable, solo visual)
         folder_icon = QLabel("📂")
         folder_icon.setStyleSheet(styles.STYLE_FOLDER_ICON)
-        folder_icon.setToolTip("Directorio seleccionado")
-        # Hacer que sea visualmente claro que no es clickeable
-        folder_icon.setCursor(Qt.CursorShape.ArrowCursor)
+        folder_icon.setToolTip("Directorio actual - Usa el botón 'Seleccionar y Analizar' para cambiar →")
+        # Hacer que sea visualmente claro que NO es clickeable
+        folder_icon.setCursor(Qt.CursorShape.ForbiddenCursor)
+        folder_icon.setEnabled(False)  # Desactivar para reforzar que no es interactivo
         self.layout.addWidget(folder_icon)
 
         self.directory_edit = QLineEdit()
@@ -57,3 +58,29 @@ class SearchBar(QWidget):
         """Añade un widget (por ejemplo `actions_container`) al final del layout."""
         # Insertar al final del layout
         self.layout.addWidget(widget)
+
+    def update_directory_display(self, directory_path):
+        """
+        Actualiza el texto mostrado en el campo de directorio según la configuración.
+        
+        Args:
+            directory_path: Path object del directorio a mostrar
+        """
+        from pathlib import Path
+        from utils.settings_manager import settings_manager
+        
+        path = Path(directory_path) if not isinstance(directory_path, Path) else directory_path
+        
+        # Obtener preferencia del usuario (por defecto True = mostrar ruta completa)
+        show_full_path = settings_manager.get_show_full_path()
+        
+        if show_full_path:
+            # Mostrar ruta completa
+            display_text = str(path)
+        else:
+            # Mostrar solo el nombre de la carpeta
+            display_text = path.name
+        
+        self.directory_edit.setText(display_text)
+        # El tooltip siempre muestra la ruta completa para referencia
+        self.directory_edit.setToolTip(str(path))

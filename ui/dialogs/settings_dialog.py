@@ -149,6 +149,22 @@ class SettingsDialog(QDialog):
 
         layout.addWidget(notif_group)
 
+        # === INTERFAZ ===
+        interface_group = QGroupBox("🎨 Interfaz")
+        interface_group.setStyleSheet(ui_styles.STYLE_GROUPBOX_SETTINGS)
+        interface_layout = QVLayout(interface_group)
+        interface_layout.setSpacing(10)
+
+        self.show_full_path_checkbox = QCheckBox("Mostrar ruta completa del directorio en la barra de búsqueda")
+        self.show_full_path_checkbox.setChecked(True)
+        self.show_full_path_checkbox.setToolTip(
+            "Si está activado, muestra la ruta completa del directorio (ej: /home/usuario/Fotos).\n"
+            "Si está desactivado, solo muestra el nombre de la carpeta (ej: Fotos)."
+        )
+        interface_layout.addWidget(self.show_full_path_checkbox)
+
+        layout.addWidget(interface_group)
+
         layout.addStretch()
         return widget
 
@@ -367,6 +383,7 @@ class SettingsDialog(QDialog):
             self.confirm_operations_checkbox.setChecked(settings_manager.get_confirm_operations())
             self.confirm_delete_checkbox.setChecked(settings_manager.get_confirm_delete())
             self.show_notifications_checkbox.setChecked(settings_manager.get_show_notifications())
+            self.show_full_path_checkbox.setChecked(settings_manager.get_show_full_path())
 
             # Advanced tab
             self.max_workers_spin.setValue(settings_manager.get_max_workers(Config.MAX_WORKERS))
@@ -534,6 +551,7 @@ class SettingsDialog(QDialog):
             self.confirm_operations_checkbox.setChecked(True)
             self.confirm_delete_checkbox.setChecked(True)
             self.show_notifications_checkbox.setChecked(True)
+            self.show_full_path_checkbox.setChecked(True)
             self.dry_run_default_checkbox.setChecked(False)
             self.max_workers_spin.setValue(Config.MAX_WORKERS)
 
@@ -570,6 +588,7 @@ class SettingsDialog(QDialog):
             settings_manager.set(settings_manager.KEY_CONFIRM_OPERATIONS, self.confirm_operations_checkbox.isChecked())
             settings_manager.set(settings_manager.KEY_CONFIRM_DELETE, self.confirm_delete_checkbox.isChecked())
             settings_manager.set(settings_manager.KEY_SHOW_NOTIFICATIONS, self.show_notifications_checkbox.isChecked())
+            settings_manager.set_show_full_path(self.show_full_path_checkbox.isChecked())
 
             # === AVANZADO ===
             settings_manager.set(settings_manager.KEY_MAX_WORKERS, self.max_workers_spin.value())
