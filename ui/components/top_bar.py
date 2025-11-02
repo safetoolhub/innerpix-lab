@@ -113,6 +113,24 @@ class TopBar(QWidget):
         # - Si hay un directorio seleccionado: abrirlo en el explorador
         # - Si no hay directorio (estado empty): abrir diálogo de selección
         def on_field_clicked(event):
+            # Evitar interacción durante un análisis en curso. Aunque el botón
+            # 'Cambiar' se deshabilita visualmente, añadimos una salvaguarda
+            # aquí para cubrir cualquier otra vía de interacción con el campo.
+            if getattr(self, 'current_state', None) == 'analyzing':
+                # Informar al usuario que debe detener el análisis primero
+                try:
+                    from PyQt6.QtWidgets import QMessageBox
+                    QMessageBox.information(
+                        self,
+                        "Análisis en curso",
+                        "Hay un análisis en curso. Pulsa 'Detener' para interrumpirlo antes de cambiar de directorio."
+                    )
+                except Exception:
+                    # Si por alguna razón no se puede mostrar el diálogo,
+                    # simplemente ignoramos el clic silenciosamente.
+                    pass
+                return
+
             # Si no hay directorio seleccionado (estado 'empty') no reaccionamos
             # al clic: el usuario debe arrastrar una carpeta o usar el botón
             # 'Seleccionar'. Esto evita que la zona izquierda actúe como atajo.
@@ -385,14 +403,23 @@ class TopBar(QWidget):
         else:
             self.select_btn.setText("📁 Cambiar")
             self.select_btn.setToolTip("Seleccionar otro directorio")
-
+        
         # Botón Cambiar/Seleccionar: siempre visible (permite cambiar de directorio)
+        # Pero debe quedar inhabilitado durante un análisis en curso para
+        # evitar cambiar de directorio mientras los hilos del análisis
+        # anterior siguen corriendo. El usuario debe usar 'Detener' primero.
         self.select_btn.setVisible(True)
         
         if self.current_state == 'empty':
             self.analyze_btn.setHidden(True)
             self.reanalyze_btn.setHidden(True)
             self.stop_btn.setHidden(True)
+            # Asegurar que el botón 'Seleccionar' esté habilitado en estado empty
+            # (por ejemplo si antes se pulsó 'Detener' sin haber analizado nada).
+            self.select_btn.setEnabled(True)
+            # Campo de directorio interactivo en estado empty (permite arrastrar o usar seleccionar)
+            if hasattr(self, 'field_widget'):
+                self.field_widget.setEnabled(True)
             # Permitir acceso al historial incluso en estado empty si hay historial disponible
             history = settings_manager.get_directory_history()
             self.history_btn.setEnabled(len(history) > 0)
@@ -410,6 +437,10 @@ class TopBar(QWidget):
             self.reanalyze_btn.setHidden(True)
             self.stop_btn.setHidden(True)
             self.history_btn.setEnabled(True)
+            # En estado 'ready' el botón Cambiar debe estar habilitado y el
+            # botón Analizar activo para iniciar el análisis.
+            self.select_btn.setEnabled(True)
+            self.analyze_btn.setEnabled(True)
             # Campo clickeable cuando hay directorio seleccionado
             if hasattr(self, 'field_widget'):
                 self.field_widget.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -424,15 +455,31 @@ class TopBar(QWidget):
             self.reanalyze_btn.setHidden(True)
             self.stop_btn.setVisible(True)
             self.history_btn.setEnabled(False)
+            # Desactivar el botón de cambiar para prevenir interrupciones
+            self.select_btn.setEnabled(False)
+            self.select_btn.setToolTip("No puedes cambiar de directorio mientras se está analizando. Pulsa 'Detener' para interrumpir el análisis.")
             if hasattr(self, 'field_widget'):
+                # Mantener campo visible pero no interactivo (salvaguarda extra)
                 self.field_widget.setCursor(Qt.CursorShape.ArrowCursor)
+                try:
+                    self.field_widget.setEnabled(False)
+                except Exception:
+                    pass
             
         elif self.current_state == 'analyzed':
             self.analyze_btn.setHidden(True)
             self.reanalyze_btn.setVisible(True)
             self.stop_btn.setHidden(True)
             self.history_btn.setEnabled(True)
+            # Asegurar que el botón 'Cambiar' esté habilitado después del análisis
+            self.select_btn.setEnabled(True)
+            self.select_btn.setToolTip("Seleccionar otro directorio")
             if hasattr(self, 'field_widget'):
+                # Restaurar interactividad del campo tras finalizar análisis
+                try:
+                    self.field_widget.setEnabled(True)
+                except Exception:
+                    pass
                 self.field_widget.setCursor(Qt.CursorShape.PointingHandCursor)
                 # Tooltip: tras análisis completado el texto debe sugerir 'Cambiar'
                 self.field_widget.setToolTip(
@@ -556,6 +603,13 @@ class TopBar(QWidget):
     
     def _on_select_clicked(self):
         """Callback del botón Seleccionar"""
+        # Evitar abrir el diálogo de selección mientras hay un análisis en curso
+        # para evitar que el usuario intente cambiar de directorio y cuelgue
+        # hilos que aún están corriendo. El botón se deshabilita visualmente
+        # en ese estado, pero añadimos una salvaguarda aquí por si acaso.
+        if getattr(self, 'current_state', None) == 'analyzing':
+            return
+
         self.select_directory_requested.emit()
     
     def _on_analyze_clicked(self):

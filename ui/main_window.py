@@ -13,7 +13,6 @@ from PyQt6.QtCore import Qt, QTimer
 
 from config import Config
 from services.file_renamer import FileRenamer
-from ui.components import Header
 from ui.workers import AnalysisWorker
 from ui.dialogs import SettingsDialog, AboutDialog
 from services.live_photo_cleaner import LivePhotoCleaner
@@ -32,7 +31,7 @@ from utils.format_utils import format_size
 from ui.controllers.progress_controller import ProgressController
 
 from services.duplicate_detector import DuplicateDetector
-from ui.components import SearchBar
+
 
 
 class MainWindow(QMainWindow):
