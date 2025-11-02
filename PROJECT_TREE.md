@@ -49,8 +49,7 @@ pixaro-lab/
 │   │   ├── __init__.py
 │   │   ├── action_buttons.py        # Botones de acción (analizar, cambiar dir)
 │   │   ├── header.py                # Encabezado de la aplicación
-│   │   ├── search_bar.py            # Barra de búsqueda en tabs
-│   │   └── summary_panel.py         # Panel de resumen de análisis
+│   │   └──top_bar.py                # Cabecera,  busqueda y resumen del analisis
 │   │
 │   ├── controllers/                 # Controladores (puente UI ↔ Services)
 │   │   ├── analysis_controller.py   # Control de análisis completo
