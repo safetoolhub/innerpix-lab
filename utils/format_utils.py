@@ -43,6 +43,42 @@ def format_size(bytes_size: Optional[float]) -> str:
     return f"{gb:.2f} GB"
 
 
+def format_number(number: Optional[int]) -> str:
+    """Formatea un número con abreviaciones para miles (K, M).
+    
+    Ejemplos:
+    - 0-999: "123"
+    - 1000-9999: "1.2K"
+    - 10000-999999: "12K"
+    - 1000000+: "1.2M"
+    
+    Args:
+        number: Número entero a formatear
+    
+    Returns:
+        String con el número formateado profesionalmente
+    """
+    if number is None:
+        return "0"
+    
+    try:
+        num = int(number)
+    except (TypeError, ValueError):
+        return "0"
+    
+    if num < 0:
+        return f"-{format_number(abs(num))}"
+    
+    if num < 1000:
+        return str(num)
+    elif num < 10000:
+        return f"{num / 1000:.1f}K"
+    elif num < 1000000:
+        return f"{num // 1000}K"
+    else:
+        return f"{num / 1000000:.1f}M"
+
+
 def format_file_count(count: Optional[int]) -> str:
     """Formatea un recuento de archivos con separador de miles.
 

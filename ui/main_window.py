@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (
     QSplitter, QApplication
 )
 from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtGui import QShortcut, QKeySequence
 
 from config import Config
 from services.file_renamer import FileRenamer
@@ -105,8 +106,8 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central_widget)
 
         main_layout = QVBoxLayout(central_widget)
-        main_layout.setSpacing(10)
-        main_layout.setContentsMargins(15, 15, 15, 15)
+        main_layout.setSpacing(0)  # Sin spacing entre widgets
+        main_layout.setContentsMargins(0, 0, 0, 0)  # Sin márgenes
 
         # ===== TOP BAR UNIFICADA (Header + SearchBar integrados) =====
         from ui.components import TopBar
@@ -125,31 +126,58 @@ class MainWindow(QMainWindow):
         self.analyze_btn = self.top_bar.analyze_btn
         self.search_bar = self.top_bar  # Para compatibilidad con update_directory_display
         
-        main_layout.addWidget(self.top_bar)
-        main_layout.addSpacing(10)
+        main_layout.addWidget(self.top_bar, 0)  # 0 = no stretch
 
 
-        # ===== SPLITTER: PANEL RESUMEN + PESTAÑAS =====
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-
-    # Controlador de pestañas: centraliza creación, navegación y lógica
-    # de disponibilidad de pestañas. Usa `window.tab_controller` como
-    # fuente de verdad para la disponibilidad 
+        # ===== PESTAÑAS: Ahora ocupan todo el espacio =====
+        # Controlador de pestañas: centraliza creación, navegación y lógica
+        # de disponibilidad de pestañas. Usa `window.tab_controller` como
+        # fuente de verdad para la disponibilidad 
         from ui.controllers.tab_controller import TabController
         self.tab_controller = TabController(self)
 
-        from ui.components import SummaryPanel
-        # Guardar la instancia del componente para poder actualizarlo luego
-        self.summary_component = SummaryPanel(self)
-        # `create_summary_panel` retorna un widget; mantener compatibilidad
-        self.summary_panel = self.summary_component.get_widget()
-        splitter.addWidget(self.summary_panel)
+        # Container para tabs con margen apropiado
+        tabs_container = QWidget()
+        tabs_container_layout = QVBoxLayout(tabs_container)
+        tabs_container_layout.setContentsMargins(15, 15, 15, 15)  # Margen interno
+        tabs_container_layout.setSpacing(0)
+        
         self.tabs_widget = self.tab_controller.create_tabs_widget()
-        splitter.addWidget(self.tabs_widget)
-        splitter.setStretchFactor(0, 1)
-        splitter.setStretchFactor(1, 3)
-        splitter.setSizes([300, 900])
-        main_layout.addWidget(splitter, 1)
+        tabs_container_layout.addWidget(self.tabs_widget)
+        
+        main_layout.addWidget(tabs_container, 1)  # 1 = stretch para ocupar espacio restante
+        
+        # Mantener compatibilidad: el TopBar ahora actúa como SummaryPanel
+        # Alias para código que espera summary_panel y summary_component
+        self.summary_panel = self.top_bar.summary_container
+        
+        # Referencias de compatibilidad con código existente
+        self.stats_labels = self.top_bar.stats_labels
+        self.analysis_status_badge = self.top_bar.analysis_status_badge
+        self.summary_action_buttons = self.top_bar.summary_action_buttons
+        self.summary_progress_label = self.top_bar.summary_progress_label
+        self.summary_progress_bar = self.top_bar.summary_progress_bar
+        self.summary_progress_detail = self.top_bar.summary_progress_detail
+        self.summary_progress_area = self.top_bar.summary_progress_area
+        
+        # Crear wrapper para mantener API compatible con SummaryPanel
+        class SummaryPanelWrapper:
+            def __init__(self, top_bar):
+                self.top_bar = top_bar
+            
+            def update(self, results):
+                self.top_bar.update_summary(results)
+            
+            def set_status_not_analyzed(self):
+                self.top_bar.set_status_not_analyzed()
+            
+            def set_status_analyzing(self):
+                self.top_bar.set_status_analyzing()
+            
+            def get_widget(self):
+                return self.top_bar.summary_container
+        
+        self.summary_component = SummaryPanelWrapper(self.top_bar)
 
         # ===== CONTROLADOR DE PROGRESO =====
         # Instanciar después de crear el SummaryPanel para que los widgets estén disponibles
@@ -206,6 +234,11 @@ class MainWindow(QMainWindow):
         # y `change_dir_btn` para mantener compatibilidad con el código
         # existente en esta clase.
         self.action_buttons = ActionButtons(self, self.top_bar)
+        
+        # ===== ATAJOS DE TECLADO =====
+        # Ctrl+R: Toggle resumen expandido/colapsado
+        toggle_summary_shortcut = QShortcut(QKeySequence("Ctrl+R"), self)
+        toggle_summary_shortcut.activated.connect(self.top_bar._toggle_summary)
 
     # ========================================================================
     # WRAPPER METHODS FOR SPECIALIZED CONTROLLERS
@@ -436,8 +469,7 @@ class MainWindow(QMainWindow):
         self.top_bar.set_directory(self.current_directory)
         self.top_bar.set_state('ready')
         
-        # Mostrar summary panel con estado "No analizado"
-        self.summary_panel.setVisible(True)
+        # Actualizar estado del resumen
         if hasattr(self, 'summary_component'):
             self.summary_component.set_status_not_analyzed()
         
