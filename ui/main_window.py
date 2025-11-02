@@ -469,9 +469,8 @@ class MainWindow(QMainWindow):
         self.top_bar.set_directory(self.current_directory)
         self.top_bar.set_state('ready')
         
-        # Actualizar estado del resumen
-        if hasattr(self, 'summary_component'):
-            self.summary_component.set_status_not_analyzed()
+        # Limpiar stats del directorio anterior y resetear estado
+        self.top_bar.set_status_not_analyzed()
         
         # Contar archivos
         from ui.validators.directory_validator import count_files_in_directory, confirm_large_directory
