@@ -39,6 +39,10 @@ class ProgressController:
         """
         self.logger.debug(f"Mostrando progreso: {message} (máximo: {maximum})")
         
+        # Expandir TopBar y mostrar frame de progreso
+        if hasattr(self.parent, 'top_bar'):
+            self.parent.top_bar.show_progress()
+        
         if self.label:
             self.label.setVisible(True)
             self.label.setText(f"⏳ {message}")
@@ -71,6 +75,10 @@ class ProgressController:
             if self.detail:
                 self.detail.setText("")
                 self.detail.setVisible(False)
+            
+            # Ocultar frame de progreso en TopBar
+            if hasattr(self.parent, 'top_bar'):
+                self.parent.top_bar.hide_progress()
 
         QTimer.singleShot(1000, _hide)
 
