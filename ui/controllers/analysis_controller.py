@@ -411,17 +411,17 @@ class AnalysisController:
             # Ocultar progreso
             self.window.progress_controller.hide_progress()
             
-            # Actualizar estado del TopBar
+            # Actualizar estado del TopBar y badge
             if hasattr(self.window, 'top_bar'):
-                # Volver a 'ready' si había directorio seleccionado
+                # Volver a 'ready' si había directorio seleccionado, o 'empty' si no
                 if self.window.current_directory:
                     self.window.top_bar.set_state('ready')
+                    # Mostrar badge de "Cancelado"
+                    self.window.top_bar.set_status_canceled()
                 else:
                     self.window.top_bar.set_state('empty')
-            
-            # Actualizar badge de estado
-            if hasattr(self.window, 'summary_component'):
-                self.window.summary_component.set_status_not_analyzed()
+                    # Ocultar badge en estado empty
+                    self.window.top_bar.set_status_not_analyzed()
             
             # Rehabilitar botones
             self.window.analyze_btn.setEnabled(True)
