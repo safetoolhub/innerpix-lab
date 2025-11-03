@@ -328,6 +328,191 @@ STYLE_ABOUT_BUTTON = """
     }
 """
 
+# ---------------------------------------------------------------------------
+# TopBar specific / small helpers
+# ---------------------------------------------------------------------------
+STYLE_CONTROL_BAR = "QFrame { background-color: white; border: none; padding: 0px; }"
+
+STYLE_APP_TITLE = (
+        "font-size: 15px;"
+        "font-weight: 700;"
+        "color: #1a1a1a;"
+        "background: transparent;"
+        "border: none;"
+        "padding: 0px;"
+)
+
+STYLE_FIELD_WIDGET = """
+        QWidget {
+            background: white;
+            border: 1px solid #cbd5e0;
+            border-radius: 8px;
+        }
+        QWidget:hover {
+            border-color: #94a3b8;
+        }
+"""
+
+STYLE_ICON_SMALL = "opacity: 0.9; background: transparent; border: none;"
+
+STYLE_METADATA_BADGE = """
+        QLabel {
+            background: rgba(120, 113, 108, 0.08);
+            color: #64748b;
+            font-family: 'Courier New', monospace;
+            font-size: 10px;
+            font-weight: 500;
+            padding: 2px 6px;
+            border-radius: 4px;
+            border: 1px solid rgba(120, 113, 108, 0.12);
+        }
+"""
+
+STYLE_ANALYSIS_BADGE_DEFAULT = """
+        QLabel {
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #d4edda, stop:1 #c3e6cb);
+            border: 1px solid #c3e6cb;
+            border-radius: 4px;
+            padding: 2px 8px;
+            color: #155724;
+            font-size: 11px;
+            font-weight: 600;
+        }
+"""
+
+STYLE_HISTORY_TOOLBUTTON = """
+        QToolButton {
+            background: transparent;
+            border: none;
+            border-radius: 4px;
+            color: #64748b;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        QToolButton:hover {
+            background: #f1f5f9;
+            color: #334155;
+        }
+        QToolButton:pressed {
+            background: #e2e8f0;
+        }
+        QToolButton:disabled {
+            color: #cbd5e0;
+        }
+        QToolButton::menu-indicator {
+            image: none;
+            width: 0px;
+        }
+"""
+
+STYLE_REANALYZE_BUTTON = """
+        QPushButton {
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #ffffff, stop:1 #f8f9fa);
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            color: #495057;
+            font-weight: 600;
+            font-size: 13px;
+            padding: 6px 14px;
+        }
+        QPushButton:hover {
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #f8f9fa, stop:1 #e9ecef);
+            border-color: #adb5bd;
+        }
+        QPushButton:pressed {
+            background: #e9ecef;
+        }
+"""
+
+STYLE_STOP_BUTTON = """
+        QPushButton {
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #fff3cd, stop:1 #ffeaa7);
+            border: 1px solid #ffc107;
+            border-radius: 6px;
+            color: #856404;
+            font-weight: 600;
+            font-size: 13px;
+            padding: 6px 14px;
+        }
+        QPushButton:hover {
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #ffeaa7, stop:1 #ffd93d);
+        }
+        QPushButton:pressed {
+            background: #ffd93d;
+        }
+"""
+
+STYLE_STATS_TOGGLE_BUTTON = """
+        QPushButton {
+            background: transparent;
+            border: 1px solid #e1e8ed;
+            border-radius: 6px;
+            color: #64748b;
+            font-size: 14px;
+            font-weight: bold;
+            padding: 0px;
+        }
+        QPushButton:hover {
+            background: #f1f5f9;
+            border-color: #cbd5e0;
+            color: #334155;
+        }
+        QPushButton:pressed {
+            background: #e2e8f0;
+        }
+"""
+
+STYLE_ICON_BUTTON = """
+        QPushButton {
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+        }
+        QPushButton:hover {
+            background: #f1f5f9;
+        }
+        QPushButton:pressed {
+            background: #e2e8f0;
+        }
+"""
+
+# Analysis badge states
+STYLE_ANALYSIS_BADGE_ANALYZING = """
+        QLabel {
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #dbeafe, stop:1 #bfdbfe);
+            border: 1px solid #93c5fd;
+            border-radius: 4px;
+            padding: 2px 8px;
+            color: #1e40af;
+            font-size: 11px;
+            font-weight: 600;
+        }
+"""
+
+STYLE_ANALYSIS_BADGE_CANCELED = """
+        QLabel {
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #fff3cd, stop:1 #ffeaa7);
+            border: 1px solid #ffc107;
+            border-radius: 4px;
+            padding: 2px 8px;
+            color: #856404;
+            font-size: 11px;
+            font-weight: 600;
+        }
+"""
+
+STYLE_ANALYSIS_BADGE_COMPLETED = """
+        QLabel {
+            background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #d4edda, stop:1 #c3e6cb);
+            border: 1px solid #c3e6cb;
+            border-radius: 4px;
+            padding: 2px 8px;
+            color: #155724;
+            font-size: 11px;
+            font-weight: 600;
+        }
+"""
+
 # ============================================================================
 # ESTILOS DE LABELS
 # ============================================================================

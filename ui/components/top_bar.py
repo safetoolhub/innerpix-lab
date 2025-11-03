@@ -77,9 +77,7 @@ class TopBar(QWidget):
         except Exception:
             tooltip_dark = ""
         # No aplicar STYLE_SEARCH_CONTAINER (causaba bordes duplicados con field_widget)
-        self.control_bar.setStyleSheet(
-            "QFrame { background-color: white; border: none; padding: 0px; }" + tooltip_dark
-        )
+        self.control_bar.setStyleSheet(styles.STYLE_CONTROL_BAR + tooltip_dark)
         self.control_bar.setFixedHeight(60)  # Altura optimizada
         
         layout = QHBoxLayout(self.control_bar)
@@ -89,7 +87,7 @@ class TopBar(QWidget):
         # === TÍTULO DE LA APP ===
         # Container para icono + texto
         title_container = QWidget()
-        title_container.setStyleSheet("background: transparent; border: none;")
+        title_container.setStyleSheet(styles.STYLE_ACTIONS_CONTAINER)
         title_layout = QHBoxLayout(title_container)
         title_layout.setContentsMargins(0, 0, 0, 0)
         title_layout.setSpacing(8)
@@ -100,14 +98,7 @@ class TopBar(QWidget):
         
         # Texto del título
         title_label = QLabel(Config.APP_NAME)
-        title_label.setStyleSheet(
-            "font-size: 15px;"
-            "font-weight: 700;"
-            "color: #1a1a1a;"
-            "background: transparent;"
-            "border: none;"
-            "padding: 0px;"
-        )
+        title_label.setStyleSheet(styles.STYLE_APP_TITLE)
         title_layout.addWidget(title_label)
         
         layout.addWidget(title_container)
@@ -117,7 +108,7 @@ class TopBar(QWidget):
         
         # === CAMPO DE DIRECTORIO UNIFICADO (Estilo Profesional) ===
         directory_container = QFrame()
-        directory_container.setStyleSheet("background: transparent; border: none;")
+        directory_container.setStyleSheet(styles.STYLE_ACTIONS_CONTAINER)
         directory_container.setMinimumWidth(350)
         directory_container.setMaximumWidth(600)
         
@@ -129,16 +120,7 @@ class TopBar(QWidget):
         
         # Widget contenedor para el campo con icono y chevron integrados
         field_widget = QWidget()
-        field_widget.setStyleSheet(
-            "QWidget {"
-            "  background: white;"
-            "  border: 1px solid #cbd5e0;"
-            "  border-radius: 8px;"
-            "}"
-            "QWidget:hover {"
-            "  border-color: #94a3b8;"
-            "}"
-        )
+        field_widget.setStyleSheet(styles.STYLE_FIELD_WIDGET)
         field_widget.setFixedHeight(36)  # Altura compacta
         field_widget.setCursor(Qt.CursorShape.PointingHandCursor)
         field_widget.setToolTip(
@@ -225,11 +207,7 @@ class TopBar(QWidget):
         self.folder_icon.setIconSize(QSize(18, 18))
         self.folder_icon.setFixedSize(QSize(24, 24))
         self.folder_icon.setAutoRaise(True)
-        self.folder_icon.setStyleSheet(
-            "opacity: 0.9;"
-            "background: transparent;"
-            "border: none;"
-        )
+        self.folder_icon.setStyleSheet(styles.STYLE_ICON_SMALL)
         # Tooltip inicial: indica al usuario que debe seleccionar un directorio
         self.folder_icon.setToolTip("Clica aquí para seleccionar directorio (o usa el botón 'Seleccionar')")
         self.folder_icon.setVisible(False)  # Oculto inicialmente
@@ -242,18 +220,7 @@ class TopBar(QWidget):
         self.directory_edit.setFrame(False)
         # El texto del directorio es solo informativo: usar cursor por defecto
         self.directory_edit.setCursor(Qt.CursorShape.ArrowCursor)
-        self.directory_edit.setStyleSheet(
-            "QLineEdit {"
-            "  background: transparent;"
-            "  border: none;"
-            "  color: #334155;"
-            "  font-size: 13px;"
-            "  padding: 0px;"
-            "}"
-            "QLineEdit:focus {"
-            "  outline: none;"
-            "}"
-        )
+        self.directory_edit.setStyleSheet(styles.STYLE_DIRECTORY_EDIT_READONLY)
         
         # El click se maneja a nivel de `field_widget` para mantener
         # comportamiento consistente; no sobrescribimos mousePressEvent
@@ -262,34 +229,13 @@ class TopBar(QWidget):
         # Badge de metadata (archivos y tamaño, solo visible tras análisis)
         self.metadata_badge = QLabel()
         self.metadata_badge.setVisible(False)
-        self.metadata_badge.setStyleSheet(
-            "QLabel {"
-            "  background: rgba(120, 113, 108, 0.08);"  # brown-600 at 8% opacity
-            "  color: #64748b;"  # text-secondary
-            "  font-family: 'Courier New', monospace;"
-            "  font-size: 10px;"
-            "  font-weight: 500;"
-            "  padding: 2px 6px;"
-            "  border-radius: 4px;"
-            "  border: 1px solid rgba(120, 113, 108, 0.12);"
-            "}"
-        )
+        self.metadata_badge.setStyleSheet(styles.STYLE_METADATA_BADGE)
         field_layout.addWidget(self.metadata_badge)
         
         # Badge de estado integrado (se muestra solo tras análisis)
         self.analysis_badge = QLabel()
         self.analysis_badge.setVisible(False)
-        self.analysis_badge.setStyleSheet(
-            "QLabel {"
-            "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #d4edda, stop:1 #c3e6cb);"
-            "  border: 1px solid #c3e6cb;"
-            "  border-radius: 4px;"
-            "  padding: 2px 8px;"
-            "  color: #155724;"
-            "  font-size: 11px;"
-            "  font-weight: 600;"
-            "}"
-        )
+        self.analysis_badge.setStyleSheet(styles.STYLE_ANALYSIS_BADGE_DEFAULT)
         field_layout.addWidget(self.analysis_badge)
         
         # Botón de historial (chevron integrado)
@@ -301,30 +247,7 @@ class TopBar(QWidget):
         self.history_btn.setFixedSize(26, 24)
         self.history_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.history_btn.setToolTip("Ver historial de directorios")
-        self.history_btn.setStyleSheet(
-            "QToolButton {"
-            "  background: transparent;"
-            "  border: none;"
-            "  border-radius: 4px;"
-            "  color: #64748b;"
-            "  font-size: 12px;"
-            "  font-weight: bold;"
-            "}"
-            "QToolButton:hover {"
-            "  background: #f1f5f9;"
-            "  color: #334155;"
-            "}"
-            "QToolButton:pressed {"
-            "  background: #e2e8f0;"
-            "}"
-            "QToolButton:disabled {"
-            "  color: #cbd5e0;"
-            "}"
-            "QToolButton::menu-indicator {"
-            "  image: none;"
-            "  width: 0px;"
-            "}"
-        )
+        self.history_btn.setStyleSheet(styles.STYLE_HISTORY_TOOLBUTTON)
         self.history_btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
 
         # Menú de historial
@@ -367,24 +290,7 @@ class TopBar(QWidget):
         self.reanalyze_btn.setFixedHeight(32)
         self.reanalyze_btn.setMinimumWidth(110)
         self.reanalyze_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.reanalyze_btn.setStyleSheet(
-            "QPushButton {"
-            "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #ffffff, stop:1 #f8f9fa);"
-            "  border: 1px solid #dee2e6;"
-            "  border-radius: 6px;"
-            "  color: #495057;"
-            "  font-weight: 600;"
-            "  font-size: 13px;"
-            "  padding: 6px 14px;"
-            "}"
-            "QPushButton:hover {"
-            "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #f8f9fa, stop:1 #e9ecef);"
-            "  border-color: #adb5bd;"
-            "}"
-            "QPushButton:pressed {"
-            "  background: #e9ecef;"
-            "}"
-        )
+        self.reanalyze_btn.setStyleSheet(styles.STYLE_REANALYZE_BUTTON)
         self.reanalyze_btn.clicked.connect(self._on_reanalyze_clicked)
         layout.addWidget(self.reanalyze_btn)
         
@@ -394,23 +300,7 @@ class TopBar(QWidget):
         self.stop_btn.setFixedHeight(32)
         self.stop_btn.setMinimumWidth(90)
         self.stop_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.stop_btn.setStyleSheet(
-            "QPushButton {"
-            "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #fff3cd, stop:1 #ffeaa7);"
-            "  border: 1px solid #ffc107;"
-            "  border-radius: 6px;"
-            "  color: #856404;"
-            "  font-weight: 600;"
-            "  font-size: 13px;"
-            "  padding: 6px 14px;"
-            "}"
-            "QPushButton:hover {"
-            "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #ffeaa7, stop:1 #ffd93d);"
-            "}"
-            "QPushButton:pressed {"
-            "  background: #ffd93d;"
-            "}"
-        )
+        self.stop_btn.setStyleSheet(styles.STYLE_STOP_BUTTON)
         self.stop_btn.clicked.connect(self._on_stop_clicked)
         layout.addWidget(self.stop_btn)
         
@@ -423,25 +313,7 @@ class TopBar(QWidget):
         self.stats_toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.stats_toggle_btn.setToolTip("Mostrar/ocultar resumen del análisis")
         self.stats_toggle_btn.setVisible(False)  # Oculto hasta que haya análisis
-        self.stats_toggle_btn.setStyleSheet(
-            "QPushButton {"
-            "  background: transparent;"
-            "  border: 1px solid #e1e8ed;"
-            "  border-radius: 6px;"
-            "  color: #64748b;"
-            "  font-size: 14px;"
-            "  font-weight: bold;"
-            "  padding: 0px;"
-            "}"
-            "QPushButton:hover {"
-            "  background: #f1f5f9;"
-            "  border-color: #cbd5e0;"
-            "  color: #334155;"
-            "}"
-            "QPushButton:pressed {"
-            "  background: #e2e8f0;"
-            "}"
-        )
+        self.stats_toggle_btn.setStyleSheet(styles.STYLE_STATS_TOGGLE_BUTTON)
         self.stats_toggle_btn.clicked.connect(self._toggle_summary)
         layout.addWidget(self.stats_toggle_btn)
         
@@ -451,19 +323,7 @@ class TopBar(QWidget):
         config_btn.setFixedSize(32, 32)
         config_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         config_btn.setToolTip("Configuración")
-        config_btn.setStyleSheet(
-            "QPushButton {"
-            "  background: transparent;"
-            "  border: none;"
-            "  border-radius: 6px;"
-            "}"
-            "QPushButton:hover {"
-            "  background: #f1f5f9;"
-            "}"
-            "QPushButton:pressed {"
-            "  background: #e2e8f0;"
-            "}"
-        )
+        config_btn.setStyleSheet(styles.STYLE_ICON_BUTTON)
         if self.main_window is not None:
             config_btn.clicked.connect(self.main_window.toggle_config)
         layout.addWidget(config_btn)
@@ -474,19 +334,7 @@ class TopBar(QWidget):
         about_btn.setFixedSize(32, 32)
         about_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         about_btn.setToolTip("Acerca de Pixaro Lab")
-        about_btn.setStyleSheet(
-            "QPushButton {"
-            "  background: transparent;"
-            "  border: none;"
-            "  border-radius: 6px;"
-            "}"
-            "QPushButton:hover {"
-            "  background: #f1f5f9;"
-            "}"
-            "QPushButton:pressed {"
-            "  background: #e2e8f0;"
-            "}"
-        )
+        about_btn.setStyleSheet(styles.STYLE_ICON_BUTTON)
         if self.main_window is not None:
             about_btn.clicked.connect(self.main_window.show_about_dialog)
         layout.addWidget(about_btn)
@@ -960,17 +808,7 @@ class TopBar(QWidget):
     def set_status_analyzing(self):
         """Establece el badge de estado a 'Analizando...'"""
         self.analysis_badge.setText("⏳ Analizando")  # Unicode hourglass, no emoji
-        self.analysis_badge.setStyleSheet(
-            "QLabel {"
-            "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #dbeafe, stop:1 #bfdbfe);"
-            "  border: 1px solid #93c5fd;"
-            "  border-radius: 4px;"
-            "  padding: 2px 8px;"
-            "  color: #1e40af;"
-            "  font-size: 11px;"
-            "  font-weight: 600;"
-            "}"
-        )
+        self.analysis_badge.setStyleSheet(styles.STYLE_ANALYSIS_BADGE_ANALYZING)
         self.analysis_badge.setVisible(True)
         # Mostrar progreso superpuesto
         self.show_progress()
@@ -978,17 +816,7 @@ class TopBar(QWidget):
     def set_status_canceled(self):
         """Establece el badge de estado a 'Cancelado' y limpia stats parciales"""
         self.analysis_badge.setText("⚠️ Cancelado")  # Unicode warning, no emoji
-        self.analysis_badge.setStyleSheet(
-            "QLabel {"
-            "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #fff3cd, stop:1 #ffeaa7);"
-            "  border: 1px solid #ffc107;"
-            "  border-radius: 4px;"
-            "  padding: 2px 8px;"
-            "  color: #856404;"
-            "  font-size: 11px;"
-            "  font-weight: 600;"
-            "}"
-        )
+        self.analysis_badge.setStyleSheet(styles.STYLE_ANALYSIS_BADGE_CANCELED)
         self.analysis_badge.setVisible(True)
         
         # Limpiar stats parciales (no queremos mostrar resultados incompletos)
@@ -998,17 +826,7 @@ class TopBar(QWidget):
         """Establece el badge de estado a 'Completado'"""
         self._has_completed_analysis = True  # Marcar que se completó al menos un análisis
         self.analysis_badge.setText("✓ Analizado")  # Unicode checkmark, no emoji
-        self.analysis_badge.setStyleSheet(
-            "QLabel {"
-            "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #d4edda, stop:1 #c3e6cb);"
-            "  border: 1px solid #c3e6cb;"
-            "  border-radius: 4px;"
-            "  padding: 2px 8px;"
-            "  color: #155724;"
-            "  font-size: 11px;"
-            "  font-weight: 600;"
-            "}"
-        )
+        self.analysis_badge.setStyleSheet(styles.STYLE_ANALYSIS_BADGE_COMPLETED)
         self.analysis_badge.setVisible(True)
         self.stats_toggle_btn.setVisible(True)
         # Actualizar botón a "Cambiar" después del primer análisis exitoso
