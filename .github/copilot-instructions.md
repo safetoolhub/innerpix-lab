@@ -36,7 +36,7 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
   * `open_folder()`: Cross-platform folder opener with file selection
   * `show_file_details_dialog()`: Professional 2-column dialog with file info (no scroll, compact layout)
 
-**Iconos y uso de emojis:** Por compatibilidad y para evitar problemas de renderizado, la aplicación usará exclusivamente los iconos "Material" usando qtawesome
+**Iconos y uso de emojis:** Por compatibilidad y para evitar problemas de renderizado, la aplicación usará exclusivamente los iconos usando qtawesome en todos los controles. No usaremos emojis. 
 
 ### Critical Patterns
 
