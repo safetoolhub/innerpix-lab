@@ -121,10 +121,10 @@ class MainWindow(QMainWindow):
         self.top_bar.open_folder_requested.connect(self._on_topbar_open_folder)
         self.top_bar.directory_changed.connect(self._on_topbar_directory_changed)
         
-        # Exponer controles para compatibilidad con código existente
+        # Referencias directas a controles del TopBar
         self.directory_edit = self.top_bar.directory_edit
         self.analyze_btn = self.top_bar.analyze_btn
-        self.search_bar = self.top_bar  # Para compatibilidad con update_directory_display
+        self.search_bar = self.top_bar  # Usado para update_directory_display
         
         main_layout.addWidget(self.top_bar, 0)  # 0 = no stretch
 
@@ -147,20 +147,14 @@ class MainWindow(QMainWindow):
         
         main_layout.addWidget(tabs_container, 1)  # 1 = stretch para ocupar espacio restante
         
-        # Mantener compatibilidad: el TopBar ahora actúa como SummaryPanel
-        # Alias para código que espera summary_panel y summary_component
-        self.summary_panel = self.top_bar.summary_container
-        
-        # Referencias de compatibilidad con código existente
-        self.stats_labels = self.top_bar.stats_labels
-        self.analysis_status_badge = self.top_bar.analysis_status_badge
-        self.summary_action_buttons = self.top_bar.summary_action_buttons
+        # Referencias a componentes del TopBar
+        self.summary_panel = self.top_bar.smart_stats_bar
         self.summary_progress_label = self.top_bar.summary_progress_label
         self.summary_progress_bar = self.top_bar.summary_progress_bar
         self.summary_progress_detail = self.top_bar.summary_progress_detail
-        self.summary_progress_area = self.top_bar.summary_progress_area
+        self.summary_progress_area = self.top_bar.progress_overlay
         
-        # Crear wrapper para mantener API compatible con SummaryPanel
+        # Wrapper para delegación de updates al TopBar
         class SummaryPanelWrapper:
             def __init__(self, top_bar):
                 self.top_bar = top_bar
@@ -175,7 +169,7 @@ class MainWindow(QMainWindow):
                 self.top_bar.set_status_analyzing()
             
             def get_widget(self):
-                return self.top_bar.summary_container
+                return self.top_bar.smart_stats_bar
         
         self.summary_component = SummaryPanelWrapper(self.top_bar)
 
