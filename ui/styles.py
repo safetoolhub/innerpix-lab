@@ -91,6 +91,413 @@ COLORS = {
 }
 
 # ============================================================================
+# ESTILOS DE TOP BAR - COMPONENTES
+# ============================================================================
+
+STYLE_TOPBAR_CONTROL = "QFrame { background-color: white; border: none; padding: 0px; }"
+
+STYLE_TOPBAR_TITLE_CONTAINER = """
+QWidget {
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    padding: 4px 8px;
+}
+QWidget:hover {
+    background: rgba(37, 99, 235, 0.06);
+}
+"""
+
+STYLE_TOPBAR_TITLE_LABEL = """
+font-size: 15px;
+font-weight: 700;
+color: #1a1a1a;
+background: transparent;
+border: none;
+padding: 0px;
+"""
+
+STYLE_TOPBAR_DIR_CONTAINER = "background: transparent; border: none;"
+
+STYLE_TOPBAR_FIELD_WIDGET = """
+QWidget {
+    background: white;
+    border: 1px solid #cbd5e0;
+    border-radius: 8px;
+}
+QWidget:hover {
+    border-color: #94a3b8;
+}
+"""
+
+STYLE_TOPBAR_FOLDER_ICON = """
+opacity: 0.9;
+background: transparent;
+border: none;
+"""
+
+STYLE_TOPBAR_DIR_EDIT = """
+QLineEdit {
+    background: transparent;
+    border: none;
+    color: #334155;
+    font-size: 13px;
+    padding: 0px;
+}
+QLineEdit:focus {
+    outline: none;
+}
+"""
+
+STYLE_TOPBAR_METADATA_BADGE = """
+QLabel {
+    background: rgba(120, 113, 108, 0.08);
+    color: #64748b;
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid rgba(120, 113, 108, 0.12);
+}
+"""
+
+STYLE_TOPBAR_ANALYSIS_BADGE_SUCCESS = """
+QLabel {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #d4edda, stop:1 #c3e6cb);
+    border: 1px solid #c3e6cb;
+    border-radius: 4px;
+    padding: 2px 8px;
+    color: #155724;
+    font-size: 11px;
+    font-weight: 600;
+}
+"""
+
+STYLE_TOPBAR_ANALYSIS_BADGE_ANALYZING = """
+QLabel {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #dbeafe, stop:1 #bfdbfe);
+    border: 1px solid #93c5fd;
+    border-radius: 4px;
+    padding: 2px 8px;
+    color: #1e40af;
+    font-size: 11px;
+    font-weight: 600;
+}
+"""
+
+STYLE_TOPBAR_ANALYSIS_BADGE_CANCELED = """
+QLabel {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #fff3cd, stop:1 #ffeaa7);
+    border: 1px solid #ffc107;
+    border-radius: 4px;
+    padding: 2px 8px;
+    color: #856404;
+    font-size: 11px;
+    font-weight: 600;
+}
+"""
+
+STYLE_TOPBAR_HISTORY_BTN = """
+QToolButton {
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: bold;
+}
+QToolButton:hover {
+    background: #f1f5f9;
+    color: #334155;
+}
+QToolButton:pressed {
+    background: #e2e8f0;
+}
+QToolButton:disabled {
+    color: #cbd5e0;
+}
+QToolButton::menu-indicator {
+    image: none;
+    width: 0px;
+}
+"""
+
+STYLE_TOPBAR_SELECT_BTN = """
+QPushButton#select_btn {
+    background-color: transparent;
+    border: 1px solid #cbd5e0;
+    border-radius: 6px;
+}
+QPushButton#select_btn:hover:enabled {
+    background-color: rgba(37, 99, 235, 0.08);
+    border-color: #2563eb;
+}
+QPushButton#select_btn:pressed:enabled {
+    background-color: rgba(37, 99, 235, 0.15);
+}
+QPushButton#select_btn:disabled {
+    opacity: 0.5;
+}
+"""
+
+STYLE_TOPBAR_SPLIT_SEPARATOR = """
+QFrame {
+    background: rgba(255, 255, 255, 0.3);
+    border: none;
+}
+"""
+
+STYLE_TOPBAR_SPLIT_CONTAINER = """
+QWidget#split_container {
+    background-color: #2563eb;
+    border: none;
+    border-radius: 6px;
+}
+QWidget#split_container:hover {
+    background-color: #1d4ed8;
+}
+QWidget#split_container:disabled {
+    background-color: rgba(37,99,235,0.12);
+    opacity: 1;
+}
+QWidget#split_container QPushButton {
+    background-color: transparent;
+    color: white;
+    border: none;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 0 12px;
+}
+QWidget#split_container QPushButton#analyze_btn {
+    padding-left: 14px;
+    padding-right: 10px;
+}
+QWidget#split_container QPushButton#dropdown_btn {
+    padding: 0 8px;
+    border-left: 1px solid rgba(255,255,255,0.12);
+    min-width: 30px;
+}
+QWidget#split_container QPushButton:hover {
+    background-color: rgba(255, 255, 255, 0.12);
+}
+QWidget#split_container QPushButton:disabled {
+    color: rgba(255,255,255,0.75);
+}
+"""
+
+STYLE_TOPBAR_ANALYZE_MENU = """
+QMenu {
+    background: white;
+    border: 1px solid #cbd5e0;
+    border-radius: 8px;
+    padding: 6px;
+}
+QMenu::item {
+    padding: 8px 16px;
+    border-radius: 4px;
+    color: #334155;
+    font-size: 13px;
+}
+QMenu::item:selected {
+    background: #f1f5f9;
+}
+QMenu::item:disabled {
+    color: #94a3b8;
+    opacity: 0.5;
+}
+QMenu::separator {
+    height: 1px;
+    background: #e2e8f0;
+    margin: 4px 0;
+}
+"""
+
+STYLE_TOPBAR_STOP_BTN = """
+QPushButton {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #fff3cd, stop:1 #ffeaa7);
+    border: 1px solid #ffc107;
+    border-radius: 6px;
+    color: #856404;
+    font-weight: 600;
+    font-size: 13px;
+    padding: 6px 14px;
+}
+QPushButton:hover {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #ffeaa7, stop:1 #ffd93d);
+}
+QPushButton:pressed {
+    background: #ffd93d;
+}
+"""
+
+STYLE_TOPBAR_STATS_TOGGLE = """
+QPushButton {
+    background: transparent;
+    border: 1px solid #e1e8ed;
+    border-radius: 6px;
+    color: #64748b;
+    font-size: 14px;
+    font-weight: bold;
+    padding: 0px;
+}
+QPushButton:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e0;
+    color: #334155;
+}
+QPushButton:pressed {
+    background: #e2e8f0;
+}
+"""
+
+STYLE_TOPBAR_CONFIG_BTN = """
+QPushButton {
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+}
+QPushButton:hover {
+    background: #f1f5f9;
+}
+QPushButton:pressed {
+    background: #e2e8f0;
+}
+"""
+
+STYLE_TOPBAR_SMART_STATS_CONTAINER = """
+QFrame {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #fafbfc, stop:1 #ffffff);
+    border-top: 1px solid #e1e8ed;
+    border-bottom: 1px solid #cbd5e0;
+}
+"""
+
+STYLE_TOPBAR_COLUMN = "background: transparent; border: none;"
+
+STYLE_TOPBAR_COLUMN_TITLE = """
+color: #64748b;
+font-size: 10px;
+font-weight: 600;
+letter-spacing: 0.05em;
+background: transparent;
+padding: 0px;
+margin-bottom: 0px;
+"""
+
+STYLE_TOPBAR_SEPARATOR = """
+QFrame {
+    border: none;
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 transparent,
+        stop:0.2 rgba(120, 113, 108, 0.15),
+        stop:0.8 rgba(120, 113, 108, 0.15),
+        stop:1 transparent);
+    width: 1px;
+    margin: 0px 20px;
+}
+"""
+
+STYLE_TOPBAR_STAT_ICON = "QToolButton { background: transparent; border: none; padding: 0px; margin: 0px; }"
+
+STYLE_TOPBAR_STAT_TEXT = """
+color: #64748b;
+font-size: 12px;
+font-weight: 400;
+background: transparent;
+border: none;
+"""
+
+STYLE_TOPBAR_STAT_VALUE = """
+color: #64748b;
+font-size: 12px;
+font-weight: 600;
+background: transparent;
+border: none;
+"""
+
+STYLE_TOPBAR_STAT_VALUE_WARNING = "color: #eab308; font-size: 12px; font-weight: 600;"
+STYLE_TOPBAR_STAT_VALUE_SUCCESS = "color: #10b981; font-size: 12px; font-weight: 600;"
+STYLE_TOPBAR_STAT_VALUE_NORMAL = "color: #64748b; font-size: 12px; font-weight: 600;"
+STYLE_TOPBAR_STAT_TEXT_NORMAL = "color: #334155; font-size: 12px; font-weight: 400;"
+STYLE_TOPBAR_STAT_TEXT_MUTED = "color: #64748b; font-size: 12px; font-weight: 400;"
+
+STYLE_TOPBAR_PROGRESS_CONTAINER = """
+QFrame {
+    background: rgba(255, 255, 255, 0.98);
+    border: none;
+    border-radius: 0px;
+}
+"""
+
+STYLE_TOPBAR_PROGRESS_INNER = """
+QFrame {
+    background: white;
+    border: 1px solid #e1e8ed;
+    border-radius: 12px;
+    padding: 20px;
+}
+"""
+
+STYLE_TOPBAR_PROGRESS_LABEL = """
+color: #334155;
+font-weight: 600;
+font-size: 13px;
+background: transparent;
+border: none;
+"""
+
+STYLE_TOPBAR_PROGRESS_BAR = """
+QProgressBar {
+    border: none;
+    border-radius: 8px;
+    text-align: center;
+    background-color: #f1f5f9;
+    height: 32px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #475569;
+}
+QProgressBar::chunk {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #3b82f6, stop:1 #60a5fa);
+    border-radius: 8px;
+}
+"""
+
+STYLE_TOPBAR_PROGRESS_DETAIL = """
+color: #64748b;
+font-size: 11px;
+background: transparent;
+border: none;
+"""
+
+# ============================================================================
+# ESTILOS GLOBALES
+# ============================================================================
+
+STYLE_GLOBAL_TOOLTIP = """
+QToolTip {
+    background-color: #ffffff !important;
+    color: #1e293b !important;
+    border: 1px solid #cbd5e0 !important;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 13px;
+}
+"""
+
+STYLE_TOOLTIP_DARK = """
+QToolTip {
+    background-color: #2c3e50;
+    color: #ecf0f1;
+    border: 1px solid #34495e;
+    padding: 8px;
+    font-size: 11px;
+    border-radius: 4px;
+}
+"""
+
+# ============================================================================
 # ESTILOS DE BOTONES PRINCIPALES
 # ============================================================================
 
@@ -1271,32 +1678,7 @@ STYLE_ABOUT_FOOTER = f"background-color: #f8f8f8;"
 
 STYLE_SETTINGS_DEBUG_INFO = f"color: #ff5252; font-size: 11px;"
 
-# ============================================================================
-# ESTILO GLOBAL PARA TOOLTIPS
-# ============================================================================
 
-STYLE_GLOBAL_TOOLTIP = """
-QToolTip {
-    background-color: #ffffff !important;
-    color: #1e293b !important;
-    border: 1px solid #cbd5e0 !important;
-    border-radius: 6px;
-    padding: 8px 12px;
-    font-size: 13px;
-}
-"""
-
-# Estilo oscuro compartido para tooltips (usado en diálogos como HEIC)
-STYLE_TOOLTIP_DARK = """
-QToolTip {
-    background-color: #2c3e50;
-    color: #ecf0f1;
-    border: 1px solid #34495e;
-    padding: 8px;
-    font-size: 11px;
-    border-radius: 4px;
-}
-"""
 
 # ============================================================================
 # ESTILOS PARA ICONOS MATERIAL DESIGN
@@ -1353,3 +1735,60 @@ Recomendaciones:
 - Evitar mezclar emojis y Material Design icons
 - Los iconos NO afectan la fuente del texto de la aplicación
 """
+
+# ============================================================================
+# FUNCIONES HELPER PARA ESTILOS DINÁMICOS
+# ============================================================================
+
+def get_topbar_stat_style(key: str, state: str) -> str:
+    """Genera estilo dinámico para un stat del TopBar según su estado.
+    
+    Args:
+        key: Identificador único del stat (e.g., 'live_photos', 'heic')
+        state: 'detected' (amarillo), 'clean' (verde), 'not-analyzed' (gris)
+    
+    Returns:
+        String CSS con el estilo completo
+    """
+    if state == 'detected':
+        # 🟡 AMARILLO - Detectado (count > 0)
+        return (
+            f"QFrame#stat_{key} {{"
+            "  background: rgba(234, 179, 8, 0.12);"
+            "  border: 1px solid rgba(234, 179, 8, 0.25);"
+            "  border-radius: 6px;"
+            "  padding: 6px 8px;"
+            "}"
+            f"QFrame#stat_{key}:hover {{"
+            "  background: rgba(234, 179, 8, 0.17);"
+            "  border-color: rgba(234, 179, 8, 0.35);"
+            "}"
+        )
+    elif state == 'clean':
+        # 🟢 VERDE - Sin detección (count == 0)
+        return (
+            f"QFrame#stat_{key} {{"
+            "  background: rgba(16, 185, 129, 0.08);"
+            "  border: 1px solid rgba(16, 185, 129, 0.15);"
+            "  border-radius: 6px;"
+            "  padding: 6px 8px;"
+            "}"
+            f"QFrame#stat_{key}:hover {{"
+            "  background: rgba(16, 185, 129, 0.13);"
+            "  border-color: rgba(16, 185, 129, 0.25);"
+            "}"
+        )
+    else:  # 'not-analyzed'
+        # ⚪ GRIS - No analizado
+        return (
+            f"QFrame#stat_{key} {{"
+            "  background: #f8f9fa;"
+            "  border: 1px solid #dee2e6;"
+            "  border-radius: 6px;"
+            "  padding: 6px 8px;"
+            "}"
+            f"QFrame#stat_{key}:hover {{"
+            "  background: #e9ecef;"
+            "}"
+        )
+
