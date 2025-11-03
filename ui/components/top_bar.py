@@ -553,8 +553,21 @@ class TopBar(QWidget):
         self.stats_toggle_btn.setText("▲")
         self.smart_stats_container.setVisible(True)
         
-        target_height = 112  # Altura compacta: 8px top + 18px títulos + 36px + 6px + 36px + 8px bottom
-        
+        # Calcular dinámicamente la altura objetivo basada en el contenido para
+        # evitar recortes en distintas configuraciones de DPI/ fuentes.
+        # Procedimiento:
+        # 1. Permitir que el widget mida su tamaño preferido estableciendo
+        #    temporalmente un máximo grande.
+        # 2. Llamar a adjustSize() y sizeHint() para obtener la altura necesaria.
+        # 3. Animar hasta esa altura (con un mínimo de seguridad).
+        self.smart_stats_container.setMaximumHeight(16777215)
+        self.smart_stats_container.adjustSize()
+        target_height = self.smart_stats_container.sizeHint().height()
+
+        # Fallback razonable si sizeHint no devuelve algo útil
+        if not target_height or target_height < 116:
+            target_height = 116
+
         if animate:
             self._animation = QPropertyAnimation(self.smart_stats_container, b"maximumHeight")
             self._animation.setDuration(200)

@@ -88,7 +88,8 @@ class SmartStatsBar(QFrame):
         self.setVisible(False)
         
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(16, 8, 16, 8)
+        # Añadir un poco más de margen inferior para evitar recorte visual
+        layout.setContentsMargins(16, 8, 16, 12)
         layout.setSpacing(20)
         
         self.redundancies_column = self._create_stat_column(
