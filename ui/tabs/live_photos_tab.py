@@ -1,6 +1,7 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QGroupBox
 from ui.tabs.base_tab import create_details_textedit
 from ui import styles
+from utils.icons import icon_manager
 
 
 def create_live_photos_tab(window):
@@ -11,9 +12,20 @@ def create_live_photos_tab(window):
     layout.setContentsMargins(20, 20, 20, 20)
 
     # ===== TÍTULO =====
-    title = QLabel("📸 Limpieza de Live Photos")
+    title_container = QWidget()
+    title_layout = QHBoxLayout(title_container)
+    title_layout.setContentsMargins(0, 0, 0, 0)
+    title_layout.setSpacing(10)
+    
+    title_icon = icon_manager.create_icon_label('live-photo', color='#2563eb', size=24)
+    title_layout.addWidget(title_icon)
+    
+    title = QLabel("Limpieza de Live Photos")
     title.setStyleSheet(styles.STYLE_TAB_TITLE_LARGE)
-    layout.addWidget(title)
+    title_layout.addWidget(title)
+    title_layout.addStretch()
+    
+    layout.addWidget(title_container)
     
     # ===== DESCRIPCIÓN BREVE =====
     desc = QLabel("Detecta y gestiona Live Photos (foto + video MOV asociado)")
@@ -27,7 +39,7 @@ def create_live_photos_tab(window):
     info_layout.setContentsMargins(12, 12, 12, 12)
 
     info_label = QLabel(
-        "<p style='margin: 0 0 6px 0;'><b style='color: #17a2b8;'>💡 Recomendación:</b> "
+        "<p style='margin: 0 0 6px 0;'><b style='color: #17a2b8;'>ℹ Recomendación:</b> "
         "Ejecutar antes de renombrar archivos</p>"
         "<p style='margin: 0; color: #495057; font-size: 12px;'>"
         "La detección funciona mejor con nombres originales. Si ya renombraste, algunos Live Photos podrían no detectarse.</p>"
@@ -61,7 +73,8 @@ def create_live_photos_tab(window):
     button_layout.addStretch()
 
     from PyQt6.QtWidgets import QPushButton
-    window.exec_lp_btn = QPushButton("⚡ Limpiar Live Photos")
+    window.exec_lp_btn = QPushButton(" Limpiar Live Photos")
+    icon_manager.set_button_icon(window.exec_lp_btn, 'delete', color='#ffffff', size=16)
     window.exec_lp_btn.setEnabled(False)
     window.exec_lp_btn.setStyleSheet(styles.get_button_style("#28a745"))
     window.exec_lp_btn.setMinimumHeight(36)

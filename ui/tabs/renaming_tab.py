@@ -1,6 +1,7 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QGroupBox
 from ui.tabs.base_tab import create_details_textedit
 from ui import styles
+from utils.icons import icon_manager
 
 
 def create_renaming_tab(window):
@@ -11,9 +12,20 @@ def create_renaming_tab(window):
     layout.setContentsMargins(20, 20, 20, 20)
 
     # ===== TÍTULO =====
-    title = QLabel("📝 Renombrado de Archivos")
+    title_container = QWidget()
+    title_layout = QHBoxLayout(title_container)
+    title_layout.setContentsMargins(0, 0, 0, 0)
+    title_layout.setSpacing(10)
+    
+    title_icon = icon_manager.create_icon_label('rename', color='#2563eb', size=24)
+    title_layout.addWidget(title_icon)
+    
+    title = QLabel("Renombrado de Archivos")
     title.setStyleSheet(styles.STYLE_TAB_TITLE_LARGE)
-    layout.addWidget(title)
+    title_layout.addWidget(title)
+    title_layout.addStretch()
+    
+    layout.addWidget(title_container)
     
     # ===== DESCRIPCIÓN BREVE =====
     desc = QLabel("Renombra archivos al formato: YYYYMMDD_HHMMSS_[VIDEO|PHOTO]_nnn.EXT")
@@ -27,7 +39,7 @@ def create_renaming_tab(window):
     info_layout.setContentsMargins(12, 12, 12, 12)
 
     info_label = QLabel(
-        "<p style='margin: 0 0 6px 0;'><b style='color: #17a2b8;'>💡 Recomendación:</b> "
+        "<p style='margin: 0 0 6px 0;'><b style='color: #17a2b8;'>ℹ Recomendación:</b> "
         "Ejecutar como paso final del proceso</p>"
         "<p style='margin: 0; color: #495057; font-size: 12px;'>"
         "Completa primero la limpieza de Live Photos y duplicados HEIC/JPG. "
@@ -58,7 +70,8 @@ def create_renaming_tab(window):
     button_layout.addStretch()
 
     from PyQt6.QtWidgets import QPushButton
-    window.preview_rename_btn = QPushButton("📋 Renombrar Archivos")
+    window.preview_rename_btn = QPushButton(" Renombrar Archivos")
+    icon_manager.set_button_icon(window.preview_rename_btn, 'rename', color='#ffffff', size=16)
     window.preview_rename_btn.setEnabled(False)
     window.preview_rename_btn.setStyleSheet(styles.get_button_style("#007bff"))
     window.preview_rename_btn.setMinimumHeight(36)

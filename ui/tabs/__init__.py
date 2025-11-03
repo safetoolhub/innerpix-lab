@@ -11,6 +11,7 @@ from .organizer_tab import create_organizer_tab
 
 from PyQt6.QtWidgets import QTabWidget
 from ui import styles
+from utils.icons import icon_manager
 
 def create_tabs_widget(window):
     tabs = QTabWidget()
@@ -22,28 +23,33 @@ def create_tabs_widget(window):
     # (habilitada/visible) será controlada por `update_tabs_availability`.
     
     # 1. Live Photos (debe ejecutarse ANTES de renombrar)
-    tabs.addTab(create_live_photos_tab(window), "📱 Live Photos")
+    tabs.addTab(create_live_photos_tab(window), "Limpieza de Live Photos")
+    tabs.setTabIcon(idx, icon_manager.get_icon('live-photo', color='#2563eb'))
     window.tab_index_map['live_photos'] = idx
     idx += 1
 
     # 2. Limpieza HEIC/JPG (debe ejecutarse ANTES de renombrar)
-    tabs.addTab(create_heic_tab(window), "🖼️ Limpieza HEIC/JPG")
+    tabs.addTab(create_heic_tab(window), "Eliminación de Duplicados HEIC/JPG")
+    tabs.setTabIcon(idx, icon_manager.get_icon('heic', color='#2563eb'))
     window.tab_index_map['heic'] = idx
     idx += 1
 
     # 3. Duplicados (puede ejecutarse en cualquier momento)
     duplicates_tab = create_duplicates_tab(window)
-    tabs.addTab(duplicates_tab, "🔍 Duplicados")
+    tabs.addTab(duplicates_tab, "Detección de Duplicados")
+    tabs.setTabIcon(idx, icon_manager.get_icon('duplicate', color='#2563eb'))
     window.tab_index_map['duplicates'] = idx
     idx += 1
 
     # 4. Organizador (puede ejecutarse en cualquier momento)
-    tabs.addTab(create_organizer_tab(window), "📁 Organizador")
+    tabs.addTab(create_organizer_tab(window), "Organización de Archivos")
+    tabs.setTabIcon(idx, icon_manager.get_icon('organize', color='#2563eb'))
     window.tab_index_map['organization'] = idx
     idx += 1
 
     # 5. Renombrado (debe ejecutarse ÚLTIMO)
-    tabs.addTab(create_renaming_tab(window), "📝 Renombrado")
+    tabs.addTab(create_renaming_tab(window), "Renombrado de Archivos")
+    tabs.setTabIcon(idx, icon_manager.get_icon('rename', color='#2563eb'))
     window.tab_index_map['renaming'] = idx
     idx += 1
 

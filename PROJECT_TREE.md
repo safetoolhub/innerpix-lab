@@ -15,8 +15,6 @@ pixaro-lab/
 ├── .github/
 │   └── copilot-instructions.md      # Instrucciones para GitHub Copilot
 │
-├── fonts/                           # Fuentes e iconos Material usados por la UI
-│   └── (archivos de fuentes e iconos)
 
 <!-- Nota: La carpeta `docs/` contiene notas técnicas y personales del autor y no se incluye en este árbol simplificado. -->
 ├── services/                        # Lógica de negocio (sin dependencias UI)

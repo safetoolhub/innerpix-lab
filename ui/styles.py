@@ -1297,3 +1297,59 @@ QToolTip {
     border-radius: 4px;
 }
 """
+
+# ============================================================================
+# ESTILOS PARA ICONOS MATERIAL DESIGN
+# ============================================================================
+
+# Colores recomendados para iconos según contexto
+ICON_COLORS = {
+    # Colores primarios
+    'primary': '#2563eb',        # Azul principal para acciones importantes
+    'secondary': '#64748b',      # Gris para iconos secundarios
+    'muted': '#94a3b8',          # Gris claro para iconos deshabilitados
+    
+    # Estados
+    'success': '#155724',        # Verde para éxito/completado
+    'warning': '#856404',        # Amarillo oscuro para advertencias
+    'danger': '#dc2626',         # Rojo para peligro/error
+    'info': '#1e40af',           # Azul para información
+    
+    # Contextos específicos
+    'text': '#334155',           # Gris oscuro para iconos en texto
+    'hover': '#475569',          # Gris medio para hover
+    'disabled': '#cbd5e0',       # Gris muy claro para deshabilitado
+}
+
+# Tamaños estándar de iconos
+ICON_SIZES = {
+    'small': 14,       # Iconos pequeños en labels compactos
+    'normal': 16,      # Tamaño estándar para la mayoría de iconos
+    'medium': 20,      # Iconos en botones principales
+    'large': 24,       # Iconos grandes en headers
+    'xlarge': 32,      # Iconos muy grandes (poco común)
+}
+
+# Documentación de uso de iconos
+"""
+Uso de iconos en la aplicación:
+-------------------------------
+
+1. Importar el gestor de iconos:
+   from utils.icons import icon_manager
+
+2. Aplicar icono a un botón:
+   icon_manager.set_button_icon(button, 'settings', color=ICON_COLORS['primary'], size=ICON_SIZES['medium'])
+
+3. Aplicar icono a un label:
+   icon_manager.set_label_icon(label, 'folder', color=ICON_COLORS['text'], size=ICON_SIZES['normal'])
+
+4. Crear label con icono:
+   label = icon_manager.create_icon_label('info', color=ICON_COLORS['info'], size=ICON_SIZES['normal'])
+
+Recomendaciones:
+- Usar colores del diccionario ICON_COLORS para consistencia
+- Usar tamaños del diccionario ICON_SIZES
+- Evitar mezclar emojis y Material Design icons
+- Los iconos NO afectan la fuente del texto de la aplicación
+"""
