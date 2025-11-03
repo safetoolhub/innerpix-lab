@@ -1,0 +1,7 @@
+[
+  {
+    "key": "ctrl+alt+shift+9",
+    "command": "workbench.action.tasks.runTask",
+    "args": "run-venv-main"
+  }
+]
