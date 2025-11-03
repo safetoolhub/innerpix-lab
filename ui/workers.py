@@ -73,7 +73,7 @@ class AnalysisWorker(BaseWorker):
     stats_update = pyqtSignal(object)
     partial_results = pyqtSignal(object)
 
-    def __init__(self, directory, renamer, lp_detector, unifier, heic_remover, duplicate_detector=None, organization_type=None):
+    def __init__(self, directory, renamer, lp_detector, unifier, heic_remover, duplicate_detector=None, organization_type=None, analysis_type='quick'):
         super().__init__()
         self.directory = directory
         self.renamer = renamer
@@ -82,6 +82,7 @@ class AnalysisWorker(BaseWorker):
         self.heic_remover = heic_remover
         self.duplicate_detector = duplicate_detector
         self.organization_type = organization_type
+        self.analysis_type = analysis_type  # 'quick' o 'deep'
 
     def run(self):
         try:
