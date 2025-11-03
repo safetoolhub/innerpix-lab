@@ -71,7 +71,47 @@ def apply_stat_state(widget, state: str, key: str):
         state: 'detected' (amarillo), 'clean' (verde), 'not-analyzed' (gris)
         key: Clave del stat para el objectName
     """
-    widget.setStyleSheet(styles.get_topbar_stat_style(key, state))
+    if state == 'detected':
+        # 🟡 AMARILLO - Detectado (count > 0)
+        widget.setStyleSheet(
+            f"QFrame#stat_{key} {{"
+            "  background: rgba(234, 179, 8, 0.12);"  # warning at 12% opacity
+            "  border: 1px solid rgba(234, 179, 8, 0.25);"
+            "  border-radius: 6px;"
+            "  padding: 6px 8px;"
+            "}"
+            f"QFrame#stat_{key}:hover {{"
+            "  background: rgba(234, 179, 8, 0.17);"
+            "  border-color: rgba(234, 179, 8, 0.35);"
+            "}"
+        )
+    elif state == 'clean':
+        # 🟢 VERDE - Sin detección (count == 0)
+        widget.setStyleSheet(
+            f"QFrame#stat_{key} {{"
+            "  background: rgba(16, 185, 129, 0.08);"  # success at 8% opacity
+            "  border: 1px solid rgba(16, 185, 129, 0.15);"
+            "  border-radius: 6px;"
+            "  padding: 6px 8px;"
+            "}"
+            f"QFrame#stat_{key}:hover {{"
+            "  background: rgba(16, 185, 129, 0.13);"
+            "  border-color: rgba(16, 185, 129, 0.25);"
+            "}"
+        )
+    else:  # 'not-analyzed'
+        # ⚪ GRIS - No analizado
+        widget.setStyleSheet(
+            f"QFrame#stat_{key} {{"
+            "  background: #f8f9fa;"
+            "  border: 1px solid #dee2e6;"
+            "  border-radius: 6px;"
+            "  padding: 6px 8px;"
+            "}"
+            f"QFrame#stat_{key}:hover {{"
+            "  background: #e9ecef;"
+            "}"
+        )
 
 
 class TopBar(QWidget):
@@ -123,7 +163,14 @@ class TopBar(QWidget):
         
         # ===== SECCIÓN FIJA: Control de directorio y acciones =====
         self.control_bar = QFrame(self)
-        self.control_bar.setStyleSheet(styles.STYLE_TOPBAR_CONTROL)
+        try:
+            tooltip_dark = styles.STYLE_TOOLTIP_DARK
+        except Exception:
+            tooltip_dark = ""
+        # No aplicar STYLE_SEARCH_CONTAINER (causaba bordes duplicados con field_widget)
+        self.control_bar.setStyleSheet(
+            "QFrame { background-color: white; border: none; padding: 0px; }" + tooltip_dark
+        )
         self.control_bar.setFixedHeight(60)  # Altura optimizada
         
         layout = QHBoxLayout(self.control_bar)
@@ -133,7 +180,17 @@ class TopBar(QWidget):
         # === TÍTULO DE LA APP (CLICKEABLE - INTEGRA ABOUT) ===
         # Container para icono + texto
         title_container = QWidget()
-        title_container.setStyleSheet(styles.STYLE_TOPBAR_TITLE_CONTAINER)
+        title_container.setStyleSheet(
+            "QWidget {"
+            "  background: transparent;"
+            "  border: none;"
+            "  border-radius: 6px;"
+            "  padding: 4px 8px;"
+            "}"
+            "QWidget:hover {"
+            "  background: rgba(37, 99, 235, 0.06);"  # primary blue at 6% opacity
+            "}"
+        )
         title_container.setCursor(Qt.CursorShape.PointingHandCursor)
         title_container.setToolTip("Acerca de")
         
@@ -147,7 +204,14 @@ class TopBar(QWidget):
         
         # Texto del título
         title_label = QLabel(Config.APP_NAME)
-        title_label.setStyleSheet(styles.STYLE_TOPBAR_TITLE_LABEL)
+        title_label.setStyleSheet(
+            "font-size: 15px;"
+            "font-weight: 700;"
+            "color: #1a1a1a;"
+            "background: transparent;"
+            "border: none;"
+            "padding: 0px;"
+        )
         title_layout.addWidget(title_label)
         
         # Hacer clickeable para mostrar About
@@ -165,7 +229,7 @@ class TopBar(QWidget):
         
         # === CAMPO DE DIRECTORIO UNIFICADO (Estilo Profesional) ===
         directory_container = QFrame()
-        directory_container.setStyleSheet(styles.STYLE_TOPBAR_DIR_CONTAINER)
+        directory_container.setStyleSheet("background: transparent; border: none;")
         directory_container.setMinimumWidth(350)
         directory_container.setMaximumWidth(600)
         
@@ -177,7 +241,16 @@ class TopBar(QWidget):
         
         # Widget contenedor para el campo con icono y chevron integrados
         field_widget = QWidget()
-        field_widget.setStyleSheet(styles.STYLE_TOPBAR_FIELD_WIDGET)
+        field_widget.setStyleSheet(
+            "QWidget {"
+            "  background: white;"
+            "  border: 1px solid #cbd5e0;"
+            "  border-radius: 8px;"
+            "}"
+            "QWidget:hover {"
+            "  border-color: #94a3b8;"
+            "}"
+        )
         field_widget.setFixedHeight(36)  # Altura compacta
         field_widget.setCursor(Qt.CursorShape.PointingHandCursor)
         field_widget.setToolTip(
@@ -264,7 +337,11 @@ class TopBar(QWidget):
         self.folder_icon.setIconSize(QSize(18, 18))
         self.folder_icon.setFixedSize(QSize(24, 24))
         self.folder_icon.setAutoRaise(True)
-        self.folder_icon.setStyleSheet(styles.STYLE_TOPBAR_FOLDER_ICON)
+        self.folder_icon.setStyleSheet(
+            "opacity: 0.9;"
+            "background: transparent;"
+            "border: none;"
+        )
         # Tooltip inicial: indica al usuario que debe seleccionar un directorio
         self.folder_icon.setToolTip("Clica aquí para seleccionar directorio (o usa el botón 'Seleccionar')")
         self.folder_icon.setVisible(False)  # Oculto inicialmente
@@ -277,7 +354,18 @@ class TopBar(QWidget):
         self.directory_edit.setFrame(False)
         # El texto del directorio es solo informativo: usar cursor por defecto
         self.directory_edit.setCursor(Qt.CursorShape.ArrowCursor)
-        self.directory_edit.setStyleSheet(styles.STYLE_TOPBAR_DIR_EDIT)
+        self.directory_edit.setStyleSheet(
+            "QLineEdit {"
+            "  background: transparent;"
+            "  border: none;"
+            "  color: #334155;"
+            "  font-size: 13px;"
+            "  padding: 0px;"
+            "}"
+            "QLineEdit:focus {"
+            "  outline: none;"
+            "}"
+        )
         
         # El click se maneja a nivel de `field_widget` para mantener
         # comportamiento consistente; no sobrescribimos mousePressEvent
@@ -286,13 +374,34 @@ class TopBar(QWidget):
         # Badge de metadata (archivos y tamaño, solo visible tras análisis)
         self.metadata_badge = QLabel()
         self.metadata_badge.setVisible(False)
-        self.metadata_badge.setStyleSheet(styles.STYLE_TOPBAR_METADATA_BADGE)
+        self.metadata_badge.setStyleSheet(
+            "QLabel {"
+            "  background: rgba(120, 113, 108, 0.08);"  # brown-600 at 8% opacity
+            "  color: #64748b;"  # text-secondary
+            "  font-family: 'Courier New', monospace;"
+            "  font-size: 10px;"
+            "  font-weight: 500;"
+            "  padding: 2px 6px;"
+            "  border-radius: 4px;"
+            "  border: 1px solid rgba(120, 113, 108, 0.12);"
+            "}"
+        )
         field_layout.addWidget(self.metadata_badge)
         
         # Badge de estado integrado (se muestra solo tras análisis)
         self.analysis_badge = QLabel()
         self.analysis_badge.setVisible(False)
-        self.analysis_badge.setStyleSheet(styles.STYLE_TOPBAR_ANALYSIS_BADGE_SUCCESS)
+        self.analysis_badge.setStyleSheet(
+            "QLabel {"
+            "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #d4edda, stop:1 #c3e6cb);"
+            "  border: 1px solid #c3e6cb;"
+            "  border-radius: 4px;"
+            "  padding: 2px 8px;"
+            "  color: #155724;"
+            "  font-size: 11px;"
+            "  font-weight: 600;"
+            "}"
+        )
         field_layout.addWidget(self.analysis_badge)
         
         # Botón de historial (chevron integrado)
@@ -304,7 +413,30 @@ class TopBar(QWidget):
         self.history_btn.setFixedSize(26, 24)
         self.history_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.history_btn.setToolTip("Ver historial de directorios")
-        self.history_btn.setStyleSheet(styles.STYLE_TOPBAR_HISTORY_BTN)
+        self.history_btn.setStyleSheet(
+            "QToolButton {"
+            "  background: transparent;"
+            "  border: none;"
+            "  border-radius: 4px;"
+            "  color: #64748b;"
+            "  font-size: 12px;"
+            "  font-weight: bold;"
+            "}"
+            "QToolButton:hover {"
+            "  background: #f1f5f9;"
+            "  color: #334155;"
+            "}"
+            "QToolButton:pressed {"
+            "  background: #e2e8f0;"
+            "}"
+            "QToolButton:disabled {"
+            "  color: #cbd5e0;"
+            "}"
+            "QToolButton::menu-indicator {"
+            "  image: none;"
+            "  width: 0px;"
+            "}"
+        )
         self.history_btn.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
 
         # Menú de historial
@@ -318,8 +450,6 @@ class TopBar(QWidget):
         
         dir_outer_layout.addWidget(field_widget)
         layout.addWidget(directory_container, stretch=1)
-        # Espacio entre el campo de directorio y los botones de acción
-        layout.addSpacing(12)
         
         # === BOTONES DE ACCIÓN ===
         # Botón: Selector de directorio (solo icono, compacto)
@@ -328,7 +458,23 @@ class TopBar(QWidget):
         icon_manager.set_button_icon(self.select_btn, 'folder', color='#2563eb', size=18)
         self.select_btn.setFixedSize(36, 32)
         self.select_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.select_btn.setStyleSheet(styles.STYLE_TOPBAR_SELECT_BTN)
+        self.select_btn.setStyleSheet(
+            "QPushButton#select_btn {"
+            "  background-color: transparent;"
+            "  border: 1px solid #cbd5e0;"
+            "  border-radius: 6px;"
+            "}"
+            "QPushButton#select_btn:hover:enabled {"
+            "  background-color: rgba(37, 99, 235, 0.08);"
+            "  border-color: #2563eb;"
+            "}"
+            "QPushButton#select_btn:pressed:enabled {"
+            "  background-color: rgba(37, 99, 235, 0.15);"
+            "}"
+            "QPushButton#select_btn:disabled {"
+            "  opacity: 0.5;"
+            "}"
+        )
         self.select_btn.clicked.connect(self._on_select_clicked)
         self.select_btn.setToolTip("Seleccionar directorio")
         layout.addWidget(self.select_btn)
@@ -358,7 +504,12 @@ class TopBar(QWidget):
         separator = QFrame()
         separator.setFrameShape(QFrame.Shape.VLine)
         separator.setFixedSize(1, 20)
-        separator.setStyleSheet(styles.STYLE_TOPBAR_SPLIT_SEPARATOR)
+        separator.setStyleSheet(
+            "QFrame {"
+            "  background: rgba(255, 255, 255, 0.3);"
+            "  border: none;"
+            "}"
+        )
         
         # Parte 2: Botón dropdown (chevron)
         self.dropdown_btn = QPushButton()
@@ -380,7 +531,32 @@ class TopBar(QWidget):
         
         # Crear menú de opciones
         self.analyze_menu = QMenu(self.dropdown_btn)
-        self.analyze_menu.setStyleSheet(styles.STYLE_TOPBAR_ANALYZE_MENU)
+        self.analyze_menu.setStyleSheet(
+            "QMenu {"
+            "  background: white;"
+            "  border: 1px solid #cbd5e0;"
+            "  border-radius: 8px;"
+            "  padding: 6px;"
+            "}"
+            "QMenu::item {"
+            "  padding: 8px 16px;"
+            "  border-radius: 4px;"
+            "  color: #334155;"
+            "  font-size: 13px;"
+            "}"
+            "QMenu::item:selected {"
+            "  background: #f1f5f9;"
+            "}"
+            "QMenu::item:disabled {"
+            "  color: #94a3b8;"
+            "  opacity: 0.5;"
+            "}"
+            "QMenu::separator {"
+            "  height: 1px;"
+            "  background: #e2e8f0;"
+            "  margin: 4px 0;"
+            "}"
+        )
         
         # Opciones del menú
         self.action_quick = self.analyze_menu.addAction("⚡ Análisis rápido")
@@ -421,7 +597,43 @@ class TopBar(QWidget):
         self.split_container.setMaximumWidth(220)
         
         # Estilo del split button container
-        self.split_container.setStyleSheet(styles.STYLE_TOPBAR_SPLIT_CONTAINER)
+        self.split_container.setStyleSheet(
+            "QWidget#split_container {"
+            "  background-color: #2563eb;"
+            "  border: none;"
+            "  border-radius: 6px;"
+            "}"
+            "QWidget#split_container:hover {"
+            "  background-color: #1d4ed8;"
+            "}"
+            "QWidget#split_container:disabled {"
+            "  background-color: #94a3b8;"
+            "  opacity: 0.6;"
+            "}"
+            "QWidget#split_container QPushButton {"
+            "  background-color: transparent;"
+            "  color: white;"
+            "  border: none;"
+            "  font-size: 13px;"
+            "  font-weight: 600;"
+            "  padding: 0 12px;"
+            "}"
+            "QWidget#split_container QPushButton#analyze_btn {"
+            "  padding-left: 14px;"
+            "  padding-right: 10px;"
+            "}"
+            "QWidget#split_container QPushButton#dropdown_btn {"
+            "  padding: 0 8px;"
+            "  border-left: 1px solid rgba(255,255,255,0.12);"
+            "  min-width: 30px;"
+            "}"
+            "QWidget#split_container QPushButton:hover {"
+            "  background-color: rgba(255, 255, 255, 0.12);"
+            "}"
+            "QWidget#split_container QPushButton:disabled {"
+            "  color: #e2e8f0;"
+            "}"
+        )
         
         layout.addWidget(self.split_container)
         
@@ -434,7 +646,23 @@ class TopBar(QWidget):
         self.stop_btn.setFixedHeight(32)
         self.stop_btn.setMinimumWidth(90)
         self.stop_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.stop_btn.setStyleSheet(styles.STYLE_TOPBAR_STOP_BTN)
+        self.stop_btn.setStyleSheet(
+            "QPushButton {"
+            "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #fff3cd, stop:1 #ffeaa7);"
+            "  border: 1px solid #ffc107;"
+            "  border-radius: 6px;"
+            "  color: #856404;"
+            "  font-weight: 600;"
+            "  font-size: 13px;"
+            "  padding: 6px 14px;"
+            "}"
+            "QPushButton:hover {"
+            "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #ffeaa7, stop:1 #ffd93d);"
+            "}"
+            "QPushButton:pressed {"
+            "  background: #ffd93d;"
+            "}"
+        )
         self.stop_btn.clicked.connect(self._on_stop_clicked)
         layout.addWidget(self.stop_btn)
         
@@ -447,7 +675,25 @@ class TopBar(QWidget):
         self.stats_toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.stats_toggle_btn.setToolTip("Mostrar/ocultar resumen del análisis")
         self.stats_toggle_btn.setVisible(False)  # Oculto hasta que haya análisis
-        self.stats_toggle_btn.setStyleSheet(styles.STYLE_TOPBAR_STATS_TOGGLE)
+        self.stats_toggle_btn.setStyleSheet(
+            "QPushButton {"
+            "  background: transparent;"
+            "  border: 1px solid #e1e8ed;"
+            "  border-radius: 6px;"
+            "  color: #64748b;"
+            "  font-size: 14px;"
+            "  font-weight: bold;"
+            "  padding: 0px;"
+            "}"
+            "QPushButton:hover {"
+            "  background: #f1f5f9;"
+            "  border-color: #cbd5e0;"
+            "  color: #334155;"
+            "}"
+            "QPushButton:pressed {"
+            "  background: #e2e8f0;"
+            "}"
+        )
         self.stats_toggle_btn.clicked.connect(self._toggle_summary)
         layout.addWidget(self.stats_toggle_btn)
         
@@ -457,7 +703,19 @@ class TopBar(QWidget):
         config_btn.setFixedSize(32, 32)
         config_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         config_btn.setToolTip("Configuración")
-        config_btn.setStyleSheet(styles.STYLE_TOPBAR_CONFIG_BTN)
+        config_btn.setStyleSheet(
+            "QPushButton {"
+            "  background: transparent;"
+            "  border: none;"
+            "  border-radius: 6px;"
+            "}"
+            "QPushButton:hover {"
+            "  background: #f1f5f9;"
+            "}"
+            "QPushButton:pressed {"
+            "  background: #e2e8f0;"
+            "}"
+        )
         if self.main_window is not None:
             config_btn.clicked.connect(self.main_window.toggle_config)
         layout.addWidget(config_btn)
@@ -486,7 +744,14 @@ class TopBar(QWidget):
         
         # Container animable
         self.smart_stats_container = QFrame()
-        self.smart_stats_container.setStyleSheet(styles.STYLE_TOPBAR_SMART_STATS_CONTAINER)
+        self.smart_stats_container.setStyleSheet(
+            "QFrame {"
+            "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, "
+            "    stop:0 #fafbfc, stop:1 #ffffff);"
+            "  border-top: 1px solid #e1e8ed;"
+            "  border-bottom: 1px solid #cbd5e0;"
+            "}"
+        )
         self.smart_stats_container.setMinimumHeight(0)
         self.smart_stats_container.setMaximumHeight(0)  # Inicialmente colapsado
         self.smart_stats_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
@@ -532,7 +797,18 @@ class TopBar(QWidget):
         """Crea un separador vertical con gradiente sutil"""
         separator = QFrame()
         separator.setFrameShape(QFrame.Shape.VLine)
-        separator.setStyleSheet(styles.STYLE_TOPBAR_SEPARATOR)
+        separator.setStyleSheet(
+            "QFrame {"
+            "  border: none;"
+            "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, "
+            "    stop:0 transparent, "
+            "    stop:0.2 rgba(120, 113, 108, 0.15), "
+            "    stop:0.8 rgba(120, 113, 108, 0.15), "
+            "    stop:1 transparent);"
+            "  width: 1px;"
+            "  margin: 0px 20px;"
+            "}"
+        )
         return separator
     
     def _initialize_stats_placeholders(self):
@@ -585,7 +861,7 @@ class TopBar(QWidget):
     def _create_stat_column(self, title: str, stats_keys: list):
         """Crea una columna de stats con un título y varios items"""
         column = QFrame()
-        column.setStyleSheet(styles.STYLE_TOPBAR_COLUMN)
+        column.setStyleSheet("background: transparent; border: none;")
         
         layout = QVBoxLayout(column)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -594,7 +870,15 @@ class TopBar(QWidget):
         # Título de la columna
         title_label = QLabel(title)
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title_label.setStyleSheet(styles.STYLE_TOPBAR_COLUMN_TITLE)
+        title_label.setStyleSheet(
+            "color: #64748b; "
+            "font-size: 10px; "
+            "font-weight: 600; "
+            "letter-spacing: 0.05em; "
+            "background: transparent; "
+            "padding: 0px; "
+            "margin-bottom: 0px;"
+        )
         layout.addWidget(title_label)
         
         # Container para los stats
@@ -643,19 +927,33 @@ class TopBar(QWidget):
         icon_btn.setFixedSize(QSize(16, 16))
         icon_btn.setIconSize(QSize(16, 16))
         icon_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        icon_btn.setStyleSheet(styles.STYLE_TOPBAR_STAT_ICON)
+        icon_btn.setStyleSheet(
+            "QToolButton { background: transparent; border: none; padding: 0px; margin: 0px; }"
+        )
         icon_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         layout.addWidget(icon_btn)
         
         # Label (texto descriptivo)
         text_label = QLabel()
-        text_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_TEXT)
+        text_label.setStyleSheet(
+            "color: #64748b; "
+            "font-size: 12px; "
+            "font-weight: 400; "
+            "background: transparent; "
+            "border: none;"
+        )
         text_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         layout.addWidget(text_label, 1)
         
         # Número (valor del stat)
         value_label = QLabel()
-        value_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_VALUE)
+        value_label.setStyleSheet(
+            "color: #64748b; "
+            "font-size: 12px; "
+            "font-weight: 600; "
+            "background: transparent; "
+            "border: none;"
+        )
         value_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         value_label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         layout.addWidget(value_label)
@@ -695,7 +993,13 @@ class TopBar(QWidget):
         """Crea la barra de progreso superpuesta (no afecta layout)"""
         # Container superpuesto sobre smart_stats
         self.progress_container = QFrame(self)
-        self.progress_container.setStyleSheet(styles.STYLE_TOPBAR_PROGRESS_CONTAINER)
+        self.progress_container.setStyleSheet(
+            "QFrame {"
+            "  background: rgba(255, 255, 255, 0.98);"
+            "  border: none;"
+            "  border-radius: 0px;"
+            "}"
+        )
         self.progress_container.setVisible(False)
         
         # Posicionamiento absoluto (se calculará dinámicamente)
@@ -707,19 +1011,48 @@ class TopBar(QWidget):
         
         # Container interno con diseño moderno
         inner_container = QFrame()
-        inner_container.setStyleSheet(styles.STYLE_TOPBAR_PROGRESS_INNER)
+        inner_container.setStyleSheet(
+            "QFrame {"
+            "  background: white;"
+            "  border: 1px solid #e1e8ed;"
+            "  border-radius: 12px;"
+            "  padding: 20px;"
+            "}"
+        )
         inner_layout = QVBoxLayout(inner_container)
         inner_layout.setContentsMargins(0, 0, 0, 0)
         inner_layout.setSpacing(12)
         
         # Label de estado con diseño limpio
         self.summary_progress_label = QLabel("⏳ Preparando análisis...")
-        self.summary_progress_label.setStyleSheet(styles.STYLE_TOPBAR_PROGRESS_LABEL)
+        self.summary_progress_label.setStyleSheet(
+            "color: #334155;"
+            "font-weight: 600;"
+            "font-size: 13px;"
+            "background: transparent;"
+            "border: none;"
+        )
         inner_layout.addWidget(self.summary_progress_label)
         
         # Barra de progreso moderna
         self.summary_progress_bar = QProgressBar()
-        self.summary_progress_bar.setStyleSheet(styles.STYLE_TOPBAR_PROGRESS_BAR)
+        self.summary_progress_bar.setStyleSheet(
+            "QProgressBar {"
+            "  border: none;"
+            "  border-radius: 8px;"
+            "  text-align: center;"
+            "  background-color: #f1f5f9;"
+            "  height: 32px;"
+            "  font-size: 12px;"
+            "  font-weight: 600;"
+            "  color: #475569;"
+            "}"
+            "QProgressBar::chunk {"
+            "  background: qlineargradient(x1:0, y1:0, x2:1, y2:0, "
+            "    stop:0 #3b82f6, stop:1 #60a5fa);"
+            "  border-radius: 8px;"
+            "}"
+        )
         self.summary_progress_bar.setMaximum(100)
         self.summary_progress_bar.setValue(0)
         self.summary_progress_bar.setTextVisible(True)
@@ -728,7 +1061,12 @@ class TopBar(QWidget):
         
         # Detalle adicional con diseño sutil
         self.summary_progress_detail = QLabel("")
-        self.summary_progress_detail.setStyleSheet(styles.STYLE_TOPBAR_PROGRESS_DETAIL)
+        self.summary_progress_detail.setStyleSheet(
+            "color: #64748b;"
+            "font-size: 11px;"
+            "background: transparent;"
+            "border: none;"
+        )
         self.summary_progress_detail.setWordWrap(True)
         inner_layout.addWidget(self.summary_progress_detail)
         
@@ -1210,13 +1548,13 @@ class TopBar(QWidget):
                 apply_stat_state(widget, 'detected', 'live_photos')
                 icon_manager.set_button_icon(widget.icon_label, 'live-photo', color='#eab308', size=16)
                 widget.value_label.setText(str(lp_count))
-                widget.value_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_VALUE_WARNING)
+                widget.value_label.setStyleSheet("color: #eab308; font-size: 12px; font-weight: 600;")
             else:
                 apply_stat_state(widget, 'clean', 'live_photos')
                 icon_manager.set_button_icon(widget.icon_label, 'live-photo', color='#10b981', size=16)
                 widget.value_label.setText("✓")
-                widget.value_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_VALUE_SUCCESS)
-            widget.text_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_TEXT_NORMAL)
+                widget.value_label.setStyleSheet("color: #10b981; font-size: 12px; font-weight: 600;")
+            widget.text_label.setStyleSheet("color: #334155; font-size: 12px; font-weight: 400;")
             widget.setToolTip(f"Live Photos detectados: {lp_count:,}")
         
         # HEIC Duplicados
@@ -1227,13 +1565,13 @@ class TopBar(QWidget):
                 apply_stat_state(widget, 'detected', 'heic')
                 icon_manager.set_button_icon(widget.icon_label, 'heic', color='#eab308', size=16)
                 widget.value_label.setText(str(heic_count))
-                widget.value_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_VALUE_WARNING)
+                widget.value_label.setStyleSheet("color: #eab308; font-size: 12px; font-weight: 600;")
             else:
                 apply_stat_state(widget, 'clean', 'heic')
                 icon_manager.set_button_icon(widget.icon_label, 'heic', color='#10b981', size=16)
                 widget.value_label.setText("✓")
-                widget.value_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_VALUE_SUCCESS)
-            widget.text_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_TEXT_NORMAL)
+                widget.value_label.setStyleSheet("color: #10b981; font-size: 12px; font-weight: 600;")
+            widget.text_label.setStyleSheet("color: #334155; font-size: 12px; font-weight: 400;")
             widget.setToolTip(f"Archivos HEIC con duplicado JPG: {heic_count:,}")
         
         # === COLUMNA 2: DUPLICADOS ===
@@ -1246,13 +1584,13 @@ class TopBar(QWidget):
                 apply_stat_state(widget, 'detected', 'duplicates_exact')
                 icon_manager.set_button_icon(widget.icon_label, 'duplicate-exact', color='#eab308', size=16)
                 widget.value_label.setText(str(dup_exact))
-                widget.value_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_VALUE_WARNING)
+                widget.value_label.setStyleSheet("color: #eab308; font-size: 12px; font-weight: 600;")
             else:
                 apply_stat_state(widget, 'clean', 'duplicates_exact')
                 icon_manager.set_button_icon(widget.icon_label, 'duplicate-exact', color='#10b981', size=16)
                 widget.value_label.setText("✓")
-                widget.value_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_VALUE_SUCCESS)
-            widget.text_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_TEXT_NORMAL)
+                widget.value_label.setStyleSheet("color: #10b981; font-size: 12px; font-weight: 600;")
+            widget.text_label.setStyleSheet("color: #334155; font-size: 12px; font-weight: 400;")
             widget.setToolTip(f"Duplicados exactos por hash: {dup_exact:,}")
         
         # Duplicados Similares (no analizado por defecto)
@@ -1261,8 +1599,8 @@ class TopBar(QWidget):
             apply_stat_state(widget, 'not-analyzed', 'duplicates_similar')
             icon_manager.set_button_icon(widget.icon_label, 'eye', color='#64748b', size=16)
             widget.value_label.setText("—")
-            widget.value_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_VALUE_NORMAL)
-            widget.text_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_TEXT_MUTED)
+            widget.value_label.setStyleSheet("color: #64748b; font-size: 12px; font-weight: 600;")
+            widget.text_label.setStyleSheet("color: #64748b; font-size: 12px; font-weight: 400;")
             widget.setToolTip("Duplicados similares (requiere análisis manual)")
         
         # === COLUMNA 3: ORGANIZACIÓN ===
@@ -1275,13 +1613,13 @@ class TopBar(QWidget):
                 apply_stat_state(widget, 'detected', 'renaming')
                 icon_manager.set_button_icon(widget.icon_label, 'rename', color='#eab308', size=16)
                 widget.value_label.setText(str(ren_count))
-                widget.value_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_VALUE_WARNING)
+                widget.value_label.setStyleSheet("color: #eab308; font-size: 12px; font-weight: 600;")
             else:
                 apply_stat_state(widget, 'clean', 'renaming')
                 icon_manager.set_button_icon(widget.icon_label, 'rename', color='#10b981', size=16)
                 widget.value_label.setText("✓")
-                widget.value_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_VALUE_SUCCESS)
-            widget.text_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_TEXT_NORMAL)
+                widget.value_label.setStyleSheet("color: #10b981; font-size: 12px; font-weight: 600;")
+            widget.text_label.setStyleSheet("color: #334155; font-size: 12px; font-weight: 400;")
             widget.setToolTip(f"Archivos que necesitan renombrado: {ren_count:,}")
         
         # Organizar
@@ -1292,13 +1630,13 @@ class TopBar(QWidget):
                 apply_stat_state(widget, 'detected', 'organization')
                 icon_manager.set_button_icon(widget.icon_label, 'organize', color='#eab308', size=16)
                 widget.value_label.setText(str(org_count))
-                widget.value_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_VALUE_WARNING)
+                widget.value_label.setStyleSheet("color: #eab308; font-size: 12px; font-weight: 600;")
             else:
                 apply_stat_state(widget, 'clean', 'organization')
                 icon_manager.set_button_icon(widget.icon_label, 'organize', color='#10b981', size=16)
                 widget.value_label.setText("✓")
-                widget.value_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_VALUE_SUCCESS)
-            widget.text_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_TEXT_NORMAL)
+                widget.value_label.setStyleSheet("color: #10b981; font-size: 12px; font-weight: 600;")
+            widget.text_label.setStyleSheet("color: #334155; font-size: 12px; font-weight: 400;")
             widget.setToolTip(f"Archivos que pueden organizarse: {org_count:,}")
         
         # Mostrar badge completado
@@ -1326,7 +1664,17 @@ class TopBar(QWidget):
     def set_status_analyzing(self):
         """Establece el badge de estado a 'Analizando...'"""
         self.analysis_badge.setText("⏳ Analizando")  # Unicode hourglass, no emoji
-        self.analysis_badge.setStyleSheet(styles.STYLE_TOPBAR_ANALYSIS_BADGE_ANALYZING)
+        self.analysis_badge.setStyleSheet(
+            "QLabel {"
+            "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #dbeafe, stop:1 #bfdbfe);"
+            "  border: 1px solid #93c5fd;"
+            "  border-radius: 4px;"
+            "  padding: 2px 8px;"
+            "  color: #1e40af;"
+            "  font-size: 11px;"
+            "  font-weight: 600;"
+            "}"
+        )
         self.analysis_badge.setVisible(True)
         # Mostrar progreso superpuesto
         self.show_progress()
@@ -1334,7 +1682,17 @@ class TopBar(QWidget):
     def set_status_canceled(self):
         """Establece el badge de estado a 'Cancelado' y limpia stats parciales"""
         self.analysis_badge.setText("⚠️ Cancelado")  # Unicode warning, no emoji
-        self.analysis_badge.setStyleSheet(styles.STYLE_TOPBAR_ANALYSIS_BADGE_CANCELED)
+        self.analysis_badge.setStyleSheet(
+            "QLabel {"
+            "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #fff3cd, stop:1 #ffeaa7);"
+            "  border: 1px solid #ffc107;"
+            "  border-radius: 4px;"
+            "  padding: 2px 8px;"
+            "  color: #856404;"
+            "  font-size: 11px;"
+            "  font-weight: 600;"
+            "}"
+        )
         self.analysis_badge.setVisible(True)
         
         # Limpiar stats parciales (no queremos mostrar resultados incompletos)
@@ -1344,7 +1702,17 @@ class TopBar(QWidget):
         """Establece el badge de estado a 'Completado'"""
         self._has_completed_analysis = True  # Marcar que se completó al menos un análisis
         self.analysis_badge.setText("✓ Analizado")  # Unicode checkmark, no emoji
-        self.analysis_badge.setStyleSheet(styles.STYLE_TOPBAR_ANALYSIS_BADGE_SUCCESS)
+        self.analysis_badge.setStyleSheet(
+            "QLabel {"
+            "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #d4edda, stop:1 #c3e6cb);"
+            "  border: 1px solid #c3e6cb;"
+            "  border-radius: 4px;"
+            "  padding: 2px 8px;"
+            "  color: #155724;"
+            "  font-size: 11px;"
+            "  font-weight: 600;"
+            "}"
+        )
         self.analysis_badge.setVisible(True)
         self.stats_toggle_btn.setVisible(True)
         # Actualizar botón a "Cambiar" después del primer análisis exitoso
