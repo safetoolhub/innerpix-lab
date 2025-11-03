@@ -15,14 +15,10 @@ pixaro-lab/
 ├── .github/
 │   └── copilot-instructions.md      # Instrucciones para GitHub Copilot
 │
-├── docs/                            # Documentación técnica
-│   ├── COLORS_REFERENCE.md          # Referencia de colores de la UI
-│   ├── GUIA_CONFIGURACION.md        # Guía de configuración para usuarios
-│   ├── LOGGING_CONVENTIONS.md       # Convenciones de logging
-│   ├── MAX_WORKERS_IMPLEMENTATION.md # Implementación de workers paralelos
-│   ├── REFACTOR_SETTINGS_SUMMARY.md # Resumen de refactorización de settings
-│   └── TODO.txt                     # Tareas pendientes
-│
+├── fonts/                           # Fuentes e iconos Material usados por la UI
+│   └── (archivos de fuentes e iconos)
+
+<!-- Nota: La carpeta `docs/` contiene notas técnicas y personales del autor y no se incluye en este árbol simplificado. -->
 ├── services/                        # Lógica de negocio (sin dependencias UI)
 │   ├── __init__.py
 │   ├── duplicate_detector.py        # Detección de duplicados por hash

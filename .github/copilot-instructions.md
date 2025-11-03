@@ -5,6 +5,8 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
 
 > **Project Structure:** See `PROJECT_TREE.md` for detailed directory layout and file descriptions.
 
+> Nota: La carpeta `docs/` contiene notas internas del autor y NO debe procesarse ni considerarse parte del proyecto; son apuntes privados del autor.
+
 ### Architecture (3-layer pattern)
 
 **Services** (`services/`) - Pure business logic, no UI dependencies
@@ -33,6 +35,8 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
   * `open_file()`: Cross-platform file opener (xdg-open/open/start)
   * `open_folder()`: Cross-platform folder opener with file selection
   * `show_file_details_dialog()`: Professional 2-column dialog with file info (no scroll, compact layout)
+
+**Iconos y uso de emojis:** Por compatibilidad y para evitar problemas de renderizado, la aplicación usará exclusivamente los iconos "Material" provistos en la carpeta `fonts/`. No se usarán emojis en la interfaz ni en los textos de la aplicación.
 
 ### Critical Patterns
 
@@ -117,15 +121,12 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
 
 ### Developer Workflow
 
-Setup: `python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt`
+Setup: `uv venv --python 3.13 && source .venv/bin/activate && uv pip install -r requirements.txt`
 - Note: `pillow-heif` requires system `libheif` library (apt/brew install)
 
-Run: `python main.py` (launches PyQt6 GUI)
+Run: `source .venv/bin/activate && python main.py`
 - Logs: `~/Documents/Pixaro_Lab/logs/` by default
 - Use `utils.logger.set_global_log_level(logging.DEBUG)` for verbose output
-
-Debugging: Check `ui.managers.logging_manager.LoggingManager` for log file location
-- Main window exposes: `self.logger`, `self.log_file`, `self.logs_directory`
 
 ### Code Quality Rules
 
