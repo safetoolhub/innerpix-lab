@@ -1,8 +1,8 @@
 """
 Pixaro Lab - Punto de entrada de la aplicación
 
-Aplicación de gestión de archivos multimedia con normalización,
-detección de Live Photos, unificación de directorios y limpieza de duplicados.
+Aplicación de gestión de archivos multimedia con herramientas para la organización y limpieza de duplicados
+.
 """
 import sys
 import os

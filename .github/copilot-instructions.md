@@ -132,7 +132,7 @@ Run: `source .venv/bin/activate && python main.py`
 
 - **Strict PEP 8**: use type hints where present, maintain existing patterns
 - **No empty try/except**: avoid `except: pass` blocks
-- **No legacy callbacks**: single-author project, no backward compatibility needed
+- **No legacy callbacks or compatibility wrappers**: single-author project, no backward compatibility needed
 - **Preserve backup flows**: never remove `create_backup` parameters without explicit request
 - **Test UI paths**: run app locally and exercise analysis → preview → execute for file operations
 

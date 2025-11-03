@@ -26,6 +26,7 @@ from ui import styles
 from utils.settings_manager import settings_manager
 from utils.format_utils import format_number
 from utils.icons import icon_manager
+import os
 
 
 class TopBar(QWidget):
@@ -220,11 +221,15 @@ class TopBar(QWidget):
         field_layout.setContentsMargins(10, 6, 6, 6)  # Márgenes compactos
         field_layout.setSpacing(6)
         
-        # Icono de carpeta (izquierda) - usar icono estándar para evitar problemas
+        # Icono de carpeta (izquierda) - usar QToolButton para que Qt rasterice correctamente
         # Inicialmente OCULTO - se muestra solo tras análisis completado
-        self.folder_icon = QLabel()
+        from PyQt6.QtWidgets import QToolButton
+        self.folder_icon = QToolButton()
         dir_icon = self.style().standardIcon(QStyle.StandardPixmap.SP_DirIcon)
-        self.folder_icon.setPixmap(dir_icon.pixmap(18, 18))
+        self.folder_icon.setIcon(dir_icon)
+        self.folder_icon.setIconSize(QSize(18, 18))
+        self.folder_icon.setFixedSize(QSize(24, 24))
+        self.folder_icon.setAutoRaise(True)
         self.folder_icon.setStyleSheet(
             "opacity: 0.9;"
             "background: transparent;"
@@ -564,51 +569,51 @@ class TopBar(QWidget):
         # Archivos
         if 'files' in self.smart_stats:
             widget = self.smart_stats['files']
-            icon_manager.set_label_icon(widget.icon_label, 'file', color='#64748b', size=16)
+            icon_manager.set_button_icon(widget.icon_label, 'file', color='#64748b', size=18)
             widget.text_label.setText("—")
             widget.setToolTip("Total de archivos (analizar para ver)")
         
         if 'size' in self.smart_stats:
             widget = self.smart_stats['size']
-            icon_manager.set_label_icon(widget.icon_label, 'disk', color='#64748b', size=16)
+            icon_manager.set_button_icon(widget.icon_label, 'disk', color='#64748b', size=18)
             widget.text_label.setText("—")
             widget.setToolTip("Tamaño total (analizar para ver)")
         
         # Pendientes
         if 'renaming' in self.smart_stats:
             widget = self.smart_stats['renaming']
-            icon_manager.set_label_icon(widget.icon_label, 'rename', color='#64748b', size=16)
+            icon_manager.set_button_icon(widget.icon_label, 'rename', color='#64748b', size=18)
             widget.text_label.setText("—")
             widget.setToolTip("Archivos sin renombrar (analizar para ver)")
         
         if 'heic' in self.smart_stats:
             widget = self.smart_stats['heic']
-            icon_manager.set_label_icon(widget.icon_label, 'heic', color='#64748b', size=16)
+            icon_manager.set_button_icon(widget.icon_label, 'heic', color='#64748b', size=18)
             widget.text_label.setText("—")
             widget.setToolTip("Duplicados HEIC (analizar para ver)")
         
         if 'organization' in self.smart_stats:
             widget = self.smart_stats['organization']
-            icon_manager.set_label_icon(widget.icon_label, 'organize', color='#64748b', size=16)
+            icon_manager.set_button_icon(widget.icon_label, 'organize', color='#64748b', size=18)
             widget.text_label.setText("—")
             widget.setToolTip("Archivos a organizar (analizar para ver)")
         
         # Detectados
         if 'live_photos' in self.smart_stats:
             widget = self.smart_stats['live_photos']
-            icon_manager.set_label_icon(widget.icon_label, 'live-photo', color='#64748b', size=16)
+            icon_manager.set_button_icon(widget.icon_label, 'live-photo', color='#64748b', size=18)
             widget.text_label.setText("—")
             widget.setToolTip("Live Photos (analizar para ver)")
         
         if 'duplicates_exact' in self.smart_stats:
             widget = self.smart_stats['duplicates_exact']
-            icon_manager.set_label_icon(widget.icon_label, 'duplicate-exact', color='#64748b', size=16)
+            icon_manager.set_button_icon(widget.icon_label, 'duplicate-exact', color='#64748b', size=18)
             widget.text_label.setText("—")
             widget.setToolTip("Duplicados exactos (analizar para ver)")
         
         if 'duplicates_similar' in self.smart_stats:
             widget = self.smart_stats['duplicates_similar']
-            icon_manager.set_label_icon(widget.icon_label, 'eye', color='#64748b', size=16)
+            icon_manager.set_button_icon(widget.icon_label, 'eye', color='#64748b', size=18)
             widget.text_label.setText("No analizado")
             widget.setStyleSheet(
                 "QFrame { background: #f1f3f5; border: 1px solid #dee2e6; "
@@ -687,17 +692,18 @@ class TopBar(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(8)
         
-        # Icono (ahora usando Material Design en lugar de emoji)
-        icon_label = QLabel()
-        icon_label.setFixedSize(QSize(16, 16))  # Tamaño fijo 16x16 para iconos en stats
-        icon_label.setScaledContents(True)  # Escalar el contenido al tamaño del label
-        icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)  # Centrar el icono
-        icon_label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        icon_label.setStyleSheet(
-            "background: transparent; "
-            "border: none;"
+        # Icono (usar QToolButton con QIcon para que Qt rasterice correctamente)
+        icon_btn = QToolButton()
+        icon_btn.setAutoRaise(True)
+        icon_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
+        icon_btn.setFixedSize(QSize(24, 24))  # espacio total (incluye padding)
+        icon_btn.setIconSize(QSize(18, 18))
+        icon_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        icon_btn.setStyleSheet(
+            "QToolButton { background: transparent; border: none; padding: 0px; margin: 0px; }"
         )
-        layout.addWidget(icon_label)
+        icon_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        layout.addWidget(icon_btn)
         
         # Texto
         text_label = QLabel()
@@ -713,13 +719,14 @@ class TopBar(QWidget):
         layout.addWidget(text_label, 1)
         
         # Guardar referencias
-        widget.icon_label = icon_label
+        # Mantener el nombre `icon_label` para compatibilidad con el resto del código
+        widget.icon_label = icon_btn
         widget.text_label = text_label
         widget.stat_key = key
-        
+
         # Conectar click
         widget.mousePressEvent = lambda event: self._on_stat_clicked(key)
-        
+
         return widget
     
     def _on_stat_clicked(self, key: str):
@@ -1201,22 +1208,32 @@ class TopBar(QWidget):
         
         if 'files' in self.smart_stats:
             widget = self.smart_stats['files']
-            icon_manager.set_label_icon(widget.icon_label, 'file', color='#334155', size=16)
+            icon_manager.set_button_icon(widget.icon_label, 'file', color='#334155', size=18)
             widget.text_label.setText(f"{format_number(total_files)} archivos")
             widget.setToolTip(f"Total de archivos: {total_files:,}")
+            if os.getenv('PIXARO_DEBUG_ICON') == '1':
+                pm = widget.icon_label.pixmap()
+                screen = widget.icon_label.screen() if hasattr(widget.icon_label, 'screen') else None
+                dpr = screen.devicePixelRatio() if screen is not None else None
+                print("DEBUG_ICON files:", "label.size=", widget.icon_label.size(), "pixmap.size=", pm.size() if pm else None, "pixmap.dpr=", getattr(pm, 'devicePixelRatio', lambda: None)(), "screen.dpr=", dpr)
         
         if 'size' in self.smart_stats:
             widget = self.smart_stats['size']
-            icon_manager.set_label_icon(widget.icon_label, 'disk', color='#334155', size=16)
+            icon_manager.set_button_icon(widget.icon_label, 'disk', color='#334155', size=18)
             widget.text_label.setText(format_size(total_size))
             widget.setToolTip(f"Tamaño total: {format_size(total_size)}")
+            if os.getenv('PIXARO_DEBUG_ICON') == '1':
+                pm = widget.icon_label.pixmap()
+                screen = widget.icon_label.screen() if hasattr(widget.icon_label, 'screen') else None
+                dpr = screen.devicePixelRatio() if screen is not None else None
+                print("DEBUG_ICON size:", "label.size=", widget.icon_label.size(), "pixmap.size=", pm.size() if pm else None, "pixmap.dpr=", getattr(pm, 'devicePixelRatio', lambda: None)(), "screen.dpr=", dpr)
         
         # === ACCIONES REQUERIDAS ===
         ren_count = ren.need_renaming if ren else 0
         if 'renaming' in self.smart_stats:
             widget = self.smart_stats['renaming']
             if ren_count > 0:
-                icon_manager.set_label_icon(widget.icon_label, 'warning', color='#856404', size=16)
+                icon_manager.set_button_icon(widget.icon_label, 'warning', color='#856404', size=18)
                 widget.text_label.setText(f"{format_number(ren_count)} sin renombrar")
                 widget.setStyleSheet(
                     "QFrame { background: #fff3cd; border: 1px solid #ffc107; "
@@ -1232,7 +1249,7 @@ class TopBar(QWidget):
                     "}"
                 )
             else:
-                icon_manager.set_label_icon(widget.icon_label, 'check', color='#155724', size=16)
+                icon_manager.set_button_icon(widget.icon_label, 'check', color='#155724', size=18)
                 widget.text_label.setText("Todo renombrado")
                 widget.setStyleSheet(
                     "QFrame { background: #d4edda; border: 1px solid #c3e6cb; "
@@ -1248,12 +1265,17 @@ class TopBar(QWidget):
                     "}"
                 )
             widget.setToolTip(f"{ren_count:,} archivos necesitan renombrado\nClick para abrir pestaña")
+            if os.getenv('PIXARO_DEBUG_ICON') == '1':
+                pm = widget.icon_label.pixmap()
+                screen = widget.icon_label.screen() if hasattr(widget.icon_label, 'screen') else None
+                dpr = screen.devicePixelRatio() if screen is not None else None
+                print("DEBUG_ICON renaming:", "label.size=", widget.icon_label.size(), "pixmap.size=", pm.size() if pm else None, "pixmap.dpr=", getattr(pm, 'devicePixelRatio', lambda: None)(), "screen.dpr=", dpr)
         
         heic_count = heic.total_duplicates if heic else 0
         if 'heic' in self.smart_stats:
             widget = self.smart_stats['heic']
             if heic_count > 0:
-                icon_manager.set_label_icon(widget.icon_label, 'warning', color='#856404', size=16)
+                icon_manager.set_button_icon(widget.icon_label, 'warning', color='#856404', size=18)
                 widget.text_label.setText(f"{format_number(heic_count)} duplicados HEIC")
                 widget.setStyleSheet(
                     "QFrame { background: #fff3cd; border: 1px solid #ffc107; "
@@ -1269,7 +1291,7 @@ class TopBar(QWidget):
                     "}"
                 )
             else:
-                icon_manager.set_label_icon(widget.icon_label, 'check', color='#155724', size=16)
+                icon_manager.set_button_icon(widget.icon_label, 'check', color='#155724', size=18)
                 widget.text_label.setText("Sin duplicados HEIC")
                 widget.setStyleSheet(
                     "QFrame { background: #d4edda; border: 1px solid #c3e6cb; "
@@ -1285,26 +1307,41 @@ class TopBar(QWidget):
                     "}"
                 )
             widget.setToolTip(f"{heic_count:,} HEIC con duplicado JPG\nClick para eliminar")
+            if os.getenv('PIXARO_DEBUG_ICON') == '1':
+                pm = widget.icon_label.pixmap()
+                screen = widget.icon_label.screen() if hasattr(widget.icon_label, 'screen') else None
+                dpr = screen.devicePixelRatio() if screen is not None else None
+                print("DEBUG_ICON heic:", "label.size=", widget.icon_label.size(), "pixmap.size=", pm.size() if pm else None, "pixmap.dpr=", getattr(pm, 'devicePixelRatio', lambda: None)(), "screen.dpr=", dpr)
         
         # === DETECTADOS ===
         lp_count = lp.get('live_photos_found', 0) if isinstance(lp, dict) else (lp.live_photos_found if lp else 0)
         if 'live_photos' in self.smart_stats:
             widget = self.smart_stats['live_photos']
-            icon_manager.set_label_icon(widget.icon_label, 'live-photo', color='#334155', size=16)
+            icon_manager.set_button_icon(widget.icon_label, 'live-photo', color='#334155', size=18)
             widget.text_label.setText(f"{format_number(lp_count)} Live Photos")
             widget.setToolTip(f"{lp_count:,} Live Photos detectados\nClick para gestionar")
+            if os.getenv('PIXARO_DEBUG_ICON') == '1':
+                pm = widget.icon_label.pixmap()
+                screen = widget.icon_label.screen() if hasattr(widget.icon_label, 'screen') else None
+                dpr = screen.devicePixelRatio() if screen is not None else None
+                print("DEBUG_ICON live_photos:", "label.size=", widget.icon_label.size(), "pixmap.size=", pm.size() if pm else None, "pixmap.dpr=", getattr(pm, 'devicePixelRatio', lambda: None)(), "screen.dpr=", dpr)
         
         dup_exact = dup.total_exact_duplicates if (dup and hasattr(dup, 'total_exact_duplicates')) else 0
         if 'duplicates_exact' in self.smart_stats:
             widget = self.smart_stats['duplicates_exact']
-            icon_manager.set_label_icon(widget.icon_label, 'duplicate-exact', color='#334155', size=16)
+            icon_manager.set_button_icon(widget.icon_label, 'duplicate-exact', color='#334155', size=18)
             widget.text_label.setText(f"{format_number(dup_exact)} dups exactos")
             widget.setToolTip(f"{dup_exact:,} duplicados exactos (SHA256)\nClick para eliminar")
+            if os.getenv('PIXARO_DEBUG_ICON') == '1':
+                pm = widget.icon_label.pixmap()
+                screen = widget.icon_label.screen() if hasattr(widget.icon_label, 'screen') else None
+                dpr = screen.devicePixelRatio() if screen is not None else None
+                print("DEBUG_ICON duplicates_exact:", "label.size=", widget.icon_label.size(), "pixmap.size=", pm.size() if pm else None, "pixmap.dpr=", getattr(pm, 'devicePixelRatio', lambda: None)(), "screen.dpr=", dpr)
         
         # Duplicados similares: NO se analizan inicialmente
         if 'duplicates_similar' in self.smart_stats:
             widget = self.smart_stats['duplicates_similar']
-            icon_manager.set_label_icon(widget.icon_label, 'eye', color='#64748b', size=16)
+            icon_manager.set_button_icon(widget.icon_label, 'eye', color='#64748b', size=18)
             widget.text_label.setText("No analizado")
             widget.setStyleSheet(
                 "QFrame { background: #f1f3f5; border: 1px solid #dee2e6; "
@@ -1315,13 +1352,23 @@ class TopBar(QWidget):
                 "Duplicados similares no se analizan automáticamente\n"
                 "Click para ejecutar análisis perceptual"
             )
+            if os.getenv('PIXARO_DEBUG_ICON') == '1':
+                pm = widget.icon_label.pixmap()
+                screen = widget.icon_label.screen() if hasattr(widget.icon_label, 'screen') else None
+                dpr = screen.devicePixelRatio() if screen is not None else None
+                print("DEBUG_ICON duplicates_similar:", "label.size=", widget.icon_label.size(), "pixmap.size=", pm.size() if pm else None, "pixmap.dpr=", getattr(pm, 'devicePixelRatio', lambda: None)(), "screen.dpr=", dpr)
         
         org_count = org.total_files_to_move if org else 0
         if 'organization' in self.smart_stats:
             widget = self.smart_stats['organization']
-            icon_manager.set_label_icon(widget.icon_label, 'organize', color='#334155', size=16)
+            icon_manager.set_button_icon(widget.icon_label, 'organize', color='#334155', size=18)
             widget.text_label.setText(f"{format_number(org_count)} a organizar")
             widget.setToolTip(f"{org_count:,} archivos pueden organizarse\nClick para ver plan")
+            if os.getenv('PIXARO_DEBUG_ICON') == '1':
+                pm = widget.icon_label.pixmap()
+                screen = widget.icon_label.screen() if hasattr(widget.icon_label, 'screen') else None
+                dpr = screen.devicePixelRatio() if screen is not None else None
+                print("DEBUG_ICON organization:", "label.size=", widget.icon_label.size(), "pixmap.size=", pm.size() if pm else None, "pixmap.dpr=", getattr(pm, 'devicePixelRatio', lambda: None)(), "screen.dpr=", dpr)
         
         # Mostrar badge completado
         self.set_status_completed()

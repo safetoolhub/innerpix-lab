@@ -27,9 +27,9 @@ Uso básico:
 
 import qtawesome as qta
 from typing import Optional, Dict, Any
-from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor
-from PyQt6.QtWidgets import QPushButton, QLabel
-from PyQt6.QtCore import QSize
+from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor, QGuiApplication
+from PyQt6.QtWidgets import QPushButton, QLabel, QToolButton
+from PyQt6.QtCore import QSize, Qt
 
 
 class IconManager:
@@ -240,17 +240,46 @@ class IconManager:
             El pixmap se genera con devicePixelRatio para pantallas HiDPI.
         """
         icon = self.get_icon(icon_name, color=color)
-        # Generar pixmap con el tamaño solicitado
-        pixmap = icon.pixmap(QSize(size, size))
-        
-        # Ajustar devicePixelRatio para pantallas HiDPI
-        # Esto asegura que el pixmap se muestre al tamaño correcto
-        if hasattr(label, 'devicePixelRatio'):
-            dpr = label.devicePixelRatio()
-            if dpr > 1.0:
-                pixmap.setDevicePixelRatio(dpr)
-        
-        label.setPixmap(pixmap)
+
+        # Detectar device pixel ratio de la pantalla (HiDPI)
+        try:
+            screen = label.screen() if hasattr(label, 'screen') else QGuiApplication.primaryScreen()
+            dpr = float(screen.devicePixelRatio()) if screen is not None else 1.0
+        except Exception:
+            dpr = 1.0
+
+        # Crear pixmap con resolución física adecuada
+        physical_size = QSize(max(1, int(size * dpr)), max(1, int(size * dpr)))
+        pixmap = icon.pixmap(physical_size)
+
+        # Si no conseguimos un pixmap a tamaño físico, intentar tamaño lógico
+        if pixmap.isNull():
+            pixmap = icon.pixmap(QSize(size, size))
+
+        # Si sigue siendo nulo, crear un pixmap transparente de respaldo
+        if pixmap.isNull():
+            fallback = QPixmap(QSize(size, size))
+            fallback.fill(QColor(0, 0, 0, 0))
+            label.setPixmap(fallback)
+            return
+
+        # Algunos entornos/Qt pueden manejar devicePixelRatio internamente, pero
+        # para evitar inconsistencias con QLabel.setScaledContents y distintos
+        # backends, escalamos explícitamente el pixmap a su tamaño lógico
+        # (size x size) usando SmoothTransformation.
+        try:
+            logical_pixmap = pixmap.scaled(QSize(size, size), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+        except Exception:
+            # En caso de que la API difiera, fallback a scaled without enums
+            logical_pixmap = pixmap.scaled(size, size)
+
+        # Asegurar DPR 1.0 en el pixmap final para evitar re-escalados inesperados
+        try:
+            logical_pixmap.setDevicePixelRatio(1.0)
+        except Exception:
+            pass
+
+        label.setPixmap(logical_pixmap)
         # NO hacer setFixedSize aquí - permitir que el label controle su propio tamaño
     
     def create_icon_label(
@@ -269,9 +298,18 @@ class IconManager:
         Returns:
             QLabel configurado con el icono
         """
-        label = QLabel()
-        self.set_label_icon(label, icon_name, color=color, size=size)
-        return label
+        # Para evitar inconsistencias de rasterizado en HiDPI, creamos un
+        # QToolButton plano que usa QIcon internamente. Esto permite que Qt
+        # rasterice el icono a la resolución correcta (igual que en pestañas).
+        btn = QToolButton()
+        btn.setAutoRaise(True)
+        btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
+        btn.setIconSize(QSize(size, size))
+        btn.setFixedSize(QSize(max(24, size + 6), max(24, size + 6)))
+        btn.setStyleSheet("QToolButton { background: transparent; border: none; padding: 0px; }")
+        # Aplicar icono usando la canalización de QIcon/QToolButton
+        self.set_button_icon(btn, icon_name, color=color, size=size)
+        return btn
     
     def clear_cache(self) -> None:
         """Limpia la caché de iconos.
