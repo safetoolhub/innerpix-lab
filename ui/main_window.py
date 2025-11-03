@@ -380,11 +380,7 @@ class MainWindow(QMainWindow):
     # ========================================================================
 
     def select_and_analyze_directory(self):
-        """Selecciona directorio SIN analizar automáticamente (nuevo flujo EMPTY → READY)
-        
-        El usuario debe clickear "Analizar" o elegir "Análisis rápido/profundo" del menú
-        después de seleccionar el directorio.
-        """
+        """Selecciona directorio y analiza automáticamente con confirmación inteligente"""
         directory = QFileDialog.getExistingDirectory(
             self,
             "Seleccionar Directorio",
@@ -409,12 +405,24 @@ class MainWindow(QMainWindow):
         self.current_directory = new_directory
         self.search_bar.update_directory_display(self.current_directory)
         
-        # Actualizar estado del TopBar a 'ready' (NUEVO: sin análisis automático)
+        # Actualizar estado del TopBar a 'ready' antes del análisis
         if hasattr(self, 'top_bar'):
-            self.top_bar.set_directory(self.current_directory)
             self.top_bar.set_state('ready')
-        
-        self.logger.info(f"Directorio seleccionado: {new_directory} - Esperando acción del usuario")
+
+        # Contar archivos y manejar errores de acceso
+        try:
+            file_count = count_files_in_directory(new_directory)
+        except Exception as e:
+            QMessageBox.warning(self, "Error", f"No se pudo acceder al directorio:\n{str(e)}")
+            return
+
+        # Confirmación para directorios grandes
+        if not confirm_large_directory(self, new_directory, file_count, Config.LARGE_DIRECTORY_THRESHOLD):
+            self.logger.info(f"Análisis cancelado por el usuario para: {new_directory}")
+            return
+
+        # Ejecutar análisis automáticamente
+        self.analyze_directory()
 
     # ========================================================================
     # CALLBACKS DEL TOP BAR
@@ -424,13 +432,9 @@ class MainWindow(QMainWindow):
         """Callback cuando se solicita seleccionar directorio desde el TopBar"""
         self.select_and_analyze_directory()
 
-    def _on_topbar_analyze(self, analysis_type: str = 'quick'):
-        """Callback cuando se solicita analizar desde el TopBar
-        
-        Args:
-            analysis_type: 'quick' o 'deep'
-        """
-        self.analyze_directory(analysis_type=analysis_type)
+    def _on_topbar_analyze(self):
+        """Callback cuando se solicita analizar desde el TopBar"""
+        self.analyze_directory()
 
     def _on_topbar_reanalyze(self):
         """Callback cuando se solicita re-analizar desde el TopBar"""
@@ -502,17 +506,13 @@ class MainWindow(QMainWindow):
     # ANÁLISIS
     # ========================================================================
     
-    def analyze_directory(self, analysis_type: str = 'quick'):
-        """Análisis completo del directorio - delega al AnalysisController
-        
-        Args:
-            analysis_type: 'quick' (sin duplicados similares) o 'deep' (con duplicados similares)
-        """
+    def analyze_directory(self):
+        """Análisis completo del directorio - delega al AnalysisController"""
         if not self.current_directory:
             QMessageBox.warning(self, "Advertencia", "Selecciona un directorio primero")
             return
 
-        self.analysis_controller.start_analysis(self.current_directory, analysis_type=analysis_type)
+        self.analysis_controller.start_analysis(self.current_directory)
 
     def _reanalyze_same_directory(self):
         """Reinicia el análisis sobre el mismo directorio sin pedir confirmaciones"""

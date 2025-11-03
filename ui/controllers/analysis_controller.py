@@ -42,12 +42,11 @@ class AnalysisController:
         self.worker: Optional[AnalysisWorker] = None
         self.logger = get_logger('AnalysisController')
 
-    def start_analysis(self, directory: Path, analysis_type: str = 'quick') -> bool:
+    def start_analysis(self, directory: Path) -> bool:
         """Inicia el análisis completo del directorio.
 
         Args:
             directory: Path del directorio a analizar
-            analysis_type: 'quick' (sin duplicados similares) o 'deep' (con duplicados similares)
 
         Returns:
             True si el análisis se inició correctamente, False si hubo error
@@ -143,8 +142,7 @@ class AnalysisController:
             self.window.file_organizer,
             self.window.heic_remover,
             self.window.duplicate_detector,
-            organization_type=organization_type,
-            analysis_type=analysis_type
+            organization_type=organization_type
         )
 
         # Conectar señales
