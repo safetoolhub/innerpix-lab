@@ -29,6 +29,91 @@ from utils.icons import icon_manager
 import os
 
 
+# ===== FUNCIONES AUXILIARES DE FORMATO =====
+
+def format_count_short(count: int) -> str:
+    """Formato abreviado de conteo de archivos."""
+    if count >= 1_000_000:
+        return f"{count/1_000_000:.1f}M"
+    elif count >= 1_000:
+        return f"{count/1_000:.1f}k"
+    return str(count)
+
+
+def format_size_short(bytes_size: int) -> str:
+    """Formato abreviado de tamaño de archivos."""
+    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+        if bytes_size < 1024:
+            return f"{int(bytes_size)}{unit}"
+        bytes_size /= 1024
+    return f"{int(bytes_size)}PB"
+
+
+def format_count_full(count: int) -> str:
+    """Formato completo con separadores de miles."""
+    return f"{count:,}"
+
+
+def format_size_full(bytes_size: int) -> str:
+    """Formato completo de tamaño legible."""
+    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+        if bytes_size < 1024:
+            return f"{bytes_size:.1f} {unit}"
+        bytes_size /= 1024
+    return f"{bytes_size:.1f} PB"
+
+
+def apply_stat_state(widget, state: str, key: str):
+    """Aplica estilos según el estado del stat (amarillo/verde/gris).
+    
+    Args:
+        widget: El widget QFrame del stat
+        state: 'detected' (amarillo), 'clean' (verde), 'not-analyzed' (gris)
+        key: Clave del stat para el objectName
+    """
+    if state == 'detected':
+        # 🟡 AMARILLO - Detectado (count > 0)
+        widget.setStyleSheet(
+            f"QFrame#stat_{key} {{"
+            "  background: rgba(234, 179, 8, 0.12);"  # warning at 12% opacity
+            "  border: 1px solid rgba(234, 179, 8, 0.25);"
+            "  border-radius: 6px;"
+            "  padding: 6px 8px;"
+            "}"
+            f"QFrame#stat_{key}:hover {{"
+            "  background: rgba(234, 179, 8, 0.17);"
+            "  border-color: rgba(234, 179, 8, 0.35);"
+            "}"
+        )
+    elif state == 'clean':
+        # 🟢 VERDE - Sin detección (count == 0)
+        widget.setStyleSheet(
+            f"QFrame#stat_{key} {{"
+            "  background: rgba(16, 185, 129, 0.08);"  # success at 8% opacity
+            "  border: 1px solid rgba(16, 185, 129, 0.15);"
+            "  border-radius: 6px;"
+            "  padding: 6px 8px;"
+            "}"
+            f"QFrame#stat_{key}:hover {{"
+            "  background: rgba(16, 185, 129, 0.13);"
+            "  border-color: rgba(16, 185, 129, 0.25);"
+            "}"
+        )
+    else:  # 'not-analyzed'
+        # ⚪ GRIS - No analizado
+        widget.setStyleSheet(
+            f"QFrame#stat_{key} {{"
+            "  background: #f8f9fa;"
+            "  border: 1px solid #dee2e6;"
+            "  border-radius: 6px;"
+            "  padding: 6px 8px;"
+            "}"
+            f"QFrame#stat_{key}:hover {{"
+            "  background: #e9ecef;"
+            "}"
+        )
+
+
 class TopBar(QWidget):
     """Barra superior expandible con resumen integrado.
     
@@ -264,6 +349,23 @@ class TopBar(QWidget):
         # comportamiento consistente; no sobrescribimos mousePressEvent
         field_layout.addWidget(self.directory_edit, stretch=1)
         
+        # Badge de metadata (archivos y tamaño, solo visible tras análisis)
+        self.metadata_badge = QLabel()
+        self.metadata_badge.setVisible(False)
+        self.metadata_badge.setStyleSheet(
+            "QLabel {"
+            "  background: rgba(120, 113, 108, 0.08);"  # brown-600 at 8% opacity
+            "  color: #64748b;"  # text-secondary
+            "  font-family: 'Courier New', monospace;"
+            "  font-size: 10px;"
+            "  font-weight: 500;"
+            "  padding: 2px 6px;"
+            "  border-radius: 4px;"
+            "  border: 1px solid rgba(120, 113, 108, 0.12);"
+            "}"
+        )
+        field_layout.addWidget(self.metadata_badge)
+        
         # Badge de estado integrado (se muestra solo tras análisis)
         self.analysis_badge = QLabel()
         self.analysis_badge.setVisible(False)
@@ -497,7 +599,7 @@ class TopBar(QWidget):
         self.toggle_summary_btn = self.stats_toggle_btn  # Alias
     
     def _create_smart_stats_bar(self):
-        """Crea la barra de Smart Stats con 3 columnas (General | Acciones | Detectados)"""
+        """Crea la barra de Smart Stats con grid 3×2 (Redundancias | Duplicados | Organización)"""
         # Inicializar diccionario ANTES de crear columnas
         self.smart_stats = {}
         
@@ -517,110 +619,105 @@ class TopBar(QWidget):
         self.smart_stats_container.setVisible(False)
         
         container_layout = QHBoxLayout(self.smart_stats_container)
-        container_layout.setContentsMargins(18, 8, 18, 8)
+        container_layout.setContentsMargins(16, 8, 16, 8)
         container_layout.setSpacing(20)
         
-        # === COLUMNA 1: ARCHIVOS ===
-        self.general_column = self._create_stat_column(
-            title="ARCHIVOS",
-            stats_keys=['files', 'size']
+        # === COLUMNA 1: REDUNDANCIAS ===
+        self.redundancies_column = self._create_stat_column(
+            title="REDUNDANCIAS",
+            stats_keys=['live_photos', 'heic']
         )
-        container_layout.addWidget(self.general_column, 1)
+        container_layout.addWidget(self.redundancies_column, 1)
         
         # Separador vertical
-        vsep1 = QFrame()
-        vsep1.setFrameShape(QFrame.Shape.VLine)
-        vsep1.setStyleSheet(
-            "background: qlineargradient(y1:0, y2:1, "
-            "  stop:0 transparent, stop:0.2 #e1e8ed, stop:0.8 #e1e8ed, stop:1 transparent);"
-            "max-width: 1px;"
-        )
+        vsep1 = self._create_separator()
         container_layout.addWidget(vsep1)
         
-        # === COLUMNA 2: PENDIENTES ===
-        self.actions_column = self._create_stat_column(
-            title="PENDIENTES",
-            stats_keys=['renaming', 'heic', 'organization']
+        # === COLUMNA 2: DUPLICADOS ===
+        self.duplicates_column = self._create_stat_column(
+            title="DUPLICADOS",
+            stats_keys=['duplicates_exact', 'duplicates_similar']
         )
-        container_layout.addWidget(self.actions_column, 1)
+        container_layout.addWidget(self.duplicates_column, 1)
         
         # Separador vertical
-        vsep2 = QFrame()
-        vsep2.setFrameShape(QFrame.Shape.VLine)
-        vsep2.setStyleSheet(
-            "background: qlineargradient(y1:0, y2:1, "
-            "  stop:0 transparent, stop:0.2 #e1e8ed, stop:0.8 #e1e8ed, stop:1 transparent);"
-            "max-width: 1px;"
-        )
+        vsep2 = self._create_separator()
         container_layout.addWidget(vsep2)
         
-        # === COLUMNA 3: DETECTADOS ===
-        self.detected_column = self._create_stat_column(
-            title="DETECTADOS",
-            stats_keys=['live_photos', 'duplicates_exact', 'duplicates_similar']
+        # === COLUMNA 3: ORGANIZACIÓN ===
+        self.organization_column = self._create_stat_column(
+            title="ORGANIZACIÓN",
+            stats_keys=['renaming', 'organization']
         )
-        container_layout.addWidget(self.detected_column, 1)
+        container_layout.addWidget(self.organization_column, 1)
         
         # Inicializar stats con placeholders
         self._initialize_stats_placeholders()
     
+    def _create_separator(self):
+        """Crea un separador vertical con gradiente sutil"""
+        separator = QFrame()
+        separator.setFrameShape(QFrame.Shape.VLine)
+        separator.setStyleSheet(
+            "QFrame {"
+            "  border: none;"
+            "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, "
+            "    stop:0 transparent, "
+            "    stop:0.2 rgba(120, 113, 108, 0.15), "
+            "    stop:0.8 rgba(120, 113, 108, 0.15), "
+            "    stop:1 transparent);"
+            "  width: 1px;"
+            "  margin: 0px 20px;"
+            "}"
+        )
+        return separator
+    
     def _initialize_stats_placeholders(self):
         """Inicializa los stats con valores placeholder"""
-        # Archivos
-        if 'files' in self.smart_stats:
-            widget = self.smart_stats['files']
-            icon_manager.set_button_icon(widget.icon_label, 'file', color='#64748b', size=18)
-            widget.text_label.setText("—")
-            widget.setToolTip("Total de archivos (analizar para ver)")
-        
-        if 'size' in self.smart_stats:
-            widget = self.smart_stats['size']
-            icon_manager.set_button_icon(widget.icon_label, 'disk', color='#64748b', size=18)
-            widget.text_label.setText("—")
-            widget.setToolTip("Tamaño total (analizar para ver)")
-        
-        # Pendientes
-        if 'renaming' in self.smart_stats:
-            widget = self.smart_stats['renaming']
-            icon_manager.set_button_icon(widget.icon_label, 'rename', color='#64748b', size=18)
-            widget.text_label.setText("—")
-            widget.setToolTip("Archivos sin renombrar (analizar para ver)")
+        # Columna 1: REDUNDANCIAS
+        if 'live_photos' in self.smart_stats:
+            widget = self.smart_stats['live_photos']
+            icon_manager.set_button_icon(widget.icon_label, 'live-photo', color='#64748b', size=16)
+            widget.text_label.setText("Live Photos")
+            widget.value_label.setText("—")
+            widget.setToolTip("Detecta pares de Live Photos (foto + video MOV)")
         
         if 'heic' in self.smart_stats:
             widget = self.smart_stats['heic']
-            icon_manager.set_button_icon(widget.icon_label, 'heic', color='#64748b', size=18)
-            widget.text_label.setText("—")
-            widget.setToolTip("Duplicados HEIC (analizar para ver)")
+            icon_manager.set_button_icon(widget.icon_label, 'heic', color='#64748b', size=16)
+            widget.text_label.setText("HEIC Duplicados")
+            widget.value_label.setText("—")
+            widget.setToolTip("Duplicados HEIC con equivalente JPG")
         
-        if 'organization' in self.smart_stats:
-            widget = self.smart_stats['organization']
-            icon_manager.set_button_icon(widget.icon_label, 'organize', color='#64748b', size=18)
-            widget.text_label.setText("—")
-            widget.setToolTip("Archivos a organizar (analizar para ver)")
-        
-        # Detectados
-        if 'live_photos' in self.smart_stats:
-            widget = self.smart_stats['live_photos']
-            icon_manager.set_button_icon(widget.icon_label, 'live-photo', color='#64748b', size=18)
-            widget.text_label.setText("—")
-            widget.setToolTip("Live Photos (analizar para ver)")
-        
+        # Columna 2: DUPLICADOS
         if 'duplicates_exact' in self.smart_stats:
             widget = self.smart_stats['duplicates_exact']
-            icon_manager.set_button_icon(widget.icon_label, 'duplicate-exact', color='#64748b', size=18)
-            widget.text_label.setText("—")
-            widget.setToolTip("Duplicados exactos (analizar para ver)")
+            icon_manager.set_button_icon(widget.icon_label, 'duplicate-exact', color='#64748b', size=16)
+            widget.text_label.setText("Exactos")
+            widget.value_label.setText("—")
+            widget.setToolTip("Archivos duplicados por hash (contenido idéntico)")
         
         if 'duplicates_similar' in self.smart_stats:
             widget = self.smart_stats['duplicates_similar']
-            icon_manager.set_button_icon(widget.icon_label, 'eye', color='#64748b', size=18)
-            widget.text_label.setText("No analizado")
-            widget.setStyleSheet(
-                "QFrame { background: #f1f3f5; border: 1px solid #dee2e6; "
-                "border-radius: 6px; padding: 6px 10px; min-height: 24px; }"
-                "QFrame:hover { background: #e9ecef; }"
-            )
-            widget.setToolTip("Duplicados similares no se analizan automáticamente")
+            icon_manager.set_button_icon(widget.icon_label, 'eye', color='#64748b', size=16)
+            widget.text_label.setText("Similares")
+            widget.value_label.setText("—")
+            widget.setToolTip("Duplicados similares (requiere análisis manual)")
+        
+        # Columna 3: ORGANIZACIÓN
+        if 'renaming' in self.smart_stats:
+            widget = self.smart_stats['renaming']
+            icon_manager.set_button_icon(widget.icon_label, 'rename', color='#64748b', size=16)
+            widget.text_label.setText("Renombrar")
+            widget.value_label.setText("—")
+            widget.setToolTip("Archivos que necesitan renombrado normalizado")
+        
+        if 'organization' in self.smart_stats:
+            widget = self.smart_stats['organization']
+            icon_manager.set_button_icon(widget.icon_label, 'organize', color='#64748b', size=16)
+            widget.text_label.setText("Organizar")
+            widget.value_label.setText("—")
+            widget.setToolTip("Archivos que pueden organizarse por fecha/carpeta")
     
     def _create_stat_column(self, title: str, stats_keys: list):
         """Crea una columna de stats con un título y varios items"""
@@ -629,24 +726,25 @@ class TopBar(QWidget):
         
         layout = QVBoxLayout(column)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(4)
+        layout.setSpacing(6)  # Spacing entre título y primera fila
         
         # Título de la columna
         title_label = QLabel(title)
+        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title_label.setStyleSheet(
             "color: #64748b; "
-            "font-size: 9px; "
-            "font-weight: 700; "
-            "letter-spacing: 0.5px; "
+            "font-size: 10px; "
+            "font-weight: 600; "
+            "letter-spacing: 0.05em; "
             "background: transparent; "
-            "padding-bottom: 0px;"
-            "margin-bottom: 2px;"
+            "padding: 0px; "
+            "margin-bottom: 0px;"
         )
         layout.addWidget(title_label)
         
         # Container para los stats
         stats_container = QVBoxLayout()
-        stats_container.setSpacing(4)
+        stats_container.setSpacing(6)  # Spacing entre filas
         
         for key in stats_keys:
             stat_widget = self._create_stat_item(key)
@@ -659,45 +757,36 @@ class TopBar(QWidget):
         return column
     
     def _create_stat_item(self, key: str):
-        """Crea un item de stat individual (clickeable)"""
+        """Crea un item de stat individual (clickeable) con diseño [icono] Label    Número"""
         widget = QFrame()
         widget.setObjectName(f"stat_{key}")
         widget.setCursor(Qt.CursorShape.PointingHandCursor)
+        widget.setFixedHeight(36)  # Altura fija para cada item
         
+        # Estilo inicial (gris neutral - no analizado)
         widget.setStyleSheet(
-            "QFrame {"
-            "  background: white;"
-            "  border: 1px solid #e1e8ed;"
+            "QFrame#stat_" + key + " {"
+            "  background: #f8f9fa;"
+            "  border: 1px solid #dee2e6;"
             "  border-radius: 6px;"
-            "  padding: 6px 10px;"
-            "  min-height: 32px;"
-            "  min-width: 120px;"
+            "  padding: 6px 8px;"
             "}"
-            "QFrame:hover {"
-            "  background: #f8fafc;"
-            "  border-color: #cbd5e0;"
-            "}"
-            "QToolTip {"
-            "  background-color: #ffffff;"
-            "  color: #1e293b;"
-            "  border: 1px solid #cbd5e0;"
-            "  border-radius: 6px;"
-            "  padding: 8px 12px;"
-            "  font-size: 13px;"
+            "QFrame#stat_" + key + ":hover {"
+            "  background: #e9ecef;"
             "}"
         )
         widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         
         layout = QHBoxLayout(widget)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(8)
+        layout.setSpacing(6)
         
         # Icono (usar QToolButton con QIcon para que Qt rasterice correctamente)
         icon_btn = QToolButton()
         icon_btn.setAutoRaise(True)
         icon_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
-        icon_btn.setFixedSize(QSize(24, 24))  # espacio total (incluye padding)
-        icon_btn.setIconSize(QSize(18, 18))
+        icon_btn.setFixedSize(QSize(16, 16))
+        icon_btn.setIconSize(QSize(16, 16))
         icon_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         icon_btn.setStyleSheet(
             "QToolButton { background: transparent; border: none; padding: 0px; margin: 0px; }"
@@ -705,23 +794,35 @@ class TopBar(QWidget):
         icon_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         layout.addWidget(icon_btn)
         
-        # Texto
+        # Label (texto descriptivo)
         text_label = QLabel()
         text_label.setStyleSheet(
-            "color: #334155; "
+            "color: #64748b; "
+            "font-size: 12px; "
+            "font-weight: 400; "
+            "background: transparent; "
+            "border: none;"
+        )
+        text_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        layout.addWidget(text_label, 1)
+        
+        # Número (valor del stat)
+        value_label = QLabel()
+        value_label.setStyleSheet(
+            "color: #64748b; "
             "font-size: 12px; "
             "font-weight: 600; "
             "background: transparent; "
             "border: none;"
         )
-        text_label.setWordWrap(True)
-        text_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        layout.addWidget(text_label, 1)
+        value_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        value_label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        layout.addWidget(value_label)
         
         # Guardar referencias
-        # Mantener el nombre `icon_label` para compatibilidad con el resto del código
         widget.icon_label = icon_btn
         widget.text_label = text_label
+        widget.value_label = value_label
         widget.stat_key = key
 
         # Conectar click
@@ -854,7 +955,7 @@ class TopBar(QWidget):
         self.stats_toggle_btn.setText("▲")
         self.smart_stats_container.setVisible(True)
         
-        target_height = 200  # Altura aumentada para mostrar todos los stats correctamente
+        target_height = 112  # Altura compacta: 8px top + 18px títulos + 36px + 6px + 36px + 8px bottom
         
         if animate:
             self._animation = QPropertyAnimation(self.smart_stats_container, b"maximumHeight")
@@ -895,8 +996,9 @@ class TopBar(QWidget):
         # Colapsar el panel de stats
         self._collapse_summary(animate=True)
         
-        # Ocultar toggle button
+        # Ocultar toggle button y metadata badge
         self.stats_toggle_btn.setVisible(False)
+        self.metadata_badge.setVisible(False)
         
         # Reinicializar stats con placeholders
         self._initialize_stats_placeholders()
@@ -1188,11 +1290,30 @@ class TopBar(QWidget):
         """Método de compatibilidad con SearchBar - actualiza el directorio"""
         self.set_directory(directory_path)
     
+    def update_metadata_badge(self, file_count: int, total_size: int):
+        """Actualiza el badge de metadata con valores abreviados.
+        
+        Args:
+            file_count: Número total de archivos
+            total_size: Tamaño total en bytes
+        """
+        short_count = format_count_short(file_count)
+        short_size = format_size_short(total_size)
+        
+        self.metadata_badge.setText(f"{short_count} │ {short_size}")
+        
+        # Tooltip con valores completos
+        full_count = format_count_full(file_count)
+        full_size = format_size_full(total_size)
+        self.metadata_badge.setToolTip(f"{full_count} archivos · {full_size}")
+        
+        self.metadata_badge.setVisible(True)
+    
     # ========================================================================
     # MÉTODOS PARA ACTUALIZAR EL RESUMEN (Compatibilidad con SummaryPanel)
     # ========================================================================
     def update_smart_stats(self, results):
-        """Actualiza los Smart Stats con datos del análisis"""
+        """Actualiza los Smart Stats con datos del análisis usando sistema de color amarillo/verde/gris"""
         from utils.format_utils import format_size
         
         stats = results.get('stats', {})
@@ -1206,169 +1327,109 @@ class TopBar(QWidget):
         total_files = stats.get('total', 0)
         total_size = stats.get('total_size', 0)
         
-        if 'files' in self.smart_stats:
-            widget = self.smart_stats['files']
-            icon_manager.set_button_icon(widget.icon_label, 'file', color='#334155', size=18)
-            widget.text_label.setText(f"{format_number(total_files)} archivos")
-            widget.setToolTip(f"Total de archivos: {total_files:,}")
-            if os.getenv('PIXARO_DEBUG_ICON') == '1':
-                pm = widget.icon_label.pixmap()
-                screen = widget.icon_label.screen() if hasattr(widget.icon_label, 'screen') else None
-                dpr = screen.devicePixelRatio() if screen is not None else None
-                print("DEBUG_ICON files:", "label.size=", widget.icon_label.size(), "pixmap.size=", pm.size() if pm else None, "pixmap.dpr=", getattr(pm, 'devicePixelRatio', lambda: None)(), "screen.dpr=", dpr)
+        # Actualizar metadata badge
+        self.update_metadata_badge(total_files, total_size)
         
-        if 'size' in self.smart_stats:
-            widget = self.smart_stats['size']
-            icon_manager.set_button_icon(widget.icon_label, 'disk', color='#334155', size=18)
-            widget.text_label.setText(format_size(total_size))
-            widget.setToolTip(f"Tamaño total: {format_size(total_size)}")
-            if os.getenv('PIXARO_DEBUG_ICON') == '1':
-                pm = widget.icon_label.pixmap()
-                screen = widget.icon_label.screen() if hasattr(widget.icon_label, 'screen') else None
-                dpr = screen.devicePixelRatio() if screen is not None else None
-                print("DEBUG_ICON size:", "label.size=", widget.icon_label.size(), "pixmap.size=", pm.size() if pm else None, "pixmap.dpr=", getattr(pm, 'devicePixelRatio', lambda: None)(), "screen.dpr=", dpr)
+        # === COLUMNA 1: REDUNDANCIAS ===
         
-        # === ACCIONES REQUERIDAS ===
-        ren_count = ren.need_renaming if ren else 0
-        if 'renaming' in self.smart_stats:
-            widget = self.smart_stats['renaming']
-            if ren_count > 0:
-                icon_manager.set_button_icon(widget.icon_label, 'warning', color='#856404', size=18)
-                widget.text_label.setText(f"{format_number(ren_count)} sin renombrar")
-                widget.setStyleSheet(
-                    "QFrame { background: #fff3cd; border: 1px solid #ffc107; "
-                    "border-radius: 6px; padding: 6px 10px; }"
-                    "QFrame:hover { background: #ffe69c; border-color: #ffb300; }"
-                    "QToolTip {"
-                    "  background-color: #ffffff;"
-                    "  color: #1e293b;"
-                    "  border: 1px solid #cbd5e0;"
-                    "  border-radius: 6px;"
-                    "  padding: 8px 12px;"
-                    "  font-size: 13px;"
-                    "}"
-                )
+        # Live Photos
+        lp_count = lp.get('live_photos_found', 0) if isinstance(lp, dict) else (lp.live_photos_found if lp else 0)
+        if 'live_photos' in self.smart_stats:
+            widget = self.smart_stats['live_photos']
+            if lp_count > 0:
+                apply_stat_state(widget, 'detected', 'live_photos')
+                icon_manager.set_button_icon(widget.icon_label, 'live-photo', color='#eab308', size=16)
+                widget.value_label.setText(str(lp_count))
+                widget.value_label.setStyleSheet("color: #eab308; font-size: 12px; font-weight: 600;")
             else:
-                icon_manager.set_button_icon(widget.icon_label, 'check', color='#155724', size=18)
-                widget.text_label.setText("Todo renombrado")
-                widget.setStyleSheet(
-                    "QFrame { background: #d4edda; border: 1px solid #c3e6cb; "
-                    "border-radius: 6px; padding: 6px 10px; }"
-                    "QFrame:hover { background: #c3e6cb; }"
-                    "QToolTip {"
-                    "  background-color: #ffffff;"
-                    "  color: #1e293b;"
-                    "  border: 1px solid #cbd5e0;"
-                    "  border-radius: 6px;"
-                    "  padding: 8px 12px;"
-                    "  font-size: 13px;"
-                    "}"
-                )
-            widget.setToolTip(f"{ren_count:,} archivos necesitan renombrado\nClick para abrir pestaña")
-            if os.getenv('PIXARO_DEBUG_ICON') == '1':
-                pm = widget.icon_label.pixmap()
-                screen = widget.icon_label.screen() if hasattr(widget.icon_label, 'screen') else None
-                dpr = screen.devicePixelRatio() if screen is not None else None
-                print("DEBUG_ICON renaming:", "label.size=", widget.icon_label.size(), "pixmap.size=", pm.size() if pm else None, "pixmap.dpr=", getattr(pm, 'devicePixelRatio', lambda: None)(), "screen.dpr=", dpr)
+                apply_stat_state(widget, 'clean', 'live_photos')
+                icon_manager.set_button_icon(widget.icon_label, 'live-photo', color='#10b981', size=16)
+                widget.value_label.setText("✓")
+                widget.value_label.setStyleSheet("color: #10b981; font-size: 12px; font-weight: 600;")
+            widget.text_label.setStyleSheet("color: #334155; font-size: 12px; font-weight: 400;")
+            widget.setToolTip(f"Live Photos detectados: {lp_count:,}")
         
+        # HEIC Duplicados
         heic_count = heic.total_duplicates if heic else 0
         if 'heic' in self.smart_stats:
             widget = self.smart_stats['heic']
             if heic_count > 0:
-                icon_manager.set_button_icon(widget.icon_label, 'warning', color='#856404', size=18)
-                widget.text_label.setText(f"{format_number(heic_count)} duplicados HEIC")
-                widget.setStyleSheet(
-                    "QFrame { background: #fff3cd; border: 1px solid #ffc107; "
-                    "border-radius: 6px; padding: 6px 10px; }"
-                    "QFrame:hover { background: #ffe69c; border-color: #ffb300; }"
-                    "QToolTip {"
-                    "  background-color: #ffffff;"
-                    "  color: #1e293b;"
-                    "  border: 1px solid #cbd5e0;"
-                    "  border-radius: 6px;"
-                    "  padding: 8px 12px;"
-                    "  font-size: 13px;"
-                    "}"
-                )
+                apply_stat_state(widget, 'detected', 'heic')
+                icon_manager.set_button_icon(widget.icon_label, 'heic', color='#eab308', size=16)
+                widget.value_label.setText(str(heic_count))
+                widget.value_label.setStyleSheet("color: #eab308; font-size: 12px; font-weight: 600;")
             else:
-                icon_manager.set_button_icon(widget.icon_label, 'check', color='#155724', size=18)
-                widget.text_label.setText("Sin duplicados HEIC")
-                widget.setStyleSheet(
-                    "QFrame { background: #d4edda; border: 1px solid #c3e6cb; "
-                    "border-radius: 6px; padding: 6px 10px; }"
-                    "QFrame:hover { background: #c3e6cb; }"
-                    "QToolTip {"
-                    "  background-color: #ffffff;"
-                    "  color: #1e293b;"
-                    "  border: 1px solid #cbd5e0;"
-                    "  border-radius: 6px;"
-                    "  padding: 8px 12px;"
-                    "  font-size: 13px;"
-                    "}"
-                )
-            widget.setToolTip(f"{heic_count:,} HEIC con duplicado JPG\nClick para eliminar")
-            if os.getenv('PIXARO_DEBUG_ICON') == '1':
-                pm = widget.icon_label.pixmap()
-                screen = widget.icon_label.screen() if hasattr(widget.icon_label, 'screen') else None
-                dpr = screen.devicePixelRatio() if screen is not None else None
-                print("DEBUG_ICON heic:", "label.size=", widget.icon_label.size(), "pixmap.size=", pm.size() if pm else None, "pixmap.dpr=", getattr(pm, 'devicePixelRatio', lambda: None)(), "screen.dpr=", dpr)
+                apply_stat_state(widget, 'clean', 'heic')
+                icon_manager.set_button_icon(widget.icon_label, 'heic', color='#10b981', size=16)
+                widget.value_label.setText("✓")
+                widget.value_label.setStyleSheet("color: #10b981; font-size: 12px; font-weight: 600;")
+            widget.text_label.setStyleSheet("color: #334155; font-size: 12px; font-weight: 400;")
+            widget.setToolTip(f"Archivos HEIC con duplicado JPG: {heic_count:,}")
         
-        # === DETECTADOS ===
-        lp_count = lp.get('live_photos_found', 0) if isinstance(lp, dict) else (lp.live_photos_found if lp else 0)
-        if 'live_photos' in self.smart_stats:
-            widget = self.smart_stats['live_photos']
-            icon_manager.set_button_icon(widget.icon_label, 'live-photo', color='#334155', size=18)
-            widget.text_label.setText(f"{format_number(lp_count)} Live Photos")
-            widget.setToolTip(f"{lp_count:,} Live Photos detectados\nClick para gestionar")
-            if os.getenv('PIXARO_DEBUG_ICON') == '1':
-                pm = widget.icon_label.pixmap()
-                screen = widget.icon_label.screen() if hasattr(widget.icon_label, 'screen') else None
-                dpr = screen.devicePixelRatio() if screen is not None else None
-                print("DEBUG_ICON live_photos:", "label.size=", widget.icon_label.size(), "pixmap.size=", pm.size() if pm else None, "pixmap.dpr=", getattr(pm, 'devicePixelRatio', lambda: None)(), "screen.dpr=", dpr)
+        # === COLUMNA 2: DUPLICADOS ===
         
+        # Duplicados Exactos
         dup_exact = dup.total_exact_duplicates if (dup and hasattr(dup, 'total_exact_duplicates')) else 0
         if 'duplicates_exact' in self.smart_stats:
             widget = self.smart_stats['duplicates_exact']
-            icon_manager.set_button_icon(widget.icon_label, 'duplicate-exact', color='#334155', size=18)
-            widget.text_label.setText(f"{format_number(dup_exact)} dups exactos")
-            widget.setToolTip(f"{dup_exact:,} duplicados exactos (SHA256)\nClick para eliminar")
-            if os.getenv('PIXARO_DEBUG_ICON') == '1':
-                pm = widget.icon_label.pixmap()
-                screen = widget.icon_label.screen() if hasattr(widget.icon_label, 'screen') else None
-                dpr = screen.devicePixelRatio() if screen is not None else None
-                print("DEBUG_ICON duplicates_exact:", "label.size=", widget.icon_label.size(), "pixmap.size=", pm.size() if pm else None, "pixmap.dpr=", getattr(pm, 'devicePixelRatio', lambda: None)(), "screen.dpr=", dpr)
+            if dup_exact > 0:
+                apply_stat_state(widget, 'detected', 'duplicates_exact')
+                icon_manager.set_button_icon(widget.icon_label, 'duplicate-exact', color='#eab308', size=16)
+                widget.value_label.setText(str(dup_exact))
+                widget.value_label.setStyleSheet("color: #eab308; font-size: 12px; font-weight: 600;")
+            else:
+                apply_stat_state(widget, 'clean', 'duplicates_exact')
+                icon_manager.set_button_icon(widget.icon_label, 'duplicate-exact', color='#10b981', size=16)
+                widget.value_label.setText("✓")
+                widget.value_label.setStyleSheet("color: #10b981; font-size: 12px; font-weight: 600;")
+            widget.text_label.setStyleSheet("color: #334155; font-size: 12px; font-weight: 400;")
+            widget.setToolTip(f"Duplicados exactos por hash: {dup_exact:,}")
         
-        # Duplicados similares: NO se analizan inicialmente
+        # Duplicados Similares (no analizado por defecto)
         if 'duplicates_similar' in self.smart_stats:
             widget = self.smart_stats['duplicates_similar']
-            icon_manager.set_button_icon(widget.icon_label, 'eye', color='#64748b', size=18)
-            widget.text_label.setText("No analizado")
-            widget.setStyleSheet(
-                "QFrame { background: #f1f3f5; border: 1px solid #dee2e6; "
-                "border-radius: 6px; padding: 6px 10px; }"
-                "QFrame:hover { background: #e9ecef; }"
-            )
-            widget.setToolTip(
-                "Duplicados similares no se analizan automáticamente\n"
-                "Click para ejecutar análisis perceptual"
-            )
-            if os.getenv('PIXARO_DEBUG_ICON') == '1':
-                pm = widget.icon_label.pixmap()
-                screen = widget.icon_label.screen() if hasattr(widget.icon_label, 'screen') else None
-                dpr = screen.devicePixelRatio() if screen is not None else None
-                print("DEBUG_ICON duplicates_similar:", "label.size=", widget.icon_label.size(), "pixmap.size=", pm.size() if pm else None, "pixmap.dpr=", getattr(pm, 'devicePixelRatio', lambda: None)(), "screen.dpr=", dpr)
+            apply_stat_state(widget, 'not-analyzed', 'duplicates_similar')
+            icon_manager.set_button_icon(widget.icon_label, 'eye', color='#64748b', size=16)
+            widget.value_label.setText("—")
+            widget.value_label.setStyleSheet("color: #64748b; font-size: 12px; font-weight: 600;")
+            widget.text_label.setStyleSheet("color: #64748b; font-size: 12px; font-weight: 400;")
+            widget.setToolTip("Duplicados similares (requiere análisis manual)")
         
+        # === COLUMNA 3: ORGANIZACIÓN ===
+        
+        # Renombrar
+        ren_count = ren.need_renaming if ren else 0
+        if 'renaming' in self.smart_stats:
+            widget = self.smart_stats['renaming']
+            if ren_count > 0:
+                apply_stat_state(widget, 'detected', 'renaming')
+                icon_manager.set_button_icon(widget.icon_label, 'rename', color='#eab308', size=16)
+                widget.value_label.setText(str(ren_count))
+                widget.value_label.setStyleSheet("color: #eab308; font-size: 12px; font-weight: 600;")
+            else:
+                apply_stat_state(widget, 'clean', 'renaming')
+                icon_manager.set_button_icon(widget.icon_label, 'rename', color='#10b981', size=16)
+                widget.value_label.setText("✓")
+                widget.value_label.setStyleSheet("color: #10b981; font-size: 12px; font-weight: 600;")
+            widget.text_label.setStyleSheet("color: #334155; font-size: 12px; font-weight: 400;")
+            widget.setToolTip(f"Archivos que necesitan renombrado: {ren_count:,}")
+        
+        # Organizar
         org_count = org.total_files_to_move if org else 0
         if 'organization' in self.smart_stats:
             widget = self.smart_stats['organization']
-            icon_manager.set_button_icon(widget.icon_label, 'organize', color='#334155', size=18)
-            widget.text_label.setText(f"{format_number(org_count)} a organizar")
-            widget.setToolTip(f"{org_count:,} archivos pueden organizarse\nClick para ver plan")
-            if os.getenv('PIXARO_DEBUG_ICON') == '1':
-                pm = widget.icon_label.pixmap()
-                screen = widget.icon_label.screen() if hasattr(widget.icon_label, 'screen') else None
-                dpr = screen.devicePixelRatio() if screen is not None else None
-                print("DEBUG_ICON organization:", "label.size=", widget.icon_label.size(), "pixmap.size=", pm.size() if pm else None, "pixmap.dpr=", getattr(pm, 'devicePixelRatio', lambda: None)(), "screen.dpr=", dpr)
+            if org_count > 0:
+                apply_stat_state(widget, 'detected', 'organization')
+                icon_manager.set_button_icon(widget.icon_label, 'organize', color='#eab308', size=16)
+                widget.value_label.setText(str(org_count))
+                widget.value_label.setStyleSheet("color: #eab308; font-size: 12px; font-weight: 600;")
+            else:
+                apply_stat_state(widget, 'clean', 'organization')
+                icon_manager.set_button_icon(widget.icon_label, 'organize', color='#10b981', size=16)
+                widget.value_label.setText("✓")
+                widget.value_label.setStyleSheet("color: #10b981; font-size: 12px; font-weight: 600;")
+            widget.text_label.setStyleSheet("color: #334155; font-size: 12px; font-weight: 400;")
+            widget.setToolTip(f"Archivos que pueden organizarse: {org_count:,}")
         
         # Mostrar badge completado
         self.set_status_completed()
