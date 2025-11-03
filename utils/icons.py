@@ -237,9 +237,19 @@ class IconManager:
         Note:
             No establece el tamaño del label automáticamente para permitir
             que el layout y las políticas de tamaño del label se respeten.
+            El pixmap se genera con devicePixelRatio para pantallas HiDPI.
         """
         icon = self.get_icon(icon_name, color=color)
+        # Generar pixmap con el tamaño solicitado
         pixmap = icon.pixmap(QSize(size, size))
+        
+        # Ajustar devicePixelRatio para pantallas HiDPI
+        # Esto asegura que el pixmap se muestre al tamaño correcto
+        if hasattr(label, 'devicePixelRatio'):
+            dpr = label.devicePixelRatio()
+            if dpr > 1.0:
+                pixmap.setDevicePixelRatio(dpr)
+        
         label.setPixmap(pixmap)
         # NO hacer setFixedSize aquí - permitir que el label controle su propio tamaño
     

@@ -689,8 +689,9 @@ class TopBar(QWidget):
         
         # Icono (ahora usando Material Design en lugar de emoji)
         icon_label = QLabel()
-        icon_label.setScaledContents(True)  # Permitir escalado del contenido
-        icon_label.setFixedSize(QSize(18, 18))  # Tamaño fijo para el icono en stats
+        icon_label.setFixedSize(QSize(16, 16))  # Tamaño fijo 16x16 para iconos en stats
+        icon_label.setScaledContents(True)  # Escalar el contenido al tamaño del label
+        icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)  # Centrar el icono
         icon_label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         icon_label.setStyleSheet(
             "background: transparent; "
