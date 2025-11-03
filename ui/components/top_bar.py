@@ -128,7 +128,7 @@ class TopBar(QWidget):
     
     # Señales
     select_directory_requested = pyqtSignal()
-    analyze_requested = pyqtSignal()
+    analyze_requested = pyqtSignal(str)  # Emite 'quick' o 'deep'
     reanalyze_requested = pyqtSignal()
     stop_analysis_requested = pyqtSignal()
     open_folder_requested = pyqtSignal()
@@ -142,6 +142,7 @@ class TopBar(QWidget):
         self._is_summary_expanded = False
         self._animation = None
         self._has_completed_analysis = False  # Track if any analysis completed successfully
+        self._last_analysis_type = 'quick'  # Recordar último tipo de análisis
         
         self._init_ui()
         self._update_button_visibility()
@@ -176,10 +177,23 @@ class TopBar(QWidget):
         layout.setSpacing(12)
         layout.setContentsMargins(18, 12, 18, 12)  # Márgenes reducidos pero equilibrados
         
-        # === TÍTULO DE LA APP ===
+        # === TÍTULO DE LA APP (CLICKEABLE - INTEGRA ABOUT) ===
         # Container para icono + texto
         title_container = QWidget()
-        title_container.setStyleSheet("background: transparent; border: none;")
+        title_container.setStyleSheet(
+            "QWidget {"
+            "  background: transparent;"
+            "  border: none;"
+            "  border-radius: 6px;"
+            "  padding: 4px 8px;"
+            "}"
+            "QWidget:hover {"
+            "  background: rgba(37, 99, 235, 0.06);"  # primary blue at 6% opacity
+            "}"
+        )
+        title_container.setCursor(Qt.CursorShape.PointingHandCursor)
+        title_container.setToolTip("Acerca de")
+        
         title_layout = QHBoxLayout(title_container)
         title_layout.setContentsMargins(0, 0, 0, 0)
         title_layout.setSpacing(8)
@@ -199,6 +213,14 @@ class TopBar(QWidget):
             "padding: 0px;"
         )
         title_layout.addWidget(title_label)
+        
+        # Hacer clickeable para mostrar About
+        def on_logo_clicked(event):
+            if self.main_window is not None:
+                self.main_window.show_about_dialog()
+            event.accept()
+        
+        title_container.mousePressEvent = on_logo_clicked
         
         layout.addWidget(title_container)
         
@@ -430,53 +452,193 @@ class TopBar(QWidget):
         layout.addWidget(directory_container, stretch=1)
         
         # === BOTONES DE ACCIÓN ===
-        # Botón: Cambiar directorio
-        self.select_btn = QPushButton(" Cambiar")
-        icon_manager.set_button_icon(self.select_btn, 'folder', color='#2563eb', size=16)
-        self.select_btn.setFixedHeight(32)
-        self.select_btn.setMinimumWidth(100)
+        # Botón: Selector de directorio (solo icono, compacto)
+        self.select_btn = QPushButton()
+        self.select_btn.setObjectName("select_btn")
+        icon_manager.set_button_icon(self.select_btn, 'folder', color='#2563eb', size=18)
+        self.select_btn.setFixedSize(36, 32)
         self.select_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.select_btn.setStyleSheet(styles.STYLE_ANALYZE_BUTTON_PRIMARY)
-        self.select_btn.clicked.connect(self._on_select_clicked)
-        self.select_btn.setToolTip("Seleccionar otro directorio")
-        layout.addWidget(self.select_btn)
-        
-        # Botón: Analizar
-        self.analyze_btn = QPushButton(" Analizar")
-        icon_manager.set_button_icon(self.analyze_btn, 'stats', color='#2563eb', size=16)
-        self.analyze_btn.setFixedHeight(32)
-        self.analyze_btn.setMinimumWidth(100)
-        self.analyze_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.analyze_btn.setStyleSheet(styles.STYLE_ANALYZE_BUTTON_PRIMARY)
-        self.analyze_btn.clicked.connect(self._on_analyze_clicked)
-        layout.addWidget(self.analyze_btn)
-        
-        # Botón: Re-analizar
-        self.reanalyze_btn = QPushButton(" Re-analizar")
-        icon_manager.set_button_icon(self.reanalyze_btn, 'refresh', color='#495057', size=16)
-        self.reanalyze_btn.setFixedHeight(32)
-        self.reanalyze_btn.setMinimumWidth(110)
-        self.reanalyze_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.reanalyze_btn.setStyleSheet(
-            "QPushButton {"
-            "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #ffffff, stop:1 #f8f9fa);"
-            "  border: 1px solid #dee2e6;"
+        self.select_btn.setStyleSheet(
+            "QPushButton#select_btn {"
+            "  background-color: transparent;"
+            "  border: 1px solid #cbd5e0;"
             "  border-radius: 6px;"
-            "  color: #495057;"
-            "  font-weight: 600;"
-            "  font-size: 13px;"
-            "  padding: 6px 14px;"
             "}"
-            "QPushButton:hover {"
-            "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #f8f9fa, stop:1 #e9ecef);"
-            "  border-color: #adb5bd;"
+            "QPushButton#select_btn:hover:enabled {"
+            "  background-color: rgba(37, 99, 235, 0.08);"
+            "  border-color: #2563eb;"
             "}"
-            "QPushButton:pressed {"
-            "  background: #e9ecef;"
+            "QPushButton#select_btn:pressed:enabled {"
+            "  background-color: rgba(37, 99, 235, 0.15);"
+            "}"
+            "QPushButton#select_btn:disabled {"
+            "  opacity: 0.5;"
             "}"
         )
-        self.reanalyze_btn.clicked.connect(self._on_reanalyze_clicked)
-        layout.addWidget(self.reanalyze_btn)
+        self.select_btn.clicked.connect(self._on_select_clicked)
+        self.select_btn.setToolTip("Seleccionar directorio")
+        layout.addWidget(self.select_btn)
+        
+        # === SPLIT BUTTON: Analizar (con dropdown para rápido/profundo/re-analizar) ===
+        # Widget contenedor del split button
+        self.split_container = QWidget()
+        self.split_container.setObjectName("split_container")  # Para estilos específicos
+        self.split_container.setFixedHeight(32)
+        split_layout = QHBoxLayout(self.split_container)
+        split_layout.setSpacing(0)
+        split_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Parte 1: Botón principal "Analizar"
+        self.analyze_btn = QPushButton("Analizar")
+        self.analyze_btn.setObjectName("analyze_btn")
+        self.analyze_btn.setFixedHeight(32)
+        self.analyze_btn.setMinimumWidth(90)
+        self.analyze_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.analyze_btn.clicked.connect(self._on_analyze_quick)
+        self.analyze_btn.setToolTip(
+            "Análisis rápido: Live Photos, HEIC, renombrado, "
+            "organización, duplicados exactos (~1-5 min)"
+        )
+        
+        # Separador visual (línea vertical)
+        separator = QFrame()
+        separator.setFrameShape(QFrame.Shape.VLine)
+        separator.setFixedSize(1, 20)
+        separator.setStyleSheet(
+            "QFrame {"
+            "  background: rgba(255, 255, 255, 0.3);"
+            "  border: none;"
+            "}"
+        )
+        
+        # Parte 2: Botón dropdown (chevron)
+        self.dropdown_btn = QPushButton()
+        self.dropdown_btn.setObjectName("dropdown_btn")
+        # usar icono en vez de texto para mejor rasterización
+    # use existing 'down' icon from icon manager
+    # chevron widget not used directly; icon will be set on the button
+        # Insertar icono en el QPushButton como widget: usar stylesheet fallback
+        self.dropdown_btn.setFixedSize(30, 32)
+        self.dropdown_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        # Si icon_manager soporta setIcon, intentar usarlo; si no, caer a texto
+        try:
+            from PyQt6.QtGui import QIcon
+            self.dropdown_btn.setIcon(icon_manager.get_icon('down', color='#ffffff'))
+            self.dropdown_btn.setIconSize(QSize(12, 12))
+            self.dropdown_btn.setText("")
+        except Exception:
+            self.dropdown_btn.setText("▼")
+        
+        # Crear menú de opciones
+        self.analyze_menu = QMenu(self.dropdown_btn)
+        self.analyze_menu.setStyleSheet(
+            "QMenu {"
+            "  background: white;"
+            "  border: 1px solid #cbd5e0;"
+            "  border-radius: 8px;"
+            "  padding: 6px;"
+            "}"
+            "QMenu::item {"
+            "  padding: 8px 16px;"
+            "  border-radius: 4px;"
+            "  color: #334155;"
+            "  font-size: 13px;"
+            "}"
+            "QMenu::item:selected {"
+            "  background: #f1f5f9;"
+            "}"
+            "QMenu::item:disabled {"
+            "  color: #94a3b8;"
+            "  opacity: 0.5;"
+            "}"
+            "QMenu::separator {"
+            "  height: 1px;"
+            "  background: #e2e8f0;"
+            "  margin: 4px 0;"
+            "}"
+        )
+        
+        # Opciones del menú
+        self.action_quick = self.analyze_menu.addAction("⚡ Análisis rápido")
+        self.action_quick.triggered.connect(self._on_analyze_quick)
+        self.action_quick.setToolTip(
+            "Análisis rápido: Live Photos, HEIC, renombrado, "
+            "organización, duplicados exactos (~1-5 min)"
+        )
+        
+        self.action_deep = self.analyze_menu.addAction("🔍 Análisis profundo")
+        self.action_deep.triggered.connect(self._on_analyze_deep)
+        self.action_deep.setToolTip(
+            "Análisis profundo: Todo lo anterior + duplicados "
+            "similares (~10-30 min según tamaño del directorio)"
+        )
+        
+        self.analyze_menu.addSeparator()
+        
+        self.action_reanalyze = self.analyze_menu.addAction("🔄 Re-analizar")
+        self.action_reanalyze.triggered.connect(self._on_reanalyze)
+        self.action_reanalyze.setEnabled(False)  # Disabled por defecto
+        self.action_reanalyze.setVisible(False)  # Hidden por defecto
+        self.action_reanalyze.setToolTip("Re-ejecutar el último tipo de análisis realizado")
+        
+        # Asociar menú al botón dropdown
+        self.dropdown_btn.setMenu(self.analyze_menu)
+        
+        # Añadir todo al layout del split button
+        split_layout.addWidget(self.analyze_btn)
+        split_layout.addWidget(separator)
+        split_layout.addWidget(self.dropdown_btn)
+
+        # Forzar tamaño compacto del contenedor (evitar que expanda)
+        # Use module-level QSizePolicy imported at top of file
+        self.split_container.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        # Calcular un width razonable (botón principal + dropdown + margen)
+        self.split_container.setMinimumWidth(140)
+        self.split_container.setMaximumWidth(220)
+        
+        # Estilo del split button container
+        self.split_container.setStyleSheet(
+            "QWidget#split_container {"
+            "  background-color: #2563eb;"
+            "  border: none;"
+            "  border-radius: 6px;"
+            "}"
+            "QWidget#split_container:hover {"
+            "  background-color: #1d4ed8;"
+            "}"
+            "QWidget#split_container:disabled {"
+            "  background-color: #94a3b8;"
+            "  opacity: 0.6;"
+            "}"
+            "QWidget#split_container QPushButton {"
+            "  background-color: transparent;"
+            "  color: white;"
+            "  border: none;"
+            "  font-size: 13px;"
+            "  font-weight: 600;"
+            "  padding: 0 12px;"
+            "}"
+            "QWidget#split_container QPushButton#analyze_btn {"
+            "  padding-left: 14px;"
+            "  padding-right: 10px;"
+            "}"
+            "QWidget#split_container QPushButton#dropdown_btn {"
+            "  padding: 0 8px;"
+            "  border-left: 1px solid rgba(255,255,255,0.12);"
+            "  min-width: 30px;"
+            "}"
+            "QWidget#split_container QPushButton:hover {"
+            "  background-color: rgba(255, 255, 255, 0.12);"
+            "}"
+            "QWidget#split_container QPushButton:disabled {"
+            "  color: #e2e8f0;"
+            "}"
+        )
+        
+        layout.addWidget(self.split_container)
+        
+        # Alias de compatibilidad (algunos componentes pueden referenciar reanalyze_btn)
+        self.reanalyze_btn = self.analyze_btn  # Mismo botón, texto cambia según estado
         
         # Botón: Detener análisis
         self.stop_btn = QPushButton(" Detener")
@@ -557,29 +719,6 @@ class TopBar(QWidget):
         if self.main_window is not None:
             config_btn.clicked.connect(self.main_window.toggle_config)
         layout.addWidget(config_btn)
-        
-        # === ICONO DE ACERCA DE (ACCESO DIRECTO) ===
-        about_btn = QPushButton()
-        icon_manager.set_button_icon(about_btn, 'info', color='#64748b', size=20)
-        about_btn.setFixedSize(32, 32)
-        about_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        about_btn.setToolTip("Acerca de Pixaro Lab")
-        about_btn.setStyleSheet(
-            "QPushButton {"
-            "  background: transparent;"
-            "  border: none;"
-            "  border-radius: 6px;"
-            "}"
-            "QPushButton:hover {"
-            "  background: #f1f5f9;"
-            "}"
-            "QPushButton:pressed {"
-            "  background: #e2e8f0;"
-            "}"
-        )
-        if self.main_window is not None:
-            about_btn.clicked.connect(self.main_window.show_about_dialog)
-        layout.addWidget(about_btn)
         
         main_layout.addWidget(self.control_bar)
         
@@ -1006,98 +1145,156 @@ class TopBar(QWidget):
     def _update_button_visibility(self):
         """Actualiza visibilidad de botones según el estado actual
         
-        IMPORTANTE: El botón "Cambiar" está siempre visible para poder
-        cambiar de directorio en cualquier momento. La funcionalidad de abrir
-        carpeta ahora está en el campo de directorio (clickeable).
+        Estados soportados: empty, ready, analyzing, analyzed
         """
-        # Ajustar etiqueta del botón según si hay análisis completado
-        # Si nunca se completó un análisis, mostrar "Seleccionar"
-        # Si ya se completó al menos uno, mostrar "Cambiar"
-        if self.current_state == 'empty' or not self._has_completed_analysis:
-            self.select_btn.setText("📁 Seleccionar")
-            self.select_btn.setToolTip("Seleccionar directorio")
-        else:
-            self.select_btn.setText("📁 Cambiar")
-            self.select_btn.setToolTip("Seleccionar otro directorio")
-        
-        # Botón Cambiar/Seleccionar: siempre visible (permite cambiar de directorio)
-        # Pero debe quedar inhabilitado durante un análisis en curso para
-        # evitar cambiar de directorio mientras los hilos del análisis
-        # anterior siguen corriendo. El usuario debe usar 'Detener' primero.
-        self.select_btn.setVisible(True)
-        
+        # Actualizar tooltip del botón selector según estado
         if self.current_state == 'empty':
-            self.analyze_btn.setHidden(True)
-            self.reanalyze_btn.setHidden(True)
-            self.stop_btn.setHidden(True)
-            # Asegurar que el botón 'Seleccionar' esté habilitado en estado empty
-            # (por ejemplo si antes se pulsó 'Detener' sin haber analizado nada).
+            self.select_btn.setToolTip("Seleccionar directorio")
+        elif self.current_state == 'ready':
+            self.select_btn.setToolTip("Cambiar directorio")
+        elif self.current_state == 'analyzing':
+            self.select_btn.setToolTip("No puedes cambiar durante el análisis")
+        elif self.current_state == 'analyzed':
+            self.select_btn.setToolTip("Cambiar directorio")
+        
+        # === ESTADO: EMPTY ===
+        if self.current_state == 'empty':
+            # Selector: enabled
             self.select_btn.setEnabled(True)
-            # Campo de directorio interactivo en estado empty (permite arrastrar o usar seleccionar)
-            if hasattr(self, 'field_widget'):
-                self.field_widget.setEnabled(True)
-            # Permitir acceso al historial incluso en estado empty si hay historial disponible
+            self.select_btn.setVisible(True)
+            
+            # Split button: disabled
+            self.split_container.setEnabled(False)
+            self.split_container.setVisible(True)
+            self.analyze_btn.setText("Analizar")
+            self.action_reanalyze.setVisible(False)
+            
+            # Stop button: hidden
+            self.stop_btn.setHidden(True)
+            
+            # Campo de directorio
+            self.directory_edit.setText("Ningún directorio seleccionado")
+            self.metadata_badge.setVisible(False)
+            self.analysis_badge.setVisible(False)
+            self.folder_icon.setVisible(False)
+            
+            # Smart stats y toggle
+            self.smart_stats_container.setVisible(False)
+            self.stats_toggle_btn.setVisible(False)
+            
+            # Historial
             history = settings_manager.get_directory_history()
             self.history_btn.setEnabled(len(history) > 0)
-            # Cursor no debe sugerir clic cuando está vacío
+            
+            # Campo interactivo
             if hasattr(self, 'field_widget'):
+                self.field_widget.setEnabled(True)
                 self.field_widget.setCursor(Qt.CursorShape.ArrowCursor)
-                # Tooltip: instrucción clara cuando NO hay directorio seleccionado
                 self.field_widget.setToolTip(
                     "Arrastra una carpeta aquí\n" 
                     "o usa el botón 'Seleccionar' para elegir el directorio de trabajo"
                 )
-            
+        
+        # === ESTADO: READY ===
         elif self.current_state == 'ready':
-            self.analyze_btn.setVisible(True)
-            self.reanalyze_btn.setHidden(True)
-            self.stop_btn.setHidden(True)
-            self.history_btn.setEnabled(True)
-            # En estado 'ready' el botón Cambiar debe estar habilitado y el
-            # botón Analizar activo para iniciar el análisis.
+            # Selector: enabled
             self.select_btn.setEnabled(True)
-            self.analyze_btn.setEnabled(True)
-            # Campo clickeable cuando hay directorio seleccionado
+            self.select_btn.setVisible(True)
+            
+            # Split button: enabled
+            self.split_container.setEnabled(True)
+            self.split_container.setVisible(True)
+            self.analyze_btn.setText("Analizar")
+            self.action_reanalyze.setVisible(False)
+            
+            # Stop button: hidden
+            self.stop_btn.setHidden(True)
+            
+            # Campo de directorio: path visible, badges ocultos
+            self.metadata_badge.setVisible(False)
+            self.analysis_badge.setVisible(False)
+            self.folder_icon.setVisible(True)
+            
+            # Smart stats: ocultos
+            self.smart_stats_container.setVisible(False)
+            self.stats_toggle_btn.setVisible(False)
+            
+            # Historial: enabled
+            self.history_btn.setEnabled(True)
+            
+            # Campo clickeable
             if hasattr(self, 'field_widget'):
+                self.field_widget.setEnabled(True)
                 self.field_widget.setCursor(Qt.CursorShape.PointingHandCursor)
-                # Tooltip: cuando hay directorio seleccionado (lista para analizar)
-                # usar el botón 'Cambiar' para cambiar el directorio
                 self.field_widget.setToolTip(
                     "Arrastra un directorio aquí o pulsa el botón de 'Cambiar' para cambiar el directorio de trabajo"
                 )
-            
+        
+        # === ESTADO: ANALYZING ===
         elif self.current_state == 'analyzing':
-            self.analyze_btn.setHidden(True)
-            self.reanalyze_btn.setHidden(True)
-            self.stop_btn.setVisible(True)
-            self.history_btn.setEnabled(False)
-            # Desactivar el botón de cambiar para prevenir interrupciones
+            # Selector: disabled
             self.select_btn.setEnabled(False)
-            self.select_btn.setToolTip("No puedes cambiar de directorio mientras se está analizando. Pulsa 'Detener' para interrumpir el análisis.")
+            self.select_btn.setVisible(True)
+            
+            # Split button: hidden
+            self.split_container.setVisible(False)
+            
+            # Stop button: visible
+            self.stop_btn.setVisible(True)
+            
+            # Badges ocultos durante análisis
+            self.metadata_badge.setVisible(False)
+            self.analysis_badge.setVisible(False)
+            
+            # Smart stats: visible con progreso
+            self.smart_stats_container.setVisible(True)
+            self.stats_toggle_btn.setVisible(True)
+            
+            # Historial: disabled
+            self.history_btn.setEnabled(False)
+            
+            # Campo no interactivo
             if hasattr(self, 'field_widget'):
-                # Mantener campo visible pero no interactivo (salvaguarda extra)
                 self.field_widget.setCursor(Qt.CursorShape.ArrowCursor)
                 try:
                     self.field_widget.setEnabled(False)
                 except Exception:
                     pass
-            
+        
+        # === ESTADO: ANALYZED ===
         elif self.current_state == 'analyzed':
-            self.analyze_btn.setHidden(True)
-            self.reanalyze_btn.setVisible(True)
-            self.stop_btn.setHidden(True)
-            self.history_btn.setEnabled(True)
-            # Asegurar que el botón 'Cambiar' esté habilitado después del análisis
+            # Selector: enabled
             self.select_btn.setEnabled(True)
-            self.select_btn.setToolTip("Seleccionar otro directorio")
+            self.select_btn.setVisible(True)
+            
+            # Split button: enabled, texto "Re-analizar"
+            self.split_container.setEnabled(True)
+            self.split_container.setVisible(True)
+            self.analyze_btn.setText("Re-analizar")
+            self.action_reanalyze.setVisible(True)
+            self.action_reanalyze.setEnabled(True)
+            
+            # Stop button: hidden
+            self.stop_btn.setHidden(True)
+            
+            # Mostrar badges
+            self.metadata_badge.setVisible(True)
+            self.analysis_badge.setVisible(True)
+            
+            # Smart stats: visible con resultados
+            self.smart_stats_container.setVisible(True)
+            self.stats_toggle_btn.setVisible(True)
+            
+            # Historial: enabled
+            self.history_btn.setEnabled(True)
+            
+            # Campo clickeable
             if hasattr(self, 'field_widget'):
-                # Restaurar interactividad del campo tras finalizar análisis
                 try:
                     self.field_widget.setEnabled(True)
                 except Exception:
                     pass
                 self.field_widget.setCursor(Qt.CursorShape.PointingHandCursor)
-                # Tooltip: tras análisis completado el texto debe sugerir 'Cambiar'
                 self.field_widget.setToolTip(
                     "Arrastra un directorio aquí o pulsa el botón de 'Cambiar' para cambiar el directorio de trabajo"
                 )
@@ -1235,13 +1432,24 @@ class TopBar(QWidget):
 
         self.select_directory_requested.emit()
     
-    def _on_analyze_clicked(self):
-        """Callback del botón Analizar"""
-        self.analyze_requested.emit()
+    def _on_analyze_quick(self):
+        """Lanza análisis rápido (sin duplicados similares)"""
+        self._last_analysis_type = 'quick'
+        self.analyze_requested.emit('quick')
+        self.set_state('analyzing')
     
-    def _on_reanalyze_clicked(self):
-        """Callback del botón Re-analizar"""
-        self.reanalyze_requested.emit()
+    def _on_analyze_deep(self):
+        """Lanza análisis profundo (con duplicados similares)"""
+        self._last_analysis_type = 'deep'
+        self.analyze_requested.emit('deep')
+        self.set_state('analyzing')
+    
+    def _on_reanalyze(self):
+        """Re-ejecuta el último análisis realizado"""
+        if self._last_analysis_type == 'quick':
+            self._on_analyze_quick()
+        else:
+            self._on_analyze_deep()
     
     def _on_stop_clicked(self):
         """Callback del botón Detener"""
