@@ -303,3 +303,111 @@ def format_markdown_list(items: list, ordered: bool = False) -> str:
             formatted_items.append(f"- {line}")
     
     return "\n".join(formatted_items)
+
+
+def format_count_short(count: int) -> str:
+    """Formatea un conteo en versión corta para badges.
+    
+    Args:
+        count: Número entero a formatear
+    
+    Returns:
+        String abreviado (ej: "1.2K", "45")
+    """
+    if count < 1000:
+        return str(count)
+    elif count < 10000:
+        return f"{count / 1000:.1f}K"
+    else:
+        return f"{count // 1000}K"
+
+
+def format_size_short(bytes_size: int) -> str:
+    """Formatea un tamaño en bytes en versión corta para badges.
+    
+    Args:
+        bytes_size: Tamaño en bytes
+    
+    Returns:
+        String abreviado (ej: "1.2MB", "45KB")
+    """
+    if bytes_size < 1024:
+        return f"{bytes_size}B"
+    
+    kb = bytes_size / 1024
+    if kb < 1024:
+        return f"{kb:.0f}KB"
+    
+    mb = kb / 1024
+    if mb < 1024:
+        return f"{mb:.1f}MB"
+    
+    gb = mb / 1024
+    return f"{gb:.2f}GB"
+
+
+def format_count_full(count: int) -> str:
+    """Formatea un conteo con separadores de miles.
+    
+    Args:
+        count: Número entero
+    
+    Returns:
+        String con formato (ej: "1,234")
+    """
+    return f"{count:,}"
+
+
+def format_size_full(bytes_size: int) -> str:
+    """Formatea un tamaño en bytes en versión completa.
+    
+    Args:
+        bytes_size: Tamaño en bytes
+    
+    Returns:
+        String con formato completo (ej: "1.2 MB", "45.0 KB")
+    """
+    if bytes_size < 1024:
+        return f"{bytes_size} B"
+    
+    kb = bytes_size / 1024
+    if kb < 1024:
+        return f"{kb:.1f} KB"
+    
+    mb = kb / 1024
+    if mb < 1024:
+        return f"{mb:.1f} MB"
+    
+    gb = mb / 1024
+    return f"{gb:.2f} GB"
+
+
+def format_time_ago(timestamp_str: str) -> str:
+    """Formatea un timestamp ISO en texto 'hace X tiempo'.
+    
+    Args:
+        timestamp_str: Timestamp en formato ISO
+    
+    Returns:
+        String descriptivo del tiempo transcurrido
+    """
+    from datetime import datetime
+    try:
+        timestamp = datetime.fromisoformat(timestamp_str)
+        now = datetime.now()
+        delta = now - timestamp
+        
+        seconds = delta.total_seconds()
+        if seconds < 60:
+            return "hace menos de 1 min"
+        elif seconds < 3600:
+            minutes = int(seconds / 60)
+            return f"hace {minutes} min"
+        elif seconds < 86400:
+            hours = int(seconds / 3600)
+            return f"hace {hours}h"
+        else:
+            days = int(seconds / 86400)
+            return f"hace {days}d"
+    except Exception:
+        return "recientemente"
