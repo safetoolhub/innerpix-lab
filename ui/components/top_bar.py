@@ -23,55 +23,14 @@ from PyQt6.QtGui import QCursor
 
 from config import Config
 from ui import styles
+from ui.components.smart_stats_bar import SmartStatsBar
+from ui.components.progress_overlay import ProgressOverlay
 from utils.settings_manager import settings_manager
-from utils.format_utils import format_number
+from utils.format_utils import (
+    format_number, format_count_short, format_size_short,
+    format_count_full, format_size_full
+)
 from utils.icons import icon_manager
-import os
-
-
-# ===== FUNCIONES AUXILIARES DE FORMATO =====
-
-def format_count_short(count: int) -> str:
-    """Formato abreviado de conteo de archivos."""
-    if count >= 1_000_000:
-        return f"{count/1_000_000:.1f}M"
-    elif count >= 1_000:
-        return f"{count/1_000:.1f}k"
-    return str(count)
-
-
-def format_size_short(bytes_size: int) -> str:
-    """Formato abreviado de tamaño de archivos."""
-    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
-        if bytes_size < 1024:
-            return f"{int(bytes_size)}{unit}"
-        bytes_size /= 1024
-    return f"{int(bytes_size)}PB"
-
-
-def format_count_full(count: int) -> str:
-    """Formato completo con separadores de miles."""
-    return f"{count:,}"
-
-
-def format_size_full(bytes_size: int) -> str:
-    """Formato completo de tamaño legible."""
-    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
-        if bytes_size < 1024:
-            return f"{bytes_size:.1f} {unit}"
-        bytes_size /= 1024
-    return f"{bytes_size:.1f} PB"
-
-
-def apply_stat_state(widget, state: str, key: str):
-    """Aplica estilos según el estado del stat (amarillo/verde/gris).
-    
-    Args:
-        widget: El widget QFrame del stat
-        state: 'detected' (amarillo), 'clean' (verde), 'not-analyzed' (gris)
-        key: Clave del stat para el objectName
-    """
-    widget.setStyleSheet(styles.get_topbar_stat_style(key, state))
 
 
 class TopBar(QWidget):
@@ -363,9 +322,7 @@ class TopBar(QWidget):
         # Parte 2: Botón dropdown (chevron)
         self.dropdown_btn = QPushButton()
         self.dropdown_btn.setObjectName("dropdown_btn")
-        # usar icono en vez de texto para mejor rasterización
-    # use existing 'down' icon from icon manager
-    # chevron widget not used directly; icon will be set on the button
+
         # Insertar icono en el QPushButton como widget: usar stylesheet fallback
         self.dropdown_btn.setFixedSize(30, 32)
         self.dropdown_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -425,8 +382,8 @@ class TopBar(QWidget):
         
         layout.addWidget(self.split_container)
         
-        # Alias de compatibilidad (algunos componentes pueden referenciar reanalyze_btn)
-        self.reanalyze_btn = self.analyze_btn  # Mismo botón, texto cambia según estado
+        # Referencia usada por ActionButtons y controllers
+        self.reanalyze_btn = self.analyze_btn
         
         # Botón: Detener análisis
         self.stop_btn = QPushButton(" Detener")
@@ -464,215 +421,16 @@ class TopBar(QWidget):
         
         main_layout.addWidget(self.control_bar)
         
-        # ===== SMART STATS BAR (colapsable, 48px) =====
-        self._create_smart_stats_bar()
-        main_layout.addWidget(self.smart_stats_container)
+        # ===== SMART STATS BAR =====
+        self.smart_stats_bar = SmartStatsBar(self)
+        self.smart_stats_bar.stat_clicked.connect(self._on_stat_clicked)
+        main_layout.addWidget(self.smart_stats_bar)
         
-        # ===== PROGRESS BAR (superpuesto, no afecta layout) =====
-        self._create_progress_bar()
-        
-        # Aliases de compatibilidad con código existente
-        self.summary_container = self.smart_stats_container
-        self.summary_panel = self.smart_stats_container
-        self.analysis_status_badge = self.analysis_badge  # Alias
-        self.stats_labels = {}  # Ya no se usa pero mantener por compatibilidad
-        self.summary_action_buttons = {}  # Ya no se usa
-        self.toggle_summary_btn = self.stats_toggle_btn  # Alias
-    
-    def _create_smart_stats_bar(self):
-        """Crea la barra de Smart Stats con grid 3×2 (Redundancias | Duplicados | Organización)"""
-        # Inicializar diccionario ANTES de crear columnas
-        self.smart_stats = {}
-        
-        # Container animable
-        self.smart_stats_container = QFrame()
-        self.smart_stats_container.setStyleSheet(styles.STYLE_TOPBAR_SMART_STATS_CONTAINER)
-        self.smart_stats_container.setMinimumHeight(0)
-        self.smart_stats_container.setMaximumHeight(0)  # Inicialmente colapsado
-        self.smart_stats_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.smart_stats_container.setVisible(False)
-        
-        container_layout = QHBoxLayout(self.smart_stats_container)
-        container_layout.setContentsMargins(16, 8, 16, 8)
-        container_layout.setSpacing(20)
-        
-        # === COLUMNA 1: REDUNDANCIAS ===
-        self.redundancies_column = self._create_stat_column(
-            title="REDUNDANCIAS",
-            stats_keys=['live_photos', 'heic']
-        )
-        container_layout.addWidget(self.redundancies_column, 1)
-        
-        # Separador vertical
-        vsep1 = self._create_separator()
-        container_layout.addWidget(vsep1)
-        
-        # === COLUMNA 2: DUPLICADOS ===
-        self.duplicates_column = self._create_stat_column(
-            title="DUPLICADOS",
-            stats_keys=['duplicates_exact', 'duplicates_similar']
-        )
-        container_layout.addWidget(self.duplicates_column, 1)
-        
-        # Separador vertical
-        vsep2 = self._create_separator()
-        container_layout.addWidget(vsep2)
-        
-        # === COLUMNA 3: ORGANIZACIÓN ===
-        self.organization_column = self._create_stat_column(
-            title="ORGANIZACIÓN",
-            stats_keys=['renaming', 'organization']
-        )
-        container_layout.addWidget(self.organization_column, 1)
-        
-        # Inicializar stats con placeholders
-        self._initialize_stats_placeholders()
-    
-    def _create_separator(self):
-        """Crea un separador vertical con gradiente sutil"""
-        separator = QFrame()
-        separator.setFrameShape(QFrame.Shape.VLine)
-        separator.setStyleSheet(styles.STYLE_TOPBAR_SEPARATOR)
-        return separator
-    
-    def _initialize_stats_placeholders(self):
-        """Inicializa los stats con valores placeholder"""
-        # Columna 1: REDUNDANCIAS
-        if 'live_photos' in self.smart_stats:
-            widget = self.smart_stats['live_photos']
-            icon_manager.set_button_icon(widget.icon_label, 'live-photo', color='#64748b', size=16)
-            widget.text_label.setText("Live Photos")
-            widget.value_label.setText("—")
-            widget.setToolTip("Detecta pares de Live Photos (foto + video MOV)")
-        
-        if 'heic' in self.smart_stats:
-            widget = self.smart_stats['heic']
-            icon_manager.set_button_icon(widget.icon_label, 'heic', color='#64748b', size=16)
-            widget.text_label.setText("HEIC Duplicados")
-            widget.value_label.setText("—")
-            widget.setToolTip("Duplicados HEIC con equivalente JPG")
-        
-        # Columna 2: DUPLICADOS
-        if 'duplicates_exact' in self.smart_stats:
-            widget = self.smart_stats['duplicates_exact']
-            icon_manager.set_button_icon(widget.icon_label, 'duplicate-exact', color='#64748b', size=16)
-            widget.text_label.setText("Exactos")
-            widget.value_label.setText("—")
-            widget.setToolTip("Archivos duplicados por hash (contenido idéntico)")
-        
-        if 'duplicates_similar' in self.smart_stats:
-            widget = self.smart_stats['duplicates_similar']
-            icon_manager.set_button_icon(widget.icon_label, 'eye', color='#64748b', size=16)
-            widget.text_label.setText("Similares")
-            widget.value_label.setText("—")
-            widget.setToolTip("Duplicados similares (requiere análisis manual)")
-        
-        # Columna 3: ORGANIZACIÓN
-        if 'renaming' in self.smart_stats:
-            widget = self.smart_stats['renaming']
-            icon_manager.set_button_icon(widget.icon_label, 'rename', color='#64748b', size=16)
-            widget.text_label.setText("Renombrar")
-            widget.value_label.setText("—")
-            widget.setToolTip("Archivos que necesitan renombrado normalizado")
-        
-        if 'organization' in self.smart_stats:
-            widget = self.smart_stats['organization']
-            icon_manager.set_button_icon(widget.icon_label, 'organize', color='#64748b', size=16)
-            widget.text_label.setText("Organizar")
-            widget.value_label.setText("—")
-            widget.setToolTip("Archivos que pueden organizarse por fecha/carpeta")
-    
-    def _create_stat_column(self, title: str, stats_keys: list):
-        """Crea una columna de stats con un título y varios items"""
-        column = QFrame()
-        column.setStyleSheet(styles.STYLE_TOPBAR_COLUMN)
-        
-        layout = QVBoxLayout(column)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(6)  # Spacing entre título y primera fila
-        
-        # Título de la columna
-        title_label = QLabel(title)
-        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title_label.setStyleSheet(styles.STYLE_TOPBAR_COLUMN_TITLE)
-        layout.addWidget(title_label)
-        
-        # Container para los stats
-        stats_container = QVBoxLayout()
-        stats_container.setSpacing(6)  # Spacing entre filas
-        
-        for key in stats_keys:
-            stat_widget = self._create_stat_item(key)
-            self.smart_stats[key] = stat_widget
-            stats_container.addWidget(stat_widget)
-        
-        layout.addLayout(stats_container)
-        layout.addStretch()
-        
-        return column
-    
-    def _create_stat_item(self, key: str):
-        """Crea un item de stat individual (clickeable) con diseño [icono] Label    Número"""
-        widget = QFrame()
-        widget.setObjectName(f"stat_{key}")
-        widget.setCursor(Qt.CursorShape.PointingHandCursor)
-        widget.setFixedHeight(36)  # Altura fija para cada item
-        
-        # Estilo inicial (gris neutral - no analizado)
-        widget.setStyleSheet(
-            "QFrame#stat_" + key + " {"
-            "  background: #f8f9fa;"
-            "  border: 1px solid #dee2e6;"
-            "  border-radius: 6px;"
-            "  padding: 6px 8px;"
-            "}"
-            "QFrame#stat_" + key + ":hover {"
-            "  background: #e9ecef;"
-            "}"
-        )
-        widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        
-        layout = QHBoxLayout(widget)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(6)
-        
-        # Icono (usar QToolButton con QIcon para que Qt rasterice correctamente)
-        icon_btn = QToolButton()
-        icon_btn.setAutoRaise(True)
-        icon_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
-        icon_btn.setFixedSize(QSize(16, 16))
-        icon_btn.setIconSize(QSize(16, 16))
-        icon_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        icon_btn.setStyleSheet(styles.STYLE_TOPBAR_STAT_ICON)
-        icon_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        layout.addWidget(icon_btn)
-        
-        # Label (texto descriptivo)
-        text_label = QLabel()
-        text_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_TEXT)
-        text_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        layout.addWidget(text_label, 1)
-        
-        # Número (valor del stat)
-        value_label = QLabel()
-        value_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_VALUE)
-        value_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        value_label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        layout.addWidget(value_label)
-        
-        # Guardar referencias
-        widget.icon_label = icon_btn
-        widget.text_label = text_label
-        widget.value_label = value_label
-        widget.stat_key = key
-
-        # Conectar click
-        widget.mousePressEvent = lambda event: self._on_stat_clicked(key)
-
-        return widget
+        # ===== PROGRESS OVERLAY =====
+        self.progress_overlay = ProgressOverlay(self)
     
     def _on_stat_clicked(self, key: str):
-        """Navega a la pestaña correspondiente al hacer click en un stat"""
+        """Navega a la pestaña correspondiente"""
         if not self.main_window or not hasattr(self.main_window, 'tab_index_map'):
             return
         
@@ -691,55 +449,6 @@ class TopBar(QWidget):
                 idx = self.main_window.tab_index_map[tab_key]
                 self.main_window.tabs_widget.setCurrentIndex(idx)
     
-    def _create_progress_bar(self):
-        """Crea la barra de progreso superpuesta (no afecta layout)"""
-        # Container superpuesto sobre smart_stats
-        self.progress_container = QFrame(self)
-        self.progress_container.setStyleSheet(styles.STYLE_TOPBAR_PROGRESS_CONTAINER)
-        self.progress_container.setVisible(False)
-        
-        # Posicionamiento absoluto (se calculará dinámicamente)
-        self.progress_container.setGeometry(0, 60, self.width(), 0)
-        
-        progress_layout = QVBoxLayout(self.progress_container)
-        progress_layout.setContentsMargins(24, 16, 24, 16)
-        progress_layout.setSpacing(12)
-        
-        # Container interno con diseño moderno
-        inner_container = QFrame()
-        inner_container.setStyleSheet(styles.STYLE_TOPBAR_PROGRESS_INNER)
-        inner_layout = QVBoxLayout(inner_container)
-        inner_layout.setContentsMargins(0, 0, 0, 0)
-        inner_layout.setSpacing(12)
-        
-        # Label de estado con diseño limpio
-        self.summary_progress_label = QLabel("⏳ Preparando análisis...")
-        self.summary_progress_label.setStyleSheet(styles.STYLE_TOPBAR_PROGRESS_LABEL)
-        inner_layout.addWidget(self.summary_progress_label)
-        
-        # Barra de progreso moderna
-        self.summary_progress_bar = QProgressBar()
-        self.summary_progress_bar.setStyleSheet(styles.STYLE_TOPBAR_PROGRESS_BAR)
-        self.summary_progress_bar.setMaximum(100)
-        self.summary_progress_bar.setValue(0)
-        self.summary_progress_bar.setTextVisible(True)
-        self.summary_progress_bar.setFixedHeight(32)
-        inner_layout.addWidget(self.summary_progress_bar)
-        
-        # Detalle adicional con diseño sutil
-        self.summary_progress_detail = QLabel("")
-        self.summary_progress_detail.setStyleSheet(styles.STYLE_TOPBAR_PROGRESS_DETAIL)
-        self.summary_progress_detail.setWordWrap(True)
-        inner_layout.addWidget(self.summary_progress_detail)
-        
-        progress_layout.addWidget(inner_container)
-        progress_layout.addStretch()
-        
-        # Alias para compatibilidad
-        self.summary_progress_area = self.progress_container
-        self.progress_frame = self.progress_container
-
-
     def _toggle_summary(self):
         """Toggle de Smart Stats"""
         if self._is_summary_expanded:
@@ -754,19 +463,19 @@ class TopBar(QWidget):
         
         self._is_summary_expanded = True
         self.stats_toggle_btn.setText("▲")
-        self.smart_stats_container.setVisible(True)
+        self.smart_stats_bar.setVisible(True)
         
-        target_height = 112  # Altura compacta: 8px top + 18px títulos + 36px + 6px + 36px + 8px bottom
+        target_height = 112
         
         if animate:
-            self._animation = QPropertyAnimation(self.smart_stats_container, b"maximumHeight")
+            self._animation = QPropertyAnimation(self.smart_stats_bar, b"maximumHeight")
             self._animation.setDuration(200)
             self._animation.setStartValue(0)
             self._animation.setEndValue(target_height)
             self._animation.setEasingCurve(QEasingCurve.Type.OutCubic)
             self._animation.start()
         else:
-            self.smart_stats_container.setMaximumHeight(target_height)
+            self.smart_stats_bar.setMaximumHeight(target_height)
         
         settings_manager.set('summary_expanded', True)
     
@@ -779,30 +488,25 @@ class TopBar(QWidget):
         self.stats_toggle_btn.setText("▼")
         
         if animate:
-            self._animation = QPropertyAnimation(self.smart_stats_container, b"maximumHeight")
+            self._animation = QPropertyAnimation(self.smart_stats_bar, b"maximumHeight")
             self._animation.setDuration(200)
-            self._animation.setStartValue(self.smart_stats_container.height())
+            self._animation.setStartValue(self.smart_stats_bar.height())
             self._animation.setEndValue(0)
             self._animation.setEasingCurve(QEasingCurve.Type.InCubic)
-            self._animation.finished.connect(lambda: self.smart_stats_container.setVisible(False))
+            self._animation.finished.connect(lambda: self.smart_stats_bar.setVisible(False))
             self._animation.start()
         else:
-            self.smart_stats_container.setMaximumHeight(0)
-            self.smart_stats_container.setVisible(False)
+            self.smart_stats_bar.setMaximumHeight(0)
+            self.smart_stats_bar.setVisible(False)
         
         settings_manager.set('summary_expanded', False)
     
     def clear_stats(self):
-        """Limpia los stats y colapsa el panel (usado al cancelar o cambiar directorio)"""
-        # Colapsar el panel de stats
+        """Limpia los stats y colapsa el panel"""
         self._collapse_summary(animate=True)
-        
-        # Ocultar toggle button y metadata badge
         self.stats_toggle_btn.setVisible(False)
         self.metadata_badge.setVisible(False)
-        
-        # Reinicializar stats con placeholders
-        self._initialize_stats_placeholders()
+        self.smart_stats_bar.clear_stats()
     
     def _update_button_visibility(self):
         """Actualiza visibilidad de botones según el estado actual
@@ -841,7 +545,7 @@ class TopBar(QWidget):
             self.folder_icon.setVisible(False)
             
             # Smart stats y toggle
-            self.smart_stats_container.setVisible(False)
+            self.smart_stats_bar.setVisible(False)
             self.stats_toggle_btn.setVisible(False)
             
             # Historial
@@ -878,7 +582,7 @@ class TopBar(QWidget):
             self.folder_icon.setVisible(True)
             
             # Smart stats: ocultos
-            self.smart_stats_container.setVisible(False)
+            self.smart_stats_bar.setVisible(False)
             self.stats_toggle_btn.setVisible(False)
             
             # Historial: enabled
@@ -909,7 +613,7 @@ class TopBar(QWidget):
             self.analysis_badge.setVisible(False)
             
             # Smart stats: visible con progreso
-            self.smart_stats_container.setVisible(True)
+            self.smart_stats_bar.setVisible(True)
             self.stats_toggle_btn.setVisible(True)
             
             # Historial: disabled
@@ -944,7 +648,7 @@ class TopBar(QWidget):
             self.analysis_badge.setVisible(True)
             
             # Smart stats: visible con resultados
-            self.smart_stats_container.setVisible(True)
+            self.smart_stats_bar.setVisible(True)
             self.stats_toggle_btn.setVisible(True)
             
             # Historial: enabled
@@ -1149,15 +853,13 @@ class TopBar(QWidget):
         self.folder_icon.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
 
     def resizeEvent(self, event):
-        """Ajusta el tamaño del progress_container cuando cambia el tamaño de la ventana"""
+        """Ajusta el tamaño del progress_overlay cuando cambia el tamaño de la ventana"""
         super().resizeEvent(event)
-        if hasattr(self, 'progress_container'):
-            # Ajustar ancho del progress_container
-            current_geo = self.progress_container.geometry()
-            self.progress_container.setGeometry(0, current_geo.y(), self.width(), current_geo.height())
+        if hasattr(self, 'progress_overlay'):
+            self.progress_overlay.adjust_width(self.width())
 
     def update_directory_display(self, directory_path):
-        """Método de compatibilidad con SearchBar - actualiza el directorio"""
+        """Actualiza el directorio mostrado (usado por main_window)"""
         self.set_directory(directory_path)
     
     def update_metadata_badge(self, file_count: int, total_size: int):
@@ -1180,126 +882,19 @@ class TopBar(QWidget):
         self.metadata_badge.setVisible(True)
     
     # ========================================================================
-    # MÉTODOS PARA ACTUALIZAR EL RESUMEN (Compatibilidad con SummaryPanel)
+    # MÉTODOS PARA ACTUALIZAR EL RESUMEN
     # ========================================================================
     def update_smart_stats(self, results):
-        """Actualiza los Smart Stats con datos del análisis usando sistema de color amarillo/verde/gris"""
-        from utils.format_utils import format_size
-        
+        """Actualiza los Smart Stats con datos del análisis - delega al componente SmartStatsBar"""
         stats = results.get('stats', {})
-        ren = results.get('renaming')
-        lp = results.get('live_photos', {})
-        org = results.get('organization')
-        heic = results.get('heic')
-        dup = results.get('duplicates')
-        
-        # === GENERAL ===
         total_files = stats.get('total', 0)
         total_size = stats.get('total_size', 0)
         
         # Actualizar metadata badge
         self.update_metadata_badge(total_files, total_size)
         
-        # === COLUMNA 1: REDUNDANCIAS ===
-        
-        # Live Photos
-        lp_count = lp.get('live_photos_found', 0) if isinstance(lp, dict) else (lp.live_photos_found if lp else 0)
-        if 'live_photos' in self.smart_stats:
-            widget = self.smart_stats['live_photos']
-            if lp_count > 0:
-                apply_stat_state(widget, 'detected', 'live_photos')
-                icon_manager.set_button_icon(widget.icon_label, 'live-photo', color='#eab308', size=16)
-                widget.value_label.setText(str(lp_count))
-                widget.value_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_VALUE_WARNING)
-            else:
-                apply_stat_state(widget, 'clean', 'live_photos')
-                icon_manager.set_button_icon(widget.icon_label, 'live-photo', color='#10b981', size=16)
-                widget.value_label.setText("✓")
-                widget.value_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_VALUE_SUCCESS)
-            widget.text_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_TEXT_NORMAL)
-            widget.setToolTip(f"Live Photos detectados: {lp_count:,}")
-        
-        # HEIC Duplicados
-        heic_count = heic.total_duplicates if heic else 0
-        if 'heic' in self.smart_stats:
-            widget = self.smart_stats['heic']
-            if heic_count > 0:
-                apply_stat_state(widget, 'detected', 'heic')
-                icon_manager.set_button_icon(widget.icon_label, 'heic', color='#eab308', size=16)
-                widget.value_label.setText(str(heic_count))
-                widget.value_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_VALUE_WARNING)
-            else:
-                apply_stat_state(widget, 'clean', 'heic')
-                icon_manager.set_button_icon(widget.icon_label, 'heic', color='#10b981', size=16)
-                widget.value_label.setText("✓")
-                widget.value_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_VALUE_SUCCESS)
-            widget.text_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_TEXT_NORMAL)
-            widget.setToolTip(f"Archivos HEIC con duplicado JPG: {heic_count:,}")
-        
-        # === COLUMNA 2: DUPLICADOS ===
-        
-        # Duplicados Exactos
-        dup_exact = dup.total_exact_duplicates if (dup and hasattr(dup, 'total_exact_duplicates')) else 0
-        if 'duplicates_exact' in self.smart_stats:
-            widget = self.smart_stats['duplicates_exact']
-            if dup_exact > 0:
-                apply_stat_state(widget, 'detected', 'duplicates_exact')
-                icon_manager.set_button_icon(widget.icon_label, 'duplicate-exact', color='#eab308', size=16)
-                widget.value_label.setText(str(dup_exact))
-                widget.value_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_VALUE_WARNING)
-            else:
-                apply_stat_state(widget, 'clean', 'duplicates_exact')
-                icon_manager.set_button_icon(widget.icon_label, 'duplicate-exact', color='#10b981', size=16)
-                widget.value_label.setText("✓")
-                widget.value_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_VALUE_SUCCESS)
-            widget.text_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_TEXT_NORMAL)
-            widget.setToolTip(f"Duplicados exactos por hash: {dup_exact:,}")
-        
-        # Duplicados Similares (no analizado por defecto)
-        if 'duplicates_similar' in self.smart_stats:
-            widget = self.smart_stats['duplicates_similar']
-            apply_stat_state(widget, 'not-analyzed', 'duplicates_similar')
-            icon_manager.set_button_icon(widget.icon_label, 'eye', color='#64748b', size=16)
-            widget.value_label.setText("—")
-            widget.value_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_VALUE_NORMAL)
-            widget.text_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_TEXT_MUTED)
-            widget.setToolTip("Duplicados similares (requiere análisis manual)")
-        
-        # === COLUMNA 3: ORGANIZACIÓN ===
-        
-        # Renombrar
-        ren_count = ren.need_renaming if ren else 0
-        if 'renaming' in self.smart_stats:
-            widget = self.smart_stats['renaming']
-            if ren_count > 0:
-                apply_stat_state(widget, 'detected', 'renaming')
-                icon_manager.set_button_icon(widget.icon_label, 'rename', color='#eab308', size=16)
-                widget.value_label.setText(str(ren_count))
-                widget.value_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_VALUE_WARNING)
-            else:
-                apply_stat_state(widget, 'clean', 'renaming')
-                icon_manager.set_button_icon(widget.icon_label, 'rename', color='#10b981', size=16)
-                widget.value_label.setText("✓")
-                widget.value_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_VALUE_SUCCESS)
-            widget.text_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_TEXT_NORMAL)
-            widget.setToolTip(f"Archivos que necesitan renombrado: {ren_count:,}")
-        
-        # Organizar
-        org_count = org.total_files_to_move if org else 0
-        if 'organization' in self.smart_stats:
-            widget = self.smart_stats['organization']
-            if org_count > 0:
-                apply_stat_state(widget, 'detected', 'organization')
-                icon_manager.set_button_icon(widget.icon_label, 'organize', color='#eab308', size=16)
-                widget.value_label.setText(str(org_count))
-                widget.value_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_VALUE_WARNING)
-            else:
-                apply_stat_state(widget, 'clean', 'organization')
-                icon_manager.set_button_icon(widget.icon_label, 'organize', color='#10b981', size=16)
-                widget.value_label.setText("✓")
-                widget.value_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_VALUE_SUCCESS)
-            widget.text_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_TEXT_NORMAL)
-            widget.setToolTip(f"Archivos que pueden organizarse: {org_count:,}")
+        # Delegar actualización de stats al componente
+        self.smart_stats_bar.update_stats(results)
         
         # Mostrar badge completado
         self.set_status_completed()
@@ -1311,10 +906,6 @@ class TopBar(QWidget):
     def update_summary(self, results):
         """Actualiza el resumen - delega a update_smart_stats"""
         self.update_smart_stats(results)
-        
-        # Mantener compatibilidad con código antiguo
-        self.stats_labels = {}  # Ya no se usa
-        self.summary_action_buttons = {}  # Ya no se usa
 
     def set_status_not_analyzed(self):
         """Establece el badge de estado a 'No analizado' (oculto) y limpia stats"""
@@ -1351,59 +942,23 @@ class TopBar(QWidget):
         self._update_button_visibility()
 
 
-    def _format_time_ago(self, timestamp_str: str) -> str:
-        """Formatea un timestamp ISO en texto 'hace X tiempo'"""
-        from datetime import datetime
-        try:
-            timestamp = datetime.fromisoformat(timestamp_str)
-            now = datetime.now()
-            delta = now - timestamp
-            
-            seconds = delta.total_seconds()
-            if seconds < 60:
-                return "hace menos de 1 min"
-            elif seconds < 3600:
-                minutes = int(seconds / 60)
-                return f"hace {minutes} min"
-            elif seconds < 86400:
-                hours = int(seconds / 3600)
-                return f"hace {hours}h"
-            else:
-                days = int(seconds / 86400)
-                return f"hace {days}d"
-        except Exception:
-            return "recientemente"
-    
     def show_progress(self):
         """Muestra el área de progreso superpuesta"""
-        # Calcular altura target (200px para cubrir smart_stats cuando está expandido)
-        target_height = 200
-        
-        # Ajustar geometría para cubrir smart_stats
-        self.progress_container.setGeometry(0, 60, self.width(), 0)
-        self.progress_container.setVisible(True)
-        self.progress_container.raise_()  # Traer al frente
-        
-        # Animar altura
-        self._progress_animation = QPropertyAnimation(self.progress_container, b"geometry")
-        self._progress_animation.setDuration(250)
-        self._progress_animation.setStartValue(self.progress_container.geometry())
-        from PyQt6.QtCore import QRect
-        self._progress_animation.setEndValue(QRect(0, 60, self.width(), target_height))
-        self._progress_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
-        self._progress_animation.start()
+        self.progress_overlay.show_animated(self.width())
     
     def hide_progress(self):
         """Oculta el área de progreso superpuesta"""
-        if not self.progress_container.isVisible():
-            return
-        
-        # Animar hacia 0 altura
-        self._progress_animation = QPropertyAnimation(self.progress_container, b"geometry")
-        self._progress_animation.setDuration(250)
-        self._progress_animation.setStartValue(self.progress_container.geometry())
-        from PyQt6.QtCore import QRect
-        self._progress_animation.setEndValue(QRect(0, 60, self.width(), 0))
-        self._progress_animation.setEasingCurve(QEasingCurve.Type.InCubic)
-        self._progress_animation.finished.connect(lambda: self.progress_container.setVisible(False))
-        self._progress_animation.start()
+        self.progress_overlay.hide_animated()
+    
+    # Properties para acceso directo desde ProgressController
+    @property
+    def summary_progress_label(self):
+        return self.progress_overlay.progress_label
+    
+    @property
+    def summary_progress_bar(self):
+        return self.progress_overlay.progress_bar
+    
+    @property
+    def summary_progress_detail(self):
+        return self.progress_overlay.progress_detail
