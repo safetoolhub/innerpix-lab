@@ -11,9 +11,7 @@ import os
 os.environ['QT_LOGGING_RULES'] = 'qt.qpa.wayland=false'
 
 from PyQt6.QtWidgets import QApplication
-from PyQt6.QtGui import QFont
 from ui.main_window import MainWindow
-from ui.styles import STYLE_GLOBAL_TOOLTIP
 from config import Config
 from utils.logger import get_logger
 import logging
@@ -37,11 +35,13 @@ def main():
     app.setOrganizationName("PixaroLab")
     
     # Configurar fuente por defecto de la aplicación
+    from PyQt6.QtGui import QFont
     font = QFont("sans-serif")
     font.setPointSize(10)
     app.setFont(font)
     
     # Aplicar estilo global para tooltips (debe ser a nivel de QApplication)
+    from ui.styles import STYLE_GLOBAL_TOOLTIP
     app.setStyleSheet(STYLE_GLOBAL_TOOLTIP)
 
     # Crear y mostrar ventana principal

@@ -1,43 +1,69 @@
 """
-SmartStatsBar - Componente de estadísticas inteligentes para TopBar.
+SmartStatsBar - Barra expandible con estadísticas del análisis.
 
-Muestra resumen de análisis en 3 columnas:
-- Redundancias: Live Photos, HEIC
-- Duplicados: Exactos, Similares
-- Organización: Renombrar, Organizar
-
-Sistema de colores:
-- Amarillo: Acción requerida (count > 0)
-- Verde: Limpio (count == 0)
-- Gris: No analizado
+Componente que muestra estadísticas organizadas en 3 columnas:
+- Columna 1: REDUNDANCIAS (Live Photos, HEIC)
+- Columna 2: DUPLICADOS (Exactos, Similares)
+- Columna 3: ORGANIZACIÓN (Renombrar, Organizar)
 """
 from PyQt6.QtWidgets import (
-    QWidget, QFrame, QVBoxLayout, QHBoxLayout, QLabel, QToolButton, QSizePolicy
+    QHBoxLayout, QVBoxLayout, QLabel, QFrame, QSizePolicy, QToolButton
 )
-from PyQt6.QtCore import Qt, QSize, pyqtSignal
-from PyQt6.QtGui import QCursor
+from PyQt6.QtCore import Qt, pyqtSignal, QSize
 
-from ui import styles
 from utils.icons import icon_manager
 
 
 def apply_stat_state(widget, state: str, key: str):
-    """Aplica estilos según el estado del stat (amarillo/verde/gris).
+    """Aplica estilos visuales según el estado del stat.
     
     Args:
-        widget: El widget QFrame del stat
-        state: 'detected' (amarillo), 'clean' (verde), 'not-analyzed' (gris)
-        key: Clave del stat para el objectName
+        widget: Widget del stat item
+        state: 'detected', 'clean', 'not-analyzed'
+        key: Clave del stat (para el objectName)
     """
-    widget.setStyleSheet(styles.get_topbar_stat_style(key, state))
+    if state == 'detected':
+        widget.setStyleSheet(
+            f"QFrame#stat_{key} {{"
+            "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #fef3c7, stop:1 #fde68a);"
+            "  border: 1px solid #fbbf24;"
+            "  border-radius: 6px;"
+            "  padding: 6px 8px;"
+            "}"
+            f"QFrame#stat_{key}:hover {{"
+            "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #fde68a, stop:1 #fcd34d);"
+            "  border-color: #f59e0b;"
+            "}"
+        )
+    elif state == 'clean':
+        widget.setStyleSheet(
+            f"QFrame#stat_{key} {{"
+            "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #d1fae5, stop:1 #a7f3d0);"
+            "  border: 1px solid #6ee7b7;"
+            "  border-radius: 6px;"
+            "  padding: 6px 8px;"
+            "}"
+            f"QFrame#stat_{key}:hover {{"
+            "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #a7f3d0, stop:1 #6ee7b7);"
+            "  border-color: #34d399;"
+            "}"
+        )
+    else:
+        widget.setStyleSheet(
+            f"QFrame#stat_{key} {{"
+            "  background: #f8f9fa;"
+            "  border: 1px solid #dee2e6;"
+            "  border-radius: 6px;"
+            "  padding: 6px 8px;"
+            "}"
+            f"QFrame#stat_{key}:hover {{"
+            "  background: #e9ecef;"
+            "}"
+        )
 
 
 class SmartStatsBar(QFrame):
-    """Barra de estadísticas inteligentes con grid 3×2.
-    
-    Signals:
-        stat_clicked: Se emite cuando el usuario hace click en un stat (str: key)
-    """
+    """Barra de Smart Stats con grid 3×2."""
     
     stat_clicked = pyqtSignal(str)
     
@@ -47,72 +73,90 @@ class SmartStatsBar(QFrame):
         self._init_ui()
     
     def _init_ui(self):
-        """Inicializa la interfaz de usuario"""
-        self.setStyleSheet(styles.STYLE_TOPBAR_SMART_STATS_CONTAINER)
+        """Inicializa la interfaz"""
+        self.setStyleSheet(
+            "QFrame {"
+            "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, "
+            "    stop:0 #fafbfc, stop:1 #ffffff);"
+            "  border-top: 1px solid #e1e8ed;"
+            "  border-bottom: 1px solid #cbd5e0;"
+            "}"
+        )
         self.setMinimumHeight(0)
-        self.setMaximumHeight(0)  # Inicialmente colapsado
+        self.setMaximumHeight(0)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.setVisible(False)
         
-        container_layout = QHBoxLayout(self)
-        container_layout.setContentsMargins(16, 8, 16, 8)
-        container_layout.setSpacing(20)
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(16, 8, 16, 8)
+        layout.setSpacing(20)
         
-        # === COLUMNA 1: REDUNDANCIAS ===
         self.redundancies_column = self._create_stat_column(
             title="REDUNDANCIAS",
             stats_keys=['live_photos', 'heic']
         )
-        container_layout.addWidget(self.redundancies_column, 1)
+        layout.addWidget(self.redundancies_column, 1)
         
-        # Separador vertical
         vsep1 = self._create_separator()
-        container_layout.addWidget(vsep1)
+        layout.addWidget(vsep1)
         
-        # === COLUMNA 2: DUPLICADOS ===
         self.duplicates_column = self._create_stat_column(
             title="DUPLICADOS",
             stats_keys=['duplicates_exact', 'duplicates_similar']
         )
-        container_layout.addWidget(self.duplicates_column, 1)
+        layout.addWidget(self.duplicates_column, 1)
         
-        # Separador vertical
         vsep2 = self._create_separator()
-        container_layout.addWidget(vsep2)
+        layout.addWidget(vsep2)
         
-        # === COLUMNA 3: ORGANIZACIÓN ===
         self.organization_column = self._create_stat_column(
             title="ORGANIZACIÓN",
             stats_keys=['renaming', 'organization']
         )
-        container_layout.addWidget(self.organization_column, 1)
+        layout.addWidget(self.organization_column, 1)
         
-        # Inicializar stats con placeholders
         self._initialize_stats_placeholders()
     
     def _create_separator(self):
         """Crea un separador vertical con gradiente sutil"""
         separator = QFrame()
         separator.setFrameShape(QFrame.Shape.VLine)
-        separator.setStyleSheet(styles.STYLE_TOPBAR_SEPARATOR)
+        separator.setStyleSheet(
+            "QFrame {"
+            "  border: none;"
+            "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, "
+            "    stop:0 transparent, "
+            "    stop:0.2 rgba(120, 113, 108, 0.15), "
+            "    stop:0.8 rgba(120, 113, 108, 0.15), "
+            "    stop:1 transparent);"
+            "  width: 1px;"
+            "  margin: 0px 20px;"
+            "}"
+        )
         return separator
     
     def _create_stat_column(self, title: str, stats_keys: list):
         """Crea una columna de stats con un título y varios items"""
         column = QFrame()
-        column.setStyleSheet(styles.STYLE_TOPBAR_COLUMN)
+        column.setStyleSheet("background: transparent; border: none;")
         
         layout = QVBoxLayout(column)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(6)
         
-        # Título de la columna
         title_label = QLabel(title)
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title_label.setStyleSheet(styles.STYLE_TOPBAR_COLUMN_TITLE)
+        title_label.setStyleSheet(
+            "color: #64748b; "
+            "font-size: 10px; "
+            "font-weight: 600; "
+            "letter-spacing: 0.05em; "
+            "background: transparent; "
+            "padding: 0px; "
+            "margin-bottom: 0px;"
+        )
         layout.addWidget(title_label)
         
-        # Container para los stats
         stats_container = QVBoxLayout()
         stats_container.setSpacing(6)
         
@@ -127,13 +171,12 @@ class SmartStatsBar(QFrame):
         return column
     
     def _create_stat_item(self, key: str):
-        """Crea un item de stat individual (clickeable) con diseño [icono] Label    Número"""
+        """Crea un item de stat individual (clickeable)"""
         widget = QFrame()
         widget.setObjectName(f"stat_{key}")
         widget.setCursor(Qt.CursorShape.PointingHandCursor)
         widget.setFixedHeight(36)
         
-        # Estilo inicial (gris neutral - no analizado)
         widget.setStyleSheet(
             "QFrame#stat_" + key + " {"
             "  background: #f8f9fa;"
@@ -151,48 +194,52 @@ class SmartStatsBar(QFrame):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(6)
         
-        # Icono
         icon_btn = QToolButton()
         icon_btn.setAutoRaise(True)
         icon_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
         icon_btn.setFixedSize(QSize(16, 16))
         icon_btn.setIconSize(QSize(16, 16))
         icon_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        icon_btn.setStyleSheet(styles.STYLE_TOPBAR_STAT_ICON)
+        icon_btn.setStyleSheet(
+            "QToolButton { background: transparent; border: none; padding: 0px; margin: 0px; }"
+        )
         icon_btn.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         layout.addWidget(icon_btn)
         
-        # Label (texto descriptivo)
         text_label = QLabel()
-        text_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_TEXT)
+        text_label.setStyleSheet(
+            "color: #64748b; "
+            "font-size: 12px; "
+            "font-weight: 400; "
+            "background: transparent; "
+            "border: none;"
+        )
         text_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         layout.addWidget(text_label, 1)
         
-        # Número (valor del stat)
         value_label = QLabel()
-        value_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_VALUE)
+        value_label.setStyleSheet(
+            "color: #64748b; "
+            "font-size: 12px; "
+            "font-weight: 600; "
+            "background: transparent; "
+            "border: none;"
+        )
         value_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         value_label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         layout.addWidget(value_label)
         
-        # Guardar referencias
         widget.icon_label = icon_btn
         widget.text_label = text_label
         widget.value_label = value_label
         widget.stat_key = key
 
-        # Conectar click
-        widget.mousePressEvent = lambda event, k=key: self._on_stat_clicked(k)
+        widget.mousePressEvent = lambda event: self.stat_clicked.emit(key)
 
         return widget
     
-    def _on_stat_clicked(self, key: str):
-        """Emite señal cuando se hace click en un stat"""
-        self.stat_clicked.emit(key)
-    
     def _initialize_stats_placeholders(self):
         """Inicializa los stats con valores placeholder"""
-        # Columna 1: REDUNDANCIAS
         if 'live_photos' in self.smart_stats:
             widget = self.smart_stats['live_photos']
             icon_manager.set_button_icon(widget.icon_label, 'live-photo', color='#64748b', size=16)
@@ -207,7 +254,6 @@ class SmartStatsBar(QFrame):
             widget.value_label.setText("—")
             widget.setToolTip("Duplicados HEIC con equivalente JPG")
         
-        # Columna 2: DUPLICADOS
         if 'duplicates_exact' in self.smart_stats:
             widget = self.smart_stats['duplicates_exact']
             icon_manager.set_button_icon(widget.icon_label, 'duplicate-exact', color='#64748b', size=16)
@@ -222,7 +268,6 @@ class SmartStatsBar(QFrame):
             widget.value_label.setText("—")
             widget.setToolTip("Duplicados similares (requiere análisis manual)")
         
-        # Columna 3: ORGANIZACIÓN
         if 'renaming' in self.smart_stats:
             widget = self.smart_stats['renaming']
             icon_manager.set_button_icon(widget.icon_label, 'rename', color='#64748b', size=16)
@@ -237,8 +282,12 @@ class SmartStatsBar(QFrame):
             widget.value_label.setText("—")
             widget.setToolTip("Archivos que pueden organizarse por fecha/carpeta")
     
+    def clear_stats(self):
+        """Reinicializa los stats con placeholders"""
+        self._initialize_stats_placeholders()
+    
     def update_stats(self, results):
-        """Actualiza los Smart Stats con datos del análisis usando sistema de color amarillo/verde/gris"""
+        """Actualiza los Smart Stats con datos del análisis"""
         stats = results.get('stats', {})
         ren = results.get('renaming')
         lp = results.get('live_photos', {})
@@ -246,9 +295,6 @@ class SmartStatsBar(QFrame):
         heic = results.get('heic')
         dup = results.get('duplicates')
         
-        # === COLUMNA 1: REDUNDANCIAS ===
-        
-        # Live Photos
         lp_count = lp.get('live_photos_found', 0) if isinstance(lp, dict) else (lp.live_photos_found if lp else 0)
         if 'live_photos' in self.smart_stats:
             widget = self.smart_stats['live_photos']
@@ -256,16 +302,15 @@ class SmartStatsBar(QFrame):
                 apply_stat_state(widget, 'detected', 'live_photos')
                 icon_manager.set_button_icon(widget.icon_label, 'live-photo', color='#eab308', size=16)
                 widget.value_label.setText(str(lp_count))
-                widget.value_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_VALUE_WARNING)
+                widget.value_label.setStyleSheet("color: #eab308; font-size: 12px; font-weight: 600;")
             else:
                 apply_stat_state(widget, 'clean', 'live_photos')
                 icon_manager.set_button_icon(widget.icon_label, 'live-photo', color='#10b981', size=16)
                 widget.value_label.setText("✓")
-                widget.value_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_VALUE_SUCCESS)
-            widget.text_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_TEXT_NORMAL)
+                widget.value_label.setStyleSheet("color: #10b981; font-size: 12px; font-weight: 600;")
+            widget.text_label.setStyleSheet("color: #334155; font-size: 12px; font-weight: 400;")
             widget.setToolTip(f"Live Photos detectados: {lp_count:,}")
         
-        # HEIC Duplicados
         heic_count = heic.total_duplicates if heic else 0
         if 'heic' in self.smart_stats:
             widget = self.smart_stats['heic']
@@ -273,18 +318,15 @@ class SmartStatsBar(QFrame):
                 apply_stat_state(widget, 'detected', 'heic')
                 icon_manager.set_button_icon(widget.icon_label, 'heic', color='#eab308', size=16)
                 widget.value_label.setText(str(heic_count))
-                widget.value_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_VALUE_WARNING)
+                widget.value_label.setStyleSheet("color: #eab308; font-size: 12px; font-weight: 600;")
             else:
                 apply_stat_state(widget, 'clean', 'heic')
                 icon_manager.set_button_icon(widget.icon_label, 'heic', color='#10b981', size=16)
                 widget.value_label.setText("✓")
-                widget.value_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_VALUE_SUCCESS)
-            widget.text_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_TEXT_NORMAL)
+                widget.value_label.setStyleSheet("color: #10b981; font-size: 12px; font-weight: 600;")
+            widget.text_label.setStyleSheet("color: #334155; font-size: 12px; font-weight: 400;")
             widget.setToolTip(f"Archivos HEIC con duplicado JPG: {heic_count:,}")
         
-        # === COLUMNA 2: DUPLICADOS ===
-        
-        # Duplicados Exactos
         dup_exact = dup.total_exact_duplicates if (dup and hasattr(dup, 'total_exact_duplicates')) else 0
         if 'duplicates_exact' in self.smart_stats:
             widget = self.smart_stats['duplicates_exact']
@@ -292,28 +334,24 @@ class SmartStatsBar(QFrame):
                 apply_stat_state(widget, 'detected', 'duplicates_exact')
                 icon_manager.set_button_icon(widget.icon_label, 'duplicate-exact', color='#eab308', size=16)
                 widget.value_label.setText(str(dup_exact))
-                widget.value_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_VALUE_WARNING)
+                widget.value_label.setStyleSheet("color: #eab308; font-size: 12px; font-weight: 600;")
             else:
                 apply_stat_state(widget, 'clean', 'duplicates_exact')
                 icon_manager.set_button_icon(widget.icon_label, 'duplicate-exact', color='#10b981', size=16)
                 widget.value_label.setText("✓")
-                widget.value_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_VALUE_SUCCESS)
-            widget.text_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_TEXT_NORMAL)
+                widget.value_label.setStyleSheet("color: #10b981; font-size: 12px; font-weight: 600;")
+            widget.text_label.setStyleSheet("color: #334155; font-size: 12px; font-weight: 400;")
             widget.setToolTip(f"Duplicados exactos por hash: {dup_exact:,}")
         
-        # Duplicados Similares (no analizado por defecto)
         if 'duplicates_similar' in self.smart_stats:
             widget = self.smart_stats['duplicates_similar']
             apply_stat_state(widget, 'not-analyzed', 'duplicates_similar')
             icon_manager.set_button_icon(widget.icon_label, 'eye', color='#64748b', size=16)
             widget.value_label.setText("—")
-            widget.value_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_VALUE_NORMAL)
-            widget.text_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_TEXT_MUTED)
+            widget.value_label.setStyleSheet("color: #64748b; font-size: 12px; font-weight: 600;")
+            widget.text_label.setStyleSheet("color: #64748b; font-size: 12px; font-weight: 400;")
             widget.setToolTip("Duplicados similares (requiere análisis manual)")
         
-        # === COLUMNA 3: ORGANIZACIÓN ===
-        
-        # Renombrar
         ren_count = ren.need_renaming if ren else 0
         if 'renaming' in self.smart_stats:
             widget = self.smart_stats['renaming']
@@ -321,16 +359,15 @@ class SmartStatsBar(QFrame):
                 apply_stat_state(widget, 'detected', 'renaming')
                 icon_manager.set_button_icon(widget.icon_label, 'rename', color='#eab308', size=16)
                 widget.value_label.setText(str(ren_count))
-                widget.value_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_VALUE_WARNING)
+                widget.value_label.setStyleSheet("color: #eab308; font-size: 12px; font-weight: 600;")
             else:
                 apply_stat_state(widget, 'clean', 'renaming')
                 icon_manager.set_button_icon(widget.icon_label, 'rename', color='#10b981', size=16)
                 widget.value_label.setText("✓")
-                widget.value_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_VALUE_SUCCESS)
-            widget.text_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_TEXT_NORMAL)
+                widget.value_label.setStyleSheet("color: #10b981; font-size: 12px; font-weight: 600;")
+            widget.text_label.setStyleSheet("color: #334155; font-size: 12px; font-weight: 400;")
             widget.setToolTip(f"Archivos que necesitan renombrado: {ren_count:,}")
         
-        # Organizar
         org_count = org.total_files_to_move if org else 0
         if 'organization' in self.smart_stats:
             widget = self.smart_stats['organization']
@@ -338,15 +375,11 @@ class SmartStatsBar(QFrame):
                 apply_stat_state(widget, 'detected', 'organization')
                 icon_manager.set_button_icon(widget.icon_label, 'organize', color='#eab308', size=16)
                 widget.value_label.setText(str(org_count))
-                widget.value_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_VALUE_WARNING)
+                widget.value_label.setStyleSheet("color: #eab308; font-size: 12px; font-weight: 600;")
             else:
                 apply_stat_state(widget, 'clean', 'organization')
                 icon_manager.set_button_icon(widget.icon_label, 'organize', color='#10b981', size=16)
                 widget.value_label.setText("✓")
-                widget.value_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_VALUE_SUCCESS)
-            widget.text_label.setStyleSheet(styles.STYLE_TOPBAR_STAT_TEXT_NORMAL)
+                widget.value_label.setStyleSheet("color: #10b981; font-size: 12px; font-weight: 600;")
+            widget.text_label.setStyleSheet("color: #334155; font-size: 12px; font-weight: 400;")
             widget.setToolTip(f"Archivos que pueden organizarse: {org_count:,}")
-    
-    def clear_stats(self):
-        """Reinicia stats a valores placeholder"""
-        self._initialize_stats_placeholders()

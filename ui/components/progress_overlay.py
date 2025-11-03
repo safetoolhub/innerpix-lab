@@ -1,56 +1,83 @@
 """
-ProgressOverlay - Barra de progreso superpuesta para TopBar.
+ProgressOverlay - Barra de progreso superpuesta para el TopBar.
 
-Componente que se superpone sobre la zona de stats durante el análisis,
-mostrando progreso detallado sin afectar el layout principal.
+Componente que muestra el progreso del análisis de forma no intrusiva,
+superponiéndose sobre el Smart Stats Bar durante el análisis.
 """
 from PyQt6.QtWidgets import QFrame, QVBoxLayout, QLabel, QProgressBar
-from PyQt6.QtCore import Qt, QPropertyAnimation, QEasingCurve, QRect
-
-from ui import styles
+from PyQt6.QtCore import QPropertyAnimation, QRect, QEasingCurve
 
 
 class ProgressOverlay(QFrame):
-    """Overlay de progreso superpuesto sobre Smart Stats.
-    
-    Muestra información de progreso durante análisis:
-    - Label de estado (fase actual)
-    - Barra de progreso animada
-    - Detalle adicional (opcional)
-    """
+    """Overlay de progreso que se superpone sobre el TopBar durante análisis."""
     
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._animation = None
         self._init_ui()
+        self._animation = None
     
     def _init_ui(self):
-        """Inicializa la interfaz de usuario"""
-        self.setStyleSheet(styles.STYLE_TOPBAR_PROGRESS_CONTAINER)
+        """Inicializa la interfaz"""
+        self.setStyleSheet(
+            "QFrame {"
+            "  background: rgba(255, 255, 255, 0.98);"
+            "  border: none;"
+            "  border-radius: 0px;"
+            "}"
+        )
         self.setVisible(False)
         
-        # Posicionamiento inicial (se ajustará dinámicamente)
-        self.setGeometry(0, 60, 800, 0)
+        # Posicionamiento absoluto (se calculará dinámicamente)
+        self.setGeometry(0, 60, 0, 0)
         
-        progress_layout = QVBoxLayout(self)
-        progress_layout.setContentsMargins(24, 16, 24, 16)
-        progress_layout.setSpacing(12)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 16, 24, 16)
+        layout.setSpacing(12)
         
         # Container interno con diseño moderno
         inner_container = QFrame()
-        inner_container.setStyleSheet(styles.STYLE_TOPBAR_PROGRESS_INNER)
+        inner_container.setStyleSheet(
+            "QFrame {"
+            "  background: white;"
+            "  border: 1px solid #e1e8ed;"
+            "  border-radius: 12px;"
+            "  padding: 20px;"
+            "}"
+        )
         inner_layout = QVBoxLayout(inner_container)
         inner_layout.setContentsMargins(0, 0, 0, 0)
         inner_layout.setSpacing(12)
         
         # Label de estado con diseño limpio
         self.progress_label = QLabel("⏳ Preparando análisis...")
-        self.progress_label.setStyleSheet(styles.STYLE_TOPBAR_PROGRESS_LABEL)
+        self.progress_label.setStyleSheet(
+            "color: #334155;"
+            "font-weight: 600;"
+            "font-size: 13px;"
+            "background: transparent;"
+            "border: none;"
+        )
         inner_layout.addWidget(self.progress_label)
         
         # Barra de progreso moderna
         self.progress_bar = QProgressBar()
-        self.progress_bar.setStyleSheet(styles.STYLE_TOPBAR_PROGRESS_BAR)
+        self.progress_bar.setStyleSheet(
+            "QProgressBar {"
+            "  border: none;"
+            "  border-radius: 8px;"
+            "  text-align: center;"
+            "  background-color: #f1f5f9;"
+            "  height: 32px;"
+            "  font-size: 12px;"
+            "  font-weight: 600;"
+            "  color: #475569;"
+            "}"
+            "QProgressBar::chunk {"
+            "  background: qlineargradient(x1:0, y1:0, x2:1, y2:0, "
+            "    stop:0 #3b82f6, stop:1 #60a5fa);"
+            "  border-radius: 8px;"
+            "}"
+        )
         self.progress_bar.setMaximum(100)
         self.progress_bar.setValue(0)
         self.progress_bar.setTextVisible(True)
@@ -59,18 +86,23 @@ class ProgressOverlay(QFrame):
         
         # Detalle adicional con diseño sutil
         self.progress_detail = QLabel("")
-        self.progress_detail.setStyleSheet(styles.STYLE_TOPBAR_PROGRESS_DETAIL)
+        self.progress_detail.setStyleSheet(
+            "color: #64748b;"
+            "font-size: 11px;"
+            "background: transparent;"
+            "border: none;"
+        )
         self.progress_detail.setWordWrap(True)
         inner_layout.addWidget(self.progress_detail)
         
-        progress_layout.addWidget(inner_container)
-        progress_layout.addStretch()
+        layout.addWidget(inner_container)
+        layout.addStretch()
     
-    def show_animated(self, parent_width: int):
-        """Muestra el overlay con animación
+    def show_progress(self, parent_width: int):
+        """Muestra el overlay de progreso con animación.
         
         Args:
-            parent_width: Ancho del contenedor padre para ajustar geometría
+            parent_width: Ancho del widget padre para ajustar el overlay
         """
         target_height = 200
         
@@ -87,8 +119,8 @@ class ProgressOverlay(QFrame):
         self._animation.setEasingCurve(QEasingCurve.Type.OutCubic)
         self._animation.start()
     
-    def hide_animated(self):
-        """Oculta el overlay con animación"""
+    def hide_progress(self):
+        """Oculta el overlay de progreso con animación"""
         if not self.isVisible():
             return
         
@@ -102,27 +134,29 @@ class ProgressOverlay(QFrame):
         self._animation.finished.connect(lambda: self.setVisible(False))
         self._animation.start()
     
-    def update_progress(self, value: int, label_text: str = None, detail_text: str = None):
-        """Actualiza el progreso mostrado
+    def update_progress(self, value: int, text: str = ""):
+        """Actualiza el valor de la barra de progreso.
         
         Args:
-            value: Valor de progreso (0-100)
-            label_text: Texto del label de estado (opcional)
-            detail_text: Texto del detalle adicional (opcional)
+            value: Valor de 0-100
+            text: Texto opcional para mostrar en la barra
         """
         self.progress_bar.setValue(value)
-        
-        if label_text is not None:
-            self.progress_label.setText(label_text)
-        
-        if detail_text is not None:
-            self.progress_detail.setText(detail_text)
+        if text:
+            self.progress_bar.setFormat(text)
     
-    def adjust_width(self, width: int):
-        """Ajusta el ancho del overlay
+    def set_label(self, text: str):
+        """Actualiza el label de estado.
         
         Args:
-            width: Nuevo ancho
+            text: Texto a mostrar en el label principal
         """
-        current_geo = self.geometry()
-        self.setGeometry(0, current_geo.y(), width, current_geo.height())
+        self.progress_label.setText(text)
+    
+    def set_detail(self, text: str):
+        """Actualiza el detalle adicional.
+        
+        Args:
+            text: Texto a mostrar en el detalle
+        """
+        self.progress_detail.setText(text)
