@@ -2,6 +2,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QLabel, QGroupBox, QFrame,
                              QHBoxLayout, QPushButton, QSizePolicy, QTextEdit)
 from PyQt6.QtCore import Qt
 from ui import styles
+from utils.icons import icon_manager
 
 
 def create_duplicates_tab(window):
@@ -12,9 +13,20 @@ def create_duplicates_tab(window):
     layout.setContentsMargins(15, 12, 15, 12)
 
     # ===== TÍTULO =====
-    title = QLabel("🔍 Detección de Duplicados")
+    title_container = QWidget()
+    title_layout = QHBoxLayout(title_container)
+    title_layout.setContentsMargins(0, 0, 0, 0)
+    title_layout.setSpacing(10)
+    
+    title_icon = icon_manager.create_icon_label('duplicate', color='#2563eb', size=24)
+    title_layout.addWidget(title_icon)
+    
+    title = QLabel("Detección de Duplicados")
     title.setStyleSheet(styles.STYLE_DUPLICATES_TITLE)
-    layout.addWidget(title)
+    title_layout.addWidget(title)
+    title_layout.addStretch()
+    
+    layout.addWidget(title_container)
     
     # ===== DESCRIPCIÓN BREVE =====
     desc = QLabel("Busca archivos duplicados exactos (SHA256) o similares (análisis perceptual)")
@@ -40,7 +52,7 @@ def create_duplicates_tab(window):
 
 def _create_exact_duplicates_card(window) -> QGroupBox:
     """Crea el bloque de duplicados exactos con estado y acciones integradas"""
-    card = QGroupBox("⚡ DUPLICADOS EXACTOS (SHA256)")
+    card = QGroupBox("DUPLICADOS EXACTOS (SHA256)")
     card.setStyleSheet(styles.STYLE_DUPLICATES_EXACT_CARD)
     
     card_layout = QVBoxLayout(card)
@@ -48,7 +60,7 @@ def _create_exact_duplicates_card(window) -> QGroupBox:
     card_layout.setContentsMargins(12, 12, 12, 12)
     
     # Descripción de funcionamiento
-    help_label = QLabel("✓ Archivos 100% idénticos (hash SHA256)")
+    help_label = QLabel("Archivos 100% idénticos (hash SHA256)")
     help_label.setStyleSheet(styles.STYLE_DUPLICATES_HELP_LABEL)
     card_layout.addWidget(help_label)
     
@@ -57,13 +69,14 @@ def _create_exact_duplicates_card(window) -> QGroupBox:
     status_row.setSpacing(10)
     
     # Label de estado con instrucciones
-    window.exact_status_label = QLabel("⏳ Analizando en el análisis inicial...")
+    window.exact_status_label = QLabel("Analizando en el análisis inicial...")
     window.exact_status_label.setStyleSheet(styles.STYLE_DUPLICATES_STATUS_LABEL)
     window.exact_status_label.setWordWrap(True)
     status_row.addWidget(window.exact_status_label, 1)
     
     # Botón de revisar/eliminar (compacto, alineado a la derecha)
-    window.delete_exact_duplicates_btn = QPushButton("📋 Revisar")
+    window.delete_exact_duplicates_btn = QPushButton(" Revisar")
+    icon_manager.set_button_icon(window.delete_exact_duplicates_btn, 'search', color='#ffffff', size=14)
     window.delete_exact_duplicates_btn.setStyleSheet(styles.STYLE_DUPLICATES_REVIEW_BUTTON)
     window.delete_exact_duplicates_btn.setMinimumHeight(28)
     window.delete_exact_duplicates_btn.setMinimumWidth(100)
@@ -87,7 +100,7 @@ def _create_exact_duplicates_card(window) -> QGroupBox:
 
 def _create_similar_duplicates_card(window) -> QGroupBox:
     """Crea el bloque de duplicados similares con estado y acciones integradas"""
-    card = QGroupBox("🔍 DUPLICADOS SIMILARES (Perceptual)")
+    card = QGroupBox("DUPLICADOS SIMILARES (Perceptual)")
     card.setStyleSheet("""
         QGroupBox {
             font-weight: 700;
@@ -115,7 +128,7 @@ def _create_similar_duplicates_card(window) -> QGroupBox:
     card_layout.setContentsMargins(12, 12, 12, 12)
     
     # Descripción de funcionamiento
-    help_label = QLabel("🎨 Imágenes visualmente parecidas - Requiere análisis manual")
+    help_label = QLabel("Imágenes visualmente parecidas - Requiere análisis manual")
     help_label.setStyleSheet(styles.STYLE_DUPLICATES_SIMILAR_HELP)
     card_layout.addWidget(help_label)
     
@@ -160,7 +173,8 @@ def _create_similar_duplicates_card(window) -> QGroupBox:
     status_row.addWidget(window.similar_status_label, 1)
     
     # Botón de analizar (compacto)
-    window.analyze_similar_btn = QPushButton("🔍 Analizar")
+    window.analyze_similar_btn = QPushButton(" Analizar")
+    icon_manager.set_button_icon(window.analyze_similar_btn, 'search', color='#ffffff', size=14)
     window.analyze_similar_btn.setStyleSheet(styles.STYLE_DUPLICATES_ANALYZE_BUTTON)
     window.analyze_similar_btn.setMinimumHeight(28)
     window.analyze_similar_btn.setMinimumWidth(100)
@@ -168,7 +182,8 @@ def _create_similar_duplicates_card(window) -> QGroupBox:
     status_row.addWidget(window.analyze_similar_btn)
     
     # Botón de cancelar (compacto, solo visible durante análisis)
-    window.cancel_similar_btn = QPushButton("✕")
+    window.cancel_similar_btn = QPushButton()
+    icon_manager.set_button_icon(window.cancel_similar_btn, 'close', color='#dc2626', size=14)
     window.cancel_similar_btn.setStyleSheet(styles.STYLE_DUPLICATES_CANCEL_BUTTON)
     window.cancel_similar_btn.setMinimumHeight(28)
     window.cancel_similar_btn.setMinimumWidth(35)
@@ -178,7 +193,8 @@ def _create_similar_duplicates_card(window) -> QGroupBox:
     status_row.addWidget(window.cancel_similar_btn)
     
     # Botón de revisar (compacto, solo visible cuando hay resultados)
-    window.review_similar_btn = QPushButton("📋 Revisar")
+    window.review_similar_btn = QPushButton(" Revisar")
+    icon_manager.set_button_icon(window.review_similar_btn, 'search', color='#ffffff', size=14)
     window.review_similar_btn.setStyleSheet(styles.STYLE_DUPLICATES_REVIEW_BUTTON)
     window.review_similar_btn.setMinimumHeight(28)
     window.review_similar_btn.setMinimumWidth(100)

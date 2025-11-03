@@ -52,17 +52,17 @@ def update_tab_details(window, results):
         # ren es un RenameAnalysisResult (dataclass)
         
         stats = {
-            '📊 Total archivos': ren.total_files,
-            '✅ Ya renombrados': ren.already_renamed,
-            '📝 A renombrar': ren.need_renaming,
-            '⚠️ No procesables': ren.cannot_process,
+            'Total archivos': ren.total_files,
+            'Ya renombrados': ren.already_renamed,
+            'A renombrar': ren.need_renaming,
+            'No procesables': ren.cannot_process,
         }
         
         html = generate_stats_html(stats)
         
         if ren.need_renaming > 0:
             extra_stats = {
-                '🔄 Conflictos': ren.conflicts,
+                'Conflictos': ren.conflicts,
             }
             html += "\n\n---\n\n" + generate_stats_html(extra_stats)
         
@@ -95,9 +95,9 @@ def update_tab_details(window, results):
             cleanup_mode = lp.cleanup_mode
         
         stats = {
-            '📱 Live Photos encontrados': total_groups,
-            '💾 Espacio total': format_size(total_space),
-            '💾 Espacio a liberar': format_size(space_to_free),
+            'Live Photos encontrados': total_groups,
+            'Espacio total': format_size(total_space),
+            'Espacio a liberar': format_size(space_to_free),
         }
         
         if cleanup_mode:
@@ -108,7 +108,7 @@ def update_tab_details(window, results):
                 'keep_smaller': 'mantener más pequeño'
             }
             if cleanup_mode in mode_names:
-                stats['🔧 Modo'] = mode_names[cleanup_mode]
+                stats['Modo'] = mode_names[cleanup_mode]
         
         html = generate_stats_html(stats)
         window.lp_details.setHtml(html)
@@ -125,16 +125,16 @@ def update_tab_details(window, results):
         org_type_label = org_type_labels.get(org.organization_type, org.organization_type)
         
         stats = {
-            '🔧 Tipo de organización': org_type_label,
-            '📁 Subdirectorios': len(org.subdirectories),
-            '📄 Archivos a mover': org.total_files_to_move,
-            '💾 Tamaño total': format_size(org.total_size_to_move),
-            '⚠️ Conflictos potenciales': org.potential_conflicts,
+            'Tipo de organización': org_type_label,
+            'Subdirectorios': len(org.subdirectories),
+            'Archivos a mover': org.total_files_to_move,
+            'Tamaño total': format_size(org.total_size_to_move),
+            'Conflictos potenciales': org.potential_conflicts,
         }
         
         if org.folders_to_create:
             folders_list = org.folders_to_create
-            stats['📂 Carpetas a crear'] = f"{len(folders_list)} ({', '.join(folders_list[:5])}{'...' if len(folders_list) > 5 else ''})"
+            stats['Carpetas a crear'] = f"{len(folders_list)} ({', '.join(folders_list[:5])}{'...' if len(folders_list) > 5 else ''})"
         
         html = generate_stats_html(stats)
         window.org_details.setHtml(html)
@@ -144,11 +144,11 @@ def update_tab_details(window, results):
         # heic es un HeicAnalysisResult (dataclass)
         
         stats = {
-            '♻️ Pares detectados': heic.total_duplicates,
-            '🖼️ Archivos HEIC': heic.heic_files,
-            '📸 Archivos JPG': heic.jpg_files,
-            '💾 Ahorro (mantener JPG)': format_size(heic.potential_savings_keep_jpg),
-            '💾 Ahorro (mantener HEIC)': format_size(heic.potential_savings_keep_heic),
+            'Pares detectados': heic.total_duplicates,
+            'Archivos HEIC': heic.heic_files,
+            'Archivos JPG': heic.jpg_files,
+            'Ahorro (mantener JPG)': format_size(heic.potential_savings_keep_jpg),
+            'Ahorro (mantener HEIC)': format_size(heic.potential_savings_keep_heic),
         }
         
         html = generate_stats_html(stats)
@@ -171,7 +171,7 @@ def reset_analysis_ui(window, reinsert_analyze=True):
     Resetea toda la interfaz al estado inicial.
     """
     # Resetear botón de análisis
-    window.analyze_btn.setText("🔍 Seleccionar Directorio y Analizar")
+    window.analyze_btn.setText("Seleccionar Directorio y Analizar")
     window.analyze_btn.setEnabled(True)
     
     # Ocultar botones adicionales

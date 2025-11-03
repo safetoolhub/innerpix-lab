@@ -1,6 +1,7 @@
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QGroupBox, QRadioButton, QButtonGroup
 from ui.tabs.base_tab import create_details_textedit
 from ui import styles
+from utils.icons import icon_manager
 
 
 def create_organizer_tab(window):
@@ -11,9 +12,20 @@ def create_organizer_tab(window):
     layout.setContentsMargins(20, 20, 20, 20)
 
     # ===== TÍTULO =====
-    title = QLabel("📁 Organización de Archivos")
+    title_container = QWidget()
+    title_layout = QHBoxLayout(title_container)
+    title_layout.setContentsMargins(0, 0, 0, 0)
+    title_layout.setSpacing(10)
+    
+    title_icon = icon_manager.create_icon_label('organize', color='#2563eb', size=24)
+    title_layout.addWidget(title_icon)
+    
+    title = QLabel("Organización de Archivos")
     title.setStyleSheet(styles.STYLE_TAB_TITLE_LARGE)
-    layout.addWidget(title)
+    title_layout.addWidget(title)
+    title_layout.addStretch()
+    
+    layout.addWidget(title_container)
     
     # ===== DESCRIPCIÓN BREVE =====
     desc = QLabel("Organiza archivos de subdirectorios según diferentes criterios de clasificación")
@@ -93,7 +105,8 @@ def create_organizer_tab(window):
     button_layout.addStretch()
 
     from PyQt6.QtWidgets import QPushButton
-    window.exec_org_btn = QPushButton("⚡ Organizar Archivos")
+    window.exec_org_btn = QPushButton(" Organizar Archivos")
+    icon_manager.set_button_icon(window.exec_org_btn, 'organize', color='#ffffff', size=16)
     window.exec_org_btn.setEnabled(False)
     window.exec_org_btn.setStyleSheet(styles.get_button_style("#28a745"))
     window.exec_org_btn.setMinimumHeight(36)

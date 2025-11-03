@@ -34,20 +34,8 @@ def main():
     app.setApplicationVersion(Config.APP_VERSION)
     app.setOrganizationName("PixaroLab")
     
-    # Configurar fuente para soportar emojis
-    # Qt en Linux puede tener problemas mostrando emojis de color.
-    # Usamos una fuente con fallback a Noto Color Emoji.
-    from PyQt6.QtGui import QFont, QFontDatabase
-    
-    # Intentar cargar fuente emoji si existe
-    emoji_fonts = ["Noto Color Emoji", "Noto Emoji", "Segoe UI Emoji", "Apple Color Emoji"]
-    for emoji_font in emoji_fonts:
-        families = QFontDatabase.families()
-        if emoji_font in families:
-            logger.debug(f"Fuente emoji encontrada: {emoji_font}")
-            break
-    
-    # Configurar fuente por defecto con soporte emoji
+    # Configurar fuente por defecto de la aplicación
+    from PyQt6.QtGui import QFont
     font = QFont("sans-serif")
     font.setPointSize(10)
     app.setFont(font)
