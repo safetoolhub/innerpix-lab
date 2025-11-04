@@ -35,6 +35,9 @@ pixaro-lab/
 │   ├── main_window.py               # Ventana principal
 │   ├── styles.py                    # Estilos CSS para widgets
 │   ├── workers.py                   # QThread workers para operaciones async
+│   ├── widgets/                     # Widgets individuales reutilizables
+│   │   ├── __init__.py
+│   │   └── dropzone_widget.py       # Área para arrastrar y soltar carpetas
 │   │
 │   ├── components/                  # Componentes reutilizables de UI
 │   │   ├── __init__.py

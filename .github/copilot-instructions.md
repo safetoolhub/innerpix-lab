@@ -36,10 +36,10 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
   * `show_file_details_dialog()`: Professional 2-column dialog with file info (no scroll, compact layout)
   - Responsive interface
 
-**Icon usage and emojis (ENGLISH):**
+**Icon usage and emojis:**
 - For cross-platform consistency, all UI icons MUST come from the central Icon Manager which uses qtawesome (Material Design icons). Do NOT use emojis anywhere in the UI or in source strings that are rendered as icons. Emojis produce inconsistent rendering across platforms and are forbidden in the codebase.
 
-**Design guidelines (ENGLISH) — REQUIRED:**
+**Design guidelines (ENGLISH)**
 - All visual styling for widgets, dialogs and windows MUST use only the tokens and classes exposed by the `DesignSystem` class in `ui/styles/design_system.py`.
 - Inline styles, ad-hoc QSS strings, or alternative style modules are disallowed. If a style is missing from `DesignSystem`, raise an issue or request an extension to `DesignSystem` instead of adding inline styles.
 - The `DesignSystem` is the single source of truth for colors, spacing, typography, radii and component classes. Follow it strictly.
