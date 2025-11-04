@@ -2,7 +2,6 @@
 Pixaro Lab - Punto de entrada de la aplicación
 
 Aplicación de gestión de archivos multimedia con herramientas para la organización y limpieza de duplicados
-.
 """
 import sys
 import os
@@ -33,20 +32,12 @@ def main():
     app.setApplicationName(Config.APP_NAME)
     app.setApplicationVersion(Config.APP_VERSION)
     app.setOrganizationName("PixaroLab")
-    
-    # Configurar fuente por defecto de la aplicación
-    from PyQt6.QtGui import QFont
-    font = QFont("sans-serif")
-    font.setPointSize(10)
-    app.setFont(font)
-    
-    # Aplicar estilo global para tooltips (debe ser a nivel de QApplication)
-    from ui.styles import STYLE_GLOBAL_TOOLTIP
-    app.setStyleSheet(STYLE_GLOBAL_TOOLTIP)
 
-    # Crear y mostrar ventana principal
+    # Crear y mostrar ventana principal (nueva implementación)
     window = MainWindow()
     window.show()
+    
+    logger.info("Ventana principal mostrada")
 
     return app.exec()
 
