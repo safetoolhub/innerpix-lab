@@ -3,7 +3,7 @@ Dropzone Widget - Área para arrastrar y soltar carpetas
 """
 from pathlib import Path
 from PyQt6.QtWidgets import QFrame, QVBoxLayout, QLabel
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent
 
 from ui.styles.design_system import DesignSystem
@@ -25,6 +25,9 @@ class DropzoneWidget(QFrame):
         self._is_dragging = False
         self._setup_ui()
         self._apply_styles()
+        
+        # Configurar iconos después de que QApplication esté corriendo
+        QTimer.singleShot(0, self._setup_icons)
     
     def _setup_ui(self):
         """Configura la interfaz del dropzone"""
@@ -38,18 +41,13 @@ class DropzoneWidget(QFrame):
         layout.setSpacing(DesignSystem.SPACE_12)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
-        # Icono de carpeta usando icon_manager
+        # Icono de carpeta usando icon_manager (configurado después)
         self.icon_label = QLabel()
-        icon_manager.set_label_icon(
-            self.icon_label, 
-            'folder-open', 
-            color=DesignSystem.COLOR_PRIMARY, 
-            size=64
-        )
         self.icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.icon_label.setMinimumSize(48, 48)
         layout.addWidget(self.icon_label)
         
-        # Texto principal (todo en una línea)
+        # Texto principal (más corto)
         self.main_text = QLabel("Arrastra una carpeta aquí")
         self.main_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.main_text.setStyleSheet(f"""
@@ -59,8 +57,8 @@ class DropzoneWidget(QFrame):
         """)
         layout.addWidget(self.main_text)
         
-        # Texto secundario (hint sutil)
-        self.hint_text = QLabel("o usa el botón de abajo")
+        # Texto secundario (hint sutil, más corto)
+        self.hint_text = QLabel("o usa el botón de 'Seleccionar carpeta' abajo")
         self.hint_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.hint_text.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_SM}px;
@@ -68,11 +66,21 @@ class DropzoneWidget(QFrame):
         """)
         layout.addWidget(self.hint_text)
         
-        # Tamaño fijo (más compacto y proporcional)
-        self.setFixedSize(
+        # Tamaño mínimo (usando las dimensiones definidas en DesignSystem)
+        self.setMinimumSize(
             DesignSystem.DROPZONE_WIDTH,
-            160
+            DesignSystem.DROPZONE_HEIGHT
         )
+    
+    def _setup_icons(self):
+        """Configura los iconos después de que QApplication esté corriendo"""
+        icon_manager.set_label_icon(
+            self.icon_label, 
+            'folder-open', 
+            color=DesignSystem.COLOR_PRIMARY, 
+            size=48
+        )
+        self.update()
     
     def _apply_styles(self):
         """Aplica estilos al widget"""
@@ -95,8 +103,9 @@ class DropzoneWidget(QFrame):
                 self.icon_label, 
                 'folder-open', 
                 color=DesignSystem.COLOR_PRIMARY, 
-                size=64
+                size=48
             )
+            self.update()
         else:
             bg_color = "rgba(245, 245, 245, 0.8)"
             border_color = DesignSystem.COLOR_BORDER
@@ -119,8 +128,9 @@ class DropzoneWidget(QFrame):
                 self.icon_label, 
                 'folder-open', 
                 color=DesignSystem.COLOR_PRIMARY, 
-                size=64
+                size=48
             )
+            self.update()
     
     def dragEnterEvent(self, event: QDragEnterEvent):
         """Maneja cuando se arrastra algo sobre el widget"""
