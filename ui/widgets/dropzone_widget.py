@@ -2,7 +2,7 @@
 Dropzone Widget - Área para arrastrar y soltar carpetas
 """
 from pathlib import Path
-from PyQt6.QtWidgets import QFrame, QVBoxLayout, QLabel
+from PyQt6.QtWidgets import QFrame, QVBoxLayout, QLabel, QGraphicsOpacityEffect
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent
 
@@ -58,12 +58,19 @@ class DropzoneWidget(QFrame):
         layout.addWidget(self.main_text)
         
         # Texto secundario (hint sutil, más corto)
-        self.hint_text = QLabel("o usa el botón de 'Seleccionar carpeta' abajo")
+        self.hint_text = QLabel("o usa el botón de debajo")
         self.hint_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.hint_text.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_SM}px;
             color: {DesignSystem.COLOR_TEXT_SECONDARY};
         """)
+        # Mantener referencia a un efecto de opacidad para poder ocultarlo
+        # visualmente sin cambiar el tamaño del layout (opacity=0 mantiene
+        # el espacio ocupado por el QLabel)
+        opacity_effect = QGraphicsOpacityEffect(self.hint_text)
+        opacity_effect.setOpacity(1.0)
+        self.hint_text.setGraphicsEffect(opacity_effect)
+        self._hint_opacity_effect = opacity_effect
         layout.addWidget(self.hint_text)
         
         # Tamaño mínimo (usando las dimensiones definidas en DesignSystem)
@@ -97,7 +104,12 @@ class DropzoneWidget(QFrame):
                 }}
             """)
             self.main_text.setText("Suelta para analizar")
-            self.hint_text.hide()
+            # No ocultar el hint_text ya que provoca que el layout se encoja
+            # (al ocultarlo quedan solo 2 QLabel). En su lugar dejamos el
+            # texto original pero lo hacemos invisible mediante opacidad=0.
+            # De este modo mantiene la misma anchura y evita redimensionado.
+            if hasattr(self, '_hint_opacity_effect'):
+                self._hint_opacity_effect.setOpacity(0.0)
             # Cambiar color del icono a primary más intenso
             icon_manager.set_label_icon(
                 self.icon_label, 
@@ -122,7 +134,9 @@ class DropzoneWidget(QFrame):
                 }}
             """)
             self.main_text.setText("Arrastra una carpeta aquí")
-            self.hint_text.show()
+            # Restaurar la visibilidad del hint estableciendo opacidad a 1
+            if hasattr(self, '_hint_opacity_effect'):
+                self._hint_opacity_effect.setOpacity(1.0)
             # Restaurar color del icono
             icon_manager.set_label_icon(
                 self.icon_label, 
