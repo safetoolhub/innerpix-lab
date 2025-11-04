@@ -366,8 +366,8 @@ class MainWindow(QMainWindow):
     def _on_settings_clicked(self):
         """Abre el diálogo de configuración"""
         self.logger.info("Abriendo configuración")
-        dialog = SettingsDialog(self)
-        dialog.exec()
+        #dialog = SettingsDialog(self)
+        #dialog.exec()
     
     def _on_about_clicked(self):
         """Abre el diálogo Acerca de"""
