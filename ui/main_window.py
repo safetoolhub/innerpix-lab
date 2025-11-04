@@ -234,7 +234,7 @@ class MainWindow(QMainWindow):
         # Consejos compactos
         layout.addWidget(self._create_tip_box(
             "info",
-            "Elige la carpeta donde tengas tus fotos del iPhone, de WhatsApp, "
+            "Elige la carpeta donde tengas tus fotos y videos del iPhone, de WhatsApp, "
             "o cualquier colección que quieras organizar."
         ))
         
