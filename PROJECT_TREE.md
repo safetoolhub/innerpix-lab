@@ -70,14 +70,6 @@ pixaro-lab/
 │   │   ├── __init__.py
 │   │   └── logging_manager.py       # Gestión de archivos de log
 │   │
-│   ├── tabs/                        # Pestañas de la aplicación
-│   │   ├── __init__.py
-│   │   ├── base_tab.py              # Clase base para tabs
-│   │   ├── duplicates_tab.py        # Tab de duplicados
-│   │   ├── heic_tab.py              # Tab de HEIC
-│   │   ├── live_photos_tab.py       # Tab de Live Photos
-│   │   ├── organizer_tab.py         # Tab de organización
-│   │   └── renaming_tab.py          # Tab de renombrado
 │   │
 │   └── validators/                  # Validadores de entrada
 │       └── directory_validator.py   # Validación de directorios
