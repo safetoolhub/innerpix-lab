@@ -106,7 +106,6 @@ class DropzoneWidget(QFrame):
                     background-color: {bg_color};
                     border: 2px dashed {border_color};
                     border-radius: {DesignSystem.RADIUS_LG}px;
-                    transition: all 0.3s ease;
                 }}
                 DropzoneWidget:hover {{
                     border: 2px dashed {DesignSystem.COLOR_PRIMARY};
