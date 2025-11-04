@@ -1,0 +1,28 @@
+name: MVP1 - Mark release branch
+
+on:
+  push:
+    branches:
+      - 'MVP1'
+
+jobs:
+  mark_release:
+    name: Mark MVP1 as release branch (no-op)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Announce release branch
+        run: |
+          echo "Detected push to MVP1. This workflow marks MVP1 as a release branch in CI flows."
+          if [ -f CHANGELOG.md ]; then
+            echo "--- CHANGELOG.md (head) ---"
+            sed -n '1,40p' CHANGELOG.md || true
+          else
+            echo "No CHANGELOG.md found"
+          fi
+
+      - name: TODO - extend to create GitHub Release
+        run: |
+          echo "If you want, we can extend this workflow to create a GitHub Release or tag automatically using the GITHUB_TOKEN."
