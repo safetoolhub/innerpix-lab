@@ -244,42 +244,43 @@ class SmartStatsBar(QFrame):
         if 'live_photos' in self.smart_stats:
             widget = self.smart_stats['live_photos']
             icon_manager.set_button_icon(widget.icon_label, 'live-photo', color='#64748b', size=16)
-            widget.text_label.setText("Live Photos")
+            widget.text_label.setText("Limpieza de Live Photos")
             widget.value_label.setText("—")
             widget.setToolTip("Detecta pares de Live Photos (foto + video MOV)")
         
         if 'heic' in self.smart_stats:
             widget = self.smart_stats['heic']
             icon_manager.set_button_icon(widget.icon_label, 'heic', color='#64748b', size=16)
-            widget.text_label.setText("HEIC Duplicados")
+            widget.text_label.setText("Eliminación de Duplicados HEIC/JPG")
             widget.value_label.setText("—")
             widget.setToolTip("Duplicados HEIC con equivalente JPG")
         
         if 'duplicates_exact' in self.smart_stats:
             widget = self.smart_stats['duplicates_exact']
             icon_manager.set_button_icon(widget.icon_label, 'duplicate-exact', color='#64748b', size=16)
-            widget.text_label.setText("Exactos")
+            widget.text_label.setText("Detección de Duplicados")
             widget.value_label.setText("—")
             widget.setToolTip("Archivos duplicados por hash (contenido idéntico)")
         
         if 'duplicates_similar' in self.smart_stats:
             widget = self.smart_stats['duplicates_similar']
             icon_manager.set_button_icon(widget.icon_label, 'eye', color='#64748b', size=16)
-            widget.text_label.setText("Similares")
+            # Usamos el mismo título de pestaña que para duplicados
+            widget.text_label.setText("Detección de Duplicados")
             widget.value_label.setText("—")
             widget.setToolTip("Duplicados similares (requiere análisis manual)")
         
         if 'renaming' in self.smart_stats:
             widget = self.smart_stats['renaming']
             icon_manager.set_button_icon(widget.icon_label, 'rename', color='#64748b', size=16)
-            widget.text_label.setText("Renombrar")
+            widget.text_label.setText("Renombrado de Archivos")
             widget.value_label.setText("—")
             widget.setToolTip("Archivos que necesitan renombrado normalizado")
         
         if 'organization' in self.smart_stats:
             widget = self.smart_stats['organization']
             icon_manager.set_button_icon(widget.icon_label, 'organize', color='#64748b', size=16)
-            widget.text_label.setText("Organizar")
+            widget.text_label.setText("Organización de Archivos")
             widget.value_label.setText("—")
             widget.setToolTip("Archivos que pueden organizarse por fecha/carpeta")
     
