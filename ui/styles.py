@@ -1,4 +1,4 @@
-"""
+""" ANTIGUO
 UI Styles para Pixaro Lab
 Contiene todas las definiciones de estilos CSS para la interfaz
 """

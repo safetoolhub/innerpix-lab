@@ -27,16 +27,22 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
 - Handle preview dialogs (subclasses of `BaseDialog`), execute flows, and re-analysis triggers
 - Example: `AnalysisController.start_analysis()` creates `AnalysisWorker`, connects to `ProgressController`
 
-**UI Components** (`ui/tabs/`, `ui/dialogs/`, `ui/components/`)
-- Tabs inherit from patterns in `ui/tabs/base_tab.py` (info labels, action buttons, details text)
+**UI Components** (`ui/dialogs/`, `ui/components/`)
 - Dialogs extend `BaseDialog` which provides `add_backup_checkbox()` and `build_accepted_plan()` helpers
 - Main window: `ui/main_window.py` orchestrates controllers, maintains `self.analysis_results` state
 - Dialog utilities: `ui/dialogs/dialog_utils.py` provides shared functions:
   * `open_file()`: Cross-platform file opener (xdg-open/open/start)
   * `open_folder()`: Cross-platform folder opener with file selection
   * `show_file_details_dialog()`: Professional 2-column dialog with file info (no scroll, compact layout)
+  - Responmsive interface
 
-**Iconos y uso de emojis:** Por compatibilidad y para evitar problemas de renderizado, la aplicación usará exclusivamente los iconos usando qtawesome en todos los controles. No usaremos emojis. 
+**Iconos y uso de emojis:**  - Por compatibilidad y para evitar problemas de renderizado, la aplicación usará exclusivamente los iconos usando qtawesome en todos los controles. No usaremos emojis.
+Icon Manager will be used for all icons
+emojis are strictly forbidden. Icons will be always used for compatibility
+
+
+**Design guidelines** 
+styles/design_system.py centralizes all the styles and CSS
 
 ### Critical Patterns
 
@@ -134,7 +140,7 @@ Run: `source .venv/bin/activate && python main.py`
 - **No empty try/except**: avoid `except: pass` blocks
 - **No legacy callbacks or compatibility wrappers**: single-author project, no backward compatibility needed
 - **Preserve backup flows**: never remove `create_backup` parameters without explicit request
-- **Test UI paths**: run app locally and exercise analysis → preview → execute for file operations
+
 
 ### Platform Notes
 
@@ -142,4 +148,3 @@ Run: `source .venv/bin/activate && python main.py`
 - Secondary: macOS/Linux supported
 - Future: Android, iOS (that's why the UI must be separated from business logic)
 - Qt environment: `main.py` sets `QT_LOGGING_RULES='qt.qpa.wayland=false'` to suppress Wayland warnings
-

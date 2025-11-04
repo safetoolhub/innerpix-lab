@@ -28,9 +28,6 @@ pixaro-lab/
 │   └── result_types.py              # Dataclasses de resultados
 │
 ├── tests/                           # Tests unitarios
-│   ├── __init__.py
-│   ├── README.md
-│   └── test_file_renamer.py
 │
 ├── ui/                              # Interfaz gráfica PyQt6
 │   ├── __init__.py
