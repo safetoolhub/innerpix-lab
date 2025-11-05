@@ -92,6 +92,10 @@ class DesignSystem:
     WINDOW_DEFAULT_WIDTH = 1200
     WINDOW_DEFAULT_HEIGHT = 800
     
+    # Resoluciones de referencia para lógica de ventana
+    FULLHD_WIDTH = 1920
+    FULLHD_HEIGHT = 1080
+    
     HEADER_HEIGHT = 50
     DROPZONE_WIDTH = 300
     DROPZONE_HEIGHT = 200

@@ -10,6 +10,108 @@ pixaro-lab/
 ├── CHANGELOG.md                     # Registro de cambios del proyecto
 ├── FASE_2_IMPLEMENTADA.md           # Documentación de implementación Fase 2
 ├── FASE_3_IMPLEMENTADA.md           # Documentación de implementación Fase 3
+├── FASE_4_IMPLEMENTADA.md           # Documentación de implementación Fase 4
+├── main.py                          # Punto de entrada de la aplicación
+├── config.py                        # Configuración centralizada (rutas, extensiones, constantes)
+├── requirements.txt                 # Dependencias Python
+├── requirements-dev.txt             # Dependencias para desarrollo y testing
+├── pytest.ini                       # Configuración de pytest
+├── .coveragerc                      # Configuración de cobertura de código
+├── .pre-commit-config.yaml          # Configuración de pre-commit hooks
+├── run_tests.sh                     # Script para ejecutar tests
+│
+├── .github/
+│   └── copilot-instructions.md      # Instrucciones para GitHub Copilot
+│
+├── .vscode/
+│   ├── keybindings.json             # Atajos de teclado personalizados
+│   ├── launch.json                  # Configuración de debug
+│   ├── settings.json                # Configuración del workspace
+│   └── tasks.json                   # Tareas personalizadas
+│
+<!-- Nota: La carpeta `docs/` contiene notas técnicas y personales del autor y no se incluye en este árbol simplificado. -->
+├── services/                        # Lógica de negocio (sin dependencias UI)
+│   ├── __init__.py
+│   ├── analysis_orchestrator.py     # Coordinador de análisis completo
+│   ├── duplicate_detector.py        # Detección de duplicados por hash
+│   ├── file_organizer.py            # Organización por fecha/tipo
+│   ├── file_renamer.py              # Renombrado según patrón fecha
+│   ├── heic_remover.py              # Eliminación de duplicados HEIC/JPG
+│   ├── live_photo_cleaner.py        # Limpieza de Live Photos
+│   ├── live_photo_detector.py       # Detección de Live Photos
+│   └── result_types.py              # Dataclasses de resultados
+│
+├── ui/                              # Interfaz gráfica PyQt6
+│   ├── __init__.py
+│   ├── helpers.py                   # Funciones auxiliares de UI
+│   ├── main_window.py               # Ventana principal (3 estados)
+│   ├── ui_styles.py                 # Estilos CSS legacy (migrado de styles.py)
+│   ├── workers.py                   # QThread workers para operaciones async
+│   │
+│   ├── components/                  # Componentes reutilizables de UI
+│   │   └── __init__.py
+│   │
+│   ├── dialogs/                     # Diálogos modales
+│   │   ├── __init__.py
+│   │   ├── about_dialog.py          # Diálogo "Acerca de"
+│   │   ├── base_dialog.py           # Clase base para diálogos con backup
+│   │   ├── dialog_utils.py          # Utilidades compartidas (open_file, open_folder, show_file_details_dialog)
+│   │   ├── exact_duplicates_dialog.py    # Diálogo de duplicados exactos (hash-based)
+│   │   ├── similar_duplicates_dialog.py  # Diálogo de duplicados similares (perceptual)
+│   │   ├── heic_dialog.py           # Diálogo de HEIC con vista de detalles
+│   │   ├── live_photos_dialog.py    # Diálogo de Live Photos
+│   │   ├── organization_dialog.py   # Diálogo de organización (3 modos: raíz/mes/WhatsApp)
+│   │   ├── renaming_dialog.py       # Diálogo de renombrado con vista de detalles
+│   │   └── settings_dialog.py       # Diálogo de configuración
+│   │
+│   ├── managers/                    # Gestores de recursos
+│   │   ├── __init__.py
+│   │   └── logging_manager.py       # Gestión de archivos de log
+│   │
+│   ├── styles/                      # Sistema de diseño centralizado
+│   │   ├── __init__.py
+│   │   └── design_system.py         # Design System con tokens CSS
+│   │
+│   ├── tabs/                        # Componentes de pestañas
+│   │   └── __init__.py
+│   │
+│   ├── validators/                  # Validadores de entrada
+│   │   └── directory_validator.py   # Validación de directorios
+│   │
+│   └── widgets/                     # Widgets individuales reutilizables
+│       ├── __init__.py
+│       ├── analysis_phase_widget.py # Widget de fases de análisis
+│       ├── dropzone_widget.py       # Área para arrastrar y soltar carpetas
+│       ├── progress_card.py         # Card de progreso con barra
+│       ├── summary_card.py          # Card de resumen de análisis
+│       └── tool_card.py             # Cards clicables para herramientas
+│
+├── utils/                           # Utilidades compartidas
+│   ├── __init__.py
+│   ├── callback_utils.py            # Utilidades para callbacks de progreso
+│   ├── date_utils.py                # Manipulación de fechas
+│   ├── file_utils.py                # Operaciones con archivos (hash, backup, paths)
+│   ├── format_utils.py              # Formateo de tamaños, números, etc.
+│   ├── icons.py                     # Gestión de iconos (qtawesome)
+│   ├── logger.py                    # Sistema de logging centralizado
+│   ├── platform_utils.py            # Utilidades específicas de plataforma
+│   ├── screen_utils.py              # Detección multiplataforma de resolución de pantalla
+│   ├── settings_manager.py          # Gestión de configuración persistente (QSettings/JSON)
+│   └── storage.py                   # Abstracción de almacenamiento (QSettings/JSON)
+│
+└── tests/                           # Suite de tests automatizados
+    ├── __init__.py
+    └── test_window_size.py          # Tests para lógica de tamaño de ventana
+```
+
+```
+pixaro-lab/
+├── LICENSE                          # Licencia del proyecto
+├── README.md                        # Documentación principal
+├── PROJECT_TREE.md                  # Este archivo - estructura del proyecto
+├── CHANGELOG.md                     # Registro de cambios del proyecto
+├── FASE_2_IMPLEMENTADA.md           # Documentación de implementación Fase 2
+├── FASE_3_IMPLEMENTADA.md           # Documentación de implementación Fase 3
 ├── main.py                          # Punto de entrada de la aplicación
 ├── config.py                        # Configuración centralizada (rutas, extensiones, constantes)
 ├── requirements.txt                 # Dependencias Python
@@ -107,10 +209,10 @@ pixaro-lab/
 
 ## Arquitectura
 
-**Patrón de 3 capas:**
+**Patrón de 3 capas (simplificado):**
 - **Services**: Lógica de negocio pura, sin dependencias de UI
-- **Controllers**: Coordinan entre UI y Services, manejan workers
-- **UI**: Componentes visuales PyQt6 (widgets, dialogs, cards)
+- **UI**: Componentes visuales PyQt6 (widgets, dialogs, cards) con workers para operaciones async
+- **Utils**: Utilidades compartidas, incluyendo detección multiplataforma de pantalla
 
 **Flujo típico:** Analizar → Preview → Confirmar → Ejecutar (con backup opcional)
 
@@ -125,4 +227,26 @@ pixaro-lab/
 - **Dataclasses**: Resultados tipados y validados
 - **QThread workers**: Operaciones asíncronas sin bloquear UI
 - **Backup-first**: Todas las operaciones destructivas incluyen opción de backup
+- **Multiplataforma**: Detección de resolución nativa para Windows/Linux/macOS
+- **Testing completo**: Suite de tests automatizados con pytest
+
+## Testing
+
+**Herramientas de calidad:**
+- **pytest**: Framework de testing con parametrización y cobertura
+- **pytest-cov**: Reportes de cobertura de código (mínimo 80%)
+- **black**: Formateo automático de código
+- **isort**: Ordenamiento de imports
+- **flake8**: Linting de código
+- **pre-commit**: Hooks automáticos de calidad
+
+**Ejecución de tests:**
+```bash
+./run_tests.sh              # Ejecutar todos los tests
+pytest                      # Ejecutar con pytest directamente
+pytest --cov=.             # Con reporte de cobertura
+```
+
+**Tests implementados:**
+- `test_window_size.py`: Lógica de configuración de ventana por resolución
 

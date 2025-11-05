@@ -198,10 +198,7 @@ class MainWindow(QMainWindow):
             DesignSystem.WINDOW_MIN_WIDTH,
             DesignSystem.WINDOW_MIN_HEIGHT
         )
-        self.resize(
-            DesignSystem.WINDOW_DEFAULT_WIDTH,
-            DesignSystem.WINDOW_DEFAULT_HEIGHT
-        )
+        # Nota: El tamaño inicial se configura en main.py basado en la resolución del monitor
     
     def _setup_ui(self):
         """Configura la interfaz completa del ESTADO 1"""
