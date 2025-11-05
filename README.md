@@ -83,6 +83,63 @@ Para contribuir:
 3. Mantén el estilo PEP 8 y añade type hints donde aplique.
 4. Abre un Pull Request describiendo el cambio.
 
+## Testing
+
+Pixaro Lab incluye una suite completa de tests automatizados para asegurar la calidad del código.
+
+### Ejecutar Tests
+
+```bash
+# Ejecutar todos los tests
+./run_tests.sh
+
+# O directamente con pytest
+source .venv/bin/activate
+pytest
+
+# Ejecutar con reporte de cobertura
+pytest --cov=.
+```
+
+### Estructura de Tests
+
+- `tests/` — Suite de tests automatizados
+- `pytest.ini` — Configuración de pytest
+- `.coveragerc` — Configuración de cobertura de código
+- `requirements-dev.txt` — Dependencias para desarrollo y testing
+
+### Tests Implementados
+
+- **test_window_size.py**: Tests para la lógica de configuración automática del tamaño de ventana basado en resolución del monitor
+
+### Desarrollo de Tests
+
+Para agregar nuevos tests:
+
+1. Crear archivo `test_<modulo>.py` en `tests/`
+2. Usar `pytest.mark.parametrize` para múltiples casos de prueba
+3. Seguir patrón de nombrado: `test_<funcionalidad>_<escenario>`
+
+### Calidad de Código
+
+El proyecto incluye herramientas de calidad:
+
+- **black**: Formateo automático de código
+- **isort**: Ordenamiento de imports
+- **flake8**: Linting de código
+- **mypy**: Verificación de tipos (opcional)
+
+Instalar herramientas de desarrollo:
+```bash
+pip install -r requirements-dev.txt
+```
+
+Configurar pre-commit hooks:
+```bash
+pip install pre-commit
+pre-commit install
+```
+
 ## Problemas comunes y soluciones
 
 - ImportError de PyQt5: asegúrate de que el entorno virtual está activado y que la instalación de PyQt5 fue exitosa.

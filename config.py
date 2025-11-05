@@ -15,14 +15,6 @@ class Config:
     APP_DESCRIPTION = "Organiza, renombra y optimiza tu biblioteca de fotos"
 
     # ========================================================================
-    # CONFIGURACIÓN DE VENTANA
-    # ========================================================================
-    WINDOW_MIN_WIDTH = 800
-    WINDOW_MIN_HEIGHT = 600
-    WINDOW_DEFAULT_WIDTH = 1200
-    WINDOW_DEFAULT_HEIGHT = 800
-
-    # ========================================================================
     # EXTENSIONES DE ARCHIVOS SOPORTADOS
     # ========================================================================
     SUPPORTED_IMAGE_EXTENSIONS = {

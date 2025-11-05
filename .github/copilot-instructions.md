@@ -45,7 +45,7 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
 **Design guidelines (ENGLISH)**
 - All visual styling for widgets, dialogs and windows MUST use only the tokens and classes exposed by the `DesignSystem` class in `ui/styles/design_system.py`.
 - Inline styles, ad-hoc QSS strings, or alternative style modules are disallowed. If a style is missing from `DesignSystem`, raise an issue or request an extension to `DesignSystem` instead of adding inline styles.
-- The `DesignSystem` is the single source of truth for colors, spacing, typography, radii and component classes. Follow it strictly.
+- The `DesignSystem` is the single source of truth for colors, spacing, typography, radii and component classes. Follow it strictly. In case you need to add new styles or modify any of them ask me explicitely. I want control over the additions to this module.
 
 ### Critical Patterns
 
