@@ -8,7 +8,7 @@
       "options": {
         "cwd": "${workspaceFolder}",
         "shell": {
-          "executable": "/bin/zsh",
+          "executable": "/bin/bash",
           "args": ["-lc"]
         }
       },
