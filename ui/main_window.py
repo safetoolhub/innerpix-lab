@@ -4,6 +4,7 @@ Estado 1 (Fase 1): Selector de carpeta y bienvenida
 Estado 2 (Fase 2): Análisis con progreso
 Estado 3 (Fase 3): Grid de herramientas
 """
+import os
 from pathlib import Path
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
@@ -31,6 +32,7 @@ from ui.workers import AnalysisWorker
 from utils.logger import get_logger
 from utils.icons import icon_manager
 from utils.format_utils import format_size, format_file_count
+from utils.settings_manager import settings_manager
 from config import Config
 
 
@@ -51,11 +53,13 @@ class MainWindow(QMainWindow):
         self.selected_folder = None
         self.analysis_worker = None
         self.analysis_results = None
+        self.last_folder = None  # Última carpeta analizada
         
         # Referencias a widgets del ESTADO 1
         self.welcome_card = None
         self.folder_selection_card = None
         self.next_step_card = None
+        self.last_folder_widget = None  # Widget de última carpeta
         
         # Referencias a widgets del ESTADO 2
         self.progress_card = None
@@ -73,10 +77,118 @@ class MainWindow(QMainWindow):
         # Layout principal (necesario para cambiar widgets)
         self.main_layout = None
         
+        # Cargar última carpeta desde configuración
+        self._load_last_folder()
+        
         self._setup_window()
         self._setup_ui()
         self._apply_stylesheet()
         self.logger.info("MainWindow inicializada en Estado 1")
+    
+    def _load_last_folder(self):
+        """Carga la última carpeta analizada desde la configuración"""
+        try:
+            last_folder = settings_manager.get('last_analyzed_folder')
+            if last_folder and Path(last_folder).exists():
+                self.last_folder = last_folder
+                self.logger.info(f"Última carpeta cargada: {last_folder}")
+            else:
+                self.last_folder = None
+                if last_folder:
+                    self.logger.warning(f"Última carpeta ya no existe: {last_folder}")
+        except Exception as e:
+            self.logger.error(f"Error cargando última carpeta: {e}")
+            self.last_folder = None
+    
+    def _save_last_folder(self, folder_path: str):
+        """Guarda la carpeta actual como última carpeta analizada"""
+        try:
+            settings_manager.set('last_analyzed_folder', folder_path)
+            self.logger.info(f"Última carpeta guardada: {folder_path}")
+        except Exception as e:
+            self.logger.error(f"Error guardando última carpeta: {e}")
+    
+    def _save_analysis_results(self, results: dict):
+        """
+        Guarda los resultados del análisis para uso futuro
+        
+        Nota: Por ahora solo guardamos estadísticas simples. En el futuro se
+        podría cachear todo el análisis para evitar re-escaneos.
+        """
+        try:
+            # Extraer estadísticas básicas para mostrar en próximas sesiones
+            analysis_summary = {
+                'folder': self.selected_folder,
+                'timestamp': Path(__file__).stat().st_mtime,  # Timestamp del análisis
+            }
+            
+            # Guardar conteos de cada herramienta
+            # Los resultados pueden ser dataclasses o diccionarios, manejar ambos casos
+            
+            if results.get('renaming'):
+                renaming = results['renaming']
+                if hasattr(renaming, 'renaming_plan'):
+                    # Es un dataclass RenameAnalysisResult
+                    analysis_summary['renaming_count'] = len(renaming.renaming_plan or [])
+                    analysis_summary['need_renaming'] = getattr(renaming, 'need_renaming', 0)
+                else:
+                    # Es un diccionario
+                    analysis_summary['renaming_count'] = len(renaming.get('renaming_plan', []))
+                    analysis_summary['need_renaming'] = renaming.get('need_renaming', 0)
+            
+            if results.get('live_photos'):
+                lp = results['live_photos']
+                if hasattr(lp, 'total_groups'):
+                    # Es un dataclass LivePhotoAnalysisResult
+                    analysis_summary['live_photos_count'] = lp.total_groups
+                else:
+                    # Es un diccionario
+                    analysis_summary['live_photos_count'] = lp.get('total_groups', 0)
+            
+            if results.get('heic'):
+                heic = results['heic']
+                if hasattr(heic, 'total_pairs'):
+                    # Es un dataclass HeicAnalysisResult
+                    analysis_summary['heic_pairs'] = heic.total_pairs
+                    analysis_summary['heic_files'] = getattr(heic, 'heic_files', 0)
+                else:
+                    # Es un diccionario
+                    analysis_summary['heic_pairs'] = heic.get('total_pairs', 0)
+                    analysis_summary['heic_files'] = heic.get('heic_files', 0)
+            
+            if results.get('duplicates'):
+                dup = results['duplicates']
+                if hasattr(dup, 'total_groups'):
+                    # Es un dataclass DuplicateAnalysisResult
+                    analysis_summary['duplicate_groups'] = dup.total_groups
+                    if hasattr(dup, 'total_duplicates'):
+                        analysis_summary['exact_duplicates_count'] = dup.total_duplicates
+                    if hasattr(dup, 'total_similar'):
+                        analysis_summary['similar_duplicates_count'] = dup.total_similar
+                else:
+                    # Es un diccionario
+                    analysis_summary['duplicate_groups'] = dup.get('total_groups', 0)
+                    analysis_summary['exact_duplicates_count'] = dup.get('total_duplicates', 0)
+                    analysis_summary['similar_duplicates_count'] = dup.get('total_similar', 0)
+            
+            if results.get('organization'):
+                org = results['organization']
+                if hasattr(org, 'total_files_to_move'):
+                    # Es un dataclass OrganizationAnalysisResult
+                    analysis_summary['files_to_organize'] = org.total_files_to_move
+                else:
+                    # Es un diccionario
+                    analysis_summary['files_to_organize'] = org.get('total_files_to_move', 0)
+            
+            settings_manager.set('last_analysis_summary', analysis_summary)
+            self.logger.info(f"Resumen de análisis guardado: {len(analysis_summary)} items")
+            
+        except Exception as e:
+            self.logger.error(f"Error guardando resumen de análisis: {e}")
+            # Log detallado para debugging
+            import traceback
+            self.logger.debug(f"Traceback: {traceback.format_exc()}")
+            self.logger.debug(f"Results keys: {list(results.keys()) if isinstance(results, dict) else type(results)}")
     
     def _setup_window(self):
         """Configura las propiedades básicas de la ventana"""
@@ -287,11 +399,89 @@ class MainWindow(QMainWindow):
             "No se modificará nada hasta que tú lo autorices."
         ))
         
-        # TODO: Línea de última carpeta (si existe)
-        # layout.addSpacing(DesignSystem.SPACE_16)
-        # layout.addWidget(self._create_last_folder_line())
+        # Línea de última carpeta (si existe)
+        if self.last_folder:
+            layout.addSpacing(DesignSystem.SPACE_16)
+            self.last_folder_widget = self._create_last_folder_line()
+            layout.addWidget(self.last_folder_widget)
         
         return card
+    
+    def _create_last_folder_line(self) -> QFrame:
+        """Crea una línea con la última carpeta analizada y botón para reutilizarla"""
+        container = QFrame()
+        container.setStyleSheet(f"""
+            QFrame {{
+                background-color: rgba(59, 130, 246, 0.08);
+                border: 1px solid {DesignSystem.COLOR_PRIMARY};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_12}px;
+            }}
+        """)
+        
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(DesignSystem.SPACE_12)
+        
+        # Icono de carpeta reciente
+        icon_label = QLabel()
+        icon_manager.set_label_icon(icon_label, 'history', color=DesignSystem.COLOR_PRIMARY, size=18)
+        layout.addWidget(icon_label)
+        
+        # Texto con ruta de la carpeta
+        info_layout = QVBoxLayout()
+        info_layout.setSpacing(2)
+        
+        title_label = QLabel("Última carpeta analizada:")
+        title_label.setStyleSheet(f"""
+            color: {DesignSystem.COLOR_TEXT};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+        """)
+        info_layout.addWidget(title_label)
+        
+        # Mostrar ruta truncada si es muy larga
+        folder_path = self.last_folder
+        if len(folder_path) > 60:
+            display_path = "..." + folder_path[-57:]
+        else:
+            display_path = folder_path
+            
+        path_label = QLabel(display_path)
+        path_label.setStyleSheet(f"""
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            font-family: {DesignSystem.FONT_FAMILY_MONO};
+        """)
+        path_label.setToolTip(folder_path)
+        info_layout.addWidget(path_label)
+        
+        layout.addLayout(info_layout, 1)
+        
+        # Botón para usar esta carpeta
+        use_btn = QPushButton("Usar esta carpeta")
+        use_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                color: white;
+                border: none;
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_16}px;
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_PRIMARY_HOVER};
+            }}
+            QPushButton:pressed {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+        """)
+        use_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        use_btn.clicked.connect(lambda: self._on_use_last_folder())
+        layout.addWidget(use_btn)
+        
+        return container
     
     def _create_tip_box(self, icon_name: str, text: str) -> QFrame:
         """Crea una caja de consejo con icono y texto"""
@@ -391,19 +581,39 @@ class MainWindow(QMainWindow):
         if folder:
             self._on_folder_selected(folder)
     
+    def _on_use_last_folder(self):
+        """Usa la última carpeta analizada"""
+        if self.last_folder and Path(self.last_folder).exists():
+            self.logger.info(f"Usando última carpeta: {self.last_folder}")
+            self._on_folder_selected(self.last_folder)
+        else:
+            self.logger.warning("La última carpeta ya no existe")
+            QMessageBox.warning(
+                self,
+                "Carpeta no disponible",
+                f"La última carpeta ya no existe:\n{self.last_folder}\n\n"
+                "Por favor selecciona otra carpeta."
+            )
+            # Limpiar la última carpeta
+            self.last_folder = None
+            settings_manager.remove('last_analyzed_folder')
+    
     def _on_folder_selected(self, folder_path: str):
         """Maneja cuando se selecciona una carpeta"""
         path = Path(folder_path)
         
+        # Validación 1: La carpeta debe existir
         if not path.exists():
             self.logger.error(f"La carpeta no existe: {folder_path}")
             QMessageBox.critical(
                 self,
-                "Error",
-                f"La carpeta seleccionada no existe:\n{folder_path}"
+                "Error - Carpeta no encontrada",
+                f"La carpeta seleccionada no existe:\n\n{folder_path}\n\n"
+                "Puede haber sido movida o eliminada."
             )
             return
         
+        # Validación 2: Debe ser un directorio
         if not path.is_dir():
             self.logger.error(f"La ruta no es una carpeta: {folder_path}")
             QMessageBox.warning(
@@ -413,8 +623,44 @@ class MainWindow(QMainWindow):
             )
             return
         
+        # Validación 3: Verificar permisos de lectura
+        if not os.access(folder_path, os.R_OK):
+            self.logger.error(f"Sin permisos de lectura: {folder_path}")
+            QMessageBox.critical(
+                self,
+                "Error - Permisos insuficientes",
+                f"No tienes permisos de lectura en esta carpeta:\n\n{folder_path}\n\n"
+                "Por favor selecciona una carpeta donde tengas acceso de lectura."
+            )
+            return
+        
+        # Validación 4: Advertencia si la carpeta está vacía
+        try:
+            if not any(path.iterdir()):
+                result = QMessageBox.question(
+                    self,
+                    "Carpeta vacía",
+                    f"La carpeta seleccionada parece estar vacía:\n\n{folder_path}\n\n"
+                    "¿Deseas continuar de todos modos?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No
+                )
+                if result == QMessageBox.StandardButton.No:
+                    self.logger.info("Usuario canceló selección de carpeta vacía")
+                    return
+        except PermissionError:
+            self.logger.warning(f"No se pudo verificar contenido de la carpeta: {folder_path}")
+            # Continuar de todos modos
+        except Exception as e:
+            self.logger.error(f"Error verificando carpeta: {e}")
+            # Continuar de todos modos
+        
         self.selected_folder = str(path)
         self.logger.info(f"Carpeta seleccionada: {self.selected_folder}")
+        
+        # Guardar como última carpeta
+        self._save_last_folder(self.selected_folder)
+        
         self.folder_selected.emit(self.selected_folder)
         
         # Transición al ESTADO 2
@@ -423,14 +669,77 @@ class MainWindow(QMainWindow):
     def _on_settings_clicked(self):
         """Abre el diálogo de configuración"""
         self.logger.info("Abriendo configuración")
-        #dialog = SettingsDialog(self)
-        #dialog.exec()
+        dialog = SettingsDialog(self)
+        dialog.exec()
     
     def _on_about_clicked(self):
         """Abre el diálogo Acerca de"""
         self.logger.info("Abriendo Acerca de")
         dialog = AboutDialog(self)
         dialog.exec()
+    
+    # ==================== ANIMACIONES ====================
+    
+    def _fade_out_widget(self, widget: QWidget, duration: int = 300, on_finished=None):
+        """
+        Anima un widget con fade out
+        
+        Args:
+            widget: Widget a animar
+            duration: Duración de la animación en ms
+            on_finished: Callback opcional cuando termina
+        """
+        if not widget:
+            if on_finished:
+                on_finished()
+            return
+        
+        # Asegurar que el widget tenga opacity effect
+        from PyQt6.QtWidgets import QGraphicsOpacityEffect
+        effect = QGraphicsOpacityEffect()
+        widget.setGraphicsEffect(effect)
+        
+        animation = QPropertyAnimation(effect, b"opacity")
+        animation.setDuration(duration)
+        animation.setStartValue(1.0)
+        animation.setEndValue(0.0)
+        animation.setEasingCurve(QEasingCurve.Type.OutCubic)
+        
+        if on_finished:
+            animation.finished.connect(on_finished)
+        else:
+            animation.finished.connect(widget.hide)
+        
+        animation.start()
+        # Mantener referencia para evitar garbage collection
+        widget._fade_animation = animation
+    
+    def _fade_in_widget(self, widget: QWidget, duration: int = 300):
+        """
+        Anima un widget con fade in
+        
+        Args:
+            widget: Widget a animar
+            duration: Duración de la animación en ms
+        """
+        if not widget:
+            return
+        
+        from PyQt6.QtWidgets import QGraphicsOpacityEffect
+        effect = QGraphicsOpacityEffect()
+        widget.setGraphicsEffect(effect)
+        
+        widget.show()
+        
+        animation = QPropertyAnimation(effect, b"opacity")
+        animation.setDuration(duration)
+        animation.setStartValue(0.0)
+        animation.setEndValue(1.0)
+        animation.setEasingCurve(QEasingCurve.Type.InCubic)
+        
+        animation.start()
+        # Mantener referencia
+        widget._fade_animation = animation
     
     # ==================== TRANSICIÓN A ESTADO 2 ====================
     
@@ -443,23 +752,25 @@ class MainWindow(QMainWindow):
         
         # Ocultar welcome card y folder_selection_card con fade out
         if self.welcome_card:
-            self.welcome_card.hide()
+            self._fade_out_widget(self.welcome_card, duration=250)
         
         if self.folder_selection_card:
-            self.folder_selection_card.hide()
+            self._fade_out_widget(self.folder_selection_card, duration=250)
         
-        # Crear y mostrar card de progreso
+        # Crear y mostrar card de progreso con fade in
         self.progress_card = ProgressCard(self.selected_folder)
         self.main_layout.insertWidget(1, self.progress_card)
+        self._fade_in_widget(self.progress_card, duration=350)
         
-        # Crear y mostrar widget de fases (opcional pero recomendado)
+        # Crear y mostrar widget de fases con fade in (con delay)
         self.phase_widget = AnalysisPhaseWidget()
         self.main_layout.insertWidget(2, self.phase_widget)
+        QTimer.singleShot(150, lambda: self._fade_in_widget(self.phase_widget, duration=350))
         
         # El next_step_card permanece visible pero más abajo
         
-        # Iniciar análisis
-        self._start_analysis()
+        # Iniciar análisis con un pequeño delay para que se vean las animaciones
+        QTimer.singleShot(200, self._start_analysis)
     
     def _start_analysis(self):
         """Inicia el análisis del directorio seleccionado"""
@@ -618,6 +929,9 @@ class MainWindow(QMainWindow):
         self.logger.info("Análisis completado exitosamente")
         self.analysis_results = results
         
+        # Guardar resultados del análisis para uso futuro
+        self._save_analysis_results(results)
+        
         # Marcar progreso como completo
         if self.progress_card:
             self.progress_card.mark_completed()
@@ -652,14 +966,97 @@ class MainWindow(QMainWindow):
         """
         self.logger.error(f"Error en análisis: {error_msg}")
         
-        QMessageBox.critical(
-            self,
-            "Error en el análisis",
-            f"Ocurrió un error durante el análisis:\n\n{error_msg}\n\n"
-            "Por favor revisa los logs para más detalles."
-        )
+        # Limpiar timers pendientes
+        for timer in self.phase_timers.values():
+            timer.stop()
+        self.phase_timers.clear()
+        self.current_phase = None
         
-        # TODO: Permitir volver al ESTADO 1 o reintentar
+        # Marcar fase actual como error si existe
+        if self.phase_widget and self.current_phase:
+            self.phase_widget.set_phase_status(self.current_phase, 'error')
+        
+        # Mostrar diálogo de error con opciones
+        msg = QMessageBox(self)
+        msg.setIcon(QMessageBox.Icon.Critical)
+        msg.setWindowTitle("Error en el análisis")
+        msg.setText("Ocurrió un error durante el análisis de la carpeta.")
+        msg.setInformativeText(f"Detalles del error:\n{error_msg}")
+        msg.setDetailedText(f"Carpeta: {self.selected_folder}\n\nError: {error_msg}")
+        
+        # Botones de acción
+        retry_btn = msg.addButton("Reintentar", QMessageBox.ButtonRole.ActionRole)
+        change_btn = msg.addButton("Cambiar carpeta", QMessageBox.ButtonRole.ActionRole)
+        close_btn = msg.addButton("Cerrar", QMessageBox.ButtonRole.RejectRole)
+        msg.setDefaultButton(retry_btn)
+        
+        msg.exec()
+        
+        # Manejar la respuesta del usuario
+        if msg.clickedButton() == retry_btn:
+            self.logger.info("Usuario eligió reintentar el análisis")
+            self._restart_analysis()
+        elif msg.clickedButton() == change_btn:
+            self.logger.info("Usuario eligió cambiar de carpeta")
+            self._return_to_state_1()
+        else:
+            self.logger.info("Usuario cerró el diálogo de error")
+    
+    def _restart_analysis(self):
+        """Reinicia el análisis de la carpeta actual"""
+        self.logger.info("Reiniciando análisis...")
+        
+        # Limpiar estado de análisis previo
+        if self.progress_card:
+            self.progress_card.reset()
+        
+        if self.phase_widget:
+            self.phase_widget.reset_all_phases()
+        
+        # Reiniciar análisis
+        self._start_analysis()
+    
+    def _return_to_state_1(self):
+        """Vuelve al Estado 1 para seleccionar otra carpeta"""
+        self.logger.info("Volviendo a Estado 1")
+        
+        # Limpiar datos del análisis
+        self.analysis_results = None
+        self.selected_folder = None
+        
+        # Limpiar y ocultar widgets del Estado 2
+        # Guardar referencias locales antes de establecer a None
+        if self.progress_card:
+            progress_widget = self.progress_card
+            self._fade_out_widget(progress_widget, duration=250,
+                                 on_finished=lambda: progress_widget.deleteLater())
+            self.progress_card = None
+        
+        if self.phase_widget:
+            phase_widget = self.phase_widget
+            self._fade_out_widget(phase_widget, duration=250,
+                                 on_finished=lambda: phase_widget.deleteLater())
+            self.phase_widget = None
+        
+        # Recrear y mostrar widgets del Estado 1 con delay
+        QTimer.singleShot(300, self._recreate_state_1_widgets)
+    
+    def _recreate_state_1_widgets(self):
+        """Recrea los widgets del Estado 1"""
+        # Mostrar welcome card
+        if self.welcome_card:
+            self.welcome_card.show()
+            self._fade_in_widget(self.welcome_card, duration=350)
+        
+        # Mostrar folder selection card
+        if self.folder_selection_card:
+            self.folder_selection_card.show()
+            self._fade_in_widget(self.folder_selection_card, duration=350)
+        
+        # Mostrar next step card
+        if self.next_step_card:
+            self.next_step_card.show()
+            self._fade_in_widget(self.next_step_card, duration=350)
     
     # ==================== TRANSICIÓN A ESTADO 3 ====================
     
@@ -670,22 +1067,31 @@ class MainWindow(QMainWindow):
         """
         self.logger.info("Transición a ESTADO 3: Grid de herramientas")
         
-        # Ocultar widgets del ESTADO 2
+        # Ocultar widgets del ESTADO 2 con fade out
+        # Guardar referencias locales antes de establecer a None
         if self.progress_card:
-            self.progress_card.hide()
-            self.progress_card.deleteLater()
+            progress_widget = self.progress_card
+            self._fade_out_widget(progress_widget, duration=250, 
+                                 on_finished=lambda: progress_widget.deleteLater())
             self.progress_card = None
         
         if self.phase_widget:
-            self.phase_widget.hide()
-            self.phase_widget.deleteLater()
+            phase_widget = self.phase_widget
+            self._fade_out_widget(phase_widget, duration=250,
+                                 on_finished=lambda: phase_widget.deleteLater())
             self.phase_widget = None
         
+        # Crear y mostrar summary card con fade in (con delay)
+        QTimer.singleShot(300, self._show_state_3_widgets)
+    
+    def _show_state_3_widgets(self):
+        """Muestra los widgets del Estado 3 con animaciones"""
         # Crear y mostrar summary card
         self.summary_card = SummaryCard(self.selected_folder)
         self.summary_card.change_folder_requested.connect(self._on_change_folder)
         self.summary_card.reanalyze_requested.connect(self._on_reanalyze)
         self.main_layout.insertWidget(1, self.summary_card)
+        self._fade_in_widget(self.summary_card, duration=400)
         
         # Actualizar estadísticas de la summary card
         if self.analysis_results:
@@ -698,12 +1104,12 @@ class MainWindow(QMainWindow):
             recoverable = self._calculate_recoverable_space()
             self.summary_card.update_recoverable_space(recoverable)
         
-        # Crear grid de herramientas
-        self._create_tools_grid()
+        # Crear grid de herramientas con delay escalonado
+        QTimer.singleShot(200, self._create_tools_grid)
         
-        # Ocultar next_step_card
+        # Ocultar next_step_card con fade out
         if self.next_step_card:
-            self.next_step_card.hide()
+            self._fade_out_widget(self.next_step_card, duration=300)
     
     def _calculate_recoverable_space(self) -> int:
         """
@@ -940,13 +1346,7 @@ class MainWindow(QMainWindow):
             if not lp_data:
                 QMessageBox.warning(self, "Sin resultados", "No hay datos de Live Photos")
                 return
-            # LivePhotoCleanupDialog espera un dict (no dataclass)
-            lp_dict = {
-                'groups': getattr(lp_data, 'groups', []),
-                'live_photos_found': getattr(lp_data, 'total_groups', 0),
-                'total_space': getattr(lp_data, 'total_video_size', 0),
-            }
-            dialog = LivePhotoCleanupDialog(lp_dict, self)
+            dialog = LivePhotoCleanupDialog(lp_data, self)
         
         elif tool_id == 'heic':
             heic_data = self.analysis_results.get('heic', {})

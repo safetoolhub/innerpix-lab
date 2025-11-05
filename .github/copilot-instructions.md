@@ -22,19 +22,22 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
 - All inherit stop mechanism: `self._stop_requested` flag checked during long operations
 - Unified worker: `AnalysisWorker` delegates to `AnalysisOrchestrator` (services/), only handles Qt threading/signals (~50 lines)
 
-**Controllers** (`ui/controllers/`) - Bridge between UI and services, manage worker lifecycle
-- Pattern: instantiate worker → connect signals → start thread → update UI on completion
-- Handle preview dialogs (subclasses of `BaseDialog`), execute flows, and re-analysis triggers
-- Example: `AnalysisController.start_analysis()` creates `AnalysisWorker`, connects to `ProgressController`
+**Main Window States** (`ui/main_window.py`) - 3-state application flow
+- **State 1**: Folder selector and welcome screen
+- **State 2**: Analysis progress with visual phase feedback (timers ensure 1+ second visibility per phase)
+- **State 3**: Tools grid with clickable cards leading to dialogs
+- Transitions: State 1 → State 2 → State 3 (no going back without re-selection)
 
-**UI Components** (`ui/dialogs/`, `ui/components/`)
-- Dialogs extend `BaseDialog` which provides `add_backup_checkbox()` and `build_accepted_plan()` helpers
-- Main window: `ui/main_window.py` orchestrates controllers, maintains `self.analysis_results` state
+**UI Components** (`ui/widgets/`, `ui/dialogs/`, `ui/components/`)
+- **Widgets**: Reusable components (ToolCard, ProgressCard, AnalysisPhaseWidget, SummaryCard, DropzoneWidget)
+- **Dialogs**: All extend `BaseDialog` which provides `add_backup_checkbox()` and `build_accepted_plan()` helpers
+- **Components**: Additional UI components and helpers
+- **Design System**: Centralized styling in `ui/styles/design_system.py` (single source of truth for colors, spacing, typography)
+- **Legacy Styles**: `ui/ui_styles.py` contains old CSS constants (being phased out)
 - Dialog utilities: `ui/dialogs/dialog_utils.py` provides shared functions:
   * `open_file()`: Cross-platform file opener (xdg-open/open/start)
   * `open_folder()`: Cross-platform folder opener with file selection
   * `show_file_details_dialog()`: Professional 2-column dialog with file info (no scroll, compact layout)
-  - Responsive interface
 
 **Icon usage and emojis:**
 - For cross-platform consistency, all UI icons MUST come from the central Icon Manager which uses qtawesome (Material Design icons). Do NOT use emojis anywhere in the UI or in source strings that are rendered as icons. Emojis produce inconsistent rendering across platforms and are forbidden in the codebase.
@@ -78,11 +81,24 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
 - **Benefits**: Reusable in CLI scripts, no PyQt6 dependency, integrated logging, robust validation
 - UI wrappers in `dialog_utils.py` add QMessageBox for error display
 
+**Additional UI modules**:
+- `ui/helpers.py`: Reusable UI helper functions extracted from main_window.py
+- `ui/managers/logging_manager.py`: Centralized logging management for UI components
+- `ui/tabs/`: Tab-based UI components (currently empty, reserved for future expansion)
+- `ui/validators/directory_validator.py`: Directory validation utilities for UI
+- `utils/settings_manager.py`: High-level settings management using storage backends
+
 **File utilities** (`utils/file_utils.py`)
 - `calculate_file_hash()`: SHA256 with optional caching
 - `to_path()`: flexible path extraction from objects/dicts (checks `path`, `source_path`, `original_path` attrs)
 - `cleanup_empty_directories()`: recursive removal after file operations
 - `find_next_available_name()`: generates conflict-free names with `_XXX` suffix
+
+**Additional utilities**:
+- `utils/callback_utils.py`: Safe progress callback handling utilities
+- `utils/date_utils.py`: Date extraction utilities for multimedia files
+- `utils/format_utils.py`: Reusable formatting functions (format_size, format_file_count, etc.)
+- `utils/icons.py`: Centralized icon management system using QtAwesome (Material Design icons)
 
 **Result types** (`services/result_types.py`)
 - All service results are dataclasses with type safety and validation
@@ -134,12 +150,20 @@ Run: `source .venv/bin/activate && python main.py`
 - Logs: `~/Documents/Pixaro_Lab/logs/` by default
 - Use `utils.logger.set_global_log_level(logging.DEBUG)` for verbose output
 
+Project files:
+- `PROJECT_TREE.md`: Complete project structure and file descriptions
+- `CHANGELOG.md`: Version history and changes
+- `FASE_2_IMPLEMENTADA.md`: Phase 2 implementation details (analysis with progress)
+- `FASE_3_IMPLEMENTADA.md`: Phase 3 implementation details (tools grid and dialogs)
+- `.vscode/`: VS Code workspace configuration (launch, tasks, settings, keybindings)
+
 ### Code Quality Rules
 
 - **Strict PEP 8**: use type hints where present, maintain existing patterns
 - **No empty try/except**: avoid `except: pass` blocks
 - **No legacy callbacks or compatibility wrappers**: single-author project, no backward compatibility needed
 - **Preserve backup flows**: never remove `create_backup` parameters without explicit request
+- **Import resolution**: `ui/ui_styles.py` contains legacy CSS constants (being phased out), `ui/styles/design_system.py` is the single source of truth for current styling
 
 
 ### Platform Notes

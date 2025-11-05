@@ -7,18 +7,26 @@ pixaro-lab/
 ├── LICENSE                          # Licencia del proyecto
 ├── README.md                        # Documentación principal
 ├── PROJECT_TREE.md                  # Este archivo - estructura del proyecto
+├── CHANGELOG.md                     # Registro de cambios del proyecto
+├── FASE_2_IMPLEMENTADA.md           # Documentación de implementación Fase 2
+├── FASE_3_IMPLEMENTADA.md           # Documentación de implementación Fase 3
 ├── main.py                          # Punto de entrada de la aplicación
 ├── config.py                        # Configuración centralizada (rutas, extensiones, constantes)
 ├── requirements.txt                 # Dependencias Python
-├── run_tests.py                     # Script para ejecutar tests
 │
 ├── .github/
 │   └── copilot-instructions.md      # Instrucciones para GitHub Copilot
 │
-
+├── .vscode/
+│   ├── keybindings.json             # Atajos de teclado personalizados
+│   ├── launch.json                  # Configuración de debug
+│   ├── settings.json                # Configuración del workspace
+│   └── tasks.json                   # Tareas personalizadas
+│
 <!-- Nota: La carpeta `docs/` contiene notas técnicas y personales del autor y no se incluye en este árbol simplificado. -->
 ├── services/                        # Lógica de negocio (sin dependencias UI)
 │   ├── __init__.py
+│   ├── analysis_orchestrator.py     # Coordinador de análisis completo
 │   ├── duplicate_detector.py        # Detección de duplicados por hash
 │   ├── file_organizer.py            # Organización por fecha/tipo
 │   ├── file_renamer.py              # Renombrado según patrón fecha
@@ -27,25 +35,18 @@ pixaro-lab/
 │   ├── live_photo_detector.py       # Detección de Live Photos
 │   └── result_types.py              # Dataclasses de resultados
 │
-├── tests/                           # Tests unitarios
-│
 ├── ui/                              # Interfaz gráfica PyQt6
 │   ├── __init__.py
 │   ├── helpers.py                   # Funciones auxiliares de UI
-│   ├── main_window.py               # Ventana principal
-│   ├── styles.py                    # Estilos CSS para widgets
+│   ├── main_window.py               # Ventana principal (3 estados)
+│   ├── ui_styles.py                 # Estilos CSS legacy (migrado de styles.py)
 │   ├── workers.py                   # QThread workers para operaciones async
-│   ├── widgets/                     # Widgets individuales reutilizables
-│   │   ├── __init__.py
-│   │   └── dropzone_widget.py       # Área para arrastrar y soltar carpetas
 │   │
 │   ├── components/                  # Componentes reutilizables de UI
-│   │   ├── __init__.py
-│   │   ├── action_buttons.py        # Botones de acción (analizar, cambiar dir)
-│   │   ├── header.py                # Encabezado de la aplicación
-│   │   └──top_bar.py                # Cabecera,  busqueda y resumen del analisis
+│   │   └── __init__.py
 │   │
 │   ├── controllers/                 # Controladores (puente UI ↔ Services)
+│   │   ├── __init__.py
 │   │   ├── analysis_controller.py   # Control de análisis completo
 │   │   ├── duplicates_controller.py # Control de duplicados
 │   │   ├── heic_controller.py       # Control de HEIC
@@ -73,9 +74,23 @@ pixaro-lab/
 │   │   ├── __init__.py
 │   │   └── logging_manager.py       # Gestión de archivos de log
 │   │
+│   ├── styles/                      # Sistema de diseño centralizado
+│   │   ├── __init__.py
+│   │   └── design_system.py         # Design System con tokens CSS
 │   │
-│   └── validators/                  # Validadores de entrada
-│       └── directory_validator.py   # Validación de directorios
+│   ├── tabs/                        # Componentes de pestañas
+│   │   └── __init__.py
+│   │
+│   ├── validators/                  # Validadores de entrada
+│   │   └── directory_validator.py   # Validación de directorios
+│   │
+│   └── widgets/                     # Widgets individuales reutilizables
+│       ├── __init__.py
+│       ├── analysis_phase_widget.py # Widget de fases de análisis
+│       ├── dropzone_widget.py       # Área para arrastrar y soltar carpetas
+│       ├── progress_card.py         # Card de progreso con barra
+│       ├── summary_card.py          # Card de resumen de análisis
+│       └── tool_card.py             # Cards clicables para herramientas
 │
 └── utils/                           # Utilidades compartidas
     ├── __init__.py
@@ -83,8 +98,11 @@ pixaro-lab/
     ├── date_utils.py                # Manipulación de fechas
     ├── file_utils.py                # Operaciones con archivos (hash, backup, paths)
     ├── format_utils.py              # Formateo de tamaños, números, etc.
+    ├── icons.py                     # Gestión de iconos (qtawesome)
     ├── logger.py                    # Sistema de logging centralizado
-    └── settings_manager.py          # Gestión de configuración persistente (QSettings)
+    ├── platform_utils.py            # Utilidades específicas de plataforma
+    ├── settings_manager.py          # Gestión de configuración persistente (QSettings/JSON)
+    └── storage.py                   # Abstracción de almacenamiento (QSettings/JSON)
 ```
 
 ## Arquitectura
@@ -92,7 +110,19 @@ pixaro-lab/
 **Patrón de 3 capas:**
 - **Services**: Lógica de negocio pura, sin dependencias de UI
 - **Controllers**: Coordinan entre UI y Services, manejan workers
-- **UI**: Componentes visuales PyQt6 (tabs, dialogs, widgets)
+- **UI**: Componentes visuales PyQt6 (widgets, dialogs, cards)
 
 **Flujo típico:** Analizar → Preview → Confirmar → Ejecutar (con backup opcional)
+
+**Estados de la aplicación:**
+1. **Estado 1**: Selector de carpeta y bienvenida
+2. **Estado 2**: Análisis con progreso visual (fases con timers)
+3. **Estado 3**: Grid de herramientas con cards clicables
+
+**Características técnicas:**
+- **Timers de feedback visual**: Cada fase de análisis se muestra por al menos 1 segundo
+- **Design System**: Sistema centralizado de estilos CSS con tokens
+- **Dataclasses**: Resultados tipados y validados
+- **QThread workers**: Operaciones asíncronas sin bloquear UI
+- **Backup-first**: Todas las operaciones destructivas incluyen opción de backup
 
