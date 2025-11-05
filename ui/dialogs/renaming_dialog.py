@@ -14,7 +14,7 @@ from PyQt6.QtCore import Qt, QTimer
 from utils.format_utils import format_size
 from utils.settings_manager import settings_manager
 from config import Config
-from ui import styles as ui_styles
+from ui import ui_styles
 from .base_dialog import BaseDialog
 
 

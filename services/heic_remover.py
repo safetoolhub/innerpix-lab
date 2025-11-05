@@ -85,7 +85,7 @@ class DuplicatePair:
 
         return f"HEIC: {heic_str}, JPG: {jpg_str}, Ahorro: {saving_str}"
 
-class HEICDuplicateRemover:
+class HEICRemover:
     """
     Eliminador de HEIC Duplicados - Compara archivos HEIC con sus equivalentes JPG
     """

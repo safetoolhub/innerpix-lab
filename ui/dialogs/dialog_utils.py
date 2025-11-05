@@ -256,7 +256,7 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     separator = QFrame()
     separator.setFrameShape(QFrame.Shape.HLine)
     separator.setFrameShadow(QFrame.Shadow.Sunken)
-    from ui import styles as ui_styles
+    from ui import ui_styles
     separator.setStyleSheet(ui_styles.STYLE_DIALOG_SEPARATOR)
     main_layout.addWidget(separator)
     
