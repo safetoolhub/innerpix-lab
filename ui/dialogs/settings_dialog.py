@@ -195,7 +195,7 @@ class SettingsDialog(QDialog):
         logs_dir_layout.addWidget(logs_label)
 
         self.logs_edit = QLineEdit()
-        self.logs_edit.setText(str(self.parent_window.logs_directory if self.parent_window else Config.DEFAULT_LOG_DIR))
+        self.logs_edit.setText(str(settings_manager.get_logs_directory() or Config.DEFAULT_LOG_DIR))
         self.logs_edit.setReadOnly(True)
         self.logs_edit.setStyleSheet(ui_styles.STYLE_DIRECTORY_EDIT)
         logs_dir_layout.addWidget(self.logs_edit)

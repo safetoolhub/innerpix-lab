@@ -34,6 +34,7 @@ from utils.icons import icon_manager
 from utils.format_utils import format_size, format_file_count
 from utils.settings_manager import settings_manager
 from config import Config
+import logging
 
 
 class MainWindow(QMainWindow):
@@ -49,7 +50,7 @@ class MainWindow(QMainWindow):
     
     def __init__(self):
         super().__init__()
-        self.logger = get_logger('MainWindow')
+        self.logger = logging.getLogger('PixaroLab.MainWindow')
         self.selected_folder = None
         self.analysis_worker = None
         self.analysis_results = None
