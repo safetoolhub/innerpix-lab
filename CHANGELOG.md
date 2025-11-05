@@ -1,10 +1,74 @@
 # Changelog
 
-Todas las notas de la primera versión congelada: **MVP1**
+## [MVP2 - Fase 4] - 2025-11-05
 
-Fecha: 2025-11-04
+### ✨ Añadido
 
-Resumen: Versión inicial congelada del proyecto. Incluye las últimas mejoras y refactors de la UI (top bar, styles), correcciones menores y limpieza de componentes.
+**Persistencia de Datos:**
+- Sistema de guardado automático de última carpeta analizada
+- Widget visual para acceso rápido a última carpeta en Estado 1
+- Botón "Usar esta carpeta" para re-analizar con un clic
+- Guardado de resumen de análisis (estadísticas por herramienta)
+- Validación de existencia de carpeta antes de mostrar/usar
+
+**Animaciones y Transiciones:**
+- Sistema centralizado de animaciones con `_fade_out_widget()` y `_fade_in_widget()`
+- Transiciones suaves Estado 1 → Estado 2 con fade in/out (250-350ms)
+- Transiciones suaves Estado 2 → Estado 3 con fade in/out escalonado
+- Delays estratégicos para visualización de animaciones (150-300ms)
+- Curvas de easing: OutCubic para fade out, InCubic para fade in
+- Animación de vuelta a Estado 1 en caso de error
+
+**Manejo de Errores Mejorado:**
+- Validación exhaustiva de carpeta seleccionada (4 niveles):
+  1. Verificación de existencia
+  2. Verificación de tipo (directorio vs archivo)
+  3. Verificación de permisos de lectura
+  4. Advertencia de carpeta vacía con confirmación
+- Diálogo de error en análisis con 3 opciones de recuperación:
+  - Reintentar análisis con misma carpeta
+  - Cambiar carpeta (volver a Estado 1)
+  - Cerrar diálogo
+- Limpieza automática de estado en errores (timers, fases, etc.)
+- Mensajes de error claros, informativos y accionables
+
+**Configuración:**
+- Activado diálogo de configuración (SettingsDialog)
+- Acceso desde icono en welcome card del Estado 1
+
+### 🔧 Modificado
+
+- `ui/main_window.py`:
+  - Añadidos imports: `os` para validación de permisos
+  - `settings_manager` para persistencia
+  - Añadidos atributos: `last_folder`, `last_folder_widget`
+  - Nuevos métodos para animaciones (2)
+  - Nuevos métodos para persistencia (3)
+  - Nuevos métodos para manejo de errores (3)
+  - Mejoras en transiciones entre estados
+  - Validaciones exhaustivas en selección de carpeta
+
+### 📚 Documentación
+
+- Creado `FASE_4_IMPLEMENTADA.md` con documentación completa
+- Actualizado `CHANGELOG.md` con nuevas características
+- Actualizado `.github/copilot-instructions.md` con Fase 4
+
+### 🎯 Criterios de Éxito Completados
+
+- [x] Usuario recurrente puede continuar con última carpeta en 1 clic
+- [x] Transiciones suaves entre estados
+- [x] Mensajes de error claros y accionables
+- [x] Animaciones fluidas y profesionales
+- [x] Recuperación de errores sin bloquear al usuario
+
+---
+
+## [MVP1] - 2025-11-04
+
+### Resumen
+
+Versión inicial congelada del proyecto. Incluye las últimas mejoras y refactors de la UI (top bar, styles), correcciones menores y limpieza de componentes.
 
 Commits recientes (últimos 50 en `develop` en el momento de crear la rama MVP1):
 

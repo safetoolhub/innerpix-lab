@@ -14,15 +14,14 @@ class LivePhotoCleanupDialog(BaseDialog):
 
     def __init__(self, analysis, parent=None):
         super().__init__(parent)
-        self.analysis = analysis  # dict con 'groups', 'live_photos_found', 'total_space', etc.
+        self.analysis = analysis  # Dataclass con atributos
         self.selected_mode = CleanupMode.KEEP_IMAGE
         self.accepted_plan = None
         self.init_ui()
 
     def _calculate_space_for_mode(self, mode):
         """Calcula el espacio a liberar según el modo seleccionado"""
-        # analysis es un dict porque viene de workers.py
-        groups = self.analysis.get('groups', [])
+        groups = getattr(self.analysis, 'groups', [])
         if not groups:
             return 0
 
@@ -37,7 +36,7 @@ class LivePhotoCleanupDialog(BaseDialog):
 
     def _update_button_text(self):
         """Actualiza el texto del botón según el modo seleccionado"""
-        groups = self.analysis.get('groups', [])
+        groups = getattr(self.analysis, 'groups', [])
         lp_found = len(groups)
         if lp_found > 0:
             space = self._calculate_space_for_mode(self.selected_mode)
@@ -91,8 +90,8 @@ class LivePhotoCleanupDialog(BaseDialog):
         # Estadísticas
         stats_group = QGroupBox("Información")
         stats_layout = QVLayout(stats_group)
-        lp_found = self.analysis.get('live_photos_found', 0)
-        total_space = self.analysis.get('total_space', 0)
+        lp_found = getattr(self.analysis, 'total_groups', 0)
+        total_space = getattr(self.analysis, 'total_size', 0)
         stats_label = QLabel(
             f"📱 Live Photos detectados: <b>{lp_found}</b><br>"
             f"💾 Espacio total ocupado: <b>{format_size(total_space)}</b>"
@@ -140,12 +139,15 @@ class LivePhotoCleanupDialog(BaseDialog):
 
     def accept(self):
         # Preparamos el plan de limpieza asegurándonos de que las rutas son objetos Path
+        files_to_delete = getattr(self.analysis, 'files_to_delete', [])
+        files_to_keep = getattr(self.analysis, 'files_to_keep', [])
+        
         self.accepted_plan = self.build_accepted_plan({
             'mode': self.selected_mode,
             'dry_run': self.dry_run_checkbox.isChecked(),
             'files_to_delete': (
-                self.analysis['files_to_delete'] if self.selected_mode == CleanupMode.KEEP_IMAGE
-                else self.analysis['files_to_keep']
+                files_to_delete if self.selected_mode == CleanupMode.KEEP_IMAGE
+                else files_to_keep
             )
         })
         super().accept()

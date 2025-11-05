@@ -66,6 +66,7 @@ class IconManager:
         'delete': 'mdi6.delete',
         'save': 'mdi6.content-save',
         'backup': 'mdi6.backup-restore',
+        'history': 'mdi6.history',
         
         # Estadísticas y métricas
         'stats': 'mdi6.chart-bar',
