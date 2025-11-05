@@ -10,7 +10,7 @@ from PyQt6.QtCore import QUrl
 from config import Config
 from services.duplicate_detector import DuplicateGroup
 from utils.format_utils import format_size
-from ui import styles as ui_styles
+from ui import ui_styles
 from .base_dialog import BaseDialog
 from .dialog_utils import show_file_details_dialog
 

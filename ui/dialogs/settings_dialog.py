@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from config import Config
-from ui import styles as ui_styles
+from ui import ui_styles
 from utils.logger import set_global_log_level, get_logger
 from utils.settings_manager import settings_manager
 

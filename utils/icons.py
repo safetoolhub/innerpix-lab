@@ -51,14 +51,17 @@ class IconManager:
         'error': 'mdi6.alert-circle',
         'success': 'mdi6.check-circle',
         'check': 'mdi6.check',
+        'check-circle': 'mdi6.check-circle',
         'close': 'mdi6.close',
         'cancel': 'mdi6.close-circle',
+        'pause-circle': 'mdi6.pause-circle',
         
         # Navegación y acciones de archivos
         'folder': 'mdi6.folder',
         'folder-open': 'mdi6.folder-open',
         'file': 'mdi6.file',
         'search': 'mdi6.magnify',
+        'magnify': 'mdi6.magnify',
         'refresh': 'mdi6.refresh',
         'delete': 'mdi6.delete',
         'save': 'mdi6.content-save',
@@ -80,6 +83,7 @@ class IconManager:
         
         # Live Photos y duplicados
         'live-photo': 'mdi6.camera-burst',
+        'camera-burst': 'mdi6.camera-burst',
         'duplicate': 'mdi6.content-duplicate',
         'duplicate-exact': 'mdi6.equal',
         'duplicate-similar': 'mdi6.image-search',

@@ -210,3 +210,43 @@ class DesignSystem:
         """
         shadow = f"0 4px 6px rgba(0, 0, 0, {'0.07' if not hover else '0.12'})"
         widget.setGraphicsEffect(None)  # PyQt no soporta CSS shadows directamente
+    
+    @staticmethod
+    def get_tooltip_style():
+        """
+        Retorna el estilo QSS para tooltips de manera centralizada
+        TODOS los tooltips de la aplicación deben usar este estilo
+        """
+        return f"""
+            QToolTip {{
+                background-color: {DesignSystem.COLOR_TEXT};
+                color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_TEXT};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_NORMAL};
+            }}
+        """
+    
+    @staticmethod
+    def get_progressbar_style():
+        """
+        Retorna el estilo QSS para barras de progreso
+        """
+        return f"""
+            QProgressBar {{
+                border: none;
+                border-radius: {DesignSystem.RADIUS_FULL}px;
+                background-color: {DesignSystem.COLOR_SECONDARY};
+                text-align: center;
+                height: 8px;
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                color: {DesignSystem.COLOR_TEXT};
+            }}
+            
+            QProgressBar::chunk {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                border-radius: {DesignSystem.RADIUS_FULL}px;
+            }}
+        """
