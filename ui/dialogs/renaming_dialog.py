@@ -15,6 +15,7 @@ from utils.format_utils import format_size
 from utils.settings_manager import settings_manager
 from config import Config
 from ui import ui_styles
+from ui.styles.design_system import DesignSystem
 from .base_dialog import BaseDialog
 
 
@@ -98,6 +99,9 @@ class RenamingPreviewDialog(BaseDialog):
         
         # Actualizar tabla inicial
         self._update_table()
+        
+        # Aplicar estilo global de tooltips
+        self.setStyleSheet(DesignSystem.get_tooltip_style())
 
     def _create_compact_metrics(self):
         """Crea panel de métricas compacto en una línea"""

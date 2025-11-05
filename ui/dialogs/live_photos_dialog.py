@@ -6,6 +6,7 @@ from PyQt6.QtCore import Qt
 from services.live_photo_cleaner import CleanupMode
 from utils.format_utils import format_size
 from ui import ui_styles
+from ui.styles.design_system import DesignSystem
 from .base_dialog import BaseDialog
 
 
@@ -131,6 +132,9 @@ class LivePhotoCleanupDialog(BaseDialog):
         if lp_found > 0:
             self._update_button_text()
         layout.addWidget(self.buttons)
+        
+        # Aplicar estilo global de tooltips
+        self.setStyleSheet(DesignSystem.get_tooltip_style())
 
     def _on_mode_changed(self, button):
         modes = {0: CleanupMode.KEEP_IMAGE, 1: CleanupMode.KEEP_VIDEO}

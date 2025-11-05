@@ -14,6 +14,7 @@ from PyQt6.QtCore import Qt, QTimer
 from config import Config
 from utils.format_utils import format_size
 from ui import ui_styles
+from ui.styles.design_system import DesignSystem
 from .base_dialog import BaseDialog
 
 
@@ -89,6 +90,9 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         
         # Actualizar vista inicial
         self._update_tree()
+        
+        # Aplicar estilo global de tooltips
+        self.setStyleSheet(DesignSystem.get_tooltip_style())
 
     def _create_explanation_section(self):
         """Crea sección de explicación clara"""
@@ -265,12 +269,12 @@ class HEICDuplicateRemovalDialog(BaseDialog):
             QTreeWidget::item:hover {
                 background-color: #f0f7ff;
             }
-            """ + ui_styles.STYLE_TOOLTIP_DARK
+            """
         )
         tree.setToolTip(
-            "💡 Doble clic en 'HEIC 📷' para abrir archivo HEIC\n"
-            "💡 Doble clic en 'JPG 📷' para abrir archivo JPG\n"
-            "💡 Clic derecho para más opciones"
+            "Doble clic en 'HEIC' para abrir archivo HEIC\n"
+            "Doble clic en 'JPG' para abrir archivo JPG\n"
+            "Clic derecho para más opciones"
         )
         
         # Ajustar columnas

@@ -11,6 +11,7 @@ from config import Config
 from services.duplicate_detector import DuplicateGroup
 from utils.format_utils import format_size
 from ui import ui_styles
+from ui.styles.design_system import DesignSystem
 from .base_dialog import BaseDialog
 from .dialog_utils import show_file_details_dialog
 from datetime import datetime
@@ -328,6 +329,9 @@ class ExactDuplicatesDialog(BaseDialog):
         ok_btn = buttons.button(QDialogButtonBox.StandardButton.Ok)
         ok_btn.setStyleSheet(ui_styles.STYLE_DANGER_BUTTON)
         layout.addWidget(buttons)
+        
+        # Aplicar estilo global de tooltips
+        self.setStyleSheet(DesignSystem.get_tooltip_style())
     
     def _create_inline_metric(self, label_text, value, color):
         """Crea una métrica compacta inline con borde de color"""

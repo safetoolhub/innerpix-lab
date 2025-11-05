@@ -31,6 +31,7 @@ class DesignSystem:
     # Estados
     COLOR_SUCCESS = "#10b981"
     COLOR_WARNING = "#f59e0b"
+    COLOR_WARNING_HOVER = "#d97706"
     COLOR_ERROR = "#ef4444"
     
     # Backgrounds adicionales
@@ -219,16 +220,59 @@ class DesignSystem:
         """
         return f"""
             QToolTip {{
-                background-color: {DesignSystem.COLOR_TEXT};
-                color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_TEXT};
+                background-color: {DesignSystem.COLOR_SURFACE};
+                color: {DesignSystem.COLOR_TEXT};
+                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
                 border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
+                padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_8}px;
                 font-size: {DesignSystem.FONT_SIZE_SM}px;
                 font-weight: {DesignSystem.FONT_WEIGHT_NORMAL};
+                box-shadow: {DesignSystem.SHADOW_SM};
             }}
         """
     
+    @staticmethod
+    def get_tab_widget_style():
+        """
+        Retorna el estilo QSS para widgets de pestañas (QTabWidget)
+        """
+        return f"""
+            QTabWidget::pane {{
+                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                background-color: {DesignSystem.COLOR_SURFACE};
+                padding: {DesignSystem.SPACE_16}px;
+            }}
+            
+            QTabBar::tab {{
+                background-color: {DesignSystem.COLOR_SECONDARY};
+                color: {DesignSystem.COLOR_TEXT};
+                padding: {DesignSystem.SPACE_12}px {DesignSystem.SPACE_20}px;
+                border: none;
+                border-radius: {DesignSystem.RADIUS_BASE}px {DesignSystem.RADIUS_BASE}px 0 0;
+                margin-right: {DesignSystem.SPACE_4}px;
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                min-width: 80px;
+                text-align: center;
+            }}
+            
+            QTabBar::tab:selected {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                color: {DesignSystem.COLOR_TEXT};
+                border-bottom: 2px solid {DesignSystem.COLOR_PRIMARY};
+            }}
+            
+            QTabBar::tab:hover {{
+                background-color: {DesignSystem.COLOR_SECONDARY_HOVER};
+                color: {DesignSystem.COLOR_TEXT};
+            }}
+            
+            QTabBar::tab:selected:hover {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+            }}
+        """
+
     @staticmethod
     def get_progressbar_style():
         """
