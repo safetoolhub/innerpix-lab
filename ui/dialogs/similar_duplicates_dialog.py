@@ -11,6 +11,7 @@ from config import Config
 from services.duplicate_detector import DuplicateGroup
 from utils.format_utils import format_size
 from ui import ui_styles
+from ui.styles.design_system import DesignSystem
 from .base_dialog import BaseDialog
 from .dialog_utils import show_file_details_dialog
 
@@ -141,6 +142,9 @@ class SimilarDuplicatesDialog(BaseDialog):
 
         # Cargar primer grupo
         self._load_group(0)
+        
+        # Aplicar estilo global de tooltips
+        self.setStyleSheet(DesignSystem.get_tooltip_style())
 
     def _load_group(self, index):
         """Carga y muestra un grupo específico con miniaturas"""

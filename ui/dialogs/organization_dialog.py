@@ -16,6 +16,7 @@ from config import Config
 from utils.format_utils import format_size
 from utils.date_utils import get_file_date
 from ui import ui_styles
+from ui.styles.design_system import DesignSystem
 from .base_dialog import BaseDialog
 
 
@@ -94,6 +95,9 @@ class FileOrganizationDialog(BaseDialog):
         
         # Actualizar vista inicial
         self._update_tree()
+        
+        # Aplicar estilo global de tooltips
+        self.setStyleSheet(DesignSystem.get_tooltip_style())
 
     def _create_explanation_section(self):
         """Crea sección de explicación clara según tipo de organización"""

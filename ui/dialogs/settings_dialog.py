@@ -10,9 +10,10 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from config import Config
-from ui import ui_styles
+from ui.styles.design_system import DesignSystem
 from utils.logger import set_global_log_level, get_logger
 from utils.settings_manager import settings_manager
+import logging
 
 
 class SettingsDialog(QDialog):
@@ -24,15 +25,18 @@ class SettingsDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.parent_window = parent
-        self.logger = get_logger('SettingsDialog')
+        self.logger = logging.getLogger('PixaroLab.SettingsDialog')
         self.settings_changed = False
         self.init_ui()
         self._load_current_settings()
 
     def init_ui(self):
-        self.setWindowTitle("⚙️ Configuración")
+        self.setWindowTitle("Configuracion")
         self.setModal(True)
         self.resize(750, 600)
+        
+        # Aplicar estilo global de tooltips
+        self.setStyleSheet(DesignSystem.get_tooltip_style())
 
         # Layout principal con pestañas
         main_layout = QVBoxLayout(self)
@@ -41,31 +45,50 @@ class SettingsDialog(QDialog):
 
         # Crear pestañas para mejor organización
         tabs = QTabWidget()
-        tabs.setStyleSheet(ui_styles.STYLE_TABS)
+        tabs.setStyleSheet(DesignSystem.get_tab_widget_style())
 
         # === PESTAÑA 1: GENERAL ===
         general_tab = self._create_general_tab()
-        tabs.addTab(general_tab, "🎯 General")
+        tabs.addTab(general_tab, "General")
 
         # === PESTAÑA 2: DIRECTORIOS ===
         dirs_tab = self._create_directories_tab()
-        tabs.addTab(dirs_tab, "📁 Directorios")
+        tabs.addTab(dirs_tab, "Directorios")
 
         # === PESTAÑA 3: AVANZADO ===
         advanced_tab = self._create_advanced_tab()
-        tabs.addTab(advanced_tab, "🔧 Avanzado")
+        tabs.addTab(advanced_tab, "Avanzado")
 
         main_layout.addWidget(tabs)
 
         # Footer con botones
         footer = QFrame()
-        footer.setStyleSheet(ui_styles.STYLE_FOOTER)
+        footer.setObjectName("dialog-footer")
+        footer.setStyleSheet(f"""
+            QFrame#dialog-footer {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                border-top: 1px solid {DesignSystem.COLOR_BORDER};
+            }}
+        """)
         footer_layout = QHBoxLayout(footer)
         footer_layout.setContentsMargins(15, 10, 15, 10)
 
         # Botón restaurar valores por defecto
-        restore_btn = QPushButton("🔄 Restaurar valores por defecto")
-        restore_btn.setStyleSheet(ui_styles.STYLE_RESTORE_BUTTON)
+        restore_btn = QPushButton("Restaurar valores por defecto")
+        restore_btn.setObjectName("restore-button")
+        restore_btn.setStyleSheet(f"""
+            QPushButton#restore-button {{
+                background-color: {DesignSystem.COLOR_WARNING};
+                color: {DesignSystem.COLOR_TEXT};
+                border: none;
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: 8px 16px;
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            }}
+            QPushButton#restore-button:hover {{
+                background-color: {DesignSystem.COLOR_WARNING_HOVER};
+            }}
+        """)
         restore_btn.clicked.connect(self.restore_defaults)
         footer_layout.addWidget(restore_btn)
 
@@ -76,9 +99,36 @@ class SettingsDialog(QDialog):
             QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
         )
         buttons.button(QDialogButtonBox.StandardButton.Save).setText("Guardar Cambios")
-        buttons.button(QDialogButtonBox.StandardButton.Save).setStyleSheet(ui_styles.STYLE_SAVE_BUTTON)
+        buttons.button(QDialogButtonBox.StandardButton.Save).setObjectName("save-button")
+        buttons.button(QDialogButtonBox.StandardButton.Save).setStyleSheet(f"""
+            QPushButton#save-button {{
+                background-color: {DesignSystem.COLOR_SUCCESS};
+                color: {DesignSystem.COLOR_SURFACE};
+                border: none;
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: 10px 24px;
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            }}
+            QPushButton#save-button:hover {{
+                background-color: #059669;
+            }}
+        """)
         buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("Cancelar")
-        buttons.button(QDialogButtonBox.StandardButton.Cancel).setStyleSheet(ui_styles.STYLE_CANCEL_BUTTON)
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setObjectName("cancel-button")
+        buttons.button(QDialogButtonBox.StandardButton.Cancel).setStyleSheet(f"""
+            QPushButton#cancel-button {{
+                background-color: {DesignSystem.COLOR_SECONDARY};
+                color: {DesignSystem.COLOR_TEXT};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: 8px 16px;
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            }}
+            QPushButton#cancel-button:hover {{
+                background-color: {DesignSystem.COLOR_SECONDARY_HOVER};
+            }}
+        """)
         buttons.accepted.connect(self.save_settings)
         buttons.rejected.connect(self.reject)
         footer_layout.addWidget(buttons)
@@ -93,15 +143,41 @@ class SettingsDialog(QDialog):
         layout.setSpacing(20)
 
         # === BACKUPS AUTOMÁTICOS ===
-        backup_group = QGroupBox("💾 Backups Automáticos")
-        backup_group.setStyleSheet(ui_styles.STYLE_GROUPBOX_SETTINGS)
+        backup_group = QGroupBox("Backups Automaticos")
+        backup_group.setObjectName("settings-groupbox")
+        backup_group.setStyleSheet(f"""
+            QGroupBox#settings-groupbox {{
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                margin-top: 1ex;
+                padding-top: 10px;
+            }}
+            QGroupBox#settings-groupbox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px 0 5px;
+                color: {DesignSystem.COLOR_TEXT};
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            }}
+        """)
         backup_layout = QVLayout(backup_group)
         backup_layout.setSpacing(12)
 
         backup_info = QLabel(
-            "⚠️ <b>Muy Recomendado:</b> Los backups te permiten recuperar archivos en caso de error."
+            "<b>Muy Recomendado:</b> Los backups te permiten recuperar archivos en caso de error."
         )
-        backup_info.setStyleSheet(ui_styles.STYLE_WARNING_LABEL)
+        backup_info.setObjectName("warning-label")
+        backup_info.setStyleSheet(f"""
+            QLabel#warning-label {{
+                color: {DesignSystem.COLOR_WARNING};
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                padding: 8px;
+                background-color: {DesignSystem.COLOR_BG_4};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                border: 1px solid {DesignSystem.COLOR_WARNING};
+            }}
+        """)
         backup_info.setWordWrap(True)
         backup_layout.addWidget(backup_info)
 
@@ -119,8 +195,24 @@ class SettingsDialog(QDialog):
         layout.addWidget(backup_group)
 
         # === CONFIRMACIONES ===
-        confirm_group = QGroupBox("❓ Confirmaciones")
-        confirm_group.setStyleSheet(ui_styles.STYLE_GROUPBOX_SETTINGS)
+        confirm_group = QGroupBox("Confirmaciones")
+        confirm_group.setObjectName("settings-groupbox")
+        confirm_group.setStyleSheet(f"""
+            QGroupBox#settings-groupbox {{
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                margin-top: 1ex;
+                padding-top: 10px;
+            }}
+            QGroupBox#settings-groupbox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px 0 5px;
+                color: {DesignSystem.COLOR_TEXT};
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            }}
+        """)
         confirm_layout = QVLayout(confirm_group)
         confirm_layout.setSpacing(10)
 
@@ -137,8 +229,24 @@ class SettingsDialog(QDialog):
         layout.addWidget(confirm_group)
 
         # === NOTIFICACIONES ===
-        notif_group = QGroupBox("🔔 Notificaciones")
-        notif_group.setStyleSheet(ui_styles.STYLE_GROUPBOX_SETTINGS)
+        notif_group = QGroupBox("Notificaciones")
+        notif_group.setObjectName("settings-groupbox")
+        notif_group.setStyleSheet(f"""
+            QGroupBox#settings-groupbox {{
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                margin-top: 1ex;
+                padding-top: 10px;
+            }}
+            QGroupBox#settings-groupbox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px 0 5px;
+                color: {DesignSystem.COLOR_TEXT};
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            }}
+        """)
         notif_layout = QVLayout(notif_group)
         notif_layout.setSpacing(10)
 
@@ -150,8 +258,24 @@ class SettingsDialog(QDialog):
         layout.addWidget(notif_group)
 
         # === INTERFAZ ===
-        interface_group = QGroupBox("🎨 Interfaz")
-        interface_group.setStyleSheet(ui_styles.STYLE_GROUPBOX_SETTINGS)
+        interface_group = QGroupBox("Interfaz")
+        interface_group.setObjectName("settings-groupbox")
+        interface_group.setStyleSheet(f"""
+            QGroupBox#settings-groupbox {{
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                margin-top: 1ex;
+                padding-top: 10px;
+            }}
+            QGroupBox#settings-groupbox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px 0 5px;
+                color: {DesignSystem.COLOR_TEXT};
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            }}
+        """)
         interface_layout = QVLayout(interface_group)
         interface_layout.setSpacing(10)
 
@@ -176,15 +300,38 @@ class SettingsDialog(QDialog):
         layout.setSpacing(20)
 
         # === LOGS ===
-        logs_group = QGroupBox("📄 Logs y Diagnóstico")
-        logs_group.setStyleSheet(ui_styles.STYLE_GROUPBOX_SETTINGS)
+        logs_group = QGroupBox("Logs y Diagnostico")
+        logs_group.setObjectName("settings-groupbox")
+        logs_group.setStyleSheet(f"""
+            QGroupBox#settings-groupbox {{
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                margin-top: 1ex;
+                padding-top: 10px;
+            }}
+            QGroupBox#settings-groupbox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px 0 5px;
+                color: {DesignSystem.COLOR_TEXT};
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            }}
+        """)
         logs_layout = QVLayout(logs_group)
         logs_layout.setSpacing(12)
 
         logs_info = QLabel(
-            "Los archivos de log registran todas las operaciones para diagnóstico y auditoría."
+            "Los archivos de log registran todas las operaciones para diagnostico y auditoria."
         )
-        logs_info.setStyleSheet(ui_styles.STYLE_SMALL_INFO_LABEL)
+        logs_info.setObjectName("small-info-label")
+        logs_info.setStyleSheet(f"""
+            QLabel#small-info-label {{
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                font-style: italic;
+            }}
+        """)
         logs_info.setWordWrap(True)
         logs_layout.addWidget(logs_info)
 
@@ -197,11 +344,25 @@ class SettingsDialog(QDialog):
         self.logs_edit = QLineEdit()
         self.logs_edit.setText(str(settings_manager.get_logs_directory() or Config.DEFAULT_LOG_DIR))
         self.logs_edit.setReadOnly(True)
-        self.logs_edit.setStyleSheet(ui_styles.STYLE_DIRECTORY_EDIT)
+        self.logs_edit.setObjectName("directory-edit")
+        self.logs_edit.setStyleSheet(f"""
+            QLineEdit#directory-edit {{
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: 6px 12px;
+                background-color: {DesignSystem.COLOR_BG_1};
+                color: {DesignSystem.COLOR_TEXT};
+                font-family: {DesignSystem.FONT_FAMILY_MONO};
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+            }}
+            QLineEdit#directory-edit:focus {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+        """)
         logs_dir_layout.addWidget(self.logs_edit)
 
-        browse_logs_btn = QPushButton("📂")
-        browse_logs_btn.setMaximumWidth(50)
+        browse_logs_btn = QPushButton("Cambiar...")
+        browse_logs_btn.setMaximumWidth(80)
         browse_logs_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         browse_logs_btn.setToolTip("Cambiar ubicación de logs")
         browse_logs_btn.clicked.connect(self.browse_logs_directory)
@@ -217,14 +378,38 @@ class SettingsDialog(QDialog):
 
         self.log_level_combo = QComboBox()
         self.log_level_combo.addItems([
-            "DEBUG - Máximo detalle (para desarrollo)",
+            "DEBUG - Maximo detalle (para desarrollo)",
             "INFO - Normal (recomendado)",
             "WARNING - Solo advertencias",
-            "ERROR - Solo errores críticos"
+            "ERROR - Solo errores criticos"
         ])
-        self.log_level_combo.setStyleSheet(ui_styles.STYLE_LOG_LEVEL_COMBO)
+        self.log_level_combo.setObjectName("log-level-combo")
+        self.log_level_combo.setStyleSheet(f"""
+            QComboBox#log-level-combo {{
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: 6px 12px;
+                background-color: {DesignSystem.COLOR_SURFACE};
+                color: {DesignSystem.COLOR_TEXT};
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            }}
+            QComboBox#log-level-combo::drop-down {{
+                border: none;
+                width: 20px;
+            }}
+            QComboBox#log-level-combo::down-arrow {{
+                image: none;
+                border-left: 4px solid transparent;
+                border-right: 4px solid transparent;
+                border-top: 4px solid {DesignSystem.COLOR_TEXT};
+                margin-right: 8px;
+            }}
+            QComboBox#log-level-combo:focus {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+        """)
         self.log_level_combo.setToolTip(
-            "DEBUG: Toda la información técnica\n"
+            "DEBUG: Toda la informacion tecnica\n"
             "INFO: Operaciones normales\n"
             "WARNING: Situaciones inusuales\n"
             "ERROR: Solo errores graves"
@@ -237,20 +422,56 @@ class SettingsDialog(QDialog):
         logs_layout.addLayout(log_level_layout)
 
         # Botón abrir carpeta de logs
-        open_logs_btn = QPushButton("📂 Abrir carpeta de logs")
-        open_logs_btn.setStyleSheet(ui_styles.STYLE_OPEN_LOGS_BUTTON)
+        open_logs_btn = QPushButton("Abrir carpeta de logs")
+        open_logs_btn.setObjectName("open-folder-button")
+        open_logs_btn.setStyleSheet(f"""
+            QPushButton#open-folder-button {{
+                background-color: {DesignSystem.COLOR_SECONDARY};
+                color: {DesignSystem.COLOR_TEXT};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: 8px 16px;
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            }}
+            QPushButton#open-folder-button:hover {{
+                background-color: {DesignSystem.COLOR_SECONDARY_HOVER};
+            }}
+        """)
         open_logs_btn.clicked.connect(self.open_logs_folder)
         logs_layout.addWidget(open_logs_btn)
 
         layout.addWidget(logs_group)
 
         # === BACKUPS ===
-        backup_group = QGroupBox("💾 Directorio de Backups")
-        backup_group.setStyleSheet(ui_styles.STYLE_GROUPBOX_SETTINGS)
+        backup_group = QGroupBox("Directorio de Backups")
+        backup_group.setObjectName("settings-groupbox")
+        backup_group.setStyleSheet(f"""
+            QGroupBox#settings-groupbox {{
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                margin-top: 1ex;
+                padding-top: 10px;
+            }}
+            QGroupBox#settings-groupbox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px 0 5px;
+                color: {DesignSystem.COLOR_TEXT};
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            }}
+        """)
         backup_layout = QVLayout(backup_group)
 
-        backup_info = QLabel("Ubicación donde se guardan las copias de seguridad automáticas.")
-        backup_info.setStyleSheet(ui_styles.STYLE_SMALL_INFO_LABEL)
+        backup_info = QLabel("Ubicacion donde se guardan las copias de seguridad automaticas.")
+        backup_info.setObjectName("small-info-label")
+        backup_info.setStyleSheet(f"""
+            QLabel#small-info-label {{
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                font-style: italic;
+            }}
+        """)
         backup_info.setWordWrap(True)
         backup_layout.addWidget(backup_info)
 
@@ -262,11 +483,25 @@ class SettingsDialog(QDialog):
         self.backup_edit = QLineEdit()
         self.backup_edit.setText(str(Config.DEFAULT_BACKUP_DIR))
         self.backup_edit.setReadOnly(True)
-        self.backup_edit.setStyleSheet(ui_styles.STYLE_DIRECTORY_EDIT)
+        self.backup_edit.setObjectName("directory-edit")
+        self.backup_edit.setStyleSheet(f"""
+            QLineEdit#directory-edit {{
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: 6px 12px;
+                background-color: {DesignSystem.COLOR_BG_1};
+                color: {DesignSystem.COLOR_TEXT};
+                font-family: {DesignSystem.FONT_FAMILY_MONO};
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+            }}
+            QLineEdit#directory-edit:focus {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+        """)
         backup_row.addWidget(self.backup_edit)
 
-        browse_backup_btn = QPushButton("📂")
-        browse_backup_btn.setMaximumWidth(50)
+        browse_backup_btn = QPushButton("Cambiar...")
+        browse_backup_btn.setMaximumWidth(80)
         browse_backup_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         browse_backup_btn.setToolTip("Cambiar ubicación de backups")
         browse_backup_btn.clicked.connect(self.browse_backup_directory)
@@ -286,8 +521,24 @@ class SettingsDialog(QDialog):
         layout.setSpacing(20)
 
         # === RENDIMIENTO ===
-        perf_group = QGroupBox("⚡ Rendimiento")
-        perf_group.setStyleSheet(ui_styles.STYLE_GROUPBOX_SETTINGS)
+        perf_group = QGroupBox("Rendimiento")
+        perf_group.setObjectName("settings-groupbox")
+        perf_group.setStyleSheet(f"""
+            QGroupBox#settings-groupbox {{
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                margin-top: 1ex;
+                padding-top: 10px;
+            }}
+            QGroupBox#settings-groupbox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px 0 5px;
+                color: {DesignSystem.COLOR_TEXT};
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            }}
+        """)
         perf_layout = QVLayout(perf_group)
         perf_layout.setSpacing(12)
 
@@ -311,25 +562,55 @@ class SettingsDialog(QDialog):
         perf_layout.addLayout(workers_layout)
 
         perf_info = QLabel(
-            "ℹ️ Cambiar el número de hilos requiere reiniciar la aplicación para tener efecto completo."
+            "Cambiar el numero de hilos requiere reiniciar la aplicacion para tener efecto completo."
         )
-        perf_info.setStyleSheet(ui_styles.STYLE_SMALL_INFO_LABEL)
+        perf_info.setObjectName("small-info-label")
+        perf_info.setStyleSheet(f"""
+            QLabel#small-info-label {{
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                font-style: italic;
+            }}
+        """)
         perf_info.setWordWrap(True)
         perf_layout.addWidget(perf_info)
 
         layout.addWidget(perf_group)
 
         # === MODO SIMULACIÓN ===
-        dryrun_group = QGroupBox("🧪 Modo Simulación (Dry Run)")
-        dryrun_group.setStyleSheet(ui_styles.STYLE_GROUPBOX_SETTINGS)
+        dryrun_group = QGroupBox("Modo Simulacion (Dry Run)")
+        dryrun_group.setObjectName("settings-groupbox")
+        dryrun_group.setStyleSheet(f"""
+            QGroupBox#settings-groupbox {{
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                margin-top: 1ex;
+                padding-top: 10px;
+            }}
+            QGroupBox#settings-groupbox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px 0 5px;
+                color: {DesignSystem.COLOR_TEXT};
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            }}
+        """)
         dryrun_layout = QVLayout(dryrun_group)
         dryrun_layout.setSpacing(12)
 
         dryrun_info = QLabel(
-            "En modo simulación, las operaciones se analizan y muestran pero <b>no se ejecutan</b> realmente. "
-            "Útil para verificar qué hará la aplicación antes de aplicar cambios."
+            "En modo simulacion, las operaciones se analizan y muestran pero <b>no se ejecutan</b> realmente. "
+            "Util para verificar que hara la aplicacion antes de aplicar cambios."
         )
-        dryrun_info.setStyleSheet(ui_styles.STYLE_SMALL_INFO_LABEL)
+        dryrun_info.setObjectName("small-info-label")
+        dryrun_info.setStyleSheet(f"""
+            QLabel#small-info-label {{
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                font-style: italic;
+            }}
+        """)
         dryrun_info.setWordWrap(True)
         dryrun_layout.addWidget(dryrun_info)
 
@@ -345,28 +626,55 @@ class SettingsDialog(QDialog):
         layout.addWidget(dryrun_group)
 
         # === DEPURACIÓN ===
-        debug_group = QGroupBox("🐛 Depuración")
-        debug_group.setStyleSheet(ui_styles.STYLE_GROUPBOX_SETTINGS)
+        debug_group = QGroupBox("Depuracion")
+        debug_group.setObjectName("settings-groupbox")
+        debug_group.setStyleSheet(f"""
+            QGroupBox#settings-groupbox {{
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                margin-top: 1ex;
+                padding-top: 10px;
+            }}
+            QGroupBox#settings-groupbox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px 0 5px;
+                color: {DesignSystem.COLOR_TEXT};
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            }}
+        """)
         debug_layout = QVLayout(debug_group)
 
-        clear_settings_btn = QPushButton("🗑️ Restablecer TODA la configuración guardada")
-        clear_settings_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #d32f2f;
-                color: white;
-                padding: 8px;
+        clear_settings_btn = QPushButton("Restablecer TODA la configuracion guardada")
+        clear_settings_btn.setObjectName("danger-button")
+        clear_settings_btn.setStyleSheet(f"""
+            QPushButton#danger-button {{
+                background-color: {DesignSystem.COLOR_ERROR};
+                color: {DesignSystem.COLOR_SURFACE};
                 border: none;
-                border-radius: 4px;
-            }
-            QPushButton:hover {
-                background-color: #b71c1c;
-            }
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: 8px 16px;
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            }}
+            QPushButton#danger-button:hover {{
+                background-color: #dc2626;
+            }}
         """)
         clear_settings_btn.clicked.connect(self.clear_all_settings)
         debug_layout.addWidget(clear_settings_btn)
 
-        debug_info = QLabel("⚠️ Esto eliminará todas las preferencias guardadas y volverá a los valores por defecto.")
-        debug_info.setStyleSheet(ui_styles.STYLE_SETTINGS_DEBUG_INFO)
+        debug_info = QLabel("Esto eliminara todas las preferencias guardadas y volvera a los valores por defecto.")
+        debug_info.setObjectName("debug-info-label")
+        debug_info.setStyleSheet(f"""
+            QLabel#debug-info-label {{
+                color: {DesignSystem.COLOR_WARNING};
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                font-style: italic;
+                padding: 4px 0;
+            }}
+        """)
         debug_info.setWordWrap(True)
         debug_layout.addWidget(debug_info)
 
@@ -458,14 +766,14 @@ class SettingsDialog(QDialog):
         """Limpia toda la configuración guardada"""
         reply = QMessageBox.warning(
             self,
-            "⚠️ Confirmar Eliminación",
-            "¿Estás seguro de que deseas eliminar TODA la configuración guardada?\n\n"
+            "Confirmar Eliminacion",
+            "¿Estas seguro de que deseas eliminar TODA la configuracion guardada?\n\n"
             "Esto incluye:\n"
             "• Preferencias de backup\n"
             "• Directorios personalizados\n"
             "• Nivel de logging\n"
-            "• Todas las demás configuraciones\n\n"
-            "La aplicación volverá a los valores por defecto.",
+            "• Todas las demas configuraciones\n\n"
+            "La aplicacion volvera a los valores por defecto.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No
         )
@@ -476,9 +784,9 @@ class SettingsDialog(QDialog):
                 self.logger.info("Toda la configuración ha sido eliminada")
                 QMessageBox.information(
                     self,
-                    "✓ Configuración Eliminada",
-                    "Se ha eliminado toda la configuración.\n"
-                    "Se recomienda reiniciar la aplicación."
+                    "Configuracion Eliminada",
+                    "Se ha eliminado toda la configuracion.\n"
+                    "Se recomienda reiniciar la aplicacion."
                 )
                 # Recargar valores por defecto
                 self._load_current_settings()
@@ -555,7 +863,7 @@ class SettingsDialog(QDialog):
             self.dry_run_default_checkbox.setChecked(False)
             self.max_workers_spin.setValue(Config.MAX_WORKERS)
 
-            QMessageBox.information(self, "✓ Restaurado", "Configuración restaurada a valores por defecto.\n\n"
+            QMessageBox.information(self, "Restaurado", "Configuracion restaurada a valores por defecto.\n\n"
                                    "Presiona 'Guardar Cambios' para aplicar.")
 
     def save_settings(self):
@@ -601,9 +909,9 @@ class SettingsDialog(QDialog):
 
             QMessageBox.information(
                 self,
-                "✓ Configuración Guardada",
-                "La configuración se ha guardado correctamente.\n\n"
-                "Algunos cambios pueden requerir reiniciar la aplicación."
+                "Configuracion Guardada",
+                "La configuracion se ha guardado correctamente.\n\n"
+                "Algunos cambios pueden requerir reiniciar la aplicacion."
             )
 
             self.accept()
