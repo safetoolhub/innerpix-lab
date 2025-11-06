@@ -6,7 +6,7 @@ Stage 3: Grid de herramientas
 """
 
 from pathlib import Path
-from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout
+from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QScrollArea
 from PyQt6.QtCore import Qt
 
 from ui.styles.design_system import DesignSystem
@@ -101,12 +101,38 @@ class MainWindow(QMainWindow):
 
     def _setup_ui(self):
         """Configura la interfaz de usuario principal"""
-        # Widget central
+        # Widget central con scroll
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
 
-        # Layout principal
-        self.main_layout = QVBoxLayout(central_widget)
+        # Layout principal del central widget
+        central_layout = QVBoxLayout(central_widget)
+        central_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Scroll area para contenido
+        self.scroll_area = QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.scroll_area.setMinimumWidth(800)  # Asegurar ancho mínimo
+        self.scroll_area.setStyleSheet("""
+            QScrollArea {
+                border: none;
+                background: transparent;
+            }
+            QScrollArea QWidget {
+                background: transparent;
+            }
+        """)
+        central_layout.addWidget(self.scroll_area)
+
+        # Widget contenedor dentro del scroll area
+        scroll_widget = QWidget()
+        scroll_widget.setMinimumWidth(800)  # Asegurar ancho mínimo
+        self.scroll_area.setWidget(scroll_widget)
+
+        # Layout principal dentro del scroll area
+        self.main_layout = QVBoxLayout(scroll_widget)
         self.main_layout.setSpacing(DesignSystem.SPACE_20)
         self.main_layout.setContentsMargins(
             DesignSystem.SPACE_20,

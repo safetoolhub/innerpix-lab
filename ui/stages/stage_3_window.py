@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import QWidget, QGridLayout, QMessageBox
 from PyQt6.QtCore import QTimer, pyqtSignal
 
 from .base_stage import BaseStage
+from ui.styles.design_system import DesignSystem
 from ui.widgets.summary_card import SummaryCard
 from ui.widgets.tool_card import ToolCard
 from ui.dialogs.live_photos_dialog import LivePhotoCleanupDialog
@@ -16,6 +17,8 @@ from ui.dialogs.exact_duplicates_dialog import ExactDuplicatesDialog
 from ui.dialogs.similar_duplicates_dialog import SimilarDuplicatesDialog
 from ui.dialogs.organization_dialog import FileOrganizationDialog
 from ui.dialogs.renaming_dialog import RenamingPreviewDialog
+from ui.dialogs.settings_dialog import SettingsDialog
+from ui.dialogs.about_dialog import AboutDialog
 from utils.format_utils import format_size, format_file_count
 
 
@@ -33,6 +36,7 @@ class Stage3Window(BaseStage):
         self.analysis_results = analysis_results
 
         # Referencias a widgets del estado
+        self.header = None
         self.summary_card = None
         self.tools_grid = None
         self.tool_cards = {}  # Dict de tool_id -> ToolCard
@@ -40,6 +44,21 @@ class Stage3Window(BaseStage):
     def setup_ui(self) -> None:
         """Configura la interfaz de usuario del Stage 3."""
         self.logger.info("Configurando UI del Stage 3")
+
+        # Limpiar el layout principal antes de agregar nuevos widgets
+        while self.main_layout.count():
+            child = self.main_layout.takeAt(0)
+            if child.widget():
+                child.widget().hide()
+                child.widget().setParent(None)
+
+        # Crear y mostrar header
+        self.header = self.create_header(
+            on_settings_clicked=self._on_settings_clicked,
+            on_about_clicked=self._on_about_clicked
+        )
+        self.main_layout.addWidget(self.header)
+        self.main_layout.addSpacing(DesignSystem.SPACE_20)
 
         # Crear y mostrar summary card con delay
         QTimer.singleShot(300, self._show_summary_card)
@@ -51,6 +70,11 @@ class Stage3Window(BaseStage):
         self.logger.debug("Limpiando Estado 3")
 
         # Limpiar referencias
+        if self.header:
+            self.header.hide()
+            self.header.setParent(None)
+            self.header = None
+
         if self.summary_card:
             self.summary_card.hide()
             self.summary_card.setParent(None)
@@ -69,8 +93,9 @@ class Stage3Window(BaseStage):
         self.summary_card = SummaryCard(self.selected_folder)
         self.summary_card.change_folder_requested.connect(self._on_change_folder)
         self.summary_card.reanalyze_requested.connect(self._on_reanalyze)
-        self.main_layout.insertWidget(1, self.summary_card)
-        self.fade_in_widget(self.summary_card, duration=400)
+        self.main_layout.addWidget(self.summary_card)
+        # No usar fade_in para evitar problemas con el scroll
+        # self.fade_in_widget(self.summary_card, duration=400)
 
         # Actualizar estadísticas de la summary card
         stats = self.analysis_results.get('stats', {})
@@ -158,8 +183,20 @@ class Stage3Window(BaseStage):
         self.tool_cards['rename'] = rename_card
 
         # Agregar grid al layout principal
-        self.main_layout.insertWidget(2, grid_container)
+        self.main_layout.addWidget(grid_container)
         self.tools_grid = grid_container
+
+        # Forzar actualización del scroll area para que funcione correctamente
+        if hasattr(self.main_window, 'scroll_area'):
+            self.main_window.scroll_area.update()
+            self.main_window.scroll_area.viewport().update()
+            # Asegurar que el widget contenido tenga el tamaño correcto
+            scroll_widget = self.main_window.scroll_area.widget()
+            if scroll_widget:
+                scroll_widget.adjustSize()
+                # Forzar recalculo del layout
+                scroll_widget.layout().invalidate()
+                scroll_widget.layout().activate()
 
     def _create_live_photos_card(self, lp_data: dict) -> ToolCard:
         """Crea la card de Live Photos"""
@@ -407,3 +444,15 @@ class Stage3Window(BaseStage):
 
         # Transición al Estado 1 a través de MainWindow
         self.main_window._transition_to_state_1()
+
+    def _on_settings_clicked(self):
+        """Maneja el clic en el botón de configuración"""
+        self.logger.debug("Abriendo diálogo de configuración")
+        dialog = SettingsDialog(self.main_window)
+        dialog.exec()
+
+    def _on_about_clicked(self):
+        """Maneja el clic en el botón 'Acerca de'"""
+        self.logger.debug("Abriendo diálogo 'Acerca de'")
+        dialog = AboutDialog(self.main_window)
+        dialog.exec()

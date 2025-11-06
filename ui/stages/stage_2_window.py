@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import QMessageBox
 from PyQt6.QtCore import QTimer, pyqtSignal
 
 from .base_stage import BaseStage
+from ui.styles.design_system import DesignSystem
 from ui.widgets.progress_card import ProgressCard
 from ui.widgets.analysis_phase_widget import AnalysisPhaseWidget
 from ui.workers import AnalysisWorker
@@ -34,7 +35,8 @@ class Stage2Window(BaseStage):
         # Parámetros del estado
         self.selected_folder = selected_folder
 
-        # Referencias a widgets del estado
+        # Referencias a widgets de la fase
+        self.header = None
         self.progress_card = None
         self.phase_widget = None
 
@@ -50,14 +52,24 @@ class Stage2Window(BaseStage):
         """Configura la interfaz de usuario del Stage 2."""
         self.logger.info("Configurando UI del Stage 2")
 
+        # Crear y mostrar header
+        self.header = self.create_header(
+            subtitle_text="Análisis de tu carpeta",
+            show_settings_button=False,
+            show_about_button=False
+        )
+        self.main_layout.addWidget(self.header)
+        self.main_layout.addSpacing(DesignSystem.SPACE_20)
+
         # Crear y mostrar card de progreso
         self.progress_card = ProgressCard(self.selected_folder)
-        self.main_layout.insertWidget(1, self.progress_card)
+        self.main_layout.addWidget(self.progress_card)
         self.fade_in_widget(self.progress_card, duration=350)
 
         # Crear y mostrar widget de fases con delay
         self.phase_widget = AnalysisPhaseWidget()
-        self.main_layout.insertWidget(2, self.phase_widget)
+        self.main_layout.addWidget(self.phase_widget)
+        self.main_layout.addStretch()
         QTimer.singleShot(150, lambda: self.fade_in_widget(self.phase_widget, duration=350))
 
         # Iniciar análisis con delay para mostrar animaciones
@@ -80,6 +92,11 @@ class Stage2Window(BaseStage):
         self.phase_timers.clear()
 
         # Limpiar referencias
+        if self.header:
+            self.header.hide()
+            self.header.setParent(None)
+            self.header = None
+
         if self.progress_card:
             self.progress_card.hide()
             self.progress_card.setParent(None)
