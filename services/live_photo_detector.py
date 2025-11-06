@@ -67,13 +67,14 @@ class LivePhotoDetector:
         # Tolerancia de tiempo
         self.time_tolerance = 2.0
 
-    def detect_in_directory(self, directory: Path, recursive: bool = True) -> List[LivePhotoGroup]:
+    def detect_in_directory(self, directory: Path, recursive: bool = True, progress_callback=None) -> List[LivePhotoGroup]:
         """
         Detecta Live Photos en un directorio
 
         Args:
             directory: Directorio a analizar
             recursive: Si buscar recursivamente
+            progress_callback: Función opcional (current, total, message) para reportar progreso
 
         Returns:
             Lista de LivePhotoGroup detectados
@@ -86,13 +87,18 @@ class LivePhotoDetector:
         # Recopilar archivos
         photos = []
         videos = []
-
+        
+        # Primero contamos total de archivos para progress
         iterator = directory.rglob("*") if recursive else directory.iterdir()
+        all_files = [f for f in iterator if f.is_file()]
+        total_files = len(all_files)
+        processed = 0
 
-        for file_path in iterator:
-            if not file_path.is_file():
-                continue
-
+        for file_path in all_files:
+            # Reportar progreso
+            if progress_callback:
+                progress_callback(processed, total_files, "Detectando Live Photos")
+            
             ext = file_path.suffix.upper()  # Convertir la extensión a mayúsculas
             self.logger.debug(f"Analizando archivo: {file_path.name} con extensión {ext}")
             
@@ -102,6 +108,8 @@ class LivePhotoDetector:
             elif ext in self.video_extensions:
                 self.logger.debug(f"Encontrado video: {file_path.name}")
                 videos.append(file_path)
+            
+            processed += 1
 
         self.logger.info(f"Encontrados: {len(photos)} fotos, {len(videos)} videos")
 

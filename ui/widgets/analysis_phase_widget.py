@@ -25,48 +25,53 @@ class AnalysisPhaseWidget(QFrame):
     
     def _setup_ui(self):
         """Configura la interfaz del widget"""
+        # Sin borde, sin padding extra - solo el contenido
         self.setStyleSheet(f"""
             QFrame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: {DesignSystem.SPACE_20}px;
+                background-color: transparent;
+                border: none;
             }}
         """)
         
         layout = QVBoxLayout(self)
-        layout.setSpacing(DesignSystem.SPACE_16)
+        layout.setSpacing(DesignSystem.SPACE_8)  # Espacio compacto entre fases
+        layout.setContentsMargins(0, 0, 0, 0)  # Sin márgenes
         
-        # Header
+        # Header compacto
         header_layout = QHBoxLayout()
-        header_layout.setSpacing(DesignSystem.SPACE_8)
+        header_layout.setSpacing(DesignSystem.SPACE_6)
+        header_layout.setContentsMargins(0, 0, 0, 0)
         
         header_icon = QLabel()
         icon_manager.set_label_icon(
             header_icon,
             'magnify',
-            color=DesignSystem.COLOR_TEXT,
-            size=16
+            color=DesignSystem.COLOR_TEXT_SECONDARY,
+            size=14
         )
         header_layout.addWidget(header_icon)
         
-        header_text = QLabel("¿Qué estamos analizando?")
+        header_text = QLabel(" Qué estamos analizando?")
         header_text.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            font-size: {DesignSystem.FONT_SIZE_LG}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
             color: {DesignSystem.COLOR_TEXT};
         """)
         header_layout.addWidget(header_text)
         header_layout.addStretch()
         
         layout.addLayout(header_layout)
+        layout.addSpacing(DesignSystem.SPACE_4)  # Pequeño separador después del header
         
-        # Fases del análisis
+        # Fases del análisis (7 fases totales)
         phases = [
+            ("scan", "Escaneando archivos del directorio..."),
+            ("renaming", "Analizando nombres de archivos..."),
             ("live_photos", "Detectando Live Photos..."),
             ("heic", "Buscando duplicados HEIC/JPG..."),
             ("duplicates", "Identificando duplicados exactos..."),
-            ("similar", "Duplicados similares (puedes hacerlo después)")
+            ("organization", "Analizando estructura de carpetas..."),
+            ("finalizing", "Finalizando análisis...")
         ]
         
         for phase_id, phase_text in phases:
@@ -75,7 +80,7 @@ class AnalysisPhaseWidget(QFrame):
     
     def _create_phase_item(self, phase_id: str, text: str) -> QHBoxLayout:
         """
-        Crea un item de fase con icono + texto
+        Crea un item de fase con icono + texto (diseño compacto)
         
         Args:
             phase_id: ID de la fase
@@ -85,7 +90,8 @@ class AnalysisPhaseWidget(QFrame):
             Layout horizontal con el item
         """
         item_layout = QHBoxLayout()
-        item_layout.setSpacing(DesignSystem.SPACE_8)
+        item_layout.setSpacing(DesignSystem.SPACE_6)  # Espacio compacto entre icono y texto
+        item_layout.setContentsMargins(0, 0, 0, 0)
         
         # Icono de estado (pendiente por defecto)
         icon_label = QLabel()
@@ -93,16 +99,17 @@ class AnalysisPhaseWidget(QFrame):
             icon_label,
             'pause-circle',
             color=DesignSystem.COLOR_TEXT_SECONDARY,
-            size=14
+            size=12  # Icono más pequeño
         )
         self.phase_icons[phase_id] = icon_label
         item_layout.addWidget(icon_label)
         
-        # Texto
+        # Texto compacto
         text_label = QLabel(text)
         text_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            font-size: {DesignSystem.FONT_SIZE_LG}px;
             color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            line-height: 1.2;
         """)
         self.phase_labels[phase_id] = text_label
         item_layout.addWidget(text_label)
@@ -130,24 +137,39 @@ class AnalysisPhaseWidget(QFrame):
                 icon_label,
                 'check-circle',
                 color=DesignSystem.COLOR_SUCCESS,
-                size=14
+                size=12
             )
             text_label.setStyleSheet(f"""
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-                color: {DesignSystem.COLOR_TEXT};
+                font-size: {DesignSystem.FONT_SIZE_LG}px;
+                color: {DesignSystem.COLOR_SUCCESS};
+                line-height: 1.2;
             """)
         
         elif status == 'running':
             icon_manager.set_label_icon(
                 icon_label,
-                'loading',
-                color=DesignSystem.COLOR_WARNING,
-                size=14
+                'progress-clock',
+                color=DesignSystem.COLOR_PRIMARY,
+                size=12
             )
             text_label.setStyleSheet(f"""
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                font-size: {DesignSystem.FONT_SIZE_LG}px;
                 color: {DesignSystem.COLOR_TEXT};
                 font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                line-height: 1.2;
+            """)
+        
+        elif status == 'error':
+            icon_manager.set_label_icon(
+                icon_label,
+                'alert-circle',
+                color=DesignSystem.COLOR_ERROR,
+                size=12
+            )
+            text_label.setStyleSheet(f"""
+                font-size: {DesignSystem.FONT_SIZE_LG}px;
+                color: {DesignSystem.COLOR_ERROR};
+                line-height: 1.2;
             """)
         
         else:  # pending
@@ -155,9 +177,15 @@ class AnalysisPhaseWidget(QFrame):
                 icon_label,
                 'pause-circle',
                 color=DesignSystem.COLOR_TEXT_SECONDARY,
-                size=14
+                size=12
             )
             text_label.setStyleSheet(f"""
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                font-size: {DesignSystem.FONT_SIZE_LG}px;
                 color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                line-height: 1.2;
             """)
+    
+    def reset_all_phases(self):
+        """Resetea todas las fases a estado pendiente"""
+        for phase_id in self.phase_icons.keys():
+            self.set_phase_status(phase_id, 'pending')

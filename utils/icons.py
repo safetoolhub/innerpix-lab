@@ -109,6 +109,7 @@ class IconManager:
         # Progreso y loading
         'loading': 'mdi6.loading',
         'progress': 'mdi6.progress-clock',
+        'progress-clock': 'mdi6.progress-clock',
         'hourglass': 'mdi6.timer-sand',
         
         # Opciones y configuración

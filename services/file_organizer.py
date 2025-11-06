@@ -88,13 +88,14 @@ class FileOrganizer:
                 return True
         return False
 
-    def analyze_directory_structure(self, root_directory: Path, organization_type: OrganizationType = OrganizationType.TO_ROOT) -> OrganizationAnalysisResult:
+    def analyze_directory_structure(self, root_directory: Path, organization_type: OrganizationType = OrganizationType.TO_ROOT, progress_callback=None) -> OrganizationAnalysisResult:
         """
         Analiza la estructura de directorios para organización
 
         Args:
             root_directory: Directorio raíz a analizar
             organization_type: Tipo de organización a realizar
+            progress_callback: Función opcional (current, total, message) para reportar progreso
 
         Returns:
             OrganizationAnalysisResult con análisis detallado
@@ -113,6 +114,11 @@ class FileOrganizer:
         # Obtener max_workers de la configuración
         max_workers = settings_manager.get_max_workers(Config.MAX_WORKERS)
         self.logger.debug(f"Usando {max_workers} workers para análisis paralelo")
+
+        # Contar total de archivos para progress
+        all_files_for_count = list(root_directory.rglob("*"))
+        total_files = sum(1 for f in all_files_for_count if f.is_file() and Config.is_supported_file(f.name))
+        processed_files = 0
 
         # Función para procesar información de archivo
         def get_file_info(file_path):
@@ -148,9 +154,16 @@ class FileOrganizer:
                     info = future.result()
                     if info:
                         root_file_info.append(info)
+                    
+                    processed_files += 1
+                    if progress_callback:
+                        progress_callback(processed_files, total_files, "Analizando estructura de organización")
         else:
             # Solo necesitamos los nombres para TO_ROOT
             root_file_names = {item.name for item in root_files_list}
+            processed_files += len(root_files_list)
+            if progress_callback:
+                progress_callback(processed_files, total_files, "Analizando estructura de organización")
 
         # Procesar subdirectorios
         for item in root_directory.iterdir():
@@ -176,6 +189,10 @@ class FileOrganizer:
                         subdir_files.append(info)
                         total_size += info['size']
                         files_by_type[info['type']] += 1
+                    
+                    processed_files += 1
+                    if progress_callback:
+                        progress_callback(processed_files, total_files, "Analizando estructura de organización")
 
             if subdir_files:
                 subdirectories[subdir_name] = {

@@ -108,13 +108,14 @@ class HEICRemover:
             'potential_savings': 0
         }
 
-    def analyze_heic_duplicates(self, directory: Path, recursive: bool = True) -> Dict:
+    def analyze_heic_duplicates(self, directory: Path, recursive: bool = True, progress_callback=None) -> Dict:
         """
         Analiza duplicados HEIC/JPG en un directorio
 
         Args:
             directory: Directorio a analizar
             recursive: Si buscar recursivamente en subdirectorios
+            progress_callback: Función opcional (current, total, message) para reportar progreso
 
         Returns:
             Análisis detallado de duplicados
@@ -141,18 +142,23 @@ class HEICRemover:
         }
 
         # Encontrar archivos HEIC y JPG
+        # Primero contamos total para progress
+        file_iterator = directory.rglob("*") if recursive else directory.iterdir()
+        all_files = [f for f in file_iterator if f.is_file()]
+        total_files = len(all_files)
+        processed = 0
+        
         # Usar listas para soportar múltiples archivos con el mismo nombre en diferentes directorios
         heic_files = defaultdict(list)
         jpg_files = defaultdict(list)
         total_heic_count = 0
         total_jpg_count = 0
 
-        file_iterator = directory.rglob("*") if recursive else directory.iterdir()
-
-        for file_path in file_iterator:
-            if not file_path.is_file():
-                continue
-
+        for file_path in all_files:
+            # Reportar progreso
+            if progress_callback:
+                progress_callback(processed, total_files, "Analizando HEIC/JPG duplicados")
+            
             extension = file_path.suffix.lower()
             base_name = file_path.stem
 
@@ -164,6 +170,8 @@ class HEICRemover:
                 jpg_files[base_name].append(file_path)
                 self.stats['total_jpg_size'] += file_path.stat().st_size
                 total_jpg_count += 1
+            
+            processed += 1
 
         results['total_heic_files'] = total_heic_count
         results['total_jpg_files'] = total_jpg_count
