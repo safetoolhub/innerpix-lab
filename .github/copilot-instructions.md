@@ -22,11 +22,12 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
 - All inherit stop mechanism: `self._stop_requested` flag checked during long operations
 - Unified worker: `AnalysisWorker` delegates to `AnalysisOrchestrator` (services/), only handles Qt threading/signals (~50 lines)
 
-**Main Window States** (`ui/main_window.py`) - 3-state application flow
-- **State 1**: Folder selector and welcome screen
-- **State 2**: Analysis progress with visual phase feedback (timers ensure 1+ second visibility per phase)
-- **State 3**: Tools grid with clickable cards leading to dialogs
-- Transitions: State 1 → State 2 → State 3 (no going back without re-selection)
+**UI Stages** (`ui/stages/`) - 3-stage application flow implemented with separate window classes
+- **Stage 1** (`stage_1_window.py`): Folder selector and welcome screen
+- **Stage 2** (`stage_2_window.py`): Analysis progress with visual phase feedback (timers ensure 1+ second visibility per phase)
+- **Stage 3** (`stage_3_window.py`): Tools grid with clickable cards leading to dialogs
+- Transitions: Stage 1 → Stage 2 → Stage 3 (no going back without re-selection)
+- Each stage inherits from `BaseStage` which provides common utilities like animations, persistence, and navigation
 
 **UI Components** (`ui/widgets/`, `ui/dialogs/`, `ui/components/`)
 - **Widgets**: Reusable components (ToolCard, ProgressCard, AnalysisPhaseWidget, SummaryCard, DropzoneWidget)
