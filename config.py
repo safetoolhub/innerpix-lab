@@ -52,6 +52,11 @@ class Config:
     DEFAULT_HASH_SIZE = 8
 
     # ========================================================================
+    # CONFIGURACIÓN DE DESARROLLO
+    # ========================================================================
+    DEVELOPMENT_MODE = True  # Si True, salta directamente a Stage 2 con la última carpeta usada
+
+    # ========================================================================
     # CONSTANTES DE UI
     # ========================================================================
     TABLE_MAX_HEIGHT = 300  # Altura máxima para tablas en diálogos
