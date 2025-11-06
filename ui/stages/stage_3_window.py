@@ -60,6 +60,9 @@ class Stage3Window(BaseStage):
         self.main_layout.addWidget(self.header)
         self.main_layout.addSpacing(DesignSystem.SPACE_20)
 
+        # Añadir stretch para mantener el header en la parte superior
+        self.main_layout.addStretch()
+
         # Crear y mostrar summary card con delay
         QTimer.singleShot(300, self._show_summary_card)
 
@@ -89,6 +92,10 @@ class Stage3Window(BaseStage):
 
     def _show_summary_card(self):
         """Muestra la summary card con animaciones"""
+        # Remover el stretch temporal para que el contenido se alinee correctamente
+        if self.main_layout.count() > 2:  # header + spacing + stretch
+            self.main_layout.takeAt(self.main_layout.count() - 1)  # Remover stretch
+
         # Crear y mostrar summary card
         self.summary_card = SummaryCard(self.selected_folder)
         self.summary_card.change_folder_requested.connect(self._on_change_folder)
@@ -106,6 +113,9 @@ class Stage3Window(BaseStage):
         # Calcular espacio recuperable
         recoverable = self._calculate_recoverable_space()
         self.summary_card.update_recoverable_space(recoverable)
+
+        # Añadir stretch después de la summary card para mantener el layout
+        self.main_layout.addStretch()
 
         # Crear grid de herramientas con delay escalonado
         QTimer.singleShot(200, self._create_tools_grid)
@@ -183,6 +193,10 @@ class Stage3Window(BaseStage):
         self.tool_cards['rename'] = rename_card
 
         # Agregar grid al layout principal
+        # Remover el stretch temporal antes de añadir el grid
+        if self.main_layout.count() > 3:  # header + spacing + summary_card + stretch
+            self.main_layout.takeAt(self.main_layout.count() - 1)  # Remover stretch
+
         self.main_layout.addWidget(grid_container)
         self.tools_grid = grid_container
 

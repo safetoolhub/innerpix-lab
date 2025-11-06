@@ -54,7 +54,7 @@ class Config:
     # ========================================================================
     # CONFIGURACIÓN DE DESARROLLO
     # ========================================================================
-    DEVELOPMENT_MODE = True  # Si True, salta directamente a Stage 2 con la última carpeta usada
+    DEVELOPMENT_MODE = False  # Si True, salta directamente a Stage 2 con la última carpeta usada
 
     # ========================================================================
     # CONSTANTES DE UI
@@ -97,7 +97,7 @@ class Config:
     # Duración mínima de visualización de cada fase del análisis en segundos
     # Esto garantiza que el usuario siempre vea el progreso, incluso si el
     # análisis real es muy rápido
-    MIN_PHASE_DURATION_SECONDS = 2.0  # Default: 2 segundos por fase
+    MIN_PHASE_DURATION_SECONDS = 1.0  # Default: 1 segundo por fase
     
     # Delay adicional antes de transicionar a Stage 3 (después de completar todo)
     FINAL_DELAY_BEFORE_STAGE3_SECONDS = 2.0  # Default: 2 segundos

@@ -242,7 +242,6 @@ class DesignSystem:
                 padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_8}px;
                 font-size: {DesignSystem.FONT_SIZE_SM}px;
                 font-weight: {DesignSystem.FONT_WEIGHT_NORMAL};
-                box-shadow: {DesignSystem.SHADOW_SM};
             }}
         """
     
