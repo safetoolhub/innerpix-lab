@@ -11,7 +11,6 @@ from PyQt6.QtCore import QTimer, pyqtSignal
 from .base_stage import BaseStage
 from ui.styles.design_system import DesignSystem
 from ui.widgets.progress_card import ProgressCard
-from ui.widgets.analysis_phase_widget import AnalysisPhaseWidget
 from ui.workers import AnalysisWorker
 from services.file_renamer import FileRenamer
 from services.live_photo_detector import LivePhotoDetector
@@ -38,7 +37,6 @@ class Stage2Window(BaseStage):
         # Referencias a widgets de la fase
         self.header = None
         self.progress_card = None
-        self.phase_widget = None
 
         # Estado del análisis
         self.analysis_worker = None
@@ -60,16 +58,10 @@ class Stage2Window(BaseStage):
         self.main_layout.addWidget(self.header)
         self.main_layout.addSpacing(DesignSystem.SPACE_20)
 
-        # Crear y mostrar card de progreso
+        # Crear y mostrar card de progreso (ahora incluye las fases)
         self.progress_card = ProgressCard(self.selected_folder)
         self.main_layout.addWidget(self.progress_card)
         self.fade_in_widget(self.progress_card, duration=350)
-
-        # Crear y mostrar widget de fases con delay
-        self.phase_widget = AnalysisPhaseWidget()
-        self.main_layout.addWidget(self.phase_widget)
-        self.main_layout.addStretch()
-        QTimer.singleShot(150, lambda: self.fade_in_widget(self.phase_widget, duration=350))
 
         # Iniciar análisis con delay para mostrar animaciones
         QTimer.singleShot(200, self._start_analysis)
@@ -95,11 +87,6 @@ class Stage2Window(BaseStage):
             self.progress_card.hide()
             self.progress_card.setParent(None)
             self.progress_card = None
-
-        if self.phase_widget:
-            self.phase_widget.hide()
-            self.phase_widget.setParent(None)
-            self.phase_widget = None
 
         self.current_phase = None
 
@@ -138,15 +125,16 @@ class Stage2Window(BaseStage):
 
     def _on_analysis_progress(self, current: int, total: int, message: str):
         """
-        Callback de progreso del análisis (simplificado - barra siempre indeterminada)
+        Callback de progreso del análisis
         
         Args:
-            current: Archivos procesados (ignorado)
-            total: Total de archivos (ignorado)
+            current: Archivos procesados
+            total: Total de archivos
             message: Mensaje descriptivo (ignorado)
         """
-        # La barra siempre está en modo indeterminado, no necesitamos hacer nada
-        pass
+        # Actualizar contador de la fase actual si hay números válidos
+        if self.current_phase and self.progress_card and total > 0:
+            self.progress_card.update_phase_progress(self.current_phase, current, total)
 
     def _on_phase_started(self, phase_id: str):
         """
@@ -157,11 +145,11 @@ class Stage2Window(BaseStage):
         """
         self.logger.info(f"Fase iniciada: {phase_id}")
 
-        if not self.phase_widget:
+        if not self.progress_card:
             return
 
         # Establecer la fase como running
-        self.phase_widget.set_phase_status(phase_id, 'running')
+        self.progress_card.set_phase_status(phase_id, 'running')
         self.current_phase = phase_id
         
     def _on_phase_completed(self, phase_id: str):
@@ -173,11 +161,11 @@ class Stage2Window(BaseStage):
         """
         self.logger.info(f"Fase completada: {phase_id}")
 
-        if not self.phase_widget:
+        if not self.progress_card:
             return
 
         # Marcar la fase como completada
-        self.phase_widget.set_phase_status(phase_id, 'completed')
+        self.progress_card.set_phase_status(phase_id, 'completed')
 
 
 
@@ -238,8 +226,8 @@ class Stage2Window(BaseStage):
         self.logger.error(f"Error en análisis: {error_msg}")
 
         # Marcar fase actual como error si existe
-        if self.phase_widget and self.current_phase:
-            self.phase_widget.set_phase_status(self.current_phase, 'error')
+        if self.progress_card and self.current_phase:
+            self.progress_card.set_phase_status(self.current_phase, 'error')
         
         self.current_phase = None
 
@@ -277,8 +265,8 @@ class Stage2Window(BaseStage):
         if self.progress_card:
             self.progress_card.reset()
 
-        if self.phase_widget:
-            self.phase_widget.reset_all_phases()
+        if self.progress_card:
+            self.progress_card.reset_phases()
 
         # Reiniciar análisis
         self._start_analysis()

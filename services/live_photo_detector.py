@@ -111,6 +111,10 @@ class LivePhotoDetector:
             
             processed += 1
 
+        # Reportar progreso final (100%)
+        if progress_callback and total_files > 0:
+            progress_callback(total_files, total_files, "Detectando Live Photos")
+
         self.logger.info(f"Encontrados: {len(photos)} fotos, {len(videos)} videos")
 
         if not photos or not videos:

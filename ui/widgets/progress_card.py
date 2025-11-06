@@ -6,6 +6,7 @@ from PyQt6.QtCore import Qt, pyqtSignal
 
 from ui.styles.design_system import DesignSystem
 from utils.icons import icon_manager
+from ui.widgets.analysis_phase_widget import AnalysisPhaseWidget
 
 
 class ProgressCard(QFrame):
@@ -14,6 +15,7 @@ class ProgressCard(QFrame):
     Incluye:
     - Ruta del directorio
     - Barra de progreso indeterminada (animada)
+    - Fases del análisis con indicadores de estado
     """
     
     # Señales
@@ -22,6 +24,7 @@ class ProgressCard(QFrame):
     def __init__(self, directory_path: str, parent=None):
         super().__init__(parent)
         self.directory_path = directory_path
+        self.phase_widget = None
         self._setup_ui()
     
     def _setup_ui(self):
@@ -111,6 +114,17 @@ class ProgressCard(QFrame):
         progress_layout.addWidget(self.progress_bar, 1)
         
         layout.addLayout(progress_layout)
+        
+        # Separador antes de las fases
+        phase_separator = QFrame()
+        phase_separator.setFrameShape(QFrame.Shape.HLine)
+        phase_separator.setStyleSheet(f"background-color: {DesignSystem.COLOR_BORDER};")
+        phase_separator.setFixedHeight(1)
+        layout.addWidget(phase_separator)
+        
+        # Widget de fases del análisis
+        self.phase_widget = AnalysisPhaseWidget()
+        layout.addWidget(self.phase_widget)
     
     def mark_completed(self):
         """Marca el análisis como completado"""
@@ -133,3 +147,44 @@ class ProgressCard(QFrame):
         # Detener animación de barra indeterminada
         self.progress_bar.setMaximum(100)
         self.progress_bar.setValue(100)
+    
+    def get_phase_widget(self):
+        """Retorna el widget de fases para acceso externo"""
+        return self.phase_widget
+    
+    def set_phase_status(self, phase_id: str, status: str):
+        """Delegar llamada al widget de fases"""
+        if self.phase_widget:
+            self.phase_widget.set_phase_status(phase_id, status)
+    
+    def update_phase_progress(self, phase_id: str, current: int, total: int):
+        """Delegar actualización de progreso al widget de fases"""
+        if self.phase_widget:
+            self.phase_widget.update_phase_progress(phase_id, current, total)
+    
+    def reset_phases(self):
+        """Delegar llamada al widget de fases"""
+        if self.phase_widget:
+            self.phase_widget.reset_all_phases()
+    
+    def reset(self):
+        """Resetea el estado del análisis para reinicio"""
+        # Resetear barra de progreso a modo indeterminado
+        self.progress_bar.setMaximum(0)
+        self.progress_bar.setValue(0)
+        
+        # Resetear icono y texto
+        icon_manager.set_label_icon(
+            self.status_icon,
+            'progress-clock',
+            color=DesignSystem.COLOR_PRIMARY,
+            size=16
+        )
+        self.status_label.setText("Analizando tu colección...")
+        self.status_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            color: {DesignSystem.COLOR_TEXT};
+        """)
+        
+        # Resetear fases
+        self.reset_phases()

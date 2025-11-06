@@ -21,6 +21,7 @@ class AnalysisPhaseWidget(QFrame):
         super().__init__(parent)
         self.phase_labels = {}
         self.phase_icons = {}
+        self.phase_counters = {}  # Nuevos contadores de progreso
         self._setup_ui()
     
     def _setup_ui(self):
@@ -34,7 +35,7 @@ class AnalysisPhaseWidget(QFrame):
         """)
         
         layout = QVBoxLayout(self)
-        layout.setSpacing(DesignSystem.SPACE_8)  # Espacio compacto entre fases
+        layout.setSpacing(DesignSystem.SPACE_4)  # Espacio más compacto entre fases
         layout.setContentsMargins(0, 0, 0, 0)  # Sin márgenes
         
         # Header compacto
@@ -61,7 +62,7 @@ class AnalysisPhaseWidget(QFrame):
         header_layout.addStretch()
         
         layout.addLayout(header_layout)
-        layout.addSpacing(DesignSystem.SPACE_4)  # Pequeño separador después del header
+        layout.addSpacing(DesignSystem.SPACE_2)  # Separador más pequeño después del header
         
         # Fases del análisis (7 fases totales)
         phases = [
@@ -109,10 +110,22 @@ class AnalysisPhaseWidget(QFrame):
         text_label.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_LG}px;
             color: {DesignSystem.COLOR_TEXT_SECONDARY};
-            line-height: 1.2;
+            line-height: 1.0;
         """)
         self.phase_labels[phase_id] = text_label
         item_layout.addWidget(text_label)
+        
+        # Contador de progreso (inicialmente oculto)
+        counter_label = QLabel("")
+        counter_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            font-family: {DesignSystem.FONT_FAMILY_MONO};
+            line-height: 1.0;
+        """)
+        counter_label.hide()  # Oculto por defecto
+        self.phase_counters[phase_id] = counter_label
+        item_layout.addWidget(counter_label)
         
         item_layout.addStretch()
         
@@ -131,6 +144,7 @@ class AnalysisPhaseWidget(QFrame):
         
         icon_label = self.phase_icons[phase_id]
         text_label = self.phase_labels[phase_id]
+        counter_label = self.phase_counters[phase_id]
         
         if status == 'completed':
             icon_manager.set_label_icon(
@@ -142,8 +156,10 @@ class AnalysisPhaseWidget(QFrame):
             text_label.setStyleSheet(f"""
                 font-size: {DesignSystem.FONT_SIZE_LG}px;
                 color: {DesignSystem.COLOR_SUCCESS};
-                line-height: 1.2;
+                line-height: 1.0;
             """)
+            # Ocultar contador cuando se completa
+            counter_label.hide()
         
         elif status == 'running':
             icon_manager.set_label_icon(
@@ -156,8 +172,10 @@ class AnalysisPhaseWidget(QFrame):
                 font-size: {DesignSystem.FONT_SIZE_LG}px;
                 color: {DesignSystem.COLOR_TEXT};
                 font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-                line-height: 1.2;
+                line-height: 1.0;
             """)
+            # Mostrar contador cuando está en ejecución
+            counter_label.show()
         
         elif status == 'error':
             icon_manager.set_label_icon(
@@ -169,8 +187,10 @@ class AnalysisPhaseWidget(QFrame):
             text_label.setStyleSheet(f"""
                 font-size: {DesignSystem.FONT_SIZE_LG}px;
                 color: {DesignSystem.COLOR_ERROR};
-                line-height: 1.2;
+                line-height: 1.0;
             """)
+            # Ocultar contador en caso de error
+            counter_label.hide()
         
         else:  # pending
             icon_manager.set_label_icon(
@@ -182,10 +202,34 @@ class AnalysisPhaseWidget(QFrame):
             text_label.setStyleSheet(f"""
                 font-size: {DesignSystem.FONT_SIZE_LG}px;
                 color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                line-height: 1.2;
+                line-height: 1.0;
             """)
+            # Ocultar contador cuando está pendiente
+            counter_label.hide()
     
     def reset_all_phases(self):
         """Resetea todas las fases a estado pendiente"""
         for phase_id in self.phase_icons.keys():
             self.set_phase_status(phase_id, 'pending')
+    
+    def update_phase_progress(self, phase_id: str, current: int, total: int):
+        """
+        Actualiza el contador de progreso de una fase
+        
+        Args:
+            phase_id: ID de la fase
+            current: Número de archivos procesados
+            total: Total de archivos
+        """
+        if phase_id not in self.phase_counters:
+            return
+        
+        counter_label = self.phase_counters[phase_id]
+        counter_label.setText(f"({current}/{total})")
+        counter_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_PRIMARY};
+            font-family: {DesignSystem.FONT_FAMILY_MONO};
+            line-height: 1.0;
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+        """)

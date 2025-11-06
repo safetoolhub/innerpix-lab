@@ -94,6 +94,7 @@ class AnalysisWorker(BaseWorker):
         """
         Asegura que una fase tenga al menos min_phase_duration de visualización.
         Si la duración real es menor, hace sleep del tiempo restante.
+        Antes del delay, asegura que el progreso muestre 100% (current == total).
         
         Args:
             phase_id: ID de la fase
@@ -129,6 +130,12 @@ class AnalysisWorker(BaseWorker):
                 if self.phase_timings:
                     last_phase_id = list(self.phase_timings.keys())[-1]
                     last_timing = self.phase_timings[last_phase_id]
+                    
+                    # Emitir progreso final (100%) antes del delay si tenemos el total
+                    if 'total_files' in last_timing and last_timing['total_files'] > 0:
+                        total = last_timing['total_files']
+                        self.progress_update.emit(total, total, f"Completando {last_phase_id}...")
+                    
                     self._ensure_min_phase_duration(last_phase_id, last_timing['duration'])
                     
                     if not self._stop_requested:
@@ -153,6 +160,9 @@ class AnalysisWorker(BaseWorker):
                     self.phase_timings[phase_name]['duration'] = (
                         time.time() - self.phase_timings[phase_name]['start_time']
                     )
+                    # Guardar el total de archivos para esta fase
+                    if hasattr(data, 'total_files'):
+                        self.phase_timings[phase_name]['total_files'] = data.total_files
                 
                 # Emitir resultado parcial
                 if phase_name == 'scan':
@@ -180,6 +190,12 @@ class AnalysisWorker(BaseWorker):
             if self.phase_timings and not self._stop_requested:
                 last_phase_id = list(self.phase_timings.keys())[-1]
                 last_timing = self.phase_timings[last_phase_id]
+                
+                # Emitir progreso final (100%) antes del delay si tenemos el total
+                if 'total_files' in last_timing and last_timing['total_files'] > 0:
+                    total = last_timing['total_files']
+                    self.progress_update.emit(total, total, f"Completando {last_phase_id}...")
+                
                 self._ensure_min_phase_duration(last_phase_id, last_timing['duration'])
                 
                 if not self._stop_requested:
