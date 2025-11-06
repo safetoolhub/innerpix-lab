@@ -44,12 +44,15 @@ class DropzoneWidget(QFrame):
         # Icono de carpeta usando icon_manager (configurado después)
         self.icon_label = QLabel()
         self.icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.icon_label.setMinimumSize(48, 48)
+        self.icon_label.setMinimumSize(DesignSystem.ICON_SIZE_XL, DesignSystem.ICON_SIZE_XL)
+        self.icon_label.setContentsMargins(0, 0, 0, 0)
+        self.icon_label.setStyleSheet("padding: 0px; margin: 0px; border: none; background-color: transparent;")
         layout.addWidget(self.icon_label)
         
         # Texto principal (más corto)
         self.main_text = QLabel("Arrastra una carpeta aquí")
         self.main_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.main_text.setFixedWidth(250)  # Ancho fijo para evitar movimiento del layout al cambiar texto
         self.main_text.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_BASE}px;
             font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
@@ -85,9 +88,9 @@ class DropzoneWidget(QFrame):
             self.icon_label, 
             'folder-open', 
             color=DesignSystem.COLOR_PRIMARY, 
-            size=48
+            size=DesignSystem.ICON_SIZE_XL
         )
-        self.update()
+        # No necesitamos update() ya que Qt repinta automáticamente
     
     def _apply_styles(self):
         """Aplica estilos al widget"""
@@ -110,14 +113,7 @@ class DropzoneWidget(QFrame):
             # De este modo mantiene la misma anchura y evita redimensionado.
             if hasattr(self, '_hint_opacity_effect'):
                 self._hint_opacity_effect.setOpacity(0.0)
-            # Cambiar color del icono a primary más intenso
-            icon_manager.set_label_icon(
-                self.icon_label, 
-                'folder-open', 
-                color=DesignSystem.COLOR_PRIMARY, 
-                size=48
-            )
-            self.update()
+            # No necesitamos update() ya que Qt repinta automáticamente con los cambios de texto
         else:
             bg_color = "rgba(245, 245, 245, 0.8)"
             border_color = DesignSystem.COLOR_BORDER
@@ -137,14 +133,7 @@ class DropzoneWidget(QFrame):
             # Restaurar la visibilidad del hint estableciendo opacidad a 1
             if hasattr(self, '_hint_opacity_effect'):
                 self._hint_opacity_effect.setOpacity(1.0)
-            # Restaurar color del icono
-            icon_manager.set_label_icon(
-                self.icon_label, 
-                'folder-open', 
-                color=DesignSystem.COLOR_PRIMARY, 
-                size=48
-            )
-            self.update()
+            # Icono ya está configurado correctamente desde _setup_icons()
     
     def dragEnterEvent(self, event: QDragEnterEvent):
         """Maneja cuando se arrastra algo sobre el widget"""
