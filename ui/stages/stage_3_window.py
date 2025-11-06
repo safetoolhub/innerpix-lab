@@ -58,7 +58,7 @@ class Stage3Window(BaseStage):
             on_about_clicked=self._on_about_clicked
         )
         self.main_layout.addWidget(self.header)
-        self.main_layout.addSpacing(DesignSystem.SPACE_20)
+        self.main_layout.addSpacing(DesignSystem.SPACE_6)
 
         # Añadir stretch para mantener el header en la parte superior
         self.main_layout.addStretch()

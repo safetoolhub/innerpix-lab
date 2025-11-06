@@ -38,16 +38,16 @@ class SummaryCard(QFrame):
                 background-color: {DesignSystem.COLOR_SURFACE};
                 border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
                 border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: {DesignSystem.SPACE_20}px;
+                padding: {DesignSystem.SPACE_16}px;
             }}
         """)
         
         layout = QVBoxLayout(self)
-        layout.setSpacing(DesignSystem.SPACE_12)
+        layout.setSpacing(DesignSystem.SPACE_8)
         
         # Header: Icono + Título + Botón "Cambiar..."
         header_layout = QHBoxLayout()
-        header_layout.setSpacing(DesignSystem.SPACE_8)
+        header_layout.setSpacing(DesignSystem.SPACE_6)
         
         header_icon = QLabel()
         icon_manager.set_label_icon(
@@ -83,16 +83,9 @@ class SummaryCard(QFrame):
         self.path_label.setToolTip(self.directory_path)
         layout.addWidget(self.path_label)
         
-        # Separador
-        separator = QFrame()
-        separator.setFrameShape(QFrame.Shape.HLine)
-        separator.setStyleSheet(f"background-color: {DesignSystem.COLOR_BORDER};")
-        separator.setFixedHeight(1)
-        layout.addWidget(separator)
-        
         # Línea única: Análisis completado + Espacio optimizable + Botón Reanalizar
         info_layout = QHBoxLayout()
-        info_layout.setSpacing(DesignSystem.SPACE_8)
+        info_layout.setSpacing(DesignSystem.SPACE_6)
         
         # Icono check
         check_icon = QLabel()
