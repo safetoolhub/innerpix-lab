@@ -5,11 +5,14 @@ Proporciona utilidades comunes como animaciones, persistencia y navegación.
 
 from typing import Optional, Callable, Any
 from pathlib import Path
-from PyQt6.QtWidgets import QWidget, QMainWindow, QGraphicsOpacityEffect
-from PyQt6.QtCore import QPropertyAnimation, QEasingCurve, QTimer, QObject
+from PyQt6.QtWidgets import QWidget, QMainWindow, QGraphicsOpacityEffect, QFrame, QHBoxLayout, QLabel, QToolButton
+from PyQt6.QtCore import QPropertyAnimation, QEasingCurve, QTimer, QObject, QSize
 
 from utils.settings_manager import settings_manager
 from utils.logger import get_logger
+from ui.styles.design_system import DesignSystem
+from utils.icons import icon_manager
+from config import Config
 
 
 class BaseStage(QObject):
@@ -192,3 +195,124 @@ class BaseStage(QObject):
         self.main_window.current_state = new_state
 
         self.logger.info(f"Transición completada a {state_class.__name__}")
+
+    def create_header(self, 
+                           title_text: Optional[str] = None,
+                           subtitle_text: Optional[str] = None,
+                           show_settings_button: bool = True,
+                           show_about_button: bool = True,
+                           on_settings_clicked: Optional[Callable] = None, 
+                           on_about_clicked: Optional[Callable] = None) -> QFrame:
+        """
+        Crea la card de header profesional compartida entre stages.
+
+        Args:
+            title_text: Texto opcional para el título (por defecto usa "{APP_NAME}")
+            subtitle_text: Texto opcional para el subtítulo (por defecto vacío)
+            show_settings_button: Si mostrar el botón de configuración
+            show_about_button: Si mostrar el botón "Acerca de"
+            on_settings_clicked: Callback opcional para el botón de configuración
+            on_about_clicked: Callback opcional para el botón "Acerca de"
+
+        Returns:
+            QFrame: La card de header
+        """
+        card = QFrame()
+        card.setProperty("class", "card")
+        card.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                padding: {DesignSystem.SPACE_12}px {DesignSystem.SPACE_20}px;
+            }}
+        """)
+
+        # Layout horizontal compacto
+        layout = QHBoxLayout(card)
+        layout.setSpacing(DesignSystem.SPACE_16)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        # Logo/Icono de la aplicación
+        app_icon = QLabel()
+        icon_manager.set_label_icon(app_icon, 'app', color=DesignSystem.COLOR_PRIMARY, size=DesignSystem.ICON_SIZE_LG)
+        layout.addWidget(app_icon)
+
+        # Título principal
+        title = title_text if title_text is not None else Config.APP_NAME
+        welcome_title = QLabel(title)
+        welcome_title.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_LG}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+            color: {DesignSystem.COLOR_TEXT};
+        """)
+        layout.addWidget(welcome_title)
+
+        # Separador visual sutil
+        separator = QFrame()
+        separator.setFrameShape(QFrame.Shape.VLine)
+        separator.setStyleSheet(f"background-color: {DesignSystem.COLOR_BORDER}; margin: 0 {DesignSystem.SPACE_8}px;")
+        separator.setFixedWidth(1)
+        layout.addWidget(separator)
+
+        # Subtítulo compacto
+        subtitle = subtitle_text if subtitle_text is not None else ""
+        welcome_subtitle = QLabel(subtitle)
+        welcome_subtitle.setStyleSheet(f"""
+            QLabel {{
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                border: none;
+                background: transparent;
+                padding: 0px;
+                margin: 0px;
+            }}
+        """)
+        layout.addWidget(welcome_subtitle)
+
+        # Espaciador para empujar botones a la derecha
+        layout.addStretch()
+
+        # Botones de acción (solo si se proporcionan callbacks y están habilitados)
+        if show_settings_button and on_settings_clicked:
+            btn_settings = QToolButton()
+            btn_settings.setAutoRaise(True)
+            btn_settings.setToolTip("Configuración")
+            icon_manager.set_button_icon(btn_settings, 'settings', color=DesignSystem.COLOR_TEXT_SECONDARY, size=16)
+            btn_settings.setIconSize(QSize(16, 16))
+            btn_settings.clicked.connect(on_settings_clicked)
+            btn_settings.setStyleSheet(f"""
+                QToolButton {{
+                    background: transparent;
+                    border: none;
+                    padding: 4px;
+                    border-radius: {DesignSystem.RADIUS_BASE}px;
+                }}
+                QToolButton:hover {{
+                    background-color: {DesignSystem.COLOR_SECONDARY};
+                }}
+            """)
+            layout.addWidget(btn_settings)
+
+        if show_about_button and on_about_clicked:
+            btn_about = QToolButton()
+            btn_about.setAutoRaise(True)
+            btn_about.setToolTip("Acerca de")
+            icon_manager.set_button_icon(btn_about, 'about', color=DesignSystem.COLOR_TEXT_SECONDARY, size=16)
+            btn_about.setIconSize(QSize(16, 16))
+            btn_about.clicked.connect(on_about_clicked)
+            btn_about.setStyleSheet(f"""
+                QToolButton {{
+                    background: transparent;
+                    border: none;
+                    padding: 4px;
+                    border-radius: {DesignSystem.RADIUS_BASE}px;
+                }}
+                QToolButton:hover {{
+                    background-color: {DesignSystem.COLOR_SECONDARY};
+                }}
+            """)
+            layout.addWidget(btn_about)
+
+        return card

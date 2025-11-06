@@ -35,7 +35,7 @@ class Stage1Window(BaseStage):
         super().__init__(main_window)
 
         # Referencias a widgets de la fase
-        self.welcome_card = None
+        self.header = None
         self.folder_selection_card = None
         self.next_step_card = None
         self.last_folder_widget = None
@@ -58,12 +58,17 @@ class Stage1Window(BaseStage):
                     child.widget().setParent(None)
 
         # Crear widgets del estado
-        self.welcome_card = self._create_welcome_card()
+        self.header = self.create_header(
+            title_text=f"Bienvenido a {Config.APP_NAME}",
+            subtitle_text="Gestiona y optimiza tu colección de fotos y vídeos de manera segura",
+            on_settings_clicked=self._on_settings_clicked,
+            on_about_clicked=self._on_about_clicked
+        )
         self.folder_selection_card = self._create_folder_selection_card()
         self.next_step_card = self._create_next_step_card()
 
         # Agregar al layout principal
-        self.main_layout.addWidget(self.welcome_card)
+        self.main_layout.addWidget(self.header)
         self.main_layout.addSpacing(DesignSystem.SPACE_20)
         self.main_layout.addWidget(self.folder_selection_card)
         self.main_layout.addSpacing(DesignSystem.SPACE_20)
@@ -78,7 +83,7 @@ class Stage1Window(BaseStage):
 
         # Ocultar y desconectar widgets
         widgets_to_cleanup = [
-            self.welcome_card,
+            self.header,
             self.folder_selection_card,
             self.next_step_card,
             self.last_folder_widget
@@ -90,111 +95,11 @@ class Stage1Window(BaseStage):
                 widget.setParent(None)
 
         # Limpiar referencias
-        self.welcome_card = None
+        self.header = None
         self.folder_selection_card = None
         self.next_step_card = None
         self.last_folder_widget = None
         self.dropzone = None
-
-    def _create_welcome_card(self) -> QFrame:
-        """
-        Crea la card de bienvenida profesional en una sola línea
-        """
-        card = QFrame()
-        card.setProperty("class", "card")
-        card.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: {DesignSystem.SPACE_12}px {DesignSystem.SPACE_20}px;
-            }}
-        """)
-
-        # Layout horizontal compacto
-        layout = QHBoxLayout(card)
-        layout.setSpacing(DesignSystem.SPACE_16)
-        layout.setContentsMargins(0, 0, 0, 0)
-
-        # Logo/Icono de la aplicación
-        app_icon = QLabel()
-        icon_manager.set_label_icon(app_icon, 'app', color=DesignSystem.COLOR_PRIMARY, size=DesignSystem.ICON_SIZE_LG)
-        layout.addWidget(app_icon)
-
-        # Título principal
-        welcome_title = QLabel(f"Bienvenido a {Config.APP_NAME}")
-        welcome_title.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_LG}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
-            color: {DesignSystem.COLOR_TEXT};
-        """)
-        layout.addWidget(welcome_title)
-
-        # Separador visual sutil
-        separator = QFrame()
-        separator.setFrameShape(QFrame.Shape.VLine)
-        separator.setStyleSheet(f"background-color: {DesignSystem.COLOR_BORDER}; margin: 0 {DesignSystem.SPACE_8}px;")
-        separator.setFixedWidth(1)
-        layout.addWidget(separator)
-
-        # Subtítulo compacto
-        welcome_subtitle = QLabel("Gestiona y optimiza tu colección de fotos y vídeos de manera segura")
-        welcome_subtitle.setStyleSheet(f"""
-            QLabel {{
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-                border: none;
-                background: transparent;
-                padding: 0px;
-                margin: 0px;
-            }}
-        """)
-        layout.addWidget(welcome_subtitle)
-
-        # Espaciador para empujar botones a la derecha
-        layout.addStretch()
-
-        # Botones de acción
-        btn_settings = QToolButton()
-        btn_settings.setAutoRaise(True)
-        btn_settings.setToolTip("Configuración")
-        icon_manager.set_button_icon(btn_settings, 'settings', color=DesignSystem.COLOR_TEXT_SECONDARY, size=16)
-        btn_settings.setIconSize(QSize(16, 16))
-        btn_settings.clicked.connect(self._on_settings_clicked)
-        btn_settings.setStyleSheet(f"""
-            QToolButton {{
-                background: transparent;
-                border: none;
-                padding: 4px;
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-            }}
-            QToolButton:hover {{
-                background-color: {DesignSystem.COLOR_SECONDARY};
-            }}
-        """)
-        layout.addWidget(btn_settings)
-
-        btn_about = QToolButton()
-        btn_about.setAutoRaise(True)
-        btn_about.setToolTip("Acerca de")
-        icon_manager.set_button_icon(btn_about, 'about', color=DesignSystem.COLOR_TEXT_SECONDARY, size=16)
-        btn_about.setIconSize(QSize(16, 16))
-        btn_about.clicked.connect(self._on_about_clicked)
-        btn_about.setStyleSheet(f"""
-            QToolButton {{
-                background: transparent;
-                border: none;
-                padding: 4px;
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-            }}
-            QToolButton:hover {{
-                background-color: {DesignSystem.COLOR_SECONDARY};
-            }}
-        """)
-        layout.addWidget(btn_about)
-
-        return card
 
     def _create_folder_selection_card(self) -> QFrame:
         """Crea la card principal para seleccionar carpeta"""
