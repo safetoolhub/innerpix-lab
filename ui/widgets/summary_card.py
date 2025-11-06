@@ -90,10 +90,11 @@ class SummaryCard(QFrame):
         separator.setFixedHeight(1)
         layout.addWidget(separator)
         
-        # Línea 1: Análisis completado + estadísticas
-        stats_layout = QHBoxLayout()
-        stats_layout.setSpacing(DesignSystem.SPACE_8)
+        # Línea única: Análisis completado + Espacio optimizable + Botón Reanalizar
+        info_layout = QHBoxLayout()
+        info_layout.setSpacing(DesignSystem.SPACE_8)
         
+        # Icono check
         check_icon = QLabel()
         icon_manager.set_label_icon(
             check_icon,
@@ -101,22 +102,18 @@ class SummaryCard(QFrame):
             color=DesignSystem.COLOR_SUCCESS,
             size=16
         )
-        stats_layout.addWidget(check_icon)
+        info_layout.addWidget(check_icon)
         
+        # Estadísticas del análisis
         self.stats_label = QLabel("Análisis completado")
         self.stats_label.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_BASE}px;
             color: {DesignSystem.COLOR_TEXT};
         """)
-        stats_layout.addWidget(self.stats_label)
-        stats_layout.addStretch()
+        info_layout.addWidget(self.stats_label)
         
-        layout.addLayout(stats_layout)
         
-        # Línea 2: Espacio optimizable + botón "Reanalizar"
-        space_layout = QHBoxLayout()
-        space_layout.setSpacing(DesignSystem.SPACE_8)
-        
+        # Icono disco
         disk_icon = QLabel()
         icon_manager.set_label_icon(
             disk_icon,
@@ -124,24 +121,33 @@ class SummaryCard(QFrame):
             color=DesignSystem.COLOR_TEXT,
             size=16
         )
-        space_layout.addWidget(disk_icon)
+        info_layout.addWidget(disk_icon)
         
+        # Espacio optimizable
         self.space_label = QLabel("Espacio optimizable: calculando...")
         self.space_label.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_BASE}px;
             color: {DesignSystem.COLOR_TEXT};
         """)
-        space_layout.addWidget(self.space_label)
-        space_layout.addStretch()
+        info_layout.addWidget(self.space_label)
+        
+        info_layout.addStretch()
         
         # Botón "Reanalizar"
-        btn_reanalyze = QPushButton("🔄 Reanalizar")
+        btn_reanalyze = QPushButton()
+        icon_manager.set_button_icon(
+            btn_reanalyze,
+            'refresh',
+            color=DesignSystem.COLOR_TEXT,
+            size=16
+        )
+        btn_reanalyze.setText("Reanalizar")
         btn_reanalyze.setProperty("class", "secondary-small")
         btn_reanalyze.setToolTip("Volver a analizar la carpeta")
         btn_reanalyze.clicked.connect(self._on_reanalyze_clicked)
-        space_layout.addWidget(btn_reanalyze)
+        info_layout.addWidget(btn_reanalyze)
         
-        layout.addLayout(space_layout)
+        layout.addLayout(info_layout)
     
     def update_stats(self, total_files: int, total_size: int = 0):
         """
@@ -157,7 +163,7 @@ class SummaryCard(QFrame):
         # Formatear estadísticas
         from utils.format_utils import format_file_count, format_size
         
-        stats_text = f"Análisis completado • {format_file_count(total_files)}"
+        stats_text = f"Análisis completado • {format_file_count(total_files)} archivos"
         if total_size > 0:
             stats_text += f" • {format_size(total_size)}"
         
