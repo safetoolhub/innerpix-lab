@@ -5,6 +5,7 @@ Stage 2: Análisis con progreso
 Stage 3: Grid de herramientas
 """
 
+from pathlib import Path
 from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout
 from PyQt6.QtCore import Qt
 
@@ -36,6 +37,15 @@ class MainWindow(QMainWindow):
         self._setup_window()
         self._setup_ui()
         self._apply_stylesheet()
+
+        # Modo desarrollo: saltar directamente a Stage 2 si hay una última carpeta
+        if Config.DEVELOPMENT_MODE:
+            from utils.settings_manager import settings_manager
+            last_folder = settings_manager.get('last_analyzed_folder')
+            if last_folder and Path(last_folder).exists():
+                self.logger.info(f"Modo desarrollo activado - Saltando a Stage 2 con carpeta: {last_folder}")
+                self._transition_to_state_2(last_folder)
+                return
 
         # Inicializar con Estado 1
         self._transition_to_state_1()
