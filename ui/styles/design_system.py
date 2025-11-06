@@ -134,7 +134,7 @@ class DesignSystem:
             }}
             
             /* Botones primarios */
-            QPushButton.primary {{
+            QPushButton#primary-button {{
                 background-color: {DesignSystem.COLOR_PRIMARY};
                 color: {DesignSystem.COLOR_PRIMARY_TEXT};
                 border: none;
@@ -144,12 +144,12 @@ class DesignSystem:
                 font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
             }}
             
-            QPushButton.primary:hover {{
+            QPushButton#primary-button:hover {{
                 background-color: {DesignSystem.COLOR_PRIMARY_HOVER};
             }}
             
-            QPushButton.primary:pressed {{
-                background-color: #1e40af;
+            QPushButton#primary-button:pressed {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
             }}
             
             /* Botones secundarios */
@@ -284,6 +284,23 @@ class DesignSystem:
             
             QTabBar::tab:selected:hover {{
                 background-color: {DesignSystem.COLOR_SURFACE};
+            }}
+        """
+
+    @staticmethod
+    def get_tooltip_style():
+        """
+        Retorna el estilo QSS para tooltips
+        """
+        return f"""
+            QToolTip {{
+                background-color: {DesignSystem.COLOR_TEXT};
+                color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_8}px;
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_NORMAL};
             }}
         """
 

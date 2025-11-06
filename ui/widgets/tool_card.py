@@ -125,8 +125,26 @@ class ToolCard(QFrame):
         btn_container.addStretch()
         
         self.action_button = QPushButton(self.action_text)
-        self.action_button.setProperty("class", "primary")
+        self.action_button.setObjectName("primary-button")
         self.action_button.setMinimumWidth(200)
+        # Aplicar estilos directamente al botón
+        self.action_button.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                color: {DesignSystem.COLOR_PRIMARY_TEXT};
+                border: none;
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: 10px 24px;
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_PRIMARY_HOVER};
+            }}
+            QPushButton:pressed {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+        """)
         self.action_button.clicked.connect(self._on_button_clicked)
         btn_container.addWidget(self.action_button)
         

@@ -145,7 +145,26 @@ class Stage1Window(BaseStage):
         btn_container.addStretch()
 
         btn_select = QPushButton("Seleccionar carpeta...")
-        btn_select.setProperty("class", "primary")
+        btn_select.setObjectName("primary-button")
+        btn_select.setMinimumWidth(200)
+        # Aplicar estilos directamente al botón
+        btn_select.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                color: {DesignSystem.COLOR_PRIMARY_TEXT};
+                border: none;
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: 10px 24px;
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_PRIMARY_HOVER};
+            }}
+            QPushButton:pressed {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+        """)
         btn_select.clicked.connect(self._on_browse_folder)
         btn_container.addWidget(btn_select)
 
