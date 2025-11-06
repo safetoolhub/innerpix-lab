@@ -65,6 +65,7 @@ class DesignSystem:
     
     # ==================== ESPACIADO ====================
     
+    SPACE_2 = 2
     SPACE_4 = 4
     SPACE_6 = 6
     SPACE_8 = 8

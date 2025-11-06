@@ -157,6 +157,10 @@ class AnalysisOrchestrator:
                 if processed % 10 == 0 and progress_callback:
                     progress_callback(processed, total_files, "Escaneando archivos")
         
+        # Reportar progreso final (100%)
+        if progress_callback and total_files > 0:
+            progress_callback(total_files, total_files, "Escaneando archivos")
+        
         result = DirectoryScanResult(
             total_files=total_files,
             images=images,
