@@ -5,3 +5,4 @@ Comprobar backups
 Comprobar que funciona bien con extensiones en mayusculas y minusculas
 Probar todo con muchos archivos a ver ux y rendimiento
 En la opcion de deteccion de fotods de whatsapp no me detecta las de test
+Hay que pasar a dataclass toda la gestion de results dentre stages y dialogs...en lugar de dicts

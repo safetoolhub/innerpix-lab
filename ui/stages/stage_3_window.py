@@ -107,8 +107,10 @@ class Stage3Window(BaseStage):
         # Actualizar estadísticas de la summary card
         stats = self.analysis_results.get('stats', {})
         total_files = stats.get('total', 0)
-        # TODO: Obtener tamaño total si está disponible
-        self.summary_card.update_stats(total_files, 0)
+        
+        # Calcular tamaño total del directorio
+        total_size = self._calculate_directory_size()
+        self.summary_card.update_stats(total_files, total_size)
 
         # Calcular espacio recuperable
         recoverable = self._calculate_recoverable_space()
@@ -119,6 +121,33 @@ class Stage3Window(BaseStage):
 
         # Crear grid de herramientas con delay escalonado
         QTimer.singleShot(200, self._create_tools_grid)
+
+    def _calculate_directory_size(self) -> int:
+        """
+        Calcula el tamaño total del directorio analizado
+        
+        Returns:
+            Tamaño total en bytes
+        """
+        from pathlib import Path
+        
+        try:
+            directory = Path(self.selected_folder)
+            total_size = 0
+            
+            # Recorrer todos los archivos del directorio
+            for file_path in directory.rglob('*'):
+                if file_path.is_file():
+                    try:
+                        total_size += file_path.stat().st_size
+                    except (OSError, PermissionError):
+                        # Ignorar archivos que no se pueden leer
+                        pass
+            
+            return total_size
+        except Exception as e:
+            self.logger.warning(f"Error calculando tamaño del directorio: {e}")
+            return 0
 
     def _calculate_recoverable_space(self) -> int:
         """
@@ -134,20 +163,27 @@ class Stage3Window(BaseStage):
 
         # Live Photos
         lp_data = self.analysis_results.get('live_photos', {})
-        if lp_data and hasattr(lp_data, 'total_groups'):
-            # Estimar tamaño aproximado (cada video ~2-3 MB)
-            total += lp_data.total_groups * 2.5 * 1024 * 1024
+        if lp_data:
+            total_groups = getattr(lp_data, 'live_photos_found', getattr(lp_data, 'total_groups', lp_data.get('live_photos_found', 0) if hasattr(lp_data, 'get') else 0))
+            if total_groups > 0:
+                # Estimar tamaño aproximado (cada video ~2-3 MB)
+                total += total_groups * 2.5 * 1024 * 1024
 
         # HEIC/JPG pairs
         heic_data = self.analysis_results.get('heic', {})
-        if heic_data and hasattr(heic_data, 'potential_savings_keep_jpg'):
-            # Usar el máximo potencial de ahorro
-            total += max(heic_data.potential_savings_keep_jpg, heic_data.potential_savings_keep_heic)
+        if heic_data:
+            savings_jpg = getattr(heic_data, 'potential_savings_keep_jpg', heic_data.get('potential_savings_keep_jpg', 0) if hasattr(heic_data, 'get') else 0)
+            savings_heic = getattr(heic_data, 'potential_savings_keep_heic', heic_data.get('potential_savings_keep_heic', 0) if hasattr(heic_data, 'get') else 0)
+            if savings_jpg > 0 or savings_heic > 0:
+                # Usar el máximo potencial de ahorro
+                total += max(savings_jpg, savings_heic)
 
         # Duplicados exactos
         dup_data = self.analysis_results.get('duplicates', {})
-        if dup_data and hasattr(dup_data, 'space_wasted'):
-            total += dup_data.space_wasted
+        if dup_data:
+            space_wasted = getattr(dup_data, 'space_wasted', dup_data.get('space_wasted', 0) if hasattr(dup_data, 'get') else 0)
+            if space_wasted > 0:
+                total += space_wasted
 
         return int(total)
 
@@ -223,7 +259,7 @@ class Stage3Window(BaseStage):
         )
 
         # Configurar estado según datos
-        if lp_data and isinstance(lp_data, dict):
+        if lp_data and isinstance(lp_data, dict) and lp_data:
             count = lp_data.get('live_photos_found', 0)
             space_to_free = lp_data.get('space_to_free', 0)
             
@@ -236,12 +272,12 @@ class Stage3Window(BaseStage):
             else:
                 card.set_status_ready("No se encontraron Live Photos")
         else:
-            card.set_status_ready("Analizando...")
+            card.set_status_ready("No se encontraron Live Photos")
 
         card.clicked.connect(lambda: self._on_tool_clicked('live_photos'))
         return card
 
-    def _create_heic_card(self, heic_data: dict) -> ToolCard:
+    def _create_heic_card(self, heic_data) -> ToolCard:
         """Crea la card de HEIC/JPG Duplicados"""
         card = ToolCard(
             icon_name='heic',
@@ -252,12 +288,18 @@ class Stage3Window(BaseStage):
         )
 
         # Configurar estado según datos
-        if heic_data and isinstance(heic_data, dict):
-            pairs = heic_data.get('total_duplicates', 0)
-            if pairs > 0:
+        if heic_data:
+            # Acceder a atributos del dataclass o diccionario
+            pairs = getattr(heic_data, 'total_duplicates', getattr(heic_data, 'total_pairs', 0))
+            duplicate_pairs = getattr(heic_data, 'duplicate_pairs', heic_data.get('duplicate_pairs', []) if hasattr(heic_data, 'get') else [])
+            
+            # Verificar si realmente hay datos (pares o archivos)
+            has_data = pairs > 0 or len(duplicate_pairs) > 0
+            
+            if has_data:
                 # Calcular tamaño total (usar el potencial de ahorro)
-                savings_jpg = heic_data.get('potential_savings_keep_jpg', 0)
-                savings_heic = heic_data.get('potential_savings_keep_heic', 0)
+                savings_jpg = getattr(heic_data, 'potential_savings_keep_jpg', heic_data.get('potential_savings_keep_jpg', 0) if hasattr(heic_data, 'get') else 0)
+                savings_heic = getattr(heic_data, 'potential_savings_keep_heic', heic_data.get('potential_savings_keep_heic', 0) if hasattr(heic_data, 'get') else 0)
                 savings = max(savings_jpg, savings_heic)
                 size_text = f"~{format_size(savings)} recuperables"
                 card.set_status_with_results(
@@ -267,7 +309,7 @@ class Stage3Window(BaseStage):
             else:
                 card.set_status_ready("No se encontraron pares HEIC/JPG")
         else:
-            card.set_status_ready("Analizando...")
+            card.set_status_ready("No se encontraron pares HEIC/JPG")
 
         card.clicked.connect(lambda: self._on_tool_clicked('heic'))
         return card
@@ -297,7 +339,7 @@ class Stage3Window(BaseStage):
             else:
                 card.set_status_ready("No se encontraron duplicados exactos")
         else:
-            card.set_status_ready("Analizando...")
+            card.set_status_ready("No se encontraron duplicados exactos")
 
         card.clicked.connect(lambda: self._on_tool_clicked('exact_duplicates'))
         return card
@@ -403,7 +445,7 @@ class Stage3Window(BaseStage):
             dialog = FileOrganizationDialog(org_data, self.main_window)
 
         elif tool_id == 'rename':
-            rename_data = self.analysis_results.get('rename', {})
+            rename_data = self.analysis_results.get('renaming', {})
             if not rename_data:
                 QMessageBox.warning(self.main_window, "Sin resultados", "No hay datos de Renombrado")
                 return

@@ -9,15 +9,18 @@ pixaro-lab/
 ├── PROJECT_TREE.md                  # Este archivo - estructura del proyecto
 ├── CHANGELOG.md                     # Registro de cambios del proyecto
 ├── FASE_2_IMPLEMENTADA.md           # Documentación de implementación Fase 2
+├── FASE_2_REFACTORIZADA.md          # Documentación de refactorización Fase 2
 ├── FASE_3_IMPLEMENTADA.md           # Documentación de implementación Fase 3
 ├── FASE_4_IMPLEMENTADA.md           # Documentación de implementación Fase 4
+├── Funcionalidades.txt              # Lista de funcionalidades implementadas
+├── PROMPT _MVP2.md                  # Documentación del MVP2
+├── TODO.txt                         # Lista de tareas pendientes
+├── TOOLTIPS.md                      # Documentación de tooltips de UI
 ├── main.py                          # Punto de entrada de la aplicación
 ├── config.py                        # Configuración centralizada (rutas, extensiones, constantes)
 ├── requirements.txt                 # Dependencias Python
 ├── requirements-dev.txt             # Dependencias para desarrollo y testing
 ├── pytest.ini                       # Configuración de pytest
-├── .coveragerc                      # Configuración de cobertura de código
-├── .pre-commit-config.yaml          # Configuración de pre-commit hooks
 ├── run_tests.sh                     # Script para ejecutar tests
 │
 ├── .github/
@@ -55,7 +58,7 @@ pixaro-lab/
 │   │   ├── stage_2_window.py        # Stage 2: Análisis con progreso
 │   │   └── stage_3_window.py        # Stage 3: Grid de herramientas
 │   │
-│   ├── components/                  # Componentes reutilizables de UI
+│   ├── components/                  # Componentes reutilizables de UI (reservado)
 │   │   └── __init__.py
 │   │
 │   ├── dialogs/                     # Diálogos modales
@@ -79,7 +82,7 @@ pixaro-lab/
 │   │   ├── __init__.py
 │   │   └── design_system.py         # Design System con tokens CSS
 │   │
-│   ├── tabs/                        # Componentes de pestañas
+│   ├── tabs/                        # Componentes de pestañas (reservado)
 │   │   └── __init__.py
 │   │
 │   ├── validators/                  # Validadores de entrada
@@ -128,28 +131,26 @@ pixaro-lab/
 
 **Características técnicas:**
 - **Timers de feedback visual**: Cada fase de análisis se muestra por al menos 1 segundo
-- **Design System**: Sistema centralizado de estilos CSS con tokens
+- **Design System**: Sistema centralizado de estilos CSS con tokens (design_system.py)
+- **Legacy Styles**: ui_styles.py contiene constantes CSS antiguas (en proceso de migración)
 - **Dataclasses**: Resultados tipados y validados
 - **QThread workers**: Operaciones asíncronas sin bloquear UI
 - **Backup-first**: Todas las operaciones destructivas incluyen opción de backup
 - **Multiplataforma**: Detección de resolución nativa para Windows/Linux/macOS
-- **Testing completo**: Suite de tests automatizados con pytest
+- **Testing básico**: Suite inicial de tests con pytest
 
 ## Testing
 
 **Herramientas de calidad:**
-- **pytest**: Framework de testing con parametrización y cobertura
-- **pytest-cov**: Reportes de cobertura de código (mínimo 80%)
-- **black**: Formateo automático de código
-- **isort**: Ordenamiento de imports
-- **flake8**: Linting de código
-- **pre-commit**: Hooks automáticos de calidad
+- **pytest**: Framework de testing con parametrización
+- **black**: Formateo automático de código (planeado)
+- **isort**: Ordenamiento de imports (planeado)
+- **flake8**: Linting de código (planeado)
 
 **Ejecución de tests:**
 ```bash
 ./run_tests.sh              # Ejecutar todos los tests
 pytest                      # Ejecutar con pytest directamente
-pytest --cov=.             # Con reporte de cobertura
 ```
 
 **Tests implementados:**

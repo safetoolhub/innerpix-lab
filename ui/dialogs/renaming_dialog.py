@@ -32,7 +32,11 @@ class RenamingPreviewDialog(BaseDialog):
         self.accepted_plan = None
         
         # Datos filtrados para la tabla
-        self.filtered_plan = list(analysis_results.renaming_plan)
+        try:
+            self.filtered_plan = list(analysis_results.renaming_plan)
+        except AttributeError as e:
+            print(f"DEBUG RenamingDialog: Error accediendo a renaming_plan: {e}")
+            self.filtered_plan = []
         
         # Paginación
         self.current_page = 0
@@ -537,7 +541,6 @@ class RenamingPreviewDialog(BaseDialog):
                 conflict_text = "Sí" if item['has_conflict'] else "No"
                 conflict_item = QTableWidgetItem(conflict_text)
                 conflict_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                from PyQt6.QtGui import QColor
                 if item['has_conflict']:
                     conflict_item.setBackground(QColor(255, 193, 7))  # ui_styles.COLOR_CONFLICT_BG
                     conflict_item.setForeground(QColor(0, 0, 0))
