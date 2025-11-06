@@ -154,4 +154,3 @@ pytest --cov=.             # Con reporte de cobertura
 
 **Tests implementados:**
 - `test_window_size.py`: Lógica de configuración de ventana por resolución
-
