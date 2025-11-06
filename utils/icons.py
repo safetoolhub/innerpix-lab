@@ -52,6 +52,7 @@ class IconManager:
         'success': 'mdi6.check-circle',
         'check': 'mdi6.check',
         'check-circle': 'mdi6.check-circle',
+        'security': 'mdi6.shield',
         'close': 'mdi6.close',
         'cancel': 'mdi6.close-circle',
         'pause-circle': 'mdi6.pause-circle',

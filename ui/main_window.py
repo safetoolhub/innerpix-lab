@@ -400,11 +400,13 @@ class MainWindow(QMainWindow):
         ))
 
         tips_container.addWidget(self._create_centered_tip(
-            "check",
-            "Pixaro Lab analizará esa carpeta y todas sus subcarpetas. "
+            "security",
+            "Pixaro Lab únicamente " \
+            "analizará esa carpeta y todas sus subcarpetas. "
             "No se modificará nada hasta que tú lo autorices.",
-            icon_color=DesignSystem.COLOR_SUCCESS,  # Verde para check
-            icon_size=DesignSystem.ICON_SIZE_LG
+            icon_color=DesignSystem.COLOR_ACCENT,  # Azul acento para resaltar
+            icon_size=DesignSystem.ICON_SIZE_LG,
+            text_color=DesignSystem.COLOR_ACCENT  # Azul acento para resaltar
         ))
         
         layout.addLayout(tips_container)
@@ -417,27 +419,26 @@ class MainWindow(QMainWindow):
         
         return card
     
-    def _create_last_folder_line(self) -> QFrame:
+    def _create_last_folder_line(self) -> QWidget:
         """Crea una línea con la última carpeta analizada y botón para reutilizarla"""
-        container = QFrame()
+        container = QWidget()
         container.setStyleSheet(f"""
-            QFrame {{
+            QWidget {{
                 background-color: rgba(59, 130, 246, 0.08);
-                border: 1px solid {DesignSystem.COLOR_PRIMARY};
                 border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_12}px;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
             }}
         """)
-        
+
         layout = QHBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(DesignSystem.SPACE_12)
-        
+        layout.setSpacing(DesignSystem.SPACE_8)
+
         # Icono de carpeta reciente
         icon_label = QLabel()
-        icon_manager.set_label_icon(icon_label, 'history', color=DesignSystem.COLOR_PRIMARY, size=DesignSystem.ICON_SIZE_LG)
+        icon_manager.set_label_icon(icon_label, 'history', color=DesignSystem.COLOR_PRIMARY, size=DesignSystem.ICON_SIZE_MD)
         layout.addWidget(icon_label)
-        
+
         # Texto combinado en una sola línea
         # Mostrar ruta truncada si es muy larga
         folder_path = self.last_folder
@@ -445,7 +446,7 @@ class MainWindow(QMainWindow):
             display_path = "..." + folder_path[-57:]
         else:
             display_path = folder_path
-        
+
         combined_text = f"Última carpeta analizada: {display_path}"
         info_label = QLabel(combined_text)
         info_label.setStyleSheet(f"""
@@ -455,7 +456,7 @@ class MainWindow(QMainWindow):
         """)
         info_label.setToolTip(folder_path)
         layout.addWidget(info_label, 1)
-        
+
         # Botón para usar esta carpeta
         use_btn = QPushButton("Usar esta carpeta")
         use_btn.setStyleSheet(f"""
@@ -464,7 +465,7 @@ class MainWindow(QMainWindow):
                 color: white;
                 border: none;
                 border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_16}px;
+                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
                 font-size: {DesignSystem.FONT_SIZE_SM}px;
                 font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
             }}
@@ -478,10 +479,10 @@ class MainWindow(QMainWindow):
         use_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         use_btn.clicked.connect(lambda: self._on_use_last_folder())
         layout.addWidget(use_btn)
-        
+
         return container
     
-    def _create_tip_box(self, icon_name: str, text: str, icon_color: str = None, icon_size: int = 14) -> QWidget:
+    def _create_tip_box(self, icon_name: str, text: str, icon_color: str = None, icon_size: int = 14, text_color: str = None) -> QWidget:
         """Crea un tip compacto y profesional con icono y texto"""
         tip = QWidget()
         tip.setStyleSheet("QWidget { border: none; background: transparent; }")
@@ -500,12 +501,13 @@ class MainWindow(QMainWindow):
         layout.addWidget(icon_label)
 
         # Texto
+        text_color_value = text_color if text_color else DesignSystem.COLOR_TEXT_SECONDARY
         text_label = QLabel(text)
         text_label.setWordWrap(True)
         text_label.setStyleSheet(f"""
             QLabel {{
                 font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                color: {text_color_value};
                 border: none;
                 background: transparent;
                 padding: 0px;
@@ -516,7 +518,7 @@ class MainWindow(QMainWindow):
 
         return tip
 
-    def _create_centered_tip(self, icon_name: str, text: str, icon_color: str = None, icon_size: int = 14) -> QWidget:
+    def _create_centered_tip(self, icon_name: str, text: str, icon_color: str = None, icon_size: int = 14, text_color: str = None) -> QWidget:
         """Crea un tip centrado horizontalmente"""
         container = QWidget()
         container.setStyleSheet("QWidget { border: none; background: transparent; margin: 0px; padding: 0px; }")
@@ -529,7 +531,7 @@ class MainWindow(QMainWindow):
         layout.addStretch(0)
         
         # Tip centrado
-        tip = self._create_tip_box(icon_name, text, icon_color, icon_size)
+        tip = self._create_tip_box(icon_name, text, icon_color, icon_size, text_color)
         layout.addWidget(tip)
         
         # Espaciador derecho mínimo
@@ -546,7 +548,7 @@ class MainWindow(QMainWindow):
                 background-color: {DesignSystem.COLOR_SURFACE};
                 border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
                 border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: {DesignSystem.SPACE_20}px;
+                padding: {DesignSystem.SPACE_16}px;
                 opacity: 0.5;
             }}
         """)
@@ -567,7 +569,7 @@ class MainWindow(QMainWindow):
             font-size: {DesignSystem.FONT_SIZE_SM}px;
             color: {DesignSystem.COLOR_TEXT_SECONDARY};
             font-style: italic;
-            padding: {DesignSystem.SPACE_24}px 0;
+            padding: {DesignSystem.SPACE_16}px 0;
         """)
         layout.addWidget(empty_text)
         
