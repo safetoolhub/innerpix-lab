@@ -241,52 +241,64 @@ class MainWindow(QMainWindow):
     
     def _create_welcome_card(self) -> QFrame:
         """
-        Crea la card de bienvenida ultra-compacta con iconos integrados
+        Crea la card de bienvenida profesional en una sola línea
         """
         card = QFrame()
         card.setProperty("class", "card")
         card.setStyleSheet(f"""
             QFrame {{
-                background-color: rgba(250, 250, 250, 0.8);
+                background-color: {DesignSystem.COLOR_SURFACE};
                 border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
                 border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: {DesignSystem.SPACE_12}px {DesignSystem.SPACE_16}px;
+                padding: {DesignSystem.SPACE_12}px {DesignSystem.SPACE_20}px;
             }}
         """)
-        
-        # Layout horizontal para todo en una sola línea
+
+        # Layout horizontal compacto
         layout = QHBoxLayout(card)
-        layout.setSpacing(DesignSystem.SPACE_12)
+        layout.setSpacing(DesignSystem.SPACE_16)
         layout.setContentsMargins(0, 0, 0, 0)
-        
-        # Título de bienvenida (más pequeño)
-        welcome_title = QLabel(f"¡Bienvenido a {Config.APP_NAME}!")
+
+        # Logo/Icono de la aplicación
+        app_icon = QLabel()
+        icon_manager.set_label_icon(app_icon, 'app', color=DesignSystem.COLOR_PRIMARY, size=DesignSystem.ICON_SIZE_LG)
+        layout.addWidget(app_icon)
+
+        # Título principal
+        welcome_title = QLabel(f"Bienvenido a {Config.APP_NAME}")
         welcome_title.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_LG}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
             color: {DesignSystem.COLOR_TEXT};
         """)
         layout.addWidget(welcome_title)
-        
-        # Separador vertical delgado
+
+        # Separador visual sutil
         separator = QFrame()
         separator.setFrameShape(QFrame.Shape.VLine)
-        separator.setStyleSheet(f"background-color: {DesignSystem.COLOR_BORDER};")
+        separator.setStyleSheet(f"background-color: {DesignSystem.COLOR_BORDER}; margin: 0 {DesignSystem.SPACE_8}px;")
         separator.setFixedWidth(1)
         layout.addWidget(separator)
-        
-        # Subtítulo inline
-        welcome_subtitle = QLabel("Analiza y optimiza tu colección de fotos y vídeos")
+
+        # Subtítulo compacto
+        welcome_subtitle = QLabel("Gestiona y optimiza tu colección de fotos y vídeos de manera segura")
         welcome_subtitle.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            QLabel {{
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                border: none;
+                background: transparent;
+                padding: 0px;
+                margin: 0px;
+            }}
         """)
         layout.addWidget(welcome_subtitle)
-        
-        # Espaciador para empujar los iconos a la derecha
+
+        # Espaciador para empujar botones a la derecha
         layout.addStretch()
-        
-        # Botón de configuración (icono)
+
+        # Botones de acción
         btn_settings = QToolButton()
         btn_settings.setAutoRaise(True)
         btn_settings.setToolTip("Configuración")
@@ -305,8 +317,7 @@ class MainWindow(QMainWindow):
             }}
         """)
         layout.addWidget(btn_settings)
-        
-        # Botón de acerca de (icono)
+
         btn_about = QToolButton()
         btn_about.setAutoRaise(True)
         btn_about.setToolTip("Acerca de")
@@ -325,7 +336,7 @@ class MainWindow(QMainWindow):
             }}
         """)
         layout.addWidget(btn_about)
-        
+
         return card
     
     def _create_folder_selection_card(self) -> QFrame:
