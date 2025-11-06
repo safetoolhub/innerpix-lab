@@ -20,6 +20,9 @@ class DesignSystem:
     COLOR_PRIMARY_HOVER = "#1d4ed8"
     COLOR_PRIMARY_TEXT = "#ffffff"
     
+    # Color de acento para avisos resaltados
+    COLOR_ACCENT = "#3b82f6"
+    
     # Colores secundarios
     COLOR_SECONDARY = "#e5e7eb"
     COLOR_SECONDARY_HOVER = "#d1d5db"
