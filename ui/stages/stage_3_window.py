@@ -209,11 +209,12 @@ class Stage3Window(BaseStage):
         )
 
         # Configurar estado según datos
-        if lp_data and hasattr(lp_data, 'total_groups'):
-            count = lp_data.total_groups
+        if lp_data and isinstance(lp_data, dict):
+            count = lp_data.get('live_photos_found', 0)
+            space_to_free = lp_data.get('space_to_free', 0)
+            
             if count > 0:
-                # Estimar espacio recuperable (~2.5 MB por video)
-                size_text = f"~{format_size(count * 2.5 * 1024 * 1024)} recuperables"
+                size_text = f"~{format_size(space_to_free)} recuperables"
                 card.set_status_with_results(
                     f"{count} Live Photos detectadas",
                     size_text
@@ -237,11 +238,13 @@ class Stage3Window(BaseStage):
         )
 
         # Configurar estado según datos
-        if heic_data and hasattr(heic_data, 'total_pairs'):
-            pairs = heic_data.total_pairs
+        if heic_data and isinstance(heic_data, dict):
+            pairs = heic_data.get('total_duplicates', 0)
             if pairs > 0:
                 # Calcular tamaño total (usar el potencial de ahorro)
-                savings = max(heic_data.potential_savings_keep_jpg, heic_data.potential_savings_keep_heic)
+                savings_jpg = heic_data.get('potential_savings_keep_jpg', 0)
+                savings_heic = heic_data.get('potential_savings_keep_heic', 0)
+                savings = max(savings_jpg, savings_heic)
                 size_text = f"~{format_size(savings)} recuperables"
                 card.set_status_with_results(
                     f"{pairs} pares encontrados",
@@ -255,7 +258,7 @@ class Stage3Window(BaseStage):
         card.clicked.connect(lambda: self._on_tool_clicked('heic'))
         return card
 
-    def _create_exact_duplicates_card(self, dup_data: dict) -> ToolCard:
+    def _create_exact_duplicates_card(self, dup_data) -> ToolCard:
         """Crea la card de Duplicados Exactos"""
         card = ToolCard(
             icon_name='duplicate-exact',
@@ -265,12 +268,14 @@ class Stage3Window(BaseStage):
             action_text='Gestionar ahora'
         )
 
-        # Configurar estado según datos
-        if dup_data and hasattr(dup_data, 'total_groups'):
-            groups = dup_data.total_groups
+        # Configurar estado según datos (soporta dataclass o dict)
+        if dup_data:
+            # Intentar obtener valores tanto de dataclass como de dict
+            groups = getattr(dup_data, 'total_groups', None) or (dup_data.get('total_groups', 0) if isinstance(dup_data, dict) else 0)
+            space_wasted = getattr(dup_data, 'space_wasted', None) or (dup_data.get('space_wasted', 0) if isinstance(dup_data, dict) else 0)
+            
             if groups > 0:
-                # Usar el espacio wasted calculado
-                size_text = f"~{format_size(dup_data.space_wasted)} recuperables"
+                size_text = f"~{format_size(space_wasted)} recuperables"
                 card.set_status_with_results(
                     f"{groups} grupos detectados",
                     size_text

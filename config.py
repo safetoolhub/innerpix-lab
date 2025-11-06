@@ -90,6 +90,17 @@ class Config:
     # Configuración para detección de duplicados (futuro)
     DEFAULT_HAMMING_THRESHOLD = 5
     MAX_HAMMING_THRESHOLD = 20
+    
+    # ========================================================================
+    # TIMING MÍNIMO DE ANÁLISIS (Stage 2)
+    # ========================================================================
+    # Duración mínima de visualización de cada fase del análisis en segundos
+    # Esto garantiza que el usuario siempre vea el progreso, incluso si el
+    # análisis real es muy rápido
+    MIN_PHASE_DURATION_SECONDS = 2.0  # Default: 2 segundos por fase
+    
+    # Delay adicional antes de transicionar a Stage 3 (después de completar todo)
+    FINAL_DELAY_BEFORE_STAGE3_SECONDS = 2.0  # Default: 2 segundos
 
     # ========================================================================
     # MÉTODOS DE UTILIDAD

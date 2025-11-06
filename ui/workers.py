@@ -3,6 +3,7 @@ Workers para la aplicación Pixaro Lab
 Este módulo contiene todos los QThread workers que ejecutan operaciones
 en segundo plano para no bloquear la interfaz gráfica.
 """
+import time
 from PyQt6.QtCore import QThread, pyqtSignal
 from config import Config
 
@@ -67,9 +68,10 @@ class AnalysisWorker(BaseWorker):
     """
     Worker unificado para análisis completo.
     Delega la lógica de análisis a AnalysisOrchestrator y solo maneja
-    threading + señales Qt.
+    threading + señales Qt + timing mínimo configurable por fase.
     """
-    phase_update = pyqtSignal(str)
+    phase_update = pyqtSignal(str)  # Emite phase_id cuando inicia
+    phase_completed = pyqtSignal(str)  # Emite phase_id cuando completa (con delay si necesario)
     stats_update = pyqtSignal(object)
     partial_results = pyqtSignal(object)
 
@@ -82,29 +84,85 @@ class AnalysisWorker(BaseWorker):
         self.heic_remover = heic_remover
         self.duplicate_detector = duplicate_detector
         self.organization_type = organization_type
+        self.phase_timings = {}  # Almacena timing de cada fase
+        
+        # Leer duración mínima desde config
+        self.min_phase_duration = Config.MIN_PHASE_DURATION_SECONDS
+        self.final_delay = Config.FINAL_DELAY_BEFORE_STAGE3_SECONDS
+
+    def _ensure_min_phase_duration(self, phase_id: str, actual_duration: float):
+        """
+        Asegura que una fase tenga al menos min_phase_duration de visualización.
+        Si la duración real es menor, hace sleep del tiempo restante.
+        
+        Args:
+            phase_id: ID de la fase
+            actual_duration: Duración real de la fase en segundos
+        """
+        if actual_duration < self.min_phase_duration:
+            delay_needed = self.min_phase_duration - actual_duration
+            self.logger.debug(
+                f"Fase '{phase_id}' completada en {actual_duration:.2f}s, "
+                f"agregando delay de {delay_needed:.2f}s (mínimo: {self.min_phase_duration:.1f}s)"
+            )
+            time.sleep(delay_needed)
 
     def run(self):
         try:
             # Importar orchestrator aquí para evitar dependencias circulares
             from services.analysis_orchestrator import AnalysisOrchestrator
+            from utils.logger import get_logger
             
+            self.logger = get_logger('AnalysisWorker')
             orchestrator = AnalysisOrchestrator()
             
             # Callbacks para conectar orchestrator con señales Qt
-            def phase_callback(phase: str):
-                """Emite cambios de fase"""
-                if not self._stop_requested:
-                    self.phase_update.emit(phase)
+            def phase_callback(phase_id: str):
+                """
+                Emite cuando inicia una fase.
+                Completa la fase anterior si existe (aplicando delay mínimo).
+                """
+                if self._stop_requested:
+                    return
+                
+                # Si hay una fase anterior, completarla con delay mínimo
+                if self.phase_timings:
+                    last_phase_id = list(self.phase_timings.keys())[-1]
+                    last_timing = self.phase_timings[last_phase_id]
+                    self._ensure_min_phase_duration(last_phase_id, last_timing['duration'])
+                    
+                    if not self._stop_requested:
+                        self.phase_completed.emit(last_phase_id)
+                
+                # Registrar inicio de nueva fase
+                self.phase_timings[phase_id] = {
+                    'start_time': time.time(),
+                    'duration': 0.0
+                }
+                
+                # Emitir inicio de fase
+                self.phase_update.emit(phase_id)
             
             def partial_callback(phase_name: str, data):
-                """Emite resultados parciales"""
-                if not self._stop_requested:
-                    if phase_name == 'stats':
-                        self.stats_update.emit(data)
-                    else:
-                        self.partial_results.emit({phase_name: data})
+                """Emite resultados parciales y registra duración de fase"""
+                if self._stop_requested:
+                    return
+                
+                # Registrar duración real de la fase
+                if phase_name in self.phase_timings:
+                    self.phase_timings[phase_name]['duration'] = (
+                        time.time() - self.phase_timings[phase_name]['start_time']
+                    )
+                
+                # Emitir resultado parcial
+                if phase_name == 'scan':
+                    self.stats_update.emit(data)
+                else:
+                    self.partial_results.emit({phase_name: data})
             
             # Ejecutar análisis completo usando orchestrator
+            # Usar emit_numbers=True para que las fases con números reales (scan, duplicates)
+            # emitan (current, total, mensaje) y el UI pueda mostrar progreso real
             result = orchestrator.run_full_analysis(
                 directory=self.directory,
                 renamer=self.renamer,
@@ -113,10 +171,24 @@ class AnalysisWorker(BaseWorker):
                 heic_remover=self.heic_remover,
                 duplicate_detector=self.duplicate_detector,
                 organization_type=self.organization_type,
-                progress_callback=self._create_progress_callback(counts_in_message=True),
+                progress_callback=self._create_progress_callback(emit_numbers=True),
                 phase_callback=phase_callback,
                 partial_callback=partial_callback
             )
+            
+            # Completar la última fase (finalizing) con delay mínimo
+            if self.phase_timings and not self._stop_requested:
+                last_phase_id = list(self.phase_timings.keys())[-1]
+                last_timing = self.phase_timings[last_phase_id]
+                self._ensure_min_phase_duration(last_phase_id, last_timing['duration'])
+                
+                if not self._stop_requested:
+                    self.phase_completed.emit(last_phase_id)
+            
+            # Delay adicional configurable antes de transicionar a Stage 3
+            if not self._stop_requested:
+                self.logger.info(f"Análisis completado, esperando {self.final_delay:.1f}s antes de transicionar...")
+                time.sleep(self.final_delay)
             
             # Emitir resultado final
             if not self._stop_requested:

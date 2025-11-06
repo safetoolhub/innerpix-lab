@@ -13,8 +13,7 @@ class ProgressCard(QFrame):
     Card que muestra el progreso del análisis de directorio
     Incluye:
     - Ruta del directorio
-    - Barra de progreso con porcentaje
-    - Estadísticas en tiempo real
+    - Barra de progreso indeterminada (animada)
     """
     
     # Señales
@@ -83,7 +82,7 @@ class ProgressCard(QFrame):
         self.status_icon = QLabel()
         icon_manager.set_label_icon(
             self.status_icon, 
-            'loading', 
+            'progress-clock', 
             color=DesignSystem.COLOR_PRIMARY, 
             size=16
         )
@@ -99,69 +98,19 @@ class ProgressCard(QFrame):
         
         layout.addLayout(status_layout)
         
-        # Barra de progreso + porcentaje
+        # Barra de progreso (sin porcentaje)
         progress_layout = QHBoxLayout()
         progress_layout.setSpacing(DesignSystem.SPACE_12)
         
         self.progress_bar = QProgressBar()
         self.progress_bar.setMinimum(0)
-        self.progress_bar.setMaximum(100)
-        self.progress_bar.setValue(0)
+        self.progress_bar.setMaximum(0)  # Modo indeterminado
         self.progress_bar.setTextVisible(False)
         self.progress_bar.setFixedHeight(8)
         self.progress_bar.setStyleSheet(DesignSystem.get_progressbar_style())
         progress_layout.addWidget(self.progress_bar, 1)
         
-        self.percentage_label = QLabel("0%")
-        self.percentage_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            color: {DesignSystem.COLOR_TEXT};
-            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-        """)
-        progress_layout.addWidget(self.percentage_label)
-        
         layout.addLayout(progress_layout)
-        
-        # Estadísticas en tiempo real
-        self.stats_label = QLabel("Iniciando análisis...")
-        self.stats_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            color: {DesignSystem.COLOR_TEXT_SECONDARY};
-        """)
-        layout.addWidget(self.stats_label)
-    
-    def update_progress(self, current: int, total: int, percentage: int):
-        """
-        Actualiza la barra de progreso
-        
-        Args:
-            current: Archivos analizados
-            total: Total de archivos
-            percentage: Porcentaje (0-100)
-        """
-        self.progress_bar.setValue(percentage)
-        self.percentage_label.setText(f"{percentage}%")
-    
-    def update_stats(self, stats_text: str):
-        """
-        Actualiza el texto de estadísticas
-        
-        Args:
-            stats_text: Texto formateado con stats (ej: "1,924 de 2,847 archivos • 10.3 GB")
-        """
-        # Agregar icono de estadísticas al principio si no está
-        if not stats_text.startswith("📊"):
-            stats_text = f"📊 {stats_text}"
-        self.stats_label.setText(stats_text)
-    
-    def update_status(self, status_text: str):
-        """
-        Actualiza el texto de estado
-        
-        Args:
-            status_text: Nuevo estado (ej: "Analizando imágenes...")
-        """
-        self.status_label.setText(status_text)
     
     def mark_completed(self):
         """Marca el análisis como completado"""
@@ -181,6 +130,6 @@ class ProgressCard(QFrame):
             font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
         """)
         
-        # Barra al 100%
+        # Detener animación de barra indeterminada
+        self.progress_bar.setMaximum(100)
         self.progress_bar.setValue(100)
-        self.percentage_label.setText("100%")

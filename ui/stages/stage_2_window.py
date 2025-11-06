@@ -45,7 +45,6 @@ class Stage2Window(BaseStage):
         self.analysis_results = None
 
         # Gestión de fases
-        self.phase_timers = {}  # Dict de phase_id -> QTimer
         self.current_phase = None  # Fase actualmente en ejecución
 
     def setup_ui(self) -> None:
@@ -85,11 +84,6 @@ class Stage2Window(BaseStage):
         if self.analysis_worker and self.analysis_worker.isRunning():
             self.analysis_worker.stop()
             self.analysis_worker.wait()
-
-        # Limpiar timers pendientes
-        for timer in self.phase_timers.values():
-            timer.stop()
-        self.phase_timers.clear()
 
         # Limpiar referencias
         if self.header:
@@ -131,7 +125,8 @@ class Stage2Window(BaseStage):
 
         # Conectar señales del worker
         self.analysis_worker.progress_update.connect(self._on_analysis_progress)
-        self.analysis_worker.phase_update.connect(self._on_analysis_phase)
+        self.analysis_worker.phase_update.connect(self._on_phase_started)
+        self.analysis_worker.phase_completed.connect(self._on_phase_completed)
         self.analysis_worker.stats_update.connect(self._on_analysis_stats)
         self.analysis_worker.partial_results.connect(self._on_partial_results)
         self.analysis_worker.finished.connect(self._on_analysis_finished)
@@ -143,100 +138,58 @@ class Stage2Window(BaseStage):
 
     def _on_analysis_progress(self, current: int, total: int, message: str):
         """
-        Callback de progreso del análisis
-
+        Callback de progreso del análisis (simplificado - barra siempre indeterminada)
+        
         Args:
-            current: Archivos procesados (puede ser 0 si no aplica)
-            total: Total de archivos (puede ser 0 si no aplica)
-            message: Mensaje descriptivo
+            current: Archivos procesados (ignorado)
+            total: Total de archivos (ignorado)
+            message: Mensaje descriptivo (ignorado)
         """
-        if not self.progress_card:
-            return
+        # La barra siempre está en modo indeterminado, no necesitamos hacer nada
+        pass
 
-        # Actualizar mensaje de estado
-        self.progress_card.update_status(message)
-
-        # Si tenemos números reales, calcular porcentaje
-        if total > 0 and current >= 0:
-            percentage = int((current / total) * 100)
-            self.progress_card.update_progress(current, total, percentage)
-
-    def _on_analysis_phase(self, phase: str):
+    def _on_phase_started(self, phase_id: str):
         """
-        Callback cuando cambia la fase del análisis
-
+        Callback cuando inicia una nueva fase del análisis.
+        
         Args:
-            phase: Nombre de la fase
+            phase_id: ID de la fase que inicia
         """
-        self.logger.info(f"Fase de análisis: {phase}")
+        self.logger.info(f"Fase iniciada: {phase_id}")
 
         if not self.phase_widget:
             return
 
-        # Mapear nombres de fase a IDs del widget
-        phase_map = {
-            'live_photos': 'live_photos',
-            'heic': 'heic',
-            'duplicates': 'duplicates',
-            'similar': 'similar'
-        }
-
-        # Si hay una fase anterior en ejecución, marcarla como completada con delay
-        if self.current_phase and self.current_phase != phase:
-            self._schedule_phase_completion(self.current_phase)
-
-        # Establecer la nueva fase como running
-        if phase in phase_map.values():
-            self.phase_widget.set_phase_status(phase, 'running')
-            self.current_phase = phase
-
-    def _schedule_phase_completion(self, phase_id: str):
+        # Establecer la fase como running
+        self.phase_widget.set_phase_status(phase_id, 'running')
+        self.current_phase = phase_id
+        
+    def _on_phase_completed(self, phase_id: str):
         """
-        Programa la marcación de una fase como completada con delay mínimo de 1 segundo
-
+        Callback cuando una fase se completa (ya con delay mínimo aplicado).
+        
         Args:
-            phase_id: ID de la fase a marcar como completada
+            phase_id: ID de la fase que se completó
         """
-        if phase_id in self.phase_timers:
-            self.phase_timers[phase_id].stop()
+        self.logger.info(f"Fase completada: {phase_id}")
 
-        timer = QTimer(self.main_window)
-        timer.setSingleShot(True)
-        timer.timeout.connect(lambda: self._on_phase_timer_timeout(phase_id))
-        timer.start(1000)  # 1 segundo mínimo
+        if not self.phase_widget:
+            return
 
-        self.phase_timers[phase_id] = timer
+        # Marcar la fase como completada
+        self.phase_widget.set_phase_status(phase_id, 'completed')
 
-    def _on_phase_timer_timeout(self, phase_id: str):
-        """
-        Callback cuando expira el timer de una fase
 
-        Args:
-            phase_id: ID de la fase que se marca como completada
-        """
-        if self.phase_widget:
-            self.phase_widget.set_phase_status(phase_id, 'completed')
-
-        # Limpiar el timer
-        if phase_id in self.phase_timers:
-            del self.phase_timers[phase_id]
 
     def _on_analysis_stats(self, stats):
         """
-        Callback con estadísticas del análisis
-
+        Callback con estadísticas del análisis (ignorado - barra indeterminada)
+        
         Args:
-            stats: Objeto con estadísticas
+            stats: Objeto con estadísticas (ignorado)
         """
-        if not self.progress_card:
-            return
-
-        # Formatear estadísticas
-        if hasattr(stats, 'total_files'):
-            total = stats.total_files
-            # TODO: Agregar tamaño total si está disponible
-            stats_text = f"{total:,} archivos encontrados"
-            self.progress_card.update_stats(stats_text)
+        # Con barra indeterminada, no necesitamos mostrar estadísticas detalladas
+        pass
 
     def _on_partial_results(self, results):
         """
@@ -250,7 +203,8 @@ class Stage2Window(BaseStage):
 
     def _on_analysis_finished(self, results):
         """
-        Callback cuando el análisis termina exitosamente
+        Callback cuando el análisis termina exitosamente.
+        El worker ya aplicó el delay de 2s, así que podemos transicionar inmediatamente.
 
         Args:
             results: Diccionario con todos los resultados
@@ -265,22 +219,14 @@ class Stage2Window(BaseStage):
         if self.progress_card:
             self.progress_card.mark_completed()
 
-        # Marcar todas las fases como completadas inmediatamente al terminar
-        if self.phase_widget:
-            for phase_id in ['live_photos', 'heic', 'duplicates']:
-                self.phase_widget.set_phase_status(phase_id, 'completed')
-
-        # Limpiar timers pendientes
-        for timer in self.phase_timers.values():
-            timer.stop()
-        self.phase_timers.clear()
+        # Limpiar estado
         self.current_phase = None
 
         # Emitir señal de análisis completado
         self.analysis_completed.emit(results)
 
-        # Transición a ESTADO 3 con delay para que el usuario vea "completado"
-        QTimer.singleShot(1500, lambda: self.main_window._transition_to_state_3(results))
+        # Transición a ESTADO 3 (el delay ya se aplicó en el worker)
+        self.main_window._transition_to_state_3(results)
 
     def _on_analysis_error(self, error_msg: str):
         """
@@ -291,15 +237,11 @@ class Stage2Window(BaseStage):
         """
         self.logger.error(f"Error en análisis: {error_msg}")
 
-        # Limpiar timers pendientes
-        for timer in self.phase_timers.values():
-            timer.stop()
-        self.phase_timers.clear()
-        self.current_phase = None
-
         # Marcar fase actual como error si existe
         if self.phase_widget and self.current_phase:
             self.phase_widget.set_phase_status(self.current_phase, 'error')
+        
+        self.current_phase = None
 
         # Mostrar diálogo de error con opciones
         msg = QMessageBox(self.main_window)
