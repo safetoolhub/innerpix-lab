@@ -40,10 +40,12 @@ import logging
 class MainWindow(QMainWindow):
     """
     Ventana principal de Pixaro Lab
-    Fase 1: Implementa ESTADO 1 (selector de carpeta)
-    Fase 2: Implementa ESTADO 2 (análisis con progreso)
+    Maneja los tres estados principales de la aplicación:
+    - Estado 1: Selector de carpeta y bienvenida
+    - Estado 2: Análisis con progreso
+    - Estado 3: Grid de herramientas
     """
-    
+
     # Señales
     folder_selected = pyqtSignal(str)  # Emite cuando se selecciona una carpeta
     analysis_completed = pyqtSignal(object)  # Emite cuando el análisis termina
@@ -343,7 +345,7 @@ class MainWindow(QMainWindow):
         layout.setSpacing(DesignSystem.SPACE_16)
         
         # Header de la card
-        header_title = QLabel("Selecciona la carpeta con tus fotos")
+        header_title = QLabel("Paso 1: selecciona la carpeta con tus fotos")
         header_title.setProperty("class", "header")
         layout.addWidget(header_title)
         
@@ -384,18 +386,28 @@ class MainWindow(QMainWindow):
         separator2.setFixedHeight(1)
         layout.addWidget(separator2)
         
-        # Consejos compactos
-        layout.addWidget(self._create_tip_box(
+        # Consejos compactos centrados
+        tips_container = QVBoxLayout()
+        tips_container.setSpacing(0)  # Sin espacio entre tips
+        tips_container.setContentsMargins(0, 0, 0, 0)
+        
+        tips_container.addWidget(self._create_centered_tip(
             "info",
             "Elige la carpeta donde tengas tus fotos y videos del iPhone, de WhatsApp, "
-            "o cualquier colección que quieras organizar."
+            "o cualquier colección que quieras organizar.",
+            icon_color=DesignSystem.COLOR_PRIMARY,  # Azul para info
+            icon_size=DesignSystem.ICON_SIZE_LG
         ))
-        
-        layout.addWidget(self._create_tip_box(
+
+        tips_container.addWidget(self._create_centered_tip(
             "check",
             "Pixaro Lab analizará esa carpeta y todas sus subcarpetas. "
-            "No se modificará nada hasta que tú lo autorices."
+            "No se modificará nada hasta que tú lo autorices.",
+            icon_color=DesignSystem.COLOR_SUCCESS,  # Verde para check
+            icon_size=DesignSystem.ICON_SIZE_LG
         ))
+        
+        layout.addLayout(tips_container)
         
         # Línea de última carpeta (si existe)
         if self.last_folder:
@@ -423,38 +435,26 @@ class MainWindow(QMainWindow):
         
         # Icono de carpeta reciente
         icon_label = QLabel()
-        icon_manager.set_label_icon(icon_label, 'history', color=DesignSystem.COLOR_PRIMARY, size=18)
+        icon_manager.set_label_icon(icon_label, 'history', color=DesignSystem.COLOR_PRIMARY, size=DesignSystem.ICON_SIZE_LG)
         layout.addWidget(icon_label)
         
-        # Texto con ruta de la carpeta
-        info_layout = QVBoxLayout()
-        info_layout.setSpacing(2)
-        
-        title_label = QLabel("Última carpeta analizada:")
-        title_label.setStyleSheet(f"""
-            color: {DesignSystem.COLOR_TEXT};
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-        """)
-        info_layout.addWidget(title_label)
-        
+        # Texto combinado en una sola línea
         # Mostrar ruta truncada si es muy larga
         folder_path = self.last_folder
         if len(folder_path) > 60:
             display_path = "..." + folder_path[-57:]
         else:
             display_path = folder_path
-            
-        path_label = QLabel(display_path)
-        path_label.setStyleSheet(f"""
-            color: {DesignSystem.COLOR_TEXT_SECONDARY};
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            font-family: {DesignSystem.FONT_FAMILY_MONO};
-        """)
-        path_label.setToolTip(folder_path)
-        info_layout.addWidget(path_label)
         
-        layout.addLayout(info_layout, 1)
+        combined_text = f"Última carpeta analizada: {display_path}"
+        info_label = QLabel(combined_text)
+        info_label.setStyleSheet(f"""
+            color: {DesignSystem.COLOR_TEXT};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+        """)
+        info_label.setToolTip(folder_path)
+        layout.addWidget(info_label, 1)
         
         # Botón para usar esta carpeta
         use_btn = QPushButton("Usar esta carpeta")
@@ -481,41 +481,64 @@ class MainWindow(QMainWindow):
         
         return container
     
-    def _create_tip_box(self, icon_name: str, text: str) -> QFrame:
-        """Crea una caja de consejo con icono y texto"""
-        tip = QFrame()
-        tip.setStyleSheet(f"""
-            QFrame {{
-                background-color: rgba(240, 240, 240, 0.5);
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
-            }}
-        """)
-        
+    def _create_tip_box(self, icon_name: str, text: str, icon_color: str = None, icon_size: int = 14) -> QWidget:
+        """Crea un tip compacto y profesional con icono y texto"""
+        tip = QWidget()
+        tip.setStyleSheet("QWidget { border: none; background: transparent; }")
+
         layout = QHBoxLayout(tip)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(DesignSystem.SPACE_8)
-        
-        # Icono usando icon_manager
+        layout.setContentsMargins(0, 0, 0, 0)  # Sin márgenes verticales
+        layout.setSpacing(6)  # Espaciado compacto entre icono y texto
+
+        # Usar color proporcionado o color secundario por defecto
+        color = icon_color if icon_color else DesignSystem.COLOR_TEXT_SECONDARY
+
+        # Icono
         icon_label = QLabel()
-        icon_manager.set_label_icon(icon_label, icon_name, color=DesignSystem.COLOR_TEXT_SECONDARY, size=14)
-        icon_label.setAlignment(Qt.AlignmentFlag.AlignTop)
+        icon_manager.set_label_icon(icon_label, icon_name, color=color, size=icon_size)
+        icon_label.setStyleSheet("QLabel { border: none; background: transparent; }")
         layout.addWidget(icon_label)
-        
+
         # Texto
         text_label = QLabel(text)
         text_label.setWordWrap(True)
         text_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            color: {DesignSystem.COLOR_TEXT_SECONDARY};
-            line-height: {DesignSystem.LINE_HEIGHT_NORMAL};
+            QLabel {{
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                border: none;
+                background: transparent;
+                padding: 0px;
+                margin: 0px;
+            }}
         """)
-        layout.addWidget(text_label, 1)
-        
+        layout.addWidget(text_label, 1)  # Permite que el texto se expanda
+
         return tip
-    
+
+    def _create_centered_tip(self, icon_name: str, text: str, icon_color: str = None, icon_size: int = 14) -> QWidget:
+        """Crea un tip centrado horizontalmente"""
+        container = QWidget()
+        container.setStyleSheet("QWidget { border: none; background: transparent; margin: 0px; padding: 0px; }")
+
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(-2, -2, -2, -2)  # Márgenes negativos para compensar
+        layout.setSpacing(0)
+
+        # Espaciadores mínimos para centrado
+        layout.addStretch(0)
+        
+        # Tip centrado
+        tip = self._create_tip_box(icon_name, text, icon_color, icon_size)
+        layout.addWidget(tip)
+        
+        # Espaciador derecho mínimo
+        layout.addStretch(0)
+
+        return container
+
     def _create_next_step_card(self) -> QFrame:
-        """Crea la card "Paso siguiente" (vacía inicialmente)"""
+        """Crea la card "Paso 2" (vacía inicialmente)"""
         card = QFrame()
         card.setProperty("class", "card")
         card.setStyleSheet(f"""
@@ -532,17 +555,11 @@ class MainWindow(QMainWindow):
         layout.setSpacing(DesignSystem.SPACE_12)
         
         # Header
-        header_title = QLabel("Paso siguiente: Elige qué quieres hacer")
+        header_title = QLabel("Paso 2: elige qué quieres hacer")
         header_title.setProperty("class", "header")
         layout.addWidget(header_title)
         
-        # Separador
-        separator = QFrame()
-        separator.setFrameShape(QFrame.Shape.HLine)
-        separator.setStyleSheet(f"background-color: {DesignSystem.COLOR_BORDER};")
-        separator.setFixedHeight(1)
-        layout.addWidget(separator)
-        
+       
         # Texto centrado
         empty_text = QLabel("Las herramientas aparecerán aquí después de analizar tu carpeta")
         empty_text.setAlignment(Qt.AlignmentFlag.AlignCenter)

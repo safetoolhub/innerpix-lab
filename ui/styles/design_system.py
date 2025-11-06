@@ -102,6 +102,13 @@ class DesignSystem:
     DROPZONE_WIDTH_MOBILE = 250
     DROPZONE_HEIGHT_MOBILE = 180
     
+    # ==================== ICONOS ====================
+    
+    ICON_SIZE_SM = 16
+    ICON_SIZE_MD = 18
+    ICON_SIZE_LG = 22
+    ICON_SIZE_XL = 24
+    
     # ==================== MÉTODOS DE AYUDA ====================
     
     @staticmethod
