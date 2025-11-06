@@ -63,6 +63,26 @@ class ProgressCard(QFrame):
         header_layout.addWidget(header_text)
         header_layout.addStretch()
         
+        # Botón cancelar (discreto, en la esquina)
+        self.cancel_btn = QPushButton("Cancelar")
+        icon_manager.set_button_icon(self.cancel_btn, 'close', size=14)
+        self.cancel_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: transparent;
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_8}px;
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+            }}
+            QPushButton:hover {{
+                background: {DesignSystem.COLOR_BG_2};
+                border-color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            }}
+        """)
+        self.cancel_btn.clicked.connect(self.cancel_requested.emit)
+        header_layout.addWidget(self.cancel_btn)
+        
         layout.addLayout(header_layout)
         
         # Ruta del directorio (mono)
@@ -128,6 +148,9 @@ class ProgressCard(QFrame):
     
     def mark_completed(self):
         """Marca el análisis como completado"""
+        # Ocultar botón de cancelar cuando se completa
+        self.cancel_btn.hide()
+        
         # Cambiar icono a checkmark
         icon_manager.set_label_icon(
             self.status_icon,
@@ -136,8 +159,8 @@ class ProgressCard(QFrame):
             size=16
         )
         
-        # Cambiar texto
-        self.status_label.setText("Análisis completado")
+        # Cambiar texto con indicación de transición automática
+        self.status_label.setText("Análisis completado - Cargando resultados...")
         self.status_label.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_BASE}px;
             color: {DesignSystem.COLOR_SUCCESS};

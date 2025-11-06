@@ -44,6 +44,10 @@ class Stage2Window(BaseStage):
 
         # Gestión de fases
         self.current_phase = None  # Fase actualmente en ejecución
+        
+        # Estado de cancelación
+        self.cancel_dialog_open = False  # Si el diálogo de cancelación está abierto
+        self.analysis_completed_while_cancel_dialog_open = False  # Si terminó mientras el diálogo estaba abierto
 
     def setup_ui(self) -> None:
         """Configura la interfaz de usuario del Stage 2."""
@@ -60,6 +64,7 @@ class Stage2Window(BaseStage):
 
         # Crear y mostrar card de progreso (ahora incluye las fases)
         self.progress_card = ProgressCard(self.selected_folder)
+        self.progress_card.cancel_requested.connect(self._on_cancel_requested)
         self.main_layout.addWidget(self.progress_card)
         self.fade_in_widget(self.progress_card, duration=350)
 
@@ -210,11 +215,20 @@ class Stage2Window(BaseStage):
         # Limpiar estado
         self.current_phase = None
 
-        # Emitir señal de análisis completado
-        self.analysis_completed.emit(results)
+        # Verificar si el diálogo de cancelación está abierto
+        if self.cancel_dialog_open:
+            self.logger.info("Análisis terminó mientras diálogo de cancelación estaba abierto, esperando...")
+            self.analysis_completed_while_cancel_dialog_open = True
+            return
 
-        # Transición a ESTADO 3 (el delay ya se aplicó en el worker)
-        self.main_window._transition_to_state_3(results)
+        # Emitir señal de análisis completado y transicionar
+        self.analysis_completed.emit(results)
+        self._perform_stage_3_transition()
+    
+    def _perform_stage_3_transition(self):
+        """Realiza la transición a Fase 3"""
+        self.logger.info("Realizando transición a Fase 3")
+        self.main_window._transition_to_state_3(self.analysis_results)
 
     def _on_analysis_error(self, error_msg: str):
         """
@@ -280,6 +294,57 @@ class Stage2Window(BaseStage):
 
         # Transición al Estado 1 a través de MainWindow
         self.main_window._transition_to_state_1()
+    
+    def _on_cancel_requested(self):
+        """Usuario solicitó cancelar el análisis"""
+        self.logger.info("Usuario solicitó cancelar el análisis")
+        
+        # Marcar que el diálogo está abierto
+        self.cancel_dialog_open = True
+        
+        msg = QMessageBox(self.main_window)
+        msg.setIcon(QMessageBox.Icon.Question)
+        msg.setWindowTitle("Cancelar análisis")
+        msg.setText("¿Estás seguro de que quieres cancelar el análisis?")
+        msg.setInformativeText("Se perderá el progreso actual.")
+        
+        # Botones con roles claros
+        continue_btn = msg.addButton("Continuar análisis", QMessageBox.ButtonRole.RejectRole)
+        change_btn = msg.addButton("Seleccionar otra carpeta", QMessageBox.ButtonRole.ActionRole)
+        msg.setDefaultButton(continue_btn)
+        
+        msg.exec()
+        
+        # Marcar que el diálogo se cerró
+        self.cancel_dialog_open = False
+        
+        # Manejar respuesta
+        if msg.clickedButton() == change_btn:
+            self.logger.info("Usuario eligió seleccionar otra carpeta")
+            self._cancel_and_return_to_stage_1()
+        else:
+            self.logger.info("Usuario eligió continuar el análisis")
+            # Si el análisis terminó mientras el diálogo estaba abierto, hacer la transición ahora
+            if self.analysis_completed_while_cancel_dialog_open:
+                self.logger.info("Análisis terminó mientras diálogo estaba abierto, haciendo transición ahora")
+                self._perform_stage_3_transition()
+        
+        # Resetear la bandera
+        self.analysis_completed_while_cancel_dialog_open = False
+    
+    def _cancel_and_return_to_stage_1(self):
+        """Cancela el análisis y vuelve a Fase 1"""
+        self.logger.info("Cancelando análisis y volviendo a Fase 1")
+        
+        # Detener worker si está ejecutándose
+        if self.analysis_worker and self.analysis_worker.isRunning():
+            self.logger.info("Deteniendo worker de análisis...")
+            self.analysis_worker.stop()
+            self.analysis_worker.wait()
+            self.logger.info("Worker detenido")
+        
+        # Volver a Estado 1
+        self._return_to_state_1()
 
         # Transición al Estado 1 (delegar al sistema de estados)
         # TODO: Implementar transición a través del sistema de estados
