@@ -12,15 +12,24 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
 **Services** (`services/`) - Pure business logic, no UI dependencies
 - Pattern: `analyze_*()` returns dataclass results, `execute_*()` accepts `create_backup=True`
 - All use centralized logger: `from utils.logger import get_logger; self.logger = get_logger('ServiceName')`
-- Return types: standardized dataclasses from `services/result_types.py` (e.g., `AnalysisResult`, `DeletionResult`, `OrganizationResult`)
-- Examples: `FileRenamer.analyze_directory()`, `LivePhotoCleaner.execute_cleanup(create_backup=True)`
-- Orchestrator: `AnalysisOrchestrator.run_full_analysis()` coordinates multiple services with callback system (progress/phase/partial), 100% PyQt6-free
+- Return types: **100% standardized dataclasses** from `services/result_types.py` ✅
+  * All services return typed dataclasses: `RenameAnalysisResult`, `LivePhotoDetectionResult`, `OrganizationAnalysisResult`, `HeicAnalysisResult`, `DuplicateAnalysisResult`
+  * All execution methods return: `RenameResult`, `LivePhotoCleanupResult`, `OrganizationResult`, `HeicDeletionResult`, `DuplicateDeletionResult`
+  * **Migration completed (Sprint 1):** No more Dict returns, no more Union[Dataclass, Dict]
+- Examples: `FileRenamer.analyze_directory()` → `RenameAnalysisResult`, `LivePhotoCleaner.execute_cleanup()` → `LivePhotoCleanupResult`
+- Orchestrator: `AnalysisOrchestrator.run_full_analysis()` → `FullAnalysisResult` (100% typed fields), coordinates multiple services with callback system (progress/phase/partial), 100% PyQt6-free
 
 **Workers** (`ui/workers.py`) - QThread background tasks to keep UI responsive
 - Base class: `BaseWorker` provides `progress_update`, `finished`, `error` signals
+- **Type Safety:** ✅ Sprint 2 completed - All workers 100% typed
+  * All `__init__` and `run()` methods have type hints
+  * All workers override `finished` signal with semantic type documentation
+  * Uses `TYPE_CHECKING` imports to avoid circular dependencies
+  * Forward references with strings (e.g., `renamer: 'FileRenamer'`)
 - Pattern: use `_create_progress_callback()` for consistent progress reporting
 - All inherit stop mechanism: `self._stop_requested` flag checked during long operations
-- Unified worker: `AnalysisWorker` delegates to `AnalysisOrchestrator` (services/), only handles Qt threading/signals (~50 lines)
+- Unified worker: `AnalysisWorker` delegates to `AnalysisOrchestrator` (services/), only handles Qt threading/signals (~100 lines)
+- Worker types: `AnalysisWorker`, `RenamingWorker`, `LivePhotoCleanupWorker`, `FileOrganizerWorker`, `HEICRemovalWorker`, `DuplicateAnalysisWorker`, `DuplicateDeletionWorker`
 
 **UI Stages** (`ui/stages/`) - 3-stage application flow implemented with separate window classes
 - **Stage 1** (`stage_1_window.py`): Folder selector and welcome screen
@@ -29,10 +38,9 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
 - Transitions: Stage 1 → Stage 2 → Stage 3 (no going back without re-selection)
 - Each stage inherits from `BaseStage` which provides common utilities like animations, persistence, and navigation
 
-**UI Components** (`ui/widgets/`, `ui/dialogs/`, `ui/components/`)
+**UI Components** (`ui/widgets/`, `ui/dialogs/`, `ui/styles/`)
 - **Widgets**: Reusable components (ToolCard, ProgressCard, AnalysisPhaseWidget, SummaryCard, DropzoneWidget)
 - **Dialogs**: All extend `BaseDialog` which provides `add_backup_checkbox()` and `build_accepted_plan()` helpers
-- **Components**: Additional UI components and helpers
 - **Design System**: Centralized styling in `ui/styles/design_system.py` (single source of truth for colors, spacing, typography)
 - **Legacy Styles**: `ui/ui_styles.py` contains old CSS constants (being phased out)
 - Dialog utilities: `ui/dialogs/dialog_utils.py` provides shared functions:
@@ -43,7 +51,7 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
 **Icon usage and emojis:**
 - For cross-platform consistency, all UI icons MUST come from the central Icon Manager which uses qtawesome (Material Design icons). Do NOT use emojis anywhere in the UI or in source strings that are rendered as icons. Emojis produce inconsistent rendering across platforms and are forbidden in the codebase.
 
-**Design guidelines (ENGLISH)**
+**Design guidelines**
 - All visual styling for widgets, dialogs and windows MUST use only the tokens and classes exposed by the `DesignSystem` class in `ui/styles/design_system.py`.
 - Inline styles, ad-hoc QSS strings, or alternative style modules are disallowed. If a style is missing from `DesignSystem`, raise an issue or request an extension to `DesignSystem` instead of adding inline styles.
 - The `DesignSystem` is the single source of truth for colors, spacing, typography, radii and component classes. Follow it strictly. In case you need to add new styles or modify any of them ask me explicitely. I want control over the additions to this module.
@@ -102,9 +110,12 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
 - `utils/icons.py`: Centralized icon management system using QtAwesome (Material Design icons)
 
 **Result types** (`services/result_types.py`)
-- All service results are dataclasses with type safety and validation
+- **Status:** ✅ 100% standardized (Sprint 1 completed)
 - Base: `OperationResult` (success, errors list, message)
-- Specialized: `RenameResult`, `DeletionResult`, `OrganizationResult`, `LivePhotoAnalysisResult`, etc.
+- Analysis results: `RenameAnalysisResult`, `OrganizationAnalysisResult`, `LivePhotoCleanupAnalysisResult`, `LivePhotoDetectionResult`, `DuplicateAnalysisResult`, `HeicAnalysisResult`
+- Operation results: `RenameResult`, `OrganizationResult`, `DeletionResult`, `LivePhotoCleanupResult`, `DuplicateDeletionResult`, `HeicDeletionResult`
+- **Rule:** ALL services return dataclasses from this module, NEVER return raw dicts
+- **Migration completed:** All `Union[Dataclass, Dict]` removed, all Dict returns eliminated
 
 **Dialog patterns** (all extend `BaseDialog` for consistent UX):
 
@@ -154,15 +165,25 @@ Run: `source .venv/bin/activate && python main.py`
 Project files:
 - `PROJECT_TREE.md`: Complete project structure and file descriptions
 - `CHANGELOG.md`: Version history and changes
-- `FASE_2_IMPLEMENTADA.md`: Phase 2 implementation details (analysis with progress)
-- `FASE_3_IMPLEMENTADA.md`: Phase 3 implementation details (tools grid and dialogs)
+- `docs/FASE_2_IMPLEMENTADA.md`: Phase 2 implementation details (analysis with progress)
+- `docs/FASE_3_IMPLEMENTADA.md`: Phase 3 implementation details (tools grid and dialogs)
+- `docs/REFACTORING_RECOMMENDATIONS.md`: Detailed refactoring plan for 100% UI/logic decoupling
+- `docs/SPRINT_1_COMPLETADO.md`: ✅ Sprint 1 completion report (100% dataclass migration)
+- `docs/SPRINT_2_COMPLETADO.md`: ✅ Sprint 2 completion report (100% typed workers)
 - `.vscode/`: VS Code workspace configuration (launch, tasks, settings, keybindings)
 
 ### Code Quality Rules
 
 - **Strict PEP 8**: use type hints where present, maintain existing patterns
+- **Type Safety Priority** ✅ (Sprint 1 & 2 completed):
+  * ✅ All services return dataclasses (see `services/result_types.py`)
+  * ✅ No more `Union[Dataclass, Dict]` - single type per interface
+  * ✅ All public methods typed: `def analyze_foo(path: Path) -> FooAnalysisResult:`
+  * ✅ All workers 100% typed: `__init__`, `run()`, and semantic signal documentation
+  * ✅ TYPE_CHECKING pattern for avoiding circular imports
+  * ⚠️ Next: View Models for UI/logic separation (Sprint 3)
 - **No empty try/except**: avoid `except: pass` blocks
-- **No legacy callbacks or compatibility wrappers**: single-author project, no backward compatibility needed
+- **Dataclass-first**: When adding new services, ALWAYS return dataclasses from `result_types.py`
 - **Preserve backup flows**: never remove `create_backup` parameters without explicit request
 - **Import resolution**: `ui/ui_styles.py` contains legacy CSS constants (being phased out), `ui/styles/design_system.py` is the single source of truth for current styling
 

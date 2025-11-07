@@ -202,6 +202,24 @@ class LivePhotoCleanupResult(DeletionResult):
     simulated_space_freed: int = 0
 
 
+@dataclass
+class LivePhotoDetectionResult(AnalysisResult):
+    """Resultado de detección de Live Photos (usado por AnalysisOrchestrator)"""
+    groups: List = field(default_factory=list)  # List[LivePhotoGroup] - evitar import circular
+    live_photos_found: int = 0
+    total_space: int = 0
+    space_to_free: int = 0  # Video space que se liberaría
+    
+    def __post_init__(self):
+        super().__post_init__()
+        # Calcular automáticamente desde groups si no se proporciona
+        if self.groups:
+            self.live_photos_found = len(self.groups)
+            if hasattr(self.groups[0], 'total_size'):
+                self.total_space = sum(g.total_size for g in self.groups)
+                self.space_to_free = sum(g.video_size for g in self.groups)
+
+
 # Funciones de conversión para compatibilidad con código existente
 def to_dict(result: OperationResult) -> dict:
     """

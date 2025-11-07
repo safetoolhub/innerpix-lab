@@ -239,11 +239,19 @@ class Stage2Window(BaseStage):
         """
         self.logger.error(f"Error en análisis: {error_msg}")
 
+        # Detener el worker si está corriendo
+        if hasattr(self, 'analysis_worker') and self.analysis_worker:
+            self.analysis_worker.stop()
+
         # Marcar fase actual como error si existe
         if self.progress_card and self.current_phase:
             self.progress_card.set_phase_status(self.current_phase, 'error')
         
         self.current_phase = None
+
+        # Detener la barra de progreso
+        if self.progress_card:
+            self.progress_card.stop_progress()
 
         # Mostrar diálogo de error con opciones
         msg = QMessageBox(self.main_window)
@@ -256,7 +264,7 @@ class Stage2Window(BaseStage):
         # Botones de acción
         retry_btn = msg.addButton("Reintentar", QMessageBox.ButtonRole.ActionRole)
         change_btn = msg.addButton("Cambiar carpeta", QMessageBox.ButtonRole.ActionRole)
-        close_btn = msg.addButton("Cerrar", QMessageBox.ButtonRole.RejectRole)
+        exit_btn = msg.addButton("Salir", QMessageBox.ButtonRole.RejectRole)
         msg.setDefaultButton(retry_btn)
 
         msg.exec()
@@ -268,8 +276,9 @@ class Stage2Window(BaseStage):
         elif msg.clickedButton() == change_btn:
             self.logger.info("Usuario eligió cambiar de carpeta")
             self._return_to_state_1()
-        else:
-            self.logger.info("Usuario cerró el diálogo de error")
+        else:  # exit_btn o cerrar diálogo
+            self.logger.info("Usuario eligió salir - volviendo a Stage 1")
+            self._return_to_state_1()
 
     def _restart_analysis(self):
         """Reinicia el análisis de la carpeta actual"""

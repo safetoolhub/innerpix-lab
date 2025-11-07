@@ -105,8 +105,7 @@ class Stage3Window(BaseStage):
         # self.fade_in_widget(self.summary_card, duration=400)
 
         # Actualizar estadísticas de la summary card
-        stats = self.analysis_results.get('stats', {})
-        total_files = stats.get('total', 0)
+        total_files = self.analysis_results.scan.total_files
         
         # Calcular tamaño total del directorio
         total_size = self._calculate_directory_size()
@@ -162,28 +161,23 @@ class Stage3Window(BaseStage):
         total = 0
 
         # Live Photos
-        lp_data = self.analysis_results.get('live_photos', {})
-        if lp_data:
-            total_groups = getattr(lp_data, 'live_photos_found', getattr(lp_data, 'total_groups', lp_data.get('live_photos_found', 0) if hasattr(lp_data, 'get') else 0))
-            if total_groups > 0:
-                # Estimar tamaño aproximado (cada video ~2-3 MB)
-                total += total_groups * 2.5 * 1024 * 1024
+        if self.analysis_results.live_photos:
+            lp_data = self.analysis_results.live_photos
+            if lp_data.live_photos_found > 0:
+                total += lp_data.space_to_free
 
         # HEIC/JPG pairs
-        heic_data = self.analysis_results.get('heic', {})
-        if heic_data:
-            savings_jpg = getattr(heic_data, 'potential_savings_keep_jpg', heic_data.get('potential_savings_keep_jpg', 0) if hasattr(heic_data, 'get') else 0)
-            savings_heic = getattr(heic_data, 'potential_savings_keep_heic', heic_data.get('potential_savings_keep_heic', 0) if hasattr(heic_data, 'get') else 0)
-            if savings_jpg > 0 or savings_heic > 0:
+        if self.analysis_results.heic:
+            heic_data = self.analysis_results.heic
+            if heic_data.potential_savings_keep_jpg > 0 or heic_data.potential_savings_keep_heic > 0:
                 # Usar el máximo potencial de ahorro
-                total += max(savings_jpg, savings_heic)
+                total += max(heic_data.potential_savings_keep_jpg, heic_data.potential_savings_keep_heic)
 
         # Duplicados exactos
-        dup_data = self.analysis_results.get('duplicates', {})
-        if dup_data:
-            space_wasted = getattr(dup_data, 'space_wasted', dup_data.get('space_wasted', 0) if hasattr(dup_data, 'get') else 0)
-            if space_wasted > 0:
-                total += space_wasted
+        if self.analysis_results.duplicates:
+            dup_data = self.analysis_results.duplicates
+            if dup_data.space_wasted > 0:
+                total += dup_data.space_wasted
 
         return int(total)
 
@@ -195,11 +189,10 @@ class Stage3Window(BaseStage):
         grid_layout.setSpacing(16)  # DesignSystem.SPACE_16
         grid_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Obtener datos de análisis para configurar las cards
-        lp_data = self.analysis_results.get('live_photos', {})
-        heic_data = self.analysis_results.get('heic', {})
-        dup_data = self.analysis_results.get('duplicates', {})
-        stats = self.analysis_results.get('stats', {})
+        # Obtener datos de análisis (todos dataclasses tipados)
+        lp_data = self.analysis_results.live_photos
+        heic_data = self.analysis_results.heic
+        dup_data = self.analysis_results.duplicates
 
         # Fila 1: Live Photos + HEIC/JPG
         live_photos_card = self._create_live_photos_card(lp_data)
@@ -220,11 +213,11 @@ class Stage3Window(BaseStage):
         self.tool_cards['similar_duplicates'] = similar_dup_card
 
         # Fila 3: Organizar + Renombrar
-        organize_card = self._create_organize_card(stats)
+        organize_card = self._create_organize_card()
         grid_layout.addWidget(organize_card, 2, 0)
         self.tool_cards['organize'] = organize_card
 
-        rename_card = self._create_rename_card(stats)
+        rename_card = self._create_rename_card()
         grid_layout.addWidget(rename_card, 2, 1)
         self.tool_cards['rename'] = rename_card
 
@@ -248,7 +241,7 @@ class Stage3Window(BaseStage):
                 scroll_widget.layout().invalidate()
                 scroll_widget.layout().activate()
 
-    def _create_live_photos_card(self, lp_data: dict) -> ToolCard:
+    def _create_live_photos_card(self, lp_data) -> ToolCard:
         """Crea la card de Live Photos"""
         card = ToolCard(
             icon_name='camera-burst',
@@ -258,19 +251,13 @@ class Stage3Window(BaseStage):
             action_text='Gestionar ahora'
         )
 
-        # Configurar estado según datos
-        if lp_data and isinstance(lp_data, dict) and lp_data:
-            count = lp_data.get('live_photos_found', 0)
-            space_to_free = lp_data.get('space_to_free', 0)
-            
-            if count > 0:
-                size_text = f"~{format_size(space_to_free)} recuperables"
-                card.set_status_with_results(
-                    f"{count} Live Photos detectadas",
-                    size_text
-                )
-            else:
-                card.set_status_ready("No se encontraron Live Photos")
+        # Configurar estado según datos (lp_data es LivePhotoDetectionResult o None)
+        if lp_data and lp_data.live_photos_found > 0:
+            size_text = f"~{format_size(lp_data.space_to_free)} recuperables"
+            card.set_status_with_results(
+                f"{lp_data.live_photos_found} Live Photos detectadas",
+                size_text
+            )
         else:
             card.set_status_ready("No se encontraron Live Photos")
 
@@ -287,27 +274,15 @@ class Stage3Window(BaseStage):
             action_text='Gestionar ahora'
         )
 
-        # Configurar estado según datos
-        if heic_data:
-            # Acceder a atributos del dataclass o diccionario
-            pairs = getattr(heic_data, 'total_duplicates', getattr(heic_data, 'total_pairs', 0))
-            duplicate_pairs = getattr(heic_data, 'duplicate_pairs', heic_data.get('duplicate_pairs', []) if hasattr(heic_data, 'get') else [])
-            
-            # Verificar si realmente hay datos (pares o archivos)
-            has_data = pairs > 0 or len(duplicate_pairs) > 0
-            
-            if has_data:
-                # Calcular tamaño total (usar el potencial de ahorro)
-                savings_jpg = getattr(heic_data, 'potential_savings_keep_jpg', heic_data.get('potential_savings_keep_jpg', 0) if hasattr(heic_data, 'get') else 0)
-                savings_heic = getattr(heic_data, 'potential_savings_keep_heic', heic_data.get('potential_savings_keep_heic', 0) if hasattr(heic_data, 'get') else 0)
-                savings = max(savings_jpg, savings_heic)
-                size_text = f"~{format_size(savings)} recuperables"
-                card.set_status_with_results(
-                    f"{pairs} pares encontrados",
-                    size_text
-                )
-            else:
-                card.set_status_ready("No se encontraron pares HEIC/JPG")
+        # Configurar estado según datos (heic_data es HeicAnalysisResult o None)
+        if heic_data and heic_data.total_pairs > 0:
+            # Calcular tamaño total (usar el potencial de ahorro)
+            savings = max(heic_data.potential_savings_keep_jpg, heic_data.potential_savings_keep_heic)
+            size_text = f"~{format_size(savings)} recuperables"
+            card.set_status_with_results(
+                f"{heic_data.total_pairs} pares encontrados",
+                size_text
+            )
         else:
             card.set_status_ready("No se encontraron pares HEIC/JPG")
 
@@ -324,20 +299,13 @@ class Stage3Window(BaseStage):
             action_text='Gestionar ahora'
         )
 
-        # Configurar estado según datos (soporta dataclass o dict)
-        if dup_data:
-            # Intentar obtener valores tanto de dataclass como de dict
-            groups = getattr(dup_data, 'total_groups', None) or (dup_data.get('total_groups', 0) if isinstance(dup_data, dict) else 0)
-            space_wasted = getattr(dup_data, 'space_wasted', None) or (dup_data.get('space_wasted', 0) if isinstance(dup_data, dict) else 0)
-            
-            if groups > 0:
-                size_text = f"~{format_size(space_wasted)} recuperables"
-                card.set_status_with_results(
-                    f"{groups} grupos detectados",
-                    size_text
-                )
-            else:
-                card.set_status_ready("No se encontraron duplicados exactos")
+        # Configurar estado según datos (dup_data es DuplicateAnalysisResult o None)
+        if dup_data and dup_data.total_groups > 0:
+            size_text = f"~{format_size(dup_data.space_wasted)} recuperables"
+            card.set_status_with_results(
+                f"{dup_data.total_groups} grupos detectados",
+                size_text
+            )
         else:
             card.set_status_ready("No se encontraron duplicados exactos")
 
@@ -360,7 +328,7 @@ class Stage3Window(BaseStage):
         card.clicked.connect(lambda: self._on_tool_clicked('similar_duplicates'))
         return card
 
-    def _create_organize_card(self, stats: dict) -> ToolCard:
+    def _create_organize_card(self) -> ToolCard:
         """Crea la card de Organizar Archivos"""
         card = ToolCard(
             icon_name='organize',
@@ -371,13 +339,13 @@ class Stage3Window(BaseStage):
         )
 
         # Siempre está lista
-        total = stats.get('total', 0)
+        total = self.analysis_results.scan.total_files
         card.set_status_ready(f"{format_file_count(total)} archivos listos")
 
         card.clicked.connect(lambda: self._on_tool_clicked('organize'))
         return card
 
-    def _create_rename_card(self, stats: dict) -> ToolCard:
+    def _create_rename_card(self) -> ToolCard:
         """Crea la card de Renombrar Archivos"""
         card = ToolCard(
             icon_name='rename',
@@ -388,7 +356,7 @@ class Stage3Window(BaseStage):
         )
 
         # Siempre está lista
-        total = stats.get('total', 0)
+        total = self.analysis_results.scan.total_files
         card.set_status_ready(f"{format_file_count(total)} archivos listos")
 
         card.clicked.connect(lambda: self._on_tool_clicked('rename'))
@@ -410,43 +378,41 @@ class Stage3Window(BaseStage):
         dialog = None
 
         if tool_id == 'live_photos':
-            lp_data = self.analysis_results.get('live_photos', {})
-            if not lp_data:
+            lp_data = self.analysis_results.live_photos
+            if not lp_data or lp_data.live_photos_found == 0:
                 QMessageBox.warning(self.main_window, "Sin resultados", "No hay datos de Live Photos")
                 return
             dialog = LivePhotoCleanupDialog(lp_data, self.main_window)
 
         elif tool_id == 'heic':
-            heic_data = self.analysis_results.get('heic', {})
-            if not heic_data:
+            heic_data = self.analysis_results.heic
+            if not heic_data or heic_data.total_pairs == 0:
                 QMessageBox.warning(self.main_window, "Sin resultados", "No hay datos de HEIC/JPG")
                 return
             dialog = HEICDuplicateRemovalDialog(heic_data, self.main_window)
 
         elif tool_id == 'exact_duplicates':
-            dup_data = self.analysis_results.get('duplicates', {})
-            if not dup_data:
+            dup_data = self.analysis_results.duplicates
+            if not dup_data or dup_data.total_groups == 0:
                 QMessageBox.warning(self.main_window, "Sin resultados", "No hay datos de Duplicados Exactos")
                 return
             dialog = ExactDuplicatesDialog(dup_data, self.main_window)
 
         elif tool_id == 'similar_duplicates':
-            similar_data = self.analysis_results.get('similar', {})
-            if not similar_data:
-                QMessageBox.warning(self.main_window, "Sin resultados", "No hay datos de Duplicados Similares")
-                return
-            dialog = SimilarDuplicatesDialog(similar_data, self.main_window)
+            # Similares no están en el análisis inicial
+            QMessageBox.information(self.main_window, "Análisis pendiente", "El análisis de duplicados similares aún no está implementado")
+            return
 
         elif tool_id == 'organize':
-            org_data = self.analysis_results.get('organization', {})
-            if not org_data:
+            org_data = self.analysis_results.organization
+            if not org_data or org_data.total_files_to_move == 0:
                 QMessageBox.warning(self.main_window, "Sin resultados", "No hay datos de Organización")
                 return
             dialog = FileOrganizationDialog(org_data, self.main_window)
 
         elif tool_id == 'rename':
-            rename_data = self.analysis_results.get('renaming', {})
-            if not rename_data:
+            rename_data = self.analysis_results.renaming
+            if not rename_data or rename_data.need_renaming == 0:
                 QMessageBox.warning(self.main_window, "Sin resultados", "No hay datos de Renombrado")
                 return
             dialog = RenamingPreviewDialog(rename_data, self.main_window)
