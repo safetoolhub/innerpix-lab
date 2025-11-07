@@ -133,7 +133,7 @@ class AnalysisWorker(BaseWorker):
         self, 
         directory: Path,
         renamer: 'FileRenamer',
-        lp_detector: 'LivePhotoDetector',
+        live_photo_detector: 'LivePhotoDetector',
         unifier: 'FileOrganizer',
         heic_remover: 'HEICDuplicateRemover',
         duplicate_exact_detector: Optional['DuplicateExactDetector'] = None,
@@ -142,7 +142,7 @@ class AnalysisWorker(BaseWorker):
         super().__init__()
         self.directory = directory
         self.renamer = renamer
-        self.lp_detector = lp_detector
+        self.live_photo_detector = live_photo_detector
         self.unifier = unifier
         self.heic_remover = heic_remover
         self.duplicate_exact_detector = duplicate_exact_detector
@@ -239,7 +239,7 @@ class AnalysisWorker(BaseWorker):
             result: 'FullAnalysisResult' = orchestrator.run_full_analysis(
                 directory=self.directory,
                 renamer=self.renamer,
-                lp_detector=self.lp_detector,
+                live_photo_detector=self.live_photo_detector,
                 organizer=self.unifier,
                 heic_remover=self.heic_remover,
                 duplicate_exact_detector=self.duplicate_exact_detector,

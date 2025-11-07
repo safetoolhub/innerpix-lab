@@ -200,17 +200,17 @@ class AnalysisOrchestrator:
         
         from services.result_types import LivePhotoDetectionResult
         
-        lp_groups = detector.detect_in_directory(directory, progress_callback=progress_callback)
+        live_photo_groups = detector.detect_in_directory(directory, progress_callback=progress_callback)
         
         result = LivePhotoDetectionResult(
-            total_files=len(lp_groups) * 2,  # Cada Live Photo son 2 archivos
-            groups=lp_groups,
-            live_photos_found=len(lp_groups),
-            total_space=sum(group.total_size for group in lp_groups),
-            space_to_free=sum(group.video_size for group in lp_groups)
+            total_files=len(live_photo_groups) * 2,  # Cada Live Photo son 2 archivos
+            groups=live_photo_groups,
+            live_photos_found=len(live_photo_groups),
+            total_space=sum(group.total_size for group in live_photo_groups),
+            space_to_free=sum(group.video_size for group in live_photo_groups)
         )
         
-        self.logger.info(f"Encontrados {len(lp_groups)} grupos de Live Photos")
+        self.logger.info(f"Encontrados {len(live_photo_groups)} grupos de Live Photos")
         return result
     
     def analyze_organization(self,
@@ -283,7 +283,7 @@ class AnalysisOrchestrator:
     def run_full_analysis(self,
                          directory: Path,
                          renamer=None,
-                         lp_detector=None,
+                         live_photo_detector=None,
                          organizer=None,
                          heic_remover=None,
                          duplicate_exact_detector=None,
@@ -297,7 +297,7 @@ class AnalysisOrchestrator:
         Args:
             directory: Directorio a analizar
             renamer: FileRenamer opcional
-            lp_detector: LivePhotoDetector opcional
+            live_photo_detector: LivePhotoDetector opcional
             organizer: FileOrganizer opcional
             heic_remover: HEICDuplicateRemover opcional
             duplicate_exact_detector: DuplicateExactDetector opcional
@@ -376,7 +376,7 @@ class AnalysisOrchestrator:
                 partial_callback('renaming', result.renaming)
         
         # Fase 3: Live Photos
-        if lp_detector:
+        if live_photo_detector:
             if progress_callback and not progress_callback(0, 0, ""):
                 result.total_duration = time.time() - analysis_start_time
                 return result
@@ -385,7 +385,7 @@ class AnalysisOrchestrator:
                 phase_callback("live_photos")
             
             phase_start = time.time()
-            result.live_photos = self.analyze_live_photos(directory, lp_detector, progress_callback)
+            result.live_photos = self.analyze_live_photos(directory, live_photo_detector, progress_callback)
             phase_end = time.time()
             
             result.phase_timings['live_photos'] = PhaseTimingInfo(

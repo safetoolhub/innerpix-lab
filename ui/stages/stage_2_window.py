@@ -60,7 +60,7 @@ class Stage2Window(BaseStage):
             show_about_button=False
         )
         self.main_layout.addWidget(self.header)
-        self.main_layout.addSpacing(DesignSystem.SPACE_20)
+        self.main_layout.addSpacing(DesignSystem.SPACE_12)
 
         # Crear y mostrar card de progreso (ahora incluye las fases)
         self.progress_card = ProgressCard(self.selected_folder)
@@ -97,9 +97,14 @@ class Stage2Window(BaseStage):
 
     def _start_analysis(self):
         """Inicia el análisis del directorio seleccionado"""
+        # Marcar la fase de duplicados similares como "skipped" desde el inicio
+        # ya que no se ejecutará por ser costosa en tiempo
+        if self.progress_card:
+            self.progress_card.set_phase_status('duplicates_similar', 'skipped')
+        
         # Crear instancias de servicios
         renamer = FileRenamer()
-        lp_detector = LivePhotoDetector()
+        live_photo_detector = LivePhotoDetector()
         organizer = FileOrganizer()
         heic_remover = HEICRemover()
         duplicate_exact_detector = DuplicateExactDetector()
@@ -108,7 +113,7 @@ class Stage2Window(BaseStage):
         self.analysis_worker = AnalysisWorker(
             directory=Path(self.selected_folder),
             renamer=renamer,
-            lp_detector=lp_detector,
+            live_photo_detector=live_photo_detector,
             unifier=organizer,
             heic_remover=heic_remover,
             duplicate_exact_detector=duplicate_exact_detector,

@@ -52,6 +52,9 @@ class Stage3Window(BaseStage):
                 child.widget().hide()
                 child.widget().setParent(None)
 
+        # Añadir espaciado encima del header
+        self.main_layout.addSpacing(DesignSystem.SPACE_8)
+
         # Crear y mostrar header
         self.header = self.create_header(
             on_settings_clicked=self._on_settings_clicked,
@@ -162,9 +165,9 @@ class Stage3Window(BaseStage):
 
         # Live Photos
         if self.analysis_results.live_photos:
-            lp_data = self.analysis_results.live_photos
-            if lp_data.live_photos_found > 0:
-                total += lp_data.space_to_free
+            live_photo_data = self.analysis_results.live_photos
+            if live_photo_data.live_photos_found > 0:
+                total += live_photo_data.space_to_free
 
         # HEIC/JPG pairs
         if self.analysis_results.heic:
@@ -190,12 +193,12 @@ class Stage3Window(BaseStage):
         grid_layout.setContentsMargins(0, 0, 0, 0)
 
         # Obtener datos de análisis (todos dataclasses tipados)
-        lp_data = self.analysis_results.live_photos
+        live_photo_data = self.analysis_results.live_photos
         heic_data = self.analysis_results.heic
         dup_data = self.analysis_results.duplicates
 
         # Fila 1: Live Photos + HEIC/JPG
-        live_photos_card = self._create_live_photos_card(lp_data)
+        live_photos_card = self._create_live_photos_card(live_photo_data)
         grid_layout.addWidget(live_photos_card, 0, 0)
         self.tool_cards['live_photos'] = live_photos_card
 
@@ -226,6 +229,9 @@ class Stage3Window(BaseStage):
         if self.main_layout.count() > 3:  # header + spacing + summary_card + stretch
             self.main_layout.takeAt(self.main_layout.count() - 1)  # Remover stretch
 
+        # Añadir espaciado entre summary card y tool cards
+        self.main_layout.addSpacing(DesignSystem.SPACE_8)
+
         self.main_layout.addWidget(grid_container)
         self.tools_grid = grid_container
 
@@ -241,7 +247,7 @@ class Stage3Window(BaseStage):
                 scroll_widget.layout().invalidate()
                 scroll_widget.layout().activate()
 
-    def _create_live_photos_card(self, lp_data) -> ToolCard:
+    def _create_live_photos_card(self, live_photo_data) -> ToolCard:
         """Crea la card de Live Photos"""
         card = ToolCard(
             icon_name='camera-burst',
@@ -251,11 +257,11 @@ class Stage3Window(BaseStage):
             action_text='Gestionar ahora'
         )
 
-        # Configurar estado según datos (lp_data es LivePhotoDetectionResult o None)
-        if lp_data and lp_data.live_photos_found > 0:
-            size_text = f"~{format_size(lp_data.space_to_free)} recuperables"
+        # Configurar estado según datos (live_photo_data es LivePhotoDetectionResult o None)
+        if live_photo_data and live_photo_data.live_photos_found > 0:
+            size_text = f"~{format_size(live_photo_data.space_to_free)} recuperables"
             card.set_status_with_results(
-                f"{lp_data.live_photos_found} Live Photos detectadas",
+                f"{live_photo_data.live_photos_found} Live Photos detectadas",
                 size_text
             )
         else:
@@ -378,11 +384,11 @@ class Stage3Window(BaseStage):
         dialog = None
 
         if tool_id == 'live_photos':
-            lp_data = self.analysis_results.live_photos
-            if not lp_data or lp_data.live_photos_found == 0:
+            live_photo_data = self.analysis_results.live_photos
+            if not live_photo_data or live_photo_data.live_photos_found == 0:
                 QMessageBox.warning(self.main_window, "Sin resultados", "No hay datos de Live Photos")
                 return
-            dialog = LivePhotoCleanupDialog(lp_data, self.main_window)
+            dialog = LivePhotoCleanupDialog(live_photo_data, self.main_window)
 
         elif tool_id == 'heic':
             heic_data = self.analysis_results.heic
