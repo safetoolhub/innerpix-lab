@@ -62,14 +62,15 @@ class Stage2Window(BaseStage):
                     widget.hide()
                     widget.setParent(None)
 
-        # Crear y mostrar header sin margen superior
+        # Crear y mostrar header con pequeño margen superior
         self.header = self.create_header(
             subtitle_text="Análisis de tu carpeta",
             show_settings_button=False,
             show_about_button=False
         )
+        self.main_layout.addSpacing(DesignSystem.SPACE_8)
         self.main_layout.addWidget(self.header)
-        self.main_layout.addSpacing(DesignSystem.SPACE_12)
+        self.main_layout.addSpacing(DesignSystem.SPACE_16)
 
         # Crear y mostrar card de progreso (ahora incluye las fases)
         self.progress_card = ProgressCard(self.selected_folder)

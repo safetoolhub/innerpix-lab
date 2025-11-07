@@ -68,8 +68,9 @@ class Stage1Window(BaseStage):
         self.next_step_card = self._create_next_step_card()
 
         # Agregar al layout principal
+        self.main_layout.addSpacing(DesignSystem.SPACE_8)
         self.main_layout.addWidget(self.header)
-        self.main_layout.addSpacing(DesignSystem.SPACE_20)
+        self.main_layout.addSpacing(DesignSystem.SPACE_16)
         self.main_layout.addWidget(self.folder_selection_card)
         self.main_layout.addSpacing(DesignSystem.SPACE_20)
         self.main_layout.addWidget(self.next_step_card)
