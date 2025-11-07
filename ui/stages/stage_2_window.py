@@ -53,7 +53,16 @@ class Stage2Window(BaseStage):
         """Configura la interfaz de usuario del Stage 2."""
         self.logger.info("Configurando UI del Stage 2")
 
-        # Crear y mostrar header
+        # Limpiar el layout principal para evitar espacios residuales de otras stages
+        if self.main_layout:
+            while self.main_layout.count():
+                item = self.main_layout.takeAt(0)
+                widget = item.widget()
+                if widget:
+                    widget.hide()
+                    widget.setParent(None)
+
+        # Crear y mostrar header sin margen superior
         self.header = self.create_header(
             subtitle_text="Análisis de tu carpeta",
             show_settings_button=False,
@@ -66,6 +75,10 @@ class Stage2Window(BaseStage):
         self.progress_card = ProgressCard(self.selected_folder)
         self.progress_card.cancel_requested.connect(self._on_cancel_requested)
         self.main_layout.addWidget(self.progress_card)
+
+        # Añadir espacio y stretch en la parte inferior para que el margen vaya al final
+        self.main_layout.addSpacing(DesignSystem.SPACE_20)
+        self.main_layout.addStretch()
         self.fade_in_widget(self.progress_card, duration=350)
 
         # Iniciar análisis con delay para mostrar animaciones
