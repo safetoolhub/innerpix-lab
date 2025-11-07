@@ -38,12 +38,12 @@ class LivePhotoCleanupDialog(BaseDialog):
     def _update_button_text(self):
         """Actualiza el texto del botón según el modo seleccionado"""
         groups = self.analysis.groups  # Dataclass attribute
-        lp_found = len(groups)
-        if lp_found > 0:
+        live_photos_found = len(groups)
+        if live_photos_found > 0:
             space = self._calculate_space_for_mode(self.selected_mode)
             space_formatted = format_size(space)
             files_type = "videos" if self.selected_mode == CleanupMode.KEEP_IMAGE else "imágenes"
-            self.ok_button.setText(f"Eliminar {lp_found} {files_type} ({space_formatted})")
+            self.ok_button.setText(f"Eliminar {live_photos_found} {files_type} ({space_formatted})")
 
     def init_ui(self):
         self.setWindowTitle("Limpieza de Live Photos")
@@ -91,10 +91,10 @@ class LivePhotoCleanupDialog(BaseDialog):
         # Estadísticas
         stats_group = QGroupBox("Información")
         stats_layout = QVLayout(stats_group)
-        lp_found = self.analysis.live_photos_found  # Dataclass attribute
+        live_photos_found = self.analysis.live_photos_found  # Dataclass attribute
         total_space = self.analysis.total_space  # Dataclass attribute
         stats_label = QLabel(
-            f"📱 Live Photos detectados: <b>{lp_found}</b><br>"
+            f"📱 Live Photos detectados: <b>{live_photos_found}</b><br>"
             f"💾 Espacio total ocupado: <b>{format_size(total_space)}</b>"
         )
         stats_label.setTextFormat(Qt.TextFormat.RichText)
@@ -124,12 +124,12 @@ class LivePhotoCleanupDialog(BaseDialog):
         layout.addWidget(options_group)
 
         # Botones
-        ok_enabled = lp_found > 0
+        ok_enabled = live_photos_found > 0
         ok_text = None if ok_enabled else "No hay Live Photos para limpiar"
         self.buttons = self.make_ok_cancel_buttons(ok_text=ok_text, ok_enabled=ok_enabled)
         self.ok_button = self.buttons.button(QDialogButtonBox.StandardButton.Ok)
         # If there are items, update text according to mode
-        if lp_found > 0:
+        if live_photos_found > 0:
             self._update_button_text()
         layout.addWidget(self.buttons)
         

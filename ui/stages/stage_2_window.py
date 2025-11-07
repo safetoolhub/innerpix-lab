@@ -99,7 +99,7 @@ class Stage2Window(BaseStage):
         """Inicia el análisis del directorio seleccionado"""
         # Crear instancias de servicios
         renamer = FileRenamer()
-        lp_detector = LivePhotoDetector()
+        live_photo_detector = LivePhotoDetector()
         organizer = FileOrganizer()
         heic_remover = HEICRemover()
         duplicate_exact_detector = DuplicateExactDetector()
@@ -108,7 +108,7 @@ class Stage2Window(BaseStage):
         self.analysis_worker = AnalysisWorker(
             directory=Path(self.selected_folder),
             renamer=renamer,
-            lp_detector=lp_detector,
+            live_photo_detector=live_photo_detector,
             unifier=organizer,
             heic_remover=heic_remover,
             duplicate_exact_detector=duplicate_exact_detector,

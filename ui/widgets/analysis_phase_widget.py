@@ -52,7 +52,7 @@ class AnalysisPhaseWidget(QFrame):
         )
         header_layout.addWidget(header_icon)
         
-        header_text = QLabel(" Qué estamos analizando?")
+        header_text = QLabel("¿Qué estamos analizando?")
         header_text.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_LG}px;
             font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
@@ -66,12 +66,12 @@ class AnalysisPhaseWidget(QFrame):
         
         # Fases del análisis (7 fases totales)
         phases = [
-            ("scan", "Escaneando archivos del directorio..."),
-            ("renaming", "Analizando nombres de archivos..."),
-            ("live_photos", "Detectando Live Photos..."),
+            ("scan", "Localizando imágenes y videos en la carpeta y sus subcarpetas..."),
+            ("renaming", "Analizando nombres de los archivos..."),
+            ("live_photos", "Buscando Live Photos..."),
             ("heic", "Buscando duplicados HEIC/JPG..."),
             ("duplicates", "Identificando duplicados exactos..."),
-            ("organization", "Analizando estructura de carpetas..."),
+            ("organization", "Analizando estructura de las carpetas..."),
             ("finalizing", "Finalizando análisis...")
         ]
         

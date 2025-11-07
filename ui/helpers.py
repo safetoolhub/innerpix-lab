@@ -110,7 +110,7 @@ def update_tab_details(window, results):
                 stats['Modo'] = mode_names[cleanup_mode]
         
         html = generate_stats_html(stats)
-        window.lp_details.setHtml(html)
+        window.live_photo_details.setHtml(html)
     
     if results.get('organization'):
         org = results['organization']
@@ -192,7 +192,7 @@ def reset_analysis_ui(window, reinsert_analyze=True):
     
     # Deshabilitar botones de ejecución
     window.preview_rename_btn.setEnabled(False)
-    window.exec_lp_btn.setEnabled(False)
+    window.exec_live_photo_btn.setEnabled(False)
     window.exec_org_btn.setEnabled(False)
     window.exec_heic_btn.setEnabled(False)
     
@@ -201,7 +201,7 @@ def reset_analysis_ui(window, reinsert_analyze=True):
     if hasattr(window, 'norm_details'):
         window.norm_details.clear()
     
-    window.lp_details.clear()
+    window.live_photo_details.clear()
     window.org_details.clear()
     window.heic_details.clear()
     
