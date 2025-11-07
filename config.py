@@ -26,6 +26,9 @@ class Config:
         '.mp4', '.mov', '.avi', '.mkv', '.wmv', '.flv'
     }
 
+    # Todas las extensiones soportadas (imágenes + videos)
+    ALL_SUPPORTED_EXTENSIONS = SUPPORTED_IMAGE_EXTENSIONS | SUPPORTED_VIDEO_EXTENSIONS
+
     # ========================================================================
     # CONFIGURACIÓN DE LOGGING
     # ========================================================================

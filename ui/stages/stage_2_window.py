@@ -16,7 +16,7 @@ from services.file_renamer import FileRenamer
 from services.live_photo_detector import LivePhotoDetector
 from services.file_organizer import FileOrganizer
 from services.heic_remover import HEICRemover
-from services.duplicate_detector import DuplicateDetector
+from services.duplicate_exact_detector import DuplicateExactDetector
 
 
 class Stage2Window(BaseStage):
@@ -102,7 +102,7 @@ class Stage2Window(BaseStage):
         lp_detector = LivePhotoDetector()
         organizer = FileOrganizer()
         heic_remover = HEICRemover()
-        duplicate_detector = DuplicateDetector()
+        duplicate_exact_detector = DuplicateExactDetector()
 
         # Crear worker de análisis
         self.analysis_worker = AnalysisWorker(
@@ -111,7 +111,7 @@ class Stage2Window(BaseStage):
             lp_detector=lp_detector,
             unifier=organizer,
             heic_remover=heic_remover,
-            duplicate_detector=duplicate_detector,
+            duplicate_exact_detector=duplicate_exact_detector,
             organization_type=None  # Se usará el default
         )
 

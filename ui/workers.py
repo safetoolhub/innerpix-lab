@@ -32,7 +32,8 @@ if TYPE_CHECKING:
     from services.live_photo_cleaner import LivePhotoCleaner
     from services.file_organizer import FileOrganizer
     from services.heic_remover import HEICDuplicateRemover
-    from services.duplicate_detector import DuplicateDetector
+    from services.duplicate_exact_detector import DuplicateExactDetector
+    from services.duplicate_similar_detector import DuplicateSimilarDetector
 
 
 
@@ -135,7 +136,7 @@ class AnalysisWorker(BaseWorker):
         lp_detector: 'LivePhotoDetector',
         unifier: 'FileOrganizer',
         heic_remover: 'HEICDuplicateRemover',
-        duplicate_detector: Optional['DuplicateDetector'] = None,
+        duplicate_exact_detector: Optional['DuplicateExactDetector'] = None,
         organization_type: Optional[str] = None
     ):
         super().__init__()
@@ -144,7 +145,7 @@ class AnalysisWorker(BaseWorker):
         self.lp_detector = lp_detector
         self.unifier = unifier
         self.heic_remover = heic_remover
-        self.duplicate_detector = duplicate_detector
+        self.duplicate_exact_detector = duplicate_exact_detector
         self.organization_type = organization_type
         self.phase_timings: Dict[str, Dict] = {}  # Almacena timing de cada fase
         
@@ -241,7 +242,7 @@ class AnalysisWorker(BaseWorker):
                 lp_detector=self.lp_detector,
                 organizer=self.unifier,
                 heic_remover=self.heic_remover,
-                duplicate_detector=self.duplicate_detector,
+                duplicate_exact_detector=self.duplicate_exact_detector,
                 organization_type=self.organization_type,
                 progress_callback=self._create_progress_callback(emit_numbers=True),
                 phase_callback=phase_callback,
@@ -486,7 +487,7 @@ class DuplicateAnalysisWorker(BaseWorker):
     
     def __init__(
         self,
-        detector: 'DuplicateDetector',
+        detector: 'DuplicateExactDetector | DuplicateSimilarDetector',
         directory: Path,
         mode: str = 'exact',
         sensitivity: int = 10
@@ -530,7 +531,7 @@ class DuplicateDeletionWorker(BaseWorker):
     Worker para eliminación de duplicados
     
     Signals:
-        finished(DuplicateDeletionResult): Emite resultado de la eliminación
+        finished(DuplicateDeletionResult): Emite resultado de la operación
         progress_update(int, int, str): Heredado de BaseWorker
         error(str): Heredado de BaseWorker
     """
@@ -539,12 +540,18 @@ class DuplicateDeletionWorker(BaseWorker):
     
     def __init__(
         self,
-        detector: 'DuplicateDetector',
+        detector: 'DuplicateExactDetector | DuplicateSimilarDetector',
         groups: List,
         keep_strategy: str,
         create_backup: bool = True,
         dry_run: bool = False
     ):
+        super().__init__()
+        self.detector = detector
+        self.groups = groups
+        self.keep_strategy = keep_strategy
+        self.create_backup = create_backup
+        self.dry_run = dry_run
         super().__init__()
         self.detector = detector
         self.groups = groups

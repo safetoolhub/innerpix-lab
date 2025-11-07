@@ -28,7 +28,9 @@ from services.result_types import (
 )
 from services.file_organizer import FileMove, OrganizationType
 from services.heic_remover import DuplicatePair
-from services.duplicate_detector import DuplicateGroup
+# DuplicateGroup está definido en ambos servicios duplicate_exact_detector y duplicate_similar_detector
+# Importamos desde exact_detector por convención (ambas definiciones son idénticas)
+from services.duplicate_exact_detector import DuplicateGroup
 
 
 # ============================================================================

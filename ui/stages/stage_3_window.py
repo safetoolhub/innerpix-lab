@@ -13,8 +13,8 @@ from ui.widgets.summary_card import SummaryCard
 from ui.widgets.tool_card import ToolCard
 from ui.dialogs.live_photos_dialog import LivePhotoCleanupDialog
 from ui.dialogs.heic_dialog import HEICDuplicateRemovalDialog
-from ui.dialogs.exact_duplicates_dialog import ExactDuplicatesDialog
-from ui.dialogs.similar_duplicates_dialog import SimilarDuplicatesDialog
+from ui.dialogs.duplicate_exact_dialog import ExactDuplicatesDialog
+from ui.dialogs.duplicate_similar_dialog import SimilarDuplicatesDialog
 from ui.dialogs.organization_dialog import FileOrganizationDialog
 from ui.dialogs.renaming_dialog import RenamingPreviewDialog
 from ui.dialogs.settings_dialog import SettingsDialog

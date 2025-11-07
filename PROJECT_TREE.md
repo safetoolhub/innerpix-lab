@@ -36,13 +36,15 @@ pixaro-lab/
 ├── services/                        # Lógica de negocio (sin dependencias UI)
 │   ├── __init__.py
 │   ├── analysis_orchestrator.py     # Coordinador de análisis completo
-│   ├── duplicate_detector.py        # Detección de duplicados por hash
+│   ├── duplicate_exact_detector.py  # Detección de duplicados exactos (SHA256)
+│   ├── duplicate_similar_detector.py # Detección de duplicados similares (perceptual hash)
 │   ├── file_organizer.py            # Organización por fecha/tipo
 │   ├── file_renamer.py              # Renombrado según patrón fecha
 │   ├── heic_remover.py              # Eliminación de duplicados HEIC/JPG
 │   ├── live_photo_cleaner.py        # Limpieza de Live Photos
 │   ├── live_photo_detector.py       # Detección de Live Photos
-│   └── result_types.py              # Dataclasses de resultados
+│   ├── result_types.py              # Dataclasses de resultados
+│   └── view_models.py               # View Models para separación UI/Lógica
 │
 ├── ui/                              # Interfaz gráfica PyQt6
 │   ├── __init__.py
@@ -66,8 +68,8 @@ pixaro-lab/
 │   │   ├── about_dialog.py          # Diálogo "Acerca de"
 │   │   ├── base_dialog.py           # Clase base para diálogos con backup
 │   │   ├── dialog_utils.py          # Utilidades compartidas (open_file, open_folder, show_file_details_dialog)
-│   │   ├── exact_duplicates_dialog.py    # Diálogo de duplicados exactos (hash-based)
-│   │   ├── similar_duplicates_dialog.py  # Diálogo de duplicados similares (perceptual)
+│   │   ├── duplicate_exact_dialog.py     # Diálogo de duplicados exactos (SHA256-based)
+│   │   ├── duplicate_similar_dialog.py   # Diálogo de duplicados similares (perceptual hash)
 │   │   ├── heic_dialog.py           # Diálogo de HEIC con vista de detalles
 │   │   ├── live_photos_dialog.py    # Diálogo de Live Photos
 │   │   ├── organization_dialog.py   # Diálogo de organización (3 modos: raíz/mes/WhatsApp)

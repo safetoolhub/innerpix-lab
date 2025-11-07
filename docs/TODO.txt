@@ -7,3 +7,9 @@ Probar todo con muchos archivos a ver ux y rendimiento
 En la opcion de deteccion de fotods de whatsapp no me detecta las de test
 Hay que pasar a dataclass toda la gestion de results dentre stages y dialogs...en lugar de dicts
 CProbar como reacciona stage 2 ante errores, por ejemplo poner un label de icono que no exista o conseguir error de alguna forma
+
+Proximos pasos de refactor:
+Integración en Diálogos - Refactorizar diálogos para usar View Models (opcional)
+Tests Unitarios - Crear tests/test_view_models.py (opcional)
+CLI Tools - Scripts de exportación usando View Models (opcional)
+Documentación - Tutorial de uso de View Models (opcional)

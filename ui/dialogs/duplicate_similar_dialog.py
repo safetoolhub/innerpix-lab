@@ -8,7 +8,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPixmap, QDesktopServices, QCursor
 from PyQt6.QtCore import QUrl
 from config import Config
-from services.duplicate_detector import DuplicateGroup
+from services.duplicate_similar_detector import DuplicateGroup
 from utils.format_utils import format_size
 from ui import ui_styles
 from ui.styles.design_system import DesignSystem
