@@ -584,7 +584,15 @@ def test_with_custom_config():
   * ✅ `live_photo_detector.py` - `LivePhotoGroup` ahora es dataclass
 
 ### Sprint 3 (Baja Prioridad - Preparación futura)
-- 🔮 **FASE 4:** View Models para separación UI/lógica
+- ✅ **FASE 4:** View Models para separación UI/lógica
+  * ✅ Creado `services/view_models.py` (~750 LOC, 0 deps PyQt6)
+  * ✅ `OrganizationViewModel` - Transforma a árbol (TO_ROOT, BY_MONTH, WHATSAPP)
+  * ✅ `RenameViewModel` - Transforma a tabla con filas tipadas
+  * ✅ `HEICViewModel` - Transforma pares HEIC/JPG a árbol
+  * ✅ `DuplicatesViewModel` - Transforma grupos a árbol (exact/perceptual)
+  * ✅ Clases base: `TreeNode`, `TableRow` (genéricas, reutilizables)
+  * ⏭️ **Opcional:** Integrar View Models en diálogos existentes
+  * ⏭️ **Opcional:** Tests unitarios para View Models
 - 🔮 **Mejora 3.1:** Sistema de callbacks estructurado con `ProgressInfo`
 - 🔮 **Mejora 3.2:** Tests sin UI usando fixtures de dataclasses
 

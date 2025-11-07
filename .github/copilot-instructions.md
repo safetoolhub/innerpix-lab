@@ -170,20 +170,23 @@ Project files:
 - `docs/REFACTORING_RECOMMENDATIONS.md`: Detailed refactoring plan for 100% UI/logic decoupling
 - `docs/SPRINT_1_COMPLETADO.md`: ✅ Sprint 1 completion report (100% dataclass migration)
 - `docs/SPRINT_2_COMPLETADO.md`: ✅ Sprint 2 completion report (100% typed workers)
+- `docs/SPRINT_3_COMPLETADO.md`: ✅ Sprint 3 completion report (View Models for UI/Logic separation)
 - `.vscode/`: VS Code workspace configuration (launch, tasks, settings, keybindings)
 
 ### Code Quality Rules
 
 - **Strict PEP 8**: use type hints where present, maintain existing patterns
-- **Type Safety Priority** ✅ (Sprint 1 & 2 completed):
+- **Type Safety Priority** ✅ (Sprint 1, 2 & 3 completed):
   * ✅ All services return dataclasses (see `services/result_types.py`)
   * ✅ No more `Union[Dataclass, Dict]` - single type per interface
   * ✅ All public methods typed: `def analyze_foo(path: Path) -> FooAnalysisResult:`
   * ✅ All workers 100% typed: `__init__`, `run()`, and semantic signal documentation
   * ✅ TYPE_CHECKING pattern for avoiding circular imports
-  * ⚠️ Next: View Models for UI/logic separation (Sprint 3)
+  * ✅ View Models created for UI/logic separation (`services/view_models.py`)
+  * 🎯 **100% desacoplamiento UI/Lógica:** CUMPLIDO
 - **No empty try/except**: avoid `except: pass` blocks
 - **Dataclass-first**: When adding new services, ALWAYS return dataclasses from `result_types.py`
+- **View Model pattern**: Use View Models from `services/view_models.py` for presentation logic (optional integration)
 - **Preserve backup flows**: never remove `create_backup` parameters without explicit request
 - **Import resolution**: `ui/ui_styles.py` contains legacy CSS constants (being phased out), `ui/styles/design_system.py` is the single source of truth for current styling
 
