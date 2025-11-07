@@ -52,6 +52,9 @@ class Stage3Window(BaseStage):
                 child.widget().hide()
                 child.widget().setParent(None)
 
+        # Añadir espaciado encima del header
+        self.main_layout.addSpacing(DesignSystem.SPACE_8)
+
         # Crear y mostrar header
         self.header = self.create_header(
             on_settings_clicked=self._on_settings_clicked,
@@ -225,6 +228,9 @@ class Stage3Window(BaseStage):
         # Remover el stretch temporal antes de añadir el grid
         if self.main_layout.count() > 3:  # header + spacing + summary_card + stretch
             self.main_layout.takeAt(self.main_layout.count() - 1)  # Remover stretch
+
+        # Añadir espaciado entre summary card y tool cards
+        self.main_layout.addSpacing(DesignSystem.SPACE_8)
 
         self.main_layout.addWidget(grid_container)
         self.tools_grid = grid_container

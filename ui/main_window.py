@@ -103,6 +103,7 @@ class MainWindow(QMainWindow):
         """Configura la interfaz de usuario principal"""
         # Widget central con scroll
         central_widget = QWidget()
+        central_widget.setContentsMargins(0, 0, 0, 0)  # Eliminar márgenes del central widget
         self.setCentralWidget(central_widget)
 
         # Layout principal del central widget
@@ -129,16 +130,20 @@ class MainWindow(QMainWindow):
         # Widget contenedor dentro del scroll area
         scroll_widget = QWidget()
         scroll_widget.setMinimumWidth(800)  # Asegurar ancho mínimo
+        scroll_widget.setContentsMargins(0, 0, 0, 0)  # Eliminar márgenes del widget contenedor
         self.scroll_area.setWidget(scroll_widget)
+        
+        # Configurar viewport del scroll area para eliminar márgenes
+        self.scroll_area.viewport().setContentsMargins(0, 0, 0, 0)
 
         # Layout principal dentro del scroll area
         self.main_layout = QVBoxLayout(scroll_widget)
-        self.main_layout.setSpacing(DesignSystem.SPACE_20)
+        self.main_layout.setSpacing(0)  # Sin spacing para evitar espacio antes del primer elemento
         self.main_layout.setContentsMargins(
-            DesignSystem.SPACE_20,
-            DesignSystem.SPACE_20,
-            DesignSystem.SPACE_20,
-            DesignSystem.SPACE_20
+            DesignSystem.SPACE_20,  # left
+            0,                      # top - sin margen superior
+            DesignSystem.SPACE_20,  # right
+            DesignSystem.SPACE_20   # bottom
         )
 
     def _apply_stylesheet(self):

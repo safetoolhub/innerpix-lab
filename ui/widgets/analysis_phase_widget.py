@@ -22,6 +22,7 @@ class AnalysisPhaseWidget(QFrame):
         self.phase_labels = {}
         self.phase_icons = {}
         self.phase_counters = {}  # Nuevos contadores de progreso
+        self.phase_original_texts = {}  # Textos originales de cada fase
         self._setup_ui()
     
     def _setup_ui(self):
@@ -35,7 +36,7 @@ class AnalysisPhaseWidget(QFrame):
         """)
         
         layout = QVBoxLayout(self)
-        layout.setSpacing(DesignSystem.SPACE_4)  # Espacio más compacto entre fases
+        layout.setSpacing(0)  # Sin espacio entre fases para máxima compacidad
         layout.setContentsMargins(0, 0, 0, 0)  # Sin márgenes
         
         # Header compacto
@@ -64,13 +65,14 @@ class AnalysisPhaseWidget(QFrame):
         layout.addLayout(header_layout)
         layout.addSpacing(DesignSystem.SPACE_2)  # Separador más pequeño después del header
         
-        # Fases del análisis (7 fases totales)
+        # Fases del análisis (8 fases totales)
         phases = [
             ("scan", "Localizando imágenes y videos en la carpeta y sus subcarpetas..."),
             ("renaming", "Analizando nombres de los archivos..."),
             ("live_photos", "Buscando Live Photos..."),
             ("heic", "Buscando duplicados HEIC/JPG..."),
             ("duplicates", "Identificando duplicados exactos..."),
+            ("duplicates_similar", "Identificando duplicados similares..."),
             ("organization", "Analizando estructura de las carpetas..."),
             ("finalizing", "Finalizando análisis...")
         ]
@@ -78,6 +80,8 @@ class AnalysisPhaseWidget(QFrame):
         for phase_id, phase_text in phases:
             phase_layout = self._create_phase_item(phase_id, phase_text)
             layout.addLayout(phase_layout)
+            # Guardar el texto original para poder modificarlo después
+            self.phase_original_texts[phase_id] = phase_text
     
     def _create_phase_item(self, phase_id: str, text: str) -> QHBoxLayout:
         """
@@ -137,7 +141,7 @@ class AnalysisPhaseWidget(QFrame):
         
         Args:
             phase_id: ID de la fase
-            status: 'pending', 'running', 'completed'
+            status: 'pending', 'running', 'completed', 'error', 'skipped'
         """
         if phase_id not in self.phase_icons:
             return
@@ -153,9 +157,16 @@ class AnalysisPhaseWidget(QFrame):
                 color=DesignSystem.COLOR_SUCCESS,
                 size=12
             )
+            # Añadir "- OK" al texto original
+            original_text = self.phase_original_texts.get(phase_id, "")
+            # Remover "..." del final si existe
+            if original_text.endswith("..."):
+                original_text = original_text[:-3]
+            text_label.setText(f"{original_text} - OK")
             text_label.setStyleSheet(f"""
                 font-size: {DesignSystem.FONT_SIZE_LG}px;
                 color: {DesignSystem.COLOR_SUCCESS};
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
                 line-height: 1.0;
             """)
             # Ocultar contador cuando se completa
@@ -168,13 +179,23 @@ class AnalysisPhaseWidget(QFrame):
                 color=DesignSystem.COLOR_PRIMARY,
                 size=12
             )
+            # Restaurar texto original sin modificación durante ejecución
+            original_text = self.phase_original_texts.get(phase_id, "")
+            text_label.setText(original_text)
             text_label.setStyleSheet(f"""
                 font-size: {DesignSystem.FONT_SIZE_LG}px;
-                color: {DesignSystem.COLOR_TEXT};
+                color: {DesignSystem.COLOR_PRIMARY};
                 font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
                 line-height: 1.0;
             """)
-            # Mostrar contador cuando está en ejecución
+            # Mostrar contador en azul cuando está en ejecución
+            counter_label.setStyleSheet(f"""
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                color: {DesignSystem.COLOR_PRIMARY};
+                font-family: {DesignSystem.FONT_FAMILY_MONO};
+                line-height: 1.0;
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            """)
             counter_label.show()
         
         elif status == 'error':
@@ -191,6 +212,30 @@ class AnalysisPhaseWidget(QFrame):
             """)
             # Ocultar contador en caso de error
             counter_label.hide()
+        
+        elif status == 'skipped':
+            icon_manager.set_label_icon(
+                icon_label,
+                'cancel',
+                color=DesignSystem.COLOR_TEXT_SECONDARY,
+                size=12
+            )
+            text_label.setStyleSheet(f"""
+                font-size: {DesignSystem.FONT_SIZE_LG}px;
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                font-style: italic;
+                line-height: 1.0;
+            """)
+            # Mostrar "No realizado" en el contador
+            counter_label.setText("(No realizado)")
+            counter_label.setStyleSheet(f"""
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                font-family: {DesignSystem.FONT_FAMILY_BASE};
+                line-height: 1.0;
+                font-style: italic;
+            """)
+            counter_label.show()
         
         else:  # pending
             icon_manager.set_label_icon(
