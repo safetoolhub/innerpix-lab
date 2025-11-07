@@ -10,7 +10,6 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QTimer
 from config import Config
 from ui import styles
-from ui import tabs as _tabs_module
 
 from utils.format_utils import format_size, generate_stats_html
 

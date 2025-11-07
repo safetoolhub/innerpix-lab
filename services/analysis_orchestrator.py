@@ -261,21 +261,21 @@ class AnalysisOrchestrator:
     
     def analyze_exact_duplicates(self,
                                  directory: Path,
-                                 duplicate_detector,
+                                 duplicate_exact_detector,
                                  progress_callback: Optional[Callable[[int, int, str], bool]] = None):
         """
         Detecta duplicados exactos usando SHA256.
         
         Args:
             directory: Directorio a analizar
-            duplicate_detector: Instancia de DuplicateDetector
+            duplicate_exact_detector: Instancia de DuplicateExactDetector
             progress_callback: Función opcional de progreso
             
         Returns:
             Resultado del análisis de duplicados exactos
         """
         self.logger.info("Detectando duplicados exactos (SHA256)")
-        return duplicate_detector.analyze_exact_duplicates(
+        return duplicate_exact_detector.analyze_exact_duplicates(
             directory,
             progress_callback=progress_callback
         )
@@ -286,7 +286,7 @@ class AnalysisOrchestrator:
                          lp_detector=None,
                          organizer=None,
                          heic_remover=None,
-                         duplicate_detector=None,
+                         duplicate_exact_detector=None,
                          organization_type=None,
                          progress_callback: Optional[Callable[[int, int, str], bool]] = None,
                          phase_callback: Optional[Callable[[str], None]] = None,
@@ -300,7 +300,7 @@ class AnalysisOrchestrator:
             lp_detector: LivePhotoDetector opcional
             organizer: FileOrganizer opcional
             heic_remover: HEICDuplicateRemover opcional
-            duplicate_detector: DuplicateDetector opcional
+            duplicate_exact_detector: DuplicateExactDetector opcional
             organization_type: Tipo de organización opcional
             progress_callback: Callback (current, total, msg) -> bool para progreso
             phase_callback: Callback (phase_name) para cambios de fase
@@ -424,7 +424,7 @@ class AnalysisOrchestrator:
                 partial_callback('heic', result.heic)
         
         # Fase 5: Duplicados exactos
-        if duplicate_detector:
+        if duplicate_exact_detector:
             if progress_callback and not progress_callback(0, 0, ""):
                 result.total_duration = time.time() - analysis_start_time
                 return result
@@ -433,7 +433,7 @@ class AnalysisOrchestrator:
                 phase_callback("duplicates")
             
             phase_start = time.time()
-            result.duplicates = self.analyze_exact_duplicates(directory, duplicate_detector, progress_callback)
+            result.duplicates = self.analyze_exact_duplicates(directory, duplicate_exact_detector, progress_callback)
             phase_end = time.time()
             
             result.phase_timings['duplicates'] = PhaseTimingInfo(

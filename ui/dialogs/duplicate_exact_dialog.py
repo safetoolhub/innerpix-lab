@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QFont, QDesktopServices
 from config import Config
-from services.duplicate_detector import DuplicateGroup
+from services.duplicate_exact_detector import DuplicateGroup
 from utils.format_utils import format_size
 from ui import ui_styles
 from ui.styles.design_system import DesignSystem
@@ -422,11 +422,15 @@ class ExactDuplicatesDialog(BaseDialog):
         """Añade un grupo como nodo padre expandible en el tree"""
         # Nodo padre del grupo
         group_item = QTreeWidgetItem(self.tree_widget)
-        group_item.setText(0, f"📁 Grupo {group_number} - {group.file_count} archivos")
+        file_count = len(group.files)
+        # Espacio a liberar = tamaño total - archivo más grande (que se conservará)
+        largest_file_size = max(f.stat().st_size for f in group.files)
+        space_to_free = group.total_size - largest_file_size
+        group_item.setText(0, f"📁 Grupo {group_number} - {file_count} archivos")
         group_item.setText(1, format_size(group.total_size))
         group_item.setText(2, "")
         group_item.setText(3, "")
-        group_item.setText(4, f"Libera: {format_size(group.space_wasted)}")
+        group_item.setText(4, f"Libera: {format_size(space_to_free)}")
         
         # Estilo del grupo padre
         font = group_item.font(0)
@@ -538,9 +542,9 @@ class ExactDuplicatesDialog(BaseDialog):
         elif filter_idx == 3:  # >100 MB
             filtered = [g for g in filtered if g.total_size > 100 * 1024 * 1024]
         elif filter_idx == 4:  # 3+ archivos
-            filtered = [g for g in filtered if g.file_count >= 3]
+            filtered = [g for g in filtered if len(g.files) >= 3]
         elif filter_idx == 5:  # 5+ archivos
-            filtered = [g for g in filtered if g.file_count >= 5]
+            filtered = [g for g in filtered if len(g.files) >= 5]
         
         # Actualizar grupos filtrados y recargar
         self.filtered_groups = filtered
@@ -616,7 +620,7 @@ class ExactDuplicatesDialog(BaseDialog):
                 status_info = {
                     'metadata': {
                         'Estado': '🔒 Se mantendrá' if is_keep else '🗑️ Se eliminará',
-                        'Grupo': f'{group.file_count} archivos duplicados',
+                        'Grupo': f'{len(group.files)} archivos duplicados',
                         'Espacio grupo': format_size(group.total_size),
                         'Estrategia': 'Mantener más antiguo' if self.keep_strategy == 'oldest' else 'Mantener más reciente'
                     }

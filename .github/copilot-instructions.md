@@ -18,6 +18,11 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
   * **Migration completed (Sprint 1):** No more Dict returns, no more Union[Dataclass, Dict]
 - Examples: `FileRenamer.analyze_directory()` → `RenameAnalysisResult`, `LivePhotoCleaner.execute_cleanup()` → `LivePhotoCleanupResult`
 - Orchestrator: `AnalysisOrchestrator.run_full_analysis()` → `FullAnalysisResult` (100% typed fields), coordinates multiple services with callback system (progress/phase/partial), 100% PyQt6-free
+- Specialized duplicate detectors (Sprint 4):
+  * `DuplicateExactDetector` (`duplicate_exact_detector.py`): SHA256-based exact duplicate detection, 100% identical files
+  * `DuplicateSimilarDetector` (`duplicate_similar_detector.py`): Perceptual hash-based similar detection using imagehash/cv2
+  * Both share `DuplicateGroup` dataclass and `execute_deletion()` pattern
+  * Analysis returns `DuplicateAnalysisResult` with `mode='exact'` or `mode='perceptual'`
 
 **Workers** (`ui/workers.py`) - QThread background tasks to keep UI responsive
 - Base class: `BaseWorker` provides `progress_update`, `finished`, `error` signals
@@ -93,7 +98,6 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
 **Additional UI modules**:
 - `ui/helpers.py`: Reusable UI helper functions extracted from main_window.py
 - `ui/managers/logging_manager.py`: Centralized logging management for UI components
-- `ui/tabs/`: Tab-based UI components (currently empty, reserved for future expansion)
 - `ui/validators/directory_validator.py`: Directory validation utilities for UI
 - `utils/settings_manager.py`: High-level settings management using storage backends
 
@@ -147,11 +151,18 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
   * Displays file sizes and types
   * Checkbox for backup creation before cleanup
 
-- **Duplicates dialogs** (`ui/dialogs/duplicates_dialogs.py`):
-  * Multiple strategies: keep first/last/largest/smallest
-  * Preview showing files to keep vs delete
-  * Hash-based duplicate detection
-  * Checkbox for backup creation before deletion
+- **Duplicates dialogs**:
+  * **Exact duplicates** (`ui/dialogs/duplicate_exact_dialog.py`): SHA256 hash-based exact match detection
+    - TreeWidget with expandable groups showing identical files
+    - Strategies: keep first/last/largest/smallest/manual
+    - Pagination for large result sets (50 initial, 50 increment)
+    - Search and filter capabilities
+    - Checkbox for backup creation before deletion
+  * **Similar duplicates** (`ui/dialogs/duplicate_similar_dialog.py`): Perceptual hash-based visual similarity
+    - TreeWidget with similarity scores (0-100%)
+    - Adjustable sensitivity slider for threshold
+    - Preview showing files to keep vs delete
+    - Checkbox for backup creation before deletion
 
 ### Developer Workflow
 
