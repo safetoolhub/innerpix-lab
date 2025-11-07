@@ -6,7 +6,7 @@ import os
 import logging
 from pathlib import Path
 from datetime import datetime
-from typing import List, Dict, Optional, Set, Union
+from typing import List, Dict, Optional, Set
 from enum import Enum
 
 from config import Config
@@ -191,31 +191,19 @@ class LivePhotoCleaner:
 
     # Backup creation delegated to utils.file_utils.create_backup
 
-    def execute_cleanup(self, cleanup_analysis: Union[LivePhotoCleanupAnalysisResult, Dict], create_backup: bool = True, 
+    def execute_cleanup(self, cleanup_analysis: LivePhotoCleanupAnalysisResult, create_backup: bool = True, 
                        dry_run: bool = False, progress_callback=None) -> LivePhotoCleanupResult:
         """
         Ejecuta la limpieza de Live Photos
 
         Args:
-            cleanup_analysis: Análisis de limpieza previo (dataclass o dict para compatibilidad)
+            cleanup_analysis: Análisis de limpieza previo (SOLO acepta dataclass)
             create_backup: Si crear backup antes de eliminar
             dry_run: Si solo simular sin eliminar archivos reales
 
         Returns:
             Resultados de la limpieza
         """
-        # Convertir dict a dataclass si es necesario (para compatibilidad con código antiguo)
-        if isinstance(cleanup_analysis, dict):
-            cleanup_analysis = LivePhotoCleanupAnalysisResult(
-                total_files=cleanup_analysis.get('total_files', 0),
-                live_photos_found=cleanup_analysis.get('live_photos_found', 0),
-                files_to_delete=cleanup_analysis.get('files_to_delete', []),
-                files_to_keep=cleanup_analysis.get('files_to_keep', []),
-                space_to_free=cleanup_analysis.get('space_to_free', 0),
-                total_space=cleanup_analysis.get('total_space', 0),
-                cleanup_mode=cleanup_analysis.get('cleanup_mode', 'keep_image')
-            )
-        
         files_to_delete = cleanup_analysis.files_to_delete
 
         if not files_to_delete:

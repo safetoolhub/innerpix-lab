@@ -22,22 +22,22 @@ class LivePhotoCleanupDialog(BaseDialog):
 
     def _calculate_space_for_mode(self, mode):
         """Calcula el espacio a liberar según el modo seleccionado"""
-        groups = self.analysis.get('groups', [])
+        groups = self.analysis.groups  # Dataclass attribute
         if not groups:
             return 0
 
         total_space = 0
         if mode == CleanupMode.KEEP_IMAGE:
             for group in groups:
-                total_space += group['video_size']
+                total_space += group.video_size
         elif mode == CleanupMode.KEEP_VIDEO:
             for group in groups:
-                total_space += group['image_size']
+                total_space += group.image_size
         return total_space
 
     def _update_button_text(self):
         """Actualiza el texto del botón según el modo seleccionado"""
-        groups = self.analysis.get('groups', [])
+        groups = self.analysis.groups  # Dataclass attribute
         lp_found = len(groups)
         if lp_found > 0:
             space = self._calculate_space_for_mode(self.selected_mode)
@@ -91,8 +91,8 @@ class LivePhotoCleanupDialog(BaseDialog):
         # Estadísticas
         stats_group = QGroupBox("Información")
         stats_layout = QVLayout(stats_group)
-        lp_found = self.analysis.get('live_photos_found', 0)
-        total_space = self.analysis.get('total_space', 0)
+        lp_found = self.analysis.live_photos_found  # Dataclass attribute
+        total_space = self.analysis.total_space  # Dataclass attribute
         stats_label = QLabel(
             f"📱 Live Photos detectados: <b>{lp_found}</b><br>"
             f"💾 Espacio total ocupado: <b>{format_size(total_space)}</b>"
@@ -143,15 +143,15 @@ class LivePhotoCleanupDialog(BaseDialog):
 
     def accept(self):
         # Construir lista de archivos a eliminar según el modo seleccionado
-        groups = self.analysis.get('groups', [])
+        groups = self.analysis.groups  # Dataclass attribute
         files_to_delete = []
         
         if self.selected_mode == CleanupMode.KEEP_IMAGE:
             # Eliminar videos, mantener imágenes
-            files_to_delete = [group['video_path'] for group in groups]
+            files_to_delete = [group.video_path for group in groups]
         elif self.selected_mode == CleanupMode.KEEP_VIDEO:
             # Eliminar imágenes, mantener videos
-            files_to_delete = [group['image_path'] for group in groups]
+            files_to_delete = [group.image_path for group in groups]
         
         self.accepted_plan = self.build_accepted_plan({
             'mode': self.selected_mode,

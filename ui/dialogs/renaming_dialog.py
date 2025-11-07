@@ -682,19 +682,25 @@ class RenamingPreviewDialog(BaseDialog):
         
         file_path = file_info['original_path']
         
+        # Detectar tipo de archivo desde la extensión
+        from config import Config
+        file_type = 'Imagen' if Config.is_image_file(file_path) else 'Video' if Config.is_video_file(file_path) else 'Desconocido'
+        
         additional_info = {
             'original_name': file_path.name,
             'new_name': file_info['new_name'],
-            'file_type': file_info.get('type', 'Desconocido'),
-            'conflict': file_info.get('conflict', False),
+            'file_type': file_type,
+            'conflict': file_info.get('has_conflict', False),  # Key correcta: has_conflict
             'metadata': {
                 'Fecha detectada': file_info['date'].strftime('%Y-%m-%d %H:%M:%S'),
-                'Año': str(file_info.get('year', 'N/A')),
+                'Año': str(file_info['date'].year),  # Obtener año desde date
             }
         }
         
-        if file_info.get('conflict'):
+        if file_info.get('has_conflict'):  # Key correcta: has_conflict
             additional_info['metadata']['Conflicto'] = 'Sí - Se resolverá con sufijo numérico'
+            if file_info.get('sequence'):
+                additional_info['metadata']['Secuencia'] = f"#{file_info['sequence']}"
         
         show_file_details_dialog(file_path, self, additional_info)
 

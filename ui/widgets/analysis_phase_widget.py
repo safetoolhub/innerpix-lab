@@ -180,7 +180,7 @@ class AnalysisPhaseWidget(QFrame):
         elif status == 'error':
             icon_manager.set_label_icon(
                 icon_label,
-                'alert-circle',
+                'error',  # Usar 'error' que mapea a 'mdi6.alert-circle'
                 color=DesignSystem.COLOR_ERROR,
                 size=12
             )

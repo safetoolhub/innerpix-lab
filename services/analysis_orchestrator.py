@@ -3,12 +3,22 @@ Orchestrator de análisis de directorios.
 Coordina múltiples servicios para realizar análisis completos sin dependencias de UI.
 """
 from pathlib import Path
-from typing import Optional, Callable, Dict, List, Any
+from typing import Optional, Callable, Dict, List, Any, TYPE_CHECKING
 from dataclasses import dataclass, field
 import time
 
 from config import Config
 from utils.logger import get_logger
+
+# Type checking imports para evitar imports circulares
+if TYPE_CHECKING:
+    from services.result_types import (
+        RenameAnalysisResult, 
+        LivePhotoDetectionResult,
+        OrganizationAnalysisResult, 
+        HeicAnalysisResult, 
+        DuplicateAnalysisResult
+    )
 
 
 @dataclass
@@ -58,40 +68,18 @@ class PhaseTimingInfo:
 
 @dataclass
 class FullAnalysisResult:
-    """Resultado completo de análisis de directorio"""
+    """Resultado completo de análisis de directorio - 100% tipado"""
     directory: Path
     scan: DirectoryScanResult
     phase_timings: Dict[str, PhaseTimingInfo] = field(default_factory=dict)
-    renaming: Optional[Any] = None
-    live_photos: Optional[Dict] = None
-    organization: Optional[Any] = None
-    heic: Optional[Any] = None
-    duplicates: Optional[Any] = None
-    total_duration: float = 0.0
     
-    def to_dict(self) -> Dict:
-        """Convierte a diccionario para compatibilidad con código existente"""
-        return {
-            'stats': {
-                'total': self.scan.total_files,
-                'images': self.scan.image_count,
-                'videos': self.scan.video_count,
-                'others': self.scan.other_count
-            },
-            'renaming': self.renaming,
-            'live_photos': self.live_photos,
-            'organization': self.organization,
-            'heic': self.heic,
-            'duplicates': self.duplicates,
-            'phase_timings': {k: {
-                'phase_id': v.phase_id,
-                'phase_name': v.phase_name,
-                'duration': v.duration,
-                'start_time': v.start_time,
-                'end_time': v.end_time
-            } for k, v in self.phase_timings.items()},
-            'total_duration': self.total_duration
-        }
+    # Todos los resultados tipados con sus dataclasses específicos
+    renaming: Optional['RenameAnalysisResult'] = None  # Forward reference para evitar import circular
+    live_photos: Optional['LivePhotoDetectionResult'] = None
+    organization: Optional['OrganizationAnalysisResult'] = None
+    heic: Optional['HeicAnalysisResult'] = None
+    duplicates: Optional['DuplicateAnalysisResult'] = None
+    total_duration: float = 0.0
 
 
 class AnalysisOrchestrator:
@@ -196,7 +184,7 @@ class AnalysisOrchestrator:
     def analyze_live_photos(self, 
                            directory: Path,
                            detector,
-                           progress_callback: Optional[Callable[[int, int, str], bool]] = None) -> Dict:
+                           progress_callback: Optional[Callable[[int, int, str], bool]] = None):
         """
         Detecta grupos de Live Photos en el directorio.
         
@@ -206,32 +194,21 @@ class AnalysisOrchestrator:
             progress_callback: Función opcional de progreso
             
         Returns:
-            Dict con grupos de Live Photos y estadísticas
+            LivePhotoDetectionResult con grupos y estadísticas
         """
         self.logger.info("Detectando Live Photos")
         
+        from services.result_types import LivePhotoDetectionResult
+        
         lp_groups = detector.detect_in_directory(directory, progress_callback=progress_callback)
         
-        # Calcular estadísticas
-        total_space = sum(group.total_size for group in lp_groups)
-        video_space = sum(group.video_size for group in lp_groups)
-        
-        result = {
-            'groups': [
-                {
-                    'image_path': str(group.image_path),
-                    'video_path': str(group.video_path),
-                    'base_name': group.base_name,
-                    'total_size': group.total_size,
-                    'video_size': group.video_size,
-                    'image_size': group.image_size
-                }
-                for group in lp_groups
-            ],
-            'total_space': total_space,
-            'space_to_free': video_space,
-            'live_photos_found': len(lp_groups)
-        }
+        result = LivePhotoDetectionResult(
+            total_files=len(lp_groups) * 2,  # Cada Live Photo son 2 archivos
+            groups=lp_groups,
+            live_photos_found=len(lp_groups),
+            total_space=sum(group.total_size for group in lp_groups),
+            space_to_free=sum(group.video_size for group in lp_groups)
+        )
         
         self.logger.info(f"Encontrados {len(lp_groups)} grupos de Live Photos")
         return result

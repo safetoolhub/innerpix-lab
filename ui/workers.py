@@ -2,35 +2,75 @@
 Workers para la aplicación Pixaro Lab
 Este módulo contiene todos los QThread workers que ejecutan operaciones
 en segundo plano para no bloquear la interfaz gráfica.
+
+Todos los workers heredan de BaseWorker y proporcionan señales tipadas
+con los dataclasses correspondientes de services.result_types
 """
+from __future__ import annotations
+
 import time
+from typing import TYPE_CHECKING, List, Dict, Optional, Callable
+from pathlib import Path
+
 from PyQt6.QtCore import QThread, pyqtSignal
 from config import Config
 
+# Imports condicionales para type checking (evita imports circulares en runtime)
+if TYPE_CHECKING:
+    from services.result_types import (
+        FullAnalysisResult,
+        RenameResult,
+        OrganizationResult,
+        LivePhotoCleanupResult,
+        HeicDeletionResult,
+        DuplicateAnalysisResult,
+        DuplicateDeletionResult,
+        ScanResult
+    )
+    from services.file_renamer import FileRenamer
+    from services.live_photo_detector import LivePhotoDetector
+    from services.live_photo_cleaner import LivePhotoCleaner
+    from services.file_organizer import FileOrganizer
+    from services.heic_remover import HEICDuplicateRemover
+    from services.duplicate_detector import DuplicateDetector
+
+
 
 class BaseWorker(QThread):
-    """Base worker that provides common signals and a helper to create
-    progress callbacks to avoid repeating the same small functions in
-    every worker.
+    """
+    Base worker that provides common signals and helper for progress callbacks.
+    
+    Subclasses should override the 'finished' signal with a typed version
+    matching their result dataclass type.
+    
+    Signals:
+        progress_update(int, int, str): Emite (current, total, message) para actualizar progreso
+        finished(object): Emite resultado de operación (subclases deben sobrescribir con tipo específico)
+        error(str): Emite mensaje de error con traceback
     """
     progress_update = pyqtSignal(int, int, str)
-    finished = pyqtSignal(object)  # Changed from dict to object to support dataclasses
+    finished = pyqtSignal(object)  # Genérico - subclases deben sobrescribir con tipo específico
     error = pyqtSignal(str)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._stop_requested = False
+        self._stop_requested: bool = False
 
-    def stop(self):
+    def stop(self) -> None:
         """Request the worker to stop gracefully"""
         self._stop_requested = True
 
-    def is_stop_requested(self):
+    def is_stop_requested(self) -> bool:
         """Check if stop was requested"""
         return self._stop_requested
 
-    def _create_progress_callback(self, counts_in_message: bool = False, emit_numbers: bool = False):
-        """Return a progress callback(current, total, message) with consistent
+    def _create_progress_callback(
+        self, 
+        counts_in_message: bool = False, 
+        emit_numbers: bool = False
+    ) -> Callable[[int, int, str], bool]:
+        """
+        Return a progress callback(current, total, message) with consistent
         behavior across workers.
 
         - By default emits (0, 0, message) so the UI shows only the text.
@@ -42,7 +82,7 @@ class BaseWorker(QThread):
         Returns:
             Callable that returns False when stop is requested, True otherwise
         """
-        def callback(current: int, total: int, message: str):
+        def callback(current: int, total: int, message: str) -> bool:
             # Check if stop was requested BEFORE emitting
             if self._stop_requested:
                 return False  # Signal to stop processing immediately
@@ -64,18 +104,40 @@ class BaseWorker(QThread):
         return callback
 
 
+
 class AnalysisWorker(BaseWorker):
     """
     Worker unificado para análisis completo.
     Delega la lógica de análisis a AnalysisOrchestrator y solo maneja
     threading + señales Qt + timing mínimo configurable por fase.
+    
+    Signals:
+        finished(FullAnalysisResult): Emite resultado completo del análisis
+        phase_update(str): Emite phase_id cuando inicia una fase
+        phase_completed(str): Emite phase_id cuando completa una fase
+        stats_update(ScanResult): Emite estadísticas de escaneo
+        partial_results(dict): Emite resultados parciales por fase
+        progress_update(int, int, str): Heredado de BaseWorker
+        error(str): Heredado de BaseWorker
     """
-    phase_update = pyqtSignal(str)  # Emite phase_id cuando inicia
-    phase_completed = pyqtSignal(str)  # Emite phase_id cuando completa (con delay si necesario)
-    stats_update = pyqtSignal(object)
-    partial_results = pyqtSignal(object)
+    # Sobrescribir finished con tipo específico (FullAnalysisResult)
+    finished = pyqtSignal(object)  # En runtime es object, pero tipo semántico es FullAnalysisResult
+    
+    phase_update = pyqtSignal(str)
+    phase_completed = pyqtSignal(str)
+    stats_update = pyqtSignal(object)  # ScanResult
+    partial_results = pyqtSignal(object)  # Dict[str, AnalysisResult]
 
-    def __init__(self, directory, renamer, lp_detector, unifier, heic_remover, duplicate_detector=None, organization_type=None):
+    def __init__(
+        self, 
+        directory: Path,
+        renamer: 'FileRenamer',
+        lp_detector: 'LivePhotoDetector',
+        unifier: 'FileOrganizer',
+        heic_remover: 'HEICDuplicateRemover',
+        duplicate_detector: Optional['DuplicateDetector'] = None,
+        organization_type: Optional[str] = None
+    ):
         super().__init__()
         self.directory = directory
         self.renamer = renamer
@@ -84,13 +146,13 @@ class AnalysisWorker(BaseWorker):
         self.heic_remover = heic_remover
         self.duplicate_detector = duplicate_detector
         self.organization_type = organization_type
-        self.phase_timings = {}  # Almacena timing de cada fase
+        self.phase_timings: Dict[str, Dict] = {}  # Almacena timing de cada fase
         
         # Leer duración mínima desde config
-        self.min_phase_duration = Config.MIN_PHASE_DURATION_SECONDS
-        self.final_delay = Config.FINAL_DELAY_BEFORE_STAGE3_SECONDS
+        self.min_phase_duration: float = Config.MIN_PHASE_DURATION_SECONDS
+        self.final_delay: float = Config.FINAL_DELAY_BEFORE_STAGE3_SECONDS
 
-    def _ensure_min_phase_duration(self, phase_id: str, actual_duration: float):
+    def _ensure_min_phase_duration(self, phase_id: str, actual_duration: float) -> None:
         """
         Asegura que una fase tenga al menos min_phase_duration de visualización.
         Si la duración real es menor, hace sleep del tiempo restante.
@@ -108,7 +170,7 @@ class AnalysisWorker(BaseWorker):
             )
             time.sleep(delay_needed)
 
-    def run(self):
+    def run(self) -> None:
         try:
             # Importar orchestrator aquí para evitar dependencias circulares
             from services.analysis_orchestrator import AnalysisOrchestrator
@@ -118,7 +180,7 @@ class AnalysisWorker(BaseWorker):
             orchestrator = AnalysisOrchestrator()
             
             # Callbacks para conectar orchestrator con señales Qt
-            def phase_callback(phase_id: str):
+            def phase_callback(phase_id: str) -> None:
                 """
                 Emite cuando inicia una fase.
                 Completa la fase anterior si existe (aplicando delay mínimo).
@@ -150,7 +212,7 @@ class AnalysisWorker(BaseWorker):
                 # Emitir inicio de fase
                 self.phase_update.emit(phase_id)
             
-            def partial_callback(phase_name: str, data):
+            def partial_callback(phase_name: str, data) -> None:
                 """Emite resultados parciales y registra duración de fase"""
                 if self._stop_requested:
                     return
@@ -173,7 +235,7 @@ class AnalysisWorker(BaseWorker):
             # Ejecutar análisis completo usando orchestrator
             # Usar emit_numbers=True para que las fases con números reales (scan, duplicates)
             # emitan (current, total, mensaje) y el UI pueda mostrar progreso real
-            result = orchestrator.run_full_analysis(
+            result: 'FullAnalysisResult' = orchestrator.run_full_analysis(
                 directory=self.directory,
                 renamer=self.renamer,
                 lp_detector=self.lp_detector,
@@ -206,9 +268,9 @@ class AnalysisWorker(BaseWorker):
                 self.logger.info(f"Análisis completado, esperando {self.final_delay:.1f}s antes de transicionar...")
                 time.sleep(self.final_delay)
             
-            # Emitir resultado final
+            # Emitir resultado final (dataclass directamente, no dict)
             if not self._stop_requested:
-                self.finished.emit(result.to_dict())
+                self.finished.emit(result)
 
         except Exception as e:
             if not self._stop_requested:
@@ -218,21 +280,36 @@ class AnalysisWorker(BaseWorker):
 
 
 class RenamingWorker(BaseWorker):
-    """Worker para ejecutar renombrado de nombres de archivos"""
+    """
+    Worker para ejecutar renombrado de nombres de archivos
+    
+    Signals:
+        finished(RenameResult): Emite resultado del renombrado
+        progress_update(int, int, str): Heredado de BaseWorker
+        error(str): Heredado de BaseWorker
+    """
+    # Sobrescribir finished con tipo específico
+    finished = pyqtSignal(object)  # En runtime es object, tipo semántico es RenameResult
 
-    def __init__(self, renamer, plan, create_backup=True, dry_run=False):
+    def __init__(
+        self, 
+        renamer: 'FileRenamer',
+        plan: List[Dict],
+        create_backup: bool = True,
+        dry_run: bool = False
+    ):
         super().__init__()
         self.renamer = renamer
         self.plan = plan
         self.create_backup = create_backup
         self.dry_run = dry_run
 
-    def run(self):
+    def run(self) -> None:
         try:
             if self._stop_requested:
                 return
             
-            results = self.renamer.execute_renaming(
+            results: 'RenameResult' = self.renamer.execute_renaming(
                 self.plan,
                 create_backup=self.create_backup,
                 dry_run=self.dry_run,
@@ -249,14 +326,23 @@ class RenamingWorker(BaseWorker):
 
 
 class LivePhotoCleanupWorker(BaseWorker):
-    """Worker para ejecutar limpieza de Live Photos"""
+    """
+    Worker para ejecutar limpieza de Live Photos
+    
+    Signals:
+        finished(LivePhotoCleanupResult): Emite resultado de la limpieza
+        progress_update(int, int, str): Heredado de BaseWorker
+        error(str): Heredado de BaseWorker
+    """
+    # Sobrescribir finished con tipo específico
+    finished = pyqtSignal(object)  # En runtime es object, tipo semántico es LivePhotoCleanupResult
 
-    def __init__(self, cleaner, plan):
+    def __init__(self, cleaner: 'LivePhotoCleaner', plan: Dict):
         super().__init__()
         self.cleaner = cleaner
         self.plan = plan
 
-    def run(self):
+    def run(self) -> None:
         try:
             if self._stop_requested:
                 return
@@ -267,7 +353,7 @@ class LivePhotoCleanupWorker(BaseWorker):
             dry_run = self.plan.get('dry_run', False)
             
             # Pasar el plan completo - execute_cleanup lo convertirá a dataclass si es necesario
-            results = self.cleaner.execute_cleanup(
+            results: 'LivePhotoCleanupResult' = self.cleaner.execute_cleanup(
                 self.plan,
                 create_backup=create_backup,
                 dry_run=dry_run,
@@ -284,21 +370,36 @@ class LivePhotoCleanupWorker(BaseWorker):
 
 
 class FileOrganizerWorker(BaseWorker):
-    """Worker para ejecutar organización de archivos"""
+    """
+    Worker para ejecutar organización de archivos
+    
+    Signals:
+        finished(OrganizationResult): Emite resultado de la organización
+        progress_update(int, int, str): Heredado de BaseWorker
+        error(str): Heredado de BaseWorker
+    """
+    # Sobrescribir finished con tipo específico
+    finished = pyqtSignal(object)  # En runtime es object, tipo semántico es OrganizationResult
 
-    def __init__(self, organizer, plan, create_backup=True, dry_run=False):
+    def __init__(
+        self,
+        organizer: 'FileOrganizer',
+        plan: List[Dict],
+        create_backup: bool = True,
+        dry_run: bool = False
+    ):
         super().__init__()
         self.organizer = organizer
         self.plan = plan
         self.create_backup = create_backup
         self.dry_run = dry_run
 
-    def run(self):
+    def run(self) -> None:
         try:
             if self._stop_requested:
                 return
             
-            results = self.organizer.execute_organization(
+            results: 'OrganizationResult' = self.organizer.execute_organization(
                 self.plan,
                 create_backup=self.create_backup,
                 dry_run=self.dry_run,
@@ -315,9 +416,25 @@ class FileOrganizerWorker(BaseWorker):
 
 
 class HEICRemovalWorker(BaseWorker):
-    """Worker para ejecutar eliminación de duplicados HEIC"""
+    """
+    Worker para ejecutar eliminación de duplicados HEIC
+    
+    Signals:
+        finished(HeicDeletionResult): Emite resultado de la eliminación
+        progress_update(int, int, str): Heredado de BaseWorker
+        error(str): Heredado de BaseWorker
+    """
+    # Sobrescribir finished con tipo específico
+    finished = pyqtSignal(object)  # En runtime es object, tipo semántico es HeicDeletionResult
 
-    def __init__(self, remover, pairs, keep_format, create_backup=True, dry_run=False):
+    def __init__(
+        self,
+        remover: 'HEICDuplicateRemover',
+        pairs: List[Dict],
+        keep_format: str,
+        create_backup: bool = True,
+        dry_run: bool = False
+    ):
         super().__init__()
         self.remover = remover
         self.pairs = pairs
@@ -325,7 +442,7 @@ class HEICRemovalWorker(BaseWorker):
         self.create_backup = create_backup
         self.dry_run = dry_run
 
-    def run(self):
+    def run(self) -> None:
         try:
             if self._stop_requested:
                 return
@@ -336,7 +453,7 @@ class HEICRemovalWorker(BaseWorker):
             # progress_callback explicitly) can use it via attribute
             setattr(self.remover, '_progress_callback', progress_cb_local)
 
-            results = self.remover.execute_removal(
+            results: 'HeicDeletionResult' = self.remover.execute_removal(
                 self.pairs,
                 keep_format=self.keep_format,
                 create_backup=self.create_backup,
@@ -354,21 +471,38 @@ class HEICRemovalWorker(BaseWorker):
                 error_msg = f"{str(e)}\n{traceback.format_exc()}"
                 self.error.emit(error_msg)
 
+
 class DuplicateAnalysisWorker(BaseWorker):
-    """Worker para análisis de duplicados (exactos o similares)"""
+    """
+    Worker para análisis de duplicados (exactos o similares)
     
-    def __init__(self, detector, directory, mode='exact', sensitivity=10):
+    Signals:
+        finished(DuplicateAnalysisResult): Emite resultado del análisis
+        progress_update(int, int, str): Heredado de BaseWorker
+        error(str): Heredado de BaseWorker
+    """
+    # Sobrescribir finished con tipo específico
+    finished = pyqtSignal(object)  # En runtime es object, tipo semántico es DuplicateAnalysisResult
+    
+    def __init__(
+        self,
+        detector: 'DuplicateDetector',
+        directory: Path,
+        mode: str = 'exact',
+        sensitivity: int = 10
+    ):
         super().__init__()
         self.detector = detector
         self.directory = directory
         self.mode = mode
         self.sensitivity = sensitivity
     
-    def run(self):
+    def run(self) -> None:
         try:
             if self._stop_requested:
                 return
             
+            results: 'DuplicateAnalysisResult'
             if self.mode == 'exact':
                 results = self.detector.analyze_exact_duplicates(
                     self.directory,
@@ -392,9 +526,25 @@ class DuplicateAnalysisWorker(BaseWorker):
 
 
 class DuplicateDeletionWorker(BaseWorker):
-    """Worker para eliminación de duplicados"""
+    """
+    Worker para eliminación de duplicados
     
-    def __init__(self, detector, groups, keep_strategy, create_backup=True, dry_run=False):
+    Signals:
+        finished(DuplicateDeletionResult): Emite resultado de la eliminación
+        progress_update(int, int, str): Heredado de BaseWorker
+        error(str): Heredado de BaseWorker
+    """
+    # Sobrescribir finished con tipo específico
+    finished = pyqtSignal(object)  # En runtime es object, tipo semántico es DuplicateDeletionResult
+    
+    def __init__(
+        self,
+        detector: 'DuplicateDetector',
+        groups: List,
+        keep_strategy: str,
+        create_backup: bool = True,
+        dry_run: bool = False
+    ):
         super().__init__()
         self.detector = detector
         self.groups = groups
@@ -402,12 +552,12 @@ class DuplicateDeletionWorker(BaseWorker):
         self.create_backup = create_backup
         self.dry_run = dry_run
     
-    def run(self):
+    def run(self) -> None:
         try:
             if self._stop_requested:
                 return
             
-            results = self.detector.execute_deletion(
+            results: 'DuplicateDeletionResult' = self.detector.execute_deletion(
                 self.groups,
                 keep_strategy=self.keep_strategy,
                 create_backup=self.create_backup,

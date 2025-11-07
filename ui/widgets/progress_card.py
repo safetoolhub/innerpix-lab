@@ -171,6 +171,15 @@ class ProgressCard(QFrame):
         self.progress_bar.setMaximum(100)
         self.progress_bar.setValue(100)
     
+    def stop_progress(self):
+        """Detiene la barra de progreso (por error o cancelación)"""
+        # Detener animación de barra indeterminada
+        self.progress_bar.setMaximum(100)
+        self.progress_bar.setValue(0)
+        
+        # Mostrar botón de cancelar (por si el usuario quiere interactuar)
+        self.cancel_btn.show()
+    
     def get_phase_widget(self):
         """Retorna el widget de fases para acceso externo"""
         return self.phase_widget

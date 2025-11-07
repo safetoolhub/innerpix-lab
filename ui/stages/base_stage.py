@@ -148,15 +148,22 @@ class BaseStage(QObject):
         except Exception as e:
             self.logger.warning(f"Error guardando última carpeta: {e}")
 
-    def save_analysis_results(self, results: dict) -> None:
+    def save_analysis_results(self, results) -> None:
         """
         Guarda el resumen del análisis en la configuración.
 
         Args:
-            results: Resultados del análisis a guardar
+            results: Resultados del análisis a guardar (FullAnalysisResult o dict)
         """
         try:
-            settings_manager.set('last_analysis_summary', results)
+            # Si es un dataclass, convertir a dict para persistencia
+            from dataclasses import is_dataclass, asdict
+            if is_dataclass(results):
+                results_dict = asdict(results)
+            else:
+                results_dict = results
+                
+            settings_manager.set('last_analysis_summary', results_dict)
             self.logger.debug("Resultados del análisis guardados")
         except Exception as e:
             self.logger.warning(f"Error guardando resultados del análisis: {e}")
