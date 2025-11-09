@@ -7,7 +7,7 @@ from datetime import datetime
 from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QGroupBox, QVBoxLayout as QVLayout,
     QDialogButtonBox, QCheckBox, QLabel, QTreeWidget, QTreeWidgetItem,
-    QLineEdit, QComboBox, QPushButton, QFrame, QApplication, QMenu
+    QLineEdit, QComboBox, QPushButton, QFrame, QApplication, QMenu, QWidget
 )
 from PyQt6.QtGui import QColor, QFont, QCursor
 from PyQt6.QtCore import Qt, QTimer
@@ -17,6 +17,7 @@ from utils.format_utils import format_size
 from utils.date_utils import get_file_date
 from ui import ui_styles
 from ui.styles.design_system import DesignSystem
+from utils.icons import icon_manager
 from .base_dialog import BaseDialog
 
 
@@ -120,7 +121,7 @@ class FileOrganizationDialog(BaseDialog):
         
         # Explicación según tipo
         if org_type == 'by_month':
-            icon = "📅"
+            icon_name = "calendar_month"
             title = "Organización por Mes"
             description = (
                 "Organizará los archivos en <b>carpetas mensuales (YYYY_MM)</b> basándose en la fecha más antigua de cada archivo. "
@@ -128,7 +129,7 @@ class FileOrganizationDialog(BaseDialog):
                 "Ejemplo: <code>IMG_2023_01_15_001.jpg</code> → <code>2023_01/</code>"
             )
         elif org_type == 'whatsapp_separate':
-            icon = "📱"
+            icon_name = "mobile"
             title = "Separación de WhatsApp"
             description = (
                 "Separará los <b>archivos de WhatsApp</b> en una carpeta dedicada y moverá el resto al directorio raíz. "
@@ -136,7 +137,7 @@ class FileOrganizationDialog(BaseDialog):
                 "o desde carpetas <code>WhatsApp/</code>."
             )
         else:  # to_root
-            icon = "📂"
+            icon_name = "folder"
             title = "Mover Todo a Raíz"
             description = (
                 "Moverá <b>todos los archivos al directorio raíz</b> eliminando la estructura de subdirectorios. "
@@ -144,11 +145,23 @@ class FileOrganizationDialog(BaseDialog):
                 "Los subdirectorios vacíos se pueden eliminar opcionalmente."
             )
         
-        explanation = QLabel(f"{icon} <b>{title}</b><br>{description}")
-        explanation.setWordWrap(True)
-        explanation.setTextFormat(Qt.TextFormat.RichText)
-        explanation.setStyleSheet(ui_styles.STYLE_HEIC_EXPLANATION)
-        layout.addWidget(explanation)
+        # Crear contenedor con icono y texto
+        explanation_container = QWidget()
+        explanation_layout = QHBoxLayout(explanation_container)
+        explanation_layout.setContentsMargins(0, 0, 0, 0)
+        explanation_layout.setSpacing(8)
+        
+        icon_label = QLabel()
+        icon_manager.set_label_icon(icon_label, icon_name, size=20)
+        explanation_layout.addWidget(icon_label)
+        
+        text_label = QLabel(f"<b>{title}</b><br>{description}")
+        text_label.setWordWrap(True)
+        text_label.setTextFormat(Qt.TextFormat.RichText)
+        text_label.setStyleSheet(ui_styles.STYLE_HEIC_EXPLANATION)
+        explanation_layout.addWidget(text_label, 1)
+        
+        layout.addWidget(explanation_container)
         
         return frame
     
@@ -173,13 +186,13 @@ class FileOrganizationDialog(BaseDialog):
                 f"{file_type}: {count}" 
                 for file_type, count in sorted(self.analysis.files_by_type.items())
             ])
-            types_label = QLabel(f"📊 {types_text}")
+            types_label = QLabel(f"{types_text}")
             types_label.setStyleSheet(ui_styles.STYLE_ORG_TYPES_LABEL)
             layout.addWidget(types_label)
         
         # Advertencia de conflictos
         if self.analysis.potential_conflicts > 0:
-            conflicts_label = QLabel(f"⚠️ {self.analysis.potential_conflicts} conflictos de nombres")
+            conflicts_label = QLabel(f"{self.analysis.potential_conflicts} conflictos de nombres")
             conflicts_label.setStyleSheet(ui_styles.STYLE_ORG_CONFLICTS_LABEL)
             layout.addWidget(conflicts_label)
         
@@ -243,7 +256,7 @@ class FileOrganizationDialog(BaseDialog):
         else:
             folders_text = ", ".join(folders[:10]) + f"... (+{count - 10} más)"
         
-        label = QLabel(f"📁 Se crearán {count} carpetas: <b>{folders_text}</b>")
+        label = QLabel(f"Se crearán {count} carpetas: <b>{folders_text}</b>")
         label.setWordWrap(True)
         label.setTextFormat(Qt.TextFormat.RichText)
         label.setStyleSheet("font-size: 10px; color: #1976d2; background: transparent;")
@@ -256,12 +269,13 @@ class FileOrganizationDialog(BaseDialog):
         toolbar = QHBoxLayout()
         
         # Búsqueda
-        search_label = QLabel("🔍")
+        search_icon = QLabel()
+        icon_manager.set_label_icon(search_icon, 'search', size=16)
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Buscar por nombre...")
         self.search_input.textChanged.connect(self._apply_filters)
         self.search_input.setMaximumWidth(200)
-        toolbar.addWidget(search_label)
+        toolbar.addWidget(search_icon)
         toolbar.addWidget(self.search_input)
         
         toolbar.addWidget(QLabel("|"))
@@ -295,7 +309,8 @@ class FileOrganizationDialog(BaseDialog):
         toolbar.addWidget(self.conflicts_checkbox)
         
         # Botón limpiar
-        clear_btn = QPushButton("✕ Limpiar")
+        clear_btn = QPushButton("Limpiar")
+        icon_manager.set_button_icon(clear_btn, 'close', size=16)
         clear_btn.clicked.connect(self._clear_filters)
         clear_btn.setMaximumWidth(80)
         toolbar.addWidget(clear_btn)
@@ -350,9 +365,9 @@ class FileOrganizationDialog(BaseDialog):
             }
         """)
         tree.setToolTip(
-            "💡 Doble clic en archivo para abrirlo\n"
-            "💡 Clic derecho para ver detalles y opciones\n"
-            "💡 Los archivos con ⚠️ tienen conflictos de nombre"
+            "Doble clic en archivo para abrirlo\n"
+            "Clic derecho para ver detalles y opciones\n"
+            "Los archivos con conflictos de nombre se marcan especialmente"
         )
         
         # Ajustar columnas según tipo de organización
@@ -428,30 +443,29 @@ class FileOrganizationDialog(BaseDialog):
     
     def _create_options_group(self):
         """Crea grupo de opciones de seguridad"""
-        options_group = QGroupBox("⚙️ Opciones de Seguridad")
+        options_group = QGroupBox("Opciones de Seguridad")
         options_group.setMinimumWidth(400)
         options_group.setStyleSheet("QGroupBox { font-weight: bold; }")
         options_layout = QVLayout()
         
-        # Checkbox de backup (primero)
-        self.add_backup_checkbox(options_layout, "💾 Crear backup antes de mover (Recomendado)")
+        # Backup checkbox (primero)
+        self.add_backup_checkbox(options_layout, "Crear backup antes de mover (Recomendado)")
         
-        # Checkbox de simulación (segundo)
-        self.dry_run_checkbox = QCheckBox("🔍 Modo simulación (no mover archivos realmente)")
+        # Simulación checkbox (segundo)
+        self.dry_run_checkbox = QCheckBox("Modo simulación (no mover archivos realmente)")
+        # Leer configuración para establecer estado por defecto
         from utils.settings_manager import settings_manager
         dry_run_default = settings_manager.get(settings_manager.KEY_DRY_RUN_DEFAULT, False)
+        # Asegurar que es un booleano
         if isinstance(dry_run_default, str):
             dry_run_default = dry_run_default.lower() in ('true', '1', 'yes')
         self.dry_run_checkbox.setChecked(bool(dry_run_default))
         options_layout.addWidget(self.dry_run_checkbox)
         
-        # Checkbox de limpieza (tercero)
-        self.cleanup_checkbox = QCheckBox("🗑️ Eliminar directorios vacíos al finalizar")
-        self.cleanup_checkbox.setChecked(True)
+        # Cleanup checkbox (tercero)
+        self.cleanup_checkbox = QCheckBox("Eliminar directorios vacíos al finalizar")
+        self.cleanup_checkbox.setChecked(True)  # Por defecto activado
         options_layout.addWidget(self.cleanup_checkbox)
-        
-        options_group.setLayout(options_layout)
-        return options_group
     
     def _apply_filters(self):
         """Aplica filtros a la lista de movimientos"""

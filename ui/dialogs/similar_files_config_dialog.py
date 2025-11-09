@@ -282,6 +282,7 @@ class SimilarFilesConfigDialog(QDialog):
         
         layout.addWidget(icon)
         layout.addWidget(warning_text)
+        layout.addStretch()
         
         return container
     

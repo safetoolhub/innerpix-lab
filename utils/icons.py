@@ -137,6 +137,11 @@ class IconManager:
         'app': 'mdi6.movie-open',
         'logo': 'mdi6.movie-open',
         
+        # Dispositivos
+        'mobile': 'mdi6.cellphone',
+        'speed': 'mdi6.speedometer',
+        'calendar_month': 'mdi6.calendar-month',
+        
         # Ayuda e información
         'help': 'mdi6.help-circle',
         'lightbulb': 'mdi6.lightbulb-on',

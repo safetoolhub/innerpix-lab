@@ -108,7 +108,7 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     </style>
     """
     
-    details += "<h3>📄 Detalles del Archivo</h3>"
+    details += "<h3>Detalles del Archivo</h3>"
     
     # Información básica
     details += "<div class='section'>"
@@ -126,7 +126,7 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
         
         if 'conflict' in additional_info:
             status_class = "status-conflict" if additional_info['conflict'] else "status-ok"
-            status_text = "⚠️ Conflicto de nombre" if additional_info['conflict'] else "✓ Sin conflictos"
+            status_text = "Conflicto de nombre" if additional_info['conflict'] else "Sin conflictos"
             details += f"<div class='info-row'><span class='label'>Estado:</span> <span class='{status_class}'>{status_text}</span></div>"
         
         if 'sequence' in additional_info and additional_info['sequence']:
@@ -135,7 +135,7 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     details += "</div>"
     
     # Ubicación
-    details += "<h4>📁 Ubicación</h4>"
+    details += "<h4>Ubicación</h4>"
     details += "<div class='section'>"
     details += f"<div class='info-row'><span class='label'>Ruta actual:</span><br><span class='code'>{file_path.parent}</span></div>"
     
@@ -145,7 +145,7 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     details += "</div>"
     
     # Fechas
-    details += "<h4>📅 Información de Fechas</h4>"
+    details += "<h4>Información de Fechas</h4>"
     details += "<div class='section'>"
     details += f"<div class='info-row'><span class='label'>Fecha detectada:</span> <span class='value'>{date_from_name}</span></div>"
     details += f"<div class='info-row'><span class='label'>Fecha de creación:</span> <span class='value'>{created_time}</span></div>"
@@ -154,7 +154,7 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     
     # Información adicional de metadatos si se proporcionó
     if additional_info and 'metadata' in additional_info:
-        details += "<h4>ℹ️ Metadatos Adicionales</h4>"
+        details += "<h4>Metadatos Adicionales</h4>"
         details += "<div class='section'>"
         for key, value in additional_info['metadata'].items():
             details += f"<div class='info-row'><span class='label'>{key}:</span> <span class='value'>{value}</span></div>"
@@ -174,7 +174,7 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     main_layout.setSpacing(12)
     
     # Título principal
-    title_label = QLabel("📄 Detalles del Archivo")
+    title_label = QLabel("Detalles del Archivo")
     title_label.setStyleSheet("""
         font-size: 14pt;
         font-weight: bold;
@@ -209,7 +209,7 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
         
         if 'conflict' in additional_info:
             status_color = "#e74c3c" if additional_info['conflict'] else "#28a745"
-            status_text = "⚠️ Conflicto" if additional_info['conflict'] else "✓ Sin conflictos"
+            status_text = "Conflicto" if additional_info['conflict'] else "Sin conflictos"
             status_label = _create_info_row("Estado", status_text, status_color)
             basic_info.layout().addWidget(status_label)
         
@@ -223,7 +223,7 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     if additional_info and 'target_path' in additional_info:
         location_items.append(("Ruta destino", str(additional_info['target_path'])))
     
-    location_info = _create_info_section("📁 Ubicación", location_items, use_code=True)
+    location_info = _create_info_section("Ubicación", location_items, use_code=True)
     left_column.addWidget(location_info)
     
     left_column.addStretch()
@@ -234,7 +234,7 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     right_column.setSpacing(12)
     
     # Fechas
-    dates_info = _create_info_section("📅 Fechas", [
+    dates_info = _create_info_section("Fechas", [
         ("Detectada", date_from_name),
         ("Creación", created_time),
         ("Modificación", modified_time),
@@ -244,7 +244,7 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     # Metadatos adicionales
     if additional_info and 'metadata' in additional_info:
         metadata_items = [(key, str(value)) for key, value in additional_info['metadata'].items()]
-        metadata_info = _create_info_section("ℹ️ Metadatos", metadata_items)
+        metadata_info = _create_info_section("Metadatos", metadata_items)
         right_column.addWidget(metadata_info)
     
     right_column.addStretch()

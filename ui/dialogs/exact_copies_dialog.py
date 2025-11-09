@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout, QLabel, QGroupBox, QButtonGroup, QRadioButton,
     QCheckBox, QDialogButtonBox, QPushButton,
     QHBoxLayout, QVBoxLayout as QVLayout, QFrame, QTreeWidget, QTreeWidgetItem, QLineEdit,
-    QComboBox, QMessageBox, QMenu
+    QComboBox, QMessageBox, QMenu, QWidget
 )
 from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QFont, QDesktopServices
@@ -12,6 +12,7 @@ from services.exact_copies_detector import DuplicateGroup
 from utils.format_utils import format_size
 from ui import ui_styles
 from ui.styles.design_system import DesignSystem
+from utils.icons import icon_manager
 from .base_dialog import BaseDialog
 from .dialog_utils import show_file_details_dialog
 from datetime import datetime
@@ -77,7 +78,7 @@ class ExactCopiesDialog(BaseDialog):
         
         # Texto explicativo
         explanation = QLabel(
-            "ℹ️ Los duplicados exactos son archivos idénticos (100%). <b>Eliminarlos es seguro.</b>"
+            "Los duplicados exactos son archivos idénticos (100%). <b>Eliminarlos es seguro.</b>"
         )
         explanation.setWordWrap(True)
         explanation.setTextFormat(Qt.TextFormat.RichText)
@@ -98,7 +99,7 @@ class ExactCopiesDialog(BaseDialog):
             metrics_layout.addWidget(card)
         
         # Ahorro potencial destacado
-        savings_text = f"💾 {format_size(self.analysis.space_wasted)}"
+        savings_text = f"{format_size(self.analysis.space_wasted)}"
         savings_label = QLabel(savings_text)
         savings_label.setStyleSheet(ui_styles.STYLE_DIALOG_SAVINGS_GREEN)
         metrics_layout.addWidget(savings_label)
@@ -109,7 +110,7 @@ class ExactCopiesDialog(BaseDialog):
         layout.addWidget(explanation_frame)
         
         # Estrategia de eliminación - EN LÍNEA HORIZONTAL
-        strategy_group = QGroupBox("🎯 Estrategia")
+        strategy_group = QGroupBox("Estrategia")
         strategy_group.setStyleSheet("QGroupBox { font-weight: bold; padding-top: 12px; }")
         strategy_layout = QHBoxLayout(strategy_group)  # HORIZONTAL
         strategy_layout.setContentsMargins(10, 8, 10, 8)
@@ -134,7 +135,7 @@ class ExactCopiesDialog(BaseDialog):
         # Advertencia si hay muchos grupos
         if len(self.all_groups) > self.WARNING_THRESHOLD:
             warning_many = QLabel(
-                f"ℹ️ Hay {len(self.all_groups)} grupos de duplicados. "
+                f"Hay {len(self.all_groups)} grupos de duplicados. "
                 f"Se cargarán inicialmente {self.INITIAL_LOAD} grupos. "
                 f"Usa la búsqueda y filtros para encontrar grupos específicos más rápido."
             )
@@ -157,8 +158,19 @@ class ExactCopiesDialog(BaseDialog):
         toolbar_layout = QHBoxLayout()
         
         # Búsqueda
-        search_label = QLabel("🔍 Buscar:")
-        toolbar_layout.addWidget(search_label)
+        search_container = QWidget()
+        search_layout = QHBoxLayout(search_container)
+        search_layout.setContentsMargins(0, 0, 0, 0)
+        search_layout.setSpacing(4)
+        
+        search_icon = QLabel()
+        icon_manager.set_label_icon(search_icon, 'search', size=14)
+        search_layout.addWidget(search_icon)
+        
+        search_text = QLabel("Buscar:")
+        search_layout.addWidget(search_text)
+        
+        toolbar_layout.addWidget(search_container)
         
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Nombre de archivo o ruta...")
@@ -177,8 +189,19 @@ class ExactCopiesDialog(BaseDialog):
         toolbar_layout.addWidget(self.search_input, 2)
         
         # Filtro por tamaño
-        filter_label = QLabel("📊 Filtrar:")
-        toolbar_layout.addWidget(filter_label)
+        filter_container = QWidget()
+        filter_layout = QHBoxLayout(filter_container)
+        filter_layout.setContentsMargins(0, 0, 0, 0)
+        filter_layout.setSpacing(4)
+        
+        filter_icon = QLabel()
+        icon_manager.set_label_icon(filter_icon, 'chart-bar', size=14)
+        filter_layout.addWidget(filter_icon)
+        
+        filter_text = QLabel("Filtrar:")
+        filter_layout.addWidget(filter_text)
+        
+        toolbar_layout.addWidget(filter_container)
         
         self.filter_combo = QComboBox()
         self.filter_combo.addItems([
@@ -207,7 +230,8 @@ class ExactCopiesDialog(BaseDialog):
         toolbar_layout.addWidget(separator_line)
         
         # Botón "Mostrar Todos" integrado en la barra
-        show_all_btn = QPushButton("👁️ Ver Todos")
+        show_all_btn = QPushButton("Ver Todos")
+        icon_manager.set_button_icon(show_all_btn, 'eye', size=16)
         show_all_btn.setToolTip("Cargar y mostrar todos los grupos de duplicados")
         show_all_btn.clicked.connect(self._load_all_groups)
         show_all_btn.setStyleSheet("""
@@ -307,7 +331,7 @@ class ExactCopiesDialog(BaseDialog):
         self._load_initial_groups()
         
         # Opciones de seguridad
-        options_group = QGroupBox("⚙️ Opciones de Seguridad")
+        options_group = QGroupBox("Opciones de Seguridad")
         options_group.setMinimumWidth(400)
         options_group.setStyleSheet("QGroupBox { font-weight: bold; padding-top: 12px; }")
         options_layout = QVLayout(options_group)
@@ -315,10 +339,10 @@ class ExactCopiesDialog(BaseDialog):
         options_layout.setSpacing(6)
         
         # Backup checkbox (primero)
-        self.add_backup_checkbox(options_layout, "💾 Crear backup antes de eliminar (Recomendado)")
+        self.add_backup_checkbox(options_layout, "Crear backup antes de eliminar (Recomendado)")
         
         # Simulación checkbox (segundo)
-        self.dry_run_checkbox = QCheckBox("🔍 Modo simulación (no eliminar archivos realmente)")
+        self.dry_run_checkbox = QCheckBox("Modo simulación (no eliminar archivos realmente)")
         # Leer configuración para establecer estado por defecto
         from utils.settings_manager import settings_manager
         dry_run_default = settings_manager.get(settings_manager.KEY_DRY_RUN_DEFAULT, False)
@@ -330,9 +354,10 @@ class ExactCopiesDialog(BaseDialog):
         layout.addWidget(options_group)
 
         # Botones
-        buttons = self.make_ok_cancel_buttons(ok_text="🗑️ Eliminar Ahora")
+        buttons = self.make_ok_cancel_buttons(ok_text="Eliminar Ahora")
         # apply danger style to ok button
         ok_btn = buttons.button(QDialogButtonBox.StandardButton.Ok)
+        icon_manager.set_button_icon(ok_btn, 'delete', size=16)
         ok_btn.setStyleSheet(ui_styles.STYLE_DANGER_BUTTON)
         layout.addWidget(buttons)
         
@@ -419,10 +444,12 @@ class ExactCopiesDialog(BaseDialog):
         # Deshabilitar botón si ya no hay más grupos
         if self.loaded_count >= len(self.filtered_groups):
             self.load_more_btn.setEnabled(False)
-            self.load_more_btn.setText("✓ Todos los Grupos Cargados")
+            self.load_more_btn.setText("Todos los Grupos Cargados")
+            icon_manager.set_button_icon(self.load_more_btn, 'check', size=16)
         else:
             remaining = len(self.filtered_groups) - self.loaded_count
-            self.load_more_btn.setText(f"⏬ Cargar {min(self.LOAD_INCREMENT, remaining)} Más Grupos")
+            self.load_more_btn.setText(f"Cargar {min(self.LOAD_INCREMENT, remaining)} Más Grupos")
+            icon_manager.set_button_icon(self.load_more_btn, 'refresh', size=16)
     
     def _add_group_to_tree(self, group: DuplicateGroup, group_number: int):
         """Añade un grupo como nodo padre expandible en el tree"""
@@ -432,7 +459,7 @@ class ExactCopiesDialog(BaseDialog):
         # Espacio a liberar = tamaño total - archivo más grande (que se conservará)
         largest_file_size = max(f.stat().st_size for f in group.files)
         space_to_free = group.total_size - largest_file_size
-        group_item.setText(0, f"📁 Grupo {group_number} - {file_count} archivos")
+        group_item.setText(0, f"Grupo {group_number} - {file_count} archivos")
         group_item.setText(1, format_size(group.total_size))
         group_item.setText(2, "")
         group_item.setText(3, "")
@@ -457,15 +484,16 @@ class ExactCopiesDialog(BaseDialog):
             # Icono según tipo de archivo
             ext = file_path.suffix.lower()
             if ext in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp']:
-                icon = "🖼️"
+                icon_name = "image"
             elif ext in ['.mov', '.mp4', '.avi', '.mkv']:
-                icon = "🎬"
+                icon_name = "video"
             elif ext in ['.heic', '.heif']:
-                icon = "📷"
+                icon_name = "camera"
             else:
-                icon = "📄"
+                icon_name = "file"
             
-            file_item.setText(0, f"{icon} {file_path.name}")
+            file_item.setIcon(0, icon_manager.get_icon(icon_name, size=16))
+            file_item.setText(0, file_path.name)
             file_item.setText(1, format_size(file_path.stat().st_size))
             
             # Fecha de modificación
@@ -481,10 +509,10 @@ class ExactCopiesDialog(BaseDialog):
             # Estado: mantener o eliminar
             is_keep = file_path == keep_file
             if is_keep:
-                file_item.setText(4, "🔒 Mantener")
+                file_item.setText(4, "Mantener")
                 file_item.setForeground(4, Qt.GlobalColor.darkGreen)
             else:
-                file_item.setText(4, "🗑️ Eliminar")
+                file_item.setText(4, "Eliminar")
                 file_item.setForeground(4, Qt.GlobalColor.red)
             
             # Guardar referencia al archivo en el item
@@ -509,13 +537,13 @@ class ExactCopiesDialog(BaseDialog):
         if total_filtered < total_original:
             # Hay filtros aplicados
             self.groups_info_label.setText(
-                f"📑 Mostrando grupos {1 if self.loaded_count > 0 else 0}-{self.loaded_count} "
+                f"Mostrando grupos {1 if self.loaded_count > 0 else 0}-{self.loaded_count} "
                 f"de {total_filtered} grupos filtrados (de {total_original} totales)"
             )
         else:
             # Sin filtros
             self.groups_info_label.setText(
-                f"📑 Mostrando grupos {1 if self.loaded_count > 0 else 0}-{self.loaded_count} de {total_original}"
+                f"Mostrando grupos {1 if self.loaded_count > 0 else 0}-{self.loaded_count} de {total_original}"
             )
     
     def _on_search_changed(self):
@@ -559,7 +587,7 @@ class ExactCopiesDialog(BaseDialog):
         
         if len(self.filtered_groups) == 0:
             # No hay resultados
-            self.groups_info_label.setText("❌ No se encontraron grupos que coincidan con los filtros")
+            self.groups_info_label.setText("No se encontraron grupos que coincidan con los filtros")
             self.load_more_btn.setEnabled(False)
         else:
             # Cargar primeros grupos
@@ -594,17 +622,17 @@ class ExactCopiesDialog(BaseDialog):
         menu = QMenu(self)
         
         # Acción: Abrir archivo
-        open_action = menu.addAction("📂 Abrir archivo")
+        open_action = menu.addAction("Abrir archivo")
         open_action.triggered.connect(lambda: open_file(file_path, self))
         
         # Acción: Abrir carpeta
-        open_folder_action = menu.addAction("📁 Abrir carpeta contenedora")
+        open_folder_action = menu.addAction("Abrir carpeta contenedora")
         open_folder_action.triggered.connect(lambda: open_folder(file_path.parent, self))
         
         menu.addSeparator()
         
         # Acción: Ver detalles
-        details_action = menu.addAction("ℹ️ Ver detalles del archivo")
+        details_action = menu.addAction("Ver detalles del archivo")
         details_action.triggered.connect(lambda: self._show_file_details(file_path))
         
         menu.exec(self.tree_widget.viewport().mapToGlobal(position))
@@ -625,7 +653,7 @@ class ExactCopiesDialog(BaseDialog):
                 is_keep = file_path == keep_file
                 status_info = {
                     'metadata': {
-                        'Estado': '🔒 Se mantendrá' if is_keep else '🗑️ Se eliminará',
+                        'Estado': 'Se mantendrá' if is_keep else 'Se eliminará',
                         'Grupo': f'{len(group.files)} archivos duplicados',
                         'Espacio grupo': format_size(group.total_size),
                         'Estrategia': 'Mantener más antiguo' if self.keep_strategy == 'oldest' else 'Mantener más reciente'

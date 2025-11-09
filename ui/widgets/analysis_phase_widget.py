@@ -111,7 +111,6 @@ class AnalysisPhaseWidget(QFrame):
         
         # Texto compacto
         text_label = QLabel(text)
-        text_label.setWordWrap(True)
         text_label.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_LG}px;
             color: {DesignSystem.COLOR_TEXT_SECONDARY};

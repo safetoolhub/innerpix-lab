@@ -12,6 +12,7 @@ from services.similar_files_detector import DuplicateGroup
 from utils.format_utils import format_size
 from ui import ui_styles
 from ui.styles.design_system import DesignSystem
+from utils.icons import icon_manager
 from .base_dialog import BaseDialog
 from .dialog_utils import show_file_details_dialog
 
@@ -56,7 +57,7 @@ class SimilarFilesDialog(BaseDialog):
         warning_layout.setContentsMargins(12, 8, 12, 8)
         
         warning = QLabel(
-            "ℹ️ Estos archivos son similares pero NO idénticos. "
+            "Estos archivos son similares pero NO idénticos. "
             "Revisa cada grupo cuidadosamente antes de eliminar."
         )
         warning.setTextFormat(Qt.TextFormat.RichText)
@@ -86,7 +87,7 @@ class SimilarFilesDialog(BaseDialog):
         layout.addWidget(self.group_container)
 
         # Resumen
-        summary_group = QGroupBox("📊 Resumen")
+        summary_group = QGroupBox("Resumen")
         summary_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         summary_group.setMinimumHeight(80)
         # Estilo para que el título quede dentro del cuadro
@@ -121,16 +122,16 @@ class SimilarFilesDialog(BaseDialog):
         layout.addWidget(summary_group)
 
         # Opciones de seguridad
-        options_group = QGroupBox("⚙️ Opciones de Seguridad")
+        options_group = QGroupBox("Opciones de Seguridad")
         options_group.setMinimumWidth(400)
         options_group.setStyleSheet("QGroupBox { font-weight: bold; }")
         options_layout = QVLayout(options_group)
         
         # Backup checkbox (primero)
-        self.add_backup_checkbox(options_layout, "💾 Crear backup antes de eliminar (Recomendado)")
+        self.add_backup_checkbox(options_layout, "Crear backup antes de eliminar (Recomendado)")
         
         # Simulación checkbox (segundo)
-        self.dry_run_checkbox = QCheckBox("🔍 Modo simulación (no eliminar archivos realmente)")
+        self.dry_run_checkbox = QCheckBox("Modo simulación (no eliminar archivos realmente)")
         # Leer configuración para establecer estado por defecto
         from utils.settings_manager import settings_manager
         dry_run_default = settings_manager.get(settings_manager.KEY_DRY_RUN_DEFAULT, False)
@@ -142,8 +143,9 @@ class SimilarFilesDialog(BaseDialog):
         layout.addWidget(options_group)
 
         # Botones
-        buttons = self.make_ok_cancel_buttons(ok_text="🗑️ Eliminar Seleccionados", ok_enabled=False)
+        buttons = self.make_ok_cancel_buttons(ok_text="Eliminar Seleccionados", ok_enabled=False)
         self.ok_btn = buttons.button(QDialogButtonBox.StandardButton.Ok)
+        icon_manager.set_button_icon(self.ok_btn, 'delete', size=16)
         layout.addWidget(buttons)
 
         # Cargar primer grupo
@@ -189,7 +191,7 @@ class SimilarFilesDialog(BaseDialog):
         max_thumbnails = 20
         if len(group.files) > max_thumbnails:
             warning_label = QLabel(
-                f"⚠️ Este grupo tiene {len(group.files)} imágenes. "
+                f"Este grupo tiene {len(group.files)} imágenes. "
                 f"Para mejor rendimiento, usa el scroll para navegar."
             )
             warning_label.setStyleSheet(ui_styles.STYLE_DIALOG_WARNING_ORANGE)
@@ -277,7 +279,7 @@ class SimilarFilesDialog(BaseDialog):
             
             # Si es video, añadir indicador visual
             if is_video:
-                video_indicator = QLabel("🎬 VIDEO - Frame de comparación")
+                video_indicator = QLabel("VIDEO - Frame de comparación")
                 video_indicator.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 video_indicator.setStyleSheet("""
                     background-color: #6F42C1;
@@ -297,7 +299,7 @@ class SimilarFilesDialog(BaseDialog):
                 preview_section_layout.addWidget(thumbnail_label, alignment=Qt.AlignmentFlag.AlignCenter)
             else:
                 # Si no se puede cargar la imagen, mostrar placeholder
-                no_preview = QLabel("❌ Sin vista previa")
+                no_preview = QLabel("Sin vista previa")
                 no_preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 no_preview.setStyleSheet(ui_styles.STYLE_DIALOG_NO_PREVIEW)
                 preview_section_layout.addWidget(no_preview)
@@ -327,7 +329,7 @@ class SimilarFilesDialog(BaseDialog):
             mtime = datetime.fromtimestamp(file_path.stat().st_mtime)
             
             # Nombre del archivo (con icono)
-            name_label = QLabel(f"📄 <b>{file_path.name[:25]}{'...' if len(file_path.name) > 25 else ''}</b>")
+            name_label = QLabel(f"<b>{file_path.name[:25]}{'...' if len(file_path.name) > 25 else ''}</b>")
             name_label.setTextFormat(Qt.TextFormat.RichText)
             name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             name_label.setWordWrap(True)
@@ -336,8 +338,8 @@ class SimilarFilesDialog(BaseDialog):
             
             # Tamaño y fecha en una línea compacta
             details_label = QLabel(
-                f"💾 {format_size(file_path.stat().st_size)} • "
-                f"📅 {mtime.strftime('%Y-%m-%d %H:%M')}"
+                f"{format_size(file_path.stat().st_size)} • "
+                f"{mtime.strftime('%Y-%m-%d %H:%M')}"
             )
             details_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             details_label.setStyleSheet(ui_styles.STYLE_DIALOG_DETAILS_LABEL)
@@ -395,7 +397,7 @@ class SimilarFilesDialog(BaseDialog):
         layout.setContentsMargins(10, 10, 10, 10)
 
         # Título
-        title_label = QLabel("🔍 Grado de Similitud")
+        title_label = QLabel("Grado de Similitud")
         title_label.setStyleSheet(ui_styles.STYLE_DIALOG_TITLE_BOLD)
         layout.addWidget(title_label)
 
@@ -681,18 +683,18 @@ class SimilarFilesDialog(BaseDialog):
         menu = QMenu(self)
         
         # Opción para ver detalles del archivo
-        details_action = menu.addAction("ℹ️ Ver detalles del archivo")
+        details_action = menu.addAction("Ver detalles del archivo")
         details_action.triggered.connect(lambda: self._show_file_details(file_path))
         
         menu.addSeparator()
         
         # Opción para abrir el archivo
-        open_action = menu.addAction("🔍 Abrir archivo")
+        open_action = menu.addAction("Abrir archivo")
         open_action.triggered.connect(lambda: self._open_file(file_path))
         
         # Opción para abrir la carpeta
         from .dialog_utils import open_folder
-        open_folder_action = menu.addAction("📁 Abrir carpeta")
+        open_folder_action = menu.addAction("Abrir carpeta")
         open_folder_action.triggered.connect(lambda: open_folder(file_path.parent, self))
         
         # Mostrar el menú en la posición exacta del cursor
