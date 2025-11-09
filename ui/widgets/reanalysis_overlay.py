@@ -2,7 +2,7 @@
 Overlay de re-análisis para Pixaro Lab.
 
 Muestra un overlay semi-transparente sobre el Stage 3 durante el re-análisis
-automático de las herramientas rápidas (Live Photos, HEIC, Duplicados Exactos,
+automático de las herramientas rápidas (Live Photos, HEIC, Copias Exactas,
 Organizar, Renombrar).
 
 Este widget:
@@ -286,7 +286,7 @@ class ReanalysisOverlay(QFrame):
         tool_icons = {
             "Live Photos": "image-multiple",
             "HEIC/JPG": "file-image",
-            "Duplicados Exactos": "content-copy",
+            "Copias Exactas": "content-copy",
             "Organizar": "folder-multiple",
             "Renombrar": "rename-box",
         }

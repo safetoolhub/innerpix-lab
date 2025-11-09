@@ -1,78 +1,59 @@
 """
-Servicio de detección de duplicados similares mediante perceptual hashing.
-Compara imágenes y videos visualmente similares aunque no sean idénticos.
+Servicio de detección de copias exactas mediante SHA256.
+Identifica archivos 100% idénticos digitalmente comparando hashes criptográficos.
 """
 
 from pathlib import Path
-from typing import List, Callable, Optional, Any
+from typing import List, Callable, Optional
 from dataclasses import dataclass
+import hashlib
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from config import Config
 from utils.logger import get_logger
 from utils.callback_utils import safe_progress_callback
+from utils.file_utils import calculate_file_hash
 from services.result_types import DuplicateAnalysisResult, DuplicateDeletionResult
 
 
 @dataclass
 class DuplicateGroup:
-    """Grupo de archivos duplicados similares"""
-    hash_value: str  # Perceptual hash
+    """Grupo de archivos duplicados (copias exactas o similares)"""
+    hash_value: str  # SHA256 hash o perceptual hash
     files: List[Path]
     total_size: int
-    similarity_score: float  # Porcentaje de similitud (0-100)
-    
-    @property
-    def file_count(self) -> int:
-        """Retorna el número de archivos en el grupo"""
-        return len(self.files)
+    similarity_score: float = 100.0  # Copias exactas siempre 100%
 
 
-class DuplicateSimilarDetector:
+class ExactCopiesDetector:
     """
-    Servicio de detección de duplicados similares mediante perceptual hashing.
-    Identifica imágenes y videos visualmente similares aunque no sean idénticos.
+    Servicio de detección de copias exactas mediante hashing SHA256.
+    
+    Identifica fotos y vídeos 100% idénticos digitalmente (mismo SHA256),
+    incluso si tienen nombres diferentes. También conocidos como duplicados exactos.
     """
 
     def __init__(self):
-        """Inicializa el detector de duplicados similares"""
-        self.logger = get_logger('DuplicateSimilarDetector')
+        """Inicializa el detector de copias exactas"""
+        self.logger = get_logger('ExactCopiesDetector')
 
-    def analyze_similar_duplicates(
+    def analyze_exact_duplicates(
         self,
         directory: Path,
-        sensitivity: int = 10,
         progress_callback: Optional[Callable[[int, int, str], None]] = None
     ) -> DuplicateAnalysisResult:
         """
-        Analiza directorio buscando duplicados similares (perceptual hash)
+        Analiza directorio buscando duplicados exactos (SHA256)
         
         Args:
             directory: Directorio a analizar
-            sensitivity: Sensibilidad (0-20, menor = más estricto)
             progress_callback: Callback de progreso
             
         Returns:
-            DuplicateAnalysisResult con grupos de duplicados similares
+            DuplicateAnalysisResult con grupos de duplicados exactos
         """
-        try:
-            import imagehash
-        except ImportError:
-            self.logger.error("imagehash no está instalado. Instala con: pip install imagehash")
-            return DuplicateAnalysisResult(
-                success=False,
-                mode='perceptual',
-                groups=[],
-                total_files=0,
-                total_groups=0,
-                total_similar=0,
-                space_potential=0,
-                errors=["imagehash library not installed"]
-            )
-        
         self.logger.info("=" * 80)
-        self.logger.info("*** INICIANDO ANÁLISIS DE DUPLICADOS SIMILARES (PERCEPTUAL HASH)")
-        self.logger.info(f"*** Sensibilidad: {sensitivity}")
+        self.logger.info("*** INICIANDO ANÁLISIS DE DUPLICADOS EXACTOS (SHA256)")
         self.logger.info("=" * 80)
         
         # Recopilar archivos soportados (imágenes y videos)
@@ -84,44 +65,41 @@ class DuplicateSimilarDetector:
         for ext in Config.SUPPORTED_VIDEO_EXTENSIONS:
             video_files.extend(directory.rglob(f'*{ext}'))
         
-        all_files = image_files + video_files
-        total_files = len(all_files)
+        files = image_files + video_files
+        total_files = len(files)
         self.logger.info(f"Archivos a procesar: {total_files} ({len(image_files)} imágenes, {len(video_files)} videos)")
         
         if total_files == 0:
             return DuplicateAnalysisResult(
                 success=True,
-                mode='perceptual',
+                mode='exact',
                 groups=[],
                 total_files=0,
                 total_groups=0,
-                total_similar=0,
-                space_potential=0
+                total_duplicates=0,
+                space_wasted=0
             )
         
-        # Calcular perceptual hashes en paralelo
+        # Calcular hashes en paralelo con caché compartido
+        # El caché permite reutilizar hashes si se analiza el mismo directorio múltiples veces
+        hash_cache = {}
         file_hashes = {}
         processed = 0
         
         with ThreadPoolExecutor(max_workers=4) as executor:
-            # Crear futures para imágenes
-            future_to_file = {}
-            for file_path in image_files:
-                future = executor.submit(self._calculate_perceptual_hash, file_path)
-                future_to_file[future] = file_path
+            future_to_file = {
+                executor.submit(calculate_file_hash, file_path, cache=hash_cache): file_path
+                for file_path in files
+            }
             
-            # Crear futures para videos
-            for file_path in video_files:
-                future = executor.submit(self._calculate_video_hash, file_path)
-                future_to_file[future] = file_path
-            
-            # Recopilar resultados
             for future in as_completed(future_to_file):
                 file_path = future_to_file[future]
                 try:
-                    phash = future.result()
-                    if phash:
-                        file_hashes[file_path] = phash
+                    file_hash = future.result()
+                    if file_hash:
+                        if file_hash not in file_hashes:
+                            file_hashes[file_hash] = []
+                        file_hashes[file_hash].append(file_path)
                     
                     processed += 1
                     safe_progress_callback(
@@ -131,173 +109,49 @@ class DuplicateSimilarDetector:
                         f"Procesado: {file_path.name}"
                     )
                 except Exception as e:
-                    self.logger.error(f"Error calculando hash perceptual de {file_path}: {e}")
+                    self.logger.error(f"Error calculando hash de {file_path}: {e}")
         
-        # Agrupar por similitud
-        groups = self._group_by_similarity(file_hashes, sensitivity)
+        # Crear grupos de duplicados (solo hashes con 2+ archivos)
+        groups = []
+        for hash_value, file_list in file_hashes.items():
+            if len(file_list) > 1:
+                group = DuplicateGroup(
+                    hash_value=hash_value,
+                    files=file_list,
+                    total_size=sum(f.stat().st_size for f in file_list),
+                    similarity_score=100.0  # Duplicados exactos siempre 100%
+                )
+                groups.append(group)
         
         # Calcular estadísticas
         total_groups = len(groups)
-        total_similar = sum(len(g.files) - 1 for g in groups)
-        space_potential = sum(
+        total_duplicates = sum(len(g.files) - 1 for g in groups)  # Total de duplicados
+        space_wasted = sum(
             (len(g.files) - 1) * g.files[0].stat().st_size
             for g in groups
         )
         
-        min_similarity = self._calculate_min_similarity(groups)
-        max_similarity = self._calculate_max_similarity(groups)
-        
         self.logger.info("=" * 80)
-        self.logger.info("*** ANÁLISIS DE DUPLICADOS SIMILARES COMPLETADO")
+        self.logger.info("*** ANÁLISIS DE DUPLICADOS EXACTOS COMPLETADO")
         self.logger.info(f"*** Archivos analizados: {total_files}")
         self.logger.info(f"*** Grupos de duplicados: {total_groups}")
-        self.logger.info(f"*** Duplicados encontrados: {total_similar}")
-        self.logger.info(f"*** Similitud mínima: {min_similarity}%")
-        self.logger.info(f"*** Similitud máxima: {max_similarity}%")
+        self.logger.info(f"*** Duplicados encontrados: {total_duplicates}")
         try:
             from utils.format_utils import format_size
-            self.logger.info(f"*** Espacio potencialmente recuperable: {format_size(space_potential)}")
+            self.logger.info(f"*** Espacio potencialmente recuperable: {format_size(space_wasted)}")
         except Exception:
-            self.logger.info(f"*** Espacio potencialmente recuperable: {space_potential / (1024*1024):.2f} MB")
+            self.logger.info(f"*** Espacio potencialmente recuperable: {space_wasted / (1024*1024):.2f} MB")
         self.logger.info("=" * 80)
         
         return DuplicateAnalysisResult(
             success=True,
-            mode='perceptual',
+            mode='exact',
             groups=groups,
             total_files=total_files,
             total_groups=total_groups,
-            total_similar=total_similar,
-            space_potential=space_potential,
-            sensitivity=sensitivity,
-            min_similarity=float(min_similarity),
-            max_similarity=float(max_similarity)
+            total_duplicates=total_duplicates,
+            space_wasted=space_wasted
         )
-
-    def _calculate_perceptual_hash(self, file_path: Path) -> Optional[Any]:
-        """Calcula perceptual hash de una imagen"""
-        try:
-            import imagehash
-            from PIL import Image
-            
-            with Image.open(file_path) as img:
-                # Convertir a RGB si es necesario
-                if img.mode != 'RGB':
-                    img = img.convert('RGB')
-                
-                # Calcular perceptual hash (ahash es más rápido, phash más preciso)
-                phash = imagehash.phash(img)
-                return phash
-        except Exception as e:
-            self.logger.debug(f"Error calculando hash perceptual de {file_path}: {e}")
-            return None
-
-    def _calculate_video_hash(self, file_path: Path) -> Optional[Any]:
-        """Calcula perceptual hash de un video (usando frame del medio)"""
-        try:
-            import cv2
-            import imagehash
-            from PIL import Image
-            
-            cap = cv2.VideoCapture(str(file_path))
-            if not cap.isOpened():
-                return None
-            
-            # Obtener frame del medio del video
-            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-            if total_frames == 0:
-                cap.release()
-                return None
-            
-            mid_frame = total_frames // 2
-            cap.set(cv2.CAP_PROP_POS_FRAMES, mid_frame)
-            
-            ret, frame = cap.read()
-            cap.release()
-            
-            if not ret:
-                return None
-            
-            # Convertir BGR a RGB
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            img = Image.fromarray(frame)
-            
-            # Calcular perceptual hash
-            phash = imagehash.phash(img)
-            return phash
-        except Exception as e:
-            self.logger.debug(f"Error calculando hash de video {file_path}: {e}")
-            return None
-
-    def _group_by_similarity(
-        self,
-        file_hashes: dict,
-        sensitivity: int
-    ) -> List[DuplicateGroup]:
-        """Agrupa archivos por similitud de hash perceptual"""
-        if not file_hashes:
-            return []
-        
-        # Convertir sensibilidad a threshold de distancia Hamming
-        # Sensibilidad 0 = threshold 0 (solo exactos)
-        # Sensibilidad 20 = threshold 20
-        threshold = min(sensitivity, Config.MAX_HAMMING_THRESHOLD)
-        
-        groups = []
-        processed = set()
-        
-        paths = list(file_hashes.keys())
-        
-        for i, path1 in enumerate(paths):
-            if path1 in processed:
-                continue
-            
-            hash1 = file_hashes[path1]
-            similar_files = [path1]
-            hamming_distances = []
-            
-            for path2 in paths[i+1:]:
-                if path2 in processed:
-                    continue
-                
-                hash2 = file_hashes[path2]
-                hamming_distance = hash1 - hash2
-                
-                if hamming_distance <= threshold:
-                    similar_files.append(path2)
-                    hamming_distances.append(hamming_distance)
-                    processed.add(path2)
-            
-            if len(similar_files) > 1:
-                # Calcular score de similitud basado en distancia Hamming promedio
-                avg_hamming = sum(hamming_distances) / len(hamming_distances) if hamming_distances else 0
-                # Convertir a porcentaje de similitud (invertido)
-                similarity_percentage = 100 - (avg_hamming / Config.MAX_HAMMING_THRESHOLD * 100)
-                # Asegurar que esté en el rango [0, 100]
-                similarity_percentage = max(0, min(100, similarity_percentage))
-                
-                group = DuplicateGroup(
-                    hash_value=str(hash1),
-                    files=similar_files,
-                    total_size=sum(f.stat().st_size for f in similar_files),
-                    similarity_score=similarity_percentage
-                )
-                groups.append(group)
-                processed.add(path1)
-        
-        return groups
-    
-    def _calculate_min_similarity(self, groups: List[DuplicateGroup]) -> int:
-        """Calcula similitud mínima de los grupos"""
-        if not groups:
-            return 0
-        return int(min(g.similarity_score for g in groups))
-    
-    def _calculate_max_similarity(self, groups: List[DuplicateGroup]) -> int:
-        """Calcula similitud máxima de los grupos"""
-        if not groups:
-            return 0
-        return int(max(g.similarity_score for g in groups))
 
     def execute_deletion(
         self,
@@ -308,10 +162,10 @@ class DuplicateSimilarDetector:
         progress_callback: Optional[Callable[[int, int, str], None]] = None
     ) -> DuplicateDeletionResult:
         """
-        Ejecuta eliminación de duplicados similares
+        Ejecuta eliminación de duplicados exactos
         
         Args:
-            groups: Grupos de duplicados similares
+            groups: Grupos de duplicados
             keep_strategy: 'oldest', 'newest', 'largest', 'smallest', 'manual'
             create_backup: Crear backup antes de eliminar
             dry_run: Si solo simular sin eliminar archivos reales
@@ -324,7 +178,7 @@ class DuplicateSimilarDetector:
         import shutil
         
         self.logger.info("=" * 80)
-        self.logger.info("*** INICIANDO ELIMINACIÓN DE DUPLICADOS SIMILARES")
+        self.logger.info("*** INICIANDO ELIMINACIÓN DE DUPLICADOS EXACTOS")
         self.logger.info(f"*** Estrategia: {keep_strategy}")
         if dry_run:
             self.logger.info("*** Modo: SIMULACIÓN")
@@ -333,7 +187,7 @@ class DuplicateSimilarDetector:
         backup_path = None
         if create_backup and not dry_run:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            backup_path = Config.DEFAULT_BACKUP_DIR / f"duplicates_similar_backup_{timestamp}"
+            backup_path = Config.DEFAULT_BACKUP_DIR / f"duplicates_exact_backup_{timestamp}"
             backup_path.mkdir(parents=True, exist_ok=True)
             self.logger.info(f"Backup creado en: {backup_path}")
 
@@ -382,7 +236,7 @@ class DuplicateSimilarDetector:
                                 simulated_files_deleted += 1
                                 simulated_space_freed += file_size
                                 deleted_files.append(file_path)
-                                self.logger.info(f"[SIMULACIÓN] Eliminaría duplicado similar (manual): {file_path} ({format_size(file_size)}, {file_date_str})")
+                                self.logger.info(f"[SIMULACIÓN] Eliminaría duplicado (manual): {file_path} ({format_size(file_size)}, {file_date_str})")
                             else:
                                 if create_backup and backup_path:
                                     backup_file = backup_path / file_path.name
@@ -391,7 +245,7 @@ class DuplicateSimilarDetector:
                                 file_path.unlink()
                                 deleted_files.append(file_path)
                                 space_freed += file_size
-                                self.logger.info(f"✓ Eliminado duplicado similar (manual): {file_path} ({format_size(file_size)}, {file_date_str})")
+                                self.logger.info(f"✓ Eliminado duplicado (manual): {file_path} ({format_size(file_size)}, {file_date_str})")
                             
                             processed += 1
                             progress_msg = f"{'Simularía' if dry_run else 'Eliminado'}: {file_path.name}"
@@ -454,7 +308,7 @@ class DuplicateSimilarDetector:
                                 simulated_files_deleted += 1
                                 simulated_space_freed += file_size
                                 deleted_files.append(file_path)
-                                self.logger.info(f"[SIMULACIÓN] Eliminaría duplicado similar: {file_path} ({format_size(file_size)}, {file_date_str})")
+                                self.logger.info(f"[SIMULACIÓN] Eliminaría duplicado: {file_path} ({format_size(file_size)}, {file_date_str})")
                             else:
                                 if create_backup and backup_path:
                                     backup_file = backup_path / file_path.name
@@ -463,7 +317,7 @@ class DuplicateSimilarDetector:
                                 file_path.unlink()
                                 deleted_files.append(file_path)
                                 space_freed += file_size
-                                self.logger.info(f"✓ Eliminado duplicado similar: {file_path} ({format_size(file_size)}, {file_date_str})")
+                                self.logger.info(f"✓ Eliminado duplicado: {file_path} ({format_size(file_size)}, {file_date_str})")
                             
                             processed += 1
                             progress_msg = f"{'Simularía' if dry_run else 'Eliminado'}: {file_path.name}"
@@ -517,10 +371,10 @@ class DuplicateSimilarDetector:
 
         self.logger.info("=" * 80)
         if dry_run:
-            self.logger.info("*** SIMULACIÓN DE ELIMINACIÓN DE DUPLICADOS SIMILARES COMPLETADA")
+            self.logger.info("*** SIMULACIÓN DE ELIMINACIÓN DE DUPLICADOS EXACTOS COMPLETADA")
             self.logger.info(f"*** Resultado: {files_count} archivos se eliminarían, {freed_str} se liberarían")
         else:
-            self.logger.info("*** ELIMINACIÓN DE DUPLICADOS SIMILARES COMPLETADA")
+            self.logger.info("*** ELIMINACIÓN DE DUPLICADOS EXACTOS COMPLETADA")
             self.logger.info(f"*** Resultado: {files_count} archivos eliminados, {freed_str} liberados")
         if result.has_errors:
             error_prefix = "[SIMULACIÓN] " if dry_run else ""

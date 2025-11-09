@@ -1,5 +1,5 @@
 """
-Diálogo de progreso bloqueante para el análisis de duplicados similares.
+Diálogo de progreso bloqueante para el análisis de archivos similares.
 Muestra el progreso en tiempo real con barra y estadísticas.
 """
 
@@ -14,9 +14,12 @@ from utils.icons import icon_manager
 from utils.format_utils import format_file_count
 
 
-class SimilarityProgressDialog(QDialog):
+class SimilarFilesProgressDialog(QDialog):
     """
-    Diálogo modal bloqueante que muestra el progreso del análisis de similitud.
+    Diálogo modal bloqueante que muestra el progreso del análisis de archivos similares.
+    
+    Detecta fotos y vídeos visualmente similares: recortes, rotaciones,
+    ediciones o diferentes resoluciones.
     
     Muestra:
     - Estado actual con spinner animado
@@ -45,9 +48,9 @@ class SimilarityProgressDialog(QDialog):
     
     def _setup_ui(self):
         """Configura la interfaz del diálogo"""
-        self.setWindowTitle("Analizando Duplicados Similares")
+        self.setWindowTitle("Analizando archivos similares")
         self.setModal(True)
-        self.setFixedSize(520, 380)
+        self.setFixedSize(520, 500)
         self.setWindowFlags(
             Qt.WindowType.Dialog | 
             Qt.WindowType.CustomizeWindowHint | 
@@ -78,6 +81,7 @@ class SimilarityProgressDialog(QDialog):
         
         self.status_text = QLabel("Detectando imágenes similares...")
         self.status_text.setObjectName("status_text")
+        self.status_text.setWordWrap(True)
         
         status_layout.addWidget(self.spinner_label)
         status_layout.addWidget(self.status_text)
@@ -180,6 +184,7 @@ class SimilarityProgressDialog(QDialog):
         
         self.stats_text = QLabel(f"0 de {format_file_count(self.total_files)} procesados")
         self.stats_text.setObjectName("stats_text")
+        self.stats_text.setWordWrap(True)
         
         layout.addWidget(icon)
         layout.addWidget(self.stats_text)
@@ -213,6 +218,7 @@ class SimilarityProgressDialog(QDialog):
         
         self.elapsed_text = QLabel("Tiempo transcurrido: 0s")
         self.elapsed_text.setObjectName("time_text")
+        self.elapsed_text.setWordWrap(True)
         
         elapsed_layout.addWidget(elapsed_icon)
         elapsed_layout.addWidget(self.elapsed_text)
@@ -231,6 +237,7 @@ class SimilarityProgressDialog(QDialog):
         
         self.remaining_text = QLabel("Tiempo estimado restante: calculando...")
         self.remaining_text.setObjectName("time_text")
+        self.remaining_text.setWordWrap(True)
         
         remaining_layout.addWidget(remaining_icon)
         remaining_layout.addWidget(self.remaining_text)

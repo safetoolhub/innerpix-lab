@@ -8,7 +8,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPixmap, QDesktopServices, QCursor
 from PyQt6.QtCore import QUrl
 from config import Config
-from services.duplicate_similar_detector import DuplicateGroup
+from services.similar_files_detector import DuplicateGroup
 from utils.format_utils import format_size
 from ui import ui_styles
 from ui.styles.design_system import DesignSystem
@@ -16,8 +16,14 @@ from .base_dialog import BaseDialog
 from .dialog_utils import show_file_details_dialog
 
 
-class SimilarDuplicatesDialog(BaseDialog):
-    """Diálogo para revisión de duplicados similares"""
+class SimilarFilesDialog(BaseDialog):
+    """
+    Diálogo para gestionar archivos similares.
+    
+    Permite revisar y eliminar fotos y vídeos visualmente similares:
+    recortes, rotaciones, ediciones o diferentes resoluciones.
+    No requiere que sean idénticos digitalmente.
+    """
 
     def __init__(self, analysis, parent=None):
         super().__init__(parent)
@@ -28,7 +34,7 @@ class SimilarDuplicatesDialog(BaseDialog):
         self.init_ui()
 
     def init_ui(self):
-        self.setWindowTitle("Revisar Duplicados Similares")
+        self.setWindowTitle("Gestionar archivos similares")
         self.setModal(True)
         self.resize(900, 700)
         layout = QVBoxLayout(self)

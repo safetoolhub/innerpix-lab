@@ -88,8 +88,10 @@ class IconManager:
         'live-photo': 'mdi6.camera-burst',
         'camera-burst': 'mdi6.camera-burst',
         'duplicate': 'mdi6.content-duplicate',
+        'content-copy': 'mdi6.content-copy',
         'duplicate-exact': 'mdi6.equal',
         'duplicate-similar': 'mdi6.image-search',
+        'image-search': 'mdi6.image-search',
         'eye': 'mdi6.eye',
         
         # Organización

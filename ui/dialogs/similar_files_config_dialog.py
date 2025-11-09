@@ -1,5 +1,5 @@
 """
-Diálogo de configuración para el análisis de duplicados similares.
+Diálogo de configuración para el análisis de archivos similares.
 Permite ajustar la sensibilidad del análisis perceptual.
 """
 
@@ -14,11 +14,14 @@ from ui.styles.design_system import DesignSystem
 from utils.icons import icon_manager
 
 
-class SimilarityConfigDialog(QDialog):
+class SimilarFilesConfigDialog(QDialog):
     """
-    Diálogo para configurar el análisis de duplicados similares.
+    Diálogo para configurar el análisis de archivos similares.
     
     Permite ajustar la sensibilidad (0-20) del análisis perceptual hash.
+    Detecta fotos y vídeos visualmente similares: recortes, rotaciones,
+    ediciones o diferentes resoluciones.
+    
     Menor valor = más estricto (solo muy similares).
     Mayor valor = más permisivo (detecta más similitudes).
     """
@@ -40,7 +43,7 @@ class SimilarityConfigDialog(QDialog):
     
     def _setup_ui(self):
         """Configura la interfaz del diálogo"""
-        self.setWindowTitle("Configurar Análisis de Duplicados Similares")
+        self.setWindowTitle("Configurar análisis de archivos similares")
         self.setModal(True)
         self.setFixedWidth(600)
         self.setWindowFlags(

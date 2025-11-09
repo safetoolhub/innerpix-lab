@@ -7,8 +7,8 @@ from .live_photos_dialog import LivePhotoCleanupDialog
 from .organization_dialog import FileOrganizationDialog
 from .heic_dialog import HEICDuplicateRemovalDialog
 from .settings_dialog import SettingsDialog
-from .duplicate_exact_dialog import ExactDuplicatesDialog
-from .duplicate_similar_dialog import SimilarDuplicatesDialog
+from .exact_copies_dialog import ExactCopiesDialog
+from .similar_files_dialog import SimilarFilesDialog
 from .base_dialog import BaseDialog
 from .about_dialog import AboutDialog
 
@@ -18,8 +18,8 @@ __all__ = [
     'LivePhotoCleanupDialog',
     'FileOrganizationDialog',
     'HEICDuplicateRemovalDialog',
+    'ExactCopiesDialog',
+    'SimilarFilesDialog',
     'SettingsDialog',
-    'ExactDuplicatesDialog',
-    'SimilarDuplicatesDialog',
     'AboutDialog',
 ]

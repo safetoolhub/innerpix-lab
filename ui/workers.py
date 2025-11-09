@@ -32,8 +32,8 @@ if TYPE_CHECKING:
     from services.live_photo_cleaner import LivePhotoCleaner
     from services.file_organizer import FileOrganizer
     from services.heic_remover import HEICDuplicateRemover
-    from services.duplicate_exact_detector import DuplicateExactDetector
-    from services.duplicate_similar_detector import DuplicateSimilarDetector
+    from services.exact_copies_detector import ExactCopiesDetector
+    from services.similar_files_detector import SimilarFilesDetector
 
 
 
@@ -136,7 +136,7 @@ class AnalysisWorker(BaseWorker):
         live_photo_detector: 'LivePhotoDetector',
         unifier: 'FileOrganizer',
         heic_remover: 'HEICDuplicateRemover',
-        duplicate_exact_detector: Optional['DuplicateExactDetector'] = None,
+        duplicate_exact_detector: Optional['ExactCopiesDetector'] = None,
         organization_type: Optional[str] = None
     ):
         super().__init__()
@@ -487,7 +487,7 @@ class DuplicateAnalysisWorker(BaseWorker):
     
     def __init__(
         self,
-        detector: 'DuplicateExactDetector | DuplicateSimilarDetector',
+        detector: 'ExactCopiesDetector | SimilarFilesDetector',
         directory: Path,
         mode: str = 'exact',
         sensitivity: int = 10
@@ -540,7 +540,7 @@ class DuplicateDeletionWorker(BaseWorker):
     
     def __init__(
         self,
-        detector: 'DuplicateExactDetector | DuplicateSimilarDetector',
+        detector: 'ExactCopiesDetector | SimilarFilesDetector',
         groups: List,
         keep_strategy: str,
         create_backup: bool = True,
@@ -582,9 +582,12 @@ class DuplicateDeletionWorker(BaseWorker):
                 self.error.emit(error_msg)
 
 
-class SimilarityAnalysisWorker(BaseWorker):
+class SimilarFilesAnalysisWorker(BaseWorker):
     """
-    Worker para análisis de duplicados similares (perceptual hash).
+    Worker para análisis de archivos similares (perceptual hash).
+    
+    Detecta fotos y vídeos visualmente similares: recortes, rotaciones,
+    ediciones o diferentes resoluciones.
     
     Este análisis puede tardar varios minutos dependiendo del número de archivos.
     
@@ -597,13 +600,13 @@ class SimilarityAnalysisWorker(BaseWorker):
     
     def __init__(
         self,
-        detector: 'DuplicateSimilarDetector',
+        detector: 'SimilarFilesDetector',
         workspace_path: Path,
         sensitivity: int
     ):
         """
         Args:
-            detector: Instancia de DuplicateSimilarDetector
+            detector: Instancia de SimilarFilesDetector
             workspace_path: Path del directorio a analizar
             sensitivity: Sensibilidad del análisis (0-20)
         """
@@ -613,7 +616,7 @@ class SimilarityAnalysisWorker(BaseWorker):
         self.sensitivity = sensitivity
     
     def run(self) -> None:
-        """Ejecuta el análisis de duplicados similares"""
+        """Ejecuta el análisis de archivos similares"""
         try:
             if self._stop_requested:
                 return
@@ -676,7 +679,7 @@ class WorkspaceReanalysisWorker(BaseWorker):
         """Ejecuta re-análisis de todas las herramientas rápidas"""
         from services.live_photo_detector import LivePhotoDetector
         from services.heic_remover import HEICDuplicateRemover
-        from services.duplicate_exact_detector import DuplicateExactDetector
+        from services.exact_copies_detector import ExactCopiesDetector
         from services.file_organizer import FileOrganizer
         from services.file_renamer import FileRenamer
         from config import Config
@@ -687,7 +690,7 @@ class WorkspaceReanalysisWorker(BaseWorker):
         tools_to_analyze = [
             ("live_photos", LivePhotoDetector, "Live Photos"),
             ("heic", HEICDuplicateRemover, "HEIC/JPG"),
-            ("exact_duplicates", DuplicateExactDetector, "Duplicados Exactos"),
+            ("exact_duplicates", ExactCopiesDetector, "Duplicados Exactos"),
             ("organize", FileOrganizer, "Organizar"),
             ("rename", FileRenamer, "Renombrar")
         ]

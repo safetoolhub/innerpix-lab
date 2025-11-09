@@ -13,17 +13,17 @@ from ui.widgets.summary_card import SummaryCard
 from ui.widgets.tool_card import ToolCard
 from ui.dialogs.live_photos_dialog import LivePhotoCleanupDialog
 from ui.dialogs.heic_dialog import HEICDuplicateRemovalDialog
-from ui.dialogs.duplicate_exact_dialog import ExactDuplicatesDialog
-from ui.dialogs.duplicate_similar_dialog import SimilarDuplicatesDialog
+from ui.dialogs.exact_copies_dialog import ExactCopiesDialog
+from ui.dialogs.similar_files_dialog import SimilarFilesDialog
 from ui.dialogs.organization_dialog import FileOrganizationDialog
 from ui.dialogs.renaming_dialog import RenamingPreviewDialog
 from ui.dialogs.settings_dialog import SettingsDialog
 from ui.dialogs.about_dialog import AboutDialog
-from ui.dialogs.similarity_config_dialog import SimilarityConfigDialog
-from ui.dialogs.similarity_progress_dialog import SimilarityProgressDialog
+from ui.dialogs.similar_files_config_dialog import SimilarFilesConfigDialog
+from ui.dialogs.similar_files_progress_dialog import SimilarFilesProgressDialog
 from utils.format_utils import format_size, format_file_count
-from services.duplicate_similar_detector import DuplicateSimilarDetector
-from ui.workers import SimilarityAnalysisWorker
+from services.similar_files_detector import SimilarFilesDetector
+from ui.workers import SimilarFilesAnalysisWorker
 from pathlib import Path
 
 
@@ -226,11 +226,11 @@ class Stage3Window(BaseStage):
         # Fila 2: Duplicados Exactos + Similares
         exact_dup_card = self._create_exact_duplicates_card(dup_data)
         grid_layout.addWidget(exact_dup_card, 1, 0)
-        self.tool_cards['exact_duplicates'] = exact_dup_card
+        self.tool_cards['exact_copies'] = exact_dup_card
 
         similar_dup_card = self._create_similar_duplicates_card()
         grid_layout.addWidget(similar_dup_card, 1, 1)
-        self.tool_cards['similar_duplicates'] = similar_dup_card
+        self.tool_cards['similar_files'] = similar_dup_card
 
         # Fila 3: Organizar + Renombrar
         organize_card = self._create_organize_card()
@@ -313,12 +313,12 @@ class Stage3Window(BaseStage):
         return card
 
     def _create_exact_duplicates_card(self, dup_data) -> ToolCard:
-        """Crea la card de Duplicados Exactos"""
+        """Crea la card de Copias exactas"""
         card = ToolCard(
-            icon_name='duplicate-exact',
-            title='Duplicados Exactos',
-            description='Encuentra archivos que son idénticos byte a byte (copias exactas). '
-                       'Revisa los grupos y decide cuáles eliminar.',
+            icon_name='content-copy',
+            title='Copias exactas',
+            description='Encuentra fotos y vídeos copiados (100% idénticos), '
+                       'incluso si tienen nombres diferentes. Elimina duplicados.',
             action_text='Gestionar ahora'
         )
 
@@ -330,25 +330,25 @@ class Stage3Window(BaseStage):
                 size_text
             )
         else:
-            card.set_status_ready("No se encontraron duplicados exactos")
+            card.set_status_ready("No se encontraron copias exactas")
 
-        card.clicked.connect(lambda: self._on_tool_clicked('exact_duplicates'))
+        card.clicked.connect(lambda: self._on_tool_clicked('exact_copies'))
         return card
 
     def _create_similar_duplicates_card(self) -> ToolCard:
-        """Crea la card de Duplicados Similares (pendiente por defecto)"""
+        """Crea la card de Archivos similares (pendiente por defecto)"""
         card = ToolCard(
-            icon_name='duplicate-similar',
-            title='Duplicados Similares',
-            description='Detecta fotos que son visualmente similares pero no idénticas '
-                       '(recortes, rotaciones, ediciones).',
-            action_text='Analizar ahora'
+            icon_name='image-search',
+            title='Archivos similares',
+            description='Detecta fotos y vídeos visualmente similares: recortes, '
+                       'rotaciones, ediciones o diferentes resoluciones.',
+            action_text='Configurar y analizar'
         )
 
         # Por defecto está pendiente
-        card.set_status_pending("Este análisis puede tardar unos minutos.")
+        card.set_status_pending("Este análisis puede tardar unos minutos según la cantidad de archivos.")
 
-        card.clicked.connect(lambda: self._on_tool_clicked('similar_duplicates'))
+        card.clicked.connect(lambda: self._on_tool_clicked('similar_files'))
         return card
 
     def _create_organize_card(self) -> ToolCard:
@@ -414,14 +414,14 @@ class Stage3Window(BaseStage):
                 return
             dialog = HEICDuplicateRemovalDialog(heic_data, self.main_window)
 
-        elif tool_id == 'exact_duplicates':
+        elif tool_id == 'exact_copies':
             dup_data = self.analysis_results.duplicates
             if not dup_data or dup_data.total_groups == 0:
-                QMessageBox.warning(self.main_window, "Sin resultados", "No hay datos de Duplicados Exactos")
+                QMessageBox.warning(self.main_window, "Sin resultados", "No hay datos de Copias Exactas")
                 return
-            dialog = ExactDuplicatesDialog(dup_data, self.main_window)
+            dialog = ExactCopiesDialog(dup_data, self.main_window)
 
-        elif tool_id == 'similar_duplicates':
+        elif tool_id == 'similar_files':
             # Similares requieren configuración previa
             self._on_similar_duplicates_clicked()
             return
@@ -504,9 +504,9 @@ class Stage3Window(BaseStage):
                 dry_run=plan.get('dry_run', False)
             )
         
-        elif tool_id == 'exact_duplicates':
-            from services.duplicate_exact_detector import DuplicateExactDetector
-            detector = DuplicateExactDetector()
+        elif tool_id == 'exact_copies':
+            from services.exact_copies_detector import ExactCopiesDetector
+            detector = ExactCopiesDetector()
             # DuplicateDeletionWorker espera (detector, groups, keep_strategy, create_backup, dry_run)
             worker = DuplicateDeletionWorker(
                 detector=detector,
@@ -699,7 +699,7 @@ class Stage3Window(BaseStage):
             previous_sensitivity = 10
         
         # Mostrar diálogo de configuración
-        config_dialog = SimilarityConfigDialog(
+        config_dialog = SimilarFilesConfigDialog(
             parent=self.main_window,
             file_count=file_count,
             previous_sensitivity=previous_sensitivity
@@ -719,17 +719,17 @@ class Stage3Window(BaseStage):
             file_count: Número de archivos a analizar
         """
         # Crear el detector
-        detector = DuplicateSimilarDetector()
+        detector = SimilarFilesDetector()
         
         # Crear el worker
-        self.similarity_worker = SimilarityAnalysisWorker(
+        self.similarity_worker = SimilarFilesAnalysisWorker(
             detector=detector,
             workspace_path=Path(self.selected_folder),
             sensitivity=sensitivity
         )
         
         # Crear diálogo de progreso bloqueante
-        self.similarity_progress_dialog = SimilarityProgressDialog(
+        self.similarity_progress_dialog = SimilarFilesProgressDialog(
             parent=self.main_window,
             total_files=file_count
         )
@@ -851,10 +851,10 @@ class Stage3Window(BaseStage):
         Args:
             results: DuplicateAnalysisResult
         """
-        if 'similar_duplicates' not in self.tool_cards:
+        if 'similar_files' not in self.tool_cards:
             return
         
-        card = self.tool_cards['similar_duplicates']
+        card = self.tool_cards['similar_files']
         
         if results.total_groups > 0:
             size_text = f"~{format_size(results.space_potential)} recuperables"
@@ -880,7 +880,7 @@ class Stage3Window(BaseStage):
         Args:
             results: DuplicateAnalysisResult
         """
-        dialog = SimilarDuplicatesDialog(results, self.main_window)
+        dialog = SimilarFilesDialog(results, self.main_window)
         dialog.exec()
     
     # ===== SISTEMA DE RE-ANÁLISIS AUTOMÁTICO =====
@@ -1012,7 +1012,7 @@ class Stage3Window(BaseStage):
             else:
                 card.set_status_ready("No se detectaron HEIC duplicados")
         
-        elif tool_name == 'exact_duplicates':
+        elif tool_name == 'exact_copies':
             if result and result.total_groups > 0:
                 card.set_status_with_results(
                     f"{result.total_groups} grupos detectados",
@@ -1108,10 +1108,10 @@ class Stage3Window(BaseStage):
         Cambia el texto y estilo para indicar que los resultados ya no son válidos
         tras modificaciones en el workspace.
         """
-        if 'similar_duplicates' not in self.tool_cards:
+        if 'similar_files' not in self.tool_cards:
             return
         
-        card = self.tool_cards['similar_duplicates']
+        card = self.tool_cards['similar_files']
         
         # Cambiar descripción para indicar obsolescencia
         card.description_label.setText(
