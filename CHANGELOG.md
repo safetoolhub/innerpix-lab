@@ -1,5 +1,42 @@
 # Changelog
 
+## [MVP2 - Renombrado de Herramientas] - 2025-11-09
+
+### 🔄 Cambiado
+
+**Renombrado Global de Nomenclatura de Duplicados:**
+- **"Duplicados exactos" → "Copias exactas"**: Comunica claramente archivos 100% idénticos
+- **"Duplicados similares" → "Archivos similares"**: Término inclusivo para fotos y vídeos visualmente similares
+- Actualizada UI con nuevos títulos y descripciones en cards de Stage 3
+- Nuevos iconos: `content-copy` para copias exactas, `image-search` para archivos similares
+- Todas las clases, archivos y comentarios renombrados siguiendo PEP 8
+
+**Archivos renombrados:**
+- `services/duplicate_exact_detector.py` → `exact_copies_detector.py`
+- `services/duplicate_similar_detector.py` → `similar_files_detector.py`
+- `ui/dialogs/duplicate_exact_dialog.py` → `exact_copies_dialog.py`
+- `ui/dialogs/duplicate_similar_dialog.py` → `similar_files_dialog.py`
+- `ui/dialogs/similarity_config_dialog.py` → `similar_files_config_dialog.py`
+- `ui/dialogs/similarity_progress_dialog.py` → `similar_files_progress_dialog.py`
+
+**Clases renombradas:**
+- `DuplicateExactDetector` → `ExactCopiesDetector`
+- `DuplicateSimilarDetector` → `SimilarFilesDetector`
+- `ExactDuplicatesDialog` → `ExactCopiesDialog`
+- `SimilarDuplicatesDialog` → `SimilarFilesDialog`
+- `SimilarityConfigDialog` → `SimilarFilesConfigDialog`
+- `SimilarityProgressDialog` → `SimilarFilesProgressDialog`
+- `SimilarityAnalysisWorker` → `SimilarFilesAnalysisWorker`
+
+**Identificadores actualizados:**
+- Tool IDs: `exact_duplicates` → `exact_copies`, `similar_duplicates` → `similar_files`
+- Config: `TOOL_ANALYSIS_COST`, `TOOL_IMPACT_ON_FILES`, `TOOL_DISPLAY_NAMES`
+- Todos los imports y referencias actualizados en todo el proyecto
+
+**Descripciones mejoradas:**
+- Copias exactas: "Encuentra fotos y vídeos copiados (100% idénticos), incluso si tienen nombres diferentes. Elimina duplicados."
+- Archivos similares: "Detecta fotos y vídeos visualmente similares: recortes, rotaciones, ediciones o diferentes resoluciones."
+
 ## [MVP2 - Fase 4] - 2025-11-05
 
 ### ✨ Añadido

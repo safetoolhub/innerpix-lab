@@ -10,12 +10,12 @@ Ofrece al usuario 6 herramientas principales; cada una se presenta mediante un d
 	- Descripción: Busca pares HEIC/JPG que son duplicados del mismo contenido (mismas fotos en formatos distintos) y propone eliminar o conservar según políticas (ej. conservar JPG/HEIC, por tamaño, fecha).
 	- Dialog asociado: `ui/dialogs/heic_dialog.py`
 
-3) Detección de duplicados exactos
+3) Detección de copias exactas
 	- Descripción: Encuentra archivos idénticos byte-a-byte mediante hashing. Permite revisar los pares/grupos detectados y elegir qué conservar o eliminar.
 	- Dialog asociado: `ui/dialogs/exact_duplicates_dialog.py`
 
-4) Detección de duplicados similares
-	- Descripción: Detecta imágenes visualmente similares (mismo contenido con pequeñas variaciones: recorte, rotación, compresión). Ofrece herramientas para comparar y decidir qué mantener.
+4) Detección de archivos similares
+	- Descripción: Detecta imágenes o videos visualmente similares (mismo contenido con pequeñas variaciones: recorte, rotación, compresión). Ofrece herramientas para comparar y decidir qué mantener.
 	- Dialog asociado: `ui/dialogs/similar_duplicates_dialog.py`
 
 5) Organización de archivos

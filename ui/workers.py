@@ -32,8 +32,8 @@ if TYPE_CHECKING:
     from services.live_photo_cleaner import LivePhotoCleaner
     from services.file_organizer import FileOrganizer
     from services.heic_remover import HEICDuplicateRemover
-    from services.duplicate_exact_detector import DuplicateExactDetector
-    from services.duplicate_similar_detector import DuplicateSimilarDetector
+    from services.exact_copies_detector import ExactCopiesDetector
+    from services.similar_files_detector import SimilarFilesDetector
 
 
 
@@ -136,7 +136,7 @@ class AnalysisWorker(BaseWorker):
         live_photo_detector: 'LivePhotoDetector',
         unifier: 'FileOrganizer',
         heic_remover: 'HEICDuplicateRemover',
-        duplicate_exact_detector: Optional['DuplicateExactDetector'] = None,
+        duplicate_exact_detector: Optional['ExactCopiesDetector'] = None,
         organization_type: Optional[str] = None
     ):
         super().__init__()
@@ -487,7 +487,7 @@ class DuplicateAnalysisWorker(BaseWorker):
     
     def __init__(
         self,
-        detector: 'DuplicateExactDetector | DuplicateSimilarDetector',
+        detector: 'ExactCopiesDetector | SimilarFilesDetector',
         directory: Path,
         mode: str = 'exact',
         sensitivity: int = 10
@@ -540,7 +540,7 @@ class DuplicateDeletionWorker(BaseWorker):
     
     def __init__(
         self,
-        detector: 'DuplicateExactDetector | DuplicateSimilarDetector',
+        detector: 'ExactCopiesDetector | SimilarFilesDetector',
         groups: List,
         keep_strategy: str,
         create_backup: bool = True,
@@ -580,3 +580,165 @@ class DuplicateDeletionWorker(BaseWorker):
                 import traceback
                 error_msg = f"{str(e)}\n{traceback.format_exc()}"
                 self.error.emit(error_msg)
+
+
+class SimilarFilesAnalysisWorker(BaseWorker):
+    """
+    Worker para análisis de archivos similares (perceptual hash).
+    
+    Detecta fotos y vídeos visualmente similares: recortes, rotaciones,
+    ediciones o diferentes resoluciones.
+    
+    Este análisis puede tardar varios minutos dependiendo del número de archivos.
+    
+    Signals:
+        progress_update(int, int, str): (current, total, message)
+        finished(DuplicateAnalysisResult): Resultado del análisis con grupos de similares
+        error(str): Mensaje de error
+    """
+    finished = pyqtSignal(object)  # DuplicateAnalysisResult
+    
+    def __init__(
+        self,
+        detector: 'SimilarFilesDetector',
+        workspace_path: Path,
+        sensitivity: int
+    ):
+        """
+        Args:
+            detector: Instancia de SimilarFilesDetector
+            workspace_path: Path del directorio a analizar
+            sensitivity: Sensibilidad del análisis (0-20)
+        """
+        super().__init__()
+        self.detector = detector
+        self.workspace_path = workspace_path
+        self.sensitivity = sensitivity
+    
+    def run(self) -> None:
+        """Ejecuta el análisis de archivos similares"""
+        try:
+            if self._stop_requested:
+                return
+            
+            # Callback de progreso que verifica cancelación
+            def progress_callback(current: int, total: int, message: str) -> bool:
+                if self._stop_requested:
+                    return False
+                self.progress_update.emit(current, total, message)
+                return True
+            
+            results: 'DuplicateAnalysisResult' = self.detector.analyze_similar_duplicates(
+                directory=self.workspace_path,
+                sensitivity=self.sensitivity,
+                progress_callback=progress_callback
+            )
+            
+            if not self._stop_requested:
+                self.finished.emit(results)
+        
+        except Exception as e:
+            if not self._stop_requested:
+                import traceback
+                error_msg = f"{str(e)}\n{traceback.format_exc()}"
+                self.error.emit(error_msg)
+
+
+class WorkspaceReanalysisWorker(BaseWorker):
+    """
+    Worker para re-análisis automático del workspace.
+    Solo ejecuta análisis rápidos (< 5 segundos cada uno).
+    
+    Este worker se ejecuta en background cuando se modifican archivos
+    para mantener actualizadas las 5 herramientas de análisis rápido:
+    - Live Photos
+    - HEIC/JPG
+    - Duplicados Exactos
+    - Organizar
+    - Renombrar
+    
+    Signals:
+        progress_update(int, int, str): (current, total, message)
+        tool_completed(str, object): (tool_name, results) cuando termina cada herramienta
+        finished(dict): Todos los resultados {tool_name: results}
+        tool_error(str, str): (tool_name, error_message)
+    """
+    tool_completed = pyqtSignal(str, object)  # (tool_name, results)
+    tool_error = pyqtSignal(str, str)  # (tool_name, error_message) - señal específica
+    finished = pyqtSignal(dict)  # {tool_name: results}
+    
+    def __init__(self, workspace_path: Path):
+        """
+        Args:
+            workspace_path: Path del directorio a re-analizar
+        """
+        super().__init__()
+        self.workspace_path = workspace_path
+        
+    def run(self) -> None:
+        """Ejecuta re-análisis de todas las herramientas rápidas"""
+        from services.live_photo_detector import LivePhotoDetector
+        from services.heic_remover import HEICDuplicateRemover
+        from services.exact_copies_detector import ExactCopiesDetector
+        from services.file_organizer import FileOrganizer
+        from services.file_renamer import FileRenamer
+        from config import Config
+        
+        results = {}
+        
+        # Lista de análisis a ejecutar (solo rápidos)
+        tools_to_analyze = [
+            ("live_photos", LivePhotoDetector, "Live Photos"),
+            ("heic", HEICDuplicateRemover, "HEIC/JPG"),
+            ("exact_duplicates", ExactCopiesDetector, "Duplicados Exactos"),
+            ("organize", FileOrganizer, "Organizar"),
+            ("rename", FileRenamer, "Renombrar")
+        ]
+        
+        total = len(tools_to_analyze)
+        
+        for idx, (tool_name, detector_class, display_name) in enumerate(tools_to_analyze, 1):
+            if self._stop_requested:
+                break
+            
+            # Emitir progreso (0, 0 para que solo se muestre el mensaje)
+            self.progress_update.emit(0, 0, f"Analizando: {display_name} ({idx}/{total})")
+            
+            try:
+                detector = detector_class()
+                
+                # Ejecutar análisis según el tipo de detector
+                if tool_name == "live_photos":
+                    result = detector.detect_live_photos(self.workspace_path)
+                elif tool_name == "heic":
+                    result = detector.analyze_heic_jpg_pairs(self.workspace_path)
+                elif tool_name == "exact_duplicates":
+                    result = detector.analyze_exact_duplicates(
+                        directory=self.workspace_path,
+                        progress_callback=None  # Re-análisis rápido sin progreso detallado
+                    )
+                elif tool_name == "organize":
+                    result = detector.analyze_organization(
+                        directory=self.workspace_path,
+                        organization_type='BY_MONTH'  # Tipo por defecto
+                    )
+                elif tool_name == "rename":
+                    result = detector.analyze_directory(
+                        directory=self.workspace_path,
+                        pattern='{date}_{time}_{original}'  # Patrón por defecto
+                    )
+                
+                # Guardar resultado y notificar
+                results[tool_name] = result
+                self.tool_completed.emit(tool_name, result)
+                
+            except Exception as e:
+                if not self._stop_requested:
+                    import traceback
+                    error_msg = f"{str(e)}\n{traceback.format_exc()}"
+                    self.tool_error.emit(tool_name, error_msg)
+                    results[tool_name] = None  # Marcar como fallido
+        
+        # Emitir resultados completos
+        if not self._stop_requested:
+            self.finished.emit(results)

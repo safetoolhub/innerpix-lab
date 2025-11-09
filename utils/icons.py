@@ -71,6 +71,7 @@ class IconManager:
         
         # Estadísticas y métricas
         'stats': 'mdi6.chart-bar',
+        'chart-bar': 'mdi6.chart-bar',
         'chart': 'mdi6.chart-line',
         'timer': 'mdi6.timer',
         'clock': 'mdi6.clock-outline',
@@ -87,8 +88,10 @@ class IconManager:
         'live-photo': 'mdi6.camera-burst',
         'camera-burst': 'mdi6.camera-burst',
         'duplicate': 'mdi6.content-duplicate',
+        'content-copy': 'mdi6.content-copy',
         'duplicate-exact': 'mdi6.equal',
         'duplicate-similar': 'mdi6.image-search',
+        'image-search': 'mdi6.image-search',
         'eye': 'mdi6.eye',
         
         # Organización
@@ -119,6 +122,7 @@ class IconManager:
         
         # Acciones de usuario
         'play': 'mdi6.play',
+        'play-circle': 'mdi6.play-circle',
         'stop': 'mdi6.stop',
         'pause': 'mdi6.pause',
         

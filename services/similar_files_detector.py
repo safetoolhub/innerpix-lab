@@ -1,6 +1,7 @@
 """
-Servicio de detección de duplicados similares mediante perceptual hashing.
-Compara imágenes y videos visualmente similares aunque no sean idénticos.
+Servicio de detección de archivos similares mediante perceptual hashing.
+Identifica fotos y vídeos visualmente similares: recortes, rotaciones,
+ediciones o diferentes resoluciones.
 """
 
 from pathlib import Path
@@ -16,22 +17,29 @@ from services.result_types import DuplicateAnalysisResult, DuplicateDeletionResu
 
 @dataclass
 class DuplicateGroup:
-    """Grupo de archivos duplicados similares"""
+    """Grupo de archivos similares (pero no necesariamente idénticos)"""
     hash_value: str  # Perceptual hash
     files: List[Path]
     total_size: int
     similarity_score: float  # Porcentaje de similitud (0-100)
+    
+    @property
+    def file_count(self) -> int:
+        """Retorna el número de archivos en el grupo"""
+        return len(self.files)
 
 
-class DuplicateSimilarDetector:
+class SimilarFilesDetector:
     """
-    Servicio de detección de duplicados similares mediante perceptual hashing.
-    Identifica imágenes y videos visualmente similares aunque no sean idénticos.
+    Servicio de detección de archivos similares mediante perceptual hashing.
+    
+    Detecta fotos y vídeos visualmente similares: recortes, rotaciones,
+    ediciones o diferentes resoluciones. No requiere que sean idénticos digitalmente.
     """
 
     def __init__(self):
-        """Inicializa el detector de duplicados similares"""
-        self.logger = get_logger('DuplicateSimilarDetector')
+        """Inicializa el detector de archivos similares"""
+        self.logger = get_logger('SimilarFilesDetector')
 
     def analyze_similar_duplicates(
         self,

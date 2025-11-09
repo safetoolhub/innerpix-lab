@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QFont, QDesktopServices
 from config import Config
-from services.duplicate_exact_detector import DuplicateGroup
+from services.exact_copies_detector import DuplicateGroup
 from utils.format_utils import format_size
 from ui import ui_styles
 from ui.styles.design_system import DesignSystem
@@ -17,8 +17,14 @@ from .dialog_utils import show_file_details_dialog
 from datetime import datetime
 
 
-class ExactDuplicatesDialog(BaseDialog):
-    """Diálogo para eliminación de duplicados exactos con vista expandible"""
+class ExactCopiesDialog(BaseDialog):
+    """
+    Diálogo para gestionar copias exactas.
+    
+    Muestra fotos y vídeos idénticos digitalmente (mismo SHA256),
+    incluso si tienen nombres diferentes. Permite eliminar duplicados
+    con diferentes estrategias de conservación.
+    """
     
     # Constantes para paginación
     INITIAL_LOAD = 50
@@ -46,7 +52,7 @@ class ExactDuplicatesDialog(BaseDialog):
         self.init_ui()
     
     def init_ui(self):
-        self.setWindowTitle("Eliminar Duplicados Exactos")
+        self.setWindowTitle("Gestionar copias exactas")
         self.setModal(True)
         self.resize(1000, 700)
         

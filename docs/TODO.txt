@@ -7,6 +7,7 @@ Probar todo con muchos archivos a ver ux y rendimiento
 En la opcion de deteccion de fotods de whatsapp no me detecta las de test
 Hay que pasar a dataclass toda la gestion de results dentre stages y dialogs...en lugar de dicts
 CProbar como reacciona stage 2 ante errores, por ejemplo poner un label de icono que no exista o conseguir error de alguna forma
+Con dry-run es posible que se haga reanalisis tambien
 
 Proximos pasos de refactor:
 Integración en Diálogos - Refactorizar diálogos para usar View Models (opcional)

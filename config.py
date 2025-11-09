@@ -57,7 +57,19 @@ class Config:
     # ========================================================================
     # CONFIGURACIÓN DE DESARROLLO
     # ========================================================================
-    DEVELOPMENT_MODE = False  # Si True, salta directamente a Stage 2 con la última carpeta usada
+    DEVELOPMENT_MODE = True  # Si True, salta directamente a Stage 2 con la última carpeta usada
+
+
+    # ========================================================================
+    # TIMING MÍNIMO DE ANÁLISIS (Stage 2)
+    # ========================================================================
+    # Duración mínima de visualización de cada fase del análisis en segundos
+    # Esto garantiza que el usuario siempre vea el progreso, incluso si el
+    # análisis real es muy rápido
+    MIN_PHASE_DURATION_SECONDS = 0.0  # Default: 1 segundo por fase
+    
+    # Delay adicional antes de transicionar a Stage 3 (después de completar todo)
+    FINAL_DELAY_BEFORE_STAGE3_SECONDS = 1.0  # Default: 2 segundos
 
     # ========================================================================
     # CONSTANTES DE UI
@@ -94,16 +106,7 @@ class Config:
     DEFAULT_HAMMING_THRESHOLD = 5
     MAX_HAMMING_THRESHOLD = 20
     
-    # ========================================================================
-    # TIMING MÍNIMO DE ANÁLISIS (Stage 2)
-    # ========================================================================
-    # Duración mínima de visualización de cada fase del análisis en segundos
-    # Esto garantiza que el usuario siempre vea el progreso, incluso si el
-    # análisis real es muy rápido
-    MIN_PHASE_DURATION_SECONDS = 1.0  # Default: 1 segundo por fase
-    
-    # Delay adicional antes de transicionar a Stage 3 (después de completar todo)
-    FINAL_DELAY_BEFORE_STAGE3_SECONDS = 2.0  # Default: 2 segundos
+
 
     # ========================================================================
     # MÉTODOS DE UTILIDAD
@@ -186,3 +189,38 @@ class Config:
         cls.DEFAULT_BASE_DIR.mkdir(parents=True, exist_ok=True)
         cls.DEFAULT_LOG_DIR.mkdir(parents=True, exist_ok=True)
         cls.DEFAULT_BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+
+
+    # ========================================================================
+    # SISTEMA DE RE-ANÁLISIS INTELIGENTE
+    # ========================================================================
+    
+    # Clasificación de herramientas por coste de análisis
+    TOOL_ANALYSIS_COST = {
+        "live_photos": "fast",        # < 5 segundos
+        "heic": "fast",                # < 5 segundos
+        "exact_copies": "fast",        # < 5 segundos (antes: exact_duplicates)
+        "organize": "fast",            # < 5 segundos
+        "rename": "fast",              # < 5 segundos
+        "similar_files": "expensive"   # Varios minutos (antes: similar_duplicates)
+    }
+    
+    # Impacto de cada herramienta en los archivos
+    TOOL_IMPACT_ON_FILES = {
+        "live_photos": "destructive",      # Elimina vídeos de Live Photos
+        "heic": "destructive",             # Elimina duplicados HEIC/JPG
+        "exact_copies": "destructive",     # Elimina copias exactas (antes: exact_duplicates)
+        "similar_files": "destructive",    # Elimina archivos similares (antes: similar_duplicates)
+        "organize": "moves",               # Mueve archivos a carpetas
+        "rename": "renames"                # Renombra archivos
+    }
+    
+    # Nombres legibles de herramientas para UI
+    TOOL_DISPLAY_NAMES = {
+        "live_photos": "Live Photos",
+        "heic": "HEIC/JPG",
+        "exact_copies": "Copias exactas",
+        "similar_files": "Archivos similares",
+        "organize": "Organizar archivos",
+        "rename": "Renombrar archivos"
+    }

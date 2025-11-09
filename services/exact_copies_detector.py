@@ -1,6 +1,6 @@
 """
-Servicio de detección de duplicados exactos mediante SHA256.
-Compara archivos bit a bit usando hashing criptográfico.
+Servicio de detección de copias exactas mediante SHA256.
+Identifica archivos 100% idénticos digitalmente comparando hashes criptográficos.
 """
 
 from pathlib import Path
@@ -18,22 +18,24 @@ from services.result_types import DuplicateAnalysisResult, DuplicateDeletionResu
 
 @dataclass
 class DuplicateGroup:
-    """Grupo de archivos duplicados"""
-    hash_value: str  # SHA256 hash
+    """Grupo de archivos duplicados (copias exactas o similares)"""
+    hash_value: str  # SHA256 hash o perceptual hash
     files: List[Path]
     total_size: int
-    similarity_score: float = 100.0  # Duplicados exactos siempre 100%
+    similarity_score: float = 100.0  # Copias exactas siempre 100%
 
 
-class DuplicateExactDetector:
+class ExactCopiesDetector:
     """
-    Servicio de detección de duplicados exactos mediante hashing SHA256.
-    Compara archivos bit a bit identificando copias idénticas.
+    Servicio de detección de copias exactas mediante hashing SHA256.
+    
+    Identifica fotos y vídeos 100% idénticos digitalmente (mismo SHA256),
+    incluso si tienen nombres diferentes. También conocidos como duplicados exactos.
     """
 
     def __init__(self):
-        """Inicializa el detector de duplicados exactos"""
-        self.logger = get_logger('DuplicateExactDetector')
+        """Inicializa el detector de copias exactas"""
+        self.logger = get_logger('ExactCopiesDetector')
 
     def analyze_exact_duplicates(
         self,

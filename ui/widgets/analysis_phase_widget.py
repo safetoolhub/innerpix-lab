@@ -71,8 +71,8 @@ class AnalysisPhaseWidget(QFrame):
             ("renaming", "Analizando nombres de los archivos..."),
             ("live_photos", "Buscando Live Photos..."),
             ("heic", "Buscando duplicados HEIC/JPG..."),
-            ("duplicates", "Identificando duplicados exactos..."),
-            ("duplicates_similar", "Identificando duplicados similares..."),
+            ("duplicates", "Identificando copias exactas..."),
+            ("duplicates_similar", "Identificando archivos similares..."),
             ("organization", "Analizando estructura de las carpetas..."),
             ("finalizing", "Finalizando análisis...")
         ]
@@ -111,6 +111,7 @@ class AnalysisPhaseWidget(QFrame):
         
         # Texto compacto
         text_label = QLabel(text)
+        text_label.setWordWrap(True)
         text_label.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_LG}px;
             color: {DesignSystem.COLOR_TEXT_SECONDARY};

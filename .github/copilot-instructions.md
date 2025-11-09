@@ -18,9 +18,9 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
   * **Migration completed (Sprint 1):** No more Dict returns, no more Union[Dataclass, Dict]
 - Examples: `FileRenamer.analyze_directory()` → `RenameAnalysisResult`, `LivePhotoCleaner.execute_cleanup()` → `LivePhotoCleanupResult`
 - Orchestrator: `AnalysisOrchestrator.run_full_analysis()` → `FullAnalysisResult` (100% typed fields), coordinates multiple services with callback system (progress/phase/partial), 100% PyQt6-free
-- Specialized duplicate detectors (Sprint 4):
-  * `DuplicateExactDetector` (`duplicate_exact_detector.py`): SHA256-based exact duplicate detection, 100% identical files
-  * `DuplicateSimilarDetector` (`duplicate_similar_detector.py`): Perceptual hash-based similar detection using imagehash/cv2
+- Specialized detectors (Sprint 4):
+  * `ExactCopiesDetector` (`exact_copies_detector.py`): SHA256-based exact copy detection, 100% identical files
+  * `SimilarFilesDetector` (`similar_files_detector.py`): Perceptual hash-based similar detection using imagehash/cv2
   * Both share `DuplicateGroup` dataclass and `execute_deletion()` pattern
   * Analysis returns `DuplicateAnalysisResult` with `mode='exact'` or `mode='perceptual'`
 
@@ -34,7 +34,7 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
 - Pattern: use `_create_progress_callback()` for consistent progress reporting
 - All inherit stop mechanism: `self._stop_requested` flag checked during long operations
 - Unified worker: `AnalysisWorker` delegates to `AnalysisOrchestrator` (services/), only handles Qt threading/signals (~100 lines)
-- Worker types: `AnalysisWorker`, `RenamingWorker`, `LivePhotoCleanupWorker`, `FileOrganizerWorker`, `HEICRemovalWorker`, `DuplicateAnalysisWorker`, `DuplicateDeletionWorker`
+- Worker types: `AnalysisWorker`, `RenamingWorker`, `LivePhotoCleanupWorker`, `FileOrganizerWorker`, `HEICRemovalWorker`, `DuplicateAnalysisWorker`, `SimilarFilesAnalysisWorker`, `DuplicateDeletionWorker`
 
 **UI Stages** (`ui/stages/`) - 3-stage application flow implemented with separate window classes
 - **Stage 1** (`stage_1_window.py`): Folder selector and welcome screen
@@ -152,13 +152,13 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
   * Checkbox for backup creation before cleanup
 
 - **Duplicates dialogs**:
-  * **Exact duplicates** (`ui/dialogs/duplicate_exact_dialog.py`): SHA256 hash-based exact match detection
+  * **Exact copies** (`ui/dialogs/exact_copies_dialog.py`): SHA256 hash-based exact match detection
     - TreeWidget with expandable groups showing identical files
     - Strategies: keep first/last/largest/smallest/manual
     - Pagination for large result sets (50 initial, 50 increment)
     - Search and filter capabilities
     - Checkbox for backup creation before deletion
-  * **Similar duplicates** (`ui/dialogs/duplicate_similar_dialog.py`): Perceptual hash-based visual similarity
+  * **Similar files** (`ui/dialogs/similar_files_dialog.py`): Perceptual hash-based visual similarity
     - TreeWidget with similarity scores (0-100%)
     - Adjustable sensitivity slider for threshold
     - Preview showing files to keep vs delete
