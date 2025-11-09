@@ -71,6 +71,7 @@ class IconManager:
         
         # Estadísticas y métricas
         'stats': 'mdi6.chart-bar',
+        'chart-bar': 'mdi6.chart-bar',
         'chart': 'mdi6.chart-line',
         'timer': 'mdi6.timer',
         'clock': 'mdi6.clock-outline',
@@ -119,6 +120,7 @@ class IconManager:
         
         # Acciones de usuario
         'play': 'mdi6.play',
+        'play-circle': 'mdi6.play-circle',
         'stop': 'mdi6.stop',
         'pause': 'mdi6.pause',
         

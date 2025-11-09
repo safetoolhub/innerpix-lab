@@ -21,6 +21,11 @@ class DuplicateGroup:
     files: List[Path]
     total_size: int
     similarity_score: float  # Porcentaje de similitud (0-100)
+    
+    @property
+    def file_count(self) -> int:
+        """Retorna el número de archivos en el grupo"""
+        return len(self.files)
 
 
 class DuplicateSimilarDetector:

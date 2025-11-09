@@ -4,7 +4,7 @@ Muestra el resumen del análisis y el grid de herramientas disponibles.
 """
 
 from typing import Dict, Any, Optional
-from PyQt6.QtWidgets import QWidget, QGridLayout, QMessageBox
+from PyQt6.QtWidgets import QWidget, QGridLayout, QMessageBox, QDialog
 from PyQt6.QtCore import QTimer, pyqtSignal
 
 from .base_stage import BaseStage
@@ -19,7 +19,12 @@ from ui.dialogs.organization_dialog import FileOrganizationDialog
 from ui.dialogs.renaming_dialog import RenamingPreviewDialog
 from ui.dialogs.settings_dialog import SettingsDialog
 from ui.dialogs.about_dialog import AboutDialog
+from ui.dialogs.similarity_config_dialog import SimilarityConfigDialog
+from ui.dialogs.similarity_progress_dialog import SimilarityProgressDialog
 from utils.format_utils import format_size, format_file_count
+from services.duplicate_similar_detector import DuplicateSimilarDetector
+from ui.workers import SimilarityAnalysisWorker
+from pathlib import Path
 
 
 class Stage3Window(BaseStage):
@@ -40,6 +45,18 @@ class Stage3Window(BaseStage):
         self.summary_card = None
         self.tools_grid = None
         self.tool_cards = {}  # Dict de tool_id -> ToolCard
+        
+        # Worker y diálogos para análisis de similares
+        self.similarity_worker = None
+        self.similarity_progress_dialog = None
+        self.similarity_results = None  # Guardar resultados del análisis
+        
+        # Sistema de re-análisis automático
+        self.reanalysis_worker = None  # Worker para re-análisis en background
+        self.reanalysis_overlay = None  # Overlay visual de progreso
+        self.similarity_results_snapshot = None  # Snapshot de resultados similares antes de invalidar
+        self.similarity_timestamp = None  # Timestamp del último análisis de similares
+        self.pending_reanalysis = False  # Flag para saber si hay re-análisis pendiente
 
     def setup_ui(self) -> None:
         """Configura la interfaz de usuario del Stage 3."""
@@ -405,8 +422,8 @@ class Stage3Window(BaseStage):
             dialog = ExactDuplicatesDialog(dup_data, self.main_window)
 
         elif tool_id == 'similar_duplicates':
-            # Similares no están en el análisis inicial
-            QMessageBox.information(self.main_window, "Análisis pendiente", "El análisis de duplicados similares aún no está implementado")
+            # Similares requieren configuración previa
+            self._on_similar_duplicates_clicked()
             return
 
         elif tool_id == 'organize':
@@ -424,7 +441,157 @@ class Stage3Window(BaseStage):
             dialog = RenamingPreviewDialog(rename_data, self.main_window)
 
         if dialog:
-            dialog.exec()
+            result = dialog.exec()
+            # Si el usuario aceptó el diálogo, ejecutar las acciones
+            if result == QDialog.DialogCode.Accepted:
+                self._execute_tool_action(tool_id, dialog)
+    
+    def _execute_tool_action(self, tool_id: str, dialog):
+        """
+        Ejecuta las acciones de una herramienta usando el worker correspondiente.
+        
+        Args:
+            tool_id: ID de la herramienta ('live_photos', 'heic', etc)
+            dialog: Diálogo que contiene el accepted_plan
+        """
+        from ui.workers import (
+            LivePhotoCleanupWorker,
+            HEICRemovalWorker,
+            DuplicateDeletionWorker,
+            FileOrganizerWorker,
+            RenamingWorker,
+        )
+        from PyQt6.QtWidgets import QProgressDialog
+        from PyQt6.QtCore import Qt
+        
+        if not hasattr(dialog, 'accepted_plan'):
+            self.logger.warning(f"Diálogo de {tool_id} no tiene accepted_plan")
+            return
+        
+        plan = dialog.accepted_plan
+        self.logger.info(f"Ejecutando acciones de {tool_id} con plan: {list(plan.keys()) if isinstance(plan, dict) else type(plan)}")
+        
+        # Crear diálogo de progreso
+        progress_dialog = QProgressDialog(
+            "Ejecutando operación...",
+            "Cancelar",
+            0, 100,
+            self.main_window
+        )
+        progress_dialog.setWindowTitle("Procesando")
+        progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
+        progress_dialog.setMinimumDuration(0)
+        progress_dialog.setValue(0)
+        
+        # Crear worker según la herramienta
+        worker = None
+        
+        if tool_id == 'live_photos':
+            from services.live_photo_cleaner import LivePhotoCleaner
+            cleaner = LivePhotoCleaner()
+            # LivePhotoCleanupWorker espera (cleaner, plan: Dict)
+            worker = LivePhotoCleanupWorker(cleaner, plan)
+        
+        elif tool_id == 'heic':
+            from services.heic_remover import HEICDuplicateRemover
+            remover = HEICDuplicateRemover()
+            # HEICRemovalWorker espera (remover, pairs, keep_format, create_backup, dry_run)
+            worker = HEICRemovalWorker(
+                remover=remover,
+                pairs=plan.get('pairs', []),
+                keep_format=plan.get('keep_format', 'jpg'),
+                create_backup=plan.get('create_backup', True),
+                dry_run=plan.get('dry_run', False)
+            )
+        
+        elif tool_id == 'exact_duplicates':
+            from services.duplicate_exact_detector import DuplicateExactDetector
+            detector = DuplicateExactDetector()
+            # DuplicateDeletionWorker espera (detector, groups, keep_strategy, create_backup, dry_run)
+            worker = DuplicateDeletionWorker(
+                detector=detector,
+                groups=plan.get('groups', []),
+                keep_strategy=plan.get('keep_strategy', 'first'),
+                create_backup=plan.get('create_backup', True),
+                dry_run=plan.get('dry_run', False)
+            )
+        
+        elif tool_id == 'organize':
+            from services.file_organizer import FileOrganizer
+            organizer = FileOrganizer()
+            # FileOrganizerWorker espera (organizer, plan: List[Dict], create_backup, dry_run)
+            worker = FileOrganizerWorker(
+                organizer=organizer,
+                plan=plan.get('plan', []),
+                create_backup=plan.get('create_backup', True),
+                dry_run=plan.get('dry_run', False)
+            )
+        
+        elif tool_id == 'rename':
+            from services.file_renamer import FileRenamer
+            renamer = FileRenamer()
+            # RenamingWorker espera (renamer, plan: List[Dict], create_backup, dry_run)
+            worker = RenamingWorker(
+                renamer=renamer,
+                plan=plan.get('plan', []),
+                create_backup=plan.get('create_backup', True),
+                dry_run=plan.get('dry_run', False)
+            )
+        
+        if not worker:
+            self.logger.error(f"No se pudo crear worker para {tool_id}")
+            return
+        
+        # Conectar señales del worker
+        def on_progress(current, total, message):
+            if total > 0:
+                progress_dialog.setValue(int((current / total) * 100))
+            progress_dialog.setLabelText(message)
+        
+        def on_finished(result):
+            progress_dialog.close()
+            self.logger.info(f"Operación {tool_id} completada: {result}")
+            
+            # Mostrar resultado
+            if result and hasattr(result, 'success') and result.success:
+                QMessageBox.information(
+                    self.main_window,
+                    "Operación Completada",
+                    f"La operación se completó exitosamente.\n\n{result.message if hasattr(result, 'message') else ''}"
+                )
+                
+                # Emitir señal de acciones completadas para re-análisis
+                self._on_tool_action_completed(tool_id)
+            else:
+                error_msg = result.message if (result and hasattr(result, 'message')) else "Operación fallida"
+                QMessageBox.warning(
+                    self.main_window,
+                    "Operación Fallida",
+                    f"La operación no se completó correctamente.\n\n{error_msg}"
+                )
+            
+            worker.deleteLater()
+        
+        def on_error(error_message):
+            progress_dialog.close()
+            self.logger.error(f"Error en operación {tool_id}: {error_message}")
+            QMessageBox.critical(
+                self.main_window,
+                "Error",
+                f"Ocurrió un error:\n\n{error_message[:500]}"
+            )
+            worker.deleteLater()
+        
+        worker.progress_update.connect(on_progress)
+        worker.finished.connect(on_finished)
+        worker.error.connect(on_error)
+        
+        # Conectar cancelación
+        progress_dialog.canceled.connect(worker.stop)
+        
+        # Iniciar worker
+        worker.start()
+        self.logger.info(f"Worker de {tool_id} iniciado")
 
     def _on_change_folder(self):
         """Maneja el clic en "Cambiar carpeta" """
@@ -489,3 +656,593 @@ class Stage3Window(BaseStage):
         self.logger.debug("Abriendo diálogo 'Acerca de'")
         dialog = AboutDialog(self.main_window)
         dialog.exec()
+    
+    # ==================== SIMILAR DUPLICATES ====================
+    
+    def _on_similar_duplicates_clicked(self):
+        """Maneja el clic en la card de duplicados similares"""
+        self.logger.info("Iniciando configuración de análisis de duplicados similares")
+        
+        # Si hay resultados con grupos pero están obsoletos (snapshot existe), mostrar diálogo
+        if self.similarity_results_snapshot:
+            choice = self._show_stale_results_dialog()
+            
+            if choice == 'view_old':
+                # Ver resultados del snapshot
+                old_results = self.similarity_results_snapshot['results']
+                self._open_similarity_dialog(old_results)
+                return
+            elif choice == 'reanalyze':
+                # Continuar con configuración y re-análisis
+                pass
+            else:  # cancel
+                return
+        
+        # Si ya hay resultados con grupos (y no obsoletos), abrir directamente el diálogo de gestión
+        if self.similarity_results and self.similarity_results.total_groups > 0:
+            self._open_similarity_dialog(self.similarity_results)
+            return
+        
+        # Si hay resultados pero sin grupos, o no hay resultados, permitir reconfigurar
+        # Limpiar resultados previos si no hay grupos
+        if self.similarity_results and self.similarity_results.total_groups == 0:
+            self.similarity_results = None
+        
+        # Obtener número de archivos a analizar
+        file_count = self.analysis_results.scan.total_files if self.analysis_results.scan else 0
+        
+        # Obtener sensibilidad previa si existe
+        previous_sensitivity = 10  # Valor por defecto
+        if self.similarity_results:
+            # Intentar extraer la sensibilidad usada (si está guardada en el resultado)
+            # Por ahora usamos el valor por defecto
+            previous_sensitivity = 10
+        
+        # Mostrar diálogo de configuración
+        config_dialog = SimilarityConfigDialog(
+            parent=self.main_window,
+            file_count=file_count,
+            previous_sensitivity=previous_sensitivity
+        )
+        
+        if config_dialog.exec() == QDialog.DialogCode.Accepted:
+            sensitivity = config_dialog.get_sensitivity_value()
+            self.logger.info(f"Iniciando análisis con sensibilidad: {sensitivity}")
+            self._start_similarity_analysis(sensitivity, file_count)
+    
+    def _start_similarity_analysis(self, sensitivity: int, file_count: int):
+        """
+        Inicia el análisis de duplicados similares con worker en background
+        
+        Args:
+            sensitivity: Sensibilidad del análisis (0-20)
+            file_count: Número de archivos a analizar
+        """
+        # Crear el detector
+        detector = DuplicateSimilarDetector()
+        
+        # Crear el worker
+        self.similarity_worker = SimilarityAnalysisWorker(
+            detector=detector,
+            workspace_path=Path(self.selected_folder),
+            sensitivity=sensitivity
+        )
+        
+        # Crear diálogo de progreso bloqueante
+        self.similarity_progress_dialog = SimilarityProgressDialog(
+            parent=self.main_window,
+            total_files=file_count
+        )
+        
+        # Conectar señales del worker
+        self.similarity_worker.progress_update.connect(
+            self._on_similarity_progress_update
+        )
+        self.similarity_worker.finished.connect(
+            self._on_similarity_analysis_completed
+        )
+        self.similarity_worker.error.connect(
+            self._on_similarity_analysis_error
+        )
+        
+        # Conectar cancelación del diálogo
+        self.similarity_progress_dialog.cancel_requested.connect(
+            self._on_similarity_analysis_cancelled
+        )
+        
+        # Iniciar worker
+        self.similarity_worker.start()
+        
+        # Mostrar diálogo bloqueante
+        self.similarity_progress_dialog.exec()
+    
+    def _on_similarity_progress_update(self, current: int, total: int, message: str):
+        """Actualiza el progreso en el diálogo"""
+        if self.similarity_progress_dialog:
+            self.similarity_progress_dialog.update_progress(current, total, message)
+    
+    def _on_similarity_analysis_completed(self, results):
+        """
+        Maneja la finalización exitosa del análisis
+        
+        Args:
+            results: DuplicateAnalysisResult con los grupos de similares
+        """
+        from datetime import datetime
+        
+        self.logger.info("Análisis de duplicados similares completado")
+        self.similarity_results = results
+        
+        # Guardar timestamp del análisis
+        self.similarity_timestamp = datetime.now()
+        
+        # Limpiar snapshot (ya no es obsoleto)
+        self.similarity_results_snapshot = None
+        
+        # Cerrar diálogo de progreso
+        if self.similarity_progress_dialog:
+            self.similarity_progress_dialog.accept()
+            self.similarity_progress_dialog = None
+        
+        # Limpiar worker
+        if self.similarity_worker:
+            self.similarity_worker.deleteLater()
+            self.similarity_worker = None
+        
+        # Actualizar la card con los resultados
+        self._update_similar_duplicates_card(results)
+        
+        # Abrir automáticamente el diálogo de gestión si hay resultados
+        if results.total_groups > 0:
+            self._open_similarity_dialog(results)
+        else:
+            QMessageBox.information(
+                self.main_window,
+                "Sin resultados",
+                "No se encontraron duplicados similares con la sensibilidad seleccionada."
+            )
+    
+    def _on_similarity_analysis_error(self, error_message: str):
+        """
+        Maneja errores durante el análisis
+        
+        Args:
+            error_message: Mensaje de error con traceback
+        """
+        self.logger.error(f"Error en análisis de similares: {error_message}")
+        
+        # Cerrar diálogo de progreso
+        if self.similarity_progress_dialog:
+            self.similarity_progress_dialog.reject()
+            self.similarity_progress_dialog = None
+        
+        # Limpiar worker
+        if self.similarity_worker:
+            self.similarity_worker.deleteLater()
+            self.similarity_worker = None
+        
+        # Mostrar error al usuario
+        QMessageBox.critical(
+            self.main_window,
+            "Error en análisis",
+            f"Ocurrió un error durante el análisis:\n\n{error_message[:500]}"
+        )
+    
+    def _on_similarity_analysis_cancelled(self):
+        """Maneja la cancelación del análisis por el usuario"""
+        self.logger.info("Análisis de similares cancelado por el usuario")
+        
+        # Detener worker
+        if self.similarity_worker:
+            self.similarity_worker.stop()
+            self.similarity_worker.wait(2000)  # Esperar 2 segundos
+            self.similarity_worker.deleteLater()
+            self.similarity_worker = None
+        
+        # Cerrar diálogo
+        if self.similarity_progress_dialog:
+            self.similarity_progress_dialog.reject()
+            self.similarity_progress_dialog = None
+    
+    def _update_similar_duplicates_card(self, results):
+        """
+        Actualiza la card de similares con los resultados del análisis
+        
+        Args:
+            results: DuplicateAnalysisResult
+        """
+        if 'similar_duplicates' not in self.tool_cards:
+            return
+        
+        card = self.tool_cards['similar_duplicates']
+        
+        if results.total_groups > 0:
+            size_text = f"~{format_size(results.space_potential)} recuperables"
+            card.set_status_with_results(
+                f"{results.total_groups} grupos detectados",
+                size_text
+            )
+            card.action_button.setText("Gestionar ahora")
+        else:
+            card.set_status_ready("No se encontraron duplicados similares")
+            card.action_button.setText("Analizar de nuevo")
+        
+        # Actualizar descripción para indicar que ya se analizó
+        card.description_label.setText(
+            "Detecta fotos visualmente similares pero no idénticas "
+            "(recortes, rotaciones, ediciones). Análisis completado."
+        )
+    
+    def _open_similarity_dialog(self, results):
+        """
+        Abre el diálogo de gestión de duplicados similares
+        
+        Args:
+            results: DuplicateAnalysisResult
+        """
+        dialog = SimilarDuplicatesDialog(results, self.main_window)
+        dialog.exec()
+    
+    # ===== SISTEMA DE RE-ANÁLISIS AUTOMÁTICO =====
+    
+    def _on_tool_action_completed(self, tool_name: str):
+        """
+        Manejador cuando una herramienta ejecuta acciones (elimina/mueve/renombra archivos).
+        
+        Determina si es necesario:
+        1. Invalidar resultados de similar_duplicates (herramientas destructivas)
+        2. Lanzar re-análisis automático de herramientas rápidas
+        
+        Args:
+            tool_name: ID de la herramienta que completó acciones
+        """
+        from config import Config
+        
+        self.logger.info(f"Herramienta '{tool_name}' completó acciones, evaluando re-análisis")
+        
+        # Verificar si la herramienta impacta archivos
+        impact = Config.TOOL_IMPACT_ON_FILES.get(tool_name, 'none')
+        
+        if impact == 'none':
+            self.logger.debug(f"Herramienta '{tool_name}' no impacta archivos, no hay re-análisis")
+            return
+        
+        # Si impacta archivos, invalidar resultados de similar_duplicates
+        if impact in ('destructive', 'moves', 'renames'):
+            self._invalidate_similarity_analysis()
+        
+        # Lanzar re-análisis automático de herramientas rápidas
+        self._trigger_automatic_reanalysis()
+    
+    def _trigger_automatic_reanalysis(self):
+        """
+        Dispara el re-análisis automático de las 5 herramientas rápidas.
+        
+        Si ya hay un re-análisis en curso, marca pending_reanalysis para
+        ejecutar otro cuando termine.
+        """
+        # Si ya hay un re-análisis en curso, marcar como pendiente
+        if self.reanalysis_worker and self.reanalysis_worker.isRunning():
+            self.logger.info("Re-análisis ya en curso, marcando como pendiente")
+            self.pending_reanalysis = True
+            return
+        
+        self.logger.info("Iniciando re-análisis automático")
+        self.pending_reanalysis = False
+        self._start_reanalysis()
+    
+    def _start_reanalysis(self):
+        """Inicia el worker de re-análisis y muestra el overlay."""
+        from ui.workers import WorkspaceReanalysisWorker
+        from ui.widgets.reanalysis_overlay import ReanalysisOverlay
+        from pathlib import Path
+        
+        # Crear overlay si no existe
+        if not self.reanalysis_overlay:
+            self.reanalysis_overlay = ReanalysisOverlay(self)
+            # Posicionarlo para que cubra todo el Stage 3
+            self.reanalysis_overlay.setGeometry(self.rect())
+        
+        # Resetear y mostrar overlay
+        self.reanalysis_overlay.reset()
+        self.reanalysis_overlay.show_overlay()
+        
+        # Crear y configurar worker
+        self.reanalysis_worker = WorkspaceReanalysisWorker(Path(self.selected_folder))
+        self.reanalysis_worker.tool_completed.connect(self._handle_reanalysis_tool_completed)
+        self.reanalysis_worker.finished.connect(self._finish_reanalysis)
+        self.reanalysis_worker.tool_error.connect(self._handle_reanalysis_error)
+        
+        # Iniciar worker
+        self.reanalysis_worker.start()
+        self.logger.info("Worker de re-análisis iniciado")
+    
+    def _handle_reanalysis_tool_completed(self, tool_name: str, result):
+        """
+        Manejador cuando el worker completa una herramienta individual.
+        
+        Args:
+            tool_name: ID de la herramienta completada ('live_photos', 'heic', etc)
+            result: Resultado del análisis (dataclass)
+        """
+        from config import Config
+        
+        display_name = Config.TOOL_DISPLAY_NAMES.get(tool_name, tool_name)
+        self.logger.info(f"Re-análisis completado para: {display_name}")
+        
+        # Actualizar overlay con progreso
+        completed = list(Config.TOOL_ANALYSIS_COST.keys()).index(tool_name) + 1
+        self.reanalysis_overlay.update_progress(display_name, completed)
+        
+        # Actualizar analysis_results con el nuevo resultado
+        self.analysis_results[tool_name] = result
+        
+        # Actualizar tarjeta correspondiente en el grid
+        self._update_tool_card_after_reanalysis(tool_name, result)
+    
+    def _update_tool_card_after_reanalysis(self, tool_name: str, result):
+        """
+        Actualiza la tarjeta de herramienta después del re-análisis.
+        
+        Args:
+            tool_name: ID de la herramienta
+            result: Resultado actualizado del análisis
+        """
+        if tool_name not in self.tool_cards:
+            return
+        
+        card = self.tool_cards[tool_name]
+        
+        # Actualizar según tipo de herramienta
+        if tool_name == 'live_photos':
+            if result and result.total_live_photos > 0:
+                card.set_status_with_results(
+                    f"{result.total_live_photos} Live Photos detectadas",
+                    f"~{format_size(result.space_potential)} recuperables"
+                )
+            else:
+                card.set_status_ready("No se detectaron Live Photos")
+        
+        elif tool_name == 'heic':
+            if result and result.total_heic > 0:
+                card.set_status_with_results(
+                    f"{result.total_heic} archivos HEIC con JPG",
+                    f"~{format_size(result.space_potential)} recuperables"
+                )
+            else:
+                card.set_status_ready("No se detectaron HEIC duplicados")
+        
+        elif tool_name == 'exact_duplicates':
+            if result and result.total_groups > 0:
+                card.set_status_with_results(
+                    f"{result.total_groups} grupos detectados",
+                    f"~{format_size(result.space_potential)} recuperables"
+                )
+            else:
+                card.set_status_ready("No se detectaron duplicados exactos")
+        
+        elif tool_name == 'organize':
+            if result and result.files_to_process > 0:
+                card.set_status_with_results(
+                    f"{format_file_count(result.files_to_process)} archivos",
+                    "Listos para organizar"
+                )
+            else:
+                card.set_status_ready("No hay archivos para organizar")
+        
+        elif tool_name == 'rename':
+            if result and result.files_to_rename > 0:
+                card.set_status_with_results(
+                    f"{format_file_count(result.files_to_rename)} archivos",
+                    "Listos para renombrar"
+                )
+            else:
+                card.set_status_ready("No hay archivos para renombrar")
+    
+    def _handle_reanalysis_error(self, tool_name: str, error_msg: str):
+        """
+        Manejador de errores durante el re-análisis.
+        
+        Args:
+            tool_name: ID de la herramienta que falló
+            error_msg: Mensaje de error
+        """
+        from config import Config
+        
+        display_name = Config.TOOL_DISPLAY_NAMES.get(tool_name, tool_name)
+        self.logger.error(f"Error en re-análisis de {display_name}: {error_msg}")
+        
+        # Mostrar error en la tarjeta
+        if tool_name in self.tool_cards:
+            card = self.tool_cards[tool_name]
+            card.set_status_ready(f"Error: {error_msg[:50]}...")
+    
+    def _finish_reanalysis(self, results: dict):
+        """
+        Manejador cuando el re-análisis completo termina.
+        
+        Args:
+            results: Dict con todos los resultados {tool_name: result}
+        """
+        self.logger.info("Re-análisis automático completado")
+        
+        # Ocultar overlay con delay
+        QTimer.singleShot(1000, self.reanalysis_overlay.hide_overlay)
+        
+        # Si hay re-análisis pendiente, ejecutarlo
+        if self.pending_reanalysis:
+            self.logger.info("Ejecutando re-análisis pendiente")
+            QTimer.singleShot(2000, self._start_reanalysis)
+    
+    # ===== SISTEMA DE INVALIDACIÓN DE SIMILAR_DUPLICATES =====
+    
+    def _invalidate_similarity_analysis(self):
+        """
+        Invalida los resultados de similar_duplicates cuando se modifican archivos.
+        
+        - Guarda snapshot de resultados actuales
+        - Marca timestamp de invalidación
+        - Actualiza UI de la tarjeta para mostrar estado "obsoleto"
+        """
+        if not self.similarity_results:
+            self.logger.debug("No hay resultados de similares para invalidar")
+            return
+        
+        from datetime import datetime
+        
+        self.logger.info("Invalidando resultados de similar_duplicates")
+        
+        # Guardar snapshot de resultados antes de invalidar
+        self.similarity_results_snapshot = {
+            'results': self.similarity_results,
+            'timestamp': self.similarity_timestamp or datetime.now()
+        }
+        
+        # Actualizar tarjeta con estado "obsoleto"
+        self._update_similar_files_card_stale()
+    
+    def _update_similar_files_card_stale(self):
+        """
+        Actualiza la tarjeta de similar_duplicates para mostrar estado obsoleto.
+        
+        Cambia el texto y estilo para indicar que los resultados ya no son válidos
+        tras modificaciones en el workspace.
+        """
+        if 'similar_duplicates' not in self.tool_cards:
+            return
+        
+        card = self.tool_cards['similar_duplicates']
+        
+        # Cambiar descripción para indicar obsolescencia
+        card.description_label.setText(
+            "⚠️ Los resultados están desactualizados. "
+            "Se modificaron archivos desde el último análisis."
+        )
+        
+        # Cambiar estilo del texto de descripción
+        card.description_label.setStyleSheet(f"""
+            QLabel {{
+                color: {DesignSystem.COLOR_WARNING};
+                font-size: {DesignSystem.FONT_SIZE_SMALL}px;
+                padding-top: {DesignSystem.SPACE_XXS}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            }}
+        """)
+        
+        # Actualizar botón de acción
+        if self.similarity_results_snapshot:
+            card.action_button.setText("Ver resultados antiguos")
+        else:
+            card.action_button.setText("Analizar de nuevo")
+        
+        self.logger.debug("Tarjeta de similares actualizada con estado obsoleto")
+    
+    def _show_stale_results_dialog(self):
+        """
+        Muestra diálogo cuando usuario intenta ver resultados obsoletos.
+        
+        Ofrece 3 opciones:
+        1. Ver resultados antiguos (snapshot)
+        2. Re-analizar ahora (cierra y lanza análisis)
+        3. Cancelar
+        
+        Returns:
+            str: Opción elegida ('view_old', 'reanalyze', 'cancel')
+        """
+        from PyQt6.QtWidgets import QMessageBox, QPushButton
+        
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Resultados Desactualizados")
+        msg.setIcon(QMessageBox.Icon.Warning)
+        
+        # Texto principal
+        if self.similarity_results_snapshot:
+            timestamp = self.similarity_results_snapshot['timestamp']
+            time_str = timestamp.strftime("%H:%M:%S del %d/%m/%Y")
+            
+            msg.setText(
+                "Los resultados de duplicados similares están desactualizados."
+            )
+            msg.setInformativeText(
+                f"Último análisis: {time_str}\n\n"
+                "Desde entonces se han modificado archivos en el workspace. "
+                "¿Qué deseas hacer?"
+            )
+            
+            # Botones
+            view_old_btn = msg.addButton("Ver Resultados Antiguos", QMessageBox.ButtonRole.ActionRole)
+            reanalyze_btn = msg.addButton("Re-analizar Ahora", QMessageBox.ButtonRole.AcceptRole)
+            cancel_btn = msg.addButton("Cancelar", QMessageBox.ButtonRole.RejectRole)
+            
+            # Styling
+            msg.setStyleSheet(f"""
+                QMessageBox {{
+                    background-color: {DesignSystem.COLOR_BACKGROUND_PRIMARY};
+                }}
+                QLabel {{
+                    color: {DesignSystem.COLOR_TEXT_PRIMARY};
+                    font-size: {DesignSystem.FONT_SIZE_BODY}px;
+                }}
+                QPushButton {{
+                    background-color: {DesignSystem.COLOR_PRIMARY};
+                    color: {DesignSystem.COLOR_TEXT_ON_PRIMARY};
+                    border: none;
+                    border-radius: {DesignSystem.RADIUS_SMALL}px;
+                    padding: {DesignSystem.SPACE_SM}px {DesignSystem.SPACE_MD}px;
+                    font-size: {DesignSystem.FONT_SIZE_BODY}px;
+                    font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                }}
+                QPushButton:hover {{
+                    background-color: {DesignSystem.COLOR_PRIMARY_HOVER};
+                }}
+            """)
+            
+            msg.exec()
+            
+            clicked_button = msg.clickedButton()
+            if clicked_button == view_old_btn:
+                return 'view_old'
+            elif clicked_button == reanalyze_btn:
+                return 'reanalyze'
+            else:
+                return 'cancel'
+        
+        else:
+            # No hay snapshot, solo re-analizar
+            msg.setText("Los resultados están desactualizados")
+            msg.setInformativeText(
+                "Se han modificado archivos desde el último análisis. "
+                "Es necesario re-analizar."
+            )
+            
+            reanalyze_btn = msg.addButton("Re-analizar Ahora", QMessageBox.ButtonRole.AcceptRole)
+            cancel_btn = msg.addButton("Cancelar", QMessageBox.ButtonRole.RejectRole)
+            
+            msg.setStyleSheet(f"""
+                QMessageBox {{
+                    background-color: {DesignSystem.COLOR_BACKGROUND_PRIMARY};
+                }}
+                QLabel {{
+                    color: {DesignSystem.COLOR_TEXT_PRIMARY};
+                    font-size: {DesignSystem.FONT_SIZE_BODY}px;
+                }}
+                QPushButton {{
+                    background-color: {DesignSystem.COLOR_PRIMARY};
+                    color: {DesignSystem.COLOR_TEXT_ON_PRIMARY};
+                    border: none;
+                    border-radius: {DesignSystem.RADIUS_SMALL}px;
+                    padding: {DesignSystem.SPACE_SM}px {DesignSystem.SPACE_MD}px;
+                    font-size: {DesignSystem.FONT_SIZE_BODY}px;
+                    font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                }}
+                QPushButton:hover {{
+                    background-color: {DesignSystem.COLOR_PRIMARY_HOVER};
+                }}
+            """)
+            
+            msg.exec()
+            
+            if msg.clickedButton() == reanalyze_btn:
+                return 'reanalyze'
+            else:
+                return 'cancel'

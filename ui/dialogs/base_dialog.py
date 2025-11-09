@@ -1,6 +1,7 @@
 """Clases/base utilities para diálogos."""
 from typing import Dict, List, Optional
 
+from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import (
     QDialog,
     QCheckBox,
@@ -14,7 +15,13 @@ from utils.settings_manager import settings_manager
 
 class BaseDialog(QDialog):
     """Clase base para diálogos con utilidades comunes.
+    
+    Signals:
+        actions_completed(str): Emitida cuando el diálogo ejecuta acciones que modifican archivos.
+                                Argumento: tool_name identificador de la herramienta.
     """
+    
+    actions_completed = pyqtSignal(str)  # tool_name
 
     def __init__(self, parent=None):
         super().__init__(parent)
