@@ -17,6 +17,7 @@ from config import Config
 from ui import ui_styles
 from ui.styles.design_system import DesignSystem
 from utils.icons import icon_manager
+from utils.logger import get_logger
 from .base_dialog import BaseDialog
 
 
@@ -29,6 +30,7 @@ class RenamingPreviewDialog(BaseDialog):
 
     def __init__(self, analysis_results, parent=None):
         super().__init__(parent)
+        self.logger = get_logger('RenamingPreviewDialog')
         self.analysis_results = analysis_results  # RenameAnalysisResult (dataclass)
         self.accepted_plan = None
         
@@ -36,7 +38,7 @@ class RenamingPreviewDialog(BaseDialog):
         try:
             self.filtered_plan = list(analysis_results.renaming_plan)
         except AttributeError as e:
-            print(f"DEBUG RenamingDialog: Error accediendo a renaming_plan: {e}")
+            self.logger.error(f"Error accediendo a renaming_plan: {e}")
             self.filtered_plan = []
         
         # Paginación

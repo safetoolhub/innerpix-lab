@@ -1,287 +1,671 @@
 """
-Diálogo de Organización de Archivos - Rediseñado
-Incluye explicaciones claras, vista de archivos con TreeWidget y optimización para miles de fotos
+Diálogo de Organización de Archivos - Versión 2.0
+Permite elegir el tipo de organización en tiempo real y ver los resultados dinámicamente
 """
 from pathlib import Path
-from datetime import datetime
+from collections import defaultdict
+from typing import Optional
+
 from PyQt6.QtWidgets import (
-    QVBoxLayout, QHBoxLayout, QGroupBox, QVBoxLayout as QVLayout,
-    QDialogButtonBox, QCheckBox, QLabel, QTreeWidget, QTreeWidgetItem,
-    QLineEdit, QComboBox, QPushButton, QFrame, QApplication, QMenu, QWidget
+    QVBoxLayout, QHBoxLayout, QGroupBox, QDialogButtonBox, QCheckBox, QLabel,
+    QTreeWidget, QTreeWidgetItem, QLineEdit, QComboBox, QPushButton, QFrame,
+    QApplication, QMenu, QWidget, QRadioButton, QButtonGroup, QProgressBar
 )
 from PyQt6.QtGui import QColor, QFont, QCursor
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QThread
 
 from config import Config
 from utils.format_utils import format_size
 from utils.date_utils import get_file_date
-from ui import ui_styles
 from ui.styles.design_system import DesignSystem
 from utils.icons import icon_manager
+from utils.logger import get_logger
+from services.file_organizer import FileOrganizer, OrganizationType
+from services.result_types import OrganizationAnalysisResult
 from .base_dialog import BaseDialog
 
 
+class OrganizationWorker(QThread):
+    """Worker para análisis de organización en background"""
+    
+    finished = pyqtSignal(OrganizationAnalysisResult)
+    progress = pyqtSignal(int, int, str)
+    error = pyqtSignal(str)
+    
+    def __init__(self, root_directory: Path, organization_type: OrganizationType):
+        super().__init__()
+        self.root_directory = root_directory
+        self.organization_type = organization_type
+        self.organizer = FileOrganizer()
+        self.logger = get_logger("OrganizationWorker")
+    
+    def run(self):
+        """Ejecuta el análisis"""
+        try:
+            self.logger.info(f"Analizando con tipo: {self.organization_type.value}")
+            
+            def progress_callback(current, total, message):
+                self.progress.emit(current, total, message)
+                return True  # Continue processing
+            
+            result = self.organizer.analyze_directory_structure(
+                self.root_directory,
+                self.organization_type,
+                progress_callback
+            )
+            self.finished.emit(result)
+            
+        except Exception as e:
+            self.logger.error(f"Error en análisis: {e}", exc_info=True)
+            self.error.emit(str(e))
+
+
 class FileOrganizationDialog(BaseDialog):
-    """Diálogo profesional para organización de archivos con UX mejorado"""
+    """
+    Diálogo profesional para organización de archivos con:
+    - Selector de tipo de organización en tiempo real
+    - Análisis dinámico al cambiar tipo
+    - UX profesional siguiendo DesignSystem
+    - Sin emojis, usando Icon Manager
+    """
     
     # Configuración de paginación
     ITEMS_PER_PAGE = 200
     MAX_ITEMS_WITHOUT_PAGINATION = 500
 
-    def __init__(self, analysis, parent=None):
+    def __init__(self, initial_analysis: OrganizationAnalysisResult, parent=None):
         super().__init__(parent)
-        self.analysis = analysis
+        self.logger = get_logger("FileOrganizationDialog")
+        
+        # Datos principales
+        self.root_directory = Path(initial_analysis.root_directory)
+        self.analysis = initial_analysis
+        self.current_organization_type = OrganizationType(initial_analysis.organization_type)
         self.accepted_plan = None
         
-        # Datos filtrados
-        self.filtered_moves = list(analysis.move_plan)
-        
-        # Paginación
+        # Datos filtrados y paginación
+        self.filtered_moves = list(initial_analysis.move_plan)
         self.current_page = 0
         self.total_pages = 0
+        
+        # Worker para análisis
+        self.worker: Optional[OrganizationWorker] = None
+        self.is_analyzing = False
         
         self.init_ui()
 
     def init_ui(self):
+        """Inicializa la interfaz"""
         self.setWindowTitle("Organización de Archivos")
         self.setModal(True)
-        self.resize(1200, 750)
+        self.resize(1200, 800)
+        
         main_layout = QVBoxLayout(self)
+        main_layout.setSpacing(DesignSystem.SPACE_16)
+        main_layout.setContentsMargins(
+            DesignSystem.SPACE_24,
+            DesignSystem.SPACE_20,
+            DesignSystem.SPACE_24,
+            DesignSystem.SPACE_20
+        )
         
-        # Explicación clara según tipo de organización
-        explanation = self._create_explanation_section()
-        main_layout.addWidget(explanation)
+        # === SELECTOR DE TIPO ===
+        type_selector = self._create_type_selector()
+        main_layout.addWidget(type_selector)
         
-        # Separador
+        # === SEPARADOR ===
         separator = QFrame()
         separator.setFrameShape(QFrame.Shape.HLine)
-        separator.setFrameShadow(QFrame.Shadow.Sunken)
+        separator.setStyleSheet(f"background-color: {DesignSystem.COLOR_BORDER};")
+        separator.setMaximumHeight(1)
         main_layout.addWidget(separator)
         
-        # Resumen compacto con métricas
-        metrics = self._create_metrics_section()
-        main_layout.addLayout(metrics)
+        # === EXPLICACIÓN ===
+        self.explanation_widget = self._create_explanation_section()
+        main_layout.addWidget(self.explanation_widget)
         
-        # Información de carpetas a crear (si aplica)
-        folders_info = self._create_folders_info()
-        if folders_info:
-            main_layout.addWidget(folders_info)
+        # === MÉTRICAS ===
+        self.metrics_widget = self._create_metrics_section()
+        main_layout.addWidget(self.metrics_widget)
         
-        # Barra de herramientas (filtros y búsqueda)
+        # === INFORMACIÓN DE CARPETAS ===
+        self.folders_info_widget = self._create_folders_info()
+        if self.folders_info_widget:
+            main_layout.addWidget(self.folders_info_widget)
+        
+        # === BARRA DE HERRAMIENTAS ===
         toolbar = self._create_toolbar()
         main_layout.addLayout(toolbar)
         
-        # TreeWidget de archivos a mover
+        # === TREE WIDGET ===
         self.files_tree = self._create_tree_widget()
-        main_layout.addWidget(self.files_tree)
+        main_layout.addWidget(self.files_tree, 1)  # Stretch factor 1
         
-        # Controles de paginación
+        # === PAGINACIÓN ===
         self.pagination_widget = self._create_pagination_controls()
         main_layout.addWidget(self.pagination_widget)
         
-        # Opciones de seguridad
+        # === PROGRESS BAR (inicialmente oculto) ===
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setVisible(False)
+        self.progress_bar.setStyleSheet(f"""
+            QProgressBar {{
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                text-align: center;
+                background-color: {DesignSystem.COLOR_BG_1};
+            }}
+            QProgressBar::chunk {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+            }}
+        """)
+        main_layout.addWidget(self.progress_bar)
+        
+        # === OPCIONES ===
         options_group = self._create_options_group()
         main_layout.addWidget(options_group)
         
-        # Botones
-        ok_enabled = self.analysis.total_files_to_move > 0
-        if ok_enabled:
-            size_formatted = format_size(self.analysis.total_size_to_move)
-            ok_text = f"Organizar Archivos ({self.analysis.total_files_to_move} archivos, {size_formatted})"
-        else:
-            ok_text = None
-        self.buttons = self.make_ok_cancel_buttons(ok_text=ok_text, ok_enabled=ok_enabled)
-        self.ok_button = self.buttons.button(QDialogButtonBox.StandardButton.Ok)
+        # === BOTONES ===
+        self.buttons = self._create_action_buttons()
         main_layout.addWidget(self.buttons)
         
         # Actualizar vista inicial
-        self._update_tree()
+        self._update_all_ui()
         
         # Aplicar estilo global de tooltips
         self.setStyleSheet(DesignSystem.get_tooltip_style())
 
-    def _create_explanation_section(self):
-        """Crea sección de explicación clara según tipo de organización"""
+    def _create_type_selector(self) -> QWidget:
+        """Crea selector de tipo de organización con RadioButtons profesionales"""
         frame = QFrame()
-        frame.setFrameShape(QFrame.Shape.NoFrame)
-        frame.setStyleSheet("""
-            QFrame { 
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                           stop:0 #f8f9fa, stop:1 #e9ecef);
-                border: none;
-                border-radius: 6px; 
-                padding: 10px;
-            }
+        frame.setObjectName("type-selector-frame")
+        frame.setStyleSheet(f"""
+            QFrame#type-selector-frame {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                padding: {DesignSystem.SPACE_16}px;
+            }}
         """)
+        
         layout = QVBoxLayout(frame)
-        layout.setSpacing(2)
-        layout.setContentsMargins(12, 8, 12, 8)
+        layout.setSpacing(DesignSystem.SPACE_12)
         
-        org_type = self.analysis.organization_type
+        # Título
+        title_layout = QHBoxLayout()
+        title_icon = QLabel()
+        icon_manager.set_label_icon(title_icon, 'options', size=DesignSystem.ICON_SIZE_LG)
+        title_label = QLabel("Tipo de Organización")
+        title_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_LG}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            color: {DesignSystem.COLOR_TEXT};
+        """)
+        title_layout.addWidget(title_icon)
+        title_layout.addWidget(title_label)
+        title_layout.addStretch()
+        layout.addLayout(title_layout)
         
-        # Explicación según tipo
-        if org_type == 'by_month':
+        # RadioButtons
+        self.type_button_group = QButtonGroup(self)
+        
+        options_layout = QHBoxLayout()
+        options_layout.setSpacing(DesignSystem.SPACE_12)
+        
+        # TO_ROOT
+        to_root_card = self._create_option_card(
+            OrganizationType.TO_ROOT,
+            "folder-open",
+            "Mover a Raíz",
+            "Mueve todos los archivos al directorio raíz eliminando subdirectorios"
+        )
+        options_layout.addWidget(to_root_card)
+        
+        # BY_MONTH
+        by_month_card = self._create_option_card(
+            OrganizationType.BY_MONTH,
+            "calendar_month",
+            "Por Mes",
+            "Organiza en carpetas mensuales (YYYY_MM) según la fecha del archivo"
+        )
+        options_layout.addWidget(by_month_card)
+        
+        # WHATSAPP_SEPARATE
+        whatsapp_card = self._create_option_card(
+            OrganizationType.WHATSAPP_SEPARATE,
+            "mobile",
+            "Separar WhatsApp",
+            "Separa archivos de WhatsApp en carpeta dedicada, resto a la raíz"
+        )
+        options_layout.addWidget(whatsapp_card)
+        
+        layout.addLayout(options_layout)
+        
+        return frame
+    
+    def _create_option_card(self, org_type: OrganizationType, icon_name: str, 
+                           title: str, description: str) -> QWidget:
+        """Crea una tarjeta de opción de organización"""
+        card = QFrame()
+        card.setObjectName(f"option-card-{org_type.value}")
+        
+        is_selected = org_type == self.current_organization_type
+        
+        card.setStyleSheet(f"""
+            QFrame#option-card-{org_type.value} {{
+                background-color: {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_BG_1};
+                border: 2px solid {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_12}px;
+            }}
+            QFrame#option-card-{org_type.value}:hover {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+                background-color: {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_BG_2};
+            }}
+        """)
+        
+        layout = QVBoxLayout(card)
+        layout.setSpacing(DesignSystem.SPACE_8)
+        
+        # RadioButton + Icon + Title
+        header_layout = QHBoxLayout()
+        
+        radio = QRadioButton()
+        radio.setChecked(is_selected)
+        radio.toggled.connect(lambda checked: self._on_type_changed(org_type) if checked else None)
+        self.type_button_group.addButton(radio)
+        header_layout.addWidget(radio)
+        
+        icon_label = QLabel()
+        icon_manager.set_label_icon(
+            icon_label, 
+            icon_name, 
+            size=DesignSystem.ICON_SIZE_XL,
+            color=DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_PRIMARY
+        )
+        header_layout.addWidget(icon_label)
+        
+        title_label = QLabel(title)
+        title_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_MD}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            color: {DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_TEXT};
+        """)
+        header_layout.addWidget(title_label)
+        header_layout.addStretch()
+        
+        layout.addLayout(header_layout)
+        
+        # Description
+        desc_label = QLabel(description)
+        desc_label.setWordWrap(True)
+        desc_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_TEXT_SECONDARY};
+        """)
+        layout.addWidget(desc_label)
+        
+        # Hacer la card clickeable
+        card.mousePressEvent = lambda event: radio.setChecked(True)
+        
+        return card
+    
+    def _on_type_changed(self, new_type: OrganizationType):
+        """Maneja el cambio de tipo de organización"""
+        if new_type == self.current_organization_type:
+            return
+        
+        self.logger.info(f"Cambiando tipo de organización: {self.current_organization_type.value} -> {new_type.value}")
+        self.current_organization_type = new_type
+        
+        # Iniciar análisis en background
+        self._start_analysis(new_type)
+    
+    def _start_analysis(self, org_type: OrganizationType):
+        """Inicia análisis en background"""
+        if self.is_analyzing and self.worker and self.worker.isRunning():
+            self.logger.warning("Ya hay un análisis en curso")
+            return
+        
+        self.is_analyzing = True
+        self._set_ui_loading_state(True)
+        
+        # Crear y configurar worker
+        self.worker = OrganizationWorker(self.root_directory, org_type)
+        self.worker.finished.connect(self._on_analysis_finished)
+        self.worker.progress.connect(self._on_analysis_progress)
+        self.worker.error.connect(self._on_analysis_error)
+        
+        # Iniciar
+        self.worker.start()
+    
+    def _on_analysis_finished(self, result: OrganizationAnalysisResult):
+        """Maneja la finalización del análisis"""
+        self.logger.info(f"Análisis completado: {result.total_files_to_move} archivos")
+        self.analysis = result
+        self.filtered_moves = list(result.move_plan)
+        self.current_page = 0
+        
+        self._set_ui_loading_state(False)
+        self._update_all_ui()
+        self.is_analyzing = False
+    
+    def _on_analysis_progress(self, current: int, total: int, message: str):
+        """Maneja el progreso del análisis"""
+        self.progress_bar.setMaximum(total)
+        self.progress_bar.setValue(current)
+        self.progress_bar.setFormat(f"{message} - {current}/{total}")
+    
+    def _on_analysis_error(self, error_msg: str):
+        """Maneja errores en el análisis"""
+        from PyQt6.QtWidgets import QMessageBox
+        self.logger.error(f"Error en análisis: {error_msg}")
+        self._set_ui_loading_state(False)
+        self.is_analyzing = False
+        QMessageBox.critical(self, "Error", f"Error al analizar:\n{error_msg}")
+    
+    def _set_ui_loading_state(self, loading: bool):
+        """Activa/desactiva el estado de carga"""
+        self.progress_bar.setVisible(loading)
+        self.files_tree.setEnabled(not loading)
+        self.ok_button.setEnabled(not loading and self.analysis.total_files_to_move > 0)
+        
+        # Deshabilitar opciones de tipo durante análisis
+        for button in self.type_button_group.buttons():
+            button.setEnabled(not loading)
+    
+    def _update_all_ui(self):
+        """Actualiza toda la UI con los datos actuales"""
+        # Actualizar explicación
+        self._update_explanation()
+        
+        # Actualizar métricas
+        self._update_metrics()
+        
+        # Actualizar info de carpetas
+        self._update_folders_info()
+        
+        # Actualizar tree
+        self._update_tree()
+        
+        # Actualizar botón OK
+        self._update_ok_button()
+        
+        # Re-aplicar estilos a las cards de selección
+        self._update_type_selector_styles()
+    
+    def _update_type_selector_styles(self):
+        """Actualiza los estilos de las cards de selección según el tipo actual"""
+        for org_type in OrganizationType:
+            card_name = f"option-card-{org_type.value}"
+            card = self.findChild(QFrame, card_name)
+            if card:
+                is_selected = org_type == self.current_organization_type
+                card.setStyleSheet(f"""
+                    QFrame#{card_name} {{
+                        background-color: {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_BG_1};
+                        border: 2px solid {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_BORDER};
+                        border-radius: {DesignSystem.RADIUS_BASE}px;
+                        padding: {DesignSystem.SPACE_12}px;
+                    }}
+                    QFrame#{card_name}:hover {{
+                        border-color: {DesignSystem.COLOR_PRIMARY};
+                        background-color: {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_BG_2};
+                    }}
+                """)
+
+    def _create_explanation_section(self) -> QWidget:
+        """Crea sección de explicación dinámica"""
+        self.explanation_container = QFrame()
+        self.explanation_container.setStyleSheet(f"""
+            QFrame {{ 
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                           stop:0 {DesignSystem.COLOR_BG_1}, stop:1 {DesignSystem.COLOR_BG_2});
+                border: none;
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_12}px;
+            }}
+        """)
+        
+        layout = QHBoxLayout(self.explanation_container)
+        layout.setSpacing(DesignSystem.SPACE_8)
+        layout.setContentsMargins(DesignSystem.SPACE_12, DesignSystem.SPACE_8, DesignSystem.SPACE_12, DesignSystem.SPACE_8)
+        
+        self.explanation_icon = QLabel()
+        layout.addWidget(self.explanation_icon)
+        
+        self.explanation_text = QLabel()
+        self.explanation_text.setWordWrap(True)
+        self.explanation_text.setTextFormat(Qt.TextFormat.RichText)
+        self.explanation_text.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_TEXT};
+        """)
+        layout.addWidget(self.explanation_text, 1)
+        
+        self._update_explanation()
+        return self.explanation_container
+    
+    def _update_explanation(self):
+        """Actualiza la explicación según el tipo actual"""
+        org_type = self.current_organization_type
+        
+        if org_type == OrganizationType.BY_MONTH:
             icon_name = "calendar_month"
             title = "Organización por Mes"
             description = (
                 "Organizará los archivos en <b>carpetas mensuales (YYYY_MM)</b> basándose en la fecha más antigua de cada archivo. "
-                "Archivos sin fecha se colocarán en una carpeta especial. "
-                "Ejemplo: <code>IMG_2023_01_15_001.jpg</code> → <code>2023_01/</code>"
+                "Archivos sin fecha se colocarán en una carpeta especial."
             )
-        elif org_type == 'whatsapp_separate':
+        elif org_type == OrganizationType.WHATSAPP_SEPARATE:
             icon_name = "mobile"
             title = "Separación de WhatsApp"
             description = (
                 "Separará los <b>archivos de WhatsApp</b> en una carpeta dedicada y moverá el resto al directorio raíz. "
-                "Identifica archivos con patrones: <code>IMG-YYYYMMDD-WA####</code>, <code>VID-YYYYMMDD-WA####</code>, "
-                "o desde carpetas <code>WhatsApp/</code>."
+                "Identifica archivos con patrones típicos de WhatsApp o desde carpetas <code>WhatsApp/</code>."
             )
-        else:  # to_root
-            icon_name = "folder"
+        else:  # TO_ROOT
+            icon_name = "folder-open"
             title = "Mover Todo a Raíz"
             description = (
                 "Moverá <b>todos los archivos al directorio raíz</b> eliminando la estructura de subdirectorios. "
-                "Los conflictos de nombres se resolverán automáticamente añadiendo sufijos <code>_001</code>, <code>_002</code>, etc. "
-                "Los subdirectorios vacíos se pueden eliminar opcionalmente."
+                "Los conflictos de nombres se resolverán automáticamente añadiendo sufijos."
             )
         
-        # Crear contenedor con icono y texto
-        explanation_container = QWidget()
-        explanation_layout = QHBoxLayout(explanation_container)
-        explanation_layout.setContentsMargins(0, 0, 0, 0)
-        explanation_layout.setSpacing(8)
+        # Agregar nota si no hay archivos para mover
+        if self.analysis.total_files_to_move == 0:
+            description += (
+                "<br><br><i style='color: #666;'>ℹ️ No hay archivos para mover con esta configuración. "
+                "Prueba seleccionando otro tipo de organización.</i>"
+            )
         
-        icon_label = QLabel()
-        icon_manager.set_label_icon(icon_label, icon_name, size=20)
-        explanation_layout.addWidget(icon_label)
-        
-        text_label = QLabel(f"<b>{title}</b><br>{description}")
-        text_label.setWordWrap(True)
-        text_label.setTextFormat(Qt.TextFormat.RichText)
-        text_label.setStyleSheet(ui_styles.STYLE_HEIC_EXPLANATION)
-        explanation_layout.addWidget(text_label, 1)
-        
-        layout.addWidget(explanation_container)
-        
-        return frame
+        icon_manager.set_label_icon(self.explanation_icon, icon_name, size=DesignSystem.ICON_SIZE_LG)
+        self.explanation_text.setText(f"<b>{title}</b><br>{description}")
     
-    def _create_metrics_section(self):
-        """Crea panel de métricas compacto"""
-        layout = QHBoxLayout()
+    def _create_metrics_section(self) -> QWidget:
+        """Crea panel de métricas dinámico"""
+        self.metrics_container = QWidget()
+        self.metrics_layout = QHBoxLayout(self.metrics_container)
+        self.metrics_layout.setContentsMargins(0, 0, 0, 0)
+        self.metrics_layout.setSpacing(DesignSystem.SPACE_12)
+        
+        self._update_metrics()
+        return self.metrics_container
+    
+    def _update_metrics(self):
+        """Actualiza las métricas"""
+        # Limpiar layout
+        while self.metrics_layout.count():
+            child = self.metrics_layout.takeAt(0)
+            if child.widget():
+                child.widget().deleteLater()
         
         # Métricas principales
         metrics_data = [
-            ("Total archivos", self.analysis.total_files_to_move, "#2c5aa0"),
+            ("Total archivos", self.analysis.total_files_to_move, DesignSystem.COLOR_PRIMARY),
             ("Subdirectorios", len(self.analysis.subdirectories), "#9c27b0"),
             ("Tamaño total", format_size(self.analysis.total_size_to_move), "#ff9800"),
         ]
         
         for label_text, value, color in metrics_data:
             card = self._create_inline_metric(label_text, value, color)
-            layout.addWidget(card)
+            self.metrics_layout.addWidget(card)
         
-        # Métricas por tipo de archivo
+        # Métricas por tipo
         if self.analysis.files_by_type:
             types_text = " | ".join([
                 f"{file_type}: {count}" 
                 for file_type, count in sorted(self.analysis.files_by_type.items())
             ])
-            types_label = QLabel(f"{types_text}")
-            types_label.setStyleSheet(ui_styles.STYLE_ORG_TYPES_LABEL)
-            layout.addWidget(types_label)
+            types_label = QLabel(types_text)
+            types_label.setStyleSheet(f"""
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                padding: {DesignSystem.SPACE_8}px;
+            """)
+            self.metrics_layout.addWidget(types_label)
         
         # Advertencia de conflictos
         if self.analysis.potential_conflicts > 0:
             conflicts_label = QLabel(f"{self.analysis.potential_conflicts} conflictos de nombres")
-            conflicts_label.setStyleSheet(ui_styles.STYLE_ORG_CONFLICTS_LABEL)
-            layout.addWidget(conflicts_label)
+            conflicts_label.setStyleSheet(f"""
+                background-color: {DesignSystem.COLOR_BG_4};
+                color: {DesignSystem.COLOR_WARNING};
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+                padding: {DesignSystem.SPACE_8}px;
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+            """)
+            self.metrics_layout.addWidget(conflicts_label)
         
-        layout.addStretch()
-        return layout
+        self.metrics_layout.addStretch()
     
-    def _create_inline_metric(self, label_text, value, color):
+    def _create_inline_metric(self, label_text: str, value, color: str) -> QFrame:
         """Crea una métrica compacta inline"""
         frame = QFrame()
         frame.setStyleSheet(f"""
             QFrame {{
-                background-color: #f8f9fa;
+                background-color: {DesignSystem.COLOR_BG_1};
                 border-left: 3px solid {color};
-                padding: 5px;
-                margin: 2px;
+                padding: {DesignSystem.SPACE_6}px;
+                margin: {DesignSystem.SPACE_2}px;
+                border-radius: {DesignSystem.RADIUS_BASE}px;
             }}
         """)
         
         layout = QHBoxLayout(frame)
-        layout.setContentsMargins(8, 5, 8, 5)
+        layout.setContentsMargins(DesignSystem.SPACE_8, DesignSystem.SPACE_6, DesignSystem.SPACE_8, DesignSystem.SPACE_6)
+        layout.setSpacing(DesignSystem.SPACE_4)
         
         # Valor
         value_label = QLabel(str(value))
-        font = QFont()
-        font.setPointSize(16)
-        font.setBold(True)
-        value_label.setFont(font)
-        value_label.setStyleSheet(f"color: {color}; background: transparent; border: none;")
+        value_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_2XL}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+            color: {color};
+        """)
         
         # Label descriptivo
         desc_label = QLabel(label_text)
-        desc_label.setStyleSheet("font-size: 10px; color: #666; background: transparent; border: none;")
+        desc_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+        """)
         
         layout.addWidget(value_label)
         layout.addWidget(desc_label)
         
         return frame
     
-    def _create_folders_info(self):
+    def _create_folders_info(self) -> Optional[QWidget]:
         """Crea sección de información de carpetas a crear"""
+        # Inicializar atributos siempre
+        self.folders_info_container = None
+        self.folders_info_label = None
+        
         if not self.analysis.folders_to_create:
             return None
         
-        frame = QFrame()
-        frame.setStyleSheet("""
-            QFrame { 
+        self.folders_info_container = QFrame()
+        self.folders_info_container.setStyleSheet(f"""
+            QFrame {{ 
                 background-color: #e3f2fd; 
-                border-left: 3px solid #2196f3;
-                border-radius: 3px;
-                padding: 8px;
-            }
+                border-left: 3px solid {DesignSystem.COLOR_PRIMARY};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_8}px;
+            }}
         """)
-        layout = QVBoxLayout(frame)
-        layout.setContentsMargins(10, 5, 10, 5)
+        
+        layout = QVBoxLayout(self.folders_info_container)
+        layout.setContentsMargins(DesignSystem.SPACE_12, DesignSystem.SPACE_6, DesignSystem.SPACE_12, DesignSystem.SPACE_6)
+        
+        self.folders_info_label = QLabel()
+        self.folders_info_label.setWordWrap(True)
+        self.folders_info_label.setTextFormat(Qt.TextFormat.RichText)
+        self.folders_info_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: #1976d2;
+        """)
+        layout.addWidget(self.folders_info_label)
+        
+        self._update_folders_info()
+        return self.folders_info_container
+    
+    def _update_folders_info(self):
+        """Actualiza la información de carpetas"""
+        if not self.folders_info_label:
+            return
         
         folders = sorted(self.analysis.folders_to_create)
         count = len(folders)
+        
+        if count == 0:
+            if self.folders_info_container:
+                self.folders_info_container.setVisible(False)
+            return
+        
+        if self.folders_info_container:
+            self.folders_info_container.setVisible(True)
         
         if count <= 10:
             folders_text = ", ".join(folders)
         else:
             folders_text = ", ".join(folders[:10]) + f"... (+{count - 10} más)"
         
-        label = QLabel(f"Se crearán {count} carpetas: <b>{folders_text}</b>")
-        label.setWordWrap(True)
-        label.setTextFormat(Qt.TextFormat.RichText)
-        label.setStyleSheet("font-size: 10px; color: #1976d2; background: transparent;")
-        layout.addWidget(label)
-        
-        return frame
+        self.folders_info_label.setText(f"Se crearán {count} carpetas: <b>{folders_text}</b>")
     
-    def _create_toolbar(self):
+    def _create_toolbar(self) -> QHBoxLayout:
         """Crea barra de herramientas con filtros"""
         toolbar = QHBoxLayout()
+        toolbar.setSpacing(DesignSystem.SPACE_8)
         
         # Búsqueda
         search_icon = QLabel()
-        icon_manager.set_label_icon(search_icon, 'search', size=16)
+        icon_manager.set_label_icon(search_icon, 'search', size=DesignSystem.ICON_SIZE_SM)
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Buscar por nombre...")
         self.search_input.textChanged.connect(self._apply_filters)
         self.search_input.setMaximumWidth(200)
+        self.search_input.setStyleSheet(f"""
+            QLineEdit {{
+                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_8}px;
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+            }}
+        """)
         toolbar.addWidget(search_icon)
         toolbar.addWidget(self.search_input)
         
-        toolbar.addWidget(QLabel("|"))
+        # Separador
+        sep = QLabel("|")
+        sep.setStyleSheet(f"color: {DesignSystem.COLOR_BORDER};")
+        toolbar.addWidget(sep)
         
         # Filtro por tipo
         type_label = QLabel("Tipo:")
+        type_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px;")
         self.type_combo = QComboBox()
         types = ["Todos"] + sorted(list(self.analysis.files_by_type.keys()))
         self.type_combo.addItems(types)
@@ -290,9 +674,10 @@ class FileOrganizationDialog(BaseDialog):
         toolbar.addWidget(type_label)
         toolbar.addWidget(self.type_combo)
         
-        # Filtro por subdirectorio origen (solo para to_root y whatsapp_separate)
-        if self.analysis.organization_type in ['to_root', 'whatsapp_separate']:
+        # Filtro por subdirectorio (solo para to_root y whatsapp)
+        if self.current_organization_type in [OrganizationType.TO_ROOT, OrganizationType.WHATSAPP_SEPARATE]:
             subdir_label = QLabel("Origen:")
+            subdir_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px;")
             self.subdir_combo = QComboBox()
             subdirs = ["Todos"] + sorted(list(self.analysis.subdirectories.keys()))
             self.subdir_combo.addItems(subdirs)
@@ -305,35 +690,37 @@ class FileOrganizationDialog(BaseDialog):
         
         # Filtro solo conflictos
         self.conflicts_checkbox = QCheckBox("Solo conflictos")
+        self.conflicts_checkbox.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px;")
         self.conflicts_checkbox.stateChanged.connect(self._apply_filters)
         toolbar.addWidget(self.conflicts_checkbox)
         
         # Botón limpiar
         clear_btn = QPushButton("Limpiar")
-        icon_manager.set_button_icon(clear_btn, 'close', size=16)
+        clear_btn.setProperty("class", "secondary-small")
+        icon_manager.set_button_icon(clear_btn, 'close', size=DesignSystem.ICON_SIZE_SM)
         clear_btn.clicked.connect(self._clear_filters)
-        clear_btn.setMaximumWidth(80)
+        clear_btn.setMaximumWidth(100)
         toolbar.addWidget(clear_btn)
         
         # Contador
         self.counter_label = QLabel()
-        self.counter_label.setStyleSheet("font-weight: bold; color: #2c5aa0; margin-left: 10px;")
+        self.counter_label.setStyleSheet(f"""
+            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            color: {DesignSystem.COLOR_PRIMARY};
+            margin-left: {DesignSystem.SPACE_12}px;
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+        """)
         toolbar.addWidget(self.counter_label)
         
         toolbar.addStretch()
         return toolbar
     
-    def _create_tree_widget(self):
-        """Crea TreeWidget con agrupación según tipo de organización"""
+    def _create_tree_widget(self) -> QTreeWidget:
+        """Crea TreeWidget con configuración dinámica"""
         tree = QTreeWidget()
         
-        # Configurar columnas según tipo de organización
-        if self.analysis.organization_type == 'to_root':
-            tree.setHeaderLabels(["Archivo", "Origen", "Tamaño", "Estado"])
-        elif self.analysis.organization_type == 'by_month':
-            tree.setHeaderLabels(["Archivo", "Fecha", "Origen", "Tamaño"])
-        else:  # whatsapp_separate
-            tree.setHeaderLabels(["Archivo", "Origen", "Destino", "Tamaño"])
+        # Configurar columnas según tipo
+        self._configure_tree_columns(tree)
         
         tree.setAlternatingRowColors(True)
         tree.setEditTriggers(QTreeWidget.EditTrigger.NoEditTriggers)
@@ -342,94 +729,109 @@ class FileOrganizationDialog(BaseDialog):
         tree.itemDoubleClicked.connect(self._on_file_double_clicked)
         tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         tree.customContextMenuRequested.connect(self._show_context_menu)
-        tree.setStyleSheet("""
-            QTreeWidget {
-                border: 1px solid #ddd;
+        tree.setStyleSheet(f"""
+            QTreeWidget {{
+                border: 1px solid {DesignSystem.COLOR_BORDER};
                 outline: none;
-            }
-            QTreeWidget::item {
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+            }}
+            QTreeWidget::item {{
                 border: none;
                 outline: none;
-                padding: 2px;
-            }
-            QTreeWidget::item:hover {
+                padding: {DesignSystem.SPACE_4}px;
+            }}
+            QTreeWidget::item:hover {{
                 background-color: #f0f7ff;
-            }
-            QToolTip {
-                background-color: #2c3e50;
-                color: #ecf0f1;
-                border: 1px solid #34495e;
-                padding: 8px;
-                font-size: 10pt;
-                border-radius: 4px;
-            }
+            }}
         """)
         tree.setToolTip(
             "Doble clic en archivo para abrirlo\n"
-            "Clic derecho para ver detalles y opciones\n"
-            "Los archivos con conflictos de nombre se marcan especialmente"
+            "Clic derecho para ver detalles y opciones"
         )
-        
-        # Ajustar columnas según tipo de organización
-        header = tree.header()
-        header.setStretchLastSection(False)
-        
-        # Anchos optimizados por tipo
-        if self.analysis.organization_type == 'to_root':
-            # TO_ROOT: ["Archivo", "Origen", "Tamaño", "Estado"]
-            tree.setColumnWidth(0, 380)  # Archivo
-            tree.setColumnWidth(1, 180)  # Origen
-            tree.setColumnWidth(2, 100)  # Tamaño
-            tree.setColumnWidth(3, 250)  # Estado (más ancho para conflictos)
-        elif self.analysis.organization_type == 'by_month':
-            # BY_MONTH: ["Archivo", "Fecha", "Origen", "Tamaño"]
-            tree.setColumnWidth(0, 400)  # Archivo
-            tree.setColumnWidth(1, 120)  # Fecha
-            tree.setColumnWidth(2, 200)  # Origen
-            tree.setColumnWidth(3, 100)  # Tamaño
-        else:  # whatsapp_separate
-            # WHATSAPP: ["Archivo", "Origen", "Destino", "Tamaño"]
-            tree.setColumnWidth(0, 400)  # Archivo
-            tree.setColumnWidth(1, 200)  # Origen
-            tree.setColumnWidth(2, 150)  # Destino
-            tree.setColumnWidth(3, 100)  # Tamaño
         
         return tree
     
-    def _create_pagination_controls(self):
+    def _configure_tree_columns(self, tree: QTreeWidget):
+        """Configura las columnas del tree según el tipo de organización"""
+        org_type = self.current_organization_type
+        
+        if org_type == OrganizationType.TO_ROOT:
+            tree.setHeaderLabels(["Archivo", "Origen", "Tamaño", "Estado"])
+            tree.setColumnWidth(0, 380)
+            tree.setColumnWidth(1, 180)
+            tree.setColumnWidth(2, 100)
+            tree.setColumnWidth(3, 250)
+        elif org_type == OrganizationType.BY_MONTH:
+            tree.setHeaderLabels(["Archivo", "Fecha", "Origen", "Tamaño"])
+            tree.setColumnWidth(0, 400)
+            tree.setColumnWidth(1, 120)
+            tree.setColumnWidth(2, 200)
+            tree.setColumnWidth(3, 100)
+        else:  # WHATSAPP_SEPARATE
+            tree.setHeaderLabels(["Archivo", "Origen", "Destino", "Tamaño"])
+            tree.setColumnWidth(0, 400)
+            tree.setColumnWidth(1, 200)
+            tree.setColumnWidth(2, 150)
+            tree.setColumnWidth(3, 100)
+    
+    def _create_pagination_controls(self) -> QWidget:
         """Crea controles de paginación"""
         widget = QFrame()
-        widget.setFrameStyle(QFrame.Shape.StyledPanel)
-        widget.setStyleSheet("QFrame { background-color: #f0f0f0; border-radius: 3px; }")
+        widget.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_8}px;
+            }}
+        """)
         layout = QHBoxLayout(widget)
+        layout.setSpacing(DesignSystem.SPACE_8)
         
-        self.first_page_btn = QPushButton("⏮ Primera")
+        # Botones de navegación
+        button_style = f"""
+            QPushButton {{
+                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+            }}
+        """
+        
+        self.first_page_btn = QPushButton("Primera")
+        self.first_page_btn.setProperty("class", "secondary-small")
         self.first_page_btn.clicked.connect(self._go_first_page)
-        self.first_page_btn.setMaximumWidth(100)
+        self.first_page_btn.setStyleSheet(button_style)
         layout.addWidget(self.first_page_btn)
         
-        self.prev_page_btn = QPushButton("◀ Anterior")
+        self.prev_page_btn = QPushButton("Anterior")
+        self.prev_page_btn.setProperty("class", "secondary-small")
         self.prev_page_btn.clicked.connect(self._go_prev_page)
-        self.prev_page_btn.setMaximumWidth(100)
+        self.prev_page_btn.setStyleSheet(button_style)
         layout.addWidget(self.prev_page_btn)
         
         self.page_label = QLabel()
-        self.page_label.setStyleSheet("font-weight: bold; padding: 0 20px;")
+        self.page_label.setStyleSheet(f"""
+            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            padding: 0 {DesignSystem.SPACE_16}px;
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+        """)
         self.page_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.page_label)
         
-        self.next_page_btn = QPushButton("Siguiente ▶")
+        self.next_page_btn = QPushButton("Siguiente")
+        self.next_page_btn.setProperty("class", "secondary-small")
         self.next_page_btn.clicked.connect(self._go_next_page)
-        self.next_page_btn.setMaximumWidth(100)
+        self.next_page_btn.setStyleSheet(button_style)
         layout.addWidget(self.next_page_btn)
         
-        self.last_page_btn = QPushButton("Última ⏭")
+        self.last_page_btn = QPushButton("Última")
+        self.last_page_btn.setProperty("class", "secondary-small")
         self.last_page_btn.clicked.connect(self._go_last_page)
-        self.last_page_btn.setMaximumWidth(100)
+        self.last_page_btn.setStyleSheet(button_style)
         layout.addWidget(self.last_page_btn)
         
         layout.addStretch()
         
+        # Items per page
         layout.addWidget(QLabel("Items por página:"))
         self.items_per_page_combo = QComboBox()
         self.items_per_page_combo.addItems(["100", "200", "500", "Todos"])
@@ -441,31 +843,78 @@ class FileOrganizationDialog(BaseDialog):
         widget.setVisible(False)
         return widget
     
-    def _create_options_group(self):
-        """Crea grupo de opciones de seguridad"""
+    def _create_options_group(self) -> QGroupBox:
+        """Crea grupo de opciones"""
         options_group = QGroupBox("Opciones de Seguridad")
-        options_group.setMinimumWidth(400)
-        options_group.setStyleSheet("QGroupBox { font-weight: bold; }")
-        options_layout = QVLayout()
+        options_group.setStyleSheet(f"""
+            QGroupBox {{
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                margin-top: {DesignSystem.SPACE_12}px;
+                padding-top: {DesignSystem.SPACE_16}px;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: {DesignSystem.SPACE_12}px;
+                padding: 0 {DesignSystem.SPACE_8}px;
+            }}
+        """)
         
-        # Backup checkbox (primero)
+        options_layout = QVBoxLayout()
+        options_layout.setSpacing(DesignSystem.SPACE_8)
+        
+        # Backup checkbox
         self.add_backup_checkbox(options_layout, "Crear backup antes de mover (Recomendado)")
         
-        # Simulación checkbox (segundo)
-        self.dry_run_checkbox = QCheckBox("Modo simulación (no mover archivos realmente)")
-        # Leer configuración para establecer estado por defecto
+        # Dry run checkbox
         from utils.settings_manager import settings_manager
         dry_run_default = settings_manager.get(settings_manager.KEY_DRY_RUN_DEFAULT, False)
-        # Asegurar que es un booleano
         if isinstance(dry_run_default, str):
             dry_run_default = dry_run_default.lower() in ('true', '1', 'yes')
+        
+        self.dry_run_checkbox = QCheckBox("Modo simulación (no mover archivos realmente)")
         self.dry_run_checkbox.setChecked(bool(dry_run_default))
         options_layout.addWidget(self.dry_run_checkbox)
         
-        # Cleanup checkbox (tercero)
+        # Cleanup checkbox
         self.cleanup_checkbox = QCheckBox("Eliminar directorios vacíos al finalizar")
-        self.cleanup_checkbox.setChecked(True)  # Por defecto activado
+        self.cleanup_checkbox.setChecked(True)
         options_layout.addWidget(self.cleanup_checkbox)
+        
+        options_group.setLayout(options_layout)
+        return options_group
+    
+    def _create_action_buttons(self) -> QDialogButtonBox:
+        """Crea botones de acción"""
+        ok_enabled = self.analysis.total_files_to_move > 0
+        if ok_enabled:
+            size_formatted = format_size(self.analysis.total_size_to_move)
+            ok_text = f"Organizar Archivos ({self.analysis.total_files_to_move} archivos, {size_formatted})"
+        else:
+            ok_text = "Sin archivos para organizar"
+        
+        buttons = self.make_ok_cancel_buttons(ok_text=ok_text, ok_enabled=ok_enabled)
+        self.ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
+        self.ok_button.setProperty("id", "primary-button")
+        
+        return buttons
+    
+    def _update_ok_button(self):
+        """Actualiza el texto y estado del botón OK"""
+        ok_enabled = self.analysis.total_files_to_move > 0
+        self.ok_button.setEnabled(ok_enabled and not self.is_analyzing)
+        
+        if ok_enabled:
+            size_formatted = format_size(self.analysis.total_size_to_move)
+            ok_text = f"Organizar Archivos ({self.analysis.total_files_to_move} archivos, {size_formatted})"
+        else:
+            ok_text = "Sin archivos para organizar"
+        
+        self.ok_button.setText(ok_text)
+    
+    # === FILTROS ===
     
     def _apply_filters(self):
         """Aplica filtros a la lista de movimientos"""
@@ -485,7 +934,7 @@ class FileOrganizationDialog(BaseDialog):
             if type_filter != "Todos" and move.file_type != type_filter:
                 continue
             
-            # Filtro por subdirectorio origen
+            # Filtro por subdirectorio
             if subdir_filter != "Todos" and move.subdirectory != subdir_filter:
                 continue
             
@@ -506,6 +955,8 @@ class FileOrganizationDialog(BaseDialog):
             self.subdir_combo.setCurrentIndex(0)
         self.conflicts_checkbox.setChecked(False)
     
+    # === PAGINACIÓN ===
+    
     def _go_first_page(self):
         self.current_page = 0
         QTimer.singleShot(0, self._update_tree)
@@ -524,7 +975,7 @@ class FileOrganizationDialog(BaseDialog):
         self.current_page = max(0, self.total_pages - 1)
         QTimer.singleShot(0, self._update_tree)
     
-    def _change_items_per_page(self, text):
+    def _change_items_per_page(self, text: str):
         if text == "Todos":
             self.ITEMS_PER_PAGE = len(self.filtered_moves)
         else:
@@ -532,8 +983,10 @@ class FileOrganizationDialog(BaseDialog):
         self.current_page = 0
         QTimer.singleShot(0, self._update_tree)
     
+    # === ACTUALIZACIÓN DEL TREE ===
+    
     def _update_tree(self):
-        """Actualiza el TreeWidget con agrupación según tipo de organización"""
+        """Actualiza el TreeWidget con los datos filtrados"""
         QApplication.setOverrideCursor(QCursor(Qt.CursorShape.WaitCursor))
         
         try:
@@ -563,12 +1016,16 @@ class FileOrganizationDialog(BaseDialog):
             # Limpiar tree
             self.files_tree.clear()
             
-            # Agrupar según tipo de organización
-            if self.analysis.organization_type == 'to_root':
+            # Reconfigurar columnas si cambió el tipo
+            self._configure_tree_columns(self.files_tree)
+            
+            # Poblar según tipo
+            org_type = self.current_organization_type
+            if org_type == OrganizationType.TO_ROOT:
                 self._populate_tree_to_root(items_to_show)
-            elif self.analysis.organization_type == 'by_month':
+            elif org_type == OrganizationType.BY_MONTH:
                 self._populate_tree_by_month(items_to_show)
-            else:  # whatsapp_separate
+            else:  # WHATSAPP_SEPARATE
                 self._populate_tree_whatsapp(items_to_show)
             
             # Actualizar contador
@@ -587,26 +1044,24 @@ class FileOrganizationDialog(BaseDialog):
             QApplication.restoreOverrideCursor()
     
     def _populate_tree_to_root(self, moves):
-        """Poblar tree agrupado mostrando destino (Raíz) con archivos desde subdirectorios"""
-        from collections import defaultdict
-        
-        # Todos los archivos van a la raíz, agruparlos por subdirectorio de origen
+        """Poblar tree para TO_ROOT"""
+        # Agrupar por subdirectorio
         by_subdir = defaultdict(list)
         for move in moves:
             by_subdir[move.subdirectory].append(move)
         
-        # Crear nodo principal para Raíz (destino de todos)
+        # Crear nodo raíz
         total_moves = len(moves)
         total_size_all = sum(m.size for m in moves)
         total_conflicts = sum(1 for m in moves if m.has_conflict)
         
         root_parent = QTreeWidgetItem()
-        root_parent.setText(0, "📂 Raíz del directorio")
-        root_parent.setText(1, "")  # Vacío
+        root_parent.setText(0, "Raíz del directorio")
+        root_parent.setText(1, "")
         root_parent.setText(2, f"{total_moves} archivos")
         if total_conflicts > 0:
-            root_parent.setText(3, f"⚠️ {total_conflicts} conflictos | {format_size(total_size_all)}")
-            root_parent.setForeground(3, QColor("#e74c3c"))
+            root_parent.setText(3, f"{total_conflicts} conflictos | {format_size(total_size_all)}")
+            root_parent.setForeground(3, QColor(DesignSystem.COLOR_ERROR))
         else:
             root_parent.setText(3, format_size(total_size_all))
         
@@ -614,33 +1069,32 @@ class FileOrganizationDialog(BaseDialog):
         root_font.setBold(True)
         root_font.setPointSize(11)
         root_parent.setFont(0, root_font)
-        root_parent.setForeground(0, QColor("#2c5aa0"))
+        root_parent.setForeground(0, QColor(DesignSystem.COLOR_PRIMARY))
         
         self.files_tree.addTopLevelItem(root_parent)
         
-        # Crear subnodos por subdirectorio origen
+        # Subnodos por subdirectorio
         for subdir in sorted(by_subdir.keys()):
             moves_in_subdir = by_subdir[subdir]
             total_size = sum(m.size for m in moves_in_subdir)
             conflicts = sum(1 for m in moves_in_subdir if m.has_conflict)
             
-            # Nodo de subdirectorio origen
             subdir_node = QTreeWidgetItem()
             subdir_node.setText(0, f"  Desde: {subdir}")
             subdir_node.setText(1, f"{len(moves_in_subdir)} archivos")
             subdir_node.setText(2, format_size(total_size))
             if conflicts > 0:
-                subdir_node.setText(3, f"⚠️ {conflicts} conflictos")
-                subdir_node.setForeground(3, QColor("#e74c3c"))
+                subdir_node.setText(3, f"{conflicts} conflictos")
+                subdir_node.setForeground(3, QColor(DesignSystem.COLOR_ERROR))
             
             subdir_font = QFont()
             subdir_font.setBold(True)
             subdir_node.setFont(0, subdir_font)
-            subdir_node.setForeground(0, QColor("#666"))
+            subdir_node.setForeground(0, QColor(DesignSystem.COLOR_TEXT_SECONDARY))
             
             root_parent.addChild(subdir_node)
             
-            # Archivos individuales
+            # Archivos
             for move in sorted(moves_in_subdir, key=lambda m: m.original_name):
                 child = QTreeWidgetItem()
                 child.setText(0, f"    {move.original_name}")
@@ -648,66 +1102,52 @@ class FileOrganizationDialog(BaseDialog):
                 child.setText(2, format_size(move.size))
                 
                 if move.has_conflict:
-                    conflict_text = f"⚠️ → {move.new_name}"
-                    child.setText(3, conflict_text)
-                    child.setForeground(3, QColor("#e74c3c"))
+                    child.setText(3, f"→ {move.new_name}")
+                    child.setForeground(3, QColor(DesignSystem.COLOR_ERROR))
                 else:
-                    child.setText(3, "✓ OK")
-                    child.setForeground(3, QColor("#27ae60"))
+                    child.setText(3, "OK")
+                    child.setForeground(3, QColor(DesignSystem.COLOR_SUCCESS))
                 
-                # Guardar datos del movimiento
                 child.setData(0, Qt.ItemDataRole.UserRole, move)
-                
                 subdir_node.addChild(child)
             
-            # Expandir si tiene pocos items
             if len(moves_in_subdir) <= 20:
                 subdir_node.setExpanded(True)
             
-            # Procesar eventos cada 10 items
             if root_parent.childCount() % 10 == 0:
                 QApplication.processEvents()
         
-        # Expandir el nodo raíz
         root_parent.setExpanded(True)
     
     def _populate_tree_by_month(self, moves):
-        """Poblar tree agrupado por carpeta destino (mes)"""
-        from collections import defaultdict
-        
+        """Poblar tree para BY_MONTH"""
         # Agrupar por carpeta destino
         by_folder = defaultdict(list)
         for move in moves:
             folder = move.target_folder or "Sin fecha"
             by_folder[folder].append(move)
         
-        # Crear nodos por carpeta destino
         for folder in sorted(by_folder.keys(), reverse=True):
             moves_in_folder = by_folder[folder]
             total_size = sum(m.size for m in moves_in_folder)
             
-            # Nodo padre (carpeta destino)
             parent = QTreeWidgetItem()
-            if folder == "Sin fecha":
-                parent.setText(0, f"📅 {folder}")
-            else:
-                parent.setText(0, f"📅 {folder}/")
-            parent.setText(1, "")  # Vacío en fecha para el nodo padre
+            parent.setText(0, f"{folder}/")
+            parent.setText(1, "")
             parent.setText(2, f"{len(moves_in_folder)} archivos")
             parent.setText(3, format_size(total_size))
             
             parent_font = QFont()
             parent_font.setBold(True)
             parent.setFont(0, parent_font)
+            parent.setForeground(0, QColor(DesignSystem.COLOR_PRIMARY))
             
             self.files_tree.addTopLevelItem(parent)
             
-            # Archivos individuales
             for move in sorted(moves_in_folder, key=lambda m: m.original_name):
                 child = QTreeWidgetItem()
                 child.setText(0, f"  {move.original_name}")
                 
-                # Obtener fecha del archivo
                 try:
                     file_date = get_file_date(move.source_path)
                     if file_date:
@@ -719,34 +1159,26 @@ class FileOrganizationDialog(BaseDialog):
                 
                 child.setText(2, move.subdirectory)
                 child.setText(3, format_size(move.size))
-                
-                # Guardar datos del movimiento
                 child.setData(0, Qt.ItemDataRole.UserRole, move)
                 
                 parent.addChild(child)
             
-            # Expandir si tiene pocos items
             if len(moves_in_folder) <= 20:
                 parent.setExpanded(True)
             
-            # Procesar eventos cada 10 items
             if self.files_tree.topLevelItemCount() % 10 == 0:
                 QApplication.processEvents()
     
     def _populate_tree_whatsapp(self, moves):
-        """Poblar tree agrupado por categoría (WhatsApp vs Resto)"""
-        from collections import defaultdict
-        
-        # Agrupar por categoría
+        """Poblar tree para WHATSAPP_SEPARATE"""
         whatsapp_moves = []
         other_moves = []
         
         for move in moves:
-            # Determinar si es WhatsApp
             is_whatsapp = (
                 'whatsapp' in move.subdirectory.lower() or
                 'WhatsApp' in str(move.source_path) or
-                move.original_name.startswith(('IMG-', 'VID-')) and '-WA' in move.original_name
+                (move.original_name.startswith(('IMG-', 'VID-')) and '-WA' in move.original_name)
             )
             
             if is_whatsapp:
@@ -754,22 +1186,19 @@ class FileOrganizationDialog(BaseDialog):
             else:
                 other_moves.append(move)
         
-        # Crear nodo para WhatsApp (destino: carpeta WhatsApp/)
         if whatsapp_moves:
-            self._create_whatsapp_category_node("📱 WhatsApp/", whatsapp_moves, "WhatsApp/")
+            self._create_whatsapp_category_node("WhatsApp/", whatsapp_moves, "WhatsApp/")
         
-        # Crear nodo para Resto (destino: raíz)
         if other_moves:
-            self._create_whatsapp_category_node("📂 Raíz del directorio", other_moves, "Raíz")
+            self._create_whatsapp_category_node("Raíz del directorio", other_moves, "Raíz")
     
-    def _create_whatsapp_category_node(self, title, moves, destination):
-        """Crea un nodo de categoría con sus archivos para WhatsApp"""
+    def _create_whatsapp_category_node(self, title: str, moves, destination: str):
+        """Crea nodo de categoría para WhatsApp"""
         total_size = sum(m.size for m in moves)
         
-        # Nodo padre - muestra el destino donde irán los archivos
         parent = QTreeWidgetItem()
         parent.setText(0, title)
-        parent.setText(1, "")  # Vacío en origen para el nodo padre
+        parent.setText(1, "")
         parent.setText(2, f"{len(moves)} archivos → {destination}")
         parent.setText(3, format_size(total_size))
         
@@ -777,70 +1206,39 @@ class FileOrganizationDialog(BaseDialog):
         parent_font.setBold(True)
         parent.setFont(0, parent_font)
         
-        # Color según destino
         if "WhatsApp" in destination:
-            parent.setForeground(0, QColor("#25d366"))  # Verde WhatsApp
+            parent.setForeground(0, QColor("#25d366"))
         else:
-            parent.setForeground(0, QColor("#2c5aa0"))  # Azul para raíz
+            parent.setForeground(0, QColor(DesignSystem.COLOR_PRIMARY))
         
         self.files_tree.addTopLevelItem(parent)
         
-        # Archivos individuales
         for move in sorted(moves, key=lambda m: m.original_name):
             child = QTreeWidgetItem()
             child.setText(0, f"  {move.original_name}")
             child.setText(1, move.subdirectory if move.subdirectory != "." else "Raíz")
             child.setText(2, destination)
             child.setText(3, format_size(move.size))
-            
-            # Guardar datos del movimiento
             child.setData(0, Qt.ItemDataRole.UserRole, move)
             
             parent.addChild(child)
         
-        # Expandir si tiene pocos items
         if len(moves) <= 20:
             parent.setExpanded(True)
     
-    def _on_file_double_clicked(self, item, column):
+    # === EVENTOS ===
+    
+    def _on_file_double_clicked(self, item: QTreeWidgetItem, column: int):
         """Abre el archivo con doble clic"""
-        import subprocess
-        import platform
-        
         move = item.data(0, Qt.ItemDataRole.UserRole)
         if not move:
             return
         
-        file_path = move.source_path
-        
-        if not file_path.exists():
-            from PyQt6.QtWidgets import QMessageBox
-            QMessageBox.warning(
-                self, 
-                "Archivo no encontrado", 
-                f"El archivo no existe:\n{file_path}"
-            )
-            return
-        
-        try:
-            system = platform.system()
-            if system == 'Linux':
-                subprocess.Popen(['xdg-open', str(file_path)])
-            elif system == 'Darwin':
-                subprocess.Popen(['open', str(file_path)])
-            elif system == 'Windows':
-                subprocess.Popen(['start', str(file_path)], shell=True)
-            
-            # Feedback temporal
-            self.setWindowTitle(f"Organización de Archivos - Abriendo {move.original_name}...")
-            QTimer.singleShot(2000, lambda: self.setWindowTitle("Organización de Archivos"))
-            
-        except Exception as e:
-            from PyQt6.QtWidgets import QMessageBox
-            QMessageBox.warning(self, "Error", f"No se pudo abrir el archivo:\n{str(e)}")
+        from .dialog_utils import open_file
+        open_file(move.source_path, self)
     
     def _show_context_menu(self, position):
-        """Muestra menú contextual con opciones y detalles del archivo"""
+        """Muestra menú contextual"""
         item = self.files_tree.itemAt(position)
         if not item:
             return
@@ -851,39 +1249,39 @@ class FileOrganizationDialog(BaseDialog):
         
         menu = QMenu(self)
         
-        # Opción para abrir archivo
-        open_file_action = menu.addAction("📂 Abrir archivo")
+        # Abrir archivo
+        open_file_action = menu.addAction("Abrir archivo")
         open_file_action.triggered.connect(lambda: self._open_file(move.source_path))
         
-        # Opción para abrir carpeta origen
-        open_source_action = menu.addAction("📁 Abrir carpeta origen")
+        # Abrir carpeta origen
+        open_source_action = menu.addAction("Abrir carpeta origen")
         open_source_action.triggered.connect(lambda: self._open_folder(move.source_path.parent))
         
-        # Opción para abrir carpeta destino
+        # Abrir carpeta destino
         if move.target_path.parent.exists():
-            open_target_action = menu.addAction("📂 Abrir carpeta destino")
+            open_target_action = menu.addAction("Abrir carpeta destino")
             open_target_action.triggered.connect(lambda: self._open_folder(move.target_path.parent))
         
         menu.addSeparator()
         
-        # Opción para ver detalles completos
-        details_action = menu.addAction("ℹ️ Ver detalles completos")
+        # Ver detalles
+        details_action = menu.addAction("Ver detalles completos")
         details_action.triggered.connect(lambda: self._show_file_details(move))
         
         menu.exec(self.files_tree.viewport().mapToGlobal(position))
     
-    def _open_file(self, file_path):
-        """Abre un archivo específico"""
+    def _open_file(self, file_path: Path):
+        """Abre un archivo"""
         from .dialog_utils import open_file
         open_file(file_path, self)
     
-    def _open_folder(self, folder_path):
-        """Abre una carpeta en el explorador de archivos"""
+    def _open_folder(self, folder_path: Path):
+        """Abre una carpeta"""
         from .dialog_utils import open_folder
         open_folder(folder_path, self)
     
     def _show_file_details(self, move):
-        """Muestra un diálogo con detalles completos del archivo"""
+        """Muestra detalles del archivo"""
         from .dialog_utils import show_file_details_dialog
         
         additional_info = {
@@ -902,14 +1300,14 @@ class FileOrganizationDialog(BaseDialog):
             additional_info['metadata']['Carpeta destino'] = move.target_folder
         
         show_file_details_dialog(move.source_path, self, additional_info)
-
+    
     def accept(self):
+        """Acepta el diálogo y construye el plan"""
         self.accepted_plan = self.build_accepted_plan({
             'move_plan': self.analysis.move_plan,
             'cleanup_empty_dirs': self.cleanup_checkbox.isChecked(),
-            'organization_type': self.analysis.organization_type,
+            'organization_type': self.current_organization_type.value,  # IMPORTANTE: usar el tipo actual
             'folders_to_create': self.analysis.folders_to_create,
             'dry_run': self.dry_run_checkbox.isChecked()
         })
         super().accept()
-

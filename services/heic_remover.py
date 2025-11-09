@@ -1,7 +1,6 @@
 """
 Eliminador de HEIC Duplicados
 """
-import shutil
 import os
 import logging
 from pathlib import Path
@@ -9,7 +8,6 @@ from datetime import datetime
 from typing import List, Dict, Optional, Set, Tuple
 from collections import defaultdict
 from dataclasses import dataclass
-import hashlib
 
 from config import Config
 from utils.logger import get_logger

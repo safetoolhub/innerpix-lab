@@ -6,7 +6,7 @@ import os
 import logging
 from pathlib import Path
 from datetime import datetime
-from typing import List, Dict, Optional, Set
+from typing import List, Dict
 from enum import Enum
 
 from config import Config
