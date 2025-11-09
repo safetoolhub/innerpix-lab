@@ -21,7 +21,6 @@ from ui.dialogs.settings_dialog import SettingsDialog
 from ui.dialogs.about_dialog import AboutDialog
 from ui.dialogs.similar_files_progress_dialog import SimilarFilesProgressDialog
 from utils.format_utils import format_size, format_file_count
-from services.similar_files_detector import SimilarFilesDetector
 from ui.workers import SimilarFilesAnalysisWorker
 from pathlib import Path
 
@@ -427,9 +426,10 @@ class Stage3Window(BaseStage):
 
         elif tool_id == 'organize':
             org_data = self.analysis_results.organization
-            if not org_data or org_data.total_files_to_move == 0:
+            if not org_data:
                 QMessageBox.warning(self.main_window, "Sin resultados", "No hay datos de Organización")
                 return
+            # Permitir abrir el dialog incluso con 0 archivos, ya que el usuario puede cambiar el tipo
             dialog = FileOrganizationDialog(org_data, self.main_window)
 
         elif tool_id == 'rename':

@@ -218,28 +218,3 @@ class LivePhotoDetectionResult(AnalysisResult):
             if hasattr(self.groups[0], 'total_size'):
                 self.total_space = sum(g.total_size for g in self.groups)
                 self.space_to_free = sum(g.video_size for g in self.groups)
-
-
-# Funciones de conversión para compatibilidad con código existente
-def to_dict(result: OperationResult) -> dict:
-    """
-    Convierte un resultado dataclass a diccionario
-    
-    Útil para compatibilidad con código que espera diccionarios
-    """
-    from dataclasses import asdict
-    return asdict(result)
-
-
-def from_dict(data: dict, result_class: type) -> OperationResult:
-    """
-    Crea un resultado dataclass desde un diccionario
-    
-    Args:
-        data: Diccionario con datos
-        result_class: Clase del resultado (ej: DeletionResult)
-    
-    Returns:
-        Instancia del resultado
-    """
-    return result_class(**{k: v for k, v in data.items() if k in result_class.__annotations__})
