@@ -69,12 +69,13 @@ pixaro-lab/
 │   │   ├── base_dialog.py           # Clase base para diálogos con backup
 │   │   ├── dialog_utils.py          # Utilidades compartidas (open_file, open_folder, show_file_details_dialog)
 │   │   ├── exact_copies_dialog.py   # Diálogo de copias exactas (SHA256-based)
-│   │   ├── similar_files_dialog.py  # Diálogo de archivos similares (perceptual hash)
 │   │   ├── heic_dialog.py           # Diálogo de HEIC con vista de detalles
 │   │   ├── live_photos_dialog.py    # Diálogo de Live Photos
 │   │   ├── organization_dialog.py   # Diálogo de organización (3 modos: raíz/mes/WhatsApp)
 │   │   ├── renaming_dialog.py       # Diálogo de renombrado con vista de detalles
-│   │   └── settings_dialog.py       # Diálogo de configuración
+│   │   ├── settings_dialog.py       # Diálogo de configuración
+│   │   ├── similar_files_dialog.py  # Diálogo de archivos similares (perceptual hash)
+│   │   └── similar_files_progress_dialog.py  # Diálogo de progreso para análisis de similares
 │   │
 │   ├── managers/                    # Gestores de recursos
 │   │   ├── __init__.py

@@ -132,6 +132,8 @@ class IconManager:
         'down': 'mdi6.arrow-down',
         'left': 'mdi6.arrow-left',
         'right': 'mdi6.arrow-right',
+        'chevron-left': 'mdi6.chevron-left',
+        'chevron-right': 'mdi6.chevron-right',
         
         # Aplicación
         'app': 'mdi6.movie-open',

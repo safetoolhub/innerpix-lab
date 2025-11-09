@@ -5,20 +5,20 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
 
 > **Project Structure:** See `PROJECT_TREE.md` for detailed directory layout and file descriptions.
 
-> Nota: La carpeta `docs/` contiene notas internas del autor y NO debe procesarse ni considerarse parte del proyecto; son apuntes privados del autor.
+> Note: The `docs/` folder contains the author's internal notes and should NOT be processed or considered part of the project; they are the author's private notes.
 
 ### Architecture (3-layer pattern)
 
 **Services** (`services/`) - Pure business logic, no UI dependencies
 - Pattern: `analyze_*()` returns dataclass results, `execute_*()` accepts `create_backup=True`
 - All use centralized logger: `from utils.logger import get_logger; self.logger = get_logger('ServiceName')`
-- Return types: **100% standardized dataclasses** from `services/result_types.py` ✅
+- Return types: **100% standardized dataclasses** from `services/result_types.py` 
   * All services return typed dataclasses: `RenameAnalysisResult`, `LivePhotoDetectionResult`, `OrganizationAnalysisResult`, `HeicAnalysisResult`, `DuplicateAnalysisResult`
   * All execution methods return: `RenameResult`, `LivePhotoCleanupResult`, `OrganizationResult`, `HeicDeletionResult`, `DuplicateDeletionResult`
-  * **Migration completed (Sprint 1):** No more Dict returns, no more Union[Dataclass, Dict]
+
 - Examples: `FileRenamer.analyze_directory()` → `RenameAnalysisResult`, `LivePhotoCleaner.execute_cleanup()` → `LivePhotoCleanupResult`
 - Orchestrator: `AnalysisOrchestrator.run_full_analysis()` → `FullAnalysisResult` (100% typed fields), coordinates multiple services with callback system (progress/phase/partial), 100% PyQt6-free
-- Specialized detectors (Sprint 4):
+- Specialized detectors):
   * `ExactCopiesDetector` (`exact_copies_detector.py`): SHA256-based exact copy detection, 100% identical files
   * `SimilarFilesDetector` (`similar_files_detector.py`): Perceptual hash-based similar detection using imagehash/cv2
   * Both share `DuplicateGroup` dataclass and `execute_deletion()` pattern
@@ -26,7 +26,7 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
 
 **Workers** (`ui/workers.py`) - QThread background tasks to keep UI responsive
 - Base class: `BaseWorker` provides `progress_update`, `finished`, `error` signals
-- **Type Safety:** ✅ Sprint 2 completed - All workers 100% typed
+- **Type Safety:**
   * All `__init__` and `run()` methods have type hints
   * All workers override `finished` signal with semantic type documentation
   * Uses `TYPE_CHECKING` imports to avoid circular dependencies
@@ -114,12 +114,11 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
 - `utils/icons.py`: Centralized icon management system using QtAwesome (Material Design icons)
 
 **Result types** (`services/result_types.py`)
-- **Status:** ✅ 100% standardized (Sprint 1 completed)
+- **Status:** 
 - Base: `OperationResult` (success, errors list, message)
 - Analysis results: `RenameAnalysisResult`, `OrganizationAnalysisResult`, `LivePhotoCleanupAnalysisResult`, `LivePhotoDetectionResult`, `DuplicateAnalysisResult`, `HeicAnalysisResult`
 - Operation results: `RenameResult`, `OrganizationResult`, `DeletionResult`, `LivePhotoCleanupResult`, `DuplicateDeletionResult`, `HeicDeletionResult`
 - **Rule:** ALL services return dataclasses from this module, NEVER return raw dicts
-- **Migration completed:** All `Union[Dataclass, Dict]` removed, all Dict returns eliminated
 
 **Dialog patterns** (all extend `BaseDialog` for consistent UX):
 
@@ -159,9 +158,10 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
     - Search and filter capabilities
     - Checkbox for backup creation before deletion
   * **Similar files** (`ui/dialogs/similar_files_dialog.py`): Perceptual hash-based visual similarity
-    - TreeWidget with similarity scores (0-100%)
-    - Adjustable sensitivity slider for threshold
-    - Preview showing files to keep vs delete
+    - Two-phase analysis: expensive hash calculation once, fast reclustering on-demand
+    - Interactive sensitivity slider (30-100%) with real-time result updates
+    - TreeWidget with similarity scores and dynamic grouping
+    - Instant statistics updates (groups count, recoverable space)
     - Checkbox for backup creation before deletion
 
 ### Developer Workflow
@@ -176,18 +176,12 @@ Run: `source .venv/bin/activate && python main.py`
 Project files:
 - `PROJECT_TREE.md`: Complete project structure and file descriptions
 - `CHANGELOG.md`: Version history and changes
-- `docs/FASE_2_IMPLEMENTADA.md`: Phase 2 implementation details (analysis with progress)
-- `docs/FASE_3_IMPLEMENTADA.md`: Phase 3 implementation details (tools grid and dialogs)
-- `docs/REFACTORING_RECOMMENDATIONS.md`: Detailed refactoring plan for 100% UI/logic decoupling
-- `docs/SPRINT_1_COMPLETADO.md`: ✅ Sprint 1 completion report (100% dataclass migration)
-- `docs/SPRINT_2_COMPLETADO.md`: ✅ Sprint 2 completion report (100% typed workers)
-- `docs/SPRINT_3_COMPLETADO.md`: ✅ Sprint 3 completion report (View Models for UI/Logic separation)
 - `.vscode/`: VS Code workspace configuration (launch, tasks, settings, keybindings)
 
 ### Code Quality Rules
 
 - **Strict PEP 8**: use type hints where present, maintain existing patterns
-- **Type Safety Priority** ✅ (Sprint 1, 2 & 3 completed):
+- **Type Safety Priority** ✅:
   * ✅ All services return dataclasses (see `services/result_types.py`)
   * ✅ No more `Union[Dataclass, Dict]` - single type per interface
   * ✅ All public methods typed: `def analyze_foo(path: Path) -> FooAnalysisResult:`
