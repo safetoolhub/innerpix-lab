@@ -27,42 +27,27 @@ def get_file_date(file_path: Path, verbose: bool = False) -> Optional[datetime]:
         datetime o None si no se puede obtener
     """
     try:
-        dates_found = {}
-        
         # Determinar si mostrar logging detallado
         show_details = verbose or _logger.isEnabledFor(logging.DEBUG)
         log_func = _logger.info if verbose else _logger.debug
         
-        if show_details:
-            log_func(f"Análisis de fechas para: {file_path.name}")
-        
         # 1. Intentar obtener fecha EXIF
         exif_date = get_exif_date(file_path)
-        if exif_date:
-            dates_found['EXIF'] = exif_date
-            if show_details:
-                log_func(f"  → Fecha EXIF: {exif_date.strftime('%Y-%m-%d %H:%M:%S')}")
 
         # 2. Obtener fecha de creación
         stat = file_path.stat()
         creation_time = None
+        creation_source = None
         
         if hasattr(stat, 'st_birthtime'):
             creation_time = datetime.fromtimestamp(stat.st_birthtime)
-            dates_found['Creación'] = creation_time
-            if show_details:
-                log_func(f"  → Fecha de creación: {creation_time.strftime('%Y-%m-%d %H:%M:%S')}")
+            creation_source = 'birth'
         elif hasattr(stat, 'st_ctime'):
             creation_time = datetime.fromtimestamp(stat.st_ctime)
-            dates_found['Creación (ctime)'] = creation_time
-            if show_details:
-                log_func(f"  → Fecha de creación (ctime): {creation_time.strftime('%Y-%m-%d %H:%M:%S')}")
+            creation_source = 'ctime'
 
         # 3. Obtener fecha de modificación
         modification_time = datetime.fromtimestamp(stat.st_mtime)
-        dates_found['Modificación'] = modification_time
-        if show_details:
-            log_func(f"  → Fecha de modificación: {modification_time.strftime('%Y-%m-%d %H:%M:%S')}")
 
         # Seleccionar la fecha más antigua
         selected_date = None
@@ -74,19 +59,31 @@ def get_file_date(file_path: Path, verbose: bool = False) -> Optional[datetime]:
         elif creation_time and modification_time:
             if creation_time <= modification_time:
                 selected_date = creation_time
-                selected_source = 'Creación'
+                selected_source = creation_source
             else:
                 selected_date = modification_time
-                selected_source = 'Modificación'
+                selected_source = 'mtime'
         elif modification_time:
             selected_date = modification_time
-            selected_source = 'Modificación'
+            selected_source = 'mtime'
         elif creation_time:
             selected_date = creation_time
-            selected_source = 'Creación'
+            selected_source = creation_source
 
-        if selected_date and show_details:
-            log_func(f"  ✓ FECHA SELECCIONADA ({selected_source}): {selected_date.strftime('%Y-%m-%d %H:%M:%S')}")
+        # Log compacto en una sola línea con toda la información
+        if show_details and selected_date:
+            # Formato compacto: nombre | fechas disponibles → seleccionada
+            dates_str = []
+            if exif_date:
+                dates_str.append(f"EXIF:{exif_date.strftime('%Y%m%d_%H%M%S')}")
+            if creation_time:
+                dates_str.append(f"{creation_source}:{creation_time.strftime('%Y%m%d_%H%M%S')}")
+            dates_str.append(f"mtime:{modification_time.strftime('%Y%m%d_%H%M%S')}")
+            
+            log_func(
+                f"{file_path.name} | {' | '.join(dates_str)} → "
+                f"✓ {selected_source}:{selected_date.strftime('%Y%m%d_%H%M%S')}"
+            )
 
         return selected_date
 

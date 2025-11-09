@@ -39,7 +39,7 @@ class AnalysisPhaseWidget(QFrame):
         layout.setSpacing(0)  # Sin espacio entre fases para máxima compacidad
         layout.setContentsMargins(0, 0, 0, 0)  # Sin márgenes
         
-        # Header compacto
+        # Header
         header_layout = QHBoxLayout()
         header_layout.setSpacing(DesignSystem.SPACE_6)
         header_layout.setContentsMargins(0, 0, 0, 0)

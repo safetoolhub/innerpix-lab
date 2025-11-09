@@ -155,9 +155,29 @@ class HEICRemover:
         total_jpg_count = 0
 
         for file_path in all_files:
-            # Reportar progreso
+            # Reportar progreso y verificar si se solicitó cancelación
             if progress_callback:
-                progress_callback(processed, total_files, "Analizando HEIC/JPG duplicados")
+                # Si el callback retorna False, el usuario canceló - detener inmediatamente
+                if not progress_callback(processed, total_files, "Analizando HEIC/JPG duplicados"):
+                    self.logger.info("Análisis de HEIC/JPG cancelado por el usuario")
+                    # Retornar resultado vacío al cancelar
+                    return {
+                        'directory': directory,
+                        'duplicate_pairs': [],
+                        'orphan_heic': [],
+                        'orphan_jpg': [],
+                        'total_heic_files': 0,
+                        'total_jpg_files': 0,
+                        'total_duplicates': 0,
+                        'potential_savings_keep_jpg': 0,
+                        'potential_savings_keep_heic': 0,
+                        'by_directory': {},
+                        'compression_stats': {
+                            'min_ratio': 0,
+                            'max_ratio': 0,
+                            'avg_ratio': 0
+                        }
+                    }
             
             extension = file_path.suffix.lower()
             base_name = file_path.stem

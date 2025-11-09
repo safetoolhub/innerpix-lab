@@ -26,9 +26,27 @@ class SettingsDialog(QDialog):
         super().__init__(parent)
         self.parent_window = parent
         self.logger = logging.getLogger('PixaroLab.SettingsDialog')
-        self.settings_changed = False
+        
+        # Referencia al botón de guardar (se asignará en init_ui)
+        self.save_button = None
+        
+        # Valores originales para detectar cambios
+        self.original_values = {}
+        
+        # Flag para evitar validaciones durante la carga inicial
+        self._loading = True
+        
         self.init_ui()
         self._load_current_settings()
+        
+        # Conectar señales para detectar cambios
+        self._connect_change_signals()
+        
+        # Marcar que la carga inicial terminó
+        self._loading = False
+        
+        # Validar estado inicial (debe estar deshabilitado sin cambios)
+        self._validate_changes()
 
     def init_ui(self):
         self.setWindowTitle("Configuracion")
@@ -98,9 +116,13 @@ class SettingsDialog(QDialog):
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
         )
-        buttons.button(QDialogButtonBox.StandardButton.Save).setText("Guardar Cambios")
-        buttons.button(QDialogButtonBox.StandardButton.Save).setObjectName("save-button")
-        buttons.button(QDialogButtonBox.StandardButton.Save).setStyleSheet(f"""
+        
+        # Guardar referencia al botón Save
+        self.save_button = buttons.button(QDialogButtonBox.StandardButton.Save)
+        self.save_button.setText("Guardar Cambios")
+        self.save_button.setObjectName("save-button")
+        self.save_button.setEnabled(False)  # Iniciar deshabilitado
+        self.save_button.setStyleSheet(f"""
             QPushButton#save-button {{
                 background-color: {DesignSystem.COLOR_SUCCESS};
                 color: {DesignSystem.COLOR_SURFACE};
@@ -113,7 +135,12 @@ class SettingsDialog(QDialog):
             QPushButton#save-button:hover {{
                 background-color: #059669;
             }}
+            QPushButton#save-button:disabled {{
+                background-color: {DesignSystem.COLOR_BG_4};
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            }}
         """)
+        
         buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("Cancelar")
         buttons.button(QDialogButtonBox.StandardButton.Cancel).setObjectName("cancel-button")
         buttons.button(QDialogButtonBox.StandardButton.Cancel).setStyleSheet(f"""
@@ -695,6 +722,7 @@ class SettingsDialog(QDialog):
 
             # Advanced tab
             self.max_workers_spin.setValue(settings_manager.get_max_workers(Config.MAX_WORKERS))
+            self.dry_run_default_checkbox.setChecked(settings_manager.get_bool(settings_manager.KEY_DRY_RUN_DEFAULT, False))
 
             # Directories tab - Log level
             current_level = settings_manager.get_log_level("INFO")
@@ -710,10 +738,121 @@ class SettingsDialog(QDialog):
             if backup_dir:
                 self.backup_edit.setText(str(backup_dir))
 
+            # Guardar valores originales para detectar cambios
+            self._save_original_values()
+
             self.logger.debug("Configuración cargada desde settings_manager")
 
         except Exception as e:
             self.logger.exception(f"Error cargando configuración: {e}")
+    
+    def _save_original_values(self):
+        """Guarda los valores actuales como originales para detectar cambios"""
+        self.original_values = {
+            'logs_dir': self.logs_edit.text(),
+            'backup_dir': self.backup_edit.text(),
+            'log_level': self.log_level_combo.currentIndex(),
+            'auto_backup': self.auto_backup_checkbox.isChecked(),
+            'confirm_ops': self.confirm_operations_checkbox.isChecked(),
+            'confirm_delete': self.confirm_delete_checkbox.isChecked(),
+            'show_notif': self.show_notifications_checkbox.isChecked(),
+            'show_path': self.show_full_path_checkbox.isChecked(),
+            'max_workers': self.max_workers_spin.value(),
+            'dry_run': self.dry_run_default_checkbox.isChecked(),
+        }
+        self.logger.debug(f"Valores originales guardados: {self.original_values}")
+    
+    def _connect_change_signals(self):
+        """Conecta señales de cambio de todos los widgets para detectar modificaciones"""
+        # Checkboxes
+        self.auto_backup_checkbox.stateChanged.connect(lambda: self._on_widget_changed("auto_backup"))
+        self.confirm_operations_checkbox.stateChanged.connect(lambda: self._on_widget_changed("confirm_ops"))
+        self.confirm_delete_checkbox.stateChanged.connect(lambda: self._on_widget_changed("confirm_delete"))
+        self.show_notifications_checkbox.stateChanged.connect(lambda: self._on_widget_changed("show_notif"))
+        self.show_full_path_checkbox.stateChanged.connect(lambda: self._on_widget_changed("show_path"))
+        self.dry_run_default_checkbox.stateChanged.connect(lambda: self._on_widget_changed("dry_run"))
+        
+        # Spinbox
+        self.max_workers_spin.valueChanged.connect(lambda: self._on_widget_changed("max_workers"))
+        
+        # Combobox
+        self.log_level_combo.currentIndexChanged.connect(lambda: self._on_widget_changed("log_level"))
+        
+        # Line edits (directorios)
+        self.logs_edit.textChanged.connect(lambda: self._on_widget_changed("logs_dir"))
+        self.backup_edit.textChanged.connect(lambda: self._on_widget_changed("backup_dir"))
+    
+    def _on_widget_changed(self, widget_name):
+        """Manejador común para cambios en widgets"""
+        self.logger.debug(f"Widget changed: {widget_name}")
+        self._validate_changes()
+    
+    def _validate_changes(self):
+        """
+        Valida si hay cambios reales comparando valores actuales con originales.
+        Habilita/deshabilita el botón Guardar según corresponda.
+        """
+        # Ignorar validaciones durante la carga inicial
+        if getattr(self, '_loading', True):
+            return
+        
+        if not self.original_values or not self.save_button:
+            return
+        
+        # Comparar cada valor
+        current_logs = self.logs_edit.text()
+        original_logs = self.original_values['logs_dir']
+        logs_changed = current_logs != original_logs
+        
+        current_backup = self.backup_edit.text()
+        original_backup = self.original_values['backup_dir']
+        backup_changed = current_backup != original_backup
+        
+        current_level = self.log_level_combo.currentIndex()
+        original_level = self.original_values['log_level']
+        level_changed = current_level != original_level
+        
+        current_auto_backup = self.auto_backup_checkbox.isChecked()
+        original_auto_backup = self.original_values['auto_backup']
+        auto_backup_changed = current_auto_backup != original_auto_backup
+        
+        current_confirm_ops = self.confirm_operations_checkbox.isChecked()
+        original_confirm_ops = self.original_values['confirm_ops']
+        confirm_ops_changed = current_confirm_ops != original_confirm_ops
+        
+        current_confirm_delete = self.confirm_delete_checkbox.isChecked()
+        original_confirm_delete = self.original_values['confirm_delete']
+        confirm_delete_changed = current_confirm_delete != original_confirm_delete
+        
+        current_show_notif = self.show_notifications_checkbox.isChecked()
+        original_show_notif = self.original_values['show_notif']
+        show_notif_changed = current_show_notif != original_show_notif
+        
+        current_show_path = self.show_full_path_checkbox.isChecked()
+        original_show_path = self.original_values['show_path']
+        show_path_changed = current_show_path != original_show_path
+        
+        current_max_workers = self.max_workers_spin.value()
+        original_max_workers = self.original_values['max_workers']
+        max_workers_changed = current_max_workers != original_max_workers
+        
+        current_dry_run = self.dry_run_default_checkbox.isChecked()
+        original_dry_run = self.original_values['dry_run']
+        dry_run_changed = current_dry_run != original_dry_run
+        
+        has_changes = (
+            logs_changed or backup_changed or level_changed or auto_backup_changed or
+            confirm_ops_changed or confirm_delete_changed or show_notif_changed or
+            show_path_changed or max_workers_changed or dry_run_changed
+        )
+        
+        # Habilitar/deshabilitar botón según haya cambios
+        self.save_button.setEnabled(has_changes)
+        
+        # Log para debugging (solo si cambia el estado)
+        if has_changes != getattr(self, '_last_has_changes', None):
+            self.logger.debug(f"Cambios detectados: {has_changes}")
+            self._last_has_changes = has_changes
 
     # === MÉTODOS AUXILIARES ===
 
@@ -727,7 +866,7 @@ class SettingsDialog(QDialog):
         )
         if directory:
             self.logs_edit.setText(directory)
-            self.settings_changed = True
+            # La señal textChanged se dispara automáticamente
 
     def browse_backup_directory(self):
         """Cambia directorio de backups"""
@@ -739,6 +878,7 @@ class SettingsDialog(QDialog):
         )
         if directory:
             self.backup_edit.setText(directory)
+            # La señal textChanged se dispara automáticamente
             self.settings_changed = True
 
     def open_logs_folder(self):
@@ -862,6 +1002,8 @@ class SettingsDialog(QDialog):
             self.show_full_path_checkbox.setChecked(True)
             self.dry_run_default_checkbox.setChecked(False)
             self.max_workers_spin.setValue(Config.MAX_WORKERS)
+            
+            # Revalidar cambios (las señales ya se dispararán automáticamente)
 
             QMessageBox.information(self, "Restaurado", "Configuracion restaurada a valores por defecto.\n\n"
                                    "Presiona 'Guardar Cambios' para aplicar.")
@@ -869,52 +1011,116 @@ class SettingsDialog(QDialog):
     def save_settings(self):
         """Guarda la configuración en el settings_manager"""
         try:
-            # === DIRECTORIOS ===
+            # === DETECTAR CAMBIOS REALES PRIMERO ===
+            # Evita operaciones costosas si no hay cambios
+            
+            # Valores actuales (desde settings_manager)
+            current_logs_dir = settings_manager.get_logs_directory()
+            current_backup_dir = settings_manager.get_backup_directory()
+            current_log_level = settings_manager.get_log_level("INFO")
+            current_auto_backup = settings_manager.get_auto_backup_enabled()
+            current_confirm_ops = settings_manager.get_confirm_operations()
+            current_confirm_delete = settings_manager.get_confirm_delete()
+            current_show_notif = settings_manager.get_show_notifications()
+            current_show_path = settings_manager.get_show_full_path()
+            current_max_workers = settings_manager.get_max_workers(Config.MAX_WORKERS)
+            current_dry_run = settings_manager.get_bool(settings_manager.KEY_DRY_RUN_DEFAULT, False)
+            
+            # Valores nuevos (desde UI)
             new_logs_dir = Path(self.logs_edit.text())
             new_backup_dir = Path(self.backup_edit.text())
-
-            settings_manager.set_logs_directory(new_logs_dir)
-            settings_manager.set_backup_directory(new_backup_dir)
-
-            # Actualizar en la ventana padre
-            if self.parent_window:
-                if hasattr(self.parent_window, 'logging_manager'):
+            new_log_level = self.log_level_combo.currentText().split()[0].split(" - ")[0].upper()
+            new_auto_backup = self.auto_backup_checkbox.isChecked()
+            new_confirm_ops = self.confirm_operations_checkbox.isChecked()
+            new_confirm_delete = self.confirm_delete_checkbox.isChecked()
+            new_show_notif = self.show_notifications_checkbox.isChecked()
+            new_show_path = self.show_full_path_checkbox.isChecked()
+            new_max_workers = self.max_workers_spin.value()
+            new_dry_run = self.dry_run_default_checkbox.isChecked()
+            
+            # Detectar qué cambió
+            logs_dir_changed = (current_logs_dir != new_logs_dir)
+            backup_dir_changed = (current_backup_dir != new_backup_dir)
+            log_level_changed = (current_log_level != new_log_level)
+            any_setting_changed = (
+                logs_dir_changed or backup_dir_changed or log_level_changed or
+                current_auto_backup != new_auto_backup or
+                current_confirm_ops != new_confirm_ops or
+                current_confirm_delete != new_confirm_delete or
+                current_show_notif != new_show_notif or
+                current_show_path != new_show_path or
+                current_max_workers != new_max_workers or
+                current_dry_run != new_dry_run
+            )
+            
+            # Si NO hay cambios, cerrar inmediatamente sin operaciones costosas
+            if not any_setting_changed:
+                self.logger.debug("No hay cambios en la configuración, cerrando diálogo")
+                self.accept()
+                return
+            
+            # === APLICAR SOLO LOS CAMBIOS NECESARIOS ===
+            
+            # Directorios (solo si cambiaron)
+            if logs_dir_changed:
+                settings_manager.set_logs_directory(new_logs_dir)
+                
+                # Actualizar logging_manager solo si cambió
+                if self.parent_window and hasattr(self.parent_window, 'logging_manager'):
                     try:
                         self.parent_window.logging_manager.change_logs_directory(new_logs_dir)
                         self.parent_window.logs_directory = self.parent_window.logging_manager.logs_directory
                         self.parent_window.log_file = self.parent_window.logging_manager.log_file
                     except Exception as e:
-                        self.logger.warning(f"No se pudo cambiar directorio de logs en logging_manager: {e}")
+                        self.logger.warning(f"No se pudo cambiar directorio de logs: {e}")
                         self.parent_window.logs_directory = new_logs_dir
+            
+            if backup_dir_changed:
+                settings_manager.set_backup_directory(new_backup_dir)
 
-            # === NIVEL DE LOG ===
-            level_text = self.log_level_combo.currentText()
-            self.change_log_level(level_text)
+            # Nivel de log (solo si cambió)
+            if log_level_changed:
+                self.change_log_level(self.log_level_combo.currentText())
 
-            # === GENERAL ===
-            settings_manager.set_auto_backup_enabled(self.auto_backup_checkbox.isChecked())
-            settings_manager.set(settings_manager.KEY_CONFIRM_OPERATIONS, self.confirm_operations_checkbox.isChecked())
-            settings_manager.set(settings_manager.KEY_CONFIRM_DELETE, self.confirm_delete_checkbox.isChecked())
-            settings_manager.set(settings_manager.KEY_SHOW_NOTIFICATIONS, self.show_notifications_checkbox.isChecked())
-            settings_manager.set_show_full_path(self.show_full_path_checkbox.isChecked())
+            # General (solo si cambiaron)
+            if current_auto_backup != new_auto_backup:
+                settings_manager.set_auto_backup_enabled(new_auto_backup)
+            if current_confirm_ops != new_confirm_ops:
+                settings_manager.set(settings_manager.KEY_CONFIRM_OPERATIONS, new_confirm_ops)
+            if current_confirm_delete != new_confirm_delete:
+                settings_manager.set(settings_manager.KEY_CONFIRM_DELETE, new_confirm_delete)
+            if current_show_notif != new_show_notif:
+                settings_manager.set(settings_manager.KEY_SHOW_NOTIFICATIONS, new_show_notif)
+            if current_show_path != new_show_path:
+                settings_manager.set_show_full_path(new_show_path)
 
-            # === AVANZADO ===
-            settings_manager.set(settings_manager.KEY_MAX_WORKERS, self.max_workers_spin.value())
-            settings_manager.set(settings_manager.KEY_DRY_RUN_DEFAULT, self.dry_run_default_checkbox.isChecked())
+            # Avanzado (solo si cambiaron)
+            if current_max_workers != new_max_workers:
+                settings_manager.set(settings_manager.KEY_MAX_WORKERS, new_max_workers)
+            if current_dry_run != new_dry_run:
+                settings_manager.set(settings_manager.KEY_DRY_RUN_DEFAULT, new_dry_run)
 
             self.logger.info("Configuración guardada exitosamente")
 
             # Emitir señal de cambios guardados
             self.settings_saved.emit()
 
-            QMessageBox.information(
-                self,
-                "Configuracion Guardada",
-                "La configuracion se ha guardado correctamente.\n\n"
-                "Algunos cambios pueden requerir reiniciar la aplicacion."
-            )
-
+            # ✅ IMPORTANTE: Cerrar el diálogo ANTES de mostrar el mensaje
+            # Esto evita problemas con la pila modal
             self.accept()
+
+            # Mensaje informativo después de cerrar el diálogo
+            msg_text = "La configuracion se ha guardado correctamente."
+            if logs_dir_changed:
+                msg_text += "\n\nEl directorio de logs ha cambiado. Los nuevos logs se escribirán en la nueva ubicación."
+            elif any_setting_changed:
+                msg_text += "\n\nAlgunos cambios pueden requerir reiniciar la aplicacion."
+            
+            QMessageBox.information(
+                self.parent_window if self.parent_window else self,
+                "Configuracion Guardada",
+                msg_text
+            )
 
         except Exception as e:
             self.logger.exception(f"Error guardando configuración: {e}")
