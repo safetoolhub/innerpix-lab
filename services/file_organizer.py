@@ -157,13 +157,47 @@ class FileOrganizer:
                     
                     processed_files += 1
                     if progress_callback:
-                        progress_callback(processed_files, total_files, "Analizando estructura de organización")
+                        # Si el callback retorna False, cancelar análisis
+                        if not progress_callback(processed_files, total_files, "Analizando estructura de organización"):
+                            self.logger.info("Análisis de organización cancelado por el usuario")
+                            executor.shutdown(wait=False, cancel_futures=True)
+                            # Retornar resultado vacío al cancelar
+                            return OrganizationAnalysisResult(
+                                success=False,
+                                total_files=0,
+                                root_directory=str(root_directory),
+                                organization_type=organization_type.value,
+                                subdirectories={},
+                                root_files=[],
+                                total_files_to_move=0,
+                                total_size_to_move=0,
+                                potential_conflicts=0,
+                                files_by_type={},
+                                move_plan=[],
+                                folders_to_create=[]
+                            )
         else:
             # Solo necesitamos los nombres para TO_ROOT
             root_file_names = {item.name for item in root_files_list}
             processed_files += len(root_files_list)
             if progress_callback:
-                progress_callback(processed_files, total_files, "Analizando estructura de organización")
+                # Si el callback retorna False, cancelar análisis
+                if not progress_callback(processed_files, total_files, "Analizando estructura de organización"):
+                    self.logger.info("Análisis de organización cancelado por el usuario")
+                    return OrganizationAnalysisResult(
+                        success=False,
+                        total_files=0,
+                        root_directory=str(root_directory),
+                        organization_type=organization_type.value,
+                        subdirectories={},
+                        root_files=[],
+                        total_files_to_move=0,
+                        total_size_to_move=0,
+                        potential_conflicts=0,
+                        files_by_type={},
+                        move_plan=[],
+                        folders_to_create=[]
+                    )
 
         # Procesar subdirectorios
         for item in root_directory.iterdir():
@@ -192,7 +226,25 @@ class FileOrganizer:
                     
                     processed_files += 1
                     if progress_callback:
-                        progress_callback(processed_files, total_files, "Analizando estructura de organización")
+                        # Si el callback retorna False, cancelar análisis
+                        if not progress_callback(processed_files, total_files, "Analizando estructura de organización"):
+                            self.logger.info("Análisis de organización cancelado por el usuario")
+                            executor.shutdown(wait=False, cancel_futures=True)
+                            # Retornar resultado vacío al cancelar
+                            return OrganizationAnalysisResult(
+                                success=False,
+                                total_files=0,
+                                root_directory=str(root_directory),
+                                organization_type=organization_type.value,
+                                subdirectories={},
+                                root_files=[],
+                                total_files_to_move=0,
+                                total_size_to_move=0,
+                                potential_conflicts=0,
+                                files_by_type={},
+                                move_plan=[],
+                                folders_to_create=[]
+                            )
 
             if subdir_files:
                 subdirectories[subdir_name] = {

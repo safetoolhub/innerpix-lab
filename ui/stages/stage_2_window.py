@@ -93,8 +93,16 @@ class Stage2Window(BaseStage):
 
         # Detener worker si está ejecutándose
         if self.analysis_worker and self.analysis_worker.isRunning():
+            self.logger.info("Deteniendo worker durante cleanup...")
             self.analysis_worker.stop()
-            self.analysis_worker.wait()
+            
+            # Esperar con timeout para evitar bloqueos indefinidos
+            if not self.analysis_worker.wait(5000):  # 5 segundos de timeout
+                self.logger.warning("Worker no respondió durante cleanup, terminando forzosamente")
+                self.analysis_worker.terminate()
+                self.analysis_worker.wait(1000)
+            else:
+                self.logger.info("Worker detenido correctamente durante cleanup")
 
         # Limpiar referencias
         if self.header:
@@ -368,11 +376,16 @@ class Stage2Window(BaseStage):
         if self.analysis_worker and self.analysis_worker.isRunning():
             self.logger.info("Deteniendo worker de análisis...")
             self.analysis_worker.stop()
-            self.analysis_worker.wait()
-            self.logger.info("Worker detenido")
+            
+            # Esperar con timeout para evitar bloqueos indefinidos
+            # Con 50000 archivos, el worker debería responder en menos de 5 segundos
+            if not self.analysis_worker.wait(5000):  # 5 segundos de timeout
+                self.logger.warning("Worker no respondió en 5 segundos, terminando forzosamente")
+                self.analysis_worker.terminate()
+                # Esperar un poco más después de terminate
+                self.analysis_worker.wait(1000)
+            else:
+                self.logger.info("Worker detenido correctamente")
         
         # Volver a Estado 1
         self._return_to_state_1()
-
-        # Transición al Estado 1 (delegar al sistema de estados)
-        # TODO: Implementar transición a través del sistema de estados

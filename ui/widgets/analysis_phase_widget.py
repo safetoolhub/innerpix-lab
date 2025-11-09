@@ -39,7 +39,7 @@ class AnalysisPhaseWidget(QFrame):
         layout.setSpacing(0)  # Sin espacio entre fases para máxima compacidad
         layout.setContentsMargins(0, 0, 0, 0)  # Sin márgenes
         
-        # Header compacto
+        # Header
         header_layout = QHBoxLayout()
         header_layout.setSpacing(DesignSystem.SPACE_6)
         header_layout.setContentsMargins(0, 0, 0, 0)
@@ -111,7 +111,6 @@ class AnalysisPhaseWidget(QFrame):
         
         # Texto compacto
         text_label = QLabel(text)
-        text_label.setWordWrap(True)
         text_label.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_LG}px;
             color: {DesignSystem.COLOR_TEXT_SECONDARY};

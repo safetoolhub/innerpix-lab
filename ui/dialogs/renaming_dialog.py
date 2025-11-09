@@ -16,6 +16,7 @@ from utils.settings_manager import settings_manager
 from config import Config
 from ui import ui_styles
 from ui.styles.design_system import DesignSystem
+from utils.icons import icon_manager
 from .base_dialog import BaseDialog
 
 
@@ -144,7 +145,7 @@ class RenamingPreviewDialog(BaseDialog):
         
         # Advertencia de rendimiento si hay muchos archivos
         if self.analysis_results.need_renaming > self.MAX_ITEMS_WITHOUT_PAGINATION:
-            info_text += f"   •   ⚡ Modo paginado"
+            info_text += f"   •   Modo paginado"
         
         info_label = QLabel(info_text)
         info_label.setStyleSheet(ui_styles.STYLE_DIALOG_INFO_SMALL)
@@ -160,12 +161,13 @@ class RenamingPreviewDialog(BaseDialog):
         toolbar = QHBoxLayout()
         
         # Búsqueda
-        search_label = QLabel("🔍")
+        search_icon = QLabel()
+        icon_manager.set_label_icon(search_icon, 'search', size=16)
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Buscar archivo...")
         self.search_input.textChanged.connect(self._apply_filters)
         self.search_input.setMaximumWidth(200)
-        toolbar.addWidget(search_label)
+        toolbar.addWidget(search_icon)
         toolbar.addWidget(self.search_input)
         
         # Separador
@@ -211,7 +213,8 @@ class RenamingPreviewDialog(BaseDialog):
         toolbar.addWidget(QLabel("|"))
         
         # Botón limpiar filtros
-        clear_btn = QPushButton("✕ Limpiar")
+        clear_btn = QPushButton("Limpiar")
+        icon_manager.set_button_icon(clear_btn, 'close', size=16)
         clear_btn.clicked.connect(self._clear_filters)
         clear_btn.setMaximumWidth(80)
         toolbar.addWidget(clear_btn)
@@ -249,8 +252,8 @@ class RenamingPreviewDialog(BaseDialog):
         
         # Tooltip informativo
         table.setToolTip(
-            "💡 Doble clic en cualquier fila para abrir el archivo original\n"
-            "💡 Clic derecho para ver detalles y opciones"
+            "Doble clic en cualquier fila para abrir el archivo original\n"
+            "Clic derecho para ver detalles y opciones"
         )
         
         # Conectar doble clic para abrir archivos
@@ -347,7 +350,7 @@ class RenamingPreviewDialog(BaseDialog):
 
     def _create_problems_section(self):
         """Crea sección colapsable de problemas"""
-        group = QGroupBox(f"⚠️ Archivos con Problemas ({len(self.analysis_results.issues)})")
+        group = QGroupBox(f"Archivos con Problemas ({len(self.analysis_results.issues)})")
         group.setCheckable(True)
         group.setChecked(False)  # Colapsado por defecto
         group.setMaximumHeight(150)
@@ -373,17 +376,17 @@ class RenamingPreviewDialog(BaseDialog):
 
     def _create_options_group(self):
         """Crea el grupo de opciones de seguridad"""
-        options_group = QGroupBox("⚙️ Opciones de Seguridad")
+        options_group = QGroupBox("Opciones de Seguridad")
         # Asegurar que el título no se corte
         options_group.setMinimumWidth(400)
         options_group.setStyleSheet(ui_styles.STYLE_DIALOG_OPTIONS_GROUP)
         options_layout = QVBoxLayout()
         
         # Checkbox de backup (primero)
-        self.add_backup_checkbox(options_layout, "💾 Crear backup antes de renombrar (Recomendado)")
+        self.add_backup_checkbox(options_layout, "Crear backup antes de renombrar (Recomendado)")
         
         # Checkbox de simulación (segundo)
-        self.dry_run_checkbox = QCheckBox("🔍 Modo simulación (no renombrar realmente)")
+        self.dry_run_checkbox = QCheckBox("Modo simulación (no renombrar realmente)")
         dry_run_default = settings_manager.get(settings_manager.KEY_DRY_RUN_DEFAULT, 'false')
         if isinstance(dry_run_default, str):
             dry_run_default = dry_run_default.lower() == 'true'
@@ -651,17 +654,17 @@ class RenamingPreviewDialog(BaseDialog):
         menu = QMenu(self)
         
         # Opción para abrir archivo
-        open_file_action = menu.addAction("📂 Abrir archivo")
+        open_file_action = menu.addAction("Abrir archivo")
         open_file_action.triggered.connect(lambda: self._open_file(file_path))
         
         # Opción para abrir carpeta
-        open_folder_action = menu.addAction("📁 Abrir carpeta")
+        open_folder_action = menu.addAction("Abrir carpeta")
         open_folder_action.triggered.connect(lambda: self._open_folder(file_path.parent))
         
         menu.addSeparator()
         
         # Opción para ver detalles
-        details_action = menu.addAction("ℹ️ Ver detalles completos")
+        details_action = menu.addAction("Ver detalles completos")
         details_action.triggered.connect(lambda: self._show_file_details(file_info))
         
         menu.exec(self.changes_table.viewport().mapToGlobal(position))

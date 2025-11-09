@@ -94,35 +94,42 @@ class LivePhotoDetector:
         total_files = len(all_files)
         processed = 0
 
+        self.logger.info(f"Escaneando {total_files} archivos para detectar Live Photos")
+
         for file_path in all_files:
-            # Reportar progreso
+            # Reportar progreso y verificar si se solicitó cancelación
             if progress_callback:
-                progress_callback(processed, total_files, "Detectando Live Photos")
+                # Si el callback retorna False, el usuario canceló - detener inmediatamente
+                if not progress_callback(processed, total_files, "Detectando Live Photos"):
+                    self.logger.info("Detección de Live Photos cancelada por el usuario")
+                    return []  # Retornar lista vacía al cancelar
             
             ext = file_path.suffix.upper()  # Convertir la extensión a mayúsculas
-            self.logger.debug(f"Analizando archivo: {file_path.name} con extensión {ext}")
             
             if ext in self.photo_extensions:
-                self.logger.debug(f"Encontrada foto: {file_path.name}")
                 photos.append(file_path)
             elif ext in self.video_extensions:
-                self.logger.debug(f"Encontrado video: {file_path.name}")
                 videos.append(file_path)
             
             processed += 1
 
         # Reportar progreso final (100%)
         if progress_callback and total_files > 0:
-            progress_callback(total_files, total_files, "Detectando Live Photos")
+            if not progress_callback(total_files, total_files, "Detectando Live Photos"):
+                self.logger.info("Detección de Live Photos cancelada por el usuario")
+                return []
 
         self.logger.info(f"Encontrados: {len(photos)} fotos, {len(videos)} videos")
 
         if not photos or not videos:
             return []
 
-        # Detectar grupos
-        groups = []
-        groups.extend(self._detect_live_photos(photos, videos))
+        # Detectar grupos con progreso
+        self.logger.info("Iniciando matching de Live Photos...")
+        groups = self._detect_live_photos(photos, videos, progress_callback)
+
+        if groups is None:  # Cancelación durante matching
+            return []
 
         # Eliminar duplicados
         unique_groups = self._remove_duplicate_groups(groups)
@@ -141,24 +148,47 @@ class LivePhotoDetector:
                 name = name[:-len(suffix)]
         return name
 
-    def _detect_live_photos(self, photos: List[Path], videos: List[Path]) -> List[LivePhotoGroup]:
-        """Detecta Live Photos buscando parejas de fotos con videos .MOV"""
+    def _detect_live_photos(self, photos: List[Path], videos: List[Path], progress_callback=None) -> List[LivePhotoGroup]:
+        """
+        Detecta Live Photos buscando parejas de fotos con videos .MOV
+        
+        Args:
+            photos: Lista de fotos a procesar
+            videos: Lista de videos a buscar
+            progress_callback: Callback opcional para reportar progreso
+            
+        Returns:
+            Lista de grupos encontrados, o None si se cancela
+        """
         groups = []
+        total_photos = len(photos)
+        
+        self.logger.info(f"Construyendo mapa de videos ({len(videos)} videos)...")
         
         # Crear un mapa de nombres base a videos .MOV
         video_map = defaultdict(list)
         for video in videos:
             normalized_name = self._normalize_name(video.stem)
             video_map[normalized_name].append(video)
-            self.logger.debug(f"Video registrado: {video.name} con nombre normalizado: {normalized_name}")
+
+        self.logger.info(f"Mapa de videos construido con {len(video_map)} nombres únicos")
+        self.logger.info(f"Procesando {total_photos} fotos para matching...")
 
         # Por cada foto, buscar su video .MOV correspondiente usando nombres normalizados
-        for photo in photos:
+        for idx, photo in enumerate(photos, 1):
+            # Reportar progreso cada 1000 fotos
+            if idx % 1000 == 0:
+                self.logger.info(f"Procesadas {idx}/{total_photos} fotos, {len(groups)} Live Photos encontrados hasta ahora")
+                
+                # Verificar cancelación
+                if progress_callback:
+                    if not progress_callback(idx, total_photos, "Matching Live Photos"):
+                        self.logger.info("Matching de Live Photos cancelado por el usuario")
+                        return None  # Señal de cancelación
+            
             normalized_name = self._normalize_name(photo.stem)
-            self.logger.debug(f"Buscando video para foto: {photo.name} con nombre normalizado: {normalized_name}")
-            self.logger.debug(f"Videos disponibles: {[k for k in video_map.keys()]}")
+            
             if normalized_name in video_map:
-                self.logger.debug(f"¡Match encontrado para {photo.name}!")
                 original_name = photo.stem
                 for video in video_map[normalized_name]:
                     if photo.parent == video.parent:
@@ -172,43 +202,12 @@ class LivePhotoDetector:
                                 video_size=video.stat().st_size
                             )
                             groups.append(group)
-                            self.logger.debug(f"Live Photo encontrado: {original_name}")
                         except Exception as e:
                             self.logger.warning(f"Error creando grupo para {original_name}: {e}")
 
-        return groups
-        timestamp_pattern = re.compile(r'(\d{8}_\d{6})')
-
-        image_timestamps = defaultdict(list)
-        for img in images:
-            match = timestamp_pattern.search(img.stem)
-            if match:
-                image_timestamps[match.group(1)].append(img)
-
-        video_timestamps = defaultdict(list)
-        for vid in videos:
-            match = timestamp_pattern.search(vid.stem)
-            if match:
-                video_timestamps[match.group(1)].append(vid)
-
-        for timestamp in image_timestamps.keys():
-            if timestamp in video_timestamps:
-                for img in image_timestamps[timestamp]:
-                    for vid in video_timestamps[timestamp]:
-                        if img.parent == vid.parent:
-                            try:
-                                group = LivePhotoGroup(
-                                    image_path=img,
-                                    video_path=vid,
-                                    base_name=timestamp,
-                                    directory=img.parent,
-                                    image_size=img.stat().st_size,
-                                    video_size=vid.stat().st_size
-                                )
-                                groups.append(group)
-                            except Exception as e:
-                                self.logger.warning(f"Error creando grupo: {e}")
-
+        # Log final
+        self.logger.info(f"Matching completado: {len(groups)} Live Photos encontrados")
+        
         return groups
 
     def _remove_duplicate_groups(self, groups: List[LivePhotoGroup]) -> List[LivePhotoGroup]:

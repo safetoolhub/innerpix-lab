@@ -69,7 +69,7 @@ class Config:
     MIN_PHASE_DURATION_SECONDS = 0.0  # Default: 1 segundo por fase
     
     # Delay adicional antes de transicionar a Stage 3 (después de completar todo)
-    FINAL_DELAY_BEFORE_STAGE3_SECONDS = 1.0  # Default: 2 segundos
+    FINAL_DELAY_BEFORE_STAGE3_SECONDS =1.0  # Default: 2 segundos
 
     # ========================================================================
     # CONSTANTES DE UI

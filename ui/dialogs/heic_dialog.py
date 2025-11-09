@@ -15,6 +15,7 @@ from config import Config
 from utils.format_utils import format_size
 from ui import ui_styles
 from ui.styles.design_system import DesignSystem
+from utils.icons import icon_manager
 from .base_dialog import BaseDialog
 
 
@@ -112,7 +113,7 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         layout.setContentsMargins(12, 8, 12, 8)
         
         explanation = QLabel(
-            "ℹ️ iOS crea versiones HEIC y JPG de la misma foto. Puedes eliminar una versión para liberar espacio. "
+            "iOS crea versiones HEIC y JPG de la misma foto. Puedes eliminar una versión para liberar espacio. "
             "<b>Mantener JPG</b>: compatibilidad universal | <b>Mantener HEIC</b>: menor tamaño"
         )
         explanation.setWordWrap(True)

@@ -7,6 +7,7 @@ from services.live_photo_cleaner import CleanupMode
 from utils.format_utils import format_size
 from ui import ui_styles
 from ui.styles.design_system import DesignSystem
+from utils.icons import icon_manager
 from .base_dialog import BaseDialog
 
 
@@ -65,7 +66,7 @@ class LivePhotoCleanupDialog(BaseDialog):
         mode_layout = QVLayout(mode_group)
         self.mode_buttons = QButtonGroup()
 
-        r1 = QRadioButton("🖼️ Conservar imágenes (JPG)")
+        r1 = QRadioButton("Conservar imágenes (JPG)")
         r1.setChecked(True)
         self.mode_buttons.addButton(r1, 0)
         mode_layout.addWidget(r1)
@@ -76,7 +77,7 @@ class LivePhotoCleanupDialog(BaseDialog):
         mode_layout.addWidget(desc1)
         mode_layout.addSpacing(10)
 
-        r2 = QRadioButton("🎥 Conservar videos (MOV)")
+        r2 = QRadioButton("Conservar videos (MOV)")
         self.mode_buttons.addButton(r2, 1)
         mode_layout.addWidget(r2)
 
@@ -94,25 +95,25 @@ class LivePhotoCleanupDialog(BaseDialog):
         live_photos_found = self.analysis.live_photos_found  # Dataclass attribute
         total_space = self.analysis.total_space  # Dataclass attribute
         stats_label = QLabel(
-            f"📱 Live Photos detectados: <b>{live_photos_found}</b><br>"
-            f"💾 Espacio total ocupado: <b>{format_size(total_space)}</b>"
+            f"Live Photos detectados: <b>{live_photos_found}</b><br>"
+            f"Espacio total ocupado: <b>{format_size(total_space)}</b>"
         )
         stats_label.setTextFormat(Qt.TextFormat.RichText)
         stats_layout.addWidget(stats_label)
         layout.addWidget(stats_group)
 
         # Opciones
-        options_group = QGroupBox("⚙️ Opciones de Seguridad")
+        options_group = QGroupBox("Opciones de Seguridad")
         options_group.setMinimumWidth(400)
         options_group.setStyleSheet("QGroupBox { font-weight: bold; }")
         options_layout = QVLayout(options_group)
 
         # Backup checkbox (primero)
-        self.add_backup_checkbox(options_layout, "💾 Crear backup antes de eliminar (Recomendado)")
+        self.add_backup_checkbox(options_layout, "Crear backup antes de eliminar (Recomendado)")
 
         # Simulación checkbox (segundo)
         from PyQt6.QtWidgets import QCheckBox
-        self.dry_run_checkbox = QCheckBox("🔍 Modo simulación (no eliminar archivos realmente)")
+        self.dry_run_checkbox = QCheckBox("Modo simulación (no eliminar archivos realmente)")
         # Leer configuración para establecer estado por defecto
         from utils.settings_manager import settings_manager
         dry_run_default = settings_manager.get(settings_manager.KEY_DRY_RUN_DEFAULT, False)
