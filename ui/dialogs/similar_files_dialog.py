@@ -1,16 +1,23 @@
+"""
+Diálogo de gestión de archivos similares con slider interactivo.
+
+Permite ajustar la sensibilidad de detección en tiempo real y gestionar
+los grupos de archivos similares detectados sin necesidad de reanalizar.
+"""
+
 from pathlib import Path
 from PyQt6.QtWidgets import (
-    QVBoxLayout, QLabel, QGroupBox, QCheckBox, QDialogButtonBox, QPushButton,
-    QHBoxLayout, QVBoxLayout as QVLayout, QScrollArea, QWidget, QGridLayout,
-    QFrame, QSizePolicy, QProgressBar, QMenu
+    QVBoxLayout, QHBoxLayout, QLabel, QFrame, QSlider, QPushButton,
+    QDialogButtonBox, QCheckBox, QGroupBox, QScrollArea, QWidget,
+    QGridLayout, QSizePolicy, QProgressBar, QMenu
 )
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QPixmap, QDesktopServices, QCursor
+from PyQt6.QtGui import QPixmap, QDesktopServices, QCursor, QImage
 from PyQt6.QtCore import QUrl
 from config import Config
-from services.similar_files_detector import DuplicateGroup
+from services.similar_files_detector import SimilarFilesAnalysis, DuplicateGroup
 from utils.format_utils import format_size
-from ui import ui_styles
+from ui import ui_styles  # Keep for backwards compatibility with existing code
 from ui.styles.design_system import DesignSystem
 from utils.icons import icon_manager
 from .base_dialog import BaseDialog
@@ -19,140 +26,310 @@ from .dialog_utils import show_file_details_dialog
 
 class SimilarFilesDialog(BaseDialog):
     """
-    Diálogo para gestionar archivos similares.
+    Diálogo para gestionar archivos similares con slider de sensibilidad.
     
-    Permite revisar y eliminar fotos y vídeos visualmente similares:
-    recortes, rotaciones, ediciones o diferentes resoluciones.
-    No requiere que sean idénticos digitalmente.
+    Permite ajustar la sensibilidad en tiempo real y ver cómo afecta
+    a los grupos detectados, sin necesidad de reanalizar.
     """
 
-    def __init__(self, analysis, parent=None):
+    def __init__(self, analysis: SimilarFilesAnalysis, parent=None):
+        """
+        Inicializa el diálogo.
+        
+        Args:
+            analysis: Objeto SimilarFilesAnalysis con hashes calculados
+            parent: Widget padre
+        """
         super().__init__(parent)
+        
         self.analysis = analysis
+        self.current_sensitivity = 85  # Valor inicial predeterminado
+        self.current_result = None
         self.current_group_index = 0
         self.selections = {}  # {group_index: [files_to_delete]}
         self.accepted_plan = None
-        self.init_ui()
-
-    def init_ui(self):
+        
+        self._setup_ui()
+        self._load_initial_results()
+    
+    def _setup_ui(self):
+        """Configura la interfaz del diálogo."""
+        # Configuración de la ventana
         self.setWindowTitle("Gestionar archivos similares")
         self.setModal(True)
         self.resize(900, 700)
-        layout = QVBoxLayout(self)
-
-        # Advertencia con estilo sutil similar a heic_dialog
+        
+        # Layout principal
+        main_layout = QVBoxLayout(self)
+        main_layout.setSpacing(DesignSystem.SPACE_20)
+        main_layout.setContentsMargins(
+            DesignSystem.SPACE_24,
+            DesignSystem.SPACE_24,
+            DesignSystem.SPACE_24,
+            DesignSystem.SPACE_24
+        )
+        
+        # --- SECCIÓN 1: Card de sensibilidad ---
+        sensitivity_card = self._create_sensitivity_card()
+        main_layout.addWidget(sensitivity_card)
+        
+        # --- SECCIÓN 2: Barra de advertencia ---
+        warning_frame = self._create_warning_section()
+        main_layout.addWidget(warning_frame)
+        
+        # --- SECCIÓN 3: Navegación de grupos ---
+        nav_layout = self._create_navigation_section()
+        main_layout.addLayout(nav_layout)
+        
+        # --- SECCIÓN 4: Contenedor de grupo actual ---
+        self.group_container = QGroupBox()
+        self.group_layout = QVBoxLayout(self.group_container)
+        main_layout.addWidget(self.group_container)
+        
+        # --- SECCIÓN 5: Resumen ---
+        summary_group = self._create_summary_section()
+        main_layout.addWidget(summary_group)
+        
+        # --- SECCIÓN 6: Opciones de seguridad ---
+        options_group = self._create_options_section()
+        main_layout.addWidget(options_group)
+        
+        # --- SECCIÓN 7: Botones de acción ---
+        buttons = self._create_action_buttons()
+        main_layout.addWidget(buttons)
+        
+        # Aplicar estilos
+        self.setStyleSheet(self._get_dialog_styles())
+    
+    def _create_sensitivity_card(self) -> QFrame:
+        """
+        Crea la card con slider de sensibilidad interactivo.
+        
+        Returns:
+            QFrame con slider y controles
+        """
+        card = QFrame()
+        card.setObjectName("sensitivity_card")
+        
+        layout = QVBoxLayout(card)
+        layout.setSpacing(DesignSystem.SPACE_12)
+        layout.setContentsMargins(
+            DesignSystem.SPACE_20,
+            DesignSystem.SPACE_16,
+            DesignSystem.SPACE_20,
+            DesignSystem.SPACE_16
+        )
+        
+        # Título de la card con icono
+        title_layout = QHBoxLayout()
+        title_icon = icon_manager.get_icon('options', size=20)
+        title_icon_label = QLabel()
+        title_icon_label.setPixmap(title_icon.pixmap(20, 20))
+        title_layout.addWidget(title_icon_label)
+        
+        title = QLabel("Ajustar sensibilidad de detección")
+        title.setObjectName("card_title")
+        title_layout.addWidget(title)
+        title_layout.addStretch()
+        layout.addLayout(title_layout)
+        
+        # Layout del slider
+        slider_layout = QHBoxLayout()
+        slider_layout.setSpacing(DesignSystem.SPACE_12)
+        
+        # Label izquierda
+        left_label = QLabel("Menos estricto\n30%")
+        left_label.setObjectName("slider_label")
+        left_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        # Slider horizontal
+        self.sensitivity_slider = QSlider(Qt.Orientation.Horizontal)
+        self.sensitivity_slider.setObjectName("sensitivity_slider")
+        self.sensitivity_slider.setRange(30, 100)
+        self.sensitivity_slider.setValue(self.current_sensitivity)
+        self.sensitivity_slider.setSingleStep(5)
+        self.sensitivity_slider.setPageStep(10)
+        self.sensitivity_slider.setTickInterval(10)
+        self.sensitivity_slider.setTickPosition(
+            QSlider.TickPosition.TicksBelow
+        )
+        
+        # Label derecha
+        right_label = QLabel("Más estricto\n100%")
+        right_label.setObjectName("slider_label")
+        right_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        slider_layout.addWidget(left_label)
+        slider_layout.addWidget(self.sensitivity_slider)
+        slider_layout.addWidget(right_label)
+        
+        layout.addLayout(slider_layout)
+        
+        # Display de estadísticas en tiempo real
+        self.stats_label = QLabel()
+        self.stats_label.setObjectName("stats_label")
+        self.stats_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.stats_label)
+        
+        # Mensaje de ayuda con icono
+        help_icon = icon_manager.get_icon('info', size=16)
+        help_layout = QHBoxLayout()
+        help_icon_label = QLabel()
+        help_icon_label.setPixmap(help_icon.pixmap(16, 16))
+        help_layout.addWidget(help_icon_label)
+        
+        help_label = QLabel(
+            "Mueve el slider para ajustar qué tan similares "
+            "deben ser las imágenes para agruparse"
+        )
+        help_label.setObjectName("help_label")
+        help_label.setWordWrap(True)
+        help_layout.addWidget(help_label)
+        help_layout.addStretch()
+        layout.addLayout(help_layout)
+        
+        # Conectar señales
+        self.sensitivity_slider.valueChanged.connect(
+            self._on_slider_value_changed
+        )
+        self.sensitivity_slider.sliderReleased.connect(
+            self._on_slider_released
+        )
+        
+        return card
+    
+    def _create_warning_section(self) -> QFrame:
+        """Crea la sección de advertencia."""
         warning_frame = QFrame()
-        warning_frame.setFrameShape(QFrame.Shape.NoFrame)
-        warning_frame.setStyleSheet("""
-            QFrame { 
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                           stop:0 #f8f9fa, stop:1 #e9ecef);
-                border: none;
-                border-radius: 6px; 
-                padding: 10px;
-            }
-        """)
-        warning_layout = QVLayout(warning_frame)
-        warning_layout.setSpacing(2)
-        warning_layout.setContentsMargins(12, 8, 12, 8)
+        warning_frame.setObjectName("warning_frame")
+        
+        warning_layout = QVBoxLayout(warning_frame)
+        warning_layout.setSpacing(DesignSystem.SPACE_8)
+        warning_layout.setContentsMargins(
+            DesignSystem.SPACE_12,
+            DesignSystem.SPACE_8,
+            DesignSystem.SPACE_12,
+            DesignSystem.SPACE_8
+        )
+        
+        warning_icon = icon_manager.get_icon('warning', size=16)
+        warning_text_layout = QHBoxLayout()
+        icon_label = QLabel()
+        icon_label.setPixmap(warning_icon.pixmap(16, 16))
+        warning_text_layout.addWidget(icon_label)
         
         warning = QLabel(
             "Estos archivos son similares pero NO idénticos. "
             "Revisa cada grupo cuidadosamente antes de eliminar."
         )
-        warning.setTextFormat(Qt.TextFormat.RichText)
         warning.setWordWrap(True)
-        warning.setStyleSheet(ui_styles.STYLE_DIALOG_EXPLANATION_TEXT)
-        warning_layout.addWidget(warning)
+        warning.setObjectName("warning_text")
+        warning_text_layout.addWidget(warning)
+        warning_layout.addLayout(warning_text_layout)
         
-        layout.addWidget(warning_frame)
-
-        # Navegación de grupos
+        return warning_frame
+    
+    def _create_navigation_section(self) -> QHBoxLayout:
+        """Crea la sección de navegación de grupos."""
         nav_layout = QHBoxLayout()
-        self.prev_btn = QPushButton("◀ Anterior")
+        
+        self.prev_btn = QPushButton()
+        prev_icon = icon_manager.get_icon('chevron-left', size=18)
+        self.prev_btn.setIcon(prev_icon)
+        self.prev_btn.setText("Anterior")
         self.prev_btn.clicked.connect(self._previous_group)
-        nav_layout.addWidget(self.prev_btn)
+        
         self.group_label = QLabel()
         self.group_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.group_label.setStyleSheet(ui_styles.STYLE_GROUP_LABEL)
-        nav_layout.addWidget(self.group_label, 1)
-        self.next_btn = QPushButton("Siguiente ▶")
+        self.group_label.setObjectName("group_label")
+        
+        self.next_btn = QPushButton()
+        next_icon = icon_manager.get_icon('chevron-right', size=18)
+        self.next_btn.setIcon(next_icon)
+        self.next_btn.setText("Siguiente")
         self.next_btn.clicked.connect(self._next_group)
+        
+        nav_layout.addWidget(self.prev_btn)
+        nav_layout.addWidget(self.group_label, 1)
         nav_layout.addWidget(self.next_btn)
-        layout.addLayout(nav_layout)
-
-        # Contenedor de grupo actual
-        self.group_container = QGroupBox()
-        self.group_layout = QVLayout(self.group_container)
-        layout.addWidget(self.group_container)
-
-        # Resumen
+        
+        return nav_layout
+    
+    def _create_summary_section(self) -> QGroupBox:
+        """Crea la sección de resumen."""
         summary_group = QGroupBox("Resumen")
-        summary_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        summary_group.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Fixed
+        )
         summary_group.setMinimumHeight(80)
-        # Estilo para que el título quede dentro del cuadro
-        summary_group.setStyleSheet("""
-            QGroupBox {
-                font-weight: bold;
-                font-size: 10pt;
-                padding-top: 20px;
-                margin-top: 10px;
-                border: 1px solid #cccccc;
-                border-radius: 5px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                subcontrol-position: top left;
-                padding: 2px 8px;
-                left: 10px;
-                top: 5px;
-                color: #2c5aa0;
-                font-size: 9pt;
-            }
-        """)
-        summary_layout = QVLayout(summary_group)
-        summary_layout.setContentsMargins(15, 15, 15, 15)
-        summary_layout.setSpacing(5)
+        
+        summary_layout = QVBoxLayout(summary_group)
+        summary_layout.setContentsMargins(
+            DesignSystem.SPACE_16,
+            DesignSystem.SPACE_16,
+            DesignSystem.SPACE_16,
+            DesignSystem.SPACE_16
+        )
+        
         self.summary_label = QLabel()
         self.summary_label.setTextFormat(Qt.TextFormat.RichText)
         self.summary_label.setWordWrap(True)
-        self.summary_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.summary_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        self.summary_label.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Expanding
+        )
+        self.summary_label.setAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+        )
         summary_layout.addWidget(self.summary_label)
-        layout.addWidget(summary_group)
-
-        # Opciones de seguridad
+        
+        return summary_group
+    
+    def _create_options_section(self) -> QGroupBox:
+        """Crea la sección de opciones de seguridad."""
         options_group = QGroupBox("Opciones de Seguridad")
         options_group.setMinimumWidth(400)
-        options_group.setStyleSheet("QGroupBox { font-weight: bold; }")
-        options_layout = QVLayout(options_group)
         
-        # Backup checkbox (primero)
-        self.add_backup_checkbox(options_layout, "Crear backup antes de eliminar (Recomendado)")
+        options_layout = QVBoxLayout(options_group)
         
-        # Simulación checkbox (segundo)
-        self.dry_run_checkbox = QCheckBox("Modo simulación (no eliminar archivos realmente)")
+        # Backup checkbox
+        self.add_backup_checkbox(
+            options_layout,
+            "Crear backup antes de eliminar (Recomendado)"
+        )
+        
+        # Simulación checkbox
+        self.dry_run_checkbox = QCheckBox(
+            "Modo simulación (no eliminar archivos realmente)"
+        )
+        
         # Leer configuración para establecer estado por defecto
         from utils.settings_manager import settings_manager
-        dry_run_default = settings_manager.get(settings_manager.KEY_DRY_RUN_DEFAULT, False)
+        dry_run_default = settings_manager.get(
+            settings_manager.KEY_DRY_RUN_DEFAULT,
+            False
+        )
         # Asegurar que es un booleano
         if isinstance(dry_run_default, str):
-            dry_run_default = dry_run_default.lower() in ('true', '1', 'yes')
+            dry_run_default = dry_run_default.lower() in (
+                'true', '1', 'yes'
+            )
         self.dry_run_checkbox.setChecked(bool(dry_run_default))
         options_layout.addWidget(self.dry_run_checkbox)
-        layout.addWidget(options_group)
-
-        # Botones
-        buttons = self.make_ok_cancel_buttons(ok_text="Eliminar Seleccionados", ok_enabled=False)
+        
+        return options_group
+    
+    def _create_action_buttons(self) -> QDialogButtonBox:
+        """Crea los botones de acción del diálogo."""
+        buttons = self.make_ok_cancel_buttons(
+            ok_text="Eliminar Seleccionados",
+            ok_enabled=False
+        )
         self.ok_btn = buttons.button(QDialogButtonBox.StandardButton.Ok)
         icon_manager.set_button_icon(self.ok_btn, 'delete', size=16)
-        layout.addWidget(buttons)
-
-        # Cargar primer grupo
-        self._load_group(0)
         
-        # Aplicar estilo global de tooltips
-        self.setStyleSheet(DesignSystem.get_tooltip_style())
+        return buttons
 
     def _load_group(self, index):
         """Carga y muestra un grupo específico con miniaturas"""
@@ -221,13 +398,13 @@ class SimilarFilesDialog(BaseDialog):
             frame = QFrame()
             frame.setFrameStyle(QFrame.Shape.Box | QFrame.Shadow.Raised)
             frame.setLineWidth(1)
-            frame_layout = QVLayout(frame)
+            frame_layout = QVBoxLayout(frame)
             frame_layout.setSpacing(0)
             frame_layout.setContentsMargins(0, 0, 0, 0)
 
             # === SECCIÓN 1: CHECKBOX DE ELIMINACIÓN ===
             delete_section = QWidget()
-            delete_section_layout = QVLayout(delete_section)
+            delete_section_layout = QVBoxLayout(delete_section)
             delete_section_layout.setContentsMargins(10, 10, 10, 10)
             delete_section_layout.setSpacing(0)
             
@@ -271,7 +448,7 @@ class SimilarFilesDialog(BaseDialog):
 
             # === SECCIÓN 2: MINIATURA (PREVIEW) ===
             preview_section = QWidget()
-            preview_section_layout = QVLayout(preview_section)
+            preview_section_layout = QVBoxLayout(preview_section)
             preview_section_layout.setContentsMargins(5, 5, 5, 5)
             preview_section_layout.setSpacing(3)
             
@@ -321,7 +498,7 @@ class SimilarFilesDialog(BaseDialog):
             info_section.setCursor(Qt.CursorShape.PointingHandCursor)
             info_section.setToolTip("Clic derecho para más opciones")
             
-            info_section_layout = QVLayout(info_section)
+            info_section_layout = QVBoxLayout(info_section)
             info_section_layout.setContentsMargins(10, 8, 10, 8)
             info_section_layout.setSpacing(3)
             
@@ -392,7 +569,7 @@ class SimilarFilesDialog(BaseDialog):
     def _create_similarity_widget(self, group) -> QWidget:
         """Crea un widget visual para mostrar el grado de similitud"""
         container = QWidget()
-        layout = QVLayout(container)
+        layout = QVBoxLayout(container)
         layout.setSpacing(8)
         layout.setContentsMargins(10, 10, 10, 10)
 
@@ -619,9 +796,199 @@ class SimilarFilesDialog(BaseDialog):
             if file_path in self.selections[self.current_group_index]:
                 self.selections[self.current_group_index].remove(file_path)
         self._update_summary()
+    
+    def _load_initial_results(self):
+        """Carga resultados iniciales con sensibilidad predeterminada."""
+        self._update_results(self.current_sensitivity)
+    
+    def _on_slider_value_changed(self, value: int):
+        """
+        Se llama mientras el usuario mueve el slider.
+        
+        Solo actualiza el display numérico, no recalcula todavía
+        para dar feedback inmediato sin lag.
+        
+        Args:
+            value: Nuevo valor del slider (30-100)
+        """
+        self.current_sensitivity = value
+        # Actualizar solo el texto de estadísticas actuales
+        self.stats_label.setText(
+            f"Sensibilidad: {value}% | "
+            f"Grupos: {self.current_result.total_groups if self.current_result else 0} | "
+            f"Espacio recuperable: "
+            f"{format_size(self.current_result.space_potential if self.current_result else 0)}"
+        )
+    
+    def _on_slider_released(self):
+        """Se llama cuando el usuario suelta el slider."""
+        # Recalcular grupos con nueva sensibilidad
+        self._update_results(self.current_sensitivity)
+    
+    def _update_results(self, sensitivity: int):
+        """
+        Actualiza la UI con resultados de nueva sensibilidad.
+        
+        MUY RÁPIDO (< 1 segundo) porque usa hashes pre-calculados.
+        
+        Args:
+            sensitivity: Sensibilidad de detección (30-100)
+        """
+        # Obtener grupos con nueva sensibilidad (RÁPIDO)
+        self.current_result = self.analysis.get_groups(sensitivity)
+        
+        # Actualizar estadísticas en la card de sensibilidad
+        self.stats_label.setText(
+            f"Sensibilidad: {sensitivity}% | "
+            f"Grupos: {self.current_result.total_groups} | "
+            f"Espacio recuperable: "
+            f"{format_size(self.current_result.space_potential)}"
+        )
+        
+        # Actualizar la estructura analysis.groups para compatibilidad
+        # con el código existente de visualización
+        self.analysis.groups = self.current_result.groups
+        
+        # Limpiar selecciones previas (los grupos han cambiado)
+        self.selections.clear()
+        
+        # Resetear al primer grupo
+        self.current_group_index = 0
+        
+        # Recargar visualización del primer grupo
+        if self.current_result.groups:
+            self._load_group(0)
+        else:
+            # No hay grupos con esta sensibilidad
+            self._show_no_groups_message()
+    
+    def _show_no_groups_message(self):
+        """Muestra mensaje cuando no hay grupos con la sensibilidad actual."""
+        # Limpiar layout del contenedor de grupos
+        for i in reversed(range(self.group_layout.count())):
+            widget = self.group_layout.itemAt(i).widget()
+            if widget:
+                widget.setParent(None)
+        
+        # Mostrar mensaje informativo
+        no_groups_label = QLabel(
+            "No se encontraron grupos con esta sensibilidad.\n\n"
+            "Prueba reducir la sensibilidad (mover slider a la izquierda) "
+            "para detectar archivos menos similares."
+        )
+        no_groups_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        no_groups_label.setWordWrap(True)
+        no_groups_label.setStyleSheet(f"""
+            QLabel {{
+                font-size: {DesignSystem.FONT_SIZE_LG}px;
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                padding: {DesignSystem.SPACE_40}px;
+            }}
+        """)
+        self.group_layout.addWidget(no_groups_label)
+        
+        # Actualizar etiqueta de navegación
+        self.group_label.setText("Sin grupos")
+        self.prev_btn.setEnabled(False)
+        self.next_btn.setEnabled(False)
+        
+        # Actualizar resumen
+        self.summary_label.setText(
+            "<b>No hay archivos seleccionados.</b>"
+        )
+        self.ok_btn.setEnabled(False)
+    
+    def _get_dialog_styles(self) -> str:
+        """Retorna los estilos CSS para el diálogo."""
+        return f"""
+            QDialog {{
+                background-color: {DesignSystem.COLOR_BACKGROUND};
+            }}
+            
+            QFrame#sensitivity_card {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+            }}
+            
+            QLabel#card_title {{
+                font-size: {DesignSystem.FONT_SIZE_LG}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+                color: {DesignSystem.COLOR_TEXT};
+            }}
+            
+            QLabel#slider_label {{
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            }}
+            
+            QSlider#sensitivity_slider {{
+                height: 24px;
+            }}
+            
+            QSlider#sensitivity_slider::groove:horizontal {{
+                background: {DesignSystem.COLOR_SECONDARY};
+                height: 4px;
+                border-radius: 2px;
+            }}
+            
+            QSlider#sensitivity_slider::handle:horizontal {{
+                background: {DesignSystem.COLOR_PRIMARY};
+                width: 20px;
+                height: 20px;
+                margin: -8px 0;
+                border-radius: 10px;
+                border: 2px solid {DesignSystem.COLOR_SURFACE};
+            }}
+            
+            QSlider#sensitivity_slider::handle:horizontal:hover {{
+                background: {DesignSystem.COLOR_PRIMARY_HOVER};
+                width: 24px;
+                height: 24px;
+                margin: -10px 0;
+                border-radius: 12px;
+            }}
+            
+            QSlider#sensitivity_slider::sub-page:horizontal {{
+                background: {DesignSystem.COLOR_PRIMARY};
+                border-radius: 2px;
+            }}
+            
+            QLabel#stats_label {{
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                color: {DesignSystem.COLOR_PRIMARY};
+            }}
+            
+            QLabel#help_label {{
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            }}
+            
+            QFrame#warning_frame {{
+                background-color: {DesignSystem.COLOR_BG_4};
+                border: 1px solid {DesignSystem.COLOR_WARNING};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+            }}
+            
+            QLabel#warning_text {{
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                color: {DesignSystem.COLOR_TEXT};
+            }}
+            
+            QLabel#group_label {{
+                font-size: {DesignSystem.FONT_SIZE_LG}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+                color: {DesignSystem.COLOR_TEXT};
+            }}
+        """
 
     def _previous_group(self):
         """Navega al grupo anterior (circular: desde el primero va al último)"""
+        # Solo navegar si hay grupos
+        if not self.analysis.groups:
+            return
+        
         total_groups = len(self.analysis.groups)
         if self.current_group_index == 0:
             # Estamos en el primero, ir al último
@@ -631,6 +998,10 @@ class SimilarFilesDialog(BaseDialog):
 
     def _next_group(self):
         """Navega al grupo siguiente (circular: desde el último va al primero)"""
+        # Solo navegar si hay grupos
+        if not self.analysis.groups:
+            return
+        
         total_groups = len(self.analysis.groups)
         if self.current_group_index >= total_groups - 1:
             # Estamos en el último, ir al primero

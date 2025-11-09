@@ -19,7 +19,6 @@ from ui.dialogs.organization_dialog import FileOrganizationDialog
 from ui.dialogs.renaming_dialog import RenamingPreviewDialog
 from ui.dialogs.settings_dialog import SettingsDialog
 from ui.dialogs.about_dialog import AboutDialog
-from ui.dialogs.similar_files_config_dialog import SimilarFilesConfigDialog
 from ui.dialogs.similar_files_progress_dialog import SimilarFilesProgressDialog
 from utils.format_utils import format_size, format_file_count
 from services.similar_files_detector import SimilarFilesDetector
@@ -660,72 +659,66 @@ class Stage3Window(BaseStage):
     # ==================== SIMILAR DUPLICATES ====================
     
     def _on_similar_duplicates_clicked(self):
-        """Maneja el clic en la card de duplicados similares"""
-        self.logger.info("Iniciando configuración de análisis de duplicados similares")
+        """
+        Maneja el clic en la card de duplicados similares.
         
-        # Si hay resultados con grupos pero están obsoletos (snapshot existe), mostrar diálogo
+        Flujo simplificado sin config dialog:
+        1. Lanzar análisis directo (solo hashes, sin clustering)
+        2. Mostrar diálogo de progreso bloqueante
+        3. Al completar, abrir diálogo de gestión con slider
+        """
+        self.logger.info("Iniciando análisis de archivos similares")
+        
+        # Si hay resultados con grupos pero están obsoletos, mostrar diálogo
         if self.similarity_results_snapshot:
             choice = self._show_stale_results_dialog()
             
             if choice == 'view_old':
-                # Ver resultados del snapshot
-                old_results = self.similarity_results_snapshot['results']
-                self._open_similarity_dialog(old_results)
+                # Ver resultados del snapshot (convertir a SimilarFilesAnalysis)
+                old_analysis = self._convert_result_to_analysis(
+                    self.similarity_results_snapshot['results']
+                )
+                if old_analysis:
+                    self._open_similarity_dialog_with_analysis(old_analysis)
                 return
             elif choice == 'reanalyze':
-                # Continuar con configuración y re-análisis
+                # Continuar con re-análisis
                 pass
             else:  # cancel
                 return
         
-        # Si ya hay resultados con grupos (y no obsoletos), abrir directamente el diálogo de gestión
-        if self.similarity_results and self.similarity_results.total_groups > 0:
-            self._open_similarity_dialog(self.similarity_results)
+        # Si ya hay análisis completado, abrir directamente
+        if hasattr(self, 'similarity_analysis') and self.similarity_analysis:
+            self._open_similarity_dialog_with_analysis(self.similarity_analysis)
             return
         
-        # Si hay resultados pero sin grupos, o no hay resultados, permitir reconfigurar
-        # Limpiar resultados previos si no hay grupos
-        if self.similarity_results and self.similarity_results.total_groups == 0:
-            self.similarity_results = None
-        
         # Obtener número de archivos a analizar
-        file_count = self.analysis_results.scan.total_files if self.analysis_results.scan else 0
-        
-        # Obtener sensibilidad previa si existe
-        previous_sensitivity = 10  # Valor por defecto
-        if self.similarity_results:
-            # Intentar extraer la sensibilidad usada (si está guardada en el resultado)
-            # Por ahora usamos el valor por defecto
-            previous_sensitivity = 10
-        
-        # Mostrar diálogo de configuración
-        config_dialog = SimilarFilesConfigDialog(
-            parent=self.main_window,
-            file_count=file_count,
-            previous_sensitivity=previous_sensitivity
+        file_count = (
+            self.analysis_results.scan.total_files
+            if self.analysis_results.scan
+            else 0
         )
         
-        if config_dialog.exec() == QDialog.DialogCode.Accepted:
-            sensitivity = config_dialog.get_sensitivity_value()
-            self.logger.info(f"Iniciando análisis con sensibilidad: {sensitivity}")
-            self._start_similarity_analysis(sensitivity, file_count)
+        self.logger.info(f"Iniciando análisis de {file_count} archivos")
+        self._start_similarity_analysis(file_count)
     
-    def _start_similarity_analysis(self, sensitivity: int, file_count: int):
+    def _start_similarity_analysis(self, file_count: int):
         """
-        Inicia el análisis de duplicados similares con worker en background
+        Inicia el análisis inicial de archivos similares (solo hashes).
         
         Args:
-            sensitivity: Sensibilidad del análisis (0-20)
             file_count: Número de archivos a analizar
         """
+        from services.similar_files_detector import SimilarFilesDetector
+        from pathlib import Path
+        
         # Crear el detector
         detector = SimilarFilesDetector()
         
-        # Crear el worker
+        # Crear el worker (sin sensibilidad)
         self.similarity_worker = SimilarFilesAnalysisWorker(
             detector=detector,
-            workspace_path=Path(self.selected_folder),
-            sensitivity=sensitivity
+            workspace_path=Path(self.selected_folder)
         )
         
         # Crear diálogo de progreso bloqueante
@@ -761,17 +754,17 @@ class Stage3Window(BaseStage):
         if self.similarity_progress_dialog:
             self.similarity_progress_dialog.update_progress(current, total, message)
     
-    def _on_similarity_analysis_completed(self, results):
+    def _on_similarity_analysis_completed(self, analysis):
         """
-        Maneja la finalización exitosa del análisis
+        Maneja la finalización exitosa del análisis.
         
         Args:
-            results: DuplicateAnalysisResult con los grupos de similares
+            analysis: SimilarFilesAnalysis con hashes calculados
         """
         from datetime import datetime
         
-        self.logger.info("Análisis de duplicados similares completado")
-        self.similarity_results = results
+        self.logger.info("Análisis inicial de archivos similares completado")
+        self.similarity_analysis = analysis
         
         # Guardar timestamp del análisis
         self.similarity_timestamp = datetime.now()
@@ -789,18 +782,11 @@ class Stage3Window(BaseStage):
             self.similarity_worker.deleteLater()
             self.similarity_worker = None
         
-        # Actualizar la card con los resultados
-        self._update_similar_duplicates_card(results)
+        # Actualizar la card indicando que el análisis está completado
+        self._update_similar_duplicates_card_after_analysis(analysis)
         
-        # Abrir automáticamente el diálogo de gestión si hay resultados
-        if results.total_groups > 0:
-            self._open_similarity_dialog(results)
-        else:
-            QMessageBox.information(
-                self.main_window,
-                "Sin resultados",
-                "No se encontraron duplicados similares con la sensibilidad seleccionada."
-            )
+        # Abrir automáticamente el diálogo de gestión con slider
+        self._open_similarity_dialog_with_analysis(analysis)
     
     def _on_similarity_analysis_error(self, error_message: str):
         """
@@ -846,7 +832,7 @@ class Stage3Window(BaseStage):
     
     def _update_similar_duplicates_card(self, results):
         """
-        Actualiza la card de similares con los resultados del análisis
+        Actualiza la card de similares con los resultados del análisis.
         
         Args:
             results: DuplicateAnalysisResult
@@ -873,14 +859,91 @@ class Stage3Window(BaseStage):
             "(recortes, rotaciones, ediciones). Análisis completado."
         )
     
+    def _update_similar_duplicates_card_after_analysis(self, analysis):
+        """
+        Actualiza la card después del análisis inicial.
+        
+        Args:
+            analysis: SimilarFilesAnalysis con hashes calculados
+        """
+        if 'similar_files' not in self.tool_cards:
+            return
+        
+        card = self.tool_cards['similar_files']
+        
+        # Mostrar que el análisis está completado
+        card.set_status_with_results(
+            f"{analysis.total_files} archivos analizados",
+            "Listo para ajustar sensibilidad"
+        )
+        card.action_button.setText("Gestionar ahora")
+        
+        # Actualizar descripción
+        card.description_label.setText(
+            "Análisis completado. Puedes ajustar la sensibilidad "
+            "interactivamente para detectar más o menos similitudes."
+        )
+    
+    def _open_similarity_dialog_with_analysis(self, analysis):
+        """
+        Abre el diálogo de gestión con el análisis (slider interactivo).
+        
+        Args:
+            analysis: SimilarFilesAnalysis con hashes calculados
+        """
+        from ui.dialogs.similar_files_dialog import SimilarFilesDialog
+        
+        dialog = SimilarFilesDialog(analysis, self.main_window)
+        result = dialog.exec()
+        
+        if result == QDialog.DialogCode.Accepted:
+            # Usuario ejecutó acciones, re-analizar workspace
+            self._on_tool_action_completed("similar_files")
+    
+    def _convert_result_to_analysis(self, result):
+        """
+        Convierte DuplicateAnalysisResult obsoleto a SimilarFilesAnalysis.
+        
+        (Para compatibilidad con snapshots antiguos)
+        
+        Args:
+            result: DuplicateAnalysisResult
+            
+        Returns:
+            SimilarFilesAnalysis o None si no es posible convertir
+        """
+        # Por ahora, retornamos None para forzar re-análisis
+        # En el futuro podríamos implementar conversión si necesario
+        self.logger.warning(
+            "No se puede convertir resultado antiguo, "
+            "se requiere re-análisis"
+        )
+        return None
+    
     def _open_similarity_dialog(self, results):
         """
-        Abre el diálogo de gestión de duplicados similares
+        DEPRECATED: Usa _open_similarity_dialog_with_analysis en su lugar.
+        
+        Mantiene compatibilidad con código antiguo.
         
         Args:
             results: DuplicateAnalysisResult
         """
-        dialog = SimilarFilesDialog(results, self.main_window)
+        from ui.dialogs.similar_files_dialog import SimilarFilesDialog
+        
+        # Intentar convertir o mostrar advertencia
+        self.logger.warning(
+            "Usando método deprecated _open_similarity_dialog, "
+            "considera usar _open_similarity_dialog_with_analysis"
+        )
+        
+        # Crear análisis temporal con grupos
+        from services.similar_files_detector import SimilarFilesAnalysis
+        temp_analysis = SimilarFilesAnalysis()
+        temp_analysis.groups = results.groups
+        temp_analysis.total_files = results.total_files
+        
+        dialog = SimilarFilesDialog(temp_analysis, self.main_window)
         dialog.exec()
     
     # ===== SISTEMA DE RE-ANÁLISIS AUTOMÁTICO =====

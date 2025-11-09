@@ -584,39 +584,35 @@ class DuplicateDeletionWorker(BaseWorker):
 
 class SimilarFilesAnalysisWorker(BaseWorker):
     """
-    Worker para análisis de archivos similares (perceptual hash).
+    Worker para análisis inicial de archivos similares (perceptual hash).
     
-    Detecta fotos y vídeos visualmente similares: recortes, rotaciones,
-    ediciones o diferentes resoluciones.
-    
-    Este análisis puede tardar varios minutos dependiendo del número de archivos.
+    Solo calcula hashes perceptuales (operación costosa ~5 min).
+    El clustering con diferentes sensibilidades se hace on-demand
+    en el diálogo de gestión (<1 segundo).
     
     Signals:
         progress_update(int, int, str): (current, total, message)
-        finished(DuplicateAnalysisResult): Resultado del análisis con grupos de similares
+        finished(SimilarFilesAnalysis): Análisis con hashes calculados
         error(str): Mensaje de error
     """
-    finished = pyqtSignal(object)  # DuplicateAnalysisResult
+    finished = pyqtSignal(object)  # SimilarFilesAnalysis
     
     def __init__(
         self,
         detector: 'SimilarFilesDetector',
-        workspace_path: Path,
-        sensitivity: int
+        workspace_path: Path
     ):
         """
         Args:
             detector: Instancia de SimilarFilesDetector
             workspace_path: Path del directorio a analizar
-            sensitivity: Sensibilidad del análisis (0-20)
         """
         super().__init__()
         self.detector = detector
         self.workspace_path = workspace_path
-        self.sensitivity = sensitivity
     
     def run(self) -> None:
-        """Ejecuta el análisis de archivos similares"""
+        """Ejecuta el análisis inicial de archivos similares"""
         try:
             if self._stop_requested:
                 return
@@ -628,14 +624,17 @@ class SimilarFilesAnalysisWorker(BaseWorker):
                 self.progress_update.emit(current, total, message)
                 return True
             
-            results: 'DuplicateAnalysisResult' = self.detector.analyze_similar_duplicates(
-                directory=self.workspace_path,
-                sensitivity=self.sensitivity,
+            # Importar tipo para type hint
+            from services.similar_files_detector import SimilarFilesAnalysis
+            
+            # Ejecutar análisis inicial (solo hashes)
+            analysis: SimilarFilesAnalysis = self.detector.analyze_initial(
+                workspace_path=self.workspace_path,
                 progress_callback=progress_callback
             )
             
             if not self._stop_requested:
-                self.finished.emit(results)
+                self.finished.emit(analysis)
         
         except Exception as e:
             if not self._stop_requested:
