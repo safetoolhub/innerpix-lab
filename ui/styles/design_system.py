@@ -35,6 +35,7 @@ class DesignSystem:
     COLOR_SUCCESS = "#10b981"
     COLOR_WARNING = "#f59e0b"
     COLOR_WARNING_HOVER = "#d97706"
+    COLOR_DANGER = "#dc4a26"
     COLOR_ERROR = "#ef4444"
     
     # Backgrounds adicionales

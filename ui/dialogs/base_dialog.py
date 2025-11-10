@@ -1,5 +1,5 @@
 """Clases/base utilities para diálogos."""
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, TYPE_CHECKING
 
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import (
@@ -9,6 +9,9 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QTableWidget,
 )
+
+if TYPE_CHECKING:
+    from PyQt6.QtWidgets import QFrame, QRadioButton
 
 from utils.settings_manager import settings_manager
 
@@ -121,4 +124,235 @@ class BaseDialog(QDialog):
         layout.addWidget(cb)
         # store if there's a need to access later; name-based access is simplest
         self.dry_run_checkbox = cb
-        return cb  
+        return cb
+
+    def _create_explanation_frame(
+        self,
+        icon_name: str,
+        title: str,
+        description: str
+    ) -> 'QFrame':
+        """Crea frame de explicación estandarizado con icono, título y descripción.
+
+        Args:
+            icon_name: Nombre del icono de icon_manager (ej: 'content-copy')
+            title: Título principal (negrita)
+            description: Texto descriptivo
+        
+        Returns:
+            QFrame con el header explicativo
+        """
+        from PyQt6.QtWidgets import QFrame, QHBoxLayout, QVBoxLayout, QLabel
+        from ui.styles.design_system import DesignSystem
+        from utils.icons import icon_manager
+        
+        frame = QFrame()
+        frame.setStyleSheet(f"""
+            QFrame {{
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 {DesignSystem.COLOR_BG_1},
+                    stop:1 {DesignSystem.COLOR_BG_2});
+                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                padding: {DesignSystem.SPACE_16}px;
+            }}
+        """)
+        
+        layout = QHBoxLayout(frame)
+        layout.setSpacing(int(DesignSystem.SPACE_12))
+        layout.setContentsMargins(
+            int(DesignSystem.SPACE_12),
+            int(DesignSystem.SPACE_8),
+            int(DesignSystem.SPACE_12),
+            int(DesignSystem.SPACE_8)
+        )
+        
+        # Icono
+        icon_label = QLabel()
+        icon_manager.set_label_icon(
+            icon_label, 
+            icon_name, 
+            size=DesignSystem.ICON_SIZE_LG,
+            color=DesignSystem.COLOR_PRIMARY
+        )
+        layout.addWidget(icon_label)
+        
+        # Contenedor de texto
+        text_container = QVBoxLayout()
+        text_container.setSpacing(int(DesignSystem.SPACE_4))
+        
+        # Título
+        title_label = QLabel(title)
+        title_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_LG}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            color: {DesignSystem.COLOR_TEXT};
+        """)
+        text_container.addWidget(title_label)
+        
+        # Descripción
+        desc_label = QLabel(description)
+        desc_label.setWordWrap(True)
+        desc_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            line-height: 1.5;
+        """)
+        text_container.addWidget(desc_label)
+        
+        layout.addLayout(text_container, 1)
+        
+        return frame
+
+    def _create_metric_card(
+        self,
+        value: str,
+        label: str,
+        color: Optional[str] = None
+    ) -> 'QFrame':
+        """Crea tarjeta de métrica inline estandarizada.
+
+        Args:
+            value: Valor a mostrar (número, texto)
+            label: Etiqueta descriptiva
+            color: Color del borde izquierdo (opcional, por defecto PRIMARY)
+        
+        Returns:
+            QFrame con la métrica formateada
+        """
+        from PyQt6.QtWidgets import QFrame, QVBoxLayout, QLabel
+        from ui.styles.design_system import DesignSystem
+        
+        if color is None:
+            color = DesignSystem.COLOR_PRIMARY
+        
+        frame = QFrame()
+        frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                border-left: 3px solid {color};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_8}px;
+            }}
+        """)
+        
+        layout = QVBoxLayout(frame)
+        layout.setContentsMargins(
+            int(DesignSystem.SPACE_8),
+            int(DesignSystem.SPACE_4),
+            int(DesignSystem.SPACE_8),
+            int(DesignSystem.SPACE_4)
+        )
+        layout.setSpacing(int(DesignSystem.SPACE_2))
+        
+        # Valor
+        value_label = QLabel(str(value))
+        value_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_2XL}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+            color: {DesignSystem.COLOR_TEXT};
+        """)
+        
+        # Label
+        desc_label = QLabel(label)
+        desc_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+        """)
+        
+        layout.addWidget(value_label)
+        layout.addWidget(desc_label)
+        
+        return frame
+
+    def _create_selection_card(
+        self,
+        card_id: str,
+        icon_name: str,
+        title: str,
+        description: str,
+        is_selected: bool,
+        radio_button: Optional['QRadioButton'] = None
+    ) -> 'QFrame':
+        """Crea tarjeta de selección clickeable con RadioButton (patrón organization_dialog).
+
+        Args:
+            card_id: ID único de la card (ej: 'strategy-oldest')
+            icon_name: Nombre del icono de icon_manager
+            title: Título de la opción
+            description: Descripción de la opción
+            is_selected: Si la card está seleccionada
+            radio_button: RadioButton a asociar (opcional, se crea si es None)
+        
+        Returns:
+            QFrame con la card de selección
+        """
+        from PyQt6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel, QRadioButton
+        from ui.styles.design_system import DesignSystem
+        from utils.icons import icon_manager
+        
+        card = QFrame()
+        card.setObjectName(card_id)
+        card.setStyleSheet(f"""
+            QFrame#{card_id} {{
+                background-color: {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_SURFACE};
+                border: 2px solid {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_12}px;
+            }}
+            QFrame#{card_id}:hover {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+                background-color: {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_BG_2};
+            }}
+            QFrame#{card_id} QLabel {{
+                color: {DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_TEXT};
+            }}
+            QFrame#{card_id} QLabel#title-label {{
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            }}
+            QFrame#{card_id} QLabel#desc-label {{
+                color: {DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_TEXT_SECONDARY};
+            }}
+        """)
+        
+        layout = QVBoxLayout(card)
+        layout.setSpacing(int(DesignSystem.SPACE_8))
+        
+        # Header: RadioButton + Icono + Título
+        header_layout = QHBoxLayout()
+        
+        if radio_button is None:
+            radio_button = QRadioButton()
+            radio_button.setChecked(is_selected)
+        
+        header_layout.addWidget(radio_button)
+        
+        icon_label = QLabel()
+        icon_manager.set_label_icon(
+            icon_label, 
+            icon_name, 
+            size=DesignSystem.ICON_SIZE_XL,
+            color=DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_PRIMARY
+        )
+        header_layout.addWidget(icon_label)
+        
+        title_label = QLabel(title)
+        title_label.setObjectName("title-label")
+        header_layout.addWidget(title_label)
+        header_layout.addStretch()
+        
+        layout.addLayout(header_layout)
+        
+        # Descripción
+        desc_label = QLabel(description)
+        desc_label.setWordWrap(True)
+        desc_label.setObjectName("desc-label")
+        layout.addWidget(desc_label)
+        
+        # Hacer la card clickeable
+        card.mousePressEvent = lambda event: radio_button.setChecked(True)
+        
+        # Guardar referencia al radio en la card
+        card.setProperty("radio_button", radio_button)
+        
+        return card  

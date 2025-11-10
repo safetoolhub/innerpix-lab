@@ -75,6 +75,11 @@ class IconManager:
         'chart': 'mdi6.chart-line',
         'timer': 'mdi6.timer',
         'clock': 'mdi6.clock-outline',
+        'rule': 'mdi6.ruler',
+        'access_time': 'mdi6.clock-outline',
+        'update': 'mdi6.update',
+        'expand': 'mdi6.arrow-expand',
+        'compress': 'mdi6.arrow-collapse',
         
         # Tipos de archivos multimedia
         'image': 'mdi6.image',
@@ -83,6 +88,7 @@ class IconManager:
         'film': 'mdi6.movie',
         'photo': 'mdi6.image-outline',
         'picture': 'mdi6.image-multiple',
+        'photo-library': 'mdi6.image-album',
         
         # Live Photos y duplicados
         'live-photo': 'mdi6.camera-burst',
@@ -101,6 +107,7 @@ class IconManager:
         
         # Renombrado
         'rename': 'mdi6.rename-box',
+        'rename-outline': 'mdi6.rename-box-outline',
         'edit': 'mdi6.pencil',
         'format': 'mdi6.format-text',
         
@@ -125,6 +132,8 @@ class IconManager:
         'play-circle': 'mdi6.play-circle',
         'stop': 'mdi6.stop',
         'pause': 'mdi6.pause',
+        'skip-previous': 'mdi6.skip-previous',
+        'skip-next': 'mdi6.skip-next',
         
         # Directorio y navegación
         'home': 'mdi6.home',

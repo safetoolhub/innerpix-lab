@@ -6,10 +6,11 @@ from PyQt6.QtWidgets import (
     QComboBox, QMessageBox, QMenu, QWidget
 )
 from PyQt6.QtCore import Qt, QUrl
-from PyQt6.QtGui import QFont, QDesktopServices
+from PyQt6.QtGui import QFont, QDesktopServices, QColor
 from config import Config
 from services.exact_copies_detector import DuplicateGroup
 from utils.format_utils import format_size
+from utils.logger import get_logger
 from ui import ui_styles
 from ui.styles.design_system import DesignSystem
 from utils.icons import icon_manager
@@ -34,6 +35,7 @@ class ExactCopiesDialog(BaseDialog):
     
     def __init__(self, analysis, parent=None):
         super().__init__(parent)
+        self.logger = get_logger('ExactCopiesDialog')
         self.analysis = analysis
         self.keep_strategy = 'oldest'
         self.accepted_plan = None
@@ -58,79 +60,57 @@ class ExactCopiesDialog(BaseDialog):
         self.resize(1000, 700)
         
         layout = QVBoxLayout(self)
-        layout.setSpacing(8)  # Reducir espaciado general
-        
-        # Explicación contextual con métricas integradas
-        explanation_frame = QFrame()
-        explanation_frame.setFrameShape(QFrame.Shape.NoFrame)
-        explanation_frame.setStyleSheet("""
-            QFrame { 
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                           stop:0 #f8f9fa, stop:1 #e9ecef);
-                border: none;
-                border-radius: 6px; 
-                padding: 8px;
-            }
-        """)
-        explanation_layout = QVBoxLayout(explanation_frame)
-        explanation_layout.setSpacing(4)
-        explanation_layout.setContentsMargins(10, 6, 10, 6)
-        
-        # Texto explicativo
-        explanation = QLabel(
-            "Los duplicados exactos son archivos idénticos (100%). <b>Eliminarlos es seguro.</b>"
+        layout.setSpacing(int(DesignSystem.SPACE_16))
+        layout.setContentsMargins(
+            int(DesignSystem.SPACE_24),
+            int(DesignSystem.SPACE_20),
+            int(DesignSystem.SPACE_24),
+            int(DesignSystem.SPACE_20)
         )
-        explanation.setWordWrap(True)
-        explanation.setTextFormat(Qt.TextFormat.RichText)
-        explanation.setStyleSheet(ui_styles.STYLE_DIALOG_EXPLANATION_TEXT)
-        explanation_layout.addWidget(explanation)
         
-        # Métricas inline compactas (dentro del mismo frame)
+        # Header con icono y explicación
+        explanation = self._create_explanation_frame(
+            'content-copy',
+            'Copias exactas detectadas',
+            'Se han detectado archivos idénticos (100% mismo contenido digital SHA256). '
+            'Puedes eliminar las copias redundantes conservando un original por grupo.'
+        )
+        layout.addWidget(explanation)
+        
+        # Métricas inline
         metrics_layout = QHBoxLayout()
-        metrics_layout.setSpacing(8)
+        metrics_layout.setSpacing(int(DesignSystem.SPACE_12))
         
-        metrics_data = [
-            ("grupos", self.analysis.total_groups, "#2c5aa0"),
-            ("archivos", self.analysis.total_duplicates, "#ff9800"),
-        ]
+        # Grupos de duplicados
+        groups_metric = self._create_metric_card(
+            str(self.analysis.total_groups),
+            "Grupos de duplicados",
+            DesignSystem.COLOR_PRIMARY
+        )
+        metrics_layout.addWidget(groups_metric)
         
-        for label_text, value, color in metrics_data:
-            card = self._create_inline_metric(label_text, value, color)
-            metrics_layout.addWidget(card)
+        # Copias a eliminar
+        copies_metric = self._create_metric_card(
+            str(self.analysis.total_duplicates),
+            "Copias redundantes",
+            DesignSystem.COLOR_WARNING
+        )
+        metrics_layout.addWidget(copies_metric)
         
-        # Ahorro potencial destacado
-        savings_text = f"{format_size(self.analysis.space_wasted)}"
-        savings_label = QLabel(savings_text)
-        savings_label.setStyleSheet(ui_styles.STYLE_DIALOG_SAVINGS_GREEN)
-        metrics_layout.addWidget(savings_label)
+        # Espacio recuperable
+        space_metric = self._create_metric_card(
+            format_size(self.analysis.space_wasted),
+            "Espacio recuperable",
+            DesignSystem.COLOR_SUCCESS
+        )
+        metrics_layout.addWidget(space_metric)
         
         metrics_layout.addStretch()
-        explanation_layout.addLayout(metrics_layout)
+        layout.addLayout(metrics_layout)
         
-        layout.addWidget(explanation_frame)
-        
-        # Estrategia de eliminación - EN LÍNEA HORIZONTAL
-        strategy_group = QGroupBox("Estrategia")
-        strategy_group.setStyleSheet("QGroupBox { font-weight: bold; padding-top: 12px; }")
-        strategy_layout = QHBoxLayout(strategy_group)  # HORIZONTAL
-        strategy_layout.setContentsMargins(10, 8, 10, 8)
-        strategy_layout.setSpacing(15)
-        
-        self.strategy_buttons = QButtonGroup()
-        
-        r1 = QRadioButton("Mantener el más antiguo (Recomendado)")
-        r1.setChecked(True)
-        self.strategy_buttons.addButton(r1, 0)
-        strategy_layout.addWidget(r1)
-        
-        r2 = QRadioButton("Mantener el más reciente")
-        self.strategy_buttons.addButton(r2, 1)
-        strategy_layout.addWidget(r2)
-        
-        strategy_layout.addStretch()
-        
-        self.strategy_buttons.buttonClicked.connect(self._on_strategy_changed)
-        layout.addWidget(strategy_group)
+        # Selector de estrategia con cards
+        strategy_selector = self._create_strategy_selector()
+        layout.addWidget(strategy_selector)
         
         # Advertencia si hay muchos grupos
         if len(self.all_groups) > self.WARNING_THRESHOLD:
@@ -141,16 +121,17 @@ class ExactCopiesDialog(BaseDialog):
             )
             warning_many.setTextFormat(Qt.TextFormat.RichText)
             warning_many.setWordWrap(True)
-            warning_many.setStyleSheet("""
-                QLabel {
+            warning_many.setStyleSheet(f"""
+                QLabel {{
                     background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                               stop:0 #f8f9fa, stop:1 #e9ecef);
+                                               stop:0 {DesignSystem.COLOR_BG_1}, 
+                                               stop:1 {DesignSystem.COLOR_BG_2});
                     border: none;
-                    border-radius: 6px;
-                    padding: 10px;
-                    color: #495057;
-                    font-size: 9pt;
-                }
+                    border-radius: {DesignSystem.RADIUS_BASE}px;
+                    padding: {DesignSystem.SPACE_12}px;
+                    color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                    font-size: {DesignSystem.FONT_SIZE_SM}px;
+                }}
             """)
             layout.addWidget(warning_many)
         
@@ -175,16 +156,16 @@ class ExactCopiesDialog(BaseDialog):
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Nombre de archivo o ruta...")
         self.search_input.textChanged.connect(self._on_search_changed)
-        self.search_input.setStyleSheet("""
-            QLineEdit {
-                padding: 6px;
-                border: 1px solid #ced4da;
-                border-radius: 4px;
-                font-size: 13px;
-            }
-            QLineEdit:focus {
-                border-color: #2196F3;
-            }
+        self.search_input.setStyleSheet(f"""
+            QLineEdit {{
+                padding: {DesignSystem.SPACE_8}px;
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            }}
+            QLineEdit:focus {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
         """)
         toolbar_layout.addWidget(self.search_input, 2)
         
@@ -213,13 +194,13 @@ class ExactCopiesDialog(BaseDialog):
             "Solo grupos con 5+ archivos"
         ])
         self.filter_combo.currentIndexChanged.connect(self._on_filter_changed)
-        self.filter_combo.setStyleSheet("""
-            QComboBox {
-                padding: 6px;
-                border: 1px solid #ced4da;
-                border-radius: 4px;
-                font-size: 13px;
-            }
+        self.filter_combo.setStyleSheet(f"""
+            QComboBox {{
+                padding: {DesignSystem.SPACE_8}px;
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            }}
         """)
         toolbar_layout.addWidget(self.filter_combo, 1)
         
@@ -234,31 +215,32 @@ class ExactCopiesDialog(BaseDialog):
         icon_manager.set_button_icon(show_all_btn, 'eye', size=16)
         show_all_btn.setToolTip("Cargar y mostrar todos los grupos de duplicados")
         show_all_btn.clicked.connect(self._load_all_groups)
-        show_all_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #17a2b8;
-                color: white;
+        show_all_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                color: {DesignSystem.COLOR_PRIMARY_TEXT};
                 border: none;
-                border-radius: 4px;
-                padding: 6px 12px;
-                font-size: 12px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #138496;
-            }
-            QPushButton:pressed {
-                background-color: #0f6674;
-            }
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_PRIMARY_HOVER};
+            }}
+            QPushButton:pressed {{
+                background-color: {DesignSystem.COLOR_PRIMARY_HOVER};
+            }}
         """)
+        show_all_btn.setStyleSheet(DesignSystem.get_tooltip_style() + show_all_btn.styleSheet())
         toolbar_layout.addWidget(show_all_btn)
         
         # Información de grupos cargados (inline, sin fondo)
         self.groups_info_label = QLabel()
-        self.groups_info_label.setStyleSheet("""
-            color: #6c757d;
-            font-size: 11px;
-            padding: 5px;
+        self.groups_info_label.setStyleSheet(f"""
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            padding: {DesignSystem.SPACE_6}px;
         """)
         toolbar_layout.addWidget(self.groups_info_label)
         
@@ -274,22 +256,22 @@ class ExactCopiesDialog(BaseDialog):
         self.tree_widget.setColumnWidth(3, 300)
         self.tree_widget.setColumnWidth(4, 100)
         self.tree_widget.setAlternatingRowColors(True)
-        self.tree_widget.setStyleSheet("""
-            QTreeWidget {
-                border: 1px solid #ced4da;
-                border-radius: 4px;
-                background-color: white;
-                font-size: 12px;
-            }
-            QTreeWidget::item {
-                padding: 5px;
-            }
-            QTreeWidget::item:hover {
-                background-color: #e9ecef;
-            }
-            QTreeWidget::item:selected {
-                background-color: #d1e3f5;
-            }
+        self.tree_widget.setStyleSheet(f"""
+            QTreeWidget {{
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                background-color: {DesignSystem.COLOR_SURFACE};
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+            }}
+            QTreeWidget::item {{
+                padding: {DesignSystem.SPACE_6}px;
+            }}
+            QTreeWidget::item:hover {{
+                background-color: {DesignSystem.COLOR_BG_2};
+            }}
+            QTreeWidget::item:selected {{
+                background-color: {DesignSystem.COLOR_SECONDARY};
+            }}
         """)
         self.tree_widget.itemDoubleClicked.connect(self._on_item_double_clicked)
         self.tree_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -299,28 +281,29 @@ class ExactCopiesDialog(BaseDialog):
         # Botón de paginación (solo "Cargar Más")
         pagination_layout = QHBoxLayout()
         
-        self.load_more_btn = QPushButton(f"⏬ Cargar {self.LOAD_INCREMENT} Más Grupos")
+        self.load_more_btn = QPushButton(f"Cargar {self.LOAD_INCREMENT} Más Grupos")
+        icon_manager.set_button_icon(self.load_more_btn, 'down', size=16)
         self.load_more_btn.clicked.connect(self._load_more_groups)
-        self.load_more_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #6c757d;
-                color: white;
+        self.load_more_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {DesignSystem.COLOR_SECONDARY};
+                color: {DesignSystem.COLOR_TEXT};
                 border: none;
-                border-radius: 4px;
-                padding: 8px 16px;
-                font-size: 13px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #5a6268;
-            }
-            QPushButton:pressed {
-                background-color: #545b62;
-            }
-            QPushButton:disabled {
-                background-color: #dee2e6;
-                color: #6c757d;
-            }
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_16}px;
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_SECONDARY_HOVER};
+            }}
+            QPushButton:pressed {{
+                background-color: {DesignSystem.COLOR_SECONDARY_HOVER};
+            }}
+            QPushButton:disabled {{
+                background-color: {DesignSystem.COLOR_BORDER};
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            }}
         """)
         pagination_layout.addWidget(self.load_more_btn)
         
@@ -333,10 +316,15 @@ class ExactCopiesDialog(BaseDialog):
         # Opciones de seguridad
         options_group = QGroupBox("Opciones de Seguridad")
         options_group.setMinimumWidth(400)
-        options_group.setStyleSheet("QGroupBox { font-weight: bold; padding-top: 12px; }")
+        options_group.setStyleSheet(f"QGroupBox {{ font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD}; padding-top: {DesignSystem.SPACE_12}px; }}")
         options_layout = QVLayout(options_group)
-        options_layout.setContentsMargins(10, 8, 10, 8)
-        options_layout.setSpacing(6)
+        options_layout.setContentsMargins(
+            int(DesignSystem.SPACE_12),
+            int(DesignSystem.SPACE_8),
+            int(DesignSystem.SPACE_12),
+            int(DesignSystem.SPACE_8)
+        )
+        options_layout.setSpacing(int(DesignSystem.SPACE_8))
         
         # Backup checkbox (primero)
         self.add_backup_checkbox(options_layout, "Crear backup antes de eliminar (Recomendado)")
@@ -364,46 +352,173 @@ class ExactCopiesDialog(BaseDialog):
         # Aplicar estilo global de tooltips
         self.setStyleSheet(DesignSystem.get_tooltip_style())
     
-    def _create_inline_metric(self, label_text, value, color):
-        """Crea una métrica compacta inline con borde de color"""
+    def _create_strategy_selector(self) -> QFrame:
+        """Crea selector de estrategia con cards interactivas.
+        
+        Returns:
+            QFrame con las cards de selección de estrategia
+        """
         frame = QFrame()
+        frame.setObjectName("strategy-selector-frame")
         frame.setStyleSheet(f"""
-            QFrame {{
-                background-color: #f8f9fa;
-                border-left: 3px solid {color};
-                padding: 3px;
-                margin: 1px;
-                border-radius: 3px;
+            QFrame#strategy-selector-frame {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                padding: {DesignSystem.SPACE_16}px;
             }}
         """)
         
-        layout = QHBoxLayout(frame)
-        layout.setContentsMargins(6, 3, 6, 3)
-        layout.setSpacing(4)
+        layout = QVBoxLayout(frame)
+        layout.setSpacing(int(DesignSystem.SPACE_12))
         
-        # Valor más pequeño
-        value_label = QLabel(str(value))
-        font = QFont()
-        font.setPointSize(12)  # Reducido de 16 a 12
-        font.setBold(True)
-        value_label.setFont(font)
-        value_label.setStyleSheet(f"color: {color}; background: transparent; border: none;")
+        # Título
+        title_layout = QHBoxLayout()
+        title_icon = QLabel()
+        icon_manager.set_label_icon(
+            title_icon, 
+            'rule', 
+            size=int(DesignSystem.ICON_SIZE_LG)
+        )
+        title_layout.addWidget(title_icon)
         
-        # Label descriptivo más pequeño
-        desc_label = QLabel(label_text)
-        desc_label.setStyleSheet(ui_styles.STYLE_DIALOG_DESC_TINY)
+        title_label = QLabel("Elige qué archivo conservar en cada grupo")
+        title_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_LG}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            color: {DesignSystem.COLOR_TEXT};
+        """)
+        title_layout.addWidget(title_label)
+        title_layout.addStretch()
+        layout.addLayout(title_layout)
         
-        layout.addWidget(value_label)
-        layout.addWidget(desc_label)
+        # ButtonGroup para RadioButtons
+        self.strategy_button_group = QButtonGroup(self)
+        
+        # Cards layout
+        cards_layout = QHBoxLayout()
+        cards_layout.setSpacing(int(DesignSystem.SPACE_12))
+        
+        # Estrategias disponibles
+        strategies = [
+            ('oldest', 'access_time', 'Mantener el más antiguo', 
+             'Conserva el archivo con fecha de modificación más antigua. Recomendado para preservar originales.'),
+            ('newest', 'update', 'Mantener el más reciente', 
+             'Conserva el archivo con fecha de modificación más reciente. Útil para versiones editadas.'),
+            ('largest', 'expand', 'Mantener el más grande', 
+             'Conserva el archivo de mayor tamaño. Útil para preservar calidad máxima.'),
+            ('smallest', 'compress', 'Mantener el más pequeño', 
+             'Conserva el archivo de menor tamaño. Maximiza espacio liberado.')
+        ]
+        
+        # Crear una card por cada estrategia
+        for strategy_key, icon_name, title, description in strategies:
+            is_selected = (strategy_key == self.keep_strategy)
+            
+            # Crear RadioButton
+            radio = QRadioButton()
+            radio.setChecked(is_selected)
+            radio.toggled.connect(
+                lambda checked, s=strategy_key: self._on_strategy_changed(s) if checked else None
+            )
+            self.strategy_button_group.addButton(radio)
+            
+            # Crear card usando el método de BaseDialog
+            card = self._create_selection_card(
+                f"strategy-{strategy_key}",
+                icon_name,
+                title,
+                description,
+                is_selected,
+                radio
+            )
+            cards_layout.addWidget(card)
+        
+        layout.addLayout(cards_layout)
         
         return frame
     
-    def _on_strategy_changed(self, button):
-        """Handle strategy change: only 'oldest' and 'newest' are supported."""
-        strategies = {0: 'oldest', 1: 'newest'}
-        self.keep_strategy = strategies[self.strategy_buttons.id(button)]
-        # Actualizar visualización de estado en el tree
+    def _on_strategy_changed(self, new_strategy: str) -> None:
+        """Maneja el cambio de estrategia de eliminación.
+        
+        Args:
+            new_strategy: Nueva estrategia seleccionada ('oldest', 'newest', 'largest', 'smallest')
+        """
+        if new_strategy == self.keep_strategy:
+            return
+        
+        self.logger.info(f"Cambiando estrategia de eliminación: {self.keep_strategy} -> {new_strategy}")
+        self.keep_strategy = new_strategy
+        
+        # Actualizar estilos de las cards
+        self._update_strategy_cards_styles()
+        
+        # Actualizar estado de archivos en el tree
         self._update_status_labels()
+    
+    def _update_strategy_cards_styles(self) -> None:
+        """Actualiza los estilos de las cards de estrategia según la selección actual."""
+        strategies = ['oldest', 'newest', 'largest', 'smallest']
+        
+        for strategy in strategies:
+            card_name = f"strategy-card-{strategy}"
+            card = self.findChild(QFrame, card_name)
+            
+            if card:
+                is_selected = (strategy == self.keep_strategy)
+                card.setStyleSheet(f"""
+                    QFrame#{card_name} {{
+                        background-color: {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_SURFACE};
+                        border: 2px solid {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_BORDER};
+                        border-radius: {DesignSystem.RADIUS_BASE}px;
+                        padding: {DesignSystem.SPACE_12}px;
+                    }}
+                    QFrame#{card_name}:hover {{
+                        border-color: {DesignSystem.COLOR_PRIMARY};
+                        background-color: {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_BG_2};
+                    }}
+                    QFrame#{card_name} QLabel {{
+                        color: {DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_TEXT};
+                        font-weight: {DesignSystem.FONT_WEIGHT_NORMAL};
+                    }}
+                    QFrame#{card_name} QLabel#title-label {{
+                        font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+                    }}
+                    QFrame#{card_name} QLabel#desc-label {{
+                        color: {DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_TEXT_SECONDARY};
+                        font-weight: {DesignSystem.FONT_WEIGHT_NORMAL};
+                    }}
+                """)
+                
+                # Actualizar color del icono
+                self._update_card_icon_color(card, strategy, is_selected)
+    
+    def _update_card_icon_color(self, card: QFrame, strategy: str, is_selected: bool) -> None:
+        """Actualiza el color del icono en una card de estrategia.
+        
+        Args:
+            card: QFrame de la card
+            strategy: Nombre de la estrategia
+            is_selected: Si la card está seleccionada
+        """
+        icon_map = {
+            'oldest': 'access_time',
+            'newest': 'update',
+            'largest': 'expand',
+            'smallest': 'compress'
+        }
+        
+        # Encontrar el icono (segundo QLabel en el header layout)
+        header_layout = card.layout().itemAt(0).layout()  # Primer item es el header_layout
+        if header_layout and header_layout.count() >= 2:
+            icon_label = header_layout.itemAt(1).widget()  # Segundo widget es el icono
+            if isinstance(icon_label, QLabel):
+                icon_manager.set_label_icon(
+                    icon_label,
+                    icon_map.get(strategy, 'rule'),
+                    size=int(DesignSystem.ICON_SIZE_XL),
+                    color=DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_PRIMARY
+                )
     
     def _load_initial_groups(self):
         """Carga los primeros grupos según INITIAL_LOAD"""
@@ -524,10 +639,44 @@ class ExactCopiesDialog(BaseDialog):
     
     def _update_status_labels(self):
         """Actualiza las etiquetas de estado según la estrategia seleccionada"""
-        # Recorrer todos los grupos y actualizar el estado
-        self.tree_widget.clear()
-        self.loaded_count = 0
-        self._load_initial_groups()
+        # Recorrer todos los grupos cargados y actualizar el estado
+        for i in range(self.tree_widget.topLevelItemCount()):
+            group_item = self.tree_widget.topLevelItem(i)
+            
+            # Obtener archivos del grupo
+            files = []
+            for j in range(group_item.childCount()):
+                child = group_item.child(j)
+                filepath = child.data(0, Qt.ItemDataRole.UserRole)
+                if filepath:
+                    files.append(filepath)
+            
+            if not files:
+                continue
+            
+            # Determinar archivo a mantener según estrategia
+            if self.keep_strategy == 'oldest':
+                keep_file = min(files, key=lambda f: f.stat().st_mtime)
+            elif self.keep_strategy == 'newest':
+                keep_file = max(files, key=lambda f: f.stat().st_mtime)
+            elif self.keep_strategy == 'largest':
+                keep_file = max(files, key=lambda f: f.stat().st_size)
+            elif self.keep_strategy == 'smallest':
+                keep_file = min(files, key=lambda f: f.stat().st_size)
+            else:
+                keep_file = files[0]  # Fallback
+            
+            # Actualizar estado de cada archivo hijo
+            for j in range(group_item.childCount()):
+                child = group_item.child(j)
+                filepath = child.data(0, Qt.ItemDataRole.UserRole)
+                
+                if filepath == keep_file:
+                    child.setText(4, "Mantener")
+                    child.setForeground(4, QColor(DesignSystem.COLOR_SUCCESS))
+                else:
+                    child.setText(4, "Eliminar")
+                    child.setForeground(4, QColor(DesignSystem.COLOR_ERROR))
     
     def _update_info_label(self):
         """Actualiza el label de información de grupos"""

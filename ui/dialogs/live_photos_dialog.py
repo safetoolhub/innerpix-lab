@@ -49,63 +49,55 @@ class LivePhotoCleanupDialog(BaseDialog):
     def init_ui(self):
         self.setWindowTitle("Limpieza de Live Photos")
         self.setModal(True)
-        self.resize(650, 450)
+        self.resize(700, 500)
         layout = QVBoxLayout(self)
-
-        # Información introductoria
-        info_label = QLabel(
-            "Los Live Photos de iPhone contienen una imagen JPG y un video MOV con el mismo nombre.\n"
-            "Selecciona qué componente deseas conservar:"
+        layout.setSpacing(int(DesignSystem.SPACE_16))
+        layout.setContentsMargins(
+            int(DesignSystem.SPACE_24),
+            int(DesignSystem.SPACE_20),
+            int(DesignSystem.SPACE_24),
+            int(DesignSystem.SPACE_20)
         )
-        info_label.setStyleSheet(ui_styles.STYLE_INFO_HIGHLIGHT)
-        info_label.setWordWrap(True)
-        layout.addWidget(info_label)
 
-        # Modo de limpieza
-        mode_group = QGroupBox("¿Qué deseas conservar?")
-        mode_layout = QVLayout(mode_group)
-        self.mode_buttons = QButtonGroup()
-
-        r1 = QRadioButton("Conservar imágenes (JPG)")
-        r1.setChecked(True)
-        self.mode_buttons.addButton(r1, 0)
-        mode_layout.addWidget(r1)
-
-        desc1 = QLabel(" → Se eliminarán los videos MOV asociados\n"
-                       " → Recomendado para ahorrar espacio manteniendo las fotos")
-        desc1.setStyleSheet(ui_styles.STYLE_DESC_SMALL_INDENT)
-        mode_layout.addWidget(desc1)
-        mode_layout.addSpacing(10)
-
-        r2 = QRadioButton("Conservar videos (MOV)")
-        self.mode_buttons.addButton(r2, 1)
-        mode_layout.addWidget(r2)
-
-        desc2 = QLabel(" → Se eliminarán las imágenes JPG asociadas\n"
-                       " → Útil si prefieres mantener el movimiento/audio de Live Photos")
-        desc2.setStyleSheet(ui_styles.STYLE_DESC_SMALL_INDENT)
-        mode_layout.addWidget(desc2)
-
-        self.mode_buttons.buttonClicked.connect(self._on_mode_changed)
-        layout.addWidget(mode_group)
-
-        # Estadísticas
-        stats_group = QGroupBox("Información")
-        stats_layout = QVLayout(stats_group)
-        live_photos_found = self.analysis.live_photos_found  # Dataclass attribute
-        total_space = self.analysis.total_space  # Dataclass attribute
-        stats_label = QLabel(
-            f"Live Photos detectados: <b>{live_photos_found}</b><br>"
-            f"Espacio total ocupado: <b>{format_size(total_space)}</b>"
+        # Header explicativo
+        explanation = self._create_explanation_frame(
+            'camera',
+            'Live Photos detectadas',
+            'Los Live Photos de iPhone contienen una imagen JPG y un video MOV con el mismo nombre. '
+            'Selecciona qué componente deseas conservar.'
         )
-        stats_label.setTextFormat(Qt.TextFormat.RichText)
-        stats_layout.addWidget(stats_label)
-        layout.addWidget(stats_group)
+        layout.addWidget(explanation)
+
+        # Métricas
+        from PyQt6.QtWidgets import QHBoxLayout
+        metrics_layout = QHBoxLayout()
+        metrics_layout.setSpacing(int(DesignSystem.SPACE_12))
+        
+        live_photos_metric = self._create_metric_card(
+            str(self.analysis.live_photos_found),
+            "Live Photos detectadas",
+            DesignSystem.COLOR_PRIMARY
+        )
+        metrics_layout.addWidget(live_photos_metric)
+        
+        space_metric = self._create_metric_card(
+            format_size(self.analysis.total_space),
+            "Espacio total ocupado",
+            DesignSystem.COLOR_WARNING
+        )
+        metrics_layout.addWidget(space_metric)
+        
+        metrics_layout.addStretch()
+        layout.addLayout(metrics_layout)
+
+        # Selector de modo con cards
+        mode_selector = self._create_mode_selector()
+        layout.addWidget(mode_selector)
 
         # Opciones
         options_group = QGroupBox("Opciones de Seguridad")
         options_group.setMinimumWidth(400)
-        options_group.setStyleSheet("QGroupBox { font-weight: bold; }")
+        options_group.setStyleSheet(f"QGroupBox {{ font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD}; padding-top: {DesignSystem.SPACE_12}px; }}")
         options_layout = QVLayout(options_group)
 
         # Backup checkbox (primero)
@@ -125,6 +117,7 @@ class LivePhotoCleanupDialog(BaseDialog):
         layout.addWidget(options_group)
 
         # Botones
+        live_photos_found = self.analysis.live_photos_found
         ok_enabled = live_photos_found > 0
         ok_text = None if ok_enabled else "No hay Live Photos para limpiar"
         self.buttons = self.make_ok_cancel_buttons(ok_text=ok_text, ok_enabled=ok_enabled)
@@ -136,6 +129,93 @@ class LivePhotoCleanupDialog(BaseDialog):
         
         # Aplicar estilo global de tooltips
         self.setStyleSheet(DesignSystem.get_tooltip_style())
+
+    def _create_mode_selector(self):
+        """Crea selector de modo con cards interactivas."""
+        from PyQt6.QtWidgets import QFrame, QHBoxLayout
+        
+        frame = QFrame()
+        frame.setObjectName("mode-selector-frame")
+        frame.setStyleSheet(f"""
+            QFrame#mode-selector-frame {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                padding: {DesignSystem.SPACE_16}px;
+            }}
+        """)
+        
+        layout = QVBoxLayout(frame)
+        layout.setSpacing(int(DesignSystem.SPACE_12))
+        
+        # Título
+        title_layout = QHBoxLayout()
+        title_icon = QLabel()
+        icon_manager.set_label_icon(
+            title_icon, 
+            'settings', 
+            size=int(DesignSystem.ICON_SIZE_LG)
+        )
+        title_layout.addWidget(title_icon)
+        
+        title_label = QLabel("¿Qué componente deseas conservar?")
+        title_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_LG}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            color: {DesignSystem.COLOR_TEXT};
+        """)
+        title_layout.addWidget(title_label)
+        title_layout.addStretch()
+        layout.addLayout(title_layout)
+        
+        # ButtonGroup
+        self.mode_buttons = QButtonGroup(self)
+        
+        # Cards layout
+        cards_layout = QHBoxLayout()
+        cards_layout.setSpacing(int(DesignSystem.SPACE_12))
+        
+        # Modos disponibles
+        modes = [
+            (CleanupMode.KEEP_IMAGE, 'image', 'Conservar imágenes (JPG)', 
+             'Se eliminarán los videos MOV asociados. Recomendado para ahorrar espacio manteniendo las fotos.'),
+            (CleanupMode.KEEP_VIDEO, 'video', 'Conservar videos (MOV)', 
+             'Se eliminarán las imágenes JPG asociadas. Útil si prefieres mantener el movimiento/audio.')
+        ]
+        
+        for idx, (mode, icon_name, title, description) in enumerate(modes):
+            is_selected = (mode == self.selected_mode)
+            
+            # Crear RadioButton
+            radio = QRadioButton()
+            radio.setChecked(is_selected)
+            radio.toggled.connect(
+                lambda checked, m=mode: self._on_mode_card_changed(m) if checked else None
+            )
+            self.mode_buttons.addButton(radio, idx)
+            
+            # Crear card
+            card = self._create_selection_card(
+                f"mode-{mode.value}",
+                icon_name,
+                title,
+                description,
+                is_selected,
+                radio
+            )
+            cards_layout.addWidget(card)
+        
+        layout.addLayout(cards_layout)
+        
+        return frame
+
+    def _on_mode_card_changed(self, new_mode):
+        """Maneja el cambio de modo desde las cards."""
+        if new_mode == self.selected_mode:
+            return
+        
+        self.selected_mode = new_mode
+        self._update_button_text()
 
     def _on_mode_changed(self, button):
         modes = {0: CleanupMode.KEEP_IMAGE, 1: CleanupMode.KEEP_VIDEO}

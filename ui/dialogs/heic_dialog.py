@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QGroupBox, QVBoxLayout as QVLayout, QRadioButton,
     QButtonGroup, QTableWidget, QTableWidgetItem, QCheckBox, QDialogButtonBox, 
     QLabel, QTreeWidget, QTreeWidgetItem, QLineEdit, QComboBox, QPushButton,
-    QFrame, QApplication
+    QFrame, QApplication, QWidget
 )
 from PyQt6.QtGui import QColor, QFont, QCursor
 from PyQt6.QtCore import Qt, QTimer
@@ -46,24 +46,56 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         self.setModal(True)
         self.resize(1200, 750)
         main_layout = QVBoxLayout(self)
+        main_layout.setSpacing(int(DesignSystem.SPACE_16))
+        main_layout.setContentsMargins(
+            int(DesignSystem.SPACE_24),
+            int(DesignSystem.SPACE_20),
+            int(DesignSystem.SPACE_24),
+            int(DesignSystem.SPACE_20)
+        )
         
-        # Explicación clara del problema
-        explanation = self._create_explanation_section()
+        # Header con icono y explicación
+        explanation = self._create_explanation_frame(
+            'photo-library',
+            'Duplicados HEIC/JPG detectados',
+            'Se han detectado fotos en formato HEIC que tienen una copia idéntica en JPG. '
+            'Puedes eliminar los archivos HEIC para ahorrar espacio manteniendo los JPG.'
+        )
         main_layout.addWidget(explanation)
+        
+        # Métricas inline
+        metrics_layout = QHBoxLayout()
+        metrics_layout.setSpacing(int(DesignSystem.SPACE_12))
+        
+        # Pares HEIC/JPG
+        pairs_metric = self._create_metric_card(
+            str(self.analysis.total_pairs),
+            "Pares HEIC/JPG",
+            DesignSystem.COLOR_PRIMARY
+        )
+        metrics_layout.addWidget(pairs_metric)
+        
+        # Espacio recuperable
+        space_metric = self._create_metric_card(
+            format_size(self.analysis.total_size),
+            "Espacio recuperable",
+            DesignSystem.COLOR_SUCCESS
+        )
+        metrics_layout.addWidget(space_metric)
+        
+        metrics_layout.addStretch()
+        main_layout.addLayout(metrics_layout)
         
         # Separador
         separator = QFrame()
         separator.setFrameShape(QFrame.Shape.HLine)
-        separator.setFrameShadow(QFrame.Shadow.Sunken)
+        separator.setStyleSheet(f"background-color: {DesignSystem.COLOR_BORDER};")
+        separator.setMaximumHeight(1)
         main_layout.addWidget(separator)
         
-        # Resumen compacto con métricas
-        metrics = self._create_metrics_section()
-        main_layout.addLayout(metrics)
-        
-        # Formato a mantener (más prominente)
-        format_group = self._create_format_selection()
-        main_layout.addWidget(format_group)
+        # Selector de formato con cards
+        format_selector = self._create_format_selector()
+        main_layout.addWidget(format_selector)
         
         # Barra de herramientas (filtros y búsqueda)
         toolbar = self._create_toolbar()
@@ -95,127 +127,196 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         # Aplicar estilo global de tooltips
         self.setStyleSheet(DesignSystem.get_tooltip_style())
 
-    def _create_explanation_section(self):
-        """Crea sección de explicación clara"""
+    def _create_format_selector(self) -> QFrame:
+        """Crea selector de formato con cards interactivas.
+        
+        Returns:
+            QFrame con las cards de selección de formato
+        """
         frame = QFrame()
-        frame.setFrameShape(QFrame.Shape.NoFrame)
-        frame.setStyleSheet("""
-            QFrame { 
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                           stop:0 #f8f9fa, stop:1 #e9ecef);
-                border: none;
-                border-radius: 6px; 
-                padding: 10px;
-            }
+        frame.setObjectName("format-selector-frame")
+        frame.setStyleSheet(f"""
+            QFrame#format-selector-frame {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                padding: {DesignSystem.SPACE_16}px;
+            }}
         """)
+        
         layout = QVBoxLayout(frame)
-        layout.setSpacing(2)
-        layout.setContentsMargins(12, 8, 12, 8)
+        layout.setSpacing(int(DesignSystem.SPACE_12))
         
-        explanation = QLabel(
-            "iOS crea versiones HEIC y JPG de la misma foto. Puedes eliminar una versión para liberar espacio. "
-            "<b>Mantener JPG</b>: compatibilidad universal | <b>Mantener HEIC</b>: menor tamaño"
+        # Título
+        title_layout = QHBoxLayout()
+        title_icon = QLabel()
+        icon_manager.set_label_icon(
+            title_icon, 
+            'photo-library', 
+            size=int(DesignSystem.ICON_SIZE_LG)
         )
-        explanation.setWordWrap(True)
-        explanation.setTextFormat(Qt.TextFormat.RichText)
-        explanation.setStyleSheet(ui_styles.STYLE_HEIC_EXPLANATION)
-        layout.addWidget(explanation)
+        title_layout.addWidget(title_icon)
         
-        return frame
-    
-    def _create_metrics_section(self):
-        """Crea panel de métricas compacto"""
-        layout = QHBoxLayout()
+        title_label = QLabel("Elige qué formato conservar")
+        title_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_LG}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            color: {DesignSystem.COLOR_TEXT};
+        """)
+        title_layout.addWidget(title_label)
+        title_layout.addStretch()
+        layout.addLayout(title_layout)
         
-        metrics_data = [
-            ("Total pares", self.analysis.total_pairs, "#2c5aa0"),
-            ("Archivos HEIC", self.analysis.heic_files, "#9c27b0"),
-            ("Archivos JPG", self.analysis.jpg_files, "#ff9800"),
+        # ButtonGroup para RadioButtons
+        self.format_button_group = QButtonGroup(self)
+        
+        # Cards layout (horizontal)
+        cards_layout = QHBoxLayout()
+        cards_layout.setSpacing(int(DesignSystem.SPACE_12))
+        
+        # Formatos disponibles: (key, icon, title, description)
+        formats = [
+            ('jpg', 'image', 'Mantener JPG', 
+             f'Máxima compatibilidad. Los JPG funcionan en todos los dispositivos. Liberarás {format_size(self.analysis.potential_savings_keep_jpg)}'),
+            ('heic', 'camera', 'Mantener HEIC', 
+             f'Archivos más pequeños pero requiere soporte HEIC. Liberarás {format_size(self.analysis.potential_savings_keep_heic)}')
         ]
         
-        for label_text, value, color in metrics_data:
-            card = self._create_inline_metric(label_text, value, color)
-            layout.addWidget(card)
+        for format_key, icon_name, title, description in formats:
+            is_selected = (format_key == self.selected_format)
+            
+            # Crear RadioButton
+            radio = QRadioButton()
+            radio.setChecked(is_selected)
+            radio.toggled.connect(
+                lambda checked, f=format_key: self._on_format_card_changed(f) if checked else None
+            )
+            self.format_button_group.addButton(radio)
+            
+            # Crear card usando el método de BaseDialog
+            card = self._create_selection_card(
+                f"format-{format_key}",
+                icon_name,
+                title,
+                description,
+                is_selected,
+                radio
+            )
+            cards_layout.addWidget(card)
         
-        # Info de ahorro
-        savings_text = f"💾 Ahorro potencial: {format_size(self.analysis.potential_savings_keep_jpg)}"
-        savings_label = QLabel(savings_text)
-        savings_label.setStyleSheet(ui_styles.STYLE_HEIC_SAVINGS)
-        layout.addWidget(savings_label)
-        
-        layout.addStretch()
-        return layout
-    
-    def _create_inline_metric(self, label_text, value, color):
-        """Crea una métrica compacta inline"""
-        frame = QFrame()
-        frame.setStyleSheet(ui_styles.STYLE_DIALOG_METRIC_FRAME(color))
-        
-        layout = QHBoxLayout(frame)
-        layout.setContentsMargins(8, 5, 8, 5)
-        
-        # Valor
-        value_label = QLabel(str(value))
-        font = QFont()
-        font.setPointSize(16)
-        font.setBold(True)
-        value_label.setFont(font)
-        value_label.setStyleSheet(ui_styles.STYLE_DIALOG_VALUE_LABEL(color))
-        
-        # Label descriptivo
-        desc_label = QLabel(label_text)
-        desc_label.setStyleSheet(ui_styles.STYLE_DIALOG_DESC_SMALL)
-        
-        layout.addWidget(value_label)
-        layout.addWidget(desc_label)
+        layout.addLayout(cards_layout)
         
         return frame
     
+    def _on_format_card_changed(self, new_format: str) -> None:
+        """Maneja el cambio de formato seleccionado desde las cards.
+        
+        Args:
+            new_format: Nuevo formato seleccionado ('jpg' o 'heic')
+        """
+        if new_format == self.selected_format:
+            return
+        
+        self.selected_format = new_format
+        
+        # Actualizar estilos de las cards
+        self._update_format_cards_styles()
+        
+        # Actualizar texto del botón OK
+        self._update_button_text()
+        
+        # Actualizar tree
+        self._update_tree()
+    
+    def _update_format_cards_styles(self) -> None:
+        """Actualiza los estilos de las cards de formato según la selección actual."""
+        formats = ['jpg', 'heic']
+        
+        for fmt in formats:
+            card_name = f"format-{fmt}"
+            card = self.findChild(QFrame, card_name)
+            
+            if card:
+                is_selected = (fmt == self.selected_format)
+                
+                card.setStyleSheet(f"""
+                    QFrame#{card_name} {{
+                        background-color: {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_SURFACE};
+                        border: 2px solid {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_BORDER};
+                        border-radius: {DesignSystem.RADIUS_BASE}px;
+                        padding: {DesignSystem.SPACE_12}px;
+                    }}
+                    QFrame#{card_name}:hover {{
+                        border-color: {DesignSystem.COLOR_PRIMARY};
+                        background-color: {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_BG_2};
+                    }}
+                    QFrame#{card_name} QLabel {{
+                        color: {DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_TEXT};
+                    }}
+                    QFrame#{card_name} QLabel#title-label {{
+                        font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+                    }}
+                    QFrame#{card_name} QLabel#desc-label {{
+                        color: {DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_TEXT_SECONDARY};
+                    }}
+                """)
+                
+                # Actualizar color del icono
+                icon_map = {'jpg': 'image', 'heic': 'camera'}
+                header_layout = card.layout().itemAt(0).layout()
+                if header_layout and header_layout.count() >= 2:
+                    icon_label = header_layout.itemAt(1).widget()
+                    if isinstance(icon_label, QLabel):
+                        icon_manager.set_label_icon(
+                            icon_label,
+                            icon_map.get(fmt, 'photo-library'),
+                            size=int(DesignSystem.ICON_SIZE_XL),
+                            color=DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_PRIMARY
+                        )                
+                # Actualizar color del icono
+                self._update_format_card_icon_color(card, fmt, is_selected)
+    
+    def _update_format_card_icon_color(self, card: QFrame, format_key: str, is_selected: bool) -> None:
+        """Actualiza el color del icono en una card de formato.
+        
+        Args:
+            card: QFrame de la card
+            format_key: Clave del formato ('jpg' o 'heic')
+            is_selected: Si la card está seleccionada
+        """
+        icon_map = {
+            'jpg': 'image',
+            'heic': 'camera'
+        }
+        
+        # Encontrar el icono (segundo QLabel en el header layout)
+        header_layout = card.layout().itemAt(0).layout()  # Primer item es el header_layout
+        if header_layout and header_layout.count() >= 2:
+            icon_label = header_layout.itemAt(1).widget()  # Segundo widget es el icono
+            if isinstance(icon_label, QLabel):
+                icon_manager.set_label_icon(
+                    icon_label,
+                    icon_map.get(format_key, 'image'),
+                    size=int(DesignSystem.ICON_SIZE_XL),
+                    color=DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_PRIMARY
+                )
+    
     def _create_format_selection(self):
-        """Crea sección de selección de formato mejorada"""
-        format_group = QGroupBox("🎯 Formato a Mantener (Elige cuál conservar)")
-        format_group.setStyleSheet(ui_styles.STYLE_DIALOG_OPTIONS_GROUP)
-        format_layout = QVLayout(format_group)
-        
-        self.format_buttons = QButtonGroup()
-        
-        # JPG opción
-        r1 = QRadioButton("📸 Mantener JPG, eliminar HEIC (Recomendado)")
-        r1.setChecked(True)
-        r1.setToolTip("Máxima compatibilidad. Los JPG funcionan en todos los dispositivos y aplicaciones.")
-        self.format_buttons.addButton(r1, 0)
-        format_layout.addWidget(r1)
-        
-        jpg_info = QLabel(f"   → Liberarás: {format_size(self.analysis.potential_savings_keep_jpg)}")
-        jpg_info.setStyleSheet(ui_styles.STYLE_HEIC_FORMAT_INFO)
-        format_layout.addWidget(jpg_info)
-        self.jpg_savings_label = jpg_info
-        
-        # HEIC opción
-        r2 = QRadioButton("🖼️ Mantener HEIC, eliminar JPG (Menor tamaño)")
-        r2.setToolTip("Archivos más pequeños pero requiere soporte HEIC en el visor/editor.")
-        self.format_buttons.addButton(r2, 1)
-        format_layout.addWidget(r2)
-        
-        heic_info = QLabel(f"   → Liberarás: {format_size(self.analysis.potential_savings_keep_heic)}")
-        heic_info.setStyleSheet(ui_styles.STYLE_HEIC_FORMAT_INFO)
-        format_layout.addWidget(heic_info)
-        self.heic_savings_label = heic_info
-        
-        self.format_buttons.buttonClicked.connect(self._on_format_changed)
-        return format_group
+        """DEPRECATED: Mantener por compatibilidad pero no se usa"""
+        return self._create_format_selector()
     
     def _create_toolbar(self):
         """Crea barra de herramientas con filtros"""
         toolbar = QHBoxLayout()
         
-        # Búsqueda
-        search_label = QLabel("🔍")
+        # Búsqueda con icono
+        search_icon = QLabel()
+        icon_manager.set_label_icon(search_icon, 'search', size=16)
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Buscar por nombre...")
         self.search_input.textChanged.connect(self._apply_filters)
         self.search_input.setMaximumWidth(200)
-        toolbar.addWidget(search_label)
+        toolbar.addWidget(search_icon)
         toolbar.addWidget(self.search_input)
         
         toolbar.addWidget(QLabel("|"))
@@ -249,7 +350,7 @@ class HEICDuplicateRemovalDialog(BaseDialog):
     def _create_files_tree(self):
         """Crea TreeWidget para mostrar archivos duplicados"""
         tree = QTreeWidget()
-        tree.setHeaderLabels(["Archivos", "HEIC 📷", "JPG 📷", "A Eliminar"])
+        tree.setHeaderLabels(["Archivos", "HEIC", "JPG", "A Eliminar"])
         tree.setAlternatingRowColors(True)
         tree.setEditTriggers(QTreeWidget.EditTrigger.NoEditTriggers)
         tree.setSelectionMode(QTreeWidget.SelectionMode.NoSelection)
@@ -292,30 +393,34 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         """Crea controles de paginación"""
         widget = QFrame()
         widget.setFrameStyle(QFrame.Shape.StyledPanel)
-        widget.setStyleSheet("QFrame { background-color: #f0f0f0; border-radius: 3px; }")
+        widget.setStyleSheet(f"QFrame {{ background-color: {DesignSystem.COLOR_BG_1}; border-radius: {DesignSystem.RADIUS_BASE}px; }}")
         layout = QHBoxLayout(widget)
         
-        self.first_page_btn = QPushButton("⏮ Primera")
+        self.first_page_btn = QPushButton("Primera")
+        icon_manager.set_button_icon(self.first_page_btn, 'skip-previous', size=16)
         self.first_page_btn.clicked.connect(self._go_first_page)
         self.first_page_btn.setMaximumWidth(100)
         layout.addWidget(self.first_page_btn)
         
-        self.prev_page_btn = QPushButton("◀ Anterior")
+        self.prev_page_btn = QPushButton("Anterior")
+        icon_manager.set_button_icon(self.prev_page_btn, 'chevron-left', size=16)
         self.prev_page_btn.clicked.connect(self._go_prev_page)
         self.prev_page_btn.setMaximumWidth(100)
         layout.addWidget(self.prev_page_btn)
         
         self.page_label = QLabel()
-        self.page_label.setStyleSheet("font-weight: bold; padding: 0 20px;")
+        self.page_label.setStyleSheet(f"font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD}; padding: 0 {DesignSystem.SPACE_20}px;")
         self.page_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.page_label)
         
-        self.next_page_btn = QPushButton("Siguiente ▶")
+        self.next_page_btn = QPushButton("Siguiente")
+        icon_manager.set_button_icon(self.next_page_btn, 'chevron-right', size=16)
         self.next_page_btn.clicked.connect(self._go_next_page)
         self.next_page_btn.setMaximumWidth(100)
         layout.addWidget(self.next_page_btn)
         
-        self.last_page_btn = QPushButton("Última ⏭")
+        self.last_page_btn = QPushButton("Última")
+        icon_manager.set_button_icon(self.last_page_btn, 'skip-next', size=16)
         self.last_page_btn.clicked.connect(self._go_last_page)
         self.last_page_btn.setMaximumWidth(100)
         layout.addWidget(self.last_page_btn)
@@ -335,16 +440,17 @@ class HEICDuplicateRemovalDialog(BaseDialog):
     
     def _create_options_group(self):
         """Crea grupo de opciones de seguridad"""
-        options_group = QGroupBox("⚙️ Opciones de Seguridad")
+        options_group = QGroupBox("Opciones de Seguridad")
         options_group.setMinimumWidth(400)
-        options_group.setStyleSheet("QGroupBox { font-weight: bold; }")
+        options_group.setStyleSheet(f"QGroupBox {{ font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD}; padding-top: {DesignSystem.SPACE_12}px; }}")
         options_layout = QVLayout()
+        options_layout.setSpacing(int(DesignSystem.SPACE_8))
         
         # Checkbox de backup (primero)
-        self.add_backup_checkbox(options_layout, "💾 Crear backup antes de eliminar (Recomendado)")
+        self.add_backup_checkbox(options_layout, "Crear backup antes de eliminar (Recomendado)")
         
         # Checkbox de simulación (segundo)
-        self.dry_run_checkbox = QCheckBox("🔍 Modo simulación (no eliminar realmente)")
+        self.dry_run_checkbox = QCheckBox("Modo simulación (no eliminar realmente)")
         from utils.settings_manager import settings_manager
         dry_run_default = settings_manager.get(settings_manager.KEY_DRY_RUN_DEFAULT, False)
         if isinstance(dry_run_default, str):
@@ -492,16 +598,13 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         if column == 1:  # Columna HEIC
             file_path = pair.heic_path
             file_type = "HEIC"
-            emoji = "🖼️"
         elif column == 2:  # Columna JPG
             file_path = pair.jpg_path
             file_type = "JPG"
-            emoji = "📸"
         else:
             # Si hace clic en otra columna, abrir JPG por defecto
             file_path = pair.jpg_path
             file_type = "JPG (por defecto)"
-            emoji = "📸"
         
         if not file_path.exists():
             from PyQt6.QtWidgets import QMessageBox
@@ -522,7 +625,7 @@ class HEICDuplicateRemovalDialog(BaseDialog):
                 subprocess.Popen(['start', str(file_path)], shell=True)
             
             # Mostrar feedback temporal en la barra de estado del diálogo
-            self.setWindowTitle(f"Limpieza de Duplicados HEIC/JPG - Abriendo {emoji} {file_type}...")
+            self.setWindowTitle(f"Limpieza de Duplicados HEIC/JPG - Abriendo {file_type}...")
             QTimer.singleShot(2000, lambda: self.setWindowTitle("Limpieza de Duplicados HEIC/JPG"))
             
         except Exception as e:
@@ -544,31 +647,31 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         menu = QMenu(self)
         
         # Opción para abrir HEIC
-        open_heic_action = menu.addAction("🖼️ Abrir archivo HEIC")
+        open_heic_action = menu.addAction("Abrir archivo HEIC")
         open_heic_action.triggered.connect(lambda: self._open_specific_file(pair.heic_path, "HEIC"))
         
         # Opción para abrir JPG
-        open_jpg_action = menu.addAction("📸 Abrir archivo JPG")
+        open_jpg_action = menu.addAction("Abrir archivo JPG")
         open_jpg_action.triggered.connect(lambda: self._open_specific_file(pair.jpg_path, "JPG"))
         
         menu.addSeparator()
         
         # Opción para abrir ambos
-        open_both_action = menu.addAction("📂 Abrir ambos archivos")
+        open_both_action = menu.addAction("Abrir ambos archivos")
         open_both_action.triggered.connect(lambda: self._open_both_files(pair))
         
         # Opción para abrir carpeta
-        open_folder_action = menu.addAction("📁 Abrir carpeta")
+        open_folder_action = menu.addAction("Abrir carpeta")
         open_folder_action.triggered.connect(lambda: self._open_folder(pair.heic_path.parent))
         
         menu.addSeparator()
         
         # Opción para ver detalles de HEIC
-        details_heic_action = menu.addAction("ℹ️ Ver detalles HEIC")
+        details_heic_action = menu.addAction("Ver detalles HEIC")
         details_heic_action.triggered.connect(lambda: self._show_file_details(pair, "heic"))
         
         # Opción para ver detalles de JPG
-        details_jpg_action = menu.addAction("ℹ️ Ver detalles JPG")
+        details_jpg_action = menu.addAction("Ver detalles JPG")
         details_jpg_action.triggered.connect(lambda: self._show_file_details(pair, "jpg"))
         
         menu.exec(self.files_tree.viewport().mapToGlobal(position))
@@ -596,8 +699,7 @@ class HEICDuplicateRemovalDialog(BaseDialog):
             elif system == 'Windows':
                 subprocess.Popen(['start', str(file_path)], shell=True)
             
-            emoji = "🖼️" if file_type == "HEIC" else "📸"
-            self.setWindowTitle(f"Limpieza de Duplicados HEIC/JPG - Abriendo {emoji} {file_type}...")
+            self.setWindowTitle(f"Limpieza de Duplicados HEIC/JPG - Abriendo {file_type}...")
             QTimer.singleShot(2000, lambda: self.setWindowTitle("Limpieza de Duplicados HEIC/JPG"))
             
         except Exception as e:

@@ -120,10 +120,7 @@ class FileOrganizationDialog(BaseDialog):
         separator.setMaximumHeight(1)
         main_layout.addWidget(separator)
         
-        # === EXPLICACIÓN ===
-        self.explanation_widget = self._create_explanation_section()
-        main_layout.addWidget(self.explanation_widget)
-        
+       
         # === MÉTRICAS ===
         self.metrics_widget = self._create_metrics_section()
         main_layout.addWidget(self.metrics_widget)
@@ -196,7 +193,7 @@ class FileOrganizationDialog(BaseDialog):
         title_layout = QHBoxLayout()
         title_icon = QLabel()
         icon_manager.set_label_icon(title_icon, 'options', size=DesignSystem.ICON_SIZE_LG)
-        title_label = QLabel("Tipo de Organización")
+        title_label = QLabel("Elige cómo organizar los archivos")
         title_label.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_LG}px;
             font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
@@ -252,9 +249,10 @@ class FileOrganizationDialog(BaseDialog):
         
         is_selected = org_type == self.current_organization_type
         
+        # Aplicar estilos CSS que controlen todos los elementos dentro de la card
         card.setStyleSheet(f"""
             QFrame#option-card-{org_type.value} {{
-                background-color: {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_BG_1};
+                background-color: {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_SURFACE};
                 border: 2px solid {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_BORDER};
                 border-radius: {DesignSystem.RADIUS_BASE}px;
                 padding: {DesignSystem.SPACE_12}px;
@@ -262,6 +260,17 @@ class FileOrganizationDialog(BaseDialog):
             QFrame#option-card-{org_type.value}:hover {{
                 border-color: {DesignSystem.COLOR_PRIMARY};
                 background-color: {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_BG_2};
+            }}
+            QFrame#option-card-{org_type.value} QLabel {{
+                color: {DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_TEXT};
+                font-weight: {DesignSystem.FONT_WEIGHT_NORMAL};
+            }}
+            QFrame#option-card-{org_type.value} QLabel#title-label {{
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            }}
+            QFrame#option-card-{org_type.value} QLabel#desc-label {{
+                color: {DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_TEXT_SECONDARY};
+                font-weight: {DesignSystem.FONT_WEIGHT_NORMAL};
             }}
         """)
         
@@ -287,11 +296,8 @@ class FileOrganizationDialog(BaseDialog):
         header_layout.addWidget(icon_label)
         
         title_label = QLabel(title)
-        title_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_MD}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-            color: {DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_TEXT};
-        """)
+        title_label.setObjectName("title-label")
+        # No aplicar estilos individuales - usar CSS del padre
         header_layout.addWidget(title_label)
         header_layout.addStretch()
         
@@ -300,10 +306,8 @@ class FileOrganizationDialog(BaseDialog):
         # Description
         desc_label = QLabel(description)
         desc_label.setWordWrap(True)
-        desc_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            color: {DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_TEXT_SECONDARY};
-        """)
+        desc_label.setObjectName("desc-label")
+        # No aplicar estilos individuales - usar CSS del padre
         layout.addWidget(desc_label)
         
         # Hacer la card clickeable
@@ -377,8 +381,6 @@ class FileOrganizationDialog(BaseDialog):
     
     def _update_all_ui(self):
         """Actualiza toda la UI con los datos actuales"""
-        # Actualizar explicación
-        self._update_explanation()
         
         # Actualizar métricas
         self._update_metrics()
@@ -404,7 +406,7 @@ class FileOrganizationDialog(BaseDialog):
                 is_selected = org_type == self.current_organization_type
                 card.setStyleSheet(f"""
                     QFrame#{card_name} {{
-                        background-color: {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_BG_1};
+                        background-color: {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_SURFACE};
                         border: 2px solid {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_BORDER};
                         border-radius: {DesignSystem.RADIUS_BASE}px;
                         padding: {DesignSystem.SPACE_12}px;
@@ -413,75 +415,47 @@ class FileOrganizationDialog(BaseDialog):
                         border-color: {DesignSystem.COLOR_PRIMARY};
                         background-color: {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_BG_2};
                     }}
+                    QFrame#{card_name} QLabel {{
+                        color: {DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_TEXT};
+                        font-weight: {DesignSystem.FONT_WEIGHT_NORMAL};
+                    }}
+                    QFrame#{card_name} QLabel#title-label {{
+                        font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+                    }}
+                    QFrame#{card_name} QLabel#desc-label {{
+                        color: {DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_TEXT_SECONDARY};
+                        font-weight: {DesignSystem.FONT_WEIGHT_NORMAL};
+                    }}
                 """)
+                
+                # Actualizar colores de iconos manualmente
+                self._update_card_icon_colors(card, org_type, is_selected)
 
-    def _create_explanation_section(self) -> QWidget:
-        """Crea sección de explicación dinámica"""
-        self.explanation_container = QFrame()
-        self.explanation_container.setStyleSheet(f"""
-            QFrame {{ 
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                           stop:0 {DesignSystem.COLOR_BG_1}, stop:1 {DesignSystem.COLOR_BG_2});
-                border: none;
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_12}px;
-            }}
-        """)
-        
-        layout = QHBoxLayout(self.explanation_container)
-        layout.setSpacing(DesignSystem.SPACE_8)
-        layout.setContentsMargins(DesignSystem.SPACE_12, DesignSystem.SPACE_8, DesignSystem.SPACE_12, DesignSystem.SPACE_8)
-        
-        self.explanation_icon = QLabel()
-        layout.addWidget(self.explanation_icon)
-        
-        self.explanation_text = QLabel()
-        self.explanation_text.setWordWrap(True)
-        self.explanation_text.setTextFormat(Qt.TextFormat.RichText)
-        self.explanation_text.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            color: {DesignSystem.COLOR_TEXT};
-        """)
-        layout.addWidget(self.explanation_text, 1)
-        
-        self._update_explanation()
-        return self.explanation_container
-    
-    def _update_explanation(self):
-        """Actualiza la explicación según el tipo actual"""
-        org_type = self.current_organization_type
-        
-        if org_type == OrganizationType.BY_MONTH:
-            icon_name = "calendar_month"
-            title = "Organización por Mes"
-            description = (
-                "Organizará los archivos en <b>carpetas mensuales (YYYY_MM)</b> basándose en la fecha más antigua de cada archivo. "
-                "Archivos sin fecha se colocarán en una carpeta especial."
-            )
+    def _update_card_icon_colors(self, card: QFrame, org_type: OrganizationType, is_selected: bool):
+        """Actualiza el color del icono en una card específica"""
+        # Encontrar el icono (es el segundo QLabel en el layout horizontal del header)
+        header_layout = card.layout().itemAt(0).layout()  # Primer item es el header_layout
+        if header_layout and header_layout.count() >= 2:
+            icon_label = header_layout.itemAt(1).widget()  # Segundo widget es el icono
+            if isinstance(icon_label, QLabel):
+                icon_name = self._get_icon_name_for_type(org_type)
+                icon_manager.set_label_icon(
+                    icon_label,
+                    icon_name,
+                    size=DesignSystem.ICON_SIZE_XL,
+                    color=DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_PRIMARY
+                )
+
+    def _get_icon_name_for_type(self, org_type: OrganizationType) -> str:
+        """Devuelve el nombre del icono para un tipo de organización"""
+        if org_type == OrganizationType.TO_ROOT:
+            return "folder-open"
+        elif org_type == OrganizationType.BY_MONTH:
+            return "calendar_month"
         elif org_type == OrganizationType.WHATSAPP_SEPARATE:
-            icon_name = "mobile"
-            title = "Separación de WhatsApp"
-            description = (
-                "Separará los <b>archivos de WhatsApp</b> en una carpeta dedicada y moverá el resto al directorio raíz. "
-                "Identifica archivos con patrones típicos de WhatsApp o desde carpetas <code>WhatsApp/</code>."
-            )
-        else:  # TO_ROOT
-            icon_name = "folder-open"
-            title = "Mover Todo a Raíz"
-            description = (
-                "Moverá <b>todos los archivos al directorio raíz</b> eliminando la estructura de subdirectorios. "
-                "Los conflictos de nombres se resolverán automáticamente añadiendo sufijos."
-            )
-        
-        # Agregar nota si no hay archivos para mover
-        if self.analysis.total_files_to_move == 0:
-            description += (
-                "<br><br><i style='color: #666;'>ℹ️ No hay archivos para mover con esta configuración. "
-                "Prueba seleccionando otro tipo de organización.</i>"
-            )
-        
-        icon_manager.set_label_icon(self.explanation_icon, icon_name, size=DesignSystem.ICON_SIZE_LG)
-        self.explanation_text.setText(f"<b>{title}</b><br>{description}")
+            return "mobile"
+        return "folder"
+
     
     def _create_metrics_section(self) -> QWidget:
         """Crea panel de métricas dinámico"""

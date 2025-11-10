@@ -64,6 +64,22 @@ class RenamingPreviewDialog(BaseDialog):
         self.setModal(True)
         self.resize(1200, 750)
         main_layout = QVBoxLayout(self)
+        main_layout.setSpacing(int(DesignSystem.SPACE_16))
+        main_layout.setContentsMargins(
+            int(DesignSystem.SPACE_24),
+            int(DesignSystem.SPACE_20),
+            int(DesignSystem.SPACE_24),
+            int(DesignSystem.SPACE_20)
+        )
+        
+        # Header explicativo
+        explanation = self._create_explanation_frame(
+            'rename-outline',
+            'Preview de renombrado',
+            'Los archivos se renombrarán al formato YYYY-MM-DD_HH-MM-SS basado en la fecha de creación. '
+            'Revisa los cambios propuestos antes de continuar.'
+        )
+        main_layout.addWidget(explanation)
         
         # Panel superior: Métricas en una línea compacta
         metrics_layout = self._create_compact_metrics()
@@ -113,47 +129,21 @@ class RenamingPreviewDialog(BaseDialog):
     def _create_compact_metrics(self):
         """Crea panel de métricas compacto en una línea"""
         layout = QHBoxLayout()
+        layout.setSpacing(int(DesignSystem.SPACE_12))
         
-        # Crear tarjetas de métricas inline
+        # Crear tarjetas de métricas inline usando método de BaseDialog
         self.stats_labels = {}
         metrics_data = [
-            ("Total", self.analysis_results.total_files, "#2c5aa0"),
-            ("Nombre OK", self.analysis_results.already_renamed, "#27ae60"),
-            ("Para renombrar", self.analysis_results.need_renaming, "#e67e22"),
-            ("Conflictos", self.analysis_results.conflicts, "#e74c3c"),
-            ("No procesables", self.analysis_results.cannot_process, "#95a5a6"),
+            ("Total", self.analysis_results.total_files, DesignSystem.COLOR_PRIMARY),
+            ("Nombre OK", self.analysis_results.already_renamed, DesignSystem.COLOR_SUCCESS),
+            ("Para renombrar", self.analysis_results.need_renaming, DesignSystem.COLOR_WARNING),
+            ("Conflictos", self.analysis_results.conflicts, DesignSystem.COLOR_WARNING),
         ]
         
         for label_text, value, color in metrics_data:
-            card = self._create_inline_metric(label_text, value, color)
+            card = self._create_metric_card(str(value), label_text, color)
             layout.addWidget(card)
-            
-            # Guardar referencias para updates
-            key = label_text.lower().replace(' ', '_')
-            if key == "para_renombrar":
-                self.stats_labels['renamed'] = card.findChild(QLabel, "value_label")
-            elif key == "conflictos":
-                self.stats_labels['conflicts'] = card.findChild(QLabel, "value_label")
         
-        # Label para errores (se actualizará después)
-        self.stats_labels['errors'] = QLabel("0")
-        
-        # Info de distribución
-        file_types = self._analyze_file_types()
-        years_info = f"Años: {len(self.analysis_results.files_by_year)}"
-        types_info = ", ".join([f"{ft}: {count}" for ft, count in file_types.most_common(3)])
-        
-        info_text = f"   |   {years_info}   •   {types_info}"
-        
-        # Advertencia de rendimiento si hay muchos archivos
-        if self.analysis_results.need_renaming > self.MAX_ITEMS_WITHOUT_PAGINATION:
-            info_text += f"   •   Modo paginado"
-        
-        info_label = QLabel(info_text)
-        info_label.setStyleSheet(ui_styles.STYLE_DIALOG_INFO_SMALL)
-        info_label.setWordWrap(True)  # Permitir wrap si es muy largo
-        info_label.setMinimumHeight(20)
-        layout.addWidget(info_label)
         layout.addStretch()
         
         return layout
@@ -397,33 +387,6 @@ class RenamingPreviewDialog(BaseDialog):
         
         options_group.setLayout(options_layout)
         return options_group
-
-    def _create_inline_metric(self, label_text, value, color):
-        """Crea una métrica compacta inline"""
-        frame = QFrame()
-        frame.setFrameStyle(QFrame.Shape.StyledPanel | QFrame.Shadow.Raised)
-        frame.setStyleSheet(ui_styles.STYLE_DIALOG_METRIC_FRAME(color))
-        
-        layout = QHBoxLayout(frame)
-        layout.setContentsMargins(8, 5, 8, 5)
-        
-        # Valor
-        value_label = QLabel(str(value))
-        value_label.setObjectName("value_label")
-        font = QFont()
-        font.setPointSize(16)
-        font.setBold(True)
-        value_label.setFont(font)
-        value_label.setStyleSheet(ui_styles.STYLE_DIALOG_VALUE_LABEL(color))
-        
-        # Label descriptivo
-        desc_label = QLabel(label_text)
-        desc_label.setStyleSheet(ui_styles.STYLE_DIALOG_DESC_SMALL)
-        
-        layout.addWidget(value_label)
-        layout.addWidget(desc_label)
-        
-        return frame
 
     def _analyze_file_types(self):
         """Analiza los tipos de archivo en el plan de renombrado"""
