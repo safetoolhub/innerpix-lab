@@ -120,10 +120,7 @@ class FileOrganizationDialog(BaseDialog):
         separator.setMaximumHeight(1)
         main_layout.addWidget(separator)
         
-        # === EXPLICACIÓN ===
-        self.explanation_widget = self._create_explanation_section()
-        main_layout.addWidget(self.explanation_widget)
-        
+       
         # === MÉTRICAS ===
         self.metrics_widget = self._create_metrics_section()
         main_layout.addWidget(self.metrics_widget)
@@ -384,8 +381,6 @@ class FileOrganizationDialog(BaseDialog):
     
     def _update_all_ui(self):
         """Actualiza toda la UI con los datos actuales"""
-        # Actualizar explicación
-        self._update_explanation()
         
         # Actualizar métricas
         self._update_metrics()
@@ -461,73 +456,6 @@ class FileOrganizationDialog(BaseDialog):
             return "mobile"
         return "folder"
 
-    def _create_explanation_section(self) -> QWidget:
-        """Crea sección de explicación dinámica"""
-        self.explanation_container = QFrame()
-        self.explanation_container.setStyleSheet(f"""
-            QFrame {{ 
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                           stop:0 {DesignSystem.COLOR_BG_1}, stop:1 {DesignSystem.COLOR_BG_2});
-                border: none;
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_12}px;
-            }}
-        """)
-        
-        layout = QHBoxLayout(self.explanation_container)
-        layout.setSpacing(DesignSystem.SPACE_8)
-        layout.setContentsMargins(DesignSystem.SPACE_12, DesignSystem.SPACE_8, DesignSystem.SPACE_12, DesignSystem.SPACE_8)
-        
-        self.explanation_icon = QLabel()
-        layout.addWidget(self.explanation_icon)
-        
-        self.explanation_text = QLabel()
-        self.explanation_text.setWordWrap(True)
-        self.explanation_text.setTextFormat(Qt.TextFormat.RichText)
-        self.explanation_text.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            color: {DesignSystem.COLOR_TEXT};
-        """)
-        layout.addWidget(self.explanation_text, 1)
-        
-        self._update_explanation()
-        return self.explanation_container
-    
-    def _update_explanation(self):
-        """Actualiza la explicación según el tipo actual"""
-        org_type = self.current_organization_type
-        
-        if org_type == OrganizationType.BY_MONTH:
-            icon_name = "calendar_month"
-            title = "Organización por Mes"
-            description = (
-                "Organizará los archivos en <b>carpetas mensuales (YYYY_MM)</b> basándose en la fecha más antigua de cada archivo. "
-                "Archivos sin fecha se colocarán en una carpeta especial."
-            )
-        elif org_type == OrganizationType.WHATSAPP_SEPARATE:
-            icon_name = "mobile"
-            title = "Separación de WhatsApp"
-            description = (
-                "Separará los <b>archivos de WhatsApp</b> en una carpeta dedicada y moverá el resto al directorio raíz. "
-                "Identifica archivos con patrones típicos de WhatsApp o desde carpetas <code>WhatsApp/</code>."
-            )
-        else:  # TO_ROOT
-            icon_name = "folder-open"
-            title = "Mover Todo a Raíz"
-            description = (
-                "Moverá <b>todos los archivos al directorio raíz</b> eliminando la estructura de subdirectorios. "
-                "Los conflictos de nombres se resolverán automáticamente añadiendo sufijos."
-            )
-        
-        # Agregar nota si no hay archivos para mover
-        if self.analysis.total_files_to_move == 0:
-            description += (
-                "<br><br><i style='color: #666;'>ℹ️ No hay archivos para mover con esta configuración. "
-                "Prueba seleccionando otro tipo de organización.</i>"
-            )
-        
-        icon_manager.set_label_icon(self.explanation_icon, icon_name, size=DesignSystem.ICON_SIZE_LG)
-        self.explanation_text.setText(f"<b>{title}</b><br>{description}")
     
     def _create_metrics_section(self) -> QWidget:
         """Crea panel de métricas dinámico"""
