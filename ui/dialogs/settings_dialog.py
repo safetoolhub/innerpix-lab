@@ -69,9 +69,9 @@ class SettingsDialog(QDialog):
         general_tab = self._create_general_tab()
         tabs.addTab(general_tab, "General")
 
-        # === PESTAÑA 2: DIRECTORIOS ===
-        dirs_tab = self._create_directories_tab()
-        tabs.addTab(dirs_tab, "Directorios")
+        # === PESTAÑA 2: BACKUPS ===
+        backups_tab = self._create_backups_tab()
+        tabs.addTab(backups_tab, "Backups")
 
         # === PESTAÑA 3: AVANZADO ===
         advanced_tab = self._create_advanced_tab()
@@ -159,58 +159,6 @@ class SettingsDialog(QDialog):
         layout = QVLayout(widget)
         layout.setContentsMargins(15, 15, 15, 15)
         layout.setSpacing(20)
-
-        # === BACKUPS AUTOMÁTICOS ===
-        backup_group = QGroupBox("Backups Automaticos")
-        backup_group.setObjectName("settings-groupbox")
-        backup_group.setStyleSheet(f"""
-            QGroupBox#settings-groupbox {{
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                margin-top: 1ex;
-                padding-top: 10px;
-            }}
-            QGroupBox#settings-groupbox::title {{
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
-                color: {DesignSystem.COLOR_TEXT};
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            }}
-        """)
-        backup_layout = QVLayout(backup_group)
-        backup_layout.setSpacing(12)
-
-        backup_info = QLabel(
-            "<b>Muy Recomendado:</b> Los backups te permiten recuperar archivos en caso de error."
-        )
-        backup_info.setObjectName("warning-label")
-        backup_info.setStyleSheet(f"""
-            QLabel#warning-label {{
-                color: {DesignSystem.COLOR_WARNING};
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                padding: 8px;
-                background-color: {DesignSystem.COLOR_BG_4};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                border: 1px solid {DesignSystem.COLOR_WARNING};
-            }}
-        """)
-        backup_info.setWordWrap(True)
-        backup_layout.addWidget(backup_info)
-
-        self.auto_backup_checkbox = QCheckBox("Crear backup automáticamente antes de cada operación destructiva")
-        self.auto_backup_checkbox.setChecked(True)
-        self.auto_backup_checkbox.setToolTip(
-            "Si está activado, se creará una copia de seguridad de los archivos antes de:\n"
-            "• Renombrar archivos\n"
-            "• Eliminar Live Photos\n"
-            "• Eliminar duplicados HEIC\n"
-            "• Organizar directorios"
-        )
-        backup_layout.addWidget(self.auto_backup_checkbox)
-
-        layout.addWidget(backup_group)
 
         # === CONFIRMACIONES ===
         confirm_group = QGroupBox("Confirmaciones")
@@ -307,11 +255,189 @@ class SettingsDialog(QDialog):
 
         layout.addWidget(interface_group)
 
+        # === MODO SIMULACIÓN ===
+        dryrun_group = QGroupBox("Modo Simulacion (Dry Run)")
+        dryrun_group.setObjectName("settings-groupbox")
+        dryrun_group.setStyleSheet(f"""
+            QGroupBox#settings-groupbox {{
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                margin-top: 1ex;
+                padding-top: 10px;
+            }}
+            QGroupBox#settings-groupbox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px 0 5px;
+                color: {DesignSystem.COLOR_TEXT};
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            }}
+        """)
+        dryrun_layout = QVLayout(dryrun_group)
+        dryrun_layout.setSpacing(12)
+
+        dryrun_info = QLabel(
+            "En modo simulacion, las operaciones se analizan y muestran pero <b>no se ejecutan</b> realmente. "
+            "Util para verificar que hara la aplicacion antes de aplicar cambios."
+        )
+        dryrun_info.setObjectName("small-info-label")
+        dryrun_info.setStyleSheet(f"""
+            QLabel#small-info-label {{
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                font-style: italic;
+            }}
+        """)
+        dryrun_info.setWordWrap(True)
+        dryrun_layout.addWidget(dryrun_info)
+
+        self.dry_run_default_checkbox = QCheckBox("Activar modo simulación por defecto en todas las operaciones")
+        self.dry_run_default_checkbox.setChecked(False)
+        self.dry_run_default_checkbox.setToolTip(
+            "Si se activa, todos los diálogos de eliminación (HEIC, Live Photos, Duplicados)\n"
+            "mostrarán el checkbox de 'Modo simulación' marcado por defecto.\n"
+            "Esto añade una capa extra de seguridad para evitar eliminaciones accidentales."
+        )
+        dryrun_layout.addWidget(self.dry_run_default_checkbox)
+
+        layout.addWidget(dryrun_group)
+
         layout.addStretch()
         return widget
 
-    def _create_directories_tab(self):
-        """Pestaña de configuración de directorios y logs"""
+    def _create_backups_tab(self):
+        """Pestaña de configuración de backups"""
+        widget = QWidget()
+        layout = QVLayout(widget)
+        layout.setContentsMargins(15, 15, 15, 15)
+        layout.setSpacing(20)
+
+        # === BACKUPS AUTOMÁTICOS ===
+        auto_backup_group = QGroupBox("Backups Automaticos")
+        auto_backup_group.setObjectName("settings-groupbox")
+        auto_backup_group.setStyleSheet(f"""
+            QGroupBox#settings-groupbox {{
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                margin-top: 1ex;
+                padding-top: 10px;
+            }}
+            QGroupBox#settings-groupbox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px 0 5px;
+                color: {DesignSystem.COLOR_TEXT};
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            }}
+        """)
+        auto_backup_layout = QVLayout(auto_backup_group)
+        auto_backup_layout.setSpacing(12)
+
+        backup_info = QLabel(
+            "<b>Muy Recomendado:</b> Los backups te permiten recuperar archivos en caso de error."
+        )
+        backup_info.setObjectName("warning-label")
+        backup_info.setStyleSheet(f"""
+            QLabel#warning-label {{
+                color: {DesignSystem.COLOR_WARNING};
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                padding: 8px;
+                background-color: {DesignSystem.COLOR_BG_4};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                border: 1px solid {DesignSystem.COLOR_WARNING};
+            }}
+        """)
+        backup_info.setWordWrap(True)
+        auto_backup_layout.addWidget(backup_info)
+
+        self.auto_backup_checkbox = QCheckBox("Crear backup automáticamente antes de cada operación destructiva")
+        self.auto_backup_checkbox.setChecked(True)
+        self.auto_backup_checkbox.setToolTip(
+            "Si está activado, se creará una copia de seguridad de los archivos antes de:\n"
+            "• Renombrar archivos\n"
+            "• Eliminar Live Photos\n"
+            "• Eliminar duplicados HEIC\n"
+            "• Organizar directorios"
+        )
+        auto_backup_layout.addWidget(self.auto_backup_checkbox)
+
+        layout.addWidget(auto_backup_group)
+
+        # === DIRECTORIO DE BACKUPS ===
+        backup_dir_group = QGroupBox("Directorio de Backups")
+        backup_dir_group.setObjectName("settings-groupbox")
+        backup_dir_group.setStyleSheet(f"""
+            QGroupBox#settings-groupbox {{
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                margin-top: 1ex;
+                padding-top: 10px;
+            }}
+            QGroupBox#settings-groupbox::title {{
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px 0 5px;
+                color: {DesignSystem.COLOR_TEXT};
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            }}
+        """)
+        backup_dir_layout = QVLayout(backup_dir_group)
+
+        backup_dir_info = QLabel("Ubicacion donde se guardan las copias de seguridad automaticas.")
+        backup_dir_info.setObjectName("small-info-label")
+        backup_dir_info.setStyleSheet(f"""
+            QLabel#small-info-label {{
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                font-style: italic;
+            }}
+        """)
+        backup_dir_info.setWordWrap(True)
+        backup_dir_layout.addWidget(backup_dir_info)
+
+        backup_row = QHBoxLayout()
+        backup_label = QLabel("Carpeta:")
+        backup_label.setMinimumWidth(100)
+        backup_row.addWidget(backup_label)
+
+        self.backup_edit = QLineEdit()
+        self.backup_edit.setText(str(Config.DEFAULT_BACKUP_DIR))
+        self.backup_edit.setReadOnly(True)
+        self.backup_edit.setObjectName("directory-edit")
+        self.backup_edit.setStyleSheet(f"""
+            QLineEdit#directory-edit {{
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: 6px 12px;
+                background-color: {DesignSystem.COLOR_BG_1};
+                color: {DesignSystem.COLOR_TEXT};
+                font-family: {DesignSystem.FONT_FAMILY_MONO};
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+            }}
+            QLineEdit#directory-edit:focus {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+        """)
+        backup_row.addWidget(self.backup_edit)
+
+        browse_backup_btn = QPushButton("Cambiar...")
+        browse_backup_btn.setMaximumWidth(80)
+        browse_backup_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        browse_backup_btn.setToolTip("Cambiar ubicación de backups")
+        browse_backup_btn.clicked.connect(self.browse_backup_directory)
+        backup_row.addWidget(browse_backup_btn)
+
+        backup_dir_layout.addLayout(backup_row)
+        layout.addWidget(backup_dir_group)
+
+        layout.addStretch()
+        return widget
+
+    def _create_advanced_tab(self):
+        """Pestaña de configuración avanzada"""
         widget = QWidget()
         layout = QVLayout(widget)
         layout.setContentsMargins(15, 15, 15, 15)
@@ -460,84 +586,6 @@ class SettingsDialog(QDialog):
 
         layout.addWidget(logs_group)
 
-        # === BACKUPS ===
-        backup_group = QGroupBox("Directorio de Backups")
-        backup_group.setObjectName("settings-groupbox")
-        backup_group.setStyleSheet(f"""
-            QGroupBox#settings-groupbox {{
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                margin-top: 1ex;
-                padding-top: 10px;
-            }}
-            QGroupBox#settings-groupbox::title {{
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
-                color: {DesignSystem.COLOR_TEXT};
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            }}
-        """)
-        backup_layout = QVLayout(backup_group)
-
-        backup_info = QLabel("Ubicacion donde se guardan las copias de seguridad automaticas.")
-        backup_info.setObjectName("small-info-label")
-        backup_info.setStyleSheet(f"""
-            QLabel#small-info-label {{
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-                font-style: italic;
-            }}
-        """)
-        backup_info.setWordWrap(True)
-        backup_layout.addWidget(backup_info)
-
-        backup_row = QHBoxLayout()
-        backup_label = QLabel("Carpeta:")
-        backup_label.setMinimumWidth(100)
-        backup_row.addWidget(backup_label)
-
-        self.backup_edit = QLineEdit()
-        self.backup_edit.setText(str(Config.DEFAULT_BACKUP_DIR))
-        self.backup_edit.setReadOnly(True)
-        self.backup_edit.setObjectName("directory-edit")
-        self.backup_edit.setStyleSheet(f"""
-            QLineEdit#directory-edit {{
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: 6px 12px;
-                background-color: {DesignSystem.COLOR_BG_1};
-                color: {DesignSystem.COLOR_TEXT};
-                font-family: {DesignSystem.FONT_FAMILY_MONO};
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-            }}
-            QLineEdit#directory-edit:focus {{
-                border-color: {DesignSystem.COLOR_PRIMARY};
-            }}
-        """)
-        backup_row.addWidget(self.backup_edit)
-
-        browse_backup_btn = QPushButton("Cambiar...")
-        browse_backup_btn.setMaximumWidth(80)
-        browse_backup_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        browse_backup_btn.setToolTip("Cambiar ubicación de backups")
-        browse_backup_btn.clicked.connect(self.browse_backup_directory)
-        backup_row.addWidget(browse_backup_btn)
-
-        backup_layout.addLayout(backup_row)
-        layout.addWidget(backup_group)
-
-        layout.addStretch()
-        return widget
-
-    def _create_advanced_tab(self):
-        """Pestaña de configuración avanzada"""
-        widget = QWidget()
-        layout = QVLayout(widget)
-        layout.setContentsMargins(15, 15, 15, 15)
-        layout.setSpacing(20)
-
         # === RENDIMIENTO ===
         perf_group = QGroupBox("Rendimiento")
         perf_group.setObjectName("settings-groupbox")
@@ -594,54 +642,6 @@ class SettingsDialog(QDialog):
         perf_layout.addWidget(perf_info)
 
         layout.addWidget(perf_group)
-
-        # === MODO SIMULACIÓN ===
-        dryrun_group = QGroupBox("Modo Simulacion (Dry Run)")
-        dryrun_group.setObjectName("settings-groupbox")
-        dryrun_group.setStyleSheet(f"""
-            QGroupBox#settings-groupbox {{
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                margin-top: 1ex;
-                padding-top: 10px;
-            }}
-            QGroupBox#settings-groupbox::title {{
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
-                color: {DesignSystem.COLOR_TEXT};
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            }}
-        """)
-        dryrun_layout = QVLayout(dryrun_group)
-        dryrun_layout.setSpacing(12)
-
-        dryrun_info = QLabel(
-            "En modo simulacion, las operaciones se analizan y muestran pero <b>no se ejecutan</b> realmente. "
-            "Util para verificar que hara la aplicacion antes de aplicar cambios."
-        )
-        dryrun_info.setObjectName("small-info-label")
-        dryrun_info.setStyleSheet(f"""
-            QLabel#small-info-label {{
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-                font-style: italic;
-            }}
-        """)
-        dryrun_info.setWordWrap(True)
-        dryrun_layout.addWidget(dryrun_info)
-
-        self.dry_run_default_checkbox = QCheckBox("Activar modo simulación por defecto en todas las operaciones")
-        self.dry_run_default_checkbox.setChecked(False)
-        self.dry_run_default_checkbox.setToolTip(
-            "Si se activa, todos los diálogos de eliminación (HEIC, Live Photos, Duplicados)\n"
-            "mostrarán el checkbox de 'Modo simulación' marcado por defecto.\n"
-            "Esto añade una capa extra de seguridad para evitar eliminaciones accidentales."
-        )
-        dryrun_layout.addWidget(self.dry_run_default_checkbox)
-
-        layout.addWidget(dryrun_group)
 
         # === DEPURACIÓN ===
         debug_group = QGroupBox("Depuracion")

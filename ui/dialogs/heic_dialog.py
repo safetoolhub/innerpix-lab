@@ -4,8 +4,7 @@ Incluye explicaciones claras, vista de archivos con TreeWidget y optimización p
 """
 from pathlib import Path
 from PyQt6.QtWidgets import (
-    QVBoxLayout, QHBoxLayout, QGroupBox, QVBoxLayout as QVLayout, QRadioButton,
-    QButtonGroup, QTableWidget, QTableWidgetItem, QCheckBox, QDialogButtonBox, 
+    QVBoxLayout, QHBoxLayout, QDialogButtonBox, 
     QLabel, QTreeWidget, QTreeWidgetItem, QLineEdit, QComboBox, QPushButton,
     QFrame, QApplication, QWidget
 )

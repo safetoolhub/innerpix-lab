@@ -4,10 +4,7 @@ Contiene funciones puras: format_size, format_file_count, format_percentage,
 y truncate_path. Estas funciones no dependen de la UI y pueden importarse desde
 `utils.format_utils` en cualquier módulo.
 """
-from pathlib import Path
 from typing import Optional
-import re
-import html
 
 
 def format_size(bytes_size: Optional[float]) -> str:
@@ -128,122 +125,6 @@ def truncate_path(path: str, max_length: int = 40) -> str:
     part = (max_length - 3) // 2
     return f"{s[:part]}...{s[-part:]}"
 
-def generate_stats_html(stats: dict, icon_prefix: str = "") -> str:
-    """
-    Genera HTML con formato consistente para mostrar estadísticas.
-    
-    Args:
-        stats: Diccionario con pares clave-valor de estadísticas
-               Formato: {'label': valor} o {'label': (valor, formato)}
-        icon_prefix: Emoji/icono opcional al inicio de cada línea
-        
-    Returns:
-        str: HTML formateado con las estadísticas
-        
-    Examples:
-        >>> stats = {
-        ...     'Total archivos': 150,
-        ...     'A renombrar': (25, 'highlight'),
-        ...     'Espacio': format_size(1024000)
-        ... }
-        >>> html = generate_stats_html(stats)
-    """
-    if not stats:
-        return ""
-
-    parts = []
-    for label, value in stats.items():
-        # Normalizar display_value como string ya formateado
-        display_value = ""
-        if isinstance(value, tuple):
-            display_value = value[0]
-        else:
-            display_value = value
-
-        # Escape de contenido
-        lbl = html.escape(str(icon_prefix + label))
-        val = html.escape(str(display_value))
-
-        # Aplicar formatos sencillos si vienen en la tupla
-        if isinstance(value, tuple) and len(value) > 1 and value[1] == 'highlight':
-            val_html = f"<strong style=\"color:#28a745;\">{val}</strong>"
-        else:
-            val_html = val
-
-        parts.append(f"<div style='margin-bottom:6px;'><strong>{lbl}:</strong> {val_html}</div>")
-
-    return "".join(parts)
-
-
-def generate_section_html(title: str, stats: dict, icon: str = "") -> str:
-    """
-    Genera una sección HTML completa con título y estadísticas.
-    
-    Args:
-        title: Título de la sección
-        stats: Diccionario de estadísticas
-        icon: Emoji/icono para el título
-        
-    Returns:
-        str: HTML de la sección completa
-    """
-    title_html = f"<h3>{html.escape(icon + ' ' + title)}</h3>" if title else ""
-    stats_html = generate_stats_html(stats)
-
-    return title_html + stats_html
-
-
-def markdown_like_to_html(text: str) -> str:
-    """Convierte un texto con marcado ligero (**bold**, listas con • o -) a HTML.
-
-    - **bold** -> <strong>
-    - Líneas que empiezan con •, - o * se agrupan en <ul><li>
-    - Saltos de línea simples se convierten en <br>, dobles en separación de párrafos
-    """
-    if not text:
-        return ""
-
-    # Normalizar entradas numéricas
-    text = str(text)
-
-    # Procesar por líneas para detectar listas
-    lines = text.splitlines()
-    out = []
-    in_list = False
-
-    def render_inline(s: str) -> str:
-        # Reemplazar **bold** por placeholder-safe handling
-        parts = re.split(r'(\*\*.*?\*\*)', s)
-        rendered = []
-        for p in parts:
-            if p.startswith('**') and p.endswith('**') and len(p) >= 4:
-                inner = p[2:-2]
-                rendered.append(f"<strong>{html.escape(inner)}</strong>")
-            else:
-                rendered.append(html.escape(p))
-        return ''.join(rendered).replace('\n', '<br/>')
-
-    for line in lines:
-        stripped = line.lstrip()
-        if stripped.startswith(('• ', '- ', '* ')):
-            if not in_list:
-                out.append('<ul>')
-                in_list = True
-            item_text = stripped[2:]
-            out.append(f"<li>{render_inline(item_text)}</li>")
-        else:
-            if in_list:
-                out.append('</ul>')
-                in_list = False
-            if stripped == '':
-                out.append('<p></p>')
-            else:
-                out.append(f"<p>{render_inline(stripped)}</p>")
-
-    if in_list:
-        out.append('</ul>')
-
-    return ''.join(out)
 
 
 def format_file_operation_summary(
@@ -272,37 +153,6 @@ def format_file_operation_summary(
         return f"✅ {processed}/{total} archivos {action_verb}s correctamente ({errors} errores)"
     else:
         return f"✅ {processed}/{total} archivos {action_verb}s correctamente"
-
-
-def format_markdown_list(items: list, ordered: bool = False) -> str:
-    """
-    Convierte una lista Python en una lista Markdown.
-    
-    Args:
-        items: Lista de strings o tuplas (emoji, texto)
-        ordered: Si es True, crea lista numerada
-        
-    Returns:
-        str: Lista en formato Markdown
-    """
-    if not items:
-        return ""
-    
-    formatted_items = []
-    
-    for i, item in enumerate(items, 1):
-        if isinstance(item, tuple):
-            emoji, text = item
-            line = f"{emoji} {text}"
-        else:
-            line = str(item)
-        
-        if ordered:
-            formatted_items.append(f"{i}. {line}")
-        else:
-            formatted_items.append(f"- {line}")
-    
-    return "\n".join(formatted_items)
 
 
 def format_count_short(count: int) -> str:
