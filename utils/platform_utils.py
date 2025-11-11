@@ -196,28 +196,6 @@ def open_folder_in_explorer(folder_path: Path,
         return False
 
 
-def get_platform_info() -> dict:
-    """
-    Obtiene información sobre la plataforma actual.
-    
-    Returns:
-        Dict con información del sistema: system, release, version, machine, processor
-        
-    Example:
-        >>> from utils.platform_utils import get_platform_info
-        >>> info = get_platform_info()
-        >>> print(f"Sistema: {info['system']}")
-    """
-    return {
-        'system': platform.system(),
-        'release': platform.release(),
-        'version': platform.version(),
-        'machine': platform.machine(),
-        'processor': platform.processor(),
-        'platform': platform.platform()
-    }
-
-
 def is_linux() -> bool:
     """Retorna True si el sistema operativo es Linux"""
     return platform.system() == 'Linux'

@@ -50,7 +50,7 @@ class LivePhotoCleanupDialog(BaseDialog):
         self.setWindowTitle("Limpieza de Live Photos")
         self.setModal(True)
         self.resize(700, 500)
-        self.setMinimumHeight(550)
+        self.setMinimumHeight(420)
         layout = QVBoxLayout(self)
         layout.setSpacing(int(DesignSystem.SPACE_16))
         layout.setContentsMargins(0, 0, 0, int(DesignSystem.SPACE_20))
@@ -213,6 +213,6 @@ class LivePhotoCleanupDialog(BaseDialog):
         self.accepted_plan = {
             'analysis': cleanup_analysis,
             'create_backup': self.is_backup_enabled(),
-            'dry_run': self.dry_run_checkbox.isChecked()
+            'dry_run': self.is_dry_run_enabled()
         }
         super().accept()

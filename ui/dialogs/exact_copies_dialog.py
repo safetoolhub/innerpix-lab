@@ -330,11 +330,7 @@ class ExactCopiesDialog(BaseDialog):
             ('oldest', 'access_time', 'Mantener el más antiguo', 
              'Conserva el archivo con fecha de modificación más antigua. Recomendado para preservar originales.'),
             ('newest', 'update', 'Mantener el más reciente', 
-             'Conserva el archivo con fecha de modificación más reciente. Útil para versiones editadas.'),
-            ('largest', 'expand', 'Mantener el más grande', 
-             'Conserva el archivo de mayor tamaño. Útil para preservar calidad máxima.'),
-            ('smallest', 'compress', 'Mantener el más pequeño', 
-             'Conserva el archivo de menor tamaño. Maximiza espacio liberado.')
+             'Conserva el archivo con fecha de modificación más reciente. Útil para versiones editadas.')
         ]
         
         return self._create_option_selector(
@@ -349,7 +345,7 @@ class ExactCopiesDialog(BaseDialog):
         """Maneja el cambio de estrategia de eliminación.
         
         Args:
-            new_strategy: Nueva estrategia seleccionada ('oldest', 'newest', 'largest', 'smallest')
+            new_strategy: Nueva estrategia seleccionada ('oldest', 'newest')
         """
         if new_strategy == self.keep_strategy:
             return
@@ -361,7 +357,7 @@ class ExactCopiesDialog(BaseDialog):
         if hasattr(self, 'strategy_selector'):
             self._update_option_selector_styles(
                 self.strategy_selector,
-                ['oldest', 'newest', 'largest', 'smallest'],
+                ['oldest', 'newest'],
                 self.keep_strategy
             )
         
@@ -507,10 +503,6 @@ class ExactCopiesDialog(BaseDialog):
                 keep_file = min(files, key=lambda f: f.stat().st_mtime)
             elif self.keep_strategy == 'newest':
                 keep_file = max(files, key=lambda f: f.stat().st_mtime)
-            elif self.keep_strategy == 'largest':
-                keep_file = max(files, key=lambda f: f.stat().st_size)
-            elif self.keep_strategy == 'smallest':
-                keep_file = min(files, key=lambda f: f.stat().st_size)
             else:
                 keep_file = files[0]  # Fallback
             
@@ -675,7 +667,7 @@ class ExactCopiesDialog(BaseDialog):
         self.accepted_plan = {
             'groups': self.analysis.groups,
             'keep_strategy': self.keep_strategy,
-            'create_backup': self.backup_checkbox.isChecked(),
-            'dry_run': self.dry_run_checkbox.isChecked()
+            'create_backup': self.is_backup_enabled(),
+            'dry_run': self.is_dry_run_enabled()
         }
         super().accept()

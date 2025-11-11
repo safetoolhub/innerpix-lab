@@ -304,34 +304,38 @@ class FileOrganizationDialog(BaseDialog):
     
     def _update_header_metrics(self):
         """Actualiza las métricas del header compacto"""
-        old_header = self.header_frame
-        self.header_frame = self._create_compact_header_with_metrics(
-            icon_name='folder-settings',
-            title='Organización de archivos',
-            description='Reorganiza tu colección según diferentes criterios. Selecciona un tipo y revisa el plan.',
-            metrics=[
-                {
-                    'value': str(self.analysis.total_files_to_move),
-                    'label': 'Archivos',
-                    'color': DesignSystem.COLOR_PRIMARY
-                },
-                {
-                    'value': str(len(self.analysis.subdirectories)),
-                    'label': 'Subdirs',
-                    'color': '#9c27b0'
-                },
-                {
-                    'value': format_size(self.analysis.total_size_to_move),
-                    'label': 'Tamaño',
-                    'color': '#ff9800'
-                }
-            ]
-        )
+        # Buscar y actualizar los QLabel de las métricas existentes en lugar de recrear el header
+        main_layout = self.header_frame.layout()
+        if not main_layout:
+            return
         
-        # Reemplazar el widget en el layout
-        layout = self.layout()
-        layout.replaceWidget(old_header, self.header_frame)
-        old_header.deleteLater()
+        # Las métricas están en un QHBoxLayout al final del main_layout
+        metrics_layout = None
+        for i in range(main_layout.count()):
+            item = main_layout.itemAt(i)
+            if item and item.layout() and isinstance(item.layout(), QHBoxLayout):
+                # El último QHBoxLayout con múltiples widgets es el de métricas
+                if item.layout().count() > 1:
+                    metrics_layout = item.layout()
+        
+        if not metrics_layout:
+            return
+        
+        # Actualizar cada métrica (son QWidget con QVBoxLayout conteniendo value_label y label_widget)
+        metrics_data = [
+            str(self.analysis.total_files_to_move),
+            str(len(self.analysis.subdirectories)),
+            format_size(self.analysis.total_size_to_move)
+        ]
+        
+        for idx, new_value in enumerate(metrics_data):
+            if idx < metrics_layout.count():
+                metric_widget = metrics_layout.itemAt(idx).widget()
+                if metric_widget and metric_widget.layout():
+                    # El primer hijo del layout es el value_label
+                    value_label = metric_widget.layout().itemAt(0).widget()
+                    if value_label and isinstance(value_label, QLabel):
+                        value_label.setText(new_value)
     
     def _update_type_selector_styles(self):
         """Actualiza los estilos de las cards de selección según el tipo actual"""
@@ -724,46 +728,16 @@ class FileOrganizationDialog(BaseDialog):
         container_layout.setSpacing(int(DesignSystem.SPACE_12))
         container_layout.setContentsMargins(0, 0, 0, 0)
         
-        # Opciones de seguridad estándar
+        # Opciones de seguridad + limpieza de directorios vacíos
         security_options = self._create_security_options_section(
             show_backup=True,
             show_dry_run=True,
+            show_cleanup_empty_dirs=True,
             backup_label="Crear backup antes de mover",
-            dry_run_label="Modo simulación (no mover archivos realmente)"
+            dry_run_label="Modo simulación (no mover archivos realmente)",
+            cleanup_label="Eliminar directorios vacíos"
         )
         container_layout.addWidget(security_options)
-        
-        # Opción adicional específica: cleanup
-        cleanup_frame = QFrame()
-        cleanup_frame.setObjectName("cleanup-option-frame")
-        cleanup_frame.setStyleSheet(f"""
-            QFrame#cleanup-option-frame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: {DesignSystem.SPACE_12}px;
-            }}
-        """)
-        
-        cleanup_layout = QVBoxLayout(cleanup_frame)
-        cleanup_layout.setContentsMargins(
-            int(DesignSystem.SPACE_12),
-            int(DesignSystem.SPACE_8),
-            int(DesignSystem.SPACE_12),
-            int(DesignSystem.SPACE_8)
-        )
-        
-        self.cleanup_checkbox = self._create_option_checkbox(
-            icon_name='delete-sweep',
-            label="Eliminar directorios vacíos al finalizar",
-            checked=True,
-            tooltip="Elimina automáticamente los directorios que queden vacíos\n"
-                    "después de mover los archivos.\n"
-                    "Ayuda a mantener la estructura de carpetas limpia."
-        )
-        cleanup_layout.addWidget(self.cleanup_checkbox)
-        
-        container_layout.addWidget(cleanup_frame)
         
         return container
     
@@ -1190,8 +1164,8 @@ class FileOrganizationDialog(BaseDialog):
         # Pasar el analysis completo + parámetros por separado
         self.accepted_plan = {
             'analysis': self.analysis,  # Ya es OrganizationAnalysisResult dataclass
-            'cleanup_empty_dirs': self.cleanup_checkbox.isChecked(),
+            'cleanup_empty_dirs': self.is_cleanup_enabled(),
             'create_backup': self.is_backup_enabled(),
-            'dry_run': self.dry_run_checkbox.isChecked()
+            'dry_run': self.is_dry_run_enabled()
         }
         super().accept()

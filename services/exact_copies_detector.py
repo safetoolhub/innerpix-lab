@@ -166,7 +166,7 @@ class ExactCopiesDetector:
         
         Args:
             groups: Grupos de duplicados
-            keep_strategy: 'oldest', 'newest', 'largest', 'smallest', 'manual'
+            keep_strategy: 'oldest', 'newest', 'manual'
             create_backup: Crear backup antes de eliminar
             dry_run: Si solo simular sin eliminar archivos reales
             progress_callback: Callback de progreso
@@ -397,9 +397,5 @@ class ExactCopiesDetector:
             return min(files, key=lambda f: f.stat().st_mtime)
         elif strategy == 'newest':
             return max(files, key=lambda f: f.stat().st_mtime)
-        elif strategy == 'largest':
-            return max(files, key=lambda f: f.stat().st_size)
-        elif strategy == 'smallest':
-            return min(files, key=lambda f: f.stat().st_size)
         else:
             return files[0]

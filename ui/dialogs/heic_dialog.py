@@ -636,6 +636,6 @@ class HEICDuplicateRemovalDialog(BaseDialog):
             'analysis': self.analysis,  # Ya es un HeicAnalysisResult dataclass
             'keep_format': self.selected_format,
             'create_backup': self.is_backup_enabled(),
-            'dry_run': self.dry_run_checkbox.isChecked(),
+            'dry_run': self.is_dry_run_enabled(),
         }
         super().accept()

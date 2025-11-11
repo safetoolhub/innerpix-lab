@@ -1031,23 +1031,40 @@ class SimilarFilesDialog(BaseDialog):
             duplicates: Número total de duplicados
             space: Espacio recuperable en bytes
         """
-        # Recrear el header con los nuevos valores
-        old_header = self.header_frame
-        self.header_frame = self._create_compact_header_with_metrics(
-            icon_name='content-duplicate',
-            title='Archivos similares detectados',
-            description='Imágenes visualmente parecidas (perceptual hash). Ajusta la sensibilidad para refinar.',
-            metrics=[
-                {'value': str(groups), 'label': 'Grupos', 'color': DesignSystem.COLOR_PRIMARY},
-                {'value': str(duplicates), 'label': 'Duplicados', 'color': DesignSystem.COLOR_WARNING},
-                {'value': format_size(space), 'label': 'Espacio', 'color': DesignSystem.COLOR_SUCCESS}
-            ]
-        )
+        # Buscar y actualizar los QLabel de las métricas existentes en lugar de recrear el header
+        # El header tiene un layout horizontal con métricas al final
+        main_layout = self.header_frame.layout()
+        if not main_layout:
+            return
         
-        # Reemplazar el widget en el layout
-        layout = self.layout()
-        layout.replaceWidget(old_header, self.header_frame)
-        old_header.deleteLater()
+        # Las métricas están en un QHBoxLayout al final del main_layout
+        # Buscar el último layout que contiene las métricas
+        metrics_layout = None
+        for i in range(main_layout.count()):
+            item = main_layout.itemAt(i)
+            if item and item.layout() and isinstance(item.layout(), QHBoxLayout):
+                # El último QHBoxLayout con múltiples widgets es el de métricas
+                if item.layout().count() > 1:
+                    metrics_layout = item.layout()
+        
+        if not metrics_layout:
+            return
+        
+        # Actualizar cada métrica (son QWidget con QVBoxLayout conteniendo value_label y label_widget)
+        metrics_data = [
+            str(groups),
+            str(duplicates),
+            format_size(space)
+        ]
+        
+        for idx, new_value in enumerate(metrics_data):
+            if idx < metrics_layout.count():
+                metric_widget = metrics_layout.itemAt(idx).widget()
+                if metric_widget and metric_widget.layout():
+                    # El primer hijo del layout es el value_label
+                    value_label = metric_widget.layout().itemAt(0).widget()
+                    if value_label and isinstance(value_label, QLabel):
+                        value_label.setText(new_value)
 
 
     def accept(self):
@@ -1065,8 +1082,8 @@ class SimilarFilesDialog(BaseDialog):
         self.accepted_plan = {
             'groups': groups_to_process,
             'keep_strategy': 'manual',
-            'create_backup': self.backup_checkbox.isChecked(),
-            'dry_run': self.dry_run_checkbox.isChecked()
+            'create_backup': self.is_backup_enabled(),
+            'dry_run': self.is_dry_run_enabled()
         }
         super().accept()
 

@@ -695,6 +695,19 @@ class Stage3Window(BaseStage):
         
         # Si ya hay análisis completado, abrir directamente
         if hasattr(self, 'similarity_analysis') and self.similarity_analysis:
+            # Verificar si hay archivos analizados antes de abrir el diálogo
+            if self.similarity_analysis.total_files == 0 or not self.similarity_analysis.perceptual_hashes:
+                QMessageBox.information(
+                    self.main_window,
+                    "Sin archivos similares",
+                    "No se encontraron archivos similares en el análisis.\n\n"
+                    "Esto puede ocurrir si:\n"
+                    "• No hay suficientes imágenes para comparar\n"
+                    "• Las imágenes son muy diferentes entre sí\n"
+                    "• La sensibilidad del análisis es demasiado estricta"
+                )
+                return
+            
             self._open_similarity_dialog_with_analysis(self.similarity_analysis)
             return
         
@@ -791,6 +804,19 @@ class Stage3Window(BaseStage):
         # Actualizar la card indicando que el análisis está completado
         self._update_similar_duplicates_card_after_analysis(analysis)
         
+        # Verificar si hay hashes calculados antes de abrir el diálogo
+        if analysis.total_files == 0 or not analysis.perceptual_hashes:
+            QMessageBox.information(
+                self.main_window,
+                "Sin archivos similares",
+                "No se encontraron archivos similares en la carpeta analizada.\n\n"
+                "Esto puede ocurrir si:\n"
+                "• No hay suficientes imágenes para comparar\n"
+                "• Las imágenes son muy diferentes entre sí\n"
+                "• Ya se han eliminado todos los duplicados"
+            )
+            return
+        
         # Abrir automáticamente el diálogo de gestión con slider
         self._open_similarity_dialog_with_analysis(analysis)
     
@@ -877,18 +903,33 @@ class Stage3Window(BaseStage):
         
         card = self.tool_cards['similar_files']
         
-        # Mostrar que el análisis está completado
-        card.set_status_with_results(
-            f"{analysis.total_files} archivos analizados",
-            "Listo para ajustar sensibilidad"
-        )
-        card.action_button.setText("Gestionar ahora")
-        
-        # Actualizar descripción
-        card.description_label.setText(
-            "Análisis completado. Puedes ajustar la sensibilidad "
-            "interactivamente para detectar más o menos similitudes."
-        )
+        # Verificar si hay archivos analizados
+        if analysis.total_files == 0:
+            card.set_status_ready("No hay archivos para analizar")
+            card.action_button.setText("Analizar")
+            card.description_label.setText(
+                "No se encontraron imágenes o vídeos para analizar."
+            )
+        elif not analysis.perceptual_hashes or len(analysis.perceptual_hashes) == 0:
+            card.set_status_ready("No se encontraron archivos similares")
+            card.action_button.setText("Analizar de nuevo")
+            card.description_label.setText(
+                f"{analysis.total_files} archivos analizados. "
+                "No se encontraron similitudes visuales."
+            )
+        else:
+            # Mostrar que el análisis está completado con hashes calculados
+            card.set_status_with_results(
+                f"{len(analysis.perceptual_hashes)} archivos analizados",
+                "Listo para ajustar sensibilidad"
+            )
+            card.action_button.setText("Gestionar ahora")
+            
+            # Actualizar descripción
+            card.description_label.setText(
+                "Análisis completado. Puedes ajustar la sensibilidad "
+                "interactivamente para detectar más o menos similitudes."
+            )
     
     def _open_similarity_dialog_with_analysis(self, analysis):
         """

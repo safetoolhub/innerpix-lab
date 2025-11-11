@@ -236,13 +236,6 @@ class DesignSystem:
         """
     
     @staticmethod
-    def apply_card_shadow(widget, hover=False):
-        """
-        Aplica efecto de sombra a un widget tipo card
-        """
-        shadow = f"0 4px 6px rgba(0, 0, 0, {'0.07' if not hover else '0.12'})"
-        widget.setGraphicsEffect(None)  # PyQt no soporta CSS shadows directamente
-    
     @staticmethod
     def get_tooltip_style():
         """
@@ -300,23 +293,6 @@ class DesignSystem:
             
             QTabBar::tab:selected:hover {{
                 background-color: {DesignSystem.COLOR_SURFACE};
-            }}
-        """
-
-    @staticmethod
-    def get_tooltip_style():
-        """
-        Retorna el estilo QSS para tooltips
-        """
-        return f"""
-            QToolTip {{
-                background-color: {DesignSystem.COLOR_TEXT};
-                color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_8}px;
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_NORMAL};
             }}
         """
 
@@ -429,26 +405,6 @@ class DesignSystem:
                 background-color: {DesignSystem.COLOR_SECONDARY};
                 color: {DesignSystem.COLOR_TEXT_SECONDARY};
                 border-color: {DesignSystem.COLOR_SECONDARY};
-            }}
-        """
-    
-    @staticmethod
-    def get_dialog_button_box_style():
-        """
-        Estilo completo para QDialogButtonBox siguiendo Material Design.
-        Aplica estilos consistentes a Ok (primario) y Cancel (secundario).
-        """
-        return f"""
-            QDialogButtonBox {{
-                background-color: transparent;
-            }}
-            QDialogButtonBox QPushButton {{
-                min-width: 90px;
-                min-height: 36px;
-                padding: {DesignSystem.SPACE_12}px {DesignSystem.SPACE_24}px;
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
             }}
         """
 
