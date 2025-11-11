@@ -294,27 +294,13 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         return widget
     
     def _create_options_group(self):
-        """Crea grupo de opciones de seguridad"""
-        options_group = QGroupBox("Opciones de Seguridad")
-        options_group.setMinimumWidth(400)
-        options_group.setStyleSheet(f"QGroupBox {{ font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD}; padding-top: {DesignSystem.SPACE_12}px; }}")
-        options_layout = QVLayout()
-        options_layout.setSpacing(int(DesignSystem.SPACE_8))
-        
-        # Checkbox de backup (primero)
-        self.add_backup_checkbox(options_layout, "Crear backup antes de eliminar (Recomendado)")
-        
-        # Checkbox de simulación (segundo)
-        self.dry_run_checkbox = QCheckBox("Modo simulación (no eliminar realmente)")
-        from utils.settings_manager import settings_manager
-        dry_run_default = settings_manager.get(settings_manager.KEY_DRY_RUN_DEFAULT, False)
-        if isinstance(dry_run_default, str):
-            dry_run_default = dry_run_default.lower() in ('true', '1', 'yes')
-        self.dry_run_checkbox.setChecked(bool(dry_run_default))
-        options_layout.addWidget(self.dry_run_checkbox)
-        
-        options_group.setLayout(options_layout)
-        return options_group
+        """Crea grupo de opciones de seguridad usando método centralizado"""
+        return self._create_security_options_section(
+            show_backup=True,
+            show_dry_run=True,
+            backup_label="Crear backup antes de eliminar",
+            dry_run_label="Modo simulación (no eliminar realmente)"
+        )
     
     def _apply_filters(self):
         """Aplica filtros a la lista de pares"""

@@ -50,6 +50,7 @@ class LivePhotoCleanupDialog(BaseDialog):
         self.setWindowTitle("Limpieza de Live Photos")
         self.setModal(True)
         self.resize(700, 500)
+        self.setMinimumHeight(550)
         layout = QVBoxLayout(self)
         layout.setSpacing(int(DesignSystem.SPACE_16))
         layout.setContentsMargins(0, 0, 0, int(DesignSystem.SPACE_20))
@@ -91,27 +92,14 @@ class LivePhotoCleanupDialog(BaseDialog):
         self.mode_selector = self._create_mode_selector()
         content_layout.addWidget(self.mode_selector)
 
-        # Opciones
-        options_group = QGroupBox("Opciones de Seguridad")
-        options_group.setMinimumWidth(400)
-        options_group.setStyleSheet(f"QGroupBox {{ font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD}; padding-top: {DesignSystem.SPACE_12}px; }}")
-        options_layout = QVLayout(options_group)
-
-        # Backup checkbox (primero)
-        self.add_backup_checkbox(options_layout, "Crear backup antes de eliminar (Recomendado)")
-
-        # Simulación checkbox (segundo)
-        from PyQt6.QtWidgets import QCheckBox
-        self.dry_run_checkbox = QCheckBox("Modo simulación (no eliminar archivos realmente)")
-        # Leer configuración para establecer estado por defecto
-        from utils.settings_manager import settings_manager
-        dry_run_default = settings_manager.get(settings_manager.KEY_DRY_RUN_DEFAULT, False)
-        # Asegurar que es un booleano
-        if isinstance(dry_run_default, str):
-            dry_run_default = dry_run_default.lower() in ('true', '1', 'yes')
-        self.dry_run_checkbox.setChecked(bool(dry_run_default))
-        options_layout.addWidget(self.dry_run_checkbox)
-        content_layout.addWidget(options_group)
+        # Opciones de seguridad (método centralizado)
+        security_options = self._create_security_options_section(
+            show_backup=True,
+            show_dry_run=True,
+            backup_label="Crear backup antes de eliminar",
+            dry_run_label="Modo simulación (no eliminar archivos realmente)"
+        )
+        content_layout.addWidget(security_options)
 
         # Botones con estilo Material Design
         live_photos_found = self.analysis.live_photos_found

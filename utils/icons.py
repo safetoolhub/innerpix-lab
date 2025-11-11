@@ -53,6 +53,7 @@ class IconManager:
         'check': 'mdi6.check',
         'check-circle': 'mdi6.check-circle',
         'security': 'mdi6.shield',
+        'shield-check': 'mdi6.shield-check',
         'close': 'mdi6.close',
         'cancel': 'mdi6.close-circle',
         'pause-circle': 'mdi6.pause-circle',
@@ -67,6 +68,7 @@ class IconManager:
         'refresh': 'mdi6.refresh',
         'delete': 'mdi6.delete',
         'save': 'mdi6.content-save',
+        'content-save': 'mdi6.content-save',
         'backup': 'mdi6.backup-restore',
         'history': 'mdi6.history',
         
