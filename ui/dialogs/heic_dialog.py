@@ -13,7 +13,7 @@ from PyQt6.QtGui import QColor, QFont, QCursor
 from PyQt6.QtCore import Qt, QTimer
 from config import Config
 from utils.format_utils import format_size
-from ui import ui_styles
+from ui.styles.design_system import DesignSystem
 from ui.styles.design_system import DesignSystem
 from utils.icons import icon_manager
 from .base_dialog import BaseDialog
@@ -156,10 +156,6 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         
         # Actualizar tree
         self._update_tree()
-    
-    def _create_format_selection(self):
-        """DEPRECATED: Mantener por compatibilidad pero no se usa"""
-        return self._create_format_selector()
     
     def _create_toolbar(self):
         """Crea barra de herramientas con filtros"""
@@ -644,11 +640,6 @@ class HEICDuplicateRemovalDialog(BaseDialog):
             self.ok_button.setText(
                 f"Eliminar Duplicados ({self.analysis.total_duplicates} pares, {space_formatted})"
             )
-
-    def _on_format_changed(self, button):
-        self.selected_format = 'jpg' if self.format_buttons.id(button) == 0 else 'heic'
-        self._update_button_text()
-        self._update_tree()  # Actualizar para mostrar qué se eliminará
 
     def accept(self):
         self.accepted_plan = self.build_accepted_plan({

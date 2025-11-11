@@ -9,7 +9,7 @@ from typing import Optional
 from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QGroupBox, QDialogButtonBox, QCheckBox, QLabel,
     QTreeWidget, QTreeWidgetItem, QLineEdit, QComboBox, QPushButton, QFrame,
-    QApplication, QMenu, QWidget, QRadioButton, QButtonGroup, QProgressBar
+    QApplication, QMenu, QWidget,  QProgressBar
 )
 from PyQt6.QtGui import QColor, QFont, QCursor
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QThread

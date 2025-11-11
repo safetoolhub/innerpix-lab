@@ -1,11 +1,11 @@
 from PyQt6.QtWidgets import (
-    QVBoxLayout, QLabel, QGroupBox, QVBoxLayout as QVLayout,
-    QRadioButton, QButtonGroup, QDialogButtonBox
+    QVBoxLayout, QGroupBox, QVBoxLayout as QVLayout,
+    QDialogButtonBox
 )
 from PyQt6.QtCore import Qt
 from services.live_photo_cleaner import CleanupMode
 from utils.format_utils import format_size
-from ui import ui_styles
+from ui.styles.design_system import DesignSystem
 from ui.styles.design_system import DesignSystem
 from utils.icons import icon_manager
 from .base_dialog import BaseDialog
@@ -162,12 +162,6 @@ class LivePhotoCleanupDialog(BaseDialog):
                 self.selected_mode
             )
         
-        self._update_button_text()
-
-    def _on_mode_changed(self, button):
-        """Método obsoleto - mantenido por compatibilidad si es usado en otro lugar."""
-        modes = {0: CleanupMode.KEEP_IMAGE, 1: CleanupMode.KEEP_VIDEO}
-        self.selected_mode = modes[self.mode_buttons.id(button)]
         self._update_button_text()
 
     def accept(self):

@@ -7,14 +7,14 @@ from collections import Counter
 from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QGroupBox, QTableWidget, QTableWidgetItem,
     QHeaderView, QDialogButtonBox, QLabel, QCheckBox, QLineEdit, 
-    QComboBox, QPushButton, QGridLayout, QFrame, QApplication
+    QComboBox, QPushButton, QFrame, QApplication
 )
 from PyQt6.QtGui import QColor, QFont, QCursor
 from PyQt6.QtCore import Qt, QTimer
 from utils.format_utils import format_size
 from utils.settings_manager import settings_manager
 from config import Config
-from ui import ui_styles
+from ui.styles.design_system import DesignSystem
 from ui.styles.design_system import DesignSystem
 from utils.icons import icon_manager
 from utils.logger import get_logger
@@ -211,7 +211,7 @@ class RenamingPreviewDialog(BaseDialog):
         
         # Contador de resultados
         self.counter_label = QLabel()
-        self.counter_label.setStyleSheet(ui_styles.STYLE_DIALOG_COUNTER_BOLD)
+        self.counter_label.setStyleSheet(DesignSystem.STYLE_DIALOG_COUNTER_BOLD)
         toolbar.addWidget(self.counter_label)
         
         toolbar.addStretch()
@@ -259,7 +259,7 @@ class RenamingPreviewDialog(BaseDialog):
         """Crea controles de paginación"""
         widget = QFrame()
         widget.setFrameStyle(QFrame.Shape.StyledPanel)
-        widget.setStyleSheet(ui_styles.STYLE_DIALOG_PAGINATION_FRAME)
+        widget.setStyleSheet(DesignSystem.STYLE_DIALOG_PAGINATION_FRAME)
         layout = QHBoxLayout(widget)
         
         # Botón primera página
@@ -276,7 +276,7 @@ class RenamingPreviewDialog(BaseDialog):
         
         # Label de página actual
         self.page_label = QLabel()
-        self.page_label.setStyleSheet(ui_styles.STYLE_DIALOG_PAGE_LABEL)
+        self.page_label.setStyleSheet(DesignSystem.STYLE_DIALOG_PAGE_LABEL)
         self.page_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.page_label)
         
@@ -348,7 +348,7 @@ class RenamingPreviewDialog(BaseDialog):
         layout = QVBoxLayout()
         
         info = QLabel("Estos archivos no pueden procesarse y serán ignorados:")
-        info.setStyleSheet(ui_styles.STYLE_DIALOG_PROBLEM_INFO)
+        info.setStyleSheet(DesignSystem.STYLE_DIALOG_PROBLEM_INFO)
         layout.addWidget(info)
         
         # Lista simple de problemas
@@ -358,7 +358,7 @@ class RenamingPreviewDialog(BaseDialog):
         
         problems_label = QLabel(problems_text)
         problems_label.setWordWrap(True)
-        problems_label.setStyleSheet(ui_styles.STYLE_DIALOG_PROBLEM_TEXT)
+        problems_label.setStyleSheet(DesignSystem.STYLE_DIALOG_PROBLEM_TEXT)
         layout.addWidget(problems_label)
         
         group.setLayout(layout)
@@ -369,7 +369,7 @@ class RenamingPreviewDialog(BaseDialog):
         options_group = QGroupBox("Opciones de Seguridad")
         # Asegurar que el título no se corte
         options_group.setMinimumWidth(400)
-        options_group.setStyleSheet(ui_styles.STYLE_DIALOG_OPTIONS_GROUP)
+        options_group.setStyleSheet(DesignSystem.STYLE_DIALOG_OPTIONS_GROUP)
         options_layout = QVBoxLayout()
         
         # Checkbox de backup (primero)
@@ -508,10 +508,10 @@ class RenamingPreviewDialog(BaseDialog):
                 conflict_item = QTableWidgetItem(conflict_text)
                 conflict_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                 if item['has_conflict']:
-                    conflict_item.setBackground(QColor(255, 193, 7))  # ui_styles.COLOR_CONFLICT_BG
+                    conflict_item.setBackground(QColor(255, 193, 7))  # DesignSystem.COLOR_CONFLICT_BG
                     conflict_item.setForeground(QColor(0, 0, 0))
                 else:
-                    conflict_item.setBackground(QColor(76, 175, 80))  # ui_styles.COLOR_SUCCESS_BG
+                    conflict_item.setBackground(QColor(76, 175, 80))  # DesignSystem.COLOR_SUCCESS_BG
                     conflict_item.setForeground(QColor(255, 255, 255))
                 self.changes_table.setItem(row, 4, conflict_item)
                 

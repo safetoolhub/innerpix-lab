@@ -50,7 +50,6 @@ pixaro-lab/
 │   ├── __init__.py
 │   ├── helpers.py                   # Funciones auxiliares de UI
 │   ├── main_window.py               # Ventana principal (3 stages)
-│   ├── ui_styles.py                 # Estilos CSS legacy (migrado de styles.py)
 │   ├── workers.py                   # QThread workers para operaciones async
 │   │
 │   ├── stages/                      # Arquitectura de stages (State pattern)
@@ -83,7 +82,7 @@ pixaro-lab/
 │   │
 │   ├── styles/                      # Sistema de diseño centralizado
 │   │   ├── __init__.py
-│   │   └── design_system.py         # Design System con tokens CSS
+│   │   └── design_system.py         # Design System con tokens CSS + constantes legacy migradas
 │   │
 │   ├── tabs/                        # Componentes de pestañas (reservado)
 │   │   └── __init__.py
@@ -134,8 +133,7 @@ pixaro-lab/
 
 **Características técnicas:**
 - **Timers de feedback visual**: Cada fase de análisis se muestra por al menos 1 segundo
-- **Design System**: Sistema centralizado de estilos CSS con tokens (design_system.py)
-- **Legacy Styles**: ui_styles.py contiene constantes CSS antiguas (en proceso de migración)
+- **Design System**: Sistema centralizado de estilos CSS con tokens + constantes legacy migradas
 - **Dataclasses**: Resultados tipados y validados
 - **QThread workers**: Operaciones asíncronas sin bloquear UI
 - **Backup-first**: Todas las operaciones destructivas incluyen opción de backup

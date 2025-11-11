@@ -11,7 +11,7 @@ from config import Config
 from services.exact_copies_detector import DuplicateGroup
 from utils.format_utils import format_size
 from utils.logger import get_logger
-from ui import ui_styles
+from ui.styles.design_system import DesignSystem
 from ui.styles.design_system import DesignSystem
 from utils.icons import icon_manager
 from .base_dialog import BaseDialog
@@ -338,7 +338,7 @@ class ExactCopiesDialog(BaseDialog):
         # apply danger style to ok button
         ok_btn = buttons.button(QDialogButtonBox.StandardButton.Ok)
         icon_manager.set_button_icon(ok_btn, 'delete', size=16)
-        ok_btn.setStyleSheet(ui_styles.STYLE_DANGER_BUTTON)
+        ok_btn.setStyleSheet(DesignSystem.STYLE_DANGER_BUTTON)
         content_layout.addWidget(buttons)
         
         # Aplicar estilo global de tooltips

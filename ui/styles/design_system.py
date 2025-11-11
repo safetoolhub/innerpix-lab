@@ -327,3 +327,52 @@ class DesignSystem:
                 border-radius: {DesignSystem.RADIUS_FULL}px;
             }}
         """
+
+    # ==================== LEGACY CONSTANTS (TO BE REVIEWED) ====================
+    # These constants are migrated from ui_styles.py and need to be reviewed/updated
+    # TODO: Review and modernize these legacy styles to use DesignSystem tokens
+    
+    # Legacy button styles
+    STYLE_DANGER_BUTTON = """
+    QPushButton {
+        background-color: #dc3545;
+        color: white;
+        padding: 8px 20px;
+        border-radius: 4px;
+        border: none;
+        font-weight: 500;
+    }
+    QPushButton:hover {
+        background-color: #c82333;
+    }
+    QPushButton:pressed {
+        background-color: #bd2130;
+    }
+    QPushButton:disabled {
+        background-color: #6c757d;
+        color: #ffffff;
+    }
+    """
+    
+    # Legacy dialog styles
+    STYLE_DIALOG_SEPARATOR = "color: #dee2e6;"
+    STYLE_DIALOG_COUNTER_BOLD = "font-weight: bold; color: #2c5aa0; margin-left: 10px;"
+    STYLE_DIALOG_PAGINATION_FRAME = "QFrame { background-color: #f0f0f0; border-radius: 3px; }"
+    STYLE_DIALOG_PAGE_LABEL = "font-weight: bold; padding: 0 20px;"
+    STYLE_DIALOG_PROBLEM_INFO = "color: #fd7e14; font-size: 10px;"
+    STYLE_DIALOG_PROBLEM_TEXT = "font-size: 10px; color: #6c757d;"
+    STYLE_DIALOG_OPTIONS_GROUP = "QGroupBox { font-weight: bold; }"
+    
+    # Legacy panel and label styles
+    STYLE_PANEL_LABEL = "padding: 8px; background-color: #f8f9fa; border-radius: 4px;"
+    STYLE_DIALOG_WARNING_ORANGE = "color: #fd7e14; padding: 5px; font-weight: bold;"
+    STYLE_DIALOG_NO_PREVIEW = "color: #6c757d; font-size: 10px; font-style: italic;"
+    STYLE_DIALOG_NAME_LABEL = "font-size: 11px; color: #212529; background: transparent;"
+    STYLE_DIALOG_DETAILS_LABEL = "font-size: 9px; color: #6c757d; background: transparent;"
+    STYLE_DIALOG_TITLE_BOLD = "font-weight: bold; font-size: 14px; color: #212529;"
+    STYLE_DIALOG_DESC_MUTED = "color: #6c757d; font-size: 11px; padding: 5px;"
+    STYLE_DIALOG_LABEL_DISABLED = "border: 1px solid #adb5bd; background-color: #e9ecef;"
+    
+    # Legacy colors (RGB values for QColor usage)
+    COLOR_CONFLICT_BG = "#ffc107"  # RGB: 255, 193, 7
+    COLOR_SUCCESS_BG = "#4caf50"   # RGB: 76, 175, 80
