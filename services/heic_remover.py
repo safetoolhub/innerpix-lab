@@ -89,7 +89,7 @@ class HEICRemover:
     """
 
     def __init__(self):
-        self.logger = get_logger("HEICDuplicateRemover")
+        self.logger = get_logger("HEICRemover")
         self.backup_dir = None
 
         # Configuración

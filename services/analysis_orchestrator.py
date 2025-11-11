@@ -250,7 +250,7 @@ class AnalysisOrchestrator:
         
         Args:
             directory: Directorio a analizar
-            heic_remover: Instancia de HEICDuplicateRemover
+            heic_remover: Instancia de HEICRemover
             progress_callback: Función opcional de progreso
             
         Returns:
@@ -299,7 +299,7 @@ class AnalysisOrchestrator:
             renamer: FileRenamer opcional
             live_photo_detector: LivePhotoDetector opcional
             organizer: FileOrganizer opcional
-            heic_remover: HEICDuplicateRemover opcional
+            heic_remover: HEICRemover opcional
             duplicate_exact_detector: DuplicateExactDetector opcional
             organization_type: Tipo de organización opcional
             progress_callback: Callback (current, total, msg) -> bool para progreso

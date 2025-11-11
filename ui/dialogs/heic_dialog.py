@@ -101,9 +101,12 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         options_group = self._create_options_group()
         content_layout.addWidget(options_group)
         
-        # Botones
+        # Botones con estilo Material Design
         ok_enabled = self.analysis.total_duplicates > 0
-        self.buttons = self.make_ok_cancel_buttons(ok_enabled=ok_enabled)
+        self.buttons = self.make_ok_cancel_buttons(
+            ok_enabled=ok_enabled,
+            button_style='danger'
+        )
         self.ok_button = self.buttons.button(QDialogButtonBox.StandardButton.Ok)
         if ok_enabled:
             self._update_button_text()

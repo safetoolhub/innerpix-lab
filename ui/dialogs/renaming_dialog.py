@@ -130,10 +130,14 @@ class RenamingPreviewDialog(BaseDialog):
         options_group = self._create_options_group()
         content_layout.addWidget(options_group)
         
-        # Botones
+        # Botones con estilo Material Design
         ok_enabled = self.analysis_results.need_renaming > 0
         ok_text = f"Proceder ({self.analysis_results.need_renaming})" if ok_enabled else None
-        buttons = self.make_ok_cancel_buttons(ok_text=ok_text, ok_enabled=ok_enabled)
+        buttons = self.make_ok_cancel_buttons(
+            ok_text=ok_text,
+            ok_enabled=ok_enabled,
+            button_style='primary'
+        )
         self.buttons = buttons
         self.ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
         content_layout.addWidget(buttons)

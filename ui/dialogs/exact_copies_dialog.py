@@ -333,12 +333,13 @@ class ExactCopiesDialog(BaseDialog):
         options_layout.addWidget(self.dry_run_checkbox)
         content_layout.addWidget(options_group)
 
-        # Botones
-        buttons = self.make_ok_cancel_buttons(ok_text="Eliminar Ahora")
-        # apply danger style to ok button
+        # Botones con estilo Material Design
+        buttons = self.make_ok_cancel_buttons(
+            ok_text="Eliminar Ahora",
+            button_style='danger'
+        )
         ok_btn = buttons.button(QDialogButtonBox.StandardButton.Ok)
         icon_manager.set_button_icon(ok_btn, 'delete', size=16)
-        ok_btn.setStyleSheet(DesignSystem.STYLE_DANGER_BUTTON)
         content_layout.addWidget(buttons)
         
         # Aplicar estilo global de tooltips

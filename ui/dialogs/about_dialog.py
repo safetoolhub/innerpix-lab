@@ -147,9 +147,9 @@ class AboutDialog(QDialog):
 
         footer_layout.addStretch()
 
-        # Botón cerrar — use primary button class from DesignSystem
+        # Botón cerrar con estilo Material Design
         close_btn = QPushButton("Cerrar")
-        close_btn.setProperty("class", "primary")
+        close_btn.setStyleSheet(DesignSystem.get_primary_button_style())
         close_btn.clicked.connect(self.accept)
         close_btn.setDefault(True)
         close_btn.setCursor(Qt.CursorShape.PointingHandCursor)

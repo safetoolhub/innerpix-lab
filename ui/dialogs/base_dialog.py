@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
 if TYPE_CHECKING:
     from PyQt6.QtWidgets import QFrame, QRadioButton
 
+from ui.styles.design_system import DesignSystem
 from utils.settings_manager import settings_manager
 
 
@@ -73,23 +74,47 @@ class BaseDialog(QDialog):
         result['create_backup'] = self.is_backup_enabled()
         return result
 
-    def make_ok_cancel_buttons(self, ok_text: Optional[str] = None, ok_style: Optional[str] = None,
-                               ok_enabled: bool = True) -> QDialogButtonBox:
+    def make_ok_cancel_buttons(
+        self, 
+        ok_text: Optional[str] = None, 
+        ok_enabled: bool = True,
+        button_style: str = 'primary'
+    ) -> QDialogButtonBox:
         """Crea y devuelve un QDialogButtonBox con Ok/Cancel enlazados a accept/reject.
+        
+        Aplica automáticamente estilos Material Design consistentes.
 
-        Does not mutate dialog state except wiring signals. The caller can further
-        customize the returned button box or button texts/styles.
+        Args:
+            ok_text: Texto personalizado para el botón OK (default: "OK")
+            ok_enabled: Si el botón OK debe estar habilitado inicialmente
+            button_style: Estilo del botón OK: 'primary', 'danger', o 'secondary'
+
+        Returns:
+            QDialogButtonBox configurado con estilos Material Design
         """
         box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         ok_btn = box.button(QDialogButtonBox.StandardButton.Ok)
         cancel_btn = box.button(QDialogButtonBox.StandardButton.Cancel)
+        
+        # Aplicar textos personalizados
         if ok_text is not None:
             ok_btn.setText(ok_text)
-        if ok_style is not None:
-            ok_btn.setStyleSheet(ok_style)
+        cancel_btn.setText("Cancelar")
+        
+        # Aplicar estilos Material Design según el tipo especificado
+        if button_style == 'danger':
+            ok_btn.setStyleSheet(DesignSystem.get_danger_button_style())
+        elif button_style == 'secondary':
+            ok_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
+        else:  # 'primary' por defecto
+            ok_btn.setStyleSheet(DesignSystem.get_primary_button_style())
+        
+        cancel_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
+        
         ok_btn.setEnabled(ok_enabled)
         box.accepted.connect(self.accept)
         box.rejected.connect(self.reject)
+        
         # remember ok button for convenience
         self.register_ok_button(ok_btn)
         return box

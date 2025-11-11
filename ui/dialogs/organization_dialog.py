@@ -757,7 +757,7 @@ class FileOrganizationDialog(BaseDialog):
         return options_group
     
     def _create_action_buttons(self) -> QDialogButtonBox:
-        """Crea botones de acción"""
+        """Crea botones de acción con estilo Material Design"""
         ok_enabled = self.analysis.total_files_to_move > 0
         if ok_enabled:
             size_formatted = format_size(self.analysis.total_size_to_move)
@@ -765,9 +765,12 @@ class FileOrganizationDialog(BaseDialog):
         else:
             ok_text = "Sin archivos para organizar"
         
-        buttons = self.make_ok_cancel_buttons(ok_text=ok_text, ok_enabled=ok_enabled)
+        buttons = self.make_ok_cancel_buttons(
+            ok_text=ok_text,
+            ok_enabled=ok_enabled,
+            button_style='primary'
+        )
         self.ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
-        self.ok_button.setProperty("id", "primary-button")
         
         return buttons
     

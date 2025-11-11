@@ -113,11 +113,15 @@ class LivePhotoCleanupDialog(BaseDialog):
         options_layout.addWidget(self.dry_run_checkbox)
         content_layout.addWidget(options_group)
 
-        # Botones
+        # Botones con estilo Material Design
         live_photos_found = self.analysis.live_photos_found
         ok_enabled = live_photos_found > 0
         ok_text = None if ok_enabled else "No hay Live Photos para limpiar"
-        self.buttons = self.make_ok_cancel_buttons(ok_text=ok_text, ok_enabled=ok_enabled)
+        self.buttons = self.make_ok_cancel_buttons(
+            ok_text=ok_text,
+            ok_enabled=ok_enabled,
+            button_style='danger'
+        )
         self.ok_button = self.buttons.button(QDialogButtonBox.StandardButton.Ok)
         # If there are items, update text according to mode
         if live_photos_found > 0:

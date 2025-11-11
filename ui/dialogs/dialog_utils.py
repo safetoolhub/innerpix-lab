@@ -260,28 +260,12 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     separator.setStyleSheet(DesignSystem.STYLE_DIALOG_SEPARATOR)
     main_layout.addWidget(separator)
     
-    # Botón OK centrado
+    # Botón OK centrado con estilo Material Design
     ok_button = QPushButton("Cerrar")
     ok_button.setMinimumWidth(120)
     ok_button.setMinimumHeight(32)
     ok_button.clicked.connect(dialog.accept)
-    ok_button.setStyleSheet("""
-        QPushButton {
-            background-color: #2c5aa0;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 8px 16px;
-            font-weight: bold;
-            font-size: 10pt;
-        }
-        QPushButton:hover {
-            background-color: #234a8a;
-        }
-        QPushButton:pressed {
-            background-color: #1a3a6a;
-        }
-    """)
+    ok_button.setStyleSheet(DesignSystem.get_primary_button_style())
     
     button_layout = QHBoxLayout()
     button_layout.addStretch()

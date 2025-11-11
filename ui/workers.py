@@ -31,7 +31,7 @@ if TYPE_CHECKING:
     from services.live_photo_detector import LivePhotoDetector
     from services.live_photo_cleaner import LivePhotoCleaner
     from services.file_organizer import FileOrganizer
-    from services.heic_remover import HEICDuplicateRemover
+    from services.heic_remover import HEICRemover
     from services.exact_copies_detector import ExactCopiesDetector
     from services.similar_files_detector import SimilarFilesDetector
 
@@ -135,7 +135,7 @@ class AnalysisWorker(BaseWorker):
         renamer: 'FileRenamer',
         live_photo_detector: 'LivePhotoDetector',
         unifier: 'FileOrganizer',
-        heic_remover: 'HEICDuplicateRemover',
+        heic_remover: 'HEICRemover',
         duplicate_exact_detector: Optional['ExactCopiesDetector'] = None,
         organization_type: Optional[str] = None
     ):
@@ -430,7 +430,7 @@ class HEICRemovalWorker(BaseWorker):
 
     def __init__(
         self,
-        remover: 'HEICDuplicateRemover',
+        remover: 'HEICRemover',
         pairs: List[Dict],
         keep_format: str,
         create_backup: bool = True,
@@ -677,7 +677,7 @@ class WorkspaceReanalysisWorker(BaseWorker):
     def run(self) -> None:
         """Ejecuta re-análisis de todas las herramientas rápidas"""
         from services.live_photo_detector import LivePhotoDetector
-        from services.heic_remover import HEICDuplicateRemover
+        from services.heic_remover import HEICRemover
         from services.exact_copies_detector import ExactCopiesDetector
         from services.file_organizer import FileOrganizer
         from services.file_renamer import FileRenamer
@@ -688,7 +688,7 @@ class WorkspaceReanalysisWorker(BaseWorker):
         # Lista de análisis a ejecutar (solo rápidos)
         tools_to_analyze = [
             ("live_photos", LivePhotoDetector, "Live Photos"),
-            ("heic", HEICDuplicateRemover, "HEIC/JPG"),
+            ("heic", HEICRemover, "HEIC/JPG"),
             ("exact_duplicates", ExactCopiesDetector, "Duplicados Exactos"),
             ("organize", FileOrganizer, "Organizar"),
             ("rename", FileRenamer, "Renombrar")

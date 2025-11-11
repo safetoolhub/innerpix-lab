@@ -11,9 +11,12 @@ class DesignSystem:
     
     # Colores base
     COLOR_BACKGROUND = "#f5f5f5"
+    COLOR_BACKGROUND_PRIMARY = "#f5f5f5"
+    COLOR_BACKGROUND_SECONDARY = "#ffffff"
     COLOR_SURFACE = "#ffffff"
     COLOR_TEXT = "#1a1a1a"
     COLOR_TEXT_SECONDARY = "#666666"
+    COLOR_TEXT_PRIMARY = "#1a1a1a"
     
     # Colores primarios
     COLOR_PRIMARY = "#2563eb"
@@ -37,11 +40,13 @@ class DesignSystem:
     COLOR_WARNING_HOVER = "#d97706"
     COLOR_DANGER = "#dc4a26"
     COLOR_ERROR = "#ef4444"
+    COLOR_INFO = "#3b82f6"
     
     # Backgrounds adicionales
     COLOR_BG_1 = "#fafafa"
     COLOR_BG_2 = "#f0f0f0"
     COLOR_BG_4 = "#fef3c7"  # Warning background
+    COLOR_BACKGROUND_OVERLAY = "rgba(0, 0, 0, 0.7)"  # Semi-transparent black for overlays
     
     # ==================== TIPOGRAFÍA ====================
     
@@ -49,10 +54,13 @@ class DesignSystem:
     FONT_FAMILY_MONO = "Consolas, Monaco, 'Courier New', monospace"
     
     FONT_SIZE_XS = 10
+    FONT_SIZE_SMALL = 10
     FONT_SIZE_SM = 12
     FONT_SIZE_BASE = 14
+    FONT_SIZE_BODY = 14
     FONT_SIZE_MD = 14
     FONT_SIZE_LG = 16
+    FONT_SIZE_H3 = 18
     FONT_SIZE_XL = 18
     FONT_SIZE_2XL = 20
     FONT_SIZE_3XL = 24
@@ -66,26 +74,32 @@ class DesignSystem:
     LINE_HEIGHT_RELAXED = 1.75
     
     # ==================== ESPACIADO ====================
-    
+
     SPACE_2 = 2
     SPACE_4 = 4
     SPACE_6 = 6
     SPACE_8 = 8
+    SPACE_XS = 2
     SPACE_12 = 12
+    SPACE_SM = 12
     SPACE_16 = 16
+    SPACE_MD = 16
     SPACE_20 = 20
     SPACE_24 = 24
     SPACE_32 = 32
     SPACE_40 = 40
     SPACE_48 = 48
+    SPACE_LG = 56
+    SPACE_XL = 64
     
-    # ==================== BORDER RADIUS ====================
-    
+# ==================== BORDER RADIUS ====================
+
     RADIUS_BASE = 8
+    RADIUS_SMALL = 4
     RADIUS_LG = 12
-    RADIUS_FULL = 9999
-    
-    # ==================== SOMBRAS ====================
+    RADIUS_MEDIUM = 14
+    RADIUS_LARGE = 16
+    RADIUS_FULL = 9999    # ==================== SOMBRAS ====================
     
     SHADOW_SM = "0 1px 2px rgba(0, 0, 0, 0.05)"
     SHADOW_MD = "0 4px 6px rgba(0, 0, 0, 0.07)"
@@ -328,11 +342,121 @@ class DesignSystem:
             }}
         """
 
+    # ==================== BOTONES DE ACCIÓN (MATERIAL DESIGN) ====================
+    
+    @staticmethod
+    def get_primary_button_style():
+        """
+        Estilo para botón primario (acción principal).
+        Ejemplo: "Organizar Archivos", "Proceder", "Eliminar Ahora"
+        """
+        return f"""
+            QPushButton {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                color: {DesignSystem.COLOR_PRIMARY_TEXT};
+                border: none;
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_12}px {DesignSystem.SPACE_24}px;
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                min-height: 36px;
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_PRIMARY_HOVER};
+            }}
+            QPushButton:pressed {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+            QPushButton:disabled {{
+                background-color: {DesignSystem.COLOR_SECONDARY};
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            }}
+        """
+    
+    @staticmethod
+    def get_danger_button_style():
+        """
+        Estilo para botón de acción destructiva.
+        Ejemplo: "Eliminar", "Borrar Archivos"
+        """
+        return f"""
+            QPushButton {{
+                background-color: {DesignSystem.COLOR_DANGER};
+                color: {DesignSystem.COLOR_PRIMARY_TEXT};
+                border: none;
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_12}px {DesignSystem.SPACE_24}px;
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                min-height: 36px;
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_ERROR};
+            }}
+            QPushButton:pressed {{
+                background-color: {DesignSystem.COLOR_DANGER};
+            }}
+            QPushButton:disabled {{
+                background-color: {DesignSystem.COLOR_SECONDARY};
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            }}
+        """
+    
+    @staticmethod
+    def get_secondary_button_style():
+        """
+        Estilo para botón secundario (cancelar, cerrar).
+        Ejemplo: "Cancelar"
+        """
+        return f"""
+            QPushButton {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                color: {DesignSystem.COLOR_TEXT};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_12}px {DesignSystem.SPACE_24}px;
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                min-height: 36px;
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_SECONDARY};
+            }}
+            QPushButton:pressed {{
+                background-color: {DesignSystem.COLOR_SECONDARY_HOVER};
+            }}
+            QPushButton:disabled {{
+                background-color: {DesignSystem.COLOR_SECONDARY};
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                border-color: {DesignSystem.COLOR_SECONDARY};
+            }}
+        """
+    
+    @staticmethod
+    def get_dialog_button_box_style():
+        """
+        Estilo completo para QDialogButtonBox siguiendo Material Design.
+        Aplica estilos consistentes a Ok (primario) y Cancel (secundario).
+        """
+        return f"""
+            QDialogButtonBox {{
+                background-color: transparent;
+            }}
+            QDialogButtonBox QPushButton {{
+                min-width: 90px;
+                min-height: 36px;
+                padding: {DesignSystem.SPACE_12}px {DesignSystem.SPACE_24}px;
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            }}
+        """
+
     # ==================== LEGACY CONSTANTS (TO BE REVIEWED) ====================
     # These constants are migrated from ui_styles.py and need to be reviewed/updated
     # TODO: Review and modernize these legacy styles to use DesignSystem tokens
     
-    # Legacy button styles
+    # Legacy button styles (DEPRECATED - usar get_danger_button_style())
     STYLE_DANGER_BUTTON = """
     QPushButton {
         background-color: #dc3545;

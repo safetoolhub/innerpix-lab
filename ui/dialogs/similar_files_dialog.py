@@ -341,10 +341,11 @@ class SimilarFilesDialog(BaseDialog):
         return options_group
     
     def _create_action_buttons(self) -> QDialogButtonBox:
-        """Crea los botones de acción del diálogo."""
+        """Crea los botones de acción del diálogo con estilo Material Design."""
         buttons = self.make_ok_cancel_buttons(
             ok_text="Eliminar Seleccionados",
-            ok_enabled=False
+            ok_enabled=False,
+            button_style='danger'
         )
         self.ok_btn = buttons.button(QDialogButtonBox.StandardButton.Ok)
         icon_manager.set_button_icon(self.ok_btn, 'delete', size=16)

@@ -492,8 +492,8 @@ class Stage3Window(BaseStage):
             worker = LivePhotoCleanupWorker(cleaner, plan)
         
         elif tool_id == 'heic':
-            from services.heic_remover import HEICDuplicateRemover
-            remover = HEICDuplicateRemover()
+            from services.heic_remover import HEICRemover
+            remover = HEICRemover()
             # HEICRemovalWorker espera (remover, pairs, keep_format, create_backup, dry_run)
             worker = HEICRemovalWorker(
                 remover=remover,
@@ -1002,7 +1002,7 @@ class Stage3Window(BaseStage):
         
         # Crear overlay si no existe
         if not self.reanalysis_overlay:
-            self.reanalysis_overlay = ReanalysisOverlay(self)
+            self.reanalysis_overlay = ReanalysisOverlay(self.main_window)
             # Posicionarlo para que cubra todo el Stage 3
             self.reanalysis_overlay.setGeometry(self.rect())
         
