@@ -60,6 +60,7 @@ class IconManager:
         # Navegación y acciones de archivos
         'folder': 'mdi6.folder',
         'folder-open': 'mdi6.folder-open',
+        'folder-settings': 'mdi6.folder-cog',
         'file': 'mdi6.file',
         'search': 'mdi6.magnify',
         'magnify': 'mdi6.magnify',
@@ -94,6 +95,7 @@ class IconManager:
         'live-photo': 'mdi6.camera-burst',
         'camera-burst': 'mdi6.camera-burst',
         'duplicate': 'mdi6.content-duplicate',
+        'content-duplicate': 'mdi6.content-duplicate',
         'content-copy': 'mdi6.content-copy',
         'duplicate-exact': 'mdi6.equal',
         'duplicate-similar': 'mdi6.image-search',

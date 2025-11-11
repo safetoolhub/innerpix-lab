@@ -61,42 +61,62 @@ class SimilarFilesDialog(BaseDialog):
         
         # Layout principal
         main_layout = QVBoxLayout(self)
-        main_layout.setSpacing(DesignSystem.SPACE_20)
-        main_layout.setContentsMargins(
-            DesignSystem.SPACE_24,
-            DesignSystem.SPACE_24,
-            DesignSystem.SPACE_24,
-            DesignSystem.SPACE_24
+        main_layout.setSpacing(0)
+        main_layout.setContentsMargins(0, 0, 0, DesignSystem.SPACE_20)
+        
+        # --- HEADER: Título compacto con métricas iniciales (se actualizarán) ---
+        self.header_frame = self._create_compact_header_with_metrics(
+            icon_name='content-duplicate',
+            title='Archivos similares detectados',
+            description='Imágenes visualmente parecidas (perceptual hash). Ajusta la sensibilidad para refinar.',
+            metrics=[
+                {'value': '0', 'label': 'Grupos', 'color': DesignSystem.COLOR_PRIMARY},
+                {'value': '0', 'label': 'Duplicados', 'color': DesignSystem.COLOR_WARNING},
+                {'value': '0 B', 'label': 'Espacio', 'color': DesignSystem.COLOR_SUCCESS}
+            ]
         )
+        main_layout.addWidget(self.header_frame)
+        
+        # Contenedor con márgenes para el resto del contenido
+        content_container = QWidget()
+        content_layout = QVBoxLayout(content_container)
+        content_layout.setSpacing(DesignSystem.SPACE_20)
+        content_layout.setContentsMargins(
+            DesignSystem.SPACE_24,
+            DesignSystem.SPACE_12,
+            DesignSystem.SPACE_24,
+            0
+        )
+        main_layout.addWidget(content_container)
         
         # --- SECCIÓN 1: Card de sensibilidad ---
         sensitivity_card = self._create_sensitivity_card()
-        main_layout.addWidget(sensitivity_card)
+        content_layout.addWidget(sensitivity_card)
         
         # --- SECCIÓN 2: Barra de advertencia ---
         warning_frame = self._create_warning_section()
-        main_layout.addWidget(warning_frame)
+        content_layout.addWidget(warning_frame)
         
         # --- SECCIÓN 3: Navegación de grupos ---
         nav_layout = self._create_navigation_section()
-        main_layout.addLayout(nav_layout)
+        content_layout.addLayout(nav_layout)
         
         # --- SECCIÓN 4: Contenedor de grupo actual ---
         self.group_container = QGroupBox()
         self.group_layout = QVBoxLayout(self.group_container)
-        main_layout.addWidget(self.group_container)
+        content_layout.addWidget(self.group_container)
         
         # --- SECCIÓN 5: Resumen ---
         summary_group = self._create_summary_section()
-        main_layout.addWidget(summary_group)
+        content_layout.addWidget(summary_group)
         
         # --- SECCIÓN 6: Opciones de seguridad ---
         options_group = self._create_options_section()
-        main_layout.addWidget(options_group)
+        content_layout.addWidget(options_group)
         
         # --- SECCIÓN 7: Botones de acción ---
         buttons = self._create_action_buttons()
-        main_layout.addWidget(buttons)
+        content_layout.addWidget(buttons)
         
         # Aplicar estilos
         self.setStyleSheet(self._get_dialog_styles())
@@ -845,6 +865,13 @@ class SimilarFilesDialog(BaseDialog):
             f"{format_size(self.current_result.space_potential)}"
         )
         
+        # Actualizar métricas del header compacto
+        self._update_header_metrics(
+            groups=self.current_result.total_groups,
+            duplicates=self.current_result.total_duplicates,
+            space=self.current_result.space_potential
+        )
+        
         # Actualizar la estructura analysis.groups para compatibilidad
         # con el código existente de visualización
         self.analysis.groups = self.current_result.groups
@@ -1020,6 +1047,33 @@ class SimilarFilesDialog(BaseDialog):
             f"<b>Espacio a liberar:</b> {format_size(total_size)}"
         )
         self.ok_btn.setEnabled(total_selected > 0)
+    
+    def _update_header_metrics(self, groups: int, duplicates: int, space: int):
+        """Actualiza las métricas del header compacto.
+        
+        Args:
+            groups: Número de grupos detectados
+            duplicates: Número total de duplicados
+            space: Espacio recuperable en bytes
+        """
+        # Recrear el header con los nuevos valores
+        old_header = self.header_frame
+        self.header_frame = self._create_compact_header_with_metrics(
+            icon_name='content-duplicate',
+            title='Archivos similares detectados',
+            description='Imágenes visualmente parecidas (perceptual hash). Ajusta la sensibilidad para refinar.',
+            metrics=[
+                {'value': str(groups), 'label': 'Grupos', 'color': DesignSystem.COLOR_PRIMARY},
+                {'value': str(duplicates), 'label': 'Duplicados', 'color': DesignSystem.COLOR_WARNING},
+                {'value': format_size(space), 'label': 'Espacio', 'color': DesignSystem.COLOR_SUCCESS}
+            ]
+        )
+        
+        # Reemplazar el widget en el layout
+        layout = self.layout()
+        layout.replaceWidget(old_header, self.header_frame)
+        old_header.deleteLater()
+
 
     def accept(self):
         # Crear grupos filtrados solo con archivos a eliminar

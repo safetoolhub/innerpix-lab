@@ -47,71 +47,59 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         self.resize(1200, 750)
         main_layout = QVBoxLayout(self)
         main_layout.setSpacing(int(DesignSystem.SPACE_16))
-        main_layout.setContentsMargins(
+        main_layout.setContentsMargins(0, 0, 0, int(DesignSystem.SPACE_20))
+        
+        # Header compacto integrado con métricas inline
+        header = self._create_compact_header_with_metrics(
+            icon_name='photo-library',
+            title='Duplicados HEIC/JPG detectados',
+            description='Fotos HEIC con copia idéntica en JPG. Elimina archivos HEIC para ahorrar espacio.',
+            metrics=[
+                {
+                    'value': str(self.analysis.total_pairs),
+                    'label': 'Pares',
+                    'color': DesignSystem.COLOR_PRIMARY
+                },
+                {
+                    'value': format_size(self.analysis.total_size),
+                    'label': 'Espacio',
+                    'color': DesignSystem.COLOR_SUCCESS
+                }
+            ]
+        )
+        main_layout.addWidget(header)
+        
+        # Contenedor con margen para el resto del contenido
+        content_container = QWidget()
+        content_layout = QVBoxLayout(content_container)
+        content_layout.setSpacing(int(DesignSystem.SPACE_16))
+        content_layout.setContentsMargins(
             int(DesignSystem.SPACE_24),
-            int(DesignSystem.SPACE_20),
+            int(DesignSystem.SPACE_12),
             int(DesignSystem.SPACE_24),
-            int(DesignSystem.SPACE_20)
+            0
         )
-        
-        # Header con icono y explicación
-        explanation = self._create_explanation_frame(
-            'photo-library',
-            'Duplicados HEIC/JPG detectados',
-            'Se han detectado fotos en formato HEIC que tienen una copia idéntica en JPG. '
-            'Puedes eliminar los archivos HEIC para ahorrar espacio manteniendo los JPG.'
-        )
-        main_layout.addWidget(explanation)
-        
-        # Métricas inline
-        metrics_layout = QHBoxLayout()
-        metrics_layout.setSpacing(int(DesignSystem.SPACE_12))
-        
-        # Pares HEIC/JPG
-        pairs_metric = self._create_metric_card(
-            str(self.analysis.total_pairs),
-            "Pares HEIC/JPG",
-            DesignSystem.COLOR_PRIMARY
-        )
-        metrics_layout.addWidget(pairs_metric)
-        
-        # Espacio recuperable
-        space_metric = self._create_metric_card(
-            format_size(self.analysis.total_size),
-            "Espacio recuperable",
-            DesignSystem.COLOR_SUCCESS
-        )
-        metrics_layout.addWidget(space_metric)
-        
-        metrics_layout.addStretch()
-        main_layout.addLayout(metrics_layout)
-        
-        # Separador
-        separator = QFrame()
-        separator.setFrameShape(QFrame.Shape.HLine)
-        separator.setStyleSheet(f"background-color: {DesignSystem.COLOR_BORDER};")
-        separator.setMaximumHeight(1)
-        main_layout.addWidget(separator)
+        main_layout.addWidget(content_container)
         
         # Selector de formato con cards
         format_selector = self._create_format_selector()
-        main_layout.addWidget(format_selector)
+        content_layout.addWidget(format_selector)
         
         # Barra de herramientas (filtros y búsqueda)
         toolbar = self._create_toolbar()
-        main_layout.addLayout(toolbar)
+        content_layout.addLayout(toolbar)
         
         # TreeWidget de archivos duplicados
         self.files_tree = self._create_files_tree()
-        main_layout.addWidget(self.files_tree)
+        content_layout.addWidget(self.files_tree)
         
         # Controles de paginación
         self.pagination_widget = self._create_pagination_controls()
-        main_layout.addWidget(self.pagination_widget)
+        content_layout.addWidget(self.pagination_widget)
         
         # Opciones de seguridad
         options_group = self._create_options_group()
-        main_layout.addWidget(options_group)
+        content_layout.addWidget(options_group)
         
         # Botones
         ok_enabled = self.analysis.total_duplicates > 0
@@ -119,7 +107,7 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         self.ok_button = self.buttons.button(QDialogButtonBox.StandardButton.Ok)
         if ok_enabled:
             self._update_button_text()
-        main_layout.addWidget(self.buttons)
+        content_layout.addWidget(self.buttons)
         
         # Actualizar vista inicial
         self._update_tree()

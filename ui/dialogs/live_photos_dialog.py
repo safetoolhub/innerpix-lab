@@ -52,47 +52,44 @@ class LivePhotoCleanupDialog(BaseDialog):
         self.resize(700, 500)
         layout = QVBoxLayout(self)
         layout.setSpacing(int(DesignSystem.SPACE_16))
-        layout.setContentsMargins(
-            int(DesignSystem.SPACE_24),
-            int(DesignSystem.SPACE_20),
-            int(DesignSystem.SPACE_24),
-            int(DesignSystem.SPACE_20)
-        )
+        layout.setContentsMargins(0, 0, 0, int(DesignSystem.SPACE_20))
 
-        # Header explicativo
-        explanation = self._create_explanation_frame(
-            'camera',
-            'Live Photos detectadas',
-            'Los Live Photos de iPhone contienen una imagen JPG y un video MOV con el mismo nombre. '
-            'Selecciona qué componente deseas conservar.'
+        # Header compacto integrado con métricas inline
+        header = self._create_compact_header_with_metrics(
+            icon_name='camera',
+            title='Live Photos detectadas',
+            description='Live Photos de iPhone (JPG + MOV). Selecciona qué componente conservar.',
+            metrics=[
+                {
+                    'value': str(self.analysis.live_photos_found),
+                    'label': 'Live Photos',
+                    'color': DesignSystem.COLOR_PRIMARY
+                },
+                {
+                    'value': format_size(self.analysis.total_space),
+                    'label': 'Espacio',
+                    'color': DesignSystem.COLOR_WARNING
+                }
+            ]
         )
-        layout.addWidget(explanation)
+        layout.addWidget(header)
 
-        # Métricas
-        from PyQt6.QtWidgets import QHBoxLayout
-        metrics_layout = QHBoxLayout()
-        metrics_layout.setSpacing(int(DesignSystem.SPACE_12))
-        
-        live_photos_metric = self._create_metric_card(
-            str(self.analysis.live_photos_found),
-            "Live Photos detectadas",
-            DesignSystem.COLOR_PRIMARY
+        # Contenedor con margen para el resto del contenido
+        from PyQt6.QtWidgets import QWidget
+        content_container = QWidget()
+        content_layout = QVBoxLayout(content_container)
+        content_layout.setSpacing(int(DesignSystem.SPACE_16))
+        content_layout.setContentsMargins(
+            int(DesignSystem.SPACE_24),
+            int(DesignSystem.SPACE_12),
+            int(DesignSystem.SPACE_24),
+            0
         )
-        metrics_layout.addWidget(live_photos_metric)
-        
-        space_metric = self._create_metric_card(
-            format_size(self.analysis.total_space),
-            "Espacio total ocupado",
-            DesignSystem.COLOR_WARNING
-        )
-        metrics_layout.addWidget(space_metric)
-        
-        metrics_layout.addStretch()
-        layout.addLayout(metrics_layout)
+        layout.addWidget(content_container, 0)  # Sin stretch para evitar expansión vertical
 
         # Selector de modo con cards
         mode_selector = self._create_mode_selector()
-        layout.addWidget(mode_selector)
+        content_layout.addWidget(mode_selector)
 
         # Opciones
         options_group = QGroupBox("Opciones de Seguridad")
@@ -114,7 +111,7 @@ class LivePhotoCleanupDialog(BaseDialog):
             dry_run_default = dry_run_default.lower() in ('true', '1', 'yes')
         self.dry_run_checkbox.setChecked(bool(dry_run_default))
         options_layout.addWidget(self.dry_run_checkbox)
-        layout.addWidget(options_group)
+        content_layout.addWidget(options_group)
 
         # Botones
         live_photos_found = self.analysis.live_photos_found
@@ -125,7 +122,10 @@ class LivePhotoCleanupDialog(BaseDialog):
         # If there are items, update text according to mode
         if live_photos_found > 0:
             self._update_button_text()
-        layout.addWidget(self.buttons)
+        content_layout.addWidget(self.buttons)
+        
+        # Stretch para mantener el header arriba cuando se maximiza
+        layout.addStretch()
         
         # Aplicar estilo global de tooltips
         self.setStyleSheet(DesignSystem.get_tooltip_style())

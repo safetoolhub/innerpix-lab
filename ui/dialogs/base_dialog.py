@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import (
     QDialogButtonBox,
     QPushButton,
     QTableWidget,
+    QWidget,
 )
 
 if TYPE_CHECKING:
@@ -203,6 +204,162 @@ class BaseDialog(QDialog):
         layout.addLayout(text_container, 1)
         
         return frame
+    
+    def _create_compact_header_with_metrics(
+        self,
+        icon_name: str,
+        title: str,
+        description: str,
+        metrics: List[Dict[str, str]]
+    ) -> 'QFrame':
+        """Crea header compacto integrado con métricas inline estilo Material Design.
+        
+        Combina icono, título, descripción y métricas en un diseño horizontal compacto
+        que ahorra espacio vertical. Las métricas aparecen alineadas a la derecha.
+
+        Args:
+            icon_name: Nombre del icono de icon_manager (ej: 'content-copy')
+            title: Título principal (negrita)
+            description: Texto descriptivo (1-2 líneas)
+            metrics: Lista de diccionarios con formato:
+                [
+                    {'value': '45', 'label': 'Grupos', 'color': COLOR_PRIMARY},
+                    {'value': '120', 'label': 'Copias', 'color': COLOR_WARNING},
+                    {'value': '2.5 GB', 'label': 'Espacio', 'color': COLOR_SUCCESS}
+                ]
+        
+        Returns:
+            QFrame con header compacto y profesional
+        """
+        from PyQt6.QtWidgets import QFrame, QHBoxLayout, QVBoxLayout, QLabel
+        from ui.styles.design_system import DesignSystem
+        from utils.icons import icon_manager
+        
+        frame = QFrame()
+        frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border-bottom: 1px solid {DesignSystem.COLOR_BORDER};
+                padding: 0px;
+            }}
+        """)
+        
+        # Layout principal horizontal
+        main_layout = QHBoxLayout(frame)
+        main_layout.setSpacing(int(DesignSystem.SPACE_16))
+        main_layout.setContentsMargins(
+            int(DesignSystem.SPACE_20),
+            int(DesignSystem.SPACE_12),
+            int(DesignSystem.SPACE_20),
+            int(DesignSystem.SPACE_12)
+        )
+        
+        # === LADO IZQUIERDO: Icono + Texto ===
+        left_container = QHBoxLayout()
+        left_container.setSpacing(int(DesignSystem.SPACE_12))
+        
+        # Icono
+        icon_label = QLabel()
+        icon_manager.set_label_icon(
+            icon_label, 
+            icon_name, 
+            size=DesignSystem.ICON_SIZE_XL,  # Más grande para impacto visual
+            color=DesignSystem.COLOR_PRIMARY
+        )
+        left_container.addWidget(icon_label)
+        
+        # Contenedor de texto (título + descripción apilados)
+        text_container = QVBoxLayout()
+        text_container.setSpacing(int(DesignSystem.SPACE_2))
+        
+        # Título
+        title_label = QLabel(title)
+        title_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_XL}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            color: {DesignSystem.COLOR_TEXT};
+        """)
+        text_container.addWidget(title_label)
+        
+        # Descripción
+        desc_label = QLabel(description)
+        desc_label.setWordWrap(False)  # Mantenerlo en una línea
+        desc_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+        """)
+        text_container.addWidget(desc_label)
+        
+        left_container.addLayout(text_container)
+        main_layout.addLayout(left_container, 0)  # Sin stretch para mantener pegado a la izquierda
+        
+        # Stretch para empujar métricas a la derecha
+        main_layout.addStretch()
+        
+        # === LADO DERECHO: Métricas inline ===
+        metrics_container = QHBoxLayout()
+        metrics_container.setSpacing(int(DesignSystem.SPACE_20))
+        
+        for metric in metrics:
+            metric_widget = self._create_inline_metric(
+                value=metric['value'],
+                label=metric['label'],
+                color=metric.get('color', DesignSystem.COLOR_PRIMARY)
+            )
+            metrics_container.addWidget(metric_widget)
+        
+        main_layout.addLayout(metrics_container)
+        
+        return frame
+    
+    def _create_inline_metric(
+        self,
+        value: str,
+        label: str,
+        color: str
+    ) -> 'QWidget':
+        """Crea métrica inline minimalista para header compacto.
+        
+        Args:
+            value: Valor numérico o texto a mostrar
+            label: Etiqueta descriptiva
+            color: Color del indicador y valor
+        
+        Returns:
+            QWidget con la métrica formateada
+        """
+        from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel
+        from PyQt6.QtCore import Qt
+        from ui.styles.design_system import DesignSystem
+        
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(int(DesignSystem.SPACE_2))
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        # Valor (grande y destacado)
+        value_label = QLabel(str(value))
+        value_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_2XL}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+            color: {color};
+        """)
+        value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(value_label)
+        
+        # Label (pequeño y sutil)
+        label_widget = QLabel(label)
+        label_widget.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_XS}px;
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        """)
+        label_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(label_widget)
+        
+        return widget
 
     def _create_metric_card(
         self,
