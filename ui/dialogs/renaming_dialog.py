@@ -60,7 +60,7 @@ class RenamingPreviewDialog(BaseDialog):
             self.stats_labels['errors'].setText(str(len(results.errors)))
 
     def init_ui(self):
-        self.setWindowTitle("Preview de Renombrado")
+        self.setWindowTitle("Renombrado de archivos")
         self.setModal(True)
         self.resize(1200, 750)
         main_layout = QVBoxLayout(self)
@@ -70,7 +70,7 @@ class RenamingPreviewDialog(BaseDialog):
         # Header compacto integrado con métricas inline
         header = self._create_compact_header_with_metrics(
             icon_name='rename-outline',
-            title='Preview de renombrado',
+            title='Renombrado de archivos',
             description='Los archivos se renombrarán al formato YYYY-MM-DD_HH-MM-SS según fecha de creación.',
             metrics=[
                 {

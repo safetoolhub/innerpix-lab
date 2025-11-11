@@ -5,7 +5,7 @@ import platform
 import subprocess
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QTabWidget, QWidget, QGroupBox, QVBoxLayout as QVLayout,
-    QHBoxLayout, QLabel, QLineEdit, QPushButton, QComboBox, QFrame, QDialogButtonBox, 
+    QHBoxLayout, QLabel, QLineEdit, QPushButton, QComboBox, QFrame, 
     QMessageBox, QCheckBox, QSpinBox
 )
 from PyQt6.QtCore import Qt, pyqtSignal
@@ -49,19 +49,24 @@ class SettingsDialog(QDialog):
         self._validate_changes()
 
     def init_ui(self):
-        self.setWindowTitle("Configuracion")
+        self.setWindowTitle("Configuración")
         self.setModal(True)
-        self.resize(750, 600)
+        self.resize(800, 650)
         
-        # Aplicar estilo global de tooltips
-        self.setStyleSheet(DesignSystem.get_tooltip_style())
+        # Aplicar estilo base del DesignSystem
+        self.setStyleSheet(f"""
+            QDialog {{
+                background-color: {DesignSystem.COLOR_BACKGROUND};
+            }}
+            {DesignSystem.get_tooltip_style()}
+        """)
 
-        # Layout principal con pestañas
+        # Layout principal
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-        # Crear pestañas para mejor organización
+        # Crear pestañas usando estilo del DesignSystem
         tabs = QTabWidget()
         tabs.setStyleSheet(DesignSystem.get_tab_widget_style())
 
@@ -69,9 +74,9 @@ class SettingsDialog(QDialog):
         general_tab = self._create_general_tab()
         tabs.addTab(general_tab, "General")
 
-        # === PESTAÑA 2: DIRECTORIOS ===
-        dirs_tab = self._create_directories_tab()
-        tabs.addTab(dirs_tab, "Directorios")
+        # === PESTAÑA 2: BACKUPS ===
+        backups_tab = self._create_backups_tab()
+        tabs.addTab(backups_tab, "Backup y Logs")
 
         # === PESTAÑA 3: AVANZADO ===
         advanced_tab = self._create_advanced_tab()
@@ -79,49 +84,62 @@ class SettingsDialog(QDialog):
 
         main_layout.addWidget(tabs)
 
-        # Footer con botones
+        # Footer con botones - Material Design
+        footer = self._create_footer()
+        main_layout.addWidget(footer)
+
+    def _create_footer(self):
+        """Crea el footer del diálogo con botones estilizados"""
         footer = QFrame()
-        footer.setObjectName("dialog-footer")
         footer.setStyleSheet(f"""
-            QFrame#dialog-footer {{
-                background-color: {DesignSystem.COLOR_BG_1};
+            QFrame {{
+                background-color: {DesignSystem.COLOR_SURFACE};
                 border-top: 1px solid {DesignSystem.COLOR_BORDER};
+                padding: {DesignSystem.SPACE_16}px;
             }}
         """)
         footer_layout = QHBoxLayout(footer)
-        footer_layout.setContentsMargins(15, 10, 15, 10)
+        footer_layout.setContentsMargins(
+            DesignSystem.SPACE_20,
+            DesignSystem.SPACE_16,
+            DesignSystem.SPACE_20,
+            DesignSystem.SPACE_16
+        )
+        footer_layout.setSpacing(DesignSystem.SPACE_12)
 
         # Botón restaurar valores por defecto
         restore_btn = QPushButton("Restaurar valores por defecto")
-        restore_btn.setObjectName("restore-button")
         restore_btn.setStyleSheet(f"""
-            QPushButton#restore-button {{
+            QPushButton {{
                 background-color: {DesignSystem.COLOR_WARNING};
-                color: {DesignSystem.COLOR_TEXT};
+                color: {DesignSystem.COLOR_PRIMARY_TEXT};
                 border: none;
                 border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: 8px 16px;
+                padding: {DesignSystem.SPACE_12}px {DesignSystem.SPACE_20}px;
                 font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                min-height: 36px;
             }}
-            QPushButton#restore-button:hover {{
+            QPushButton:hover {{
                 background-color: {DesignSystem.COLOR_WARNING_HOVER};
             }}
         """)
         restore_btn.clicked.connect(self.restore_defaults)
+        restore_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         footer_layout.addWidget(restore_btn)
 
         footer_layout.addStretch()
 
-        # Botones estándar con estilo Material Design
-        buttons = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
-        )
-        
-        # Guardar referencia al botón Save
-        self.save_button = buttons.button(QDialogButtonBox.StandardButton.Save)
-        self.save_button.setText("Guardar Cambios")
-        self.save_button.setEnabled(False)  # Iniciar deshabilitado
-        # Estilo personalizado para botón de guardar (verde) similar a primary pero con color success
+        # Botón Cancelar - estilo secundario
+        cancel_btn = QPushButton("Cancelar")
+        cancel_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
+        cancel_btn.clicked.connect(self.reject)
+        cancel_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        footer_layout.addWidget(cancel_btn)
+
+        # Botón Guardar - estilo success
+        self.save_button = QPushButton("Guardar Cambios")
+        self.save_button.setEnabled(False)
         self.save_button.setStyleSheet(f"""
             QPushButton {{
                 background-color: {DesignSystem.COLOR_SUCCESS};
@@ -133,7 +151,7 @@ class SettingsDialog(QDialog):
                 font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
                 min-height: 36px;
             }}
-            QPushButton:hover {{
+            QPushButton:hover:enabled {{
                 background-color: #059669;
             }}
             QPushButton:disabled {{
@@ -141,63 +159,239 @@ class SettingsDialog(QDialog):
                 color: {DesignSystem.COLOR_TEXT_SECONDARY};
             }}
         """)
-        
-        # Aplicar estilo secondary al botón Cancel
-        cancel_btn = buttons.button(QDialogButtonBox.StandardButton.Cancel)
-        cancel_btn.setText("Cancelar")
-        cancel_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
-        
-        buttons.accepted.connect(self.save_settings)
-        buttons.rejected.connect(self.reject)
-        footer_layout.addWidget(buttons)
+        self.save_button.clicked.connect(self.save_settings)
+        self.save_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        footer_layout.addWidget(self.save_button)
 
-        main_layout.addWidget(footer)
+        return footer
+
+    def _create_groupbox(self, title: str) -> QGroupBox:
+        """Crea un QGroupBox con estilo consistente del DesignSystem"""
+        group = QGroupBox(title)
+        group.setStyleSheet(f"""
+            QGroupBox {{
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_TEXT};
+                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                margin-top: {DesignSystem.SPACE_16}px;
+                padding-top: {DesignSystem.SPACE_16}px;
+                background-color: {DesignSystem.COLOR_SURFACE};
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: {DesignSystem.SPACE_16}px;
+                padding: 0 {DesignSystem.SPACE_8}px;
+            }}
+        """)
+        return group
+
+    def _create_info_label(self, text: str, warning: bool = False) -> QLabel:
+        """Crea un QLabel informativo con estilo consistente"""
+        label = QLabel(text)
+        label.setWordWrap(True)
+        
+        if warning:
+            label.setStyleSheet(f"""
+                QLabel {{
+                    color: {DesignSystem.COLOR_WARNING};
+                    font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                    padding: {DesignSystem.SPACE_12}px;
+                    background-color: {DesignSystem.COLOR_BG_4};
+                    border-radius: {DesignSystem.RADIUS_BASE}px;
+                    border: 1px solid {DesignSystem.COLOR_WARNING};
+                }}
+            """)
+        else:
+            label.setStyleSheet(f"""
+                QLabel {{
+                    color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                    font-size: {DesignSystem.FONT_SIZE_SM}px;
+                    font-style: italic;
+                    padding: {DesignSystem.SPACE_4}px 0;
+                }}
+            """)
+        return label
+
+    def _create_directory_input(self, text: str = "") -> QLineEdit:
+        """Crea un QLineEdit para mostrar directorios con estilo consistente"""
+        edit = QLineEdit(text)
+        edit.setReadOnly(True)
+        edit.setStyleSheet(f"""
+            QLineEdit {{
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
+                background-color: {DesignSystem.COLOR_BG_1};
+                color: {DesignSystem.COLOR_TEXT};
+                font-family: {DesignSystem.FONT_FAMILY_MONO};
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+            }}
+            QLineEdit:focus {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+        """)
+        return edit
+
+    def _create_browse_button(self, tooltip: str = "") -> QPushButton:
+        """Crea un botón 'Cambiar...' con estilo consistente"""
+        btn = QPushButton("Cambiar...")
+        btn.setMaximumWidth(100)
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        if tooltip:
+            btn.setToolTip(tooltip)
+        btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                color: {DesignSystem.COLOR_TEXT};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_16}px;
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_SECONDARY};
+            }}
+        """)
+        return btn
 
     def _create_general_tab(self):
         """Pestaña de configuración general"""
         widget = QWidget()
+        widget.setStyleSheet(f"background-color: {DesignSystem.COLOR_BACKGROUND};")
         layout = QVLayout(widget)
-        layout.setContentsMargins(15, 15, 15, 15)
-        layout.setSpacing(20)
+        layout.setContentsMargins(
+            DesignSystem.SPACE_20,
+            DesignSystem.SPACE_20,
+            DesignSystem.SPACE_20,
+            DesignSystem.SPACE_20
+        )
+        layout.setSpacing(DesignSystem.SPACE_20)
+
+        # === CONFIRMACIONES ===
+        confirm_group = self._create_groupbox("Confirmaciones")
+        confirm_layout = QVLayout(confirm_group)
+        confirm_layout.setSpacing(DesignSystem.SPACE_12)
+
+        self.confirm_operations_checkbox = QCheckBox("Mostrar diálogo de confirmación antes de ejecutar operaciones")
+        self.confirm_operations_checkbox.setChecked(True)
+        self.confirm_operations_checkbox.setToolTip("Muestra un resumen antes de aplicar cambios")
+        self.confirm_operations_checkbox.setStyleSheet(self._get_checkbox_style())
+        confirm_layout.addWidget(self.confirm_operations_checkbox)
+
+        self.confirm_delete_checkbox = QCheckBox("Pedir confirmación adicional para operaciones de eliminación")
+        self.confirm_delete_checkbox.setChecked(True)
+        self.confirm_delete_checkbox.setToolTip("Doble confirmación para operaciones que eliminan archivos")
+        self.confirm_delete_checkbox.setStyleSheet(self._get_checkbox_style())
+        confirm_layout.addWidget(self.confirm_delete_checkbox)
+
+        layout.addWidget(confirm_group)
+
+        # === NOTIFICACIONES ===
+        notif_group = self._create_groupbox("Notificaciones")
+        notif_layout = QVLayout(notif_group)
+        notif_layout.setSpacing(DesignSystem.SPACE_12)
+
+        self.show_notifications_checkbox = QCheckBox("Mostrar notificación al completar operaciones")
+        self.show_notifications_checkbox.setChecked(True)
+        self.show_notifications_checkbox.setToolTip("Muestra una notificación cuando se completan las operaciones")
+        self.show_notifications_checkbox.setStyleSheet(self._get_checkbox_style())
+        notif_layout.addWidget(self.show_notifications_checkbox)
+
+        layout.addWidget(notif_group)
+
+        # === INTERFAZ ===
+        interface_group = self._create_groupbox("Interfaz")
+        interface_layout = QVLayout(interface_group)
+        interface_layout.setSpacing(DesignSystem.SPACE_12)
+
+        self.show_full_path_checkbox = QCheckBox("Mostrar ruta completa del directorio en la barra de búsqueda")
+        self.show_full_path_checkbox.setChecked(True)
+        self.show_full_path_checkbox.setToolTip(
+            "Si está activado, muestra la ruta completa del directorio (ej: /home/usuario/Fotos).\n"
+            "Si está desactivado, solo muestra el nombre de la carpeta (ej: Fotos)."
+        )
+        self.show_full_path_checkbox.setStyleSheet(self._get_checkbox_style())
+        interface_layout.addWidget(self.show_full_path_checkbox)
+
+        layout.addWidget(interface_group)
+
+        # === MODO SIMULACIÓN ===
+        dryrun_group = self._create_groupbox("Modo Simulación (Dry Run)")
+        dryrun_layout = QVLayout(dryrun_group)
+        dryrun_layout.setSpacing(DesignSystem.SPACE_12)
+
+        dryrun_info = self._create_info_label(
+            "En modo simulación, las operaciones se analizan y muestran pero <b>no se ejecutan</b> realmente. "
+            "Útil para verificar qué hará la aplicación antes de aplicar cambios."
+        )
+        dryrun_layout.addWidget(dryrun_info)
+
+        self.dry_run_default_checkbox = QCheckBox("Activar modo simulación por defecto en todas las operaciones")
+        self.dry_run_default_checkbox.setChecked(False)
+        self.dry_run_default_checkbox.setToolTip(
+            "Si se activa, todos los diálogos de eliminación (HEIC, Live Photos, Duplicados)\n"
+            "mostrarán el checkbox de 'Modo simulación' marcado por defecto.\n"
+            "Esto añade una capa extra de seguridad para evitar eliminaciones accidentales."
+        )
+        self.dry_run_default_checkbox.setStyleSheet(self._get_checkbox_style())
+        dryrun_layout.addWidget(self.dry_run_default_checkbox)
+
+        layout.addWidget(dryrun_group)
+
+        layout.addStretch()
+        return widget
+
+    def _get_checkbox_style(self) -> str:
+        """Retorna el estilo consistente para checkboxes"""
+        return f"""
+            QCheckBox {{
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_TEXT};
+                spacing: {DesignSystem.SPACE_8}px;
+            }}
+            QCheckBox::indicator {{
+                width: 18px;
+                height: 18px;
+                border: 2px solid {DesignSystem.COLOR_BORDER};
+                border-radius: 4px;
+                background-color: {DesignSystem.COLOR_SURFACE};
+            }}
+            QCheckBox::indicator:checked {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                border-color: {DesignSystem.COLOR_PRIMARY};
+                image: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iMTIiIHZpZXdCb3g9IjAgMCAxMiAxMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEwIDNMNC41IDguNUwyIDYiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+Cjwvc3ZnPgo=);
+            }}
+            QCheckBox::indicator:hover {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+        """
+
+    def _create_backups_tab(self):
+        """Pestaña de configuración de backups"""
+        widget = QWidget()
+        widget.setStyleSheet(f"background-color: {DesignSystem.COLOR_BACKGROUND};")
+        layout = QVLayout(widget)
+        layout.setContentsMargins(
+            DesignSystem.SPACE_20,
+            DesignSystem.SPACE_20,
+            DesignSystem.SPACE_20,
+            DesignSystem.SPACE_20
+        )
+        layout.setSpacing(DesignSystem.SPACE_20)
 
         # === BACKUPS AUTOMÁTICOS ===
-        backup_group = QGroupBox("Backups Automaticos")
-        backup_group.setObjectName("settings-groupbox")
-        backup_group.setStyleSheet(f"""
-            QGroupBox#settings-groupbox {{
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                margin-top: 1ex;
-                padding-top: 10px;
-            }}
-            QGroupBox#settings-groupbox::title {{
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
-                color: {DesignSystem.COLOR_TEXT};
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            }}
-        """)
-        backup_layout = QVLayout(backup_group)
-        backup_layout.setSpacing(12)
+        auto_backup_group = self._create_groupbox("Backups Automáticos")
+        auto_backup_layout = QVLayout(auto_backup_group)
+        auto_backup_layout.setSpacing(DesignSystem.SPACE_12)
 
-        backup_info = QLabel(
-            "<b>Muy Recomendado:</b> Los backups te permiten recuperar archivos en caso de error."
+        backup_info = self._create_info_label(
+            "<b>Muy Recomendado:</b> Los backups te permiten recuperar archivos en caso de error.",
+            warning=True
         )
-        backup_info.setObjectName("warning-label")
-        backup_info.setStyleSheet(f"""
-            QLabel#warning-label {{
-                color: {DesignSystem.COLOR_WARNING};
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                padding: 8px;
-                background-color: {DesignSystem.COLOR_BG_4};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                border: 1px solid {DesignSystem.COLOR_WARNING};
-            }}
-        """)
-        backup_info.setWordWrap(True)
-        backup_layout.addWidget(backup_info)
+        auto_backup_layout.addWidget(backup_info)
 
         self.auto_backup_checkbox = QCheckBox("Crear backup automáticamente antes de cada operación destructiva")
         self.auto_backup_checkbox.setChecked(True)
@@ -208,181 +402,72 @@ class SettingsDialog(QDialog):
             "• Eliminar duplicados HEIC\n"
             "• Organizar directorios"
         )
-        backup_layout.addWidget(self.auto_backup_checkbox)
+        self.auto_backup_checkbox.setStyleSheet(self._get_checkbox_style())
+        auto_backup_layout.addWidget(self.auto_backup_checkbox)
 
-        layout.addWidget(backup_group)
+        layout.addWidget(auto_backup_group)
 
-        # === CONFIRMACIONES ===
-        confirm_group = QGroupBox("Confirmaciones")
-        confirm_group.setObjectName("settings-groupbox")
-        confirm_group.setStyleSheet(f"""
-            QGroupBox#settings-groupbox {{
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                margin-top: 1ex;
-                padding-top: 10px;
-            }}
-            QGroupBox#settings-groupbox::title {{
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
-                color: {DesignSystem.COLOR_TEXT};
+        # === DIRECTORIO DE BACKUPS ===
+        backup_dir_group = self._create_groupbox("Directorio de Backups")
+        backup_dir_layout = QVLayout(backup_dir_group)
+        backup_dir_layout.setSpacing(DesignSystem.SPACE_12)
+
+        backup_dir_info = self._create_info_label("Ubicación donde se guardan las copias de seguridad automáticas.")
+        backup_dir_layout.addWidget(backup_dir_info)
+
+        backup_row = QHBoxLayout()
+        backup_row.setSpacing(DesignSystem.SPACE_12)
+        
+        backup_label = QLabel("Carpeta:")
+        backup_label.setMinimumWidth(80)
+        backup_label.setStyleSheet(f"""
+            QLabel {{
                 font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_TEXT};
             }}
         """)
-        confirm_layout = QVLayout(confirm_group)
-        confirm_layout.setSpacing(10)
+        backup_row.addWidget(backup_label)
 
-        self.confirm_operations_checkbox = QCheckBox("Mostrar diálogo de confirmación antes de ejecutar operaciones")
-        self.confirm_operations_checkbox.setChecked(True)
-        self.confirm_operations_checkbox.setToolTip("Muestra un resumen antes de aplicar cambios")
-        confirm_layout.addWidget(self.confirm_operations_checkbox)
+        self.backup_edit = self._create_directory_input(str(Config.DEFAULT_BACKUP_DIR))
+        backup_row.addWidget(self.backup_edit)
 
-        self.confirm_delete_checkbox = QCheckBox("Pedir confirmación adicional para operaciones de eliminación")
-        self.confirm_delete_checkbox.setChecked(True)
-        self.confirm_delete_checkbox.setToolTip("Doble confirmación para operaciones que eliminan archivos")
-        confirm_layout.addWidget(self.confirm_delete_checkbox)
+        browse_backup_btn = self._create_browse_button("Cambiar ubicación de backups")
+        browse_backup_btn.clicked.connect(self.browse_backup_directory)
+        backup_row.addWidget(browse_backup_btn)
 
-        layout.addWidget(confirm_group)
+        backup_dir_layout.addLayout(backup_row)
+        layout.addWidget(backup_dir_group)
 
-        # === NOTIFICACIONES ===
-        notif_group = QGroupBox("Notificaciones")
-        notif_group.setObjectName("settings-groupbox")
-        notif_group.setStyleSheet(f"""
-            QGroupBox#settings-groupbox {{
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                margin-top: 1ex;
-                padding-top: 10px;
-            }}
-            QGroupBox#settings-groupbox::title {{
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
-                color: {DesignSystem.COLOR_TEXT};
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            }}
-        """)
-        notif_layout = QVLayout(notif_group)
-        notif_layout.setSpacing(10)
-
-        self.show_notifications_checkbox = QCheckBox("Mostrar notificación al completar operaciones")
-        self.show_notifications_checkbox.setChecked(True)
-        self.show_notifications_checkbox.setToolTip("Muestra una notificación cuando se completan las operaciones")
-        notif_layout.addWidget(self.show_notifications_checkbox)
-
-        layout.addWidget(notif_group)
-
-        # === INTERFAZ ===
-        interface_group = QGroupBox("Interfaz")
-        interface_group.setObjectName("settings-groupbox")
-        interface_group.setStyleSheet(f"""
-            QGroupBox#settings-groupbox {{
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                margin-top: 1ex;
-                padding-top: 10px;
-            }}
-            QGroupBox#settings-groupbox::title {{
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
-                color: {DesignSystem.COLOR_TEXT};
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            }}
-        """)
-        interface_layout = QVLayout(interface_group)
-        interface_layout.setSpacing(10)
-
-        self.show_full_path_checkbox = QCheckBox("Mostrar ruta completa del directorio en la barra de búsqueda")
-        self.show_full_path_checkbox.setChecked(True)
-        self.show_full_path_checkbox.setToolTip(
-            "Si está activado, muestra la ruta completa del directorio (ej: /home/usuario/Fotos).\n"
-            "Si está desactivado, solo muestra el nombre de la carpeta (ej: Fotos)."
-        )
-        interface_layout.addWidget(self.show_full_path_checkbox)
-
-        layout.addWidget(interface_group)
-
-        layout.addStretch()
-        return widget
-
-    def _create_directories_tab(self):
-        """Pestaña de configuración de directorios y logs"""
-        widget = QWidget()
-        layout = QVLayout(widget)
-        layout.setContentsMargins(15, 15, 15, 15)
-        layout.setSpacing(20)
-
-        # === LOGS ===
-        logs_group = QGroupBox("Logs y Diagnostico")
-        logs_group.setObjectName("settings-groupbox")
-        logs_group.setStyleSheet(f"""
-            QGroupBox#settings-groupbox {{
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                margin-top: 1ex;
-                padding-top: 10px;
-            }}
-            QGroupBox#settings-groupbox::title {{
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
-                color: {DesignSystem.COLOR_TEXT};
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            }}
-        """)
+        # === BACKUP Y LOGS ===
+        logs_group = self._create_groupbox("Logs y diagnóstico")
         logs_layout = QVLayout(logs_group)
-        logs_layout.setSpacing(12)
+        logs_layout.setSpacing(DesignSystem.SPACE_12)
 
-        logs_info = QLabel(
-            "Los archivos de log registran todas las operaciones para diagnostico y auditoria."
+        logs_info = self._create_info_label(
+            "Los archivos de log registran todas las operaciones para diagnóstico y auditoría."
         )
-        logs_info.setObjectName("small-info-label")
-        logs_info.setStyleSheet(f"""
-            QLabel#small-info-label {{
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-                font-style: italic;
-            }}
-        """)
-        logs_info.setWordWrap(True)
         logs_layout.addWidget(logs_info)
 
         # Directorio de logs
         logs_dir_layout = QHBoxLayout()
+        logs_dir_layout.setSpacing(DesignSystem.SPACE_12)
+        
         logs_label = QLabel("Carpeta:")
-        logs_label.setMinimumWidth(100)
-        logs_dir_layout.addWidget(logs_label)
-
-        self.logs_edit = QLineEdit()
-        self.logs_edit.setText(str(settings_manager.get_logs_directory() or Config.DEFAULT_LOG_DIR))
-        self.logs_edit.setReadOnly(True)
-        self.logs_edit.setObjectName("directory-edit")
-        self.logs_edit.setStyleSheet(f"""
-            QLineEdit#directory-edit {{
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: 6px 12px;
-                background-color: {DesignSystem.COLOR_BG_1};
+        logs_label.setMinimumWidth(120)
+        logs_label.setStyleSheet(f"""
+            QLabel {{
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
                 color: {DesignSystem.COLOR_TEXT};
-                font-family: {DesignSystem.FONT_FAMILY_MONO};
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-            }}
-            QLineEdit#directory-edit:focus {{
-                border-color: {DesignSystem.COLOR_PRIMARY};
             }}
         """)
+        logs_dir_layout.addWidget(logs_label)
+
+        self.logs_edit = self._create_directory_input(
+            str(settings_manager.get_logs_directory() or Config.DEFAULT_LOG_DIR)
+        )
         logs_dir_layout.addWidget(self.logs_edit)
 
-        browse_logs_btn = QPushButton("Cambiar...")
-        browse_logs_btn.setMaximumWidth(80)
-        browse_logs_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        browse_logs_btn.setToolTip("Cambiar ubicación de logs")
+        browse_logs_btn = self._create_browse_button("Cambiar ubicación de logs")
         browse_logs_btn.clicked.connect(self.browse_logs_directory)
         logs_dir_layout.addWidget(browse_logs_btn)
 
@@ -390,49 +475,32 @@ class SettingsDialog(QDialog):
 
         # Nivel de log
         log_level_layout = QHBoxLayout()
+        log_level_layout.setSpacing(DesignSystem.SPACE_12)
+        
         log_level_label = QLabel("Nivel de detalle:")
-        log_level_label.setMinimumWidth(100)
+        log_level_label.setMinimumWidth(120)
+        log_level_label.setStyleSheet(f"""
+            QLabel {{
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_TEXT};
+            }}
+        """)
         log_level_layout.addWidget(log_level_label)
 
         self.log_level_combo = QComboBox()
         self.log_level_combo.addItems([
-            "DEBUG - Maximo detalle (para desarrollo)",
+            "DEBUG - Máximo detalle (para desarrollo)",
             "INFO - Normal (recomendado)",
             "WARNING - Solo advertencias",
-            "ERROR - Solo errores criticos"
+            "ERROR - Solo errores críticos"
         ])
-        self.log_level_combo.setObjectName("log-level-combo")
-        self.log_level_combo.setStyleSheet(f"""
-            QComboBox#log-level-combo {{
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: 6px 12px;
-                background-color: {DesignSystem.COLOR_SURFACE};
-                color: {DesignSystem.COLOR_TEXT};
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            }}
-            QComboBox#log-level-combo::drop-down {{
-                border: none;
-                width: 20px;
-            }}
-            QComboBox#log-level-combo::down-arrow {{
-                image: none;
-                border-left: 4px solid transparent;
-                border-right: 4px solid transparent;
-                border-top: 4px solid {DesignSystem.COLOR_TEXT};
-                margin-right: 8px;
-            }}
-            QComboBox#log-level-combo:focus {{
-                border-color: {DesignSystem.COLOR_PRIMARY};
-            }}
-        """)
+        self.log_level_combo.setStyleSheet(self._get_combobox_style())
         self.log_level_combo.setToolTip(
-            "DEBUG: Toda la informacion tecnica\n"
+            "DEBUG: Toda la información técnica\n"
             "INFO: Operaciones normales\n"
             "WARNING: Situaciones inusuales\n"
             "ERROR: Solo errores graves"
         )
-        # Conectar cambio en caliente
         self.log_level_combo.currentTextChanged.connect(self.change_log_level)
         log_level_layout.addWidget(self.log_level_combo)
         log_level_layout.addStretch()
@@ -441,92 +509,12 @@ class SettingsDialog(QDialog):
 
         # Botón abrir carpeta de logs
         open_logs_btn = QPushButton("Abrir carpeta de logs")
-        open_logs_btn.setObjectName("open-folder-button")
-        open_logs_btn.setStyleSheet(f"""
-            QPushButton#open-folder-button {{
-                background-color: {DesignSystem.COLOR_SECONDARY};
-                color: {DesignSystem.COLOR_TEXT};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: 8px 16px;
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            }}
-            QPushButton#open-folder-button:hover {{
-                background-color: {DesignSystem.COLOR_SECONDARY_HOVER};
-            }}
-        """)
+        open_logs_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
+        open_logs_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         open_logs_btn.clicked.connect(self.open_logs_folder)
         logs_layout.addWidget(open_logs_btn)
 
         layout.addWidget(logs_group)
-
-        # === BACKUPS ===
-        backup_group = QGroupBox("Directorio de Backups")
-        backup_group.setObjectName("settings-groupbox")
-        backup_group.setStyleSheet(f"""
-            QGroupBox#settings-groupbox {{
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                margin-top: 1ex;
-                padding-top: 10px;
-            }}
-            QGroupBox#settings-groupbox::title {{
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
-                color: {DesignSystem.COLOR_TEXT};
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            }}
-        """)
-        backup_layout = QVLayout(backup_group)
-
-        backup_info = QLabel("Ubicacion donde se guardan las copias de seguridad automaticas.")
-        backup_info.setObjectName("small-info-label")
-        backup_info.setStyleSheet(f"""
-            QLabel#small-info-label {{
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-                font-style: italic;
-            }}
-        """)
-        backup_info.setWordWrap(True)
-        backup_layout.addWidget(backup_info)
-
-        backup_row = QHBoxLayout()
-        backup_label = QLabel("Carpeta:")
-        backup_label.setMinimumWidth(100)
-        backup_row.addWidget(backup_label)
-
-        self.backup_edit = QLineEdit()
-        self.backup_edit.setText(str(Config.DEFAULT_BACKUP_DIR))
-        self.backup_edit.setReadOnly(True)
-        self.backup_edit.setObjectName("directory-edit")
-        self.backup_edit.setStyleSheet(f"""
-            QLineEdit#directory-edit {{
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: 6px 12px;
-                background-color: {DesignSystem.COLOR_BG_1};
-                color: {DesignSystem.COLOR_TEXT};
-                font-family: {DesignSystem.FONT_FAMILY_MONO};
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-            }}
-            QLineEdit#directory-edit:focus {{
-                border-color: {DesignSystem.COLOR_PRIMARY};
-            }}
-        """)
-        backup_row.addWidget(self.backup_edit)
-
-        browse_backup_btn = QPushButton("Cambiar...")
-        browse_backup_btn.setMaximumWidth(80)
-        browse_backup_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        browse_backup_btn.setToolTip("Cambiar ubicación de backups")
-        browse_backup_btn.clicked.connect(self.browse_backup_directory)
-        backup_row.addWidget(browse_backup_btn)
-
-        backup_layout.addLayout(backup_row)
-        layout.addWidget(backup_group)
 
         layout.addStretch()
         return widget
@@ -534,41 +522,39 @@ class SettingsDialog(QDialog):
     def _create_advanced_tab(self):
         """Pestaña de configuración avanzada"""
         widget = QWidget()
+        widget.setStyleSheet(f"background-color: {DesignSystem.COLOR_BACKGROUND};")
         layout = QVLayout(widget)
-        layout.setContentsMargins(15, 15, 15, 15)
-        layout.setSpacing(20)
+        layout.setContentsMargins(
+            DesignSystem.SPACE_20,
+            DesignSystem.SPACE_20,
+            DesignSystem.SPACE_20,
+            DesignSystem.SPACE_20
+        )
+        layout.setSpacing(DesignSystem.SPACE_20)
 
         # === RENDIMIENTO ===
-        perf_group = QGroupBox("Rendimiento")
-        perf_group.setObjectName("settings-groupbox")
-        perf_group.setStyleSheet(f"""
-            QGroupBox#settings-groupbox {{
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                margin-top: 1ex;
-                padding-top: 10px;
-            }}
-            QGroupBox#settings-groupbox::title {{
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
-                color: {DesignSystem.COLOR_TEXT};
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            }}
-        """)
+        perf_group = self._create_groupbox("Rendimiento")
         perf_layout = QVLayout(perf_group)
-        perf_layout.setSpacing(12)
+        perf_layout.setSpacing(DesignSystem.SPACE_12)
 
         workers_layout = QHBoxLayout()
+        workers_layout.setSpacing(DesignSystem.SPACE_12)
+        
         workers_label = QLabel("Hilos de procesamiento:")
         workers_label.setMinimumWidth(180)
+        workers_label.setStyleSheet(f"""
+            QLabel {{
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_TEXT};
+            }}
+        """)
         workers_layout.addWidget(workers_label)
 
         self.max_workers_spin = QSpinBox()
         self.max_workers_spin.setMinimum(1)
         self.max_workers_spin.setMaximum(Config.MAX_WORKER_THREADS)
         self.max_workers_spin.setValue(Config.MAX_WORKERS)
+        self.max_workers_spin.setStyleSheet(self._get_spinbox_style())
         self.max_workers_spin.setToolTip(
             f"Número de hilos paralelos para procesar archivos.\n"
             f"Más hilos = más rápido, pero mayor uso de CPU.\n"
@@ -579,120 +565,119 @@ class SettingsDialog(QDialog):
 
         perf_layout.addLayout(workers_layout)
 
-        perf_info = QLabel(
-            "Cambiar el numero de hilos requiere reiniciar la aplicacion para tener efecto completo."
+        perf_info = self._create_info_label(
+            "Cambiar el número de hilos requiere reiniciar la aplicación para tener efecto completo."
         )
-        perf_info.setObjectName("small-info-label")
-        perf_info.setStyleSheet(f"""
-            QLabel#small-info-label {{
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-                font-style: italic;
-            }}
-        """)
-        perf_info.setWordWrap(True)
         perf_layout.addWidget(perf_info)
 
         layout.addWidget(perf_group)
 
-        # === MODO SIMULACIÓN ===
-        dryrun_group = QGroupBox("Modo Simulacion (Dry Run)")
-        dryrun_group.setObjectName("settings-groupbox")
-        dryrun_group.setStyleSheet(f"""
-            QGroupBox#settings-groupbox {{
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                margin-top: 1ex;
-                padding-top: 10px;
-            }}
-            QGroupBox#settings-groupbox::title {{
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
-                color: {DesignSystem.COLOR_TEXT};
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            }}
-        """)
-        dryrun_layout = QVLayout(dryrun_group)
-        dryrun_layout.setSpacing(12)
-
-        dryrun_info = QLabel(
-            "En modo simulacion, las operaciones se analizan y muestran pero <b>no se ejecutan</b> realmente. "
-            "Util para verificar que hara la aplicacion antes de aplicar cambios."
-        )
-        dryrun_info.setObjectName("small-info-label")
-        dryrun_info.setStyleSheet(f"""
-            QLabel#small-info-label {{
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-                font-style: italic;
-            }}
-        """)
-        dryrun_info.setWordWrap(True)
-        dryrun_layout.addWidget(dryrun_info)
-
-        self.dry_run_default_checkbox = QCheckBox("Activar modo simulación por defecto en todas las operaciones")
-        self.dry_run_default_checkbox.setChecked(False)
-        self.dry_run_default_checkbox.setToolTip(
-            "Si se activa, todos los diálogos de eliminación (HEIC, Live Photos, Duplicados)\n"
-            "mostrarán el checkbox de 'Modo simulación' marcado por defecto.\n"
-            "Esto añade una capa extra de seguridad para evitar eliminaciones accidentales."
-        )
-        dryrun_layout.addWidget(self.dry_run_default_checkbox)
-
-        layout.addWidget(dryrun_group)
-
         # === DEPURACIÓN ===
-        debug_group = QGroupBox("Depuracion")
-        debug_group.setObjectName("settings-groupbox")
-        debug_group.setStyleSheet(f"""
-            QGroupBox#settings-groupbox {{
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                margin-top: 1ex;
-                padding-top: 10px;
-            }}
-            QGroupBox#settings-groupbox::title {{
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
-                color: {DesignSystem.COLOR_TEXT};
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            }}
-        """)
+        debug_group = self._create_groupbox("Depuración")
         debug_layout = QVLayout(debug_group)
+        debug_layout.setSpacing(DesignSystem.SPACE_12)
 
-        clear_settings_btn = QPushButton("Restablecer TODA la configuracion guardada")
-        clear_settings_btn.setObjectName("danger-button")
-        clear_settings_btn.setStyleSheet(f"""
-            QPushButton#danger-button {{
-                background-color: {DesignSystem.COLOR_ERROR};
-                color: {DesignSystem.COLOR_SURFACE};
-                border: none;
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: 8px 16px;
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-            }}
-            QPushButton#danger-button:hover {{
-                background-color: #dc2626;
-            }}
-        """)
+        clear_settings_btn = QPushButton("Restablecer TODA la configuración guardada")
+        clear_settings_btn.setStyleSheet(DesignSystem.get_danger_button_style())
+        clear_settings_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         clear_settings_btn.clicked.connect(self.clear_all_settings)
         debug_layout.addWidget(clear_settings_btn)
 
-        debug_info = QLabel("Esto eliminara todas las preferencias guardadas y volvera a los valores por defecto.")
-        debug_info.setObjectName("debug-info-label")
+        debug_info = self._create_info_label(
+            "Esto eliminará todas las preferencias guardadas y volverá a los valores por defecto."
+        )
         debug_info.setStyleSheet(f"""
-            QLabel#debug-info-label {{
+            QLabel {{
                 color: {DesignSystem.COLOR_WARNING};
                 font-size: {DesignSystem.FONT_SIZE_SM}px;
                 font-style: italic;
-                padding: 4px 0;
+                padding: {DesignSystem.SPACE_4}px 0;
             }}
         """)
+        debug_layout.addWidget(debug_info)
+
+        layout.addWidget(debug_group)
+
+        layout.addStretch()
+        return widget
+
+    def _get_combobox_style(self) -> str:
+        """Retorna el estilo consistente para comboboxes"""
+        return f"""
+            QComboBox {{
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
+                background-color: {DesignSystem.COLOR_SURFACE};
+                color: {DesignSystem.COLOR_TEXT};
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                min-height: 32px;
+            }}
+            QComboBox::drop-down {{
+                border: none;
+                width: 24px;
+            }}
+            QComboBox::down-arrow {{
+                image: none;
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-top: 5px solid {DesignSystem.COLOR_TEXT};
+                margin-right: {DesignSystem.SPACE_8}px;
+            }}
+            QComboBox:hover {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+            QComboBox:focus {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+            QComboBox QAbstractItemView {{
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                background-color: {DesignSystem.COLOR_SURFACE};
+                selection-background-color: {DesignSystem.COLOR_PRIMARY};
+                selection-color: {DesignSystem.COLOR_PRIMARY_TEXT};
+            }}
+        """
+
+    def _get_spinbox_style(self) -> str:
+        """Retorna el estilo consistente para spinboxes"""
+        return f"""
+            QSpinBox {{
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
+                background-color: {DesignSystem.COLOR_SURFACE};
+                color: {DesignSystem.COLOR_TEXT};
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                min-height: 32px;
+                min-width: 80px;
+            }}
+            QSpinBox:hover {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+            QSpinBox:focus {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+            QSpinBox::up-button, QSpinBox::down-button {{
+                background-color: transparent;
+                border: none;
+                width: 20px;
+            }}
+            QSpinBox::up-button:hover, QSpinBox::down-button:hover {{
+                background-color: {DesignSystem.COLOR_SECONDARY};
+            }}
+            QSpinBox::up-arrow {{
+                image: none;
+                border-left: 4px solid transparent;
+                border-right: 4px solid transparent;
+                border-bottom: 4px solid {DesignSystem.COLOR_TEXT};
+            }}
+            QSpinBox::down-arrow {{
+                image: none;
+                border-left: 4px solid transparent;
+                border-right: 4px solid transparent;
+                border-top: 4px solid {DesignSystem.COLOR_TEXT};
+            }}
+        """
         debug_info.setWordWrap(True)
         debug_layout.addWidget(debug_info)
 

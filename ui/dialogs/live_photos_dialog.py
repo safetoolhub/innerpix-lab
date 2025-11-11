@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import (
-    QVBoxLayout, QGroupBox, QVBoxLayout as QVLayout,
+    QVBoxLayout,
     QDialogButtonBox
 )
 from PyQt6.QtCore import Qt

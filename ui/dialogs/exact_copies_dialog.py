@@ -1,12 +1,11 @@
 from pathlib import Path
 from PyQt6.QtWidgets import (
-    QVBoxLayout, QLabel, QGroupBox, QButtonGroup, QRadioButton,
-    QCheckBox, QDialogButtonBox, QPushButton,
+    QVBoxLayout, QLabel, QPushButton,
     QHBoxLayout, QVBoxLayout as QVLayout, QFrame, QTreeWidget, QTreeWidgetItem, QLineEdit,
     QComboBox, QMessageBox, QMenu, QWidget
 )
 from PyQt6.QtCore import Qt, QUrl
-from PyQt6.QtGui import QFont, QDesktopServices, QColor
+from PyQt6.QtGui import QDesktopServices, QColor
 from config import Config
 from services.exact_copies_detector import DuplicateGroup
 from utils.format_utils import format_size
