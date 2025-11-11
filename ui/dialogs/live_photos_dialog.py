@@ -88,8 +88,8 @@ class LivePhotoCleanupDialog(BaseDialog):
         layout.addWidget(content_container, 0)  # Sin stretch para evitar expansión vertical
 
         # Selector de modo con cards
-        mode_selector = self._create_mode_selector()
-        content_layout.addWidget(mode_selector)
+        self.mode_selector = self._create_mode_selector()
+        content_layout.addWidget(self.mode_selector)
 
         # Opciones
         options_group = QGroupBox("Opciones de Seguridad")
@@ -131,51 +131,7 @@ class LivePhotoCleanupDialog(BaseDialog):
         self.setStyleSheet(DesignSystem.get_tooltip_style())
 
     def _create_mode_selector(self):
-        """Crea selector de modo con cards interactivas."""
-        from PyQt6.QtWidgets import QFrame, QHBoxLayout
-        
-        frame = QFrame()
-        frame.setObjectName("mode-selector-frame")
-        frame.setStyleSheet(f"""
-            QFrame#mode-selector-frame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: {DesignSystem.SPACE_16}px;
-            }}
-        """)
-        
-        layout = QVBoxLayout(frame)
-        layout.setSpacing(int(DesignSystem.SPACE_12))
-        
-        # Título
-        title_layout = QHBoxLayout()
-        title_icon = QLabel()
-        icon_manager.set_label_icon(
-            title_icon, 
-            'settings', 
-            size=int(DesignSystem.ICON_SIZE_LG)
-        )
-        title_layout.addWidget(title_icon)
-        
-        title_label = QLabel("¿Qué componente deseas conservar?")
-        title_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_LG}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-            color: {DesignSystem.COLOR_TEXT};
-        """)
-        title_layout.addWidget(title_label)
-        title_layout.addStretch()
-        layout.addLayout(title_layout)
-        
-        # ButtonGroup
-        self.mode_buttons = QButtonGroup(self)
-        
-        # Cards layout
-        cards_layout = QHBoxLayout()
-        cards_layout.setSpacing(int(DesignSystem.SPACE_12))
-        
-        # Modos disponibles
+        """Crea selector de modo usando el método centralizado de BaseDialog."""
         modes = [
             (CleanupMode.KEEP_IMAGE, 'image', 'Conservar imágenes (JPG)', 
              'Se eliminarán los videos MOV asociados. Recomendado para ahorrar espacio manteniendo las fotos.'),
@@ -183,31 +139,13 @@ class LivePhotoCleanupDialog(BaseDialog):
              'Se eliminarán las imágenes JPG asociadas. Útil si prefieres mantener el movimiento/audio.')
         ]
         
-        for idx, (mode, icon_name, title, description) in enumerate(modes):
-            is_selected = (mode == self.selected_mode)
-            
-            # Crear RadioButton
-            radio = QRadioButton()
-            radio.setChecked(is_selected)
-            radio.toggled.connect(
-                lambda checked, m=mode: self._on_mode_card_changed(m) if checked else None
-            )
-            self.mode_buttons.addButton(radio, idx)
-            
-            # Crear card
-            card = self._create_selection_card(
-                f"mode-{mode.value}",
-                icon_name,
-                title,
-                description,
-                is_selected,
-                radio
-            )
-            cards_layout.addWidget(card)
-        
-        layout.addLayout(cards_layout)
-        
-        return frame
+        return self._create_option_selector(
+            title="¿Qué componente deseas conservar?",
+            title_icon='settings',
+            options=modes,
+            selected_value=self.selected_mode,
+            on_change_callback=self._on_mode_card_changed
+        )
 
     def _on_mode_card_changed(self, new_mode):
         """Maneja el cambio de modo desde las cards."""
@@ -215,9 +153,19 @@ class LivePhotoCleanupDialog(BaseDialog):
             return
         
         self.selected_mode = new_mode
+        
+        # Actualizar estilos de las cards usando el método centralizado
+        if hasattr(self, 'mode_selector'):
+            self._update_option_selector_styles(
+                self.mode_selector,
+                [CleanupMode.KEEP_IMAGE, CleanupMode.KEEP_VIDEO],
+                self.selected_mode
+            )
+        
         self._update_button_text()
 
     def _on_mode_changed(self, button):
+        """Método obsoleto - mantenido por compatibilidad si es usado en otro lugar."""
         modes = {0: CleanupMode.KEEP_IMAGE, 1: CleanupMode.KEEP_VIDEO}
         self.selected_mode = modes[self.mode_buttons.id(button)]
         self._update_button_text()

@@ -101,8 +101,8 @@ class ExactCopiesDialog(BaseDialog):
         layout.addWidget(content_container)
         
         # Selector de estrategia con cards (debajo del header)
-        strategy_selector = self._create_strategy_selector()
-        content_layout.addWidget(strategy_selector)
+        self.strategy_selector = self._create_strategy_selector()
+        content_layout.addWidget(self.strategy_selector)
         
         # Advertencia si hay muchos grupos
         if len(self.all_groups) > self.WARNING_THRESHOLD:
@@ -345,53 +345,7 @@ class ExactCopiesDialog(BaseDialog):
         self.setStyleSheet(DesignSystem.get_tooltip_style())
     
     def _create_strategy_selector(self) -> QFrame:
-        """Crea selector de estrategia con cards interactivas.
-        
-        Returns:
-            QFrame con las cards de selección de estrategia
-        """
-        frame = QFrame()
-        frame.setObjectName("strategy-selector-frame")
-        frame.setStyleSheet(f"""
-            QFrame#strategy-selector-frame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: {DesignSystem.SPACE_16}px;
-            }}
-        """)
-        
-        layout = QVBoxLayout(frame)
-        layout.setSpacing(int(DesignSystem.SPACE_12))
-        
-        # Título
-        title_layout = QHBoxLayout()
-        title_icon = QLabel()
-        icon_manager.set_label_icon(
-            title_icon, 
-            'rule', 
-            size=int(DesignSystem.ICON_SIZE_LG)
-        )
-        title_layout.addWidget(title_icon)
-        
-        title_label = QLabel("Elige qué archivo conservar en cada grupo")
-        title_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_LG}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-            color: {DesignSystem.COLOR_TEXT};
-        """)
-        title_layout.addWidget(title_label)
-        title_layout.addStretch()
-        layout.addLayout(title_layout)
-        
-        # ButtonGroup para RadioButtons
-        self.strategy_button_group = QButtonGroup(self)
-        
-        # Cards layout
-        cards_layout = QHBoxLayout()
-        cards_layout.setSpacing(int(DesignSystem.SPACE_12))
-        
-        # Estrategias disponibles
+        """Crea selector de estrategia usando el método centralizado de BaseDialog."""
         strategies = [
             ('oldest', 'access_time', 'Mantener el más antiguo', 
              'Conserva el archivo con fecha de modificación más antigua. Recomendado para preservar originales.'),
@@ -403,32 +357,13 @@ class ExactCopiesDialog(BaseDialog):
              'Conserva el archivo de menor tamaño. Maximiza espacio liberado.')
         ]
         
-        # Crear una card por cada estrategia
-        for strategy_key, icon_name, title, description in strategies:
-            is_selected = (strategy_key == self.keep_strategy)
-            
-            # Crear RadioButton
-            radio = QRadioButton()
-            radio.setChecked(is_selected)
-            radio.toggled.connect(
-                lambda checked, s=strategy_key: self._on_strategy_changed(s) if checked else None
-            )
-            self.strategy_button_group.addButton(radio)
-            
-            # Crear card usando el método de BaseDialog
-            card = self._create_selection_card(
-                f"strategy-{strategy_key}",
-                icon_name,
-                title,
-                description,
-                is_selected,
-                radio
-            )
-            cards_layout.addWidget(card)
-        
-        layout.addLayout(cards_layout)
-        
-        return frame
+        return self._create_option_selector(
+            title="Elige qué archivo conservar en cada grupo",
+            title_icon='rule',
+            options=strategies,
+            selected_value=self.keep_strategy,
+            on_change_callback=self._on_strategy_changed
+        )
     
     def _on_strategy_changed(self, new_strategy: str) -> None:
         """Maneja el cambio de estrategia de eliminación.
@@ -442,75 +377,16 @@ class ExactCopiesDialog(BaseDialog):
         self.logger.info(f"Cambiando estrategia de eliminación: {self.keep_strategy} -> {new_strategy}")
         self.keep_strategy = new_strategy
         
-        # Actualizar estilos de las cards
-        self._update_strategy_cards_styles()
+        # Actualizar estilos de las cards usando el método centralizado
+        if hasattr(self, 'strategy_selector'):
+            self._update_option_selector_styles(
+                self.strategy_selector,
+                ['oldest', 'newest', 'largest', 'smallest'],
+                self.keep_strategy
+            )
         
         # Actualizar estado de archivos en el tree
         self._update_status_labels()
-    
-    def _update_strategy_cards_styles(self) -> None:
-        """Actualiza los estilos de las cards de estrategia según la selección actual."""
-        strategies = ['oldest', 'newest', 'largest', 'smallest']
-        
-        for strategy in strategies:
-            card_name = f"strategy-card-{strategy}"
-            card = self.findChild(QFrame, card_name)
-            
-            if card:
-                is_selected = (strategy == self.keep_strategy)
-                card.setStyleSheet(f"""
-                    QFrame#{card_name} {{
-                        background-color: {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_SURFACE};
-                        border: 2px solid {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_BORDER};
-                        border-radius: {DesignSystem.RADIUS_BASE}px;
-                        padding: {DesignSystem.SPACE_12}px;
-                    }}
-                    QFrame#{card_name}:hover {{
-                        border-color: {DesignSystem.COLOR_PRIMARY};
-                        background-color: {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_BG_2};
-                    }}
-                    QFrame#{card_name} QLabel {{
-                        color: {DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_TEXT};
-                        font-weight: {DesignSystem.FONT_WEIGHT_NORMAL};
-                    }}
-                    QFrame#{card_name} QLabel#title-label {{
-                        font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-                    }}
-                    QFrame#{card_name} QLabel#desc-label {{
-                        color: {DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_TEXT_SECONDARY};
-                        font-weight: {DesignSystem.FONT_WEIGHT_NORMAL};
-                    }}
-                """)
-                
-                # Actualizar color del icono
-                self._update_card_icon_color(card, strategy, is_selected)
-    
-    def _update_card_icon_color(self, card: QFrame, strategy: str, is_selected: bool) -> None:
-        """Actualiza el color del icono en una card de estrategia.
-        
-        Args:
-            card: QFrame de la card
-            strategy: Nombre de la estrategia
-            is_selected: Si la card está seleccionada
-        """
-        icon_map = {
-            'oldest': 'access_time',
-            'newest': 'update',
-            'largest': 'expand',
-            'smallest': 'compress'
-        }
-        
-        # Encontrar el icono (segundo QLabel en el header layout)
-        header_layout = card.layout().itemAt(0).layout()  # Primer item es el header_layout
-        if header_layout and header_layout.count() >= 2:
-            icon_label = header_layout.itemAt(1).widget()  # Segundo widget es el icono
-            if isinstance(icon_label, QLabel):
-                icon_manager.set_label_icon(
-                    icon_label,
-                    icon_map.get(strategy, 'rule'),
-                    size=int(DesignSystem.ICON_SIZE_XL),
-                    color=DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_PRIMARY
-                )
     
     def _load_initial_groups(self):
         """Carga los primeros grupos según INITIAL_LOAD"""

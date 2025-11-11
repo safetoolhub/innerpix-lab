@@ -361,67 +361,6 @@ class BaseDialog(QDialog):
         
         return widget
 
-    def _create_metric_card(
-        self,
-        value: str,
-        label: str,
-        color: Optional[str] = None
-    ) -> 'QFrame':
-        """Crea tarjeta de métrica inline estandarizada.
-
-        Args:
-            value: Valor a mostrar (número, texto)
-            label: Etiqueta descriptiva
-            color: Color del borde izquierdo (opcional, por defecto PRIMARY)
-        
-        Returns:
-            QFrame con la métrica formateada
-        """
-        from PyQt6.QtWidgets import QFrame, QVBoxLayout, QLabel
-        from ui.styles.design_system import DesignSystem
-        
-        if color is None:
-            color = DesignSystem.COLOR_PRIMARY
-        
-        frame = QFrame()
-        frame.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_BG_1};
-                border-left: 3px solid {color};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_8}px;
-            }}
-        """)
-        
-        layout = QVBoxLayout(frame)
-        layout.setContentsMargins(
-            int(DesignSystem.SPACE_8),
-            int(DesignSystem.SPACE_4),
-            int(DesignSystem.SPACE_8),
-            int(DesignSystem.SPACE_4)
-        )
-        layout.setSpacing(int(DesignSystem.SPACE_2))
-        
-        # Valor
-        value_label = QLabel(str(value))
-        value_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_2XL}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
-            color: {DesignSystem.COLOR_TEXT};
-        """)
-        
-        # Label
-        desc_label = QLabel(label)
-        desc_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            color: {DesignSystem.COLOR_TEXT_SECONDARY};
-        """)
-        
-        layout.addWidget(value_label)
-        layout.addWidget(desc_label)
-        
-        return frame
-
     def _create_selection_card(
         self,
         card_id: str,
@@ -491,6 +430,7 @@ class BaseDialog(QDialog):
             size=DesignSystem.ICON_SIZE_XL,
             color=DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_PRIMARY
         )
+        icon_label.icon_name = icon_name  # Guardar nombre del icono para actualización posterior
         header_layout.addWidget(icon_label)
         
         title_label = QLabel(title)
@@ -512,4 +452,200 @@ class BaseDialog(QDialog):
         # Guardar referencia al radio en la card
         card.setProperty("radio_button", radio_button)
         
-        return card  
+        return card
+    
+    def _create_option_selector(
+        self,
+        title: str,
+        title_icon: str,
+        options: list[tuple],
+        selected_value: any,
+        on_change_callback: callable
+    ) -> 'QFrame':
+        """Crea selector de opciones con cards interactivas CENTRALIZADO.
+        
+        Patrón unificado para todos los dialogs que necesiten radio buttons
+        de selección (estrategias, modos, formatos, tipos).
+        
+        Args:
+            title: Título del selector (ej: "Elige qué archivo conservar")
+            title_icon: Nombre del icono para el título (ej: 'rule')
+            options: Lista de tuplas con formato:
+                (value, icon_name, title, description)
+                donde value es el identificador único de la opción
+            selected_value: Valor actualmente seleccionado
+            on_change_callback: Función a llamar cuando cambia la selección.
+                Recibe el nuevo valor como argumento.
+        
+        Returns:
+            QFrame con el selector completo
+        
+        Example:
+            selector = self._create_option_selector(
+                title="Elige qué archivo conservar",
+                title_icon='rule',
+                options=[
+                    ('oldest', 'access_time', 'Más antiguo', 'Conserva el original'),
+                    ('newest', 'update', 'Más reciente', 'Conserva la versión editada')
+                ],
+                selected_value=self.keep_strategy,
+                on_change_callback=self._on_strategy_changed
+            )
+        """
+        from PyQt6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel, QRadioButton, QButtonGroup
+        from ui.styles.design_system import DesignSystem
+        from utils.icons import icon_manager
+        
+        frame = QFrame()
+        frame.setObjectName("option-selector-frame")
+        frame.setStyleSheet(f"""
+            QFrame#option-selector-frame {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                padding: {DesignSystem.SPACE_16}px;
+            }}
+        """)
+        
+        layout = QVBoxLayout(frame)
+        layout.setSpacing(int(DesignSystem.SPACE_12))
+        
+        # Título del selector
+        title_layout = QHBoxLayout()
+        title_icon_label = QLabel()
+        icon_manager.set_label_icon(
+            title_icon_label, 
+            title_icon, 
+            size=int(DesignSystem.ICON_SIZE_LG)
+        )
+        title_layout.addWidget(title_icon_label)
+        
+        title_label = QLabel(title)
+        title_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_LG}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            color: {DesignSystem.COLOR_TEXT};
+        """)
+        title_layout.addWidget(title_label)
+        title_layout.addStretch()
+        layout.addLayout(title_layout)
+        
+        # ButtonGroup para RadioButtons
+        button_group = QButtonGroup(frame)
+        
+        # Cards layout (horizontal)
+        cards_layout = QHBoxLayout()
+        cards_layout.setSpacing(int(DesignSystem.SPACE_12))
+        
+        # Crear una card por cada opción
+        for idx, (value, icon_name, opt_title, description) in enumerate(options):
+            is_selected = (value == selected_value)
+            
+            # Usar índice para ID consistente y evitar problemas con caracteres especiales
+            card_id = f"option-{idx}"
+            
+            # Crear RadioButton
+            radio = QRadioButton()
+            radio.setChecked(is_selected)
+            radio.toggled.connect(
+                lambda checked, v=value: on_change_callback(v) if checked else None
+            )
+            button_group.addButton(radio)
+            
+            # Crear card usando el método de BaseDialog
+            card = self._create_selection_card(
+                card_id,
+                icon_name,
+                opt_title,
+                description,
+                is_selected,
+                radio
+            )
+            # Guardar el valor original en la card para referencia posterior
+            card.setProperty("option_value", value)
+            cards_layout.addWidget(card)
+        
+        layout.addLayout(cards_layout)
+        
+        # Guardar referencia al ButtonGroup para acceso posterior si es necesario
+        frame.setProperty("button_group", button_group)
+        
+        return frame
+    
+    def _update_option_selector_styles(
+        self,
+        selector_frame: 'QFrame',
+        options_values: list,
+        selected_value: any
+    ):
+        """Actualiza los estilos de las cards en un selector de opciones.
+        
+        Útil cuando cambia la selección y necesitas actualizar visualmente las cards.
+        
+        Args:
+            selector_frame: QFrame retornado por _create_option_selector
+            options_values: Lista de valores de las opciones en el mismo orden que se pasaron a _create_option_selector
+            selected_value: Valor actualmente seleccionado
+        """
+        from PyQt6.QtWidgets import QFrame
+        from ui.styles.design_system import DesignSystem
+        
+        for idx, value in enumerate(options_values):
+            card_name = f"option-{idx}"
+            card = selector_frame.findChild(QFrame, card_name)
+            
+            if card:
+                is_selected = (value == selected_value)
+                card.setStyleSheet(f"""
+                    QFrame#{card_name} {{
+                        background-color: {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_SURFACE};
+                        border: 2px solid {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_BORDER};
+                        border-radius: {DesignSystem.RADIUS_BASE}px;
+                        padding: {DesignSystem.SPACE_12}px;
+                    }}
+                    QFrame#{card_name}:hover {{
+                        border-color: {DesignSystem.COLOR_PRIMARY};
+                        background-color: {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_BG_2};
+                    }}
+                    QFrame#{card_name} QLabel {{
+                        color: {DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_TEXT};
+                    }}
+                    QFrame#{card_name} QLabel#title-label {{
+                        font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+                    }}
+                    QFrame#{card_name} QLabel#desc-label {{
+                        color: {DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_TEXT_SECONDARY};
+                    }}
+                """)
+                
+                # Actualizar color del icono
+                self._update_card_icon_color(card, is_selected)
+    
+    def _update_card_icon_color(self, card: 'QFrame', is_selected: bool):
+        """Actualiza el color del icono en una card de selección.
+        
+        Args:
+            card: QFrame de la card
+            is_selected: Si la card está seleccionada
+        """
+        from PyQt6.QtWidgets import QLabel
+        from ui.styles.design_system import DesignSystem
+        from utils.icons import icon_manager
+        
+        # Encontrar el icono (segundo QLabel en el header layout)
+        layout = card.layout()
+        if layout and layout.count() > 0:
+            header_layout = layout.itemAt(0).layout()  # Primer item es el header_layout
+            if header_layout and header_layout.count() >= 3:  # RadioButton, Icono, Título
+                icon_label = header_layout.itemAt(1).widget()  # Segundo widget es el icono
+                if isinstance(icon_label, QLabel):
+                    # Obtener el icono actual y actualizar su color
+                    current_icon = getattr(icon_label, 'icon_name', None)
+                    if current_icon:
+                        icon_manager.set_label_icon(
+                            icon_label,
+                            current_icon,
+                            size=DesignSystem.ICON_SIZE_XL,
+                            color=DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_PRIMARY
+                        )
+                        icon_label.update()  # Forzar repaint
