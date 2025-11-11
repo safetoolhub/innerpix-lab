@@ -162,6 +162,15 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
     - TreeWidget with similarity scores and dynamic grouping
     - Instant statistics updates (groups count, recoverable space)
     - Checkbox for backup creation before deletion
+    - **Empty results handling**: Shows informative message when no similar files found, prevents opening empty dialog
+
+### UX Patterns - Empty Results Handling
+
+**Critical UX Rule**: Never show empty dialogs or confusing states to users
+- **Analysis with no results**: Show informative QMessageBox explaining why no results found, remain in Stage 3
+- **Card status updates**: Update tool cards with appropriate messages ("No se encontraron archivos similares", "Sin resultados", etc.)
+- **Validation before dialog opening**: Check for valid results before opening dialogs, provide clear feedback
+- **Consistent messaging**: Use clear, actionable messages that explain what happened and suggest next steps
 
 ### Developer Workflow
 

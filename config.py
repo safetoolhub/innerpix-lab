@@ -183,14 +183,6 @@ class Config:
         else:
             return 'OTHER'
 
-    @classmethod
-    def ensure_directories_exist(cls):
-        """Crea los directorios necesarios si no existen"""
-        cls.DEFAULT_BASE_DIR.mkdir(parents=True, exist_ok=True)
-        cls.DEFAULT_LOG_DIR.mkdir(parents=True, exist_ok=True)
-        cls.DEFAULT_BACKUP_DIR.mkdir(parents=True, exist_ok=True)
-
-
     # ========================================================================
     # SISTEMA DE RE-ANÁLISIS INTELIGENTE
     # ========================================================================

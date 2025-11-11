@@ -1082,7 +1082,7 @@ class SimilarFilesDialog(BaseDialog):
         self.accepted_plan = {
             'groups': groups_to_process,
             'keep_strategy': 'manual',
-            'create_backup': self.backup_checkbox.isChecked(),
+            'create_backup': self.is_backup_enabled(),
             'dry_run': self.is_dry_run_enabled()
         }
         super().accept()

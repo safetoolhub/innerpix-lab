@@ -667,7 +667,7 @@ class ExactCopiesDialog(BaseDialog):
         self.accepted_plan = {
             'groups': self.analysis.groups,
             'keep_strategy': self.keep_strategy,
-            'create_backup': self.backup_checkbox.isChecked(),
+            'create_backup': self.is_backup_enabled(),
             'dry_run': self.is_dry_run_enabled()
         }
         super().accept()
