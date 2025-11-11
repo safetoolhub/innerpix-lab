@@ -676,6 +676,6 @@ class ExactCopiesDialog(BaseDialog):
             'groups': self.analysis.groups,
             'keep_strategy': self.keep_strategy,
             'create_backup': self.backup_checkbox.isChecked(),
-            'dry_run': self.dry_run_checkbox.isChecked()
+            'dry_run': self.is_dry_run_enabled()
         }
         super().accept()

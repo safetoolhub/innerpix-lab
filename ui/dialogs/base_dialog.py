@@ -61,7 +61,39 @@ class BaseDialog(QDialog):
 
     def is_backup_enabled(self) -> bool:
         """Devuelve True si el checkbox de backup existe y está marcado."""
-        return bool(self.backup_checkbox and self.backup_checkbox.isChecked())
+        if not self.backup_checkbox:
+            return False
+        
+        # Si es el diseño compacto con contenedor, usar _checkbox interno
+        if hasattr(self.backup_checkbox, '_checkbox'):
+            return self.backup_checkbox._checkbox.isChecked()
+        
+        # Si es QCheckBox directo
+        return self.backup_checkbox.isChecked()
+    
+    def is_dry_run_enabled(self) -> bool:
+        """Devuelve True si el checkbox de dry-run existe y está marcado."""
+        if not self.dry_run_checkbox:
+            return False
+        
+        # Si es el diseño compacto con contenedor, usar _checkbox interno
+        if hasattr(self.dry_run_checkbox, '_checkbox'):
+            return self.dry_run_checkbox._checkbox.isChecked()
+        
+        # Si es QCheckBox directo
+        return self.dry_run_checkbox.isChecked()
+    
+    def is_cleanup_enabled(self) -> bool:
+        """Devuelve True si el checkbox de cleanup existe y está marcado."""
+        if not hasattr(self, 'cleanup_checkbox') or not self.cleanup_checkbox:
+            return False
+        
+        # Si es el diseño compacto con contenedor, usar _checkbox interno
+        if hasattr(self.cleanup_checkbox, '_checkbox'):
+            return self.cleanup_checkbox._checkbox.isChecked()
+        
+        # Si es QCheckBox directo
+        return self.cleanup_checkbox.isChecked()
 
     def build_accepted_plan(self, extra: Optional[Dict] = None) -> Dict:
         """Construye un dict para accepted_plan incluyendo el flag de backup.
@@ -144,7 +176,10 @@ class BaseDialog(QDialog):
         return table
 
     def add_dry_run_checkbox(self, layout, label: str = "Modo simulación (no eliminar archivos)", checked: bool = False):
-        """Convenience: add a dry-run checkbox to dialog and return it."""
+        """Convenience: add a dry-run checkbox to dialog and return it.
+        
+        Ahora compatible con el nuevo diseño compacto de _create_security_options_section.
+        """
         cb = QCheckBox(label)
         cb.setChecked(checked)
         layout.addWidget(cb)
@@ -679,24 +714,29 @@ class BaseDialog(QDialog):
         self,
         show_backup: bool = True,
         show_dry_run: bool = False,
+        show_cleanup_empty_dirs: bool = False,
         backup_label: str = "Crear backup antes de la operación",
-        dry_run_label: str = "Modo simulación (no realizar cambios realmente)"
+        dry_run_label: str = "Modo simulación (no realizar cambios realmente)",
+        cleanup_label: str = "Eliminar directorios vacíos tras organizar"
     ) -> 'QFrame':
-        """Crea sección de opciones de seguridad con diseño Material Design unificado.
+        """Crea sección de opciones de seguridad ultra-compacta con diseño Material Design 3.
         
-        Proporciona una UI consistente para todos los diálogos que necesiten
-        opciones de backup y/o dry-run con diseño profesional e iconos.
+        Diseño 100% horizontal tipo "chip" con máxima compacidad vertical.
+        Todo en una sola línea siguiendo Material Design 3.
         
         Args:
             show_backup: Si se debe mostrar el checkbox de backup
             show_dry_run: Si se debe mostrar el checkbox de dry-run
+            show_cleanup_empty_dirs: Si se debe mostrar el checkbox de limpieza de directorios
             backup_label: Texto para el checkbox de backup
             dry_run_label: Texto para el checkbox de dry-run
+            cleanup_label: Texto para el checkbox de limpieza de directorios
         
         Returns:
-            QFrame con la sección de opciones configurada
+            QFrame con la sección ultra-compacta configurada
         """
-        from PyQt6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel, QCheckBox
+        from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QCheckBox
+        from PyQt6.QtCore import Qt
         from ui.styles.design_system import DesignSystem
         from utils.icons import icon_manager
         from utils.settings_manager import settings_manager
@@ -708,71 +748,83 @@ class BaseDialog(QDialog):
                 background-color: {DesignSystem.COLOR_SURFACE};
                 border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
                 border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: {DesignSystem.SPACE_8}px;
+                padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_8}px;
             }}
         """)
         
-        main_layout = QVBoxLayout(frame)
-        main_layout.setSpacing(int(DesignSystem.SPACE_6))
+        # Layout principal 100% horizontal (una sola línea)
+        main_layout = QHBoxLayout(frame)
+        main_layout.setSpacing(int(DesignSystem.SPACE_16))
         main_layout.setContentsMargins(
-            int(DesignSystem.SPACE_12),
             int(DesignSystem.SPACE_8),
-            int(DesignSystem.SPACE_12),
-            int(DesignSystem.SPACE_8)
+            int(DesignSystem.SPACE_4),
+            int(DesignSystem.SPACE_8),
+            int(DesignSystem.SPACE_4)
         )
         
-        # Título de la sección
-        title_layout = QHBoxLayout()
-        title_layout.setSpacing(int(DesignSystem.SPACE_6))
-        
-        title_icon_label = QLabel()
+        # === Título inline con icono ===
+        title_icon = QLabel()
         icon_manager.set_label_icon(
-            title_icon_label, 
+            title_icon, 
             'shield-check', 
-            size=int(DesignSystem.ICON_SIZE_MD),
+            size=int(DesignSystem.ICON_SIZE_SM),
             color=DesignSystem.COLOR_PRIMARY
         )
-        title_layout.addWidget(title_icon_label)
+        main_layout.addWidget(title_icon)
         
-        title_label = QLabel("Opciones de Seguridad")
+        title_label = QLabel("Opciones:")
         title_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_MD}px;
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
             font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-            color: {DesignSystem.COLOR_TEXT};
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
         """)
-        title_layout.addWidget(title_label)
-        title_layout.addStretch()
+        main_layout.addWidget(title_label)
         
-        main_layout.addLayout(title_layout)
+        # Separator visual sutil
+        separator = QLabel("|")
+        separator.setStyleSheet(f"color: {DesignSystem.COLOR_BORDER}; padding: 0 {DesignSystem.SPACE_4}px;")
+        main_layout.addWidget(separator)
         
-        # Checkbox de backup
+        # === Checkbox de backup (inline chip style) ===
         if show_backup:
             backup_checked = settings_manager.get_auto_backup_enabled()
-            self.backup_checkbox = self._create_option_checkbox(
+            self.backup_checkbox = self._create_inline_chip_checkbox(
                 icon_name='content-save',
                 label=backup_label,
                 checked=backup_checked,
                 tooltip="Crea una copia de seguridad timestamped antes de realizar cambios.\n"
-                        "Recomendado para operaciones destructivas.\n"
-                        "Puedes cambiar este comportamiento por defecto en Configuración."
+                        "Recomendado para operaciones destructivas."
             )
             main_layout.addWidget(self.backup_checkbox)
         
-        # Checkbox de dry-run
+        # === Checkbox de dry-run (inline chip style) ===
         if show_dry_run:
             dry_run_default = settings_manager.get(settings_manager.KEY_DRY_RUN_DEFAULT, False)
             if isinstance(dry_run_default, str):
                 dry_run_default = dry_run_default.lower() in ('true', '1', 'yes')
             
-            self.dry_run_checkbox = self._create_option_checkbox(
-                icon_name='eye-outline',
+            self.dry_run_checkbox = self._create_inline_chip_checkbox(
+                icon_name='eye',
                 label=dry_run_label,
                 checked=bool(dry_run_default),
                 tooltip="Simula la operación sin realizar cambios reales.\n"
-                        "Útil para verificar qué archivos se verían afectados.\n"
-                        "Puedes cambiar este comportamiento por defecto en Configuración."
+                        "Útil para verificar qué archivos se verían afectados."
             )
             main_layout.addWidget(self.dry_run_checkbox)
+        
+        # === Checkbox de cleanup empty dirs (inline chip style) ===
+        if show_cleanup_empty_dirs:
+            self.cleanup_checkbox = self._create_inline_chip_checkbox(
+                icon_name='folder-settings',
+                label=cleanup_label,
+                checked=False,  # Default deshabilitado para ser conservador
+                tooltip="Elimina automáticamente los directorios que queden vacíos\n"
+                        "después de mover los archivos durante la organización."
+            )
+            main_layout.addWidget(self.cleanup_checkbox)
+        
+        # Spacer para empujar contenido a la izquierda
+        main_layout.addStretch()
         
         return frame
     
@@ -829,3 +881,253 @@ class BaseDialog(QDialog):
         """)
         
         return checkbox
+    
+    def _create_inline_chip_checkbox(
+        self,
+        icon_name: str,
+        label: str,
+        checked: bool,
+        tooltip: str
+    ) -> QWidget:
+        """Crea un checkbox ultra-compacto estilo "chip" Material Design 3.
+        
+        Diseño inline minimalista de una sola línea con checkmark visible.
+        Inspirado en los chips interactivos de Material Design 3.
+        
+        Args:
+            icon_name: Nombre del icono de icon_manager
+            label: Texto del checkbox
+            checked: Estado inicial
+            tooltip: Texto del tooltip
+        
+        Returns:
+            QWidget contenedor con el diseño chip inline
+        """
+        from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel
+        from ui.styles.design_system import DesignSystem
+        from utils.icons import icon_manager
+        
+        # Contenedor tipo chip
+        container = QWidget()
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(
+            int(DesignSystem.SPACE_6),
+            int(DesignSystem.SPACE_2),
+            int(DesignSystem.SPACE_6),
+            int(DesignSystem.SPACE_2)
+        )
+        layout.setSpacing(int(DesignSystem.SPACE_4))
+        
+        # Checkbox real (oculto)
+        checkbox = QCheckBox()
+        checkbox.setChecked(checked)
+        checkbox.setToolTip(tooltip)
+        checkbox.setStyleSheet("QCheckBox { margin: 0; padding: 0; } QCheckBox::indicator { width: 0; height: 0; }")
+        
+        # Checkmark Material Design (círculo cuando unchecked, check cuando checked)
+        checkmark = QLabel()
+        checkmark.setFixedSize(int(DesignSystem.ICON_SIZE_SM), int(DesignSystem.ICON_SIZE_SM))
+        layout.addWidget(checkmark)
+        
+        # Icono de la opción
+        icon_label = QLabel()
+        icon_manager.set_label_icon(
+            icon_label,
+            icon_name,
+            size=int(DesignSystem.ICON_SIZE_SM),
+            color=DesignSystem.COLOR_TEXT
+        )
+        layout.addWidget(icon_label)
+        
+        # Texto
+        text_label = QLabel(label)
+        text_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_TEXT};
+        """)
+        layout.addWidget(text_label)
+        
+        # Función para toggle
+        def toggle_checkbox():
+            checkbox.setChecked(not checkbox.isChecked())
+            update_visual_state()
+        
+        def update_visual_state():
+            is_checked = checkbox.isChecked()
+            
+            # Actualizar checkmark con diseño Material Design limpio
+            if is_checked:
+                # Círculo azul sólido con check
+                checkmark.setStyleSheet(f"""
+                    QLabel {{
+                        background-color: {DesignSystem.COLOR_PRIMARY};
+                        border-radius: {int(DesignSystem.ICON_SIZE_SM) // 2}px;
+                        border: none;
+                    }}
+                """)
+            else:
+                # Círculo vacío con borde
+                checkmark.setStyleSheet(f"""
+                    QLabel {{
+                        background-color: transparent;
+                        border-radius: {int(DesignSystem.ICON_SIZE_SM) // 2}px;
+                        border: 2px solid {DesignSystem.COLOR_BORDER};
+                    }}
+                """)
+            
+            # Estilo del contenedor chip con estados claros
+            if is_checked:
+                container.setStyleSheet(f"""
+                    QWidget {{
+                        background-color: {DesignSystem.COLOR_BG_1};
+                        border: 1px solid transparent;
+                        border-radius: {DesignSystem.RADIUS_BASE}px;
+                    }}
+                    QWidget:hover {{
+                        background-color: {DesignSystem.COLOR_BG_2};
+                        border: 1px solid transparent;
+                    }}
+                """)
+            else:
+                container.setStyleSheet(f"""
+                    QWidget {{
+                        background-color: transparent;
+                        border: 1px solid transparent;
+                        border-radius: {DesignSystem.RADIUS_BASE}px;
+                    }}
+                    QWidget:hover {{
+                        background-color: {DesignSystem.COLOR_BG_2};
+                        border: 1px solid transparent;
+                    }}
+                """)
+        
+        container.mousePressEvent = lambda event: toggle_checkbox()
+        update_visual_state()
+        
+        # Conectar cambios
+        checkbox.toggled.connect(update_visual_state)
+        
+        # Guardar referencia
+        container._checkbox = checkbox
+        
+        return container
+    
+    def _create_compact_option_checkbox(
+        self,
+        icon_name: str,
+        label: str,
+        checked: bool,
+        tooltip: str
+    ) -> QWidget:
+        """Crea un checkbox ultra-compacto con iconos y indicador Material Design.
+        
+        Diseño limpio tipo "chip" con icono + texto + indicador circular
+        siguiendo principios de Material Design para máxima claridad.
+        
+        Args:
+            icon_name: Nombre del icono de icon_manager
+            label: Texto del checkbox
+            checked: Estado inicial
+            tooltip: Texto del tooltip
+        
+        Returns:
+            QWidget contenedor con el diseño compacto y limpio
+        """
+        from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel
+        from ui.styles.design_system import DesignSystem
+        from utils.icons import icon_manager
+        
+        # Crear un widget contenedor para el checkbox personalizado
+        container = QWidget()
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(int(DesignSystem.SPACE_6))
+        
+        # Checkbox real (oculto visualmente)
+        checkbox = QCheckBox()
+        checkbox.setChecked(checked)
+        checkbox.setToolTip(tooltip)
+        checkbox.setStyleSheet("QCheckBox { margin: 0; padding: 0; } QCheckBox::indicator { width: 0; height: 0; }")
+        
+        # Indicador circular (checkmark) - elemento visual principal
+        indicator_label = QLabel()
+        indicator_label.setFixedSize(int(DesignSystem.ICON_SIZE_SM), int(DesignSystem.ICON_SIZE_SM))
+        layout.addWidget(indicator_label)
+        
+        # Icono de la opción
+        icon_label = QLabel()
+        icon_manager.set_label_icon(
+            icon_label,
+            icon_name,
+            size=int(DesignSystem.ICON_SIZE_SM),
+            color=DesignSystem.COLOR_TEXT
+        )
+        layout.addWidget(icon_label)
+        
+        # Label del texto
+        text_label = QLabel(label)
+        text_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_TEXT};
+            padding: {DesignSystem.SPACE_2}px;
+        """)
+        layout.addWidget(text_label, 1)  # Stretch para ocupar espacio
+        
+        # Hacer el contenedor clickeable
+        def toggle_checkbox():
+            checkbox.setChecked(not checkbox.isChecked())
+            update_visual_state()
+        
+        def update_visual_state():
+            is_checked = checkbox.isChecked()
+            
+            # Actualizar icono
+            icon_manager.set_label_icon(
+                icon_label,
+                icon_name,
+                size=int(DesignSystem.ICON_SIZE_SM),
+                color=DesignSystem.COLOR_TEXT
+            )
+            
+            # Actualizar indicador circular con checkmark sutil
+            if is_checked:
+                # Indicador azul consistente con el tema
+                indicator_label.setStyleSheet(f"""
+                    QLabel {{
+                        background-color: {DesignSystem.COLOR_PRIMARY};
+                        border-radius: {int(DesignSystem.ICON_SIZE_SM) // 2}px;
+                        border: 1px solid {DesignSystem.COLOR_PRIMARY};
+                    }}
+                """)
+            else:
+                # Indicador vacío sutil
+                indicator_label.setStyleSheet(f"""
+                    QLabel {{
+                        background-color: transparent;
+                        border-radius: {int(DesignSystem.ICON_SIZE_SM) // 2}px;
+                        border: 1px solid {DesignSystem.COLOR_BORDER};
+                    }}
+                """)
+            
+            # Efecto hover sutil para todo el contenedor
+            container.setStyleSheet(f"""
+                QWidget {{
+                    background-color: transparent;
+                    border-radius: {DesignSystem.RADIUS_BASE}px;
+                    padding: {DesignSystem.SPACE_2}px;
+                }}
+                QWidget:hover {{
+                    background-color: {DesignSystem.COLOR_BG_2};
+                }}
+            """)
+        
+        container.mousePressEvent = lambda event: toggle_checkbox()
+        update_visual_state()  # Estado inicial
+        
+        # Conectar cambios del checkbox para actualizar visuales
+        checkbox.toggled.connect(update_visual_state)
+        
+        # Guardar referencia al checkbox real para acceso posterior
+        container._checkbox = checkbox
+        
+        return container

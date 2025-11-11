@@ -1066,7 +1066,7 @@ class SimilarFilesDialog(BaseDialog):
             'groups': groups_to_process,
             'keep_strategy': 'manual',
             'create_backup': self.backup_checkbox.isChecked(),
-            'dry_run': self.dry_run_checkbox.isChecked()
+            'dry_run': self.is_dry_run_enabled()
         }
         super().accept()
 

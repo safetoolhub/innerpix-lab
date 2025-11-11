@@ -724,46 +724,16 @@ class FileOrganizationDialog(BaseDialog):
         container_layout.setSpacing(int(DesignSystem.SPACE_12))
         container_layout.setContentsMargins(0, 0, 0, 0)
         
-        # Opciones de seguridad estándar
+        # Opciones de seguridad + limpieza de directorios vacíos
         security_options = self._create_security_options_section(
             show_backup=True,
             show_dry_run=True,
+            show_cleanup_empty_dirs=True,
             backup_label="Crear backup antes de mover",
-            dry_run_label="Modo simulación (no mover archivos realmente)"
+            dry_run_label="Modo simulación (no mover archivos realmente)",
+            cleanup_label="Eliminar directorios vacíos"
         )
         container_layout.addWidget(security_options)
-        
-        # Opción adicional específica: cleanup
-        cleanup_frame = QFrame()
-        cleanup_frame.setObjectName("cleanup-option-frame")
-        cleanup_frame.setStyleSheet(f"""
-            QFrame#cleanup-option-frame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: {DesignSystem.SPACE_12}px;
-            }}
-        """)
-        
-        cleanup_layout = QVBoxLayout(cleanup_frame)
-        cleanup_layout.setContentsMargins(
-            int(DesignSystem.SPACE_12),
-            int(DesignSystem.SPACE_8),
-            int(DesignSystem.SPACE_12),
-            int(DesignSystem.SPACE_8)
-        )
-        
-        self.cleanup_checkbox = self._create_option_checkbox(
-            icon_name='delete-sweep',
-            label="Eliminar directorios vacíos al finalizar",
-            checked=True,
-            tooltip="Elimina automáticamente los directorios que queden vacíos\n"
-                    "después de mover los archivos.\n"
-                    "Ayuda a mantener la estructura de carpetas limpia."
-        )
-        cleanup_layout.addWidget(self.cleanup_checkbox)
-        
-        container_layout.addWidget(cleanup_frame)
         
         return container
     
@@ -1190,8 +1160,8 @@ class FileOrganizationDialog(BaseDialog):
         # Pasar el analysis completo + parámetros por separado
         self.accepted_plan = {
             'analysis': self.analysis,  # Ya es OrganizationAnalysisResult dataclass
-            'cleanup_empty_dirs': self.cleanup_checkbox.isChecked(),
+            'cleanup_empty_dirs': self.is_cleanup_enabled(),
             'create_backup': self.is_backup_enabled(),
-            'dry_run': self.dry_run_checkbox.isChecked()
+            'dry_run': self.is_dry_run_enabled()
         }
         super().accept()
