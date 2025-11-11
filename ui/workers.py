@@ -20,9 +20,13 @@ if TYPE_CHECKING:
     from services.result_types import (
         FullAnalysisResult,
         RenameResult,
+        RenameAnalysisResult,
         OrganizationResult,
+        OrganizationAnalysisResult,
         LivePhotoCleanupResult,
+        LivePhotoCleanupAnalysisResult,
         HeicDeletionResult,
+        HeicAnalysisResult,
         DuplicateAnalysisResult,
         DuplicateDeletionResult,
         ScanResult
@@ -31,7 +35,7 @@ if TYPE_CHECKING:
     from services.live_photo_detector import LivePhotoDetector
     from services.live_photo_cleaner import LivePhotoCleaner
     from services.file_organizer import FileOrganizer
-    from services.heic_remover import HEICDuplicateRemover
+    from services.heic_remover import HEICRemover
     from services.exact_copies_detector import ExactCopiesDetector
     from services.similar_files_detector import SimilarFilesDetector
 
@@ -135,7 +139,7 @@ class AnalysisWorker(BaseWorker):
         renamer: 'FileRenamer',
         live_photo_detector: 'LivePhotoDetector',
         unifier: 'FileOrganizer',
-        heic_remover: 'HEICDuplicateRemover',
+        heic_remover: 'HEICRemover',
         duplicate_exact_detector: Optional['ExactCopiesDetector'] = None,
         organization_type: Optional[str] = None
     ):
@@ -295,13 +299,13 @@ class RenamingWorker(BaseWorker):
     def __init__(
         self, 
         renamer: 'FileRenamer',
-        plan: List[Dict],
+        analysis: 'RenameAnalysisResult',
         create_backup: bool = True,
         dry_run: bool = False
     ):
         super().__init__()
         self.renamer = renamer
-        self.plan = plan
+        self.analysis = analysis
         self.create_backup = create_backup
         self.dry_run = dry_run
 
@@ -311,7 +315,7 @@ class RenamingWorker(BaseWorker):
                 return
             
             results: 'RenameResult' = self.renamer.execute_renaming(
-                self.plan,
+                self.analysis.renaming_plan,
                 create_backup=self.create_backup,
                 dry_run=self.dry_run,
                 progress_callback=self._create_progress_callback()
@@ -338,26 +342,23 @@ class LivePhotoCleanupWorker(BaseWorker):
     # Sobrescribir finished con tipo específico
     finished = pyqtSignal(object)  # En runtime es object, tipo semántico es LivePhotoCleanupResult
 
-    def __init__(self, cleaner: 'LivePhotoCleaner', plan: Dict):
+    def __init__(self, cleaner: 'LivePhotoCleaner', analysis: 'LivePhotoCleanupAnalysisResult', 
+                 create_backup: bool = True, dry_run: bool = False):
         super().__init__()
         self.cleaner = cleaner
-        self.plan = plan
+        self.analysis = analysis
+        self.create_backup = create_backup
+        self.dry_run = dry_run
 
     def run(self) -> None:
         try:
             if self._stop_requested:
                 return
             
-            # El plan es un diccionario que incluye create_backup y dry_run
-            # Extraer estos parámetros del plan antes de pasarlo a execute_cleanup
-            create_backup = self.plan.get('create_backup', True)
-            dry_run = self.plan.get('dry_run', False)
-            
-            # Pasar el plan completo - execute_cleanup lo convertirá a dataclass si es necesario
             results: 'LivePhotoCleanupResult' = self.cleaner.execute_cleanup(
-                self.plan,
-                create_backup=create_backup,
-                dry_run=dry_run,
+                self.analysis,
+                create_backup=self.create_backup,
+                dry_run=self.dry_run,
                 progress_callback=self._create_progress_callback()
             )
             
@@ -385,13 +386,15 @@ class FileOrganizerWorker(BaseWorker):
     def __init__(
         self,
         organizer: 'FileOrganizer',
-        plan: List[Dict],
+        analysis: 'OrganizationAnalysisResult',
+        cleanup_empty_dirs: bool = True,
         create_backup: bool = True,
         dry_run: bool = False
     ):
         super().__init__()
         self.organizer = organizer
-        self.plan = plan
+        self.analysis = analysis
+        self.cleanup_empty_dirs = cleanup_empty_dirs
         self.create_backup = create_backup
         self.dry_run = dry_run
 
@@ -401,8 +404,9 @@ class FileOrganizerWorker(BaseWorker):
                 return
             
             results: 'OrganizationResult' = self.organizer.execute_organization(
-                self.plan,
+                self.analysis.move_plan,
                 create_backup=self.create_backup,
+                cleanup_empty_dirs=self.cleanup_empty_dirs,
                 dry_run=self.dry_run,
                 progress_callback=self._create_progress_callback()
             )
@@ -430,15 +434,15 @@ class HEICRemovalWorker(BaseWorker):
 
     def __init__(
         self,
-        remover: 'HEICDuplicateRemover',
-        pairs: List[Dict],
+        remover: 'HEICRemover',
+        analysis: 'HeicAnalysisResult',
         keep_format: str,
         create_backup: bool = True,
         dry_run: bool = False
     ):
         super().__init__()
         self.remover = remover
-        self.pairs = pairs
+        self.analysis = analysis
         self.keep_format = keep_format
         self.create_backup = create_backup
         self.dry_run = dry_run
@@ -455,7 +459,7 @@ class HEICRemovalWorker(BaseWorker):
             setattr(self.remover, '_progress_callback', progress_cb_local)
 
             results: 'HeicDeletionResult' = self.remover.execute_removal(
-                self.pairs,
+                self.analysis.duplicate_pairs,
                 keep_format=self.keep_format,
                 create_backup=self.create_backup,
                 dry_run=self.dry_run
@@ -546,12 +550,6 @@ class DuplicateDeletionWorker(BaseWorker):
         create_backup: bool = True,
         dry_run: bool = False
     ):
-        super().__init__()
-        self.detector = detector
-        self.groups = groups
-        self.keep_strategy = keep_strategy
-        self.create_backup = create_backup
-        self.dry_run = dry_run
         super().__init__()
         self.detector = detector
         self.groups = groups
@@ -652,7 +650,7 @@ class WorkspaceReanalysisWorker(BaseWorker):
     para mantener actualizadas las 5 herramientas de análisis rápido:
     - Live Photos
     - HEIC/JPG
-    - Duplicados Exactos
+    - Copias Exactas
     - Organizar
     - Renombrar
     
@@ -677,7 +675,7 @@ class WorkspaceReanalysisWorker(BaseWorker):
     def run(self) -> None:
         """Ejecuta re-análisis de todas las herramientas rápidas"""
         from services.live_photo_detector import LivePhotoDetector
-        from services.heic_remover import HEICDuplicateRemover
+        from services.heic_remover import HEICRemover
         from services.exact_copies_detector import ExactCopiesDetector
         from services.file_organizer import FileOrganizer
         from services.file_renamer import FileRenamer
@@ -688,8 +686,8 @@ class WorkspaceReanalysisWorker(BaseWorker):
         # Lista de análisis a ejecutar (solo rápidos)
         tools_to_analyze = [
             ("live_photos", LivePhotoDetector, "Live Photos"),
-            ("heic", HEICDuplicateRemover, "HEIC/JPG"),
-            ("exact_duplicates", ExactCopiesDetector, "Duplicados Exactos"),
+            ("heic", HEICRemover, "HEIC/JPG"),
+            ("exact_copies", ExactCopiesDetector, "Copias Exactas"),
             ("organize", FileOrganizer, "Organizar"),
             ("rename", FileRenamer, "Renombrar")
         ]
@@ -708,23 +706,35 @@ class WorkspaceReanalysisWorker(BaseWorker):
                 
                 # Ejecutar análisis según el tipo de detector
                 if tool_name == "live_photos":
-                    result = detector.detect_live_photos(self.workspace_path)
+                    from services.result_types import LivePhotoDetectionResult
+                    live_photo_groups = detector.detect_in_directory(self.workspace_path, progress_callback=None)
+                    result = LivePhotoDetectionResult(
+                        total_files=len(live_photo_groups) * 2,
+                        groups=live_photo_groups,
+                        live_photos_found=len(live_photo_groups),
+                        total_space=sum(group.total_size for group in live_photo_groups) if live_photo_groups else 0,
+                        space_to_free=sum(group.video_size for group in live_photo_groups) if live_photo_groups else 0
+                    )
+                
                 elif tool_name == "heic":
-                    result = detector.analyze_heic_jpg_pairs(self.workspace_path)
-                elif tool_name == "exact_duplicates":
+                    result = detector.analyze_heic_duplicates(self.workspace_path, progress_callback=None)
+                
+                elif tool_name == "exact_copies":
                     result = detector.analyze_exact_duplicates(
                         directory=self.workspace_path,
-                        progress_callback=None  # Re-análisis rápido sin progreso detallado
+                        progress_callback=None
                     )
+                
                 elif tool_name == "organize":
-                    result = detector.analyze_organization(
-                        directory=self.workspace_path,
-                        organization_type='BY_MONTH'  # Tipo por defecto
+                    result = detector.analyze_directory_structure(
+                        root_directory=self.workspace_path,
+                        progress_callback=None
                     )
+                
                 elif tool_name == "rename":
                     result = detector.analyze_directory(
                         directory=self.workspace_path,
-                        pattern='{date}_{time}_{original}'  # Patrón por defecto
+                        progress_callback=None
                     )
                 
                 # Guardar resultado y notificar

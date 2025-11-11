@@ -47,7 +47,6 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
 - **Widgets**: Reusable components (ToolCard, ProgressCard, AnalysisPhaseWidget, SummaryCard, DropzoneWidget)
 - **Dialogs**: All extend `BaseDialog` which provides `add_backup_checkbox()` and `build_accepted_plan()` helpers
 - **Design System**: Centralized styling in `ui/styles/design_system.py` (single source of truth for colors, spacing, typography)
-- **Legacy Styles**: `ui/ui_styles.py` contains old CSS constants (being phased out)
 - Dialog utilities: `ui/dialogs/dialog_utils.py` provides shared functions:
   * `open_file()`: Cross-platform file opener (xdg-open/open/start)
   * `open_folder()`: Cross-platform folder opener with file selection
@@ -193,7 +192,7 @@ Project files:
 - **Dataclass-first**: When adding new services, ALWAYS return dataclasses from `result_types.py`
 - **View Model pattern**: Use View Models from `services/view_models.py` for presentation logic (optional integration)
 - **Preserve backup flows**: never remove `create_backup` parameters without explicit request
-- **Import resolution**: `ui/ui_styles.py` contains legacy CSS constants (being phased out), `ui/styles/design_system.py` is the single source of truth for current styling
+- **Import resolution**: `ui/styles/design_system.py` is the single source of truth for current styling
 
 
 ### Platform Notes

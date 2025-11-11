@@ -7,14 +7,14 @@ from collections import Counter
 from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QGroupBox, QTableWidget, QTableWidgetItem,
     QHeaderView, QDialogButtonBox, QLabel, QCheckBox, QLineEdit, 
-    QComboBox, QPushButton, QGridLayout, QFrame, QApplication
+    QComboBox, QPushButton, QFrame, QApplication
 )
 from PyQt6.QtGui import QColor, QFont, QCursor
 from PyQt6.QtCore import Qt, QTimer
 from utils.format_utils import format_size
 from utils.settings_manager import settings_manager
 from config import Config
-from ui import ui_styles
+from ui.styles.design_system import DesignSystem
 from ui.styles.design_system import DesignSystem
 from utils.icons import icon_manager
 from utils.logger import get_logger
@@ -130,10 +130,14 @@ class RenamingPreviewDialog(BaseDialog):
         options_group = self._create_options_group()
         content_layout.addWidget(options_group)
         
-        # Botones
+        # Botones con estilo Material Design
         ok_enabled = self.analysis_results.need_renaming > 0
         ok_text = f"Proceder ({self.analysis_results.need_renaming})" if ok_enabled else None
-        buttons = self.make_ok_cancel_buttons(ok_text=ok_text, ok_enabled=ok_enabled)
+        buttons = self.make_ok_cancel_buttons(
+            ok_text=ok_text,
+            ok_enabled=ok_enabled,
+            button_style='primary'
+        )
         self.buttons = buttons
         self.ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
         content_layout.addWidget(buttons)
@@ -211,7 +215,7 @@ class RenamingPreviewDialog(BaseDialog):
         
         # Contador de resultados
         self.counter_label = QLabel()
-        self.counter_label.setStyleSheet(ui_styles.STYLE_DIALOG_COUNTER_BOLD)
+        self.counter_label.setStyleSheet(DesignSystem.STYLE_DIALOG_COUNTER_BOLD)
         toolbar.addWidget(self.counter_label)
         
         toolbar.addStretch()
@@ -259,7 +263,7 @@ class RenamingPreviewDialog(BaseDialog):
         """Crea controles de paginación"""
         widget = QFrame()
         widget.setFrameStyle(QFrame.Shape.StyledPanel)
-        widget.setStyleSheet(ui_styles.STYLE_DIALOG_PAGINATION_FRAME)
+        widget.setStyleSheet(DesignSystem.STYLE_DIALOG_PAGINATION_FRAME)
         layout = QHBoxLayout(widget)
         
         # Botón primera página
@@ -276,7 +280,7 @@ class RenamingPreviewDialog(BaseDialog):
         
         # Label de página actual
         self.page_label = QLabel()
-        self.page_label.setStyleSheet(ui_styles.STYLE_DIALOG_PAGE_LABEL)
+        self.page_label.setStyleSheet(DesignSystem.STYLE_DIALOG_PAGE_LABEL)
         self.page_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.page_label)
         
@@ -348,7 +352,7 @@ class RenamingPreviewDialog(BaseDialog):
         layout = QVBoxLayout()
         
         info = QLabel("Estos archivos no pueden procesarse y serán ignorados:")
-        info.setStyleSheet(ui_styles.STYLE_DIALOG_PROBLEM_INFO)
+        info.setStyleSheet(DesignSystem.STYLE_DIALOG_PROBLEM_INFO)
         layout.addWidget(info)
         
         # Lista simple de problemas
@@ -358,33 +362,20 @@ class RenamingPreviewDialog(BaseDialog):
         
         problems_label = QLabel(problems_text)
         problems_label.setWordWrap(True)
-        problems_label.setStyleSheet(ui_styles.STYLE_DIALOG_PROBLEM_TEXT)
+        problems_label.setStyleSheet(DesignSystem.STYLE_DIALOG_PROBLEM_TEXT)
         layout.addWidget(problems_label)
         
         group.setLayout(layout)
         return group
 
     def _create_options_group(self):
-        """Crea el grupo de opciones de seguridad"""
-        options_group = QGroupBox("Opciones de Seguridad")
-        # Asegurar que el título no se corte
-        options_group.setMinimumWidth(400)
-        options_group.setStyleSheet(ui_styles.STYLE_DIALOG_OPTIONS_GROUP)
-        options_layout = QVBoxLayout()
-        
-        # Checkbox de backup (primero)
-        self.add_backup_checkbox(options_layout, "Crear backup antes de renombrar (Recomendado)")
-        
-        # Checkbox de simulación (segundo)
-        self.dry_run_checkbox = QCheckBox("Modo simulación (no renombrar realmente)")
-        dry_run_default = settings_manager.get(settings_manager.KEY_DRY_RUN_DEFAULT, 'false')
-        if isinstance(dry_run_default, str):
-            dry_run_default = dry_run_default.lower() == 'true'
-        self.dry_run_checkbox.setChecked(dry_run_default)
-        options_layout.addWidget(self.dry_run_checkbox)
-        
-        options_group.setLayout(options_layout)
-        return options_group
+        """Crea el grupo de opciones de seguridad usando método centralizado"""
+        return self._create_security_options_section(
+            show_backup=True,
+            show_dry_run=True,
+            backup_label="Crear backup antes de renombrar",
+            dry_run_label="Modo simulación (no renombrar realmente)"
+        )
 
     def _analyze_file_types(self):
         """Analiza los tipos de archivo en el plan de renombrado"""
@@ -508,10 +499,10 @@ class RenamingPreviewDialog(BaseDialog):
                 conflict_item = QTableWidgetItem(conflict_text)
                 conflict_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
                 if item['has_conflict']:
-                    conflict_item.setBackground(QColor(255, 193, 7))  # ui_styles.COLOR_CONFLICT_BG
+                    conflict_item.setBackground(QColor(255, 193, 7))  # DesignSystem.COLOR_CONFLICT_BG
                     conflict_item.setForeground(QColor(0, 0, 0))
                 else:
-                    conflict_item.setBackground(QColor(76, 175, 80))  # ui_styles.COLOR_SUCCESS_BG
+                    conflict_item.setBackground(QColor(76, 175, 80))  # DesignSystem.COLOR_SUCCESS_BG
                     conflict_item.setForeground(QColor(255, 255, 255))
                 self.changes_table.setItem(row, 4, conflict_item)
                 
@@ -671,8 +662,10 @@ class RenamingPreviewDialog(BaseDialog):
         show_file_details_dialog(file_path, self, additional_info)
 
     def accept(self):
-        self.accepted_plan = self.build_accepted_plan({
-            'plan': self.analysis_results.renaming_plan,
+        # Pasar el analysis completo + parámetros por separado
+        self.accepted_plan = {
+            'analysis': self.analysis_results,  # Ya es RenameAnalysisResult dataclass
+            'create_backup': self.is_backup_enabled(),
             'dry_run': self.dry_run_checkbox.isChecked()
-        })
+        }
         super().accept()

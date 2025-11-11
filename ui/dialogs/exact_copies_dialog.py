@@ -11,7 +11,7 @@ from config import Config
 from services.exact_copies_detector import DuplicateGroup
 from utils.format_utils import format_size
 from utils.logger import get_logger
-from ui import ui_styles
+from ui.styles.design_system import DesignSystem
 from ui.styles.design_system import DesignSystem
 from utils.icons import icon_manager
 from .base_dialog import BaseDialog
@@ -305,40 +305,20 @@ class ExactCopiesDialog(BaseDialog):
         # Cargar grupos iniciales
         self._load_initial_groups()
         
-        # Opciones de seguridad
-        options_group = QGroupBox("Opciones de Seguridad")
-        options_group.setMinimumWidth(400)
-        options_group.setStyleSheet(f"QGroupBox {{ font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD}; padding-top: {DesignSystem.SPACE_12}px; }}")
-        options_layout = QVLayout(options_group)
-        options_layout.setContentsMargins(
-            int(DesignSystem.SPACE_12),
-            int(DesignSystem.SPACE_8),
-            int(DesignSystem.SPACE_12),
-            int(DesignSystem.SPACE_8)
+        # Opciones de seguridad (método centralizado)
+        security_options = self._create_security_options_section(
+            show_backup=True,
+            show_dry_run=True,
+            backup_label="Crear backup antes de eliminar",
+            dry_run_label="Modo simulación (no eliminar archivos realmente)"
         )
-        options_layout.setSpacing(int(DesignSystem.SPACE_8))
-        
-        # Backup checkbox (primero)
-        self.add_backup_checkbox(options_layout, "Crear backup antes de eliminar (Recomendado)")
-        
-        # Simulación checkbox (segundo)
-        self.dry_run_checkbox = QCheckBox("Modo simulación (no eliminar archivos realmente)")
-        # Leer configuración para establecer estado por defecto
-        from utils.settings_manager import settings_manager
-        dry_run_default = settings_manager.get(settings_manager.KEY_DRY_RUN_DEFAULT, False)
-        # Asegurar que es un booleano
-        if isinstance(dry_run_default, str):
-            dry_run_default = dry_run_default.lower() in ('true', '1', 'yes')
-        self.dry_run_checkbox.setChecked(bool(dry_run_default))
-        options_layout.addWidget(self.dry_run_checkbox)
-        content_layout.addWidget(options_group)
+        content_layout.addWidget(security_options)
 
-        # Botones
-        buttons = self.make_ok_cancel_buttons(ok_text="Eliminar Ahora")
-        # apply danger style to ok button
-        ok_btn = buttons.button(QDialogButtonBox.StandardButton.Ok)
-        icon_manager.set_button_icon(ok_btn, 'delete', size=16)
-        ok_btn.setStyleSheet(ui_styles.STYLE_DANGER_BUTTON)
+        # Botones con estilo Material Design
+        buttons = self.make_ok_cancel_buttons(
+            ok_text="Eliminar Ahora",
+            button_style='danger'
+        )
         content_layout.addWidget(buttons)
         
         # Aplicar estilo global de tooltips

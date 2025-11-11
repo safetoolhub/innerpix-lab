@@ -89,7 +89,7 @@ class HEICRemover:
     """
 
     def __init__(self):
-        self.logger = get_logger("HEICDuplicateRemover")
+        self.logger = get_logger("HEICRemover")
         self.backup_dir = None
 
         # Configuración
@@ -426,19 +426,26 @@ class HEICRemover:
             if dry_run:
                 self.logger.info("*** SIMULACIÓN DE ELIMINACIÓN DE DUPLICADOS HEIC/JPG COMPLETADA")
                 self.logger.info(f"*** Resultado: {files_count} archivos se eliminarían, {freed} se liberarían")
+                results.message = f"Simulación completada: {files_count} archivos {keep_format.upper()} ({freed}) se eliminarían"
             else:
                 self.logger.info("*** ELIMINACIÓN DE DUPLICADOS HEIC/JPG COMPLETADA")
                 self.logger.info(f"*** Resultado: {files_count} archivos eliminados, {freed} liberados")
+                results.message = f"Eliminados {files_count} archivos {keep_format.upper()}, liberados {freed}"
+                if results.backup_path:
+                    results.message += f"\n\nBackup creado en:\n{results.backup_path}"
+            
             if results.errors:
                 error_prefix = "[SIMULACIÓN] " if dry_run else ""
                 self.logger.info(f"*** {error_prefix}Errores encontrados durante la {'simulación' if dry_run else 'eliminación'}:")
                 for error in results.errors:
                     self.logger.error(f"  ✗ {error}")
+                results.message += f"\n\nAdvertencia: {len(results.errors)} errores encontrados"
             self.logger.info("=" * 80)
 
         except Exception as e:
             error_msg = f"Error durante eliminación: {str(e)}"
             results.add_error(error_msg)
+            results.message = error_msg
             self.logger.error(error_msg)
 
         return results

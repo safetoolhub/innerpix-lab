@@ -9,7 +9,7 @@ from typing import Optional
 from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QGroupBox, QDialogButtonBox, QCheckBox, QLabel,
     QTreeWidget, QTreeWidgetItem, QLineEdit, QComboBox, QPushButton, QFrame,
-    QApplication, QMenu, QWidget, QRadioButton, QButtonGroup, QProgressBar
+    QApplication, QMenu, QWidget,  QProgressBar
 )
 from PyQt6.QtGui import QColor, QFont, QCursor
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QThread
@@ -713,51 +713,62 @@ class FileOrganizationDialog(BaseDialog):
         widget.setVisible(False)
         return widget
     
-    def _create_options_group(self) -> QGroupBox:
-        """Crea grupo de opciones"""
-        options_group = QGroupBox("Opciones de Seguridad")
-        options_group.setStyleSheet(f"""
-            QGroupBox {{
-                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                margin-top: {DesignSystem.SPACE_12}px;
-                padding-top: {DesignSystem.SPACE_16}px;
-            }}
-            QGroupBox::title {{
-                subcontrol-origin: margin;
-                left: {DesignSystem.SPACE_12}px;
-                padding: 0 {DesignSystem.SPACE_8}px;
+    def _create_options_group(self) -> QFrame:
+        """Crea grupo de opciones usando método centralizado con opción extra"""
+        from PyQt6.QtWidgets import QFrame, QVBoxLayout
+        from ui.styles.design_system import DesignSystem
+        
+        # Crear contenedor principal
+        container = QFrame()
+        container_layout = QVBoxLayout(container)
+        container_layout.setSpacing(int(DesignSystem.SPACE_12))
+        container_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Opciones de seguridad estándar
+        security_options = self._create_security_options_section(
+            show_backup=True,
+            show_dry_run=True,
+            backup_label="Crear backup antes de mover",
+            dry_run_label="Modo simulación (no mover archivos realmente)"
+        )
+        container_layout.addWidget(security_options)
+        
+        # Opción adicional específica: cleanup
+        cleanup_frame = QFrame()
+        cleanup_frame.setObjectName("cleanup-option-frame")
+        cleanup_frame.setStyleSheet(f"""
+            QFrame#cleanup-option-frame {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                padding: {DesignSystem.SPACE_12}px;
             }}
         """)
         
-        options_layout = QVBoxLayout()
-        options_layout.setSpacing(DesignSystem.SPACE_8)
+        cleanup_layout = QVBoxLayout(cleanup_frame)
+        cleanup_layout.setContentsMargins(
+            int(DesignSystem.SPACE_12),
+            int(DesignSystem.SPACE_8),
+            int(DesignSystem.SPACE_12),
+            int(DesignSystem.SPACE_8)
+        )
         
-        # Backup checkbox
-        self.add_backup_checkbox(options_layout, "Crear backup antes de mover (Recomendado)")
+        self.cleanup_checkbox = self._create_option_checkbox(
+            icon_name='delete-sweep',
+            label="Eliminar directorios vacíos al finalizar",
+            checked=True,
+            tooltip="Elimina automáticamente los directorios que queden vacíos\n"
+                    "después de mover los archivos.\n"
+                    "Ayuda a mantener la estructura de carpetas limpia."
+        )
+        cleanup_layout.addWidget(self.cleanup_checkbox)
         
-        # Dry run checkbox
-        from utils.settings_manager import settings_manager
-        dry_run_default = settings_manager.get(settings_manager.KEY_DRY_RUN_DEFAULT, False)
-        if isinstance(dry_run_default, str):
-            dry_run_default = dry_run_default.lower() in ('true', '1', 'yes')
+        container_layout.addWidget(cleanup_frame)
         
-        self.dry_run_checkbox = QCheckBox("Modo simulación (no mover archivos realmente)")
-        self.dry_run_checkbox.setChecked(bool(dry_run_default))
-        options_layout.addWidget(self.dry_run_checkbox)
-        
-        # Cleanup checkbox
-        self.cleanup_checkbox = QCheckBox("Eliminar directorios vacíos al finalizar")
-        self.cleanup_checkbox.setChecked(True)
-        options_layout.addWidget(self.cleanup_checkbox)
-        
-        options_group.setLayout(options_layout)
-        return options_group
+        return container
     
     def _create_action_buttons(self) -> QDialogButtonBox:
-        """Crea botones de acción"""
+        """Crea botones de acción con estilo Material Design"""
         ok_enabled = self.analysis.total_files_to_move > 0
         if ok_enabled:
             size_formatted = format_size(self.analysis.total_size_to_move)
@@ -765,9 +776,12 @@ class FileOrganizationDialog(BaseDialog):
         else:
             ok_text = "Sin archivos para organizar"
         
-        buttons = self.make_ok_cancel_buttons(ok_text=ok_text, ok_enabled=ok_enabled)
+        buttons = self.make_ok_cancel_buttons(
+            ok_text=ok_text,
+            ok_enabled=ok_enabled,
+            button_style='primary'
+        )
         self.ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
-        self.ok_button.setProperty("id", "primary-button")
         
         return buttons
     
@@ -1173,11 +1187,11 @@ class FileOrganizationDialog(BaseDialog):
     
     def accept(self):
         """Acepta el diálogo y construye el plan"""
-        self.accepted_plan = self.build_accepted_plan({
-            'move_plan': self.analysis.move_plan,
+        # Pasar el analysis completo + parámetros por separado
+        self.accepted_plan = {
+            'analysis': self.analysis,  # Ya es OrganizationAnalysisResult dataclass
             'cleanup_empty_dirs': self.cleanup_checkbox.isChecked(),
-            'organization_type': self.current_organization_type.value,  # IMPORTANTE: usar el tipo actual
-            'folders_to_create': self.analysis.folders_to_create,
+            'create_backup': self.is_backup_enabled(),
             'dry_run': self.dry_run_checkbox.isChecked()
-        })
+        }
         super().accept()

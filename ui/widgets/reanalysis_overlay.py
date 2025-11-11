@@ -46,7 +46,9 @@ class ReanalysisOverlay(QFrame):
     cancel_requested = pyqtSignal()
     
     def __init__(self, parent: Optional[QWidget] = None):
-        super().__init__(parent)
+        super().__init__()
+        if parent:
+            self.setParent(parent)
         self.logger = get_logger('ReanalysisOverlay')
         
         # Estado
@@ -178,7 +180,7 @@ class ReanalysisOverlay(QFrame):
         self._current_tool_icon = QLabel()
         icon_manager.set_label_icon(
             self._current_tool_icon,
-            "dots-horizontal",
+            "options",
             color=DesignSystem.COLOR_TEXT_PRIMARY,
             size=20,
         )
@@ -284,13 +286,13 @@ class ReanalysisOverlay(QFrame):
         
         # Icono según herramienta
         tool_icons = {
-            "Live Photos": "image-multiple",
-            "HEIC/JPG": "file-image",
+            "Live Photos": "camera-burst",
+            "HEIC/JPG": "heic",
             "Copias Exactas": "content-copy",
-            "Organizar": "folder-multiple",
-            "Renombrar": "rename-box",
+            "Organizar": "organize",
+            "Renombrar": "rename",
         }
-        icon_name = tool_icons.get(tool_name, "dots-horizontal")
+        icon_name = tool_icons.get(tool_name, "options")
         icon_manager.set_label_icon(
             self._current_tool_icon,
             icon_name,
@@ -309,7 +311,7 @@ class ReanalysisOverlay(QFrame):
         self._current_tool_label.setText("...")
         icon_manager.set_label_icon(
             self._current_tool_icon,
-            "dots-horizontal",
+            "options",
             color=DesignSystem.COLOR_TEXT_PRIMARY,
             size=20,
         )

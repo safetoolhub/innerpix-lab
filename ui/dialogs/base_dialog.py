@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
 if TYPE_CHECKING:
     from PyQt6.QtWidgets import QFrame, QRadioButton
 
+from ui.styles.design_system import DesignSystem
 from utils.settings_manager import settings_manager
 
 
@@ -73,23 +74,47 @@ class BaseDialog(QDialog):
         result['create_backup'] = self.is_backup_enabled()
         return result
 
-    def make_ok_cancel_buttons(self, ok_text: Optional[str] = None, ok_style: Optional[str] = None,
-                               ok_enabled: bool = True) -> QDialogButtonBox:
+    def make_ok_cancel_buttons(
+        self, 
+        ok_text: Optional[str] = None, 
+        ok_enabled: bool = True,
+        button_style: str = 'primary'
+    ) -> QDialogButtonBox:
         """Crea y devuelve un QDialogButtonBox con Ok/Cancel enlazados a accept/reject.
+        
+        Aplica automáticamente estilos Material Design consistentes.
 
-        Does not mutate dialog state except wiring signals. The caller can further
-        customize the returned button box or button texts/styles.
+        Args:
+            ok_text: Texto personalizado para el botón OK (default: "OK")
+            ok_enabled: Si el botón OK debe estar habilitado inicialmente
+            button_style: Estilo del botón OK: 'primary', 'danger', o 'secondary'
+
+        Returns:
+            QDialogButtonBox configurado con estilos Material Design
         """
         box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         ok_btn = box.button(QDialogButtonBox.StandardButton.Ok)
         cancel_btn = box.button(QDialogButtonBox.StandardButton.Cancel)
+        
+        # Aplicar textos personalizados
         if ok_text is not None:
             ok_btn.setText(ok_text)
-        if ok_style is not None:
-            ok_btn.setStyleSheet(ok_style)
+        cancel_btn.setText("Cancelar")
+        
+        # Aplicar estilos Material Design según el tipo especificado
+        if button_style == 'danger':
+            ok_btn.setStyleSheet(DesignSystem.get_danger_button_style())
+        elif button_style == 'secondary':
+            ok_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
+        else:  # 'primary' por defecto
+            ok_btn.setStyleSheet(DesignSystem.get_primary_button_style())
+        
+        cancel_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
+        
         ok_btn.setEnabled(ok_enabled)
         box.accepted.connect(self.accept)
         box.rejected.connect(self.reject)
+        
         # remember ok button for convenience
         self.register_ok_button(ok_btn)
         return box
@@ -649,3 +674,158 @@ class BaseDialog(QDialog):
                             color=DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_PRIMARY
                         )
                         icon_label.update()  # Forzar repaint
+    
+    def _create_security_options_section(
+        self,
+        show_backup: bool = True,
+        show_dry_run: bool = False,
+        backup_label: str = "Crear backup antes de la operación",
+        dry_run_label: str = "Modo simulación (no realizar cambios realmente)"
+    ) -> 'QFrame':
+        """Crea sección de opciones de seguridad con diseño Material Design unificado.
+        
+        Proporciona una UI consistente para todos los diálogos que necesiten
+        opciones de backup y/o dry-run con diseño profesional e iconos.
+        
+        Args:
+            show_backup: Si se debe mostrar el checkbox de backup
+            show_dry_run: Si se debe mostrar el checkbox de dry-run
+            backup_label: Texto para el checkbox de backup
+            dry_run_label: Texto para el checkbox de dry-run
+        
+        Returns:
+            QFrame con la sección de opciones configurada
+        """
+        from PyQt6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel, QCheckBox
+        from ui.styles.design_system import DesignSystem
+        from utils.icons import icon_manager
+        from utils.settings_manager import settings_manager
+        
+        frame = QFrame()
+        frame.setObjectName("security-options-frame")
+        frame.setStyleSheet(f"""
+            QFrame#security-options-frame {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                padding: {DesignSystem.SPACE_8}px;
+            }}
+        """)
+        
+        main_layout = QVBoxLayout(frame)
+        main_layout.setSpacing(int(DesignSystem.SPACE_6))
+        main_layout.setContentsMargins(
+            int(DesignSystem.SPACE_12),
+            int(DesignSystem.SPACE_8),
+            int(DesignSystem.SPACE_12),
+            int(DesignSystem.SPACE_8)
+        )
+        
+        # Título de la sección
+        title_layout = QHBoxLayout()
+        title_layout.setSpacing(int(DesignSystem.SPACE_6))
+        
+        title_icon_label = QLabel()
+        icon_manager.set_label_icon(
+            title_icon_label, 
+            'shield-check', 
+            size=int(DesignSystem.ICON_SIZE_MD),
+            color=DesignSystem.COLOR_PRIMARY
+        )
+        title_layout.addWidget(title_icon_label)
+        
+        title_label = QLabel("Opciones de Seguridad")
+        title_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_MD}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            color: {DesignSystem.COLOR_TEXT};
+        """)
+        title_layout.addWidget(title_label)
+        title_layout.addStretch()
+        
+        main_layout.addLayout(title_layout)
+        
+        # Checkbox de backup
+        if show_backup:
+            backup_checked = settings_manager.get_auto_backup_enabled()
+            self.backup_checkbox = self._create_option_checkbox(
+                icon_name='content-save',
+                label=backup_label,
+                checked=backup_checked,
+                tooltip="Crea una copia de seguridad timestamped antes de realizar cambios.\n"
+                        "Recomendado para operaciones destructivas.\n"
+                        "Puedes cambiar este comportamiento por defecto en Configuración."
+            )
+            main_layout.addWidget(self.backup_checkbox)
+        
+        # Checkbox de dry-run
+        if show_dry_run:
+            dry_run_default = settings_manager.get(settings_manager.KEY_DRY_RUN_DEFAULT, False)
+            if isinstance(dry_run_default, str):
+                dry_run_default = dry_run_default.lower() in ('true', '1', 'yes')
+            
+            self.dry_run_checkbox = self._create_option_checkbox(
+                icon_name='eye-outline',
+                label=dry_run_label,
+                checked=bool(dry_run_default),
+                tooltip="Simula la operación sin realizar cambios reales.\n"
+                        "Útil para verificar qué archivos se verían afectados.\n"
+                        "Puedes cambiar este comportamiento por defecto en Configuración."
+            )
+            main_layout.addWidget(self.dry_run_checkbox)
+        
+        return frame
+    
+    def _create_option_checkbox(
+        self,
+        icon_name: str,
+        label: str,
+        checked: bool,
+        tooltip: str
+    ) -> QCheckBox:
+        """Crea un checkbox estilizado con icono para opciones de seguridad.
+        
+        Args:
+            icon_name: Nombre del icono de icon_manager
+            label: Texto del checkbox
+            checked: Estado inicial
+            tooltip: Texto del tooltip
+        
+        Returns:
+            QCheckBox configurado con estilos Material Design
+        """
+        from PyQt6.QtWidgets import QCheckBox
+        from ui.styles.design_system import DesignSystem
+        
+        checkbox = QCheckBox(label)
+        checkbox.setChecked(checked)
+        checkbox.setToolTip(tooltip)
+        
+        checkbox.setStyleSheet(f"""
+            QCheckBox {{
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_TEXT};
+                spacing: {DesignSystem.SPACE_6}px;
+                padding: {DesignSystem.SPACE_4}px;
+            }}
+            QCheckBox:hover {{
+                background-color: {DesignSystem.COLOR_BG_2};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+            }}
+            QCheckBox::indicator {{
+                width: {int(DesignSystem.ICON_SIZE_MD)}px;
+                height: {int(DesignSystem.ICON_SIZE_MD)}px;
+                border: 2px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_SMALL}px;
+                background-color: {DesignSystem.COLOR_SURFACE};
+            }}
+            QCheckBox::indicator:hover {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+            QCheckBox::indicator:checked {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+        """)
+        
+        return checkbox

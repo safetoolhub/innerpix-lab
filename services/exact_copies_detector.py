@@ -373,14 +373,20 @@ class ExactCopiesDetector:
         if dry_run:
             self.logger.info("*** SIMULACIÓN DE ELIMINACIÓN DE DUPLICADOS EXACTOS COMPLETADA")
             self.logger.info(f"*** Resultado: {files_count} archivos se eliminarían, {freed_str} se liberarían")
+            result.message = f"Simulación completada: {files_count} duplicados ({freed_str}) se eliminarían"
         else:
             self.logger.info("*** ELIMINACIÓN DE DUPLICADOS EXACTOS COMPLETADA")
             self.logger.info(f"*** Resultado: {files_count} archivos eliminados, {freed_str} liberados")
+            result.message = f"Eliminados {files_count} duplicados, liberados {freed_str}"
+            if result.backup_path:
+                result.message += f"\n\nBackup creado en:\n{result.backup_path}"
+        
         if result.has_errors:
             error_prefix = "[SIMULACIÓN] " if dry_run else ""
             self.logger.info(f"*** {error_prefix}Errores encontrados durante la {'simulación' if dry_run else 'eliminación'}:")
             for error in result.errors:
                 self.logger.error(f"  ✗ {error}")
+            result.message += f"\n\nAdvertencia: {len(result.errors)} errores encontrados"
         self.logger.info("=" * 80)
         
         return result

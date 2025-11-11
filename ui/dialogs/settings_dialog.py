@@ -112,7 +112,7 @@ class SettingsDialog(QDialog):
 
         footer_layout.addStretch()
 
-        # Botones estándar
+        # Botones estándar con estilo Material Design
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
         )
@@ -120,42 +120,33 @@ class SettingsDialog(QDialog):
         # Guardar referencia al botón Save
         self.save_button = buttons.button(QDialogButtonBox.StandardButton.Save)
         self.save_button.setText("Guardar Cambios")
-        self.save_button.setObjectName("save-button")
         self.save_button.setEnabled(False)  # Iniciar deshabilitado
+        # Estilo personalizado para botón de guardar (verde) similar a primary pero con color success
         self.save_button.setStyleSheet(f"""
-            QPushButton#save-button {{
+            QPushButton {{
                 background-color: {DesignSystem.COLOR_SUCCESS};
-                color: {DesignSystem.COLOR_SURFACE};
+                color: {DesignSystem.COLOR_PRIMARY_TEXT};
                 border: none;
                 border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: 10px 24px;
+                padding: {DesignSystem.SPACE_12}px {DesignSystem.SPACE_24}px;
                 font-size: {DesignSystem.FONT_SIZE_BASE}px;
                 font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                min-height: 36px;
             }}
-            QPushButton#save-button:hover {{
+            QPushButton:hover {{
                 background-color: #059669;
             }}
-            QPushButton#save-button:disabled {{
-                background-color: {DesignSystem.COLOR_BG_4};
+            QPushButton:disabled {{
+                background-color: {DesignSystem.COLOR_SECONDARY};
                 color: {DesignSystem.COLOR_TEXT_SECONDARY};
             }}
         """)
         
-        buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("Cancelar")
-        buttons.button(QDialogButtonBox.StandardButton.Cancel).setObjectName("cancel-button")
-        buttons.button(QDialogButtonBox.StandardButton.Cancel).setStyleSheet(f"""
-            QPushButton#cancel-button {{
-                background-color: {DesignSystem.COLOR_SECONDARY};
-                color: {DesignSystem.COLOR_TEXT};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: 8px 16px;
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            }}
-            QPushButton#cancel-button:hover {{
-                background-color: {DesignSystem.COLOR_SECONDARY_HOVER};
-            }}
-        """)
+        # Aplicar estilo secondary al botón Cancel
+        cancel_btn = buttons.button(QDialogButtonBox.StandardButton.Cancel)
+        cancel_btn.setText("Cancelar")
+        cancel_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
+        
         buttons.accepted.connect(self.save_settings)
         buttons.rejected.connect(self.reject)
         footer_layout.addWidget(buttons)

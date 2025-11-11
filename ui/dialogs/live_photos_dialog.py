@@ -1,11 +1,11 @@
 from PyQt6.QtWidgets import (
-    QVBoxLayout, QLabel, QGroupBox, QVBoxLayout as QVLayout,
-    QRadioButton, QButtonGroup, QDialogButtonBox
+    QVBoxLayout, QGroupBox, QVBoxLayout as QVLayout,
+    QDialogButtonBox
 )
 from PyQt6.QtCore import Qt
 from services.live_photo_cleaner import CleanupMode
 from utils.format_utils import format_size
-from ui import ui_styles
+from ui.styles.design_system import DesignSystem
 from ui.styles.design_system import DesignSystem
 from utils.icons import icon_manager
 from .base_dialog import BaseDialog
@@ -50,6 +50,7 @@ class LivePhotoCleanupDialog(BaseDialog):
         self.setWindowTitle("Limpieza de Live Photos")
         self.setModal(True)
         self.resize(700, 500)
+        self.setMinimumHeight(550)
         layout = QVBoxLayout(self)
         layout.setSpacing(int(DesignSystem.SPACE_16))
         layout.setContentsMargins(0, 0, 0, int(DesignSystem.SPACE_20))
@@ -91,33 +92,24 @@ class LivePhotoCleanupDialog(BaseDialog):
         self.mode_selector = self._create_mode_selector()
         content_layout.addWidget(self.mode_selector)
 
-        # Opciones
-        options_group = QGroupBox("Opciones de Seguridad")
-        options_group.setMinimumWidth(400)
-        options_group.setStyleSheet(f"QGroupBox {{ font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD}; padding-top: {DesignSystem.SPACE_12}px; }}")
-        options_layout = QVLayout(options_group)
+        # Opciones de seguridad (método centralizado)
+        security_options = self._create_security_options_section(
+            show_backup=True,
+            show_dry_run=True,
+            backup_label="Crear backup antes de eliminar",
+            dry_run_label="Modo simulación (no eliminar archivos realmente)"
+        )
+        content_layout.addWidget(security_options)
 
-        # Backup checkbox (primero)
-        self.add_backup_checkbox(options_layout, "Crear backup antes de eliminar (Recomendado)")
-
-        # Simulación checkbox (segundo)
-        from PyQt6.QtWidgets import QCheckBox
-        self.dry_run_checkbox = QCheckBox("Modo simulación (no eliminar archivos realmente)")
-        # Leer configuración para establecer estado por defecto
-        from utils.settings_manager import settings_manager
-        dry_run_default = settings_manager.get(settings_manager.KEY_DRY_RUN_DEFAULT, False)
-        # Asegurar que es un booleano
-        if isinstance(dry_run_default, str):
-            dry_run_default = dry_run_default.lower() in ('true', '1', 'yes')
-        self.dry_run_checkbox.setChecked(bool(dry_run_default))
-        options_layout.addWidget(self.dry_run_checkbox)
-        content_layout.addWidget(options_group)
-
-        # Botones
+        # Botones con estilo Material Design
         live_photos_found = self.analysis.live_photos_found
         ok_enabled = live_photos_found > 0
         ok_text = None if ok_enabled else "No hay Live Photos para limpiar"
-        self.buttons = self.make_ok_cancel_buttons(ok_text=ok_text, ok_enabled=ok_enabled)
+        self.buttons = self.make_ok_cancel_buttons(
+            ok_text=ok_text,
+            ok_enabled=ok_enabled,
+            button_style='danger'
+        )
         self.ok_button = self.buttons.button(QDialogButtonBox.StandardButton.Ok)
         # If there are items, update text according to mode
         if live_photos_found > 0:
@@ -164,28 +156,63 @@ class LivePhotoCleanupDialog(BaseDialog):
         
         self._update_button_text()
 
-    def _on_mode_changed(self, button):
-        """Método obsoleto - mantenido por compatibilidad si es usado en otro lugar."""
-        modes = {0: CleanupMode.KEEP_IMAGE, 1: CleanupMode.KEEP_VIDEO}
-        self.selected_mode = modes[self.mode_buttons.id(button)]
-        self._update_button_text()
-
     def accept(self):
-        # Construir lista de archivos a eliminar según el modo seleccionado
+        # Construir dataclass de análisis con los archivos a eliminar según el modo seleccionado
+        from services.result_types import LivePhotoCleanupAnalysisResult
+        
         groups = self.analysis.groups  # Dataclass attribute
         files_to_delete = []
+        files_to_keep = []
         
         if self.selected_mode == CleanupMode.KEEP_IMAGE:
             # Eliminar videos, mantener imágenes
-            files_to_delete = [group.video_path for group in groups]
+            for group in groups:
+                files_to_delete.append({
+                    'path': group.video_path,
+                    'type': 'video',
+                    'size': group.video_size,
+                    'base_name': group.base_name
+                })
+                files_to_keep.append({
+                    'path': group.image_path,
+                    'type': 'image',
+                    'size': group.image_size,
+                    'base_name': group.base_name
+                })
         elif self.selected_mode == CleanupMode.KEEP_VIDEO:
             # Eliminar imágenes, mantener videos
-            files_to_delete = [group.image_path for group in groups]
+            for group in groups:
+                files_to_delete.append({
+                    'path': group.image_path,
+                    'type': 'image',
+                    'size': group.image_size,
+                    'base_name': group.base_name
+                })
+                files_to_keep.append({
+                    'path': group.video_path,
+                    'type': 'video',
+                    'size': group.video_size,
+                    'base_name': group.base_name
+                })
         
-        self.accepted_plan = self.build_accepted_plan({
-            'mode': self.selected_mode,
-            'dry_run': self.dry_run_checkbox.isChecked(),
-            'files_to_delete': files_to_delete,
-            'groups': groups
-        })
+        # Crear dataclass de análisis
+        space_to_free = sum(f['size'] for f in files_to_delete)
+        total_space = self.analysis.total_space
+        
+        cleanup_analysis = LivePhotoCleanupAnalysisResult(
+            total_files=len(groups) * 2,
+            live_photos_found=len(groups),
+            files_to_delete=files_to_delete,
+            files_to_keep=files_to_keep,
+            space_to_free=space_to_free,
+            total_space=total_space,
+            cleanup_mode=self.selected_mode.value
+        )
+        
+        # Pasar dataclass + parámetros por separado
+        self.accepted_plan = {
+            'analysis': cleanup_analysis,
+            'create_backup': self.is_backup_enabled(),
+            'dry_run': self.dry_run_checkbox.isChecked()
+        }
         super().accept()
