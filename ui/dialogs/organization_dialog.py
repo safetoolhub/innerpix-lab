@@ -142,8 +142,8 @@ class FileOrganizationDialog(BaseDialog):
         main_layout.addWidget(content_container)
         
         # === SELECTOR DE TIPO ===
-        type_selector = self._create_type_selector()
-        content_layout.addWidget(type_selector)
+        self.type_selector = self._create_type_selector()
+        content_layout.addWidget(self.type_selector)
         
         # === INFORMACIÓN DE CARPETAS ===
         self.folders_info_widget = self._create_folders_info()
@@ -194,146 +194,23 @@ class FileOrganizationDialog(BaseDialog):
         self.setStyleSheet(DesignSystem.get_tooltip_style())
 
     def _create_type_selector(self) -> QWidget:
-        """Crea selector de tipo de organización con RadioButtons profesionales"""
-        frame = QFrame()
-        frame.setObjectName("type-selector-frame")
-        frame.setStyleSheet(f"""
-            QFrame#type-selector-frame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: {DesignSystem.SPACE_16}px;
-            }}
-        """)
+        """Crea selector de tipo de organización usando el método centralizado de BaseDialog."""
+        options = [
+            (OrganizationType.TO_ROOT, "folder-open", "Mover a Raíz",
+             "Mueve todos los archivos al directorio raíz eliminando subdirectorios"),
+            (OrganizationType.BY_MONTH, "calendar_month", "Por Mes",
+             "Organiza en carpetas mensuales (YYYY_MM) según la fecha del archivo"),
+            (OrganizationType.WHATSAPP_SEPARATE, "mobile", "Separar WhatsApp",
+             "Separa archivos de WhatsApp en carpeta dedicada, resto a la raíz")
+        ]
         
-        layout = QVBoxLayout(frame)
-        layout.setSpacing(DesignSystem.SPACE_12)
-        
-        # Título
-        title_layout = QHBoxLayout()
-        title_icon = QLabel()
-        icon_manager.set_label_icon(title_icon, 'options', size=DesignSystem.ICON_SIZE_LG)
-        title_label = QLabel("Elige cómo organizar los archivos")
-        title_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_LG}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-            color: {DesignSystem.COLOR_TEXT};
-        """)
-        title_layout.addWidget(title_icon)
-        title_layout.addWidget(title_label)
-        title_layout.addStretch()
-        layout.addLayout(title_layout)
-        
-        # RadioButtons
-        self.type_button_group = QButtonGroup(self)
-        
-        options_layout = QHBoxLayout()
-        options_layout.setSpacing(DesignSystem.SPACE_12)
-        
-        # TO_ROOT
-        to_root_card = self._create_option_card(
-            OrganizationType.TO_ROOT,
-            "folder-open",
-            "Mover a Raíz",
-            "Mueve todos los archivos al directorio raíz eliminando subdirectorios"
+        return self._create_option_selector(
+            title="Elige cómo organizar los archivos",
+            title_icon='options',
+            options=options,
+            selected_value=self.current_organization_type,
+            on_change_callback=self._on_type_changed
         )
-        options_layout.addWidget(to_root_card)
-        
-        # BY_MONTH
-        by_month_card = self._create_option_card(
-            OrganizationType.BY_MONTH,
-            "calendar_month",
-            "Por Mes",
-            "Organiza en carpetas mensuales (YYYY_MM) según la fecha del archivo"
-        )
-        options_layout.addWidget(by_month_card)
-        
-        # WHATSAPP_SEPARATE
-        whatsapp_card = self._create_option_card(
-            OrganizationType.WHATSAPP_SEPARATE,
-            "mobile",
-            "Separar WhatsApp",
-            "Separa archivos de WhatsApp en carpeta dedicada, resto a la raíz"
-        )
-        options_layout.addWidget(whatsapp_card)
-        
-        layout.addLayout(options_layout)
-        
-        return frame
-    
-    def _create_option_card(self, org_type: OrganizationType, icon_name: str, 
-                           title: str, description: str) -> QWidget:
-        """Crea una tarjeta de opción de organización"""
-        card = QFrame()
-        card.setObjectName(f"option-card-{org_type.value}")
-        
-        is_selected = org_type == self.current_organization_type
-        
-        # Aplicar estilos CSS que controlen todos los elementos dentro de la card
-        card.setStyleSheet(f"""
-            QFrame#option-card-{org_type.value} {{
-                background-color: {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_SURFACE};
-                border: 2px solid {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_12}px;
-            }}
-            QFrame#option-card-{org_type.value}:hover {{
-                border-color: {DesignSystem.COLOR_PRIMARY};
-                background-color: {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_BG_2};
-            }}
-            QFrame#option-card-{org_type.value} QLabel {{
-                color: {DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_TEXT};
-                font-weight: {DesignSystem.FONT_WEIGHT_NORMAL};
-            }}
-            QFrame#option-card-{org_type.value} QLabel#title-label {{
-                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-            }}
-            QFrame#option-card-{org_type.value} QLabel#desc-label {{
-                color: {DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_TEXT_SECONDARY};
-                font-weight: {DesignSystem.FONT_WEIGHT_NORMAL};
-            }}
-        """)
-        
-        layout = QVBoxLayout(card)
-        layout.setSpacing(DesignSystem.SPACE_8)
-        
-        # RadioButton + Icon + Title
-        header_layout = QHBoxLayout()
-        
-        radio = QRadioButton()
-        radio.setChecked(is_selected)
-        radio.toggled.connect(lambda checked: self._on_type_changed(org_type) if checked else None)
-        self.type_button_group.addButton(radio)
-        header_layout.addWidget(radio)
-        
-        icon_label = QLabel()
-        icon_manager.set_label_icon(
-            icon_label, 
-            icon_name, 
-            size=DesignSystem.ICON_SIZE_XL,
-            color=DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_PRIMARY
-        )
-        header_layout.addWidget(icon_label)
-        
-        title_label = QLabel(title)
-        title_label.setObjectName("title-label")
-        # No aplicar estilos individuales - usar CSS del padre
-        header_layout.addWidget(title_label)
-        header_layout.addStretch()
-        
-        layout.addLayout(header_layout)
-        
-        # Description
-        desc_label = QLabel(description)
-        desc_label.setWordWrap(True)
-        desc_label.setObjectName("desc-label")
-        # No aplicar estilos individuales - usar CSS del padre
-        layout.addWidget(desc_label)
-        
-        # Hacer la card clickeable
-        card.mousePressEvent = lambda event: radio.setChecked(True)
-        
-        return card
     
     def _on_type_changed(self, new_type: OrganizationType):
         """Maneja el cambio de tipo de organización"""
@@ -396,8 +273,11 @@ class FileOrganizationDialog(BaseDialog):
         self.ok_button.setEnabled(not loading and self.analysis.total_files_to_move > 0)
         
         # Deshabilitar opciones de tipo durante análisis
-        for button in self.type_button_group.buttons():
-            button.setEnabled(not loading)
+        if hasattr(self, 'type_selector'):
+            button_group = self.type_selector.property("button_group")
+            if button_group:
+                for button in button_group.buttons():
+                    button.setEnabled(not loading)
     
     def _update_all_ui(self):
         """Actualiza toda la UI con los datos actuales"""
@@ -415,7 +295,12 @@ class FileOrganizationDialog(BaseDialog):
         self._update_ok_button()
         
         # Re-aplicar estilos a las cards de selección
-        self._update_type_selector_styles()
+        if hasattr(self, 'type_selector'):
+            self._update_option_selector_styles(
+                self.type_selector,
+                [OrganizationType.TO_ROOT, OrganizationType.BY_MONTH, OrganizationType.WHATSAPP_SEPARATE],
+                self.current_organization_type
+            )
     
     def _update_header_metrics(self):
         """Actualiza las métricas del header compacto"""

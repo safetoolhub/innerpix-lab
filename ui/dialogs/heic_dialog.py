@@ -81,9 +81,9 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         )
         main_layout.addWidget(content_container)
         
-        # Selector de formato con cards
-        format_selector = self._create_format_selector()
-        content_layout.addWidget(format_selector)
+                # Selector de formato con cards (debajo del header)
+        self.format_selector = self._create_format_selector()
+        content_layout.addWidget(self.format_selector)
         
         # Barra de herramientas (filtros y búsqueda)
         toolbar = self._create_toolbar()
@@ -116,53 +116,7 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         self.setStyleSheet(DesignSystem.get_tooltip_style())
 
     def _create_format_selector(self) -> QFrame:
-        """Crea selector de formato con cards interactivas.
-        
-        Returns:
-            QFrame con las cards de selección de formato
-        """
-        frame = QFrame()
-        frame.setObjectName("format-selector-frame")
-        frame.setStyleSheet(f"""
-            QFrame#format-selector-frame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: {DesignSystem.SPACE_16}px;
-            }}
-        """)
-        
-        layout = QVBoxLayout(frame)
-        layout.setSpacing(int(DesignSystem.SPACE_12))
-        
-        # Título
-        title_layout = QHBoxLayout()
-        title_icon = QLabel()
-        icon_manager.set_label_icon(
-            title_icon, 
-            'photo-library', 
-            size=int(DesignSystem.ICON_SIZE_LG)
-        )
-        title_layout.addWidget(title_icon)
-        
-        title_label = QLabel("Elige qué formato conservar")
-        title_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_LG}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-            color: {DesignSystem.COLOR_TEXT};
-        """)
-        title_layout.addWidget(title_label)
-        title_layout.addStretch()
-        layout.addLayout(title_layout)
-        
-        # ButtonGroup para RadioButtons
-        self.format_button_group = QButtonGroup(self)
-        
-        # Cards layout (horizontal)
-        cards_layout = QHBoxLayout()
-        cards_layout.setSpacing(int(DesignSystem.SPACE_12))
-        
-        # Formatos disponibles: (key, icon, title, description)
+        """Crea selector de formato usando el método centralizado de BaseDialog."""
         formats = [
             ('jpg', 'image', 'Mantener JPG', 
              f'Máxima compatibilidad. Los JPG funcionan en todos los dispositivos. Liberarás {format_size(self.analysis.potential_savings_keep_jpg)}'),
@@ -170,31 +124,13 @@ class HEICDuplicateRemovalDialog(BaseDialog):
              f'Archivos más pequeños pero requiere soporte HEIC. Liberarás {format_size(self.analysis.potential_savings_keep_heic)}')
         ]
         
-        for format_key, icon_name, title, description in formats:
-            is_selected = (format_key == self.selected_format)
-            
-            # Crear RadioButton
-            radio = QRadioButton()
-            radio.setChecked(is_selected)
-            radio.toggled.connect(
-                lambda checked, f=format_key: self._on_format_card_changed(f) if checked else None
-            )
-            self.format_button_group.addButton(radio)
-            
-            # Crear card usando el método de BaseDialog
-            card = self._create_selection_card(
-                f"format-{format_key}",
-                icon_name,
-                title,
-                description,
-                is_selected,
-                radio
-            )
-            cards_layout.addWidget(card)
-        
-        layout.addLayout(cards_layout)
-        
-        return frame
+        return self._create_option_selector(
+            title="Elige qué formato conservar",
+            title_icon='photo-library',
+            options=formats,
+            selected_value=self.selected_format,
+            on_change_callback=self._on_format_card_changed
+        )
     
     def _on_format_card_changed(self, new_format: str) -> None:
         """Maneja el cambio de formato seleccionado desde las cards.
@@ -207,87 +143,19 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         
         self.selected_format = new_format
         
-        # Actualizar estilos de las cards
-        self._update_format_cards_styles()
+        # Actualizar estilos de las cards usando el método centralizado
+        if hasattr(self, 'format_selector'):
+            self._update_option_selector_styles(
+                self.format_selector,
+                ['jpg', 'heic'],
+                self.selected_format
+            )
         
         # Actualizar texto del botón OK
         self._update_button_text()
         
         # Actualizar tree
         self._update_tree()
-    
-    def _update_format_cards_styles(self) -> None:
-        """Actualiza los estilos de las cards de formato según la selección actual."""
-        formats = ['jpg', 'heic']
-        
-        for fmt in formats:
-            card_name = f"format-{fmt}"
-            card = self.findChild(QFrame, card_name)
-            
-            if card:
-                is_selected = (fmt == self.selected_format)
-                
-                card.setStyleSheet(f"""
-                    QFrame#{card_name} {{
-                        background-color: {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_SURFACE};
-                        border: 2px solid {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_BORDER};
-                        border-radius: {DesignSystem.RADIUS_BASE}px;
-                        padding: {DesignSystem.SPACE_12}px;
-                    }}
-                    QFrame#{card_name}:hover {{
-                        border-color: {DesignSystem.COLOR_PRIMARY};
-                        background-color: {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_BG_2};
-                    }}
-                    QFrame#{card_name} QLabel {{
-                        color: {DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_TEXT};
-                    }}
-                    QFrame#{card_name} QLabel#title-label {{
-                        font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-                    }}
-                    QFrame#{card_name} QLabel#desc-label {{
-                        color: {DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_TEXT_SECONDARY};
-                    }}
-                """)
-                
-                # Actualizar color del icono
-                icon_map = {'jpg': 'image', 'heic': 'camera'}
-                header_layout = card.layout().itemAt(0).layout()
-                if header_layout and header_layout.count() >= 2:
-                    icon_label = header_layout.itemAt(1).widget()
-                    if isinstance(icon_label, QLabel):
-                        icon_manager.set_label_icon(
-                            icon_label,
-                            icon_map.get(fmt, 'photo-library'),
-                            size=int(DesignSystem.ICON_SIZE_XL),
-                            color=DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_PRIMARY
-                        )                
-                # Actualizar color del icono
-                self._update_format_card_icon_color(card, fmt, is_selected)
-    
-    def _update_format_card_icon_color(self, card: QFrame, format_key: str, is_selected: bool) -> None:
-        """Actualiza el color del icono en una card de formato.
-        
-        Args:
-            card: QFrame de la card
-            format_key: Clave del formato ('jpg' o 'heic')
-            is_selected: Si la card está seleccionada
-        """
-        icon_map = {
-            'jpg': 'image',
-            'heic': 'camera'
-        }
-        
-        # Encontrar el icono (segundo QLabel en el header layout)
-        header_layout = card.layout().itemAt(0).layout()  # Primer item es el header_layout
-        if header_layout and header_layout.count() >= 2:
-            icon_label = header_layout.itemAt(1).widget()  # Segundo widget es el icono
-            if isinstance(icon_label, QLabel):
-                icon_manager.set_label_icon(
-                    icon_label,
-                    icon_map.get(format_key, 'image'),
-                    size=int(DesignSystem.ICON_SIZE_XL),
-                    color=DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_PRIMARY
-                )
     
     def _create_format_selection(self):
         """DEPRECATED: Mantener por compatibilidad pero no se usa"""
