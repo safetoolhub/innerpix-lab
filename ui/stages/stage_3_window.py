@@ -488,16 +488,21 @@ class Stage3Window(BaseStage):
         if tool_id == 'live_photos':
             from services.live_photo_cleaner import LivePhotoCleaner
             cleaner = LivePhotoCleaner()
-            # LivePhotoCleanupWorker espera (cleaner, plan: Dict)
-            worker = LivePhotoCleanupWorker(cleaner, plan)
+            # LivePhotoCleanupWorker espera (cleaner, analysis: dataclass, create_backup, dry_run)
+            worker = LivePhotoCleanupWorker(
+                cleaner,
+                analysis=plan.get('analysis'),
+                create_backup=plan.get('create_backup', True),
+                dry_run=plan.get('dry_run', False)
+            )
         
         elif tool_id == 'heic':
             from services.heic_remover import HEICRemover
             remover = HEICRemover()
-            # HEICRemovalWorker espera (remover, pairs, keep_format, create_backup, dry_run)
+            # HEICRemovalWorker espera (remover, analysis: dataclass, keep_format, create_backup, dry_run)
             worker = HEICRemovalWorker(
                 remover=remover,
-                pairs=plan.get('pairs', []),
+                analysis=plan.get('analysis'),
                 keep_format=plan.get('keep_format', 'jpg'),
                 create_backup=plan.get('create_backup', True),
                 dry_run=plan.get('dry_run', False)
@@ -518,10 +523,11 @@ class Stage3Window(BaseStage):
         elif tool_id == 'organize':
             from services.file_organizer import FileOrganizer
             organizer = FileOrganizer()
-            # FileOrganizerWorker espera (organizer, plan: List[Dict], create_backup, dry_run)
+            # FileOrganizerWorker espera (organizer, analysis: dataclass, cleanup_empty_dirs, create_backup, dry_run)
             worker = FileOrganizerWorker(
                 organizer=organizer,
-                plan=plan.get('plan', []),
+                analysis=plan.get('analysis'),
+                cleanup_empty_dirs=plan.get('cleanup_empty_dirs', True),
                 create_backup=plan.get('create_backup', True),
                 dry_run=plan.get('dry_run', False)
             )
@@ -529,10 +535,10 @@ class Stage3Window(BaseStage):
         elif tool_id == 'rename':
             from services.file_renamer import FileRenamer
             renamer = FileRenamer()
-            # RenamingWorker espera (renamer, plan: List[Dict], create_backup, dry_run)
+            # RenamingWorker espera (renamer, analysis: dataclass, create_backup, dry_run)
             worker = RenamingWorker(
                 renamer=renamer,
-                plan=plan.get('plan', []),
+                analysis=plan.get('analysis'),
                 create_backup=plan.get('create_backup', True),
                 dry_run=plan.get('dry_run', False)
             )
@@ -1003,8 +1009,10 @@ class Stage3Window(BaseStage):
         # Crear overlay si no existe
         if not self.reanalysis_overlay:
             self.reanalysis_overlay = ReanalysisOverlay(self.main_window)
-            # Posicionarlo para que cubra todo el Stage 3
-            self.reanalysis_overlay.setGeometry(self.rect())
+            # Posicionarlo para que cubra todo el centralWidget
+            central_widget = self.main_window.centralWidget()
+            if central_widget:
+                self.reanalysis_overlay.setGeometry(central_widget.rect())
         
         # Resetear y mostrar overlay
         self.reanalysis_overlay.reset()
@@ -1037,8 +1045,19 @@ class Stage3Window(BaseStage):
         completed = list(Config.TOOL_ANALYSIS_COST.keys()).index(tool_name) + 1
         self.reanalysis_overlay.update_progress(display_name, completed)
         
-        # Actualizar analysis_results con el nuevo resultado
-        self.analysis_results[tool_name] = result
+        # Mapear tool_name a atributo de FullAnalysisResult
+        tool_to_attr = {
+            'live_photos': 'live_photos',
+            'heic': 'heic',
+            'exact_copies': 'duplicates',  # exact_copies se mapea a 'duplicates'
+            'organize': 'organization',
+            'rename': 'renaming'
+        }
+        
+        # Actualizar analysis_results con el nuevo resultado usando setattr
+        attr_name = tool_to_attr.get(tool_name)
+        if attr_name:
+            setattr(self.analysis_results, attr_name, result)
         
         # Actualizar tarjeta correspondiente en el grid
         self._update_tool_card_after_reanalysis(tool_name, result)
@@ -1058,19 +1077,19 @@ class Stage3Window(BaseStage):
         
         # Actualizar según tipo de herramienta
         if tool_name == 'live_photos':
-            if result and result.total_live_photos > 0:
+            if result and result.live_photos_found > 0:
                 card.set_status_with_results(
-                    f"{result.total_live_photos} Live Photos detectadas",
-                    f"~{format_size(result.space_potential)} recuperables"
+                    f"{result.live_photos_found} Live Photos detectadas",
+                    f"~{format_size(result.space_to_free)} recuperables"
                 )
             else:
                 card.set_status_ready("No se detectaron Live Photos")
         
         elif tool_name == 'heic':
-            if result and result.total_heic > 0:
+            if result and result.total_pairs > 0:
                 card.set_status_with_results(
-                    f"{result.total_heic} archivos HEIC con JPG",
-                    f"~{format_size(result.space_potential)} recuperables"
+                    f"{result.total_pairs} pares HEIC/JPG",
+                    f"~{format_size(result.potential_savings_keep_jpg)} recuperables"
                 )
             else:
                 card.set_status_ready("No se detectaron HEIC duplicados")
@@ -1079,24 +1098,24 @@ class Stage3Window(BaseStage):
             if result and result.total_groups > 0:
                 card.set_status_with_results(
                     f"{result.total_groups} grupos detectados",
-                    f"~{format_size(result.space_potential)} recuperables"
+                    f"~{format_size(result.space_wasted)} recuperables"
                 )
             else:
                 card.set_status_ready("No se detectaron duplicados exactos")
         
         elif tool_name == 'organize':
-            if result and result.files_to_process > 0:
+            if result and hasattr(result, 'total_files_to_move') and result.total_files_to_move > 0:
                 card.set_status_with_results(
-                    f"{format_file_count(result.files_to_process)} archivos",
+                    f"{format_file_count(result.total_files_to_move)} archivos",
                     "Listos para organizar"
                 )
             else:
                 card.set_status_ready("No hay archivos para organizar")
         
         elif tool_name == 'rename':
-            if result and result.files_to_rename > 0:
+            if result and hasattr(result, 'need_renaming') and result.need_renaming > 0:
                 card.set_status_with_results(
-                    f"{format_file_count(result.files_to_rename)} archivos",
+                    f"{format_file_count(result.need_renaming)} archivos",
                     "Listos para renombrar"
                 )
             else:

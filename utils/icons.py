@@ -84,6 +84,7 @@ class IconManager:
         
         # Tipos de archivos multimedia
         'image': 'mdi6.image',
+        'image-multiple': 'mdi6.image-multiple',
         'camera': 'mdi6.camera',
         'video': 'mdi6.video',
         'film': 'mdi6.movie',

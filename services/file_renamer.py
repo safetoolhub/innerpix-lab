@@ -334,22 +334,35 @@ class FileRenamer:
                 results.success = len(results.errors) < len(renaming_plan)
 
             completion_label = f"{mode_label} RENOMBRADO DE ARCHIVOS COMPLETADO" if dry_run else "RENOMBRADO DE ARCHIVOS COMPLETADO"
-            result_verb = "se renombrarían" if dry_run else "archivos renombrados"
-            conflicts_verb = "se resolverían" if dry_run else "conflictos resueltos"
+            result_verb = "se renombrarían" if dry_run else "renombrados"
+            conflicts_verb = "se resolverían" if dry_run else "resueltos"
             
             self.logger.info("=" * 80)
             self.logger.info(f"*** {completion_label}")
-            self.logger.info(f"*** Resultado: {results.files_renamed} {result_verb}, {results.conflicts_resolved} {conflicts_verb}")
+            self.logger.info(f"*** Resultado: {results.files_renamed} archivos {result_verb}, {results.conflicts_resolved} conflictos {conflicts_verb}")
+            
+            # Construir mensaje para UI
+            if dry_run:
+                results.message = f"Simulación completada: {results.files_renamed} archivos se renombrarían"
+            else:
+                results.message = f"Renombrados {results.files_renamed} archivos"
+                if results.conflicts_resolved > 0:
+                    results.message += f", resueltos {results.conflicts_resolved} conflictos"
+                if results.backup_path:
+                    results.message += f"\n\nBackup creado en:\n{results.backup_path}"
+            
             if results.has_errors:
                 self.logger.info(f"*** Errores encontrados durante el renombrado:")
                 for error in results.errors:
                     self.logger.error(f"  ✗ {error}")
+                results.message += f"\n\nAdvertencia: {len(results.errors)} errores encontrados"
             self.logger.info("=" * 80)
 
         except Exception as e:
             self.logger.error(f"Error crítico en renombrado: {str(e)}")
             results.success = False
             results.add_error(f"Error crítico: {str(e)}")
+            results.message = f"Error crítico: {str(e)}"
 
         return results
 

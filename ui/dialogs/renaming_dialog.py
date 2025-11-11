@@ -675,8 +675,10 @@ class RenamingPreviewDialog(BaseDialog):
         show_file_details_dialog(file_path, self, additional_info)
 
     def accept(self):
-        self.accepted_plan = self.build_accepted_plan({
-            'plan': self.analysis_results.renaming_plan,
+        # Pasar el analysis completo + parámetros por separado
+        self.accepted_plan = {
+            'analysis': self.analysis_results,  # Ya es RenameAnalysisResult dataclass
+            'create_backup': self.is_backup_enabled(),
             'dry_run': self.dry_run_checkbox.isChecked()
-        })
+        }
         super().accept()

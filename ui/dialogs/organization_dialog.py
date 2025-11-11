@@ -1176,11 +1176,11 @@ class FileOrganizationDialog(BaseDialog):
     
     def accept(self):
         """Acepta el diálogo y construye el plan"""
-        self.accepted_plan = self.build_accepted_plan({
-            'move_plan': self.analysis.move_plan,
+        # Pasar el analysis completo + parámetros por separado
+        self.accepted_plan = {
+            'analysis': self.analysis,  # Ya es OrganizationAnalysisResult dataclass
             'cleanup_empty_dirs': self.cleanup_checkbox.isChecked(),
-            'organization_type': self.current_organization_type.value,  # IMPORTANTE: usar el tipo actual
-            'folders_to_create': self.analysis.folders_to_create,
+            'create_backup': self.is_backup_enabled(),
             'dry_run': self.dry_run_checkbox.isChecked()
-        })
+        }
         super().accept()

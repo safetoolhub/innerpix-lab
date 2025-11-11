@@ -286,11 +286,11 @@ class ReanalysisOverlay(QFrame):
         
         # Icono según herramienta
         tool_icons = {
-            "Live Photos": "image-multiple",
-            "HEIC/JPG": "file-image",
+            "Live Photos": "camera-burst",
+            "HEIC/JPG": "heic",
             "Copias Exactas": "content-copy",
-            "Organizar": "folder-multiple",
-            "Renombrar": "rename-box",
+            "Organizar": "organize",
+            "Renombrar": "rename",
         }
         icon_name = tool_icons.get(tool_name, "options")
         icon_manager.set_label_icon(

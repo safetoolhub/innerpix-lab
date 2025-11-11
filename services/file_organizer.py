@@ -944,19 +944,26 @@ class FileOrganizer:
             if dry_run:
                 self.logger.info("*** SIMULACIÓN DE ORGANIZACIÓN DE ARCHIVOS COMPLETADA")
                 self.logger.info(f"*** Resultado: {results.files_moved} archivos se moverían")
+                results.message = f"Simulación completada: {results.files_moved} archivos se moverían"
             else:
                 self.logger.info("*** ORGANIZACIÓN DE ARCHIVOS COMPLETADA")
                 self.logger.info(f"*** Resultado: {results.files_moved} archivos movidos")
+                results.message = f"Organizados {results.files_moved} archivos"
+                if results.backup_path:
+                    results.message += f"\n\nBackup creado en:\n{results.backup_path}"
+            
             if results.errors:
                 error_prefix = "[SIMULACIÓN] " if dry_run else ""
                 self.logger.info(f"*** {error_prefix}Errores encontrados durante la {'simulación' if dry_run else 'organización'}:")
                 for error in results.errors:
                     self.logger.error(f"  ✗ {error}")
+                results.message += f"\n\nAdvertencia: {len(results.errors)} errores encontrados"
             self.logger.info("=" * 80)
 
         except Exception as e:
             self.logger.error(f"Error crítico en organización: {str(e)}")
             results.add_error(f"Error crítico: {str(e)}")
+            results.message = f"Error crítico: {str(e)}"
 
         return results
 

@@ -645,9 +645,11 @@ class HEICDuplicateRemovalDialog(BaseDialog):
             )
 
     def accept(self):
-        self.accepted_plan = self.build_accepted_plan({
-            'duplicate_pairs': self.analysis.duplicate_pairs,
+        # Pasar el analysis completo + parámetros por separado
+        self.accepted_plan = {
+            'analysis': self.analysis,  # Ya es un HeicAnalysisResult dataclass
             'keep_format': self.selected_format,
+            'create_backup': self.is_backup_enabled(),
             'dry_run': self.dry_run_checkbox.isChecked(),
-        })
+        }
         super().accept()

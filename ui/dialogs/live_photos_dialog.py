@@ -169,21 +169,62 @@ class LivePhotoCleanupDialog(BaseDialog):
         self._update_button_text()
 
     def accept(self):
-        # Construir lista de archivos a eliminar según el modo seleccionado
+        # Construir dataclass de análisis con los archivos a eliminar según el modo seleccionado
+        from services.result_types import LivePhotoCleanupAnalysisResult
+        
         groups = self.analysis.groups  # Dataclass attribute
         files_to_delete = []
+        files_to_keep = []
         
         if self.selected_mode == CleanupMode.KEEP_IMAGE:
             # Eliminar videos, mantener imágenes
-            files_to_delete = [group.video_path for group in groups]
+            for group in groups:
+                files_to_delete.append({
+                    'path': group.video_path,
+                    'type': 'video',
+                    'size': group.video_size,
+                    'base_name': group.base_name
+                })
+                files_to_keep.append({
+                    'path': group.image_path,
+                    'type': 'image',
+                    'size': group.image_size,
+                    'base_name': group.base_name
+                })
         elif self.selected_mode == CleanupMode.KEEP_VIDEO:
             # Eliminar imágenes, mantener videos
-            files_to_delete = [group.image_path for group in groups]
+            for group in groups:
+                files_to_delete.append({
+                    'path': group.image_path,
+                    'type': 'image',
+                    'size': group.image_size,
+                    'base_name': group.base_name
+                })
+                files_to_keep.append({
+                    'path': group.video_path,
+                    'type': 'video',
+                    'size': group.video_size,
+                    'base_name': group.base_name
+                })
         
-        self.accepted_plan = self.build_accepted_plan({
-            'mode': self.selected_mode,
-            'dry_run': self.dry_run_checkbox.isChecked(),
-            'files_to_delete': files_to_delete,
-            'groups': groups
-        })
+        # Crear dataclass de análisis
+        space_to_free = sum(f['size'] for f in files_to_delete)
+        total_space = self.analysis.total_space
+        
+        cleanup_analysis = LivePhotoCleanupAnalysisResult(
+            total_files=len(groups) * 2,
+            live_photos_found=len(groups),
+            files_to_delete=files_to_delete,
+            files_to_keep=files_to_keep,
+            space_to_free=space_to_free,
+            total_space=total_space,
+            cleanup_mode=self.selected_mode.value
+        )
+        
+        # Pasar dataclass + parámetros por separado
+        self.accepted_plan = {
+            'analysis': cleanup_analysis,
+            'create_backup': self.is_backup_enabled(),
+            'dry_run': self.dry_run_checkbox.isChecked()
+        }
         super().accept()

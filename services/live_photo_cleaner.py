@@ -325,6 +325,9 @@ class LivePhotoCleaner:
                 if results.errors:
                     self.logger.info(f"*** Errores: {len(results.errors)}")
                 self.logger.info("=" * 80)
+                
+                # Construir mensaje para UI
+                results.message = f"Simulación completada: {simulated_count} archivos ({freed}) se eliminarían"
             else:
                 try:
                     from utils.format_utils import format_size
@@ -340,10 +343,16 @@ class LivePhotoCleaner:
                     for error in results.errors:
                         self.logger.error(f"  ✗ {error}")
                 self.logger.info("=" * 80)
+                
+                # Construir mensaje para UI
+                results.message = f"Eliminados {results.files_deleted} archivos, liberados {freed}"
+                if results.backup_path:
+                    results.message += f"\n\nBackup creado en:\n{results.backup_path}"
 
         except Exception as e:
             error_msg = f"Error durante limpieza: {str(e)}"
             results.add_error(error_msg)
+            results.message = error_msg
             self.logger.error(error_msg)
 
         return results
