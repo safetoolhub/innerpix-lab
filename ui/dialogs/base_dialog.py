@@ -133,6 +133,11 @@ class BaseDialog(QDialog):
             ok_btn.setText(ok_text)
         cancel_btn.setText("Cancelar")
         
+        # Eliminar iconos automáticos de Qt que no respetan los colores personalizados
+        from PyQt6.QtGui import QIcon
+        ok_btn.setIcon(QIcon())  # Icono vacío
+        cancel_btn.setIcon(QIcon())  # Icono vacío
+        
         # Aplicar estilos Material Design según el tipo especificado
         if button_style == 'danger':
             ok_btn.setStyleSheet(DesignSystem.get_danger_button_style())

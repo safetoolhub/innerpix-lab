@@ -50,7 +50,7 @@ class LivePhotoCleanupDialog(BaseDialog):
         self.setWindowTitle("Limpieza de Live Photos")
         self.setModal(True)
         self.resize(700, 500)
-        self.setMinimumHeight(550)
+        self.setMinimumHeight(420)
         layout = QVBoxLayout(self)
         layout.setSpacing(int(DesignSystem.SPACE_16))
         layout.setContentsMargins(0, 0, 0, int(DesignSystem.SPACE_20))
