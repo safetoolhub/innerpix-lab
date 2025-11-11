@@ -65,52 +65,70 @@ class RenamingPreviewDialog(BaseDialog):
         self.resize(1200, 750)
         main_layout = QVBoxLayout(self)
         main_layout.setSpacing(int(DesignSystem.SPACE_16))
-        main_layout.setContentsMargins(
-            int(DesignSystem.SPACE_24),
-            int(DesignSystem.SPACE_20),
-            int(DesignSystem.SPACE_24),
-            int(DesignSystem.SPACE_20)
+        main_layout.setContentsMargins(0, 0, 0, int(DesignSystem.SPACE_20))
+        
+        # Header compacto integrado con métricas inline
+        header = self._create_compact_header_with_metrics(
+            icon_name='rename-outline',
+            title='Preview de renombrado',
+            description='Los archivos se renombrarán al formato YYYY-MM-DD_HH-MM-SS según fecha de creación.',
+            metrics=[
+                {
+                    'value': str(self.analysis_results.total_files),
+                    'label': 'Total',
+                    'color': DesignSystem.COLOR_PRIMARY
+                },
+                {
+                    'value': str(self.analysis_results.already_renamed),
+                    'label': 'OK',
+                    'color': DesignSystem.COLOR_SUCCESS
+                },
+                {
+                    'value': str(self.analysis_results.need_renaming),
+                    'label': 'Renombrar',
+                    'color': DesignSystem.COLOR_WARNING
+                },
+                {
+                    'value': str(self.analysis_results.conflicts),
+                    'label': 'Conflictos',
+                    'color': DesignSystem.COLOR_ERROR
+                }
+            ]
         )
+        main_layout.addWidget(header)
         
-        # Header explicativo
-        explanation = self._create_explanation_frame(
-            'rename-outline',
-            'Preview de renombrado',
-            'Los archivos se renombrarán al formato YYYY-MM-DD_HH-MM-SS basado en la fecha de creación. '
-            'Revisa los cambios propuestos antes de continuar.'
+        # Contenedor con margen para el resto del contenido
+        content_container = QFrame()
+        content_layout = QVBoxLayout(content_container)
+        content_layout.setSpacing(int(DesignSystem.SPACE_16))
+        content_layout.setContentsMargins(
+            int(DesignSystem.SPACE_24),
+            int(DesignSystem.SPACE_12),
+            int(DesignSystem.SPACE_24),
+            0
         )
-        main_layout.addWidget(explanation)
-        
-        # Panel superior: Métricas en una línea compacta
-        metrics_layout = self._create_compact_metrics()
-        main_layout.addLayout(metrics_layout)
-        
-        # Separador visual
-        separator = QFrame()
-        separator.setFrameShape(QFrame.Shape.HLine)
-        separator.setFrameShadow(QFrame.Shadow.Sunken)
-        main_layout.addWidget(separator)
+        main_layout.addWidget(content_container)
         
         # Barra de herramientas: filtros y búsqueda
         toolbar = self._create_toolbar()
-        main_layout.addLayout(toolbar)
+        content_layout.addLayout(toolbar)
         
         # Tabla de cambios propuestos
         self.changes_table = self._create_changes_table()
-        main_layout.addWidget(self.changes_table)
+        content_layout.addWidget(self.changes_table)
         
         # Controles de paginación (si hay muchos archivos)
         self.pagination_widget = self._create_pagination_controls()
-        main_layout.addWidget(self.pagination_widget)
+        content_layout.addWidget(self.pagination_widget)
         
         # Panel de problemas (si hay) - colapsable al final
         if self.analysis_results.issues:
             problems_widget = self._create_problems_section()
-            main_layout.addWidget(problems_widget)
+            content_layout.addWidget(problems_widget)
         
         # Opciones de seguridad
         options_group = self._create_options_group()
-        main_layout.addWidget(options_group)
+        content_layout.addWidget(options_group)
         
         # Botones
         ok_enabled = self.analysis_results.need_renaming > 0
@@ -118,7 +136,7 @@ class RenamingPreviewDialog(BaseDialog):
         buttons = self.make_ok_cancel_buttons(ok_text=ok_text, ok_enabled=ok_enabled)
         self.buttons = buttons
         self.ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
-        main_layout.addWidget(buttons)
+        content_layout.addWidget(buttons)
         
         # Actualizar tabla inicial
         self._update_table()
@@ -126,27 +144,7 @@ class RenamingPreviewDialog(BaseDialog):
         # Aplicar estilo global de tooltips
         self.setStyleSheet(DesignSystem.get_tooltip_style())
 
-    def _create_compact_metrics(self):
-        """Crea panel de métricas compacto en una línea"""
-        layout = QHBoxLayout()
-        layout.setSpacing(int(DesignSystem.SPACE_12))
-        
-        # Crear tarjetas de métricas inline usando método de BaseDialog
-        self.stats_labels = {}
-        metrics_data = [
-            ("Total", self.analysis_results.total_files, DesignSystem.COLOR_PRIMARY),
-            ("Nombre OK", self.analysis_results.already_renamed, DesignSystem.COLOR_SUCCESS),
-            ("Para renombrar", self.analysis_results.need_renaming, DesignSystem.COLOR_WARNING),
-            ("Conflictos", self.analysis_results.conflicts, DesignSystem.COLOR_WARNING),
-        ]
-        
-        for label_text, value, color in metrics_data:
-            card = self._create_metric_card(str(value), label_text, color)
-            layout.addWidget(card)
-        
-        layout.addStretch()
-        
-        return layout
+
 
     def _create_toolbar(self):
         """Crea la barra de herramientas con filtros y búsqueda"""

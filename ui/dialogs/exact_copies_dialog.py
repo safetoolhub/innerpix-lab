@@ -61,56 +61,48 @@ class ExactCopiesDialog(BaseDialog):
         
         layout = QVBoxLayout(self)
         layout.setSpacing(int(DesignSystem.SPACE_16))
-        layout.setContentsMargins(
+        layout.setContentsMargins(0, 0, 0, int(DesignSystem.SPACE_20))
+        
+        # Header compacto integrado con métricas inline
+        header = self._create_compact_header_with_metrics(
+            icon_name='content-copy',
+            title='Copias exactas detectadas',
+            description='Archivos idénticos (100% mismo contenido SHA256). Elimina copias conservando un original.',
+            metrics=[
+                {
+                    'value': str(self.analysis.total_groups),
+                    'label': 'Grupos',
+                    'color': DesignSystem.COLOR_PRIMARY
+                },
+                {
+                    'value': str(self.analysis.total_duplicates),
+                    'label': 'Copias',
+                    'color': DesignSystem.COLOR_WARNING
+                },
+                {
+                    'value': format_size(self.analysis.space_wasted),
+                    'label': 'Espacio',
+                    'color': DesignSystem.COLOR_SUCCESS
+                }
+            ]
+        )
+        layout.addWidget(header)
+        
+        # Contenedor con margen para el resto del contenido
+        content_container = QWidget()
+        content_layout = QVBoxLayout(content_container)
+        content_layout.setSpacing(int(DesignSystem.SPACE_16))
+        content_layout.setContentsMargins(
             int(DesignSystem.SPACE_24),
-            int(DesignSystem.SPACE_20),
+            int(DesignSystem.SPACE_12),
             int(DesignSystem.SPACE_24),
-            int(DesignSystem.SPACE_20)
+            0
         )
+        layout.addWidget(content_container)
         
-        # Header con icono y explicación
-        explanation = self._create_explanation_frame(
-            'content-copy',
-            'Copias exactas detectadas',
-            'Se han detectado archivos idénticos (100% mismo contenido digital SHA256). '
-            'Puedes eliminar las copias redundantes conservando un original por grupo.'
-        )
-        layout.addWidget(explanation)
-        
-        # Métricas inline
-        metrics_layout = QHBoxLayout()
-        metrics_layout.setSpacing(int(DesignSystem.SPACE_12))
-        
-        # Grupos de duplicados
-        groups_metric = self._create_metric_card(
-            str(self.analysis.total_groups),
-            "Grupos de duplicados",
-            DesignSystem.COLOR_PRIMARY
-        )
-        metrics_layout.addWidget(groups_metric)
-        
-        # Copias a eliminar
-        copies_metric = self._create_metric_card(
-            str(self.analysis.total_duplicates),
-            "Copias redundantes",
-            DesignSystem.COLOR_WARNING
-        )
-        metrics_layout.addWidget(copies_metric)
-        
-        # Espacio recuperable
-        space_metric = self._create_metric_card(
-            format_size(self.analysis.space_wasted),
-            "Espacio recuperable",
-            DesignSystem.COLOR_SUCCESS
-        )
-        metrics_layout.addWidget(space_metric)
-        
-        metrics_layout.addStretch()
-        layout.addLayout(metrics_layout)
-        
-        # Selector de estrategia con cards
+        # Selector de estrategia con cards (debajo del header)
         strategy_selector = self._create_strategy_selector()
-        layout.addWidget(strategy_selector)
+        content_layout.addWidget(strategy_selector)
         
         # Advertencia si hay muchos grupos
         if len(self.all_groups) > self.WARNING_THRESHOLD:
@@ -133,7 +125,7 @@ class ExactCopiesDialog(BaseDialog):
                     font-size: {DesignSystem.FONT_SIZE_SM}px;
                 }}
             """)
-            layout.addWidget(warning_many)
+            content_layout.addWidget(warning_many)
         
         # Barra de herramientas (búsqueda, filtros y acciones)
         toolbar_layout = QHBoxLayout()
@@ -245,7 +237,7 @@ class ExactCopiesDialog(BaseDialog):
         toolbar_layout.addWidget(self.groups_info_label)
         
         toolbar_layout.addStretch()
-        layout.addLayout(toolbar_layout)
+        content_layout.addLayout(toolbar_layout)
         
         # Tree widget para mostrar grupos expandibles
         self.tree_widget = QTreeWidget()
@@ -276,7 +268,7 @@ class ExactCopiesDialog(BaseDialog):
         self.tree_widget.itemDoubleClicked.connect(self._on_item_double_clicked)
         self.tree_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.tree_widget.customContextMenuRequested.connect(self._show_context_menu)
-        layout.addWidget(self.tree_widget)
+        content_layout.addWidget(self.tree_widget)
         
         # Botón de paginación (solo "Cargar Más")
         pagination_layout = QHBoxLayout()
@@ -308,7 +300,7 @@ class ExactCopiesDialog(BaseDialog):
         pagination_layout.addWidget(self.load_more_btn)
         
         pagination_layout.addStretch()
-        layout.addLayout(pagination_layout)
+        content_layout.addLayout(pagination_layout)
         
         # Cargar grupos iniciales
         self._load_initial_groups()
@@ -339,7 +331,7 @@ class ExactCopiesDialog(BaseDialog):
             dry_run_default = dry_run_default.lower() in ('true', '1', 'yes')
         self.dry_run_checkbox.setChecked(bool(dry_run_default))
         options_layout.addWidget(self.dry_run_checkbox)
-        layout.addWidget(options_group)
+        content_layout.addWidget(options_group)
 
         # Botones
         buttons = self.make_ok_cancel_buttons(ok_text="Eliminar Ahora")
@@ -347,7 +339,7 @@ class ExactCopiesDialog(BaseDialog):
         ok_btn = buttons.button(QDialogButtonBox.StandardButton.Ok)
         icon_manager.set_button_icon(ok_btn, 'delete', size=16)
         ok_btn.setStyleSheet(ui_styles.STYLE_DANGER_BUTTON)
-        layout.addWidget(buttons)
+        content_layout.addWidget(buttons)
         
         # Aplicar estilo global de tooltips
         self.setStyleSheet(DesignSystem.get_tooltip_style())

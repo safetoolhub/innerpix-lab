@@ -101,46 +101,66 @@ class FileOrganizationDialog(BaseDialog):
         self.resize(1200, 800)
         
         main_layout = QVBoxLayout(self)
-        main_layout.setSpacing(DesignSystem.SPACE_16)
-        main_layout.setContentsMargins(
-            DesignSystem.SPACE_24,
-            DesignSystem.SPACE_20,
-            DesignSystem.SPACE_24,
-            DesignSystem.SPACE_20
+        main_layout.setSpacing(0)
+        main_layout.setContentsMargins(0, 0, 0, DesignSystem.SPACE_20)
+        
+        # === HEADER COMPACTO CON MÉTRICAS ===
+        self.header_frame = self._create_compact_header_with_metrics(
+            icon_name='folder-settings',
+            title='Organización de archivos',
+            description='Reorganiza tu colección según diferentes criterios. Selecciona un tipo y revisa el plan.',
+            metrics=[
+                {
+                    'value': str(self.analysis.total_files_to_move),
+                    'label': 'Archivos',
+                    'color': DesignSystem.COLOR_PRIMARY
+                },
+                {
+                    'value': str(len(self.analysis.subdirectories)),
+                    'label': 'Subdirs',
+                    'color': '#9c27b0'
+                },
+                {
+                    'value': format_size(self.analysis.total_size_to_move),
+                    'label': 'Tamaño',
+                    'color': '#ff9800'
+                }
+            ]
         )
+        main_layout.addWidget(self.header_frame)
+        
+        # Contenedor con márgenes para el resto del contenido
+        content_container = QWidget()
+        content_layout = QVBoxLayout(content_container)
+        content_layout.setSpacing(DesignSystem.SPACE_16)
+        content_layout.setContentsMargins(
+            DesignSystem.SPACE_24,
+            DesignSystem.SPACE_12,
+            DesignSystem.SPACE_24,
+            0
+        )
+        main_layout.addWidget(content_container)
         
         # === SELECTOR DE TIPO ===
         type_selector = self._create_type_selector()
-        main_layout.addWidget(type_selector)
-        
-        # === SEPARADOR ===
-        separator = QFrame()
-        separator.setFrameShape(QFrame.Shape.HLine)
-        separator.setStyleSheet(f"background-color: {DesignSystem.COLOR_BORDER};")
-        separator.setMaximumHeight(1)
-        main_layout.addWidget(separator)
-        
-       
-        # === MÉTRICAS ===
-        self.metrics_widget = self._create_metrics_section()
-        main_layout.addWidget(self.metrics_widget)
+        content_layout.addWidget(type_selector)
         
         # === INFORMACIÓN DE CARPETAS ===
         self.folders_info_widget = self._create_folders_info()
         if self.folders_info_widget:
-            main_layout.addWidget(self.folders_info_widget)
+            content_layout.addWidget(self.folders_info_widget)
         
         # === BARRA DE HERRAMIENTAS ===
         toolbar = self._create_toolbar()
-        main_layout.addLayout(toolbar)
+        content_layout.addLayout(toolbar)
         
         # === TREE WIDGET ===
         self.files_tree = self._create_tree_widget()
-        main_layout.addWidget(self.files_tree, 1)  # Stretch factor 1
+        content_layout.addWidget(self.files_tree, 1)  # Stretch factor 1
         
         # === PAGINACIÓN ===
         self.pagination_widget = self._create_pagination_controls()
-        main_layout.addWidget(self.pagination_widget)
+        content_layout.addWidget(self.pagination_widget)
         
         # === PROGRESS BAR (inicialmente oculto) ===
         self.progress_bar = QProgressBar()
@@ -157,15 +177,15 @@ class FileOrganizationDialog(BaseDialog):
                 border-radius: {DesignSystem.RADIUS_BASE}px;
             }}
         """)
-        main_layout.addWidget(self.progress_bar)
+        content_layout.addWidget(self.progress_bar)
         
         # === OPCIONES ===
         options_group = self._create_options_group()
-        main_layout.addWidget(options_group)
+        content_layout.addWidget(options_group)
         
         # === BOTONES ===
         self.buttons = self._create_action_buttons()
-        main_layout.addWidget(self.buttons)
+        content_layout.addWidget(self.buttons)
         
         # Actualizar vista inicial
         self._update_all_ui()
@@ -382,8 +402,8 @@ class FileOrganizationDialog(BaseDialog):
     def _update_all_ui(self):
         """Actualiza toda la UI con los datos actuales"""
         
-        # Actualizar métricas
-        self._update_metrics()
+        # Actualizar header con métricas
+        self._update_header_metrics()
         
         # Actualizar info de carpetas
         self._update_folders_info()
@@ -396,6 +416,37 @@ class FileOrganizationDialog(BaseDialog):
         
         # Re-aplicar estilos a las cards de selección
         self._update_type_selector_styles()
+    
+    def _update_header_metrics(self):
+        """Actualiza las métricas del header compacto"""
+        old_header = self.header_frame
+        self.header_frame = self._create_compact_header_with_metrics(
+            icon_name='folder-settings',
+            title='Organización de archivos',
+            description='Reorganiza tu colección según diferentes criterios. Selecciona un tipo y revisa el plan.',
+            metrics=[
+                {
+                    'value': str(self.analysis.total_files_to_move),
+                    'label': 'Archivos',
+                    'color': DesignSystem.COLOR_PRIMARY
+                },
+                {
+                    'value': str(len(self.analysis.subdirectories)),
+                    'label': 'Subdirs',
+                    'color': '#9c27b0'
+                },
+                {
+                    'value': format_size(self.analysis.total_size_to_move),
+                    'label': 'Tamaño',
+                    'color': '#ff9800'
+                }
+            ]
+        )
+        
+        # Reemplazar el widget en el layout
+        layout = self.layout()
+        layout.replaceWidget(old_header, self.header_frame)
+        old_header.deleteLater()
     
     def _update_type_selector_styles(self):
         """Actualiza los estilos de las cards de selección según el tipo actual"""
@@ -482,10 +533,7 @@ class FileOrganizationDialog(BaseDialog):
             ("Tamaño total", format_size(self.analysis.total_size_to_move), "#ff9800"),
         ]
         
-        for label_text, value, color in metrics_data:
-            card = self._create_inline_metric(label_text, value, color)
-            self.metrics_layout.addWidget(card)
-        
+       
         # Métricas por tipo
         if self.analysis.files_by_type:
             types_text = " | ".join([
@@ -514,43 +562,6 @@ class FileOrganizationDialog(BaseDialog):
             self.metrics_layout.addWidget(conflicts_label)
         
         self.metrics_layout.addStretch()
-    
-    def _create_inline_metric(self, label_text: str, value, color: str) -> QFrame:
-        """Crea una métrica compacta inline"""
-        frame = QFrame()
-        frame.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_BG_1};
-                border-left: 3px solid {color};
-                padding: {DesignSystem.SPACE_6}px;
-                margin: {DesignSystem.SPACE_2}px;
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-            }}
-        """)
-        
-        layout = QHBoxLayout(frame)
-        layout.setContentsMargins(DesignSystem.SPACE_8, DesignSystem.SPACE_6, DesignSystem.SPACE_8, DesignSystem.SPACE_6)
-        layout.setSpacing(DesignSystem.SPACE_4)
-        
-        # Valor
-        value_label = QLabel(str(value))
-        value_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_2XL}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
-            color: {color};
-        """)
-        
-        # Label descriptivo
-        desc_label = QLabel(label_text)
-        desc_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            color: {DesignSystem.COLOR_TEXT_SECONDARY};
-        """)
-        
-        layout.addWidget(value_label)
-        layout.addWidget(desc_label)
-        
-        return frame
     
     def _create_folders_info(self) -> Optional[QWidget]:
         """Crea sección de información de carpetas a crear"""

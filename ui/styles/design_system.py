@@ -48,6 +48,7 @@ class DesignSystem:
     FONT_FAMILY_BASE = "Segoe UI, -apple-system, BlinkMacSystemFont, Roboto, sans-serif"
     FONT_FAMILY_MONO = "Consolas, Monaco, 'Courier New', monospace"
     
+    FONT_SIZE_XS = 10
     FONT_SIZE_SM = 12
     FONT_SIZE_BASE = 14
     FONT_SIZE_MD = 14
