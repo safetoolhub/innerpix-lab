@@ -11,6 +11,19 @@ from pathlib import Path
 
 
 @dataclass
+class DuplicateGroup:
+    """
+    Grupo de archivos duplicados (copias exactas o similares).
+    
+    Usado por ExactCopiesDetector y SimilarFilesDetector.
+    """
+    hash_value: str  # SHA256 hash o perceptual hash
+    files: List[Path]
+    total_size: int
+    similarity_score: float = 100.0  # Copias exactas = 100%, similares = variable
+
+
+@dataclass
 class OperationResult:
     """Resultado base de cualquier operación"""
     success: bool = True

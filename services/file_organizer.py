@@ -19,6 +19,7 @@ from utils.callback_utils import safe_progress_callback
 from utils.settings_manager import settings_manager
 from utils.date_utils import parse_renamed_name, get_file_date
 from services.result_types import OrganizationResult, OrganizationAnalysisResult
+from services.base_service import BaseService
 
 
 class OrganizationType(Enum):
@@ -53,7 +54,7 @@ class FileMove:
         return self.original_name != self.new_name
 
 
-class FileOrganizer:
+class FileOrganizer(BaseService):
     """
     Organizador de archivos - Mueve archivos multimedia de subdirectorios al directorio raíz
     """
@@ -69,8 +70,7 @@ class FileOrganizer:
     ]
 
     def __init__(self):
-        self.logger = get_logger("FileOrganizer")
-        self.backup_dir = None
+        super().__init__("FileOrganizer")
 
     @classmethod
     def is_whatsapp_file(cls, filename: str) -> bool:
@@ -705,12 +705,12 @@ class FileOrganizer:
                 message='No hay archivos para mover'
             )
 
-        self.logger.info("=" * 80)
-        self.logger.info("*** INICIANDO ORGANIZACIÓN DE ARCHIVOS")
+        mode_label = "SIMULACIÓN" if dry_run else ""
+        self._log_section_header(
+            "INICIANDO ORGANIZACIÓN DE ARCHIVOS",
+            mode=mode_label
+        )
         self.logger.info(f"*** Archivos a mover: {len(move_plan)}")
-        if dry_run:
-            self.logger.info("*** Modo: SIMULACIÓN")
-        self.logger.info("=" * 80)
 
         results = OrganizationResult(success=True, dry_run=dry_run)
 
@@ -940,14 +940,15 @@ class FileOrganizer:
             if results.has_errors:
                 results.success = len(results.errors) < len(move_plan)
 
-            self.logger.info("=" * 80)
+            completion_label = "ORGANIZACIÓN DE ARCHIVOS COMPLETADA"
+            result_verb = "se moverían" if dry_run else "movidos"
+            
+            summary = f"{completion_label}\nResultado: {results.files_moved} archivos {result_verb}"
+            self._log_section_footer(summary)
+            
             if dry_run:
-                self.logger.info("*** SIMULACIÓN DE ORGANIZACIÓN DE ARCHIVOS COMPLETADA")
-                self.logger.info(f"*** Resultado: {results.files_moved} archivos se moverían")
                 results.message = f"Simulación completada: {results.files_moved} archivos se moverían"
             else:
-                self.logger.info("*** ORGANIZACIÓN DE ARCHIVOS COMPLETADA")
-                self.logger.info(f"*** Resultado: {results.files_moved} archivos movidos")
                 results.message = f"Organizados {results.files_moved} archivos"
                 if results.backup_path:
                     results.message += f"\n\nBackup creado en:\n{results.backup_path}"
@@ -958,7 +959,6 @@ class FileOrganizer:
                 for error in results.errors:
                     self.logger.error(f"  ✗ {error}")
                 results.message += f"\n\nAdvertencia: {len(results.errors)} errores encontrados"
-            self.logger.info("=" * 80)
 
         except Exception as e:
             self.logger.error(f"Error crítico en organización: {str(e)}")

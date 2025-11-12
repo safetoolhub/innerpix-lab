@@ -16,6 +16,7 @@ from utils.logger import get_logger
 from utils.callback_utils import safe_progress_callback
 from utils.settings_manager import settings_manager
 from services.result_types import RenameResult, RenameAnalysisResult
+from services.base_service import BaseService
 from utils.date_utils import (
     get_file_date,
     format_renamed_name,
@@ -28,13 +29,12 @@ from utils.file_utils import (
     validate_file_exists,
 )
 
-class FileRenamer:
+class FileRenamer(BaseService):
     """
     Renombrador de nombres de archivos multimedia
     """
     def __init__(self):
-        self.logger = get_logger("FileRenamer")
-        self.backup_dir = None
+        super().__init__("FileRenamer")
 
     def analyze_directory(
         self,
@@ -210,11 +210,12 @@ class FileRenamer:
                 dry_run=dry_run
             )
 
-        mode_label = "[SIMULACIÓN]" if dry_run else ""
-        self.logger.info("=" * 80)
-        self.logger.info(f"*** {mode_label} INICIANDO RENOMBRADO DE ARCHIVOS")
+        mode_label = "SIMULACIÓN" if dry_run else ""
+        self._log_section_header(
+            "INICIANDO RENOMBRADO DE ARCHIVOS",
+            mode=mode_label
+        )
         self.logger.info(f"*** Archivos a renombrar: {len(renaming_plan)}")
-        self.logger.info("=" * 80)
 
         results = RenameResult(success=True, dry_run=dry_run)
 
@@ -333,13 +334,12 @@ class FileRenamer:
             if results.has_errors:
                 results.success = len(results.errors) < len(renaming_plan)
 
-            completion_label = f"{mode_label} RENOMBRADO DE ARCHIVOS COMPLETADO" if dry_run else "RENOMBRADO DE ARCHIVOS COMPLETADO"
+            completion_label = "RENOMBRADO DE ARCHIVOS COMPLETADO"
             result_verb = "se renombrarían" if dry_run else "renombrados"
             conflicts_verb = "se resolverían" if dry_run else "resueltos"
             
-            self.logger.info("=" * 80)
-            self.logger.info(f"*** {completion_label}")
-            self.logger.info(f"*** Resultado: {results.files_renamed} archivos {result_verb}, {results.conflicts_resolved} conflictos {conflicts_verb}")
+            summary = f"{completion_label}\nResultado: {results.files_renamed} archivos {result_verb}, {results.conflicts_resolved} conflictos {conflicts_verb}"
+            self._log_section_footer(summary)
             
             # Construir mensaje para UI
             if dry_run:
@@ -356,7 +356,6 @@ class FileRenamer:
                 for error in results.errors:
                     self.logger.error(f"  ✗ {error}")
                 results.message += f"\n\nAdvertencia: {len(results.errors)} errores encontrados"
-            self.logger.info("=" * 80)
 
         except Exception as e:
             self.logger.error(f"Error crítico en renombrado: {str(e)}")
