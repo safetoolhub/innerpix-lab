@@ -78,31 +78,7 @@ class BaseDetectorService(BaseService):
         progress_callback: Optional[Callable[[int, int, str], None]] = None
     ) -> DuplicateDeletionResult:
         """
-        Ejecuta la eliminación de duplicados (método unificado)
-
-        Args:
-            groups: Lista de grupos de duplicados
-            keep_strategy: Estrategia para seleccionar archivo a mantener
-            create_backup: Si crear backup antes de eliminar
-            dry_run: Si solo simular sin eliminar archivos reales
-            progress_callback: Callback para reportar progreso
-
-        Returns:
-            DuplicateDeletionResult con estadísticas de la operación
-        """
-        return self.execute_deletion(groups, keep_strategy, create_backup, dry_run, progress_callback)
-
-    @deprecated(reason="Nomenclatura inconsistente", replacement="execute()")
-    def execute_deletion(
-        self,
-        groups: List[DuplicateGroup],
-        keep_strategy: str = 'oldest',
-        create_backup: bool = True,
-        dry_run: bool = False,
-        progress_callback: Optional[Callable[[int, int, str], None]] = None
-    ) -> DuplicateDeletionResult:
-        """
-        Lógica unificada de eliminación de duplicados.
+        Ejecuta la eliminación de duplicados (lógica unificada).
         
         Elimina el código duplicado de 200+ líneas entre detectores.
         Maneja backup, dry-run, progress reporting y error handling.
