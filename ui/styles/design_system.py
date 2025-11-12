@@ -45,8 +45,8 @@ class DesignSystem:
     # Backgrounds adicionales
     COLOR_BG_1 = "#fafafa"
     COLOR_BG_2 = "#f0f0f0"
-    COLOR_BG_4 = "#fef3c7"  # Warning background
-    COLOR_BACKGROUND_OVERLAY = "rgba(0, 0, 0, 0.7)"  # Semi-transparent black for overlays
+    COLOR_BG_4 = "#fef3c7"  # Warning background    
+    COLOR_SURFACE_DISABLED = "#f9fafb"  # Fondo más oscuro para estados deshabilitados
     
     # ==================== TIPOGRAFÍA ====================
     
@@ -235,7 +235,6 @@ class DesignSystem:
             }}
         """
     
-    @staticmethod
     @staticmethod
     def get_tooltip_style():
         """
