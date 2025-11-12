@@ -73,7 +73,7 @@ class FileOrganizer(BaseService):
 
     def analyze(self, root_directory: Path, organization_type: OrganizationType = OrganizationType.TO_ROOT, progress_callback: Optional[ProgressCallback] = None) -> OrganizationAnalysisResult:
         """
-        Analiza la estructura de directorios para organización (método unificado)
+        Analiza la estructura de directorios para organización.
 
         Args:
             root_directory: Directorio raíz a analizar
@@ -81,9 +81,197 @@ class FileOrganizer(BaseService):
             progress_callback: Función opcional (current, total, message) para reportar progreso
 
         Returns:
-            OrganizationAnalysisResult con los archivos a organizar y el plan de movimientos
+            OrganizationAnalysisResult con análisis detallado
         """
-        return self.analyze_directory_structure(root_directory, organization_type, progress_callback)
+        self.logger.info(f"Analizando estructura de directorios para organización ({organization_type.value}): {root_directory}")
+
+        subdirectories = {}
+        root_files = []
+        total_files_to_move = 0
+        total_size_to_move = 0
+        potential_conflicts = 0
+        files_by_type = Counter()
+        move_plan = []
+        folders_to_create = []
+
+        # Obtener max_workers de la configuración
+        max_workers = settings_manager.get_max_workers(Config.MAX_WORKERS)
+        self.logger.debug(f"Usando {max_workers} workers para análisis paralelo")
+
+        # Contar total de archivos para progress
+        all_files_for_count = list(root_directory.rglob("*"))
+        total_files = sum(1 for f in all_files_for_count if f.is_file() and Config.is_supported_file(f.name))
+        processed_files = 0
+
+        # Función para procesar información de archivo
+        def get_file_info(file_path):
+            """Obtiene información de un archivo"""
+            try:
+                file_size = file_path.stat().st_size
+                file_type = Config.get_file_type(file_path.name)
+                return {
+                    'path': file_path,
+                    'name': file_path.name,
+                    'size': file_size,
+                    'type': file_type
+                }
+            except Exception as e:
+                self.logger.warning(f"Error al obtener info de {file_path}: {e}")
+                return None
+
+        # Obtener archivos en raíz
+        root_file_names = set()
+        root_file_info = []
+        
+        root_files_list = [item for item in root_directory.iterdir() 
+                          if item.is_file() and Config.is_supported_file(item.name)]
+        
+        # Procesar archivos de raíz en paralelo si es necesario
+        if organization_type in (OrganizationType.BY_MONTH, OrganizationType.WHATSAPP_SEPARATE) and root_files_list:
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = {executor.submit(get_file_info, f): f for f in root_files_list}
+                for future in as_completed(futures):
+                    file_path = futures[future]
+                    root_file_names.add(file_path.name)
+                    
+                    info = future.result()
+                    if info:
+                        root_file_info.append(info)
+                    
+                    processed_files += 1
+                    # Si el callback retorna False, cancelar análisis
+                    if not self._report_progress(progress_callback, processed_files, total_files, "Analizando estructura de organización"):
+                        executor.shutdown(wait=False, cancel_futures=True)
+                        # Retornar resultado vacío al cancelar
+                        return OrganizationAnalysisResult(
+                            success=False,
+                            total_files=0,
+                            root_directory=str(root_directory),
+                            organization_type=organization_type.value,
+                            subdirectories={},
+                            root_files=[],
+                                total_files_to_move=0,
+                                total_size_to_move=0,
+                                potential_conflicts=0,
+                                files_by_type={},
+                                move_plan=[],
+                                folders_to_create=[]
+                            )
+        else:
+            # Solo necesitamos los nombres para TO_ROOT
+            root_file_names = {item.name for item in root_files_list}
+            processed_files += len(root_files_list)
+            # Si el callback retorna False, cancelar análisis
+            if not self._report_progress(progress_callback, processed_files, total_files, "Analizando estructura de organización"):
+                return OrganizationAnalysisResult(
+                    success=False,
+                    total_files=0,
+                    root_directory=str(root_directory),
+                    organization_type=organization_type.value,
+                    subdirectories={},
+                    root_files=[],
+                    total_files_to_move=0,
+                    total_size_to_move=0,
+                    potential_conflicts=0,
+                    files_by_type={},
+                    move_plan=[],
+                        folders_to_create=[]
+                    )
+
+        # Procesar subdirectorios
+        for item in root_directory.iterdir():
+            if not item.is_dir():
+                continue
+
+            subdir_name = item.name
+            subdir_files_list = [file_path for file_path in item.iterdir()
+                                if file_path.is_file() and Config.is_supported_file(file_path.name)]
+            
+            if not subdir_files_list:
+                continue
+
+            # Procesar archivos del subdirectorio en paralelo
+            subdir_files = []
+            total_size = 0
+            
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = {executor.submit(get_file_info, f): f for f in subdir_files_list}
+                for future in as_completed(futures):
+                    info = future.result()
+                    if info:
+                        subdir_files.append(info)
+                        total_size += info['size']
+                        files_by_type[info['type']] += 1
+                    
+                    processed_files += 1
+                    # Si el callback retorna False, cancelar análisis
+                    if not self._report_progress(progress_callback, processed_files, total_files, "Analizando estructura de organización"):
+                        executor.shutdown(wait=False, cancel_futures=True)
+                        # Retornar resultado vacío al cancelar
+                        return OrganizationAnalysisResult(
+                            success=False,
+                            total_files=0,
+                            root_directory=str(root_directory),
+                            organization_type=organization_type.value,
+                            subdirectories={},
+                            root_files=[],
+                            total_files_to_move=0,
+                            total_size_to_move=0,
+                            potential_conflicts=0,
+                            files_by_type={},
+                            move_plan=[],
+                                folders_to_create=[]
+                            )
+
+            if subdir_files:
+                subdirectories[subdir_name] = {
+                    'path': str(item),
+                    'file_count': len(subdir_files),
+                    'total_size': total_size,
+                    'files': subdir_files
+                }
+
+                total_files_to_move += len(subdir_files)
+                total_size_to_move += total_size
+
+        # Para by_month y whatsapp_separate, agregar archivos de raíz
+        if organization_type in (OrganizationType.BY_MONTH, OrganizationType.WHATSAPP_SEPARATE):
+            if root_file_info:
+                root_files = root_file_info
+                total_files_to_move += len(root_file_info)
+                total_size_to_move += sum(f['size'] for f in root_file_info)
+                
+                for file_info in root_file_info:
+                    files_by_type[file_info['type']] += 1
+
+        # Generar plan de movimiento si hay archivos
+        if subdirectories or root_files:
+            move_plan = self._generate_move_plan(
+                subdirectories,
+                root_files,
+                root_directory,
+                root_file_names,
+                organization_type
+            )
+            potential_conflicts = sum(1 for move in move_plan if move.has_conflict)
+            folders_to_create = sorted(set(move.target_folder for move in move_plan if move.target_folder))
+
+        self.logger.info(f"Análisis completado: {total_files_to_move} archivos para mover desde {len(subdirectories)} subdirectorios + {len(root_files)} en raíz")
+
+        return OrganizationAnalysisResult(
+            success=True,
+            total_files=total_files_to_move,
+            root_directory=str(root_directory),
+            organization_type=organization_type.value,
+            subdirectories=subdirectories,
+            root_files=root_files,
+            total_files_to_move=total_files_to_move,
+            total_size_to_move=total_size_to_move,
+            potential_conflicts=potential_conflicts,
+            files_by_type=dict(files_by_type),
+            move_plan=move_plan,
+            folders_to_create=folders_to_create
+        )
 
     def execute(self, move_plan: List[FileMove], create_backup: bool = True, dry_run: bool = False, progress_callback: Optional[ProgressCallback] = None) -> OrganizationResult:
         """
@@ -116,8 +304,7 @@ class FileOrganizer(BaseService):
                 return True
         return False
 
-    @deprecated(reason="Nomenclatura inconsistente", replacement="analyze()")
-    def analyze_directory_structure(self, root_directory: Path, organization_type: OrganizationType = OrganizationType.TO_ROOT, progress_callback: Optional[ProgressCallback] = None) -> OrganizationAnalysisResult:
+    def _generate_move_plan(self, subdirectories: Dict, root_files: List[Dict], root_directory: Path, existing_file_names: Set[str], organization_type: OrganizationType) -> List[FileMove]:
         """
         Analiza la estructura de directorios para organización
 
