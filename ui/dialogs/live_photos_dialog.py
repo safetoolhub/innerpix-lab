@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import (
     QDialogButtonBox
 )
 from PyQt6.QtCore import Qt
-from services.live_photo_cleaner import CleanupMode
+from services.live_photo_service import CleanupMode
 from utils.format_utils import format_size
 from ui.styles.design_system import DesignSystem
 from ui.styles.design_system import DesignSystem

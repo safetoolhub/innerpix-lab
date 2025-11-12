@@ -674,10 +674,10 @@ class WorkspaceReanalysisWorker(BaseWorker):
     def run(self) -> None:
         """Ejecuta re-análisis de todas las herramientas rápidas"""
         from services.live_photo_service import LivePhotoService
-        from services.heic_remover import HEICRemover
+        from services.heic_remover_service import HEICRemover
         from services.exact_copies_detector import ExactCopiesDetector
-        from services.file_organizer import FileOrganizer
-        from services.file_renamer import FileRenamer
+        from services.file_organizer_service import FileOrganizer
+        from services.file_renamer_service import FileRenamer
         from config import Config
         
         results = {}

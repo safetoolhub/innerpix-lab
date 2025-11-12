@@ -211,7 +211,7 @@ class AnalysisOrchestrator:
         # Convertir a LivePhotoDetectionResult para mantener compatibilidad con la estructura esperada
         result = LivePhotoDetectionResult(
             total_files=cleanup_analysis.total_files,
-            groups=[],  # Los grupos no se exponen directamente en el nuevo servicio
+            groups=cleanup_analysis.groups,  # Usar los grupos del análisis
             live_photos_found=cleanup_analysis.live_photos_found,
             total_space=cleanup_analysis.total_space,
             space_to_free=cleanup_analysis.space_to_free

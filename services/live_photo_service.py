@@ -127,7 +127,8 @@ class LivePhotoService(BaseService):
                 files_to_keep=[],
                 space_to_free=0,
                 total_space=0,
-                cleanup_mode=cleanup_mode.value
+                cleanup_mode=cleanup_mode.value,
+                groups=[]
             )
 
         if not live_photos:
@@ -139,7 +140,8 @@ class LivePhotoService(BaseService):
                 files_to_keep=[],
                 space_to_free=0,
                 total_space=0,
-                cleanup_mode=cleanup_mode.value
+                cleanup_mode=cleanup_mode.value,
+                groups=[]
             )
 
         # Paso 2: Generar plan de limpieza según el modo
@@ -156,7 +158,8 @@ class LivePhotoService(BaseService):
             files_to_keep=cleanup_plan['files_to_keep'],
             space_to_free=space_to_free,
             total_space=total_space,
-            cleanup_mode=cleanup_mode.value
+            cleanup_mode=cleanup_mode.value,
+            groups=live_photos  # Incluir los grupos para compatibilidad con UI
         )
 
         # Logging detallado
