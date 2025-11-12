@@ -45,6 +45,7 @@ class IconManager:
         'settings': 'mdi6.cog',
         'info': 'mdi6.information',
         'about': 'mdi6.information-outline',
+        'information-outline': 'mdi6.information-outline',
         
         # Estados y notificaciones
         'warning': 'mdi6.alert',

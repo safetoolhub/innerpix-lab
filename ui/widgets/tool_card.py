@@ -48,6 +48,7 @@ class ToolCard(QFrame):
         # Estado
         self.has_results = False
         self.status_lines = []
+        self.is_enabled = True  # Nueva propiedad para controlar habilitación
         
         self._setup_ui()
         self._setup_interactions()
@@ -158,11 +159,13 @@ class ToolCard(QFrame):
     
     def _on_card_clicked(self, event):
         """Maneja el clic en la card"""
-        self.clicked.emit()
+        if self.is_enabled:
+            self.clicked.emit()
     
     def _on_button_clicked(self):
         """Maneja el clic en el botón (igual que clic en card)"""
-        self.clicked.emit()
+        if self.is_enabled:
+            self.clicked.emit()
     
     def set_status_with_results(self, count_text: str, size_text: str = None):
         """
@@ -173,7 +176,9 @@ class ToolCard(QFrame):
             size_text: Texto con espacio recuperable (ej: "~1.8 GB recuperables")
         """
         self.has_results = True
+        self.is_enabled = True
         self._clear_status()
+        self._restore_enabled_style()
         
         # Línea 1: Checkmark + cantidad
         line1_layout = QHBoxLayout()
@@ -237,7 +242,9 @@ class ToolCard(QFrame):
             info_text: Texto informativo (ej: "Este análisis puede tardar unos minutos.")
         """
         self.has_results = False
+        self.is_enabled = True
         self._clear_status()
+        self._restore_enabled_style()
         
         # Línea 1: Icono pausa + "Pendiente de análisis"
         line1_layout = QHBoxLayout()
@@ -286,7 +293,9 @@ class ToolCard(QFrame):
             count_text: Texto con cantidad (ej: "2,847 archivos listos")
         """
         self.has_results = True
+        self.is_enabled = True
         self._clear_status()
+        self._restore_enabled_style()
         
         # Línea única: Checkmark + texto
         line_layout = QHBoxLayout()
@@ -316,6 +325,43 @@ class ToolCard(QFrame):
         self.action_button.setProperty("class", "primary")
         self.action_button.setStyle(self.action_button.style())
     
+    def _restore_enabled_style(self):
+        """Restaura el estilo de card habilitada"""
+        # Mostrar el botón
+        self.action_button.show()
+        
+        # Restaurar estilo normal de la card
+        self.setStyleSheet(f"""
+            ToolCard {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                padding: {DesignSystem.SPACE_20}px;
+            }}
+            ToolCard:hover {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+                background-color: rgba(37, 99, 235, 0.02);
+            }}
+        """)
+        
+        # Restaurar cursor clicable
+        self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        
+        # Restaurar opacidad del icono
+        icon_manager.set_label_icon(
+            self.icon_label,
+            self.icon_name,
+            color=DesignSystem.COLOR_PRIMARY,
+            size=24
+        )
+        
+        # Restaurar estilo del título
+        self.title_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_LG}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            color: {DesignSystem.COLOR_TEXT};
+        """)
+    
     def _clear_status(self):
         """Limpia todas las líneas de estado"""
         while self.status_container.count():
@@ -333,3 +379,83 @@ class ToolCard(QFrame):
                 item.widget().deleteLater()
             elif item.layout():
                 self._clear_layout(item.layout())
+    
+    def set_status_no_results(self, message: str):
+        """
+        Configura el estado cuando NO hay resultados
+        
+        Deshabilita la card visualmente y funcionalmente.
+        El usuario verá claramente que no hay nada que hacer.
+        
+        Args:
+            message: Mensaje informativo (ej: "No se encontraron Live Photos")
+        """
+        self.has_results = False
+        self.is_enabled = False
+        self._clear_status()
+        
+        # Línea con icono de info + mensaje
+        line_layout = QHBoxLayout()
+        line_layout.setSpacing(DesignSystem.SPACE_6)
+        line_layout.setContentsMargins(0, 0, 0, 0)
+        
+        info_icon = QLabel()
+        icon_manager.set_label_icon(
+            info_icon,
+            'information-outline',
+            color=DesignSystem.COLOR_TEXT_SECONDARY,
+            size=14
+        )
+        line_layout.addWidget(info_icon)
+        
+        msg_label = QLabel(message)
+        msg_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            font-style: italic;
+        """)
+        line_layout.addWidget(msg_label)
+        line_layout.addStretch()
+        
+        self.status_container.addLayout(line_layout)
+        
+        # Ocultar el botón (no tiene sentido si no hay acción)
+        self.action_button.hide()
+        
+        # Cambiar apariencia de la card: deshabilitada visualmente
+        # Fondo más oscuro y sin interacción hover
+        self.setStyleSheet(f"""
+            ToolCard {{
+                background-color: {DesignSystem.COLOR_SURFACE_DISABLED};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                padding: {DesignSystem.SPACE_20}px;
+            }}
+            ToolCard:hover {{
+                border-color: {DesignSystem.COLOR_BORDER};
+                background-color: {DesignSystem.COLOR_SURFACE_DISABLED};
+            }}
+        """)
+        
+        # Cambiar cursor a normal (no clicable)
+        self.setCursor(QCursor(Qt.CursorShape.ArrowCursor))
+        
+        # Atenuar icono y título
+        icon_manager.set_label_icon(
+            self.icon_label,
+            self.icon_name,
+            color=DesignSystem.COLOR_TEXT_SECONDARY,
+            size=24
+        )
+        self.title_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_LG}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+        """)
+        
+        # También atenuar la descripción
+        self.description_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            line-height: {int(DesignSystem.FONT_SIZE_BASE * DesignSystem.LINE_HEIGHT_NORMAL)}px;
+        """)

@@ -14,7 +14,6 @@ from ui.widgets.tool_card import ToolCard
 from ui.dialogs.live_photos_dialog import LivePhotoCleanupDialog
 from ui.dialogs.heic_dialog import HEICDuplicateRemovalDialog
 from ui.dialogs.exact_copies_dialog import ExactCopiesDialog
-from ui.dialogs.similar_files_dialog import SimilarFilesDialog
 from ui.dialogs.organization_dialog import FileOrganizationDialog
 from ui.dialogs.renaming_dialog import RenamingPreviewDialog
 from ui.dialogs.settings_dialog import SettingsDialog
@@ -272,7 +271,7 @@ class Stage3Window(BaseStage):
                 size_text
             )
         else:
-            card.set_status_ready("No se encontraron Live Photos")
+            card.set_status_no_results("No se encontraron Live Photos")
 
         card.clicked.connect(lambda: self._on_tool_clicked('live_photos'))
         return card
@@ -297,7 +296,7 @@ class Stage3Window(BaseStage):
                 size_text
             )
         else:
-            card.set_status_ready("No se encontraron pares HEIC/JPG")
+            card.set_status_no_results("No se encontraron pares HEIC/JPG")
 
         card.clicked.connect(lambda: self._on_tool_clicked('heic'))
         return card
@@ -320,7 +319,7 @@ class Stage3Window(BaseStage):
                 size_text
             )
         else:
-            card.set_status_ready("No se encontraron copias exactas")
+            card.set_status_no_results("No se encontraron copias exactas")
 
         card.clicked.connect(lambda: self._on_tool_clicked('exact_copies'))
         return card
@@ -393,21 +392,21 @@ class Stage3Window(BaseStage):
         if tool_id == 'live_photos':
             live_photo_data = self.analysis_results.live_photos
             if not live_photo_data or live_photo_data.live_photos_found == 0:
-                QMessageBox.warning(self.main_window, "Sin resultados", "No hay datos de Live Photos")
+                # Card está deshabilitada, no debería llegar aquí
                 return
             dialog = LivePhotoCleanupDialog(live_photo_data, self.main_window)
 
         elif tool_id == 'heic':
             heic_data = self.analysis_results.heic
             if not heic_data or heic_data.total_pairs == 0:
-                QMessageBox.warning(self.main_window, "Sin resultados", "No hay datos de HEIC/JPG")
+                # Card está deshabilitada, no debería llegar aquí
                 return
             dialog = HEICDuplicateRemovalDialog(heic_data, self.main_window)
 
         elif tool_id == 'exact_copies':
             dup_data = self.analysis_results.duplicates
             if not dup_data or dup_data.total_groups == 0:
-                QMessageBox.warning(self.main_window, "Sin resultados", "No hay datos de Copias Exactas")
+                # Card está deshabilitada, no debería llegar aquí
                 return
             dialog = ExactCopiesDialog(dup_data, self.main_window)
 
@@ -419,16 +418,17 @@ class Stage3Window(BaseStage):
         elif tool_id == 'organize':
             org_data = self.analysis_results.organization
             if not org_data:
-                QMessageBox.warning(self.main_window, "Sin resultados", "No hay datos de Organización")
+                # Card está deshabilitada, no debería llegar aquí
                 return
             # Permitir abrir el dialog incluso con 0 archivos, ya que el usuario puede cambiar el tipo
             dialog = FileOrganizationDialog(org_data, self.main_window)
 
         elif tool_id == 'rename':
             rename_data = self.analysis_results.renaming
-            if not rename_data or rename_data.need_renaming == 0:
-                QMessageBox.warning(self.main_window, "Sin resultados", "No hay datos de Renombrado")
+            if not rename_data:
+                # No hay datos, no debería llegar aquí
                 return
+            # Permitir abrir incluso con need_renaming=0, el usuario puede configurar patrones personalizados
             dialog = RenamingPreviewDialog(rename_data, self.main_window)
 
         if dialog:
@@ -849,8 +849,8 @@ class Stage3Window(BaseStage):
             )
             card.action_button.setText("Gestionar ahora")
         else:
-            card.set_status_ready("No se encontraron duplicados similares")
-            card.action_button.setText("Analizar de nuevo")
+            card.set_status_no_results("No se encontraron duplicados similares")
+            # No cambiar action_button porque está oculto en no_results
         
         # Actualizar descripción para indicar que ya se analizó
         card.description_label.setText(
@@ -872,14 +872,12 @@ class Stage3Window(BaseStage):
         
         # Verificar si hay archivos analizados
         if analysis.total_files == 0:
-            card.set_status_ready("No hay archivos para analizar")
-            card.action_button.setText("Analizar")
+            card.set_status_no_results("No hay archivos para analizar")
             card.description_label.setText(
                 "No se encontraron imágenes o vídeos para analizar."
             )
         elif not analysis.perceptual_hashes or len(analysis.perceptual_hashes) == 0:
-            card.set_status_ready("No se encontraron archivos similares")
-            card.action_button.setText("Analizar de nuevo")
+            card.set_status_no_results("No se encontraron archivos similares")
             card.description_label.setText(
                 f"{analysis.total_files} archivos analizados. "
                 "No se encontraron similitudes visuales."
@@ -959,7 +957,6 @@ class Stage3Window(BaseStage):
         
         dialog = SimilarFilesDialog(temp_analysis, self.main_window)
         dialog.exec()
-    
-    # ===== SISTEMA DE RE-ANÁLISIS AUTOMÁTICO =====
+
     
 
