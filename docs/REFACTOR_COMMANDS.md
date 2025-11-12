@@ -6,6 +6,30 @@ Este documento contiene los comandos exactos para ejecutar cada fase del refacto
 
 ## 🚀 FASE 1: Renombrado de Archivos
 
+### ✅ COMPLETADA (12 Nov 2025)
+
+Esta fase ha sido completada exitosamente. Todos los archivos fueron renombrados y los imports actualizados.
+
+**Resultado:**
+- Commit: `96a1d55`
+- Branch: `refactor/cleanup-services`
+- Tests: 26/30 passing (4 pre-existing failures)
+- Compilación: OK
+- Imports: Verificados
+
+**Archivos renombrados:**
+```bash
+services/file_renamer.py → services/file_renamer_service.py
+services/file_organizer.py → services/file_organizer_service.py
+services/heic_remover.py → services/heic_remover_service.py
+```
+
+**Siguiente paso:** Proceder con Fase 2 (Eliminación de métodos deprecated)
+
+---
+
+### Comandos Ejecutados (para referencia):
+
 ### Paso 1.1: Crear Branch de Trabajo
 ```bash
 cd /home/ed/HACK/pixaro-lab
