@@ -1,5 +1,21 @@
 """
-Limpiador de Live Photos - Eliminación segura con backup
+Limpiador de Live Photos - DEPRECATED
+
+ESTE MÓDULO ESTÁ OBSOLETO Y SERÁ ELIMINADO EN UNA VERSIÓN FUTURA.
+Por favor, usa LivePhotoService en su lugar.
+
+Migración:
+    ANTES:
+        from services.live_photo_cleaner import LivePhotoCleaner, CleanupMode
+        cleaner = LivePhotoCleaner()
+        analysis = cleaner.analyze_cleanup(directory, CleanupMode.KEEP_IMAGE)
+        result = cleaner.execute_cleanup(analysis, create_backup=True)
+    
+    DESPUÉS:
+        from services.live_photo_service import LivePhotoService, CleanupMode
+        service = LivePhotoService()
+        analysis = service.analyze(directory, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        result = service.execute(analysis, create_backup=True)
 """
 import shutil
 import os
@@ -8,12 +24,21 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Dict
 from enum import Enum
+import warnings
 
 from config import Config
 from utils.logger import get_logger
+from utils.decorators import deprecated
 from services.live_photo_detector import LivePhotoGroup, LivePhotoDetector
 from services.result_types import LivePhotoCleanupAnalysisResult, LivePhotoCleanupResult
 from services.base_service import BaseService
+
+# Emitir advertencia al importar
+warnings.warn(
+    "LivePhotoCleaner está obsoleto. Usa LivePhotoService en su lugar.",
+    DeprecationWarning,
+    stacklevel=2
+)
 
 class CleanupMode(Enum):
     """Modos de limpieza de Live Photos"""
@@ -23,9 +48,15 @@ class CleanupMode(Enum):
     KEEP_SMALLER = "keep_smaller"      # Mantener el archivo más pequeño
     CUSTOM = "custom"                  # Selección manual por archivo
 
+@deprecated(
+    reason="Usa LivePhotoService que integra detección y limpieza en una sola clase",
+    replacement="LivePhotoService"
+)
 class LivePhotoCleaner(BaseService):
     """
     Limpiador seguro de Live Photos con backup y confirmación
+    
+    DEPRECATED: Esta clase será eliminada. Usa LivePhotoService en su lugar.
     """
 
     def __init__(self):
@@ -43,6 +74,35 @@ class LivePhotoCleaner(BaseService):
             'backup_created': False
         }
 
+    def analyze(self, directory: Path, mode: CleanupMode = CleanupMode.KEEP_IMAGE) -> LivePhotoCleanupAnalysisResult:
+        """
+        Analiza qué archivos se eliminarían con el modo dado (método unificado)
+
+        Args:
+            directory: Directorio a analizar
+            mode: Modo de limpieza a aplicar
+
+        Returns:
+            LivePhotoCleanupAnalysisResult con el análisis de limpieza
+        """
+        return self.analyze_cleanup(directory, mode)
+
+    def execute(self, cleanup_analysis: LivePhotoCleanupAnalysisResult, create_backup: bool = True, dry_run: bool = False, progress_callback=None) -> LivePhotoCleanupResult:
+        """
+        Ejecuta la limpieza de Live Photos (método unificado)
+
+        Args:
+            cleanup_analysis: Resultado del análisis previo
+            create_backup: Si crear backup antes de eliminar
+            dry_run: Si solo simular sin eliminar
+            progress_callback: Función opcional para reportar progreso
+
+        Returns:
+            LivePhotoCleanupResult con el resultado de la operación
+        """
+        return self.execute_cleanup(cleanup_analysis, create_backup, dry_run, progress_callback)
+
+    @deprecated(reason="Nomenclatura inconsistente", replacement="analyze()")
     def analyze_cleanup(self, directory: Path, mode: CleanupMode = CleanupMode.KEEP_IMAGE) -> LivePhotoCleanupAnalysisResult:
         """
         Analiza qué archivos se eliminarían con el modo dado
@@ -189,6 +249,7 @@ class LivePhotoCleaner(BaseService):
 
     # Backup creation delegated to utils.file_utils.create_backup
 
+    @deprecated(reason="Nomenclatura inconsistente", replacement="execute()")
     def execute_cleanup(self, cleanup_analysis: LivePhotoCleanupAnalysisResult, create_backup: bool = True, 
                        dry_run: bool = False, progress_callback=None) -> LivePhotoCleanupResult:
         """
@@ -239,25 +300,23 @@ class LivePhotoCleaner(BaseService):
                         # Si no hay path común, usar el primer directorio
                         break
 
-            # Crear backup si se solicita
+            # Crear backup usando método centralizado (solo si no es simulación)
             if create_backup and not dry_run:
-                    from utils.file_utils import launch_backup_creation
-                    try:
-                        backup_path = launch_backup_creation(
-                            (fi['path'] for fi in files_to_delete),
-                            base_directory,
-                            backup_prefix='backup_livephoto_cleanup',
-                            progress_callback=progress_callback,
-                            metadata_name='livephoto_cleanup_metadata.txt'
-                        )
+                try:
+                    from services.base_service import BackupCreationError
+                    backup_path = self._create_backup_for_operation(
+                        files_to_delete,
+                        'livephoto_cleanup',
+                        progress_callback
+                    )
+                    if backup_path:
                         results.backup_path = str(backup_path)
-                        self.backup_dir = backup_path
                         self.cleanup_stats['backup_created'] = True
-                    except ValueError as ve:
-                        err_msg = f"Backup abortado: entrada inválida para launch_backup_creation: {ve}"
-                        self.logger.error(err_msg)
-                        results.add_error(err_msg)
-                        return results
+                except BackupCreationError as e:
+                    error_msg = f"Error creando backup: {e}"
+                    self.logger.error(error_msg)
+                    results.add_error(error_msg)
+                    return results
 
             # Ejecutar eliminaciones
             for file_info in files_to_delete:

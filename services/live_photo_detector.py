@@ -1,5 +1,19 @@
 """
-Detector de Live Photos de iPhone - Corregido para archivos renombrados
+Detector de Live Photos de iPhone - DEPRECATED
+
+ESTE MÓDULO ESTÁ OBSOLETO Y SERÁ ELIMINADO EN UNA VERSIÓN FUTURA.
+Por favor, usa LivePhotoService en su lugar.
+
+Migración:
+    ANTES:
+        from services.live_photo_detector import LivePhotoDetector
+        detector = LivePhotoDetector()
+        groups = detector.detect_in_directory(directory)
+    
+    DESPUÉS:
+        from services.live_photo_service import LivePhotoService, CleanupMode
+        service = LivePhotoService()
+        analysis = service.analyze(directory, cleanup_mode=CleanupMode.KEEP_IMAGE)
 """
 import os
 import re
@@ -8,10 +22,20 @@ from datetime import datetime
 from typing import List, Optional
 from collections import defaultdict
 from dataclasses import dataclass
+import warnings
 
 from config import Config
+from utils.decorators import deprecated
 from services.result_types import LivePhotoAnalysisResult
 from services.base_service import BaseService
+
+
+# Emitir advertencia al importar
+warnings.warn(
+    "LivePhotoDetector está obsoleto. Usa LivePhotoService en su lugar.",
+    DeprecationWarning,
+    stacklevel=2
+)
 
 
 @dataclass
@@ -51,9 +75,15 @@ class LivePhotoGroup:
         return 0.0
 
 
+@deprecated(
+    reason="Usa LivePhotoService que integra detección y limpieza en una sola clase",
+    replacement="LivePhotoService"
+)
 class LivePhotoDetector(BaseService):
     """
     Detector de Live Photos de iPhone
+    
+    DEPRECATED: Esta clase será eliminada. Usa LivePhotoService en su lugar.
     
     Hereda de BaseService para logging estandarizado.
     """
@@ -71,6 +101,21 @@ class LivePhotoDetector(BaseService):
         # Tolerancia de tiempo
         self.time_tolerance = 2.0
 
+    def analyze(self, directory: Path, recursive: bool = True, progress_callback=None) -> List[LivePhotoGroup]:
+        """
+        Detecta Live Photos en un directorio (método unificado)
+
+        Args:
+            directory: Directorio a analizar
+            recursive: Si buscar recursivamente
+            progress_callback: Función opcional (current, total, message) para reportar progreso
+
+        Returns:
+            Lista de LivePhotoGroup detectados
+        """
+        return self.detect_in_directory(directory, recursive, progress_callback)
+
+    @deprecated(reason="Nomenclatura inconsistente", replacement="analyze()")
     def detect_in_directory(self, directory: Path, recursive: bool = True, progress_callback=None) -> List[LivePhotoGroup]:
         """
         Detecta Live Photos en un directorio

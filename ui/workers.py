@@ -32,8 +32,7 @@ if TYPE_CHECKING:
         ScanResult
     )
     from services.file_renamer import FileRenamer
-    from services.live_photo_detector import LivePhotoDetector
-    from services.live_photo_cleaner import LivePhotoCleaner
+    from services.live_photo_service import LivePhotoService
     from services.file_organizer import FileOrganizer
     from services.heic_remover import HEICRemover
     from services.exact_copies_detector import ExactCopiesDetector
@@ -137,7 +136,7 @@ class AnalysisWorker(BaseWorker):
         self, 
         directory: Path,
         renamer: 'FileRenamer',
-        live_photo_detector: 'LivePhotoDetector',
+        live_photo_service: 'LivePhotoService',
         unifier: 'FileOrganizer',
         heic_remover: 'HEICRemover',
         duplicate_exact_detector: Optional['ExactCopiesDetector'] = None,
@@ -146,7 +145,7 @@ class AnalysisWorker(BaseWorker):
         super().__init__()
         self.directory = directory
         self.renamer = renamer
-        self.live_photo_detector = live_photo_detector
+        self.live_photo_service = live_photo_service
         self.unifier = unifier
         self.heic_remover = heic_remover
         self.duplicate_exact_detector = duplicate_exact_detector
@@ -243,7 +242,7 @@ class AnalysisWorker(BaseWorker):
             result: 'FullAnalysisResult' = orchestrator.run_full_analysis(
                 directory=self.directory,
                 renamer=self.renamer,
-                live_photo_detector=self.live_photo_detector,
+                live_photo_service=self.live_photo_service,
                 organizer=self.unifier,
                 heic_remover=self.heic_remover,
                 duplicate_exact_detector=self.duplicate_exact_detector,
@@ -342,10 +341,10 @@ class LivePhotoCleanupWorker(BaseWorker):
     # Sobrescribir finished con tipo específico
     finished = pyqtSignal(object)  # En runtime es object, tipo semántico es LivePhotoCleanupResult
 
-    def __init__(self, cleaner: 'LivePhotoCleaner', analysis: 'LivePhotoCleanupAnalysisResult', 
+    def __init__(self, service: 'LivePhotoService', analysis: 'LivePhotoCleanupAnalysisResult', 
                  create_backup: bool = True, dry_run: bool = False):
         super().__init__()
-        self.cleaner = cleaner
+        self.service = service
         self.analysis = analysis
         self.create_backup = create_backup
         self.dry_run = dry_run
@@ -355,7 +354,7 @@ class LivePhotoCleanupWorker(BaseWorker):
             if self._stop_requested:
                 return
             
-            results: 'LivePhotoCleanupResult' = self.cleaner.execute_cleanup(
+            results: 'LivePhotoCleanupResult' = self.service.execute(
                 self.analysis,
                 create_backup=self.create_backup,
                 dry_run=self.dry_run,
@@ -674,7 +673,7 @@ class WorkspaceReanalysisWorker(BaseWorker):
         
     def run(self) -> None:
         """Ejecuta re-análisis de todas las herramientas rápidas"""
-        from services.live_photo_detector import LivePhotoDetector
+        from services.live_photo_service import LivePhotoService
         from services.heic_remover import HEICRemover
         from services.exact_copies_detector import ExactCopiesDetector
         from services.file_organizer import FileOrganizer
@@ -685,7 +684,7 @@ class WorkspaceReanalysisWorker(BaseWorker):
         
         # Lista de análisis a ejecutar (solo rápidos)
         tools_to_analyze = [
-            ("live_photos", LivePhotoDetector, "Live Photos"),
+            ("live_photos", LivePhotoService, "Live Photos"),
             ("heic", HEICRemover, "HEIC/JPG"),
             ("exact_copies", ExactCopiesDetector, "Copias Exactas"),
             ("organize", FileOrganizer, "Organizar"),
@@ -707,13 +706,20 @@ class WorkspaceReanalysisWorker(BaseWorker):
                 # Ejecutar análisis según el tipo de detector
                 if tool_name == "live_photos":
                     from services.result_types import LivePhotoDetectionResult
-                    live_photo_groups = detector.detect_in_directory(self.workspace_path, progress_callback=None)
+                    from services.live_photo_service import CleanupMode
+                    # El nuevo servicio usa analyze() que retorna LivePhotoCleanupAnalysisResult
+                    # pero para mantener compatibilidad con la UI, creamos un LivePhotoDetectionResult
+                    cleanup_analysis = detector.analyze(
+                        self.workspace_path, 
+                        cleanup_mode=CleanupMode.KEEP_IMAGE,
+                        progress_callback=None
+                    )
                     result = LivePhotoDetectionResult(
-                        total_files=len(live_photo_groups) * 2,
-                        groups=live_photo_groups,
-                        live_photos_found=len(live_photo_groups),
-                        total_space=sum(group.total_size for group in live_photo_groups) if live_photo_groups else 0,
-                        space_to_free=sum(group.video_size for group in live_photo_groups) if live_photo_groups else 0
+                        total_files=cleanup_analysis.total_files,
+                        groups=[],  # Los grupos no se exponen directamente ahora
+                        live_photos_found=cleanup_analysis.live_photos_found,
+                        total_space=cleanup_analysis.total_space,
+                        space_to_free=cleanup_analysis.space_to_free
                     )
                 
                 elif tool_name == "heic":

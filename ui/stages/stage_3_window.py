@@ -3,9 +3,9 @@ Stage 3: Grid de herramientas.
 Muestra el resumen del análisis y el grid de herramientas disponibles.
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from PyQt6.QtWidgets import QWidget, QGridLayout, QMessageBox, QDialog
-from PyQt6.QtCore import QTimer, pyqtSignal
+from PyQt6.QtCore import QTimer
 
 from .base_stage import BaseStage
 from ui.styles.design_system import DesignSystem
@@ -22,7 +22,6 @@ from ui.dialogs.about_dialog import AboutDialog
 from ui.dialogs.similar_files_progress_dialog import SimilarFilesProgressDialog
 from utils.format_utils import format_size, format_file_count
 from ui.workers import SimilarFilesAnalysisWorker
-from pathlib import Path
 
 
 class Stage3Window(BaseStage):
@@ -486,11 +485,11 @@ class Stage3Window(BaseStage):
         worker = None
         
         if tool_id == 'live_photos':
-            from services.live_photo_cleaner import LivePhotoCleaner
-            cleaner = LivePhotoCleaner()
-            # LivePhotoCleanupWorker espera (cleaner, analysis: dataclass, create_backup, dry_run)
+            from services.live_photo_service import LivePhotoService
+            service = LivePhotoService()
+            # LivePhotoCleanupWorker espera (service, analysis: dataclass, create_backup, dry_run)
             worker = LivePhotoCleanupWorker(
-                cleaner,
+                service,
                 analysis=plan.get('analysis'),
                 create_backup=plan.get('create_backup', True),
                 dry_run=plan.get('dry_run', False)

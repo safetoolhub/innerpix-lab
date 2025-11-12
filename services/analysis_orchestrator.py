@@ -181,16 +181,16 @@ class AnalysisOrchestrator:
         self.logger.info("Analizando nombres de archivos")
         return renamer.analyze_directory(directory, progress_callback=progress_callback)
     
-    def analyze_live_photos(self, 
+    def analyze_live_photos(self,
                            directory: Path,
-                           detector,
+                           service,
                            progress_callback: Optional[Callable[[int, int, str], bool]] = None):
         """
         Detecta grupos de Live Photos en el directorio.
         
         Args:
             directory: Directorio a analizar
-            detector: Instancia de LivePhotoDetector
+            service: Instancia de LivePhotoService
             progress_callback: Función opcional de progreso
             
         Returns:
@@ -199,18 +199,25 @@ class AnalysisOrchestrator:
         self.logger.info("Detectando Live Photos")
         
         from services.result_types import LivePhotoDetectionResult
+        from services.live_photo_service import CleanupMode
         
-        live_photo_groups = detector.detect_in_directory(directory, progress_callback=progress_callback)
-        
-        result = LivePhotoDetectionResult(
-            total_files=len(live_photo_groups) * 2,  # Cada Live Photo son 2 archivos
-            groups=live_photo_groups,
-            live_photos_found=len(live_photo_groups),
-            total_space=sum(group.total_size for group in live_photo_groups),
-            space_to_free=sum(group.video_size for group in live_photo_groups)
+        # El nuevo servicio usa analyze() que retorna LivePhotoCleanupAnalysisResult
+        cleanup_analysis = service.analyze(
+            directory, 
+            cleanup_mode=CleanupMode.KEEP_IMAGE,
+            progress_callback=progress_callback
         )
         
-        self.logger.info(f"Encontrados {len(live_photo_groups)} grupos de Live Photos")
+        # Convertir a LivePhotoDetectionResult para mantener compatibilidad con la estructura esperada
+        result = LivePhotoDetectionResult(
+            total_files=cleanup_analysis.total_files,
+            groups=[],  # Los grupos no se exponen directamente en el nuevo servicio
+            live_photos_found=cleanup_analysis.live_photos_found,
+            total_space=cleanup_analysis.total_space,
+            space_to_free=cleanup_analysis.space_to_free
+        )
+        
+        self.logger.info(f"Encontrados {cleanup_analysis.live_photos_found} grupos de Live Photos")
         return result
     
     def analyze_organization(self,
@@ -283,7 +290,7 @@ class AnalysisOrchestrator:
     def run_full_analysis(self,
                          directory: Path,
                          renamer=None,
-                         live_photo_detector=None,
+                         live_photo_service=None,
                          organizer=None,
                          heic_remover=None,
                          duplicate_exact_detector=None,
@@ -297,7 +304,7 @@ class AnalysisOrchestrator:
         Args:
             directory: Directorio a analizar
             renamer: FileRenamer opcional
-            live_photo_detector: LivePhotoDetector opcional
+            live_photo_service: LivePhotoService opcional
             organizer: FileOrganizer opcional
             heic_remover: HEICRemover opcional
             duplicate_exact_detector: DuplicateExactDetector opcional
@@ -376,7 +383,7 @@ class AnalysisOrchestrator:
                 partial_callback('renaming', result.renaming)
         
         # Fase 3: Live Photos
-        if live_photo_detector:
+        if live_photo_service:
             if progress_callback and not progress_callback(0, 0, ""):
                 result.total_duration = time.time() - analysis_start_time
                 return result
@@ -385,7 +392,7 @@ class AnalysisOrchestrator:
                 phase_callback("live_photos")
             
             phase_start = time.time()
-            result.live_photos = self.analyze_live_photos(directory, live_photo_detector, progress_callback)
+            result.live_photos = self.analyze_live_photos(directory, live_photo_service, progress_callback)
             phase_end = time.time()
             
             result.phase_timings['live_photos'] = PhaseTimingInfo(

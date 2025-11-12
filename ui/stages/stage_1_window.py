@@ -5,13 +5,11 @@ Maneja la selección inicial de carpeta con validaciones y UI de bienvenida.
 
 from pathlib import Path
 import os
-from typing import Optional
 from PyQt6.QtWidgets import (
     QFrame, QVBoxLayout, QHBoxLayout, QLabel, QWidget,
-    QPushButton, QToolButton, QFileDialog, QMessageBox, QScrollArea
+    QPushButton, QFileDialog, QMessageBox
 )
-from PyQt6.QtCore import Qt, QSize, pyqtSignal
-from PyQt6.QtGui import QIcon
+from PyQt6.QtCore import Qt, pyqtSignal
 
 from .base_stage import BaseStage
 from ui.styles.design_system import DesignSystem
