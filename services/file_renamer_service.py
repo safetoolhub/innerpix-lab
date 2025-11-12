@@ -57,6 +57,9 @@ class FileRenamer(BaseService):
             
         Returns:
             RenameAnalysisResult con análisis detallado
+        
+        Raises:
+            FileNotFoundError: Si directory no existe
         """
         self.logger.info(f"Analizando directorio para renombrado: {directory}")
 

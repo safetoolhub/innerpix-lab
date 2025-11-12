@@ -1,7 +1,6 @@
 """
 Utilidades para extracción de fechas de archivos multimedia
 """
-import os
 import logging
 from pathlib import Path
 from datetime import datetime

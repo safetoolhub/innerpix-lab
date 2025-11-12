@@ -8,12 +8,28 @@ Proporciona lógica unificada para:
 """
 
 from pathlib import Path
-from typing import List, Callable, Optional, Dict, Any
+from typing import List, Callable, Optional
+from dataclasses import dataclass, field
 from services.base_service import BaseService
 from services.result_types import DuplicateGroup, DuplicateDeletionResult
 from utils.callback_utils import safe_progress_callback
 from utils.decorators import deprecated
 import shutil
+
+
+@dataclass
+class GroupDeletionResult:
+    """
+    Resultado del procesamiento de un grupo de duplicados.
+    
+    Usado internamente por _process_group_deletion para retornar
+    resultados tipados en lugar de diccionarios.
+    """
+    deleted: List[Path] = field(default_factory=list)
+    kept: List[Path] = field(default_factory=list)
+    errors: List[dict] = field(default_factory=list)
+    space_freed: int = 0
+    processed: int = 0
 
 
 class BaseDetectorService(BaseService):
@@ -161,16 +177,16 @@ class BaseDetectorService(BaseService):
                 total_count=total_operations
             )
             
-            deleted_files.extend(result['deleted'])
-            kept_files.extend(result['kept'])
-            errors.extend(result['errors'])
+            deleted_files.extend(result.deleted)
+            kept_files.extend(result.kept)
+            errors.extend(result.errors)
             
             if dry_run:
-                simulated_space_freed += result['space_freed']
+                simulated_space_freed += result.space_freed
             else:
-                space_freed += result['space_freed']
+                space_freed += result.space_freed
             
-            processed += result['processed']
+            processed += result.processed
         
         # Construir resultado
         error_messages = [
@@ -230,7 +246,7 @@ class BaseDetectorService(BaseService):
         progress_callback: Optional[Callable],
         processed_count: int,
         total_count: int
-    ) -> Dict[str, Any]:
+    ) -> GroupDeletionResult:
         """
         Procesa eliminación de un grupo de duplicados.
         
@@ -247,7 +263,7 @@ class BaseDetectorService(BaseService):
             total_count: Total de archivos a procesar
         
         Returns:
-            Dict con 'deleted', 'kept', 'errors', 'space_freed', 'processed'
+            GroupDeletionResult con archivos procesados y estadísticas
         """
         from utils.file_utils import validate_file_exists
         from utils.format_utils import format_size
@@ -290,13 +306,13 @@ class BaseDetectorService(BaseService):
             except Exception as e:
                 self.logger.error(f"Error seleccionando archivo a mantener: {e}")
                 errors.append({'group': str(group.hash_value), 'error': str(e)})
-                return {
-                    'deleted': deleted,
-                    'kept': kept,
-                    'errors': errors,
-                    'space_freed': space_freed,
-                    'processed': processed
-                }
+                return GroupDeletionResult(
+                    deleted=deleted,
+                    kept=kept,
+                    errors=errors,
+                    space_freed=space_freed,
+                    processed=processed
+                )
         
         # Eliminar archivos del grupo
         for file_path in files_to_delete:
@@ -353,10 +369,10 @@ class BaseDetectorService(BaseService):
                 errors.append({'file': str(file_path), 'error': str(e)})
                 self.logger.error(f"Error eliminando {file_path}: {e}")
         
-        return {
-            'deleted': deleted,
-            'kept': kept,
-            'errors': errors,
-            'space_freed': space_freed,
-            'processed': processed
-        }
+        return GroupDeletionResult(
+            deleted=deleted,
+            kept=kept,
+            errors=errors,
+            space_freed=space_freed,
+            processed=processed
+        )

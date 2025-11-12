@@ -107,6 +107,9 @@ class LivePhotoService(BaseService):
             
         Returns:
             LivePhotoCleanupAnalysisResult con plan de limpieza detallado
+        
+        Raises:
+            ValueError: Si directory no existe
         """
         self._log_section_header("ANÁLISIS DE LIVE PHOTOS")
         self.logger.info(f"Analizando en: {directory}")

@@ -27,7 +27,7 @@ Uso básico:
 
 import qtawesome as qta
 from typing import Optional, Dict, Any
-from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor, QGuiApplication
+from PyQt6.QtGui import QIcon, QPixmap, QColor, QGuiApplication
 from PyQt6.QtWidgets import QPushButton, QLabel, QToolButton
 from PyQt6.QtCore import QSize, Qt
 

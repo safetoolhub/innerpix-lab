@@ -13,7 +13,6 @@ from datetime import datetime
 import shutil
 from typing import Iterable, Optional, Tuple, List
 import hashlib
-import os
 
 from utils.format_utils import format_size
 from utils.callback_utils import safe_progress_callback
