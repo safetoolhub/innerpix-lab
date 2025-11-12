@@ -205,6 +205,8 @@ class AnalysisWorker(BaseWorker):
                     self._ensure_min_phase_duration(last_phase_id, last_timing['duration'])
                     
                     if not self._stop_requested:
+                        # Loggear completado ANTES de emitir señal (mismo thread, inmediato)
+                        self.logger.info(f"Fase completada: {last_phase_id}")
                         self.phase_completed.emit(last_phase_id)
                 
                 # Registrar inicio de nueva fase
@@ -213,6 +215,8 @@ class AnalysisWorker(BaseWorker):
                     'duration': 0.0
                 }
                 
+                # Loggear inicio ANTES de emitir señal (mismo thread, inmediato)
+                self.logger.info(f"Fase iniciada: {phase_id}")
                 # Emitir inicio de fase
                 self.phase_update.emit(phase_id)
             

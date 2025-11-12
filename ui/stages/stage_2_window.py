@@ -174,8 +174,7 @@ class Stage2Window(BaseStage):
         Args:
             phase_id: ID de la fase que inicia
         """
-        self.logger.info(f"Fase iniciada: {phase_id}")
-
+        # Log ya se hace en el worker (mismo thread del análisis, más preciso)
         if not self.progress_card:
             return
 
@@ -190,8 +189,7 @@ class Stage2Window(BaseStage):
         Args:
             phase_id: ID de la fase que se completó
         """
-        self.logger.info(f"Fase completada: {phase_id}")
-
+        # Log ya se hace en el worker (mismo thread del análisis, más preciso)
         if not self.progress_card:
             return
 
