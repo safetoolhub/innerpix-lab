@@ -11,8 +11,9 @@ from dataclasses import dataclass
 
 from config import Config
 from utils.file_utils import validate_file_exists, to_path
+from utils.decorators import deprecated
 from services.result_types import HeicAnalysisResult, HeicDeletionResult
-from services.base_service import BaseService
+from services.base_service import BaseService, ProgressCallback
 
 @dataclass
 class DuplicatePair:
@@ -108,7 +109,37 @@ class HEICRemover(BaseService):
             'potential_savings': 0
         }
 
-    def analyze_heic_duplicates(self, directory: Path, recursive: bool = True, progress_callback=None) -> Dict:
+    def analyze(self, directory: Path, recursive: bool = True, progress_callback: Optional[ProgressCallback] = None) -> Dict:
+        """
+        Analiza duplicados HEIC/JPG en un directorio (método unificado)
+
+        Args:
+            directory: Directorio a analizar
+            recursive: Si buscar recursivamente en subdirectorios
+            progress_callback: Función opcional (current, total, message) para reportar progreso
+
+        Returns:
+            HeicAnalysisResult con los pares duplicados encontrados
+        """
+        return self.analyze_heic_duplicates(directory, recursive, progress_callback)
+
+    def execute(self, duplicate_pairs: List[DuplicatePair], keep_format: str = 'jpg', create_backup: bool = True, dry_run: bool = False) -> HeicDeletionResult:
+        """
+        Ejecuta la eliminación de archivos HEIC duplicados (método unificado)
+
+        Args:
+            duplicate_pairs: Lista de pares duplicados a procesar
+            keep_format: 'jpg' o 'heic' - formato a mantener
+            create_backup: Si crear backup antes de eliminar
+            dry_run: Si solo simular sin eliminar archivos reales
+
+        Returns:
+            HeicDeletionResult con el resultado de la operación
+        """
+        return self.execute_removal(duplicate_pairs, keep_format, create_backup, dry_run)
+
+    @deprecated(reason="Nomenclatura inconsistente", replacement="analyze()")
+    def analyze_heic_duplicates(self, directory: Path, recursive: bool = True, progress_callback: Optional[ProgressCallback] = None) -> Dict:
         """
         Analiza duplicados HEIC/JPG en un directorio
 
@@ -157,16 +188,14 @@ class HEICRemover(BaseService):
 
         for file_path in all_files:
             # Reportar progreso y verificar si se solicitó cancelación
-            if progress_callback:
-                # Si el callback retorna False, el usuario canceló - detener inmediatamente
-                if not progress_callback(processed, total_files, "Analizando HEIC/JPG duplicados"):
-                    self.logger.info("Análisis de HEIC/JPG cancelado por el usuario")
-                    # Retornar resultado vacío al cancelar
-                    return {
-                        'directory': directory,
-                        'duplicate_pairs': [],
-                        'orphan_heic': [],
-                        'orphan_jpg': [],
+            # Si el callback retorna False, el usuario canceló - detener inmediatamente
+            if not self._report_progress(progress_callback, processed, total_files, "Analizando HEIC/JPG duplicados"):
+                # Retornar resultado vacío al cancelar
+                return {
+                    'directory': directory,
+                    'duplicate_pairs': [],
+                    'orphan_heic': [],
+                    'orphan_jpg': [],
                         'total_heic_files': 0,
                         'total_jpg_files': 0,
                         'total_duplicates': 0,
@@ -290,6 +319,7 @@ class HEICRemover(BaseService):
 
     # Backup creation delegated to utils.file_utils.create_backup
 
+    @deprecated(reason="Nomenclatura inconsistente", replacement="execute()")
     def execute_removal(self, duplicate_pairs: List[DuplicatePair], 
                        keep_format: str = 'jpg', 
                        create_backup: bool = True,
@@ -334,30 +364,20 @@ class HEICRemover(BaseService):
             else:  # keep_format == 'heic'
                 files_to_delete = [pair.jpg_path for pair in duplicate_pairs]
 
-            # Crear backup si se solicita (solo si no es simulación)
+            # Crear backup usando método centralizado
             if create_backup and files_to_delete and not dry_run:
-                root_directory = duplicate_pairs[0].directory
-
-                # Encontrar directorio común
-                for pair in duplicate_pairs[1:]:
-                    try:
-                        root_directory = Path(os.path.commonpath([root_directory, pair.directory]))
-                    except ValueError:
-                        break
-                from utils.file_utils import launch_backup_creation
                 try:
-                    backup_path = launch_backup_creation(
+                    from services.base_service import BackupCreationError
+                    backup_path = self._create_backup_for_operation(
                         files_to_delete,
-                        root_directory,
-                        backup_prefix='backup_heic_removal',
-                        metadata_name='heic_removal_metadata.txt'
+                        'heic_removal'
                     )
-                    results.backup_path = str(backup_path)
-                    self.backup_dir = backup_path
-                except ValueError as ve:
-                    err_msg = f"Backup abortado: entrada inválida para launch_backup_creation: {ve}"
-                    self.logger.error(err_msg)
-                    results.add_error(err_msg)
+                    if backup_path:
+                        results.backup_path = str(backup_path)
+                except BackupCreationError as e:
+                    error_msg = f"Error creando backup: {e}"
+                    self.logger.error(error_msg)
+                    results.add_error(error_msg)
                     return results
 
             for pair in duplicate_pairs:

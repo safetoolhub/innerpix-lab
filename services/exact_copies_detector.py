@@ -4,15 +4,16 @@ Identifica archivos 100% idénticos digitalmente comparando hashes criptográfic
 """
 
 from pathlib import Path
-from typing import List, Callable, Optional
+from typing import List, Optional
 import hashlib
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from config import Config
-from utils.callback_utils import safe_progress_callback
 from utils.file_utils import calculate_file_hash
+from utils.decorators import deprecated
 from services.result_types import DuplicateAnalysisResult, DuplicateDeletionResult, DuplicateGroup
 from services.base_detector_service import BaseDetectorService
+from services.base_service import ProgressCallback
 
 
 class ExactCopiesDetector(BaseDetectorService):
@@ -29,10 +30,28 @@ class ExactCopiesDetector(BaseDetectorService):
         """Inicializa el detector de copias exactas"""
         super().__init__('ExactCopiesDetector')
 
+    def analyze(
+        self,
+        directory: Path,
+        progress_callback: Optional[ProgressCallback] = None
+    ) -> DuplicateAnalysisResult:
+        """
+        Analiza directorio buscando duplicados exactos (método unificado)
+        
+        Args:
+            directory: Directorio a analizar
+            progress_callback: Callback de progreso
+            
+        Returns:
+            DuplicateAnalysisResult con grupos de duplicados exactos
+        """
+        return self.analyze_exact_duplicates(directory, progress_callback)
+
+    @deprecated(reason="Nomenclatura inconsistente", replacement="analyze()")
     def analyze_exact_duplicates(
         self,
         directory: Path,
-        progress_callback: Optional[Callable[[int, int, str], None]] = None
+        progress_callback: Optional[ProgressCallback] = None
     ) -> DuplicateAnalysisResult:
         """
         Analiza directorio buscando duplicados exactos (SHA256)
@@ -92,12 +111,14 @@ class ExactCopiesDetector(BaseDetectorService):
                         file_hashes[file_hash].append(file_path)
                     
                     processed += 1
-                    safe_progress_callback(
+                    if not self._report_progress(
                         progress_callback,
                         processed,
                         total_files,
                         f"Procesado: {file_path.name}"
-                    )
+                    ):
+                        executor.shutdown(wait=False, cancel_futures=True)
+                        break
                 except Exception as e:
                     self.logger.error(f"Error calculando hash de {file_path}: {e}")
         

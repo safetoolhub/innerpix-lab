@@ -12,6 +12,7 @@ from typing import List, Callable, Optional, Dict, Any
 from services.base_service import BaseService
 from services.result_types import DuplicateGroup, DuplicateDeletionResult
 from utils.callback_utils import safe_progress_callback
+from utils.decorators import deprecated
 import shutil
 
 
@@ -68,6 +69,30 @@ class BaseDetectorService(BaseService):
             # 'manual' - no se selecciona ninguno, se eliminan todos
             raise ValueError("Estrategia 'manual' no requiere selección")
     
+    def execute(
+        self,
+        groups: List[DuplicateGroup],
+        keep_strategy: str = 'oldest',
+        create_backup: bool = True,
+        dry_run: bool = False,
+        progress_callback: Optional[Callable[[int, int, str], None]] = None
+    ) -> DuplicateDeletionResult:
+        """
+        Ejecuta la eliminación de duplicados (método unificado)
+
+        Args:
+            groups: Lista de grupos de duplicados
+            keep_strategy: Estrategia para seleccionar archivo a mantener
+            create_backup: Si crear backup antes de eliminar
+            dry_run: Si solo simular sin eliminar archivos reales
+            progress_callback: Callback para reportar progreso
+
+        Returns:
+            DuplicateDeletionResult con estadísticas de la operación
+        """
+        return self.execute_deletion(groups, keep_strategy, create_backup, dry_run, progress_callback)
+
+    @deprecated(reason="Nomenclatura inconsistente", replacement="execute()")
     def execute_deletion(
         self,
         groups: List[DuplicateGroup],
@@ -119,31 +144,17 @@ class BaseDetectorService(BaseService):
             all_files = [f for g in groups for f in g.files]
             if all_files:
                 try:
-                    from utils.file_utils import launch_backup_creation
-                    
-                    base_dir = all_files[0].parent
-                    # Encontrar directorio común
-                    for file_path in all_files[1:]:
-                        try:
-                            import os
-                            base_dir = Path(os.path.commonpath([base_dir, file_path.parent]))
-                        except ValueError:
-                            break
-                    
-                    backup_path = launch_backup_creation(
+                    from services.base_service import BackupCreationError
+                    backup_path = self._create_backup_for_operation(
                         all_files,
-                        base_dir,
-                        backup_prefix='duplicates_backup',
-                        progress_callback=progress_callback,
-                        metadata_name='duplicates_metadata.txt'
+                        'duplicates_deletion',
+                        progress_callback
                     )
-                    self.backup_dir = backup_path
-                    self.logger.info(f"Backup creado en: {backup_path}")
-                except Exception as e:
+                except BackupCreationError as e:
                     self.logger.error(f"Error creando backup: {e}")
                     return DuplicateDeletionResult(
                         success=False,
-                        errors=[f"Error creando backup: {e}"],
+                        errors=[str(e)],
                         keep_strategy=keep_strategy,
                         dry_run=dry_run
                     )

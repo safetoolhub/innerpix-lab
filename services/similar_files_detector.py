@@ -6,14 +6,15 @@ ediciones o diferentes resoluciones.
 
 from datetime import datetime
 from pathlib import Path
-from typing import List, Callable, Optional, Any, Dict, Tuple
+from typing import List, Optional, Any, Dict, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from config import Config
 from utils.logger import get_logger
-from utils.callback_utils import safe_progress_callback
+from utils.decorators import deprecated
 from services.result_types import DuplicateAnalysisResult, DuplicateDeletionResult, DuplicateGroup
 from services.base_detector_service import BaseDetectorService
+from services.base_service import ProgressCallback
 
 
 class SimilarFilesAnalysis:
@@ -248,10 +249,29 @@ class SimilarFilesDetector(BaseDetectorService):
         """Inicializa el detector de archivos similares"""
         super().__init__('SimilarFilesDetector')
     
+    def analyze(
+        self,
+        directory: Path,
+        sensitivity: int = 10,
+        progress_callback: Optional[ProgressCallback] = None
+    ) -> DuplicateAnalysisResult:
+        """
+        Analiza directorio buscando duplicados similares (método unificado)
+        
+        Args:
+            directory: Directorio a analizar
+            sensitivity: Sensibilidad (0-20, menor = más estricto)
+            progress_callback: Callback de progreso
+            
+        Returns:
+            DuplicateAnalysisResult con grupos de duplicados similares
+        """
+        return self.analyze_similar_duplicates(directory, sensitivity, progress_callback)
+
     def analyze_initial(
         self,
         workspace_path: Path,
-        progress_callback: Optional[Callable[[int, int, str], None]] = None
+        progress_callback: Optional[ProgressCallback] = None
     ) -> SimilarFilesAnalysis:
         """
         Análisis inicial: Calcula solo hashes perceptuales.
@@ -345,12 +365,14 @@ class SimilarFilesDetector(BaseDetectorService):
                         }
                     
                     processed += 1
-                    safe_progress_callback(
+                    if not self._report_progress(
                         progress_callback,
                         processed,
                         total_files,
                         f"Procesado: {file_path.name}"
-                    )
+                    ):
+                        executor.shutdown(wait=False, cancel_futures=True)
+                        break
                 except Exception as e:
                     self.logger.error(
                         f"Error calculando hash perceptual de "
@@ -377,11 +399,12 @@ class SimilarFilesDetector(BaseDetectorService):
         
         return analysis
 
+    @deprecated(reason="Nomenclatura inconsistente", replacement="analyze()")
     def analyze_similar_duplicates(
         self,
         directory: Path,
         sensitivity: int = 10,
-        progress_callback: Optional[Callable[[int, int, str], None]] = None
+        progress_callback: Optional[ProgressCallback] = None
     ) -> DuplicateAnalysisResult:
         """
         Analiza directorio buscando duplicados similares (perceptual hash).

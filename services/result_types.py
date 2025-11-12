@@ -205,6 +205,7 @@ class LivePhotoCleanupAnalysisResult(AnalysisResult):
     space_to_free: int = 0
     total_space: int = 0
     cleanup_mode: str = 'keep_image'
+    groups: List = field(default_factory=list)  # Lista de LivePhotoGroup para compatibilidad con UI
 
 
 @dataclass

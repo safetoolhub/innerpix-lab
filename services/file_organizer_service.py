@@ -7,7 +7,7 @@ import re
 import logging
 from pathlib import Path
 from datetime import datetime
-from typing import List, Dict, Optional, Set, Callable
+from typing import List, Dict, Optional, Set
 from collections import defaultdict, Counter
 from dataclasses import dataclass
 from enum import Enum
@@ -15,12 +15,11 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from config import Config
 from utils.logger import get_logger
-from utils.callback_utils import safe_progress_callback
 from utils.settings_manager import settings_manager
 from utils.date_utils import parse_renamed_name, get_file_date
 from services.result_types import OrganizationResult, OrganizationAnalysisResult
-from services.base_service import BaseService
-
+from services.base_service import BaseService, ProgressCallback
+from utils.decorators import deprecated
 
 class OrganizationType(Enum):
     """Tipos de organización disponibles"""
@@ -72,6 +71,35 @@ class FileOrganizer(BaseService):
     def __init__(self):
         super().__init__("FileOrganizer")
 
+    def analyze(self, root_directory: Path, organization_type: OrganizationType = OrganizationType.TO_ROOT, progress_callback: Optional[ProgressCallback] = None) -> OrganizationAnalysisResult:
+        """
+        Analiza la estructura de directorios para organización (método unificado)
+
+        Args:
+            root_directory: Directorio raíz a analizar
+            organization_type: Tipo de organización a realizar
+            progress_callback: Función opcional (current, total, message) para reportar progreso
+
+        Returns:
+            OrganizationAnalysisResult con los archivos a organizar y el plan de movimientos
+        """
+        return self.analyze_directory_structure(root_directory, organization_type, progress_callback)
+
+    def execute(self, move_plan: List[FileMove], create_backup: bool = True, dry_run: bool = False, progress_callback: Optional[ProgressCallback] = None) -> OrganizationResult:
+        """
+        Ejecuta la organización de archivos (método unificado)
+
+        Args:
+            move_plan: Lista de FileMove con las operaciones a realizar
+            create_backup: Si crear backup antes de mover archivos
+            dry_run: Si ejecutar en modo simulación (sin cambios reales)
+            progress_callback: Función opcional (current, total, message) para reportar progreso
+
+        Returns:
+            OrganizationResult con el resultado de la operación
+        """
+        return self.execute_organization(move_plan, create_backup, dry_run, progress_callback)
+
     @classmethod
     def is_whatsapp_file(cls, filename: str) -> bool:
         """
@@ -88,7 +116,8 @@ class FileOrganizer(BaseService):
                 return True
         return False
 
-    def analyze_directory_structure(self, root_directory: Path, organization_type: OrganizationType = OrganizationType.TO_ROOT, progress_callback=None) -> OrganizationAnalysisResult:
+    @deprecated(reason="Nomenclatura inconsistente", replacement="analyze()")
+    def analyze_directory_structure(self, root_directory: Path, organization_type: OrganizationType = OrganizationType.TO_ROOT, progress_callback: Optional[ProgressCallback] = None) -> OrganizationAnalysisResult:
         """
         Analiza la estructura de directorios para organización
 
@@ -156,19 +185,17 @@ class FileOrganizer(BaseService):
                         root_file_info.append(info)
                     
                     processed_files += 1
-                    if progress_callback:
-                        # Si el callback retorna False, cancelar análisis
-                        if not progress_callback(processed_files, total_files, "Analizando estructura de organización"):
-                            self.logger.info("Análisis de organización cancelado por el usuario")
-                            executor.shutdown(wait=False, cancel_futures=True)
-                            # Retornar resultado vacío al cancelar
-                            return OrganizationAnalysisResult(
-                                success=False,
-                                total_files=0,
-                                root_directory=str(root_directory),
-                                organization_type=organization_type.value,
-                                subdirectories={},
-                                root_files=[],
+                    # Si el callback retorna False, cancelar análisis
+                    if not self._report_progress(progress_callback, processed_files, total_files, "Analizando estructura de organización"):
+                        executor.shutdown(wait=False, cancel_futures=True)
+                        # Retornar resultado vacío al cancelar
+                        return OrganizationAnalysisResult(
+                            success=False,
+                            total_files=0,
+                            root_directory=str(root_directory),
+                            organization_type=organization_type.value,
+                            subdirectories={},
+                            root_files=[],
                                 total_files_to_move=0,
                                 total_size_to_move=0,
                                 potential_conflicts=0,
@@ -180,22 +207,20 @@ class FileOrganizer(BaseService):
             # Solo necesitamos los nombres para TO_ROOT
             root_file_names = {item.name for item in root_files_list}
             processed_files += len(root_files_list)
-            if progress_callback:
-                # Si el callback retorna False, cancelar análisis
-                if not progress_callback(processed_files, total_files, "Analizando estructura de organización"):
-                    self.logger.info("Análisis de organización cancelado por el usuario")
-                    return OrganizationAnalysisResult(
-                        success=False,
-                        total_files=0,
-                        root_directory=str(root_directory),
-                        organization_type=organization_type.value,
-                        subdirectories={},
-                        root_files=[],
-                        total_files_to_move=0,
-                        total_size_to_move=0,
-                        potential_conflicts=0,
-                        files_by_type={},
-                        move_plan=[],
+            # Si el callback retorna False, cancelar análisis
+            if not self._report_progress(progress_callback, processed_files, total_files, "Analizando estructura de organización"):
+                return OrganizationAnalysisResult(
+                    success=False,
+                    total_files=0,
+                    root_directory=str(root_directory),
+                    organization_type=organization_type.value,
+                    subdirectories={},
+                    root_files=[],
+                    total_files_to_move=0,
+                    total_size_to_move=0,
+                    potential_conflicts=0,
+                    files_by_type={},
+                    move_plan=[],
                         folders_to_create=[]
                     )
 
@@ -225,24 +250,22 @@ class FileOrganizer(BaseService):
                         files_by_type[info['type']] += 1
                     
                     processed_files += 1
-                    if progress_callback:
-                        # Si el callback retorna False, cancelar análisis
-                        if not progress_callback(processed_files, total_files, "Analizando estructura de organización"):
-                            self.logger.info("Análisis de organización cancelado por el usuario")
-                            executor.shutdown(wait=False, cancel_futures=True)
-                            # Retornar resultado vacío al cancelar
-                            return OrganizationAnalysisResult(
-                                success=False,
-                                total_files=0,
-                                root_directory=str(root_directory),
-                                organization_type=organization_type.value,
-                                subdirectories={},
-                                root_files=[],
-                                total_files_to_move=0,
-                                total_size_to_move=0,
-                                potential_conflicts=0,
-                                files_by_type={},
-                                move_plan=[],
+                    # Si el callback retorna False, cancelar análisis
+                    if not self._report_progress(progress_callback, processed_files, total_files, "Analizando estructura de organización"):
+                        executor.shutdown(wait=False, cancel_futures=True)
+                        # Retornar resultado vacío al cancelar
+                        return OrganizationAnalysisResult(
+                            success=False,
+                            total_files=0,
+                            root_directory=str(root_directory),
+                            organization_type=organization_type.value,
+                            subdirectories={},
+                            root_files=[],
+                            total_files_to_move=0,
+                            total_size_to_move=0,
+                            potential_conflicts=0,
+                            files_by_type={},
+                            move_plan=[],
                                 folders_to_create=[]
                             )
 
@@ -684,6 +707,7 @@ class FileOrganizer(BaseService):
             self.logger.error(err_msg)
             raise
 
+    @deprecated(reason="Nomenclatura inconsistente", replacement="execute()")
     def execute_organization(self, move_plan: List[FileMove], create_backup: bool = True,
                             cleanup_empty_dirs: bool = True, dry_run: bool = False, 
                             progress_callback=None) -> Dict:
@@ -748,22 +772,24 @@ class FileOrganizer(BaseService):
                         results.folders_created.append(str(folder_path))
                         self.logger.info(f"[SIMULACIÓN] Se crearía carpeta: {folder_name}")
 
-            # Crear backup ANTES de mover archivos - solo si no es simulación
+            # Crear backup usando método centralizado (solo si no es simulación)
             if create_backup and move_plan and not dry_run:
-                safe_progress_callback(progress_callback, 0, len(move_plan), "Creando backup antes de organizar...")
-                from utils.file_utils import launch_backup_creation
-                files = [m.source_path for m in move_plan]
+                self._report_progress(progress_callback, 0, len(move_plan), "Creando backup antes de organizar...")
+                
                 try:
-                    backup_path = launch_backup_creation(files, root_directory, backup_prefix='backup_organization', progress_callback=progress_callback, metadata_name='organization_metadata.txt')
-                    results.backup_path = str(backup_path)
-                except ValueError as ve:
-                    err_msg = f"Backup abortado: entrada inválida para launch_backup_creation: {ve}"
-                    self.logger.error(err_msg)
-                    results.add_error(err_msg)
+                    from services.base_service import BackupCreationError
+                    backup_path = self._create_backup_for_operation(
+                        move_plan,
+                        'organization',
+                        progress_callback
+                    )
+                    if backup_path:
+                        results.backup_path = str(backup_path)
+                except BackupCreationError as e:
+                    error_msg = f"Error creando backup: {e}"
+                    self.logger.error(error_msg)
+                    results.add_error(error_msg)
                     return results
-                except Exception as e:
-                    self.logger.error(f"Error creando backup: {e}")
-                    results.add_error(f'Error creando backup: {str(e)}')
 
             # Track de nombres ya usados durante la ejecución (por carpeta)
             used_names_by_folder = defaultdict(set)
@@ -784,7 +810,7 @@ class FileOrganizer(BaseService):
             files_processed = 0
             total_files = len(move_plan)
 
-            safe_progress_callback(progress_callback, 0, total_files, "Iniciando organización de directorios...")
+            self._report_progress(progress_callback, 0, total_files, "Iniciando organización de directorios...")
 
             for move in move_plan:
                 try:
@@ -916,8 +942,9 @@ class FileOrganizer(BaseService):
                         else:
                             self.logger.info(f"✓ Movido: {move.source_path} → {target_path} ({date_str})")
 
-                    safe_progress_callback(progress_callback, files_processed, total_files,
-                                       f"{'Simulando' if dry_run else 'Organizando'} directorios... {files_processed}/{total_files}")
+                    if not self._report_progress(progress_callback, files_processed, total_files,
+                                       f"{'Simulando' if dry_run else 'Organizando'} directorios... {files_processed}/{total_files}"):
+                        break
 
                 except Exception as e:
                     self.logger.error(f"Error moviendo {move.source_path.name}: {str(e)}")
@@ -969,7 +996,7 @@ class FileOrganizer(BaseService):
 
     # Empty directory cleanup delegated to utils.file_utils.cleanup_empty_directories
 
-    def organize_directory(self, root_directory: Path, progress_callback: Optional[Callable[[int, int, str], None]] = None):
+    def organize_directory(self, root_directory: Path, progress_callback: Optional[ProgressCallback] = None):
         """
         Organiza los archivos de subdirectorios al directorio raíz
 
@@ -992,6 +1019,6 @@ class FileOrganizer(BaseService):
             moved_files += 1
 
             # Reportar progreso cada archivo
-            safe_progress_callback(progress_callback, moved_files, total_files, f"Moviendo archivo {moved_files} de {total_files}")
+            self._report_progress(progress_callback, moved_files, total_files, f"Moviendo archivo {moved_files} de {total_files}")
 
-        safe_progress_callback(progress_callback, total_files, total_files, "Organización completada")
+        self._report_progress(progress_callback, total_files, total_files, "Organización completada")

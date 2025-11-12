@@ -10,18 +10,19 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
 ### Architecture (3-layer pattern)
 
 **Services** (`services/`) - Pure business logic, no UI dependencies
-- Pattern: `analyze_*()` returns dataclass results, `execute_*()` accepts `create_backup=True`
+- Pattern: `analyze()` returns dataclass results, `execute()` accepts `create_backup=True`
 - All use centralized logger: `from utils.logger import get_logger; self.logger = get_logger('ServiceName')`
 - Return types: **100% standardized dataclasses** from `services/result_types.py` 
   * All services return typed dataclasses: `RenameAnalysisResult`, `LivePhotoDetectionResult`, `OrganizationAnalysisResult`, `HeicAnalysisResult`, `DuplicateAnalysisResult`
   * All execution methods return: `RenameResult`, `LivePhotoCleanupResult`, `OrganizationResult`, `HeicDeletionResult`, `DuplicateDeletionResult`
 
-- Examples: `FileRenamer.analyze_directory()` → `RenameAnalysisResult`, `LivePhotoCleaner.execute_cleanup()` → `LivePhotoCleanupResult`
+- Examples: `FileRenamer.analyze()` → `RenameAnalysisResult`, `LivePhotoService.execute()` → `LivePhotoCleanupResult`
 - Orchestrator: `AnalysisOrchestrator.run_full_analysis()` → `FullAnalysisResult` (100% typed fields), coordinates multiple services with callback system (progress/phase/partial), 100% PyQt6-free
-- Specialized detectors):
+- Service files (all use `_service` suffix): `file_renamer_service.py`, `file_organizer_service.py`, `heic_remover_service.py`, `live_photo_service.py`
+- Specialized detectors:
   * `ExactCopiesDetector` (`exact_copies_detector.py`): SHA256-based exact copy detection, 100% identical files
   * `SimilarFilesDetector` (`similar_files_detector.py`): Perceptual hash-based similar detection using imagehash/cv2
-  * Both share `DuplicateGroup` dataclass and `execute_deletion()` pattern
+  * Both share `DuplicateGroup` dataclass and `execute()` pattern
   * Analysis returns `DuplicateAnalysisResult` with `mode='exact'` or `mode='perceptual'`
 
 **Workers** (`ui/workers.py`) - QThread background tasks to keep UI responsive

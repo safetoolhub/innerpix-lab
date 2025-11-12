@@ -20,7 +20,7 @@ from utils.date_utils import get_file_date
 from ui.styles.design_system import DesignSystem
 from utils.icons import icon_manager
 from utils.logger import get_logger
-from services.file_organizer import FileOrganizer, OrganizationType
+from services.file_organizer_service import FileOrganizer, OrganizationType
 from services.result_types import OrganizationAnalysisResult
 from .base_dialog import BaseDialog
 
