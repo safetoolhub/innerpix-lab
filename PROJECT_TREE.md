@@ -48,12 +48,6 @@ pixaro-lab/
 │   ├── service_utils.py             # Utilidades compartidas entre servicios
 │   └── view_models.py               # View Models para separación UI/Lógica
 │   
-│   # ✅ = Fase 1-3 completadas (Nov 2025)
-│   # - Nomenclatura _service consistente
-│   # - API unificada analyze() + execute()
-│   # - Logging centralizado thread-safe
-│   # - Sin métodos @deprecated
-│
 ├── ui/                              # Interfaz gráfica PyQt6
 │   ├── __init__.py
 │   ├── helpers.py                   # Funciones auxiliares de UI
@@ -162,6 +156,3 @@ pixaro-lab/
 ./run_tests.sh              # Ejecutar todos los tests
 pytest                      # Ejecutar con pytest directamente
 ```
-
-**Tests implementados:**
-- `test_window_size.py`: Lógica de configuración de ventana por resolución
