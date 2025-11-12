@@ -279,10 +279,15 @@ class BaseService(ABC):
             # *** [SIMULACIÓN] INICIANDO RENOMBRADO
             # ================================================================================
         """
+        import logging
         mode_label = f"[{mode.upper()}] " if mode else ""
-        self.logger.info("=" * 80)
-        self.logger.info(f"*** {mode_label}{title}")
-        self.logger.info("=" * 80)
+        # Usar log_block para evitar que otros threads interrumpan este bloque
+        self.logger.log_block(
+            logging.INFO,
+            "=" * 80,
+            f"*** {mode_label}{title}",
+            "=" * 80
+        )
     
     def _log_section_footer(self, result_summary: str):
         """
@@ -294,8 +299,13 @@ class BaseService(ABC):
         Example:
             self._log_section_footer("Operación completada: 10 archivos procesados")
         """
-        self.logger.info(f"*** {result_summary}")
-        self.logger.info("=" * 80)
+        import logging
+        # Usar log_block para evitar que otros threads interrumpan este bloque
+        self.logger.log_block(
+            logging.INFO,
+            f"*** {result_summary}",
+            "=" * 80
+        )
     
     def _format_operation_summary(
         self,
