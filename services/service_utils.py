@@ -6,10 +6,31 @@ que antes estaban duplicadas en múltiples servicios.
 """
 
 from pathlib import Path
-from typing import List, Optional, Dict, Any, Callable
+from typing import List, Optional, Callable
+from dataclasses import dataclass
+from datetime import datetime
 from utils.logger import get_logger
 
 logger = get_logger('ServiceUtils')
+
+
+@dataclass
+class FileInfo:
+    """
+    Información estándar de archivo para logging y procesamiento.
+    
+    Attributes:
+        path: Path original del archivo
+        size: Tamaño en bytes
+        size_formatted: Tamaño formateado (ej: "5.2 MB")
+        date: datetime de modificación
+        date_formatted: Fecha formateada (ej: "2023-11-12 14:30:22")
+    """
+    path: Path
+    size: int
+    size_formatted: str
+    date: Optional[datetime]
+    date_formatted: str
 
 
 def create_service_backup(
@@ -60,7 +81,7 @@ def create_service_backup(
     return backup_path
 
 
-def validate_and_get_file_info(file_path: Path) -> Dict[str, Any]:
+def validate_and_get_file_info(file_path: Path) -> FileInfo:
     """
     Obtiene información estándar de archivo para logging y procesamiento.
     
@@ -71,12 +92,7 @@ def validate_and_get_file_info(file_path: Path) -> Dict[str, Any]:
         file_path: Path del archivo a inspeccionar
     
     Returns:
-        Dict con información del archivo:
-        - path: Path original
-        - size: Tamaño en bytes
-        - size_formatted: Tamaño formateado (ej: "5.2 MB")
-        - date: datetime de modificación
-        - date_formatted: Fecha formateada (ej: "2023-11-12 14:30:22")
+        FileInfo con información completa del archivo
     
     Raises:
         FileNotFoundError: Si el archivo no existe
@@ -84,9 +100,9 @@ def validate_and_get_file_info(file_path: Path) -> Dict[str, Any]:
     
     Example:
         >>> info = validate_and_get_file_info(Path('/path/photo.jpg'))
-        >>> print(info['size_formatted'])
+        >>> print(info.size_formatted)
         '2.5 MB'
-        >>> print(info['date_formatted'])
+        >>> print(info.date_formatted)
         '2023-11-12 14:30:22'
     """
     from utils.file_utils import validate_file_exists
@@ -117,13 +133,13 @@ def validate_and_get_file_info(file_path: Path) -> Dict[str, Any]:
         file_date = None
         date_formatted = 'fecha desconocida'
     
-    return {
-        'path': file_path,
-        'size': file_size,
-        'size_formatted': size_formatted,
-        'date': file_date,
-        'date_formatted': date_formatted
-    }
+    return FileInfo(
+        path=file_path,
+        size=file_size,
+        size_formatted=size_formatted,
+        date=file_date,
+        date_formatted=date_formatted
+    )
 
 
 def format_file_list(files: List[Path], max_display: int = 10) -> str:

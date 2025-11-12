@@ -1,12 +1,10 @@
 """Helpers para validar y confirmar cambios de directorio en la UI.
 
-Este módulo centraliza la lógica repetida que estaba en
-`ui/main_window.py` para: preguntar confirmaciones de cambio de
+Este módulo centraliza la lógica para: preguntar confirmaciones de cambio de
 directorio, contar archivos de forma segura y avisar al usuario si el
 directorio es grande.
 """
 from pathlib import Path
-from typing import Optional
 
 from PyQt6.QtWidgets import QMessageBox, QWidget
 

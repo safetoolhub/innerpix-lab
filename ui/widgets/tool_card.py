@@ -1,5 +1,5 @@
 """
-Widget de Tool Card para el grid de herramientas (ESTADO 3)
+Widget de Tool Card para el grid de herramientas (STAGE 3)
 """
 from PyQt6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
 from PyQt6.QtCore import Qt, pyqtSignal
