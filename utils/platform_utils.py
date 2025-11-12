@@ -2,7 +2,7 @@
 Utilidades multiplataforma para operaciones del sistema operativo.
 Funciones independientes de UI para interactuar con el SO (abrir archivos, carpetas, etc.)
 """
-import os
+
 import subprocess
 import platform
 from pathlib import Path

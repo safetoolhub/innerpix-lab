@@ -6,7 +6,6 @@ Usa un backend de almacenamiento inyectable (StorageBackend) para desacoplar
 de PyQt6. Por defecto intenta usar QSettingsBackend si PyQt6 está disponible,
 sino usa JsonStorageBackend.
 """
-import logging
 from pathlib import Path
 from typing import Any, Optional
 

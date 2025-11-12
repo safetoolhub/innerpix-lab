@@ -50,7 +50,6 @@ pixaro-lab/
 │   
 ├── ui/                              # Interfaz gráfica PyQt6
 │   ├── __init__.py
-│   ├── helpers.py                   # Funciones auxiliares de UI
 │   ├── main_window.py               # Ventana principal (3 stages)
 │   ├── workers.py                   # QThread workers para operaciones async
 │   │
@@ -88,9 +87,6 @@ pixaro-lab/
 │   │
 │   ├── tabs/                        # Componentes de pestañas (reservado)
 │   │   └── __init__.py
-│   │
-│   ├── validators/                  # Validadores de entrada
-│   │   └── directory_validator.py   # Validación de directorios
 │   │
 │   └── widgets/                     # Widgets individuales reutilizables
 │       ├── __init__.py

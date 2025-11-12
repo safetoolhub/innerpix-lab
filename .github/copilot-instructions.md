@@ -99,9 +99,7 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
 - UI wrappers in `dialog_utils.py` add QMessageBox for error display
 
 **Additional UI modules**:
-- `ui/helpers.py`: Reusable UI helper functions extracted from main_window.py
 - `ui/managers/logging_manager.py`: Centralized logging management for UI components
-- `ui/validators/directory_validator.py`: Directory validation utilities for UI
 - `utils/settings_manager.py`: High-level settings management using storage backends
 
 **File utilities** (`utils/file_utils.py`)

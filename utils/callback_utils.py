@@ -5,7 +5,7 @@ Este módulo proporciona helpers para ejecutar callbacks de progreso
 de forma segura, evitando que errores en callbacks detengan procesos críticos.
 """
 
-from typing import Callable, Optional, Any
+from typing import Callable, Optional
 from utils.logger import get_logger
 
 logger = get_logger('callback_utils')

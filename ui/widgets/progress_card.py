@@ -2,7 +2,7 @@
 Widget de card de progreso para el análisis (ESTADO 2)
 """
 from PyQt6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel, QProgressBar, QPushButton
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import pyqtSignal
 
 from ui.styles.design_system import DesignSystem
 from utils.icons import icon_manager

@@ -3,7 +3,6 @@ Abstracción de almacenamiento persistente.
 Permite usar diferentes backends (JSON, QSettings, etc.) sin acoplar el código a PyQt6.
 """
 import json
-import logging
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Optional

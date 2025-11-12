@@ -1,8 +1,7 @@
 """
-Widget que muestra el progreso de cada fase del análisis (ESTADO 2)
+Widget que muestra el progreso de cada fase del análisis (STAGE 2)
 """
 from PyQt6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel
-from PyQt6.QtCore import Qt
 
 from ui.styles.design_system import DesignSystem
 from utils.icons import icon_manager

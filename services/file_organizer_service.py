@@ -82,6 +82,9 @@ class FileOrganizer(BaseService):
 
         Returns:
             OrganizationAnalysisResult con análisis detallado
+        
+        Raises:
+            ValueError: Si root_directory no existe o no es un directorio válido
         """
         self.logger.info(f"Analizando estructura de directorios para organización ({organization_type.value}): {root_directory}")
 
