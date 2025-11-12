@@ -7,27 +7,13 @@ ediciones o diferentes resoluciones.
 from datetime import datetime
 from pathlib import Path
 from typing import List, Callable, Optional, Any, Dict, Tuple
-from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from config import Config
 from utils.logger import get_logger
 from utils.callback_utils import safe_progress_callback
-from services.result_types import DuplicateAnalysisResult, DuplicateDeletionResult
-
-
-@dataclass
-class DuplicateGroup:
-    """Grupo de archivos similares (pero no necesariamente idénticos)"""
-    hash_value: str  # Perceptual hash
-    files: List[Path]
-    total_size: int
-    similarity_score: float  # Porcentaje de similitud (0-100)
-    
-    @property
-    def file_count(self) -> int:
-        """Retorna el número de archivos en el grupo"""
-        return len(self.files)
+from services.result_types import DuplicateAnalysisResult, DuplicateDeletionResult, DuplicateGroup
+from services.base_detector_service import BaseDetectorService
 
 
 class SimilarFilesAnalysis:
@@ -243,7 +229,7 @@ class SimilarFilesAnalysis:
         return hash1 - hash2
 
 
-class SimilarFilesDetector:
+class SimilarFilesDetector(BaseDetectorService):
     """
     Servicio de detección de archivos similares mediante perceptual hashing.
     
@@ -254,11 +240,13 @@ class SimilarFilesDetector:
     El detector ahora usa un enfoque de dos fases:
     1. analyze_initial(): Calcula hashes perceptuales (operación costosa)
     2. SimilarFilesAnalysis.get_groups(): Clustering rápido con sensibilidad
+    
+    Hereda de BaseDetectorService para reutilizar lógica común de eliminación.
     """
 
     def __init__(self):
         """Inicializa el detector de archivos similares"""
-        self.logger = get_logger('SimilarFilesDetector')
+        super().__init__('SimilarFilesDetector')
     
     def analyze_initial(
         self,
@@ -294,12 +282,8 @@ class SimilarFilesDetector:
                 "Install with: pip install imagehash"
             )
         
-        self.logger.info("=" * 80)
-        self.logger.info(
-            "*** INICIANDO ANÁLISIS INICIAL DE ARCHIVOS SIMILARES"
-        )
+        self._log_section_header("INICIANDO ANÁLISIS INICIAL DE ARCHIVOS SIMILARES")
         self.logger.info("*** Calculando hashes perceptuales...")
-        self.logger.info("=" * 80)
         
         # 1. Escanear archivos de imagen y video
         image_files = []
@@ -380,7 +364,6 @@ class SimilarFilesDetector:
         analysis.total_files = len(perceptual_hashes)
         analysis.analysis_timestamp = datetime.now()
         
-        self.logger.info("=" * 80)
         self.logger.info(
             "*** ANÁLISIS INICIAL COMPLETADO"
         )
@@ -390,7 +373,7 @@ class SimilarFilesDetector:
         self.logger.info(
             "*** Ahora puedes generar grupos con cualquier sensibilidad"
         )
-        self.logger.info("=" * 80)
+        self._log_section_footer("Análisis de hashes perceptuales completado")
         
         return analysis
 
@@ -500,247 +483,5 @@ class SimilarFilesDetector:
             )
             return None
 
-    def execute_deletion(
-        self,
-        groups: List[DuplicateGroup],
-        keep_strategy: str = 'oldest',
-        create_backup: bool = True,
-        dry_run: bool = False,
-        progress_callback: Optional[Callable[[int, int, str], None]] = None
-    ) -> DuplicateDeletionResult:
-        """
-        Ejecuta eliminación de duplicados similares
-        
-        Args:
-            groups: Grupos de duplicados similares
-            keep_strategy: 'oldest', 'newest', 'largest', 'smallest', 'manual'
-            create_backup: Crear backup antes de eliminar
-            dry_run: Si solo simular sin eliminar archivos reales
-            progress_callback: Callback de progreso
-            
-        Returns:
-            DuplicateDeletionResult con resultados de la operación
-        """
-        from datetime import datetime
-        import shutil
-        
-        self.logger.info("=" * 80)
-        self.logger.info("*** INICIANDO ELIMINACIÓN DE DUPLICADOS SIMILARES")
-        self.logger.info(f"*** Estrategia: {keep_strategy}")
-        if dry_run:
-            self.logger.info("*** Modo: SIMULACIÓN")
-        self.logger.info("=" * 80)
-        
-        backup_path = None
-        if create_backup and not dry_run:
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            backup_path = Config.DEFAULT_BACKUP_DIR / f"duplicates_similar_backup_{timestamp}"
-            backup_path.mkdir(parents=True, exist_ok=True)
-            self.logger.info(f"Backup creado en: {backup_path}")
-
-        deleted_files = []
-        kept_files = []
-        errors = []
-        simulated_files_deleted = 0
-        simulated_space_freed = 0
-        
-        if keep_strategy == 'manual':
-            total_operations = sum(len(g.files) for g in groups)
-        else:
-            total_operations = sum(len(g.files) - 1 for g in groups)
-        processed = 0
-        space_freed = 0
-
-        for group in groups:
-            try:
-                from utils.file_utils import validate_file_exists
-                
-                if keep_strategy == 'manual':
-                    # Modo manual: eliminar todos los archivos del grupo
-                    for file_path in group.files:
-                        try:
-                            try:
-                                validate_file_exists(file_path)
-                            except FileNotFoundError as e:
-                                error_prefix = "[SIMULACIÓN] " if dry_run else ""
-                                errors.append({'file': str(file_path), 'error': str(e)})
-                                self.logger.error(f"{error_prefix}Archivo no encontrado: {file_path}: {e}")
-                                continue
-                            
-                            try:
-                                file_size = file_path.stat().st_size
-                                from utils.date_utils import get_file_date
-                                file_date = get_file_date(file_path, verbose=True)
-                                file_date_str = file_date.strftime('%Y-%m-%d %H:%M:%S') if file_date else 'fecha desconocida'
-                            except Exception as e:
-                                self.logger.warning(f"Error obteniendo información de {file_path}: {e}")
-                                file_size = 0
-                                file_date_str = 'fecha desconocida'
-                            
-                            from utils.format_utils import format_size
-                            
-                            if dry_run:
-                                simulated_files_deleted += 1
-                                simulated_space_freed += file_size
-                                deleted_files.append(file_path)
-                                self.logger.info(f"[SIMULACIÓN] Eliminaría duplicado similar (manual): {file_path} ({format_size(file_size)}, {file_date_str})")
-                            else:
-                                if create_backup and backup_path:
-                                    backup_file = backup_path / file_path.name
-                                    shutil.copy2(file_path, backup_file)
-                                
-                                file_path.unlink()
-                                deleted_files.append(file_path)
-                                space_freed += file_size
-                                self.logger.info(f"✓ Eliminado duplicado similar (manual): {file_path} ({format_size(file_size)}, {file_date_str})")
-                            
-                            processed += 1
-                            progress_msg = f"{'Simularía' if dry_run else 'Eliminado'}: {file_path.name}"
-                            safe_progress_callback(progress_callback, processed, total_operations, progress_msg)
-                        except Exception as e:
-                            errors.append({'file': str(file_path), 'error': str(e)})
-                            self.logger.error(f"Error eliminando {file_path}: {e}")
-
-                else:
-                    # Modo automático: seleccionar archivo a mantener
-                    keep_file = self._select_file_to_keep(group.files, keep_strategy)
-                    kept_files.append(keep_file)
-                    
-                    from utils.date_utils import get_file_date
-                    try:
-                        keep_date = get_file_date(keep_file, verbose=True)
-                        keep_date_str = keep_date.strftime('%Y-%m-%d %H:%M:%S') if keep_date else 'fecha desconocida'
-                    except Exception as e:
-                        self.logger.warning(f"Error obteniendo fecha de {keep_file}: {e}")
-                        keep_date_str = 'fecha desconocida'
-                    
-                    log_prefix = "[SIMULACIÓN] " if dry_run else ""
-                    self.logger.info(f"{log_prefix}  ✓ {'Conservaría' if dry_run else 'Conservado'} ({keep_strategy}): {keep_file} ({keep_date_str})")
-
-                    # Verificar que el archivo a mantener exista
-                    try:
-                        validate_file_exists(keep_file)
-                    except FileNotFoundError as e:
-                        error_prefix = "[SIMULACIÓN] " if dry_run else ""
-                        errors.append({'file': str(keep_file), 'error': str(e)})
-                        self.logger.error(f"{error_prefix}Archivo a mantener no existe: {keep_file}: {e}")
-                        continue
-
-                    # Eliminar el resto
-                    for file_path in group.files:
-                        if file_path == keep_file:
-                            continue
-
-                        try:
-                            try:
-                                validate_file_exists(file_path)
-                            except FileNotFoundError as e:
-                                error_prefix = "[SIMULACIÓN] " if dry_run else ""
-                                errors.append({'file': str(file_path), 'error': str(e)})
-                                self.logger.error(f"{error_prefix}Archivo no encontrado: {file_path}: {e}")
-                                continue
-
-                            try:
-                                file_size = file_path.stat().st_size
-                                file_date = get_file_date(file_path, verbose=True)
-                                file_date_str = file_date.strftime('%Y-%m-%d %H:%M:%S') if file_date else 'fecha desconocida'
-                            except Exception as e:
-                                self.logger.warning(f"Error obteniendo información de {file_path}: {e}")
-                                file_size = 0
-                                file_date_str = 'fecha desconocida'
-
-                            from utils.format_utils import format_size
-                            
-                            if dry_run:
-                                simulated_files_deleted += 1
-                                simulated_space_freed += file_size
-                                deleted_files.append(file_path)
-                                self.logger.info(f"[SIMULACIÓN] Eliminaría duplicado similar: {file_path} ({format_size(file_size)}, {file_date_str})")
-                            else:
-                                if create_backup and backup_path:
-                                    backup_file = backup_path / file_path.name
-                                    shutil.copy2(file_path, backup_file)
-
-                                file_path.unlink()
-                                deleted_files.append(file_path)
-                                space_freed += file_size
-                                self.logger.info(f"✓ Eliminado duplicado similar: {file_path} ({format_size(file_size)}, {file_date_str})")
-                            
-                            processed += 1
-                            progress_msg = f"{'Simularía' if dry_run else 'Eliminado'}: {file_path.name}"
-                            safe_progress_callback(progress_callback, processed, total_operations, progress_msg)
-
-                        except Exception as e:
-                            errors.append({'file': str(file_path), 'error': str(e)})
-                            self.logger.error(f"Error eliminando {file_path}: {e}")
-
-            except Exception as e:
-                errors.append({'group': str(group.hash_value), 'error': str(e)})
-                self.logger.error(f"Error procesando grupo: {e}")
-        
-        # Convertir errores de dict a strings
-        error_messages = []
-        for error in errors:
-            if isinstance(error, dict):
-                error_messages.append(f"{error.get('file', 'Unknown')}: {error.get('error', 'Unknown error')}")
-            else:
-                error_messages.append(str(error))
-        
-        result = DuplicateDeletionResult(
-            success=len(error_messages) == 0,
-            files_deleted=len(deleted_files) if not dry_run else 0,
-            files_kept=len(kept_files),
-            space_freed=space_freed if not dry_run else 0,
-            errors=error_messages,
-            backup_path=str(backup_path) if backup_path else None,
-            deleted_files=[str(f) for f in deleted_files],
-            keep_strategy=keep_strategy,
-            dry_run=dry_run,
-            simulated_files_deleted=simulated_files_deleted if dry_run else 0,
-            simulated_space_freed=simulated_space_freed if dry_run else 0
-        )
-        
-        try:
-            from utils.format_utils import format_size
-            if dry_run:
-                freed_str = format_size(simulated_space_freed)
-                files_count = simulated_files_deleted
-            else:
-                freed_str = format_size(space_freed)
-                files_count = len(deleted_files)
-        except Exception:
-            if dry_run:
-                freed_str = f"{simulated_space_freed / (1024*1024):.2f} MB"
-                files_count = simulated_files_deleted
-            else:
-                freed_str = f"{space_freed / (1024*1024):.2f} MB"
-                files_count = len(deleted_files)
-
-        self.logger.info("=" * 80)
-        if dry_run:
-            self.logger.info("*** SIMULACIÓN DE ELIMINACIÓN DE DUPLICADOS SIMILARES COMPLETADA")
-            self.logger.info(f"*** Resultado: {files_count} archivos se eliminarían, {freed_str} se liberarían")
-        else:
-            self.logger.info("*** ELIMINACIÓN DE DUPLICADOS SIMILARES COMPLETADA")
-            self.logger.info(f"*** Resultado: {files_count} archivos eliminados, {freed_str} liberados")
-        if result.has_errors:
-            error_prefix = "[SIMULACIÓN] " if dry_run else ""
-            self.logger.info(f"*** {error_prefix}Errores encontrados durante la {'simulación' if dry_run else 'eliminación'}:")
-            for error in result.errors:
-                self.logger.error(f"  ✗ {error}")
-        self.logger.info("=" * 80)
-        
-        return result
-    
-    def _select_file_to_keep(self, files: List[Path], strategy: str) -> Path:
-        """Selecciona qué archivo mantener según la estrategia"""
-        if strategy == 'oldest':
-            return min(files, key=lambda f: f.stat().st_mtime)
-        elif strategy == 'newest':
-            return max(files, key=lambda f: f.stat().st_mtime)
-        elif strategy == 'largest':
-            return max(files, key=lambda f: f.stat().st_size)
-        elif strategy == 'smallest':
-            return min(files, key=lambda f: f.stat().st_size)
-        else:
-            return files[0]
+    def _calculate_perceptual_hash(self, file_path: Path) -> Optional[Any]:
+        """Calcula perceptual hash de una imagen"""

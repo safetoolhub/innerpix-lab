@@ -174,16 +174,35 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
 
 ### Developer Workflow
 
-Setup: `uv venv --python 3.13 && source .venv/bin/activate && uv pip install -r requirements.txt`
+**Setup:**
+```bash
+uv venv --python 3.13 && source .venv/bin/activate && uv pip install -r requirements.txt
+```
 - Note: `pillow-heif` requires system `libheif` library (apt/brew install)
 
-Run: `source .venv/bin/activate && python main.py`
+**Run application:**
+```bash
+source .venv/bin/activate && python main.py
+```
 - Logs: `~/Documents/Pixaro_Lab/logs/` by default
 - Use `utils.logger.set_global_log_level(logging.DEBUG)` for verbose output
 
-Project files:
+**Run tests:**
+```bash
+pytest                                        # All tests
+pytest tests/unit/services/                   # Service tests only
+pytest -m live_photos                         # Live Photos tests only
+pytest -v --tb=short                          # Verbose with short traceback
+```
+- Test documentation: `tests/README.md`
+- Fixtures: `tests/conftest.py` (temp_dir, create_test_image, create_live_photo_pair, etc.)
+- Markers: `@pytest.mark.unit`, `@pytest.mark.live_photos`, `@pytest.mark.slow`
+- Coverage: `pytest --cov=services --cov=utils --cov-report=html`
+
+**Project files:**
 - `PROJECT_TREE.md`: Complete project structure and file descriptions
 - `CHANGELOG.md`: Version history and changes
+- `tests/README.md`: Testing guide with examples and best practices
 - `.vscode/`: VS Code workspace configuration (launch, tasks, settings, keybindings)
 
 ### Code Quality Rules
@@ -203,6 +222,44 @@ Project files:
 - **Preserve backup flows**: never remove `create_backup` parameters without explicit request
 - **Import resolution**: `ui/styles/design_system.py` is the single source of truth for current styling
 
+### Testing Guidelines
+
+**Philosophy:**
+- **Test business logic, not UI**: Focus tests on services and utilities, keep UI tests minimal
+- **Test-driven confidence**: All services should have comprehensive unit tests before considering them production-ready
+- **Fixtures over mocks**: Use real temporary files/directories via fixtures, avoid complex mocking
+
+**Test Structure:**
+```python
+@pytest.mark.unit
+@pytest.mark.feature_name
+class TestServiceNameAspect:
+    """Tests for specific aspect of ServiceName."""
+    
+    def test_specific_behavior(self, temp_dir, fixture):
+        """Docstring explaining what is tested."""
+        # Arrange
+        service = ServiceName()
+        # Act
+        result = service.method(temp_dir)
+        # Assert
+        assert result.success == True
+```
+
+**Key Practices:**
+- Use `temp_dir` fixture for all file operations (automatic cleanup)
+- Use factory fixtures (`create_test_image`, `create_live_photo_pair`) for test data
+- Group related tests in classes: `TestXxxBasics`, `TestXxxAnalysis`, `TestXxxExecution`, `TestXxxEdgeCases`
+- Mark tests appropriately: `@pytest.mark.unit`, `@pytest.mark.live_photos`, `@pytest.mark.slow`
+- Keep tests fast (<1s each), mark slow tests with `@pytest.mark.slow`
+- Test return types are correct dataclasses from `result_types.py`
+
+**Coverage Targets:**
+- Services: 80%+ coverage (analyze + execute methods, edge cases)
+- Utilities: 90%+ coverage (pure functions, no UI dependencies)
+- UI: Minimal testing (focus on business logic in services)
+
+See `tests/README.md` for detailed testing guide with examples.
 
 ### Platform Notes
 

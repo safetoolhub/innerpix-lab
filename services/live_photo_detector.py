@@ -10,8 +10,8 @@ from collections import defaultdict
 from dataclasses import dataclass
 
 from config import Config
-from utils.logger import get_logger
 from services.result_types import LivePhotoAnalysisResult
+from services.base_service import BaseService
 
 
 @dataclass
@@ -51,11 +51,15 @@ class LivePhotoGroup:
         return 0.0
 
 
-class LivePhotoDetector:
-    """Detector de Live Photos de iPhone"""
+class LivePhotoDetector(BaseService):
+    """
+    Detector de Live Photos de iPhone
+    
+    Hereda de BaseService para logging estandarizado.
+    """
 
     def __init__(self):
-        self.logger = get_logger("LivePhotoDetector")
+        super().__init__("LivePhotoDetector")
 
         # Extensiones para Live Photos - Convertir todas a mayúsculas para comparación
         self.photo_extensions = {ext.upper() for ext in {'.heic', '.jpg', '.jpeg'}}
@@ -79,7 +83,8 @@ class LivePhotoDetector:
         Returns:
             Lista de LivePhotoGroup detectados
         """
-        self.logger.info(f"Detectando Live Photos en: {directory}")
+        self._log_section_header("DETECCIÓN DE LIVE PHOTOS")
+        self.logger.info(f"Analizando en: {directory}")
 
         if not directory.exists():
             raise ValueError(f"Directorio no existe: {directory}")

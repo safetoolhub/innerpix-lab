@@ -10,9 +10,9 @@ from collections import defaultdict
 from dataclasses import dataclass
 
 from config import Config
-from utils.logger import get_logger
 from utils.file_utils import validate_file_exists, to_path
 from services.result_types import HeicAnalysisResult, HeicDeletionResult
+from services.base_service import BaseService
 
 @dataclass
 class DuplicatePair:
@@ -83,13 +83,15 @@ class DuplicatePair:
 
         return f"HEIC: {heic_str}, JPG: {jpg_str}, Ahorro: {saving_str}"
 
-class HEICRemover:
+class HEICRemover(BaseService):
     """
     Eliminador de HEIC Duplicados - Compara archivos HEIC con sus equivalentes JPG
+    
+    Hereda de BaseService para logging estandarizado.
     """
 
     def __init__(self):
-        self.logger = get_logger("HEICRemover")
+        super().__init__("HEICRemover")
         self.backup_dir = None
 
         # Configuración
@@ -118,7 +120,8 @@ class HEICRemover:
         Returns:
             Análisis detallado de duplicados
         """
-        self.logger.info(f"Analizando duplicados HEIC en: {directory}")
+        self._log_section_header("ANÁLISIS DE DUPLICADOS HEIC/JPG")
+        self.logger.info(f"Analizando en: {directory}")
         self._reset_stats()
 
         results = {

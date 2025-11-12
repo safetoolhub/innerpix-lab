@@ -13,6 +13,7 @@ from config import Config
 from utils.logger import get_logger
 from services.live_photo_detector import LivePhotoGroup, LivePhotoDetector
 from services.result_types import LivePhotoCleanupAnalysisResult, LivePhotoCleanupResult
+from services.base_service import BaseService
 
 class CleanupMode(Enum):
     """Modos de limpieza de Live Photos"""
@@ -22,17 +23,14 @@ class CleanupMode(Enum):
     KEEP_SMALLER = "keep_smaller"      # Mantener el archivo más pequeño
     CUSTOM = "custom"                  # Selección manual por archivo
 
-class LivePhotoCleaner:
+class LivePhotoCleaner(BaseService):
     """
     Limpiador seguro de Live Photos con backup y confirmación
     """
 
     def __init__(self):
-        self.logger = get_logger("LivePhotoCleaner")
+        super().__init__("LivePhotoCleaner")
         self.detector = LivePhotoDetector()
-
-        # Estado del limpiador
-        self.backup_dir = None
         self.dry_run = False
 
         # Estadísticas de limpieza
@@ -215,12 +213,13 @@ class LivePhotoCleaner:
                 message='No hay archivos para eliminar'
             )
 
-        self.logger.info("=" * 80)
-        self.logger.info("*** INICIANDO LIMPIEZA DE LIVE PHOTOS")
+        mode_label = "SIMULACIÓN" if dry_run else ""
+        self._log_section_header(
+            "INICIANDO LIMPIEZA DE LIVE PHOTOS",
+            mode=mode_label
+        )
         self.logger.info(f"*** Archivos a procesar: {len(files_to_delete)}")
-        if dry_run:
-            self.logger.info("*** Modo: SIMULACIÓN")
-        self.logger.info("=" * 80)
+        
         self.dry_run = dry_run
         self._reset_cleanup_stats()
 
@@ -319,12 +318,10 @@ class LivePhotoCleaner:
                 from utils.format_utils import format_size
                 freed = format_size(simulated_space)
 
-                self.logger.info("=" * 80)
-                self.logger.info("*** LIMPIEZA DE LIVE PHOTOS COMPLETADA [SIMULACIÓN]")
-                self.logger.info(f"*** Resultado: {simulated_count} archivos, {freed} potencialmente liberados")
+                summary = f"LIMPIEZA DE LIVE PHOTOS COMPLETADA\nResultado: {simulated_count} archivos, {freed} potencialmente liberados"
                 if results.errors:
-                    self.logger.info(f"*** Errores: {len(results.errors)}")
-                self.logger.info("=" * 80)
+                    summary += f"\nErrores: {len(results.errors)}"
+                self._log_section_footer(summary)
                 
                 # Construir mensaje para UI
                 results.message = f"Simulación completada: {simulated_count} archivos ({freed}) se eliminarían"
@@ -335,14 +332,13 @@ class LivePhotoCleaner:
                 except Exception:
                     freed = f"{results.space_freed/(1024*1024):.2f} MB"
 
-                self.logger.info("=" * 80)
-                self.logger.info("*** LIMPIEZA DE LIVE PHOTOS COMPLETADA")
-                self.logger.info(f"*** Resultado: {results.files_deleted} archivos eliminados, {freed} liberados")
+                summary = f"LIMPIEZA DE LIVE PHOTOS COMPLETADA\nResultado: {results.files_deleted} archivos eliminados, {freed} liberados"
+                self._log_section_footer(summary)
+                
                 if results.errors:
                     self.logger.info(f"*** Errores encontrados durante la limpieza:")
                     for error in results.errors:
                         self.logger.error(f"  ✗ {error}")
-                self.logger.info("=" * 80)
                 
                 # Construir mensaje para UI
                 results.message = f"Eliminados {results.files_deleted} archivos, liberados {freed}"
