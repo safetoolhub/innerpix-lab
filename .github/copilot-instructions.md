@@ -75,10 +75,13 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
 - Helper methods: `Config.is_supported_file()`, `Config.get_file_type()`, `Config.is_image_file()`
 - All methods are @classmethod, no instance needed
 
-**Logging conventions**
+**Logging conventions** (`utils/logger.py`)
 - Use `get_logger('ModuleName')` not print()
 - Levels: DEBUG for internals, INFO for operations/results, WARNING for recoverable issues, ERROR for failures
 - All logs written to timestamped file in `Config.DEFAULT_LOG_DIR`
+- **Thread-safe**: Uses RLock to prevent log mixing in concurrent operations
+- **Atomic logging**: Use `logger.log_block()` for multi-line sections that must appear together
+- Services use `_log_section_header()` and `_log_section_footer()` from `BaseService` for standardized section logging
 
 **Storage abstraction** (`utils/storage.py`) - Platform-agnostic persistence
 - Interface: `StorageBackend` (ABC) defines `get()`, `set()`, `remove()`, `clear()`, `contains()`, `sync()`

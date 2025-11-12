@@ -307,13 +307,10 @@ class HEICRemover(BaseService):
                 dry_run=dry_run
             )
 
-        self.logger.info("=" * 80)
-        self.logger.info("*** INICIANDO ELIMINACIÓN DE DUPLICADOS HEIC/JPG")
+        mode = "SIMULACIÓN" if dry_run else ""
+        self._log_section_header("ELIMINACIÓN DE DUPLICADOS HEIC/JPG", mode=mode)
         self.logger.info(f"*** Pares a procesar: {len(duplicate_pairs)}")
         self.logger.info(f"*** Formato a conservar: {keep_format.upper()}")
-        if dry_run:
-            self.logger.info("*** Modo: SIMULACIÓN")
-        self.logger.info("=" * 80)
 
         results = HeicDeletionResult(success=True, format_kept=keep_format, dry_run=dry_run)
 
@@ -406,14 +403,19 @@ class HEICRemover(BaseService):
                 freed = format_size(results.space_freed)
                 files_count = results.files_deleted
 
-            self.logger.info("=" * 80)
+            # Generar resumen usando método centralizado
+            summary = self._format_operation_summary(
+                "Eliminación HEIC/JPG",
+                files_count,
+                results.space_freed if not dry_run else results.simulated_space_freed,
+                dry_run
+            )
+            
+            self._log_section_footer(summary)
+            
             if dry_run:
-                self.logger.info("*** SIMULACIÓN DE ELIMINACIÓN DE DUPLICADOS HEIC/JPG COMPLETADA")
-                self.logger.info(f"*** Resultado: {files_count} archivos se eliminarían, {freed} se liberarían")
                 results.message = f"Simulación completada: {files_count} archivos {keep_format.upper()} ({freed}) se eliminarían"
             else:
-                self.logger.info("*** ELIMINACIÓN DE DUPLICADOS HEIC/JPG COMPLETADA")
-                self.logger.info(f"*** Resultado: {files_count} archivos eliminados, {freed} liberados")
                 results.message = f"Eliminados {files_count} archivos {keep_format.upper()}, liberados {freed}"
                 if results.backup_path:
                     results.message += f"\n\nBackup creado en:\n{results.backup_path}"
@@ -424,7 +426,6 @@ class HEICRemover(BaseService):
                 for error in results.errors:
                     self.logger.error(f"  ✗ {error}")
                 results.message += f"\n\nAdvertencia: {len(results.errors)} errores encontrados"
-            self.logger.info("=" * 80)
 
         except Exception as e:
             error_msg = f"Error durante eliminación: {str(e)}"

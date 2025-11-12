@@ -297,7 +297,13 @@ class LivePhotoService(BaseService):
                 simulated_space = results.simulated_space_freed
                 freed = format_size(simulated_space)
 
-                summary = f"LIMPIEZA DE LIVE PHOTOS COMPLETADA\nResultado: {simulated_count} archivos, {freed} potencialmente liberados"
+                # Usar método centralizado de formato
+                summary = self._format_operation_summary(
+                    "Limpieza Live Photos",
+                    simulated_count,
+                    simulated_space,
+                    dry_run
+                )
                 if results.errors:
                     summary += f"\nErrores: {len(results.errors)}"
                 self._log_section_footer(summary)
@@ -307,7 +313,13 @@ class LivePhotoService(BaseService):
             else:
                 freed = format_size(results.space_freed)
 
-                summary = f"LIMPIEZA DE LIVE PHOTOS COMPLETADA\nResultado: {results.files_deleted} archivos eliminados, {freed} liberados"
+                # Usar método centralizado de formato
+                summary = self._format_operation_summary(
+                    "Limpieza Live Photos",
+                    results.files_deleted,
+                    results.space_freed,
+                    dry_run
+                )
                 self._log_section_footer(summary)
                 
                 if results.errors:

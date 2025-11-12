@@ -35,19 +35,19 @@ pixaro-lab/
 <!-- Nota: La carpeta `docs/` contiene notas técnicas y personales del autor y no se incluye en este árbol simplificado. -->
 ├── services/                        # Lógica de negocio (sin dependencias UI)
 │   ├── __init__.py
-│   ├── analysis_orchestrator.py     # Coordinador de análisis completo
-│   ├── base_service.py              # Clase base para todos los servicios
-│   ├── base_detector_service.py     # Clase base para detectores de duplicados
-│   ├── exact_copies_detector.py     # Detección de copias exactas (SHA256)
-│   ├── similar_files_detector.py    # Detección de archivos similares (perceptual hash)
-│   ├── file_organizer_service.py    # Organización por fecha/tipo
-│   ├── file_renamer_service.py      # Renombrado según patrón fecha
-│   ├── heic_remover_service.py      # Eliminación de duplicados HEIC/JPG
-│   ├── live_photo_service.py        # Servicio unificado de Live Photos
-│   ├── result_types.py              # Dataclasses de resultados
+│   ├── analysis_orchestrator.py     # Coordinador de análisis completo (100% PyQt6-free)
+│   ├── base_service.py              # ✅ Clase base: logging, backup, progress, format
+│   ├── base_detector_service.py     # ✅ Clase base detectores: execute() unificado
+│   ├── exact_copies_detector.py     # ✅ Detección copias exactas (SHA256)
+│   ├── similar_files_detector.py    # Detección archivos similares (perceptual hash)
+│   ├── file_organizer_service.py    # ✅ Organización por fecha/tipo
+│   ├── file_renamer_service.py      # ✅ Renombrado según patrón fecha
+│   ├── heic_remover_service.py      # ✅ Eliminación duplicados HEIC/JPG
+│   ├── live_photo_service.py        # ✅ Servicio unificado Live Photos
+│   ├── result_types.py              # ✅ Dataclasses 100% tipados (NO raw dicts)
 │   ├── service_utils.py             # Utilidades compartidas entre servicios
 │   └── view_models.py               # View Models para separación UI/Lógica
-│
+│   
 ├── ui/                              # Interfaz gráfica PyQt6
 │   ├── __init__.py
 │   ├── helpers.py                   # Funciones auxiliares de UI
@@ -104,10 +104,11 @@ pixaro-lab/
 │   ├── __init__.py
 │   ├── callback_utils.py            # Utilidades para callbacks de progreso
 │   ├── date_utils.py                # Manipulación de fechas
+│   ├── decorators.py                # Decoradores (@deprecated, etc.)
 │   ├── file_utils.py                # Operaciones con archivos (hash, backup, paths)
 │   ├── format_utils.py              # Formateo de tamaños, números, etc.
 │   ├── icons.py                     # Gestión de iconos (qtawesome)
-│   ├── logger.py                    # Sistema de logging centralizado
+│   ├── logger.py                    # ✅ Logging thread-safe (RLock, log_block)
 │   ├── platform_utils.py            # Utilidades específicas de plataforma
 │   ├── screen_utils.py              # Detección multiplataforma de resolución de pantalla
 │   ├── settings_manager.py          # Gestión de configuración persistente (QSettings/JSON)
@@ -155,6 +156,3 @@ pixaro-lab/
 ./run_tests.sh              # Ejecutar todos los tests
 pytest                      # Ejecutar con pytest directamente
 ```
-
-**Tests implementados:**
-- `test_window_size.py`: Lógica de configuración de ventana por resolución

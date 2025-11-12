@@ -8,16 +8,39 @@ Convenciones de niveles de log:
 - ERROR: errores que requieren atención inmediata
 
 Todos los mensajes de log deben ser texto plano, sin HTML.
+
+Thread-safety:
+- Los logs están protegidos con un lock para evitar mezclas en ambientes concurrentes
+- El procesamiento paralelo no se ve afectado, solo se serializan las escrituras de logs
 """
 import logging
 import sys
 import re
+import threading
 
 
 # Logger raíz para toda la aplicación
 _ROOT_LOGGER_NAME = 'PixaroLab'
 _root_logger = None
 _current_level = logging.INFO
+_log_lock = threading.RLock()  # RLock permite re-entrada del mismo thread
+
+
+class ThreadSafeStreamHandler(logging.StreamHandler):
+    """
+    Handler thread-safe que usa un RLock para serializar escrituras de logs.
+    
+    RLock (re-entrant lock) permite que el mismo thread adquiera el lock
+    múltiples veces, evitando deadlocks en log_block().
+    
+    Esto evita que los logs de múltiples threads se mezclen, manteniendo
+    cada mensaje completo sin interrupciones.
+    """
+    
+    def emit(self, record):
+        """Emite el log usando el RLock global para thread-safety"""
+        with _log_lock:
+            super().emit(record)
 
 
 def _ensure_root_logger():
@@ -29,8 +52,8 @@ def _ensure_root_logger():
         _root_logger.setLevel(_current_level)
         
         if not _root_logger.handlers:
-            # Handler para consola
-            handler = logging.StreamHandler(sys.stdout)
+            # Handler thread-safe para consola
+            handler = ThreadSafeStreamHandler(sys.stdout)
             # Formato mejorado con nombre del módulo para mejor trazabilidad
             formatter = logging.Formatter(
                 '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -99,6 +122,30 @@ class SimpleLogger:
     def isEnabledFor(self, level):
         """Verifica si el logger está habilitado para el nivel especificado"""
         return self.logger.isEnabledFor(level)
+    
+    def log_block(self, level, *messages):
+        """
+        Registra múltiples mensajes de forma atómica (sin interrupciones).
+        
+        Útil para logging de secciones que deben aparecer juntas en el log,
+        especialmente en ambientes concurrentes.
+        
+        Args:
+            level: logging.INFO, logging.DEBUG, etc.
+            *messages: Mensajes a registrar en bloque
+            
+        Example:
+            logger.log_block(logging.INFO,
+                "=" * 80,
+                "*** INICIANDO OPERACIÓN",
+                "*** Archivos: 10",
+                "=" * 80
+            )
+        """
+        with _log_lock:
+            for message in messages:
+                sanitized = self._sanitize_message(message)
+                self.logger.log(level, sanitized)
 
     @staticmethod
     def _sanitize_message(message):
