@@ -48,7 +48,7 @@ class OrganizationWorker(QThread):
                 self.progress.emit(current, total, message)
                 return True  # Continue processing
             
-            result = self.organizer.analyze_directory_structure(
+            result = self.organizer.analyze(
                 self.root_directory,
                 self.organization_type,
                 progress_callback

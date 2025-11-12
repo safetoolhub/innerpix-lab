@@ -508,7 +508,7 @@ class DuplicateAnalysisWorker(BaseWorker):
             
             results: 'DuplicateAnalysisResult'
             if self.mode == 'exact':
-                results = self.detector.analyze_exact_duplicates(
+                results = self.detector.analyze(
                     self.directory,
                     progress_callback=self._create_progress_callback(emit_numbers=True)
                 )
@@ -723,22 +723,22 @@ class WorkspaceReanalysisWorker(BaseWorker):
                     )
                 
                 elif tool_name == "heic":
-                    result = detector.analyze_heic_duplicates(self.workspace_path, progress_callback=None)
+                    result = detector.analyze(self.workspace_path, progress_callback=None)
                 
                 elif tool_name == "exact_copies":
-                    result = detector.analyze_exact_duplicates(
+                    result = detector.analyze(
                         directory=self.workspace_path,
                         progress_callback=None
                     )
                 
                 elif tool_name == "organize":
-                    result = detector.analyze_directory_structure(
+                    result = detector.analyze(
                         root_directory=self.workspace_path,
                         progress_callback=None
                     )
                 
                 elif tool_name == "rename":
-                    result = detector.analyze_directory(
+                    result = detector.analyze(
                         directory=self.workspace_path,
                         progress_callback=None
                     )
