@@ -313,7 +313,7 @@ class RenamingWorker(BaseWorker):
             if self._stop_requested:
                 return
             
-            results: 'RenameResult' = self.renamer.execute_renaming(
+            results: 'RenameResult' = self.renamer.execute(
                 self.analysis.renaming_plan,
                 create_backup=self.create_backup,
                 dry_run=self.dry_run,
@@ -402,7 +402,7 @@ class FileOrganizerWorker(BaseWorker):
             if self._stop_requested:
                 return
             
-            results: 'OrganizationResult' = self.organizer.execute_organization(
+            results: 'OrganizationResult' = self.organizer.execute(
                 self.analysis.move_plan,
                 create_backup=self.create_backup,
                 cleanup_empty_dirs=self.cleanup_empty_dirs,
@@ -457,7 +457,7 @@ class HEICRemovalWorker(BaseWorker):
             # progress_callback explicitly) can use it via attribute
             setattr(self.remover, '_progress_callback', progress_cb_local)
 
-            results: 'HeicDeletionResult' = self.remover.execute_removal(
+            results: 'HeicDeletionResult' = self.remover.execute(
                 self.analysis.duplicate_pairs,
                 keep_format=self.keep_format,
                 create_backup=self.create_backup,
@@ -508,7 +508,7 @@ class DuplicateAnalysisWorker(BaseWorker):
             
             results: 'DuplicateAnalysisResult'
             if self.mode == 'exact':
-                results = self.detector.analyze_exact_duplicates(
+                results = self.detector.analyze(
                     self.directory,
                     progress_callback=self._create_progress_callback(emit_numbers=True)
                 )
@@ -561,7 +561,7 @@ class DuplicateDeletionWorker(BaseWorker):
             if self._stop_requested:
                 return
             
-            results: 'DuplicateDeletionResult' = self.detector.execute_deletion(
+            results: 'DuplicateDeletionResult' = self.detector.execute(
                 self.groups,
                 keep_strategy=self.keep_strategy,
                 create_backup=self.create_backup,
@@ -723,22 +723,22 @@ class WorkspaceReanalysisWorker(BaseWorker):
                     )
                 
                 elif tool_name == "heic":
-                    result = detector.analyze_heic_duplicates(self.workspace_path, progress_callback=None)
+                    result = detector.analyze(self.workspace_path, progress_callback=None)
                 
                 elif tool_name == "exact_copies":
-                    result = detector.analyze_exact_duplicates(
+                    result = detector.analyze(
                         directory=self.workspace_path,
                         progress_callback=None
                     )
                 
                 elif tool_name == "organize":
-                    result = detector.analyze_directory_structure(
+                    result = detector.analyze(
                         root_directory=self.workspace_path,
                         progress_callback=None
                     )
                 
                 elif tool_name == "rename":
-                    result = detector.analyze_directory(
+                    result = detector.analyze(
                         directory=self.workspace_path,
                         progress_callback=None
                     )

@@ -46,68 +46,15 @@ class FileRenamer(BaseService):
         progress_callback: Optional[ProgressCallback] = None
     ) -> RenameAnalysisResult:
         """
-        Analiza un directorio para renombrado (método unificado).
+        Analiza un directorio para renombrado.
         
-        Este es el método recomendado. Alias de analyze_directory().
+        Este es el método estándar de análisis.
         
-        Args:
-            directory: Directorio a analizar
-            progress_callback: Función callback(current, total, message)
-            
-        Returns:
-            RenameAnalysisResult con análisis detallado
-        """
-        return self.analyze_directory(directory, progress_callback)
-    
-    def execute(
-        self,
-        renaming_plan: List[Dict],
-        create_backup: bool = True,
-        dry_run: bool = False,
-        progress_callback: Optional[ProgressCallback] = None
-    ) -> RenameResult:
-        """
-        Ejecuta el renombrado según el plan (método unificado).
-        
-        Este es el método recomendado. Alias de execute_renaming().
-        
-        Args:
-            renaming_plan: Plan de renombrado del análisis
-            create_backup: Si crear backup antes de proceder
-            dry_run: Si True, simula la operación
-            progress_callback: Callback para reportar progreso
-            
-        Returns:
-            RenameResult con resultados de la operación
-        """
-        return self.execute_renaming(
-            renaming_plan, 
-            create_backup, 
-            dry_run, 
-            progress_callback
-        )
-    
-    # ========================================================================
-    # MÉTODOS LEGACY (Deprecated - Mantener para compatibilidad)
-    # ========================================================================
-
-    @deprecated(
-        reason="Nomenclatura inconsistente",
-        replacement="analyze()"
-    )
-    def analyze_directory(
-        self,
-        directory: Path,
-        progress_callback: Optional[ProgressCallback] = None
-    ) -> RenameAnalysisResult:
-        """
-        Analiza un directorio para renombrado
-
         Args:
             directory: Directorio a analizar
             progress_callback: Función callback(current, total, message) para
                              reportar progreso
-
+            
         Returns:
             RenameAnalysisResult con análisis detallado
         """
@@ -241,28 +188,27 @@ class FileRenamer(BaseService):
             renaming_plan=renaming_plan,
             issues=issues
         )
-
-    @deprecated(
-        reason="Nomenclatura inconsistente",
-        replacement="execute()"
-    )
-    def execute_renaming(
+    
+    def execute(
         self,
         renaming_plan: List[Dict],
         create_backup: bool = True,
         dry_run: bool = False,
-        progress_callback=None
-    ) -> Dict:
+        progress_callback: Optional[ProgressCallback] = None
+    ) -> RenameResult:
         """
-        Ejecuta el renombrado según el plan. Si el destino existe, busca siguiente sufijo disponible.
-
+        Ejecuta el renombrado según el plan.
+        
+        Si el destino existe, busca siguiente sufijo disponible.
+        
         Args:
             renaming_plan: Plan de renombrado del análisis
             create_backup: Si crear backup antes de proceder
             dry_run: Si True, simula la operación sin renombrar archivos
-
+            progress_callback: Callback para reportar progreso
+            
         Returns:
-            Resultados de la operación
+            RenameResult con resultados de la operación
         """
         if not renaming_plan:
             return RenameResult(
@@ -421,7 +367,7 @@ class FileRenamer(BaseService):
             results.message = f"Error crítico: {str(e)}"
 
         return results
-
+    
     def rename_files(self, directory: Path, progress_callback: Optional[ProgressCallback] = None):
         """
         Renombra los archivos en el directorio dado
