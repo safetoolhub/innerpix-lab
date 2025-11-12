@@ -193,19 +193,20 @@ class BaseDetectorService(BaseService):
             simulated_space_freed=simulated_space_freed if dry_run else 0
         )
         
-        # Logging de resumen
+        # Logging de resumen usando método centralizado
         from utils.format_utils import format_size
         
-        if dry_run:
-            count = len(deleted_files)
-            freed = format_size(simulated_space_freed)
-            summary = f"Simulación completada: {count} archivos se eliminarían, {freed} se liberarían"
-        else:
-            count = len(deleted_files)
-            freed = format_size(space_freed)
-            summary = f"Eliminados {count} duplicados, liberados {freed}"
-            if result.backup_path:
-                summary += f"\n\nBackup creado en:\n{result.backup_path}"
+        count = len(deleted_files)
+        space = simulated_space_freed if dry_run else space_freed
+        summary = self._format_operation_summary(
+            "Eliminación duplicados",
+            count,
+            space,
+            dry_run
+        )
+        
+        if not dry_run and result.backup_path:
+            summary += f"\n\nBackup creado en:\n{result.backup_path}"
         
         result.message = summary
         
