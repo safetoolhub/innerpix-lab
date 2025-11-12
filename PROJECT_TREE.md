@@ -36,14 +36,16 @@ pixaro-lab/
 ├── services/                        # Lógica de negocio (sin dependencias UI)
 │   ├── __init__.py
 │   ├── analysis_orchestrator.py     # Coordinador de análisis completo
-│   ├── exact_copy_detector.py       # Detección de copias exactas (SHA256)
+│   ├── base_service.py              # Clase base para todos los servicios
+│   ├── base_detector_service.py     # Clase base para detectores de duplicados
+│   ├── exact_copies_detector.py     # Detección de copias exactas (SHA256)
 │   ├── similar_files_detector.py    # Detección de archivos similares (perceptual hash)
-│   ├── file_organizer.py            # Organización por fecha/tipo
-│   ├── file_renamer.py              # Renombrado según patrón fecha
-│   ├── heic_remover.py              # Eliminación de duplicados HEIC/JPG
-│   ├── live_photo_cleaner.py        # Limpieza de Live Photos
-│   ├── live_photo_detector.py       # Detección de Live Photos
+│   ├── file_organizer_service.py    # Organización por fecha/tipo
+│   ├── file_renamer_service.py      # Renombrado según patrón fecha
+│   ├── heic_remover_service.py      # Eliminación de duplicados HEIC/JPG
+│   ├── live_photo_service.py        # Servicio unificado de Live Photos
 │   ├── result_types.py              # Dataclasses de resultados
+│   ├── service_utils.py             # Utilidades compartidas entre servicios
 │   └── view_models.py               # View Models para separación UI/Lógica
 │
 ├── ui/                              # Interfaz gráfica PyQt6

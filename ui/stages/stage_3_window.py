@@ -496,7 +496,7 @@ class Stage3Window(BaseStage):
             )
         
         elif tool_id == 'heic':
-            from services.heic_remover import HEICRemover
+            from services.heic_remover_service import HEICRemover
             remover = HEICRemover()
             # HEICRemovalWorker espera (remover, analysis: dataclass, keep_format, create_backup, dry_run)
             worker = HEICRemovalWorker(
@@ -520,7 +520,7 @@ class Stage3Window(BaseStage):
             )
         
         elif tool_id == 'organize':
-            from services.file_organizer import FileOrganizer
+            from services.file_organizer_service import FileOrganizer
             organizer = FileOrganizer()
             # FileOrganizerWorker espera (organizer, analysis: dataclass, cleanup_empty_dirs, create_backup, dry_run)
             worker = FileOrganizerWorker(
@@ -532,7 +532,7 @@ class Stage3Window(BaseStage):
             )
         
         elif tool_id == 'rename':
-            from services.file_renamer import FileRenamer
+            from services.file_renamer_service import FileRenamer
             renamer = FileRenamer()
             # RenamingWorker espera (renamer, analysis: dataclass, create_backup, dry_run)
             worker = RenamingWorker(
