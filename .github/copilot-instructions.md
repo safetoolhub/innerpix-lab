@@ -75,7 +75,7 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
 - Helper methods: `Config.is_supported_file()`, `Config.get_file_type()`, `Config.is_image_file()`
 - All methods are @classmethod, no instance needed
 
-**Logging conventions** (see `docs/LOGGING_CONVENTIONS.md`)
+**Logging conventions**
 - Use `get_logger('ModuleName')` not print()
 - Levels: DEBUG for internals, INFO for operations/results, WARNING for recoverable issues, ERROR for failures
 - All logs written to timestamped file in `Config.DEFAULT_LOG_DIR`

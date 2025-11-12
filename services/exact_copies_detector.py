@@ -36,24 +36,6 @@ class ExactCopiesDetector(BaseDetectorService):
         progress_callback: Optional[ProgressCallback] = None
     ) -> DuplicateAnalysisResult:
         """
-        Analiza directorio buscando duplicados exactos (método unificado)
-        
-        Args:
-            directory: Directorio a analizar
-            progress_callback: Callback de progreso
-            
-        Returns:
-            DuplicateAnalysisResult con grupos de duplicados exactos
-        """
-        return self.analyze_exact_duplicates(directory, progress_callback)
-
-    @deprecated(reason="Nomenclatura inconsistente", replacement="analyze()")
-    def analyze_exact_duplicates(
-        self,
-        directory: Path,
-        progress_callback: Optional[ProgressCallback] = None
-    ) -> DuplicateAnalysisResult:
-        """
         Analiza directorio buscando duplicados exactos (SHA256)
         
         Args:

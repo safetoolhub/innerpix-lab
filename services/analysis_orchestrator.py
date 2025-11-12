@@ -179,7 +179,7 @@ class AnalysisOrchestrator:
             Resultado del análisis de renombrado
         """
         self.logger.info("Analizando nombres de archivos")
-        return renamer.analyze_directory(directory, progress_callback=progress_callback)
+        return renamer.analyze(directory, progress_callback=progress_callback)
     
     def analyze_live_photos(self,
                            directory: Path,
@@ -240,13 +240,13 @@ class AnalysisOrchestrator:
         self.logger.info(f"Analizando estructura de directorios (tipo: {organization_type})")
         
         if organization_type:
-            return organizer.analyze_directory_structure(
+            return organizer.analyze(
                 directory,
                 organization_type=organization_type,
                 progress_callback=progress_callback
             )
         else:
-            return organizer.analyze_directory_structure(directory, progress_callback=progress_callback)
+            return organizer.analyze(directory, progress_callback=progress_callback)
     
     def analyze_heic_duplicates(self,
                                directory: Path,
@@ -264,7 +264,7 @@ class AnalysisOrchestrator:
             Resultado del análisis de duplicados HEIC
         """
         self.logger.info("Buscando duplicados HEIC/JPG")
-        return heic_remover.analyze_heic_duplicates(directory, progress_callback=progress_callback)
+        return heic_remover.analyze(directory, progress_callback=progress_callback)
     
     def analyze_exact_duplicates(self,
                                  directory: Path,
@@ -282,7 +282,7 @@ class AnalysisOrchestrator:
             Resultado del análisis de duplicados exactos
         """
         self.logger.info("Detectando duplicados exactos (SHA256)")
-        return duplicate_exact_detector.analyze_exact_duplicates(
+        return duplicate_exact_detector.analyze(
             directory,
             progress_callback=progress_callback
         )

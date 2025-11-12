@@ -109,9 +109,9 @@ class HEICRemover(BaseService):
             'potential_savings': 0
         }
 
-    def analyze(self, directory: Path, recursive: bool = True, progress_callback: Optional[ProgressCallback] = None) -> Dict:
+    def analyze(self, directory: Path, recursive: bool = True, progress_callback: Optional[ProgressCallback] = None) -> HeicAnalysisResult:
         """
-        Analiza duplicados HEIC/JPG en un directorio (método unificado)
+        Analiza duplicados HEIC/JPG en un directorio.
 
         Args:
             directory: Directorio a analizar
@@ -119,37 +119,7 @@ class HEICRemover(BaseService):
             progress_callback: Función opcional (current, total, message) para reportar progreso
 
         Returns:
-            HeicAnalysisResult con los pares duplicados encontrados
-        """
-        return self.analyze_heic_duplicates(directory, recursive, progress_callback)
-
-    def execute(self, duplicate_pairs: List[DuplicatePair], keep_format: str = 'jpg', create_backup: bool = True, dry_run: bool = False) -> HeicDeletionResult:
-        """
-        Ejecuta la eliminación de archivos HEIC duplicados (método unificado)
-
-        Args:
-            duplicate_pairs: Lista de pares duplicados a procesar
-            keep_format: 'jpg' o 'heic' - formato a mantener
-            create_backup: Si crear backup antes de eliminar
-            dry_run: Si solo simular sin eliminar archivos reales
-
-        Returns:
-            HeicDeletionResult con el resultado de la operación
-        """
-        return self.execute_removal(duplicate_pairs, keep_format, create_backup, dry_run)
-
-    @deprecated(reason="Nomenclatura inconsistente", replacement="analyze()")
-    def analyze_heic_duplicates(self, directory: Path, recursive: bool = True, progress_callback: Optional[ProgressCallback] = None) -> Dict:
-        """
-        Analiza duplicados HEIC/JPG en un directorio
-
-        Args:
-            directory: Directorio a analizar
-            recursive: Si buscar recursivamente en subdirectorios
-            progress_callback: Función opcional (current, total, message) para reportar progreso
-
-        Returns:
-            Análisis detallado de duplicados
+            HeicAnalysisResult con análisis detallado
         """
         self._log_section_header("ANÁLISIS DE DUPLICADOS HEIC/JPG")
         self.logger.info(f"Analizando en: {directory}")
@@ -191,23 +161,20 @@ class HEICRemover(BaseService):
             # Si el callback retorna False, el usuario canceló - detener inmediatamente
             if not self._report_progress(progress_callback, processed, total_files, "Analizando HEIC/JPG duplicados"):
                 # Retornar resultado vacío al cancelar
-                return {
-                    'directory': directory,
-                    'duplicate_pairs': [],
-                    'orphan_heic': [],
-                    'orphan_jpg': [],
-                        'total_heic_files': 0,
-                        'total_jpg_files': 0,
-                        'total_duplicates': 0,
-                        'potential_savings_keep_jpg': 0,
-                        'potential_savings_keep_heic': 0,
-                        'by_directory': {},
-                        'compression_stats': {
-                            'min_ratio': 0,
-                            'max_ratio': 0,
-                            'avg_ratio': 0
-                        }
-                    }
+                return HeicAnalysisResult(
+                    total_files=0,
+                    duplicate_pairs=[],
+                    total_pairs=0,
+                    heic_files=0,
+                    jpg_files=0,
+                    total_size=0,
+                    potential_savings_keep_jpg=0,
+                    potential_savings_keep_heic=0,
+                    orphan_heic=[],
+                    orphan_jpg=[],
+                    compression_stats={'min_ratio': 0, 'max_ratio': 0, 'avg_ratio': 0},
+                    by_directory={}
+                )
             
             extension = file_path.suffix.lower()
             base_name = file_path.stem
@@ -317,24 +284,18 @@ class HEICRemover(BaseService):
             by_directory=results.get('by_directory', {})
         )
 
-    # Backup creation delegated to utils.file_utils.create_backup
-
-    @deprecated(reason="Nomenclatura inconsistente", replacement="execute()")
-    def execute_removal(self, duplicate_pairs: List[DuplicatePair], 
-                       keep_format: str = 'jpg', 
-                       create_backup: bool = True,
-                       dry_run: bool = False) -> Dict:
+    def execute(self, duplicate_pairs: List[DuplicatePair], keep_format: str = 'jpg', create_backup: bool = True, dry_run: bool = False) -> HeicDeletionResult:
         """
-        Ejecuta la eliminación de duplicados
+        Ejecuta la eliminación de archivos HEIC duplicados
 
         Args:
-            duplicate_pairs: Lista de pares duplicados
+            duplicate_pairs: Lista de pares duplicados a procesar
             keep_format: 'jpg' o 'heic' - formato a mantener
             create_backup: Si crear backup antes de eliminar
             dry_run: Si solo simular sin eliminar archivos reales
 
         Returns:
-            Resultados de la operación
+            HeicDeletionResult con el resultado de la operación
         """
         if not duplicate_pairs:
             return HeicDeletionResult(
@@ -472,7 +433,17 @@ class HEICRemover(BaseService):
             self.logger.error(error_msg)
 
         return results
+    
+    def _reset_stats(self):
+        """Reinicia estadísticas"""
+        for key in self.stats:
+            self.stats[key] = 0
 
+    def get_stats(self) -> Dict:
+        """Obtiene estadísticas actuales"""
+        return self.stats.copy()
+
+    
     def _reset_stats(self):
         """Reinicia estadísticas"""
         for key in self.stats:
