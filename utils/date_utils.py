@@ -5,6 +5,7 @@ import logging
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
+from functools import lru_cache
 from utils.logger import get_logger
 
 _logger = get_logger("DateUtils")
@@ -341,54 +342,57 @@ def get_date_from_file(file_path: Path, verbose: bool = False) -> Optional[datet
         get_all_file_dates(): Extracción de todas las fechas disponibles
     """
     try:
-        # Obtener todas las fechas disponibles
-        all_dates = get_all_file_dates(file_path)
+        # OPTIMIZACIÓN: Usar versión cacheada para evitar lecturas EXIF repetidas
+        # La clave incluye mtime para invalidar caché si el archivo se modifica
+        mtime = file_path.stat().st_mtime
+        all_dates = _get_all_file_dates_cached(str(file_path), mtime)
         
         # Seleccionar la fecha más antigua según prioridad
         selected_date, selected_source = select_chosen_date(all_dates)
         
-        # Determinar si mostrar logging detallado
-        show_details = verbose or _logger.isEnabledFor(logging.DEBUG)
-        log_func = _logger.info if verbose else _logger.debug
-        
-        # Log compacto en una sola línea con toda la información
-        if show_details and selected_date:
-            # Formato compacto: nombre | fechas disponibles → seleccionada
-            dates_str = []
-            
-            # Mostrar TODOS los campos EXIF disponibles
-            if all_dates.get('exif_date_time_original'):
-                tz = f" {all_dates.get('exif_offset_time')}" if all_dates.get('exif_offset_time') else ""
-                dates_str.append(f"EXIF_DTO:{all_dates['exif_date_time_original'].strftime('%Y%m%d_%H%M%S')}{tz}")
-            if all_dates.get('exif_create_date'):
-                dates_str.append(f"EXIF_CD:{all_dates['exif_create_date'].strftime('%Y%m%d_%H%M%S')}")
-            if all_dates.get('exif_date_digitized'):
-                dates_str.append(f"EXIF_DD:{all_dates['exif_date_digitized'].strftime('%Y%m%d_%H%M%S')}")
-            if all_dates.get('exif_gps_date'):
-                dates_str.append(f"GPS:{all_dates['exif_gps_date'].strftime('%Y%m%d_%H%M%S')}")
-            
-            # Mostrar metadata de video
-            if all_dates.get('video_metadata_date'):
-                dates_str.append(f"Video:{all_dates['video_metadata_date'].strftime('%Y%m%d_%H%M%S')}")
-            
-            # Mostrar fecha del nombre de archivo
-            if all_dates.get('filename_date'):
-                dates_str.append(f"Filename:{all_dates['filename_date'].strftime('%Y%m%d_%H%M%S')}")
-            
-            # Mostrar software si está presente
-            if all_dates.get('exif_software'):
-                dates_str.append(f"SW:{all_dates['exif_software'][:20]}")  # Truncar a 20 chars
-            
-            # Mostrar fechas del sistema de archivos
-            if all_dates.get('creation_date'):
-                dates_str.append(f"{all_dates.get('creation_source', 'creation')}:{all_dates['creation_date'].strftime('%Y%m%d_%H%M%S')}")
-            if all_dates.get('modification_date'):
-                dates_str.append(f"mtime:{all_dates['modification_date'].strftime('%Y%m%d_%H%M%S')}")
-            
-            log_func(
-                f"{file_path.name} | {' | '.join(dates_str)} → "
-                f"✓ {selected_source}:{selected_date.strftime('%Y%m%d_%H%M%S')}"
-            )
+        # OPTIMIZACIÓN: Solo formatear strings si realmente se va a loguear
+        # Esto evita overhead de formateo cuando logging está en INFO/WARNING
+        if verbose or _logger.isEnabledFor(logging.DEBUG):
+            if selected_date:
+                # Lazy evaluation: solo construir el mensaje si se necesita
+                log_func = _logger.info if verbose else _logger.debug
+                
+                # Formato compacto: nombre | fechas disponibles → seleccionada
+                dates_str = []
+                
+                # Mostrar TODOS los campos EXIF disponibles
+                if all_dates.get('exif_date_time_original'):
+                    tz = f" {all_dates.get('exif_offset_time')}" if all_dates.get('exif_offset_time') else ""
+                    dates_str.append(f"EXIF_DTO:{all_dates['exif_date_time_original'].strftime('%Y%m%d_%H%M%S')}{tz}")
+                if all_dates.get('exif_create_date'):
+                    dates_str.append(f"EXIF_CD:{all_dates['exif_create_date'].strftime('%Y%m%d_%H%M%S')}")
+                if all_dates.get('exif_date_digitized'):
+                    dates_str.append(f"EXIF_DD:{all_dates['exif_date_digitized'].strftime('%Y%m%d_%H%M%S')}")
+                if all_dates.get('exif_gps_date'):
+                    dates_str.append(f"GPS:{all_dates['exif_gps_date'].strftime('%Y%m%d_%H%M%S')}")
+                
+                # Mostrar metadata de video
+                if all_dates.get('video_metadata_date'):
+                    dates_str.append(f"Video:{all_dates['video_metadata_date'].strftime('%Y%m%d_%H%M%S')}")
+                
+                # Mostrar fecha del nombre de archivo
+                if all_dates.get('filename_date'):
+                    dates_str.append(f"Filename:{all_dates['filename_date'].strftime('%Y%m%d_%H%M%S')}")
+                
+                # Mostrar software si está presente
+                if all_dates.get('exif_software'):
+                    dates_str.append(f"SW:{all_dates['exif_software'][:20]}")  # Truncar a 20 chars
+                
+                # Mostrar fechas del sistema de archivos
+                if all_dates.get('creation_date'):
+                    dates_str.append(f"{all_dates.get('creation_source', 'creation')}:{all_dates['creation_date'].strftime('%Y%m%d_%H%M%S')}")
+                if all_dates.get('modification_date'):
+                    dates_str.append(f"mtime:{all_dates['modification_date'].strftime('%Y%m%d_%H%M%S')}")
+                
+                log_func(
+                    f"{file_path.name} | {' | '.join(dates_str)} → "
+                    f"✓ {selected_source}:{selected_date.strftime('%Y%m%d_%H%M%S')}"
+                )
 
         return selected_date
 
@@ -839,9 +843,30 @@ def is_renamed_filename(filename: str) -> bool:
     return parse_renamed_name(filename) is not None
 
 
+@lru_cache(maxsize=10000)
+def _get_all_file_dates_cached(file_path_str: str, mtime: float) -> dict:
+    """
+    Versión cacheada de get_all_file_dates.
+    
+    OPTIMIZACIÓN: Usa LRU cache para evitar lecturas EXIF repetidas.
+    La clave incluye mtime para invalidar caché si el archivo cambia.
+    
+    Args:
+        file_path_str: Ruta como string (para hashabilidad)
+        mtime: Timestamp de modificación (invalida cache si cambia)
+    
+    Returns:
+        Dict con todas las fechas (mismo formato que get_all_file_dates)
+    """
+    return get_all_file_dates(Path(file_path_str))
+
+
 def get_all_file_dates(file_path: Path) -> dict:
     """
     Obtiene toda la información de fechas disponible para un archivo
+    
+    NOTA: Esta función NO está cacheada directamente. Usa _get_all_file_dates_cached
+    para aprovechar el caché en operaciones masivas.
     
     Args:
         file_path: Ruta al archivo a analizar

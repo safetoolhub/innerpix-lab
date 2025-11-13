@@ -111,13 +111,17 @@ class FileRenamer(BaseService):
 
         # Procesar archivos en paralelo
         processed = 0
+        # OPTIMIZACIÓN: Reducir frecuencia de callbacks (de 10 a 50 archivos)
+        # Menor overhead de comunicación Qt sin perder responsividad
+        progress_interval = 50
+        
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {executor.submit(process_file, f): f for f in all_files}
             
             for future in as_completed(futures):
                 processed += 1
                 
-                if processed % 10 == 0:
+                if processed % progress_interval == 0:
                     # Si el callback retorna False, detener procesamiento
                     if not self._report_progress(progress_callback, processed, total_files, "Analizando nombres de archivos"):
                         executor.shutdown(wait=False, cancel_futures=True)

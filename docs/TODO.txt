@@ -21,6 +21,8 @@ Lo smensajes de la card en stage 3 de archivos similares son un desastre al volv
 En general mejorar los mensajes de todas las cards. 
 Lo de los logs con bloqueo igual no hace falta porque el problema de desorden era otro
 Hay que poner avisos al usuario de directorios muy largos antes del analisis
+el tema del mumero de workers paralelos está raro. se puede configurar desde settings pero tambien se hace en el config a pelo, hay que organizarlo bien. 
+
 
 FUTURO
 ---------
