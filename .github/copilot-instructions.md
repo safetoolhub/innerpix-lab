@@ -195,6 +195,13 @@ uv venv --python 3.13 && source .venv/bin/activate && uv pip install -r requirem
 ```
 - Note: `pillow-heif` requires system `libheif` library (apt/brew install)
 
+**Package Installation:**
+When adding new dependencies, always use `uv pip install` instead of `pip install`, and always from within the activated virtual environment:
+```bash
+source .venv/bin/activate && uv pip install <package-name>
+```
+This ensures proper dependency management and compatibility with the project's uv-based setup.
+
 **Run application:**
 ```bash
 source .venv/bin/activate && python main.py
@@ -203,11 +210,12 @@ source .venv/bin/activate && python main.py
 - Use `utils.logger.set_global_log_level(logging.DEBUG)` for verbose output
 
 **Run tests:**
+Always run tests inside the virtual environment:
 ```bash
-pytest                                        # All tests
-pytest tests/unit/services/                   # Service tests only
-pytest -m live_photos                         # Live Photos tests only
-pytest -v --tb=short                          # Verbose with short traceback
+source .venv/bin/activate && pytest tests/unit/utils/test_date_utils.py -q # Tests de utils/date_utils.py
+source .venv/bin/activate && pytest                                        # All tests
+source .venv/bin/activate && pytest tests/unit/services/                   # Service tests only
+source .venv/bin/activate && pytest -v --tb=short                          # Verbose with short traceback
 ```
 - Test documentation: `tests/README.md`
 - Fixtures: `tests/conftest.py` (temp_dir, create_test_image, create_live_photo_pair, etc.)
