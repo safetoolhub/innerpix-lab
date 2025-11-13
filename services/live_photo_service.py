@@ -83,8 +83,8 @@ class LivePhotoService(BaseService):
         self.logger.debug(f"Extensiones de foto configuradas: {self.photo_extensions}")
         self.logger.debug(f"Extensiones de video configuradas: {self.video_extensions}")
 
-        # Tolerancia de tiempo para matching
-        self.time_tolerance = 2.0
+        # Tolerancia de tiempo para matching (5 segundos máximo)
+        self.time_tolerance = 5.0
 
     def analyze(
         self, 
@@ -485,12 +485,21 @@ class LivePhotoService(BaseService):
                                 image_size=photo.stat().st_size,
                                 video_size=video.stat().st_size
                             )
-                            groups.append(group)
+                            
+                            # Validar diferencia de tiempo (debe ser <= 5 segundos)
+                            if group.time_difference <= self.time_tolerance:
+                                groups.append(group)
+                                self.logger.debug(f"Live Photo válido: {original_name} (Δt={group.time_difference:.2f}s)")
+                            else:
+                                self.logger.debug(
+                                    f"Par rechazado por diferencia de tiempo: {original_name} "
+                                    f"(Δt={group.time_difference:.2f}s > {self.time_tolerance}s)"
+                                )
                         except Exception as e:
                             self.logger.warning(f"Error creando grupo para {original_name}: {e}")
 
         # Log final
-        self.logger.info(f"Matching completado: {len(groups)} Live Photos encontrados")
+        self.logger.info(f"Matching completado: {len(groups)} Live Photos válidos encontrados")
         
         return groups
 
