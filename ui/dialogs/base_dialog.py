@@ -949,6 +949,9 @@ class BaseDialog(QDialog):
                 QWidget:hover {{
                     background-color: {hover_bg};
                 }}
+                QWidget:hover QLabel {{
+                    background: transparent;
+                }}
             """)
         
         container.mousePressEvent = lambda event: toggle_checkbox()
