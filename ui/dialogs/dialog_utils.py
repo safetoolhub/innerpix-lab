@@ -8,7 +8,7 @@ from pathlib import Path
 from PyQt6.QtWidgets import QMessageBox
 from PyQt6.QtCore import Qt
 from utils.format_utils import format_size
-from utils.date_utils import get_file_date
+from utils.date_utils import get_file_date, get_all_file_dates
 from utils.platform_utils import open_file_with_default_app, open_folder_in_explorer
 
 
@@ -65,7 +65,7 @@ def open_folder(folder_path: Path, parent_widget=None, select_file: Path = None)
 
 def show_file_details_dialog(file_path: Path, parent_widget=None, additional_info=None):
     """
-    Muestra un diálogo con detalles completos del archivo
+    Muestra un diálogo con detalles completos del archivo usando Material Design
     
     Args:
         file_path: Ruta del archivo
@@ -73,288 +73,445 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
         additional_info: Dict con información adicional a mostrar (opcional)
             Puede incluir: original_name, new_name, file_type, etc.
     """
-    # Obtener información del archivo
+    from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
+                                QPushButton, QFrame, QGroupBox, QWidget, QScrollArea)
+    from PyQt6.QtCore import Qt
+    from ui.styles.design_system import DesignSystem
+    from utils.icons import icon_manager
+    
+    # Obtener toda la información de fechas disponible
+    dates_info = get_all_file_dates(file_path)
+    
+    # Obtener información básica del archivo
     try:
         file_stat = os.stat(file_path)
-        created_time = datetime.fromtimestamp(file_stat.st_ctime).strftime("%Y-%m-%d %H:%M:%S")
-        modified_time = datetime.fromtimestamp(file_stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S")
         file_size = file_stat.st_size
-        
-        # Intentar obtener fecha del archivo usando la utilidad del proyecto
-        file_date = get_file_date(file_path)
-        if file_date:
-            date_from_name = file_date.strftime("%Y-%m-%d %H:%M:%S")
-        else:
-            date_from_name = "No disponible"
     except Exception as e:
-        created_time = f"Error: {str(e)}"
-        modified_time = f"Error: {str(e)}"
         file_size = 0
-        date_from_name = "Error"
     
-    # Construir HTML con detalles - diseño mejorado
-    details = """
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-        h3 { color: #2c5aa0; margin-top: 0; margin-bottom: 16px; border-bottom: 2px solid #2c5aa0; padding-bottom: 8px; }
-        h4 { color: #495057; margin-top: 20px; margin-bottom: 10px; font-size: 11pt; }
-        .info-row { margin: 6px 0; }
-        .label { color: #6c757d; font-weight: 600; display: inline-block; min-width: 160px; }
-        .value { color: #212529; }
-        .code { background: #f4f4f4; padding: 4px 8px; border-radius: 3px; font-family: monospace; font-size: 9pt; color: #495057; display: inline-block; margin: 2px 0; }
-        .status-ok { color: #28a745; font-weight: bold; }
-        .status-conflict { color: #e74c3c; font-weight: bold; }
-        .section { margin: 12px 0; padding: 12px; background: #f8f9fa; border-radius: 4px; }
-    </style>
-    """
-    
-    details += "<h3>Detalles del Archivo</h3>"
-    
-    # Información básica
-    details += "<div class='section'>"
-    details += f"<div class='info-row'><span class='label'>Nombre:</span> <span class='value'>{file_path.name}</span></div>"
-    details += f"<div class='info-row'><span class='label'>Tamaño:</span> <span class='value'>{format_size(file_size)}</span></div>"
-    
-    # Información adicional si se proporcionó
-    if additional_info:
-        if 'original_name' in additional_info and 'new_name' in additional_info:
-            details += f"<div class='info-row'><span class='label'>Nombre original:</span> <span class='value'>{additional_info['original_name']}</span></div>"
-            details += f"<div class='info-row'><span class='label'>Nombre nuevo:</span> <span class='value'>{additional_info['new_name']}</span></div>"
-        
-        if 'file_type' in additional_info:
-            details += f"<div class='info-row'><span class='label'>Tipo:</span> <span class='value'>{additional_info['file_type']}</span></div>"
-        
-        if 'conflict' in additional_info:
-            status_class = "status-conflict" if additional_info['conflict'] else "status-ok"
-            status_text = "Conflicto de nombre" if additional_info['conflict'] else "Sin conflictos"
-            details += f"<div class='info-row'><span class='label'>Estado:</span> <span class='{status_class}'>{status_text}</span></div>"
-        
-        if 'sequence' in additional_info and additional_info['sequence']:
-            details += f"<div class='info-row'><span class='label'>Secuencia:</span> <span class='value'>{additional_info['sequence']}</span></div>"
-    
-    details += "</div>"
-    
-    # Ubicación
-    details += "<h4>Ubicación</h4>"
-    details += "<div class='section'>"
-    details += f"<div class='info-row'><span class='label'>Ruta actual:</span><br><span class='code'>{file_path.parent}</span></div>"
-    
-    if additional_info and 'target_path' in additional_info:
-        details += f"<div class='info-row' style='margin-top: 10px;'><span class='label'>Ruta destino:</span><br><span class='code'>{additional_info['target_path']}</span></div>"
-    
-    details += "</div>"
-    
-    # Fechas
-    details += "<h4>Información de Fechas</h4>"
-    details += "<div class='section'>"
-    details += f"<div class='info-row'><span class='label'>Fecha detectada:</span> <span class='value'>{date_from_name}</span></div>"
-    details += f"<div class='info-row'><span class='label'>Fecha de creación:</span> <span class='value'>{created_time}</span></div>"
-    details += f"<div class='info-row'><span class='label'>Fecha de modificación:</span> <span class='value'>{modified_time}</span></div>"
-    details += "</div>"
-    
-    # Información adicional de metadatos si se proporcionó
-    if additional_info and 'metadata' in additional_info:
-        details += "<h4>Metadatos Adicionales</h4>"
-        details += "<div class='section'>"
-        for key, value in additional_info['metadata'].items():
-            details += f"<div class='info-row'><span class='label'>{key}:</span> <span class='value'>{value}</span></div>"
-        details += "</div>"
-    
-    # Crear diálogo personalizado sin icono ni scroll
-    from PyQt6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QGridLayout, QFrame
-    
+    # Crear diálogo
     dialog = QDialog(parent_widget)
     dialog.setWindowTitle("Detalles del Archivo")
     dialog.setModal(True)
-    dialog.setMinimumWidth(850)
-    dialog.setMaximumWidth(900)
+    dialog.setMinimumWidth(900)
+    dialog.setMaximumWidth(950)
+    dialog.setMinimumHeight(600)
     
+    # Layout principal
     main_layout = QVBoxLayout(dialog)
-    main_layout.setContentsMargins(20, 15, 20, 15)
-    main_layout.setSpacing(12)
+    main_layout.setContentsMargins(
+        DesignSystem.SPACE_24, DesignSystem.SPACE_20, 
+        DesignSystem.SPACE_24, DesignSystem.SPACE_20
+    )
+    main_layout.setSpacing(DesignSystem.SPACE_16)
     
-    # Título principal
+    # Header con título e icono
+    header_layout = QHBoxLayout()
+    header_layout.setSpacing(DesignSystem.SPACE_12)
+    
+    # Icono del archivo
+    file_icon = icon_manager.get_icon('file', size=DesignSystem.ICON_SIZE_LG, 
+                                     color=DesignSystem.COLOR_PRIMARY)
+    header_icon = QLabel()
+    header_icon.setPixmap(file_icon.pixmap(DesignSystem.ICON_SIZE_LG, DesignSystem.ICON_SIZE_LG))
+    header_layout.addWidget(header_icon)
+    
+    # Título
     title_label = QLabel("Detalles del Archivo")
-    title_label.setStyleSheet("""
-        font-size: 14pt;
-        font-weight: bold;
-        color: #2c5aa0;
-        border-bottom: 2px solid #2c5aa0;
-        padding-bottom: 6px;
-        margin-bottom: 8px;
+    title_label.setStyleSheet(f"""
+        font-size: {DesignSystem.FONT_SIZE_2XL}px;
+        font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+        color: {DesignSystem.COLOR_TEXT};
     """)
-    main_layout.addWidget(title_label)
+    header_layout.addWidget(title_label)
+    header_layout.addStretch()
     
-    # Contenedor principal con 2 columnas
-    content_layout = QHBoxLayout()
-    content_layout.setSpacing(20)
+    main_layout.addLayout(header_layout)
     
-    # === COLUMNA IZQUIERDA ===
-    left_column = QVBoxLayout()
-    left_column.setSpacing(12)
+    # Área de scroll para el contenido
+    scroll_area = QScrollArea()
+    scroll_area.setWidgetResizable(True)
+    scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+    scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+    scroll_area.setStyleSheet(f"""
+        QScrollArea {{
+            border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
+            border-radius: {DesignSystem.RADIUS_LG}px;
+            background-color: {DesignSystem.COLOR_SURFACE};
+        }}
+        QScrollArea QWidget {{
+            background-color: transparent;
+        }}
+    """)
     
-    # Información básica
-    basic_info = _create_info_section("Información General", [
-        ("Nombre", file_path.name),
-        ("Tamaño", format_size(file_size)),
+    # Widget contenedor del scroll
+    scroll_widget = QWidget()
+    scroll_layout = QVBoxLayout(scroll_widget)
+    scroll_layout.setContentsMargins(
+        DesignSystem.SPACE_20, DesignSystem.SPACE_16, 
+        DesignSystem.SPACE_20, DesignSystem.SPACE_16
+    )
+    scroll_layout.setSpacing(DesignSystem.SPACE_20)
+    
+    # === SECCIÓN 1: INFORMACIÓN GENERAL ===
+    general_section = _create_material_section("Información General", [
+        ("Nombre del archivo", file_path.name, 'file'),
+        ("Tamaño", format_size(file_size), 'rule'),
+        ("Tipo", _get_file_type_display(file_path), 'image'),
     ])
+    scroll_layout.addWidget(general_section)
     
+    # Información adicional si se proporcionó
     if additional_info:
+        additional_items = []
+        
         if 'original_name' in additional_info and 'new_name' in additional_info:
-            basic_info.layout().addWidget(_create_info_row("Original", additional_info['original_name']))
-            basic_info.layout().addWidget(_create_info_row("Nuevo", additional_info['new_name']))
+            additional_items.extend([
+                ("Nombre original", additional_info['original_name'], 'file'),
+                ("Nombre nuevo", additional_info['new_name'], 'file'),
+            ])
         
         if 'file_type' in additional_info:
-            basic_info.layout().addWidget(_create_info_row("Tipo", additional_info['file_type']))
+            additional_items.append(("Tipo de archivo", additional_info['file_type'], 'image'))
         
         if 'conflict' in additional_info:
-            status_color = "#e74c3c" if additional_info['conflict'] else "#28a745"
-            status_text = "Conflicto" if additional_info['conflict'] else "Sin conflictos"
-            status_label = _create_info_row("Estado", status_text, status_color)
-            basic_info.layout().addWidget(status_label)
+            status_text = "Conflicto de nombre" if additional_info['conflict'] else "Sin conflictos"
+            status_icon = 'error' if additional_info['conflict'] else 'success'
+            status_color = DesignSystem.COLOR_DANGER if additional_info['conflict'] else DesignSystem.COLOR_SUCCESS
+            additional_items.append(("Estado", status_text, status_icon))
         
         if 'sequence' in additional_info and additional_info['sequence']:
-            basic_info.layout().addWidget(_create_info_row("Secuencia", str(additional_info['sequence'])))
+            additional_items.append(("Secuencia", str(additional_info['sequence']), 'update'))
+        
+        if additional_items:
+            additional_section = _create_material_section("Información Adicional", additional_items)
+            scroll_layout.addWidget(additional_section)
     
-    left_column.addWidget(basic_info)
+    # === SECCIÓN 2: UBICACIÓN ===
+    location_items = [
+        ("Ruta actual", str(file_path.parent), 'folder'),
+    ]
     
-    # Ubicación
-    location_items = [("Ruta actual", str(file_path.parent))]
     if additional_info and 'target_path' in additional_info:
-        location_items.append(("Ruta destino", str(additional_info['target_path'])))
+        location_items.append(("Ruta destino", str(additional_info['target_path']), 'folder-open'))
     
-    location_info = _create_info_section("Ubicación", location_items, use_code=True)
-    left_column.addWidget(location_info)
+    location_section = _create_material_section("Ubicación", location_items, use_code_style=True)
+    scroll_layout.addWidget(location_section)
     
-    left_column.addStretch()
-    content_layout.addLayout(left_column, 1)
+    # === SECCIÓN 3: FECHAS DETALLADAS ===
+    dates_section = _create_dates_section(dates_info)
+    scroll_layout.addWidget(dates_section)
     
-    # === COLUMNA DERECHA ===
-    right_column = QVBoxLayout()
-    right_column.setSpacing(12)
+    # === SECCIÓN 4: METADATOS ADICIONALES ===
+    if additional_info and 'metadata' in additional_info and additional_info['metadata']:
+        metadata_items = [(key, str(value), 'info') for key, value in additional_info['metadata'].items()]
+        metadata_section = _create_material_section("Metadatos", metadata_items)
+        scroll_layout.addWidget(metadata_section)
     
-    # Fechas
-    dates_info = _create_info_section("Fechas", [
-        ("Detectada", date_from_name),
-        ("Creación", created_time),
-        ("Modificación", modified_time),
-    ])
-    right_column.addWidget(dates_info)
-    
-    # Metadatos adicionales
-    if additional_info and 'metadata' in additional_info:
-        metadata_items = [(key, str(value)) for key, value in additional_info['metadata'].items()]
-        metadata_info = _create_info_section("Metadatos", metadata_items)
-        right_column.addWidget(metadata_info)
-    
-    right_column.addStretch()
-    content_layout.addLayout(right_column, 1)
-    
-    main_layout.addLayout(content_layout)
+    scroll_layout.addStretch()
+    scroll_area.setWidget(scroll_widget)
+    main_layout.addWidget(scroll_area)
     
     # Separador
     separator = QFrame()
     separator.setFrameShape(QFrame.Shape.HLine)
     separator.setFrameShadow(QFrame.Shadow.Sunken)
-    from ui.styles.design_system import DesignSystem
-    separator.setStyleSheet(DesignSystem.STYLE_DIALOG_SEPARATOR)
+    separator.setStyleSheet(f"color: {DesignSystem.COLOR_CARD_BORDER};")
     main_layout.addWidget(separator)
     
-    # Botón OK centrado con estilo Material Design
-    ok_button = QPushButton("Cerrar")
-    ok_button.setMinimumWidth(120)
-    ok_button.setMinimumHeight(32)
-    ok_button.clicked.connect(dialog.accept)
-    ok_button.setStyleSheet(DesignSystem.get_primary_button_style())
+    # Botones
+    buttons_layout = QHBoxLayout()
+    buttons_layout.setSpacing(DesignSystem.SPACE_12)
     
-    button_layout = QHBoxLayout()
-    button_layout.addStretch()
-    button_layout.addWidget(ok_button)
-    button_layout.addStretch()
-    main_layout.addLayout(button_layout)
+    # Botón de abrir archivo
+    open_file_btn = QPushButton("Abrir Archivo")
+    open_file_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
+    open_file_btn.clicked.connect(lambda: _open_file_and_close(file_path, dialog))
+    buttons_layout.addWidget(open_file_btn)
+    
+    # Botón de abrir carpeta
+    open_folder_btn = QPushButton("Abrir Carpeta")
+    open_folder_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
+    open_folder_btn.clicked.connect(lambda: _open_folder_and_close(file_path, dialog))
+    buttons_layout.addWidget(open_folder_btn)
+    
+    buttons_layout.addStretch()
+    
+    # Botón cerrar
+    close_btn = QPushButton("Cerrar")
+    close_btn.setStyleSheet(DesignSystem.get_primary_button_style())
+    close_btn.clicked.connect(dialog.accept)
+    buttons_layout.addWidget(close_btn)
+    
+    main_layout.addLayout(buttons_layout)
     
     dialog.exec()
 
 
-def _create_info_section(title, items, use_code=False):
-    """Crea una sección de información con título y items"""
+def _create_material_section(title: str, items: list, use_code_style: bool = False):
+    """Crea una sección Material Design con título e items"""
     from PyQt6.QtWidgets import QGroupBox, QVBoxLayout
+    from ui.styles.design_system import DesignSystem
+    from utils.icons import icon_manager
     
     group = QGroupBox(title)
-    group.setStyleSheet("""
-        QGroupBox {
-            font-weight: bold;
-            font-size: 10pt;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            margin-top: 8px;
-            padding-top: 8px;
-            background-color: #f8f9fa;
-        }
-        QGroupBox::title {
+    group.setStyleSheet(f"""
+        QGroupBox {{
+            font-size: {DesignSystem.FONT_SIZE_LG}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            color: {DesignSystem.COLOR_TEXT};
+            border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
+            border-radius: {DesignSystem.RADIUS_LG}px;
+            padding: {DesignSystem.SPACE_16}px;
+            margin: 0;
+            background-color: {DesignSystem.COLOR_SURFACE};
+        }}
+        QGroupBox::title {{
             subcontrol-origin: margin;
-            left: 10px;
-            padding: 0 5px;
-            color: #495057;
-        }
+            left: {DesignSystem.SPACE_12}px;
+            padding: 0 {DesignSystem.SPACE_8}px;
+            color: {DesignSystem.COLOR_PRIMARY};
+            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+        }}
     """)
     
     layout = QVBoxLayout()
-    layout.setContentsMargins(10, 10, 10, 10)
-    layout.setSpacing(6)
+    layout.setContentsMargins(
+        DesignSystem.SPACE_16, DesignSystem.SPACE_24, 
+        DesignSystem.SPACE_16, DesignSystem.SPACE_16
+    )
+    layout.setSpacing(DesignSystem.SPACE_12)
     
-    for label, value in items:
-        row = _create_info_row(label, value, use_code=use_code)
+    for label_text, value_text, icon_name in items:
+        row = _create_material_info_row(label_text, value_text, icon_name, use_code_style)
         layout.addWidget(row)
     
     group.setLayout(layout)
     return group
 
 
-def _create_info_row(label_text, value_text, value_color=None, use_code=False):
-    """Crea una fila de información con label y valor"""
+def _create_material_info_row(label_text: str, value_text: str, icon_name: str, use_code_style: bool = False):
+    """Crea una fila de información con icono usando Material Design"""
     from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel
+    from ui.styles.design_system import DesignSystem
+    from utils.icons import icon_manager
     
     widget = QWidget()
     layout = QHBoxLayout(widget)
     layout.setContentsMargins(0, 0, 0, 0)
-    layout.setSpacing(8)
+    layout.setSpacing(DesignSystem.SPACE_12)
+    
+    # Icono
+    icon = icon_manager.get_icon(icon_name, size=DesignSystem.ICON_SIZE_MD, 
+                                color=DesignSystem.COLOR_TEXT_SECONDARY)
+    icon_label = QLabel()
+    icon_label.setPixmap(icon.pixmap(DesignSystem.ICON_SIZE_MD, DesignSystem.ICON_SIZE_MD))
+    icon_label.setFixedSize(DesignSystem.ICON_SIZE_MD + 4, DesignSystem.ICON_SIZE_MD + 4)
+    layout.addWidget(icon_label)
     
     # Label
     label = QLabel(f"{label_text}:")
-    label.setStyleSheet("""
-        color: #6c757d;
-        font-weight: 600;
-        font-size: 9pt;
+    label.setStyleSheet(f"""
+        color: {DesignSystem.COLOR_TEXT_SECONDARY};
+        font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+        font-size: {DesignSystem.FONT_SIZE_BASE}px;
     """)
-    label.setMinimumWidth(80)
-    label.setMaximumWidth(80)
+    label.setMinimumWidth(140)
     layout.addWidget(label)
     
     # Valor
     value = QLabel(value_text)
-    
-    if use_code:
-        value.setStyleSheet("""
-            background: #ffffff;
-            padding: 4px 6px;
-            border-radius: 3px;
-            font-family: monospace;
-            font-size: 8pt;
-            color: #495057;
-            border: 1px solid #dee2e6;
+    if use_code_style:
+        value.setStyleSheet(f"""
+            background-color: {DesignSystem.COLOR_BG_2};
+            color: {DesignSystem.COLOR_TEXT};
+            font-family: {DesignSystem.FONT_FAMILY_MONO};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_10}px;
+            border-radius: {DesignSystem.RADIUS_BASE}px;
+            border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
         """)
         value.setWordWrap(True)
     else:
-        style = f"""
-            color: {value_color if value_color else '#212529'};
-            font-size: 9pt;
-        """
-        if value_color:
-            style += "font-weight: bold;"
-        value.setStyleSheet(style)
+        value.setStyleSheet(f"""
+            color: {DesignSystem.COLOR_TEXT};
+            font-size: {DesignSystem.FONT_SIZE_BASE}px;
+        """)
         value.setWordWrap(True)
     
     layout.addWidget(value, 1)
     
     return widget
+
+
+def _create_dates_section(dates_info: dict):
+    """Crea la sección especial de fechas con información detallada"""
+    from PyQt6.QtWidgets import QGroupBox, QVBoxLayout, QLabel, QHBoxLayout, QWidget
+    from ui.styles.design_system import DesignSystem
+    from utils.icons import icon_manager
+    
+    group = QGroupBox("Información de Fechas")
+    group.setStyleSheet(f"""
+        QGroupBox {{
+            font-size: {DesignSystem.FONT_SIZE_LG}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            color: {DesignSystem.COLOR_TEXT};
+            border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
+            border-radius: {DesignSystem.RADIUS_LG}px;
+            padding: {DesignSystem.SPACE_16}px;
+            margin: 0;
+            background-color: {DesignSystem.COLOR_SURFACE};
+        }}
+        QGroupBox::title {{
+            subcontrol-origin: margin;
+            left: {DesignSystem.SPACE_12}px;
+            padding: 0 {DesignSystem.SPACE_8}px;
+            color: {DesignSystem.COLOR_PRIMARY};
+            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+        }}
+    """)
+    
+    layout = QVBoxLayout()
+    layout.setContentsMargins(
+        DesignSystem.SPACE_16, DesignSystem.SPACE_24, 
+        DesignSystem.SPACE_16, DesignSystem.SPACE_16
+    )
+    layout.setSpacing(DesignSystem.SPACE_12)
+    
+    # Fecha seleccionada (la que usa la aplicación)
+    if dates_info['selected_date']:
+        selected_row = _create_date_row(
+            "Fecha utilizada por la aplicación", 
+            dates_info['selected_date'].strftime("%Y-%m-%d %H:%M:%S"),
+            f"Fuente: {dates_info['selected_source']}",
+            'check-circle',
+            DesignSystem.COLOR_SUCCESS
+        )
+        layout.addWidget(selected_row)
+        
+        # Separador sutil
+        separator = QWidget()
+        separator.setFixedHeight(1)
+        separator.setStyleSheet(f"background-color: {DesignSystem.COLOR_CARD_BORDER};")
+        layout.addWidget(separator)
+    
+    # Fecha EXIF
+    if dates_info['exif_date']:
+        exif_row = _create_date_row(
+            "Fecha EXIF (metadatos)", 
+            dates_info['exif_date'].strftime("%Y-%m-%d %H:%M:%S"),
+            "Extraída de metadatos EXIF de la imagen",
+            'camera',
+            DesignSystem.COLOR_ACCENT
+        )
+        layout.addWidget(exif_row)
+    
+    # Fecha de creación del archivo
+    if dates_info['creation_date']:
+        source_desc = "Fecha de creación del archivo" if dates_info['creation_source'] == 'birth' else "Fecha de creación (ctime)"
+        creation_row = _create_date_row(
+            "Fecha de creación", 
+            dates_info['creation_date'].strftime("%Y-%m-%d %H:%M:%S"),
+            source_desc,
+            'update',
+            DesignSystem.COLOR_INFO
+        )
+        layout.addWidget(creation_row)
+    
+    # Fecha de modificación
+    if dates_info['modification_date']:
+        mod_row = _create_date_row(
+            "Fecha de modificación", 
+            dates_info['modification_date'].strftime("%Y-%m-%d %H:%M:%S"),
+            "Última modificación del archivo",
+            'clock',
+            DesignSystem.COLOR_TEXT_SECONDARY
+        )
+        layout.addWidget(mod_row)
+    
+    # Fecha de último acceso
+    if dates_info['access_date']:
+        access_row = _create_date_row(
+            "Último acceso", 
+            dates_info['access_date'].strftime("%Y-%m-%d %H:%M:%S"),
+            "Última vez que se accedió al archivo",
+            'access_time',
+            DesignSystem.COLOR_TEXT_SECONDARY
+        )
+        layout.addWidget(access_row)
+    
+    group.setLayout(layout)
+    return group
+
+
+def _create_date_row(title: str, date_str: str, description: str, icon_name: str, accent_color: str):
+    """Crea una fila especializada para mostrar información de fecha"""
+    from PyQt6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLabel
+    from ui.styles.design_system import DesignSystem
+    from utils.icons import icon_manager
+    
+    widget = QWidget()
+    main_layout = QHBoxLayout(widget)
+    main_layout.setContentsMargins(0, 0, 0, 0)
+    main_layout.setSpacing(DesignSystem.SPACE_12)
+    
+    # Icono
+    icon = icon_manager.get_icon(icon_name, size=DesignSystem.ICON_SIZE_MD, color=accent_color)
+    icon_label = QLabel()
+    icon_label.setPixmap(icon.pixmap(DesignSystem.ICON_SIZE_MD, DesignSystem.ICON_SIZE_MD))
+    icon_label.setFixedSize(DesignSystem.ICON_SIZE_MD + 4, DesignSystem.ICON_SIZE_MD + 4)
+    main_layout.addWidget(icon_label)
+    
+    # Contenido de fecha
+    content_layout = QVBoxLayout()
+    content_layout.setContentsMargins(0, 0, 0, 0)
+    content_layout.setSpacing(DesignSystem.SPACE_2)
+    
+    # Título y fecha
+    title_label = QLabel(f"{title}: {date_str}")
+    title_label.setStyleSheet(f"""
+        color: {DesignSystem.COLOR_TEXT};
+        font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+        font-size: {DesignSystem.FONT_SIZE_BASE}px;
+    """)
+    content_layout.addWidget(title_label)
+    
+    # Descripción
+    desc_label = QLabel(description)
+    desc_label.setStyleSheet(f"""
+        color: {DesignSystem.COLOR_TEXT_SECONDARY};
+        font-size: {DesignSystem.FONT_SIZE_SM}px;
+    """)
+    content_layout.addWidget(desc_label)
+    
+    main_layout.addLayout(content_layout, 1)
+    
+    return widget
+
+
+def _get_file_type_display(file_path: Path) -> str:
+    """Obtiene una descripción amigable del tipo de archivo"""
+    from config import Config
+    
+    file_type = Config.get_file_type(file_path)
+    if file_type == 'image':
+        return "Imagen"
+    elif file_type == 'video':
+        return "Video"
+    else:
+        return f"Archivo {file_path.suffix.upper()}"
+
+
+def _open_file_and_close(file_path: Path, dialog):
+    """Abre el archivo y cierra el diálogo"""
+    open_file(file_path)
+    dialog.accept()
+
+
+def _open_folder_and_close(file_path: Path, dialog):
+    """Abre la carpeta del archivo y cierra el diálogo"""
+    open_folder(file_path.parent)
+    dialog.accept()
+
+
+

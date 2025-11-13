@@ -225,3 +225,74 @@ def is_renamed_filename(filename: str) -> bool:
         True si ya tiene formato de renombrado
     """
     return parse_renamed_name(filename) is not None
+
+
+def get_all_file_dates(file_path: Path) -> dict:
+    """
+    Obtiene toda la información de fechas disponible para un archivo
+    
+    Returns:
+        Dict con todas las fechas encontradas y sus fuentes:
+        {
+            'exif_date': datetime or None,
+            'creation_date': datetime or None,
+            'creation_source': 'birth'/'ctime' or None,
+            'modification_date': datetime or None,
+            'access_date': datetime or None,
+            'selected_date': datetime or None,
+            'selected_source': str or None
+        }
+    """
+    result = {
+        'exif_date': None,
+        'creation_date': None,
+        'creation_source': None,
+        'modification_date': None,
+        'access_date': None,
+        'selected_date': None,
+        'selected_source': None
+    }
+    
+    try:
+        # 1. Intentar obtener fecha EXIF
+        result['exif_date'] = get_exif_date(file_path)
+        
+        # 2. Obtener fechas del sistema de archivos
+        stat = file_path.stat()
+        
+        # Fecha de creación (birth time en macOS/Unix, ctime en Windows/Linux)
+        if hasattr(stat, 'st_birthtime'):
+            result['creation_date'] = datetime.fromtimestamp(stat.st_birthtime)
+            result['creation_source'] = 'birth'
+        elif hasattr(stat, 'st_ctime'):
+            result['creation_date'] = datetime.fromtimestamp(stat.st_ctime)
+            result['creation_source'] = 'ctime'
+        
+        # Fecha de modificación
+        result['modification_date'] = datetime.fromtimestamp(stat.st_mtime)
+        
+        # Fecha de último acceso
+        result['access_date'] = datetime.fromtimestamp(stat.st_atime)
+        
+        # 3. Seleccionar la fecha más antigua (lógica del get_file_date original)
+        if result['exif_date']:
+            result['selected_date'] = result['exif_date']
+            result['selected_source'] = 'EXIF'
+        elif result['creation_date'] and result['modification_date']:
+            if result['creation_date'] <= result['modification_date']:
+                result['selected_date'] = result['creation_date']
+                result['selected_source'] = result['creation_source']
+            else:
+                result['selected_date'] = result['modification_date']
+                result['selected_source'] = 'mtime'
+        elif result['modification_date']:
+            result['selected_date'] = result['modification_date']
+            result['selected_source'] = 'mtime'
+        elif result['creation_date']:
+            result['selected_date'] = result['creation_date']
+            result['selected_source'] = result['creation_source']
+            
+    except Exception as e:
+        _logger.error(f"Error obteniendo fechas de {file_path}: {e}")
+    
+    return result
