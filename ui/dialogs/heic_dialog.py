@@ -55,7 +55,7 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         self.header_frame = self._create_compact_header_with_metrics(
             icon_name='photo-library',
             title='Duplicados HEIC/JPG detectados',
-            description='Fotos HEIC con copia idéntica en JPG. Elimina archivos HEIC para ahorrar espacio.',
+            description='Fotos HEIC con versiones JPG idénticas. Elige qué formato conservar y libera espacio.',
             metrics=[
                 {
                     'value': str(self.analysis.total_pairs),

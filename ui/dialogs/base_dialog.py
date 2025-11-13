@@ -4,7 +4,6 @@ from typing import Dict, List, Optional, TYPE_CHECKING
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import (
     QDialog,
-    QCheckBox,
     QDialogButtonBox,
     QPushButton,
     QTableWidget,
@@ -33,31 +32,7 @@ class BaseDialog(QDialog):
         self.backup_checkbox = None
         self._ok_button_ref = None
 
-    def add_backup_checkbox(self, layout=None, label: str = "Crear backup", checked: Optional[bool] = None):
-        """Crea y retorna un QCheckBox para la opción de backup.
 
-        Si se pasa un layout, el checkbox se añadirá al layout.
-        Guarda la referencia en `self.backup_checkbox`.
-        
-        Args:
-            layout: Layout opcional donde añadir el checkbox
-            label: Texto del checkbox
-            checked: Estado inicial. Si es None, usa la configuración guardada del usuario
-        """
-        # Si no se especifica checked, usar la configuración del usuario
-        if checked is None:
-            checked = settings_manager.get_auto_backup_enabled()
-        
-        cb = QCheckBox(label)
-        cb.setChecked(checked)
-        cb.setToolTip(
-            "Crea una copia de seguridad de los archivos antes de la operación.\n"
-            "Puedes cambiar este comportamiento por defecto en Configuración."
-        )
-        self.backup_checkbox = cb
-        if layout is not None:
-            layout.addWidget(cb)
-        return cb
 
     def is_backup_enabled(self) -> bool:
         """Devuelve True si el checkbox de backup existe y está marcado."""
@@ -95,16 +70,7 @@ class BaseDialog(QDialog):
         # Si es QCheckBox directo
         return self.cleanup_checkbox.isChecked()
 
-    def build_accepted_plan(self, extra: Optional[Dict] = None) -> Dict:
-        """Construye un dict para accepted_plan incluyendo el flag de backup.
 
-        Usage: return self.build_accepted_plan({'groups': ..., 'keep_strategy': 'oldest'})
-        """
-        result = {} if extra is None else dict(extra)
-        # Always set create_backup based on the current checkbox state so the
-        # dialog selection takes precedence over any provided extra value.
-        result['create_backup'] = self.is_backup_enabled()
-        return result
 
     def make_ok_cancel_buttons(
         self, 

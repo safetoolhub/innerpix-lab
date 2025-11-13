@@ -2,12 +2,10 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QDialogButtonBox
 )
-from PyQt6.QtCore import Qt
 from services.live_photo_service import CleanupMode
 from utils.format_utils import format_size
 from ui.styles.design_system import DesignSystem
 from ui.styles.design_system import DesignSystem
-from utils.icons import icon_manager
 from .base_dialog import BaseDialog
 
 
@@ -59,7 +57,7 @@ class LivePhotoCleanupDialog(BaseDialog):
         self.header_frame = self._create_compact_header_with_metrics(
             icon_name='camera',
             title='Live Photos detectadas',
-            description='Live Photos de iPhone (JPG + MOV). Selecciona qué componente conservar.',
+            description='Live Photos de iPhone (Imagen + MOV). Selecciona qué componente conservar.',
             metrics=[
                 {
                     'value': str(self.analysis.live_photos_found),
