@@ -79,10 +79,11 @@ class DesignSystem:
     SPACE_4 = 4
     SPACE_6 = 6
     SPACE_8 = 8
-    SPACE_XS = 2
+    SPACE_10 = 10
     SPACE_12 = 12
-    SPACE_SM = 12
     SPACE_16 = 16
+    SPACE_XS = 2
+    SPACE_SM = 12    
     SPACE_MD = 16
     SPACE_20 = 20
     SPACE_24 = 24

@@ -63,6 +63,7 @@ class IconManager:
         'folder': 'mdi6.folder',
         'folder-open': 'mdi6.folder-open',
         'folder-settings': 'mdi6.folder-cog',
+        'folder-remove': 'mdi6.folder-remove',
         'file': 'mdi6.file',
         'search': 'mdi6.magnify',
         'magnify': 'mdi6.magnify',

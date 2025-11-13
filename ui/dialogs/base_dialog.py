@@ -665,14 +665,14 @@ class BaseDialog(QDialog):
         show_backup: bool = True,
         show_dry_run: bool = False,
         show_cleanup_empty_dirs: bool = False,
-        backup_label: str = "Crear backup antes de la operación",
-        dry_run_label: str = "Modo simulación (no realizar cambios realmente)",
-        cleanup_label: str = "Eliminar directorios vacíos tras organizar"
+        backup_label: str = "Crear backup",
+        dry_run_label: str = "Modo simulación",
+        cleanup_label: str = "Limpiar directorios vacíos"
     ) -> 'QFrame':
-        """Crea sección de opciones de seguridad ultra-compacta con diseño Material Design 3.
+        """Crea sección de opciones ultra-compacta con diseño Material Design 3.
         
         Diseño 100% horizontal tipo "chip" con máxima compacidad vertical.
-        Todo en una sola línea siguiendo Material Design 3.
+        Todo en una sola línea con chips minimalistas y profesionales.
         
         Args:
             show_backup: Si se debe mostrar el checkbox de backup
@@ -685,8 +685,7 @@ class BaseDialog(QDialog):
         Returns:
             QFrame con la sección ultra-compacta configurada
         """
-        from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QCheckBox
-        from PyQt6.QtCore import Qt
+        from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel
         from ui.styles.design_system import DesignSystem
         from utils.icons import icon_manager
         from utils.settings_manager import settings_manager
@@ -695,45 +694,27 @@ class BaseDialog(QDialog):
         frame.setObjectName("security-options-frame")
         frame.setStyleSheet(f"""
             QFrame#security-options-frame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_8}px;
+                background-color: transparent;
+                border: none;
+                padding: 0px;
             }}
         """)
         
         # Layout principal 100% horizontal (una sola línea)
         main_layout = QHBoxLayout(frame)
-        main_layout.setSpacing(int(DesignSystem.SPACE_16))
-        main_layout.setContentsMargins(
-            int(DesignSystem.SPACE_8),
-            int(DesignSystem.SPACE_4),
-            int(DesignSystem.SPACE_8),
-            int(DesignSystem.SPACE_4)
-        )
+        main_layout.setSpacing(int(DesignSystem.SPACE_12))
+        main_layout.setContentsMargins(0, 0, 0, 0)
         
-        # === Título inline con icono ===
-        title_icon = QLabel()
-        icon_manager.set_label_icon(
-            title_icon, 
-            'shield-check', 
-            size=int(DesignSystem.ICON_SIZE_SM),
-            color=DesignSystem.COLOR_PRIMARY
-        )
-        main_layout.addWidget(title_icon)
-        
-        title_label = QLabel("Opciones:")
-        title_label.setStyleSheet(f"""
+        # === Label "Opciones:" inline minimalista ===
+        options_label = QLabel("Opciones:")
+        options_label.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_SM}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
             color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            padding: 0px;
+            margin: 0px;
         """)
-        main_layout.addWidget(title_label)
-        
-        # Separator visual sutil
-        separator = QLabel("|")
-        separator.setStyleSheet(f"color: {DesignSystem.COLOR_BORDER}; padding: 0 {DesignSystem.SPACE_4}px;")
-        main_layout.addWidget(separator)
+        main_layout.addWidget(options_label)
         
         # === Checkbox de backup (inline chip style) ===
         if show_backup:
@@ -758,14 +739,20 @@ class BaseDialog(QDialog):
                 label=dry_run_label,
                 checked=bool(dry_run_default),
                 tooltip="Simula la operación sin realizar cambios reales.\n"
-                        "Útil para verificar qué archivos se verían afectados."
+                        "Útil para verificar qué archivos se verían afectados.\n\n"
+                        "⚠️ Nota: Al activar modo simulación, el backup se deshabilita automáticamente\n"
+                        "ya que no se realizarán cambios reales."
             )
             main_layout.addWidget(self.dry_run_checkbox)
+            
+            # Conectar lógica de deshabilitación mutua
+            if show_backup and hasattr(self, 'backup_checkbox'):
+                self._setup_dry_run_backup_logic()
         
         # === Checkbox de cleanup empty dirs (inline chip style) ===
         if show_cleanup_empty_dirs:
             self.cleanup_checkbox = self._create_inline_chip_checkbox(
-                icon_name='folder-settings',
+                icon_name='folder-remove',
                 label=cleanup_label,
                 checked=False,  # Default deshabilitado para ser conservador
                 tooltip="Elimina automáticamente los directorios que queden vacíos\n"
@@ -778,6 +765,57 @@ class BaseDialog(QDialog):
         
         return frame
     
+    def _setup_dry_run_backup_logic(self):
+        """Configura la lógica de deshabilitación automática entre dry-run y backup.
+        
+        Cuando dry-run está activo, el backup se deshabilita visualmente Y se desactiva
+        automáticamente ya que no se realizarán cambios reales en los archivos.
+        Guarda el estado previo para restaurarlo cuando se desactive dry-run.
+        """
+        # Variable para guardar el estado previo del backup
+        self._backup_state_before_dry_run = None
+        
+        def on_dry_run_changed():
+            if not hasattr(self, 'dry_run_checkbox') or not hasattr(self, 'backup_checkbox'):
+                return
+            
+            dry_run_enabled = self.is_dry_run_enabled()
+            backup_widget = self.backup_checkbox
+            backup_checkbox_internal = backup_widget._checkbox if hasattr(backup_widget, '_checkbox') else backup_widget
+            
+            if dry_run_enabled:
+                # Guardar estado actual del backup antes de deshabilitarlo
+                self._backup_state_before_dry_run = backup_checkbox_internal.isChecked()
+                
+                # Desactivar el checkbox del backup
+                backup_checkbox_internal.setChecked(False)
+                
+                # Deshabilitar visualmente el widget
+                backup_widget.setEnabled(False)
+                backup_widget.setToolTip(
+                    "⚠️ El backup está deshabilitado porque el modo simulación está activo.\n"
+                    "No se realizarán cambios reales, por lo que no es necesario crear backup."
+                )
+            else:
+                # Restaurar estado previo del backup si existía
+                if self._backup_state_before_dry_run is not None:
+                    backup_checkbox_internal.setChecked(self._backup_state_before_dry_run)
+                    self._backup_state_before_dry_run = None
+                
+                # Rehabilitar visualmente el widget
+                backup_widget.setEnabled(True)
+                backup_widget.setToolTip(
+                    "Crea una copia de seguridad timestamped antes de realizar cambios.\n"
+                    "Recomendado para operaciones destructivas."
+                )
+        
+        # Conectar el cambio de estado del dry-run
+        if hasattr(self.dry_run_checkbox, '_checkbox'):
+            self.dry_run_checkbox._checkbox.toggled.connect(on_dry_run_changed)
+        
+        # Aplicar estado inicial
+        on_dry_run_changed()
+    
     def _create_inline_chip_checkbox(
         self,
         icon_name: str,
@@ -787,8 +825,8 @@ class BaseDialog(QDialog):
     ) -> QWidget:
         """Crea un checkbox ultra-compacto estilo "chip" Material Design 3.
         
-        Diseño inline minimalista de una sola línea con checkmark visible.
-        Inspirado en los chips interactivos de Material Design 3.
+        Diseño inline minimalista profesional con transiciones suaves.
+        Inspirado en los filter chips de Material Design 3.
         
         Args:
             icon_name: Nombre del icono de icon_manager
@@ -799,20 +837,23 @@ class BaseDialog(QDialog):
         Returns:
             QWidget contenedor con el diseño chip inline
         """
-        from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel
+        from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel, QCheckBox
+        from PyQt6.QtCore import Qt
         from ui.styles.design_system import DesignSystem
         from utils.icons import icon_manager
         
         # Contenedor tipo chip
         container = QWidget()
+        container.setCursor(Qt.CursorShape.PointingHandCursor)
+        
         layout = QHBoxLayout(container)
         layout.setContentsMargins(
+            int(DesignSystem.SPACE_10),
             int(DesignSystem.SPACE_6),
-            int(DesignSystem.SPACE_2),
-            int(DesignSystem.SPACE_6),
-            int(DesignSystem.SPACE_2)
+            int(DesignSystem.SPACE_10),
+            int(DesignSystem.SPACE_6)
         )
-        layout.setSpacing(int(DesignSystem.SPACE_4))
+        layout.setSpacing(int(DesignSystem.SPACE_6))
         
         # Checkbox real (oculto)
         checkbox = QCheckBox()
@@ -822,82 +863,89 @@ class BaseDialog(QDialog):
         # Establecer tooltip en el contenedor visual (no en el checkbox oculto)
         container.setToolTip(tooltip)
         
-        # Checkmark Material Design (círculo cuando unchecked, check cuando checked)
-        checkmark = QLabel()
-        checkmark.setFixedSize(int(DesignSystem.ICON_SIZE_SM), int(DesignSystem.ICON_SIZE_SM))
-        layout.addWidget(checkmark)
-        
-        # Icono de la opción
+        # Icono Material Design con checkmark integrado
         icon_label = QLabel()
-        icon_manager.set_label_icon(
-            icon_label,
-            icon_name,
-            size=int(DesignSystem.ICON_SIZE_SM),
-            color=DesignSystem.COLOR_TEXT
-        )
+        # Quitar tamaño fijo para evitar cortes horizontales
         layout.addWidget(icon_label)
         
-        # Texto
+        # Texto del chip
         text_label = QLabel(label)
         text_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            color: {DesignSystem.COLOR_TEXT};
+            QLabel {{
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                padding: 0px;
+                margin: 0px;
+                border: none;
+                background: transparent;
+            }}
         """)
         layout.addWidget(text_label)
         
         # Función para toggle
         def toggle_checkbox():
-            checkbox.setChecked(not checkbox.isChecked())
-            update_visual_state()
+            if container.isEnabled():
+                checkbox.setChecked(not checkbox.isChecked())
         
         def update_visual_state():
             is_checked = checkbox.isChecked()
+            is_enabled = container.isEnabled()
             
-            # Actualizar checkmark con diseño Material Design limpio
-            if is_checked:
-                # Círculo azul sólido con check
-                checkmark.setStyleSheet(f"""
-                    QLabel {{
-                        background-color: {DesignSystem.COLOR_PRIMARY};
-                        border-radius: {int(DesignSystem.ICON_SIZE_SM) // 2}px;
-                        border: none;
-                    }}
-                """)
+            # Determinar colores según estado
+            if not is_enabled:
+                bg_color = DesignSystem.COLOR_BG_1
+                border_color = DesignSystem.COLOR_BORDER
+                text_color = DesignSystem.COLOR_TEXT_SECONDARY
+                icon_color = DesignSystem.COLOR_TEXT_SECONDARY
+                icon_to_show = icon_name
+            elif is_checked:
+                bg_color = DesignSystem.COLOR_PRIMARY
+                border_color = DesignSystem.COLOR_PRIMARY
+                text_color = DesignSystem.COLOR_PRIMARY_TEXT
+                icon_color = DesignSystem.COLOR_PRIMARY_TEXT
+                icon_to_show = 'check-circle'  # Icono de check cuando está seleccionado
             else:
-                # Círculo vacío con borde
-                checkmark.setStyleSheet(f"""
-                    QLabel {{
-                        background-color: transparent;
-                        border-radius: {int(DesignSystem.ICON_SIZE_SM) // 2}px;
-                        border: 2px solid {DesignSystem.COLOR_BORDER};
-                    }}
-                """)
+                bg_color = DesignSystem.COLOR_SURFACE
+                border_color = DesignSystem.COLOR_BORDER
+                text_color = DesignSystem.COLOR_TEXT
+                icon_color = DesignSystem.COLOR_TEXT_SECONDARY
+                icon_to_show = icon_name
             
-            # Estilo del contenedor chip con estados claros
-            if is_checked:
-                container.setStyleSheet(f"""
-                    QWidget {{
-                        background-color: {DesignSystem.COLOR_BG_1};
-                        border: 1px solid transparent;
-                        border-radius: {DesignSystem.RADIUS_BASE}px;
-                    }}
-                    QWidget:hover {{
-                        background-color: {DesignSystem.COLOR_BG_2};
-                        border: 1px solid transparent;
-                    }}
-                """)
-            else:
-                container.setStyleSheet(f"""
-                    QWidget {{
-                        background-color: transparent;
-                        border: 1px solid transparent;
-                        border-radius: {DesignSystem.RADIUS_BASE}px;
-                    }}
-                    QWidget:hover {{
-                        background-color: {DesignSystem.COLOR_BG_2};
-                        border: 1px solid transparent;
-                    }}
-                """)
+            # Actualizar icono
+            icon_manager.set_label_icon(
+                icon_label,
+                icon_to_show,
+                color=icon_color
+            )
+            
+            # Actualizar texto
+            text_label.setStyleSheet(f"""
+                QLabel {{
+                    font-size: {DesignSystem.FONT_SIZE_SM}px;
+                    font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                    color: {text_color};
+                    padding: 0px;
+                    margin: 0px;
+                    border: none;
+                    background: transparent;
+                }}
+            """)
+            
+            # Estilo del contenedor chip con transición suave
+            hover_bg = DesignSystem.COLOR_PRIMARY if is_checked else DesignSystem.COLOR_BG_2
+            
+            if not is_enabled:
+                hover_bg = DesignSystem.COLOR_BG_1
+            
+            container.setStyleSheet(f"""
+                QWidget {{
+                    background-color: {bg_color};
+                    border-radius: 16px;
+                }}
+                QWidget:hover {{
+                    background-color: {hover_bg};
+                }}
+            """)
         
         container.mousePressEvent = lambda event: toggle_checkbox()
         update_visual_state()
@@ -905,8 +953,9 @@ class BaseDialog(QDialog):
         # Conectar cambios
         checkbox.toggled.connect(update_visual_state)
         
-        # Guardar referencia
+        # Guardar referencias
         container._checkbox = checkbox
+        container._update_visual_state = update_visual_state
         
         return container
     
