@@ -443,8 +443,32 @@ def get_exif_dates(file_path: Path) -> dict:
         from PIL import Image
         from PIL.ExifTags import TAGS, GPSTAGS
 
+        # Para archivos HEIC, necesitamos pillow-heif
+        if file_path.suffix.lower() in ['.heic', '.heif']:
+            try:
+                import pillow_heif
+                pillow_heif.register_heif_opener()
+            except ImportError:
+                _logger.warning(f"pillow-heif no disponible, no se puede procesar {file_path.name}")
+                return result
+
         with Image.open(file_path) as image:
-            exif_data = image._getexif()
+            # Obtener datos EXIF - diferente para HEIC vs otros formatos
+            exif_data = None
+            
+            if file_path.suffix.lower() in ['.heic', '.heif']:
+                # Para HEIC, los metadatos están en image.info['exif'] como bytes
+                exif_bytes = image.info.get('exif')
+                if exif_bytes:
+                    try:
+                        exif_obj = Image.Exif()
+                        exif_obj.load(exif_bytes)
+                        exif_data = exif_obj._getexif()
+                    except Exception:
+                        pass
+            else:
+                # Para otros formatos, usar el método estándar
+                exif_data = image._getexif()
 
             if exif_data:
                 gps_info = None
@@ -516,7 +540,7 @@ def get_exif_dates(file_path: Path) -> dict:
         pass
     except Exception as e:
         # Error accediendo a EXIF
-        _logger.info(f"Error extrayendo EXIF de {file_path.name}: {e}")
+        _logger.warning(f"Error extrayendo EXIF de {file_path.name}: {e}")
     
     return result
 
