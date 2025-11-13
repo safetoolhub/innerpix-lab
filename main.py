@@ -10,30 +10,30 @@ import os
 os.environ['QT_LOGGING_RULES'] = 'qt.qpa.wayland=false'
 
 from PyQt6.QtWidgets import QApplication
-from PyQt6.QtGui import QScreen
 from ui.main_window import MainWindow
 from ui.styles.design_system import DesignSystem
 from config import Config
-from ui.managers.logging_manager import LoggingManager
+from utils.logger import configure_logging, get_logger
 from utils import get_optimal_window_config
 import logging
 
 
 def main():
     """Punto de entrada principal de la aplicación"""
-    # Inicializar logging manager
-    logging_manager = LoggingManager(
-        default_dir=Config.DEFAULT_LOG_DIR,
-        level="INFO",
-        logger_name="PixaroLab"
+    # Configurar sistema de logging
+    log_file, logs_dir = configure_logging(
+        logs_dir=Config.DEFAULT_LOG_DIR,
+        level="INFO"
     )
     
-    # Inicializar logger y mostrar nivel de log actual
-    logger = logging_manager.logger
-    log_level = logging.getLevelName(logger.level)
+    # Obtener logger y mostrar información de inicio
+    logger = get_logger()
+    log_level = logging.getLevelName(logger.logger.level)
     logger.info("=" * 80)
     logger.info(f"Iniciando {Config.APP_NAME} v{Config.APP_VERSION}")
     logger.info(f"Nivel de log: {log_level}")
+    logger.info(f"Archivo de log: {log_file}")
+    logger.info(f"Directorio de logs: {logs_dir}")
     logger.info("=" * 80)
     
     app = QApplication(sys.argv)

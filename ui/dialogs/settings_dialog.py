@@ -940,16 +940,9 @@ class SettingsDialog(QDialog):
             # Guardar en settings manager
             settings_manager.set_log_level(level_name)
             
-            # Actualizar también el logger de la ventana padre si existe
-            if self.parent_window:
-                if hasattr(self.parent_window, 'logging_manager'):
-                    try:
-                        self.parent_window.logging_manager.set_level(level_name)
-                    except Exception:
-                        pass
-                
-                if hasattr(self.parent_window, 'log_level'):
-                    self.parent_window.log_level = level_name
+            # Actualizar también el log_level de la ventana padre si existe
+            if self.parent_window and hasattr(self.parent_window, 'log_level'):
+                self.parent_window.log_level = level_name
             
             self.logger.info(f"Nivel de log cambiado a: {level_name}")
 
@@ -1041,15 +1034,14 @@ class SettingsDialog(QDialog):
             if logs_dir_changed:
                 settings_manager.set_logs_directory(new_logs_dir)
                 
-                # Actualizar logging_manager solo si cambió
-                if self.parent_window and hasattr(self.parent_window, 'logging_manager'):
-                    try:
-                        self.parent_window.logging_manager.change_logs_directory(new_logs_dir)
-                        self.parent_window.logs_directory = self.parent_window.logging_manager.logs_directory
-                        self.parent_window.log_file = self.parent_window.logging_manager.log_file
-                    except Exception as e:
-                        self.logger.warning(f"No se pudo cambiar directorio de logs: {e}")
-                        self.parent_window.logs_directory = new_logs_dir
+                # Cambiar directorio de logs usando la nueva API
+                from utils.logger import change_logs_directory
+                try:
+                    new_log_file, new_logs_dir_resolved = change_logs_directory(new_logs_dir)
+                    self.logger.info(f"Directorio de logs cambiado a: {new_logs_dir_resolved}")
+                    self.logger.info(f"Nuevo archivo de log: {new_log_file}")
+                except Exception as e:
+                    self.logger.warning(f"No se pudo cambiar directorio de logs: {e}")
             
             if backup_dir_changed:
                 settings_manager.set_backup_directory(new_backup_dir)

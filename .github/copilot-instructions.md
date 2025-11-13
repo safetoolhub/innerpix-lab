@@ -75,10 +75,13 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
 - Helper methods: `Config.is_supported_file()`, `Config.get_file_type()`, `Config.is_image_file()`
 - All methods are @classmethod, no instance needed
 
-**Logging conventions** (`utils/logger.py`)
-- Use `get_logger('ModuleName')` not print()
-- Levels: DEBUG for internals, INFO for operations/results, WARNING for recoverable issues, ERROR for failures
-- All logs written to timestamped file in `Config.DEFAULT_LOG_DIR`
+**Logging conventions** (`utils/logger.py`) - Unified logging system
+- **Initialization**: Call `configure_logging(logs_dir=Path, level="INFO")` at app startup (returns log_file, logs_dir)
+- **Usage**: `get_logger('ModuleName')` not print()
+- **Levels**: DEBUG for internals, INFO for operations/results, WARNING for recoverable issues, ERROR for failures
+- **File management**: Timestamped log files in configurable directory
+- **Runtime changes**: `change_logs_directory(new_dir)` to update log location dynamically
+- **Utilities**: `get_log_file()`, `get_logs_directory()` to query current paths
 - **Thread-safe**: Uses RLock to prevent log mixing in concurrent operations
 - **Atomic logging**: Use `logger.log_block()` for multi-line sections that must appear together
 - Services use `_log_section_header()` and `_log_section_footer()` from `BaseService` for standardized section logging
@@ -98,8 +101,7 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
 - **Benefits**: Reusable in CLI scripts, no PyQt6 dependency, integrated logging, robust validation
 - UI wrappers in `dialog_utils.py` add QMessageBox for error display
 
-**Additional UI modules**:
-- `ui/managers/logging_manager.py`: Centralized logging management for UI components
+**Additional utilities**:
 - `utils/settings_manager.py`: High-level settings management using storage backends
 
 **File utilities** (`utils/file_utils.py`)

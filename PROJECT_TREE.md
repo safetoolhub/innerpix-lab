@@ -77,9 +77,8 @@ pixaro-lab/
 │   │   ├── similar_files_dialog.py  # Diálogo de archivos similares (perceptual hash)
 │   │   └── similar_files_progress_dialog.py  # Diálogo de progreso para análisis de similares
 │   │
-│   ├── managers/                    # Gestores de recursos
-│   │   ├── __init__.py
-│   │   └── logging_manager.py       # Gestión de archivos de log
+│   ├── managers/                    # Gestores de recursos (actualmente vacío - logging movido a utils/)
+│   │   └── __init__.py
 │   │
 │   ├── styles/                      # Sistema de diseño centralizado
 │   │   ├── __init__.py
