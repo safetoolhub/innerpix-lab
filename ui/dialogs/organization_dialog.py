@@ -16,7 +16,7 @@ from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QThread
 
 from config import Config
 from utils.format_utils import format_size
-from utils.date_utils import get_file_date
+from utils.date_utils import get_date_from_file
 from ui.styles.design_system import DesignSystem
 from utils.icons import icon_manager
 from utils.logger import get_logger
@@ -1007,7 +1007,7 @@ class FileOrganizationDialog(BaseDialog):
                 child.setText(0, f"  {move.original_name}")
                 
                 try:
-                    file_date = get_file_date(move.source_path)
+                    file_date = get_date_from_file(move.source_path)
                     if file_date:
                         child.setText(1, file_date.strftime("%Y-%m-%d"))
                     else:

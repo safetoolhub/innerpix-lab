@@ -251,7 +251,7 @@ class Stage2Window(BaseStage):
     
     def _perform_stage_3_transition(self):
         """Realiza la transición a Fase 3"""
-        self.logger.info("Realizando transición a Fase 3")
+        self.logger.debug("Realizando transición a Stage 3")
         self.main_window._transition_to_state_3(self.analysis_results)
 
     def _on_analysis_error(self, error_msg: str):

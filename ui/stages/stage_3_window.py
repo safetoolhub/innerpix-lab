@@ -259,8 +259,9 @@ class Stage3Window(BaseStage):
         card = ToolCard(
             icon_name='camera-burst',
             title='Live Photos',
-            description='Gestiona los vídeos asociados a tus Live Photos. Puedes conservar '
-                       'solo la foto, solo el vídeo, o ambos según tus preferencias.',
+            description='Las Live Photos de iPhone combinan imagen y vídeo corto. '
+                       'Libera espacio eliminando el componente de vídeo o foto según prefieras, '
+                       'mientras conservas la esencia de tus recuerdos.',
             action_text='Gestionar ahora'
         )
 
@@ -282,8 +283,9 @@ class Stage3Window(BaseStage):
         card = ToolCard(
             icon_name='heic',
             title='HEIC/JPG Duplicados',
-            description='Elimina fotos duplicadas que están en dos formatos (HEIC y JPG). '
-                       'Decide qué formato conservar.',
+            description='iPhone guarda fotos en HEIC (eficiente) y crea versiones JPG para '
+                       'compatibilidad. Elimina duplicados conservando el formato que prefieras '
+                       'y recupera espacio valioso.',
             action_text='Gestionar ahora'
         )
 

@@ -72,7 +72,7 @@ class SimilarFilesDialog(BaseDialog):
             metrics=[
                 {'value': '0', 'label': 'Grupos', 'color': DesignSystem.COLOR_PRIMARY},
                 {'value': '0', 'label': 'Duplicados', 'color': DesignSystem.COLOR_WARNING},
-                {'value': '0 B', 'label': 'Espacio', 'color': DesignSystem.COLOR_SUCCESS}
+                {'value': '0 B', 'label': 'Recuperable', 'color': DesignSystem.COLOR_SUCCESS}
             ]
         )
         main_layout.addWidget(self.header_frame)
@@ -1012,7 +1012,7 @@ class SimilarFilesDialog(BaseDialog):
             self._load_group(self.current_group_index + 1)
 
     def _update_summary(self):
-        """Actualiza el resumen de archivos seleccionados"""
+        """Actualiza el resumen de archivos seleccionados y la métrica del header"""
         total_selected = sum(len(files) for files in self.selections.values())
         total_size = 0
         for files in self.selections.values():
@@ -1022,6 +1022,11 @@ class SimilarFilesDialog(BaseDialog):
             f"<b>Espacio a liberar:</b> {format_size(total_size)}"
         )
         self.ok_btn.setEnabled(total_selected > 0)
+        
+        # Actualizar métrica "Recuperable" en el header con el espacio de archivos seleccionados
+        # Si no hay selecciones, mostrar el potencial total
+        space_to_show = total_size if total_selected > 0 else (self.current_result.space_potential if self.current_result else 0)
+        self._update_header_metric(self.header_frame, 'Recuperable', format_size(space_to_show))
     
     def _update_header_metrics(self, groups: int, duplicates: int, space: int):
         """Actualiza las métricas del header compacto.

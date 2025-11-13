@@ -112,7 +112,18 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
 
 **Additional utilities**:
 - `utils/callback_utils.py`: Safe progress callback handling utilities
-- `utils/date_utils.py`: Date extraction utilities for multimedia files
+- `utils/date_utils.py`: Date extraction utilities for multimedia files with intelligent prioritization
+  * **Key function:** `select_chosen_date()` - Selects most representative date from multiple sources
+  * **Priority logic (CORRECTED Nov 2025):**
+    1. EXIF camera dates (DateTimeOriginal, CreateDate, DateTimeDigitized) - returns EARLIEST
+    2. Filename date extraction (WhatsApp patterns, screenshots, etc.)
+    3. Video metadata (ffprobe creation_time)
+    4. Filesystem dates (creation_date, modification_date) - last resort
+  * **GPS DateStamp:** Used ONLY for validation, NOT as primary date source (UTC issues, rounding errors)
+  * **GPS validation:** `_validate_gps_coherence()` logs warning if GPS differs >24h from EXIF DateTimeOriginal
+  * **Functions:** `get_date_from_file()`, `get_all_file_dates()`, `get_exif_dates()`, `extract_date_from_filename()`
+  * **Naming:** `format_renamed_name()`, `parse_renamed_name()`, `is_renamed_filename()`
+  * **See:** `docs/GPS_DATESTAMP_FIX.md` for detailed refactoring documentation
 - `utils/format_utils.py`: Reusable formatting functions (format_size, format_file_count, etc.)
 - `utils/icons.py`: Centralized icon management system using QtAwesome (Material Design icons)
 

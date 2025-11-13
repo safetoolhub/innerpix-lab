@@ -3,11 +3,10 @@ Utilidades compartidas para Pixaro Lab
 """
 from .logger import get_logger, SimpleLogger, set_global_log_level
 from .date_utils import (
-    get_file_date,
+    get_date_from_file,
     format_renamed_name,
     is_renamed_filename,
-    parse_renamed_name,
-    get_exif_date
+    parse_renamed_name
 )
 from .screen_utils import (
     ScreenResolution,
@@ -72,11 +71,10 @@ __all__ = [
     'set_global_log_level',
 
     # Date utilities
-    'get_file_date',
+    'get_date_from_file',
     'format_renamed_name',
     'is_renamed_filename',
     'parse_renamed_name',
-    'get_exif_date',
 
     # Screen utilities
     'ScreenResolution',

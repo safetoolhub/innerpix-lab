@@ -2,20 +2,13 @@
 
 Aplicación PyQt6 para gestión de colecciones de fotos/videos (enfoque iOS).
 
+**Nota:** Las carpetas `__pycache__/` están excluidas de este árbol (ignoradas por .gitignore).
+
 ```
 pixaro-lab/
 ├── LICENSE                          # Licencia del proyecto
 ├── README.md                        # Documentación principal
 ├── PROJECT_TREE.md                  # Este archivo - estructura del proyecto
-├── CHANGELOG.md                     # Registro de cambios del proyecto
-├── FASE_2_IMPLEMENTADA.md           # Documentación de implementación Fase 2
-├── FASE_2_REFACTORIZADA.md          # Documentación de refactorización Fase 2
-├── FASE_3_IMPLEMENTADA.md           # Documentación de implementación Fase 3
-├── FASE_4_IMPLEMENTADA.md           # Documentación de implementación Fase 4
-├── Funcionalidades.txt              # Lista de funcionalidades implementadas
-├── PROMPT _MVP2.md                  # Documentación del MVP2
-├── TODO.txt                         # Lista de tareas pendientes
-├── TOOLTIPS.md                      # Documentación de tooltips de UI
 ├── main.py                          # Punto de entrada de la aplicación
 ├── config.py                        # Configuración centralizada (rutas, extensiones, constantes)
 ├── requirements.txt                 # Dependencias Python
@@ -32,7 +25,19 @@ pixaro-lab/
 │   ├── settings.json                # Configuración del workspace
 │   └── tasks.json                   # Tareas personalizadas
 │
-<!-- Nota: La carpeta `docs/` contiene notas técnicas y personales del autor y no se incluye en este árbol simplificado. -->
+├── docs/                            # Documentación técnica
+│   ├── GPS_DATESTAMP_FIX.md         # ✅ Refactorización select_chosen_date() (Nov 2025)
+│   │                                # - Corrección priorización GPS DateStamp
+│   │                                # - Nueva lógica: EXIF → Filename → Video → FS
+│   │                                # - GPS solo validación (warning si >24h diff)
+│   ├── REFACTORIZACION_GPS_RESUMEN.md # Resumen de refactorización GPS
+│   ├── Funcionalidades.txt          # Lista de funcionalidades implementadas
+│   ├── MEJORAS_DATE_UTILS.md        # Mejoras planificadas para date_utils
+│   ├── TODO.txt                     # Lista de tareas pendientes
+│   ├── TOOLTIPS.md                  # Documentación de tooltips de UI
+│   └── test_date_utils_improvements.py # Tests de mejoras en date_utils
+│
+<!-- Nota: Algunos archivos en `docs/` son notas técnicas y personales del autor. -->
 ├── services/                        # Lógica de negocio (sin dependencias UI)
 │   ├── __init__.py
 │   ├── analysis_orchestrator.py     # Coordinador de análisis completo (100% PyQt6-free)
@@ -95,7 +100,8 @@ pixaro-lab/
 ├── utils/                           # Utilidades compartidas
 │   ├── __init__.py
 │   ├── callback_utils.py            # Utilidades para callbacks de progreso
-│   ├── date_utils.py                # Manipulación de fechas
+│   ├── date_utils.py                # ✅ Manipulación de fechas con priorización inteligente
+│   │                                # - Ver docs/GPS_DATESTAMP_FIX.md para detalles
 │   ├── decorators.py                # Decoradores (@deprecated, etc.)
 │   ├── file_utils.py                # Operaciones con archivos (hash, backup, paths)
 │   ├── format_utils.py              # Formateo de tamaños, números, etc.
@@ -108,7 +114,24 @@ pixaro-lab/
 │
 └── tests/                           # Suite de tests automatizados
     ├── __init__.py
-    └── test_window_size.py          # Tests para lógica de tamaño de ventana
+    ├── conftest.py                  # Fixtures compartidos (temp_dir, create_test_image, etc.)
+    ├── README.md                    # Guía de testing con ejemplos y best practices
+    ├── test_window_size.py          # Tests para lógica de tamaño de ventana
+    ├── integration/                 # Tests de integración
+    │   └── __init__.py
+    └── unit/                        # Tests unitarios
+        ├── __init__.py
+        ├── services/                # Tests de servicios
+        │   ├── __init__.py
+        │   ├── test_base_service_backup.py
+        │   └── test_live_photo_service.py
+        └── utils/                   # Tests de utilidades
+            ├── __init__.py
+            └── test_date_utils.py   # ✅ 84 tests exhaustivos (Nov 2025)
+                                     # - Tests combinatorios de todas las fuentes
+                                     # - Validación GPS coherence
+                                     # - Edge cases y datos corruptos
+                                     # - Cobertura completa de priorización
 ```
 
 

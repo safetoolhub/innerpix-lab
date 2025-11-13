@@ -63,6 +63,7 @@ class IconManager:
         'folder': 'mdi6.folder',
         'folder-open': 'mdi6.folder-open',
         'folder-settings': 'mdi6.folder-cog',
+        'folder-remove': 'mdi6.folder-remove',
         'file': 'mdi6.file',
         'search': 'mdi6.magnify',
         'magnify': 'mdi6.magnify',
@@ -82,6 +83,7 @@ class IconManager:
         'rule': 'mdi6.ruler',
         'access_time': 'mdi6.clock-outline',
         'update': 'mdi6.update',
+        'location': 'mdi6.map-marker',
         'expand': 'mdi6.arrow-expand',
         'compress': 'mdi6.arrow-collapse',
         
