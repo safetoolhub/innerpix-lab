@@ -948,6 +948,7 @@ class BaseDialog(QDialog):
                 }}
                 QWidget:hover {{
                     background-color: {hover_bg};
+                    border: 1px solid {DesignSystem.COLOR_PRIMARY};
                 }}
                 QWidget:hover QLabel {{
                     background: transparent;
