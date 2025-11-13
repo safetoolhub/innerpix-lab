@@ -107,7 +107,7 @@ def validate_and_get_file_info(file_path: Path) -> FileInfo:
     """
     from utils.file_utils import validate_file_exists
     from utils.format_utils import format_size
-    from utils.date_utils import get_file_date
+    from utils.date_utils import get_date_from_file
     
     # Validar existencia
     validate_file_exists(file_path)
@@ -123,7 +123,7 @@ def validate_and_get_file_info(file_path: Path) -> FileInfo:
     
     # Obtener fecha
     try:
-        file_date = get_file_date(file_path, verbose=True)
+        file_date = get_date_from_file(file_path, verbose=True)
         date_formatted = (
             file_date.strftime('%Y-%m-%d %H:%M:%S')
             if file_date else 'fecha desconocida'

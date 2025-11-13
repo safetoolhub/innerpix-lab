@@ -83,6 +83,7 @@ class IconManager:
         'rule': 'mdi6.ruler',
         'access_time': 'mdi6.clock-outline',
         'update': 'mdi6.update',
+        'location': 'mdi6.map-marker',
         'expand': 'mdi6.arrow-expand',
         'compress': 'mdi6.arrow-collapse',
         

@@ -8,7 +8,7 @@ from pathlib import Path
 from PyQt6.QtWidgets import QMessageBox
 from PyQt6.QtCore import Qt
 from utils.format_utils import format_size
-from utils.date_utils import get_file_date, get_all_file_dates
+from utils.date_utils import get_date_from_file, get_all_file_dates, select_chosen_date
 from utils.platform_utils import open_file_with_default_app, open_folder_in_explorer
 
 
@@ -81,6 +81,16 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     
     # Obtener toda la información de fechas disponible
     dates_info = get_all_file_dates(file_path)
+    
+    # Seleccionar la fecha más representativa
+    selected_date, selected_source = select_chosen_date(dates_info)
+    dates_info['selected_date'] = selected_date
+    dates_info['selected_source'] = selected_source
+    
+    # Mapear la fecha EXIF principal para compatibilidad con la UI
+    dates_info['exif_date'] = (dates_info.get('exif_date_time_original') or 
+                              dates_info.get('exif_create_date') or 
+                              dates_info.get('exif_date_digitized'))
     
     # Obtener información básica del archivo
     try:
@@ -378,12 +388,12 @@ def _create_dates_section(dates_info: dict):
     )
     layout.setSpacing(DesignSystem.SPACE_12)
     
-    # Fecha seleccionada (la que usa la aplicación)
-    if dates_info['selected_date']:
+    # === FECHA SELECCIONADA (la que usa la aplicación) ===
+    if dates_info.get('selected_date'):
         selected_row = _create_date_row(
             "Fecha utilizada por la aplicación", 
             dates_info['selected_date'].strftime("%Y-%m-%d %H:%M:%S"),
-            f"Fuente: {dates_info['selected_source']}",
+            f"Fuente: {dates_info.get('selected_source', 'Desconocida')}",
             'check-circle',
             DesignSystem.COLOR_SUCCESS
         )
@@ -395,31 +405,123 @@ def _create_dates_section(dates_info: dict):
         separator.setStyleSheet(f"background-color: {DesignSystem.COLOR_CARD_BORDER};")
         layout.addWidget(separator)
     
-    # Fecha EXIF
-    if dates_info['exif_date']:
+    # === FECHAS EXIF ===
+    exif_dates_added = False
+    
+    # DateTimeOriginal (fecha de captura principal)
+    if dates_info.get('exif_date_time_original'):
+        tz_info = ""
+        if dates_info.get('exif_offset_time'):
+            tz_info = f" (Zona horaria: {dates_info['exif_offset_time']})"
         exif_row = _create_date_row(
-            "Fecha EXIF (metadatos)", 
-            dates_info['exif_date'].strftime("%Y-%m-%d %H:%M:%S"),
-            "Extraída de metadatos EXIF de la imagen",
+            "EXIF DateTimeOriginal", 
+            dates_info['exif_date_time_original'].strftime("%Y-%m-%d %H:%M:%S"),
+            f"Fecha de captura original{tz_info}",
             'camera',
             DesignSystem.COLOR_ACCENT
         )
         layout.addWidget(exif_row)
+        exif_dates_added = True
     
-    # Fecha de creación del archivo
-    if dates_info['creation_date']:
-        source_desc = "Fecha de creación del archivo" if dates_info['creation_source'] == 'birth' else "Fecha de creación (ctime)"
+    # CreateDate
+    if dates_info.get('exif_create_date'):
+        exif_row = _create_date_row(
+            "EXIF CreateDate", 
+            dates_info['exif_create_date'].strftime("%Y-%m-%d %H:%M:%S"),
+            "Fecha de creación del archivo según EXIF",
+            'camera',
+            DesignSystem.COLOR_ACCENT
+        )
+        layout.addWidget(exif_row)
+        exif_dates_added = True
+    
+    # DateTimeDigitized
+    if dates_info.get('exif_date_digitized'):
+        exif_row = _create_date_row(
+            "EXIF DateTimeDigitized", 
+            dates_info['exif_date_digitized'].strftime("%Y-%m-%d %H:%M:%S"),
+            "Fecha de digitalización",
+            'camera',
+            DesignSystem.COLOR_ACCENT
+        )
+        layout.addWidget(exif_row)
+        exif_dates_added = True
+    
+    # GPS DateStamp
+    if dates_info.get('exif_gps_date'):
+        exif_row = _create_date_row(
+            "EXIF GPS DateStamp", 
+            dates_info['exif_gps_date'].strftime("%Y-%m-%d %H:%M:%S"),
+            "Fecha GPS del archivo",
+            'location',
+            DesignSystem.COLOR_ACCENT
+        )
+        layout.addWidget(exif_row)
+        exif_dates_added = True
+    
+    # Software EXIF
+    if dates_info.get('exif_software'):
+        software_row = _create_info_row(
+            "Software EXIF", 
+            dates_info['exif_software'],
+            "Aplicación que creó/modificó el archivo",
+            'settings'
+        )
+        layout.addWidget(software_row)
+        exif_dates_added = True
+    
+    # Separador después de EXIF si se agregó algo
+    if exif_dates_added:
+        separator = QWidget()
+        separator.setFixedHeight(1)
+        separator.setStyleSheet(f"background-color: {DesignSystem.COLOR_CARD_BORDER};")
+        layout.addWidget(separator)
+    
+    # === FECHA DEL NOMBRE DE ARCHIVO ===
+    if dates_info.get('filename_date'):
+        filename_row = _create_date_row(
+            "Fecha del nombre", 
+            dates_info['filename_date'].strftime("%Y-%m-%d %H:%M:%S"),
+            "Extraída del nombre del archivo (WhatsApp, etc.)",
+            'file-text',
+            DesignSystem.COLOR_INFO
+        )
+        layout.addWidget(filename_row)
+    
+    # === METADATA DE VIDEO ===
+    if dates_info.get('video_metadata_date'):
+        video_row = _create_date_row(
+            "Metadata de video", 
+            dates_info['video_metadata_date'].strftime("%Y-%m-%d %H:%M:%S"),
+            "Fecha de creación del video (ffprobe)",
+            'video',
+            DesignSystem.COLOR_INFO
+        )
+        layout.addWidget(video_row)
+    
+    # Separador antes de fechas del sistema
+    if dates_info.get('filename_date') or dates_info.get('video_metadata_date'):
+        separator = QWidget()
+        separator.setFixedHeight(1)
+        separator.setStyleSheet(f"background-color: {DesignSystem.COLOR_CARD_BORDER};")
+        layout.addWidget(separator)
+    
+    # === FECHAS DEL SISTEMA DE ARCHIVOS ===
+    
+    # Fecha de creación
+    if dates_info.get('creation_date'):
+        source_desc = "Fecha de creación del archivo" if dates_info.get('creation_source') == 'birth' else "Fecha de creación (ctime)"
         creation_row = _create_date_row(
             "Fecha de creación", 
             dates_info['creation_date'].strftime("%Y-%m-%d %H:%M:%S"),
             source_desc,
             'update',
-            DesignSystem.COLOR_INFO
+            DesignSystem.COLOR_TEXT_SECONDARY
         )
         layout.addWidget(creation_row)
     
     # Fecha de modificación
-    if dates_info['modification_date']:
+    if dates_info.get('modification_date'):
         mod_row = _create_date_row(
             "Fecha de modificación", 
             dates_info['modification_date'].strftime("%Y-%m-%d %H:%M:%S"),
@@ -430,7 +532,7 @@ def _create_dates_section(dates_info: dict):
         layout.addWidget(mod_row)
     
     # Fecha de último acceso
-    if dates_info['access_date']:
+    if dates_info.get('access_date'):
         access_row = _create_date_row(
             "Último acceso", 
             dates_info['access_date'].strftime("%Y-%m-%d %H:%M:%S"),
@@ -442,6 +544,51 @@ def _create_dates_section(dates_info: dict):
     
     group.setLayout(layout)
     return group
+
+
+def _create_info_row(title: str, value_text: str, description: str, icon_name: str):
+    """Crea una fila especializada para mostrar información no-fechas"""
+    from PyQt6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLabel
+    from ui.styles.design_system import DesignSystem
+    from utils.icons import icon_manager
+    
+    widget = QWidget()
+    main_layout = QHBoxLayout(widget)
+    main_layout.setContentsMargins(0, 0, 0, 0)
+    main_layout.setSpacing(DesignSystem.SPACE_12)
+    
+    # Icono
+    icon = icon_manager.get_icon(icon_name, size=DesignSystem.ICON_SIZE_MD, color=DesignSystem.COLOR_ACCENT)
+    icon_label = QLabel()
+    icon_label.setPixmap(icon.pixmap(DesignSystem.ICON_SIZE_MD, DesignSystem.ICON_SIZE_MD))
+    icon_label.setFixedSize(DesignSystem.ICON_SIZE_MD + 4, DesignSystem.ICON_SIZE_MD + 4)
+    main_layout.addWidget(icon_label)
+    
+    # Contenido de información
+    content_layout = QVBoxLayout()
+    content_layout.setContentsMargins(0, 0, 0, 0)
+    content_layout.setSpacing(DesignSystem.SPACE_2)
+    
+    # Título y valor
+    title_label = QLabel(f"{title}: {value_text}")
+    title_label.setStyleSheet(f"""
+        color: {DesignSystem.COLOR_TEXT};
+        font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+        font-size: {DesignSystem.FONT_SIZE_BASE}px;
+    """)
+    content_layout.addWidget(title_label)
+    
+    # Descripción
+    desc_label = QLabel(description)
+    desc_label.setStyleSheet(f"""
+        color: {DesignSystem.COLOR_TEXT_SECONDARY};
+        font-size: {DesignSystem.FONT_SIZE_SM}px;
+    """)
+    content_layout.addWidget(desc_label)
+    
+    main_layout.addLayout(content_layout, 1)
+    
+    return widget
 
 
 def _create_date_row(title: str, date_str: str, description: str, icon_name: str, accent_color: str):

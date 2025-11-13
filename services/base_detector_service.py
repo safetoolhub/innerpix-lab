@@ -269,7 +269,7 @@ class BaseDetectorService(BaseService):
         """
         from utils.file_utils import validate_file_exists
         from utils.format_utils import format_size
-        from utils.date_utils import get_file_date
+        from utils.date_utils import get_date_from_file
         
         deleted = []
         kept = []
@@ -291,7 +291,7 @@ class BaseDetectorService(BaseService):
                 
                 # Log del archivo que se mantiene
                 try:
-                    keep_date = get_file_date(keep_file, verbose=True)
+                    keep_date = get_date_from_file(keep_file, verbose=True)
                     keep_date_str = (
                         keep_date.strftime('%Y-%m-%d %H:%M:%S')
                         if keep_date else 'fecha desconocida'
@@ -326,7 +326,7 @@ class BaseDetectorService(BaseService):
                 file_size = file_path.stat().st_size
                 
                 try:
-                    file_date = get_file_date(file_path, verbose=True)
+                    file_date = get_date_from_file(file_path, verbose=True)
                     file_date_str = (
                         file_date.strftime('%Y-%m-%d %H:%M:%S')
                         if file_date else 'fecha desconocida'

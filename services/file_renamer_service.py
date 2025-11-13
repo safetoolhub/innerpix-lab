@@ -17,7 +17,7 @@ from utils.settings_manager import settings_manager
 from services.result_types import RenameResult, RenameAnalysisResult
 from services.base_service import BaseService, ProgressCallback
 from utils.date_utils import (
-    get_file_date,
+    get_date_from_file,
     format_renamed_name,
     is_renamed_filename,
     parse_renamed_name
@@ -89,7 +89,7 @@ class FileRenamer(BaseService):
                 return ('already_renamed', file_path, None)
             
             # Obtener fecha del archivo
-            file_date = get_file_date(file_path)
+            file_date = get_date_from_file(file_path)
             if not file_date:
                 return ('no_date', file_path, f"No se pudo obtener fecha: {file_path.name}")
             

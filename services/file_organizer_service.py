@@ -16,7 +16,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from config import Config
 from utils.logger import get_logger, log_section_header_relevant, log_section_footer_relevant
 from utils.settings_manager import settings_manager
-from utils.date_utils import parse_renamed_name, get_file_date
+from utils.date_utils import parse_renamed_name, get_date_from_file
 from services.result_types import OrganizationResult, OrganizationAnalysisResult
 from services.base_service import BaseService, ProgressCallback
 from utils.decorators import deprecated
@@ -470,7 +470,7 @@ class FileOrganizer(BaseService):
                     
                     # Obtener fecha del archivo (verbose solo para BY_MONTH)
                     try:
-                        file_date = get_file_date(move.source_path, verbose=is_by_month)
+                        file_date = get_date_from_file(move.source_path, verbose=is_by_month)
                         date_str = file_date.strftime('%Y-%m-%d %H:%M:%S') if file_date else 'fecha desconocida'
                     except Exception as e:
                         self.logger.warning(f"Error obteniendo fecha de {move.source_path.name}: {e}")
@@ -704,7 +704,7 @@ class FileOrganizer(BaseService):
                     self.logger.warning(f"Saltando archivo que no existe: {file_path}")
                     continue
 
-                file_date = get_file_date(file_path)
+                file_date = get_date_from_file(file_path)
                 if not file_date:
                     self.logger.warning(f"No se pudo obtener fecha para {file_path.name}, usando fecha actual")
                     file_date = datetime.now()
@@ -725,7 +725,7 @@ class FileOrganizer(BaseService):
                 self.logger.warning(f"Saltando archivo que no existe: {file_path}")
                 continue
 
-            file_date = get_file_date(file_path)
+            file_date = get_date_from_file(file_path)
             if not file_date:
                 self.logger.warning(f"No se pudo obtener fecha para {file_path.name}, usando fecha actual")
                 file_date = datetime.now()
