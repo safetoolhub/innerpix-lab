@@ -50,7 +50,7 @@ class Stage3Window(BaseStage):
 
     def setup_ui(self) -> None:
         """Configura la interfaz de usuario del Stage 3."""
-        self.logger.info("Configurando UI del Stage 3")
+        self.logger.debug("Configurando UI del Stage 3")
 
         # Limpiar el layout principal antes de agregar nuevos widgets
         while self.main_layout.count():
@@ -76,7 +76,7 @@ class Stage3Window(BaseStage):
         # Crear y mostrar summary card con delay
         QTimer.singleShot(300, self._show_summary_card)
 
-        self.logger.info("UI del Stage 3 configurada")
+        self.logger.debug("UI del Stage 3 configurada")
 
     def cleanup(self) -> None:
         """Limpia los recursos del Stage 3."""
@@ -590,7 +590,7 @@ class Stage3Window(BaseStage):
         
         # Iniciar worker
         worker.start()
-        self.logger.info(f"Worker de {tool_id} iniciado")
+        self.logger.debug(f"Worker de {tool_id} iniciado")
 
     def _on_change_folder(self):
         """Maneja el clic en "Cambiar carpeta" """
