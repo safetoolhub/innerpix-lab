@@ -45,7 +45,7 @@ class Stage1Window(BaseStage):
 
     def setup_ui(self) -> None:
         """Configura la interfaz de usuario del Stage 1."""
-        self.logger.info("Configurando UI del Stage 1")
+        self.logger.debug("Configurando UI del Stage 1")
 
         # Limpiar layout principal
         if self.main_layout:

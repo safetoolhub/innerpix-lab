@@ -14,7 +14,7 @@ from enum import Enum
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from config import Config
-from utils.logger import get_logger
+from utils.logger import get_logger, log_section_header_relevant, log_section_footer_relevant
 from utils.settings_manager import settings_manager
 from utils.date_utils import parse_renamed_name, get_file_date
 from services.result_types import OrganizationResult, OrganizationAnalysisResult
@@ -299,7 +299,8 @@ class FileOrganizer(BaseService):
             )
 
         mode_label = "SIMULACIÓN" if dry_run else ""
-        self._log_section_header(
+        log_section_header_relevant(
+            self.logger,
             "INICIANDO ORGANIZACIÓN DE ARCHIVOS",
             mode=mode_label
         )
@@ -540,7 +541,7 @@ class FileOrganizer(BaseService):
             result_verb = "se moverían" if dry_run else "movidos"
             
             summary = f"{completion_label}\nResultado: {results.files_moved} archivos {result_verb}"
-            self._log_section_footer(summary)
+            log_section_footer_relevant(self.logger, summary)
             
             if dry_run:
                 results.message = f"Simulación completada: {results.files_moved} archivos se moverían"

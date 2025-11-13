@@ -14,6 +14,7 @@ from services.base_service import BaseService
 from services.result_types import DuplicateGroup, DuplicateDeletionResult
 from utils.callback_utils import safe_progress_callback
 from utils.decorators import deprecated
+from utils.logger import log_section_header_relevant, log_section_footer_relevant
 import shutil
 
 
@@ -113,7 +114,8 @@ class BaseDetectorService(BaseService):
         
         # Header con información de operación
         mode = "SIMULACIÓN" if dry_run else ""
-        self._log_section_header(
+        log_section_header_relevant(
+            self.logger,
             f"ELIMINACIÓN DE DUPLICADOS - Estrategia: {keep_strategy}",
             mode=mode
         )
@@ -233,7 +235,7 @@ class BaseDetectorService(BaseService):
                 self.logger.error(f"  ✗ {error}")
             result.message += f"\n\nAdvertencia: {len(result.errors)} errores encontrados"
         
-        self._log_section_footer(summary)
+        log_section_footer_relevant(self.logger, summary)
         
         return result
     

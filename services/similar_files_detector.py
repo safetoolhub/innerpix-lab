@@ -10,7 +10,7 @@ from typing import List, Optional, Any, Dict, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from config import Config
-from utils.logger import get_logger
+from utils.logger import get_logger, log_section_header_discrete, log_section_footer_discrete
 from utils.decorators import deprecated
 from services.result_types import DuplicateAnalysisResult, DuplicateDeletionResult, DuplicateGroup
 from services.base_detector_service import BaseDetectorService
@@ -302,7 +302,7 @@ class SimilarFilesDetector(BaseDetectorService):
                 "Install with: pip install imagehash"
             )
         
-        self._log_section_header("INICIANDO ANÁLISIS INICIAL DE ARCHIVOS SIMILARES")
+        log_section_header_discrete(self.logger, "INICIANDO ANÁLISIS INICIAL DE ARCHIVOS SIMILARES")
         self.logger.info("*** Calculando hashes perceptuales...")
         
         # 1. Escanear archivos de imagen y video
@@ -395,7 +395,7 @@ class SimilarFilesDetector(BaseDetectorService):
         self.logger.info(
             "*** Ahora puedes generar grupos con cualquier sensibilidad"
         )
-        self._log_section_footer("Análisis de hashes perceptuales completado")
+        log_section_footer_discrete(self.logger, "Análisis de hashes perceptuales completado")
         
         return analysis
 

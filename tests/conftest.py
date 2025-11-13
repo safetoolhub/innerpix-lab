@@ -275,10 +275,12 @@ def create_live_photo_pair(create_test_image, create_test_video):
             size_bytes=vid_size
         )
         
-        # Ajustar tiempos de modificación para que sean similares
+        # Ajustar tiempos de modificación para que sean similares (dentro del límite de 5 segundos)
+        # Usando el mismo timestamp para asegurar que son válidos como Live Photo
+        import os
         timestamp = datetime.now().timestamp()
-        img_path.touch()
-        vid_path.touch()
+        os.utime(img_path, (timestamp, timestamp))
+        os.utime(vid_path, (timestamp, timestamp))
         
         return img_path, vid_path
     

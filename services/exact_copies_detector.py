@@ -13,7 +13,8 @@ from utils.file_utils import calculate_file_hash
 from utils.decorators import deprecated
 from services.result_types import DuplicateAnalysisResult, DuplicateDeletionResult, DuplicateGroup
 from services.base_detector_service import BaseDetectorService
-from services.base_service import ProgressCallback
+from services.base_service import BaseService, ProgressCallback
+from utils.logger import log_section_header_discrete, log_section_footer_discrete
 
 
 class ExactCopiesDetector(BaseDetectorService):
@@ -45,7 +46,7 @@ class ExactCopiesDetector(BaseDetectorService):
         Returns:
             DuplicateAnalysisResult con grupos de duplicados exactos
         """
-        self._log_section_header("INICIANDO ANÁLISIS DE DUPLICADOS EXACTOS (SHA256)")
+        log_section_header_discrete(self.logger, "INICIANDO ANÁLISIS DE DUPLICADOS EXACTOS (SHA256)")
         
         # Recopilar archivos soportados (imágenes y videos)
         image_files = []
@@ -130,7 +131,7 @@ class ExactCopiesDetector(BaseDetectorService):
         self.logger.info(f"*** Grupos de duplicados: {total_groups}")
         self.logger.info(f"*** Duplicados encontrados: {total_duplicates}")
         self.logger.info(f"*** Espacio potencialmente recuperable: {format_size(space_wasted)}")
-        self._log_section_footer("ANÁLISIS DE DUPLICADOS EXACTOS COMPLETADO")
+        log_section_footer_discrete(self.logger, "ANÁLISIS DE DUPLICADOS EXACTOS COMPLETADO")
         
         return DuplicateAnalysisResult(
             success=True,

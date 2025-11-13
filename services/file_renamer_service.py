@@ -12,7 +12,7 @@ from collections import defaultdict, Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from config import Config
-from utils.logger import get_logger
+from utils.logger import get_logger, log_section_header_relevant, log_section_footer_relevant
 from utils.settings_manager import settings_manager
 from services.result_types import RenameResult, RenameAnalysisResult
 from services.base_service import BaseService, ProgressCallback
@@ -222,7 +222,8 @@ class FileRenamer(BaseService):
             )
 
         mode_label = "SIMULACIÓN" if dry_run else ""
-        self._log_section_header(
+        log_section_header_relevant(
+            self.logger,
             "INICIANDO RENOMBRADO DE ARCHIVOS",
             mode=mode_label
         )
@@ -345,7 +346,7 @@ class FileRenamer(BaseService):
             conflicts_verb = "se resolverían" if dry_run else "resueltos"
             
             summary = f"{completion_label}\nResultado: {results.files_renamed} archivos {result_verb}, {results.conflicts_resolved} conflictos {conflicts_verb}"
-            self._log_section_footer(summary)
+            log_section_footer_relevant(self.logger, summary)
             
             # Construir mensaje para UI
             if dry_run:

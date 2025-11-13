@@ -50,7 +50,7 @@ class Stage2Window(BaseStage):
 
     def setup_ui(self) -> None:
         """Configura la interfaz de usuario del Stage 2."""
-        self.logger.info("Configurando UI del Stage 2")
+        self.logger.debug("Configurando UI del Stage 2")
 
         # Limpiar el layout principal para evitar espacios residuales de otras stages
         if self.main_layout:
@@ -151,7 +151,7 @@ class Stage2Window(BaseStage):
         self.analysis_worker.error.connect(self._on_analysis_error)
 
         # Iniciar análisis
-        self.logger.info("Iniciando worker de análisis")
+        self.logger.debug("Iniciando worker de análisis")
         self.analysis_worker.start()
 
     def _on_analysis_progress(self, current: int, total: int, message: str):
@@ -371,7 +371,7 @@ class Stage2Window(BaseStage):
         
         # Detener worker si está ejecutándose
         if self.analysis_worker and self.analysis_worker.isRunning():
-            self.logger.info("Deteniendo worker de análisis...")
+            self.logger.debug("Deteniendo worker de análisis...")
             self.analysis_worker.stop()
             
             # Esperar con timeout para evitar bloqueos indefinidos

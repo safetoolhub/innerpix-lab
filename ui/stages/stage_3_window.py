@@ -21,6 +21,7 @@ from ui.dialogs.about_dialog import AboutDialog
 from ui.dialogs.similar_files_progress_dialog import SimilarFilesProgressDialog
 from utils.format_utils import format_size, format_file_count
 from ui.workers import SimilarFilesAnalysisWorker
+from utils.logger import log_section_header_discrete
 
 
 class Stage3Window(BaseStage):
@@ -49,7 +50,7 @@ class Stage3Window(BaseStage):
 
     def setup_ui(self) -> None:
         """Configura la interfaz de usuario del Stage 3."""
-        self.logger.info("Configurando UI del Stage 3")
+        self.logger.debug("Configurando UI del Stage 3")
 
         # Limpiar el layout principal antes de agregar nuevos widgets
         while self.main_layout.count():
@@ -75,7 +76,7 @@ class Stage3Window(BaseStage):
         # Crear y mostrar summary card con delay
         QTimer.singleShot(300, self._show_summary_card)
 
-        self.logger.info("UI del Stage 3 configurada")
+        self.logger.debug("UI del Stage 3 configurada")
 
     def cleanup(self) -> None:
         """Limpia los recursos del Stage 3."""
@@ -558,7 +559,7 @@ class Stage3Window(BaseStage):
                 )
                 
                 # Lanzar re-análisis automático tras operación exitosa
-                self.logger.info(f"Lanzando re-análisis automático tras completar {tool_id}")
+                log_section_header_discrete(self.logger, f"Lanzando re-análisis automático tras completar {tool_id}")
                 QTimer.singleShot(500, self._on_reanalyze)
             else:
                 error_msg = result.message if (result and hasattr(result, 'message')) else "Operación fallida"
@@ -589,7 +590,7 @@ class Stage3Window(BaseStage):
         
         # Iniciar worker
         worker.start()
-        self.logger.info(f"Worker de {tool_id} iniciado")
+        self.logger.debug(f"Worker de {tool_id} iniciado")
 
     def _on_change_folder(self):
         """Maneja el clic en "Cambiar carpeta" """

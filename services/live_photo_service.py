@@ -15,6 +15,7 @@ from enum import Enum
 from config import Config
 from services.result_types import LivePhotoCleanupAnalysisResult, LivePhotoCleanupResult
 from services.base_service import BaseService, BackupCreationError
+from utils.logger import log_section_header_discrete, log_section_footer_discrete, log_section_header_relevant, log_section_footer_relevant
 
 
 @dataclass
@@ -83,8 +84,8 @@ class LivePhotoService(BaseService):
         self.logger.debug(f"Extensiones de foto configuradas: {self.photo_extensions}")
         self.logger.debug(f"Extensiones de video configuradas: {self.video_extensions}")
 
-        # Tolerancia de tiempo para matching
-        self.time_tolerance = 2.0
+        # Tolerancia de tiempo para matching (5 segundos máximo)
+        self.time_tolerance = 5.0
 
     def analyze(
         self, 
@@ -111,7 +112,7 @@ class LivePhotoService(BaseService):
         Raises:
             ValueError: Si directory no existe
         """
-        self._log_section_header("ANÁLISIS DE LIVE PHOTOS")
+        log_section_header_discrete(self.logger, "ANÁLISIS DE LIVE PHOTOS")
         self.logger.info(f"Analizando en: {directory}")
         self.logger.info(f"Modo de limpieza: {cleanup_mode.value}")
 
@@ -167,15 +168,13 @@ class LivePhotoService(BaseService):
 
         # Logging detallado
         from utils.format_utils import format_size
-        self.logger.info("=" * 80)
-        self.logger.info("ANÁLISIS DE LIVE PHOTOS - ARCHIVOS A ELIMINAR:")
+        self.logger.info("Live Photos - Archivos para eliminar:")
         for file_info in cleanup_plan['files_to_delete']:
             self.logger.info(f"  → A eliminar: {file_info['path']} ({file_info['type']}, {format_size(file_info['size'])})")
         
-        self.logger.info("ARCHIVOS A CONSERVAR:")
+        self.logger.info("Live Photos: Archivos a conservar:")
         for file_info in cleanup_plan['files_to_keep']:
             self.logger.info(f"  ✓ A conservar: {file_info['path']} ({file_info['type']}, {format_size(file_info['size'])})")
-        self.logger.info("=" * 80)
         
         self.logger.info(f"Análisis completado: {len(cleanup_plan['files_to_delete'])} archivos a eliminar")
 
@@ -212,7 +211,8 @@ class LivePhotoService(BaseService):
             )
 
         mode_label = "SIMULACIÓN" if dry_run else ""
-        self._log_section_header(
+        log_section_header_relevant(
+            self.logger,
             "INICIANDO LIMPIEZA DE LIVE PHOTOS",
             mode=mode_label
         )
@@ -309,7 +309,7 @@ class LivePhotoService(BaseService):
                 )
                 if results.errors:
                     summary += f"\nErrores: {len(results.errors)}"
-                self._log_section_footer(summary)
+                log_section_footer_relevant(self.logger, summary)
                 
                 # Construir mensaje para UI
                 results.message = f"Simulación completada: {simulated_count} archivos ({freed}) se eliminarían"
@@ -323,7 +323,7 @@ class LivePhotoService(BaseService):
                     results.space_freed,
                     dry_run
                 )
-                self._log_section_footer(summary)
+                log_section_footer_relevant(self.logger, summary)
                 
                 if results.errors:
                     self.logger.info(f"*** Errores encontrados durante la limpieza:")
@@ -485,12 +485,21 @@ class LivePhotoService(BaseService):
                                 image_size=photo.stat().st_size,
                                 video_size=video.stat().st_size
                             )
-                            groups.append(group)
+                            
+                            # Validar diferencia de tiempo (debe ser <= 5 segundos)
+                            if group.time_difference <= self.time_tolerance:
+                                groups.append(group)
+                                self.logger.debug(f"Live Photo válido: {original_name} (Δt={group.time_difference:.2f}s)")
+                            else:
+                                self.logger.debug(
+                                    f"Par rechazado por diferencia de tiempo: {original_name} "
+                                    f"(Δt={group.time_difference:.2f}s > {self.time_tolerance}s)"
+                                )
                         except Exception as e:
                             self.logger.warning(f"Error creando grupo para {original_name}: {e}")
 
         # Log final
-        self.logger.info(f"Matching completado: {len(groups)} Live Photos encontrados")
+        self.logger.info(f"Matching completado: {len(groups)} Live Photos válidos encontrados")
         
         return groups
 
