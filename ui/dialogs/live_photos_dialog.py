@@ -56,7 +56,7 @@ class LivePhotoCleanupDialog(BaseDialog):
         layout.setContentsMargins(0, 0, 0, int(DesignSystem.SPACE_20))
 
         # Header compacto integrado con métricas inline
-        header = self._create_compact_header_with_metrics(
+        self.header_frame = self._create_compact_header_with_metrics(
             icon_name='camera',
             title='Live Photos detectadas',
             description='Live Photos de iPhone (JPG + MOV). Selecciona qué componente conservar.',
@@ -67,13 +67,13 @@ class LivePhotoCleanupDialog(BaseDialog):
                     'color': DesignSystem.COLOR_PRIMARY
                 },
                 {
-                    'value': format_size(self.analysis.total_space),
-                    'label': 'Espacio',
-                    'color': DesignSystem.COLOR_WARNING
+                    'value': format_size(self._calculate_space_for_mode(self.selected_mode)),
+                    'label': 'Recuperable',
+                    'color': DesignSystem.COLOR_SUCCESS
                 }
             ]
         )
-        layout.addWidget(header)
+        layout.addWidget(self.header_frame)
 
         # Contenedor con margen para el resto del contenido
         from PyQt6.QtWidgets import QWidget
@@ -153,6 +153,10 @@ class LivePhotoCleanupDialog(BaseDialog):
                 [CleanupMode.KEEP_IMAGE, CleanupMode.KEEP_VIDEO],
                 self.selected_mode
             )
+        
+        # Actualizar métrica de espacio recuperable en el header
+        recoverable_space = self._calculate_space_for_mode(self.selected_mode)
+        self._update_header_metric(self.header_frame, 'Recuperable', format_size(recoverable_space))
         
         self._update_button_text()
 

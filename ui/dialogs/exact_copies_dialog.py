@@ -53,6 +53,28 @@ class ExactCopiesDialog(BaseDialog):
         
         self.init_ui()
     
+    def _calculate_recoverable_space(self):
+        """Calcula el espacio total recuperable según los grupos filtrados y la estrategia.
+        
+        El espacio recuperable es la suma de todos los archivos que se eliminarán
+        (todos excepto el que se conserva en cada grupo según la estrategia).
+        """
+        total_recoverable = 0
+        
+        for group in self.filtered_groups:
+            # Determinar qué archivo mantener según estrategia
+            if self.keep_strategy == 'oldest':
+                keep_file = min(group.files, key=lambda f: f.stat().st_mtime)
+            else:  # newest
+                keep_file = max(group.files, key=lambda f: f.stat().st_mtime)
+            
+            # Sumar el tamaño de todos los archivos excepto el que se mantiene
+            for file_path in group.files:
+                if file_path != keep_file:
+                    total_recoverable += file_path.stat().st_size
+        
+        return total_recoverable
+    
     def init_ui(self):
         self.setWindowTitle("Gestionar copias exactas")
         self.setModal(True)
@@ -63,7 +85,7 @@ class ExactCopiesDialog(BaseDialog):
         layout.setContentsMargins(0, 0, 0, int(DesignSystem.SPACE_20))
         
         # Header compacto integrado con métricas inline
-        header = self._create_compact_header_with_metrics(
+        self.header_frame = self._create_compact_header_with_metrics(
             icon_name='content-copy',
             title='Copias exactas detectadas',
             description='Archivos idénticos (100% mismo contenido SHA256). Elimina copias conservando un original.',
@@ -79,13 +101,13 @@ class ExactCopiesDialog(BaseDialog):
                     'color': DesignSystem.COLOR_WARNING
                 },
                 {
-                    'value': format_size(self.analysis.space_wasted),
-                    'label': 'Espacio',
+                    'value': format_size(self._calculate_recoverable_space()),
+                    'label': 'Recuperable',
                     'color': DesignSystem.COLOR_SUCCESS
                 }
             ]
         )
-        layout.addWidget(header)
+        layout.addWidget(self.header_frame)
         
         # Contenedor con margen para el resto del contenido
         content_container = QWidget()
@@ -360,6 +382,10 @@ class ExactCopiesDialog(BaseDialog):
                 self.keep_strategy
             )
         
+        # Actualizar métrica de espacio recuperable en el header
+        recoverable_space = self._calculate_recoverable_space()
+        self._update_header_metric(self.header_frame, 'Recuperable', format_size(recoverable_space))
+        
         # Actualizar estado de archivos en el tree
         self._update_status_labels()
     
@@ -572,6 +598,10 @@ class ExactCopiesDialog(BaseDialog):
         self.filtered_groups = filtered
         self.tree_widget.clear()
         self.loaded_count = 0
+        
+        # Actualizar métrica de espacio recuperable en el header
+        recoverable_space = self._calculate_recoverable_space()
+        self._update_header_metric(self.header_frame, 'Recuperable', format_size(recoverable_space))
         
         if len(self.filtered_groups) == 0:
             # No hay resultados

@@ -335,6 +335,41 @@ class BaseDialog(QDialog):
         layout.addWidget(label_widget)
         
         return widget
+    
+    def _update_header_metric(self, header_frame: 'QFrame', metric_label: str, new_value: str) -> None:
+        """Actualiza dinámicamente el valor de una métrica específica en el header.
+        
+        Busca la métrica por su etiqueta (label) y actualiza el valor asociado.
+        Útil para actualizar métricas cuando el usuario cambia opciones en el diálogo.
+        
+        Args:
+            header_frame: El QFrame retornado por _create_compact_header_with_metrics
+            metric_label: El label de la métrica a actualizar (ej: 'Recuperable', 'Grupos')
+            new_value: El nuevo valor a mostrar (ej: '2.5 GB', '45')
+        
+        Example:
+            self._update_header_metric(self.header_frame, 'Recuperable', format_size(new_space))
+        """
+        from PyQt6.QtWidgets import QLabel, QWidget
+        
+        # Recorrer todos los QWidget del frame para encontrar los contenedores de métricas
+        for widget in header_frame.findChildren(QWidget):
+            if not widget.layout():
+                continue
+            
+            # Buscar el widget que contiene la métrica (tiene 2 labels: valor y label)
+            all_labels = widget.findChildren(QLabel)
+            # Filtrar solo hijos directos del widget
+            direct_labels = [l for l in all_labels if l.parent() == widget]
+            
+            if len(direct_labels) == 2:
+                # Estructura esperada: [value_label, label_widget]
+                value_label, label_widget = direct_labels[0], direct_labels[1]
+                
+                # Verificar si este es el label que buscamos
+                if label_widget.text().lower() == metric_label.lower():
+                    value_label.setText(new_value)
+                    return
 
     def _create_selection_card(
         self,

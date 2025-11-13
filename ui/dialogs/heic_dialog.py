@@ -49,7 +49,10 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         main_layout.setContentsMargins(0, 0, 0, int(DesignSystem.SPACE_20))
         
         # Header compacto integrado con métricas inline
-        header = self._create_compact_header_with_metrics(
+        # Calcular espacio recuperable según formato seleccionado
+        initial_recoverable = self.analysis.potential_savings_keep_jpg if self.selected_format == 'jpg' else self.analysis.potential_savings_keep_heic
+        
+        self.header_frame = self._create_compact_header_with_metrics(
             icon_name='photo-library',
             title='Duplicados HEIC/JPG detectados',
             description='Fotos HEIC con copia idéntica en JPG. Elimina archivos HEIC para ahorrar espacio.',
@@ -60,13 +63,13 @@ class HEICDuplicateRemovalDialog(BaseDialog):
                     'color': DesignSystem.COLOR_PRIMARY
                 },
                 {
-                    'value': format_size(self.analysis.total_size),
-                    'label': 'Espacio',
+                    'value': format_size(initial_recoverable),
+                    'label': 'Recuperable',
                     'color': DesignSystem.COLOR_SUCCESS
                 }
             ]
         )
-        main_layout.addWidget(header)
+        main_layout.addWidget(self.header_frame)
         
         # Contenedor con margen para el resto del contenido
         content_container = QWidget()
@@ -152,6 +155,10 @@ class HEICDuplicateRemovalDialog(BaseDialog):
                 ['jpg', 'heic'],
                 self.selected_format
             )
+        
+        # Actualizar métrica de espacio recuperable en el header
+        recoverable_space = self.analysis.potential_savings_keep_jpg if new_format == 'jpg' else self.analysis.potential_savings_keep_heic
+        self._update_header_metric(self.header_frame, 'Recuperable', format_size(recoverable_space))
         
         # Actualizar texto del botón OK
         self._update_button_text()
