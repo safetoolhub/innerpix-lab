@@ -808,6 +808,10 @@ class BaseDialog(QDialog):
                     "Crea una copia de seguridad timestamped antes de realizar cambios.\n"
                     "Recomendado para operaciones destructivas."
                 )
+                
+                # Forzar actualización visual del chip
+                if hasattr(backup_widget, '_update_visual_state'):
+                    backup_widget._update_visual_state()
         
         # Conectar el cambio de estado del dry-run
         if hasattr(self.dry_run_checkbox, '_checkbox'):
