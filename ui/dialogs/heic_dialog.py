@@ -59,7 +59,7 @@ class HEICDuplicateRemovalDialog(BaseDialog):
             metrics=[
                 {
                     'value': str(self.analysis.total_pairs),
-                    'label': 'Pares',
+                    'label': 'Grupos',
                     'color': DesignSystem.COLOR_PRIMARY
                 },
                 {
@@ -83,7 +83,7 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         )
         main_layout.addWidget(content_container)
         
-                # Selector de formato con cards (debajo del header)
+        # Selector de formato con cards (debajo del header)
         self.format_selector = self._create_format_selector()
         content_layout.addWidget(self.format_selector)
         
@@ -309,7 +309,7 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         )
     
     def _apply_filters(self):
-        """Aplica filtros a la lista de pares"""
+        """Aplica filtros a la lista de grupos"""
         search_text = self.search_input.text().lower()
         dir_filter = self.dir_combo.currentText()
         
@@ -361,7 +361,7 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         QTimer.singleShot(0, self._update_tree)
     
     def _update_tree(self):
-        """Actualiza el TreeWidget con los pares filtrados"""
+        """Actualiza el TreeWidget con los grupos filtrados"""
         QApplication.setOverrideCursor(QCursor(Qt.CursorShape.WaitCursor))
         
         try:
@@ -421,13 +421,13 @@ class HEICDuplicateRemovalDialog(BaseDialog):
             total = len(self.analysis.duplicate_pairs)
             if use_pagination:
                 self.counter_label.setText(
-                    f"Mostrando {len(items_to_show)} de {total_filtered} pares filtrados ({total} total)"
+                    f"Mostrando {len(items_to_show)} de {total_filtered} grupos filtrados ({total} total)"
                 )
             else:
                 if total_filtered == total:
-                    self.counter_label.setText(f"Mostrando {total_filtered} pares")
+                    self.counter_label.setText(f"Mostrando {total_filtered} grupos")
                 else:
-                    self.counter_label.setText(f"Mostrando {total_filtered} de {total} pares")
+                    self.counter_label.setText(f"Mostrando {total_filtered} de {total} grupos")
         
         finally:
             QApplication.restoreOverrideCursor()
@@ -633,7 +633,7 @@ class HEICDuplicateRemovalDialog(BaseDialog):
 
             space_formatted = format_size(savings)
             self.ok_button.setText(
-                f"Eliminar Duplicados ({self.analysis.total_duplicates} pares, {space_formatted})"
+                f"Eliminar Duplicados ({self.analysis.total_duplicates} grupos, {space_formatted})"
             )
 
     def accept(self):
