@@ -817,8 +817,10 @@ class BaseDialog(QDialog):
         # Checkbox real (oculto)
         checkbox = QCheckBox()
         checkbox.setChecked(checked)
-        checkbox.setToolTip(tooltip)
         checkbox.setStyleSheet("QCheckBox { margin: 0; padding: 0; } QCheckBox::indicator { width: 0; height: 0; }")
+        
+        # Establecer tooltip en el contenedor visual (no en el checkbox oculto)
+        container.setToolTip(tooltip)
         
         # Checkmark Material Design (círculo cuando unchecked, check cuando checked)
         checkmark = QLabel()
