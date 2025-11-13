@@ -84,7 +84,7 @@ Core workflow: **analyze → preview → execute** with user confirmation at eac
 - **Utilities**: `get_log_file()`, `get_logs_directory()` to query current paths
 - **Thread-safe**: Uses RLock to prevent log mixing in concurrent operations
 - **Atomic logging**: Use `logger.log_block()` for multi-line sections that must appear together
-- Services use `_log_section_header()` and `_log_section_footer()` from `BaseService` for standardized section logging
+- All logging functions are now in `utils.logger`: `log_section_header_relevant()`, `log_section_footer_relevant()`, `log_section_header_discrete()`, `log_section_footer_discrete()`
 
 **Storage abstraction** (`utils/storage.py`) - Platform-agnostic persistence
 - Interface: `StorageBackend` (ABC) defines `get()`, `set()`, `remove()`, `clear()`, `contains()`, `sync()`

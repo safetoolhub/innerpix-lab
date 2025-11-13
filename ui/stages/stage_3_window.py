@@ -21,6 +21,7 @@ from ui.dialogs.about_dialog import AboutDialog
 from ui.dialogs.similar_files_progress_dialog import SimilarFilesProgressDialog
 from utils.format_utils import format_size, format_file_count
 from ui.workers import SimilarFilesAnalysisWorker
+from utils.logger import log_section_header_discrete
 
 
 class Stage3Window(BaseStage):
@@ -558,7 +559,7 @@ class Stage3Window(BaseStage):
                 )
                 
                 # Lanzar re-análisis automático tras operación exitosa
-                self.logger.info(f"Lanzando re-análisis automático tras completar {tool_id}")
+                log_section_header_discrete(self.logger, f"Lanzando re-análisis automático tras completar {tool_id}")
                 QTimer.singleShot(500, self._on_reanalyze)
             else:
                 error_msg = result.message if (result and hasattr(result, 'message')) else "Operación fallida"

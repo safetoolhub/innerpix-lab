@@ -375,3 +375,83 @@ def get_log_file() -> Optional[Path]:
 def get_logs_directory() -> Optional[Path]:
     """Retorna el directorio de logs actual"""
     return _logs_directory
+
+
+# Funciones utilitarias para logging discreto (disponibles globalmente)
+def log_section_header_discrete(logger, title: str, mode: str = ""):
+    """
+    Logging discreto de encabezado (para operaciones no relevantes como análisis).
+    
+    Args:
+        logger: Instancia de logger
+        title: Título de la sección
+        mode: Modo opcional (ej: "SIMULACIÓN", "ANÁLISIS")
+    
+    Example:
+        log_section_header_discrete(logger, "ANÁLISIS DE LIVE PHOTOS")
+    """
+    mode_label = f"[{mode.upper()}] " if mode else ""
+    logger.log_block(
+        logging.INFO,
+        f"--- {mode_label}{title} ---"
+    )
+
+
+def log_section_footer_discrete(logger, result_summary: str):
+    """
+    Logging discreto de cierre (para operaciones no relevantes como análisis).
+    
+    Args:
+        logger: Instancia de logger
+        result_summary: Resumen del resultado
+    
+    Example:
+        log_section_footer_discrete(logger, "Análisis completado: 5 Live Photos encontrados")
+    """
+    logger.log_block(
+        logging.INFO,
+        f"--- {result_summary} ---"
+    )
+
+
+def log_section_header_relevant(logger, title: str, mode: str = ""):
+    """
+    Logging estandarizado de encabezado con banner ASCII (para operaciones relevantes).
+    
+    Args:
+        logger: Instancia de logger
+        title: Título de la sección
+        mode: Modo opcional (ej: "SIMULACIÓN", "ANÁLISIS")
+    
+    Example:
+        log_section_header_relevant(logger, "INICIANDO RENOMBRADO", "SIMULACIÓN")
+        # Resultado:
+        # ================================================================================
+        # *** [SIMULACIÓN] INICIANDO RENOMBRADO
+        # ================================================================================
+    """
+    mode_label = f"[{mode.upper()}] " if mode else ""
+    logger.log_block(
+        logging.INFO,
+        "=" * 80,
+        f"*** {mode_label}{title}",
+        "=" * 80
+    )
+
+
+def log_section_footer_relevant(logger, result_summary: str):
+    """
+    Logging estandarizado de cierre (para operaciones relevantes).
+    
+    Args:
+        logger: Instancia de logger
+        result_summary: Resumen del resultado
+    
+    Example:
+        log_section_footer_relevant(logger, "Operación completada: 10 archivos procesados")
+    """
+    logger.log_block(
+        logging.INFO,
+        f"*** {result_summary}",
+        "=" * 80
+    )

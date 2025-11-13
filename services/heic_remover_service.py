@@ -13,7 +13,8 @@ from config import Config
 from utils.file_utils import validate_file_exists, to_path
 from utils.decorators import deprecated
 from services.result_types import HeicAnalysisResult, HeicDeletionResult
-from services.base_service import BaseService, ProgressCallback
+from services.base_service import BaseService, BackupCreationError, ProgressCallback
+from utils.logger import log_section_header_discrete, log_section_footer_discrete, log_section_header_relevant, log_section_footer_relevant
 
 @dataclass
 class DuplicatePair:
@@ -121,7 +122,7 @@ class HEICRemover(BaseService):
         Returns:
             HeicAnalysisResult con análisis detallado
         """
-        self._log_section_header("ANÁLISIS DE DUPLICADOS HEIC/JPG")
+        log_section_header_discrete(self.logger, "ANÁLISIS DE DUPLICADOS HEIC/JPG")
         self.logger.info(f"Analizando en: {directory}")
         self._reset_stats()
 
@@ -308,7 +309,7 @@ class HEICRemover(BaseService):
             )
 
         mode = "SIMULACIÓN" if dry_run else ""
-        self._log_section_header("ELIMINACIÓN DE DUPLICADOS HEIC/JPG", mode=mode)
+        log_section_header_relevant(self.logger, "ELIMINACIÓN DE DUPLICADOS HEIC/JPG", mode=mode)
         self.logger.info(f"*** Pares a procesar: {len(duplicate_pairs)}")
         self.logger.info(f"*** Formato a conservar: {keep_format.upper()}")
 
@@ -411,7 +412,7 @@ class HEICRemover(BaseService):
                 dry_run
             )
             
-            self._log_section_footer(summary)
+            log_section_footer_relevant(self.logger, summary)
             
             if dry_run:
                 results.message = f"Simulación completada: {files_count} archivos {keep_format.upper()} ({freed}) se eliminarían"

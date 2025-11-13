@@ -9,7 +9,7 @@ import os
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Optional, Iterable, Callable, Union, Any, TypeAlias
-from utils.logger import get_logger
+from utils.logger import get_logger, log_section_header_discrete, log_section_footer_discrete, log_section_header_relevant, log_section_footer_relevant
 
 
 # Type alias para callbacks de progreso estandarizados
@@ -263,49 +263,6 @@ class BaseService(ABC):
             error_msg = f"Fallo creando backup para {operation_name}: {e}"
             self.logger.error(error_msg)
             raise BackupCreationError(error_msg) from e
-    
-    def _log_section_header(self, title: str, mode: str = ""):
-        """
-        Logging estandarizado de encabezado con banner ASCII.
-        
-        Args:
-            title: Título de la sección
-            mode: Modo opcional (ej: "SIMULACIÓN", "ANÁLISIS")
-        
-        Example:
-            self._log_section_header("INICIANDO RENOMBRADO", "SIMULACIÓN")
-            # Resultado:
-            # ================================================================================
-            # *** [SIMULACIÓN] INICIANDO RENOMBRADO
-            # ================================================================================
-        """
-        import logging
-        mode_label = f"[{mode.upper()}] " if mode else ""
-        # Usar log_block para evitar que otros threads interrumpan este bloque
-        self.logger.log_block(
-            logging.INFO,
-            "=" * 80,
-            f"*** {mode_label}{title}",
-            "=" * 80
-        )
-    
-    def _log_section_footer(self, result_summary: str):
-        """
-        Logging estandarizado de cierre.
-        
-        Args:
-            result_summary: Resumen del resultado
-        
-        Example:
-            self._log_section_footer("Operación completada: 10 archivos procesados")
-        """
-        import logging
-        # Usar log_block para evitar que otros threads interrumpan este bloque
-        self.logger.log_block(
-            logging.INFO,
-            f"*** {result_summary}",
-            "=" * 80
-        )
     
     def _format_operation_summary(
         self,
