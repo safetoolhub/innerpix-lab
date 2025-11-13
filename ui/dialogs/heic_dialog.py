@@ -226,26 +226,33 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         
         toolbar.addWidget(filter_container)
         
+        # Contenedor para combobox con icono
+        combo_container = QWidget()
+        combo_layout = QHBoxLayout(combo_container)
+        combo_layout.setContentsMargins(0, 0, 0, 0)
+        combo_layout.setSpacing(0)
+        
         self.dir_combo = QComboBox()
         directories = ["Todos"] + sorted(list(set(
             str(pair.directory) for pair in self.analysis.duplicate_pairs
         )))
         self.dir_combo.addItems(directories)
         self.dir_combo.currentTextChanged.connect(self._apply_filters)
-        self.dir_combo.setStyleSheet(f"""
-            QComboBox {{
-                padding: {DesignSystem.SPACE_8}px;
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                background-color: {DesignSystem.COLOR_SURFACE};
-            }}
-            QComboBox:hover {{
-                border-color: {DesignSystem.COLOR_PRIMARY};
-            }}
-        """)
+        self.dir_combo.setStyleSheet(DesignSystem.get_combobox_style())
         self.dir_combo.setToolTip("Filtrar grupos por directorio")
-        toolbar.addWidget(self.dir_combo, 1)
+        combo_layout.addWidget(self.dir_combo, 1)
+        
+        # Icono chevron-down
+        chevron_icon = QLabel()
+        icon_manager.set_label_icon(chevron_icon, 'chevron-down', size=14)
+        chevron_icon.setStyleSheet(f"""
+            color: {DesignSystem.COLOR_TEXT_SECONDARY}; 
+            padding-left: {DesignSystem.SPACE_4}px;
+            background-color: transparent;
+        """)
+        combo_layout.addWidget(chevron_icon)
+        
+        toolbar.addWidget(combo_container, 1)
         
         # Separador visual
         separator_line2 = QFrame()
@@ -312,10 +319,15 @@ class HEICDuplicateRemovalDialog(BaseDialog):
             QTreeWidget::item {{
                 border: none;
                 outline: none;
-                padding: {DesignSystem.SPACE_6}px;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_6}px;
+                min-height: 28px;
             }}
             QTreeWidget::item:hover {{
                 background-color: {DesignSystem.COLOR_BG_2};
+                border-left: 3px solid {DesignSystem.COLOR_PRIMARY};
+            }}
+            QTreeWidget::item:selected {{
+                background-color: transparent;
             }}
             QHeaderView::section {{
                 background-color: {DesignSystem.COLOR_BG_1};
@@ -324,6 +336,13 @@ class HEICDuplicateRemovalDialog(BaseDialog):
                 border-bottom: 1px solid {DesignSystem.COLOR_BORDER};
                 font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
                 font-size: {DesignSystem.FONT_SIZE_SM}px;
+            }}
+            
+            /* Header completo con fondo blanco */
+            QHeaderView {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                border: none;
+                border-bottom: 1px solid {DesignSystem.COLOR_BORDER};
             }}
         """)
         tree.setToolTip(
@@ -334,11 +353,11 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         
         # Ajustar columnas
         header = tree.header()
-        header.setStretchLastSection(False)
-        tree.setColumnWidth(0, 400)
-        tree.setColumnWidth(1, 110)
-        tree.setColumnWidth(2, 110)
-        tree.setColumnWidth(3, 130)
+        header.setStretchLastSection(True)  # La última columna se estira para ocupar el espacio restante
+        tree.setColumnWidth(0, 400)  # Grupos
+        tree.setColumnWidth(1, 110)  # Tamaño HEIC
+        tree.setColumnWidth(2, 110)  # Tamaño JPG
+        # La columna 3 (A Eliminar) se estirará automáticamente
         
         return tree
     
@@ -427,21 +446,31 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         """)
         layout.addWidget(items_label)
         
+        # Contenedor para combobox de paginación con icono
+        pagination_combo_container = QWidget()
+        pagination_combo_layout = QHBoxLayout(pagination_combo_container)
+        pagination_combo_layout.setContentsMargins(0, 0, 0, 0)
+        pagination_combo_layout.setSpacing(0)
+        
         self.items_per_page_combo = QComboBox()
         self.items_per_page_combo.addItems(["100", "200", "500", "Todos"])
         self.items_per_page_combo.setCurrentText("200")
         self.items_per_page_combo.currentTextChanged.connect(self._change_items_per_page)
         self.items_per_page_combo.setMaximumWidth(100)
-        self.items_per_page_combo.setStyleSheet(f"""
-            QComboBox {{
-                padding: {DesignSystem.SPACE_6}px;
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-                background-color: {DesignSystem.COLOR_SURFACE};
-            }}
+        self.items_per_page_combo.setStyleSheet(DesignSystem.get_combobox_style())
+        pagination_combo_layout.addWidget(self.items_per_page_combo)
+        
+        # Icono chevron-down para paginación
+        pagination_chevron = QLabel()
+        icon_manager.set_label_icon(pagination_chevron, 'chevron-down', size=12)
+        pagination_chevron.setStyleSheet(f"""
+            color: {DesignSystem.COLOR_TEXT_SECONDARY}; 
+            padding-left: {DesignSystem.SPACE_2}px;
+            background-color: transparent;
         """)
-        layout.addWidget(self.items_per_page_combo)
+        pagination_combo_layout.addWidget(pagination_chevron)
+        
+        layout.addWidget(pagination_combo_container)
         
         widget.setVisible(False)
         return widget
@@ -560,6 +589,23 @@ class HEICDuplicateRemovalDialog(BaseDialog):
                 font.setWeight(DesignSystem.FONT_WEIGHT_SEMIBOLD)
                 item.setFont(0, font)
                 
+                # Tooltip enriquecido con información del par
+                tooltip_text = (
+                    f"📁 {pair.base_name}\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"📸 HEIC: {format_size(pair.heic_size)}\n"
+                    f"🖼️ JPG:  {format_size(pair.jpg_size)}\n"
+                    f"📂 {pair.directory}\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"🗑️ Se eliminará: {format_to_delete}\n"
+                    f"\n💡 Doble clic en columna de tamaño para abrir archivo\n"
+                    f"💡 Clic derecho para más opciones"
+                )
+                item.setToolTip(0, tooltip_text)
+                item.setToolTip(1, f"📸 HEIC: {format_size(pair.heic_size)}\nDoble clic para abrir")
+                item.setToolTip(2, f"🖼️ JPG: {format_size(pair.jpg_size)}\nDoble clic para abrir")
+                item.setToolTip(3, f"Se eliminará el formato {format_to_delete}")
+                
                 # Guardar datos del par en el item
                 item.setData(0, Qt.ItemDataRole.UserRole, pair)
                 
@@ -632,7 +678,7 @@ class HEICDuplicateRemovalDialog(BaseDialog):
             QMessageBox.warning(self, "Error", f"No se pudo abrir el archivo:\n{str(e)}")
     
     def _show_context_menu(self, position):
-        """Muestra menú contextual para abrir archivos"""
+        """Muestra menú contextual Material Design con iconos para abrir archivos"""
         from PyQt6.QtWidgets import QMenu
         
         item = self.files_tree.itemAt(position)
@@ -644,33 +690,34 @@ class HEICDuplicateRemovalDialog(BaseDialog):
             return
         
         menu = QMenu(self)
+        menu.setStyleSheet(DesignSystem.get_context_menu_style())
         
-        # Opción para abrir HEIC
-        open_heic_action = menu.addAction("Abrir archivo HEIC")
+        # Opción para abrir HEIC con icono
+        open_heic_action = menu.addAction(icon_manager.get_icon('heic'), "Abrir archivo HEIC")
         open_heic_action.triggered.connect(lambda: self._open_specific_file(pair.heic_path, "HEIC"))
         
-        # Opción para abrir JPG
-        open_jpg_action = menu.addAction("Abrir archivo JPG")
+        # Opción para abrir JPG con icono
+        open_jpg_action = menu.addAction(icon_manager.get_icon('jpg'), "Abrir archivo JPG")
         open_jpg_action.triggered.connect(lambda: self._open_specific_file(pair.jpg_path, "JPG"))
         
         menu.addSeparator()
         
-        # Opción para abrir ambos
-        open_both_action = menu.addAction("Abrir ambos archivos")
+        # Opción para abrir ambos con icono
+        open_both_action = menu.addAction(icon_manager.get_icon('image-multiple'), "Abrir ambos archivos")
         open_both_action.triggered.connect(lambda: self._open_both_files(pair))
         
-        # Opción para abrir carpeta
-        open_folder_action = menu.addAction("Abrir carpeta")
+        # Opción para abrir carpeta con icono
+        open_folder_action = menu.addAction(icon_manager.get_icon('folder-open'), "Abrir carpeta contenedora")
         open_folder_action.triggered.connect(lambda: self._open_folder(pair.heic_path.parent))
         
         menu.addSeparator()
         
-        # Opción para ver detalles de HEIC
-        details_heic_action = menu.addAction("Ver detalles HEIC")
+        # Opción para ver detalles de HEIC con icono
+        details_heic_action = menu.addAction(icon_manager.get_icon('info'), "Ver detalles HEIC")
         details_heic_action.triggered.connect(lambda: self._show_file_details(pair, "heic"))
         
-        # Opción para ver detalles de JPG
-        details_jpg_action = menu.addAction("Ver detalles JPG")
+        # Opción para ver detalles de JPG con icono
+        details_jpg_action = menu.addAction(icon_manager.get_icon('info'), "Ver detalles JPG")
         details_jpg_action.triggered.connect(lambda: self._show_file_details(pair, "jpg"))
         
         menu.exec(self.files_tree.viewport().mapToGlobal(position))

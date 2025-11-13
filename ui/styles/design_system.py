@@ -297,6 +297,111 @@ class DesignSystem:
         """
 
     @staticmethod
+    def get_context_menu_style():
+        """
+        Retorna el estilo QSS para menús contextuales (QMenu) Material Design
+        """
+        return f"""
+            QMenu {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_4}px;
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            }}
+            
+            QMenu::item {{
+                background-color: transparent;
+                color: {DesignSystem.COLOR_TEXT};
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_16}px;
+                border-radius: {DesignSystem.RADIUS_SMALL}px;
+                margin: {DesignSystem.SPACE_2}px;
+            }}
+            
+            QMenu::item:selected {{
+                background-color: {DesignSystem.COLOR_BG_2};
+                color: {DesignSystem.COLOR_TEXT};
+            }}
+            
+            QMenu::item:disabled {{
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            }}
+            
+            QMenu::separator {{
+                height: 1px;
+                background-color: {DesignSystem.COLOR_BORDER};
+                margin: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_8}px;
+            }}
+            
+            QMenu::icon {{
+                padding-left: {DesignSystem.SPACE_8}px;
+            }}
+        """
+    
+    @staticmethod
+    def get_combobox_style():
+        """
+        Retorna el estilo QSS completo para ComboBox Material Design
+        Incluye el dropdown y los items del menú
+        """
+        return f"""
+            QComboBox {{
+                padding: {DesignSystem.SPACE_8}px;
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                background-color: {DesignSystem.COLOR_SURFACE};
+                min-height: 28px;
+            }}
+            
+            QComboBox:hover {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+            
+            QComboBox:focus {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+            
+            QComboBox::drop-down {{
+                border: none;
+                width: 30px;
+                padding-right: {DesignSystem.SPACE_8}px;
+            }}
+            
+            QComboBox::down-arrow {{
+                image: none;
+                border: none;
+            }}
+            
+            QComboBox QAbstractItemView {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_4}px;
+                selection-background-color: {DesignSystem.COLOR_BG_2};
+                selection-color: {DesignSystem.COLOR_TEXT};
+                outline: none;
+            }}
+            
+            QComboBox QAbstractItemView::item {{
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
+                border-radius: {DesignSystem.RADIUS_SMALL}px;
+                margin: {DesignSystem.SPACE_2}px;
+                min-height: 24px;
+            }}
+            
+            QComboBox QAbstractItemView::item:hover {{
+                background-color: {DesignSystem.COLOR_BG_2};
+                color: {DesignSystem.COLOR_TEXT};
+            }}
+            
+            QComboBox QAbstractItemView::item:selected {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                color: {DesignSystem.COLOR_PRIMARY_TEXT};
+            }}
+        """
+
+    @staticmethod
     def get_progressbar_style():
         """
         Retorna el estilo QSS para barras de progreso
@@ -315,6 +420,68 @@ class DesignSystem:
             QProgressBar::chunk {{
                 background-color: {DesignSystem.COLOR_PRIMARY};
                 border-radius: {DesignSystem.RADIUS_FULL}px;
+            }}
+        """
+
+    @staticmethod
+    def get_combobox_style():
+        """
+        Estilo para QComboBox con Material Design.
+        Elimina bordes negros problemáticos en el popup desplegable.
+        """
+        return f"""
+            QComboBox {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                color: {DesignSystem.COLOR_TEXT};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                min-height: 20px;
+            }}
+            
+            QComboBox:hover {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+            
+            QComboBox:focus {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+            
+            QComboBox::drop-down {{
+                border: none;
+                width: 20px;
+            }}
+            
+            QComboBox::down-arrow {{
+                image: none;
+                border: none;
+            }}
+            
+            /* Estilo del popup desplegable - elimina bordes negros */
+            QComboBox QAbstractItemView {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                color: {DesignSystem.COLOR_TEXT};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                selection-background-color: {DesignSystem.COLOR_PRIMARY};
+                selection-color: {DesignSystem.COLOR_PRIMARY_TEXT};
+                outline: none;
+            }}
+            
+            QComboBox QAbstractItemView::item {{
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
+                border: none;
+                min-height: 20px;
+            }}
+            
+            QComboBox QAbstractItemView::item:hover {{
+                background-color: {DesignSystem.COLOR_BG_2};
+            }}
+            
+            QComboBox QAbstractItemView::item:selected {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                color: {DesignSystem.COLOR_PRIMARY_TEXT};
             }}
         """
 
