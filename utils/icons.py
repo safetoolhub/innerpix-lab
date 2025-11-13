@@ -62,6 +62,7 @@ class IconManager:
         # Navegación y acciones de archivos
         'folder': 'mdi6.folder',
         'folder-open': 'mdi6.folder-open',
+        'folder-outline': 'mdi6.folder-outline',
         'folder-settings': 'mdi6.folder-cog',
         'folder-remove': 'mdi6.folder-remove',
         'file': 'mdi6.file',
@@ -69,6 +70,7 @@ class IconManager:
         'magnify': 'mdi6.magnify',
         'refresh': 'mdi6.refresh',
         'delete': 'mdi6.delete',
+        'delete-sweep': 'mdi6.delete-sweep',
         'save': 'mdi6.content-save',
         'content-save': 'mdi6.content-save',
         'backup': 'mdi6.backup-restore',

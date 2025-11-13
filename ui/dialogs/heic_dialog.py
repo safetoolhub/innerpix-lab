@@ -167,51 +167,133 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         self._update_tree()
     
     def _create_toolbar(self):
-        """Crea barra de herramientas con filtros"""
+        """Crea barra de herramientas con filtros estilo Material Design"""
         toolbar = QHBoxLayout()
+        toolbar.setSpacing(int(DesignSystem.SPACE_12))
         
-        # Búsqueda con icono
+        # Búsqueda
+        search_container = QWidget()
+        search_layout = QHBoxLayout(search_container)
+        search_layout.setContentsMargins(0, 0, 0, 0)
+        search_layout.setSpacing(4)
+        
         search_icon = QLabel()
-        icon_manager.set_label_icon(search_icon, 'search', size=16)
-        self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Buscar por nombre...")
-        self.search_input.textChanged.connect(self._apply_filters)
-        self.search_input.setMaximumWidth(200)
-        toolbar.addWidget(search_icon)
-        toolbar.addWidget(self.search_input)
+        icon_manager.set_label_icon(search_icon, 'search', size=14)
+        search_layout.addWidget(search_icon)
         
-        toolbar.addWidget(QLabel("|"))
+        search_text = QLabel("Buscar:")
+        search_layout.addWidget(search_text)
+        
+        toolbar.addWidget(search_container)
+        
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Nombre de archivo...")
+        self.search_input.textChanged.connect(self._apply_filters)
+        self.search_input.setStyleSheet(f"""
+            QLineEdit {{
+                padding: {DesignSystem.SPACE_8}px;
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                background-color: {DesignSystem.COLOR_SURFACE};
+            }}
+            QLineEdit:focus {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+        """)
+        self.search_input.setToolTip("Buscar grupos por nombre de archivo base")
+        toolbar.addWidget(self.search_input, 2)
+        
+        # Separador visual
+        separator_line = QFrame()
+        separator_line.setFrameShape(QFrame.Shape.VLine)
+        separator_line.setFrameShadow(QFrame.Shadow.Sunken)
+        separator_line.setStyleSheet(f"color: {DesignSystem.COLOR_BORDER};")
+        toolbar.addWidget(separator_line)
         
         # Filtro por directorio
-        dir_label = QLabel("Directorio:")
+        filter_container = QWidget()
+        filter_layout = QHBoxLayout(filter_container)
+        filter_layout.setContentsMargins(0, 0, 0, 0)
+        filter_layout.setSpacing(4)
+        
+        filter_icon = QLabel()
+        icon_manager.set_label_icon(filter_icon, 'folder-outline', size=14)
+        filter_layout.addWidget(filter_icon)
+        
+        filter_text = QLabel("Directorio:")
+        filter_layout.addWidget(filter_text)
+        
+        toolbar.addWidget(filter_container)
+        
         self.dir_combo = QComboBox()
         directories = ["Todos"] + sorted(list(set(
             str(pair.directory) for pair in self.analysis.duplicate_pairs
         )))
         self.dir_combo.addItems(directories)
         self.dir_combo.currentTextChanged.connect(self._apply_filters)
-        self.dir_combo.setMaximumWidth(250)
-        toolbar.addWidget(dir_label)
-        toolbar.addWidget(self.dir_combo)
+        self.dir_combo.setStyleSheet(f"""
+            QComboBox {{
+                padding: {DesignSystem.SPACE_8}px;
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                background-color: {DesignSystem.COLOR_SURFACE};
+            }}
+            QComboBox:hover {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+        """)
+        self.dir_combo.setToolTip("Filtrar grupos por directorio")
+        toolbar.addWidget(self.dir_combo, 1)
         
-        # Botón limpiar
-        clear_btn = QPushButton("✕ Limpiar")
+        # Separador visual
+        separator_line2 = QFrame()
+        separator_line2.setFrameShape(QFrame.Shape.VLine)
+        separator_line2.setFrameShadow(QFrame.Shadow.Sunken)
+        separator_line2.setStyleSheet(f"color: {DesignSystem.COLOR_BORDER};")
+        toolbar.addWidget(separator_line2)
+        
+        # Botón limpiar filtros
+        clear_btn = QPushButton("Limpiar")
+        icon_manager.set_button_icon(clear_btn, 'delete-sweep', size=16)
         clear_btn.clicked.connect(self._clear_filters)
-        clear_btn.setMaximumWidth(80)
+        clear_btn.setToolTip("Limpiar todos los filtros")
+        clear_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {DesignSystem.COLOR_SECONDARY};
+                color: {DesignSystem.COLOR_TEXT};
+                border: none;
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_SECONDARY_HOVER};
+            }}
+            QPushButton:pressed {{
+                background-color: {DesignSystem.COLOR_SECONDARY_HOVER};
+            }}
+        """)
         toolbar.addWidget(clear_btn)
         
-        # Contador
+        # Contador de grupos con estilo mejorado
         self.counter_label = QLabel()
-        self.counter_label.setStyleSheet("font-weight: bold; color: #2c5aa0; margin-left: 10px;")
+        self.counter_label.setStyleSheet(f"""
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            padding: {DesignSystem.SPACE_6}px;
+        """)
         toolbar.addWidget(self.counter_label)
         
         toolbar.addStretch()
         return toolbar
     
     def _create_files_tree(self):
-        """Crea TreeWidget para mostrar archivos duplicados"""
+        """Crea TreeWidget para mostrar grupos duplicados con estilo Material Design"""
         tree = QTreeWidget()
-        tree.setHeaderLabels(["Archivos", "HEIC", "JPG", "A Eliminar"])
+        tree.setHeaderLabels(["Grupos", "Tamaño HEIC", "Tamaño JPG", "A Eliminar"])
         tree.setAlternatingRowColors(True)
         tree.setEditTriggers(QTreeWidget.EditTrigger.NoEditTriggers)
         tree.setSelectionMode(QTreeWidget.SelectionMode.NoSelection)
@@ -219,58 +301,105 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         tree.itemDoubleClicked.connect(self._on_file_double_clicked)
         tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         tree.customContextMenuRequested.connect(self._show_context_menu)
-        tree.setStyleSheet(
-            """
-            QTreeWidget {
-                border: 1px solid #ddd;
+        tree.setStyleSheet(f"""
+            QTreeWidget {{
+                border: 1px solid {DesignSystem.COLOR_BORDER};
                 outline: none;
-            }
-            QTreeWidget::item {
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+            }}
+            QTreeWidget::item {{
                 border: none;
                 outline: none;
-            }
-            QTreeWidget::item:hover {
-                background-color: #f0f7ff;
-            }
-            """
-        )
+                padding: {DesignSystem.SPACE_6}px;
+            }}
+            QTreeWidget::item:hover {{
+                background-color: {DesignSystem.COLOR_BG_2};
+            }}
+            QHeaderView::section {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                padding: {DesignSystem.SPACE_8}px;
+                border: none;
+                border-bottom: 1px solid {DesignSystem.COLOR_BORDER};
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+            }}
+        """)
         tree.setToolTip(
-            "Doble clic en 'HEIC' para abrir archivo HEIC\n"
-            "Doble clic en 'JPG' para abrir archivo JPG\n"
-            "Clic derecho para más opciones"
+            "Doble clic en columna 'Tamaño HEIC' para abrir archivo HEIC\n"
+            "Doble clic en columna 'Tamaño JPG' para abrir archivo JPG\n"
+            "Clic derecho para más opciones y detalles"
         )
         
         # Ajustar columnas
         header = tree.header()
         header.setStretchLastSection(False)
         tree.setColumnWidth(0, 400)
-        tree.setColumnWidth(1, 100)
-        tree.setColumnWidth(2, 100)
-        tree.setColumnWidth(3, 120)
+        tree.setColumnWidth(1, 110)
+        tree.setColumnWidth(2, 110)
+        tree.setColumnWidth(3, 130)
         
         return tree
     
     def _create_pagination_controls(self):
-        """Crea controles de paginación"""
+        """Crea controles de paginación con estilo Material Design"""
         widget = QFrame()
         widget.setFrameStyle(QFrame.Shape.StyledPanel)
-        widget.setStyleSheet(f"QFrame {{ background-color: {DesignSystem.COLOR_BG_1}; border-radius: {DesignSystem.RADIUS_BASE}px; }}")
+        widget.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_8}px;
+            }}
+        """)
         layout = QHBoxLayout(widget)
+        layout.setSpacing(int(DesignSystem.SPACE_8))
+        
+        # Estilo común para botones de paginación
+        pagination_button_style = f"""
+            QPushButton {{
+                background-color: {DesignSystem.COLOR_SECONDARY};
+                color: {DesignSystem.COLOR_TEXT};
+                border: none;
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_SECONDARY_HOVER};
+            }}
+            QPushButton:pressed {{
+                background-color: {DesignSystem.COLOR_SECONDARY_HOVER};
+            }}
+            QPushButton:disabled {{
+                background-color: {DesignSystem.COLOR_BORDER};
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            }}
+        """
         
         self.first_page_btn = QPushButton("Primera")
         icon_manager.set_button_icon(self.first_page_btn, 'skip-previous', size=16)
         self.first_page_btn.clicked.connect(self._go_first_page)
         self.first_page_btn.setMaximumWidth(100)
+        self.first_page_btn.setStyleSheet(pagination_button_style)
         layout.addWidget(self.first_page_btn)
         
         self.prev_page_btn = QPushButton("Anterior")
         icon_manager.set_button_icon(self.prev_page_btn, 'chevron-left', size=16)
         self.prev_page_btn.clicked.connect(self._go_prev_page)
         self.prev_page_btn.setMaximumWidth(100)
+        self.prev_page_btn.setStyleSheet(pagination_button_style)
         layout.addWidget(self.prev_page_btn)
         
         self.page_label = QLabel()
-        self.page_label.setStyleSheet(f"font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD}; padding: 0 {DesignSystem.SPACE_20}px;")
+        self.page_label.setStyleSheet(f"""
+            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            color: {DesignSystem.COLOR_TEXT};
+            padding: 0 {DesignSystem.SPACE_20}px;
+        """)
         self.page_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.page_label)
         
@@ -278,22 +407,40 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         icon_manager.set_button_icon(self.next_page_btn, 'chevron-right', size=16)
         self.next_page_btn.clicked.connect(self._go_next_page)
         self.next_page_btn.setMaximumWidth(100)
+        self.next_page_btn.setStyleSheet(pagination_button_style)
         layout.addWidget(self.next_page_btn)
         
         self.last_page_btn = QPushButton("Última")
         icon_manager.set_button_icon(self.last_page_btn, 'skip-next', size=16)
         self.last_page_btn.clicked.connect(self._go_last_page)
         self.last_page_btn.setMaximumWidth(100)
+        self.last_page_btn.setStyleSheet(pagination_button_style)
         layout.addWidget(self.last_page_btn)
         
         layout.addStretch()
         
-        layout.addWidget(QLabel("Items por página:"))
+        # Label para "Items por página"
+        items_label = QLabel("Items por página:")
+        items_label.setStyleSheet(f"""
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+        """)
+        layout.addWidget(items_label)
+        
         self.items_per_page_combo = QComboBox()
         self.items_per_page_combo.addItems(["100", "200", "500", "Todos"])
         self.items_per_page_combo.setCurrentText("200")
         self.items_per_page_combo.currentTextChanged.connect(self._change_items_per_page)
         self.items_per_page_combo.setMaximumWidth(100)
+        self.items_per_page_combo.setStyleSheet(f"""
+            QComboBox {{
+                padding: {DesignSystem.SPACE_6}px;
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                background-color: {DesignSystem.COLOR_SURFACE};
+            }}
+        """)
         layout.addWidget(self.items_per_page_combo)
         
         widget.setVisible(False)
@@ -402,11 +549,16 @@ class HEICDuplicateRemovalDialog(BaseDialog):
                 item.setText(2, format_size(pair.jpg_size))
                 item.setText(3, format_to_delete)
                 
-                # Color en la columna "A Eliminar"
+                # Color en la columna "A Eliminar" usando tokens del DesignSystem
                 if format_to_delete == "HEIC":
-                    item.setForeground(3, QColor("#9c27b0"))
+                    item.setForeground(3, QColor("#9c27b0"))  # Purple para HEIC
                 else:
-                    item.setForeground(3, QColor("#ff9800"))
+                    item.setForeground(3, QColor(DesignSystem.COLOR_WARNING))  # Warning naranja para JPG
+                
+                # Estilo para el nombre del grupo (negrita)
+                font = item.font(0)
+                font.setWeight(DesignSystem.FONT_WEIGHT_SEMIBOLD)
+                item.setFont(0, font)
                 
                 # Guardar datos del par en el item
                 item.setData(0, Qt.ItemDataRole.UserRole, pair)
