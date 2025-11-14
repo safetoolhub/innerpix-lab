@@ -916,8 +916,8 @@ def get_all_file_dates(file_path: Path) -> dict:
             result['exif_offset_time'] = exif_dates.get('OffsetTimeOriginal')
             result['exif_software'] = exif_dates.get('Software')
         
-        # 2. Intentar obtener metadata de video (solo para videos)
-        if Config.get_file_type(file_path) == 'VIDEO':
+        # 2. Intentar obtener metadata de video (solo si está habilitado en configuración)
+        if Config.get_file_type(file_path) == 'VIDEO' and Config.USE_VIDEO_METADATA:
             result['video_metadata_date'] = get_video_metadata_date(file_path)
         
         # 3. Intentar extraer fecha del nombre de archivo

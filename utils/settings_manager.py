@@ -35,6 +35,7 @@ class SettingsManager:
     # === AVANZADO ===
     KEY_DRY_RUN_DEFAULT = "advanced/dry_run_default"
     KEY_MAX_WORKERS = "advanced/max_workers"
+    KEY_USE_VIDEO_METADATA = "advanced/use_video_metadata"
 
     # === VENTANA ===
     KEY_WINDOW_GEOMETRY = "window/geometry"

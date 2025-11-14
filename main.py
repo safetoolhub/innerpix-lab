@@ -15,6 +15,7 @@ from ui.styles.design_system import DesignSystem
 from config import Config
 from utils.logger import configure_logging, get_logger
 from utils import get_optimal_window_config
+from utils.settings_manager import settings_manager
 import logging
 
 
@@ -26,6 +27,12 @@ def main():
         level="INFO"
     )
     
+    # Cargar configuración persistente
+    Config.USE_VIDEO_METADATA = settings_manager.get_bool(
+        settings_manager.KEY_USE_VIDEO_METADATA, 
+        False  # Por defecto deshabilitado
+    )
+    
     # Obtener logger y mostrar información de inicio
     logger = get_logger()
     log_level = logging.getLevelName(logger.logger.level)
@@ -34,6 +41,7 @@ def main():
     logger.info(f"Nivel de log: {log_level}")
     logger.info(f"Archivo de log: {log_file}")
     logger.info(f"Directorio de logs: {logs_dir}")
+    logger.info(f"Extracción de metadatos de video: {'habilitada' if Config.USE_VIDEO_METADATA else 'deshabilitada'}")
     logger.info("=" * 80)
     
     app = QApplication(sys.argv)

@@ -112,6 +112,10 @@ class Config:
     # Configuración para detección de duplicados HEIC/JPG
     MAX_TIME_DIFFERENCE_SECONDS = 60  # Tolerancia máxima de tiempo entre archivos duplicados (segundos)
     
+    # Configuración de extracción de metadatos de video
+    # Por defecto False porque es muy lento y la app se enfoca en imágenes
+    USE_VIDEO_METADATA = False
+    
 
 
     # ========================================================================
