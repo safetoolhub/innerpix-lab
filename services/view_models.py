@@ -26,11 +26,11 @@ from services.result_types import (
     HeicAnalysisResult,
     DuplicateAnalysisResult
 )
-from services.file_organizer import FileMove, OrganizationType
-from services.heic_remover import DuplicatePair
+from .file_organizer_service import FileMove, OrganizationType
+from .heic_remover_service import DuplicatePair
 # DuplicateGroup está definido en ambos servicios duplicate_exact_detector y duplicate_similar_detector
 # Importamos desde exact_detector por convención (ambas definiciones son idénticas)
-from services.exact_copies_detector import DuplicateGroup
+from .exact_copies_detector import DuplicateGroup
 
 
 # ============================================================================

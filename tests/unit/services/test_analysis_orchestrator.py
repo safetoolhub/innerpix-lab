@@ -31,6 +31,7 @@ from services.result_types import (
     DuplicateAnalysisResult,
     DuplicateGroup
 )
+from services.file_organizer_service import OrganizationType
 
 
 # ==================== TESTS BÁSICOS ====================
@@ -346,9 +347,38 @@ class TestIndividualAnalysis:
         assert result == mock_result
         mock_organizer.analyze.assert_called_once()
         
-        # Verificar que se pasó el tipo de organización
+        # Verificar que se pasó el tipo de organización como enum
         call_kwargs = mock_organizer.analyze.call_args[1]
-        assert call_kwargs['organization_type'] == 'by_month'
+        assert call_kwargs['organization_type'] == OrganizationType.BY_MONTH
+    
+    def test_analyze_organization_default_type(self, temp_dir):
+        """Test análisis de organización con tipo por defecto (None)."""
+        orchestrator = AnalysisOrchestrator()
+        
+        # Mock del FileOrganizer
+        mock_organizer = Mock()
+        mock_result = OrganizationAnalysisResult(
+            success=True,
+            total_files=20,
+            root_directory=str(temp_dir),
+            organization_type='to_root',
+            total_files_to_move=15
+        )
+        mock_organizer.analyze.return_value = mock_result
+        
+        # Llamar sin especificar organization_type (None)
+        result = orchestrator.analyze_organization(
+            temp_dir,
+            mock_organizer,
+            organization_type=None
+        )
+        
+        assert result == mock_result
+        mock_organizer.analyze.assert_called_once()
+        
+        # Verificar que se pasó el tipo por defecto TO_ROOT
+        call_kwargs = mock_organizer.analyze.call_args[1]
+        assert call_kwargs['organization_type'] == OrganizationType.TO_ROOT
     
     def test_analyze_heic_duplicates(self, temp_dir):
         """Test análisis de duplicados HEIC."""
@@ -960,16 +990,13 @@ class TestEdgeCases:
         assert result.live_photos.live_photos_found == 0
     
     def test_analysis_nonexistent_directory(self):
-        """Test análisis de directorio que no existe."""
+        """Test análisis de directorio que no existe - debe lanzar FileNotFoundError."""
         orchestrator = AnalysisOrchestrator()
         fake_dir = Path('/nonexistent/directory/path')
         
-        # El método scan_directory no lanza excepción, retorna resultado vacío
-        # porque rglob() simplemente no encuentra archivos
-        result = orchestrator.scan_directory(fake_dir)
-        assert result.total_files == 0
-        assert result.image_count == 0
-        assert result.video_count == 0
+        # Ahora validamos el directorio tempranamente y lanzamos excepción
+        with pytest.raises(FileNotFoundError, match="El directorio no existe"):
+            orchestrator.scan_directory(fake_dir)
     
     def test_analysis_with_permission_denied(self, temp_dir):
         """Test análisis con directorio sin permisos de lectura."""

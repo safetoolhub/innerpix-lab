@@ -2,7 +2,14 @@
 Servicios de lógica de negocio para Pixaro Lab.
 
 Este módulo expone todos los servicios y tipos de datos principales
-utilizados en la aplicación.
+utilizados en la aplicación, incluyendo:
+
+- Servicios principales: FileRenamer, LivePhotoService, FileOrganizer, etc.
+- Servicios base: BaseService, BaseDetectorService
+- Orquestador: AnalysisOrchestrator para coordinar análisis completos
+- Tipos de resultado: Todas las dataclasses de resultado de operaciones
+- View Models: Modelos de presentación sin dependencias de UI
+- Utilidades: Funciones helper y tipos de datos auxiliares
 """
 
 # Servicios principales
@@ -20,8 +27,19 @@ from .analysis_orchestrator import AnalysisOrchestrator, FullAnalysisResult
 from .base_service import BaseService, BackupCreationError, ProgressCallback
 from .base_detector_service import BaseDetectorService
 
-# Utilidades
-from .service_utils import create_service_backup, validate_and_get_file_info, FileInfo, format_file_list
+# View Models
+from .view_models import (
+    TreeNode,
+    TableRow,
+    OrganizationTreeNode,
+    OrganizationViewModel,
+    RenameTableRow,
+    RenameViewModel,
+    HEICTreeNode,
+    HEICViewModel,
+    DuplicateTreeNode,
+    DuplicatesViewModel,
+)
 
 # Tipos de resultado
 from .result_types import (
@@ -79,21 +97,15 @@ __all__ = [
     'validate_and_get_file_info',
     'FileInfo',
     'format_file_list',
-    # Tipos de resultado
-    'OperationResult',
-    'AnalysisResult',
-    'DeletionResult',
-    'RenameResult',
-    'RenameAnalysisResult',
-    'OrganizationResult',
-    'OrganizationAnalysisResult',
-    'DuplicateAnalysisResult',
-    'DuplicateDeletionResult',
-    'HeicAnalysisResult',
-    'HeicDeletionResult',
-    'LivePhotoAnalysisResult',
-    'LivePhotoCleanupAnalysisResult',
-    'LivePhotoCleanupResult',
-    'LivePhotoDetectionResult',
-    'FullAnalysisResult',
+    # View Models
+    'TreeNode',
+    'TableRow',
+    'OrganizationTreeNode',
+    'OrganizationViewModel',
+    'RenameTableRow',
+    'RenameViewModel',
+    'HEICTreeNode',
+    'HEICViewModel',
+    'DuplicateTreeNode',
+    'DuplicatesViewModel',
 ]

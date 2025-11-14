@@ -3,7 +3,7 @@ Orchestrator de análisis de directorios.
 Coordina múltiples servicios para realizar análisis completos sin dependencias de UI.
 """
 from pathlib import Path
-from typing import Optional, Callable, Dict, List, Any, TYPE_CHECKING
+from typing import Optional, Callable, Dict, List, Any, TYPE_CHECKING, Protocol
 from dataclasses import dataclass, field
 import time
 
@@ -19,6 +19,16 @@ if TYPE_CHECKING:
         HeicAnalysisResult, 
         DuplicateAnalysisResult
     )
+
+
+# Protocols para definir interfaces de servicios sin imports circulares
+class AnalyzableService(Protocol):
+    """Protocolo para servicios que implementan analyze()"""
+    def analyze(self, 
+               directory: Path,
+               progress_callback: Optional[Callable[[int, int, str], bool]] = None,
+               **kwargs) -> Any:
+        ...
 
 
 @dataclass
@@ -96,6 +106,65 @@ class AnalysisOrchestrator:
     def __init__(self):
         self.logger = get_logger('AnalysisOrchestrator')
     
+    def _execute_phase(self,
+                      phase_id: str,
+                      phase_name: str,
+                      phase_callable: Callable[[], Any],
+                      phase_callback: Optional[Callable[[str], None]] = None,
+                      partial_callback: Optional[Callable[[str, Any], None]] = None) -> tuple[Any, PhaseTimingInfo]:
+        """
+        Ejecuta una fase del análisis con tracking de tiempo y callbacks.
+        
+        Args:
+            phase_id: Identificador único de la fase
+            phase_name: Nombre descriptivo de la fase
+            phase_callable: Función que ejecuta la fase y retorna el resultado
+            phase_callback: Callback opcional para notificar inicio de fase
+            partial_callback: Callback opcional para notificar resultado parcial
+            
+        Returns:
+            Tupla (resultado, timing_info)
+        """
+        if phase_callback:
+            phase_callback(phase_id)
+        
+        phase_start = time.time()
+        result = phase_callable()
+        phase_end = time.time()
+        
+        timing_info = PhaseTimingInfo(
+            phase_id=phase_id,
+            phase_name=phase_name,
+            start_time=phase_start,
+            end_time=phase_end,
+            duration=phase_end - phase_start
+        )
+        
+        if partial_callback:
+            partial_callback(phase_id, result)
+        
+        return result, timing_info
+    
+    def _check_cancellation(self,
+                           progress_callback: Optional[Callable[[int, int, str], bool]],
+                           result: FullAnalysisResult,
+                           analysis_start_time: float) -> bool:
+        """
+        Verifica si el usuario solicitó cancelación.
+        
+        Args:
+            progress_callback: Callback de progreso
+            result: Resultado actual del análisis
+            analysis_start_time: Tiempo de inicio del análisis
+            
+        Returns:
+            True si debe cancelarse, False en caso contrario
+        """
+        if progress_callback and not progress_callback(0, 0, ""):
+            result.total_duration = time.time() - analysis_start_time
+            return True
+        return False
+    
     def scan_directory(self, 
                       directory: Path,
                       progress_callback: Optional[Callable[[int, int, str], bool]] = None) -> DirectoryScanResult:
@@ -115,35 +184,42 @@ class AnalysisOrchestrator:
             >>> result = orchestrator.scan_directory(Path("/photos"))
             >>> print(f"Imágenes: {result.image_count}")
         """
+        # Validación temprana
+        if not directory.exists():
+            raise FileNotFoundError(f"El directorio no existe: {directory}")
+        if not directory.is_dir():
+            raise NotADirectoryError(f"La ruta no es un directorio: {directory}")
+        
         self.logger.info(f"Escaneando directorio: {directory}")
         
-        # Listar todos los archivos
-        all_files = list(directory.rglob("*"))
-        files_only = [f for f in all_files if f.is_file()]
-        total_files = len(files_only)
-        
+        # Una sola iteración: clasificar directamente sin contar primero
         images, videos, others = [], [], []
         processed = 0
         
+        # Primera pasada: obtener lista de archivos para saber el total
+        all_files = [f for f in directory.rglob("*") if f.is_file()]
+        total_files = len(all_files)
+        
+        # Segunda pasada: clasificar archivos
         for f in all_files:
-            # Verificar cancelación
+            # Verificar cancelación al inicio del loop
             if progress_callback and not progress_callback(processed, total_files, "Escaneando archivos"):
                 self.logger.warning("Escaneo cancelado por usuario")
                 break
             
-            if f.is_file():
-                if Config.is_image_file(f.name):
-                    images.append(f)
-                elif Config.is_video_file(f.name):
-                    videos.append(f)
-                else:
-                    others.append(f)
-                
-                processed += 1
-                
-                # Reportar progreso cada 10 archivos
-                if processed % 10 == 0 and progress_callback:
-                    progress_callback(processed, total_files, "Escaneando archivos")
+            # Clasificar archivo
+            if Config.is_image_file(f.name):
+                images.append(f)
+            elif Config.is_video_file(f.name):
+                videos.append(f)
+            else:
+                others.append(f)
+            
+            processed += 1
+            
+            # Reportar progreso cada 10 archivos (evitar demasiadas actualizaciones)
+            if progress_callback and processed % 10 == 0:
+                progress_callback(processed, total_files, "Escaneando archivos")
         
         # Reportar progreso final (100%)
         if progress_callback and total_files > 0:
@@ -165,8 +241,8 @@ class AnalysisOrchestrator:
     
     def analyze_renaming(self,
                         directory: Path,
-                        renamer,
-                        progress_callback: Optional[Callable[[int, int, str], bool]] = None):
+                        renamer: AnalyzableService,
+                        progress_callback: Optional[Callable[[int, int, str], bool]] = None) -> 'RenameAnalysisResult':
         """
         Analiza nombres de archivos que necesitan normalización.
         
@@ -176,15 +252,15 @@ class AnalysisOrchestrator:
             progress_callback: Función opcional de progreso
             
         Returns:
-            Resultado del análisis de renombrado
+            RenameAnalysisResult con el análisis de renombrado
         """
         self.logger.info("Analizando nombres de archivos")
         return renamer.analyze(directory, progress_callback=progress_callback)
     
     def analyze_live_photos(self,
                            directory: Path,
-                           service,
-                           progress_callback: Optional[Callable[[int, int, str], bool]] = None):
+                           service: AnalyzableService,
+                           progress_callback: Optional[Callable[[int, int, str], bool]] = None) -> 'LivePhotoDetectionResult':
         """
         Detecta grupos de Live Photos en el directorio.
         
@@ -222,9 +298,9 @@ class AnalysisOrchestrator:
     
     def analyze_organization(self,
                             directory: Path,
-                            organizer,
-                            organization_type=None,
-                            progress_callback: Optional[Callable[[int, int, str], bool]] = None):
+                            organizer: AnalyzableService,
+                            organization_type: Optional[str] = None,
+                            progress_callback: Optional[Callable[[int, int, str], bool]] = None) -> 'OrganizationAnalysisResult':
         """
         Analiza estructura de directorios para organización.
         
@@ -235,23 +311,33 @@ class AnalysisOrchestrator:
             progress_callback: Función opcional de progreso
             
         Returns:
-            Resultado del análisis de organización
+            OrganizationAnalysisResult con el plan de organización
         """
-        self.logger.info(f"Analizando estructura de directorios (tipo: {organization_type})")
+        # Importar OrganizationType para manejar el caso None
+        from services.file_organizer_service import OrganizationType
         
-        if organization_type:
-            return organizer.analyze(
-                directory,
-                organization_type=organization_type,
-                progress_callback=progress_callback
-            )
+        # Si organization_type es None, usar el valor por defecto
+        if organization_type is None:
+            org_type = OrganizationType.TO_ROOT
         else:
-            return organizer.analyze(directory, progress_callback=progress_callback)
+            # Convertir string a enum si es necesario
+            if isinstance(organization_type, str):
+                org_type = OrganizationType(organization_type)
+            else:
+                org_type = organization_type
+        
+        self.logger.info(f"Analizando estructura de directorios (tipo: {org_type.value})")
+        
+        return organizer.analyze(
+            directory,
+            organization_type=org_type,
+            progress_callback=progress_callback
+        )
     
     def analyze_heic_duplicates(self,
                                directory: Path,
-                               heic_remover,
-                               progress_callback: Optional[Callable[[int, int, str], bool]] = None):
+                               heic_remover: AnalyzableService,
+                               progress_callback: Optional[Callable[[int, int, str], bool]] = None) -> 'HeicAnalysisResult':
         """
         Busca duplicados HEIC/JPG.
         
@@ -261,25 +347,25 @@ class AnalysisOrchestrator:
             progress_callback: Función opcional de progreso
             
         Returns:
-            Resultado del análisis de duplicados HEIC
+            HeicAnalysisResult con duplicados HEIC/JPG encontrados
         """
         self.logger.info("Buscando duplicados HEIC/JPG")
         return heic_remover.analyze(directory, progress_callback=progress_callback)
     
     def analyze_exact_duplicates(self,
                                  directory: Path,
-                                 duplicate_exact_detector,
-                                 progress_callback: Optional[Callable[[int, int, str], bool]] = None):
+                                 duplicate_exact_detector: AnalyzableService,
+                                 progress_callback: Optional[Callable[[int, int, str], bool]] = None) -> 'DuplicateAnalysisResult':
         """
         Detecta duplicados exactos usando SHA256.
         
         Args:
             directory: Directorio a analizar
-            duplicate_exact_detector: Instancia de DuplicateExactDetector
+            duplicate_exact_detector: Instancia de ExactCopiesDetector
             progress_callback: Función opcional de progreso
             
         Returns:
-            Resultado del análisis de duplicados exactos
+            DuplicateAnalysisResult con duplicados exactos detectados
         """
         self.logger.info("Detectando duplicados exactos (SHA256)")
         return duplicate_exact_detector.analyze(
@@ -289,12 +375,12 @@ class AnalysisOrchestrator:
     
     def run_full_analysis(self,
                          directory: Path,
-                         renamer=None,
-                         live_photo_service=None,
-                         organizer=None,
-                         heic_remover=None,
-                         duplicate_exact_detector=None,
-                         organization_type=None,
+                         renamer: Optional[AnalyzableService] = None,
+                         live_photo_service: Optional[AnalyzableService] = None,
+                         organizer: Optional[AnalyzableService] = None,
+                         heic_remover: Optional[AnalyzableService] = None,
+                         duplicate_exact_detector: Optional[AnalyzableService] = None,
+                         organization_type: Optional[str] = None,
                          progress_callback: Optional[Callable[[int, int, str], bool]] = None,
                          phase_callback: Optional[Callable[[str], None]] = None,
                          partial_callback: Optional[Callable[[str, Any], None]] = None) -> FullAnalysisResult:
@@ -329,169 +415,100 @@ class AnalysisOrchestrator:
         analysis_start_time = time.time()
         
         # Fase 1: Escaneo inicial
-        if phase_callback:
-            phase_callback("scan")
-        
-        phase_start = time.time()
-        scan_result = self.scan_directory(directory, progress_callback)
-        phase_end = time.time()
+        scan_result, scan_timing = self._execute_phase(
+            phase_id="scan",
+            phase_name="Escaneo de archivos",
+            phase_callable=lambda: self.scan_directory(directory, progress_callback),
+            phase_callback=phase_callback,
+            partial_callback=lambda phase_id, scan_res: partial_callback(
+                phase_id, {
+                    'total': scan_res.total_files,
+                    'images': scan_res.image_count,
+                    'videos': scan_res.video_count,
+                    'others': scan_res.other_count
+                }
+            ) if partial_callback else None
+        )
         
         # Crear resultado con timing de escaneo
         result = FullAnalysisResult(
             directory=directory,
             scan=scan_result
         )
-        
-        result.phase_timings['scan'] = PhaseTimingInfo(
-            phase_id='scan',
-            phase_name='Escaneo de archivos',
-            start_time=phase_start,
-            end_time=phase_end,
-            duration=phase_end - phase_start
-        )
-        
-        if partial_callback:
-            partial_callback('scan', {
-                'total': scan_result.total_files,
-                'images': scan_result.image_count,
-                'videos': scan_result.video_count,
-                'others': scan_result.other_count
-            })
+        result.phase_timings['scan'] = scan_timing
         
         # Fase 2: Análisis de renombrado
         if renamer:
-            if progress_callback and not progress_callback(0, 0, ""):
-                result.total_duration = time.time() - analysis_start_time
+            if self._check_cancellation(progress_callback, result, analysis_start_time):
                 return result
             
-            if phase_callback:
-                phase_callback("renaming")
-            
-            phase_start = time.time()
-            result.renaming = self.analyze_renaming(directory, renamer, progress_callback)
-            phase_end = time.time()
-            
-            result.phase_timings['renaming'] = PhaseTimingInfo(
-                phase_id='renaming',
-                phase_name='Análisis de nombres',
-                start_time=phase_start,
-                end_time=phase_end,
-                duration=phase_end - phase_start
+            result.renaming, result.phase_timings['renaming'] = self._execute_phase(
+                phase_id="renaming",
+                phase_name="Análisis de nombres",
+                phase_callable=lambda: self.analyze_renaming(directory, renamer, progress_callback),
+                phase_callback=phase_callback,
+                partial_callback=partial_callback
             )
-            
-            if partial_callback:
-                partial_callback('renaming', result.renaming)
         
         # Fase 3: Live Photos
         if live_photo_service:
-            if progress_callback and not progress_callback(0, 0, ""):
-                result.total_duration = time.time() - analysis_start_time
+            if self._check_cancellation(progress_callback, result, analysis_start_time):
                 return result
             
-            if phase_callback:
-                phase_callback("live_photos")
-            
-            phase_start = time.time()
-            result.live_photos = self.analyze_live_photos(directory, live_photo_service, progress_callback)
-            phase_end = time.time()
-            
-            result.phase_timings['live_photos'] = PhaseTimingInfo(
-                phase_id='live_photos',
-                phase_name='Detección de Live Photos',
-                start_time=phase_start,
-                end_time=phase_end,
-                duration=phase_end - phase_start
+            result.live_photos, result.phase_timings['live_photos'] = self._execute_phase(
+                phase_id="live_photos",
+                phase_name="Detección de Live Photos",
+                phase_callable=lambda: self.analyze_live_photos(directory, live_photo_service, progress_callback),
+                phase_callback=phase_callback,
+                partial_callback=partial_callback
             )
-            
-            if partial_callback:
-                partial_callback('live_photos', result.live_photos)
         
         # Fase 4: Duplicados HEIC
         if heic_remover:
-            if progress_callback and not progress_callback(0, 0, ""):
-                result.total_duration = time.time() - analysis_start_time
+            if self._check_cancellation(progress_callback, result, analysis_start_time):
                 return result
             
-            if phase_callback:
-                phase_callback("heic")
-            
-            phase_start = time.time()
-            result.heic = self.analyze_heic_duplicates(directory, heic_remover, progress_callback)
-            phase_end = time.time()
-            
-            result.phase_timings['heic'] = PhaseTimingInfo(
-                phase_id='heic',
-                phase_name='Duplicados HEIC/JPG',
-                start_time=phase_start,
-                end_time=phase_end,
-                duration=phase_end - phase_start
+            result.heic, result.phase_timings['heic'] = self._execute_phase(
+                phase_id="heic",
+                phase_name="Duplicados HEIC/JPG",
+                phase_callable=lambda: self.analyze_heic_duplicates(directory, heic_remover, progress_callback),
+                phase_callback=phase_callback,
+                partial_callback=partial_callback
             )
-            
-            if partial_callback:
-                partial_callback('heic', result.heic)
         
         # Fase 5: Duplicados exactos
         if duplicate_exact_detector:
-            if progress_callback and not progress_callback(0, 0, ""):
-                result.total_duration = time.time() - analysis_start_time
+            if self._check_cancellation(progress_callback, result, analysis_start_time):
                 return result
             
-            if phase_callback:
-                phase_callback("duplicates")
-            
-            phase_start = time.time()
-            result.duplicates = self.analyze_exact_duplicates(directory, duplicate_exact_detector, progress_callback)
-            phase_end = time.time()
-            
-            result.phase_timings['duplicates'] = PhaseTimingInfo(
-                phase_id='duplicates',
-                phase_name='Duplicados exactos',
-                start_time=phase_start,
-                end_time=phase_end,
-                duration=phase_end - phase_start
+            result.duplicates, result.phase_timings['duplicates'] = self._execute_phase(
+                phase_id="duplicates",
+                phase_name="Duplicados exactos",
+                phase_callable=lambda: self.analyze_exact_duplicates(directory, duplicate_exact_detector, progress_callback),
+                phase_callback=phase_callback,
+                partial_callback=partial_callback
             )
-            
-            if partial_callback:
-                partial_callback('duplicates', result.duplicates)
         
         # Fase 6: Organización
         if organizer:
-            if progress_callback and not progress_callback(0, 0, ""):
-                result.total_duration = time.time() - analysis_start_time
+            if self._check_cancellation(progress_callback, result, analysis_start_time):
                 return result
             
-            if phase_callback:
-                phase_callback("organization")
-            
-            phase_start = time.time()
-            result.organization = self.analyze_organization(directory, organizer, organization_type, progress_callback)
-            phase_end = time.time()
-            
-            result.phase_timings['organization'] = PhaseTimingInfo(
-                phase_id='organization',
-                phase_name='Análisis de organización',
-                start_time=phase_start,
-                end_time=phase_end,
-                duration=phase_end - phase_start
+            result.organization, result.phase_timings['organization'] = self._execute_phase(
+                phase_id="organization",
+                phase_name="Análisis de organización",
+                phase_callable=lambda: self.analyze_organization(directory, organizer, organization_type, progress_callback),
+                phase_callback=phase_callback,
+                partial_callback=partial_callback
             )
-            
-            if partial_callback:
-                partial_callback('organization', result.organization)
         
         # Fase 7: Finalización
-        if phase_callback:
-            phase_callback("finalizing")
-        
-        phase_start = time.time()
-        # Aquí podríamos hacer cualquier procesamiento final si fuera necesario
-        phase_end = time.time()
-        
-        result.phase_timings['finalizing'] = PhaseTimingInfo(
-            phase_id='finalizing',
-            phase_name='Finalizando análisis',
-            start_time=phase_start,
-            end_time=phase_end,
-            duration=phase_end - phase_start
+        _, result.phase_timings['finalizing'] = self._execute_phase(
+            phase_id="finalizing",
+            phase_name="Finalizando análisis",
+            phase_callable=lambda: None,  # No hay procesamiento real
+            phase_callback=phase_callback,
+            partial_callback=None
         )
         
         result.total_duration = time.time() - analysis_start_time
