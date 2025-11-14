@@ -14,7 +14,7 @@ from enum import Enum
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from config import Config
-from utils.logger import get_logger, log_section_header_relevant, log_section_footer_relevant
+from utils.logger import get_logger, log_section_header_relevant, log_section_footer_relevant, log_section_header_discrete, log_section_footer_discrete
 from utils.settings_manager import settings_manager
 from utils.date_utils import parse_renamed_name, get_date_from_file
 from services.result_types import OrganizationResult, OrganizationAnalysisResult
@@ -86,7 +86,7 @@ class FileOrganizer(BaseService):
         Raises:
             ValueError: Si root_directory no existe o no es un directorio válido
         """
-        self.logger.info(f"Analizando estructura de directorios para organización ({organization_type.value}): {root_directory}")
+        log_section_header_discrete(self.logger, f"ANALIZANDO ESTRUCTURA DE DIRECTORIOS PARA ORGANIZACIÓN ({organization_type.value}): {root_directory}")
 
         subdirectories = {}
         root_files = []
@@ -259,7 +259,7 @@ class FileOrganizer(BaseService):
             potential_conflicts = sum(1 for move in move_plan if move.has_conflict)
             folders_to_create = sorted(set(move.target_folder for move in move_plan if move.target_folder))
 
-        self.logger.info(f"Análisis completado: {total_files_to_move} archivos para mover desde {len(subdirectories)} subdirectorios + {len(root_files)} en raíz")
+        log_section_footer_discrete(self.logger, f"Análisis completado: {total_files_to_move} archivos para mover desde {len(subdirectories)} subdirectorios + {len(root_files)} en raíz")
 
         return OrganizationAnalysisResult(
             success=True,

@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 import time
 
 from config import Config
-from utils.logger import get_logger
+from utils.logger import get_logger, log_section_header_discrete, log_section_footer_discrete
 
 # Type checking imports para evitar imports circulares
 if TYPE_CHECKING:
@@ -325,7 +325,7 @@ class AnalysisOrchestrator:
             ... )
             >>> print(f"Total archivos: {result.scan.total_files}")
         """
-        self.logger.info(f"=== Iniciando análisis completo de: {directory} ===")
+        log_section_header_discrete(self.logger, f"INICIANDO ANÁLISIS COMPLETO DE: {directory}")
         analysis_start_time = time.time()
         
         # Fase 1: Escaneo inicial
@@ -496,7 +496,5 @@ class AnalysisOrchestrator:
         
         result.total_duration = time.time() - analysis_start_time
         
-        self.logger.info(
-            f"=== Análisis completo finalizado en {result.total_duration:.2f}s ==="
-        )
+        log_section_footer_discrete(self.logger, f"Análisis completo finalizado en {result.total_duration:.2f}s")
         return result

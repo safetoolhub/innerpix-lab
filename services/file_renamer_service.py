@@ -12,7 +12,7 @@ from collections import defaultdict, Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from config import Config
-from utils.logger import get_logger, log_section_header_relevant, log_section_footer_relevant
+from utils.logger import get_logger, log_section_header_relevant, log_section_footer_relevant, log_section_header_discrete, log_section_footer_discrete
 from utils.settings_manager import settings_manager
 from services.result_types import RenameResult, RenameAnalysisResult
 from services.base_service import BaseService, ProgressCallback
@@ -61,7 +61,7 @@ class FileRenamer(BaseService):
         Raises:
             FileNotFoundError: Si directory no existe
         """
-        self.logger.info(f"Analizando directorio para renombrado: {directory}")
+        log_section_header_discrete(self.logger, f"ANALIZANDO DIRECTORIO PARA RENOMBRADO: {directory}")
 
         all_files = []
         for file_path in directory.rglob("*"):
@@ -180,9 +180,7 @@ class FileRenamer(BaseService):
                     })
                     need_renaming += 1
 
-        self.logger.info(
-            f"Análisis completado: {need_renaming} archivos para renombrar"
-        )
+        log_section_footer_discrete(self.logger, f"Análisis completado: {need_renaming} archivos para renombrar")
         
         return RenameAnalysisResult(
             success=True,

@@ -206,7 +206,7 @@ class AnalysisWorker(BaseWorker):
                     
                     if not self._stop_requested:
                         # Loggear completado ANTES de emitir señal (mismo thread, inmediato)
-                        self.logger.info(f"Fase completada: {last_phase_id}")
+                        self.logger.debug(f"Fase completada: {last_phase_id}")
                         self.phase_completed.emit(last_phase_id)
                 
                 # Registrar inicio de nueva fase
@@ -216,7 +216,7 @@ class AnalysisWorker(BaseWorker):
                 }
                 
                 # Loggear inicio ANTES de emitir señal (mismo thread, inmediato)
-                self.logger.info(f"Fase iniciada: {phase_id}")
+                self.logger.debug(f"Fase iniciada: {phase_id}")
                 # Emitir inicio de fase
                 self.phase_update.emit(phase_id)
             
@@ -273,7 +273,7 @@ class AnalysisWorker(BaseWorker):
             
             # Delay adicional configurable antes de transicionar a Stage 3
             if not self._stop_requested:
-                self.logger.info(f"Análisis completado, esperando {self.final_delay:.1f}s antes de transicionar...")
+                self.logger.debug(f"Análisis completado, esperando {self.final_delay:.1f}s antes de transicionar...")
                 time.sleep(self.final_delay)
             
             # Emitir resultado final (dataclass directamente, no dict)
