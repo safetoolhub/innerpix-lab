@@ -1,15 +1,49 @@
 """
 Workers para la aplicación Pixaro Lab
+
 Este módulo contiene todos los QThread workers que ejecutan operaciones
 en segundo plano para no bloquear la interfaz gráfica.
 
-Todos los workers heredan de BaseWorker y proporcionan señales tipadas
-con los dataclasses correspondientes de services.result_types
+ARQUITECTURA:
+- BaseWorker: Clase base con señales comunes y helpers
+- AnalysisWorker: Worker completo que delega a AnalysisOrchestrator
+- Execution Workers: RenamingWorker, LivePhotoCleanupWorker, etc.
+
+PRINCIPIOS DE DISEÑO:
+1. Zero duplicación: El orchestrator maneja timing y lógica, workers solo Qt
+2. Type safety: Todos los workers usan dataclasses de services.result_types
+3. Cancelación uniforme: _stop_requested verificado en puntos clave
+4. UX suave: Delays mínimos configurables para feedback visual
+
+OPTIMIZACIONES APLICADAS:
+- Callbacks simplificados (_handle_phase_start, _handle_partial_result)
+- Timing centralizado en orchestrator (zero duplicación)
+- Progress callback con verificación única de stop
+- Señales Qt emitidas en tiempo real sin procesamiento extra
+
+SINERGIAS POTENCIALES (Futuro):
+Para directorios muy grandes (10k+ archivos), podría optimizarse scan_directory
+para pre-cachear datos compartidos entre fases:
+- Hashes SHA256: Usados por exact_copies y heic_remover
+- Fechas EXIF: Usadas por file_renamer y file_organizer
+- Metadata básico: Tamaño, tipo, usado por todas las fases
+
+Implementación sugerida: DirectoryScanResult extendido con cache opcional
+que se pasa entre fases. Requiere refactor del orchestrator para soportar
+context sharing entre servicios.
+
+SINCRONIZACIÓN UI-WORKER:
+- phase_update: UI muestra nueva fase activa
+- phase_completed: UI marca fase como completada (con delay UX)
+- stats_update: UI actualiza estadísticas de escaneo
+- partial_results: UI puede mostrar preview de resultados
+- progress_update: UI actualiza barra de progreso
+- finished: UI recibe FullAnalysisResult con todos los datos
 """
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING, List, Dict, Optional, Callable
+from typing import TYPE_CHECKING, List, Dict, Optional, Callable, Any
 from pathlib import Path
 
 from PyQt6.QtCore import QThread, pyqtSignal
@@ -87,9 +121,9 @@ class BaseWorker(QThread):
             Callable that returns False when stop is requested, True otherwise
         """
         def callback(current: int, total: int, message: str) -> bool:
-            # Check if stop was requested BEFORE emitting
+            # Single check for stop request (optimized)
             if self._stop_requested:
-                return False  # Signal to stop processing immediately
+                return False
             
             try:
                 if emit_numbers:
@@ -102,7 +136,7 @@ class BaseWorker(QThread):
                 # La señal de progreso no debe bloquear el worker
                 pass
             
-            # Check again after emitting in case stop was requested during emit
+            # Return stop status
             return not self._stop_requested
 
         return callback
@@ -112,24 +146,30 @@ class BaseWorker(QThread):
 class AnalysisWorker(BaseWorker):
     """
     Worker unificado para análisis completo.
-    Delega la lógica de análisis a AnalysisOrchestrator y solo maneja
-    threading + señales Qt + timing mínimo configurable por fase.
+    
+    Responsabilidades:
+    - Threading: Ejecuta análisis en background sin bloquear UI
+    - Señales Qt: Convierte callbacks del orchestrator en señales PyQt6
+    - UX timing: Asegura duración mínima de fases para feedback visual
+    
+    El orchestrator maneja toda la lógica de análisis y timing interno.
+    Este worker solo agrega la capa de presentación (delays UX, señales Qt).
     
     Signals:
-        finished(FullAnalysisResult): Emite resultado completo del análisis
-        phase_update(str): Emite phase_id cuando inicia una fase
-        phase_completed(str): Emite phase_id cuando completa una fase
-        stats_update(ScanResult): Emite estadísticas de escaneo
-        partial_results(dict): Emite resultados parciales por fase
-        progress_update(int, int, str): Heredado de BaseWorker
-        error(str): Heredado de BaseWorker
+        finished(FullAnalysisResult): Resultado completo con todos los timings
+        phase_update(str): Notifica inicio de fase (para UI)
+        phase_completed(str): Notifica fin de fase (para UI)
+        stats_update(dict): Estadísticas de escaneo inicial
+        partial_results(dict): Resultados parciales por fase
+        progress_update(int, int, str): Progreso de operación actual
+        error(str): Error con traceback
     """
     # Sobrescribir finished con tipo específico (FullAnalysisResult)
     finished = pyqtSignal(object)  # En runtime es object, pero tipo semántico es FullAnalysisResult
     
-    phase_update = pyqtSignal(str)
-    phase_completed = pyqtSignal(str)
-    stats_update = pyqtSignal(object)  # ScanResult
+    phase_update = pyqtSignal(str)  # phase_id
+    phase_completed = pyqtSignal(str)  # phase_id
+    stats_update = pyqtSignal(object)  # Dict con estadísticas de scan
     partial_results = pyqtSignal(object)  # Dict[str, AnalysisResult]
 
     def __init__(
@@ -137,7 +177,7 @@ class AnalysisWorker(BaseWorker):
         directory: Path,
         renamer: 'FileRenamer',
         live_photo_service: 'LivePhotoService',
-        unifier: 'FileOrganizer',
+        organizer: 'FileOrganizer',
         heic_remover: 'HEICRemover',
         duplicate_exact_detector: Optional['ExactCopiesDetector'] = None,
         organization_type: Optional[str] = None
@@ -146,137 +186,126 @@ class AnalysisWorker(BaseWorker):
         self.directory = directory
         self.renamer = renamer
         self.live_photo_service = live_photo_service
-        self.unifier = unifier
+        self.organizer = organizer
         self.heic_remover = heic_remover
         self.duplicate_exact_detector = duplicate_exact_detector
         self.organization_type = organization_type
-        self.phase_timings: Dict[str, Dict] = {}  # Almacena timing de cada fase
         
-        # Leer duración mínima desde config
+        # Leer configuración UX de delays
         self.min_phase_duration: float = Config.MIN_PHASE_DURATION_SECONDS
         self.final_delay: float = Config.FINAL_DELAY_BEFORE_STAGE3_SECONDS
+        
+        # Tracking de fase actual para delays UX
+        self._current_phase_id: Optional[str] = None
+        self._current_phase_start: float = 0.0
 
-    def _ensure_min_phase_duration(self, phase_id: str, actual_duration: float) -> None:
+    def _handle_phase_start(self, phase_id: str) -> None:
         """
-        Asegura que una fase tenga al menos min_phase_duration de visualización.
-        Si la duración real es menor, hace sleep del tiempo restante.
-        Antes del delay, asegura que el progreso muestre 100% (current == total).
+        Maneja el inicio de una nueva fase.
+        Completa la fase anterior con delay UX si es necesario.
+        
+        Args:
+            phase_id: ID de la nueva fase que está iniciando
+        """
+        if self._stop_requested:
+            return
+        
+        # Completar fase anterior si existe
+        if self._current_phase_id is not None:
+            actual_duration = time.time() - self._current_phase_start
+            
+            # Aplicar delay UX si la fase fue muy rápida
+            if actual_duration < self.min_phase_duration:
+                delay = self.min_phase_duration - actual_duration
+                self.logger.debug(
+                    f"Fase '{self._current_phase_id}' duró {actual_duration:.2f}s, "
+                    f"aplicando delay UX de {delay:.2f}s (mínimo: {self.min_phase_duration:.1f}s)"
+                )
+                time.sleep(delay)
+            
+            # Emitir señal de fase completada
+            if not self._stop_requested:
+                self.phase_completed.emit(self._current_phase_id)
+        
+        # Iniciar nueva fase
+        self._current_phase_id = phase_id
+        self._current_phase_start = time.time()
+        self.phase_update.emit(phase_id)
+    
+    def _handle_partial_result(self, phase_id: str, result: Any) -> None:
+        """
+        Maneja resultados parciales de cada fase.
         
         Args:
             phase_id: ID de la fase
-            actual_duration: Duración real de la fase en segundos
+            result: Resultado parcial (puede ser dict o dataclass)
         """
-        if actual_duration < self.min_phase_duration:
-            delay_needed = self.min_phase_duration - actual_duration
-            self.logger.debug(
-                f"Fase '{phase_id}' completada en {actual_duration:.2f}s, "
-                f"agregando delay de {delay_needed:.2f}s (mínimo: {self.min_phase_duration:.1f}s)"
-            )
-            time.sleep(delay_needed)
+        if self._stop_requested:
+            return
+        
+        # El escaneo emite estadísticas en formato especial
+        if phase_id == 'scan':
+            self.stats_update.emit(result)
+        else:
+            # Otras fases emiten resultados en dict
+            self.partial_results.emit({phase_id: result})
 
     def run(self) -> None:
+        """
+        Ejecuta el análisis completo en background.
+        
+        Flujo optimizado:
+        1. Orchestrator ejecuta todo el análisis (sin delays)
+        2. Worker aplica delays UX solo para presentación
+        3. Señales Qt emitidas en tiempo real
+        4. Zero duplicación de lógica de timing
+        """
         try:
-            # Importar orchestrator aquí para evitar dependencias circulares
+            # Importar dependencias aquí (evita imports circulares)
             from services.analysis_orchestrator import AnalysisOrchestrator
             from utils.logger import get_logger
             
             self.logger = get_logger('AnalysisWorker')
             orchestrator = AnalysisOrchestrator()
             
-            # Callbacks para conectar orchestrator con señales Qt
-            def phase_callback(phase_id: str) -> None:
-                """
-                Emite cuando inicia una fase.
-                Completa la fase anterior si existe (aplicando delay mínimo).
-                """
-                if self._stop_requested:
-                    return
-                
-                # Si hay una fase anterior, completarla con delay mínimo
-                if self.phase_timings:
-                    last_phase_id = list(self.phase_timings.keys())[-1]
-                    last_timing = self.phase_timings[last_phase_id]
-                    
-                    # Emitir progreso final (100%) antes del delay si tenemos el total
-                    if 'total_files' in last_timing and last_timing['total_files'] > 0:
-                        total = last_timing['total_files']
-                        self.progress_update.emit(total, total, f"Completando {last_phase_id}...")
-                    
-                    self._ensure_min_phase_duration(last_phase_id, last_timing['duration'])
-                    
-                    if not self._stop_requested:
-                        # Loggear completado ANTES de emitir señal (mismo thread, inmediato)
-                        self.logger.debug(f"Fase completada: {last_phase_id}")
-                        self.phase_completed.emit(last_phase_id)
-                
-                # Registrar inicio de nueva fase
-                self.phase_timings[phase_id] = {
-                    'start_time': time.time(),
-                    'duration': 0.0
-                }
-                
-                # Loggear inicio ANTES de emitir señal (mismo thread, inmediato)
-                self.logger.debug(f"Fase iniciada: {phase_id}")
-                # Emitir inicio de fase
-                self.phase_update.emit(phase_id)
-            
-            def partial_callback(phase_name: str, data) -> None:
-                """Emite resultados parciales y registra duración de fase"""
-                if self._stop_requested:
-                    return
-                
-                # Registrar duración real de la fase
-                if phase_name in self.phase_timings:
-                    self.phase_timings[phase_name]['duration'] = (
-                        time.time() - self.phase_timings[phase_name]['start_time']
-                    )
-                    # Guardar el total de archivos para esta fase
-                    if hasattr(data, 'total_files'):
-                        self.phase_timings[phase_name]['total_files'] = data.total_files
-                
-                # Emitir resultado parcial
-                if phase_name == 'scan':
-                    self.stats_update.emit(data)
-                else:
-                    self.partial_results.emit({phase_name: data})
-            
-            # Ejecutar análisis completo usando orchestrator
-            # Usar emit_numbers=True para que las fases con números reales (scan, duplicates)
-            # emitan (current, total, mensaje) y el UI pueda mostrar progreso real
+            # Ejecutar análisis completo
+            # El orchestrator maneja toda la lógica, este worker solo convierte a señales Qt
             result: 'FullAnalysisResult' = orchestrator.run_full_analysis(
                 directory=self.directory,
                 renamer=self.renamer,
                 live_photo_service=self.live_photo_service,
-                organizer=self.unifier,
+                organizer=self.organizer,
                 heic_remover=self.heic_remover,
                 duplicate_exact_detector=self.duplicate_exact_detector,
                 organization_type=self.organization_type,
                 progress_callback=self._create_progress_callback(emit_numbers=True),
-                phase_callback=phase_callback,
-                partial_callback=partial_callback
+                phase_callback=self._handle_phase_start,
+                partial_callback=self._handle_partial_result
             )
             
-            # Completar la última fase (finalizing) con delay mínimo
-            if self.phase_timings and not self._stop_requested:
-                last_phase_id = list(self.phase_timings.keys())[-1]
-                last_timing = self.phase_timings[last_phase_id]
-                
-                # Emitir progreso final (100%) antes del delay si tenemos el total
-                if 'total_files' in last_timing and last_timing['total_files'] > 0:
-                    total = last_timing['total_files']
-                    self.progress_update.emit(total, total, f"Completando {last_phase_id}...")
-                
-                self._ensure_min_phase_duration(last_phase_id, last_timing['duration'])
+            # Completar última fase con delay UX
+            if self._current_phase_id and not self._stop_requested:
+                actual_duration = time.time() - self._current_phase_start
+                if actual_duration < self.min_phase_duration:
+                    delay = self.min_phase_duration - actual_duration
+                    self.logger.debug(
+                        f"Fase final '{self._current_phase_id}' duró {actual_duration:.2f}s, "
+                        f"aplicando delay UX de {delay:.2f}s"
+                    )
+                    time.sleep(delay)
                 
                 if not self._stop_requested:
-                    self.phase_completed.emit(last_phase_id)
+                    self.phase_completed.emit(self._current_phase_id)
             
-            # Delay adicional configurable antes de transicionar a Stage 3
+            # Delay final antes de transición a Stage 3 (UX suave)
             if not self._stop_requested:
-                self.logger.debug(f"Análisis completado, esperando {self.final_delay:.1f}s antes de transicionar...")
+                self.logger.debug(
+                    f"Análisis completado en {result.total_duration:.2f}s, "
+                    f"esperando {self.final_delay:.1f}s antes de transicionar a Stage 3"
+                )
                 time.sleep(self.final_delay)
             
-            # Emitir resultado final (dataclass directamente, no dict)
+            # Emitir resultado final
             if not self._stop_requested:
                 self.finished.emit(result)
 
