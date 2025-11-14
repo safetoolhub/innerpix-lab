@@ -84,7 +84,7 @@ class Stage2Window(BaseStage):
         # Iniciar análisis con delay para mostrar animaciones
         QTimer.singleShot(200, self._start_analysis)
 
-        self.logger.info("UI del Estado 2 configurada")
+        self.logger.debug("UI del Estado 2 configurada")
 
     def cleanup(self) -> None:
         """Limpia los recursos del Estado 2."""
@@ -135,7 +135,7 @@ class Stage2Window(BaseStage):
             directory=Path(self.selected_folder),
             renamer=renamer,
             live_photo_service=live_photo_service,
-            unifier=organizer,
+            organizer=organizer,
             heic_remover=heic_remover,
             duplicate_exact_detector=duplicate_exact_detector,
             organization_type=None  # Se usará el default

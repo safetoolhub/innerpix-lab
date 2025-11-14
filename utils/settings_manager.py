@@ -35,6 +35,7 @@ class SettingsManager:
     # === AVANZADO ===
     KEY_DRY_RUN_DEFAULT = "advanced/dry_run_default"
     KEY_MAX_WORKERS = "advanced/max_workers"
+    KEY_USE_VIDEO_METADATA = "advanced/use_video_metadata"
 
     # === VENTANA ===
     KEY_WINDOW_GEOMETRY = "window/geometry"
@@ -267,6 +268,14 @@ class SettingsManager:
     def set_analysis_timestamp(self, timestamp: str) -> None:
         """Establece el timestamp del último análisis"""
         self.set(self.KEY_ANALYSIS_TIMESTAMP, timestamp)
+
+    def get_last_folder(self) -> Optional[str]:
+        """Obtiene la última carpeta analizada"""
+        return self.get('last_analyzed_folder', None)
+
+    def set_last_folder(self, folder_path: str) -> None:
+        """Establece la última carpeta analizada"""
+        self.set('last_analyzed_folder', folder_path)
 
 
 # Instancia global del gestor de configuración

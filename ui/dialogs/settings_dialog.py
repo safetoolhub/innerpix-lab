@@ -569,6 +569,18 @@ class SettingsDialog(QDialog):
             "Cambiar el número de hilos requiere reiniciar la aplicación para tener efecto completo."
         )
         perf_layout.addWidget(perf_info)
+        
+        # Checkbox para metadatos de video
+        self.use_video_metadata_checkbox = QCheckBox("Extraer metadatos de archivos de video (lento)")
+        self.use_video_metadata_checkbox.setChecked(Config.USE_VIDEO_METADATA)
+        self.use_video_metadata_checkbox.setToolTip(
+            "Habilitar extracción de metadatos de videos usando ffprobe.\n"
+            "ADVERTENCIA: Este proceso es muy lento y puede afectar el rendimiento.\n"
+            "La aplicación está optimizada para imágenes, por lo que esta opción\n"
+            "está deshabilitada por defecto."
+        )
+        self.use_video_metadata_checkbox.setStyleSheet(self._get_checkbox_style())
+        perf_layout.addWidget(self.use_video_metadata_checkbox)
 
         layout.addWidget(perf_group)
 
@@ -699,6 +711,7 @@ class SettingsDialog(QDialog):
             # Advanced tab
             self.max_workers_spin.setValue(settings_manager.get_max_workers(Config.MAX_WORKERS))
             self.dry_run_default_checkbox.setChecked(settings_manager.get_bool(settings_manager.KEY_DRY_RUN_DEFAULT, False))
+            self.use_video_metadata_checkbox.setChecked(settings_manager.get_bool(settings_manager.KEY_USE_VIDEO_METADATA, False))
 
             # Directories tab - Log level
             current_level = settings_manager.get_log_level("INFO")
@@ -735,6 +748,7 @@ class SettingsDialog(QDialog):
             'show_path': self.show_full_path_checkbox.isChecked(),
             'max_workers': self.max_workers_spin.value(),
             'dry_run': self.dry_run_default_checkbox.isChecked(),
+            'use_video_metadata': self.use_video_metadata_checkbox.isChecked(),
         }
         self.logger.debug(f"Valores originales guardados: {self.original_values}")
     
@@ -747,6 +761,7 @@ class SettingsDialog(QDialog):
         self.show_notifications_checkbox.stateChanged.connect(lambda: self._on_widget_changed("show_notif"))
         self.show_full_path_checkbox.stateChanged.connect(lambda: self._on_widget_changed("show_path"))
         self.dry_run_default_checkbox.stateChanged.connect(lambda: self._on_widget_changed("dry_run"))
+        self.use_video_metadata_checkbox.stateChanged.connect(lambda: self._on_widget_changed("use_video_metadata"))
         
         # Spinbox
         self.max_workers_spin.valueChanged.connect(lambda: self._on_widget_changed("max_workers"))
@@ -816,10 +831,15 @@ class SettingsDialog(QDialog):
         original_dry_run = self.original_values['dry_run']
         dry_run_changed = current_dry_run != original_dry_run
         
+        current_use_video_metadata = self.use_video_metadata_checkbox.isChecked()
+        original_use_video_metadata = self.original_values['use_video_metadata']
+        use_video_metadata_changed = current_use_video_metadata != original_use_video_metadata
+        
         has_changes = (
             logs_changed or backup_changed or level_changed or auto_backup_changed or
             confirm_ops_changed or confirm_delete_changed or show_notif_changed or
-            show_path_changed or max_workers_changed or dry_run_changed
+            show_path_changed or max_workers_changed or dry_run_changed or
+            use_video_metadata_changed
         )
         
         # Habilitar/deshabilitar botón según haya cambios
@@ -994,6 +1014,7 @@ class SettingsDialog(QDialog):
             current_show_path = settings_manager.get_show_full_path()
             current_max_workers = settings_manager.get_max_workers(Config.MAX_WORKERS)
             current_dry_run = settings_manager.get_bool(settings_manager.KEY_DRY_RUN_DEFAULT, False)
+            current_use_video_metadata = settings_manager.get_bool(settings_manager.KEY_USE_VIDEO_METADATA, False)
             
             # Valores nuevos (desde UI)
             new_logs_dir = Path(self.logs_edit.text())
@@ -1006,6 +1027,7 @@ class SettingsDialog(QDialog):
             new_show_path = self.show_full_path_checkbox.isChecked()
             new_max_workers = self.max_workers_spin.value()
             new_dry_run = self.dry_run_default_checkbox.isChecked()
+            new_use_video_metadata = self.use_video_metadata_checkbox.isChecked()
             
             # Detectar qué cambió
             logs_dir_changed = (current_logs_dir != new_logs_dir)
@@ -1019,7 +1041,8 @@ class SettingsDialog(QDialog):
                 current_show_notif != new_show_notif or
                 current_show_path != new_show_path or
                 current_max_workers != new_max_workers or
-                current_dry_run != new_dry_run
+                current_dry_run != new_dry_run or
+                current_use_video_metadata != new_use_video_metadata
             )
             
             # Si NO hay cambios, cerrar inmediatamente sin operaciones costosas
@@ -1067,6 +1090,10 @@ class SettingsDialog(QDialog):
                 settings_manager.set(settings_manager.KEY_MAX_WORKERS, new_max_workers)
             if current_dry_run != new_dry_run:
                 settings_manager.set(settings_manager.KEY_DRY_RUN_DEFAULT, new_dry_run)
+            if current_use_video_metadata != new_use_video_metadata:
+                settings_manager.set(settings_manager.KEY_USE_VIDEO_METADATA, new_use_video_metadata)
+                # Actualizar Config.USE_VIDEO_METADATA para que tenga efecto inmediato
+                Config.USE_VIDEO_METADATA = new_use_video_metadata
 
             self.logger.info("Configuración guardada exitosamente")
 

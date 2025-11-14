@@ -32,10 +32,11 @@ class OrganizationWorker(QThread):
     progress = pyqtSignal(int, int, str)
     error = pyqtSignal(str)
     
-    def __init__(self, root_directory: Path, organization_type: OrganizationType):
+    def __init__(self, root_directory: Path, organization_type: OrganizationType, metadata_cache=None):
         super().__init__()
         self.root_directory = root_directory
         self.organization_type = organization_type
+        self.metadata_cache = metadata_cache
         self.organizer = FileOrganizer()
         self.logger = get_logger("OrganizationWorker")
     
@@ -73,7 +74,7 @@ class FileOrganizationDialog(BaseDialog):
     ITEMS_PER_PAGE = 200
     MAX_ITEMS_WITHOUT_PAGINATION = 500
 
-    def __init__(self, initial_analysis: OrganizationAnalysisResult, parent=None):
+    def __init__(self, initial_analysis: OrganizationAnalysisResult, parent=None, metadata_cache=None):
         super().__init__(parent)
         self.logger = get_logger("FileOrganizationDialog")
         
@@ -82,6 +83,7 @@ class FileOrganizationDialog(BaseDialog):
         self.analysis = initial_analysis
         self.current_organization_type = OrganizationType(initial_analysis.organization_type)
         self.accepted_plan = None
+        self.metadata_cache = metadata_cache  # Caché para reutilizar en re-análisis
         
         # Datos filtrados y paginación
         self.filtered_moves = list(initial_analysis.move_plan)
@@ -232,8 +234,8 @@ class FileOrganizationDialog(BaseDialog):
         self.is_analyzing = True
         self._set_ui_loading_state(True)
         
-        # Crear y configurar worker
-        self.worker = OrganizationWorker(self.root_directory, org_type)
+        # Crear y configurar worker (pasar caché si está disponible)
+        self.worker = OrganizationWorker(self.root_directory, org_type, self.metadata_cache)
         self.worker.finished.connect(self._on_analysis_finished)
         self.worker.progress.connect(self._on_analysis_progress)
         self.worker.error.connect(self._on_analysis_error)

@@ -5,6 +5,7 @@ Este servicio fusiona LivePhotoDetector y LivePhotoCleaner en una sola clase
 para simplificar la API y eliminar duplicación de código.
 """
 import os
+import logging
 from pathlib import Path
 from datetime import datetime
 from typing import List, Optional, Callable
@@ -168,15 +169,16 @@ class LivePhotoService(BaseService):
 
         # Logging detallado
         from utils.format_utils import format_size
-        self.logger.info("Live Photos - Archivos para eliminar:")
-        for file_info in cleanup_plan['files_to_delete']:
-            self.logger.info(f"  → A eliminar: {file_info['path']} ({file_info['type']}, {format_size(file_info['size'])})")
+        if self.logger.isEnabledFor(logging.DEBUG):
+            self.logger.debug("Live Photos - Archivos para eliminar:")
+            for file_info in cleanup_plan['files_to_delete']:
+                self.logger.debug(f"  → A eliminar: {file_info['path']} ({file_info['type']}, {format_size(file_info['size'])})")
+            
+            self.logger.debug("Live Photos: Archivos a conservar:")
+            for file_info in cleanup_plan['files_to_keep']:
+                self.logger.debug(f"  ✓ A conservar: {file_info['path']} ({file_info['type']}, {format_size(file_info['size'])})")
         
-        self.logger.info("Live Photos: Archivos a conservar:")
-        for file_info in cleanup_plan['files_to_keep']:
-            self.logger.info(f"  ✓ A conservar: {file_info['path']} ({file_info['type']}, {format_size(file_info['size'])})")
-        
-        self.logger.info(f"Análisis completado: {len(cleanup_plan['files_to_delete'])} archivos a eliminar")
+        log_section_footer_discrete(self.logger, f"Análisis completado: {len(cleanup_plan['files_to_delete'])} archivos a eliminar")
 
         return result
 
@@ -243,6 +245,10 @@ class LivePhotoService(BaseService):
             # Ejecutar eliminaciones
             total = len(files_to_delete)
             for idx, file_info in enumerate(files_to_delete):
+                # Reportar progreso cada 1000 archivos
+                if (idx + 1) % 1000 == 0:
+                    self.logger.info(f"Procesados {idx + 1}/{total} archivos en limpieza de Live Photos")
+
                 # Reportar progreso
                 if progress_callback:
                     if not progress_callback(idx + 1, total, f"Procesando {idx + 1}/{total}"):
@@ -260,7 +266,7 @@ class LivePhotoService(BaseService):
                             results.simulated_space_freed += file_size
                             results.deleted_files.append(str(file_path))
                             from utils.format_utils import format_size
-                            self.logger.info(f"[SIMULACIÓN] Eliminaría: {file_path} ({file_info['type']}, {format_size(file_size)})")
+                            self.logger.debug(f"[SIMULACIÓN] Eliminaría: {file_path} ({file_info['type']}, {format_size(file_size)})")
                         else:
                             error_msg = f"Archivo no encontrado (simulación): {file_path}"
                             results.add_error(error_msg)
@@ -282,7 +288,7 @@ class LivePhotoService(BaseService):
                         results.deleted_files.append(str(file_path))
                         
                         from utils.format_utils import format_size
-                        self.logger.info(f"✓ Eliminado: {file_path} ({file_info['type']}, {format_size(file_size)})")
+                        self.logger.debug(f"✓ Eliminado: {file_path} ({file_info['type']}, {format_size(file_size)})")
 
                 except Exception as e:
                     error_msg = f"Error eliminando {file_path.name}: {str(e)}"

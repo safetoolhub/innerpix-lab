@@ -36,6 +36,14 @@ class Stage3Window(BaseStage):
         # Parámetros del estado
         self.selected_folder = selected_folder
         self.analysis_results = analysis_results
+        
+        # Extraer metadata_cache del análisis para reutilizarla
+        self.metadata_cache = None
+        if analysis_results and analysis_results.scan:
+            scan_data = analysis_results.scan
+            if hasattr(scan_data, 'metadata_cache') and scan_data.metadata_cache:
+                self.metadata_cache = scan_data.metadata_cache
+                self.logger.debug("Metadata cache disponible desde análisis inicial")
 
         # Referencias a widgets del estado
         self.header = None
@@ -424,7 +432,8 @@ class Stage3Window(BaseStage):
                 # Card está deshabilitada, no debería llegar aquí
                 return
             # Permitir abrir el dialog incluso con 0 archivos, ya que el usuario puede cambiar el tipo
-            dialog = FileOrganizationDialog(org_data, self.main_window)
+            # Pasar metadata_cache para optimizar re-análisis cuando se cambia el tipo
+            dialog = FileOrganizationDialog(org_data, self.main_window, self.metadata_cache)
 
         elif tool_id == 'rename':
             rename_data = self.analysis_results.renaming

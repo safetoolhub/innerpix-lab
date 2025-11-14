@@ -46,7 +46,10 @@ class Config:
     # ========================================================================
     # CONFIGURACIÓN DE PROCESAMIENTO
     # ========================================================================
-    MAX_WORKERS = 4
+    # MAX_WORKERS: Detectar automáticamente cores disponibles (mínimo 4, máximo 16)
+    import os
+    _detected_cores = os.cpu_count() or 4
+    MAX_WORKERS = min(max(_detected_cores, 4), 16)
     PROGRESS_UPDATE_INTERVAL = 10
     DEFAULT_WORKER_THREADS = 4
     MAX_WORKER_THREADS = 16
@@ -105,6 +108,13 @@ class Config:
     # Configuración para detección de duplicados (futuro)
     DEFAULT_HAMMING_THRESHOLD = 5
     MAX_HAMMING_THRESHOLD = 20
+    
+    # Configuración para detección de duplicados HEIC/JPG
+    MAX_TIME_DIFFERENCE_SECONDS = 60  # Tolerancia máxima de tiempo entre archivos duplicados (segundos)
+    
+    # Configuración de extracción de metadatos de video
+    # Por defecto False porque es muy lento y la app se enfoca en imágenes
+    USE_VIDEO_METADATA = False
     
 
 

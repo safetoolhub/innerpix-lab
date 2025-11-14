@@ -14,6 +14,7 @@ from utils.decorators import deprecated
 from services.result_types import DuplicateAnalysisResult, DuplicateDeletionResult, DuplicateGroup
 from services.base_detector_service import BaseDetectorService
 from services.base_service import BaseService, ProgressCallback
+from services.metadata_cache import FileMetadataCache
 from utils.logger import log_section_header_discrete, log_section_footer_discrete
 
 
@@ -34,7 +35,8 @@ class ExactCopiesDetector(BaseDetectorService):
     def analyze(
         self,
         directory: Path,
-        progress_callback: Optional[ProgressCallback] = None
+        progress_callback: Optional[ProgressCallback] = None,
+        metadata_cache: Optional[FileMetadataCache] = None
     ) -> DuplicateAnalysisResult:
         """
         Analiza directorio buscando duplicados exactos (SHA256)
@@ -42,6 +44,7 @@ class ExactCopiesDetector(BaseDetectorService):
         Args:
             directory: Directorio a analizar
             progress_callback: Callback de progreso
+            metadata_cache: Caché opcional de metadatos para reutilizar hashes SHA256
             
         Returns:
             DuplicateAnalysisResult con grupos de duplicados exactos
@@ -78,9 +81,27 @@ class ExactCopiesDetector(BaseDetectorService):
         file_hashes = {}
         processed = 0
         
+        # Función auxiliar para calcular hash con caché de metadatos
+        def get_file_hash(file_path):
+            """Obtiene hash desde metadata_cache o calcula si no existe"""
+            # Intentar obtener de caché de metadatos primero
+            if metadata_cache:
+                cached_hash = metadata_cache.get_hash(file_path)
+                if cached_hash:
+                    return cached_hash
+            
+            # Calcular hash (usa hash_cache interno de la sesión)
+            file_hash = calculate_file_hash(file_path, cache=hash_cache)
+            
+            # Cachear en metadata_cache para futuros usos
+            if file_hash and metadata_cache:
+                metadata_cache.set_hash(file_path, file_hash)
+            
+            return file_hash
+        
         with ThreadPoolExecutor(max_workers=4) as executor:
             future_to_file = {
-                executor.submit(calculate_file_hash, file_path, cache=hash_cache): file_path
+                executor.submit(get_file_hash, file_path): file_path
                 for file_path in files
             }
             

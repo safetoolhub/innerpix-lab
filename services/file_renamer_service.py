@@ -12,12 +12,13 @@ from collections import defaultdict, Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from config import Config
-from utils.logger import get_logger, log_section_header_relevant, log_section_footer_relevant
+from utils.logger import get_logger, log_section_header_relevant, log_section_footer_relevant, log_section_header_discrete, log_section_footer_discrete
 from utils.settings_manager import settings_manager
 from services.result_types import RenameResult, RenameAnalysisResult
 from services.base_service import BaseService, ProgressCallback
 from utils.date_utils import (
     get_date_from_file,
+    get_all_file_dates,
     format_renamed_name,
     is_renamed_filename,
     parse_renamed_name
@@ -28,6 +29,7 @@ from utils.file_utils import (
     validate_file_exists,
 )
 from utils.decorators import deprecated
+from services.metadata_cache import FileMetadataCache
 
 class FileRenamer(BaseService):
     """
@@ -43,7 +45,8 @@ class FileRenamer(BaseService):
     def analyze(
         self,
         directory: Path,
-        progress_callback: Optional[ProgressCallback] = None
+        progress_callback: Optional[ProgressCallback] = None,
+        metadata_cache: Optional[FileMetadataCache] = None
     ) -> RenameAnalysisResult:
         """
         Analiza un directorio para renombrado.
@@ -54,6 +57,7 @@ class FileRenamer(BaseService):
             directory: Directorio a analizar
             progress_callback: Función callback(current, total, message) para
                              reportar progreso
+            metadata_cache: Caché opcional de metadatos para reutilizar fechas EXIF
             
         Returns:
             RenameAnalysisResult con análisis detallado
@@ -61,7 +65,7 @@ class FileRenamer(BaseService):
         Raises:
             FileNotFoundError: Si directory no existe
         """
-        self.logger.info(f"Analizando directorio para renombrado: {directory}")
+        log_section_header_discrete(self.logger, f"ANALIZANDO DIRECTORIO PARA RENOMBRADO: {directory}")
 
         all_files = []
         for file_path in directory.rglob("*"):
@@ -88,8 +92,25 @@ class FileRenamer(BaseService):
             if is_renamed_filename(file_path.name):
                 return ('already_renamed', file_path, None)
             
-            # Obtener fecha del archivo
-            file_date = get_date_from_file(file_path)
+            # Intentar obtener fecha de la caché primero
+            file_date = None
+            if metadata_cache:
+                file_date = metadata_cache.get_exif_date(file_path)
+            
+            # Si no está en caché, extraer y cachear
+            if not file_date:
+                file_date = get_date_from_file(file_path)
+                
+                # Cachear la fecha si se obtuvo y hay caché disponible
+                if file_date and metadata_cache:
+                    # Obtener todas las fechas para cachear el máximo de info
+                    all_dates = get_all_file_dates(file_path)
+                    metadata_cache.set_exif_dates(
+                        file_path,
+                        exif_date=all_dates.get('exif_date'),
+                        exif_date_original=all_dates.get('exif_date_original')
+                    )
+            
             if not file_date:
                 return ('no_date', file_path, f"No se pudo obtener fecha: {file_path.name}")
             
@@ -111,13 +132,17 @@ class FileRenamer(BaseService):
 
         # Procesar archivos en paralelo
         processed = 0
+        # OPTIMIZACIÓN: Reducir frecuencia de callbacks (de 10 a 50 archivos)
+        # Menor overhead de comunicación Qt sin perder responsividad
+        progress_interval = 50
+        
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {executor.submit(process_file, f): f for f in all_files}
             
             for future in as_completed(futures):
                 processed += 1
                 
-                if processed % 10 == 0:
+                if processed % progress_interval == 0:
                     # Si el callback retorna False, detener procesamiento
                     if not self._report_progress(progress_callback, processed, total_files, "Analizando nombres de archivos"):
                         executor.shutdown(wait=False, cancel_futures=True)
@@ -176,9 +201,7 @@ class FileRenamer(BaseService):
                     })
                     need_renaming += 1
 
-        self.logger.info(
-            f"Análisis completado: {need_renaming} archivos para renombrar"
-        )
+        log_section_footer_discrete(self.logger, f"Análisis completado: {need_renaming} archivos para renombrar")
         
         return RenameAnalysisResult(
             success=True,

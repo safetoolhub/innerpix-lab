@@ -163,7 +163,6 @@ class HeicAnalysisResult(AnalysisResult):
     potential_savings_keep_heic: int = 0
     orphan_heic: List = field(default_factory=list)
     orphan_jpg: List = field(default_factory=list)
-    compression_stats: Dict = field(default_factory=dict)
     by_directory: Dict = field(default_factory=dict)
     
     @property

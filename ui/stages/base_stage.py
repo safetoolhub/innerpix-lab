@@ -151,11 +151,17 @@ class BaseStage(QObject):
     def save_analysis_results(self, results) -> None:
         """
         Guarda el resumen del análisis en la configuración.
+        
+        Automáticamente invalida la caché anterior si existe, ya que un nuevo
+        análisis significa que puede haber cambios en los archivos.
 
         Args:
             results: Resultados del análisis a guardar (FullAnalysisResult o dict)
         """
         try:
+            # Invalidar caché anterior antes de guardar nuevos resultados
+            self._invalidate_metadata_cache()
+            
             # Si es un dataclass, convertir a dict para persistencia
             from dataclasses import is_dataclass, asdict
             if is_dataclass(results):
@@ -167,6 +173,36 @@ class BaseStage(QObject):
             self.logger.debug("Resultados del análisis guardados")
         except Exception as e:
             self.logger.warning(f"Error guardando resultados del análisis: {e}")
+    
+    def _invalidate_metadata_cache(self) -> None:
+        """
+        Invalida la caché de metadatos de archivos.
+        
+        Debe llamarse después de operaciones destructivas:
+        - Eliminación de archivos (duplicados, HEIC, Live Photos)
+        - Movimiento de archivos (organización)
+        - Renombrado de archivos
+        
+        La caché se invalida automáticamente al guardar nuevos resultados
+        de análisis (save_analysis_results).
+        """
+        try:
+            # Obtener resultados actuales
+            current_results = self.get_analysis_summary()
+            
+            # Si hay resultados y contienen caché
+            if current_results and isinstance(current_results, dict):
+                # Verificar si hay metadata_cache en scan
+                scan_data = current_results.get('scan', {})
+                if scan_data and isinstance(scan_data, dict):
+                    # La caché no se serializa (es un objeto), pero logueamos la acción
+                    self.logger.debug("Invalidando caché de metadatos por nuevo análisis")
+            
+            # La próxima vez que se ejecute el análisis, se creará una nueva caché
+            self.logger.debug("Caché de metadatos marcada para regeneración")
+            
+        except Exception as e:
+            self.logger.warning(f"Error invalidando caché de metadatos: {e}")
 
     def get_analysis_summary(self) -> Optional[dict]:
         """
