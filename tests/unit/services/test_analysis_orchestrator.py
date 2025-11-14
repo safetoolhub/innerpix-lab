@@ -227,7 +227,7 @@ class TestDirectoryScanning:
         # Verificar que la última llamada es 100%
         last_call = progress_calls[-1]
         assert last_call[0] == last_call[1]  # current == total
-        assert last_call[2] == "Escaneando archivos"
+        assert last_call[2] == "Escaneando archivos y extrayendo metadatos"
     
     def test_scan_directory_cancellation(self, temp_dir, create_test_image):
         """Test cancelación del escaneo mediante callback."""

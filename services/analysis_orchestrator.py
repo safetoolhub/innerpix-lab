@@ -175,12 +175,15 @@ class AnalysisOrchestrator:
                       create_metadata_cache: bool = True) -> DirectoryScanResult:
         """
         Escanea un directorio y clasifica archivos por tipo.
+        Cuando create_metadata_cache=True, también extrae y cachea fechas EXIF
+        de archivos de imagen para optimizar fases posteriores.
         
         Args:
             directory: Directorio a escanear
             progress_callback: Función opcional (current, total, message) -> bool.
                              Retorna False para cancelar.
-            create_metadata_cache: Si crear caché de metadatos para optimizar fases
+            create_metadata_cache: Si crear caché de metadatos completo (incluye EXIF)
+                                  para optimizar fases posteriores
         
         Returns:
             DirectoryScanResult con archivos clasificados y caché opcional
@@ -201,7 +204,7 @@ class AnalysisOrchestrator:
         # Crear caché de metadatos si se solicita
         metadata_cache = FileMetadataCache() if create_metadata_cache else None
         if metadata_cache:
-            self.logger.debug("Caché de metadatos creada para optimizar fases")
+            self.logger.debug("Caché de metadatos completa creada (incluye EXIF para optimizar fases posteriores)")
         
         # Una sola iteración: clasificar directamente sin contar primero
         images, videos, others = [], [], []
@@ -211,10 +214,9 @@ class AnalysisOrchestrator:
         all_files = [f for f in directory.rglob("*") if f.is_file()]
         total_files = len(all_files)
         
-        # Segunda pasada: clasificar archivos y cachear metadata básico
+        # Segunda pasada: clasificar archivos y cachear metadata completo (incluye EXIF para imágenes)
         for f in all_files:
-            # Verificar cancelación al inicio del loop
-            if progress_callback and not progress_callback(processed, total_files, "Escaneando archivos"):
+            if progress_callback and not progress_callback(processed, total_files, "Escaneando archivos y extrayendo metadatos"):
                 self.logger.warning("Escaneo cancelado por usuario")
                 break
             
@@ -230,7 +232,7 @@ class AnalysisOrchestrator:
                 file_type = 'other'
             
             # Cachear metadata básico durante el escaneo (evita stat() posterior)
-            if metadata_cache:
+            if metadata_cache is not None:
                 try:
                     stat_info = f.stat()
                     metadata_cache.set_basic_metadata(
@@ -240,6 +242,23 @@ class AnalysisOrchestrator:
                         modified_time=stat_info.st_mtime,
                         created_time=stat_info.st_ctime
                     )
+                    
+                    # Para archivos de imagen, extraer y cachear fechas EXIF durante el scan
+                    # Esto optimiza la fase de renaming que las necesita
+                    if file_type == 'image':
+                        try:
+                            from utils.date_utils import get_all_file_dates
+                            exif_dates = get_all_file_dates(f)
+                            if exif_dates:
+                                metadata_cache.set_exif_dates(
+                                    f,
+                                    exif_date=exif_dates.get('exif_date'),
+                                    exif_date_original=exif_dates.get('exif_date_original')
+                                )
+                        except Exception as e:
+                            # No loguear warning para EXIF fallido - es común en archivos sin EXIF
+                            pass
+                            
                 except Exception as e:
                     self.logger.warning(f"No se pudo cachear metadata de {f}: {e}")
             
@@ -247,11 +266,11 @@ class AnalysisOrchestrator:
             
             # Reportar progreso cada 10 archivos (evitar demasiadas actualizaciones)
             if progress_callback and processed % 10 == 0:
-                progress_callback(processed, total_files, "Escaneando archivos")
+                progress_callback(processed, total_files, "Escaneando archivos y extrayendo metadatos")
         
         # Reportar progreso final (100%)
         if progress_callback and total_files > 0:
-            progress_callback(total_files, total_files, "Escaneando archivos")
+            progress_callback(total_files, total_files, "Escaneando archivos y extrayendo metadatos")
         
         result = DirectoryScanResult(
             total_files=total_files,
@@ -266,7 +285,8 @@ class AnalysisOrchestrator:
             f"{result.video_count} videos, {result.other_count} otros"
         )
         if metadata_cache:
-            self.logger.debug(f"Metadata cacheado para {len(metadata_cache)} archivos")
+            exif_cached = sum(1 for m in metadata_cache._cache.values() if m.exif_date or m.exif_date_original)
+            self.logger.debug(f"Metadata cacheado para {len(metadata_cache)} archivos ({exif_cached} con fechas EXIF)")
         
         return result
     
