@@ -401,7 +401,8 @@ class TestIndividualAnalysis:
         assert result == mock_result
         mock_heic_remover.analyze.assert_called_once_with(
             temp_dir,
-            progress_callback=None
+            progress_callback=None,
+            metadata_cache=None
         )
     
     def test_analyze_exact_duplicates(self, temp_dir):

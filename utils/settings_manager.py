@@ -268,6 +268,14 @@ class SettingsManager:
         """Establece el timestamp del último análisis"""
         self.set(self.KEY_ANALYSIS_TIMESTAMP, timestamp)
 
+    def get_last_folder(self) -> Optional[str]:
+        """Obtiene la última carpeta analizada"""
+        return self.get('last_analyzed_folder', None)
+
+    def set_last_folder(self, folder_path: str) -> None:
+        """Establece la última carpeta analizada"""
+        self.set('last_analyzed_folder', folder_path)
+
 
 # Instancia global del gestor de configuración
 # Por defecto intenta usar QSettingsBackend si PyQt6 está disponible

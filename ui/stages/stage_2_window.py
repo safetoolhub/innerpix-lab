@@ -135,7 +135,7 @@ class Stage2Window(BaseStage):
             directory=Path(self.selected_folder),
             renamer=renamer,
             live_photo_service=live_photo_service,
-            unifier=organizer,
+            organizer=organizer,
             heic_remover=heic_remover,
             duplicate_exact_detector=duplicate_exact_detector,
             organization_type=None  # Se usará el default

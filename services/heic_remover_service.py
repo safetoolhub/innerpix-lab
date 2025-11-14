@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from utils.file_utils import validate_file_exists
 from services.result_types import HeicAnalysisResult, HeicDeletionResult
 from services.base_service import BaseService, BackupCreationError, ProgressCallback
+from services.metadata_cache import FileMetadataCache
 from config import Config
 from utils.logger import (
     log_section_header_discrete,
@@ -116,7 +117,8 @@ class HEICRemover(BaseService):
         directory: Path,
         recursive: bool = True,
         progress_callback: Optional[ProgressCallback] = None,
-        validate_dates: bool = True
+        validate_dates: bool = True,
+        metadata_cache: Optional[FileMetadataCache] = None
     ) -> HeicAnalysisResult:
         """
         Analiza duplicados HEIC/JPG en un directorio.
@@ -126,6 +128,7 @@ class HEICRemover(BaseService):
             recursive: Si buscar recursivamente en subdirectorios
             progress_callback: Función opcional (current, total, message) para reportar progreso
             validate_dates: Si validar que las fechas de modificación sean similares
+            metadata_cache: Caché opcional de metadatos para reutilizar datos básicos
         
         Returns:
             HeicAnalysisResult con análisis detallado
@@ -182,17 +185,39 @@ class HEICRemover(BaseService):
             parent_dir = file_path.parent
             
             if extension in self.heic_extensions or extension in self.jpg_extensions:
-                # Una sola llamada a stat() por archivo
-                stat_info = file_path.stat()
-                file_info = (file_path, stat_info.st_size, stat_info.st_mtime)
+                # Intentar obtener metadata de la caché primero
+                file_size = None
+                file_mtime = None
+                
+                if metadata_cache:
+                    file_size = metadata_cache.get_size(file_path)
+                    cached_metadata = metadata_cache.get_or_create(file_path)
+                    file_mtime = cached_metadata.modified_time
+                
+                # Si no está en caché, obtener de filesystem y cachear
+                if file_size is None or file_mtime is None:
+                    stat_info = file_path.stat()
+                    file_size = stat_info.st_size
+                    file_mtime = stat_info.st_mtime
+                    
+                    # Cachear para futuros usos
+                    if metadata_cache:
+                        metadata_cache.set_basic_metadata(
+                            file_path,
+                            size=file_size,
+                            file_type='image',
+                            modified_time=file_mtime
+                        )
+                
+                file_info = (file_path, file_size, file_mtime)
                 
                 if extension in self.heic_extensions:
                     heic_by_dir[parent_dir][base_name] = file_info
-                    self.stats['total_heic_size'] += stat_info.st_size
+                    self.stats['total_heic_size'] += file_size
                     total_heic_count += 1
                 else:
                     jpg_by_dir[parent_dir][base_name] = file_info
-                    self.stats['total_jpg_size'] += stat_info.st_size
+                    self.stats['total_jpg_size'] += file_size
                     total_jpg_count += 1
             
             processed += 1

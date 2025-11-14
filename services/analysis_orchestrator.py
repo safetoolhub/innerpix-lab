@@ -9,6 +9,7 @@ import time
 
 from config import Config
 from utils.logger import get_logger, log_section_header_discrete, log_section_footer_discrete
+from services.metadata_cache import FileMetadataCache
 
 # Type checking imports para evitar imports circulares
 if TYPE_CHECKING:
@@ -38,6 +39,9 @@ class DirectoryScanResult:
     images: List[Path] = field(default_factory=list)
     videos: List[Path] = field(default_factory=list)
     others: List[Path] = field(default_factory=list)
+    
+    # Caché compartida de metadatos para optimizar fases subsecuentes
+    metadata_cache: Optional[FileMetadataCache] = None
     
     @property
     def image_count(self) -> int:
@@ -167,7 +171,8 @@ class AnalysisOrchestrator:
     
     def scan_directory(self, 
                       directory: Path,
-                      progress_callback: Optional[Callable[[int, int, str], bool]] = None) -> DirectoryScanResult:
+                      progress_callback: Optional[Callable[[int, int, str], bool]] = None,
+                      create_metadata_cache: bool = True) -> DirectoryScanResult:
         """
         Escanea un directorio y clasifica archivos por tipo.
         
@@ -175,9 +180,10 @@ class AnalysisOrchestrator:
             directory: Directorio a escanear
             progress_callback: Función opcional (current, total, message) -> bool.
                              Retorna False para cancelar.
+            create_metadata_cache: Si crear caché de metadatos para optimizar fases
         
         Returns:
-            DirectoryScanResult con archivos clasificados
+            DirectoryScanResult con archivos clasificados y caché opcional
             
         Example:
             >>> orchestrator = AnalysisOrchestrator()
@@ -192,6 +198,11 @@ class AnalysisOrchestrator:
         
         self.logger.info(f"Escaneando directorio: {directory}")
         
+        # Crear caché de metadatos si se solicita
+        metadata_cache = FileMetadataCache() if create_metadata_cache else None
+        if metadata_cache:
+            self.logger.debug("Caché de metadatos creada para optimizar fases")
+        
         # Una sola iteración: clasificar directamente sin contar primero
         images, videos, others = [], [], []
         processed = 0
@@ -200,7 +211,7 @@ class AnalysisOrchestrator:
         all_files = [f for f in directory.rglob("*") if f.is_file()]
         total_files = len(all_files)
         
-        # Segunda pasada: clasificar archivos
+        # Segunda pasada: clasificar archivos y cachear metadata básico
         for f in all_files:
             # Verificar cancelación al inicio del loop
             if progress_callback and not progress_callback(processed, total_files, "Escaneando archivos"):
@@ -210,10 +221,27 @@ class AnalysisOrchestrator:
             # Clasificar archivo
             if Config.is_image_file(f.name):
                 images.append(f)
+                file_type = 'image'
             elif Config.is_video_file(f.name):
                 videos.append(f)
+                file_type = 'video'
             else:
                 others.append(f)
+                file_type = 'other'
+            
+            # Cachear metadata básico durante el escaneo (evita stat() posterior)
+            if metadata_cache:
+                try:
+                    stat_info = f.stat()
+                    metadata_cache.set_basic_metadata(
+                        f,
+                        size=stat_info.st_size,
+                        file_type=file_type,
+                        modified_time=stat_info.st_mtime,
+                        created_time=stat_info.st_ctime
+                    )
+                except Exception as e:
+                    self.logger.warning(f"No se pudo cachear metadata de {f}: {e}")
             
             processed += 1
             
@@ -229,20 +257,24 @@ class AnalysisOrchestrator:
             total_files=total_files,
             images=images,
             videos=videos,
-            others=others
+            others=others,
+            metadata_cache=metadata_cache
         )
         
         self.logger.info(
             f"Escaneo completado: {result.image_count} imágenes, "
             f"{result.video_count} videos, {result.other_count} otros"
         )
+        if metadata_cache:
+            self.logger.debug(f"Metadata cacheado para {len(metadata_cache)} archivos")
         
         return result
     
     def analyze_renaming(self,
                         directory: Path,
                         renamer: AnalyzableService,
-                        progress_callback: Optional[Callable[[int, int, str], bool]] = None) -> 'RenameAnalysisResult':
+                        progress_callback: Optional[Callable[[int, int, str], bool]] = None,
+                        metadata_cache: Optional[FileMetadataCache] = None) -> 'RenameAnalysisResult':
         """
         Analiza nombres de archivos que necesitan normalización.
         
@@ -250,12 +282,13 @@ class AnalysisOrchestrator:
             directory: Directorio a analizar
             renamer: Instancia de FileRenamer
             progress_callback: Función opcional de progreso
+            metadata_cache: Caché opcional de metadatos
             
         Returns:
             RenameAnalysisResult con el análisis de renombrado
         """
         self.logger.info("Analizando nombres de archivos")
-        return renamer.analyze(directory, progress_callback=progress_callback)
+        return renamer.analyze(directory, progress_callback=progress_callback, metadata_cache=metadata_cache)
     
     def analyze_live_photos(self,
                            directory: Path,
@@ -337,7 +370,8 @@ class AnalysisOrchestrator:
     def analyze_heic_duplicates(self,
                                directory: Path,
                                heic_remover: AnalyzableService,
-                               progress_callback: Optional[Callable[[int, int, str], bool]] = None) -> 'HeicAnalysisResult':
+                               progress_callback: Optional[Callable[[int, int, str], bool]] = None,
+                               metadata_cache: Optional[FileMetadataCache] = None) -> 'HeicAnalysisResult':
         """
         Busca duplicados HEIC/JPG.
         
@@ -345,17 +379,19 @@ class AnalysisOrchestrator:
             directory: Directorio a analizar
             heic_remover: Instancia de HEICRemover
             progress_callback: Función opcional de progreso
+            metadata_cache: Caché opcional de metadatos
             
         Returns:
             HeicAnalysisResult con duplicados HEIC/JPG encontrados
         """
         self.logger.info("Buscando duplicados HEIC/JPG")
-        return heic_remover.analyze(directory, progress_callback=progress_callback)
+        return heic_remover.analyze(directory, progress_callback=progress_callback, metadata_cache=metadata_cache)
     
     def analyze_exact_duplicates(self,
                                  directory: Path,
                                  duplicate_exact_detector: AnalyzableService,
-                                 progress_callback: Optional[Callable[[int, int, str], bool]] = None) -> 'DuplicateAnalysisResult':
+                                 progress_callback: Optional[Callable[[int, int, str], bool]] = None,
+                                 metadata_cache: Optional[FileMetadataCache] = None) -> 'DuplicateAnalysisResult':
         """
         Detecta duplicados exactos usando SHA256.
         
@@ -363,6 +399,7 @@ class AnalysisOrchestrator:
             directory: Directorio a analizar
             duplicate_exact_detector: Instancia de ExactCopiesDetector
             progress_callback: Función opcional de progreso
+            metadata_cache: Caché opcional de metadatos
             
         Returns:
             DuplicateAnalysisResult con duplicados exactos detectados
@@ -370,7 +407,8 @@ class AnalysisOrchestrator:
         self.logger.info("Detectando duplicados exactos (SHA256)")
         return duplicate_exact_detector.analyze(
             directory,
-            progress_callback=progress_callback
+            progress_callback=progress_callback,
+            metadata_cache=metadata_cache
         )
     
     def run_full_analysis(self,
@@ -414,11 +452,11 @@ class AnalysisOrchestrator:
         log_section_header_discrete(self.logger, f"INICIANDO ANÁLISIS COMPLETO DE: {directory}")
         analysis_start_time = time.time()
         
-        # Fase 1: Escaneo inicial
+        # Fase 1: Escaneo inicial (crea la caché de metadatos)
         scan_result, scan_timing = self._execute_phase(
             phase_id="scan",
             phase_name="Escaneo de archivos",
-            phase_callable=lambda: self.scan_directory(directory, progress_callback),
+            phase_callable=lambda: self.scan_directory(directory, progress_callback, create_metadata_cache=True),
             phase_callback=phase_callback,
             partial_callback=lambda phase_id, scan_res: partial_callback(
                 phase_id, {
@@ -437,7 +475,12 @@ class AnalysisOrchestrator:
         )
         result.phase_timings['scan'] = scan_timing
         
-        # Fase 2: Análisis de renombrado
+        # Obtener caché compartida del escaneo
+        metadata_cache = scan_result.metadata_cache
+        if metadata_cache:
+            self.logger.info("Usando caché compartida de metadatos entre fases")
+        
+        # Fase 2: Análisis de renombrado (usa caché para fechas EXIF)
         if renamer:
             if self._check_cancellation(progress_callback, result, analysis_start_time):
                 return result
@@ -445,7 +488,7 @@ class AnalysisOrchestrator:
             result.renaming, result.phase_timings['renaming'] = self._execute_phase(
                 phase_id="renaming",
                 phase_name="Análisis de nombres",
-                phase_callable=lambda: self.analyze_renaming(directory, renamer, progress_callback),
+                phase_callable=lambda: self.analyze_renaming(directory, renamer, progress_callback, metadata_cache),
                 phase_callback=phase_callback,
                 partial_callback=partial_callback
             )
@@ -463,7 +506,7 @@ class AnalysisOrchestrator:
                 partial_callback=partial_callback
             )
         
-        # Fase 4: Duplicados HEIC
+        # Fase 4: Duplicados HEIC (usa caché para tamaños y timestamps)
         if heic_remover:
             if self._check_cancellation(progress_callback, result, analysis_start_time):
                 return result
@@ -471,12 +514,12 @@ class AnalysisOrchestrator:
             result.heic, result.phase_timings['heic'] = self._execute_phase(
                 phase_id="heic",
                 phase_name="Duplicados HEIC/JPG",
-                phase_callable=lambda: self.analyze_heic_duplicates(directory, heic_remover, progress_callback),
+                phase_callable=lambda: self.analyze_heic_duplicates(directory, heic_remover, progress_callback, metadata_cache),
                 phase_callback=phase_callback,
                 partial_callback=partial_callback
             )
         
-        # Fase 5: Duplicados exactos
+        # Fase 5: Duplicados exactos (usa caché para hashes SHA256)
         if duplicate_exact_detector:
             if self._check_cancellation(progress_callback, result, analysis_start_time):
                 return result
@@ -484,7 +527,7 @@ class AnalysisOrchestrator:
             result.duplicates, result.phase_timings['duplicates'] = self._execute_phase(
                 phase_id="duplicates",
                 phase_name="Duplicados exactos",
-                phase_callable=lambda: self.analyze_exact_duplicates(directory, duplicate_exact_detector, progress_callback),
+                phase_callable=lambda: self.analyze_exact_duplicates(directory, duplicate_exact_detector, progress_callback, metadata_cache),
                 phase_callback=phase_callback,
                 partial_callback=partial_callback
             )
@@ -510,6 +553,10 @@ class AnalysisOrchestrator:
             phase_callback=phase_callback,
             partial_callback=None
         )
+        
+        # Log de estadísticas de caché al final
+        if metadata_cache:
+            metadata_cache.log_stats()
         
         result.total_duration = time.time() - analysis_start_time
         

@@ -18,6 +18,7 @@ from services.result_types import RenameResult, RenameAnalysisResult
 from services.base_service import BaseService, ProgressCallback
 from utils.date_utils import (
     get_date_from_file,
+    get_all_file_dates,
     format_renamed_name,
     is_renamed_filename,
     parse_renamed_name
@@ -28,6 +29,7 @@ from utils.file_utils import (
     validate_file_exists,
 )
 from utils.decorators import deprecated
+from services.metadata_cache import FileMetadataCache
 
 class FileRenamer(BaseService):
     """
@@ -43,7 +45,8 @@ class FileRenamer(BaseService):
     def analyze(
         self,
         directory: Path,
-        progress_callback: Optional[ProgressCallback] = None
+        progress_callback: Optional[ProgressCallback] = None,
+        metadata_cache: Optional[FileMetadataCache] = None
     ) -> RenameAnalysisResult:
         """
         Analiza un directorio para renombrado.
@@ -54,6 +57,7 @@ class FileRenamer(BaseService):
             directory: Directorio a analizar
             progress_callback: Función callback(current, total, message) para
                              reportar progreso
+            metadata_cache: Caché opcional de metadatos para reutilizar fechas EXIF
             
         Returns:
             RenameAnalysisResult con análisis detallado
@@ -88,8 +92,25 @@ class FileRenamer(BaseService):
             if is_renamed_filename(file_path.name):
                 return ('already_renamed', file_path, None)
             
-            # Obtener fecha del archivo
-            file_date = get_date_from_file(file_path)
+            # Intentar obtener fecha de la caché primero
+            file_date = None
+            if metadata_cache:
+                file_date = metadata_cache.get_exif_date(file_path)
+            
+            # Si no está en caché, extraer y cachear
+            if not file_date:
+                file_date = get_date_from_file(file_path)
+                
+                # Cachear la fecha si se obtuvo y hay caché disponible
+                if file_date and metadata_cache:
+                    # Obtener todas las fechas para cachear el máximo de info
+                    all_dates = get_all_file_dates(file_path)
+                    metadata_cache.set_exif_dates(
+                        file_path,
+                        exif_date=all_dates.get('exif_date'),
+                        exif_date_original=all_dates.get('exif_date_original')
+                    )
+            
             if not file_date:
                 return ('no_date', file_path, f"No se pudo obtener fecha: {file_path.name}")
             
