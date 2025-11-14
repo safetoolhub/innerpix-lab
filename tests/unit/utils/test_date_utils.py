@@ -17,6 +17,7 @@ from utils.date_utils import (
     parse_renamed_name,
     is_renamed_filename
 )
+from config import Config
 
 
 @pytest.mark.unit
@@ -482,6 +483,76 @@ class TestGetAllFileDates:
         assert result['exif_date_digitized'] is None
         assert result['creation_date'] is None
         assert result['modification_date'] is None
+
+    def test_video_metadata_disabled_by_config(self, temp_dir, create_test_video):
+        """Cuando USE_VIDEO_METADATA es False, no debe llamar a get_video_metadata_date"""
+        video_path = create_test_video(temp_dir / 'test.mp4')
+
+        with patch('config.Config.USE_VIDEO_METADATA', False), \
+             patch('utils.date_utils.get_video_metadata_date') as mock_get_video_metadata, \
+             patch('utils.date_utils.get_exif_dates', return_value={
+                 'DateTimeOriginal': None,
+                 'CreateDate': None,
+                 'DateTimeDigitized': None,
+                 'SubSecTimeOriginal': None,
+                 'OffsetTimeOriginal': None,
+                 'GPSDateStamp': None,
+                 'Software': None
+             }):
+            result = get_all_file_dates(video_path)
+
+            # No debe llamar a get_video_metadata_date
+            mock_get_video_metadata.assert_not_called()
+
+            # video_metadata_date debe ser None
+            assert result['video_metadata_date'] is None
+
+    def test_video_metadata_enabled_by_config(self, temp_dir, create_test_video):
+        """Cuando USE_VIDEO_METADATA es True, debe llamar a get_video_metadata_date"""
+        video_path = create_test_video(temp_dir / 'test.mp4')
+        expected_video_date = datetime(2023, 6, 15, 14, 30, 0)
+
+        with patch('config.Config.USE_VIDEO_METADATA', True), \
+             patch('utils.date_utils.get_video_metadata_date', return_value=expected_video_date) as mock_get_video_metadata, \
+             patch('utils.date_utils.get_exif_dates', return_value={
+                 'DateTimeOriginal': None,
+                 'CreateDate': None,
+                 'DateTimeDigitized': None,
+                 'SubSecTimeOriginal': None,
+                 'OffsetTimeOriginal': None,
+                 'GPSDateStamp': None,
+                 'Software': None
+             }):
+            result = get_all_file_dates(video_path)
+
+            # Debe llamar a get_video_metadata_date
+            mock_get_video_metadata.assert_called_once_with(video_path)
+
+            # video_metadata_date debe tener el valor esperado
+            assert result['video_metadata_date'] == expected_video_date
+
+    def test_video_metadata_enabled_but_no_metadata_available(self, temp_dir, create_test_video):
+        """Cuando USE_VIDEO_METADATA es True pero no hay metadatos, debe devolver None"""
+        video_path = create_test_video(temp_dir / 'test.mp4')
+
+        with patch('config.Config.USE_VIDEO_METADATA', True), \
+             patch('utils.date_utils.get_video_metadata_date', return_value=None) as mock_get_video_metadata, \
+             patch('utils.date_utils.get_exif_dates', return_value={
+                 'DateTimeOriginal': None,
+                 'CreateDate': None,
+                 'DateTimeDigitized': None,
+                 'SubSecTimeOriginal': None,
+                 'OffsetTimeOriginal': None,
+                 'GPSDateStamp': None,
+                 'Software': None
+             }):
+            result = get_all_file_dates(video_path)
+
+            # Debe llamar a get_video_metadata_date
+            mock_get_video_metadata.assert_called_once_with(video_path)
+
+            # video_metadata_date debe ser None
+            assert result['video_metadata_date'] is None
 
 
 @pytest.mark.unit
@@ -1237,3 +1308,36 @@ class TestSelectChosenDateCombinatorial:
         # Debe devolver la EXIF más antigua sin error
         assert result_date == datetime(1990, 1, 1, 0, 0)
         assert result_source == 'EXIF CreateDate'
+
+
+@pytest.mark.unit
+class TestVideoMetadataConfiguration:
+    """Tests para la configuración de extracción de metadatos de video"""
+
+    def test_config_defaults_to_false(self):
+        """USE_VIDEO_METADATA debe estar por defecto en False"""
+        assert Config.USE_VIDEO_METADATA is False
+
+    @patch('utils.settings_manager.settings_manager.get_bool')
+    def test_config_loaded_from_settings_manager(self, mock_get_bool):
+        """USE_VIDEO_METADATA debe cargarse desde settings_manager al inicio"""
+        from utils.settings_manager import settings_manager
+        from config import Config
+        
+        # Simular que settings_manager devuelve True
+        mock_get_bool.return_value = True
+        
+        # Ejecutar la lógica de carga de configuración como en main.py
+        Config.USE_VIDEO_METADATA = settings_manager.get_bool(
+            settings_manager.KEY_USE_VIDEO_METADATA, 
+            False  # Por defecto deshabilitado
+        )
+        
+        # Verificar que se llamó a get_bool con los parámetros correctos
+        mock_get_bool.assert_called_with(
+            settings_manager.KEY_USE_VIDEO_METADATA,
+            False  # Valor por defecto
+        )
+        
+        # Verificar que Config.USE_VIDEO_METADATA se actualizó
+        assert Config.USE_VIDEO_METADATA is True
