@@ -74,7 +74,7 @@ class Stage1Window(BaseStage):
         self.main_layout.addWidget(self.next_step_card)
         self.main_layout.addStretch()
 
-        self.logger.info("UI del Estado 1 configurada")
+        self.logger.debug("UI del Estado 1 configurada")
 
     def cleanup(self) -> None:
         """Limpia los recursos del Estado 1."""
