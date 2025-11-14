@@ -109,6 +109,9 @@ class Config:
     DEFAULT_HAMMING_THRESHOLD = 5
     MAX_HAMMING_THRESHOLD = 20
     
+    # Configuración para detección de duplicados HEIC/JPG
+    MAX_TIME_DIFFERENCE_SECONDS = 60  # Tolerancia máxima de tiempo entre archivos duplicados (segundos)
+    
 
 
     # ========================================================================

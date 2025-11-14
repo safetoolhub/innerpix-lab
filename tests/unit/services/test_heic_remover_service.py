@@ -18,6 +18,7 @@ import pytest
 from pathlib import Path
 from datetime import datetime, timedelta
 from services.heic_remover_service import HEICRemover, DuplicatePair
+from config import Config
 from services.result_types import HeicAnalysisResult, HeicDeletionResult
 import time
 import os
@@ -100,7 +101,7 @@ class TestHEICRemoverBasics:
         assert heic_remover is not None
         assert heic_remover.heic_extensions == {'.heic', '.heif'}
         assert heic_remover.jpg_extensions == {'.jpg', '.jpeg'}
-        assert heic_remover.MAX_TIME_DIFFERENCE_SECONDS == 60
+        assert Config.MAX_TIME_DIFFERENCE_SECONDS == 60
         assert heic_remover.stats['heic_files_found'] == 0
         assert heic_remover.stats['jpg_files_found'] == 0
     
@@ -548,24 +549,6 @@ class TestHEICRemoverStatistics:
         assert result.potential_savings_keep_jpg > 0
         assert result.potential_savings_keep_heic > 0
     
-    def test_compression_statistics(self, heic_remover, temp_dir, create_heic_jpg_pair):
-        """Test de cálculo de estadísticas de compresión."""
-        now = datetime.now()
-        
-        create_heic_jpg_pair(temp_dir, "photo1", heic_mtime=now, jpg_mtime=now, heic_size_kb=50, jpg_size_kb=100)
-        create_heic_jpg_pair(temp_dir, "photo2", heic_mtime=now, jpg_mtime=now, heic_size_kb=80, jpg_size_kb=120)
-        
-        result = heic_remover.analyze(temp_dir, validate_dates=True)
-        
-        # result.compression_stats es un dict, no necesita buscar dentro de sí mismo
-        stats = result.compression_stats
-        
-        # Verificar que se calculan las estadísticas
-        assert 'min_ratio' in stats
-        assert 'max_ratio' in stats
-        assert 'avg_ratio' in stats
-        assert stats['avg_ratio'] > 0
-    
     def test_by_directory_statistics(self, heic_remover, temp_dir, create_heic_jpg_pair):
         """Test de estadísticas agrupadas por directorio."""
         now = datetime.now()
@@ -913,7 +896,6 @@ class TestHEICRemoverEdgeCases:
         assert pair.size_saving_keep_jpg == heic_size
         assert pair.size_saving_keep_heic == jpg_size
         assert pair.time_difference.total_seconds() == 30
-        assert pair.compression_ratio > 0
     
     def test_nonexistent_file_in_duplicate_pair_raises_error(self, temp_dir):
         """Test que DuplicatePair valida existencia de archivos."""
@@ -994,7 +976,6 @@ class TestHEICRemoverResults:
         assert hasattr(result, 'potential_savings_keep_heic')
         assert hasattr(result, 'orphan_heic')
         assert hasattr(result, 'orphan_jpg')
-        assert hasattr(result, 'compression_stats')
         assert hasattr(result, 'by_directory')
     
     def test_deletion_result_structure(self, heic_remover, temp_dir, create_heic_jpg_pair):

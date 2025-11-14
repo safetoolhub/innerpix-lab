@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from utils.file_utils import validate_file_exists
 from services.result_types import HeicAnalysisResult, HeicDeletionResult
 from services.base_service import BaseService, BackupCreationError, ProgressCallback
+from config import Config
 from utils.logger import (
     log_section_header_discrete,
     log_section_footer_discrete,
@@ -63,13 +64,6 @@ class DuplicatePair:
         return self.jpg_size
     
     @property
-    def compression_ratio(self) -> float:
-        """Ratio de compresión HEIC vs JPG"""
-        if self.jpg_size > 0:
-            return self.heic_size / self.jpg_size
-        return 0.0
-    
-    @property
     def time_difference(self) -> Optional[timedelta]:
         """Diferencia de tiempo entre archivos"""
         if self.heic_date and self.jpg_date:
@@ -97,10 +91,6 @@ class HEICRemover(BaseService):
     
     Hereda de BaseService para logging estandarizado.
     """
-    
-    # Tolerancia máxima de tiempo entre archivos (en segundos)
-    # Si la diferencia es mayor, probablemente no sean el mismo archivo
-    MAX_TIME_DIFFERENCE_SECONDS = 60
     
     def __init__(self):
         super().__init__("HEICRemover")
@@ -145,7 +135,7 @@ class HEICRemover(BaseService):
         self.logger.info(f"Validación de fechas: {'ACTIVADA' if validate_dates else 'DESACTIVADA'}")
         if validate_dates:
             self.logger.info(
-                f"Tolerancia máxima: {self.MAX_TIME_DIFFERENCE_SECONDS}s"
+                f"Tolerancia máxima: {Config.MAX_TIME_DIFFERENCE_SECONDS}s"
             )
         
         self._reset_stats()
@@ -160,12 +150,7 @@ class HEICRemover(BaseService):
             'total_duplicates': 0,
             'potential_savings_keep_jpg': 0,
             'potential_savings_keep_heic': 0,
-            'by_directory': defaultdict(int),
-            'compression_stats': {
-                'min_ratio': float('inf'),
-                'max_ratio': 0.0,
-                'avg_ratio': 0.0
-            }
+            'by_directory': defaultdict(int)
         }
         
         # Encontrar archivos HEIC y JPG
@@ -243,7 +228,7 @@ class HEICRemover(BaseService):
                     # Validación de diferencia temporal
                     if validate_dates:
                         time_diff = abs(heic_date - jpg_date)
-                        if time_diff.total_seconds() > self.MAX_TIME_DIFFERENCE_SECONDS:
+                        if time_diff.total_seconds() > Config.MAX_TIME_DIFFERENCE_SECONDS:
                             self.logger.warning(
                                 f"Par rechazado por diferencia temporal: {base_name} "
                                 f"en {directory} (diff: {time_diff.total_seconds():.0f}s)"
@@ -310,19 +295,6 @@ class HEICRemover(BaseService):
         results['orphan_heic'] = orphan_heic
         results['orphan_jpg'] = orphan_jpg
         
-        # Calcular estadísticas de compresión
-        if duplicate_pairs:
-            compression_ratios = [
-                pair.compression_ratio for pair in duplicate_pairs
-                if pair.compression_ratio > 0
-            ]
-            if compression_ratios:
-                results['compression_stats']['min_ratio'] = min(compression_ratios)
-                results['compression_stats']['max_ratio'] = max(compression_ratios)
-                results['compression_stats']['avg_ratio'] = (
-                    sum(compression_ratios) / len(compression_ratios)
-                )
-        
         # Log de resumen
         if validate_dates and self.stats['rejected_by_time_diff'] > 0:
             self.logger.info(
@@ -342,7 +314,6 @@ class HEICRemover(BaseService):
             potential_savings_keep_heic=results['potential_savings_keep_heic'],
             orphan_heic=results.get('orphan_heic', []),
             orphan_jpg=results.get('orphan_jpg', []),
-            compression_stats=results.get('compression_stats', {}),
             by_directory=results.get('by_directory', {})
         )
     
@@ -522,7 +493,6 @@ class HEICRemover(BaseService):
             potential_savings_keep_heic=0,
             orphan_heic=[],
             orphan_jpg=[],
-            compression_stats={'min_ratio': 0, 'max_ratio': 0, 'avg_ratio': 0},
             by_directory={}
         )
     

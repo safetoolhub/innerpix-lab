@@ -178,7 +178,7 @@ class LivePhotoService(BaseService):
             for file_info in cleanup_plan['files_to_keep']:
                 self.logger.debug(f"  ✓ A conservar: {file_info['path']} ({file_info['type']}, {format_size(file_info['size'])})")
         
-        self.logger.info(f"Análisis completado: {len(cleanup_plan['files_to_delete'])} archivos a eliminar")
+        log_section_footer_discrete(self.logger, f"Análisis completado: {len(cleanup_plan['files_to_delete'])} archivos a eliminar")
 
         return result
 
