@@ -496,7 +496,7 @@ class TestFullAnalysis:
         # Verificar timing info
         timing = result.phase_timings['renaming']
         assert timing.phase_id == 'renaming'
-        assert timing.phase_name == 'Análisis de nombres'
+        assert timing.phase_name == 'Analizando nombres de archivos'
         assert timing.duration >= 0
         assert timing.end_time >= timing.start_time
     

@@ -475,7 +475,7 @@ class AnalysisOrchestrator:
         # Fase 1: Escaneo inicial (crea la caché de metadatos)
         scan_result, scan_timing = self._execute_phase(
             phase_id="scan",
-            phase_name="Escaneo de archivos",
+            phase_name="Escaneando archivos",
             phase_callable=lambda: self.scan_directory(directory, progress_callback, create_metadata_cache=True),
             phase_callback=phase_callback,
             partial_callback=lambda phase_id, scan_res: partial_callback(
@@ -507,7 +507,7 @@ class AnalysisOrchestrator:
             
             result.renaming, result.phase_timings['renaming'] = self._execute_phase(
                 phase_id="renaming",
-                phase_name="Análisis de nombres",
+                phase_name="Analizando nombres de archivos",
                 phase_callable=lambda: self.analyze_renaming(directory, renamer, progress_callback, metadata_cache),
                 phase_callback=phase_callback,
                 partial_callback=partial_callback
@@ -520,7 +520,7 @@ class AnalysisOrchestrator:
             
             result.live_photos, result.phase_timings['live_photos'] = self._execute_phase(
                 phase_id="live_photos",
-                phase_name="Detección de Live Photos",
+                phase_name="Buscando Live Photos",
                 phase_callable=lambda: self.analyze_live_photos(directory, live_photos_service, progress_callback),
                 phase_callback=phase_callback,
                 partial_callback=partial_callback
@@ -533,7 +533,7 @@ class AnalysisOrchestrator:
             
             result.heic, result.phase_timings['heic'] = self._execute_phase(
                 phase_id="heic",
-                phase_name="Duplicados HEIC/JPG",
+                phase_name="Buscando duplicados HEIC/JPG",
                 phase_callable=lambda: self.analyze_heic_duplicates(directory, heic_remover, progress_callback, metadata_cache),
                 phase_callback=phase_callback,
                 partial_callback=partial_callback
@@ -546,7 +546,7 @@ class AnalysisOrchestrator:
             
             result.duplicates, result.phase_timings['duplicates'] = self._execute_phase(
                 phase_id="duplicates",
-                phase_name="Duplicados exactos",
+                phase_name="Identificando copias exactas",
                 phase_callable=lambda: self.analyze_exact_duplicates(directory, duplicate_exact_detector, progress_callback, metadata_cache),
                 phase_callback=phase_callback,
                 partial_callback=partial_callback
@@ -559,7 +559,7 @@ class AnalysisOrchestrator:
             
             result.organization, result.phase_timings['organization'] = self._execute_phase(
                 phase_id="organization",
-                phase_name="Análisis de organización",
+                phase_name="Analizando estructura de carpetas",
                 phase_callable=lambda: self.analyze_organization(directory, organizer, organization_type, progress_callback),
                 phase_callback=phase_callback,
                 partial_callback=partial_callback
