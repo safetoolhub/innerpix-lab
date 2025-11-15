@@ -286,7 +286,7 @@ class TestIndividualAnalysis:
         
         # Mock del LivePhotoService
         from services.result_types import LivePhotoCleanupAnalysisResult
-        from services.live_photo_service import LivePhotoGroup
+        from services.live_photos_service import LivePhotoGroup
         
         mock_service = Mock()
         
@@ -543,7 +543,7 @@ class TestFullAnalysis:
         result = orchestrator.run_full_analysis(
             directory=temp_dir,
             renamer=mock_renamer,
-            live_photo_service=mock_live_photos,
+            live_photos_service=mock_live_photos,
             organizer=mock_organizer,
             heic_remover=mock_heic,
             duplicate_exact_detector=mock_duplicates,
@@ -607,7 +607,7 @@ class TestFullAnalysis:
         result = orchestrator.run_full_analysis(
             directory=temp_dir,
             renamer=make_mock_service('renamer'),
-            live_photo_service=make_mock_service('live_photos'),
+            live_photos_service=make_mock_service('live_photos'),
             heic_remover=make_mock_service('heic'),
             duplicate_exact_detector=make_mock_service('duplicates'),
             organizer=make_mock_service('organizer')
@@ -905,7 +905,7 @@ class TestTiming:
         result = orchestrator.run_full_analysis(
             directory=temp_dir,
             renamer=mock_renamer,
-            live_photo_service=mock_live_photos
+            live_photos_service=mock_live_photos
         )
         
         # Las fases deben ejecutarse secuencialmente
@@ -984,7 +984,7 @@ class TestEdgeCases:
         result = orchestrator.run_full_analysis(
             directory=temp_dir,
             renamer=mock_renamer,
-            live_photo_service=mock_live_photos
+            live_photos_service=mock_live_photos
         )
         
         assert result.renaming.need_renaming == 0

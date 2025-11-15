@@ -12,7 +12,7 @@ from ui.styles.design_system import DesignSystem
 from ui.widgets.progress_card import ProgressCard
 from ui.workers import AnalysisWorker
 from services.file_renamer_service import FileRenamer
-from services.live_photo_service import LivePhotoService
+from services.live_photos_service import LivePhotoService
 from services.file_organizer_service import FileOrganizer
 from services.heic_remover_service import HEICRemover
 from services.exact_copies_detector import ExactCopiesDetector
@@ -125,7 +125,7 @@ class Stage2Window(BaseStage):
         
         # Crear instancias de servicios
         renamer = FileRenamer()
-        live_photo_service = LivePhotoService()
+        live_photos_service = LivePhotoService()
         organizer = FileOrganizer()
         heic_remover = HEICRemover()
         duplicate_exact_detector = ExactCopiesDetector()
@@ -134,7 +134,7 @@ class Stage2Window(BaseStage):
         self.analysis_worker = AnalysisWorker(
             directory=Path(self.selected_folder),
             renamer=renamer,
-            live_photo_service=live_photo_service,
+            live_photos_service=live_photos_service,
             organizer=organizer,
             heic_remover=heic_remover,
             duplicate_exact_detector=duplicate_exact_detector,

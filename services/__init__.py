@@ -14,7 +14,7 @@ utilizados en la aplicación, incluyendo:
 
 # Servicios principales
 from .file_renamer_service import FileRenamer
-from .live_photo_service import LivePhotoService, LivePhotoGroup, CleanupMode
+from .live_photos_service import LivePhotoService, LivePhotoGroup, CleanupMode
 from .file_organizer_service import FileOrganizer, FileMove, OrganizationType
 from .heic_remover_service import HEICRemover, DuplicatePair
 from .exact_copies_detector import ExactCopiesDetector

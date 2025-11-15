@@ -11,7 +11,7 @@ Prueba el servicio consolidado de Live Photos que integra detección y limpieza:
 
 import pytest
 from pathlib import Path
-from services.live_photo_service import LivePhotoService, CleanupMode, LivePhotoGroup
+from services.live_photos_service import LivePhotoService, CleanupMode, LivePhotoGroup
 
 
 @pytest.mark.unit

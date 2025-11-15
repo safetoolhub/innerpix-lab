@@ -328,7 +328,7 @@ class AnalysisOrchestrator:
         self.logger.info("Detectando Live Photos")
         
         from services.result_types import LivePhotoDetectionResult
-        from services.live_photo_service import CleanupMode
+        from services.live_photos_service import CleanupMode
         
         # El nuevo servicio usa analyze() que retorna LivePhotoCleanupAnalysisResult
         cleanup_analysis = service.analyze(
@@ -434,7 +434,7 @@ class AnalysisOrchestrator:
     def run_full_analysis(self,
                          directory: Path,
                          renamer: Optional[AnalyzableService] = None,
-                         live_photo_service: Optional[AnalyzableService] = None,
+                         live_photos_service: Optional[AnalyzableService] = None,
                          organizer: Optional[AnalyzableService] = None,
                          heic_remover: Optional[AnalyzableService] = None,
                          duplicate_exact_detector: Optional[AnalyzableService] = None,
@@ -448,7 +448,7 @@ class AnalysisOrchestrator:
         Args:
             directory: Directorio a analizar
             renamer: FileRenamer opcional
-            live_photo_service: LivePhotoService opcional
+            live_photos_service: LivePhotoService opcional
             organizer: FileOrganizer opcional
             heic_remover: HEICRemover opcional
             duplicate_exact_detector: DuplicateExactDetector opcional
@@ -514,14 +514,14 @@ class AnalysisOrchestrator:
             )
         
         # Fase 3: Live Photos
-        if live_photo_service:
+        if live_photos_service:
             if self._check_cancellation(progress_callback, result, analysis_start_time):
                 return result
             
             result.live_photos, result.phase_timings['live_photos'] = self._execute_phase(
                 phase_id="live_photos",
                 phase_name="Detección de Live Photos",
-                phase_callable=lambda: self.analyze_live_photos(directory, live_photo_service, progress_callback),
+                phase_callable=lambda: self.analyze_live_photos(directory, live_photos_service, progress_callback),
                 phase_callback=phase_callback,
                 partial_callback=partial_callback
             )
