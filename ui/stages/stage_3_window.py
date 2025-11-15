@@ -524,6 +524,18 @@ class Stage3Window(BaseStage):
                 dry_run=plan.get('dry_run', False)
             )
         
+        elif tool_id == 'similar_files':
+            from services.similar_files_detector import SimilarFilesDetector
+            detector = SimilarFilesDetector()
+            # DuplicateDeletionWorker espera (detector, groups, keep_strategy, create_backup, dry_run)
+            worker = DuplicateDeletionWorker(
+                detector=detector,
+                groups=plan.get('groups', []),
+                keep_strategy=plan.get('keep_strategy', 'manual'),
+                create_backup=plan.get('create_backup', True),
+                dry_run=plan.get('dry_run', False)
+            )
+        
         elif tool_id == 'organize':
             from services.file_organizer_service import FileOrganizer
             organizer = FileOrganizer()
@@ -921,8 +933,8 @@ class Stage3Window(BaseStage):
         result = dialog.exec()
         
         if result == QDialog.DialogCode.Accepted:
-            # Usuario ejecutó acciones, re-analizar workspace
-            self._on_tool_action_completed("similar_files")
+            # Usuario ejecutó acciones, ejecutar con worker
+            self._execute_tool_action("similar_files", dialog)
     
     def _convert_result_to_analysis(self, result):
         """

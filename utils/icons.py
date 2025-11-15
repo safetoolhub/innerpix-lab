@@ -53,6 +53,7 @@ class IconManager:
         'success': 'mdi6.check-circle',
         'check': 'mdi6.check',
         'check-circle': 'mdi6.check-circle',
+        'checkbox-marked': 'mdi6.checkbox-marked',
         'security': 'mdi6.shield',
         'shield-check': 'mdi6.shield-check',
         'close': 'mdi6.close',
@@ -138,6 +139,8 @@ class IconManager:
         'config': 'mdi6.cog-outline',
         'settings-outline': 'mdi6.cog-outline',
         'options': 'mdi6.tune',
+        'filter': 'mdi6.filter-variant',
+        'magic': 'mdi6.auto-fix',
         
         # Acciones de usuario
         'play': 'mdi6.play',
