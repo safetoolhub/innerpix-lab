@@ -505,6 +505,3 @@ class SimilarFilesDetector(BaseDetectorService):
                 f"Error calculando hash de video {file_path}: {e}"
             )
             return None
-
-    def _calculate_perceptual_hash(self, file_path: Path) -> Optional[Any]:
-        """Calcula perceptual hash de una imagen"""

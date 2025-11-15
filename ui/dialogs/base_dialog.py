@@ -633,7 +633,7 @@ class BaseDialog(QDialog):
         show_cleanup_empty_dirs: bool = False,
         backup_label: str = "Crear backup",
         dry_run_label: str = "Modo simulación",
-        cleanup_label: str = "Limpiar directorios vacíos"
+        cleanup_label: str = "Limpiar carpetas vacías"
     ) -> 'QFrame':
         """Crea sección de opciones ultra-compacta con diseño Material Design 3.
         
@@ -643,10 +643,10 @@ class BaseDialog(QDialog):
         Args:
             show_backup: Si se debe mostrar el checkbox de backup
             show_dry_run: Si se debe mostrar el checkbox de dry-run
-            show_cleanup_empty_dirs: Si se debe mostrar el checkbox de limpieza de directorios
+            show_cleanup_empty_dirs: Si se debe mostrar el checkbox de limpieza de carpetas
             backup_label: Texto para el checkbox de backup
             dry_run_label: Texto para el checkbox de dry-run
-            cleanup_label: Texto para el checkbox de limpieza de directorios
+            cleanup_label: Texto para el checkbox de limpieza de carpetas
         
         Returns:
             QFrame con la sección ultra-compacta configurada
@@ -721,7 +721,7 @@ class BaseDialog(QDialog):
                 icon_name='folder-remove',
                 label=cleanup_label,
                 checked=False,  # Default deshabilitado para ser conservador
-                tooltip="Elimina automáticamente los directorios que queden vacíos\n"
+                tooltip="Elimina automáticamente las carpetas que queden vacías\n"
                         "después de mover los archivos durante la organización."
             )
             main_layout.addWidget(self.cleanup_checkbox)

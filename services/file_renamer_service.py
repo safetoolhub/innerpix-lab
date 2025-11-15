@@ -2,13 +2,9 @@
 Renombrador de nombres de archivos multimedia - VERSIÓN FINAL
 Con logs detallados y resolución inteligente de conflictos
 """
-import shutil
-import os
-import logging
 from pathlib import Path
-from datetime import datetime
-from typing import List, Dict, Optional, Tuple
-from collections import defaultdict, Counter
+from typing import List, Dict, Optional
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from config import Config

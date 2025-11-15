@@ -66,13 +66,13 @@ class AnalysisPhaseWidget(QFrame):
         
         # Fases del análisis (8 fases totales)
         phases = [
-            ("scan", "Localizando imágenes y videos en la carpeta y sus subcarpetas..."),
-            ("renaming", "Analizando nombres de los archivos..."),
+            ("scan", "Escaneando archivos..."),
+            ("renaming", "Analizando nombres de archivos..."),
             ("live_photos", "Buscando Live Photos..."),
             ("heic", "Buscando duplicados HEIC/JPG..."),
             ("duplicates", "Identificando copias exactas..."),
             ("duplicates_similar", "Identificando archivos similares..."),
-            ("organization", "Analizando estructura de las carpetas..."),
+            ("organization", "Analizando estructura de carpetas..."),
             ("finalizing", "Finalizando análisis...")
         ]
         

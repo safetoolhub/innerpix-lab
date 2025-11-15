@@ -730,14 +730,14 @@ class FileOrganizationDialog(BaseDialog):
         container_layout.setSpacing(int(DesignSystem.SPACE_12))
         container_layout.setContentsMargins(0, 0, 0, 0)
         
-        # Opciones de seguridad + limpieza de directorios vacíos
+        # Opciones de seguridad + limpieza de carpetas vacías
         security_options = self._create_security_options_section(
             show_backup=True,
             show_dry_run=True,
             show_cleanup_empty_dirs=True,
             backup_label="Crear backup antes de mover",
             dry_run_label="Modo simulación (no mover archivos realmente)",
-            cleanup_label="Eliminar directorios vacíos"
+            cleanup_label="Eliminar carpetas vacías"
         )
         container_layout.addWidget(security_options)
         

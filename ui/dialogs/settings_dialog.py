@@ -400,7 +400,7 @@ class SettingsDialog(QDialog):
             "• Renombrar archivos\n"
             "• Eliminar Live Photos\n"
             "• Eliminar duplicados HEIC\n"
-            "• Organizar directorios"
+            "• Organizar carpetas"
         )
         self.auto_backup_checkbox.setStyleSheet(self._get_checkbox_style())
         auto_backup_layout.addWidget(self.auto_backup_checkbox)
@@ -906,7 +906,7 @@ class SettingsDialog(QDialog):
             "¿Estas seguro de que deseas eliminar TODA la configuracion guardada?\n\n"
             "Esto incluye:\n"
             "• Preferencias de backup\n"
-            "• Directorios personalizados\n"
+            "• Carpetas personalizadas\n"
             "• Nivel de logging\n"
             "• Todas las demas configuraciones\n\n"
             "La aplicacion volvera a los valores por defecto.",

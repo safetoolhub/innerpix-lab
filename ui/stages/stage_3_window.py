@@ -12,10 +12,10 @@ from ui.styles.design_system import DesignSystem
 from ui.widgets.summary_card import SummaryCard
 from ui.widgets.tool_card import ToolCard
 from ui.dialogs.live_photos_dialog import LivePhotoCleanupDialog
-from ui.dialogs.heic_dialog import HEICDuplicateRemovalDialog
+from ui.dialogs.heic_remover_dialog import HEICDuplicateRemovalDialog
 from ui.dialogs.exact_copies_dialog import ExactCopiesDialog
-from ui.dialogs.organization_dialog import FileOrganizationDialog
-from ui.dialogs.renaming_dialog import RenamingPreviewDialog
+from ui.dialogs.file_organizer_dialog import FileOrganizationDialog
+from ui.dialogs.file_renaming_dialog import RenamingPreviewDialog
 from ui.dialogs.settings_dialog import SettingsDialog
 from ui.dialogs.about_dialog import AboutDialog
 from ui.dialogs.similar_files_progress_dialog import SimilarFilesProgressDialog
@@ -490,7 +490,7 @@ class Stage3Window(BaseStage):
         worker = None
         
         if tool_id == 'live_photos':
-            from services.live_photo_service import LivePhotoService
+            from services.live_photos_service import LivePhotoService
             service = LivePhotoService()
             # LivePhotoCleanupWorker espera (service, analysis: dataclass, create_backup, dry_run)
             worker = LivePhotoCleanupWorker(

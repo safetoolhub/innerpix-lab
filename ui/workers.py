@@ -66,7 +66,7 @@ if TYPE_CHECKING:
         ScanResult
     )
     from services.file_renamer_service import FileRenamer
-    from services.live_photo_service import LivePhotoService
+    from services.live_photos_service import LivePhotoService
     from services.file_organizer_service import FileOrganizer
     from services.heic_remover_service import HEICRemover
     from services.exact_copies_detector import ExactCopiesDetector
@@ -176,7 +176,7 @@ class AnalysisWorker(BaseWorker):
         self, 
         directory: Path,
         renamer: 'FileRenamer',
-        live_photo_service: 'LivePhotoService',
+        live_photos_service: 'LivePhotoService',
         organizer: 'FileOrganizer',
         heic_remover: 'HEICRemover',
         duplicate_exact_detector: Optional['ExactCopiesDetector'] = None,
@@ -185,7 +185,7 @@ class AnalysisWorker(BaseWorker):
         super().__init__()
         self.directory = directory
         self.renamer = renamer
-        self.live_photo_service = live_photo_service
+        self.live_photo_service = live_photos_service
         self.organizer = organizer
         self.heic_remover = heic_remover
         self.duplicate_exact_detector = duplicate_exact_detector
@@ -273,7 +273,7 @@ class AnalysisWorker(BaseWorker):
             result: 'FullAnalysisResult' = orchestrator.run_full_analysis(
                 directory=self.directory,
                 renamer=self.renamer,
-                live_photo_service=self.live_photo_service,
+                live_photos_service=self.live_photo_service,
                 organizer=self.organizer,
                 heic_remover=self.heic_remover,
                 duplicate_exact_detector=self.duplicate_exact_detector,

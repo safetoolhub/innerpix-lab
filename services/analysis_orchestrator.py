@@ -325,10 +325,10 @@ class AnalysisOrchestrator:
         Returns:
             LivePhotoDetectionResult con grupos y estadísticas
         """
-        self.logger.info("Detectando Live Photos")
+        self.logger.info("Buscando Live Photos")
         
         from services.result_types import LivePhotoDetectionResult
-        from services.live_photo_service import CleanupMode
+        from services.live_photos_service import CleanupMode
         
         # El nuevo servicio usa analyze() que retorna LivePhotoCleanupAnalysisResult
         cleanup_analysis = service.analyze(
@@ -379,7 +379,7 @@ class AnalysisOrchestrator:
             else:
                 org_type = organization_type
         
-        self.logger.info(f"Analizando estructura de directorios (tipo: {org_type.value})")
+        self.logger.info(f"Analizando estructura de carpetas (tipo: {org_type.value})")
         
         return organizer.analyze(
             directory,
@@ -424,7 +424,7 @@ class AnalysisOrchestrator:
         Returns:
             DuplicateAnalysisResult con duplicados exactos detectados
         """
-        self.logger.info("Detectando duplicados exactos (SHA256)")
+        self.logger.info("Identificando copias exactas")
         return duplicate_exact_detector.analyze(
             directory,
             progress_callback=progress_callback,
@@ -434,7 +434,7 @@ class AnalysisOrchestrator:
     def run_full_analysis(self,
                          directory: Path,
                          renamer: Optional[AnalyzableService] = None,
-                         live_photo_service: Optional[AnalyzableService] = None,
+                         live_photos_service: Optional[AnalyzableService] = None,
                          organizer: Optional[AnalyzableService] = None,
                          heic_remover: Optional[AnalyzableService] = None,
                          duplicate_exact_detector: Optional[AnalyzableService] = None,
@@ -448,7 +448,7 @@ class AnalysisOrchestrator:
         Args:
             directory: Directorio a analizar
             renamer: FileRenamer opcional
-            live_photo_service: LivePhotoService opcional
+            live_photos_service: LivePhotoService opcional
             organizer: FileOrganizer opcional
             heic_remover: HEICRemover opcional
             duplicate_exact_detector: DuplicateExactDetector opcional
@@ -475,7 +475,7 @@ class AnalysisOrchestrator:
         # Fase 1: Escaneo inicial (crea la caché de metadatos)
         scan_result, scan_timing = self._execute_phase(
             phase_id="scan",
-            phase_name="Escaneo de archivos",
+            phase_name="Escaneando archivos",
             phase_callable=lambda: self.scan_directory(directory, progress_callback, create_metadata_cache=True),
             phase_callback=phase_callback,
             partial_callback=lambda phase_id, scan_res: partial_callback(
@@ -507,21 +507,21 @@ class AnalysisOrchestrator:
             
             result.renaming, result.phase_timings['renaming'] = self._execute_phase(
                 phase_id="renaming",
-                phase_name="Análisis de nombres",
+                phase_name="Analizando nombres de archivos",
                 phase_callable=lambda: self.analyze_renaming(directory, renamer, progress_callback, metadata_cache),
                 phase_callback=phase_callback,
                 partial_callback=partial_callback
             )
         
         # Fase 3: Live Photos
-        if live_photo_service:
+        if live_photos_service:
             if self._check_cancellation(progress_callback, result, analysis_start_time):
                 return result
             
             result.live_photos, result.phase_timings['live_photos'] = self._execute_phase(
                 phase_id="live_photos",
-                phase_name="Detección de Live Photos",
-                phase_callable=lambda: self.analyze_live_photos(directory, live_photo_service, progress_callback),
+                phase_name="Buscando Live Photos",
+                phase_callable=lambda: self.analyze_live_photos(directory, live_photos_service, progress_callback),
                 phase_callback=phase_callback,
                 partial_callback=partial_callback
             )
@@ -533,7 +533,7 @@ class AnalysisOrchestrator:
             
             result.heic, result.phase_timings['heic'] = self._execute_phase(
                 phase_id="heic",
-                phase_name="Duplicados HEIC/JPG",
+                phase_name="Buscando duplicados HEIC/JPG",
                 phase_callable=lambda: self.analyze_heic_duplicates(directory, heic_remover, progress_callback, metadata_cache),
                 phase_callback=phase_callback,
                 partial_callback=partial_callback
@@ -546,7 +546,7 @@ class AnalysisOrchestrator:
             
             result.duplicates, result.phase_timings['duplicates'] = self._execute_phase(
                 phase_id="duplicates",
-                phase_name="Duplicados exactos",
+                phase_name="Identificando copias exactas",
                 phase_callable=lambda: self.analyze_exact_duplicates(directory, duplicate_exact_detector, progress_callback, metadata_cache),
                 phase_callback=phase_callback,
                 partial_callback=partial_callback
@@ -559,7 +559,7 @@ class AnalysisOrchestrator:
             
             result.organization, result.phase_timings['organization'] = self._execute_phase(
                 phase_id="organization",
-                phase_name="Análisis de organización",
+                phase_name="Analizando estructura de carpetas",
                 phase_callable=lambda: self.analyze_organization(directory, organizer, organization_type, progress_callback),
                 phase_callback=phase_callback,
                 partial_callback=partial_callback
