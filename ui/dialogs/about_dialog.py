@@ -89,12 +89,15 @@ class AboutDialog(QDialog):
         tools_grid.setContentsMargins(5, 5, 5, 5)
 
         tools = [
-            ("edit", "Renombrado Inteligente"),
-            ("live-photo", "Gestión de Live Photos"),
-            ("organize", "Organización de Carpetas"),
-            ("heic", "Limpieza HEIC/JPG"),
-            ("search", "Detección de Duplicados"),
+            ("rename", "Renombrar Archivos"),
+            ("live-photo", "Live Photos"),
+            ("organize", "Organizar Archivos"),
+            ("heic", "HEIC/JPG Duplicados"),
+            ("content-copy", "Copias exactas"),
+            ("image-multiple", "Archivos similares"),
             ("backup", "Backups Automáticos"),
+            ("history", "Registros de Operaciones")
+
         ]
 
         for i, (icon_name, name) in enumerate(tools):
