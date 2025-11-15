@@ -1,16 +1,14 @@
 from pathlib import Path
 from PyQt6.QtWidgets import (
     QVBoxLayout, QLabel, QPushButton,
-    QHBoxLayout, QVBoxLayout as QVLayout, QFrame, QTreeWidget, QTreeWidgetItem, QLineEdit,
+    QHBoxLayout, QFrame, QTreeWidget, QTreeWidgetItem, QLineEdit,
     QComboBox, QMessageBox, QMenu, QWidget
 )
 from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QDesktopServices, QColor
-from config import Config
 from services.exact_copies_detector import DuplicateGroup
 from utils.format_utils import format_size
 from utils.logger import get_logger
-from ui.styles.design_system import DesignSystem
 from ui.styles.design_system import DesignSystem
 from utils.icons import icon_manager
 from .base_dialog import BaseDialog
@@ -44,12 +42,17 @@ class ExactCopiesDialog(BaseDialog):
         self.filtered_groups = analysis.groups  # Grupos después de filtrar
         self.loaded_count = 0  # Cuántos grupos se han cargado en el tree
         
-        # Referencias a widgets
+        # Referencias a widgets (nuevos nombres)
         self.tree_widget = None
         self.search_input = None
         self.filter_combo = None
-        self.groups_info_label = None
+        self.loaded_chip = None
+        self.filtered_chip = None
         self.load_more_btn = None
+        self.load_all_btn = None
+        self.progress_indicator = None
+        self.progress_bar_container = None
+        self.progress_bar_fill = None
         
         self.init_ui()
     
@@ -78,7 +81,7 @@ class ExactCopiesDialog(BaseDialog):
     def init_ui(self):
         self.setWindowTitle("Gestionar copias exactas")
         self.setModal(True)
-        self.resize(1000, 700)
+        self.resize(1100, 850)
         
         layout = QVBoxLayout(self)
         layout.setSpacing(int(DesignSystem.SPACE_16))
@@ -148,142 +151,231 @@ class ExactCopiesDialog(BaseDialog):
             """)
             content_layout.addWidget(warning_many)
         
-        # Barra de herramientas (búsqueda, filtros y acciones)
-        toolbar_layout = QHBoxLayout()
+        # ========== BARRA DE BÚSQUEDA Y FILTROS ==========
+        # Campo de búsqueda elevado con Material Design
+        search_card = QFrame()
+        search_card.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                padding: {DesignSystem.SPACE_12}px;
+            }}
+        """)
+        search_card_layout = QVBoxLayout(search_card)
+        search_card_layout.setSpacing(int(DesignSystem.SPACE_12))
+        search_card_layout.setContentsMargins(0, 0, 0, 0)
         
-        # Búsqueda
+        # Fila de búsqueda
+        search_row = QHBoxLayout()
+        search_row.setSpacing(int(DesignSystem.SPACE_12))
+        
+        # Input de búsqueda con icono interno
         search_container = QWidget()
-        search_layout = QHBoxLayout(search_container)
-        search_layout.setContentsMargins(0, 0, 0, 0)
-        search_layout.setSpacing(4)
+        search_container_layout = QHBoxLayout(search_container)
+        search_container_layout.setContentsMargins(
+            int(DesignSystem.SPACE_12), 
+            int(DesignSystem.SPACE_8),
+            int(DesignSystem.SPACE_12),
+            int(DesignSystem.SPACE_8)
+        )
+        search_container_layout.setSpacing(int(DesignSystem.SPACE_8))
         
         search_icon = QLabel()
-        icon_manager.set_label_icon(search_icon, 'search', size=14)
-        search_layout.addWidget(search_icon)
-        
-        search_text = QLabel("Buscar:")
-        search_layout.addWidget(search_text)
-        
-        toolbar_layout.addWidget(search_container)
+        icon_manager.set_label_icon(search_icon, 'search', size=18)
+        search_icon.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY};")
+        search_container_layout.addWidget(search_icon)
         
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Nombre de archivo o ruta...")
+        self.search_input.setPlaceholderText("Buscar por nombre o ruta de archivo...")
         self.search_input.textChanged.connect(self._on_search_changed)
         self.search_input.setStyleSheet(f"""
             QLineEdit {{
-                padding: {DesignSystem.SPACE_8}px;
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
+                border: none;
+                background: transparent;
                 font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_TEXT};
+                padding: 0px;
             }}
-            QLineEdit:focus {{
-                border-color: {DesignSystem.COLOR_PRIMARY};
+            QLineEdit::placeholder {{
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
             }}
         """)
-        toolbar_layout.addWidget(self.search_input, 2)
+        search_container_layout.addWidget(self.search_input, 1)
         
-        # Filtro por tamaño
-        filter_container = QWidget()
-        filter_layout = QHBoxLayout(filter_container)
-        filter_layout.setContentsMargins(0, 0, 0, 0)
-        filter_layout.setSpacing(4)
+        search_container.setStyleSheet(f"""
+            QWidget {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                border: 2px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+            }}
+            QWidget:focus-within {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+                background-color: {DesignSystem.COLOR_SURFACE};
+            }}
+        """)
         
-        filter_icon = QLabel()
-        icon_manager.set_label_icon(filter_icon, 'chart-bar', size=14)
-        filter_layout.addWidget(filter_icon)
+        search_row.addWidget(search_container, 3)
         
-        filter_text = QLabel("Filtrar:")
-        filter_layout.addWidget(filter_text)
-        
-        toolbar_layout.addWidget(filter_container)
-        
+        # ComboBox de filtros con estilo Material
         self.filter_combo = QComboBox()
         self.filter_combo.addItems([
             "Todos los grupos",
-            "Solo grupos >10 MB",
-            "Solo grupos >50 MB",
-            "Solo grupos >100 MB",
-            "Solo grupos con 3+ archivos",
-            "Solo grupos con 5+ archivos"
+            "Grupos grandes (>10 MB)",
+            "Grupos muy grandes (>50 MB)",
+            "Grupos enormes (>100 MB)",
+            "Muchas copias (3+)",
+            "Muchas copias (5+)"
         ])
         self.filter_combo.currentIndexChanged.connect(self._on_filter_changed)
         self.filter_combo.setStyleSheet(f"""
             QComboBox {{
-                padding: {DesignSystem.SPACE_8}px;
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            }}
-        """)
-        toolbar_layout.addWidget(self.filter_combo, 1)
-        
-        # Separador visual
-        separator_line = QFrame()
-        separator_line.setFrameShape(QFrame.Shape.VLine)
-        separator_line.setFrameShadow(QFrame.Shadow.Sunken)
-        toolbar_layout.addWidget(separator_line)
-        
-        # Botón "Mostrar Todos" integrado en la barra
-        show_all_btn = QPushButton("Ver Todos")
-        icon_manager.set_button_icon(show_all_btn, 'eye', size=16)
-        show_all_btn.setToolTip("Cargar y mostrar todos los grupos de duplicados")
-        show_all_btn.clicked.connect(self._load_all_groups)
-        show_all_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {DesignSystem.COLOR_PRIMARY};
-                color: {DesignSystem.COLOR_PRIMARY_TEXT};
-                border: none;
+                background-color: {DesignSystem.COLOR_BG_1};
+                border: 2px solid {DesignSystem.COLOR_BORDER};
                 border-radius: {DesignSystem.RADIUS_BASE}px;
                 padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_TEXT};
+                min-width: 200px;
+            }}
+            QComboBox:hover {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+                background-color: {DesignSystem.COLOR_SURFACE};
+            }}
+            QComboBox::drop-down {{
+                border: none;
+                padding-right: {DesignSystem.SPACE_8}px;
+            }}
+            QComboBox::down-arrow {{
+                width: 12px;
+                height: 12px;
+            }}
+        """)
+        self.filter_combo.setToolTip("Filtra grupos por tamaño o cantidad de archivos")
+        
+        search_row.addWidget(self.filter_combo, 2)
+        
+        search_card_layout.addLayout(search_row)
+        
+        # Información de estado con chips Material Design
+        status_row = QHBoxLayout()
+        status_row.setSpacing(int(DesignSystem.SPACE_8))
+        
+        # Chip de grupos cargados
+        self.loaded_chip = QLabel()
+        self.loaded_chip.setStyleSheet(f"""
+            QLabel {{
+                background-color: {DesignSystem.COLOR_INFO};
+                color: {DesignSystem.COLOR_SURFACE};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_12}px;
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            }}
+        """)
+        status_row.addWidget(self.loaded_chip)
+        
+        # Chip de grupos filtrados (solo visible cuando hay filtros)
+        self.filtered_chip = QLabel()
+        self.filtered_chip.setStyleSheet(f"""
+            QLabel {{
+                background-color: {DesignSystem.COLOR_WARNING};
+                color: {DesignSystem.COLOR_SURFACE};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_12}px;
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            }}
+        """)
+        self.filtered_chip.hide()  # Oculto por defecto
+        status_row.addWidget(self.filtered_chip)
+        
+        status_row.addStretch()
+        
+        # Botón para cargar todos (solo visible cuando hay más grupos)
+        self.load_all_btn = QPushButton()
+        icon_manager.set_button_icon(self.load_all_btn, 'download', size=16)
+        self.load_all_btn.clicked.connect(self._load_all_groups)
+        self.load_all_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                color: {DesignSystem.COLOR_PRIMARY};
+                border: 2px solid {DesignSystem.COLOR_PRIMARY};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
                 font-size: {DesignSystem.FONT_SIZE_SM}px;
                 font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
             }}
             QPushButton:hover {{
-                background-color: {DesignSystem.COLOR_PRIMARY_HOVER};
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                color: {DesignSystem.COLOR_PRIMARY_TEXT};
             }}
             QPushButton:pressed {{
                 background-color: {DesignSystem.COLOR_PRIMARY_HOVER};
             }}
         """)
-        show_all_btn.setStyleSheet(DesignSystem.get_tooltip_style() + show_all_btn.styleSheet())
-        toolbar_layout.addWidget(show_all_btn)
+        self.load_all_btn.hide()  # Oculto hasta que se sepa si hay más grupos
+        status_row.addWidget(self.load_all_btn)
         
-        # Información de grupos cargados (inline, sin fondo)
-        self.groups_info_label = QLabel()
-        self.groups_info_label.setStyleSheet(f"""
-            color: {DesignSystem.COLOR_TEXT_SECONDARY};
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            padding: {DesignSystem.SPACE_6}px;
-        """)
-        toolbar_layout.addWidget(self.groups_info_label)
+        search_card_layout.addLayout(status_row)
         
-        toolbar_layout.addStretch()
-        content_layout.addLayout(toolbar_layout)
+        content_layout.addWidget(search_card)
         
-        # Tree widget para mostrar grupos expandibles
+        # ========== ÁRBOL DE GRUPOS ==========
         self.tree_widget = QTreeWidget()
-        self.tree_widget.setHeaderLabels(["Archivo/Grupo", "Tamaño", "Fecha Modificación", "Ruta", "Estado"])
-        self.tree_widget.setColumnWidth(0, 250)
+        self.tree_widget.setHeaderLabels(["Archivo", "Tamaño", "Modificado", "Ubicación", "Acción"])
+        self.tree_widget.setColumnWidth(0, 280)
         self.tree_widget.setColumnWidth(1, 100)
-        self.tree_widget.setColumnWidth(2, 150)
-        self.tree_widget.setColumnWidth(3, 300)
+        self.tree_widget.setColumnWidth(2, 160)
+        self.tree_widget.setColumnWidth(3, 280)
         self.tree_widget.setColumnWidth(4, 100)
         self.tree_widget.setAlternatingRowColors(True)
+        self.tree_widget.setRootIsDecorated(True)
+        self.tree_widget.setAnimated(True)
+        self.tree_widget.setIndentation(20)
         self.tree_widget.setStyleSheet(f"""
             QTreeWidget {{
                 border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
+                border-radius: {DesignSystem.RADIUS_LG}px;
                 background-color: {DesignSystem.COLOR_SURFACE};
                 font-size: {DesignSystem.FONT_SIZE_SM}px;
+                outline: none;
             }}
             QTreeWidget::item {{
-                padding: {DesignSystem.SPACE_6}px;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_4}px;
+                border: none;
             }}
             QTreeWidget::item:hover {{
-                background-color: {DesignSystem.COLOR_BG_2};
+                background-color: {DesignSystem.COLOR_BG_1};
             }}
             QTreeWidget::item:selected {{
-                background-color: {DesignSystem.COLOR_SECONDARY};
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                color: {DesignSystem.COLOR_PRIMARY_TEXT};
+            }}
+            QTreeWidget::item:selected:hover {{
+                background-color: {DesignSystem.COLOR_PRIMARY_HOVER};
+            }}
+            QHeaderView::section {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
+                border: none;
+                border-bottom: 2px solid {DesignSystem.COLOR_BORDER};
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }}
+            QTreeWidget::branch {{
+                background: transparent;
+            }}
+            QTreeWidget::branch:has-children:closed {{
+                image: url(none);
+                border: none;
+            }}
+            QTreeWidget::branch:has-children:open {{
+                image: url(none);
+                border: none;
             }}
         """)
         self.tree_widget.itemDoubleClicked.connect(self._on_item_double_clicked)
@@ -291,37 +383,85 @@ class ExactCopiesDialog(BaseDialog):
         self.tree_widget.customContextMenuRequested.connect(self._show_context_menu)
         content_layout.addWidget(self.tree_widget)
         
-        # Botón de paginación (solo "Cargar Más")
-        pagination_layout = QHBoxLayout()
+        # ========== PAGINACIÓN INTELIGENTE ==========
+        pagination_card = QFrame()
+        pagination_card.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                padding: {DesignSystem.SPACE_12}px {DesignSystem.SPACE_16}px;
+            }}
+        """)
+        pagination_layout = QHBoxLayout(pagination_card)
+        pagination_layout.setSpacing(int(DesignSystem.SPACE_12))
+        pagination_layout.setContentsMargins(0, 0, 0, 0)
         
-        self.load_more_btn = QPushButton(f"Cargar {self.LOAD_INCREMENT} Más Grupos")
-        icon_manager.set_button_icon(self.load_more_btn, 'down', size=16)
+        # Indicador de progreso visual
+        self.progress_indicator = QLabel()
+        self.progress_indicator.setStyleSheet(f"""
+            QLabel {{
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                background-color: transparent;
+                padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_8}px;
+            }}
+        """)
+        pagination_layout.addWidget(self.progress_indicator)
+        
+        # Barra de progreso visual
+        self.progress_bar_container = QFrame()
+        self.progress_bar_container.setFixedHeight(8)
+        self.progress_bar_container.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_BORDER};
+                border-radius: 4px;
+            }}
+        """)
+        
+        # Barra de progreso interna
+        self.progress_bar_fill = QFrame(self.progress_bar_container)
+        self.progress_bar_fill.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                border-radius: 4px;
+            }}
+        """)
+        self.progress_bar_fill.setGeometry(0, 0, 0, 8)
+        
+        pagination_layout.addWidget(self.progress_bar_container, 1)
+        
+        # Botón para cargar más grupos
+        self.load_more_btn = QPushButton()
+        icon_manager.set_button_icon(self.load_more_btn, 'refresh', size=18)
         self.load_more_btn.clicked.connect(self._load_more_groups)
         self.load_more_btn.setStyleSheet(f"""
             QPushButton {{
-                background-color: {DesignSystem.COLOR_SECONDARY};
-                color: {DesignSystem.COLOR_TEXT};
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                color: {DesignSystem.COLOR_PRIMARY_TEXT};
                 border: none;
                 border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_16}px;
+                padding: {DesignSystem.SPACE_10}px {DesignSystem.SPACE_20}px;
                 font-size: {DesignSystem.FONT_SIZE_BASE}px;
                 font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+                min-width: 160px;
             }}
             QPushButton:hover {{
-                background-color: {DesignSystem.COLOR_SECONDARY_HOVER};
+                background-color: {DesignSystem.COLOR_PRIMARY_HOVER};
             }}
             QPushButton:pressed {{
-                background-color: {DesignSystem.COLOR_SECONDARY_HOVER};
+                background-color: {DesignSystem.COLOR_PRIMARY_HOVER};
             }}
             QPushButton:disabled {{
-                background-color: {DesignSystem.COLOR_BORDER};
+                background-color: {DesignSystem.COLOR_SURFACE_DISABLED};
                 color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
             }}
         """)
         pagination_layout.addWidget(self.load_more_btn)
         
-        pagination_layout.addStretch()
-        content_layout.addLayout(pagination_layout)
+        content_layout.addWidget(pagination_card)
         
         # Cargar grupos iniciales
         self._load_initial_groups()
@@ -414,7 +554,7 @@ class ExactCopiesDialog(BaseDialog):
         self._load_groups_batch(remaining)
     
     def _load_groups_batch(self, count: int):
-        """Carga un lote de grupos en el tree widget"""
+        """Carga un lote de grupos en el tree widget y actualiza la UI"""
         start_idx = self.loaded_count
         end_idx = min(start_idx + count, len(self.filtered_groups))
         
@@ -423,49 +563,109 @@ class ExactCopiesDialog(BaseDialog):
             self._add_group_to_tree(group, i + 1)
         
         self.loaded_count = end_idx
-        self._update_info_label()
+        self._update_pagination_ui()
+    
+    def _update_pagination_ui(self):
+        """Actualiza todos los elementos de la UI de paginación"""
+        total_filtered = len(self.filtered_groups)
+        total_original = len(self.all_groups)
         
-        # Deshabilitar botón si ya no hay más grupos
-        if self.loaded_count >= len(self.filtered_groups):
-            self.load_more_btn.setEnabled(False)
-            self.load_more_btn.setText("Todos los Grupos Cargados")
-            icon_manager.set_button_icon(self.load_more_btn, 'check', size=16)
+        # Actualizar chips de estado
+        self.loaded_chip.setText(f"📊 Mostrando {self.loaded_count} de {total_filtered}")
+        
+        # Mostrar chip de filtrado si hay filtros activos
+        if total_filtered < total_original:
+            self.filtered_chip.setText(f"🔍 {total_original - total_filtered} grupos ocultos")
+            self.filtered_chip.show()
         else:
-            remaining = len(self.filtered_groups) - self.loaded_count
-            self.load_more_btn.setText(f"Cargar {min(self.LOAD_INCREMENT, remaining)} Más Grupos")
-            icon_manager.set_button_icon(self.load_more_btn, 'refresh', size=16)
+            self.filtered_chip.hide()
+        
+        # Actualizar barra de progreso
+        if total_filtered > 0:
+            progress_percent = (self.loaded_count / total_filtered) * 100
+            bar_width = int((self.progress_bar_container.width() * progress_percent) / 100)
+            self.progress_bar_fill.setFixedWidth(bar_width)
+            
+            # Actualizar indicador de progreso
+            self.progress_indicator.setText(f"{int(progress_percent)}%")
+        
+        # Actualizar botón "Cargar Más"
+        remaining = total_filtered - self.loaded_count
+        
+        if remaining <= 0:
+            # Ya se cargaron todos
+            self.load_more_btn.setEnabled(False)
+            self.load_more_btn.setText("✓ Todos cargados")
+            icon_manager.set_button_icon(self.load_more_btn, 'check-circle', size=18)
+            self.load_more_btn.setToolTip("Todos los grupos están cargados")
+        else:
+            # Aún hay más grupos por cargar
+            self.load_more_btn.setEnabled(True)
+            to_load = min(self.LOAD_INCREMENT, remaining)
+            self.load_more_btn.setText(f"Cargar {to_load} más")
+            icon_manager.set_button_icon(self.load_more_btn, 'refresh', size=18)
+            self.load_more_btn.setToolTip(f"Cargar los siguientes {to_load} grupos ({remaining} pendientes)")
+        
+        # Mostrar/ocultar botón "Cargar Todos"
+        if remaining > self.LOAD_INCREMENT:
+            self.load_all_btn.setText(f"Cargar todos ({remaining})")
+            self.load_all_btn.setToolTip(f"Cargar los {remaining} grupos restantes de una vez")
+            self.load_all_btn.show()
+        else:
+            self.load_all_btn.hide()
     
     def _add_group_to_tree(self, group: DuplicateGroup, group_number: int):
-        """Añade un grupo como nodo padre expandible en el tree"""
+        """Añade un grupo como nodo padre expandible en el tree con estilo Material Design"""
         # Nodo padre del grupo
         group_item = QTreeWidgetItem(self.tree_widget)
         file_count = len(group.files)
-        # Espacio a liberar = tamaño total - archivo más grande (que se conservará)
-        largest_file_size = max(f.stat().st_size for f in group.files)
-        space_to_free = group.total_size - largest_file_size
-        group_item.setText(0, f"Grupo {group_number} - {file_count} archivos")
-        group_item.setText(1, format_size(group.total_size))
-        group_item.setText(2, "")
-        group_item.setText(3, "")
-        group_item.setText(4, f"Libera: {format_size(space_to_free)}")
         
-        # Estilo del grupo padre
-        font = group_item.font(0)
-        font.setBold(True)
-        group_item.setFont(0, font)
-        group_item.setBackground(0, Qt.GlobalColor.lightGray)
-        
-        # Determinar qué archivo mantener según estrategia
+        # Calcular espacio a liberar (total - archivo que se mantendrá)
         if self.keep_strategy == 'oldest':
             keep_file = min(group.files, key=lambda f: f.stat().st_mtime)
         else:  # newest
             keep_file = max(group.files, key=lambda f: f.stat().st_mtime)
         
+        keep_file_size = keep_file.stat().st_size
+        space_to_free = group.total_size - keep_file_size
+        
+        # Icono para el grupo
+        group_item.setIcon(0, icon_manager.get_icon('folder-multiple', size=20))
+        
+        # Textos del grupo
+        group_item.setText(0, f"Grupo #{group_number} • {file_count} copias")
+        group_item.setText(1, format_size(group.total_size))
+        group_item.setText(2, "")
+        group_item.setText(3, "")
+        group_item.setText(4, f"💾 {format_size(space_to_free)}")
+        
+        # Estilo del grupo padre con Material Design
+        font = group_item.font(0)
+        font.setBold(True)
+        font.setPointSize(int(DesignSystem.FONT_SIZE_BASE))
+        group_item.setFont(0, font)
+        
+        # Color de fondo sutil Material Design
+        group_item.setBackground(0, QColor(DesignSystem.COLOR_BG_1))
+        group_item.setBackground(1, QColor(DesignSystem.COLOR_BG_1))
+        group_item.setBackground(2, QColor(DesignSystem.COLOR_BG_1))
+        group_item.setBackground(3, QColor(DesignSystem.COLOR_BG_1))
+        group_item.setBackground(4, QColor(DesignSystem.COLOR_BG_1))
+        
+        # Color del texto de la columna de espacio recuperable
+        group_item.setForeground(4, QColor(DesignSystem.COLOR_SUCCESS))
+        font_space = group_item.font(4)
+        font_space.setBold(True)
+        group_item.setFont(4, font_space)
+        
         # Añadir archivos como hijos
         for file_path in group.files:
             file_item = QTreeWidgetItem(group_item)
             
-            # Icono según tipo de archivo
+            # Determinar si este archivo se mantiene o se elimina
+            is_keep = file_path == keep_file
+            
+            # Icono según tipo de archivo (con color diferenciado)
             ext = file_path.suffix.lower()
             if ext in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp']:
                 icon_name = "image"
@@ -476,38 +676,53 @@ class ExactCopiesDialog(BaseDialog):
             else:
                 icon_name = "file"
             
-            file_item.setIcon(0, icon_manager.get_icon(icon_name, size=16))
+            file_item.setIcon(0, icon_manager.get_icon(icon_name, size=18))
             file_item.setText(0, file_path.name)
             file_item.setText(1, format_size(file_path.stat().st_size))
             
-            # Fecha de modificación
+            # Fecha de modificación con formato mejorado
             mtime = datetime.fromtimestamp(file_path.stat().st_mtime)
-            file_item.setText(2, mtime.strftime('%Y-%m-%d %H:%M:%S'))
+            file_item.setText(2, mtime.strftime('%d/%m/%Y %H:%M'))
             
-            # Ruta (truncada si es muy larga)
+            # Ruta del directorio padre
             path_str = str(file_path.parent)
-            if len(path_str) > 50:
-                path_str = "..." + path_str[-47:]
             file_item.setText(3, path_str)
             
-            # Estado: mantener o eliminar
-            is_keep = file_path == keep_file
+            # Estado: mantener o eliminar con iconos y colores Material Design
             if is_keep:
-                file_item.setText(4, "Mantener")
-                file_item.setForeground(4, Qt.GlobalColor.darkGreen)
+                file_item.setText(4, "✓ Mantener")
+                file_item.setForeground(4, QColor(DesignSystem.COLOR_SUCCESS))
+                
+                # Resaltar archivo que se mantiene con fondo sutil
+                for col in range(5):
+                    file_item.setBackground(col, QColor(f"{DesignSystem.COLOR_SUCCESS}15"))  # 15 = alpha hex
+                
+                font_keep = file_item.font(4)
+                font_keep.setBold(True)
+                file_item.setFont(4, font_keep)
             else:
-                file_item.setText(4, "Eliminar")
-                file_item.setForeground(4, Qt.GlobalColor.red)
+                file_item.setText(4, "✗ Eliminar")
+                file_item.setForeground(4, QColor(DesignSystem.COLOR_ERROR))
             
             # Guardar referencia al archivo en el item
             file_item.setData(0, Qt.ItemDataRole.UserRole, file_path)
             
-            # Tooltip con ruta completa
-            file_item.setToolTip(0, str(file_path))
-            file_item.setToolTip(3, str(file_path))
+            # Tooltips informativos
+            tooltip_text = (
+                f"<b>{file_path.name}</b><br>"
+                f"📂 {file_path.parent}<br>"
+                f"📊 {format_size(file_path.stat().st_size)}<br>"
+                f"📅 {mtime.strftime('%d/%m/%Y %H:%M:%S')}<br>"
+                f"{'✓ Se conservará' if is_keep else '✗ Se eliminará'}"
+            )
+            file_item.setToolTip(0, tooltip_text)
+            file_item.setToolTip(1, tooltip_text)
+            file_item.setToolTip(2, tooltip_text)
+            file_item.setToolTip(3, f"Ruta completa: {file_path}")
+            file_item.setToolTip(4, tooltip_text)
     
     def _update_status_labels(self):
-        """Actualiza las etiquetas de estado según la estrategia seleccionada"""
+        """Actualiza las etiquetas de estado según la estrategia seleccionada con estilo Material Design"""
         # Recorrer todos los grupos cargados y actualizar el estado
         for i in range(self.tree_widget.topLevelItemCount()):
             group_item = self.tree_widget.topLevelItem(i)
@@ -531,34 +746,33 @@ class ExactCopiesDialog(BaseDialog):
             else:
                 keep_file = files[0]  # Fallback
             
-            # Actualizar estado de cada archivo hijo
+            # Actualizar estado de cada archivo hijo con colores Material Design
             for j in range(group_item.childCount()):
                 child = group_item.child(j)
                 filepath = child.data(0, Qt.ItemDataRole.UserRole)
                 
                 if filepath == keep_file:
-                    child.setText(4, "Mantener")
+                    child.setText(4, "✓ Mantener")
                     child.setForeground(4, QColor(DesignSystem.COLOR_SUCCESS))
+                    
+                    # Resaltar archivo que se mantiene
+                    for col in range(5):
+                        child.setBackground(col, QColor(f"{DesignSystem.COLOR_SUCCESS}15"))
+                    
+                    font_keep = child.font(4)
+                    font_keep.setBold(True)
+                    child.setFont(4, font_keep)
                 else:
-                    child.setText(4, "Eliminar")
+                    child.setText(4, "✗ Eliminar")
                     child.setForeground(4, QColor(DesignSystem.COLOR_ERROR))
-    
-    def _update_info_label(self):
-        """Actualiza el label de información de grupos"""
-        total_filtered = len(self.filtered_groups)
-        total_original = len(self.all_groups)
-        
-        if total_filtered < total_original:
-            # Hay filtros aplicados
-            self.groups_info_label.setText(
-                f"Mostrando grupos {1 if self.loaded_count > 0 else 0}-{self.loaded_count} "
-                f"de {total_filtered} grupos filtrados (de {total_original} totales)"
-            )
-        else:
-            # Sin filtros
-            self.groups_info_label.setText(
-                f"Mostrando grupos {1 if self.loaded_count > 0 else 0}-{self.loaded_count} de {total_original}"
-            )
+                    
+                    # Limpiar fondo resaltado
+                    for col in range(5):
+                        child.setBackground(col, QColor("transparent"))
+                    
+                    font_del = child.font(4)
+                    font_del.setBold(False)
+                    child.setFont(4, font_del)
     
     def _on_search_changed(self):
         """Maneja cambios en la búsqueda"""
@@ -604,13 +818,34 @@ class ExactCopiesDialog(BaseDialog):
         self._update_header_metric(self.header_frame, 'Recuperable', format_size(recoverable_space))
         
         if len(self.filtered_groups) == 0:
-            # No hay resultados
-            self.groups_info_label.setText("No se encontraron grupos que coincidan con los filtros")
+            # No hay resultados - mostrar mensaje en chips
+            self.loaded_chip.setText("⚠️ Sin resultados")
+            self.loaded_chip.setStyleSheet(f"""
+                QLabel {{
+                    background-color: {DesignSystem.COLOR_WARNING};
+                    color: {DesignSystem.COLOR_SURFACE};
+                    border-radius: {DesignSystem.RADIUS_BASE}px;
+                    padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_12}px;
+                    font-size: {DesignSystem.FONT_SIZE_SM}px;
+                    font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                }}
+            """)
             self.load_more_btn.setEnabled(False)
+            self.load_all_btn.hide()
         else:
+            # Restaurar estilo normal del chip
+            self.loaded_chip.setStyleSheet(f"""
+                QLabel {{
+                    background-color: {DesignSystem.COLOR_INFO};
+                    color: {DesignSystem.COLOR_SURFACE};
+                    border-radius: {DesignSystem.RADIUS_BASE}px;
+                    padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_12}px;
+                    font-size: {DesignSystem.FONT_SIZE_SM}px;
+                    font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                }}
+            """)
             # Cargar primeros grupos
             self._load_initial_groups()
-            self.load_more_btn.setEnabled(self.loaded_count < len(self.filtered_groups))
     
     def _on_item_double_clicked(self, item, column):
         """Maneja doble click en un item del tree"""
@@ -625,7 +860,7 @@ class ExactCopiesDialog(BaseDialog):
             item.setExpanded(not item.isExpanded())
     
     def _show_context_menu(self, position):
-        """Muestra el menú contextual para un archivo"""
+        """Muestra el menú contextual para un archivo con estilo Material Design"""
         from .dialog_utils import open_file, open_folder
         
         item = self.tree_widget.itemAt(position)
@@ -638,6 +873,30 @@ class ExactCopiesDialog(BaseDialog):
             return  # Es un grupo padre, no mostrar menú
         
         menu = QMenu(self)
+        menu.setStyleSheet(f"""
+            QMenu {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_4}px;
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            }}
+            QMenu::item {{
+                background-color: transparent;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_16}px;
+                border-radius: {DesignSystem.RADIUS_SMALL}px;
+                color: {DesignSystem.COLOR_TEXT};
+            }}
+            QMenu::item:selected {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                color: {DesignSystem.COLOR_PRIMARY_TEXT};
+            }}
+            QMenu::separator {{
+                height: 1px;
+                background-color: {DesignSystem.COLOR_BORDER};
+                margin: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_8}px;
+            }}
+        """)
         
         # Acción: Abrir archivo
         open_action = menu.addAction("Abrir archivo")
