@@ -352,7 +352,7 @@ class SimilarFilesDialog(BaseDialog):
 
         # Info del grupo
         info_label = QLabel(
-            f"<b>Archivos:</b> {group.file_count} | "
+            f"<b>Archivos:</b> {len(group.files)} | "
             f"<b>Tamaño total:</b> {format_size(group.total_size)}"
         )
         info_label.setTextFormat(Qt.TextFormat.RichText)
@@ -1133,7 +1133,7 @@ class SimilarFilesDialog(BaseDialog):
             'metadata': {
                 'Grupo': f'{self.current_group_index + 1} de {len(self.analysis.groups)}',
                 'Similitud del grupo': f'{current_group.similarity_score:.1f}%',
-                'Archivos en grupo': str(current_group.file_count),
+                'Archivos en grupo': str(len(current_group.files)),
                 'Tamaño total del grupo': format_size(current_group.total_size),
             }
         }
