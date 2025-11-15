@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (
     QComboBox, QMessageBox, QMenu, QWidget
 )
 from PyQt6.QtCore import Qt, QUrl
-from PyQt6.QtGui import QDesktopServices, QColor
+from PyQt6.QtGui import QDesktopServices, QColor, QShowEvent
 from services.exact_copies_detector import DuplicateGroup
 from utils.format_utils import format_size
 from utils.logger import get_logger
@@ -81,10 +81,10 @@ class ExactCopiesDialog(BaseDialog):
     def init_ui(self):
         self.setWindowTitle("Gestionar copias exactas")
         self.setModal(True)
-        self.resize(1100, 850)
+        self.resize(1100, 900)
         
         layout = QVBoxLayout(self)
-        layout.setSpacing(int(DesignSystem.SPACE_16))
+        layout.setSpacing(int(DesignSystem.SPACE_12))
         layout.setContentsMargins(0, 0, 0, int(DesignSystem.SPACE_20))
         
         # Header compacto integrado con métricas inline
@@ -228,6 +228,7 @@ class ExactCopiesDialog(BaseDialog):
             "Muchas copias (5+)"
         ])
         self.filter_combo.currentIndexChanged.connect(self._on_filter_changed)
+        self.filter_combo.setFixedHeight(int(DesignSystem.SPACE_8 * 5))  # Mismo altura que search_container
         self.filter_combo.setStyleSheet(f"""
             QComboBox {{
                 background-color: {DesignSystem.COLOR_BG_1};
@@ -323,12 +324,13 @@ class ExactCopiesDialog(BaseDialog):
         
         # ========== ÁRBOL DE GRUPOS ==========
         self.tree_widget = QTreeWidget()
-        self.tree_widget.setHeaderLabels(["Archivo", "Tamaño", "Modificado", "Ubicación", "Acción"])
-        self.tree_widget.setColumnWidth(0, 280)
+        self.tree_widget.setHeaderHidden(True)  # Ocultar header para evitar confusión
+        self.tree_widget.setColumnCount(5)
+        self.tree_widget.setColumnWidth(0, 320)
         self.tree_widget.setColumnWidth(1, 100)
         self.tree_widget.setColumnWidth(2, 160)
         self.tree_widget.setColumnWidth(3, 280)
-        self.tree_widget.setColumnWidth(4, 100)
+        self.tree_widget.setColumnWidth(4, 120)
         self.tree_widget.setAlternatingRowColors(True)
         self.tree_widget.setRootIsDecorated(True)
         self.tree_widget.setAnimated(True)
@@ -408,6 +410,7 @@ class ExactCopiesDialog(BaseDialog):
                 padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_8}px;
             }}
         """)
+        self.progress_indicator.setToolTip("Porcentaje de grupos cargados en la lista")
         pagination_layout.addWidget(self.progress_indicator)
         
         # Barra de progreso visual
@@ -419,6 +422,10 @@ class ExactCopiesDialog(BaseDialog):
                 border-radius: 4px;
             }}
         """)
+        self.progress_bar_container.setToolTip(
+            "Progreso de carga: muestra cuántos grupos de los filtrados se han cargado en la lista. "
+            "Si cambias filtros, el progreso se reinicia para los nuevos resultados."
+        )
         
         # Barra de progreso interna
         self.progress_bar_fill = QFrame(self.progress_bar_container)
@@ -588,6 +595,10 @@ class ExactCopiesDialog(BaseDialog):
             
             # Actualizar indicador de progreso
             self.progress_indicator.setText(f"{int(progress_percent)}%")
+        else:
+            # No hay grupos filtrados - resetear barra de progreso
+            self.progress_bar_fill.setFixedWidth(0)
+            self.progress_indicator.setText("0%")
         
         # Actualizar botón "Cargar Más"
         remaining = total_filtered - self.loaded_count
@@ -832,6 +843,8 @@ class ExactCopiesDialog(BaseDialog):
             """)
             self.load_more_btn.setEnabled(False)
             self.load_all_btn.hide()
+            # Actualizar UI de paginación para mostrar progreso en 0%
+            self._update_pagination_ui()
         else:
             # Restaurar estilo normal del chip
             self.loaded_chip.setStyleSheet(f"""
@@ -950,6 +963,12 @@ class ExactCopiesDialog(BaseDialog):
                 "Archivo no encontrado",
                 f"No se encontró el archivo:\n{file_path}"
             )
+    
+    def showEvent(self, event: QShowEvent):
+        """Actualizar la barra de progreso cuando el diálogo se muestre completamente"""
+        super().showEvent(event)
+        # Actualizar la barra de progreso ahora que el layout está procesado
+        self._update_pagination_ui()
     
     def accept(self):
         self.accepted_plan = {
