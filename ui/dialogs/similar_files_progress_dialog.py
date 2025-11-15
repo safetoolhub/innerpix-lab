@@ -79,7 +79,7 @@ class SimilarFilesProgressDialog(QDialog):
             size=24
         )
         
-        self.status_text = QLabel("Detectando imágenes similares...")
+        self.status_text = QLabel("Identificando imágenes similares...")
         self.status_text.setObjectName("status_text")
         self.status_text.setWordWrap(True)
         

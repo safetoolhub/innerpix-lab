@@ -91,7 +91,7 @@ class AboutDialog(QDialog):
         tools = [
             ("edit", "Renombrado Inteligente"),
             ("live-photo", "Gestión de Live Photos"),
-            ("organize", "Organización de Directorios"),
+            ("organize", "Organización de Carpetas"),
             ("heic", "Limpieza HEIC/JPG"),
             ("search", "Detección de Duplicados"),
             ("backup", "Backups Automáticos"),

@@ -325,7 +325,7 @@ class AnalysisOrchestrator:
         Returns:
             LivePhotoDetectionResult con grupos y estadísticas
         """
-        self.logger.info("Detectando Live Photos")
+        self.logger.info("Buscando Live Photos")
         
         from services.result_types import LivePhotoDetectionResult
         from services.live_photos_service import CleanupMode
@@ -379,7 +379,7 @@ class AnalysisOrchestrator:
             else:
                 org_type = organization_type
         
-        self.logger.info(f"Analizando estructura de directorios (tipo: {org_type.value})")
+        self.logger.info(f"Analizando estructura de carpetas (tipo: {org_type.value})")
         
         return organizer.analyze(
             directory,
@@ -424,7 +424,7 @@ class AnalysisOrchestrator:
         Returns:
             DuplicateAnalysisResult con duplicados exactos detectados
         """
-        self.logger.info("Detectando duplicados exactos (SHA256)")
+        self.logger.info("Identificando copias exactas")
         return duplicate_exact_detector.analyze(
             directory,
             progress_callback=progress_callback,
