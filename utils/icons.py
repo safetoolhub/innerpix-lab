@@ -136,11 +136,14 @@ class IconManager:
         'hourglass': 'mdi6.timer-sand',
         
         # Opciones y configuración
-        'config': 'mdi6.cog-outline',
-        'settings-outline': 'mdi6.cog-outline',
-        'options': 'mdi6.tune',
-        'filter': 'mdi6.filter-variant',
-        'magic': 'mdi6.auto-fix',
+    'config': 'mdi6.cog-outline',
+    'settings-outline': 'mdi6.cog-outline',
+    'options': 'mdi6.tune',
+    'tune': 'mdi6.tune',
+    'filter': 'mdi6.filter-variant',
+    'filter-variant': 'mdi6.filter-variant',
+    'magic': 'mdi6.auto-fix',
+    'auto-fix': 'mdi6.auto-fix',
         
         # Acciones de usuario
         'play': 'mdi6.play',

@@ -122,10 +122,11 @@ class SimilarFilesDialog(BaseDialog):
     
     def _setup_ui(self):
         """Configura la interfaz del diálogo."""
-        # Configuración de la ventana
+        # Configuración de la ventana (más alta para dar espacio a las imágenes)
         self.setWindowTitle("Gestionar archivos similares")
         self.setModal(True)
-        self.resize(1100, 750)
+        self.resize(1200, 850)
+        self.setMinimumSize(1000, 700)
         
         # Layout principal
         main_layout = QVBoxLayout(self)
@@ -157,46 +158,42 @@ class SimilarFilesDialog(BaseDialog):
         )
         main_layout.addWidget(content_container)
         
-        # --- SECCIÓN 1: Card de sensibilidad (más compacta) ---
+        # --- SECCIÓN 1: Sensibilidad y Filtros en horizontal (más compacto) ---
+        sensitivity_filters_layout = QHBoxLayout()
+        sensitivity_filters_layout.setSpacing(DesignSystem.SPACE_12)
+        
         sensitivity_card = self._create_sensitivity_card()
-        content_layout.addWidget(sensitivity_card)
-        
-        # --- SECCIÓN 2: Card combinada de filtros y estrategias (en horizontal) ---
-        filters_strategies_layout = QHBoxLayout()
-        filters_strategies_layout.setSpacing(DesignSystem.SPACE_12)
-        
         filters_card = self._create_filters_card()
+        
+        sensitivity_filters_layout.addWidget(sensitivity_card, stretch=2)
+        sensitivity_filters_layout.addWidget(filters_card, stretch=1)
+        
+        content_layout.addLayout(sensitivity_filters_layout)
+        
+        # --- SECCIÓN 2: Selección automática (botones en una sola fila) ---
         strategies_card = self._create_strategies_card()
-        
-        filters_strategies_layout.addWidget(filters_card)
-        filters_strategies_layout.addWidget(strategies_card)
-        
-        content_layout.addLayout(filters_strategies_layout)
+        content_layout.addWidget(strategies_card)
         
         # --- SECCIÓN 3: Navegación de grupos ---
         nav_layout = self._create_navigation_section()
         content_layout.addLayout(nav_layout)
         
-        # --- SECCIÓN 4: Contenedor de grupo actual ---
+        # --- SECCIÓN 4: Contenedor de grupo actual (con más espacio vertical) ---
         self.group_container = QGroupBox()
         self.group_layout = QVBoxLayout(self.group_container)
         self.group_layout.setSpacing(DesignSystem.SPACE_8)
         self.group_layout.setContentsMargins(DesignSystem.SPACE_12, DesignSystem.SPACE_8, DesignSystem.SPACE_12, DesignSystem.SPACE_8)
-        content_layout.addWidget(self.group_container)
+        content_layout.addWidget(self.group_container, stretch=1)  # Darle stretch para que ocupe más espacio
         
-        # --- SECCIÓN 5: Resumen y opciones de seguridad (combinados en horizontal) ---
-        summary_options_layout = QHBoxLayout()
-        summary_options_layout.setSpacing(DesignSystem.SPACE_12)
-        
+        # --- SECCIÓN 5: Resumen ---
         summary_group = self._create_summary_section()
+        content_layout.addWidget(summary_group)
+        
+        # --- SECCIÓN 6: Opciones de seguridad (separadas, antes de botones) ---
         options_group = self._create_options_section()
+        content_layout.addWidget(options_group)
         
-        summary_options_layout.addWidget(summary_group, stretch=2)
-        summary_options_layout.addWidget(options_group, stretch=1)
-        
-        content_layout.addLayout(summary_options_layout)
-        
-        # --- SECCIÓN 6: Botones de acción ---
+        # --- SECCIÓN 7: Botones de acción ---
         buttons = self._create_action_buttons()
         content_layout.addWidget(buttons)
         
@@ -205,7 +202,7 @@ class SimilarFilesDialog(BaseDialog):
     
     def _create_sensitivity_card(self) -> QFrame:
         """
-        Crea la card con slider de sensibilidad interactivo.
+        Crea la card con slider de sensibilidad interactivo (compacta).
         
         Returns:
             QFrame con slider y controles
@@ -214,35 +211,44 @@ class SimilarFilesDialog(BaseDialog):
         card.setObjectName("sensitivity_card")
         
         layout = QVBoxLayout(card)
-        layout.setSpacing(DesignSystem.SPACE_8)
+        layout.setSpacing(DesignSystem.SPACE_6)
         layout.setContentsMargins(
-            DesignSystem.SPACE_16,
             DesignSystem.SPACE_12,
-            DesignSystem.SPACE_16,
-            DesignSystem.SPACE_12
+            DesignSystem.SPACE_10,
+            DesignSystem.SPACE_12,
+            DesignSystem.SPACE_10
         )
         
         # Título de la card con icono
         title_layout = QHBoxLayout()
-        title_icon = icon_manager.get_icon('options', size=18)
+        title_icon = icon_manager.get_icon('tune', size=16)
         title_icon_label = QLabel()
-        title_icon_label.setPixmap(title_icon.pixmap(18, 18))
+        title_icon_label.setPixmap(title_icon.pixmap(16, 16))
         title_layout.addWidget(title_icon_label)
         
         title = QLabel("Ajustar sensibilidad")
         title.setObjectName("card_title")
+        title.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            color: {DesignSystem.COLOR_TEXT};
+        """)
         title_layout.addWidget(title)
         title_layout.addStretch()
         layout.addLayout(title_layout)
         
         # Layout del slider
         slider_layout = QHBoxLayout()
-        slider_layout.setSpacing(DesignSystem.SPACE_12)
+        slider_layout.setSpacing(DesignSystem.SPACE_10)
         
-        # Label izquierda: 30% = Permisivo = MÁS grupos
+        # Label izquierda: 30% = Permisivo
         left_label = QLabel("30%\nPermisivo")
         left_label.setObjectName("slider_label")
         left_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        left_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_XS}px;
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+        """)
         left_label.setToolTip(
             "Sensibilidad baja (30%):\n"
             "Agrupa imágenes que se parecen poco.\n"
@@ -268,10 +274,14 @@ class SimilarFilesDialog(BaseDialog):
             "• 30% = Permisivo (algo similares)"
         )
         
-        # Label derecha: 100% = Estricto = MENOS grupos
+        # Label derecha: 100% = Estricto
         right_label = QLabel("100%\nEstricto")
         right_label.setObjectName("slider_label")
         right_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        right_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_XS}px;
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+        """)
         right_label.setToolTip(
             "Sensibilidad alta (100%):\n"
             "Solo agrupa imágenes casi idénticas.\n"
@@ -284,10 +294,15 @@ class SimilarFilesDialog(BaseDialog):
         
         layout.addLayout(slider_layout)
         
-        # Display de estadísticas en tiempo real
+        # Display de estadísticas en tiempo real (inline, más compacto)
         self.stats_label = QLabel()
         self.stats_label.setObjectName("stats_label")
         self.stats_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.stats_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_PRIMARY};
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+        """)
         layout.addWidget(self.stats_label)
         
         # Conectar señales
@@ -302,7 +317,7 @@ class SimilarFilesDialog(BaseDialog):
     
     def _create_filters_card(self) -> QFrame:
         """
-        Card con filtros avanzados para refinar los grupos mostrados.
+        Card con filtros avanzados para refinar los grupos mostrados (compacta).
         
         Returns:
             QFrame con controles de filtrado
@@ -316,12 +331,11 @@ class SimilarFilesDialog(BaseDialog):
                 background-color: {DesignSystem.COLOR_SURFACE};
                 border: 1px solid {DesignSystem.COLOR_BORDER};
                 border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: {DesignSystem.SPACE_12}px;
             }}
         """)
         
         layout = QVBoxLayout(card)
-        layout.setSpacing(DesignSystem.SPACE_8)
+        layout.setSpacing(DesignSystem.SPACE_6)
         layout.setContentsMargins(
             DesignSystem.SPACE_12,
             DesignSystem.SPACE_10,
@@ -331,9 +345,9 @@ class SimilarFilesDialog(BaseDialog):
         
         # Título con icono
         title_layout = QHBoxLayout()
-        icon = icon_manager.get_icon('filter', size=18)
+        icon = icon_manager.get_icon('filter-variant', size=16)
         icon_label = QLabel()
-        icon_label.setPixmap(icon.pixmap(18, 18))
+        icon_label.setPixmap(icon.pixmap(16, 16))
         title_layout.addWidget(icon_label)
         
         title = QLabel("Filtros")
@@ -346,38 +360,34 @@ class SimilarFilesDialog(BaseDialog):
         title_layout.addStretch()
         layout.addLayout(title_layout)
         
-        # Grid de filtros
+        # Grid de filtros (más compacto)
         from PyQt6.QtWidgets import QGridLayout
         filters_grid = QGridLayout()
-        filters_grid.setSpacing(DesignSystem.SPACE_8)
+        filters_grid.setSpacing(DesignSystem.SPACE_6)
         filters_grid.setColumnStretch(1, 1)
         
-        # Filtro 1: Mínimo archivos por grupo
-        min_files_label = QLabel("Mín. archivos:")
-        min_files_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px;")
-        min_files_label.setToolTip("Mostrar solo grupos con al menos N archivos")
-        
-        self.min_files_spin = QSpinBox()
-        self.min_files_spin.setRange(2, 100)
-        self.min_files_spin.setValue(self.filter_min_files)
-        self.min_files_spin.setSuffix(" archivos")
-        self.min_files_spin.setMinimumWidth(130)
-        self.min_files_spin.setStyleSheet(f"""
+        # Estilo común para spinboxes con flechas Material Design
+        spinbox_style = f"""
             QSpinBox {{
-                padding: {DesignSystem.SPACE_6}px;
-                padding-right: 20px;
+                padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_6}px;
+                padding-right: 24px;
                 border: 1px solid {DesignSystem.COLOR_BORDER};
                 border-radius: {DesignSystem.RADIUS_BASE}px;
-                background-color: {DesignSystem.COLOR_SURFACE};
+                background-color: {DesignSystem.COLOR_BACKGROUND};
                 font-size: {DesignSystem.FONT_SIZE_SM}px;
+                color: {DesignSystem.COLOR_TEXT};
             }}
             QSpinBox:hover {{
                 border-color: {DesignSystem.COLOR_PRIMARY};
             }}
+            QSpinBox:focus {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+                border-width: 2px;
+            }}
             QSpinBox::up-button {{
                 subcontrol-origin: border;
                 subcontrol-position: top right;
-                width: 18px;
+                width: 20px;
                 border-left: 1px solid {DesignSystem.COLOR_BORDER};
                 border-bottom: 1px solid {DesignSystem.COLOR_BORDER};
                 border-top-right-radius: {DesignSystem.RADIUS_BASE}px;
@@ -386,19 +396,25 @@ class SimilarFilesDialog(BaseDialog):
             QSpinBox::up-button:hover {{
                 background-color: {DesignSystem.COLOR_SECONDARY};
             }}
+            QSpinBox::up-button:pressed {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+            }}
             QSpinBox::up-arrow {{
                 image: none;
-                border-left: 4px solid transparent;
-                border-right: 4px solid transparent;
-                border-bottom: 5px solid {DesignSystem.COLOR_TEXT};
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-bottom: 6px solid {DesignSystem.COLOR_TEXT};
                 width: 0px;
                 height: 0px;
-                margin: 0px 5px;
+                margin: 0px 6px;
+            }}
+            QSpinBox::up-arrow:hover {{
+                border-bottom-color: {DesignSystem.COLOR_PRIMARY};
             }}
             QSpinBox::down-button {{
                 subcontrol-origin: border;
                 subcontrol-position: bottom right;
-                width: 18px;
+                width: 20px;
                 border-left: 1px solid {DesignSystem.COLOR_BORDER};
                 border-top: 1px solid {DesignSystem.COLOR_BORDER};
                 border-bottom-right-radius: {DesignSystem.RADIUS_BASE}px;
@@ -407,16 +423,37 @@ class SimilarFilesDialog(BaseDialog):
             QSpinBox::down-button:hover {{
                 background-color: {DesignSystem.COLOR_SECONDARY};
             }}
+            QSpinBox::down-button:pressed {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+            }}
             QSpinBox::down-arrow {{
                 image: none;
-                border-left: 4px solid transparent;
-                border-right: 4px solid transparent;
-                border-top: 5px solid {DesignSystem.COLOR_TEXT};
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-top: 6px solid {DesignSystem.COLOR_TEXT};
                 width: 0px;
                 height: 0px;
-                margin: 0px 5px;
+                margin: 0px 6px;
             }}
+            QSpinBox::down-arrow:hover {{
+                border-top-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+        """
+        
+        # Filtro 1: Mínimo archivos por grupo
+        min_files_label = QLabel("Mín. archivos:")
+        min_files_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_TEXT};
         """)
+        min_files_label.setToolTip("Mostrar solo grupos con al menos N archivos")
+        
+        self.min_files_spin = QSpinBox()
+        self.min_files_spin.setRange(2, 100)
+        self.min_files_spin.setValue(self.filter_min_files)
+        self.min_files_spin.setSuffix(" archivos")
+        self.min_files_spin.setMinimumWidth(120)
+        self.min_files_spin.setStyleSheet(spinbox_style)
         self.min_files_spin.setToolTip("Número mínimo de archivos que debe tener un grupo para mostrarse")
         self.min_files_spin.valueChanged.connect(self._on_filters_changed)
         
@@ -425,69 +462,18 @@ class SimilarFilesDialog(BaseDialog):
         
         # Filtro 2: Tamaño mínimo
         min_size_label = QLabel("Tamaño mín.:")
-        min_size_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px;")
+        min_size_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_TEXT};
+        """)
         min_size_label.setToolTip("Mostrar solo archivos mayores a N MB")
         
         self.min_size_spin = QSpinBox()
         self.min_size_spin.setRange(0, 100)
         self.min_size_spin.setValue(self.filter_min_size_mb)
         self.min_size_spin.setSuffix(" MB")
-        self.min_size_spin.setMinimumWidth(130)
-        self.min_size_spin.setStyleSheet(f"""
-            QSpinBox {{
-                padding: {DesignSystem.SPACE_6}px;
-                padding-right: 20px;
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                background-color: {DesignSystem.COLOR_SURFACE};
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-            }}
-            QSpinBox:hover {{
-                border-color: {DesignSystem.COLOR_PRIMARY};
-            }}
-            QSpinBox::up-button {{
-                subcontrol-origin: border;
-                subcontrol-position: top right;
-                width: 18px;
-                border-left: 1px solid {DesignSystem.COLOR_BORDER};
-                border-bottom: 1px solid {DesignSystem.COLOR_BORDER};
-                border-top-right-radius: {DesignSystem.RADIUS_BASE}px;
-                background-color: {DesignSystem.COLOR_SURFACE};
-            }}
-            QSpinBox::up-button:hover {{
-                background-color: {DesignSystem.COLOR_SECONDARY};
-            }}
-            QSpinBox::up-arrow {{
-                image: none;
-                border-left: 4px solid transparent;
-                border-right: 4px solid transparent;
-                border-bottom: 5px solid {DesignSystem.COLOR_TEXT};
-                width: 0px;
-                height: 0px;
-                margin: 0px 5px;
-            }}
-            QSpinBox::down-button {{
-                subcontrol-origin: border;
-                subcontrol-position: bottom right;
-                width: 18px;
-                border-left: 1px solid {DesignSystem.COLOR_BORDER};
-                border-top: 1px solid {DesignSystem.COLOR_BORDER};
-                border-bottom-right-radius: {DesignSystem.RADIUS_BASE}px;
-                background-color: {DesignSystem.COLOR_SURFACE};
-            }}
-            QSpinBox::down-button:hover {{
-                background-color: {DesignSystem.COLOR_SECONDARY};
-            }}
-            QSpinBox::down-arrow {{
-                image: none;
-                border-left: 4px solid transparent;
-                border-right: 4px solid transparent;
-                border-top: 5px solid {DesignSystem.COLOR_TEXT};
-                width: 0px;
-                height: 0px;
-                margin: 0px 5px;
-            }}
-        """)
+        self.min_size_spin.setMinimumWidth(120)
+        self.min_size_spin.setStyleSheet(spinbox_style)
         self.min_size_spin.setToolTip(
             "Tamaño mínimo de archivo en MB. "
             "Grupos con todos los archivos menores serán ocultados. "
@@ -500,19 +486,20 @@ class SimilarFilesDialog(BaseDialog):
         
         layout.addLayout(filters_grid)
         
-        # Botón resetear filtros
+        # Botón resetear filtros (más pequeño)
         reset_btn = QPushButton("Resetear")
         reset_btn.setIcon(icon_manager.get_icon('refresh', size=14))
         reset_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
         reset_btn.setToolTip("Restaurar filtros a valores predeterminados")
         reset_btn.clicked.connect(self._reset_filters)
+        reset_btn.setMaximumWidth(100)
         layout.addWidget(reset_btn, alignment=Qt.AlignmentFlag.AlignLeft)
         
         return card
     
     def _create_strategies_card(self) -> QFrame:
         """
-        Card con estrategias de selección automática.
+        Card con estrategias de selección automática (botones en fila única).
         
         Returns:
             QFrame con botones de estrategias
@@ -524,12 +511,11 @@ class SimilarFilesDialog(BaseDialog):
                 background-color: {DesignSystem.COLOR_SURFACE};
                 border: 1px solid {DesignSystem.COLOR_BORDER};
                 border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: {DesignSystem.SPACE_12}px;
             }}
         """)
         
         layout = QVBoxLayout(card)
-        layout.setSpacing(DesignSystem.SPACE_8)
+        layout.setSpacing(DesignSystem.SPACE_6)
         layout.setContentsMargins(
             DesignSystem.SPACE_12,
             DesignSystem.SPACE_10,
@@ -539,9 +525,9 @@ class SimilarFilesDialog(BaseDialog):
         
         # Título con icono
         title_layout = QHBoxLayout()
-        icon = icon_manager.get_icon('magic', size=18)
+        icon = icon_manager.get_icon('auto-fix', size=16)
         icon_label = QLabel()
-        icon_label.setPixmap(icon.pixmap(18, 18))
+        icon_label.setPixmap(icon.pixmap(16, 16))
         title_layout.addWidget(icon_label)
         
         title = QLabel("Selección automática")
@@ -554,38 +540,33 @@ class SimilarFilesDialog(BaseDialog):
         title_layout.addStretch()
         layout.addLayout(title_layout)
         
-        # Grid de botones de estrategia (2x2 compacto)
-        from PyQt6.QtWidgets import QGridLayout
-        strategies_grid = QGridLayout()
-        strategies_grid.setSpacing(DesignSystem.SPACE_6)
+        # Botones de estrategia en una sola fila horizontal
+        strategies_layout = QHBoxLayout()
+        strategies_layout.setSpacing(DesignSystem.SPACE_8)
         
         strategies = [
             ('Mantener 1º', 'keep_first', 'Elimina todos excepto el primero de cada grupo'),
             ('Mantener último', 'keep_last', 'Elimina todos excepto el último de cada grupo'),
             ('Más grande', 'keep_largest', 'Elimina los archivos más pequeños de cada grupo'),
             ('Más pequeño', 'keep_smallest', 'Elimina los archivos más grandes de cada grupo'),
+            ('Limpiar', 'clear', 'Deselecciona todos los archivos marcados'),
         ]
         
-        for idx, (label, strategy, tooltip) in enumerate(strategies):
+        for label, strategy, tooltip in strategies:
             btn = QPushButton(label)
-            btn.setIcon(icon_manager.get_icon('checkbox-marked', size=14))
-            btn.setStyleSheet(DesignSystem.get_primary_button_style())
-            btn.setToolTip(tooltip)
-            btn.clicked.connect(lambda checked, s=strategy: self._apply_strategy(s))
             
-            row = idx // 2
-            col = idx % 2
-            strategies_grid.addWidget(btn, row, col)
+            # Estilo diferente para el botón de limpiar
+            if strategy == 'clear':
+                btn.setStyleSheet(DesignSystem.get_secondary_button_style())
+                btn.clicked.connect(self._clear_all_selections)
+            else:
+                btn.setStyleSheet(DesignSystem.get_primary_button_style())
+                btn.clicked.connect(lambda checked, s=strategy: self._apply_strategy(s))
+            
+            btn.setToolTip(tooltip)
+            strategies_layout.addWidget(btn)
         
-        layout.addLayout(strategies_grid)
-        
-        # Botón limpiar selección
-        clear_btn = QPushButton("Limpiar")
-        clear_btn.setIcon(icon_manager.get_icon('close', size=14))
-        clear_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
-        clear_btn.setToolTip("Deselecciona todos los archivos marcados")
-        clear_btn.clicked.connect(self._clear_all_selections)
-        layout.addWidget(clear_btn, alignment=Qt.AlignmentFlag.AlignLeft)
+        layout.addLayout(strategies_layout)
         
         return card
     
@@ -701,20 +682,36 @@ class SimilarFilesDialog(BaseDialog):
         return nav_layout
     
     def _create_summary_section(self) -> QGroupBox:
-        """Crea la sección de resumen."""
+        """Crea la sección de resumen (ocupa todo el ancho)."""
         summary_group = QGroupBox("Resumen")
+        summary_group.setStyleSheet(f"""
+            QGroupBox {{
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                margin-top: {DesignSystem.SPACE_8}px;
+                padding-top: {DesignSystem.SPACE_8}px;
+                background-color: {DesignSystem.COLOR_SURFACE};
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: {DesignSystem.SPACE_12}px;
+                padding: 0 {DesignSystem.SPACE_6}px;
+            }}
+        """)
         summary_group.setSizePolicy(
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Fixed
         )
-        summary_group.setMinimumHeight(80)
+        summary_group.setMinimumHeight(60)
+        summary_group.setMaximumHeight(80)
         
         summary_layout = QVBoxLayout(summary_group)
         summary_layout.setContentsMargins(
             DesignSystem.SPACE_16,
+            DesignSystem.SPACE_12,
             DesignSystem.SPACE_16,
-            DesignSystem.SPACE_16,
-            DesignSystem.SPACE_16
+            DesignSystem.SPACE_12
         )
         
         self.summary_label = QLabel()
@@ -727,6 +724,10 @@ class SimilarFilesDialog(BaseDialog):
         self.summary_label.setAlignment(
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
         )
+        self.summary_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_TEXT};
+        """)
         summary_layout.addWidget(self.summary_label)
         
         return summary_group
@@ -981,8 +982,8 @@ class SimilarFilesDialog(BaseDialog):
             thumbnails_layout.addWidget(frame, row, col)
 
         scroll_area.setWidget(thumbnails_widget)
-        scroll_area.setMinimumHeight(280)
-        scroll_area.setMaximumHeight(350)
+        scroll_area.setMinimumHeight(350)
+        scroll_area.setMaximumHeight(500)
         self.group_layout.addWidget(scroll_area)
 
         self._update_summary()

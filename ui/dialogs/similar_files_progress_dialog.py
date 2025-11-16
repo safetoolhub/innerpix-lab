@@ -41,6 +41,7 @@ class SimilarFilesProgressDialog(QDialog):
         self.total_files = total_files
         self.current_files = 0
         self.start_time = QTime.currentTime()
+        self.current_filename = ""
         
         self._setup_ui()
         self._apply_styles()
@@ -50,7 +51,7 @@ class SimilarFilesProgressDialog(QDialog):
         """Configura la interfaz del diálogo"""
         self.setWindowTitle("Analizando archivos similares")
         self.setModal(True)
-        self.setFixedSize(520, 500)
+        self.setFixedSize(580, 650)
         self.setWindowFlags(
             Qt.WindowType.Dialog | 
             Qt.WindowType.CustomizeWindowHint | 
@@ -67,36 +68,78 @@ class SimilarFilesProgressDialog(QDialog):
             DesignSystem.SPACE_32
         )
         
-        # Estado actual con spinner
-        status_layout = QHBoxLayout()
+        # Header con icono y título
+        header_layout = QHBoxLayout()
+        header_layout.setSpacing(DesignSystem.SPACE_12)
+        
+        header_icon = QLabel()
+        icon_manager.set_label_icon(
+            header_icon,
+            "image-search",
+            color=DesignSystem.COLOR_PRIMARY,
+            size=32
+        )
+        
+        header_text = QLabel("Análisis de similitud")
+        header_text.setObjectName("header_text")
+        
+        header_layout.addWidget(header_icon)
+        header_layout.addWidget(header_text)
+        header_layout.addStretch()
+        main_layout.addLayout(header_layout)
+        
+        # Descripción del proceso
+        description = QLabel(
+            "Este proceso analiza cada imagen y vídeo comparándolos entre sí "
+            "para detectar similitudes visuales (recortes, rotaciones, ediciones). "
+            "Puede tardar varios minutos según la cantidad de archivos."
+        )
+        description.setObjectName("description_text")
+        description.setWordWrap(True)
+        main_layout.addWidget(description)
+        
+        main_layout.addSpacing(DesignSystem.SPACE_16)
+        
+        # Card de progreso principal
+        progress_card = QFrame()
+        progress_card.setObjectName("progress_card")
+        progress_card_layout = QVBoxLayout(progress_card)
+        progress_card_layout.setSpacing(DesignSystem.SPACE_16)
+        progress_card_layout.setContentsMargins(
+            DesignSystem.SPACE_20,
+            DesignSystem.SPACE_20,
+            DesignSystem.SPACE_20,
+            DesignSystem.SPACE_20
+        )
+        
+        # Estado actual con spinner - ALTURA FIJA
+        status_container = QFrame()
+        status_container.setObjectName("status_container")
+        status_container.setFixedHeight(48)  # Altura fija para evitar movimiento
+        
+        status_layout = QHBoxLayout(status_container)
+        status_layout.setContentsMargins(0, 0, 0, 0)
         status_layout.setSpacing(DesignSystem.SPACE_12)
         
         self.spinner_label = QLabel()
         icon_manager.set_label_icon(
             self.spinner_label,
-            "loading",
+            "timer",
             color=DesignSystem.COLOR_PRIMARY,
-            size=24
+            size=20
         )
         
-        self.status_text = QLabel("Identificando imágenes similares...")
+        self.status_text = QLabel("Iniciando análisis...")
         self.status_text.setObjectName("status_text")
         self.status_text.setWordWrap(True)
+        self.status_text.setMaximumHeight(44)  # Altura máxima para 2 líneas
         
-        status_layout.addWidget(self.spinner_label)
-        status_layout.addWidget(self.status_text)
-        status_layout.addStretch()
-        main_layout.addLayout(status_layout)
+        status_layout.addWidget(self.spinner_label, 0, Qt.AlignmentFlag.AlignTop)
+        status_layout.addWidget(self.status_text, 1)
         
-        main_layout.addSpacing(DesignSystem.SPACE_8)
+        progress_card_layout.addWidget(status_container)
         
         # Barra de progreso
-        progress_container = QFrame()
-        progress_container.setObjectName("progress_container")
-        progress_layout = QVBoxLayout(progress_container)
-        progress_layout.setContentsMargins(0, 0, 0, 0)
-        progress_layout.setSpacing(DesignSystem.SPACE_8)
-        
         self.progress_bar = QProgressBar()
         self.progress_bar.setObjectName("progress_bar")
         self.progress_bar.setMinimum(0)
@@ -104,46 +147,18 @@ class SimilarFilesProgressDialog(QDialog):
         self.progress_bar.setValue(0)
         self.progress_bar.setTextVisible(True)
         self.progress_bar.setFormat("%p%")
-        progress_layout.addWidget(self.progress_bar)
-        
-        main_layout.addWidget(progress_container)
-        main_layout.addSpacing(DesignSystem.SPACE_12)
+        self.progress_bar.setFixedHeight(36)
+        progress_card_layout.addWidget(self.progress_bar)
         
         # Estadísticas
         stats_container = self._create_stats_container()
-        main_layout.addWidget(stats_container)
+        progress_card_layout.addWidget(stats_container)
         
-        # Tiempo
-        time_container = self._create_time_container()
-        main_layout.addWidget(time_container)
+        main_layout.addWidget(progress_card)
         
-        # Separador
-        separator = QFrame()
-        separator.setFrameShape(QFrame.Shape.HLine)
-        separator.setObjectName("separator")
-        main_layout.addWidget(separator)
-        
-        # Información
-        info_layout = QHBoxLayout()
-        info_icon = QLabel()
-        icon_manager.set_label_icon(
-            info_icon,
-            "info",
-            color=DesignSystem.COLOR_PRIMARY,
-            size=16
-        )
-        
-        info_text = QLabel(
-            "El análisis está en progreso. La ventana se cerrará\n"
-            "automáticamente al completarse."
-        )
-        info_text.setObjectName("info_text")
-        info_text.setWordWrap(True)
-        
-        info_layout.addWidget(info_icon)
-        info_layout.addWidget(info_text)
-        info_layout.addStretch()
-        main_layout.addLayout(info_layout)
+        # Card de tiempo
+        time_card = self._create_time_card()
+        main_layout.addWidget(time_card)
         
         # Espaciador
         main_layout.addStretch()
@@ -167,24 +182,23 @@ class SimilarFilesProgressDialog(QDialog):
         
         layout = QHBoxLayout(container)
         layout.setContentsMargins(
+            DesignSystem.SPACE_16,
             DesignSystem.SPACE_12,
-            DesignSystem.SPACE_12,
-            DesignSystem.SPACE_12,
+            DesignSystem.SPACE_16,
             DesignSystem.SPACE_12
         )
-        layout.setSpacing(DesignSystem.SPACE_8)
+        layout.setSpacing(DesignSystem.SPACE_10)
         
         icon = QLabel()
         icon_manager.set_label_icon(
             icon,
             "chart-bar",
-            color=DesignSystem.COLOR_TEXT_SECONDARY,
-            size=16
+            color=DesignSystem.COLOR_PRIMARY,
+            size=18
         )
         
-        self.stats_text = QLabel(f"0 de {format_file_count(self.total_files)} procesados")
+        self.stats_text = QLabel(f"0 de {format_file_count(self.total_files)}")
         self.stats_text.setObjectName("stats_text")
-        self.stats_text.setWordWrap(True)
         
         layout.addWidget(icon)
         layout.addWidget(self.stats_text)
@@ -192,22 +206,24 @@ class SimilarFilesProgressDialog(QDialog):
         
         return container
     
-    def _create_time_container(self) -> QFrame:
-        """Crea el contenedor de tiempo"""
-        container = QFrame()
-        container.setObjectName("time_container")
+    def _create_time_card(self) -> QFrame:
+        """Crea la card de tiempo con diseño mejorado"""
+        card = QFrame()
+        card.setObjectName("time_card")
         
-        layout = QVBoxLayout(container)
+        layout = QVBoxLayout(card)
         layout.setContentsMargins(
-            DesignSystem.SPACE_12,
-            DesignSystem.SPACE_12,
-            DesignSystem.SPACE_12,
-            DesignSystem.SPACE_12
+            DesignSystem.SPACE_20,
+            DesignSystem.SPACE_16,
+            DesignSystem.SPACE_20,
+            DesignSystem.SPACE_16
         )
-        layout.setSpacing(DesignSystem.SPACE_4)
+        layout.setSpacing(DesignSystem.SPACE_12)
         
         # Tiempo transcurrido
         elapsed_layout = QHBoxLayout()
+        elapsed_layout.setSpacing(DesignSystem.SPACE_10)
+        
         elapsed_icon = QLabel()
         icon_manager.set_label_icon(
             elapsed_icon,
@@ -218,33 +234,33 @@ class SimilarFilesProgressDialog(QDialog):
         
         self.elapsed_text = QLabel("Tiempo transcurrido: 0s")
         self.elapsed_text.setObjectName("time_text")
-        self.elapsed_text.setWordWrap(True)
         
         elapsed_layout.addWidget(elapsed_icon)
         elapsed_layout.addWidget(self.elapsed_text)
         elapsed_layout.addStretch()
         layout.addLayout(elapsed_layout)
         
-        # Tiempo estimado
+        # Tiempo estimado - EN UNA SOLA LÍNEA
         remaining_layout = QHBoxLayout()
+        remaining_layout.setSpacing(DesignSystem.SPACE_10)
+        
         remaining_icon = QLabel()
         icon_manager.set_label_icon(
             remaining_icon,
-            "clock",
+            "timer",
             color=DesignSystem.COLOR_TEXT_SECONDARY,
             size=16
         )
         
-        self.remaining_text = QLabel("Tiempo estimado restante: calculando...")
+        self.remaining_text = QLabel("Tiempo restante: calculando...")
         self.remaining_text.setObjectName("time_text")
-        self.remaining_text.setWordWrap(True)
         
         remaining_layout.addWidget(remaining_icon)
         remaining_layout.addWidget(self.remaining_text)
         remaining_layout.addStretch()
         layout.addLayout(remaining_layout)
         
-        return container
+        return card
     
     def _start_timer(self):
         """Inicia el timer para actualizar el tiempo transcurrido"""
@@ -275,15 +291,11 @@ class SimilarFilesProgressDialog(QDialog):
                     remaining_seconds = remaining % 60
                     
                     if remaining_minutes > 0:
-                        self.remaining_text.setText(
-                            f"Tiempo estimado restante: ~{remaining_minutes}m {remaining_seconds}s"
-                        )
+                        self.remaining_text.setText(f"Tiempo restante: ~{remaining_minutes}m {remaining_seconds}s")
                     else:
-                        self.remaining_text.setText(
-                            f"Tiempo estimado restante: ~{remaining_seconds}s"
-                        )
+                        self.remaining_text.setText(f"Tiempo restante: ~{remaining_seconds}s")
                 else:
-                    self.remaining_text.setText("Tiempo estimado restante: finalizando...")
+                    self.remaining_text.setText("Tiempo restante: finalizando...")
     
     def update_progress(self, current: int, total: int, message: str = ""):
         """
@@ -292,7 +304,7 @@ class SimilarFilesProgressDialog(QDialog):
         Args:
             current: Archivos procesados
             total: Total de archivos
-            message: Mensaje de estado (opcional)
+            message: Mensaje de estado (nombre del archivo actual)
         """
         self.current_files = current
         self.total_files = total
@@ -302,11 +314,16 @@ class SimilarFilesProgressDialog(QDialog):
             self.progress_bar.setValue(percentage)
         
         # Actualizar estadísticas
-        self.stats_text.setText(f"{format_file_count(current)} de {format_file_count(total)} procesados")
+        self.stats_text.setText(f"{format_file_count(current)} de {format_file_count(total)}")
         
-        # Actualizar mensaje si se proporciona
+        # Actualizar mensaje con el archivo actual
         if message:
             self.status_text.setText(message)
+            # Extraer el nombre del archivo después del salto de línea
+            if "\n" in message:
+                self.current_filename = message.split("\n", 1)[1]
+            else:
+                self.current_filename = message
     
     def _on_cancel_clicked(self):
         """Maneja el clic en cancelar con confirmación"""
@@ -333,84 +350,109 @@ class SimilarFilesProgressDialog(QDialog):
             event.accept()
     
     def _apply_styles(self):
-        """Aplica estilos siguiendo el DesignSystem"""
+        """Aplica estilos siguiendo el DesignSystem con diseño Material"""
         self.setStyleSheet(f"""
             QDialog {{
+                background-color: {DesignSystem.COLOR_BACKGROUND};
+            }}
+            
+            /* Header */
+            QLabel#header_text {{
+                font-size: {DesignSystem.FONT_SIZE_3XL}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+                color: {DesignSystem.COLOR_TEXT};
+            }}
+            
+            /* Descripción */
+            QLabel#description_text {{
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                line-height: {int(DesignSystem.FONT_SIZE_BASE * DesignSystem.LINE_HEIGHT_RELAXED)}px;
+            }}
+            
+            /* Cards con elevación */
+            QFrame#progress_card {{
                 background-color: {DesignSystem.COLOR_SURFACE};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+            }}
+            
+            QFrame#time_card {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+            }}
+            
+            /* Status container - altura fija */
+            QFrame#status_container {{
+                background-color: transparent;
             }}
             
             QLabel#status_text {{
-                font-size: {DesignSystem.FONT_SIZE_LG}px;
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
                 font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
                 color: {DesignSystem.COLOR_TEXT};
             }}
             
-            QFrame#progress_container {{
-                background-color: transparent;
-            }}
-            
+            /* Barra de progreso mejorada */
             QProgressBar#progress_bar {{
-                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border: none;
                 border-radius: {DesignSystem.RADIUS_BASE}px;
-                background-color: {DesignSystem.COLOR_BG_1};
+                background-color: {DesignSystem.COLOR_BG_2};
                 text-align: center;
-                height: 32px;
+                color: {DesignSystem.COLOR_TEXT};
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
             }}
             
             QProgressBar#progress_bar::chunk {{
-                background-color: {DesignSystem.COLOR_PRIMARY};
+                background: qlineargradient(
+                    x1:0, y1:0, x2:1, y2:0,
+                    stop:0 {DesignSystem.COLOR_PRIMARY},
+                    stop:1 {DesignSystem.COLOR_ACCENT}
+                );
                 border-radius: {DesignSystem.RADIUS_BASE}px;
             }}
             
+            /* Stats container */
             QFrame#stats_container {{
                 background-color: {DesignSystem.COLOR_BG_1};
                 border-radius: {DesignSystem.RADIUS_BASE}px;
+                border: 1px solid {DesignSystem.COLOR_BORDER};
             }}
             
             QLabel#stats_text {{
                 font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
                 color: {DesignSystem.COLOR_TEXT};
             }}
             
-            QFrame#time_container {{
-                background-color: {DesignSystem.COLOR_BG_1};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-            }}
-            
+            /* Time labels */
             QLabel#time_text {{
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
                 color: {DesignSystem.COLOR_TEXT_SECONDARY};
             }}
             
-            QFrame#separator {{
-                background-color: {DesignSystem.COLOR_BORDER};
-                max-height: 1px;
-            }}
-            
-            QLabel#info_text {{
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-            }}
-            
+            /* Botón cancelar */
             QPushButton#cancel_button {{
                 background-color: transparent;
                 border: 2px solid {DesignSystem.COLOR_ERROR};
                 color: {DesignSystem.COLOR_ERROR};
                 font-size: {DesignSystem.FONT_SIZE_BASE}px;
                 font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_24}px;
+                padding: {DesignSystem.SPACE_10}px {DesignSystem.SPACE_32}px;
                 border-radius: {DesignSystem.RADIUS_FULL}px;
-                min-width: 140px;
+                min-width: 160px;
             }}
             
             QPushButton#cancel_button:hover {{
                 background-color: {DesignSystem.COLOR_ERROR};
-                color: {DesignSystem.COLOR_PRIMARY_TEXT};
+                color: white;
             }}
             
             QPushButton#cancel_button:disabled {{
-                background-color: {DesignSystem.COLOR_SECONDARY};
-                border-color: {DesignSystem.COLOR_SECONDARY};
+                background-color: {DesignSystem.COLOR_SURFACE_DISABLED};
+                border-color: {DesignSystem.COLOR_BORDER};
                 color: {DesignSystem.COLOR_TEXT_SECONDARY};
             }}
         """)
