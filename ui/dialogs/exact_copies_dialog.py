@@ -334,6 +334,7 @@ class ExactCopiesDialog(BaseDialog):
         self.tree_widget.setRootIsDecorated(True)
         self.tree_widget.setAnimated(True)
         self.tree_widget.setIndentation(20)
+        self.tree_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.tree_widget.setStyleSheet(f"""
             QTreeWidget {{
                 border: 1px solid {DesignSystem.COLOR_BORDER};
@@ -370,17 +371,10 @@ class ExactCopiesDialog(BaseDialog):
             QTreeWidget::branch {{
                 background: transparent;
             }}
-            QTreeWidget::branch:has-children:closed {{
-                image: url(none);
-                border: none;
-            }}
-            QTreeWidget::branch:has-children:open {{
-                image: url(none);
-                border: none;
-            }}
         """)
+        self.tree_widget.itemExpanded.connect(self._on_item_expanded)
+        self.tree_widget.itemCollapsed.connect(self._on_item_collapsed)
         self.tree_widget.itemDoubleClicked.connect(self._on_item_double_clicked)
-        self.tree_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.tree_widget.customContextMenuRequested.connect(self._show_context_menu)
         content_layout.addWidget(self.tree_widget)
         
@@ -639,11 +633,8 @@ class ExactCopiesDialog(BaseDialog):
         keep_file_size = keep_file.stat().st_size
         space_to_free = group.total_size - keep_file_size
         
-        # Icono para el grupo
-        group_item.setIcon(0, icon_manager.get_icon('folder-multiple', size=20))
-        
         # Textos del grupo
-        group_item.setText(0, f"Grupo #{group_number} • {file_count} copias")
+        group_item.setText(0, f"▶ Grupo #{group_number} • {file_count} copias")
         group_item.setText(1, format_size(group.total_size))
         group_item.setText(2, str(file_count))
         group_item.setText(3, format_size(space_to_free))
@@ -657,8 +648,8 @@ class ExactCopiesDialog(BaseDialog):
         
         # Tooltip informativo sobre doble click
         group_item.setToolTip(0, f"Grupo #{group_number} con {file_count} archivos idénticos\n"
-                                 f"💡 Doble clic para expandir/colapsar el grupo\n"
-                                 f"💡 Expanda el grupo para ver opciones en archivos individuales con clic derecho")
+                                 f"▶ 💡 Doble clic para expandir y ver archivos individuales\n"
+                                 f"💡 El indicador cambiará a ▼ cuando esté expandido")
         
         # Color de fondo sutil Material Design
         group_item.setBackground(0, QColor(DesignSystem.COLOR_BG_1))
@@ -968,6 +959,25 @@ class ExactCopiesDialog(BaseDialog):
                 f"No se encontró el archivo:\n{file_path}"
             )
     
+    def _on_item_expanded(self, item):
+        """Actualiza el indicador visual cuando se expande un grupo"""
+        if item.childCount() > 0:  # Es un grupo padre
+            current_text = item.text(0)
+            if current_text.startswith("▶ "):
+                # Reemplazar indicador de colapsado por expandido
+                item.setText(0, f"▼ {current_text[2:]}")
+            elif not current_text.startswith("▼"):
+                # Agregar indicador de expandido si no tiene ninguno
+                item.setText(0, f"▼ {current_text}")
+
+    def _on_item_collapsed(self, item):
+        """Actualiza el indicador visual cuando se colapsa un grupo"""
+        if item.childCount() > 0:  # Es un grupo padre
+            current_text = item.text(0)
+            if current_text.startswith("▼ "):
+                # Cambiar indicador a colapsado
+                item.setText(0, f"▶ {current_text[2:]}")  # Remover "▼ " y agregar "▶ "
+
     def showEvent(self, event: QShowEvent):
         """Actualizar la barra de progreso cuando el diálogo se muestre completamente"""
         super().showEvent(event)
