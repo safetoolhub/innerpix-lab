@@ -303,7 +303,7 @@ class Stage3Window(BaseStage):
             savings = max(heic_data.potential_savings_keep_jpg, heic_data.potential_savings_keep_heic)
             size_text = f"~{format_size(savings)} recuperables"
             card.set_status_with_results(
-                f"{heic_data.total_pairs} pares encontrados",
+                f"{heic_data.total_pairs} grupos de duplicados HEIC /JPG encontrados",
                 size_text
             )
         else:
@@ -326,7 +326,7 @@ class Stage3Window(BaseStage):
         if dup_data and dup_data.total_groups > 0:
             size_text = f"~{format_size(dup_data.space_wasted)} recuperables"
             card.set_status_with_results(
-                f"{dup_data.total_groups} grupos detectados",
+                f"{dup_data.total_groups} grupos detectados con copias idénticas",
                 size_text
             )
         else:
@@ -342,11 +342,11 @@ class Stage3Window(BaseStage):
             title='Archivos similares',
             description='Detecta fotos y vídeos visualmente similares: recortes, '
                        'rotaciones, ediciones o diferentes resoluciones.',
-            action_text='Configurar y analizar'
+            action_text='Analizar ahora'
         )
 
         # Por defecto está pendiente
-        card.set_status_pending("Este análisis puede tardar unos minutos según la cantidad de archivos.")
+        card.set_status_pending("Este análisis puede tardar bastante tiempo según la cantidad de archivos, por eso no se ha realizado anteriormente.")
 
         card.clicked.connect(lambda: self._on_tool_clicked('similar_files'))
         return card
