@@ -649,11 +649,16 @@ class ExactCopiesDialog(BaseDialog):
         group_item.setText(3, format_size(space_to_free))
         group_item.setText(4, self.keep_strategy.title())
         
-        # Estilo del grupo padre con Material Design
+        # Estilo del grupo padre más sutil y profesional
         font = group_item.font(0)
-        font.setBold(True)
-        font.setPointSize(int(DesignSystem.FONT_SIZE_BASE))
+        font.setBold(False)  # Remover negrita para ser más sutil
+        font.setPointSize(int(DesignSystem.FONT_SIZE_SM))  # Tamaño más pequeño
         group_item.setFont(0, font)
+        
+        # Tooltip informativo sobre doble click
+        group_item.setToolTip(0, f"Grupo #{group_number} con {file_count} archivos idénticos\n"
+                                 f"💡 Doble clic para expandir/colapsar el grupo\n"
+                                 f"💡 Expanda el grupo para ver opciones en archivos individuales con clic derecho")
         
         # Color de fondo sutil Material Design
         group_item.setBackground(0, QColor(DesignSystem.COLOR_BG_1))
