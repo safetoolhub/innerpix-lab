@@ -324,12 +324,12 @@ class ExactCopiesDialog(BaseDialog):
         
         # ========== ÁRBOL DE GRUPOS ==========
         self.tree_widget = QTreeWidget()
-        self.tree_widget.setHeaderLabels(["Archivo/Grupo", "Tamaño", "Fecha/Cantidad", "Ruta/Espacio", "Estado/Estrategia"])
-        self.tree_widget.setColumnWidth(0, 320)  # Aumentado de 250 a 320 para los indicadores ▶/▼ + texto
-        self.tree_widget.setColumnWidth(1, 120)  # Aumentado de 100 a 120
-        self.tree_widget.setColumnWidth(2, 120)  # Aumentado de 100 a 120
-        self.tree_widget.setColumnWidth(3, 180)  # Aumentado de 150 a 180
-        self.tree_widget.setColumnWidth(4, 130)  # Aumentado de 100 a 130
+        self.tree_widget.setHeaderLabels(["Grupos / Archivos", "Tamaño", "Fecha", "Ubicación", "Estado"])
+        self.tree_widget.setColumnWidth(0, 300)  # Ajustado para grupos más simples
+        self.tree_widget.setColumnWidth(1, 120)
+        self.tree_widget.setColumnWidth(2, 140)  # Más espacio para fecha completa
+        self.tree_widget.setColumnWidth(3, 200)  # Más espacio para ubicación
+        self.tree_widget.setColumnWidth(4, 130)
         self.tree_widget.setAlternatingRowColors(True)
         self.tree_widget.setRootIsDecorated(True)
         self.tree_widget.setAnimated(True)
@@ -633,12 +633,9 @@ class ExactCopiesDialog(BaseDialog):
         keep_file_size = keep_file.stat().st_size
         space_to_free = group.total_size - keep_file_size
         
-        # Textos del grupo
+        # Textos del grupo - Solo mostrar info básica en columna 0
         group_item.setText(0, f"▶ Grupo #{group_number} • {file_count} copias")
-        group_item.setText(1, format_size(group.total_size))
-        group_item.setText(2, str(file_count))
-        group_item.setText(3, format_size(space_to_free))
-        group_item.setText(4, self.keep_strategy.title())
+        # Las otras columnas quedan vacías para grupos - solo se usan para archivos
         
         # Estilo del grupo padre más sutil y profesional
         font = group_item.font(0)
@@ -648,8 +645,8 @@ class ExactCopiesDialog(BaseDialog):
         
         # Tooltip informativo sobre doble click
         group_item.setToolTip(0, f"Grupo #{group_number} con {file_count} archivos idénticos\n"
-                                 f"▶ 💡 Doble clic para expandir y ver archivos individuales\n"
-                                 f"💡 El indicador cambiará a ▼ cuando esté expandido")
+                                 f"▶ 💡 Doble clic para expandir y ver detalles de archivos\n"
+                                 f"💡 Las columnas muestran información de cada archivo individual")
         
         # Color de fondo sutil Material Design
         group_item.setBackground(0, QColor(DesignSystem.COLOR_BG_1))
