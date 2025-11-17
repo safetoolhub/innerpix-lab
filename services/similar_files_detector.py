@@ -369,7 +369,7 @@ class SimilarFilesDetector(BaseDetectorService):
                         progress_callback,
                         processed,
                         total_files,
-                        f"Procesado: {file_path.name}"
+                        f"Procesado: \n{file_path.name}"
                     ):
                         executor.shutdown(wait=False, cancel_futures=True)
                         break

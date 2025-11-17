@@ -53,6 +53,7 @@ class IconManager:
         'success': 'mdi6.check-circle',
         'check': 'mdi6.check',
         'check-circle': 'mdi6.check-circle',
+        'checkbox-marked': 'mdi6.checkbox-marked',
         'security': 'mdi6.shield',
         'shield-check': 'mdi6.shield-check',
         'close': 'mdi6.close',
@@ -65,10 +66,12 @@ class IconManager:
         'folder-outline': 'mdi6.folder-outline',
         'folder-settings': 'mdi6.folder-cog',
         'folder-remove': 'mdi6.folder-remove',
+        'folder-multiple': 'mdi6.folder-multiple',
         'file': 'mdi6.file',
         'search': 'mdi6.magnify',
         'magnify': 'mdi6.magnify',
         'refresh': 'mdi6.refresh',
+        'download': 'mdi6.download',
         'delete': 'mdi6.delete',
         'delete-sweep': 'mdi6.delete-sweep',
         'save': 'mdi6.content-save',
@@ -133,9 +136,14 @@ class IconManager:
         'hourglass': 'mdi6.timer-sand',
         
         # Opciones y configuración
-        'config': 'mdi6.cog-outline',
-        'settings-outline': 'mdi6.cog-outline',
-        'options': 'mdi6.tune',
+    'config': 'mdi6.cog-outline',
+    'settings-outline': 'mdi6.cog-outline',
+    'options': 'mdi6.tune',
+    'tune': 'mdi6.tune',
+    'filter': 'mdi6.filter-variant',
+    'filter-variant': 'mdi6.filter-variant',
+    'magic': 'mdi6.auto-fix',
+    'auto-fix': 'mdi6.auto-fix',
         
         # Acciones de usuario
         'play': 'mdi6.play',
