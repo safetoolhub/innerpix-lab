@@ -78,7 +78,7 @@ class Config:
     # CONSTANTES DE UI
     # ========================================================================
     TABLE_MAX_HEIGHT = 300  # Altura máxima para tablas en diálogos
-    THUMBNAIL_SIZE = 150  # Tamaño de miniaturas en píxeles
+    THUMBNAIL_SIZE = 200  # Tamaño de miniaturas en píxeles (aumentado para mejor visualización)
 
     # ========================================================================
     # CONSTANTES DE WORKERS
