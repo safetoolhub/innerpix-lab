@@ -303,7 +303,7 @@ class Stage3Window(BaseStage):
             savings = max(heic_data.potential_savings_keep_jpg, heic_data.potential_savings_keep_heic)
             size_text = f"~{format_size(savings)} recuperables"
             card.set_status_with_results(
-                f"{heic_data.total_pairs} pares encontrados",
+                f"{heic_data.total_pairs} grupos de duplicados HEIC /JPG encontrados",
                 size_text
             )
         else:
