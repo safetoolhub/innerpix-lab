@@ -262,11 +262,11 @@ class ExactCopiesDialog(BaseDialog):
         
         # Tree widget para mostrar grupos expandibles
         self.tree_widget = QTreeWidget()
-        self.tree_widget.setHeaderLabels(["Archivo/Grupo", "Tamaño", "Fecha Modificación", "Ruta", "Estado"])
+        self.tree_widget.setHeaderLabels(["Archivo/Grupo", "Tamaño", "Fecha/Cantidad", "Ruta/Espacio", "Estado/Estrategia"])
         self.tree_widget.setColumnWidth(0, 250)
         self.tree_widget.setColumnWidth(1, 100)
-        self.tree_widget.setColumnWidth(2, 150)
-        self.tree_widget.setColumnWidth(3, 300)
+        self.tree_widget.setColumnWidth(2, 100)
+        self.tree_widget.setColumnWidth(3, 150)
         self.tree_widget.setColumnWidth(4, 100)
         self.tree_widget.setAlternatingRowColors(True)
         self.tree_widget.setStyleSheet(f"""
@@ -445,9 +445,9 @@ class ExactCopiesDialog(BaseDialog):
         space_to_free = group.total_size - largest_file_size
         group_item.setText(0, f"Grupo {group_number} - {file_count} archivos")
         group_item.setText(1, format_size(group.total_size))
-        group_item.setText(2, "")
-        group_item.setText(3, "")
-        group_item.setText(4, f"Libera: {format_size(space_to_free)}")
+        group_item.setText(2, str(file_count))
+        group_item.setText(3, format_size(space_to_free))
+        group_item.setText(4, self.keep_strategy.title())
         
         # Estilo del grupo padre
         font = group_item.font(0)
