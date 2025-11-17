@@ -325,11 +325,11 @@ class ExactCopiesDialog(BaseDialog):
         # ========== ÁRBOL DE GRUPOS ==========
         self.tree_widget = QTreeWidget()
         self.tree_widget.setHeaderLabels(["Archivo/Grupo", "Tamaño", "Fecha/Cantidad", "Ruta/Espacio", "Estado/Estrategia"])
-        self.tree_widget.setColumnWidth(0, 250)
-        self.tree_widget.setColumnWidth(1, 100)
-        self.tree_widget.setColumnWidth(2, 100)
-        self.tree_widget.setColumnWidth(3, 150)
-        self.tree_widget.setColumnWidth(4, 100)
+        self.tree_widget.setColumnWidth(0, 320)  # Aumentado de 250 a 320 para los indicadores ▶/▼ + texto
+        self.tree_widget.setColumnWidth(1, 120)  # Aumentado de 100 a 120
+        self.tree_widget.setColumnWidth(2, 120)  # Aumentado de 100 a 120
+        self.tree_widget.setColumnWidth(3, 180)  # Aumentado de 150 a 180
+        self.tree_widget.setColumnWidth(4, 130)  # Aumentado de 100 a 130
         self.tree_widget.setAlternatingRowColors(True)
         self.tree_widget.setRootIsDecorated(True)
         self.tree_widget.setAnimated(True)
