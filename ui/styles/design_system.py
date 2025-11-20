@@ -9,72 +9,63 @@ class DesignSystem:
     
     # ==================== COLORES ====================
     
+    # ==================== COLORES MODERNOS ====================
+    
     # Colores base
-    COLOR_BACKGROUND = "#f5f5f5"
-    COLOR_BACKGROUND_PRIMARY = "#f5f5f5"
-    COLOR_BACKGROUND_SECONDARY = "#ffffff"
-    COLOR_SURFACE = "#ffffff"
-    COLOR_TEXT = "#1a1a1a"
-    COLOR_TEXT_SECONDARY = "#666666"
-    COLOR_TEXT_PRIMARY = "#1a1a1a"
+    COLOR_BACKGROUND = "#F8F9FA"  # Gris muy claro, más moderno que #f5f5f5
+    COLOR_SURFACE = "#FFFFFF"
+    COLOR_TEXT = "#212529"
+    COLOR_TEXT_SECONDARY = "#6C757D"
+    COLOR_TEXT_TERTIARY = "#ADB5BD"
     
-    # Colores primarios
-    COLOR_PRIMARY = "#2563eb"
-    COLOR_PRIMARY_HOVER = "#1d4ed8"
-    COLOR_PRIMARY_TEXT = "#ffffff"
+    # Colores primarios (Azul vibrante pero profesional)
+    COLOR_PRIMARY = "#0D6EFD"
+    COLOR_PRIMARY_HOVER = "#0B5ED7"
+    COLOR_PRIMARY_ACTIVE = "#0A58CA"
+    COLOR_PRIMARY_LIGHT = "#E7F1FF"  # Para fondos sutiles
+    COLOR_PRIMARY_TEXT = "#FFFFFF"
     
-    # Color de acento para avisos resaltados
-    COLOR_ACCENT = "#3b82f6"
+    # Colores secundarios (Gris neutro)
+    COLOR_SECONDARY = "#6C757D"
+    COLOR_SECONDARY_HOVER = "#5C636A"
+    COLOR_SECONDARY_LIGHT = "#E9ECEF"
     
-    # Colores secundarios
-    COLOR_SECONDARY = "#e5e7eb"
-    COLOR_SECONDARY_HOVER = "#d1d5db"
+    # Estados semánticos
+    COLOR_SUCCESS = "#198754"
+    COLOR_SUCCESS_BG = "#D1E7DD"
+    COLOR_WARNING = "#FFC107"
+    COLOR_WARNING_BG = "#FFF3CD"
+    COLOR_DANGER = "#DC3545"
+    COLOR_DANGER_HOVER = "#BB2D3B"
+    COLOR_DANGER_BG = "#F8D7DA"
+    COLOR_INFO = "#0DCAF0"
+    COLOR_INFO_BG = "#CFF4FC"
     
     # Bordes
-    COLOR_BORDER = "#e5e7eb"
-    COLOR_CARD_BORDER = "#d1d5db"
-    
-    # Estados
-    COLOR_SUCCESS = "#10b981"
-    COLOR_WARNING = "#f59e0b"
-    COLOR_WARNING_HOVER = "#d97706"
-    COLOR_DANGER = "#dc4a26"
-    COLOR_ERROR = "#ef4444"
-    COLOR_INFO = "#3b82f6"
-    
-    # Backgrounds adicionales
-    COLOR_BG_1 = "#fafafa"
-    COLOR_BG_2 = "#f0f0f0"
-    COLOR_BG_4 = "#fef3c7"  # Warning background    
-    COLOR_SURFACE_DISABLED = "#f9fafb"  # Fondo más oscuro para estados deshabilitados
+    COLOR_BORDER = "#DEE2E6"
+    COLOR_BORDER_LIGHT = "#E9ECEF"
+    COLOR_CARD_BORDER = "#DEE2E6"  # Alias for backward compatibility
     
     # ==================== TIPOGRAFÍA ====================
     
-    FONT_FAMILY_BASE = "Segoe UI, -apple-system, BlinkMacSystemFont, Roboto, sans-serif"
-    FONT_FAMILY_MONO = "Consolas, Monaco, 'Courier New', monospace"
+    FONT_FAMILY_BASE = "'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif"
+    FONT_FAMILY_MONO = "'Consolas', 'Monaco', monospace"
     
-    FONT_SIZE_XS = 10
-    FONT_SIZE_SMALL = 10
-    FONT_SIZE_SM = 12
+    FONT_SIZE_XS = 11
+    FONT_SIZE_SM = 13
     FONT_SIZE_BASE = 14
-    FONT_SIZE_BODY = 14
-    FONT_SIZE_MD = 14
-    FONT_SIZE_LG = 16
-    FONT_SIZE_H3 = 18
-    FONT_SIZE_XL = 18
-    FONT_SIZE_2XL = 20
-    FONT_SIZE_3XL = 24
+    FONT_SIZE_MD = 16
+    FONT_SIZE_LG = 18
+    FONT_SIZE_XL = 24
+    FONT_SIZE_2XL = 32
     
     FONT_WEIGHT_NORMAL = 400
     FONT_WEIGHT_MEDIUM = 500
-    FONT_WEIGHT_SEMIBOLD = 550
-    FONT_WEIGHT_BOLD = 600
-    
-    LINE_HEIGHT_NORMAL = 1.5
-    LINE_HEIGHT_RELAXED = 1.75
+    FONT_WEIGHT_SEMIBOLD = 600
+    FONT_WEIGHT_BOLD = 700
     
     # ==================== ESPACIADO ====================
-
+    
     SPACE_2 = 2
     SPACE_4 = 4
     SPACE_6 = 6
@@ -82,29 +73,24 @@ class DesignSystem:
     SPACE_10 = 10
     SPACE_12 = 12
     SPACE_16 = 16
-    SPACE_XS = 2
-    SPACE_SM = 12    
-    SPACE_MD = 16
     SPACE_20 = 20
     SPACE_24 = 24
     SPACE_32 = 32
     SPACE_40 = 40
     SPACE_48 = 48
-    SPACE_LG = 56
-    SPACE_XL = 64
     
-# ==================== BORDER RADIUS ====================
-
-    RADIUS_BASE = 8
-    RADIUS_SMALL = 4
+    # ==================== BORDER RADIUS ====================
+    
+    RADIUS_SM = 4
+    RADIUS_BASE = 6
+    RADIUS_MD = 8
     RADIUS_LG = 12
-    RADIUS_MEDIUM = 14
-    RADIUS_LARGE = 16
+    RADIUS_XL = 16
     RADIUS_FULL = 9999    # ==================== SOMBRAS ====================
     
-    SHADOW_SM = "0 1px 2px rgba(0, 0, 0, 0.05)"
-    SHADOW_MD = "0 4px 6px rgba(0, 0, 0, 0.07)"
-    SHADOW_LG = "0 10px 15px rgba(0, 0, 0, 0.1)"
+    SHADOW_SM = "0 1px 2px rgba(0,0,0,0.05)"
+    SHADOW_MD = "0 4px 6px rgba(0,0,0,0.05), 0 1px 3px rgba(0,0,0,0.1)"
+    SHADOW_LG = "0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)"
     
     # ==================== DIMENSIONES ====================
     
@@ -123,12 +109,42 @@ class DesignSystem:
     DROPZONE_WIDTH_MOBILE = 250
     DROPZONE_HEIGHT_MOBILE = 180
     
+    # ==================== LEGACY / COMPATIBILITY ====================
+    # Mapeos para mantener compatibilidad con código existente
+    
+    COLOR_BACKGROUND_PRIMARY = COLOR_BACKGROUND
+    COLOR_BACKGROUND_SECONDARY = COLOR_SURFACE
+    COLOR_ACCENT = COLOR_PRIMARY
+    COLOR_BG_1 = COLOR_BACKGROUND
+    COLOR_BG_2 = COLOR_SECONDARY_LIGHT
+    COLOR_BG_4 = COLOR_WARNING_BG
+    COLOR_SURFACE_DISABLED = COLOR_SECONDARY_LIGHT
+    COLOR_ERROR = COLOR_DANGER
+    
+    FONT_SIZE_SMALL = FONT_SIZE_XS
+    FONT_SIZE_BODY = FONT_SIZE_BASE
+    FONT_SIZE_H3 = FONT_SIZE_LG
+    FONT_SIZE_3XL = FONT_SIZE_2XL  # Map to largest available
+    
+    LINE_HEIGHT_NORMAL = 1.5
+    LINE_HEIGHT_RELAXED = 1.75
+    
+    SPACE_XS = SPACE_2
+    SPACE_SM = SPACE_12
+    SPACE_MD = SPACE_16
+    SPACE_LG = SPACE_32
+    SPACE_XL = SPACE_48
+    
+    RADIUS_SMALL = RADIUS_SM
+    RADIUS_MEDIUM = RADIUS_MD
+    RADIUS_LARGE = RADIUS_LG
+    
     # ==================== ICONOS ====================
     
     ICON_SIZE_SM = 16
-    ICON_SIZE_MD = 18
-    ICON_SIZE_LG = 22
-    ICON_SIZE_XL = 24
+    ICON_SIZE_MD = 20
+    ICON_SIZE_LG = 24
+    ICON_SIZE_XL = 32
     
     # ==================== MÉTODOS DE AYUDA ====================
     

@@ -128,7 +128,16 @@ class SimilarFilesDialog(BaseDialog):
         self.setModal(True)
         self.resize(1280, 900)
         self.setMinimumSize(1100, 750)
-        self.setStyleSheet(f"background-color: {DesignSystem.COLOR_BACKGROUND};")
+        
+        # Estilo base del diálogo
+        self.setStyleSheet(f"""
+            QDialog {{
+                background-color: {DesignSystem.COLOR_BACKGROUND};
+            }}
+            QLabel {{
+                background-color: transparent;
+            }}
+        """)
         
         # Layout principal
         main_layout = QVBoxLayout(self)
@@ -244,9 +253,8 @@ class SimilarFilesDialog(BaseDialog):
         badge = QFrame()
         badge.setStyleSheet(f"""
             QFrame {{
-                background-color: {DesignSystem.COLOR_BACKGROUND};
+                background-color: transparent;
                 border-radius: {DesignSystem.RADIUS_MD}px;
-                border: 1px solid {DesignSystem.COLOR_BORDER_LIGHT};
             }}
         """)
         layout = QVBoxLayout(badge)
@@ -426,8 +434,17 @@ class SimilarFilesDialog(BaseDialog):
                 border: 1px solid {DesignSystem.COLOR_BORDER};
                 border-radius: {DesignSystem.RADIUS_BASE}px;
                 background: {DesignSystem.COLOR_BACKGROUND};
+                selection-background-color: {DesignSystem.COLOR_PRIMARY};
             }}
             QSpinBox:focus {{ border-color: {DesignSystem.COLOR_PRIMARY}; }}
+            QSpinBox::up-button, QSpinBox::down-button {{
+                width: 20px;
+                background: transparent;
+                border-left: 1px solid {DesignSystem.COLOR_BORDER};
+            }}
+            QSpinBox::up-button:hover, QSpinBox::down-button:hover {{
+                background: {DesignSystem.COLOR_SECONDARY_LIGHT};
+            }}
         """
 
     def _create_workspace_toolbar(self) -> QWidget:
@@ -537,19 +554,13 @@ class SimilarFilesDialog(BaseDialog):
         layout.addStretch()
         
         # Botones
-        cancel_btn = QPushButton("Cancelar")
-        cancel_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        cancel_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
-        cancel_btn.clicked.connect(self.reject)
-        
-        self.delete_btn = QPushButton("Eliminar Seleccionados")
-        self.delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.delete_btn.setStyleSheet(DesignSystem.get_danger_button_style())
-        self.delete_btn.clicked.connect(self.accept)
-        self.delete_btn.setEnabled(False)
-        
-        layout.addWidget(cancel_btn)
-        layout.addWidget(self.delete_btn)
+        button_box = self.make_ok_cancel_buttons(
+            ok_text="Eliminar Seleccionados",
+            ok_enabled=False,
+            button_style='danger'
+        )
+        self.delete_btn = button_box.button(QDialogButtonBox.StandardButton.Ok)
+        layout.addWidget(button_box)
         
         return footer
 
