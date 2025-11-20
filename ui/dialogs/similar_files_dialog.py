@@ -137,7 +137,8 @@ class SimilarFilesDialog(BaseDialog):
         self.header_frame = self._create_compact_header_with_metrics(
             icon_name='content-duplicate',
             title='Archivos similares detectados',
-            description='Imágenes visualmente parecidas (perceptual hash). Ajusta la sensibilidad para refinar.',
+            description='Imágenes visualmente idénticas aunque tengan metadatos diferentes (fechas, compresión, etc.). '
+                       'Al 100% son prácticamente idénticos visualmente.',
             metrics=[
                 {'value': '0', 'label': 'Grupos', 'color': DesignSystem.COLOR_PRIMARY},
                 {'value': '0', 'label': 'Duplicados', 'color': DesignSystem.COLOR_WARNING},

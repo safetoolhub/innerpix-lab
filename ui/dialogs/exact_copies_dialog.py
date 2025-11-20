@@ -91,7 +91,8 @@ class ExactCopiesDialog(BaseDialog):
         self.header_frame = self._create_compact_header_with_metrics(
             icon_name='content-copy',
             title='Copias exactas detectadas',
-            description='Archivos idénticos (100% mismo contenido SHA256). Elimina copias conservando un original.',
+            description='Archivos 100% idénticos bit a bit (mismo SHA256), incluso con nombres diferentes. '
+                       'Si las fechas o metadatos son diferentes, no se considera idéntico.',
             metrics=[
                 {
                     'value': str(self.analysis.total_groups),
