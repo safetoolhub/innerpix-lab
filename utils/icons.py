@@ -68,6 +68,7 @@ class IconManager:
         'folder-remove': 'mdi6.folder-remove',
         'folder-multiple': 'mdi6.folder-multiple',
         'file': 'mdi6.file',
+        'open-in-app': 'mdi6.open-in-new',
         'search': 'mdi6.magnify',
         'magnify': 'mdi6.magnify',
         'refresh': 'mdi6.refresh',
