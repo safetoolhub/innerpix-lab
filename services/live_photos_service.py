@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from config import Config
+from utils.date_utils import get_date_from_file
 from services.result_types import LivePhotoCleanupAnalysisResult, LivePhotoCleanupResult
 from services.base_service import BaseService, BackupCreationError
 from utils.logger import log_section_header_discrete, log_section_footer_discrete, log_section_header_relevant, log_section_footer_relevant
@@ -39,9 +40,9 @@ class LivePhotoGroup:
             raise ValueError(f"Video no existe: {self.video_path}")
 
         if not self.image_date:
-            self.image_date = datetime.fromtimestamp(self.image_path.stat().st_mtime)
+            self.image_date = get_date_from_file(self.image_path) or datetime.fromtimestamp(self.image_path.stat().st_mtime)
         if not self.video_date:
-            self.video_date = datetime.fromtimestamp(self.video_path.stat().st_mtime)
+            self.video_date = get_date_from_file(self.video_path) or datetime.fromtimestamp(self.video_path.stat().st_mtime)
 
     @property
     def total_size(self) -> int:

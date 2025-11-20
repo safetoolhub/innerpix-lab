@@ -9,6 +9,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 
 from utils.file_utils import validate_file_exists
+from utils.date_utils import get_date_from_file
 from services.result_types import HeicAnalysisResult, HeicDeletionResult
 from services.base_service import BaseService, BackupCreationError, ProgressCallback
 from services.metadata_cache import FileMetadataCache
@@ -247,8 +248,9 @@ class HEICRemover(BaseService):
                 jpg_path, jpg_size, jpg_mtime = jpg_dict[base_name]
                 
                 try:
-                    heic_date = datetime.fromtimestamp(heic_mtime)
-                    jpg_date = datetime.fromtimestamp(jpg_mtime)
+                    # Obtener fechas usando EXIF primero, luego mtime como fallback
+                    heic_date = get_date_from_file(heic_path) or datetime.fromtimestamp(heic_mtime)
+                    jpg_date = get_date_from_file(jpg_path) or datetime.fromtimestamp(jpg_mtime)
                     
                     # Validación de diferencia temporal
                     if validate_dates:
