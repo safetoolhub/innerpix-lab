@@ -213,9 +213,24 @@ class SimilarFilesDialog(BaseDialog):
         
         main_layout.addWidget(content_wrapper, stretch=1)
         
-        # 4. Footer (Resumen y Botones de Acción Global)
-        footer = self._create_footer()
-        main_layout.addWidget(footer)
+        # 4. Footer (Opciones de seguridad + Botones)
+        # Opciones de seguridad (usando método estándar de BaseDialog)
+        security_options = self._create_security_options_section(
+            show_backup=True,
+            show_dry_run=True,
+            backup_label="Crear backup antes de eliminar",
+            dry_run_label="Modo simulación (no eliminar archivos realmente)"
+        )
+        content_layout.addWidget(security_options)
+        
+        # Botones de acción
+        button_box = self.make_ok_cancel_buttons(
+            ok_text="Eliminar Seleccionados",
+            ok_enabled=False,
+            button_style='danger'
+        )
+        self.delete_btn = button_box.button(QDialogButtonBox.StandardButton.Ok)
+        content_layout.addWidget(button_box)
 
 
 
@@ -496,57 +511,7 @@ class SimilarFilesDialog(BaseDialog):
         
         return container
 
-    def _create_footer(self) -> QFrame:
-        """Crea footer con secciones separadas según estándar BaseDialog.
-        
-        Estructura:
-        1. Sección de opciones de seguridad (backup, dry-run)
-        2. Separador visual
-        3. Sección de botones de acción (centrados)
-        """
-        footer = QFrame()
-        footer.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border-top: 1px solid {DesignSystem.COLOR_BORDER};
-            }}
-        """)
-        layout = QVBoxLayout(footer)
-        layout.setContentsMargins(DesignSystem.SPACE_24, DesignSystem.SPACE_16, DesignSystem.SPACE_24, DesignSystem.SPACE_16)
-        layout.setSpacing(DesignSystem.SPACE_12)
-        
-        # 1. Opciones de seguridad (usando método estándar de BaseDialog)
-        security_options = self._create_security_options_section(
-            show_backup=True,
-            show_dry_run=True,
-            backup_label="Crear backup antes de eliminar",
-            dry_run_label="Modo simulación (no eliminar archivos realmente)"
-        )
-        layout.addWidget(security_options)
-        
-        # 2. Separador visual
-        separator = QFrame()
-        separator.setFrameShape(QFrame.Shape.HLine)
-        separator.setStyleSheet(f"color: {DesignSystem.COLOR_BORDER_LIGHT}; margin: {DesignSystem.SPACE_4}px 0;")
-        layout.addWidget(separator)
-        
-        # 3. Botones de acción (centrados, sin resumen)
-        button_layout = QHBoxLayout()
-        button_layout.setContentsMargins(0, 0, 0, 0)
-        button_layout.addStretch()
-        
-        button_box = self.make_ok_cancel_buttons(
-            ok_text="Eliminar Seleccionados",
-            ok_enabled=False,
-            button_style='danger'
-        )
-        self.delete_btn = button_box.button(QDialogButtonBox.StandardButton.Ok)
-        button_layout.addWidget(button_box)
-        button_layout.addStretch()
-        
-        layout.addLayout(button_layout)
-        
-        return footer
+
 
     # ================= LÓGICA DE NEGOCIO =================
 
