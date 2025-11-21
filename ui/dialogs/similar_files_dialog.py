@@ -674,21 +674,7 @@ class SimilarFilesDialog(BaseDialog):
         card = QFrame()
         card.setCursor(Qt.CursorShape.PointingHandCursor)
         
-        # Estilo dinámico según selección
-        border_color = DesignSystem.COLOR_DANGER if is_selected else DesignSystem.COLOR_BORDER
-        bg_color = "#FFF5F5" if is_selected else DesignSystem.COLOR_SURFACE
-        width = 2 if is_selected else 1
-        
-        card.setStyleSheet(f"""
-            QFrame {{
-                background-color: {bg_color};
-                border: {width}px solid {border_color};
-                border-radius: {DesignSystem.RADIUS_MD}px;
-            }}
-            QFrame:hover {{
-                border-color: {DesignSystem.COLOR_PRIMARY};
-            }}
-        """)
+        card.setStyleSheet(self._get_card_style(is_selected))
         
         layout = QVBoxLayout(card)
         layout.setSpacing(DesignSystem.SPACE_8)
@@ -728,7 +714,26 @@ class SimilarFilesDialog(BaseDialog):
         # Click en toda la card selecciona/deselecciona (opcional, a veces confuso si hay preview)
         # card.mousePressEvent = lambda e: checkbox.toggle() 
         
+        # Guardar path para búsqueda posterior
+        card.setProperty("file_path", str(file_path))
+        
         return card
+
+    def _get_card_style(self, is_selected: bool) -> str:
+        border_color = DesignSystem.COLOR_DANGER if is_selected else DesignSystem.COLOR_BORDER
+        bg_color = "#FFF5F5" if is_selected else DesignSystem.COLOR_SURFACE
+        width = 2 if is_selected else 1
+        
+        return f"""
+            QFrame {{
+                background-color: {bg_color};
+                border: {width}px solid {border_color};
+                border-radius: {DesignSystem.RADIUS_MD}px;
+            }}
+            QFrame:hover {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+        """
 
     def _toggle_file_selection(self, file_path, checked):
         if self.current_group_index not in self.selections:
@@ -742,9 +747,48 @@ class SimilarFilesDialog(BaseDialog):
                 self.selections[self.current_group_index].remove(file_path)
                 
         self._update_summary()
-        # Recargar solo para actualizar estilos visuales (borde rojo)
-        # Idealmente optimizar para no recargar todo el grid, pero por ahora ok
-        self._load_group(self.current_group_index)
+        
+        # Actualizar visualmente la card específica sin recargar todo el grid
+        # Esto evita el segfault por destruir el widget que emitió la señal
+        self._update_card_visuals(file_path, checked)
+
+    def _update_card_visuals(self, file_path: Path, is_selected: bool):
+        """Busca y actualiza el estilo de la card específica en el grid actual."""
+        # Buscar el QScrollArea en el layout del grupo
+        scroll_area = None
+        for i in range(self.group_layout.count()):
+            item = self.group_layout.itemAt(i)
+            if item.widget() and isinstance(item.widget(), QScrollArea):
+                scroll_area = item.widget()
+                break
+        
+        if not scroll_area: return
+        
+        grid_widget = scroll_area.widget()
+        if not grid_widget: return
+        
+        grid_layout = grid_widget.layout()
+        if not grid_layout: return
+        
+        # Buscar la card por la propiedad file_path
+        target_path = str(file_path)
+        for i in range(grid_layout.count()):
+            item = grid_layout.itemAt(i)
+            card = item.widget()
+            if card and card.property("file_path") == target_path:
+                card.setStyleSheet(self._get_card_style(is_selected))
+                
+                # También actualizar el estado del checkbox si no fue el origen del cambio
+                # (aunque en este caso el toggle viene del checkbox, es bueno mantener consistencia)
+                # Encontrar el checkbox dentro de la card
+                checkbox = card.findChild(QCheckBox)
+                if checkbox:
+                    # Bloquear señales para evitar recursión infinita si cambiamos programáticamente
+                    was_blocked = checkbox.signalsBlocked()
+                    checkbox.blockSignals(True)
+                    checkbox.setChecked(is_selected)
+                    checkbox.blockSignals(was_blocked)
+                break
 
     def _update_summary(self):
         total_files = sum(len(l) for l in self.selections.values())

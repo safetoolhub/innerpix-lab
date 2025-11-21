@@ -1,4 +1,7 @@
-## Pixaro Lab - AI Assistant Instructions
+---
+trigger: always_on
+glob:
+description:
 
 PyQt6 desktop app for photo/video management. Workflow: **analyze → preview → execute**.
 See `PROJECT_TREE.md` for structure. Ignore `docs/` (author's notes).
@@ -128,3 +131,6 @@ See `tests/README.md` for details.
 - Primary: Windows
 - Secondary: macOS/Linux
 - Future: Android/iOS (UI/logic separation critical)
+
+---
+
