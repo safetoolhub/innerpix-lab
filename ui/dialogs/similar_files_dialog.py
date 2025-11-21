@@ -144,8 +144,17 @@ class SimilarFilesDialog(BaseDialog):
         main_layout.setSpacing(0)
         main_layout.setContentsMargins(0, 0, 0, 0)
         
-        # 1. Header Moderno
-        self.header_frame = self._create_modern_header()
+        # 1. Header Compacto (usando método estandarizado de BaseDialog)
+        self.header_frame = self._create_compact_header_with_metrics(
+            icon_name='content-duplicate',
+            title='Archivos Similares',
+            description='Detecta y gestiona imágenes visualmente idénticas',
+            metrics=[
+                {'value': '0', 'label': 'Grupos', 'color': DesignSystem.COLOR_PRIMARY},
+                {'value': '0', 'label': 'Duplicados', 'color': DesignSystem.COLOR_WARNING},
+                {'value': '0 B', 'label': 'Recuperable', 'color': DesignSystem.COLOR_SUCCESS}
+            ]
+        )
         main_layout.addWidget(self.header_frame)
         
         # Contenedor principal con padding
@@ -205,79 +214,7 @@ class SimilarFilesDialog(BaseDialog):
         footer = self._create_footer()
         main_layout.addWidget(footer)
 
-    def _create_modern_header(self) -> QFrame:
-        """Crea un header moderno con métricas clave."""
-        header = QFrame()
-        header.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border-bottom: 1px solid {DesignSystem.COLOR_BORDER};
-            }}
-        """)
-        layout = QHBoxLayout(header)
-        layout.setContentsMargins(DesignSystem.SPACE_24, DesignSystem.SPACE_16, DesignSystem.SPACE_24, DesignSystem.SPACE_16)
-        layout.setSpacing(DesignSystem.SPACE_24)
-        
-        # Título e Icono
-        title_container = QHBoxLayout()
-        title_container.setSpacing(DesignSystem.SPACE_12)
-        
-        icon_label = icon_manager.create_icon_label('content-duplicate', size=28, color=DesignSystem.COLOR_PRIMARY)
-        title_container.addWidget(icon_label)
-        
-        text_container = QVBoxLayout()
-        text_container.setSpacing(2)
-        title = QLabel("Archivos Similares")
-        title.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_XL}px; font-weight: {DesignSystem.FONT_WEIGHT_BOLD}; color: {DesignSystem.COLOR_TEXT};")
-        subtitle = QLabel("Detecta y gestiona imágenes visualmente idénticas")
-        subtitle.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
-        text_container.addWidget(title)
-        text_container.addWidget(subtitle)
-        title_container.addLayout(text_container)
-        
-        layout.addLayout(title_container)
-        layout.addStretch()
-        
-        # Métricas
-        self.metric_groups = self._create_metric_badge("Grupos", "0", DesignSystem.COLOR_PRIMARY)
-        self.metric_duplicates = self._create_metric_badge("Duplicados", "0", DesignSystem.COLOR_WARNING)
-        self.metric_space = self._create_metric_badge("Recuperable", "0 B", DesignSystem.COLOR_SUCCESS)
-        
-        layout.addWidget(self.metric_groups)
-        layout.addWidget(self.metric_duplicates)
-        layout.addWidget(self.metric_space)
-        
-        return header
 
-    def _create_metric_badge(self, label: str, value: str, color: str) -> QFrame:
-        badge = QFrame()
-        badge.setStyleSheet(f"""
-            QFrame {{
-                background-color: transparent;
-                border-radius: {DesignSystem.RADIUS_MD}px;
-            }}
-        """)
-        layout = QVBoxLayout(badge)
-        layout.setContentsMargins(DesignSystem.SPACE_16, DesignSystem.SPACE_8, DesignSystem.SPACE_16, DesignSystem.SPACE_8)
-        layout.setSpacing(2)
-        
-        val_label = QLabel(value)
-        val_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        val_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_LG}px; font-weight: {DesignSystem.FONT_WEIGHT_BOLD}; color: {color};")
-        
-        lbl_label = QLabel(label.upper())
-        lbl_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lbl_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_XS}px; font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD}; color: {DesignSystem.COLOR_TEXT_SECONDARY}; letter-spacing: 0.5px;")
-        
-        layout.addWidget(val_label)
-        layout.addWidget(lbl_label)
-        
-        # Guardar referencia para actualizar
-        if label == "Grupos": self.lbl_groups_val = val_label
-        elif label == "Duplicados": self.lbl_duplicates_val = val_label
-        elif label == "Recuperable": self.lbl_space_val = val_label
-        
-        return badge
 
     def _create_sensitivity_card(self) -> QFrame:
         card = QFrame()
@@ -622,9 +559,10 @@ class SimilarFilesDialog(BaseDialog):
         total_duplicates = sum(len(g.files) - 1 for g in groups)
         space_potential = sum((len(g.files) - 1) * g.files[0].stat().st_size for g in groups if g.files)
         
-        self.lbl_groups_val.setText(str(total_groups))
-        self.lbl_duplicates_val.setText(str(total_duplicates))
-        self.lbl_space_val.setText(format_size(space_potential))
+        # Usar el método estandarizado de BaseDialog para actualizar métricas
+        self._update_header_metric(self.header_frame, 'Grupos', str(total_groups))
+        self._update_header_metric(self.header_frame, 'Duplicados', str(total_duplicates))
+        self._update_header_metric(self.header_frame, 'Recuperable', format_size(space_potential))
 
     def _show_no_groups_message(self):
         # Limpiar contenedor
