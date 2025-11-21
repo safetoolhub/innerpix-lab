@@ -1,7 +1,7 @@
 """Clases/base utilities para diálogos."""
 from typing import Dict, List, Optional, TYPE_CHECKING
 
-from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtCore import pyqtSignal, Qt
 from PyQt6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -121,6 +121,50 @@ class BaseDialog(QDialog):
         # remember ok button for convenience
         self.register_ok_button(ok_btn)
         return box
+
+    def make_styled_button(
+        self,
+        text: str = "",
+        icon_name: str = "",
+        button_style: str = 'secondary',
+        tooltip: str = "",
+        enabled: bool = True,
+        custom_style: str = ""
+    ) -> QPushButton:
+        """Crea un botón estilizado con Material Design.
+        
+        Args:
+            text: Texto del botón
+            icon_name: Nombre del icono (opcional)
+            button_style: Estilo: 'primary', 'secondary', 'danger'
+            tooltip: Tooltip del botón
+            enabled: Si está habilitado inicialmente
+            custom_style: CSS personalizado (opcional, reemplaza el estilo estándar)
+        
+        Returns:
+            QPushButton configurado
+        """
+        btn = QPushButton(text)
+        if icon_name:
+            from utils.icons import icon_manager
+            btn.setIcon(icon_manager.get_icon(icon_name))
+        if tooltip:
+            btn.setToolTip(tooltip)
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.setEnabled(enabled)
+        
+        # Aplicar estilo
+        if custom_style:
+            btn.setStyleSheet(custom_style)
+        else:
+            if button_style == 'danger':
+                btn.setStyleSheet(DesignSystem.get_danger_button_style())
+            elif button_style == 'primary':
+                btn.setStyleSheet(DesignSystem.get_primary_button_style())
+            else:  # 'secondary' por defecto
+                btn.setStyleSheet(DesignSystem.get_secondary_button_style())
+        
+        return btn
 
     def register_ok_button(self, button: Optional[QPushButton]):
         """Register the dialog's primary OK button so helpers can enable/disable it.

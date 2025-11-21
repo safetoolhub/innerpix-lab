@@ -54,6 +54,7 @@ class IconManager:
         'check': 'mdi6.check',
         'check-circle': 'mdi6.check-circle',
         'checkbox-marked': 'mdi6.checkbox-marked',
+        'checkbox-marked-circle': 'mdi6.checkbox-marked-circle',
         'security': 'mdi6.shield',
         'shield-check': 'mdi6.shield-check',
         'close': 'mdi6.close',

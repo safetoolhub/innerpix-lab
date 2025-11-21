@@ -14,6 +14,7 @@ from PyQt6.QtCore import Qt, QSize, QTimer
 from PyQt6.QtGui import QPixmap, QDesktopServices, QCursor, QImage, QColor, QIcon
 from config import Config
 from services.similar_files_detector import SimilarFilesAnalysis
+from services.result_types import DuplicateGroup
 from utils.format_utils import format_size
 from ui.styles.design_system import DesignSystem
 from utils.icons import icon_manager
@@ -118,6 +119,8 @@ class SimilarFilesDialog(BaseDialog):
         self.filter_min_files = 2
         self.filter_min_size_mb = 0
         self.all_groups = []
+        
+        self.accepted_plan = None
         
         self._setup_ui()
         self._load_initial_results()
@@ -391,21 +394,21 @@ class SimilarFilesDialog(BaseDialog):
         layout.setSpacing(DesignSystem.SPACE_16)
         
         # Navegación izquierda
-        self.prev_btn = QPushButton()
-        self.prev_btn.setIcon(icon_manager.get_icon('chevron-left'))
-        self.prev_btn.setToolTip("Grupo Anterior")
-        self.prev_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.prev_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
+        self.prev_btn = self.make_styled_button(
+            icon_name='chevron-left',
+            button_style='secondary',
+            tooltip="Grupo Anterior"
+        )
         self.prev_btn.clicked.connect(self._previous_group)
         
         self.group_counter_label = QLabel("Grupo 0 de 0")
         self.group_counter_label.setStyleSheet(f"font-weight: {DesignSystem.FONT_WEIGHT_BOLD}; color: {DesignSystem.COLOR_TEXT};")
         
-        self.next_btn = QPushButton()
-        self.next_btn.setIcon(icon_manager.get_icon('chevron-right'))
-        self.next_btn.setToolTip("Siguiente Grupo")
-        self.next_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.next_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
+        self.next_btn = self.make_styled_button(
+            icon_name='chevron-right',
+            button_style='secondary',
+            tooltip="Siguiente Grupo"
+        )
         self.next_btn.clicked.connect(self._next_group)
         
         nav_layout = QHBoxLayout()
@@ -415,6 +418,20 @@ class SimilarFilesDialog(BaseDialog):
         nav_layout.addWidget(self.next_btn)
         
         layout.addLayout(nav_layout)
+        
+        # Separador vertical antes del contador de selección
+        v_sep2 = QFrame()
+        v_sep2.setFrameShape(QFrame.Shape.VLine)
+        v_sep2.setStyleSheet(f"color: {DesignSystem.COLOR_BORDER};")
+        layout.addWidget(v_sep2)
+        
+        # Contador de archivos seleccionados (movido desde footer)
+        selection_icon = icon_manager.create_icon_label('checkbox-marked-circle', size=18, color=DesignSystem.COLOR_DANGER)
+        layout.addWidget(selection_icon)
+        
+        self.global_summary_label = QLabel("0 archivos seleccionados (0 B)")
+        self.global_summary_label.setStyleSheet(f"font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD}; color: {DesignSystem.COLOR_TEXT};")
+        layout.addWidget(self.global_summary_label)
         
         # Separador vertical
         v_sep = QFrame()
@@ -432,10 +449,7 @@ class SimilarFilesDialog(BaseDialog):
         ]
         
         for text, strategy, tooltip in strategies:
-            btn = QPushButton(text)
-            btn.setToolTip(tooltip)
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setStyleSheet(f"""
+            custom_style = f"""
                 QPushButton {{
                     background-color: {DesignSystem.COLOR_BACKGROUND};
                     border: 1px solid {DesignSystem.COLOR_BORDER};
@@ -449,30 +463,47 @@ class SimilarFilesDialog(BaseDialog):
                     border-color: {DesignSystem.COLOR_PRIMARY};
                     color: {DesignSystem.COLOR_PRIMARY};
                 }}
-            """)
+            """
+            btn = self.make_styled_button(
+                text=text,
+                button_style='secondary',
+                tooltip=tooltip,
+                custom_style=custom_style
+            )
             btn.clicked.connect(lambda checked, s=strategy: self._apply_strategy_current_group(s))
             layout.addWidget(btn)
             
         layout.addStretch()
         
         # Botón Limpiar Selección
-        clear_btn = QPushButton("Limpiar Selección")
-        clear_btn.setIcon(icon_manager.get_icon('close', size=14))
-        clear_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        clear_btn.setStyleSheet(f"""
+        clear_custom_style = f"""
             QPushButton {{
                 background: transparent;
                 border: none;
                 color: {DesignSystem.COLOR_TEXT_SECONDARY};
             }}
             QPushButton:hover {{ color: {DesignSystem.COLOR_DANGER}; }}
-        """)
+        """
+        clear_btn = self.make_styled_button(
+            text="Limpiar Selección",
+            icon_name='close',
+            button_style='secondary',
+            tooltip="Desmarcar todos los archivos en este grupo",
+            custom_style=clear_custom_style
+        )
         clear_btn.clicked.connect(self._clear_current_group_selection)
         layout.addWidget(clear_btn)
         
         return container
 
     def _create_footer(self) -> QFrame:
+        """Crea footer con secciones separadas según estándar BaseDialog.
+        
+        Estructura:
+        1. Sección de opciones de seguridad (backup, dry-run)
+        2. Separador visual
+        3. Sección de botones de acción (centrados)
+        """
         footer = QFrame()
         footer.setStyleSheet(f"""
             QFrame {{
@@ -480,24 +511,40 @@ class SimilarFilesDialog(BaseDialog):
                 border-top: 1px solid {DesignSystem.COLOR_BORDER};
             }}
         """)
-        layout = QHBoxLayout(footer)
+        layout = QVBoxLayout(footer)
         layout.setContentsMargins(DesignSystem.SPACE_24, DesignSystem.SPACE_16, DesignSystem.SPACE_24, DesignSystem.SPACE_16)
+        layout.setSpacing(DesignSystem.SPACE_12)
         
-        # Resumen de selección global
-        self.global_summary_label = QLabel("0 archivos seleccionados (0 B)")
-        self.global_summary_label.setStyleSheet(f"font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD}; color: {DesignSystem.COLOR_TEXT};")
-        layout.addWidget(self.global_summary_label)
+        # 1. Opciones de seguridad (usando método estándar de BaseDialog)
+        security_options = self._create_security_options_section(
+            show_backup=True,
+            show_dry_run=True,
+            backup_label="Crear backup antes de eliminar",
+            dry_run_label="Modo simulación (no eliminar archivos realmente)"
+        )
+        layout.addWidget(security_options)
         
-        layout.addStretch()
+        # 2. Separador visual
+        separator = QFrame()
+        separator.setFrameShape(QFrame.Shape.HLine)
+        separator.setStyleSheet(f"color: {DesignSystem.COLOR_BORDER_LIGHT}; margin: {DesignSystem.SPACE_4}px 0;")
+        layout.addWidget(separator)
         
-        # Botones
+        # 3. Botones de acción (centrados, sin resumen)
+        button_layout = QHBoxLayout()
+        button_layout.setContentsMargins(0, 0, 0, 0)
+        button_layout.addStretch()
+        
         button_box = self.make_ok_cancel_buttons(
             ok_text="Eliminar Seleccionados",
             ok_enabled=False,
             button_style='danger'
         )
         self.delete_btn = button_box.button(QDialogButtonBox.StandardButton.Ok)
-        layout.addWidget(button_box)
+        button_layout.addWidget(button_box)
+        button_layout.addStretch()
+        
+        layout.addLayout(button_layout)
         
         return footer
 
@@ -779,6 +826,30 @@ class SimilarFilesDialog(BaseDialog):
             self.selections[self.current_group_index] = []
             self._load_group(self.current_group_index)
             self._update_summary()
+
+    def accept(self):
+        """Construye el plan de eliminación con los archivos seleccionados."""
+        selected_groups = []
+        for group_index, files_to_delete in self.selections.items():
+            if files_to_delete:
+                # Obtener el grupo original para metadata
+                original_group = self.all_groups[group_index]
+                # Crear grupo con solo los archivos seleccionados para eliminar
+                selected_group = DuplicateGroup(
+                    hash_value=original_group.hash_value,
+                    files=files_to_delete,
+                    total_size=sum(f.stat().st_size for f in files_to_delete),
+                    similarity_score=original_group.similarity_score
+                )
+                selected_groups.append(selected_group)
+        
+        self.accepted_plan = {
+            'groups': selected_groups,
+            'keep_strategy': 'manual',
+            'create_backup': self.is_backup_enabled(),
+            'dry_run': self.is_dry_run_enabled()
+        }
+        super().accept()
 
     # --- Helpers reutilizados (simplificados) ---
     def _create_thumbnail(self, file_path: Path):
