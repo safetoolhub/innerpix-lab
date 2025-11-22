@@ -753,6 +753,7 @@ class RenamingPreviewDialog(BaseDialog):
             return
         
         menu = QMenu(self)
+        menu.setStyleSheet(DesignSystem.get_context_menu_style())
         
         # Opción para abrir archivo
         open_file_action = menu.addAction("Abrir archivo")

@@ -1140,6 +1140,7 @@ class FileOrganizationDialog(BaseDialog):
             return
         
         menu = QMenu(self)
+        menu.setStyleSheet(DesignSystem.get_context_menu_style())
         
         # Abrir archivo
         open_file_action = menu.addAction("Abrir archivo")
