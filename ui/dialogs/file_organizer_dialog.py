@@ -114,7 +114,7 @@ class FileOrganizationDialog(BaseDialog):
             metrics=[
                 {
                     'value': str(self.analysis.total_files_to_move),
-                    'label': 'Archivos',
+                    'label': 'A mover',
                     'color': DesignSystem.COLOR_PRIMARY
                 },
                 {
@@ -245,14 +245,17 @@ class FileOrganizationDialog(BaseDialog):
     
     def _on_analysis_finished(self, result: OrganizationAnalysisResult):
         """Maneja la finalización del análisis"""
-        self.logger.info(f"Análisis completado: {result.total_files_to_move} archivos")
+        self.logger.info(f"Análisis completado: {result.total_files_to_move} archivos (tipo: {result.organization_type})")
         self.analysis = result
         self.filtered_moves = list(result.move_plan)
         self.current_page = 0
         
+        # IMPORTANTE: Establecer is_analyzing=False ANTES de actualizar UI
+        # para que el botón OK se habilite correctamente
+        self.is_analyzing = False
+        
         self._set_ui_loading_state(False)
         self._update_all_ui()
-        self.is_analyzing = False
     
     def _on_analysis_progress(self, current: int, total: int, message: str):
         """Maneja el progreso del análisis"""
@@ -272,7 +275,7 @@ class FileOrganizationDialog(BaseDialog):
         """Activa/desactiva el estado de carga"""
         self.progress_bar.setVisible(loading)
         self.files_tree.setEnabled(not loading)
-        self.ok_button.setEnabled(not loading and self.analysis.total_files_to_move > 0)
+        # NO actualizar ok_button aquí - se hace en _update_ok_button() con datos frescos
         
         # Deshabilitar opciones de tipo durante análisis
         if hasattr(self, 'type_selector'):
@@ -306,19 +309,19 @@ class FileOrganizationDialog(BaseDialog):
     
     def _update_header_metrics(self):
         """Actualiza las métricas del header compacto"""
-        # Buscar y actualizar los QLabel de las métricas existentes en lugar de recrear el header
+        # Buscar y actualizar los QLabel de las métricas existentes
         main_layout = self.header_frame.layout()
         if not main_layout:
             return
         
-        # Las métricas están en un QHBoxLayout al final del main_layout
+        # El layout tiene: left_container, spacer, metrics_container
+        # metrics_container es el último QHBoxLayout
         metrics_layout = None
-        for i in range(main_layout.count()):
+        for i in range(main_layout.count() - 1, -1, -1):  # Buscar desde el final
             item = main_layout.itemAt(i)
             if item and item.layout() and isinstance(item.layout(), QHBoxLayout):
-                # El último QHBoxLayout con múltiples widgets es el de métricas
-                if item.layout().count() > 1:
-                    metrics_layout = item.layout()
+                metrics_layout = item.layout()
+                break
         
         if not metrics_layout:
             return
@@ -795,8 +798,13 @@ class FileOrganizationDialog(BaseDialog):
     
     def _update_ok_button(self):
         """Actualiza el texto y estado del botón OK"""
+        if not hasattr(self, 'ok_button') or not self.ok_button:
+            return
+        
         ok_enabled = self.analysis.total_files_to_move > 0
-        self.ok_button.setEnabled(ok_enabled and not self.is_analyzing)
+        final_enabled = ok_enabled and not self.is_analyzing
+        
+        self.ok_button.setEnabled(final_enabled)
         
         if ok_enabled:
             size_formatted = format_size(self.analysis.total_size_to_move)
