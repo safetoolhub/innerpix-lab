@@ -367,8 +367,6 @@ class ExactCopiesDialog(BaseDialog):
                 font-size: {DesignSystem.FONT_SIZE_SM}px;
             }}
         """)
-        self.tree_widget.itemExpanded.connect(self._on_item_expanded)
-        self.tree_widget.itemCollapsed.connect(self._on_item_collapsed)
         self.tree_widget.itemDoubleClicked.connect(self._on_item_double_clicked)
         self.tree_widget.customContextMenuRequested.connect(self._show_context_menu)
         content_layout.addWidget(self.tree_widget)
@@ -629,14 +627,15 @@ class ExactCopiesDialog(BaseDialog):
         space_to_free = group.total_size - keep_file_size
         
         # Textos del grupo - Solo mostrar info básica en columna 0
-        group_item.setText(0, f"▶ Grupo #{group_number} • {file_count} copias")
+        group_item.setText(0, f"Grupo #{group_number} • {file_count} copias")
         # Las otras columnas quedan vacías para grupos - solo se usan para archivos
         
-        # Estilo del grupo padre más sutil y profesional
+        # Estilo del grupo padre estándar (Bold + Blue + BASE size)
         font = group_item.font(0)
-        font.setBold(False)  # Remover negrita para ser más sutil
-        font.setPointSize(int(DesignSystem.FONT_SIZE_SM))  # Tamaño más pequeño
+        font.setBold(True)
+        font.setPointSize(int(DesignSystem.FONT_SIZE_BASE))
         group_item.setFont(0, font)
+        group_item.setForeground(0, QColor(DesignSystem.COLOR_PRIMARY))
         
         # Tooltip informativo sobre doble click
         group_item.setToolTip(0, f"Grupo #{group_number} con {file_count} archivos idénticos\n"
@@ -951,24 +950,7 @@ class ExactCopiesDialog(BaseDialog):
                 f"No se encontró el archivo:\n{file_path}"
             )
     
-    def _on_item_expanded(self, item):
-        """Actualiza el indicador visual cuando se expande un grupo"""
-        if item.childCount() > 0:  # Es un grupo padre
-            current_text = item.text(0)
-            if current_text.startswith("▶ "):
-                # Reemplazar indicador de colapsado por expandido
-                item.setText(0, f"▼ {current_text[2:]}")
-            elif not current_text.startswith("▼"):
-                # Agregar indicador de expandido si no tiene ninguno
-                item.setText(0, f"▼ {current_text}")
 
-    def _on_item_collapsed(self, item):
-        """Actualiza el indicador visual cuando se colapsa un grupo"""
-        if item.childCount() > 0:  # Es un grupo padre
-            current_text = item.text(0)
-            if current_text.startswith("▼ "):
-                # Cambiar indicador a colapsado
-                item.setText(0, f"▶ {current_text[2:]}")  # Remover "▼ " y agregar "▶ "
 
     def showEvent(self, event: QShowEvent):
         """Actualizar la barra de progreso cuando el diálogo se muestre completamente"""

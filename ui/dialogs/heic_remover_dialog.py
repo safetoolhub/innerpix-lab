@@ -529,10 +529,10 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         # Texto del grupo - Solo columna 0
         group_item.setText(0, f"Grupo #{group_number} • {pair.base_name}")
         
-        # Estilo del grupo padre más sutil
+        # Estilo del grupo padre estándar (Bold + Blue + BASE size)
         font = group_item.font(0)
         font.setBold(True)
-        font.setPointSize(11)
+        font.setPointSize(int(DesignSystem.FONT_SIZE_BASE))
         group_item.setFont(0, font)
         group_item.setForeground(0, QColor(DesignSystem.COLOR_PRIMARY))
         
