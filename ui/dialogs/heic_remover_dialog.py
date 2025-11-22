@@ -532,7 +532,7 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         # Estilo del grupo padre estándar (Bold + Blue + BASE size)
         font = group_item.font(0)
         font.setBold(True)
-        font.setPointSize(int(DesignSystem.FONT_SIZE_BASE))
+        font.setPointSize(int(DesignSystem.FONT_SIZE_XS))
         group_item.setFont(0, font)
         group_item.setForeground(0, QColor(DesignSystem.COLOR_PRIMARY))
         
