@@ -121,7 +121,7 @@ class SettingsDialog(QDialog):
                 min-height: 36px;
             }}
             QPushButton:hover {{
-                background-color: {DesignSystem.COLOR_WARNING_HOVER};
+                background-color: {DesignSystem.COLOR_WARNING};
             }}
         """)
         restore_btn.clicked.connect(self.restore_defaults)

@@ -72,6 +72,73 @@ class LivePhotoCleanupDialog(BaseDialog):
             ]
         )
         layout.addWidget(self.header_frame)
+        
+        # Warning sobre metadata de video desactivado
+        from config import Config
+        if not Config.USE_VIDEO_METADATA:
+            from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton
+            from PyQt6.QtCore import Qt
+            
+            warning_frame = QFrame()
+            warning_frame.setObjectName("warningBanner")
+            warning_frame.setStyleSheet(f"""
+                QFrame#warningBanner {{
+                    background-color: {DesignSystem.COLOR_WARNING_BG};
+                    border: 1px solid {DesignSystem.COLOR_WARNING};
+                    border-radius: {DesignSystem.RADIUS_BASE}px;
+                    padding: {DesignSystem.SPACE_12}px;
+                }}
+            """)
+            
+            warning_layout = QHBoxLayout(warning_frame)
+            warning_layout.setContentsMargins(
+                int(DesignSystem.SPACE_12),
+                int(DesignSystem.SPACE_8),
+                int(DesignSystem.SPACE_12),
+                int(DesignSystem.SPACE_8)
+            )
+            warning_layout.setSpacing(int(DesignSystem.SPACE_12))
+            
+            # Icon
+            icon_label = QLabel("⚠️")
+            icon_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_LG}px;")
+            warning_layout.addWidget(icon_label)
+            
+            # Text
+            text_label = QLabel(
+                "<b>Detección sin validación temporal:</b> La extracción de metadata de video está "
+                "desactivada. Los Live Photos se detectan solo por coincidencia de nombres, sin validar "
+                "que las fechas de captura coincidan. Esto puede incluir falsos positivos."
+            )
+            text_label.setWordWrap(True)
+            text_label.setStyleSheet(f"""
+                color: {DesignSystem.COLOR_TEXT};
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+            """)
+            warning_layout.addWidget(text_label, 1)
+            
+            # Action button
+            settings_btn = QPushButton("Activar en Configuración")
+            settings_btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {DesignSystem.COLOR_WARNING};
+                    color: {DesignSystem.COLOR_TEXT};
+                    border: none;
+                    border-radius: {DesignSystem.RADIUS_SM}px;
+                    padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
+                    font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+                    font-size: {DesignSystem.FONT_SIZE_SM}px;
+                }}
+                QPushButton:hover {{
+                    background-color: {DesignSystem.COLOR_WARNING};
+                    opacity: 0.9;
+                }}
+            """)
+            settings_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            settings_btn.clicked.connect(self._open_settings)
+            warning_layout.addWidget(settings_btn)
+            
+            layout.addWidget(warning_frame)
 
         # Contenedor con margen para el resto del contenido
         from PyQt6.QtWidgets import QWidget
@@ -218,3 +285,9 @@ class LivePhotoCleanupDialog(BaseDialog):
             'dry_run': self.is_dry_run_enabled()
         }
         super().accept()
+    
+    def _open_settings(self):
+        """Abre el diálogo de configuración"""
+        from .settings_dialog import SettingsDialog
+        settings_dialog = SettingsDialog(self)
+        settings_dialog.exec()
