@@ -86,6 +86,7 @@ class IconManager:
         'ruler': 'mdi6.ruler',
         'update': 'mdi6.update',
         'map-marker': 'mdi6.map-marker',
+        'location': 'mdi6.map-marker',
         'arrow-expand': 'mdi6.arrow-expand',
         'arrow-collapse': 'mdi6.arrow-collapse',
         

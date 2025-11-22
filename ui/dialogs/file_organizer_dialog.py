@@ -9,7 +9,7 @@ from typing import Optional
 from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QGroupBox, QDialogButtonBox, QCheckBox, QLabel,
     QTreeWidget, QTreeWidgetItem, QLineEdit, QComboBox, QPushButton, QFrame,
-    QApplication, QMenu, QWidget,  QProgressBar
+    QApplication, QMenu, QWidget, QProgressBar, QTabWidget, QRadioButton, QButtonGroup
 )
 from PyQt6.QtGui import QColor, QFont, QCursor
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QThread
@@ -33,11 +33,14 @@ class OrganizationWorker(QThread):
     progress = pyqtSignal(int, int, str)
     error = pyqtSignal(str)
     
-    def __init__(self, root_directory: Path, organization_type: OrganizationType, metadata_cache=None):
+    def __init__(self, root_directory: Path, organization_type: OrganizationType, metadata_cache=None, group_by_source=False, group_by_type=False, date_grouping_type: Optional[str] = None):
         super().__init__()
         self.root_directory = root_directory
         self.organization_type = organization_type
         self.metadata_cache = metadata_cache
+        self.group_by_source = group_by_source
+        self.group_by_type = group_by_type
+        self.date_grouping_type = date_grouping_type
         self.organizer = FileOrganizer()
         self.logger = get_logger("OrganizationWorker")
     
@@ -53,7 +56,10 @@ class OrganizationWorker(QThread):
             result = self.organizer.analyze(
                 self.root_directory,
                 self.organization_type,
-                progress_callback
+                progress_callback,
+                group_by_source=self.group_by_source,
+                group_by_type=self.group_by_type,
+                date_grouping_type=self.date_grouping_type
             )
             self.finished.emit(result)
             
@@ -81,19 +87,23 @@ class FileOrganizationDialog(BaseDialog):
         
         # Datos principales
         self.root_directory = Path(initial_analysis.root_directory)
-        self.analysis = initial_analysis
-        self.current_organization_type = OrganizationType(initial_analysis.organization_type)
+        self.initial_analysis = initial_analysis  # Guardar para referencia pero no usar inicialmente
+        self.analysis = None  # Empezar sin análisis hasta que el usuario seleccione
+        self.current_organization_type = None  # Sin tipo seleccionado inicialmente
         self.accepted_plan = None
         self.metadata_cache = metadata_cache  # Caché para reutilizar en re-análisis
         
         # Datos filtrados y paginación
-        self.filtered_moves = list(initial_analysis.move_plan)
+        self.filtered_moves = []  # Empezar vacío hasta que el usuario seleccione
         self.current_page = 0
         self.total_pages = 0
         
         # Worker para análisis
         self.worker: Optional[OrganizationWorker] = None
         self.is_analyzing = False
+        
+        # Flag para evitar disparar eventos durante la construcción de la UI
+        self.ui_initialized = False
         
         self.init_ui()
 
@@ -103,6 +113,10 @@ class FileOrganizationDialog(BaseDialog):
         self.setModal(True)
         self.resize(1200, 800)
         
+        # Inicializar progress bar temprano para evitar crashes si se disparan señales durante la construcción de la UI
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setVisible(False)
+        
         main_layout = QVBoxLayout(self)
         main_layout.setSpacing(0)
         main_layout.setContentsMargins(0, 0, 0, DesignSystem.SPACE_20)
@@ -110,23 +124,23 @@ class FileOrganizationDialog(BaseDialog):
         # === HEADER COMPACTO CON MÉTRICAS ===
         self.header_frame = self._create_compact_header_with_metrics(
             icon_name='folder-settings',
-            title='Organización de archivos',
-            description='Reorganiza tu colección según diferentes criterios. Selecciona un tipo y revisa el plan.',
+            title='Organización de Archivos',
+            description='Elige cómo organizar tus archivos',
             metrics=[
                 {
-                    'value': str(self.analysis.total_files_to_move),
-                    'label': 'A mover',
-                    'color': DesignSystem.COLOR_PRIMARY
+                    'label': 'Archivos',
+                    'value': str(self.analysis.total_files_to_move) if self.analysis else '0',
+                    'icon': 'description'
                 },
                 {
-                    'value': str(len(self.analysis.subdirectories)),
-                    'label': 'Subdirs',
-                    'color': '#9c27b0'
+                    'label': 'Carpetas',
+                    'value': str(len(self.analysis.subdirectories)) if self.analysis else '0',
+                    'icon': 'folder'
                 },
                 {
-                    'value': format_size(self.analysis.total_size_to_move),
                     'label': 'Tamaño',
-                    'color': '#ff9800'
+                    'value': format_size(self.analysis.total_size_to_move) if self.analysis else '0 B',
+                    'icon': 'storage'
                 }
             ]
         )
@@ -166,8 +180,8 @@ class FileOrganizationDialog(BaseDialog):
         content_layout.addWidget(self.pagination_widget)
         
         # === PROGRESS BAR (inicialmente oculto) ===
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setVisible(False)
+        # === PROGRESS BAR (inicialmente oculto) ===
+        # self.progress_bar ya inicializado al principio
         self.progress_bar.setStyleSheet(f"""
             QProgressBar {{
                 border: 1px solid {DesignSystem.COLOR_BORDER};
@@ -190,196 +204,283 @@ class FileOrganizationDialog(BaseDialog):
         self.buttons = self._create_action_buttons()
         content_layout.addWidget(self.buttons)
         
-        # Actualizar vista inicial
-        self._update_all_ui()
+        # NO actualizar vista inicial - dejar vacío hasta que el usuario seleccione
+        # self._update_all_ui()
+        
+        # Marcar UI como inicializada para permitir eventos
+        self.ui_initialized = True
         
         # Aplicar estilo global de tooltips
         self.setStyleSheet(DesignSystem.get_tooltip_style())
 
     def _create_type_selector(self) -> QWidget:
-        """Crea selector de tipo de organización usando el método centralizado de BaseDialog con 2 grupos temáticos."""
-        from PyQt6.QtWidgets import QGroupBox, QVBoxLayout, QLabel
+        """Crea selector de tipo de organización usando pestañas (Tabs) para ahorrar espacio vertical."""
         
-        # Crear contenedor principal
-        main_container = QWidget()
-        main_layout = QVBoxLayout(main_container)
-        main_layout.setSpacing(DesignSystem.SPACE_16)
-        main_layout.setContentsMargins(0, 0, 0, 0)
+        # Contenedor principal
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(DesignSystem.SPACE_12)
         
-        # === GRUPO 1: ORGANIZACIÓN TEMPORAL ===
-        temporal_group = QGroupBox("Organización Temporal")
-        temporal_group.setStyleSheet(f"""
-            QGroupBox {{
-                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                color: {DesignSystem.COLOR_TEXT};
+        # Crear QTabWidget
+        self.tabs = QTabWidget()
+        self.tabs.setStyleSheet(f"""
+            QTabWidget::pane {{
                 border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                margin-top: {DesignSystem.SPACE_12}px;
-                padding-top: {DesignSystem.SPACE_12}px;
+                border-radius: {DesignSystem.RADIUS_BASE}px;
                 background-color: {DesignSystem.COLOR_SURFACE};
             }}
-            QGroupBox::title {{
-                subcontrol-origin: margin;
-                subcontrol-position: top left;
-                padding: 0 {DesignSystem.SPACE_8}px;
-                margin-left: {DesignSystem.SPACE_12}px;
+            QTabBar::tab {{
+                background-color: {DesignSystem.COLOR_BG_2};
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_16}px;
+                border-top-left-radius: {DesignSystem.RADIUS_BASE}px;
+                border-top-right-radius: {DesignSystem.RADIUS_BASE}px;
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-bottom: none;
+                margin-right: 2px;
+            }}
+            QTabBar::tab:selected {{
                 background-color: {DesignSystem.COLOR_SURFACE};
+                color: {DesignSystem.COLOR_PRIMARY};
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+                border-bottom: 1px solid {DesignSystem.COLOR_SURFACE}; /* Conectar con el pane */
+            }}
+            QTabBar::tab:hover {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                color: {DesignSystem.COLOR_PRIMARY};
             }}
         """)
-        temporal_layout = QVBoxLayout(temporal_group)
-        temporal_layout.setSpacing(DesignSystem.SPACE_8)
         
-        # Descripción del grupo
-        temporal_desc = QLabel("Organiza archivos según su fecha de captura")
-        temporal_desc.setStyleSheet(f"""
-            color: {DesignSystem.COLOR_TEXT_SECONDARY};
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            padding: 0 {DesignSystem.SPACE_8}px {DesignSystem.SPACE_8}px;
-        """)
-        temporal_layout.addWidget(temporal_desc)
+        # === TAB 1: ORGANIZACIÓN TEMPORAL ===
+        temporal_tab = QWidget()
+        temporal_layout = QVBoxLayout(temporal_tab)
+        temporal_layout.setSpacing(DesignSystem.SPACE_16)
+        temporal_layout.setContentsMargins(DesignSystem.SPACE_16, DesignSystem.SPACE_16, DesignSystem.SPACE_16, DesignSystem.SPACE_16)
         
+        # Opciones temporales
         temporal_options = [
             (OrganizationType.BY_MONTH, "calendar_month", "Por Mes (YYYY_MM)",
-             "Carpetas planas por mes: 2024_01, 2024_02, ..."),
+             "Carpetas planas por mes: 2024_01, 2024_02..."),
             (OrganizationType.BY_YEAR, "calendar_today", "Por Año (YYYY)",
-             "Carpetas por año: 2023, 2024, 2025, ..."),
+             "Carpetas por año: 2023, 2024..."),
             (OrganizationType.BY_YEAR_MONTH, "date_range", "Por Año/Mes (YYYY/MM)",
-             "Jerarquía anidada: 2024/01, 2024/02, 2025/01, ...")
+             "Jerarquía anidada: 2024/01, 2024/02...")
         ]
         
-        temporal_selector = self._create_option_selector(
-            title=None,  # No título, ya está en el QGroupBox
+        self.temporal_selector = self._create_option_selector(
+            title=None,
             title_icon=None,
             options=temporal_options,
-            selected_value=self.current_organization_type if self.current_organization_type in [OrganizationType.BY_MONTH, OrganizationType.BY_YEAR, OrganizationType.BY_YEAR_MONTH] else OrganizationType.BY_MONTH,
-            on_change_callback=self._on_type_changed
+            selected_value=self.current_organization_type if self.current_organization_type in [OrganizationType.BY_MONTH, OrganizationType.BY_YEAR, OrganizationType.BY_YEAR_MONTH] else None,
+            on_change_callback=self._on_option_changed
         )
-        temporal_layout.addWidget(temporal_selector)
-        main_layout.addWidget(temporal_group)
+        temporal_layout.addWidget(self.temporal_selector)
         
-        # === GRUPO 2: ORGANIZACIÓN POR TIPO/FUENTE ===
-        type_group = QGroupBox("Organización por Tipo y Fuente")
-        type_group.setStyleSheet(f"""
-            QGroupBox {{
-                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                color: {DesignSystem.COLOR_TEXT};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                margin-top: {DesignSystem.SPACE_12}px;
-                padding-top: {DesignSystem.SPACE_12}px;
-                background-color: {DesignSystem.COLOR_SURFACE};
-            }}
-            QGroupBox::title {{
-                subcontrol-origin: margin;
-                subcontrol-position: top left;
-                padding: 0 {DesignSystem.SPACE_8}px;
-                margin-left: {DesignSystem.SPACE_12}px;
-                background-color: {DesignSystem.COLOR_SURFACE};
-            }}
-        """)
-        type_layout = QVBoxLayout(type_group)
-        type_layout.setSpacing(DesignSystem.SPACE_8)
+        # Checkboxes para opciones combinadas
+        options_layout = QHBoxLayout()
+        options_layout.setSpacing(DesignSystem.SPACE_24)
         
-        # Descripción del grupo
-        type_desc = QLabel("Separa archivos por su tipo o dispositivo de origen")
-        type_desc.setStyleSheet(f"""
-            color: {DesignSystem.COLOR_TEXT_SECONDARY};
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            padding: 0 {DesignSystem.SPACE_8}px {DesignSystem.SPACE_8}px;
-        """)
-        type_layout.addWidget(type_desc)
+        self.chk_temporal_source = QCheckBox("Agrupar también por Fuente (WhatsApp, etc.)")
+        self.chk_temporal_source.setToolTip("Crea subcarpetas por fuente dentro de cada carpeta de fecha")
+        self.chk_temporal_source.stateChanged.connect(lambda: self._on_option_changed(None))
+        
+        self.chk_temporal_type = QCheckBox("Agrupar también por Tipo (Fotos/Videos)")
+        self.chk_temporal_type.setToolTip("Crea subcarpetas Fotos y Videos dentro de cada carpeta de fecha")
+        self.chk_temporal_type.stateChanged.connect(lambda: self._on_option_changed(None))
+        
+        options_layout.addWidget(self.chk_temporal_source)
+        options_layout.addWidget(self.chk_temporal_type)
+        options_layout.addStretch()
+        
+        temporal_layout.addLayout(options_layout)
+        temporal_layout.addStretch() # Push content up
+        self.tabs.addTab(temporal_tab, "Temporal")
+        
+        # === TAB 2: POR TIPO / FUENTE ===
+        type_tab = QWidget()
+        type_layout = QVBoxLayout(type_tab)
+        type_layout.setSpacing(DesignSystem.SPACE_16)
+        type_layout.setContentsMargins(DesignSystem.SPACE_16, DesignSystem.SPACE_16, DesignSystem.SPACE_16, DesignSystem.SPACE_16)
         
         type_options = [
             (OrganizationType.BY_TYPE, "image", "Por Tipo de Archivo",
              "Separa en carpetas: Fotos/ y Videos/"),
             (OrganizationType.BY_SOURCE, "devices", "Por Fuente/Dispositivo",
-             "Detecta origen: WhatsApp/, iPhone/, Android/, Camera/, Screenshot/, etc.")
+             "Detecta origen: WhatsApp/, iPhone/, Android/...")
         ]
         
-        type_selector = self._create_option_selector(
+        self.type_source_selector = self._create_option_selector(
             title=None,
             title_icon=None,
             options=type_options,
-            selected_value=self.current_organization_type if self.current_organization_type in [OrganizationType.BY_TYPE, OrganizationType.BY_SOURCE] else OrganizationType.BY_TYPE,
-            on_change_callback=self._on_type_changed
+            selected_value=self.current_organization_type if self.current_organization_type in [OrganizationType.BY_TYPE, OrganizationType.BY_SOURCE] else None,
+            on_change_callback=self._on_option_changed
         )
-        type_layout.addWidget(type_selector)
-        main_layout.addWidget(type_group)
+        type_layout.addWidget(self.type_source_selector)
         
-        # === GRUPO 3: ORGANIZACIÓN SIMPLE ===
-        simple_group = QGroupBox("Organización Simple")
-        simple_group.setStyleSheet(f"""
-            QGroupBox {{
-                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                color: {DesignSystem.COLOR_TEXT};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                margin-top: {DesignSystem.SPACE_12}px;
-                padding-top: {DesignSystem.SPACE_12}px;
-                background-color: {DesignSystem.COLOR_SURFACE};
-            }}
-            QGroupBox::title {{
-                subcontrol-origin: margin;
-                subcontrol-position: top left;
-                padding: 0 {DesignSystem.SPACE_8}px;
-                margin-left: {DesignSystem.SPACE_12}px;
-                background-color: {DesignSystem.COLOR_SURFACE};
-            }}
-        """)
-        simple_layout = QVBoxLayout(simple_group)
-        simple_layout.setSpacing(DesignSystem.SPACE_8)
         
-        # Descripción del grupo
-        simple_desc = QLabel("Limpia estructura moviendo todo a la raíz")
-        simple_desc.setStyleSheet(f"""
-            color: {DesignSystem.COLOR_TEXT_SECONDARY};
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            padding: 0 {DesignSystem.SPACE_8}px {DesignSystem.SPACE_8}px;
-        """)
-        simple_layout.addWidget(simple_desc)
+        # Selector de agrupación por fecha (granular)
+        self.date_grouping_combo = QComboBox()
+        self.date_grouping_combo.addItems(["Sin agrupación por fecha", "Por Mes (YYYY_MM)", "Por Año (YYYY)", "Por Año/Mes (YYYY/MM)"])
+        self.date_grouping_combo.setToolTip("Agrupa archivos por fecha dentro de la categoría seleccionada")
+        self.date_grouping_combo.currentIndexChanged.connect(lambda: self._on_option_changed(None))
+        # Inicialmente visible si estamos en BY_TYPE o BY_SOURCE
+        initial_visible = self.current_organization_type in [OrganizationType.BY_TYPE, OrganizationType.BY_SOURCE]
+        self.date_grouping_combo.setVisible(initial_visible)
         
-        simple_options = [
-            (OrganizationType.TO_ROOT, "folder-open", "Mover a Raíz",
+        type_opts_layout = QHBoxLayout()
+        type_opts_layout.addWidget(self.date_grouping_combo)
+        type_opts_layout.addStretch()
+        type_layout.addLayout(type_opts_layout)
+        
+        type_layout.addStretch() # Push content up
+        
+        self.tabs.addTab(type_tab, "Tipo y Fuente")
+        
+        # === TAB 3: LIMPIEZA (TO ROOT) ===
+        cleanup_tab = QWidget()
+        cleanup_layout = QVBoxLayout(cleanup_tab)
+        cleanup_layout.setSpacing(DesignSystem.SPACE_16)
+        cleanup_layout.setContentsMargins(DesignSystem.SPACE_16, DesignSystem.SPACE_16, DesignSystem.SPACE_16, DesignSystem.SPACE_16)
+        
+        cleanup_options = [
+            (OrganizationType.TO_ROOT, "folder-open", "Mover todo a la Raíz",
              "Mueve todos los archivos al directorio raíz eliminando subdirectorios")
         ]
         
-        simple_selector = self._create_option_selector(
+        self.cleanup_selector = self._create_option_selector(
             title=None,
             title_icon=None,
-            options=simple_options,
-            selected_value=self.current_organization_type if self.current_organization_type == OrganizationType.TO_ROOT else OrganizationType.TO_ROOT,
-            on_change_callback=self._on_type_changed
+            options=cleanup_options,
+            selected_value=self.current_organization_type if self.current_organization_type == OrganizationType.TO_ROOT else None,
+            on_change_callback=self._on_option_changed
         )
-        simple_layout.addWidget(simple_selector)
-        main_layout.addWidget(simple_group)
+        cleanup_layout.addWidget(self.cleanup_selector)
+        cleanup_layout.addStretch()
         
-        return main_container
-    
-    def _on_type_changed(self, new_type: OrganizationType):
-        """Maneja el cambio de tipo de organización"""
-        if new_type == self.current_organization_type:
+        self.tabs.addTab(cleanup_tab, "Limpieza")
+        
+        # Conectar cambio de tab
+        self.tabs.currentChanged.connect(self._on_tab_changed)
+        
+        layout.addWidget(self.tabs)
+        
+        # Restaurar estado inicial (seleccionar tab correcto)
+        if self.current_organization_type in [OrganizationType.BY_MONTH, OrganizationType.BY_YEAR, OrganizationType.BY_YEAR_MONTH]:
+            self.tabs.setCurrentIndex(0)
+        elif self.current_organization_type in [OrganizationType.BY_TYPE, OrganizationType.BY_SOURCE]:
+            self.tabs.setCurrentIndex(1)
+        elif self.current_organization_type == OrganizationType.TO_ROOT:
+            self.tabs.setCurrentIndex(2)
+            
+        # Actualizar visibilidad de checkboxes
+        self._update_checkbox_visibility()
+        
+        return container
+
+    def _on_tab_changed(self, index):
+        """Maneja el cambio de pestaña"""
+        if not self.ui_initialized:
             return
+
+        # Determinar el tipo basado en la selección actual de la pestaña activa
+        new_type = None
+        if index == 0: # Temporal
+            new_type = self._get_selected_value_from_selector(self.temporal_selector)
+        elif index == 1: # Tipo/Fuente
+            new_type = self._get_selected_value_from_selector(self.type_source_selector)
+        elif index == 2: # Limpieza
+            new_type = self._get_selected_value_from_selector(self.cleanup_selector)
+            
+        if new_type:
+            self.current_organization_type = new_type
+            self._update_checkbox_visibility()
+            self._on_option_changed(new_type)
+
+    def _get_selected_value_from_selector(self, selector_widget):
+        """Helper para obtener el valor seleccionado de un selector de opciones"""
+        # Buscar todos los radio buttons y sus cards correspondientes
+        for radio in selector_widget.findChildren(QRadioButton):
+            if radio.isChecked():
+                # Buscar la card que contiene este radio button
+                parent = radio.parent()
+                while parent and not parent.property("option_value"):
+                    parent = parent.parent()
+                if parent:
+                    return parent.property("option_value")
+        return None
+
+    def _update_checkbox_visibility(self):
+        """Actualiza la visibilidad/estado de los checkboxes según el tipo seleccionado"""
+        current = self.current_organization_type
         
-        self.logger.info(f"Cambiando tipo de organización: {self.current_organization_type.value} -> {new_type.value}")
-        self.current_organization_type = new_type
+        # Tab Tipo/Fuente
+        is_by_type = current == OrganizationType.BY_TYPE
+        is_by_source = current == OrganizationType.BY_SOURCE
         
-        # Iniciar análisis en background
-        self._start_analysis(new_type)
-    
-    def _start_analysis(self, org_type: OrganizationType):
+        
+        # Visibilidad específica
+        self.date_grouping_combo.setVisible(is_by_type or is_by_source)
+
+    def _on_option_changed(self, new_type_or_none):
+        """Maneja cambios en cualquier opción (tipo o checkboxes)"""
+        if not self.ui_initialized:
+            return
+
+        # Si viene un tipo nuevo, actualizar
+        if new_type_or_none and isinstance(new_type_or_none, OrganizationType):
+            self.current_organization_type = new_type_or_none
+            self._update_checkbox_visibility()
+            # Actualizar estilos de los radio buttons usando el método de BaseDialog
+            self._update_all_selector_styles()
+        
+        # Recopilar estado actual
+        group_by_source = False
+        group_by_type = False
+        date_grouping_type = None
+        
+        tab_index = self.tabs.currentIndex()
+        if tab_index == 0: # Temporal
+            group_by_source = self.chk_temporal_source.isChecked()
+            group_by_type = self.chk_temporal_type.isChecked()
+        elif tab_index == 1: # Tipo/Fuente
+            # Solo agrupación por fecha, sin source ni type
+            # Obtener tipo de agrupación por fecha del combo
+            date_index = self.date_grouping_combo.currentIndex()
+            if date_index == 1:
+                date_grouping_type = 'month'
+            elif date_index == 2:
+                date_grouping_type = 'year'
+            elif date_index == 3:
+                date_grouping_type = 'year_month'
+        
+        self.logger.info(f"Configuración cambiada: Tipo={self.current_organization_type.value}, "
+                         f"Source={group_by_source}, Type={group_by_type}, DateGrouping={date_grouping_type}")
+        
+        self._start_analysis(self.current_organization_type, group_by_source, group_by_type, date_grouping_type)
+
+    def _start_analysis(self, org_type: OrganizationType, group_by_source=False, group_by_type=False, date_grouping_type: Optional[str] = None):
         """Inicia análisis en background"""
         if self.is_analyzing and self.worker and self.worker.isRunning():
+            # Cancelar worker anterior si es posible o esperar
+            # Por simplicidad, bloqueamos nueva solicitud si ya hay una (pero idealmente deberíamos cancelar)
+            # En este caso, permitiremos que termine y el usuario tendrá que esperar un poco
             self.logger.warning("Ya hay un análisis en curso")
             return
         
         self.is_analyzing = True
         self._set_ui_loading_state(True)
         
-        # Crear y configurar worker (pasar caché si está disponible)
-        self.worker = OrganizationWorker(self.root_directory, org_type, self.metadata_cache)
+        # Crear y configurar worker
+        self.worker = OrganizationWorker(
+            self.root_directory, 
+            org_type, 
+            self.metadata_cache,
+            group_by_source=group_by_source,
+            group_by_type=group_by_type,
+            date_grouping_type=date_grouping_type
+        )
         self.worker.finished.connect(self._on_analysis_finished)
         self.worker.progress.connect(self._on_analysis_progress)
         self.worker.error.connect(self._on_analysis_error)
@@ -444,10 +545,36 @@ class FileOrganizationDialog(BaseDialog):
         self._update_ok_button()
         
         # Re-aplicar estilos a las cards de selección
-        if hasattr(self, 'type_selector'):
-            # Los selectores están organizados en grupos, no necesitamos actualizar manualmente
-            # BaseDialog._create_option_selector ya maneja el resaltado automáticamente
-            pass
+        self._update_all_selector_styles()
+    
+    def _update_all_selector_styles(self):
+        """Actualiza los estilos de todos los selectores de opciones"""
+        # Temporal tab
+        if hasattr(self, 'temporal_selector'):
+            temporal_values = [OrganizationType.BY_MONTH, OrganizationType.BY_YEAR, OrganizationType.BY_YEAR_MONTH]
+            self._update_option_selector_styles(
+                self.temporal_selector,
+                temporal_values,
+                self.current_organization_type
+            )
+        
+        # Type/Source tab
+        if hasattr(self, 'type_source_selector'):
+            type_source_values = [OrganizationType.BY_TYPE, OrganizationType.BY_SOURCE]
+            self._update_option_selector_styles(
+                self.type_source_selector,
+                type_source_values,
+                self.current_organization_type
+            )
+        
+        # Cleanup tab
+        if hasattr(self, 'cleanup_selector'):
+            cleanup_values = [OrganizationType.TO_ROOT]
+            self._update_option_selector_styles(
+                self.cleanup_selector,
+                cleanup_values,
+                self.current_organization_type
+            )
     
     def _update_header_metrics(self):
         """Actualiza las métricas del header compacto"""
@@ -455,7 +582,7 @@ class FileOrganizationDialog(BaseDialog):
         main_layout = self.header_frame.layout()
         if not main_layout:
             return
-        
+
         # El layout tiene: left_container, spacer, metrics_container
         # metrics_container es el último QHBoxLayout
         metrics_layout = None
@@ -469,11 +596,15 @@ class FileOrganizationDialog(BaseDialog):
             return
         
         # Actualizar cada métrica (son QWidget con QVBoxLayout conteniendo value_label y label_widget)
-        metrics_data = [
-            str(self.analysis.total_files_to_move),
-            str(len(self.analysis.subdirectories)),
-            format_size(self.analysis.total_size_to_move)
-        ]
+        # Datos de las métricas
+        if not self.analysis:
+            metrics_data = ["0", "0", "0 B"]
+        else:
+            metrics_data = [
+                str(self.analysis.total_files_to_move),
+                str(len(self.analysis.subdirectories)),
+                format_size(self.analysis.total_size_to_move)
+            ]
         
         for idx, new_value in enumerate(metrics_data):
             if idx < metrics_layout.count():
@@ -484,55 +615,6 @@ class FileOrganizationDialog(BaseDialog):
                     if value_label and isinstance(value_label, QLabel):
                         value_label.setText(new_value)
     
-    def _update_type_selector_styles(self):
-        """Actualiza los estilos de las cards de selección según el tipo actual"""
-        for org_type in OrganizationType:
-            card_name = f"option-card-{org_type.value}"
-            card = self.findChild(QFrame, card_name)
-            if card:
-                is_selected = org_type == self.current_organization_type
-                card.setStyleSheet(f"""
-                    QFrame#{card_name} {{
-                        background-color: {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_SURFACE};
-                        border: 2px solid {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_BORDER};
-                        border-radius: {DesignSystem.RADIUS_BASE}px;
-                        padding: {DesignSystem.SPACE_12}px;
-                    }}
-                    QFrame#{card_name}:hover {{
-                        border-color: {DesignSystem.COLOR_PRIMARY};
-                        background-color: {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_BG_2};
-                    }}
-                    QFrame#{card_name} QLabel {{
-                        color: {DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_TEXT};
-                        font-weight: {DesignSystem.FONT_WEIGHT_NORMAL};
-                    }}
-                    QFrame#{card_name} QLabel#title-label {{
-                        font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-                    }}
-                    QFrame#{card_name} QLabel#desc-label {{
-                        color: {DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_TEXT_SECONDARY};
-                        font-weight: {DesignSystem.FONT_WEIGHT_NORMAL};
-                    }}
-                """)
-                
-                # Actualizar colores de iconos manualmente
-                self._update_card_icon_colors(card, org_type, is_selected)
-
-    def _update_card_icon_colors(self, card: QFrame, org_type: OrganizationType, is_selected: bool):
-        """Actualiza el color del icono en una card específica"""
-        # Encontrar el icono (es el segundo QLabel en el layout horizontal del header)
-        header_layout = card.layout().itemAt(0).layout()  # Primer item es el header_layout
-        if header_layout and header_layout.count() >= 2:
-            icon_label = header_layout.itemAt(1).widget()  # Segundo widget es el icono
-            if isinstance(icon_label, QLabel):
-                icon_name = self._get_icon_name_for_type(org_type)
-                icon_manager.set_label_icon(
-                    icon_label,
-                    icon_name,
-                    size=DesignSystem.ICON_SIZE_XL,
-                    color=DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_PRIMARY
-                )
-
     def _get_icon_name_for_type(self, org_type: OrganizationType) -> str:
         """Devuelve el nombre del icono para un tipo de organización"""
         icon_map = {
@@ -554,7 +636,7 @@ class FileOrganizationDialog(BaseDialog):
         self.folders_info_container = None
         self.folders_info_label = None
         
-        if not self.analysis.folders_to_create:
+        if not self.analysis or not self.analysis.folders_to_create:
             return None
         
         self.folders_info_container = QFrame()
@@ -663,7 +745,10 @@ class FileOrganizationDialog(BaseDialog):
         type_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
         
         self.type_combo = QComboBox()
-        types = ["Todos"] + sorted(list(self.analysis.files_by_type.keys()))
+        if self.analysis:
+            types = ["Todos"] + sorted(list(self.analysis.files_by_type.keys()))
+        else:
+            types = ["Todos"]
         self.type_combo.addItems(types)
         self.type_combo.currentTextChanged.connect(self._apply_filters)
         self.type_combo.setMinimumWidth(120)
@@ -676,13 +761,16 @@ class FileOrganizationDialog(BaseDialog):
         # Filtro por subdirectorio (solo para to_root)
         if self.current_organization_type == OrganizationType.TO_ROOT:
             subdir_container = QHBoxLayout()
-            subdir_container.setSpacing(DesignSystem.SPACE_8)
+            subdir_container.setSpacing(int(DesignSystem.SPACE_8))
             
-            subdir_label = QLabel("Origen:")
+            subdir_label = QLabel("Subdirectorio:")
             subdir_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
             
             self.subdir_combo = QComboBox()
-            subdirs = ["Todos"] + sorted(list(self.analysis.subdirectories.keys()))
+            if self.analysis:
+                subdirs = ["Todos"] + sorted(list(self.analysis.subdirectories.keys()))
+            else:
+                subdirs = ["Todos"]
             self.subdir_combo.addItems(subdirs)
             self.subdir_combo.currentTextChanged.connect(self._apply_filters)
             self.subdir_combo.setMinimumWidth(200)
@@ -924,12 +1012,14 @@ class FileOrganizationDialog(BaseDialog):
     
     def _create_action_buttons(self) -> QDialogButtonBox:
         """Crea botones de acción con estilo Material Design"""
-        ok_enabled = self.analysis.total_files_to_move > 0
+        # Determinar si el botón OK debe estar habilitado
+        ok_enabled = bool(self.analysis and self.analysis.total_files_to_move > 0)
+        
         if ok_enabled:
             size_formatted = format_size(self.analysis.total_size_to_move)
             ok_text = f"Organizar Archivos ({self.analysis.total_files_to_move} archivos, {size_formatted})"
         else:
-            ok_text = "Sin archivos para organizar"
+            ok_text = "Selecciona una opción"
         
         buttons = self.make_ok_cancel_buttons(
             ok_text=ok_text,

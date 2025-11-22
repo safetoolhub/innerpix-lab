@@ -72,25 +72,26 @@ def detect_file_source(filename: str, file_path: Optional[Path] = None, exif_dat
     # 3. iPhone (HEIC, IMG_XXXX, formato Live Photo)
     if filename_lower.endswith('.heic'):
         return 'iPhone'
-    if re.match(r'^img_\d{4}\.(jpg|jpeg|png|mov)$', filename_lower):
+    # iPhone patterns: IMG_XXXX.JPG, IMG_EXXXX.JPG (edits), IMG_XXXX.MOV, with optional _NNN suffix
+    if re.match(r'^img_[e]?\d{4}(_\d{3})?\.(jpg|jpeg|png|mov|mp4)$', filename_lower):
         return 'iPhone'
     
     # 4. Android (patrón típico)
     android_patterns = [
-        r'^pxl_\d{8}_',       # Google Pixel
-        r'^img-\d{8}-',       # Algunos Android (sin WA)
-        r'^\d{8}_\d{6}',      # Samsung: YYYYMMDD_HHMMSS
-        r'^signal-\d{4}',     # Signal app
+        r'^pxl_\d{8}(_\d{3})?\..*$',       # Google Pixel
+        r'^img-\d{8}(_\d{3})?\..*$',       # Algunos Android (sin WA)
+        r'^\d{8}_\d{6}(_\d{3})?\..*$',      # Samsung: YYYYMMDD_HHMMSS
+        r'^signal-\d{4}(_\d{3})?\..*$',     # Signal app
     ]
     if any(re.match(pattern, filename_lower) for pattern in android_patterns):
         return 'Android'
     
     # 5. Cámara digital (DSC, DCIM patterns)
     camera_patterns = [
-        r'^dsc[_-]?\d+',      # DSC_0001.jpg (cámaras Sony, etc.)
-        r'^p\d{7}',           # P0001234.jpg (algunas cámaras)
-        r'^_dsc\d+',          # _DSC1234.jpg (Nikon)
-        r'^img_\d{4,}',       # IMG_12345.jpg (cámaras Canon, etc.)
+        r'^dsc[_-]?\d+(_\d{3})?\.',      # DSC_0001.jpg or DSC_0001_001.jpg
+        r'^p\d{7}(_\d{3})?\.',           # P0001234.jpg
+        r'^_dsc\d+(_\d{3})?\.',          # _DSC1234.jpg (Nikon)
+        r'^img_\d{4,}(_\d{3})?\.',       # IMG_12345.jpg (cámaras Canon, etc.)
     ]
     if any(re.match(pattern, filename_lower) for pattern in camera_patterns):
         return 'Camera'

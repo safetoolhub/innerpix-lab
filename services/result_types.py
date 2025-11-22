@@ -113,6 +113,9 @@ class OrganizationAnalysisResult(AnalysisResult):
     files_by_type: Dict = field(default_factory=dict)
     move_plan: List = field(default_factory=list)
     folders_to_create: List[str] = field(default_factory=list)
+    group_by_source: bool = False
+    group_by_type: bool = False
+    date_grouping_type: Optional[str] = None
 
 
 @dataclass
