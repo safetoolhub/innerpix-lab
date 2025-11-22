@@ -319,7 +319,6 @@ class HEICDuplicateRemovalDialog(BaseDialog):
                 font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
                 font-size: {DesignSystem.FONT_SIZE_SM}px;
             }}
-            }}
         """)
         tree.itemDoubleClicked.connect(self._on_item_double_clicked)
         tree.customContextMenuRequested.connect(self._show_context_menu)
