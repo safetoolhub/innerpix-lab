@@ -424,6 +424,109 @@ class DesignSystem:
 
 
 
+    @staticmethod
+    def get_checkbox_style():
+        """
+        Retorna el estilo consistente para checkboxes
+        """
+        return f"""
+            QCheckBox {{
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_TEXT};
+                spacing: {DesignSystem.SPACE_8}px;
+            }}
+            QCheckBox::indicator {{
+                width: 18px;
+                height: 18px;
+                border: 2px solid {DesignSystem.COLOR_BORDER};
+                border-radius: 4px;
+                background-color: {DesignSystem.COLOR_SURFACE};
+            }}
+            QCheckBox::indicator:checked {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                border-color: {DesignSystem.COLOR_PRIMARY};
+                image: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iMTIiIHZpZXdCb3g9IjAgMCAxMiAxMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEwIDNMNC41IDguNUwyIDYiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+Cjwvc3ZnPgo=);
+            }}
+            QCheckBox::indicator:hover {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+            QCheckBox:disabled {{
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            }}
+            QCheckBox::indicator:disabled {{
+                border-color: {DesignSystem.COLOR_BORDER};
+                background-color: {DesignSystem.COLOR_BG_2};
+            }}
+        """
+
+    @staticmethod
+    def get_spinbox_style():
+        """
+        Retorna el estilo consistente para spinboxes
+        """
+        return f"""
+            QSpinBox {{
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
+                background-color: {DesignSystem.COLOR_SURFACE};
+                color: {DesignSystem.COLOR_TEXT};
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                min-height: 32px;
+                min-width: 80px;
+            }}
+            QSpinBox:hover {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+            QSpinBox:focus {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+            QSpinBox::up-button, QSpinBox::down-button {{
+                background-color: transparent;
+                border: none;
+                width: 20px;
+            }}
+            QSpinBox::up-button:hover, QSpinBox::down-button:hover {{
+                background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
+                border-radius: {DesignSystem.RADIUS_SM}px;
+            }}
+            QSpinBox::up-arrow {{
+                image: none;
+                border-left: 4px solid transparent;
+                border-right: 4px solid transparent;
+                border-bottom: 4px solid {DesignSystem.COLOR_TEXT};
+            }}
+            QSpinBox::down-arrow {{
+                image: none;
+                border-left: 4px solid transparent;
+                border-right: 4px solid transparent;
+                border-top: 4px solid {DesignSystem.COLOR_TEXT};
+            }}
+        """
+
+    @staticmethod
+    def get_lineedit_style():
+        """
+        Retorna el estilo consistente para QLineEdit
+        """
+        return f"""
+            QLineEdit {{
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
+                background-color: {DesignSystem.COLOR_SURFACE};
+                color: {DesignSystem.COLOR_TEXT};
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            }}
+            QLineEdit:focus {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+            QLineEdit:read-only {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            }}
+        """
+
     # ==================== BOTONES DE ACCIÓN (MATERIAL DESIGN) ====================
     
     @staticmethod

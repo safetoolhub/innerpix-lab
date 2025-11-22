@@ -109,21 +109,7 @@ class SettingsDialog(QDialog):
 
         # Botón restaurar valores por defecto
         restore_btn = QPushButton("Restaurar valores por defecto")
-        restore_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {DesignSystem.COLOR_WARNING};
-                color: {DesignSystem.COLOR_PRIMARY_TEXT};
-                border: none;
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_12}px {DesignSystem.SPACE_20}px;
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-                min-height: 36px;
-            }}
-            QPushButton:hover {{
-                background-color: {DesignSystem.COLOR_WARNING};
-            }}
-        """)
+        restore_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
         restore_btn.clicked.connect(self.restore_defaults)
         restore_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         footer_layout.addWidget(restore_btn)
@@ -137,28 +123,14 @@ class SettingsDialog(QDialog):
         cancel_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         footer_layout.addWidget(cancel_btn)
 
-        # Botón Guardar - estilo success
+        # Botón Guardar - estilo success (primary)
         self.save_button = QPushButton("Guardar Cambios")
         self.save_button.setEnabled(False)
-        self.save_button.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {DesignSystem.COLOR_SUCCESS};
-                color: {DesignSystem.COLOR_PRIMARY_TEXT};
-                border: none;
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_12}px {DesignSystem.SPACE_24}px;
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-                min-height: 36px;
-            }}
-            QPushButton:hover:enabled {{
-                background-color: #059669;
-            }}
-            QPushButton:disabled {{
-                background-color: {DesignSystem.COLOR_SECONDARY};
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-            }}
-        """)
+        # Usamos primary button style pero podríamos personalizar si queremos verde específico
+        # Por consistencia con el resto de la app, usamos primary (azul) o success (verde)
+        # DesignSystem no tiene get_success_button_style explícito, pero podemos usar primary
+        # o construir uno similar si es crítico. Por ahora usaremos primary para consistencia.
+        self.save_button.setStyleSheet(DesignSystem.get_primary_button_style())
         self.save_button.clicked.connect(self.save_settings)
         self.save_button.setCursor(Qt.CursorShape.PointingHandCursor)
         footer_layout.addWidget(self.save_button)
@@ -218,20 +190,7 @@ class SettingsDialog(QDialog):
         """Crea un QLineEdit para mostrar directorios con estilo consistente"""
         edit = QLineEdit(text)
         edit.setReadOnly(True)
-        edit.setStyleSheet(f"""
-            QLineEdit {{
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
-                background-color: {DesignSystem.COLOR_BG_1};
-                color: {DesignSystem.COLOR_TEXT};
-                font-family: {DesignSystem.FONT_FAMILY_MONO};
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-            }}
-            QLineEdit:focus {{
-                border-color: {DesignSystem.COLOR_PRIMARY};
-            }}
-        """)
+        edit.setStyleSheet(DesignSystem.get_lineedit_style())
         return edit
 
     def _create_browse_button(self, tooltip: str = "") -> QPushButton:
@@ -241,26 +200,14 @@ class SettingsDialog(QDialog):
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         if tooltip:
             btn.setToolTip(tooltip)
-        btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                color: {DesignSystem.COLOR_TEXT};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_16}px;
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-            }}
-            QPushButton:hover {{
-                background-color: {DesignSystem.COLOR_SECONDARY};
-            }}
-        """)
+        btn.setStyleSheet(DesignSystem.get_secondary_button_style())
         return btn
 
     def _create_general_tab(self):
         """Pestaña de configuración general"""
         widget = QWidget()
-        widget.setStyleSheet(f"background-color: {DesignSystem.COLOR_BACKGROUND};")
+        widget.setObjectName("general_tab")
+        widget.setStyleSheet(f"#general_tab {{ background-color: {DesignSystem.COLOR_BACKGROUND}; }}")
         layout = QVLayout(widget)
         layout.setContentsMargins(
             DesignSystem.SPACE_20,
@@ -278,13 +225,13 @@ class SettingsDialog(QDialog):
         self.confirm_operations_checkbox = QCheckBox("Mostrar diálogo de confirmación antes de ejecutar operaciones")
         self.confirm_operations_checkbox.setChecked(True)
         self.confirm_operations_checkbox.setToolTip("Muestra un resumen antes de aplicar cambios")
-        self.confirm_operations_checkbox.setStyleSheet(self._get_checkbox_style())
+        self.confirm_operations_checkbox.setStyleSheet(DesignSystem.get_checkbox_style())
         confirm_layout.addWidget(self.confirm_operations_checkbox)
 
         self.confirm_delete_checkbox = QCheckBox("Pedir confirmación adicional para operaciones de eliminación")
         self.confirm_delete_checkbox.setChecked(True)
         self.confirm_delete_checkbox.setToolTip("Doble confirmación para operaciones que eliminan archivos")
-        self.confirm_delete_checkbox.setStyleSheet(self._get_checkbox_style())
+        self.confirm_delete_checkbox.setStyleSheet(DesignSystem.get_checkbox_style())
         confirm_layout.addWidget(self.confirm_delete_checkbox)
 
         layout.addWidget(confirm_group)
@@ -297,7 +244,7 @@ class SettingsDialog(QDialog):
         self.show_notifications_checkbox = QCheckBox("Mostrar notificación al completar operaciones")
         self.show_notifications_checkbox.setChecked(True)
         self.show_notifications_checkbox.setToolTip("Muestra una notificación cuando se completan las operaciones")
-        self.show_notifications_checkbox.setStyleSheet(self._get_checkbox_style())
+        self.show_notifications_checkbox.setStyleSheet(DesignSystem.get_checkbox_style())
         notif_layout.addWidget(self.show_notifications_checkbox)
 
         layout.addWidget(notif_group)
@@ -313,7 +260,7 @@ class SettingsDialog(QDialog):
             "Si está activado, muestra la ruta completa del directorio (ej: /home/usuario/Fotos).\n"
             "Si está desactivado, solo muestra el nombre de la carpeta (ej: Fotos)."
         )
-        self.show_full_path_checkbox.setStyleSheet(self._get_checkbox_style())
+        self.show_full_path_checkbox.setStyleSheet(DesignSystem.get_checkbox_style())
         interface_layout.addWidget(self.show_full_path_checkbox)
 
         layout.addWidget(interface_group)
@@ -336,7 +283,7 @@ class SettingsDialog(QDialog):
             "mostrarán el checkbox de 'Modo simulación' marcado por defecto.\n"
             "Esto añade una capa extra de seguridad para evitar eliminaciones accidentales."
         )
-        self.dry_run_default_checkbox.setStyleSheet(self._get_checkbox_style())
+        self.dry_run_default_checkbox.setStyleSheet(DesignSystem.get_checkbox_style())
         dryrun_layout.addWidget(self.dry_run_default_checkbox)
 
         layout.addWidget(dryrun_group)
@@ -344,35 +291,13 @@ class SettingsDialog(QDialog):
         layout.addStretch()
         return widget
 
-    def _get_checkbox_style(self) -> str:
-        """Retorna el estilo consistente para checkboxes"""
-        return f"""
-            QCheckBox {{
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                color: {DesignSystem.COLOR_TEXT};
-                spacing: {DesignSystem.SPACE_8}px;
-            }}
-            QCheckBox::indicator {{
-                width: 18px;
-                height: 18px;
-                border: 2px solid {DesignSystem.COLOR_BORDER};
-                border-radius: 4px;
-                background-color: {DesignSystem.COLOR_SURFACE};
-            }}
-            QCheckBox::indicator:checked {{
-                background-color: {DesignSystem.COLOR_PRIMARY};
-                border-color: {DesignSystem.COLOR_PRIMARY};
-                image: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iMTIiIHZpZXdCb3g9IjAgMCAxMiAxMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEwIDNMNC41IDguNUwyIDYiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+Cjwvc3ZnPgo=);
-            }}
-            QCheckBox::indicator:hover {{
-                border-color: {DesignSystem.COLOR_PRIMARY};
-            }}
-        """
+
 
     def _create_backups_tab(self):
         """Pestaña de configuración de backups"""
         widget = QWidget()
-        widget.setStyleSheet(f"background-color: {DesignSystem.COLOR_BACKGROUND};")
+        widget.setObjectName("backups_tab")
+        widget.setStyleSheet(f"#backups_tab {{ background-color: {DesignSystem.COLOR_BACKGROUND}; }}")
         layout = QVLayout(widget)
         layout.setContentsMargins(
             DesignSystem.SPACE_20,
@@ -402,7 +327,7 @@ class SettingsDialog(QDialog):
             "• Eliminar duplicados HEIC\n"
             "• Organizar carpetas"
         )
-        self.auto_backup_checkbox.setStyleSheet(self._get_checkbox_style())
+        self.auto_backup_checkbox.setStyleSheet(DesignSystem.get_checkbox_style())
         auto_backup_layout.addWidget(self.auto_backup_checkbox)
 
         layout.addWidget(auto_backup_group)
@@ -494,7 +419,7 @@ class SettingsDialog(QDialog):
             "WARNING - Solo advertencias",
             "ERROR - Solo errores críticos"
         ])
-        self.log_level_combo.setStyleSheet(self._get_combobox_style())
+        self.log_level_combo.setStyleSheet(DesignSystem.get_combobox_style())
         self.log_level_combo.setToolTip(
             "DEBUG: Toda la información técnica\n"
             "INFO: Operaciones normales\n"
@@ -522,7 +447,8 @@ class SettingsDialog(QDialog):
     def _create_advanced_tab(self):
         """Pestaña de configuración avanzada"""
         widget = QWidget()
-        widget.setStyleSheet(f"background-color: {DesignSystem.COLOR_BACKGROUND};")
+        widget.setObjectName("advanced_tab")
+        widget.setStyleSheet(f"#advanced_tab {{ background-color: {DesignSystem.COLOR_BACKGROUND}; }}")
         layout = QVLayout(widget)
         layout.setContentsMargins(
             DesignSystem.SPACE_20,
@@ -554,7 +480,7 @@ class SettingsDialog(QDialog):
         self.max_workers_spin.setMinimum(1)
         self.max_workers_spin.setMaximum(Config.MAX_WORKER_THREADS)
         self.max_workers_spin.setValue(Config.MAX_WORKERS)
-        self.max_workers_spin.setStyleSheet(self._get_spinbox_style())
+        self.max_workers_spin.setStyleSheet(DesignSystem.get_spinbox_style())
         self.max_workers_spin.setToolTip(
             f"Número de hilos paralelos para procesar archivos.\n"
             f"Más hilos = más rápido, pero mayor uso de CPU.\n"
@@ -579,7 +505,7 @@ class SettingsDialog(QDialog):
             "La aplicación está optimizada para imágenes, por lo que esta opción\n"
             "está deshabilitada por defecto."
         )
-        self.use_video_metadata_checkbox.setStyleSheet(self._get_checkbox_style())
+        self.use_video_metadata_checkbox.setStyleSheet(DesignSystem.get_checkbox_style())
         perf_layout.addWidget(self.use_video_metadata_checkbox)
 
         layout.addWidget(perf_group)
@@ -613,83 +539,7 @@ class SettingsDialog(QDialog):
         layout.addStretch()
         return widget
 
-    def _get_combobox_style(self) -> str:
-        """Retorna el estilo consistente para comboboxes"""
-        return f"""
-            QComboBox {{
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
-                background-color: {DesignSystem.COLOR_SURFACE};
-                color: {DesignSystem.COLOR_TEXT};
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                min-height: 32px;
-            }}
-            QComboBox::drop-down {{
-                border: none;
-                width: 24px;
-            }}
-            QComboBox::down-arrow {{
-                image: none;
-                border-left: 5px solid transparent;
-                border-right: 5px solid transparent;
-                border-top: 5px solid {DesignSystem.COLOR_TEXT};
-                margin-right: {DesignSystem.SPACE_8}px;
-            }}
-            QComboBox:hover {{
-                border-color: {DesignSystem.COLOR_PRIMARY};
-            }}
-            QComboBox:focus {{
-                border-color: {DesignSystem.COLOR_PRIMARY};
-            }}
-            QComboBox QAbstractItemView {{
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                background-color: {DesignSystem.COLOR_SURFACE};
-                selection-background-color: {DesignSystem.COLOR_PRIMARY};
-                selection-color: {DesignSystem.COLOR_PRIMARY_TEXT};
-            }}
-        """
 
-    def _get_spinbox_style(self) -> str:
-        """Retorna el estilo consistente para spinboxes"""
-        return f"""
-            QSpinBox {{
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
-                background-color: {DesignSystem.COLOR_SURFACE};
-                color: {DesignSystem.COLOR_TEXT};
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                min-height: 32px;
-                min-width: 80px;
-            }}
-            QSpinBox:hover {{
-                border-color: {DesignSystem.COLOR_PRIMARY};
-            }}
-            QSpinBox:focus {{
-                border-color: {DesignSystem.COLOR_PRIMARY};
-            }}
-            QSpinBox::up-button, QSpinBox::down-button {{
-                background-color: transparent;
-                border: none;
-                width: 20px;
-            }}
-            QSpinBox::up-button:hover, QSpinBox::down-button:hover {{
-                background-color: {DesignSystem.COLOR_SECONDARY};
-            }}
-            QSpinBox::up-arrow {{
-                image: none;
-                border-left: 4px solid transparent;
-                border-right: 4px solid transparent;
-                border-bottom: 4px solid {DesignSystem.COLOR_TEXT};
-            }}
-            QSpinBox::down-arrow {{
-                image: none;
-                border-left: 4px solid transparent;
-                border-right: 4px solid transparent;
-                border-top: 4px solid {DesignSystem.COLOR_TEXT};
-            }}
-        """
         debug_info.setWordWrap(True)
         debug_layout.addWidget(debug_info)
 
