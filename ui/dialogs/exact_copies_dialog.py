@@ -339,38 +339,32 @@ class ExactCopiesDialog(BaseDialog):
         self.tree_widget.setStyleSheet(f"""
             QTreeWidget {{
                 border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                background-color: {DesignSystem.COLOR_SURFACE};
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
                 outline: none;
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_4}px;
             }}
             QTreeWidget::item {{
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_4}px;
                 border: none;
+                outline: none;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_4}px;
+                border-bottom: 1px solid {DesignSystem.COLOR_BORDER_LIGHT};
             }}
             QTreeWidget::item:hover {{
-                background-color: {DesignSystem.COLOR_BG_1};
+                background-color: {DesignSystem.COLOR_BG_2};
             }}
             QTreeWidget::item:selected {{
-                background-color: {DesignSystem.COLOR_PRIMARY};
-                color: {DesignSystem.COLOR_PRIMARY_TEXT};
-            }}
-            QTreeWidget::item:selected:hover {{
-                background-color: {DesignSystem.COLOR_PRIMARY_HOVER};
+                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
+                color: {DesignSystem.COLOR_TEXT};
             }}
             QHeaderView::section {{
                 background-color: {DesignSystem.COLOR_BG_1};
                 color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
+                padding: {DesignSystem.SPACE_8}px;
                 border: none;
                 border-bottom: 2px solid {DesignSystem.COLOR_BORDER};
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
                 font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-                text-transform: uppercase;
-                letter-spacing: 0.5px;
-            }}
-            QTreeWidget::branch {{
-                background: transparent;
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
             }}
         """)
         self.tree_widget.itemExpanded.connect(self._on_item_expanded)
