@@ -267,26 +267,30 @@ class DesignSystem:
             }}
             
             QTabBar::tab {{
-                background-color: {DesignSystem.COLOR_SECONDARY};
-                color: {DesignSystem.COLOR_TEXT};
+                background-color: {DesignSystem.COLOR_BG_2};
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
                 padding: {DesignSystem.SPACE_12}px {DesignSystem.SPACE_20}px;
-                border: none;
-                border-radius: {DesignSystem.RADIUS_BASE}px {DesignSystem.RADIUS_BASE}px 0 0;
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-bottom: none;
+                border-top-left-radius: {DesignSystem.RADIUS_BASE}px;
+                border-top-right-radius: {DesignSystem.RADIUS_BASE}px;
                 margin-right: {DesignSystem.SPACE_4}px;
                 font-size: {DesignSystem.FONT_SIZE_BASE}px;
                 font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-                min-width: 80px;
+                min-width: 100px;
                 text-align: center;
             }}
             
             QTabBar::tab:selected {{
                 background-color: {DesignSystem.COLOR_SURFACE};
-                color: {DesignSystem.COLOR_TEXT};
-                border-bottom: 2px solid {DesignSystem.COLOR_PRIMARY};
+                color: {DesignSystem.COLOR_PRIMARY};
+                border-color: {DesignSystem.COLOR_CARD_BORDER};
+                border-bottom-color: {DesignSystem.COLOR_SURFACE}; /* Connect with pane */
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
             }}
             
             QTabBar::tab:hover {{
-                background-color: {DesignSystem.COLOR_SECONDARY_HOVER};
+                background-color: {DesignSystem.COLOR_BG_1};
                 color: {DesignSystem.COLOR_TEXT};
             }}
             

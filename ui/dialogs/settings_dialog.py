@@ -142,19 +142,21 @@ class SettingsDialog(QDialog):
         group = QGroupBox(title)
         group.setStyleSheet(f"""
             QGroupBox {{
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
                 font-size: {DesignSystem.FONT_SIZE_BASE}px;
                 color: {DesignSystem.COLOR_TEXT};
                 border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
                 border-radius: {DesignSystem.RADIUS_LG}px;
-                margin-top: {DesignSystem.SPACE_16}px;
-                padding-top: {DesignSystem.SPACE_16}px;
+                margin-top: {DesignSystem.SPACE_8}px;
+                padding-top: {DesignSystem.SPACE_24}px;
                 background-color: {DesignSystem.COLOR_SURFACE};
             }}
             QGroupBox::title {{
                 subcontrol-origin: margin;
+                subcontrol-position: top left;
                 left: {DesignSystem.SPACE_16}px;
-                padding: 0 {DesignSystem.SPACE_8}px;
+                padding: 0 {DesignSystem.SPACE_4}px;
+                background-color: {DesignSystem.COLOR_SURFACE}; /* Ensure title background matches */
             }}
         """)
         return group
@@ -196,7 +198,7 @@ class SettingsDialog(QDialog):
     def _create_browse_button(self, tooltip: str = "") -> QPushButton:
         """Crea un botón 'Cambiar...' con estilo consistente"""
         btn = QPushButton("Cambiar...")
-        btn.setMaximumWidth(100)
+        btn.setMinimumWidth(120)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         if tooltip:
             btn.setToolTip(tooltip)
