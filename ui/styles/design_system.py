@@ -570,6 +570,7 @@ class DesignSystem:
         """
         Estilo para botón de acción destructiva.
         Ejemplo: "Eliminar", "Borrar Archivos"
+        Material Design: hover más oscuro para mejor feedback visual
         """
         return f"""
             QPushButton {{
@@ -583,10 +584,10 @@ class DesignSystem:
                 min-height: 36px;
             }}
             QPushButton:hover {{
-                background-color: {DesignSystem.COLOR_ERROR};
+                background-color: {DesignSystem.COLOR_DANGER_HOVER};
             }}
             QPushButton:pressed {{
-                background-color: {DesignSystem.COLOR_DANGER};
+                background-color: #A02530;
             }}
             QPushButton:disabled {{
                 background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
