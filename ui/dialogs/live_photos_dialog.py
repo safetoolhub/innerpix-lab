@@ -47,8 +47,18 @@ class LivePhotoCleanupDialog(BaseDialog):
     def init_ui(self):
         self.setWindowTitle("Limpieza de Live Photos")
         self.setModal(True)
-        self.resize(700, 500)
-        self.setMinimumHeight(420)
+        
+        # Ajustar tamaño según si hay warning banner o no
+        from config import Config
+        if not Config.USE_VIDEO_METADATA:
+            # Tamaño más grande cuando hay warning banner
+            self.resize(700, 580)
+            self.setMinimumHeight(500)
+        else:
+            # Tamaño normal sin warning
+            self.resize(700, 500)
+            self.setMinimumHeight(420)
+            
         layout = QVBoxLayout(self)
         layout.setSpacing(int(DesignSystem.SPACE_16))
         layout.setContentsMargins(0, 0, 0, int(DesignSystem.SPACE_20))
@@ -74,17 +84,29 @@ class LivePhotoCleanupDialog(BaseDialog):
         layout.addWidget(self.header_frame)
         
         # Warning sobre metadata de video desactivado
-        from config import Config
         if not Config.USE_VIDEO_METADATA:
+            # Contenedor con margen para el warning banner
+            from PyQt6.QtWidgets import QWidget
+            warning_container = QWidget()
+            warning_container_layout = QVBoxLayout(warning_container)
+            warning_container_layout.setContentsMargins(
+                int(DesignSystem.SPACE_24),
+                int(DesignSystem.SPACE_12),
+                int(DesignSystem.SPACE_24),
+                0
+            )
+            warning_container_layout.setSpacing(0)
+            
             warning_banner = self._create_warning_banner(
                 title='Detección sin validación temporal',
-                message='La extracción de metadata de video está desactivada. Los Live Photos se detectan '
-                        'solo por coincidencia de nombres, sin validar que las fechas de captura coincidan. '
+                message='La extracción de metadata de video está desactivada. Los Live Photos se detectan '\
+                        'solo por coincidencia de nombres, sin validar que las fechas de captura coincidan. '\
                         'Esto puede incluir falsos positivos.',
                 action_text='Activar en Configuración',
                 action_callback=self._open_settings
             )
-            layout.addWidget(warning_banner)
+            warning_container_layout.addWidget(warning_banner)
+            layout.addWidget(warning_container)
 
         # Contenedor con margen para el resto del contenido
         from PyQt6.QtWidgets import QWidget
