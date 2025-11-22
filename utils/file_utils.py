@@ -5,17 +5,70 @@ Functions:
 - create_backup(files, base_directory, backup_prefix, progress_callback=None)
 - cleanup_empty_directories(root_directory)
 - find_next_available_name(base_path, base_name, extension)
+- is_whatsapp_file(filename, file_path=None)
 
 These are pure helpers designed to centralize duplicated code from services.
 """
 from pathlib import Path
 from datetime import datetime
 import shutil
+import re
 from typing import Iterable, Optional, Tuple, List
 import hashlib
 
 from utils.format_utils import format_size
 from utils.callback_utils import safe_progress_callback
+
+
+# Patrones de WhatsApp (iPhone y Android)
+WHATSAPP_PATTERNS = [
+    r'^IMG-\d{8}-WA\d{4}\..*$',  # IMG-20231025-WA0001.jpg (Android)
+    r'^VID-\d{8}-WA\d{4}\..*$',  # VID-20231025-WA0001.mp4 (Android)
+    r'^AUD-\d{8}-WA\d{4}\..*$',  # AUD-20231025-WA0001.opus (Android)
+    r'^PTT-\d{8}-WA\d{4}\..*$',  # PTT (voice notes)
+    r'^WhatsApp\s+Image\s+\d{4}-\d{2}-\d{2}\s+at\s+.*\..*$',  # WhatsApp Image 2023-10-25 at 12.34.56.jpg
+    r'^WhatsApp\s+Video\s+\d{4}-\d{2}-\d{2}\s+at\s+.*\..*$',  # WhatsApp Video 2023-10-25 at 12.34.56.mp4
+    r'^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}\.(jpg|jpeg|png|mp4|mov|heic)$',  # UUID format (iPhone export)
+]
+
+
+def is_whatsapp_file(filename: str, file_path: Path = None) -> bool:
+    """Verifica si un archivo es de WhatsApp basándose en su nombre y/o ruta.
+    
+    Detecta archivos de WhatsApp por:
+    1. Patrones de nombre conocidos (IMG-WA, VID-WA, WhatsApp Image, etc.)
+    2. Formato UUID de iPhone (82DB60A3-002F-4FAE-80FC-96082431D247.jpg)
+    3. Ruta que contenga "whatsapp" en cualquier nivel
+    
+    Args:
+        filename: Nombre del archivo
+        file_path: Path completo del archivo (opcional)
+    
+    Returns:
+        True si el nombre coincide con patrones de WhatsApp o está en carpeta WhatsApp
+    
+    Examples:
+        >>> is_whatsapp_file('IMG-20231025-WA0001.jpg')
+        True
+        >>> is_whatsapp_file('82DB60A3-002F-4FAE-80FC-96082431D247.jpg')
+        True
+        >>> is_whatsapp_file('photo.jpg', Path('/photos/WhatsApp/photo.jpg'))
+        True
+        >>> is_whatsapp_file('vacation.jpg', Path('/photos/vacation.jpg'))
+        False
+    """
+    # Verificar por nombre (patrones conocidos)
+    for pattern in WHATSAPP_PATTERNS:
+        if re.match(pattern, filename, re.IGNORECASE):
+            return True
+    
+    # Verificar por ruta (carpeta contiene "whatsapp" en cualquier nivel)
+    if file_path:
+        path_str = str(file_path).lower()
+        if 'whatsapp' in path_str:
+            return True
+    
+    return False
 
 
 def validate_file_exists(path) -> Path:

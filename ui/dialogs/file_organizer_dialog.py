@@ -17,6 +17,7 @@ from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QThread
 from config import Config
 from utils.format_utils import format_size
 from utils.date_utils import get_date_from_file
+from utils.file_utils import is_whatsapp_file
 from ui.styles.design_system import DesignSystem
 from utils.icons import icon_manager
 from utils.logger import get_logger
@@ -203,7 +204,7 @@ class FileOrganizationDialog(BaseDialog):
             (OrganizationType.BY_MONTH, "calendar_month", "Por Mes",
              "Organiza en carpetas mensuales (YYYY_MM) según la fecha del archivo"),
             (OrganizationType.WHATSAPP_SEPARATE, "mobile", "Separar WhatsApp",
-             "Separa archivos de WhatsApp en carpeta dedicada, resto a la raíz")
+             "Mueve todo a la raíz, pero archivos de WhatsApp van a carpeta 'WhatsApp/'")
         ]
         
         return self._create_option_selector(
@@ -1075,13 +1076,8 @@ class FileOrganizationDialog(BaseDialog):
         other_moves = []
         
         for move in moves:
-            is_whatsapp = (
-                'whatsapp' in move.subdirectory.lower() or
-                'WhatsApp' in str(move.source_path) or
-                (move.original_name.startswith(('IMG-', 'VID-')) and '-WA' in move.original_name)
-            )
-            
-            if is_whatsapp:
+            # Usar función centralizada para detectar WhatsApp
+            if is_whatsapp_file(move.original_name, move.source_path):
                 whatsapp_moves.append(move)
             else:
                 other_moves.append(move)

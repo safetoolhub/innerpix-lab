@@ -17,6 +17,7 @@ from config import Config
 from utils.logger import get_logger, log_section_header_relevant, log_section_footer_relevant, log_section_header_discrete, log_section_footer_discrete
 from utils.settings_manager import settings_manager
 from utils.date_utils import parse_renamed_name, get_date_from_file
+from utils.file_utils import is_whatsapp_file
 from services.result_types import OrganizationResult, OrganizationAnalysisResult
 from services.base_service import BaseService, ProgressCallback
 from utils.decorators import deprecated
@@ -54,19 +55,7 @@ class FileMove:
 
 
 class FileOrganizer(BaseService):
-    """
-    Organizador de archivos - Mueve archivos multimedia de subdirectorios al directorio raíz
-    """
-
-    # Patrones de WhatsApp (iPhone y Android)
-    WHATSAPP_PATTERNS = [
-        r'^IMG-\d{8}-WA\d{4}\..*$',  # IMG-20231025-WA0001.jpg
-        r'^VID-\d{8}-WA\d{4}\..*$',  # VID-20231025-WA0001.mp4
-        r'^AUD-\d{8}-WA\d{4}\..*$',  # AUD-20231025-WA0001.opus
-        r'^PTT-\d{8}-WA\d{4}\..*$',  # PTT (voice notes)
-        r'^WhatsApp\s+Image\s+\d{4}-\d{2}-\d{2}\s+at\s+.*\..*$',  # WhatsApp Image 2023-10-25 at 12.34.56.jpg
-        r'^WhatsApp\s+Video\s+\d{4}-\d{2}-\d{2}\s+at\s+.*\..*$',  # WhatsApp Video 2023-10-25 at 12.34.56.mp4
-    ]
+    """Organizador de archivos - Mueve archivos multimedia de subdirectorios al directorio raíz"""
 
     def __init__(self):
         super().__init__("FileOrganizer")
@@ -181,30 +170,52 @@ class FileOrganizer(BaseService):
                         folders_to_create=[]
                     )
 
-        # Procesar subdirectorios
-        for item in root_directory.iterdir():
-            if not item.is_dir():
+        # Procesar subdirectorios - USAR RECURSIÓN COMPLETA
+        # Agrupar archivos por subdirectorio relativo a root
+        all_files_in_subdirs = []
+        
+        # Encontrar todos los archivos en subdirectorios (cualquier nivel de anidación)
+        for file_path in root_directory.rglob("*"):
+            # Saltar si es directorio, archivo no soportado, o está en la raíz
+            if file_path.is_dir():
                 continue
-
-            subdir_name = item.name
-            subdir_files_list = [file_path for file_path in item.iterdir()
-                                if file_path.is_file() and Config.is_supported_file(file_path.name)]
-            
-            if not subdir_files_list:
+            if not Config.is_supported_file(file_path.name):
                 continue
-
-            # Procesar archivos del subdirectorio en paralelo
-            subdir_files = []
-            total_size = 0
+            if file_path.parent == root_directory:
+                continue  # Archivos en raíz ya fueron procesados
             
+            all_files_in_subdirs.append(file_path)
+        
+        # Procesar archivos en subdirectorios en paralelo
+        if all_files_in_subdirs:
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                futures = {executor.submit(get_file_info, f): f for f in subdir_files_list}
+                futures = {executor.submit(get_file_info, f): f for f in all_files_in_subdirs}
+                
                 for future in as_completed(futures):
+                    file_path = futures[future]
                     info = future.result()
+                    
                     if info:
-                        subdir_files.append(info)
-                        total_size += info['size']
+                        # Obtener ruta relativa del subdirectorio respecto a root
+                        # Usar el path relativo completo para mostrar la estructura anidada
+                        relative_path = file_path.relative_to(root_directory)
+                        subdir_name = str(relative_path.parent)
+                        
+                        if subdir_name not in subdirectories:
+                            subdirectories[subdir_name] = {
+                                'path': str(file_path.parent),
+                                'file_count': 0,
+                                'total_size': 0,
+                                'files': []
+                            }
+                        
+                        subdirectories[subdir_name]['files'].append(info)
+                        subdirectories[subdir_name]['file_count'] += 1
+                        subdirectories[subdir_name]['total_size'] += info['size']
+                        
                         files_by_type[info['type']] += 1
+                        total_files_to_move += 1
+                        total_size_to_move += info['size']
                     
                     processed_files += 1
                     # Si el callback retorna False, cancelar análisis
@@ -223,19 +234,8 @@ class FileOrganizer(BaseService):
                             potential_conflicts=0,
                             files_by_type={},
                             move_plan=[],
-                                folders_to_create=[]
-                            )
-
-            if subdir_files:
-                subdirectories[subdir_name] = {
-                    'path': str(item),
-                    'file_count': len(subdir_files),
-                    'total_size': total_size,
-                    'files': subdir_files
-                }
-
-                total_files_to_move += len(subdir_files)
-                total_size_to_move += total_size
+                            folders_to_create=[]
+                        )
 
         # Para by_month y whatsapp_separate, agregar archivos de raíz
         if organization_type in (OrganizationType.BY_MONTH, OrganizationType.WHATSAPP_SEPARATE):
@@ -564,22 +564,6 @@ class FileOrganizer(BaseService):
 
         return results
 
-    @classmethod
-    def is_whatsapp_file(cls, filename: str) -> bool:
-        """
-        Verifica si un archivo es de WhatsApp basándose en su nombre
-
-        Args:
-            filename: Nombre del archivo
-
-        Returns:
-            True si el nombre coincide con patrones de WhatsApp
-        """
-        for pattern in cls.WHATSAPP_PATTERNS:
-            if re.match(pattern, filename, re.IGNORECASE):
-                return True
-        return False
-
     def _generate_move_plan(self, subdirectories: Dict, root_files: List[Dict], root_directory: Path, existing_file_names: Set[str], organization_type: OrganizationType) -> List[FileMove]:
         """
         Genera plan de movimiento con resolución de conflictos según el tipo de organización
@@ -799,7 +783,8 @@ class FileOrganizer(BaseService):
                     'subdir_name': subdir_name
                 }
 
-                if self.is_whatsapp_file(file_info['name']):
+                # Pasar tanto nombre como path para mejor detección de WhatsApp
+                if is_whatsapp_file(file_info['name'], file_path):
                     whatsapp_files.append(file_data)
                 else:
                     other_files.append(file_data)
@@ -817,7 +802,8 @@ class FileOrganizer(BaseService):
                 'subdir_name': '<root>'
             }
 
-            if self.is_whatsapp_file(file_info['name']):
+            # Pasar tanto nombre como path para mejor detección de WhatsApp
+            if is_whatsapp_file(file_info['name'], file_path):
                 whatsapp_files.append(file_data)
             else:
                 other_files.append(file_data)
