@@ -2,7 +2,7 @@
 Tests exhaustivos para el servicio FileOrganizer.
 
 Cubre todos los casos de uso y edge cases:
-- Análisis con diferentes tipos de organización (TO_ROOT, BY_MONTH, WHATSAPP_SEPARATE)
+- Análisis con diferentes tipos de organización (TO_ROOT, BY_MONTH, BY_YEAR, BY_YEAR_MONTH, BY_TYPE, BY_SOURCE)
 - Detección de subdirectorios anidados
 - Detección de archivos de WhatsApp (patrones y UUIDs)
 - Resolución de conflictos de nombres
@@ -174,20 +174,20 @@ class TestFileOrganizerAnalysis:
         assert result.total_files_to_move >= 2  # Puede incluir archivos de raíz
         assert len(result.folders_to_create) > 0  # Debe crear carpetas YYYY_MM
     
-    def test_analyze_whatsapp_separate(self, organizer, create_nested_structure):
-        """Test de análisis con separación de WhatsApp."""
+    def test_analyze_by_source_separate(self, organizer, create_nested_structure):
+        """Test de análisis con separación por fuente (BY_SOURCE)."""
         root_dir, files = create_nested_structure({
             'photos': ['IMG-20231025-WA0001.jpg', 'normal_photo.jpg'],
             'WhatsApp Images': ['82DB60A3-002F-4FAE-80FC-96082431D247.jpg']
         })
         
-        result = organizer.analyze(root_dir, OrganizationType.WHATSAPP_SEPARATE)
+        result = organizer.analyze(root_dir, OrganizationType.BY_SOURCE)
         
         assert result.success is True
         assert result.total_files_to_move == 3
         
         # Verificar que hay archivos que van a WhatsApp
-        whatsapp_moves = [m for m in result.move_plan if m.target_folder == 'whatsapp']
+        whatsapp_moves = [m for m in result.move_plan if m.target_folder == 'WhatsApp']
         assert len(whatsapp_moves) >= 2  # Al menos los 2 archivos de WhatsApp
     
     def test_analyze_empty_directory(self, organizer, temp_dir):
@@ -210,6 +210,179 @@ class TestFileOrganizerAnalysis:
         assert result.success is True
         assert result.total_files_to_move == 0  # TO_ROOT no mueve archivos ya en raíz
         assert len(result.subdirectories) == 0
+
+
+# ==================== TESTS DE NUEVOS TIPOS DE ORGANIZACIÓN ====================
+
+@pytest.mark.unit
+@pytest.mark.organization
+class TestNewOrganizationTypes:
+    """Tests para los nuevos tipos de organización (BY_YEAR, BY_YEAR_MONTH, BY_TYPE, BY_SOURCE)."""
+    
+    def test_analyze_by_year(self, organizer, create_nested_structure):
+        """Test de análisis con organización BY_YEAR."""
+        root_dir, files = create_nested_structure({
+            'photos': ['photo1.jpg', 'photo2.jpg'],
+            'videos': ['video1.mp4']
+        })
+        
+        result = organizer.analyze(root_dir, OrganizationType.BY_YEAR)
+        
+        assert result.success is True
+        assert result.total_files_to_move >= 3
+        # Debe crear carpetas YYYY
+        year_folders = [f for f in result.folders_to_create if len(f) == 4 and f.isdigit()]
+        assert len(year_folders) > 0
+    
+    def test_analyze_by_year_month(self, organizer, create_nested_structure):
+        """Test de análisis con organización BY_YEAR_MONTH (jerárquica)."""
+        root_dir, files = create_nested_structure({
+            'photos': ['photo1.jpg', 'photo2.jpg']
+        })
+        
+        result = organizer.analyze(root_dir, OrganizationType.BY_YEAR_MONTH)
+        
+        assert result.success is True
+        assert result.total_files_to_move >= 2
+        # Debe crear estructura YYYY/MM
+        assert len(result.folders_to_create) > 0
+        # Verificar que hay rutas jerárquicas
+        hierarchical_folders = [f for f in result.folders_to_create if '/' in f]
+        assert len(hierarchical_folders) > 0
+    
+    def test_analyze_by_type(self, organizer, create_nested_structure):
+        """Test de análisis con organización BY_TYPE (Fotos/Videos)."""
+        root_dir, files = create_nested_structure({
+            'mixed': ['photo1.jpg', 'photo2.png', 'video1.mp4', 'video2.mov']
+        })
+        
+        result = organizer.analyze(root_dir, OrganizationType.BY_TYPE)
+        
+        assert result.success is True
+        assert result.total_files_to_move == 4
+        # Debe crear carpetas Fotos y Videos
+        assert 'Fotos' in result.folders_to_create
+        assert 'Videos' in result.folders_to_create
+        
+        # Verificar que fotos van a Fotos/ y videos a Videos/
+        photo_moves = [m for m in result.move_plan if m.target_folder == 'Fotos']
+        video_moves = [m for m in result.move_plan if m.target_folder == 'Videos']
+        assert len(photo_moves) >= 2
+        assert len(video_moves) >= 2
+    
+    def test_analyze_by_source_with_multiple_sources(self, organizer, create_nested_structure):
+        """Test de BY_SOURCE con múltiples fuentes detectadas."""
+        root_dir, files = create_nested_structure({
+            'mixed': [
+                'IMG-20231025-WA0001.jpg',  # WhatsApp Android
+                '82DB60A3-002F-4FAE-80FC-96082431D247.jpg',  # WhatsApp iPhone UUID
+                'IMG_1234.jpg',  # iPhone normal
+                'PXL_20230101_120000.jpg',  # Android Pixel
+                'normal_photo.jpg',  # Unknown
+            ]
+        })
+        
+        result = organizer.analyze(root_dir, OrganizationType.BY_SOURCE)
+        
+        assert result.success is True
+        assert result.total_files_to_move == 5
+        
+        # Verificar que detecta múltiples fuentes
+        sources_detected = set(m.target_folder for m in result.move_plan)
+        assert 'WhatsApp' in sources_detected
+        # Puede detectar iPhone, Android o Unknown dependiendo de metadata
+        assert len(sources_detected) >= 2
+    
+    def test_execute_by_year_creates_year_folders(self, organizer, create_nested_structure):
+        """Test que BY_YEAR crea carpetas de año correctamente."""
+        root_dir, files = create_nested_structure({
+            'photos': ['photo1.jpg', 'photo2.jpg']
+        })
+        
+        analysis = organizer.analyze(root_dir, OrganizationType.BY_YEAR)
+        result = organizer.execute(
+            analysis.move_plan,
+            create_backup=False,
+            cleanup_empty_dirs=True,
+            dry_run=False
+        )
+        
+        assert result.success is True
+        assert result.files_moved >= 2
+        
+        # Verificar que existe al menos una carpeta YYYY
+        year_folders = [d for d in root_dir.iterdir() if d.is_dir() and len(d.name) == 4 and d.name.isdigit()]
+        assert len(year_folders) > 0
+    
+    def test_execute_by_year_month_creates_hierarchy(self, organizer, create_nested_structure):
+        """Test que BY_YEAR_MONTH crea jerarquía YYYY/MM correctamente."""
+        root_dir, files = create_nested_structure({
+            'photos': ['photo1.jpg', 'photo2.jpg']
+        })
+        
+        analysis = organizer.analyze(root_dir, OrganizationType.BY_YEAR_MONTH)
+        result = organizer.execute(
+            analysis.move_plan,
+            create_backup=False,
+            cleanup_empty_dirs=True,
+            dry_run=False
+        )
+        
+        assert result.success is True
+        assert result.files_moved >= 2
+        
+        # Verificar que existe estructura YYYY/MM
+        year_folders = [d for d in root_dir.iterdir() if d.is_dir() and len(d.name) == 4 and d.name.isdigit()]
+        assert len(year_folders) > 0
+        
+        # Verificar que dentro del año hay carpetas de mes
+        for year_folder in year_folders:
+            month_folders = [d for d in year_folder.iterdir() if d.is_dir()]
+            if len(month_folders) > 0:
+                # Verificar formato MM (01-12)
+                assert any(d.name.isdigit() and 1 <= int(d.name) <= 12 for d in month_folders)
+                break
+    
+    def test_execute_by_type_separates_media(self, organizer, create_nested_structure):
+        """Test que BY_TYPE separa fotos y videos en carpetas diferentes."""
+        root_dir, files = create_nested_structure({
+            'mixed': ['photo1.jpg', 'video1.mp4']
+        })
+        
+        analysis = organizer.analyze(root_dir, OrganizationType.BY_TYPE)
+        result = organizer.execute(
+            analysis.move_plan,
+            create_backup=False,
+            cleanup_empty_dirs=True,
+            dry_run=False
+        )
+        
+        assert result.success is True
+        assert result.files_moved == 2
+        
+        # Verificar que existen carpetas Fotos/ y Videos/
+        fotos_dir = root_dir / 'Fotos'
+        videos_dir = root_dir / 'Videos'
+        assert fotos_dir.exists() and fotos_dir.is_dir()
+        assert videos_dir.exists() and videos_dir.is_dir()
+        
+        # Verificar que hay archivos en cada carpeta
+        assert len(list(fotos_dir.glob('*'))) > 0
+        assert len(list(videos_dir.glob('*'))) > 0
+    
+    def test_by_source_respects_capitalization(self, organizer, create_nested_structure):
+        """Test que BY_SOURCE usa capitalización correcta para carpetas."""
+        root_dir, files = create_nested_structure({
+            'photos': ['IMG-20231025-WA0001.jpg']
+        })
+        
+        analysis = organizer.analyze(root_dir, OrganizationType.BY_SOURCE)
+        
+        # Verificar que la carpeta de WhatsApp está capitalizada
+        whatsapp_moves = [m for m in analysis.move_plan if 'whatsapp' in m.target_folder.lower()]
+        assert len(whatsapp_moves) > 0
+        # Debe ser 'WhatsApp', no 'whatsapp'
+        assert all(m.target_folder == 'WhatsApp' for m in whatsapp_moves)
 
 
 # ==================== TESTS DE CONFLICTOS ====================
@@ -356,14 +529,14 @@ class TestFileOrganizerExecution:
         month_folders = [d for d in root_dir.iterdir() if d.is_dir() and '_' in d.name]
         assert len(month_folders) > 0
     
-    def test_execute_whatsapp_separate_creates_whatsapp_folder(self, organizer, create_nested_structure):
-        """Test que WHATSAPP_SEPARATE crea carpeta WhatsApp."""
+    def test_execute_by_source_creates_whatsapp_folder(self, organizer, create_nested_structure):
+        """Test que BY_SOURCE crea carpeta WhatsApp."""
         root_dir, files = create_nested_structure({
             'photos': ['IMG-20231025-WA0001.jpg', 'normal.jpg']
         })
         
         # Analizar y ejecutar
-        analysis = organizer.analyze(root_dir, OrganizationType.WHATSAPP_SEPARATE)
+        analysis = organizer.analyze(root_dir, OrganizationType.BY_SOURCE)
         result = organizer.execute(
             analysis.move_plan,
             create_backup=False,
@@ -374,14 +547,18 @@ class TestFileOrganizerExecution:
         assert result.success is True
         
         # Verificar que carpeta WhatsApp existe
-        whatsapp_folder = root_dir / 'whatsapp'
+        whatsapp_folder = root_dir / 'WhatsApp'
         assert whatsapp_folder.exists()
         
         # Verificar que archivo WhatsApp está en su carpeta
         assert (whatsapp_folder / 'IMG-20231025-WA0001.jpg').exists()
         
-        # Verificar que archivo normal está en raíz
-        assert (root_dir / 'normal.jpg').exists()
+        # Verificar que archivo normal está en carpeta Unknown o similar
+        # (dependiendo de la detección de fuente)
+        assert (root_dir / 'Unknown' / 'normal.jpg').exists() or any(
+            (root_dir / folder / 'normal.jpg').exists() 
+            for folder in ['Camera', 'iPhone', 'Android', 'Unknown']
+        )
 
 
 # ==================== TESTS DE EDGE CASES ====================
@@ -407,7 +584,7 @@ class TestFileOrganizerEdgeCases:
         assert result.total_files_to_move == 1  # Solo la imagen
     
     def test_analyze_with_mixed_whatsapp_and_normal(self, organizer, create_nested_structure):
-        """Test con mezcla de archivos WhatsApp y normales."""
+        """Test con mezcla de archivos WhatsApp y normales usando BY_SOURCE."""
         root_dir, files = create_nested_structure({
             'photos': [
                 'IMG-20231025-WA0001.jpg',  # WhatsApp Android
@@ -417,17 +594,17 @@ class TestFileOrganizerEdgeCases:
             ]
         })
         
-        result = organizer.analyze(root_dir, OrganizationType.WHATSAPP_SEPARATE)
+        result = organizer.analyze(root_dir, OrganizationType.BY_SOURCE)
         
         assert result.success is True
         assert result.total_files_to_move == 4
         
         # Verificar clasificación
-        whatsapp_moves = [m for m in result.move_plan if m.target_folder == 'whatsapp']
-        normal_moves = [m for m in result.move_plan if not m.target_folder]
+        whatsapp_moves = [m for m in result.move_plan if m.target_folder == 'WhatsApp']
+        non_whatsapp_moves = [m for m in result.move_plan if m.target_folder != 'WhatsApp']
         
         assert len(whatsapp_moves) == 2  # Los 2 de WhatsApp
-        assert len(normal_moves) == 2  # Los 2 normales
+        assert len(non_whatsapp_moves) == 2  # Los 2 normales (irán a Unknown, iPhone, etc.)
     
     def test_execute_with_nonexistent_file(self, organizer, temp_dir, create_test_image):
         """Test que maneja archivos que desaparecen durante ejecución."""

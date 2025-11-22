@@ -197,23 +197,166 @@ class FileOrganizationDialog(BaseDialog):
         self.setStyleSheet(DesignSystem.get_tooltip_style())
 
     def _create_type_selector(self) -> QWidget:
-        """Crea selector de tipo de organización usando el método centralizado de BaseDialog."""
-        options = [
-            (OrganizationType.TO_ROOT, "folder-open", "Mover a Raíz",
-             "Mueve todos los archivos al directorio raíz eliminando subdirectorios"),
-            (OrganizationType.BY_MONTH, "calendar_month", "Por Mes",
-             "Organiza en carpetas mensuales (YYYY_MM) según la fecha del archivo"),
-            (OrganizationType.WHATSAPP_SEPARATE, "mobile", "Separar WhatsApp",
-             "Mueve todo a la raíz, pero archivos de WhatsApp van a carpeta 'WhatsApp/'")
+        """Crea selector de tipo de organización usando el método centralizado de BaseDialog con 2 grupos temáticos."""
+        from PyQt6.QtWidgets import QGroupBox, QVBoxLayout, QLabel
+        
+        # Crear contenedor principal
+        main_container = QWidget()
+        main_layout = QVBoxLayout(main_container)
+        main_layout.setSpacing(DesignSystem.SPACE_16)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # === GRUPO 1: ORGANIZACIÓN TEMPORAL ===
+        temporal_group = QGroupBox("Organización Temporal")
+        temporal_group.setStyleSheet(f"""
+            QGroupBox {{
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_TEXT};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                margin-top: {DesignSystem.SPACE_12}px;
+                padding-top: {DesignSystem.SPACE_12}px;
+                background-color: {DesignSystem.COLOR_SURFACE};
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                padding: 0 {DesignSystem.SPACE_8}px;
+                margin-left: {DesignSystem.SPACE_12}px;
+                background-color: {DesignSystem.COLOR_SURFACE};
+            }}
+        """)
+        temporal_layout = QVBoxLayout(temporal_group)
+        temporal_layout.setSpacing(DesignSystem.SPACE_8)
+        
+        # Descripción del grupo
+        temporal_desc = QLabel("Organiza archivos según su fecha de captura")
+        temporal_desc.setStyleSheet(f"""
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            padding: 0 {DesignSystem.SPACE_8}px {DesignSystem.SPACE_8}px;
+        """)
+        temporal_layout.addWidget(temporal_desc)
+        
+        temporal_options = [
+            (OrganizationType.BY_MONTH, "calendar_month", "Por Mes (YYYY_MM)",
+             "Carpetas planas por mes: 2024_01, 2024_02, ..."),
+            (OrganizationType.BY_YEAR, "calendar_today", "Por Año (YYYY)",
+             "Carpetas por año: 2023, 2024, 2025, ..."),
+            (OrganizationType.BY_YEAR_MONTH, "date_range", "Por Año/Mes (YYYY/MM)",
+             "Jerarquía anidada: 2024/01, 2024/02, 2025/01, ...")
         ]
         
-        return self._create_option_selector(
-            title="Elige cómo organizar los archivos",
-            title_icon='tune',
-            options=options,
-            selected_value=self.current_organization_type,
+        temporal_selector = self._create_option_selector(
+            title=None,  # No título, ya está en el QGroupBox
+            title_icon=None,
+            options=temporal_options,
+            selected_value=self.current_organization_type if self.current_organization_type in [OrganizationType.BY_MONTH, OrganizationType.BY_YEAR, OrganizationType.BY_YEAR_MONTH] else OrganizationType.BY_MONTH,
             on_change_callback=self._on_type_changed
         )
+        temporal_layout.addWidget(temporal_selector)
+        main_layout.addWidget(temporal_group)
+        
+        # === GRUPO 2: ORGANIZACIÓN POR TIPO/FUENTE ===
+        type_group = QGroupBox("Organización por Tipo y Fuente")
+        type_group.setStyleSheet(f"""
+            QGroupBox {{
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_TEXT};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                margin-top: {DesignSystem.SPACE_12}px;
+                padding-top: {DesignSystem.SPACE_12}px;
+                background-color: {DesignSystem.COLOR_SURFACE};
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                padding: 0 {DesignSystem.SPACE_8}px;
+                margin-left: {DesignSystem.SPACE_12}px;
+                background-color: {DesignSystem.COLOR_SURFACE};
+            }}
+        """)
+        type_layout = QVBoxLayout(type_group)
+        type_layout.setSpacing(DesignSystem.SPACE_8)
+        
+        # Descripción del grupo
+        type_desc = QLabel("Separa archivos por su tipo o dispositivo de origen")
+        type_desc.setStyleSheet(f"""
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            padding: 0 {DesignSystem.SPACE_8}px {DesignSystem.SPACE_8}px;
+        """)
+        type_layout.addWidget(type_desc)
+        
+        type_options = [
+            (OrganizationType.BY_TYPE, "image", "Por Tipo de Archivo",
+             "Separa en carpetas: Fotos/ y Videos/"),
+            (OrganizationType.BY_SOURCE, "devices", "Por Fuente/Dispositivo",
+             "Detecta origen: WhatsApp/, iPhone/, Android/, Camera/, Screenshot/, etc.")
+        ]
+        
+        type_selector = self._create_option_selector(
+            title=None,
+            title_icon=None,
+            options=type_options,
+            selected_value=self.current_organization_type if self.current_organization_type in [OrganizationType.BY_TYPE, OrganizationType.BY_SOURCE] else OrganizationType.BY_TYPE,
+            on_change_callback=self._on_type_changed
+        )
+        type_layout.addWidget(type_selector)
+        main_layout.addWidget(type_group)
+        
+        # === GRUPO 3: ORGANIZACIÓN SIMPLE ===
+        simple_group = QGroupBox("Organización Simple")
+        simple_group.setStyleSheet(f"""
+            QGroupBox {{
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_TEXT};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                margin-top: {DesignSystem.SPACE_12}px;
+                padding-top: {DesignSystem.SPACE_12}px;
+                background-color: {DesignSystem.COLOR_SURFACE};
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                padding: 0 {DesignSystem.SPACE_8}px;
+                margin-left: {DesignSystem.SPACE_12}px;
+                background-color: {DesignSystem.COLOR_SURFACE};
+            }}
+        """)
+        simple_layout = QVBoxLayout(simple_group)
+        simple_layout.setSpacing(DesignSystem.SPACE_8)
+        
+        # Descripción del grupo
+        simple_desc = QLabel("Limpia estructura moviendo todo a la raíz")
+        simple_desc.setStyleSheet(f"""
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            padding: 0 {DesignSystem.SPACE_8}px {DesignSystem.SPACE_8}px;
+        """)
+        simple_layout.addWidget(simple_desc)
+        
+        simple_options = [
+            (OrganizationType.TO_ROOT, "folder-open", "Mover a Raíz",
+             "Mueve todos los archivos al directorio raíz eliminando subdirectorios")
+        ]
+        
+        simple_selector = self._create_option_selector(
+            title=None,
+            title_icon=None,
+            options=simple_options,
+            selected_value=self.current_organization_type if self.current_organization_type == OrganizationType.TO_ROOT else OrganizationType.TO_ROOT,
+            on_change_callback=self._on_type_changed
+        )
+        simple_layout.addWidget(simple_selector)
+        main_layout.addWidget(simple_group)
+        
+        return main_container
     
     def _on_type_changed(self, new_type: OrganizationType):
         """Maneja el cambio de tipo de organización"""
@@ -302,11 +445,9 @@ class FileOrganizationDialog(BaseDialog):
         
         # Re-aplicar estilos a las cards de selección
         if hasattr(self, 'type_selector'):
-            self._update_option_selector_styles(
-                self.type_selector,
-                [OrganizationType.TO_ROOT, OrganizationType.BY_MONTH, OrganizationType.WHATSAPP_SEPARATE],
-                self.current_organization_type
-            )
+            # Los selectores están organizados en grupos, no necesitamos actualizar manualmente
+            # BaseDialog._create_option_selector ya maneja el resaltado automáticamente
+            pass
     
     def _update_header_metrics(self):
         """Actualiza las métricas del header compacto"""
@@ -394,13 +535,15 @@ class FileOrganizationDialog(BaseDialog):
 
     def _get_icon_name_for_type(self, org_type: OrganizationType) -> str:
         """Devuelve el nombre del icono para un tipo de organización"""
-        if org_type == OrganizationType.TO_ROOT:
-            return "folder-open"
-        elif org_type == OrganizationType.BY_MONTH:
-            return "calendar_month"
-        elif org_type == OrganizationType.WHATSAPP_SEPARATE:
-            return "mobile"
-        return "folder"
+        icon_map = {
+            OrganizationType.TO_ROOT: "folder-open",
+            OrganizationType.BY_MONTH: "calendar_month",
+            OrganizationType.BY_YEAR: "calendar_today",
+            OrganizationType.BY_YEAR_MONTH: "date_range",
+            OrganizationType.BY_TYPE: "image",
+            OrganizationType.BY_SOURCE: "devices"
+        }
+        return icon_map.get(org_type, "folder")
 
     
 
@@ -530,8 +673,8 @@ class FileOrganizationDialog(BaseDialog):
         type_container.addWidget(self.type_combo)
         toolbar.addLayout(type_container)
         
-        # Filtro por subdirectorio (solo para to_root y whatsapp)
-        if self.current_organization_type in [OrganizationType.TO_ROOT, OrganizationType.WHATSAPP_SEPARATE]:
+        # Filtro por subdirectorio (solo para to_root)
+        if self.current_organization_type == OrganizationType.TO_ROOT:
             subdir_container = QHBoxLayout()
             subdir_container.setSpacing(DesignSystem.SPACE_8)
             
@@ -665,13 +808,13 @@ class FileOrganizationDialog(BaseDialog):
             tree.setColumnWidth(1, 180)
             tree.setColumnWidth(2, 100)
             tree.setColumnWidth(3, 250)
-        elif org_type == OrganizationType.BY_MONTH:
+        elif org_type in (OrganizationType.BY_MONTH, OrganizationType.BY_YEAR, OrganizationType.BY_YEAR_MONTH):
             tree.setHeaderLabels(["Archivo", "Fecha", "Origen", "Tamaño"])
             tree.setColumnWidth(0, 400)
             tree.setColumnWidth(1, 120)
             tree.setColumnWidth(2, 200)
             tree.setColumnWidth(3, 100)
-        else:  # WHATSAPP_SEPARATE
+        elif org_type in (OrganizationType.BY_TYPE, OrganizationType.BY_SOURCE):
             tree.setHeaderLabels(["Archivo", "Origen", "Destino", "Tamaño"])
             tree.setColumnWidth(0, 400)
             tree.setColumnWidth(1, 200)
@@ -924,10 +1067,10 @@ class FileOrganizationDialog(BaseDialog):
             org_type = self.current_organization_type
             if org_type == OrganizationType.TO_ROOT:
                 self._populate_tree_to_root(items_to_show)
-            elif org_type == OrganizationType.BY_MONTH:
-                self._populate_tree_by_month(items_to_show)
-            else:  # WHATSAPP_SEPARATE
-                self._populate_tree_whatsapp(items_to_show)
+            elif org_type in (OrganizationType.BY_MONTH, OrganizationType.BY_YEAR, OrganizationType.BY_YEAR_MONTH):
+                self._populate_tree_by_temporal(items_to_show)
+            elif org_type in (OrganizationType.BY_TYPE, OrganizationType.BY_SOURCE):
+                self._populate_tree_by_category(items_to_show)
             
             # Actualizar contador
             total = len(self.analysis.move_plan)
@@ -1020,8 +1163,8 @@ class FileOrganizationDialog(BaseDialog):
         
         root_parent.setExpanded(True)
     
-    def _populate_tree_by_month(self, moves):
-        """Poblar tree para BY_MONTH"""
+    def _populate_tree_by_temporal(self, moves):
+        """Poblar tree para organizaciones temporales (BY_MONTH, BY_YEAR, BY_YEAR_MONTH)"""
         # Agrupar por carpeta destino
         by_folder = defaultdict(list)
         for move in moves:
@@ -1070,57 +1213,65 @@ class FileOrganizationDialog(BaseDialog):
             if self.files_tree.topLevelItemCount() % 10 == 0:
                 QApplication.processEvents()
     
-    def _populate_tree_whatsapp(self, moves):
-        """Poblar tree para WHATSAPP_SEPARATE"""
-        whatsapp_moves = []
-        other_moves = []
-        
+    def _populate_tree_by_category(self, moves):
+        """Poblar tree para organizaciones por categoría (BY_TYPE, BY_SOURCE)"""
+        # Agrupar por carpeta destino (target_folder contiene el tipo o fuente)
+        by_category = defaultdict(list)
         for move in moves:
-            # Usar función centralizada para detectar WhatsApp
-            if is_whatsapp_file(move.original_name, move.source_path):
-                whatsapp_moves.append(move)
-            else:
-                other_moves.append(move)
+            category = move.target_folder or "Sin categoría"
+            by_category[category].append(move)
         
-        if whatsapp_moves:
-            self._create_whatsapp_category_node("WhatsApp/", whatsapp_moves, "WhatsApp/")
+        # Ordenar categorías: primero las conocidas, luego "Unknown" al final
+        def category_sort_key(cat):
+            if cat == "Unknown":
+                return (1, cat)
+            return (0, cat)
         
-        if other_moves:
-            self._create_whatsapp_category_node("Raíz del directorio", other_moves, "Raíz")
-    
-    def _create_whatsapp_category_node(self, title: str, moves, destination: str):
-        """Crea nodo de categoría para WhatsApp"""
-        total_size = sum(m.size for m in moves)
-        
-        parent = QTreeWidgetItem()
-        parent.setText(0, title)
-        parent.setText(1, "")
-        parent.setText(2, f"{len(moves)} archivos → {destination}")
-        parent.setText(3, format_size(total_size))
-        
-        parent_font = QFont()
-        parent_font.setBold(True)
-        parent.setFont(0, parent_font)
-        
-        if "WhatsApp" in destination:
-            parent.setForeground(0, QColor("#25d366"))
-        else:
-            parent.setForeground(0, QColor(DesignSystem.COLOR_PRIMARY))
-        
-        self.files_tree.addTopLevelItem(parent)
-        
-        for move in sorted(moves, key=lambda m: m.original_name):
-            child = QTreeWidgetItem()
-            child.setText(0, f"  {move.original_name}")
-            child.setText(1, move.subdirectory if move.subdirectory != "." else "Raíz")
-            child.setText(2, destination)
-            child.setText(3, format_size(move.size))
-            child.setData(0, Qt.ItemDataRole.UserRole, move)
+        for category in sorted(by_category.keys(), key=category_sort_key):
+            moves_in_category = by_category[category]
+            total_size = sum(m.size for m in moves_in_category)
             
-            parent.addChild(child)
-        
-        if len(moves) <= 20:
-            parent.setExpanded(True)
+            parent = QTreeWidgetItem()
+            parent.setText(0, f"{category}/")
+            parent.setText(1, "")
+            parent.setText(2, f"{len(moves_in_category)} archivos")
+            parent.setText(3, format_size(total_size))
+            
+            parent_font = QFont()
+            parent_font.setBold(True)
+            parent.setFont(0, parent_font)
+            
+            # Colores especiales para categorías conocidas
+            if category == "WhatsApp":
+                parent.setForeground(0, QColor("#25d366"))  # Verde WhatsApp
+            elif category in ("iPhone", "Android"):
+                parent.setForeground(0, QColor("#2196f3"))  # Azul dispositivos
+            elif category in ("Camera", "Scanner"):
+                parent.setForeground(0, QColor("#ff9800"))  # Naranja cámaras
+            elif category == "Screenshot":
+                parent.setForeground(0, QColor("#9c27b0"))  # Púrpura screenshots
+            elif category in ("Fotos", "Videos"):
+                parent.setForeground(0, QColor(DesignSystem.COLOR_PRIMARY))
+            else:
+                parent.setForeground(0, QColor(DesignSystem.COLOR_TEXT_SECONDARY))
+            
+            self.files_tree.addTopLevelItem(parent)
+            
+            for move in sorted(moves_in_category, key=lambda m: m.original_name):
+                child = QTreeWidgetItem()
+                child.setText(0, f"  {move.original_name}")
+                child.setText(1, move.subdirectory if move.subdirectory != "<root>" else "Raíz")
+                child.setText(2, category)
+                child.setText(3, format_size(move.size))
+                child.setData(0, Qt.ItemDataRole.UserRole, move)
+                
+                parent.addChild(child)
+            
+            if len(moves_in_category) <= 20:
+                parent.setExpanded(True)
+            
+            if self.files_tree.topLevelItemCount() % 10 == 0:
+                QApplication.processEvents()
     
     # === EVENTOS ===
     

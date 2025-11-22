@@ -477,7 +477,7 @@ class BaseDialog(QDialog):
     def _create_option_selector(
         self,
         title: str,
-        title_icon: str,
+        title_icon: Optional[str],
         options: list[tuple],
         selected_value: any,
         on_change_callback: callable
@@ -489,7 +489,7 @@ class BaseDialog(QDialog):
         
         Args:
             title: Título del selector (ej: "Elige qué archivo conservar")
-            title_icon: Nombre del icono para el título (ej: 'ruler')
+            title_icon: Nombre del icono para el título (ej: 'ruler'). Opcional, si es None no se muestra icono
             options: Lista de tuplas con formato:
                 (value, icon_name, title, description)
                 donde value es el identificador único de la opción
@@ -503,7 +503,7 @@ class BaseDialog(QDialog):
         Example:
             selector = self._create_option_selector(
                 title="Elige qué archivo conservar",
-                title_icon='ruler',
+                title_icon='ruler',  # o None para no mostrar icono
                 options=[
                     ('oldest', 'clock-outline', 'Más antiguo', 'Conserva el original'),
                     ('newest', 'update', 'Más reciente', 'Conserva la versión editada')
@@ -532,13 +532,16 @@ class BaseDialog(QDialog):
         
         # Título del selector
         title_layout = QHBoxLayout()
-        title_icon_label = QLabel()
-        icon_manager.set_label_icon(
-            title_icon_label, 
-            title_icon, 
-            size=int(DesignSystem.ICON_SIZE_LG)
-        )
-        title_layout.addWidget(title_icon_label)
+        
+        # Solo agregar icono si se proporciona
+        if title_icon:
+            title_icon_label = QLabel()
+            icon_manager.set_label_icon(
+                title_icon_label, 
+                title_icon, 
+                size=int(DesignSystem.ICON_SIZE_LG)
+            )
+            title_layout.addWidget(title_icon_label)
         
         title_label = QLabel(title)
         title_label.setStyleSheet(f"""

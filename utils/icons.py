@@ -161,6 +161,9 @@ class IconManager:
         'mobile': 'mdi6.cellphone',
         'speed': 'mdi6.speedometer',
         'calendar_month': 'mdi6.calendar-month',
+        'calendar_today': 'mdi6.calendar-today',
+        'date_range': 'mdi6.calendar-range',
+        'devices': 'mdi6.devices',
         
         # Ayuda e información
         'help': 'mdi6.help-circle',
