@@ -166,7 +166,7 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     # === SECCIÓN 1: INFORMACIÓN GENERAL ===
     general_section = _create_material_section("Información General", [
         ("Nombre del archivo", file_path.name, 'file'),
-        ("Tamaño", format_size(file_size), 'rule'),
+        ("Tamaño", format_size(file_size), 'ruler'),
         ("Tipo", _get_file_type_display(file_path), 'image'),
     ])
     scroll_layout.addWidget(general_section)
@@ -186,7 +186,7 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
         
         if 'conflict' in additional_info:
             status_text = "Conflicto de nombre" if additional_info['conflict'] else "Sin conflictos"
-            status_icon = 'error' if additional_info['conflict'] else 'success'
+            status_icon = 'error' if additional_info['conflict'] else 'check-circle'
             status_color = DesignSystem.COLOR_DANGER if additional_info['conflict'] else DesignSystem.COLOR_SUCCESS
             additional_items.append(("Estado", status_text, status_icon))
         
@@ -526,7 +526,7 @@ def _create_dates_section(dates_info: dict):
             "Fecha de modificación", 
             dates_info['modification_date'].strftime("%Y-%m-%d %H:%M:%S"),
             "Última modificación del archivo",
-            'clock',
+            'clock-outline',
             DesignSystem.COLOR_TEXT_SECONDARY
         )
         layout.addWidget(mod_row)
@@ -537,7 +537,7 @@ def _create_dates_section(dates_info: dict):
             "Último acceso", 
             dates_info['access_date'].strftime("%Y-%m-%d %H:%M:%S"),
             "Última vez que se accedió al archivo",
-            'access_time',
+            'clock-outline',
             DesignSystem.COLOR_TEXT_SECONDARY
         )
         layout.addWidget(access_row)

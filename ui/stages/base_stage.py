@@ -342,7 +342,7 @@ class BaseStage(QObject):
             btn_about = QToolButton()
             btn_about.setAutoRaise(True)
             btn_about.setToolTip("Acerca de")
-            icon_manager.set_button_icon(btn_about, 'about', color=DesignSystem.COLOR_TEXT_SECONDARY, size=16)
+            icon_manager.set_button_icon(btn_about, 'information-outline', color=DesignSystem.COLOR_TEXT_SECONDARY, size=16)
             btn_about.setIconSize(QSize(16, 16))
             btn_about.clicked.connect(on_about_clicked)
             btn_about.setStyleSheet(f"""

@@ -90,12 +90,12 @@ class AboutDialog(QDialog):
 
         tools = [
             ("rename", "Renombrar Archivos"),
-            ("live-photo", "Live Photos"),
+            ("camera-burst", "Live Photos"),
             ("organize", "Organizar Archivos"),
             ("heic", "HEIC/JPG Duplicados"),
             ("content-copy", "Copias exactas"),
             ("image-multiple", "Archivos similares"),
-            ("backup", "Backups Automáticos"),
+            ("backup-restore", "Backups Automáticos"),
             ("history", "Registros de Operaciones")
 
         ]

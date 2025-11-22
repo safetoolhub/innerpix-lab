@@ -44,13 +44,11 @@ class IconManager:
         # Top Bar - Acciones principales
         'settings': 'mdi6.cog',
         'info': 'mdi6.information',
-        'about': 'mdi6.information-outline',
         'information-outline': 'mdi6.information-outline',
         
         # Estados y notificaciones
         'warning': 'mdi6.alert',
         'error': 'mdi6.alert-circle',
-        'success': 'mdi6.check-circle',
         'check': 'mdi6.check',
         'check-circle': 'mdi6.check-circle',
         'checkbox-marked': 'mdi6.checkbox-marked',
@@ -71,29 +69,25 @@ class IconManager:
         'file': 'mdi6.file',
         'file-text': 'mdi6.file-document-outline',
         'open-in-app': 'mdi6.open-in-new',
-        'search': 'mdi6.magnify',
         'magnify': 'mdi6.magnify',
         'refresh': 'mdi6.refresh',
         'download': 'mdi6.download',
         'delete': 'mdi6.delete',
         'delete-sweep': 'mdi6.delete-sweep',
-        'save': 'mdi6.content-save',
         'content-save': 'mdi6.content-save',
-        'backup': 'mdi6.backup-restore',
+        'backup-restore': 'mdi6.backup-restore',
         'history': 'mdi6.history',
         
         # Estadísticas y métricas
-        'stats': 'mdi6.chart-bar',
         'chart-bar': 'mdi6.chart-bar',
-        'chart': 'mdi6.chart-line',
+        'chart-line': 'mdi6.chart-line',
         'timer': 'mdi6.timer',
-        'clock': 'mdi6.clock-outline',
-        'rule': 'mdi6.ruler',
-        'access_time': 'mdi6.clock-outline',
+        'clock-outline': 'mdi6.clock-outline',
+        'ruler': 'mdi6.ruler',
         'update': 'mdi6.update',
-        'location': 'mdi6.map-marker',
-        'expand': 'mdi6.arrow-expand',
-        'compress': 'mdi6.arrow-collapse',
+        'map-marker': 'mdi6.map-marker',
+        'arrow-expand': 'mdi6.arrow-expand',
+        'arrow-collapse': 'mdi6.arrow-collapse',
         
         # Tipos de archivos multimedia
         'image': 'mdi6.image',
@@ -102,17 +96,13 @@ class IconManager:
         'video': 'mdi6.video',
         'film': 'mdi6.movie',
         'photo': 'mdi6.image-outline',
-        'picture': 'mdi6.image-multiple',
         'photo-library': 'mdi6.image-album',
         
         # Live Photos y duplicados
-        'live-photo': 'mdi6.camera-burst',
         'camera-burst': 'mdi6.camera-burst',
-        'duplicate': 'mdi6.content-duplicate',
         'content-duplicate': 'mdi6.content-duplicate',
         'content-copy': 'mdi6.content-copy',
         'duplicate-exact': 'mdi6.equal',
-        'duplicate-similar': 'mdi6.image-search',
         'image-search': 'mdi6.image-search',
         'eye': 'mdi6.eye',
         
@@ -134,18 +124,14 @@ class IconManager:
         
         # Progreso y loading
         'loading': 'mdi6.loading',
-        'progress': 'mdi6.progress-clock',
         'progress-clock': 'mdi6.progress-clock',
         'hourglass': 'mdi6.timer-sand',
         
         # Opciones y configuración
         'config': 'mdi6.cog-outline',
         'settings-outline': 'mdi6.cog-outline',
-        'options': 'mdi6.tune',
         'tune': 'mdi6.tune',
-        'filter': 'mdi6.filter-variant',
         'filter-variant': 'mdi6.filter-variant',
-        'magic': 'mdi6.auto-fix',
         'auto-fix': 'mdi6.auto-fix',
         'flash': 'mdi6.flash',
         
@@ -379,8 +365,8 @@ class IconManager:
             color: Color por defecto para los iconos precargados
         """
         common_icons = [
-            'settings', 'info', 'warning', 'error', 'success',
-            'folder', 'file', 'search', 'refresh', 'delete',
+            'settings', 'info', 'warning', 'error', 'check-circle',
+            'folder', 'file', 'magnify', 'refresh', 'delete',
             'image', 'video', 'camera', 'check', 'close'
         ]
         

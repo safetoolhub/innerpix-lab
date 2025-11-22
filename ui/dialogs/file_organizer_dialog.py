@@ -208,7 +208,7 @@ class FileOrganizationDialog(BaseDialog):
         
         return self._create_option_selector(
             title="Elige cómo organizar los archivos",
-            title_icon='options',
+            title_icon='tune',
             options=options,
             selected_value=self.current_organization_type,
             on_change_callback=self._on_type_changed
@@ -477,7 +477,7 @@ class FileOrganizationDialog(BaseDialog):
         search_layout.setSpacing(DesignSystem.SPACE_8)
         
         search_icon = QLabel()
-        icon_manager.set_label_icon(search_icon, 'search', size=DesignSystem.ICON_SIZE_SM, color=DesignSystem.COLOR_TEXT_SECONDARY)
+        icon_manager.set_label_icon(search_icon, 'magnify', size=DesignSystem.ICON_SIZE_SM, color=DesignSystem.COLOR_TEXT_SECONDARY)
         
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Buscar por nombre...")

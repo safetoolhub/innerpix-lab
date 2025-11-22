@@ -489,7 +489,7 @@ class BaseDialog(QDialog):
         
         Args:
             title: Título del selector (ej: "Elige qué archivo conservar")
-            title_icon: Nombre del icono para el título (ej: 'rule')
+            title_icon: Nombre del icono para el título (ej: 'ruler')
             options: Lista de tuplas con formato:
                 (value, icon_name, title, description)
                 donde value es el identificador único de la opción
@@ -503,9 +503,9 @@ class BaseDialog(QDialog):
         Example:
             selector = self._create_option_selector(
                 title="Elige qué archivo conservar",
-                title_icon='rule',
+                title_icon='ruler',
                 options=[
-                    ('oldest', 'access_time', 'Más antiguo', 'Conserva el original'),
+                    ('oldest', 'clock-outline', 'Más antiguo', 'Conserva el original'),
                     ('newest', 'update', 'Más reciente', 'Conserva la versión editada')
                 ],
                 selected_value=self.keep_strategy,
