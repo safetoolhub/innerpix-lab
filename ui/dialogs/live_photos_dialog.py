@@ -52,8 +52,8 @@ class LivePhotoCleanupDialog(BaseDialog):
         from config import Config
         if not Config.USE_VIDEO_METADATA:
             # Tamaño más grande cuando hay warning banner
-            self.resize(700, 580)
-            self.setMinimumHeight(500)
+            self.resize(700, 620)
+            self.setMinimumHeight(540)
         else:
             # Tamaño normal sin warning
             self.resize(700, 500)
