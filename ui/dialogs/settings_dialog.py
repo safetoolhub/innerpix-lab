@@ -22,13 +22,16 @@ class SettingsDialog(QDialog):
     # Señal emitida cuando se guardan cambios importantes que requieren actualización
     settings_saved = pyqtSignal()
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, initial_tab=0):
         super().__init__(parent)
         self.parent_window = parent
         self.logger = logging.getLogger('PixaroLab.SettingsDialog')
         
         # Referencia al botón de guardar (se asignará en init_ui)
         self.save_button = None
+        
+        # Referencia al tab widget
+        self.tabs = None
         
         # Valores originales para detectar cambios
         self.original_values = {}
@@ -38,6 +41,10 @@ class SettingsDialog(QDialog):
         
         self.init_ui()
         self._load_current_settings()
+        
+        # Cambiar a la pestaña inicial si se especificó
+        if initial_tab > 0 and self.tabs:
+            self.tabs.setCurrentIndex(initial_tab)
         
         # Conectar señales para detectar cambios
         self._connect_change_signals()
@@ -67,22 +74,22 @@ class SettingsDialog(QDialog):
         main_layout.setSpacing(0)
 
         # Crear pestañas usando estilo del DesignSystem
-        tabs = QTabWidget()
-        tabs.setStyleSheet(DesignSystem.get_tab_widget_style())
+        self.tabs = QTabWidget()
+        self.tabs.setStyleSheet(DesignSystem.get_tab_widget_style())
 
         # === PESTAÑA 1: GENERAL ===
         general_tab = self._create_general_tab()
-        tabs.addTab(general_tab, "General")
+        self.tabs.addTab(general_tab, "General")
 
         # === PESTAÑA 2: BACKUPS ===
         backups_tab = self._create_backups_tab()
-        tabs.addTab(backups_tab, "Backup y Logs")
+        self.tabs.addTab(backups_tab, "Backup y Logs")
 
         # === PESTAÑA 3: AVANZADO ===
         advanced_tab = self._create_advanced_tab()
-        tabs.addTab(advanced_tab, "Avanzado")
+        self.tabs.addTab(advanced_tab, "Avanzado")
 
-        main_layout.addWidget(tabs)
+        main_layout.addWidget(self.tabs)
 
         # Footer con botones - Material Design
         footer = self._create_footer()

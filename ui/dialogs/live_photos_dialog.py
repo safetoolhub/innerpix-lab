@@ -233,7 +233,7 @@ class LivePhotoCleanupDialog(BaseDialog):
         super().accept()
     
     def _open_settings(self):
-        """Abre el diálogo de configuración"""
+        """Abre el diálogo de configuración en la pestaña Avanzado"""
         from .settings_dialog import SettingsDialog
-        settings_dialog = SettingsDialog(self)
+        settings_dialog = SettingsDialog(self, initial_tab=2)  # 2 = Avanzado tab
         settings_dialog.exec()
