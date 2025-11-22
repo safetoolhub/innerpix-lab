@@ -399,63 +399,10 @@ class FileOrganizationDialog(BaseDialog):
         return "folder"
 
     
-    def _create_metrics_section(self) -> QWidget:
-        """Crea panel de métricas dinámico"""
-        self.metrics_container = QWidget()
-        self.metrics_layout = QHBoxLayout(self.metrics_container)
-        self.metrics_layout.setContentsMargins(0, 0, 0, 0)
-        self.metrics_layout.setSpacing(DesignSystem.SPACE_12)
-        
-        self._update_metrics()
-        return self.metrics_container
-    
-    def _update_metrics(self):
-        """Actualiza las métricas"""
-        # Limpiar layout
-        while self.metrics_layout.count():
-            child = self.metrics_layout.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
-        
-        # Métricas principales
-        metrics_data = [
-            ("Total archivos", self.analysis.total_files_to_move, DesignSystem.COLOR_PRIMARY),
-            ("Subdirectorios", len(self.analysis.subdirectories), "#9c27b0"),
-            ("Tamaño total", format_size(self.analysis.total_size_to_move), "#ff9800"),
-        ]
-        
-       
-        # Métricas por tipo
-        if self.analysis.files_by_type:
-            types_text = " | ".join([
-                f"{file_type}: {count}" 
-                for file_type, count in sorted(self.analysis.files_by_type.items())
-            ])
-            types_label = QLabel(types_text)
-            types_label.setStyleSheet(f"""
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                padding: {DesignSystem.SPACE_8}px;
-            """)
-            self.metrics_layout.addWidget(types_label)
-        
-        # Advertencia de conflictos
-        if self.analysis.potential_conflicts > 0:
-            conflicts_label = QLabel(f"{self.analysis.potential_conflicts} conflictos de nombres")
-            conflicts_label.setStyleSheet(f"""
-                background-color: {DesignSystem.COLOR_BG_4};
-                color: {DesignSystem.COLOR_WARNING};
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-                padding: {DesignSystem.SPACE_8}px;
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-            """)
-            self.metrics_layout.addWidget(conflicts_label)
-        
-        self.metrics_layout.addStretch()
+
     
     def _create_folders_info(self) -> Optional[QWidget]:
-        """Crea sección de información de carpetas a crear"""
+        """Crea sección de información de carpetas a crear con estilo Material Design"""
         # Inicializar atributos siempre
         self.folders_info_container = None
         self.folders_info_label = None
@@ -466,24 +413,30 @@ class FileOrganizationDialog(BaseDialog):
         self.folders_info_container = QFrame()
         self.folders_info_container.setStyleSheet(f"""
             QFrame {{ 
-                background-color: #e3f2fd; 
-                border-left: 3px solid {DesignSystem.COLOR_PRIMARY};
+                background-color: {DesignSystem.COLOR_INFO_BG}; 
+                border: 1px solid {DesignSystem.COLOR_INFO};
                 border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_8}px;
+                padding: {DesignSystem.SPACE_12}px;
             }}
         """)
         
-        layout = QVBoxLayout(self.folders_info_container)
-        layout.setContentsMargins(DesignSystem.SPACE_12, DesignSystem.SPACE_6, DesignSystem.SPACE_12, DesignSystem.SPACE_6)
+        layout = QHBoxLayout(self.folders_info_container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(DesignSystem.SPACE_12)
+        
+        # Icono
+        icon_label = QLabel()
+        icon_manager.set_label_icon(icon_label, 'folder-multiple', color=DesignSystem.COLOR_INFO, size=DesignSystem.ICON_SIZE_MD)
+        layout.addWidget(icon_label, 0, Qt.AlignmentFlag.AlignTop)
         
         self.folders_info_label = QLabel()
         self.folders_info_label.setWordWrap(True)
         self.folders_info_label.setTextFormat(Qt.TextFormat.RichText)
         self.folders_info_label.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_SM}px;
-            color: #1976d2;
+            color: #055160; /* Darker info color for text readability */
         """)
-        layout.addWidget(self.folders_info_label)
+        layout.addWidget(self.folders_info_label, 1)
         
         self._update_folders_info()
         return self.folders_info_container
@@ -512,70 +465,126 @@ class FileOrganizationDialog(BaseDialog):
         self.folders_info_label.setText(f"Se crearán {count} carpetas: <b>{folders_text}</b>")
     
     def _create_toolbar(self) -> QHBoxLayout:
-        """Crea barra de herramientas con filtros"""
+        """Crea barra de herramientas con filtros usando DesignSystem"""
         toolbar = QHBoxLayout()
-        toolbar.setSpacing(DesignSystem.SPACE_8)
+        toolbar.setSpacing(DesignSystem.SPACE_12)
+        toolbar.setContentsMargins(0, 0, 0, 0)
         
         # Búsqueda
+        search_container = QWidget()
+        search_layout = QHBoxLayout(search_container)
+        search_layout.setContentsMargins(0, 0, 0, 0)
+        search_layout.setSpacing(DesignSystem.SPACE_8)
+        
         search_icon = QLabel()
-        icon_manager.set_label_icon(search_icon, 'search', size=DesignSystem.ICON_SIZE_SM)
+        icon_manager.set_label_icon(search_icon, 'search', size=DesignSystem.ICON_SIZE_SM, color=DesignSystem.COLOR_TEXT_SECONDARY)
+        
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Buscar por nombre...")
         self.search_input.textChanged.connect(self._apply_filters)
-        self.search_input.setMaximumWidth(200)
+        self.search_input.setMinimumWidth(250)
         self.search_input.setStyleSheet(f"""
             QLineEdit {{
-                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_8}px;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
                 border: 1px solid {DesignSystem.COLOR_BORDER};
                 border-radius: {DesignSystem.RADIUS_BASE}px;
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                background-color: {DesignSystem.COLOR_SURFACE};
+            }}
+            QLineEdit:focus {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
             }}
         """)
-        toolbar.addWidget(search_icon)
-        toolbar.addWidget(self.search_input)
         
-        # Separador
-        sep = QLabel("|")
-        sep.setStyleSheet(f"color: {DesignSystem.COLOR_BORDER};")
+        search_layout.addWidget(search_icon)
+        search_layout.addWidget(self.search_input)
+        toolbar.addWidget(search_container)
+        
+        # Separador vertical
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.VLine)
+        sep.setFrameShadow(QFrame.Shadow.Sunken)
+        sep.setStyleSheet(f"color: {DesignSystem.COLOR_BORDER}; background-color: {DesignSystem.COLOR_BORDER};")
+        sep.setFixedHeight(20)
         toolbar.addWidget(sep)
         
         # Filtro por tipo
+        type_container = QHBoxLayout()
+        type_container.setSpacing(DesignSystem.SPACE_8)
+        
         type_label = QLabel("Tipo:")
-        type_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px;")
+        type_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
+        
         self.type_combo = QComboBox()
         types = ["Todos"] + sorted(list(self.analysis.files_by_type.keys()))
         self.type_combo.addItems(types)
         self.type_combo.currentTextChanged.connect(self._apply_filters)
-        self.type_combo.setMaximumWidth(120)
-        toolbar.addWidget(type_label)
-        toolbar.addWidget(self.type_combo)
+        self.type_combo.setMinimumWidth(120)
+        self.type_combo.setStyleSheet(DesignSystem.get_combobox_style())
+        
+        type_container.addWidget(type_label)
+        type_container.addWidget(self.type_combo)
+        toolbar.addLayout(type_container)
         
         # Filtro por subdirectorio (solo para to_root y whatsapp)
         if self.current_organization_type in [OrganizationType.TO_ROOT, OrganizationType.WHATSAPP_SEPARATE]:
+            subdir_container = QHBoxLayout()
+            subdir_container.setSpacing(DesignSystem.SPACE_8)
+            
             subdir_label = QLabel("Origen:")
-            subdir_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px;")
+            subdir_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
+            
             self.subdir_combo = QComboBox()
             subdirs = ["Todos"] + sorted(list(self.analysis.subdirectories.keys()))
             self.subdir_combo.addItems(subdirs)
             self.subdir_combo.currentTextChanged.connect(self._apply_filters)
-            self.subdir_combo.setMaximumWidth(250)
-            toolbar.addWidget(subdir_label)
-            toolbar.addWidget(self.subdir_combo)
+            self.subdir_combo.setMinimumWidth(200)
+            self.subdir_combo.setStyleSheet(DesignSystem.get_combobox_style())
+            
+            subdir_container.addWidget(subdir_label)
+            subdir_container.addWidget(self.subdir_combo)
+            toolbar.addLayout(subdir_container)
         else:
             self.subdir_combo = None
         
         # Filtro solo conflictos
         self.conflicts_checkbox = QCheckBox("Solo conflictos")
-        self.conflicts_checkbox.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px;")
+        self.conflicts_checkbox.setStyleSheet(f"""
+            QCheckBox {{
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                color: {DesignSystem.COLOR_TEXT};
+                spacing: {DesignSystem.SPACE_8}px;
+            }}
+            QCheckBox::indicator {{
+                width: 18px;
+                height: 18px;
+            }}
+        """)
         self.conflicts_checkbox.stateChanged.connect(self._apply_filters)
         toolbar.addWidget(self.conflicts_checkbox)
         
+        toolbar.addStretch()
+        
         # Botón limpiar
-        clear_btn = QPushButton("Limpiar")
-        clear_btn.setProperty("class", "secondary-small")
+        clear_btn = QPushButton("Limpiar Filtros")
+        # Usar estilo secondary-small pero personalizado para que se vea bien en toolbar
+        clear_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                color: {DesignSystem.COLOR_TEXT};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_BG_2};
+                border-color: {DesignSystem.COLOR_PRIMARY};
+                color: {DesignSystem.COLOR_PRIMARY};
+            }}
+        """)
         icon_manager.set_button_icon(clear_btn, 'close', size=DesignSystem.ICON_SIZE_SM)
         clear_btn.clicked.connect(self._clear_filters)
-        clear_btn.setMaximumWidth(100)
         toolbar.addWidget(clear_btn)
         
         # Contador
@@ -588,7 +597,6 @@ class FileOrganizationDialog(BaseDialog):
         """)
         toolbar.addWidget(self.counter_label)
         
-        toolbar.addStretch()
         return toolbar
     
     def _create_tree_widget(self) -> QTreeWidget:
@@ -611,14 +619,29 @@ class FileOrganizationDialog(BaseDialog):
                 outline: none;
                 background-color: {DesignSystem.COLOR_SURFACE};
                 border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_4}px;
             }}
             QTreeWidget::item {{
                 border: none;
                 outline: none;
-                padding: {DesignSystem.SPACE_4}px;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_4}px;
+                border-bottom: 1px solid {DesignSystem.COLOR_BORDER_LIGHT};
             }}
             QTreeWidget::item:hover {{
-                background-color: #f0f7ff;
+                background-color: {DesignSystem.COLOR_BG_2};
+            }}
+            QTreeWidget::item:selected {{
+                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
+                color: {DesignSystem.COLOR_TEXT};
+            }}
+            QHeaderView::section {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                padding: {DesignSystem.SPACE_8}px;
+                border: none;
+                border-bottom: 2px solid {DesignSystem.COLOR_BORDER};
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
             }}
         """)
         tree.setToolTip(
@@ -652,68 +675,77 @@ class FileOrganizationDialog(BaseDialog):
             tree.setColumnWidth(3, 100)
     
     def _create_pagination_controls(self) -> QWidget:
-        """Crea controles de paginación"""
+        """Crea controles de paginación con estilo Material Design"""
         widget = QFrame()
         widget.setStyleSheet(f"""
             QFrame {{
-                background-color: {DesignSystem.COLOR_BG_1};
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
                 border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_8}px;
+                padding: {DesignSystem.SPACE_4}px;
             }}
         """)
         layout = QHBoxLayout(widget)
         layout.setSpacing(DesignSystem.SPACE_8)
+        layout.setContentsMargins(DesignSystem.SPACE_8, DesignSystem.SPACE_4, DesignSystem.SPACE_8, DesignSystem.SPACE_4)
         
-        # Botones de navegación
-        button_style = f"""
-            QPushButton {{
-                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-            }}
-        """
-        
-        self.first_page_btn = QPushButton("Primera")
-        self.first_page_btn.setProperty("class", "secondary-small")
+        # Botones de navegación con iconos
+        self.first_page_btn = QPushButton()
+        self.first_page_btn.setToolTip("Primera página")
+        icon_manager.set_button_icon(self.first_page_btn, 'skip-previous', size=DesignSystem.ICON_SIZE_MD)
         self.first_page_btn.clicked.connect(self._go_first_page)
-        self.first_page_btn.setStyleSheet(button_style)
+        self.first_page_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
+        self.first_page_btn.setFixedSize(36, 36)
         layout.addWidget(self.first_page_btn)
         
-        self.prev_page_btn = QPushButton("Anterior")
-        self.prev_page_btn.setProperty("class", "secondary-small")
+        self.prev_page_btn = QPushButton()
+        self.prev_page_btn.setToolTip("Página anterior")
+        icon_manager.set_button_icon(self.prev_page_btn, 'chevron-left', size=DesignSystem.ICON_SIZE_MD)
         self.prev_page_btn.clicked.connect(self._go_prev_page)
-        self.prev_page_btn.setStyleSheet(button_style)
+        self.prev_page_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
+        self.prev_page_btn.setFixedSize(36, 36)
         layout.addWidget(self.prev_page_btn)
         
+        # Indicador de página
         self.page_label = QLabel()
         self.page_label.setStyleSheet(f"""
-            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
             padding: 0 {DesignSystem.SPACE_16}px;
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            color: {DesignSystem.COLOR_TEXT};
         """)
         self.page_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.page_label)
         
-        self.next_page_btn = QPushButton("Siguiente")
-        self.next_page_btn.setProperty("class", "secondary-small")
+        self.next_page_btn = QPushButton()
+        self.next_page_btn.setToolTip("Página siguiente")
+        icon_manager.set_button_icon(self.next_page_btn, 'chevron-right', size=DesignSystem.ICON_SIZE_MD)
         self.next_page_btn.clicked.connect(self._go_next_page)
-        self.next_page_btn.setStyleSheet(button_style)
+        self.next_page_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
+        self.next_page_btn.setFixedSize(36, 36)
         layout.addWidget(self.next_page_btn)
         
-        self.last_page_btn = QPushButton("Última")
-        self.last_page_btn.setProperty("class", "secondary-small")
+        self.last_page_btn = QPushButton()
+        self.last_page_btn.setToolTip("Última página")
+        icon_manager.set_button_icon(self.last_page_btn, 'skip-next', size=DesignSystem.ICON_SIZE_MD)
         self.last_page_btn.clicked.connect(self._go_last_page)
-        self.last_page_btn.setStyleSheet(button_style)
+        self.last_page_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
+        self.last_page_btn.setFixedSize(36, 36)
         layout.addWidget(self.last_page_btn)
         
         layout.addStretch()
         
         # Items per page
-        layout.addWidget(QLabel("Items por página:"))
+        items_label = QLabel("Items por página:")
+        items_label.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_SM}px;")
+        layout.addWidget(items_label)
+        
         self.items_per_page_combo = QComboBox()
         self.items_per_page_combo.addItems(["100", "200", "500", "Todos"])
         self.items_per_page_combo.setCurrentText("200")
         self.items_per_page_combo.currentTextChanged.connect(self._change_items_per_page)
-        self.items_per_page_combo.setMaximumWidth(100)
+        self.items_per_page_combo.setFixedWidth(100)
+        self.items_per_page_combo.setStyleSheet(DesignSystem.get_combobox_style())
         layout.addWidget(self.items_per_page_combo)
         
         widget.setVisible(False)
