@@ -557,8 +557,9 @@ class DesignSystem:
                 background-color: {DesignSystem.COLOR_PRIMARY};
             }}
             QPushButton:disabled {{
-                background-color: {DesignSystem.COLOR_SECONDARY};
+                background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
                 color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
             }}
         """
     
@@ -586,8 +587,9 @@ class DesignSystem:
                 background-color: {DesignSystem.COLOR_DANGER};
             }}
             QPushButton:disabled {{
-                background-color: {DesignSystem.COLOR_SECONDARY};
+                background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
                 color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
             }}
         """
     
@@ -615,10 +617,8 @@ class DesignSystem:
                 background-color: {DesignSystem.COLOR_SECONDARY_HOVER};
             }}
             QPushButton:disabled {{
-                background-color: {DesignSystem.COLOR_SECONDARY};
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                border-color: {DesignSystem.COLOR_SECONDARY};
-            }}
+            background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            border: 1px solid {DesignSystem.COLOR_BORDER};
+        }}
         """
-
-
