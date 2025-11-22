@@ -240,16 +240,18 @@ class DesignSystem:
         """
         Retorna el estilo QSS para tooltips de manera centralizada
         TODOS los tooltips de la aplicación deben usar este estilo
+        Estilo Material Design: fondo oscuro, texto claro, sombra elegante
         """
         return f"""
             QToolTip {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                color: {DesignSystem.COLOR_TEXT};
-                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
+                background-color: rgba(97, 97, 97, 0.95);
+                color: #FFFFFF;
+                border: none;
                 border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_8}px;
+                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
                 font-size: {DesignSystem.FONT_SIZE_SM}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_NORMAL};
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                font-family: {DesignSystem.FONT_FAMILY_BASE};
             }}
         """
     
@@ -598,6 +600,7 @@ class DesignSystem:
         """
         Estilo para botón secundario (cancelar, cerrar).
         Ejemplo: "Cancelar"
+        Material Design: hover sutil con fondo claro
         """
         return f"""
             QPushButton {{
@@ -611,14 +614,37 @@ class DesignSystem:
                 min-height: 36px;
             }}
             QPushButton:hover {{
-                background-color: {DesignSystem.COLOR_SECONDARY};
+                background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
+                border-color: {DesignSystem.COLOR_TEXT_SECONDARY};
             }}
             QPushButton:pressed {{
-                background-color: {DesignSystem.COLOR_SECONDARY_HOVER};
+                background-color: {DesignSystem.COLOR_BORDER_LIGHT};
             }}
             QPushButton:disabled {{
             background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
             color: {DesignSystem.COLOR_TEXT_SECONDARY};
             border: 1px solid {DesignSystem.COLOR_BORDER};
         }}
+        """
+    
+    @staticmethod
+    def get_icon_button_style():
+        """
+        Estilo para botones de icono (QToolButton) en header.
+        Material Design: hover sutil con fondo claro, no opaco.
+        Ejemplo: Botones de configuración y about en el header.
+        """
+        return f"""
+            QToolButton {{
+                background: transparent;
+                border: none;
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_8}px;
+            }}
+            QToolButton:hover {{
+                background-color: rgba(0, 0, 0, 0.05);
+            }}
+            QToolButton:pressed {{
+                background-color: rgba(0, 0, 0, 0.1);
+            }}
         """

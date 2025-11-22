@@ -322,40 +322,20 @@ class BaseStage(QObject):
             btn_settings = QToolButton()
             btn_settings.setAutoRaise(True)
             btn_settings.setToolTip("Configuración")
-            icon_manager.set_button_icon(btn_settings, 'settings', color=DesignSystem.COLOR_TEXT_SECONDARY, size=16)
-            btn_settings.setIconSize(QSize(16, 16))
+            icon_manager.set_button_icon(btn_settings, 'settings', color=DesignSystem.COLOR_TEXT_SECONDARY, size=20)
+            btn_settings.setIconSize(QSize(20, 20))
             btn_settings.clicked.connect(on_settings_clicked)
-            btn_settings.setStyleSheet(f"""
-                QToolButton {{
-                    background: transparent;
-                    border: none;
-                    padding: 4px;
-                    border-radius: {DesignSystem.RADIUS_BASE}px;
-                }}
-                QToolButton:hover {{
-                    background-color: {DesignSystem.COLOR_SECONDARY};
-                }}
-            """)
+            btn_settings.setStyleSheet(DesignSystem.get_icon_button_style())
             layout.addWidget(btn_settings)
 
         if show_about_button and on_about_clicked:
             btn_about = QToolButton()
             btn_about.setAutoRaise(True)
             btn_about.setToolTip("Acerca de")
-            icon_manager.set_button_icon(btn_about, 'information-outline', color=DesignSystem.COLOR_TEXT_SECONDARY, size=16)
-            btn_about.setIconSize(QSize(16, 16))
+            icon_manager.set_button_icon(btn_about, 'information-outline', color=DesignSystem.COLOR_TEXT_SECONDARY, size=20)
+            btn_about.setIconSize(QSize(20, 20))
             btn_about.clicked.connect(on_about_clicked)
-            btn_about.setStyleSheet(f"""
-                QToolButton {{
-                    background: transparent;
-                    border: none;
-                    padding: 4px;
-                    border-radius: {DesignSystem.RADIUS_BASE}px;
-                }}
-                QToolButton:hover {{
-                    background-color: {DesignSystem.COLOR_SECONDARY};
-                }}
-            """)
+            btn_about.setStyleSheet(DesignSystem.get_icon_button_style())
             layout.addWidget(btn_about)
 
         return card
