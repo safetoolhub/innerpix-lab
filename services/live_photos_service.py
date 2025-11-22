@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from config import Config
+from utils.date_utils import get_date_from_file
 from services.result_types import LivePhotoCleanupAnalysisResult, LivePhotoCleanupResult
 from services.base_service import BaseService, BackupCreationError
 from utils.logger import log_section_header_discrete, log_section_footer_discrete, log_section_header_relevant, log_section_footer_relevant
@@ -39,9 +40,9 @@ class LivePhotoGroup:
             raise ValueError(f"Video no existe: {self.video_path}")
 
         if not self.image_date:
-            self.image_date = datetime.fromtimestamp(self.image_path.stat().st_mtime)
+            self.image_date = get_date_from_file(self.image_path) or datetime.fromtimestamp(self.image_path.stat().st_mtime)
         if not self.video_date:
-            self.video_date = datetime.fromtimestamp(self.video_path.stat().st_mtime)
+            self.video_date = get_date_from_file(self.video_path) or datetime.fromtimestamp(self.video_path.stat().st_mtime)
 
     @property
     def total_size(self) -> int:
@@ -442,6 +443,10 @@ class LivePhotoService(BaseService):
         """
         Detecta Live Photos buscando parejas de fotos con videos .MOV.
         
+        IMPORTANTE: Si Config.USE_VIDEO_METADATA está desactivado, la validación temporal
+        se omite completamente, detectando Live Photos solo por coincidencia de nombres.
+        Esto evita el costo de extraer metadata de video pero puede detectar falsos positivos.
+        
         Args:
             photos: Lista de fotos a procesar
             videos: Lista de videos a buscar
@@ -450,8 +455,20 @@ class LivePhotoService(BaseService):
         Returns:
             Lista de grupos encontrados, o None si se cancela
         """
+        from config import Config
+        
         groups = []
         total_photos = len(photos)
+        
+        # Determinar si debemos validar timestamps
+        use_time_validation = Config.USE_VIDEO_METADATA
+        
+        if not use_time_validation:
+            self.logger.warning(
+                "⚠️  Extracción de metadata de video DESACTIVADA: "
+                "Los Live Photos se detectarán solo por coincidencia de nombres, "
+                "sin validar que las fechas coincidan. Esto puede incluir falsos positivos."
+            )
         
         self.logger.info(f"Construyendo mapa de videos ({len(videos)} videos)...")
         
@@ -492,20 +509,31 @@ class LivePhotoService(BaseService):
                                 video_size=video.stat().st_size
                             )
                             
-                            # Validar diferencia de tiempo (debe ser <= 5 segundos)
-                            if group.time_difference <= self.time_tolerance:
-                                groups.append(group)
-                                self.logger.debug(f"Live Photo válido: {original_name} (Δt={group.time_difference:.2f}s)")
+                            # Validar diferencia de tiempo SOLO si metadata de video está activado
+                            if use_time_validation:
+                                if group.time_difference <= self.time_tolerance:
+                                    groups.append(group)
+                                    self.logger.debug(f"Live Photo válido: {original_name} (Δt={group.time_difference:.2f}s)")
+                                else:
+                                    self.logger.debug(
+                                        f"Par rechazado por diferencia de tiempo: {original_name} "
+                                        f"(Δt={group.time_difference:.2f}s > {self.time_tolerance}s)"
+                                    )
                             else:
-                                self.logger.debug(
-                                    f"Par rechazado por diferencia de tiempo: {original_name} "
-                                    f"(Δt={group.time_difference:.2f}s > {self.time_tolerance}s)"
-                                )
+                                # Sin validación temporal - aceptar por nombre únicamente
+                                groups.append(group)
+                                self.logger.debug(f"Live Photo detectado (sin validación temporal): {original_name}")
                         except Exception as e:
                             self.logger.warning(f"Error creando grupo para {original_name}: {e}")
 
         # Log final
-        self.logger.info(f"Matching completado: {len(groups)} Live Photos válidos encontrados")
+        if use_time_validation:
+            self.logger.info(f"Matching completado: {len(groups)} Live Photos válidos encontrados")
+        else:
+            self.logger.info(
+                f"Matching completado: {len(groups)} Live Photos encontrados "
+                f"(sin validación temporal - resultados pueden incluir falsos positivos)"
+            )
         
         return groups
 

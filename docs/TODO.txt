@@ -24,6 +24,10 @@ Hay que poner avisos al usuario de directorios muy largos antes del analisis
 el tema del mumero de workers paralelos está raro. se puede configurar desde settings pero tambien se hace en el config a pelo, hay que organizarlo bien. 
 En heic quedan detalles esteticos por pulir en las tablas
 
+Pruebas con ficheros con distintas fechas
+1 mes: exiftool -AllDates+="0:1:0 0:0:0" IMG_REFERENCIA_HORADIFERENTE_POCA.jpg
+2 segundos: exiftool -AllDates+="0:0:0 0:0:2" IMG_LIVEPHOTO_HORADIFERENTE_2segundos.JPG
+
 FUTURO
 ---------
 v 2.0 poder elegir una foto de live photos del video

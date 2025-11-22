@@ -72,6 +72,19 @@ class LivePhotoCleanupDialog(BaseDialog):
             ]
         )
         layout.addWidget(self.header_frame)
+        
+        # Warning sobre metadata de video desactivado
+        from config import Config
+        if not Config.USE_VIDEO_METADATA:
+            warning_banner = self._create_warning_banner(
+                title='Detección sin validación temporal',
+                message='La extracción de metadata de video está desactivada. Los Live Photos se detectan '
+                        'solo por coincidencia de nombres, sin validar que las fechas de captura coincidan. '
+                        'Esto puede incluir falsos positivos.',
+                action_text='Activar en Configuración',
+                action_callback=self._open_settings
+            )
+            layout.addWidget(warning_banner)
 
         # Contenedor con margen para el resto del contenido
         from PyQt6.QtWidgets import QWidget
@@ -218,3 +231,9 @@ class LivePhotoCleanupDialog(BaseDialog):
             'dry_run': self.is_dry_run_enabled()
         }
         super().accept()
+    
+    def _open_settings(self):
+        """Abre el diálogo de configuración"""
+        from .settings_dialog import SettingsDialog
+        settings_dialog = SettingsDialog(self)
+        settings_dialog.exec()

@@ -8,6 +8,12 @@ from typing import List, Optional
 import hashlib
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+try:
+    from PIL import Image
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
+
 from config import Config
 from utils.file_utils import calculate_file_hash
 from utils.decorators import deprecated
@@ -16,6 +22,27 @@ from services.base_detector_service import BaseDetectorService
 from services.base_service import BaseService, ProgressCallback
 from services.metadata_cache import FileMetadataCache
 from utils.logger import log_section_header_discrete, log_section_footer_discrete
+
+
+def _is_valid_image_file(file_path: Path) -> bool:
+    """
+    Verifica si un archivo es una imagen válida usando PIL.
+    
+    Args:
+        file_path: Ruta al archivo a verificar
+        
+    Returns:
+        True si es una imagen válida, False en caso contrario
+    """
+    if not HAS_PIL:
+        return False
+    
+    try:
+        with Image.open(file_path) as img:
+            img.verify()  # Verifica que sea una imagen válida
+        return True
+    except Exception:
+        return False
 
 
 class ExactCopiesDetector(BaseDetectorService):
@@ -55,6 +82,24 @@ class ExactCopiesDetector(BaseDetectorService):
         image_files = []
         for ext in Config.SUPPORTED_IMAGE_EXTENSIONS:
             image_files.extend(directory.rglob(f'*{ext}'))
+        
+        # También buscar archivos que puedan ser imágenes válidas aunque tengan extensiones no estándar
+        if HAS_PIL:
+            self.logger.debug("Buscando archivos que puedan ser imágenes válidas con extensiones no estándar")
+            all_files = list(directory.rglob("*"))
+            potential_images = []
+            
+            for file_path in all_files:
+                if file_path.is_file() and file_path.suffix.lower() not in Config.SUPPORTED_IMAGE_EXTENSIONS:
+                    # Solo verificar archivos que no sean muy grandes (para evitar archivos binarios grandes)
+                    if file_path.stat().st_size < 100 * 1024 * 1024:  # Menos de 100MB
+                        if _is_valid_image_file(file_path):
+                            potential_images.append(file_path)
+                            self.logger.debug(f"Imagen válida encontrada con extensión no estándar: {file_path.name}")
+            
+            image_files.extend(potential_images)
+            if potential_images:
+                self.logger.info(f"Archivos de imagen adicionales encontrados: {len(potential_images)}")
         
         video_files = []
         for ext in Config.SUPPORTED_VIDEO_EXTENSIONS:

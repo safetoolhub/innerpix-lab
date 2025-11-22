@@ -7,7 +7,7 @@ from collections import Counter
 from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QGroupBox, QTableWidget, QTableWidgetItem,
     QHeaderView, QDialogButtonBox, QLabel, QCheckBox, QLineEdit, 
-    QComboBox, QPushButton, QFrame, QApplication
+    QComboBox, QPushButton, QFrame, QApplication, QWidget
 )
 from PyQt6.QtGui import QColor, QFont, QCursor
 from PyQt6.QtCore import Qt, QTimer
@@ -62,9 +62,10 @@ class RenamingPreviewDialog(BaseDialog):
     def init_ui(self):
         self.setWindowTitle("Renombrado de archivos")
         self.setModal(True)
-        self.resize(1200, 750)
+        self.resize(1200, 800)
+        
         main_layout = QVBoxLayout(self)
-        main_layout.setSpacing(int(DesignSystem.SPACE_16))
+        main_layout.setSpacing(0)
         main_layout.setContentsMargins(0, 0, 0, int(DesignSystem.SPACE_20))
         
         # Header compacto integrado con métricas inline
@@ -98,7 +99,7 @@ class RenamingPreviewDialog(BaseDialog):
         main_layout.addWidget(header)
         
         # Contenedor con margen para el resto del contenido
-        content_container = QFrame()
+        content_container = QWidget()
         content_layout = QVBoxLayout(content_container)
         content_layout.setSpacing(int(DesignSystem.SPACE_16))
         content_layout.setContentsMargins(
@@ -108,6 +109,10 @@ class RenamingPreviewDialog(BaseDialog):
             0
         )
         main_layout.addWidget(content_container)
+        
+        # Sección de información y advertencias
+        info_section = self._create_info_section()
+        content_layout.addWidget(info_section)
         
         # Barra de herramientas: filtros y búsqueda
         toolbar = self._create_toolbar()
@@ -148,27 +153,70 @@ class RenamingPreviewDialog(BaseDialog):
         # Aplicar estilo global de tooltips
         self.setStyleSheet(DesignSystem.get_tooltip_style())
 
+    def _create_info_section(self):
+        """Crea sección de información y advertencias"""
+        message = (
+            "El renombrado de archivos puede afectar a pares de archivos como Live Photos o HEIC+JPG "
+            "si no se renombran juntos.<br><br>"
+            "Los conflictos de nombre se resolverán añadiendo un sufijo numérico (ej: _1, _2) "
+            "para evitar sobrescrituras."
+        )
+        
+        return self._create_info_banner(
+            title="Nota Importante",
+            message=message
+        )
+
 
 
     def _create_toolbar(self):
         """Crea la barra de herramientas con filtros y búsqueda"""
         toolbar = QHBoxLayout()
+        toolbar.setSpacing(DesignSystem.SPACE_12)
+        toolbar.setContentsMargins(0, 0, 0, 0)
         
         # Búsqueda
+        search_container = QWidget()
+        search_layout = QHBoxLayout(search_container)
+        search_layout.setContentsMargins(0, 0, 0, 0)
+        search_layout.setSpacing(DesignSystem.SPACE_8)
+        
         search_icon = QLabel()
-        icon_manager.set_label_icon(search_icon, 'search', size=16)
+        icon_manager.set_label_icon(search_icon, 'search', size=DesignSystem.ICON_SIZE_SM, color=DesignSystem.COLOR_TEXT_SECONDARY)
+        
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Buscar archivo...")
         self.search_input.textChanged.connect(self._apply_filters)
-        self.search_input.setMaximumWidth(200)
-        toolbar.addWidget(search_icon)
-        toolbar.addWidget(self.search_input)
+        self.search_input.setMinimumWidth(200)
+        self.search_input.setStyleSheet(f"""
+            QLineEdit {{
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                background-color: {DesignSystem.COLOR_SURFACE};
+            }}
+            QLineEdit:focus {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+        """)
+        
+        search_layout.addWidget(search_icon)
+        search_layout.addWidget(self.search_input)
+        toolbar.addWidget(search_container)
         
         # Separador
-        toolbar.addWidget(QLabel("|"))
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.VLine)
+        sep.setFrameShadow(QFrame.Shadow.Sunken)
+        sep.setStyleSheet(f"color: {DesignSystem.COLOR_BORDER}; background-color: {DesignSystem.COLOR_BORDER};")
+        sep.setFixedHeight(20)
+        toolbar.addWidget(sep)
         
         # Filtro por estado/conflicto
         filter_label = QLabel("Estado:")
+        filter_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
+        
         self.filter_combo = QComboBox()
         self.filter_combo.addItems([
             "Todos",
@@ -176,12 +224,16 @@ class RenamingPreviewDialog(BaseDialog):
             "Sin conflictos"
         ])
         self.filter_combo.currentTextChanged.connect(self._apply_filters)
-        self.filter_combo.setMaximumWidth(150)
+        self.filter_combo.setMinimumWidth(150)
+        self.filter_combo.setStyleSheet(DesignSystem.get_combobox_style())
+        
         toolbar.addWidget(filter_label)
         toolbar.addWidget(self.filter_combo)
         
         # Filtro por tipo de archivo
         type_label = QLabel("Tipo:")
+        type_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
+        
         self.type_combo = QComboBox()
         file_types = ["Todos"] + sorted(list(set(
             Config.get_file_type(item['original_path'].name) 
@@ -189,36 +241,58 @@ class RenamingPreviewDialog(BaseDialog):
         )))
         self.type_combo.addItems(file_types)
         self.type_combo.currentTextChanged.connect(self._apply_filters)
-        self.type_combo.setMaximumWidth(120)
+        self.type_combo.setMinimumWidth(120)
+        self.type_combo.setStyleSheet(DesignSystem.get_combobox_style())
+        
         toolbar.addWidget(type_label)
         toolbar.addWidget(self.type_combo)
         
         # Filtro por año
         year_label = QLabel("Año:")
+        year_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
+        
         self.year_combo = QComboBox()
         years = ["Todos"] + [str(year) for year in sorted(self.analysis_results.files_by_year.keys(), reverse=True)]
         self.year_combo.addItems(years)
         self.year_combo.currentTextChanged.connect(self._apply_filters)
-        self.year_combo.setMaximumWidth(100)
+        self.year_combo.setMinimumWidth(100)
+        self.year_combo.setStyleSheet(DesignSystem.get_combobox_style())
+        
         toolbar.addWidget(year_label)
         toolbar.addWidget(self.year_combo)
         
-        # Separador
-        toolbar.addWidget(QLabel("|"))
+        toolbar.addStretch()
         
         # Botón limpiar filtros
         clear_btn = QPushButton("Limpiar")
-        icon_manager.set_button_icon(clear_btn, 'close', size=16)
+        clear_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                color: {DesignSystem.COLOR_TEXT};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_BG_2};
+                border-color: {DesignSystem.COLOR_PRIMARY};
+                color: {DesignSystem.COLOR_PRIMARY};
+            }}
+        """)
+        icon_manager.set_button_icon(clear_btn, 'close', size=DesignSystem.ICON_SIZE_SM)
         clear_btn.clicked.connect(self._clear_filters)
-        clear_btn.setMaximumWidth(80)
         toolbar.addWidget(clear_btn)
         
         # Contador de resultados
         self.counter_label = QLabel()
-        self.counter_label.setStyleSheet(DesignSystem.STYLE_DIALOG_COUNTER_BOLD)
+        self.counter_label.setStyleSheet(f"""
+            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            color: {DesignSystem.COLOR_PRIMARY};
+            margin-left: {DesignSystem.SPACE_12}px;
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+        """)
         toolbar.addWidget(self.counter_label)
-        
-        toolbar.addStretch()
         
         return toolbar
     
@@ -244,6 +318,39 @@ class RenamingPreviewDialog(BaseDialog):
         # Hacer tabla no editable
         table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         
+        # Estilos
+        table.setStyleSheet(f"""
+            QTableWidget {{
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                outline: none;
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_4}px;
+            }}
+            QTableWidget::item {{
+                border: none;
+                outline: none;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_4}px;
+                border-bottom: 1px solid {DesignSystem.COLOR_BORDER_LIGHT};
+            }}
+            QTableWidget::item:hover {{
+                background-color: {DesignSystem.COLOR_BG_2};
+            }}
+            QTableWidget::item:selected {{
+                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
+                color: {DesignSystem.COLOR_TEXT};
+            }}
+            QHeaderView::section {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                padding: {DesignSystem.SPACE_8}px;
+                border: none;
+                border-bottom: 2px solid {DesignSystem.COLOR_BORDER};
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+            }}
+        """)
+        
         # Tooltip informativo
         table.setToolTip(
             "Doble clic en cualquier fila para abrir el archivo original\n"
@@ -260,40 +367,65 @@ class RenamingPreviewDialog(BaseDialog):
         return table
     
     def _create_pagination_controls(self):
-        """Crea controles de paginación"""
+        """Crea controles de paginación con estilo Material Design"""
         widget = QFrame()
-        widget.setFrameStyle(QFrame.Shape.StyledPanel)
-        widget.setStyleSheet(DesignSystem.STYLE_DIALOG_PAGINATION_FRAME)
+        widget.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_4}px;
+            }}
+        """)
         layout = QHBoxLayout(widget)
+        layout.setSpacing(DesignSystem.SPACE_8)
+        layout.setContentsMargins(DesignSystem.SPACE_8, DesignSystem.SPACE_4, DesignSystem.SPACE_8, DesignSystem.SPACE_4)
         
         # Botón primera página
-        self.first_page_btn = QPushButton("⏮ Primera")
+        self.first_page_btn = QPushButton()
+        self.first_page_btn.setToolTip("Primera página")
+        icon_manager.set_button_icon(self.first_page_btn, 'skip-previous', size=DesignSystem.ICON_SIZE_MD)
         self.first_page_btn.clicked.connect(self._go_first_page)
-        self.first_page_btn.setMaximumWidth(100)
+        self.first_page_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
+        self.first_page_btn.setFixedSize(36, 36)
         layout.addWidget(self.first_page_btn)
         
         # Botón página anterior
-        self.prev_page_btn = QPushButton("◀ Anterior")
+        self.prev_page_btn = QPushButton()
+        self.prev_page_btn.setToolTip("Página anterior")
+        icon_manager.set_button_icon(self.prev_page_btn, 'chevron-left', size=DesignSystem.ICON_SIZE_MD)
         self.prev_page_btn.clicked.connect(self._go_prev_page)
-        self.prev_page_btn.setMaximumWidth(100)
+        self.prev_page_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
+        self.prev_page_btn.setFixedSize(36, 36)
         layout.addWidget(self.prev_page_btn)
         
         # Label de página actual
         self.page_label = QLabel()
-        self.page_label.setStyleSheet(DesignSystem.STYLE_DIALOG_PAGE_LABEL)
+        self.page_label.setStyleSheet(f"""
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            padding: 0 {DesignSystem.SPACE_16}px;
+            font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            color: {DesignSystem.COLOR_TEXT};
+        """)
         self.page_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.page_label)
         
         # Botón página siguiente
-        self.next_page_btn = QPushButton("Siguiente ▶")
+        self.next_page_btn = QPushButton()
+        self.next_page_btn.setToolTip("Página siguiente")
+        icon_manager.set_button_icon(self.next_page_btn, 'chevron-right', size=DesignSystem.ICON_SIZE_MD)
         self.next_page_btn.clicked.connect(self._go_next_page)
-        self.next_page_btn.setMaximumWidth(100)
+        self.next_page_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
+        self.next_page_btn.setFixedSize(36, 36)
         layout.addWidget(self.next_page_btn)
         
         # Botón última página
-        self.last_page_btn = QPushButton("Última ⏭")
+        self.last_page_btn = QPushButton()
+        self.last_page_btn.setToolTip("Última página")
+        icon_manager.set_button_icon(self.last_page_btn, 'skip-next', size=DesignSystem.ICON_SIZE_MD)
         self.last_page_btn.clicked.connect(self._go_last_page)
-        self.last_page_btn.setMaximumWidth(100)
+        self.last_page_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
+        self.last_page_btn.setFixedSize(36, 36)
         layout.addWidget(self.last_page_btn)
         
         layout.addStretch()
@@ -304,7 +436,8 @@ class RenamingPreviewDialog(BaseDialog):
         self.items_per_page_combo.addItems(["100", "250", "500", "1000", "Todos"])
         self.items_per_page_combo.setCurrentText("250")
         self.items_per_page_combo.currentTextChanged.connect(self._change_items_per_page)
-        self.items_per_page_combo.setMaximumWidth(100)
+        self.items_per_page_combo.setFixedWidth(100)
+        self.items_per_page_combo.setStyleSheet(DesignSystem.get_combobox_style())
         layout.addWidget(self.items_per_page_combo)
         
         widget.setVisible(False)  # Oculto por defecto
@@ -348,11 +481,25 @@ class RenamingPreviewDialog(BaseDialog):
         group.setCheckable(True)
         group.setChecked(False)  # Colapsado por defecto
         group.setMaximumHeight(150)
+        group.setStyleSheet(f"""
+            QGroupBox {{
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                margin-top: {DesignSystem.SPACE_12}px;
+                padding-top: {DesignSystem.SPACE_12}px;
+            }}
+            QGroupBox::title {{
+                subcontrol-origin: margin;
+                left: {DesignSystem.SPACE_12}px;
+                padding: 0 {DesignSystem.SPACE_4}px;
+            }}
+        """)
         
         layout = QVBoxLayout()
         
         info = QLabel("Estos archivos no pueden procesarse y serán ignorados:")
-        info.setStyleSheet(DesignSystem.STYLE_DIALOG_PROBLEM_INFO)
+        info.setStyleSheet(f"color: {DesignSystem.COLOR_WARNING}; font-size: {DesignSystem.FONT_SIZE_SM}px;")
         layout.addWidget(info)
         
         # Lista simple de problemas
@@ -362,7 +509,7 @@ class RenamingPreviewDialog(BaseDialog):
         
         problems_label = QLabel(problems_text)
         problems_label.setWordWrap(True)
-        problems_label.setStyleSheet(DesignSystem.STYLE_DIALOG_PROBLEM_TEXT)
+        problems_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
         layout.addWidget(problems_label)
         
         group.setLayout(layout)
@@ -606,6 +753,7 @@ class RenamingPreviewDialog(BaseDialog):
             return
         
         menu = QMenu(self)
+        menu.setStyleSheet(DesignSystem.get_context_menu_style())
         
         # Opción para abrir archivo
         open_file_action = menu.addAction("Abrir archivo")

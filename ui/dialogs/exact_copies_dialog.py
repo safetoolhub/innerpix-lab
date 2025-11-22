@@ -91,7 +91,8 @@ class ExactCopiesDialog(BaseDialog):
         self.header_frame = self._create_compact_header_with_metrics(
             icon_name='content-copy',
             title='Copias exactas detectadas',
-            description='Archivos idénticos (100% mismo contenido SHA256). Elimina copias conservando un original.',
+            description='Archivos 100% idénticos bit a bit (mismo SHA256), incluso con nombres diferentes. '
+                       'Si las fechas o metadatos son diferentes, no se considera idéntico.',
             metrics=[
                 {
                     'value': str(self.analysis.total_groups),
@@ -338,42 +339,34 @@ class ExactCopiesDialog(BaseDialog):
         self.tree_widget.setStyleSheet(f"""
             QTreeWidget {{
                 border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                background-color: {DesignSystem.COLOR_SURFACE};
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
                 outline: none;
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_4}px;
             }}
             QTreeWidget::item {{
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_4}px;
                 border: none;
+                outline: none;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_4}px;
+                border-bottom: 1px solid {DesignSystem.COLOR_BORDER_LIGHT};
             }}
             QTreeWidget::item:hover {{
-                background-color: {DesignSystem.COLOR_BG_1};
+                background-color: {DesignSystem.COLOR_BG_2};
             }}
             QTreeWidget::item:selected {{
-                background-color: {DesignSystem.COLOR_PRIMARY};
-                color: {DesignSystem.COLOR_PRIMARY_TEXT};
-            }}
-            QTreeWidget::item:selected:hover {{
-                background-color: {DesignSystem.COLOR_PRIMARY_HOVER};
+                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
+                color: {DesignSystem.COLOR_TEXT};
             }}
             QHeaderView::section {{
                 background-color: {DesignSystem.COLOR_BG_1};
                 color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
+                padding: {DesignSystem.SPACE_8}px;
                 border: none;
                 border-bottom: 2px solid {DesignSystem.COLOR_BORDER};
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
                 font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-                text-transform: uppercase;
-                letter-spacing: 0.5px;
-            }}
-            QTreeWidget::branch {{
-                background: transparent;
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
             }}
         """)
-        self.tree_widget.itemExpanded.connect(self._on_item_expanded)
-        self.tree_widget.itemCollapsed.connect(self._on_item_collapsed)
         self.tree_widget.itemDoubleClicked.connect(self._on_item_double_clicked)
         self.tree_widget.customContextMenuRequested.connect(self._show_context_menu)
         content_layout.addWidget(self.tree_widget)
@@ -634,14 +627,15 @@ class ExactCopiesDialog(BaseDialog):
         space_to_free = group.total_size - keep_file_size
         
         # Textos del grupo - Solo mostrar info básica en columna 0
-        group_item.setText(0, f"▶ Grupo #{group_number} • {file_count} copias")
+        group_item.setText(0, f"Grupo #{group_number} • {file_count} copias")
         # Las otras columnas quedan vacías para grupos - solo se usan para archivos
         
-        # Estilo del grupo padre más sutil y profesional
+        # Estilo del grupo padre estándar (Bold + Blue + BASE size)
         font = group_item.font(0)
-        font.setBold(False)  # Remover negrita para ser más sutil
-        font.setPointSize(int(DesignSystem.FONT_SIZE_SM))  # Tamaño más pequeño
+        font.setBold(True)
+        font.setPointSize(int(DesignSystem.FONT_SIZE_XS))
         group_item.setFont(0, font)
+        group_item.setForeground(0, QColor(DesignSystem.COLOR_PRIMARY))
         
         # Tooltip informativo sobre doble click
         group_item.setToolTip(0, f"Grupo #{group_number} con {file_count} archivos idénticos\n"
@@ -956,24 +950,7 @@ class ExactCopiesDialog(BaseDialog):
                 f"No se encontró el archivo:\n{file_path}"
             )
     
-    def _on_item_expanded(self, item):
-        """Actualiza el indicador visual cuando se expande un grupo"""
-        if item.childCount() > 0:  # Es un grupo padre
-            current_text = item.text(0)
-            if current_text.startswith("▶ "):
-                # Reemplazar indicador de colapsado por expandido
-                item.setText(0, f"▼ {current_text[2:]}")
-            elif not current_text.startswith("▼"):
-                # Agregar indicador de expandido si no tiene ninguno
-                item.setText(0, f"▼ {current_text}")
 
-    def _on_item_collapsed(self, item):
-        """Actualiza el indicador visual cuando se colapsa un grupo"""
-        if item.childCount() > 0:  # Es un grupo padre
-            current_text = item.text(0)
-            if current_text.startswith("▼ "):
-                # Cambiar indicador a colapsado
-                item.setText(0, f"▶ {current_text[2:]}")  # Remover "▼ " y agregar "▶ "
 
     def showEvent(self, event: QShowEvent):
         """Actualizar la barra de progreso cuando el diálogo se muestre completamente"""

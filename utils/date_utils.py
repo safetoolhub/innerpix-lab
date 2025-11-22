@@ -660,10 +660,14 @@ def extract_date_from_filename(filename: str) -> Optional[datetime]:
 
 def get_video_metadata_date(file_path: Path) -> Optional[datetime]:
     """
-    Extrae fecha de creación de archivos de video usando ffprobe.
+    Extrae fecha de creación de archivos de video usando exiftool y ffprobe.
     
-    Esta función requiere que ffprobe (parte de FFmpeg) esté instalado en el sistema.
-    Si no está disponible, devuelve None sin generar error.
+    PRIORIDAD:
+    1. exiftool Keys:CreationDate - Para Live Photos de iPhone (campo correcto)
+    2. ffprobe creation_time - Para otros videos
+    
+    Esta función requiere que exiftool o ffprobe esté instalado en el sistema.
+    Si ninguno está disponible, devuelve None sin generar error.
 
     Args:
         file_path: Ruta al archivo de video
@@ -672,25 +676,54 @@ def get_video_metadata_date(file_path: Path) -> Optional[datetime]:
         datetime de la fecha de creación del video o None si no está disponible
         
     Examples:
-        >>> # Video con metadata de creación
+        >>> # Live Photo MOV con Keys:CreationDate
+        >>> get_video_metadata_date(Path('IMG_0017_HAYLIVE.MOV'))
+        datetime(2019, 11, 13, 15, 38, 59)
+        
+        >>> # Video regular con metadata de creación
         >>> get_video_metadata_date(Path('video.mp4'))
         datetime(2024, 1, 15, 14, 30, 0)
         
         >>> # Video sin metadata
         >>> get_video_metadata_date(Path('video_without_metadata.mp4'))
         None
-        
-        >>> # ffprobe no disponible
-        >>> get_video_metadata_date(Path('video.mp4'))
-        None
     """
     import shutil
     import subprocess
     import json
     
-    # Verificar si ffprobe está disponible
+    # PRIORIDAD 1: Intentar leer Keys:CreationDate con exiftool (Live Photos)
+    if shutil.which('exiftool'):
+        try:
+            result = subprocess.run(
+                ['exiftool', '-Keys:CreationDate', '-d', '%Y:%m:%d %H:%M:%S', '-s3', str(file_path)],
+                capture_output=True,
+                text=True,
+                timeout=3
+            )
+            
+            if result.returncode == 0 and result.stdout.strip():
+                creation_date_str = result.stdout.strip()
+                try:
+                    # Formato: "2019:11:13 15:38:59+01:00" o "2019:11:13 15:38:59"
+                    # Extraer solo fecha y hora, ignorar zona horaria
+                    if '+' in creation_date_str or '-' in creation_date_str[-6:]:
+                        # Tiene zona horaria
+                        date_part = creation_date_str.rsplit('+', 1)[0].rsplit('-', 1)[0]
+                    else:
+                        date_part = creation_date_str
+                    
+                    parsed_date = datetime.strptime(date_part.strip(), '%Y:%m:%d %H:%M:%S')
+                    _logger.debug(f"Video {file_path.name}: usando Keys:CreationDate = {parsed_date}")
+                    return parsed_date
+                except ValueError as e:
+                    _logger.debug(f"Error parseando Keys:CreationDate '{creation_date_str}': {e}")
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError) as e:
+            _logger.debug(f"Error ejecutando exiftool en {file_path.name}: {e}")
+    
+    # PRIORIDAD 2: Intentar ffprobe creation_time (videos regulares)
     if not shutil.which('ffprobe'):
-        _logger.debug("ffprobe no disponible en el sistema")
+        _logger.debug("Ni exiftool ni ffprobe disponibles")
         return None
     
     try:
@@ -726,7 +759,9 @@ def get_video_metadata_date(file_path: Path) -> Optional[datetime]:
                     # Intentar varios formatos comunes
                     for fmt in ['%Y-%m-%dT%H:%M:%S.%fZ', '%Y-%m-%dT%H:%M:%SZ', '%Y-%m-%d %H:%M:%S']:
                         try:
-                            return datetime.strptime(creation_time, fmt)
+                            parsed_date = datetime.strptime(creation_time, fmt)
+                            _logger.debug(f"Video {file_path.name}: usando ffprobe creation_time = {parsed_date}")
+                            return parsed_date
                         except ValueError:
                             continue
                 except Exception:

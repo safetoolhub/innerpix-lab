@@ -1,292 +1,130 @@
-## Pixaro Lab - AI coding assistant instructions
+## Pixaro Lab - AI Assistant Instructions
 
-Pixaro Lab is a PyQt6 desktop app for managing photo/video collections (iOS-focused).
-Core workflow: **analyze → preview → execute** with user confirmation at each step.
+PyQt6 desktop app for photo/video management. Workflow: **analyze → preview → execute**.
+See `PROJECT_TREE.md` for structure. Ignore `docs/` (author's notes).
 
-> **Project Structure:** See `PROJECT_TREE.md` for detailed directory layout and file descriptions.
+### Architecture (3-layer)
 
-> Note: The `docs/` folder contains the author's internal notes and should NOT be processed or considered part of the project; they are the author's private notes.
+**Services** (`services/`) - Pure logic, no UI
+- Pattern: `analyze()` returns dataclass, `execute()` accepts `create_backup=True`
+- Logger: `from utils.logger import get_logger; self.logger = get_logger('ServiceName')`
+- Returns: 100% typed dataclasses from `services/result_types.py`
+- Orchestrator: `AnalysisOrchestrator.run_full_analysis()` → `FullAnalysisResult`
+- Detectors: `ExactCopiesDetector` (SHA256), `SimilarFilesDetector` (perceptual hash)
 
-### Architecture (3-layer pattern)
+**Workers** (`ui/workers.py`) - QThread background
+- Base: `BaseWorker` with `progress_update`, `finished`, `error` signals
+- Type-safe: hints on `__init__` and `run()`, TYPE_CHECKING for imports
+- Unified: `AnalysisWorker` delegates to orchestrator
 
-**Services** (`services/`) - Pure business logic, no UI dependencies
-- Pattern: `analyze()` returns dataclass results, `execute()` accepts `create_backup=True`
-- All use centralized logger: `from utils.logger import get_logger; self.logger = get_logger('ServiceName')`
-- Return types: **100% standardized dataclasses** from `services/result_types.py` 
-  * All services return typed dataclasses: `RenameAnalysisResult`, `LivePhotoDetectionResult`, `OrganizationAnalysisResult`, `HeicAnalysisResult`, `DuplicateAnalysisResult`
-  * All execution methods return: `RenameResult`, `LivePhotoCleanupResult`, `OrganizationResult`, `HeicDeletionResult`, `DuplicateDeletionResult`
+**UI Stages** (`ui/stages/`) - 3-stage flow
+- Stage 1: Folder selector
+- Stage 2: Analysis progress
+- Stage 3: Tools grid → dialogs
+- All extend `BaseStage`
 
-- Examples: `FileRenamer.analyze()` → `RenameAnalysisResult`, `LivePhotoService.execute()` → `LivePhotoCleanupResult`
-- Orchestrator: `AnalysisOrchestrator.run_full_analysis()` → `FullAnalysisResult` (100% typed fields), coordinates multiple services with callback system (progress/phase/partial), 100% PyQt6-free
-- Service files (all use `_service` suffix): `file_renamer_service.py`, `file_organizer_service.py`, `heic_remover_service.py`, `live_photo_service.py`
-- Specialized detectors:
-  * `ExactCopiesDetector` (`exact_copies_detector.py`): SHA256-based exact copy detection, 100% identical files
-  * `SimilarFilesDetector` (`similar_files_detector.py`): Perceptual hash-based similar detection using imagehash/cv2
-  * Both share `DuplicateGroup` dataclass and `execute()` pattern
-  * Analysis returns `DuplicateAnalysisResult` with `mode='exact'` or `mode='perceptual'`
+**UI Components**
+- Widgets: ToolCard, ProgressCard, SummaryCard, etc.
+- Dialogs: extend `BaseDialog` with `add_backup_checkbox()`
+- Design: `ui/styles/design_system.py` (single source of truth)
+- Icons: qtawesome Material Design (NO emojis)
+- Utils: `dialog_utils.py` (`open_file`, `open_folder`, `show_file_details_dialog`)
 
-**Workers** (`ui/workers.py`) - QThread background tasks to keep UI responsive
-- Base class: `BaseWorker` provides `progress_update`, `finished`, `error` signals
-- **Type Safety:**
-  * All `__init__` and `run()` methods have type hints
-  * All workers override `finished` signal with semantic type documentation
-  * Uses `TYPE_CHECKING` imports to avoid circular dependencies
-  * Forward references with strings (e.g., `renamer: 'FileRenamer'`)
-- Pattern: use `_create_progress_callback()` for consistent progress reporting
-- All inherit stop mechanism: `self._stop_requested` flag checked during long operations
-- Unified worker: `AnalysisWorker` delegates to `AnalysisOrchestrator` (services/), only handles Qt threading/signals (~100 lines)
-- Worker types: `AnalysisWorker`, `RenamingWorker`, `LivePhotoCleanupWorker`, `FileOrganizerWorker`, `HEICRemovalWorker`, `DuplicateAnalysisWorker`, `SimilarFilesAnalysisWorker`, `DuplicateDeletionWorker`
-
-**UI Stages** (`ui/stages/`) - 3-stage application flow implemented with separate window classes
-- **Stage 1** (`stage_1_window.py`): Folder selector and welcome screen
-- **Stage 2** (`stage_2_window.py`): Analysis progress with visual phase feedback (timers ensure 1+ second visibility per phase)
-- **Stage 3** (`stage_3_window.py`): Tools grid with clickable cards leading to dialogs
-- Transitions: Stage 1 → Stage 2 → Stage 3 (no going back without re-selection)
-- Each stage inherits from `BaseStage` which provides common utilities like animations, persistence, and navigation
-
-**UI Components** (`ui/widgets/`, `ui/dialogs/`, `ui/styles/`)
-- **Widgets**: Reusable components (ToolCard, ProgressCard, AnalysisPhaseWidget, SummaryCard, DropzoneWidget)
-- **Dialogs**: All extend `BaseDialog` which provides `add_backup_checkbox()` and `build_accepted_plan()` helpers
-- **Design System**: Centralized styling in `ui/styles/design_system.py` (single source of truth for colors, spacing, typography)
-- Dialog utilities: `ui/dialogs/dialog_utils.py` provides shared functions:
-  * `open_file()`: Cross-platform file opener (xdg-open/open/start)
-  * `open_folder()`: Cross-platform folder opener with file selection
-  * `show_file_details_dialog()`: Professional 2-column dialog with file info (no scroll, compact layout)
-
-**Icon usage and emojis:**
-- For cross-platform consistency, all UI icons MUST come from the central Icon Manager which uses qtawesome (Material Design icons). Do NOT use emojis anywhere in the UI or in source strings that are rendered as icons. Emojis produce inconsistent rendering across platforms and are forbidden in the codebase.
-
-**Design guidelines**
-- All visual styling for widgets, dialogs and windows MUST use only the tokens and classes exposed by the `DesignSystem` class in `ui/styles/design_system.py`.
-- Inline styles, ad-hoc QSS strings, or alternative style modules are disallowed. If a style is missing from `DesignSystem`, raise an issue or request an extension to `DesignSystem` instead of adding inline styles.
-- The `DesignSystem` is the single source of truth for colors, spacing, typography, radii and component classes. Follow it strictly. In case you need to add new styles or modify any of them ask me explicitely. I want control over the additions to this module.
+**Design Rules**
+- ALL styling via `DesignSystem` class only
+- NO inline styles, ad-hoc QSS, or emojis
+- Ask before adding/modifying styles
 
 ### Critical Patterns
 
-**Backup-first operations**: All destructive operations accept `create_backup=True` (default)
-- Implementation: `from utils.file_utils import launch_backup_creation`
-- Creates timestamped backup dir with metadata file listing all affected files
-- Example pattern in `services/heic_remover.py:execute_removal()`, `services/live_photo_cleaner.py:execute_cleanup()`
-- UI: `BaseDialog.add_backup_checkbox()` provides user control, `is_backup_enabled()` reads state
+**Backup**: All destructive ops accept `create_backup=True`
+- `from utils.file_utils import launch_backup_creation`
 
-**Config access**: All configuration is accessed via the `Config` class
-- Import: `from config import Config`
-- Static values: `Config.APP_NAME`, `Config.DEFAULT_LOG_DIR`, `Config.SUPPORTED_IMAGE_EXTENSIONS`
-- Helper methods: `Config.is_supported_file()`, `Config.get_file_type()`, `Config.is_image_file()`
-- All methods are @classmethod, no instance needed
+**Config**: `from config import Config` (static class)
+- `Config.APP_NAME`, `Config.is_supported_file()`, etc.
 
-**Logging conventions** (`utils/logger.py`) - Unified logging system
-- **Initialization**: Call `configure_logging(logs_dir=Path, level="INFO")` at app startup (returns log_file, logs_dir)
-- **Usage**: `get_logger('ModuleName')` not print()
-- **Levels**: DEBUG for internals, INFO for operations/results, WARNING for recoverable issues, ERROR for failures
-- **File management**: Timestamped log files in configurable directory
-- **Runtime changes**: `change_logs_directory(new_dir)` to update log location dynamically
-- **Utilities**: `get_log_file()`, `get_logs_directory()` to query current paths
-- **Thread-safe**: Uses RLock to prevent log mixing in concurrent operations
-- **Atomic logging**: Use `logger.log_block()` for multi-line sections that must appear together
-- All logging functions are now in `utils.logger`: `log_section_header_relevant()`, `log_section_footer_relevant()`, `log_section_header_discrete()`, `log_section_footer_discrete()`
+**Logging** (`utils/logger.py`)
+- Init: `configure_logging(logs_dir, level="INFO")`
+- Use: `get_logger('Module')` not print()
+- Thread-safe with RLock
 
-**Storage abstraction** (`utils/storage.py`) - Platform-agnostic persistence
-- Interface: `StorageBackend` (ABC) defines `get()`, `set()`, `remove()`, `clear()`, `contains()`, `sync()`
-- `JsonStorageBackend`: File-based storage (default: `~/.pixaro_lab/settings.json`), no PyQt6 dependency
-- `QSettingsBackend`: Wrapper for PyQt6 QSettings, native OS storage (registry/plist/ini)
-- `SettingsManager` auto-detects: uses QSettings if PyQt6 available, else JSON
-- **Benefits**: Utils layer 100% PyQt6-free, enables CLI scripts, faster tests, easy framework migration
+**Storage** (`utils/storage.py`)
+- `JsonStorageBackend`: file-based, no PyQt6
+- `QSettingsBackend`: native OS storage
+- `SettingsManager` auto-detects
 
-**Platform utilities** (`utils/platform_utils.py`) - OS interaction without UI
-- `open_file_with_default_app(path, error_callback)`: Opens files with system default app (xdg-open/open/start)
-- `open_folder_in_explorer(path, select_file, error_callback)`: Opens folders with optional file selection
-- Platform detection: `is_linux()`, `is_macos()`, `is_windows()`, `get_platform_info()`
-- `get_default_file_manager()`: Detects system file manager (nautilus/Finder/explorer)
-- **Benefits**: Reusable in CLI scripts, no PyQt6 dependency, integrated logging, robust validation
-- UI wrappers in `dialog_utils.py` add QMessageBox for error display
+**Platform** (`utils/platform_utils.py`)
+- `open_file_with_default_app`, `open_folder_in_explorer`
+- Platform detection: `is_linux()`, `is_macos()`, `is_windows()`
 
-**Additional utilities**:
-- `utils/settings_manager.py`: High-level settings management using storage backends
+**File Utils** (`utils/file_utils.py`)
+- `calculate_file_hash()`, `to_path()`, `cleanup_empty_directories()`, `find_next_available_name()`
 
-**File utilities** (`utils/file_utils.py`)
-- `calculate_file_hash()`: SHA256 with optional caching
-- `to_path()`: flexible path extraction from objects/dicts (checks `path`, `source_path`, `original_path` attrs)
-- `cleanup_empty_directories()`: recursive removal after file operations
-- `find_next_available_name()`: generates conflict-free names with `_XXX` suffix
+**Date Utils** (`utils/date_utils.py`)
+- `select_chosen_date()`: EXIF → filename → video → filesystem
+- GPS DateStamp: validation only (NOT primary source)
 
-**Additional utilities**:
-- `utils/callback_utils.py`: Safe progress callback handling utilities
-- `utils/date_utils.py`: Date extraction utilities for multimedia files with intelligent prioritization
-  * **Key function:** `select_chosen_date()` - Selects most representative date from multiple sources
-  * **Priority logic (CORRECTED Nov 2025):**
-    1. EXIF camera dates (DateTimeOriginal, CreateDate, DateTimeDigitized) - returns EARLIEST
-    2. Filename date extraction (WhatsApp patterns, screenshots, etc.)
-    3. Video metadata (ffprobe creation_time)
-    4. Filesystem dates (creation_date, modification_date) - last resort
-  * **GPS DateStamp:** Used ONLY for validation, NOT as primary date source (UTC issues, rounding errors)
-  * **GPS validation:** `_validate_gps_coherence()` logs warning if GPS differs >24h from EXIF DateTimeOriginal
-  * **Functions:** `get_date_from_file()`, `get_all_file_dates()`, `get_exif_dates()`, `extract_date_from_filename()`
-  * **Naming:** `format_renamed_name()`, `parse_renamed_name()`, `is_renamed_filename()`
-  * **See:** `docs/GPS_DATESTAMP_FIX.md` for detailed refactoring documentation
-- `utils/format_utils.py`: Reusable formatting functions (format_size, format_file_count, etc.)
-- `utils/icons.py`: Centralized icon management system using QtAwesome (Material Design icons)
+**Other Utils**
+- `callback_utils.py`, `format_utils.py`, `icons.py`
 
-**Result types** (`services/result_types.py`)
-- **Status:** 
-- Base: `OperationResult` (success, errors list, message)
-- Analysis results: `RenameAnalysisResult`, `OrganizationAnalysisResult`, `LivePhotoCleanupAnalysisResult`, `LivePhotoDetectionResult`, `DuplicateAnalysisResult`, `HeicAnalysisResult`
-- Operation results: `RenameResult`, `OrganizationResult`, `DeletionResult`, `LivePhotoCleanupResult`, `DuplicateDeletionResult`, `HeicDeletionResult`
-- **Rule:** ALL services return dataclasses from this module, NEVER return raw dicts
+**Result Types** (`services/result_types.py`)
+- Base: `OperationResult`
+- Analysis: `RenameAnalysisResult`, `OrganizationAnalysisResult`, etc.
+- Operations: `RenameResult`, `DeletionResult`, etc.
+- Rule: ALL services return dataclasses
 
-**Dialog patterns** (all extend `BaseDialog` for consistent UX):
+**Dialogs** (extend `BaseDialog`)
+- Organization: 3 modes (TO_ROOT, BY_MONTH, WHATSAPP_SEPARATE), pagination (200/page)
+- HEIC: HEIC/JPG pairs, context menu
+- Renaming: original → new mappings, conflict indicators
+- Live Photos: photo + video pairs
+- Duplicates: exact (SHA256) vs similar (perceptual), strategies, pagination
 
-- **Organization dialog** (`ui/dialogs/organization_dialog.py`):
-  * Three visualization modes: TO_ROOT, BY_MONTH, WHATSAPP_SEPARATE
-  * Dynamic column headers per mode (e.g., TO_ROOT shows "Estado", BY_MONTH shows "Fecha")
-  * TreeWidget with smart grouping (by destination/month/category)
-  * Pagination system: 200 items/page, auto-activates at 500+ files
-  * Context menu with file details and folder opening
-  * Fast plan regeneration: `main_window._regenerate_organization_plan()` avoids full re-analysis when switching types
+**UX Rules**
+- Never show empty dialogs
+- Show QMessageBox for no-results
+- Update tool cards with clear messages
 
-- **HEIC dialog** (`ui/dialogs/heic_dialog.py`):
-  * TableWidget showing HEIC/JPG duplicate pairs side by side
-  * Columns: HEIC file, size, JPG file, size
-  * Context menu with "Ver detalles" for both HEIC and JPG files
-  * Shows comparison metadata in details (file type, sizes)
-  * Checkbox for backup creation before deletion
+### Workflow
 
-- **Renaming dialog** (`ui/dialogs/renaming_dialog.py`):
-  * TableWidget showing original → new filename mappings
-  * Columns: Original name, New name, Size, Conflict status
-  * Context menu with file details showing rename metadata
-  * Visual indicators for conflicts (⚠️) and sequences
-  * Checkbox for backup creation and dry run mode
+**Setup**: `uv venv --python 3.13 && source .venv/bin/activate && uv pip install -r requirements.txt`
+**Run**: `source .venv/bin/activate && python main.py`
+**Test**: `source .venv/bin/activate && pytest`
+**Install**: `uv pip install <package>` (within venv)
 
-- **Live Photos dialog** (`ui/dialogs/live_photos_dialog.py`):
-  * TreeWidget grouping by base name (photo groups)
-  * Shows photo + video pairs for each Live Photo
-  * Displays file sizes and types
-  * Checkbox for backup creation before cleanup
+**Logs**: `~/Documents/Pixaro_Lab/logs/`
+**Debug**: `utils.logger.set_global_log_level(logging.DEBUG)`
 
-- **Duplicates dialogs**:
-  * **Exact copies** (`ui/dialogs/exact_copies_dialog.py`): SHA256 hash-based exact match detection
-    - TreeWidget with expandable groups showing identical files
-    - Strategies: keep first/last/largest/smallest/manual
-    - Pagination for large result sets (50 initial, 50 increment)
-    - Search and filter capabilities
-    - Checkbox for backup creation before deletion
-  * **Similar files** (`ui/dialogs/similar_files_dialog.py`): Perceptual hash-based visual similarity
-    - Two-phase analysis: expensive hash calculation once, fast reclustering on-demand
-    - Interactive sensitivity slider (30-100%) with real-time result updates
-    - TreeWidget with similarity scores and dynamic grouping
-    - Instant statistics updates (groups count, recoverable space)
-    - Checkbox for backup creation before deletion
-    - **Empty results handling**: Shows informative message when no similar files found, prevents opening empty dialog
+### Code Quality
 
-### UX Patterns - Empty Results Handling
+- PEP 8 + type hints
+- All services return dataclasses (no dicts)
+- All public methods typed
+- No empty try/except
+- Preserve `create_backup` params
+- `DesignSystem` only for styling
 
-**Critical UX Rule**: Never show empty dialogs or confusing states to users
-- **Analysis with no results**: Show informative QMessageBox explaining why no results found, remain in Stage 3
-- **Card status updates**: Update tool cards with appropriate messages ("No se encontraron archivos similares", "Sin resultados", etc.)
-- **Validation before dialog opening**: Check for valid results before opening dialogs, provide clear feedback
-- **Consistent messaging**: Use clear, actionable messages that explain what happened and suggest next steps
+### Testing
 
-### Developer Workflow
+- Focus: services/utils, not UI
+- Use fixtures: `temp_dir`, `create_test_image`, etc.
+- Markers: `@pytest.mark.unit`, `@pytest.mark.slow`
+- Coverage: services 80%+, utils 90%+
+- Structure: Arrange-Act-Assert
 
-**Setup:**
-```bash
-uv venv --python 3.13 && source .venv/bin/activate && uv pip install -r requirements.txt
-```
-- Note: `pillow-heif` requires system `libheif` library (apt/brew install)
-
-**Package Installation:**
-When adding new dependencies, always use `uv pip install` instead of `pip install`, and always from within the activated virtual environment:
-```bash
-source .venv/bin/activate && uv pip install <package-name>
-```
-This ensures proper dependency management and compatibility with the project's uv-based setup.
-
-**Run application:**
-```bash
-source .venv/bin/activate && python main.py
-```
-- Logs: `~/Documents/Pixaro_Lab/logs/` by default
-- Use `utils.logger.set_global_log_level(logging.DEBUG)` for verbose output
-
-**Run tests:**
-Always run tests inside the virtual environment:
-```bash
-source .venv/bin/activate && pytest tests/unit/utils/test_date_utils.py -q # Tests de utils/date_utils.py
-source .venv/bin/activate && pytest                                        # All tests
-source .venv/bin/activate && pytest tests/unit/services/                   # Service tests only
-source .venv/bin/activate && pytest -v --tb=short                          # Verbose with short traceback
-```
-- Test documentation: `tests/README.md`
-- Fixtures: `tests/conftest.py` (temp_dir, create_test_image, create_live_photo_pair, etc.)
-- Markers: `@pytest.mark.unit`, `@pytest.mark.live_photos`, `@pytest.mark.slow`
-- Coverage: `pytest --cov=services --cov=utils --cov-report=html`
-
-**Project files:**
-- `PROJECT_TREE.md`: Complete project structure and file descriptions
-- `CHANGELOG.md`: Version history and changes
-- `tests/README.md`: Testing guide with examples and best practices
-- `.vscode/`: VS Code workspace configuration (launch, tasks, settings, keybindings)
-
-### Code Quality Rules
-
-- **Strict PEP 8**: use type hints where present, maintain existing patterns
-- **Type Safety Priority** ✅:
-  * ✅ All services return dataclasses (see `services/result_types.py`)
-  * ✅ No more `Union[Dataclass, Dict]` - single type per interface
-  * ✅ All public methods typed: `def analyze_foo(path: Path) -> FooAnalysisResult:`
-  * ✅ All workers 100% typed: `__init__`, `run()`, and semantic signal documentation
-  * ✅ TYPE_CHECKING pattern for avoiding circular imports
-  * ✅ View Models created for UI/logic separation (`services/view_models.py`)
-  * 🎯 **100% desacoplamiento UI/Lógica:** CUMPLIDO
-- **No empty try/except**: avoid `except: pass` blocks
-- **Dataclass-first**: When adding new services, ALWAYS return dataclasses from `result_types.py`
-- **View Model pattern**: Use View Models from `services/view_models.py` for presentation logic (optional integration)
-- **Preserve backup flows**: never remove `create_backup` parameters without explicit request
-- **Import resolution**: `ui/styles/design_system.py` is the single source of truth for current styling
-
-### Testing Guidelines
-
-**Philosophy:**
-- **Test business logic, not UI**: Focus tests on services and utilities, keep UI tests minimal
-- **Test-driven confidence**: All services should have comprehensive unit tests before considering them production-ready
-- **Fixtures over mocks**: Use real temporary files/directories via fixtures, avoid complex mocking
-
-**Test Structure:**
 ```python
 @pytest.mark.unit
-@pytest.mark.feature_name
-class TestServiceNameAspect:
-    """Tests for specific aspect of ServiceName."""
-    
-    def test_specific_behavior(self, temp_dir, fixture):
-        """Docstring explaining what is tested."""
-        # Arrange
-        service = ServiceName()
-        # Act
+class TestServiceAspect:
+    def test_behavior(self, temp_dir):
+        service = Service()
         result = service.method(temp_dir)
-        # Assert
         assert result.success == True
 ```
 
-**Key Practices:**
-- Use `temp_dir` fixture for all file operations (automatic cleanup)
-- Use factory fixtures (`create_test_image`, `create_live_photo_pair`) for test data
-- Group related tests in classes: `TestXxxBasics`, `TestXxxAnalysis`, `TestXxxExecution`, `TestXxxEdgeCases`
-- Mark tests appropriately: `@pytest.mark.unit`, `@pytest.mark.live_photos`, `@pytest.mark.slow`
-- Keep tests fast (<1s each), mark slow tests with `@pytest.mark.slow`
-- Test return types are correct dataclasses from `result_types.py`
+See `tests/README.md` for details.
 
-**Coverage Targets:**
-- Services: 80%+ coverage (analyze + execute methods, edge cases)
-- Utilities: 90%+ coverage (pure functions, no UI dependencies)
-- UI: Minimal testing (focus on business logic in services)
+### Platform
 
-See `tests/README.md` for detailed testing guide with examples.
-
-### Platform Notes
-
-- Primary: Windows (some paths use `Path.home() / "Documents"`)
-- Secondary: macOS/Linux supported
-- Future: Android, iOS (that's why the UI must be separated from business logic)
-- Qt environment: `main.py` sets `QT_LOGGING_RULES='qt.qpa.wayland=false'` to suppress Wayland warnings
+- Primary: Windows
+- Secondary: macOS/Linux
+- Future: Android/iOS (UI/logic separation critical)

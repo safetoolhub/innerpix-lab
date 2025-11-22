@@ -1,7 +1,7 @@
 """Clases/base utilities para diálogos."""
 from typing import Dict, List, Optional, TYPE_CHECKING
 
-from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtCore import pyqtSignal, Qt
 from PyQt6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -121,6 +121,50 @@ class BaseDialog(QDialog):
         # remember ok button for convenience
         self.register_ok_button(ok_btn)
         return box
+
+    def make_styled_button(
+        self,
+        text: str = "",
+        icon_name: str = "",
+        button_style: str = 'secondary',
+        tooltip: str = "",
+        enabled: bool = True,
+        custom_style: str = ""
+    ) -> QPushButton:
+        """Crea un botón estilizado con Material Design.
+        
+        Args:
+            text: Texto del botón
+            icon_name: Nombre del icono (opcional)
+            button_style: Estilo: 'primary', 'secondary', 'danger'
+            tooltip: Tooltip del botón
+            enabled: Si está habilitado inicialmente
+            custom_style: CSS personalizado (opcional, reemplaza el estilo estándar)
+        
+        Returns:
+            QPushButton configurado
+        """
+        btn = QPushButton(text)
+        if icon_name:
+            from utils.icons import icon_manager
+            btn.setIcon(icon_manager.get_icon(icon_name))
+        if tooltip:
+            btn.setToolTip(tooltip)
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.setEnabled(enabled)
+        
+        # Aplicar estilo
+        if custom_style:
+            btn.setStyleSheet(custom_style)
+        else:
+            if button_style == 'danger':
+                btn.setStyleSheet(DesignSystem.get_danger_button_style())
+            elif button_style == 'primary':
+                btn.setStyleSheet(DesignSystem.get_primary_button_style())
+            else:  # 'secondary' por defecto
+                btn.setStyleSheet(DesignSystem.get_secondary_button_style())
+        
+        return btn
 
     def register_ok_button(self, button: Optional[QPushButton]):
         """Register the dialog's primary OK button so helpers can enable/disable it.
@@ -731,6 +775,131 @@ class BaseDialog(QDialog):
         
         return frame
     
+    def _create_warning_banner(
+        self,
+        title: str,
+        message: str,
+        icon: str = 'warning',
+        action_text: Optional[str] = None,
+        action_callback: Optional[callable] = None,
+        bg_color: str = DesignSystem.COLOR_WARNING_BG,
+        border_color: str = DesignSystem.COLOR_WARNING,
+        text_color: str = DesignSystem.COLOR_TEXT
+    ) -> 'QFrame':
+        """Crea un banner de advertencia estandarizado.
+        
+        Args:
+            title: Título en negrita
+            message: Mensaje descriptivo (soporta HTML básico)
+            icon: Nombre del icono (default: 'warning')
+            action_text: Texto del botón de acción (opcional)
+            action_callback: Función a llamar al pulsar el botón (opcional)
+            bg_color: Color de fondo (default: Warning BG)
+            border_color: Color del borde (default: Warning)
+            text_color: Color del texto (default: Text)
+            
+        Returns:
+            QFrame configurado con el banner
+        """
+        from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout
+        from PyQt6.QtCore import Qt
+        from ui.styles.design_system import DesignSystem
+        from utils.icons import icon_manager
+        
+        frame = QFrame()
+        frame.setObjectName("warningBanner")
+        frame.setStyleSheet(f"""
+            QFrame#warningBanner {{
+                background-color: {bg_color};
+                border: 1px solid {border_color};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_12}px;
+            }}
+        """)
+        
+        layout = QHBoxLayout(frame)
+        layout.setContentsMargins(
+            int(DesignSystem.SPACE_12),
+            int(DesignSystem.SPACE_8),
+            int(DesignSystem.SPACE_12),
+            int(DesignSystem.SPACE_8)
+        )
+        layout.setSpacing(int(DesignSystem.SPACE_12))
+        
+        # Icono
+        icon_label = QLabel()
+        # Usar un tamaño un poco más grande para el icono de advertencia
+        icon_manager.set_label_icon(
+            icon_label, 
+            icon, 
+            size=DesignSystem.ICON_SIZE_LG,
+            color=DesignSystem.COLOR_TEXT  # El icono suele ser texto/emoji o SVG coloreado
+        )
+        # Si es un emoji (fallback), asegurar tamaño
+        icon_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_LG}px;")
+        layout.addWidget(icon_label, 0, Qt.AlignmentFlag.AlignTop)
+        
+        # Contenedor de texto
+        text_layout = QVBoxLayout()
+        text_layout.setSpacing(int(DesignSystem.SPACE_4))
+        
+        # Mensaje compuesto (Título: Mensaje)
+        full_message = f"<b>{title}:</b> {message}" if title else message
+        text_label = QLabel(full_message)
+        text_label.setWordWrap(True)
+        text_label.setStyleSheet(f"""
+            color: {text_color};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+        """)
+        text_layout.addWidget(text_label)
+        
+        layout.addLayout(text_layout, 1)
+        
+        # Botón de acción (opcional)
+        if action_text and action_callback:
+            action_btn = QPushButton(action_text)
+            # Determinar estilo del botón basado en el tipo de alerta
+            btn_bg = border_color  # Usar el color del borde como fondo del botón
+            btn_hover = border_color # Simplificación, idealmente un tono más oscuro
+            
+            action_btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {btn_bg};
+                    color: {DesignSystem.COLOR_TEXT};
+                    border: none;
+                    border-radius: {DesignSystem.RADIUS_SM}px;
+                    padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
+                    font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+                    font-size: {DesignSystem.FONT_SIZE_SM}px;
+                }}
+                QPushButton:hover {{
+                    opacity: 0.9;
+                }}
+            """)
+            action_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            action_btn.clicked.connect(action_callback)
+            layout.addWidget(action_btn)
+            
+        return frame
+
+    def _create_info_banner(
+        self,
+        title: str,
+        message: str,
+        icon: str = 'information-outline'
+    ) -> 'QFrame':
+        """Crea un banner de información (azul) estandarizado.
+        
+        Wrapper conveniente sobre _create_warning_banner con colores de Info.
+        """
+        return self._create_warning_banner(
+            title=title,
+            message=message,
+            icon=icon,
+            bg_color=DesignSystem.COLOR_INFO_BG,
+            border_color=DesignSystem.COLOR_INFO,
+            text_color="#055160"  # Color oscuro para texto sobre fondo azul claro
+        )
     def _setup_dry_run_backup_logic(self):
         """Configura la lógica de deshabilitación automática entre dry-run y backup.
         
@@ -774,16 +943,15 @@ class BaseDialog(QDialog):
                     "Crea una copia de seguridad timestamped antes de realizar cambios.\n"
                     "Recomendado para operaciones destructivas."
                 )
-                
-                # Forzar actualización visual del chip
-                if hasattr(backup_widget, '_update_visual_state'):
-                    backup_widget._update_visual_state()
         
-        # Conectar el cambio de estado del dry-run
+        # Conectar señal
         if hasattr(self.dry_run_checkbox, '_checkbox'):
             self.dry_run_checkbox._checkbox.toggled.connect(on_dry_run_changed)
+        else:
+            self.dry_run_checkbox.toggled.connect(on_dry_run_changed)
         
-        # Aplicar estado inicial
+        
+        # Ejecutar lógica inicial
         on_dry_run_changed()
     
     def _create_inline_chip_checkbox(

@@ -5,76 +5,65 @@ Tokens CSS centralizados para garantizar coherencia visual
 
 
 class DesignSystem:
-    """Design system centralizado con todos los tokens de diseño"""
-    
-    # ==================== COLORES ====================
+    """Design system centralizado con todos los tokens de diseño"""    
+  
+    # ==================== COLORES MODERNOS ====================
     
     # Colores base
-    COLOR_BACKGROUND = "#f5f5f5"
-    COLOR_BACKGROUND_PRIMARY = "#f5f5f5"
-    COLOR_BACKGROUND_SECONDARY = "#ffffff"
-    COLOR_SURFACE = "#ffffff"
-    COLOR_TEXT = "#1a1a1a"
-    COLOR_TEXT_SECONDARY = "#666666"
-    COLOR_TEXT_PRIMARY = "#1a1a1a"
+    COLOR_BACKGROUND = "#F8F9FA"  # Gris muy claro, más moderno que #f5f5f5
+    COLOR_SURFACE = "#FFFFFF"
+    COLOR_TEXT = "#212529"
+    COLOR_TEXT_SECONDARY = "#6C757D"
+    COLOR_TEXT_TERTIARY = "#ADB5BD"
     
-    # Colores primarios
-    COLOR_PRIMARY = "#2563eb"
-    COLOR_PRIMARY_HOVER = "#1d4ed8"
-    COLOR_PRIMARY_TEXT = "#ffffff"
+    # Colores primarios (Azul vibrante pero profesional)
+    COLOR_PRIMARY = "#0D6EFD"
+    COLOR_PRIMARY_HOVER = "#0B5ED7"
+    COLOR_PRIMARY_ACTIVE = "#0A58CA"
+    COLOR_PRIMARY_LIGHT = "#E7F1FF"  # Para fondos sutiles
+    COLOR_PRIMARY_TEXT = "#FFFFFF"
     
-    # Color de acento para avisos resaltados
-    COLOR_ACCENT = "#3b82f6"
+    # Colores secundarios (Gris neutro)
+    COLOR_SECONDARY = "#6C757D"
+    COLOR_SECONDARY_HOVER = "#5C636A"
+    COLOR_SECONDARY_LIGHT = "#E9ECEF"
     
-    # Colores secundarios
-    COLOR_SECONDARY = "#e5e7eb"
-    COLOR_SECONDARY_HOVER = "#d1d5db"
+    # Estados semánticos
+    COLOR_SUCCESS = "#198754"
+    COLOR_SUCCESS_BG = "#D1E7DD"
+    COLOR_WARNING = "#FFC107"
+    COLOR_WARNING_BG = "#FFF3CD"
+    COLOR_DANGER = "#DC3545"
+    COLOR_DANGER_HOVER = "#BB2D3B"
+    COLOR_DANGER_BG = "#F8D7DA"
+    COLOR_INFO = "#0DCAF0"
+    COLOR_INFO_BG = "#CFF4FC"
     
     # Bordes
-    COLOR_BORDER = "#e5e7eb"
-    COLOR_CARD_BORDER = "#d1d5db"
-    
-    # Estados
-    COLOR_SUCCESS = "#10b981"
-    COLOR_WARNING = "#f59e0b"
-    COLOR_WARNING_HOVER = "#d97706"
-    COLOR_DANGER = "#dc4a26"
-    COLOR_ERROR = "#ef4444"
-    COLOR_INFO = "#3b82f6"
-    
-    # Backgrounds adicionales
-    COLOR_BG_1 = "#fafafa"
-    COLOR_BG_2 = "#f0f0f0"
-    COLOR_BG_4 = "#fef3c7"  # Warning background    
-    COLOR_SURFACE_DISABLED = "#f9fafb"  # Fondo más oscuro para estados deshabilitados
+    COLOR_BORDER = "#DEE2E6"
+    COLOR_BORDER_LIGHT = "#E9ECEF"
+    COLOR_CARD_BORDER = "#DEE2E6"  # Alias for backward compatibility
     
     # ==================== TIPOGRAFÍA ====================
     
-    FONT_FAMILY_BASE = "Segoe UI, -apple-system, BlinkMacSystemFont, Roboto, sans-serif"
-    FONT_FAMILY_MONO = "Consolas, Monaco, 'Courier New', monospace"
+    FONT_FAMILY_BASE = "'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif"
+    FONT_FAMILY_MONO = "'Consolas', 'Monaco', monospace"
     
-    FONT_SIZE_XS = 10
-    FONT_SIZE_SMALL = 10
-    FONT_SIZE_SM = 12
+    FONT_SIZE_XS = 11
+    FONT_SIZE_SM = 13
     FONT_SIZE_BASE = 14
-    FONT_SIZE_BODY = 14
-    FONT_SIZE_MD = 14
-    FONT_SIZE_LG = 16
-    FONT_SIZE_H3 = 18
-    FONT_SIZE_XL = 18
-    FONT_SIZE_2XL = 20
-    FONT_SIZE_3XL = 24
+    FONT_SIZE_MD = 16
+    FONT_SIZE_LG = 18
+    FONT_SIZE_XL = 24
+    FONT_SIZE_2XL = 32
     
     FONT_WEIGHT_NORMAL = 400
     FONT_WEIGHT_MEDIUM = 500
-    FONT_WEIGHT_SEMIBOLD = 550
-    FONT_WEIGHT_BOLD = 600
-    
-    LINE_HEIGHT_NORMAL = 1.5
-    LINE_HEIGHT_RELAXED = 1.75
+    FONT_WEIGHT_SEMIBOLD = 600
+    FONT_WEIGHT_BOLD = 700
     
     # ==================== ESPACIADO ====================
-
+    
     SPACE_2 = 2
     SPACE_4 = 4
     SPACE_6 = 6
@@ -82,29 +71,24 @@ class DesignSystem:
     SPACE_10 = 10
     SPACE_12 = 12
     SPACE_16 = 16
-    SPACE_XS = 2
-    SPACE_SM = 12    
-    SPACE_MD = 16
     SPACE_20 = 20
     SPACE_24 = 24
     SPACE_32 = 32
     SPACE_40 = 40
     SPACE_48 = 48
-    SPACE_LG = 56
-    SPACE_XL = 64
     
-# ==================== BORDER RADIUS ====================
-
-    RADIUS_BASE = 8
-    RADIUS_SMALL = 4
+    # ==================== BORDER RADIUS ====================
+    
+    RADIUS_SM = 4
+    RADIUS_BASE = 6
+    RADIUS_MD = 8
     RADIUS_LG = 12
-    RADIUS_MEDIUM = 14
-    RADIUS_LARGE = 16
+    RADIUS_XL = 16
     RADIUS_FULL = 9999    # ==================== SOMBRAS ====================
     
-    SHADOW_SM = "0 1px 2px rgba(0, 0, 0, 0.05)"
-    SHADOW_MD = "0 4px 6px rgba(0, 0, 0, 0.07)"
-    SHADOW_LG = "0 10px 15px rgba(0, 0, 0, 0.1)"
+    SHADOW_SM = "0 1px 2px rgba(0,0,0,0.05)"
+    SHADOW_MD = "0 4px 6px rgba(0,0,0,0.05), 0 1px 3px rgba(0,0,0,0.1)"
+    SHADOW_LG = "0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)"
     
     # ==================== DIMENSIONES ====================
     
@@ -123,12 +107,27 @@ class DesignSystem:
     DROPZONE_WIDTH_MOBILE = 250
     DROPZONE_HEIGHT_MOBILE = 180
     
+    # ==================== LEGACY / COMPATIBILITY ====================
+    # Aliases maintained for backward compatibility with existing dialogs
+    
+    COLOR_ACCENT = COLOR_PRIMARY
+    COLOR_BG_1 = COLOR_BACKGROUND
+    COLOR_BG_2 = COLOR_SECONDARY_LIGHT
+    COLOR_BG_4 = COLOR_WARNING_BG
+    COLOR_SURFACE_DISABLED = COLOR_SECONDARY_LIGHT
+    COLOR_ERROR = COLOR_DANGER
+    
+    LINE_HEIGHT_NORMAL = 1.5
+    LINE_HEIGHT_RELAXED = 1.75
+    
+    RADIUS_SMALL = RADIUS_SM
+    
     # ==================== ICONOS ====================
     
     ICON_SIZE_SM = 16
-    ICON_SIZE_MD = 18
-    ICON_SIZE_LG = 22
-    ICON_SIZE_XL = 24
+    ICON_SIZE_MD = 20
+    ICON_SIZE_LG = 24
+    ICON_SIZE_XL = 32
     
     # ==================== MÉTODOS DE AYUDA ====================
     
@@ -268,26 +267,30 @@ class DesignSystem:
             }}
             
             QTabBar::tab {{
-                background-color: {DesignSystem.COLOR_SECONDARY};
-                color: {DesignSystem.COLOR_TEXT};
+                background-color: {DesignSystem.COLOR_BG_2};
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
                 padding: {DesignSystem.SPACE_12}px {DesignSystem.SPACE_20}px;
-                border: none;
-                border-radius: {DesignSystem.RADIUS_BASE}px {DesignSystem.RADIUS_BASE}px 0 0;
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-bottom: none;
+                border-top-left-radius: {DesignSystem.RADIUS_BASE}px;
+                border-top-right-radius: {DesignSystem.RADIUS_BASE}px;
                 margin-right: {DesignSystem.SPACE_4}px;
                 font-size: {DesignSystem.FONT_SIZE_BASE}px;
                 font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-                min-width: 80px;
+                min-width: 100px;
                 text-align: center;
             }}
             
             QTabBar::tab:selected {{
                 background-color: {DesignSystem.COLOR_SURFACE};
-                color: {DesignSystem.COLOR_TEXT};
-                border-bottom: 2px solid {DesignSystem.COLOR_PRIMARY};
+                color: {DesignSystem.COLOR_PRIMARY};
+                border-color: {DesignSystem.COLOR_CARD_BORDER};
+                border-bottom-color: {DesignSystem.COLOR_SURFACE}; /* Connect with pane */
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
             }}
             
             QTabBar::tab:hover {{
-                background-color: {DesignSystem.COLOR_SECONDARY_HOVER};
+                background-color: {DesignSystem.COLOR_BG_1};
                 color: {DesignSystem.COLOR_TEXT};
             }}
             
@@ -423,65 +426,108 @@ class DesignSystem:
             }}
         """
 
+
+
     @staticmethod
-    def get_combobox_style():
+    def get_checkbox_style():
         """
-        Estilo para QComboBox con Material Design.
-        Elimina bordes negros problemáticos en el popup desplegable.
+        Retorna el estilo consistente para checkboxes
         """
         return f"""
-            QComboBox {{
-                background-color: {DesignSystem.COLOR_SURFACE};
+            QCheckBox {{
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
                 color: {DesignSystem.COLOR_TEXT};
+                spacing: {DesignSystem.SPACE_8}px;
+            }}
+            QCheckBox::indicator {{
+                width: 18px;
+                height: 18px;
+                border: 2px solid {DesignSystem.COLOR_BORDER};
+                border-radius: 4px;
+                background-color: {DesignSystem.COLOR_SURFACE};
+            }}
+            QCheckBox::indicator:checked {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                border-color: {DesignSystem.COLOR_PRIMARY};
+                image: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iMTIiIHZpZXdCb3g9IjAgMCAxMiAxMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEwIDNMNC41IDguNUwyIDYiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+Cjwvc3ZnPgo=);
+            }}
+            QCheckBox::indicator:hover {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+            QCheckBox:disabled {{
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            }}
+            QCheckBox::indicator:disabled {{
+                border-color: {DesignSystem.COLOR_BORDER};
+                background-color: {DesignSystem.COLOR_BG_2};
+            }}
+        """
+
+    @staticmethod
+    def get_spinbox_style():
+        """
+        Retorna el estilo consistente para spinboxes
+        """
+        return f"""
+            QSpinBox {{
                 border: 1px solid {DesignSystem.COLOR_BORDER};
                 border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
+                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
+                background-color: {DesignSystem.COLOR_SURFACE};
+                color: {DesignSystem.COLOR_TEXT};
                 font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                min-height: 20px;
+                min-height: 32px;
+                min-width: 80px;
             }}
-            
-            QComboBox:hover {{
+            QSpinBox:hover {{
                 border-color: {DesignSystem.COLOR_PRIMARY};
             }}
-            
-            QComboBox:focus {{
+            QSpinBox:focus {{
                 border-color: {DesignSystem.COLOR_PRIMARY};
             }}
-            
-            QComboBox::drop-down {{
+            QSpinBox::up-button, QSpinBox::down-button {{
+                background-color: transparent;
                 border: none;
                 width: 20px;
             }}
-            
-            QComboBox::down-arrow {{
-                image: none;
-                border: none;
+            QSpinBox::up-button:hover, QSpinBox::down-button:hover {{
+                background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
+                border-radius: {DesignSystem.RADIUS_SM}px;
             }}
-            
-            /* Estilo del popup desplegable - elimina bordes negros */
-            QComboBox QAbstractItemView {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                color: {DesignSystem.COLOR_TEXT};
+            QSpinBox::up-arrow {{
+                image: none;
+                border-left: 4px solid transparent;
+                border-right: 4px solid transparent;
+                border-bottom: 4px solid {DesignSystem.COLOR_TEXT};
+            }}
+            QSpinBox::down-arrow {{
+                image: none;
+                border-left: 4px solid transparent;
+                border-right: 4px solid transparent;
+                border-top: 4px solid {DesignSystem.COLOR_TEXT};
+            }}
+        """
+
+    @staticmethod
+    def get_lineedit_style():
+        """
+        Retorna el estilo consistente para QLineEdit
+        """
+        return f"""
+            QLineEdit {{
                 border: 1px solid {DesignSystem.COLOR_BORDER};
                 border-radius: {DesignSystem.RADIUS_BASE}px;
-                selection-background-color: {DesignSystem.COLOR_PRIMARY};
-                selection-color: {DesignSystem.COLOR_PRIMARY_TEXT};
-                outline: none;
-            }}
-            
-            QComboBox QAbstractItemView::item {{
                 padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
-                border: none;
-                min-height: 20px;
+                background-color: {DesignSystem.COLOR_SURFACE};
+                color: {DesignSystem.COLOR_TEXT};
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
             }}
-            
-            QComboBox QAbstractItemView::item:hover {{
-                background-color: {DesignSystem.COLOR_BG_2};
+            QLineEdit:focus {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
             }}
-            
-            QComboBox QAbstractItemView::item:selected {{
-                background-color: {DesignSystem.COLOR_PRIMARY};
-                color: {DesignSystem.COLOR_PRIMARY_TEXT};
+            QLineEdit:read-only {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
             }}
         """
 
@@ -511,8 +557,9 @@ class DesignSystem:
                 background-color: {DesignSystem.COLOR_PRIMARY};
             }}
             QPushButton:disabled {{
-                background-color: {DesignSystem.COLOR_SECONDARY};
+                background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
                 color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
             }}
         """
     
@@ -540,8 +587,9 @@ class DesignSystem:
                 background-color: {DesignSystem.COLOR_DANGER};
             }}
             QPushButton:disabled {{
-                background-color: {DesignSystem.COLOR_SECONDARY};
+                background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
                 color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
             }}
         """
     
@@ -569,57 +617,8 @@ class DesignSystem:
                 background-color: {DesignSystem.COLOR_SECONDARY_HOVER};
             }}
             QPushButton:disabled {{
-                background-color: {DesignSystem.COLOR_SECONDARY};
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                border-color: {DesignSystem.COLOR_SECONDARY};
-            }}
+            background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            border: 1px solid {DesignSystem.COLOR_BORDER};
+        }}
         """
-
-    # ==================== LEGACY CONSTANTS (TO BE REVIEWED) ====================
-    # These constants are migrated from ui_styles.py and need to be reviewed/updated
-    # TODO: Review and modernize these legacy styles to use DesignSystem tokens
-    
-    # Legacy button styles (DEPRECATED - usar get_danger_button_style())
-    STYLE_DANGER_BUTTON = """
-    QPushButton {
-        background-color: #dc3545;
-        color: white;
-        padding: 8px 20px;
-        border-radius: 4px;
-        border: none;
-        font-weight: 500;
-    }
-    QPushButton:hover {
-        background-color: #c82333;
-    }
-    QPushButton:pressed {
-        background-color: #bd2130;
-    }
-    QPushButton:disabled {
-        background-color: #6c757d;
-        color: #ffffff;
-    }
-    """
-    
-    # Legacy dialog styles
-    STYLE_DIALOG_SEPARATOR = "color: #dee2e6;"
-    STYLE_DIALOG_COUNTER_BOLD = "font-weight: bold; color: #2c5aa0; margin-left: 10px;"
-    STYLE_DIALOG_PAGINATION_FRAME = "QFrame { background-color: #f0f0f0; border-radius: 3px; }"
-    STYLE_DIALOG_PAGE_LABEL = "font-weight: bold; padding: 0 20px;"
-    STYLE_DIALOG_PROBLEM_INFO = "color: #fd7e14; font-size: 10px;"
-    STYLE_DIALOG_PROBLEM_TEXT = "font-size: 10px; color: #6c757d;"
-    STYLE_DIALOG_OPTIONS_GROUP = "QGroupBox { font-weight: bold; }"
-    
-    # Legacy panel and label styles
-    STYLE_PANEL_LABEL = "padding: 8px; background-color: #f8f9fa; border-radius: 4px;"
-    STYLE_DIALOG_WARNING_ORANGE = "color: #fd7e14; padding: 5px; font-weight: bold;"
-    STYLE_DIALOG_NO_PREVIEW = "color: #6c757d; font-size: 10px; font-style: italic;"
-    STYLE_DIALOG_NAME_LABEL = "font-size: 11px; color: #212529; background: transparent;"
-    STYLE_DIALOG_DETAILS_LABEL = "font-size: 9px; color: #6c757d; background: transparent;"
-    STYLE_DIALOG_TITLE_BOLD = "font-weight: bold; font-size: 14px; color: #212529;"
-    STYLE_DIALOG_DESC_MUTED = "color: #6c757d; font-size: 11px; padding: 5px;"
-    STYLE_DIALOG_LABEL_DISABLED = "border: 1px solid #adb5bd; background-color: #e9ecef;"
-    
-    # Legacy colors (RGB values for QColor usage)
-    COLOR_CONFLICT_BG = "#ffc107"  # RGB: 255, 193, 7
-    COLOR_SUCCESS_BG = "#4caf50"   # RGB: 76, 175, 80

@@ -317,8 +317,9 @@ class Stage3Window(BaseStage):
         card = ToolCard(
             icon_name='content-copy',
             title='Copias exactas',
-            description='Encuentra fotos y vídeos copiados (100% idénticos), '
-                       'incluso si tienen nombres diferentes. Elimina duplicados.',
+            description='Encuentra archivos 100% idénticos bit a bit, incluso con nombres '
+                       'diferentes. Si las fechas o metadatos son diferentes, no se considera '
+                       'idéntico. Para duplicados con metadatos diferentes, usa "Archivos similares".',
             action_text='Gestionar ahora'
         )
 
@@ -340,8 +341,9 @@ class Stage3Window(BaseStage):
         card = ToolCard(
             icon_name='image-search',
             title='Archivos similares',
-            description='Detecta fotos y vídeos visualmente similares: recortes, '
-                       'rotaciones, ediciones o diferentes resoluciones.',
+            description='Detecta fotos y vídeos visualmente idénticos aunque tengan metadatos '
+                       'diferentes (fechas, compresión, etc.). Al 100% de similitud son '
+                       'prácticamente idénticos visualmente.',
             action_text='Analizar ahora'
         )
 
