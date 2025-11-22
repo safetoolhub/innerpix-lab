@@ -155,42 +155,17 @@ class RenamingPreviewDialog(BaseDialog):
 
     def _create_info_section(self):
         """Crea sección de información y advertencias"""
-        container = QFrame()
-        container.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_INFO_BG};
-                border: 1px solid {DesignSystem.COLOR_INFO};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_12}px;
-            }}
-        """)
+        message = (
+            "El renombrado de archivos puede afectar a pares de archivos como Live Photos o HEIC+JPG "
+            "si no se renombran juntos.<br><br>"
+            "Los conflictos de nombre se resolverán añadiendo un sufijo numérico (ej: _1, _2) "
+            "para evitar sobrescrituras."
+        )
         
-        layout = QHBoxLayout(container)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(DesignSystem.SPACE_12)
-        
-        # Icono
-        icon_label = QLabel()
-        icon_manager.set_label_icon(icon_label, 'information-outline', color=DesignSystem.COLOR_INFO, size=DesignSystem.ICON_SIZE_MD)
-        layout.addWidget(icon_label, 0, Qt.AlignmentFlag.AlignTop)
-        
-        # Texto
-        text_layout = QVBoxLayout()
-        text_layout.setSpacing(DesignSystem.SPACE_4)
-        
-        warning_label = QLabel("<b>Nota Importante:</b> El renombrado de archivos puede afectar a pares de archivos como Live Photos o HEIC+JPG si no se renombran juntos.")
-        warning_label.setWordWrap(True)
-        warning_label.setStyleSheet(f"color: #055160; font-size: {DesignSystem.FONT_SIZE_SM}px;")
-        text_layout.addWidget(warning_label)
-        
-        conflict_label = QLabel("Los conflictos de nombre se resolverán añadiendo un sufijo numérico (ej: _1, _2) para evitar sobrescrituras.")
-        conflict_label.setWordWrap(True)
-        conflict_label.setStyleSheet(f"color: #055160; font-size: {DesignSystem.FONT_SIZE_SM}px;")
-        text_layout.addWidget(conflict_label)
-        
-        layout.addLayout(text_layout, 1)
-        
-        return container
+        return self._create_info_banner(
+            title="Nota Importante",
+            message=message
+        )
 
 
 
