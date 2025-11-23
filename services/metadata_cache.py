@@ -87,16 +87,23 @@ class FileMetadataCache:
         Args:
             max_age_seconds: Tiempo de vida máximo de entradas (default 1 hora)
         """
+        from config import Config
+        
         self.logger = get_logger('FileMetadataCache')
         self._cache: Dict[Path, FileMetadata] = {}
         self._max_age_seconds = max_age_seconds
+        self._max_entries = Config.get_max_cache_entries()  # Dinámico según RAM
         self._enabled = True
         
         # Estadísticas de uso
         self._hits = 0
         self._misses = 0
         
-        self.logger.debug(f"Caché de metadatos inicializada (max_age={max_age_seconds}s)")
+        self.logger.debug(
+            f"Caché de metadatos inicializada "
+            f"(max_age={max_age_seconds}s, max_entries={self._max_entries}, "
+            f"dinámico según RAM del sistema)"
+        )
     
     def get_or_create(self, file_path: Path) -> FileMetadata:
         """
@@ -128,6 +135,11 @@ class FileMetadataCache:
         self._misses += 1
         metadata = FileMetadata(path=file_path)
         self._cache[file_path] = metadata
+        
+        # Limitar tamaño de caché para prevenir OOM
+        if len(self._cache) > self._max_entries:
+            self._evict_oldest_entries()
+        
         return metadata
     
     def get_hash(self, file_path: Path) -> Optional[str]:
@@ -305,6 +317,43 @@ class FileMetadataCache:
             self._hits = 0
             self._misses = 0
             self.logger.info(f"Caché completa invalidada ({count} entradas)")
+    
+    def clear_cache(self) -> None:
+        """
+        Limpia la caché completamente.
+        Alias para invalidate() sin argumentos.
+        """
+        self.invalidate()
+    
+    def _evict_oldest_entries(self, keep_ratio: float = 0.8) -> None:
+        """
+        Elimina las entradas más antiguas cuando se excede el límite.
+        
+        Args:
+            keep_ratio: Ratio de entradas a mantener (default 0.8 = mantener 80%)
+        """
+        if not self._cache:
+            return
+        
+        target_size = int(self._max_entries * keep_ratio)
+        if len(self._cache) <= target_size:
+            return
+        
+        # Ordenar por cached_at y mantener las más recientes
+        sorted_entries = sorted(
+            self._cache.items(),
+            key=lambda item: item[1].cached_at,
+            reverse=True
+        )
+        
+        # Mantener solo las más recientes
+        self._cache = dict(sorted_entries[:target_size])
+        evicted = len(sorted_entries) - target_size
+        
+        self.logger.debug(
+            f"Caché demasiado grande. Eliminadas {evicted} entradas antiguas "
+            f"(quedan {len(self._cache)})"
+        )
     
     def disable(self) -> None:
         """Deshabilita la caché (útil para debugging o tests)"""

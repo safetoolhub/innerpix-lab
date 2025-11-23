@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Optional, Callable, Dict, List, Any, TYPE_CHECKING, Protocol
 from dataclasses import dataclass, field
 import time
+import gc
+import sys
 
 from config import Config
 from utils.logger import get_logger, log_section_header_discrete, log_section_footer_discrete
@@ -105,10 +107,23 @@ class AnalysisOrchestrator:
     - Workers (con callbacks para UI)
     - Scripts CLI (con callbacks para print)
     - Tests (con callbacks para validación)
+    
+    Los límites de memoria (MAX_CACHE_SIZE, LARGE_DATASET_THRESHOLD) son
+    calculados dinámicamente por Config según la RAM disponible del sistema.
     """
     
     def __init__(self):
         self.logger = get_logger('AnalysisOrchestrator')
+        
+        # Obtener límites dinámicos según RAM del sistema
+        self.max_cache_size = Config.get_max_cache_entries()
+        self.large_dataset_threshold = Config.get_large_dataset_threshold()
+        
+        self.logger.debug(
+            f"Orchestrator inicializado con límites dinámicos: "
+            f"max_cache={self.max_cache_size}, "
+            f"large_threshold={self.large_dataset_threshold}"
+        )
     
     def _execute_phase(self,
                       phase_id: str,
@@ -431,6 +446,32 @@ class AnalysisOrchestrator:
             metadata_cache=metadata_cache
         )
     
+    def _log_memory_usage(self, phase: str) -> None:
+        """Log del uso de memoria después de cada fase"""
+        try:
+            import psutil
+            process = psutil.Process()
+            mem_info = process.memory_info()
+            mem_mb = mem_info.rss / (1024 * 1024)
+            self.logger.debug(f"[{phase}] Memoria usada: {mem_mb:.1f} MB")
+        except ImportError:
+            pass  # psutil no disponible
+    
+    def _release_memory(self, metadata_cache: Optional[FileMetadataCache]) -> None:
+        """Libera memoria forzando garbage collection"""
+        if metadata_cache:
+            cache_size = len(metadata_cache._cache) if hasattr(metadata_cache, '_cache') else 0
+            if cache_size > self.max_cache_size:
+                self.logger.warning(
+                    f"Caché grande detectada ({cache_size} archivos, "
+                    f"límite: {self.max_cache_size}). Liberando memoria..."
+                )
+                metadata_cache.clear_cache()
+        
+        # Forzar garbage collection
+        gc.collect()
+        self.logger.debug("Memoria liberada (gc.collect ejecutado)")
+    
     def run_full_analysis(self,
                          directory: Path,
                          renamer: Optional[AnalyzableService] = None,
@@ -495,6 +536,14 @@ class AnalysisOrchestrator:
         )
         result.phase_timings['scan'] = scan_timing
         
+        # Warning para datasets muy grandes
+        if scan_result.total_files > self.large_dataset_threshold:
+            self.logger.warning(
+                f"Dataset grande detectado ({scan_result.total_files} archivos, "
+                f"umbral: {self.large_dataset_threshold}). "
+                "El análisis puede ser lento y consumir mucha memoria."
+            )
+        
         # Obtener caché compartida del escaneo
         metadata_cache = scan_result.metadata_cache
         if metadata_cache:
@@ -538,6 +587,11 @@ class AnalysisOrchestrator:
                 phase_callback=phase_callback,
                 partial_callback=partial_callback
             )
+            
+            # Liberar memoria después de fase pesada
+            self._log_memory_usage("heic")
+            if scan_result.total_files > self.large_dataset_threshold:
+                self._release_memory(metadata_cache)
         
         # Fase 5: Duplicados exactos (usa caché para hashes SHA256)
         if duplicate_exact_detector:
@@ -551,6 +605,11 @@ class AnalysisOrchestrator:
                 phase_callback=phase_callback,
                 partial_callback=partial_callback
             )
+            
+            # Liberar memoria después de fase pesada
+            self._log_memory_usage("duplicates")
+            if scan_result.total_files > self.large_dataset_threshold:
+                self._release_memory(metadata_cache)
         
         # Fase 6: Organización
         if organizer:

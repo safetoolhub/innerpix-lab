@@ -117,6 +117,78 @@ class Config:
     # Por defecto False porque es muy lento y la app se enfoca en imágenes
     USE_VIDEO_METADATA = False
     
+    # ========================================================================
+    # CONFIGURACIÓN DE MEMORIA Y CACHÉ (DINÁMICA SEGÚN RAM)
+    # ========================================================================
+    @staticmethod
+    def _get_system_ram_gb() -> float:
+        """
+        Obtiene la RAM total del sistema en GB.
+        
+        Returns:
+            RAM en GB, o 8.0 si no se puede detectar
+        """
+        try:
+            import psutil
+            return psutil.virtual_memory().total / (1024 ** 3)
+        except ImportError:
+            # psutil no disponible, asumir 8GB por defecto
+            return 8.0
+    
+    @classmethod
+    def get_max_cache_entries(cls) -> int:
+        """
+        Calcula el número máximo de entradas en caché según RAM disponible.
+        
+        Fórmula: 1000 entradas por GB de RAM (mínimo 5000, máximo 20000)
+        
+        Returns:
+            Número máximo de entradas para caché de metadatos
+        """
+        ram_gb = cls._get_system_ram_gb()
+        
+        # 1000 entradas por GB de RAM
+        max_entries = int(ram_gb * 1000)
+        
+        # Límites: mínimo 5000, máximo 20000
+        return max(5000, min(20000, max_entries))
+    
+    @classmethod
+    def get_large_dataset_threshold(cls) -> int:
+        """
+        Calcula el umbral para considerar un dataset como "grande" según RAM.
+        
+        Datasets grandes activan optimizaciones de memoria:
+        - Liberación de caché entre fases
+        - No apertura automática de diálogos
+        - Garbage collection más agresivo
+        
+        Fórmula: 500 archivos por GB de RAM (mínimo 3000, máximo 10000)
+        
+        Returns:
+            Número de archivos para considerar dataset grande
+        """
+        ram_gb = cls._get_system_ram_gb()
+        
+        # 500 archivos por GB de RAM
+        threshold = int(ram_gb * 500)
+        
+        # Límites: mínimo 3000, máximo 10000
+        return max(3000, min(10000, threshold))
+    
+    @classmethod
+    def get_similarity_dialog_auto_open_threshold(cls) -> int:
+        """
+        Umbral de archivos para abrir automáticamente el diálogo de similares.
+        
+        Datasets mayores no abren automáticamente para evitar OOM en UI.
+        Configurado como el 60% del threshold de dataset grande.
+        
+        Returns:
+            Número máximo de archivos para apertura automática
+        """
+        return int(cls.get_large_dataset_threshold() * 0.6)
+    
 
 
     # ========================================================================

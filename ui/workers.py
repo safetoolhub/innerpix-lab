@@ -308,6 +308,14 @@ class AnalysisWorker(BaseWorker):
             # Emitir resultado final
             if not self._stop_requested:
                 self.finished.emit(result)
+                
+                # Liberar memoria explícitamente después de emitir
+                # Esto ayuda con datasets grandes (>5000 archivos)
+                import gc
+                del result
+                del orchestrator
+                gc.collect()
+                self.logger.debug("Memoria del worker liberada")
 
         except Exception as e:
             if not self._stop_requested:
