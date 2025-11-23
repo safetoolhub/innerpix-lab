@@ -213,6 +213,9 @@ class FileOrganizationDialog(BaseDialog):
         
         # Aplicar estilo global de tooltips
         self.setStyleSheet(DesignSystem.get_tooltip_style())
+        
+        # Inicializar la selección de estrategia y las opciones (ahora que la UI está lista)
+        self._initialize_strategy_selection()
 
     def _create_selection_ui(self) -> QWidget:
         """Crea la nueva interfaz de selección con Estrategia + Opciones Contextuales"""
@@ -293,8 +296,7 @@ class FileOrganizationDialog(BaseDialog):
         
         layout.addWidget(self.settings_stack)
         
-        # Inicializar la selección de estrategia y las opciones
-        self._initialize_strategy_selection()
+        layout.addWidget(self.settings_stack)
         
         return container
 
