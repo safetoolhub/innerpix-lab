@@ -397,10 +397,21 @@ class HEICRemover(BaseService):
                     )
                     if backup_path:
                         results.backup_path = str(backup_path)
+                        self.logger.info(f"Backup creado exitosamente: {backup_path}")
+                    else:
+                        # Si no se pudo crear backup, no continuar con la operación
+                        error_msg = "No se pudo crear el backup. Operación cancelada por seguridad."
+                        self.logger.error(error_msg)
+                        results.success = False
+                        results.add_error(error_msg)
+                        results.message = error_msg
+                        return results
                 except BackupCreationError as e:
                     error_msg = f"Error creando backup: {e}"
                     self.logger.error(error_msg)
+                    results.success = False
                     results.add_error(error_msg)
+                    results.message = error_msg
                     return results
             
             # Procesar cada par

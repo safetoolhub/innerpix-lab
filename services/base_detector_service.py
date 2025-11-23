@@ -143,11 +143,24 @@ class BaseDetectorService(BaseService):
                         'duplicates_deletion',
                         progress_callback
                     )
+                    if backup_path:
+                        self.logger.info(f"Backup creado exitosamente: {backup_path}")
+                    else:
+                        # Si no se pudo crear backup, no continuar con la operación
+                        error_msg = "No se pudo crear el backup. Operación cancelada por seguridad."
+                        self.logger.error(error_msg)
+                        return DuplicateDeletionResult(
+                            success=False,
+                            errors=[error_msg],
+                            keep_strategy=keep_strategy,
+                            dry_run=dry_run
+                        )
                 except BackupCreationError as e:
-                    self.logger.error(f"Error creando backup: {e}")
+                    error_msg = f"Error creando backup: {e}"
+                    self.logger.error(error_msg)
                     return DuplicateDeletionResult(
                         success=False,
-                        errors=[str(e)],
+                        errors=[error_msg],
                         keep_strategy=keep_strategy,
                         dry_run=dry_run
                     )

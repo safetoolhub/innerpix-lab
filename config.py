@@ -84,7 +84,8 @@ class Config:
     # CONSTANTES DE WORKERS
     # ========================================================================
     WORKER_SHUTDOWN_TIMEOUT_MS = 10000  # Tiempo de espera para detener workers (milisegundos)
-    UI_UPDATE_INTERVAL = 1  # Actualizar progreso cada N archivos procesados
+    UI_UPDATE_INTERVAL = 1  # Actualizar progreso de UI cada N archivos procesados
+    LOG_PROGRESS_INTERVAL = 1000  # Escribir log de progreso cada N archivos (modo INFO)
 
     # ========================================================================
     # CONSTANTES DE DIÁLOGOS
