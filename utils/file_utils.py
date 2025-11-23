@@ -28,7 +28,7 @@ WHATSAPP_PATTERNS = [
     r'^PTT-\d{8}-WA\d{4}\..*$',  # PTT (voice notes)
     r'^WhatsApp\s+Image\s+\d{4}-\d{2}-\d{2}\s+at\s+.*\..*$',  # WhatsApp Image 2023-10-25 at 12.34.56.jpg
     r'^WhatsApp\s+Video\s+\d{4}-\d{2}-\d{2}\s+at\s+.*\..*$',  # WhatsApp Video 2023-10-25 at 12.34.56.mp4
-    r'^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}\.(jpg|jpeg|png|mp4|mov|heic)$',  # UUID format (iPhone export)
+    r'^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}(_\d{3})?\.(jpg|jpeg|png|mp4|mov|heic)$',  # UUID format (iPhone export) with optional suffix
 ]
 
 

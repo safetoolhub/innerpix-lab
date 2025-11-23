@@ -320,7 +320,7 @@ class FileOrganizationDialog(BaseDialog):
         # Etiqueta
         text_label = QLabel(data['label'])
         text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        text_label.setStyleSheet(f"font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM}; color: {DesignSystem.COLOR_TEXT};")
+        text_label.setStyleSheet(f"font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM}; color: {DesignSystem.COLOR_TEXT}; border: none;")
         layout.addWidget(text_label)
         
         # Guardar referencias para actualizar estilos
@@ -465,20 +465,30 @@ class FileOrganizationDialog(BaseDialog):
         # Actualizar estilos de tarjetas
         for k, card in self.strategy_cards.items():
             is_selected = (k == key)
-            bg_color = f"{DesignSystem.COLOR_PRIMARY}1A" if is_selected else DesignSystem.COLOR_SURFACE
-            border_color = DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_BORDER
-            text_color = DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_TEXT
-            icon_color = DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_TEXT_SECONDARY
+            
+            if is_selected:
+                bg_color = DesignSystem.COLOR_PRIMARY_LIGHT # Más sutil
+                border_color = DesignSystem.COLOR_PRIMARY
+                text_color = DesignSystem.COLOR_PRIMARY
+                icon_color = DesignSystem.COLOR_PRIMARY
+                border_style = f"1px solid {border_color}"
+            else:
+                bg_color = "transparent" # Sin fondo por defecto
+                border_color = "transparent"
+                text_color = DesignSystem.COLOR_TEXT
+                icon_color = DesignSystem.COLOR_TEXT_SECONDARY
+                border_style = "1px solid transparent" # Mantener borde transparente para evitar saltos
             
             card.setStyleSheet(f"""
                 QFrame {{
                     background-color: {bg_color};
-                    border: 1px solid {border_color};
+                    border: {border_style};
                     border-radius: {DesignSystem.RADIUS_BASE}px;
                 }}
             """)
             
-            card.text_label.setStyleSheet(f"font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM}; color: {text_color};")
+            # Asegurar que el label no tenga borde
+            card.text_label.setStyleSheet(f"font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM}; color: {text_color}; border: none; background: transparent;")
             icon_manager.set_label_icon(card.icon_label, self.strategies[k]['icon'], size=DesignSystem.ICON_SIZE_LG, color=icon_color)
 
         # Cambiar página del stack

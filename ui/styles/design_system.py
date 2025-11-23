@@ -351,20 +351,23 @@ class DesignSystem:
         """
         return f"""
             QComboBox {{
-                padding: {DesignSystem.SPACE_8}px;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
                 border: 1px solid {DesignSystem.COLOR_BORDER};
                 border-radius: {DesignSystem.RADIUS_BASE}px;
                 font-size: {DesignSystem.FONT_SIZE_BASE}px;
                 background-color: {DesignSystem.COLOR_SURFACE};
-                min-height: 28px;
+                min-height: 36px;
             }}
             
             QComboBox:hover {{
                 border-color: {DesignSystem.COLOR_PRIMARY};
+                background-color: {DesignSystem.COLOR_BG_1};
             }}
             
             QComboBox:focus {{
                 border-color: {DesignSystem.COLOR_PRIMARY};
+                border-width: 2px;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_10}px; /* Adjust padding for border width */
             }}
             
             QComboBox::drop-down {{
@@ -374,8 +377,9 @@ class DesignSystem:
             }}
             
             QComboBox::down-arrow {{
-                image: none;
-                border: none;
+                image: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iMTIiIHZpZXdCb3g9IjAgMCAxMiAxMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTIgNEw2IDhMMTAgNCIgc3Ryb2tlPSIjMjEyNTI5IiBzdHJva2Utd2lkdGg9IjEuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+Cjwvc3ZnPgo=);
+                width: 12px;
+                height: 12px;
             }}
             
             QComboBox QAbstractItemView {{
@@ -383,8 +387,8 @@ class DesignSystem:
                 border: 1px solid {DesignSystem.COLOR_BORDER};
                 border-radius: {DesignSystem.RADIUS_BASE}px;
                 padding: {DesignSystem.SPACE_4}px;
-                selection-background-color: {DesignSystem.COLOR_BG_2};
-                selection-color: {DesignSystem.COLOR_TEXT};
+                selection-background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
+                selection-color: {DesignSystem.COLOR_PRIMARY};
                 outline: none;
             }}
             
@@ -392,7 +396,7 @@ class DesignSystem:
                 padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
                 border-radius: {DesignSystem.RADIUS_SMALL}px;
                 margin: {DesignSystem.SPACE_2}px;
-                min-height: 24px;
+                min-height: 32px;
             }}
             
             QComboBox QAbstractItemView::item:hover {{
@@ -401,8 +405,9 @@ class DesignSystem:
             }}
             
             QComboBox QAbstractItemView::item:selected {{
-                background-color: {DesignSystem.COLOR_PRIMARY};
-                color: {DesignSystem.COLOR_PRIMARY_TEXT};
+                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
+                color: {DesignSystem.COLOR_PRIMARY};
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
             }}
         """
 
