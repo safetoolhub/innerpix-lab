@@ -50,6 +50,7 @@ class FileMove:
     has_conflict: bool = False
     sequence: Optional[int] = None
     target_folder: Optional[str] = None  # Carpeta destino (para organizaciones con carpetas: BY_MONTH, BY_YEAR, BY_YEAR_MONTH, BY_TYPE, BY_SOURCE)
+    source: str = "Unknown"  # Fuente detectada (WhatsApp, iPhone, etc.)
 
     def __post_init__(self):
         """Validaciones"""
@@ -680,7 +681,8 @@ class FileOrganizer(BaseService):
                         subdirectory=subdir_name,
                         file_type=file_info['type'],
                         size=file_info['size'],
-                        has_conflict=has_conflict
+                        has_conflict=has_conflict,
+                        source=detect_file_source(file_name, Path(file_path))
                     )
 
                     name_conflicts[file_name].append(move)
@@ -784,7 +786,8 @@ class FileOrganizer(BaseService):
                 files_by_month[folder_name].append({
                     'file_info': file_info,
                     'subdir_name': subdir_name,
-                    'date': file_date
+                    'date': file_date,
+                    'source': source if group_by_source else detect_file_source(file_info['name'], file_path)
                 })
 
         # Procesar archivos de la raíz
@@ -1125,7 +1128,8 @@ class FileOrganizer(BaseService):
                     file_type=file_info['type'],
                     size=file_info['size'],
                     has_conflict=has_conflict,
-                    target_folder=folder_name
+                    target_folder=folder_name,
+                    source=source if group_by_source else detect_file_source(file_info['name'], file_path)
                 )
 
                 name_conflicts[file_name].append(move)
@@ -1246,7 +1250,8 @@ class FileOrganizer(BaseService):
                     file_type=file_info['type'],
                     size=file_info['size'],
                     has_conflict=has_conflict,
-                    target_folder=folder_path
+                    target_folder=folder_path,
+                    source=source if group_by_source else detect_file_source(file_info['name'], file_path)
                 )
 
                 name_conflicts[file_name].append(move)
@@ -1375,7 +1380,8 @@ class FileOrganizer(BaseService):
                     file_type=file_info['type'],
                     size=file_info['size'],
                     has_conflict=has_conflict,
-                    target_folder=type_name
+                    target_folder=type_name,
+                    source=source if group_by_source else detect_file_source(file_info['name'], file_path)
                 )
 
                 name_conflicts[file_name].append(move)
@@ -1487,7 +1493,8 @@ class FileOrganizer(BaseService):
                     file_type=file_info['type'],
                     size=file_info['size'],
                     has_conflict=has_conflict,
-                    target_folder=source_name
+                    target_folder=source_name,
+                    source=source_name
                 )
 
                 name_conflicts[file_name].append(move)

@@ -591,6 +591,11 @@ class FileOrganizationDialog(BaseDialog):
         """Maneja la finalización del análisis"""
         self.logger.info(f"Análisis completado: {result.total_files_to_move} archivos (tipo: {result.organization_type})")
         self.analysis = result
+        self.counter_label.setText(f"{len(result.move_plan)} archivos")
+        
+        # Actualizar opciones de filtros basadas en los datos
+        self._update_filter_options()
+        
         self.filtered_moves = list(result.move_plan)
         self.current_page = 0
         
@@ -810,66 +815,47 @@ class FileOrganizationDialog(BaseDialog):
         sep.setFixedHeight(20)
         toolbar.addWidget(sep)
         
-        # Filtro por tipo
-        type_container = QHBoxLayout()
-        type_container.setSpacing(DesignSystem.SPACE_8)
+        # Filtro por Categoría
+        cat_container = QHBoxLayout()
+        cat_container.setSpacing(DesignSystem.SPACE_8)
         
-        type_label = QLabel("Tipo:")
-        type_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
+        cat_label = QLabel("Categoría:")
+        cat_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
         
-        self.type_combo = QComboBox()
-        if self.analysis:
-            types = ["Todos"] + sorted(list(self.analysis.files_by_type.keys()))
-        else:
-            types = ["Todos"]
-        self.type_combo.addItems(types)
-        self.type_combo.currentTextChanged.connect(self._apply_filters)
-        self.type_combo.setMinimumWidth(120)
-        self.type_combo.setStyleSheet(DesignSystem.get_combobox_style())
+        self.category_combo = QComboBox()
+        self.category_combo.addItems(["Todos"])
+        self.category_combo.currentTextChanged.connect(self._apply_filters)
+        self.category_combo.setMinimumWidth(100)
+        cat_container.addWidget(cat_label)
+        cat_container.addWidget(self.category_combo)
+        toolbar.addLayout(cat_container)
+
+
         
-        type_container.addWidget(type_label)
-        type_container.addWidget(self.type_combo)
-        toolbar.addLayout(type_container)
+        # Filtro por Estado (Conflictos)
+        status_container = QHBoxLayout()
+        status_container.setSpacing(DesignSystem.SPACE_8)
         
-        # Filtro por subdirectorio (solo para to_root)
-        if self.current_organization_type == OrganizationType.TO_ROOT:
-            subdir_container = QHBoxLayout()
-            subdir_container.setSpacing(int(DesignSystem.SPACE_8))
-            
-            subdir_label = QLabel("Subdirectorio:")
-            subdir_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
-            
-            self.subdir_combo = QComboBox()
-            if self.analysis:
-                subdirs = ["Todos"] + sorted(list(self.analysis.subdirectories.keys()))
-            else:
-                subdirs = ["Todos"]
-            self.subdir_combo.addItems(subdirs)
-            self.subdir_combo.currentTextChanged.connect(self._apply_filters)
-            self.subdir_combo.setMinimumWidth(200)
-            self.subdir_combo.setStyleSheet(DesignSystem.get_combobox_style())
-            
-            subdir_container.addWidget(subdir_label)
-            subdir_container.addWidget(self.subdir_combo)
-            toolbar.addLayout(subdir_container)
-        else:
-            self.subdir_combo = None
+        status_label = QLabel("Estado:")
+        status_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
         
-        # Filtro solo conflictos
-        self.conflicts_checkbox = QCheckBox("Solo conflictos")
-        self.conflicts_checkbox.setStyleSheet(f"""
-            QCheckBox {{
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-                color: {DesignSystem.COLOR_TEXT};
-                spacing: {DesignSystem.SPACE_8}px;
-            }}
-            QCheckBox::indicator {{
-                width: 18px;
-                height: 18px;
+        self.status_combo = QComboBox()
+        self.status_combo.addItems(["Todos"])
+        self.status_combo.currentTextChanged.connect(self._apply_filters)
+        self.status_combo.setMinimumWidth(130)
+        self.status_combo.setStyleSheet(f"""
+            QComboBox {{
+                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                background-color: {DesignSystem.COLOR_SURFACE};
+                selection-background-color: {DesignSystem.COLOR_PRIMARY};
             }}
         """)
-        self.conflicts_checkbox.stateChanged.connect(self._apply_filters)
-        toolbar.addWidget(self.conflicts_checkbox)
+        
+        status_container.addWidget(status_label)
+        status_container.addWidget(self.status_combo)
+        toolbar.addLayout(status_container)
         
         toolbar.addStretch()
         
@@ -960,27 +946,18 @@ class FileOrganizationDialog(BaseDialog):
         return tree
     
     def _configure_tree_columns(self, tree: QTreeWidget):
-        """Configura las columnas del tree según el tipo de organización"""
-        org_type = self.current_organization_type
+        """Configura las columnas del tree de forma estandarizada"""
+        # Estándar: Nombre Original, Nuevo Nombre, Fecha, Origen, Estado, Tamaño
+        headers = ["Nombre Original", "Nuevo Nombre", "Fecha", "Origen", "Estado", "Tamaño"]
+        tree.setHeaderLabels(headers)
         
-        if org_type == OrganizationType.TO_ROOT:
-            tree.setHeaderLabels(["Archivo", "Origen", "Tamaño", "Estado"])
-            tree.setColumnWidth(0, 380)
-            tree.setColumnWidth(1, 180)
-            tree.setColumnWidth(2, 100)
-            tree.setColumnWidth(3, 250)
-        elif org_type in (OrganizationType.BY_MONTH, OrganizationType.BY_YEAR, OrganizationType.BY_YEAR_MONTH):
-            tree.setHeaderLabels(["Archivo", "Fecha", "Origen", "Tamaño"])
-            tree.setColumnWidth(0, 400)
-            tree.setColumnWidth(1, 120)
-            tree.setColumnWidth(2, 200)
-            tree.setColumnWidth(3, 100)
-        elif org_type in (OrganizationType.BY_TYPE, OrganizationType.BY_SOURCE):
-            tree.setHeaderLabels(["Archivo", "Origen", "Destino", "Tamaño"])
-            tree.setColumnWidth(0, 400)
-            tree.setColumnWidth(1, 200)
-            tree.setColumnWidth(2, 150)
-            tree.setColumnWidth(3, 100)
+        # Ajustar anchos
+        tree.setColumnWidth(0, 300) # Nombre Original
+        tree.setColumnWidth(1, 300) # Nuevo Nombre
+        tree.setColumnWidth(2, 100) # Fecha
+        tree.setColumnWidth(3, 150) # Origen
+        tree.setColumnWidth(4, 100) # Estado
+        tree.setColumnWidth(5, 80)  # Tamaño
     
     def _create_pagination_controls(self) -> QWidget:
         """Crea controles de paginación con estilo Material Design"""
@@ -1123,30 +1100,74 @@ class FileOrganizationDialog(BaseDialog):
     
     # === FILTROS ===
     
+    def _update_filter_options(self):
+        """Actualiza las opciones de los filtros basándose en los datos actuales"""
+        if not self.analysis or not self.analysis.move_plan:
+            return
+
+        # 1. Categorías
+        type_map = {'PHOTO': 'Fotos', 'VIDEO': 'Videos'}
+        categories = set()
+        for move in self.analysis.move_plan:
+            categories.add(type_map.get(move.file_type, 'Otros'))
+        
+        current_cat = self.category_combo.currentText()
+        self.category_combo.blockSignals(True)
+        self.category_combo.clear()
+        self.category_combo.addItems(["Todos"] + sorted(list(categories)))
+        if current_cat in ["Todos"] + sorted(list(categories)):
+            self.category_combo.setCurrentText(current_cat)
+        else:
+            self.category_combo.setCurrentIndex(0)
+        self.category_combo.blockSignals(False)
+
+
+
+        # 3. Estado (Conflictos)
+        has_conflicts = any(move.has_conflict for move in self.analysis.move_plan)
+        
+        current_status = self.status_combo.currentText()
+        self.status_combo.blockSignals(True)
+        self.status_combo.clear()
+        status_items = ["Todos"]
+        if has_conflicts:
+            status_items.extend(["Con Conflictos", "Sin Conflictos"])
+        
+        self.status_combo.addItems(status_items)
+        if current_status in status_items:
+            self.status_combo.setCurrentText(current_status)
+        else:
+            self.status_combo.setCurrentIndex(0)
+        self.status_combo.blockSignals(False)
+
     def _apply_filters(self):
         """Aplica filtros a la lista de movimientos"""
         search_text = self.search_input.text().lower()
-        type_filter = self.type_combo.currentText()
-        subdir_filter = self.subdir_combo.currentText() if self.subdir_combo else "Todos"
-        show_only_conflicts = self.conflicts_checkbox.isChecked()
+        category_filter = self.category_combo.currentText()
+        status_filter = self.status_combo.currentText()
         
         self.filtered_moves = []
+        
+        # Mapeo de categorías
+        type_map = {'PHOTO': 'Fotos', 'VIDEO': 'Videos'}
         
         for move in self.analysis.move_plan:
             # Filtro de búsqueda
             if search_text and search_text not in move.original_name.lower():
                 continue
             
-            # Filtro por tipo
-            if type_filter != "Todos" and move.file_type != type_filter:
-                continue
+            # Filtro por Categoría
+            if category_filter != "Todos":
+                move_cat = type_map.get(move.file_type, 'Otros')
+                if move_cat != category_filter:
+                    continue
             
-            # Filtro por subdirectorio
-            if subdir_filter != "Todos" and move.subdirectory != subdir_filter:
-                continue
+
             
-            # Filtro solo conflictos
-            if show_only_conflicts and not move.has_conflict:
+            # Filtro por Estado
+            if status_filter == "Con Conflictos" and not move.has_conflict:
+                continue
+            if status_filter == "Sin Conflictos" and move.has_conflict:
                 continue
             
             self.filtered_moves.append(move)
@@ -1157,10 +1178,8 @@ class FileOrganizationDialog(BaseDialog):
     def _clear_filters(self):
         """Limpia todos los filtros"""
         self.search_input.clear()
-        self.type_combo.setCurrentIndex(0)
-        if self.subdir_combo:
-            self.subdir_combo.setCurrentIndex(0)
-        self.conflicts_checkbox.setChecked(False)
+        self.category_combo.setCurrentIndex(0)
+        self.status_combo.setCurrentIndex(0)
     
     # === PAGINACIÓN ===
     
@@ -1264,13 +1283,15 @@ class FileOrganizationDialog(BaseDialog):
         
         root_parent = QTreeWidgetItem()
         root_parent.setText(0, "Raíz del directorio")
-        root_parent.setText(1, "")
-        root_parent.setText(2, f"{total_moves} archivos")
+        root_parent.setText(1, "") # Nuevo Nombre
+        root_parent.setText(2, "") # Fecha
+        root_parent.setText(3, f"{total_moves} archivos") # Origen (usado para resumen)
         if total_conflicts > 0:
-            root_parent.setText(3, f"{total_conflicts} conflictos | {format_size(total_size_all)}")
-            root_parent.setForeground(3, QColor(DesignSystem.COLOR_ERROR))
+            root_parent.setText(4, f"{total_conflicts} conflictos")
+            root_parent.setForeground(4, QColor(DesignSystem.COLOR_ERROR))
         else:
-            root_parent.setText(3, format_size(total_size_all))
+            root_parent.setText(4, "OK")
+        root_parent.setText(5, format_size(total_size_all))
         
         root_font = QFont()
         root_font.setBold(True)
@@ -1288,11 +1309,15 @@ class FileOrganizationDialog(BaseDialog):
             
             subdir_node = QTreeWidgetItem()
             subdir_node.setText(0, f"  Desde: {subdir}")
-            subdir_node.setText(1, f"{len(moves_in_subdir)} archivos")
-            subdir_node.setText(2, format_size(total_size))
+            subdir_node.setText(1, "")
+            subdir_node.setText(2, "")
+            subdir_node.setText(3, f"{len(moves_in_subdir)} archivos")
             if conflicts > 0:
-                subdir_node.setText(3, f"{conflicts} conflictos")
-                subdir_node.setForeground(3, QColor(DesignSystem.COLOR_ERROR))
+                subdir_node.setText(4, f"{conflicts} conflictos")
+                subdir_node.setForeground(4, QColor(DesignSystem.COLOR_ERROR))
+            else:
+                subdir_node.setText(4, "OK")
+            subdir_node.setText(5, format_size(total_size))
             
             subdir_font = QFont()
             subdir_font.setBold(True)
@@ -1305,16 +1330,37 @@ class FileOrganizationDialog(BaseDialog):
             for move in sorted(moves_in_subdir, key=lambda m: m.original_name):
                 child = QTreeWidgetItem()
                 child.setText(0, f"    {move.original_name}")
-                child.setText(1, subdir)
-                child.setText(2, format_size(move.size))
                 
+                # Nuevo Nombre
                 if move.has_conflict:
-                    child.setText(3, f"→ {move.new_name}")
-                    child.setForeground(3, QColor(DesignSystem.COLOR_ERROR))
+                    child.setText(1, move.new_name)
+                    child.setForeground(1, QColor(DesignSystem.COLOR_ERROR))
                 else:
-                    child.setText(3, "OK")
-                    child.setForeground(3, QColor(DesignSystem.COLOR_SUCCESS))
+                    child.setText(1, "Igual")
+                    child.setForeground(1, QColor(DesignSystem.COLOR_TEXT_SECONDARY))
                 
+                # Fecha
+                try:
+                    file_date = get_date_from_file(move.source_path)
+                    if file_date:
+                        child.setText(2, file_date.strftime("%Y-%m-%d"))
+                    else:
+                        child.setText(2, "-")
+                except:
+                    child.setText(2, "-")
+
+                child.setText(3, subdir)
+                
+                # Estado
+                if move.has_conflict:
+                    child.setText(4, "Conflicto")
+                    child.setForeground(4, QColor(DesignSystem.COLOR_ERROR))
+                    child.setForeground(0, QColor(DesignSystem.COLOR_ERROR))
+                else:
+                    child.setText(4, "OK")
+                    child.setForeground(4, QColor(DesignSystem.COLOR_SUCCESS))
+                
+                child.setText(5, format_size(move.size))
                 child.setData(0, Qt.ItemDataRole.UserRole, move)
                 subdir_node.addChild(child)
             
@@ -1341,8 +1387,10 @@ class FileOrganizationDialog(BaseDialog):
             parent = QTreeWidgetItem()
             parent.setText(0, f"{folder}/")
             parent.setText(1, "")
-            parent.setText(2, f"{len(moves_in_folder)} archivos")
-            parent.setText(3, format_size(total_size))
+            parent.setText(2, "")
+            parent.setText(3, f"{len(moves_in_folder)} archivos")
+            parent.setText(4, "")
+            parent.setText(5, format_size(total_size))
             
             parent_font = QFont()
             parent_font.setBold(True)
@@ -1355,17 +1403,36 @@ class FileOrganizationDialog(BaseDialog):
                 child = QTreeWidgetItem()
                 child.setText(0, f"  {move.original_name}")
                 
+                # Nuevo Nombre
+                if move.has_conflict:
+                    child.setText(1, move.new_name)
+                    child.setForeground(1, QColor(DesignSystem.COLOR_ERROR))
+                else:
+                    child.setText(1, "Igual")
+                    child.setForeground(1, QColor(DesignSystem.COLOR_TEXT_SECONDARY))
+                
+                # Fecha
                 try:
                     file_date = get_date_from_file(move.source_path)
                     if file_date:
-                        child.setText(1, file_date.strftime("%Y-%m-%d"))
+                        child.setText(2, file_date.strftime("%Y-%m-%d"))
                     else:
-                        child.setText(1, "Sin fecha")
+                        child.setText(2, "Sin fecha")
                 except Exception:
-                    child.setText(1, "Error")
+                    child.setText(2, "Error")
                 
-                child.setText(2, move.subdirectory)
-                child.setText(3, format_size(move.size))
+                child.setText(3, move.subdirectory)
+                
+                # Estado
+                if move.has_conflict:
+                    child.setText(4, "Conflicto")
+                    child.setForeground(4, QColor(DesignSystem.COLOR_ERROR))
+                    child.setForeground(0, QColor(DesignSystem.COLOR_ERROR))
+                else:
+                    child.setText(4, "OK")
+                    child.setForeground(4, QColor(DesignSystem.COLOR_SUCCESS))
+                
+                child.setText(5, format_size(move.size))
                 child.setData(0, Qt.ItemDataRole.UserRole, move)
                 
                 parent.addChild(child)
@@ -1397,8 +1464,10 @@ class FileOrganizationDialog(BaseDialog):
             parent = QTreeWidgetItem()
             parent.setText(0, f"{category}/")
             parent.setText(1, "")
-            parent.setText(2, f"{len(moves_in_category)} archivos")
-            parent.setText(3, format_size(total_size))
+            parent.setText(2, "")
+            parent.setText(3, f"{len(moves_in_category)} archivos")
+            parent.setText(4, "")
+            parent.setText(5, format_size(total_size))
             
             parent_font = QFont()
             parent_font.setBold(True)
@@ -1423,9 +1492,38 @@ class FileOrganizationDialog(BaseDialog):
             for move in sorted(moves_in_category, key=lambda m: m.original_name):
                 child = QTreeWidgetItem()
                 child.setText(0, f"  {move.original_name}")
-                child.setText(1, move.subdirectory if move.subdirectory != "<root>" else "Raíz")
-                child.setText(2, category)
-                child.setText(3, format_size(move.size))
+                
+                # Nuevo Nombre
+                if move.has_conflict:
+                    child.setText(1, move.new_name)
+                    child.setForeground(1, QColor(DesignSystem.COLOR_ERROR))
+                else:
+                    child.setText(1, "Igual")
+                    child.setForeground(1, QColor(DesignSystem.COLOR_TEXT_SECONDARY))
+                
+                # Fecha
+                try:
+                    file_date = get_date_from_file(move.source_path)
+                    if file_date:
+                        child.setText(2, file_date.strftime("%Y-%m-%d"))
+                    else:
+                        child.setText(2, "-")
+                except:
+                    child.setText(2, "-")
+
+                child.setText(3, move.subdirectory if move.subdirectory != "<root>" else "Raíz")
+                
+                # Estado
+                if move.has_conflict:
+                    child.setText(4, "Conflicto")
+                    child.setForeground(4, QColor(DesignSystem.COLOR_ERROR))
+                    child.setText(0, f"  {move.original_name} (Conflicto)")
+                    child.setForeground(0, QColor(DesignSystem.COLOR_ERROR))
+                else:
+                    child.setText(4, "OK")
+                    child.setForeground(4, QColor(DesignSystem.COLOR_SUCCESS))
+                
+                child.setText(5, format_size(move.size))
                 child.setData(0, Qt.ItemDataRole.UserRole, move)
                 
                 parent.addChild(child)
