@@ -346,8 +346,8 @@ class DesignSystem:
     @staticmethod
     def get_combobox_style():
         """
-        Retorna el estilo QSS completo para ComboBox Material Design
-        Incluye el dropdown y los items del menú
+        Retorna el estilo QSS completo para ComboBox Material Design Premium
+        Incluye el dropdown y los items del menú con un look moderno y espacioso
         """
         return f"""
             QComboBox {{
@@ -358,7 +358,8 @@ class DesignSystem:
                 font-size: {DesignSystem.FONT_SIZE_BASE}px;
                 color: {DesignSystem.COLOR_TEXT};
                 background-color: {DesignSystem.COLOR_SURFACE};
-                min-height: 36px;
+                min-height: 40px; /* Más alto para toque premium */
+                min-width: 120px;
             }}
             
             QComboBox:hover {{
@@ -369,7 +370,7 @@ class DesignSystem:
             QComboBox:focus {{
                 border-color: {DesignSystem.COLOR_PRIMARY};
                 border-width: 2px;
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_10}px; /* Adjust padding for border width */
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_10}px; /* Compensar borde */
             }}
             
             QComboBox::drop-down {{
@@ -379,11 +380,15 @@ class DesignSystem:
             }}
             
             QComboBox::down-arrow {{
-                image: url(data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path fill='none' stroke='%23333' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round' d='M2 4l4 4 4-4'/></svg>);
+                image: url(data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' d='M2 4l4 4 4-4'/></svg>);
                 width: 12px;
                 height: 12px;
             }}
             
+            QComboBox::down-arrow:hover {{
+                 image: url(data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path fill='none' stroke='%230d6efd' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' d='M2 4l4 4 4-4'/></svg>);
+            }}
+
             QComboBox QAbstractItemView {{
                 background-color: {DesignSystem.COLOR_SURFACE};
                 border: 1px solid {DesignSystem.COLOR_BORDER};
@@ -395,13 +400,14 @@ class DesignSystem:
                 font-family: {DesignSystem.FONT_FAMILY_BASE};
                 font-size: {DesignSystem.FONT_SIZE_BASE}px;
                 color: {DesignSystem.COLOR_TEXT};
+                margin-top: {DesignSystem.SPACE_4}px; /* Espacio entre combo y lista */
             }}
             
             QComboBox QAbstractItemView::item {{
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
+                padding: {DesignSystem.SPACE_10}px {DesignSystem.SPACE_16}px; /* Más espaciado */
                 border-radius: {DesignSystem.RADIUS_SMALL}px;
                 margin: {DesignSystem.SPACE_2}px;
-                min-height: 32px;
+                min-height: 36px;
             }}
             
             QComboBox QAbstractItemView::item:hover {{

@@ -826,6 +826,7 @@ class FileOrganizationDialog(BaseDialog):
         self.category_combo.addItems(["Todos"])
         self.category_combo.currentTextChanged.connect(self._apply_filters)
         self.category_combo.setMinimumWidth(100)
+        self.category_combo.setStyleSheet(DesignSystem.get_combobox_style())
         cat_container.addWidget(cat_label)
         cat_container.addWidget(self.category_combo)
         toolbar.addLayout(cat_container)
@@ -843,15 +844,8 @@ class FileOrganizationDialog(BaseDialog):
         self.status_combo.addItems(["Todos"])
         self.status_combo.currentTextChanged.connect(self._apply_filters)
         self.status_combo.setMinimumWidth(130)
-        self.status_combo.setStyleSheet(f"""
-            QComboBox {{
-                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                background-color: {DesignSystem.COLOR_SURFACE};
-                selection-background-color: {DesignSystem.COLOR_PRIMARY};
-            }}
-        """)
+        self.status_combo.setMinimumWidth(130)
+        self.status_combo.setStyleSheet(DesignSystem.get_combobox_style())
         
         status_container.addWidget(status_label)
         status_container.addWidget(self.status_combo)
@@ -948,7 +942,7 @@ class FileOrganizationDialog(BaseDialog):
     def _configure_tree_columns(self, tree: QTreeWidget):
         """Configura las columnas del tree de forma estandarizada"""
         # Estándar: Nombre Original, Nuevo Nombre, Fecha, Origen, Estado, Tamaño
-        headers = ["Nombre Original", "Nuevo Nombre", "Fecha", "Origen", "Estado", "Tamaño"]
+        headers = ["Nombre Original", "Nuevo Nombre", "Fecha", "Origen / Cantidad", "Estado", "Tamaño"]
         tree.setHeaderLabels(headers)
         
         # Ajustar anchos
