@@ -178,7 +178,7 @@ class HEICRemover(BaseService):
                 processed,
                 total_files,
                 "Indexando archivos HEIC/JPG"
-            ):
+            ) and processed % Config.UI_UPDATE_INTERVAL == 0:
                 return self._create_empty_result()
             
             extension = file_path.suffix.lower()
@@ -349,7 +349,8 @@ class HEICRemover(BaseService):
         duplicate_pairs: List[DuplicatePair],
         keep_format: str = 'jpg',
         create_backup: bool = True,
-        dry_run: bool = False
+        dry_run: bool = False,
+        progress_callback: Optional[ProgressCallback] = None
     ) -> HeicDeletionResult:
         """
         Ejecuta la eliminación de archivos HEIC duplicados
@@ -403,7 +404,13 @@ class HEICRemover(BaseService):
                     return results
             
             # Procesar cada par
-            for pair in duplicate_pairs:
+            total_pairs = len(duplicate_pairs)
+            for idx, pair in enumerate(duplicate_pairs):
+                # Reportar progreso
+                if (idx + 1) % Config.UI_UPDATE_INTERVAL == 0:
+                    if not self._report_progress(progress_callback, idx + 1, total_pairs, f"Procesando par {idx + 1}/{total_pairs}"):
+                        break
+
                 file_to_delete = pair.heic_path if keep_format.lower() == 'jpg' else pair.jpg_path
                 file_to_keep = pair.jpg_path if keep_format.lower() == 'jpg' else pair.heic_path
                 

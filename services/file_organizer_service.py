@@ -147,7 +147,7 @@ class FileOrganizer(BaseService):
                     
                     processed_files += 1
                     # Si el callback retorna False, cancelar análisis
-                    if not self._report_progress(progress_callback, processed_files, total_files, "Analizando estructura de organización"):
+                    if processed_files % Config.UI_UPDATE_INTERVAL == 0 and not self._report_progress(progress_callback, processed_files, total_files, "Analizando estructura de organización"):
                         executor.shutdown(wait=False, cancel_futures=True)
                         # Retornar resultado vacío al cancelar
                         return OrganizationAnalysisResult(
@@ -169,7 +169,7 @@ class FileOrganizer(BaseService):
             root_file_names = {item.name for item in root_files_list}
             processed_files += len(root_files_list)
             # Si el callback retorna False, cancelar análisis
-            if not self._report_progress(progress_callback, processed_files, total_files, "Analizando estructura de organización"):
+            if processed_files % Config.UI_UPDATE_INTERVAL == 0 and not self._report_progress(progress_callback, processed_files, total_files, "Analizando estructura de organización"):
                 return OrganizationAnalysisResult(
                     success=False,
                     total_files=0,
@@ -234,7 +234,7 @@ class FileOrganizer(BaseService):
                     
                     processed_files += 1
                     # Si el callback retorna False, cancelar análisis
-                    if not self._report_progress(progress_callback, processed_files, total_files, "Analizando estructura de organización"):
+                    if processed_files % Config.UI_UPDATE_INTERVAL == 0 and not self._report_progress(progress_callback, processed_files, total_files, "Analizando estructura de organización"):
                         executor.shutdown(wait=False, cancel_futures=True)
                         # Retornar resultado vacío al cancelar
                         return OrganizationAnalysisResult(
@@ -569,7 +569,7 @@ class FileOrganizer(BaseService):
                         else:
                             self.logger.info(f"✓ Movido: {move.source_path} → {target_path} ({date_str})")
 
-                    if not self._report_progress(progress_callback, files_processed, total_files,
+                    if files_processed % Config.UI_UPDATE_INTERVAL == 0 and not self._report_progress(progress_callback, files_processed, total_files,
                                        f"{'Simulando' if dry_run else 'Organizando'} directorios... {files_processed}/{total_files}"):
                         break
 

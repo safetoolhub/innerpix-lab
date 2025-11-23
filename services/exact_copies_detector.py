@@ -160,7 +160,7 @@ class ExactCopiesDetector(BaseDetectorService):
                         file_hashes[file_hash].append(file_path)
                     
                     processed += 1
-                    if not self._report_progress(
+                    if processed % Config.UI_UPDATE_INTERVAL == 0 and not self._report_progress(
                         progress_callback,
                         processed,
                         total_files,

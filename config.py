@@ -84,7 +84,7 @@ class Config:
     # CONSTANTES DE WORKERS
     # ========================================================================
     WORKER_SHUTDOWN_TIMEOUT_MS = 10000  # Tiempo de espera para detener workers (milisegundos)
-    PROGRESS_CALLBACK_INTERVAL = 50  # Actualizar progreso cada N archivos procesados
+    UI_UPDATE_INTERVAL = 1  # Actualizar progreso cada N archivos procesados
 
     # ========================================================================
     # CONSTANTES DE DIÁLOGOS
@@ -192,9 +192,4 @@ class Config:
             return 'VIDEO'
         else:
             return 'OTHER'
-
-    # ========================================================================
-    # SISTEMA DE RE-ANÁLISIS INTELIGENTE
-    # ========================================================================
-    
 

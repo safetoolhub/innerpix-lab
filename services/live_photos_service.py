@@ -246,8 +246,8 @@ class LivePhotoService(BaseService):
             # Ejecutar eliminaciones
             total = len(files_to_delete)
             for idx, file_info in enumerate(files_to_delete):
-                # Reportar progreso cada 1000 archivos
-                if (idx + 1) % 1000 == 0:
+                # Reportar progreso cada N archivos
+                if (idx + 1) % Config.UI_UPDATE_INTERVAL == 0:
                     self.logger.info(f"Procesados {idx + 1}/{total} archivos en limpieza de Live Photos")
 
                 # Reportar progreso
@@ -483,8 +483,8 @@ class LivePhotoService(BaseService):
 
         # Por cada foto, buscar su video .MOV correspondiente usando nombres normalizados
         for idx, photo in enumerate(photos, 1):
-            # Reportar progreso cada 1000 fotos
-            if idx % 1000 == 0:
+            # Reportar progreso cada N fotos
+            if idx % Config.UI_UPDATE_INTERVAL == 0:
                 self.logger.info(f"Procesadas {idx}/{total_photos} fotos, {len(groups)} Live Photos encontrados hasta ahora")
                 
                 # Verificar cancelación

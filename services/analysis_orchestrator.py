@@ -264,8 +264,8 @@ class AnalysisOrchestrator:
             
             processed += 1
             
-            # Reportar progreso cada 10 archivos (evitar demasiadas actualizaciones)
-            if progress_callback and processed % 10 == 0:
+            # Reportar progreso cada N archivos (evitar demasiadas actualizaciones)
+            if progress_callback and processed % Config.UI_UPDATE_INTERVAL == 0:
                 progress_callback(processed, total_files, "Escaneando archivos y extrayendo metadatos")
         
         # Reportar progreso final (100%)
