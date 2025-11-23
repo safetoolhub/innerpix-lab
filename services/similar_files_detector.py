@@ -363,9 +363,25 @@ class SimilarFilesDetector(BaseDetectorService):
         errors = 0
         timeouts = 0
         
-        # Usar más workers para procesamiento más rápido
-        max_workers = min(8, os.cpu_count() or 4)
-        self.logger.info(f"Usando {max_workers} threads para procesamiento paralelo")
+        # Obtener override del usuario si existe
+        from utils.settings_manager import settings_manager
+        user_override = settings_manager.get_max_workers(0)
+        
+        # Usar workers CPU-bound para análisis de imágenes (operación intensiva)
+        max_workers = Config.get_actual_worker_threads(
+            override=user_override,
+            io_bound=False  # Análisis de imágenes es CPU-bound
+        )
+        
+        if user_override > 0:
+            self.logger.info(
+                f"Usando {max_workers} threads (override manual del usuario)"
+            )
+        else:
+            self.logger.info(
+                f"Usando {max_workers} threads para procesamiento paralelo "
+                f"(CPU-bound: análisis de imágenes, automático)"
+            )
         
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             # Crear futures para imágenes

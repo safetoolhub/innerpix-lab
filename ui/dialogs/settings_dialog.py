@@ -472,6 +472,44 @@ class SettingsDialog(QDialog):
         perf_group = self._create_groupbox("Rendimiento")
         perf_layout = QVLayout(perf_group)
         perf_layout.setSpacing(DesignSystem.SPACE_12)
+        
+        # Info de configuración automática
+        auto_info = QLabel(
+            f"🤖 Configuración automática basada en tu hardware:\n"
+            f"   • CPU Cores: {Config.get_cpu_count()}\n"
+            f"   • Workers I/O (recomendado): {Config.get_optimal_worker_threads()}\n"
+            f"   • Workers CPU (recomendado): {Config.get_cpu_bound_workers()}"
+        )
+        auto_info.setStyleSheet(f"""
+            QLabel {{
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_MD}px;
+                padding: {DesignSystem.SPACE_12}px;
+            }}
+        """)
+        perf_layout.addWidget(auto_info)
+        
+        # Separador
+        separator = QFrame()
+        separator.setFrameShape(QFrame.Shape.HLine)
+        separator.setStyleSheet(f"background-color: {DesignSystem.COLOR_BORDER};")
+        perf_layout.addWidget(separator)
+        
+        # Override manual (opcional)
+        override_label = QLabel(
+            "⚠️ Override manual (deja en 0 para usar automático):"
+        )
+        override_label.setStyleSheet(f"""
+            QLabel {{
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_WARNING};
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            }}
+        """)
+        perf_layout.addWidget(override_label)
 
         workers_layout = QHBoxLayout()
         workers_layout.setSpacing(DesignSystem.SPACE_12)
@@ -488,13 +526,19 @@ class SettingsDialog(QDialog):
 
         from ui.widgets.custom_spinbox import CustomSpinBox
         self.max_workers_spin = CustomSpinBox()
-        self.max_workers_spin.setMinimum(1)
+        self.max_workers_spin.setMinimum(0)  # 0 = automático
         self.max_workers_spin.setMaximum(Config.MAX_WORKER_THREADS)
-        self.max_workers_spin.setValue(Config.MAX_WORKERS)
+        self.max_workers_spin.setValue(0)  # Por defecto: automático
+        self.max_workers_spin.setSpecialValueText("Automático")
         self.max_workers_spin.setToolTip(
             f"Número de hilos paralelos para procesar archivos.\n"
-            f"Más hilos = más rápido, pero mayor uso de CPU.\n"
-            f"Recomendado: {Config.MAX_WORKERS}"
+            f"\n"
+            f"• 0 (Automático): Detecta y usa el óptimo para tu hardware\n"
+            f"• I/O workers: {Config.get_optimal_worker_threads()} (lectura/hashing)\n"
+            f"• CPU workers: {Config.get_cpu_bound_workers()} (análisis de imágenes)\n"
+            f"\n"
+            f"Solo cambia esto si experimentas problemas de rendimiento.\n"
+            f"Rango válido: 1-{Config.MAX_WORKER_THREADS}"
         )
         workers_layout.addWidget(self.max_workers_spin)
         workers_layout.addStretch()
@@ -598,7 +642,10 @@ class SettingsDialog(QDialog):
             self.show_full_path_checkbox.setChecked(settings_manager.get_show_full_path())
 
             # Advanced tab
-            self.max_workers_spin.setValue(settings_manager.get_max_workers(Config.MAX_WORKERS))
+            # Workers: 0 significa automático, cualquier otro valor es override manual
+            saved_workers = settings_manager.get_max_workers(0)
+            self.max_workers_spin.setValue(saved_workers)
+            
             self.ui_update_spin.setValue(settings_manager.get_int("ui_update_interval", Config.UI_UPDATE_INTERVAL))
             self.dry_run_default_checkbox.setChecked(settings_manager.get_bool(settings_manager.KEY_DRY_RUN_DEFAULT, False))
             self.use_video_metadata_checkbox.setChecked(settings_manager.get_bool(settings_manager.KEY_USE_VIDEO_METADATA, False))

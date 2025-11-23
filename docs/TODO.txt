@@ -28,7 +28,7 @@ Pruebas con ficheros con distintas fechas
 1 mes: exiftool -AllDates+="0:1:0 0:0:0" IMG_REFERENCIA_HORADIFERENTE_POCA.jpg
 2 segundos: exiftool -AllDates+="0:0:0 0:0:2" IMG_LIVEPHOTO_HORADIFERENTE_2segundos.JPG
 
-un poquito mas ancho el simialr_files_progress, c
+funcionaria el caluclo de memoria y de threads dinamico en algo que no sea linux?
 
 
 FUTURO

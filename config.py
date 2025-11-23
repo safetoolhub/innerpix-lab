@@ -46,16 +46,89 @@ class Config:
     # ========================================================================
     # CONFIGURACIÓN DE PROCESAMIENTO
     # ========================================================================
-    # MAX_WORKERS: Detectar automáticamente cores disponibles (mínimo 4, máximo 16)
-    import os
-    _detected_cores = os.cpu_count() or 4
-    MAX_WORKERS = min(max(_detected_cores, 4), 16)
     PROGRESS_UPDATE_INTERVAL = 10
-    DEFAULT_WORKER_THREADS = 4
-    MAX_WORKER_THREADS = 16
     LARGE_FILE_TIMEOUT = 120
     ENABLE_HASH_CACHE = True
     DEFAULT_HASH_SIZE = 8
+    
+    # Factores de cálculo para workers dinámicos
+    _WORKER_FACTOR_PER_CORE = 2  # 2 workers por core (I/O bound)
+    _MIN_WORKERS = 4
+    _MAX_WORKERS = 16
+    
+    @classmethod
+    def get_cpu_count(cls) -> int:
+        """
+        Obtiene el número de CPUs/cores del sistema.
+        
+        Returns:
+            Número de cores, o 4 si no se puede detectar
+        """
+        import os
+        return os.cpu_count() or 4
+    
+    @classmethod
+    def get_optimal_worker_threads(cls) -> int:
+        """
+        Calcula el número óptimo de workers para procesamiento paralelo.
+        
+        Para operaciones I/O bound (lectura de archivos, cálculo de hashes),
+        usamos 2x el número de cores. Para operaciones CPU bound (análisis
+        de imágenes), usaríamos 1x cores.
+        
+        Fórmula: min(max(cores * 2, 4), 16)
+        
+        Returns:
+            Número óptimo de workers (entre 4 y 16)
+        """
+        cores = cls.get_cpu_count()
+        
+        # Para operaciones I/O bound, usar 2x cores
+        optimal = cores * cls._WORKER_FACTOR_PER_CORE
+        
+        # Aplicar límites
+        return max(cls._MIN_WORKERS, min(optimal, cls._MAX_WORKERS))
+    
+    @classmethod
+    def get_cpu_bound_workers(cls) -> int:
+        """
+        Calcula workers para operaciones CPU-intensive (análisis de imágenes).
+        
+        Para CPU bound, usar 1x cores (sin hyperthreading).
+        
+        Returns:
+            Número de workers para operaciones CPU bound
+        """
+        cores = cls.get_cpu_count()
+        return max(cls._MIN_WORKERS, min(cores, cls._MAX_WORKERS))
+    
+    @classmethod
+    def get_actual_worker_threads(cls, override: int = 0, io_bound: bool = True) -> int:
+        """
+        Obtiene el número real de workers a usar, respetando override manual.
+        
+        Args:
+            override: Valor de override del usuario (0 = automático)
+            io_bound: True para operaciones I/O, False para CPU bound
+        
+        Returns:
+            Número de workers a usar
+        """
+        # Si hay override manual (>0), usarlo
+        if override > 0:
+            return min(override, cls.MAX_WORKER_THREADS)
+        
+        # Si no, usar automático según tipo de operación
+        if io_bound:
+            return cls.get_optimal_worker_threads()
+        else:
+            return cls.get_cpu_bound_workers()
+    
+    # Valores por defecto para compatibilidad con código legacy
+    # (se recomienda usar los métodos get_optimal_worker_threads() en su lugar)
+    MAX_WORKERS = None  # Se calcula dinámicamente
+    DEFAULT_WORKER_THREADS = None  # Se calcula dinámicamente
+    MAX_WORKER_THREADS = 16  # Límite máximo absoluto
 
     # ========================================================================
     # CONFIGURACIÓN DE DESARROLLO
@@ -188,6 +261,37 @@ class Config:
             Número máximo de archivos para apertura automática
         """
         return int(cls.get_large_dataset_threshold() * 0.6)
+    
+    @classmethod
+    def get_system_info(cls) -> dict:
+        """
+        Obtiene información completa del sistema para logging.
+        
+        Returns:
+            Dict con ram_gb, ram_available_gb, cpu_count, cache_entries,
+            large_threshold, auto_open_threshold, io_workers, cpu_workers
+        """
+        ram_gb = cls._get_system_ram_gb()
+        
+        try:
+            import psutil
+            ram_available_gb = psutil.virtual_memory().available / (1024 ** 3)
+            psutil_available = True
+        except ImportError:
+            ram_available_gb = None
+            psutil_available = False
+        
+        return {
+            'ram_total_gb': ram_gb,
+            'ram_available_gb': ram_available_gb,
+            'psutil_available': psutil_available,
+            'cpu_count': cls.get_cpu_count(),
+            'max_cache_entries': cls.get_max_cache_entries(),
+            'large_dataset_threshold': cls.get_large_dataset_threshold(),
+            'auto_open_threshold': cls.get_similarity_dialog_auto_open_threshold(),
+            'io_workers': cls.get_optimal_worker_threads(),
+            'cpu_workers': cls.get_cpu_bound_workers(),
+        }
     
 
 
