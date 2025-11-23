@@ -363,11 +363,11 @@ class SimilarFilesDialog(BaseDialog):
         files_layout.setSpacing(DesignSystem.SPACE_4)
         files_layout.addWidget(QLabel("Archivos:", styleSheet=f"font-size: {DesignSystem.FONT_SIZE_SM}px;"))
         
-        self.min_files_spin = QSpinBox()
+        from ui.widgets.custom_spinbox import CustomSpinBox
+        self.min_files_spin = CustomSpinBox()
         self.min_files_spin.setRange(2, 50)
         self.min_files_spin.setValue(self.filter_min_files)
-        self.min_files_spin.setFixedWidth(60)
-        self.min_files_spin.setStyleSheet(self._get_spinbox_style())
+        self.min_files_spin.setFixedWidth(80)
         self.min_files_spin.valueChanged.connect(self._on_filters_changed)
         files_layout.addWidget(self.min_files_spin)
         
@@ -378,11 +378,10 @@ class SimilarFilesDialog(BaseDialog):
         size_layout.setSpacing(DesignSystem.SPACE_4)
         size_layout.addWidget(QLabel("MB:", styleSheet=f"font-size: {DesignSystem.FONT_SIZE_SM}px;"))
         
-        self.min_size_spin = QSpinBox()
+        self.min_size_spin = CustomSpinBox()
         self.min_size_spin.setRange(0, 1000)
         self.min_size_spin.setValue(self.filter_min_size_mb)
-        self.min_size_spin.setFixedWidth(60)
-        self.min_size_spin.setStyleSheet(self._get_spinbox_style())
+        self.min_size_spin.setFixedWidth(80)
         self.min_size_spin.valueChanged.connect(self._on_filters_changed)
         size_layout.addWidget(self.min_size_spin)
         
@@ -465,26 +464,6 @@ class SimilarFilesDialog(BaseDialog):
         layout.addLayout(actions_layout)
         
         return card
-
-    def _get_spinbox_style(self):
-        return f"""
-            QSpinBox {{
-                padding: 4px 4px;
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                background: {DesignSystem.COLOR_BACKGROUND};
-                selection-background-color: {DesignSystem.COLOR_PRIMARY};
-            }}
-            QSpinBox:focus {{ border-color: {DesignSystem.COLOR_PRIMARY}; }}
-            QSpinBox::up-button, QSpinBox::down-button {{
-                width: 16px;
-                background: transparent;
-                border-left: 1px solid {DesignSystem.COLOR_BORDER};
-            }}
-            QSpinBox::up-button:hover, QSpinBox::down-button:hover {{
-                background: {DesignSystem.COLOR_SECONDARY_LIGHT};
-            }}
-        """
 
     def _create_workspace_toolbar(self) -> QWidget:
         container = QWidget()

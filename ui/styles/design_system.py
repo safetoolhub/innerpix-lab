@@ -482,51 +482,6 @@ class DesignSystem:
         """
 
     @staticmethod
-    def get_spinbox_style():
-        """
-        Retorna el estilo consistente para spinboxes
-        """
-        return f"""
-            QSpinBox {{
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
-                background-color: {DesignSystem.COLOR_SURFACE};
-                color: {DesignSystem.COLOR_TEXT};
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                min-height: 32px;
-                min-width: 80px;
-            }}
-            QSpinBox:hover {{
-                border-color: {DesignSystem.COLOR_PRIMARY};
-            }}
-            QSpinBox:focus {{
-                border-color: {DesignSystem.COLOR_PRIMARY};
-            }}
-            QSpinBox::up-button, QSpinBox::down-button {{
-                background-color: transparent;
-                border: none;
-                width: 20px;
-            }}
-            QSpinBox::up-button:hover, QSpinBox::down-button:hover {{
-                background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
-                border-radius: {DesignSystem.RADIUS_SM}px;
-            }}
-            QSpinBox::up-arrow {{
-                image: none;
-                border-left: 4px solid transparent;
-                border-right: 4px solid transparent;
-                border-bottom: 4px solid {DesignSystem.COLOR_TEXT};
-            }}
-            QSpinBox::down-arrow {{
-                image: none;
-                border-left: 4px solid transparent;
-                border-right: 4px solid transparent;
-                border-top: 4px solid {DesignSystem.COLOR_TEXT};
-            }}
-        """
-
-    @staticmethod
     def get_lineedit_style():
         """
         Retorna el estilo consistente para QLineEdit

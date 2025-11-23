@@ -486,11 +486,11 @@ class SettingsDialog(QDialog):
         """)
         workers_layout.addWidget(workers_label)
 
-        self.max_workers_spin = QSpinBox()
+        from ui.widgets.custom_spinbox import CustomSpinBox
+        self.max_workers_spin = CustomSpinBox()
         self.max_workers_spin.setMinimum(1)
         self.max_workers_spin.setMaximum(Config.MAX_WORKER_THREADS)
         self.max_workers_spin.setValue(Config.MAX_WORKERS)
-        self.max_workers_spin.setStyleSheet(DesignSystem.get_spinbox_style())
         self.max_workers_spin.setToolTip(
             f"Número de hilos paralelos para procesar archivos.\n"
             f"Más hilos = más rápido, pero mayor uso de CPU.\n"
