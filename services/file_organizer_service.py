@@ -392,7 +392,7 @@ class FileOrganizer(BaseService):
                         self.logger.info(f"Carpeta creada: {folder_name}")
             else:
                 # En simulación, solo reportar qué carpetas se crearían
-                for folder_name in folders_to_to_create:
+                for folder_name in folders_to_create:
                     folder_path = root_directory / folder_name
                     if not folder_path.exists():
                         results.folders_created.append(str(folder_path))
