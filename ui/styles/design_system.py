@@ -378,7 +378,7 @@ class DesignSystem:
                 width: 30px;
                 padding-right: 8px;
             }}
-
+            
 
             QComboBox QAbstractItemView {{
                 background-color: {DesignSystem.COLOR_SURFACE};
