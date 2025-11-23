@@ -7,11 +7,11 @@ ediciones o diferentes resoluciones.
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Any, Dict, Tuple
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError
+import os
 
 from config import Config
 from utils.logger import get_logger, log_section_header_discrete, log_section_footer_discrete
-from utils.decorators import deprecated
 from services.result_types import DuplicateAnalysisResult, DuplicateDeletionResult, DuplicateGroup
 from services.base_detector_service import BaseDetectorService
 from services.base_service import ProgressCallback
@@ -256,17 +256,44 @@ class SimilarFilesDetector(BaseDetectorService):
         progress_callback: Optional[ProgressCallback] = None
     ) -> DuplicateAnalysisResult:
         """
-        Analiza directorio buscando duplicados similares (método unificado)
+        Analiza directorio buscando duplicados similares (perceptual hash).
         
         Args:
             directory: Directorio a analizar
             sensitivity: Sensibilidad (0-20, menor = más estricto)
+                        NOTA: Se convierte a escala 30-100 internamente
             progress_callback: Callback de progreso
             
         Returns:
             DuplicateAnalysisResult con grupos de duplicados similares
         """
-        return self.analyze_similar_duplicates(directory, sensitivity, progress_callback)
+        self.logger.info(
+            "Iniciando análisis de duplicados similares "
+            f"(sensibilidad: {sensitivity})"
+        )
+        
+        # Fase 1: Calcular hashes
+        analysis = self.analyze_initial(directory, progress_callback)
+        
+        # Convertir sensibilidad de escala 0-20 a 30-100
+        # 0 -> 100 (muy estricto)
+        # 10 -> 85 (recomendado)
+        # 20 -> 30 (permisivo)
+        sensitivity_new_scale = 100 - int((sensitivity / 20) * 70)
+        sensitivity_new_scale = max(30, min(100, sensitivity_new_scale))
+        
+        self.logger.info(
+            f"Convirtiendo sensibilidad: {sensitivity} (0-20) -> "
+            f"{sensitivity_new_scale} (30-100)"
+        )
+        
+        # Fase 2: Generar grupos con sensibilidad especificada
+        result = analysis.get_groups(sensitivity_new_scale)
+        
+        # Ajustar el campo sensitivity para reflejar el valor original
+        result.sensitivity = sensitivity
+        
+        return result
 
     def analyze_initial(
         self,
@@ -333,8 +360,14 @@ class SimilarFilesDetector(BaseDetectorService):
         # 2. Calcular hashes perceptuales en paralelo (parte costosa)
         perceptual_hashes = {}
         processed = 0
+        errors = 0
+        timeouts = 0
         
-        with ThreadPoolExecutor(max_workers=4) as executor:
+        # Usar más workers para procesamiento más rápido
+        max_workers = min(8, os.cpu_count() or 4)
+        self.logger.info(f"Usando {max_workers} threads para procesamiento paralelo")
+        
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
             # Crear futures para imágenes
             future_to_file = {}
             for file_path in image_files:
@@ -356,7 +389,8 @@ class SimilarFilesDetector(BaseDetectorService):
             for future in as_completed(future_to_file):
                 file_path = future_to_file[future]
                 try:
-                    phash = future.result()
+                    # Timeout de 5 segundos para videos problemáticos
+                    phash = future.result(timeout=5.0)
                     if phash:
                         perceptual_hashes[str(file_path)] = {
                             'hash': phash,
@@ -373,10 +407,18 @@ class SimilarFilesDetector(BaseDetectorService):
                     ):
                         executor.shutdown(wait=False, cancel_futures=True)
                         break
+                except TimeoutError:
+                    timeouts += 1
+                    processed += 1
+                    self.logger.warning(
+                        f"Timeout procesando {file_path.name} "
+                        f"(archivo corrupto o muy lento)"
+                    )
                 except Exception as e:
-                    self.logger.error(
-                        f"Error calculando hash perceptual de "
-                        f"{file_path}: {e}"
+                    errors += 1
+                    processed += 1
+                    self.logger.debug(
+                        f"Error procesando {file_path.name}: {e}"
                     )
         
         # 3. Crear objeto de análisis
@@ -392,6 +434,15 @@ class SimilarFilesDetector(BaseDetectorService):
         self.logger.info(
             f"*** Hashes calculados: {analysis.total_files}"
         )
+        if errors > 0:
+            self.logger.warning(
+                f"*** Archivos con error: {errors}"
+            )
+        if timeouts > 0:
+            self.logger.warning(
+                f"*** Archivos con timeout: {timeouts} "
+                "(archivos corruptos o muy grandes)"
+            )
         self.logger.info(
             "*** Ahora puedes generar grupos con cualquier sensibilidad"
         )
@@ -399,55 +450,7 @@ class SimilarFilesDetector(BaseDetectorService):
         
         return analysis
 
-    @deprecated(reason="Nomenclatura inconsistente", replacement="analyze()")
-    def analyze_similar_duplicates(
-        self,
-        directory: Path,
-        sensitivity: int = 10,
-        progress_callback: Optional[ProgressCallback] = None
-    ) -> DuplicateAnalysisResult:
-        """
-        Analiza directorio buscando duplicados similares (perceptual hash).
-        
-        Este método mantiene compatibilidad con el flujo anterior,
-        pero internamente usa el nuevo enfoque de dos fases.
-        
-        Args:
-            directory: Directorio a analizar
-            sensitivity: Sensibilidad (0-20, menor = más estricto)
-                        NOTA: Se convierte a escala 30-100 internamente
-            progress_callback: Callback de progreso
-            
-        Returns:
-            DuplicateAnalysisResult con grupos de duplicados similares
-        """
-        self.logger.info(
-            "Iniciando análisis de duplicados similares "
-            f"(sensibilidad legacy: {sensitivity})"
-        )
-        
-        # Fase 1: Calcular hashes
-        analysis = self.analyze_initial(directory, progress_callback)
-        
-        # Convertir sensibilidad de escala 0-20 a 30-100
-        # 0 -> 100 (muy estricto)
-        # 10 -> 85 (recomendado)
-        # 20 -> 30 (permisivo)
-        sensitivity_new_scale = 100 - int((sensitivity / 20) * 70)
-        sensitivity_new_scale = max(30, min(100, sensitivity_new_scale))
-        
-        self.logger.info(
-            f"Convirtiendo sensibilidad: {sensitivity} (0-20) -> "
-            f"{sensitivity_new_scale} (30-100)"
-        )
-        
-        # Fase 2: Generar grupos con sensibilidad especificada
-        result = analysis.get_groups(sensitivity_new_scale)
-        
-        # Ajustar el campo sensitivity para reflejar el valor original
-        result.sensitivity = sensitivity
-        
-        return result
+
 
     def _calculate_perceptual_hash(self, file_path: Path) -> Optional[Any]:
         """Calcula perceptual hash de una imagen"""
@@ -469,10 +472,20 @@ class SimilarFilesDetector(BaseDetectorService):
 
     def _calculate_video_hash(self, file_path: Path) -> Optional[Any]:
         """Calcula perceptual hash de un video (usando frame del medio)"""
+        # Silenciar warnings de FFmpeg redirigiendo stderr
+        import sys
+        import io
+        
+        old_stderr = sys.stderr
+        sys.stderr = io.StringIO()
+        
         try:
             import cv2
             import imagehash
             from PIL import Image
+            
+            # Configurar cv2 para no mostrar warnings
+            os.environ['OPENCV_FFMPEG_LOGLEVEL'] = '-8'
             
             cap = cv2.VideoCapture(str(file_path))
             if not cap.isOpened():
@@ -501,7 +514,12 @@ class SimilarFilesDetector(BaseDetectorService):
             phash = imagehash.phash(img)
             return phash
         except Exception as e:
-            self.logger.debug(
-                f"Error calculando hash de video {file_path}: {e}"
-            )
+            # Solo loggear si es un error real, no warnings de FFmpeg
+            if "exhausted" not in str(e) and "channel element" not in str(e):
+                self.logger.info(
+                    f"Error calculando hash de video {file_path.name}: {type(e).__name__}"
+                )
             return None
+        finally:
+            # Restaurar stderr
+            sys.stderr = old_stderr

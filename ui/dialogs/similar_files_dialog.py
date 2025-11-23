@@ -480,6 +480,8 @@ class SimilarFilesDialog(BaseDialog):
         self.prev_btn.clicked.connect(self._previous_group)
         
         self.group_counter_label = QLabel("Grupo 0 de 0")
+        self.group_counter_label.setMinimumWidth(200)  # Asegurar espacio suficiente
+        self.group_counter_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.group_counter_label.setStyleSheet(f"font-weight: {DesignSystem.FONT_WEIGHT_BOLD}; color: {DesignSystem.COLOR_TEXT};")
         
         self.next_btn = self.make_styled_button(

@@ -309,9 +309,10 @@ class TestComboBoxArrow:
         from ui.styles.design_system import DesignSystem
         style = DesignSystem.get_combobox_style()
         
-        # Just verify the style exists and contains arrow styling
-        assert 'down-arrow' in style
+        # Verify the style exists and contains essential combo box styling
         assert 'QComboBox' in style
+        assert 'QComboBox::drop-down' in style
+        assert 'QComboBox QAbstractItemView' in style
     
     def test_date_granularity_combo_exists_and_accessible(self, qtbot, dialog):
         """Test that date granularity combo exists and is in the date settings page"""

@@ -44,7 +44,7 @@ class SimilarFilesProgressDialog(BaseDialog):
         """Configura la interfaz del diálogo"""
         self.setWindowTitle("Analizando archivos similares")
         self.setModal(True)
-        self.setFixedSize(800, 500)
+        self.setFixedSize(900, 500)
         self.setWindowFlags(
             Qt.WindowType.Dialog | 
             Qt.WindowType.CustomizeWindowHint | 

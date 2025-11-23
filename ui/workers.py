@@ -546,7 +546,7 @@ class DuplicateAnalysisWorker(BaseWorker):
                     progress_callback=self._create_progress_callback(emit_numbers=True)
                 )
             else:  # perceptual
-                results = self.detector.analyze_similar_duplicates(
+                results = self.detector.analyze(
                     self.directory,
                     sensitivity=self.sensitivity,
                     progress_callback=self._create_progress_callback(emit_numbers=True)
