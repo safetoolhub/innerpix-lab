@@ -690,3 +690,135 @@ class TestFileOrganizerMetrics:
         assert result.files_moved == 2
         assert result.empty_directories_removed >= 1
         assert len(result.moved_files) == 2
+
+
+@pytest.mark.unit
+@pytest.mark.organization
+class TestFileOrganizerBackup:
+    """Tests de creación de backups en file organizer."""
+    
+    def test_backup_created_when_enabled(self, organizer, create_nested_structure):
+        """Test que se crea backup cuando está habilitado."""
+        root_dir, files = create_nested_structure({
+            'subdir': ['photo1.jpg', 'photo2.jpg']
+        })
+        
+        analysis = organizer.analyze(root_dir, OrganizationType.TO_ROOT)
+        result = organizer.execute(
+            analysis.move_plan,
+            create_backup=True,
+            cleanup_empty_dirs=False,
+            dry_run=False
+        )
+        
+        assert result.success is True
+        assert result.backup_path is not None
+        assert Path(result.backup_path).exists()
+        
+        # Verificar que el backup contiene los archivos
+        backup_files = list(Path(result.backup_path).rglob('*.jpg'))
+        assert len(backup_files) == 2
+    
+    def test_no_backup_when_disabled(self, organizer, create_nested_structure):
+        """Test que NO se crea backup cuando está deshabilitado."""
+        root_dir, files = create_nested_structure({
+            'subdir': ['photo1.jpg']
+        })
+        
+        analysis = organizer.analyze(root_dir, OrganizationType.TO_ROOT)
+        result = organizer.execute(
+            analysis.move_plan,
+            create_backup=False,
+            cleanup_empty_dirs=False,
+            dry_run=False
+        )
+        
+        assert result.success is True
+        assert result.backup_path is None
+    
+    def test_no_backup_in_dry_run(self, organizer, create_nested_structure):
+        """Test que NO se crea backup en dry run mode."""
+        root_dir, files = create_nested_structure({
+            'subdir': ['photo1.jpg']
+        })
+        
+        analysis = organizer.analyze(root_dir, OrganizationType.TO_ROOT)
+        result = organizer.execute(
+            analysis.move_plan,
+            create_backup=True,
+            cleanup_empty_dirs=False,
+            dry_run=True
+        )
+        
+        assert result.success is True
+        assert result.dry_run is True
+        assert result.backup_path is None
+    
+    def test_backup_with_same_filename_different_dirs(self, organizer, create_nested_structure):
+        """
+        Test CRÍTICO: Backup preserva estructura cuando hay archivos con mismo nombre
+        en diferentes subdirectorios.
+        """
+        # Crear estructura con "photo.jpg" en 3 subdirectorios
+        root_dir, files = create_nested_structure({
+            'folder1': ['photo.jpg'],
+            'folder2': ['photo.jpg'],
+            'folder3': ['photo.jpg']
+        })
+        
+        # Modificar contenidos para verificar no sobrescritura
+        (root_dir / 'folder1' / 'photo.jpg').write_text('content1')
+        (root_dir / 'folder2' / 'photo.jpg').write_text('content2')
+        (root_dir / 'folder3' / 'photo.jpg').write_text('content3')
+        
+        analysis = organizer.analyze(root_dir, OrganizationType.TO_ROOT)
+        result = organizer.execute(
+            analysis.move_plan,
+            create_backup=True,
+            cleanup_empty_dirs=False,
+            dry_run=False
+        )
+        
+        assert result.success is True
+        assert result.backup_path is not None
+        
+        backup_path = Path(result.backup_path)
+        
+        # Verificar que se preservó la estructura de directorios
+        backup_file1 = backup_path / 'folder1' / 'photo.jpg'
+        backup_file2 = backup_path / 'folder2' / 'photo.jpg'
+        backup_file3 = backup_path / 'folder3' / 'photo.jpg'
+        
+        assert backup_file1.exists(), f"Expected {backup_file1} to exist"
+        assert backup_file2.exists(), f"Expected {backup_file2} to exist"
+        assert backup_file3.exists(), f"Expected {backup_file3} to exist"
+        
+        # Verificar contenidos (no hubo sobrescritura)
+        assert backup_file1.read_text() == 'content1'
+        assert backup_file2.read_text() == 'content2'
+        assert backup_file3.read_text() == 'content3'
+    
+    def test_backup_with_nested_structure(self, organizer, create_nested_structure):
+        """Test que backup preserva estructura anidada completa."""
+        root_dir, files = create_nested_structure({
+            'level1/level2/level3': ['deep.jpg'],
+            'level1/other': ['shallow.jpg'],
+            'root_level': ['top.jpg']
+        })
+        
+        analysis = organizer.analyze(root_dir, OrganizationType.BY_MONTH)
+        result = organizer.execute(
+            analysis.move_plan,
+            create_backup=True,
+            cleanup_empty_dirs=False,
+            dry_run=False
+        )
+        
+        assert result.success is True
+        backup_path = Path(result.backup_path)
+        
+        # Verificar estructura anidada en backup
+        assert (backup_path / 'level1' / 'level2' / 'level3' / 'deep.jpg').exists()
+        assert (backup_path / 'level1' / 'other' / 'shallow.jpg').exists()
+        assert (backup_path / 'root_level' / 'top.jpg').exists()
+

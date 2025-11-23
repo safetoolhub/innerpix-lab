@@ -279,3 +279,208 @@ class TestBackupCreationError:
                 raise BackupCreationError("Backup failed") from e
         
         assert exc_info.value.__cause__ == original_error
+
+
+@pytest.mark.unit
+class TestBackupWithSameFilenameInDifferentDirectories:
+    """
+    Tests CRÍTICOS: Backup debe preservar estructura de directorios
+    cuando archivos con el mismo nombre están en subdirectorios diferentes.
+    
+    Esto asegura que no haya conflictos ni sobrescritura durante el backup.
+    """
+    
+    def test_backup_same_filename_different_dirs(self, temp_dir):
+        """Test: Archivos con mismo nombre en diferentes directorios se respaldan correctamente"""
+        # Arrange
+        service = ConcreteService('TestService')
+        
+        # Crear estructura con archivo "photo.jpg" en 3 directorios diferentes
+        dir1 = temp_dir / 'folder1'
+        dir2 = temp_dir / 'folder2'
+        dir3 = temp_dir / 'folder3'
+        
+        dir1.mkdir()
+        dir2.mkdir()
+        dir3.mkdir()
+        
+        file1 = dir1 / 'photo.jpg'
+        file2 = dir2 / 'photo.jpg'
+        file3 = dir3 / 'photo.jpg'
+        
+        # Contenidos diferentes para verificar no sobrescritura
+        file1.write_text('content from folder1')
+        file2.write_text('content from folder2')
+        file3.write_text('content from folder3')
+        
+        files = [file1, file2, file3]
+        
+        # Act
+        backup_path = service._create_backup_for_operation(
+            files,
+            'deletion'
+        )
+        
+        # Assert
+        assert backup_path is not None
+        assert backup_path.exists()
+        
+        # Verificar que se crearon 3 archivos en el backup
+        backup_files = list(backup_path.rglob('photo.jpg'))
+        assert len(backup_files) == 3, f"Expected 3 files but found {len(backup_files)}"
+        
+        # Verificar que se preservó la estructura de directorios
+        backup_file1 = backup_path / 'folder1' / 'photo.jpg'
+        backup_file2 = backup_path / 'folder2' / 'photo.jpg'
+        backup_file3 = backup_path / 'folder3' / 'photo.jpg'
+        
+        assert backup_file1.exists(), f"Expected {backup_file1} to exist"
+        assert backup_file2.exists(), f"Expected {backup_file2} to exist"
+        assert backup_file3.exists(), f"Expected {backup_file3} to exist"
+        
+        # Verificar que los contenidos se preservaron correctamente (sin sobrescritura)
+        assert backup_file1.read_text() == 'content from folder1'
+        assert backup_file2.read_text() == 'content from folder2'
+        assert backup_file3.read_text() == 'content from folder3'
+    
+    def test_backup_nested_directories_same_filename(self, temp_dir):
+        """Test: Estructura anidada con mismo nombre de archivo en cada nivel"""
+        # Arrange
+        service = ConcreteService('TestService')
+        
+        # Estructura: temp_dir/image.jpg
+        #            temp_dir/level1/image.jpg
+        #            temp_dir/level1/level2/image.jpg
+        #            temp_dir/level1/level2/level3/image.jpg
+        
+        level1 = temp_dir / 'level1'
+        level2 = level1 / 'level2'
+        level3 = level2 / 'level3'
+        
+        level1.mkdir()
+        level2.mkdir()
+        level3.mkdir()
+        
+        file_root = temp_dir / 'image.jpg'
+        file_l1 = level1 / 'image.jpg'
+        file_l2 = level2 / 'image.jpg'
+        file_l3 = level3 / 'image.jpg'
+        
+        file_root.write_text('root')
+        file_l1.write_text('level1')
+        file_l2.write_text('level2')
+        file_l3.write_text('level3')
+        
+        files = [file_root, file_l1, file_l2, file_l3]
+        
+        # Act
+        backup_path = service._create_backup_for_operation(
+            files,
+            'nested_deletion'
+        )
+        
+        # Assert
+        assert backup_path is not None
+        
+        # Verificar estructura anidada en backup
+        assert (backup_path / 'image.jpg').exists()
+        assert (backup_path / 'level1' / 'image.jpg').exists()
+        assert (backup_path / 'level1' / 'level2' / 'image.jpg').exists()
+        assert (backup_path / 'level1' / 'level2' / 'level3' / 'image.jpg').exists()
+        
+        # Verificar contenidos
+        assert (backup_path / 'image.jpg').read_text() == 'root'
+        assert (backup_path / 'level1' / 'image.jpg').read_text() == 'level1'
+        assert (backup_path / 'level1' / 'level2' / 'image.jpg').read_text() == 'level2'
+        assert (backup_path / 'level1' / 'level2' / 'level3' / 'image.jpg').read_text() == 'level3'
+    
+    def test_backup_multiple_files_same_name_different_dirs(self, temp_dir):
+        """Test: Múltiples archivos con mismo nombre en estructura compleja"""
+        # Arrange
+        service = ConcreteService('TestService')
+        
+        # Crear estructura compleja
+        dirs = [
+            temp_dir / 'photos' / '2023',
+            temp_dir / 'photos' / '2024',
+            temp_dir / 'videos' / '2023',
+            temp_dir / 'videos' / '2024',
+            temp_dir / 'backup' / 'old'
+        ]
+        
+        for d in dirs:
+            d.mkdir(parents=True)
+        
+        # Crear archivos con nombres duplicados en diferentes lugares
+        files = []
+        for i, d in enumerate(dirs):
+            # Crear 2 archivos en cada directorio
+            f1 = d / 'file.jpg'
+            f2 = d / 'document.pdf'
+            
+            f1.write_text(f'content_{i}_jpg')
+            f2.write_text(f'content_{i}_pdf')
+            
+            files.extend([f1, f2])
+        
+        # Total: 10 archivos (5 directorios × 2 archivos)
+        assert len(files) == 10
+        
+        # Act
+        backup_path = service._create_backup_for_operation(
+            files,
+            'complex_deletion'
+        )
+        
+        # Assert
+        assert backup_path is not None
+        
+        # Verificar que se crearon 10 archivos en backup
+        all_backup_files = list(backup_path.rglob('*'))
+        backup_files_only = [f for f in all_backup_files if f.is_file() and not f.name.endswith('_metadata.txt')]
+        assert len(backup_files_only) == 10
+        
+        # Verificar estructura de directorios completa
+        assert (backup_path / 'photos' / '2023').exists()
+        assert (backup_path / 'photos' / '2024').exists()
+        assert (backup_path / 'videos' / '2023').exists()
+        assert (backup_path / 'videos' / '2024').exists()
+        assert (backup_path / 'backup' / 'old').exists()
+        
+        # Verificar algunos contenidos específicos
+        assert (backup_path / 'photos' / '2023' / 'file.jpg').read_text() == 'content_0_jpg'
+        assert (backup_path / 'videos' / '2024' / 'document.pdf').read_text() == 'content_3_pdf'
+    
+    def test_backup_preserves_relative_paths_correctly(self, temp_dir):
+        """Test: Verificar que las rutas relativas se preservan correctamente desde base_directory"""
+        # Arrange
+        service = ConcreteService('TestService')
+        
+        # Crear subdirectorios con mismo archivo
+        sub1 = temp_dir / 'a' / 'b' / 'c'
+        sub2 = temp_dir / 'x' / 'y' / 'z'
+        
+        sub1.mkdir(parents=True)
+        sub2.mkdir(parents=True)
+        
+        file1 = sub1 / 'test.txt'
+        file2 = sub2 / 'test.txt'
+        
+        file1.write_text('abc content')
+        file2.write_text('xyz content')
+        
+        files = [file1, file2]
+        
+        # Act
+        backup_path = service._create_backup_for_operation(
+            files,
+            'path_test'
+        )
+        
+        # Assert
+        # La estructura relativa desde temp_dir debe preservarse
+        assert (backup_path / 'a' / 'b' / 'c' / 'test.txt').exists()
+        assert (backup_path / 'x' / 'y' / 'z' / 'test.txt').exists()
+        
+        assert (backup_path / 'a' / 'b' / 'c' / 'test.txt').read_text() == 'abc content'
+        assert (backup_path / 'x' / 'y' / 'z' / 'test.txt').read_text() == 'xyz content'
