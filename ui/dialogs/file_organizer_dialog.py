@@ -252,7 +252,7 @@ class FileOrganizationDialog(BaseDialog):
             },
             'cleanup': {
                 'icon': 'folder-open', 
-                'label': 'Limpieza', 
+                'label': 'Todo junto', 
                 'tooltip': 'Mover todo a la raíz y eliminar carpetas vacías',
                 'types': [OrganizationType.TO_ROOT]
             }
