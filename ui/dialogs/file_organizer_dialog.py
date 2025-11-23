@@ -315,6 +315,7 @@ class FileOrganizationDialog(BaseDialog):
         icon_label = QLabel()
         icon_manager.set_label_icon(icon_label, data['icon'], size=DesignSystem.ICON_SIZE_LG, color=DesignSystem.COLOR_TEXT_SECONDARY)
         icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        icon_label.setStyleSheet("border: none; background: transparent;")
         layout.addWidget(icon_label)
         
         # Etiqueta

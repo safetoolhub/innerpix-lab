@@ -354,7 +354,9 @@ class DesignSystem:
                 padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
                 border: 1px solid {DesignSystem.COLOR_BORDER};
                 border-radius: {DesignSystem.RADIUS_BASE}px;
+                font-family: {DesignSystem.FONT_FAMILY_BASE};
                 font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_TEXT};
                 background-color: {DesignSystem.COLOR_SURFACE};
                 min-height: 36px;
             }}
@@ -390,6 +392,9 @@ class DesignSystem:
                 selection-background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
                 selection-color: {DesignSystem.COLOR_PRIMARY};
                 outline: none;
+                font-family: {DesignSystem.FONT_FAMILY_BASE};
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_TEXT};
             }}
             
             QComboBox QAbstractItemView::item {{
