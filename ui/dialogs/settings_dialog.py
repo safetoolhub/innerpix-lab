@@ -3,6 +3,7 @@ import logging
 import os
 import platform
 import subprocess
+import sys
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QTabWidget, QWidget, QGroupBox, QVBoxLayout as QVLayout,
     QHBoxLayout, QLabel, QLineEdit, QPushButton, QComboBox, QFrame, 
@@ -22,13 +23,16 @@ class SettingsDialog(QDialog):
     # Señal emitida cuando se guardan cambios importantes que requieren actualización
     settings_saved = pyqtSignal()
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, initial_tab=0):
         super().__init__(parent)
         self.parent_window = parent
         self.logger = logging.getLogger('PixaroLab.SettingsDialog')
         
         # Referencia al botón de guardar (se asignará en init_ui)
         self.save_button = None
+        
+        # Referencia al tab widget
+        self.tabs = None
         
         # Valores originales para detectar cambios
         self.original_values = {}
@@ -38,6 +42,10 @@ class SettingsDialog(QDialog):
         
         self.init_ui()
         self._load_current_settings()
+        
+        # Cambiar a la pestaña inicial si se especificó
+        if initial_tab > 0 and self.tabs:
+            self.tabs.setCurrentIndex(initial_tab)
         
         # Conectar señales para detectar cambios
         self._connect_change_signals()
@@ -67,22 +75,22 @@ class SettingsDialog(QDialog):
         main_layout.setSpacing(0)
 
         # Crear pestañas usando estilo del DesignSystem
-        tabs = QTabWidget()
-        tabs.setStyleSheet(DesignSystem.get_tab_widget_style())
+        self.tabs = QTabWidget()
+        self.tabs.setStyleSheet(DesignSystem.get_tab_widget_style())
 
         # === PESTAÑA 1: GENERAL ===
         general_tab = self._create_general_tab()
-        tabs.addTab(general_tab, "General")
+        self.tabs.addTab(general_tab, "General")
 
         # === PESTAÑA 2: BACKUPS ===
         backups_tab = self._create_backups_tab()
-        tabs.addTab(backups_tab, "Backup y Logs")
+        self.tabs.addTab(backups_tab, "Backup y Logs")
 
         # === PESTAÑA 3: AVANZADO ===
         advanced_tab = self._create_advanced_tab()
-        tabs.addTab(advanced_tab, "Avanzado")
+        self.tabs.addTab(advanced_tab, "Avanzado")
 
-        main_layout.addWidget(tabs)
+        main_layout.addWidget(self.tabs)
 
         # Footer con botones - Material Design
         footer = self._create_footer()
@@ -478,11 +486,11 @@ class SettingsDialog(QDialog):
         """)
         workers_layout.addWidget(workers_label)
 
-        self.max_workers_spin = QSpinBox()
+        from ui.widgets.custom_spinbox import CustomSpinBox
+        self.max_workers_spin = CustomSpinBox()
         self.max_workers_spin.setMinimum(1)
         self.max_workers_spin.setMaximum(Config.MAX_WORKER_THREADS)
         self.max_workers_spin.setValue(Config.MAX_WORKERS)
-        self.max_workers_spin.setStyleSheet(DesignSystem.get_spinbox_style())
         self.max_workers_spin.setToolTip(
             f"Número de hilos paralelos para procesar archivos.\n"
             f"Más hilos = más rápido, pero mayor uso de CPU.\n"
@@ -701,6 +709,52 @@ class SettingsDialog(QDialog):
         if has_changes != getattr(self, '_last_has_changes', None):
             self.logger.debug(f"Cambios detectados: {has_changes}")
             self._last_has_changes = has_changes
+    
+    def _requires_restart_changed(self):
+        """
+        Detecta si algún cambio requiere reiniciar la aplicación.
+        
+        Settings que requieren reinicio:
+        - Pestaña Avanzado: max_workers, use_video_metadata
+        - Pestaña Backup y Logs: logs_dir, backup_dir, log_level
+        
+        Returns:
+            bool: True si hay cambios que requieren reinicio
+        """
+        if not self.original_values:
+            return False
+        
+        # Verificar cambios en settings que requieren reinicio
+        restart_required_changes = [
+            # Avanzado tab
+            self.max_workers_spin.value() != self.original_values['max_workers'],
+            self.use_video_metadata_checkbox.isChecked() != self.original_values['use_video_metadata'],
+            # Backup y Logs tab
+            self.logs_edit.text() != self.original_values['logs_dir'],
+            self.backup_edit.text() != self.original_values['backup_dir'],
+            self.log_level_combo.currentIndex() != self.original_values['log_level'],
+        ]
+        
+        return any(restart_required_changes)
+    
+    def _restart_application(self):
+        """
+        Reinicia la aplicación.
+        Usa sys.executable para obtener el intérprete de Python y os.execv para reiniciar.
+        """
+        try:
+            self.logger.info("Reiniciando aplicación...")
+            python = sys.executable
+            # os.execv reemplaza el proceso actual con uno nuevo
+            os.execv(python, [python] + sys.argv)
+        except Exception as e:
+            self.logger.exception(f"Error al reiniciar la aplicación: {e}")
+            QMessageBox.critical(
+                self,
+                "Error al Reiniciar",
+                f"No se pudo reiniciar la aplicación:\n{str(e)}\n\n"
+                "Por favor, reinicia manualmente la aplicación."
+            )
 
     # === MÉTODOS AUXILIARES ===
 
@@ -956,18 +1010,62 @@ class SettingsDialog(QDialog):
             # Esto evita problemas con la pila modal
             self.accept()
 
-            # Mensaje informativo después de cerrar el diálogo
-            msg_text = "La configuracion se ha guardado correctamente."
-            if logs_dir_changed:
-                msg_text += "\n\nEl directorio de logs ha cambiado. Los nuevos logs se escribirán en la nueva ubicación."
-            elif any_setting_changed:
-                msg_text += "\n\nAlgunos cambios pueden requerir reiniciar la aplicacion."
+            # Verificar si se requiere reiniciar la aplicación
+            needs_restart = self._requires_restart_changed()
             
-            QMessageBox.information(
-                self.parent_window if self.parent_window else self,
-                "Configuracion Guardada",
-                msg_text
-            )
+            if needs_restart:
+                # Mostrar diálogo de confirmación para reiniciar
+                restart_msg = (
+                    "Se han guardado cambios que requieren reiniciar la aplicación para tomar efecto:\n\n"
+                )
+                
+                # Listar qué cambió
+                changes_list = []
+                if self.max_workers_spin.value() != self.original_values['max_workers']:
+                    changes_list.append("• Número de hilos de procesamiento")
+                if self.use_video_metadata_checkbox.isChecked() != self.original_values['use_video_metadata']:
+                    changes_list.append("• Extracción de metadatos de video")
+                if self.logs_edit.text() != self.original_values['logs_dir']:
+                    changes_list.append("• Directorio de logs")
+                if self.backup_edit.text() != self.original_values['backup_dir']:
+                    changes_list.append("• Directorio de backups")
+                if self.log_level_combo.currentIndex() != self.original_values['log_level']:
+                    changes_list.append("• Nivel de detalle de logs")
+                
+                restart_msg += "\n".join(changes_list)
+                restart_msg += "\n\n¿Desea reiniciar la aplicación ahora?"
+                
+                reply = QMessageBox.question(
+                    self.parent_window if self.parent_window else self,
+                    "Reiniciar Aplicación",
+                    restart_msg,
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.Yes
+                )
+                
+                if reply == QMessageBox.StandardButton.Yes:
+                    # Reiniciar la aplicación
+                    self._restart_application()
+                else:
+                    # Usuario rechazó reiniciar - mostrar advertencia
+                    QMessageBox.warning(
+                        self.parent_window if self.parent_window else self,
+                        "Reinicio Requerido",
+                        "Los cambios se han guardado correctamente, pero NO tomarán efecto "
+                        "hasta que reinicie la aplicación.\n\n"
+                        "La aplicación puede no comportarse como espera hasta que se reinicie."
+                    )
+            else:
+                # No se requiere reinicio - mensaje informativo normal
+                msg_text = "La configuracion se ha guardado correctamente."
+                if logs_dir_changed:
+                    msg_text += "\n\nEl directorio de logs ha cambiado. Los nuevos logs se escribirán en la nueva ubicación."
+                
+                QMessageBox.information(
+                    self.parent_window if self.parent_window else self,
+                    "Configuracion Guardada",
+                    msg_text
+                )
 
         except Exception as e:
             self.logger.exception(f"Error guardando configuración: {e}")

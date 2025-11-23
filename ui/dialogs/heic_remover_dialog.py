@@ -184,7 +184,7 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         search_layout.setSpacing(DesignSystem.SPACE_8)
         
         search_icon = QLabel()
-        icon_manager.set_label_icon(search_icon, 'search', size=DesignSystem.ICON_SIZE_SM, color=DesignSystem.COLOR_TEXT_SECONDARY)
+        icon_manager.set_label_icon(search_icon, 'magnify', size=DesignSystem.ICON_SIZE_SM, color=DesignSystem.COLOR_TEXT_SECONDARY)
         
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Buscar por nombre...")

@@ -240,16 +240,18 @@ class DesignSystem:
         """
         Retorna el estilo QSS para tooltips de manera centralizada
         TODOS los tooltips de la aplicación deben usar este estilo
+        Estilo Material Design: fondo oscuro, texto claro, sombra elegante
         """
         return f"""
             QToolTip {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                color: {DesignSystem.COLOR_TEXT};
-                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
+                background-color: rgba(97, 97, 97, 0.95);
+                color: #FFFFFF;
+                border: none;
                 border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_8}px;
+                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
                 font-size: {DesignSystem.FONT_SIZE_SM}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_NORMAL};
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                font-family: {DesignSystem.FONT_FAMILY_BASE};
             }}
         """
     
@@ -344,25 +346,31 @@ class DesignSystem:
     @staticmethod
     def get_combobox_style():
         """
-        Retorna el estilo QSS completo para ComboBox Material Design
-        Incluye el dropdown y los items del menú
+        Retorna el estilo QSS completo para ComboBox Material Design Premium
+        Incluye el dropdown y los items del menú con un look moderno y espacioso
         """
         return f"""
             QComboBox {{
-                padding: {DesignSystem.SPACE_8}px;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
                 border: 1px solid {DesignSystem.COLOR_BORDER};
                 border-radius: {DesignSystem.RADIUS_BASE}px;
+                font-family: {DesignSystem.FONT_FAMILY_BASE};
                 font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_TEXT};
                 background-color: {DesignSystem.COLOR_SURFACE};
-                min-height: 28px;
+                min-height: 40px; /* Más alto para toque premium */
+                min-width: 120px;
             }}
             
             QComboBox:hover {{
                 border-color: {DesignSystem.COLOR_PRIMARY};
+                background-color: {DesignSystem.COLOR_BG_1};
             }}
             
             QComboBox:focus {{
                 border-color: {DesignSystem.COLOR_PRIMARY};
+                border-width: 2px;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_10}px; /* Compensar borde */
             }}
             
             QComboBox::drop-down {{
@@ -372,25 +380,34 @@ class DesignSystem:
             }}
             
             QComboBox::down-arrow {{
-                image: none;
-                border: none;
+                image: url(data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' d='M2 4l4 4 4-4'/></svg>);
+                width: 12px;
+                height: 12px;
             }}
             
+            QComboBox::down-arrow:hover {{
+                 image: url(data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path fill='none' stroke='%230d6efd' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' d='M2 4l4 4 4-4'/></svg>);
+            }}
+
             QComboBox QAbstractItemView {{
                 background-color: {DesignSystem.COLOR_SURFACE};
                 border: 1px solid {DesignSystem.COLOR_BORDER};
                 border-radius: {DesignSystem.RADIUS_BASE}px;
                 padding: {DesignSystem.SPACE_4}px;
-                selection-background-color: {DesignSystem.COLOR_BG_2};
-                selection-color: {DesignSystem.COLOR_TEXT};
+                selection-background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
+                selection-color: {DesignSystem.COLOR_PRIMARY};
                 outline: none;
+                font-family: {DesignSystem.FONT_FAMILY_BASE};
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_TEXT};
+                margin-top: {DesignSystem.SPACE_4}px; /* Espacio entre combo y lista */
             }}
             
             QComboBox QAbstractItemView::item {{
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
+                padding: {DesignSystem.SPACE_10}px {DesignSystem.SPACE_16}px; /* Más espaciado */
                 border-radius: {DesignSystem.RADIUS_SMALL}px;
                 margin: {DesignSystem.SPACE_2}px;
-                min-height: 24px;
+                min-height: 36px;
             }}
             
             QComboBox QAbstractItemView::item:hover {{
@@ -399,8 +416,9 @@ class DesignSystem:
             }}
             
             QComboBox QAbstractItemView::item:selected {{
-                background-color: {DesignSystem.COLOR_PRIMARY};
-                color: {DesignSystem.COLOR_PRIMARY_TEXT};
+                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
+                color: {DesignSystem.COLOR_PRIMARY};
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
             }}
         """
 
@@ -464,51 +482,6 @@ class DesignSystem:
         """
 
     @staticmethod
-    def get_spinbox_style():
-        """
-        Retorna el estilo consistente para spinboxes
-        """
-        return f"""
-            QSpinBox {{
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
-                background-color: {DesignSystem.COLOR_SURFACE};
-                color: {DesignSystem.COLOR_TEXT};
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                min-height: 32px;
-                min-width: 80px;
-            }}
-            QSpinBox:hover {{
-                border-color: {DesignSystem.COLOR_PRIMARY};
-            }}
-            QSpinBox:focus {{
-                border-color: {DesignSystem.COLOR_PRIMARY};
-            }}
-            QSpinBox::up-button, QSpinBox::down-button {{
-                background-color: transparent;
-                border: none;
-                width: 20px;
-            }}
-            QSpinBox::up-button:hover, QSpinBox::down-button:hover {{
-                background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
-                border-radius: {DesignSystem.RADIUS_SM}px;
-            }}
-            QSpinBox::up-arrow {{
-                image: none;
-                border-left: 4px solid transparent;
-                border-right: 4px solid transparent;
-                border-bottom: 4px solid {DesignSystem.COLOR_TEXT};
-            }}
-            QSpinBox::down-arrow {{
-                image: none;
-                border-left: 4px solid transparent;
-                border-right: 4px solid transparent;
-                border-top: 4px solid {DesignSystem.COLOR_TEXT};
-            }}
-        """
-
-    @staticmethod
     def get_lineedit_style():
         """
         Retorna el estilo consistente para QLineEdit
@@ -568,6 +541,7 @@ class DesignSystem:
         """
         Estilo para botón de acción destructiva.
         Ejemplo: "Eliminar", "Borrar Archivos"
+        Material Design: hover más oscuro para mejor feedback visual
         """
         return f"""
             QPushButton {{
@@ -581,10 +555,10 @@ class DesignSystem:
                 min-height: 36px;
             }}
             QPushButton:hover {{
-                background-color: {DesignSystem.COLOR_ERROR};
+                background-color: {DesignSystem.COLOR_DANGER_HOVER};
             }}
             QPushButton:pressed {{
-                background-color: {DesignSystem.COLOR_DANGER};
+                background-color: #A02530;
             }}
             QPushButton:disabled {{
                 background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
@@ -598,6 +572,7 @@ class DesignSystem:
         """
         Estilo para botón secundario (cancelar, cerrar).
         Ejemplo: "Cancelar"
+        Material Design: hover sutil con fondo claro
         """
         return f"""
             QPushButton {{
@@ -611,14 +586,37 @@ class DesignSystem:
                 min-height: 36px;
             }}
             QPushButton:hover {{
-                background-color: {DesignSystem.COLOR_SECONDARY};
+                background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
+                border-color: {DesignSystem.COLOR_TEXT_SECONDARY};
             }}
             QPushButton:pressed {{
-                background-color: {DesignSystem.COLOR_SECONDARY_HOVER};
+                background-color: {DesignSystem.COLOR_BORDER_LIGHT};
             }}
             QPushButton:disabled {{
             background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
             color: {DesignSystem.COLOR_TEXT_SECONDARY};
             border: 1px solid {DesignSystem.COLOR_BORDER};
         }}
+        """
+    
+    @staticmethod
+    def get_icon_button_style():
+        """
+        Estilo para botones de icono (QToolButton) en header.
+        Material Design: hover sutil con fondo claro, no opaco.
+        Ejemplo: Botones de configuración y about en el header.
+        """
+        return f"""
+            QToolButton {{
+                background: transparent;
+                border: none;
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_8}px;
+            }}
+            QToolButton:hover {{
+                background-color: rgba(0, 0, 0, 0.05);
+            }}
+            QToolButton:pressed {{
+                background-color: rgba(0, 0, 0, 0.1);
+            }}
         """

@@ -183,7 +183,7 @@ class ExactCopiesDialog(BaseDialog):
         search_container_layout.setSpacing(int(DesignSystem.SPACE_8))
         
         search_icon = QLabel()
-        icon_manager.set_label_icon(search_icon, 'search', size=18)
+        icon_manager.set_label_icon(search_icon, 'magnify', size=18)
         search_icon.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY};")
         search_container_layout.addWidget(search_icon)
         
@@ -481,7 +481,7 @@ class ExactCopiesDialog(BaseDialog):
     def _create_strategy_selector(self) -> QFrame:
         """Crea selector de estrategia usando el método centralizado de BaseDialog."""
         strategies = [
-            ('oldest', 'access_time', 'Mantener el más antiguo', 
+            ('oldest', 'clock-outline', 'Mantener el más antiguo', 
              'Conserva el archivo con fecha de modificación más antigua. Recomendado para preservar originales.'),
             ('newest', 'update', 'Mantener el más reciente', 
              'Conserva el archivo con fecha de modificación más reciente. Útil para versiones editadas.')
@@ -489,7 +489,7 @@ class ExactCopiesDialog(BaseDialog):
         
         return self._create_option_selector(
             title="Elige qué archivo conservar en cada grupo",
-            title_icon='rule',
+            title_icon='ruler',
             options=strategies,
             selected_value=self.keep_strategy,
             on_change_callback=self._on_strategy_changed

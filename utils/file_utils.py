@@ -5,17 +5,168 @@ Functions:
 - create_backup(files, base_directory, backup_prefix, progress_callback=None)
 - cleanup_empty_directories(root_directory)
 - find_next_available_name(base_path, base_name, extension)
+- is_whatsapp_file(filename, file_path=None)
 
 These are pure helpers designed to centralize duplicated code from services.
 """
 from pathlib import Path
 from datetime import datetime
 import shutil
+import re
 from typing import Iterable, Optional, Tuple, List
 import hashlib
 
 from utils.format_utils import format_size
 from utils.callback_utils import safe_progress_callback
+
+
+# Patrones de WhatsApp (iPhone y Android)
+WHATSAPP_PATTERNS = [
+    r'^IMG-\d{8}-WA\d{4}\..*$',  # IMG-20231025-WA0001.jpg (Android)
+    r'^VID-\d{8}-WA\d{4}\..*$',  # VID-20231025-WA0001.mp4 (Android)
+    r'^AUD-\d{8}-WA\d{4}\..*$',  # AUD-20231025-WA0001.opus (Android)
+    r'^PTT-\d{8}-WA\d{4}\..*$',  # PTT (voice notes)
+    r'^WhatsApp\s+Image\s+\d{4}-\d{2}-\d{2}\s+at\s+.*\..*$',  # WhatsApp Image 2023-10-25 at 12.34.56.jpg
+    r'^WhatsApp\s+Video\s+\d{4}-\d{2}-\d{2}\s+at\s+.*\..*$',  # WhatsApp Video 2023-10-25 at 12.34.56.mp4
+    r'^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}(_\d{3})?\.(jpg|jpeg|png|mp4|mov|heic)$',  # UUID format (iPhone export) with optional suffix
+]
+
+
+def detect_file_source(filename: str, file_path: Optional[Path] = None, exif_data: Optional[dict] = None) -> str:
+    """
+    Detecta la fuente/origen de un archivo basándose en patrones y metadata.
+    
+    Args:
+        filename: Nombre del archivo
+        file_path: Path completo del archivo (opcional, para análisis de ruta)
+        exif_data: Datos EXIF del archivo (opcional, para detectar dispositivo)
+    
+    Returns:
+        Fuente detectada: 'WhatsApp', 'iPhone', 'Android', 'Screenshot', 
+                         'Camera', 'Scanner', 'Unknown'
+    
+    Examples:
+        >>> detect_file_source('IMG-20231025-WA0001.jpg')
+        'WhatsApp'
+        >>> detect_file_source('IMG_1234.HEIC')
+        'iPhone'
+        >>> detect_file_source('Screenshot_2023.png')
+        'Screenshot'
+    """
+    filename_lower = filename.lower()
+    
+    # 1. WhatsApp (máxima prioridad)
+    if is_whatsapp_file(filename, file_path):
+        return 'WhatsApp'
+    
+    # 2. Screenshots
+    screenshot_patterns = [
+        r'^screenshot[_\s-]',  # Screenshot_...
+        r'^captura[_\s-]',     # Captura de pantalla
+        r'^screen[_\s-]',      # Screen_...
+        r'^scrnshot',          # Scrnshot_...
+    ]
+    if any(re.match(pattern, filename_lower) for pattern in screenshot_patterns):
+        return 'Screenshot'
+    
+    # 3. iPhone (HEIC, IMG_XXXX, formato Live Photo)
+    if filename_lower.endswith('.heic'):
+        return 'iPhone'
+    # iPhone patterns: IMG_XXXX.JPG, IMG_EXXXX.JPG (edits), IMG_XXXX.MOV, with optional _NNN suffix
+    if re.match(r'^img_[e]?\d{4}(_\d{3})?\.(jpg|jpeg|png|mov|mp4)$', filename_lower):
+        return 'iPhone'
+    
+    # 4. Android (patrón típico)
+    android_patterns = [
+        r'^pxl_\d{8}(_\d{3})?\..*$',       # Google Pixel
+        r'^img-\d{8}(_\d{3})?\..*$',       # Algunos Android (sin WA)
+        r'^\d{8}_\d{6}(_\d{3})?\..*$',      # Samsung: YYYYMMDD_HHMMSS
+        r'^signal-\d{4}(_\d{3})?\..*$',     # Signal app
+    ]
+    if any(re.match(pattern, filename_lower) for pattern in android_patterns):
+        return 'Android'
+    
+    # 5. Cámara digital (DSC, DCIM patterns)
+    camera_patterns = [
+        r'^dsc[_-]?\d+(_\d{3})?\.',      # DSC_0001.jpg or DSC_0001_001.jpg
+        r'^p\d{7}(_\d{3})?\.',           # P0001234.jpg
+        r'^_dsc\d+(_\d{3})?\.',          # _DSC1234.jpg (Nikon)
+        r'^img_\d{4,}(_\d{3})?\.',       # IMG_12345.jpg (cámaras Canon, etc.)
+    ]
+    if any(re.match(pattern, filename_lower) for pattern in camera_patterns):
+        return 'Camera'
+    
+    # 6. Escáner
+    scanner_patterns = [
+        r'^scan[_\s-]',       # Scan_...
+        r'^scanned[_\s-]',    # Scanned_...
+        r'^escanear',         # Escanear_...
+    ]
+    if any(re.match(pattern, filename_lower) for pattern in scanner_patterns):
+        return 'Scanner'
+    
+    # 7. EXIF data (si está disponible)
+    if exif_data:
+        model = exif_data.get('Model', '').lower()
+        make = exif_data.get('Make', '').lower()
+        
+        if 'iphone' in model or 'iphone' in make:
+            return 'iPhone'
+        if 'samsung' in make or 'pixel' in model or 'android' in model:
+            return 'Android'
+        if model or make:  # Cualquier otra cámara con metadata
+            return 'Camera'
+    
+    # 8. Análisis de ruta (último recurso)
+    if file_path:
+        path_str = str(file_path).lower()
+        if 'whatsapp' in path_str:
+            return 'WhatsApp'
+        if 'dcim' in path_str or 'camera' in path_str:
+            return 'Camera'
+        if 'screenshot' in path_str:
+            return 'Screenshot'
+    
+    return 'Unknown'
+
+
+def is_whatsapp_file(filename: str, file_path: Path = None) -> bool:
+    """Verifica si un archivo es de WhatsApp basándose en su nombre y/o ruta.
+    
+    Detecta archivos de WhatsApp por:
+    1. Patrones de nombre conocidos (IMG-WA, VID-WA, WhatsApp Image, etc.)
+    2. Formato UUID de iPhone (82DB60A3-002F-4FAE-80FC-96082431D247.jpg)
+    3. Ruta que contenga "whatsapp" en cualquier nivel
+    
+    Args:
+        filename: Nombre del archivo
+        file_path: Path completo del archivo (opcional)
+    
+    Returns:
+        True si el nombre coincide con patrones de WhatsApp o está en carpeta WhatsApp
+    
+    Examples:
+        >>> is_whatsapp_file('IMG-20231025-WA0001.jpg')
+        True
+        >>> is_whatsapp_file('82DB60A3-002F-4FAE-80FC-96082431D247.jpg')
+        True
+        >>> is_whatsapp_file('photo.jpg', Path('/photos/WhatsApp/photo.jpg'))
+        True
+        >>> is_whatsapp_file('vacation.jpg', Path('/photos/vacation.jpg'))
+        False
+    """
+    # Verificar por nombre (patrones conocidos)
+    for pattern in WHATSAPP_PATTERNS:
+        if re.match(pattern, filename, re.IGNORECASE):
+            return True
+    
+    # Verificar por ruta (carpeta contiene "whatsapp" en cualquier nivel)
+    if file_path:
+        path_str = str(file_path).lower()
+        if 'whatsapp' in path_str:
+            return True
+    
+    return False
 
 
 def validate_file_exists(path) -> Path:

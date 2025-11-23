@@ -9,7 +9,8 @@ from typing import Optional
 from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QGroupBox, QDialogButtonBox, QCheckBox, QLabel,
     QTreeWidget, QTreeWidgetItem, QLineEdit, QComboBox, QPushButton, QFrame,
-    QApplication, QMenu, QWidget,  QProgressBar
+    QApplication, QMenu, QWidget, QProgressBar, QTabWidget, QRadioButton, QButtonGroup,
+    QStackedWidget, QScrollArea
 )
 from PyQt6.QtGui import QColor, QFont, QCursor
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QThread
@@ -17,6 +18,7 @@ from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QThread
 from config import Config
 from utils.format_utils import format_size
 from utils.date_utils import get_date_from_file
+from utils.file_utils import is_whatsapp_file
 from ui.styles.design_system import DesignSystem
 from utils.icons import icon_manager
 from utils.logger import get_logger
@@ -32,11 +34,14 @@ class OrganizationWorker(QThread):
     progress = pyqtSignal(int, int, str)
     error = pyqtSignal(str)
     
-    def __init__(self, root_directory: Path, organization_type: OrganizationType, metadata_cache=None):
+    def __init__(self, root_directory: Path, organization_type: OrganizationType, metadata_cache=None, group_by_source=False, group_by_type=False, date_grouping_type: Optional[str] = None):
         super().__init__()
         self.root_directory = root_directory
         self.organization_type = organization_type
         self.metadata_cache = metadata_cache
+        self.group_by_source = group_by_source
+        self.group_by_type = group_by_type
+        self.date_grouping_type = date_grouping_type
         self.organizer = FileOrganizer()
         self.logger = get_logger("OrganizationWorker")
     
@@ -52,7 +57,10 @@ class OrganizationWorker(QThread):
             result = self.organizer.analyze(
                 self.root_directory,
                 self.organization_type,
-                progress_callback
+                progress_callback,
+                group_by_source=self.group_by_source,
+                group_by_type=self.group_by_type,
+                date_grouping_type=self.date_grouping_type
             )
             self.finished.emit(result)
             
@@ -80,19 +88,23 @@ class FileOrganizationDialog(BaseDialog):
         
         # Datos principales
         self.root_directory = Path(initial_analysis.root_directory)
-        self.analysis = initial_analysis
-        self.current_organization_type = OrganizationType(initial_analysis.organization_type)
+        self.initial_analysis = initial_analysis  # Guardar para referencia pero no usar inicialmente
+        self.analysis = None  # Empezar sin análisis hasta que el usuario seleccione
+        self.current_organization_type = None  # Sin tipo seleccionado inicialmente
         self.accepted_plan = None
         self.metadata_cache = metadata_cache  # Caché para reutilizar en re-análisis
         
         # Datos filtrados y paginación
-        self.filtered_moves = list(initial_analysis.move_plan)
+        self.filtered_moves = []  # Empezar vacío hasta que el usuario seleccione
         self.current_page = 0
         self.total_pages = 0
         
         # Worker para análisis
         self.worker: Optional[OrganizationWorker] = None
         self.is_analyzing = False
+        
+        # Flag para evitar disparar eventos durante la construcción de la UI
+        self.ui_initialized = False
         
         self.init_ui()
 
@@ -102,6 +114,10 @@ class FileOrganizationDialog(BaseDialog):
         self.setModal(True)
         self.resize(1200, 800)
         
+        # Inicializar progress bar temprano para evitar crashes si se disparan señales durante la construcción de la UI
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setVisible(False)
+        
         main_layout = QVBoxLayout(self)
         main_layout.setSpacing(0)
         main_layout.setContentsMargins(0, 0, 0, DesignSystem.SPACE_20)
@@ -109,23 +125,23 @@ class FileOrganizationDialog(BaseDialog):
         # === HEADER COMPACTO CON MÉTRICAS ===
         self.header_frame = self._create_compact_header_with_metrics(
             icon_name='folder-settings',
-            title='Organización de archivos',
-            description='Reorganiza tu colección según diferentes criterios. Selecciona un tipo y revisa el plan.',
+            title='Organización de Archivos',
+            description='Elige cómo organizar tus archivos',
             metrics=[
                 {
-                    'value': str(self.analysis.total_files_to_move),
                     'label': 'Archivos',
-                    'color': DesignSystem.COLOR_PRIMARY
+                    'value': str(self.analysis.total_files_to_move) if self.analysis else '0',
+                    'icon': 'description'
                 },
                 {
-                    'value': str(len(self.analysis.subdirectories)),
-                    'label': 'Subdirs',
-                    'color': '#9c27b0'
+                    'label': 'Carpetas',
+                    'value': str(len(self.analysis.subdirectories)) if self.analysis else '0',
+                    'icon': 'folder'
                 },
                 {
-                    'value': format_size(self.analysis.total_size_to_move),
                     'label': 'Tamaño',
-                    'color': '#ff9800'
+                    'value': format_size(self.analysis.total_size_to_move) if self.analysis else '0 B',
+                    'icon': 'storage'
                 }
             ]
         )
@@ -143,9 +159,9 @@ class FileOrganizationDialog(BaseDialog):
         )
         main_layout.addWidget(content_container)
         
-        # === SELECTOR DE TIPO ===
-        self.type_selector = self._create_type_selector()
-        content_layout.addWidget(self.type_selector)
+        # === SELECTOR DE ESTRATEGIA ===
+        self.selection_ui = self._create_selection_ui()
+        content_layout.addWidget(self.selection_ui)
         
         # === INFORMACIÓN DE CARPETAS ===
         self.folders_info_widget = self._create_folders_info()
@@ -165,8 +181,8 @@ class FileOrganizationDialog(BaseDialog):
         content_layout.addWidget(self.pagination_widget)
         
         # === PROGRESS BAR (inicialmente oculto) ===
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setVisible(False)
+        # === PROGRESS BAR (inicialmente oculto) ===
+        # self.progress_bar ya inicializado al principio
         self.progress_bar.setStyleSheet(f"""
             QProgressBar {{
                 border: 1px solid {DesignSystem.COLOR_BORDER};
@@ -189,53 +205,381 @@ class FileOrganizationDialog(BaseDialog):
         self.buttons = self._create_action_buttons()
         content_layout.addWidget(self.buttons)
         
-        # Actualizar vista inicial
-        self._update_all_ui()
+        # NO actualizar vista inicial - dejar vacío hasta que el usuario seleccione
+        # self._update_all_ui()
+        
+        # Marcar UI como inicializada para permitir eventos
+        self.ui_initialized = True
         
         # Aplicar estilo global de tooltips
         self.setStyleSheet(DesignSystem.get_tooltip_style())
+        
+        # Inicializar la selección de estrategia y las opciones (ahora que la UI está lista)
+        self._initialize_strategy_selection()
 
-    def _create_type_selector(self) -> QWidget:
-        """Crea selector de tipo de organización usando el método centralizado de BaseDialog."""
-        options = [
-            (OrganizationType.TO_ROOT, "folder-open", "Mover a Raíz",
-             "Mueve todos los archivos al directorio raíz eliminando subdirectorios"),
-            (OrganizationType.BY_MONTH, "calendar_month", "Por Mes",
-             "Organiza en carpetas mensuales (YYYY_MM) según la fecha del archivo"),
-            (OrganizationType.WHATSAPP_SEPARATE, "mobile", "Separar WhatsApp",
-             "Separa archivos de WhatsApp en carpeta dedicada, resto a la raíz")
-        ]
+    def _create_selection_ui(self) -> QWidget:
+        """Crea la nueva interfaz de selección con Estrategia + Opciones Contextuales"""
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(DesignSystem.SPACE_16)
         
-        return self._create_option_selector(
-            title="Elige cómo organizar los archivos",
-            title_icon='options',
-            options=options,
-            selected_value=self.current_organization_type,
-            on_change_callback=self._on_type_changed
-        )
-    
-    def _on_type_changed(self, new_type: OrganizationType):
-        """Maneja el cambio de tipo de organización"""
-        if new_type == self.current_organization_type:
+        # 1. Selector de Estrategia (Tarjetas Horizontales)
+        strategy_container = QWidget()
+        strategy_layout = QHBoxLayout(strategy_container)
+        strategy_layout.setContentsMargins(0, 0, 0, 0)
+        strategy_layout.setSpacing(DesignSystem.SPACE_12)
+        
+        # Definir estrategias
+        self.strategies = {
+            'date': {
+                'icon': 'calendar_month', 
+                'label': 'Por Fecha', 
+                'tooltip': 'Organizar archivos cronológicamente (Año, Mes...)',
+                'types': [OrganizationType.BY_MONTH, OrganizationType.BY_YEAR, OrganizationType.BY_YEAR_MONTH]
+            },
+            'type': {
+                'icon': 'image', 
+                'label': 'Por Tipo', 
+                'tooltip': 'Agrupar por tipo de archivo (Fotos, Videos...)',
+                'types': [OrganizationType.BY_TYPE]
+            },
+            'source': {
+                'icon': 'devices', 
+                'label': 'Por Fuente', 
+                'tooltip': 'Agrupar por dispositivo de origen (Cámara, WhatsApp...)',
+                'types': [OrganizationType.BY_SOURCE]
+            },
+            'cleanup': {
+                'icon': 'folder-open', 
+                'label': 'Todo junto', 
+                'tooltip': 'Mover todo a la raíz y eliminar carpetas vacías',
+                'types': [OrganizationType.TO_ROOT]
+            }
+        }
+        
+        self.strategy_cards = {}
+        
+        # Crear tarjetas
+        for key, data in self.strategies.items():
+            card = self._create_strategy_card(key, data)
+            strategy_layout.addWidget(card)
+            self.strategy_cards[key] = card
+            
+        layout.addWidget(strategy_container)
+        
+        # 2. Panel de Opciones Contextuales (Stacked Widget)
+        self.settings_stack = QStackedWidget()
+        self.settings_stack.setStyleSheet(f"""
+            QStackedWidget {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+            }}
+        """)
+        
+        # Página 0: Configuración de Fecha
+        self.date_settings_page = self._create_date_settings_page()
+        self.settings_stack.addWidget(self.date_settings_page)
+        
+        # Página 1: Configuración de Tipo
+        self.type_settings_page = self._create_type_source_settings_page("type")
+        self.settings_stack.addWidget(self.type_settings_page)
+        
+        # Página 2: Configuración de Fuente
+        self.source_settings_page = self._create_type_source_settings_page("source")
+        self.settings_stack.addWidget(self.source_settings_page)
+        
+        # Página 3: Configuración de Limpieza
+        self.cleanup_settings_page = self._create_cleanup_settings_page()
+        self.settings_stack.addWidget(self.cleanup_settings_page)
+        
+        layout.addWidget(self.settings_stack)
+        
+        layout.addWidget(self.settings_stack)
+        
+        return container
+
+    def _create_strategy_card(self, key: str, data: dict) -> QFrame:
+        """Crea una tarjeta de estrategia seleccionable"""
+        card = QFrame()
+        card.setCursor(Qt.CursorShape.PointingHandCursor)
+        card.setProperty("strategy_key", key)
+        card.setToolTip(data['tooltip'])
+        
+        # Layout de la tarjeta
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(DesignSystem.SPACE_12, DesignSystem.SPACE_12, DesignSystem.SPACE_12, DesignSystem.SPACE_12)
+        layout.setSpacing(DesignSystem.SPACE_8)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        # Icono
+        icon_label = QLabel()
+        icon_manager.set_label_icon(icon_label, data['icon'], size=DesignSystem.ICON_SIZE_LG, color=DesignSystem.COLOR_TEXT_SECONDARY)
+        icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        icon_label.setStyleSheet("border: none; background: transparent;")
+        layout.addWidget(icon_label)
+        
+        # Etiqueta
+        text_label = QLabel(data['label'])
+        text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        text_label.setStyleSheet(f"font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM}; color: {DesignSystem.COLOR_TEXT}; border: none;")
+        layout.addWidget(text_label)
+        
+        # Guardar referencias para actualizar estilos
+        card.icon_label = icon_label
+        card.text_label = text_label
+        
+        # Evento de click
+        card.mousePressEvent = lambda e: self._on_strategy_clicked(key)
+        
+        return card
+
+    def _create_date_settings_page(self) -> QWidget:
+        """Crea la página de opciones para organización por fecha"""
+        page = QWidget()
+        layout = QHBoxLayout(page)
+        layout.setContentsMargins(DesignSystem.SPACE_20, DesignSystem.SPACE_16, DesignSystem.SPACE_20, DesignSystem.SPACE_16)
+        layout.setSpacing(DesignSystem.SPACE_16)
+        
+        label = QLabel("Granularidad:")
+        label.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT}; font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};")
+        
+        self.date_granularity_combo = QComboBox()
+        self.date_granularity_combo.addItems(["Por Mes (YYYY_MM)", "Por Año (YYYY)", "Por Año/Mes (YYYY/MM)"])
+        self.date_granularity_combo.setMinimumWidth(200)
+        self.date_granularity_combo.setStyleSheet(DesignSystem.get_combobox_style())
+        self.date_granularity_combo.currentIndexChanged.connect(lambda: self._on_option_changed(None))
+        
+        # Checkboxes para opciones combinadas
+        self.chk_date_source = QCheckBox("Agrupar también por Fuente (WhatsApp, etc.)")
+        self.chk_date_source.setToolTip("Crea subcarpetas por fuente dentro de cada carpeta de fecha")
+        self.chk_date_source.stateChanged.connect(lambda: self._on_option_changed(None))
+        
+        self.chk_date_type = QCheckBox("Agrupar también por Tipo (Fotos/Videos)")
+        self.chk_date_type.setToolTip("Crea subcarpetas Fotos y Videos dentro de cada carpeta de fecha")
+        self.chk_date_type.stateChanged.connect(lambda: self._on_option_changed(None))
+
+        layout.addWidget(label)
+        layout.addWidget(self.date_granularity_combo)
+        layout.addWidget(self.chk_date_source)
+        layout.addWidget(self.chk_date_type)
+        layout.addStretch()
+        
+        return page
+
+    def _create_type_source_settings_page(self, context: str) -> QWidget:
+        """Crea la página de opciones para organización por tipo o fuente"""
+        page = QWidget()
+        layout = QHBoxLayout(page)
+        layout.setContentsMargins(DesignSystem.SPACE_20, DesignSystem.SPACE_16, DesignSystem.SPACE_20, DesignSystem.SPACE_16)
+        layout.setSpacing(DesignSystem.SPACE_16)
+        
+        label = QLabel("Agrupación secundaria:")
+        label.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT}; font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};")
+        
+        combo = QComboBox()
+        combo.addItems(["Ninguna", "Por Mes (YYYY_MM)", "Por Año (YYYY)", "Por Año/Mes (YYYY/MM)"])
+        combo.setMinimumWidth(200)
+        combo.setStyleSheet(DesignSystem.get_combobox_style())
+        combo.currentIndexChanged.connect(lambda: self._on_option_changed(None))
+        
+        if context == "type":
+            self.type_secondary_combo = combo
+        else:
+            self.source_secondary_combo = combo
+            
+        layout.addWidget(label)
+        layout.addWidget(combo)
+        layout.addStretch()
+        
+        return page
+
+    def _create_cleanup_settings_page(self) -> QWidget:
+        """Crea la página de opciones para limpieza"""
+        page = QWidget()
+        layout = QHBoxLayout(page)
+        layout.setContentsMargins(DesignSystem.SPACE_20, DesignSystem.SPACE_16, DesignSystem.SPACE_20, DesignSystem.SPACE_16)
+        
+        icon_label = QLabel()
+        icon_manager.set_label_icon(icon_label, "info", size=DesignSystem.ICON_SIZE_MD, color=DesignSystem.COLOR_PRIMARY)
+        
+        text_label = QLabel("Esta opción moverá todos los archivos al directorio raíz y eliminará las carpetas vacías.")
+        text_label.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY};")
+        
+        layout.addWidget(icon_label)
+        layout.addWidget(text_label)
+        layout.addStretch()
+        
+        return page
+
+    def _initialize_strategy_selection(self):
+        """Inicializa la selección de estrategia y las opciones contextuales."""
+        # Determinar la estrategia inicial basada en initial_analysis o un valor por defecto
+        initial_strategy_key = 'date' # Default
+        if self.initial_analysis:
+            if self.initial_analysis.organization_type in self.strategies['date']['types']:
+                initial_strategy_key = 'date'
+                # Set initial combo box value for date granularity
+                if self.initial_analysis.organization_type == OrganizationType.BY_MONTH:
+                    self.date_granularity_combo.setCurrentIndex(0)
+                elif self.initial_analysis.organization_type == OrganizationType.BY_YEAR:
+                    self.date_granularity_combo.setCurrentIndex(1)
+                elif self.initial_analysis.organization_type == OrganizationType.BY_YEAR_MONTH:
+                    self.date_granularity_combo.setCurrentIndex(2)
+                
+                # Set initial checkbox states
+                self.chk_date_source.setChecked(self.initial_analysis.group_by_source)
+                self.chk_date_type.setChecked(self.initial_analysis.group_by_type)
+
+            elif self.initial_analysis.organization_type == OrganizationType.BY_TYPE:
+                initial_strategy_key = 'type'
+                # Set initial combo box value for secondary grouping
+                if self.initial_analysis.date_grouping_type == 'month':
+                    self.type_secondary_combo.setCurrentIndex(1)
+                elif self.initial_analysis.date_grouping_type == 'year':
+                    self.type_secondary_combo.setCurrentIndex(2)
+                elif self.initial_analysis.date_grouping_type == 'year_month':
+                    self.type_secondary_combo.setCurrentIndex(3)
+                else:
+                    self.type_secondary_combo.setCurrentIndex(0) # Ninguna
+
+            elif self.initial_analysis.organization_type == OrganizationType.BY_SOURCE:
+                initial_strategy_key = 'source'
+                # Set initial combo box value for secondary grouping
+                if self.initial_analysis.date_grouping_type == 'month':
+                    self.source_secondary_combo.setCurrentIndex(1)
+                elif self.initial_analysis.date_grouping_type == 'year':
+                    self.source_secondary_combo.setCurrentIndex(2)
+                elif self.initial_analysis.date_grouping_type == 'year_month':
+                    self.source_secondary_combo.setCurrentIndex(3)
+                else:
+                    self.source_secondary_combo.setCurrentIndex(0) # Ninguna
+
+            elif self.initial_analysis.organization_type == OrganizationType.TO_ROOT:
+                initial_strategy_key = 'cleanup'
+        
+        # Simulate a click on the initial strategy card to set up UI and trigger analysis
+        self._on_strategy_clicked(initial_strategy_key)
+
+
+    def _on_strategy_clicked(self, key: str):
+        """Maneja el click en una tarjeta de estrategia"""
+        # Actualizar estilos de tarjetas
+        for k, card in self.strategy_cards.items():
+            is_selected = (k == key)
+            
+            if is_selected:
+                bg_color = DesignSystem.COLOR_PRIMARY_LIGHT # Más sutil
+                border_color = DesignSystem.COLOR_PRIMARY
+                text_color = DesignSystem.COLOR_PRIMARY
+                icon_color = DesignSystem.COLOR_PRIMARY
+                border_style = f"1px solid {border_color}"
+            else:
+                bg_color = "transparent" # Sin fondo por defecto
+                border_color = "transparent"
+                text_color = DesignSystem.COLOR_TEXT
+                icon_color = DesignSystem.COLOR_TEXT_SECONDARY
+                border_style = "1px solid transparent" # Mantener borde transparente para evitar saltos
+            
+            card.setStyleSheet(f"""
+                QFrame {{
+                    background-color: {bg_color};
+                    border: {border_style};
+                    border-radius: {DesignSystem.RADIUS_BASE}px;
+                }}
+            """)
+            
+            # Asegurar que el label no tenga borde
+            card.text_label.setStyleSheet(f"font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM}; color: {text_color}; border: none; background: transparent;")
+            icon_manager.set_label_icon(card.icon_label, self.strategies[k]['icon'], size=DesignSystem.ICON_SIZE_LG, color=icon_color)
+
+        # Cambiar página del stack
+        stack_index = 0
+        if key == 'date': stack_index = 0
+        elif key == 'type': stack_index = 1
+        elif key == 'source': stack_index = 2
+        elif key == 'cleanup': stack_index = 3
+        
+        self.settings_stack.setCurrentIndex(stack_index)
+        
+        # Trigger update logic
+        self._on_option_changed(None)
+
+    def _on_option_changed(self, new_type_or_none):
+        """Maneja cambios en cualquier opción (tipo o checkboxes)"""
+        if not self.ui_initialized:
             return
+
+        # Recopilar estado actual basado en la página activa del stack
+        stack_index = self.settings_stack.currentIndex()
         
-        self.logger.info(f"Cambiando tipo de organización: {self.current_organization_type.value} -> {new_type.value}")
-        self.current_organization_type = new_type
+        org_type = OrganizationType.BY_MONTH # Default
+        group_by_source = False
+        group_by_type = False
+        date_grouping_type = None
         
-        # Iniciar análisis en background
-        self._start_analysis(new_type)
-    
-    def _start_analysis(self, org_type: OrganizationType):
+        if stack_index == 0: # Date Strategy
+            # Leer granularidad
+            granularity_index = self.date_granularity_combo.currentIndex()
+            if granularity_index == 0:
+                org_type = OrganizationType.BY_MONTH
+            elif granularity_index == 1:
+                org_type = OrganizationType.BY_YEAR
+            elif granularity_index == 2:
+                org_type = OrganizationType.BY_YEAR_MONTH
+                
+            # Leer checkboxes
+            group_by_source = self.chk_date_source.isChecked()
+            group_by_type = self.chk_date_type.isChecked()
+            
+        elif stack_index == 1: # Type Strategy
+            org_type = OrganizationType.BY_TYPE
+            # Leer agrupación secundaria
+            sec_index = self.type_secondary_combo.currentIndex()
+            if sec_index == 1: date_grouping_type = 'month'
+            elif sec_index == 2: date_grouping_type = 'year'
+            elif sec_index == 3: date_grouping_type = 'year_month'
+            
+        elif stack_index == 2: # Source Strategy
+            org_type = OrganizationType.BY_SOURCE
+            # Leer agrupación secundaria
+            sec_index = self.source_secondary_combo.currentIndex()
+            if sec_index == 1: date_grouping_type = 'month'
+            elif sec_index == 2: date_grouping_type = 'year'
+            elif sec_index == 3: date_grouping_type = 'year_month'
+            
+        elif stack_index == 3: # Cleanup Strategy
+            org_type = OrganizationType.TO_ROOT
+            
+        self.current_organization_type = org_type
+        
+        self.logger.info(f"Configuración cambiada: Tipo={self.current_organization_type.value}, "
+                         f"Source={group_by_source}, Type={group_by_type}, DateGrouping={date_grouping_type}")
+        
+        self._start_analysis(self.current_organization_type, group_by_source, group_by_type, date_grouping_type)
+
+    def _start_analysis(self, org_type: OrganizationType, group_by_source=False, group_by_type=False, date_grouping_type: Optional[str] = None):
         """Inicia análisis en background"""
         if self.is_analyzing and self.worker and self.worker.isRunning():
+            # Cancelar worker anterior si es posible o esperar
+            # Por simplicidad, bloqueamos nueva solicitud si ya hay una (pero idealmente deberíamos cancelar)
+            # En este caso, permitiremos que termine y el usuario tendrá que esperar un poco
             self.logger.warning("Ya hay un análisis en curso")
             return
         
         self.is_analyzing = True
         self._set_ui_loading_state(True)
         
-        # Crear y configurar worker (pasar caché si está disponible)
-        self.worker = OrganizationWorker(self.root_directory, org_type, self.metadata_cache)
+        # Crear y configurar worker
+        self.worker = OrganizationWorker(
+            self.root_directory, 
+            org_type, 
+            self.metadata_cache,
+            group_by_source=group_by_source,
+            group_by_type=group_by_type,
+            date_grouping_type=date_grouping_type
+        )
         self.worker.finished.connect(self._on_analysis_finished)
         self.worker.progress.connect(self._on_analysis_progress)
         self.worker.error.connect(self._on_analysis_error)
@@ -245,14 +589,22 @@ class FileOrganizationDialog(BaseDialog):
     
     def _on_analysis_finished(self, result: OrganizationAnalysisResult):
         """Maneja la finalización del análisis"""
-        self.logger.info(f"Análisis completado: {result.total_files_to_move} archivos")
+        self.logger.info(f"Análisis completado: {result.total_files_to_move} archivos (tipo: {result.organization_type})")
         self.analysis = result
+        self.counter_label.setText(f"{len(result.move_plan)} archivos")
+        
+        # Actualizar opciones de filtros basadas en los datos
+        self._update_filter_options()
+        
         self.filtered_moves = list(result.move_plan)
         self.current_page = 0
         
+        # IMPORTANTE: Establecer is_analyzing=False ANTES de actualizar UI
+        # para que el botón OK se habilite correctamente
+        self.is_analyzing = False
+        
         self._set_ui_loading_state(False)
         self._update_all_ui()
-        self.is_analyzing = False
     
     def _on_analysis_progress(self, current: int, total: int, message: str):
         """Maneja el progreso del análisis"""
@@ -272,7 +624,7 @@ class FileOrganizationDialog(BaseDialog):
         """Activa/desactiva el estado de carga"""
         self.progress_bar.setVisible(loading)
         self.files_tree.setEnabled(not loading)
-        self.ok_button.setEnabled(not loading and self.analysis.total_files_to_move > 0)
+        # NO actualizar ok_button aquí - se hace en _update_ok_button() con datos frescos
         
         # Deshabilitar opciones de tipo durante análisis
         if hasattr(self, 'type_selector'):
@@ -297,38 +649,40 @@ class FileOrganizationDialog(BaseDialog):
         self._update_ok_button()
         
         # Re-aplicar estilos a las cards de selección
-        if hasattr(self, 'type_selector'):
-            self._update_option_selector_styles(
-                self.type_selector,
-                [OrganizationType.TO_ROOT, OrganizationType.BY_MONTH, OrganizationType.WHATSAPP_SEPARATE],
-                self.current_organization_type
-            )
+        # Actualizar botón OK
+        self._update_ok_button()
+    
+
     
     def _update_header_metrics(self):
         """Actualiza las métricas del header compacto"""
-        # Buscar y actualizar los QLabel de las métricas existentes en lugar de recrear el header
+        # Buscar y actualizar los QLabel de las métricas existentes
         main_layout = self.header_frame.layout()
         if not main_layout:
             return
-        
-        # Las métricas están en un QHBoxLayout al final del main_layout
+
+        # El layout tiene: left_container, spacer, metrics_container
+        # metrics_container es el último QHBoxLayout
         metrics_layout = None
-        for i in range(main_layout.count()):
+        for i in range(main_layout.count() - 1, -1, -1):  # Buscar desde el final
             item = main_layout.itemAt(i)
             if item and item.layout() and isinstance(item.layout(), QHBoxLayout):
-                # El último QHBoxLayout con múltiples widgets es el de métricas
-                if item.layout().count() > 1:
-                    metrics_layout = item.layout()
+                metrics_layout = item.layout()
+                break
         
         if not metrics_layout:
             return
         
         # Actualizar cada métrica (son QWidget con QVBoxLayout conteniendo value_label y label_widget)
-        metrics_data = [
-            str(self.analysis.total_files_to_move),
-            str(len(self.analysis.subdirectories)),
-            format_size(self.analysis.total_size_to_move)
-        ]
+        # Datos de las métricas
+        if not self.analysis:
+            metrics_data = ["0", "0", "0 B"]
+        else:
+            metrics_data = [
+                str(self.analysis.total_files_to_move),
+                str(len(self.analysis.subdirectories)),
+                format_size(self.analysis.total_size_to_move)
+            ]
         
         for idx, new_value in enumerate(metrics_data):
             if idx < metrics_layout.count():
@@ -339,64 +693,17 @@ class FileOrganizationDialog(BaseDialog):
                     if value_label and isinstance(value_label, QLabel):
                         value_label.setText(new_value)
     
-    def _update_type_selector_styles(self):
-        """Actualiza los estilos de las cards de selección según el tipo actual"""
-        for org_type in OrganizationType:
-            card_name = f"option-card-{org_type.value}"
-            card = self.findChild(QFrame, card_name)
-            if card:
-                is_selected = org_type == self.current_organization_type
-                card.setStyleSheet(f"""
-                    QFrame#{card_name} {{
-                        background-color: {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_SURFACE};
-                        border: 2px solid {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_BORDER};
-                        border-radius: {DesignSystem.RADIUS_BASE}px;
-                        padding: {DesignSystem.SPACE_12}px;
-                    }}
-                    QFrame#{card_name}:hover {{
-                        border-color: {DesignSystem.COLOR_PRIMARY};
-                        background-color: {DesignSystem.COLOR_PRIMARY if is_selected else DesignSystem.COLOR_BG_2};
-                    }}
-                    QFrame#{card_name} QLabel {{
-                        color: {DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_TEXT};
-                        font-weight: {DesignSystem.FONT_WEIGHT_NORMAL};
-                    }}
-                    QFrame#{card_name} QLabel#title-label {{
-                        font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-                    }}
-                    QFrame#{card_name} QLabel#desc-label {{
-                        color: {DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_TEXT_SECONDARY};
-                        font-weight: {DesignSystem.FONT_WEIGHT_NORMAL};
-                    }}
-                """)
-                
-                # Actualizar colores de iconos manualmente
-                self._update_card_icon_colors(card, org_type, is_selected)
-
-    def _update_card_icon_colors(self, card: QFrame, org_type: OrganizationType, is_selected: bool):
-        """Actualiza el color del icono en una card específica"""
-        # Encontrar el icono (es el segundo QLabel en el layout horizontal del header)
-        header_layout = card.layout().itemAt(0).layout()  # Primer item es el header_layout
-        if header_layout and header_layout.count() >= 2:
-            icon_label = header_layout.itemAt(1).widget()  # Segundo widget es el icono
-            if isinstance(icon_label, QLabel):
-                icon_name = self._get_icon_name_for_type(org_type)
-                icon_manager.set_label_icon(
-                    icon_label,
-                    icon_name,
-                    size=DesignSystem.ICON_SIZE_XL,
-                    color=DesignSystem.COLOR_PRIMARY_TEXT if is_selected else DesignSystem.COLOR_PRIMARY
-                )
-
     def _get_icon_name_for_type(self, org_type: OrganizationType) -> str:
         """Devuelve el nombre del icono para un tipo de organización"""
-        if org_type == OrganizationType.TO_ROOT:
-            return "folder-open"
-        elif org_type == OrganizationType.BY_MONTH:
-            return "calendar_month"
-        elif org_type == OrganizationType.WHATSAPP_SEPARATE:
-            return "mobile"
-        return "folder"
+        icon_map = {
+            OrganizationType.TO_ROOT: "folder-open",
+            OrganizationType.BY_MONTH: "calendar_month",
+            OrganizationType.BY_YEAR: "calendar_today",
+            OrganizationType.BY_YEAR_MONTH: "date_range",
+            OrganizationType.BY_TYPE: "image",
+            OrganizationType.BY_SOURCE: "devices"
+        }
+        return icon_map.get(org_type, "folder")
 
     
 
@@ -407,7 +714,7 @@ class FileOrganizationDialog(BaseDialog):
         self.folders_info_container = None
         self.folders_info_label = None
         
-        if not self.analysis.folders_to_create:
+        if not self.analysis or not self.analysis.folders_to_create:
             return None
         
         self.folders_info_container = QFrame()
@@ -477,7 +784,7 @@ class FileOrganizationDialog(BaseDialog):
         search_layout.setSpacing(DesignSystem.SPACE_8)
         
         search_icon = QLabel()
-        icon_manager.set_label_icon(search_icon, 'search', size=DesignSystem.ICON_SIZE_SM, color=DesignSystem.COLOR_TEXT_SECONDARY)
+        icon_manager.set_label_icon(search_icon, 'magnify', size=DesignSystem.ICON_SIZE_SM, color=DesignSystem.COLOR_TEXT_SECONDARY)
         
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Buscar por nombre...")
@@ -508,60 +815,41 @@ class FileOrganizationDialog(BaseDialog):
         sep.setFixedHeight(20)
         toolbar.addWidget(sep)
         
-        # Filtro por tipo
-        type_container = QHBoxLayout()
-        type_container.setSpacing(DesignSystem.SPACE_8)
+        # Filtro por Categoría
+        cat_container = QHBoxLayout()
+        cat_container.setSpacing(DesignSystem.SPACE_8)
         
-        type_label = QLabel("Tipo:")
-        type_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
+        cat_label = QLabel("Categoría:")
+        cat_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
         
-        self.type_combo = QComboBox()
-        types = ["Todos"] + sorted(list(self.analysis.files_by_type.keys()))
-        self.type_combo.addItems(types)
-        self.type_combo.currentTextChanged.connect(self._apply_filters)
-        self.type_combo.setMinimumWidth(120)
-        self.type_combo.setStyleSheet(DesignSystem.get_combobox_style())
+        self.category_combo = QComboBox()
+        self.category_combo.addItems(["Todos"])
+        self.category_combo.currentTextChanged.connect(self._apply_filters)
+        self.category_combo.setMinimumWidth(100)
+        self.category_combo.setStyleSheet(DesignSystem.get_combobox_style())
+        cat_container.addWidget(cat_label)
+        cat_container.addWidget(self.category_combo)
+        toolbar.addLayout(cat_container)
+
+
         
-        type_container.addWidget(type_label)
-        type_container.addWidget(self.type_combo)
-        toolbar.addLayout(type_container)
+        # Filtro por Estado (Conflictos)
+        status_container = QHBoxLayout()
+        status_container.setSpacing(DesignSystem.SPACE_8)
         
-        # Filtro por subdirectorio (solo para to_root y whatsapp)
-        if self.current_organization_type in [OrganizationType.TO_ROOT, OrganizationType.WHATSAPP_SEPARATE]:
-            subdir_container = QHBoxLayout()
-            subdir_container.setSpacing(DesignSystem.SPACE_8)
-            
-            subdir_label = QLabel("Origen:")
-            subdir_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
-            
-            self.subdir_combo = QComboBox()
-            subdirs = ["Todos"] + sorted(list(self.analysis.subdirectories.keys()))
-            self.subdir_combo.addItems(subdirs)
-            self.subdir_combo.currentTextChanged.connect(self._apply_filters)
-            self.subdir_combo.setMinimumWidth(200)
-            self.subdir_combo.setStyleSheet(DesignSystem.get_combobox_style())
-            
-            subdir_container.addWidget(subdir_label)
-            subdir_container.addWidget(self.subdir_combo)
-            toolbar.addLayout(subdir_container)
-        else:
-            self.subdir_combo = None
+        status_label = QLabel("Estado:")
+        status_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
         
-        # Filtro solo conflictos
-        self.conflicts_checkbox = QCheckBox("Solo conflictos")
-        self.conflicts_checkbox.setStyleSheet(f"""
-            QCheckBox {{
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-                color: {DesignSystem.COLOR_TEXT};
-                spacing: {DesignSystem.SPACE_8}px;
-            }}
-            QCheckBox::indicator {{
-                width: 18px;
-                height: 18px;
-            }}
-        """)
-        self.conflicts_checkbox.stateChanged.connect(self._apply_filters)
-        toolbar.addWidget(self.conflicts_checkbox)
+        self.status_combo = QComboBox()
+        self.status_combo.addItems(["Todos"])
+        self.status_combo.currentTextChanged.connect(self._apply_filters)
+        self.status_combo.setMinimumWidth(130)
+        self.status_combo.setMinimumWidth(130)
+        self.status_combo.setStyleSheet(DesignSystem.get_combobox_style())
+        
+        status_container.addWidget(status_label)
+        status_container.addWidget(self.status_combo)
+        toolbar.addLayout(status_container)
         
         toolbar.addStretch()
         
@@ -652,27 +940,18 @@ class FileOrganizationDialog(BaseDialog):
         return tree
     
     def _configure_tree_columns(self, tree: QTreeWidget):
-        """Configura las columnas del tree según el tipo de organización"""
-        org_type = self.current_organization_type
+        """Configura las columnas del tree de forma estandarizada"""
+        # Estándar: Nombre Original, Nuevo Nombre, Fecha, Origen, Estado, Tamaño
+        headers = ["Nombre Original", "Nuevo Nombre", "Fecha", "Origen / Cantidad", "Estado", "Tamaño"]
+        tree.setHeaderLabels(headers)
         
-        if org_type == OrganizationType.TO_ROOT:
-            tree.setHeaderLabels(["Archivo", "Origen", "Tamaño", "Estado"])
-            tree.setColumnWidth(0, 380)
-            tree.setColumnWidth(1, 180)
-            tree.setColumnWidth(2, 100)
-            tree.setColumnWidth(3, 250)
-        elif org_type == OrganizationType.BY_MONTH:
-            tree.setHeaderLabels(["Archivo", "Fecha", "Origen", "Tamaño"])
-            tree.setColumnWidth(0, 400)
-            tree.setColumnWidth(1, 120)
-            tree.setColumnWidth(2, 200)
-            tree.setColumnWidth(3, 100)
-        else:  # WHATSAPP_SEPARATE
-            tree.setHeaderLabels(["Archivo", "Origen", "Destino", "Tamaño"])
-            tree.setColumnWidth(0, 400)
-            tree.setColumnWidth(1, 200)
-            tree.setColumnWidth(2, 150)
-            tree.setColumnWidth(3, 100)
+        # Ajustar anchos
+        tree.setColumnWidth(0, 300) # Nombre Original
+        tree.setColumnWidth(1, 300) # Nuevo Nombre
+        tree.setColumnWidth(2, 100) # Fecha
+        tree.setColumnWidth(3, 150) # Origen
+        tree.setColumnWidth(4, 100) # Estado
+        tree.setColumnWidth(5, 80)  # Tamaño
     
     def _create_pagination_controls(self) -> QWidget:
         """Crea controles de paginación con estilo Material Design"""
@@ -777,12 +1056,14 @@ class FileOrganizationDialog(BaseDialog):
     
     def _create_action_buttons(self) -> QDialogButtonBox:
         """Crea botones de acción con estilo Material Design"""
-        ok_enabled = self.analysis.total_files_to_move > 0
+        # Determinar si el botón OK debe estar habilitado
+        ok_enabled = bool(self.analysis and self.analysis.total_files_to_move > 0)
+        
         if ok_enabled:
             size_formatted = format_size(self.analysis.total_size_to_move)
             ok_text = f"Organizar Archivos ({self.analysis.total_files_to_move} archivos, {size_formatted})"
         else:
-            ok_text = "Sin archivos para organizar"
+            ok_text = "Selecciona una opción"
         
         buttons = self.make_ok_cancel_buttons(
             ok_text=ok_text,
@@ -795,8 +1076,13 @@ class FileOrganizationDialog(BaseDialog):
     
     def _update_ok_button(self):
         """Actualiza el texto y estado del botón OK"""
+        if not hasattr(self, 'ok_button') or not self.ok_button:
+            return
+        
         ok_enabled = self.analysis.total_files_to_move > 0
-        self.ok_button.setEnabled(ok_enabled and not self.is_analyzing)
+        final_enabled = ok_enabled and not self.is_analyzing
+        
+        self.ok_button.setEnabled(final_enabled)
         
         if ok_enabled:
             size_formatted = format_size(self.analysis.total_size_to_move)
@@ -808,30 +1094,74 @@ class FileOrganizationDialog(BaseDialog):
     
     # === FILTROS ===
     
+    def _update_filter_options(self):
+        """Actualiza las opciones de los filtros basándose en los datos actuales"""
+        if not self.analysis or not self.analysis.move_plan:
+            return
+
+        # 1. Categorías
+        type_map = {'PHOTO': 'Fotos', 'VIDEO': 'Videos'}
+        categories = set()
+        for move in self.analysis.move_plan:
+            categories.add(type_map.get(move.file_type, 'Otros'))
+        
+        current_cat = self.category_combo.currentText()
+        self.category_combo.blockSignals(True)
+        self.category_combo.clear()
+        self.category_combo.addItems(["Todos"] + sorted(list(categories)))
+        if current_cat in ["Todos"] + sorted(list(categories)):
+            self.category_combo.setCurrentText(current_cat)
+        else:
+            self.category_combo.setCurrentIndex(0)
+        self.category_combo.blockSignals(False)
+
+
+
+        # 3. Estado (Conflictos)
+        has_conflicts = any(move.has_conflict for move in self.analysis.move_plan)
+        
+        current_status = self.status_combo.currentText()
+        self.status_combo.blockSignals(True)
+        self.status_combo.clear()
+        status_items = ["Todos"]
+        if has_conflicts:
+            status_items.extend(["Con Conflictos", "Sin Conflictos"])
+        
+        self.status_combo.addItems(status_items)
+        if current_status in status_items:
+            self.status_combo.setCurrentText(current_status)
+        else:
+            self.status_combo.setCurrentIndex(0)
+        self.status_combo.blockSignals(False)
+
     def _apply_filters(self):
         """Aplica filtros a la lista de movimientos"""
         search_text = self.search_input.text().lower()
-        type_filter = self.type_combo.currentText()
-        subdir_filter = self.subdir_combo.currentText() if self.subdir_combo else "Todos"
-        show_only_conflicts = self.conflicts_checkbox.isChecked()
+        category_filter = self.category_combo.currentText()
+        status_filter = self.status_combo.currentText()
         
         self.filtered_moves = []
+        
+        # Mapeo de categorías
+        type_map = {'PHOTO': 'Fotos', 'VIDEO': 'Videos'}
         
         for move in self.analysis.move_plan:
             # Filtro de búsqueda
             if search_text and search_text not in move.original_name.lower():
                 continue
             
-            # Filtro por tipo
-            if type_filter != "Todos" and move.file_type != type_filter:
-                continue
+            # Filtro por Categoría
+            if category_filter != "Todos":
+                move_cat = type_map.get(move.file_type, 'Otros')
+                if move_cat != category_filter:
+                    continue
             
-            # Filtro por subdirectorio
-            if subdir_filter != "Todos" and move.subdirectory != subdir_filter:
-                continue
+
             
-            # Filtro solo conflictos
-            if show_only_conflicts and not move.has_conflict:
+            # Filtro por Estado
+            if status_filter == "Con Conflictos" and not move.has_conflict:
+                continue
+            if status_filter == "Sin Conflictos" and move.has_conflict:
                 continue
             
             self.filtered_moves.append(move)
@@ -842,10 +1172,8 @@ class FileOrganizationDialog(BaseDialog):
     def _clear_filters(self):
         """Limpia todos los filtros"""
         self.search_input.clear()
-        self.type_combo.setCurrentIndex(0)
-        if self.subdir_combo:
-            self.subdir_combo.setCurrentIndex(0)
-        self.conflicts_checkbox.setChecked(False)
+        self.category_combo.setCurrentIndex(0)
+        self.status_combo.setCurrentIndex(0)
     
     # === PAGINACIÓN ===
     
@@ -915,10 +1243,10 @@ class FileOrganizationDialog(BaseDialog):
             org_type = self.current_organization_type
             if org_type == OrganizationType.TO_ROOT:
                 self._populate_tree_to_root(items_to_show)
-            elif org_type == OrganizationType.BY_MONTH:
-                self._populate_tree_by_month(items_to_show)
-            else:  # WHATSAPP_SEPARATE
-                self._populate_tree_whatsapp(items_to_show)
+            elif org_type in (OrganizationType.BY_MONTH, OrganizationType.BY_YEAR, OrganizationType.BY_YEAR_MONTH):
+                self._populate_tree_by_temporal(items_to_show)
+            elif org_type in (OrganizationType.BY_TYPE, OrganizationType.BY_SOURCE):
+                self._populate_tree_by_category(items_to_show)
             
             # Actualizar contador
             total = len(self.analysis.move_plan)
@@ -949,13 +1277,15 @@ class FileOrganizationDialog(BaseDialog):
         
         root_parent = QTreeWidgetItem()
         root_parent.setText(0, "Raíz del directorio")
-        root_parent.setText(1, "")
-        root_parent.setText(2, f"{total_moves} archivos")
+        root_parent.setText(1, "") # Nuevo Nombre
+        root_parent.setText(2, "") # Fecha
+        root_parent.setText(3, f"{total_moves} archivos") # Origen (usado para resumen)
         if total_conflicts > 0:
-            root_parent.setText(3, f"{total_conflicts} conflictos | {format_size(total_size_all)}")
-            root_parent.setForeground(3, QColor(DesignSystem.COLOR_ERROR))
+            root_parent.setText(4, f"{total_conflicts} conflictos")
+            root_parent.setForeground(4, QColor(DesignSystem.COLOR_ERROR))
         else:
-            root_parent.setText(3, format_size(total_size_all))
+            root_parent.setText(4, "OK")
+        root_parent.setText(5, format_size(total_size_all))
         
         root_font = QFont()
         root_font.setBold(True)
@@ -973,11 +1303,15 @@ class FileOrganizationDialog(BaseDialog):
             
             subdir_node = QTreeWidgetItem()
             subdir_node.setText(0, f"  Desde: {subdir}")
-            subdir_node.setText(1, f"{len(moves_in_subdir)} archivos")
-            subdir_node.setText(2, format_size(total_size))
+            subdir_node.setText(1, "")
+            subdir_node.setText(2, "")
+            subdir_node.setText(3, f"{len(moves_in_subdir)} archivos")
             if conflicts > 0:
-                subdir_node.setText(3, f"{conflicts} conflictos")
-                subdir_node.setForeground(3, QColor(DesignSystem.COLOR_ERROR))
+                subdir_node.setText(4, f"{conflicts} conflictos")
+                subdir_node.setForeground(4, QColor(DesignSystem.COLOR_ERROR))
+            else:
+                subdir_node.setText(4, "OK")
+            subdir_node.setText(5, format_size(total_size))
             
             subdir_font = QFont()
             subdir_font.setBold(True)
@@ -990,16 +1324,37 @@ class FileOrganizationDialog(BaseDialog):
             for move in sorted(moves_in_subdir, key=lambda m: m.original_name):
                 child = QTreeWidgetItem()
                 child.setText(0, f"    {move.original_name}")
-                child.setText(1, subdir)
-                child.setText(2, format_size(move.size))
                 
+                # Nuevo Nombre
                 if move.has_conflict:
-                    child.setText(3, f"→ {move.new_name}")
-                    child.setForeground(3, QColor(DesignSystem.COLOR_ERROR))
+                    child.setText(1, move.new_name)
+                    child.setForeground(1, QColor(DesignSystem.COLOR_ERROR))
                 else:
-                    child.setText(3, "OK")
-                    child.setForeground(3, QColor(DesignSystem.COLOR_SUCCESS))
+                    child.setText(1, "Igual")
+                    child.setForeground(1, QColor(DesignSystem.COLOR_TEXT_SECONDARY))
                 
+                # Fecha
+                try:
+                    file_date = get_date_from_file(move.source_path)
+                    if file_date:
+                        child.setText(2, file_date.strftime("%Y-%m-%d"))
+                    else:
+                        child.setText(2, "-")
+                except:
+                    child.setText(2, "-")
+
+                child.setText(3, subdir)
+                
+                # Estado
+                if move.has_conflict:
+                    child.setText(4, "Conflicto")
+                    child.setForeground(4, QColor(DesignSystem.COLOR_ERROR))
+                    child.setForeground(0, QColor(DesignSystem.COLOR_ERROR))
+                else:
+                    child.setText(4, "OK")
+                    child.setForeground(4, QColor(DesignSystem.COLOR_SUCCESS))
+                
+                child.setText(5, format_size(move.size))
                 child.setData(0, Qt.ItemDataRole.UserRole, move)
                 subdir_node.addChild(child)
             
@@ -1011,8 +1366,8 @@ class FileOrganizationDialog(BaseDialog):
         
         root_parent.setExpanded(True)
     
-    def _populate_tree_by_month(self, moves):
-        """Poblar tree para BY_MONTH"""
+    def _populate_tree_by_temporal(self, moves):
+        """Poblar tree para organizaciones temporales (BY_MONTH, BY_YEAR, BY_YEAR_MONTH)"""
         # Agrupar por carpeta destino
         by_folder = defaultdict(list)
         for move in moves:
@@ -1026,8 +1381,10 @@ class FileOrganizationDialog(BaseDialog):
             parent = QTreeWidgetItem()
             parent.setText(0, f"{folder}/")
             parent.setText(1, "")
-            parent.setText(2, f"{len(moves_in_folder)} archivos")
-            parent.setText(3, format_size(total_size))
+            parent.setText(2, "")
+            parent.setText(3, f"{len(moves_in_folder)} archivos")
+            parent.setText(4, "")
+            parent.setText(5, format_size(total_size))
             
             parent_font = QFont()
             parent_font.setBold(True)
@@ -1040,17 +1397,36 @@ class FileOrganizationDialog(BaseDialog):
                 child = QTreeWidgetItem()
                 child.setText(0, f"  {move.original_name}")
                 
+                # Nuevo Nombre
+                if move.has_conflict:
+                    child.setText(1, move.new_name)
+                    child.setForeground(1, QColor(DesignSystem.COLOR_ERROR))
+                else:
+                    child.setText(1, "Igual")
+                    child.setForeground(1, QColor(DesignSystem.COLOR_TEXT_SECONDARY))
+                
+                # Fecha
                 try:
                     file_date = get_date_from_file(move.source_path)
                     if file_date:
-                        child.setText(1, file_date.strftime("%Y-%m-%d"))
+                        child.setText(2, file_date.strftime("%Y-%m-%d"))
                     else:
-                        child.setText(1, "Sin fecha")
+                        child.setText(2, "Sin fecha")
                 except Exception:
-                    child.setText(1, "Error")
+                    child.setText(2, "Error")
                 
-                child.setText(2, move.subdirectory)
-                child.setText(3, format_size(move.size))
+                child.setText(3, move.subdirectory)
+                
+                # Estado
+                if move.has_conflict:
+                    child.setText(4, "Conflicto")
+                    child.setForeground(4, QColor(DesignSystem.COLOR_ERROR))
+                    child.setForeground(0, QColor(DesignSystem.COLOR_ERROR))
+                else:
+                    child.setText(4, "OK")
+                    child.setForeground(4, QColor(DesignSystem.COLOR_SUCCESS))
+                
+                child.setText(5, format_size(move.size))
                 child.setData(0, Qt.ItemDataRole.UserRole, move)
                 
                 parent.addChild(child)
@@ -1061,62 +1437,96 @@ class FileOrganizationDialog(BaseDialog):
             if self.files_tree.topLevelItemCount() % 10 == 0:
                 QApplication.processEvents()
     
-    def _populate_tree_whatsapp(self, moves):
-        """Poblar tree para WHATSAPP_SEPARATE"""
-        whatsapp_moves = []
-        other_moves = []
-        
+    def _populate_tree_by_category(self, moves):
+        """Poblar tree para organizaciones por categoría (BY_TYPE, BY_SOURCE)"""
+        # Agrupar por carpeta destino (target_folder contiene el tipo o fuente)
+        by_category = defaultdict(list)
         for move in moves:
-            is_whatsapp = (
-                'whatsapp' in move.subdirectory.lower() or
-                'WhatsApp' in str(move.source_path) or
-                (move.original_name.startswith(('IMG-', 'VID-')) and '-WA' in move.original_name)
-            )
+            category = move.target_folder or "Sin categoría"
+            by_category[category].append(move)
+        
+        # Ordenar categorías: primero las conocidas, luego "Unknown" al final
+        def category_sort_key(cat):
+            if cat == "Unknown":
+                return (1, cat)
+            return (0, cat)
+        
+        for category in sorted(by_category.keys(), key=category_sort_key):
+            moves_in_category = by_category[category]
+            total_size = sum(m.size for m in moves_in_category)
             
-            if is_whatsapp:
-                whatsapp_moves.append(move)
+            parent = QTreeWidgetItem()
+            parent.setText(0, f"{category}/")
+            parent.setText(1, "")
+            parent.setText(2, "")
+            parent.setText(3, f"{len(moves_in_category)} archivos")
+            parent.setText(4, "")
+            parent.setText(5, format_size(total_size))
+            
+            parent_font = QFont()
+            parent_font.setBold(True)
+            parent.setFont(0, parent_font)
+            
+            # Colores especiales para categorías conocidas
+            if category == "WhatsApp":
+                parent.setForeground(0, QColor("#25d366"))  # Verde WhatsApp
+            elif category in ("iPhone", "Android"):
+                parent.setForeground(0, QColor("#2196f3"))  # Azul dispositivos
+            elif category in ("Camera", "Scanner"):
+                parent.setForeground(0, QColor("#ff9800"))  # Naranja cámaras
+            elif category == "Screenshot":
+                parent.setForeground(0, QColor("#9c27b0"))  # Púrpura screenshots
+            elif category in ("Fotos", "Videos"):
+                parent.setForeground(0, QColor(DesignSystem.COLOR_PRIMARY))
             else:
-                other_moves.append(move)
-        
-        if whatsapp_moves:
-            self._create_whatsapp_category_node("WhatsApp/", whatsapp_moves, "WhatsApp/")
-        
-        if other_moves:
-            self._create_whatsapp_category_node("Raíz del directorio", other_moves, "Raíz")
-    
-    def _create_whatsapp_category_node(self, title: str, moves, destination: str):
-        """Crea nodo de categoría para WhatsApp"""
-        total_size = sum(m.size for m in moves)
-        
-        parent = QTreeWidgetItem()
-        parent.setText(0, title)
-        parent.setText(1, "")
-        parent.setText(2, f"{len(moves)} archivos → {destination}")
-        parent.setText(3, format_size(total_size))
-        
-        parent_font = QFont()
-        parent_font.setBold(True)
-        parent.setFont(0, parent_font)
-        
-        if "WhatsApp" in destination:
-            parent.setForeground(0, QColor("#25d366"))
-        else:
-            parent.setForeground(0, QColor(DesignSystem.COLOR_PRIMARY))
-        
-        self.files_tree.addTopLevelItem(parent)
-        
-        for move in sorted(moves, key=lambda m: m.original_name):
-            child = QTreeWidgetItem()
-            child.setText(0, f"  {move.original_name}")
-            child.setText(1, move.subdirectory if move.subdirectory != "." else "Raíz")
-            child.setText(2, destination)
-            child.setText(3, format_size(move.size))
-            child.setData(0, Qt.ItemDataRole.UserRole, move)
+                parent.setForeground(0, QColor(DesignSystem.COLOR_TEXT_SECONDARY))
             
-            parent.addChild(child)
-        
-        if len(moves) <= 20:
-            parent.setExpanded(True)
+            self.files_tree.addTopLevelItem(parent)
+            
+            for move in sorted(moves_in_category, key=lambda m: m.original_name):
+                child = QTreeWidgetItem()
+                child.setText(0, f"  {move.original_name}")
+                
+                # Nuevo Nombre
+                if move.has_conflict:
+                    child.setText(1, move.new_name)
+                    child.setForeground(1, QColor(DesignSystem.COLOR_ERROR))
+                else:
+                    child.setText(1, "Igual")
+                    child.setForeground(1, QColor(DesignSystem.COLOR_TEXT_SECONDARY))
+                
+                # Fecha
+                try:
+                    file_date = get_date_from_file(move.source_path)
+                    if file_date:
+                        child.setText(2, file_date.strftime("%Y-%m-%d"))
+                    else:
+                        child.setText(2, "-")
+                except:
+                    child.setText(2, "-")
+
+                child.setText(3, move.subdirectory if move.subdirectory != "<root>" else "Raíz")
+                
+                # Estado
+                if move.has_conflict:
+                    child.setText(4, "Conflicto")
+                    child.setForeground(4, QColor(DesignSystem.COLOR_ERROR))
+                    child.setText(0, f"  {move.original_name} (Conflicto)")
+                    child.setForeground(0, QColor(DesignSystem.COLOR_ERROR))
+                else:
+                    child.setText(4, "OK")
+                    child.setForeground(4, QColor(DesignSystem.COLOR_SUCCESS))
+                
+                child.setText(5, format_size(move.size))
+                child.setData(0, Qt.ItemDataRole.UserRole, move)
+                
+                parent.addChild(child)
+            
+            if len(moves_in_category) <= 20:
+                parent.setExpanded(True)
+            
+            if self.files_tree.topLevelItemCount() % 10 == 0:
+                QApplication.processEvents()
     
     # === EVENTOS ===
     

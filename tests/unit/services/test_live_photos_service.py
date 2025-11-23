@@ -826,6 +826,7 @@ class TestLivePhotosEXIFDateMatching:
         """
         from datetime import datetime, timedelta
         import os
+        from config import Config
         
         # Crear archivos
         img_path = create_test_image(temp_dir / 'photo.jpg', size=(100, 100))
@@ -842,9 +843,15 @@ class TestLivePhotosEXIFDateMatching:
         service = LivePhotoService()
         analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
         
-        # NO deben emparejarse porque la diferencia de tiempo es > 5 segundos
-        assert analysis.live_photos_found == 0
-        assert len(analysis.files_to_delete) == 0
+        # Comportamiento depende de si la metadata de video está activada
+        if Config.USE_VIDEO_METADATA:
+            # Con validación temporal: NO deben emparejarse porque la diferencia es > 5 segundos
+            assert analysis.live_photos_found == 0
+            assert len(analysis.files_to_delete) == 0
+        else:
+            # Sin validación temporal: SÍ se emparejan por nombre únicamente
+            assert analysis.live_photos_found == 1
+            assert len(analysis.files_to_delete) == 1
     
     def test_files_without_exif_paired_by_name(self, temp_dir, create_test_image, create_test_video):
         """Test que archivos sin datos EXIF se emparejan por nombre si timestamps similares."""
@@ -994,6 +1001,7 @@ class TestLivePhotosTimeValidation:
         """Test que diferencia > 5 segundos NO es válida."""
         from datetime import datetime, timedelta
         import os
+        from config import Config
         
         img_path = create_test_image(temp_dir / 'photo.jpg', size=(100, 100))
         vid_path = create_test_video(temp_dir / 'photo.MOV', size_bytes=2048)
@@ -1007,8 +1015,13 @@ class TestLivePhotosTimeValidation:
         service = LivePhotoService()
         analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
         
-        # NO debe emparejarse (6.0 > 5.0)
-        assert analysis.live_photos_found == 0
+        # Comportamiento depende de si la metadata de video está activada
+        if Config.USE_VIDEO_METADATA:
+            # Con validación temporal: NO debe emparejarse (6.0 > 5.0)
+            assert analysis.live_photos_found == 0
+        else:
+            # Sin validación temporal: SÍ se empareja por nombre únicamente
+            assert analysis.live_photos_found == 1
     
     def test_zero_time_difference_is_valid(self, temp_dir, create_test_image, create_test_video):
         """Test que diferencia de 0 segundos (timestamps idénticos) es válida."""
@@ -1033,6 +1046,7 @@ class TestLivePhotosTimeValidation:
         """Test que solo se emparejan archivos con diferencia <= 5 segundos."""
         from datetime import datetime, timedelta
         import os
+        from config import Config
         
         base_time = datetime(2024, 1, 15, 10, 0, 0)
         
@@ -1060,14 +1074,21 @@ class TestLivePhotosTimeValidation:
         service = LivePhotoService()
         analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
         
-        # Solo deben encontrarse 2 pares (photo1 y photo3)
-        assert analysis.live_photos_found == 2
-        assert len(analysis.files_to_delete) == 2
+        # Comportamiento depende de si la metadata de video está activada
+        if Config.USE_VIDEO_METADATA:
+            # Con validación temporal: Solo deben encontrarse 2 pares (photo1 y photo3)
+            assert analysis.live_photos_found == 2
+            assert len(analysis.files_to_delete) == 2
+        else:
+            # Sin validación temporal: Se detectan TODOS los 3 pares por nombre
+            assert analysis.live_photos_found == 3
+            assert len(analysis.files_to_delete) == 3
     
     def test_time_validation_with_dry_run(self, temp_dir, create_test_image, create_test_video):
         """Test que validación de tiempo funciona correctamente en modo dry-run."""
         from datetime import datetime, timedelta
         import os
+        from config import Config
         
         base_time = datetime(2024, 1, 15, 10, 0, 0)
         
@@ -1088,15 +1109,18 @@ class TestLivePhotosTimeValidation:
         service = LivePhotoService()
         analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
         
-        # Solo el par válido debe ser detectado
-        assert analysis.live_photos_found == 1
+        # Comportamiento depende de si la metadata de video está activada
+        expected_live_photos = 1 if Config.USE_VIDEO_METADATA else 2
+        
+        # Solo el par válido debe ser detectado (o ambos si no hay validación temporal)
+        assert analysis.live_photos_found == expected_live_photos
         
         # Ejecutar en modo dry-run
         result = service.execute(analysis, create_backup=False, dry_run=True)
         
         assert result.success == True
         assert result.dry_run == True
-        assert result.simulated_files_deleted == 1
+        assert result.simulated_files_deleted == expected_live_photos
         assert vid.exists()  # No debe eliminar en dry-run
         assert vid_invalid.exists()  # Tampoco debe tocar el inválido
     
