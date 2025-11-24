@@ -33,6 +33,8 @@ funcionaria el caluclo de memoria y de threads dinamico en algo que no sea linux
 similar files
 The clustering algorithm is O(N^2) and naturally slow for 20k+ files. Future work could involve optimizing this algorithm (e.g., using BK-trees or other indexing methods) or offloading it to a background thread more effectively.
 
+Revisar que el cálculo de similitud es incorrecto cuando la distancia Hamming promedio (avg_hamming) es mayor que MAX_HAMMING_THRESHOLD (20). No s eentiende bien los grupos que salen. 
+
 
 FUTURO
 ---------

@@ -190,9 +190,17 @@ class SimilarFilesAnalysis:
                         sum(hamming_distances) / len(hamming_distances)
                         if hamming_distances else 0
                     )
-                    max_dist = Config.MAX_HAMMING_THRESHOLD
-                    similarity_percentage = 100 - (avg_hamming / max_dist * 100)
+                    # Convertir a porcentaje de similitud usando 64 bits como máximo teórico
+                    max_theoretical_dist = 64
+                    similarity_percentage = 100 - (avg_hamming / max_theoretical_dist * 100)
                     similarity_percentage = max(0, min(100, similarity_percentage))
+                    
+                    # Filtrar por umbral mínimo de similitud
+                    max_dist = Config.MAX_HAMMING_THRESHOLD
+                    min_similarity_from_threshold = 100 - (threshold / max_dist * 100)
+                    
+                    if similarity_percentage < min_similarity_from_threshold:
+                        continue
                     
                     total_size = 0
                     valid_files = []
@@ -317,10 +325,24 @@ class SimilarFilesAnalysis:
                         if hamming_distances else 0
                     )
                     # Convertir a porcentaje de similitud (invertido)
-                    max_dist = Config.MAX_HAMMING_THRESHOLD
-                    similarity_percentage = 100 - (avg_hamming / max_dist * 100)
+                    # Usamos 64 como máximo teórico (hash de 64 bits)
+                    # pero en la práctica, distancias > 30 son imágenes muy diferentes
+                    max_theoretical_dist = 64
+                    similarity_percentage = 100 - (avg_hamming / max_theoretical_dist * 100)
                     # Asegurar rango [0, 100]
                     similarity_percentage = max(0, min(100, similarity_percentage))
+                    
+                    # IMPORTANTE: Filtrar grupos que no cumplan el umbral de similitud mínimo
+                    # Si la sensibilidad es 30%, solo queremos grupos con >= 30% similitud
+                    # Calculamos el umbral mínimo basado en el threshold de Hamming
+                    # threshold = 20 (sensibilidad 30%) -> min_similarity = 30%
+                    # threshold = 0 (sensibilidad 100%) -> min_similarity = 100%
+                    max_dist = Config.MAX_HAMMING_THRESHOLD
+                    min_similarity_from_threshold = 100 - (threshold / max_dist * 100)
+                    
+                    # Si el grupo no cumple el umbral mínimo, descartarlo
+                    if similarity_percentage < min_similarity_from_threshold:
+                        continue
                     
                     # Calcular tamaño total (manejando posibles errores de IO)
                     total_size = 0
