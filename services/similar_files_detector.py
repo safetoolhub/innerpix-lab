@@ -369,6 +369,101 @@ class SimilarFilesAnalysis:
         """
         # imagehash implementa esto eficientemente con __sub__
         return hash1 - hash2
+    
+    def save_to_file(self, filepath: Path) -> None:
+        """
+        Guarda el análisis en un archivo para carga rápida posterior.
+        
+        ÚTIL PARA DESARROLLO: Analiza una vez un dataset grande,
+        guarda el resultado, y carga instantáneamente en futuras sesiones.
+        
+        Args:
+            filepath: Ruta donde guardar el análisis (formato pickle)
+            
+        Example:
+            >>> analysis = detector.analyze_initial(Path("/photos"))
+            >>> analysis.save_to_file(Path("analysis_cache_40k.pkl"))
+            >>> # Próxima sesión:
+            >>> analysis = SimilarFilesAnalysis.load_from_file(Path("analysis_cache_40k.pkl"))
+        """
+        import pickle
+        
+        # Preparar datos para guardar (sin logger)
+        data = {
+            'perceptual_hashes': {},
+            'workspace_path': self.workspace_path,
+            'total_files': self.total_files,
+            'analysis_timestamp': self.analysis_timestamp,
+        }
+        
+        # Convertir hashes a formato serializable
+        for path, hash_data in self.perceptual_hashes.items():
+            data['perceptual_hashes'][path] = {
+                'hash_str': str(hash_data['hash']),  # Convertir hash a string
+                'size': hash_data['size'],
+                'modified': hash_data['modified']
+            }
+        
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+        
+        with open(filepath, 'wb') as f:
+            pickle.dump(data, f)
+        
+        self._logger.info(
+            f"💾 Análisis guardado en {filepath} "
+            f"({len(self.perceptual_hashes)} hashes, "
+            f"{filepath.stat().st_size / 1024:.1f} KB)"
+        )
+    
+    @classmethod
+    def load_from_file(cls, filepath: Path) -> 'SimilarFilesAnalysis':
+        """
+        Carga un análisis previamente guardado (INSTANTÁNEO).
+        
+        Args:
+            filepath: Ruta del archivo guardado
+            
+        Returns:
+            SimilarFilesAnalysis con todos los hashes cargados
+            
+        Raises:
+            FileNotFoundError: Si el archivo no existe
+            
+        Example:
+            >>> analysis = SimilarFilesAnalysis.load_from_file(Path("analysis_cache_40k.pkl"))
+            >>> result = analysis.get_groups(sensitivity=85)  # Instantáneo
+        """
+        import pickle
+        import imagehash
+        
+        if not filepath.exists():
+            raise FileNotFoundError(f"Archivo de caché no encontrado: {filepath}")
+        
+        with open(filepath, 'rb') as f:
+            data = pickle.load(f)
+        
+        # Crear nueva instancia
+        analysis = cls()
+        analysis.workspace_path = data['workspace_path']
+        analysis.total_files = data['total_files']
+        analysis.analysis_timestamp = data['analysis_timestamp']
+        
+        # Reconstruir hashes desde strings
+        for path, hash_data in data['perceptual_hashes'].items():
+            analysis.perceptual_hashes[path] = {
+                'hash': imagehash.hex_to_hash(hash_data['hash_str']),
+                'size': hash_data['size'],
+                'modified': hash_data['modified']
+            }
+        
+        logger = get_logger('SimilarFilesAnalysis')
+        logger.info(
+            f"✅ Análisis cargado desde {filepath} "
+            f"({analysis.total_files} archivos, "
+            f"{filepath.stat().st_size / 1024:.1f} KB)"
+        )
+        
+        return analysis
 
 
 class SimilarFilesDetector(BaseDetectorService):
