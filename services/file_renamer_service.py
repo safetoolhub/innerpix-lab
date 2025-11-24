@@ -78,7 +78,8 @@ class FileRenamer(BaseService):
         issues = []
         
         # Obtener max_workers de la configuración
-        max_workers = settings_manager.get_max_workers(Config.MAX_WORKERS)
+        user_override = settings_manager.get_max_workers(0)
+        max_workers = Config.get_actual_worker_threads(override=user_override, io_bound=True)
         self.logger.debug(f"Usando {max_workers} workers para análisis paralelo")
 
         # Función para procesar un archivo

@@ -21,10 +21,13 @@ import logging
 
 def main():
     """Punto de entrada principal de la aplicación"""
-    # Configurar sistema de logging
+    # Leer nivel de log desde configuración persistente
+    saved_log_level = settings_manager.get_log_level("INFO")  # INFO por defecto
+    
+    # Configurar sistema de logging con nivel guardado
     log_file, logs_dir = configure_logging(
         logs_dir=Config.DEFAULT_LOG_DIR,
-        level="INFO"
+        level=saved_log_level
     )
     
     # Cargar configuración persistente

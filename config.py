@@ -157,7 +157,7 @@ class Config:
     # CONSTANTES DE WORKERS
     # ========================================================================
     WORKER_SHUTDOWN_TIMEOUT_MS = 10000  # Tiempo de espera para detener workers (milisegundos)
-    UI_UPDATE_INTERVAL = 1  # Actualizar progreso de UI cada N archivos procesados
+    UI_UPDATE_INTERVAL = 10  # Actualizar progreso de UI cada N archivos procesados
     LOG_PROGRESS_INTERVAL = 1000  # Escribir log de progreso cada N archivos (modo INFO)
 
     # ========================================================================
@@ -189,6 +189,22 @@ class Config:
     # Configuración de extracción de metadatos de video
     # Por defecto False porque es muy lento y la app se enfoca en imágenes
     USE_VIDEO_METADATA = False
+    
+    # ========================================================================
+    # CONFIGURACIÓN DE DIÁLOGO DE ARCHIVOS SIMILARES
+    # ========================================================================
+    # Umbrales de navegación para evitar bloqueos de UI con muchos grupos
+    SIMILAR_FILES_MAX_GROUPS_WARNING = 500  # Advertir si hay más de N grupos
+    SIMILAR_FILES_MAX_GROUPS_NAVIGABLE = 1000  # Límite máximo de grupos navegables
+    SIMILAR_FILES_LARGE_DATASET_THRESHOLD = 10000  # Umbral para considerar dataset grande
+    
+    # Sensibilidades iniciales según tamaño del dataset
+    SIMILAR_FILES_DEFAULT_SENSITIVITY = 85  # Sensibilidad para datasets pequeños
+    SIMILAR_FILES_LARGE_DATASET_SENSITIVITY = 100  # Sensibilidad para datasets grandes (muy restrictivo)
+    
+    # Clustering progresivo para evitar bloqueos
+    SIMILAR_FILES_INITIAL_BATCH_SIZE = 200  # Archivos a procesar en batch inicial (reducido para evitar crashes)
+    SIMILAR_FILES_LOAD_MORE_BATCH_SIZE = 300  # Archivos adicionales por batch
     
     # ========================================================================
     # CONFIGURACIÓN DE MEMORIA Y CACHÉ (DINÁMICA SEGÚN RAM)

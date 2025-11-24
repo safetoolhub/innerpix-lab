@@ -106,11 +106,25 @@ class SimilarFilesDialog(BaseDialog):
     Diálogo para gestionar archivos similares con UX mejorado.
     """
 
+    # Constantes para navegación progresiva (desde Config)
+    MAX_GROUPS_WARNING = Config.SIMILAR_FILES_MAX_GROUPS_WARNING
+    MAX_GROUPS_NAVIGABLE = Config.SIMILAR_FILES_MAX_GROUPS_NAVIGABLE
+    LARGE_DATASET_THRESHOLD = Config.SIMILAR_FILES_LARGE_DATASET_THRESHOLD
+    
     def __init__(self, analysis: SimilarFilesAnalysis, parent=None):
         super().__init__(parent)
         
         self.analysis = analysis
-        self.current_sensitivity = 85
+        
+        # Ajustar sensibilidad inicial según tamaño del dataset
+        # Para datasets grandes (>10K archivos), iniciar con sensibilidad 100%
+        # para generar el mínimo de grupos y evitar bloqueos
+        total_files = len(analysis.perceptual_hashes)
+        if total_files >= self.LARGE_DATASET_THRESHOLD:
+            self.current_sensitivity = Config.SIMILAR_FILES_LARGE_DATASET_SENSITIVITY  # 100% para datasets grandes
+        else:
+            self.current_sensitivity = Config.SIMILAR_FILES_DEFAULT_SENSITIVITY  # 85% para datasets pequeños
+        
         self.current_result = None
         self.current_group_index = 0
         self.selections = {}  # {group_index: [files_to_delete]}
@@ -119,11 +133,20 @@ class SimilarFilesDialog(BaseDialog):
         self.filter_min_files = 2
         self.filter_min_size_mb = 0
         self.all_groups = []
+        self.filtered_groups = []  # Grupos después de filtrar
+        self.navigable_groups = []  # Grupos limitados para navegación
+        
+        # Lazy loading progresivo
+        self.files_processed = 0  # Cuántos archivos hemos procesado
+        self.total_files = len(analysis.perceptual_hashes)
+        self.batch_size = Config.SIMILAR_FILES_INITIAL_BATCH_SIZE
         
         self.accepted_plan = None
         
         self._setup_ui()
-        self._load_initial_results()
+        # Cargar primer batch DESPUÉS de que el UI esté listo (usando QTimer)
+        # Esto evita crashes de segmentation fault
+        QTimer.singleShot(100, self._load_next_batch)
     
     def _setup_ui(self):
         """Configura la interfaz moderna del diálogo."""
@@ -313,6 +336,24 @@ class SimilarFilesDialog(BaseDialog):
         # Conexiones
         self.sensitivity_slider.valueChanged.connect(self._on_slider_value_changed)
         self.sensitivity_slider.sliderReleased.connect(self._on_slider_released)
+        
+        # Info adicional para datasets grandes
+        total_files = len(self.analysis.perceptual_hashes)
+        if total_files >= self.LARGE_DATASET_THRESHOLD:
+            info_label = QLabel(
+                f"ℹ️ Dataset grande ({total_files:,} archivos)\n"
+                f"Ajusta la sensibilidad y pulsa el botón central para generar grupos.\n"
+                f"⚡ Mayor sensibilidad = menos grupos, más rápido"
+            )
+            info_label.setWordWrap(True)
+            info_label.setStyleSheet(f"""
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                font-size: {DesignSystem.FONT_SIZE_XS}px;
+                background-color: {DesignSystem.COLOR_WARNING_LIGHT};
+                padding: {DesignSystem.SPACE_8}px;
+                border-radius: {DesignSystem.RADIUS_SM}px;
+            """)
+            layout.addWidget(info_label)
         
         return card
 
@@ -529,7 +570,147 @@ class SimilarFilesDialog(BaseDialog):
 
     # ================= LÓGICA DE NEGOCIO =================
 
+    def _show_loading_message(self):
+        """Muestra mensaje mientras se carga el primer batch."""
+        # Limpiar contenedor
+        for i in reversed(range(self.group_layout.count())):
+            w = self.group_layout.itemAt(i).widget()
+            if w: w.setParent(None)
+        
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.setSpacing(DesignSystem.SPACE_16)
+        
+        # Icono de carga
+        icon_label = icon_manager.create_icon_label(
+            'loading',
+            size=48,
+            color=DesignSystem.COLOR_PRIMARY
+        )
+        layout.addWidget(icon_label, alignment=Qt.AlignmentFlag.AlignCenter)
+        
+        # Mensaje
+        msg = QLabel("Generando primeros grupos...\n\nEsto solo toma unos segundos")
+        msg.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        msg.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_MD}px;
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+        """)
+        layout.addWidget(msg)
+        
+        self.group_layout.addWidget(container)
+        
+        # Deshabilitar navegación
+        self.prev_btn.setEnabled(False)
+        self.next_btn.setEnabled(False)
+        self.group_counter_label.setText("Cargando...")
+    
+    def _load_next_batch(self):
+        """Carga el siguiente batch de archivos para clustering incremental."""
+        from PyQt6.QtWidgets import QApplication
+        from PyQt6.QtCore import Qt
+        from utils.logger import get_logger
+        
+        logger = get_logger('SimilarFilesDialog')
+        
+        try:
+            # Determinar cuántos archivos procesar
+            if self.files_processed == 0:
+                batch = Config.SIMILAR_FILES_INITIAL_BATCH_SIZE
+            else:
+                batch = Config.SIMILAR_FILES_LOAD_MORE_BATCH_SIZE
+            
+            start_idx = self.files_processed
+            end_idx = min(start_idx + batch, self.total_files)
+            
+            if start_idx >= self.total_files:
+                logger.info("Todos los archivos ya procesados")
+                return
+            
+            # Mostrar cursor de espera
+            QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+            try:
+                # Obtener subset de hashes
+                all_hashes = list(self.analysis.perceptual_hashes.items())
+                batch_hashes = dict(all_hashes[start_idx:end_idx])
+                
+                logger.info(
+                    f"Procesando batch {start_idx:,}-{end_idx:,} "
+                    f"({end_idx - start_idx:,} archivos) con sensibilidad {self.current_sensitivity}%"
+                )
+                
+                # Crear análisis temporal con subset
+                from services.similar_files_detector import SimilarFilesAnalysis
+                temp_analysis = SimilarFilesAnalysis()
+                temp_analysis.perceptual_hashes = batch_hashes
+                temp_analysis.workspace_path = self.analysis.workspace_path
+                temp_analysis.total_files = len(batch_hashes)
+                
+                # Generar grupos del batch
+                batch_result = temp_analysis.get_groups(self.current_sensitivity)
+                
+                # Agregar grupos nuevos a la lista existente
+                new_groups_count = len(batch_result.groups)
+                self.all_groups.extend(batch_result.groups)
+                
+                logger.info(f"Batch completado: +{new_groups_count:,} grupos nuevos (total: {len(self.all_groups):,})")
+                
+                # Actualizar contador
+                self.files_processed = end_idx
+                
+                # Aplicar filtros y mostrar
+                self._apply_current_filters()
+                
+                # Si hay más archivos, mostrar botón "Cargar más"
+                if self.files_processed < self.total_files:
+                    self._show_load_more_button()
+                else:
+                    # Todos los archivos procesados - actualizar navegación
+                    if self.navigable_groups:
+                        self.current_group_index = 0
+                        self._display_current_group()
+                
+            finally:
+                QApplication.restoreOverrideCursor()
+        
+        except Exception as e:
+            logger.error(f"Error en _load_next_batch: {e}", exc_info=True)
+            QApplication.restoreOverrideCursor()
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Error cargando batch: {str(e)}\n\nVer logs para detalles."
+            )
+            raise
+    
+    def _show_load_more_button(self):
+        """Muestra botón para cargar más grupos al final del contenedor."""
+        # Buscar si ya existe el botón
+        for i in range(self.group_layout.count()):
+            item = self.group_layout.itemAt(i)
+            if item and item.widget() and isinstance(item.widget(), QPushButton):
+                widget = item.widget()
+                if widget.property("load_more_btn"):
+                    # Actualizar texto
+                    remaining = self.total_files - self.files_processed
+                    widget.setText(f"Cargar más grupos ({remaining:,} archivos pendientes)")
+                    return
+        
+        # Crear botón nuevo
+        remaining = self.total_files - self.files_processed
+        load_more_btn = QPushButton(f"Cargar más grupos ({remaining:,} archivos pendientes)")
+        load_more_btn.setProperty("load_more_btn", True)
+        load_more_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        load_more_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
+        load_more_btn.clicked.connect(self._load_next_batch)
+        
+        # Insertar al final pero antes del último widget si existe
+        self.group_layout.addWidget(load_more_btn)
+
     def _load_initial_results(self):
+        """Método legacy - ya no se llama al inicio."""
         self._update_results(self.current_sensitivity)
 
     def _on_slider_value_changed(self, value: int):
@@ -537,13 +718,50 @@ class SimilarFilesDialog(BaseDialog):
         self.sensitivity_value_label.setText(f"{value}%")
 
     def _on_slider_released(self):
-        self._update_results(self.current_sensitivity)
+        # NO regenerar automáticamente - solo si ya hay grupos cargados
+        if self.all_groups:
+            self._update_results(self.current_sensitivity)
 
     def _update_results(self, sensitivity: int):
-        self.current_result = self.analysis.get_groups(sensitivity)
-        self.all_groups = self.current_result.groups.copy()
-        self.selections.clear()
-        self._apply_current_filters()
+        """Regenera grupos desde cero con nueva sensibilidad (solo archivos ya procesados)."""
+        from PyQt6.QtWidgets import QApplication
+        from PyQt6.QtCore import Qt
+        from utils.logger import get_logger
+        
+        logger = get_logger('SimilarFilesDialog')
+        
+        if self.files_processed == 0:
+            logger.warning("No hay archivos procesados aún")
+            return
+        
+        # Mostrar cursor de espera
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        try:
+            # Recalcular grupos solo con archivos ya procesados
+            all_hashes = list(self.analysis.perceptual_hashes.items())
+            processed_hashes = dict(all_hashes[:self.files_processed])
+            
+            logger.info(
+                f"Regenerando grupos con sensibilidad {sensitivity}% "
+                f"({self.files_processed:,} archivos procesados)"
+            )
+            
+            from services.similar_files_detector import SimilarFilesAnalysis
+            temp_analysis = SimilarFilesAnalysis()
+            temp_analysis.perceptual_hashes = processed_hashes
+            temp_analysis.workspace_path = self.analysis.workspace_path
+            temp_analysis.total_files = len(processed_hashes)
+            
+            result = temp_analysis.get_groups(sensitivity)
+            self.all_groups = result.groups.copy()
+            
+            logger.info(f"Regenerados {len(self.all_groups):,} grupos")
+            
+            self.selections.clear()
+            self._apply_current_filters()
+            
+        finally:
+            QApplication.restoreOverrideCursor()
 
     def _on_filters_changed(self):
         self.filter_min_files = self.min_files_spin.value()
@@ -569,24 +787,63 @@ class SimilarFilesDialog(BaseDialog):
                 if not any(f.stat().st_size >= min_size_bytes for f in group.files):
                     continue
             filtered_groups.append(group)
-            
-        self.analysis.groups = filtered_groups
-        self._update_header_metrics()
+        
+        self.filtered_groups = filtered_groups
+        self._apply_navigation_limit()
         
         self.current_group_index = 0
-        if filtered_groups:
+        if self.navigable_groups:
             self._load_group(0)
         else:
             self._show_no_groups_message()
 
+    def _apply_navigation_limit(self):
+        """Limita los grupos navegables para evitar bloqueo de UI."""
+        total_groups = len(self.filtered_groups)
+        
+        if total_groups > self.MAX_GROUPS_WARNING:
+            # Advertir al usuario
+            from PyQt6.QtWidgets import QMessageBox
+            msg = QMessageBox(self)
+            msg.setIcon(QMessageBox.Icon.Warning)
+            msg.setWindowTitle("Muchos grupos detectados")
+            
+            if total_groups > self.MAX_GROUPS_NAVIGABLE:
+                msg.setText(
+                    f"Se detectaron {total_groups:,} grupos de similares.\n\n"
+                    f"Por rendimiento, solo se mostrarán los primeros {self.MAX_GROUPS_NAVIGABLE:,} grupos.\n\n"
+                    f"💡 Sugerencia: Aumenta la sensibilidad o aplica filtros más estrictos para reducir el número de grupos."
+                )
+                self.navigable_groups = self.filtered_groups[:self.MAX_GROUPS_NAVIGABLE]
+            else:
+                msg.setText(
+                    f"Se detectaron {total_groups:,} grupos de similares.\n\n"
+                    f"La navegación puede ser lenta con tantos grupos.\n\n"
+                    f"💡 Sugerencia: Considera aumentar la sensibilidad o aplicar filtros para trabajar más cómodamente."
+                )
+                self.navigable_groups = self.filtered_groups
+            
+            msg.setStandardButtons(QMessageBox.StandardButton.Ok)
+            msg.exec()
+        else:
+            self.navigable_groups = self.filtered_groups
+        
+        # Actualizar métricas del header
+        self._update_header_metrics()
+    
     def _update_header_metrics(self):
-        groups = self.analysis.groups
+        groups = self.navigable_groups
         total_groups = len(groups)
         total_duplicates = sum(len(g.files) - 1 for g in groups)
         space_potential = sum((len(g.files) - 1) * g.files[0].stat().st_size for g in groups if g.files)
         
+        # Mostrar advertencia si hay grupos ocultos
+        groups_label = str(total_groups)
+        if len(self.filtered_groups) > len(self.navigable_groups):
+            groups_label = f"{total_groups} de {len(self.filtered_groups)}"
+        
         # Usar el método estandarizado de BaseDialog para actualizar métricas
-        self._update_header_metric(self.header_frame, 'Grupos', str(total_groups))
+        self._update_header_metric(self.header_frame, 'Grupos', groups_label)
         self._update_header_metric(self.header_frame, 'Duplicados', str(total_duplicates))
         self._update_header_metric(self.header_frame, 'Recuperable', format_size(space_potential))
 
@@ -606,14 +863,20 @@ class SimilarFilesDialog(BaseDialog):
         self.next_btn.setEnabled(False)
 
     def _load_group(self, index):
-        if not 0 <= index < len(self.analysis.groups):
+        if not 0 <= index < len(self.navigable_groups):
             return
             
         self.current_group_index = index
-        group = self.analysis.groups[index]
+        group = self.navigable_groups[index]
         
-        # Actualizar contador
-        self.group_counter_label.setText(f"Grupo {index + 1} de {len(self.analysis.groups)}")
+        # Actualizar contador (mostrar navegables y total si difieren)
+        total_display = len(self.navigable_groups)
+        if len(self.filtered_groups) > len(self.navigable_groups):
+            counter_text = f"Grupo {index + 1} de {total_display} ({len(self.filtered_groups)} totales)"
+        else:
+            counter_text = f"Grupo {index + 1} de {total_display}"
+        
+        self.group_counter_label.setText(counter_text)
         self.prev_btn.setEnabled(True)
         self.next_btn.setEnabled(True)
         
@@ -815,19 +1078,19 @@ class SimilarFilesDialog(BaseDialog):
         self.delete_btn.setText(f"Eliminar {total_files} Archivos")
 
     def _previous_group(self):
-        if self.analysis.groups:
-            new_index = (self.current_group_index - 1) % len(self.analysis.groups)
+        if self.navigable_groups:
+            new_index = (self.current_group_index - 1) % len(self.navigable_groups)
             self._load_group(new_index)
 
     def _next_group(self):
-        if self.analysis.groups:
-            new_index = (self.current_group_index + 1) % len(self.analysis.groups)
+        if self.navigable_groups:
+            new_index = (self.current_group_index + 1) % len(self.navigable_groups)
             self._load_group(new_index)
 
     def _apply_strategy_current_group(self, strategy):
-        if not self.analysis.groups: return
+        if not self.navigable_groups: return
         
-        group = self.analysis.groups[self.current_group_index]
+        group = self.navigable_groups[self.current_group_index]
         files = group.files
         if len(files) < 2: return
         
