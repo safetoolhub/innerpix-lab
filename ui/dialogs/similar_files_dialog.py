@@ -18,7 +18,9 @@ from services.result_types import DuplicateGroup
 from utils.format_utils import format_size
 from ui.styles.design_system import DesignSystem
 from utils.icons import icon_manager
+from utils.icons import icon_manager
 from .base_dialog import BaseDialog
+from .dialog_utils import show_file_details_dialog
 
 class ImagePreviewDialog(QDialog):
     """Diálogo modal para mostrar vista previa ampliada de una imagen con diseño moderno."""
@@ -155,22 +157,15 @@ class SimilarFilesDialog(BaseDialog):
         self.resize(1280, 900)
         self.setMinimumSize(1100, 750)
         
-        # Estilo base del diálogo
-        self.setStyleSheet(f"""
-            QDialog {{
-                background-color: {DesignSystem.COLOR_BACKGROUND};
-            }}
-            QLabel {{
-                background-color: transparent;
-            }}
-        """)
+        # Estilo base
+        self.setStyleSheet(DesignSystem.get_stylesheet() + DesignSystem.get_tooltip_style())
         
         # Layout principal
         main_layout = QVBoxLayout(self)
         main_layout.setSpacing(0)
         main_layout.setContentsMargins(0, 0, 0, 0)
         
-        # 1. Header Compacto (usando método estandarizado de BaseDialog)
+        # 1. Header Compacto
         self.header_frame = self._create_compact_header_with_metrics(
             icon_name='content-duplicate',
             title='Archivos Similares',
@@ -183,28 +178,22 @@ class SimilarFilesDialog(BaseDialog):
         )
         main_layout.addWidget(self.header_frame)
         
-        # Contenedor principal con padding
+        # Contenedor principal
         content_wrapper = QWidget()
         content_layout = QVBoxLayout(content_wrapper)
         content_layout.setSpacing(DesignSystem.SPACE_16)
         content_layout.setContentsMargins(DesignSystem.SPACE_24, DesignSystem.SPACE_20, DesignSystem.SPACE_24, DesignSystem.SPACE_20)
         
-        # 2. Panel de Control (Sensibilidad + Filtros + Acciones Rápidas)
-        controls_layout = QHBoxLayout()
-        controls_layout.setSpacing(DesignSystem.SPACE_16)
+        # 2. Barra de Control Unificada (Sensibilidad + Acciones + Toggle Filtros)
+        control_toolbar = self._create_control_toolbar()
+        content_layout.addWidget(control_toolbar)
         
-        sensitivity_card = self._create_sensitivity_card()
-        filters_card = self._create_filters_card()
-        quick_actions_card = self._create_quick_actions_card()
+        # 3. Sección de Filtros (Colapsable)
+        self.filters_container = self._create_filters_section()
+        self.filters_container.setVisible(False) # Oculto por defecto
+        content_layout.addWidget(self.filters_container)
         
-        # Ajustar stretch factors para balancear (3:2:3)
-        controls_layout.addWidget(sensitivity_card, stretch=3)
-        controls_layout.addWidget(filters_card, stretch=2)
-        controls_layout.addWidget(quick_actions_card, stretch=3)
-        
-        content_layout.addLayout(controls_layout)
-        
-        # 3. Área de Trabajo (Navegación + Grid)
+        # 4. Área de Trabajo
         workspace_card = QFrame()
         workspace_card.setObjectName("workspace_card")
         workspace_card.setStyleSheet(f"""
@@ -218,7 +207,7 @@ class SimilarFilesDialog(BaseDialog):
         workspace_layout.setSpacing(0)
         workspace_layout.setContentsMargins(0, 0, 0, 0)
         
-        # Barra de herramientas del workspace (Solo Navegación)
+        # Toolbar de navegación
         workspace_toolbar = self._create_workspace_toolbar()
         workspace_layout.addWidget(workspace_toolbar)
         
@@ -228,29 +217,26 @@ class SimilarFilesDialog(BaseDialog):
         separator.setStyleSheet(f"color: {DesignSystem.COLOR_BORDER_LIGHT};")
         workspace_layout.addWidget(separator)
         
-        # Contenedor del grupo actual (Grid de imágenes)
+        # Grid de imágenes
         self.group_container = QWidget()
         self.group_layout = QVBoxLayout(self.group_container)
         self.group_layout.setContentsMargins(DesignSystem.SPACE_20, DesignSystem.SPACE_20, DesignSystem.SPACE_20, DesignSystem.SPACE_20)
         self.group_layout.setSpacing(DesignSystem.SPACE_16)
         
         workspace_layout.addWidget(self.group_container, stretch=1)
-        
         content_layout.addWidget(workspace_card, stretch=1)
         
         main_layout.addWidget(content_wrapper, stretch=1)
         
-        # 4. Footer (Opciones de seguridad + Botones)
-        # Opciones de seguridad (usando método estándar de BaseDialog)
+        # 5. Footer
         security_options = self._create_security_options_section(
             show_backup=True,
             show_dry_run=True,
             backup_label="Crear backup antes de eliminar",
-            dry_run_label="Modo simulación (no eliminar archivos realmente)"
+            dry_run_label="Modo simulación"
         )
         content_layout.addWidget(security_options)
         
-        # Botones de acción
         button_box = self.make_ok_cancel_buttons(
             ok_text="Eliminar Seleccionados",
             ok_enabled=False,
@@ -259,45 +245,41 @@ class SimilarFilesDialog(BaseDialog):
         self.delete_btn = button_box.button(QDialogButtonBox.StandardButton.Ok)
         content_layout.addWidget(button_box)
 
-
-
-    def _create_sensitivity_card(self) -> QFrame:
-        card = QFrame()
-        card.setObjectName("sensitivity_card")
-        card.setStyleSheet(f"""
-            QFrame#sensitivity_card {{
+    def _create_control_toolbar(self) -> QFrame:
+        """Crea una barra de herramientas unificada y limpia."""
+        toolbar = QFrame()
+        toolbar.setStyleSheet(f"""
+            QFrame {{
                 background-color: {DesignSystem.COLOR_SURFACE};
                 border: 1px solid {DesignSystem.COLOR_BORDER};
                 border-radius: {DesignSystem.RADIUS_LG}px;
             }}
+            QFrame QFrame {{
+                border: none;
+                background: transparent;
+            }}
         """)
-        layout = QVBoxLayout(card)
-        # Reducir márgenes para hacerlo más compacto
-        layout.setContentsMargins(DesignSystem.SPACE_12, DesignSystem.SPACE_12, DesignSystem.SPACE_12, DesignSystem.SPACE_12)
-        layout.setSpacing(DesignSystem.SPACE_8)
+        layout = QHBoxLayout(toolbar)
+        layout.setContentsMargins(DesignSystem.SPACE_16, DesignSystem.SPACE_12, DesignSystem.SPACE_16, DesignSystem.SPACE_12)
+        layout.setSpacing(DesignSystem.SPACE_24)
         
-        # Header de la card
-        header = QHBoxLayout()
-        icon = icon_manager.create_icon_label('tune', size=16, color=DesignSystem.COLOR_TEXT)
-        title = QLabel("Sensibilidad")
-        title.setStyleSheet(f"font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD}; font-size: {DesignSystem.FONT_SIZE_BASE}px;")
+        # 1. Sensibilidad (Compacta)
+        sens_layout = QHBoxLayout()
+        sens_layout.setSpacing(DesignSystem.SPACE_12)
         
-        self.sensitivity_value_label = QLabel(f"{self.current_sensitivity}%")
-        self.sensitivity_value_label.setStyleSheet(f"color: {DesignSystem.COLOR_PRIMARY}; font-weight: {DesignSystem.FONT_WEIGHT_BOLD};")
+        icon = icon_manager.create_icon_label('target', size=18, color=DesignSystem.COLOR_TEXT_SECONDARY)
+        sens_layout.addWidget(icon)
         
-        header.addWidget(icon)
-        header.addWidget(title)
-        header.addStretch()
-        header.addWidget(self.sensitivity_value_label)
-        layout.addLayout(header)
-        
-        # Slider
-        slider_container = QHBoxLayout()
+        sens_label = QLabel("Sensibilidad:")
+        sens_label.setStyleSheet(f"font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM}; color: {DesignSystem.COLOR_TEXT};")
+        sens_layout.addWidget(sens_label)
         
         self.sensitivity_slider = QSlider(Qt.Orientation.Horizontal)
         self.sensitivity_slider.setRange(30, 100)
         self.sensitivity_slider.setValue(self.current_sensitivity)
+        self.sensitivity_slider.setFixedWidth(150)
         self.sensitivity_slider.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.sensitivity_slider.setToolTip("Ajusta la precisión de la búsqueda. Mayor sensibilidad = menos falsos positivos.")
         self.sensitivity_slider.setStyleSheet(f"""
             QSlider::groove:horizontal {{
                 border: 1px solid {DesignSystem.COLOR_BORDER};
@@ -327,179 +309,40 @@ class SimilarFilesDialog(BaseDialog):
             }}
         """)
         
-        slider_container.addWidget(QLabel("Min", styleSheet=f"font-size: {DesignSystem.FONT_SIZE_XS}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};"))
-        slider_container.addWidget(self.sensitivity_slider, 1)
-        slider_container.addWidget(QLabel("Max", styleSheet=f"font-size: {DesignSystem.FONT_SIZE_XS}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};"))
+        sens_layout.addWidget(self.sensitivity_slider)
         
-        layout.addLayout(slider_container)
+        self.sensitivity_value_label = QLabel(f"{self.current_sensitivity}%")
+        self.sensitivity_value_label.setFixedWidth(40)
+        self.sensitivity_value_label.setStyleSheet(f"color: {DesignSystem.COLOR_PRIMARY}; font-weight: {DesignSystem.FONT_WEIGHT_BOLD};")
+        sens_layout.addWidget(self.sensitivity_value_label)
         
-        # Conexiones
-        self.sensitivity_slider.valueChanged.connect(self._on_slider_value_changed)
-        self.sensitivity_slider.sliderReleased.connect(self._on_slider_released)
+        layout.addLayout(sens_layout)
         
-        # Info adicional para datasets grandes
-        total_files = len(self.analysis.perceptual_hashes)
-        if total_files >= self.LARGE_DATASET_THRESHOLD:
-            info_label = QLabel(
-                f"ℹ️ Dataset grande ({total_files:,} archivos)\n"
-                f"Ajusta la sensibilidad y pulsa el botón central para generar grupos.\n"
-                f"⚡ Mayor sensibilidad = menos grupos, más rápido"
-            )
-            info_label.setWordWrap(True)
-            info_label.setStyleSheet(f"""
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                font-size: {DesignSystem.FONT_SIZE_XS}px;
-                background-color: {DesignSystem.COLOR_WARNING_BG};
-                padding: {DesignSystem.SPACE_8}px;
-                border-radius: {DesignSystem.RADIUS_SM}px;
-            """)
-            layout.addWidget(info_label)
-            
-            # Warning extra para dejar claro que puede ser lento
-            warning_label = QLabel(
-                "⚠️ Nota: Ajustar la sensibilidad puede tomar unos segundos."
-            )
-            warning_label.setStyleSheet(f"""
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                font-size: {DesignSystem.FONT_SIZE_XS}px;
-                font-style: italic;
-                margin-top: {DesignSystem.SPACE_4}px;
-            """)
-            layout.addWidget(warning_label)
+        # Separador
+        v_sep1 = QFrame()
+        v_sep1.setFrameShape(QFrame.Shape.VLine)
+        v_sep1.setStyleSheet(f"color: {DesignSystem.COLOR_BORDER};")
+        layout.addWidget(v_sep1)
         
-        return card
+        # Separador
+        v_sep2 = QFrame()
+        v_sep2.setFrameShape(QFrame.Shape.VLine)
+        v_sep2.setStyleSheet(f"color: {DesignSystem.COLOR_BORDER};")
+        layout.addWidget(v_sep2)
 
-    def _create_filters_card(self) -> QFrame:
-        card = QFrame()
-        card.setObjectName("filters_card")
-        card.setStyleSheet(f"""
-            QFrame#filters_card {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-            }}
-        """)
-        layout = QVBoxLayout(card)
-        # Reducir márgenes
-        layout.setContentsMargins(DesignSystem.SPACE_12, DesignSystem.SPACE_12, DesignSystem.SPACE_12, DesignSystem.SPACE_12)
-        layout.setSpacing(DesignSystem.SPACE_8)
-        
-        # Header
-        header = QHBoxLayout()
-        header.setSpacing(DesignSystem.SPACE_8)
-        header.addWidget(icon_manager.create_icon_label('filter-variant', size=16))
-        header.addWidget(QLabel("Filtros", styleSheet=f"font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD}; font-size: {DesignSystem.FONT_SIZE_BASE}px;"))
-        header.addStretch()
-        
-        reset_btn = QPushButton("Reset")
-        reset_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        reset_btn.setStyleSheet(f"""
-            QPushButton {{
-                border: none;
-                color: {DesignSystem.COLOR_PRIMARY};
-                font-size: {DesignSystem.FONT_SIZE_XS}px;
-                padding: 0;
-            }}
-            QPushButton:hover {{ text-decoration: underline; }}
-        """)
-        reset_btn.clicked.connect(self._reset_filters)
-        header.addWidget(reset_btn)
-        
-        layout.addLayout(header)
-        
-        # Inputs en una sola fila para ahorrar espacio vertical
-        inputs_layout = QHBoxLayout()
-        inputs_layout.setSpacing(DesignSystem.SPACE_12)
-        
-        # Min Archivos
-        files_layout = QHBoxLayout()
-        files_layout.setSpacing(DesignSystem.SPACE_4)
-        files_layout.addWidget(QLabel("Archivos:", styleSheet=f"font-size: {DesignSystem.FONT_SIZE_SM}px;"))
-        
-        from ui.widgets.custom_spinbox import CustomSpinBox
-        self.min_files_spin = CustomSpinBox()
-        self.min_files_spin.setRange(2, 50)
-        self.min_files_spin.setValue(self.filter_min_files)
-        self.min_files_spin.setFixedWidth(80)
-        self.min_files_spin.valueChanged.connect(self._on_filters_changed)
-        files_layout.addWidget(self.min_files_spin)
-        
-        inputs_layout.addLayout(files_layout)
-        
-        # Min Tamaño
-        size_layout = QHBoxLayout()
-        size_layout.setSpacing(DesignSystem.SPACE_4)
-        size_layout.addWidget(QLabel("MB:", styleSheet=f"font-size: {DesignSystem.FONT_SIZE_SM}px;"))
-        
-        self.min_size_spin = CustomSpinBox()
-        self.min_size_spin.setRange(0, 1000)
-        self.min_size_spin.setValue(self.filter_min_size_mb)
-        self.min_size_spin.setFixedWidth(80)
-        self.min_size_spin.valueChanged.connect(self._on_filters_changed)
-        size_layout.addWidget(self.min_size_spin)
-        
-        inputs_layout.addLayout(size_layout)
-        
-        layout.addLayout(inputs_layout)
-        
-        # Warning para filtros en datasets grandes
-        total_files = len(self.analysis.perceptual_hashes)
-        if total_files >= self.LARGE_DATASET_THRESHOLD:
-            filter_warning = QLabel("⚠️ Filtrar puede ser lento con muchos archivos")
-            filter_warning.setStyleSheet(f"""
-                color: {DesignSystem.COLOR_WARNING};
-                font-size: {DesignSystem.FONT_SIZE_XS}px;
-                margin-top: {DesignSystem.SPACE_4}px;
-            """)
-            filter_warning.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            layout.addWidget(filter_warning)
-        
-        return card
-
-    def _create_quick_actions_card(self) -> QFrame:
-        """Nueva card para acciones rápidas (Smart Select)"""
-        card = QFrame()
-        card.setObjectName("quick_actions_card")
-        card.setStyleSheet(f"""
-            QFrame#quick_actions_card {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-            }}
-        """)
-        layout = QVBoxLayout(card)
-        layout.setContentsMargins(DesignSystem.SPACE_12, DesignSystem.SPACE_12, DesignSystem.SPACE_12, DesignSystem.SPACE_12)
-        layout.setSpacing(DesignSystem.SPACE_8)
-        
-        # Header
-        header = QHBoxLayout()
-        header.addWidget(icon_manager.create_icon_label('flash', size=16, color=DesignSystem.COLOR_WARNING))
-        header.addWidget(QLabel("Selección Rápida", styleSheet=f"font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD}; font-size: {DesignSystem.FONT_SIZE_BASE}px;"))
-        header.addStretch()
-        
-        # Botón Limpiar (mini)
-        clear_btn = QPushButton("Limpiar")
-        clear_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        clear_btn.setStyleSheet(f"""
-            QPushButton {{
-                border: none;
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                font-size: {DesignSystem.FONT_SIZE_XS}px;
-                padding: 0;
-            }}
-            QPushButton:hover {{ color: {DesignSystem.COLOR_DANGER}; }}
-        """)
-        clear_btn.clicked.connect(self._clear_current_group_selection)
-        header.addWidget(clear_btn)
-        
-        layout.addLayout(header)
-        
-        # Botones de acción
+        # 2. Acciones Rápidas (Smart Select)
         actions_layout = QHBoxLayout()
         actions_layout.setSpacing(DesignSystem.SPACE_8)
         
+        flash_icon = icon_manager.create_icon_label('flash', size=16, color=DesignSystem.COLOR_WARNING)
+        actions_layout.addWidget(flash_icon)
+        
+        actions_label = QLabel("Selección Rápida:")
+        actions_label.setStyleSheet(f"font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM}; color: {DesignSystem.COLOR_TEXT};")
+        actions_layout.addWidget(actions_label)
+        
         strategies = [
-            ("1º", "keep_first", "Mantener primero"),
+            ("Primero", "keep_first", "Mantener primero"),
             ("Último", "keep_last", "Mantener último"),
             ("Mejor", "keep_largest", "Mantener mejor calidad"),
         ]
@@ -513,7 +356,7 @@ class SimilarFilesDialog(BaseDialog):
                     background-color: {DesignSystem.COLOR_BACKGROUND};
                     border: 1px solid {DesignSystem.COLOR_BORDER};
                     border-radius: {DesignSystem.RADIUS_BASE}px;
-                    padding: 4px 8px;
+                    padding: 6px 12px;
                     font-size: {DesignSystem.FONT_SIZE_SM}px;
                     color: {DesignSystem.COLOR_TEXT};
                 }}
@@ -528,7 +371,105 @@ class SimilarFilesDialog(BaseDialog):
             
         layout.addLayout(actions_layout)
         
-        return card
+        layout.addStretch()
+        
+        # 3. Toggle Filtros
+        self.toggle_filters_btn = QPushButton("Filtros")
+        self.toggle_filters_btn.setCheckable(True)
+        self.toggle_filters_btn.setIcon(icon_manager.get_icon('filter-variant'))
+        self.toggle_filters_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.toggle_filters_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {DesignSystem.COLOR_BACKGROUND};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: 8px 16px;
+                color: {DesignSystem.COLOR_TEXT};
+            }}
+            QPushButton:checked {{
+                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
+                color: {DesignSystem.COLOR_PRIMARY};
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
+            }}
+        """)
+        self.toggle_filters_btn.clicked.connect(self._toggle_filters)
+        layout.addWidget(self.toggle_filters_btn)
+        
+        # Conexiones slider
+        self.sensitivity_slider.valueChanged.connect(self._on_slider_value_changed)
+        self.sensitivity_slider.sliderReleased.connect(self._on_slider_released)
+        
+        return toolbar
+
+    def _create_filters_section(self) -> QFrame:
+        """Crea la sección de filtros colapsable."""
+        container = QFrame()
+        container.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+            }}
+        """)
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(DesignSystem.SPACE_20, DesignSystem.SPACE_16, DesignSystem.SPACE_20, DesignSystem.SPACE_16)
+        layout.setSpacing(DesignSystem.SPACE_24)
+        
+        # Título
+        title = QLabel("Filtros de Visualización")
+        title.setStyleSheet(f"font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD}; color: {DesignSystem.COLOR_TEXT};")
+        layout.addWidget(title)
+        
+        # Min Archivos
+        files_layout = QHBoxLayout()
+        files_layout.setSpacing(DesignSystem.SPACE_8)
+        files_layout.addWidget(QLabel("Mín. Archivos:", styleSheet=f"color: {DesignSystem.COLOR_TEXT_SECONDARY};"))
+        
+        from ui.widgets.custom_spinbox import CustomSpinBox
+        self.min_files_spin = CustomSpinBox()
+        self.min_files_spin.setRange(2, 50)
+        self.min_files_spin.setValue(self.filter_min_files)
+        self.min_files_spin.setFixedWidth(100)
+        self.min_files_spin.valueChanged.connect(self._on_filters_changed)
+        files_layout.addWidget(self.min_files_spin)
+        layout.addLayout(files_layout)
+        
+        # Min Tamaño
+        size_layout = QHBoxLayout()
+        size_layout.setSpacing(DesignSystem.SPACE_8)
+        size_layout.addWidget(QLabel("Mín. Tamaño (MB):", styleSheet=f"color: {DesignSystem.COLOR_TEXT_SECONDARY};"))
+        
+        self.min_size_spin = CustomSpinBox()
+        self.min_size_spin.setRange(0, 1000)
+        self.min_size_spin.setValue(self.filter_min_size_mb)
+        self.min_size_spin.setFixedWidth(100)
+        self.min_size_spin.valueChanged.connect(self._on_filters_changed)
+        size_layout.addWidget(self.min_size_spin)
+        layout.addLayout(size_layout)
+        
+        layout.addStretch()
+        
+        # Reset
+        reset_btn = QPushButton("Restablecer Filtros")
+        reset_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        reset_btn.setStyleSheet(f"""
+            QPushButton {{
+                border: none;
+                color: {DesignSystem.COLOR_PRIMARY};
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            }}
+            QPushButton:hover {{ text-decoration: underline; }}
+        """)
+        reset_btn.clicked.connect(self._reset_filters)
+        layout.addWidget(reset_btn)
+        
+        return container
+
+    def _toggle_filters(self, checked: bool):
+        self.filters_container.setVisible(checked)
 
     def _create_workspace_toolbar(self) -> QWidget:
         container = QWidget()
@@ -940,35 +881,47 @@ class SimilarFilesDialog(BaseDialog):
 
     def _create_group_similarity_info(self, group) -> QWidget:
         container = QWidget()
+        container.setToolTip("Porcentaje de similitud visual entre las imágenes del grupo.\n100% indica imágenes idénticas visualmente.")
         layout = QHBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, DesignSystem.SPACE_12)
+        layout.setSpacing(DesignSystem.SPACE_12)
         
         score = group.similarity_score
         color = DesignSystem.COLOR_SUCCESS if score >= 95 else DesignSystem.COLOR_PRIMARY if score >= 85 else DesignSystem.COLOR_WARNING
         
-        # Barra de progreso circular o lineal
+        # Badge estilo "pill"
+        badge = QLabel(f"{score:.1f}% Similitud")
+        badge.setStyleSheet(f"""
+            background-color: {color}20; 
+            color: {color};
+            border: 1px solid {color}40;
+            border-radius: 12px;
+            padding: 4px 12px;
+            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+        """)
+        
+        layout.addWidget(badge)
+        
+        # Barra de progreso minimalista
         progress = QProgressBar()
         progress.setRange(0, 100)
         progress.setValue(int(score))
-        progress.setFixedWidth(150)
+        progress.setFixedWidth(120)
         progress.setStyleSheet(f"""
             QProgressBar {{
                 border: none;
-                background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
-                border-radius: 4px;
-                height: 8px;
+                background-color: {DesignSystem.COLOR_BORDER_LIGHT};
+                border-radius: 2px;
+                height: 4px;
                 text-align: center;
             }}
             QProgressBar::chunk {{
                 background-color: {color};
-                border-radius: 4px;
+                border-radius: 2px;
             }}
         """)
         
-        label = QLabel(f"Similitud Visual: {score:.1f}%")
-        label.setStyleSheet(f"font-weight: {DesignSystem.FONT_WEIGHT_BOLD}; color: {color};")
-        
-        layout.addWidget(label)
         layout.addWidget(progress)
         layout.addStretch()
         
@@ -977,6 +930,8 @@ class SimilarFilesDialog(BaseDialog):
     def _create_file_card(self, file_path: Path, is_selected: bool) -> QFrame:
         card = QFrame()
         card.setCursor(Qt.CursorShape.PointingHandCursor)
+        # Doble click para ver detalles
+        card.mouseDoubleClickEvent = lambda e: show_file_details_dialog(file_path, self)
         
         card.setStyleSheet(self._get_card_style(is_selected))
         
@@ -1021,11 +976,24 @@ class SimilarFilesDialog(BaseDialog):
         # Guardar path para búsqueda posterior
         card.setProperty("file_path", str(file_path))
         
+        # Context menu
+        card.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        card.customContextMenuRequested.connect(lambda pos, f=file_path: self._show_context_menu(pos, f))
+        
         return card
+
+    def _show_context_menu(self, pos, file_path):
+        menu = QMenu(self)
+        menu.setStyleSheet(DesignSystem.get_context_menu_style())
+        
+        details_action = menu.addAction(icon_manager.get_icon('info'), "Ver detalles")
+        details_action.triggered.connect(lambda: show_file_details_dialog(file_path, self))
+        
+        menu.exec(QCursor.pos())
 
     def _get_card_style(self, is_selected: bool) -> str:
         border_color = DesignSystem.COLOR_DANGER if is_selected else DesignSystem.COLOR_BORDER
-        bg_color = "#FFF5F5" if is_selected else DesignSystem.COLOR_SURFACE
+        bg_color = DesignSystem.COLOR_DANGER_BG if is_selected else DesignSystem.COLOR_SURFACE
         width = 2 if is_selected else 1
         
         return f"""
@@ -1164,18 +1132,17 @@ class SimilarFilesDialog(BaseDialog):
         }
         super().accept()
 
-    # --- Helpers reutilizados (simplificados) ---
+
     def _create_thumbnail(self, file_path: Path):
-        # Lógica similar a la original pero simplificada visualmente
         # Retorna (QLabel, is_video)
         try:
             pixmap = QPixmap(str(file_path))
             if pixmap.isNull(): return None, False
             
-            pixmap = pixmap.scaled(Config.THUMBNAIL_SIZE, Config.THUMBNAIL_SIZE, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            pixmap = pixmap.scaled(280, 280, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
             lbl = QLabel()
             lbl.setPixmap(pixmap)
-            lbl.setFixedSize(Config.THUMBNAIL_SIZE, Config.THUMBNAIL_SIZE)
+            lbl.setFixedSize(280, 280)
             lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
             lbl.setStyleSheet(f"background-color: {DesignSystem.COLOR_BACKGROUND}; border-radius: 4px;")
             return lbl, False
