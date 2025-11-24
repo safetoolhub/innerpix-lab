@@ -566,6 +566,19 @@ class SimilarFilesDialog(BaseDialog):
         
         layout.addStretch()
         
+        # Botón "Cargar más grupos" (permanente en toolbar)
+        self.load_more_btn = self.make_styled_button(
+            text="Cargar más grupos",
+            icon_name='plus-circle',
+            button_style='primary',
+            tooltip="Cargar siguiente lote de archivos para análisis"
+        )
+        self.load_more_btn.clicked.connect(self._load_next_batch)
+        self.load_more_btn.setVisible(False)  # Oculto hasta que sea necesario
+        layout.addWidget(self.load_more_btn)
+        
+        layout.addStretch()
+        
         # Separador vertical
         v_sep = QFrame()
         v_sep.setFrameShape(QFrame.Shape.VLine)
@@ -692,11 +705,10 @@ class SimilarFilesDialog(BaseDialog):
                 # Si hay más archivos, mostrar botón "Cargar más"
                 if self.files_processed < self.total_files:
                     self._show_load_more_button()
-                else:
-                    # Todos los archivos procesados - actualizar navegación
-                    if self.navigable_groups:
-                        self.current_group_index = 0
-                        self._display_current_group()
+                # Si ya hay grupos navegables pero no estamos mostrando ninguno, mostrar el primero
+                elif self.navigable_groups and self.current_group_index >= len(self.navigable_groups):
+                    self.current_group_index = 0
+                    self._load_group(0)
                 
             finally:
                 QApplication.restoreOverrideCursor()
@@ -713,28 +725,16 @@ class SimilarFilesDialog(BaseDialog):
             raise
     
     def _show_load_more_button(self):
-        """Muestra botón para cargar más grupos al final del contenedor."""
-        # Buscar si ya existe el botón
-        for i in range(self.group_layout.count()):
-            item = self.group_layout.itemAt(i)
-            if item and item.widget() and isinstance(item.widget(), QPushButton):
-                widget = item.widget()
-                if widget.property("load_more_btn"):
-                    # Actualizar texto
-                    remaining = self.total_files - self.files_processed
-                    widget.setText(f"Cargar más grupos ({remaining:,} archivos pendientes)")
-                    return
-        
-        # Crear botón nuevo
+        """Actualiza el botón permanente de la toolbar para mostrar archivos pendientes."""
         remaining = self.total_files - self.files_processed
-        load_more_btn = QPushButton(f"Cargar más grupos ({remaining:,} archivos pendientes)")
-        load_more_btn.setProperty("load_more_btn", True)
-        load_more_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        load_more_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
-        load_more_btn.clicked.connect(self._load_next_batch)
         
-        # Insertar al final pero antes del último widget si existe
-        self.group_layout.addWidget(load_more_btn)
+        if remaining > 0:
+            # Actualizar texto del botón en la toolbar
+            self.load_more_btn.setText(f"Cargar más grupos ({remaining:,} pendientes)")
+            self.load_more_btn.setVisible(True)
+        else:
+            # Ocultar si no hay más archivos pendientes
+            self.load_more_btn.setVisible(False)
 
     def _load_initial_results(self):
         """Método legacy - ya no se llama al inicio."""
