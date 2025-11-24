@@ -2,6 +2,7 @@
 Configuración centralizada para Pixaro Lab
 """
 from pathlib import Path
+from typing import Optional
 
 
 class Config:
@@ -19,11 +20,16 @@ class Config:
     # ========================================================================
     SUPPORTED_IMAGE_EXTENSIONS = {
         '.jpg', '.jpeg', '.png', '.heic', '.heif',
-        '.tiff', '.tif', '.bmp', '.webp'
+        '.tiff', '.tif', '.bmp', '.webp',
+        # Uppercase variants for Linux case-sensitive rglob
+        '.JPG', '.JPEG', '.PNG', '.HEIC', '.HEIF',
+        '.TIFF', '.TIF', '.BMP', '.WEBP'
     }
 
     SUPPORTED_VIDEO_EXTENSIONS = {
-        '.mp4', '.mov', '.avi', '.mkv', '.wmv', '.flv'
+        '.mp4', '.mov', '.avi', '.mkv', '.wmv', '.flv',
+        # Uppercase variants for Linux case-sensitive rglob
+        '.MP4', '.MOV', '.AVI', '.MKV', '.WMV', '.FLV'
     }
 
     # Todas las extensiones soportadas (imágenes + videos)
@@ -225,22 +231,49 @@ class Config:
             return 8.0
     
     @classmethod
-    def get_max_cache_entries(cls) -> int:
+    def get_max_cache_entries(cls, file_count: Optional[int] = None) -> int:
         """
-        Calcula el número máximo de entradas en caché según RAM disponible.
+        Calcula el número máximo de entradas en caché según RAM disponible y número de archivos.
         
-        Fórmula: 1000 entradas por GB de RAM (mínimo 5000, máximo 20000)
+        Si file_count no se proporciona, usa solo RAM.
+        Si se proporciona, calcula el óptimo considerando ambos factores.
+        
+        Estrategia:
+        - La caché debe poder contener todos los archivos si hay RAM suficiente
+        - Asumimos ~1KB por entrada de caché (conservador)
+        - Usamos hasta el 10% de la RAM total para la caché
+        - Aplicamos límites absolutos para evitar extremos
+        
+        Args:
+            file_count: Número total de archivos (opcional)
         
         Returns:
             Número máximo de entradas para caché de metadatos
         """
         ram_gb = cls._get_system_ram_gb()
         
-        # 1000 entradas por GB de RAM
-        max_entries = int(ram_gb * 1000)
+        if file_count is None:
+            # Solo RAM: usar 1000 entradas por GB de RAM
+            max_entries = int(ram_gb * 1000)
+        else:
+            # Dinámico: considerar tanto RAM como file count
+            
+            # Idealmente, cachear todos los archivos
+            cache_needed = file_count
+            
+            # Calcular cuántas entradas podemos permitirnos según RAM
+            # Asumimos 1KB por entrada, usamos 10% de RAM para caché
+            available_ram_kb = ram_gb * 1024 * 1024 * 0.1  # 10% de RAM en KB
+            max_entries_by_ram = int(available_ram_kb)  # 1KB por entrada
+            
+            # Tomar el mínimo para no exceder RAM
+            max_entries = min(cache_needed, max_entries_by_ram)
+            
+            # Si el file_count es muy pequeño, asegurar un mínimo razonable
+            max_entries = max(max_entries, int(ram_gb * 1000))
         
-        # Límites: mínimo 5000, máximo 20000
-        return max(5000, min(20000, max_entries))
+        # Límites: mínimo 5000, máximo 200000
+        return max(5000, min(200000, max_entries))
     
     @classmethod
     def get_large_dataset_threshold(cls) -> int:
@@ -262,8 +295,8 @@ class Config:
         # 500 archivos por GB de RAM
         threshold = int(ram_gb * 500)
         
-        # Límites: mínimo 3000, máximo 10000
-        return max(3000, min(10000, threshold))
+        # Límites: mínimo 3000, máximo 50000
+        return max(3000, min(50000, threshold))
     
     @classmethod
     def get_similarity_dialog_auto_open_threshold(cls) -> int:

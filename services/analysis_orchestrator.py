@@ -217,9 +217,21 @@ class AnalysisOrchestrator:
         self.logger.info(f"Escaneando directorio: {directory}")
         
         # Crear caché de metadatos si se solicita
-        metadata_cache = FileMetadataCache() if create_metadata_cache else None
-        if metadata_cache:
-            self.logger.debug("Caché de metadatos completa creada (incluye EXIF para optimizar fases posteriores)")
+        self.logger.info(f"DEBUG: create_metadata_cache={create_metadata_cache}")
+        metadata_cache = None
+        if create_metadata_cache:
+            try:
+                metadata_cache = FileMetadataCache()
+                self.logger.info(f"✓ Caché de metadatos creada exitosamente: {metadata_cache}")
+                self.logger.info(f"DEBUG: metadata_cache type={type(metadata_cache)}, is None={metadata_cache is None}")
+            except Exception as e:
+                self.logger.error(f"❌ ERROR creando FileMetadataCache: {type(e).__name__}: {e}")
+                import traceback
+                self.logger.error(f"Traceback:\n{traceback.format_exc()}")
+        else:
+            self.logger.warning("⚠️  Caché de metadatos NO creada (create_metadata_cache=False)")
+        
+        self.logger.info(f"DEBUG ANTES DE CONTAR: metadata_cache={'presente' if metadata_cache is not None else 'None'}")
         
         # Una sola iteración: clasificar directamente sin contar primero
         images, videos, others = [], [], []
@@ -228,6 +240,13 @@ class AnalysisOrchestrator:
         # Primera pasada: obtener lista de archivos para saber el total
         all_files = [f for f in directory.rglob("*") if f.is_file()]
         total_files = len(all_files)
+        
+        
+        # Actualizar límite de caché basándose en el número de archivos
+        self.logger.info(f"Archivos contados: {total_files}, metadata_cache={'presente' if metadata_cache is not None else 'None'}")
+        if metadata_cache is not None:
+            metadata_cache.update_max_entries(total_files)
+        
         
         # Segunda pasada: clasificar archivos y cachear metadata completo (incluye EXIF para imágenes)
         for f in all_files:
@@ -299,7 +318,7 @@ class AnalysisOrchestrator:
             f"Escaneo completado: {result.image_count} imágenes, "
             f"{result.video_count} videos, {result.other_count} otros"
         )
-        if metadata_cache:
+        if metadata_cache is not None:
             exif_cached = sum(1 for m in metadata_cache._cache.values() if m.exif_date or m.exif_date_original)
             self.logger.debug(f"Metadata cacheado para {len(metadata_cache)} archivos ({exif_cached} con fechas EXIF)")
         
@@ -459,14 +478,22 @@ class AnalysisOrchestrator:
     
     def _release_memory(self, metadata_cache: Optional[FileMetadataCache]) -> None:
         """Libera memoria forzando garbage collection"""
-        if metadata_cache:
+        if metadata_cache is not None:
             cache_size = len(metadata_cache._cache) if hasattr(metadata_cache, '_cache') else 0
-            if cache_size > self.max_cache_size:
+            # Usar el límite dinámico de la caché misma, no el límite estático del orchestrator
+            cache_limit = metadata_cache._max_entries if hasattr(metadata_cache, '_max_entries') else self.max_cache_size
+            
+            if cache_size > cache_limit:
                 self.logger.warning(
                     f"Caché grande detectada ({cache_size} archivos, "
-                    f"límite: {self.max_cache_size}). Liberando memoria..."
+                    f"límite: {cache_limit}). Liberando memoria..."
                 )
                 metadata_cache.clear_cache()
+            else:
+                self.logger.debug(
+                    f"Caché dentro de límites ({cache_size}/{cache_limit} archivos). "
+                    "No es necesario liberar memoria."
+                )
         
         # Forzar garbage collection
         gc.collect()
@@ -546,7 +573,7 @@ class AnalysisOrchestrator:
         
         # Obtener caché compartida del escaneo
         metadata_cache = scan_result.metadata_cache
-        if metadata_cache:
+        if metadata_cache is not None:
             self.logger.info("Usando caché compartida de metadatos entre fases")
         
         # Fase 2: Análisis de renombrado (usa caché para fechas EXIF)
@@ -634,7 +661,7 @@ class AnalysisOrchestrator:
         )
         
         # Log de estadísticas de caché al final
-        if metadata_cache:
+        if metadata_cache is not None:
             metadata_cache.log_stats()
         
         result.total_duration = time.time() - analysis_start_time

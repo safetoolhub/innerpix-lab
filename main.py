@@ -58,7 +58,7 @@ def main():
         logger.info("  ⚠️  psutil no disponible, usando valores por defecto")
     logger.info("")
     logger.info("💾 CONFIGURACIÓN DE MEMORIA:")
-    logger.info(f"  • Máx. entradas en caché: {sys_info['max_cache_entries']:,}")
+    logger.info(f"  • Máx. entradas en caché (inicial): {sys_info['max_cache_entries']:,}")
     logger.info(f"  • Umbral dataset grande: {sys_info['large_dataset_threshold']:,} archivos")
     logger.info(f"  • Apertura auto diálogo: {sys_info['auto_open_threshold']:,} archivos")
     logger.info("")

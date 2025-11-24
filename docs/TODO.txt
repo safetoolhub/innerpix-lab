@@ -30,6 +30,9 @@ Pruebas con ficheros con distintas fechas
 
 funcionaria el caluclo de memoria y de threads dinamico en algo que no sea linux?
 
+similar files
+The clustering algorithm is O(N^2) and naturally slow for 20k+ files. Future work could involve optimizing this algorithm (e.g., using BK-trees or other indexing methods) or offloading it to a background thread more effectively.
+
 
 FUTURO
 ---------

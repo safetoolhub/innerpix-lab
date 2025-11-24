@@ -67,7 +67,7 @@ class SimilarFilesProgressDialog(BaseDialog):
             title='Análisis de Similitud',
             description='Detectando similitudes visuales (recortes, rotaciones, ediciones)...',
             metrics=[
-                {'value': '0', 'label': 'Procesados', 'color': DesignSystem.COLOR_PRIMARY}
+                {'value': format_file_count(self.total_files), 'label': 'Archivos', 'color': DesignSystem.COLOR_PRIMARY}
             ]
         )
         main_layout.addWidget(self.header_frame)
@@ -194,7 +194,7 @@ class SimilarFilesProgressDialog(BaseDialog):
             self.progress_bar.setValue(percentage)
         
         # Actualizar métrica de procesados en header
-        self._update_header_metric(self.header_frame, 'Procesados', format_file_count(current))
+        # self._update_header_metric(self.header_frame, 'Procesados', format_file_count(current))
         
         # Actualizar mensaje con el archivo actual
         if message:

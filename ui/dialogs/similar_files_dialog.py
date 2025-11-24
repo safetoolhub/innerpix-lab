@@ -349,11 +349,23 @@ class SimilarFilesDialog(BaseDialog):
             info_label.setStyleSheet(f"""
                 color: {DesignSystem.COLOR_TEXT_SECONDARY};
                 font-size: {DesignSystem.FONT_SIZE_XS}px;
-                background-color: {DesignSystem.COLOR_WARNING_LIGHT};
+                background-color: {DesignSystem.COLOR_WARNING_BG};
                 padding: {DesignSystem.SPACE_8}px;
                 border-radius: {DesignSystem.RADIUS_SM}px;
             """)
             layout.addWidget(info_label)
+            
+            # Warning extra para dejar claro que puede ser lento
+            warning_label = QLabel(
+                "⚠️ Nota: Ajustar la sensibilidad puede tomar unos segundos."
+            )
+            warning_label.setStyleSheet(f"""
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                font-size: {DesignSystem.FONT_SIZE_XS}px;
+                font-style: italic;
+                margin-top: {DesignSystem.SPACE_4}px;
+            """)
+            layout.addWidget(warning_label)
         
         return card
 
@@ -429,6 +441,18 @@ class SimilarFilesDialog(BaseDialog):
         inputs_layout.addLayout(size_layout)
         
         layout.addLayout(inputs_layout)
+        
+        # Warning para filtros en datasets grandes
+        total_files = len(self.analysis.perceptual_hashes)
+        if total_files >= self.LARGE_DATASET_THRESHOLD:
+            filter_warning = QLabel("⚠️ Filtrar puede ser lento con muchos archivos")
+            filter_warning.setStyleSheet(f"""
+                color: {DesignSystem.COLOR_WARNING};
+                font-size: {DesignSystem.FONT_SIZE_XS}px;
+                margin-top: {DesignSystem.SPACE_4}px;
+            """)
+            filter_warning.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            layout.addWidget(filter_warning)
         
         return card
 
@@ -634,6 +658,7 @@ class SimilarFilesDialog(BaseDialog):
                 # Obtener subset de hashes
                 all_hashes = list(self.analysis.perceptual_hashes.items())
                 batch_hashes = dict(all_hashes[start_idx:end_idx])
+                existing_hashes = dict(all_hashes[:start_idx])
                 
                 logger.info(
                     f"Procesando batch {start_idx:,}-{end_idx:,} "
@@ -643,12 +668,14 @@ class SimilarFilesDialog(BaseDialog):
                 # Crear análisis temporal con subset
                 from services.similar_files_detector import SimilarFilesAnalysis
                 temp_analysis = SimilarFilesAnalysis()
-                temp_analysis.perceptual_hashes = batch_hashes
                 temp_analysis.workspace_path = self.analysis.workspace_path
-                temp_analysis.total_files = len(batch_hashes)
                 
-                # Generar grupos del batch
-                batch_result = temp_analysis.get_groups(self.current_sensitivity)
+                # Usar find_new_groups para comparar batch actual vs todo lo anterior
+                batch_result = temp_analysis.find_new_groups(
+                    new_hashes=batch_hashes,
+                    existing_hashes=existing_hashes,
+                    sensitivity=self.current_sensitivity
+                )
                 
                 # Agregar grupos nuevos a la lista existente
                 new_groups_count = len(batch_result.groups)
@@ -675,7 +702,7 @@ class SimilarFilesDialog(BaseDialog):
                 QApplication.restoreOverrideCursor()
         
         except Exception as e:
-            logger.error(f"Error en _load_next_batch: {e}", exc_info=True)
+            logger.error(f"Error en _load_next_batch: {e}")
             QApplication.restoreOverrideCursor()
             from PyQt6.QtWidgets import QMessageBox
             QMessageBox.critical(
