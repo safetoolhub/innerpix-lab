@@ -36,6 +36,7 @@ class SettingsManager:
     KEY_DRY_RUN_DEFAULT = "advanced/dry_run_default"
     KEY_MAX_WORKERS = "advanced/max_workers"
     KEY_USE_VIDEO_METADATA = "advanced/use_video_metadata"
+    KEY_PRECALCULATE_HASHES = "advanced/precalculate_hashes"
 
     # === VENTANA ===
     KEY_WINDOW_GEOMETRY = "window/geometry"
@@ -228,6 +229,10 @@ class SettingsManager:
     def get_max_workers(self, default: int = 4) -> int:
         """Obtiene el número máximo de workers"""
         return self.get_int(self.KEY_MAX_WORKERS, default)
+    
+    def get_precalculate_hashes(self) -> bool:
+        """Obtiene si se debe pre-calcular hashes SHA256 durante el escaneo (por defecto False)"""
+        return self.get_bool(self.KEY_PRECALCULATE_HASHES, False)
 
     def get_show_full_path(self) -> bool:
         """Obtiene si se debe mostrar la ruta completa del directorio (por defecto True)"""

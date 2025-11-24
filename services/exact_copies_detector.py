@@ -78,6 +78,20 @@ class ExactCopiesDetector(BaseDetectorService):
         """
         log_section_header_discrete(self.logger, "INICIANDO ANÁLISIS DE DUPLICADOS EXACTOS (SHA256)")
         
+        # Log del estado de la caché recibida
+        if metadata_cache is not None:
+            cache_stats = metadata_cache.get_stats()
+            self.logger.info(
+                f"📦 Caché de metadatos recibida: "
+                f"habilitada={cache_stats['enabled']}, "
+                f"tamaño={cache_stats['size']} entradas, "
+                f"hits={cache_stats['hits']}, "
+                f"misses={cache_stats['misses']}, "
+                f"hit_rate={cache_stats['hit_rate']:.1f}%"
+            )
+        else:
+            self.logger.warning("⚠️  ¡SIN CACHÉ! metadata_cache es None - se calcularán todos los hashes desde cero")
+        
         # Recopilar archivos soportados (imágenes y videos)
         image_files = []
         for ext in Config.SUPPORTED_IMAGE_EXTENSIONS:
@@ -133,7 +147,12 @@ class ExactCopiesDetector(BaseDetectorService):
             if metadata_cache:
                 cached_hash = metadata_cache.get_hash(file_path)
                 if cached_hash:
+                    self.logger.debug(f"✅ Hash obtenido de CACHÉ: {file_path.name} = {cached_hash[:8]}...")
                     return cached_hash
+                else:
+                    self.logger.debug(f"🔍 Calculando hash (no en caché): {file_path.name}")
+            else:
+                self.logger.debug(f"⚠️  Calculando hash (SIN caché disponible): {file_path.name}")
             
             # Calcular hash (usa hash_cache interno de la sesión)
             file_hash = calculate_file_hash(file_path, cache=hash_cache)
@@ -141,6 +160,7 @@ class ExactCopiesDetector(BaseDetectorService):
             # Cachear en metadata_cache para futuros usos
             if file_hash and metadata_cache:
                 metadata_cache.set_hash(file_path, file_hash)
+                self.logger.debug(f"💾 Hash calculado y guardado en caché: {file_path.name} = {file_hash[:8]}...")
             
             return file_hash
         
@@ -217,6 +237,18 @@ class ExactCopiesDetector(BaseDetectorService):
         self.logger.info(f"*** Grupos de duplicados: {total_groups}")
         self.logger.info(f"*** Duplicados encontrados: {total_duplicates}")
         self.logger.info(f"*** Espacio potencialmente recuperable: {format_size(space_wasted)}")
+        
+        # Log de estadísticas de caché al final
+        if metadata_cache is not None:
+            cache_stats = metadata_cache.get_stats()
+            self.logger.info(
+                f"📊 Estadísticas de caché al finalizar: "
+                f"hits={cache_stats['hits']}, "
+                f"misses={cache_stats['misses']}, "
+                f"hit_rate={cache_stats['hit_rate']:.1f}%, "
+                f"tamaño final={cache_stats['size']} entradas"
+            )
+        
         log_section_footer_discrete(self.logger, "ANÁLISIS DE DUPLICADOS EXACTOS COMPLETADO")
         
         return DuplicateAnalysisResult(

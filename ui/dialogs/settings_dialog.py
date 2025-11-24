@@ -590,6 +590,26 @@ class SettingsDialog(QDialog):
         )
         self.use_video_metadata_checkbox.setStyleSheet(DesignSystem.get_checkbox_style())
         perf_layout.addWidget(self.use_video_metadata_checkbox)
+        
+        # Checkbox para pre-cálculo de hashes
+        self.precalculate_hashes_checkbox = QCheckBox("Pre-calcular hashes SHA256 durante el escaneo inicial (LENTO pero optimiza duplicados)")
+        self.precalculate_hashes_checkbox.setChecked(False)
+        self.precalculate_hashes_checkbox.setToolTip(
+            "Pre-calcula hashes SHA256 de todos los archivos durante el escaneo inicial.\n"
+            "\n"
+            "VENTAJAS:\n"
+            "  • Fase de 'duplicados exactos' es INSTANTÁNEA (ya tiene todos los hashes)\n"
+            "  • Ideal si siempre buscas duplicados\n"
+            "\n"
+            "DESVENTAJAS:\n"
+            "  • Hace el escaneo inicial MUY lento (calcula hash de cada archivo)\n"
+            "  • Para 500 archivos: escaneo pasa de ~2s a ~15-30s\n"
+            "\n"
+            "RECOMENDACIÓN: Dejar desactivado (el comportamiento por defecto ya es\n"
+            "eficiente con threading paralelo en la fase de duplicados)."
+        )
+        self.precalculate_hashes_checkbox.setStyleSheet(DesignSystem.get_checkbox_style())
+        perf_layout.addWidget(self.precalculate_hashes_checkbox)
 
         layout.addWidget(perf_group)
 
@@ -648,6 +668,7 @@ class SettingsDialog(QDialog):
             
             self.ui_update_spin.setValue(settings_manager.get_int("ui_update_interval", Config.UI_UPDATE_INTERVAL))
             self.dry_run_default_checkbox.setChecked(settings_manager.get_bool(settings_manager.KEY_DRY_RUN_DEFAULT, False))
+            self.precalculate_hashes_checkbox.setChecked(settings_manager.get_precalculate_hashes())
             self.use_video_metadata_checkbox.setChecked(settings_manager.get_bool(settings_manager.KEY_USE_VIDEO_METADATA, False))
 
             # Directories tab - Log level
@@ -689,6 +710,7 @@ class SettingsDialog(QDialog):
             'ui_update_interval': self.ui_update_spin.value(),
             'dry_run': self.dry_run_default_checkbox.isChecked(),
             'use_video_metadata': self.use_video_metadata_checkbox.isChecked(),
+            'precalculate_hashes': self.precalculate_hashes_checkbox.isChecked(),
         }
         self.logger.debug(f"Valores originales guardados: {self.original_values}")
     
@@ -702,6 +724,7 @@ class SettingsDialog(QDialog):
         self.show_full_path_checkbox.stateChanged.connect(lambda: self._on_widget_changed("show_path"))
         self.dry_run_default_checkbox.stateChanged.connect(lambda: self._on_widget_changed("dry_run"))
         self.use_video_metadata_checkbox.stateChanged.connect(lambda: self._on_widget_changed("use_video_metadata"))
+        self.precalculate_hashes_checkbox.stateChanged.connect(lambda: self._on_widget_changed("precalculate_hashes"))
         
         # Spinbox
         self.max_workers_spin.valueChanged.connect(lambda: self._on_widget_changed("max_workers"))
@@ -782,11 +805,15 @@ class SettingsDialog(QDialog):
         original_use_video_metadata = self.original_values['use_video_metadata']
         use_video_metadata_changed = current_use_video_metadata != original_use_video_metadata
         
+        current_precalculate_hashes = self.precalculate_hashes_checkbox.isChecked()
+        original_precalculate_hashes = self.original_values['precalculate_hashes']
+        precalculate_hashes_changed = current_precalculate_hashes != original_precalculate_hashes
+        
         has_changes = (
             logs_changed or backup_changed or level_changed or auto_backup_changed or
             confirm_ops_changed or confirm_delete_changed or show_notif_changed or
             show_path_changed or max_workers_changed or dry_run_changed or
-            use_video_metadata_changed or ui_update_changed
+            use_video_metadata_changed or ui_update_changed or precalculate_hashes_changed
         )
         
         # Habilitar/deshabilitar botón según haya cambios
@@ -1009,6 +1036,7 @@ class SettingsDialog(QDialog):
             current_dry_run = settings_manager.get_bool(settings_manager.KEY_DRY_RUN_DEFAULT, False)
             current_use_video_metadata = settings_manager.get_bool(settings_manager.KEY_USE_VIDEO_METADATA, False)
             current_ui_update = settings_manager.get_int("ui_update_interval", Config.UI_UPDATE_INTERVAL)
+            current_precalculate_hashes = settings_manager.get_precalculate_hashes()
             
             # Valores nuevos (desde UI)
             new_logs_dir = Path(self.logs_edit.text())
@@ -1023,6 +1051,7 @@ class SettingsDialog(QDialog):
             new_ui_update = self.ui_update_spin.value()
             new_dry_run = self.dry_run_default_checkbox.isChecked()
             new_use_video_metadata = self.use_video_metadata_checkbox.isChecked()
+            new_precalculate_hashes = self.precalculate_hashes_checkbox.isChecked()
             
             # Detectar qué cambió
             logs_dir_changed = (current_logs_dir != new_logs_dir)
@@ -1038,7 +1067,8 @@ class SettingsDialog(QDialog):
                 current_max_workers != new_max_workers or
                 current_ui_update != new_ui_update or
                 current_dry_run != new_dry_run or
-                current_use_video_metadata != new_use_video_metadata
+                current_use_video_metadata != new_use_video_metadata or
+                current_precalculate_hashes != new_precalculate_hashes
             )
             
             # Si NO hay cambios, cerrar inmediatamente sin operaciones costosas
@@ -1094,6 +1124,8 @@ class SettingsDialog(QDialog):
                 settings_manager.set(settings_manager.KEY_USE_VIDEO_METADATA, new_use_video_metadata)
                 # Actualizar Config.USE_VIDEO_METADATA para que tenga efecto inmediato
                 Config.USE_VIDEO_METADATA = new_use_video_metadata
+            if current_precalculate_hashes != new_precalculate_hashes:
+                settings_manager.set(settings_manager.KEY_PRECALCULATE_HASHES, new_precalculate_hashes)
 
             self.logger.info("Configuración guardada exitosamente")
 

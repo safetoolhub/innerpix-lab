@@ -139,6 +139,7 @@ class FileMetadataCache:
             self._misses += 1
             metadata = FileMetadata(path=file_path)
             self._cache[file_path] = metadata
+            self.logger.debug(f"✓ Nueva entrada de caché creada para {file_path.name} (total: {len(self._cache)} entradas)")
             
             # Limitar tamaño de caché para prevenir OOM
             if len(self._cache) > self._max_entries:
@@ -157,6 +158,7 @@ class FileMetadataCache:
             Hash SHA256 o None si no está cacheado
         """
         if not self._enabled:
+            self.logger.debug("⚠️  get_hash() llamado pero caché está deshabilitada")
             return None
         
         file_path = file_path.resolve()
@@ -165,13 +167,20 @@ class FileMetadataCache:
                 metadata = self._cache[file_path]
                 if metadata.is_valid(self._max_age_seconds):
                     self._hits += 1
-                    return metadata.sha256_hash
+                    if metadata.sha256_hash:
+                        self.logger.debug(f"✓ CACHE HIT (hash): {file_path.name} (hits: {self._hits}, misses: {self._misses})")
+                        return metadata.sha256_hash
+                    else:
+                        self.logger.debug(f"⚠️  CACHE HIT pero sin hash: {file_path.name}")
+                        return None
                 else:
                     # Entrada expirada, remover
                     del self._cache[file_path]
                     self._misses += 1
+                    self.logger.debug(f"⚠️  CACHE EXPIRED: {file_path.name} (misses: {self._misses})")
             else:
                 self._misses += 1
+                self.logger.debug(f"❌ CACHE MISS (hash): {file_path.name} (hits: {self._hits}, misses: {self._misses})")
         return None
     
     def set_hash(self, file_path: Path, sha256_hash: str) -> None:
@@ -183,11 +192,13 @@ class FileMetadataCache:
             sha256_hash: Hash SHA256 calculado
         """
         if not self._enabled:
+            self.logger.debug("⚠️  set_hash() llamado pero caché está deshabilitada")
             return
         
         metadata = self.get_or_create(file_path)
         metadata.sha256_hash = sha256_hash
         metadata.cached_at = time.time()
+        self.logger.debug(f"✓ Hash cacheado para {file_path.name} (hash: {sha256_hash[:8]}...)")
     
     def get_exif_date(self, file_path: Path) -> Optional[datetime]:
         """
@@ -434,10 +445,11 @@ class FileMetadataCache:
         """Log de estadísticas de uso"""
         stats = self.get_stats()
         self.logger.info(
-            f"Estadísticas de caché: "
+            f"📊 Estadísticas de caché: "
             f"{stats['hits']} hits, {stats['misses']} misses, "
             f"{stats['hit_rate']:.1f}% hit rate, "
-            f"{stats['size']} entradas"
+            f"{stats['size']} entradas, "
+            f"habilitada: {stats['enabled']}"
         )
     
     def __len__(self) -> int:

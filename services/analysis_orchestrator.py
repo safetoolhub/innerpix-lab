@@ -187,7 +187,8 @@ class AnalysisOrchestrator:
     def scan_directory(self, 
                       directory: Path,
                       progress_callback: Optional[Callable[[int, int, str], bool]] = None,
-                      create_metadata_cache: bool = True) -> DirectoryScanResult:
+                      create_metadata_cache: bool = True,
+                      precalculate_hashes: bool = False) -> DirectoryScanResult:
         """
         Escanea un directorio y clasifica archivos por tipo.
         Cuando create_metadata_cache=True, también extrae y cachea fechas EXIF
@@ -199,6 +200,9 @@ class AnalysisOrchestrator:
                              Retorna False para cancelar.
             create_metadata_cache: Si crear caché de metadatos completo (incluye EXIF)
                                   para optimizar fases posteriores
+            precalculate_hashes: Si pre-calcular hashes SHA256 durante el escaneo.
+                               ADVERTENCIA: Esto hace el escaneo MUCHO más lento pero
+                               acelera dramáticamente la fase de duplicados exactos.
         
         Returns:
             DirectoryScanResult con archivos clasificados y caché opcional
@@ -222,8 +226,11 @@ class AnalysisOrchestrator:
         if create_metadata_cache:
             try:
                 metadata_cache = FileMetadataCache()
-                self.logger.info(f"✓ Caché de metadatos creada exitosamente: {metadata_cache}")
-                self.logger.info(f"DEBUG: metadata_cache type={type(metadata_cache)}, is None={metadata_cache is None}")
+                self.logger.info(f"✅ Caché de metadatos creada exitosamente")
+                self.logger.info(f"  - Tipo: {type(metadata_cache).__name__}")
+                self.logger.info(f"  - Max entries: {metadata_cache._max_entries:,}")
+                self.logger.info(f"  - Habilitada: {metadata_cache._enabled}")
+                self.logger.info(f"  - ID objeto: {id(metadata_cache)}")
             except Exception as e:
                 self.logger.error(f"❌ ERROR creando FileMetadataCache: {type(e).__name__}: {e}")
                 import traceback
@@ -243,14 +250,25 @@ class AnalysisOrchestrator:
         
         
         # Actualizar límite de caché basándose en el número de archivos
-        self.logger.info(f"Archivos contados: {total_files}, metadata_cache={'presente' if metadata_cache is not None else 'None'}")
+        self.logger.info(f"📊 Archivos contados: {total_files:,}")
         if metadata_cache is not None:
+            self.logger.info(f"🔄 Actualizando límite de caché basado en {total_files:,} archivos...")
             metadata_cache.update_max_entries(total_files)
+        else:
+            self.logger.warning("⚠️  NO se puede actualizar límite de caché (metadata_cache es None)")
         
         
         # Segunda pasada: clasificar archivos y cachear metadata completo (incluye EXIF para imágenes)
+        scan_message = "Escaneando y calculando hashes (esto puede tardar...)" if precalculate_hashes else "Escaneando archivos y extrayendo metadatos"
+        
+        if precalculate_hashes:
+            self.logger.warning(
+                "⚠️  PRE-CÁLCULO DE HASHES ACTIVADO: El escaneo será más lento pero "
+                "la fase de duplicados exactos será instantánea"
+            )
+        
         for f in all_files:
-            if progress_callback and not progress_callback(processed, total_files, "Escaneando archivos y extrayendo metadatos"):
+            if progress_callback and not progress_callback(processed, total_files, scan_message):
                 self.logger.warning("Escaneo cancelado por usuario")
                 break
             
@@ -266,6 +284,10 @@ class AnalysisOrchestrator:
                 file_type = 'other'
             
             # Cachear metadata básico durante el escaneo (evita stat() posterior)
+            # NOTA: Hashes SHA256 solo se pre-calculan si precalculate_hashes=True
+            # Por defecto NO se calculan aquí porque son costosos (I/O intensivo)
+            # Los hashes se calculan solo cuando son necesarios (fase de duplicados exactos)
+            # y se cachean ahí para futuras ejecuciones
             if metadata_cache is not None:
                 try:
                     stat_info = f.stat()
@@ -292,6 +314,16 @@ class AnalysisOrchestrator:
                         except Exception as e:
                             # No loguear warning para EXIF fallido - es común en archivos sin EXIF
                             pass
+                    
+                    # Pre-calcular hashes SHA256 si se solicitó (hace el escaneo más lento)
+                    if precalculate_hashes and file_type in ('image', 'video'):
+                        try:
+                            from utils.file_utils import calculate_file_hash
+                            file_hash = calculate_file_hash(f)
+                            metadata_cache.set_hash(f, file_hash)
+                            self.logger.debug(f"🔐 Hash pre-calculado: {f.name} = {file_hash[:8]}...")
+                        except Exception as e:
+                            self.logger.warning(f"Error calculando hash de {f}: {e}")
                             
                 except Exception as e:
                     self.logger.warning(f"No se pudo cachear metadata de {f}: {e}")
@@ -300,11 +332,11 @@ class AnalysisOrchestrator:
             
             # Reportar progreso cada N archivos (evitar demasiadas actualizaciones)
             if progress_callback and processed % Config.UI_UPDATE_INTERVAL == 0:
-                progress_callback(processed, total_files, "Escaneando archivos y extrayendo metadatos")
+                progress_callback(processed, total_files, scan_message)
         
         # Reportar progreso final (100%)
         if progress_callback and total_files > 0:
-            progress_callback(total_files, total_files, "Escaneando archivos y extrayendo metadatos")
+            progress_callback(total_files, total_files, scan_message)
         
         result = DirectoryScanResult(
             total_files=total_files,
@@ -319,8 +351,25 @@ class AnalysisOrchestrator:
             f"{result.video_count} videos, {result.other_count} otros"
         )
         if metadata_cache is not None:
+            cache_stats = metadata_cache.get_stats()
             exif_cached = sum(1 for m in metadata_cache._cache.values() if m.exif_date or m.exif_date_original)
-            self.logger.debug(f"Metadata cacheado para {len(metadata_cache)} archivos ({exif_cached} con fechas EXIF)")
+            hashes_cached = sum(1 for m in metadata_cache._cache.values() if m.sha256_hash)
+            self.logger.info(
+                f"💾 Caché después del escaneo: "
+                f"{cache_stats['size']} entradas, "
+                f"{exif_cached} con fechas EXIF, "
+                f"{hashes_cached} con hashes SHA256"
+            )
+            
+            if precalculate_hashes and hashes_cached > 0:
+                self.logger.info(
+                    f"✅ Pre-cálculo de hashes completado: {hashes_cached} archivos "
+                    "(la fase de duplicados exactos será instantánea)"
+                )
+            elif not precalculate_hashes:
+                self.logger.info(
+                    "ℹ️  Hashes NO pre-calculados (se calcularán en la fase de duplicados exactos)"
+                )
         
         return result
     
@@ -509,7 +558,8 @@ class AnalysisOrchestrator:
                          organization_type: Optional[str] = None,
                          progress_callback: Optional[Callable[[int, int, str], bool]] = None,
                          phase_callback: Optional[Callable[[str], None]] = None,
-                         partial_callback: Optional[Callable[[str, Any], None]] = None) -> FullAnalysisResult:
+                         partial_callback: Optional[Callable[[str, Any], None]] = None,
+                         precalculate_hashes: bool = False) -> FullAnalysisResult:
         """
         Ejecuta análisis completo del directorio coordinando todos los servicios.
         
@@ -524,6 +574,9 @@ class AnalysisOrchestrator:
             progress_callback: Callback (current, total, msg) -> bool para progreso
             phase_callback: Callback (phase_name) para cambios de fase
             partial_callback: Callback (phase_name, result) para resultados parciales
+            precalculate_hashes: Si pre-calcular hashes SHA256 durante el escaneo.
+                               Hace el escaneo más lento pero la fase de duplicados
+                               exactos será instantánea. Default: False
             
         Returns:
             FullAnalysisResult con todos los resultados y timing info
@@ -544,7 +597,12 @@ class AnalysisOrchestrator:
         scan_result, scan_timing = self._execute_phase(
             phase_id="scan",
             phase_name="Escaneando archivos",
-            phase_callable=lambda: self.scan_directory(directory, progress_callback, create_metadata_cache=True),
+            phase_callable=lambda: self.scan_directory(
+                directory, 
+                progress_callback, 
+                create_metadata_cache=True,
+                precalculate_hashes=precalculate_hashes
+            ),
             phase_callback=phase_callback,
             partial_callback=lambda phase_id, scan_res: partial_callback(
                 phase_id, {
@@ -574,7 +632,14 @@ class AnalysisOrchestrator:
         # Obtener caché compartida del escaneo
         metadata_cache = scan_result.metadata_cache
         if metadata_cache is not None:
-            self.logger.info("Usando caché compartida de metadatos entre fases")
+            cache_stats = metadata_cache.get_stats()
+            self.logger.info(
+                f"🔗 Caché compartida disponible para todas las fases: "
+                f"tamaño={cache_stats['size']}, "
+                f"ID={id(metadata_cache)}"
+            )
+        else:
+            self.logger.warning("⚠️  NO hay caché compartida - cada fase calculará desde cero")
         
         # Fase 2: Análisis de renombrado (usa caché para fechas EXIF)
         if renamer:
@@ -625,6 +690,17 @@ class AnalysisOrchestrator:
             if self._check_cancellation(progress_callback, result, analysis_start_time):
                 return result
             
+            # Log antes de pasar la caché
+            if metadata_cache is not None:
+                cache_stats = metadata_cache.get_stats()
+                self.logger.info(
+                    f"🚀 Iniciando fase de duplicados exactos CON caché: "
+                    f"tamaño={cache_stats['size']}, hits={cache_stats['hits']}, "
+                    f"misses={cache_stats['misses']}, hit_rate={cache_stats['hit_rate']:.1f}%"
+                )
+            else:
+                self.logger.warning("⚠️  Iniciando fase de duplicados exactos SIN caché (se calculará todo)")
+            
             result.duplicates, result.phase_timings['duplicates'] = self._execute_phase(
                 phase_id="duplicates",
                 phase_name="Identificando copias exactas",
@@ -662,7 +738,10 @@ class AnalysisOrchestrator:
         
         # Log de estadísticas de caché al final
         if metadata_cache is not None:
+            self.logger.info("📊 Estadísticas finales de caché:")
             metadata_cache.log_stats()
+        else:
+            self.logger.warning("⚠️  No hay estadísticas de caché (no se usó caché)")
         
         result.total_duration = time.time() - analysis_start_time
         

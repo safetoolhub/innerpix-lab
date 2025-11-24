@@ -585,21 +585,50 @@ class SimilarFilesDetector(BaseDetectorService):
         analysis.total_files = len(perceptual_hashes)
         analysis.analysis_timestamp = datetime.now()
         
+        # 4. Estadísticas de rendimiento y resumen
+        successful = analysis.total_files
+        total_processed = processed
+        success_rate = (successful / total_processed * 100) if total_processed > 0 else 0
+        
         self.logger.info(
             "*** ANÁLISIS INICIAL COMPLETADO"
         )
         self.logger.info(
-            f"*** Hashes calculados: {analysis.total_files}"
+            f"*** Archivos procesados: {total_processed} "
+            f"({len(image_files)} imágenes, {len(video_files)} videos)"
+        )
+        self.logger.info(
+            f"*** Hashes calculados exitosamente: {successful} ({success_rate:.1f}%)"
         )
         if errors > 0:
             self.logger.warning(
-                f"*** Archivos con error: {errors}"
+                f"*** Archivos con error: {errors} ({errors/total_processed*100:.1f}%)"
             )
         if timeouts > 0:
             self.logger.warning(
-                f"*** Archivos con timeout: {timeouts} "
+                f"*** Archivos con timeout: {timeouts} ({timeouts/total_processed*100:.1f}%) "
                 "(archivos corruptos o muy grandes)"
             )
+        
+        # Estadísticas de threading
+        self.logger.info(
+            f"📊 Estadísticas de procesamiento paralelo:"
+        )
+        self.logger.info(
+            f"   • Threads utilizados: {max_workers}"
+        )
+        self.logger.info(
+            f"   • Tasa de éxito: {success_rate:.1f}%"
+        )
+        self.logger.info(
+            f"   • Archivos exitosos: {successful:,}"
+        )
+        if errors + timeouts > 0:
+            self.logger.info(
+                f"   • Archivos fallidos: {errors + timeouts:,} "
+                f"(errores: {errors}, timeouts: {timeouts})"
+            )
+        
         self.logger.info(
             "*** Ahora puedes generar grupos con cualquier sensibilidad"
         )
