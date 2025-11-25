@@ -449,9 +449,18 @@ class HEICRemover(BaseService):
                         results.simulated_files_deleted += 1
                         results.simulated_space_freed += file_size
                         results.deleted_files.append(str(file_to_delete))
+                        
+                        # Obtener fecha del archivo
+                        from utils.date_utils import get_date_from_file
+                        try:
+                            file_date = get_date_from_file(file_to_delete, verbose=False)
+                            file_date_str = file_date.strftime('%Y-%m-%d %H:%M:%S') if file_date else 'unknown'
+                        except Exception:
+                            file_date_str = 'unknown'
+                        
                         self.logger.info(
-                            f"[SIMULACIÓN] Eliminaría {format_deleted}: {file_to_delete} "
-                            f"({format_size(file_size)})"
+                            f"FILE_DELETED_SIMULATION: {file_to_delete} | Size: {format_size(file_size)} | "
+                            f"Type: {format_deleted} | Date: {file_date_str}"
                         )
                         self.logger.info(f"[SIMULACIÓN] Conservaría {format_kept}: {file_to_keep}")
                     else:
@@ -459,9 +468,18 @@ class HEICRemover(BaseService):
                         results.files_deleted += 1
                         results.space_freed += file_size
                         results.deleted_files.append(str(file_to_delete))
+                        
+                        # Obtener fecha del archivo eliminado
+                        from utils.date_utils import get_date_from_file
+                        try:
+                            file_date = get_date_from_file(file_to_delete, verbose=False)
+                            file_date_str = file_date.strftime('%Y-%m-%d %H:%M:%S') if file_date else 'unknown'
+                        except Exception:
+                            file_date_str = 'unknown'
+                        
                         self.logger.info(
-                            f"✓ Eliminado {format_deleted}: {file_to_delete} "
-                            f"({format_size(file_size)})"
+                            f"FILE_DELETED: {file_to_delete} | Size: {format_size(file_size)} | "
+                            f"Type: {format_deleted} | Date: {file_date_str}"
                         )
                         self.logger.info(f"  ✓ Conservado {format_kept}: {file_to_keep}")
                 

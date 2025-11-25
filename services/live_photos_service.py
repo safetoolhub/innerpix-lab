@@ -280,7 +280,19 @@ class LivePhotoService(BaseService):
                             results.simulated_space_freed += file_size
                             results.deleted_files.append(str(file_path))
                             from utils.format_utils import format_size
-                            self.logger.debug(f"[SIMULACIÓN] Eliminaría: {file_path} ({file_info['type']}, {format_size(file_size)})")
+                            from utils.date_utils import get_date_from_file
+                            
+                            # Obtener fecha del archivo
+                            try:
+                                file_date = get_date_from_file(file_path, verbose=False)
+                                file_date_str = file_date.strftime('%Y-%m-%d %H:%M:%S') if file_date else 'unknown'
+                            except Exception:
+                                file_date_str = 'unknown'
+                            
+                            self.logger.info(
+                                f"FILE_DELETED_SIMULATION: {file_path} | Size: {format_size(file_size)} | "
+                                f"Type: {file_info['type']} | Date: {file_date_str}"
+                            )
                         else:
                             error_msg = f"Archivo no encontrado (simulación): {file_path}"
                             results.add_error(error_msg)
@@ -302,7 +314,19 @@ class LivePhotoService(BaseService):
                         results.deleted_files.append(str(file_path))
                         
                         from utils.format_utils import format_size
-                        self.logger.debug(f"✓ Eliminado: {file_path} ({file_info['type']}, {format_size(file_size)})")
+                        from utils.date_utils import get_date_from_file
+                        
+                        # Obtener fecha del archivo
+                        try:
+                            file_date = get_date_from_file(file_path, verbose=False)
+                            file_date_str = file_date.strftime('%Y-%m-%d %H:%M:%S') if file_date else 'unknown'
+                        except Exception:
+                            file_date_str = 'unknown'
+                        
+                        self.logger.info(
+                            f"FILE_DELETED: {file_path} | Size: {format_size(file_size)} | "
+                            f"Type: {file_info['type']} | Date: {file_date_str}"
+                        )
 
                 except Exception as e:
                     error_msg = f"Error eliminando {file_path.name}: {str(e)}"

@@ -35,6 +35,7 @@ The clustering algorithm is O(N^2) and naturally slow for 20k+ files. Future wor
 
 Revisar que el cálculo de similitud es incorrecto cuando la distancia Hamming promedio (avg_hamming) es mayor que MAX_HAMMING_THRESHOLD (20). No s eentiende bien los grupos que salen. 
 
+Las HEIC no se muestran en archivos similares. PRobar otros pformatos
 
 FUTURO
 ---------

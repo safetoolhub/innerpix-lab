@@ -346,9 +346,33 @@ class AnalysisOrchestrator:
             metadata_cache=metadata_cache
         )
         
+        # Estadísticas de archivos soportados vs no soportados
+        supported_count = result.image_count + result.video_count
+        unsupported_count = result.other_count
+        supported_percentage = (supported_count / total_files * 100) if total_files > 0 else 0
+        unsupported_percentage = (unsupported_count / total_files * 100) if total_files > 0 else 0
+        
+        # Obtener extensiones de archivos no soportados
+        unsupported_extensions = {}
+        for f in others:
+            ext = f.suffix.lower() if f.suffix else '(sin extensión)'
+            unsupported_extensions[ext] = unsupported_extensions.get(ext, 0) + 1
+        
+        # Formatear extensiones para el log
+        ext_summary = ', '.join(f"{ext} ({count})" for ext, count in sorted(unsupported_extensions.items()))
+        if not ext_summary:
+            ext_summary = "ninguna"
+        
         self.logger.info(
-            f"Escaneo completado: {result.image_count} imágenes, "
-            f"{result.video_count} videos, {result.other_count} otros"
+            f"*** Escaneo completado: {total_files:,} archivos totales"
+        )
+        self.logger.info(
+            f"*** Archivos SOPORTADOS: {supported_count:,} ({supported_percentage:.1f}%) "
+            f"[{result.image_count:,} imágenes + {result.video_count:,} videos]"
+        )
+        self.logger.info(
+            f"*** Archivos NO SOPORTADOS: {unsupported_count:,} ({unsupported_percentage:.1f}%) "
+            f"- Extensiones: {ext_summary}"
         )
         if metadata_cache is not None:
             cache_stats = metadata_cache.get_stats()

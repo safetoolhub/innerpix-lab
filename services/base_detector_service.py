@@ -350,18 +350,26 @@ class BaseDetectorService(BaseService):
                 if dry_run:
                     deleted.append(file_path)
                     space_freed += file_size
+                    
+                    # Determinar tipo de archivo
+                    file_type = 'duplicate'  # Para exact/similar copies
+                    
                     self.logger.info(
-                        f"[SIMULACIÓN] Eliminaría: {file_path.name} "
-                        f"({format_size(file_size)}, {file_date_str})"
+                        f"FILE_DELETED_SIMULATION: {file_path} | Size: {format_size(file_size)} | "
+                        f"Type: {file_type} | Date: {file_date_str}"
                     )
                 else:
                     # Backup ya se hizo antes, solo eliminar
                     file_path.unlink()
                     deleted.append(file_path)
                     space_freed += file_size
+                    
+                    # Determinar tipo de archivo
+                    file_type = 'duplicate'  # Para exact/similar copies
+                    
                     self.logger.info(
-                        f"✓ Eliminado: {file_path.name} "
-                        f"({format_size(file_size)}, {file_date_str})"
+                        f"FILE_DELETED: {file_path} | Size: {format_size(file_size)} | "
+                        f"Type: {file_type} | Date: {file_date_str}"
                     )
                 
                 processed += 1
