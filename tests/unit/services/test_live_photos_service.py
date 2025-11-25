@@ -365,6 +365,30 @@ class TestLivePhotoGroupDataclass:
                 image_size=100,
                 video_size=100
             )
+    
+    def test_live_photo_group_rejects_different_directories(self, temp_dir):
+        """Test que LivePhotoGroup rechaza archivos en directorios diferentes."""
+        # Crear subdirectorio
+        subdir = temp_dir / 'videos'
+        subdir.mkdir()
+        
+        # Crear archivos en directorios diferentes
+        image_path = temp_dir / 'IMG_0001.HEIC'
+        video_path = subdir / 'IMG_0001.MOV'
+        
+        image_path.write_bytes(b'fake image')
+        video_path.write_bytes(b'fake video')
+        
+        # Debe rechazar porque están en directorios diferentes
+        with pytest.raises(ValueError, match="mismo directorio"):
+            LivePhotoGroup(
+                image_path=image_path,
+                video_path=video_path,
+                base_name='IMG_0001',
+                directory=temp_dir,  # Directorio de la imagen
+                image_size=100,
+                video_size=100
+            )
 
 
 @pytest.mark.unit
