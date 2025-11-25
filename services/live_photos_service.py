@@ -273,55 +273,44 @@ class LivePhotoService(BaseService):
                 file_size = file_info['size']
 
                 try:
+                    # Verificar que el archivo existe
+                    if not file_path.exists():
+                        error_msg = f"Archivo no encontrado: {file_path}"
+                        results.add_error(error_msg)
+                        if dry_run:
+                            self.logger.warning(f"[SIMULACIÓN] {error_msg}")
+                        else:
+                            self.logger.error(error_msg)
+                        continue
+
+                    # IMPORTANTE: Capturar fecha ANTES de eliminar el archivo
+                    from utils.format_utils import format_size
+                    from utils.date_utils import get_date_from_file
+                    
+                    try:
+                        file_date = get_date_from_file(file_path, verbose=False)
+                        file_date_str = file_date.strftime('%Y-%m-%d %H:%M:%S') if file_date else 'unknown'
+                    except Exception:
+                        file_date_str = 'unknown'
+
                     if dry_run:
                         # Solo simular: no modificar counters reales, usar campos simulados
-                        if file_path.exists():
-                            results.simulated_files_deleted += 1
-                            results.simulated_space_freed += file_size
-                            results.deleted_files.append(str(file_path))
-                            from utils.format_utils import format_size
-                            from utils.date_utils import get_date_from_file
-                            
-                            # Obtener fecha del archivo
-                            try:
-                                file_date = get_date_from_file(file_path, verbose=False)
-                                file_date_str = file_date.strftime('%Y-%m-%d %H:%M:%S') if file_date else 'unknown'
-                            except Exception:
-                                file_date_str = 'unknown'
-                            
-                            self.logger.info(
-                                f"FILE_DELETED_SIMULATION: {file_path} | Size: {format_size(file_size)} | "
-                                f"Type: {file_info['type']} | Date: {file_date_str}"
-                            )
-                        else:
-                            error_msg = f"Archivo no encontrado (simulación): {file_path}"
-                            results.add_error(error_msg)
-                            self.logger.warning(f"[SIMULACIÓN] {error_msg}")
+                        results.simulated_files_deleted += 1
+                        results.simulated_space_freed += file_size
+                        results.deleted_files.append(str(file_path))
+                        
+                        self.logger.info(
+                            f"FILE_DELETED_SIMULATION: {file_path} | Size: {format_size(file_size)} | "
+                            f"Type: {file_info['type']} | Date: {file_date_str}"
+                        )
                     else:
                         # Eliminar realmente
-                        if not file_path.exists():
-                            error_msg = f"Archivo no encontrado: {file_path}"
-                            results.add_error(error_msg)
-                            self.logger.error(error_msg)
-                            continue
-
-                        # Eliminar archivo
                         file_path.unlink()
 
                         # Registrar éxito
                         results.files_deleted += 1
                         results.space_freed += file_size
                         results.deleted_files.append(str(file_path))
-                        
-                        from utils.format_utils import format_size
-                        from utils.date_utils import get_date_from_file
-                        
-                        # Obtener fecha del archivo
-                        try:
-                            file_date = get_date_from_file(file_path, verbose=False)
-                            file_date_str = file_date.strftime('%Y-%m-%d %H:%M:%S') if file_date else 'unknown'
-                        except Exception:
-                            file_date_str = 'unknown'
                         
                         self.logger.info(
                             f"FILE_DELETED: {file_path} | Size: {format_size(file_size)} | "
