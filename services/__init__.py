@@ -41,6 +41,14 @@ from .view_models import (
     DuplicatesViewModel,
 )
 
+# Utilidades de service_utils
+from .service_utils import (
+    create_service_backup,
+    validate_and_get_file_info,
+    FileInfo,
+    format_file_list,
+)
+
 # Tipos de resultado
 from .result_types import (
     # Base
@@ -92,11 +100,29 @@ __all__ = [
     'DuplicatePair',
     'DuplicateGroup',
     'SimilarFilesAnalysis',
-    # Utilidades
+    # Utilidades de service_utils
     'create_service_backup',
     'validate_and_get_file_info',
     'FileInfo',
     'format_file_list',
+    # Orquestador results
+    'FullAnalysisResult',
+    # Tipos de resultado base
+    'OperationResult',
+    'AnalysisResult',
+    'DeletionResult',
+    'RenameResult',
+    'RenameAnalysisResult',
+    'OrganizationResult',
+    'OrganizationAnalysisResult',
+    'DuplicateAnalysisResult',
+    'DuplicateDeletionResult',
+    'HeicAnalysisResult',
+    'HeicDeletionResult',
+    'LivePhotoAnalysisResult',
+    'LivePhotoCleanupAnalysisResult',
+    'LivePhotoCleanupResult',
+    'LivePhotoDetectionResult',
     # View Models
     'TreeNode',
     'TableRow',
