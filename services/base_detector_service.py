@@ -143,11 +143,24 @@ class BaseDetectorService(BaseService):
                         'duplicates_deletion',
                         progress_callback
                     )
+                    if backup_path:
+                        self.logger.info(f"Backup creado exitosamente: {backup_path}")
+                    else:
+                        # Si no se pudo crear backup, no continuar con la operación
+                        error_msg = "No se pudo crear el backup. Operación cancelada por seguridad."
+                        self.logger.error(error_msg)
+                        return DuplicateDeletionResult(
+                            success=False,
+                            errors=[error_msg],
+                            keep_strategy=keep_strategy,
+                            dry_run=dry_run
+                        )
                 except BackupCreationError as e:
-                    self.logger.error(f"Error creando backup: {e}")
+                    error_msg = f"Error creando backup: {e}"
+                    self.logger.error(error_msg)
                     return DuplicateDeletionResult(
                         success=False,
-                        errors=[str(e)],
+                        errors=[error_msg],
                         keep_strategy=keep_strategy,
                         dry_run=dry_run
                     )
@@ -337,18 +350,26 @@ class BaseDetectorService(BaseService):
                 if dry_run:
                     deleted.append(file_path)
                     space_freed += file_size
+                    
+                    # Determinar tipo de archivo
+                    file_type = 'duplicate'  # Para exact/similar copies
+                    
                     self.logger.info(
-                        f"[SIMULACIÓN] Eliminaría: {file_path.name} "
-                        f"({format_size(file_size)}, {file_date_str})"
+                        f"FILE_DELETED_SIMULATION: {file_path} | Size: {format_size(file_size)} | "
+                        f"Type: {file_type} | Date: {file_date_str}"
                     )
                 else:
                     # Backup ya se hizo antes, solo eliminar
                     file_path.unlink()
                     deleted.append(file_path)
                     space_freed += file_size
+                    
+                    # Determinar tipo de archivo
+                    file_type = 'duplicate'  # Para exact/similar copies
+                    
                     self.logger.info(
-                        f"✓ Eliminado: {file_path.name} "
-                        f"({format_size(file_size)}, {file_date_str})"
+                        f"FILE_DELETED: {file_path} | Size: {format_size(file_size)} | "
+                        f"Type: {file_type} | Date: {file_date_str}"
                     )
                 
                 processed += 1

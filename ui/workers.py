@@ -264,9 +264,15 @@ class AnalysisWorker(BaseWorker):
             # Importar dependencias aquí (evita imports circulares)
             from services.analysis_orchestrator import AnalysisOrchestrator
             from utils.logger import get_logger
+            from utils.settings_manager import settings_manager
             
             self.logger = get_logger('AnalysisWorker')
             orchestrator = AnalysisOrchestrator()
+            
+            # Leer configuración de precalculate_hashes
+            precalculate_hashes = settings_manager.get_precalculate_hashes()
+            if precalculate_hashes:
+                self.logger.info("🔐 Pre-cálculo de hashes ACTIVADO (configuración del usuario)")
             
             # Ejecutar análisis completo
             # El orchestrator maneja toda la lógica, este worker solo convierte a señales Qt
@@ -280,7 +286,8 @@ class AnalysisWorker(BaseWorker):
                 organization_type=self.organization_type,
                 progress_callback=self._create_progress_callback(emit_numbers=True),
                 phase_callback=self._handle_phase_start,
-                partial_callback=self._handle_partial_result
+                partial_callback=self._handle_partial_result,
+                precalculate_hashes=precalculate_hashes
             )
             
             # Completar última fase con delay UX
@@ -308,6 +315,14 @@ class AnalysisWorker(BaseWorker):
             # Emitir resultado final
             if not self._stop_requested:
                 self.finished.emit(result)
+                
+                # Liberar memoria explícitamente después de emitir
+                # Esto ayuda con datasets grandes (>5000 archivos)
+                import gc
+                del result
+                del orchestrator
+                gc.collect()
+                self.logger.debug("Memoria del worker liberada")
 
         except Exception as e:
             if not self._stop_requested:
@@ -546,7 +561,7 @@ class DuplicateAnalysisWorker(BaseWorker):
                     progress_callback=self._create_progress_callback(emit_numbers=True)
                 )
             else:  # perceptual
-                results = self.detector.analyze_similar_duplicates(
+                results = self.detector.analyze(
                     self.directory,
                     sensitivity=self.sensitivity,
                     progress_callback=self._create_progress_callback(emit_numbers=True)

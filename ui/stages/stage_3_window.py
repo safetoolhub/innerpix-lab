@@ -7,6 +7,7 @@ from typing import Dict, Any
 from PyQt6.QtWidgets import QWidget, QGridLayout, QMessageBox, QDialog
 from PyQt6.QtCore import QTimer
 
+from config import Config
 from .base_stage import BaseStage
 from ui.styles.design_system import DesignSystem
 from ui.widgets.summary_card import SummaryCard
@@ -810,7 +811,27 @@ class Stage3Window(BaseStage):
             )
             return
         
-        # Abrir automáticamente el diálogo de gestión con slider
+        # Para datasets grandes, no abrir automáticamente
+        # para evitar problemas de memoria al cargar la UI
+        # El umbral es dinámico según la RAM del sistema
+        auto_open_threshold = Config.get_similarity_dialog_auto_open_threshold()
+        if analysis.total_files > auto_open_threshold:
+            self.logger.info(
+                f"Dataset grande ({analysis.total_files} archivos, "
+                f"umbral: {auto_open_threshold}). "
+                "Diálogo no abierto automáticamente para evitar problemas de memoria."
+            )
+            QMessageBox.information(
+                self.main_window,
+                "Análisis completado",
+                f"Se analizaron {analysis.total_files} archivos con éxito.\n\n"
+                "Debido al tamaño del dataset, el diálogo de gestión no se "
+                "abre automáticamente para evitar problemas de memoria.\n\n"
+                "Haz clic en 'Gestionar ahora' cuando estés listo."
+            )
+            return
+        
+        # Abrir automáticamente el diálogo de gestión con slider (solo datasets pequeños)
         self._open_similarity_dialog_with_analysis(analysis)
     
     def _on_similarity_analysis_error(self, error_message: str):

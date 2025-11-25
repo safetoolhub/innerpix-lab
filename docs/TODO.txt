@@ -28,6 +28,15 @@ Pruebas con ficheros con distintas fechas
 1 mes: exiftool -AllDates+="0:1:0 0:0:0" IMG_REFERENCIA_HORADIFERENTE_POCA.jpg
 2 segundos: exiftool -AllDates+="0:0:0 0:0:2" IMG_LIVEPHOTO_HORADIFERENTE_2segundos.JPG
 
+funcionaria el caluclo de memoria y de threads dinamico en algo que no sea linux?
+
+similar files
+The clustering algorithm is O(N^2) and naturally slow for 20k+ files. Future work could involve optimizing this algorithm (e.g., using BK-trees or other indexing methods) or offloading it to a background thread more effectively.
+
+Revisar que el cálculo de similitud es incorrecto cuando la distancia Hamming promedio (avg_hamming) es mayor que MAX_HAMMING_THRESHOLD (20). No s eentiende bien los grupos que salen. 
+
+Las HEIC no se muestran en archivos similares. PRobar otros pformatos
+
 FUTURO
 ---------
 v 2.0 poder elegir una foto de live photos del video

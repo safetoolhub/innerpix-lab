@@ -817,6 +817,193 @@ class TestExactCopiesDetectorValidation:
         assert 'invalid_strategy' in str(result.errors[0])
 
 
+# ==================== TESTS DE BACKUP ====================
+
+@pytest.mark.unit
+class TestExactCopiesDetectorBackup:
+    """Tests de creación de backups en exact copies detector."""
+    
+    def test_backup_created_when_enabled(self, temp_dir, create_test_image):
+        """Test que se crea backup cuando está habilitado."""
+        import shutil
+        
+        # Crear duplicados
+        original = create_test_image(temp_dir / "original.jpg", color='red')
+        shutil.copy2(original, temp_dir / "duplicate.jpg")
+        
+        detector = ExactCopiesDetector()
+        analysis = detector.analyze(temp_dir)
+        
+        result = detector.execute(
+            groups=analysis.groups,
+            keep_strategy='largest',
+            create_backup=True,
+            dry_run=False
+        )
+        
+        assert result.success is True
+        assert result.backup_path is not None
+        assert Path(result.backup_path).exists()
+        
+        # Verificar que el backup contiene los archivos
+        # Nota: El backup contiene TODOS los archivos del grupo (no solo el eliminado)
+        backup_files = list(Path(result.backup_path).rglob('*.jpg'))
+        assert len(backup_files) >= 1  # Al menos el archivo eliminado
+    
+    def test_no_backup_when_disabled(self, temp_dir, create_test_image):
+        """Test que NO se crea backup cuando está deshabilitado."""
+        import shutil
+        
+        original = create_test_image(temp_dir / "original.jpg", color='red')
+        shutil.copy2(original, temp_dir / "duplicate.jpg")
+        
+        detector = ExactCopiesDetector()
+        analysis = detector.analyze(temp_dir)
+        
+        result = detector.execute(
+            groups=analysis.groups,
+            keep_strategy='largest',
+            create_backup=False,
+            dry_run=False
+        )
+        
+        assert result.success is True
+        assert result.backup_path is None
+    
+    def test_no_backup_in_dry_run(self, temp_dir, create_test_image):
+        """Test que NO se crea backup en dry run mode."""
+        import shutil
+        
+        original = create_test_image(temp_dir / "original.jpg", color='red')
+        shutil.copy2(original, temp_dir / "duplicate.jpg")
+        
+        detector = ExactCopiesDetector()
+        analysis = detector.analyze(temp_dir)
+        
+        result = detector.execute(
+            groups=analysis.groups,
+            keep_strategy='largest',
+            create_backup=True,
+            dry_run=True
+        )
+        
+        assert result.success is True
+        assert result.dry_run is True
+        assert result.backup_path is None
+    
+    def test_backup_with_same_filename_different_dirs(self, temp_dir, create_test_image):
+        """
+        Test CRÍTICO: Backup preserva estructura cuando hay duplicados con mismo nombre
+        en diferentes subdirectorios.
+        """
+        import shutil
+        
+        # Crear estructura con "photo.jpg" duplicado en 3 subdirectorios
+        dir1 = temp_dir / 'folder1'
+        dir2 = temp_dir / 'folder2'
+        dir3 = temp_dir / 'folder3'
+        
+        dir1.mkdir()
+        dir2.mkdir()
+        dir3.mkdir()
+        
+        # Crear imagen original
+        original = create_test_image(temp_dir / 'original.jpg', color='red')
+        
+        # Copiar a cada subdirectorio con mismo nombre
+        photo1 = dir1 / 'photo.jpg'
+        photo2 = dir2 / 'photo.jpg'
+        photo3 = dir3 / 'photo.jpg'
+        
+        shutil.copy2(original, photo1)
+        shutil.copy2(original, photo2)
+        shutil.copy2(original, photo3)
+        
+        # Modificar timestamps para diferenciarlos (keep_oldest)
+        import time
+        base_time = time.time()
+        photo1.touch()
+        time.sleep(0.01)
+        photo2.touch()
+        time.sleep(0.01)
+        photo3.touch()
+        
+        detector = ExactCopiesDetector()
+        # ExactCopiesDetector siempre hace búsqueda recursiva, no tiene parámetro recursive
+        analysis = detector.analyze(temp_dir)
+        
+        # Debe encontrar 1 grupo con 4 archivos (original + 3 copias)
+        assert analysis.total_groups == 1
+        assert len(analysis.groups[0].files) == 4
+        
+        result = detector.execute(
+            groups=analysis.groups,
+            keep_strategy='oldest',
+            create_backup=True,
+            dry_run=False
+        )
+        
+        assert result.success is True
+        assert result.backup_path is not None
+        assert result.files_deleted == 3  # Se eliminan las 3 copias más nuevas
+        
+        backup_path = Path(result.backup_path)
+        
+        # Verificar que se preservó la estructura de directorios en el backup
+        # Los archivos eliminados deben estar en el backup con su estructura
+        backup_files = list(backup_path.rglob('photo.jpg'))
+        assert len(backup_files) >= 2  # Al menos 2 de los 3 eliminados tienen mismo nombre
+        
+        # Verificar que existen los subdirectorios en backup
+        backup_dirs = [d for d in backup_path.rglob('*') if d.is_dir()]
+        dir_names = [d.name for d in backup_dirs]
+        
+        # Al menos algunos de los folders deben estar presentes
+        assert any(name in ['folder1', 'folder2', 'folder3'] for name in dir_names)
+    
+    def test_backup_with_nested_duplicates(self, temp_dir, create_test_image):
+        """Test que backup preserva estructura anidada con duplicados."""
+        import shutil
+        
+        # Crear estructura anidada
+        level1 = temp_dir / 'level1'
+        level2 = level1 / 'level2'
+        level3 = level2 / 'level3'
+        
+        level1.mkdir()
+        level2.mkdir()
+        level3.mkdir()
+        
+        # Crear duplicados en diferentes niveles
+        original = create_test_image(temp_dir / 'image.jpg', color='blue')
+        dup1 = level1 / 'image.jpg'
+        dup2 = level2 / 'image.jpg'
+        dup3 = level3 / 'image.jpg'
+        
+        shutil.copy2(original, dup1)
+        shutil.copy2(original, dup2)
+        shutil.copy2(original, dup3)
+        
+        detector = ExactCopiesDetector()
+        # ExactCopiesDetector siempre hace búsqueda recursiva
+        analysis = detector.analyze(temp_dir)
+        
+        result = detector.execute(
+            groups=analysis.groups,
+            keep_strategy='largest',
+            create_backup=True,
+            dry_run=False
+        )
+        
+        assert result.success is True
+        backup_path = Path(result.backup_path)
+        
+        # Verificar estructura anidada en backup
+        # Debe haber varios image.jpg en diferentes niveles
+        backup_images = list(backup_path.rglob('image.jpg'))
+        assert len(backup_images) >= 3  # Los 3 duplicados eliminados
+
+
 # ==================== TESTS DE INTEGRACIÓN ====================
 
 @pytest.mark.unit

@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QLabel, 
     QProgressBar, QPushButton, QFrame, QMessageBox, QWidget
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QTime
+from PyQt6.QtCore import Qt, pyqtSignal
 
 from ui.styles.design_system import DesignSystem
 from utils.icons import icon_manager
@@ -34,17 +34,15 @@ class SimilarFilesProgressDialog(BaseDialog):
         super().__init__(parent)
         self.total_files = total_files
         self.current_files = 0
-        self.start_time = QTime.currentTime()
         self.current_filename = ""
         
         self._setup_ui()
-        self._start_timer()
     
     def _setup_ui(self):
         """Configura la interfaz del diálogo"""
         self.setWindowTitle("Analizando archivos similares")
         self.setModal(True)
-        self.setFixedSize(800, 500)
+        self.setFixedSize(900, 500)
         self.setWindowFlags(
             Qt.WindowType.Dialog | 
             Qt.WindowType.CustomizeWindowHint | 
@@ -69,9 +67,7 @@ class SimilarFilesProgressDialog(BaseDialog):
             title='Análisis de Similitud',
             description='Detectando similitudes visuales (recortes, rotaciones, ediciones)...',
             metrics=[
-                {'value': '0', 'label': 'Encontrados', 'color': DesignSystem.COLOR_PRIMARY},
-                {'value': '0', 'label': 'Grupos', 'color': DesignSystem.COLOR_WARNING},
-                {'value': '0s', 'label': 'Tiempo', 'color': DesignSystem.COLOR_INFO}
+                {'value': format_file_count(self.total_files), 'label': 'Archivos', 'color': DesignSystem.COLOR_PRIMARY}
             ]
         )
         main_layout.addWidget(self.header_frame)
@@ -181,39 +177,6 @@ class SimilarFilesProgressDialog(BaseDialog):
         
         main_layout.addWidget(content_wrapper)
     
-    def _start_timer(self):
-        """Inicia el timer para actualizar el tiempo transcurrido"""
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self._update_elapsed_time)
-        self.timer.start(1000)  # Actualizar cada segundo
-    
-    def _update_elapsed_time(self):
-        """Actualiza el label de tiempo transcurrido"""
-        elapsed = self.start_time.secsTo(QTime.currentTime())
-        
-        # Formato mm:ss
-        minutes = elapsed // 60
-        seconds = elapsed % 60
-        time_str = f"{minutes}m {seconds}s" if minutes > 0 else f"{seconds}s"
-        
-        # Actualizar métrica en header
-        self._update_header_metric(self.header_frame, 'Tiempo', time_str)
-        
-        # Actualizar tiempo estimado restante si hay progreso
-        if self.current_files > 0 and self.total_files > 0:
-            progress_ratio = self.current_files / self.total_files
-            if progress_ratio > 0:
-                total_estimated = elapsed / progress_ratio
-                remaining = int(total_estimated - elapsed)
-                
-                if remaining > 0:
-                    rem_min = remaining // 60
-                    rem_sec = remaining % 60
-                    rem_str = f"{rem_min}m {rem_sec}s" if rem_min > 0 else f"{rem_sec}s"
-                    self.remaining_text.setText(f"Tiempo restante estimado: ~{rem_str}")
-                else:
-                    self.remaining_text.setText("Finalizando...")
-    
     def update_progress(self, current: int, total: int, message: str = ""):
         """
         Actualiza el progreso del análisis
@@ -231,7 +194,7 @@ class SimilarFilesProgressDialog(BaseDialog):
             self.progress_bar.setValue(percentage)
         
         # Actualizar métrica de procesados en header
-        self._update_header_metric(self.header_frame, 'Encontrados', format_file_count(current))
+        # self._update_header_metric(self.header_frame, 'Procesados', format_file_count(current))
         
         # Actualizar mensaje con el archivo actual
         if message:

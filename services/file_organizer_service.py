@@ -102,7 +102,8 @@ class FileOrganizer(BaseService):
         folders_to_create = []
 
         # Obtener max_workers de la configuración
-        max_workers = settings_manager.get_max_workers(Config.MAX_WORKERS)
+        user_override = settings_manager.get_max_workers(0)
+        max_workers = Config.get_actual_worker_threads(override=user_override, io_bound=True)
         self.logger.debug(f"Usando {max_workers} workers para análisis paralelo")
 
         # Contar total de archivos para progress
@@ -147,7 +148,7 @@ class FileOrganizer(BaseService):
                     
                     processed_files += 1
                     # Si el callback retorna False, cancelar análisis
-                    if not self._report_progress(progress_callback, processed_files, total_files, "Analizando estructura de organización"):
+                    if processed_files % Config.UI_UPDATE_INTERVAL == 0 and not self._report_progress(progress_callback, processed_files, total_files, "Analizando estructura de organización"):
                         executor.shutdown(wait=False, cancel_futures=True)
                         # Retornar resultado vacío al cancelar
                         return OrganizationAnalysisResult(
@@ -169,7 +170,7 @@ class FileOrganizer(BaseService):
             root_file_names = {item.name for item in root_files_list}
             processed_files += len(root_files_list)
             # Si el callback retorna False, cancelar análisis
-            if not self._report_progress(progress_callback, processed_files, total_files, "Analizando estructura de organización"):
+            if processed_files % Config.UI_UPDATE_INTERVAL == 0 and not self._report_progress(progress_callback, processed_files, total_files, "Analizando estructura de organización"):
                 return OrganizationAnalysisResult(
                     success=False,
                     total_files=0,
@@ -234,7 +235,7 @@ class FileOrganizer(BaseService):
                     
                     processed_files += 1
                     # Si el callback retorna False, cancelar análisis
-                    if not self._report_progress(progress_callback, processed_files, total_files, "Analizando estructura de organización"):
+                    if processed_files % Config.UI_UPDATE_INTERVAL == 0 and not self._report_progress(progress_callback, processed_files, total_files, "Analizando estructura de organización"):
                         executor.shutdown(wait=False, cancel_futures=True)
                         # Retornar resultado vacío al cancelar
                         return OrganizationAnalysisResult(
@@ -412,10 +413,21 @@ class FileOrganizer(BaseService):
                     )
                     if backup_path:
                         results.backup_path = str(backup_path)
+                        self.logger.info(f"Backup creado exitosamente: {backup_path}")
+                    else:
+                        # Si no se pudo crear backup, no continuar con la operación
+                        error_msg = "No se pudo crear el backup. Operación cancelada por seguridad."
+                        self.logger.error(error_msg)
+                        results.success = False
+                        results.add_error(error_msg)
+                        results.message = error_msg
+                        return results
                 except BackupCreationError as e:
                     error_msg = f"Error creando backup: {e}"
                     self.logger.error(error_msg)
+                    results.success = False
                     results.add_error(error_msg)
+                    results.message = error_msg
                     return results
 
             # Track de nombres ya usados durante la ejecución (por carpeta)
@@ -569,7 +581,7 @@ class FileOrganizer(BaseService):
                         else:
                             self.logger.info(f"✓ Movido: {move.source_path} → {target_path} ({date_str})")
 
-                    if not self._report_progress(progress_callback, files_processed, total_files,
+                    if files_processed % Config.UI_UPDATE_INTERVAL == 0 and not self._report_progress(progress_callback, files_processed, total_files,
                                        f"{'Simulando' if dry_run else 'Organizando'} directorios... {files_processed}/{total_files}"):
                         break
 

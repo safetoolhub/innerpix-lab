@@ -237,24 +237,37 @@ class LivePhotoService(BaseService):
                     )
                     if backup_path:
                         results.backup_path = str(backup_path)
+                        self.logger.info(f"Backup creado exitosamente: {backup_path}")
+                    else:
+                        # Si no se pudo crear backup, no continuar con la operación
+                        error_msg = "No se pudo crear el backup. Operación cancelada por seguridad."
+                        self.logger.error(error_msg)
+                        results.success = False
+                        results.add_error(error_msg)
+                        results.message = error_msg
+                        return results
                 except BackupCreationError as e:
                     error_msg = f"Error creando backup: {e}"
                     self.logger.error(error_msg)
+                    results.success = False
                     results.add_error(error_msg)
+                    results.message = error_msg
                     return results
 
             # Ejecutar eliminaciones
             total = len(files_to_delete)
             for idx, file_info in enumerate(files_to_delete):
-                # Reportar progreso cada 1000 archivos
-                if (idx + 1) % 1000 == 0:
-                    self.logger.info(f"Procesados {idx + 1}/{total} archivos en limpieza de Live Photos")
-
-                # Reportar progreso
-                if progress_callback:
+                # Reportar progreso al callback (UI)
+                if progress_callback and (idx + 1) % Config.UI_UPDATE_INTERVAL == 0:
                     if not progress_callback(idx + 1, total, f"Procesando {idx + 1}/{total}"):
                         self.logger.info("Limpieza cancelada por el usuario")
                         break
+                
+                    # Log de progreso: según intervalo configurado en INFO, más detallado en DEBUG
+                if (idx + 1) % Config.LOG_PROGRESS_INTERVAL == 0:
+                    self.logger.info(f"Procesados {idx + 1}/{total} archivos en limpieza de Live Photos")
+                elif (idx + 1) % Config.UI_UPDATE_INTERVAL == 0:
+                    self.logger.debug(f"Procesados {idx + 1}/{total} archivos en limpieza de Live Photos")
 
                 file_path = file_info['path']
                 file_size = file_info['size']
@@ -267,7 +280,19 @@ class LivePhotoService(BaseService):
                             results.simulated_space_freed += file_size
                             results.deleted_files.append(str(file_path))
                             from utils.format_utils import format_size
-                            self.logger.debug(f"[SIMULACIÓN] Eliminaría: {file_path} ({file_info['type']}, {format_size(file_size)})")
+                            from utils.date_utils import get_date_from_file
+                            
+                            # Obtener fecha del archivo
+                            try:
+                                file_date = get_date_from_file(file_path, verbose=False)
+                                file_date_str = file_date.strftime('%Y-%m-%d %H:%M:%S') if file_date else 'unknown'
+                            except Exception:
+                                file_date_str = 'unknown'
+                            
+                            self.logger.info(
+                                f"FILE_DELETED_SIMULATION: {file_path} | Size: {format_size(file_size)} | "
+                                f"Type: {file_info['type']} | Date: {file_date_str}"
+                            )
                         else:
                             error_msg = f"Archivo no encontrado (simulación): {file_path}"
                             results.add_error(error_msg)
@@ -289,7 +314,19 @@ class LivePhotoService(BaseService):
                         results.deleted_files.append(str(file_path))
                         
                         from utils.format_utils import format_size
-                        self.logger.debug(f"✓ Eliminado: {file_path} ({file_info['type']}, {format_size(file_size)})")
+                        from utils.date_utils import get_date_from_file
+                        
+                        # Obtener fecha del archivo
+                        try:
+                            file_date = get_date_from_file(file_path, verbose=False)
+                            file_date_str = file_date.strftime('%Y-%m-%d %H:%M:%S') if file_date else 'unknown'
+                        except Exception:
+                            file_date_str = 'unknown'
+                        
+                        self.logger.info(
+                            f"FILE_DELETED: {file_path} | Size: {format_size(file_size)} | "
+                            f"Type: {file_info['type']} | Date: {file_date_str}"
+                        )
 
                 except Exception as e:
                     error_msg = f"Error eliminando {file_path.name}: {str(e)}"
@@ -483,15 +520,17 @@ class LivePhotoService(BaseService):
 
         # Por cada foto, buscar su video .MOV correspondiente usando nombres normalizados
         for idx, photo in enumerate(photos, 1):
-            # Reportar progreso cada 1000 fotos
-            if idx % 1000 == 0:
+            # Verificar cancelación en cada iteración del UI_UPDATE_INTERVAL
+            if progress_callback and idx % Config.UI_UPDATE_INTERVAL == 0:
+                if not progress_callback(idx, total_photos, "Matching Live Photos"):
+                    self.logger.info("Matching de Live Photos cancelado por el usuario")
+                    return None  # Señal de cancelación
+            
+            # Log de progreso: según intervalo configurado en INFO, más detallado en DEBUG
+            if idx % Config.LOG_PROGRESS_INTERVAL == 0:
                 self.logger.info(f"Procesadas {idx}/{total_photos} fotos, {len(groups)} Live Photos encontrados hasta ahora")
-                
-                # Verificar cancelación
-                if progress_callback:
-                    if not progress_callback(idx, total_photos, "Matching Live Photos"):
-                        self.logger.info("Matching de Live Photos cancelado por el usuario")
-                        return None  # Señal de cancelación
+            elif idx % Config.UI_UPDATE_INTERVAL == 0:
+                self.logger.debug(f"Procesadas {idx}/{total_photos} fotos, {len(groups)} Live Photos encontrados hasta ahora")
             
             normalized_name = self._normalize_name(photo.stem)
             

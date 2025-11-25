@@ -472,6 +472,44 @@ class SettingsDialog(QDialog):
         perf_group = self._create_groupbox("Rendimiento")
         perf_layout = QVLayout(perf_group)
         perf_layout.setSpacing(DesignSystem.SPACE_12)
+        
+        # Info de configuración automática
+        auto_info = QLabel(
+            f"🤖 Configuración automática basada en tu hardware:\n"
+            f"   • CPU Cores: {Config.get_cpu_count()}\n"
+            f"   • Workers I/O (recomendado): {Config.get_optimal_worker_threads()}\n"
+            f"   • Workers CPU (recomendado): {Config.get_cpu_bound_workers()}"
+        )
+        auto_info.setStyleSheet(f"""
+            QLabel {{
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_MD}px;
+                padding: {DesignSystem.SPACE_12}px;
+            }}
+        """)
+        perf_layout.addWidget(auto_info)
+        
+        # Separador
+        separator = QFrame()
+        separator.setFrameShape(QFrame.Shape.HLine)
+        separator.setStyleSheet(f"background-color: {DesignSystem.COLOR_BORDER};")
+        perf_layout.addWidget(separator)
+        
+        # Override manual (opcional)
+        override_label = QLabel(
+            "⚠️ Override manual (deja en 0 para usar automático):"
+        )
+        override_label.setStyleSheet(f"""
+            QLabel {{
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_WARNING};
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            }}
+        """)
+        perf_layout.addWidget(override_label)
 
         workers_layout = QHBoxLayout()
         workers_layout.setSpacing(DesignSystem.SPACE_12)
@@ -488,18 +526,53 @@ class SettingsDialog(QDialog):
 
         from ui.widgets.custom_spinbox import CustomSpinBox
         self.max_workers_spin = CustomSpinBox()
-        self.max_workers_spin.setMinimum(1)
+        self.max_workers_spin.setMinimum(0)  # 0 = automático
         self.max_workers_spin.setMaximum(Config.MAX_WORKER_THREADS)
-        self.max_workers_spin.setValue(Config.MAX_WORKERS)
+        self.max_workers_spin.setValue(0)  # Por defecto: automático
+        self.max_workers_spin.setSpecialValueText("Automático")
         self.max_workers_spin.setToolTip(
             f"Número de hilos paralelos para procesar archivos.\n"
-            f"Más hilos = más rápido, pero mayor uso de CPU.\n"
-            f"Recomendado: {Config.MAX_WORKERS}"
+            f"\n"
+            f"• 0 (Automático): Detecta y usa el óptimo para tu hardware\n"
+            f"• I/O workers: {Config.get_optimal_worker_threads()} (lectura/hashing)\n"
+            f"• CPU workers: {Config.get_cpu_bound_workers()} (análisis de imágenes)\n"
+            f"\n"
+            f"Solo cambia esto si experimentas problemas de rendimiento.\n"
+            f"Rango válido: 1-{Config.MAX_WORKER_THREADS}"
         )
         workers_layout.addWidget(self.max_workers_spin)
         workers_layout.addStretch()
 
         perf_layout.addLayout(workers_layout)
+
+        # Intervalo de actualización de UI
+        ui_update_layout = QHBoxLayout()
+        ui_update_layout.setSpacing(DesignSystem.SPACE_12)
+        
+        ui_update_label = QLabel("Frecuencia de actualización en análisis:")
+        ui_update_label.setMinimumWidth(180)
+        ui_update_label.setStyleSheet(f"""
+            QLabel {{
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_TEXT};
+            }}
+        """)
+        ui_update_layout.addWidget(ui_update_label)
+
+        self.ui_update_spin = CustomSpinBox()
+        self.ui_update_spin.setMinimum(1)
+        self.ui_update_spin.setMaximum(1000)
+        self.ui_update_spin.setValue(Config.UI_UPDATE_INTERVAL)
+        self.ui_update_spin.setToolTip(
+            "Cada cuántos archivos se da feeback al usuario en los análisis.\n"
+            "Valores más altos mejoran el rendimiento pero se recibe menos feedback.\n"
+            "Valores más bajos (1) hacen pueden ralentizar el proceso.\n"
+            "Recomendado: 10-50"
+        )
+        ui_update_layout.addWidget(self.ui_update_spin)
+        ui_update_layout.addStretch()
+
+        perf_layout.addLayout(ui_update_layout)
 
         perf_info = self._create_info_label(
             "Cambiar el número de hilos requiere reiniciar la aplicación para tener efecto completo."
@@ -517,6 +590,26 @@ class SettingsDialog(QDialog):
         )
         self.use_video_metadata_checkbox.setStyleSheet(DesignSystem.get_checkbox_style())
         perf_layout.addWidget(self.use_video_metadata_checkbox)
+        
+        # Checkbox para pre-cálculo de hashes
+        self.precalculate_hashes_checkbox = QCheckBox("Pre-calcular hashes SHA256 durante el escaneo inicial (LENTO pero optimiza duplicados)")
+        self.precalculate_hashes_checkbox.setChecked(False)
+        self.precalculate_hashes_checkbox.setToolTip(
+            "Pre-calcula hashes SHA256 de todos los archivos durante el escaneo inicial.\n"
+            "\n"
+            "VENTAJAS:\n"
+            "  • Fase de 'duplicados exactos' es INSTANTÁNEA (ya tiene todos los hashes)\n"
+            "  • Ideal si siempre buscas duplicados\n"
+            "\n"
+            "DESVENTAJAS:\n"
+            "  • Hace el escaneo inicial MUY lento (calcula hash de cada archivo)\n"
+            "  • Para 500 archivos: escaneo pasa de ~2s a ~15-30s\n"
+            "\n"
+            "RECOMENDACIÓN: Dejar desactivado (el comportamiento por defecto ya es\n"
+            "eficiente con threading paralelo en la fase de duplicados)."
+        )
+        self.precalculate_hashes_checkbox.setStyleSheet(DesignSystem.get_checkbox_style())
+        perf_layout.addWidget(self.precalculate_hashes_checkbox)
 
         layout.addWidget(perf_group)
 
@@ -569,8 +662,13 @@ class SettingsDialog(QDialog):
             self.show_full_path_checkbox.setChecked(settings_manager.get_show_full_path())
 
             # Advanced tab
-            self.max_workers_spin.setValue(settings_manager.get_max_workers(Config.MAX_WORKERS))
+            # Workers: 0 significa automático, cualquier otro valor es override manual
+            saved_workers = settings_manager.get_max_workers(0)
+            self.max_workers_spin.setValue(saved_workers)
+            
+            self.ui_update_spin.setValue(settings_manager.get_int("ui_update_interval", Config.UI_UPDATE_INTERVAL))
             self.dry_run_default_checkbox.setChecked(settings_manager.get_bool(settings_manager.KEY_DRY_RUN_DEFAULT, False))
+            self.precalculate_hashes_checkbox.setChecked(settings_manager.get_precalculate_hashes())
             self.use_video_metadata_checkbox.setChecked(settings_manager.get_bool(settings_manager.KEY_USE_VIDEO_METADATA, False))
 
             # Directories tab - Log level
@@ -608,7 +706,11 @@ class SettingsDialog(QDialog):
             'show_path': self.show_full_path_checkbox.isChecked(),
             'max_workers': self.max_workers_spin.value(),
             'dry_run': self.dry_run_default_checkbox.isChecked(),
+            'max_workers': self.max_workers_spin.value(),
+            'ui_update_interval': self.ui_update_spin.value(),
+            'dry_run': self.dry_run_default_checkbox.isChecked(),
             'use_video_metadata': self.use_video_metadata_checkbox.isChecked(),
+            'precalculate_hashes': self.precalculate_hashes_checkbox.isChecked(),
         }
         self.logger.debug(f"Valores originales guardados: {self.original_values}")
     
@@ -622,9 +724,11 @@ class SettingsDialog(QDialog):
         self.show_full_path_checkbox.stateChanged.connect(lambda: self._on_widget_changed("show_path"))
         self.dry_run_default_checkbox.stateChanged.connect(lambda: self._on_widget_changed("dry_run"))
         self.use_video_metadata_checkbox.stateChanged.connect(lambda: self._on_widget_changed("use_video_metadata"))
+        self.precalculate_hashes_checkbox.stateChanged.connect(lambda: self._on_widget_changed("precalculate_hashes"))
         
         # Spinbox
         self.max_workers_spin.valueChanged.connect(lambda: self._on_widget_changed("max_workers"))
+        self.ui_update_spin.valueChanged.connect(lambda: self._on_widget_changed("ui_update_interval"))
         
         # Combobox
         self.log_level_combo.currentIndexChanged.connect(lambda: self._on_widget_changed("log_level"))
@@ -685,7 +789,13 @@ class SettingsDialog(QDialog):
         
         current_max_workers = self.max_workers_spin.value()
         original_max_workers = self.original_values['max_workers']
+        current_max_workers = self.max_workers_spin.value()
+        original_max_workers = self.original_values['max_workers']
         max_workers_changed = current_max_workers != original_max_workers
+
+        current_ui_update = self.ui_update_spin.value()
+        original_ui_update = self.original_values['ui_update_interval']
+        ui_update_changed = current_ui_update != original_ui_update
         
         current_dry_run = self.dry_run_default_checkbox.isChecked()
         original_dry_run = self.original_values['dry_run']
@@ -695,11 +805,15 @@ class SettingsDialog(QDialog):
         original_use_video_metadata = self.original_values['use_video_metadata']
         use_video_metadata_changed = current_use_video_metadata != original_use_video_metadata
         
+        current_precalculate_hashes = self.precalculate_hashes_checkbox.isChecked()
+        original_precalculate_hashes = self.original_values['precalculate_hashes']
+        precalculate_hashes_changed = current_precalculate_hashes != original_precalculate_hashes
+        
         has_changes = (
             logs_changed or backup_changed or level_changed or auto_backup_changed or
             confirm_ops_changed or confirm_delete_changed or show_notif_changed or
             show_path_changed or max_workers_changed or dry_run_changed or
-            use_video_metadata_changed
+            use_video_metadata_changed or ui_update_changed or precalculate_hashes_changed
         )
         
         # Habilitar/deshabilitar botón según haya cambios
@@ -921,6 +1035,8 @@ class SettingsDialog(QDialog):
             current_max_workers = settings_manager.get_max_workers(Config.MAX_WORKERS)
             current_dry_run = settings_manager.get_bool(settings_manager.KEY_DRY_RUN_DEFAULT, False)
             current_use_video_metadata = settings_manager.get_bool(settings_manager.KEY_USE_VIDEO_METADATA, False)
+            current_ui_update = settings_manager.get_int("ui_update_interval", Config.UI_UPDATE_INTERVAL)
+            current_precalculate_hashes = settings_manager.get_precalculate_hashes()
             
             # Valores nuevos (desde UI)
             new_logs_dir = Path(self.logs_edit.text())
@@ -932,8 +1048,10 @@ class SettingsDialog(QDialog):
             new_show_notif = self.show_notifications_checkbox.isChecked()
             new_show_path = self.show_full_path_checkbox.isChecked()
             new_max_workers = self.max_workers_spin.value()
+            new_ui_update = self.ui_update_spin.value()
             new_dry_run = self.dry_run_default_checkbox.isChecked()
             new_use_video_metadata = self.use_video_metadata_checkbox.isChecked()
+            new_precalculate_hashes = self.precalculate_hashes_checkbox.isChecked()
             
             # Detectar qué cambió
             logs_dir_changed = (current_logs_dir != new_logs_dir)
@@ -947,8 +1065,10 @@ class SettingsDialog(QDialog):
                 current_show_notif != new_show_notif or
                 current_show_path != new_show_path or
                 current_max_workers != new_max_workers or
+                current_ui_update != new_ui_update or
                 current_dry_run != new_dry_run or
-                current_use_video_metadata != new_use_video_metadata
+                current_use_video_metadata != new_use_video_metadata or
+                current_precalculate_hashes != new_precalculate_hashes
             )
             
             # Si NO hay cambios, cerrar inmediatamente sin operaciones costosas
@@ -994,12 +1114,18 @@ class SettingsDialog(QDialog):
             # Avanzado (solo si cambiaron)
             if current_max_workers != new_max_workers:
                 settings_manager.set(settings_manager.KEY_MAX_WORKERS, new_max_workers)
+            if current_ui_update != new_ui_update:
+                settings_manager.set("ui_update_interval", new_ui_update)
+                # Actualizar Config en tiempo real
+                Config.UI_UPDATE_INTERVAL = new_ui_update
             if current_dry_run != new_dry_run:
                 settings_manager.set(settings_manager.KEY_DRY_RUN_DEFAULT, new_dry_run)
             if current_use_video_metadata != new_use_video_metadata:
                 settings_manager.set(settings_manager.KEY_USE_VIDEO_METADATA, new_use_video_metadata)
                 # Actualizar Config.USE_VIDEO_METADATA para que tenga efecto inmediato
                 Config.USE_VIDEO_METADATA = new_use_video_metadata
+            if current_precalculate_hashes != new_precalculate_hashes:
+                settings_manager.set(settings_manager.KEY_PRECALCULATE_HASHES, new_precalculate_hashes)
 
             self.logger.info("Configuración guardada exitosamente")
 

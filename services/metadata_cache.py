@@ -87,20 +87,30 @@ class FileMetadataCache:
         Args:
             max_age_seconds: Tiempo de vida máximo de entradas (default 1 hora)
         """
+        from config import Config
+        import threading
+        
         self.logger = get_logger('FileMetadataCache')
         self._cache: Dict[Path, FileMetadata] = {}
+        self._lock = threading.RLock()  # Reentrant lock for thread safety
         self._max_age_seconds = max_age_seconds
+        self._max_entries = Config.get_max_cache_entries()  # Dinámico según RAM
         self._enabled = True
         
         # Estadísticas de uso
         self._hits = 0
         self._misses = 0
         
-        self.logger.debug(f"Caché de metadatos inicializada (max_age={max_age_seconds}s)")
+        self.logger.debug(
+            f"Caché de metadatos inicializada "
+            f"(max_age={max_age_seconds}s, max_entries={self._max_entries}, "
+            f"dinámico según RAM del sistema)"
+        )
     
     def get_or_create(self, file_path: Path) -> FileMetadata:
         """
         Obtiene o crea entrada de caché para un archivo.
+        Thread-safe.
         
         Args:
             file_path: Path del archivo
@@ -114,21 +124,28 @@ class FileMetadataCache:
         # Normalizar path
         file_path = file_path.resolve()
         
-        # Verificar si existe y es válida
-        if file_path in self._cache:
-            metadata = self._cache[file_path]
-            if metadata.is_valid(self._max_age_seconds):
-                self._hits += 1
-                return metadata
-            else:
-                # Entrada expirada, remover
-                del self._cache[file_path]
-        
-        # Crear nueva entrada
-        self._misses += 1
-        metadata = FileMetadata(path=file_path)
-        self._cache[file_path] = metadata
-        return metadata
+        with self._lock:
+            # Verificar si existe y es válida
+            if file_path in self._cache:
+                metadata = self._cache[file_path]
+                if metadata.is_valid(self._max_age_seconds):
+                    self._hits += 1
+                    return metadata
+                else:
+                    # Entrada expirada, remover
+                    del self._cache[file_path]
+            
+            # Crear nueva entrada
+            self._misses += 1
+            metadata = FileMetadata(path=file_path)
+            self._cache[file_path] = metadata
+            self.logger.debug(f"✓ Nueva entrada de caché creada para {file_path.name} (total: {len(self._cache)} entradas)")
+            
+            # Limitar tamaño de caché para prevenir OOM
+            if len(self._cache) > self._max_entries:
+                self._evict_oldest_entries()
+            
+            return metadata
     
     def get_hash(self, file_path: Path) -> Optional[str]:
         """
@@ -141,20 +158,29 @@ class FileMetadataCache:
             Hash SHA256 o None si no está cacheado
         """
         if not self._enabled:
+            self.logger.debug("⚠️  get_hash() llamado pero caché está deshabilitada")
             return None
         
         file_path = file_path.resolve()
-        if file_path in self._cache:
-            metadata = self._cache[file_path]
-            if metadata.is_valid(self._max_age_seconds):
-                self._hits += 1
-                return metadata.sha256_hash
+        with self._lock:
+            if file_path in self._cache:
+                metadata = self._cache[file_path]
+                if metadata.is_valid(self._max_age_seconds):
+                    self._hits += 1
+                    if metadata.sha256_hash:
+                        self.logger.debug(f"✓ CACHE HIT (hash): {file_path.name} (hits: {self._hits}, misses: {self._misses})")
+                        return metadata.sha256_hash
+                    else:
+                        self.logger.debug(f"⚠️  CACHE HIT pero sin hash: {file_path.name}")
+                        return None
+                else:
+                    # Entrada expirada, remover
+                    del self._cache[file_path]
+                    self._misses += 1
+                    self.logger.debug(f"⚠️  CACHE EXPIRED: {file_path.name} (misses: {self._misses})")
             else:
-                # Entrada expirada, remover
-                del self._cache[file_path]
                 self._misses += 1
-        else:
-            self._misses += 1
+                self.logger.debug(f"❌ CACHE MISS (hash): {file_path.name} (hits: {self._hits}, misses: {self._misses})")
         return None
     
     def set_hash(self, file_path: Path, sha256_hash: str) -> None:
@@ -166,11 +192,13 @@ class FileMetadataCache:
             sha256_hash: Hash SHA256 calculado
         """
         if not self._enabled:
+            self.logger.debug("⚠️  set_hash() llamado pero caché está deshabilitada")
             return
         
         metadata = self.get_or_create(file_path)
         metadata.sha256_hash = sha256_hash
         metadata.cached_at = time.time()
+        self.logger.debug(f"✓ Hash cacheado para {file_path.name} (hash: {sha256_hash[:8]}...)")
     
     def get_exif_date(self, file_path: Path) -> Optional[datetime]:
         """
@@ -186,17 +214,18 @@ class FileMetadataCache:
             return None
         
         file_path = file_path.resolve()
-        if file_path in self._cache:
-            metadata = self._cache[file_path]
-            if metadata.is_valid(self._max_age_seconds):
-                self._hits += 1
-                return metadata.exif_date or metadata.exif_date_original
+        with self._lock:
+            if file_path in self._cache:
+                metadata = self._cache[file_path]
+                if metadata.is_valid(self._max_age_seconds):
+                    self._hits += 1
+                    return metadata.exif_date or metadata.exif_date_original
+                else:
+                    # Entrada expirada, remover
+                    del self._cache[file_path]
+                    self._misses += 1
             else:
-                # Entrada expirada, remover
-                del self._cache[file_path]
                 self._misses += 1
-        else:
-            self._misses += 1
         return None
     
     def set_exif_dates(
@@ -237,17 +266,18 @@ class FileMetadataCache:
             return None
         
         file_path = file_path.resolve()
-        if file_path in self._cache:
-            metadata = self._cache[file_path]
-            if metadata.is_valid(self._max_age_seconds):
-                self._hits += 1
-                return metadata.size
+        with self._lock:
+            if file_path in self._cache:
+                metadata = self._cache[file_path]
+                if metadata.is_valid(self._max_age_seconds):
+                    self._hits += 1
+                    return metadata.size
+                else:
+                    # Entrada expirada, remover
+                    del self._cache[file_path]
+                    self._misses += 1
             else:
-                # Entrada expirada, remover
-                del self._cache[file_path]
                 self._misses += 1
-        else:
-            self._misses += 1
         return None
     
     def set_basic_metadata(
@@ -294,22 +324,96 @@ class FileMetadataCache:
         Args:
             file_path: Path específico a invalidar, o None para invalidar todo
         """
-        if file_path:
-            file_path = file_path.resolve()
-            if file_path in self._cache:
-                del self._cache[file_path]
-                self.logger.debug(f"Caché invalidada para: {file_path}")
+        with self._lock:
+            if file_path:
+                file_path = file_path.resolve()
+                if file_path in self._cache:
+                    del self._cache[file_path]
+                    self.logger.debug(f"Caché invalidada para: {file_path}")
+            else:
+                count = len(self._cache)
+                self._cache.clear()
+                self._hits = 0
+                self._misses = 0
+                self.logger.info(f"Caché completa invalidada ({count} entradas)")
+    
+    def clear_cache(self) -> None:
+        """
+        Limpia la caché completamente.
+        Alias para invalidate() sin argumentos.
+        """
+        self.invalidate()
+    
+    def _evict_oldest_entries(self, keep_ratio: float = 0.8) -> None:
+        """
+        Elimina las entradas más antiguas cuando se excede el límite.
+        
+        Args:
+            keep_ratio: Ratio de entradas a mantener (default 0.8 = mantener 80%)
+        """
+        if not self._cache:
+            return
+        
+        # Note: This method should be called within a lock
+        target_size = int(self._max_entries * keep_ratio)
+        if len(self._cache) <= target_size:
+            return
+        
+        # Ordenar por cached_at y mantener las más recientes
+        sorted_entries = sorted(
+            self._cache.items(),
+            key=lambda item: item[1].cached_at,
+            reverse=True
+        )
+        
+        # Mantener solo las más recientes
+        self._cache = dict(sorted_entries[:target_size])
+        evicted = len(sorted_entries) - target_size
+        
+        self.logger.debug(
+            f"Caché demasiado grande. Eliminadas {evicted} entradas antiguas "
+            f"(quedan {len(self._cache)})"
+        )
+    
+    
+    def update_max_entries(self, file_count: int) -> None:
+        """
+        Actualiza el límite máximo de entradas basándose en el número de archivos.
+        
+        Este método debe llamarse después de contar los archivos en el directorio
+        para optimizar el tamaño de la caché.
+        
+        Args:
+            file_count: Número total de archivos en el directorio
+        """
+        from config import Config
+        
+        old_limit = self._max_entries
+        new_limit = Config.get_max_cache_entries(file_count)
+        
+        # Always log the update attempt for debugging
+        self.logger.info(
+            f"Actualizando límite de caché: archivos={file_count:,}, "
+            f"límite_actual={old_limit:,}, límite_calculado={new_limit:,}"
+        )
+        
+        with self._lock:
+            self._max_entries = new_limit
+        
+        if old_limit != new_limit:
+            self.logger.info(
+                f"✓ Límite de caché actualizado: {old_limit:,} → {new_limit:,}"
+            )
         else:
-            count = len(self._cache)
-            self._cache.clear()
-            self._hits = 0
-            self._misses = 0
-            self.logger.info(f"Caché completa invalidada ({count} entradas)")
+            self.logger.debug(
+                f"Límite de caché sin cambios: {old_limit:,}"
+            )
     
     def disable(self) -> None:
         """Deshabilita la caché (útil para debugging o tests)"""
         self._enabled = False
-        self._cache.clear()
+        with self._lock:
+            self._cache.clear()
         self.logger.debug("Caché deshabilitada")
     
     def enable(self) -> None:
@@ -324,33 +428,37 @@ class FileMetadataCache:
         Returns:
             Dict con hits, misses, size, hit_rate
         """
-        total_requests = self._hits + self._misses
-        hit_rate = (self._hits / total_requests * 100) if total_requests > 0 else 0.0
-        
-        return {
-            'enabled': self._enabled,
-            'size': len(self._cache),
-            'hits': self._hits,
-            'misses': self._misses,
-            'hit_rate': hit_rate,
-            'max_age_seconds': self._max_age_seconds
-        }
+        with self._lock:
+            total_requests = self._hits + self._misses
+            hit_rate = (self._hits / total_requests * 100) if total_requests > 0 else 0.0
+            
+            return {
+                'enabled': self._enabled,
+                'size': len(self._cache),
+                'hits': self._hits,
+                'misses': self._misses,
+                'hit_rate': hit_rate,
+                'max_age_seconds': self._max_age_seconds
+            }
     
     def log_stats(self) -> None:
         """Log de estadísticas de uso"""
         stats = self.get_stats()
         self.logger.info(
-            f"Estadísticas de caché: "
+            f"📊 Estadísticas de caché: "
             f"{stats['hits']} hits, {stats['misses']} misses, "
             f"{stats['hit_rate']:.1f}% hit rate, "
-            f"{stats['size']} entradas"
+            f"{stats['size']} entradas, "
+            f"habilitada: {stats['enabled']}"
         )
     
     def __len__(self) -> int:
         """Retorna número de entradas en caché"""
-        return len(self._cache)
+        with self._lock:
+            return len(self._cache)
     
     def __contains__(self, file_path: Path) -> bool:
         """Verifica si un archivo está en caché"""
         file_path = file_path.resolve()
-        return file_path in self._cache
+        with self._lock:
+            return file_path in self._cache

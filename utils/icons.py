@@ -58,6 +58,7 @@ class IconManager:
         'close': 'mdi6.close',
         'cancel': 'mdi6.close-circle',
         'pause-circle': 'mdi6.pause-circle',
+        'plus-circle': 'mdi6.plus-circle',
         
         # Navegación y acciones de archivos
         'folder': 'mdi6.folder',
@@ -371,7 +372,7 @@ class IconManager:
         common_icons = [
             'settings', 'info', 'warning', 'error', 'check-circle',
             'folder', 'file', 'magnify', 'refresh', 'delete',
-            'image', 'video', 'camera', 'check', 'close'
+            'image', 'video', 'camera', 'check', 'close', 'plus-circle'
         ]
         
         for icon_name in common_icons:

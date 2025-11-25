@@ -376,18 +376,9 @@ class DesignSystem:
             QComboBox::drop-down {{
                 border: none;
                 width: 30px;
-                padding-right: {DesignSystem.SPACE_8}px;
+                padding-right: 8px;
             }}
             
-            QComboBox::down-arrow {{
-                image: url(data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' d='M2 4l4 4 4-4'/></svg>);
-                width: 12px;
-                height: 12px;
-            }}
-            
-            QComboBox::down-arrow:hover {{
-                 image: url(data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path fill='none' stroke='%230d6efd' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' d='M2 4l4 4 4-4'/></svg>);
-            }}
 
             QComboBox QAbstractItemView {{
                 background-color: {DesignSystem.COLOR_SURFACE};

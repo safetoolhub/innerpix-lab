@@ -1,9 +1,23 @@
 """
 Utilidades compartidas para Pixaro Lab
 """
-from .logger import get_logger, SimpleLogger, set_global_log_level
+from .logger import (
+    get_logger,
+    SimpleLogger,
+    set_global_log_level,
+    configure_logging,
+    change_logs_directory,
+    get_log_file,
+    get_logs_directory,
+    log_section_header_discrete,
+    log_section_footer_discrete,
+    log_section_header_relevant,
+    log_section_footer_relevant,
+)
 from .date_utils import (
     get_date_from_file,
+    get_all_file_dates,
+    select_chosen_date,
     format_renamed_name,
     is_renamed_filename,
     parse_renamed_name
@@ -22,7 +36,9 @@ from .file_utils import (
     calculate_file_hash,
     launch_backup_creation,
     cleanup_empty_directories,
-    find_next_available_name
+    find_next_available_name,
+    detect_file_source,
+    is_whatsapp_file,
 )
 from .format_utils import (
     format_size,
@@ -51,6 +67,7 @@ from .callback_utils import (
 )
 from .icons import (
     IconManager,
+    icon_manager,
     get_icon,
     set_button_icon,
     set_label_icon,
@@ -61,7 +78,7 @@ from .storage import (
     JsonStorageBackend,
     QSettingsBackend
 )
-from .settings_manager import SettingsManager
+from .settings_manager import SettingsManager, settings_manager
 from .decorators import deprecated
 
 __all__ = [
@@ -69,9 +86,19 @@ __all__ = [
     'get_logger',
     'SimpleLogger',
     'set_global_log_level',
+    'configure_logging',
+    'change_logs_directory',
+    'get_log_file',
+    'get_logs_directory',
+    'log_section_header_discrete',
+    'log_section_footer_discrete',
+    'log_section_header_relevant',
+    'log_section_footer_relevant',
 
     # Date utilities
     'get_date_from_file',
+    'get_all_file_dates',
+    'select_chosen_date',
     'format_renamed_name',
     'is_renamed_filename',
     'parse_renamed_name',
@@ -91,6 +118,8 @@ __all__ = [
     'launch_backup_creation',
     'cleanup_empty_directories',
     'find_next_available_name',
+    'detect_file_source',
+    'is_whatsapp_file',
 
     # Format utilities
     'format_size',
@@ -119,6 +148,7 @@ __all__ = [
 
     # Icon utilities
     'IconManager',
+    'icon_manager',
     'get_icon',
     'set_button_icon',
     'set_label_icon',
@@ -131,6 +161,7 @@ __all__ = [
 
     # Settings manager
     'SettingsManager',
+    'settings_manager',
 
     # Decorators
     'deprecated'

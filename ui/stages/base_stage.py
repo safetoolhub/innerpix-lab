@@ -165,7 +165,17 @@ class BaseStage(QObject):
             # Si es un dataclass, convertir a dict para persistencia
             from dataclasses import is_dataclass, asdict
             if is_dataclass(results):
-                results_dict = asdict(results)
+                # Antes de convertir a dict, remover metadata_cache del scan result
+                # porque contiene un RLock que no se puede serializar
+                if hasattr(results, 'scan') and hasattr(results.scan, 'metadata_cache'):
+                    # Hacer una copia temporal sin la caché
+                    import copy
+                    results_copy = copy.copy(results)
+                    results_copy.scan = copy.copy(results.scan)
+                    results_copy.scan.metadata_cache = None
+                    results_dict = asdict(results_copy)
+                else:
+                    results_dict = asdict(results)
             else:
                 results_dict = results
                 

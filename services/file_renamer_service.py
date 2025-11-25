@@ -78,7 +78,8 @@ class FileRenamer(BaseService):
         issues = []
         
         # Obtener max_workers de la configuración
-        max_workers = settings_manager.get_max_workers(Config.MAX_WORKERS)
+        user_override = settings_manager.get_max_workers(0)
+        max_workers = Config.get_actual_worker_threads(override=user_override, io_bound=True)
         self.logger.debug(f"Usando {max_workers} workers para análisis paralelo")
 
         # Función para procesar un archivo
@@ -128,9 +129,9 @@ class FileRenamer(BaseService):
 
         # Procesar archivos en paralelo
         processed = 0
-        # OPTIMIZACIÓN: Reducir frecuencia de callbacks (de 10 a 50 archivos)
+        # OPTIMIZACIÓN: Reducir frecuencia de callbacks
         # Menor overhead de comunicación Qt sin perder responsividad
-        progress_interval = 50
+        progress_interval = Config.UI_UPDATE_INTERVAL
         
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {executor.submit(process_file, f): f for f in all_files}
@@ -412,6 +413,7 @@ class FileRenamer(BaseService):
         for file_path in all_files:
             renamed_files += 1
 
-            self._report_progress(progress_callback, renamed_files, total_files, f"Renombrando archivo {renamed_files} de {total_files}")
+            if renamed_files % Config.UI_UPDATE_INTERVAL == 0:
+                self._report_progress(progress_callback, renamed_files, total_files, f"Renombrando archivo {renamed_files} de {total_files}")
 
         self._report_progress(progress_callback, total_files, total_files, "Renombrado completado")
