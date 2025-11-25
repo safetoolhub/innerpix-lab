@@ -12,6 +12,25 @@ See `PROJECT_TREE.md` for structure. Ignore `docs/` (author's notes).
 - Orchestrator: `AnalysisOrchestrator.run_full_analysis()` → `FullAnalysisResult`
 - Detectors: `ExactCopiesDetector` (SHA256), `SimilarFilesDetector` (perceptual hash)
 
+**Metadata Cache** (`services/metadata_cache.py`) - Shared optimization system
+- `FileMetadataCache`: Thread-safe cache for expensive operations
+- Caches: SHA256 hashes, EXIF dates, file stats (size, type, timestamps)
+- Shared across services: ExactCopiesDetector, HEICRemover share hashes
+- Auto-sizing: `Config.get_max_cache_entries()` based on system RAM
+- Lifecycle: Created in scan phase, passed to all services via orchestrator
+- Invalidation: Auto-invalidates after destructive ops (delete/move)
+- Stats: `get_stats()` for hits/misses/hit_rate monitoring
+- Thread-safe: Uses RLock for concurrent access
+
+**Similar Files Analysis** (`services/similar_files_detector.py`) - Two-phase system
+- Phase 1: `analyze_initial()` - Expensive perceptual hash calculation (~5 min for 40k files)
+- Phase 2: `get_groups(sensitivity)` - Fast clustering with adjustable sensitivity (<1 sec)
+- `SimilarFilesAnalysis`: Container for pre-calculated hashes, enables real-time re-clustering
+- `find_new_groups()`: Incremental analysis for new files vs existing dataset
+- Serialization: `save_to_file()` / `load_from_file()` for instant cache reload
+- Hamming distance: 64-bit perceptual hash comparison for similarity detection
+- Sensitivity scale: 30-100% (30=permissive, 100=identical only, 85=recommended)
+
 **Workers** (`ui/workers.py`) - QThread background
 - Base: `BaseWorker` with `progress_update`, `finished`, `error` signals
 - Type-safe: hints on `__init__` and `run()`, TYPE_CHECKING for imports
@@ -47,6 +66,9 @@ See `PROJECT_TREE.md` for structure. Ignore `docs/` (author's notes).
 - Init: `configure_logging(logs_dir, level="INFO")`
 - Use: `get_logger('Module')` not print()
 - Thread-safe with RLock
+- File deletion logs: Unified format `FILE_DELETED: <path> | Size: <size> | Type: <type> | Date: <date>`
+- Simulation logs: `FILE_DELETED_SIMULATION:` prefix for dry-run operations
+- Grep-friendly: `grep "FILE_DELETED:" logs/*.log` finds all deletions across tools
 
 **Storage** (`utils/storage.py`)
 - `JsonStorageBackend`: file-based, no PyQt6
@@ -112,14 +134,65 @@ See `PROJECT_TREE.md` for structure. Ignore `docs/` (author's notes).
 - Coverage: services 80%+, utils 90%+
 - Structure: Arrange-Act-Assert
 
+**Test Structure**:
+```
+tests/
+├── conftest.py              # Shared fixtures (temp_dir, create_test_image, etc.)
+├── unit/                    # Unit tests (isolated logic)
+│   ├── services/           # Service tests (all 6 tools covered)
+│   │   ├── test_metadata_cache.py
+│   │   ├── test_exact_copies_detector.py
+│   │   ├── test_similar_files_detector.py
+│   │   ├── test_live_photos_service.py
+│   │   ├── test_heic_remover_service.py
+│   │   ├── test_file_organizer_service.py
+│   │   └── test_analysis_orchestrator.py
+│   └── utils/              # Utils tests (file_utils, date_utils, etc.)
+├── integration/            # Integration tests (multiple components)
+├── performance/            # Performance tests (large datasets)
+└── ui/                     # UI tests (minimal, PyQt6 required)
+```
+
+**Pytest Markers**:
+- `@pytest.mark.unit` - Unit tests (fast, isolated)
+- `@pytest.mark.integration` - Integration tests
+- `@pytest.mark.slow` - Tests >1 second
+- `@pytest.mark.performance` - Large dataset tests
+- Functional: `live_photos`, `duplicates`, `similar`, `heic`, `renaming`, `organization`
+
+**Key Fixtures** (`conftest.py`):
+- `temp_dir` - Auto-cleanup temp directory
+- `create_test_image(path, size, color, format)` - Image factory
+- `create_test_video(path, size)` - Video factory
+- `create_live_photo_pair(dir, name)` - Photo+video pair
+- `sample_live_photos_directory(temp_dir)` - Complete test dataset
+
+**Running Tests**:
+```bash
+pytest                              # All tests
+pytest tests/unit/                  # Unit tests only
+pytest -m "unit and not slow"       # Fast unit tests
+pytest -k "cache"                   # Tests matching "cache"
+pytest --cov=services --cov=utils --cov-report=html  # With coverage
+```
+
+**Test Pattern**:
 ```python
 @pytest.mark.unit
 class TestServiceAspect:
     def test_behavior(self, temp_dir):
+        # Arrange
         service = Service()
+        # Act
         result = service.method(temp_dir)
+        # Assert
         assert result.success == True
 ```
+
+**Coverage Requirements**:
+- Services: 80%+ (comprehensive business logic)
+- Utils: 90%+ (critical shared code)
+- HTML reports: `htmlcov/index.html`
 
 See `tests/README.md` for details.
 

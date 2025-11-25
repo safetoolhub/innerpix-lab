@@ -16,39 +16,18 @@ pixaro-lab/
 ├── pytest.ini                       # Configuración de pytest
 ├── run_tests.sh                     # Script para ejecutar tests
 │
-├── .github/
-│   └── copilot-instructions.md      # Instrucciones para GitHub Copilot
-│
-├── .vscode/
-│   ├── keybindings.json             # Atajos de teclado personalizados
-│   ├── launch.json                  # Configuración de debug
-│   ├── settings.json                # Configuración del workspace
-│   └── tasks.json                   # Tareas personalizadas
-│
-├── docs/                            # Documentación técnica
-│   ├── GPS_DATESTAMP_FIX.md         # ✅ Refactorización select_chosen_date() (Nov 2025)
-│   │                                # - Corrección priorización GPS DateStamp
-│   │                                # - Nueva lógica: EXIF → Filename → Video → FS
-│   │                                # - GPS solo validación (warning si >24h diff)
-│   ├── REFACTORIZACION_GPS_RESUMEN.md # Resumen de refactorización GPS
-│   ├── Funcionalidades.txt          # Lista de funcionalidades implementadas
-│   ├── MEJORAS_DATE_UTILS.md        # Mejoras planificadas para date_utils
-│   ├── TODO.txt                     # Lista de tareas pendientes
-│   ├── TOOLTIPS.md                  # Documentación de tooltips de UI
-│   └── test_date_utils_improvements.py # Tests de mejoras en date_utils
-│
-<!-- Nota: Algunos archivos en `docs/` son notas técnicas y personales del autor. -->
 ├── services/                        # Lógica de negocio (sin dependencias UI)
 │   ├── __init__.py
 │   ├── analysis_orchestrator.py     # Coordinador de análisis completo (100% PyQt6-free)
 │   ├── base_service.py              # ✅ Clase base: logging, backup, progress, format
 │   ├── base_detector_service.py     # ✅ Clase base detectores: execute() unificado
 │   ├── exact_copies_detector.py     # ✅ Detección copias exactas (SHA256)
-│   ├── similar_files_detector.py    # Detección archivos similares (perceptual hash)
+│   ├── similar_files_detector.py    # ✅ Detección archivos similares (perceptual hash)
 │   ├── file_organizer_service.py    # ✅ Organización por fecha/tipo
 │   ├── file_renamer_service.py      # ✅ Renombrado según patrón fecha
 │   ├── heic_remover_service.py      # ✅ Eliminación duplicados HEIC/JPG
-│   ├── live_photo_service.py        # ✅ Servicio unificado Live Photos
+│   ├── live_photos_service.py       # ✅ Servicio unificado Live Photos
+│   ├── metadata_cache.py            # ✅ Caché thread-safe de metadatos (hashes SHA256, EXIF, stats)
 │   ├── result_types.py              # ✅ Dataclasses 100% tipados (NO raw dicts)
 │   ├── service_utils.py             # Utilidades compartidas entre servicios
 │   └── view_models.py               # View Models para separación UI/Lógica
@@ -74,10 +53,10 @@ pixaro-lab/
 │   │   ├── base_dialog.py           # Clase base para diálogos con backup
 │   │   ├── dialog_utils.py          # Utilidades compartidas (open_file, open_folder, show_file_details_dialog)
 │   │   ├── exact_copies_dialog.py   # Diálogo de copias exactas (SHA256-based)
-│   │   ├── heic_dialog.py           # Diálogo de HEIC con vista de detalles
+│   │   ├── heic_remover_dialog.py   # Diálogo de HEIC con vista de detalles
 │   │   ├── live_photos_dialog.py    # Diálogo de Live Photos
-│   │   ├── organization_dialog.py   # Diálogo de organización (3 modos: raíz/mes/WhatsApp)
-│   │   ├── renaming_dialog.py       # Diálogo de renombrado con vista de detalles
+│   │   ├── file_organizer_dialog.py # Diálogo de organización (3 modos: raíz/mes/WhatsApp)
+│   │   ├── file_renaming_dialog.py  # Diálogo de renombrado con vista de detalles
 │   │   ├── settings_dialog.py       # Diálogo de configuración
 │   │   ├── similar_files_dialog.py  # Diálogo de archivos similares (perceptual hash)
 │   │   └── similar_files_progress_dialog.py  # Diálogo de progreso para análisis de similares
@@ -100,13 +79,12 @@ pixaro-lab/
 ├── utils/                           # Utilidades compartidas
 │   ├── __init__.py
 │   ├── callback_utils.py            # Utilidades para callbacks de progreso
-│   ├── date_utils.py                # ✅ Manipulación de fechas con priorización inteligente
-│   │                                # - Ver docs/GPS_DATESTAMP_FIX.md para detalles
+│   ├── date_utils.py                # ✅ Manipulación de fechas con priorización inteligente (EXIF → Filename → Video → FS)
 │   ├── decorators.py                # Decoradores (@deprecated, etc.)
 │   ├── file_utils.py                # Operaciones con archivos (hash, backup, paths)
 │   ├── format_utils.py              # Formateo de tamaños, números, etc.
 │   ├── icons.py                     # Gestión de iconos (qtawesome)
-│   ├── logger.py                    # ✅ Logging thread-safe (RLock, log_block)
+│   ├── logger.py                    # ✅ Logging thread-safe con formato unificado de borrado (FILE_DELETED:)
 │   ├── platform_utils.py            # Utilidades específicas de plataforma
 │   ├── screen_utils.py              # Detección multiplataforma de resolución de pantalla
 │   ├── settings_manager.py          # Gestión de configuración persistente (QSettings/JSON)
@@ -119,19 +97,30 @@ pixaro-lab/
     ├── test_window_size.py          # Tests para lógica de tamaño de ventana
     ├── integration/                 # Tests de integración
     │   └── __init__.py
+    ├── performance/                 # Tests de rendimiento (datasets grandes)
+    │   └── test_large_dataset.py
+    ├── ui/                          # Tests de UI (mínimos, requieren PyQt6)
+    │   ├── __init__.py
+    │   └── test_file_organizer_dialog.py
     └── unit/                        # Tests unitarios
         ├── __init__.py
-        ├── services/                # Tests de servicios
+        ├── test_dynamic_config.py
+        ├── test_similar_files_incremental.py
+        ├── services/                # Tests de servicios (todos los 6 servicios cubiertos)
         │   ├── __init__.py
+        │   ├── test_analysis_orchestrator.py
         │   ├── test_base_service_backup.py
-        │   └── test_live_photo_service.py
+        │   ├── test_exact_copies_detector.py
+        │   ├── test_file_organizer_service.py
+        │   ├── test_heic_remover_service.py
+        │   ├── test_live_photos_service.py
+        │   ├── test_metadata_cache.py
+        │   └── test_similar_files_detector.py
         └── utils/                   # Tests de utilidades
             ├── __init__.py
-            └── test_date_utils.py   # ✅ 84 tests exhaustivos (Nov 2025)
-                                     # - Tests combinatorios de todas las fuentes
-                                     # - Validación GPS coherence
-                                     # - Edge cases y datos corruptos
-                                     # - Cobertura completa de priorización
+            ├── test_date_utils.py
+            ├── test_file_utils.py
+            └── test_format_utils.py
 ```
 
 
