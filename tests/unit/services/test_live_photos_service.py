@@ -274,7 +274,9 @@ class TestLivePhotoServiceEdgeCases:
     
     def test_execute_with_progress_callback(self, temp_dir, create_live_photo_pair):
         """Test que el callback de progreso se llama durante ejecución."""
-        create_live_photo_pair(temp_dir, 'IMG_0001')
+        # Crear suficientes Live Photos para alcanzar el intervalo (UI_UPDATE_INTERVAL = 10)
+        for i in range(15):
+            create_live_photo_pair(temp_dir, f'IMG_{i:04d}')
         
         progress_calls = []
         def progress_callback(current, total, message):
@@ -291,7 +293,7 @@ class TestLivePhotoServiceEdgeCases:
         )
         
         assert result.success == True
-        assert len(progress_calls) > 0
+        assert len(progress_calls) > 0, "Progress callback should be invoked with 15 files"
     
     def test_cancel_via_progress_callback(self, temp_dir, create_live_photo_pair):
         """Test cancelación de operación mediante callback."""
