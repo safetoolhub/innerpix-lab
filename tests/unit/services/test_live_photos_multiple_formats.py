@@ -6,25 +6,24 @@ Escenario crítico: iPhone exporta Live Photos en múltiples formatos
 - IMG_1100.JPG (convertido)
 - IMG_1100.MOV (video compartido)
 
-El servicio debe detectar 2 Live Photos pero solo intentar eliminar el video UNA vez.
+El servicio detecta TODOS los pares posibles y deduplica durante
+la generación del plan de limpieza usando sets.
 
-COMPORTAMIENTO VERIFICADO:
-==========================
+COMPORTAMIENTO VERIFICADO (Deduplicación en plan de limpieza):
+==============================================================
 
 1. KEEP_IMAGE (Mantener imágenes):
-   - Detecta: 2 Live Photos (HEIC+MOV y JPG+MOV)
-   - Elimina: IMG_1100.MOV (1 archivo, sin duplicados)
-   - Conserva: IMG_1100.HEIC + IMG_1100.JPG (AMBAS imágenes)
-   - Resultado: ✅ Ambas imágenes conservadas, video eliminado
+   - Detecta: 2 Live Photos (HEIC+MOV, JPG+MOV)
+   - Plan: Eliminar MOV (1 vez), mantener HEIC+JPG (ambas)
+   - Resultado: ✅ Ambas imágenes conservadas, video eliminado una sola vez
 
 2. KEEP_VIDEO (Mantener video):
-   - Detecta: 2 Live Photos (HEIC+MOV y JPG+MOV)
-   - Elimina: IMG_1100.HEIC + IMG_1100.JPG (2 archivos, AMBAS imágenes)
-   - Conserva: IMG_1100.MOV (1 video, sin duplicados)
+   - Detecta: 2 Live Photos (HEIC+MOV, JPG+MOV)
+   - Plan: Eliminar HEIC+JPG (ambas), mantener MOV (1 vez)
    - Resultado: ✅ Ambas imágenes eliminadas, video conservado
 
-Deduplicación: La implementación usa sets (seen_delete, seen_keep) en 
-_generate_cleanup_plan() para prevenir duplicados en las listas.
+Deduplicación: Los sets en _generate_cleanup_plan() previenen que
+el mismo archivo aparezca múltiples veces en delete/keep lists.
 """
 
 import pytest
@@ -50,10 +49,11 @@ class TestLivePhotosMultipleFormats:
         
         Modo: KEEP_IMAGE (eliminar videos)
         
-        Esperado:
-        - Detecta 2 Live Photos (HEIC+MOV y JPG+MOV)
-        - El video solo debe aparecer UNA vez en files_to_delete
-        - Ejecución debe eliminar el video solo una vez sin errores
+        Esperado (con deduplicación en plan):
+        - Detecta 2 Live Photos (HEIC+MOV, JPG+MOV)
+        - El video aparece UNA vez en files_to_delete (deduplicado)
+        - AMBAS imágenes aparecen en files_to_keep
+        - Ejecución sin errores
         """
         # Crear las 3 archivos
         heic = create_test_image(temp_dir / "IMG_1100.HEIC", color='red', size=(100, 100))
@@ -65,22 +65,20 @@ class TestLivePhotosMultipleFormats:
         # FASE 1: Análisis
         analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
         
-        # Verificar detección (puede detectar 1 o 2 dependiendo de normalización)
-        # Lo importante es la deduplicación en el plan
+        # Verificar detección: 2 Live Photos detectados
         assert analysis.success == True
-        assert analysis.live_photos_found >= 1
+        assert analysis.live_photos_found == 2, "Debe detectar 2 Live Photos (HEIC+MOV, JPG+MOV)"
         
-        # CRÍTICO: El video debe aparecer SOLO UNA VEZ en files_to_delete
+        # El video debe aparecer SOLO UNA VEZ en files_to_delete (deduplicado)
         video_paths = [str(item['path']) for item in analysis.files_to_delete]
-        video_count = video_paths.count(str(mov))
+        assert len(video_paths) == 1, "Debe haber 1 video para eliminar (deduplicado)"
+        assert str(mov) in video_paths, "El video debe estar en files_to_delete"
         
-        assert video_count == 1, f"Video aparece {video_count} veces, debe aparecer solo 1 vez"
-        
-        # CRÍTICO: AMBAS imágenes deben estar en files_to_keep
+        # AMBAS imágenes deben estar en files_to_keep
         keep_paths = [str(item['path']) for item in analysis.files_to_keep]
+        assert len(analysis.files_to_keep) == 2, "Ambas imágenes deben estar en files_to_keep"
         assert str(heic) in keep_paths, "HEIC debe estar en files_to_keep"
         assert str(jpg) in keep_paths, "JPG debe estar en files_to_keep"
-        assert len(analysis.files_to_keep) == 2, "Deben conservarse exactamente 2 imágenes"
         
         # FASE 2: Ejecución real
         result = service.execute(analysis, create_backup=False, dry_run=False)
@@ -103,10 +101,11 @@ class TestLivePhotosMultipleFormats:
         
         Modo: KEEP_VIDEO (eliminar imágenes)
         
-        Esperado:
-        - AMBAS imágenes (HEIC y JPG) deben aparecer en files_to_delete
-        - Video debe mantenerse
-        - Ejecución debe eliminar ambas imágenes
+        Esperado (con deduplicación en plan):
+        - Detecta 2 Live Photos (HEIC+MOV, JPG+MOV)
+        - AMBAS imágenes deben aparecer en files_to_delete
+        - Video debe aparecer UNA vez en files_to_keep (deduplicado)
+        - Ejecución sin errores
         """
         heic = create_test_image(temp_dir / "IMG_1100.HEIC", color='red', size=(100, 100))
         jpg = create_test_image(temp_dir / "IMG_1100.JPG", color='blue', size=(100, 100))
@@ -116,18 +115,18 @@ class TestLivePhotosMultipleFormats:
         analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_VIDEO)
         
         assert analysis.success == True
+        assert analysis.live_photos_found == 2, "Debe detectar 2 Live Photos (HEIC+MOV, JPG+MOV)"
         
-        # CRÍTICO: AMBAS imágenes deben estar marcadas para eliminar
+        # AMBAS imágenes deben estar marcadas para eliminar
         delete_paths = [str(item['path']) for item in analysis.files_to_delete]
-        
+        assert len(analysis.files_to_delete) == 2, "Ambas imágenes deben estar en files_to_delete"
         assert str(heic) in delete_paths, "HEIC debe estar en files_to_delete"
         assert str(jpg) in delete_paths, "JPG debe estar en files_to_delete"
-        assert len(analysis.files_to_delete) == 2, "Deben eliminarse exactamente 2 imágenes"
         
-        # Video debe estar en keep (solo una vez)
+        # Video debe estar en keep UNA sola vez (deduplicado)
         keep_paths = [str(item['path']) for item in analysis.files_to_keep]
         assert str(mov) in keep_paths, "Video debe estar marcado para mantener"
-        assert len(analysis.files_to_keep) == 1, "Solo debe conservarse el video"
+        assert len(analysis.files_to_keep) == 1, "Solo debe conservarse el video (deduplicado)"
         
         # Ejecutar
         result = service.execute(analysis, create_backup=False, dry_run=False)
@@ -137,9 +136,9 @@ class TestLivePhotosMultipleFormats:
         assert len(result.errors) == 0, "No debe haber errores"
         
         # Verificar estado final
-        assert not heic.exists(), "HEIC debe ser eliminado"
-        assert not jpg.exists(), "JPG debe ser eliminado"
         assert mov.exists(), "Video debe conservarse"
+        assert not heic.exists(), "HEIC debe eliminarse"
+        assert not jpg.exists(), "JPG debe eliminarse"
     
     def test_triple_format_with_dry_run(
         self, temp_dir, create_test_image, create_test_video
@@ -147,7 +146,8 @@ class TestLivePhotosMultipleFormats:
         """
         Test: Dry run con HEIC + JPG + JPEG + MOV (3 formatos de imagen).
         
-        Verifica que dry run no falla con múltiples formatos.
+        Verifica que dry run funciona con múltiples formatos.
+        Detecta 3 Live Photos (HEIC+MOV, JPG+MOV, JPEG+MOV), deduplica en plan.
         """
         heic = create_test_image(temp_dir / "IMG_1100.HEIC", color='red', size=(100, 100))
         jpg = create_test_image(temp_dir / "IMG_1100.JPG", color='green', size=(100, 100))
@@ -157,17 +157,18 @@ class TestLivePhotosMultipleFormats:
         service = LivePhotoService()
         analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
         
-        # El video debe aparecer solo una vez
+        # Detecta 3 Live Photos pero el video aparece solo una vez (deduplicado)
+        assert analysis.live_photos_found == 3, "Debe detectar 3 Live Photos"
         video_paths = [str(item['path']) for item in analysis.files_to_delete]
         video_count = video_paths.count(str(mov))
-        assert video_count == 1
+        assert video_count == 1, "Video debe aparecer solo una vez (deduplicado)"
         
         # Dry run
         result = service.execute(analysis, create_backup=False, dry_run=True)
         
         assert result.success == True
         assert len(result.errors) == 0
-        assert result.simulated_files_deleted >= 1
+        assert result.simulated_files_deleted == 1, "Debe simular eliminar 1 archivo (el video)"
         
         # Todos los archivos deben seguir existiendo
         assert heic.exists()
@@ -181,17 +182,17 @@ class TestLivePhotosMultipleFormats:
         """
         Test: Dos Live Photos diferentes en el mismo directorio.
         
-        - IMG_1100.HEIC + IMG_1100.JPG + IMG_1100.MOV
-        - IMG_1200.HEIC + IMG_1200.MOV
+        - IMG_1100.HEIC + IMG_1100.JPG + IMG_1100.MOV (2 Live Photos)
+        - IMG_1200.HEIC + IMG_1200.MOV (1 Live Photo)
         
-        Cada video debe procesarse independientemente.
+        Total: 3 Live Photos detectados, 2 videos únicos en plan.
         """
-        # Live Photo 1 (doble formato)
+        # Live Photo 1 (doble formato → 2 Live Photos)
         heic1 = create_test_image(temp_dir / "IMG_1100.HEIC", color='red', size=(100, 100))
         jpg1 = create_test_image(temp_dir / "IMG_1100.JPG", color='blue', size=(100, 100))
         mov1 = create_test_video(temp_dir / "IMG_1100.MOV", size_bytes=2048)
         
-        # Live Photo 2 (formato único)
+        # Live Photo 2 (formato único → 1 Live Photo)
         heic2 = create_test_image(temp_dir / "IMG_1200.HEIC", color='green', size=(100, 100))
         mov2 = create_test_video(temp_dir / "IMG_1200.MOV", size_bytes=2048)
         
@@ -199,12 +200,13 @@ class TestLivePhotosMultipleFormats:
         analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
         
         assert analysis.success == True
-        assert analysis.live_photos_found >= 2
+        assert analysis.live_photos_found == 3, "Debe detectar 3 Live Photos total"
         
-        # Ambos videos deben aparecer en files_to_delete (uno solo vez cada uno)
+        # Ambos videos deben aparecer en files_to_delete (cada uno solo una vez)
         delete_paths = [str(item['path']) for item in analysis.files_to_delete]
-        assert delete_paths.count(str(mov1)) == 1
-        assert delete_paths.count(str(mov2)) == 1
+        assert delete_paths.count(str(mov1)) == 1, "MOV1 debe aparecer 1 vez (deduplicado)"
+        assert delete_paths.count(str(mov2)) == 1, "MOV2 debe aparecer 1 vez"
+        assert len(delete_paths) == 2, "Solo 2 videos en plan de eliminación"
         
         # Ejecutar
         result = service.execute(analysis, create_backup=False, dry_run=False)

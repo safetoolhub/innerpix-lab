@@ -257,8 +257,9 @@ class HEICRemover(BaseService):
                         time_diff = abs(heic_date - jpg_date)
                         if time_diff.total_seconds() > Config.MAX_TIME_DIFFERENCE_SECONDS:
                             self.logger.warning(
-                                f"Par rechazado por diferencia temporal: {base_name} "
-                                f"en {directory} (diff: {time_diff.total_seconds():.0f}s)"
+                                f"Par rechazado por diferencia temporal: "
+                                f"{directory}/{base_name}.[JPG|HEIC] "
+                                f"(diff: {time_diff.total_seconds():.0f}s)"
                             )
                             self.stats['rejected_by_time_diff'] += 1
                             continue

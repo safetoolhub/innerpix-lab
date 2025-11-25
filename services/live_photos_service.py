@@ -270,6 +270,7 @@ class LivePhotoService(BaseService):
 
             # Ejecutar eliminaciones
             total = len(files_to_delete)
+            
             for idx, file_info in enumerate(files_to_delete):
                 # Reportar progreso al callback (UI)
                 if progress_callback and (idx + 1) % Config.UI_UPDATE_INTERVAL == 0:
@@ -289,14 +290,14 @@ class LivePhotoService(BaseService):
                 try:
                     # Verificar que el archivo existe
                     if not file_path.exists():
-                        # Posibles causas: archivo ya eliminado, movido entre análisis y ejecución,
-                        # o duplicado en el plan de limpieza
-                        error_msg = f"Archivo no encontrado (posiblemente ya procesado): {file_path}"
+                        # Archivo desapareció entre análisis y ejecución
+                        # (ya NO puede ser por deduplicación porque prevenimos eso en la detección)
+                        error_msg = f"Archivo no encontrado (desapareció externamente): {file_path}"
                         results.add_error(error_msg)
                         if dry_run:
                             self.logger.warning(f"[SIMULACIÓN] {error_msg}")
                         else:
-                            self.logger.warning(error_msg)  # Warning en lugar de error
+                            self.logger.warning(error_msg)
                         continue
 
                     # IMPORTANTE: Capturar fecha ANTES de eliminar el archivo
@@ -605,8 +606,12 @@ class LivePhotoService(BaseService):
         """
         Genera plan de limpieza según el modo especificado.
         
+        Maneja correctamente múltiples imágenes compartiendo el mismo video:
+        - KEEP_IMAGE: mantiene TODAS las imágenes, elimina el video UNA vez
+        - KEEP_VIDEO: elimina TODAS las imágenes, mantiene el video UNA vez
+        
         Args:
-            live_photos: Grupos de Live Photos detectados
+            live_photos: Grupos de Live Photos detectados (puede haber múltiples con mismo video)
             mode: Modo de limpieza a aplicar
             
         Returns:
@@ -617,7 +622,7 @@ class LivePhotoService(BaseService):
             'files_to_keep': []
         }
         
-        # Usar sets para evitar duplicados (un archivo puede aparecer en múltiples grupos)
+        # Usar sets para evitar duplicados cuando múltiples imágenes comparten el mismo video
         seen_delete = set()
         seen_keep = set()
 
@@ -627,6 +632,7 @@ class LivePhotoService(BaseService):
                 keep_key = str(lp.image_path)
                 delete_key = str(lp.video_path)
                 
+                # Siempre añadir la imagen (puede haber múltiples imágenes)
                 if keep_key not in seen_keep:
                     plan['files_to_keep'].append({
                         'path': lp.image_path,
@@ -636,6 +642,7 @@ class LivePhotoService(BaseService):
                     })
                     seen_keep.add(keep_key)
                 
+                # Solo añadir el video UNA vez (aunque esté en múltiples grupos)
                 if delete_key not in seen_delete:
                     plan['files_to_delete'].append({
                         'path': lp.video_path,
@@ -650,6 +657,7 @@ class LivePhotoService(BaseService):
                 keep_key = str(lp.video_path)
                 delete_key = str(lp.image_path)
                 
+                # Solo añadir el video UNA vez (aunque esté en múltiples grupos)
                 if keep_key not in seen_keep:
                     plan['files_to_keep'].append({
                         'path': lp.video_path,
@@ -659,6 +667,7 @@ class LivePhotoService(BaseService):
                     })
                     seen_keep.add(keep_key)
                 
+                # Siempre añadir la imagen (puede haber múltiples imágenes)
                 if delete_key not in seen_delete:
                     plan['files_to_delete'].append({
                         'path': lp.image_path,
@@ -676,7 +685,7 @@ class LivePhotoService(BaseService):
                 else:
                     keep_path, keep_type, keep_size = lp.video_path, 'video', lp.video_size
                     delete_path, delete_type, delete_size = lp.image_path, 'image', lp.image_size
-
+                
                 keep_key = str(keep_path)
                 delete_key = str(delete_path)
                 
@@ -706,7 +715,7 @@ class LivePhotoService(BaseService):
                 else:
                     keep_path, keep_type, keep_size = lp.video_path, 'video', lp.video_size
                     delete_path, delete_type, delete_size = lp.image_path, 'image', lp.image_size
-
+                
                 keep_key = str(keep_path)
                 delete_key = str(delete_path)
                 
