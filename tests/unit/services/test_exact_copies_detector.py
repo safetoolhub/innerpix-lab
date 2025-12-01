@@ -434,8 +434,9 @@ class TestExactCopiesDetectorProgress:
     
     def test_progress_callback_invoked(self, temp_dir, create_test_image):
         """Test: callback de progreso se invoca correctamente"""
-        # Crear varios archivos
-        for i in range(5):
+        # Crear suficientes archivos para alcanzar el intervalo de progreso (UI_UPDATE_INTERVAL = 10)
+        # Usamos múltiplo exacto para que el último callback sea con current==total
+        for i in range(20):
             create_test_image(temp_dir / f"image{i}.jpg", color='red')
         
         progress_calls = []
@@ -447,18 +448,20 @@ class TestExactCopiesDetectorProgress:
         detector = ExactCopiesDetector()
         result = detector.analyze(temp_dir, progress_callback=progress_callback)
         
-        assert len(progress_calls) > 0
-        # Verificar que el último progreso sea total
+        assert len(progress_calls) > 0, "Progress callback should be invoked with 20 files"
+        # Verificar que el último progreso llegue al intervalo esperado
         last_call = progress_calls[-1]
-        assert last_call[0] == last_call[1]  # current == total
+        # Con 20 archivos y intervalo de 10, el último callback debe ser en 20
+        assert last_call[0] == 20
+        assert last_call[1] == 20
     
     def test_analysis_cancellation(self, temp_dir, create_test_image):
         """Test: cancelar análisis mediante callback"""
-        # Crear muchos archivos
-        for i in range(20):
+        # Crear suficientes archivos para permitir cancelación (más que UI_UPDATE_INTERVAL)
+        for i in range(30):
             create_test_image(temp_dir / f"image{i}.jpg", color='red')
         
-        cancel_at = 5
+        cancel_at = 2  # Cancelar después de 2 llamadas al callback
         call_count = [0]
         
         def progress_callback(current, total, message):
@@ -471,8 +474,7 @@ class TestExactCopiesDetectorProgress:
         result = detector.analyze(temp_dir, progress_callback=progress_callback)
         
         # El callback debe haberse invocado y cancelado el análisis
-        # (threading puede procesar algunos más antes de detenerse completamente)
-        assert call_count[0] >= cancel_at
+        assert call_count[0] >= cancel_at, f"Expected at least {cancel_at} calls, got {call_count[0]}"
         assert result.success is True
 
 

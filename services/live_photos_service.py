@@ -38,6 +38,20 @@ class LivePhotoGroup:
             raise ValueError(f"Imagen no existe: {self.image_path}")
         if not self.video_path.exists():
             raise ValueError(f"Video no existe: {self.video_path}")
+        
+        # VALIDACIÓN CRÍTICA: Verificar que imagen y video están en el mismo directorio
+        if self.image_path.parent != self.video_path.parent:
+            raise ValueError(
+                f"Live Photo inválido: imagen y video deben estar en el mismo directorio. "
+                f"Imagen: {self.image_path.parent}, Video: {self.video_path.parent}"
+            )
+        
+        # Verificar que el directorio almacenado coincide
+        if self.directory != self.image_path.parent:
+            raise ValueError(
+                f"Inconsistencia en directorio: directory={self.directory}, "
+                f"pero image está en {self.image_path.parent}"
+            )
 
         if not self.image_date:
             self.image_date = get_date_from_file(self.image_path) or datetime.fromtimestamp(self.image_path.stat().st_mtime)
@@ -256,6 +270,7 @@ class LivePhotoService(BaseService):
 
             # Ejecutar eliminaciones
             total = len(files_to_delete)
+            
             for idx, file_info in enumerate(files_to_delete):
                 # Reportar progreso al callback (UI)
                 if progress_callback and (idx + 1) % Config.UI_UPDATE_INTERVAL == 0:
@@ -273,55 +288,46 @@ class LivePhotoService(BaseService):
                 file_size = file_info['size']
 
                 try:
+                    # Verificar que el archivo existe
+                    if not file_path.exists():
+                        # Archivo desapareció entre análisis y ejecución
+                        # (ya NO puede ser por deduplicación porque prevenimos eso en la detección)
+                        error_msg = f"Archivo no encontrado (desapareció externamente): {file_path}"
+                        results.add_error(error_msg)
+                        if dry_run:
+                            self.logger.warning(f"[SIMULACIÓN] {error_msg}")
+                        else:
+                            self.logger.warning(error_msg)
+                        continue
+
+                    # IMPORTANTE: Capturar fecha ANTES de eliminar el archivo
+                    from utils.format_utils import format_size
+                    from utils.date_utils import get_date_from_file
+                    
+                    try:
+                        file_date = get_date_from_file(file_path, verbose=False)
+                        file_date_str = file_date.strftime('%Y-%m-%d %H:%M:%S') if file_date else 'unknown'
+                    except Exception:
+                        file_date_str = 'unknown'
+
                     if dry_run:
                         # Solo simular: no modificar counters reales, usar campos simulados
-                        if file_path.exists():
-                            results.simulated_files_deleted += 1
-                            results.simulated_space_freed += file_size
-                            results.deleted_files.append(str(file_path))
-                            from utils.format_utils import format_size
-                            from utils.date_utils import get_date_from_file
-                            
-                            # Obtener fecha del archivo
-                            try:
-                                file_date = get_date_from_file(file_path, verbose=False)
-                                file_date_str = file_date.strftime('%Y-%m-%d %H:%M:%S') if file_date else 'unknown'
-                            except Exception:
-                                file_date_str = 'unknown'
-                            
-                            self.logger.info(
-                                f"FILE_DELETED_SIMULATION: {file_path} | Size: {format_size(file_size)} | "
-                                f"Type: {file_info['type']} | Date: {file_date_str}"
-                            )
-                        else:
-                            error_msg = f"Archivo no encontrado (simulación): {file_path}"
-                            results.add_error(error_msg)
-                            self.logger.warning(f"[SIMULACIÓN] {error_msg}")
+                        results.simulated_files_deleted += 1
+                        results.simulated_space_freed += file_size
+                        results.deleted_files.append(str(file_path))
+                        
+                        self.logger.info(
+                            f"FILE_DELETED_SIMULATION: {file_path} | Size: {format_size(file_size)} | "
+                            f"Type: {file_info['type']} | Date: {file_date_str}"
+                        )
                     else:
                         # Eliminar realmente
-                        if not file_path.exists():
-                            error_msg = f"Archivo no encontrado: {file_path}"
-                            results.add_error(error_msg)
-                            self.logger.error(error_msg)
-                            continue
-
-                        # Eliminar archivo
                         file_path.unlink()
 
                         # Registrar éxito
                         results.files_deleted += 1
                         results.space_freed += file_size
                         results.deleted_files.append(str(file_path))
-                        
-                        from utils.format_utils import format_size
-                        from utils.date_utils import get_date_from_file
-                        
-                        # Obtener fecha del archivo
-                        try:
-                            file_date = get_date_from_file(file_path, verbose=False)
-                            file_date_str = file_date.strftime('%Y-%m-%d %H:%M:%S') if file_date else 'unknown'
-                        except Exception:
-                            file_date_str = 'unknown'
                         
                         self.logger.info(
                             f"FILE_DELETED: {file_path} | Size: {format_size(file_size)} | "
@@ -600,8 +606,12 @@ class LivePhotoService(BaseService):
         """
         Genera plan de limpieza según el modo especificado.
         
+        Maneja correctamente múltiples imágenes compartiendo el mismo video:
+        - KEEP_IMAGE: mantiene TODAS las imágenes, elimina el video UNA vez
+        - KEEP_VIDEO: elimina TODAS las imágenes, mantiene el video UNA vez
+        
         Args:
-            live_photos: Grupos de Live Photos detectados
+            live_photos: Grupos de Live Photos detectados (puede haber múltiples con mismo video)
             mode: Modo de limpieza a aplicar
             
         Returns:
@@ -611,37 +621,61 @@ class LivePhotoService(BaseService):
             'files_to_delete': [],
             'files_to_keep': []
         }
+        
+        # Usar sets para evitar duplicados cuando múltiples imágenes comparten el mismo video
+        seen_delete = set()
+        seen_keep = set()
 
         for lp in live_photos:
             if mode == CleanupMode.KEEP_IMAGE:
                 # Mantener imagen, eliminar video
-                plan['files_to_keep'].append({
-                    'path': lp.image_path,
-                    'type': 'image',
-                    'size': lp.image_size,
-                    'base_name': lp.base_name
-                })
-                plan['files_to_delete'].append({
-                    'path': lp.video_path,
-                    'type': 'video', 
-                    'size': lp.video_size,
-                    'base_name': lp.base_name
-                })
+                keep_key = str(lp.image_path)
+                delete_key = str(lp.video_path)
+                
+                # Siempre añadir la imagen (puede haber múltiples imágenes)
+                if keep_key not in seen_keep:
+                    plan['files_to_keep'].append({
+                        'path': lp.image_path,
+                        'type': 'image',
+                        'size': lp.image_size,
+                        'base_name': lp.base_name
+                    })
+                    seen_keep.add(keep_key)
+                
+                # Solo añadir el video UNA vez (aunque esté en múltiples grupos)
+                if delete_key not in seen_delete:
+                    plan['files_to_delete'].append({
+                        'path': lp.video_path,
+                        'type': 'video', 
+                        'size': lp.video_size,
+                        'base_name': lp.base_name
+                    })
+                    seen_delete.add(delete_key)
 
             elif mode == CleanupMode.KEEP_VIDEO:
                 # Mantener video, eliminar imagen
-                plan['files_to_keep'].append({
-                    'path': lp.video_path,
-                    'type': 'video',
-                    'size': lp.video_size,
-                    'base_name': lp.base_name
-                })
-                plan['files_to_delete'].append({
-                    'path': lp.image_path,
-                    'type': 'image',
-                    'size': lp.image_size,
-                    'base_name': lp.base_name
-                })
+                keep_key = str(lp.video_path)
+                delete_key = str(lp.image_path)
+                
+                # Solo añadir el video UNA vez (aunque esté en múltiples grupos)
+                if keep_key not in seen_keep:
+                    plan['files_to_keep'].append({
+                        'path': lp.video_path,
+                        'type': 'video',
+                        'size': lp.video_size,
+                        'base_name': lp.base_name
+                    })
+                    seen_keep.add(keep_key)
+                
+                # Siempre añadir la imagen (puede haber múltiples imágenes)
+                if delete_key not in seen_delete:
+                    plan['files_to_delete'].append({
+                        'path': lp.image_path,
+                        'type': 'image',
+                        'size': lp.image_size,
+                        'base_name': lp.base_name
+                    })
+                    seen_delete.add(delete_key)
 
             elif mode == CleanupMode.KEEP_LARGER:
                 # Mantener el archivo más grande
@@ -651,19 +685,27 @@ class LivePhotoService(BaseService):
                 else:
                     keep_path, keep_type, keep_size = lp.video_path, 'video', lp.video_size
                     delete_path, delete_type, delete_size = lp.image_path, 'image', lp.image_size
-
-                plan['files_to_keep'].append({
-                    'path': keep_path,
-                    'type': keep_type,
-                    'size': keep_size,
-                    'base_name': lp.base_name
-                })
-                plan['files_to_delete'].append({
-                    'path': delete_path,
-                    'type': delete_type,
-                    'size': delete_size,
-                    'base_name': lp.base_name
-                })
+                
+                keep_key = str(keep_path)
+                delete_key = str(delete_path)
+                
+                if keep_key not in seen_keep:
+                    plan['files_to_keep'].append({
+                        'path': keep_path,
+                        'type': keep_type,
+                        'size': keep_size,
+                        'base_name': lp.base_name
+                    })
+                    seen_keep.add(keep_key)
+                
+                if delete_key not in seen_delete:
+                    plan['files_to_delete'].append({
+                        'path': delete_path,
+                        'type': delete_type,
+                        'size': delete_size,
+                        'base_name': lp.base_name
+                    })
+                    seen_delete.add(delete_key)
 
             elif mode == CleanupMode.KEEP_SMALLER:
                 # Mantener el archivo más pequeño
@@ -673,18 +715,26 @@ class LivePhotoService(BaseService):
                 else:
                     keep_path, keep_type, keep_size = lp.video_path, 'video', lp.video_size
                     delete_path, delete_type, delete_size = lp.image_path, 'image', lp.image_size
-
-                plan['files_to_keep'].append({
-                    'path': keep_path,
-                    'type': keep_type,
-                    'size': keep_size,
-                    'base_name': lp.base_name
-                })
-                plan['files_to_delete'].append({
-                    'path': delete_path,
-                    'type': delete_type,
-                    'size': delete_size,
-                    'base_name': lp.base_name
-                })
+                
+                keep_key = str(keep_path)
+                delete_key = str(delete_path)
+                
+                if keep_key not in seen_keep:
+                    plan['files_to_keep'].append({
+                        'path': keep_path,
+                        'type': keep_type,
+                        'size': keep_size,
+                        'base_name': lp.base_name
+                    })
+                    seen_keep.add(keep_key)
+                
+                if delete_key not in seen_delete:
+                    plan['files_to_delete'].append({
+                        'path': delete_path,
+                        'type': delete_type,
+                        'size': delete_size,
+                        'base_name': lp.base_name
+                    })
+                    seen_delete.add(delete_key)
 
         return plan

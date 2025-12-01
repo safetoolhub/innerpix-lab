@@ -4,7 +4,6 @@ Desacoplado de PyQt6 para facilitar migración a otras plataformas
 """
 import logging
 from typing import Optional, Tuple
-from ui.styles.design_system import DesignSystem
 
 logger = logging.getLogger(__name__)
 
@@ -24,11 +23,13 @@ class ScreenResolution:
     @property
     def is_fullhd_or_smaller(self) -> bool:
         """Verifica si la resolución es FullHD o menor"""
+        from ui.styles.design_system import DesignSystem
         return self.width <= DesignSystem.FULLHD_WIDTH and self.height <= DesignSystem.FULLHD_HEIGHT
 
     @property
     def is_larger_than_fullhd(self) -> bool:
         """Verifica si la resolución es mayor que FullHD"""
+        from ui.styles.design_system import DesignSystem
         return self.width > DesignSystem.FULLHD_WIDTH or self.height > DesignSystem.FULLHD_HEIGHT
 
 
@@ -50,6 +51,7 @@ class WindowSizeConfig:
         """
         if screen_resolution.is_larger_than_fullhd:
             # Monitor 2K+ o superior: mostrar en FullHD
+            from ui.styles.design_system import DesignSystem
             optimal_size = ScreenResolution(DesignSystem.FULLHD_WIDTH, DesignSystem.FULLHD_HEIGHT)
             return 'resize', optimal_size
         else:
@@ -107,6 +109,7 @@ class ScreenDetector:
         except Exception as e:
             logger.warning(f"Error detectando resolución de pantalla: {e}")
             # Fallback a FullHD
+            from ui.styles.design_system import DesignSystem
             fallback = ScreenResolution(DesignSystem.FULLHD_WIDTH, DesignSystem.FULLHD_HEIGHT)
             logger.info(f"Usando resolución fallback: {fallback}")
             return fallback

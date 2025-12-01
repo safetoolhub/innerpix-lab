@@ -274,7 +274,9 @@ class TestLivePhotoServiceEdgeCases:
     
     def test_execute_with_progress_callback(self, temp_dir, create_live_photo_pair):
         """Test que el callback de progreso se llama durante ejecución."""
-        create_live_photo_pair(temp_dir, 'IMG_0001')
+        # Crear suficientes Live Photos para alcanzar el intervalo (UI_UPDATE_INTERVAL = 10)
+        for i in range(15):
+            create_live_photo_pair(temp_dir, f'IMG_{i:04d}')
         
         progress_calls = []
         def progress_callback(current, total, message):
@@ -291,7 +293,7 @@ class TestLivePhotoServiceEdgeCases:
         )
         
         assert result.success == True
-        assert len(progress_calls) > 0
+        assert len(progress_calls) > 0, "Progress callback should be invoked with 15 files"
     
     def test_cancel_via_progress_callback(self, temp_dir, create_live_photo_pair):
         """Test cancelación de operación mediante callback."""
@@ -360,6 +362,30 @@ class TestLivePhotoGroupDataclass:
                 video_path=video_path,
                 base_name='IMG_0001',
                 directory=temp_dir,
+                image_size=100,
+                video_size=100
+            )
+    
+    def test_live_photo_group_rejects_different_directories(self, temp_dir):
+        """Test que LivePhotoGroup rechaza archivos en directorios diferentes."""
+        # Crear subdirectorio
+        subdir = temp_dir / 'videos'
+        subdir.mkdir()
+        
+        # Crear archivos en directorios diferentes
+        image_path = temp_dir / 'IMG_0001.HEIC'
+        video_path = subdir / 'IMG_0001.MOV'
+        
+        image_path.write_bytes(b'fake image')
+        video_path.write_bytes(b'fake video')
+        
+        # Debe rechazar porque están en directorios diferentes
+        with pytest.raises(ValueError, match="mismo directorio"):
+            LivePhotoGroup(
+                image_path=image_path,
+                video_path=video_path,
+                base_name='IMG_0001',
+                directory=temp_dir,  # Directorio de la imagen
                 image_size=100,
                 video_size=100
             )

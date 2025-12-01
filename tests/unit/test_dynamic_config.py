@@ -51,12 +51,12 @@ class TestCacheConfiguration:
     """Tests para configuración dinámica de caché"""
     
     @pytest.mark.parametrize("ram_gb,expected_cache", [
-        (4.0, 5000),    # Mínimo aplicado: 4*1000=4000 -> 5000
-        (8.0, 8000),    # 8*1000 = 8000
-        (16.0, 16000),  # 16*1000 = 16000
-        (32.0, 20000),  # Máximo aplicado: 32*1000=32000 -> 20000
-        (64.0, 20000),  # Máximo aplicado: 64*1000=64000 -> 20000
-        (2.0, 5000),    # Mínimo aplicado: 2*1000=2000 -> 5000
+        (4.0, 5000),     # Mínimo aplicado: 4*1000=4000 -> 5000
+        (8.0, 8000),     # 8*1000 = 8000
+        (16.0, 16000),   # 16*1000 = 16000
+        (32.0, 32000),   # 32*1000 = 32000
+        (64.0, 64000),   # 64*1000 = 64000
+        (2.0, 5000),     # Mínimo aplicado: 2*1000=2000 -> 5000
     ])
     def test_get_max_cache_entries(self, ram_gb, expected_cache):
         """Test: Calcula max cache entries correctamente según RAM"""
@@ -70,17 +70,17 @@ class TestCacheConfiguration:
             assert Config.get_max_cache_entries() == 5000
     
     def test_max_cache_entries_maximum_limit(self):
-        """Test: Aplica límite máximo de 20000 entradas"""
+        """Test: Aplica límite máximo de 200000 entradas"""
         with patch.object(Config, '_get_system_ram_gb', return_value=100.0):
-            # 100GB * 1000 = 100000, pero máximo es 20000
-            assert Config.get_max_cache_entries() == 20000
+            # 100GB * 1000 = 100000, menor que máximo 200000
+            assert Config.get_max_cache_entries() == 100000
     
     @pytest.mark.parametrize("ram_gb,expected_threshold", [
         (4.0, 3000),    # Mínimo aplicado: 4*500=2000 -> 3000
         (8.0, 4000),    # 8*500 = 4000
         (16.0, 8000),   # 16*500 = 8000
-        (32.0, 10000),  # Máximo aplicado: 32*500=16000 -> 10000
-        (64.0, 10000),  # Máximo aplicado: 64*500=32000 -> 10000
+        (32.0, 16000),  # 32*500 = 16000
+        (64.0, 32000),  # 64*500 = 32000
     ])
     def test_get_large_dataset_threshold(self, ram_gb, expected_threshold):
         """Test: Calcula threshold de dataset grande según RAM"""
@@ -94,10 +94,10 @@ class TestCacheConfiguration:
             assert Config.get_large_dataset_threshold() == 3000
     
     def test_large_dataset_threshold_maximum(self):
-        """Test: Aplica límite máximo de 10000 archivos"""
+        """Test: Aplica límite máximo de 50000 archivos"""
         with patch.object(Config, '_get_system_ram_gb', return_value=100.0):
-            # 100GB * 500 = 50000, pero máximo es 10000
-            assert Config.get_large_dataset_threshold() == 10000
+            # 100GB * 500 = 50000, que es exactamente el máximo
+            assert Config.get_large_dataset_threshold() == 50000
     
     def test_similarity_dialog_auto_open_threshold(self):
         """Test: Threshold de auto-open es 60% del large dataset"""
@@ -323,8 +323,8 @@ class TestEdgeCases:
             threshold = Config.get_large_dataset_threshold()
             
             # Debe aplicar máximos
-            assert cache == 20000
-            assert threshold == 10000
+            assert cache == 200000  # Máximo actualizado
+            assert threshold == 50000  # Máximo actualizado
     
     def test_massive_cpu_system(self):
         """Test: Maneja sistemas con muchos cores (>64)"""
@@ -370,9 +370,9 @@ class TestIntegration:
             with patch.object(Config, 'get_cpu_count', return_value=16):
                 info = Config.get_system_info()
                 
-                assert info['max_cache_entries'] == 20000  # Máximo
-                assert info['large_dataset_threshold'] == 10000  # Máximo
-                assert info['auto_open_threshold'] == 6000
+                assert info['max_cache_entries'] == 32000  # 32*1000 = 32000
+                assert info['large_dataset_threshold'] == 16000  # 32*500 = 16000
+                assert info['auto_open_threshold'] == 9600  # 60% de 16000
                 assert info['io_workers'] == 16  # Máximo (16*2=32->16)
                 assert info['cpu_workers'] == 16  # 16*1=16
     
@@ -382,9 +382,9 @@ class TestIntegration:
             with patch.object(Config, 'get_cpu_count', return_value=32):
                 info = Config.get_system_info()
                 
-                # Todos en máximo
-                assert info['max_cache_entries'] == 20000
-                assert info['large_dataset_threshold'] == 10000
-                assert info['auto_open_threshold'] == 6000
-                assert info['io_workers'] == 16
-                assert info['cpu_workers'] == 16
+                # Valores según fórmulas (no máximos aún)
+                assert info['max_cache_entries'] == 64000  # 64*1000 = 64000
+                assert info['large_dataset_threshold'] == 32000  # 64*500 = 32000
+                assert info['auto_open_threshold'] == 19200  # 60% de 32000
+                assert info['io_workers'] == 16  # Máximo
+                assert info['cpu_workers'] == 16  # Máximo

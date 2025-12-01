@@ -306,11 +306,23 @@ class AnalysisOrchestrator:
                             from utils.date_utils import get_all_file_dates
                             exif_dates = get_all_file_dates(f)
                             if exif_dates:
-                                metadata_cache.set_exif_dates(
-                                    f,
-                                    exif_date=exif_dates.get('exif_date'),
-                                    exif_date_original=exif_dates.get('exif_date_original')
-                                )
+                                # Mapear las keys de get_all_file_dates a las esperadas por la caché
+                                # get_all_file_dates devuelve:
+                                #   - 'exif_create_date': CreateDate/DateTime EXIF tag
+                                #   - 'exif_date_time_original': DateTimeOriginal EXIF tag
+                                # La caché usa nombres simplificados:
+                                #   - exif_date: para CreateDate
+                                #   - exif_date_original: para DateTimeOriginal
+                                exif_date = exif_dates.get('exif_create_date')
+                                exif_date_original = exif_dates.get('exif_date_time_original')
+                                
+                                # Solo cachear si al menos una fecha existe
+                                if exif_date or exif_date_original:
+                                    metadata_cache.set_exif_dates(
+                                        f,
+                                        exif_date=exif_date,
+                                        exif_date_original=exif_date_original
+                                    )
                         except Exception as e:
                             # No loguear warning para EXIF fallido - es común en archivos sin EXIF
                             pass
