@@ -65,7 +65,7 @@ class ToolCard(QFrame):
             }}
             ToolCard:hover {{
                 border-color: {DesignSystem.COLOR_PRIMARY};
-                background-color: rgba(37, 99, 235, 0.02);
+                background-color: {DesignSystem.COLOR_PRIMARY_SUBTLE};
             }}
         """)
         

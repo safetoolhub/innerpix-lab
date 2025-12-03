@@ -31,6 +31,9 @@ class BaseDialog(QDialog):
         super().__init__(parent)
         self.backup_checkbox = None
         self._ok_button_ref = None
+        
+        # Aplicar estilo global a todos los diálogos
+        self.setStyleSheet(DesignSystem.get_stylesheet() + DesignSystem.get_tooltip_style())
 
 
 

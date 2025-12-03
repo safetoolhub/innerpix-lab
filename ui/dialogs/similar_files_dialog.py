@@ -157,8 +157,8 @@ class SimilarFilesDialog(BaseDialog):
         self.resize(1280, 900)
         self.setMinimumSize(1100, 750)
         
-        # Estilo base
-        self.setStyleSheet(DesignSystem.get_stylesheet() + DesignSystem.get_tooltip_style())
+        # Estilo base aplicado por BaseDialog
+        # self.setStyleSheet(DesignSystem.get_stylesheet() + DesignSystem.get_tooltip_style())
         
         # Layout principal
         main_layout = QVBoxLayout(self)

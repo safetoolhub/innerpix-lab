@@ -14,13 +14,14 @@ class DesignSystem:
     COLOR_SURFACE = "#FFFFFF"
     COLOR_TEXT = "#212529"
     COLOR_TEXT_SECONDARY = "#6C757D"
-    COLOR_TEXT_TERTIARY = "#ADB5BD"
+
     
     # Colores primarios (Azul vibrante pero profesional)
     COLOR_PRIMARY = "#0D6EFD"
     COLOR_PRIMARY_HOVER = "#0B5ED7"
     COLOR_PRIMARY_ACTIVE = "#0A58CA"
     COLOR_PRIMARY_LIGHT = "#E7F1FF"  # Para fondos sutiles
+    COLOR_PRIMARY_SUBTLE = "rgba(37, 99, 235, 0.02)"  # Para fondos muy sutiles (hover cards)
     COLOR_PRIMARY_TEXT = "#FFFFFF"
     
     # Colores secundarios (Gris neutro)
@@ -86,9 +87,7 @@ class DesignSystem:
     RADIUS_XL = 16
     RADIUS_FULL = 9999    # ==================== SOMBRAS ====================
     
-    SHADOW_SM = "0 1px 2px rgba(0,0,0,0.05)"
-    SHADOW_MD = "0 4px 6px rgba(0,0,0,0.05), 0 1px 3px rgba(0,0,0,0.1)"
-    SHADOW_LG = "0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)"
+
     
     # ==================== DIMENSIONES ====================
     
