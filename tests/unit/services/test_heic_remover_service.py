@@ -587,7 +587,7 @@ class TestHEICRemoverDeletionKeepJPG:
         # Ejecutar eliminación sin backup
         result = heic_remover.execute(
             duplicate_pairs=analysis.duplicate_pairs,
-            keep_format='file-jpg-box',
+            keep_format='jpg',
             create_backup=False,
             dry_run=False
         )
@@ -612,7 +612,7 @@ class TestHEICRemoverDeletionKeepJPG:
         
         result = heic_remover.execute(
             duplicate_pairs=analysis.duplicate_pairs,
-            keep_format='file-jpg-box',
+            keep_format='jpg',
             create_backup=False,
             dry_run=False
         )
@@ -642,7 +642,7 @@ class TestHEICRemoverDeletionKeepHEIC:
         
         result = heic_remover.execute(
             duplicate_pairs=analysis.duplicate_pairs,
-            keep_format='file-image',
+            keep_format='heic',
             create_backup=False,
             dry_run=False
         )
@@ -651,7 +651,7 @@ class TestHEICRemoverDeletionKeepHEIC:
         assert result.files_deleted == 1
         assert heic_path.exists()  # HEIC preservado
         assert not jpg_path.exists()  # JPG eliminado
-        assert result.format_kept == 'file-image'
+        assert result.format_kept == 'heic'
     
     def test_delete_multiple_jpg_keep_heic(self, heic_remover, temp_dir, create_heic_jpg_pair):
         """Test de eliminación múltiple manteniendo HEIC."""
@@ -666,7 +666,7 @@ class TestHEICRemoverDeletionKeepHEIC:
         
         result = heic_remover.execute(
             duplicate_pairs=analysis.duplicate_pairs,
-            keep_format='file-image',
+            keep_format='heic',
             create_backup=False,
             dry_run=False
         )
@@ -695,7 +695,7 @@ class TestHEICRemoverDryRun:
         
         result = heic_remover.execute(
             duplicate_pairs=analysis.duplicate_pairs,
-            keep_format='file-jpg-box',
+            keep_format='jpg',
             create_backup=False,
             dry_run=True
         )
@@ -718,7 +718,7 @@ class TestHEICRemoverDryRun:
         
         result = heic_remover.execute(
             duplicate_pairs=analysis.duplicate_pairs,
-            keep_format='file-jpg-box',
+            keep_format='jpg',
             create_backup=False,
             dry_run=True
         )
@@ -743,7 +743,7 @@ class TestHEICRemoverBackup:
         
         result = heic_remover.execute(
             duplicate_pairs=analysis.duplicate_pairs,
-            keep_format='file-jpg-box',
+            keep_format='jpg',
             create_backup=True,
             dry_run=False
         )
@@ -764,7 +764,7 @@ class TestHEICRemoverBackup:
         
         result = heic_remover.execute(
             duplicate_pairs=analysis.duplicate_pairs,
-            keep_format='file-jpg-box',
+            keep_format='jpg',
             create_backup=False,
             dry_run=False
         )
@@ -781,7 +781,7 @@ class TestHEICRemoverBackup:
         
         result = heic_remover.execute(
             duplicate_pairs=analysis.duplicate_pairs,
-            keep_format='file-jpg-box',
+            keep_format='jpg',
             create_backup=True,
             dry_run=True
         )
@@ -801,7 +801,7 @@ class TestHEICRemoverEdgeCases:
         """Test de ejecución con lista vacía de duplicados."""
         result = heic_remover.execute(
             duplicate_pairs=[],
-            keep_format='file-jpg-box',
+            keep_format='jpg',
             create_backup=False,
             dry_run=False
         )
@@ -986,7 +986,7 @@ class TestHEICRemoverResults:
         analysis = heic_remover.analyze(temp_dir, validate_dates=True)
         result = heic_remover.execute(
             duplicate_pairs=analysis.duplicate_pairs,
-            keep_format='file-jpg-box',
+            keep_format='jpg',
             create_backup=False,
             dry_run=False
         )
