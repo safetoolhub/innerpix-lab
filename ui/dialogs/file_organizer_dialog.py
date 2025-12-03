@@ -124,7 +124,7 @@ class FileOrganizationDialog(BaseDialog):
         
         # === HEADER COMPACTO CON MÉTRICAS ===
         self.header_frame = self._create_compact_header_with_metrics(
-            icon_name='folder-settings',
+            icon_name='folder-cog',
             title='Organización de Archivos',
             description='Elige cómo organizar tus archivos',
             metrics=[
@@ -141,7 +141,7 @@ class FileOrganizationDialog(BaseDialog):
                 {
                     'label': 'Tamaño',
                     'value': format_size(self.analysis.total_size_to_move) if self.analysis else '0 B',
-                    'icon': 'storage'
+                    'icon': 'database'
                 }
             ]
         )
@@ -233,27 +233,27 @@ class FileOrganizationDialog(BaseDialog):
         # Definir estrategias
         self.strategies = {
             'date': {
-                'icon': 'calendar_month', 
+                'icon': 'calendar-month', 
                 'label': 'Por Fecha', 
-                'tooltip': 'Organizar archivos cronológicamente (Año, Mes...)',
+                'tooltip-text': 'Organizar archivos cronológicamente (Año, Mes...)',
                 'types': [OrganizationType.BY_MONTH, OrganizationType.BY_YEAR, OrganizationType.BY_YEAR_MONTH]
             },
             'type': {
                 'icon': 'image', 
                 'label': 'Por Tipo', 
-                'tooltip': 'Agrupar por tipo de archivo (Fotos, Videos...)',
+                'tooltip-text': 'Agrupar por tipo de archivo (Fotos, Videos...)',
                 'types': [OrganizationType.BY_TYPE]
             },
             'source': {
                 'icon': 'devices', 
                 'label': 'Por Fuente', 
-                'tooltip': 'Agrupar por dispositivo de origen (Cámara, WhatsApp...)',
+                'tooltip-text': 'Agrupar por dispositivo de origen (Cámara, WhatsApp...)',
                 'types': [OrganizationType.BY_SOURCE]
             },
             'cleanup': {
                 'icon': 'folder-open', 
                 'label': 'Todo junto', 
-                'tooltip': 'Mover todo a la raíz y eliminar carpetas vacías',
+                'tooltip-text': 'Mover todo a la raíz y eliminar carpetas vacías',
                 'types': [OrganizationType.TO_ROOT]
             }
         }
@@ -305,7 +305,7 @@ class FileOrganizationDialog(BaseDialog):
         card = QFrame()
         card.setCursor(Qt.CursorShape.PointingHandCursor)
         card.setProperty("strategy_key", key)
-        card.setToolTip(data['tooltip'])
+        card.setToolTip(data['tooltip-text'])
         
         # Layout de la tarjeta
         layout = QVBoxLayout(card)
@@ -402,7 +402,7 @@ class FileOrganizationDialog(BaseDialog):
         layout.setContentsMargins(DesignSystem.SPACE_20, DesignSystem.SPACE_16, DesignSystem.SPACE_20, DesignSystem.SPACE_16)
         
         icon_label = QLabel()
-        icon_manager.set_label_icon(icon_label, "info", size=DesignSystem.ICON_SIZE_MD, color=DesignSystem.COLOR_PRIMARY)
+        icon_manager.set_label_icon(icon_label, "information", size=DesignSystem.ICON_SIZE_MD, color=DesignSystem.COLOR_PRIMARY)
         
         text_label = QLabel("Esta opción moverá todos los archivos al directorio raíz y eliminará las carpetas vacías.")
         text_label.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY};")
@@ -697,9 +697,9 @@ class FileOrganizationDialog(BaseDialog):
         """Devuelve el nombre del icono para un tipo de organización"""
         icon_map = {
             OrganizationType.TO_ROOT: "folder-open",
-            OrganizationType.BY_MONTH: "calendar_month",
-            OrganizationType.BY_YEAR: "calendar_today",
-            OrganizationType.BY_YEAR_MONTH: "date_range",
+            OrganizationType.BY_MONTH: "calendar-month",
+            OrganizationType.BY_YEAR: "calendar-today",
+            OrganizationType.BY_YEAR_MONTH: "calendar-range",
             OrganizationType.BY_TYPE: "image",
             OrganizationType.BY_SOURCE: "devices"
         }

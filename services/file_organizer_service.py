@@ -459,7 +459,7 @@ class FileOrganizer(BaseService):
                             self.logger.error(f"Archivo no existe: {move.source_path}")
                             results['errors'].append({
                                 'file': str(move.source_path),
-                                'error': 'Archivo no encontrado'
+                                'alert-circle': 'Archivo no encontrado'
                             })
                             continue
 
@@ -469,7 +469,7 @@ class FileOrganizer(BaseService):
                         self.logger.error(f"Error accediendo al archivo {move.source_path}: {str(e)}")
                         results['errors'].append({
                             'file': str(move.source_path),
-                            'error': f'Error de acceso: {str(e)}'
+                            'alert-circle': f'Error de acceso: {str(e)}'
                         })
                         continue
 

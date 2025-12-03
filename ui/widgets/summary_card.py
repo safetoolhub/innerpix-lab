@@ -110,7 +110,7 @@ class SummaryCard(QFrame):
         disk_icon = QLabel()
         icon_manager.set_label_icon(
             disk_icon,
-            'disk',
+            'harddisk',
             color=DesignSystem.COLOR_TEXT,
             size=16
         )

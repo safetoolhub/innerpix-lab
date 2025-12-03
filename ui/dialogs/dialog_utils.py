@@ -186,7 +186,7 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
         
         if 'conflict' in additional_info:
             status_text = "Conflicto de nombre" if additional_info['conflict'] else "Sin conflictos"
-            status_icon = 'error' if additional_info['conflict'] else 'check-circle'
+            status_icon = 'alert-circle' if additional_info['conflict'] else 'check-circle'
             status_color = DesignSystem.COLOR_DANGER if additional_info['conflict'] else DesignSystem.COLOR_SUCCESS
             additional_items.append(("Estado", status_text, status_icon))
         
@@ -214,7 +214,7 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     
     # === SECCIÓN 4: METADATOS ADICIONALES ===
     if additional_info and 'metadata' in additional_info and additional_info['metadata']:
-        metadata_items = [(key, str(value), 'info') for key, value in additional_info['metadata'].items()]
+        metadata_items = [(key, str(value), 'information') for key, value in additional_info['metadata'].items()]
         metadata_section = _create_material_section("Metadatos", metadata_items)
         scroll_layout.addWidget(metadata_section)
     
@@ -453,7 +453,7 @@ def _create_dates_section(dates_info: dict):
             "EXIF GPS DateStamp", 
             dates_info['exif_gps_date'].strftime("%Y-%m-%d %H:%M:%S"),
             "Fecha GPS del archivo",
-            'location',
+            'map-marker',
             DesignSystem.COLOR_ACCENT
         )
         layout.addWidget(exif_row)
@@ -465,7 +465,7 @@ def _create_dates_section(dates_info: dict):
             "Software EXIF", 
             dates_info['exif_software'],
             "Aplicación que creó/modificó el archivo",
-            'settings'
+            'cog'
         )
         layout.addWidget(software_row)
         exif_dates_added = True
@@ -483,7 +483,7 @@ def _create_dates_section(dates_info: dict):
             "Fecha del nombre", 
             dates_info['filename_date'].strftime("%Y-%m-%d %H:%M:%S"),
             "Extraída del nombre del archivo (WhatsApp, etc.)",
-            'file-text',
+            'file-document-outline',
             DesignSystem.COLOR_INFO
         )
         layout.addWidget(filename_row)

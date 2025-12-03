@@ -288,7 +288,7 @@ class BaseStage(QObject):
 
         # Logo/Icono de la aplicación
         app_icon = QLabel()
-        icon_manager.set_label_icon(app_icon, 'app', color=DesignSystem.COLOR_PRIMARY, size=DesignSystem.ICON_SIZE_LG)
+        icon_manager.set_label_icon(app_icon, 'movie-open', color=DesignSystem.COLOR_PRIMARY, size=DesignSystem.ICON_SIZE_LG)
         layout.addWidget(app_icon)
 
         # Título principal
@@ -332,7 +332,7 @@ class BaseStage(QObject):
             btn_settings = QToolButton()
             btn_settings.setAutoRaise(True)
             btn_settings.setToolTip("Configuración")
-            icon_manager.set_button_icon(btn_settings, 'settings', color=DesignSystem.COLOR_TEXT_SECONDARY, size=20)
+            icon_manager.set_button_icon(btn_settings, 'cog', color=DesignSystem.COLOR_TEXT_SECONDARY, size=20)
             btn_settings.setIconSize(QSize(20, 20))
             btn_settings.clicked.connect(on_settings_clicked)
             btn_settings.setStyleSheet(DesignSystem.get_icon_button_style())

@@ -58,7 +58,7 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         initial_recoverable = self.analysis.potential_savings_keep_jpg if self.selected_format == 'jpg' else self.analysis.potential_savings_keep_heic
         
         self.header_frame = self._create_compact_header_with_metrics(
-            icon_name='photo-library',
+            icon_name='image-album',
             title='Duplicados HEIC/JPG detectados',
             description='Fotos HEIC con versiones JPG idénticas. Elige qué formato conservar y libera espacio.',
             metrics=[
@@ -136,7 +136,7 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         
         return self._create_option_selector(
             title="Elige qué formato conservar",
-            title_icon='photo-library',
+            title_icon='image-album',
             options=formats,
             selected_value=self.selected_format,
             on_change_callback=self._on_format_card_changed
@@ -146,7 +146,7 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         """Maneja el cambio de formato seleccionado desde las cards.
         
         Args:
-            new_format: Nuevo formato seleccionado ('jpg' o 'heic')
+            new_format: Nuevo formato seleccionado ('file-jpg-box' o 'file-image')
         """
         if new_format == self.selected_format:
             return
@@ -622,7 +622,7 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         menu.setStyleSheet(DesignSystem.get_context_menu_style())
         
         # Opciones para abrir archivo
-        open_action = menu.addAction(icon_manager.get_icon('open-in-app'), "Abrir archivo")
+        open_action = menu.addAction(icon_manager.get_icon('open-in-new'), "Abrir archivo")
         open_action.triggered.connect(lambda: open_file(file_path, self))
         
         # Opción para abrir carpeta
@@ -632,7 +632,7 @@ class HEICDuplicateRemovalDialog(BaseDialog):
         menu.addSeparator()
         
         # Opción para ver detalles
-        details_action = menu.addAction(icon_manager.get_icon('info'), "Ver detalles del archivo")
+        details_action = menu.addAction(icon_manager.get_icon('information'), "Ver detalles del archivo")
         details_action.triggered.connect(lambda: show_file_details_dialog(file_path, self))
         
         menu.exec(self.tree_widget.viewport().mapToGlobal(position))

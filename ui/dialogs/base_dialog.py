@@ -785,7 +785,7 @@ class BaseDialog(QDialog):
         self,
         title: str,
         message: str,
-        icon: str = 'warning',
+        icon: str = 'alert',
         action_text: Optional[str] = None,
         action_callback: Optional[callable] = None,
         bg_color: str = DesignSystem.COLOR_WARNING_BG,
@@ -797,7 +797,7 @@ class BaseDialog(QDialog):
         Args:
             title: Título en negrita
             message: Mensaje descriptivo (soporta HTML básico)
-            icon: Nombre del icono (default: 'warning')
+            icon: Nombre del icono (default: 'alert')
             action_text: Texto del botón de acción (opcional)
             action_callback: Función a llamar al pulsar el botón (opcional)
             bg_color: Color de fondo (default: Warning BG)

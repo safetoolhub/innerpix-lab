@@ -166,7 +166,7 @@ class LivePhotoCleanupDialog(BaseDialog):
         
         return self._create_option_selector(
             title="¿Qué componente deseas conservar?",
-            title_icon='settings',
+            title_icon='cog',
             options=modes,
             selected_value=self.selected_mode,
             on_change_callback=self._on_mode_card_changed

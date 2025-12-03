@@ -269,7 +269,7 @@ class Stage2Window(BaseStage):
 
         # Marcar fase actual como error si existe
         if self.progress_card and self.current_phase:
-            self.progress_card.set_phase_status(self.current_phase, 'error')
+            self.progress_card.set_phase_status(self.current_phase, 'alert-circle')
         
         self.current_phase = None
 

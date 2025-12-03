@@ -220,7 +220,7 @@ class Stage3Window(BaseStage):
 
         heic_card = self._create_heic_card(heic_data)
         grid_layout.addWidget(heic_card, 0, 1)
-        self.tool_cards['heic'] = heic_card
+        self.tool_cards['file-image'] = heic_card
 
         # Fila 2: Duplicados Exactos + Similares
         exact_dup_card = self._create_exact_duplicates_card(dup_data)
@@ -234,11 +234,11 @@ class Stage3Window(BaseStage):
         # Fila 3: Organizar + Renombrar
         organize_card = self._create_organize_card()
         grid_layout.addWidget(organize_card, 2, 0)
-        self.tool_cards['organize'] = organize_card
+        self.tool_cards['folder-move'] = organize_card
 
         rename_card = self._create_rename_card()
         grid_layout.addWidget(rename_card, 2, 1)
-        self.tool_cards['rename'] = rename_card
+        self.tool_cards['rename-box'] = rename_card
 
         # Agregar grid al layout principal
         # Remover el stretch temporal antes de añadir el grid
@@ -290,7 +290,7 @@ class Stage3Window(BaseStage):
     def _create_heic_card(self, heic_data) -> ToolCard:
         """Crea la card de HEIC/JPG Duplicados"""
         card = ToolCard(
-            icon_name='heic',
+            icon_name='file-image',
             title='HEIC/JPG Duplicados',
             description='iPhone guarda fotos en HEIC (eficiente) y crea versiones JPG para '
                        'compatibilidad. Elimina duplicados conservando el formato que prefieras '
@@ -310,7 +310,7 @@ class Stage3Window(BaseStage):
         else:
             card.set_status_no_results("No se encontraron pares HEIC/JPG")
 
-        card.clicked.connect(lambda: self._on_tool_clicked('heic'))
+        card.clicked.connect(lambda: self._on_tool_clicked('file-image'))
         return card
 
     def _create_exact_duplicates_card(self, dup_data) -> ToolCard:
@@ -357,7 +357,7 @@ class Stage3Window(BaseStage):
     def _create_organize_card(self) -> ToolCard:
         """Crea la card de Organizar Archivos"""
         card = ToolCard(
-            icon_name='organize',
+            icon_name='folder-move',
             title='Organizar Archivos',
             description='Reorganiza tu colección en carpetas por fecha, origen '
                        '(WhatsApp, Telegram...) o tipo. Previsualiza antes de mover.',
@@ -368,13 +368,13 @@ class Stage3Window(BaseStage):
         total = self.analysis_results.scan.total_files
         card.set_status_ready(f"{format_file_count(total)} archivos listos")
 
-        card.clicked.connect(lambda: self._on_tool_clicked('organize'))
+        card.clicked.connect(lambda: self._on_tool_clicked('folder-move'))
         return card
 
     def _create_rename_card(self) -> ToolCard:
         """Crea la card de Renombrar Archivos"""
         card = ToolCard(
-            icon_name='rename',
+            icon_name='rename-box',
             title='Renombrar Archivos',
             description='Renombra archivos según patrones personalizados con fechas, '
                        'secuencias o metadatos. Vista previa antes de aplicar cambios.',
@@ -385,7 +385,7 @@ class Stage3Window(BaseStage):
         total = self.analysis_results.scan.total_files
         card.set_status_ready(f"{format_file_count(total)} archivos listos")
 
-        card.clicked.connect(lambda: self._on_tool_clicked('rename'))
+        card.clicked.connect(lambda: self._on_tool_clicked('rename-box'))
         return card
 
     def _on_tool_clicked(self, tool_id: str):
@@ -393,7 +393,7 @@ class Stage3Window(BaseStage):
         Maneja el clic en una tool card y abre el diálogo correspondiente
 
         Args:
-            tool_id: ID de la herramienta ('live_photos', 'heic', etc.)
+            tool_id: ID de la herramienta ('live_photos', 'file-image', etc.)
         """
         self.logger.info(f"Abriendo diálogo para: {tool_id}")
 
@@ -410,7 +410,7 @@ class Stage3Window(BaseStage):
                 return
             dialog = LivePhotoCleanupDialog(live_photo_data, self.main_window)
 
-        elif tool_id == 'heic':
+        elif tool_id == 'file-image':
             heic_data = self.analysis_results.heic
             if not heic_data or heic_data.total_pairs == 0:
                 # Card está deshabilitada, no debería llegar aquí
@@ -429,7 +429,7 @@ class Stage3Window(BaseStage):
             self._on_similar_duplicates_clicked()
             return
 
-        elif tool_id == 'organize':
+        elif tool_id == 'folder-move':
             org_data = self.analysis_results.organization
             if not org_data:
                 # Card está deshabilitada, no debería llegar aquí
@@ -438,7 +438,7 @@ class Stage3Window(BaseStage):
             # Pasar metadata_cache para optimizar re-análisis cuando se cambia el tipo
             dialog = FileOrganizationDialog(org_data, self.main_window, self.metadata_cache)
 
-        elif tool_id == 'rename':
+        elif tool_id == 'rename-box':
             rename_data = self.analysis_results.renaming
             if not rename_data:
                 # No hay datos, no debería llegar aquí
@@ -457,7 +457,7 @@ class Stage3Window(BaseStage):
         Ejecuta las acciones de una herramienta usando el worker correspondiente.
         
         Args:
-            tool_id: ID de la herramienta ('live_photos', 'heic', etc)
+            tool_id: ID de la herramienta ('live_photos', 'file-image', etc)
             dialog: Diálogo que contiene el accepted_plan
         """
         from ui.workers import (
@@ -503,14 +503,14 @@ class Stage3Window(BaseStage):
                 dry_run=plan.get('dry_run', False)
             )
         
-        elif tool_id == 'heic':
+        elif tool_id == 'file-image':
             from services.heic_remover_service import HEICRemover
             remover = HEICRemover()
             # HEICRemovalWorker espera (remover, analysis: dataclass, keep_format, create_backup, dry_run)
             worker = HEICRemovalWorker(
                 remover=remover,
                 analysis=plan.get('analysis'),
-                keep_format=plan.get('keep_format', 'jpg'),
+                keep_format=plan.get('keep_format', 'file-jpg-box'),
                 create_backup=plan.get('create_backup', True),
                 dry_run=plan.get('dry_run', False)
             )
@@ -539,7 +539,7 @@ class Stage3Window(BaseStage):
                 dry_run=plan.get('dry_run', False)
             )
         
-        elif tool_id == 'organize':
+        elif tool_id == 'folder-move':
             from services.file_organizer_service import FileOrganizer
             organizer = FileOrganizer()
             # FileOrganizerWorker espera (organizer, analysis: dataclass, cleanup_empty_dirs, create_backup, dry_run)
@@ -551,7 +551,7 @@ class Stage3Window(BaseStage):
                 dry_run=plan.get('dry_run', False)
             )
         
-        elif tool_id == 'rename':
+        elif tool_id == 'rename-box':
             from services.file_renamer_service import FileRenamer
             renamer = FileRenamer()
             # RenamingWorker espera (renamer, analysis: dataclass, create_backup, dry_run)

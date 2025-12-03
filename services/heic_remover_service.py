@@ -440,11 +440,11 @@ class HEICRemover(BaseService):
                         self.logger.error(error_msg)
                         continue
                     
-                    file_size = pair.heic_size if keep_format.lower() == 'jpg' else pair.jpg_size
+                    file_size = pair.heic_size if keep_format.lower() == 'file-jpg-box' else pair.jpg_size
                     from utils.format_utils import format_size
                     
-                    format_deleted = 'HEIC' if keep_format.lower() == 'jpg' else 'JPG'
-                    format_kept = 'JPG' if keep_format.lower() == 'jpg' else 'HEIC'
+                    format_deleted = 'HEIC' if keep_format.lower() == 'file-jpg-box' else 'JPG'
+                    format_kept = 'JPG' if keep_format.lower() == 'file-jpg-box' else 'HEIC'
                     
                     if dry_run:
                         results.simulated_files_deleted += 1

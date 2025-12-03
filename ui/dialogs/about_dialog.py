@@ -89,10 +89,10 @@ class AboutDialog(QDialog):
         tools_grid.setContentsMargins(5, 5, 5, 5)
 
         tools = [
-            ("rename", "Renombrar Archivos"),
+            ("rename-box", "Renombrar Archivos"),
             ("camera-burst", "Live Photos"),
-            ("organize", "Organizar Archivos"),
-            ("heic", "HEIC/JPG Duplicados"),
+            ("folder-move", "Organizar Archivos"),
+            ("file-image", "HEIC/JPG Duplicados"),
             ("content-copy", "Copias exactas"),
             ("image-multiple", "Archivos similares"),
             ("backup-restore", "Backups Automáticos"),

@@ -204,7 +204,7 @@ class BaseDetectorService(BaseService):
         
         # Construir resultado
         error_messages = [
-            f"{e.get('file', 'Unknown')}: {e.get('error', 'Unknown error')}"
+            f"{e.get('file', 'Unknown')}: {e.get('alert-circle', 'Unknown error')}"
             if isinstance(e, dict) else str(e)
             for e in errors
         ]
@@ -319,7 +319,7 @@ class BaseDetectorService(BaseService):
                 
             except Exception as e:
                 self.logger.error(f"Error seleccionando archivo a mantener: {e}")
-                errors.append({'group': str(group.hash_value), 'error': str(e)})
+                errors.append({'group': str(group.hash_value), 'alert-circle': str(e)})
                 return GroupDeletionResult(
                     deleted=deleted,
                     kept=kept,
@@ -385,10 +385,10 @@ class BaseDetectorService(BaseService):
                 
             except FileNotFoundError as e:
                 error_prefix = "[SIMULACIÓN] " if dry_run else ""
-                errors.append({'file': str(file_path), 'error': str(e)})
+                errors.append({'file': str(file_path), 'alert-circle': str(e)})
                 self.logger.error(f"{error_prefix}Archivo no encontrado: {file_path}: {e}")
             except Exception as e:
-                errors.append({'file': str(file_path), 'error': str(e)})
+                errors.append({'file': str(file_path), 'alert-circle': str(e)})
                 self.logger.error(f"Error eliminando {file_path}: {e}")
         
         return GroupDeletionResult(

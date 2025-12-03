@@ -214,7 +214,7 @@ class ToolCard(QFrame):
             disk_icon = QLabel()
             icon_manager.set_label_icon(
                 disk_icon,
-                'disk',
+                'harddisk',
                 color=DesignSystem.COLOR_TEXT_SECONDARY,
                 size=14
             )

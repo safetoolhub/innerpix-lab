@@ -119,7 +119,7 @@ class FileRenamer(BaseService):
             extension = file_path.suffix
             renamed_name = format_renamed_name(file_date, file_type, extension)
             
-            return ('rename', file_path, {
+            return ('rename-box', file_path, {
                 'renamed_name': renamed_name,
                 'original_path': file_path,
                 'date': file_date,
@@ -155,7 +155,7 @@ class FileRenamer(BaseService):
                 elif status == 'unsupported':
                     cannot_process += 1
                     issues.append(data)
-                elif status == 'rename':
+                elif status == 'rename-box':
                     renamed_name = data['renamed_name']
                     if renamed_name not in renaming_map:
                         renaming_map[renamed_name] = []

@@ -750,8 +750,8 @@ def get_video_metadata_date(file_path: Path) -> Optional[datetime]:
         metadata = json.loads(result.stdout)
         
         # Extraer creation_time
-        if 'format' in metadata and 'tags' in metadata['format']:
-            creation_time = metadata['format']['tags'].get('creation_time')
+        if 'format-text' in metadata and 'tags' in metadata['format-text']:
+            creation_time = metadata['format-text']['tags'].get('creation_time')
             
             if creation_time:
                 try:

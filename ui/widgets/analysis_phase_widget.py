@@ -69,7 +69,7 @@ class AnalysisPhaseWidget(QFrame):
             ("scan", "Escaneando archivos..."),
             ("renaming", "Analizando nombres de archivos..."),
             ("live_photos", "Buscando Live Photos..."),
-            ("heic", "Buscando duplicados HEIC/JPG..."),
+            ("file-image", "Buscando duplicados HEIC/JPG..."),
             ("duplicates", "Identificando copias exactas..."),
             ("duplicates_similar", "Identificando archivos similares..."),
             ("organization", "Analizando estructura de carpetas..."),
@@ -140,7 +140,7 @@ class AnalysisPhaseWidget(QFrame):
         
         Args:
             phase_id: ID de la fase
-            status: 'pending', 'running', 'completed', 'error', 'skipped'
+            status: 'pending', 'running', 'completed', 'alert-circle', 'skipped'
         """
         if phase_id not in self.phase_icons:
             return
@@ -197,10 +197,10 @@ class AnalysisPhaseWidget(QFrame):
             """)
             counter_label.show()
         
-        elif status == 'error':
+        elif status == 'alert-circle':
             icon_manager.set_label_icon(
                 icon_label,
-                'error',  # Usar 'error' que mapea a 'mdi6.alert-circle'
+                'alert-circle',  # Usar 'alert-circle' que mapea a 'mdi6.alert-circle'
                 color=DesignSystem.COLOR_ERROR,
                 size=12
             )
@@ -215,7 +215,7 @@ class AnalysisPhaseWidget(QFrame):
         elif status == 'skipped':
             icon_manager.set_label_icon(
                 icon_label,
-                'cancel',
+                'close-circle',
                 color=DesignSystem.COLOR_TEXT_SECONDARY,
                 size=12
             )

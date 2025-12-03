@@ -151,7 +151,7 @@ class SimilarFilesProgressDialog(BaseDialog):
         
         self.cancel_button = self.make_styled_button(
             text="Cancelar Análisis",
-            icon_name="cancel",
+            icon_name="close-circle",
             button_style='secondary',
             custom_style=f"""
                 QPushButton {{

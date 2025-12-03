@@ -67,11 +67,7 @@ from .callback_utils import (
 )
 from .icons import (
     IconManager,
-    icon_manager,
-    get_icon,
-    set_button_icon,
-    set_label_icon,
-    create_icon_label
+    icon_manager
 )
 from .storage import (
     StorageBackend,
@@ -149,10 +145,6 @@ __all__ = [
     # Icon utilities
     'IconManager',
     'icon_manager',
-    'get_icon',
-    'set_button_icon',
-    'set_label_icon',
-    'create_icon_label',
 
     # Storage utilities
     'StorageBackend',
