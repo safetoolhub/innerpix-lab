@@ -232,11 +232,7 @@ class SettingsDialog(QDialog):
         confirm_layout = QVLayout(confirm_group)
         confirm_layout.setSpacing(DesignSystem.SPACE_12)
 
-        self.confirm_operations_checkbox = QCheckBox("Mostrar diálogo de confirmación antes de ejecutar operaciones")
-        self.confirm_operations_checkbox.setChecked(True)
-        self.confirm_operations_checkbox.setToolTip("Muestra un resumen antes de aplicar cambios")
-        self.confirm_operations_checkbox.setStyleSheet(DesignSystem.get_checkbox_style())
-        confirm_layout.addWidget(self.confirm_operations_checkbox)
+
 
         self.confirm_delete_checkbox = QCheckBox("Pedir confirmación adicional para operaciones de eliminación")
         self.confirm_delete_checkbox.setChecked(True)
@@ -656,7 +652,7 @@ class SettingsDialog(QDialog):
         try:
             # General tab
             self.auto_backup_checkbox.setChecked(settings_manager.get_auto_backup_enabled())
-            self.confirm_operations_checkbox.setChecked(settings_manager.get_confirm_operations())
+
             self.confirm_delete_checkbox.setChecked(settings_manager.get_confirm_delete())
             self.show_notifications_checkbox.setChecked(settings_manager.get_show_notifications())
             self.show_full_path_checkbox.setChecked(settings_manager.get_show_full_path())
@@ -700,7 +696,7 @@ class SettingsDialog(QDialog):
             'backup_dir': self.backup_edit.text(),
             'log_level': self.log_level_combo.currentIndex(),
             'auto_backup': self.auto_backup_checkbox.isChecked(),
-            'confirm_ops': self.confirm_operations_checkbox.isChecked(),
+
             'confirm_delete': self.confirm_delete_checkbox.isChecked(),
             'show_notif': self.show_notifications_checkbox.isChecked(),
             'show_path': self.show_full_path_checkbox.isChecked(),
@@ -718,7 +714,7 @@ class SettingsDialog(QDialog):
         """Conecta señales de cambio de todos los widgets para detectar modificaciones"""
         # Checkboxes
         self.auto_backup_checkbox.stateChanged.connect(lambda: self._on_widget_changed("auto_backup"))
-        self.confirm_operations_checkbox.stateChanged.connect(lambda: self._on_widget_changed("confirm_ops"))
+
         self.confirm_delete_checkbox.stateChanged.connect(lambda: self._on_widget_changed("confirm_delete"))
         self.show_notifications_checkbox.stateChanged.connect(lambda: self._on_widget_changed("show_notif"))
         self.show_full_path_checkbox.stateChanged.connect(lambda: self._on_widget_changed("show_path"))
@@ -771,9 +767,7 @@ class SettingsDialog(QDialog):
         original_auto_backup = self.original_values['auto_backup']
         auto_backup_changed = current_auto_backup != original_auto_backup
         
-        current_confirm_ops = self.confirm_operations_checkbox.isChecked()
-        original_confirm_ops = self.original_values['confirm_ops']
-        confirm_ops_changed = current_confirm_ops != original_confirm_ops
+
         
         current_confirm_delete = self.confirm_delete_checkbox.isChecked()
         original_confirm_delete = self.original_values['confirm_delete']
@@ -811,7 +805,7 @@ class SettingsDialog(QDialog):
         
         has_changes = (
             logs_changed or backup_changed or level_changed or auto_backup_changed or
-            confirm_ops_changed or confirm_delete_changed or show_notif_changed or
+            confirm_delete_changed or show_notif_changed or
             show_path_changed or max_workers_changed or dry_run_changed or
             use_video_metadata_changed or ui_update_changed or precalculate_hashes_changed
         )
@@ -1043,7 +1037,6 @@ class SettingsDialog(QDialog):
             new_backup_dir = Path(self.backup_edit.text())
             new_log_level = self.log_level_combo.currentText().split()[0].split(" - ")[0].upper()
             new_auto_backup = self.auto_backup_checkbox.isChecked()
-            new_confirm_ops = self.confirm_operations_checkbox.isChecked()
             new_confirm_delete = self.confirm_delete_checkbox.isChecked()
             new_show_notif = self.show_notifications_checkbox.isChecked()
             new_show_path = self.show_full_path_checkbox.isChecked()
@@ -1060,7 +1053,6 @@ class SettingsDialog(QDialog):
             any_setting_changed = (
                 logs_dir_changed or backup_dir_changed or log_level_changed or
                 current_auto_backup != new_auto_backup or
-                current_confirm_ops != new_confirm_ops or
                 current_confirm_delete != new_confirm_delete or
                 current_show_notif != new_show_notif or
                 current_show_path != new_show_path or
@@ -1102,8 +1094,6 @@ class SettingsDialog(QDialog):
             # General (solo si cambiaron)
             if current_auto_backup != new_auto_backup:
                 settings_manager.set_auto_backup_enabled(new_auto_backup)
-            if current_confirm_ops != new_confirm_ops:
-                settings_manager.set(settings_manager.KEY_CONFIRM_OPERATIONS, new_confirm_ops)
             if current_confirm_delete != new_confirm_delete:
                 settings_manager.set(settings_manager.KEY_CONFIRM_DELETE, new_confirm_delete)
             if current_show_notif != new_show_notif:
