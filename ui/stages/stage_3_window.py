@@ -674,7 +674,13 @@ class Stage3Window(BaseStage):
         """Maneja el clic en el botón de configuración"""
         self.logger.debug("Abriendo diálogo de configuración")
         dialog = SettingsDialog(self.main_window)
+        dialog.settings_saved.connect(self._on_settings_saved)
         dialog.exec()
+        
+    def _on_settings_saved(self):
+        """Maneja cambios en la configuración"""
+        if self.summary_card:
+            self.summary_card.update_path_display()
 
     def _on_about_clicked(self):
         """Maneja el clic en el botón 'Acerca de'"""

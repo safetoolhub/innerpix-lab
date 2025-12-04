@@ -59,7 +59,7 @@ class SettingsDialog(QDialog):
     def init_ui(self):
         self.setWindowTitle("Configuración")
         self.setModal(True)
-        self.resize(800, 650)
+        self.resize(800, 850)
         
         # Aplicar estilo base del DesignSystem
         self.setStyleSheet(f"""

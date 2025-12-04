@@ -5,7 +5,10 @@ from PyQt6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel, QProgressB
 from PyQt6.QtCore import pyqtSignal
 
 from ui.styles.design_system import DesignSystem
+from ui.styles.design_system import DesignSystem
 from utils.icons import icon_manager
+from utils.settings_manager import settings_manager
+from pathlib import Path
 from ui.widgets.analysis_phase_widget import AnalysisPhaseWidget
 
 
@@ -86,10 +89,14 @@ class ProgressCard(QFrame):
         layout.addLayout(header_layout)
         
         # Ruta del directorio (mono)
+        # Ruta del directorio (mono)
         self.path_label = QLabel(self.directory_path)
         self.path_label.setProperty("class", "mono")
         self.path_label.setWordWrap(True)
         layout.addWidget(self.path_label)
+        
+        # Actualizar visualización según configuración
+        self.update_path_display()
         
         # Separador
         separator = QFrame()
@@ -220,3 +227,14 @@ class ProgressCard(QFrame):
         
         # Resetear fases
         self.reset_phases()
+
+    def update_path_display(self):
+        """Actualiza la visualización de la ruta según la configuración"""
+        show_full = settings_manager.get_show_full_path()
+        
+        if show_full:
+            self.path_label.setText(self.directory_path)
+        else:
+            # Mostrar solo el nombre de la carpeta
+            folder_name = Path(self.directory_path).name
+            self.path_label.setText(folder_name)
