@@ -18,7 +18,7 @@ class AboutDialog(QDialog):
     def init_ui(self):
         self.setWindowTitle(f"Acerca de {Config.APP_NAME}")
         self.setModal(True)
-        self.setFixedSize(520, 480)
+        self.setFixedSize(520, 520)
 
         # Layout principal
         main_layout = QVBoxLayout(self)
@@ -103,7 +103,7 @@ class AboutDialog(QDialog):
 
             container = QWidget()
             h = QHBoxLayout(container)
-            h.setContentsMargins(4, 4, 4, 4)
+            h.setContentsMargins(4, 6, 4, 8)  # Increased bottom margin to prevent clipping
             h.setSpacing(8)
 
             icon_label = QLabel()
@@ -130,7 +130,7 @@ class AboutDialog(QDialog):
         backup_h.setContentsMargins(0, 0, 0, 0)
         backup_h.setSpacing(6)
         backup_icon = QLabel()
-        icon_manager.set_label_icon(backup_icon, "backup-restore", color=DesignSystem.COLOR_TEXT_SECONDARY, size=14)
+        icon_manager.set_label_icon(backup_icon, "database", color=DesignSystem.COLOR_TEXT_SECONDARY, size=14)
         backup_label = QLabel("Backups Automáticos")
         backup_label.setProperty("class", "small")
         backup_label.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY};")
@@ -143,7 +143,7 @@ class AboutDialog(QDialog):
         logs_h.setContentsMargins(0, 0, 0, 0)
         logs_h.setSpacing(6)
         logs_icon = QLabel()
-        icon_manager.set_label_icon(logs_icon, "history", color=DesignSystem.COLOR_TEXT_SECONDARY, size=14)
+        icon_manager.set_label_icon(logs_icon, "file-document-outline", color=DesignSystem.COLOR_TEXT_SECONDARY, size=14)
         logs_label = QLabel("Registros de Operaciones")
         logs_label.setProperty("class", "small")
         logs_label.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY};")
