@@ -1219,9 +1219,9 @@ class SimilarFilesDialog(BaseDialog):
         """
         Extract and format file date and source information for display.
         
-        Returns a consistent format matching the file details dialog:
-        - "YYYY-MM-DD HH:MM:SS (Fuente: EXIF DateTimeOriginal)"
-        - "YYYY-MM-DD HH:MM:SS (Fuente: Fecha de creación)"
+        Returns date and source on separate lines:
+        - Line 1: "YYYY-MM-DD HH:MM:SS"
+        - Line 2: "Fuente: EXIF DateTimeOriginal"
         """
         try:
             from utils.date_utils import get_all_file_dates, select_chosen_date
@@ -1271,8 +1271,8 @@ class SimilarFilesDialog(BaseDialog):
             # Always format with full date and time: YYYY-MM-DD HH:MM:SS
             date_str = selected_date.strftime('%Y-%m-%d %H:%M:%S')
             
-            # Return formatted string matching details dialog format
-            return f"{date_str} (Fuente: {descriptive_source})"
+            # Return formatted string with date and source on separate lines
+            return f"{date_str}\nFuente: {descriptive_source}"
             
         except Exception as e:
             # Silently fail - this is just auxiliary information
