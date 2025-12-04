@@ -80,14 +80,13 @@ pixaro-lab/
 │   ├── __init__.py
 │   ├── callback_utils.py            # Utilidades para callbacks de progreso
 │   ├── date_utils.py                # ✅ Manipulación de fechas con priorización inteligente (EXIF → Filename → Video → FS)
-│   ├── decorators.py                # Decoradores (@deprecated, etc.)
 │   ├── file_utils.py                # Operaciones con archivos (hash, backup, paths)
 │   ├── format_utils.py              # Formateo de tamaños, números, etc.
 │   ├── icons.py                     # Gestión de iconos (qtawesome)
-│   ├── logger.py                    # ✅ Logging thread-safe con formato unificado de borrado (FILE_DELETED:)
+│   ├── logger.py                    # ✅ Logging thread-safe con dual logging opcional (FILE_DELETED:)
 │   ├── platform_utils.py            # Utilidades específicas de plataforma
 │   ├── screen_utils.py              # Detección multiplataforma de resolución de pantalla
-│   ├── settings_manager.py          # Gestión de configuración persistente (QSettings/JSON)
+│   ├── settings_manager.py          # Gestión de configuración persistente (QSettings/JSON + dual_log_enabled)
 │   └── storage.py                   # Abstracción de almacenamiento (QSettings/JSON)
 │
 └── tests/                           # Suite de tests automatizados
