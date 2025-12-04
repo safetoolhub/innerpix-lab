@@ -44,10 +44,11 @@ class ProgressCard(QFrame):
         layout = QVBoxLayout(self)
         layout.setSpacing(DesignSystem.SPACE_8)
         
-        # Header con icono folder
+        # Header unificado: Icono + "Carpeta:" + Ruta + Botón Cancelar
         header_layout = QHBoxLayout()
         header_layout.setSpacing(DesignSystem.SPACE_8)
         
+        # 1. Icono
         header_icon = QLabel()
         icon_manager.set_label_icon(
             header_icon, 
@@ -57,16 +58,31 @@ class ProgressCard(QFrame):
         )
         header_layout.addWidget(header_icon)
         
-        header_text = QLabel("Directorio seleccionado")
+        # 2. Etiqueta "Carpeta:"
+        header_text = QLabel("Carpeta:")
         header_text.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_BASE}px;
             font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-            color: {DesignSystem.COLOR_TEXT};
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
         """)
         header_layout.addWidget(header_text)
+        
+        # 3. Ruta del directorio (mono)
+        self.path_label = QLabel(self.directory_path)
+        self.path_label.setProperty("class", "mono")
+        self.path_label.setToolTip(self.directory_path)
+        self.path_label.setStyleSheet(f"""
+            font-family: {DesignSystem.FONT_FAMILY_MONO};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_TEXT};
+            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+        """)
+        header_layout.addWidget(self.path_label)
+        
+        # 4. Stretch
         header_layout.addStretch()
         
-        # Botón cancelar (discreto, en la esquina)
+        # 5. Botón cancelar (discreto, en la esquina)
         self.cancel_btn = QPushButton("Cancelar")
         icon_manager.set_button_icon(self.cancel_btn, 'close', size=14)
         self.cancel_btn.setStyleSheet(f"""
@@ -87,13 +103,6 @@ class ProgressCard(QFrame):
         header_layout.addWidget(self.cancel_btn)
         
         layout.addLayout(header_layout)
-        
-        # Ruta del directorio (mono)
-        # Ruta del directorio (mono)
-        self.path_label = QLabel(self.directory_path)
-        self.path_label.setProperty("class", "mono")
-        self.path_label.setWordWrap(True)
-        layout.addWidget(self.path_label)
         
         # Actualizar visualización según configuración
         self.update_path_display()

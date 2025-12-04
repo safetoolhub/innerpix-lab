@@ -48,10 +48,11 @@ class SummaryCard(QFrame):
         layout = QVBoxLayout(self)
         layout.setSpacing(DesignSystem.SPACE_8)
         
-        # Header: Icono + Título + Botón "Cambiar..."
+        # Header unificado: Icono + "Carpeta:" + Ruta + Botón "Cambiar"
         header_layout = QHBoxLayout()
-        header_layout.setSpacing(DesignSystem.SPACE_6)
+        header_layout.setSpacing(DesignSystem.SPACE_8)
         
+        # 1. Icono
         header_icon = QLabel()
         icon_manager.set_label_icon(
             header_icon,
@@ -61,31 +62,39 @@ class SummaryCard(QFrame):
         )
         header_layout.addWidget(header_icon)
         
-        header_text = QLabel("Carpeta analizada")
+        # 2. Etiqueta "Carpeta:"
+        header_text = QLabel("Carpeta:")
         header_text.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_BASE}px;
             font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-            color: {DesignSystem.COLOR_TEXT};
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
         """)
         header_layout.addWidget(header_text)
+        
+        # 3. Ruta del directorio (mono)
+        self.path_label = QLabel(self.directory_path)
+        self.path_label.setProperty("class", "mono")
+        self.path_label.setToolTip(self.directory_path)
+        # Estilo específico para que se vea bien en línea
+        self.path_label.setStyleSheet(f"""
+            font-family: {DesignSystem.FONT_FAMILY_MONO};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_TEXT};
+            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+        """)
+        header_layout.addWidget(self.path_label)
+        
+        # 4. Espaciador
         header_layout.addStretch()
         
-        # Botón "Cambiar..."
-        btn_change = QPushButton("Cambiar...")
+        # 5. Botón "Cambiar"
+        btn_change = QPushButton("Cambiar")
         btn_change.setProperty("class", "secondary-small")
         btn_change.setToolTip("Seleccionar otra carpeta")
         btn_change.clicked.connect(self._on_change_clicked)
         header_layout.addWidget(btn_change)
         
         layout.addLayout(header_layout)
-        
-        # Ruta del directorio (mono)
-        # Ruta del directorio (mono)
-        self.path_label = QLabel(self.directory_path)
-        self.path_label.setProperty("class", "mono")
-        self.path_label.setWordWrap(True)
-        self.path_label.setToolTip(self.directory_path)
-        layout.addWidget(self.path_label)
         
         # Actualizar visualización según configuración
         self.update_path_display()
