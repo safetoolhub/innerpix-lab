@@ -11,12 +11,13 @@ from PyQt6.QtWidgets import (
     QGridLayout, QSizePolicy, QProgressBar, QMenu, QDialog, QSpinBox
 )
 from PyQt6.QtCore import Qt, QSize, QTimer
-from PyQt6.QtGui import QPixmap, QDesktopServices, QCursor, QImage, QColor, QIcon
+from PyQt6.QtGui import QPixmap, QDesktopServices, QCursor, QImage, QColor, QIcon, QPainter
 from config import Config
 from services.similar_files_detector import SimilarFilesAnalysis
 from services.result_types import DuplicateGroup
 from utils.format_utils import format_size
 from utils.image_loader import load_image_as_qpixmap
+from utils.video_thumbnail import get_video_thumbnail
 from ui.styles.design_system import DesignSystem
 from utils.icons import icon_manager
 from .base_dialog import BaseDialog
@@ -1267,22 +1268,85 @@ class SimilarFilesDialog(BaseDialog):
             # Silently fail - this is just auxiliary information
             return ""
 
+    def _add_play_icon_overlay(self, pixmap: QPixmap) -> QPixmap:
+        """
+        Agrega un icono de play semi-transparente sobre un thumbnail de video.
+        
+        Args:
+            pixmap: QPixmap original del video thumbnail
+            
+        Returns:
+            QPixmap con overlay de icono de play
+        """
+        # Crear una copia para no modificar el original
+        result = QPixmap(pixmap.size())
+        result.fill(Qt.GlobalColor.transparent)
+        
+        # Iniciar painter
+        painter = QPainter(result)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        
+        # Dibujar imagen original
+        painter.drawPixmap(0, 0, pixmap)
+        
+        # Agregar overlay semi-transparente oscuro
+        painter.fillRect(result.rect(), QColor(0, 0, 0, 60))
+        
+        # Dibujar icono de play en el centro
+        icon_size = 64
+        play_icon = icon_manager.get_icon('play-circle', color=DesignSystem.COLOR_SURFACE)
+        icon_pixmap = play_icon.pixmap(QSize(icon_size, icon_size))
+        
+        # Centrar icono
+        x = (pixmap.width() - icon_size) // 2
+        y = (pixmap.height() - icon_size) // 2
+        
+        painter.drawPixmap(x, y, icon_pixmap)
+        painter.end()
+        
+        return result
+
     def _create_thumbnail(self, file_path: Path):
-        # Retorna (QLabel, is_video)
+        """
+        Crea un thumbnail para imagen o video.
+        
+        Returns:
+            Tupla (QLabel, is_video) o (None, False) si falla
+        """
         try:
-            # Cargar imagen con soporte HEIC/HEIF, ya redimensionada
-            pixmap = load_image_as_qpixmap(file_path, max_size=(280, 280))
+            is_video = Config.is_video_file(str(file_path))
             
-            if not pixmap or pixmap.isNull():
-                return None, False
+            if is_video:
+                # Generar thumbnail de video
+                pixmap = get_video_thumbnail(file_path, max_size=(280, 280), frame_position=0.25)
+                
+                if pixmap and not pixmap.isNull():
+                    # Agregar overlay de play
+                    pixmap = self._add_play_icon_overlay(pixmap)
+                else:
+                    # Si falla, mostrar placeholder
+                    return None, True
+            else:
+                # Cargar imagen con soporte HEIC/HEIF
+                pixmap = load_image_as_qpixmap(file_path, max_size=(280, 280))
+                
+                if not pixmap or pixmap.isNull():
+                    return None, False
             
+            # Crear label con el thumbnail
             lbl = QLabel()
             lbl.setPixmap(pixmap)
             lbl.setFixedSize(280, 280)
             lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
             lbl.setStyleSheet(f"background-color: {DesignSystem.COLOR_BACKGROUND}; border-radius: 4px;")
-            return lbl, False
-        except:
+            
+            return lbl, is_video
+            
+        except Exception as e:
+            from utils.logger import get_logger
+            logger = get_logger('SimilarFilesDialog')
+            logger.debug(f"Error creando thumbnail para {file_path.name}: {e}")
             return None, False
 
     def _show_image_preview(self, file_path):
