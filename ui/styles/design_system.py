@@ -610,3 +610,19 @@ class DesignSystem:
                 background-color: rgba(0, 0, 0, 0.1);
             }}
         """
+
+    @staticmethod
+    def get_info_badge_style():
+        """
+        Estilo para el badge de información en las cards.
+        Fondo transparente por defecto, azul claro al hover para mantener contraste con el icono azul.
+        """
+        return f"""
+            QLabel {{
+                background-color: transparent;
+                border-radius: 10px;
+            }}
+            QLabel:hover {{
+                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
+            }}
+        """

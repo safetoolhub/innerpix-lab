@@ -1024,18 +1024,8 @@ class SimilarFilesDialog(BaseDialog):
         badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         # Estilo semi-transparente que se hace opaco al hover
-        badge.setStyleSheet(f"""
-            QLabel {{
-                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
-                border-radius: 10px;
-                padding: 2px;
-                opacity: 0.6;
-            }}
-            QLabel:hover {{
-                opacity: 1.0;
-                background-color: {DesignSystem.COLOR_PRIMARY};
-            }}
-        """)
+        # Estilo desde DesignSystem
+        badge.setStyleSheet(DesignSystem.get_info_badge_style())
         
         badge.setCursor(Qt.CursorShape.PointingHandCursor)
         
