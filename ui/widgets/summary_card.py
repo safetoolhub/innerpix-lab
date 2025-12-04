@@ -99,44 +99,32 @@ class SummaryCard(QFrame):
         # Actualizar visualización según configuración
         self.update_path_display()
         
-        # Línea única: Análisis completado + Espacio optimizable + Botón Reanalizar
+        # Línea única: Estadísticas + Espacio optimizable + Botón Reanalizar
         info_layout = QHBoxLayout()
-        info_layout.setSpacing(DesignSystem.SPACE_6)
+        info_layout.setSpacing(DesignSystem.SPACE_16)
         
-        # Icono check
-        check_icon = QLabel()
-        icon_manager.set_label_icon(
-            check_icon,
-            'check-circle',
-            color=DesignSystem.COLOR_SUCCESS,
-            size=16
-        )
-        info_layout.addWidget(check_icon)
-        
-        # Estadísticas del análisis
-        self.stats_label = QLabel("Análisis completado")
+        # 1. Estadísticas (Archivos y Tamaño)
+        self.stats_label = QLabel("Calculando...")
         self.stats_label.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_BASE}px;
             color: {DesignSystem.COLOR_TEXT};
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
         """)
         info_layout.addWidget(self.stats_label)
         
+        # 2. Separador vertical
+        separator = QFrame()
+        separator.setFrameShape(QFrame.Shape.VLine)
+        separator.setStyleSheet(f"background-color: {DesignSystem.COLOR_BORDER}; margin: 4px 0;")
+        separator.setFixedWidth(1)
+        info_layout.addWidget(separator)
         
-        # Icono disco
-        disk_icon = QLabel()
-        icon_manager.set_label_icon(
-            disk_icon,
-            'harddisk',
-            color=DesignSystem.COLOR_TEXT,
-            size=16
-        )
-        info_layout.addWidget(disk_icon)
-        
-        # Espacio optimizable
-        self.space_label = QLabel("Espacio optimizable: calculando...")
+        # 3. Espacio optimizable (con color primario para destacar)
+        self.space_label = QLabel("Espacio optimizable: ...")
         self.space_label.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            color: {DesignSystem.COLOR_TEXT};
+            color: {DesignSystem.COLOR_PRIMARY};
+            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
         """)
         info_layout.addWidget(self.space_label)
         
@@ -172,7 +160,7 @@ class SummaryCard(QFrame):
         # Formatear estadísticas
         from utils.format_utils import format_file_count, format_size
         
-        stats_text = f"Análisis completado • {format_file_count(total_files)} archivos"
+        stats_text = f"{format_file_count(total_files)} archivos"
         if total_size > 0:
             stats_text += f" • {format_size(total_size)}"
         
