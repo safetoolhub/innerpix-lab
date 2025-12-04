@@ -958,15 +958,15 @@ class SimilarFilesDialog(BaseDialog):
         
         header.addStretch()
         
-        # Badge de información (Opción 2)
+        # Badge de información (Opción 2) - UN SOLO CLICK
         info_badge = self._create_info_badge(file_path)
         header.addWidget(info_badge)
         
         size_lbl = QLabel(format_size(file_path.stat().st_size))
         size_lbl.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_XS}px;")
         size_lbl.setCursor(Qt.CursorShape.PointingHandCursor)
-        size_lbl.mouseDoubleClickEvent = lambda e, f=file_path: show_file_details_dialog(f, self)
-        # Context menu en el tamaño
+        size_lbl.setToolTip("Click derecho para opciones")
+        # Solo context menu, NO doble click
         size_lbl.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         size_lbl.customContextMenuRequested.connect(lambda pos, f=file_path: self._show_context_menu(pos, f))
         header.addWidget(size_lbl)
@@ -979,19 +979,19 @@ class SimilarFilesDialog(BaseDialog):
             thumb_lbl.mousePressEvent = lambda e, f=file_path: self._show_image_preview(f)
             layout.addWidget(thumb_lbl, alignment=Qt.AlignmentFlag.AlignCenter)
         
-        # Nombre archivo (con context menu)
+        # Nombre archivo (solo context menu, sin doble click)
         name_lbl = QLabel(file_path.name)
         name_lbl.setWordWrap(True)
         name_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         name_lbl.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT};")
         name_lbl.setCursor(Qt.CursorShape.PointingHandCursor)
-        name_lbl.mouseDoubleClickEvent = lambda e, f=file_path: show_file_details_dialog(f, self)
-        # Context menu en el nombre
+        name_lbl.setToolTip("Click derecho para opciones")
+        # Solo context menu, NO doble click
         name_lbl.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         name_lbl.customContextMenuRequested.connect(lambda pos, f=file_path: self._show_context_menu(pos, f))
         layout.addWidget(name_lbl)
         
-        # Date and source info (subtle display, con context menu)
+        # Date and source info (solo context menu, sin doble click)
         date_info = self._get_file_date_info(file_path)
         if date_info:
             date_lbl = QLabel(date_info)
@@ -1003,8 +1003,8 @@ class SimilarFilesDialog(BaseDialog):
                 opacity: 0.7;
             """)
             date_lbl.setCursor(Qt.CursorShape.PointingHandCursor)
-            date_lbl.mouseDoubleClickEvent = lambda e, f=file_path: show_file_details_dialog(f, self)
-            # Context menu en la fecha
+            date_lbl.setToolTip("Click derecho para opciones")
+            # Solo context menu, NO doble click
             date_lbl.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
             date_lbl.customContextMenuRequested.connect(lambda pos, f=file_path: self._show_context_menu(pos, f))
             layout.addWidget(date_lbl)
@@ -1019,7 +1019,7 @@ class SimilarFilesDialog(BaseDialog):
         return card
     
     def _create_info_badge(self, file_path: Path) -> QLabel:
-        """Crea el badge de información visual (Opción 2)"""
+        """Crea el badge de información visual (Opción 2) - UN SOLO CLICK para abrir detalles"""
         badge = QLabel()
         
         # Crear icono de información
@@ -1045,12 +1045,12 @@ class SimilarFilesDialog(BaseDialog):
         """)
         
         badge.setCursor(Qt.CursorShape.PointingHandCursor)
-        badge.setToolTip("Doble click en cualquier parte de la tarjeta para ver detalles completos")
+        badge.setToolTip("Click para ver detalles del archivo")
         
-        # Hacer que el badge también soporte doble click
-        badge.mouseDoubleClickEvent = lambda e, f=file_path: show_file_details_dialog(f, self)
+        # UN SOLO CLICK para abrir detalles
+        badge.mousePressEvent = lambda e, f=file_path: show_file_details_dialog(f, self)
         
-        # Y menú contextual
+        # También context menu por consistencia
         badge.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         badge.customContextMenuRequested.connect(lambda pos, f=file_path: self._show_context_menu(pos, f))
         
