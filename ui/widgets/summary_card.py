@@ -101,7 +101,17 @@ class SummaryCard(QFrame):
         
         # Línea única: Estadísticas + Espacio optimizable + Botón Reanalizar
         info_layout = QHBoxLayout()
-        info_layout.setSpacing(DesignSystem.SPACE_16)
+        info_layout.setSpacing(DesignSystem.SPACE_8)
+        
+        # 0. Icono estadísticas
+        stats_icon = QLabel()
+        icon_manager.set_label_icon(
+            stats_icon,
+            'chart-bar',
+            color=DesignSystem.COLOR_TEXT_SECONDARY,
+            size=16
+        )
+        info_layout.addWidget(stats_icon)
         
         # 1. Estadísticas (Archivos y Tamaño)
         self.stats_label = QLabel("Calculando...")
