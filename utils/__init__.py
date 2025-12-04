@@ -73,7 +73,6 @@ from .storage import (
     QSettingsBackend
 )
 from .settings_manager import SettingsManager, settings_manager
-from .decorators import deprecated
 
 __all__ = [
     # Logger utilities
@@ -149,8 +148,5 @@ __all__ = [
 
     # Settings manager
     'SettingsManager',
-    'settings_manager',
-
-    # Decorators
-    'deprecated'
+    'settings_manager'
 ]

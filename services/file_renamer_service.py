@@ -24,8 +24,8 @@ from utils.file_utils import (
     find_next_available_name,
     validate_file_exists,
 )
-from utils.decorators import deprecated
 from services.metadata_cache import FileMetadataCache
+
 
 class FileRenamer(BaseService):
     """

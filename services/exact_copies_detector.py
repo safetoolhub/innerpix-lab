@@ -16,7 +16,6 @@ except ImportError:
 
 from config import Config
 from utils.file_utils import calculate_file_hash
-from utils.decorators import deprecated
 from services.result_types import DuplicateAnalysisResult, DuplicateDeletionResult, DuplicateGroup
 from services.base_detector_service import BaseDetectorService
 from services.base_service import BaseService, ProgressCallback

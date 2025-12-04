@@ -20,7 +20,6 @@ from utils.date_utils import parse_renamed_name, get_date_from_file
 from utils.file_utils import is_whatsapp_file, detect_file_source
 from services.result_types import OrganizationResult, OrganizationAnalysisResult
 from services.base_service import BaseService, ProgressCallback
-from utils.decorators import deprecated
 
 class OrganizationType(Enum):
     """Tipos de organización disponibles"""
