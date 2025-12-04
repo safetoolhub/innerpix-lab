@@ -1153,14 +1153,14 @@ class SimilarFilesDialog(BaseDialog):
         super().accept()
 
 
+
     def _get_file_date_info(self, file_path: Path) -> str:
         """
         Extract and format file date and source information for display.
         
-        Returns a short, subtle string like:
-        - "📅 2024-01-15 (EXIF)"
-        - "📅 2024-01-15 14:30 (Filename)"
-        - "📅 2024-01-15 (mtime)"
+        Returns a consistent format matching the file details dialog:
+        - "YYYY-MM-DD HH:MM:SS (Fuente: EXIF DateTimeOriginal)"
+        - "YYYY-MM-DD HH:MM:SS (Fuente: Fecha de creación)"
         """
         try:
             from utils.date_utils import get_all_file_dates, select_chosen_date
@@ -1174,35 +1174,44 @@ class SimilarFilesDialog(BaseDialog):
             if not selected_date or not source:
                 return ""
             
-            # Format the source to be short and user-friendly
+            # Map sources to user-friendly descriptions matching file details dialog
             source_map = {
-                'EXIF DateTimeOriginal': 'EXIF',
-                'EXIF CreateDate': 'EXIF',
-                'EXIF DateTimeDigitized': 'EXIF',
-                'Filename': 'filename',
-                'Video metadata': 'video meta',
-                'birth': 'created',
-                'ctime': 'ctime',
-                'mtime': 'modified'
+                'EXIF DateTimeOriginal': 'EXIF DateTimeOriginal',
+                'EXIF CreateDate': 'EXIF CreateDate',
+                'EXIF DateTimeDigitized': 'EXIF DateTimeDigitized',
+                'Filename': 'Fecha del nombre de archivo',
+                'Video metadata': 'Metadata de video',
+                'birth': 'Fecha de creación (birth)',
+                'ctime': 'Fecha de creación (ctime)',
+                'mtime': 'Fecha de modificación'
             }
             
-            # Get short source name, handling timezone info in source
-            short_source = source_map.get(source, source)
+            # Get descriptive source name
+            descriptive_source = source
             
-            # If source contains timezone info like "EXIF DateTimeOriginal (+02:00)", extract it
-            if 'EXIF' in source and '(' in source:
-                short_source = 'EXIF'
-            
-            # Format date - include time if it's from EXIF or filename (more precise)
-            if 'EXIF' in source or 'Filename' in source or 'Video' in source:
-                # Show date and time for precise sources
-                date_str = selected_date.strftime('%Y-%m-%d %H:%M')
+            # Handle EXIF sources with timezone info like "EXIF DateTimeOriginal (+02:00)"
+            if 'EXIF DateTimeOriginal' in source:
+                descriptive_source = 'EXIF DateTimeOriginal'
+                if '(' in source:
+                    # Keep timezone info if present
+                    tz = source[source.index('('):source.index(')')+1]
+                    descriptive_source = f'EXIF DateTimeOriginal {tz}'
+            elif 'EXIF CreateDate' in source:
+                descriptive_source = 'EXIF CreateDate'
+            elif 'EXIF DateTimeDigitized' in source:
+                descriptive_source = 'EXIF DateTimeDigitized'
             else:
-                # Show just date for file system dates
-                date_str = selected_date.strftime('%Y-%m-%d')
+                # Use mapping for other sources
+                for key, value in source_map.items():
+                    if key in source:
+                        descriptive_source = value
+                        break
             
-            # Return formatted string with emoji for visual interest
-            return f"📅 {date_str} ({short_source})"
+            # Always format with full date and time: YYYY-MM-DD HH:MM:SS
+            date_str = selected_date.strftime('%Y-%m-%d %H:%M:%S')
+            
+            # Return formatted string matching details dialog format
+            return f"{date_str} (Fuente: {descriptive_source})"
             
         except Exception as e:
             # Silently fail - this is just auxiliary information
