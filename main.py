@@ -23,11 +23,13 @@ def main():
     """Punto de entrada principal de la aplicación"""
     # Leer nivel de log desde configuración persistente
     saved_log_level = settings_manager.get_log_level("INFO")  # INFO por defecto
+    saved_dual_log = settings_manager.get_dual_log_enabled()  # True por defecto
     
     # Configurar sistema de logging con nivel guardado
     log_file, logs_dir = configure_logging(
         logs_dir=Config.DEFAULT_LOG_DIR,
-        level=saved_log_level
+        level=saved_log_level,
+        dual_log_enabled=saved_dual_log
     )
     
     # Cargar configuración persistente
@@ -66,6 +68,10 @@ def main():
     logger.info(f"  • Nivel de log: {log_level}")
     logger.info(f"  • Archivo de log: {log_file}")
     logger.info(f"  • Directorio de logs: {logs_dir}")
+    if saved_dual_log and saved_log_level in ('INFO', 'DEBUG'):
+        logger.info(f"  • Dual logging: activado (se creará archivo adicional _WARNERROR)")
+    else:
+        logger.info(f"  • Dual logging: {'desactivado' if not saved_dual_log else 'no aplicable (nivel WARNING/ERROR)'}")
     logger.info("")
     logger.info("⚙️  CONFIGURACIÓN DE ANÁLISIS:")
     logger.info(f"  • Metadatos de video: {'habilitada' if Config.USE_VIDEO_METADATA else 'deshabilitada'}")

@@ -31,6 +31,7 @@ class SettingsManager:
 
     # === LOGGING ===
     KEY_LOG_LEVEL = "logging/level"
+    KEY_DUAL_LOG_ENABLED = "logging/dual_log_enabled"
 
     # === AVANZADO ===
     KEY_DRY_RUN_DEFAULT = "advanced/dry_run_default"
@@ -193,6 +194,14 @@ class SettingsManager:
     def set_log_level(self, level: str) -> None:
         """Establece el nivel de log"""
         self.set(self.KEY_LOG_LEVEL, level.upper())
+
+    def get_dual_log_enabled(self) -> bool:
+        """Obtiene si el log dual (warnings/errors) está habilitado (por defecto True)"""
+        return self.get_bool(self.KEY_DUAL_LOG_ENABLED, True)
+
+    def set_dual_log_enabled(self, enabled: bool) -> None:
+        """Establece si el log dual (warnings/errors) está habilitado"""
+        self.set(self.KEY_DUAL_LOG_ENABLED, enabled)
 
     def get_logs_directory(self, default: Optional[Path] = None) -> Optional[Path]:
         """Obtiene el directorio de logs configurado"""

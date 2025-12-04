@@ -33,7 +33,9 @@ _root_logger = None
 _current_level = logging.INFO
 _log_lock = threading.RLock()  # RLock permite re-entrada del mismo thread
 _log_file: Optional[Path] = None
+_log_file_warnings: Optional[Path] = None  # Archivo solo para WARNING/ERROR
 _logs_directory: Optional[Path] = None
+_dual_log_enabled = True  # Por defecto habilitado
 
 
 class ThreadSafeHandler(logging.Handler):
@@ -92,6 +94,16 @@ def _ensure_root_logger():
                 except Exception as e:
                     # Si falla crear el archivo, solo usar consola
                     _root_logger.error(f"No se pudo crear archivo de log: {e}")
+            
+            # Handler adicional para WARNING/ERROR si está habilitado
+            if _log_file_warnings and _dual_log_enabled:
+                try:
+                    warning_handler = ThreadSafeFileHandler(_log_file_warnings, encoding='utf-8')
+                    warning_handler.setFormatter(formatter)
+                    warning_handler.setLevel(logging.WARNING)  # Solo WARNING y ERROR
+                    _root_logger.addHandler(warning_handler)
+                except Exception as e:
+                    _root_logger.error(f"No se pudo crear archivo de log de warnings: {e}")
     
     return _root_logger
 
@@ -227,16 +239,20 @@ def get_logger(name=None):
 def configure_logging(
     logs_dir: Optional[Path | str] = None,
     level: str = "INFO",
+    dual_log_enabled: bool = True,
 ) -> tuple[Path, Path]:
     """
     Configura el sistema de logging con archivo y directorio.
     
     Debe llamarse al inicio de la aplicación antes de usar get_logger().
     Crea archivo de log timestamped y configura handlers para archivo y consola.
+    Si dual_log_enabled=True y level es INFO o DEBUG, crea un segundo archivo
+    solo con WARNING y ERROR.
     
     Args:
         logs_dir: Directorio donde guardar logs. Si es None, usa el directorio actual
         level: Nivel de logging ("DEBUG", "INFO", "WARNING", "ERROR")
+        dual_log_enabled: Si True, crea archivo adicional para WARNING/ERROR (solo si level=INFO/DEBUG)
         
     Returns:
         tuple: (ruta_archivo_log, directorio_logs)
@@ -244,10 +260,11 @@ def configure_logging(
     Example:
         log_file, logs_dir = configure_logging(
             logs_dir=Path.home() / "Documents" / "MyApp" / "logs",
-            level="INFO"
+            level="INFO",
+            dual_log_enabled=True
         )
     """
-    global _log_file, _logs_directory, _current_level, _root_logger
+    global _log_file, _log_file_warnings, _logs_directory, _current_level, _root_logger, _dual_log_enabled
     
     # Configurar directorio
     if logs_dir:
@@ -260,12 +277,20 @@ def configure_logging(
     except Exception:
         _logs_directory = Path.cwd()
     
-    # Crear archivo de log con timestamp
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    _log_file = _logs_directory / f"pixaro_lab_{timestamp}.log"
-    
     # Configurar nivel
-    _current_level = getattr(logging, level.upper(), logging.INFO)
+    level_upper = level.upper()
+    _current_level = getattr(logging, level_upper, logging.INFO)
+    _dual_log_enabled = dual_log_enabled
+    
+    # Crear archivo de log con timestamp y sufijo de nivel
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    _log_file = _logs_directory / f"pixaro_lab_{timestamp}_{level_upper}.log"
+    
+    # Crear archivo adicional para WARNING/ERROR si está habilitado
+    # Solo para niveles INFO o DEBUG (WARNING/ERROR ya tienen todo en el log principal)
+    _log_file_warnings = None
+    if _dual_log_enabled and level_upper in ('INFO', 'DEBUG'):
+        _log_file_warnings = _logs_directory / f"pixaro_lab_{timestamp}_WARNERROR.log"
     
     # Si el logger ya existe, limpiar handlers viejos
     if _root_logger is not None:
@@ -292,7 +317,7 @@ def configure_logging(
     stream_handler.setFormatter(formatter)
     _root_logger.addHandler(stream_handler)
     
-    # Handler thread-safe para archivo
+    # Handler thread-safe para archivo principal
     try:
         file_handler = ThreadSafeFileHandler(_log_file, encoding='utf-8')
         file_handler.setFormatter(formatter)
@@ -300,10 +325,20 @@ def configure_logging(
     except Exception as e:
         _root_logger.error(f"No se pudo crear archivo de log: {e}")
     
+    # Handler adicional para WARNING/ERROR si está habilitado
+    if _log_file_warnings:
+        try:
+            warning_handler = ThreadSafeFileHandler(_log_file_warnings, encoding='utf-8')
+            warning_handler.setFormatter(formatter)
+            warning_handler.setLevel(logging.WARNING)  # Solo WARNING y ERROR
+            _root_logger.addHandler(warning_handler)
+        except Exception as e:
+            _root_logger.error(f"No se pudo crear archivo de log de warnings: {e}")
+    
     return _log_file, _logs_directory
 
 
-def change_logs_directory(new_dir: Path | str) -> tuple[Path, Path]:
+def change_logs_directory(new_dir: Path | str, dual_log_enabled: Optional[bool] = None) -> tuple[Path, Path]:
     """
     Cambia el directorio de logs en runtime y crea un nuevo archivo de log.
     
@@ -312,16 +347,22 @@ def change_logs_directory(new_dir: Path | str) -> tuple[Path, Path]:
     
     Args:
         new_dir: Nuevo directorio para logs
+        dual_log_enabled: Si especificado, actualiza la configuración de dual log
         
     Returns:
         tuple: (ruta_nuevo_archivo_log, nuevo_directorio_logs)
         
     Example:
         new_log_file, new_logs_dir = change_logs_directory(
-            Path.home() / "Documents" / "MyApp" / "logs"
+            Path.home() / "Documents" / "MyApp" / "logs",
+            dual_log_enabled=True
         )
     """
-    global _log_file, _logs_directory
+    global _log_file, _log_file_warnings, _logs_directory, _dual_log_enabled
+    
+    # Actualizar configuración de dual log si se especificó
+    if dual_log_enabled is not None:
+        _dual_log_enabled = dual_log_enabled
     
     # Configurar nuevo directorio
     _logs_directory = Path(new_dir)
@@ -330,9 +371,17 @@ def change_logs_directory(new_dir: Path | str) -> tuple[Path, Path]:
     except Exception:
         _logs_directory = Path.cwd()
     
-    # Crear nuevo archivo de log
+    # Obtener nivel actual
+    level_name = logging.getLevelName(_current_level)
+    
+    # Crear nuevo archivo de log con sufijo de nivel
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    _log_file = _logs_directory / f"pixaro_lab_{timestamp}.log"
+    _log_file = _logs_directory / f"pixaro_lab_{timestamp}_{level_name}.log"
+    
+    # Crear archivo adicional para WARNING/ERROR si está habilitado
+    _log_file_warnings = None
+    if _dual_log_enabled and level_name in ('INFO', 'DEBUG'):
+        _log_file_warnings = _logs_directory / f"pixaro_lab_{timestamp}_WARNERROR.log"
     
     root = _ensure_root_logger()
     
@@ -348,7 +397,7 @@ def change_logs_directory(new_dir: Path | str) -> tuple[Path, Path]:
         except Exception:
             pass  # Ignorar errores al cerrar
     
-    # Crear nuevo file handler
+    # Crear nuevo file handler principal
     try:
         formatter = logging.Formatter(
             '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -364,6 +413,17 @@ def change_logs_directory(new_dir: Path | str) -> tuple[Path, Path]:
     except Exception as e:
         root.error(f"No se pudo crear nuevo archivo de log: {e}")
     
+    # Crear handler adicional para WARNING/ERROR si está habilitado
+    if _log_file_warnings:
+        try:
+            warning_handler = ThreadSafeFileHandler(_log_file_warnings, encoding='utf-8')
+            warning_handler.setFormatter(formatter)
+            warning_handler.setLevel(logging.WARNING)
+            root.addHandler(warning_handler)
+            root.info(f"Archivo de log de warnings/errors: {_log_file_warnings}")
+        except Exception as e:
+            root.error(f"No se pudo crear archivo de log de warnings: {e}")
+    
     return _log_file, _logs_directory
 
 
@@ -375,6 +435,72 @@ def get_log_file() -> Optional[Path]:
 def get_logs_directory() -> Optional[Path]:
     """Retorna el directorio de logs actual"""
     return _logs_directory
+
+
+def is_dual_log_enabled() -> bool:
+    """Retorna si el sistema de dual logging está habilitado"""
+    return _dual_log_enabled
+
+
+def set_dual_log_enabled(enabled: bool) -> None:
+    """
+    Activa o desactiva el sistema de dual logging.
+    
+    Esto reconfigurará los handlers de log. Si se activa y el nivel actual
+    es INFO o DEBUG, se creará el archivo de WARNING/ERROR adicional.
+    
+    Args:
+        enabled: True para activar dual logging, False para desactivar
+    """
+    global _dual_log_enabled, _log_file_warnings
+    
+    if _dual_log_enabled == enabled:
+        return  # No hay cambio
+    
+    _dual_log_enabled = enabled
+    root = _ensure_root_logger()
+    level_name = logging.getLevelName(_current_level)
+    
+    if enabled and level_name in ('INFO', 'DEBUG') and _logs_directory:
+        # Activar: crear archivo de warnings si no existe
+        if not _log_file_warnings:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            _log_file_warnings = _logs_directory / f"pixaro_lab_{timestamp}_WARNERROR.log"
+            
+            try:
+                formatter = logging.Formatter(
+                    '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    datefmt='%Y-%m-%d %H:%M:%S'
+                )
+                warning_handler = ThreadSafeFileHandler(_log_file_warnings, encoding='utf-8')
+                warning_handler.setFormatter(formatter)
+                warning_handler.setLevel(logging.WARNING)
+                root.addHandler(warning_handler)
+                root.info(f"Dual logging activado. Archivo de warnings/errors: {_log_file_warnings}")
+            except Exception as e:
+                root.error(f"No se pudo crear archivo de log de warnings: {e}")
+    else:
+        # Desactivar: remover handler de warnings
+        handlers_to_remove = []
+        for handler in root.handlers[:]:
+            # Identificar handlers de archivo que apuntan a archivos WARNERROR
+            if isinstance(handler, (ThreadSafeFileHandler, logging.FileHandler)):
+                # Verificar si es un handler de warnings/errors por su nivel o por el nombre del archivo
+                if handler.level == logging.WARNING:
+                    handlers_to_remove.append(handler)
+                elif hasattr(handler, 'baseFilename') and '_WARNERROR' in handler.baseFilename:
+                    handlers_to_remove.append(handler)
+        
+        for handler in handlers_to_remove:
+            root.removeHandler(handler)
+            try:
+                handler.close()
+            except Exception:
+                pass
+        
+        if handlers_to_remove:
+            root.info("Dual logging desactivado")
+        _log_file_warnings = None
 
 
 # Funciones utilitarias para logging discreto (disponibles globalmente)
