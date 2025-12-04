@@ -46,12 +46,10 @@ from .format_utils import (
     format_file_count,
     format_percentage,
     truncate_path,
-    format_file_operation_summary,
     format_count_short,
     format_size_short,
     format_count_full,
-    format_size_full,
-    format_time_ago
+    format_size_full
 )
 from .platform_utils import (
     open_file_with_default_app,
@@ -123,12 +121,10 @@ __all__ = [
     'format_file_count',
     'format_percentage',
     'truncate_path',
-    'format_file_operation_summary',
     'format_count_short',
     'format_size_short',
     'format_count_full',
     'format_size_full',
-    'format_time_ago',
 
     # Platform utilities
     'open_file_with_default_app',
