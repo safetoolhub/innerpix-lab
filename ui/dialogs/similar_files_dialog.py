@@ -18,6 +18,7 @@ from services.result_types import DuplicateGroup
 from utils.format_utils import format_size
 from utils.image_loader import load_image_as_qpixmap
 from utils.video_thumbnail import get_video_thumbnail
+from utils.platform_utils import open_file_with_default_app
 from ui.styles.design_system import DesignSystem
 from utils.icons import icon_manager
 from .base_dialog import BaseDialog
@@ -969,7 +970,8 @@ class SimilarFilesDialog(BaseDialog):
         # Thumbnail
         thumb_lbl, is_video = self._create_thumbnail(file_path)
         if thumb_lbl:
-            thumb_lbl.mousePressEvent = lambda e, f=file_path: self._show_image_preview(f)
+            # Click handler: videos se abren con app predeterminada, imágenes con preview
+            thumb_lbl.mousePressEvent = lambda e, f=file_path, is_vid=is_video: self._handle_thumbnail_click(f, is_vid)
             layout.addWidget(thumb_lbl, alignment=Qt.AlignmentFlag.AlignCenter)
         
         # Nombre archivo (solo context menu, sin doble click)
@@ -1349,6 +1351,21 @@ class SimilarFilesDialog(BaseDialog):
             logger.debug(f"Error creando thumbnail para {file_path.name}: {e}")
             return None, False
 
-    def _show_image_preview(self, file_path):
+    def _handle_thumbnail_click(self, file_path: Path, is_video: bool):
+        """
+        Maneja el clic en un thumbnail.
+        
+        Para videos: abre con la aplicación predeterminada del sistema
+        Para imágenes: muestra preview ampliado en diálogo
+        """
+        if is_video:
+            # Abrir video con aplicación predeterminada (multiplataforma)
+            open_file_with_default_app(file_path)
+        else:
+            # Mostrar preview de imagen
+            self._show_image_preview(file_path)
+    
+    def _show_image_preview(self, file_path: Path):
+        """Muestra preview ampliado de una imagen."""
         dialog = ImagePreviewDialog(file_path, self)
         dialog.exec()
