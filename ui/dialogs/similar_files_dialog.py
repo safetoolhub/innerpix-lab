@@ -970,6 +970,19 @@ class SimilarFilesDialog(BaseDialog):
         name_lbl.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT};")
         layout.addWidget(name_lbl)
         
+        # Date and source info (subtle display)
+        date_info = self._get_file_date_info(file_path)
+        if date_info:
+            date_lbl = QLabel(date_info)
+            date_lbl.setWordWrap(True)
+            date_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            date_lbl.setStyleSheet(f"""
+                font-size: {DesignSystem.FONT_SIZE_XS}px; 
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                opacity: 0.7;
+            """)
+            layout.addWidget(date_lbl)
+        
         # Click en toda la card selecciona/deselecciona (opcional, a veces confuso si hay preview)
         # card.mousePressEvent = lambda e: checkbox.toggle() 
         
@@ -983,13 +996,20 @@ class SimilarFilesDialog(BaseDialog):
         return card
 
     def _show_context_menu(self, pos, file_path):
-        menu = QMenu(self)
-        menu.setStyleSheet(DesignSystem.get_context_menu_style())
-        
-        details_action = menu.addAction(icon_manager.get_icon('info'), "Ver detalles")
-        details_action.triggered.connect(lambda: show_file_details_dialog(file_path, self))
-        
-        menu.exec(QCursor.pos())
+        """Show context menu for file card."""
+        try:
+            menu = QMenu(self)
+            menu.setStyleSheet(DesignSystem.get_context_menu_style())
+            
+            # Create action with parent to avoid segmentation fault
+            details_action = QMenu.addAction(menu, icon_manager.get_icon('info'), "Ver detalles")
+            details_action.triggered.connect(lambda checked=False, f=file_path: show_file_details_dialog(f, self))
+            
+            menu.exec(QCursor.pos())
+        except Exception as e:
+            from utils.logger import get_logger
+            logger = get_logger('SimilarFilesDialog')
+            logger.error(f"Error showing context menu: {e}")
 
     def _get_card_style(self, is_selected: bool) -> str:
         border_color = DesignSystem.COLOR_DANGER if is_selected else DesignSystem.COLOR_BORDER
@@ -1132,6 +1152,61 @@ class SimilarFilesDialog(BaseDialog):
         }
         super().accept()
 
+
+    def _get_file_date_info(self, file_path: Path) -> str:
+        """
+        Extract and format file date and source information for display.
+        
+        Returns a short, subtle string like:
+        - "📅 2024-01-15 (EXIF)"
+        - "📅 2024-01-15 14:30 (Filename)"
+        - "📅 2024-01-15 (mtime)"
+        """
+        try:
+            from utils.date_utils import get_all_file_dates, select_chosen_date
+            
+            # Get all available dates for this file
+            all_dates = get_all_file_dates(file_path)
+            
+            # Select the most representative date
+            selected_date, source = select_chosen_date(all_dates)
+            
+            if not selected_date or not source:
+                return ""
+            
+            # Format the source to be short and user-friendly
+            source_map = {
+                'EXIF DateTimeOriginal': 'EXIF',
+                'EXIF CreateDate': 'EXIF',
+                'EXIF DateTimeDigitized': 'EXIF',
+                'Filename': 'filename',
+                'Video metadata': 'video meta',
+                'birth': 'created',
+                'ctime': 'ctime',
+                'mtime': 'modified'
+            }
+            
+            # Get short source name, handling timezone info in source
+            short_source = source_map.get(source, source)
+            
+            # If source contains timezone info like "EXIF DateTimeOriginal (+02:00)", extract it
+            if 'EXIF' in source and '(' in source:
+                short_source = 'EXIF'
+            
+            # Format date - include time if it's from EXIF or filename (more precise)
+            if 'EXIF' in source or 'Filename' in source or 'Video' in source:
+                # Show date and time for precise sources
+                date_str = selected_date.strftime('%Y-%m-%d %H:%M')
+            else:
+                # Show just date for file system dates
+                date_str = selected_date.strftime('%Y-%m-%d')
+            
+            # Return formatted string with emoji for visual interest
+            return f"📅 {date_str} ({short_source})"
+            
+        except Exception as e:
+            # Silently fail - this is just auxiliary information
+            return ""
 
     def _create_thumbnail(self, file_path: Path):
         # Retorna (QLabel, is_video)
