@@ -4,8 +4,12 @@ Muestra el resumen del análisis y el grid de herramientas disponibles.
 """
 
 from typing import Dict, Any
-from PyQt6.QtWidgets import QWidget, QGridLayout, QMessageBox, QDialog
-from PyQt6.QtCore import QTimer
+from PyQt6.QtWidgets import (
+    QWidget, QGridLayout, QMessageBox, QDialog, 
+    QFrame, QHBoxLayout, QLabel, QPushButton
+)
+from PyQt6.QtCore import QTimer, Qt
+import qtawesome as qta
 
 from config import Config
 from utils.settings_manager import settings_manager
@@ -49,6 +53,7 @@ class Stage3Window(BaseStage):
 
         # Referencias a widgets del estado
         self.header = None
+        self.stale_banner = None
         self.summary_card = None
         self.tools_grid = None
         self.tool_cards = {}  # Dict de tool_id -> ToolCard
@@ -80,6 +85,10 @@ class Stage3Window(BaseStage):
         self.main_layout.addWidget(self.header)
         self.main_layout.addSpacing(DesignSystem.SPACE_16)
 
+        # Crear banner de advertencia (oculto por defecto)
+        self.stale_banner = self._create_stale_banner()
+        self.main_layout.addWidget(self.stale_banner)
+
         # Añadir stretch para mantener el header en la parte superior
         self.main_layout.addStretch()
 
@@ -98,6 +107,11 @@ class Stage3Window(BaseStage):
             self.header.setParent(None)
             self.header = None
 
+        if self.stale_banner:
+            self.stale_banner.hide()
+            self.stale_banner.setParent(None)
+            self.stale_banner = None
+
         if self.summary_card:
             self.summary_card.hide()
             self.summary_card.setParent(None)
@@ -109,6 +123,65 @@ class Stage3Window(BaseStage):
             self.tools_grid = None
 
         self.tool_cards.clear()
+
+    def _create_stale_banner(self) -> QWidget:
+        """Crea el banner de advertencia de estadísticas desactualizadas"""
+        banner = QFrame()
+        banner.setObjectName("staleBanner")
+        
+        # Estilo del banner
+        banner.setStyleSheet(f"""
+            QFrame#staleBanner {{
+                background-color: {DesignSystem.COLOR_WARNING_BG};
+                border: 1px solid {DesignSystem.COLOR_WARNING};
+                border-radius: {DesignSystem.RADIUS_MD}px;
+            }}
+        """)
+        
+        layout = QHBoxLayout(banner)
+        layout.setContentsMargins(DesignSystem.SPACE_16, DesignSystem.SPACE_12, 
+                                 DesignSystem.SPACE_16, DesignSystem.SPACE_12)
+        layout.setSpacing(DesignSystem.SPACE_16)
+        
+        # Icono
+        icon_label = QLabel()
+        icon = qta.icon('fa5s.exclamation-triangle', color=DesignSystem.COLOR_WARNING)
+        icon_label.setPixmap(icon.pixmap(24, 24))
+        layout.addWidget(icon_label)
+        
+        # Mensaje
+        msg_label = QLabel(
+            "<b>Estadísticas desactualizadas</b><br>"
+            "Se han realizado cambios en los archivos. "
+            "Las estadísticas mostradas pueden no ser precisas."
+        )
+        msg_label.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT}; font-size: {DesignSystem.FONT_SIZE_BASE}px;")
+        layout.addWidget(msg_label)
+        
+        layout.addStretch()
+        
+        # Botón de re-análisis
+        btn = QPushButton("Re-analizar ahora")
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.setIcon(qta.icon('fa5s.sync-alt', color=DesignSystem.COLOR_TEXT))
+        btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: rgba(255, 255, 255, 0.5);
+                border: 1px solid {DesignSystem.COLOR_WARNING};
+                border-radius: {DesignSystem.RADIUS_SM}px;
+                padding: 6px 12px;
+                color: {DesignSystem.COLOR_TEXT};
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            }}
+            QPushButton:hover {{
+                background-color: rgba(255, 255, 255, 0.8);
+            }}
+        """)
+        btn.clicked.connect(self._on_reanalyze)
+        layout.addWidget(btn)
+        
+        banner.hide()
+        return banner
 
     def _show_summary_card(self):
         """Muestra la summary card con animaciones"""
@@ -597,15 +670,44 @@ class Stage3Window(BaseStage):
             
             # Mostrar resultado
             if result and hasattr(result, 'success') and result.success:
+                # Build success message
+                message = f"La operación se completó exitosamente.\n\n{result.message if hasattr(result, 'message') else ''}"
+                
+                # Add errors warning if any
+                if hasattr(result, 'errors') and result.errors:
+                    message += f"\n\nAdvertencia: Se encontraron {len(result.errors)} errores durante la operación."
+                
+                # First show success message
                 QMessageBox.information(
                     self.main_window,
                     "Operación Completada",
-                    f"La operación se completó exitosamente.\n\n{result.message if hasattr(result, 'message') else ''}"
+                    message
                 )
                 
-                # Lanzar re-análisis automático tras operación exitosa
-                log_section_header_discrete(self.logger, f"Lanzando re-análisis automático tras completar {tool_id}")
-                QTimer.singleShot(500, self._on_reanalyze)
+                # Then ask user about re-analysis
+                reply = QMessageBox.question(
+                    self.main_window,
+                    "Re-analizar carpeta",
+                    "¿Deseas re-analizar la carpeta para actualizar las estadísticas?\n\n"
+                    "Nota: El re-análisis puede tardar varios minutos con datasets grandes. "
+                    "Si omites este paso, las estadísticas mostradas pueden no reflejar los cambios realizados.",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.Yes  # Default to Yes
+                )
+                
+                if reply == QMessageBox.StandardButton.Yes:
+                    # Re-analyze as before
+                    log_section_header_discrete(self.logger, f"Re-análisis solicitado por usuario tras completar {tool_id}")
+                    QTimer.singleShot(500, self._on_reanalyze)
+                else:
+                    # User chose to skip re-analysis
+                    self.logger.info("Usuario omitió re-análisis, las estadísticas pueden estar desactualizadas")
+                    # Mostrar banner de advertencia
+                    if self.stale_banner:
+                        self.stale_banner.show()
+                        # Asegurar que el banner sea visible (scroll to top if needed)
+                        if hasattr(self.main_window, 'scroll_area'):
+                            self.main_window.scroll_area.ensureWidgetVisible(self.stale_banner)
             else:
                 error_msg = result.message if (result and hasattr(result, 'message')) else "Operación fallida"
                 QMessageBox.warning(
@@ -656,6 +758,11 @@ class Stage3Window(BaseStage):
         self.logger.info("Reanalizando carpeta")
 
         # Limpiar widgets del ESTADO 3
+        if self.stale_banner:
+            self.stale_banner.hide()
+            self.stale_banner.setParent(None)
+            self.stale_banner = None
+
         if self.summary_card:
             self.summary_card.hide()
             self.summary_card.setParent(None)

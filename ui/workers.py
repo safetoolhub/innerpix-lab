@@ -365,7 +365,7 @@ class RenamingWorker(BaseWorker):
                 self.analysis.renaming_plan,
                 create_backup=self.create_backup,
                 dry_run=self.dry_run,
-                progress_callback=self._create_progress_callback()
+                progress_callback=self._create_progress_callback(emit_numbers=True)
             )
             
             if not self._stop_requested:
@@ -406,7 +406,7 @@ class LivePhotoCleanupWorker(BaseWorker):
                 self.analysis,
                 create_backup=self.create_backup,
                 dry_run=self.dry_run,
-                progress_callback=self._create_progress_callback()
+                progress_callback=self._create_progress_callback(emit_numbers=True)
             )
             
             if not self._stop_requested:
@@ -455,7 +455,7 @@ class FileOrganizerWorker(BaseWorker):
                 create_backup=self.create_backup,
                 cleanup_empty_dirs=self.cleanup_empty_dirs,
                 dry_run=self.dry_run,
-                progress_callback=self._create_progress_callback()
+                progress_callback=self._create_progress_callback(emit_numbers=True)
             )
             
             if not self._stop_requested:
@@ -499,7 +499,7 @@ class HEICRemovalWorker(BaseWorker):
             if self._stop_requested:
                 return
             
-            progress_cb_local = self._create_progress_callback()
+            progress_cb_local = self._create_progress_callback(emit_numbers=True)
 
             # Attach callback to remover so create_backup (which may not accept
             # progress_callback explicitly) can use it via attribute
@@ -614,7 +614,7 @@ class DuplicateDeletionWorker(BaseWorker):
                 keep_strategy=self.keep_strategy,
                 create_backup=self.create_backup,
                 dry_run=self.dry_run,
-                progress_callback=self._create_progress_callback()
+                progress_callback=self._create_progress_callback(emit_numbers=True)
             )
             
             if not self._stop_requested:
