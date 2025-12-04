@@ -931,9 +931,6 @@ class SimilarFilesDialog(BaseDialog):
         card = QFrame()
         card.setCursor(Qt.CursorShape.PointingHandCursor)
         
-        # Tooltip para indicar funcionalidad de doble click
-        card.setToolTip("Doble click para ver detalles del archivo")
-        
         # Doble click para ver detalles
         card.mouseDoubleClickEvent = lambda e: show_file_details_dialog(file_path, self)
         
@@ -965,7 +962,6 @@ class SimilarFilesDialog(BaseDialog):
         size_lbl = QLabel(format_size(file_path.stat().st_size))
         size_lbl.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_XS}px;")
         size_lbl.setCursor(Qt.CursorShape.PointingHandCursor)
-        size_lbl.setToolTip("Click derecho para opciones")
         # Solo context menu, NO doble click
         size_lbl.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         size_lbl.customContextMenuRequested.connect(lambda pos, f=file_path: self._show_context_menu(pos, f))
@@ -985,7 +981,6 @@ class SimilarFilesDialog(BaseDialog):
         name_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         name_lbl.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT};")
         name_lbl.setCursor(Qt.CursorShape.PointingHandCursor)
-        name_lbl.setToolTip("Click derecho para opciones")
         # Solo context menu, NO doble click
         name_lbl.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         name_lbl.customContextMenuRequested.connect(lambda pos, f=file_path: self._show_context_menu(pos, f))
@@ -1003,7 +998,6 @@ class SimilarFilesDialog(BaseDialog):
                 opacity: 0.7;
             """)
             date_lbl.setCursor(Qt.CursorShape.PointingHandCursor)
-            date_lbl.setToolTip("Click derecho para opciones")
             # Solo context menu, NO doble click
             date_lbl.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
             date_lbl.customContextMenuRequested.connect(lambda pos, f=file_path: self._show_context_menu(pos, f))
@@ -1045,7 +1039,6 @@ class SimilarFilesDialog(BaseDialog):
         """)
         
         badge.setCursor(Qt.CursorShape.PointingHandCursor)
-        badge.setToolTip("Click para ver detalles del archivo")
         
         # UN SOLO CLICK para abrir detalles
         badge.mousePressEvent = lambda e, f=file_path: show_file_details_dialog(f, self)
