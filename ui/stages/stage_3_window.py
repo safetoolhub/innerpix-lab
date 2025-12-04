@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import QWidget, QGridLayout, QMessageBox, QDialog
 from PyQt6.QtCore import QTimer
 
 from config import Config
+from utils.settings_manager import settings_manager
 from .base_stage import BaseStage
 from ui.styles.design_system import DesignSystem
 from ui.widgets.summary_card import SummaryCard
@@ -477,6 +478,24 @@ class Stage3Window(BaseStage):
         plan = dialog.accepted_plan
         self.logger.info(f"Ejecutando acciones de {tool_id} con plan: {list(plan.keys()) if isinstance(plan, dict) else type(plan)}")
         
+        # === VERIFICAR CONFIRMACIÓN ADICIONAL PARA ELIMINACIÓN ===
+        # Lista de herramientas destructivas (que eliminan archivos)
+        destructive_tools = ['live_photos', 'file-image', 'exact_copies', 'similar_files']
+        
+        if tool_id in destructive_tools and settings_manager.get_confirm_delete():
+            reply = QMessageBox.question(
+                self.main_window,
+                "Confirmar Eliminación",
+                "Esta operación eliminará archivos de forma permanente.\n\n"
+                "¿Estás seguro de que deseas continuar?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+            
+            if reply == QMessageBox.StandardButton.No:
+                self.logger.info(f"Operación {tool_id} cancelada por el usuario en confirmación adicional")
+                return
+
         # Crear diálogo de progreso
         progress_dialog = QProgressDialog(
             "Ejecutando operación...",
