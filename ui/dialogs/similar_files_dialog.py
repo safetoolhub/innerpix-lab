@@ -16,8 +16,8 @@ from config import Config
 from services.similar_files_detector import SimilarFilesAnalysis
 from services.result_types import DuplicateGroup
 from utils.format_utils import format_size
+from utils.image_loader import load_image_as_qpixmap
 from ui.styles.design_system import DesignSystem
-from utils.icons import icon_manager
 from utils.icons import icon_manager
 from .base_dialog import BaseDialog
 from .dialog_utils import show_file_details_dialog
@@ -59,19 +59,15 @@ class ImagePreviewDialog(QDialog):
         image_label = QLabel()
         image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
-        pixmap = QPixmap(str(image_path))
-        if not pixmap.isNull():
-            # Escalar si es muy grande, pero mantener calidad
-            screen_size = self.screen().availableSize()
-            max_w = screen_size.width() * 0.8
-            max_h = screen_size.height() * 0.8
-            
-            if pixmap.width() > max_w or pixmap.height() > max_h:
-                pixmap = pixmap.scaled(
-                    int(max_w), int(max_h),
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation
-                )
+        # Calcular tamaño máximo
+        screen_size = self.screen().availableSize()
+        max_w = int(screen_size.width() * 0.8)
+        max_h = int(screen_size.height() * 0.8)
+        
+        # Cargar imagen con soporte HEIC/HEIF
+        pixmap = load_image_as_qpixmap(image_path, max_size=(max_w, max_h))
+        
+        if pixmap and not pixmap.isNull():
             image_label.setPixmap(pixmap)
         else:
             image_label.setText("❌ No se pudo cargar la imagen")
@@ -1274,10 +1270,12 @@ class SimilarFilesDialog(BaseDialog):
     def _create_thumbnail(self, file_path: Path):
         # Retorna (QLabel, is_video)
         try:
-            pixmap = QPixmap(str(file_path))
-            if pixmap.isNull(): return None, False
+            # Cargar imagen con soporte HEIC/HEIF, ya redimensionada
+            pixmap = load_image_as_qpixmap(file_path, max_size=(280, 280))
             
-            pixmap = pixmap.scaled(280, 280, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            if not pixmap or pixmap.isNull():
+                return None, False
+            
             lbl = QLabel()
             lbl.setPixmap(pixmap)
             lbl.setFixedSize(280, 280)
