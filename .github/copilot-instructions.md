@@ -50,9 +50,10 @@ See `PROJECT_TREE.md` for structure. Ignore `docs/` (author's notes).
 - Utils: `dialog_utils.py` (`open_file`, `open_folder`, `show_file_details_dialog`)
 
 **Design Rules**
-- ALL styling via `DesignSystem` class only
-- NO inline styles, ad-hoc QSS, or emojis
+- ALL styling via `DesignSystem` class only.
+- No inline styles, ad-hoc QSS, or emojis
 - Ask before adding/modifying styles
+- Remember that CSS is not available fully, it has to be compatible with qt
 
 ### Critical Patterns
 

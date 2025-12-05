@@ -26,6 +26,10 @@ Ofrece al usuario 6 herramientas principales; cada una se presenta mediante un d
 	- Descripción: Propone esquemas de renombrado (patrones con fecha, secuencias, metadatos) y muestra una vista previa de los nombres resultantes, detectando conflictos y proponiendo resoluciones.
 	- Dialog asociado: `ui/dialogs/renaming_dialog.py`
 
+7) Eliminación de archivos de 0 bytes
+	- Descripción: Busca archivos con tamaño 0 bytes y propone su eliminación.
+	- Dialog asociado: `ui/dialogs/zero_bytes_dialog.py`
+
 Notas comunes:
 - Todos los diálogos siguen el patrón de preview → plan → ejecutar y respetan la política "backup-first" para operaciones destructivas (opción de crear copia de seguridad antes de eliminar/mover/renombrar).
 - La lógica de negocio está desacoplada de la UI (servicios en `services/`) y cada Dialog actúa como la interfaz de usuario para inspeccionar y aceptar los planes generados por esos servicios.
