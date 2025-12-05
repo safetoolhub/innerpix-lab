@@ -9,6 +9,8 @@ I have implemented a caching mechanism for the Stage 2 analysis results. This al
 3.  **UI Integration**: Modified `Stage2Window` to check for and load the cache if enabled.
 4.  **Generation Script**: Created `scripts/generate_analysis_cache.py` to generate the cache file.
 
+The cache includes analysis results from all services: renaming, live photos, organization, HEIC removal, exact copies detection, and zero-byte file detection.
+
 ## How to Use
 
 ### 1. Generate the Cache

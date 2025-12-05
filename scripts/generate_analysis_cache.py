@@ -23,6 +23,7 @@ from services.live_photos_service import LivePhotoService
 from services.file_organizer_service import FileOrganizer
 from services.heic_remover_service import HEICRemover
 from services.exact_copies_detector import ExactCopiesDetector
+from services.zero_byte_service import ZeroByteService
 from utils.logger import configure_logging
 
 def main():
@@ -48,6 +49,7 @@ def main():
     organizer = FileOrganizer()
     heic_remover = HEICRemover()
     duplicate_exact_detector = ExactCopiesDetector()
+    zero_byte_service = ZeroByteService()
     
     # Callbacks simples para feedback
     def progress_callback(current, total, message):
@@ -69,6 +71,7 @@ def main():
             organizer=organizer,
             heic_remover=heic_remover,
             duplicate_exact_detector=duplicate_exact_detector,
+            zero_byte_service=zero_byte_service,
             progress_callback=progress_callback,
             phase_callback=phase_callback,
             precalculate_hashes=True  # Importante: pre-calcular hashes para que sea completo
