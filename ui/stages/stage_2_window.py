@@ -7,6 +7,7 @@ from pathlib import Path
 from PyQt6.QtWidgets import QMessageBox
 from PyQt6.QtCore import QTimer, pyqtSignal
 
+from config import Config
 from .base_stage import BaseStage
 from ui.styles.design_system import DesignSystem
 from ui.widgets.progress_card import ProgressCard
@@ -123,6 +124,30 @@ class Stage2Window(BaseStage):
         if self.progress_card:
             self.progress_card.set_phase_status('duplicates_similar', 'skipped')
         
+        # === MODO DESARROLLADOR: CARGAR CACHÉ ===
+        if Config.DEV_USE_CACHED_ANALYSIS:
+            import pickle
+            cache_path = Path(self.selected_folder) / Config.DEV_CACHE_FILENAME
+            
+            if cache_path.exists():
+                self.logger.warning(f"🛠️ MODO DESARROLLADOR: Cargando análisis desde caché: {cache_path}")
+                try:
+                    with open(cache_path, 'rb') as f:
+                        cached_results = pickle.load(f)
+                    
+                    self.logger.info("✅ Análisis cargado exitosamente desde caché")
+                    
+                    # Simular finalización inmediata
+                    # Usamos QTimer para dar tiempo a que la UI se renderice antes de cambiar
+                    QTimer.singleShot(500, lambda: self._on_analysis_finished(cached_results))
+                    return
+                    
+                except Exception as e:
+                    self.logger.error(f"❌ Error cargando caché de desarrollo: {e}")
+                    # Fallback a análisis normal
+            else:
+                self.logger.warning(f"🛠️ MODO DESARROLLADOR: No se encontró archivo de caché: {cache_path}")
+
         # Crear instancias de servicios
         renamer = FileRenamer()
         live_photos_service = LivePhotoService()

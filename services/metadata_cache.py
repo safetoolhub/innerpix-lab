@@ -462,3 +462,25 @@ class FileMetadataCache:
         file_path = file_path.resolve()
         with self._lock:
             return file_path in self._cache
+
+    def __getstate__(self):
+        """
+        Personaliza el estado para pickling.
+        Excluye el lock que no es serializable.
+        """
+        state = self.__dict__.copy()
+        # Eliminar lock del estado
+        if '_lock' in state:
+            del state['_lock']
+        return state
+
+    def __setstate__(self, state):
+        """
+        Restaura el estado desde pickle.
+        Recrea el lock.
+        """
+        self.__dict__.update(state)
+        # Recrear el lock
+        import threading
+        self._lock = threading.RLock()
+

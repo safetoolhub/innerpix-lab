@@ -1,6 +1,7 @@
 Al cambiar el nivel de log en la configuraicon debe cambiarse en todos los loggers de lso ficheros auxiliares, porque tienen su propia configuracion
 Probar todo y  meterle tests unitarios
-Mejorar el interfaz de las pestañas y el about
+Meter una tool para borrar archivos que ocupan 0 bytes
+
 Comprobar backups
 Comprobar que funciona bien con extensiones en mayusculas y minusculas
 Probar todo con muchos archivos a ver ux y rendimiento
