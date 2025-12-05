@@ -48,5 +48,10 @@ I created a test script `tests/test_dev_cache.py` that verifies:
 - The analysis result can be pickled and unpickled.
 - The `FileMetadataCache` (which contains locks) is correctly handled.
 - The data integrity is preserved.
+- The zero-byte service results are correctly serialized.
 
 The test passed successfully.
+
+## Important Note
+
+The cache file `.pixaro_analysis_cache.pkl` is **automatically excluded** from the analysis process. The `AnalysisOrchestrator` explicitly filters out this file when scanning directories, so it won't appear in file statistics or be processed by any service. This ensures the cache doesn't interfere with the analysis results.

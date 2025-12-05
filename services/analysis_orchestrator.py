@@ -247,7 +247,11 @@ class AnalysisOrchestrator:
         processed = 0
         
         # Primera pasada: obtener lista de archivos para saber el total
-        all_files = [f for f in directory.rglob("*") if f.is_file()]
+        # Excluir explícitamente el archivo de caché de desarrollo
+        all_files = [
+            f for f in directory.rglob("*") 
+            if f.is_file() and f.name != Config.DEV_CACHE_FILENAME
+        ]
         total_files = len(all_files)
         
         
