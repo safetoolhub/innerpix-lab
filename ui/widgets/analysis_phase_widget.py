@@ -69,9 +69,10 @@ class AnalysisPhaseWidget(QFrame):
             ("scan", "Escaneando archivos..."),
             ("renaming", "Analizando nombres de archivos..."),
             ("live_photos", "Buscando Live Photos..."),
-            ("file-image", "Buscando duplicados HEIC/JPG..."),
+            ("heic", "Buscando duplicados HEIC/JPG..."),
             ("duplicates", "Identificando copias exactas..."),
             ("duplicates_similar", "Identificando archivos similares..."),
+            ("zero_byte", "Buscando archivos vacíos..."),
             ("organization", "Analizando estructura de carpetas..."),
             ("finalizing", "Finalizando análisis...")
         ]

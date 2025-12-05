@@ -75,6 +75,7 @@ class IconManager:
         'download': 'mdi6.download',
         'delete': 'mdi6.delete',
         'delete-sweep': 'mdi6.delete-sweep',
+        'trash-alt': 'fa5s.trash-alt',
         'content-save': 'mdi6.content-save',
         'backup-restore': 'mdi6.backup-restore',
         'history': 'mdi6.history',

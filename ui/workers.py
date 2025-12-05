@@ -63,6 +63,8 @@ if TYPE_CHECKING:
         HeicAnalysisResult,
         DuplicateAnalysisResult,
         DuplicateDeletionResult,
+        ZeroByteAnalysisResult,
+        ZeroByteDeletionResult,
         ScanResult
     )
     from services.file_renamer_service import FileRenamer
@@ -71,6 +73,7 @@ if TYPE_CHECKING:
     from services.heic_remover_service import HEICRemover
     from services.exact_copies_detector import ExactCopiesDetector
     from services.similar_files_detector import SimilarFilesDetector
+    from services.zero_byte_service import ZeroByteService
 
 
 
@@ -180,6 +183,7 @@ class AnalysisWorker(BaseWorker):
         organizer: 'FileOrganizer',
         heic_remover: 'HEICRemover',
         duplicate_exact_detector: Optional['ExactCopiesDetector'] = None,
+        zero_byte_service: Optional['ZeroByteService'] = None,
         organization_type: Optional[str] = None
     ):
         super().__init__()
@@ -189,6 +193,7 @@ class AnalysisWorker(BaseWorker):
         self.organizer = organizer
         self.heic_remover = heic_remover
         self.duplicate_exact_detector = duplicate_exact_detector
+        self.zero_byte_service = zero_byte_service
         self.organization_type = organization_type
         
         # Leer configuración UX de delays
@@ -283,6 +288,7 @@ class AnalysisWorker(BaseWorker):
                 organizer=self.organizer,
                 heic_remover=self.heic_remover,
                 duplicate_exact_detector=self.duplicate_exact_detector,
+                zero_byte_service=self.zero_byte_service,
                 organization_type=self.organization_type,
                 progress_callback=self._create_progress_callback(emit_numbers=True),
                 phase_callback=self._handle_phase_start,
@@ -681,6 +687,52 @@ class SimilarFilesAnalysisWorker(BaseWorker):
             if not self._stop_requested:
                 self.finished.emit(analysis)
         
+        except Exception as e:
+            if not self._stop_requested:
+                import traceback
+                error_msg = f"{str(e)}\n{traceback.format_exc()}"
+                self.error.emit(error_msg)
+
+
+class ZeroByteDeletionWorker(BaseWorker):
+    """
+    Worker para eliminación de archivos de 0 bytes
+    
+    Signals:
+        finished(ZeroByteDeletionResult): Emite resultado de la eliminación
+        progress_update(int, int, str): Heredado de BaseWorker
+        error(str): Heredado de BaseWorker
+    """
+    # Sobrescribir finished con tipo específico
+    finished = pyqtSignal(object)  # En runtime es object, tipo semántico es ZeroByteDeletionResult
+
+    def __init__(
+        self,
+        service: 'ZeroByteService',
+        files: List[Path],
+        create_backup: bool = True,
+        dry_run: bool = False
+    ):
+        super().__init__()
+        self.service = service
+        self.files = files
+        self.create_backup = create_backup
+        self.dry_run = dry_run
+
+    def run(self) -> None:
+        try:
+            if self._stop_requested:
+                return
+            
+            results: 'ZeroByteDeletionResult' = self.service.execute(
+                self.files,
+                create_backup=self.create_backup,
+                dry_run=self.dry_run,
+                progress_callback=self._create_progress_callback(emit_numbers=True)
+            )
+            
+            if not self._stop_requested:
+                self.finished.emit(results)
         except Exception as e:
             if not self._stop_requested:
                 import traceback

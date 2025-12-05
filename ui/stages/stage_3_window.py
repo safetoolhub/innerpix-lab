@@ -21,7 +21,9 @@ from ui.dialogs.live_photos_dialog import LivePhotoCleanupDialog
 from ui.dialogs.heic_remover_dialog import HEICDuplicateRemovalDialog
 from ui.dialogs.exact_copies_dialog import ExactCopiesDialog
 from ui.dialogs.file_organizer_dialog import FileOrganizationDialog
+from ui.dialogs.file_organizer_dialog import FileOrganizationDialog
 from ui.dialogs.file_renaming_dialog import RenamingPreviewDialog
+from ui.dialogs.zero_byte_dialog import ZeroByteDialog
 from ui.dialogs.settings_dialog import SettingsDialog
 from ui.dialogs.about_dialog import AboutDialog
 from ui.dialogs.similar_files_progress_dialog import SimilarFilesProgressDialog
@@ -294,7 +296,7 @@ class Stage3Window(BaseStage):
 
         heic_card = self._create_heic_card(heic_data)
         grid_layout.addWidget(heic_card, 0, 1)
-        self.tool_cards['file-image'] = heic_card
+        self.tool_cards['heic'] = heic_card
 
         # Fila 2: Duplicados Exactos + Similares
         exact_dup_card = self._create_exact_duplicates_card(dup_data)
@@ -313,6 +315,21 @@ class Stage3Window(BaseStage):
         rename_card = self._create_rename_card()
         grid_layout.addWidget(rename_card, 2, 1)
         self.tool_cards['rename-box'] = rename_card
+        
+        # Fila 4: Archivos Vacíos (centrado o en nueva fila)
+        # Para mantener simetría, podríamos usar un grid de 3 columnas si el espacio lo permite,
+        # o simplemente añadirlo abajo. Dado que las cards son anchas, mejor abajo.
+        # O mejor: Reorganizar en 3 filas: 2, 2, 3? No, 7 es impar.
+        # Vamos a ponerlo en la fila 3, columna 0, y mover los otros?
+        # Layout actual: 2 columnas.
+        # Fila 0: Live Photos | HEIC
+        # Fila 1: Exactos | Similares
+        # Fila 2: Organizar | Renombrar
+        # Fila 3: Vacíos | (Empty)
+        
+        zero_byte_card = self._create_zero_byte_card()
+        grid_layout.addWidget(zero_byte_card, 3, 0)
+        self.tool_cards['zero_byte'] = zero_byte_card
 
         # Agregar grid al layout principal
         # Remover el stretch temporal antes de añadir el grid
@@ -384,7 +401,7 @@ class Stage3Window(BaseStage):
         else:
             card.set_status_no_results("No se encontraron pares HEIC/JPG")
 
-        card.clicked.connect(lambda: self._on_tool_clicked('file-image'))
+        card.clicked.connect(lambda: self._on_tool_clicked('heic'))
         return card
 
     def _create_exact_duplicates_card(self, dup_data) -> ToolCard:
@@ -462,12 +479,35 @@ class Stage3Window(BaseStage):
         card.clicked.connect(lambda: self._on_tool_clicked('rename-box'))
         return card
 
+    def _create_zero_byte_card(self) -> ToolCard:
+        """Crea la card de Archivos Vacíos"""
+        card = ToolCard(
+            icon_name='trash-alt',
+            title='Archivos Vacíos',
+            description='Detecta y elimina archivos de 0 bytes que no contienen información. '
+                       'Limpia tu directorio de archivos corruptos o vacíos innecesarios.',
+            action_text='Limpiar ahora'
+        )
+        
+        # Configurar estado
+        zero_byte_data = self.analysis_results.zero_byte
+        if zero_byte_data and zero_byte_data.zero_byte_files_found > 0:
+            card.set_status_with_results(
+                f"{zero_byte_data.zero_byte_files_found} archivos vacíos encontrados",
+                "0 B recuperables (limpieza)"
+            )
+        else:
+            card.set_status_no_results("No se encontraron archivos vacíos")
+            
+        card.clicked.connect(lambda: self._on_tool_clicked('zero_byte'))
+        return card
+
     def _on_tool_clicked(self, tool_id: str):
         """
         Maneja el clic en una tool card y abre el diálogo correspondiente
 
         Args:
-            tool_id: ID de la herramienta ('live_photos', 'file-image', etc.)
+            tool_id: ID de la herramienta ('live_photos', 'heic', etc.)
         """
         self.logger.info(f"Abriendo diálogo para: {tool_id}")
 
@@ -484,7 +524,7 @@ class Stage3Window(BaseStage):
                 return
             dialog = LivePhotoCleanupDialog(live_photo_data, self.main_window)
 
-        elif tool_id == 'file-image':
+        elif tool_id == 'heic':
             heic_data = self.analysis_results.heic
             if not heic_data or heic_data.total_pairs == 0:
                 # Card está deshabilitada, no debería llegar aquí
@@ -519,6 +559,12 @@ class Stage3Window(BaseStage):
                 return
             # Permitir abrir incluso con need_renaming=0, el usuario puede configurar patrones personalizados
             dialog = RenamingPreviewDialog(rename_data, self.main_window)
+            
+        elif tool_id == 'zero_byte':
+            zero_byte_data = self.analysis_results.zero_byte
+            if not zero_byte_data or zero_byte_data.zero_byte_files_found == 0:
+                return
+            dialog = ZeroByteDialog(zero_byte_data, self.main_window)
 
         if dialog:
             result = dialog.exec()
@@ -531,7 +577,7 @@ class Stage3Window(BaseStage):
         Ejecuta las acciones de una herramienta usando el worker correspondiente.
         
         Args:
-            tool_id: ID de la herramienta ('live_photos', 'file-image', etc)
+            tool_id: ID de la herramienta ('live_photos', 'heic', etc)
             dialog: Diálogo que contiene el accepted_plan
         """
         from ui.workers import (
@@ -540,6 +586,7 @@ class Stage3Window(BaseStage):
             DuplicateDeletionWorker,
             FileOrganizerWorker,
             RenamingWorker,
+            ZeroByteDeletionWorker,
         )
         from PyQt6.QtWidgets import QProgressDialog
         from PyQt6.QtCore import Qt
@@ -553,7 +600,7 @@ class Stage3Window(BaseStage):
         
         # === VERIFICAR CONFIRMACIÓN ADICIONAL PARA ELIMINACIÓN ===
         # Lista de herramientas destructivas (que eliminan archivos)
-        destructive_tools = ['live_photos', 'file-image', 'exact_copies', 'similar_files']
+        destructive_tools = ['live_photos', 'heic', 'exact_copies', 'similar_files', 'zero_byte']
         
         if tool_id in destructive_tools and settings_manager.get_confirm_delete():
             reply = QMessageBox.question(
@@ -595,7 +642,7 @@ class Stage3Window(BaseStage):
                 dry_run=plan.get('dry_run', False)
             )
         
-        elif tool_id == 'file-image':
+        elif tool_id == 'heic':
             from services.heic_remover_service import HEICRemover
             remover = HEICRemover()
             # HEICRemovalWorker espera (remover, analysis: dataclass, keep_format, create_backup, dry_run)
@@ -653,6 +700,17 @@ class Stage3Window(BaseStage):
                 create_backup=plan.get('create_backup', True),
                 dry_run=plan.get('dry_run', False)
             )
+
+        elif tool_id == 'zero_byte':
+            from services.zero_byte_service import ZeroByteService
+            service = ZeroByteService()
+            # ZeroByteDeletionWorker espera (service, files, create_backup, dry_run)
+            worker = ZeroByteDeletionWorker(
+                service=service,
+                files=plan.get('files_to_delete', []),
+                create_backup=plan.get('create_backup', True),
+                dry_run=plan.get('dry_run', False)
+            )
         
         if not worker:
             self.logger.error(f"No se pudo crear worker para {tool_id}")
@@ -671,7 +729,8 @@ class Stage3Window(BaseStage):
             # Mostrar resultado
             if result and hasattr(result, 'success') and result.success:
                 # Build success message
-                message = f"La operación se completó exitosamente.\n\n{result.message if hasattr(result, 'message') else ''}"
+                msg_content = result.message if (hasattr(result, 'message') and result.message) else ""
+                message = f"La operación se completó exitosamente.\n\n{msg_content}"
                 
                 # Add errors warning if any
                 if hasattr(result, 'errors') and result.errors:

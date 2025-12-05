@@ -20,7 +20,8 @@ if TYPE_CHECKING:
         LivePhotoDetectionResult,
         OrganizationAnalysisResult, 
         HeicAnalysisResult, 
-        DuplicateAnalysisResult
+        DuplicateAnalysisResult,
+        ZeroByteAnalysisResult
     )
 
 
@@ -95,6 +96,7 @@ class FullAnalysisResult:
     organization: Optional['OrganizationAnalysisResult'] = None
     heic: Optional['HeicAnalysisResult'] = None
     duplicates: Optional['DuplicateAnalysisResult'] = None
+    zero_byte: Optional['ZeroByteAnalysisResult'] = None
     total_duration: float = 0.0
 
 
@@ -549,6 +551,24 @@ class AnalysisOrchestrator:
             progress_callback=progress_callback,
             metadata_cache=metadata_cache
         )
+
+    def analyze_zero_byte_files(self,
+                               directory: Path,
+                               zero_byte_service: AnalyzableService,
+                               progress_callback: Optional[Callable[[int, int, str], bool]] = None) -> 'ZeroByteAnalysisResult':
+        """
+        Busca archivos de 0 bytes.
+        
+        Args:
+            directory: Directorio a analizar
+            zero_byte_service: Instancia de ZeroByteService
+            progress_callback: Función opcional de progreso
+            
+        Returns:
+            ZeroByteAnalysisResult con archivos vacíos encontrados
+        """
+        self.logger.info("Buscando archivos de 0 bytes")
+        return zero_byte_service.analyze(directory, progress_callback=progress_callback)
     
     def _log_memory_usage(self, phase: str) -> None:
         """Log del uso de memoria después de cada fase"""
@@ -591,6 +611,7 @@ class AnalysisOrchestrator:
                          organizer: Optional[AnalyzableService] = None,
                          heic_remover: Optional[AnalyzableService] = None,
                          duplicate_exact_detector: Optional[AnalyzableService] = None,
+                         zero_byte_service: Optional[AnalyzableService] = None,
                          organization_type: Optional[str] = None,
                          progress_callback: Optional[Callable[[int, int, str], bool]] = None,
                          phase_callback: Optional[Callable[[str], None]] = None,
@@ -750,7 +771,20 @@ class AnalysisOrchestrator:
             if scan_result.total_files > self.large_dataset_threshold:
                 self._release_memory(metadata_cache)
         
-        # Fase 6: Organización
+        # Fase 6: Archivos de 0 bytes
+        if zero_byte_service:
+            if self._check_cancellation(progress_callback, result, analysis_start_time):
+                return result
+            
+            result.zero_byte, result.phase_timings['zero_byte'] = self._execute_phase(
+                phase_id="zero_byte",
+                phase_name="Buscando archivos vacíos",
+                phase_callable=lambda: self.analyze_zero_byte_files(directory, zero_byte_service, progress_callback),
+                phase_callback=phase_callback,
+                partial_callback=partial_callback
+            )
+
+        # Fase 7: Organización
         if organizer:
             if self._check_cancellation(progress_callback, result, analysis_start_time):
                 return result
@@ -763,7 +797,7 @@ class AnalysisOrchestrator:
                 partial_callback=partial_callback
             )
         
-        # Fase 7: Finalización
+        # Fase 8: Finalización
         _, result.phase_timings['finalizing'] = self._execute_phase(
             phase_id="finalizing",
             phase_name="Finalizando análisis",

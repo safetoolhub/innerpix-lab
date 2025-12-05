@@ -95,6 +95,7 @@ class AboutDialog(QDialog):
             ("image-search", "Archivos similares"),
             ("folder-move", "Organizar Archivos"),
             ("rename-box", "Renombrar Archivos"),
+            ("trash-alt", "Archivos Vacíos"),
         ]
 
         for i, (icon_name, name) in enumerate(tools):

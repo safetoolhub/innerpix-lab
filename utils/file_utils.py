@@ -397,3 +397,53 @@ def find_next_available_name(base_path: Path, base_name: str, extension: str) ->
 
     new_name = f"{base_without_suffix}_{sequence:03d}{extension}"
     return new_name, sequence
+
+
+def delete_file_securely(file_path: Path) -> bool:
+    """
+    Elimina un archivo de forma segura (intentando enviar a la papelera primero).
+    Si send2trash no está disponible, usa eliminación permanente.
+    
+    Args:
+        file_path: Ruta del archivo a eliminar
+        
+    Returns:
+        True si se eliminó correctamente
+    """
+    try:
+        try:
+            from send2trash import send2trash
+            send2trash(str(file_path))
+        except ImportError:
+            # Fallback a eliminación permanente si no hay send2trash
+            file_path.unlink()
+        return True
+    except Exception:
+        return False
+
+
+def create_backup_for_file(file_path: Path, backup_root: Optional[Path] = None) -> Optional[str]:
+    """
+    Crea un backup de un solo archivo.
+    
+    Args:
+        file_path: Archivo a respaldar
+        backup_root: Directorio raíz de backups (opcional)
+        
+    Returns:
+        Ruta del archivo de backup o None si falló
+    """
+    try:
+        if not backup_root:
+            from config import Config
+            backup_root = Config.DEFAULT_BACKUP_DIR
+            
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        backup_dir = backup_root / f"single_file_backup_{timestamp}"
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        
+        dest = backup_dir / file_path.name
+        shutil.copy2(file_path, dest)
+        return str(dest)
+    except Exception:
+        return None

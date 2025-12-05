@@ -234,3 +234,18 @@ class LivePhotoDetectionResult(AnalysisResult):
             if hasattr(self.groups[0], 'total_size'):
                 self.total_space = sum(g.total_size for g in self.groups)
                 self.space_to_free = sum(g.video_size for g in self.groups)
+
+
+@dataclass
+class ZeroByteAnalysisResult(AnalysisResult):
+    """Resultado de análisis de archivos de 0 bytes"""
+    zero_byte_files_found: int = 0
+    files: List[Path] = field(default_factory=list)
+    total_space_reclaimed: int = 0  # Siempre 0, pero por consistencia
+
+
+@dataclass
+class ZeroByteDeletionResult(DeletionResult):
+    """Resultado de eliminación de archivos de 0 bytes"""
+    dry_run: bool = False
+    simulated_files_deleted: int = 0
