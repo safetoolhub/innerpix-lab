@@ -26,7 +26,18 @@ python scripts/generate_analysis_cache.py /home/ed/Pictures/RAW
 
 This will create a hidden file `.pixaro_analysis_cache.pkl` inside `/home/ed/Pictures/RAW`.
 
-### 2. Enable Developer Mode
+### 2. Inspect the Cache
+You can inspect the contents of the generated cache using the inspection script. This is useful to verify the data without running the full application.
+
+```bash
+# Read valid cache stats
+python scripts/inspect_analysis_cache.py /home/ed/Pictures/RAW
+
+# Read the first 5 records of each section
+python scripts/inspect_analysis_cache.py /home/ed/Pictures/RAW --read-records 5
+```
+
+### 3. Enable Developer Mode
 Edit `config.py` to enable the cache usage:
 
 ```python
@@ -34,7 +45,7 @@ Edit `config.py` to enable the cache usage:
 DEV_USE_CACHED_ANALYSIS = True
 ```
 
-### 3. Run the Application
+### 4. Run the Application
 Launch the application and select the **same directory** (`/home/ed/Pictures/RAW`).
 
 ```bash
