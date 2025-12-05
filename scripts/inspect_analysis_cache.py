@@ -66,6 +66,39 @@ def inspect_cache(cache_path: Path, num_records: int):
         print(f"\n--- 📸 Live Photos ---")
         if result.live_photos:
             print(f"Groups found: {result.live_photos.live_photos_found}")
+            
+            # Extract Live Photos paths
+            lp_files = set()
+            if hasattr(result.live_photos, 'groups'):
+                 for g in result.live_photos.groups:
+                     lp_files.add(str(g.video_path))
+            
+            # Check Exact Duplicates for overlaps
+            if result.duplicates and hasattr(result.duplicates, 'groups'):
+                dup_files = set()
+                for g in result.duplicates.groups:
+                    for f in g.files:
+                        dup_files.add(str(f.path))
+                
+                overlaps = lp_files.intersection(dup_files)
+                print(f"Overlaps between Live Photos (Video) and Exact Duplicates: {len(overlaps)}")
+                if overlaps:
+                    print("Example overlaps:")
+                    for p in list(overlaps)[:5]:
+                        print(f"  - {p}")
+            if hasattr(result.live_photos, 'files_to_delete'):
+                paths = [str(f['path']) for f in result.live_photos.files_to_delete]
+                unique_paths = set(paths)
+                print(f"Files to delete: {len(paths)}")
+                print(f"Unique paths: {len(unique_paths)}")
+                if len(paths) != len(unique_paths):
+                    print(f"⚠️  DUPLICATES FOUND IN PLAN: {len(paths) - len(unique_paths)}")
+                    from collections import Counter
+                    counts = Counter(paths)
+                    for p, c in counts.most_common(5):
+                        if c > 1:
+                            print(f"  - {p} (x{c})")
+            
             if num_records > 0 and hasattr(result.live_photos, 'groups') and result.live_photos.groups:
                  print(f"\n[First {num_records} Live Photo Groups]")
                  for i, group in enumerate(result.live_photos.groups[:num_records]):

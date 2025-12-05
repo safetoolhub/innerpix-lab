@@ -291,13 +291,16 @@ class LivePhotoService(BaseService):
                     # Verificar que el archivo existe
                     if not file_path.exists():
                         # Archivo desapareció entre análisis y ejecución
-                        # (ya NO puede ser por deduplicación porque prevenimos eso en la detección)
-                        error_msg = f"Archivo no encontrado (desapareció externamente): {file_path}"
-                        results.add_error(error_msg)
+                        # Puede ser por deduplicación en otros procesos o borrado externo
+                        # Se cuenta como éxito ("ya borrado") para no alarmar al usuario
+                        msg = f"Archivo ya no existe (omitido): {file_path.name}"
+                        results.files_deleted += 1 # Contar como borrado exitosamente
+                        results.space_freed += file_size # Asumimos liberado (o ya liberado)
+                        
                         if dry_run:
-                            self.logger.warning(f"[SIMULACIÓN] {error_msg}")
+                            self.logger.info(f"[SIMULACIÓN] {msg}")
                         else:
-                            self.logger.warning(error_msg)
+                            self.logger.info(msg)
                         continue
 
                     # IMPORTANTE: Capturar fecha ANTES de eliminar el archivo

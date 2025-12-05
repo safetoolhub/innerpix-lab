@@ -203,13 +203,19 @@ class LivePhotoCleanupDialog(BaseDialog):
         
         if self.selected_mode == CleanupMode.KEEP_IMAGE:
             # Eliminar videos, mantener imágenes
+            seen_delete_paths = set()
             for group in groups:
-                files_to_delete.append({
-                    'path': group.video_path,
-                    'type': 'video',
-                    'size': group.video_size,
-                    'base_name': group.base_name
-                })
+                # Deduplicate videos (multiple images might share one video)
+                if str(group.video_path) not in seen_delete_paths:
+                    files_to_delete.append({
+                        'path': group.video_path,
+                        'type': 'video',
+                        'size': group.video_size,
+                        'base_name': group.base_name
+                    })
+                    seen_delete_paths.add(str(group.video_path))
+                
+                # Always keep the image (unique per group usually, but no harm in adding)
                 files_to_keep.append({
                     'path': group.image_path,
                     'type': 'image',
@@ -218,6 +224,7 @@ class LivePhotoCleanupDialog(BaseDialog):
                 })
         elif self.selected_mode == CleanupMode.KEEP_VIDEO:
             # Eliminar imágenes, mantener videos
+            seen_keep_paths = set()
             for group in groups:
                 files_to_delete.append({
                     'path': group.image_path,
@@ -225,12 +232,16 @@ class LivePhotoCleanupDialog(BaseDialog):
                     'size': group.image_size,
                     'base_name': group.base_name
                 })
-                files_to_keep.append({
-                    'path': group.video_path,
-                    'type': 'video',
-                    'size': group.video_size,
-                    'base_name': group.base_name
-                })
+                
+                # Deduplicate videos to keep
+                if str(group.video_path) not in seen_keep_paths:
+                    files_to_keep.append({
+                        'path': group.video_path,
+                        'type': 'video',
+                        'size': group.video_size,
+                        'base_name': group.base_name
+                    })
+                    seen_keep_paths.add(str(group.video_path))
         
         # Crear dataclass de análisis
         space_to_free = sum(f['size'] for f in files_to_delete)
