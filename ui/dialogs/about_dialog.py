@@ -18,7 +18,7 @@ class AboutDialog(QDialog):
     def init_ui(self):
         self.setWindowTitle(f"Acerca de {Config.APP_NAME}")
         self.setModal(True)
-        self.setFixedSize(520, 480)
+        self.setFixedSize(520, 540)
 
         # Layout principal
         main_layout = QVBoxLayout(self)
@@ -85,7 +85,7 @@ class AboutDialog(QDialog):
         # Grid de herramientas
         tools_grid = QGridLayout()
         tools_grid.setHorizontalSpacing(15)
-        tools_grid.setVerticalSpacing(10)
+        tools_grid.setVerticalSpacing(12)
         tools_grid.setContentsMargins(5, 5, 5, 5)
 
         tools = [

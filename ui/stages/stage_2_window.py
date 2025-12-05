@@ -70,9 +70,10 @@ class Stage2Window(BaseStage):
             show_settings_button=False,
             show_about_button=False
         )
-        self.main_layout.addSpacing(DesignSystem.SPACE_8)
+        # Añadir espaciado encima del header
+        self.main_layout.addSpacing(DesignSystem.SPACE_4)
         self.main_layout.addWidget(self.header)
-        self.main_layout.addSpacing(DesignSystem.SPACE_16)
+        self.main_layout.addSpacing(DesignSystem.SPACE_8)
 
         # Crear y mostrar card de progreso (ahora incluye las fases)
         self.progress_card = ProgressCard(self.selected_folder)

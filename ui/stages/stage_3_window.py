@@ -77,7 +77,7 @@ class Stage3Window(BaseStage):
                 child.widget().setParent(None)
 
         # Añadir espaciado encima del header
-        self.main_layout.addSpacing(DesignSystem.SPACE_8)
+        self.main_layout.addSpacing(DesignSystem.SPACE_4)
 
         # Crear y mostrar header
         self.header = self.create_header(
@@ -85,7 +85,7 @@ class Stage3Window(BaseStage):
             on_about_clicked=self._on_about_clicked
         )
         self.main_layout.addWidget(self.header)
-        self.main_layout.addSpacing(DesignSystem.SPACE_16)
+        self.main_layout.addSpacing(DesignSystem.SPACE_8)
 
         # Crear banner de advertencia (oculto por defecto)
         self.stale_banner = self._create_stale_banner()
@@ -277,11 +277,11 @@ class Stage3Window(BaseStage):
         return int(total)
 
     def _create_tools_grid(self):
-        """Crea el grid 2x3 con las 6 herramientas"""
+        """Crea el grid 2x4 con las 7 herramientas"""
         # Container para el grid
         grid_container = QWidget()
         grid_layout = QGridLayout(grid_container)
-        grid_layout.setSpacing(16)  # DesignSystem.SPACE_16
+        grid_layout.setSpacing(12)  # Reducido para optimizar espacio vertical
         grid_layout.setContentsMargins(0, 0, 0, 0)
 
         # Obtener datos de análisis (todos dataclasses tipados)
@@ -289,47 +289,37 @@ class Stage3Window(BaseStage):
         heic_data = self.analysis_results.heic
         dup_data = self.analysis_results.duplicates
 
-        # Fila 1: Live Photos + HEIC/JPG
-        live_photos_card = self._create_live_photos_card(live_photo_data)
-        grid_layout.addWidget(live_photos_card, 0, 0)
-        self.tool_cards['live_photos'] = live_photos_card
-
+        # Fila 0: Archivos Vacíos + HEIC/JPG
+        zero_byte_card = self._create_zero_byte_card()
+        grid_layout.addWidget(zero_byte_card, 0, 0)
+        self.tool_cards['zero_byte'] = zero_byte_card
+        
         heic_card = self._create_heic_card(heic_data)
         grid_layout.addWidget(heic_card, 0, 1)
         self.tool_cards['heic'] = heic_card
 
-        # Fila 2: Duplicados Exactos + Similares
+        # Fila 1: Live Photos + Duplicados Exactos
+        live_photos_card = self._create_live_photos_card(live_photo_data)
+        grid_layout.addWidget(live_photos_card, 1, 0)
+        self.tool_cards['live_photos'] = live_photos_card
+
         exact_dup_card = self._create_exact_duplicates_card(dup_data)
-        grid_layout.addWidget(exact_dup_card, 1, 0)
+        grid_layout.addWidget(exact_dup_card, 1, 1)
         self.tool_cards['exact_copies'] = exact_dup_card
 
+        # Fila 2: Archivos Similares + (espacio vacío)
         similar_dup_card = self._create_similar_duplicates_card()
-        grid_layout.addWidget(similar_dup_card, 1, 1)
+        grid_layout.addWidget(similar_dup_card, 2, 0)
         self.tool_cards['similar_files'] = similar_dup_card
 
-        # Fila 3: Organizar + Renombrar
+        # Fila 3: Organizar + Renombrar (herramientas de reorganización juntas)
         organize_card = self._create_organize_card()
-        grid_layout.addWidget(organize_card, 2, 0)
+        grid_layout.addWidget(organize_card, 3, 0)
         self.tool_cards['folder-move'] = organize_card
 
         rename_card = self._create_rename_card()
-        grid_layout.addWidget(rename_card, 2, 1)
+        grid_layout.addWidget(rename_card, 3, 1)
         self.tool_cards['rename-box'] = rename_card
-        
-        # Fila 4: Archivos Vacíos (centrado o en nueva fila)
-        # Para mantener simetría, podríamos usar un grid de 3 columnas si el espacio lo permite,
-        # o simplemente añadirlo abajo. Dado que las cards son anchas, mejor abajo.
-        # O mejor: Reorganizar en 3 filas: 2, 2, 3? No, 7 es impar.
-        # Vamos a ponerlo en la fila 3, columna 0, y mover los otros?
-        # Layout actual: 2 columnas.
-        # Fila 0: Live Photos | HEIC
-        # Fila 1: Exactos | Similares
-        # Fila 2: Organizar | Renombrar
-        # Fila 3: Vacíos | (Empty)
-        
-        zero_byte_card = self._create_zero_byte_card()
-        grid_layout.addWidget(zero_byte_card, 3, 0)
-        self.tool_cards['zero_byte'] = zero_byte_card
 
         # Agregar grid al layout principal
         # Remover el stretch temporal antes de añadir el grid
@@ -337,7 +327,7 @@ class Stage3Window(BaseStage):
             self.main_layout.takeAt(self.main_layout.count() - 1)  # Remover stretch
 
         # Añadir espaciado entre summary card y tool cards
-        self.main_layout.addSpacing(DesignSystem.SPACE_8)
+        self.main_layout.addSpacing(DesignSystem.SPACE_4)
 
         self.main_layout.addWidget(grid_container)
         self.tools_grid = grid_container

@@ -61,7 +61,7 @@ class ToolCard(QFrame):
                 background-color: {DesignSystem.COLOR_SURFACE};
                 border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
                 border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: {DesignSystem.SPACE_20}px;
+                padding: {DesignSystem.SPACE_16}px;
             }}
             ToolCard:hover {{
                 border-color: {DesignSystem.COLOR_PRIMARY};
@@ -69,11 +69,11 @@ class ToolCard(QFrame):
             }}
         """)
         
-        self.setMinimumHeight(220)
+        self.setMinimumHeight(175)
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         
         layout = QVBoxLayout(self)
-        layout.setSpacing(DesignSystem.SPACE_12)
+        layout.setSpacing(DesignSystem.SPACE_8)
         layout.setContentsMargins(0, 0, 0, 0)
         
         # Header: Icono + Título
@@ -104,9 +104,9 @@ class ToolCard(QFrame):
         self.description_label = QLabel(self.description_text)
         self.description_label.setWordWrap(True)
         self.description_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
             color: {DesignSystem.COLOR_TEXT_SECONDARY};
-            line-height: {int(DesignSystem.FONT_SIZE_BASE * DesignSystem.LINE_HEIGHT_NORMAL)}px;
+            line-height: {int(DesignSystem.FONT_SIZE_SM * 1.4)}px;
         """)
         layout.addWidget(self.description_label)
         
@@ -115,11 +115,11 @@ class ToolCard(QFrame):
         
         # Contenedor para líneas de estado (se llena dinámicamente)
         self.status_container = QVBoxLayout()
-        self.status_container.setSpacing(DesignSystem.SPACE_4)
+        self.status_container.setSpacing(DesignSystem.SPACE_2)
         layout.addLayout(self.status_container)
         
         # Espaciador antes del botón
-        layout.addSpacing(DesignSystem.SPACE_12)
+        layout.addSpacing(DesignSystem.SPACE_8)
         
         # Botón de acción centrado
         btn_container = QHBoxLayout()
@@ -336,7 +336,7 @@ class ToolCard(QFrame):
                 background-color: {DesignSystem.COLOR_SURFACE};
                 border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
                 border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: {DesignSystem.SPACE_20}px;
+                padding: {DesignSystem.SPACE_16}px;
             }}
             ToolCard:hover {{
                 border-color: {DesignSystem.COLOR_PRIMARY};
@@ -429,7 +429,7 @@ class ToolCard(QFrame):
                 background-color: {DesignSystem.COLOR_SURFACE_DISABLED};
                 border: 1px solid {DesignSystem.COLOR_BORDER};
                 border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: {DesignSystem.SPACE_20}px;
+                padding: {DesignSystem.SPACE_16}px;
             }}
             ToolCard:hover {{
                 border-color: {DesignSystem.COLOR_BORDER};
@@ -455,7 +455,7 @@ class ToolCard(QFrame):
         
         # También atenuar la descripción
         self.description_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
             color: {DesignSystem.COLOR_TEXT_SECONDARY};
-            line-height: {int(DesignSystem.FONT_SIZE_BASE * DesignSystem.LINE_HEIGHT_NORMAL)}px;
+            line-height: {int(DesignSystem.FONT_SIZE_SM * 1.4)}px;
         """)
