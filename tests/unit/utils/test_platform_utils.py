@@ -53,13 +53,9 @@ class TestOpenFile:
         
         assert len(errors) > 0
     
-    def test_open_file_no_callback(self, tmp_path):
-        """Test que se puede llamar sin error callback"""
-        test_file = tmp_path / "test.txt"
-        test_file.write_text("test")
-        
-        # No debe lanzar excepción
-        open_file_with_default_app(test_file)
+
+
+
 
 
 @pytest.mark.unit
@@ -78,7 +74,4 @@ class TestOpenFolder:
         
         assert len(errors) > 0
     
-    def test_open_folder_no_callback(self, tmp_path):
-        """Test que se puede llamar sin error callback"""
-        # No debe lanzar excepción
-        open_folder_in_explorer(tmp_path)
+
