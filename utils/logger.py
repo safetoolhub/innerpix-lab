@@ -274,7 +274,27 @@ def configure_logging(
     
     try:
         _logs_directory.mkdir(parents=True, exist_ok=True)
-    except Exception:
+    except PermissionError as e:
+        # Error de permisos: el usuario no tiene permisos para crear el directorio
+        import sys as _sys
+        print(f"⚠️  WARNING: Permisos insuficientes para crear el directorio de logs '{_logs_directory}'", file=_sys.stderr)
+        print(f"⚠️  WARNING: Detalles: {e}", file=_sys.stderr)
+        print(f"⚠️  WARNING: Los logs se guardarán en el directorio actual: {Path.cwd()}", file=_sys.stderr)
+        _logs_directory = Path.cwd()
+    except OSError as e:
+        # Error del sistema de archivos (disco lleno, nombre inválido, etc.)
+        import sys as _sys
+        error_type = "Disco lleno" if e.errno == 28 else "Error del sistema de archivos"
+        print(f"⚠️  WARNING: {error_type} al crear el directorio de logs '{_logs_directory}'", file=_sys.stderr)
+        print(f"⚠️  WARNING: Detalles: {e}", file=_sys.stderr)
+        print(f"⚠️  WARNING: Los logs se guardarán en el directorio actual: {Path.cwd()}", file=_sys.stderr)
+        _logs_directory = Path.cwd()
+    except Exception as e:
+        # Otros errores inesperados
+        import sys as _sys
+        print(f"⚠️  WARNING: Error inesperado al crear el directorio de logs '{_logs_directory}'", file=_sys.stderr)
+        print(f"⚠️  WARNING: Tipo: {type(e).__name__}, Detalles: {e}", file=_sys.stderr)
+        print(f"⚠️  WARNING: Los logs se guardarán en el directorio actual: {Path.cwd()}", file=_sys.stderr)
         _logs_directory = Path.cwd()
     
     # Configurar nivel

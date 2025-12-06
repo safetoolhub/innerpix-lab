@@ -1,6 +1,4 @@
 Al cambiar el nivel de log en la configuraicon debe cambiarse en todos los loggers de lso ficheros auxiliares, porque tienen su propia configuracion
-Probar todo y  meterle tests unitarios
-Meter una tool para borrar archivos que ocupan 0 bytes
 
 Comprobar backups
 Comprobar que funciona bien con extensiones en mayusculas y minusculas
@@ -36,8 +34,58 @@ The clustering algorithm is O(N^2) and naturally slow for 20k+ files. Future wor
 
 Revisar que el cálculo de similitud es incorrecto cuando la distancia Hamming promedio (avg_hamming) es mayor que MAX_HAMMING_THRESHOLD (20). No s eentiende bien los grupos que salen. 
 
-Las HEIC no se muestran en archivos similares. PRobar otros pformatos
-
 FUTURO
 ---------
 v 2.0 poder elegir una foto de live photos del video
+
+Nuevas Funcionalidades Propuestas
+8) Detección y Eliminación de Metadatos Sensibles
+Descripción: Escanea archivos multimedia en busca de metadatos sensibles (ubicación GPS, dispositivo, personas etiquetadas) y permite eliminarlos selectivamente o en lote antes de compartir archivos.
+Valor: Privacidad y seguridad al compartir fotos/videos en redes sociales o con terceros.
+Preview: Muestra archivos con metadatos sensibles, tipos de datos encontrados (GPS, cámara, etc.)
+9) Conversión Masiva de Formatos
+Descripción: Convierte colecciones de archivos entre formatos (HEIC↔JPG, MOV↔MP4, RAW↔JPG, etc.) con opciones de calidad y compresión. Preview de espacio a ganar/perder.
+Valor: Compatibilidad multiplataforma (HEIC no siempre es compatible en Windows/Android).
+Opciones: Conservar original, reemplazar, calidad de compresión.
+10) Detección de Capturas de Pantalla
+Descripción: Identifica automáticamente screenshots (iOS, Android, macOS, Windows) mediante análisis de metadatos, resoluciones típicas y patrones de nombre.
+Valor: Organizar/eliminar capturas de pantalla que suelen acumularse y ocupar espacio.
+Acciones: Mover a carpeta específica, eliminar, o conservar selectivamente.
+11) Detección de Fotos Borrosas o de Baja Calidad
+Descripción: Analiza imágenes usando algoritmos de detección de nitidez/desenfoque (como el operador Laplaciano) y marca fotos borrosas, muy oscuras o sobreexpuestas.
+Valor: Limpieza de fotos fallidas, especialmente tras grandes sesiones fotográficas.
+Preview: Grid visual con score de calidad, permitiendo comparar y decidir.
+12) Agrupación por Eventos/Sesiones Fotográficas
+Descripción: Agrupa fotos/videos tomados en ráfagas o sesiones cercanas en tiempo (mismo día, misma ubicación) para facilitar la organización por eventos.
+Valor: Facilita encontrar "la mejor foto" de una sesión o evento.
+Vista: Timeline visual con clusters de fotos, permitiendo seleccionar representativas.
+13) Detección de Imágenes Duplicadas en Diferentes Proporciones
+Descripción: Encuentra fotos que son el mismo contenido pero en diferentes aspect ratios (16:9, 4:3, 1:1) o con marcos/bordes añadidos (ej. posts de Instagram con marcos blancos).
+Valor: Detectar variaciones exportadas para redes sociales.
+Algoritmo: Análisis de contenido ignorando bordes/relación de aspecto.
+14) Compresión Inteligente (Sin Pérdida de Calidad Perceptible)
+Descripción: Re-comprime imágenes/videos usando algoritmos modernos (mozjpeg, AV1, HEVC) manteniendo calidad visual pero reduciendo tamaño significativamente.
+Valor: Ahorrar espacio sin sacrificar calidad aparente.
+Preview: Comparación lado-a-lado antes/después con % de ahorro de espacio.
+15) Detección de Fotos de Documentos y Extracción de Texto (OCR)
+Descripción: Identifica fotos de documentos, recibos, tarjetas, etc., y permite extraer texto (OCR), exportar como PDF, o renombrar según contenido detectado.
+Valor: Digitalización y organización de documentos capturados con el móvil.
+Acciones: Exportar a PDF, aplicar OCR para búsqueda, auto-renombrar.
+16) Gestión de Fotos de WhatsApp/Telegram
+Descripción: Detecta fotos/videos recibidos por mensajería (patrones de carpetas y nombres típicos) y ofrece limpieza inteligente: memes, capturas compartidas, duplicados virales.
+Valor: Estas apps acumulan miles de archivos no deseados rápidamente.
+Filtros: Por origen (WhatsApp/Telegram), por tipo (memes, documentos), por tamaño.
+17) Backup y Sincronización Selectiva con Cloud
+Descripción: Exporta/sincroniza colecciones organizadas hacia servicios cloud (Google Photos, iCloud, Dropbox) con opciones de filtrado (solo originales, sin duplicados, etc.).
+Valor: Simplificar backup tras limpieza.
+Integración: API de servicios populares.
+18) Análisis de Uso de Espacio y Estadísticas Visuales
+Descripción: Dashboard de estadísticas: distribución por formato, tamaño medio, timeline de crecimiento, tipos de duplicados más frecuentes, top carpetas pesadas.
+Valor: Entender dónde está el problema antes de actuar.
+Visualización: Gráficos (treemap, timeline, pie charts).
+Priorización Sugerida
+Si tuviera que elegir las 3 más valiosas para implementar primero:
+
+#9 - Conversión Masiva de Formatos: Muy demandado, especialmente HEIC→JPG
+#10 - Detección de Capturas de Pantalla: Alto impacto, fácil de implementar
+#14 - Compresión Inteligente: Gran valor para usuarios con espacio limitado

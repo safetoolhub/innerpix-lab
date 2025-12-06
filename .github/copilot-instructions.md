@@ -134,10 +134,8 @@ See `PROJECT_TREE.md` for structure. Ignore `docs/` (author's notes).
 
 ### Testing
 
-- Focus: services/utils, not UI
 - Use fixtures: `temp_dir`, `create_test_image`, etc.
 - Markers: `@pytest.mark.unit`, `@pytest.mark.slow`
-- Coverage: services 80%+, utils 90%+
 - Structure: Arrange-Act-Assert
 
 **Test Structure**:
