@@ -383,10 +383,13 @@ class BaseDetectorService(BaseService):
                     progress_msg
                 )
                 
-            except FileNotFoundError as e:
-                error_prefix = "[SIMULACIÓN] " if dry_run else ""
-                errors.append({'file': str(file_path), 'alert-circle': str(e)})
-                self.logger.error(f"{error_prefix}Archivo no encontrado: {file_path}: {e}")
+            except FileNotFoundError:
+                # Archivo ya no existe, por causa desconocida
+                # Loguear warning pero no contar como error ni sumar a estadísticas
+                warn_msg = f"Archivo no encontrado durante eliminación: {file_path}"
+                self.logger.warning(warn_msg)
+                # No añadimos a 'deleted' ni 'space_freed', simplemente continuamos
+                continue
             except Exception as e:
                 errors.append({'file': str(file_path), 'alert-circle': str(e)})
                 self.logger.error(f"Error eliminando {file_path}: {e}")

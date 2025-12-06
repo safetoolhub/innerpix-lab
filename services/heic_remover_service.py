@@ -429,9 +429,10 @@ class HEICRemover(BaseService):
                 try:
                     # Validación simplificada (ya validado en __post_init__)
                     if not file_to_delete.exists():
-                        error_msg = f"Archivo no existe: {file_to_delete}"
-                        results.add_error(error_msg)
-                        self.logger.error(error_msg)
+                        # Archivo ya no existe, probablemente eliminado externamente
+                        # Loguear warning pero no contar como error ni sumar a estadísticas
+                        warn_msg = f"Archivo no encontrado durante eliminación: {file_to_delete}"
+                        self.logger.warning(warn_msg)
                         continue
                     
                     if not file_to_keep.exists():
