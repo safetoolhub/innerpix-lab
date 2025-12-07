@@ -249,17 +249,25 @@ class HEICRemover(BaseService):
                 
                 try:
                     # Obtener fechas usando EXIF primero, luego mtime como fallback
-                    heic_date = get_date_from_file(heic_path) or datetime.fromtimestamp(heic_mtime)
-                    jpg_date = get_date_from_file(jpg_path) or datetime.fromtimestamp(jpg_mtime)
+                    heic_date_raw = get_date_from_file(heic_path)
+                    heic_date = heic_date_raw or datetime.fromtimestamp(heic_mtime)
+                    heic_source = "EXIF" if heic_date_raw else "filesystem"
+                    
+                    jpg_date_raw = get_date_from_file(jpg_path)
+                    jpg_date = jpg_date_raw or datetime.fromtimestamp(jpg_mtime)
+                    jpg_source = "EXIF" if jpg_date_raw else "filesystem"
                     
                     # Validación de diferencia temporal
                     if validate_dates:
                         time_diff = abs(heic_date - jpg_date)
                         if time_diff.total_seconds() > Config.MAX_TIME_DIFFERENCE_SECONDS:
                             self.logger.warning(
-                                f"Par rechazado por diferencia temporal: "
-                                f"{directory}/{base_name}.[JPG|HEIC] "
-                                f"(diff: {time_diff.total_seconds():.0f}s)"
+                                f"Par rechazado por diferencia temporal:\n"
+                                f"  HEIC: {heic_path}\n"
+                                f"    Fecha: {heic_date.strftime('%Y-%m-%d %H:%M:%S')} (source: {heic_source})\n"
+                                f"  JPG:  {jpg_path}\n"
+                                f"    Fecha: {jpg_date.strftime('%Y-%m-%d %H:%M:%S')} (source: {jpg_source})\n"
+                                f"  Diferencia: {time_diff.total_seconds():.0f}s"
                             )
                             self.stats['rejected_by_time_diff'] += 1
                             continue
