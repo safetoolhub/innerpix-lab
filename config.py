@@ -146,7 +146,7 @@ class Config:
     DEVELOPMENT_MODE = False  # Si True, salta directamente a Stage 2 con la última carpeta usada
     
     # Configuración de caché para desarrollo (acelerar pruebas con datasets grandes)
-    DEV_USE_CACHED_ANALYSIS = False  # Si True, intenta cargar .pixaro_analysis_cache.pkl
+    DEV_USE_CACHED_ANALYSIS = True  # Si True, intenta cargar .pixaro_analysis_cache.pkl
     DEV_CACHE_FILENAME = ".pixaro_analysis_cache.pkl"
 
 
@@ -203,6 +203,14 @@ class Config:
     # Configuración de extracción de metadatos de video
     # Por defecto False porque es muy lento y la app se enfoca en imágenes
     USE_VIDEO_METADATA = False
+    
+    # ========================================================================
+    # CONFIGURACIÓN DE LIVE PHOTOS
+    # ========================================================================
+    # Tamaño mínimo esperado para videos de Live Photos (en bytes)
+    # Videos de Live Photos típicamente son muy pequeños (1-5 MB)
+    # Si un video excede este tamaño, puede no ser realmente un video de Live Photo
+    LIVE_PHOTO_MAX_VIDEO_SIZE = 6 * 1024 * 1024  # 6 MB por defecto
     
     # ========================================================================
     # CONFIGURACIÓN DE DIÁLOGO DE ARCHIVOS SIMILARES

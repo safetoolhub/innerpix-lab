@@ -320,16 +320,41 @@ class LivePhotoService(BaseService):
                         results.simulated_space_freed += file_size
                         results.deleted_files.append(str(file_path))
                         
-                        # Construir log con archivo complementario si existe
+                        # Construir log detallado con archivo complementario
                         log_msg = (
                             f"FILE_DELETED_SIMULATION: {file_path} | Size: {format_size(file_size)} | "
                             f"Type: {file_info['type']} | Date: {file_date_str}"
                         )
+                        
+                        # Añadir información del archivo emparejado si existe
                         if 'paired_file' in file_info:
                             paired_file = file_info['paired_file']
-                            log_msg += f" | Paired: {paired_file}"
+                            try:
+                                paired_size = paired_file.stat().st_size
+                                # Determinar el tipo del archivo emparejado
+                                paired_ext = paired_file.suffix.upper()
+                                paired_type = 'image' if paired_ext in self.photo_extensions else 'video'
+                                log_msg += (
+                                    f" | Kept: {paired_file} | "
+                                    f"Kept_Size: {format_size(paired_size)} | "
+                                    f"Kept_Type: {paired_type} | "
+                                    f"Mode: {analysis.cleanup_mode}"
+                                )
+                            except Exception as e:
+                                self.logger.debug(f"No se pudo obtener info del archivo emparejado: {e}")
+                                log_msg += f" | Kept: {paired_file} | Mode: {analysis.cleanup_mode}"
                         
                         self.logger.info(log_msg)
+                        
+                        # WARNING si el archivo eliminado es un video que supera el tamaño esperado
+                        if file_info['type'] == 'video' and file_size > Config.LIVE_PHOTO_MAX_VIDEO_SIZE:
+                            self.logger.warning(
+                                f"⚠️  SOSPECHA: Video eliminado supera tamaño típico de Live Photo | "
+                                f"Archivo: {file_path} | "
+                                f"Tamaño: {format_size(file_size)} | "
+                                f"Límite: {format_size(Config.LIVE_PHOTO_MAX_VIDEO_SIZE)} | "
+                                f"Puede no ser realmente un video de Live Photo"
+                            )
                     else:
                         # Eliminar realmente
                         file_path.unlink()
@@ -339,16 +364,41 @@ class LivePhotoService(BaseService):
                         results.space_freed += file_size
                         results.deleted_files.append(str(file_path))
                         
-                        # Construir log con archivo complementario si existe
+                        # Construir log detallado con archivo complementario
                         log_msg = (
                             f"FILE_DELETED: {file_path} | Size: {format_size(file_size)} | "
                             f"Type: {file_info['type']} | Date: {file_date_str}"
                         )
+                        
+                        # Añadir información del archivo emparejado si existe
                         if 'paired_file' in file_info:
                             paired_file = file_info['paired_file']
-                            log_msg += f" | Paired: {paired_file}"
+                            try:
+                                paired_size = paired_file.stat().st_size
+                                # Determinar el tipo del archivo emparejado
+                                paired_ext = paired_file.suffix.upper()
+                                paired_type = 'image' if paired_ext in self.photo_extensions else 'video'
+                                log_msg += (
+                                    f" | Kept: {paired_file} | "
+                                    f"Kept_Size: {format_size(paired_size)} | "
+                                    f"Kept_Type: {paired_type} | "
+                                    f"Mode: {analysis.cleanup_mode}"
+                                )
+                            except Exception as e:
+                                self.logger.debug(f"No se pudo obtener info del archivo emparejado: {e}")
+                                log_msg += f" | Kept: {paired_file} | Mode: {analysis.cleanup_mode}"
                         
                         self.logger.info(log_msg)
+                        
+                        # WARNING si el archivo eliminado es un video que supera el tamaño esperado
+                        if file_info['type'] == 'video' and file_size > Config.LIVE_PHOTO_MAX_VIDEO_SIZE:
+                            self.logger.warning(
+                                f"⚠️  SOSPECHA: Video eliminado supera tamaño típico de Live Photo | "
+                                f"Archivo: {file_path} | "
+                                f"Tamaño: {format_size(file_size)} | "
+                                f"Límite: {format_size(Config.LIVE_PHOTO_MAX_VIDEO_SIZE)} | "
+                                f"Puede no ser realmente un video de Live Photo"
+                            )
 
                 except Exception as e:
                     error_msg = f"Error eliminando {file_path.name}: {str(e)}"
