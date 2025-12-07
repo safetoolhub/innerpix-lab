@@ -290,6 +290,9 @@ class BaseDetectorService(BaseService):
         processed = 0
         
         # Determinar archivos a eliminar según estrategia
+        keep_file = None
+        keep_file_info = None  # Para incluir en logs de eliminación
+        
         if keep_strategy == 'manual':
             # Modo manual: eliminar todos
             files_to_delete = group.files
@@ -301,21 +304,29 @@ class BaseDetectorService(BaseService):
                 kept.append(keep_file)
                 files_to_delete = [f for f in group.files if f != keep_file]
                 
-                # Log del archivo que se mantiene
+                # Obtener información del archivo que se mantiene (sin verbose para evitar logs extra)
                 try:
-                    keep_date = get_date_from_file(keep_file, verbose=True)
+                    keep_date = get_date_from_file(keep_file, verbose=False)
                     keep_date_str = (
                         keep_date.strftime('%Y-%m-%d %H:%M:%S')
                         if keep_date else 'fecha desconocida'
                     )
+                    # Determinar fuente de la fecha
+                    keep_date_source = self._get_date_source_simple(keep_file, keep_date)
                 except Exception:
                     keep_date_str = 'fecha desconocida'
+                    keep_date_source = 'unknown'
                 
-                log_prefix = "[SIMULACIÓN] " if dry_run else ""
-                self.logger.info(
-                    f"{log_prefix}  ✓ {'Conservaría' if dry_run else 'Conservado'} "
-                    f"({keep_strategy}): {keep_file.name} ({keep_date_str})"
-                )
+                keep_file_size = keep_file.stat().st_size
+                
+                # Guardar info para incluir en logs de eliminación
+                keep_file_info = {
+                    'path': str(keep_file),
+                    'name': keep_file.name,
+                    'date': keep_date_str,
+                    'date_source': keep_date_source,
+                    'size': keep_file_size
+                }
                 
             except Exception as e:
                 self.logger.error(f"Error seleccionando archivo a mantener: {e}")
@@ -334,43 +345,71 @@ class BaseDetectorService(BaseService):
                 # Validar existencia
                 validate_file_exists(file_path)
                 
-                # Obtener información del archivo
+                # Obtener información del archivo a eliminar (sin verbose para evitar logs extra)
                 file_size = file_path.stat().st_size
                 
                 try:
-                    file_date = get_date_from_file(file_path, verbose=True)
+                    file_date = get_date_from_file(file_path, verbose=False)
                     file_date_str = (
                         file_date.strftime('%Y-%m-%d %H:%M:%S')
                         if file_date else 'fecha desconocida'
                     )
+                    file_date_source = self._get_date_source_simple(file_path, file_date)
                 except Exception:
                     file_date_str = 'fecha desconocida'
+                    file_date_source = 'unknown'
                 
                 # Ejecutar eliminación (o simulación)
                 if dry_run:
                     deleted.append(file_path)
                     space_freed += file_size
                     
-                    # Determinar tipo de archivo
-                    file_type = 'duplicate'  # Para exact/similar copies
-                    
-                    self.logger.info(
-                        f"FILE_DELETED_SIMULATION: {file_path} | Size: {format_size(file_size)} | "
-                        f"Type: {file_type} | Date: {file_date_str}"
-                    )
+                    # Log unificado con toda la información en UNA sola línea
+                    if keep_file_info:
+                        # Comparación completa: archivo eliminado vs archivo conservado
+                        self.logger.info(
+                            f"DUPLICATE_DELETED_SIMULATION: "
+                            f"DELETED=[{file_path} | size={format_size(file_size)} | "
+                            f"date={file_date_str} ({file_date_source})] "
+                            f"<> KEPT=[{keep_file_info['path']} | "
+                            f"size={format_size(keep_file_info['size'])} | "
+                            f"date={keep_file_info['date']} ({keep_file_info['date_source']})] | "
+                            f"strategy={keep_strategy}"
+                        )
+                    else:
+                        # Modo manual: no hay archivo conservado
+                        self.logger.info(
+                            f"FILE_DELETED_SIMULATION: {file_path} | "
+                            f"Size: {format_size(file_size)} | "
+                            f"Date: {file_date_str} ({file_date_source}) | "
+                            f"Type: duplicate | Strategy: {keep_strategy}"
+                        )
                 else:
                     # Backup ya se hizo antes, solo eliminar
                     file_path.unlink()
                     deleted.append(file_path)
                     space_freed += file_size
                     
-                    # Determinar tipo de archivo
-                    file_type = 'duplicate'  # Para exact/similar copies
-                    
-                    self.logger.info(
-                        f"FILE_DELETED: {file_path} | Size: {format_size(file_size)} | "
-                        f"Type: {file_type} | Date: {file_date_str}"
-                    )
+                    # Log unificado con toda la información en UNA sola línea
+                    if keep_file_info:
+                        # Comparación completa: archivo eliminado vs archivo conservado
+                        self.logger.info(
+                            f"DUPLICATE_DELETED: "
+                            f"DELETED=[{file_path} | size={format_size(file_size)} | "
+                            f"date={file_date_str} ({file_date_source})] "
+                            f"<> KEPT=[{keep_file_info['path']} | "
+                            f"size={format_size(keep_file_info['size'])} | "
+                            f"date={keep_file_info['date']} ({keep_file_info['date_source']})] | "
+                            f"strategy={keep_strategy}"
+                        )
+                    else:
+                        # Modo manual: no hay archivo conservado
+                        self.logger.info(
+                            f"FILE_DELETED: {file_path} | "
+                            f"Size: {format_size(file_size)} | "
+                            f"Date: {file_date_str} ({file_date_source}) | "
+                            f"Type: duplicate | Strategy: {keep_strategy}"
+                        )
                 
                 processed += 1
                 
@@ -402,3 +441,53 @@ class BaseDetectorService(BaseService):
             space_freed=space_freed,
             processed=processed
         )
+
+    def _get_date_source_simple(self, file_path: Path, date_obj) -> str:
+        """
+        Determina de forma simple la fuente de una fecha sin generar logs adicionales.
+        
+        Args:
+            file_path: Ruta al archivo
+            date_obj: Objeto datetime obtenido
+            
+        Returns:
+            String indicando la fuente: 'exif', 'filename', 'video', 'mtime', 'unknown'
+        """
+        if date_obj is None:
+            return 'unknown'
+        
+        from utils.date_utils import get_exif_dates, extract_date_from_filename, get_video_metadata_date
+        from config import Config
+        
+        # Intentar EXIF (solo para imágenes)
+        if file_path.suffix.lower() in Config.SUPPORTED_IMAGE_EXTENSIONS:
+            try:
+                exif_dates = get_exif_dates(file_path)
+                # Revisar las fechas EXIF principales
+                for key in ['datetime_original', 'datetime_digitized', 'datetime']:
+                    if key in exif_dates and exif_dates[key]:
+                        if abs((exif_dates[key] - date_obj).total_seconds()) < 1:
+                            return 'exif'
+            except Exception:
+                pass
+        
+        # Intentar filename
+        try:
+            filename_date = extract_date_from_filename(file_path.name)
+            if filename_date and abs((filename_date - date_obj).total_seconds()) < 1:
+                return 'filename'
+        except Exception:
+            pass
+        
+        # Intentar video metadata
+        if file_path.suffix.lower() in Config.SUPPORTED_VIDEO_EXTENSIONS:
+            try:
+                video_date = get_video_metadata_date(file_path)
+                if video_date and abs((video_date - date_obj).total_seconds()) < 1:
+                    return 'video'
+            except Exception:
+                pass
+        
+        # Por defecto, mtime (filesystem)
+        return 'mtime'
+
