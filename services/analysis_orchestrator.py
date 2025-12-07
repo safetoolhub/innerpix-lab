@@ -46,6 +46,9 @@ class DirectoryScanResult:
     # Caché compartida de metadatos para optimizar fases subsecuentes
     metadata_cache: Optional[FileMetadataCache] = None
     
+    # Tamaño total del directorio (calculado durante finalizacion)
+    total_size: int = 0
+    
     @property
     def image_count(self) -> int:
         return len(self.images)

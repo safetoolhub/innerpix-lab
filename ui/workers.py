@@ -310,6 +310,32 @@ class AnalysisWorker(BaseWorker):
                 if not self._stop_requested:
                     self.phase_completed.emit(self._current_phase_id)
             
+            # Calcular tamaño del directorio durante "Finalizando análisis"
+            if not self._stop_requested:
+                self.progress_update.emit(0, 0, "Calculando tamaño del directorio...")
+                try:
+                    total_size = 0
+                    file_count = 0
+                    for file_path in self.directory.rglob('*'):
+                        if self._stop_requested:
+                            break
+                        if file_path.is_file():
+                            try:
+                                total_size += file_path.stat().st_size
+                                file_count += 1
+                                # Actualizar progreso cada 100 archivos
+                                if file_count % 100 == 0:
+                                    self.progress_update.emit(0, 0, f"Calculando tamaño... ({file_count} archivos)")
+                            except (OSError, PermissionError):
+                                pass
+                    
+                    # Guardar el tamaño en el resultado
+                    result.scan.total_size = total_size
+                    self.logger.debug(f"Tamaño total del directorio: {total_size} bytes ({file_count} archivos)")
+                except Exception as e:
+                    self.logger.warning(f"Error calculando tamaño del directorio: {e}")
+                    result.scan.total_size = 0
+            
             # Delay final antes de transición a Stage 3 (UX suave)
             if not self._stop_requested:
                 self.logger.debug(

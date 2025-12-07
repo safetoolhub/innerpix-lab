@@ -199,15 +199,15 @@ class Stage3Window(BaseStage):
         # No usar fade_in para evitar problemas con el scroll
         # self.fade_in_widget(self.summary_card, duration=400)
 
-        # Actualizar estadísticas de la summary card
+        # Actualizar estadísticas de la summary card (datos ya calculados en Stage 2)
         total_files = self.analysis_results.scan.total_files
+        total_size = self.analysis_results.scan.total_size
         
-        # Calcular tamaño total del directorio
-        total_size = self._calculate_directory_size()
-        self.summary_card.update_stats(total_files, total_size)
-
-        # Calcular espacio recuperable
+        # Calcular espacio recuperable (rápido, solo suma valores ya calculados)
         recoverable = self._calculate_recoverable_space()
+        
+        # Mostrar estadísticas
+        self.summary_card.update_stats(total_files, total_size)
         self.summary_card.update_recoverable_space(recoverable)
 
         # Añadir stretch después de la summary card para mantener el layout
@@ -215,33 +215,6 @@ class Stage3Window(BaseStage):
 
         # Crear grid de herramientas con delay escalonado
         QTimer.singleShot(200, self._create_tools_grid)
-
-    def _calculate_directory_size(self) -> int:
-        """
-        Calcula el tamaño total del directorio analizado
-        
-        Returns:
-            Tamaño total en bytes
-        """
-        from pathlib import Path
-        
-        try:
-            directory = Path(self.selected_folder)
-            total_size = 0
-            
-            # Recorrer todos los archivos del directorio
-            for file_path in directory.rglob('*'):
-                if file_path.is_file():
-                    try:
-                        total_size += file_path.stat().st_size
-                    except (OSError, PermissionError):
-                        # Ignorar archivos que no se pueden leer
-                        pass
-            
-            return total_size
-        except Exception as e:
-            self.logger.warning(f"Error calculando tamaño del directorio: {e}")
-            return 0
 
     def _calculate_recoverable_space(self) -> int:
         """
