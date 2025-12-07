@@ -25,6 +25,7 @@ import threading
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
+from logging.handlers import RotatingFileHandler
 
 
 # Logger raíz para toda la aplicación
@@ -65,6 +66,11 @@ class ThreadSafeFileHandler(ThreadSafeHandler, logging.FileHandler):
     pass
 
 
+class ThreadSafeRotatingFileHandler(ThreadSafeHandler, RotatingFileHandler):
+    """Rotating file handler con thread-safety para rotación por tamaño"""
+    pass
+
+
 def _ensure_root_logger():
     """Asegura que el logger raíz esté configurado"""
     global _root_logger, _current_level
@@ -88,7 +94,16 @@ def _ensure_root_logger():
             # Handler thread-safe para archivo (si se ha configurado)
             if _log_file:
                 try:
-                    file_handler = ThreadSafeFileHandler(_log_file, encoding='utf-8')
+                    from config import Config
+                    max_bytes = Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024  # Convertir MB a bytes
+                    backup_count = Config.MAX_LOG_BACKUP_COUNT
+                    
+                    file_handler = ThreadSafeRotatingFileHandler(
+                        _log_file, 
+                        maxBytes=max_bytes,
+                        backupCount=backup_count,
+                        encoding='utf-8'
+                    )
                     file_handler.setFormatter(formatter)
                     _root_logger.addHandler(file_handler)
                 except Exception as e:
@@ -98,7 +113,16 @@ def _ensure_root_logger():
             # Handler adicional para WARNING/ERROR si está habilitado
             if _log_file_warnings and _dual_log_enabled:
                 try:
-                    warning_handler = ThreadSafeFileHandler(_log_file_warnings, encoding='utf-8')
+                    from config import Config
+                    max_bytes = Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024
+                    backup_count = Config.MAX_LOG_BACKUP_COUNT
+                    
+                    warning_handler = ThreadSafeRotatingFileHandler(
+                        _log_file_warnings,
+                        maxBytes=max_bytes,
+                        backupCount=backup_count,
+                        encoding='utf-8'
+                    )
                     warning_handler.setFormatter(formatter)
                     warning_handler.setLevel(logging.WARNING)  # Solo WARNING y ERROR
                     _root_logger.addHandler(warning_handler)
@@ -131,9 +155,9 @@ def set_global_log_level(level):
 class SimpleLogger:
     """Logger simplificado para la aplicación con niveles estandarizados"""
 
-    def __init__(self, name="PhotokitManager"):
+    def __init__(self, name="PixaroLab"):
         # Crear logger hijo del logger raíz
-        if name == "PhotokitManager":
+        if name == "PixaroLab":
             self.logger = _ensure_root_logger()
         else:
             # Crear como hijo del logger raíz para heredar configuración
@@ -339,7 +363,16 @@ def configure_logging(
     
     # Handler thread-safe para archivo principal
     try:
-        file_handler = ThreadSafeFileHandler(_log_file, encoding='utf-8')
+        from config import Config
+        max_bytes = Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024  # Convertir MB a bytes
+        backup_count = Config.MAX_LOG_BACKUP_COUNT
+        
+        file_handler = ThreadSafeRotatingFileHandler(
+            _log_file,
+            maxBytes=max_bytes,
+            backupCount=backup_count,
+            encoding='utf-8'
+        )
         file_handler.setFormatter(formatter)
         _root_logger.addHandler(file_handler)
     except Exception as e:
@@ -348,7 +381,16 @@ def configure_logging(
     # Handler adicional para WARNING/ERROR si está habilitado
     if _log_file_warnings:
         try:
-            warning_handler = ThreadSafeFileHandler(_log_file_warnings, encoding='utf-8')
+            from config import Config
+            max_bytes = Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024
+            backup_count = Config.MAX_LOG_BACKUP_COUNT
+            
+            warning_handler = ThreadSafeRotatingFileHandler(
+                _log_file_warnings,
+                maxBytes=max_bytes,
+                backupCount=backup_count,
+                encoding='utf-8'
+            )
             warning_handler.setFormatter(formatter)
             warning_handler.setLevel(logging.WARNING)  # Solo WARNING y ERROR
             _root_logger.addHandler(warning_handler)
@@ -408,7 +450,7 @@ def change_logs_directory(new_dir: Path | str, dual_log_enabled: Optional[bool] 
     # Remover handlers de archivo viejos
     old_file_handlers = [
         h for h in root.handlers 
-        if isinstance(h, (logging.FileHandler, ThreadSafeFileHandler))
+        if isinstance(h, (logging.FileHandler, ThreadSafeFileHandler, ThreadSafeRotatingFileHandler))
     ]
     for handler in old_file_handlers:
         root.removeHandler(handler)
@@ -419,11 +461,20 @@ def change_logs_directory(new_dir: Path | str, dual_log_enabled: Optional[bool] 
     
     # Crear nuevo file handler principal
     try:
+        from config import Config
+        max_bytes = Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024
+        backup_count = Config.MAX_LOG_BACKUP_COUNT
+        
         formatter = logging.Formatter(
             '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
             datefmt='%Y-%m-%d %H:%M:%S'
         )
-        file_handler = ThreadSafeFileHandler(_log_file, encoding='utf-8')
+        file_handler = ThreadSafeRotatingFileHandler(
+            _log_file,
+            maxBytes=max_bytes,
+            backupCount=backup_count,
+            encoding='utf-8'
+        )
         file_handler.setFormatter(formatter)
         file_handler.setLevel(_current_level)
         root.addHandler(file_handler)
@@ -436,7 +487,16 @@ def change_logs_directory(new_dir: Path | str, dual_log_enabled: Optional[bool] 
     # Crear handler adicional para WARNING/ERROR si está habilitado
     if _log_file_warnings:
         try:
-            warning_handler = ThreadSafeFileHandler(_log_file_warnings, encoding='utf-8')
+            from config import Config
+            max_bytes = Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024
+            backup_count = Config.MAX_LOG_BACKUP_COUNT
+            
+            warning_handler = ThreadSafeRotatingFileHandler(
+                _log_file_warnings,
+                maxBytes=max_bytes,
+                backupCount=backup_count,
+                encoding='utf-8'
+            )
             warning_handler.setFormatter(formatter)
             warning_handler.setLevel(logging.WARNING)
             root.addHandler(warning_handler)
@@ -488,11 +548,20 @@ def set_dual_log_enabled(enabled: bool) -> None:
             _log_file_warnings = _logs_directory / f"pixaro_lab_{timestamp}_WARNERROR.log"
             
             try:
+                from config import Config
+                max_bytes = Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024
+                backup_count = Config.MAX_LOG_BACKUP_COUNT
+                
                 formatter = logging.Formatter(
                     '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     datefmt='%Y-%m-%d %H:%M:%S'
                 )
-                warning_handler = ThreadSafeFileHandler(_log_file_warnings, encoding='utf-8')
+                warning_handler = ThreadSafeRotatingFileHandler(
+                    _log_file_warnings,
+                    maxBytes=max_bytes,
+                    backupCount=backup_count,
+                    encoding='utf-8'
+                )
                 warning_handler.setFormatter(formatter)
                 warning_handler.setLevel(logging.WARNING)
                 root.addHandler(warning_handler)
@@ -504,7 +573,7 @@ def set_dual_log_enabled(enabled: bool) -> None:
         handlers_to_remove = []
         for handler in root.handlers[:]:
             # Identificar handlers de archivo que apuntan a archivos WARNERROR
-            if isinstance(handler, (ThreadSafeFileHandler, logging.FileHandler)):
+            if isinstance(handler, (ThreadSafeFileHandler, ThreadSafeRotatingFileHandler, logging.FileHandler)):
                 # Verificar si es un handler de warnings/errors por su nivel o por el nombre del archivo
                 if handler.level == logging.WARNING:
                     handlers_to_remove.append(handler)

@@ -41,6 +41,10 @@ class Config:
     LOG_LEVEL = "INFO"
     LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     LOG_DATE_FORMAT = "%Y%m%d_%H%M%S"
+    
+    # Configuración de rotación de logs
+    MAX_LOG_FILE_SIZE_MB = 10  # Tamaño máximo de archivo de log en MB antes de rotar
+    MAX_LOG_BACKUP_COUNT = 0  # Número de backups a mantener (0 = ilimitado)
 
     # ========================================================================
     # DIRECTORIOS POR DEFECTO
@@ -142,7 +146,7 @@ class Config:
     DEVELOPMENT_MODE = False  # Si True, salta directamente a Stage 2 con la última carpeta usada
     
     # Configuración de caché para desarrollo (acelerar pruebas con datasets grandes)
-    DEV_USE_CACHED_ANALYSIS = True  # Si True, intenta cargar .pixaro_analysis_cache.pkl
+    DEV_USE_CACHED_ANALYSIS = False  # Si True, intenta cargar .pixaro_analysis_cache.pkl
     DEV_CACHE_FILENAME = ".pixaro_analysis_cache.pkl"
 
 
@@ -155,7 +159,7 @@ class Config:
     MIN_PHASE_DURATION_SECONDS = 0.0  # Default: 1 segundo por fase
     
     # Delay adicional antes de transicionar a Stage 3 (después de completar todo)
-    FINAL_DELAY_BEFORE_STAGE3_SECONDS =0.0  # Default: 2 segundos
+    FINAL_DELAY_BEFORE_STAGE3_SECONDS =1.0  # Default: 2 segundos
 
     # ========================================================================
     # CONSTANTES DE UI
