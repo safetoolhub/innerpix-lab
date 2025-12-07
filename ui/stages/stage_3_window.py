@@ -711,13 +711,23 @@ class Stage3Window(BaseStage):
             self.logger.error(f"No se pudo crear worker para {tool_id}")
             return
         
+        # Variable para controlar si ya se canceló
+        is_cancelled = False
+        
         # Conectar señales del worker
         def on_progress(current, total, message):
+            # Ignorar actualizaciones si ya se canceló
+            if is_cancelled:
+                return
             if total > 0:
                 progress_dialog.setValue(int((current / total) * 100))
             progress_dialog.setLabelText(message)
         
         def on_finished(result):
+            # Ignorar si ya se canceló
+            if is_cancelled:
+                return
+            
             progress_dialog.close()
             self.logger.info(f"Operación {tool_id} completada: {result}")
             
@@ -781,6 +791,10 @@ class Stage3Window(BaseStage):
             worker.deleteLater()
         
         def on_error(error_message):
+            # Ignorar si ya se canceló
+            if is_cancelled:
+                return
+            
             progress_dialog.close()
             self.logger.error(f"Error en operación {tool_id}: {error_message}")
             QMessageBox.critical(
@@ -790,12 +804,48 @@ class Stage3Window(BaseStage):
             )
             worker.deleteLater()
         
+        def on_cancel():
+            """Maneja la cancelación del diálogo de progreso"""
+            nonlocal is_cancelled
+            is_cancelled = True
+            
+            # Solicitar al worker que se detenga
+            worker.stop()
+            
+            # Actualizar el mensaje del diálogo mientras esperamos
+            progress_dialog.setLabelText("Cancelando operación, por favor espera...")
+            progress_dialog.setCancelButton(None)  # Deshabilitar el botón de cancelar
+            
+            # Desconectar señales de procesamiento pero mantener finished para limpieza
+            try:
+                worker.progress_update.disconnect(on_progress)
+            except Exception:
+                pass
+            
+            # Conectar un handler simplificado para finished que solo limpia
+            def on_cancelled_cleanup():
+                progress_dialog.close()
+                worker.deleteLater()
+                self.logger.info(f"Operación {tool_id} cancelada y limpiada correctamente")
+            
+            # Desconectar handlers anteriores y conectar el de limpieza
+            try:
+                worker.finished.disconnect(on_finished)
+                worker.error.disconnect(on_error)
+            except Exception:
+                pass
+            
+            worker.finished.connect(on_cancelled_cleanup)
+            worker.error.connect(on_cancelled_cleanup)
+            
+            self.logger.info(f"Operación {tool_id} - Cancelación solicitada por el usuario")
+        
         worker.progress_update.connect(on_progress)
         worker.finished.connect(on_finished)
         worker.error.connect(on_error)
         
-        # Conectar cancelación
-        progress_dialog.canceled.connect(worker.stop)
+        # Conectar cancelación con handler explícito
+        progress_dialog.canceled.connect(on_cancel)
         
         # Iniciar worker
         worker.start()
