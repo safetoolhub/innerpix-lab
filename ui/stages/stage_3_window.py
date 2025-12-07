@@ -359,7 +359,7 @@ class Stage3Window(BaseStage):
         if live_photo_data and live_photo_data.live_photos_found > 0:
             size_text = f"~{format_size(live_photo_data.space_to_free)} recuperables"
             card.set_status_with_results(
-                f"{live_photo_data.live_photos_found} Live Photos detectadas",
+                f"{live_photo_data.live_photos_found} Grupos de Live Photos detectados",
                 size_text
             )
         else:
