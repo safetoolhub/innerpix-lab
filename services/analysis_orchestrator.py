@@ -49,6 +49,12 @@ class DirectoryScanResult:
     # Tamaño total del directorio (calculado durante finalizacion)
     total_size: int = 0
     
+    # Desglose por extensiones
+    image_extensions: Dict[str, int] = field(default_factory=dict)
+    video_extensions: Dict[str, int] = field(default_factory=dict)
+    unsupported_extensions: Dict[str, int] = field(default_factory=dict)
+    unsupported_files: List[Path] = field(default_factory=list)  # Rutas completas para DEBUG
+    
     @property
     def image_count(self) -> int:
         return len(self.images)
@@ -247,6 +253,10 @@ class AnalysisOrchestrator:
         
         # Una sola iteración: clasificar directamente sin contar primero
         images, videos, others = [], [], []
+        image_extensions = {}
+        video_extensions = {}
+        unsupported_extensions = {}
+        unsupported_files = []
         processed = 0
         
         # Primera pasada: obtener lista de archivos para saber el total
@@ -281,16 +291,23 @@ class AnalysisOrchestrator:
                 self.logger.warning("Escaneo cancelado por usuario")
                 break
             
+            # Obtener extensión (normalizar a lowercase)
+            ext = f.suffix.lower() if f.suffix else '(sin extensión)'
+            
             # Clasificar archivo
             if Config.is_image_file(f.name):
                 images.append(f)
                 file_type = 'image'
+                image_extensions[ext] = image_extensions.get(ext, 0) + 1
             elif Config.is_video_file(f.name):
                 videos.append(f)
                 file_type = 'video'
+                video_extensions[ext] = video_extensions.get(ext, 0) + 1
             else:
                 others.append(f)
                 file_type = 'other'
+                unsupported_extensions[ext] = unsupported_extensions.get(ext, 0) + 1
+                unsupported_files.append(f)
             
             # Cachear metadata básico durante el escaneo (evita stat() posterior)
             # NOTA: Hashes SHA256 solo se pre-calculan si precalculate_hashes=True
@@ -364,7 +381,11 @@ class AnalysisOrchestrator:
             images=images,
             videos=videos,
             others=others,
-            metadata_cache=metadata_cache
+            metadata_cache=metadata_cache,
+            image_extensions=image_extensions,
+            video_extensions=video_extensions,
+            unsupported_extensions=unsupported_extensions,
+            unsupported_files=unsupported_files
         )
         
         # Estadísticas de archivos soportados vs no soportados

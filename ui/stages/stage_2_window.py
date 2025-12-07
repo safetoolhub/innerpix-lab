@@ -141,6 +141,9 @@ class Stage2Window(BaseStage):
                     
                     self.logger.info("✅ Análisis cargado exitosamente desde caché")
                     
+                    # Enriquecer con información de extensiones si no está presente
+                    self._enrich_scan_with_extensions(cached_results)
+                    
                     # Simular finalización inmediata
                     # Usamos QTimer para dar tiempo a que la UI se renderice antes de cambiar
                     QTimer.singleShot(500, lambda: self._on_analysis_finished(cached_results))
@@ -272,6 +275,9 @@ class Stage2Window(BaseStage):
         self.logger.info("Análisis completado exitosamente")
         self.analysis_results = results
 
+        # Logging detallado de extensiones de archivos
+        self._log_file_extensions_summary(results)
+
         # Guardar resultados del análisis para uso futuro
         self.save_analysis_results(results)
 
@@ -370,6 +376,114 @@ class Stage2Window(BaseStage):
 
         # Transición al Estado 1 a través de MainWindow
         self.main_window._transition_to_state_1()
+    
+    def _enrich_scan_with_extensions(self, results):
+        """
+        Enriquece los resultados de análisis con información de extensiones.
+        Útil para cachés antiguos que no tienen estos datos.
+        
+        Args:
+            results: FullAnalysisResult cargado desde caché
+        """
+        if not results or not hasattr(results, 'scan'):
+            return
+        
+        scan = results.scan
+        
+        # Si ya tiene los datos de extensiones, no hacer nada
+        if hasattr(scan, 'image_extensions') and scan.image_extensions:
+            self.logger.debug("Caché ya contiene información de extensiones")
+            return
+        
+        self.logger.info("Enriqueciendo caché con información de extensiones...")
+        
+        # Inicializar dictionaries
+        image_extensions = {}
+        video_extensions = {}
+        unsupported_extensions = {}
+        unsupported_files = []
+        
+        # Analizar archivos existentes en el scan
+        if hasattr(scan, 'images') and scan.images:
+            for img_path in scan.images:
+                ext = img_path.suffix.lower() if img_path.suffix else '(sin extensión)'
+                image_extensions[ext] = image_extensions.get(ext, 0) + 1
+        
+        if hasattr(scan, 'videos') and scan.videos:
+            for vid_path in scan.videos:
+                ext = vid_path.suffix.lower() if vid_path.suffix else '(sin extensión)'
+                video_extensions[ext] = video_extensions.get(ext, 0) + 1
+        
+        if hasattr(scan, 'others') and scan.others:
+            for other_path in scan.others:
+                ext = other_path.suffix.lower() if other_path.suffix else '(sin extensión)'
+                unsupported_extensions[ext] = unsupported_extensions.get(ext, 0) + 1
+                unsupported_files.append(other_path)
+        
+        # Agregar los datos al scan result
+        scan.image_extensions = image_extensions
+        scan.video_extensions = video_extensions
+        scan.unsupported_extensions = unsupported_extensions
+        scan.unsupported_files = unsupported_files
+        
+        self.logger.info(f"✅ Extensiones agregadas: {len(image_extensions)} imágenes, "
+                        f"{len(video_extensions)} videos, {len(unsupported_extensions)} no soportadas")
+    
+    def _log_file_extensions_summary(self, results):
+        """
+        Registra información detallada sobre extensiones de archivos encontrados.
+        
+        Args:
+            results: FullAnalysisResult con los datos del análisis
+        """
+        if not results or not hasattr(results, 'scan'):
+            self.logger.warning("No hay resultados de escaneo disponibles para logging")
+            return
+        
+        scan = results.scan
+        
+        # Los campos de extensiones siempre deberían estar presentes gracias a _enrich_scan_with_extensions
+        # pero mantener verificación defensiva
+        if not hasattr(scan, 'image_extensions'):
+            self.logger.warning("Los resultados no incluyen desglose de extensiones")
+            return
+        
+        # INFO: Desglose de imágenes por extensión
+        if scan.image_extensions:
+            image_summary = ', '.join(
+                f"{ext.upper()} ({count})" 
+                for ext, count in sorted(scan.image_extensions.items())
+            )
+            self.logger.info(f"📷 Imágenes por extensión: {image_summary}")
+        else:
+            self.logger.info("📷 Imágenes por extensión: ninguna")
+        
+        # INFO: Desglose de videos por extensión
+        if scan.video_extensions:
+            video_summary = ', '.join(
+                f"{ext.upper()} ({count})" 
+                for ext, count in sorted(scan.video_extensions.items())
+            )
+            self.logger.info(f"🎥 Videos por extensión: {video_summary}")
+        else:
+            self.logger.info("🎥 Videos por extensión: ninguna")
+        
+        # INFO: Recuento de archivos con extensiones no soportadas
+        if scan.unsupported_extensions:
+            unsupported_count = sum(scan.unsupported_extensions.values())
+            unsupported_summary = ', '.join(
+                f"{ext.upper() if ext != '(sin extensión)' else ext} ({count})" 
+                for ext, count in sorted(scan.unsupported_extensions.items())
+            )
+            self.logger.info(f"⚠️  Archivos con extensiones NO SOPORTADAS: {unsupported_count} - {unsupported_summary}")
+            
+            # DEBUG: Rutas completas de archivos no soportados
+            if scan.unsupported_files:
+                self.logger.debug(f"📁 Rutas completas de archivos NO SOPORTADOS ({len(scan.unsupported_files)} archivos):")
+                for file_path in scan.unsupported_files:
+                    self.logger.debug(f"  - {file_path}")
+        else:
+            self.logger.info("✅ Archivos con extensiones NO SOPORTADAS: ninguno")
     
     def _on_cancel_requested(self):
         """Usuario solicitó cancelar el análisis"""
