@@ -320,10 +320,16 @@ class LivePhotoService(BaseService):
                         results.simulated_space_freed += file_size
                         results.deleted_files.append(str(file_path))
                         
-                        self.logger.info(
+                        # Construir log con archivo complementario si existe
+                        log_msg = (
                             f"FILE_DELETED_SIMULATION: {file_path} | Size: {format_size(file_size)} | "
                             f"Type: {file_info['type']} | Date: {file_date_str}"
                         )
+                        if 'paired_file' in file_info:
+                            paired_file = file_info['paired_file']
+                            log_msg += f" | Paired: {paired_file}"
+                        
+                        self.logger.info(log_msg)
                     else:
                         # Eliminar realmente
                         file_path.unlink()
@@ -333,10 +339,16 @@ class LivePhotoService(BaseService):
                         results.space_freed += file_size
                         results.deleted_files.append(str(file_path))
                         
-                        self.logger.info(
+                        # Construir log con archivo complementario si existe
+                        log_msg = (
                             f"FILE_DELETED: {file_path} | Size: {format_size(file_size)} | "
                             f"Type: {file_info['type']} | Date: {file_date_str}"
                         )
+                        if 'paired_file' in file_info:
+                            paired_file = file_info['paired_file']
+                            log_msg += f" | Paired: {paired_file}"
+                        
+                        self.logger.info(log_msg)
 
                 except Exception as e:
                     error_msg = f"Error eliminando {file_path.name}: {str(e)}"
@@ -652,7 +664,8 @@ class LivePhotoService(BaseService):
                         'path': lp.video_path,
                         'type': 'video', 
                         'size': lp.video_size,
-                        'base_name': lp.base_name
+                        'base_name': lp.base_name,
+                        'paired_file': lp.image_path  # Archivo que se mantiene
                     })
                     seen_delete.add(delete_key)
 
@@ -677,7 +690,8 @@ class LivePhotoService(BaseService):
                         'path': lp.image_path,
                         'type': 'image',
                         'size': lp.image_size,
-                        'base_name': lp.base_name
+                        'base_name': lp.base_name,
+                        'paired_file': lp.video_path  # Archivo que se mantiene
                     })
                     seen_delete.add(delete_key)
 
@@ -707,7 +721,8 @@ class LivePhotoService(BaseService):
                         'path': delete_path,
                         'type': delete_type,
                         'size': delete_size,
-                        'base_name': lp.base_name
+                        'base_name': lp.base_name,
+                        'paired_file': keep_path  # Archivo que se mantiene
                     })
                     seen_delete.add(delete_key)
 
@@ -737,7 +752,8 @@ class LivePhotoService(BaseService):
                         'path': delete_path,
                         'type': delete_type,
                         'size': delete_size,
-                        'base_name': lp.base_name
+                        'base_name': lp.base_name,
+                        'paired_file': keep_path  # Archivo que se mantiene
                     })
                     seen_delete.add(delete_key)
 

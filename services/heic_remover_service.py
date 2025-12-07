@@ -461,11 +461,11 @@ class HEICRemover(BaseService):
                         except Exception:
                             file_date_str = 'unknown'
                         
+                        # Log consolidado en una sola línea
                         self.logger.info(
                             f"FILE_DELETED_SIMULATION: {file_to_delete} | Size: {format_size(file_size)} | "
-                            f"Type: {format_deleted} | Date: {file_date_str}"
+                            f"Type: {format_deleted} | Date: {file_date_str} | Kept: {file_to_keep}"
                         )
-                        self.logger.info(f"[SIMULACIÓN] Conservaría {format_kept}: {file_to_keep}")
                     else:
                         file_to_delete.unlink()
                         results.files_deleted += 1
@@ -480,11 +480,11 @@ class HEICRemover(BaseService):
                         except Exception:
                             file_date_str = 'unknown'
                         
+                        # Log consolidado en una sola línea
                         self.logger.info(
                             f"FILE_DELETED: {file_to_delete} | Size: {format_size(file_size)} | "
-                            f"Type: {format_deleted} | Date: {file_date_str}"
+                            f"Type: {format_deleted} | Date: {file_date_str} | Kept: {file_to_keep}"
                         )
-                        self.logger.info(f"  ✓ Conservado {format_kept}: {file_to_keep}")
                 
                 except Exception as e:
                     error_msg = f"Error eliminando {file_to_delete}: {str(e)}"
