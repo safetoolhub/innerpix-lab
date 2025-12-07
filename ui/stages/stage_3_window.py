@@ -733,30 +733,38 @@ class Stage3Window(BaseStage):
                     message
                 )
                 
-                # Then ask user about re-analysis
-                reply = QMessageBox.question(
-                    self.main_window,
-                    "Re-analizar carpeta",
-                    "¿Deseas re-analizar la carpeta para actualizar las estadísticas?\n\n"
-                    "Nota: El re-análisis puede tardar varios minutos con datasets grandes. "
-                    "Si omites este paso, las estadísticas mostradas pueden no reflejar los cambios realizados.",
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                    QMessageBox.StandardButton.Yes  # Default to Yes
-                )
+                # Only ask for re-analysis if operation was NOT simulated
+                # Simulated operations (dry_run=True) don't modify files, so re-analysis is unnecessary
+                was_simulation = plan.get('dry_run', False)
                 
-                if reply == QMessageBox.StandardButton.Yes:
-                    # Re-analyze as before
-                    log_section_header_discrete(self.logger, f"Re-análisis solicitado por usuario tras completar {tool_id}")
-                    QTimer.singleShot(500, self._on_reanalyze)
+                if not was_simulation:
+                    # Then ask user about re-analysis
+                    reply = QMessageBox.question(
+                        self.main_window,
+                        "Re-analizar carpeta",
+                        "¿Deseas re-analizar la carpeta para actualizar las estadísticas?\n\n"
+                        "Nota: El re-análisis puede tardar varios minutos con datasets grandes. "
+                        "Si omites este paso, las estadísticas mostradas pueden no reflejar los cambios realizados.",
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                        QMessageBox.StandardButton.Yes  # Default to Yes
+                    )
+                    
+                    if reply == QMessageBox.StandardButton.Yes:
+                        # Re-analyze as before
+                        log_section_header_discrete(self.logger, f"Re-análisis solicitado por usuario tras completar {tool_id}")
+                        QTimer.singleShot(500, self._on_reanalyze)
+                    else:
+                        # User chose to skip re-analysis
+                        self.logger.info("Usuario omitió re-análisis, las estadísticas pueden estar desactualizadas")
+                        # Mostrar banner de advertencia
+                        if self.stale_banner:
+                            self.stale_banner.show()
+                            # Asegurar que el banner sea visible (scroll to top if needed)
+                            if hasattr(self.main_window, 'scroll_area'):
+                                self.main_window.scroll_area.ensureWidgetVisible(self.stale_banner)
                 else:
-                    # User chose to skip re-analysis
-                    self.logger.info("Usuario omitió re-análisis, las estadísticas pueden estar desactualizadas")
-                    # Mostrar banner de advertencia
-                    if self.stale_banner:
-                        self.stale_banner.show()
-                        # Asegurar que el banner sea visible (scroll to top if needed)
-                        if hasattr(self.main_window, 'scroll_area'):
-                            self.main_window.scroll_area.ensureWidgetVisible(self.stale_banner)
+                    # Operation was simulated, no need to re-analyze
+                    self.logger.info("Operación simulada completada, no se requiere re-análisis")
             else:
                 error_msg = result.message if (result and hasattr(result, 'message')) else "Operación fallida"
                 QMessageBox.warning(

@@ -423,7 +423,7 @@ class DesignSystem:
                 border-radius: {DesignSystem.RADIUS_FULL}px;
                 background-color: {DesignSystem.COLOR_SECONDARY};
                 text-align: center;
-                height: 8px;
+                height: 20px;
                 font-size: {DesignSystem.FONT_SIZE_SM}px;
                 color: {DesignSystem.COLOR_TEXT};
             }}

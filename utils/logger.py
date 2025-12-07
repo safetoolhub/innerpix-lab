@@ -67,8 +67,43 @@ class ThreadSafeFileHandler(ThreadSafeHandler, logging.FileHandler):
 
 
 class ThreadSafeRotatingFileHandler(ThreadSafeHandler, RotatingFileHandler):
-    """Rotating file handler con thread-safety para rotación por tamaño"""
-    pass
+    """
+    Rotating file handler con thread-safety para rotación por tamaño.
+    
+    Mejora sobre RotatingFileHandler estándar:
+    - Verifica el tamaño del archivo al inicializarse
+    - Si el archivo ya existe y excede maxBytes, lo rota inmediatamente
+    - Esto previene que archivos crezcan indefinidamente durante sesiones largas
+    """
+    
+    def __init__(self, filename, mode='a', maxBytes=0, backupCount=0, encoding=None, delay=False):
+        """
+        Inicializa el handler y rota el archivo si ya es muy grande.
+        
+        Args:
+            filename: Ruta del archivo de log
+            mode: Modo de apertura ('a' para append)
+            maxBytes: Tamaño máximo antes de rotar (0 = sin límite)
+            backupCount: Número de backups a mantener (0 = ilimitado)
+            encoding: Codificación del archivo
+            delay: Si True, retrasa la apertura del archivo
+        """
+        # Llamar al constructor padre
+        super().__init__(filename, mode, maxBytes, backupCount, encoding, delay)
+        
+        # Verificar si el archivo ya existe y es demasiado grande
+        if maxBytes > 0 and not delay:
+            try:
+                from pathlib import Path
+                log_path = Path(filename)
+                if log_path.exists():
+                    current_size = log_path.stat().st_size
+                    if current_size >= maxBytes:
+                        # Archivo existente es muy grande, rotarlo inmediatamente
+                        self.doRollover()
+            except Exception:
+                # Si falla la verificación, continuar normalmente
+                pass
 
 
 def _ensure_root_logger():
