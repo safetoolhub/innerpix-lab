@@ -97,8 +97,8 @@ class LivePhotoService(BaseService):
         self.photo_extensions = {ext.upper() for ext in {'.heic', '.jpg', '.jpeg'}}
         self.video_extensions = {'.MOV'}  # Live Photos usan específicamente .MOV
         
-        self.logger.debug(f"Extensiones de foto configuradas: {self.photo_extensions}")
-        self.logger.debug(f"Extensiones de video configuradas: {self.video_extensions}")
+        self.logger.info(f"Extensiones de foto configuradas: {self.photo_extensions}")
+        self.logger.info(f"Extensiones de video configuradas: {self.video_extensions}")
 
         # Tolerancia de tiempo para matching (5 segundos máximo)
         self.time_tolerance = 5.0
