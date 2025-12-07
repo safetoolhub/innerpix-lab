@@ -90,7 +90,9 @@ class ZeroByteService:
         
         for i, file_path in enumerate(files_to_delete):
             if progress_callback:
-                if not progress_callback(i, total, f"Procesando {file_path.name}..."):
+                action = "[Simulación] Eliminaría" if dry_run else "Eliminando"
+                progress_msg = f"{action}\n{file_path.name}"
+                if not progress_callback(i, total, progress_msg):
                     break
             
             try:

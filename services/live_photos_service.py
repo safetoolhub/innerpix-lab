@@ -272,9 +272,12 @@ class LivePhotoService(BaseService):
             total = len(files_to_delete)
             
             for idx, file_info in enumerate(files_to_delete):
-                # Reportar progreso al callback (UI)
+                # Reportar progreso al callback (UI) con formato de dos líneas
                 if progress_callback and (idx + 1) % Config.UI_UPDATE_INTERVAL == 0:
-                    if not progress_callback(idx + 1, total, f"Procesando {idx + 1}/{total}"):
+                    action = "[Simulación] Eliminaría" if dry_run else "Eliminando"
+                    file_name = Path(file_info['path']).name
+                    progress_msg = f"{action}\n{file_name}"
+                    if not progress_callback(idx + 1, total, progress_msg):
                         self.logger.info("Limpieza cancelada por el usuario")
                         break
                 

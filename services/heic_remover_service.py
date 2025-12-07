@@ -418,8 +418,10 @@ class HEICRemover(BaseService):
             # Procesar cada par
             total_pairs = len(duplicate_pairs)
             for idx, pair in enumerate(duplicate_pairs):
-                # Reportar progreso (en cada iteración para mejor feedback visual)
-                if not self._report_progress(progress_callback, idx + 1, total_pairs, f"Procesando par {idx + 1}/{total_pairs}"):
+                # Reportar progreso con formato de dos líneas
+                action = "[Simulación] Procesaría" if dry_run else "Procesando"
+                progress_msg = f"{action} par\n{idx + 1}/{total_pairs}"
+                if not self._report_progress(progress_callback, idx + 1, total_pairs, progress_msg):
                     break
 
                 file_to_delete = pair.heic_path if keep_format.lower() == 'jpg' else pair.jpg_path

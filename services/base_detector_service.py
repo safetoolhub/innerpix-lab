@@ -374,8 +374,9 @@ class BaseDetectorService(BaseService):
                 
                 processed += 1
                 
-                # Reportar progreso
-                progress_msg = f"{'[Simulación] Borraría]' if dry_run else 'Eliminado'}: {file_path.name}"
+                # Reportar progreso (formato de dos líneas para evitar movimiento con texto centrado)
+                action = "[Simulación] Eliminaría" if dry_run else "Eliminado"
+                progress_msg = f"{action}\n{file_path.name}"
                 safe_progress_callback(
                     progress_callback,
                     processed_count + processed,
