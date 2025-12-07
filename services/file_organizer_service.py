@@ -20,6 +20,7 @@ from utils.date_utils import parse_renamed_name, get_date_from_file
 from utils.file_utils import is_whatsapp_file, detect_file_source
 from services.result_types import OrganizationResult, OrganizationAnalysisResult
 from services.base_service import BaseService, ProgressCallback
+from services.metadata_cache import FileMetadataCache
 
 class OrganizationType(Enum):
     """Tipos de organización disponibles"""
@@ -74,7 +75,8 @@ class FileOrganizer(BaseService):
                 progress_callback: Optional[ProgressCallback] = None,
                 group_by_source: bool = False,
                 group_by_type: bool = False,
-                date_grouping_type: Optional[str] = None) -> OrganizationAnalysisResult:
+                date_grouping_type: Optional[str] = None,
+                metadata_cache: Optional[FileMetadataCache] = None) -> OrganizationAnalysisResult:
         """
         Analiza el directorio y genera un plan de organización.
         
@@ -85,11 +87,15 @@ class FileOrganizer(BaseService):
             group_by_source: Si True, agrupa secundariamente por fuente (WhatsApp, etc.)
             group_by_type: Si True, agrupa secundariamente por tipo (Foto/Video)
             date_grouping_type: Tipo de agrupación por fecha ('month', 'year', 'year_month') o None
+            metadata_cache: Caché opcional de metadatos para reutilizar fechas calculadas
         
         Raises:
             ValueError: Si root_directory no existe o no es un directorio válido
         """
         log_section_header_discrete(self.logger, f"ANALIZANDO ESTRUCTURA DE DIRECTORIOS PARA ORGANIZACIÓN ({organization_type.value}): {root_directory}")
+
+        # Guardar metadata_cache como variable de instancia temporal para uso en métodos internos
+        self._metadata_cache = metadata_cache
 
         subdirectories = {}
         root_files = []
@@ -329,7 +335,7 @@ class FileOrganizer(BaseService):
     def _get_default_subdir_info():
         return {'path': '', 'file_count': 0, 'total_size': 0, 'files': []}
 
-    def execute(self, move_plan: List[FileMove], create_backup: bool = True, cleanup_empty_dirs: bool = True, dry_run: bool = False, progress_callback: Optional[ProgressCallback] = None) -> OrganizationResult:
+    def execute(self, move_plan: List[FileMove], create_backup: bool = True, cleanup_empty_dirs: bool = True, dry_run: bool = False, progress_callback: Optional[ProgressCallback] = None, metadata_cache: Optional[FileMetadataCache] = None) -> OrganizationResult:
         """
         Ejecuta la organización según el plan con resolución dinámica de conflictos.
 
@@ -339,6 +345,7 @@ class FileOrganizer(BaseService):
             cleanup_empty_dirs: Si limpiar directorios vacíos al final
             dry_run: Si ejecutar en modo simulación (sin cambios reales)
             progress_callback: Función opcional (current, total, message) para reportar progreso
+            metadata_cache: Caché opcional de metadatos para reutilizar fechas calculadas
 
         Returns:
             OrganizationResult con el resultado de la operación
@@ -538,7 +545,7 @@ class FileOrganizer(BaseService):
                     
                     # Obtener fecha del archivo (verbose solo para BY_MONTH)
                     try:
-                        file_date = get_date_from_file(move.source_path, verbose=is_by_month)
+                        file_date = get_date_from_file(move.source_path, verbose=is_by_month, metadata_cache=metadata_cache)
                         date_str = file_date.strftime('%Y-%m-%d %H:%M:%S') if file_date else 'fecha desconocida'
                     except Exception as e:
                         self.logger.warning(f"Error obteniendo fecha de {move.source_path.name}: {e}")
@@ -778,7 +785,7 @@ class FileOrganizer(BaseService):
                     self.logger.warning(f"Saltando archivo que no existe: {file_path}")
                     continue
 
-                file_date = get_date_from_file(file_path)
+                file_date = get_date_from_file(file_path, metadata_cache=getattr(self, "_metadata_cache", None))
                 if not file_date:
                     self.logger.warning(f"No se pudo obtener fecha para {file_path.name}, usando fecha actual")
                     file_date = datetime.now()
@@ -809,7 +816,7 @@ class FileOrganizer(BaseService):
                 self.logger.warning(f"Saltando archivo que no existe: {file_path}")
                 continue
 
-            file_date = get_date_from_file(file_path)
+            file_date = get_date_from_file(file_path, metadata_cache=getattr(self, "_metadata_cache", None))
             if not file_date:
                 self.logger.warning(f"No se pudo obtener fecha para {file_path.name}, usando fecha actual")
                 file_date = datetime.now()
@@ -1061,7 +1068,7 @@ class FileOrganizer(BaseService):
                     self.logger.warning(f"Saltando archivo que no existe: {file_path}")
                     continue
 
-                file_date = get_date_from_file(file_path)
+                file_date = get_date_from_file(file_path, metadata_cache=getattr(self, "_metadata_cache", None))
                 if not file_date:
                     self.logger.warning(f"No se pudo obtener fecha para {file_path.name}, usando fecha actual")
                     file_date = datetime.now()
@@ -1091,7 +1098,7 @@ class FileOrganizer(BaseService):
                 self.logger.warning(f"Saltando archivo que no existe: {file_path}")
                 continue
 
-            file_date = get_date_from_file(file_path)
+            file_date = get_date_from_file(file_path, metadata_cache=getattr(self, "_metadata_cache", None))
             if not file_date:
                 self.logger.warning(f"No se pudo obtener fecha para {file_path.name}, usando fecha actual")
                 file_date = datetime.now()
@@ -1171,7 +1178,7 @@ class FileOrganizer(BaseService):
                     self.logger.warning(f"Saltando archivo que no existe: {file_path}")
                     continue
 
-                file_date = get_date_from_file(file_path)
+                file_date = get_date_from_file(file_path, metadata_cache=getattr(self, "_metadata_cache", None))
                 if not file_date:
                     self.logger.warning(f"No se pudo obtener fecha para {file_path.name}, usando fecha actual")
                     file_date = datetime.now()
@@ -1205,7 +1212,7 @@ class FileOrganizer(BaseService):
                 self.logger.warning(f"Saltando archivo que no existe: {file_path}")
                 continue
 
-            file_date = get_date_from_file(file_path)
+            file_date = get_date_from_file(file_path, metadata_cache=getattr(self, "_metadata_cache", None))
             if not file_date:
                 self.logger.warning(f"No se pudo obtener fecha para {file_path.name}, usando fecha actual")
                 file_date = datetime.now()
@@ -1307,7 +1314,7 @@ class FileOrganizer(BaseService):
                     folder_name = f"{folder_name}/{source}"
                 
                 if date_grouping_type:
-                    file_date = get_date_from_file(file_path)
+                    file_date = get_date_from_file(file_path, metadata_cache=getattr(self, "_metadata_cache", None))
                     if not file_date:
                         file_date = datetime.now()
                     
@@ -1344,7 +1351,7 @@ class FileOrganizer(BaseService):
                 folder_name = f"{folder_name}/{source}"
 
             if date_grouping_type:
-                file_date = get_date_from_file(file_path)
+                file_date = get_date_from_file(file_path, metadata_cache=getattr(self, "_metadata_cache", None))
                 if not file_date:
                     file_date = datetime.now()
                 
@@ -1425,7 +1432,7 @@ class FileOrganizer(BaseService):
                 source = detect_file_source(file_info['name'], file_path)
 
                 if date_grouping_type:
-                    file_date = get_date_from_file(file_path)
+                    file_date = get_date_from_file(file_path, metadata_cache=getattr(self, "_metadata_cache", None))
                     if not file_date:
                         file_date = datetime.now()
                     
@@ -1457,7 +1464,7 @@ class FileOrganizer(BaseService):
             source = detect_file_source(file_info['name'], file_path)
 
             if date_grouping_type:
-                file_date = get_date_from_file(file_path)
+                file_date = get_date_from_file(file_path, metadata_cache=getattr(self, "_metadata_cache", None))
                 if not file_date:
                     file_date = datetime.now()
                 

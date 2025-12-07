@@ -89,24 +89,9 @@ class FileRenamer(BaseService):
             if is_renamed_filename(file_path.name):
                 return ('already_renamed', file_path, None)
             
-            # Intentar obtener fecha de la caché primero
-            file_date = None
-            if metadata_cache:
-                file_date = metadata_cache.get_exif_date(file_path)
-            
-            # Si no está en caché, extraer y cachear
-            if not file_date:
-                file_date = get_date_from_file(file_path)
-                
-                # Cachear la fecha si se obtuvo y hay caché disponible
-                if file_date and metadata_cache:
-                    # Obtener todas las fechas para cachear el máximo de info
-                    all_dates = get_all_file_dates(file_path)
-                    metadata_cache.set_exif_dates(
-                        file_path,
-                        exif_date=all_dates.get('exif_date'),
-                        exif_date_original=all_dates.get('exif_date_original')
-                    )
+            # Obtener fecha usando metadata_cache para reutilizar fechas calculadas
+            # get_date_from_file ahora cachea automáticamente selected_date + date_source
+            file_date = get_date_from_file(file_path, metadata_cache=metadata_cache)
             
             if not file_date:
                 return ('no_date', file_path, f"No se pudo obtener fecha: {file_path.name}")

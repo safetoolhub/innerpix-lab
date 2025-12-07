@@ -91,7 +91,8 @@ class BaseDetectorService(BaseService):
         keep_strategy: str = 'oldest',
         create_backup: bool = True,
         dry_run: bool = False,
-        progress_callback: Optional[Callable[[int, int, str], None]] = None
+        progress_callback: Optional[Callable[[int, int, str], None]] = None,
+        metadata_cache = None
     ) -> DuplicateDeletionResult:
         """
         Ejecuta la eliminación de duplicados (lógica unificada).
@@ -105,6 +106,7 @@ class BaseDetectorService(BaseService):
             create_backup: Si crear backup antes de eliminar
             dry_run: Si solo simular sin eliminar archivos reales
             progress_callback: Callback para reportar progreso
+            metadata_cache: Caché opcional de metadatos para reutilizar fechas
         
         Returns:
             DuplicateDeletionResult con estadísticas de la operación
@@ -188,7 +190,8 @@ class BaseDetectorService(BaseService):
                 backup_path=backup_path,
                 progress_callback=progress_callback,
                 processed_count=processed,
-                total_count=total_operations
+                total_count=total_operations,
+                metadata_cache=metadata_cache
             )
             
             deleted_files.extend(result.deleted)
@@ -259,7 +262,8 @@ class BaseDetectorService(BaseService):
         backup_path: Optional[Path],
         progress_callback: Optional[Callable],
         processed_count: int,
-        total_count: int
+        total_count: int,
+        metadata_cache = None
     ) -> GroupDeletionResult:
         """
         Procesa eliminación de un grupo de duplicados.
@@ -275,6 +279,7 @@ class BaseDetectorService(BaseService):
             progress_callback: Callback de progreso
             processed_count: Archivos procesados hasta ahora
             total_count: Total de archivos a procesar
+            metadata_cache: Caché opcional de metadatos para reutilizar fechas
         
         Returns:
             GroupDeletionResult con archivos procesados y estadísticas
@@ -305,14 +310,20 @@ class BaseDetectorService(BaseService):
                 files_to_delete = [f for f in group.files if f != keep_file]
                 
                 # Obtener información del archivo que se mantiene (sin verbose para evitar logs extra)
+                # Usar metadata_cache para evitar recalcular EXIF/video metadata
                 try:
-                    keep_date = get_date_from_file(keep_file, verbose=False)
+                    keep_date = get_date_from_file(keep_file, verbose=False, metadata_cache=metadata_cache)
                     keep_date_str = (
                         keep_date.strftime('%Y-%m-%d %H:%M:%S')
                         if keep_date else 'fecha desconocida'
                     )
-                    # Determinar fuente de la fecha
-                    keep_date_source = self._get_date_source_simple(keep_file, keep_date)
+                    # Obtener fuente desde caché si está disponible
+                    if metadata_cache:
+                        _, keep_date_source = metadata_cache.get_selected_date(keep_file)
+                        if not keep_date_source:
+                            keep_date_source = 'unknown'
+                    else:
+                        keep_date_source = 'unknown'
                 except Exception:
                     keep_date_str = 'fecha desconocida'
                     keep_date_source = 'unknown'
@@ -346,15 +357,22 @@ class BaseDetectorService(BaseService):
                 validate_file_exists(file_path)
                 
                 # Obtener información del archivo a eliminar (sin verbose para evitar logs extra)
+                # Usar metadata_cache para evitar recalcular EXIF/video metadata
                 file_size = file_path.stat().st_size
                 
                 try:
-                    file_date = get_date_from_file(file_path, verbose=False)
+                    file_date = get_date_from_file(file_path, verbose=False, metadata_cache=metadata_cache)
                     file_date_str = (
                         file_date.strftime('%Y-%m-%d %H:%M:%S')
                         if file_date else 'fecha desconocida'
                     )
-                    file_date_source = self._get_date_source_simple(file_path, file_date)
+                    # Obtener fuente desde caché si está disponible
+                    if metadata_cache:
+                        _, file_date_source = metadata_cache.get_selected_date(file_path)
+                        if not file_date_source:
+                            file_date_source = 'unknown'
+                    else:
+                        file_date_source = 'unknown'
                 except Exception:
                     file_date_str = 'fecha desconocida'
                     file_date_source = 'unknown'
@@ -441,53 +459,3 @@ class BaseDetectorService(BaseService):
             space_freed=space_freed,
             processed=processed
         )
-
-    def _get_date_source_simple(self, file_path: Path, date_obj) -> str:
-        """
-        Determina de forma simple la fuente de una fecha sin generar logs adicionales.
-        
-        Args:
-            file_path: Ruta al archivo
-            date_obj: Objeto datetime obtenido
-            
-        Returns:
-            String indicando la fuente: 'exif', 'filename', 'video', 'mtime', 'unknown'
-        """
-        if date_obj is None:
-            return 'unknown'
-        
-        from utils.date_utils import get_exif_dates, extract_date_from_filename, get_video_metadata_date
-        from config import Config
-        
-        # Intentar EXIF (solo para imágenes)
-        if file_path.suffix.lower() in Config.SUPPORTED_IMAGE_EXTENSIONS:
-            try:
-                exif_dates = get_exif_dates(file_path)
-                # Revisar las fechas EXIF principales
-                for key in ['datetime_original', 'datetime_digitized', 'datetime']:
-                    if key in exif_dates and exif_dates[key]:
-                        if abs((exif_dates[key] - date_obj).total_seconds()) < 1:
-                            return 'exif'
-            except Exception:
-                pass
-        
-        # Intentar filename
-        try:
-            filename_date = extract_date_from_filename(file_path.name)
-            if filename_date and abs((filename_date - date_obj).total_seconds()) < 1:
-                return 'filename'
-        except Exception:
-            pass
-        
-        # Intentar video metadata
-        if file_path.suffix.lower() in Config.SUPPORTED_VIDEO_EXTENSIONS:
-            try:
-                video_date = get_video_metadata_date(file_path)
-                if video_date and abs((video_date - date_obj).total_seconds()) < 1:
-                    return 'video'
-            except Exception:
-                pass
-        
-        # Por defecto, mtime (filesystem)
-        return 'mtime'
-

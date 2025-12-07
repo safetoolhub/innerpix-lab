@@ -650,25 +650,27 @@ class Stage3Window(BaseStage):
         elif tool_id == 'exact_copies':
             from services.exact_copies_detector import ExactCopiesDetector
             detector = ExactCopiesDetector()
-            # DuplicateDeletionWorker espera (detector, groups, keep_strategy, create_backup, dry_run)
+            # DuplicateDeletionWorker espera (detector, groups, keep_strategy, create_backup, dry_run, metadata_cache)
             worker = DuplicateDeletionWorker(
                 detector=detector,
                 groups=plan.get('groups', []),
                 keep_strategy=plan.get('keep_strategy', 'first'),
                 create_backup=plan.get('create_backup', True),
-                dry_run=plan.get('dry_run', False)
+                dry_run=plan.get('dry_run', False),
+                metadata_cache=self.metadata_cache
             )
         
         elif tool_id == 'similar_files':
             from services.similar_files_detector import SimilarFilesDetector
             detector = SimilarFilesDetector()
-            # DuplicateDeletionWorker espera (detector, groups, keep_strategy, create_backup, dry_run)
+            # DuplicateDeletionWorker espera (detector, groups, keep_strategy, create_backup, dry_run, metadata_cache)
             worker = DuplicateDeletionWorker(
                 detector=detector,
                 groups=plan.get('groups', []),
                 keep_strategy=plan.get('keep_strategy', 'manual'),
                 create_backup=plan.get('create_backup', True),
-                dry_run=plan.get('dry_run', False)
+                dry_run=plan.get('dry_run', False),
+                metadata_cache=self.metadata_cache
             )
         
         elif tool_id == 'folder-move':

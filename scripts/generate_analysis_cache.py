@@ -1,11 +1,20 @@
 #!/usr/bin/env python3
 """
-Script para generar caché de análisis para desarrollo.BUENO
+Script para generar caché de análisis para desarrollo.
 Uso: python scripts/generate_analysis_cache.py /ruta/al/directorio
 
 Este script ejecuta un análisis completo usando AnalysisOrchestrator y guarda
 el resultado en un archivo pickle (.pixaro_analysis_cache.pkl) en el directorio destino.
 Esto permite saltar la fase de análisis en Stage 2 activando DEV_USE_CACHED_ANALYSIS en config.py.
+
+La caché incluye:
+- metadata_cache con hashes SHA256 para duplicados exactos
+- metadata_cache con fechas EXIF extraídas (exif_date, exif_date_original)
+- metadata_cache con fechas seleccionadas finales (selected_date, date_source)
+- Resultados de análisis de todos los servicios (renaming, live_photos, etc.)
+
+NOTA: Si cambias la estructura de FileMetadataCache o result_types, 
+      regenera las cachés existentes para evitar errores de deserialización.
 """
 import sys
 import os

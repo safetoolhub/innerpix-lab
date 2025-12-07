@@ -593,7 +593,8 @@ class DuplicateDeletionWorker(BaseWorker):
         groups: List,
         keep_strategy: str,
         create_backup: bool = True,
-        dry_run: bool = False
+        dry_run: bool = False,
+        metadata_cache = None
     ):
         super().__init__()
         self.detector = detector
@@ -601,6 +602,7 @@ class DuplicateDeletionWorker(BaseWorker):
         self.keep_strategy = keep_strategy
         self.create_backup = create_backup
         self.dry_run = dry_run
+        self.metadata_cache = metadata_cache
     
     def run(self) -> None:
         try:
@@ -612,7 +614,8 @@ class DuplicateDeletionWorker(BaseWorker):
                 keep_strategy=self.keep_strategy,
                 create_backup=self.create_backup,
                 dry_run=self.dry_run,
-                progress_callback=self._create_progress_callback(emit_numbers=True)
+                progress_callback=self._create_progress_callback(emit_numbers=True),
+                metadata_cache=self.metadata_cache
             )
             
             if not self._stop_requested:
