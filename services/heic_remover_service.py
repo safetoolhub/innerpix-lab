@@ -418,10 +418,9 @@ class HEICRemover(BaseService):
             # Procesar cada par
             total_pairs = len(duplicate_pairs)
             for idx, pair in enumerate(duplicate_pairs):
-                # Reportar progreso
-                if (idx + 1) % Config.UI_UPDATE_INTERVAL == 0:
-                    if not self._report_progress(progress_callback, idx + 1, total_pairs, f"Procesando par {idx + 1}/{total_pairs}"):
-                        break
+                # Reportar progreso (en cada iteración para mejor feedback visual)
+                if not self._report_progress(progress_callback, idx + 1, total_pairs, f"Procesando par {idx + 1}/{total_pairs}"):
+                    break
 
                 file_to_delete = pair.heic_path if keep_format.lower() == 'jpg' else pair.jpg_path
                 file_to_keep = pair.jpg_path if keep_format.lower() == 'jpg' else pair.heic_path

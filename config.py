@@ -44,7 +44,7 @@ class Config:
     
     # Configuración de rotación de logs
     MAX_LOG_FILE_SIZE_MB = 10  # Tamaño máximo de archivo de log en MB antes de rotar
-    MAX_LOG_BACKUP_COUNT = 0  # Número de backups a mantener (0 = ilimitado)
+    MAX_LOG_BACKUP_COUNT = 9999  # Número de backups a mantener (9999 = ilimitado en la práctica)
 
     # ========================================================================
     # DIRECTORIOS POR DEFECTO

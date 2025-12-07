@@ -505,21 +505,13 @@ class HEICRemovalWorker(BaseWorker):
             if self._stop_requested:
                 return
             
-            progress_cb_local = self._create_progress_callback(emit_numbers=True)
-
-            # Attach callback to remover so create_backup (which may not accept
-            # progress_callback explicitly) can use it via attribute
-            setattr(self.remover, '_progress_callback', progress_cb_local)
-
             results: 'HeicDeletionResult' = self.remover.execute(
                 self.analysis.duplicate_pairs,
                 keep_format=self.keep_format,
                 create_backup=self.create_backup,
-                dry_run=self.dry_run
+                dry_run=self.dry_run,
+                progress_callback=self._create_progress_callback(emit_numbers=True)
             )
-            # Clean up attribute
-            if hasattr(self.remover, '_progress_callback'):
-                delattr(self.remover, '_progress_callback')
             
             if not self._stop_requested:
                 self.finished.emit(results)

@@ -66,14 +66,16 @@ class ThreadSafeFileHandler(ThreadSafeHandler, logging.FileHandler):
     pass
 
 
-class ThreadSafeRotatingFileHandler(ThreadSafeHandler, RotatingFileHandler):
+class ThreadSafeRotatingFileHandler(RotatingFileHandler):
     """
     Rotating file handler con thread-safety para rotación por tamaño.
     
     Mejora sobre RotatingFileHandler estándar:
+    - Usa RLock global para thread-safety que permite re-entrada
     - Verifica el tamaño del archivo al inicializarse
     - Si el archivo ya existe y excede maxBytes, lo rota inmediatamente
     - Esto previene que archivos crezcan indefinidamente durante sesiones largas
+    - Mantiene la lógica completa de rotación de RotatingFileHandler.emit()
     """
     
     def __init__(self, filename, mode='a', maxBytes=0, backupCount=0, encoding=None, delay=False):
@@ -88,7 +90,7 @@ class ThreadSafeRotatingFileHandler(ThreadSafeHandler, RotatingFileHandler):
             encoding: Codificación del archivo
             delay: Si True, retrasa la apertura del archivo
         """
-        # Llamar al constructor padre
+        # Llamar al constructor padre de RotatingFileHandler
         super().__init__(filename, mode, maxBytes, backupCount, encoding, delay)
         
         # Verificar si el archivo ya existe y es demasiado grande
@@ -104,6 +106,25 @@ class ThreadSafeRotatingFileHandler(ThreadSafeHandler, RotatingFileHandler):
             except Exception:
                 # Si falla la verificación, continuar normalmente
                 pass
+    
+    def emit(self, record):
+        """
+        Emite un registro de log con rotación automática y thread-safety.
+        
+        Este método reimplementa RotatingFileHandler.emit() pero usando
+        nuestro RLock global en lugar del lock interno del handler.
+        Esto permite thread-safety verdadera entre múltiples handlers.
+        """
+        try:
+            # Usar nuestro lock global en lugar del lock interno
+            with _log_lock:
+                # Verificar si debemos rotar
+                if self.shouldRollover(record):
+                    self.doRollover()
+                # Escribir el registro usando FileHandler.emit()
+                logging.FileHandler.emit(self, record)
+        except Exception:
+            self.handleError(record)
 
 
 def _ensure_root_logger():
