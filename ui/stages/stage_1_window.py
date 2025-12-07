@@ -58,7 +58,7 @@ class Stage1Window(BaseStage):
         # Crear widgets del estado
         self.header = self.create_header(
             title_text=f"Bienvenido a {Config.APP_NAME}",
-            subtitle_text="Gestiona y optimiza tu colección de fotos y vídeos de manera segura",
+            subtitle_text="Gestiona y optimiza tu colección de fotos y vídeos de manera segura y privada",
             on_settings_clicked=self._on_settings_clicked,
             on_about_clicked=self._on_about_clicked
         )

@@ -783,7 +783,13 @@ class Stage3Window(BaseStage):
             is_cancelled = True
             
             # Solicitar al worker que se detenga
-            worker.stop()
+            try:
+                worker.stop()
+            except RuntimeError:
+                # Worker ya fue eliminado, cerrar el diálogo directamente
+                progress_dialog.close()
+                self.logger.info(f"Operación {tool_id} ya finalizada al momento de cancelar")
+                return
             
             # Actualizar el mensaje del diálogo mientras esperamos
             progress_dialog.setLabelText("Cancelando operación, por favor espera...")
@@ -792,24 +798,35 @@ class Stage3Window(BaseStage):
             # Desconectar señales de procesamiento pero mantener finished para limpieza
             try:
                 worker.progress_update.disconnect(on_progress)
-            except Exception:
+            except (RuntimeError, TypeError):
+                # Worker eliminado o señal ya desconectada
                 pass
             
             # Conectar un handler simplificado para finished que solo limpia
             def on_cancelled_cleanup():
                 progress_dialog.close()
-                worker.deleteLater()
+                try:
+                    worker.deleteLater()
+                except RuntimeError:
+                    pass  # Ya fue eliminado
                 self.logger.info(f"Operación {tool_id} cancelada y limpiada correctamente")
             
             # Desconectar handlers anteriores y conectar el de limpieza
             try:
                 worker.finished.disconnect(on_finished)
                 worker.error.disconnect(on_error)
-            except Exception:
+            except (RuntimeError, TypeError):
+                # Worker eliminado o señales ya desconectadas
                 pass
             
-            worker.finished.connect(on_cancelled_cleanup)
-            worker.error.connect(on_cancelled_cleanup)
+            # Intentar reconectar solo si el worker todavía existe
+            try:
+                worker.finished.connect(on_cancelled_cleanup)
+                worker.error.connect(on_cancelled_cleanup)
+            except RuntimeError:
+                # Worker ya fue eliminado, limpiar directamente
+                on_cancelled_cleanup()
+                return
             
             self.logger.info(f"Operación {tool_id} - Cancelación solicitada por el usuario")
         
