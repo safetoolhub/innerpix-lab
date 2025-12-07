@@ -538,18 +538,24 @@ class FileOrganizer(BaseService):
                     if not dry_run:
                         target_path.parent.mkdir(parents=True, exist_ok=True)
 
-                    # Determinar si mostrar análisis detallado de fechas (solo para organización BY_MONTH)
-                    # BY_MONTH usa carpetas con formato YYYY_MM (ej: 2023_07)
-                    import re
-                    is_by_month = move.target_folder and re.match(r'^\d{4}_\d{2}$', move.target_folder)
+                    # Obtener fecha del archivo (sin verbose para evitar logs duplicados)
+                    # Obtendremos la fuente de la fecha para el log consolidado
+                    from utils.date_utils import select_chosen_date, _get_all_file_dates_cached
+                    from utils.format_utils import format_size
                     
-                    # Obtener fecha del archivo (verbose solo para BY_MONTH)
                     try:
-                        file_date = get_date_from_file(move.source_path, verbose=is_by_month, metadata_cache=metadata_cache)
+                        # Obtener todas las fechas disponibles
+                        mtime = move.source_path.stat().st_mtime
+                        all_dates = _get_all_file_dates_cached(str(move.source_path), mtime)
+                        
+                        # Seleccionar la fecha más representativa y su fuente
+                        file_date, date_source = select_chosen_date(all_dates)
                         date_str = file_date.strftime('%Y-%m-%d %H:%M:%S') if file_date else 'fecha desconocida'
+                        source_str = date_source if date_source else 'unknown'
                     except Exception as e:
                         self.logger.warning(f"Error obteniendo fecha de {move.source_path.name}: {e}")
                         date_str = 'fecha desconocida'
+                        source_str = 'unknown'
 
                     if dry_run:
                         # Solo simular: no mover archivos
@@ -559,11 +565,17 @@ class FileOrganizer(BaseService):
                         files_processed += 1
                         results.moved_files.append(str(target_path))
                         
-                        # Mostrar log de simulación según si hubo conflicto
-                        if move.has_conflict or move.sequence:
-                            self.logger.info(f"[SIMULACIÓN] ⚠️  Se resolvería conflicto: {move.source_path} → {target_path} (secuencia {move.sequence}, {date_str})")
-                        else:
-                            self.logger.info(f"[SIMULACIÓN] Se movería: {move.source_path} → {target_path} ({date_str})")
+                        # Obtener información adicional del archivo
+                        file_size = move.source_path.stat().st_size
+                        source_folder = str(move.source_path.parent)
+                        target_folder = str(target_path.parent)
+                        conflict_info = f" | Conflict: seq={move.sequence}" if (move.has_conflict or move.sequence) else ""
+                        
+                        # Log consolidado en una sola línea
+                        self.logger.info(
+                            f"FILE_MOVED_SIMULATION: {move.source_path.name} | Size: {format_size(file_size)} | "
+                            f"From: {source_folder} | To: {target_folder} | Date: {date_str} | Source: {source_str}{conflict_info}"
+                        )
                     else:
                         # Mover archivo realmente
                         try:
@@ -581,11 +593,17 @@ class FileOrganizer(BaseService):
                         files_processed += 1
                         results.moved_files.append(str(target_path))
                         
-                        # Mostrar log apropiado según si hubo conflicto
-                        if move.has_conflict or move.sequence:
-                            self.logger.info(f"⚠️  Conflicto resuelto: {move.source_path} → {target_path} (secuencia {move.sequence}, {date_str})")
-                        else:
-                            self.logger.info(f"✓ Movido: {move.source_path} → {target_path} ({date_str})")
+                        # Obtener información adicional del archivo
+                        file_size = target_path.stat().st_size
+                        source_folder = str(move.source_path.parent)
+                        target_folder = str(target_path.parent)
+                        conflict_info = f" | Conflict: seq={move.sequence}" if (move.has_conflict or move.sequence) else ""
+                        
+                        # Log consolidado en una sola línea
+                        self.logger.info(
+                            f"FILE_MOVED: {move.source_path.name} | Size: {format_size(file_size)} | "
+                            f"From: {source_folder} | To: {target_folder} | Date: {date_str} | Source: {source_str}{conflict_info}"
+                        )
 
                     if files_processed % Config.UI_UPDATE_INTERVAL == 0 and not self._report_progress(progress_callback, files_processed, total_files,
                                        f"{'Simulando' if dry_run else 'Organizando'} directorios... {files_processed}/{total_files}"):

@@ -274,6 +274,10 @@ class FileRenamer(BaseService):
                         results.add_error(f"{original_path}: {error_msg}")
                         continue
 
+                    # Variable para rastrear si hubo conflicto
+                    had_conflict = False
+                    conflict_sequence = None
+                    
                     if new_path.exists():
                         # Preservar sufijos no estándar del nombre original
                         # (sufijos que no sean de 3 dígitos generados por este programa)
@@ -298,11 +302,8 @@ class FileRenamer(BaseService):
                         )
 
                         new_path = original_path.parent / new_name
-                        conflict_label = f"{mode_label} " if dry_run else ""
-                        self.logger.info(
-                            f"{conflict_label}⚠️  Conflicto resuelto: {original_path.name} -> "
-                            f"{new_name} (secuencia {sequence})"
-                        )
+                        had_conflict = True
+                        conflict_sequence = sequence
                         results.conflicts_resolved += 1
 
                     # Solo renombrar si no es simulación
@@ -330,8 +331,13 @@ class FileRenamer(BaseService):
                                        f"{progress_label}... {files_processed}/{total_files}"):
                         break
 
-                    action_verb = "Se renombraría" if dry_run else "✓ Renombrado"
-                    self.logger.info(f"{action_verb}: {original_path} → {new_path}")
+                    # Log consolidado en una sola línea
+                    log_prefix = "FILE_RENAMED_SIMULATION" if dry_run else "FILE_RENAMED"
+                    conflict_info = f" | Conflict: seq={conflict_sequence}" if had_conflict else ""
+                    
+                    self.logger.info(
+                        f"{log_prefix}: {original_path} → {new_path}{conflict_info}"
+                    )
 
                 except Exception as e:
                     error_msg = f"Error renombrando {original_path.name}: {str(e)}"
