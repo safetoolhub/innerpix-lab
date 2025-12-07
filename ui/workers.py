@@ -162,6 +162,7 @@ class AnalysisWorker(BaseWorker):
         finished(FullAnalysisResult): Resultado completo con todos los timings
         phase_update(str): Notifica inicio de fase (para UI)
         phase_completed(str): Notifica fin de fase (para UI)
+        phase_text_update(str, str): Actualiza texto de una fase (phase_id, text)
         stats_update(dict): Estadísticas de escaneo inicial
         partial_results(dict): Resultados parciales por fase
         progress_update(int, int, str): Progreso de operación actual
@@ -172,6 +173,7 @@ class AnalysisWorker(BaseWorker):
     
     phase_update = pyqtSignal(str)  # phase_id
     phase_completed = pyqtSignal(str)  # phase_id
+    phase_text_update = pyqtSignal(str, str)  # phase_id, new_text
     stats_update = pyqtSignal(object)  # Dict con estadísticas de scan
     partial_results = pyqtSignal(object)  # Dict[str, AnalysisResult]
 
@@ -296,13 +298,13 @@ class AnalysisWorker(BaseWorker):
                 precalculate_hashes=precalculate_hashes
             )
             
-            # Completar última fase con delay UX
+            # Completar última fase del orchestrator con delay UX
             if self._current_phase_id and not self._stop_requested:
                 actual_duration = time.time() - self._current_phase_start
                 if actual_duration < self.min_phase_duration:
                     delay = self.min_phase_duration - actual_duration
                     self.logger.debug(
-                        f"Fase final '{self._current_phase_id}' duró {actual_duration:.2f}s, "
+                        f"Fase '{self._current_phase_id}' duró {actual_duration:.2f}s, "
                         f"aplicando delay UX de {delay:.2f}s"
                     )
                     time.sleep(delay)
@@ -310,9 +312,9 @@ class AnalysisWorker(BaseWorker):
                 if not self._stop_requested:
                     self.phase_completed.emit(self._current_phase_id)
             
-            # Calcular tamaño del directorio durante "Finalizando análisis"
+            # Nueva fase: Calcular tamaño del directorio
             if not self._stop_requested:
-                self.progress_update.emit(0, 0, "Calculando tamaño del directorio...")
+                self._handle_phase_start("calculating_size")
                 try:
                     total_size = 0
                     file_count = 0
@@ -323,9 +325,9 @@ class AnalysisWorker(BaseWorker):
                             try:
                                 total_size += file_path.stat().st_size
                                 file_count += 1
-                                # Actualizar progreso cada 100 archivos
-                                if file_count % 100 == 0:
-                                    self.progress_update.emit(0, 0, f"Calculando tamaño... ({file_count} archivos)")
+                                # Actualizar progreso cada 1000 archivos
+                                if file_count % 1000 == 0:
+                                    self.progress_update.emit(file_count, 0, f"Calculando... ({file_count} archivos)")
                             except (OSError, PermissionError):
                                 pass
                     
@@ -335,6 +337,23 @@ class AnalysisWorker(BaseWorker):
                 except Exception as e:
                     self.logger.warning(f"Error calculando tamaño del directorio: {e}")
                     result.scan.total_size = 0
+                
+                # Completar la fase de cálculo de tamaño
+                if not self._stop_requested:
+                    # Aplicar delay mínimo si fue muy rápida
+                    actual_duration = time.time() - self._current_phase_start
+                    if actual_duration < self.min_phase_duration:
+                        delay = self.min_phase_duration - actual_duration
+                        time.sleep(delay)
+                    self.phase_completed.emit("calculating_size")
+            
+            # Fase final: Finalizando análisis
+            if not self._stop_requested:
+                self._handle_phase_start("finalizing")
+                # Esta fase es instantánea, solo para feedback visual
+                time.sleep(self.min_phase_duration)
+                if not self._stop_requested:
+                    self.phase_completed.emit("finalizing")
             
             # Delay final antes de transición a Stage 3 (UX suave)
             if not self._stop_requested:

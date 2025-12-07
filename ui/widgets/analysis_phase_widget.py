@@ -64,7 +64,7 @@ class AnalysisPhaseWidget(QFrame):
         layout.addLayout(header_layout)
         layout.addSpacing(DesignSystem.SPACE_2)  # Separador más pequeño después del header
         
-        # Fases del análisis (8 fases totales)
+        # Fases del análisis (9 fases totales)
         phases = [
             ("scan", "Escaneando archivos..."),
             ("renaming", "Analizando nombres de archivos..."),
@@ -74,6 +74,7 @@ class AnalysisPhaseWidget(QFrame):
             ("duplicates_similar", "Identificando archivos similares..."),
             ("zero_byte", "Buscando archivos vacíos..."),
             ("organization", "Analizando estructura de carpetas..."),
+            ("calculating_size", "Calculando tamaño del directorio..."),
             ("finalizing", "Finalizando análisis...")
         ]
         
@@ -278,3 +279,17 @@ class AnalysisPhaseWidget(QFrame):
             line-height: 1.0;
             font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
         """)
+    
+    def update_phase_text(self, phase_id: str, text: str):
+        """
+        Actualiza el texto descriptivo de una fase (temporalmente)
+        
+        Args:
+            phase_id: ID de la fase
+            text: Nuevo texto a mostrar
+        """
+        if phase_id not in self.phase_labels:
+            return
+        
+        text_label = self.phase_labels[phase_id]
+        text_label.setText(text)

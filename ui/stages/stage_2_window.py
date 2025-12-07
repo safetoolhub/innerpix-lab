@@ -175,6 +175,7 @@ class Stage2Window(BaseStage):
         self.analysis_worker.progress_update.connect(self._on_analysis_progress)
         self.analysis_worker.phase_update.connect(self._on_phase_started)
         self.analysis_worker.phase_completed.connect(self._on_phase_completed)
+        self.analysis_worker.phase_text_update.connect(self._on_phase_text_update)
         self.analysis_worker.stats_update.connect(self._on_analysis_stats)
         self.analysis_worker.partial_results.connect(self._on_partial_results)
         self.analysis_worker.finished.connect(self._on_analysis_finished)
@@ -226,7 +227,18 @@ class Stage2Window(BaseStage):
         # Marcar la fase como completada
         self.progress_card.set_phase_status(phase_id, 'completed')
 
-
+    def _on_phase_text_update(self, phase_id: str, text: str):
+        """
+        Callback para actualizar el texto de una fase durante su ejecución.
+        
+        Args:
+            phase_id: ID de la fase
+            text: Nuevo texto a mostrar
+        """
+        if not self.progress_card:
+            return
+        
+        self.progress_card.update_phase_text(phase_id, text)
 
     def _on_analysis_stats(self, stats):
         """

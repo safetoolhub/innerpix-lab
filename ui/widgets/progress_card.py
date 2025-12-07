@@ -210,6 +210,11 @@ class ProgressCard(QFrame):
         if self.phase_widget:
             self.phase_widget.update_phase_progress(phase_id, current, total)
     
+    def update_phase_text(self, phase_id: str, text: str):
+        """Delegar actualización de texto al widget de fases"""
+        if self.phase_widget:
+            self.phase_widget.update_phase_text(phase_id, text)
+    
     def reset_phases(self):
         """Delegar llamada al widget de fases"""
         if self.phase_widget:
