@@ -592,7 +592,10 @@ class Stage3Window(BaseStage):
         # Lista de herramientas destructivas (que eliminan archivos)
         destructive_tools = ['live_photos', 'heic', 'exact_copies', 'similar_files', 'zero_byte']
         
-        if tool_id in destructive_tools and settings_manager.get_confirm_delete():
+        # Solo pedir confirmación si es una operación real (no simulada)
+        is_dry_run = plan.get('dry_run', False)
+        
+        if tool_id in destructive_tools and not is_dry_run and settings_manager.get_confirm_delete():
             reply = QMessageBox.question(
                 self.main_window,
                 "Confirmar Eliminación",
