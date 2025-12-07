@@ -660,7 +660,7 @@ class AnalysisOrchestrator:
         # Fase 1: Escaneo inicial (crea la caché de metadatos)
         scan_result, scan_timing = self._execute_phase(
             phase_id="scan",
-            phase_name="Escaneando archivos",
+            phase_name="Escaneo inicial del directorio",
             phase_callable=lambda: self.scan_directory(
                 directory, 
                 progress_callback, 
@@ -712,7 +712,7 @@ class AnalysisOrchestrator:
             
             result.renaming, result.phase_timings['renaming'] = self._execute_phase(
                 phase_id="renaming",
-                phase_name="Analizando nombres de archivos",
+                phase_name="Recopilando nombres de archivos",
                 phase_callable=lambda: self.analyze_renaming(directory, renamer, progress_callback, metadata_cache),
                 phase_callback=phase_callback,
                 partial_callback=partial_callback

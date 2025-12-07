@@ -85,8 +85,9 @@ class Stage2Window(BaseStage):
         self.main_layout.addStretch()
         self.fade_in_widget(self.progress_card, duration=350)
 
-        # Iniciar análisis con delay para mostrar animaciones
-        QTimer.singleShot(200, self._start_analysis)
+        # Iniciar análisis con delay para mostrar animaciones y evitar congelar la UI
+        # Usar un delay mayor para dar tiempo a que la UI se renderice completamente
+        QTimer.singleShot(100, self._start_analysis)
 
         self.logger.debug("UI del Estado 2 configurada")
 

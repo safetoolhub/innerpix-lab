@@ -85,8 +85,10 @@ class MainWindow(QMainWindow):
         # Crear nuevo estado
         self.current_state = state_class(self, *args, **kwargs)
 
-        # Configurar UI del nuevo estado
-        self.current_state.setup_ui()
+        # Configurar UI del nuevo estado de forma asíncrona para evitar congelar la UI
+        # Dar tiempo al event loop para procesar eventos pendientes
+        from PyQt6.QtCore import QTimer
+        QTimer.singleShot(0, self.current_state.setup_ui)
 
     # ==================== CONFIGURACIÓN DE VENTANA ====================
 

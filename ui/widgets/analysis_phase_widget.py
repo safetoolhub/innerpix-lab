@@ -228,7 +228,7 @@ class AnalysisPhaseWidget(QFrame):
                 line-height: 1.0;
             """)
             # Mostrar "No realizado" en el contador
-            counter_label.setText("(No realizado)")
+            counter_label.setText("(se realizará más adelante)")
             counter_label.setStyleSheet(f"""
                 font-size: {DesignSystem.FONT_SIZE_SM}px;
                 color: {DesignSystem.COLOR_TEXT_SECONDARY};
