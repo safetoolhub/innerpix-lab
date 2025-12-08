@@ -433,12 +433,9 @@ class Stage1Window(BaseStage):
             )
             return
 
-        # Validación 4: Advertencia si la carpeta está vacía (verificación rápida)
+        # Validación 4: Advertencia si la carpeta está vacía
         try:
-            # Optimización: Solo verificar primeros 10 archivos para no bloquear UI
-            from itertools import islice
-            first_items = list(islice(path.iterdir(), 10))
-            if not first_items:
+            if not any(path.iterdir()):
                 result = QMessageBox.question(
                     self.main_window,
                     "Carpeta vacía",

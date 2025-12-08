@@ -12,7 +12,13 @@ from .base_stage import BaseStage
 from ui.styles.design_system import DesignSystem
 from ui.widgets.progress_card import ProgressCard
 from ui.workers import AnalysisWorker
-# Los servicios se importan lazy en _start_analysis() para evitar bloquear la UI
+from services.file_renamer_service import FileRenamer
+from services.live_photos_service import LivePhotoService
+from services.file_organizer_service import FileOrganizer
+from services.heic_remover_service import HEICRemover
+from services.heic_remover_service import HEICRemover
+from services.exact_copies_detector import ExactCopiesDetector
+from services.zero_byte_service import ZeroByteService
 
 
 class Stage2Window(BaseStage):
@@ -149,14 +155,6 @@ class Stage2Window(BaseStage):
             else:
                 self.logger.warning(f"🛠️ MODO DESARROLLADOR: No se encontró archivo de caché: {cache_path}")
 
-        # Lazy import de servicios solo cuando se necesitan (evita bloquear UI al cargar stage)
-        from services.file_renamer_service import FileRenamer
-        from services.live_photos_service import LivePhotoService
-        from services.file_organizer_service import FileOrganizer
-        from services.heic_remover_service import HEICRemover
-        from services.exact_copies_detector import ExactCopiesDetector
-        from services.zero_byte_service import ZeroByteService
-        
         # Crear instancias de servicios
         renamer = FileRenamer()
         live_photos_service = LivePhotoService()
