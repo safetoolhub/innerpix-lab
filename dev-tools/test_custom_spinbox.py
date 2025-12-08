@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Test script for CustomSpinBox widget.
-Run from project root: python scripts/test_custom_spinbox.py
+Run from project root: python dev-tools/test_custom_spinbox.py
 """
 import sys
 from pathlib import Path
