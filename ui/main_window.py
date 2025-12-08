@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QScrollArea
 from PyQt6.QtCore import Qt
 
 from ui.styles.design_system import DesignSystem
-from ui.stages import Stage1Window, Stage2Window, Stage3Window
+from ui.stages import Stage1Window
 from utils.logger import get_logger
 from config import Config
 
@@ -62,11 +62,15 @@ class MainWindow(QMainWindow):
     def _transition_to_state_2(self, selected_folder: str):
         """Transición al Stage 2 (Análisis)"""
         self.logger.info(f"Transición a Stage 2 con carpeta: {selected_folder}")
+        # Lazy import para evitar cargar servicios hasta que se necesiten
+        from ui.stages import Stage2Window
         self._change_state(Stage2Window, selected_folder)
 
     def _transition_to_state_3(self, analysis_results: dict):
         """Transición al Stage 3 (Herramientas)"""
         self.logger.info("Transición a Stage 3")
+        # Lazy import para evitar cargar diálogos hasta que se necesiten
+        from ui.stages import Stage3Window
         selected_folder = self.current_state.selected_folder if self.current_state else None
         self._change_state(Stage3Window, selected_folder, analysis_results)
 
