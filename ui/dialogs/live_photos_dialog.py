@@ -19,30 +19,70 @@ class LivePhotoCleanupDialog(BaseDialog):
         self.accepted_plan = None
         self.init_ui()
 
+    def _get_unique_files_to_delete_count(self, mode):
+        """
+        Calcula el número real de archivos únicos a eliminar según el modo.
+        
+        Esto aplica la misma lógica de deduplicación que el servicio:
+        múltiples imágenes pueden compartir el mismo video.
+        
+        Args:
+            mode: CleanupMode seleccionado
+            
+        Returns:
+            Número de archivos únicos que se eliminarían
+        """
+        groups = self.analysis.groups
+        if not groups:
+            return 0
+        
+        seen_paths = set()
+        
+        if mode == CleanupMode.KEEP_IMAGE:
+            # Contamos videos únicos (múltiples imágenes pueden compartir un video)
+            for group in groups:
+                seen_paths.add(str(group.video_path))
+        elif mode == CleanupMode.KEEP_VIDEO:
+            # Contamos imágenes únicas
+            for group in groups:
+                seen_paths.add(str(group.image_path))
+        
+        return len(seen_paths)
+
     def _calculate_space_for_mode(self, mode):
         """Calcula el espacio a liberar según el modo seleccionado"""
         groups = self.analysis.groups  # Dataclass attribute
         if not groups:
             return 0
 
-        total_space = 0
+        # Usar set para evitar contar el mismo archivo múltiples veces
+        files_to_delete = {}
+        
         if mode == CleanupMode.KEEP_IMAGE:
             for group in groups:
-                total_space += group.video_size
+                video_key = str(group.video_path)
+                if video_key not in files_to_delete:
+                    files_to_delete[video_key] = group.video_size
         elif mode == CleanupMode.KEEP_VIDEO:
             for group in groups:
-                total_space += group.image_size
-        return total_space
+                image_key = str(group.image_path)
+                if image_key not in files_to_delete:
+                    files_to_delete[image_key] = group.image_size
+        
+        return sum(files_to_delete.values())
 
     def _update_button_text(self):
         """Actualiza el texto del botón según el modo seleccionado"""
         groups = self.analysis.groups  # Dataclass attribute
-        live_photos_found = len(groups)
-        if live_photos_found > 0:
+        if not groups:
+            return
+        
+        unique_files_count = self._get_unique_files_to_delete_count(self.selected_mode)
+        if unique_files_count > 0:
             space = self._calculate_space_for_mode(self.selected_mode)
             space_formatted = format_size(space)
             files_type = "videos" if self.selected_mode == CleanupMode.KEEP_IMAGE else "imágenes"
-            self.ok_button.setText(f"Eliminar {live_photos_found} {files_type} ({space_formatted})")
+            self.ok_button.setText(f"Eliminar {unique_files_count} {files_type} ({space_formatted})")
 
     def init_ui(self):
         self.setWindowTitle("Limpieza de Live Photos")
@@ -64,6 +104,7 @@ class LivePhotoCleanupDialog(BaseDialog):
         layout.setContentsMargins(0, 0, 0, int(DesignSystem.SPACE_20))
 
         # Header compacto integrado con métricas inline
+        # Mostrar el número de grupos detectados (no el número de archivos únicos)
         self.header_frame = self._create_compact_header_with_metrics(
             icon_name='camera',
             title='Live Photos detectadas',
@@ -71,7 +112,7 @@ class LivePhotoCleanupDialog(BaseDialog):
             metrics=[
                 {
                     'value': str(self.analysis.live_photos_found),
-                    'label': 'Live Photos',
+                    'label': 'Grupos',
                     'color': DesignSystem.COLOR_PRIMARY
                 },
                 {
@@ -166,7 +207,7 @@ class LivePhotoCleanupDialog(BaseDialog):
         
         return self._create_option_selector(
             title="¿Qué componente deseas conservar?",
-            title_icon='settings',
+            title_icon='cog',
             options=modes,
             selected_value=self.selected_mode,
             on_change_callback=self._on_mode_card_changed
@@ -203,13 +244,19 @@ class LivePhotoCleanupDialog(BaseDialog):
         
         if self.selected_mode == CleanupMode.KEEP_IMAGE:
             # Eliminar videos, mantener imágenes
+            seen_delete_paths = set()
             for group in groups:
-                files_to_delete.append({
-                    'path': group.video_path,
-                    'type': 'video',
-                    'size': group.video_size,
-                    'base_name': group.base_name
-                })
+                # Deduplicate videos (multiple images might share one video)
+                if str(group.video_path) not in seen_delete_paths:
+                    files_to_delete.append({
+                        'path': group.video_path,
+                        'type': 'video',
+                        'size': group.video_size,
+                        'base_name': group.base_name
+                    })
+                    seen_delete_paths.add(str(group.video_path))
+                
+                # Always keep the image (unique per group usually, but no harm in adding)
                 files_to_keep.append({
                     'path': group.image_path,
                     'type': 'image',
@@ -218,6 +265,7 @@ class LivePhotoCleanupDialog(BaseDialog):
                 })
         elif self.selected_mode == CleanupMode.KEEP_VIDEO:
             # Eliminar imágenes, mantener videos
+            seen_keep_paths = set()
             for group in groups:
                 files_to_delete.append({
                     'path': group.image_path,
@@ -225,12 +273,16 @@ class LivePhotoCleanupDialog(BaseDialog):
                     'size': group.image_size,
                     'base_name': group.base_name
                 })
-                files_to_keep.append({
-                    'path': group.video_path,
-                    'type': 'video',
-                    'size': group.video_size,
-                    'base_name': group.base_name
-                })
+                
+                # Deduplicate videos to keep
+                if str(group.video_path) not in seen_keep_paths:
+                    files_to_keep.append({
+                        'path': group.video_path,
+                        'type': 'video',
+                        'size': group.video_size,
+                        'base_name': group.base_name
+                    })
+                    seen_keep_paths.add(str(group.video_path))
         
         # Crear dataclass de análisis
         space_to_free = sum(f['size'] for f in files_to_delete)

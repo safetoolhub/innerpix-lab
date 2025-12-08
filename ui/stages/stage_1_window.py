@@ -58,7 +58,7 @@ class Stage1Window(BaseStage):
         # Crear widgets del estado
         self.header = self.create_header(
             title_text=f"Bienvenido a {Config.APP_NAME}",
-            subtitle_text="Gestiona y optimiza tu colección de fotos y vídeos de manera segura",
+            subtitle_text="Gestiona y optimiza tu colección de fotos y vídeos de manera segura y privada",
             on_settings_clicked=self._on_settings_clicked,
             on_about_clicked=self._on_about_clicked
         )
@@ -183,7 +183,7 @@ class Stage1Window(BaseStage):
         tips_container.setContentsMargins(0, 0, 0, 0)
 
         tips_container.addWidget(self._create_centered_tip(
-            "info",
+            "information",
             "Elige la carpeta donde tengas tus fotos y videos del iPhone, de WhatsApp, "
             "o cualquier colección que quieras organizar.",
             icon_color=DesignSystem.COLOR_PRIMARY,  # Azul para info
@@ -191,7 +191,7 @@ class Stage1Window(BaseStage):
         ))
 
         tips_container.addWidget(self._create_centered_tip(
-            "security",
+            "shield",
             "Pixaro Lab únicamente " \
             "analizará esa carpeta y todas sus subcarpetas. "
             "No se modificará nada hasta que tú lo autorices.",

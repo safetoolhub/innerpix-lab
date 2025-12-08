@@ -127,33 +127,6 @@ def truncate_path(path: str, max_length: int = 40) -> str:
 
 
 
-def format_file_operation_summary(
-    total: int,
-    processed: int,
-    errors: int = 0,
-    action_verb: str = "procesado"
-) -> str:
-    """
-    Formatea un resumen de operación sobre archivos.
-    
-    Args:
-        total: Total de archivos
-        processed: Archivos procesados exitosamente
-        errors: Archivos con error
-        action_verb: Verbo que describe la acción (ej: "renombrado", "eliminado")
-        
-    Returns:
-        str: Texto formateado del resumen
-        
-    Example:
-        >>> format_file_operation_summary(100, 95, 5, "renombrado")
-        '✅ 95/100 archivos renombrados correctamente (5 errores)'
-    """
-    if errors > 0:
-        return f"✅ {processed}/{total} archivos {action_verb}s correctamente ({errors} errores)"
-    else:
-        return f"✅ {processed}/{total} archivos {action_verb}s correctamente"
-
 
 def format_count_short(count: int) -> str:
     """Formatea un conteo en versión corta para badges.
@@ -230,34 +203,3 @@ def format_size_full(bytes_size: int) -> str:
     
     gb = mb / 1024
     return f"{gb:.2f} GB"
-
-
-def format_time_ago(timestamp_str: str) -> str:
-    """Formatea un timestamp ISO en texto 'hace X tiempo'.
-    
-    Args:
-        timestamp_str: Timestamp en formato ISO
-    
-    Returns:
-        String descriptivo del tiempo transcurrido
-    """
-    from datetime import datetime
-    try:
-        timestamp = datetime.fromisoformat(timestamp_str)
-        now = datetime.now()
-        delta = now - timestamp
-        
-        seconds = delta.total_seconds()
-        if seconds < 60:
-            return "hace menos de 1 min"
-        elif seconds < 3600:
-            minutes = int(seconds / 60)
-            return f"hace {minutes} min"
-        elif seconds < 86400:
-            hours = int(seconds / 3600)
-            return f"hace {hours}h"
-        else:
-            days = int(seconds / 86400)
-            return f"hace {days}d"
-    except Exception:
-        return "recientemente"

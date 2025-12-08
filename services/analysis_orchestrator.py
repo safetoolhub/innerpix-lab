@@ -20,7 +20,8 @@ if TYPE_CHECKING:
         LivePhotoDetectionResult,
         OrganizationAnalysisResult, 
         HeicAnalysisResult, 
-        DuplicateAnalysisResult
+        DuplicateAnalysisResult,
+        ZeroByteAnalysisResult
     )
 
 
@@ -44,6 +45,15 @@ class DirectoryScanResult:
     
     # Caché compartida de metadatos para optimizar fases subsecuentes
     metadata_cache: Optional[FileMetadataCache] = None
+    
+    # Tamaño total del directorio (calculado durante finalizacion)
+    total_size: int = 0
+    
+    # Desglose por extensiones
+    image_extensions: Dict[str, int] = field(default_factory=dict)
+    video_extensions: Dict[str, int] = field(default_factory=dict)
+    unsupported_extensions: Dict[str, int] = field(default_factory=dict)
+    unsupported_files: List[Path] = field(default_factory=list)  # Rutas completas para DEBUG
     
     @property
     def image_count(self) -> int:
@@ -95,6 +105,7 @@ class FullAnalysisResult:
     organization: Optional['OrganizationAnalysisResult'] = None
     heic: Optional['HeicAnalysisResult'] = None
     duplicates: Optional['DuplicateAnalysisResult'] = None
+    zero_byte: Optional['ZeroByteAnalysisResult'] = None
     total_duration: float = 0.0
 
 
@@ -242,10 +253,18 @@ class AnalysisOrchestrator:
         
         # Una sola iteración: clasificar directamente sin contar primero
         images, videos, others = [], [], []
+        image_extensions = {}
+        video_extensions = {}
+        unsupported_extensions = {}
+        unsupported_files = []
         processed = 0
         
         # Primera pasada: obtener lista de archivos para saber el total
-        all_files = [f for f in directory.rglob("*") if f.is_file()]
+        # Excluir explícitamente el archivo de caché de desarrollo
+        all_files = [
+            f for f in directory.rglob("*") 
+            if f.is_file() and f.name != Config.DEV_CACHE_FILENAME
+        ]
         total_files = len(all_files)
         
         
@@ -272,16 +291,23 @@ class AnalysisOrchestrator:
                 self.logger.warning("Escaneo cancelado por usuario")
                 break
             
+            # Obtener extensión (normalizar a lowercase)
+            ext = f.suffix.lower() if f.suffix else '(sin extensión)'
+            
             # Clasificar archivo
             if Config.is_image_file(f.name):
                 images.append(f)
                 file_type = 'image'
+                image_extensions[ext] = image_extensions.get(ext, 0) + 1
             elif Config.is_video_file(f.name):
                 videos.append(f)
                 file_type = 'video'
+                video_extensions[ext] = video_extensions.get(ext, 0) + 1
             else:
                 others.append(f)
                 file_type = 'other'
+                unsupported_extensions[ext] = unsupported_extensions.get(ext, 0) + 1
+                unsupported_files.append(f)
             
             # Cachear metadata básico durante el escaneo (evita stat() posterior)
             # NOTA: Hashes SHA256 solo se pre-calculan si precalculate_hashes=True
@@ -355,7 +381,11 @@ class AnalysisOrchestrator:
             images=images,
             videos=videos,
             others=others,
-            metadata_cache=metadata_cache
+            metadata_cache=metadata_cache,
+            image_extensions=image_extensions,
+            video_extensions=video_extensions,
+            unsupported_extensions=unsupported_extensions,
+            unsupported_files=unsupported_files
         )
         
         # Estadísticas de archivos soportados vs no soportados
@@ -549,6 +579,24 @@ class AnalysisOrchestrator:
             progress_callback=progress_callback,
             metadata_cache=metadata_cache
         )
+
+    def analyze_zero_byte_files(self,
+                               directory: Path,
+                               zero_byte_service: AnalyzableService,
+                               progress_callback: Optional[Callable[[int, int, str], bool]] = None) -> 'ZeroByteAnalysisResult':
+        """
+        Busca archivos de 0 bytes.
+        
+        Args:
+            directory: Directorio a analizar
+            zero_byte_service: Instancia de ZeroByteService
+            progress_callback: Función opcional de progreso
+            
+        Returns:
+            ZeroByteAnalysisResult con archivos vacíos encontrados
+        """
+        self.logger.info("Buscando archivos de 0 bytes")
+        return zero_byte_service.analyze(directory, progress_callback=progress_callback)
     
     def _log_memory_usage(self, phase: str) -> None:
         """Log del uso de memoria después de cada fase"""
@@ -591,6 +639,7 @@ class AnalysisOrchestrator:
                          organizer: Optional[AnalyzableService] = None,
                          heic_remover: Optional[AnalyzableService] = None,
                          duplicate_exact_detector: Optional[AnalyzableService] = None,
+                         zero_byte_service: Optional[AnalyzableService] = None,
                          organization_type: Optional[str] = None,
                          progress_callback: Optional[Callable[[int, int, str], bool]] = None,
                          phase_callback: Optional[Callable[[str], None]] = None,
@@ -632,7 +681,7 @@ class AnalysisOrchestrator:
         # Fase 1: Escaneo inicial (crea la caché de metadatos)
         scan_result, scan_timing = self._execute_phase(
             phase_id="scan",
-            phase_name="Escaneando archivos",
+            phase_name="Escaneo inicial del directorio",
             phase_callable=lambda: self.scan_directory(
                 directory, 
                 progress_callback, 
@@ -684,7 +733,7 @@ class AnalysisOrchestrator:
             
             result.renaming, result.phase_timings['renaming'] = self._execute_phase(
                 phase_id="renaming",
-                phase_name="Analizando nombres de archivos",
+                phase_name="Recopilando nombres de archivos",
                 phase_callable=lambda: self.analyze_renaming(directory, renamer, progress_callback, metadata_cache),
                 phase_callback=phase_callback,
                 partial_callback=partial_callback
@@ -750,7 +799,20 @@ class AnalysisOrchestrator:
             if scan_result.total_files > self.large_dataset_threshold:
                 self._release_memory(metadata_cache)
         
-        # Fase 6: Organización
+        # Fase 6: Archivos de 0 bytes
+        if zero_byte_service:
+            if self._check_cancellation(progress_callback, result, analysis_start_time):
+                return result
+            
+            result.zero_byte, result.phase_timings['zero_byte'] = self._execute_phase(
+                phase_id="zero_byte",
+                phase_name="Buscando archivos vacíos",
+                phase_callable=lambda: self.analyze_zero_byte_files(directory, zero_byte_service, progress_callback),
+                phase_callback=phase_callback,
+                partial_callback=partial_callback
+            )
+
+        # Fase 7: Organización
         if organizer:
             if self._check_cancellation(progress_callback, result, analysis_start_time):
                 return result
@@ -763,7 +825,7 @@ class AnalysisOrchestrator:
                 partial_callback=partial_callback
             )
         
-        # Fase 7: Finalización
+        # Fase 8: Finalización
         _, result.phase_timings['finalizing'] = self._execute_phase(
             phase_id="finalizing",
             phase_name="Finalizando análisis",

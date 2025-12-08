@@ -18,7 +18,7 @@ class AboutDialog(QDialog):
     def init_ui(self):
         self.setWindowTitle(f"Acerca de {Config.APP_NAME}")
         self.setModal(True)
-        self.setFixedSize(520, 480)
+        self.setFixedSize(520, 540)
 
         # Layout principal
         main_layout = QVBoxLayout(self)
@@ -85,19 +85,17 @@ class AboutDialog(QDialog):
         # Grid de herramientas
         tools_grid = QGridLayout()
         tools_grid.setHorizontalSpacing(15)
-        tools_grid.setVerticalSpacing(10)
+        tools_grid.setVerticalSpacing(12)
         tools_grid.setContentsMargins(5, 5, 5, 5)
 
         tools = [
-            ("rename", "Renombrar Archivos"),
             ("camera-burst", "Live Photos"),
-            ("organize", "Organizar Archivos"),
-            ("heic", "HEIC/JPG Duplicados"),
+            ("file-image", "HEIC/JPG Duplicados"),
             ("content-copy", "Copias exactas"),
-            ("image-multiple", "Archivos similares"),
-            ("backup-restore", "Backups Automáticos"),
-            ("history", "Registros de Operaciones")
-
+            ("image-search", "Archivos similares"),
+            ("folder-move", "Organizar Archivos"),
+            ("rename-box", "Renombrar Archivos"),
+            ("trash-alt", "Archivos Vacíos"),
         ]
 
         for i, (icon_name, name) in enumerate(tools):
@@ -110,7 +108,7 @@ class AboutDialog(QDialog):
             h.setSpacing(8)
 
             icon_label = QLabel()
-            icon_manager.set_label_icon(icon_label, icon_name, color=DesignSystem.COLOR_TEXT_SECONDARY, size=14)
+            icon_manager.set_label_icon(icon_label, icon_name, color=DesignSystem.COLOR_TEXT_SECONDARY, size=16)
             h.addWidget(icon_label)
 
             name_label = QLabel(name)
@@ -120,6 +118,43 @@ class AboutDialog(QDialog):
             tools_grid.addWidget(container, row, col)
 
         content_layout.addLayout(tools_grid)
+
+        # Funcionalidades adicionales (Backups y Logs)
+        additional_layout = QHBoxLayout()
+        additional_layout.setSpacing(20)
+        additional_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        additional_layout.setContentsMargins(0, 8, 0, 0)
+
+        # Backups
+        backup_container = QWidget()
+        backup_h = QHBoxLayout(backup_container)
+        backup_h.setContentsMargins(0, 0, 0, 0)
+        backup_h.setSpacing(6)
+        backup_icon = QLabel()
+        icon_manager.set_label_icon(backup_icon, "backup-restore", color=DesignSystem.COLOR_TEXT_SECONDARY, size=14)
+        backup_label = QLabel("Backups Automáticos")
+        backup_label.setProperty("class", "small")
+        backup_label.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY};")
+        backup_h.addWidget(backup_icon)
+        backup_h.addWidget(backup_label)
+
+        # Logs
+        logs_container = QWidget()
+        logs_h = QHBoxLayout(logs_container)
+        logs_h.setContentsMargins(0, 0, 0, 0)
+        logs_h.setSpacing(6)
+        logs_icon = QLabel()
+        icon_manager.set_label_icon(logs_icon, "history", color=DesignSystem.COLOR_TEXT_SECONDARY, size=14)
+        logs_label = QLabel("Registros de Operaciones")
+        logs_label.setProperty("class", "small")
+        logs_label.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY};")
+        logs_h.addWidget(logs_icon)
+        logs_h.addWidget(logs_label)
+
+        additional_layout.addWidget(backup_container)
+        additional_layout.addWidget(logs_container)
+        
+        content_layout.addLayout(additional_layout)
 
         # Separador
         line2 = QFrame()

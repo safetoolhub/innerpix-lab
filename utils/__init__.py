@@ -46,12 +46,10 @@ from .format_utils import (
     format_file_count,
     format_percentage,
     truncate_path,
-    format_file_operation_summary,
     format_count_short,
     format_size_short,
     format_count_full,
-    format_size_full,
-    format_time_ago
+    format_size_full
 )
 from .platform_utils import (
     open_file_with_default_app,
@@ -67,11 +65,7 @@ from .callback_utils import (
 )
 from .icons import (
     IconManager,
-    icon_manager,
-    get_icon,
-    set_button_icon,
-    set_label_icon,
-    create_icon_label
+    icon_manager
 )
 from .storage import (
     StorageBackend,
@@ -79,7 +73,6 @@ from .storage import (
     QSettingsBackend
 )
 from .settings_manager import SettingsManager, settings_manager
-from .decorators import deprecated
 
 __all__ = [
     # Logger utilities
@@ -127,12 +120,10 @@ __all__ = [
     'format_file_count',
     'format_percentage',
     'truncate_path',
-    'format_file_operation_summary',
     'format_count_short',
     'format_size_short',
     'format_count_full',
     'format_size_full',
-    'format_time_ago',
 
     # Platform utilities
     'open_file_with_default_app',
@@ -149,10 +140,6 @@ __all__ = [
     # Icon utilities
     'IconManager',
     'icon_manager',
-    'get_icon',
-    'set_button_icon',
-    'set_label_icon',
-    'create_icon_label',
 
     # Storage utilities
     'StorageBackend',
@@ -161,8 +148,5 @@ __all__ = [
 
     # Settings manager
     'SettingsManager',
-    'settings_manager',
-
-    # Decorators
-    'deprecated'
+    'settings_manager'
 ]

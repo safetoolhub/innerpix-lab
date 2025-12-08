@@ -172,7 +172,7 @@ class OrganizationViewModel:
                     destination_path=move.target_path,
                     metadata={
                         'type': 'file',
-                        'move': move,
+                        'folder-arrow-right': move,
                         'status': 'Conflicto' if move.has_conflict else 'Mover'
                     }
                 )
@@ -237,7 +237,7 @@ class OrganizationViewModel:
                     destination_path=move.target_path,
                     metadata={
                         'type': 'file',
-                        'move': move,
+                        'folder-arrow-right': move,
                         'subdirectory': move.subdirectory
                     }
                 )
@@ -289,7 +289,7 @@ class OrganizationViewModel:
                     total_size=move.size,
                     is_conflict=move.has_conflict,
                     destination_path=move.target_path,
-                    metadata={'type': 'file', 'move': move}
+                    metadata={'type': 'file', 'folder-arrow-right': move}
                 )
                 wa_node.add_child(file_node)
             
@@ -311,7 +311,7 @@ class OrganizationViewModel:
                     total_size=move.size,
                     is_conflict=move.has_conflict,
                     destination_path=move.target_path,
-                    metadata={'type': 'file', 'move': move}
+                    metadata={'type': 'file', 'folder-arrow-right': move}
                 )
                 other_node.add_child(file_node)
             

@@ -59,7 +59,7 @@ class SettingsDialog(QDialog):
     def init_ui(self):
         self.setWindowTitle("Configuración")
         self.setModal(True)
-        self.resize(800, 650)
+        self.resize(800, 850)
         
         # Aplicar estilo base del DesignSystem
         self.setStyleSheet(f"""
@@ -232,11 +232,7 @@ class SettingsDialog(QDialog):
         confirm_layout = QVLayout(confirm_group)
         confirm_layout.setSpacing(DesignSystem.SPACE_12)
 
-        self.confirm_operations_checkbox = QCheckBox("Mostrar diálogo de confirmación antes de ejecutar operaciones")
-        self.confirm_operations_checkbox.setChecked(True)
-        self.confirm_operations_checkbox.setToolTip("Muestra un resumen antes de aplicar cambios")
-        self.confirm_operations_checkbox.setStyleSheet(DesignSystem.get_checkbox_style())
-        confirm_layout.addWidget(self.confirm_operations_checkbox)
+
 
         self.confirm_delete_checkbox = QCheckBox("Pedir confirmación adicional para operaciones de eliminación")
         self.confirm_delete_checkbox.setChecked(True)
@@ -441,6 +437,21 @@ class SettingsDialog(QDialog):
         log_level_layout.addStretch()
 
         logs_layout.addLayout(log_level_layout)
+
+        # Checkbox para dual logging (WARNING/ERROR adicional)
+        self.dual_log_checkbox = QCheckBox(
+            "Crear archivo adicional solo con WARNING y ERROR (para datasets grandes)"
+        )
+        self.dual_log_checkbox.setChecked(True)  # Por defecto activado
+        self.dual_log_checkbox.setToolTip(
+            "Cuando está activado y el nivel de log es INFO o DEBUG:\n"
+            "• Se creará un archivo principal con TODOS los logs (sufijo: _INFO o _DEBUG)\n"
+            "• Se creará un archivo adicional solo con WARNING y ERROR (sufijo: _WARNERROR)\n\n"
+            "Útil para datasets grandes donde el log completo es muy extenso.\n"
+            "Esta opción se deshabilita automáticamente si el nivel es WARNING o ERROR."
+        )
+        self.dual_log_checkbox.setStyleSheet(DesignSystem.get_checkbox_style())
+        logs_layout.addWidget(self.dual_log_checkbox)
 
         # Botón abrir carpeta de logs
         open_logs_btn = QPushButton("Abrir carpeta de logs")
@@ -656,7 +667,7 @@ class SettingsDialog(QDialog):
         try:
             # General tab
             self.auto_backup_checkbox.setChecked(settings_manager.get_auto_backup_enabled())
-            self.confirm_operations_checkbox.setChecked(settings_manager.get_confirm_operations())
+
             self.confirm_delete_checkbox.setChecked(settings_manager.get_confirm_delete())
             self.show_notifications_checkbox.setChecked(settings_manager.get_show_notifications())
             self.show_full_path_checkbox.setChecked(settings_manager.get_show_full_path())
@@ -675,6 +686,11 @@ class SettingsDialog(QDialog):
             current_level = settings_manager.get_log_level("INFO")
             level_index_map = {"DEBUG": 0, "INFO": 1, "WARNING": 2, "ERROR": 3}
             self.log_level_combo.setCurrentIndex(level_index_map.get(current_level, 1))
+            
+            # Dual log checkbox
+            self.dual_log_checkbox.setChecked(settings_manager.get_dual_log_enabled())
+            # Deshabilitar si el nivel es WARNING o ERROR
+            self._update_dual_log_enabled_state(current_level)
 
             # Directories
             logs_dir = settings_manager.get_logs_directory()
@@ -699,8 +715,9 @@ class SettingsDialog(QDialog):
             'logs_dir': self.logs_edit.text(),
             'backup_dir': self.backup_edit.text(),
             'log_level': self.log_level_combo.currentIndex(),
+            'dual_log': self.dual_log_checkbox.isChecked(),
             'auto_backup': self.auto_backup_checkbox.isChecked(),
-            'confirm_ops': self.confirm_operations_checkbox.isChecked(),
+
             'confirm_delete': self.confirm_delete_checkbox.isChecked(),
             'show_notif': self.show_notifications_checkbox.isChecked(),
             'show_path': self.show_full_path_checkbox.isChecked(),
@@ -718,13 +735,14 @@ class SettingsDialog(QDialog):
         """Conecta señales de cambio de todos los widgets para detectar modificaciones"""
         # Checkboxes
         self.auto_backup_checkbox.stateChanged.connect(lambda: self._on_widget_changed("auto_backup"))
-        self.confirm_operations_checkbox.stateChanged.connect(lambda: self._on_widget_changed("confirm_ops"))
+
         self.confirm_delete_checkbox.stateChanged.connect(lambda: self._on_widget_changed("confirm_delete"))
         self.show_notifications_checkbox.stateChanged.connect(lambda: self._on_widget_changed("show_notif"))
         self.show_full_path_checkbox.stateChanged.connect(lambda: self._on_widget_changed("show_path"))
         self.dry_run_default_checkbox.stateChanged.connect(lambda: self._on_widget_changed("dry_run"))
         self.use_video_metadata_checkbox.stateChanged.connect(lambda: self._on_widget_changed("use_video_metadata"))
         self.precalculate_hashes_checkbox.stateChanged.connect(lambda: self._on_widget_changed("precalculate_hashes"))
+        self.dual_log_checkbox.stateChanged.connect(lambda: self._on_widget_changed("dual_log"))
         
         # Spinbox
         self.max_workers_spin.valueChanged.connect(lambda: self._on_widget_changed("max_workers"))
@@ -771,9 +789,7 @@ class SettingsDialog(QDialog):
         original_auto_backup = self.original_values['auto_backup']
         auto_backup_changed = current_auto_backup != original_auto_backup
         
-        current_confirm_ops = self.confirm_operations_checkbox.isChecked()
-        original_confirm_ops = self.original_values['confirm_ops']
-        confirm_ops_changed = current_confirm_ops != original_confirm_ops
+
         
         current_confirm_delete = self.confirm_delete_checkbox.isChecked()
         original_confirm_delete = self.original_values['confirm_delete']
@@ -809,11 +825,16 @@ class SettingsDialog(QDialog):
         original_precalculate_hashes = self.original_values['precalculate_hashes']
         precalculate_hashes_changed = current_precalculate_hashes != original_precalculate_hashes
         
+        current_dual_log = self.dual_log_checkbox.isChecked()
+        original_dual_log = self.original_values['dual_log']
+        dual_log_changed = current_dual_log != original_dual_log
+        
         has_changes = (
             logs_changed or backup_changed or level_changed or auto_backup_changed or
-            confirm_ops_changed or confirm_delete_changed or show_notif_changed or
+            confirm_delete_changed or show_notif_changed or
             show_path_changed or max_workers_changed or dry_run_changed or
-            use_video_metadata_changed or ui_update_changed or precalculate_hashes_changed
+            use_video_metadata_changed or ui_update_changed or precalculate_hashes_changed or
+            dual_log_changed
         )
         
         # Habilitar/deshabilitar botón según haya cambios
@@ -980,6 +1001,9 @@ class SettingsDialog(QDialog):
             # Guardar en settings manager
             settings_manager.set_log_level(level_name)
             
+            # Actualizar el estado del checkbox de dual log
+            self._update_dual_log_enabled_state(level_name)
+            
             # Actualizar también el log_level de la ventana padre si existe
             if self.parent_window and hasattr(self.parent_window, 'log_level'):
                 self.parent_window.log_level = level_name
@@ -988,6 +1012,34 @@ class SettingsDialog(QDialog):
 
         except Exception as e:
             self.logger.exception(f"Error cambiando nivel de log: {e}")
+
+    def _update_dual_log_enabled_state(self, level_name: str):
+        """
+        Actualiza el estado habilitado/deshabilitado del checkbox de dual logging
+        basándose en el nivel de log seleccionado.
+        
+        Args:
+            level_name: Nombre del nivel de log (DEBUG, INFO, WARNING, ERROR)
+        """
+        # Deshabilitar si el nivel es WARNING o ERROR (no tiene sentido logs duplicados)
+        should_enable = level_name in ('DEBUG', 'INFO')
+        self.dual_log_checkbox.setEnabled(should_enable)
+        
+        # Si se deshabilita, mostrar tooltip explicativo
+        if not should_enable:
+            self.dual_log_checkbox.setToolTip(
+                "Esta opción solo está disponible para niveles INFO o DEBUG.\n"
+                "Con nivel WARNING o ERROR, todos los logs ya contienen solo advertencias y errores."
+            )
+        else:
+            # Restaurar tooltip original
+            self.dual_log_checkbox.setToolTip(
+                "Cuando está activado y el nivel de log es INFO o DEBUG:\n"
+                "• Se creará un archivo principal con TODOS los logs (sufijo: _INFO o _DEBUG)\n"
+                "• Se creará un archivo adicional solo con WARNING y ERROR (sufijo: _WARNERROR)\n\n"
+                "Útil para datasets grandes donde el log completo es muy extenso.\n"
+                "Esta opción se deshabilita automáticamente si el nivel es WARNING o ERROR."
+            )
 
     def restore_defaults(self):
         """Restaura valores por defecto"""
@@ -1037,13 +1089,13 @@ class SettingsDialog(QDialog):
             current_use_video_metadata = settings_manager.get_bool(settings_manager.KEY_USE_VIDEO_METADATA, False)
             current_ui_update = settings_manager.get_int("ui_update_interval", Config.UI_UPDATE_INTERVAL)
             current_precalculate_hashes = settings_manager.get_precalculate_hashes()
+            current_dual_log = settings_manager.get_dual_log_enabled()
             
             # Valores nuevos (desde UI)
             new_logs_dir = Path(self.logs_edit.text())
             new_backup_dir = Path(self.backup_edit.text())
             new_log_level = self.log_level_combo.currentText().split()[0].split(" - ")[0].upper()
             new_auto_backup = self.auto_backup_checkbox.isChecked()
-            new_confirm_ops = self.confirm_operations_checkbox.isChecked()
             new_confirm_delete = self.confirm_delete_checkbox.isChecked()
             new_show_notif = self.show_notifications_checkbox.isChecked()
             new_show_path = self.show_full_path_checkbox.isChecked()
@@ -1052,6 +1104,7 @@ class SettingsDialog(QDialog):
             new_dry_run = self.dry_run_default_checkbox.isChecked()
             new_use_video_metadata = self.use_video_metadata_checkbox.isChecked()
             new_precalculate_hashes = self.precalculate_hashes_checkbox.isChecked()
+            new_dual_log = self.dual_log_checkbox.isChecked()
             
             # Detectar qué cambió
             logs_dir_changed = (current_logs_dir != new_logs_dir)
@@ -1060,7 +1113,6 @@ class SettingsDialog(QDialog):
             any_setting_changed = (
                 logs_dir_changed or backup_dir_changed or log_level_changed or
                 current_auto_backup != new_auto_backup or
-                current_confirm_ops != new_confirm_ops or
                 current_confirm_delete != new_confirm_delete or
                 current_show_notif != new_show_notif or
                 current_show_path != new_show_path or
@@ -1068,7 +1120,8 @@ class SettingsDialog(QDialog):
                 current_ui_update != new_ui_update or
                 current_dry_run != new_dry_run or
                 current_use_video_metadata != new_use_video_metadata or
-                current_precalculate_hashes != new_precalculate_hashes
+                current_precalculate_hashes != new_precalculate_hashes or
+                current_dual_log != new_dual_log
             )
             
             # Si NO hay cambios, cerrar inmediatamente sin operaciones costosas
@@ -1086,7 +1139,10 @@ class SettingsDialog(QDialog):
                 # Cambiar directorio de logs usando la nueva API
                 from utils.logger import change_logs_directory
                 try:
-                    new_log_file, new_logs_dir_resolved = change_logs_directory(new_logs_dir)
+                    new_log_file, new_logs_dir_resolved = change_logs_directory(
+                        new_logs_dir, 
+                        dual_log_enabled=new_dual_log
+                    )
                     self.logger.info(f"Directorio de logs cambiado a: {new_logs_dir_resolved}")
                     self.logger.info(f"Nuevo archivo de log: {new_log_file}")
                 except Exception as e:
@@ -1102,8 +1158,6 @@ class SettingsDialog(QDialog):
             # General (solo si cambiaron)
             if current_auto_backup != new_auto_backup:
                 settings_manager.set_auto_backup_enabled(new_auto_backup)
-            if current_confirm_ops != new_confirm_ops:
-                settings_manager.set(settings_manager.KEY_CONFIRM_OPERATIONS, new_confirm_ops)
             if current_confirm_delete != new_confirm_delete:
                 settings_manager.set(settings_manager.KEY_CONFIRM_DELETE, new_confirm_delete)
             if current_show_notif != new_show_notif:
@@ -1126,6 +1180,13 @@ class SettingsDialog(QDialog):
                 Config.USE_VIDEO_METADATA = new_use_video_metadata
             if current_precalculate_hashes != new_precalculate_hashes:
                 settings_manager.set(settings_manager.KEY_PRECALCULATE_HASHES, new_precalculate_hashes)
+            
+            # Dual log (solo si cambió)
+            if current_dual_log != new_dual_log:
+                settings_manager.set_dual_log_enabled(new_dual_log)
+                # Actualizar el sistema de logging
+                from utils.logger import set_dual_log_enabled
+                set_dual_log_enabled(new_dual_log)
 
             self.logger.info("Configuración guardada exitosamente")
 

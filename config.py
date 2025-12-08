@@ -41,6 +41,10 @@ class Config:
     LOG_LEVEL = "INFO"
     LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     LOG_DATE_FORMAT = "%Y%m%d_%H%M%S"
+    
+    # Configuración de rotación de logs
+    MAX_LOG_FILE_SIZE_MB = 10  # Tamaño máximo de archivo de log en MB antes de rotar
+    MAX_LOG_BACKUP_COUNT = 9999  # Número de backups a mantener (9999 = ilimitado en la práctica)
 
     # ========================================================================
     # DIRECTORIOS POR DEFECTO
@@ -139,7 +143,11 @@ class Config:
     # ========================================================================
     # CONFIGURACIÓN DE DESARROLLO
     # ========================================================================
-    DEVELOPMENT_MODE = True  # Si True, salta directamente a Stage 2 con la última carpeta usada
+    DEVELOPMENT_MODE = False  # Si True, salta directamente a Stage 2 con la última carpeta usada
+    
+    # Configuración de caché para desarrollo (acelerar pruebas con datasets grandes)
+    DEV_USE_CACHED_ANALYSIS = True  # Si True, intenta cargar .pixaro_analysis_cache.pkl
+    DEV_CACHE_FILENAME = ".pixaro_analysis_cache.pkl"
 
 
     # ========================================================================
@@ -151,7 +159,7 @@ class Config:
     MIN_PHASE_DURATION_SECONDS = 0.0  # Default: 1 segundo por fase
     
     # Delay adicional antes de transicionar a Stage 3 (después de completar todo)
-    FINAL_DELAY_BEFORE_STAGE3_SECONDS =0.0  # Default: 2 segundos
+    FINAL_DELAY_BEFORE_STAGE3_SECONDS =1.0  # Default: 2 segundos
 
     # ========================================================================
     # CONSTANTES DE UI
@@ -195,6 +203,14 @@ class Config:
     # Configuración de extracción de metadatos de video
     # Por defecto False porque es muy lento y la app se enfoca en imágenes
     USE_VIDEO_METADATA = False
+    
+    # ========================================================================
+    # CONFIGURACIÓN DE LIVE PHOTOS
+    # ========================================================================
+    # Tamaño mínimo esperado para videos de Live Photos (en bytes)
+    # Videos de Live Photos típicamente son muy pequeños (1-5 MB)
+    # Si un video excede este tamaño, puede no ser realmente un video de Live Photo
+    LIVE_PHOTO_MAX_VIDEO_SIZE = 6 * 1024 * 1024  # 6 MB por defecto
     
     # ========================================================================
     # CONFIGURACIÓN DE DIÁLOGO DE ARCHIVOS SIMILARES

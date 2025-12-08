@@ -7,6 +7,7 @@ from pathlib import Path
 from PyQt6.QtWidgets import QMessageBox
 from PyQt6.QtCore import QTimer, pyqtSignal
 
+from config import Config
 from .base_stage import BaseStage
 from ui.styles.design_system import DesignSystem
 from ui.widgets.progress_card import ProgressCard
@@ -15,7 +16,9 @@ from services.file_renamer_service import FileRenamer
 from services.live_photos_service import LivePhotoService
 from services.file_organizer_service import FileOrganizer
 from services.heic_remover_service import HEICRemover
+from services.heic_remover_service import HEICRemover
 from services.exact_copies_detector import ExactCopiesDetector
+from services.zero_byte_service import ZeroByteService
 
 
 class Stage2Window(BaseStage):
@@ -67,9 +70,10 @@ class Stage2Window(BaseStage):
             show_settings_button=False,
             show_about_button=False
         )
-        self.main_layout.addSpacing(DesignSystem.SPACE_8)
+        # Añadir espaciado encima del header
+        self.main_layout.addSpacing(DesignSystem.SPACE_4)
         self.main_layout.addWidget(self.header)
-        self.main_layout.addSpacing(DesignSystem.SPACE_16)
+        self.main_layout.addSpacing(DesignSystem.SPACE_8)
 
         # Crear y mostrar card de progreso (ahora incluye las fases)
         self.progress_card = ProgressCard(self.selected_folder)
@@ -81,8 +85,9 @@ class Stage2Window(BaseStage):
         self.main_layout.addStretch()
         self.fade_in_widget(self.progress_card, duration=350)
 
-        # Iniciar análisis con delay para mostrar animaciones
-        QTimer.singleShot(200, self._start_analysis)
+        # Iniciar análisis con delay para mostrar animaciones y evitar congelar la UI
+        # Usar un delay mayor para dar tiempo a que la UI se renderice completamente
+        QTimer.singleShot(100, self._start_analysis)
 
         self.logger.debug("UI del Estado 2 configurada")
 
@@ -123,12 +128,40 @@ class Stage2Window(BaseStage):
         if self.progress_card:
             self.progress_card.set_phase_status('duplicates_similar', 'skipped')
         
+        # === MODO DESARROLLADOR: CARGAR CACHÉ ===
+        if Config.DEV_USE_CACHED_ANALYSIS:
+            import pickle
+            cache_path = Path(self.selected_folder) / Config.DEV_CACHE_FILENAME
+            
+            if cache_path.exists():
+                self.logger.warning(f"🛠️ MODO DESARROLLADOR: Cargando análisis desde caché: {cache_path}")
+                try:
+                    with open(cache_path, 'rb') as f:
+                        cached_results = pickle.load(f)
+                    
+                    self.logger.info("✅ Análisis cargado exitosamente desde caché")
+                    
+                    # Enriquecer con información de extensiones si no está presente
+                    self._enrich_scan_with_extensions(cached_results)
+                    
+                    # Simular finalización inmediata
+                    # Usamos QTimer para dar tiempo a que la UI se renderice antes de cambiar
+                    QTimer.singleShot(500, lambda: self._on_analysis_finished(cached_results))
+                    return
+                    
+                except Exception as e:
+                    self.logger.error(f"❌ Error cargando caché de desarrollo: {e}")
+                    # Fallback a análisis normal
+            else:
+                self.logger.warning(f"🛠️ MODO DESARROLLADOR: No se encontró archivo de caché: {cache_path}")
+
         # Crear instancias de servicios
         renamer = FileRenamer()
         live_photos_service = LivePhotoService()
         organizer = FileOrganizer()
         heic_remover = HEICRemover()
         duplicate_exact_detector = ExactCopiesDetector()
+        zero_byte_service = ZeroByteService()
 
         # Crear worker de análisis
         self.analysis_worker = AnalysisWorker(
@@ -138,6 +171,7 @@ class Stage2Window(BaseStage):
             organizer=organizer,
             heic_remover=heic_remover,
             duplicate_exact_detector=duplicate_exact_detector,
+            zero_byte_service=zero_byte_service,
             organization_type=None  # Se usará el default
         )
 
@@ -145,6 +179,7 @@ class Stage2Window(BaseStage):
         self.analysis_worker.progress_update.connect(self._on_analysis_progress)
         self.analysis_worker.phase_update.connect(self._on_phase_started)
         self.analysis_worker.phase_completed.connect(self._on_phase_completed)
+        self.analysis_worker.phase_text_update.connect(self._on_phase_text_update)
         self.analysis_worker.stats_update.connect(self._on_analysis_stats)
         self.analysis_worker.partial_results.connect(self._on_partial_results)
         self.analysis_worker.finished.connect(self._on_analysis_finished)
@@ -196,7 +231,18 @@ class Stage2Window(BaseStage):
         # Marcar la fase como completada
         self.progress_card.set_phase_status(phase_id, 'completed')
 
-
+    def _on_phase_text_update(self, phase_id: str, text: str):
+        """
+        Callback para actualizar el texto de una fase durante su ejecución.
+        
+        Args:
+            phase_id: ID de la fase
+            text: Nuevo texto a mostrar
+        """
+        if not self.progress_card:
+            return
+        
+        self.progress_card.update_phase_text(phase_id, text)
 
     def _on_analysis_stats(self, stats):
         """
@@ -228,6 +274,9 @@ class Stage2Window(BaseStage):
         """
         self.logger.info("Análisis completado exitosamente")
         self.analysis_results = results
+
+        # Logging detallado de extensiones de archivos
+        self._log_file_extensions_summary(results)
 
         # Guardar resultados del análisis para uso futuro
         self.save_analysis_results(results)
@@ -269,7 +318,7 @@ class Stage2Window(BaseStage):
 
         # Marcar fase actual como error si existe
         if self.progress_card and self.current_phase:
-            self.progress_card.set_phase_status(self.current_phase, 'error')
+            self.progress_card.set_phase_status(self.current_phase, 'alert-circle')
         
         self.current_phase = None
 
@@ -327,6 +376,114 @@ class Stage2Window(BaseStage):
 
         # Transición al Estado 1 a través de MainWindow
         self.main_window._transition_to_state_1()
+    
+    def _enrich_scan_with_extensions(self, results):
+        """
+        Enriquece los resultados de análisis con información de extensiones.
+        Útil para cachés antiguos que no tienen estos datos.
+        
+        Args:
+            results: FullAnalysisResult cargado desde caché
+        """
+        if not results or not hasattr(results, 'scan'):
+            return
+        
+        scan = results.scan
+        
+        # Si ya tiene los datos de extensiones, no hacer nada
+        if hasattr(scan, 'image_extensions') and scan.image_extensions:
+            self.logger.debug("Caché ya contiene información de extensiones")
+            return
+        
+        self.logger.info("Enriqueciendo caché con información de extensiones...")
+        
+        # Inicializar dictionaries
+        image_extensions = {}
+        video_extensions = {}
+        unsupported_extensions = {}
+        unsupported_files = []
+        
+        # Analizar archivos existentes en el scan
+        if hasattr(scan, 'images') and scan.images:
+            for img_path in scan.images:
+                ext = img_path.suffix.lower() if img_path.suffix else '(sin extensión)'
+                image_extensions[ext] = image_extensions.get(ext, 0) + 1
+        
+        if hasattr(scan, 'videos') and scan.videos:
+            for vid_path in scan.videos:
+                ext = vid_path.suffix.lower() if vid_path.suffix else '(sin extensión)'
+                video_extensions[ext] = video_extensions.get(ext, 0) + 1
+        
+        if hasattr(scan, 'others') and scan.others:
+            for other_path in scan.others:
+                ext = other_path.suffix.lower() if other_path.suffix else '(sin extensión)'
+                unsupported_extensions[ext] = unsupported_extensions.get(ext, 0) + 1
+                unsupported_files.append(other_path)
+        
+        # Agregar los datos al scan result
+        scan.image_extensions = image_extensions
+        scan.video_extensions = video_extensions
+        scan.unsupported_extensions = unsupported_extensions
+        scan.unsupported_files = unsupported_files
+        
+        self.logger.info(f"✅ Extensiones agregadas: {len(image_extensions)} imágenes, "
+                        f"{len(video_extensions)} videos, {len(unsupported_extensions)} no soportadas")
+    
+    def _log_file_extensions_summary(self, results):
+        """
+        Registra información detallada sobre extensiones de archivos encontrados.
+        
+        Args:
+            results: FullAnalysisResult con los datos del análisis
+        """
+        if not results or not hasattr(results, 'scan'):
+            self.logger.warning("No hay resultados de escaneo disponibles para logging")
+            return
+        
+        scan = results.scan
+        
+        # Los campos de extensiones siempre deberían estar presentes gracias a _enrich_scan_with_extensions
+        # pero mantener verificación defensiva
+        if not hasattr(scan, 'image_extensions'):
+            self.logger.warning("Los resultados no incluyen desglose de extensiones")
+            return
+        
+        # INFO: Desglose de imágenes por extensión
+        if scan.image_extensions:
+            image_summary = ', '.join(
+                f"{ext.upper()} ({count})" 
+                for ext, count in sorted(scan.image_extensions.items())
+            )
+            self.logger.info(f"📷 Imágenes por extensión: {image_summary}")
+        else:
+            self.logger.info("📷 Imágenes por extensión: ninguna")
+        
+        # INFO: Desglose de videos por extensión
+        if scan.video_extensions:
+            video_summary = ', '.join(
+                f"{ext.upper()} ({count})" 
+                for ext, count in sorted(scan.video_extensions.items())
+            )
+            self.logger.info(f"🎥 Videos por extensión: {video_summary}")
+        else:
+            self.logger.info("🎥 Videos por extensión: ninguna")
+        
+        # INFO: Recuento de archivos con extensiones no soportadas
+        if scan.unsupported_extensions:
+            unsupported_count = sum(scan.unsupported_extensions.values())
+            unsupported_summary = ', '.join(
+                f"{ext.upper() if ext != '(sin extensión)' else ext} ({count})" 
+                for ext, count in sorted(scan.unsupported_extensions.items())
+            )
+            self.logger.info(f"⚠️  Archivos con extensiones NO SOPORTADAS: {unsupported_count} - {unsupported_summary}")
+            
+            # DEBUG: Rutas completas de archivos no soportados
+            if scan.unsupported_files:
+                self.logger.debug(f"📁 Rutas completas de archivos NO SOPORTADOS ({len(scan.unsupported_files)} archivos):")
+                for file_path in scan.unsupported_files:
+                    self.logger.debug(f"  - {file_path}")
+        else:
+            self.logger.info("✅ Archivos con extensiones NO SOPORTADAS: ninguno")
     
     def _on_cancel_requested(self):
         """Usuario solicitó cancelar el análisis"""

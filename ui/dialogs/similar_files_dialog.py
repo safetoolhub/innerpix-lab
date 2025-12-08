@@ -11,13 +11,15 @@ from PyQt6.QtWidgets import (
     QGridLayout, QSizePolicy, QProgressBar, QMenu, QDialog, QSpinBox
 )
 from PyQt6.QtCore import Qt, QSize, QTimer
-from PyQt6.QtGui import QPixmap, QDesktopServices, QCursor, QImage, QColor, QIcon
+from PyQt6.QtGui import QPixmap, QDesktopServices, QCursor, QImage, QColor, QIcon, QPainter
 from config import Config
 from services.similar_files_detector import SimilarFilesAnalysis
 from services.result_types import DuplicateGroup
 from utils.format_utils import format_size
+from utils.image_loader import load_image_as_qpixmap
+from utils.video_thumbnail import get_video_thumbnail
+from utils.platform_utils import open_file_with_default_app
 from ui.styles.design_system import DesignSystem
-from utils.icons import icon_manager
 from utils.icons import icon_manager
 from .base_dialog import BaseDialog
 from .dialog_utils import show_file_details_dialog
@@ -59,19 +61,15 @@ class ImagePreviewDialog(QDialog):
         image_label = QLabel()
         image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
-        pixmap = QPixmap(str(image_path))
-        if not pixmap.isNull():
-            # Escalar si es muy grande, pero mantener calidad
-            screen_size = self.screen().availableSize()
-            max_w = screen_size.width() * 0.8
-            max_h = screen_size.height() * 0.8
-            
-            if pixmap.width() > max_w or pixmap.height() > max_h:
-                pixmap = pixmap.scaled(
-                    int(max_w), int(max_h),
-                    Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation
-                )
+        # Calcular tamaño máximo
+        screen_size = self.screen().availableSize()
+        max_w = int(screen_size.width() * 0.8)
+        max_h = int(screen_size.height() * 0.8)
+        
+        # Cargar imagen con soporte HEIC/HEIF
+        pixmap = load_image_as_qpixmap(image_path, max_size=(max_w, max_h))
+        
+        if pixmap and not pixmap.isNull():
             image_label.setPixmap(pixmap)
         else:
             image_label.setText("❌ No se pudo cargar la imagen")
@@ -157,8 +155,8 @@ class SimilarFilesDialog(BaseDialog):
         self.resize(1280, 900)
         self.setMinimumSize(1100, 750)
         
-        # Estilo base
-        self.setStyleSheet(DesignSystem.get_stylesheet() + DesignSystem.get_tooltip_style())
+        # Estilo base aplicado por BaseDialog
+        # self.setStyleSheet(DesignSystem.get_stylesheet() + DesignSystem.get_tooltip_style())
         
         # Layout principal
         main_layout = QVBoxLayout(self)
@@ -930,17 +928,20 @@ class SimilarFilesDialog(BaseDialog):
     def _create_file_card(self, file_path: Path, is_selected: bool) -> QFrame:
         card = QFrame()
         card.setCursor(Qt.CursorShape.PointingHandCursor)
+        
         # Doble click para ver detalles
         card.mouseDoubleClickEvent = lambda e: show_file_details_dialog(file_path, self)
         
         card.setStyleSheet(self._get_card_style(is_selected))
         
+        # Layout principal de la card
         layout = QVBoxLayout(card)
         layout.setSpacing(DesignSystem.SPACE_8)
         layout.setContentsMargins(DesignSystem.SPACE_8, DesignSystem.SPACE_8, DesignSystem.SPACE_8, DesignSystem.SPACE_8)
         
-        # Header: Checkbox y Tamaño
+        # Header: Checkbox, Badge Info, y Tamaño
         header = QHBoxLayout()
+        
         checkbox = QCheckBox("Eliminar")
         checkbox.setChecked(is_selected)
         checkbox.setStyleSheet(f"""
@@ -948,48 +949,110 @@ class SimilarFilesDialog(BaseDialog):
         """)
         # Usar lambda para capturar el path
         checkbox.toggled.connect(lambda checked, f=file_path: self._toggle_file_selection(f, checked))
+        header.addWidget(checkbox)
+        
+        header.addStretch()
+        
+        # Badge de información (Opción 2) - UN SOLO CLICK
+        info_badge = self._create_info_badge(file_path)
+        header.addWidget(info_badge)
         
         size_lbl = QLabel(format_size(file_path.stat().st_size))
         size_lbl.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_XS}px;")
-        
-        header.addWidget(checkbox)
-        header.addStretch()
+        size_lbl.setCursor(Qt.CursorShape.PointingHandCursor)
+        # Solo context menu, NO doble click
+        size_lbl.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        size_lbl.customContextMenuRequested.connect(lambda pos, f=file_path: self._show_context_menu(pos, f))
         header.addWidget(size_lbl)
+        
         layout.addLayout(header)
         
         # Thumbnail
         thumb_lbl, is_video = self._create_thumbnail(file_path)
         if thumb_lbl:
-            thumb_lbl.mousePressEvent = lambda e, f=file_path: self._show_image_preview(f)
+            # Click handler: videos se abren con app predeterminada, imágenes con preview
+            thumb_lbl.mousePressEvent = lambda e, f=file_path, is_vid=is_video: self._handle_thumbnail_click(f, is_vid)
             layout.addWidget(thumb_lbl, alignment=Qt.AlignmentFlag.AlignCenter)
         
-        # Nombre archivo
+        # Nombre archivo (solo context menu, sin doble click)
         name_lbl = QLabel(file_path.name)
         name_lbl.setWordWrap(True)
         name_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         name_lbl.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT};")
+        name_lbl.setCursor(Qt.CursorShape.PointingHandCursor)
+        # Solo context menu, NO doble click
+        name_lbl.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        name_lbl.customContextMenuRequested.connect(lambda pos, f=file_path: self._show_context_menu(pos, f))
         layout.addWidget(name_lbl)
         
-        # Click en toda la card selecciona/deselecciona (opcional, a veces confuso si hay preview)
-        # card.mousePressEvent = lambda e: checkbox.toggle() 
+        # Date and source info (solo context menu, sin doble click)
+        date_info = self._get_file_date_info(file_path)
+        if date_info:
+            date_lbl = QLabel(date_info)
+            date_lbl.setWordWrap(True)
+            date_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            date_lbl.setStyleSheet(f"""
+                font-size: {DesignSystem.FONT_SIZE_XS}px; 
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                opacity: 0.7;
+            """)
+            date_lbl.setCursor(Qt.CursorShape.PointingHandCursor)
+            # Solo context menu, NO doble click
+            date_lbl.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+            date_lbl.customContextMenuRequested.connect(lambda pos, f=file_path: self._show_context_menu(pos, f))
+            layout.addWidget(date_lbl)
         
         # Guardar path para búsqueda posterior
         card.setProperty("file_path", str(file_path))
         
-        # Context menu
+        # Context menu en toda la card también
         card.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         card.customContextMenuRequested.connect(lambda pos, f=file_path: self._show_context_menu(pos, f))
         
         return card
+    
+    def _create_info_badge(self, file_path: Path) -> QLabel:
+        """Crea el badge de información visual (Opción 2) - UN SOLO CLICK para abrir detalles"""
+        badge = QLabel()
+        
+        # Crear icono de información
+        info_icon = icon_manager.get_icon('information-outline', 
+                                         size=16, 
+                                         color=DesignSystem.COLOR_PRIMARY)
+        badge.setPixmap(info_icon.pixmap(16, 16))
+        badge.setFixedSize(20, 20)
+        badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        # Estilo semi-transparente que se hace opaco al hover
+        # Estilo desde DesignSystem
+        badge.setStyleSheet(DesignSystem.get_info_badge_style())
+        
+        badge.setCursor(Qt.CursorShape.PointingHandCursor)
+        
+        # UN SOLO CLICK para abrir detalles
+        badge.mousePressEvent = lambda e, f=file_path: show_file_details_dialog(f, self)
+        
+        # También context menu por consistencia
+        badge.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        badge.customContextMenuRequested.connect(lambda pos, f=file_path: self._show_context_menu(pos, f))
+        
+        return badge
 
     def _show_context_menu(self, pos, file_path):
-        menu = QMenu(self)
-        menu.setStyleSheet(DesignSystem.get_context_menu_style())
-        
-        details_action = menu.addAction(icon_manager.get_icon('info'), "Ver detalles")
-        details_action.triggered.connect(lambda: show_file_details_dialog(file_path, self))
-        
-        menu.exec(QCursor.pos())
+        """Show context menu for file card."""
+        try:
+            menu = QMenu(self)
+            menu.setStyleSheet(DesignSystem.get_context_menu_style())
+            
+            # Create action with corrected icon name
+            details_action = menu.addAction(icon_manager.get_icon('information-outline'), "Ver detalles")
+            details_action.triggered.connect(lambda checked=False, f=file_path: show_file_details_dialog(f, self))
+            
+            menu.exec(QCursor.pos())
+        except Exception as e:
+            from utils.logger import get_logger
+            logger = get_logger('SimilarFilesDialog')
+            logger.error(f"Error showing context menu: {e}")
 
     def _get_card_style(self, is_selected: bool) -> str:
         border_color = DesignSystem.COLOR_DANGER if is_selected else DesignSystem.COLOR_BORDER
@@ -1133,22 +1196,166 @@ class SimilarFilesDialog(BaseDialog):
         super().accept()
 
 
-    def _create_thumbnail(self, file_path: Path):
-        # Retorna (QLabel, is_video)
+
+    def _get_file_date_info(self, file_path: Path) -> str:
+        """
+        Extract and format file date and source information for display.
+        
+        Returns date and source on separate lines:
+        - Line 1: "YYYY-MM-DD HH:MM:SS"
+        - Line 2: "Fuente: EXIF DateTimeOriginal"
+        """
         try:
-            pixmap = QPixmap(str(file_path))
-            if pixmap.isNull(): return None, False
+            from utils.date_utils import get_all_file_dates, select_chosen_date
             
-            pixmap = pixmap.scaled(280, 280, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            # Get all available dates for this file
+            all_dates = get_all_file_dates(file_path)
+            
+            # Select the most representative date
+            selected_date, source = select_chosen_date(all_dates)
+            
+            if not selected_date or not source:
+                return ""
+            
+            # Map sources to user-friendly descriptions matching file details dialog
+            source_map = {
+                'EXIF DateTimeOriginal': 'EXIF DateTimeOriginal',
+                'EXIF CreateDate': 'EXIF CreateDate',
+                'EXIF DateTimeDigitized': 'EXIF DateTimeDigitized',
+                'Filename': 'Fecha del nombre de archivo',
+                'Video metadata': 'Metadata de video',
+                'birth': 'Fecha de creación (birth)',
+                'ctime': 'Fecha de creación (ctime)',
+                'mtime': 'Fecha de modificación'
+            }
+            
+            # Get descriptive source name
+            descriptive_source = source
+            
+            # Handle EXIF sources with timezone info like "EXIF DateTimeOriginal (+02:00)"
+            if 'EXIF DateTimeOriginal' in source:
+                descriptive_source = 'EXIF DateTimeOriginal'
+                if '(' in source:
+                    # Keep timezone info if present
+                    tz = source[source.index('('):source.index(')')+1]
+                    descriptive_source = f'EXIF DateTimeOriginal {tz}'
+            elif 'EXIF CreateDate' in source:
+                descriptive_source = 'EXIF CreateDate'
+            elif 'EXIF DateTimeDigitized' in source:
+                descriptive_source = 'EXIF DateTimeDigitized'
+            else:
+                # Use mapping for other sources
+                for key, value in source_map.items():
+                    if key in source:
+                        descriptive_source = value
+                        break
+            
+            # Always format with full date and time: YYYY-MM-DD HH:MM:SS
+            date_str = selected_date.strftime('%Y-%m-%d %H:%M:%S')
+            
+            # Return formatted string with date and source on separate lines
+            return f"{date_str}\nFuente: {descriptive_source}"
+            
+        except Exception as e:
+            # Silently fail - this is just auxiliary information
+            return ""
+
+    def _add_play_icon_overlay(self, pixmap: QPixmap) -> QPixmap:
+        """
+        Agrega un icono de play semi-transparente sobre un thumbnail de video.
+        
+        Args:
+            pixmap: QPixmap original del video thumbnail
+            
+        Returns:
+            QPixmap con overlay de icono de play
+        """
+        # Crear una copia para no modificar el original
+        result = QPixmap(pixmap.size())
+        result.fill(Qt.GlobalColor.transparent)
+        
+        # Iniciar painter
+        painter = QPainter(result)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        
+        # Dibujar imagen original
+        painter.drawPixmap(0, 0, pixmap)
+        
+        # Agregar overlay semi-transparente oscuro
+        painter.fillRect(result.rect(), QColor(0, 0, 0, 60))
+        
+        # Dibujar icono de play en el centro
+        icon_size = 64
+        play_icon = icon_manager.get_icon('play-circle', color=DesignSystem.COLOR_SURFACE)
+        icon_pixmap = play_icon.pixmap(QSize(icon_size, icon_size))
+        
+        # Centrar icono
+        x = (pixmap.width() - icon_size) // 2
+        y = (pixmap.height() - icon_size) // 2
+        
+        painter.drawPixmap(x, y, icon_pixmap)
+        painter.end()
+        
+        return result
+
+    def _create_thumbnail(self, file_path: Path):
+        """
+        Crea un thumbnail para imagen o video.
+        
+        Returns:
+            Tupla (QLabel, is_video) o (None, False) si falla
+        """
+        try:
+            is_video = Config.is_video_file(str(file_path))
+            
+            if is_video:
+                # Generar thumbnail de video
+                pixmap = get_video_thumbnail(file_path, max_size=(280, 280), frame_position=0.25)
+                
+                if pixmap and not pixmap.isNull():
+                    # Agregar overlay de play
+                    pixmap = self._add_play_icon_overlay(pixmap)
+                else:
+                    # Si falla, mostrar placeholder
+                    return None, True
+            else:
+                # Cargar imagen con soporte HEIC/HEIF
+                pixmap = load_image_as_qpixmap(file_path, max_size=(280, 280))
+                
+                if not pixmap or pixmap.isNull():
+                    return None, False
+            
+            # Crear label con el thumbnail
             lbl = QLabel()
             lbl.setPixmap(pixmap)
             lbl.setFixedSize(280, 280)
             lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
             lbl.setStyleSheet(f"background-color: {DesignSystem.COLOR_BACKGROUND}; border-radius: 4px;")
-            return lbl, False
-        except:
+            
+            return lbl, is_video
+            
+        except Exception as e:
+            from utils.logger import get_logger
+            logger = get_logger('SimilarFilesDialog')
+            logger.debug(f"Error creando thumbnail para {file_path.name}: {e}")
             return None, False
 
-    def _show_image_preview(self, file_path):
+    def _handle_thumbnail_click(self, file_path: Path, is_video: bool):
+        """
+        Maneja el clic en un thumbnail.
+        
+        Para videos: abre con la aplicación predeterminada del sistema
+        Para imágenes: muestra preview ampliado en diálogo
+        """
+        if is_video:
+            # Abrir video con aplicación predeterminada (multiplataforma)
+            open_file_with_default_app(file_path)
+        else:
+            # Mostrar preview de imagen
+            self._show_image_preview(file_path)
+    
+    def _show_image_preview(self, file_path: Path):
+        """Muestra preview ampliado de una imagen."""
         dialog = ImagePreviewDialog(file_path, self)
         dialog.exec()

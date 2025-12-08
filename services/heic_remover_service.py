@@ -249,17 +249,25 @@ class HEICRemover(BaseService):
                 
                 try:
                     # Obtener fechas usando EXIF primero, luego mtime como fallback
-                    heic_date = get_date_from_file(heic_path) or datetime.fromtimestamp(heic_mtime)
-                    jpg_date = get_date_from_file(jpg_path) or datetime.fromtimestamp(jpg_mtime)
+                    heic_date_raw = get_date_from_file(heic_path)
+                    heic_date = heic_date_raw or datetime.fromtimestamp(heic_mtime)
+                    heic_source = "EXIF" if heic_date_raw else "filesystem"
+                    
+                    jpg_date_raw = get_date_from_file(jpg_path)
+                    jpg_date = jpg_date_raw or datetime.fromtimestamp(jpg_mtime)
+                    jpg_source = "EXIF" if jpg_date_raw else "filesystem"
                     
                     # Validación de diferencia temporal
                     if validate_dates:
                         time_diff = abs(heic_date - jpg_date)
                         if time_diff.total_seconds() > Config.MAX_TIME_DIFFERENCE_SECONDS:
                             self.logger.warning(
-                                f"Par rechazado por diferencia temporal: "
-                                f"{directory}/{base_name}.[JPG|HEIC] "
-                                f"(diff: {time_diff.total_seconds():.0f}s)"
+                                f"Par rechazado por diferencia temporal:\n"
+                                f"  HEIC: {heic_path}\n"
+                                f"    Fecha: {heic_date.strftime('%Y-%m-%d %H:%M:%S')} (source: {heic_source})\n"
+                                f"  JPG:  {jpg_path}\n"
+                                f"    Fecha: {jpg_date.strftime('%Y-%m-%d %H:%M:%S')} (source: {jpg_source})\n"
+                                f"  Diferencia: {time_diff.total_seconds():.0f}s"
                             )
                             self.stats['rejected_by_time_diff'] += 1
                             continue
@@ -418,10 +426,11 @@ class HEICRemover(BaseService):
             # Procesar cada par
             total_pairs = len(duplicate_pairs)
             for idx, pair in enumerate(duplicate_pairs):
-                # Reportar progreso
-                if (idx + 1) % Config.UI_UPDATE_INTERVAL == 0:
-                    if not self._report_progress(progress_callback, idx + 1, total_pairs, f"Procesando par {idx + 1}/{total_pairs}"):
-                        break
+                # Reportar progreso con formato de dos líneas
+                action = "[Simulación] Procesaría" if dry_run else "Procesando"
+                progress_msg = f"{action} par\n{idx + 1}/{total_pairs}"
+                if not self._report_progress(progress_callback, idx + 1, total_pairs, progress_msg):
+                    break
 
                 file_to_delete = pair.heic_path if keep_format.lower() == 'jpg' else pair.jpg_path
                 file_to_keep = pair.jpg_path if keep_format.lower() == 'jpg' else pair.heic_path
@@ -429,9 +438,10 @@ class HEICRemover(BaseService):
                 try:
                     # Validación simplificada (ya validado en __post_init__)
                     if not file_to_delete.exists():
-                        error_msg = f"Archivo no existe: {file_to_delete}"
-                        results.add_error(error_msg)
-                        self.logger.error(error_msg)
+                        # Archivo ya no existe, probablemente eliminado externamente
+                        # Loguear warning pero no contar como error ni sumar a estadísticas
+                        warn_msg = f"Archivo no encontrado durante eliminación: {file_to_delete}"
+                        self.logger.warning(warn_msg)
                         continue
                     
                     if not file_to_keep.exists():
@@ -459,11 +469,11 @@ class HEICRemover(BaseService):
                         except Exception:
                             file_date_str = 'unknown'
                         
+                        # Log consolidado en una sola línea
                         self.logger.info(
                             f"FILE_DELETED_SIMULATION: {file_to_delete} | Size: {format_size(file_size)} | "
-                            f"Type: {format_deleted} | Date: {file_date_str}"
+                            f"Type: {format_deleted} | Date: {file_date_str} | Kept: {file_to_keep}"
                         )
-                        self.logger.info(f"[SIMULACIÓN] Conservaría {format_kept}: {file_to_keep}")
                     else:
                         file_to_delete.unlink()
                         results.files_deleted += 1
@@ -478,11 +488,11 @@ class HEICRemover(BaseService):
                         except Exception:
                             file_date_str = 'unknown'
                         
+                        # Log consolidado en una sola línea
                         self.logger.info(
                             f"FILE_DELETED: {file_to_delete} | Size: {format_size(file_size)} | "
-                            f"Type: {format_deleted} | Date: {file_date_str}"
+                            f"Type: {format_deleted} | Date: {file_date_str} | Kept: {file_to_keep}"
                         )
-                        self.logger.info(f"  ✓ Conservado {format_kept}: {file_to_keep}")
                 
                 except Exception as e:
                     error_msg = f"Error eliminando {file_to_delete}: {str(e)}"

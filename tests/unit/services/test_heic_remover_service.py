@@ -230,7 +230,7 @@ class TestHEICRemoverTimeValidation:
         heic_time = base_time
         jpg_time = base_time + timedelta(seconds=30)
         
-        create_heic_jpg_pair(temp_dir, "photo", heic_mtime=heic_time, jpg_mtime=jpg_time)
+        create_heic_jpg_pair(temp_dir, "image-outline", heic_mtime=heic_time, jpg_mtime=jpg_time)
         
         result = heic_remover.analyze(temp_dir, validate_dates=True)
         
@@ -244,7 +244,7 @@ class TestHEICRemoverTimeValidation:
         heic_time = base_time
         jpg_time = base_time + timedelta(seconds=60)
         
-        create_heic_jpg_pair(temp_dir, "photo", heic_mtime=heic_time, jpg_mtime=jpg_time)
+        create_heic_jpg_pair(temp_dir, "image-outline", heic_mtime=heic_time, jpg_mtime=jpg_time)
         
         result = heic_remover.analyze(temp_dir, validate_dates=True)
         
@@ -257,7 +257,7 @@ class TestHEICRemoverTimeValidation:
         heic_time = base_time
         jpg_time = base_time + timedelta(seconds=120)  # 2 minutos
         
-        create_heic_jpg_pair(temp_dir, "photo", heic_mtime=heic_time, jpg_mtime=jpg_time)
+        create_heic_jpg_pair(temp_dir, "image-outline", heic_mtime=heic_time, jpg_mtime=jpg_time)
         
         result = heic_remover.analyze(temp_dir, validate_dates=True)
         
@@ -273,7 +273,7 @@ class TestHEICRemoverTimeValidation:
         heic_time = base_time
         jpg_time = base_time + timedelta(days=5)
         
-        create_heic_jpg_pair(temp_dir, "photo", heic_mtime=heic_time, jpg_mtime=jpg_time)
+        create_heic_jpg_pair(temp_dir, "image-outline", heic_mtime=heic_time, jpg_mtime=jpg_time)
         
         result = heic_remover.analyze(temp_dir, validate_dates=True)
         
@@ -286,7 +286,7 @@ class TestHEICRemoverTimeValidation:
         heic_time = base_time
         jpg_time = base_time + timedelta(days=30)  # 30 días de diferencia
         
-        create_heic_jpg_pair(temp_dir, "photo", heic_mtime=heic_time, jpg_mtime=jpg_time)
+        create_heic_jpg_pair(temp_dir, "image-outline", heic_mtime=heic_time, jpg_mtime=jpg_time)
         
         result = heic_remover.analyze(temp_dir, validate_dates=False)
         
@@ -347,9 +347,9 @@ class TestHEICRemoverDifferentDirectories:
         dir1 = temp_dir / "folder1"
         dir2 = temp_dir / "folder2"
         
-        # Crear par "photo" en ambos directorios
-        create_heic_jpg_pair(dir1, "photo", heic_mtime=now, jpg_mtime=now)
-        create_heic_jpg_pair(dir2, "photo", heic_mtime=now, jpg_mtime=now)
+        # Crear par "image-outline" en ambos directorios
+        create_heic_jpg_pair(dir1, "image-outline", heic_mtime=now, jpg_mtime=now)
+        create_heic_jpg_pair(dir2, "image-outline", heic_mtime=now, jpg_mtime=now)
         
         result = heic_remover.analyze(temp_dir, recursive=True, validate_dates=True)
         
@@ -578,7 +578,7 @@ class TestHEICRemoverDeletionKeepJPG:
     def test_delete_heic_keep_jpg(self, heic_remover, temp_dir, create_heic_jpg_pair):
         """Test de eliminación básica: eliminar HEIC, mantener JPG."""
         now = datetime.now()
-        heic_path, jpg_path = create_heic_jpg_pair(temp_dir, "photo", heic_mtime=now, jpg_mtime=now)
+        heic_path, jpg_path = create_heic_jpg_pair(temp_dir, "image-outline", heic_mtime=now, jpg_mtime=now)
         
         # Analizar primero
         analysis = heic_remover.analyze(temp_dir, validate_dates=True)
@@ -636,7 +636,7 @@ class TestHEICRemoverDeletionKeepHEIC:
     def test_delete_jpg_keep_heic(self, heic_remover, temp_dir, create_heic_jpg_pair):
         """Test de eliminación: eliminar JPG, mantener HEIC."""
         now = datetime.now()
-        heic_path, jpg_path = create_heic_jpg_pair(temp_dir, "photo", heic_mtime=now, jpg_mtime=now)
+        heic_path, jpg_path = create_heic_jpg_pair(temp_dir, "image-outline", heic_mtime=now, jpg_mtime=now)
         
         analysis = heic_remover.analyze(temp_dir, validate_dates=True)
         
@@ -689,7 +689,7 @@ class TestHEICRemoverDryRun:
     def test_dry_run_does_not_delete(self, heic_remover, temp_dir, create_heic_jpg_pair):
         """Test que dry run no elimina archivos realmente."""
         now = datetime.now()
-        heic_path, jpg_path = create_heic_jpg_pair(temp_dir, "photo", heic_mtime=now, jpg_mtime=now)
+        heic_path, jpg_path = create_heic_jpg_pair(temp_dir, "image-outline", heic_mtime=now, jpg_mtime=now)
         
         analysis = heic_remover.analyze(temp_dir, validate_dates=True)
         
@@ -712,7 +712,7 @@ class TestHEICRemoverDryRun:
     def test_dry_run_calculates_space_freed(self, heic_remover, temp_dir, create_heic_jpg_pair):
         """Test que dry run calcula correctamente el espacio que se liberaría."""
         now = datetime.now()
-        create_heic_jpg_pair(temp_dir, "photo", heic_mtime=now, jpg_mtime=now, heic_size_kb=100)
+        create_heic_jpg_pair(temp_dir, "image-outline", heic_mtime=now, jpg_mtime=now, heic_size_kb=100)
         
         analysis = heic_remover.analyze(temp_dir, validate_dates=True)
         
@@ -737,7 +737,7 @@ class TestHEICRemoverBackup:
     def test_backup_created_when_enabled(self, heic_remover, temp_dir, create_heic_jpg_pair):
         """Test que se crea backup cuando está habilitado."""
         now = datetime.now()
-        heic_path, jpg_path = create_heic_jpg_pair(temp_dir, "photo", heic_mtime=now, jpg_mtime=now)
+        heic_path, jpg_path = create_heic_jpg_pair(temp_dir, "image-outline", heic_mtime=now, jpg_mtime=now)
         
         analysis = heic_remover.analyze(temp_dir, validate_dates=True)
         
@@ -758,7 +758,7 @@ class TestHEICRemoverBackup:
     def test_no_backup_when_disabled(self, heic_remover, temp_dir, create_heic_jpg_pair):
         """Test que no se crea backup cuando está deshabilitado."""
         now = datetime.now()
-        create_heic_jpg_pair(temp_dir, "photo", heic_mtime=now, jpg_mtime=now)
+        create_heic_jpg_pair(temp_dir, "image-outline", heic_mtime=now, jpg_mtime=now)
         
         analysis = heic_remover.analyze(temp_dir, validate_dates=True)
         
@@ -775,7 +775,7 @@ class TestHEICRemoverBackup:
     def test_no_backup_in_dry_run(self, heic_remover, temp_dir, create_heic_jpg_pair):
         """Test que no se crea backup en modo dry run."""
         now = datetime.now()
-        create_heic_jpg_pair(temp_dir, "photo", heic_mtime=now, jpg_mtime=now)
+        create_heic_jpg_pair(temp_dir, "image-outline", heic_mtime=now, jpg_mtime=now)
         
         analysis = heic_remover.analyze(temp_dir, validate_dates=True)
         
@@ -861,7 +861,7 @@ class TestHEICRemoverEdgeCases:
         for i in range(10):
             deep_path = deep_path / f"level{i}"
         
-        create_heic_jpg_pair(deep_path, "photo", heic_mtime=now, jpg_mtime=now)
+        create_heic_jpg_pair(deep_path, "image-outline", heic_mtime=now, jpg_mtime=now)
         
         result = heic_remover.analyze(temp_dir, recursive=True, validate_dates=True)
         
@@ -871,7 +871,7 @@ class TestHEICRemoverEdgeCases:
         """Test de propiedades calculadas de DuplicatePair."""
         now = datetime.now()
         heic_path, jpg_path = create_heic_jpg_pair(
-            temp_dir, "photo",
+            temp_dir, "image-outline",
             heic_mtime=now,
             jpg_mtime=now + timedelta(seconds=30),
             heic_size_kb=100,
@@ -884,7 +884,7 @@ class TestHEICRemoverEdgeCases:
         pair = DuplicatePair(
             heic_path=heic_path,
             jpg_path=jpg_path,
-            base_name="photo",
+            base_name="image-outline",
             heic_size=heic_size,
             jpg_size=jpg_size,
             directory=temp_dir,
@@ -961,7 +961,7 @@ class TestHEICRemoverResults:
     def test_analysis_result_structure(self, heic_remover, temp_dir, create_heic_jpg_pair):
         """Test de estructura completa del resultado de análisis."""
         now = datetime.now()
-        create_heic_jpg_pair(temp_dir, "photo", heic_mtime=now, jpg_mtime=now)
+        create_heic_jpg_pair(temp_dir, "image-outline", heic_mtime=now, jpg_mtime=now)
         
         result = heic_remover.analyze(temp_dir, validate_dates=True)
         
@@ -981,7 +981,7 @@ class TestHEICRemoverResults:
     def test_deletion_result_structure(self, heic_remover, temp_dir, create_heic_jpg_pair):
         """Test de estructura completa del resultado de eliminación."""
         now = datetime.now()
-        create_heic_jpg_pair(temp_dir, "photo", heic_mtime=now, jpg_mtime=now)
+        create_heic_jpg_pair(temp_dir, "image-outline", heic_mtime=now, jpg_mtime=now)
         
         analysis = heic_remover.analyze(temp_dir, validate_dates=True)
         result = heic_remover.execute(

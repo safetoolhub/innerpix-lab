@@ -24,8 +24,8 @@ from utils.file_utils import (
     find_next_available_name,
     validate_file_exists,
 )
-from utils.decorators import deprecated
 from services.metadata_cache import FileMetadataCache
+
 
 class FileRenamer(BaseService):
     """
@@ -89,24 +89,9 @@ class FileRenamer(BaseService):
             if is_renamed_filename(file_path.name):
                 return ('already_renamed', file_path, None)
             
-            # Intentar obtener fecha de la caché primero
-            file_date = None
-            if metadata_cache:
-                file_date = metadata_cache.get_exif_date(file_path)
-            
-            # Si no está en caché, extraer y cachear
-            if not file_date:
-                file_date = get_date_from_file(file_path)
-                
-                # Cachear la fecha si se obtuvo y hay caché disponible
-                if file_date and metadata_cache:
-                    # Obtener todas las fechas para cachear el máximo de info
-                    all_dates = get_all_file_dates(file_path)
-                    metadata_cache.set_exif_dates(
-                        file_path,
-                        exif_date=all_dates.get('exif_date'),
-                        exif_date_original=all_dates.get('exif_date_original')
-                    )
+            # Obtener fecha usando metadata_cache para reutilizar fechas calculadas
+            # get_date_from_file ahora cachea automáticamente selected_date + date_source
+            file_date = get_date_from_file(file_path, metadata_cache=metadata_cache)
             
             if not file_date:
                 return ('no_date', file_path, f"No se pudo obtener fecha: {file_path.name}")
@@ -119,7 +104,7 @@ class FileRenamer(BaseService):
             extension = file_path.suffix
             renamed_name = format_renamed_name(file_date, file_type, extension)
             
-            return ('rename', file_path, {
+            return ('rename-box', file_path, {
                 'renamed_name': renamed_name,
                 'original_path': file_path,
                 'date': file_date,
@@ -155,7 +140,7 @@ class FileRenamer(BaseService):
                 elif status == 'unsupported':
                     cannot_process += 1
                     issues.append(data)
-                elif status == 'rename':
+                elif status == 'rename-box':
                     renamed_name = data['renamed_name']
                     if renamed_name not in renaming_map:
                         renaming_map[renamed_name] = []
@@ -289,6 +274,10 @@ class FileRenamer(BaseService):
                         results.add_error(f"{original_path}: {error_msg}")
                         continue
 
+                    # Variable para rastrear si hubo conflicto
+                    had_conflict = False
+                    conflict_sequence = None
+                    
                     if new_path.exists():
                         # Preservar sufijos no estándar del nombre original
                         # (sufijos que no sean de 3 dígitos generados por este programa)
@@ -313,11 +302,8 @@ class FileRenamer(BaseService):
                         )
 
                         new_path = original_path.parent / new_name
-                        conflict_label = f"{mode_label} " if dry_run else ""
-                        self.logger.info(
-                            f"{conflict_label}⚠️  Conflicto resuelto: {original_path.name} -> "
-                            f"{new_name} (secuencia {sequence})"
-                        )
+                        had_conflict = True
+                        conflict_sequence = sequence
                         results.conflicts_resolved += 1
 
                     # Solo renombrar si no es simulación
@@ -345,8 +331,13 @@ class FileRenamer(BaseService):
                                        f"{progress_label}... {files_processed}/{total_files}"):
                         break
 
-                    action_verb = "Se renombraría" if dry_run else "✓ Renombrado"
-                    self.logger.info(f"{action_verb}: {original_path} → {new_path}")
+                    # Log consolidado en una sola línea
+                    log_prefix = "FILE_RENAMED_SIMULATION" if dry_run else "FILE_RENAMED"
+                    conflict_info = f" | Conflict: seq={conflict_sequence}" if had_conflict else ""
+                    
+                    self.logger.info(
+                        f"{log_prefix}: {original_path} → {new_path}{conflict_info}"
+                    )
 
                 except Exception as e:
                     error_msg = f"Error renombrando {original_path.name}: {str(e)}"

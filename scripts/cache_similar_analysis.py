@@ -214,7 +214,7 @@ def main():
     elif command == "load":
         load_cache()
     
-    elif command == "info":
+    elif command == "information":
         show_info()
     
     else:

@@ -14,13 +14,14 @@ class DesignSystem:
     COLOR_SURFACE = "#FFFFFF"
     COLOR_TEXT = "#212529"
     COLOR_TEXT_SECONDARY = "#6C757D"
-    COLOR_TEXT_TERTIARY = "#ADB5BD"
+
     
     # Colores primarios (Azul vibrante pero profesional)
     COLOR_PRIMARY = "#0D6EFD"
     COLOR_PRIMARY_HOVER = "#0B5ED7"
     COLOR_PRIMARY_ACTIVE = "#0A58CA"
     COLOR_PRIMARY_LIGHT = "#E7F1FF"  # Para fondos sutiles
+    COLOR_PRIMARY_SUBTLE = "rgba(37, 99, 235, 0.02)"  # Para fondos muy sutiles (hover cards)
     COLOR_PRIMARY_TEXT = "#FFFFFF"
     
     # Colores secundarios (Gris neutro)
@@ -86,9 +87,7 @@ class DesignSystem:
     RADIUS_XL = 16
     RADIUS_FULL = 9999    # ==================== SOMBRAS ====================
     
-    SHADOW_SM = "0 1px 2px rgba(0,0,0,0.05)"
-    SHADOW_MD = "0 4px 6px rgba(0,0,0,0.05), 0 1px 3px rgba(0,0,0,0.1)"
-    SHADOW_LG = "0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)"
+
     
     # ==================== DIMENSIONES ====================
     
@@ -424,7 +423,7 @@ class DesignSystem:
                 border-radius: {DesignSystem.RADIUS_FULL}px;
                 background-color: {DesignSystem.COLOR_SECONDARY};
                 text-align: center;
-                height: 8px;
+                height: 20px;
                 font-size: {DesignSystem.FONT_SIZE_SM}px;
                 color: {DesignSystem.COLOR_TEXT};
             }}
@@ -609,5 +608,21 @@ class DesignSystem:
             }}
             QToolButton:pressed {{
                 background-color: rgba(0, 0, 0, 0.1);
+            }}
+        """
+
+    @staticmethod
+    def get_info_badge_style():
+        """
+        Estilo para el badge de información en las cards.
+        Fondo transparente por defecto, azul claro al hover para mantener contraste con el icono azul.
+        """
+        return f"""
+            QLabel {{
+                background-color: transparent;
+                border-radius: 10px;
+            }}
+            QLabel:hover {{
+                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
             }}
         """

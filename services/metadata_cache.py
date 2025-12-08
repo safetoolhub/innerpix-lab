@@ -39,6 +39,12 @@ class FileMetadata:
     exif_date: Optional[datetime] = None
     exif_date_original: Optional[datetime] = None
     
+    # Fecha seleccionada final (resultado de get_date_from_file)
+    selected_date: Optional[datetime] = None
+    date_source: Optional[str] = None  # 'exif_datetime_original', 'exif_datetime_original_tz', 
+                                        # 'exif_create_date', 'exif_datetime_digitized',
+                                        # 'filename', 'video', 'mtime', 'ctime'
+    
     # Metadata básico del filesystem
     size: Optional[int] = None
     file_type: Optional[str] = None  # 'image', 'video', 'other'
@@ -252,6 +258,79 @@ class FileMetadataCache:
             metadata.exif_date_original = exif_date_original
         metadata.cached_at = time.time()
     
+    def get_selected_date(self, file_path: Path) -> tuple[Optional[datetime], Optional[str]]:
+        """
+        Obtiene la fecha seleccionada final y su fuente desde la caché.
+        
+        Esta es la fecha resultado de get_date_from_file(), que aplica
+        toda la lógica de priorización (EXIF > filename > video > filesystem).
+        
+        Args:
+            file_path: Path del archivo
+            
+        Returns:
+            Tupla (selected_date, date_source) o (None, None) si no está cacheada
+            - selected_date: datetime de la fecha seleccionada
+            - date_source: fuente exacta como 'exif_datetime_original_tz', 
+                          'exif_create_date', 'filename', 'video', 'mtime', etc.
+        """
+        if not self._enabled:
+            return None, None
+        
+        file_path = file_path.resolve()
+        with self._lock:
+            if file_path in self._cache:
+                metadata = self._cache[file_path]
+                if metadata.is_valid(self._max_age_seconds):
+                    self._hits += 1
+                    return metadata.selected_date, metadata.date_source
+                else:
+                    # Entrada expirada, remover
+                    del self._cache[file_path]
+                    self._misses += 1
+            else:
+                self._misses += 1
+        return None, None
+    
+    def set_selected_date(
+        self, 
+        file_path: Path, 
+        selected_date: Optional[datetime],
+        date_source: Optional[str]
+    ) -> None:
+        """
+        Cachea la fecha seleccionada final y su fuente.
+        
+        Esta fecha es el resultado de get_date_from_file() que aplica
+        toda la lógica de priorización. Almacenar esto evita recalcular
+        EXIF/video metadata en operaciones posteriores.
+        
+        Args:
+            file_path: Path del archivo
+            selected_date: Fecha seleccionada por get_date_from_file()
+            date_source: Fuente exacta de la fecha:
+                - 'exif_datetime_original_tz': DateTimeOriginal con timezone
+                - 'exif_datetime_original': DateTimeOriginal sin timezone
+                - 'exif_create_date': CreateDate
+                - 'exif_datetime_digitized': DateTimeDigitized
+                - 'filename': Extraída del nombre de archivo
+                - 'video': Metadata de video
+                - 'mtime': Modification time del filesystem
+                - 'ctime': Creation time del filesystem
+        """
+        if not self._enabled:
+            return
+        
+        metadata = self.get_or_create(file_path)
+        metadata.selected_date = selected_date
+        metadata.date_source = date_source
+        metadata.cached_at = time.time()
+        self.logger.debug(
+            f"✓ Fecha cacheada para {file_path.name}: "
+            f"{selected_date.strftime('%Y-%m-%d %H:%M:%S') if selected_date else 'None'} "
+            f"(fuente: {date_source})"
+        )
+    
     def get_size(self, file_path: Path) -> Optional[int]:
         """
         Obtiene tamaño cacheado del archivo.
@@ -462,3 +541,25 @@ class FileMetadataCache:
         file_path = file_path.resolve()
         with self._lock:
             return file_path in self._cache
+
+    def __getstate__(self):
+        """
+        Personaliza el estado para pickling.
+        Excluye el lock que no es serializable.
+        """
+        state = self.__dict__.copy()
+        # Eliminar lock del estado
+        if '_lock' in state:
+            del state['_lock']
+        return state
+
+    def __setstate__(self, state):
+        """
+        Restaura el estado desde pickle.
+        Recrea el lock.
+        """
+        self.__dict__.update(state)
+        # Recrear el lock
+        import threading
+        self._lock = threading.RLock()
+

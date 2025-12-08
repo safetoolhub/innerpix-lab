@@ -4,10 +4,15 @@ Muestra el resumen del análisis y el grid de herramientas disponibles.
 """
 
 from typing import Dict, Any
-from PyQt6.QtWidgets import QWidget, QGridLayout, QMessageBox, QDialog
-from PyQt6.QtCore import QTimer
+from PyQt6.QtWidgets import (
+    QWidget, QGridLayout, QMessageBox, QDialog, 
+    QFrame, QHBoxLayout, QLabel, QPushButton
+)
+from PyQt6.QtCore import QTimer, Qt
+import qtawesome as qta
 
 from config import Config
+from utils.settings_manager import settings_manager
 from .base_stage import BaseStage
 from ui.styles.design_system import DesignSystem
 from ui.widgets.summary_card import SummaryCard
@@ -16,7 +21,9 @@ from ui.dialogs.live_photos_dialog import LivePhotoCleanupDialog
 from ui.dialogs.heic_remover_dialog import HEICDuplicateRemovalDialog
 from ui.dialogs.exact_copies_dialog import ExactCopiesDialog
 from ui.dialogs.file_organizer_dialog import FileOrganizationDialog
+from ui.dialogs.file_organizer_dialog import FileOrganizationDialog
 from ui.dialogs.file_renaming_dialog import RenamingPreviewDialog
+from ui.dialogs.zero_byte_dialog import ZeroByteDialog
 from ui.dialogs.settings_dialog import SettingsDialog
 from ui.dialogs.about_dialog import AboutDialog
 from ui.dialogs.similar_files_progress_dialog import SimilarFilesProgressDialog
@@ -48,6 +55,7 @@ class Stage3Window(BaseStage):
 
         # Referencias a widgets del estado
         self.header = None
+        self.stale_banner = None
         self.summary_card = None
         self.tools_grid = None
         self.tool_cards = {}  # Dict de tool_id -> ToolCard
@@ -69,7 +77,7 @@ class Stage3Window(BaseStage):
                 child.widget().setParent(None)
 
         # Añadir espaciado encima del header
-        self.main_layout.addSpacing(DesignSystem.SPACE_8)
+        self.main_layout.addSpacing(DesignSystem.SPACE_4)
 
         # Crear y mostrar header
         self.header = self.create_header(
@@ -77,7 +85,11 @@ class Stage3Window(BaseStage):
             on_about_clicked=self._on_about_clicked
         )
         self.main_layout.addWidget(self.header)
-        self.main_layout.addSpacing(DesignSystem.SPACE_16)
+        self.main_layout.addSpacing(DesignSystem.SPACE_8)
+
+        # Crear banner de advertencia (oculto por defecto)
+        self.stale_banner = self._create_stale_banner()
+        self.main_layout.addWidget(self.stale_banner)
 
         # Añadir stretch para mantener el header en la parte superior
         self.main_layout.addStretch()
@@ -97,6 +109,11 @@ class Stage3Window(BaseStage):
             self.header.setParent(None)
             self.header = None
 
+        if self.stale_banner:
+            self.stale_banner.hide()
+            self.stale_banner.setParent(None)
+            self.stale_banner = None
+
         if self.summary_card:
             self.summary_card.hide()
             self.summary_card.setParent(None)
@@ -108,6 +125,65 @@ class Stage3Window(BaseStage):
             self.tools_grid = None
 
         self.tool_cards.clear()
+
+    def _create_stale_banner(self) -> QWidget:
+        """Crea el banner de advertencia de estadísticas desactualizadas"""
+        banner = QFrame()
+        banner.setObjectName("staleBanner")
+        
+        # Estilo del banner
+        banner.setStyleSheet(f"""
+            QFrame#staleBanner {{
+                background-color: {DesignSystem.COLOR_WARNING_BG};
+                border: 1px solid {DesignSystem.COLOR_WARNING};
+                border-radius: {DesignSystem.RADIUS_MD}px;
+            }}
+        """)
+        
+        layout = QHBoxLayout(banner)
+        layout.setContentsMargins(DesignSystem.SPACE_16, DesignSystem.SPACE_12, 
+                                 DesignSystem.SPACE_16, DesignSystem.SPACE_12)
+        layout.setSpacing(DesignSystem.SPACE_16)
+        
+        # Icono
+        icon_label = QLabel()
+        icon = qta.icon('fa5s.exclamation-triangle', color=DesignSystem.COLOR_WARNING)
+        icon_label.setPixmap(icon.pixmap(24, 24))
+        layout.addWidget(icon_label)
+        
+        # Mensaje
+        msg_label = QLabel(
+            "<b>Estadísticas desactualizadas</b><br>"
+            "Se han realizado cambios en los archivos. "
+            "Las estadísticas mostradas pueden no ser precisas."
+        )
+        msg_label.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT}; font-size: {DesignSystem.FONT_SIZE_BASE}px;")
+        layout.addWidget(msg_label)
+        
+        layout.addStretch()
+        
+        # Botón de re-análisis
+        btn = QPushButton("Re-analizar ahora")
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.setIcon(qta.icon('fa5s.sync-alt', color=DesignSystem.COLOR_TEXT))
+        btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: rgba(255, 255, 255, 0.5);
+                border: 1px solid {DesignSystem.COLOR_WARNING};
+                border-radius: {DesignSystem.RADIUS_SM}px;
+                padding: 6px 12px;
+                color: {DesignSystem.COLOR_TEXT};
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            }}
+            QPushButton:hover {{
+                background-color: rgba(255, 255, 255, 0.8);
+            }}
+        """)
+        btn.clicked.connect(self._on_reanalyze)
+        layout.addWidget(btn)
+        
+        banner.hide()
+        return banner
 
     def _show_summary_card(self):
         """Muestra la summary card con animaciones"""
@@ -123,15 +199,15 @@ class Stage3Window(BaseStage):
         # No usar fade_in para evitar problemas con el scroll
         # self.fade_in_widget(self.summary_card, duration=400)
 
-        # Actualizar estadísticas de la summary card
+        # Actualizar estadísticas de la summary card (datos ya calculados en Stage 2)
         total_files = self.analysis_results.scan.total_files
+        total_size = self.analysis_results.scan.total_size
         
-        # Calcular tamaño total del directorio
-        total_size = self._calculate_directory_size()
-        self.summary_card.update_stats(total_files, total_size)
-
-        # Calcular espacio recuperable
+        # Calcular espacio recuperable (rápido, solo suma valores ya calculados)
         recoverable = self._calculate_recoverable_space()
+        
+        # Mostrar estadísticas
+        self.summary_card.update_stats(total_files, total_size)
         self.summary_card.update_recoverable_space(recoverable)
 
         # Añadir stretch después de la summary card para mantener el layout
@@ -139,33 +215,6 @@ class Stage3Window(BaseStage):
 
         # Crear grid de herramientas con delay escalonado
         QTimer.singleShot(200, self._create_tools_grid)
-
-    def _calculate_directory_size(self) -> int:
-        """
-        Calcula el tamaño total del directorio analizado
-        
-        Returns:
-            Tamaño total en bytes
-        """
-        from pathlib import Path
-        
-        try:
-            directory = Path(self.selected_folder)
-            total_size = 0
-            
-            # Recorrer todos los archivos del directorio
-            for file_path in directory.rglob('*'):
-                if file_path.is_file():
-                    try:
-                        total_size += file_path.stat().st_size
-                    except (OSError, PermissionError):
-                        # Ignorar archivos que no se pueden leer
-                        pass
-            
-            return total_size
-        except Exception as e:
-            self.logger.warning(f"Error calculando tamaño del directorio: {e}")
-            return 0
 
     def _calculate_recoverable_space(self) -> int:
         """
@@ -201,11 +250,11 @@ class Stage3Window(BaseStage):
         return int(total)
 
     def _create_tools_grid(self):
-        """Crea el grid 2x3 con las 6 herramientas"""
+        """Crea el grid 2x4 con las 7 herramientas"""
         # Container para el grid
         grid_container = QWidget()
         grid_layout = QGridLayout(grid_container)
-        grid_layout.setSpacing(16)  # DesignSystem.SPACE_16
+        grid_layout.setSpacing(12)  # Reducido para optimizar espacio vertical
         grid_layout.setContentsMargins(0, 0, 0, 0)
 
         # Obtener datos de análisis (todos dataclasses tipados)
@@ -213,32 +262,37 @@ class Stage3Window(BaseStage):
         heic_data = self.analysis_results.heic
         dup_data = self.analysis_results.duplicates
 
-        # Fila 1: Live Photos + HEIC/JPG
-        live_photos_card = self._create_live_photos_card(live_photo_data)
-        grid_layout.addWidget(live_photos_card, 0, 0)
-        self.tool_cards['live_photos'] = live_photos_card
-
+        # Fila 0: Archivos Vacíos + HEIC/JPG
+        zero_byte_card = self._create_zero_byte_card()
+        grid_layout.addWidget(zero_byte_card, 0, 0)
+        self.tool_cards['zero_byte'] = zero_byte_card
+        
         heic_card = self._create_heic_card(heic_data)
         grid_layout.addWidget(heic_card, 0, 1)
         self.tool_cards['heic'] = heic_card
 
-        # Fila 2: Duplicados Exactos + Similares
+        # Fila 1: Live Photos + Duplicados Exactos
+        live_photos_card = self._create_live_photos_card(live_photo_data)
+        grid_layout.addWidget(live_photos_card, 1, 0)
+        self.tool_cards['live_photos'] = live_photos_card
+
         exact_dup_card = self._create_exact_duplicates_card(dup_data)
-        grid_layout.addWidget(exact_dup_card, 1, 0)
+        grid_layout.addWidget(exact_dup_card, 1, 1)
         self.tool_cards['exact_copies'] = exact_dup_card
 
+        # Fila 2: Archivos Similares + (espacio vacío)
         similar_dup_card = self._create_similar_duplicates_card()
-        grid_layout.addWidget(similar_dup_card, 1, 1)
+        grid_layout.addWidget(similar_dup_card, 2, 0)
         self.tool_cards['similar_files'] = similar_dup_card
 
-        # Fila 3: Organizar + Renombrar
+        # Fila 3: Organizar + Renombrar (herramientas de reorganización juntas)
         organize_card = self._create_organize_card()
-        grid_layout.addWidget(organize_card, 2, 0)
-        self.tool_cards['organize'] = organize_card
+        grid_layout.addWidget(organize_card, 3, 0)
+        self.tool_cards['folder-move'] = organize_card
 
         rename_card = self._create_rename_card()
-        grid_layout.addWidget(rename_card, 2, 1)
-        self.tool_cards['rename'] = rename_card
+        grid_layout.addWidget(rename_card, 3, 1)
+        self.tool_cards['rename-box'] = rename_card
 
         # Agregar grid al layout principal
         # Remover el stretch temporal antes de añadir el grid
@@ -246,7 +300,7 @@ class Stage3Window(BaseStage):
             self.main_layout.takeAt(self.main_layout.count() - 1)  # Remover stretch
 
         # Añadir espaciado entre summary card y tool cards
-        self.main_layout.addSpacing(DesignSystem.SPACE_8)
+        self.main_layout.addSpacing(DesignSystem.SPACE_4)
 
         self.main_layout.addWidget(grid_container)
         self.tools_grid = grid_container
@@ -278,7 +332,7 @@ class Stage3Window(BaseStage):
         if live_photo_data and live_photo_data.live_photos_found > 0:
             size_text = f"~{format_size(live_photo_data.space_to_free)} recuperables"
             card.set_status_with_results(
-                f"{live_photo_data.live_photos_found} Live Photos detectadas",
+                f"{live_photo_data.live_photos_found} Grupos de Live Photos detectados",
                 size_text
             )
         else:
@@ -290,7 +344,7 @@ class Stage3Window(BaseStage):
     def _create_heic_card(self, heic_data) -> ToolCard:
         """Crea la card de HEIC/JPG Duplicados"""
         card = ToolCard(
-            icon_name='heic',
+            icon_name='file-image',
             title='HEIC/JPG Duplicados',
             description='iPhone guarda fotos en HEIC (eficiente) y crea versiones JPG para '
                        'compatibilidad. Elimina duplicados conservando el formato que prefieras '
@@ -357,7 +411,7 @@ class Stage3Window(BaseStage):
     def _create_organize_card(self) -> ToolCard:
         """Crea la card de Organizar Archivos"""
         card = ToolCard(
-            icon_name='organize',
+            icon_name='folder-move',
             title='Organizar Archivos',
             description='Reorganiza tu colección en carpetas por fecha, origen '
                        '(WhatsApp, Telegram...) o tipo. Previsualiza antes de mover.',
@@ -368,13 +422,13 @@ class Stage3Window(BaseStage):
         total = self.analysis_results.scan.total_files
         card.set_status_ready(f"{format_file_count(total)} archivos listos")
 
-        card.clicked.connect(lambda: self._on_tool_clicked('organize'))
+        card.clicked.connect(lambda: self._on_tool_clicked('folder-move'))
         return card
 
     def _create_rename_card(self) -> ToolCard:
         """Crea la card de Renombrar Archivos"""
         card = ToolCard(
-            icon_name='rename',
+            icon_name='rename-box',
             title='Renombrar Archivos',
             description='Renombra archivos según patrones personalizados con fechas, '
                        'secuencias o metadatos. Vista previa antes de aplicar cambios.',
@@ -385,7 +439,30 @@ class Stage3Window(BaseStage):
         total = self.analysis_results.scan.total_files
         card.set_status_ready(f"{format_file_count(total)} archivos listos")
 
-        card.clicked.connect(lambda: self._on_tool_clicked('rename'))
+        card.clicked.connect(lambda: self._on_tool_clicked('rename-box'))
+        return card
+
+    def _create_zero_byte_card(self) -> ToolCard:
+        """Crea la card de Archivos Vacíos"""
+        card = ToolCard(
+            icon_name='trash-alt',
+            title='Archivos Vacíos',
+            description='Detecta y elimina archivos de 0 bytes que no contienen información. '
+                       'Limpia tu directorio de archivos corruptos o vacíos innecesarios.',
+            action_text='Limpiar ahora'
+        )
+        
+        # Configurar estado
+        zero_byte_data = self.analysis_results.zero_byte
+        if zero_byte_data and zero_byte_data.zero_byte_files_found > 0:
+            card.set_status_with_results(
+                f"{zero_byte_data.zero_byte_files_found} archivos vacíos encontrados",
+                "0 B recuperables (limpieza)"
+            )
+        else:
+            card.set_status_no_results("No se encontraron archivos vacíos")
+            
+        card.clicked.connect(lambda: self._on_tool_clicked('zero_byte'))
         return card
 
     def _on_tool_clicked(self, tool_id: str):
@@ -429,7 +506,7 @@ class Stage3Window(BaseStage):
             self._on_similar_duplicates_clicked()
             return
 
-        elif tool_id == 'organize':
+        elif tool_id == 'folder-move':
             org_data = self.analysis_results.organization
             if not org_data:
                 # Card está deshabilitada, no debería llegar aquí
@@ -438,13 +515,19 @@ class Stage3Window(BaseStage):
             # Pasar metadata_cache para optimizar re-análisis cuando se cambia el tipo
             dialog = FileOrganizationDialog(org_data, self.main_window, self.metadata_cache)
 
-        elif tool_id == 'rename':
+        elif tool_id == 'rename-box':
             rename_data = self.analysis_results.renaming
             if not rename_data:
                 # No hay datos, no debería llegar aquí
                 return
             # Permitir abrir incluso con need_renaming=0, el usuario puede configurar patrones personalizados
             dialog = RenamingPreviewDialog(rename_data, self.main_window)
+            
+        elif tool_id == 'zero_byte':
+            zero_byte_data = self.analysis_results.zero_byte
+            if not zero_byte_data or zero_byte_data.zero_byte_files_found == 0:
+                return
+            dialog = ZeroByteDialog(zero_byte_data, self.main_window)
 
         if dialog:
             result = dialog.exec()
@@ -466,6 +549,7 @@ class Stage3Window(BaseStage):
             DuplicateDeletionWorker,
             FileOrganizerWorker,
             RenamingWorker,
+            ZeroByteDeletionWorker,
         )
         from PyQt6.QtWidgets import QProgressDialog
         from PyQt6.QtCore import Qt
@@ -477,6 +561,27 @@ class Stage3Window(BaseStage):
         plan = dialog.accepted_plan
         self.logger.info(f"Ejecutando acciones de {tool_id} con plan: {list(plan.keys()) if isinstance(plan, dict) else type(plan)}")
         
+        # === VERIFICAR CONFIRMACIÓN ADICIONAL PARA ELIMINACIÓN ===
+        # Lista de herramientas destructivas (que eliminan archivos)
+        destructive_tools = ['live_photos', 'heic', 'exact_copies', 'similar_files', 'zero_byte']
+        
+        # Solo pedir confirmación si es una operación real (no simulada)
+        is_dry_run = plan.get('dry_run', False)
+        
+        if tool_id in destructive_tools and not is_dry_run and settings_manager.get_confirm_delete():
+            reply = QMessageBox.question(
+                self.main_window,
+                "Confirmar Eliminación",
+                "Esta operación eliminará archivos de forma permanente.\n\n"
+                "¿Estás seguro de que deseas continuar?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+            
+            if reply == QMessageBox.StandardButton.No:
+                self.logger.info(f"Operación {tool_id} cancelada por el usuario en confirmación adicional")
+                return
+
         # Crear diálogo de progreso
         progress_dialog = QProgressDialog(
             "Ejecutando operación...",
@@ -510,7 +615,7 @@ class Stage3Window(BaseStage):
             worker = HEICRemovalWorker(
                 remover=remover,
                 analysis=plan.get('analysis'),
-                keep_format=plan.get('keep_format', 'jpg'),
+                keep_format=plan.get('keep_format', 'file-jpg-box'),
                 create_backup=plan.get('create_backup', True),
                 dry_run=plan.get('dry_run', False)
             )
@@ -518,28 +623,30 @@ class Stage3Window(BaseStage):
         elif tool_id == 'exact_copies':
             from services.exact_copies_detector import ExactCopiesDetector
             detector = ExactCopiesDetector()
-            # DuplicateDeletionWorker espera (detector, groups, keep_strategy, create_backup, dry_run)
+            # DuplicateDeletionWorker espera (detector, groups, keep_strategy, create_backup, dry_run, metadata_cache)
             worker = DuplicateDeletionWorker(
                 detector=detector,
                 groups=plan.get('groups', []),
                 keep_strategy=plan.get('keep_strategy', 'first'),
                 create_backup=plan.get('create_backup', True),
-                dry_run=plan.get('dry_run', False)
+                dry_run=plan.get('dry_run', False),
+                metadata_cache=self.metadata_cache
             )
         
         elif tool_id == 'similar_files':
             from services.similar_files_detector import SimilarFilesDetector
             detector = SimilarFilesDetector()
-            # DuplicateDeletionWorker espera (detector, groups, keep_strategy, create_backup, dry_run)
+            # DuplicateDeletionWorker espera (detector, groups, keep_strategy, create_backup, dry_run, metadata_cache)
             worker = DuplicateDeletionWorker(
                 detector=detector,
                 groups=plan.get('groups', []),
                 keep_strategy=plan.get('keep_strategy', 'manual'),
                 create_backup=plan.get('create_backup', True),
-                dry_run=plan.get('dry_run', False)
+                dry_run=plan.get('dry_run', False),
+                metadata_cache=self.metadata_cache
             )
         
-        elif tool_id == 'organize':
+        elif tool_id == 'folder-move':
             from services.file_organizer_service import FileOrganizer
             organizer = FileOrganizer()
             # FileOrganizerWorker espera (organizer, analysis: dataclass, cleanup_empty_dirs, create_backup, dry_run)
@@ -551,7 +658,7 @@ class Stage3Window(BaseStage):
                 dry_run=plan.get('dry_run', False)
             )
         
-        elif tool_id == 'rename':
+        elif tool_id == 'rename-box':
             from services.file_renamer_service import FileRenamer
             renamer = FileRenamer()
             # RenamingWorker espera (renamer, analysis: dataclass, create_backup, dry_run)
@@ -561,32 +668,91 @@ class Stage3Window(BaseStage):
                 create_backup=plan.get('create_backup', True),
                 dry_run=plan.get('dry_run', False)
             )
+
+        elif tool_id == 'zero_byte':
+            from services.zero_byte_service import ZeroByteService
+            service = ZeroByteService()
+            # ZeroByteDeletionWorker espera (service, files, create_backup, dry_run)
+            worker = ZeroByteDeletionWorker(
+                service=service,
+                files=plan.get('files_to_delete', []),
+                create_backup=plan.get('create_backup', True),
+                dry_run=plan.get('dry_run', False)
+            )
         
         if not worker:
             self.logger.error(f"No se pudo crear worker para {tool_id}")
             return
         
+        # Variable para controlar si ya se canceló
+        is_cancelled = False
+        
         # Conectar señales del worker
         def on_progress(current, total, message):
+            # Ignorar actualizaciones si ya se canceló
+            if is_cancelled:
+                return
             if total > 0:
                 progress_dialog.setValue(int((current / total) * 100))
             progress_dialog.setLabelText(message)
         
         def on_finished(result):
+            # Ignorar si ya se canceló
+            if is_cancelled:
+                return
+            
             progress_dialog.close()
             self.logger.info(f"Operación {tool_id} completada: {result}")
             
             # Mostrar resultado
             if result and hasattr(result, 'success') and result.success:
+                # Build success message
+                msg_content = result.message if (hasattr(result, 'message') and result.message) else ""
+                message = f"La operación se completó exitosamente.\n\n{msg_content}"
+                
+                # Add errors warning if any
+                if hasattr(result, 'errors') and result.errors:
+                    message += f"\n\nAdvertencia: Se encontraron {len(result.errors)} errores durante la operación."
+                
+                # First show success message
                 QMessageBox.information(
                     self.main_window,
                     "Operación Completada",
-                    f"La operación se completó exitosamente.\n\n{result.message if hasattr(result, 'message') else ''}"
+                    message
                 )
                 
-                # Lanzar re-análisis automático tras operación exitosa
-                log_section_header_discrete(self.logger, f"Lanzando re-análisis automático tras completar {tool_id}")
-                QTimer.singleShot(500, self._on_reanalyze)
+                # Only ask for re-analysis if operation was NOT simulated
+                # Simulated operations (dry_run=True) don't modify files, so re-analysis is unnecessary
+                was_simulation = plan.get('dry_run', False)
+                
+                if not was_simulation:
+                    # Then ask user about re-analysis
+                    reply = QMessageBox.question(
+                        self.main_window,
+                        "Re-analizar carpeta",
+                        "¿Deseas re-analizar la carpeta para actualizar las estadísticas?\n\n"
+                        "Nota: El re-análisis puede tardar varios minutos con datasets grandes. "
+                        "Si omites este paso, las estadísticas mostradas pueden no reflejar los cambios realizados.",
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                        QMessageBox.StandardButton.Yes  # Default to Yes
+                    )
+                    
+                    if reply == QMessageBox.StandardButton.Yes:
+                        # Re-analyze as before
+                        log_section_header_discrete(self.logger, f"Re-análisis solicitado por usuario tras completar {tool_id}")
+                        QTimer.singleShot(500, self._on_reanalyze)
+                    else:
+                        # User chose to skip re-analysis
+                        self.logger.info("Usuario omitió re-análisis, las estadísticas pueden estar desactualizadas")
+                        # Mostrar banner de advertencia
+                        if self.stale_banner:
+                            self.stale_banner.show()
+                            # Asegurar que el banner sea visible (scroll to top if needed)
+                            if hasattr(self.main_window, 'scroll_area'):
+                                self.main_window.scroll_area.ensureWidgetVisible(self.stale_banner)
+                else:
+                    # Operation was simulated, no need to re-analyze
+                    self.logger.info("Operación simulada completada, no se requiere re-análisis")
             else:
                 error_msg = result.message if (result and hasattr(result, 'message')) else "Operación fallida"
                 QMessageBox.warning(
@@ -598,6 +764,10 @@ class Stage3Window(BaseStage):
             worker.deleteLater()
         
         def on_error(error_message):
+            # Ignorar si ya se canceló
+            if is_cancelled:
+                return
+            
             progress_dialog.close()
             self.logger.error(f"Error en operación {tool_id}: {error_message}")
             QMessageBox.critical(
@@ -607,12 +777,65 @@ class Stage3Window(BaseStage):
             )
             worker.deleteLater()
         
+        def on_cancel():
+            """Maneja la cancelación del diálogo de progreso"""
+            nonlocal is_cancelled
+            is_cancelled = True
+            
+            # Solicitar al worker que se detenga
+            try:
+                worker.stop()
+            except RuntimeError:
+                # Worker ya fue eliminado, cerrar el diálogo directamente
+                progress_dialog.close()
+                self.logger.info(f"Operación {tool_id} ya finalizada al momento de cancelar")
+                return
+            
+            # Actualizar el mensaje del diálogo mientras esperamos
+            progress_dialog.setLabelText("Cancelando operación, por favor espera...")
+            progress_dialog.setCancelButton(None)  # Deshabilitar el botón de cancelar
+            
+            # Desconectar señales de procesamiento pero mantener finished para limpieza
+            try:
+                worker.progress_update.disconnect(on_progress)
+            except (RuntimeError, TypeError):
+                # Worker eliminado o señal ya desconectada
+                pass
+            
+            # Conectar un handler simplificado para finished que solo limpia
+            def on_cancelled_cleanup():
+                progress_dialog.close()
+                try:
+                    worker.deleteLater()
+                except RuntimeError:
+                    pass  # Ya fue eliminado
+                self.logger.info(f"Operación {tool_id} cancelada y limpiada correctamente")
+            
+            # Desconectar handlers anteriores y conectar el de limpieza
+            try:
+                worker.finished.disconnect(on_finished)
+                worker.error.disconnect(on_error)
+            except (RuntimeError, TypeError):
+                # Worker eliminado o señales ya desconectadas
+                pass
+            
+            # Intentar reconectar solo si el worker todavía existe
+            try:
+                worker.finished.connect(on_cancelled_cleanup)
+                worker.error.connect(on_cancelled_cleanup)
+            except RuntimeError:
+                # Worker ya fue eliminado, limpiar directamente
+                on_cancelled_cleanup()
+                return
+            
+            self.logger.info(f"Operación {tool_id} - Cancelación solicitada por el usuario")
+        
         worker.progress_update.connect(on_progress)
         worker.finished.connect(on_finished)
         worker.error.connect(on_error)
         
-        # Conectar cancelación
-        progress_dialog.canceled.connect(worker.stop)
+        # Conectar cancelación con handler explícito
+        progress_dialog.canceled.connect(on_cancel)
         
         # Iniciar worker
         worker.start()
@@ -637,6 +860,11 @@ class Stage3Window(BaseStage):
         self.logger.info("Reanalizando carpeta")
 
         # Limpiar widgets del ESTADO 3
+        if self.stale_banner:
+            self.stale_banner.hide()
+            self.stale_banner.setParent(None)
+            self.stale_banner = None
+
         if self.summary_card:
             self.summary_card.hide()
             self.summary_card.setParent(None)
@@ -674,7 +902,13 @@ class Stage3Window(BaseStage):
         """Maneja el clic en el botón de configuración"""
         self.logger.debug("Abriendo diálogo de configuración")
         dialog = SettingsDialog(self.main_window)
+        dialog.settings_saved.connect(self._on_settings_saved)
         dialog.exec()
+        
+    def _on_settings_saved(self):
+        """Maneja cambios en la configuración"""
+        if self.summary_card:
+            self.summary_card.update_path_display()
 
     def _on_about_clicked(self):
         """Maneja el clic en el botón 'Acerca de'"""

@@ -284,6 +284,68 @@ def select_chosen_date(all_dates: dict) -> tuple[Optional[datetime], Optional[st
     return None, None
 
 
+def _normalize_date_source(source: str) -> str:
+    """
+    Normaliza el nombre de la fuente de fecha al formato de caché.
+    
+    Convierte los nombres descriptivos de select_chosen_date() al formato
+    compacto usado en metadata_cache.
+    
+    Args:
+        source: Nombre de fuente de select_chosen_date() 
+                (ej: 'EXIF DateTimeOriginal (+02:00)', 'Filename', 'mtime')
+    
+    Returns:
+        Nombre normalizado para caché:
+        - 'exif_datetime_original_tz': DateTimeOriginal con timezone
+        - 'exif_datetime_original': DateTimeOriginal sin timezone
+        - 'exif_create_date': CreateDate
+        - 'exif_datetime_digitized': DateTimeDigitized
+        - 'filename': Extraída del nombre de archivo
+        - 'video': Metadata de video  
+        - 'mtime': Modification time
+        - 'ctime': Creation time
+        - 'other': Cualquier otra fuente
+    """
+    if not source:
+        return 'unknown'
+    
+    source_lower = source.lower()
+    
+    # EXIF DateTimeOriginal con timezone
+    if 'datetimeoriginal' in source_lower and '(' in source:
+        return 'exif_datetime_original_tz'
+    
+    # EXIF DateTimeOriginal sin timezone
+    if 'datetimeoriginal' in source_lower:
+        return 'exif_datetime_original'
+    
+    # EXIF CreateDate
+    if 'createdate' in source_lower:
+        return 'exif_create_date'
+    
+    # EXIF DateTimeDigitized
+    if 'datetimedigitized' in source_lower or 'digitized' in source_lower:
+        return 'exif_datetime_digitized'
+    
+    # Filename
+    if 'filename' in source_lower:
+        return 'filename'
+    
+    # Video metadata
+    if 'video' in source_lower:
+        return 'video'
+    
+    # Filesystem timestamps
+    if source_lower == 'mtime':
+        return 'mtime'
+    if source_lower in ['ctime', 'creation', 'birthtime']:
+        return 'ctime'
+    
+    # Otras fuentes desconocidas
+    return 'other'
+
+
 def _validate_gps_coherence(all_dates: dict, selected_date: datetime) -> None:
     """
     Valida coherencia entre GPS DateStamp y DateTimeOriginal.
@@ -317,14 +379,16 @@ def _validate_gps_coherence(all_dates: dict, selected_date: datetime) -> None:
             f"Posible problema de zona horaria o GPS incorrecto."
         )
 
-def get_date_from_file(file_path: Path, verbose: bool = False) -> Optional[datetime]:
+def get_date_from_file(file_path: Path, verbose: bool = False, metadata_cache=None) -> Optional[datetime]:
     """
     Extrae la fecha más representativa de un archivo mediante análisis de múltiples fuentes.
     
     Esta función es un wrapper conveniente que:
-    1. Recopila todas las fechas disponibles (EXIF y sistema de archivos)
-    2. Delega la lógica de priorización a select_chosen_date()
-    3. Opcionalmente registra información detallada del proceso
+    1. Intenta obtener la fecha desde metadata_cache si está disponible
+    2. Si no está cacheada, recopila todas las fechas disponibles (EXIF y sistema de archivos)
+    3. Delega la lógica de priorización a select_chosen_date()
+    4. Cachea el resultado en metadata_cache para reutilización futura
+    5. Opcionalmente registra información detallada del proceso
     
     La lógica de priorización está implementada en select_chosen_date() y prioriza
     los metadatos EXIF sobre las fechas del sistema de archivos.
@@ -332,6 +396,7 @@ def get_date_from_file(file_path: Path, verbose: bool = False) -> Optional[datet
     Args:
         file_path: Ruta al archivo a analizar
         verbose: Si True, muestra análisis detallado en modo INFO. Si False, solo en DEBUG
+        metadata_cache: Instancia opcional de FileMetadataCache para reutilizar fechas calculadas
 
     Returns:
         datetime: Fecha seleccionada según la lógica de priorización
@@ -342,7 +407,14 @@ def get_date_from_file(file_path: Path, verbose: bool = False) -> Optional[datet
         get_all_file_dates(): Extracción de todas las fechas disponibles
     """
     try:
-        # OPTIMIZACIÓN: Usar versión cacheada para evitar lecturas EXIF repetidas
+        # OPTIMIZACIÓN 1: Intentar obtener de metadata_cache primero
+        if metadata_cache:
+            cached_date, cached_source = metadata_cache.get_selected_date(file_path)
+            if cached_date is not None:
+                _logger.debug(f"✓ Fecha obtenida de caché: {file_path.name} = {cached_source}")
+                return cached_date
+        
+        # OPTIMIZACIÓN 2: Usar versión cacheada para evitar lecturas EXIF repetidas
         # La clave incluye mtime para invalidar caché si el archivo se modifica
         mtime = file_path.stat().st_mtime
         all_dates = _get_all_file_dates_cached(str(file_path), mtime)
@@ -350,7 +422,13 @@ def get_date_from_file(file_path: Path, verbose: bool = False) -> Optional[datet
         # Seleccionar la fecha más antigua según prioridad
         selected_date, selected_source = select_chosen_date(all_dates)
         
-        # OPTIMIZACIÓN: Solo formatear strings si realmente se va a loguear
+        # OPTIMIZACIÓN 3: Cachear resultado en metadata_cache para futuros usos
+        if metadata_cache and selected_date:
+            # Normalizar el nombre de la fuente al formato de caché
+            normalized_source = _normalize_date_source(selected_source)
+            metadata_cache.set_selected_date(file_path, selected_date, normalized_source)
+        
+        # OPTIMIZACIÓN 4: Solo formatear strings si realmente se va a loguear
         # Esto evita overhead de formateo cuando logging está en INFO/WARNING
         if verbose or _logger.isEnabledFor(logging.DEBUG):
             if selected_date:
@@ -750,8 +828,8 @@ def get_video_metadata_date(file_path: Path) -> Optional[datetime]:
         metadata = json.loads(result.stdout)
         
         # Extraer creation_time
-        if 'format' in metadata and 'tags' in metadata['format']:
-            creation_time = metadata['format']['tags'].get('creation_time')
+        if 'format-text' in metadata and 'tags' in metadata['format-text']:
+            creation_time = metadata['format-text']['tags'].get('creation_time')
             
             if creation_time:
                 try:

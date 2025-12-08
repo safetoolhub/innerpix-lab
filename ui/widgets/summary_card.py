@@ -5,7 +5,10 @@ from PyQt6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel, QPushButto
 from PyQt6.QtCore import Qt, pyqtSignal
 
 from ui.styles.design_system import DesignSystem
+from ui.styles.design_system import DesignSystem
 from utils.icons import icon_manager
+from utils.settings_manager import settings_manager
+from pathlib import Path
 
 
 class SummaryCard(QFrame):
@@ -38,17 +41,18 @@ class SummaryCard(QFrame):
                 background-color: {DesignSystem.COLOR_SURFACE};
                 border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
                 border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: {DesignSystem.SPACE_16}px;
+                padding: {DesignSystem.SPACE_12}px;
             }}
         """)
         
         layout = QVBoxLayout(self)
-        layout.setSpacing(DesignSystem.SPACE_8)
+        layout.setSpacing(DesignSystem.SPACE_6)
         
-        # Header: Icono + Título + Botón "Cambiar..."
+        # Header unificado: Icono + "Carpeta:" + Ruta + Botón "Cambiar"
         header_layout = QHBoxLayout()
-        header_layout.setSpacing(DesignSystem.SPACE_6)
+        header_layout.setSpacing(DesignSystem.SPACE_8)
         
+        # 1. Icono
         header_icon = QLabel()
         icon_manager.set_label_icon(
             header_icon,
@@ -58,17 +62,33 @@ class SummaryCard(QFrame):
         )
         header_layout.addWidget(header_icon)
         
-        header_text = QLabel("Carpeta analizada")
+        # 2. Etiqueta "Carpeta:"
+        header_text = QLabel("Carpeta:")
         header_text.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_BASE}px;
             font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-            color: {DesignSystem.COLOR_TEXT};
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
         """)
         header_layout.addWidget(header_text)
+        
+        # 3. Ruta del directorio (mono)
+        self.path_label = QLabel(self.directory_path)
+        self.path_label.setProperty("class", "mono")
+        self.path_label.setToolTip(self.directory_path)
+        # Estilo específico para que se vea bien en línea
+        self.path_label.setStyleSheet(f"""
+            font-family: {DesignSystem.FONT_FAMILY_MONO};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_TEXT};
+            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+        """)
+        header_layout.addWidget(self.path_label)
+        
+        # 4. Espaciador
         header_layout.addStretch()
         
-        # Botón "Cambiar..."
-        btn_change = QPushButton("Cambiar...")
+        # 5. Botón "Cambiar"
+        btn_change = QPushButton("Cambiar")
         btn_change.setProperty("class", "secondary-small")
         btn_change.setToolTip("Seleccionar otra carpeta")
         btn_change.clicked.connect(self._on_change_clicked)
@@ -76,51 +96,45 @@ class SummaryCard(QFrame):
         
         layout.addLayout(header_layout)
         
-        # Ruta del directorio (mono)
-        self.path_label = QLabel(self.directory_path)
-        self.path_label.setProperty("class", "mono")
-        self.path_label.setWordWrap(True)
-        self.path_label.setToolTip(self.directory_path)
-        layout.addWidget(self.path_label)
+        # Actualizar visualización según configuración
+        self.update_path_display()
         
-        # Línea única: Análisis completado + Espacio optimizable + Botón Reanalizar
+        # Línea única: Estadísticas + Espacio optimizable + Botón Reanalizar
         info_layout = QHBoxLayout()
-        info_layout.setSpacing(DesignSystem.SPACE_6)
+        info_layout.setSpacing(DesignSystem.SPACE_8)
         
-        # Icono check
-        check_icon = QLabel()
+        # 0. Icono estadísticas
+        stats_icon = QLabel()
         icon_manager.set_label_icon(
-            check_icon,
-            'check-circle',
-            color=DesignSystem.COLOR_SUCCESS,
+            stats_icon,
+            'chart-bar',
+            color=DesignSystem.COLOR_TEXT_SECONDARY,
             size=16
         )
-        info_layout.addWidget(check_icon)
+        info_layout.addWidget(stats_icon)
         
-        # Estadísticas del análisis
-        self.stats_label = QLabel("Análisis completado")
+        # 1. Estadísticas (Archivos y Tamaño)
+        self.stats_label = QLabel("Calculando...")
         self.stats_label.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_BASE}px;
             color: {DesignSystem.COLOR_TEXT};
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
         """)
         info_layout.addWidget(self.stats_label)
         
+        # 2. Separador vertical
+        separator = QFrame()
+        separator.setFrameShape(QFrame.Shape.VLine)
+        separator.setStyleSheet(f"background-color: {DesignSystem.COLOR_BORDER}; margin: 4px 0;")
+        separator.setFixedWidth(1)
+        info_layout.addWidget(separator)
         
-        # Icono disco
-        disk_icon = QLabel()
-        icon_manager.set_label_icon(
-            disk_icon,
-            'disk',
-            color=DesignSystem.COLOR_TEXT,
-            size=16
-        )
-        info_layout.addWidget(disk_icon)
-        
-        # Espacio optimizable
-        self.space_label = QLabel("Espacio optimizable: calculando...")
+        # 3. Espacio optimizable (con color primario para destacar)
+        self.space_label = QLabel("Espacio optimizable: ...")
         self.space_label.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            color: {DesignSystem.COLOR_TEXT};
+            color: {DesignSystem.COLOR_PRIMARY};
+            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
         """)
         info_layout.addWidget(self.space_label)
         
@@ -156,7 +170,7 @@ class SummaryCard(QFrame):
         # Formatear estadísticas
         from utils.format_utils import format_file_count, format_size
         
-        stats_text = f"Análisis completado • {format_file_count(total_files)} archivos"
+        stats_text = f"{format_file_count(total_files)} archivos"
         if total_size > 0:
             stats_text += f" • {format_size(total_size)}"
         
@@ -190,3 +204,14 @@ class SummaryCard(QFrame):
     def _on_reanalyze_clicked(self):
         """Maneja el clic en "Reanalizar" """
         self.reanalyze_requested.emit()
+
+    def update_path_display(self):
+        """Actualiza la visualización de la ruta según la configuración"""
+        show_full = settings_manager.get_show_full_path()
+        
+        if show_full:
+            self.path_label.setText(self.directory_path)
+        else:
+            # Mostrar solo el nombre de la carpeta
+            folder_name = Path(self.directory_path).name
+            self.path_label.setText(folder_name)

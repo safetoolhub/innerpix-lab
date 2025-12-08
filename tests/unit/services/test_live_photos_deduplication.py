@@ -77,13 +77,12 @@ class TestLivePhotoDuplicateHandling:
         # Ejecutar limpieza
         result = service.execute(analysis, create_backup=False, dry_run=False)
         
-        # Debe completarse sin crash (aunque con error reportado)
-        # success es False porque hubo un error (archivo no encontrado)
-        assert result.success == False
+        # Con el nuevo manejo robusto, esto completa exitosamente
+        # (el archivo faltante solo genera WARNING, no error)
+        assert result.success == True
         
-        # Debe reportar el archivo como no encontrado
-        assert len(result.errors) == 1
-        assert "no encontrado" in result.errors[0].lower()
+        # No debe haber errores reportados
+        assert len(result.errors) == 0
         
         # files_deleted debe ser 0 (porque el archivo ya no existía)
         assert result.files_deleted == 0

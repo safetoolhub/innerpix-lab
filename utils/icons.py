@@ -42,21 +42,21 @@ class IconManager:
     # Diccionario de mapeo: nombre lógico → nombre de icono Material Design en QtAwesome
     ICON_MAP = {
         # Top Bar - Acciones principales
-        'settings': 'mdi6.cog',
-        'info': 'mdi6.information',
+        'cog': 'mdi6.cog',
+        'information': 'mdi6.information',
         'information-outline': 'mdi6.information-outline',
         
         # Estados y notificaciones
-        'warning': 'mdi6.alert',
-        'error': 'mdi6.alert-circle',
+        'alert': 'mdi6.alert',
+        'alert-circle': 'mdi6.alert-circle',
         'check': 'mdi6.check',
         'check-circle': 'mdi6.check-circle',
         'checkbox-marked': 'mdi6.checkbox-marked',
         'checkbox-marked-circle': 'mdi6.checkbox-marked-circle',
-        'security': 'mdi6.shield',
+        'shield': 'mdi6.shield',
         'shield-check': 'mdi6.shield-check',
         'close': 'mdi6.close',
-        'cancel': 'mdi6.close-circle',
+        'close-circle': 'mdi6.close-circle',
         'pause-circle': 'mdi6.pause-circle',
         'plus-circle': 'mdi6.plus-circle',
         
@@ -64,17 +64,18 @@ class IconManager:
         'folder': 'mdi6.folder',
         'folder-open': 'mdi6.folder-open',
         'folder-outline': 'mdi6.folder-outline',
-        'folder-settings': 'mdi6.folder-cog',
+        'folder-cog': 'mdi6.folder-cog',
         'folder-remove': 'mdi6.folder-remove',
         'folder-multiple': 'mdi6.folder-multiple',
         'file': 'mdi6.file',
-        'file-text': 'mdi6.file-document-outline',
-        'open-in-app': 'mdi6.open-in-new',
+        'file-document-outline': 'mdi6.file-document-outline',
+        'open-in-new': 'mdi6.open-in-new',
         'magnify': 'mdi6.magnify',
         'refresh': 'mdi6.refresh',
         'download': 'mdi6.download',
         'delete': 'mdi6.delete',
         'delete-sweep': 'mdi6.delete-sweep',
+        'trash-alt': 'fa5s.trash-alt',
         'content-save': 'mdi6.content-save',
         'backup-restore': 'mdi6.backup-restore',
         'history': 'mdi6.history',
@@ -87,7 +88,6 @@ class IconManager:
         'ruler': 'mdi6.ruler',
         'update': 'mdi6.update',
         'map-marker': 'mdi6.map-marker',
-        'location': 'mdi6.map-marker',
         'arrow-expand': 'mdi6.arrow-expand',
         'arrow-collapse': 'mdi6.arrow-collapse',
         
@@ -96,42 +96,41 @@ class IconManager:
         'image-multiple': 'mdi6.image-multiple',
         'camera': 'mdi6.camera',
         'video': 'mdi6.video',
-        'film': 'mdi6.movie',
-        'photo': 'mdi6.image-outline',
-        'photo-library': 'mdi6.image-album',
+        'movie': 'mdi6.movie',
+        'image-outline': 'mdi6.image-outline',
+        'image-album': 'mdi6.image-album',
         
         # Live Photos y duplicados
         'camera-burst': 'mdi6.camera-burst',
         'content-duplicate': 'mdi6.content-duplicate',
         'content-copy': 'mdi6.content-copy',
-        'duplicate-exact': 'mdi6.equal',
+        'equal': 'mdi6.equal',
         'image-search': 'mdi6.image-search',
         'eye': 'mdi6.eye',
         
         # Organización
-        'organize': 'mdi6.folder-move',
-        'move': 'mdi6.folder-arrow-right',
+        'folder-move': 'mdi6.folder-move',
+        'folder-arrow-right': 'mdi6.folder-arrow-right',
         'sort': 'mdi6.sort',
         
         # Renombrado
-        'rename': 'mdi6.rename-box',
-        'rename-outline': 'mdi6.rename-box-outline',
-        'edit': 'mdi6.pencil',
-        'format': 'mdi6.format-text',
+        'rename-box': 'mdi6.rename-box',
+        'rename-box-outline': 'mdi6.rename-box-outline',
+        'pencil': 'mdi6.pencil',
+        'format-text': 'mdi6.format-text',
         
         # HEIC
-        'heic': 'mdi6.file-image',
-        'jpg': 'mdi6.file-jpg-box',
-        'format-image': 'mdi6.image-filter-hdr',
+        'file-image': 'mdi6.file-image',
+        'file-jpg-box': 'mdi6.file-jpg-box',
+        'image-filter-hdr': 'mdi6.image-filter-hdr',
         
         # Progreso y loading
         'loading': 'mdi6.loading',
         'progress-clock': 'mdi6.progress-clock',
-        'hourglass': 'mdi6.timer-sand',
+        'timer-sand': 'mdi6.timer-sand',
         
         # Opciones y configuración
-        'config': 'mdi6.cog-outline',
-        'settings-outline': 'mdi6.cog-outline',
+        'cog-outline': 'mdi6.cog-outline',
         'tune': 'mdi6.tune',
         'filter-variant': 'mdi6.filter-variant',
         'auto-fix': 'mdi6.auto-fix',
@@ -147,38 +146,37 @@ class IconManager:
         
         # Directorio y navegación
         'home': 'mdi6.home',
-        'up': 'mdi6.arrow-up',
-        'down': 'mdi6.arrow-down',
-        'left': 'mdi6.arrow-left',
-        'right': 'mdi6.arrow-right',
+        'arrow-up': 'mdi6.arrow-up',
+        'arrow-down': 'mdi6.arrow-down',
+        'arrow-left': 'mdi6.arrow-left',
+        'arrow-right': 'mdi6.arrow-right',
         'chevron-left': 'mdi6.chevron-left',
         'chevron-right': 'mdi6.chevron-right',
         'chevron-down': 'mdi6.chevron-down',
         
         # Aplicación
-        'app': 'mdi6.movie-open',
-        'logo': 'mdi6.movie-open',
+        'movie-open': 'mdi6.movie-open',
         
         # Dispositivos
-        'mobile': 'mdi6.cellphone',
-        'speed': 'mdi6.speedometer',
-        'calendar_month': 'mdi6.calendar-month',
-        'calendar_today': 'mdi6.calendar-today',
-        'date_range': 'mdi6.calendar-range',
+        'cellphone': 'mdi6.cellphone',
+        'speedometer': 'mdi6.speedometer',
+        'calendar-month': 'mdi6.calendar-month',
+        'calendar-today': 'mdi6.calendar-today',
+        'calendar-range': 'mdi6.calendar-range',
         'devices': 'mdi6.devices',
         
         # Ayuda e información
-        'help': 'mdi6.help-circle',
-        'lightbulb': 'mdi6.lightbulb-on',
-        'tooltip': 'mdi6.tooltip-text',
+        'help-circle': 'mdi6.help-circle',
+        'lightbulb-on': 'mdi6.lightbulb-on',
+        'tooltip-text': 'mdi6.tooltip-text',
         
         # Targets y objetivos
         'target': 'mdi6.target',
         'bullseye': 'mdi6.bullseye',
         
         # Discos y almacenamiento
-        'disk': 'mdi6.harddisk',
-        'storage': 'mdi6.database',
+        'harddisk': 'mdi6.harddisk',
+        'database': 'mdi6.database',
     }
     
     def __init__(self):
@@ -370,7 +368,7 @@ class IconManager:
             color: Color por defecto para los iconos precargados
         """
         common_icons = [
-            'settings', 'info', 'warning', 'error', 'check-circle',
+            'cog', 'information', 'alert', 'alert-circle', 'check-circle',
             'folder', 'file', 'magnify', 'refresh', 'delete',
             'image', 'video', 'camera', 'check', 'close', 'plus-circle'
         ]
@@ -385,59 +383,3 @@ class IconManager:
 
 # Instancia global del gestor de iconos
 icon_manager = IconManager()
-
-
-# ============================================================================
-# Funciones de conveniencia para uso rápido
-# ============================================================================
-
-def get_icon(name: str, color: Optional[str] = None, size: Optional[int] = None) -> QIcon:
-    """Función de conveniencia para obtener un icono directamente.
-    
-    Args:
-        name: Nombre lógico del icono
-        color: Color del icono en formato hex
-        size: Tamaño del icono en píxeles
-    
-    Returns:
-        QIcon con el icono solicitado
-    """
-    return icon_manager.get_icon(name, color=color, size=size)
-
-
-def set_button_icon(button: QPushButton, icon_name: str, color: Optional[str] = None, size: int = 16) -> None:
-    """Función de conveniencia para aplicar icono a un botón.
-    
-    Args:
-        button: QPushButton al que aplicar el icono
-        icon_name: Nombre lógico del icono
-        color: Color del icono
-        size: Tamaño del icono
-    """
-    icon_manager.set_button_icon(button, icon_name, color=color, size=size)
-
-
-def set_label_icon(label: QLabel, icon_name: str, color: Optional[str] = None, size: int = 16) -> None:
-    """Función de conveniencia para aplicar icono a un label.
-    
-    Args:
-        label: QLabel al que aplicar el icono
-        icon_name: Nombre lógico del icono
-        color: Color del icono
-        size: Tamaño del icono
-    """
-    icon_manager.set_label_icon(label, icon_name, color=color, size=size)
-
-
-def create_icon_label(icon_name: str, color: Optional[str] = None, size: int = 16) -> QLabel:
-    """Función de conveniencia para crear un label con icono.
-    
-    Args:
-        icon_name: Nombre lógico del icono
-        color: Color del icono
-        size: Tamaño del icono
-    
-    Returns:
-        QLabel con el icono configurado
-    """
-    return icon_manager.create_icon_label(icon_name, color=color, size=size)

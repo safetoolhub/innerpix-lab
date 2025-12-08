@@ -64,7 +64,7 @@ class AnalysisPhaseWidget(QFrame):
         layout.addLayout(header_layout)
         layout.addSpacing(DesignSystem.SPACE_2)  # Separador más pequeño después del header
         
-        # Fases del análisis (8 fases totales)
+        # Fases del análisis (9 fases totales)
         phases = [
             ("scan", "Escaneando archivos..."),
             ("renaming", "Analizando nombres de archivos..."),
@@ -72,7 +72,9 @@ class AnalysisPhaseWidget(QFrame):
             ("heic", "Buscando duplicados HEIC/JPG..."),
             ("duplicates", "Identificando copias exactas..."),
             ("duplicates_similar", "Identificando archivos similares..."),
+            ("zero_byte", "Buscando archivos vacíos..."),
             ("organization", "Analizando estructura de carpetas..."),
+            ("calculating_size", "Calculando tamaño del directorio..."),
             ("finalizing", "Finalizando análisis...")
         ]
         
@@ -140,7 +142,7 @@ class AnalysisPhaseWidget(QFrame):
         
         Args:
             phase_id: ID de la fase
-            status: 'pending', 'running', 'completed', 'error', 'skipped'
+            status: 'pending', 'running', 'completed', 'alert-circle', 'skipped'
         """
         if phase_id not in self.phase_icons:
             return
@@ -197,10 +199,10 @@ class AnalysisPhaseWidget(QFrame):
             """)
             counter_label.show()
         
-        elif status == 'error':
+        elif status == 'alert-circle':
             icon_manager.set_label_icon(
                 icon_label,
-                'error',  # Usar 'error' que mapea a 'mdi6.alert-circle'
+                'alert-circle',  # Usar 'alert-circle' que mapea a 'mdi6.alert-circle'
                 color=DesignSystem.COLOR_ERROR,
                 size=12
             )
@@ -215,7 +217,7 @@ class AnalysisPhaseWidget(QFrame):
         elif status == 'skipped':
             icon_manager.set_label_icon(
                 icon_label,
-                'cancel',
+                'close-circle',
                 color=DesignSystem.COLOR_TEXT_SECONDARY,
                 size=12
             )
@@ -226,7 +228,7 @@ class AnalysisPhaseWidget(QFrame):
                 line-height: 1.0;
             """)
             # Mostrar "No realizado" en el contador
-            counter_label.setText("(No realizado)")
+            counter_label.setText("(se realizará más adelante)")
             counter_label.setStyleSheet(f"""
                 font-size: {DesignSystem.FONT_SIZE_SM}px;
                 color: {DesignSystem.COLOR_TEXT_SECONDARY};
@@ -277,3 +279,17 @@ class AnalysisPhaseWidget(QFrame):
             line-height: 1.0;
             font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
         """)
+    
+    def update_phase_text(self, phase_id: str, text: str):
+        """
+        Actualiza el texto descriptivo de una fase (temporalmente)
+        
+        Args:
+            phase_id: ID de la fase
+            text: Nuevo texto a mostrar
+        """
+        if phase_id not in self.phase_labels:
+            return
+        
+        text_label = self.phase_labels[phase_id]
+        text_label.setText(text)

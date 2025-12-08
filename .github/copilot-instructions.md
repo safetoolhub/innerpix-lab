@@ -50,9 +50,10 @@ See `PROJECT_TREE.md` for structure. Ignore `docs/` (author's notes).
 - Utils: `dialog_utils.py` (`open_file`, `open_folder`, `show_file_details_dialog`)
 
 **Design Rules**
-- ALL styling via `DesignSystem` class only
-- NO inline styles, ad-hoc QSS, or emojis
+- ALL styling via `DesignSystem` class only.
+- No inline styles, ad-hoc QSS, or emojis
 - Ask before adding/modifying styles
+- Remember that CSS is not available fully, it has to be compatible with qt
 
 ### Critical Patterns
 
@@ -63,17 +64,22 @@ See `PROJECT_TREE.md` for structure. Ignore `docs/` (author's notes).
 - `Config.APP_NAME`, `Config.is_supported_file()`, etc.
 
 **Logging** (`utils/logger.py`)
-- Init: `configure_logging(logs_dir, level="INFO")`
+- Init: `configure_logging(logs_dir, level="INFO", dual_log_enabled=True)`
 - Use: `get_logger('Module')` not print()
 - Thread-safe with RLock
+- Dual logging: Creates 2 files when level=INFO/DEBUG and enabled:
+  - Main log: All messages with level suffix (e.g., `pixaro_lab_20251204_220143_INFO.log`)
+  - Warnings log: Only WARNING/ERROR (e.g., `pixaro_lab_20251204_220143_WARNERROR.log`)
 - File deletion logs: Unified format `FILE_DELETED: <path> | Size: <size> | Type: <type> | Date: <date>`
 - Simulation logs: `FILE_DELETED_SIMULATION:` prefix for dry-run operations
 - Grep-friendly: `grep "FILE_DELETED:" logs/*.log` finds all deletions across tools
+- Runtime control: `set_dual_log_enabled(bool)` to enable/disable on the fly
 
 **Storage** (`utils/storage.py`)
 - `JsonStorageBackend`: file-based, no PyQt6
 - `QSettingsBackend`: native OS storage
 - `SettingsManager` auto-detects
+- Settings keys include: `KEY_DUAL_LOG_ENABLED` for dual logging preference
 
 **Platform** (`utils/platform_utils.py`)
 - `open_file_with_default_app`, `open_folder_in_explorer`
@@ -128,10 +134,8 @@ See `PROJECT_TREE.md` for structure. Ignore `docs/` (author's notes).
 
 ### Testing
 
-- Focus: services/utils, not UI
 - Use fixtures: `temp_dir`, `create_test_image`, etc.
 - Markers: `@pytest.mark.unit`, `@pytest.mark.slow`
-- Coverage: services 80%+, utils 90%+
 - Structure: Arrange-Act-Assert
 
 **Test Structure**:

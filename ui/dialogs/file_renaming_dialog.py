@@ -70,7 +70,7 @@ class RenamingPreviewDialog(BaseDialog):
         
         # Header compacto integrado con métricas inline
         header = self._create_compact_header_with_metrics(
-            icon_name='rename-outline',
+            icon_name='rename-box-outline',
             title='Renombrado de archivos',
             description='Los archivos se renombrarán al formato YYYY-MM-DD_HH-MM-SS según fecha de creación.',
             metrics=[

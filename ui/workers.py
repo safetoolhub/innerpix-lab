@@ -63,6 +63,8 @@ if TYPE_CHECKING:
         HeicAnalysisResult,
         DuplicateAnalysisResult,
         DuplicateDeletionResult,
+        ZeroByteAnalysisResult,
+        ZeroByteDeletionResult,
         ScanResult
     )
     from services.file_renamer_service import FileRenamer
@@ -71,6 +73,7 @@ if TYPE_CHECKING:
     from services.heic_remover_service import HEICRemover
     from services.exact_copies_detector import ExactCopiesDetector
     from services.similar_files_detector import SimilarFilesDetector
+    from services.zero_byte_service import ZeroByteService
 
 
 
@@ -159,6 +162,7 @@ class AnalysisWorker(BaseWorker):
         finished(FullAnalysisResult): Resultado completo con todos los timings
         phase_update(str): Notifica inicio de fase (para UI)
         phase_completed(str): Notifica fin de fase (para UI)
+        phase_text_update(str, str): Actualiza texto de una fase (phase_id, text)
         stats_update(dict): Estadísticas de escaneo inicial
         partial_results(dict): Resultados parciales por fase
         progress_update(int, int, str): Progreso de operación actual
@@ -169,6 +173,7 @@ class AnalysisWorker(BaseWorker):
     
     phase_update = pyqtSignal(str)  # phase_id
     phase_completed = pyqtSignal(str)  # phase_id
+    phase_text_update = pyqtSignal(str, str)  # phase_id, new_text
     stats_update = pyqtSignal(object)  # Dict con estadísticas de scan
     partial_results = pyqtSignal(object)  # Dict[str, AnalysisResult]
 
@@ -180,6 +185,7 @@ class AnalysisWorker(BaseWorker):
         organizer: 'FileOrganizer',
         heic_remover: 'HEICRemover',
         duplicate_exact_detector: Optional['ExactCopiesDetector'] = None,
+        zero_byte_service: Optional['ZeroByteService'] = None,
         organization_type: Optional[str] = None
     ):
         super().__init__()
@@ -189,6 +195,7 @@ class AnalysisWorker(BaseWorker):
         self.organizer = organizer
         self.heic_remover = heic_remover
         self.duplicate_exact_detector = duplicate_exact_detector
+        self.zero_byte_service = zero_byte_service
         self.organization_type = organization_type
         
         # Leer configuración UX de delays
@@ -283,6 +290,7 @@ class AnalysisWorker(BaseWorker):
                 organizer=self.organizer,
                 heic_remover=self.heic_remover,
                 duplicate_exact_detector=self.duplicate_exact_detector,
+                zero_byte_service=self.zero_byte_service,
                 organization_type=self.organization_type,
                 progress_callback=self._create_progress_callback(emit_numbers=True),
                 phase_callback=self._handle_phase_start,
@@ -290,19 +298,62 @@ class AnalysisWorker(BaseWorker):
                 precalculate_hashes=precalculate_hashes
             )
             
-            # Completar última fase con delay UX
+            # Completar última fase del orchestrator con delay UX
             if self._current_phase_id and not self._stop_requested:
                 actual_duration = time.time() - self._current_phase_start
                 if actual_duration < self.min_phase_duration:
                     delay = self.min_phase_duration - actual_duration
                     self.logger.debug(
-                        f"Fase final '{self._current_phase_id}' duró {actual_duration:.2f}s, "
+                        f"Fase '{self._current_phase_id}' duró {actual_duration:.2f}s, "
                         f"aplicando delay UX de {delay:.2f}s"
                     )
                     time.sleep(delay)
                 
                 if not self._stop_requested:
                     self.phase_completed.emit(self._current_phase_id)
+            
+            # Nueva fase: Calcular tamaño del directorio
+            if not self._stop_requested:
+                self._handle_phase_start("calculating_size")
+                try:
+                    total_size = 0
+                    file_count = 0
+                    for file_path in self.directory.rglob('*'):
+                        if self._stop_requested:
+                            break
+                        if file_path.is_file():
+                            try:
+                                total_size += file_path.stat().st_size
+                                file_count += 1
+                                # Actualizar progreso cada 1000 archivos
+                                if file_count % 1000 == 0:
+                                    self.progress_update.emit(file_count, 0, f"Calculando... ({file_count} archivos)")
+                            except (OSError, PermissionError):
+                                pass
+                    
+                    # Guardar el tamaño en el resultado
+                    result.scan.total_size = total_size
+                    self.logger.debug(f"Tamaño total del directorio: {total_size} bytes ({file_count} archivos)")
+                except Exception as e:
+                    self.logger.warning(f"Error calculando tamaño del directorio: {e}")
+                    result.scan.total_size = 0
+                
+                # Completar la fase de cálculo de tamaño
+                if not self._stop_requested:
+                    # Aplicar delay mínimo si fue muy rápida
+                    actual_duration = time.time() - self._current_phase_start
+                    if actual_duration < self.min_phase_duration:
+                        delay = self.min_phase_duration - actual_duration
+                        time.sleep(delay)
+                    self.phase_completed.emit("calculating_size")
+            
+            # Fase final: Finalizando análisis
+            if not self._stop_requested:
+                self._handle_phase_start("finalizing")
+                # Esta fase es instantánea, solo para feedback visual
+                time.sleep(self.min_phase_duration)
+                if not self._stop_requested:
+                    self.phase_completed.emit("finalizing")
             
             # Delay final antes de transición a Stage 3 (UX suave)
             if not self._stop_requested:
@@ -365,7 +416,7 @@ class RenamingWorker(BaseWorker):
                 self.analysis.renaming_plan,
                 create_backup=self.create_backup,
                 dry_run=self.dry_run,
-                progress_callback=self._create_progress_callback()
+                progress_callback=self._create_progress_callback(emit_numbers=True)
             )
             
             if not self._stop_requested:
@@ -406,7 +457,7 @@ class LivePhotoCleanupWorker(BaseWorker):
                 self.analysis,
                 create_backup=self.create_backup,
                 dry_run=self.dry_run,
-                progress_callback=self._create_progress_callback()
+                progress_callback=self._create_progress_callback(emit_numbers=True)
             )
             
             if not self._stop_requested:
@@ -455,7 +506,7 @@ class FileOrganizerWorker(BaseWorker):
                 create_backup=self.create_backup,
                 cleanup_empty_dirs=self.cleanup_empty_dirs,
                 dry_run=self.dry_run,
-                progress_callback=self._create_progress_callback()
+                progress_callback=self._create_progress_callback(emit_numbers=True)
             )
             
             if not self._stop_requested:
@@ -499,21 +550,13 @@ class HEICRemovalWorker(BaseWorker):
             if self._stop_requested:
                 return
             
-            progress_cb_local = self._create_progress_callback()
-
-            # Attach callback to remover so create_backup (which may not accept
-            # progress_callback explicitly) can use it via attribute
-            setattr(self.remover, '_progress_callback', progress_cb_local)
-
             results: 'HeicDeletionResult' = self.remover.execute(
                 self.analysis.duplicate_pairs,
                 keep_format=self.keep_format,
                 create_backup=self.create_backup,
-                dry_run=self.dry_run
+                dry_run=self.dry_run,
+                progress_callback=self._create_progress_callback(emit_numbers=True)
             )
-            # Clean up attribute
-            if hasattr(self.remover, '_progress_callback'):
-                delattr(self.remover, '_progress_callback')
             
             if not self._stop_requested:
                 self.finished.emit(results)
@@ -595,7 +638,8 @@ class DuplicateDeletionWorker(BaseWorker):
         groups: List,
         keep_strategy: str,
         create_backup: bool = True,
-        dry_run: bool = False
+        dry_run: bool = False,
+        metadata_cache = None
     ):
         super().__init__()
         self.detector = detector
@@ -603,6 +647,7 @@ class DuplicateDeletionWorker(BaseWorker):
         self.keep_strategy = keep_strategy
         self.create_backup = create_backup
         self.dry_run = dry_run
+        self.metadata_cache = metadata_cache
     
     def run(self) -> None:
         try:
@@ -614,7 +659,8 @@ class DuplicateDeletionWorker(BaseWorker):
                 keep_strategy=self.keep_strategy,
                 create_backup=self.create_backup,
                 dry_run=self.dry_run,
-                progress_callback=self._create_progress_callback()
+                progress_callback=self._create_progress_callback(emit_numbers=True),
+                metadata_cache=self.metadata_cache
             )
             
             if not self._stop_requested:
@@ -681,6 +727,52 @@ class SimilarFilesAnalysisWorker(BaseWorker):
             if not self._stop_requested:
                 self.finished.emit(analysis)
         
+        except Exception as e:
+            if not self._stop_requested:
+                import traceback
+                error_msg = f"{str(e)}\n{traceback.format_exc()}"
+                self.error.emit(error_msg)
+
+
+class ZeroByteDeletionWorker(BaseWorker):
+    """
+    Worker para eliminación de archivos de 0 bytes
+    
+    Signals:
+        finished(ZeroByteDeletionResult): Emite resultado de la eliminación
+        progress_update(int, int, str): Heredado de BaseWorker
+        error(str): Heredado de BaseWorker
+    """
+    # Sobrescribir finished con tipo específico
+    finished = pyqtSignal(object)  # En runtime es object, tipo semántico es ZeroByteDeletionResult
+
+    def __init__(
+        self,
+        service: 'ZeroByteService',
+        files: List[Path],
+        create_backup: bool = True,
+        dry_run: bool = False
+    ):
+        super().__init__()
+        self.service = service
+        self.files = files
+        self.create_backup = create_backup
+        self.dry_run = dry_run
+
+    def run(self) -> None:
+        try:
+            if self._stop_requested:
+                return
+            
+            results: 'ZeroByteDeletionResult' = self.service.execute(
+                self.files,
+                create_backup=self.create_backup,
+                dry_run=self.dry_run,
+                progress_callback=self._create_progress_callback(emit_numbers=True)
+            )
+            
+            if not self._stop_requested:
+                self.finished.emit(results)
         except Exception as e:
             if not self._stop_requested:
                 import traceback
