@@ -99,16 +99,18 @@ class ExactCopiesDetector(BaseDetectorService):
         # También buscar archivos que puedan ser imágenes válidas aunque tengan extensiones no estándar
         if HAS_PIL:
             self.logger.debug("Buscando archivos que puedan ser imágenes válidas con extensiones no estándar")
-            all_files = list(directory.rglob("*"))
             potential_images = []
             
-            for file_path in all_files:
-                if file_path.is_file() and file_path.suffix.lower() not in Config.SUPPORTED_IMAGE_EXTENSIONS:
-                    # Solo verificar archivos que no sean muy grandes (para evitar archivos binarios grandes)
-                    if file_path.stat().st_size < 100 * 1024 * 1024:  # Menos de 100MB
-                        if _is_valid_image_file(file_path):
-                            potential_images.append(file_path)
-                            self.logger.debug(f"Imagen válida encontrada con extensión no estándar: {file_path.name}")
+            for file_path in directory.rglob("*"):
+                if not file_path.is_file():
+                    continue
+                if file_path.suffix.lower() in Config.SUPPORTED_IMAGE_EXTENSIONS:
+                    continue
+                # Solo verificar archivos que no sean muy grandes (para evitar archivos binarios grandes)
+                if file_path.stat().st_size < 100 * 1024 * 1024:  # Menos de 100MB
+                    if _is_valid_image_file(file_path):
+                        potential_images.append(file_path)
+                        self.logger.debug(f"Imagen válida encontrada con extensión no estándar: {file_path.name}")
             
             image_files.extend(potential_images)
             if potential_images:
@@ -205,8 +207,7 @@ class ExactCopiesDetector(BaseDetectorService):
                         total_files,
                         f"Procesado: {file_path.name}"
                     ):
-                        executor.shutdown(wait=False, cancel_futures=True)
-                        break
+                        break  # Salir del loop, el with hace shutdown limpio
                 except Exception as e:
                     self.logger.error(f"Error calculando hash de {file_path}: {e}")
         

@@ -30,10 +30,11 @@ class ExactCopiesDialog(BaseDialog):
     LOAD_INCREMENT = 50
     WARNING_THRESHOLD = 200
     
-    def __init__(self, analysis, parent=None):
+    def __init__(self, analysis, parent=None, metadata_cache=None):
         super().__init__(parent)
         self.logger = get_logger('ExactCopiesDialog')
         self.analysis = analysis
+        self.metadata_cache = metadata_cache
         self.keep_strategy = 'oldest'
         self.accepted_plan = None
         
@@ -56,6 +57,24 @@ class ExactCopiesDialog(BaseDialog):
         
         self.init_ui()
     
+    def _get_modification_time(self, file_path: Path) -> float:
+        """
+        Obtiene el timestamp de modificación usando metadata_cache si está disponible.
+        
+        Args:
+            file_path: Ruta del archivo
+            
+        Returns:
+            Timestamp de modificación (epoch seconds)
+        """
+        if self.metadata_cache:
+            date = self.metadata_cache.get_filesystem_modification_date(file_path)
+            if date:
+                return date.timestamp()
+        
+        # Fallback a stat() directo si no hay cache o no se encuentra
+        return file_path.stat().st_mtime
+    
     def _calculate_recoverable_space(self):
         """Calcula el espacio total recuperable según los grupos filtrados y la estrategia.
         
@@ -67,9 +86,9 @@ class ExactCopiesDialog(BaseDialog):
         for group in self.filtered_groups:
             # Determinar qué archivo mantener según estrategia
             if self.keep_strategy == 'oldest':
-                keep_file = min(group.files, key=lambda f: f.stat().st_mtime)
+                keep_file = min(group.files, key=lambda f: self._get_modification_time(f))
             else:  # newest
-                keep_file = max(group.files, key=lambda f: f.stat().st_mtime)
+                keep_file = max(group.files, key=lambda f: self._get_modification_time(f))
             
             # Sumar el tamaño de todos los archivos excepto el que se mantiene
             for file_path in group.files:
@@ -619,9 +638,9 @@ class ExactCopiesDialog(BaseDialog):
         
         # Calcular espacio a liberar (total - archivo que se mantendrá)
         if self.keep_strategy == 'oldest':
-            keep_file = min(group.files, key=lambda f: f.stat().st_mtime)
+            keep_file = min(group.files, key=lambda f: self._get_modification_time(f))
         else:  # newest
-            keep_file = max(group.files, key=lambda f: f.stat().st_mtime)
+            keep_file = max(group.files, key=lambda f: self._get_modification_time(f))
         
         keep_file_size = keep_file.stat().st_size
         space_to_free = group.total_size - keep_file_size
@@ -678,7 +697,7 @@ class ExactCopiesDialog(BaseDialog):
             file_item.setText(1, format_size(file_path.stat().st_size))
             
             # Fecha de modificación con formato mejorado
-            mtime = datetime.fromtimestamp(file_path.stat().st_mtime)
+            mtime = datetime.fromtimestamp(self._get_modification_time(file_path))
             file_item.setText(2, mtime.strftime('%d/%m/%Y %H:%M'))
             
             # Ruta del directorio padre
@@ -737,9 +756,9 @@ class ExactCopiesDialog(BaseDialog):
             
             # Determinar archivo a mantener según estrategia
             if self.keep_strategy == 'oldest':
-                keep_file = min(files, key=lambda f: f.stat().st_mtime)
+                keep_file = min(files, key=lambda f: self._get_modification_time(f))
             elif self.keep_strategy == 'newest':
-                keep_file = max(files, key=lambda f: f.stat().st_mtime)
+                keep_file = max(files, key=lambda f: self._get_modification_time(f))
             else:
                 keep_file = files[0]  # Fallback
             
@@ -922,9 +941,9 @@ class ExactCopiesDialog(BaseDialog):
             if file_path in group.files:
                 # Determinar qué archivo se mantiene
                 if self.keep_strategy == 'oldest':
-                    keep_file = min(group.files, key=lambda f: f.stat().st_mtime)
+                    keep_file = min(group.files, key=lambda f: self._get_modification_time(f))
                 else:
-                    keep_file = max(group.files, key=lambda f: f.stat().st_mtime)
+                    keep_file = max(group.files, key=lambda f: self._get_modification_time(f))
                 
                 is_keep = file_path == keep_file
                 status_info = {

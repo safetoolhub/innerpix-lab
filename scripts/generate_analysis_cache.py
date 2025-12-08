@@ -9,7 +9,7 @@ Esto permite saltar la fase de análisis en Stage 2 activando DEV_USE_CACHED_ANA
 
 La caché incluye:
 - metadata_cache con hashes SHA256 para duplicados exactos
-- metadata_cache con fechas EXIF extraídas (exif_date, exif_date_original)
+- metadata_cache con todas las fechas extraídas (EXIF, video, filename, filesystem)
 - metadata_cache con fechas seleccionadas finales (selected_date, date_source)
 - Resultados de análisis de todos los servicios (renaming, live_photos, etc.)
 

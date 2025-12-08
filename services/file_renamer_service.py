@@ -63,12 +63,14 @@ class FileRenamer(BaseService):
         """
         log_section_header_discrete(self.logger, f"ANALIZANDO DIRECTORIO PARA RENOMBRADO: {directory}")
 
+        # Recopilar archivos en streaming (sin bloquear)
         all_files = []
         for file_path in directory.rglob("*"):
             if file_path.is_file() and Config.is_supported_file(file_path.name):
                 all_files.append(file_path)
 
         total_files = len(all_files)
+        self.logger.info(f"Encontrados {total_files} archivos para analizar")
         renaming_map = {}
         already_renamed = 0
         cannot_process = 0
@@ -118,6 +120,7 @@ class FileRenamer(BaseService):
         # Menor overhead de comunicación Qt sin perder responsividad
         progress_interval = Config.UI_UPDATE_INTERVAL
         
+        cancelled = False
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {executor.submit(process_file, f): f for f in all_files}
             
@@ -127,8 +130,8 @@ class FileRenamer(BaseService):
                 if processed % progress_interval == 0:
                     # Si el callback retorna False, detener procesamiento
                     if not self._report_progress(progress_callback, processed, total_files, "Analizando nombres de archivos"):
-                        executor.shutdown(wait=False, cancel_futures=True)
-                        break
+                        cancelled = True
+                        break  # Salir del loop, el with hace shutdown limpio
                 
                 status, file_path, data = future.result()
                 

@@ -159,8 +159,6 @@ class HEICRemover(BaseService):
         
         # Encontrar archivos HEIC y JPG
         file_iterator = directory.rglob("*") if recursive else directory.iterdir()
-        all_files = [f for f in file_iterator if f.is_file()]
-        total_files = len(all_files)
         processed = 0
         
         # Estructura optimizada: dict[Path, dict[str, tuple[Path, int, float]]]
@@ -171,14 +169,17 @@ class HEICRemover(BaseService):
         total_heic_count = 0
         total_jpg_count = 0
         
-        # Primera pasada: indexar todos los archivos por directorio
-        for file_path in all_files:
-            if not self._report_progress(
+        # Primera pasada: indexar todos los archivos por directorio (streaming)
+        for file_path in file_iterator:
+            if not file_path.is_file():
+                continue
+                
+            if processed % Config.UI_UPDATE_INTERVAL == 0 and not self._report_progress(
                 progress_callback,
                 processed,
-                total_files,
+                -1,  # Progreso indeterminado
                 "Indexando archivos HEIC/JPG"
-            ) and processed % Config.UI_UPDATE_INTERVAL == 0:
+            ):
                 return self._create_empty_result()
             
             extension = file_path.suffix.lower()
@@ -193,7 +194,9 @@ class HEICRemover(BaseService):
                 if metadata_cache:
                     file_size = metadata_cache.get_size(file_path)
                     cached_metadata = metadata_cache.get_or_create(file_path)
-                    file_mtime = cached_metadata.modified_time
+                    # filesystem_modification_date ahora es datetime, convertir a timestamp para comparación
+                    if cached_metadata.filesystem_modification_date:
+                        file_mtime = cached_metadata.filesystem_modification_date.timestamp()
                 
                 # Si no está en caché, obtener de filesystem y cachear
                 if file_size is None or file_mtime is None:
@@ -203,11 +206,12 @@ class HEICRemover(BaseService):
                     
                     # Cachear para futuros usos
                     if metadata_cache:
+                        from datetime import datetime
                         metadata_cache.set_basic_metadata(
                             file_path,
                             size=file_size,
                             file_type='image',
-                            modified_time=file_mtime
+                            filesystem_modification_date=datetime.fromtimestamp(file_mtime)
                         )
                 
                 file_info = (file_path, file_size, file_mtime)

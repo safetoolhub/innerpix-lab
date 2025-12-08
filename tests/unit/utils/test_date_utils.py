@@ -30,9 +30,9 @@ class TestSelectEarliestDate:
             'exif_date_time_original': datetime(2023, 1, 15, 10, 30),  # Más antigua
             'exif_create_date': datetime(2023, 1, 15, 10, 31),
             'exif_date_digitized': datetime(2023, 1, 15, 10, 32),
-            'creation_date': datetime(2024, 1, 1, 12, 0),
-            'creation_source': 'birth',
-            'modification_date': datetime(2024, 1, 2, 14, 0)
+            'filesystem_creation_date': datetime(2024, 1, 1, 12, 0),
+            'filesystem_creation_source': 'birth',
+            'filesystem_modification_date': datetime(2024, 1, 2, 14, 0)
         }
         
         result_date, result_source = select_chosen_date(dates)
@@ -46,9 +46,9 @@ class TestSelectEarliestDate:
             'exif_date_time_original': None,
             'exif_create_date': datetime(2023, 3, 20, 14, 45),
             'exif_date_digitized': None,
-            'creation_date': datetime(2024, 1, 1, 12, 0),
-            'creation_source': 'birth',
-            'modification_date': datetime(2022, 6, 15, 8, 0)  # Más antigua pero ignorada
+            'filesystem_creation_date': datetime(2024, 1, 1, 12, 0),
+            'filesystem_creation_source': 'birth',
+            'filesystem_modification_date': datetime(2022, 6, 15, 8, 0)  # Más antigua pero ignorada
         }
         
         result_date, result_source = select_chosen_date(dates)
@@ -65,9 +65,9 @@ class TestSelectEarliestDate:
             'exif_date_digitized': None,
             'filename_date': None,
             'video_metadata_date': None,
-            'creation_date': datetime(2024, 1, 1, 12, 0),
-            'creation_source': 'birth',
-            'modification_date': datetime(2024, 1, 2, 14, 0)
+            'filesystem_creation_date': datetime(2024, 1, 1, 12, 0),
+            'filesystem_creation_source': 'birth',
+            'filesystem_modification_date': datetime(2024, 1, 2, 14, 0)
         }
 
         result_date, result_source = select_chosen_date(dates)
@@ -86,8 +86,8 @@ class TestSelectEarliestDate:
             'exif_offset_time': '+02:00',
             'filename_date': None,
             'video_metadata_date': None,
-            'creation_date': None,
-            'modification_date': None
+            'filesystem_creation_date': None,
+            'filesystem_modification_date': None
         }
 
         result_date, result_source = select_chosen_date(dates)
@@ -105,8 +105,8 @@ class TestSelectEarliestDate:
             'exif_date_digitized': None,
             'filename_date': datetime(2024, 11, 13, 0, 0),
             'video_metadata_date': None,
-            'creation_date': datetime(2024, 1, 1, 12, 0),
-            'modification_date': datetime(2023, 1, 1, 12, 0)
+            'filesystem_creation_date': datetime(2024, 1, 1, 12, 0),
+            'filesystem_modification_date': datetime(2023, 1, 1, 12, 0)
         }
 
         result_date, result_source = select_chosen_date(dates)
@@ -125,8 +125,8 @@ class TestSelectEarliestDate:
             'exif_date_digitized': None,
             'filename_date': None,
             'video_metadata_date': datetime(2024, 1, 15, 14, 30),
-            'creation_date': datetime(2024, 1, 15, 12, 0),
-            'modification_date': datetime(2024, 1, 15, 14, 0)
+            'filesystem_creation_date': datetime(2024, 1, 15, 12, 0),
+            'filesystem_modification_date': datetime(2024, 1, 15, 14, 0)
         }
 
         result_date, result_source = select_chosen_date(dates)
@@ -140,9 +140,9 @@ class TestSelectEarliestDate:
             'exif_date_time_original': None,
             'exif_create_date': None,
             'exif_date_digitized': datetime(2023, 5, 10, 9, 0),
-            'creation_date': datetime(2024, 1, 1, 12, 0),
-            'creation_source': 'ctime',
-            'modification_date': datetime(2024, 1, 2, 14, 0)
+            'filesystem_creation_date': datetime(2024, 1, 1, 12, 0),
+            'filesystem_creation_source': 'ctime',
+            'filesystem_modification_date': datetime(2024, 1, 2, 14, 0)
         }
         
         result_date, result_source = select_chosen_date(dates)
@@ -156,9 +156,9 @@ class TestSelectEarliestDate:
             'exif_date_time_original': datetime(2023, 5, 20, 10, 30),
             'exif_create_date': datetime(2023, 5, 20, 10, 35),
             'exif_date_digitized': datetime(2023, 5, 15, 8, 0),  # Más antigua
-            'creation_date': datetime(2024, 1, 1, 12, 0),
-            'creation_source': 'birth',
-            'modification_date': datetime(2024, 1, 2, 14, 0)
+            'filesystem_creation_date': datetime(2024, 1, 1, 12, 0),
+            'filesystem_creation_source': 'birth',
+            'filesystem_modification_date': datetime(2024, 1, 2, 14, 0)
         }
         
         result_date, result_source = select_chosen_date(dates)
@@ -173,9 +173,9 @@ class TestSelectEarliestDate:
             'exif_date_time_original': None,
             'exif_create_date': None,
             'exif_date_digitized': None,
-            'creation_date': datetime(2024, 1, 1, 12, 0),  # Más antigua
-            'creation_source': 'birth',
-            'modification_date': datetime(2024, 1, 2, 14, 0)
+            'filesystem_creation_date': datetime(2024, 1, 1, 12, 0),  # Más antigua
+            'filesystem_creation_source': 'birth',
+            'filesystem_modification_date': datetime(2024, 1, 2, 14, 0)
         }
         
         result_date, result_source = select_chosen_date(dates)
@@ -189,9 +189,9 @@ class TestSelectEarliestDate:
             'exif_date_time_original': None,
             'exif_create_date': None,
             'exif_date_digitized': None,
-            'creation_date': datetime(2024, 1, 2, 14, 0),
-            'creation_source': 'ctime',
-            'modification_date': datetime(2024, 1, 1, 12, 0)  # Más antigua
+            'filesystem_creation_date': datetime(2024, 1, 2, 14, 0),
+            'filesystem_creation_source': 'ctime',
+            'filesystem_modification_date': datetime(2024, 1, 1, 12, 0)  # Más antigua
         }
         
         result_date, result_source = select_chosen_date(dates)
@@ -205,9 +205,9 @@ class TestSelectEarliestDate:
             'exif_date_time_original': None,
             'exif_create_date': None,
             'exif_date_digitized': None,
-            'creation_date': None,
-            'creation_source': None,
-            'modification_date': None
+            'filesystem_creation_date': None,
+            'filesystem_creation_source': None,
+            'filesystem_modification_date': None
         }
         
         result_date, result_source = select_chosen_date(dates)
@@ -221,9 +221,9 @@ class TestSelectEarliestDate:
             'exif_date_time_original': None,
             'exif_create_date': None,
             'exif_date_digitized': None,
-            'creation_date': None,
-            'creation_source': None,
-            'modification_date': datetime(2024, 1, 1, 12, 0)
+            'filesystem_creation_date': None,
+            'filesystem_creation_source': None,
+            'filesystem_modification_date': datetime(2024, 1, 1, 12, 0)
         }
         
         result_date, result_source = select_chosen_date(dates)
@@ -237,9 +237,9 @@ class TestSelectEarliestDate:
             'exif_date_time_original': None,
             'exif_create_date': None,
             'exif_date_digitized': None,
-            'creation_date': datetime(2024, 1, 1, 12, 0),
-            'creation_source': 'birth',
-            'modification_date': None
+            'filesystem_creation_date': datetime(2024, 1, 1, 12, 0),
+            'filesystem_creation_source': 'birth',
+            'filesystem_modification_date': None
         }
         
         result_date, result_source = select_chosen_date(dates)
@@ -253,9 +253,9 @@ class TestSelectEarliestDate:
             'exif_date_time_original': None,
             'exif_create_date': datetime(2023, 6, 15, 10, 0),  # EXIF más reciente
             'exif_date_digitized': None,
-            'creation_date': datetime(2020, 1, 1, 12, 0),  # Más antigua pero ignorada
-            'creation_source': 'birth',
-            'modification_date': datetime(2019, 6, 15, 8, 0)  # Más antigua pero ignorada
+            'filesystem_creation_date': datetime(2020, 1, 1, 12, 0),  # Más antigua pero ignorada
+            'filesystem_creation_source': 'birth',
+            'filesystem_modification_date': datetime(2019, 6, 15, 8, 0)  # Más antigua pero ignorada
         }
         
         result_date, result_source = select_chosen_date(dates)
@@ -451,8 +451,8 @@ class TestGetAllFileDates:
             assert result['exif_date_time_original'] == datetime(2023, 1, 15, 10, 30, 0)
             assert result['exif_create_date'] == datetime(2023, 1, 15, 10, 31, 0)
             assert result['exif_date_digitized'] == datetime(2023, 1, 15, 10, 32, 0)
-            assert result['modification_date'] is not None
-            assert result['creation_date'] is not None or result['modification_date'] is not None
+            assert result['filesystem_modification_date'] is not None
+            assert result['filesystem_creation_date'] is not None or result['filesystem_modification_date'] is not None
     
     def test_file_without_exif(self, temp_dir, create_test_image):
         """Archivo sin EXIF debe tener solo fechas del sistema"""
@@ -472,7 +472,7 @@ class TestGetAllFileDates:
             assert result['exif_date_time_original'] is None
             assert result['exif_create_date'] is None
             assert result['exif_date_digitized'] is None
-            assert result['modification_date'] is not None
+            assert result['filesystem_modification_date'] is not None
     
     def test_nonexistent_file_returns_empty_dates(self):
         """Archivo inexistente debe devolver fechas vacías"""
@@ -481,8 +481,8 @@ class TestGetAllFileDates:
         assert result['exif_date_time_original'] is None
         assert result['exif_create_date'] is None
         assert result['exif_date_digitized'] is None
-        assert result['creation_date'] is None
-        assert result['modification_date'] is None
+        assert result['filesystem_creation_date'] is None
+        assert result['filesystem_modification_date'] is None
 
     def test_video_metadata_disabled_by_config(self, temp_dir, create_test_video):
         """Cuando USE_VIDEO_METADATA es False, no debe llamar a get_video_metadata_date"""
@@ -567,9 +567,9 @@ class TestGetDateFromFile:
             'exif_date_time_original': datetime(2023, 1, 15, 10, 30, 0),
             'exif_create_date': datetime(2023, 1, 15, 10, 31, 0),
             'exif_date_digitized': None,
-            'creation_date': datetime(2024, 1, 1, 12, 0),
-            'creation_source': 'birth',
-            'modification_date': datetime(2024, 1, 2, 14, 0),
+            'filesystem_creation_date': datetime(2024, 1, 1, 12, 0),
+            'filesystem_creation_source': 'birth',
+            'filesystem_modification_date': datetime(2024, 1, 2, 14, 0),
             'access_date': datetime(2024, 1, 3, 16, 0)
         }):
             result = get_date_from_file(image_path)
@@ -584,9 +584,9 @@ class TestGetDateFromFile:
             'exif_date_time_original': None,
             'exif_create_date': None,
             'exif_date_digitized': None,
-            'creation_date': datetime(2024, 1, 1, 12, 0),
-            'creation_source': 'birth',
-            'modification_date': datetime(2024, 1, 2, 14, 0),
+            'filesystem_creation_date': datetime(2024, 1, 1, 12, 0),
+            'filesystem_creation_source': 'birth',
+            'filesystem_modification_date': datetime(2024, 1, 2, 14, 0),
             'access_date': datetime(2024, 1, 3, 16, 0)
         }):
             result = get_date_from_file(image_path)
@@ -601,9 +601,9 @@ class TestGetDateFromFile:
             'exif_date_time_original': None,
             'exif_create_date': None,
             'exif_date_digitized': None,
-            'creation_date': None,
-            'creation_source': None,
-            'modification_date': None,
+            'filesystem_creation_date': None,
+            'filesystem_creation_source': None,
+            'filesystem_modification_date': None,
             'access_date': None
         }):
             result = get_date_from_file(image_path)
@@ -632,9 +632,9 @@ class TestGetDateFromFile:
             'exif_software': None,
             'video_metadata_date': None,
             'filename_date': None,
-            'creation_date': datetime(2024, 1, 1, 12, 0),
-            'creation_source': 'birth',
-            'modification_date': datetime(2024, 1, 2, 14, 0),
+            'filesystem_creation_date': datetime(2024, 1, 1, 12, 0),
+            'filesystem_creation_source': 'birth',
+            'filesystem_modification_date': datetime(2024, 1, 2, 14, 0),
             'access_date': None
         }):
             result = get_date_from_file(image_path, verbose=True)
@@ -803,9 +803,9 @@ class TestEdgeCasesAndCorruptedData:
             'exif_date_time_original': None,
             'exif_create_date': None,
             'exif_date_digitized': datetime(2023, 1, 15, 10, 30),
-            'creation_date': None,
-            'creation_source': None,
-            'modification_date': None
+            'filesystem_creation_date': None,
+            'filesystem_creation_source': None,
+            'filesystem_modification_date': None
         }
         
         result_date, result_source = select_chosen_date(dates)
@@ -820,9 +820,9 @@ class TestEdgeCasesAndCorruptedData:
             'exif_date_time_original': same_date,
             'exif_create_date': same_date,
             'exif_date_digitized': same_date,
-            'creation_date': same_date,
-            'creation_source': 'birth',
-            'modification_date': same_date
+            'filesystem_creation_date': same_date,
+            'filesystem_creation_source': 'birth',
+            'filesystem_modification_date': same_date
         }
         
         result_date, result_source = select_chosen_date(dates)
@@ -869,8 +869,8 @@ class TestSelectChosenDateCombinatorial:
             'exif_gps_date': None,
             'filename_date': None,
             'video_metadata_date': None,
-            'creation_date': None,
-            'modification_date': None
+            'filesystem_creation_date': None,
+            'filesystem_modification_date': None
         }
         
         result_date, result_source = select_chosen_date(dates)
@@ -997,8 +997,8 @@ class TestSelectChosenDateCombinatorial:
             'exif_gps_date': datetime(2023, 8, 4, 20, 0, 0),
             'filename_date': None,
             'video_metadata_date': None,
-            'creation_date': datetime(2024, 1, 1, 12, 0),
-            'modification_date': datetime(2024, 1, 2, 14, 0),
+            'filesystem_creation_date': datetime(2024, 1, 1, 12, 0),
+            'filesystem_modification_date': datetime(2024, 1, 2, 14, 0),
         }
         
         result_date, result_source = select_chosen_date(dates)
@@ -1052,8 +1052,8 @@ class TestSelectChosenDateCombinatorial:
             'exif_date_digitized': None,
             'filename_date': datetime(2024, 11, 13, 0, 0),
             'video_metadata_date': None,
-            'creation_date': datetime(2024, 11, 15, 12, 0),
-            'modification_date': datetime(2024, 11, 16, 14, 0),
+            'filesystem_creation_date': datetime(2024, 11, 15, 12, 0),
+            'filesystem_modification_date': datetime(2024, 11, 16, 14, 0),
         }
         
         result_date, result_source = select_chosen_date(dates)
@@ -1066,7 +1066,7 @@ class TestSelectChosenDateCombinatorial:
         dates = {
             'exif_date_time_original': datetime(2023, 5, 10, 14, 30),
             'filename_date': datetime(2024, 11, 13, 0, 0),  # Más reciente
-            'creation_date': datetime(2022, 1, 1, 12, 0),  # Más antigua
+            'filesystem_creation_date': datetime(2022, 1, 1, 12, 0),  # Más antigua
         }
         
         result_date, result_source = select_chosen_date(dates)
@@ -1085,8 +1085,8 @@ class TestSelectChosenDateCombinatorial:
             'exif_date_digitized': None,
             'filename_date': None,
             'video_metadata_date': datetime(2024, 1, 15, 14, 30),
-            'creation_date': datetime(2024, 1, 15, 12, 0),
-            'modification_date': datetime(2024, 1, 15, 16, 0),
+            'filesystem_creation_date': datetime(2024, 1, 15, 12, 0),
+            'filesystem_modification_date': datetime(2024, 1, 15, 16, 0),
         }
         
         result_date, result_source = select_chosen_date(dates)
@@ -1132,9 +1132,9 @@ class TestSelectChosenDateCombinatorial:
             'exif_date_digitized': None,
             'filename_date': None,
             'video_metadata_date': None,
-            'creation_date': datetime(2024, 1, 1, 12, 0),
-            'creation_source': 'birth',
-            'modification_date': None,
+            'filesystem_creation_date': datetime(2024, 1, 1, 12, 0),
+            'filesystem_creation_source': 'birth',
+            'filesystem_modification_date': None,
         }
         
         result_date, result_source = select_chosen_date(dates)
@@ -1150,8 +1150,8 @@ class TestSelectChosenDateCombinatorial:
             'exif_date_digitized': None,
             'filename_date': None,
             'video_metadata_date': None,
-            'creation_date': None,
-            'modification_date': datetime(2024, 1, 2, 14, 0),
+            'filesystem_creation_date': None,
+            'filesystem_modification_date': datetime(2024, 1, 2, 14, 0),
         }
         
         result_date, result_source = select_chosen_date(dates)
@@ -1167,9 +1167,9 @@ class TestSelectChosenDateCombinatorial:
             'exif_date_digitized': None,
             'filename_date': None,
             'video_metadata_date': None,
-            'creation_date': datetime(2024, 1, 1, 12, 0),  # Más antigua
-            'creation_source': 'birth',
-            'modification_date': datetime(2024, 1, 2, 14, 0),
+            'filesystem_creation_date': datetime(2024, 1, 1, 12, 0),  # Más antigua
+            'filesystem_creation_source': 'birth',
+            'filesystem_modification_date': datetime(2024, 1, 2, 14, 0),
         }
         
         result_date, result_source = select_chosen_date(dates)
@@ -1181,8 +1181,8 @@ class TestSelectChosenDateCombinatorial:
         """Fechas filesystem son ignoradas cuando hay EXIF"""
         dates = {
             'exif_date_time_original': datetime(2023, 5, 10, 14, 30),
-            'creation_date': datetime(2022, 1, 1, 12, 0),  # Más antigua pero ignorada
-            'modification_date': datetime(2021, 6, 15, 8, 0),  # Mucho más antigua
+            'filesystem_creation_date': datetime(2022, 1, 1, 12, 0),  # Más antigua pero ignorada
+            'filesystem_modification_date': datetime(2021, 6, 15, 8, 0),  # Mucho más antigua
         }
         
         result_date, result_source = select_chosen_date(dates)
@@ -1202,9 +1202,9 @@ class TestSelectChosenDateCombinatorial:
             'exif_gps_date': datetime(2023, 5, 10, 10, 0),  # Más antigua global
             'filename_date': datetime(2024, 11, 13, 0, 0),
             'video_metadata_date': datetime(2024, 1, 15, 14, 30),
-            'creation_date': datetime(2022, 1, 1, 12, 0),  # Más antigua filesystem
-            'creation_source': 'birth',
-            'modification_date': datetime(2021, 6, 15, 8, 0),
+            'filesystem_creation_date': datetime(2022, 1, 1, 12, 0),  # Más antigua filesystem
+            'filesystem_creation_source': 'birth',
+            'filesystem_modification_date': datetime(2021, 6, 15, 8, 0),
         }
         
         result_date, result_source = select_chosen_date(dates)
@@ -1221,8 +1221,8 @@ class TestSelectChosenDateCombinatorial:
             'exif_date_digitized': None,
             'filename_date': datetime(2024, 11, 13, 0, 0),
             'video_metadata_date': datetime(2024, 1, 15, 14, 30),
-            'creation_date': datetime(2022, 1, 1, 12, 0),  # Más antigua
-            'modification_date': datetime(2021, 6, 15, 8, 0),
+            'filesystem_creation_date': datetime(2022, 1, 1, 12, 0),  # Más antigua
+            'filesystem_modification_date': datetime(2021, 6, 15, 8, 0),
         }
         
         result_date, result_source = select_chosen_date(dates)
@@ -1238,8 +1238,8 @@ class TestSelectChosenDateCombinatorial:
             'exif_date_digitized': None,
             'filename_date': None,
             'video_metadata_date': datetime(2024, 1, 15, 14, 30),
-            'creation_date': datetime(2022, 1, 1, 12, 0),  # Más antigua
-            'modification_date': datetime(2021, 6, 15, 8, 0),
+            'filesystem_creation_date': datetime(2022, 1, 1, 12, 0),  # Más antigua
+            'filesystem_modification_date': datetime(2021, 6, 15, 8, 0),
         }
         
         result_date, result_source = select_chosen_date(dates)
@@ -1256,8 +1256,8 @@ class TestSelectChosenDateCombinatorial:
             'exif_gps_date': None,
             'filename_date': None,
             'video_metadata_date': None,
-            'creation_date': None,
-            'modification_date': None,
+            'filesystem_creation_date': None,
+            'filesystem_modification_date': None,
         }
         
         result_date, result_source = select_chosen_date(dates)
@@ -1273,7 +1273,7 @@ class TestSelectChosenDateCombinatorial:
         dates = {
             'exif_date_time_original': same_date,
             'filename_date': same_date,
-            'creation_date': same_date,
+            'filesystem_creation_date': same_date,
         }
         
         result_date, result_source = select_chosen_date(dates)
@@ -1300,7 +1300,7 @@ class TestSelectChosenDateCombinatorial:
         dates = {
             'exif_date_time_original': datetime(2023, 5, 10, 14, 30),
             'exif_create_date': datetime(1990, 1, 1, 0, 0),  # 33 años antes
-            'creation_date': datetime(2024, 12, 31, 23, 59),  # En el futuro
+            'filesystem_creation_date': datetime(2024, 12, 31, 23, 59),  # En el futuro
         }
         
         result_date, result_source = select_chosen_date(dates)

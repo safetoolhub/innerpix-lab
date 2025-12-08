@@ -499,7 +499,7 @@ class Stage3Window(BaseStage):
             if not dup_data or dup_data.total_groups == 0:
                 # Card está deshabilitada, no debería llegar aquí
                 return
-            dialog = ExactCopiesDialog(dup_data, self.main_window)
+            dialog = ExactCopiesDialog(dup_data, self.main_window, self.metadata_cache)
 
         elif tool_id == 'similar_files':
             # Similares requieren configuración previa

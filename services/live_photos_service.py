@@ -17,7 +17,8 @@ from config import Config
 from utils.date_utils import get_date_from_file
 from services.result_types import LivePhotoCleanupAnalysisResult, LivePhotoCleanupResult
 from services.base_service import BaseService, BackupCreationError
-from utils.logger import log_section_header_discrete, log_section_footer_discrete, log_section_header_relevant, log_section_footer_relevant
+from services.metadata_cache import FileMetadataCache
+from utils.logger import log_section_header_discrete, log_section_footer_discrete, log_section_header_relevant, log_section_footer_relevant, get_logger
 
 
 @dataclass
@@ -31,6 +32,9 @@ class LivePhotoGroup:
     video_size: int
     image_date: Optional[datetime] = None
     video_date: Optional[datetime] = None
+    image_date_source: str = "unknown"
+    video_date_source: str = "unknown"
+    metadata_cache: Optional[FileMetadataCache] = None
 
     def __post_init__(self):
         """Validaciones y cálculos adicionales"""
@@ -52,23 +56,154 @@ class LivePhotoGroup:
                 f"Inconsistencia en directorio: directory={self.directory}, "
                 f"pero image está en {self.image_path.parent}"
             )
+        
+        # Las fechas se calculan lazy (solo cuando se accede a time_difference)
+        # para evitar bloquear el procesamiento durante la creación de grupos
 
+    def _ensure_dates_loaded(self) -> bool:
+        """
+        Intenta cargar fechas desde caché o calcularlas si es necesario.
+        
+        Prioriza usar caché para evitar cálculos costosos durante análisis masivo.
+        Si hay metadata_cache pero las fechas no están, usa fallback rápido (skip_expensive_ops).
+        Si NO hay metadata_cache, calcula síncronamente (para tests).
+        
+        Returns:
+            True si ambas fechas están disponibles, False si alguna falta
+        """
         if not self.image_date:
-            self.image_date = get_date_from_file(self.image_path) or datetime.fromtimestamp(self.image_path.stat().st_mtime)
+            # Primero intentar desde caché
+            if self.metadata_cache:
+                cached_date, source = self.metadata_cache.get_selected_date(self.image_path)
+                if cached_date:
+                    self.image_date = cached_date
+                    self.image_date_source = source
+            
+            # Si no hay caché o no estaba cacheado, calcular
+            if not self.image_date:
+                if self.metadata_cache:
+                    # Con cache disponible: usar fallback rápido (evita ffprobe/EXIF costosos)
+                    self.image_date = get_date_from_file(self.image_path, metadata_cache=self.metadata_cache, skip_expensive_ops=True)
+                    self.image_date_source = "mtime_fallback"
+                else:
+                    # Sin cache (tests): calcular completo
+                    self.image_date = get_date_from_file(self.image_path)
+                    self.image_date_source = "test_calculation"
+                    if not self.image_date:
+                        self.image_date = datetime.fromtimestamp(self.image_path.stat().st_mtime)
+                        self.image_date_source = "mtime"
+        
         if not self.video_date:
-            self.video_date = get_date_from_file(self.video_path) or datetime.fromtimestamp(self.video_path.stat().st_mtime)
-
+            # Primero intentar desde caché
+            if self.metadata_cache:
+                cached_date, source = self.metadata_cache.get_selected_date(self.video_path)
+                if cached_date:
+                    self.video_date = cached_date
+                    self.video_date_source = source
+            
+            # Si no hay caché o no estaba cacheado, calcular
+            if not self.video_date:
+                if self.metadata_cache:
+                    # Con cache disponible: usar fallback rápido (evita ffprobe costoso)
+                    self.video_date = get_date_from_file(self.video_path, metadata_cache=self.metadata_cache, skip_expensive_ops=True)
+                    self.video_date_source = "mtime_fallback"
+                else:
+                    # Sin cache (tests): calcular completo
+                    self.video_date = get_date_from_file(self.video_path)
+                    self.video_date_source = "test_calculation"
+                    if not self.video_date:
+                        self.video_date = datetime.fromtimestamp(self.video_path.stat().st_mtime)
+                        self.video_date_source = "mtime"
+        
+        # Retornar True solo si AMBAS fechas están disponibles
+        return self.image_date is not None and self.video_date is not None
+    
     @property
     def total_size(self) -> int:
         """Tamaño total del grupo"""
         return self.image_size + self.video_size
 
+    def _is_filesystem_source(self, source: str) -> bool:
+        """Verifica si la fuente de fecha es del sistema de archivos"""
+        if not source: return False
+        s = source.lower()
+        return 'mtime' in s or 'ctime' in s or 'filesystem' in s or 'fallback' in s
+
+    def _is_exif_source(self, source: str) -> bool:
+        """Verifica si la fuente de fecha es EXIF"""
+        if not source: return False
+        s = source.lower()
+        return 'exif' in s
+
+    def get_comparison_dates(self) -> tuple[datetime, datetime, str, str]:
+        """
+        Obtiene las fechas ajustadas para comparación justa.
+        
+        LÓGICA CRÍTICA DE AJUSTE:
+        Si el video usa fecha de sistema (mtime/ctime/filesystem), SIEMPRE
+        ajustamos la imagen también a mtime, incluso si tiene EXIF.
+        
+        Razón: Los Live Photos deben sincronizarse en el momento de captura,
+        pero cuando los archivos se mueven/sincronizan, sus mtimes pueden 
+        desincronizarse. Si comparamos EXIF (creación real) vs mtime (última
+        modificación), casi siempre diferirán y rechazaremos Live Photos válidos.
+        
+        Priorizamos DETECTAR Live Photos (menos falsos negativos) sobre 
+        PRECISIÓN temporal (algunos falsos positivos aceptables).
+        
+        Returns:
+            Tupla (img_date, vid_date, img_source, vid_source) ajustadas
+        """
+        if not self._ensure_dates_loaded():
+            return None, None, "unavailable", "unavailable"
+        
+        img_date = self.image_date
+        img_source = self.image_date_source
+        vid_date = self.video_date
+        vid_source = self.video_date_source
+        
+        # REGLA CRÍTICA: Si el video usa mtime, forzar mtime también en imagen
+        # Esto asegura comparación "mtime vs mtime" en lugar de "EXIF vs mtime"
+        if self._is_filesystem_source(vid_source) and self._is_exif_source(img_source):
+            try:
+                # Obtener mtime de imagen para comparación
+                mtime_date = None
+                if self.metadata_cache:
+                    # El método correcto en cache es get_file_stats que incluye mtime
+                    stats = self.metadata_cache.get_file_stats(self.image_path)
+                    if stats and 'mtime' in stats:
+                        mtime_date = stats['mtime']
+                
+                if not mtime_date:
+                    mtime_date = datetime.fromtimestamp(self.image_path.stat().st_mtime)
+                
+                if mtime_date:
+                    # SIEMPRE usar mtime para comparación cuando video usa mtime
+                    img_date = mtime_date
+                    img_source = f"{img_source}→mtime_adjusted"
+                    # No podemos loggear aquí porque es un dataclass sin logger
+            except Exception:
+                # Silenciar error, no es crítico
+                pass
+        
+        return img_date, vid_date, img_source, vid_source
+
     @property
     def time_difference(self) -> float:
-        """Diferencia en segundos entre imagen y video"""
-        if self.image_date and self.video_date:
-            return abs((self.image_date - self.video_date).total_seconds())
-        return 0.0
+        """
+        Diferencia en segundos entre imagen y video.
+        
+        Calcula fechas si es necesario (lazy loading optimizado con caché).
+        Si el video usa fecha de sistema (mtime) y la imagen usa EXIF,
+        se fuerza el uso de mtime para la imagen para una comparación justa.
+        
+        Returns:
+            Diferencia en segundos, o 0.0 si no se pueden obtener fechas
+        """
+        img_date, vid_date, _, _ = self.get_comparison_dates()
+        if img_date and vid_date:
+            return abs((img_date - vid_date).total_seconds())
+        return 0.0  # Fallback si no se pudieron cargar fechas
 
 
 class CleanupMode(Enum):
@@ -108,7 +243,8 @@ class LivePhotoService(BaseService):
         directory: Path,
         cleanup_mode: CleanupMode = CleanupMode.KEEP_IMAGE,
         recursive: bool = True,
-        progress_callback: Optional[Callable[[int, int, str], bool]] = None
+        progress_callback: Optional[Callable[[int, int, str], bool]] = None,
+        metadata_cache: Optional[FileMetadataCache] = None
     ) -> LivePhotoCleanupAnalysisResult:
         """
         Analiza Live Photos y genera plan de limpieza.
@@ -121,6 +257,7 @@ class LivePhotoService(BaseService):
             recursive: Si buscar recursivamente en subdirectorios
             progress_callback: Función opcional (current, total, message) -> bool
                               Retorna False para cancelar la operación
+            metadata_cache: Caché opcional de metadatos para reutilizar datos del scan
             
         Returns:
             LivePhotoCleanupAnalysisResult con plan de limpieza detallado
@@ -131,12 +268,14 @@ class LivePhotoService(BaseService):
         log_section_header_discrete(self.logger, "ANÁLISIS DE LIVE PHOTOS")
         self.logger.info(f"Analizando en: {directory}")
         self.logger.info(f"Modo de limpieza: {cleanup_mode.value}")
+        if metadata_cache:
+            self.logger.info("✓ Usando caché de metadatos (optimizado)")
 
         if not directory.exists():
             raise ValueError(f"Directorio no existe: {directory}")
 
         # Paso 1: Detectar Live Photos
-        live_photos = self._detect_in_directory(directory, recursive, progress_callback)
+        live_photos = self._detect_in_directory(directory, recursive, progress_callback, metadata_cache)
         
         # Si se canceló la detección, retornar resultado vacío
         if live_photos is None:
@@ -465,7 +604,8 @@ class LivePhotoService(BaseService):
         self, 
         directory: Path, 
         recursive: bool = True, 
-        progress_callback: Optional[Callable] = None
+        progress_callback: Optional[Callable] = None,
+        metadata_cache: Optional[FileMetadataCache] = None
     ) -> Optional[List[LivePhotoGroup]]:
         """
         Detecta Live Photos en un directorio.
@@ -474,6 +614,7 @@ class LivePhotoService(BaseService):
             directory: Directorio a analizar
             recursive: Si buscar recursivamente
             progress_callback: Callback opcional para progreso
+            metadata_cache: Caché opcional de metadatos
             
         Returns:
             Lista de LivePhotoGroup detectados, o None si se canceló
@@ -484,18 +625,20 @@ class LivePhotoService(BaseService):
         photos = []
         videos = []
         
-        # Primero contamos total de archivos para progress
+        # OPTIMIZACIÓN: Procesar en streaming sin bloquear
+        # No crear lista completa primero (puede tardar minutos)
         iterator = directory.rglob("*") if recursive else directory.iterdir()
-        all_files = [f for f in iterator if f.is_file()]
-        total_files = len(all_files)
         processed = 0
 
-        self.logger.info(f"Escaneando {total_files} archivos para detectar Live Photos")
+        self.logger.info(f"Escaneando archivos para detectar Live Photos...")
 
-        for file_path in all_files:
-            # Reportar progreso y verificar si se solicitó cancelación
-            if progress_callback:
-                if not progress_callback(processed, total_files, "Detectando Live Photos"):
+        for file_path in iterator:
+            if not file_path.is_file():
+                continue
+                
+            # Reportar progreso cada N archivos (progreso indeterminado)
+            if processed % Config.UI_UPDATE_INTERVAL == 0 and progress_callback:
+                if not progress_callback(processed, -1, "Escaneando archivos"):
                     self.logger.info("Detección de Live Photos cancelada por el usuario")
                     return None  # Señal de cancelación
             
@@ -508,9 +651,9 @@ class LivePhotoService(BaseService):
             
             processed += 1
 
-        # Reportar progreso final (100%)
+        # Reportar finalización del escaneo
         if progress_callback:
-            if not progress_callback(total_files, total_files, "Detectando Live Photos"):
+            if not progress_callback(processed, processed, f"Escaneados {processed} archivos"):
                 self.logger.info("Detección de Live Photos cancelada por el usuario")
                 return None
 
@@ -521,7 +664,7 @@ class LivePhotoService(BaseService):
 
         # Detectar grupos con progreso
         self.logger.info("Iniciando matching de Live Photos...")
-        groups = self._detect_live_photos(photos, videos, progress_callback)
+        groups = self._detect_live_photos(photos, videos, progress_callback, metadata_cache)
 
         if groups is None:  # Cancelación durante matching
             return None
@@ -547,7 +690,8 @@ class LivePhotoService(BaseService):
         self, 
         photos: List[Path], 
         videos: List[Path], 
-        progress_callback: Optional[Callable] = None
+        progress_callback: Optional[Callable] = None,
+        metadata_cache: Optional[FileMetadataCache] = None
     ) -> Optional[List[LivePhotoGroup]]:
         """
         Detecta Live Photos buscando parejas de fotos con videos .MOV.
@@ -560,6 +704,7 @@ class LivePhotoService(BaseService):
             photos: Lista de fotos a procesar
             videos: Lista de videos a buscar
             progress_callback: Callback opcional para reportar progreso
+            metadata_cache: Caché opcional de metadatos para optimizar acceso a tamaños
             
         Returns:
             Lista de grupos encontrados, o None si se cancela
@@ -569,15 +714,9 @@ class LivePhotoService(BaseService):
         groups = []
         total_photos = len(photos)
         
-        # Determinar si debemos validar timestamps
-        use_time_validation = Config.USE_VIDEO_METADATA
-        
-        if not use_time_validation:
-            self.logger.warning(
-                "⚠️  Extracción de metadata de video DESACTIVADA: "
-                "Los Live Photos se detectarán solo por coincidencia de nombres, "
-                "sin validar que las fechas coincidan. Esto puede incluir falsos positivos."
-            )
+        # NOTA: Siempre validamos timestamps. Si Config.USE_VIDEO_METADATA está desactivado,
+        # simplemente usaremos las fechas del sistema de archivos (mtime) que son rápidas y siempre disponibles.
+        # La lógica de fallback está en _ensure_dates_loaded y get_date_from_file.
         
         self.logger.info(f"Construyendo mapa de videos ({len(videos)} videos)...")
         
@@ -611,48 +750,72 @@ class LivePhotoService(BaseService):
                 for video in video_map[normalized_name]:
                     if photo.parent == video.parent:
                         try:
+                            # Intentar obtener tamaños de caché primero
+                            image_size = None
+                            video_size = None
+                            if metadata_cache:
+                                image_size = metadata_cache.get_size(photo)
+                                video_size = metadata_cache.get_size(video)
+                            
+                            # Si no están en caché, obtener del filesystem
+                            if image_size is None:
+                                image_size = photo.stat().st_size
+                            if video_size is None:
+                                video_size = video.stat().st_size
+                            
                             group = LivePhotoGroup(
                                 image_path=photo,
                                 video_path=video,
                                 base_name=original_name,
                                 directory=photo.parent,
-                                image_size=photo.stat().st_size,
-                                video_size=video.stat().st_size
+                                image_size=image_size,
+                                video_size=video_size,
+                                metadata_cache=metadata_cache
                             )
                             
-                            # Validar diferencia de tiempo SOLO si metadata de video está activado
-                            if use_time_validation:
-                                if group.time_difference <= self.time_tolerance:
-                                    groups.append(group)
-                                    self.logger.debug(f"Live Photo válido: {original_name} (Δt={group.time_difference:.2f}s)")
-                                else:
-                                    self.logger.debug(
-                                        f"Par rechazado por diferencia de tiempo: {original_name} "
-                                        f"(Δt={group.time_difference:.2f}s > {self.time_tolerance}s)"
-                                    )
-                            else:
-                                # Sin validación temporal - aceptar por nombre únicamente
+                            # Validar diferencia de tiempo SIEMPRE
+                            # Usamos el método time_difference del grupo que ya maneja la lógica de
+                            # usar caché o fallback rápido (skip_expensive_ops) para no bloquear.
+                            
+                            time_diff = group.time_difference
+                            if time_diff <= self.time_tolerance:
                                 groups.append(group)
-                                self.logger.debug(f"Live Photo detectado (sin validación temporal): {original_name}")
+                                self.logger.debug(f"Live Photo válido: {original_name} (Δt={time_diff:.2f}s)")
+                            else:
+                                # Obtener las fechas AJUSTADAS usadas en la comparación
+                                img_d_comp, vid_d_comp, img_s_comp, vid_s_comp = group.get_comparison_dates()
+                                
+                                # Formatear fechas para el log
+                                img_d = img_d_comp.strftime('%Y-%m-%d %H:%M:%S') if img_d_comp else 'None'
+                                vid_d = vid_d_comp.strftime('%Y-%m-%d %H:%M:%S') if vid_d_comp else 'None'
+                                
+                                # Indicar si hubo ajuste de fecha
+                                adjustment_note = ""
+                                if "→mtime_adjusted" in img_s_comp:
+                                    adjustment_note = " [Img ajustada a mtime porque video no tiene metadata interna]"
+                                elif "video_metadata_from_cache" in vid_s_comp:
+                                    adjustment_note = " [Video usa metadata interna en vez de mtime para comparación precisa]"
+                                
+                                self.logger.debug(
+                                    f"Par rechazado por diferencia de tiempo: {original_name} "
+                                    f"(Δt={time_diff:.2f}s > {self.time_tolerance}s){adjustment_note} | "
+                                    f"Img: {img_d} ({img_s_comp}) | "
+                                    f"Vid: {vid_d} ({vid_s_comp})"
+                                )
                         except Exception as e:
                             self.logger.warning(f"Error creando grupo para {original_name}: {e}")
 
         # Log final
-        if use_time_validation:
-            self.logger.info(f"Matching completado: {len(groups)} Live Photos válidos encontrados")
-        else:
-            self.logger.info(
-                f"Matching completado: {len(groups)} Live Photos encontrados "
-                f"(sin validación temporal - resultados pueden incluir falsos positivos)"
-            )
+        self.logger.info(f"Matching completado: {len(groups)} Live Photos válidos encontrados")
         
         return groups
 
     def _remove_duplicate_groups(self, groups: List[LivePhotoGroup]) -> List[LivePhotoGroup]:
-        """Elimina grupos duplicados"""
+        """Elimina grupos duplicados, priorizando los que tienen mejor validación temporal"""
         unique_groups = []
         seen_pairs = set()
 
+        # Ordenar por time_difference (menor = más confiable)
         sorted_groups = sorted(groups, key=lambda g: g.time_difference)
 
         for group in sorted_groups:

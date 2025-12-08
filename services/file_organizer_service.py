@@ -111,9 +111,9 @@ class FileOrganizer(BaseService):
         max_workers = Config.get_actual_worker_threads(override=user_override, io_bound=True)
         self.logger.debug(f"Usando {max_workers} workers para análisis paralelo")
 
-        # Contar total de archivos para progress
-        all_files_for_count = list(root_directory.rglob("*"))
-        total_files = sum(1 for f in all_files_for_count if f.is_file() and Config.is_supported_file(f.name))
+        # OPTIMIZACIÓN: No contar archivos previamente (puede tardar minutos)
+        # Procesamos en streaming y reportamos progreso incremental
+        total_files = 0  # Se irá actualizando
         processed_files = 0
 
         # Función para procesar información de archivo
@@ -140,6 +140,7 @@ class FileOrganizer(BaseService):
                           if item.is_file() and Config.is_supported_file(item.name)]
         
         # Procesar archivos de raíz en paralelo si es necesario
+        cancelled = False
         if organization_type in (OrganizationType.BY_MONTH, OrganizationType.BY_YEAR, OrganizationType.BY_YEAR_MONTH, OrganizationType.BY_TYPE, OrganizationType.BY_SOURCE) and root_files_list:
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 futures = {executor.submit(get_file_info, f): f for f in root_files_list}
@@ -153,29 +154,34 @@ class FileOrganizer(BaseService):
                     
                     processed_files += 1
                     # Si el callback retorna False, cancelar análisis
-                    if processed_files % Config.UI_UPDATE_INTERVAL == 0 and not self._report_progress(progress_callback, processed_files, total_files, "Analizando estructura de organización"):
-                        executor.shutdown(wait=False, cancel_futures=True)
-                        # Retornar resultado vacío al cancelar
-                        return OrganizationAnalysisResult(
-                            success=False,
-                            total_files=0,
-                            root_directory=str(root_directory),
-                            organization_type=organization_type.value,
-                            subdirectories={},
-                            root_files=[],
-                                total_files_to_move=0,
-                                total_size_to_move=0,
-                                potential_conflicts=0,
-                                files_by_type={},
-                                move_plan=[],
-                                folders_to_create=[]
-                            )
+                    # Usar -1 como total indica progreso indeterminado
+                    if processed_files % Config.UI_UPDATE_INTERVAL == 0 and not self._report_progress(progress_callback, processed_files, -1, "Analizando archivos raíz"):
+                        cancelled = True
+                        break  # Salir del loop, el with statement hace shutdown limpio
+            
+            # Si se canceló, retornar resultado vacío
+            if cancelled:
+                return OrganizationAnalysisResult(
+                    success=False,
+                    total_files=0,
+                    root_directory=str(root_directory),
+                    organization_type=organization_type.value,
+                    subdirectories={},
+                    root_files=[],
+                    total_files_to_move=0,
+                    total_size_to_move=0,
+                    potential_conflicts=0,
+                    files_by_type={},
+                    move_plan=[],
+                    folders_to_create=[]
+                )
         else:
             # Solo necesitamos los nombres para TO_ROOT
             root_file_names = {item.name for item in root_files_list}
             processed_files += len(root_files_list)
             # Si el callback retorna False, cancelar análisis
-            if processed_files % Config.UI_UPDATE_INTERVAL == 0 and not self._report_progress(progress_callback, processed_files, total_files, "Analizando estructura de organización"):
+            # Usar -1 como total indica progreso indeterminado
+            if processed_files % Config.UI_UPDATE_INTERVAL == 0 and not self._report_progress(progress_callback, processed_files, -1, "Analizando archivos raíz"):
                 return OrganizationAnalysisResult(
                     success=False,
                     total_files=0,
@@ -240,14 +246,18 @@ class FileOrganizer(BaseService):
                     
                     processed_files += 1
                     # Si el callback retorna False, cancelar análisis
-                    if processed_files % Config.UI_UPDATE_INTERVAL == 0 and not self._report_progress(progress_callback, processed_files, total_files, "Analizando estructura de organización"):
-                        executor.shutdown(wait=False, cancel_futures=True)
-                        # Retornar resultado vacío al cancelar
-                        return OrganizationAnalysisResult(
-                            success=False,
-                            total_files=0,
-                            root_directory=str(root_directory),
-                            organization_type=organization_type.value,
+                    # Usar -1 como total indica progreso indeterminado
+                    if processed_files % Config.UI_UPDATE_INTERVAL == 0 and not self._report_progress(progress_callback, processed_files, -1, "Analizando subdirectorios"):
+                        cancelled = True
+                        break  # Salir del loop, el with statement hace shutdown limpio
+            
+            # Si se canceló, retornar resultado vacío
+            if cancelled:
+                return OrganizationAnalysisResult(
+                    success=False,
+                    total_files=0,
+                    root_directory=str(root_directory),
+                    organization_type=organization_type.value,
                             subdirectories={},
                             root_files=[],
                             total_files_to_move=0,
@@ -803,7 +813,7 @@ class FileOrganizer(BaseService):
                     self.logger.warning(f"Saltando archivo que no existe: {file_path}")
                     continue
 
-                file_date = get_date_from_file(file_path, metadata_cache=getattr(self, "_metadata_cache", None))
+                file_date = get_date_from_file(file_path, metadata_cache=getattr(self, "_metadata_cache", None), skip_expensive_ops=True)
                 if not file_date:
                     self.logger.warning(f"No se pudo obtener fecha para {file_path.name}, usando fecha actual")
                     file_date = datetime.now()
@@ -834,7 +844,7 @@ class FileOrganizer(BaseService):
                 self.logger.warning(f"Saltando archivo que no existe: {file_path}")
                 continue
 
-            file_date = get_date_from_file(file_path, metadata_cache=getattr(self, "_metadata_cache", None))
+            file_date = get_date_from_file(file_path, metadata_cache=getattr(self, "_metadata_cache", None), skip_expensive_ops=True)
             if not file_date:
                 self.logger.warning(f"No se pudo obtener fecha para {file_path.name}, usando fecha actual")
                 file_date = datetime.now()
@@ -1086,7 +1096,7 @@ class FileOrganizer(BaseService):
                     self.logger.warning(f"Saltando archivo que no existe: {file_path}")
                     continue
 
-                file_date = get_date_from_file(file_path, metadata_cache=getattr(self, "_metadata_cache", None))
+                file_date = get_date_from_file(file_path, metadata_cache=getattr(self, "_metadata_cache", None), skip_expensive_ops=True)
                 if not file_date:
                     self.logger.warning(f"No se pudo obtener fecha para {file_path.name}, usando fecha actual")
                     file_date = datetime.now()
@@ -1116,7 +1126,7 @@ class FileOrganizer(BaseService):
                 self.logger.warning(f"Saltando archivo que no existe: {file_path}")
                 continue
 
-            file_date = get_date_from_file(file_path, metadata_cache=getattr(self, "_metadata_cache", None))
+            file_date = get_date_from_file(file_path, metadata_cache=getattr(self, "_metadata_cache", None), skip_expensive_ops=True)
             if not file_date:
                 self.logger.warning(f"No se pudo obtener fecha para {file_path.name}, usando fecha actual")
                 file_date = datetime.now()
@@ -1196,7 +1206,7 @@ class FileOrganizer(BaseService):
                     self.logger.warning(f"Saltando archivo que no existe: {file_path}")
                     continue
 
-                file_date = get_date_from_file(file_path, metadata_cache=getattr(self, "_metadata_cache", None))
+                file_date = get_date_from_file(file_path, metadata_cache=getattr(self, "_metadata_cache", None), skip_expensive_ops=True)
                 if not file_date:
                     self.logger.warning(f"No se pudo obtener fecha para {file_path.name}, usando fecha actual")
                     file_date = datetime.now()
@@ -1230,7 +1240,7 @@ class FileOrganizer(BaseService):
                 self.logger.warning(f"Saltando archivo que no existe: {file_path}")
                 continue
 
-            file_date = get_date_from_file(file_path, metadata_cache=getattr(self, "_metadata_cache", None))
+            file_date = get_date_from_file(file_path, metadata_cache=getattr(self, "_metadata_cache", None), skip_expensive_ops=True)
             if not file_date:
                 self.logger.warning(f"No se pudo obtener fecha para {file_path.name}, usando fecha actual")
                 file_date = datetime.now()
@@ -1332,7 +1342,7 @@ class FileOrganizer(BaseService):
                     folder_name = f"{folder_name}/{source}"
                 
                 if date_grouping_type:
-                    file_date = get_date_from_file(file_path, metadata_cache=getattr(self, "_metadata_cache", None))
+                    file_date = get_date_from_file(file_path, metadata_cache=getattr(self, "_metadata_cache", None), skip_expensive_ops=True)
                     if not file_date:
                         file_date = datetime.now()
                     
@@ -1369,7 +1379,7 @@ class FileOrganizer(BaseService):
                 folder_name = f"{folder_name}/{source}"
 
             if date_grouping_type:
-                file_date = get_date_from_file(file_path, metadata_cache=getattr(self, "_metadata_cache", None))
+                file_date = get_date_from_file(file_path, metadata_cache=getattr(self, "_metadata_cache", None), skip_expensive_ops=True)
                 if not file_date:
                     file_date = datetime.now()
                 
@@ -1450,7 +1460,7 @@ class FileOrganizer(BaseService):
                 source = detect_file_source(file_info['name'], file_path)
 
                 if date_grouping_type:
-                    file_date = get_date_from_file(file_path, metadata_cache=getattr(self, "_metadata_cache", None))
+                    file_date = get_date_from_file(file_path, metadata_cache=getattr(self, "_metadata_cache", None), skip_expensive_ops=True)
                     if not file_date:
                         file_date = datetime.now()
                     
@@ -1482,7 +1492,7 @@ class FileOrganizer(BaseService):
             source = detect_file_source(file_info['name'], file_path)
 
             if date_grouping_type:
-                file_date = get_date_from_file(file_path, metadata_cache=getattr(self, "_metadata_cache", None))
+                file_date = get_date_from_file(file_path, metadata_cache=getattr(self, "_metadata_cache", None), skip_expensive_ops=True)
                 if not file_date:
                     file_date = datetime.now()
                 
