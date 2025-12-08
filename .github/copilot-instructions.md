@@ -1,4 +1,4 @@
-## Pixaro Lab - AI Assistant Instructions
+## Innerpix Lab - AI Assistant Instructions
 
 PyQt6 desktop app for photo/video management. Workflow: **analyze → preview → execute**.
 See `PROJECT_TREE.md` for structure. Ignore `docs/` (author's notes).
@@ -68,8 +68,8 @@ See `PROJECT_TREE.md` for structure. Ignore `docs/` (author's notes).
 - Use: `get_logger('Module')` not print()
 - Thread-safe with RLock
 - Dual logging: Creates 2 files when level=INFO/DEBUG and enabled:
-  - Main log: All messages with level suffix (e.g., `pixaro_lab_20251204_220143_INFO.log`)
-  - Warnings log: Only WARNING/ERROR (e.g., `pixaro_lab_20251204_220143_WARNERROR.log`)
+  - Main log: All messages with level suffix (e.g., `innerpix_lab_20251204_220143_INFO.log`)
+  - Warnings log: Only WARNING/ERROR (e.g., `innerpix_lab_20251204_220143_WARNERROR.log`)
 - File deletion logs: Unified format `FILE_DELETED: <path> | Size: <size> | Type: <type> | Date: <date>`
 - Simulation logs: `FILE_DELETED_SIMULATION:` prefix for dry-run operations
 - Grep-friendly: `grep "FILE_DELETED:" logs/*.log` finds all deletions across tools
@@ -120,7 +120,7 @@ See `PROJECT_TREE.md` for structure. Ignore `docs/` (author's notes).
 **Test**: `source .venv/bin/activate && pytest`
 **Install**: `uv pip install <package>` (within venv)
 
-**Logs**: `~/Documents/Pixaro_Lab/logs/`
+**Logs**: `~/Documents/Innerpix_Lab/logs/`
 **Debug**: `utils.logger.set_global_log_level(logging.DEBUG)`
 
 ### Code Quality

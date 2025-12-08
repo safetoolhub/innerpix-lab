@@ -1,5 +1,5 @@
 
-Pixaro Lab es una aplicación para analizar, previsualizar y ejecutar acciones sobre colecciones de imágenes y vídeos (principalmente orientada a fotos iOS).
+Innerpix Lab es una aplicación para analizar, previsualizar y ejecutar acciones sobre colecciones de imágenes y vídeos (principalmente orientada a fotos iOS).
 Ofrece al usuario 6 herramientas principales; cada una se presenta mediante un diálogo (Dialog) específico en la interfaz para permitir la vista previa de los cambios y opciones de ejecución (por ejemplo, creación de backup antes de operaciones destructivas).
 
 1) Limpieza de Live Photos
@@ -36,7 +36,7 @@ Notas comunes:
 - Selección de directorio raíz: El usuario elige un directorio sobre el que se realiza un análisis recursivo que incluye ese directorio y todas sus subcarpetas; los planes y resultados mostrados en los diálogos se basan en ese conjunto de archivos escaneados.
 
 Stack tecnológico y alcance:
- - Pixaro Lab está desarrollada en Python y es una aplicación de escritorio multiplataforma (Linux, Windows y macOS).
+ - Innerpix Lab está desarrollada en Python y es una aplicación de escritorio multiplataforma (Linux, Windows y macOS).
  - La versión de escritorio se implementa usando Qt (p. ej. PyQt6 / PySide6) para la UI.
  - Se mantiene la simplicidad y el desacoplo entre lógica de negocio y UI para facilitar una futura migración a iOS/Android. Las versiones móviles se implementarán con librerías nativas o la estrategia que se decida en ese momento.
  - Por esa razón, los servicios en `services/` son PyQt6-free y actúan como la capa reutilizable que podrá ser aprovechada por futuras implementaciones móviles.

@@ -30,7 +30,7 @@ python scripts/cache_similar_analysis.py create /path/to/40k/photos
 ```
 
 **Tiempo:** 5-10 minutos (solo UNA VEZ)  
-**Resultado:** Archivo `~/Documents/Pixaro_Lab/dev_cache/similar_analysis.pkl`
+**Resultado:** Archivo `~/Documents/Innerpix_Lab/dev_cache/similar_analysis.pkl`
 
 ### 2. Cargar y probar (siempre)
 
@@ -117,7 +117,7 @@ python scripts/cache_similar_analysis.py create /path/to/photos
 ✅ Análisis completado en 487.3s
    • Archivos analizados: 40,234
    • Hashes calculados: 39,876
-💾 Guardando caché en: ~/Documents/Pixaro_Lab/dev_cache/similar_analysis.pkl
+💾 Guardando caché en: ~/Documents/Innerpix_Lab/dev_cache/similar_analysis.pkl
 ✅ ¡Caché creada exitosamente!
 ```
 
@@ -130,7 +130,7 @@ python scripts/cache_similar_analysis.py load
 
 **Salida:**
 ```
-📂 Cargando caché desde: ~/Documents/Pixaro_Lab/dev_cache/similar_analysis.pkl
+📂 Cargando caché desde: ~/Documents/Innerpix_Lab/dev_cache/similar_analysis.pkl
 ✅ Caché cargada en 0.843s (¡instantáneo!)
    • Archivos: 40,234
    • Hashes: 39,876
@@ -155,7 +155,7 @@ python scripts/cache_similar_analysis.py info
 **Salida:**
 ```
 📊 Información de caché:
-   • Ubicación: ~/Documents/Pixaro_Lab/dev_cache/similar_analysis.pkl
+   • Ubicación: ~/Documents/Innerpix_Lab/dev_cache/similar_analysis.pkl
    • Tamaño: 3,456.7 KB
    • Modificado: 2025-11-24 14:23:45
    • Archivos: 40,234
@@ -198,9 +198,9 @@ python scripts/cache_similar_analysis.py create /path/to/photos
 ### 2. Usa diferentes cachés para diferentes datasets
 ```python
 # Renombra o crea múltiples cachés
-analysis.save_to_file(Path("~/Documents/Pixaro_Lab/dev_cache/dataset_40k.pkl"))
-analysis.save_to_file(Path("~/Documents/Pixaro_Lab/dev_cache/dataset_photos.pkl"))
-analysis.save_to_file(Path("~/Documents/Pixaro_Lab/dev_cache/dataset_videos.pkl"))
+analysis.save_to_file(Path("~/Documents/Innerpix_Lab/dev_cache/dataset_40k.pkl"))
+analysis.save_to_file(Path("~/Documents/Innerpix_Lab/dev_cache/dataset_photos.pkl"))
+analysis.save_to_file(Path("~/Documents/Innerpix_Lab/dev_cache/dataset_videos.pkl"))
 ```
 
 ### 3. Git ignore
@@ -210,10 +210,10 @@ La caché ya está en `.gitignore` (archivos `.pkl` en `dev_cache/`).
 Si trabajas en equipo, puedes compartir el archivo de caché:
 ```bash
 # Comprimir para compartir
-tar -czf analysis_cache_40k.tar.gz ~/Documents/Pixaro_Lab/dev_cache/similar_analysis.pkl
+tar -czf analysis_cache_40k.tar.gz ~/Documents/Innerpix_Lab/dev_cache/similar_analysis.pkl
 
 # Descomprimir en otro equipo
-tar -xzf analysis_cache_40k.tar.gz -C ~/Documents/Pixaro_Lab/dev_cache/
+tar -xzf analysis_cache_40k.tar.gz -C ~/Documents/Innerpix_Lab/dev_cache/
 ```
 
 ## 📈 Benchmarks
@@ -303,7 +303,7 @@ pip install imagehash
 ### La caché está corrupta
 ```bash
 # Borra y regenera
-rm ~/Documents/Pixaro_Lab/dev_cache/similar_analysis.pkl
+rm ~/Documents/Innerpix_Lab/dev_cache/similar_analysis.pkl
 python scripts/cache_similar_analysis.py create /path/to/photos
 ```
 

@@ -4,7 +4,7 @@ Script para generar caché de análisis para desarrollo.
 Uso: python scripts/generate_analysis_cache.py /ruta/al/directorio
 
 Este script ejecuta un análisis completo usando AnalysisOrchestrator y guarda
-el resultado en un archivo pickle (.pixaro_analysis_cache.pkl) en el directorio destino.
+el resultado en un archivo pickle (.innerpix_analysis_cache.pkl) en el directorio destino.
 Esto permite saltar la fase de análisis en Stage 2 activando DEV_USE_CACHED_ANALYSIS en config.py.
 
 La caché incluye:

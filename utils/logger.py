@@ -384,13 +384,13 @@ def configure_logging(
     
     # Crear archivo de log con timestamp y sufijo de nivel
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    _log_file = _logs_directory / f"pixaro_lab_{timestamp}_{level_upper}.log"
+    _log_file = _logs_directory / f"innerpix_lab_{timestamp}_{level_upper}.log"
     
     # Crear archivo adicional para WARNING/ERROR si está habilitado
     # Solo para niveles INFO o DEBUG (WARNING/ERROR ya tienen todo en el log principal)
     _log_file_warnings = None
     if _dual_log_enabled and level_upper in ('INFO', 'DEBUG'):
-        _log_file_warnings = _logs_directory / f"pixaro_lab_{timestamp}_WARNERROR.log"
+        _log_file_warnings = _logs_directory / f"innerpix_lab_{timestamp}_WARNERROR.log"
     
     # Si el logger ya existe, limpiar handlers viejos
     if _root_logger is not None:
@@ -494,12 +494,12 @@ def change_logs_directory(new_dir: Path | str, dual_log_enabled: Optional[bool] 
     
     # Crear nuevo archivo de log con sufijo de nivel
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    _log_file = _logs_directory / f"pixaro_lab_{timestamp}_{level_name}.log"
+    _log_file = _logs_directory / f"innerpix_lab_{timestamp}_{level_name}.log"
     
     # Crear archivo adicional para WARNING/ERROR si está habilitado
     _log_file_warnings = None
     if _dual_log_enabled and level_name in ('INFO', 'DEBUG'):
-        _log_file_warnings = _logs_directory / f"pixaro_lab_{timestamp}_WARNERROR.log"
+        _log_file_warnings = _logs_directory / f"innerpix_lab_{timestamp}_WARNERROR.log"
     
     root = _ensure_root_logger()
     
@@ -601,7 +601,7 @@ def set_dual_log_enabled(enabled: bool) -> None:
         # Activar: crear archivo de warnings si no existe
         if not _log_file_warnings:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            _log_file_warnings = _logs_directory / f"pixaro_lab_{timestamp}_WARNERROR.log"
+            _log_file_warnings = _logs_directory / f"innerpix_lab_{timestamp}_WARNERROR.log"
             
             try:
                 from config import Config

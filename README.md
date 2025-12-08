@@ -1,6 +1,6 @@
-# Pixaro Lab
+# Innerpix Lab
 
-Pixaro Lab es una aplicación de escritorio (PyQt6) para analizar y normalizar colecciones de fotos y vídeos. Está pensada especialmente para flujos provenientes de dispositivos iOS y ofrece herramientas para:
+Innerpix Lab es una aplicación de escritorio (PyQt6) para analizar y normalizar colecciones de fotos y vídeos. Está pensada especialmente para flujos provenientes de dispositivos iOS y ofrece herramientas para:
 
 - Detectar y limpiar Live Photos
 - Unificar estructuras de directorios

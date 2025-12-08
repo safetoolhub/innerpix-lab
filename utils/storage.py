@@ -83,12 +83,12 @@ class JsonStorageBackend(StorageBackend):
         """Inicializa el backend JSON.
         
         Args:
-            file_path: Ruta al archivo JSON. Si es None, usa ~/.pixaro_lab/settings.json
+            file_path: Ruta al archivo JSON. Si es None, usa ~/.innerpix_lab/settings.json
         """
         self.logger = get_logger('JsonStorageBackend')
         
         if file_path is None:
-            config_dir = Path.home() / ".pixaro_lab"
+            config_dir = Path.home() / ".innerpix_lab"
             config_dir.mkdir(parents=True, exist_ok=True)
             file_path = config_dir / "settings.json"
         

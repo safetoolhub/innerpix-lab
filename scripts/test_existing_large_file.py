@@ -18,7 +18,7 @@ def test_existing_large_file():
     print("=" * 80)
     
     # Crear directorio temporal
-    test_dir = Path(tempfile.mkdtemp(prefix="pixaro_log_test_"))
+    test_dir = Path(tempfile.mkdtemp(prefix="innerpix_log_test_"))
     print(f"📁 Directorio de prueba: {test_dir}")
     
     log_file = test_dir / "test.log"

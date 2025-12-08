@@ -174,7 +174,7 @@ Con los logs agregados, ahora puedes ver en tiempo real:
 ## 📝 CÓMO USAR LOS LOGS PARA DEBUGGING
 
 1. **Ejecuta el análisis** normalmente
-2. **Revisa los logs** en `~/Documents/Pixaro_Lab/logs/`
+2. **Revisa los logs** en `~/Documents/Innerpix_Lab/logs/`
 3. **Busca estos patrones**:
    - `✅ Caché de metadatos creada` → Caché se creó bien
    - `💾 Caché después del escaneo: X con hashes SHA256` → Cuántos hashes hay

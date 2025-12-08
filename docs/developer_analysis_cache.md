@@ -24,7 +24,7 @@ source .venv/bin/activate
 python scripts/generate_analysis_cache.py /home/ed/Pictures/RAW
 ```
 
-This will create a hidden file `.pixaro_analysis_cache.pkl` inside `/home/ed/Pictures/RAW`.
+This will create a hidden file `.innerpix_analysis_cache.pkl` inside `/home/ed/Pictures/RAW`.
 
 ### 2. Inspect the Cache
 You can inspect the contents of the generated cache using the inspection script. This is useful to verify the data without running the full application.
@@ -65,4 +65,4 @@ The test passed successfully.
 
 ## Important Note
 
-The cache file `.pixaro_analysis_cache.pkl` is **automatically excluded** from the analysis process. The `AnalysisOrchestrator` explicitly filters out this file when scanning directories, so it won't appear in file statistics or be processed by any service. This ensures the cache doesn't interfere with the analysis results.
+The cache file `.innerpix_analysis_cache.pkl` is **automatically excluded** from the analysis process. The `AnalysisOrchestrator` explicitly filters out this file when scanning directories, so it won't appear in file statistics or be processed by any service. This ensures the cache doesn't interfere with the analysis results.

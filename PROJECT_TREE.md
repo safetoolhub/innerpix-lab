@@ -1,11 +1,11 @@
-# Pixaro Lab - Estructura del Proyecto
+# Innerpix Lab - Estructura del Proyecto
 
 Aplicación PyQt6 para gestión de colecciones de fotos/videos (enfoque iOS).
 
 **Nota:** Las carpetas `__pycache__/` están excluidas de este árbol (ignoradas por .gitignore).
 
 ```
-pixaro-lab/
+innerpix-lab/
 ├── LICENSE                          # Licencia del proyecto
 ├── README.md                        # Documentación principal
 ├── PROJECT_TREE.md                  # Este archivo - estructura del proyecto
