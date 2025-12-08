@@ -87,49 +87,58 @@ class TestFileMetadataCacheHashes:
 class TestFileMetadataCacheExifDates:
     """Tests de caché de fechas EXIF"""
     
-    def test_set_and_get_exif_dates(self, temp_dir):
-        """Debe cachear y recuperar fechas EXIF"""
+    def test_set_and_get_all_dates(self, temp_dir):
+        """Debe cachear y recuperar todas las fechas"""
         cache = FileMetadataCache()
         file_path = temp_dir / "photo.jpg"
         file_path.touch()
         
-        test_date = datetime(2023, 5, 15, 10, 30, 45)
-        test_date_original = datetime(2023, 5, 15, 10, 30, 40)
+        test_dates = {
+            'exif_date_time_original': datetime(2023, 5, 15, 10, 30, 40),
+            'exif_create_date': datetime(2023, 5, 15, 10, 30, 45),
+            'exif_offset_time': '+02:00',
+            'filename_date': datetime(2023, 5, 15, 0, 0, 0),
+            'modification_date': datetime(2023, 5, 16, 12, 0, 0)
+        }
         
-        cache.set_exif_dates(
-            file_path,
-            exif_date=test_date,
-            exif_date_original=test_date_original
-        )
+        cache.set_all_dates(file_path, test_dates)
         
-        retrieved_date = cache.get_exif_date(file_path)
-        assert retrieved_date == test_date
+        retrieved_dates = cache.get_all_dates(file_path)
+        assert retrieved_dates is not None
+        assert retrieved_dates['exif_date_time_original'] == test_dates['exif_date_time_original']
+        assert retrieved_dates['exif_create_date'] == test_dates['exif_create_date']
+        assert retrieved_dates['exif_offset_time'] == '+02:00'
+        assert retrieved_dates['filename_date'] == test_dates['filename_date']
     
-    def test_get_exif_date_not_cached(self, temp_dir):
-        """Debe retornar None para fecha no cacheada"""
+    def test_get_all_dates_not_cached(self, temp_dir):
+        """Debe retornar None para fechas no cacheadas"""
         cache = FileMetadataCache()
         file_path = temp_dir / "photo.jpg"
         
-        retrieved_date = cache.get_exif_date(file_path)
-        assert retrieved_date is None
+        retrieved_dates = cache.get_all_dates(file_path)
+        assert retrieved_dates is None
     
-    def test_exif_date_priority(self, temp_dir):
-        """Debe retornar exif_date sobre exif_date_original"""
+    def test_multiple_date_sources(self, temp_dir):
+        """Debe cachear fechas de múltiples fuentes correctamente"""
         cache = FileMetadataCache()
         file_path = temp_dir / "photo.jpg"
         file_path.touch()
         
-        date1 = datetime(2023, 5, 15, 10, 30, 45)
-        date2 = datetime(2023, 5, 15, 10, 30, 40)
+        dates = {
+            'exif_date_time_original': datetime(2023, 5, 15, 10, 30, 45),
+            'exif_create_date': datetime(2023, 5, 15, 10, 30, 40),
+            'video_metadata_date': datetime(2023, 5, 15, 10, 30, 35),
+            'filename_date': datetime(2023, 5, 15, 0, 0, 0)
+        }
         
-        cache.set_exif_dates(
-            file_path,
-            exif_date=date1,
-            exif_date_original=date2
-        )
+        cache.set_all_dates(file_path, dates)
         
-        retrieved = cache.get_exif_date(file_path)
-        assert retrieved == date1
+        retrieved = cache.get_all_dates(file_path)
+        assert retrieved is not None
+        assert retrieved['exif_date_time_original'] == dates['exif_date_time_original']
+        assert retrieved['exif_create_date'] == dates['exif_create_date']
+        assert retrieved['video_metadata_date'] == dates['video_metadata_date']
+        assert retrieved['filename_date'] == dates['filename_date']
 
 
 @pytest.mark.unit
@@ -154,19 +163,24 @@ class TestFileMetadataCacheBasicMetadata:
         file_path = temp_dir / "photo.jpg"
         file_path.touch()
         
+        filesystem_modification_date = datetime(2023, 5, 15, 12, 0, 0)
+        filesystem_creation_date = datetime(2023, 5, 15, 11, 0, 0)
+        
         cache.set_basic_metadata(
             file_path,
             size=54321,
             file_type='image',
-            modified_time=1234567890.0,
-            created_time=1234567800.0
+            filesystem_modification_date=filesystem_modification_date,
+            filesystem_creation_date=filesystem_creation_date,
+            filesystem_creation_source='ctime'
         )
         
         metadata = cache.get_or_create(file_path)
         assert metadata.size == 54321
         assert metadata.file_type == 'image'
-        assert metadata.modified_time == 1234567890.0
-        assert metadata.created_time == 1234567800.0
+        assert metadata.filesystem_modification_date == filesystem_modification_date
+        assert metadata.filesystem_creation_date == filesystem_creation_date
+        assert metadata.filesystem_creation_source == 'ctime'
 
 
 @pytest.mark.unit

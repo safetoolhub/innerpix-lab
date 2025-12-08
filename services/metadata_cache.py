@@ -35,23 +35,42 @@ class FileMetadata:
     # Hash SHA256 para duplicados exactos
     sha256_hash: Optional[str] = None
     
-    # Fechas EXIF extraídas (formato datetime)
-    exif_date: Optional[datetime] = None
-    exif_date_original: Optional[datetime] = None
+    # ============================================================================
+    # TODAS LAS FECHAS EXTRAÍDAS (estructura idéntica a get_all_file_dates)
+    # ============================================================================
+    # Fechas EXIF (para imágenes)
+    exif_date_time_original: Optional[datetime] = None  # DateTimeOriginal
+    exif_create_date: Optional[datetime] = None         # CreateDate/DateTime
+    exif_date_digitized: Optional[datetime] = None      # DateTimeDigitized
+    exif_gps_date: Optional[datetime] = None            # GPS DateStamp
+    exif_offset_time: Optional[str] = None              # Zona horaria (ej: '+02:00')
+    exif_software: Optional[str] = None                 # Software usado (detecta edición)
     
-    # Fecha seleccionada final (resultado de get_date_from_file)
+    # Metadata de video
+    video_metadata_date: Optional[datetime] = None      # creation_time de ffprobe/exiftool
+    
+    # Fecha extraída del nombre de archivo
+    filename_date: Optional[datetime] = None            # Patrones: WhatsApp, Screenshot, etc.
+    
+    # Timestamps del filesystem (con prefijo filesystem_ para coherencia)
+    filesystem_creation_date: Optional[datetime] = None            # st_birthtime o st_ctime
+    filesystem_creation_source: Optional[str] = None               # 'birth' o 'ctime'
+    filesystem_modification_date: Optional[datetime] = None        # st_mtime
+    filesystem_access_date: Optional[datetime] = None              # st_atime
+    
+    # ============================================================================
+    # FECHA SELECCIONADA (resultado de select_chosen_date)
+    # ============================================================================
     selected_date: Optional[datetime] = None
-    date_source: Optional[str] = None  # 'exif_datetime_original', 'exif_datetime_original_tz', 
+    date_source: Optional[str] = None  # 'exif_datetime_original_tz', 'exif_datetime_original',
                                         # 'exif_create_date', 'exif_datetime_digitized',
                                         # 'filename', 'video', 'mtime', 'ctime'
     
-    # Metadata básico del filesystem
+    # ============================================================================
+    # METADATA BÁSICO DEL FILESYSTEM
+    # ============================================================================
     size: Optional[int] = None
     file_type: Optional[str] = None  # 'image', 'video', 'other'
-    
-    # Timestamps del filesystem
-    modified_time: Optional[float] = None
-    created_time: Optional[float] = None
     
     # Metadata de caché
     cached_at: float = field(default_factory=time.time)
@@ -206,15 +225,16 @@ class FileMetadataCache:
         metadata.cached_at = time.time()
         self.logger.debug(f"✓ Hash cacheado para {file_path.name} (hash: {sha256_hash[:8]}...)")
     
-    def get_exif_date(self, file_path: Path) -> Optional[datetime]:
+    def get_all_dates(self, file_path: Path) -> Optional[dict]:
         """
-        Obtiene fecha EXIF cacheada.
+        Obtiene todas las fechas cacheadas de un archivo.
         
         Args:
             file_path: Path del archivo
             
         Returns:
-            Fecha EXIF o None si no está cacheada
+            Dict con todas las fechas cacheadas (mismo formato que get_all_file_dates)
+            o None si no está cacheado o expiró
         """
         if not self._enabled:
             return None
@@ -225,7 +245,21 @@ class FileMetadataCache:
                 metadata = self._cache[file_path]
                 if metadata.is_valid(self._max_age_seconds):
                     self._hits += 1
-                    return metadata.exif_date or metadata.exif_date_original
+                    # Retornar dict con estructura de get_all_file_dates
+                    return {
+                        'exif_date_time_original': metadata.exif_date_time_original,
+                        'exif_create_date': metadata.exif_create_date,
+                        'exif_date_digitized': metadata.exif_date_digitized,
+                        'exif_gps_date': metadata.exif_gps_date,
+                        'exif_offset_time': metadata.exif_offset_time,
+                        'exif_software': metadata.exif_software,
+                        'video_metadata_date': metadata.video_metadata_date,
+                        'filename_date': metadata.filename_date,
+                        'filesystem_creation_date': metadata.filesystem_creation_date,
+                        'filesystem_creation_source': metadata.filesystem_creation_source,
+                        'filesystem_modification_date': metadata.filesystem_modification_date,
+                        'filesystem_access_date': metadata.filesystem_access_date
+                    }
                 else:
                     # Entrada expirada, remover
                     del self._cache[file_path]
@@ -234,29 +268,47 @@ class FileMetadataCache:
                 self._misses += 1
         return None
     
-    def set_exif_dates(
-        self, 
-        file_path: Path, 
-        exif_date: Optional[datetime] = None,
-        exif_date_original: Optional[datetime] = None
-    ) -> None:
+    def set_all_dates(self, file_path: Path, dates_dict: dict) -> None:
         """
-        Cachea fechas EXIF de un archivo.
+        Cachea todas las fechas de un archivo desde get_all_file_dates.
         
         Args:
             file_path: Path del archivo
-            exif_date: Fecha EXIF general
-            exif_date_original: Fecha original de captura
+            dates_dict: Dict con fechas (estructura de get_all_file_dates)
         """
         if not self._enabled:
             return
         
         metadata = self.get_or_create(file_path)
-        if exif_date:
-            metadata.exif_date = exif_date
-        if exif_date_original:
-            metadata.exif_date_original = exif_date_original
+        
+        # Actualizar todas las fechas disponibles
+        if 'exif_date_time_original' in dates_dict:
+            metadata.exif_date_time_original = dates_dict['exif_date_time_original']
+        if 'exif_create_date' in dates_dict:
+            metadata.exif_create_date = dates_dict['exif_create_date']
+        if 'exif_date_digitized' in dates_dict:
+            metadata.exif_date_digitized = dates_dict['exif_date_digitized']
+        if 'exif_gps_date' in dates_dict:
+            metadata.exif_gps_date = dates_dict['exif_gps_date']
+        if 'exif_offset_time' in dates_dict:
+            metadata.exif_offset_time = dates_dict['exif_offset_time']
+        if 'exif_software' in dates_dict:
+            metadata.exif_software = dates_dict['exif_software']
+        if 'video_metadata_date' in dates_dict:
+            metadata.video_metadata_date = dates_dict['video_metadata_date']
+        if 'filename_date' in dates_dict:
+            metadata.filename_date = dates_dict['filename_date']
+        if 'filesystem_creation_date' in dates_dict:
+            metadata.filesystem_creation_date = dates_dict['filesystem_creation_date']
+        if 'filesystem_creation_source' in dates_dict:
+            metadata.filesystem_creation_source = dates_dict['filesystem_creation_source']
+        if 'filesystem_modification_date' in dates_dict:
+            metadata.filesystem_modification_date = dates_dict['filesystem_modification_date']
+        if 'filesystem_access_date' in dates_dict:
+            metadata.filesystem_access_date = dates_dict['filesystem_access_date']
+        
         metadata.cached_at = time.time()
+        self.logger.debug(f"✓ Todas las fechas cacheadas para {file_path.name}")
     
     def get_selected_date(self, file_path: Path) -> tuple[Optional[datetime], Optional[str]]:
         """
@@ -364,8 +416,9 @@ class FileMetadataCache:
         file_path: Path,
         size: Optional[int] = None,
         file_type: Optional[str] = None,
-        modified_time: Optional[float] = None,
-        created_time: Optional[float] = None
+        filesystem_modification_date: Optional[datetime] = None,
+        filesystem_creation_date: Optional[datetime] = None,
+        filesystem_creation_source: Optional[str] = None
     ) -> None:
         """
         Cachea metadata básico del filesystem.
@@ -374,8 +427,9 @@ class FileMetadataCache:
             file_path: Path del archivo
             size: Tamaño en bytes
             file_type: Tipo ('image', 'video', 'other')
-            modified_time: Timestamp de modificación
-            created_time: Timestamp de creación
+            filesystem_modification_date: Fecha de modificación (datetime)
+            filesystem_creation_date: Fecha de creación (datetime)
+            filesystem_creation_source: Fuente de creation_date ('birth' o 'ctime')
         """
         if not self._enabled:
             return
@@ -385,10 +439,12 @@ class FileMetadataCache:
             metadata.size = size
         if file_type is not None:
             metadata.file_type = file_type
-        if modified_time is not None:
-            metadata.modified_time = modified_time
-        if created_time is not None:
-            metadata.created_time = created_time
+        if filesystem_modification_date is not None:
+            metadata.filesystem_modification_date = filesystem_modification_date
+        if filesystem_creation_date is not None:
+            metadata.filesystem_creation_date = filesystem_creation_date
+        if filesystem_creation_source is not None:
+            metadata.filesystem_creation_source = filesystem_creation_source
         metadata.cached_at = time.time()
     
     def invalidate(self, file_path: Optional[Path] = None) -> None:

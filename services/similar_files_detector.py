@@ -679,8 +679,7 @@ class SimilarFilesDetector(BaseDetectorService):
                         total_files,
                         f"Procesado: \n{file_path.name}"
                     ):
-                        executor.shutdown(wait=False, cancel_futures=True)
-                        break
+                        break  # Salir del loop, el with hace shutdown limpio
                 except TimeoutError:
                     timeouts += 1
                     processed += 1

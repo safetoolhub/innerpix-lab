@@ -317,40 +317,39 @@ class AnalysisOrchestrator:
             if metadata_cache is not None:
                 try:
                     stat_info = f.stat()
+                    # Convertir timestamps a datetime para la caché
+                    from datetime import datetime
+                    
+                    filesystem_modification_date = datetime.fromtimestamp(stat_info.st_mtime)
+                    
+                    # Determinar creation_date según plataforma
+                    if hasattr(stat_info, 'st_birthtime'):
+                        filesystem_creation_date = datetime.fromtimestamp(stat_info.st_birthtime)
+                        filesystem_creation_source = 'birth'
+                    else:
+                        filesystem_creation_date = datetime.fromtimestamp(stat_info.st_ctime)
+                        filesystem_creation_source = 'ctime'
+                    
                     metadata_cache.set_basic_metadata(
                         f,
                         size=stat_info.st_size,
                         file_type=file_type,
-                        modified_time=stat_info.st_mtime,
-                        created_time=stat_info.st_ctime
+                        filesystem_modification_date=filesystem_modification_date,
+                        filesystem_creation_date=filesystem_creation_date,
+                        filesystem_creation_source=filesystem_creation_source
                     )
                     
-                    # Para archivos de imagen, extraer y cachear fechas EXIF durante el scan
-                    # Esto optimiza la fase de renaming que las necesita
-                    if file_type == 'image':
+                    # Para archivos de imagen y video, extraer y cachear TODAS las fechas durante el scan
+                    # Esto optimiza las fases posteriores (renaming, organization) que las necesitan
+                    if file_type in ('image', 'video'):
                         try:
                             from utils.date_utils import get_all_file_dates
-                            exif_dates = get_all_file_dates(f)
-                            if exif_dates:
-                                # Mapear las keys de get_all_file_dates a las esperadas por la caché
-                                # get_all_file_dates devuelve:
-                                #   - 'exif_create_date': CreateDate/DateTime EXIF tag
-                                #   - 'exif_date_time_original': DateTimeOriginal EXIF tag
-                                # La caché usa nombres simplificados:
-                                #   - exif_date: para CreateDate
-                                #   - exif_date_original: para DateTimeOriginal
-                                exif_date = exif_dates.get('exif_create_date')
-                                exif_date_original = exif_dates.get('exif_date_time_original')
-                                
-                                # Solo cachear si al menos una fecha existe
-                                if exif_date or exif_date_original:
-                                    metadata_cache.set_exif_dates(
-                                        f,
-                                        exif_date=exif_date,
-                                        exif_date_original=exif_date_original
-                                    )
+                            all_dates = get_all_file_dates(f)
+                            if all_dates and any(all_dates.values()):
+                                # Cachear todas las fechas usando la estructura completa
+                                metadata_cache.set_all_dates(f, all_dates)
                         except Exception as e:
-                            # No loguear warning para EXIF fallido - es común en archivos sin EXIF
+                            # No loguear warning para metadata fallido - es común en archivos sin EXIF
                             pass
                     
                     # Pre-calcular hashes SHA256 si se solicitó (hace el escaneo más lento)
@@ -418,7 +417,11 @@ class AnalysisOrchestrator:
         )
         if metadata_cache is not None:
             cache_stats = metadata_cache.get_stats()
-            exif_cached = sum(1 for m in metadata_cache._cache.values() if m.exif_date or m.exif_date_original)
+            # Contar cuántas entradas tienen al menos una fecha EXIF
+            exif_cached = sum(
+                1 for m in metadata_cache._cache.values() 
+                if m.exif_date_time_original or m.exif_create_date or m.exif_date_digitized
+            )
             hashes_cached = sum(1 for m in metadata_cache._cache.values() if m.sha256_hash)
             self.logger.info(
                 f"💾 Caché después del escaneo: "
@@ -462,7 +465,8 @@ class AnalysisOrchestrator:
     def analyze_live_photos(self,
                            directory: Path,
                            service: AnalyzableService,
-                           progress_callback: Optional[Callable[[int, int, str], bool]] = None) -> 'LivePhotoDetectionResult':
+                           progress_callback: Optional[Callable[[int, int, str], bool]] = None,
+                           metadata_cache: Optional[FileMetadataCache] = None) -> 'LivePhotoDetectionResult':
         """
         Detecta grupos de Live Photos en el directorio.
         
@@ -470,6 +474,7 @@ class AnalysisOrchestrator:
             directory: Directorio a analizar
             service: Instancia de LivePhotoService
             progress_callback: Función opcional de progreso
+            metadata_cache: Caché opcional de metadatos
             
         Returns:
             LivePhotoDetectionResult con grupos y estadísticas
@@ -483,7 +488,8 @@ class AnalysisOrchestrator:
         cleanup_analysis = service.analyze(
             directory, 
             cleanup_mode=CleanupMode.KEEP_IMAGE,
-            progress_callback=progress_callback
+            progress_callback=progress_callback,
+            metadata_cache=metadata_cache
         )
         
         # Convertir a LivePhotoDetectionResult para mantener compatibilidad con la estructura esperada
@@ -502,7 +508,8 @@ class AnalysisOrchestrator:
                             directory: Path,
                             organizer: AnalyzableService,
                             organization_type: Optional[str] = None,
-                            progress_callback: Optional[Callable[[int, int, str], bool]] = None) -> 'OrganizationAnalysisResult':
+                            progress_callback: Optional[Callable[[int, int, str], bool]] = None,
+                            metadata_cache: Optional[FileMetadataCache] = None) -> 'OrganizationAnalysisResult':
         """
         Analiza estructura de directorios para organización.
         
@@ -511,6 +518,7 @@ class AnalysisOrchestrator:
             organizer: Instancia de FileOrganizer
             organization_type: Tipo de organización (opcional)
             progress_callback: Función opcional de progreso
+            metadata_cache: Caché opcional de metadatos
             
         Returns:
             OrganizationAnalysisResult con el plan de organización
@@ -533,7 +541,8 @@ class AnalysisOrchestrator:
         return organizer.analyze(
             directory,
             organization_type=org_type,
-            progress_callback=progress_callback
+            progress_callback=progress_callback,
+            metadata_cache=metadata_cache
         )
     
     def analyze_heic_duplicates(self,
@@ -747,7 +756,7 @@ class AnalysisOrchestrator:
             result.live_photos, result.phase_timings['live_photos'] = self._execute_phase(
                 phase_id="live_photos",
                 phase_name="Buscando Live Photos",
-                phase_callable=lambda: self.analyze_live_photos(directory, live_photos_service, progress_callback),
+                phase_callable=lambda: self.analyze_live_photos(directory, live_photos_service, progress_callback, metadata_cache),
                 phase_callback=phase_callback,
                 partial_callback=partial_callback
             )
@@ -820,7 +829,7 @@ class AnalysisOrchestrator:
             result.organization, result.phase_timings['organization'] = self._execute_phase(
                 phase_id="organization",
                 phase_name="Analizando estructura de carpetas",
-                phase_callable=lambda: self.analyze_organization(directory, organizer, organization_type, progress_callback),
+                phase_callable=lambda: self.analyze_organization(directory, organizer, organization_type, progress_callback, metadata_cache),
                 phase_callback=phase_callback,
                 partial_callback=partial_callback
             )

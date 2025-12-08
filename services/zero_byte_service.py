@@ -37,26 +37,24 @@ class ZeroByteService:
         self.logger.info(f"Buscando archivos de 0 bytes en: {directory}")
         
         zero_byte_files = []
-        
-        # Recorrer directorio
-        all_files = list(directory.rglob("*"))
-        # Filtrar solo archivos para el conteo total y procesamiento
-        files_only = [f for f in all_files if f.is_file()]
-        total_files = len(files_only)
         processed = 0
         
-        for file_path in files_only:
+        # Recorrer directorio en streaming (sin bloquear)
+        for file_path in directory.rglob("*"):
+            if not file_path.is_file():
+                continue
+                
             if progress_callback and processed % 100 == 0:
-                if not progress_callback(processed, total_files, "Buscando archivos vacíos..."):
+                if not progress_callback(processed, -1, "Buscando archivos vacíos..."):
                     break
             
-            if file_path.is_file() and file_path.stat().st_size == 0:
+            if file_path.stat().st_size == 0:
                 zero_byte_files.append(file_path)
             
             processed += 1
             
         if progress_callback:
-            progress_callback(total_files, total_files, "Búsqueda completada")
+            progress_callback(processed, processed, "Búsqueda completada")
             
         return ZeroByteAnalysisResult(
             total_files=total_files,

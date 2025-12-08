@@ -208,9 +208,9 @@ class Config:
     # CONFIGURACIÓN DE LIVE PHOTOS
     # ========================================================================
     # Tamaño mínimo esperado para videos de Live Photos (en bytes)
-    # Videos de Live Photos típicamente son muy pequeños (1-5 MB)
+    # Videos de Live Photos típicamente son muy pequeños (1-8 MB)
     # Si un video excede este tamaño, puede no ser realmente un video de Live Photo
-    LIVE_PHOTO_MAX_VIDEO_SIZE = 6 * 1024 * 1024  # 6 MB por defecto
+    LIVE_PHOTO_MAX_VIDEO_SIZE = 8 * 1024 * 1024  # 8 MB por defecto
     
     # ========================================================================
     # CONFIGURACIÓN DE DIÁLOGO DE ARCHIVOS SIMILARES

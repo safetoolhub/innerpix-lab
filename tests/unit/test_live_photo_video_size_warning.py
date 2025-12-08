@@ -20,7 +20,7 @@ class TestLivePhotoVideoSizeWarning:
         assert hasattr(Config, 'LIVE_PHOTO_MAX_VIDEO_SIZE')
         assert Config.LIVE_PHOTO_MAX_VIDEO_SIZE > 0
         # Por defecto debería ser 6 MB
-        assert Config.LIVE_PHOTO_MAX_VIDEO_SIZE == 6 * 1024 * 1024
+        assert Config.LIVE_PHOTO_MAX_VIDEO_SIZE == 8*1024 * 1024
     
     def test_small_video_no_warning(self, temp_dir, create_test_image, create_test_video, caplog):
         """Verifica que videos pequeños NO generan warning"""

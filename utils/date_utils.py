@@ -264,15 +264,15 @@ def select_chosen_date(all_dates: dict) -> tuple[Optional[datetime], Optional[st
     # ============================================================================
     fs_dates = []
     
-    if all_dates.get('creation_date'):
+    if all_dates.get('filesystem_creation_date'):
         fs_dates.append((
-            all_dates['creation_date'],
-            all_dates.get('creation_source', 'creation')
+            all_dates['filesystem_creation_date'],
+            all_dates.get('filesystem_creation_source', 'creation')
         ))
     
-    if all_dates.get('modification_date'):
+    if all_dates.get('filesystem_modification_date'):
         fs_dates.append((
-            all_dates['modification_date'],
+            all_dates['filesystem_modification_date'],
             'mtime'
         ))
     
@@ -379,7 +379,7 @@ def _validate_gps_coherence(all_dates: dict, selected_date: datetime) -> None:
             f"Posible problema de zona horaria o GPS incorrecto."
         )
 
-def get_date_from_file(file_path: Path, verbose: bool = False, metadata_cache=None) -> Optional[datetime]:
+def get_date_from_file(file_path: Path, verbose: bool = False, metadata_cache=None, skip_expensive_ops: bool = False) -> Optional[datetime]:
     """
     Extrae la fecha más representativa de un archivo mediante análisis de múltiples fuentes.
     
@@ -397,6 +397,8 @@ def get_date_from_file(file_path: Path, verbose: bool = False, metadata_cache=No
         file_path: Ruta al archivo a analizar
         verbose: Si True, muestra análisis detallado en modo INFO. Si False, solo en DEBUG
         metadata_cache: Instancia opcional de FileMetadataCache para reutilizar fechas calculadas
+        skip_expensive_ops: Si True y metadata_cache no tiene la fecha, usa fallback rápido (mtime)
+                           en lugar de calcular con ffprobe/EXIF. Útil para análisis masivos.
 
     Returns:
         datetime: Fecha seleccionada según la lógica de priorización
@@ -413,6 +415,18 @@ def get_date_from_file(file_path: Path, verbose: bool = False, metadata_cache=No
             if cached_date is not None:
                 _logger.debug(f"✓ Fecha obtenida de caché: {file_path.name} = {cached_source}")
                 return cached_date
+        
+        # Si skip_expensive_ops y no está en caché, usar fallback rápido (filesystem_modification_date)
+        if skip_expensive_ops and metadata_cache:
+            # Usar API consistente del cache (puede tener mtime cacheado del scan)
+            mtime_date = metadata_cache.get_filesystem_modification_date(file_path)
+            if mtime_date:
+                _logger.debug(f"⚡ Fecha rápida (filesystem_modification_date) para {file_path.name}: {mtime_date}")
+                return mtime_date
+            # Fallback final si el cache no tiene nada (edge case)
+            mtime_date = datetime.fromtimestamp(file_path.stat().st_mtime)
+            _logger.debug(f"⚡ Fecha rápida (st_mtime directo) para {file_path.name}: {mtime_date}")
+            return mtime_date
         
         # OPTIMIZACIÓN 2: Usar versión cacheada para evitar lecturas EXIF repetidas
         # La clave incluye mtime para invalidar caché si el archivo se modifica
@@ -462,10 +476,10 @@ def get_date_from_file(file_path: Path, verbose: bool = False, metadata_cache=No
                     dates_str.append(f"SW:{all_dates['exif_software'][:20]}")  # Truncar a 20 chars
                 
                 # Mostrar fechas del sistema de archivos
-                if all_dates.get('creation_date'):
-                    dates_str.append(f"{all_dates.get('creation_source', 'creation')}:{all_dates['creation_date'].strftime('%Y%m%d_%H%M%S')}")
-                if all_dates.get('modification_date'):
-                    dates_str.append(f"mtime:{all_dates['modification_date'].strftime('%Y%m%d_%H%M%S')}")
+                if all_dates.get('filesystem_creation_date'):
+                    dates_str.append(f"{all_dates.get('filesystem_creation_source', 'creation')}:{all_dates['filesystem_creation_date'].strftime('%Y%m%d_%H%M%S')}")
+                if all_dates.get('filesystem_modification_date'):
+                    dates_str.append(f"mtime:{all_dates['filesystem_modification_date'].strftime('%Y%m%d_%H%M%S')}")
                 
                 log_func(
                     f"{file_path.name} | {' | '.join(dates_str)} → "
@@ -995,10 +1009,10 @@ def get_all_file_dates(file_path: Path) -> dict:
             'exif_software': str or None,                 # Software usado
             'video_metadata_date': datetime or None,      # Metadata de video
             'filename_date': datetime or None,            # Fecha del nombre
-            'creation_date': datetime or None,            # Fecha de creación FS
-            'creation_source': str or None,               # Fuente de creación
-            'modification_date': datetime or None,        # Fecha de modificación
-            'access_date': datetime or None               # Fecha de acceso
+            'filesystem_creation_date': datetime or None, # Fecha de creación FS
+            'filesystem_creation_source': str or None,    # Fuente de creación
+            'filesystem_modification_date': datetime or None, # Fecha de modificación
+            'filesystem_access_date': datetime or None    # Fecha de acceso
         }
     """
     from config import Config
@@ -1012,10 +1026,10 @@ def get_all_file_dates(file_path: Path) -> dict:
         'exif_software': None,
         'video_metadata_date': None,
         'filename_date': None,
-        'creation_date': None,
-        'creation_source': None,
-        'modification_date': None,
-        'access_date': None
+        'filesystem_creation_date': None,
+        'filesystem_creation_source': None,
+        'filesystem_modification_date': None,
+        'filesystem_access_date': None
     }
     
     try:
@@ -1041,17 +1055,17 @@ def get_all_file_dates(file_path: Path) -> dict:
         
         # Fecha de creación (birth time en macOS/Unix, ctime en Windows/Linux)
         if hasattr(stat, 'st_birthtime'):
-            result['creation_date'] = datetime.fromtimestamp(stat.st_birthtime)
-            result['creation_source'] = 'birth'
+            result['filesystem_creation_date'] = datetime.fromtimestamp(stat.st_birthtime)
+            result['filesystem_creation_source'] = 'birth'
         elif hasattr(stat, 'st_ctime'):
-            result['creation_date'] = datetime.fromtimestamp(stat.st_ctime)
-            result['creation_source'] = 'ctime'
+            result['filesystem_creation_date'] = datetime.fromtimestamp(stat.st_ctime)
+            result['filesystem_creation_source'] = 'ctime'
         
         # Fecha de modificación
-        result['modification_date'] = datetime.fromtimestamp(stat.st_mtime)
+        result['filesystem_modification_date'] = datetime.fromtimestamp(stat.st_mtime)
         
         # Fecha de último acceso
-        result['access_date'] = datetime.fromtimestamp(stat.st_atime)
+        result['filesystem_access_date'] = datetime.fromtimestamp(stat.st_atime)
             
     except Exception as e:
         _logger.error(f"Error obteniendo fechas de {file_path}: {e}")
