@@ -12,12 +12,13 @@ from datetime import datetime
 # Add project root to path
 sys.path.append(os.getcwd())
 
-from services.similar_files_detector import SimilarFilesAnalysis, DuplicateGroup
+from services.duplicates_similar_service import DuplicatesSimilarAnalysis
+from services.result_types import DuplicateGroup
 from config import Config
 
 class TestLargeDatasetPerformance(unittest.TestCase):
     def setUp(self):
-        self.analysis = SimilarFilesAnalysis()
+        self.analysis = DuplicatesSimilarAnalysis()
         # Usar 1000 archivos (más realista y evita timeout)
         # Con 20k archivos son 200M comparaciones (O(n²))
         self.file_count = 1000

@@ -13,11 +13,11 @@ import os
 from config import Config
 from utils.logger import get_logger, log_section_header_discrete, log_section_footer_discrete
 from services.result_types import DuplicateAnalysisResult, DuplicateDeletionResult, DuplicateGroup
-from services.base_detector_service import BaseDetectorService
+from services.duplicates_base_service import DuplicatesBaseService
 from services.base_service import ProgressCallback
 
 
-class SimilarFilesAnalysis:
+class DuplicatesSimilarAnalysis:
     """
     Contiene hashes perceptuales y permite generar grupos con
     cualquier sensibilidad en tiempo real.
@@ -40,7 +40,7 @@ class SimilarFilesAnalysis:
         self.total_files: int = 0
         self.analysis_timestamp: Optional[datetime] = None
         self._distance_cache: Dict[Tuple[int, int], int] = {}
-        self._logger = get_logger('SimilarFilesAnalysis')
+        self._logger = get_logger('DuplicatesSimilarAnalysis')
     
     def get_groups(self, sensitivity: int) -> DuplicateAnalysisResult:
         """
@@ -406,7 +406,7 @@ class SimilarFilesAnalysis:
             >>> analysis = detector.analyze_initial(Path("/photos"))
             >>> analysis.save_to_file(Path("analysis_cache_40k.pkl"))
             >>> # Próxima sesión:
-            >>> analysis = SimilarFilesAnalysis.load_from_file(Path("analysis_cache_40k.pkl"))
+            >>> analysis = DuplicatesSimilarAnalysis.load_from_file(Path("analysis_cache_40k.pkl"))
         """
         import pickle
         
@@ -438,7 +438,7 @@ class SimilarFilesAnalysis:
         )
     
     @classmethod
-    def load_from_file(cls, filepath: Path) -> 'SimilarFilesAnalysis':
+    def load_from_file(cls, filepath: Path) -> 'DuplicatesSimilarAnalysis':
         """
         Carga un análisis previamente guardado (INSTANTÁNEO).
         
@@ -446,13 +446,13 @@ class SimilarFilesAnalysis:
             filepath: Ruta del archivo guardado
             
         Returns:
-            SimilarFilesAnalysis con todos los hashes cargados
+            DuplicatesSimilarAnalysis con todos los hashes cargados
             
         Raises:
             FileNotFoundError: Si el archivo no existe
             
         Example:
-            >>> analysis = SimilarFilesAnalysis.load_from_file(Path("analysis_cache_40k.pkl"))
+            >>> analysis = DuplicatesSimilarAnalysis.load_from_file(Path("analysis_cache_40k.pkl"))
             >>> result = analysis.get_groups(sensitivity=85)  # Instantáneo
         """
         import pickle
@@ -478,7 +478,7 @@ class SimilarFilesAnalysis:
                 'modified': hash_data['modified']
             }
         
-        logger = get_logger('SimilarFilesAnalysis')
+        logger = get_logger('DuplicatesSimilarAnalysis')
         logger.info(
             f"✅ Análisis cargado desde {filepath} "
             f"({analysis.total_files} archivos, "
@@ -488,7 +488,7 @@ class SimilarFilesAnalysis:
         return analysis
 
 
-class SimilarFilesDetector(BaseDetectorService):
+class DuplicatesSimilarService(DuplicatesBaseService):
     """
     Servicio de detección de archivos similares mediante perceptual hashing.
     
@@ -498,14 +498,14 @@ class SimilarFilesDetector(BaseDetectorService):
     
     El detector ahora usa un enfoque de dos fases:
     1. analyze_initial(): Calcula hashes perceptuales (operación costosa)
-    2. SimilarFilesAnalysis.get_groups(): Clustering rápido con sensibilidad
+    2. DuplicatesSimilarAnalysis.get_groups(): Clustering rápido con sensibilidad
     
     Hereda de BaseDetectorService para reutilizar lógica común de eliminación.
     """
 
     def __init__(self):
         """Inicializa el detector de archivos similares"""
-        super().__init__('SimilarFilesDetector')
+        super().__init__('DuplicatesSimilarService')
     
     def analyze(
         self,
@@ -557,7 +557,7 @@ class SimilarFilesDetector(BaseDetectorService):
         self,
         workspace_path: Path,
         progress_callback: Optional[ProgressCallback] = None
-    ) -> SimilarFilesAnalysis:
+    ) -> DuplicatesSimilarAnalysis:
         """
         Análisis inicial: Calcula solo hashes perceptuales.
         
@@ -570,7 +570,7 @@ class SimilarFilesDetector(BaseDetectorService):
             progress_callback: Función callback(current, total, message)
         
         Returns:
-            SimilarFilesAnalysis con hashes calculados
+            DuplicatesSimilarAnalysis con hashes calculados
         
         Raises:
             ImportError: Si imagehash no está instalado
@@ -609,7 +609,7 @@ class SimilarFilesDetector(BaseDetectorService):
         
         if total_files == 0:
             self.logger.warning("No se encontraron archivos para analizar")
-            analysis = SimilarFilesAnalysis()
+            analysis = DuplicatesSimilarAnalysis()
             analysis.workspace_path = str(workspace_path)
             analysis.total_files = 0
             analysis.analysis_timestamp = datetime.now()
@@ -695,7 +695,7 @@ class SimilarFilesDetector(BaseDetectorService):
                     )
         
         # 3. Crear objeto de análisis
-        analysis = SimilarFilesAnalysis()
+        analysis = DuplicatesSimilarAnalysis()
         analysis.perceptual_hashes = perceptual_hashes
         analysis.workspace_path = str(workspace_path)
         analysis.total_files = len(perceptual_hashes)

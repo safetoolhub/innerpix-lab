@@ -154,7 +154,7 @@ class Stage2Window(BaseStage):
         from services.live_photos_service import LivePhotoService
         from services.file_organizer_service import FileOrganizer
         from services.heic_remover_service import HEICRemover
-        from services.exact_copies_detector import ExactCopiesDetector
+        from services.duplicates_exact_service import DuplicatesExactService
         from services.zero_byte_service import ZeroByteService
         
         # Crear instancias de servicios
@@ -162,7 +162,7 @@ class Stage2Window(BaseStage):
         live_photos_service = LivePhotoService()
         organizer = FileOrganizer()
         heic_remover = HEICRemover()
-        duplicate_exact_detector = ExactCopiesDetector()
+        duplicate_exact_detector = DuplicatesExactService()
         zero_byte_service = ZeroByteService()
 
         # Crear worker de análisis

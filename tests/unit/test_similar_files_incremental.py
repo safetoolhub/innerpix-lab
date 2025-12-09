@@ -10,11 +10,11 @@ from PIL import Image
 # Add project root to path
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
-from services.similar_files_detector import SimilarFilesAnalysis
+from services.duplicates_similar_service import DuplicatesSimilarAnalysis
 
 class TestSimilarFilesIncremental(unittest.TestCase):
     def setUp(self):
-        self.analysis = SimilarFilesAnalysis()
+        self.analysis = DuplicatesSimilarAnalysis()
         
     def _create_hash(self, seed=0):
         # Create a deterministic hash

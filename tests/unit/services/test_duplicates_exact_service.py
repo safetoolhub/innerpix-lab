@@ -1,5 +1,5 @@
 """
-Tests unitarios para ExactCopiesDetector
+Tests unitarios para DuplicatesExactService
 
 Batería completa de pruebas para el servicio de detección de copias exactas,
 incluyendo casos edge, escenarios con diferentes metadatos/fechas, y validación
@@ -24,14 +24,14 @@ class TestDuplicatesExactServiceBasics:
     
     def test_initialization(self):
         """Test que el detector se inicializa correctamente"""
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         assert detector is not None
         assert hasattr(detector, 'analyze')
         assert hasattr(detector, 'execute')
     
     def test_empty_directory(self, temp_dir):
         """Test con directorio vacío"""
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         result = detector.analyze(temp_dir)
         
         assert isinstance(result, DuplicateAnalysisResult)
@@ -50,7 +50,7 @@ class TestDuplicatesExactServiceBasics:
         create_test_image(temp_dir / "unique2.jpg", color='blue')
         create_test_image(temp_dir / "unique3.jpg", color='green')
         
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         result = detector.analyze(temp_dir)
         
         assert result.success is True
@@ -63,7 +63,7 @@ class TestDuplicatesExactServiceBasics:
 # ==================== TESTS DE DUPLICADOS SIMPLES ====================
 
 @pytest.mark.unit
-class TestExactCopiesDetectorSimpleDuplicates:
+class TestDuplicatesExactServiceSimpleDuplicates:
     """Tests de detección de duplicados simples"""
     
     def test_single_duplicate_pair(self, temp_dir, create_test_image):
@@ -76,7 +76,7 @@ class TestExactCopiesDetectorSimpleDuplicates:
         duplicate = temp_dir / "duplicate.jpg"
         shutil.copy2(original, duplicate)
         
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         result = detector.analyze(temp_dir)
         
         assert result.success is True
@@ -101,7 +101,7 @@ class TestExactCopiesDetectorSimpleDuplicates:
         blue2 = temp_dir / "blue2.jpg"
         shutil.copy2(blue1, blue2)
         
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         result = detector.analyze(temp_dir)
         
         assert result.success is True
@@ -121,7 +121,7 @@ class TestExactCopiesDetectorSimpleDuplicates:
         shutil.copy2(original, copy1)
         shutil.copy2(original, copy2)
         
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         result = detector.analyze(temp_dir)
         
         assert result.success is True
@@ -140,7 +140,7 @@ class TestExactCopiesDetectorSimpleDuplicates:
             copy = temp_dir / f"copy{i}.jpg"
             shutil.copy2(original, copy)
         
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         result = detector.analyze(temp_dir)
         
         assert result.success is True
@@ -153,7 +153,7 @@ class TestExactCopiesDetectorSimpleDuplicates:
 # ==================== TESTS CON DIFERENTES FECHAS/METADATOS ====================
 
 @pytest.mark.unit
-class TestExactCopiesDetectorDifferentMetadata:
+class TestDuplicatesExactServiceDifferentMetadata:
     """Tests con archivos idénticos pero con metadatos/fechas diferentes"""
     
     def test_duplicates_with_different_modification_times(self, temp_dir, create_test_image):
@@ -169,7 +169,7 @@ class TestExactCopiesDetectorDifferentMetadata:
         old_time = time.time() - 86400  # 1 día atrás
         os.utime(duplicate, (old_time, old_time))
         
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         result = detector.analyze(temp_dir)
         
         # Deben detectarse como duplicados (mismo contenido bit a bit)
@@ -191,7 +191,7 @@ class TestExactCopiesDetectorDifferentMetadata:
         new_atime = stat_info.st_atime - 86400  # 1 día atrás
         os.utime(duplicate, (new_atime, stat_info.st_mtime))
         
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         result = detector.analyze(temp_dir)
         
         assert result.total_groups == 1
@@ -208,7 +208,7 @@ class TestExactCopiesDetectorDifferentMetadata:
         shutil.copy2(original, temp_dir / "20240101_153000.jpg")
         shutil.copy2(original, temp_dir / "family_picture_final_v2.jpg")
         
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         result = detector.analyze(temp_dir)
         
         assert result.total_groups == 1
@@ -228,7 +228,7 @@ class TestExactCopiesDetectorDifferentMetadata:
         os.chmod(duplicate, 0o644)
         os.chmod(original, 0o755)
         
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         result = detector.analyze(temp_dir)
         
         assert result.total_groups == 1
@@ -238,7 +238,7 @@ class TestExactCopiesDetectorDifferentMetadata:
 # ==================== TESTS CON EXTENSIONES NO ESTÁNDAR ====================
 
 @pytest.mark.unit
-class TestExactCopiesDetectorNonStandardExtensions:
+class TestDuplicatesExactServiceNonStandardExtensions:
     """Tests de detección de imágenes con extensiones no estándar"""
     
     def test_detect_image_with_nonstandard_extension(self, temp_dir, create_test_image):
@@ -252,7 +252,7 @@ class TestExactCopiesDetectorNonStandardExtensions:
         nonstandard = temp_dir / "image.jpg_original"
         shutil.copy2(standard, nonstandard)
         
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         result = detector.analyze(temp_dir)
         
         # Debe detectar ambos archivos como duplicados
@@ -271,7 +271,7 @@ class TestExactCopiesDetectorNonStandardExtensions:
         shutil.copy2(original, backup1)
         shutil.copy2(original, backup2)
         
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         result = detector.analyze(temp_dir)
         
         # Debe detectar los 3 archivos (incluyendo backups)
@@ -285,7 +285,7 @@ class TestExactCopiesDetectorNonStandardExtensions:
         fake_image = temp_dir / "fake.jpg"
         fake_image.write_text("This is not a JPEG image")
         
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         result = detector.analyze(temp_dir)
         
         # El archivo se detecta por extensión estándar (.jpg), pero no generará duplicados
@@ -302,7 +302,7 @@ class TestExactCopiesDetectorNonStandardExtensions:
             f.seek(150 * 1024 * 1024)  # 150MB
             f.write(b'\x00')
         
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         result = detector.analyze(temp_dir)
         
         # No debe procesar el archivo grande (>100MB con extensión no estándar)
@@ -312,7 +312,7 @@ class TestExactCopiesDetectorNonStandardExtensions:
 # ==================== TESTS EN DIFERENTES DIRECTORIOS ====================
 
 @pytest.mark.unit
-class TestExactCopiesDetectorCrossDirectory:
+class TestDuplicatesExactServiceCrossDirectory:
     """Tests de detección en diferentes subdirectorios"""
     
     def test_duplicates_in_subdirectories(self, temp_dir, create_test_image):
@@ -329,7 +329,7 @@ class TestExactCopiesDetectorCrossDirectory:
         original = create_test_image(subdir1 / "photo.jpg", color='red')
         shutil.copy2(original, subdir2 / "photo_backup.jpg")
         
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         result = detector.analyze(temp_dir)
         
         assert result.total_groups == 1
@@ -349,7 +349,7 @@ class TestExactCopiesDetectorCrossDirectory:
         original = create_test_image(temp_dir / "root.jpg", color='blue')
         shutil.copy2(original, deep_dir / "deep_copy.jpg")
         
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         result = detector.analyze(temp_dir)
         
         assert result.total_groups == 1
@@ -371,7 +371,7 @@ class TestExactCopiesDetectorCrossDirectory:
         for subdir in subdirs:
             shutil.copy2(original, subdir / f"copy_{subdir.name}.jpg")
         
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         result = detector.analyze(temp_dir)
         
         # Original + 5 copias = 6 archivos
@@ -383,7 +383,7 @@ class TestExactCopiesDetectorCrossDirectory:
 # ==================== TESTS DE ESTADÍSTICAS ====================
 
 @pytest.mark.unit
-class TestExactCopiesDetectorStatistics:
+class TestDuplicatesExactServiceStatistics:
     """Tests de cálculo de estadísticas"""
     
     def test_space_wasted_calculation(self, temp_dir, create_test_image):
@@ -398,7 +398,7 @@ class TestExactCopiesDetectorStatistics:
         for i in range(3):
             shutil.copy2(original, temp_dir / f"copy{i}.jpg")
         
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         result = detector.analyze(temp_dir)
         
         expected_waste = original_size * 3  # 3 duplicados
@@ -418,7 +418,7 @@ class TestExactCopiesDetectorStatistics:
         for i in range(2):
             shutil.copy2(blue, temp_dir / f"blue_copy{i}.jpg")
         
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         result = detector.analyze(temp_dir)
         
         # Total duplicados = (4-1) + (3-1) = 5
@@ -429,7 +429,7 @@ class TestExactCopiesDetectorStatistics:
 # ==================== TESTS DE PROGRESO Y CANCELACIÓN ====================
 
 @pytest.mark.unit
-class TestExactCopiesDetectorProgress:
+class TestDuplicatesExactServiceProgress:
     """Tests de callbacks de progreso y cancelación"""
     
     def test_progress_callback_invoked(self, temp_dir, create_test_image):
@@ -445,7 +445,7 @@ class TestExactCopiesDetectorProgress:
             progress_calls.append((current, total, message))
             return True  # Continuar
         
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         result = detector.analyze(temp_dir, progress_callback=progress_callback)
         
         assert len(progress_calls) > 0, "Progress callback should be invoked with 20 files"
@@ -470,7 +470,7 @@ class TestExactCopiesDetectorProgress:
                 return False  # Cancelar
             return True  # Continuar
         
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         result = detector.analyze(temp_dir, progress_callback=progress_callback)
         
         # El callback debe haberse invocado y cancelado el análisis
@@ -481,7 +481,7 @@ class TestExactCopiesDetectorProgress:
 # ==================== TESTS DE CACHÉ ====================
 
 @pytest.mark.unit
-class TestExactCopiesDetectorCache:
+class TestDuplicatesExactServiceCache:
     """Tests de uso de caché de metadatos"""
     
     def test_analyze_with_metadata_cache(self, temp_dir, create_test_image):
@@ -492,7 +492,7 @@ class TestExactCopiesDetectorCache:
         shutil.copy2(original, temp_dir / "duplicate.jpg")
         
         cache = FileMetadataCache()
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         
         # Primera ejecución: cachea hashes
         result1 = detector.analyze(temp_dir, metadata_cache=cache)
@@ -511,7 +511,7 @@ class TestExactCopiesDetectorCache:
         original = create_test_image(temp_dir / "original.jpg", color='red')
         
         cache = FileMetadataCache()
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         
         # Primera ejecución
         result1 = detector.analyze(temp_dir, metadata_cache=cache)
@@ -530,7 +530,7 @@ class TestExactCopiesDetectorCache:
 # ==================== TESTS DE CASOS EDGE ====================
 
 @pytest.mark.unit
-class TestExactCopiesDetectorEdgeCases:
+class TestDuplicatesExactServiceEdgeCases:
     """Tests de casos edge y situaciones especiales"""
     
     def test_files_with_special_characters(self, temp_dir, create_test_image):
@@ -549,7 +549,7 @@ class TestExactCopiesDetectorEdgeCases:
         for name in special_names:
             shutil.copy2(original, temp_dir / name)
         
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         result = detector.analyze(temp_dir)
         
         # Original + copias = 6 archivos
@@ -576,7 +576,7 @@ class TestExactCopiesDetectorEdgeCases:
                 # Algunos sistemas de archivos no soportan ciertos caracteres
                 pass
         
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         result = detector.analyze(temp_dir)
         
         # Al menos el original debe detectarse
@@ -593,7 +593,7 @@ class TestExactCopiesDetectorEdgeCases:
         try:
             shutil.copy2(original, temp_dir / long_name)
             
-            detector = ExactCopiesDetector()
+            detector = DuplicatesExactService()
             result = detector.analyze(temp_dir)
             
             assert result.total_groups == 1
@@ -613,7 +613,7 @@ class TestExactCopiesDetectorEdgeCases:
             symlink = temp_dir / "symlink.jpg"
             os.symlink(original, symlink)
             
-            detector = ExactCopiesDetector()
+            detector = DuplicatesExactService()
             result = detector.analyze(temp_dir)
             
             # El symlink apunta al mismo archivo, no es un duplicado físico
@@ -631,7 +631,7 @@ class TestExactCopiesDetectorEdgeCases:
         hidden = temp_dir / ".hidden.jpg"
         shutil.copy2(original, hidden)
         
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         result = detector.analyze(temp_dir)
         
         # Debe detectar archivos ocultos también
@@ -646,7 +646,7 @@ class TestExactCopiesDetectorEdgeCases:
         no_ext = temp_dir / "no_extension"
         shutil.copy2(original, no_ext)
         
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         result = detector.analyze(temp_dir)
         
         # Debe detectar al menos el archivo con extensión
@@ -664,7 +664,7 @@ class TestExactCopiesDetectorEdgeCases:
         vid1 = create_test_video(temp_dir / "vid1.MOV", size_bytes=2048)
         shutil.copy2(vid1, temp_dir / "vid2.MOV")
         
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         result = detector.analyze(temp_dir)
         
         # Debe detectar al menos las imágenes
@@ -678,7 +678,7 @@ class TestExactCopiesDetectorEdgeCases:
         corrupted = temp_dir / "corrupted.jpg"
         corrupted.write_bytes(b'\xFF\xD8\xFF\xE0' + b'\x00' * 100)  # JPEG header incompleto
         
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         result = detector.analyze(temp_dir)
         
         # No debe crashear, debe continuar
@@ -688,7 +688,7 @@ class TestExactCopiesDetectorEdgeCases:
 # ==================== TESTS DE EJECUCIÓN ====================
 
 @pytest.mark.unit
-class TestExactCopiesDetectorExecution:
+class TestDuplicatesExactServiceExecution:
     """Tests de ejecución (eliminación de duplicados)"""
     
     def test_execute_deletion_oldest_strategy(self, temp_dir, create_test_image):
@@ -709,7 +709,7 @@ class TestExactCopiesDetectorExecution:
         new_time = time.time()
         os.utime(duplicate, (new_time, new_time))
         
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         analysis = detector.analyze(temp_dir)
         
         result = detector.execute(
@@ -740,7 +740,7 @@ class TestExactCopiesDetectorExecution:
         new_time = time.time()
         os.utime(duplicate, (new_time, new_time))
         
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         analysis = detector.analyze(temp_dir)
         
         result = detector.execute(
@@ -762,7 +762,7 @@ class TestExactCopiesDetectorExecution:
         duplicate = temp_dir / "duplicate.jpg"
         shutil.copy2(original, duplicate)
         
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         analysis = detector.analyze(temp_dir)
         
         result = detector.execute(
@@ -781,12 +781,12 @@ class TestExactCopiesDetectorExecution:
 # ==================== TESTS DE VALIDACIÓN ====================
 
 @pytest.mark.unit
-class TestExactCopiesDetectorValidation:
+class TestDuplicatesExactServiceValidation:
     """Tests de validación de parámetros y errores"""
     
     def test_nonexistent_directory(self):
         """Test: directorio inexistente debe manejar error gracefully"""
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         nonexistent = Path("/path/that/does/not/exist/12345")
         
         result = detector.analyze(nonexistent)
@@ -802,7 +802,7 @@ class TestExactCopiesDetectorValidation:
         original = create_test_image(temp_dir / "original.jpg", color='red')
         shutil.copy2(original, temp_dir / "duplicate.jpg")
         
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         analysis = detector.analyze(temp_dir)
         
         # Execute no lanza ValueError, retorna resultado con error
@@ -822,7 +822,7 @@ class TestExactCopiesDetectorValidation:
 # ==================== TESTS DE BACKUP ====================
 
 @pytest.mark.unit
-class TestExactCopiesDetectorBackup:
+class TestDuplicatesExactServiceBackup:
     """Tests de creación de backups en exact copies detector."""
     
     def test_backup_created_when_enabled(self, temp_dir, create_test_image):
@@ -833,7 +833,7 @@ class TestExactCopiesDetectorBackup:
         original = create_test_image(temp_dir / "original.jpg", color='red')
         shutil.copy2(original, temp_dir / "duplicate.jpg")
         
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         analysis = detector.analyze(temp_dir)
         
         result = detector.execute(
@@ -859,7 +859,7 @@ class TestExactCopiesDetectorBackup:
         original = create_test_image(temp_dir / "original.jpg", color='red')
         shutil.copy2(original, temp_dir / "duplicate.jpg")
         
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         analysis = detector.analyze(temp_dir)
         
         result = detector.execute(
@@ -879,7 +879,7 @@ class TestExactCopiesDetectorBackup:
         original = create_test_image(temp_dir / "original.jpg", color='red')
         shutil.copy2(original, temp_dir / "duplicate.jpg")
         
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         analysis = detector.analyze(temp_dir)
         
         result = detector.execute(
@@ -930,8 +930,8 @@ class TestExactCopiesDetectorBackup:
         time.sleep(0.01)
         photo3.touch()
         
-        detector = ExactCopiesDetector()
-        # ExactCopiesDetector siempre hace búsqueda recursiva, no tiene parámetro recursive
+        detector = DuplicatesExactService()
+        # DuplicatesExactService siempre hace búsqueda recursiva, no tiene parámetro recursive
         analysis = detector.analyze(temp_dir)
         
         # Debe encontrar 1 grupo con 4 archivos (original + 3 copias)
@@ -986,8 +986,8 @@ class TestExactCopiesDetectorBackup:
         shutil.copy2(original, dup2)
         shutil.copy2(original, dup3)
         
-        detector = ExactCopiesDetector()
-        # ExactCopiesDetector siempre hace búsqueda recursiva
+        detector = DuplicatesExactService()
+        # DuplicatesExactService siempre hace búsqueda recursiva
         analysis = detector.analyze(temp_dir)
         
         result = detector.execute(
@@ -1009,7 +1009,7 @@ class TestExactCopiesDetectorBackup:
 # ==================== TESTS DE INTEGRACIÓN ====================
 
 @pytest.mark.unit
-class TestExactCopiesDetectorIntegration:
+class TestDuplicatesExactServiceIntegration:
     """Tests de integración con flujo completo"""
     
     def test_full_workflow_analyze_and_delete(self, temp_dir, create_test_image):
@@ -1023,7 +1023,7 @@ class TestExactCopiesDetectorIntegration:
         img2 = create_test_image(temp_dir / "img2.jpg", color='blue')
         shutil.copy2(img2, temp_dir / "img2_copy.jpg")
         
-        detector = ExactCopiesDetector()
+        detector = DuplicatesExactService()
         
         # Analizar
         analysis = detector.analyze(temp_dir)

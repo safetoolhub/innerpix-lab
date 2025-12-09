@@ -1,5 +1,5 @@
 """
-Tipos de resultados estandarizados para servicios de PhotoKit Manager
+Tipos de resultados estandarizados para servicios de Innerpix Lab
 
 Define dataclasses consistentes para resultados de análisis y operaciones,
 eliminando la heterogeneidad de diccionarios con keys variables.

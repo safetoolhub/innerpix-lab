@@ -32,9 +32,9 @@ class GroupDeletionResult:
     processed: int = 0
 
 
-class BaseDetectorService(BaseService):
+class DuplicatesBaseService(BaseService):
     """
-    Clase base para detectores de duplicados (exactos y similares).
+    Clase base para servicios de duplicados (exactos y similares).
     
     Centraliza toda la lógica común de eliminación de duplicados,
     eliminando ~200 líneas de código duplicado entre detectores.
@@ -269,7 +269,7 @@ class BaseDetectorService(BaseService):
         Procesa eliminación de un grupo de duplicados.
         
         Extrae la lógica común de procesamiento que estaba duplicada
-        entre ExactCopiesDetector y SimilarFilesDetector.
+        entre DuplicatesExactService y DuplicatesSimilarService.
         
         Args:
             group: Grupo de archivos duplicados

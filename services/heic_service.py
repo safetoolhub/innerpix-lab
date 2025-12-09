@@ -87,15 +87,15 @@ class DuplicatePair:
         return f"HEIC: {heic_str}, JPG: {jpg_str}, Ahorro: {saving_str}"
 
 
-class HEICRemover(BaseService):
+class HeicService(BaseService):
     """
-    Eliminador de HEIC Duplicados - Compara archivos HEIC con sus equivalentes JPG
+    Servicio de HEIC - Compara archivos HEIC con sus equivalentes JPG
     
     Hereda de BaseService para logging estandarizado.
     """
     
     def __init__(self):
-        super().__init__("HEICRemover")
+        super().__init__("HeicService")
         self.backup_dir = None
         
         # Configuración

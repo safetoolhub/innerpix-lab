@@ -12,7 +12,7 @@ from .workers import (
     HEICRemovalWorker,
     DuplicateAnalysisWorker,
     DuplicateDeletionWorker,
-    SimilarFilesAnalysisWorker,
+    DuplicatesSimilarAnalysisWorker,
 )
 
 __all__ = [
@@ -25,5 +25,5 @@ __all__ = [
     'HEICRemovalWorker',
     'DuplicateAnalysisWorker',
     'DuplicateDeletionWorker',
-    'SimilarFilesAnalysisWorker',
+    'DuplicatesSimilarAnalysisWorker',
 ]

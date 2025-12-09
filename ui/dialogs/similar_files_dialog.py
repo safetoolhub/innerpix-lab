@@ -13,7 +13,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QSize, QTimer
 from PyQt6.QtGui import QPixmap, QDesktopServices, QCursor, QImage, QColor, QIcon, QPainter
 from config import Config
-from services.similar_files_detector import SimilarFilesAnalysis
+from services.duplicates_similar_service import DuplicatesSimilarAnalysis
 from services.result_types import DuplicateGroup
 from utils.format_utils import format_size
 from utils.image_loader import load_image_as_qpixmap
@@ -111,7 +111,7 @@ class SimilarFilesDialog(BaseDialog):
     MAX_GROUPS_NAVIGABLE = Config.SIMILAR_FILES_MAX_GROUPS_NAVIGABLE
     LARGE_DATASET_THRESHOLD = Config.SIMILAR_FILES_LARGE_DATASET_THRESHOLD
     
-    def __init__(self, analysis: SimilarFilesAnalysis, parent=None):
+    def __init__(self, analysis: DuplicatesSimilarAnalysis, parent=None):
         super().__init__(parent)
         
         self.analysis = analysis
@@ -618,7 +618,7 @@ class SimilarFilesDialog(BaseDialog):
                 )
                 
                 # Crear análisis temporal con subset
-                from services.similar_files_detector import SimilarFilesAnalysis
+                from services.duplicates_similar_service import SimilarFilesAnalysis
                 temp_analysis = SimilarFilesAnalysis()
                 temp_analysis.workspace_path = self.analysis.workspace_path
                 
@@ -712,7 +712,7 @@ class SimilarFilesDialog(BaseDialog):
                 f"({self.files_processed:,} archivos procesados)"
             )
             
-            from services.similar_files_detector import SimilarFilesAnalysis
+            from services.duplicates_similar_service import SimilarFilesAnalysis
             temp_analysis = SimilarFilesAnalysis()
             temp_analysis.perceptual_hashes = processed_hashes
             temp_analysis.workspace_path = self.analysis.workspace_path

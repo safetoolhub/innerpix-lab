@@ -547,7 +547,7 @@ class AnalysisOrchestrator:
     
     def analyze_heic_duplicates(self,
                                directory: Path,
-                               heic_remover: AnalyzableService,
+                               heic_service: AnalyzableService,
                                progress_callback: Optional[Callable[[int, int, str], bool]] = None,
                                metadata_cache: Optional[FileMetadataCache] = None) -> 'HeicAnalysisResult':
         """
@@ -555,7 +555,7 @@ class AnalysisOrchestrator:
         
         Args:
             directory: Directorio a analizar
-            heic_remover: Instancia de HEICRemover
+            heic_service: Instancia de HeicService
             progress_callback: Función opcional de progreso
             metadata_cache: Caché opcional de metadatos
             
@@ -563,7 +563,7 @@ class AnalysisOrchestrator:
             HeicAnalysisResult con duplicados HEIC/JPG encontrados
         """
         self.logger.info("Buscando duplicados HEIC/JPG")
-        return heic_remover.analyze(directory, progress_callback=progress_callback, metadata_cache=metadata_cache)
+        return heic_service.analyze(directory, progress_callback=progress_callback, metadata_cache=metadata_cache)
     
     def analyze_exact_duplicates(self,
                                  directory: Path,
@@ -646,7 +646,7 @@ class AnalysisOrchestrator:
                          renamer: Optional[AnalyzableService] = None,
                          live_photos_service: Optional[AnalyzableService] = None,
                          organizer: Optional[AnalyzableService] = None,
-                         heic_remover: Optional[AnalyzableService] = None,
+                         heic_service: Optional[AnalyzableService] = None,
                          duplicate_exact_detector: Optional[AnalyzableService] = None,
                          zero_byte_service: Optional[AnalyzableService] = None,
                          organization_type: Optional[str] = None,
@@ -662,7 +662,7 @@ class AnalysisOrchestrator:
             renamer: FileRenamer opcional
             live_photos_service: LivePhotoService opcional
             organizer: FileOrganizer opcional
-            heic_remover: HEICRemover opcional
+            heic_service: HeicService opcional
             duplicate_exact_detector: DuplicateExactDetector opcional
             organization_type: Tipo de organización opcional
             progress_callback: Callback (current, total, msg) -> bool para progreso
@@ -762,14 +762,14 @@ class AnalysisOrchestrator:
             )
         
         # Fase 4: Duplicados HEIC (usa caché para tamaños y timestamps)
-        if heic_remover:
+        if heic_service:
             if self._check_cancellation(progress_callback, result, analysis_start_time):
                 return result
             
             result.heic, result.phase_timings['heic'] = self._execute_phase(
                 phase_id="heic",
                 phase_name="Buscando duplicados HEIC/JPG",
-                phase_callable=lambda: self.analyze_heic_duplicates(directory, heic_remover, progress_callback, metadata_cache),
+                phase_callable=lambda: self.analyze_heic_duplicates(directory, heic_service, progress_callback, metadata_cache),
                 phase_callback=phase_callback,
                 partial_callback=partial_callback
             )

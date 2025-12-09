@@ -17,7 +17,7 @@ except ImportError:
 from config import Config
 from utils.file_utils import calculate_file_hash
 from services.result_types import DuplicateAnalysisResult, DuplicateDeletionResult, DuplicateGroup
-from services.base_detector_service import BaseDetectorService
+from services.duplicates_base_service import DuplicatesBaseService
 from services.base_service import BaseService, ProgressCallback
 from services.metadata_cache import FileMetadataCache
 from utils.logger import log_section_header_discrete, log_section_footer_discrete
@@ -44,7 +44,7 @@ def _is_valid_image_file(file_path: Path) -> bool:
         return False
 
 
-class ExactCopiesDetector(BaseDetectorService):
+class DuplicatesExactService(DuplicatesBaseService):
     """
     Servicio de detección de copias exactas mediante hashing SHA256.
     
@@ -56,7 +56,7 @@ class ExactCopiesDetector(BaseDetectorService):
 
     def __init__(self):
         """Inicializa el detector de copias exactas"""
-        super().__init__('ExactCopiesDetector')
+        super().__init__('DuplicatesExactService')
 
     def analyze(
         self,

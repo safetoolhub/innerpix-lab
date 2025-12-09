@@ -5,7 +5,7 @@ Este módulo expone todos los servicios y tipos de datos principales
 utilizados en la aplicación, incluyendo:
 
 - Servicios principales: FileRenamer, LivePhotoService, FileOrganizer, etc.
-- Servicios base: BaseService, BaseDetectorService
+- Servicios base: BaseService, DuplicatesBaseService
 - Orquestador: AnalysisOrchestrator para coordinar análisis completos
 - Tipos de resultado: Todas las dataclasses de resultado de operaciones
 - View Models: Modelos de presentación sin dependencias de UI
@@ -16,16 +16,16 @@ utilizados en la aplicación, incluyendo:
 from .file_renamer_service import FileRenamer
 from .live_photos_service import LivePhotoService, LivePhotoGroup, CleanupMode
 from .file_organizer_service import FileOrganizer, FileMove, OrganizationType
-from .heic_remover_service import HEICRemover, DuplicatePair
-from .exact_copies_detector import ExactCopiesDetector
-from .similar_files_detector import SimilarFilesDetector, SimilarFilesAnalysis
+from .heic_service import HeicService, DuplicatePair
+from .duplicates_exact_service import DuplicatesExactService
+from .duplicates_similar_service import DuplicatesSimilarService, DuplicatesSimilarAnalysis
 
 # Orquestador
 from .analysis_orchestrator import AnalysisOrchestrator, FullAnalysisResult
 
 # Servicios base
 from .base_service import BaseService, BackupCreationError, ProgressCallback
-from .base_detector_service import BaseDetectorService
+from .duplicates_base_service import DuplicatesBaseService
 
 # View Models
 from .view_models import (
@@ -81,12 +81,12 @@ __all__ = [
     'LivePhotoService',
     'FileOrganizer',
     'HEICRemover',
-    'ExactCopiesDetector',
-    'SimilarFilesDetector',
+    'DuplicatesExactService',
+    'DuplicatesSimilarService',
     'AnalysisOrchestrator',
     # Servicios base
     'BaseService',
-    'BaseDetectorService',
+    'DuplicatesBaseService',
     # Excepciones
     'BackupCreationError',
     # Type aliases

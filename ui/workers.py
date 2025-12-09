@@ -70,9 +70,9 @@ if TYPE_CHECKING:
     from services.file_renamer_service import FileRenamer
     from services.live_photos_service import LivePhotoService
     from services.file_organizer_service import FileOrganizer
-    from services.heic_remover_service import HEICRemover
-    from services.exact_copies_detector import ExactCopiesDetector
-    from services.similar_files_detector import SimilarFilesDetector
+    from services.heic_service import HeicService
+    from services.duplicates_exact_service import DuplicatesExactService
+    from services.duplicates_similar_service import DuplicatesSimilarService
     from services.zero_byte_service import ZeroByteService
 
 
@@ -183,8 +183,8 @@ class AnalysisWorker(BaseWorker):
         renamer: 'FileRenamer',
         live_photos_service: 'LivePhotoService',
         organizer: 'FileOrganizer',
-        heic_remover: 'HEICRemover',
-        duplicate_exact_detector: Optional['ExactCopiesDetector'] = None,
+        heic_service: 'HeicService',
+        duplicate_exact_detector: Optional['DuplicatesExactService'] = None,
         zero_byte_service: Optional['ZeroByteService'] = None,
         organization_type: Optional[str] = None
     ):
@@ -532,7 +532,7 @@ class HEICRemovalWorker(BaseWorker):
 
     def __init__(
         self,
-        remover: 'HEICRemover',
+        service: 'HeicService',
         analysis: 'HeicAnalysisResult',
         keep_format: str,
         create_backup: bool = True,
@@ -550,7 +550,7 @@ class HEICRemovalWorker(BaseWorker):
             if self._stop_requested:
                 return
             
-            results: 'HeicDeletionResult' = self.remover.execute(
+            results: 'HeicDeletionResult' = self.service.execute(
                 self.analysis.duplicate_pairs,
                 keep_format=self.keep_format,
                 create_backup=self.create_backup,
@@ -581,7 +581,7 @@ class DuplicateAnalysisWorker(BaseWorker):
     
     def __init__(
         self,
-        detector: 'ExactCopiesDetector | SimilarFilesDetector',
+        detector: 'DuplicatesExactService | DuplicatesSimilarService',
         directory: Path,
         mode: str = 'exact',
         sensitivity: int = 10
@@ -634,7 +634,7 @@ class DuplicateDeletionWorker(BaseWorker):
     
     def __init__(
         self,
-        detector: 'ExactCopiesDetector | SimilarFilesDetector',
+        detector: 'DuplicatesExactService | DuplicatesSimilarService',
         groups: List,
         keep_strategy: str,
         create_backup: bool = True,
@@ -673,7 +673,7 @@ class DuplicateDeletionWorker(BaseWorker):
                 self.error.emit(error_msg)
 
 
-class SimilarFilesAnalysisWorker(BaseWorker):
+class DuplicatesSimilarAnalysisWorker(BaseWorker):
     """
     Worker para análisis inicial de archivos similares (perceptual hash).
     
@@ -683,19 +683,19 @@ class SimilarFilesAnalysisWorker(BaseWorker):
     
     Signals:
         progress_update(int, int, str): (current, total, message)
-        finished(SimilarFilesAnalysis): Análisis con hashes calculados
+        finished(DuplicatesSimilarAnalysis): Análisis con hashes calculados
         error(str): Mensaje de error
     """
-    finished = pyqtSignal(object)  # SimilarFilesAnalysis
+    finished = pyqtSignal(object)  # DuplicatesSimilarAnalysis
     
     def __init__(
         self,
-        detector: 'SimilarFilesDetector',
+        detector: 'DuplicatesSimilarService',
         workspace_path: Path
     ):
         """
         Args:
-            detector: Instancia de SimilarFilesDetector
+            detector: Instancia de DuplicatesSimilarService
             workspace_path: Path del directorio a analizar
         """
         super().__init__()
@@ -716,10 +716,10 @@ class SimilarFilesAnalysisWorker(BaseWorker):
                 return True
             
             # Importar tipo para type hint
-            from services.similar_files_detector import SimilarFilesAnalysis
+            from services.duplicates_similar_service import DuplicatesSimilarAnalysis
             
             # Ejecutar análisis inicial (solo hashes)
-            analysis: SimilarFilesAnalysis = self.detector.analyze_initial(
+            analysis: DuplicatesSimilarAnalysis = self.detector.analyze_initial(
                 workspace_path=self.workspace_path,
                 progress_callback=progress_callback
             )

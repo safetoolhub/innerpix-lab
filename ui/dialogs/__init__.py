@@ -5,7 +5,7 @@ Este paquete contiene los diálogos divididos en módulos más pequeños.
 from .file_renaming_dialog import RenamingPreviewDialog
 from .live_photos_dialog import LivePhotoCleanupDialog
 from .file_organizer_dialog import FileOrganizationDialog
-from .heic_remover_dialog import HEICDuplicateRemovalDialog
+from .heic_dialog import HeicDuplicateRemovalDialog
 from .settings_dialog import SettingsDialog
 from .exact_copies_dialog import ExactCopiesDialog
 from .similar_files_dialog import SimilarFilesDialog
@@ -17,7 +17,7 @@ __all__ = [
     'RenamingPreviewDialog',
     'LivePhotoCleanupDialog',
     'FileOrganizationDialog',
-    'HEICDuplicateRemovalDialog',
+    'HeicDuplicateRemovalDialog',
     'ExactCopiesDialog',
     'SimilarFilesDialog',
     'SettingsDialog',
