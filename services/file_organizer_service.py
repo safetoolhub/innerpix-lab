@@ -18,7 +18,7 @@ from utils.logger import get_logger, log_section_header_relevant, log_section_fo
 from utils.settings_manager import settings_manager
 from utils.date_utils import parse_renamed_name, get_date_from_file
 from utils.file_utils import is_whatsapp_file, detect_file_source
-from services.result_types import OrganizationResult, OrganizationAnalysisResult
+from services.result_types import OrganizationDeletionResult, OrganizationAnalysisResult
 from services.base_service import BaseService, ProgressCallback
 from services.metadata_cache import FileMetadataCache
 
@@ -345,7 +345,7 @@ class FileOrganizer(BaseService):
     def _get_default_subdir_info():
         return {'path': '', 'file_count': 0, 'total_size': 0, 'files': []}
 
-    def execute(self, move_plan: List[FileMove], create_backup: bool = True, cleanup_empty_dirs: bool = True, dry_run: bool = False, progress_callback: Optional[ProgressCallback] = None, metadata_cache: Optional[FileMetadataCache] = None) -> OrganizationResult:
+    def execute(self, move_plan: List[FileMove], create_backup: bool = True, cleanup_empty_dirs: bool = True, dry_run: bool = False, progress_callback: Optional[ProgressCallback] = None, metadata_cache: Optional[FileMetadataCache] = None) -> OrganizationDeletionResult:
         """
         Ejecuta la organización según el plan con resolución dinámica de conflictos.
 
@@ -358,10 +358,10 @@ class FileOrganizer(BaseService):
             metadata_cache: Caché opcional de metadatos para reutilizar fechas calculadas
 
         Returns:
-            OrganizationResult con el resultado de la operación
+            OrganizationDeletionResult con el resultado de la operación
         """
         if not move_plan:
-            return OrganizationResult(
+            return OrganizationDeletionResult(
                 success=True,
                 files_moved=0,
                 empty_directories_removed=0,
@@ -376,7 +376,7 @@ class FileOrganizer(BaseService):
         )
         self.logger.info(f"*** Archivos a mover: {len(move_plan)}")
 
-        results = OrganizationResult(success=True, dry_run=dry_run)
+        results = OrganizationDeletionResult(success=True, dry_run=dry_run)
 
         try:
             # Determinar el directorio raíz correctamente

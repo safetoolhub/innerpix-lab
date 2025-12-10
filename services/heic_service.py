@@ -10,7 +10,7 @@ from dataclasses import dataclass
 
 from utils.file_utils import validate_file_exists
 from utils.date_utils import get_date_from_file
-from services.result_types import HeicAnalysisResult, HeicDeletionResult
+from services.result_types import HeicAnalysisResult, HeicDeletionResult, DuplicatePair
 from services.base_service import BaseService, BackupCreationError, ProgressCallback
 from services.metadata_cache import FileMetadataCache
 from config import Config
@@ -20,71 +20,6 @@ from utils.logger import (
     log_section_header_relevant,
     log_section_footer_relevant
 )
-
-
-@dataclass
-class DuplicatePair:
-    """Representa un par de archivos duplicados (HEIC + JPG)"""
-    
-    heic_path: Path
-    jpg_path: Path
-    base_name: str
-    heic_size: int
-    jpg_size: int
-    directory: Path
-    heic_date: Optional[datetime] = None
-    jpg_date: Optional[datetime] = None
-    similarity_score: float = 1.0  # 1.0 = idénticos (mismo nombre base)
-    
-    def __post_init__(self):
-        """Validaciones"""
-        try:
-            validate_file_exists(self.heic_path)
-        except FileNotFoundError as e:
-            raise ValueError(str(e))
-        
-        try:
-            validate_file_exists(self.jpg_path)
-        except FileNotFoundError as e:
-            raise ValueError(str(e))
-        
-        # Las fechas ya vienen proporcionadas, no las recalculamos
-    
-    @property
-    def total_size(self) -> int:
-        """Tamaño total del par"""
-        return self.heic_size + self.jpg_size
-    
-    @property
-    def size_saving_keep_jpg(self) -> int:
-        """Ahorro eliminando HEIC"""
-        return self.heic_size
-    
-    @property
-    def size_saving_keep_heic(self) -> int:
-        """Ahorro eliminando JPG"""
-        return self.jpg_size
-    
-    @property
-    def time_difference(self) -> Optional[timedelta]:
-        """Diferencia de tiempo entre archivos"""
-        if self.heic_date and self.jpg_date:
-            return abs(self.heic_date - self.jpg_date)
-        return None
-    
-    def format_sizes(self) -> str:
-        """Formatea tamaños para display"""
-        def format_bytes(size):
-            for unit in ['B', 'KB', 'MB', 'GB']:
-                if size < 1024:
-                    return f"{size:.1f} {unit}"
-                size /= 1024
-            return f"{size:.1f} TB"
-        
-        heic_str = format_bytes(self.heic_size)
-        jpg_str = format_bytes(self.jpg_size)
-        saving_str = format_bytes(self.heic_size)  # Asumiendo que eliminamos HEIC
-        return f"HEIC: {heic_str}, JPG: {jpg_str}, Ahorro: {saving_str}"
 
 
 class HeicService(BaseService):

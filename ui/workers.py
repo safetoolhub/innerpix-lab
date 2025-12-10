@@ -53,11 +53,11 @@ from config import Config
 if TYPE_CHECKING:
     from services.result_types import (
         FullAnalysisResult,
-        RenameResult,
+        RenameDeletionResult,
         RenameAnalysisResult,
-        OrganizationResult,
+        OrganizationDeletionResult,
         OrganizationAnalysisResult,
-        LivePhotoCleanupResult,
+        LivePhotoCleanupDeletionResult,
         LivePhotoCleanupAnalysisResult,
         HeicDeletionResult,
         HeicAnalysisResult,
@@ -193,7 +193,7 @@ class AnalysisWorker(BaseWorker):
         self.renamer = renamer
         self.live_photo_service = live_photos_service
         self.organizer = organizer
-        self.heic_remover = heic_remover
+        self.heic_service = heic_service
         self.duplicate_exact_detector = duplicate_exact_detector
         self.zero_byte_service = zero_byte_service
         self.organization_type = organization_type
@@ -288,7 +288,7 @@ class AnalysisWorker(BaseWorker):
                 renamer=self.renamer,
                 live_photos_service=self.live_photo_service,
                 organizer=self.organizer,
-                heic_remover=self.heic_remover,
+                heic_service=self.heic_service,
                 duplicate_exact_detector=self.duplicate_exact_detector,
                 zero_byte_service=self.zero_byte_service,
                 organization_type=self.organization_type,
@@ -387,12 +387,12 @@ class RenamingWorker(BaseWorker):
     Worker para ejecutar renombrado de nombres de archivos
     
     Signals:
-        finished(RenameResult): Emite resultado del renombrado
+        finished(RenameDeletionResult): Emite resultado del renombrado
         progress_update(int, int, str): Heredado de BaseWorker
         error(str): Heredado de BaseWorker
     """
     # Sobrescribir finished con tipo específico
-    finished = pyqtSignal(object)  # En runtime es object, tipo semántico es RenameResult
+    finished = pyqtSignal(object)  # En runtime es object, tipo semántico es RenameDeletionResult
 
     def __init__(
         self, 
@@ -412,7 +412,7 @@ class RenamingWorker(BaseWorker):
             if self._stop_requested:
                 return
             
-            results: 'RenameResult' = self.renamer.execute(
+            results: 'RenameDeletionResult' = self.renamer.execute(
                 self.analysis.renaming_plan,
                 create_backup=self.create_backup,
                 dry_run=self.dry_run,
@@ -433,12 +433,12 @@ class LivePhotoCleanupWorker(BaseWorker):
     Worker para ejecutar limpieza de Live Photos
     
     Signals:
-        finished(LivePhotoCleanupResult): Emite resultado de la limpieza
+        finished(LivePhotoCleanupDeletionResult): Emite resultado de la limpieza
         progress_update(int, int, str): Heredado de BaseWorker
         error(str): Heredado de BaseWorker
     """
     # Sobrescribir finished con tipo específico
-    finished = pyqtSignal(object)  # En runtime es object, tipo semántico es LivePhotoCleanupResult
+    finished = pyqtSignal(object)  # En runtime es object, tipo semántico es LivePhotoCleanupDeletionResult
 
     def __init__(self, service: 'LivePhotoService', analysis: 'LivePhotoCleanupAnalysisResult', 
                  create_backup: bool = True, dry_run: bool = False):
@@ -453,7 +453,7 @@ class LivePhotoCleanupWorker(BaseWorker):
             if self._stop_requested:
                 return
             
-            results: 'LivePhotoCleanupResult' = self.service.execute(
+            results: 'LivePhotoCleanupDeletionResult' = self.service.execute(
                 self.analysis,
                 create_backup=self.create_backup,
                 dry_run=self.dry_run,
@@ -474,12 +474,12 @@ class FileOrganizerWorker(BaseWorker):
     Worker para ejecutar organización de archivos
     
     Signals:
-        finished(OrganizationResult): Emite resultado de la organización
+        finished(OrganizationDeletionResult): Emite resultado de la organización
         progress_update(int, int, str): Heredado de BaseWorker
         error(str): Heredado de BaseWorker
     """
     # Sobrescribir finished con tipo específico
-    finished = pyqtSignal(object)  # En runtime es object, tipo semántico es OrganizationResult
+    finished = pyqtSignal(object)  # En runtime es object, tipo semántico es OrganizationDeletionResult
 
     def __init__(
         self,
@@ -501,7 +501,7 @@ class FileOrganizerWorker(BaseWorker):
             if self._stop_requested:
                 return
             
-            results: 'OrganizationResult' = self.organizer.execute(
+            results: 'OrganizationDeletionResult' = self.organizer.execute(
                 self.analysis.move_plan,
                 create_backup=self.create_backup,
                 cleanup_empty_dirs=self.cleanup_empty_dirs,

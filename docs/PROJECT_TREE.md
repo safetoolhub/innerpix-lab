@@ -34,7 +34,6 @@ pixaro-lab/
 │   ├── live_photos_service.py       # Servicio unificado Live Photos
 │   ├── metadata_cache.py            # Caché thread-safe de metadatos (hashes SHA256, EXIF, stats)
 │   ├── result_types.py              # Dataclasses 100% tipados (NO raw dicts)
-│   ├── service_utils.py             # Utilidades compartidas entre servicios
 │   ├── similar_files_detector.py    # Detección archivos similares (perceptual hash)
 │   ├── view_models.py               # View Models para separación UI/Lógica
 │   └── zero_byte_service.py         # Servicio para archivos de 0 bytes

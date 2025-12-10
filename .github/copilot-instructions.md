@@ -77,17 +77,7 @@ Dry-run mode for testing. No deletions/moves/renames.
 
 ## Development Workflow
 
-### Setup
-`uv venv --python 3.13 && source .venv/bin/activate && uv pip install -r requirements.txt`
-
-### Run
-`source .venv/bin/activate && python main.py`
-
-### Test
-`source .venv/bin/activate && pytest`
-
-### Install
-`uv pip install <package>` (within venv)
+Setup/Run/Test/Install: see `AGENTS.md` for the canonical setup, run, test and install commands and guidelines.
 
 ## Code Quality
 - PEP 8 + type hints

@@ -898,19 +898,22 @@ class TestHeicServiceEdgeCases:
         assert pair.time_difference.total_seconds() == 30
     
     def test_nonexistent_file_in_duplicate_pair_raises_error(self, temp_dir):
-        """Test que DuplicatePair valida existencia de archivos."""
+        """Test que DuplicatePair es una estructura de datos pura (no valida existencia)."""
         fake_heic = temp_dir / "nonexistent.heic"
         fake_jpg = temp_dir / "nonexistent.jpg"
         
-        with pytest.raises(ValueError):
-            DuplicatePair(
-                heic_path=fake_heic,
-                jpg_path=fake_jpg,
-                base_name="nonexistent",
-                heic_size=100,
-                jpg_size=150,
-                directory=temp_dir
-            )
+        # DuplicatePair ahora es una dataclass pura, no valida existencia de archivos
+        pair = DuplicatePair(
+            heic_path=fake_heic,
+            jpg_path=fake_jpg,
+            base_name="nonexistent",
+            heic_size=100,
+            jpg_size=150,
+            directory=temp_dir
+        )
+        
+        assert pair.heic_path == fake_heic
+        assert pair.jpg_path == fake_jpg
     
     def test_progress_callback_invoked(self, heic_service, temp_dir, create_heic_jpg_pair):
         """Test que el callback de progreso se invoca durante el análisis."""

@@ -41,8 +41,8 @@ from .view_models import (
     DuplicatesViewModel,
 )
 
-# Utilidades de service_utils
-from .service_utils import (
+# Utilidades de file_utils
+from utils.file_utils import (
     create_service_backup,
     validate_and_get_file_info,
     FileInfo,
@@ -56,22 +56,22 @@ from .result_types import (
     AnalysisResult,
     DeletionResult,
     # Renaming
-    RenameResult,
+    RenameDeletionResult,
     RenameAnalysisResult,
     # Organization
-    OrganizationResult,
+    OrganizationDeletionResult,
     OrganizationAnalysisResult,
     # Duplicates
     DuplicateGroup,
+    DuplicatePair,
     DuplicateAnalysisResult,
     DuplicateDeletionResult,
     # HEIC
     HeicAnalysisResult,
     HeicDeletionResult,
     # Live Photos
-    LivePhotoAnalysisResult,
     LivePhotoCleanupAnalysisResult,
-    LivePhotoCleanupResult,
+    LivePhotoCleanupDeletionResult,
     LivePhotoDetectionResult,
 )
 
@@ -100,7 +100,7 @@ __all__ = [
     'DuplicatePair',
     'DuplicateGroup',
     'SimilarFilesAnalysis',
-    # Utilidades de service_utils
+    # Utilidades de file_utils
     'create_service_backup',
     'validate_and_get_file_info',
     'FileInfo',
@@ -111,17 +111,16 @@ __all__ = [
     'OperationResult',
     'AnalysisResult',
     'DeletionResult',
-    'RenameResult',
+    'RenameDeletionResult',
     'RenameAnalysisResult',
-    'OrganizationResult',
+    'OrganizationDeletionResult',
     'OrganizationAnalysisResult',
     'DuplicateAnalysisResult',
     'DuplicateDeletionResult',
     'HeicAnalysisResult',
     'HeicDeletionResult',
-    'LivePhotoAnalysisResult',
     'LivePhotoCleanupAnalysisResult',
-    'LivePhotoCleanupResult',
+    'LivePhotoCleanupDeletionResult',
     'LivePhotoDetectionResult',
     # View Models
     'TreeNode',

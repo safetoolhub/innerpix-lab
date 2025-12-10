@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from config import Config
 from utils.logger import get_logger, log_section_header_relevant, log_section_footer_relevant, log_section_header_discrete, log_section_footer_discrete
 from utils.settings_manager import settings_manager
-from services.result_types import RenameResult, RenameAnalysisResult
+from services.result_types import RenameDeletionResult, RenameAnalysisResult
 from services.base_service import BaseService, ProgressCallback
 from utils.date_utils import (
     get_date_from_file,
@@ -206,7 +206,7 @@ class FileRenamer(BaseService):
         create_backup: bool = True,
         dry_run: bool = False,
         progress_callback: Optional[ProgressCallback] = None
-    ) -> RenameResult:
+    ) -> RenameDeletionResult:
         """
         Ejecuta el renombrado según el plan.
         
@@ -219,10 +219,10 @@ class FileRenamer(BaseService):
             progress_callback: Callback para reportar progreso
             
         Returns:
-            RenameResult con resultados de la operación
+            RenameDeletionResult con resultados de la operación
         """
         if not renaming_plan:
-            return RenameResult(
+            return RenameDeletionResult(
                 success=True,
                 files_renamed=0,
                 message='No hay archivos para renombrar',
@@ -237,7 +237,7 @@ class FileRenamer(BaseService):
         )
         self.logger.info(f"*** Archivos a renombrar: {len(renaming_plan)}")
 
-        results = RenameResult(success=True, dry_run=dry_run)
+        results = RenameDeletionResult(success=True, dry_run=dry_run)
 
         try:
             # Crear backup usando método centralizado

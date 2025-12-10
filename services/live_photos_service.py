@@ -15,7 +15,7 @@ from enum import Enum
 
 from config import Config
 from utils.date_utils import get_date_from_file
-from services.result_types import LivePhotoCleanupAnalysisResult, LivePhotoCleanupResult
+from services.result_types import LivePhotoCleanupAnalysisResult, LivePhotoCleanupDeletionResult
 from services.base_service import BaseService, BackupCreationError
 from services.metadata_cache import FileMetadataCache
 from utils.logger import log_section_header_discrete, log_section_footer_discrete, log_section_header_relevant, log_section_footer_relevant, get_logger
@@ -342,7 +342,7 @@ class LivePhotoService(BaseService):
         create_backup: bool = True,
         dry_run: bool = False,
         progress_callback: Optional[Callable[[int, int, str], bool]] = None
-    ) -> LivePhotoCleanupResult:
+    ) -> LivePhotoCleanupDeletionResult:
         """
         Ejecuta la limpieza de Live Photos según análisis previo.
         
@@ -353,12 +353,12 @@ class LivePhotoService(BaseService):
             progress_callback: Función opcional para reportar progreso
             
         Returns:
-            LivePhotoCleanupResult con resultados de la operación
+            LivePhotoCleanupDeletionResult con resultados de la operación
         """
         files_to_delete = analysis.files_to_delete
 
         if not files_to_delete:
-            return LivePhotoCleanupResult(
+            return LivePhotoCleanupDeletionResult(
                 success=True,
                 files_deleted=0,
                 space_freed=0,
@@ -374,7 +374,7 @@ class LivePhotoService(BaseService):
         )
         self.logger.info(f"*** Archivos a procesar: {len(files_to_delete)}")
 
-        results = LivePhotoCleanupResult(success=True, dry_run=dry_run)
+        results = LivePhotoCleanupDeletionResult(success=True, dry_run=dry_run)
 
         try:
             # Crear backup usando método centralizado (solo si no es simulación)
