@@ -13,11 +13,14 @@ from pathlib import Path
 from datetime import datetime
 import shutil
 import re
-from typing import Iterable, Optional, Tuple, List
+from typing import Iterable, Optional, Tuple, List, Callable
 import hashlib
+from dataclasses import dataclass
 
 from utils.format_utils import format_size
 from utils.callback_utils import safe_progress_callback
+from utils.logger import get_logger
+from utils.date_utils import get_date_from_file
 
 
 # Patrones de WhatsApp (iPhone y Android)
@@ -187,27 +190,6 @@ def validate_file_exists(path) -> Path:
     if not p.is_file():
         raise FileNotFoundError(f"No es un archivo válido: {p}")
     return p
-
-
-def validate_files_list(paths: Iterable) -> Tuple[List[Path], List[str]]:
-    """Validate an iterable of paths and return a tuple (valid_paths, missing_paths).
-
-    This function will not raise on missing items. Instead it returns two
-    collections:
-      - valid_paths: list of Path objects that exist and are files
-      - missing_paths: list of string paths that were missing or not files
-
-    Callers can then decide whether to abort, log, or continue.
-    """
-    valid: List[Path] = []
-    missing: List[str] = []
-    for p in paths:
-        try:
-            valid.append(validate_file_exists(p))
-        except FileNotFoundError:
-            missing.append(str(p))
-
-    return valid, missing
 
 
 def to_path(obj, attr_names=('path', 'source_path', 'original_path')) -> Path:

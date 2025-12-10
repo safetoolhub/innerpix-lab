@@ -53,11 +53,11 @@ from config import Config
 if TYPE_CHECKING:
     from services.result_types import (
         FullAnalysisResult,
-        RenameResult,
+        RenameDeletionResult,
         RenameAnalysisResult,
-        OrganizationResult,
+        OrganizationDeletionResult,
         OrganizationAnalysisResult,
-        LivePhotoCleanupResult,
+        LivePhotoCleanupDeletionResult,
         LivePhotoCleanupAnalysisResult,
         HeicDeletionResult,
         HeicAnalysisResult,
@@ -70,9 +70,9 @@ if TYPE_CHECKING:
     from services.file_renamer_service import FileRenamer
     from services.live_photos_service import LivePhotoService
     from services.file_organizer_service import FileOrganizer
-    from services.heic_remover_service import HEICRemover
-    from services.exact_copies_detector import ExactCopiesDetector
-    from services.similar_files_detector import SimilarFilesDetector
+    from services.heic_service import HeicService
+    from services.duplicates_exact_service import DuplicatesExactService
+    from services.duplicates_similar_service import DuplicatesSimilarService
     from services.zero_byte_service import ZeroByteService
 
 
@@ -183,8 +183,8 @@ class AnalysisWorker(BaseWorker):
         renamer: 'FileRenamer',
         live_photos_service: 'LivePhotoService',
         organizer: 'FileOrganizer',
-        heic_remover: 'HEICRemover',
-        duplicate_exact_detector: Optional['ExactCopiesDetector'] = None,
+        heic_service: 'HeicService',
+        duplicate_exact_detector: Optional['DuplicatesExactService'] = None,
         zero_byte_service: Optional['ZeroByteService'] = None,
         organization_type: Optional[str] = None
     ):
@@ -193,7 +193,7 @@ class AnalysisWorker(BaseWorker):
         self.renamer = renamer
         self.live_photo_service = live_photos_service
         self.organizer = organizer
-        self.heic_remover = heic_remover
+        self.heic_service = heic_service
         self.duplicate_exact_detector = duplicate_exact_detector
         self.zero_byte_service = zero_byte_service
         self.organization_type = organization_type
@@ -288,7 +288,7 @@ class AnalysisWorker(BaseWorker):
                 renamer=self.renamer,
                 live_photos_service=self.live_photo_service,
                 organizer=self.organizer,
-                heic_remover=self.heic_remover,
+                heic_service=self.heic_service,
                 duplicate_exact_detector=self.duplicate_exact_detector,
                 zero_byte_service=self.zero_byte_service,
                 organization_type=self.organization_type,
@@ -387,12 +387,12 @@ class RenamingWorker(BaseWorker):
     Worker para ejecutar renombrado de nombres de archivos
     
     Signals:
-        finished(RenameResult): Emite resultado del renombrado
+        finished(RenameDeletionResult): Emite resultado del renombrado
         progress_update(int, int, str): Heredado de BaseWorker
         error(str): Heredado de BaseWorker
     """
     # Sobrescribir finished con tipo específico
-    finished = pyqtSignal(object)  # En runtime es object, tipo semántico es RenameResult
+    finished = pyqtSignal(object)  # En runtime es object, tipo semántico es RenameDeletionResult
 
     def __init__(
         self, 
@@ -412,7 +412,7 @@ class RenamingWorker(BaseWorker):
             if self._stop_requested:
                 return
             
-            results: 'RenameResult' = self.renamer.execute(
+            results: 'RenameDeletionResult' = self.renamer.execute(
                 self.analysis.renaming_plan,
                 create_backup=self.create_backup,
                 dry_run=self.dry_run,
@@ -433,12 +433,12 @@ class LivePhotoCleanupWorker(BaseWorker):
     Worker para ejecutar limpieza de Live Photos
     
     Signals:
-        finished(LivePhotoCleanupResult): Emite resultado de la limpieza
+        finished(LivePhotoCleanupDeletionResult): Emite resultado de la limpieza
         progress_update(int, int, str): Heredado de BaseWorker
         error(str): Heredado de BaseWorker
     """
     # Sobrescribir finished con tipo específico
-    finished = pyqtSignal(object)  # En runtime es object, tipo semántico es LivePhotoCleanupResult
+    finished = pyqtSignal(object)  # En runtime es object, tipo semántico es LivePhotoCleanupDeletionResult
 
     def __init__(self, service: 'LivePhotoService', analysis: 'LivePhotoCleanupAnalysisResult', 
                  create_backup: bool = True, dry_run: bool = False):
@@ -453,7 +453,7 @@ class LivePhotoCleanupWorker(BaseWorker):
             if self._stop_requested:
                 return
             
-            results: 'LivePhotoCleanupResult' = self.service.execute(
+            results: 'LivePhotoCleanupDeletionResult' = self.service.execute(
                 self.analysis,
                 create_backup=self.create_backup,
                 dry_run=self.dry_run,
@@ -474,12 +474,12 @@ class FileOrganizerWorker(BaseWorker):
     Worker para ejecutar organización de archivos
     
     Signals:
-        finished(OrganizationResult): Emite resultado de la organización
+        finished(OrganizationDeletionResult): Emite resultado de la organización
         progress_update(int, int, str): Heredado de BaseWorker
         error(str): Heredado de BaseWorker
     """
     # Sobrescribir finished con tipo específico
-    finished = pyqtSignal(object)  # En runtime es object, tipo semántico es OrganizationResult
+    finished = pyqtSignal(object)  # En runtime es object, tipo semántico es OrganizationDeletionResult
 
     def __init__(
         self,
@@ -501,7 +501,7 @@ class FileOrganizerWorker(BaseWorker):
             if self._stop_requested:
                 return
             
-            results: 'OrganizationResult' = self.organizer.execute(
+            results: 'OrganizationDeletionResult' = self.organizer.execute(
                 self.analysis.move_plan,
                 create_backup=self.create_backup,
                 cleanup_empty_dirs=self.cleanup_empty_dirs,
@@ -532,7 +532,7 @@ class HEICRemovalWorker(BaseWorker):
 
     def __init__(
         self,
-        remover: 'HEICRemover',
+        service: 'HeicService',
         analysis: 'HeicAnalysisResult',
         keep_format: str,
         create_backup: bool = True,
@@ -550,7 +550,7 @@ class HEICRemovalWorker(BaseWorker):
             if self._stop_requested:
                 return
             
-            results: 'HeicDeletionResult' = self.remover.execute(
+            results: 'HeicDeletionResult' = self.service.execute(
                 self.analysis.duplicate_pairs,
                 keep_format=self.keep_format,
                 create_backup=self.create_backup,
@@ -581,7 +581,7 @@ class DuplicateAnalysisWorker(BaseWorker):
     
     def __init__(
         self,
-        detector: 'ExactCopiesDetector | SimilarFilesDetector',
+        detector: 'DuplicatesExactService | DuplicatesSimilarService',
         directory: Path,
         mode: str = 'exact',
         sensitivity: int = 10
@@ -634,7 +634,7 @@ class DuplicateDeletionWorker(BaseWorker):
     
     def __init__(
         self,
-        detector: 'ExactCopiesDetector | SimilarFilesDetector',
+        detector: 'DuplicatesExactService | DuplicatesSimilarService',
         groups: List,
         keep_strategy: str,
         create_backup: bool = True,
@@ -673,7 +673,7 @@ class DuplicateDeletionWorker(BaseWorker):
                 self.error.emit(error_msg)
 
 
-class SimilarFilesAnalysisWorker(BaseWorker):
+class DuplicatesSimilarAnalysisWorker(BaseWorker):
     """
     Worker para análisis inicial de archivos similares (perceptual hash).
     
@@ -683,19 +683,19 @@ class SimilarFilesAnalysisWorker(BaseWorker):
     
     Signals:
         progress_update(int, int, str): (current, total, message)
-        finished(SimilarFilesAnalysis): Análisis con hashes calculados
+        finished(DuplicatesSimilarAnalysis): Análisis con hashes calculados
         error(str): Mensaje de error
     """
-    finished = pyqtSignal(object)  # SimilarFilesAnalysis
+    finished = pyqtSignal(object)  # DuplicatesSimilarAnalysis
     
     def __init__(
         self,
-        detector: 'SimilarFilesDetector',
+        detector: 'DuplicatesSimilarService',
         workspace_path: Path
     ):
         """
         Args:
-            detector: Instancia de SimilarFilesDetector
+            detector: Instancia de DuplicatesSimilarService
             workspace_path: Path del directorio a analizar
         """
         super().__init__()
@@ -716,10 +716,10 @@ class SimilarFilesAnalysisWorker(BaseWorker):
                 return True
             
             # Importar tipo para type hint
-            from services.similar_files_detector import SimilarFilesAnalysis
+            from services.duplicates_similar_service import DuplicatesSimilarAnalysis
             
             # Ejecutar análisis inicial (solo hashes)
-            analysis: SimilarFilesAnalysis = self.detector.analyze_initial(
+            analysis: DuplicatesSimilarAnalysis = self.detector.analyze_initial(
                 workspace_path=self.workspace_path,
                 progress_callback=progress_callback
             )

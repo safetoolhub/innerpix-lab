@@ -385,7 +385,7 @@ class TestIndividualAnalysis:
         orchestrator = AnalysisOrchestrator()
         
         # Mock del HEICRemover
-        mock_heic_remover = Mock()
+        mock_heic_service = Mock()
         mock_result = HeicAnalysisResult(
             success=True,
             total_files=10,
@@ -394,12 +394,12 @@ class TestIndividualAnalysis:
             jpg_files=5,
             potential_savings_keep_jpg=5000000
         )
-        mock_heic_remover.analyze.return_value = mock_result
+        mock_heic_service.analyze.return_value = mock_result
         
-        result = orchestrator.analyze_heic_duplicates(temp_dir, mock_heic_remover)
+        result = orchestrator.analyze_heic_duplicates(temp_dir, mock_heic_service)
         
         assert result == mock_result
-        mock_heic_remover.analyze.assert_called_once_with(
+        mock_heic_service.analyze.assert_called_once_with(
             temp_dir,
             progress_callback=None,
             metadata_cache=None
@@ -545,7 +545,7 @@ class TestFullAnalysis:
             renamer=mock_renamer,
             live_photos_service=mock_live_photos,
             organizer=mock_organizer,
-            heic_remover=mock_heic,
+            heic_service=mock_heic,
             duplicate_exact_detector=mock_duplicates,
             organization_type='by_month'
         )
@@ -608,7 +608,7 @@ class TestFullAnalysis:
             directory=temp_dir,
             renamer=make_mock_service('renamer'),
             live_photos_service=make_mock_service('live_photos'),
-            heic_remover=make_mock_service('heic'),
+            heic_service=make_mock_service('heic'),
             duplicate_exact_detector=make_mock_service('duplicates'),
             organizer=make_mock_service('organizer')
         )
@@ -1079,7 +1079,7 @@ class TestIntegrationScenarios:
         result = orchestrator.run_full_analysis(
             directory=temp_dir,
             renamer=mock_renamer,
-            heic_remover=mock_heic
+            heic_service=mock_heic
         )
         
         # Solo estos deben tener resultados

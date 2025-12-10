@@ -2,10 +2,10 @@
 import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
-from services.heic_remover_service import HEICRemover, DuplicatePair
+from services.heic_service import HeicService, DuplicatePair
 
 @pytest.mark.unit
-class TestHEICRemoverMissingFiles:
+class TestHeicServiceMissingFiles:
     """Tests specifically for handling missing files during execution."""
 
     def test_execute_skips_missing_files(self, temp_dir):
@@ -26,7 +26,7 @@ class TestHEICRemoverMissingFiles:
         pair.heic_size = 1000
         pair.jpg_size = 1000
         
-        service = HEICRemover()
+        service = HeicService()
         
         # Execute
         with patch.object(service.logger, 'warning') as mock_warning:
@@ -57,7 +57,7 @@ class TestHEICRemoverMissingFiles:
         pair.heic_size = 1000
         pair.jpg_size = 1000
         
-        service = HEICRemover()
+        service = HeicService()
         
         with patch.object(service.logger, 'warning') as mock_warning:
             result = service.execute(

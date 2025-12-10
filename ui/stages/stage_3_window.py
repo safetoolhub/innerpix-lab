@@ -18,7 +18,7 @@ from ui.styles.design_system import DesignSystem
 from ui.widgets.summary_card import SummaryCard
 from ui.widgets.tool_card import ToolCard
 from ui.dialogs.live_photos_dialog import LivePhotoCleanupDialog
-from ui.dialogs.heic_remover_dialog import HEICDuplicateRemovalDialog
+from ui.dialogs.heic_dialog import HeicDuplicateRemovalDialog
 from ui.dialogs.exact_copies_dialog import ExactCopiesDialog
 from ui.dialogs.file_organizer_dialog import FileOrganizationDialog
 from ui.dialogs.file_organizer_dialog import FileOrganizationDialog
@@ -28,7 +28,7 @@ from ui.dialogs.settings_dialog import SettingsDialog
 from ui.dialogs.about_dialog import AboutDialog
 from ui.dialogs.similar_files_progress_dialog import SimilarFilesProgressDialog
 from utils.format_utils import format_size, format_file_count
-from ui.workers import SimilarFilesAnalysisWorker
+from ui.workers import DuplicatesSimilarAnalysisWorker
 from utils.logger import log_section_header_discrete
 
 
@@ -492,7 +492,7 @@ class Stage3Window(BaseStage):
             if not heic_data or heic_data.total_pairs == 0:
                 # Card está deshabilitada, no debería llegar aquí
                 return
-            dialog = HEICDuplicateRemovalDialog(heic_data, self.main_window)
+            dialog = HeicDuplicateRemovalDialog(heic_data, self.main_window)
 
         elif tool_id == 'exact_copies':
             dup_data = self.analysis_results.duplicates
@@ -621,8 +621,8 @@ class Stage3Window(BaseStage):
             )
         
         elif tool_id == 'exact_copies':
-            from services.exact_copies_detector import ExactCopiesDetector
-            detector = ExactCopiesDetector()
+            from services.duplicates_exact_service import DuplicatesExactService
+            detector = DuplicatesExactService()
             # DuplicateDeletionWorker espera (detector, groups, keep_strategy, create_backup, dry_run, metadata_cache)
             worker = DuplicateDeletionWorker(
                 detector=detector,
@@ -634,8 +634,8 @@ class Stage3Window(BaseStage):
             )
         
         elif tool_id == 'similar_files':
-            from services.similar_files_detector import SimilarFilesDetector
-            detector = SimilarFilesDetector()
+            from services.duplicates_similar_service import DuplicatesSimilarService
+            detector = DuplicatesSimilarService()
             # DuplicateDeletionWorker espera (detector, groups, keep_strategy, create_backup, dry_run, metadata_cache)
             worker = DuplicateDeletionWorker(
                 detector=detector,
@@ -964,14 +964,14 @@ class Stage3Window(BaseStage):
         Args:
             file_count: Número de archivos a analizar
         """
-        from services.similar_files_detector import SimilarFilesDetector
+        from services.duplicates_similar_service import DuplicatesSimilarService
         from pathlib import Path
         
         # Crear el detector
-        detector = SimilarFilesDetector()
+        detector = DuplicatesSimilarService()
         
         # Crear el worker (sin sensibilidad)
-        self.similarity_worker = SimilarFilesAnalysisWorker(
+        self.similarity_worker = DuplicatesSimilarAnalysisWorker(
             detector=detector,
             workspace_path=Path(self.selected_folder)
         )
@@ -1014,7 +1014,7 @@ class Stage3Window(BaseStage):
         Maneja la finalización exitosa del análisis.
         
         Args:
-            analysis: SimilarFilesAnalysis con hashes calculados
+            analysis: DuplicatesSimilarAnalysis con hashes calculados
         """
         self.logger.info("Análisis inicial de archivos similares completado")
         self.similarity_analysis = analysis
@@ -1144,7 +1144,7 @@ class Stage3Window(BaseStage):
         Actualiza la card después del análisis inicial.
         
         Args:
-            analysis: SimilarFilesAnalysis con hashes calculados
+            analysis: DuplicatesSimilarAnalysis con hashes calculados
         """
         if 'similar_files' not in self.tool_cards:
             return
@@ -1182,7 +1182,7 @@ class Stage3Window(BaseStage):
         Abre el diálogo de gestión con el análisis (slider interactivo).
         
         Args:
-            analysis: SimilarFilesAnalysis con hashes calculados
+            analysis: DuplicatesSimilarAnalysis con hashes calculados
         """
         from ui.dialogs.similar_files_dialog import SimilarFilesDialog
         
@@ -1195,7 +1195,7 @@ class Stage3Window(BaseStage):
     
     def _convert_result_to_analysis(self, result):
         """
-        Convierte DuplicateAnalysisResult obsoleto a SimilarFilesAnalysis.
+        Convierte DuplicateAnalysisResult obsoleto a DuplicatesSimilarAnalysis.
         
         (Para compatibilidad con snapshots antiguos)
         
@@ -1203,7 +1203,7 @@ class Stage3Window(BaseStage):
             result: DuplicateAnalysisResult
             
         Returns:
-            SimilarFilesAnalysis o None si no es posible convertir
+            DuplicatesSimilarAnalysis o None si no es posible convertir
         """
         # Por ahora, retornamos None para forzar re-análisis
         # En el futuro podríamos implementar conversión si necesario
@@ -1231,8 +1231,8 @@ class Stage3Window(BaseStage):
         )
         
         # Crear análisis temporal con grupos
-        from services.similar_files_detector import SimilarFilesAnalysis
-        temp_analysis = SimilarFilesAnalysis()
+        from services.duplicates_similar_service import DuplicatesSimilarAnalysis
+        temp_analysis = DuplicatesSimilarAnalysis()
         temp_analysis.groups = results.groups
         temp_analysis.total_files = results.total_files
         

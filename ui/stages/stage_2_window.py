@@ -153,16 +153,16 @@ class Stage2Window(BaseStage):
         from services.file_renamer_service import FileRenamer
         from services.live_photos_service import LivePhotoService
         from services.file_organizer_service import FileOrganizer
-        from services.heic_remover_service import HEICRemover
-        from services.exact_copies_detector import ExactCopiesDetector
+        from services.heic_service import HeicService
+        from services.duplicates_exact_service import DuplicatesExactService
         from services.zero_byte_service import ZeroByteService
         
         # Crear instancias de servicios
         renamer = FileRenamer()
         live_photos_service = LivePhotoService()
         organizer = FileOrganizer()
-        heic_remover = HEICRemover()
-        duplicate_exact_detector = ExactCopiesDetector()
+        heic_service = HeicService()
+        duplicate_exact_detector = DuplicatesExactService()
         zero_byte_service = ZeroByteService()
 
         # Crear worker de análisis
@@ -171,7 +171,7 @@ class Stage2Window(BaseStage):
             renamer=renamer,
             live_photos_service=live_photos_service,
             organizer=organizer,
-            heic_remover=heic_remover,
+            heic_service=heic_service,
             duplicate_exact_detector=duplicate_exact_detector,
             zero_byte_service=zero_byte_service,
             organization_type=None  # Se usará el default

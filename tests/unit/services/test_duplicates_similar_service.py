@@ -1,5 +1,5 @@
 """
-Tests unitarios para SimilarFilesDetector
+Tests unitarios para DuplicatesSimilarService
 
 Tests para el servicio de detección de archivos similares mediante perceptual hashing,
 incluyendo tests de backup con casos especiales de colisiones de nombres.
@@ -9,14 +9,14 @@ import pytest
 import shutil
 from pathlib import Path
 from PIL import Image
-from services.similar_files_detector import SimilarFilesDetector
+from services.duplicates_similar_service import DuplicatesSimilarService
 from services.result_types import DuplicateAnalysisResult
 
 
 @pytest.fixture
 def similar_detector():
-    """Crea instancia de SimilarFilesDetector para tests."""
-    return SimilarFilesDetector()
+    """Crea instancia de DuplicatesSimilarService para tests."""
+    return DuplicatesSimilarService()
 
 
 @pytest.fixture
@@ -77,7 +77,7 @@ def create_similar_image(create_test_image):
 
 @pytest.mark.unit
 @pytest.mark.similar
-class TestSimilarFilesDetectorBasics:
+class TestDuplicatesSimilarServiceBasics:
     """Tests básicos de inicialización y funcionalidad core."""
     
     def test_initialization(self, similar_detector):
@@ -148,7 +148,7 @@ class TestSimilarFilesDetection:
 # ==================== TESTS DE BACKUP ====================
 
 @pytest.mark.unit
-class TestSimilarFilesDetectorBackup:
+class TestDuplicatesSimilarServiceBackup:
     """Tests de creación de backups en similar files detector."""
     
     def test_backup_created_when_enabled(self, similar_detector, temp_dir, create_test_image):
@@ -247,7 +247,7 @@ class TestSimilarFilesDetectorBackup:
         time.sleep(0.01)
         photo3.touch()
         
-        # SimilarFilesDetector siempre hace búsqueda recursiva
+        # DuplicatesSimilarService siempre hace búsqueda recursiva
         result_groups = similar_detector.analyze(temp_dir, sensitivity=10)
         
         # Debe encontrar 1 grupo con 4 archivos (original + 3 copias)
@@ -293,7 +293,7 @@ class TestSimilarFilesDetectorBackup:
         shutil.copy2(original, dup2)
         shutil.copy2(original, dup3)
         
-        # SimilarFilesDetector siempre hace búsqueda recursiva
+        # DuplicatesSimilarService siempre hace búsqueda recursiva
         result_groups = similar_detector.analyze(temp_dir, sensitivity=10)
         
         if result_groups.total_groups > 0:
@@ -340,7 +340,7 @@ class TestSimilarFilesDetectorBackup:
         # Total: 4 archivos con mismo nombre en diferentes ubicaciones
         assert len(files) == 4
         
-        # SimilarFilesDetector siempre hace búsqueda recursiva
+        # DuplicatesSimilarService siempre hace búsqueda recursiva
         result_groups = similar_detector.analyze(temp_dir, sensitivity=10)
         
         if result_groups.total_groups > 0:

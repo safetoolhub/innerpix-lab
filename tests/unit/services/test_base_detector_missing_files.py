@@ -2,11 +2,11 @@
 import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
-from services.base_detector_service import BaseDetectorService, DuplicateGroup
+from services.duplicates_base_service import DuplicatesBaseService, DuplicateGroup
 
 @pytest.mark.unit
 class TestBaseDetectorMissingFiles:
-    """Tests specifically for handling missing files during execution in BaseDetectorService."""
+    """Tests specifically for handling missing files during execution in DuplicatesBaseService."""
 
     def test_execute_skips_missing_files(self, temp_dir):
         """Test that if a file is missing during execution, it is skipped and not counted in stats."""
@@ -22,14 +22,14 @@ class TestBaseDetectorMissingFiles:
             total_size=2000
         )
         
-        service = BaseDetectorService("TestService")
+        service = DuplicatesBaseService("TestService")
         
         # Execute
         with patch.object(service.logger, 'warning') as mock_warning:
             # We must enable strategy 'manual' or ensure select_file_to_keep picks the existing file
             # Let's use 'manual' and explicitly try to delete the missing file by ONLY passing the missing file in group?
             # Actually better: Use 'newest' strategy. "keep" file has mtime. missing file stat() will fail if we call it.
-            # BaseDetectorService.execute calls _process_group_deletion.
+            # DuplicatesBaseService.execute calls _process_group_deletion.
             # _process_group_deletion calls select_file_to_keep.
             # select_file_to_keep CALLS stat() on files. If file is missing, IT WILL FAIL THERE before deletion logic.
             
@@ -68,7 +68,7 @@ class TestBaseDetectorMissingFiles:
             total_size=1000
         )
         
-        service = BaseDetectorService("TestService")
+        service = DuplicatesBaseService("TestService")
         
         with patch.object(service.logger, 'warning') as mock_warning:
             result = service.execute(

@@ -1,5 +1,5 @@
 """
-Tests exhaustivos para el servicio HEICRemover.
+Tests exhaustivos para el servicio HeicService.
 
 Cubre todos los casos de uso y edge cases:
 - Análisis básico con duplicados
@@ -17,7 +17,7 @@ Cubre todos los casos de uso y edge cases:
 import pytest
 from pathlib import Path
 from datetime import datetime, timedelta
-from services.heic_remover_service import HEICRemover, DuplicatePair
+from services.heic_service import HeicService, DuplicatePair
 from config import Config
 from services.result_types import HeicAnalysisResult, HeicDeletionResult
 import time
@@ -27,9 +27,9 @@ import os
 # ==================== FIXTURES ====================
 
 @pytest.fixture
-def heic_remover():
-    """Crea una instancia de HEICRemover para tests."""
-    return HEICRemover()
+def heic_service():
+    """Crea una instancia de HeicService para tests."""
+    return HeicService()
 
 
 @pytest.fixture
@@ -93,21 +93,21 @@ def create_heic_jpg_pair(create_test_image):
 
 @pytest.mark.unit
 @pytest.mark.heic
-class TestHEICRemoverBasics:
+class TestHeicServiceBasics:
     """Tests básicos de inicialización y configuración."""
     
-    def test_initialization(self, heic_remover):
+    def test_initialization(self, heic_service):
         """Test de inicialización correcta del servicio."""
-        assert heic_remover is not None
-        assert heic_remover.heic_extensions == {'.heic', '.heif'}
-        assert heic_remover.jpg_extensions == {'.jpg', '.jpeg'}
+        assert heic_service is not None
+        assert heic_service.heic_extensions == {'.heic', '.heif'}
+        assert heic_service.jpg_extensions == {'.jpg', '.jpeg'}
         assert Config.MAX_TIME_DIFFERENCE_SECONDS == 60
-        assert heic_remover.stats['heic_files_found'] == 0
-        assert heic_remover.stats['jpg_files_found'] == 0
+        assert heic_service.stats['heic_files_found'] == 0
+        assert heic_service.stats['jpg_files_found'] == 0
     
-    def test_empty_directory(self, heic_remover, temp_dir):
+    def test_empty_directory(self, heic_service, temp_dir):
         """Test de análisis en directorio vacío."""
-        result = heic_remover.analyze(temp_dir)
+        result = heic_service.analyze(temp_dir)
         
         assert isinstance(result, HeicAnalysisResult)
         assert result.total_files == 0
@@ -116,14 +116,14 @@ class TestHEICRemoverBasics:
         assert result.heic_files == 0
         assert result.jpg_files == 0
     
-    def test_directory_without_duplicates(self, heic_remover, temp_dir, create_test_image):
+    def test_directory_without_duplicates(self, heic_service, temp_dir, create_test_image):
         """Test con archivos HEIC y JPG pero sin duplicados (nombres diferentes)."""
         # Crear archivos con nombres diferentes
         create_test_image(temp_dir / "photo1.heic", format='JPEG')
         create_test_image(temp_dir / "photo2.jpg", format='JPEG')
         create_test_image(temp_dir / "image3.heic", format='JPEG')
         
-        result = heic_remover.analyze(temp_dir)
+        result = heic_service.analyze(temp_dir)
         
         assert result.heic_files == 2
         assert result.jpg_files == 1
@@ -136,15 +136,15 @@ class TestHEICRemoverBasics:
 
 @pytest.mark.unit
 @pytest.mark.heic
-class TestHEICRemoverSimpleDuplicates:
+class TestHeicServiceSimpleDuplicates:
     """Tests de detección de duplicados en casos simples."""
     
-    def test_single_duplicate_pair(self, heic_remover, temp_dir, create_heic_jpg_pair):
+    def test_single_duplicate_pair(self, heic_service, temp_dir, create_heic_jpg_pair):
         """Test con un único par de duplicados con fechas similares."""
         now = datetime.now()
         create_heic_jpg_pair(temp_dir, "photo1", heic_mtime=now, jpg_mtime=now)
         
-        result = heic_remover.analyze(temp_dir, validate_dates=True)
+        result = heic_service.analyze(temp_dir, validate_dates=True)
         
         assert result.total_pairs == 1
         assert result.heic_files == 1
@@ -157,7 +157,7 @@ class TestHEICRemoverSimpleDuplicates:
         assert pair.jpg_path.name == "photo1.jpg"
         assert pair.directory == temp_dir
     
-    def test_multiple_duplicate_pairs_same_directory(self, heic_remover, temp_dir, create_heic_jpg_pair):
+    def test_multiple_duplicate_pairs_same_directory(self, heic_service, temp_dir, create_heic_jpg_pair):
         """Test con múltiples pares de duplicados en el mismo directorio."""
         now = datetime.now()
         
@@ -165,7 +165,7 @@ class TestHEICRemoverSimpleDuplicates:
         create_heic_jpg_pair(temp_dir, "photo2", heic_mtime=now, jpg_mtime=now)
         create_heic_jpg_pair(temp_dir, "photo3", heic_mtime=now, jpg_mtime=now)
         
-        result = heic_remover.analyze(temp_dir, validate_dates=True)
+        result = heic_service.analyze(temp_dir, validate_dates=True)
         
         assert result.total_pairs == 3
         assert result.heic_files == 3
@@ -175,7 +175,7 @@ class TestHEICRemoverSimpleDuplicates:
         base_names = {pair.base_name for pair in result.duplicate_pairs}
         assert base_names == {"photo1", "photo2", "photo3"}
     
-    def test_duplicate_with_heif_extension(self, heic_remover, temp_dir, create_test_image):
+    def test_duplicate_with_heif_extension(self, heic_service, temp_dir, create_test_image):
         """Test que detecta archivos .heif además de .heic."""
         now = datetime.now()
         
@@ -190,13 +190,13 @@ class TestHEICRemoverSimpleDuplicates:
         os.utime(heif_path, (mtime, mtime))
         os.utime(jpg_path, (mtime, mtime))
         
-        result = heic_remover.analyze(temp_dir, validate_dates=True)
+        result = heic_service.analyze(temp_dir, validate_dates=True)
         
         assert result.total_pairs == 1
         assert result.heic_files == 1  # Cuenta .heif como HEIC
         assert result.jpg_files == 1
     
-    def test_duplicate_with_jpeg_extension(self, heic_remover, temp_dir, create_test_image):
+    def test_duplicate_with_jpeg_extension(self, heic_service, temp_dir, create_test_image):
         """Test que detecta archivos .jpeg además de .jpg."""
         now = datetime.now()
         
@@ -211,7 +211,7 @@ class TestHEICRemoverSimpleDuplicates:
         os.utime(heic_path, (mtime, mtime))
         os.utime(jpeg_path, (mtime, mtime))
         
-        result = heic_remover.analyze(temp_dir, validate_dates=True)
+        result = heic_service.analyze(temp_dir, validate_dates=True)
         
         assert result.total_pairs == 1
         assert result.jpg_files == 1  # Cuenta .jpeg como JPG
@@ -221,10 +221,10 @@ class TestHEICRemoverSimpleDuplicates:
 
 @pytest.mark.unit
 @pytest.mark.heic
-class TestHEICRemoverTimeValidation:
+class TestHeicServiceTimeValidation:
     """Tests de validación de diferencias temporales entre archivos."""
     
-    def test_duplicate_within_time_threshold(self, heic_remover, temp_dir, create_heic_jpg_pair):
+    def test_duplicate_within_time_threshold(self, heic_service, temp_dir, create_heic_jpg_pair):
         """Test con duplicado dentro del umbral de tiempo (30 segundos)."""
         base_time = datetime(2024, 1, 15, 12, 0, 0)
         heic_time = base_time
@@ -232,13 +232,13 @@ class TestHEICRemoverTimeValidation:
         
         create_heic_jpg_pair(temp_dir, "image-outline", heic_mtime=heic_time, jpg_mtime=jpg_time)
         
-        result = heic_remover.analyze(temp_dir, validate_dates=True)
+        result = heic_service.analyze(temp_dir, validate_dates=True)
         
         assert result.total_pairs == 1
         pair = result.duplicate_pairs[0]
         assert pair.time_difference.total_seconds() == 30
     
-    def test_duplicate_at_time_threshold_boundary(self, heic_remover, temp_dir, create_heic_jpg_pair):
+    def test_duplicate_at_time_threshold_boundary(self, heic_service, temp_dir, create_heic_jpg_pair):
         """Test con duplicado exactamente en el límite del umbral (60 segundos)."""
         base_time = datetime(2024, 1, 15, 12, 0, 0)
         heic_time = base_time
@@ -246,12 +246,12 @@ class TestHEICRemoverTimeValidation:
         
         create_heic_jpg_pair(temp_dir, "image-outline", heic_mtime=heic_time, jpg_mtime=jpg_time)
         
-        result = heic_remover.analyze(temp_dir, validate_dates=True)
+        result = heic_service.analyze(temp_dir, validate_dates=True)
         
         # En el límite exacto debe ser aceptado
         assert result.total_pairs == 1
     
-    def test_duplicate_exceeds_time_threshold(self, heic_remover, temp_dir, create_heic_jpg_pair):
+    def test_duplicate_exceeds_time_threshold(self, heic_service, temp_dir, create_heic_jpg_pair):
         """Test con archivos que exceden el umbral temporal (>60 segundos)."""
         base_time = datetime(2024, 1, 15, 12, 0, 0)
         heic_time = base_time
@@ -259,15 +259,15 @@ class TestHEICRemoverTimeValidation:
         
         create_heic_jpg_pair(temp_dir, "image-outline", heic_mtime=heic_time, jpg_mtime=jpg_time)
         
-        result = heic_remover.analyze(temp_dir, validate_dates=True)
+        result = heic_service.analyze(temp_dir, validate_dates=True)
         
         # NO debe ser detectado como duplicado
         assert result.total_pairs == 0
-        assert heic_remover.stats['rejected_by_time_diff'] == 1
+        assert heic_service.stats['rejected_by_time_diff'] == 1
         assert len(result.orphan_heic) == 1
         assert len(result.orphan_jpg) == 1
     
-    def test_duplicate_with_days_difference(self, heic_remover, temp_dir, create_heic_jpg_pair):
+    def test_duplicate_with_days_difference(self, heic_service, temp_dir, create_heic_jpg_pair):
         """Test con archivos con diferencia de días (claramente no duplicados)."""
         base_time = datetime(2024, 1, 15, 12, 0, 0)
         heic_time = base_time
@@ -275,12 +275,12 @@ class TestHEICRemoverTimeValidation:
         
         create_heic_jpg_pair(temp_dir, "image-outline", heic_mtime=heic_time, jpg_mtime=jpg_time)
         
-        result = heic_remover.analyze(temp_dir, validate_dates=True)
+        result = heic_service.analyze(temp_dir, validate_dates=True)
         
         assert result.total_pairs == 0
-        assert heic_remover.stats['rejected_by_time_diff'] == 1
+        assert heic_service.stats['rejected_by_time_diff'] == 1
     
-    def test_validation_disabled_ignores_time_difference(self, heic_remover, temp_dir, create_heic_jpg_pair):
+    def test_validation_disabled_ignores_time_difference(self, heic_service, temp_dir, create_heic_jpg_pair):
         """Test con validación desactivada - debe aceptar archivos con cualquier diferencia temporal."""
         base_time = datetime(2024, 1, 15, 12, 0, 0)
         heic_time = base_time
@@ -288,13 +288,13 @@ class TestHEICRemoverTimeValidation:
         
         create_heic_jpg_pair(temp_dir, "image-outline", heic_mtime=heic_time, jpg_mtime=jpg_time)
         
-        result = heic_remover.analyze(temp_dir, validate_dates=False)
+        result = heic_service.analyze(temp_dir, validate_dates=False)
         
         # Con validación desactivada, DEBE detectar el duplicado
         assert result.total_pairs == 1
-        assert heic_remover.stats['rejected_by_time_diff'] == 0
+        assert heic_service.stats['rejected_by_time_diff'] == 0
     
-    def test_mixed_validation_results(self, heic_remover, temp_dir, create_heic_jpg_pair):
+    def test_mixed_validation_results(self, heic_service, temp_dir, create_heic_jpg_pair):
         """Test con múltiples pares: algunos válidos y otros rechazados por tiempo."""
         base_time = datetime(2024, 1, 15, 12, 0, 0)
         
@@ -319,10 +319,10 @@ class TestHEICRemoverTimeValidation:
             jpg_mtime=base_time + timedelta(seconds=10)
         )
         
-        result = heic_remover.analyze(temp_dir, validate_dates=True)
+        result = heic_service.analyze(temp_dir, validate_dates=True)
         
         assert result.total_pairs == 2  # Solo photo1 y photo3
-        assert heic_remover.stats['rejected_by_time_diff'] == 1
+        assert heic_service.stats['rejected_by_time_diff'] == 1
         assert len(result.orphan_heic) == 1  # photo2.heic
         assert len(result.orphan_jpg) == 1  # photo2.jpg
 
@@ -331,13 +331,13 @@ class TestHEICRemoverTimeValidation:
 
 @pytest.mark.unit
 @pytest.mark.heic
-class TestHEICRemoverDifferentDirectories:
+class TestHeicServiceDifferentDirectories:
     """
     Tests críticos: archivos con mismo nombre en directorios diferentes
     NO deben ser marcados como duplicados.
     """
     
-    def test_same_name_different_directories_not_duplicates(self, heic_remover, temp_dir, create_heic_jpg_pair):
+    def test_same_name_different_directories_not_duplicates(self, heic_service, temp_dir, create_heic_jpg_pair):
         """
         Test CRÍTICO: archivos con mismo nombre en directorios diferentes
         NO deben considerarse duplicados.
@@ -351,7 +351,7 @@ class TestHEICRemoverDifferentDirectories:
         create_heic_jpg_pair(dir1, "image-outline", heic_mtime=now, jpg_mtime=now)
         create_heic_jpg_pair(dir2, "image-outline", heic_mtime=now, jpg_mtime=now)
         
-        result = heic_remover.analyze(temp_dir, recursive=True, validate_dates=True)
+        result = heic_service.analyze(temp_dir, recursive=True, validate_dates=True)
         
         # Debe encontrar 2 pares separados (uno por directorio)
         assert result.total_pairs == 2
@@ -364,7 +364,7 @@ class TestHEICRemoverDifferentDirectories:
         assert dir1 in directories
         assert dir2 in directories
     
-    def test_nested_directories_separate_pairs(self, heic_remover, temp_dir, create_heic_jpg_pair):
+    def test_nested_directories_separate_pairs(self, heic_service, temp_dir, create_heic_jpg_pair):
         """Test con directorios anidados - cada nivel tiene sus propios pares."""
         now = datetime.now()
         
@@ -377,7 +377,7 @@ class TestHEICRemoverDifferentDirectories:
         create_heic_jpg_pair(level1, "image", heic_mtime=now, jpg_mtime=now)
         create_heic_jpg_pair(level2, "image", heic_mtime=now, jpg_mtime=now)
         
-        result = heic_remover.analyze(temp_dir, recursive=True, validate_dates=True)
+        result = heic_service.analyze(temp_dir, recursive=True, validate_dates=True)
         
         # Debe encontrar 3 pares independientes
         assert result.total_pairs == 3
@@ -388,7 +388,7 @@ class TestHEICRemoverDifferentDirectories:
         assert level1 in directories
         assert level2 in directories
     
-    def test_cross_directory_not_matched(self, heic_remover, temp_dir, create_test_image):
+    def test_cross_directory_not_matched(self, heic_service, temp_dir, create_test_image):
         """
         Test que verifica que HEIC en un directorio y JPG en otro
         NO se emparejan aunque tengan el mismo nombre.
@@ -411,7 +411,7 @@ class TestHEICRemoverDifferentDirectories:
         os.utime(heic_path, (mtime, mtime))
         os.utime(jpg_path, (mtime, mtime))
         
-        result = heic_remover.analyze(temp_dir, recursive=True, validate_dates=True)
+        result = heic_service.analyze(temp_dir, recursive=True, validate_dates=True)
         
         # NO debe encontrar duplicados
         assert result.total_pairs == 0
@@ -425,16 +425,16 @@ class TestHEICRemoverDifferentDirectories:
 
 @pytest.mark.unit
 @pytest.mark.heic
-class TestHEICRemoverOrphans:
+class TestHeicServiceOrphans:
     """Tests de detección de archivos huérfanos (sin pareja)."""
     
-    def test_orphan_heic_files(self, heic_remover, temp_dir, create_test_image):
+    def test_orphan_heic_files(self, heic_service, temp_dir, create_test_image):
         """Test con archivos HEIC sin su correspondiente JPG."""
         create_test_image(temp_dir / "photo1.heic", format='JPEG')
         create_test_image(temp_dir / "photo2.heic", format='JPEG')
         create_test_image(temp_dir / "photo3.heic", format='JPEG')
         
-        result = heic_remover.analyze(temp_dir)
+        result = heic_service.analyze(temp_dir)
         
         assert result.heic_files == 3
         assert result.jpg_files == 0
@@ -442,12 +442,12 @@ class TestHEICRemoverOrphans:
         assert len(result.orphan_heic) == 3
         assert len(result.orphan_jpg) == 0
     
-    def test_orphan_jpg_files(self, heic_remover, temp_dir, create_test_image):
+    def test_orphan_jpg_files(self, heic_service, temp_dir, create_test_image):
         """Test con archivos JPG sin su correspondiente HEIC."""
         create_test_image(temp_dir / "photo1.jpg", format='JPEG')
         create_test_image(temp_dir / "photo2.jpg", format='JPEG')
         
-        result = heic_remover.analyze(temp_dir)
+        result = heic_service.analyze(temp_dir)
         
         assert result.heic_files == 0
         assert result.jpg_files == 2
@@ -455,7 +455,7 @@ class TestHEICRemoverOrphans:
         assert len(result.orphan_heic) == 0
         assert len(result.orphan_jpg) == 2
     
-    def test_mixed_orphans_and_pairs(self, heic_remover, temp_dir, create_heic_jpg_pair, create_test_image):
+    def test_mixed_orphans_and_pairs(self, heic_service, temp_dir, create_heic_jpg_pair, create_test_image):
         """Test con mezcla de pares válidos y archivos huérfanos."""
         now = datetime.now()
         
@@ -469,7 +469,7 @@ class TestHEICRemoverOrphans:
         # Huérfano JPG
         create_test_image(temp_dir / "lonely.jpg", format='JPEG')
         
-        result = heic_remover.analyze(temp_dir, validate_dates=True)
+        result = heic_service.analyze(temp_dir, validate_dates=True)
         
         assert result.total_pairs == 1
         assert result.heic_files == 3
@@ -482,10 +482,10 @@ class TestHEICRemoverOrphans:
 
 @pytest.mark.unit
 @pytest.mark.heic
-class TestHEICRemoverRecursiveSearch:
+class TestHeicServiceRecursiveSearch:
     """Tests de búsqueda recursiva en subdirectorios."""
     
-    def test_recursive_search_enabled(self, heic_remover, temp_dir, create_heic_jpg_pair):
+    def test_recursive_search_enabled(self, heic_service, temp_dir, create_heic_jpg_pair):
         """Test con búsqueda recursiva activada."""
         now = datetime.now()
         
@@ -500,13 +500,13 @@ class TestHEICRemoverRecursiveSearch:
         create_heic_jpg_pair(temp_dir / "sub2", "sub2", heic_mtime=now, jpg_mtime=now)
         create_heic_jpg_pair(temp_dir / "sub1" / "nested", "nested", heic_mtime=now, jpg_mtime=now)
         
-        result = heic_remover.analyze(temp_dir, recursive=True, validate_dates=True)
+        result = heic_service.analyze(temp_dir, recursive=True, validate_dates=True)
         
         assert result.total_pairs == 4
         assert result.heic_files == 4
         assert result.jpg_files == 4
     
-    def test_recursive_search_disabled(self, heic_remover, temp_dir, create_heic_jpg_pair):
+    def test_recursive_search_disabled(self, heic_service, temp_dir, create_heic_jpg_pair):
         """Test con búsqueda recursiva desactivada - solo nivel raíz."""
         now = datetime.now()
         
@@ -518,7 +518,7 @@ class TestHEICRemoverRecursiveSearch:
         subdir.mkdir()
         create_heic_jpg_pair(subdir, "sub", heic_mtime=now, jpg_mtime=now)
         
-        result = heic_remover.analyze(temp_dir, recursive=False, validate_dates=True)
+        result = heic_service.analyze(temp_dir, recursive=False, validate_dates=True)
         
         # Solo debe encontrar el par de la raíz
         assert result.total_pairs == 1
@@ -531,10 +531,10 @@ class TestHEICRemoverRecursiveSearch:
 
 @pytest.mark.unit
 @pytest.mark.heic
-class TestHEICRemoverStatistics:
+class TestHeicServiceStatistics:
     """Tests de cálculo de estadísticas y métricas."""
     
-    def test_potential_savings_calculation(self, heic_remover, temp_dir, create_heic_jpg_pair):
+    def test_potential_savings_calculation(self, heic_service, temp_dir, create_heic_jpg_pair):
         """Test de cálculo de ahorro potencial."""
         now = datetime.now()
         
@@ -542,14 +542,14 @@ class TestHEICRemoverStatistics:
         create_heic_jpg_pair(temp_dir, "photo1", heic_mtime=now, jpg_mtime=now, heic_size_kb=100, jpg_size_kb=150)
         create_heic_jpg_pair(temp_dir, "photo2", heic_mtime=now, jpg_mtime=now, heic_size_kb=200, jpg_size_kb=300)
         
-        result = heic_remover.analyze(temp_dir, validate_dates=True)
+        result = heic_service.analyze(temp_dir, validate_dates=True)
         
         assert result.total_pairs == 2
         # El ahorro viene de los tamaños reales de los archivos creados
         assert result.potential_savings_keep_jpg > 0
         assert result.potential_savings_keep_heic > 0
     
-    def test_by_directory_statistics(self, heic_remover, temp_dir, create_heic_jpg_pair):
+    def test_by_directory_statistics(self, heic_service, temp_dir, create_heic_jpg_pair):
         """Test de estadísticas agrupadas por directorio."""
         now = datetime.now()
         
@@ -560,7 +560,7 @@ class TestHEICRemoverStatistics:
         create_heic_jpg_pair(dir1, "photo2", heic_mtime=now, jpg_mtime=now)
         create_heic_jpg_pair(dir2, "photo3", heic_mtime=now, jpg_mtime=now)
         
-        result = heic_remover.analyze(temp_dir, recursive=True, validate_dates=True)
+        result = heic_service.analyze(temp_dir, recursive=True, validate_dates=True)
         
         assert str(dir1) in result.by_directory
         assert str(dir2) in result.by_directory
@@ -572,20 +572,20 @@ class TestHEICRemoverStatistics:
 
 @pytest.mark.unit
 @pytest.mark.heic
-class TestHEICRemoverDeletionKeepJPG:
+class TestHeicServiceDeletionKeepJPG:
     """Tests de eliminación de archivos manteniendo JPG."""
     
-    def test_delete_heic_keep_jpg(self, heic_remover, temp_dir, create_heic_jpg_pair):
+    def test_delete_heic_keep_jpg(self, heic_service, temp_dir, create_heic_jpg_pair):
         """Test de eliminación básica: eliminar HEIC, mantener JPG."""
         now = datetime.now()
         heic_path, jpg_path = create_heic_jpg_pair(temp_dir, "image-outline", heic_mtime=now, jpg_mtime=now)
         
         # Analizar primero
-        analysis = heic_remover.analyze(temp_dir, validate_dates=True)
+        analysis = heic_service.analyze(temp_dir, validate_dates=True)
         assert len(analysis.duplicate_pairs) == 1
         
         # Ejecutar eliminación sin backup
-        result = heic_remover.execute(
+        result = heic_service.execute(
             duplicate_pairs=analysis.duplicate_pairs,
             keep_format='jpg',
             create_backup=False,
@@ -598,7 +598,7 @@ class TestHEICRemoverDeletionKeepJPG:
         assert jpg_path.exists()  # JPG preservado
         assert result.space_freed > 0
     
-    def test_delete_multiple_heic_keep_jpg(self, heic_remover, temp_dir, create_heic_jpg_pair):
+    def test_delete_multiple_heic_keep_jpg(self, heic_service, temp_dir, create_heic_jpg_pair):
         """Test de eliminación múltiple: varios pares HEIC/JPG."""
         now = datetime.now()
         
@@ -607,10 +607,10 @@ class TestHEICRemoverDeletionKeepJPG:
             heic, jpg = create_heic_jpg_pair(temp_dir, f"photo{i}", heic_mtime=now, jpg_mtime=now)
             pairs.append((heic, jpg))
         
-        analysis = heic_remover.analyze(temp_dir, validate_dates=True)
+        analysis = heic_service.analyze(temp_dir, validate_dates=True)
         assert len(analysis.duplicate_pairs) == 5
         
-        result = heic_remover.execute(
+        result = heic_service.execute(
             duplicate_pairs=analysis.duplicate_pairs,
             keep_format='jpg',
             create_backup=False,
@@ -630,17 +630,17 @@ class TestHEICRemoverDeletionKeepJPG:
 
 @pytest.mark.unit
 @pytest.mark.heic
-class TestHEICRemoverDeletionKeepHEIC:
+class TestHeicServiceDeletionKeepHEIC:
     """Tests de eliminación de archivos manteniendo HEIC."""
     
-    def test_delete_jpg_keep_heic(self, heic_remover, temp_dir, create_heic_jpg_pair):
+    def test_delete_jpg_keep_heic(self, heic_service, temp_dir, create_heic_jpg_pair):
         """Test de eliminación: eliminar JPG, mantener HEIC."""
         now = datetime.now()
         heic_path, jpg_path = create_heic_jpg_pair(temp_dir, "image-outline", heic_mtime=now, jpg_mtime=now)
         
-        analysis = heic_remover.analyze(temp_dir, validate_dates=True)
+        analysis = heic_service.analyze(temp_dir, validate_dates=True)
         
-        result = heic_remover.execute(
+        result = heic_service.execute(
             duplicate_pairs=analysis.duplicate_pairs,
             keep_format='heic',
             create_backup=False,
@@ -653,7 +653,7 @@ class TestHEICRemoverDeletionKeepHEIC:
         assert not jpg_path.exists()  # JPG eliminado
         assert result.format_kept == 'heic'
     
-    def test_delete_multiple_jpg_keep_heic(self, heic_remover, temp_dir, create_heic_jpg_pair):
+    def test_delete_multiple_jpg_keep_heic(self, heic_service, temp_dir, create_heic_jpg_pair):
         """Test de eliminación múltiple manteniendo HEIC."""
         now = datetime.now()
         
@@ -662,9 +662,9 @@ class TestHEICRemoverDeletionKeepHEIC:
             heic, jpg = create_heic_jpg_pair(temp_dir, f"photo{i}", heic_mtime=now, jpg_mtime=now)
             pairs.append((heic, jpg))
         
-        analysis = heic_remover.analyze(temp_dir, validate_dates=True)
+        analysis = heic_service.analyze(temp_dir, validate_dates=True)
         
-        result = heic_remover.execute(
+        result = heic_service.execute(
             duplicate_pairs=analysis.duplicate_pairs,
             keep_format='heic',
             create_backup=False,
@@ -683,17 +683,17 @@ class TestHEICRemoverDeletionKeepHEIC:
 
 @pytest.mark.unit
 @pytest.mark.heic
-class TestHEICRemoverDryRun:
+class TestHeicServiceDryRun:
     """Tests de modo simulación (dry run)."""
     
-    def test_dry_run_does_not_delete(self, heic_remover, temp_dir, create_heic_jpg_pair):
+    def test_dry_run_does_not_delete(self, heic_service, temp_dir, create_heic_jpg_pair):
         """Test que dry run no elimina archivos realmente."""
         now = datetime.now()
         heic_path, jpg_path = create_heic_jpg_pair(temp_dir, "image-outline", heic_mtime=now, jpg_mtime=now)
         
-        analysis = heic_remover.analyze(temp_dir, validate_dates=True)
+        analysis = heic_service.analyze(temp_dir, validate_dates=True)
         
-        result = heic_remover.execute(
+        result = heic_service.execute(
             duplicate_pairs=analysis.duplicate_pairs,
             keep_format='jpg',
             create_backup=False,
@@ -709,14 +709,14 @@ class TestHEICRemoverDryRun:
         assert heic_path.exists()
         assert jpg_path.exists()
     
-    def test_dry_run_calculates_space_freed(self, heic_remover, temp_dir, create_heic_jpg_pair):
+    def test_dry_run_calculates_space_freed(self, heic_service, temp_dir, create_heic_jpg_pair):
         """Test que dry run calcula correctamente el espacio que se liberaría."""
         now = datetime.now()
         create_heic_jpg_pair(temp_dir, "image-outline", heic_mtime=now, jpg_mtime=now, heic_size_kb=100)
         
-        analysis = heic_remover.analyze(temp_dir, validate_dates=True)
+        analysis = heic_service.analyze(temp_dir, validate_dates=True)
         
-        result = heic_remover.execute(
+        result = heic_service.execute(
             duplicate_pairs=analysis.duplicate_pairs,
             keep_format='jpg',
             create_backup=False,
@@ -731,17 +731,17 @@ class TestHEICRemoverDryRun:
 
 @pytest.mark.unit
 @pytest.mark.heic
-class TestHEICRemoverBackup:
+class TestHeicServiceBackup:
     """Tests de creación de backups antes de eliminación."""
     
-    def test_backup_created_when_enabled(self, heic_remover, temp_dir, create_heic_jpg_pair):
+    def test_backup_created_when_enabled(self, heic_service, temp_dir, create_heic_jpg_pair):
         """Test que se crea backup cuando está habilitado."""
         now = datetime.now()
         heic_path, jpg_path = create_heic_jpg_pair(temp_dir, "image-outline", heic_mtime=now, jpg_mtime=now)
         
-        analysis = heic_remover.analyze(temp_dir, validate_dates=True)
+        analysis = heic_service.analyze(temp_dir, validate_dates=True)
         
-        result = heic_remover.execute(
+        result = heic_service.execute(
             duplicate_pairs=analysis.duplicate_pairs,
             keep_format='jpg',
             create_backup=True,
@@ -755,14 +755,14 @@ class TestHEICRemoverBackup:
         assert backup_dir.exists()
         assert backup_dir.is_dir()
     
-    def test_no_backup_when_disabled(self, heic_remover, temp_dir, create_heic_jpg_pair):
+    def test_no_backup_when_disabled(self, heic_service, temp_dir, create_heic_jpg_pair):
         """Test que no se crea backup cuando está deshabilitado."""
         now = datetime.now()
         create_heic_jpg_pair(temp_dir, "image-outline", heic_mtime=now, jpg_mtime=now)
         
-        analysis = heic_remover.analyze(temp_dir, validate_dates=True)
+        analysis = heic_service.analyze(temp_dir, validate_dates=True)
         
-        result = heic_remover.execute(
+        result = heic_service.execute(
             duplicate_pairs=analysis.duplicate_pairs,
             keep_format='jpg',
             create_backup=False,
@@ -772,14 +772,14 @@ class TestHEICRemoverBackup:
         assert result.success
         assert result.backup_path is None
     
-    def test_no_backup_in_dry_run(self, heic_remover, temp_dir, create_heic_jpg_pair):
+    def test_no_backup_in_dry_run(self, heic_service, temp_dir, create_heic_jpg_pair):
         """Test que no se crea backup en modo dry run."""
         now = datetime.now()
         create_heic_jpg_pair(temp_dir, "image-outline", heic_mtime=now, jpg_mtime=now)
         
-        analysis = heic_remover.analyze(temp_dir, validate_dates=True)
+        analysis = heic_service.analyze(temp_dir, validate_dates=True)
         
-        result = heic_remover.execute(
+        result = heic_service.execute(
             duplicate_pairs=analysis.duplicate_pairs,
             keep_format='jpg',
             create_backup=True,
@@ -794,12 +794,12 @@ class TestHEICRemoverBackup:
 
 @pytest.mark.unit
 @pytest.mark.heic
-class TestHEICRemoverEdgeCases:
+class TestHeicServiceEdgeCases:
     """Tests de casos especiales y situaciones límite."""
     
-    def test_empty_duplicate_pairs_list(self, heic_remover):
+    def test_empty_duplicate_pairs_list(self, heic_service):
         """Test de ejecución con lista vacía de duplicados."""
-        result = heic_remover.execute(
+        result = heic_service.execute(
             duplicate_pairs=[],
             keep_format='jpg',
             create_backup=False,
@@ -810,7 +810,7 @@ class TestHEICRemoverEdgeCases:
         assert result.files_deleted == 0
         assert "No hay archivos" in result.message
     
-    def test_case_insensitive_extensions(self, heic_remover, temp_dir, create_test_image):
+    def test_case_insensitive_extensions(self, heic_service, temp_dir, create_test_image):
         """Test que las extensiones no son case-sensitive."""
         now = datetime.now()
         
@@ -825,21 +825,21 @@ class TestHEICRemoverEdgeCases:
         os.utime(heic_path, (mtime, mtime))
         os.utime(jpg_path, (mtime, mtime))
         
-        result = heic_remover.analyze(temp_dir, validate_dates=True)
+        result = heic_service.analyze(temp_dir, validate_dates=True)
         
         assert result.total_pairs == 1
     
-    def test_files_with_spaces_in_name(self, heic_remover, temp_dir, create_heic_jpg_pair):
+    def test_files_with_spaces_in_name(self, heic_service, temp_dir, create_heic_jpg_pair):
         """Test con nombres de archivo que contienen espacios."""
         now = datetime.now()
         heic, jpg = create_heic_jpg_pair(temp_dir, "my photo with spaces", heic_mtime=now, jpg_mtime=now)
         
-        result = heic_remover.analyze(temp_dir, validate_dates=True)
+        result = heic_service.analyze(temp_dir, validate_dates=True)
         
         assert result.total_pairs == 1
         assert result.duplicate_pairs[0].base_name == "my photo with spaces"
     
-    def test_files_with_special_characters(self, heic_remover, temp_dir, create_heic_jpg_pair):
+    def test_files_with_special_characters(self, heic_service, temp_dir, create_heic_jpg_pair):
         """Test con nombres que contienen caracteres especiales."""
         now = datetime.now()
         
@@ -847,12 +847,12 @@ class TestHEICRemoverEdgeCases:
         special_name = "photo_2024-01-15_#1"
         heic, jpg = create_heic_jpg_pair(temp_dir, special_name, heic_mtime=now, jpg_mtime=now)
         
-        result = heic_remover.analyze(temp_dir, validate_dates=True)
+        result = heic_service.analyze(temp_dir, validate_dates=True)
         
         assert result.total_pairs == 1
         assert result.duplicate_pairs[0].base_name == special_name
     
-    def test_very_large_directory_structure(self, heic_remover, temp_dir, create_heic_jpg_pair):
+    def test_very_large_directory_structure(self, heic_service, temp_dir, create_heic_jpg_pair):
         """Test con estructura de directorios profunda."""
         now = datetime.now()
         
@@ -863,7 +863,7 @@ class TestHEICRemoverEdgeCases:
         
         create_heic_jpg_pair(deep_path, "image-outline", heic_mtime=now, jpg_mtime=now)
         
-        result = heic_remover.analyze(temp_dir, recursive=True, validate_dates=True)
+        result = heic_service.analyze(temp_dir, recursive=True, validate_dates=True)
         
         assert result.total_pairs == 1
     
@@ -898,21 +898,24 @@ class TestHEICRemoverEdgeCases:
         assert pair.time_difference.total_seconds() == 30
     
     def test_nonexistent_file_in_duplicate_pair_raises_error(self, temp_dir):
-        """Test que DuplicatePair valida existencia de archivos."""
+        """Test que DuplicatePair es una estructura de datos pura (no valida existencia)."""
         fake_heic = temp_dir / "nonexistent.heic"
         fake_jpg = temp_dir / "nonexistent.jpg"
         
-        with pytest.raises(ValueError):
-            DuplicatePair(
-                heic_path=fake_heic,
-                jpg_path=fake_jpg,
-                base_name="nonexistent",
-                heic_size=100,
-                jpg_size=150,
-                directory=temp_dir
-            )
+        # DuplicatePair ahora es una dataclass pura, no valida existencia de archivos
+        pair = DuplicatePair(
+            heic_path=fake_heic,
+            jpg_path=fake_jpg,
+            base_name="nonexistent",
+            heic_size=100,
+            jpg_size=150,
+            directory=temp_dir
+        )
+        
+        assert pair.heic_path == fake_heic
+        assert pair.jpg_path == fake_jpg
     
-    def test_progress_callback_invoked(self, heic_remover, temp_dir, create_heic_jpg_pair):
+    def test_progress_callback_invoked(self, heic_service, temp_dir, create_heic_jpg_pair):
         """Test que el callback de progreso se invoca durante el análisis."""
         now = datetime.now()
         
@@ -925,12 +928,12 @@ class TestHEICRemoverEdgeCases:
             progress_calls.append((current, total, message))
             return True  # Continuar
         
-        result = heic_remover.analyze(temp_dir, validate_dates=True, progress_callback=progress_callback)
+        result = heic_service.analyze(temp_dir, validate_dates=True, progress_callback=progress_callback)
         
         assert result.total_pairs == 5
         assert len(progress_calls) > 0
     
-    def test_analysis_can_be_cancelled(self, heic_remover, temp_dir, create_heic_jpg_pair):
+    def test_analysis_can_be_cancelled(self, heic_service, temp_dir, create_heic_jpg_pair):
         """Test que el análisis puede ser cancelado mediante callback."""
         now = datetime.now()
         
@@ -942,9 +945,9 @@ class TestHEICRemoverEdgeCases:
         def cancel_callback(current, total, message):
             call_count[0] += 1
             # Cancelar después de 3 llamadas
-            return call_count[0] < 3
+            return call_count[0] >= 3
         
-        result = heic_remover.analyze(temp_dir, validate_dates=True, progress_callback=cancel_callback)
+        result = heic_service.analyze(temp_dir, validate_dates=True, progress_callback=cancel_callback)
         
         # El resultado debe estar vacío porque se canceló
         assert result.total_pairs == 0
@@ -955,15 +958,15 @@ class TestHEICRemoverEdgeCases:
 
 @pytest.mark.unit
 @pytest.mark.heic
-class TestHEICRemoverResults:
+class TestHeicServiceResults:
     """Tests de los objetos de resultado y sus propiedades."""
     
-    def test_analysis_result_structure(self, heic_remover, temp_dir, create_heic_jpg_pair):
+    def test_analysis_result_structure(self, heic_service, temp_dir, create_heic_jpg_pair):
         """Test de estructura completa del resultado de análisis."""
         now = datetime.now()
         create_heic_jpg_pair(temp_dir, "image-outline", heic_mtime=now, jpg_mtime=now)
         
-        result = heic_remover.analyze(temp_dir, validate_dates=True)
+        result = heic_service.analyze(temp_dir, validate_dates=True)
         
         # Verificar todos los campos del resultado
         assert hasattr(result, 'total_files')
@@ -978,13 +981,13 @@ class TestHEICRemoverResults:
         assert hasattr(result, 'orphan_jpg')
         assert hasattr(result, 'by_directory')
     
-    def test_deletion_result_structure(self, heic_remover, temp_dir, create_heic_jpg_pair):
+    def test_deletion_result_structure(self, heic_service, temp_dir, create_heic_jpg_pair):
         """Test de estructura completa del resultado de eliminación."""
         now = datetime.now()
         create_heic_jpg_pair(temp_dir, "image-outline", heic_mtime=now, jpg_mtime=now)
         
-        analysis = heic_remover.analyze(temp_dir, validate_dates=True)
-        result = heic_remover.execute(
+        analysis = heic_service.analyze(temp_dir, validate_dates=True)
+        result = heic_service.execute(
             duplicate_pairs=analysis.duplicate_pairs,
             keep_format='jpg',
             create_backup=False,

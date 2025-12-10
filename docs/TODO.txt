@@ -1,3 +1,9 @@
+Innerpix lab
+---------------
+
+
+Antiguas versiones
+--------------------
 BUGS produccion
 - en HEIC han salido errores de no poder borrar cosas borradas poniendo backup. comprobar que es justo los borrados
 

@@ -31,7 +31,6 @@ from .screen_utils import (
 )
 from .file_utils import (
     validate_file_exists,
-    validate_files_list,
     to_path,
     calculate_file_hash,
     launch_backup_creation,
@@ -105,7 +104,6 @@ __all__ = [
 
     # File utilities
     'validate_file_exists',
-    'validate_files_list',
     'to_path',
     'calculate_file_hash',
     'launch_backup_creation',

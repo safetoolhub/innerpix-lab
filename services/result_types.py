@@ -1,6 +1,7 @@
 """
-Tipos de resultados estandarizados para servicios de PhotoKit Manager
+Tipos de resultados estandarizados para servicios de Innerpix Lab
 
+Centraliza TODAS las dataclasses de resultados.
 Define dataclasses consistentes para resultados de análisis y operaciones,
 eliminando la heterogeneidad de diccionarios con keys variables.
 """
@@ -8,6 +9,7 @@ eliminando la heterogeneidad de diccionarios con keys variables.
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict
 from pathlib import Path
+from datetime import datetime, timedelta
 
 
 @dataclass
@@ -21,6 +23,43 @@ class DuplicateGroup:
     files: List[Path]
     total_size: int
     similarity_score: float = 100.0  # Copias exactas = 100%, similares = variable
+
+
+@dataclass
+class DuplicatePair:
+    """Representa un par de archivos duplicados (HEIC + JPG)"""
+    
+    heic_path: Path
+    jpg_path: Path
+    base_name: str
+    heic_size: int
+    jpg_size: int
+    directory: Path
+    heic_date: Optional[datetime] = None
+    jpg_date: Optional[datetime] = None
+    similarity_score: float = 1.0  # 1.0 = idénticos (mismo nombre base)
+    
+    @property
+    def total_size(self) -> int:
+        """Tamaño total del par"""
+        return self.heic_size + self.jpg_size
+    
+    @property
+    def size_saving_keep_jpg(self) -> int:
+        """Ahorro eliminando HEIC"""
+        return self.heic_size
+    
+    @property
+    def size_saving_keep_heic(self) -> int:
+        """Ahorro eliminando JPG"""
+        return self.jpg_size
+    
+    @property
+    def time_difference(self) -> Optional[timedelta]:
+        """Diferencia de tiempo entre archivos"""
+        if self.heic_date and self.jpg_date:
+            return abs(self.heic_date - self.jpg_date)
+        return None
 
 
 @dataclass
@@ -68,7 +107,7 @@ class DeletionResult(OperationResult):
 
 
 @dataclass
-class RenameResult(OperationResult):
+class RenameDeletionResult(OperationResult):
     """Resultado de operación de renombrado"""
     files_renamed: int = 0
     renamed_files: List[dict] = field(default_factory=list)
@@ -88,9 +127,16 @@ class RenameAnalysisResult(AnalysisResult):
     renaming_plan: List[Dict] = field(default_factory=list)
     issues: List[str] = field(default_factory=list)
 
+    def __post_init__(self):
+        """Post-init validation"""
+        super().__post_init__()
+        # Sincronizar renaming_plan con need_renaming
+        if self.renaming_plan:
+            self.need_renaming = len(self.renaming_plan)
+
 
 @dataclass
-class OrganizationResult(OperationResult):
+class OrganizationDeletionResult(OperationResult):
     """Resultado de operación de organización"""
     files_moved: int = 0
     empty_directories_removed: int = 0
@@ -116,6 +162,13 @@ class OrganizationAnalysisResult(AnalysisResult):
     group_by_source: bool = False
     group_by_type: bool = False
     date_grouping_type: Optional[str] = None
+
+    def __post_init__(self):
+        """Post-init validation"""
+        super().__post_init__()
+        # Sincronizar move_plan con total_files_to_move
+        if self.move_plan:
+            self.total_files_to_move = len(self.move_plan)
 
 
 @dataclass
@@ -168,10 +221,22 @@ class HeicAnalysisResult(AnalysisResult):
     orphan_jpg: List = field(default_factory=list)
     by_directory: Dict = field(default_factory=dict)
     
+    def __post_init__(self):
+        """Post-init validation"""
+        super().__post_init__()
+        # Sincronizar total_pairs con la longitud de duplicate_pairs
+        if self.duplicate_pairs:
+            self.total_pairs = len(self.duplicate_pairs)
+    
     @property
     def total_duplicates(self) -> int:
         """Alias para compatibilidad"""
         return self.total_pairs
+
+    @property
+    def totalfiles(self) -> int:
+        """Total de archivos HEIC + JPG analizados"""
+        return self.heic_files + self.jpg_files
 
 
 @dataclass
@@ -189,16 +254,6 @@ class HeicDeletionResult(DeletionResult):
 
 
 @dataclass
-class LivePhotoAnalysisResult(AnalysisResult):
-    """Resultado de análisis de Live Photos"""
-    total_groups: int = 0
-    total_images: int = 0
-    total_videos: int = 0
-    total_size: int = 0
-    avg_time_diff: float = 0.0
-
-
-@dataclass
 class LivePhotoCleanupAnalysisResult(AnalysisResult):
     """Resultado de análisis de limpieza de Live Photos"""
     live_photos_found: int = 0
@@ -209,9 +264,16 @@ class LivePhotoCleanupAnalysisResult(AnalysisResult):
     cleanup_mode: str = 'keep_image'
     groups: List = field(default_factory=list)  # Lista de LivePhotoGroup para compatibilidad con UI
 
+    def __post_init__(self):
+        """Post-init validation"""
+        super().__post_init__()
+        # Sincronizar live_photos_found con la cantidad de grupos
+        if self.groups:
+            self.live_photos_found = len(self.groups)
+
 
 @dataclass
-class LivePhotoCleanupResult(DeletionResult):
+class LivePhotoCleanupDeletionResult(DeletionResult):
     """Resultado de limpieza de Live Photos"""
     dry_run: bool = False
     simulated_files_deleted: int = 0
@@ -242,6 +304,12 @@ class ZeroByteAnalysisResult(AnalysisResult):
     zero_byte_files_found: int = 0
     files: List[Path] = field(default_factory=list)
     total_space_reclaimed: int = 0  # Siempre 0, pero por consistencia
+
+    def __post_init__(self):
+        """Post-init validation"""
+        super().__post_init__()
+        # Los archivos de 0 bytes no liberan espacio
+        self.total_space_reclaimed = 0
 
 
 @dataclass

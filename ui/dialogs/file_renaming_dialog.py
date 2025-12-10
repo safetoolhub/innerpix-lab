@@ -52,7 +52,7 @@ class RenamingPreviewDialog(BaseDialog):
         """Actualiza las estadísticas después del renombrado
         
         Args:
-            results: RenameResult (dataclass)
+            results: RenameDeletionResult (dataclass)
         """
         if hasattr(self, 'stats_labels'):
             self.stats_labels['renamed'].setText(str(results.files_renamed))

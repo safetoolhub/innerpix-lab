@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QDesktopServices, QColor, QShowEvent
-from services.exact_copies_detector import DuplicateGroup
+from services.result_types import DuplicateGroup
 from utils.format_utils import format_size
 from utils.logger import get_logger
 from ui.styles.design_system import DesignSystem
@@ -68,9 +68,9 @@ class ExactCopiesDialog(BaseDialog):
             Timestamp de modificación (epoch seconds)
         """
         if self.metadata_cache:
-            date = self.metadata_cache.get_filesystem_modification_date(file_path)
-            if date:
-                return date.timestamp()
+            dates = self.metadata_cache.get_all_dates(file_path)
+            if dates and dates.get('filesystem_modification_date'):
+                return dates['filesystem_modification_date'].timestamp()
         
         # Fallback a stat() directo si no hay cache o no se encuentra
         return file_path.stat().st_mtime

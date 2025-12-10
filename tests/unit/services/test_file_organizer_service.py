@@ -16,7 +16,7 @@ import pytest
 from pathlib import Path
 from datetime import datetime, timedelta
 from services.file_organizer_service import FileOrganizer, OrganizationType, FileMove
-from services.result_types import OrganizationAnalysisResult, OrganizationResult
+from services.result_types import OrganizationAnalysisResult, OrganizationDeletionResult
 from utils.file_utils import is_whatsapp_file
 from config import Config
 import shutil
