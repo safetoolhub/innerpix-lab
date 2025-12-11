@@ -2,8 +2,7 @@
 Tipos de resultados estandarizados para servicios de Innerpix Lab
 
 Centraliza TODAS las dataclasses de resultados.
-Define dataclasses consistentes para resultados de análisis y operaciones,
-eliminando la heterogeneidad de diccionarios con keys variables.
+Define dataclasses consistentes para resultados de análisis y operaciones
 """
 
 from dataclasses import dataclass, field
@@ -128,9 +127,9 @@ class OrganizationAnalysisResult(AnalysisResult):
 @dataclass
 class DuplicateGroup:
     """
-    Grupo de archivos duplicados (copias exactas o similares).
+    Grupo de archivos duplicados (exactos o similares).
     
-    Usado por ExactCopiesDetector y SimilarFilesDetector.
+    Usado por DuplicatesExactService y DuplicatesSimilarService.
     """
     hash_value: str  # SHA256 hash o perceptual hash
     files: List[Path]
