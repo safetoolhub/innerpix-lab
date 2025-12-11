@@ -1,1168 +1,1917 @@
-# **PROMPT PARA REFACTORIZACIÓN PROFESIONAL DE SISTEMA DE GESTIÓN MULTIMEDIA**
+# REFACTORIZACIÓN PROFESIONAL - SISTEMA DE GESTIÓN MULTIMEDIA
+# FASES 2-6: INFRAESTRUCTURA Y SERVICIOS
 
-## **CONTEXTO DEL PROYECTO**
+## ESTADO ACTUAL DEL PROYECTO
 
-### **Arquitectura Actual**
+### ✅ Fase 1 Completada
+- `result_types.py` ha sido refactorizado con jerarquía de clases base y mixins
+- Dataclasses ahora heredan de `BaseResult` y mixins especializados
+- Campos duplicados eliminados, contadores calculados como `@property`
+- Aliases innecesarios removidos
 
-Sistema Python de gestión de archivos multimedia con **separación estricta lógica/vista**:
+### 📂 Arquitectura del Sistema
 
 **Componentes principales**:
+- **9 servicios de procesamiento**: FileRenamerService, FileOrganizerService, DuplicatesExactService, DuplicatesSimilarService, LivePhotosService, HeicService, ZeroByteService + clases base BaseService y DuplicatesBaseService
+- **Sistema de resultados**: `result_types.py` (✅ refactorizado en Fase 1)
+- **Sistema de logging**: `logger.py` con funciones helper centralizadas
+- **Vista/UI**: Consume resultados de servicios (no debe modificarse)
 
-- **9 servicios de procesamiento**: `FileRenamerService`, `FileOrganizerService`, `DuplicatesExactService`, `DuplicatesSimilarService`, `LivePhotosService`, `HeicService`, `ZeroByteService` + clases base `BaseService` y `DuplicatesBaseService`
-- **Sistema de resultados**: `result_types.py` con 14 dataclasses para intercambio de datos
-- **Sistema de logging centralizado**: `logger.py` con funciones helper para formato estandarizado (`log_section_header_relevant`, `log_section_header_discrete`, `log_section_footer_relevant`, etc.)
-- **Vista/UI**: Consume resultados de servicios sin conocer implementación interna
-
-**Restricciones técnicas**:
-
-- ✅ **Solo dataclasses**: No usar Pydantic, attrs u otras librerías para resultados
-- ✅ **Logger centralizado**: Ya existe en `utils.logger`, usar sus funciones helper
-- ✅ **UI intocable**: No modificar interfaz pública de servicios
-- ✅ **Config global**: No modificar sistema de configuración
-
-
-### **Patrón de Diseño Estándar**
+### 🎯 Patrón Estándar de Servicios
 
 Todos los servicios siguen arquitectura de **dos fases**:
 
-**Fase 1 - Análisis**:
+1. **Análisis**: `analyze(directory: Path, **kwargs) -> *AnalysisResult`
+   - Escanea directorio sin modificar disco
+   - Genera plan de operación detallado
+   - Retorna estadísticas y plan
 
-- Método: `analyze(directory: Path, **kwargs) -> *AnalysisResult`
-- Propósito: Escanear, analizar, generar plan de operación
-- No modifica disco
-- Retorna dataclass con estadísticas y plan detallado
+2. **Ejecución**: `execute(analysis_or_plan, **kwargs) -> *ExecutionResult`
+   - Ejecuta plan generado
+   - Modifica/elimina archivos (excepto en `dry_run=True`)
+   - Retorna resultados de operación
 
-**Fase 2 - Ejecución**:
+**Características transversales** (todas las operaciones):
+- ✅ **Backup opcional** (`create_backup: bool`): Crea backup antes de modificar si es True y dry_run es False
+- ✅ **Modo simulación** (`dry_run: bool`): Simula sin modificar disco, usa campos `simulated_*`
+- ✅ **Progress reporting** (`progress_callback`): Reporta progreso, soporta cancelación
+- ✅ **Cancelación cooperativa**: Usuario puede cancelar desde UI
 
-- Método: `execute(analysis_or_plan, **kwargs) -> *ExecutionResult`
-- Propósito: Ejecutar plan generado en fase 1
-- Modifica/elimina archivos (excepto en modo simulación)
-- Retorna dataclass con resultados de operación
+### ⚠️ RESTRICCIONES IMPERATIVAS
 
-**Características transversales** (todas las operaciones soportan):
+1. **NO tocar metadata_cache**: Será rehecho desde cero, ignorar todo código relacionado
+2. **NO modificar UI**: Solo lógica de servicios, mantener compatibilidad total
+3. **Solo dataclasses**: No introducir Pydantic, attrs u otras librerías
+4. **Logger existente**: Usar funciones de `utils.logger`, no crear nuevo sistema
+5. **Config intocable**: No modificar sistema de configuración global
 
-1. **Backup opcional** (`create_backup: bool`):
-    - Si `True` y `dry_run=False`: Crea backup antes de modificar/eliminar
-    - Usa `BaseService._create_backup_for_operation()`
-    - Retorna `backup_path` en resultado
-2. **Modo simulación** (`dry_run: bool`):
-    - Si `True`: Simula sin modificar disco
-    - Resultados usan campos `simulated_files_deleted`, `simulated_space_freed`
-    - Logging con prefijos especiales (`_SIMULATION` o `[SIMULACIÓN]`)
-3. **Progress reporting** (`progress_callback: Optional[Callable]`):
-    - Todas las operaciones largas reportan progreso
-    - Callback firma: `(current: int, total: int, message: str) -> Optional[bool]`
-    - Retorno `False` = cancelar operación
-4. **Cancelación cooperativa**:
-    - Usuario puede cancelar desde UI
-    - Servicios verifican periódicamente con `_report_progress()`
+---
 
-**NOTA CRÍTICA**: Todo lo relacionado con `metadata_cache` será **rehecho desde cero en el futuro**. No tocar, ignorar, no optimizar en esta refactorización.
+## 🔴 FASE 2: ESTANDARIZAR BaseService
 
-***
+**Prioridad**: CRÍTICA  
+**Tiempo estimado**: 6-8 horas  
+**Estado**: PENDIENTE
 
-## **PROBLEMAS DETECTADOS (12 Categorías)**
+### Objetivos
 
-### **🔴 CRÍTICO 1: Result Types Fragmentados**
-
-**Impacto**: ~200 líneas duplicadas, 14 clases con campos repetidos
-
-**Síntomas**:
-
-- Campos `success`, `errors`, `message` duplicados en TODAS las clases
-- Campos `dry_run`, `simulated_files_deleted`, `simulated_space_freed` repetidos en 6 clases
-- Campos `backup_path` repetidos en 5 clases
-- Métodos `has_errors()`, `add_error()`, `error` (property) idénticos copiados
-- Aliases innecesarios: `HeicDeletionResult` tiene `format_kept` Y `kept_format`
-- Sincronización manual de contadores: `need_renaming = len(renaming_plan)` en `__post_init__`
-
-**Causa raíz**: Desarrollo iterativo sin diseño inicial de jerarquía
-
-***
-
-### **🔴 CRÍTICO 2: Jerarquía de Servicios Inconsistente**
-
-**Impacto**: ~150 líneas duplicadas, interfaz no uniforme
-
-**Síntomas**:
-
-- `ZeroByteService` NO hereda de `BaseService` (crea logger manualmente)
-- `DuplicatesBaseService.execute()` tiene firma diferente (recibe `groups: List[DuplicateGroup]` en lugar de `AnalysisResult`)
-- Métodos legacy: algunos servicios tienen `rename_files()`, `detect_in_directory()` además de `analyze()`/`execute()`
-- Inconsistencia en nombres: `analyze()` vs `analyze_directory()` vs métodos custom
-
-**Consecuencias**:
-
-- Imposible crear decoradores/wrappers genéricos
-- Autocompletado IDE inconsistente
-- Dificulta onboarding de nuevos desarrolladores
-
-***
-
-### **🔴 CRÍTICO 3: Gestión de Backup Duplicada**
-
-**Impacto**: ~120 líneas duplicadas en 7 servicios
-
-**Ubicaciones del problema**:
-
-1. **BaseService** tiene `_create_backup_for_operation()` (implementación correcta, centralizada) ✅
-2. **FileOrganizerService** reimplementa completamente con `createbackup()` método propio ❌
-3. **Todos los execute()** repiten este patrón idéntico:
-    - Bloque try/except para `BackupCreationError`
-    - Validación `if create_backup and not dry_run`
-    - Manejo de caso `backup_path is None`
-    - Retorno anticipado si falla backup
-    - Población de `result.backup_path`
-
-**Por qué ocurre**: No hay método template que centralice toda esta lógica
-
-***
-
-### **🟡 ALTO 4: Progress Callbacks con 3 Patrones Diferentes**
-
-**Impacto**: ~80 líneas duplicadas, inconsistencia en manejo de cancelación
-
-**Patrón 1** - `BaseService._report_progress()` (correcto):
-
-- Maneja cancelación con flag interno
-- Protege contra excepciones en callback
-- Logging de cancelaciones
-- Usado por: algunos servicios
-
-**Patrón 2** - `utils.callback_utils.safe_progress_callback()`:
-
-- Protección básica contra excepciones
-- No maneja cancelación uniformemente
-- Usado por: DuplicatesBaseService
-
-**Patrón 3** - Llamadas directas sin protección:
-
-- Sin manejo de excepciones
-- Sin validación de None
-- Usado por: ZeroByteService, algunos métodos de FileOrganizer
-
-**Problemas adicionales**:
-
-- Formatos de mensaje inconsistentes (una línea vs dos líneas)
-- Intervalos de reporte diferentes (`Config.UI_UPDATE_INTERVAL` vs manual)
-- Manejo de cancelación no uniforme (algunos servicios no verifican retorno)
-
-***
-
-### **🟡 ALTO 5: Logging Inconsistente (Sistema Centralizado No Usado Uniformemente)**
-
-**Impacto**: ~100 líneas, logs no parseables, formato variado
-
-**Contexto**: Ya existe `utils.logger` con helpers:
-
-- `log_section_header_relevant()` / `log_section_header_discrete()`
-- `log_section_footer_relevant()` / `log_section_footer_discrete()`
-- Diferenciación: "relevant" para operaciones críticas, "discrete" para análisis
-
-**Problemas detectados**:
-
-1. **Criterio de uso inconsistente**:
-    - Algunos servicios usan `header_relevant` para análisis (debería ser `discrete`)
-    - No hay convención clara de cuándo usar cada uno
-2. **Formato de logs de operaciones variado**:
-    - Formato 1: `"FILE_DELETED: {path} | Size: {size}"`
-    - Formato 2: `"FILEDELETED {path} Size {size}"`
-    - Formato 3: `"File deleted: {path}"`
-    - No hay formato estándar para parsear con regex/herramientas
-3. **Prefijos de simulación inconsistentes**:
-    - Opción A: `"FILE_DELETED_SIMULATION:"` (sufijo en tipo)
-    - Opción B: `"[SIMULACIÓN] FILE_DELETED:"` (prefijo en mensaje)
-    - Opción C: `"Simulación - Eliminado"` (texto libre)
-4. **Niveles de log no estandarizados**:
-    - Algunos servicios loguean operaciones individuales en INFO
-    - Otros en DEBUG
-    - No hay criterio uniforme
-
-**Lo que NO se debe hacer**: No crear nuevo sistema de logging, **usar el existente** pero estandarizar su aplicación.
-
-***
-
-### **🟡 MEDIO 6: Validaciones Duplicadas**
-
-**Impacto**: ~60 líneas repetidas en todos los `analyze()`
-
-**Código duplicado**:
-
-- Validación `if not directory.exists()` con misma excepción
-- Validación `if not directory.is_dir()`
-- Chequeo de lista vacía `if not files` con retorno anticipado
-- Lógica de recopilación de archivos soportados (variaciones del mismo bucle)
-
-**Por qué ocurre**: No hay mixin de validaciones comunes
-
-***
-
-### **🟡 MEDIO 7: Error Handling Duplicado**
-
-**Impacto**: ~70 líneas, mismo patrón try/except en todos lados
-
-**Código repetido en todos los execute()**:
-
-- Try/except para `FileNotFoundError` con log warning y continue
-- Try/except genérico con `results.add_error()` y logging
-- Construcción de mensajes de error similares
-- Manejo de archivos que desaparecen durante operación
-
-***
-
-### **🟡 MEDIO 8: ThreadPool con Código Casi Idéntico**
-
-**Impacto**: ~50 líneas duplicadas
-
-**Servicios que usan ThreadPoolExecutor**:
-
-- `FileRenamerService.analyze()`: Procesamiento paralelo de archivos
-- `FileOrganizerService.analyze()`: Recopilación de información
-- `DuplicatesExactService.analyze()`: Cálculo de hashes
-
-**Código duplicado en los 3**:
-
-- Obtención de `max_workers` desde `Config` y `settings_manager`
-- Context manager con mismo patrón de manejo
-- Lógica de cancelación con ThreadPoolExecutor
-- Logging de número de workers
-
-**Por qué ocurre**: No hay abstracción en BaseService
-
-***
-
-### **🟢 BAJO 9: Estadísticas y Summaries**
-
-**Impacto**: ~40 líneas
-
-**Problema**: `BaseService._format_operation_summary()` existe pero:
-
-- No todos los servicios lo usan
-- Algunos reimplementan lógica similar
-- Formato de summary no está 100% estandarizado
-
-***
-
-### **🟢 BAJO 10: Nombres Inconsistentes**
-
-**Impacto**: Deuda técnica conceptual
-
-**Inconsistencias**:
-
-- Resultados de ejecución: `DeletionResult` vs `CleanupDeletionResult` vs `ExecutionResult`
-- Análisis: `AnalysisResult` vs `DetectionResult` (LivePhotos usa ambos)
-- Métodos: `analyze()` vs `analyze_directory()` en comentarios/docs
-
-***
-
-### **🟢 BAJO 11: Campos Calculados Ineficientes**
-
-**Impacto**: Mantenibilidad
-
-**Problema**: Campos que deberían ser `@property`:
-
-- `RenameAnalysisResult.need_renaming` calculado en `__post_init__` pero puede desincronizarse
-- `OrganizationAnalysisResult.total_files_to_move` sincronizado manualmente
-- `DuplicateAnalysisResult` normaliza campos según modo en `__post_init__`
-- `DuplicatePair` tiene `@property` correctamente, debería ser el estándar
-
-***
-
-### **🟢 BAJO 12: Metadata Cache Disperso**
-
-**Impacto**: Será rehecho, pero actualmente inconsistente
-
-**Problema actual**:
-
-- Algunos servicios guardan como `self.metadata_cache`
-- Otros usan `getattr(self, 'metadata_cache', None)`
-- FileOrganizerService tiene lógica especial
-
-**Acción**: **NO TOCAR EN ESTA REFACTORIZACIÓN** - Se rehará desde cero en el futuro.
-
-***
-
-## **PLAN DE REFACTORIZACIÓN (6 FASES SECUENCIALES)**
-
-### **📋 FASE 1: Refactorizar `result_types.py`**
-
-**Prioridad**: 🔴 CRÍTICA
-**Tiempo estimado**: 4-6 horas
-**Prerequisitos**: Ninguno
-**Riesgo**: Bajo (no afecta lógica de negocio)
-
-#### **Objetivos**:
-
-1. Eliminar ~200 líneas de campos duplicados
-2. Crear jerarquía clara con composición (herencia múltiple de dataclasses)
-3. Convertir campos calculados a `@property`
-4. Eliminar aliases innecesarios
-
-#### **Acciones detalladas**:
-
-**1.1 - Diseñar jerarquía de clases base**:
-
-- Crear `BaseResult` con campos universales (`success`, `errors`, `message`)
-- Implementar métodos comunes (`has_errors`, `error`, `add_error`)
-- Simplificar `__post_init__` (solo llamar a `super().__post_init__()` si necesario)
-
-**1.2 - Crear mixins especializados**:
-
-- `BackupMixin`: Para operaciones que crean backup (`backup_path: Optional[str]`)
-- `DryRunMixin`: Para modo simulación (`dry_run: bool`)
-- `DryRunStatsMixin`: Extiende `DryRunMixin` con `simulated_files_deleted`, `simulated_space_freed`
-- `FileListMixin`: Para operaciones que rastrean archivos (`deleted_files: List[str]`)
-
-**1.3 - Refactorizar cada dataclass**:
-
-- Cambiar herencia simple a herencia múltiple usando mixins apropiados
-- Eliminar campos que ahora vienen de clases base/mixins
-- Mantener solo campos específicos del dominio
-
-**1.4 - Convertir contadores a propiedades calculadas**:
-
-- `RenameAnalysisResult.need_renaming` → `@property` que retorna `len(self.renaming_plan)`
-- `OrganizationAnalysisResult.total_files_to_move` → `@property` basado en `move_plan`
-- `HeicAnalysisResult.total_pairs` → `@property` basado en `duplicate_pairs`
-- Eliminar sincronizaciones manuales en `__post_init__`
-
-**1.5 - Eliminar aliases redundantes**:
-
-- `HeicDeletionResult.kept_format` → Eliminar, mantener solo `format_kept`
-- Documentar en docstring si había alias legacy para referencia futura
-
-**1.6 - Simplificar `__post_init__`**:
-
-- Mantener solo validaciones críticas que no pueden ser `@property`
-- Llamar a `super().__post_init__()` cuando corresponda
-- Eliminar toda lógica de sincronización de contadores
-
-
-#### **Validación de Fase 1**:
-
-- ✅ Todas las dataclasses heredan de `BaseResult` (directa o indirectamente)
-- ✅ No hay campos `success`, `errors`, `message` duplicados fuera de `BaseResult`
-- ✅ Campos `simulated_*` solo en clases que heredan `DryRunStatsMixin`
-- ✅ Contadores sincronizados son `@property`, no campos con `__post_init__`
-- ✅ Tests unitarios de serialización/deserialización pasan
-- ✅ Ninguna clase tiene alias de campos (eliminar `kept_format`, etc.)
-
-
-#### **Criterio de completitud**:
-
-- Ejecutar tests: `pytest tests/test_result_types.py -v`
-- Verificar que UI puede deserializar todos los resultados sin cambios
-- Contar líneas eliminadas (objetivo: ~200)
-
-***
-
-### **📋 FASE 2: Estandarizar `BaseService`**
-
-**Prioridad**: 🔴 CRÍTICA
-**Tiempo estimado**: 6-8 horas
-**Prerequisitos**: Fase 1 completada
-**Riesgo**: Medio (infraestructura crítica)
-
-#### **Objetivos**:
-
-1. Crear método template para `execute()` con backup automático
-2. Centralizar manejo de ThreadPool
+1. Crear método template `_execute_operation()` para gestión automática de backup
+2. Centralizar configuración de ThreadPool
 3. Estandarizar progress reporting
-4. Crear mixins de validación
-5. Documentar convenciones de uso de logger existente
+4. Crear métodos de validación comunes
+5. Documentar convenciones de logging
 
-#### **Acciones detalladas**:
+### Problemas a Resolver
 
-**2.1 - Crear método template para ejecución con backup**:
+**Problema 1**: Gestión de backup duplicada en 7 servicios (~120 líneas)
+- Todos los `execute()` repiten mismo bloque try/except para BackupCreationError
+- FileOrganizerService tiene su propio método `createbackup()` que duplica lógica
+- Validaciones de backup_path repetidas
 
-Diseñar método `_execute_with_backup()` que encapsula:
+**Problema 2**: ThreadPool configurado manualmente en 3+ servicios
+- Código idéntico para obtener max_workers de Config y settings_manager
+- Context manager de ThreadPoolExecutor repetido
+- Logging de workers duplicado
 
-- Lógica de decisión: ¿crear backup? (solo si `create_backup=True` y `dry_run=False`)
-- Llamada a `_create_backup_for_operation()` con manejo de errores
+**Problema 3**: Progress callbacks con 3 patrones diferentes
+- Algunos usan `_report_progress()` de BaseService
+- Otros usan `safe_progress_callback` de utils
+- Algunos llaman directamente sin protección
+
+**Problema 4**: Validaciones básicas duplicadas
+- Validación de directorio existente en todos los `analyze()`
+- Recopilación de archivos soportados con variaciones del mismo bucle
+- Chequeo de listas vacías repetido
+
+### Tareas de Implementación
+
+#### 2.1 - Crear método template `_execute_operation()`
+
+**Propósito**: Encapsular toda la lógica común de ejecución con backup
+
+**Firma del método**:
+```
+
+def _execute_operation(
+self,
+files: Iterable[Union[Path, dict, Any]],
+operation_name: str,
+execute_fn: Callable[[bool], OperationResult],
+create_backup: bool,
+dry_run: bool,
+progress_callback: Optional[ProgressCallback] = None
+) -> OperationResult:
+
+```
+
+**Debe manejar**:
+- Decisión de crear backup: solo si `create_backup=True` AND `dry_run=False`
+- Llamada a `self._create_backup_for_operation()` existente
 - Captura de `BackupCreationError` con retorno anticipado de resultado de error
-- Llamada a función de ejecución real (pasada como parámetro)
-- Población automática de `backup_path` en resultado
-- Manejo de excepciones genéricas con logging
+- Llamada a `execute_fn(dry_run)` con protección try/except general
+- Población automática de `backup_path` en resultado retornado
+- Logging apropiado de errores
 
-**Parámetros del método**:
+**Parámetros explicados**:
+- `files`: Archivos para incluir en backup (Path, dict con 'original_path', 'path', etc.)
+- `operation_name`: String para logs y nombre de backup ('renaming', 'deletion', 'organization', etc.)
+- `execute_fn`: Función que hace el trabajo real, recibe solo `dry_run: bool`, retorna OperationResult
+- `create_backup`, `dry_run`, `progress_callback`: Flags estándar
 
-- `files`: Iterable de archivos/paths/dicts (para backup)
-- `operation_name`: String para logging y nombre de backup
-- `execute_fn`: Callable que ejecuta la operación real (recibe `dry_run: bool`)
-- `create_backup`: Flag de backup
-- `dry_run`: Flag de simulación
-- `progress_callback`: Callback opcional
+**Retorno**: Resultado de `execute_fn` con campo `backup_path` poblado si corresponde
 
-**Retorno**: Resultado de `execute_fn` con `backup_path` poblado si corresponde
-
-**2.2 - Centralizar configuración de ThreadPool**:
-
-Crear dos métodos complementarios:
-
-**Método 1**: `_get_max_workers(io_bound: bool = True) -> int`
-
-- Obtiene override del usuario desde `settings_manager`
-- Llama a `Config.get_actual_worker_threads()`
-- Logging de número de workers elegidos
-- Documenta cuándo usar `io_bound=True` vs `False`
-
-**Método 2**: `_parallel_processor(io_bound: bool = True)` como context manager
-
-- Usa `_get_max_workers()` internamente
-- Yields `ThreadPoolExecutor` configurado
-- Manejo automático de shutdown
-- Compatible con cancelación cooperativa
-
-**2.3 - Estandarizar progress reporting**:
-
-Auditar uso actual de `_report_progress()`:
-
-- Ya existe en `BaseService` y funciona bien
-- Problema: no todos los servicios lo usan
-- Acción: Documentar como método estándar obligatorio
-- Deprecar usos de `safe_progress_callback` de utils (migrar a `_report_progress`)
-
-Considerar crear helper para intervalos:
-
-- `_should_report_progress(counter: int) -> bool`: retorna True cada `Config.UI_UPDATE_INTERVAL`
-
-**2.4 - Crear ValidationMixin en BaseService**:
-
-Añadir métodos de validación como parte de `BaseService`:
-
-**Método 1**: `_validate_directory(directory: Path, must_exist: bool = True)`
-
-- Valida existencia si `must_exist=True`
-- Valida que es directorio
-- Lanza `ValueError` con mensaje descriptivo
-
-**Método 2**: `_get_supported_files(directory: Path, recursive: bool = True) -> List[Path]`
-
-- Recopila archivos multimedia soportados
-- Usa `Config.is_supported_file()`
-- Patrón `**/*` si recursive, `*` si no
-- Opcionalmente puede reportar progreso
-
-**2.5 - Documentar convenciones de logging**:
-
-**NO crear nuevo LoggerMixin**, el sistema de `utils.logger` ya existe y funciona.
-
-**Acción**: Escribir docstring en `BaseService` que documente:
-
-**Convención de headers**:
-
-- Usar `log_section_header_relevant()` para operaciones que modifican disco (execute)
-- Usar `log_section_header_discrete()` para operaciones de solo lectura (analyze)
-- Parámetro `mode` para indicar simulación: `mode="SIMULACIÓN"` cuando `dry_run=True`
-
-**Convención de logs de operaciones**:
-
-- Formato estándar: `{TYPE}: {path} | Size: {size} | Date: {date} | Type: {filetype}`
-- Tipos válidos: `FILE_DELETED`, `FILE_MOVED`, `FILE_RENAMED`, `FILE_CONVERTED`
-- Simulación: Añadir sufijo `_SIMULATION` al tipo (ej: `FILE_DELETED_SIMULATION`)
-
-**Convención de footers**:
-
-- Usar `log_section_footer_relevant()` con summary construido por `_format_operation_summary()`
-
-**Niveles de log**:
-
-- INFO: Operaciones de modificación, resúmenes, inicio/fin de fases
-- DEBUG: Detalles internos, procesamiento archivo por archivo
-- WARNING: Archivos no encontrados, problemas no críticos
-- ERROR: Fallos en operaciones críticas
-
-**2.6 - Mejorar `_format_operation_summary()`**:
-
-Extender método existente para cubrir todos los casos de uso actuales:
-
-- Añadir soporte para múltiples estadísticas (no solo archivos y espacio)
-- Considerar parámetros opcionales para conflictos resueltos, carpetas creadas, etc.
-- Mantener compatibilidad con llamadas existentes
+**Ejemplo de uso** (referencia para servicios):
+```
 
 
-#### **Validación de Fase 2**:
+# En FileRenamerService.execute()
 
-- ✅ `_execute_with_backup()` implementado con tests unitarios
-- ✅ `_parallel_processor()` testeado con operaciones dummy
-- ✅ Documentación de convenciones de logging en docstring de clase
-- ✅ Métodos de validación con tests para casos edge
-- ✅ Todos los tests existentes de servicios siguen pasando
+def execute(self, renaming_plan, create_backup=True, dry_run=False, progress_callback=None):
+return self._execute_operation(
+files=[item['original_path'] for item in renaming_plan],
+operation_name='renaming',
+execute_fn=lambda dry: self._do_renaming(renaming_plan, dry, progress_callback),
+create_backup=create_backup,
+dry_run=dry_run,
+progress_callback=progress_callback
+)
+
+```
+
+#### 2.2 - Centralizar configuración de ThreadPool
+
+**Crear método**: `_get_max_workers(io_bound: bool = True) -> int`
+
+**Debe hacer**:
+- Obtener override del usuario con `settings_manager.get_max_workers(0)`
+- Llamar a `Config.get_actual_worker_threads(override=user_override, io_bound=io_bound)`
+- Logging en DEBUG del número de workers seleccionados
+- Documentar en docstring cuándo usar `io_bound=True` (lectura disco, cálculo hashes) vs `False` (CPU intensivo)
+
+**Crear context manager**: `_parallel_processor(io_bound: bool = True)`
+
+**Implementación**:
+```
+
+@contextmanager
+def _parallel_processor(self, io_bound: bool = True):
+"""
+Context manager para procesamiento paralelo con ThreadPoolExecutor.
+
+    Configura ThreadPoolExecutor con max_workers apropiado según tipo de operación.
+    Compatible con cancelación cooperativa.
+    
+    Args:
+        io_bound: Si True, operación es IO-bound (lectura disco, red).
+                  Si False, operación es CPU-bound (cálculos intensivos).
+    
+    Yields:
+        ThreadPoolExecutor configurado
+        
+    Example:
+        with self._parallel_processor(io_bound=True) as executor:
+            futures = {executor.submit(process_file, f): f for f in files}
+            for future in as_completed(futures):
+                result = future.result()
+    """
+    max_workers = self._get_max_workers(io_bound)
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        yield executor
+    ```
+
+#### 2.3 - Estandarizar progress reporting
+
+**Auditar método existente**: `_report_progress()` en BaseService
+
+**Verificar que tiene**:
+- Manejo de flag `self._cancelled`
+- Protección contra excepciones en callback
+- Logging de cancelaciones
+- Retorna bool (True=continuar, False=cancelado)
+
+**Acción**: Documentar como método estándar obligatorio
+
+**Crear helper opcional**: `_should_report_progress(counter: int, interval: int = None) -> bool`
+```
+
+def _should_report_progress(self, counter: int, interval: int = None) -> bool:
+"""
+Determina si debe reportarse progreso según intervalo configurado.
+
+    Args:
+        counter: Número actual de elementos procesados
+        interval: Intervalo de reporte (usa Config.UI_UPDATE_INTERVAL si es None)
+    
+    Returns:
+        True si counter es múltiplo del intervalo
+    """
+    if interval is None:
+        interval = Config.UI_UPDATE_INTERVAL
+    return counter % interval == 0
+    ```
+
+#### 2.4 - Crear métodos de validación comunes
+
+**Añadir a BaseService**:
+
+**Método 1**: `_validate_directory(directory: Path, must_exist: bool = True) -> None`
+```
+
+def _validate_directory(self, directory: Path, must_exist: bool = True) -> None:
+"""
+Valida que un path sea un directorio válido.
+
+    Args:
+        directory: Path a validar
+        must_exist: Si True, verifica que existe
+        
+    Raises:
+        ValueError: Si validación falla con mensaje descriptivo
+    """
+    if must_exist and not directory.exists():
+        raise ValueError(f"Directorio no existe: {directory}")
+    if must_exist and not directory.is_dir():
+        raise ValueError(f"No es un directorio: {directory}")
+    ```
+
+**Método 2**: `_get_supported_files(directory: Path, recursive: bool = True, progress_callback: Optional[ProgressCallback] = None) -> List[Path]`
+```
+
+def _get_supported_files(
+self,
+directory: Path,
+recursive: bool = True,
+progress_callback: Optional[ProgressCallback] = None
+) -> List[Path]:
+"""
+Recopila archivos multimedia soportados en directorio.
+
+    Usa Config.is_supported_file() para filtrar.
+    Puede reportar progreso si callback es proporcionado.
+    
+    Args:
+        directory: Directorio a escanear
+        recursive: Si True, busca recursivamente con **/*
+        progress_callback: Callback opcional para progreso
+        
+    Returns:
+        Lista de Paths de archivos soportados
+    """
+    files = []
+    pattern = "**/*" if recursive else "*"
+    processed = 0
+    
+    for filepath in directory.glob(pattern):
+        if filepath.is_file() and Config.is_supported_file(filepath.name):
+            files.append(filepath)
+        
+        processed += 1
+        if progress_callback and self._should_report_progress(processed):
+            if not self._report_progress(
+                progress_callback, 
+                processed, 
+                -1,  # Total desconocido en scan
+                f"Escaneando: {filepath.name}"
+            ):
+                break  # Cancelado
+    
+    return files
+    ```
+
+#### 2.5 - Documentar convenciones de logging
+
+**NO crear LoggerMixin nuevo**, el sistema `utils.logger` ya existe.
+
+**Acción**: Escribir docstring extenso en clase `BaseService` documentando convenciones:
+
+```
+
+class BaseService(ABC):
+"""
+Clase base abstracta para todos los servicios de procesamiento multimedia.
+
+    ... (docstring existente) ...
+    
+    CONVENCIONES DE LOGGING
+    =======================
+    
+    Este proyecto usa sistema centralizado en utils.logger.
+    Todos los servicios deben seguir estas convenciones:
+    
+    Headers de Sección
+    ------------------
+    - log_section_header_relevant(): Operaciones que MODIFICAN disco (execute)
+    - log_section_header_discrete(): Operaciones de SOLO LECTURA (analyze)
+    - Parámetro mode: Pasar mode="SIMULACIÓN" cuando dry_run=True
+    
+    Ejemplo:
+        log_section_header_relevant(
+            self.logger,
+            "ELIMINACIÓN DE ARCHIVOS",
+            mode="SIMULACIÓN" if dry_run else ""
+        )
+    
+    Logs de Operaciones Sobre Archivos
+    -----------------------------------
+    Formato estándar: {TIPO}: {path} | Size: {size} | Date: {date} | Type: {filetype}
+    
+    Tipos válidos:
+    - FILE_DELETED / FILE_DELETED_SIMULATION
+    - FILE_MOVED / FILE_MOVED_SIMULATION
+    - FILE_RENAMED / FILE_RENAMED_SIMULATION
+    - FILE_CONVERTED / FILE_CONVERTED_SIMULATION
+    
+    Simulación: Añadir sufijo _SIMULATION al tipo de log
+    
+    Ejemplo:
+        self.logger.info(
+            f"FILE_DELETED: {filepath} | Size: {format_size(size)} | "
+            f"Date: {date_str} | Type: {file_type}"
+        )
+        
+    Footers de Sección
+    ------------------
+    - log_section_footer_relevant(): Con summary de operación
+    - Usar self._format_operation_summary() para construir mensaje
+    
+    Ejemplo:
+        summary = self._format_operation_summary(
+            "Eliminación",
+            files_deleted,
+            space_freed,
+            dry_run
+        )
+        log_section_footer_relevant(self.logger, summary)
+    
+    Niveles de Log
+    --------------
+    - INFO: Operaciones de modificación, resúmenes, inicio/fin de fases
+    - DEBUG: Detalles internos, procesamiento archivo por archivo frecuente
+    - WARNING: Archivos no encontrados (operación continúa), problemas no críticos
+    - ERROR: Fallos en operaciones críticas, excepciones capturadas
+    
+    Intervalos de Reporte
+    ----------------------
+    - Operaciones individuales: Cada Config.LOG_PROGRESS_INTERVAL en INFO
+    - Operaciones muy frecuentes: DEBUG o usar intervalos
+    - Resúmenes periódicos: Cada N archivos según Config.UI_UPDATE_INTERVAL
+    
+    Formato Parseable
+    -----------------
+    Los logs deben ser parseables con regex para análisis posterior:
+    
+    FILE_DELETED: ^FILE_DELETED(?:_SIMULATION)?: (.+) \| Size: (.+) \| Date: (.+) \| Type: (.+)$
+    FILE_MOVED: ^FILE_MOVED(?:_SIMULATION)?: (.+) \| From: (.+) \| To: (.+) \| Size: (.+)$
+    FILE_RENAMED: ^FILE_RENAMED(?:_SIMULATION)?: (.+) -> (.+) \| Date: (.+)(?:\| Conflict: (\d+))?$
+    """
+    ```
+
+#### 2.6 - Mejorar `_format_operation_summary()`
+
+**Método existente** en BaseService ya funciona, pero verificar que cubre todos los casos.
+
+**Firma actual**:
+```
+
+def _format_operation_summary(
+self,
+operation_name: str,
+files_count: int,
+space_amount: int = 0,
+dry_run: bool = False
+) -> str
+
+```
+
+**Verificar**:
+- ✅ Maneja dry_run con verbos condicionales ("se procesarían" vs "procesados")
+- ✅ Formatea espacio con `format_size()` si > 0
+- ✅ Retorna mensaje consistente
+
+**Acción**: Validar que todos los servicios lo usan, no reimplementan lógica similar.
+
+### Validación de Fase 2
+
+**Checklist de completitud**:
+- [ ] `_execute_operation()` implementado con docstring completo
+- [ ] `_execute_operation()` manejando todos los casos: con/sin backup, con/sin dry_run, con/sin errores
+- [ ] `_get_max_workers()` implementado y documentado
+- [ ] `_parallel_processor()` como context manager funcional
+- [ ] `_validate_directory()` con tests para casos válidos/inválidos
+- [ ] `_get_supported_files()` con soporte para progress y cancelación
+- [ ] Docstring de convenciones de logging añadido a BaseService
+- [ ] `_format_operation_summary()` validado que funciona para todos los casos
+
+**Tests unitarios requeridos**:
+```
 
 
-#### **Criterio de completitud**:
+# Crear/actualizar tests/test_base_service.py
 
-- Ejecutar: `pytest tests/test_base_service.py -v`
-- Revisar docstrings generados con `pydoc` o IDE
-- Validar que `_execute_with_backup()` maneja todos los casos: con/sin backup, con/sin dry_run, con/sin errores
+# Test 1: _execute_operation con backup exitoso
 
-***
+# Test 2: _execute_operation sin backup (create_backup=False)
 
-### **📋 FASE 3: Migrar Servicios a Nueva Arquitectura**
+# Test 3: _execute_operation en dry_run (no crea backup)
 
-**Prioridad**: 🟡 ALTA
-**Tiempo estimado**: 8-12 horas
-**Prerequisitos**: Fases 1 y 2 completadas
-**Riesgo**: Medio-Alto (modifica lógica de negocio)
+# Test 4: _execute_operation maneja BackupCreationError
 
-#### **Objetivos**:
+# Test 5: _execute_operation propaga excepciones de execute_fn
 
-1. Todos los servicios heredan correctamente de `BaseService`
-2. Todos usan `_execute_with_backup()` template
+# Test 6: _parallel_processor yields executor con max_workers correcto
+
+# Test 7: _validate_directory con directorio válido (no lanza excepción)
+
+# Test 8: _validate_directory con path inexistente (lanza ValueError)
+
+# Test 9: _get_supported_files filtra correctamente
+
+# Test 10: _get_supported_files respeta recursive=False
+
+pytest tests/test_base_service.py -v
+
+```
+
+**Validación manual**:
+- Revisar que `_execute_operation()` puede reemplazar todos los bloques de backup existentes
+- Verificar que docstring de logging es comprensible y completo
+
+---
+
+## 🟡 FASE 3: MIGRAR SERVICIOS A NUEVA ARQUITECTURA
+
+**Prioridad**: ALTA  
+**Tiempo estimado**: 8-12 horas  
+**Prerequisitos**: Fase 2 completada  
+**Estado**: PENDIENTE
+
+### Objetivos
+
+1. Todos los servicios heredan correctamente de BaseService
+2. Todos usan `_execute_operation()` template
 3. Eliminar código duplicado de backup, validación, ThreadPool
 4. Estandarizar uso de `_report_progress()`
 
-#### **Estrategia de migración**:
+### Estrategia de Migración
 
-**Migrar uno por uno, de más simple a más complejo, con tests en cada paso**
+**Orden de ejecución**: De más simple a más complejo, uno por uno, con tests en cada paso.
 
-#### **Acciones por servicio**:
+**Después de cada servicio**:
+1. Ejecutar tests unitarios del servicio
+2. Ejecutar tests de integración si existen
+3. Validar manualmente funcionalidad básica
+4. Commit atómico con mensaje descriptivo
 
-**3.1 - ZeroByteService** (más simple, comenzar aquí):
+### Servicios a Migrar
+
+#### 3.1 - ZeroByteService (COMENZAR AQUÍ - Más simple)
+
+**Archivo**: `zero_byte_service.py`
 
 **Problemas actuales**:
-
-- No hereda de `BaseService`
-- Crea logger manualmente con `get_logger('ZeroByteService')`
+- No hereda de BaseService (crea logger manualmente)
 - Implementa backup y error handling manualmente
+- Llamadas directas a callback sin protección
 
-**Migración**:
+**Tareas de migración**:
 
-1. Cambiar declaración de clase: `class ZeroByteService(BaseService)`
-2. Modificar `__init__()`: llamar a `super().__init__('ZeroByteService')` y eliminar `self.logger = get_logger(...)`
-3. Refactorizar `analyze()`: usar `_validate_directory()` y `_get_supported_files()` si aplica
-4. Refactorizar `execute()`: extraer lógica de eliminación a método privado `_do_deletion()`, usar `_execute_with_backup()` template
-5. Reemplazar llamadas directas a callback por `_report_progress()`
-6. Tests: validar con/sin backup, con/sin dry_run
+**Paso 1**: Cambiar herencia
+```
 
-**3.2 - FileRenamerService**:
+
+# ANTES:
+
+class ZeroByteService:
+def __init__(self):
+self.logger = get_logger('ZeroByteService')
+
+# DESPUÉS:
+
+class ZeroByteService(BaseService):
+def __init__(self):
+super().__init__('ZeroByteService')
+
+```
+
+**Paso 2**: Refactorizar `analyze()`
+- Usar `self._validate_directory(directory)` en lugar de validación manual
+- Si usa recopilación de archivos custom, considerar usar `_get_supported_files()`
+- Mantener lógica específica de detección de archivos de 0 bytes
+
+**Paso 3**: Refactorizar `execute()`
+- Extraer lógica de eliminación a método privado: `_do_zero_byte_deletion(files, dry_run, progress_callback) -> ZeroByteDeletionResult`
+- Reemplazar bloque de backup manual por llamada a `_execute_operation()`:
+
+```
+
+def execute(self, files_to_delete, create_backup=True, dry_run=False, progress_callback=None):
+return self._execute_operation(
+files=files_to_delete,
+operation_name='zero_byte_deletion',
+execute_fn=lambda dry: self._do_zero_byte_deletion(files_to_delete, dry, progress_callback),
+create_backup=create_backup,
+dry_run=dry_run,
+progress_callback=progress_callback
+)
+
+```
+
+**Paso 4**: Estandarizar progress reporting
+- Reemplazar cualquier llamada directa a `callback()` por `self._report_progress(callback, ...)`
+- Usar `_should_report_progress()` para intervalos
+
+**Paso 5**: Estandarizar logging
+- Verificar uso de `log_section_header_relevant` con `mode="SIMULACIÓN"` si `dry_run=True`
+- Formato de logs: `FILE_DELETED` o `FILE_DELETED_SIMULATION`
+- Usar `log_section_footer_relevant` con `_format_operation_summary()`
+
+**Validación**:
+```
+
+pytest tests/test_zero_byte_service.py -v
+
+# Validar casos: con backup, sin backup, dry_run, cancelación
+
+```
+
+---
+
+#### 3.2 - FileRenamerService
+
+**Archivo**: `file_renamer_service.py`
 
 **Problemas actuales**:
-
 - Manejo manual de backup con try/except
-- ThreadPool con código manual de configuración
+- ThreadPool configurado manualmente
 - Mezcla de `_report_progress()` y llamadas directas
 
-**Migración**:
+**Tareas de migración**:
 
-1. `analyze()`: reemplazar configuración manual de ThreadPool por `with self._parallel_processor(io_bound=True)`
-2. `execute()`: extraer lógica de renombrado a `_do_renaming(plan, dry_run, progress_callback)`
-3. `execute()`: reemplazar bloque de backup por llamada a `_execute_with_backup()`
-4. Estandarizar todos los progress reports usando `_report_progress()`
-5. Tests: validar operación paralela, cancelación, conflictos de nombres
+**Paso 1**: Refactorizar `analyze()`
+- Reemplazar configuración manual de ThreadPool:
 
-**3.3 - FileOrganizerService** (más complejo):
+```
+
+
+# ANTES:
+
+user_override = settings_manager.get_max_workers(0)
+max_workers = Config.get_actual_worker_threads(override=user_override, io_bound=True)
+self.logger.debug(f"Usando {max_workers} workers para análisis paralelo")
+
+with ThreadPoolExecutor(max_workers=max_workers) as executor:
+\# ...procesamiento...
+
+# DESPUÉS:
+
+with self._parallel_processor(io_bound=True) as executor:
+\# ...procesamiento sin cambios...
+
+```
+
+- Mantener lógica de análisis de fechas y generación de plan
+
+**Paso 2**: Refactorizar `execute()`
+- Extraer lógica de renombrado: `_do_renaming(renaming_plan, dry_run, progress_callback) -> RenameDeletionResult`
+- Usar `_execute_operation()`:
+
+```
+
+def execute(self, renaming_plan, create_backup=True, dry_run=False, progress_callback=None):
+return self._execute_operation(
+files=[item['original_path'] for item in renaming_plan],
+operation_name='renaming',
+execute_fn=lambda dry: self._do_renaming(renaming_plan, dry, progress_callback),
+create_backup=create_backup,
+dry_run=dry_run,
+progress_callback=progress_callback
+)
+
+```
+
+**Paso 3**: Estandarizar progress en `_do_renaming()`
+- Todas las llamadas a progress usar `self._report_progress()`
+- Verificar manejo de cancelación
+
+**Paso 4**: Estandarizar logging
+- Formato: `FILE_RENAMED` o `FILE_RENAMED_SIMULATION`
+- Incluir información de conflictos si aplica
+- Ejemplo: `FILE_RENAMED: old.jpg -> new_001.jpg | Date: 2024-01-01 | Conflict: 1`
+
+**Validación**:
+```
+
+pytest tests/test_file_renamer_service.py -v
+
+# Validar: renombrado simple, conflictos de nombres, cancelación
+
+```
+
+---
+
+#### 3.3 - FileOrganizerService (Más complejo)
+
+**Archivo**: `file_organizer_service.py`
 
 **Problemas actuales**:
+- Método `createbackup()` completamente custom que duplica lógica de BaseService
+- ThreadPool configurado manualmente
+- Lógica de `execute()` muy larga (~200 líneas)
 
-- Método `createbackup()` completamente custom (no usa `_create_backup_for_operation`)
-- ThreadPool con código manual
-- Lógica de `execute()` muy larga
+**Tareas de migración**:
 
-**Migración**:
+**Paso 1**: **ELIMINAR completamente método `createbackup()`**
+- Borrar todo el método
+- Verificar que nadie más lo llama (buscar referencias)
 
-1. **Eliminar completamente** método `createbackup()`
-2. `analyze()`: reemplazar ThreadPool manual por `_parallel_processor()`
-3. `execute()`: extraer lógica de movimiento a `_do_organization(move_plan, dry_run, progress_callback)`
-4. `execute()`: usar `_execute_with_backup()` pasando files de `move_plan`
-5. Simplificar lógica de limpieza de directorios vacíos (extraer a método privado)
-6. Tests: validar múltiples modos de organización (by_month, by_year, etc.), carpetas creadas
+**Paso 2**: Refactorizar `analyze()`
+- Reemplazar ThreadPool manual por `self._parallel_processor(io_bound=True)`
+- Mantener toda la lógica de generación de plan de movimiento (es compleja y específica)
 
-**3.4 - DuplicatesBaseService**:
+**Paso 3**: Refactorizar `execute()` (crítico)
+- Es muy largo, dividir en métodos privados:
+  - `_create_folders(folders_to_create, root_directory, dry_run)` → Crea carpetas necesarias
+  - `_do_organization(move_plan, dry_run, progress_callback)` → Ejecuta movimientos
+  - `_cleanup_empty_dirs(root_directory, dry_run)` → Limpia directorios vacíos
+
+- Usar `_execute_operation()`:
+
+```
+
+def execute(self, move_plan, create_backup=True, cleanup_empty_dirs=True, dry_run=False, progress_callback=None):
+if not move_plan:
+return OrganizationDeletionResult(success=True, files_moved=0, message="No hay archivos para mover")
+
+    # Determinar root_directory desde move_plan
+    root_directory = self._get_root_from_plan(move_plan)
+    
+    # Crear carpetas necesarias (antes de backup)
+    folders_to_create = set(move.target_folder for move in move_plan if move.target_folder)
+    self._create_folders(folders_to_create, root_directory, dry_run)
+    
+    # Ejecutar movimientos con backup
+    result = self._execute_operation(
+        files=[move.source_path for move in move_plan],
+        operation_name='organization',
+        execute_fn=lambda dry: self._do_organization(move_plan, dry, progress_callback),
+        create_backup=create_backup,
+        dry_run=dry_run,
+        progress_callback=progress_callback
+    )
+    
+    # Limpiar directorios vacíos si se solicitó
+    if cleanup_empty_dirs and result.success:
+        removed = self._cleanup_empty_dirs(root_directory, dry_run)
+        result.empty_directories_removed = removed
+    
+    return result
+    ```
+
+**Paso 4**: Implementar métodos privados extraídos
+- `_create_folders()`: Lógica de creación de carpetas, respetar dry_run
+- `_do_organization()`: Bucle de movimiento de archivos, logging, manejo de errores
+- `_cleanup_empty_dirs()`: Llamada a utils.file_utils.cleanup_empty_directories
+
+**Paso 5**: Estandarizar logging de movimientos
+- Formato: `FILE_MOVED` o `FILE_MOVED_SIMULATION`
+- Ejemplo: `FILE_MOVED: file.jpg | From: /old/path | To: /new/path | Size: 2.5 MB`
+
+**Validación**:
+```
+
+pytest tests/test_file_organizer_service.py -v
+
+# Validar: to_root, by_month, by_year, by_type, carpetas creadas, cleanup
+
+```
+
+---
+
+#### 3.4 - DuplicatesBaseService
+
+**Archivo**: `duplicates_base_service.py`
 
 **Problemas actuales**:
-
 - `execute()` recibe `groups: List[DuplicateGroup]` en lugar de `AnalysisResult`
 - Usa `safe_progress_callback` de utils en lugar de `_report_progress()`
 
-**Migración**:
+**Tareas de migración**:
 
-1. **Decisión de diseño**: ¿Cambiar firma de `execute()` o mantener compatibilidad?
-    - Opción A (recomendada): Cambiar a `execute(analysis_result: DuplicateAnalysisResult, keep_strategy, ...)`
-    - Opción B: Mantener firma pero extraer groups con `analysis_result.groups`
-2. Reemplazar `safe_progress_callback` por `self._report_progress()` en `_process_group_deletion()`
-3. Ya usa `_create_backup_for_operation()` correctamente, validar que sigue funcionando
-4. Tests: validar estrategias de eliminación (oldest, newest, manual)
+**Decisión de diseño crítica**:
 
-**3.5 - DuplicatesExactService y DuplicatesSimilarService**:
-
-**Problemas actuales**:
-
-- ThreadPool con configuración manual en `analyze()`
-- Heredan de `DuplicatesBaseService`, heredarán cambios automáticamente
-
-**Migración**:
-
-1. `analyze()`: reemplazar configuración de ThreadPool por `_parallel_processor(io_bound=True)`
-2. Validar que cambios en `DuplicatesBaseService` no rompen funcionalidad
-3. Tests: validar detección de duplicados exactos/similares, eliminación
-
-**3.6 - LivePhotosService**:
-
-**Problemas actuales**:
-
-- Manejo manual de backup
-- Lógica de `execute()` larga con try/except repetitivo
-
-**Migración**:
-
-1. `execute()`: extraer lógica de eliminación a `_do_live_photo_cleanup(files_to_delete, dry_run, progress_callback)`
-2. Usar `_execute_with_backup()` template
-3. Estandarizar logging de operaciones (usar convenciones definidas)
-4. Tests: validar modos keep_image, keep_video, detección de pares
-
-**3.7 - HeicService**:
-
-**Problemas actuales**:
-
-- Manejo manual de backup
-- Duplicación con LivePhotosService en estructura
-
-**Migración**:
-
-1. `execute()`: extraer lógica a `_do_heic_cleanup(pairs, format_to_keep, dry_run, progress_callback)`
-2. Usar `_execute_with_backup()` template
-3. Estandarizar logging
-4. Tests: validar keep_heic, keep_jpg, detección de pares duplicados
-
-#### **Validación de Fase 3**:
-
-- ✅ Todos los servicios heredan de `BaseService` (verificar con `issubclass()`)
-- ✅ Ningún servicio tiene método `createbackup()` custom
-- ✅ Ningún servicio configura `ThreadPoolExecutor` manualmente
-- ✅ Todos usan `_report_progress()` (no `safe_progress_callback` ni llamadas directas)
-- ✅ Todos los tests de integración pasan para cada servicio
-- ✅ UI funciona sin cambios (validación manual)
-
-
-#### **Criterio de completitud**:
-
-- Para cada servicio migrado: ejecutar su test suite completa
-- Ejecutar tests de integración: `pytest tests/integration/ -v`
-- Validar manualmente en UI: crear backup, dry_run, cancelación
-- Contar líneas eliminadas por servicio (objetivo global: ~400 líneas)
-
-***
-
-### **📋 FASE 4: Estandarizar Aplicación de Logging**
-
-**Prioridad**: 🟡 MEDIA
-**Tiempo estimado**: 3-4 horas
-**Prerequisitos**: Fase 3 completada
-**Riesgo**: Bajo (solo afecta logs)
-
-#### **Objetivos**:
-
-1. Aplicar uniformemente convenciones de logging documentadas en Fase 2
-2. Formato parseables para análisis posterior
-3. Niveles apropiados
-
-#### **Acciones detalladas**:
-
-**4.1 - Auditar uso actual de funciones de logging**:
-
-Crear checklist por servicio:
-
-- ¿Usa `log_section_header_relevant` para execute?
-- ¿Usa `log_section_header_discrete` para analyze?
-- ¿Pasa parámetro `mode="SIMULACIÓN"` cuando `dry_run=True`?
-- ¿Logs de operaciones siguen formato estándar?
-- ¿Usa sufijo `_SIMULATION` para simulaciones?
-- ¿Usa `log_section_footer_relevant` con `_format_operation_summary()`?
-
-**4.2 - Estandarizar logs de operaciones por tipo**:
-
-**Operaciones de eliminación**:
-
-- Tipo: `FILE_DELETED` o `FILE_DELETED_SIMULATION`
-- Formato: `FILE_DELETED: {path} | Size: {size} | Date: {date} | Type: {type}`
-- Servicios: ZeroByteService, DuplicatesService, LivePhotosService, HeicService
-
-**Operaciones de movimiento**:
-
-- Tipo: `FILE_MOVED` o `FILE_MOVED_SIMULATION`
-- Formato: `FILE_MOVED: {path} | From: {source_dir} | To: {target_dir} | Size: {size}`
-- Servicios: FileOrganizerService
-
-**Operaciones de renombrado**:
-
-- Tipo: `FILE_RENAMED` o `FILE_RENAMED_SIMULATION`
-- Formato: `FILE_RENAMED: {old_name} -> {new_name} | Date: {date} | Conflict: {seq}`
-- Servicios: FileRenamerService
-
-**Operaciones de conversión** (si aplica):
-
-- Tipo: `FILE_CONVERTED` o `FILE_CONVERTED_SIMULATION`
-- Formato: `FILE_CONVERTED: {path} | From: {format} | To: {format} | Size: {size}`
-
-**4.3 - Normalizar niveles de log**:
-
-**Establecer reglas**:
-
-- **INFO**: Headers/footers de sección, resúmenes de operación, archivos procesados (cada N archivos según `Config.LOG_PROGRESS_INTERVAL`)
-- **DEBUG**: Operaciones individuales muy frecuentes, detalles internos, decisiones de algoritmos
-- **WARNING**: Archivos no encontrados pero operación continúa, problemas no críticos
-- **ERROR**: Fallos en operaciones críticas, excepciones capturadas
-
-**Migrar**:
-
-- Operaciones de modificación de archivos: INFO (pero respetar intervalos)
-- Detalles de detección de duplicados: DEBUG
-- Archivos saltados: WARNING
-
-**4.4 - Documentar formato para parsing**:
-
-Crear regex patterns en docstring de `BaseService` para extraer información de logs:
-
-Ejemplo:
-
-```
-Formato de logs parseables:
-
-FILE_DELETED: Patrón: ^FILE_DELETED(?:_SIMULATION)?: (.+) \| Size: (.+) \| Date: (.+) \| Type: (.+)$
-FILE_MOVED: Patrón: ^FILE_MOVED(?:_SIMULATION)?: (.+) \| From: (.+) \| To: (.+) \| Size: (.+)$
-FILE_RENAMED: Patrón: ^FILE_RENAMED(?:_SIMULATION)?: (.+) -> (.+) \| Date: (.+)(?:\| Conflict: (\d+))?$
+**Opción A (RECOMENDADA)**: Cambiar firma de `execute()` para recibir `DuplicateAnalysisResult`
 ```
 
 
-#### **Validación de Fase 4**:
+# ANTES:
 
-- ✅ Todos los servicios usan headers/footers correctos
-- ✅ Formato de logs de operaciones consistente y parseable
-- ✅ Simulaciones usan sufijo `_SIMULATION` uniformemente
-- ✅ Niveles de log apropiados según reglas definidas
-- ✅ Regex patterns documentados pueden parsear logs reales
+def execute(self, groups: List[DuplicateGroup], keep_strategy, create_backup, dry_run, progress_callback, metadata_cache):
+\# ...
+
+# DESPUÉS:
+
+def execute(self, analysis_result: DuplicateAnalysisResult, keep_strategy, create_backup, dry_run, progress_callback, metadata_cache):
+groups = analysis_result.groups
+\# ...resto igual
+
+```
+
+**Ventajas**: Consistente con otros servicios, sigue patrón estándar
+**Desventajas**: Requiere actualizar llamadas desde DuplicatesExactService y DuplicatesSimilarService
+
+**Opción B**: Mantener firma actual por compatibilidad
+**Ventajas**: Sin cambios en servicios hijo
+**Desventajas**: Rompe convención, no mejora arquitectura
+
+**Recomendación**: Implementar Opción A
+
+**Paso 1**: Si se elige Opción A, cambiar firma
+```
+
+def execute(
+self,
+analysis_result: DuplicateAnalysisResult,
+keep_strategy: str = 'oldest',
+create_backup: bool = True,
+dry_run: bool = False,
+progress_callback: Optional[ProgressCallback] = None,
+metadata_cache = None
+) -> DuplicateDeletionResult:
+groups = analysis_result.groups
+\# ...resto del código sin cambios
+
+```
+
+**Paso 2**: Reemplazar `safe_progress_callback` por `self._report_progress()`
+- Buscar todas las llamadas a `safe_progress_callback` en `_process_group_deletion()`
+- Reemplazar por `self._report_progress()`
+
+**Paso 3**: Ya usa `_create_backup_for_operation()` correctamente
+- Verificar que sigue funcionando
+- No hay cambios necesarios en la lógica de backup
+
+**Paso 4**: Si se cambió firma, actualizar DuplicatesExactService y DuplicatesSimilarService
+- Ambos llaman a `super().execute(groups, ...)` o `self.execute(groups, ...)`
+- Cambiar a pasar `analysis_result` en lugar de solo `groups`
+
+**Validación**:
+```
+
+pytest tests/test_duplicates_base_service.py -v
+pytest tests/test_duplicates_exact_service.py -v
+pytest tests/test_duplicates_similar_service.py -v
+
+# Validar estrategias: oldest, newest, largest, smallest, manual
+
+```
+
+---
+
+#### 3.5 - DuplicatesExactService y DuplicatesSimilarService
+
+**Archivos**: `duplicates_exact_service.py`, `duplicates_similar_service.py`
+
+**Problemas actuales**:
+- ThreadPool configurado manualmente en `analyze()`
+- Si se cambió DuplicatesBaseService, necesitan actualización
+
+**Tareas de migración**:
+
+**Paso 1**: Refactorizar `analyze()` en ambos
+- Reemplazar configuración manual de ThreadPool por `self._parallel_processor(io_bound=True)`
+
+```
 
 
-#### **Criterio de completitud**:
+# ANTES (en DuplicatesExactService):
 
-- Ejecutar operaciones de cada servicio y capturar logs
-- Validar que regex patterns extraen información correctamente
-- Verificar que logs son legibles para humanos y máquinas
+from utils.settings_manager import settings_manager
+user_override = settings_manager.get_max_workers(0)
+max_workers = Config.get_actual_worker_threads(override=user_override, io_bound=True)
 
-***
+# ...
 
-### **📋 FASE 5: Optimizar Uso de ThreadPool**
+with ThreadPoolExecutor(max_workers=max_workers) as executor:
+\# ...
 
-**Prioridad**: 🟢 BAJA
-**Tiempo estimado**: 2-3 horas
-**Prerequisitos**: Fase 3 completada
-**Riesgo**: Bajo (optimización)
+# DESPUÉS:
 
-#### **Objetivos**:
+with self._parallel_processor(io_bound=True) as executor:
+\# ...procesamiento sin cambios
 
-1. Código de ThreadPool centralizado (logrado en Fase 2/3)
+```
+
+**Paso 2**: Si DuplicatesBaseService cambió firma, actualizar llamadas
+- Buscar donde se llama a `execute()` o `super().execute()`
+- Pasar `analysis_result` completo en lugar de `analysis_result.groups`
+
+**Paso 3**: Validar que herencia sigue funcionando
+- Ambos heredan de DuplicatesBaseService
+- Cambios en clase base deben propagarse correctamente
+
+**Validación**:
+```
+
+pytest tests/test_duplicates_exact_service.py -v
+pytest tests/test_duplicates_similar_service.py -v
+
+# Validar detección, eliminación, estrategias
+
+```
+
+---
+
+#### 3.6 - LivePhotosService
+
+**Archivo**: `live_photos_service.py`
+
+**Problemas actuales**:
+- Manejo manual de backup con try/except
+- Lógica de `execute()` larga con código repetitivo
+
+**Tareas de migración**:
+
+**Paso 1**: Refactorizar `execute()`
+- Extraer lógica: `_do_live_photo_cleanup(files_to_delete, dry_run, progress_callback) -> LivePhotoCleanupDeletionResult`
+- Usar `_execute_operation()`:
+
+```
+
+def execute(self, analysis, create_backup=True, dry_run=False, progress_callback=None):
+files_to_delete = analysis.files_to_delete
+
+    if not files_to_delete:
+        return LivePhotoCleanupDeletionResult(
+            success=True,
+            files_deleted=0,
+            message="No hay archivos para eliminar"
+        )
+    
+    return self._execute_operation(
+        files=[item['path'] for item in files_to_delete],
+        operation_name='live_photo_cleanup',
+        execute_fn=lambda dry: self._do_live_photo_cleanup(files_to_delete, dry, progress_callback),
+        create_backup=create_backup,
+        dry_run=dry_run,
+        progress_callback=progress_callback
+    )
+    ```
+
+**Paso 2**: Implementar `_do_live_photo_cleanup()`
+- Mover bucle de eliminación de archivos aquí
+- Mantener logging detallado de archivos emparejados
+- Usar `self._report_progress()` con intervalos
+
+**Paso 3**: Estandarizar logging
+- Formato: `FILE_DELETED` o `FILE_DELETED_SIMULATION`
+- Incluir información de archivo emparejado si existe
+- Ejemplo: `FILE_DELETED: IMG_001.MOV | Size: 15 MB | Paired: IMG_001.JPG (kept)`
+
+**Validación**:
+```
+
+pytest tests/test_live_photos_service.py -v
+
+# Validar: keep_image, keep_video, detección de pares
+
+```
+
+---
+
+#### 3.7 - HeicService
+
+**Archivo**: `heic_service.py`
+
+**Problemas actuales**:
+- Manejo manual de backup
+- Estructura similar a LivePhotosService
+
+**Tareas de migración**:
+
+**Paso 1**: Refactorizar `execute()`
+- Extraer: `_do_heic_cleanup(duplicate_pairs, format_to_keep, dry_run, progress_callback) -> HeicDeletionResult`
+- Usar `_execute_operation()`:
+
+```
+
+def execute(self, analysis, format_to_keep='jpg', create_backup=True, dry_run=False, progress_callback=None):
+duplicate_pairs = analysis.duplicate_pairs
+
+    if not duplicate_pairs:
+        return HeicDeletionResult(
+            success=True,
+            files_deleted=0,
+            message="No hay duplicados HEIC para eliminar"
+        )
+    
+    # Determinar archivos a eliminar según formato
+    files_to_delete = []
+    for pair in duplicate_pairs:
+        if format_to_keep == 'jpg':
+            files_to_delete.append(pair.heic_path)
+        else:
+            files_to_delete.append(pair.jpg_path)
+    
+    return self._execute_operation(
+        files=files_to_delete,
+        operation_name='heic_cleanup',
+        execute_fn=lambda dry: self._do_heic_cleanup(duplicate_pairs, format_to_keep, dry, progress_callback),
+        create_backup=create_backup,
+        dry_run=dry_run,
+        progress_callback=progress_callback
+    )
+    ```
+
+**Paso 2**: Implementar `_do_heic_cleanup()`
+- Bucle de eliminación según formato a mantener
+- Logging de pares HEIC/JPG
+- Progress reporting con intervalos
+
+**Paso 3**: Estandarizar logging
+- Formato: `FILE_DELETED` o `FILE_DELETED_SIMULATION`
+- Ejemplo: `FILE_DELETED: IMG_001.HEIC | Size: 3.2 MB | Paired: IMG_001.JPG (kept) | Format: keep_jpg`
+
+**Validación**:
+```
+
+pytest tests/test_heic_service.py -v
+
+# Validar: keep_heic, keep_jpg, detección de pares
+
+```
+
+---
+
+### Validación Global de Fase 3
+
+**Checklist de completitud**:
+- [ ] Todos los servicios heredan de BaseService (verificar con `issubclass()`)
+- [ ] Ningún servicio tiene método custom de backup
+- [ ] Ningún servicio configura ThreadPoolExecutor manualmente
+- [ ] Todos usan `self._report_progress()` exclusivamente
+- [ ] Todos los `execute()` usan `_execute_operation()` o ya usan `_create_backup_for_operation()` correctamente
+
+**Tests de integración**:
+```
+
+
+# Ejecutar suite completa
+
+pytest tests/ -v
+
+# Por servicio individual
+
+pytest tests/test_zero_byte_service.py -v
+pytest tests/test_file_renamer_service.py -v
+pytest tests/test_file_organizer_service.py -v
+pytest tests/test_duplicates_*.py -v
+pytest tests/test_live_photos_service.py -v
+pytest tests/test_heic_service.py -v
+
+```
+
+**Validación manual en UI**:
+- Ejecutar cada servicio con: backup ON, backup OFF, dry_run ON, dry_run OFF
+- Verificar progress bars se actualizan
+- Probar cancelación desde UI
+- Validar que resultados se muestran igual que antes
+
+**Commits por servicio**:
+```
+
+git commit -m "Fase 3.1: Migrar ZeroByteService a nueva arquitectura"
+git commit -m "Fase 3.2: Migrar FileRenamerService a nueva arquitectura"
+git commit -m "Fase 3.3: Migrar FileOrganizerService a nueva arquitectura"
+
+# ...etc
+
+```
+
+---
+
+## 🟡 FASE 4: ESTANDARIZAR APLICACIÓN DE LOGGING
+
+**Prioridad**: MEDIA  
+**Tiempo estimado**: 3-4 horas  
+**Prerequisitos**: Fase 3 completada  
+**Estado**: PENDIENTE
+
+### Objetivos
+
+1. Aplicar uniformemente convenciones documentadas en Fase 2
+2. Logs parseables con regex para análisis posterior
+3. Niveles apropiados según tipo de operación
+
+### Tareas de Implementación
+
+#### 4.1 - Auditar uso de funciones de logging
+
+**Crear checklist por servicio** (validar cada uno):
+
+**Por cada servicio verificar**:
+- [ ] `analyze()` usa `log_section_header_discrete()` (es solo lectura)
+- [ ] `execute()` usa `log_section_header_relevant()` (modifica disco)
+- [ ] Parámetro `mode="SIMULACIÓN"` se pasa cuando `dry_run=True`
+- [ ] Logs de operaciones individuales usan formato estándar
+- [ ] Simulaciones usan sufijo `_SIMULATION` en tipo de log
+- [ ] Footer usa `log_section_footer_relevant()` con `_format_operation_summary()`
+
+**Archivo de auditoría**: Crear `LOGGING_AUDIT.md` con tabla:
+
+```
+
+| Servicio | Header Analyze | Header Execute | Mode Param | Log Format | Simulation | Footer |
+| :-- | :-- | :-- | :-- | :-- | :-- | :-- |
+| ZeroByteService | ✅ discrete | ✅ relevant | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Yes |
+| FileRenamerService | ? | ? | ? | ? | ? | ? |
+| ... | ... | ... | ... | ... | ... | ... |
+
+```
+
+#### 4.2 - Estandarizar logs de operaciones por tipo
+
+**Operaciones de ELIMINACIÓN** (ZeroByteService, DuplicatesService, LivePhotosService, HeicService):
+
+**Formato estándar**:
+```
+
+FILE_DELETED: {path} | Size: {size} | Date: {date} | Type: {filetype}
+FILE_DELETED_SIMULATION: {path} | Size: {size} | Date: {date} | Type: {filetype}
+
+```
+
+**Ejemplo real**:
+```
+
+log_type = "FILE_DELETED_SIMULATION" if dry_run else "FILE_DELETED"
+self.logger.info(
+f"{log_type}: {filepath} | Size: {format_size(file_size)} | "
+f"Date: {date_str} | Type: {file_type}"
+)
+
+```
+
+**Operaciones de MOVIMIENTO** (FileOrganizerService):
+
+**Formato estándar**:
+```
+
+FILE_MOVED: {filename} | From: {source_dir} | To: {target_dir} | Size: {size}
+FILE_MOVED_SIMULATION: {filename} | From: {source_dir} | To: {target_dir} | Size: {size}
+
+```
+
+**Ejemplo real**:
+```
+
+log_type = "FILE_MOVED_SIMULATION" if dry_run else "FILE_MOVED"
+self.logger.info(
+f"{log_type}: {filename} | From: {source_folder} | "
+f"To: {target_folder} | Size: {format_size(file_size)}"
+)
+
+```
+
+**Operaciones de RENOMBRADO** (FileRenamerService):
+
+**Formato estándar**:
+```
+
+FILE_RENAMED: {old_name} -> {new_name} | Date: {date} | Conflict: {sequence}
+FILE_RENAMED_SIMULATION: {old_name} -> {new_name} | Date: {date} | Conflict: {sequence}
+
+```
+
+**Conflicto es opcional** (solo si hay secuencia de conflicto):
+```
+
+log_type = "FILE_RENAMED_SIMULATION" if dry_run else "FILE_RENAMED"
+conflict_info = f" | Conflict: {sequence}" if sequence else ""
+self.logger.info(
+f"{log_type}: {old_name} -> {new_name} | Date: {date_str}{conflict_info}"
+)
+
+```
+
+#### 4.3 - Normalizar niveles de log
+
+**Reglas a aplicar**:
+
+**INFO**:
+- Headers y footers de sección
+- Resúmenes de operación
+- Operaciones de modificación cada N archivos (según `Config.LOG_PROGRESS_INTERVAL`)
+- Inicio/fin de fases importantes
+
+**DEBUG**:
+- Operaciones individuales muy frecuentes (si se loguean todas)
+- Detalles internos de algoritmos
+- Decisiones de lógica interna
+- Información de caché hits/misses
+
+**WARNING**:
+- Archivos no encontrados pero operación continúa
+- Problemas no críticos (permisos de lectura en archivos no procesables)
+- Validaciones que fallan pero no detienen flujo
+
+**ERROR**:
+- Fallos en operaciones críticas
+- Excepciones capturadas en operaciones de modificación
+- Errores que afectan resultado final
+
+**Migración**:
+```
+
+
+# ANTES: Log de cada archivo en INFO (spam si son 10,000 archivos)
+
+for file in files:
+self.logger.info(f"Procesando {file}")
+
+# DESPUÉS: Solo cada N archivos en INFO, resto en DEBUG
+
+for i, file in enumerate(files):
+if i % Config.LOG_PROGRESS_INTERVAL == 0:
+self.logger.info(f"Procesado {i}/{len(files)} archivos")
+self.logger.debug(f"Procesando {file}")
+
+```
+
+#### 4.4 - Documentar regex patterns para parsing
+
+**Añadir a docstring de BaseService** (en sección de convenciones):
+
+```
+
+"""
+... (docstring existente) ...
+
+PATRONES REGEX PARA PARSING DE LOGS
+====================================
+
+Los logs de operaciones pueden parsearse con estas expresiones regulares:
+
+FILE_DELETED:
+Pattern: ^FILE_DELETED(?:_SIMULATION)?: (.+) \| Size: (.+) \| Date: (.+) \| Type: (.+)\$
+Grupos: 1=path, 2=size, 3=date, 4=type
+
+FILE_MOVED:
+Pattern: ^FILE_MOVED(?:_SIMULATION)?: (.+) \| From: (.+) \| To: (.+) \| Size: (.+)\$
+Grupos: 1=filename, 2=source_dir, 3=target_dir, 4=size
+
+FILE_RENAMED:
+Pattern: ^FILE_RENAMED(?:_SIMULATION)?: (.+) -> (.+) \| Date: (.+)(?:\| Conflict: (\d+))?\$
+Grupos: 1=old_name, 2=new_name, 3=date, 4=conflict_sequence (opcional)
+
+Ejemplo de uso:
+import re
+pattern = r'^FILE_DELETED(?:_SIMULATION)?: (.+) \| Size: (.+) \| Date: (.+) \| Type: (.+)\$'
+match = re.match(pattern, log_line)
+if match:
+path, size, date, filetype = match.groups()
+"""
+
+```
+
+### Validación de Fase 4
+
+**Checklist**:
+- [ ] Todos los servicios auditados y checklist completo
+- [ ] Logs de eliminación usan formato estándar
+- [ ] Logs de movimiento usan formato estándar
+- [ ] Logs de renombrado usan formato estándar
+- [ ] Sufijo `_SIMULATION` consistente en todos los servicios
+- [ ] Niveles de log apropiados (no spam en INFO)
+- [ ] Regex patterns documentados y verificados
+
+**Validación práctica**:
+```
+
+
+# Ejecutar cada servicio y capturar logs
+
+python -m services.zero_byte_service > logs/zero_byte.log 2>\&1
+
+# Validar con regex
+
+grep -E '^FILE_DELETED(_SIMULATION)?: .+ \| Size: .+ \| Date: .+ \| Type: .+\$' logs/zero_byte.log
+
+# Si todos los logs matchean, formato es correcto
+
+```
+
+**Tests de parsing**:
+```
+
+
+# tests/test_log_parsing.py
+
+import re
+
+def test_delete_log_parsing():
+log_line = "FILE_DELETED: /path/to/file.jpg | Size: 2.5 MB | Date: 2024-01-01 12:00:00 | Type: PHOTO"
+pattern = r'^FILE_DELETED(?:_SIMULATION)?: (.+) \| Size: (.+) \| Date: (.+) \| Type: (.+)\$'
+match = re.match(pattern, log_line)
+assert match is not None
+path, size, date, filetype = match.groups()
+assert path == "/path/to/file.jpg"
+assert size == "2.5 MB"
+
+```
+
+---
+
+## 🟢 FASE 5: OPTIMIZAR USO DE THREADPOOL (OPCIONAL)
+
+**Prioridad**: BAJA  
+**Tiempo estimado**: 2-3 horas  
+**Prerequisitos**: Fase 3 completada  
+**Estado**: OPCIONAL
+
+### Objetivos
+
+1. Código de ThreadPool ya centralizado en Fase 2/3 ✅
 2. Identificar servicios que podrían beneficiarse de paralelización
-3. Medir mejoras de rendimiento
+3. Medir mejoras de rendimiento antes de implementar
 
-#### **Acciones detalladas**:
+### Análisis de Candidatos
 
-**5.1 - Identificar candidatos para paralelización**:
+**Servicios que YA usan ThreadPool** (migrados en Fase 3):
+- ✅ FileRenamerService.analyze()
+- ✅ FileOrganizerService.analyze()
+- ✅ DuplicatesExactService.analyze()
 
-Candidatos actuales (ya usan ThreadPool):
+**Candidatos POTENCIALES** (evaluar beneficio):
+- LivePhotosService.analyze(): Lectura de metadatos de fotos/videos (IO-bound)
+- HeicService.analyze(): Lectura de metadatos de pares HEIC/JPG (IO-bound)
+- DuplicatesSimilarService.analyze(): Cálculo de hashes perceptuales (¿CPU-bound o IO-bound?)
 
-- ✅ `FileRenamerService.analyze()`: Procesamiento de metadatos de archivos
-- ✅ `FileOrganizerService.analyze()`: Recopilación de información de archivos
-- ✅ `DuplicatesExactService.analyze()`: Cálculo de hashes SHA256
+### Metodología de Evaluación
 
-Candidatos potenciales (evaluar beneficio):
+**Para cada candidato**:
 
-- `LivePhotosService.analyze()`: Lectura de metadatos de fotos/videos (IO-bound)
-- `HeicService.analyze()`: Lectura de metadatos de pares HEIC/JPG (IO-bound)
-- `DuplicatesSimilarService.analyze()`: Cálculo de hashes perceptuales (CPU-bound pero podría beneficiarse)
-
-**5.2 - Evaluar beneficio vs complejidad**:
-
-Para cada candidato potencial:
-
-- Medir tiempo de ejecución actual con dataset de prueba grande (>1000 archivos)
-- Implementar versión paralela usando `_parallel_processor()`
-- Medir tiempo de ejecución paralelo
-- Evaluar overhead vs beneficio (solo implementar si mejora >20%)
-
-**5.3 - Implementar paralelización donde convenga**:
-
-Si beneficio es significativo:
-
-1. Refactorizar bucle secuencial a procesamiento paralelo
-2. Asegurar thread-safety de estructuras de datos compartidas (usar locks si necesario)
-3. Mantener cancelación cooperativa funcionando
-4. Tests de rendimiento: validar mejora es consistente
-
-**5.4 - Documentar decisiones**:
-
-En docstring de servicios que NO se paralelizaron:
-
-- Explicar por qué (ej: "Paralelización evaluada pero overhead supera beneficio para datasets típicos <500 archivos")
+1. **Medir baseline actual**:
+```
 
 
-#### **Validación de Fase 5**:
+# Crear dataset de prueba grande
 
-- ✅ Servicios que usan ThreadPool tienen código centralizado (ya logrado en Fase 3)
-- ✅ Nuevas paralelizaciones muestran mejora medible de rendimiento
-- ✅ Cancelación sigue funcionando con operaciones paralelas
-- ✅ No hay race conditions (validar con tests concurrentes)
+mkdir test_dataset
+
+# Poblar con 1000+ archivos
+
+# Medir tiempo actual
+
+time python -c "
+from services.live_photos_service import LivePhotosService
+service = LivePhotosService()
+result = service.analyze(Path('test_dataset'))
+"
+
+```
+
+2. **Implementar versión paralela**:
+- Usar `self._parallel_processor(io_bound=True)` o `False` según tipo
+- Asegurar thread-safety de estructuras compartidas (usar locks si necesario)
+
+3. **Medir tiempo con paralelización**:
+```
+
+time python -c "
+
+# Mismo código con versión paralela
+
+"
+
+```
+
+4. **Calcular mejora**:
+```
+
+Mejora = (Tiempo_Antes - Tiempo_Después) / Tiempo_Antes * 100
+
+```
+
+5. **Decisión**:
+- Si mejora > 20%: **Implementar** paralelización
+- Si mejora 10-20%: **Evaluar** complejidad vs beneficio
+- Si mejora < 10%: **No implementar**, overhead no justifica cambio
+
+### Implementación (Solo si Beneficio > 20%)
+
+**Ejemplo para LivePhotosService.analyze()**:
+
+```
 
 
-#### **Criterio de completitud**:
+# ANTES: Procesamiento secuencial
 
-- Ejecutar benchmarks: `pytest tests/benchmarks/ -v`
-- Documentar mejoras de rendimiento en changelog
+for filepath in image_files:
+metadata = get_metadata(filepath)
+\# ...procesar
 
-**Nota**: Esta fase es **opcional** si no hay tiempo. Fase 3 ya centraliza el código de ThreadPool, que era el objetivo principal.
+# DESPUÉS: Procesamiento paralelo
 
-***
+def process_file(filepath):
+return get_metadata(filepath)
 
-### **📋 FASE 6: Testing Exhaustivo y Documentación**
+with self._parallel_processor(io_bound=True) as executor:
+futures = {executor.submit(process_file, f): f for f in image_files}
+for future in as_completed(futures):
+filepath = futures[future]
+try:
+metadata = future.result()
+\# ...procesar
+except Exception as e:
+self.logger.error(f"Error procesando {filepath}: {e}")
 
-**Prioridad**: 🔴 CRÍTICA
-**Tiempo estimado**: 4-6 horas
-**Prerequisitos**: Todas las fases anteriores
-**Riesgo**: N/A (validación)
+```
 
-#### **Objetivos**:
+**Consideraciones**:
+- Mantener cancelación cooperativa funcionando
+- Locks para estructuras compartidas si necesario
+- Tests de concurrencia para evitar race conditions
+
+### Documentación de Decisiones
+
+**Para servicios NO paralelizados**:
+```
+
+def analyze(self, directory, ...):
+"""
+Analiza directorio buscando Live Photos.
+
+    Nota: Paralelización evaluada pero overhead supera beneficio para
+    datasets típicos (<500 archivos). Procesamiento secuencial es suficiente.
+    """
+    ```
+
+### Validación de Fase 5
+
+**Checklist**:
+- [ ] Benchmarks ejecutados para cada candidato
+- [ ] Decisiones documentadas (implementar o no, con justificación)
+- [ ] Si se implementó: mejora de rendimiento ≥20% demostrada
+- [ ] Tests de concurrencia pasan sin race conditions
+- [ ] Cancelación sigue funcionando
+
+**Nota**: Esta fase es completamente OPCIONAL. Si no hay tiempo, saltar a Fase 6.
+
+---
+
+## 🔴 FASE 6: TESTING EXHAUSTIVO Y DOCUMENTACIÓN
+
+**Prioridad**: CRÍTICA  
+**Tiempo estimado**: 4-6 horas  
+**Prerequisitos**: Fases 2-4 completadas (Fase 5 opcional)  
+**Estado**: PENDIENTE
+
+### Objetivos
 
 1. Cobertura de tests ≥80%
-2. Documentación actualizada y completa
-3. Validación de compatibilidad con UI
+2. Documentación completa y actualizada
+3. Validación exhaustiva de compatibilidad con UI
 4. Guía para futuros desarrolladores
 
-#### **Acciones detalladas**:
+### Tareas de Implementación
 
-**6.1 - Tests unitarios de nueva infraestructura**:
+#### 6.1 - Tests Unitarios de Nueva Infraestructura
 
-**Tests para `result_types.py`**:
+**Archivo**: `tests/test_base_service.py`
 
-- Instanciación de todas las dataclasses con valores mínimos
-- Serialización/deserialización (si se usa)
-- Propiedades calculadas retornan valores correctos
-- Mixins funcionan con herencia múltiple
-- `add_error()` modifica `success` correctamente
+**Tests requeridos**:
 
-**Tests para `BaseService`**:
+```
 
-- `_execute_with_backup()` con todas las combinaciones: backup/no-backup, dry_run/real
-- `_execute_with_backup()` maneja `BackupCreationError` correctamente
-- `_parallel_processor()` yields executor configurado correctamente
-- `_validate_directory()` lanza excepciones apropiadas
-- `_get_supported_files()` filtra archivos correctamente
-- `_report_progress()` maneja cancelación
-- `_format_operation_summary()` formatea correctamente
 
-**6.2 - Tests de integración por servicio**:
+# Test Suite para _execute_operation()
 
-Para cada servicio, validar matriz de casos:
+def test_execute_operation_with_backup_success():
+"""Backup se crea y backup_path se popula en resultado"""
+pass
 
-- **Análisis básico**: Directorio con archivos soportados
-- **Ejecución normal**: Con modificación real de archivos
-- **Modo dry_run**: Sin modificar archivos, campos `simulated_*` correctos
-- **Con backup**: `backup_path` poblado, archivos respaldados
-- **Sin backup**: `backup_path` es None
-- **Cancelación**: Usuario cancela a mitad de operación
-- **Errores**: Archivos no encontrados, permisos denegados, disco lleno (mockear)
-- **Edge cases**: Directorio vacío, archivos ya procesados, conflictos de nombres
+def test_execute_operation_without_backup():
+"""create_backup=False, no crea backup, backup_path es None"""
+pass
 
-**6.3 - Tests de compatibilidad con UI**:
+def test_execute_operation_dry_run_no_backup():
+"""dry_run=True, no crea backup incluso si create_backup=True"""
+pass
 
-**Validación manual** (automatizar si es posible):
+def test_execute_operation_handles_backup_error():
+"""BackupCreationError capturada, retorna resultado con error"""
+pass
 
-1. Cargar proyecto real en UI
-2. Ejecutar cada servicio con diferentes configuraciones
-3. Validar que progress bars se actualizan
-4. Validar que resultados se muestran correctamente
-5. Validar que cancelación funciona desde UI
-6. Validar que backups se crean y restauran correctamente
+def test_execute_operation_propagates_execute_fn_exception():
+"""Excepciones de execute_fn se propagan correctamente"""
+pass
 
-**6.4 - Tests de regresión**:
+# Test Suite para _parallel_processor()
 
-**Comparar comportamiento antes/después**:
+def test_parallel_processor_yields_executor():
+"""Context manager yields ThreadPoolExecutor configurado"""
+pass
 
-- Ejecutar cada servicio con dataset de referencia
-- Comparar resultados (número de archivos procesados, espacio liberado, etc.)
-- Validar que resultados son idénticos (o mejores si hubo bug fixes)
-- Comparar logs generados (formato puede cambiar pero información debe ser equivalente)
+def test_parallel_processor_uses_correct_max_workers():
+"""max_workers se obtiene correctamente según io_bound"""
+pass
 
-**6.5 - Documentación técnica**:
+# Test Suite para validaciones
+
+def test_validate_directory_valid():
+"""Directorio válido no lanza excepción"""
+pass
+
+def test_validate_directory_not_exists():
+"""Directorio inexistente lanza ValueError"""
+pass
+
+def test_validate_directory_not_dir():
+"""Path que no es directorio lanza ValueError"""
+pass
+
+def test_get_supported_files_filters_correctly():
+"""Solo retorna archivos multimedia soportados"""
+pass
+
+def test_get_supported_files_respects_recursive():
+"""recursive=False no busca en subdirectorios"""
+pass
+
+def test_get_supported_files_supports_cancellation():
+"""Callback puede cancelar scan de archivos"""
+pass
+
+```
+
+**Ejecutar**:
+```
+
+pytest tests/test_base_service.py -v --cov=services.base_service
+
+```
+
+---
+
+#### 6.2 - Tests de Integración por Servicio
+
+**Por cada servicio**, validar matriz de casos:
+
+**Matriz de pruebas estándar**:
+```
+
+| Caso | create_backup | dry_run | Validación |
+| :-- | :-- | :-- | :-- |
+| Normal con backup | True | False | Archivos modificados, backup creado |
+| Normal sin backup | False | False | Archivos modificados, sin backup |
+| Simulación con backup | True | True | Sin modificar, campos simulated_* |
+| Simulación sin backup | False | True | Sin modificar, sin backup |
+| Cancelación | True/False | - | Operación se detiene limpiamente |
+| Error de backup | True | False | Mock BackupCreationError |
+| Directorio vacío | - | - | Retorna resultado con 0 archivos |
+| Archivos no soportados | - | - | Ignora archivos no multimedia |
+
+```
+
+**Ejemplo de test**:
+```
+
+
+# tests/test_zero_byte_service.py
+
+def test_zero_byte_service_normal_with_backup(tmp_path):
+\# Setup
+service = ZeroByteService()
+zero_file = tmp_path / "empty.txt"
+zero_file.touch()
+
+    # Execute
+    analysis = service.analyze(tmp_path)
+    result = service.execute(analysis.files, create_backup=True, dry_run=False)
+    
+    # Validate
+    assert result.success is True
+    assert result.files_deleted == 1
+    assert result.backup_path is not None
+    assert not zero_file.exists()  # Archivo eliminado
+    def test_zero_byte_service_dry_run(tmp_path):
+\# Setup
+service = ZeroByteService()
+zero_file = tmp_path / "empty.txt"
+zero_file.touch()
+
+    # Execute
+    analysis = service.analyze(tmp_path)
+    result = service.execute(analysis.files, create_backup=True, dry_run=True)
+    
+    # Validate
+    assert result.success is True
+    assert result.simulated_files_deleted == 1
+    assert result.backup_path is None  # No backup en simulación
+    assert zero_file.exists()  # Archivo NO eliminado
+    ```
+
+**Ejecutar por servicio**:
+```
+
+pytest tests/test_zero_byte_service.py -v
+pytest tests/test_file_renamer_service.py -v
+pytest tests/test_file_organizer_service.py -v
+
+# ...etc
+
+```
+
+---
+
+#### 6.3 - Tests de Compatibilidad con UI
+
+**Validación manual** (crear checklist):
+
+**ZeroByteService**:
+- [ ] Analizar directorio desde UI
+- [ ] Ver resultados de análisis (cantidad de archivos de 0 bytes)
+- [ ] Ejecutar eliminación con backup ON
+- [ ] Progress bar se actualiza correctamente
+- [ ] Cancelar operación a mitad (verificar que se detiene)
+- [ ] Ejecutar en modo simulación
+- [ ] Verificar que resultados se muestran igual que antes
+
+**FileRenamerService**:
+- [ ] Analizar directorio con archivos sin renombrar
+- [ ] Ver plan de renombrado generado
+- [ ] Ejecutar renombrado con backup ON
+- [ ] Verificar conflictos de nombres se resuelven
+- [ ] Modo simulación muestra archivos que se renombrarían
+- [ ] Cancelación funciona
+
+**FileOrganizerService**:
+- [ ] Analizar con diferentes modos (to_root, by_month, by_year, etc.)
+- [ ] Ver plan de movimiento
+- [ ] Ejecutar organización
+- [ ] Verificar carpetas creadas correctamente
+- [ ] Cleanup de directorios vacíos funciona
+- [ ] Backup y simulación funcionan
+
+**Servicios de duplicados**:
+- [ ] Detectar duplicados exactos
+- [ ] Detectar duplicados similares con diferentes niveles de sensibilidad
+- [ ] Ver grupos de duplicados
+- [ ] Eliminar con diferentes estrategias (oldest, newest, etc.)
+- [ ] Progress reporting correcto (puede tardar con muchos archivos)
+
+**LivePhotosService y HeicService**:
+- [ ] Detectar pares Live Photo / HEIC+JPG
+- [ ] Eliminar componente correcto según configuración
+- [ ] Backup y simulación
+
+---
+
+#### 6.4 - Tests de Regresión
+
+**Objetivo**: Validar que comportamiento es idéntico o mejor que antes de refactorización
+
+**Metodología**:
+
+1. **Crear dataset de referencia**:
+```
+
+mkdir regression_dataset
+
+# Poblar con casos conocidos: archivos duplicados, Live Photos, archivos para renombrar, etc.
+
+```
+
+2. **Ejecutar servicios y capturar resultados**:
+```
+
+
+# tests/test_regression.py
+
+def test_file_renamer_regression(regression_dataset):
+"""Valida que renombrado produce mismo resultado que versión anterior"""
+service = FileRenamerService()
+analysis = service.analyze(regression_dataset)
+
+    # Comparar con resultados esperados guardados
+    expected_plan = load_expected_renaming_plan()
+    assert len(analysis.renaming_plan) == len(expected_plan)
+    # Validar cada elemento del plan...
+    def test_duplicates_exact_regression(regression_dataset):
+"""Valida que detección de duplicados encuentra mismos archivos"""
+service = DuplicatesExactService()
+analysis = service.analyze(regression_dataset)
+
+    expected_groups = load_expected_duplicate_groups()
+    assert analysis.total_groups == len(expected_groups)
+    # Validar hashes y archivos en cada grupo...
+    ```
+
+3. **Comparar logs**:
+```
+
+
+# Ejecutar versión antigua (si está disponible) y nueva
+
+# Comparar número de archivos procesados, espacio liberado, etc.
+
+```
+
+---
+
+#### 6.5 - Documentación Técnica
 
 **Actualizar docstrings**:
 
-- `BaseService`: Documentar todos los métodos nuevos, convenciones de logging
-- Cada servicio: Actualizar ejemplos de uso si cambiaron firmas
-- `result_types.py`: Documentar jerarquía de clases, propósito de cada mixin
+**BaseService**:
+- [ ] Documentar `_execute_operation()` con ejemplos de uso
+- [ ] Documentar `_parallel_processor()` con ejemplos
+- [ ] Documentar métodos de validación
+- [ ] Convenciones de logging ya documentadas en Fase 2
 
-**Crear guías**:
+**Cada servicio**:
+- [ ] Actualizar ejemplos en docstring si firmas cambiaron
+- [ ] Documentar decisiones de paralelización (si aplica Fase 5)
+- [ ] Añadir ejemplos de uso completo (analyze + execute)
 
-1. **Guía de implementación de nuevo servicio**:
-    - Template mínimo de servicio
-    - Qué métodos implementar (analyze/execute)
-    - Cómo usar `_execute_with_backup()`
-    - Convenciones de logging
-    - Cómo añadir tests
-2. **Guía de convenciones de código**:
-    - Nomenclatura de clases de resultados
-    - Cuándo usar `log_section_header_relevant` vs `discrete`
-    - Formato de logs de operaciones
-    - Cuándo paralelizar con ThreadPool
-3. **Changelog detallado**:
-    - Resumen de cambios por fase
-    - Breaking changes (si los hay)
-    - Mejoras de rendimiento medibles
-    - Líneas de código eliminadas
+**result_types.py**:
+- [ ] Documentar jerarquía de clases (BaseResult, mixins)
+- [ ] Explicar propósito de cada mixin
+- [ ] Ejemplos de herencia múltiple
 
-**6.6 - Revisión de código**:
+---
 
-**Checklist final**:
+#### 6.6 - Guías para Desarrolladores
 
-- ✅ No hay código comentado (eliminar o documentar por qué)
-- ✅ No hay TODOs sin issue asociado
-- ✅ No hay imports sin usar
-- ✅ No hay variables sin usar
-- ✅ Docstrings en todos los métodos públicos
-- ✅ Type hints completos (verificar con `mypy` si se usa)
+**Crear**: `docs/ADDING_NEW_SERVICE.md`
 
-
-#### **Validación de Fase 6**:
-
-- ✅ Cobertura de tests ≥80% (verificar con `pytest --cov`)
-- ✅ Todos los tests pasan: unitarios, integración, regresión
-- ✅ UI funciona sin cambios observables para el usuario
-- ✅ Documentación generada con éxito (`pydoc`, Sphinx, etc.)
-- ✅ Guías de desarrollo creadas y revisadas
-
-
-#### **Criterio de completitud**:
-
-- Ejecutar suite completa: `pytest --cov=services --cov-report=html`
-- Validar cobertura por módulo
-- Revisar HTML de cobertura para identificar gaps
-- Validación manual exhaustiva de UI (checklist de casos de uso)
-
-***
-
-## **REGLAS IMPERATIVAS DE REFACTORIZACIÓN**
-
-### **✅ HACER**:
-
-1. **Mantener compatibilidad con UI**:
-    - Firmas públicas de `analyze()` y `execute()` no deben cambiar
-    - Estructura de resultados (dataclasses) puede cambiar internamente pero campos usados por UI deben existir
-    - UI no debe requerir modificaciones
-2. **Usar solo dataclasses para resultados**:
-    - No introducir Pydantic, attrs, NamedTuple u otras alternativas
-    - Herencia múltiple está permitida (es feature de dataclasses)
-    - `@property` para campos calculados está permitido
-3. **Respetar sistema de logging existente**:
-    - Usar funciones de `utils.logger` (no crear nuevo sistema)
-    - Aplicar convenciones definidas uniformemente
-    - No modificar el módulo `logger.py`
-4. **Tests primero para cambios críticos**:
-    - Escribir test que falla antes de refactorizar lógica crítica
-    - Validar que test pasa después de refactorizar
-    - Mantener tests verdes en todo momento
-5. **Commits atómicos y descriptivos**:
-    - Un commit por fase o sub-fase lógica
-    - Mensaje: "Fase X.Y: [Descripción]" (ej: "Fase 1.2: Crear mixins para result types")
-    - Incluir tests en el mismo commit que el código
-6. **Documentar decisiones de diseño**:
-    - Comentarios para explicar "por qué" no "qué"
-    - Docstrings exhaustivos en métodos públicos
-    - Actualizar guías cuando se establezcan patrones
-7. **Herencia múltiple para mixins**:
-    - Aprovechar composición con mixins de dataclasses
-    - Orden de herencia: `(BaseResult, Mixin1, Mixin2, ...)`
-    - Siempre llamar `super().__post_init__()` si se sobreescribe
-8. **Propiedades calculadas**:
-    - Usar `@property` para contadores derivados
-    - Eliminar sincronización manual en `__post_init__`
-    - Documentar que es calculado en docstring
-
-### **❌ NO HACER**:
-
-1. **NO tocar metadata_cache**:
-    - Será rehecho desde cero en el futuro
-    - Ignorar todo código relacionado con caché de metadatos
-    - No optimizar, no refactorizar, no mejorar
-2. **NO cambiar firmas públicas sin consenso**:
-    - `analyze(directory, **kwargs)` y `execute(result, **kwargs)` son contratos
-    - Añadir parámetros opcionales está OK
-    - Cambiar parámetros obligatorios requiere validar UI primero
-3. **NO modificar `Config`**:
-    - Sistema de configuración global fuera del alcance
-    - No cambiar `Config.UI_UPDATE_INTERVAL`, `Config.LOG_PROGRESS_INTERVAL`, etc.
-    - Usar valores existentes
-4. **NO crear nuevo sistema de logging**:
-    - `utils.logger` ya existe y funciona
-    - No crear `LoggerMixin` con métodos nuevos
-    - Documentar convenciones de uso, no reimplementar
-5. **NO optimizar prematuramente**:
-    - Enfoque en eliminar duplicación primero
-    - Optimización de rendimiento solo en Fase 5 y con mediciones
-    - No añadir complejidad sin beneficio demostrable
-6. **NO refactorizar UI**:
-    - Solo lógica de servicios
-    - Vista/controladores intocables
-    - Validar compatibilidad, no modificar
-7. **NO usar decorators complejos**:
-    - Mantener simplicidad y explícito
-    - Favorecer composición sobre magia
-    - Template methods son OK, decorators complejos no
-8. **NO introducir dependencias nuevas**:
-    - Solo stdlib y dependencias ya existentes del proyecto
-    - No añadir librerías externas sin discusión
-9. **NO dejar TODOs sin rastro**:
-    - Si queda algo pendiente, crear issue/ticket
-    - Referenciar issue en comentario: `# TODO(#123): ...`
-    - No dejar TODOs huérfanos
-10. **NO mezclar refactorización con nuevas features**:
-    - Este es un trabajo de limpieza técnica
-    - No añadir funcionalidad nueva
-    - Si surge una idea, crear issue separado
-
-***
-
-## **CRITERIOS DE ÉXITO (KPIs)**
-
-### **Métricas Cuantitativas**:
-
-1. **Reducción de duplicación**:
-    - ✅ Objetivo: ~700 líneas eliminadas
-    - Medir: Comparar `wc -l` antes/después de refactorización
-    - Meta mínima: 500 líneas (71%)
-2. **Cobertura de tests**:
-    - ✅ Objetivo: ≥80% cobertura
-    - Medir: `pytest --cov=services --cov-report=term`
-    - Meta mínima: 75%
-3. **Jerarquía de clases**:
-    - ✅ Objetivo: 100% servicios heredan de `BaseService`
-    - Medir: Verificar con `issubclass()` o inspección manual
-    - Meta mínima: 100% (no negociable)
-4. **Regresiones**:
-    - ✅ Objetivo: 0 regresiones
-    - Medir: Tests existentes deben pasar al 100%
-    - Meta mínima: 0 regresiones (no negociable)
-5. **Rendimiento**:
-    - ✅ Objetivo: ±5% tiempo de ejecución
-    - Medir: Benchmarks con dataset estándar
-    - Meta mínima: Sin degradación >10%
-
-### **Métricas Cualitativas**:
-
-1. **Interfaz consistente**:
-    - ✅ Todos los servicios tienen `analyze()` y `execute()` con firmas similares
-    - ✅ Autocompletado IDE funciona uniformemente
-    - ✅ Nuevos desarrolladores pueden entender estructura en <1 hora
-2. **Código mantenible**:
-    - ✅ No hay métodos >100 líneas (extraer a métodos privados si supera)
-    - ✅ No hay archivos >800 líneas (considerar split si supera)
-    - ✅ Complejidad ciclomática razonable (usar herramienta como `radon`)
-3. **Documentación completa**:
-    - ✅ Todos los métodos públicos tienen docstring con Args/Returns/Raises
-    - ✅ Guía de "Cómo añadir nuevo servicio" escrita y revisada
-    - ✅ Convenciones de logging documentadas
-4. **Logs útiles**:
-    - ✅ Formato parseable con regex
-    - ✅ Información suficiente para debugging
-    - ✅ Niveles apropiados (no spam en INFO)
-5. **Base sólida**:
-    - ✅ Template claro para añadir nuevos servicios
-    - ✅ Infraestructura reutilizable (backup, progress, validación)
-    - ✅ Fácil evolucionar sin romper existente
-
-***
-
-## **ESTRATEGIA DE IMPLEMENTACIÓN**
-
-### **Orden de Ejecución**:
-
-1. **Fase 1** (result_types.py) → Independiente, alto impacto, bajo riesgo
-2. **Fase 2** (base_service.py) → Crea infraestructura para resto
-3. **Fase 3** (migración servicios) → Uno por uno, validar continuamente
-4. **Fase 4** (logging) → Puede hacerse en paralelo con Fase 5
-5. **Fase 5** (ThreadPool) → Opcional, solo si hay tiempo
-6. **Fase 6** (testing) → Al final, valida todo
-
-### **Duración Estimada**:
-
-- **Total optimista**: 27-35 horas
-- **Total realista**: 35-45 horas (considerando imprevistos)
-- **Distribución**: ~40% Fase 3, ~20% Fase 1+2, ~20% Fase 6, ~20% resto
-
-
-### **Punto de Control por Fase**:
-
-Al final de cada fase:
-
-1. Ejecutar suite de tests completa
-2. Validar manualmente en UI casos básicos
-3. Commit con mensaje descriptivo
-4. Breve revisión de código (self-review o peer-review)
-5. Decidir: ¿continuar a siguiente fase o hay problemas?
-
-### **Rollback Plan**:
-
-Si algo sale muy mal:
-
-- Cada fase es un commit atómico → fácil revertir
-- Tests deben estar verdes antes de continuar a siguiente fase
-- Si Fase 3 falla en un servicio, continuar con otros y retomar después
-
-***
-
-## **CÓMO USAR ESTE PROMPT**
-
-### **Para IA en IDE**:
-
-1. **Alimentar contexto**: Proporcionar este prompt completo + archivos relevantes
-2. **Empezar por Fase 1**: Pedir específicamente "Implementa Fase 1, paso 1.1"
-3. **Validar cada paso**: Ejecutar tests antes de continuar al siguiente paso
-4. **Iterar**: Completar fase antes de pasar a la siguiente
-5. **Preguntar ante dudas**: Si surge decisión de diseño no clara, preguntar antes de implementar
-
-### **Comandos Útiles**:
-
-**Validar estado actual**:
-
-```bash
-# Ver líneas de código
-find services -name "*.py" | xargs wc -l
-
-# Ver cobertura de tests
-pytest --cov=services --cov-report=term-missing
-
-# Ver complejidad
-radon cc services -a -nb
-```
-
-**Ejecutar tests por fase**:
-
-```bash
-# Fase 1
-pytest tests/test_result_types.py -v
-
-# Fase 2
-pytest tests/test_base_service.py -v
-
-# Fase 3 (por servicio)
-pytest tests/test_zero_byte_service.py -v
-
-# Todos
-pytest tests/ -v --cov=services
 ```
 
 
-***
+# Guía: Cómo Añadir un Nuevo Servicio
 
-## **PREGUNTAS PARA VALIDAR ANTES DE EMPEZAR**
+## Template Mínimo
 
-1. ¿Existe suite de tests actual? Si no, crear tests básicos primero
-2. ¿UI tiene tests automatizados o solo validación manual?
-3. ¿Hay entorno de staging para validar antes de producción?
-4. ¿Hay dataset de referencia para tests de regresión?
-5. ¿Hay restricciones de compatibilidad con versiones antiguas de Python?
+Todo servicio debe heredar de `BaseService` e implementar dos métodos:
 
-***
+```python
+from services.base_service import BaseService
+from services.result_types import AnalysisResult, OperationResult
 
-**¿Estás listo para empezar con la Fase 1 (refactorizar `result_types.py`)?**
+class MyNewService(BaseService):
+    def __init__(self):
+        super().__init__('MyNewService')  # Logger automático
+    
+    def analyze(
+        self,
+        directory: Path,
+        progress_callback: Optional[ProgressCallback] = None
+    ) -> MyAnalysisResult:
+        """
+        Analiza directorio y genera plan de operación.
+        NO debe modificar disco.
+        """
+        # 1. Validar directorio
+        self._validate_directory(directory)
+        
+        # 2. Recopilar archivos
+        files = self._get_supported_files(directory, recursive=True, progress_callback)
+        
+        # 3. Analizar y generar plan
+        # ...tu lógica aquí...
+        
+        # 4. Retornar resultado con estadísticas
+        return MyAnalysisResult(...)
+    
+    def execute(
+        self,
+        analysis_result: MyAnalysisResult,
+        create_backup: bool = True,
+        dry_run: bool = False,
+        progress_callback: Optional[ProgressCallback] = None
+    ) -> MyExecutionResult:
+        """
+        Ejecuta plan generado por analyze().
+        Modifica/elimina archivos (excepto en dry_run).
+        """
+        # 1. Validar que hay trabajo
+        if not analysis_result.plan:
+            return MyExecutionResult(success=True, message="Nada que hacer")
+        
+        # 2. Usar template para backup automático
+        return self._execute_operation(
+            files=analysis_result.files_to_process,
+            operation_name='my_operation',
+            execute_fn=lambda dry: self._do_my_operation(analysis_result.plan, dry, progress_callback),
+            create_backup=create_backup,
+            dry_run=dry_run,
+            progress_callback=progress_callback
+        )
+    
+    def _do_my_operation(
+        self,
+        plan,
+        dry_run: bool,
+        progress_callback: Optional[ProgressCallback]
+    ) -> MyExecutionResult:
+        """Lógica real de modificación de archivos"""
+        # ...implementación...
+```
 
-Si es así, proporciona los archivos relevantes y especifica: **"Implementa Fase 1, paso 1.1: Diseñar jerarquía de clases base"**
+
+## Convenciones Obligatorias
+
+1. **Logging**: Seguir convenciones en docstring de BaseService
+2. **Progress**: Usar `self._report_progress()` exclusivamente
+3. **Backup**: Usar `self._execute_operation()` template
+4. **ThreadPool**: Usar `self._parallel_processor()` si necesitas paralelización
+5. **Validaciones**: Usar `self._validate_directory()` y `self._get_supported_files()`
+
+## Tests Requeridos
+
+- Tests unitarios para lógica específica del servicio
+- Tests de integración con matriz estándar (ver Fase 6.2)
+- Validación manual en UI
+
+
+## Checklist de Revisión
+
+- [ ] Hereda de BaseService
+- [ ] Implementa analyze() y execute()
+- [ ] Usa _execute_operation() para backup
+- [ ] Logging sigue convenciones
+- [ ] Tests con cobertura ≥80%
+- [ ] Documentado con docstrings completos
+
+```
+
+---
+
+**Crear**: `docs/CODING_CONVENTIONS.md`
+
+```
+
+
+# Convenciones de Código
+
+## Nomenclatura
+
+### Clases de Resultados
+
+- Análisis: `*AnalysisResult` (ej: RenameAnalysisResult)
+- Ejecución: `*ExecutionResult` o `*DeletionResult` según contexto
+
+
+### Métodos
+
+- Análisis: Siempre `analyze(directory, **kwargs)`
+- Ejecución: Siempre `execute(analysis_result, **kwargs)`
+- Métodos privados: Prefijo `_` (ej: `_do_operation()`)
+
+
+## Logging
+
+Ver docstring completo en `BaseService`.
+
+Resumen:
+
+- Headers: `log_section_header_relevant` para execute, `discrete` para analyze
+- Operaciones: Formato `{TYPE}: {details} | Field: {value}`
+- Simulación: Sufijo `_SIMULATION` en tipo
+- Footers: `log_section_footer_relevant` con `_format_operation_summary()`
+
+
+## Progress Reporting
+
+- Usar `self._report_progress(callback, current, total, message)` SIEMPRE
+- Verificar retorno para cancelación: `if not self._report_progress(...): break`
+- Intervalos: `Config.UI_UPDATE_INTERVAL` para UI, `Config.LOG_PROGRESS_INTERVAL` para logs
+
+
+## ThreadPool
+
+- Usar `with self._parallel_processor(io_bound=True) as executor:`
+- Parámetro `io_bound`: True para lectura disco/red, False para CPU intensivo
+- Cancelación: Verificar `self._cancelled` periódicamente
+
+
+## Error Handling
+
+- Validaciones: Lanzar `ValueError` con mensaje descriptivo
+- Operaciones: Capturar excepciones, añadir a `result.add_error()`
+- FileNotFoundError: Log warning, continuar (no es crítico si archivo desapareció)
+
+```
+
+---
+
+**Crear**: `CHANGELOG.md`
+
+```
+
+
+# Changelog - Refactorización Fases 2-6
+
+## Fase 2: Infraestructura BaseService
+
+### Añadido
+
+- `_execute_operation()`: Template method para ejecución con backup automático
+- `_parallel_processor()`: Context manager para ThreadPool centralizado
+- `_get_max_workers()`: Configuración centralizada de workers
+- `_validate_directory()`: Validación común de directorios
+- `_get_supported_files()`: Recopilación común de archivos multimedia
+- Convenciones de logging documentadas en docstring de BaseService
+
+
+### Beneficios
+
+- ~120 líneas de código duplicado eliminadas (backup)
+- ~50 líneas eliminadas (ThreadPool)
+- ~60 líneas eliminadas (validaciones)
+
+
+## Fase 3: Migración de Servicios
+
+### Modificado
+
+- **ZeroByteService**: Ahora hereda de BaseService
+- **FileRenamerService**: Usa `_execute_operation()` y `_parallel_processor()`
+- **FileOrganizerService**: Eliminado método `createbackup()`, usa infrastructure de BaseService
+- **DuplicatesBaseService**: Usa `_report_progress()` uniformemente
+- **Todos los servicios**: ThreadPool centralizado, backup unificado
+
+
+### Beneficios
+
+- Interfaz consistente en todos los servicios
+- ~400 líneas totales eliminadas
+- Mantenibilidad significativamente mejorada
+
+
+## Fase 4: Estandarización de Logging
+
+### Modificado
+
+- Formato unificado de logs de operaciones
+- Niveles de log apropiados (reducción de spam en INFO)
+- Sufijos `_SIMULATION` consistentes
+
+
+### Beneficios
+
+- Logs parseables con regex
+- Análisis automatizado posible
+- Debugging más eficiente
+
+
+## Fase 5: Optimización ThreadPool (Opcional)
+
+[Documentar si se implementó]
+
+## Fase 6: Testing y Documentación
+
+### Añadido
+
+- Tests unitarios para BaseService
+- Tests de integración exhaustivos por servicio
+- Guía `ADDING_NEW_SERVICE.md`
+- Guía `CODING_CONVENTIONS.md`
+- Este CHANGELOG
+
+
+### Métricas Finales
+
+- Líneas eliminadas: ~700
+- Cobertura de tests: XX% (objetivo ≥80%)
+- Regresiones: 0
+- UI: 100% compatible sin cambios
+
+
+## Breaking Changes
+
+**Ninguno** para usuarios finales de la UI.
+
+Para desarrolladores que extiendan servicios:
+
+- DuplicatesBaseService.execute() cambió firma (recibe AnalysisResult en lugar de groups)
+    - Actualizar llamadas en clases hijas
+
+```
+
+---
+
+### Validación Final de Fase 6
+
+**Checklist de completitud**:
+- [ ] Tests unitarios BaseService con ≥90% cobertura
+- [ ] Tests integración por servicio con matriz completa
+- [ ] Validación manual UI completada (checklist lleno)
+- [ ] Tests de regresión pasan (resultados iguales o mejores)
+- [ ] Docstrings actualizados en BaseService y servicios
+- [ ] Guía `ADDING_NEW_SERVICE.md` creada y revisada
+- [ ] Guía `CODING_CONVENTIONS.md` creada
+- [ ] CHANGELOG.md actualizado con métricas finales
+
+**Ejecutar suite```
 

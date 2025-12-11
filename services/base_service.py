@@ -9,6 +9,7 @@ import os
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Optional, Iterable, Callable, Union, Any, TypeAlias
+from contextlib import contextmanager
 from utils.logger import get_logger, log_section_header_discrete, log_section_footer_discrete, log_section_header_relevant, log_section_footer_relevant
 
 
@@ -49,7 +50,7 @@ class BackupCreationError(Exception):
 
 
 class BaseService(ABC):
-    """
+    r"""
     Clase base abstracta para todos los servicios.
     
     Proporciona:
@@ -78,6 +79,95 @@ class BaseService(ABC):
     - Reducción de carga cognitiva para nuevos desarrolladores
     
     Los métodos antiguos se mantienen con @deprecated para compatibilidad.
+    
+    
+    CONVENCIONES DE LOGGING
+    =======================
+    
+    Este proyecto usa sistema centralizado en utils.logger.
+    Todos los servicios deben seguir estas convenciones:
+    
+    Headers de Sección
+    ------------------
+    - log_section_header_relevant(): Operaciones que MODIFICAN disco (execute)
+    - log_section_header_discrete(): Operaciones de SOLO LECTURA (analyze)
+    - Parámetro mode: Pasar mode="SIMULACIÓN" cuando dry_run=True
+    
+    Ejemplo:
+        log_section_header_relevant(
+            self.logger,
+            "ELIMINACIÓN DE ARCHIVOS",
+            mode="SIMULACIÓN" if dry_run else ""
+        )
+    
+    Logs de Operaciones Sobre Archivos
+    -----------------------------------
+    Formato estándar: {TIPO}: {path} | Size: {size} | Date: {date} | Type: {filetype}
+    
+    Tipos válidos:
+    - FILE_DELETED / FILE_DELETED_SIMULATION
+    - FILE_MOVED / FILE_MOVED_SIMULATION
+    - FILE_RENAMED / FILE_RENAMED_SIMULATION
+    - FILE_CONVERTED / FILE_CONVERTED_SIMULATION
+    
+    Simulación: Añadir sufijo _SIMULATION al tipo de log
+    
+    Ejemplo:
+        log_type = "FILE_DELETED_SIMULATION" if dry_run else "FILE_DELETED"
+        self.logger.info(
+            f"{log_type}: {filepath} | Size: {format_size(size)} | "
+            f"Date: {date_str} | Type: {file_type}"
+        )
+        
+    Footers de Sección
+    ------------------
+    - log_section_footer_relevant(): Con summary de operación
+    - Usar self._format_operation_summary() para construir mensaje
+    
+    Ejemplo:
+        summary = self._format_operation_summary(
+            "Eliminación",
+            files_deleted,
+            space_freed,
+            dry_run
+        )
+        log_section_footer_relevant(self.logger, summary)
+    
+    Niveles de Log
+    --------------
+    - INFO: Operaciones de modificación, resúmenes, inicio/fin de fases
+    - DEBUG: Detalles internos, procesamiento archivo por archivo frecuente
+    - WARNING: Archivos no encontrados (operación continúa), problemas no críticos
+    - ERROR: Fallos en operaciones críticas, excepciones capturadas
+    
+    Intervalos de Reporte
+    ----------------------
+    - Operaciones individuales: Cada Config.LOG_PROGRESS_INTERVAL en INFO
+    - Operaciones muy frecuentes: DEBUG o usar intervalos
+    - Resúmenes periódicos: Cada N archivos según Config.UI_UPDATE_INTERVAL
+    
+    Formato Parseable
+    -----------------
+    Los logs deben ser parseables con regex para análisis posterior:
+    
+    FILE_DELETED:
+        Pattern: r'^FILE_DELETED(?:_SIMULATION)?: (.+) \| Size: (.+) \| Date: (.+) \| Type: (.+)$'
+        Grupos: 1=path, 2=size, 3=date, 4=type
+    
+    FILE_MOVED:
+        Pattern: r'^FILE_MOVED(?:_SIMULATION)?: (.+) \| From: (.+) \| To: (.+) \| Size: (.+)$'
+        Grupos: 1=filename, 2=source_dir, 3=target_dir, 4=size
+    
+    FILE_RENAMED:
+        Pattern: r'^FILE_RENAMED(?:_SIMULATION)?: (.+) -> (.+) \| Date: (.+)(?:\| Conflict: (\d+))?$'
+        Grupos: 1=old_name, 2=new_name, 3=date, 4=conflict_sequence (opcional)
+    
+    Ejemplo de uso:
+        import re
+        pattern = r'^FILE_DELETED(?:_SIMULATION)?: (.+) \| Size: (.+) \| Date: (.+) \| Type: (.+)$'
+        match = re.match(pattern, log_line)
+        if match:
+            path, size, date, filetype = match.groups()
     """
     
     def __init__(self, service_name: str):
@@ -314,3 +404,273 @@ class BaseService(ABC):
         self.logger.info("Operación cancelada por el usuario")
         # NO llamar executor.shutdown() dentro de un with statement
         # El with ya maneja el shutdown limpiamente
+    
+    def _execute_operation(
+        self,
+        files: Iterable[Union[Path, dict, Any]],
+        operation_name: str,
+        execute_fn: Callable[[bool], Any],
+        create_backup: bool,
+        dry_run: bool,
+        progress_callback: Optional[ProgressCallback] = None
+    ) -> Any:
+        """
+        Template method para ejecutar operaciones con gestión automática de backup.
+        
+        Encapsula toda la lógica común de ejecución:
+        - Decisión de crear backup según flags
+        - Manejo de BackupCreationError
+        - Población de backup_path en resultado
+        - Logging de errores
+        
+        Este método elimina ~120 líneas de código duplicado en servicios.
+        
+        Args:
+            files: Archivos para incluir en backup. Acepta Path, dict, dataclass, etc.
+            operation_name: String para logs y nombre de backup (ej: 'renaming', 'deletion', 'organization')
+            execute_fn: Función que realiza el trabajo real.
+                       Firma: execute_fn(dry_run: bool) -> OperationResult
+                       Debe retornar un resultado con campos success, message, etc.
+            create_backup: Si True y dry_run=False, crea backup antes de ejecutar
+            dry_run: Si True, simula operación sin modificar disco (no crea backup)
+            progress_callback: Callback opcional de progreso
+            
+        Returns:
+            Resultado de execute_fn con campo backup_path poblado si corresponde
+            
+        Raises:
+            Las excepciones de execute_fn se propagan (excepto BackupCreationError)
+            
+        Example:
+            >>> def execute(self, renaming_plan, create_backup=True, dry_run=False, progress_callback=None):
+            ...     return self._execute_operation(
+            ...         files=[item['original_path'] for item in renaming_plan],
+            ...         operation_name='renaming',
+            ...         execute_fn=lambda dry: self._do_renaming(renaming_plan, dry, progress_callback),
+            ...         create_backup=create_backup,
+            ...         dry_run=dry_run,
+            ...         progress_callback=progress_callback
+            ...     )
+        """
+        backup_path = None
+        
+        # Decisión: solo crear backup si create_backup=True AND dry_run=False
+        should_create_backup = create_backup and not dry_run
+        
+        if should_create_backup:
+            try:
+                backup_path = self._create_backup_for_operation(
+                    files=files,
+                    operation_name=operation_name,
+                    progress_callback=progress_callback
+                )
+            except BackupCreationError as e:
+                # Error crítico de backup: retornar resultado de error sin ejecutar
+                self.logger.error(f"Operación abortada debido a fallo en backup: {e}")
+                
+                # Importar aquí para evitar dependencia circular
+                from services.result_types import BaseResult
+                
+                # Retornar resultado de error genérico
+                # El servicio específico debería manejar esto mejor con su tipo de resultado
+                return BaseResult(
+                    success=False,
+                    message=f"Fallo al crear backup: {str(e)}. Operación no ejecutada."
+                )
+        
+        # Ejecutar operación real
+        try:
+            result = execute_fn(dry_run)
+            
+            # Poblar backup_path en resultado si tiene ese campo
+            if hasattr(result, 'backup_path'):
+                result.backup_path = backup_path
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Error ejecutando {operation_name}: {e}")
+            raise
+    
+    def _get_max_workers(self, io_bound: bool = True) -> int:
+        """
+        Obtiene número óptimo de workers para ThreadPoolExecutor.
+        
+        Centraliza configuración de workers eliminando ~30 líneas duplicadas
+        por servicio que usa ThreadPool.
+        
+        Considera:
+        - Override del usuario desde settings
+        - Tipo de operación (IO-bound vs CPU-bound)
+        - Configuración por defecto del sistema
+        
+        Args:
+            io_bound: Si True, operación es IO-bound (lectura disco, red, hashes).
+                     Si False, operación es CPU-bound (cálculos intensivos, procesamiento imagen).
+                     
+                     IO-bound: Puede usar más workers que CPU cores (ej: 4x cores)
+                     CPU-bound: Limitado a número de cores para evitar contención
+        
+        Returns:
+            Número de workers a usar en ThreadPoolExecutor
+            
+        Example:
+            >>> # Para lectura de archivos y cálculo de hashes (IO-bound)
+            >>> max_workers = self._get_max_workers(io_bound=True)
+            >>> 
+            >>> # Para procesamiento intensivo de imágenes (CPU-bound)
+            >>> max_workers = self._get_max_workers(io_bound=False)
+        """
+        from utils.settings_manager import settings_manager
+        from config import Config
+        
+        # Obtener override del usuario (0 = usar default)
+        user_override = settings_manager.get_max_workers(0)
+        
+        # Calcular workers según tipo de operación
+        max_workers = Config.get_actual_worker_threads(
+            override=user_override,
+            io_bound=io_bound
+        )
+        
+        self.logger.debug(
+            f"Usando {max_workers} workers para operación "
+            f"{'IO-bound' if io_bound else 'CPU-bound'}"
+        )
+        
+        return max_workers
+    
+    @contextmanager
+    def _parallel_processor(self, io_bound: bool = True):
+        """
+        Context manager para procesamiento paralelo con ThreadPoolExecutor.
+        
+        Configura ThreadPoolExecutor con max_workers apropiado según tipo de operación.
+        Compatible con cancelación cooperativa.
+        
+        Este context manager elimina ~20 líneas duplicadas por uso de ThreadPool.
+        
+        Args:
+            io_bound: Si True, operación es IO-bound (lectura disco, red).
+                     Si False, operación es CPU-bound (cálculos intensivos).
+        
+        Yields:
+            ThreadPoolExecutor configurado y listo para usar
+            
+        Example:
+            >>> with self._parallel_processor(io_bound=True) as executor:
+            ...     futures = {executor.submit(process_file, f): f for f in files}
+            ...     for future in as_completed(futures):
+            ...         if self._cancelled:
+            ...             break
+            ...         result = future.result()
+            ...         # Procesar resultado...
+        """
+        from concurrent.futures import ThreadPoolExecutor
+        
+        max_workers = self._get_max_workers(io_bound)
+        
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            yield executor
+    
+    def _should_report_progress(self, counter: int, interval: int = None) -> bool:
+        """
+        Determina si debe reportarse progreso según intervalo configurado.
+        
+        Ayuda a evitar spam de logs/callbacks reportando solo cada N elementos.
+        
+        Args:
+            counter: Número actual de elementos procesados
+            interval: Intervalo de reporte (usa Config.UI_UPDATE_INTERVAL si es None)
+        
+        Returns:
+            True si counter es múltiplo del intervalo
+            
+        Example:
+            >>> for i, file in enumerate(files):
+            ...     # Solo reportar cada 50 archivos
+            ...     if self._should_report_progress(i):
+            ...         self._report_progress(callback, i, len(files), f"Procesando...")
+        """
+        from config import Config
+        
+        if interval is None:
+            interval = Config.UI_UPDATE_INTERVAL
+        
+        return counter % interval == 0
+    
+    def _validate_directory(self, directory: Path, must_exist: bool = True) -> None:
+        """
+        Valida que un path sea un directorio válido.
+        
+        Centraliza validación común eliminando ~10 líneas por servicio.
+        
+        Args:
+            directory: Path a validar
+            must_exist: Si True, verifica que existe
+            
+        Raises:
+            ValueError: Si validación falla con mensaje descriptivo
+            
+        Example:
+            >>> def analyze(self, directory: Path, ...):
+            ...     self._validate_directory(directory)
+            ...     # Continuar con análisis...
+        """
+        if must_exist and not directory.exists():
+            raise ValueError(f"Directorio no existe: {directory}")
+        
+        if must_exist and not directory.is_dir():
+            raise ValueError(f"No es un directorio: {directory}")
+    
+    def _get_supported_files(
+        self,
+        directory: Path,
+        recursive: bool = True,
+        progress_callback: Optional[ProgressCallback] = None
+    ) -> list[Path]:
+        """
+        Recopila archivos multimedia soportados en directorio.
+        
+        Usa Config.is_supported_file() para filtrar.
+        Puede reportar progreso y soporta cancelación.
+        
+        Este método elimina ~20 líneas de código duplicado por servicio.
+        
+        Args:
+            directory: Directorio a escanear
+            recursive: Si True, busca recursivamente con **/*
+            progress_callback: Callback opcional para progreso de scan
+            
+        Returns:
+            Lista de Paths de archivos soportados
+            
+        Example:
+            >>> files = self._get_supported_files(
+            ...     directory,
+            ...     recursive=True,
+            ...     progress_callback=progress_callback
+            ... )
+            >>> self.logger.info(f"Encontrados {len(files)} archivos soportados")
+        """
+        from config import Config
+        
+        files = []
+        pattern = "**/*" if recursive else "*"
+        processed = 0
+        
+        for filepath in directory.glob(pattern):
+            if filepath.is_file() and Config.is_supported_file(filepath.name):
+                files.append(filepath)
+            
+            processed += 1
+            if progress_callback and self._should_report_progress(processed):
+                if not self._report_progress(
+                    progress_callback,
+                    processed,
+                    -1,  # Total desconocido en scan
+                    f"Escaneando: {filepath.name}"
+                ):
+                    break  # Cancelado
+        
+        return files
