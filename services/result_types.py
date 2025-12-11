@@ -12,56 +12,7 @@ from pathlib import Path
 from datetime import datetime, timedelta
 
 
-@dataclass
-class DuplicateGroup:
-    """
-    Grupo de archivos duplicados (copias exactas o similares).
-    
-    Usado por ExactCopiesDetector y SimilarFilesDetector.
-    """
-    hash_value: str  # SHA256 hash o perceptual hash
-    files: List[Path]
-    total_size: int
-    similarity_score: float = 100.0  # Copias exactas = 100%, similares = variable
-
-
-@dataclass
-class DuplicatePair:
-    """Representa un par de archivos duplicados (HEIC + JPG)"""
-    
-    heic_path: Path
-    jpg_path: Path
-    base_name: str
-    heic_size: int
-    jpg_size: int
-    directory: Path
-    heic_date: Optional[datetime] = None
-    jpg_date: Optional[datetime] = None
-    similarity_score: float = 1.0  # 1.0 = idénticos (mismo nombre base)
-    
-    @property
-    def total_size(self) -> int:
-        """Tamaño total del par"""
-        return self.heic_size + self.jpg_size
-    
-    @property
-    def size_saving_keep_jpg(self) -> int:
-        """Ahorro eliminando HEIC"""
-        return self.heic_size
-    
-    @property
-    def size_saving_keep_heic(self) -> int:
-        """Ahorro eliminando JPG"""
-        return self.jpg_size
-    
-    @property
-    def time_difference(self) -> Optional[timedelta]:
-        """Diferencia de tiempo entre archivos"""
-        if self.heic_date and self.jpg_date:
-            return abs(self.heic_date - self.jpg_date)
-        return None
-
-
+# === Base Classes ===
 @dataclass
 class OperationResult:
     """Resultado base de cualquier operación"""
@@ -106,6 +57,7 @@ class DeletionResult(OperationResult):
     deleted_files: List[str] = field(default_factory=list)
 
 
+# === File Renamer Service ===
 @dataclass
 class RenameDeletionResult(OperationResult):
     """Resultado de operación de renombrado"""
@@ -135,6 +87,7 @@ class RenameAnalysisResult(AnalysisResult):
             self.need_renaming = len(self.renaming_plan)
 
 
+# === File Organizer Service ===
 @dataclass
 class OrganizationDeletionResult(OperationResult):
     """Resultado de operación de organización"""
@@ -171,6 +124,20 @@ class OrganizationAnalysisResult(AnalysisResult):
             self.total_files_to_move = len(self.move_plan)
 
 
+# === Duplicates Services (Exact & Similar) ===
+@dataclass
+class DuplicateGroup:
+    """
+    Grupo de archivos duplicados (copias exactas o similares).
+    
+    Usado por ExactCopiesDetector y SimilarFilesDetector.
+    """
+    hash_value: str  # SHA256 hash o perceptual hash
+    files: List[Path]
+    total_size: int
+    similarity_score: float = 100.0  # Copias exactas = 100%, similares = variable
+
+
 @dataclass
 class DuplicateAnalysisResult(AnalysisResult):
     """Resultado de análisis de duplicados (exactos o similares)"""
@@ -205,6 +172,44 @@ class DuplicateDeletionResult(DeletionResult):
     dry_run: bool = False
     simulated_files_deleted: int = 0
     simulated_space_freed: int = 0
+
+
+# === HEIC Service ===
+@dataclass
+class DuplicatePair:
+    """Representa un par de archivos duplicados (HEIC + JPG)"""
+    
+    heic_path: Path
+    jpg_path: Path
+    base_name: str
+    heic_size: int
+    jpg_size: int
+    directory: Path
+    heic_date: Optional[datetime] = None
+    jpg_date: Optional[datetime] = None
+    similarity_score: float = 1.0  # 1.0 = idénticos (mismo nombre base)
+    
+    @property
+    def total_size(self) -> int:
+        """Tamaño total del par"""
+        return self.heic_size + self.jpg_size
+    
+    @property
+    def size_saving_keep_jpg(self) -> int:
+        """Ahorro eliminando HEIC"""
+        return self.heic_size
+    
+    @property
+    def size_saving_keep_heic(self) -> int:
+        """Ahorro eliminando JPG"""
+        return self.jpg_size
+    
+    @property
+    def time_difference(self) -> Optional[timedelta]:
+        """Diferencia de tiempo entre archivos"""
+        if self.heic_date and self.jpg_date:
+            return abs(self.heic_date - self.jpg_date)
+        return None
 
 
 @dataclass
@@ -253,6 +258,7 @@ class HeicDeletionResult(DeletionResult):
         return self.format_kept
 
 
+# === Live Photos Service ===
 @dataclass
 class LivePhotoCleanupAnalysisResult(AnalysisResult):
     """Resultado de análisis de limpieza de Live Photos"""
@@ -298,6 +304,7 @@ class LivePhotoDetectionResult(AnalysisResult):
                 self.space_to_free = sum(g.video_size for g in self.groups)
 
 
+# === Zero Byte Service ===
 @dataclass
 class ZeroByteAnalysisResult(AnalysisResult):
     """Resultado de análisis de archivos de 0 bytes"""
