@@ -46,7 +46,6 @@ def mock_analysis_with_duplicates():
         
         return LivePhotoCleanupAnalysisResult(
             total_files=4,
-            live_photos_found=2,
             files_to_delete=[], # Not used by dialog directly, it rebuilds plan
             files_to_keep=[],
             space_to_free=0,

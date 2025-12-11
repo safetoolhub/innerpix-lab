@@ -281,7 +281,6 @@ class HeicService(BaseService):
         return HeicAnalysisResult(
             total_files=results['total_heic_files'] + results['total_jpg_files'],
             duplicate_pairs=duplicate_pairs,
-            total_pairs=len(duplicate_pairs),
             heic_files=results['total_heic_files'],
             jpg_files=results['total_jpg_files'],
             total_size=self.stats['total_heic_size'] + self.stats['total_jpg_size'],
@@ -498,7 +497,6 @@ class HeicService(BaseService):
         return HeicAnalysisResult(
             total_files=0,
             duplicate_pairs=[],
-            total_pairs=0,
             heic_files=0,
             jpg_files=0,
             total_size=0,

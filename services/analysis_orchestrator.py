@@ -495,10 +495,7 @@ class AnalysisOrchestrator:
         # Convertir a LivePhotoDetectionResult para mantener compatibilidad con la estructura esperada
         result = LivePhotoDetectionResult(
             total_files=cleanup_analysis.total_files,
-            groups=cleanup_analysis.groups,  # Usar los grupos del análisis
-            live_photos_found=cleanup_analysis.live_photos_found,
-            total_space=cleanup_analysis.total_space,
-            space_to_free=cleanup_analysis.space_to_free
+            groups=cleanup_analysis.groups  # Usar los grupos del análisis (live_photos_found, total_space y space_to_free son propiedades calculadas)
         )
         
         self.logger.info(f"Encontrados {cleanup_analysis.live_photos_found} grupos de Live Photos")

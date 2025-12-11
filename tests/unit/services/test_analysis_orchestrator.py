@@ -265,9 +265,9 @@ class TestIndividualAnalysis:
             success=True,
             total_files=10,
             already_renamed=3,
-            need_renaming=7,
             cannot_process=0,
-            conflicts=0
+            conflicts=0,
+            renaming_plan=[{}] * 7  # 7 items para que need_renaming calculado sea 7
         )
         mock_renamer.analyze.return_value = mock_result
         
@@ -308,7 +308,6 @@ class TestIndividualAnalysis:
             success=True,
             total_files=2,
             groups=[test_group],
-            live_photos_found=1,
             total_space=6000,
             space_to_free=5000,
             files_to_delete=[],
@@ -334,7 +333,6 @@ class TestIndividualAnalysis:
             total_files=20,
             root_directory=str(temp_dir),
             organization_type='by_month',
-            total_files_to_move=15
         )
         mock_organizer.analyze.return_value = mock_result
         
@@ -362,7 +360,6 @@ class TestIndividualAnalysis:
             total_files=20,
             root_directory=str(temp_dir),
             organization_type='to_root',
-            total_files_to_move=15
         )
         mock_organizer.analyze.return_value = mock_result
         
@@ -389,7 +386,6 @@ class TestIndividualAnalysis:
         mock_result = HeicAnalysisResult(
             success=True,
             total_files=10,
-            total_pairs=5,
             heic_files=5,
             jpg_files=5,
             potential_savings_keep_jpg=5000000
@@ -479,7 +475,6 @@ class TestFullAnalysis:
             success=True,
             total_files=1,
             already_renamed=0,
-            need_renaming=1
         )
         mock_renamer.analyze.return_value = mock_rename_result
         
@@ -518,7 +513,6 @@ class TestFullAnalysis:
             success=True,
             total_files=0,
             groups=[],
-            live_photos_found=0,
             total_space=0,
             space_to_free=0,
             files_to_delete=[],
@@ -532,7 +526,6 @@ class TestFullAnalysis:
         
         mock_heic = Mock()
         mock_heic.analyze.return_value = HeicAnalysisResult(
-            success=True, total_files=1, total_pairs=0, heic_files=0, jpg_files=0
         )
         
         mock_duplicates = Mock()
@@ -592,11 +585,10 @@ class TestFullAnalysis:
                     return RenameAnalysisResult(success=True, total_files=0)
                 elif name == 'live_photos':
                     return LivePhotoCleanupAnalysisResult(
-                        success=True, total_files=0, groups=[], live_photos_found=0,
-                        total_space=0, space_to_free=0, files_to_delete=[], files_to_keep=[]
+                        total_space=0, space_to_free=0, files_to_delete=[], files_to_keep=[], groups=[]
                     )
                 elif name == 'heic':
-                    return HeicAnalysisResult(success=True, total_files=0, total_pairs=0, heic_files=0, jpg_files=0)
+                    return HeicAnalysisResult(success=True, total_files=0, heic_files=0, jpg_files=0)
                 elif name == 'duplicates':
                     return DuplicateAnalysisResult(success=True, total_files=0, mode='exact', total_duplicates=0)
                 elif name == 'organizer':
@@ -695,7 +687,6 @@ class TestCallbacks:
         mock_rename_result = RenameAnalysisResult(
             success=True,
             total_files=1,
-            need_renaming=1
         )
         mock_renamer.analyze.return_value = mock_rename_result
         
@@ -898,7 +889,6 @@ class TestTiming:
         mock_live_photos = Mock()
         from services.result_types import LivePhotoCleanupAnalysisResult
         mock_live_photos.analyze.return_value = LivePhotoCleanupAnalysisResult(
-            success=True, total_files=0, groups=[], live_photos_found=0,
             total_space=0, space_to_free=0, files_to_delete=[], files_to_keep=[]
         )
         
@@ -965,7 +955,6 @@ class TestEdgeCases:
             success=True,
             total_files=0,
             already_renamed=0,
-            need_renaming=0
         )
         
         mock_live_photos = Mock()
@@ -974,7 +963,6 @@ class TestEdgeCases:
             success=True,
             total_files=0,
             groups=[],
-            live_photos_found=0,
             total_space=0,
             space_to_free=0,
             files_to_delete=[],
@@ -1073,7 +1061,6 @@ class TestIntegrationScenarios:
         
         mock_heic = Mock()
         mock_heic.analyze.return_value = HeicAnalysisResult(
-            success=True, total_files=0, total_pairs=0, heic_files=0, jpg_files=0
         )
         
         result = orchestrator.run_full_analysis(
@@ -1136,7 +1123,6 @@ class TestBackwardCompatibility:
             success=True,
             total_files=10,
             already_renamed=3,
-            need_renaming=7,
             cannot_process=0,
             conflicts=0,
             files_by_year={},

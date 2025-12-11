@@ -192,7 +192,6 @@ class FileRenamer(BaseService):
             success=True,
             total_files=total_files,
             already_renamed=already_renamed,
-            need_renaming=need_renaming,
             cannot_process=cannot_process,
             conflicts=conflicts,
             files_by_year=dict(files_by_year),

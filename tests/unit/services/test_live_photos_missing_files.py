@@ -15,7 +15,6 @@ class TestLivePhotosMissingFiles:
         # We purposely do NOT create the file to simulate it being missing
         
         analysis = LivePhotoCleanupAnalysisResult(
-            live_photos_found=1,
             files_to_delete=[{
                 'path': video_path,
                 'size': 1000,
@@ -49,7 +48,6 @@ class TestLivePhotosMissingFiles:
         video_path = temp_dir / 'missing.MOV'
         
         analysis = LivePhotoCleanupAnalysisResult(
-            live_photos_found=1,
             files_to_delete=[{
                 'path': video_path,
                 'size': 1000,

@@ -290,12 +290,12 @@ class LivePhotoCleanupDialog(BaseDialog):
         
         cleanup_analysis = LivePhotoCleanupAnalysisResult(
             total_files=len(groups) * 2,
-            live_photos_found=len(groups),
             files_to_delete=files_to_delete,
             files_to_keep=files_to_keep,
             space_to_free=space_to_free,
             total_space=total_space,
-            cleanup_mode=self.selected_mode.value
+            cleanup_mode=self.selected_mode.value,
+            groups=groups  # Necesario para que live_photos_found se calcule correctamente
         )
         
         # Pasar dataclass + parámetros por separado

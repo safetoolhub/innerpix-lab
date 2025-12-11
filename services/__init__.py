@@ -47,9 +47,14 @@ from .view_models import (
 # Tipos de resultado
 from .result_types import (
     # Base
-    OperationResult,
+    BaseResult,
     AnalysisResult,
     DeletionResult,
+    # Mixins
+    BackupMixin,
+    DryRunMixin,
+    DryRunStatsMixin,
+    FileListMixin,
     # Renaming
     RenameDeletionResult,
     RenameAnalysisResult,
@@ -100,9 +105,14 @@ __all__ = [
     # Orquestador results
     'FullAnalysisResult',
     # Tipos de resultado base
-    'OperationResult',
+    'BaseResult',
     'AnalysisResult',
     'DeletionResult',
+    # Mixins
+    'BackupMixin',
+    'DryRunMixin',
+    'DryRunStatsMixin',
+    'FileListMixin',
     'RenameDeletionResult',
     'RenameAnalysisResult',
     'OrganizationDeletionResult',

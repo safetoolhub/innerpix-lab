@@ -58,7 +58,6 @@ class ZeroByteService:
             
         return ZeroByteAnalysisResult(
             total_files=processed,
-            zero_byte_files_found=len(zero_byte_files),
             files=zero_byte_files
         )
 

@@ -58,7 +58,6 @@ class TestLivePhotoDialogCounts:
         
         return LivePhotoCleanupAnalysisResult(
             total_files=len(groups) * 2,  # 6 archivos totales
-            live_photos_found=len(groups),  # 3 grupos
             files_to_delete=[],  # Se llena en el diálogo según el modo
             files_to_keep=[],
             space_to_free=0,

@@ -281,7 +281,6 @@ class LivePhotoService(BaseService):
         if live_photos is None:
             return LivePhotoCleanupAnalysisResult(
                 total_files=0,
-                live_photos_found=0,
                 files_to_delete=[],
                 files_to_keep=[],
                 space_to_free=0,
@@ -294,7 +293,6 @@ class LivePhotoService(BaseService):
             self.logger.info("No se encontraron Live Photos")
             return LivePhotoCleanupAnalysisResult(
                 total_files=0,
-                live_photos_found=0,
                 files_to_delete=[],
                 files_to_keep=[],
                 space_to_free=0,
@@ -312,7 +310,6 @@ class LivePhotoService(BaseService):
 
         result = LivePhotoCleanupAnalysisResult(
             total_files=len(live_photos) * 2,
-            live_photos_found=len(live_photos),
             files_to_delete=cleanup_plan['files_to_delete'],
             files_to_keep=cleanup_plan['files_to_keep'],
             space_to_free=space_to_free,
