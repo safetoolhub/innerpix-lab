@@ -621,27 +621,8 @@ class DuplicatesSimilarService(DuplicatesBaseService):
         errors = 0
         timeouts = 0
         
-        # Obtener override del usuario si existe
-        from utils.settings_manager import settings_manager
-        user_override = settings_manager.get_max_workers(0)
-        
-        # Usar workers CPU-bound para análisis de imágenes (operación intensiva)
-        max_workers = Config.get_actual_worker_threads(
-            override=user_override,
-            io_bound=False  # Análisis de imágenes es CPU-bound
-        )
-        
-        if user_override > 0:
-            self.logger.info(
-                f"Usando {max_workers} threads (override manual del usuario)"
-            )
-        else:
-            self.logger.info(
-                f"Usando {max_workers} threads para procesamiento paralelo "
-                f"(CPU-bound: análisis de imágenes, automático)"
-            )
-        
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Usar método centralizado para procesamiento paralelo CPU-bound
+        with self._parallel_processor(io_bound=False) as executor:
             # Crear futures para imágenes
             future_to_file = {}
             for file_path in image_files:
@@ -731,7 +712,7 @@ class DuplicatesSimilarService(DuplicatesBaseService):
             f"📊 Estadísticas de procesamiento paralelo:"
         )
         self.logger.info(
-            f"   • Threads utilizados: {max_workers}"
+            f"   • Threads utilizados: {self._get_max_workers(io_bound=False)}"
         )
         self.logger.info(
             f"   • Tasa de éxito: {success_rate:.1f}%"

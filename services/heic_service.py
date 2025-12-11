@@ -321,6 +321,46 @@ class HeicService(BaseService):
                 dry_run=dry_run
             )
         
+        # Determinar archivos a eliminar
+        if keep_format.lower() == 'jpg':
+            files_to_delete = [pair.heic_path for pair in duplicate_pairs]
+        else:
+            files_to_delete = [pair.jpg_path for pair in duplicate_pairs]
+        
+        # Usar template method _execute_operation de BaseService
+        return self._execute_operation(
+            files=files_to_delete,
+            operation_name='heic_removal',
+            execute_fn=lambda dry: self._do_heic_cleanup(
+                duplicate_pairs, 
+                keep_format, 
+                dry, 
+                progress_callback
+            ),
+            create_backup=create_backup,
+            dry_run=dry_run,
+            progress_callback=progress_callback
+        )
+    
+    def _do_heic_cleanup(
+        self,
+        duplicate_pairs: List[DuplicatePair],
+        keep_format: str,
+        dry_run: bool,
+        progress_callback: Optional[ProgressCallback]
+    ) -> HeicDeletionResult:
+        """
+        Lógica real de eliminación de duplicados HEIC/JPG.
+        
+        Args:
+            duplicate_pairs: Pares a procesar
+            keep_format: Formato a mantener ('jpg' o 'heic')
+            dry_run: Si es simulación
+            progress_callback: Callback de progreso
+            
+        Returns:
+            HeicDeletionResult con resultados de la operación
+        """
         mode = "SIMULACIÓN" if dry_run else ""
         log_section_header_relevant(self.logger, "ELIMINACIÓN DE DUPLICADOS HEIC/JPG", mode=mode)
         self.logger.info(f"*** Pares a procesar: {len(duplicate_pairs)}")
@@ -329,45 +369,16 @@ class HeicService(BaseService):
         results = HeicDeletionResult(success=True, format_kept=keep_format, dry_run=dry_run)
         
         try:
-            # Determinar archivos a eliminar
-            if keep_format.lower() == 'jpg':
-                files_to_delete = [pair.heic_path for pair in duplicate_pairs]
-            else:
-                files_to_delete = [pair.jpg_path for pair in duplicate_pairs]
-            
-            # Crear backup usando método centralizado
-            if create_backup and files_to_delete and not dry_run:
-                try:
-                    backup_path = self._create_backup_for_operation(
-                        files_to_delete,
-                        'heic_removal'
-                    )
-                    if backup_path:
-                        results.backup_path = str(backup_path)
-                        self.logger.info(f"Backup creado exitosamente: {backup_path}")
-                    else:
-                        # Si no se pudo crear backup, no continuar con la operación
-                        error_msg = "No se pudo crear el backup. Operación cancelada por seguridad."
-                        self.logger.error(error_msg)
-                        results.success = False
-                        results.add_error(error_msg)
-                        results.message = error_msg
-                        return results
-                except BackupCreationError as e:
-                    error_msg = f"Error creando backup: {e}"
-                    self.logger.error(error_msg)
-                    results.success = False
-                    results.add_error(error_msg)
-                    results.message = error_msg
-                    return results
-            
             # Procesar cada par
             total_pairs = len(duplicate_pairs)
             for idx, pair in enumerate(duplicate_pairs):
-                # Reportar progreso con formato de dos líneas
-                action = "[Simulación] Procesaría" if dry_run else "Procesando"
-                progress_msg = f"{action} par\n{idx + 1}/{total_pairs}"
-                if not self._report_progress(progress_callback, idx + 1, total_pairs, progress_msg):
+                # Usar _report_progress de BaseService
+                if not self._report_progress(
+                    progress_callback,
+                    idx + 1,
+                    total_pairs,
+                    f"{'[Simulación] Procesaría' if dry_run else 'Procesando'} par\n{idx + 1}/{total_pairs}"
+                ):
                     break
 
                 file_to_delete = pair.heic_path if keep_format.lower() == 'jpg' else pair.jpg_path

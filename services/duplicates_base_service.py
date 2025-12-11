@@ -12,7 +12,6 @@ from typing import List, Callable, Optional
 from dataclasses import dataclass, field
 from services.base_service import BaseService
 from services.result_types import DuplicateGroup, DuplicateDeletionResult
-from utils.callback_utils import safe_progress_callback
 from utils.logger import log_section_header_relevant, log_section_footer_relevant
 
 
@@ -431,15 +430,17 @@ class DuplicatesBaseService(BaseService):
                 
                 processed += 1
                 
-                # Reportar progreso (formato de dos líneas para evitar movimiento con texto centrado)
+                # Reportar progreso usando método de BaseService
                 action = "[Simulación] Eliminaría" if dry_run else "Eliminado"
                 progress_msg = f"{action}\n{file_path.name}"
-                safe_progress_callback(
+                if not self._report_progress(
                     progress_callback,
                     processed_count + processed,
                     total_count,
                     progress_msg
-                )
+                ):
+                    # Cancelación detectada
+                    break
                 
             except FileNotFoundError:
                 # Archivo ya no existe, por causa desconocida

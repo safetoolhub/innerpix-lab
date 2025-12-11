@@ -2,28 +2,25 @@
 Servicio para detectar y eliminar archivos de 0 bytes.
 """
 from pathlib import Path
-from typing import List, Optional, Callable
-import os
+from typing import List, Optional
 
+from services.base_service import BaseService, ProgressCallback
 from services.result_types import ZeroByteAnalysisResult, ZeroByteDeletionResult
-from utils.logger import (
-    get_logger,
-    log_section_header_relevant,
-    log_section_footer_relevant
-)
-from utils.file_utils import delete_file_securely, create_backup_for_file
+from utils.logger import log_section_header_relevant, log_section_footer_relevant
+from utils.file_utils import delete_file_securely
 
-class ZeroByteService:
+
+class ZeroByteService(BaseService):
     """
     Servicio para gestionar archivos de 0 bytes.
     """
     
     def __init__(self):
-        self.logger = get_logger('ZeroByteService')
+        super().__init__('ZeroByteService')
 
     def analyze(self, 
                 directory: Path, 
-                progress_callback: Optional[Callable[[int, int, str], bool]] = None) -> ZeroByteAnalysisResult:
+                progress_callback: Optional[ProgressCallback] = None) -> ZeroByteAnalysisResult:
         """
         Busca archivos de 0 bytes en el directorio.
         
@@ -34,6 +31,9 @@ class ZeroByteService:
         Returns:
             ZeroByteAnalysisResult con los archivos encontrados
         """
+        # Validar directorio usando método de BaseService
+        self._validate_directory(directory)
+        
         self.logger.info(f"Buscando archivos de 0 bytes en: {directory}")
         
         zero_byte_files = []
@@ -43,18 +43,29 @@ class ZeroByteService:
         for file_path in directory.rglob("*"):
             if not file_path.is_file():
                 continue
-                
-            if progress_callback and processed % 100 == 0:
-                if not progress_callback(processed, -1, "Buscando archivos vacíos..."):
+            
+            # Usar _report_progress de BaseService
+            if self._should_report_progress(processed):
+                if not self._report_progress(
+                    progress_callback, 
+                    processed, 
+                    -1, 
+                    "Buscando archivos vacíos..."
+                ):
                     break
             
             if file_path.stat().st_size == 0:
                 zero_byte_files.append(file_path)
             
             processed += 1
-            
-        if progress_callback:
-            progress_callback(processed, processed, "Búsqueda completada")
+        
+        # Reporte final
+        self._report_progress(
+            progress_callback, 
+            processed, 
+            processed, 
+            "Búsqueda completada"
+        )
             
         return ZeroByteAnalysisResult(
             total_files=processed,
@@ -65,7 +76,7 @@ class ZeroByteService:
                 files_to_delete: List[Path],
                 create_backup: bool = True,
                 dry_run: bool = False,
-                progress_callback: Optional[Callable[[int, int, str], bool]] = None) -> ZeroByteDeletionResult:
+                progress_callback: Optional[ProgressCallback] = None) -> ZeroByteDeletionResult:
         """
         Elimina los archivos especificados.
         
@@ -78,6 +89,37 @@ class ZeroByteService:
         Returns:
             ZeroByteDeletionResult
         """
+        # Usar template method _execute_operation de BaseService
+        return self._execute_operation(
+            files=files_to_delete,
+            operation_name='zero_byte_deletion',
+            execute_fn=lambda dry: self._do_zero_byte_deletion(
+                files_to_delete, 
+                dry, 
+                progress_callback
+            ),
+            create_backup=create_backup,
+            dry_run=dry_run,
+            progress_callback=progress_callback
+        )
+    
+    def _do_zero_byte_deletion(
+        self,
+        files_to_delete: List[Path],
+        dry_run: bool,
+        progress_callback: Optional[ProgressCallback]
+    ) -> ZeroByteDeletionResult:
+        """
+        Lógica real de eliminación de archivos de 0 bytes.
+        
+        Args:
+            files_to_delete: Archivos a eliminar
+            dry_run: Si es simulación
+            progress_callback: Callback de progreso
+            
+        Returns:
+            ZeroByteDeletionResult con resultados de la operación
+        """
         result = ZeroByteDeletionResult(dry_run=dry_run)
         total = len(files_to_delete)
         
@@ -86,11 +128,14 @@ class ZeroByteService:
         self.logger.info(f"*** Archivos a procesar: {total}")
         
         for i, file_path in enumerate(files_to_delete):
-            if progress_callback:
-                action = "[Simulación] Eliminaría" if dry_run else "Eliminando"
-                progress_msg = f"{action}\n{file_path.name}"
-                if not progress_callback(i, total, progress_msg):
-                    break
+            # Usar _report_progress de BaseService
+            if not self._report_progress(
+                progress_callback,
+                i,
+                total,
+                f"{'[Simulación] Eliminaría' if dry_run else 'Eliminando'}\n{file_path.name}"
+            ):
+                break
             
             try:
                 # Obtener extensión del archivo para el tipo
@@ -105,50 +150,46 @@ class ZeroByteService:
                 except Exception:
                     file_date_str = 'unknown'
                 
+                # Formato de log estandarizado
+                log_type = "FILE_DELETED_SIMULATION" if dry_run else "FILE_DELETED"
+                log_msg = (
+                    f"{log_type}: {file_path} | Size: 0 B | "
+                    f"Type: {file_type} | Date: {file_date_str}"
+                )
+                
                 if dry_run:
                     result.simulated_files_deleted += 1
                     result.deleted_files.append(str(file_path))
-                    
-                    self.logger.info(
-                        f"FILE_DELETED_SIMULATION: {file_path} | Size: 0 B | "
-                        f"Type: {file_type} | Date: {file_date_str}"
-                    )
+                    self.logger.info(log_msg)
                 else:
-                    # Aunque sean 0 bytes, respetamos la opción de backup si el usuario la pide
-                    # (aunque un backup de un archivo de 0 bytes es otro archivo de 0 bytes)
-                    if create_backup:
-                        # Solo hacer backup si el archivo existe (podría haber sido borrado externamente)
-                        if file_path.exists():
-                            backup_path = create_backup_for_file(file_path)
-                            if not result.backup_path and backup_path:
-                                # Guardar la ruta del directorio de backup (padre del archivo backup)
-                                result.backup_path = str(Path(backup_path).parent)
-                    
                     if delete_file_securely(file_path):
                         result.files_deleted += 1
                         result.deleted_files.append(str(file_path))
-                        
-                        self.logger.info(
-                            f"FILE_DELETED: {file_path} | Size: 0 B | "
-                            f"Type: {file_type} | Date: {file_date_str}"
-                        )
+                        self.logger.info(log_msg)
                     else:
                         result.add_error(f"No se pudo eliminar: {file_path}")
                         
             except Exception as e:
                 result.add_error(f"Error procesando {file_path}: {e}")
         
-        if dry_run:
-            result.message = f"Simulación completada. Se eliminarían {result.simulated_files_deleted} archivos."
-            summary = f"Simulación completada: {result.simulated_files_deleted} archivos se eliminarían"
-        else:
-            result.message = f"Se eliminaron {result.files_deleted} archivos correctamente."
-            summary = f"Operación completada: {result.files_deleted} archivos eliminados"
+        # Usar _format_operation_summary de BaseService
+        summary = self._format_operation_summary(
+            "Eliminación de archivos vacíos",
+            result.simulated_files_deleted if dry_run else result.files_deleted,
+            space_amount=0,  # Son archivos de 0 bytes
+            dry_run=dry_run
+        )
         
+        result.message = summary
         log_section_footer_relevant(self.logger, summary)
         
-        if progress_callback:
-            progress_callback(total, total, "Operación completada")
+        # Reporte final
+        self._report_progress(
+            progress_callback,
+            total,
+            total,
+            "Operación completada"
+        )
             
         return result
 

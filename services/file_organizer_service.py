@@ -15,7 +15,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from config import Config
 from utils.logger import get_logger, log_section_header_relevant, log_section_footer_relevant, log_section_header_discrete, log_section_footer_discrete
-from utils.settings_manager import settings_manager
 from utils.date_utils import parse_renamed_name, get_date_from_file
 from utils.file_utils import is_whatsapp_file, detect_file_source
 from services.result_types import OrganizationDeletionResult, OrganizationAnalysisResult
@@ -106,11 +105,6 @@ class FileOrganizer(BaseService):
         move_plan = []
         folders_to_create = []
 
-        # Obtener max_workers de la configuración
-        user_override = settings_manager.get_max_workers(0)
-        max_workers = Config.get_actual_worker_threads(override=user_override, io_bound=True)
-        self.logger.debug(f"Usando {max_workers} workers para análisis paralelo")
-
         # OPTIMIZACIÓN: No contar archivos previamente (puede tardar minutos)
         # Procesamos en streaming y reportamos progreso incremental
         total_files = 0  # Se irá actualizando
@@ -142,7 +136,7 @@ class FileOrganizer(BaseService):
         # Procesar archivos de raíz en paralelo si es necesario
         cancelled = False
         if organization_type in (OrganizationType.BY_MONTH, OrganizationType.BY_YEAR, OrganizationType.BY_YEAR_MONTH, OrganizationType.BY_TYPE, OrganizationType.BY_SOURCE) and root_files_list:
-            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            with self._parallel_processor(io_bound=True) as executor:
                 futures = {executor.submit(get_file_info, f): f for f in root_files_list}
                 for future in as_completed(futures):
                     file_path = futures[future]
@@ -213,7 +207,7 @@ class FileOrganizer(BaseService):
         
         # Procesar archivos en subdirectorios en paralelo
         if all_files_in_subdirs:
-            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            with self._parallel_processor(io_bound=True) as executor:
                 futures = {executor.submit(get_file_info, f): f for f in all_files_in_subdirs}
                 
                 for future in as_completed(futures):

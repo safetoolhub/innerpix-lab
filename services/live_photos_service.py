@@ -363,6 +363,43 @@ class LivePhotoService(BaseService):
                 message='No hay archivos para eliminar'
             )
 
+        # Extraer rutas para el backup
+        files_for_backup = [item['path'] for item in files_to_delete]
+        
+        # Usar template method _execute_operation de BaseService
+        return self._execute_operation(
+            files=files_for_backup,
+            operation_name='livephoto_cleanup',
+            execute_fn=lambda dry: self._do_live_photo_cleanup(
+                files_to_delete, 
+                analysis, 
+                dry, 
+                progress_callback
+            ),
+            create_backup=create_backup,
+            dry_run=dry_run,
+            progress_callback=progress_callback
+        )
+    
+    def _do_live_photo_cleanup(
+        self,
+        files_to_delete: List[dict],
+        analysis: LivePhotoCleanupAnalysisResult,
+        dry_run: bool,
+        progress_callback: Optional[Callable[[int, int, str], bool]]
+    ) -> LivePhotoCleanupDeletionResult:
+        """
+        Lógica real de eliminación de Live Photos.
+        
+        Args:
+            files_to_delete: Lista de archivos a eliminar
+            analysis: Análisis completo con metadata
+            dry_run: Si es simulación
+            progress_callback: Callback de progreso
+            
+        Returns:
+            LivePhotoCleanupDeletionResult con resultados de la operación
+        """
         mode_label = "SIMULACIÓN" if dry_run else ""
         log_section_header_relevant(
             self.logger,
@@ -374,54 +411,19 @@ class LivePhotoService(BaseService):
         results = LivePhotoCleanupDeletionResult(success=True, dry_run=dry_run)
 
         try:
-            # Crear backup usando método centralizado (solo si no es simulación)
-            if create_backup and not dry_run:
-                try:
-                    # Extraer rutas de archivos del análisis
-                    files_for_backup = [item['path'] for item in files_to_delete]
-                    
-                    backup_path = self._create_backup_for_operation(
-                        files_for_backup,
-                        'livephoto_cleanup',
-                        progress_callback
-                    )
-                    if backup_path:
-                        results.backup_path = str(backup_path)
-                        self.logger.info(f"Backup creado exitosamente: {backup_path}")
-                    else:
-                        # Si no se pudo crear backup, no continuar con la operación
-                        error_msg = "No se pudo crear el backup. Operación cancelada por seguridad."
-                        self.logger.error(error_msg)
-                        results.success = False
-                        results.add_error(error_msg)
-                        results.message = error_msg
-                        return results
-                except BackupCreationError as e:
-                    error_msg = f"Error creando backup: {e}"
-                    self.logger.error(error_msg)
-                    results.success = False
-                    results.add_error(error_msg)
-                    results.message = error_msg
-                    return results
-
             # Ejecutar eliminaciones
             total = len(files_to_delete)
             
             for idx, file_info in enumerate(files_to_delete):
-                # Reportar progreso al callback (UI) con formato de dos líneas
-                if progress_callback and (idx + 1) % Config.UI_UPDATE_INTERVAL == 0:
-                    action = "[Simulación] Eliminaría" if dry_run else "Eliminando"
-                    file_name = Path(file_info['path']).name
-                    progress_msg = f"{action}\n{file_name}"
-                    if not progress_callback(idx + 1, total, progress_msg):
-                        self.logger.info("Limpieza cancelada por el usuario")
-                        break
-                
-                    # Log de progreso: según intervalo configurado en INFO, más detallado en DEBUG
-                if (idx + 1) % Config.LOG_PROGRESS_INTERVAL == 0:
-                    self.logger.info(f"Procesados {idx + 1}/{total} archivos en limpieza de Live Photos")
-                elif (idx + 1) % Config.UI_UPDATE_INTERVAL == 0:
-                    self.logger.debug(f"Procesados {idx + 1}/{total} archivos en limpieza de Live Photos")
+                # Usar _report_progress de BaseService
+                if not self._report_progress(
+                    progress_callback,
+                    idx + 1,
+                    total,
+                    f"{'[Simulación] Eliminaría' if dry_run else 'Eliminando'}\n{Path(file_info['path']).name}"
+                ):
+                    self.logger.info("Limpieza cancelada por el usuario")
+                    break
 
                 file_path = file_info['path']
                 file_size = file_info['size']

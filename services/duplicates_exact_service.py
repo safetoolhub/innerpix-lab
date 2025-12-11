@@ -165,27 +165,8 @@ class DuplicatesExactService(DuplicatesBaseService):
             
             return file_hash
         
-        # Obtener override del usuario si existe
-        from utils.settings_manager import settings_manager
-        user_override = settings_manager.get_max_workers(0)
-        
-        # Usar workers I/O-bound para lectura de archivos y cálculo de hashes
-        max_workers = Config.get_actual_worker_threads(
-            override=user_override,
-            io_bound=True  # Lectura y hashing es I/O-bound
-        )
-        
-        if user_override > 0:
-            self.logger.debug(
-                f"Usando {max_workers} threads (override manual del usuario)"
-            )
-        else:
-            self.logger.debug(
-                f"Usando {max_workers} threads para cálculo de hashes "
-                f"(I/O-bound, automático)"
-            )
-        
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Calcular hash en paralelo usando método centralizado
+        with self._parallel_processor(io_bound=True) as executor:
             future_to_file = {
                 executor.submit(get_file_hash, file_path): file_path
                 for file_path in files
