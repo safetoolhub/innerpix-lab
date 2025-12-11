@@ -45,10 +45,6 @@ from .format_utils import (
     format_file_count,
     format_percentage,
     truncate_path,
-    format_count_short,
-    format_size_short,
-    format_count_full,
-    format_size_full
 )
 from .platform_utils import (
     open_file_with_default_app,
@@ -56,11 +52,9 @@ from .platform_utils import (
     is_linux,
     is_macos,
     is_windows,
-    get_default_file_manager
 )
 from .callback_utils import (
     safe_progress_callback,
-    create_safe_callback
 )
 from .icons import (
     IconManager,
@@ -118,10 +112,6 @@ __all__ = [
     'format_file_count',
     'format_percentage',
     'truncate_path',
-    'format_count_short',
-    'format_size_short',
-    'format_count_full',
-    'format_size_full',
 
     # Platform utilities
     'open_file_with_default_app',
@@ -129,11 +119,9 @@ __all__ = [
     'is_linux',
     'is_macos',
     'is_windows',
-    'get_default_file_manager',
 
     # Callback utilities
     'safe_progress_callback',
-    'create_safe_callback',
 
     # Icon utilities
     'IconManager',

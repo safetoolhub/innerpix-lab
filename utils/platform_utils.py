@@ -211,34 +211,3 @@ def is_windows() -> bool:
     return platform.system() == 'Windows'
 
 
-def get_default_file_manager() -> Optional[str]:
-    """
-    Intenta detectar el gestor de archivos predeterminado del sistema.
-    
-    Returns:
-        Nombre del gestor de archivos o None si no se puede detectar
-    """
-    system = platform.system()
-    
-    if system == 'Linux':
-        # Intentar detectar el file manager en Linux
-        managers = ['nautilus', 'dolphin', 'thunar', 'pcmanfm', 'nemo', 'caja']
-        for manager in managers:
-            try:
-                result = subprocess.run(['which', manager], 
-                                      capture_output=True, 
-                                      text=True,
-                                      timeout=1)
-                if result.returncode == 0:
-                    return manager
-            except (subprocess.TimeoutExpired, FileNotFoundError):
-                continue
-        return 'xdg-open'  # Fallback
-        
-    elif system == 'Darwin':
-        return 'Finder'
-        
-    elif system == 'Windows':
-        return 'explorer'
-        
-    return None

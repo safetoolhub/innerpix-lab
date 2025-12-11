@@ -132,21 +132,3 @@ def get_video_thumbnail(video_path: Path, max_size: tuple = (280, 280), frame_po
         return None
 
 
-def clear_video_cache():
-    """
-    Limpia el caché de thumbnails de video.
-    
-    Útil para liberar memoria cuando sea necesario.
-    """
-    _extract_video_frame_cached.cache_clear()
-    logger.debug("Caché de video thumbnails limpiado")
-
-
-def get_cache_info():
-    """
-    Obtiene información sobre el estado del caché de video thumbnails.
-    
-    Returns:
-        CacheInfo con hits, misses, maxsize, currsize
-    """
-    return _extract_video_frame_cached.cache_info()

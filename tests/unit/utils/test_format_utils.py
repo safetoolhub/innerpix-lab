@@ -8,10 +8,6 @@ from utils.format_utils import (
     format_file_count,
     format_percentage,
     truncate_path,
-    format_count_short,
-    format_size_short,
-    format_count_full,
-    format_size_full
 )
 
 
@@ -151,68 +147,3 @@ class TestTruncatePath:
         assert truncate_path(path, 39) == path
 
 
-@pytest.mark.unit
-class TestFormatCountShort:
-    """Tests para format_count_short()"""
-    
-    def test_small_numbers(self):
-        assert format_count_short(0) == "0"
-        assert format_count_short(500) == "500"
-        assert format_count_short(999) == "999"
-    
-    def test_thousands(self):
-        assert format_count_short(1000) == "1.0K"
-        assert format_count_short(1500) == "1.5K"
-        assert format_count_short(9999) == "10.0K"
-    
-    def test_large_thousands(self):
-        assert format_count_short(10000) == "10K"
-        assert format_count_short(50000) == "50K"
-
-
-@pytest.mark.unit
-class TestFormatSizeShort:
-    """Tests para format_size_short()"""
-    
-    def test_bytes(self):
-        assert format_size_short(0) == "0B"
-        assert format_size_short(500) == "500B"
-        assert format_size_short(1023) == "1023B"
-    
-    def test_kilobytes(self):
-        assert format_size_short(1024) == "1KB"
-        assert format_size_short(1536) == "2KB"  # Rounded
-    
-    def test_megabytes(self):
-        assert format_size_short(1048576) == "1.0MB"
-        assert format_size_short(5242880) == "5.0MB"
-    
-    def test_gigabytes(self):
-        assert format_size_short(1073741824) == "1.00GB"
-
-
-@pytest.mark.unit
-class TestFormatCountFull:
-    """Tests para format_count_full()"""
-    
-    def test_thousands_separator(self):
-        assert format_count_full(1000) == "1,000"
-        assert format_count_full(1234567) == "1,234,567"
-
-
-@pytest.mark.unit
-class TestFormatSizeFull:
-    """Tests para format_size_full()"""
-    
-    def test_bytes(self):
-        assert format_size_full(500) == "500 B"
-    
-    def test_kilobytes(self):
-        assert format_size_full(1024) == "1.0 KB"
-        assert format_size_full(1536) == "1.5 KB"
-    
-    def test_megabytes(self):
-        assert format_size_full(1048576) == "1.0 MB"
-    
-    def test_gigabytes(self):
-        assert format_size_full(1073741824) == "1.00 GB"
