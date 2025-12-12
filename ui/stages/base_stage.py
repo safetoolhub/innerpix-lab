@@ -156,7 +156,7 @@ class BaseStage(QObject):
         análisis significa que puede haber cambios en los archivos.
 
         Args:
-            results: Resultados del análisis a guardar (FullAnalysisResult o dict)
+            results: Resultados del análisis a guardar (objeto o dict)
         """
         try:
             # Invalidar caché anterior antes de guardar nuevos resultados

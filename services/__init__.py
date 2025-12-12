@@ -21,7 +21,7 @@ from .duplicates_exact_service import DuplicatesExactService
 from .duplicates_similar_service import DuplicatesSimilarService, DuplicatesSimilarAnalysis
 
 # Orquestador
-from .analysis_orchestrator import AnalysisOrchestrator, FullAnalysisResult
+from .analysis_orchestrator import AnalysisOrchestrator
 
 # Servicios base
 from .base_service import BaseService, BackupCreationError, ProgressCallback
@@ -98,7 +98,6 @@ __all__ = [
     # Utilidades de file_utils
     # (none currently)
     # Orquestador results
-    'FullAnalysisResult',
     # Tipos de resultado base
     'BaseResult',
     'AnalysisResult',

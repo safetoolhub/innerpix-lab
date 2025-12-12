@@ -1,19 +1,23 @@
 """
-Analysis Workers for Stage 2 (Scan) and Stage 3 (On-Demand Analysis).
+Worker threads para análisis y operaciones de larga duración.
+Permite ejecutar tareas en background sin bloquear la UI.
 """
-import time
+
+from PyQt6.QtCore import QThread, pyqtSignal
 from pathlib import Path
+import time
 from typing import Optional, Any
-from PyQt6.QtCore import pyqtSignal
 
 from config import Config
 from .base_worker import BaseWorker
+from services.result_types import ScanSnapshot
+
 
 class AnalysisWorker(BaseWorker):
     """
     Worker for Stage 2: Initial Directory Scan ONLY.
+    Emits simple object with scan result and directory.
     """
-    # Sobrescribir finished con tipo específico (FullAnalysisResult)
     finished = pyqtSignal(object)
     
     phase_update = pyqtSignal(str)  # phase_id
@@ -58,9 +62,7 @@ class AnalysisWorker(BaseWorker):
             # Importar dependencias aquí (evita imports circulares)
             from services.analysis_orchestrator import AnalysisOrchestrator
             from utils.settings_manager import settings_manager
-            from services.result_types import FullAnalysisResult
-            
-            orchestrator = AnalysisOrchestrator()
+            from services.directory_scanner import DirectoryScanner
             
             # Leer configuración
             precalculate_hashes = settings_manager.get_precalculate_hashes()
@@ -68,19 +70,19 @@ class AnalysisWorker(BaseWorker):
             # Ejecutar SOLO escaneo (Fase 1)
             self._handle_phase_start("scan")
             
-            # 1. Escanear directorio
-            scan_result = orchestrator.scan_directory(
+            # 1. Escanear directorio directamente
+            scanner = DirectoryScanner()
+            scan_result = scanner.scan(
                 directory=self.directory,
                 progress_callback=self._create_progress_callback(emit_numbers=True),
                 create_metadata_cache=True,
                 precalculate_hashes=precalculate_hashes
             )
             
-            # 2. Envolver en FullAnalysisResult para compatibilidad con UI
-            result = FullAnalysisResult(
+            # 2. Crear snapshot simple con scan result y directory
+            result = ScanSnapshot(
                 directory=self.directory,
                 scan=scan_result
-                # Las demás fases se quedan en None
             )
             
             # Emitir estadísticas del scan

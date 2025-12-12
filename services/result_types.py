@@ -290,17 +290,9 @@ class PhaseTimingInfo:
 
 
 @dataclass
-class FullAnalysisResult:
-    """Resultado completo de análisis de directorio - 100% tipado"""
+class ScanSnapshot:
+    """Simple snapshot of scan results for Stage 2 → Stage 3 transition."""
     directory: Path
     scan: DirectoryScanResult
-    phase_timings: Dict[str, PhaseTimingInfo] = field(default_factory=dict)
-    
-    # Todos los resultados tipados con sus dataclasses específicos
-    renaming: Optional['RenameAnalysisResult'] = None 
-    live_photos: Optional['LivePhotoDetectionResult'] = None
-    organization: Optional['OrganizationAnalysisResult'] = None
-    heic: Optional['HeicAnalysisResult'] = None
-    duplicates: Optional['DuplicateAnalysisResult'] = None
-    zero_byte: Optional['ZeroByteAnalysisResult'] = None
-    total_duration: float = 0.0
+
+

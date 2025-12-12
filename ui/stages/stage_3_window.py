@@ -222,36 +222,34 @@ class Stage3Window(BaseStage):
 
     def _calculate_recoverable_space(self) -> int:
         """
-        Calcula el espacio total recuperable de todos los análisis
-
+        Calcula el espacio total recuperable de todas las herramientas.
+        
         Returns:
-            Espacio en bytes
+            Bytes totales recuperables (0 si no hay análisis disponibles)
         """
-        if not self.analysis_results:
-            return 0
-
         total = 0
-
+        
+        # Ahora los análisis se hacen bajo demanda, así que solo sumamos si existen
         # Live Photos
-        if self.analysis_results.live_photos:
-            live_photo_data = self.analysis_results.live_photos
-            if live_photo_data.items_count > 0:
-                total += live_photo_data.space_to_free
-
-        # HEIC/JPG pairs
-        if self.analysis_results.heic:
-            heic_data = self.analysis_results.heic
-            if heic_data.potential_savings_keep_jpg > 0 or heic_data.potential_savings_keep_heic > 0:
-                # Usar el máximo potencial de ahorro
-                total += max(heic_data.potential_savings_keep_jpg, heic_data.potential_savings_keep_heic)
-
+        if hasattr(self.analysis_results, 'live_photos') and self.analysis_results.live_photos:
+            total += self.analysis_results.live_photos.space_to_free
+        
+        # HEIC/JPG
+        if hasattr(self.analysis_results, 'heic') and self.analysis_results.heic:
+            # Usar el mayor ahorro entre mantener JPG o mantener HEIC
+            savings_jpg = getattr(self.analysis_results.heic, 'potential_savings_keep_jpg', 0) or 0
+            savings_heic = getattr(self.analysis_results.heic, 'potential_savings_keep_heic', 0) or 0
+            total += max(savings_jpg, savings_heic)
+        
         # Duplicados exactos
-        if self.analysis_results.duplicates:
-            dup_data = self.analysis_results.duplicates
-            if dup_data.space_wasted > 0:
-                total += dup_data.space_wasted
-
-        return int(total)
+        if hasattr(self.analysis_results, 'duplicates') and self.analysis_results.duplicates:
+            total += self.analysis_results.duplicates.space_wasted or 0
+        
+        # Archivos de 0 bytes
+        if hasattr(self.analysis_results, 'zero_byte') and self.analysis_results.zero_byte:
+            total += self.analysis_results.zero_byte.total_size or 0
+        
+        return total
 
     def _create_tools_grid(self):
         """Crea el grid 2x4 con las 7 herramientas"""
@@ -274,33 +272,30 @@ class Stage3Window(BaseStage):
         grid_layout.setSpacing(10)  # Reducido para optimizar espacio vertical
         grid_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Obtener datos de análisis (todos dataclasses tipados)
-        live_photo_data = self.analysis_results.live_photos
-        heic_data = self.analysis_results.heic
-        dup_data = self.analysis_results.duplicates
-
+        # Nota: Los análisis se hacen bajo demanda, así que todas las cards empiezan sin datos
+        
         # Fila 0: Archivos Vacíos + HEIC/JPG
         zero_byte_card = self._create_zero_byte_card()
         grid_layout.addWidget(zero_byte_card, 0, 0)
         self.tool_cards['zero_byte'] = zero_byte_card
         
-        heic_card = self._create_heic_card(heic_data)
+        heic_card = self._create_heic_card()
         grid_layout.addWidget(heic_card, 0, 1)
         self.tool_cards['heic'] = heic_card
 
         # Fila 1: Live Photos + Duplicados Exactos
-        live_photos_card = self._create_live_photos_card(live_photo_data)
+        live_photos_card = self._create_live_photos_card()
         grid_layout.addWidget(live_photos_card, 1, 0)
         self.tool_cards['live_photos'] = live_photos_card
 
-        exact_dup_card = self._create_exact_duplicates_card(dup_data)
+        exact_dup_card = self._create_exact_duplicates_card()
         grid_layout.addWidget(exact_dup_card, 1, 1)
         self.tool_cards['exact_copies'] = exact_dup_card
 
         # Fila 2: Archivos Similares + (espacio vacío)
         similar_dup_card = self._create_similar_duplicates_card()
         grid_layout.addWidget(similar_dup_card, 2, 0)
-        self.tool_cards['similar_files'] = similar_dup_card
+        self.tool_cards['similar'] = similar_dup_card
 
         # Fila 3: Organizar + Renombrar (herramientas de reorganización juntas)
         organize_card = self._create_organize_card()
@@ -334,19 +329,25 @@ class Stage3Window(BaseStage):
                 scroll_widget.layout().invalidate()
                 scroll_widget.layout().activate()
 
-    def _create_live_photos_card(self, live_photo_data) -> ToolCard:
+    def _create_live_photos_card(self) -> ToolCard:
         """Crea la card de Live Photos"""
+        
+        # Verificar si hay análisis disponible
+        has_analysis = (hasattr(self.analysis_results, 'live_photos') and 
+                       self.analysis_results.live_photos is not None)
+        
         card = ToolCard(
             icon_name='camera-burst',
             title='Live Photos',
-            description='Las Live Photos de iPhone combinan imagen y vídeo corto. '
-                       'Libera espacio eliminando el componente de vídeo o foto según prefieras, '
+            description='Las Live Photos de iPhone combinan imagen y vídeo corto. '\
+                       'Libera espacio eliminando el componente de vídeo o foto según prefieras, '\
                        'mientras conservas la esencia de tus recuerdos.',
-            action_text='Gestionar ahora'
+            action_text='Gestionar ahora' if has_analysis else 'Analizar ahora'
         )
 
         # Configurar estado según datos
-        if live_photo_data:
+        if has_analysis:
+            live_photo_data = self.analysis_results.live_photos
             if live_photo_data.items_count > 0:
                 size_text = f"~{format_size(live_photo_data.space_to_free)} recuperables"
                 card.set_status_with_results(
@@ -358,67 +359,74 @@ class Stage3Window(BaseStage):
         else:
             # Estado pendiente de análisis
             card.set_status_pending("Analizar para detectar Live Photos")
-            card.set_action_text("Analizar ahora")
 
         card.clicked.connect(lambda: self._on_tool_clicked('live_photos'))
         return card
 
-    def _create_heic_card(self, heic_data) -> ToolCard:
-        """Crea la card de HEIC/JPG Duplicados"""
+    def _create_heic_card(self) -> ToolCard:
+        """Crea la card de HEIC/JPG con información del análisis (si existe)."""
+        
+        # Verificar si hay análisis disponible
+        has_analysis = (hasattr(self.analysis_results, 'heic') and 
+                       self.analysis_results.heic is not None)
+        
         card = ToolCard(
             icon_name='file-image',
             title='HEIC/JPG Duplicados',
-            description='iPhone guarda fotos en HEIC (eficiente) y crea versiones JPG para '
-                       'compatibilidad. Elimina duplicados conservando el formato que prefieras '
+            description='iPhone guarda fotos en HEIC (eficiente) y crea versiones JPG para '\
+                       'compatibilidad. Elimina duplicados conservando el formato que prefieras '\
                        'y recupera espacio valioso.',
-            action_text='Gestionar ahora'
+            action_text='Gestionar ahora' if has_analysis else 'Analizar ahora'
         )
-
-        # Configurar estado según datos
-        if heic_data:
+        
+        if has_analysis:
+            heic_data = self.analysis_results.heic
             if heic_data.items_count > 0:
-                # Calcular tamaño total (usar el potencial de ahorro)
-                savings = max(heic_data.potential_savings_keep_jpg, heic_data.potential_savings_keep_heic)
-                size_text = f"~{format_size(savings)} recuperables"
+                savings_jpg = heic_data.potential_savings_keep_jpg or 0
+                savings_heic = heic_data.potential_savings_keep_heic or 0
+                max_savings = max(savings_jpg, savings_heic)
                 card.set_status_with_results(
-                    f"{heic_data.items_count} grupos de duplicados HEIC /JPG encontrados",
-                    size_text
+                    f"{heic_data.items_count} grupos de duplicados HEIC/JPG encontrados",
+                    f"~{format_size(max_savings)} recuperables"
                 )
             else:
                 card.set_status_no_results("No se encontraron pares HEIC/JPG")
         else:
             # Estado pendiente de análisis
             card.set_status_pending("Analizar para detectar duplicados HEIC/JPG")
-            card.set_action_text("Analizar ahora")
 
         card.clicked.connect(lambda: self._on_tool_clicked('heic'))
         return card
 
-    def _create_exact_duplicates_card(self, dup_data) -> ToolCard:
-        """Crea la card de Copias exactas"""
+    def _create_exact_duplicates_card(self) -> ToolCard:
+        """Crea la card de Duplicados Exactos"""
+        
+        # Verificar si hay análisis disponible
+        has_analysis = (hasattr(self.analysis_results, 'duplicates') and 
+                       self.analysis_results.duplicates is not None)
+        
         card = ToolCard(
             icon_name='content-copy',
-            title='Copias exactas',
-            description='Encuentra archivos 100% idénticos bit a bit, incluso con nombres '
-                       'diferentes. Si las fechas o metadatos son diferentes, no se considera '
-                       'idéntico. Para duplicados con metadatos diferentes, usa "Archivos similares".',
-            action_text='Gestionar ahora'
+            title='Copias Exactas',
+            description='Detecta archivos idénticos y ayuda a eliminar copias innecesarias. '\
+                       'Mantén solo una copia y recupera espacio sin perder ningún archivo único.',
+            action_text='Gestionar ahora' if has_analysis else 'Analizar ahora'
         )
 
         # Configurar estado según datos
-        if dup_data:
-            if dup_data.items_count > 0:
-                size_text = f"~{format_size(dup_data.space_wasted)} recuperables"
+        if has_analysis:
+            dup_data = self.analysis_results.duplicates
+            if dup_data.duplicate_count > 0:
+                size_text = f"~{format_size(dup_data.space_wasted)} desperdiciados"
                 card.set_status_with_results(
-                    f"{dup_data.items_count} grupos detectados con copias idénticas",
+                    f"{dup_data.duplicate_count} archivos duplicados encontrados",
                     size_text
                 )
             else:
-                card.set_status_no_results("No se encontraron copias exactas")
+                card.set_status_no_results("No se encontraron archivos duplicados")
         else:
             # Estado pendiente de análisis
             card.set_status_pending("Analizar para detectar copias exactas")
-            card.set_action_text("Analizar ahora")
 
         card.clicked.connect(lambda: self._on_tool_clicked('exact_copies'))
         return card
@@ -436,68 +444,69 @@ class Stage3Window(BaseStage):
 
         # Por defecto está pendiente
         card.set_status_pending("Este análisis puede tardar bastante tiempo según la cantidad de archivos, por eso no se ha realizado anteriormente.")
-
         card.clicked.connect(lambda: self._on_tool_clicked('similar_files'))
         return card
 
     def _create_organize_card(self) -> ToolCard:
-        """Crea la card de Organizar Archivos"""
+        """Crea la card de Organizar"""
         card = ToolCard(
             icon_name='folder-move',
-            title='Organizar Archivos',
-            description='Reorganiza tu colección en carpetas por fecha, origen '
-                       '(WhatsApp, Telegram...) o tipo. Previsualiza antes de mover.',
-            action_text='Planificar ahora'
+            title='Organizar',
+            description='Organiza tus fotos en carpetas por fecha (año/mes o año/mes/día). '\
+                       'Reorganiza tu biblioteca de forma automática y mantén todo ordenado.',
+            action_text='Organizar ahora'
         )
 
-        # Siempre está lista
-        total = self.analysis_results.scan.total_files
-        card.set_status_ready(f"{format_file_count(total)} archivos listos")
-
+        # Esta herramienta no requiere análisis previo
+        card.set_status_ready("Listo para organizar archivos")
         card.clicked.connect(lambda: self._on_tool_clicked('folder-move'))
         return card
 
     def _create_rename_card(self) -> ToolCard:
-        """Crea la card de Renombrar Archivos"""
+        """Crea la card de Renombrar"""
         card = ToolCard(
             icon_name='rename-box',
-            title='Renombrar Archivos',
-            description='Renombra archivos según patrones personalizados con fechas, '
-                       'secuencias o metadatos. Vista previa antes de aplicar cambios.',
-            action_text='Configurar ahora'
+            title='Renombrar',
+            description='Renombra tus archivos con fechas de captura en formato legible. '\
+                       'Convierte nombres crípticos en nombres descriptivos y fáciles de buscar.',
+            action_text='Renombrar ahora'
         )
 
-        # Siempre está lista
-        total = self.analysis_results.scan.total_files
-        card.set_status_ready(f"{format_file_count(total)} archivos listos")
-
+        # Esta herramienta no requiere análisis previo
+        card.set_status_ready("Listo para renombrar archivos")
         card.clicked.connect(lambda: self._on_tool_clicked('rename-box'))
         return card
 
     def _create_zero_byte_card(self) -> ToolCard:
-        """Crea la card de Archivos Vacíos"""
-        card = ToolCard(
-            icon_name='trash-alt',
-            title='Archivos Vacíos',
-            description='Detecta y elimina archivos de 0 bytes que no contienen información. '
-                       'Limpia tu directorio de archivos corruptos o vacíos innecesarios.',
-            action_text='Limpiar ahora'
-        )
+        """Crea la card de Archivos vacios"""
         
-        # Configurar estado
-        zero_byte_data = self.analysis_results.zero_byte
-        if zero_byte_data:
-            if zero_byte_data.items_count > 0:
+        # Verificar si hay análisis disponible
+        has_analysis = (hasattr(self.analysis_results, 'zero_byte') and 
+                       self.analysis_results.zero_byte is not None)
+        
+        card = ToolCard(
+            icon_name='file-x',
+            title='Archivos vacíos',
+            description='Detecta archivos de 0 bytes que no contienen datos útiles. '\
+                       'Elimínalos de forma segura para mantener tu biblioteca limpia y ordenada.',
+            action_text='Gestionar ahora' if has_analysis else 'Analizar ahora'
+        )
+
+        # Configurar estado según datos
+        if has_analysis:
+            zero_byte_data = self.analysis_results.zero_byte
+            if zero_byte_data.file_count > 0:
+                size_text = f"{zero_byte_data.file_count} archivos"
                 card.set_status_with_results(
-                    f"{zero_byte_data.items_count} archivos vacíos encontrados",
-                    "0 B recuperables (limpieza)"
+                    f"{zero_byte_data.file_count} archivos vacíos detectados",
+                    size_text
                 )
             else:
                 card.set_status_no_results("No se encontraron archivos vacíos")
         else:
-            # Estado pendiente
+            # Estado pendiente de análisis
             card.set_status_pending("Analizar para detectar archivos vacíos")
-            card.set_action_text("Analizar ahora")
+
             
         card.clicked.connect(lambda: self._on_tool_clicked('zero_byte'))
         return card

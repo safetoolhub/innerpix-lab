@@ -362,7 +362,7 @@ class Stage2Window(BaseStage):
         Útil para cachés antiguos que no tienen estos datos.
         
         Args:
-            results: FullAnalysisResult cargado desde caché
+            results: Objeto con resultados del análisis (scan + directory)
         """
         if not results or not hasattr(results, 'scan'):
             return
@@ -413,7 +413,7 @@ class Stage2Window(BaseStage):
         Registra información detallada sobre extensiones de archivos encontrados.
         
         Args:
-            results: FullAnalysisResult con los datos del análisis
+            results: Objeto con resultados del análisis (scan + directory)
         """
         if not results or not hasattr(results, 'scan'):
             self.logger.warning("No hay resultados de escaneo disponibles para logging")
