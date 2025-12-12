@@ -26,7 +26,7 @@ Estructura y patrones del proyecto
 Estilo de código y calidad
 - **Formato**: PEP8 + type hints. Preferir claridad y nombres descriptivos; evitar abreviaturas de una letra.
 - **Tipos**: Anotar tipos en funciones públicas y dataclasses para resultados (usar `services/result_types.py`).
-- **Dataclasses**: Todas las salidas de los servicios deben ser dataclasses; no devolver dicts para resultados.
+- **Dataclasses**: Todas las salidas de los servicios deben ser dataclasses; no devolver dicts para resultados ni ninguna otra estructura. Solo dataclasses. 
 - **No try/except pasivo**: Evitar `except: pass`. Manejar errores o en su defecto registrar y volver a lanzar.
 - **Imports**: Mantener imports organizados (estándar -> terceros -> locales). Usar `isort` si existe en CI.
 

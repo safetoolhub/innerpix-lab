@@ -16,7 +16,7 @@ if TYPE_CHECKING:
         LivePhotosAnalysisResult,
         HeicExecutionResult,
         HeicAnalysisResult,
-        DuplicateDeletionResult,
+        DuplicateExecutionResult,
         ZeroByteExecutionResult
     )
     from services.file_renamer_service import FileRenamer
@@ -196,7 +196,7 @@ class DuplicatesExecutionWorker(BaseWorker):
     """
     Worker para eliminación de duplicados
     """
-    finished = pyqtSignal(object)  # DuplicateDeletionResult
+    finished = pyqtSignal(object)  # DuplicateExecutionResult
     
     def __init__(
         self,

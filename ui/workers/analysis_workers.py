@@ -107,21 +107,13 @@ class LivePhotosAnalysisWorker(BaseWorker):
         try:
             if self._stop_requested: return
             from services.live_photos_service import LivePhotoService, CleanupMode
-            from services.result_types import LivePhotoDetectionResult
             
             service = LivePhotoService()
-            cleanup_analysis = service.analyze(
+            result = service.analyze(
                 self.metadata_cache,
                 cleanup_mode=CleanupMode.KEEP_IMAGE,
                 progress_callback=self._create_progress_callback(emit_numbers=True),
                 directory=self.directory
-            )
-            
-            result = LivePhotoDetectionResult(
-                items_count=cleanup_analysis.items_count,
-                groups=cleanup_analysis.groups,
-                space_to_free=cleanup_analysis.space_to_free,
-                bytes_total=cleanup_analysis.bytes_total
             )
             
             if not self._stop_requested:

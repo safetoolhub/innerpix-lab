@@ -6,10 +6,10 @@ See `PROJECT_TREE.md` for structure. Ignore `docs/` (author's notes).
 ### Flujo de Análisis
 1. **Stage 2**: Escaneo inicial usando `DirectoryScanner.scan()` → `DirectoryScanResult`. Para analisis de ficheros y de metadatos. No se analizan tools especificas
 2. **Stage 3**: Análisis bajo demanda para cada herramienta
-   - Live Photos: `LivePhotoService.analyze()` → `LivePhotoDetectionResult`
+   - Live Photos: `LivePhotoService.analyze()` → `LivePhotosAnalysisResult`
    - HEIC/JPG: `HeicService.analyze()` → `HeicAnalysisResult`
    - Copias exactas: `DuplicatesExactService.analyze()` → `DuplicateAnalysisResult`
-   - Archivos similares: `DuplicatesSimilarService.analyze()` → analysisresult
+   - Archivos similares: `DuplicatesSimilarService.analyze()` → `DuplicateAnalysisResult`
    - Archivos vacíos: `ZeroByteService.analyze()` → `ZeroByteAnalysisResult`
    - Renombrar: `FileRenamer.analyze()` → `RenameAnalysisResult`
    - Organizar: `FileOrganizer.analyze()` → `OrganizationAnalysisResult`
@@ -108,13 +108,13 @@ See `PROJECT_TREE.md` for structure. Ignore `docs/` (author's notes).
   - `OrganizationAnalysisResult`: move_plan, root_directory, organization_type, folders_to_create
   - `HeicAnalysisResult`: duplicate_pairs, heic_files, jpg_files, potential_savings_*
   - `DuplicateAnalysisResult`: groups, mode, total_duplicates, total_groups, space_wasted
-  - `LivePhotoDetectionResult`: groups, space_to_free
+  - `LivePhotosAnalysisResult`: groups, space_to_free, total_space
   - `ZeroByteAnalysisResult`: files
 - **Execution Results** (per service):
   - `RenameExecutionResult`: renamed_files, conflicts_resolved
   - `OrganizationExecutionResult`: empty_directories_removed, moved_files, folders_created
   - `HeicExecutionResult`: format_kept
-  - `DuplicateDeletionResult`: files_kept, keep_strategy
+  - `DuplicateExecutionResult`: files_kept, keep_strategy
   - `LivePhotosExecutionResult`
   - `ZeroByteExecutionResult`
 - **Directory Scanner Types**:

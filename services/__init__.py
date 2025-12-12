@@ -57,14 +57,14 @@ from .result_types import (
     DuplicateGroup,
     DuplicatePair,
     DuplicateAnalysisResult,
-    DuplicateDeletionResult,
+    DuplicateExecutionResult,
     # HEIC
     HeicAnalysisResult,
     HeicExecutionResult,
     # Live Photos
     LivePhotosAnalysisResult,
     LivePhotosExecutionResult,
-    LivePhotoDetectionResult,
+
     # Zero Byte
     ZeroByteAnalysisResult,
     ZeroByteExecutionResult,
@@ -107,12 +107,12 @@ __all__ = [
     'OrganizationAnalysisResult',
     'OrganizationExecutionResult',
     'DuplicateAnalysisResult',
-    'DuplicateDeletionResult',
+    'DuplicateExecutionResult',
     'HeicAnalysisResult',
     'HeicExecutionResult',
     'LivePhotosAnalysisResult',
     'LivePhotosExecutionResult',
-    'LivePhotoDetectionResult',
+
     'ZeroByteAnalysisResult',
     'ZeroByteExecutionResult',
     # View Models

@@ -45,11 +45,8 @@ class ExecutionResult(BaseResult):
 # --- Rename Service ---
 @dataclass
 class RenameAnalysisResult(AnalysisResult):
-    # Specific fields expected by ViewModel
-    renaming_plan: List[Dict] = field(default_factory=list) # List of dicts with 'original_path', 'new_name', etc.
-    # We can map renaming_plan len to items_count
-    
-    # Backwards compatibility fields (optional, can be calculated or kept)
+    """Result for file renaming analysis."""
+    renaming_plan: List[Dict] = field(default_factory=list)  # List of dicts with 'original_path', 'new_name', etc.
     already_renamed: int = 0
     cannot_process: int = 0
     conflicts: int = 0
@@ -60,19 +57,17 @@ class RenameAnalysisResult(AnalysisResult):
 
 @dataclass
 class RenameExecutionResult(ExecutionResult):
-    # Inherits items_processed (files_renamed), bytes_processed
-    # Specifics
+    """Result for file renaming execution."""
     renamed_files: List[dict] = field(default_factory=list)
     conflicts_resolved: int = 0
 
 # --- Organization Service ---
 @dataclass
 class OrganizationAnalysisResult(AnalysisResult):
-    move_plan: List[Any] = field(default_factory=list) # List of FileMove objects
-    
-    # Context info
+    """Result for file organization analysis."""
+    move_plan: List[Any] = field(default_factory=list)  # List of FileMove objects
     root_directory: str = ''
-    organization_type: str = 'to_root'
+    organization_type: str = 'to_root'  # 'to_root', 'by_month', 'whatsapp_separate'
     folders_to_create: List[str] = field(default_factory=list)
     
     def __post_init__(self):
@@ -83,9 +78,9 @@ class OrganizationAnalysisResult(AnalysisResult):
 
 @dataclass
 class OrganizationExecutionResult(ExecutionResult):
-    # Specifics
+    """Result for file organization execution."""
     empty_directories_removed: int = 0
-    moved_files: List[str] = field(default_factory=list) # Path strings
+    moved_files: List[str] = field(default_factory=list)
     folders_created: List[str] = field(default_factory=list)
 
 # --- HEIC Service ---
@@ -107,25 +102,23 @@ class DuplicatePair:
 
 @dataclass
 class HeicAnalysisResult(AnalysisResult):
+    """Result for HEIC/JPG duplicate analysis."""
     duplicate_pairs: List[DuplicatePair] = field(default_factory=list)
-    
-    # Stats
     heic_files: int = 0
     jpg_files: int = 0
     potential_savings_keep_jpg: int = 0
     potential_savings_keep_heic: int = 0
     
     def __post_init__(self):
-        if not self.items_count:
-             self.items_count = len(self.duplicate_pairs)
-        if not self.bytes_total:
-             self.bytes_total = sum(p.total_size for p in self.duplicate_pairs)
+        if not self.items_count and self.duplicate_pairs:
+            self.items_count = len(self.duplicate_pairs)
+        if not self.bytes_total and self.duplicate_pairs:
+            self.bytes_total = sum(p.total_size for p in self.duplicate_pairs)
 
 @dataclass
 class HeicExecutionResult(ExecutionResult):
-    format_kept: Optional[str] = None
-    # items_processed = deleted pairs count
-    # bytes_processed = space freed
+    """Result for HEIC/JPG duplicate execution."""
+    format_kept: Optional[str] = None  # 'heic' or 'jpg'
 
 # --- Duplicates (Exact & Similar) ---
 @dataclass
@@ -138,83 +131,61 @@ class DuplicateGroup:
 
 @dataclass
 class DuplicateAnalysisResult(AnalysisResult):
+    """Result for duplicate detection analysis (exact or similar)."""
     groups: List[DuplicateGroup] = field(default_factory=list)
-    mode: str = 'exact' # 'exact' or 'perceptual'
-    
-    # Stats
+    mode: str = 'exact'  # 'exact' or 'perceptual'
     total_duplicates: int = 0
-    total_groups: int = 0  # Added for UI compatibility
-    total_files: int = 0   # Total files scanned
+    total_groups: int = 0
+    total_files: int = 0
     space_wasted: int = 0
     
     def __post_init__(self):
-        if not self.items_count:
-            self.items_count = len(self.groups) # Or total duplicates? Usually usage implies groups or dupes.
+        if not self.items_count and self.groups:
+            self.items_count = len(self.groups)
         if not self.total_groups and self.groups:
             self.total_groups = len(self.groups)
-        if not self.bytes_total:
+        if not self.bytes_total and self.space_wasted:
             self.bytes_total = self.space_wasted
 
 @dataclass
-class DuplicateDeletionResult(ExecutionResult):
-    # Renamed from DuplicateExecutionResult to maintain some compat or just preferred name
-    # Actually let's keep it as DuplicateDeletionResult since that's what it primarily does
+class DuplicateExecutionResult(ExecutionResult):
+    """Result for duplicate deletion execution."""
     files_kept: int = 0
     keep_strategy: Optional[str] = None
-    
-    # Aliases for backwards compatibility if needed
-    @property
-    def files_deleted(self):
-        return self.items_processed
-    
-    @files_deleted.setter
-    def files_deleted(self, value):
-        self.items_processed = value
 
 
 # --- Live Photos ---
 @dataclass
 class LivePhotosAnalysisResult(AnalysisResult):
-    groups: List[Any] = field(default_factory=list) # Generic to avoid circular import if possible
-    # We expect objects with .video_size, .total_size
-    
-    space_to_free: int = 0
-    total_space: int = 0 # Total space of Live Photos (img+vid)
+    """Result for Live Photos detection analysis."""
+    groups: List[Any] = field(default_factory=list)  # List of LivePhotoGroup objects
+    space_to_free: int = 0  # Space that would be freed by removing videos
+    total_space: int = 0  # Total space used by Live Photos (images + videos)
     
     def __post_init__(self):
-        if not self.items_count:
+        if not self.items_count and self.groups:
             self.items_count = len(self.groups)
-        if not self.bytes_total:
+        if not self.bytes_total and self.total_space:
             self.bytes_total = self.total_space
 
 @dataclass
 class LivePhotosExecutionResult(ExecutionResult):
+    """Result for Live Photos execution."""
     pass
-
-@dataclass
-class LivePhotoDetectionResult(AnalysisResult):
-    """Result for Live Photo Detection (Analysis Phase wrapper)."""
-    groups: List[Any] = field(default_factory=list)
-    space_to_free: int = 0  # Added for UI compatibility
-    
-    def __post_init__(self):
-        # super().__post_init__()  # Removed: Parent classes do not define __post_init__
-        if not self.items_count and self.groups:
-            self.items_count = len(self.groups)
-        if not self.bytes_total:
-            self.bytes_total = self.space_to_free
 
 # --- Zero Byte ---
 @dataclass
 class ZeroByteAnalysisResult(AnalysisResult):
+    """Result for zero-byte files detection."""
     files: List[Path] = field(default_factory=list)
     
     def __post_init__(self):
-        if not self.items_count:
+        if not self.items_count and self.files:
             self.items_count = len(self.files)
 
 @dataclass
 class ZeroByteExecutionResult(ExecutionResult):
+    """Result for zero-byte files deletion."""
     pass
 
 # ============================================================================

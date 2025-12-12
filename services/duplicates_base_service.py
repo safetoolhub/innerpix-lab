@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import List, Callable, Optional
 from dataclasses import dataclass, field
 from services.base_service import BaseService
-from services.result_types import DuplicateGroup, DuplicateDeletionResult
+from services.result_types import DuplicateGroup, DuplicateExecutionResult
 from utils.logger import log_section_header_relevant, log_section_footer_relevant
 
 
@@ -91,7 +91,7 @@ class DuplicatesBaseService(BaseService):
         create_backup: bool = True,
         progress_callback: Optional[Callable[[int, int, str], None]] = None,
         **kwargs
-    ) -> DuplicateDeletionResult:
+    ) -> DuplicateExecutionResult:
         """
         Ejecuta la eliminación de duplicados (lógica unificada).
         
@@ -118,7 +118,7 @@ class DuplicatesBaseService(BaseService):
         
         if not groups:
             self.logger.warning("No hay grupos para procesar")
-            return DuplicateDeletionResult(
+            return DuplicateExecutionResult(
                 success=True,
                 files_deleted=0,
                 files_kept=0,
@@ -146,7 +146,7 @@ class DuplicatesBaseService(BaseService):
                         # Si no se pudo crear backup, no continuar con la operación
                         error_msg = "No se pudo crear el backup. Operación cancelada por seguridad."
                         self.logger.error(error_msg)
-                        return DuplicateDeletionResult(
+                        return DuplicateExecutionResult(
                             success=False,
                             errors=[error_msg],
                             keep_strategy=keep_strategy,
@@ -155,7 +155,7 @@ class DuplicatesBaseService(BaseService):
                 except BackupCreationError as e:
                     error_msg = f"Error creando backup: {e}"
                     self.logger.error(error_msg)
-                    return DuplicateDeletionResult(
+                    return DuplicateExecutionResult(
                         success=False,
                         errors=[error_msg],
                         keep_strategy=keep_strategy,
@@ -207,7 +207,7 @@ class DuplicatesBaseService(BaseService):
             for e in errors
         ]
         
-        result = DuplicateDeletionResult(
+        result = DuplicateExecutionResult(
             success=len(error_messages) == 0,
             files_deleted=len(deleted_files) if not dry_run else 0,
             files_kept=len(kept_files),

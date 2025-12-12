@@ -13,7 +13,7 @@ import os
 
 from config import Config
 from utils.logger import get_logger, log_section_header_discrete, log_section_footer_discrete
-from services.result_types import DuplicateAnalysisResult, DuplicateDeletionResult, DuplicateGroup
+from services.result_types import DuplicateAnalysisResult, DuplicateExecutionResult, DuplicateGroup
 from services.duplicates_base_service import DuplicatesBaseService
 from services.base_service import ProgressCallback
 from services.metadata_cache import MetadataCache
