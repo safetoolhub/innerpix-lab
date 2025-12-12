@@ -151,15 +151,11 @@ class Config:
 
 
     # ========================================================================
-    # TIMING MÍNIMO DE ANÁLISIS (Stage 2)
+    # TIMING DE TRANSICIÓN (Stage 2 → Stage 3)
     # ========================================================================
-    # Duración mínima de visualización de cada fase del análisis en segundos
-    # Esto garantiza que el usuario siempre vea el progreso, incluso si el
-    # análisis real es muy rápido
-    MIN_PHASE_DURATION_SECONDS = 0.0  # Default: 1 segundo por fase
-    
-    # Delay adicional antes de transicionar a Stage 3 (después de completar todo)
-    FINAL_DELAY_BEFORE_STAGE3_SECONDS =1.0  # Default: 2 segundos
+    # Delay antes de transicionar a Stage 3 después de completar el análisis
+    # Permite al usuario ver brevemente el resultado final antes del cambio de vista
+    FINAL_DELAY_BEFORE_STAGE3_SECONDS = 1.0  # Default: 1 segundo
 
     # ========================================================================
     # CONSTANTES DE UI

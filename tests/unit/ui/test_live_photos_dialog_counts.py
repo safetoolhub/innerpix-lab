@@ -11,7 +11,7 @@ from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 from services.live_photos_service import LivePhotoGroup, CleanupMode
-from services.result_types import LivePhotoCleanupAnalysisResult
+from services.result_types import LivePhotosAnalysisResult
 
 
 @pytest.mark.unit
@@ -56,7 +56,7 @@ class TestLivePhotoDialogCounts:
         """Crea un análisis con grupos que comparten videos"""
         groups = mock_groups_with_shared_video
         
-        return LivePhotoCleanupAnalysisResult(
+        return LivePhotosAnalysisResult(
             total_files=len(groups) * 2,  # 6 archivos totales
             files_to_delete=[],  # Se llena en el diálogo según el modo
             files_to_keep=[],

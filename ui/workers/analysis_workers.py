@@ -30,33 +30,9 @@ class AnalysisWorker(BaseWorker):
         super().__init__()
         self.directory = directory
         
-        # Leer configuración UX de delays
-        self.min_phase_duration: float = Config.MIN_PHASE_DURATION_SECONDS
+        # Delay final antes de transición a Stage 3
         self.final_delay: float = Config.FINAL_DELAY_BEFORE_STAGE3_SECONDS
-        
-        # Tracking de fase actual para delays UX
-        self._current_phase_id: Optional[str] = None
-        self._current_phase_start: float = 0.0
 
-    def _handle_phase_start(self, phase_id: str) -> None:
-        if self._stop_requested:
-            return
-        
-        # Completar fase anterior si existe
-        if self._current_phase_id is not None:
-            actual_duration = time.time() - self._current_phase_start
-            if actual_duration < self.min_phase_duration:
-                delay = self.min_phase_duration - actual_duration
-                time.sleep(delay)
-            
-            if not self._stop_requested:
-                self.phase_completed.emit(self._current_phase_id)
-        
-        # Iniciar nueva fase
-        self._current_phase_id = phase_id
-        self._current_phase_start = time.time()
-        self.phase_update.emit(phase_id)
-    
     def run(self) -> None:
         try:
             # Importar dependencias aquí (evita imports circulares)
@@ -67,7 +43,7 @@ class AnalysisWorker(BaseWorker):
             precalculate_hashes = settings_manager.get_precalculate_hashes()
             
             # Ejecutar SOLO escaneo (Fase 1)
-            self._handle_phase_start("scan")
+            self.phase_update.emit("scan")
             
             # 1. Escanear directorio directamente
             scanner = DirectoryScanner()
@@ -92,23 +68,11 @@ class AnalysisWorker(BaseWorker):
                 'others': scan_result.other_count
             })
             
-            # Completar última fase
-            if self._current_phase_id and not self._stop_requested:
-                actual_duration = time.time() - self._current_phase_start
-                if actual_duration < self.min_phase_duration:
-                    time.sleep(self.min_phase_duration - actual_duration)
-                
-                if not self._stop_requested:
-                    self.phase_completed.emit(self._current_phase_id)
-            
-            # Fase final: Finalizando análisis
+            # Completar fase de scan
             if not self._stop_requested:
-                self._handle_phase_start("finalizing")
-                time.sleep(self.min_phase_duration)
-                if not self._stop_requested:
-                    self.phase_completed.emit("finalizing")
+                self.phase_completed.emit("scan")
             
-            # Delay final antes de transición
+            # Delay final antes de transición a Stage 3
             if not self._stop_requested:
                 time.sleep(self.final_delay)
             

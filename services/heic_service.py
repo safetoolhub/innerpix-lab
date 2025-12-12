@@ -10,7 +10,7 @@ from collections import defaultdict
 
 from utils.file_utils import validate_file_exists
 from utils.date_utils import get_date_from_file
-from services.result_types import HeicAnalysisResult, HeicDeletionResult, DuplicatePair, AnalysisResult
+from services.result_types import HeicAnalysisResult, HeicExecutionResult, DuplicatePair, AnalysisResult
 from services.base_service import BaseService, BackupCreationError, ProgressCallback
 from services.metadata_cache import MetadataCache, FileMetadata
 from config import Config
@@ -225,7 +225,7 @@ class HeicService(BaseService):
         create_backup: bool = True,
         progress_callback: Optional[ProgressCallback] = None,
         **kwargs
-    ) -> HeicDeletionResult:
+    ) -> HeicExecutionResult:
         """
         Ejecuta eliminación HEIC/JPG.
         
@@ -240,7 +240,7 @@ class HeicService(BaseService):
         duplicate_pairs = analysis_result.duplicate_pairs
         
         if not duplicate_pairs:
-             return HeicDeletionResult(
+             return HeicExecutionResult(
                 success=True,
                 files_deleted=0,
                 space_freed=0,
@@ -275,13 +275,13 @@ class HeicService(BaseService):
         keep_format: str,
         dry_run: bool,
         progress_callback: Optional[ProgressCallback]
-    ) -> HeicDeletionResult:
+    ) -> HeicExecutionResult:
         """Lógica real de eliminación (internal)"""
         
         mode = "SIMULACIÓN" if dry_run else ""
         log_section_header_relevant(self.logger, "ELIMINACIÓN DE DUPLICADOS HEIC/JPG", mode=mode)
         
-        results = HeicDeletionResult(success=True, format_kept=keep_format, dry_run=dry_run)
+        results = HeicExecutionResult(success=True, format_kept=keep_format, dry_run=dry_run)
         total_pairs = len(duplicate_pairs)
         
         files_deleted_list = []
@@ -321,13 +321,7 @@ class HeicService(BaseService):
 
         # Set files_affected using files_deleted_list for generic compatibility
         results.files_affected = [Path(f) for f in files_deleted_list] if not dry_run else [] 
-        # Actually base class doesn't enforce files_affected in ExecutionResult, but it's good to have.
-        # HeicDeletionResult doesn't inherit ExecutionResult? It should.
-        # Let's check imports. Yes, from services.result_types import HeicDeletionResult.
-        # HeicDeletionResult in result_types.py inherits BaseResult?
-        # I should assume result_types.py defines HeicDeletionResult correctly or update it if it's missing ExecutionResult inheritance.
-        # In my earlier edit of result_types.py I added ExecutionResult.
-        # I should assume HeicDeletionResult inherits from it or is compatible.
+        # HeicExecutionResult inherits from ExecutionResult, so files_affected is available
         
         results.deleted_files = files_deleted_list # Backward compatibility
 

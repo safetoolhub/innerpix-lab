@@ -2,7 +2,7 @@
 
 Propósito
 - **Descripción**: Documento de referencia para desarrolladores y agentes automatizados que interactúan con este repositorio. Contiene pautas de testing, estilo de código, flujo de trabajo, y reglas operativas específicas del proyecto.
-- **Alcance**: Aplica a todo el código fuente, tests, scripts de CI y a los servicios descritos en la carpeta `services/`.
+- **Alcance**: Aplica a todo el código fuente, tests y scripts de CI 
 
 Entorno y ejecución
 ### Setup
@@ -51,9 +51,6 @@ CI / Integración continua
 - **Pre-merge checks**: Ejecutar `pytest`, linters (`flake8`/`ruff`) y formateadores (`black`, `isort`) en CI antes de merge.
 - **Pull requests**: Incluir descripción clara, cambios relevantes y pasos para reproducir manualmente si aplica.
 
-Revisión de código
-- **Commits**: Pequeños y autocontenidos; mensajes tipo `feat:`, `fix:`, `chore:`. Referenciar issue si aplica.
-- **PRs**: Solicitar revisión de al menos 1 revisor; incluir comentarios sobre decisiones no evidentes.
 
 Prácticas específicas del repositorio
 - **Servicios**: Implementar `analyze()` que devuelva dataclasses definidos en `services/result_types.py`. Mantener `execute(create_backup=True)` con la lógica de backup y simulación.

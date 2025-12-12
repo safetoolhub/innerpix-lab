@@ -2,7 +2,7 @@
 import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
-from services.live_photos_service import LivePhotoService, CleanupMode, LivePhotoCleanupAnalysisResult
+from services.live_photos_service import LivePhotoService, CleanupMode, LivePhotosAnalysisResult
 
 @pytest.mark.unit
 class TestLivePhotosMissingFiles:
@@ -14,7 +14,7 @@ class TestLivePhotosMissingFiles:
         video_path = temp_dir / 'missing.MOV'
         # We purposely do NOT create the file to simulate it being missing
         
-        analysis = LivePhotoCleanupAnalysisResult(
+        analysis = LivePhotosAnalysisResult(
             files_to_delete=[{
                 'path': video_path,
                 'size': 1000,
@@ -47,7 +47,7 @@ class TestLivePhotosMissingFiles:
         """Test missing file handling in dry-run mode."""
         video_path = temp_dir / 'missing.MOV'
         
-        analysis = LivePhotoCleanupAnalysisResult(
+        analysis = LivePhotosAnalysisResult(
             files_to_delete=[{
                 'path': video_path,
                 'size': 1000,

@@ -41,8 +41,6 @@ class ExecutionResult(BaseResult):
     backup_path: Optional[Path] = None # If backup was created
     dry_run: bool = False         # Whether this was a dry-run (simulation)
 
-DeletionResult = ExecutionResult
-
 
 # --- Rename Service ---
 @dataclass
@@ -67,9 +65,6 @@ class RenameExecutionResult(ExecutionResult):
     renamed_files: List[dict] = field(default_factory=list)
     conflicts_resolved: int = 0
 
-# Alias for backwards compatibility
-RenameDeletionResult = RenameExecutionResult
-
 # --- Organization Service ---
 @dataclass
 class OrganizationAnalysisResult(AnalysisResult):
@@ -92,8 +87,6 @@ class OrganizationExecutionResult(ExecutionResult):
     empty_directories_removed: int = 0
     moved_files: List[str] = field(default_factory=list) # Path strings
     folders_created: List[str] = field(default_factory=list)
-
-OrganizationDeletionResult = OrganizationExecutionResult
 
 # --- HEIC Service ---
 @dataclass
@@ -133,8 +126,6 @@ class HeicExecutionResult(ExecutionResult):
     format_kept: Optional[str] = None
     # items_processed = deleted pairs count
     # bytes_processed = space freed
-
-HeicDeletionResult = HeicExecutionResult
 
 # --- Duplicates (Exact & Similar) ---
 @dataclass
@@ -183,7 +174,7 @@ class DuplicateDeletionResult(ExecutionResult):
 
 # --- Live Photos ---
 @dataclass
-class LivePhotoCleanupAnalysisResult(AnalysisResult):
+class LivePhotosAnalysisResult(AnalysisResult):
     groups: List[Any] = field(default_factory=list) # Generic to avoid circular import if possible
     # We expect objects with .video_size, .total_size
     
@@ -197,10 +188,8 @@ class LivePhotoCleanupAnalysisResult(AnalysisResult):
             self.bytes_total = self.total_space
 
 @dataclass
-class LivePhotoCleanupExecutionResult(ExecutionResult):
+class LivePhotosExecutionResult(ExecutionResult):
     pass
-
-LivePhotoCleanupDeletionResult = LivePhotoCleanupExecutionResult
 
 @dataclass
 class LivePhotoDetectionResult(AnalysisResult):
@@ -225,11 +214,11 @@ class ZeroByteAnalysisResult(AnalysisResult):
             self.items_count = len(self.files)
 
 @dataclass
-class ZeroByteDeletionResult(ExecutionResult):
+class ZeroByteExecutionResult(ExecutionResult):
     pass
 
 # ============================================================================
-# ORCHESTRATOR SPECIFIC RESULT TYPES
+# DIRECTORY SCANNER RESULT TYPES
 # ============================================================================
 
 @dataclass
@@ -263,30 +252,6 @@ class DirectoryScanResult:
     @property
     def other_count(self) -> int:
         return len(self.others)
-
-
-@dataclass
-class PhaseTimingInfo:
-    """Información de timing de una fase del análisis"""
-    phase_id: str
-    phase_name: str
-    start_time: float
-    end_time: float
-    duration: float
-    
-    def needs_delay(self, min_duration: float = 2.0) -> float:
-        """
-        Calcula si necesita delay para alcanzar duración mínima.
-        
-        Args:
-            min_duration: Duración mínima en segundos
-            
-        Returns:
-            Segundos de delay necesarios (0 si no necesita)
-        """
-        if self.duration >= min_duration:
-            return 0.0
-        return min_duration - self.duration
 
 
 @dataclass

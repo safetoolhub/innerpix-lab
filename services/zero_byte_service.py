@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from services.base_service import BaseService, ProgressCallback
-from services.result_types import ZeroByteAnalysisResult, ZeroByteDeletionResult
+from services.result_types import ZeroByteAnalysisResult, ZeroByteExecutionResult
 from services.metadata_cache import MetadataCache
 from utils.logger import log_section_header_relevant, log_section_footer_relevant
 from utils.file_utils import delete_file_securely
@@ -62,7 +62,7 @@ class ZeroByteService(BaseService):
                 dry_run: bool = False,
                 create_backup: bool = True,
                 progress_callback: Optional[ProgressCallback] = None,
-                **kwargs) -> ZeroByteDeletionResult:
+                **kwargs) -> ZeroByteExecutionResult:
         """
         Elimina los archivos identificados en el análisis.
         """
@@ -87,11 +87,11 @@ class ZeroByteService(BaseService):
         files_to_delete: List[Path],
         dry_run: bool,
         progress_callback: Optional[ProgressCallback]
-    ) -> ZeroByteDeletionResult:
+    ) -> ZeroByteExecutionResult:
         """
         Lógica real de eliminación de archivos de 0 bytes.
         """
-        result = ZeroByteDeletionResult(dry_run=dry_run)
+        result = ZeroByteExecutionResult(dry_run=dry_run)
         total = len(files_to_delete)
         
         mode = "SIMULACIÓN" if dry_run else ""

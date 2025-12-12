@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from config import Config
 from utils.logger import get_logger, log_section_header_relevant, log_section_footer_relevant, log_section_header_discrete, log_section_footer_discrete
-from services.result_types import RenameDeletionResult, RenameAnalysisResult
+from services.result_types import RenameExecutionResult, RenameAnalysisResult
 from services.base_service import BaseService, ProgressCallback
 from utils.date_utils import (
     get_date_from_file,
@@ -191,14 +191,14 @@ class FileRenamer(BaseService):
         dry_run: bool = False,
         progress_callback: Optional[ProgressCallback] = None,
         **kwargs
-    ) -> RenameDeletionResult:
+    ) -> RenameExecutionResult:
         """
         Ejecuta el renombrado según el plan.
         """
         renaming_plan = analysis_result.renaming_plan
         
         if not renaming_plan:
-            return RenameDeletionResult(
+            return RenameExecutionResult(
                 success=True,
                 files_renamed=0,
                 message='No hay archivos para renombrar',
@@ -223,7 +223,7 @@ class FileRenamer(BaseService):
         renaming_plan: List[Dict],
         dry_run: bool,
         progress_callback: Optional[ProgressCallback]
-    ) -> RenameDeletionResult:
+    ) -> RenameExecutionResult:
         """
         Lógica real de renombrado de archivos.
         """
@@ -231,7 +231,7 @@ class FileRenamer(BaseService):
         log_section_header_relevant(self.logger, "INICIANDO RENOMBRADO DE ARCHIVOS", mode=mode_label)
         self.logger.info(f"*** Archivos a renombrar: {len(renaming_plan)}")
 
-        results = RenameDeletionResult(success=True, dry_run=dry_run)
+        results = RenameExecutionResult(success=True, dry_run=dry_run)
         total_files = len(renaming_plan)
         files_processed = 0
         

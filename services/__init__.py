@@ -18,6 +18,7 @@ from .file_organizer_service import FileOrganizer, FileMove, OrganizationType
 from .heic_service import HeicService, DuplicatePair
 from .duplicates_exact_service import DuplicatesExactService
 from .duplicates_similar_service import DuplicatesSimilarService, DuplicatesSimilarAnalysis
+from .zero_byte_service import ZeroByteService
 
 # Servicios base
 from .base_service import BaseService, BackupCreationError, ProgressCallback
@@ -45,13 +46,13 @@ from .result_types import (
     # Base
     BaseResult,
     AnalysisResult,
-    DeletionResult,
+    ExecutionResult,
     # Renaming
-    RenameDeletionResult,
     RenameAnalysisResult,
+    RenameExecutionResult,
     # Organization
-    OrganizationDeletionResult,
     OrganizationAnalysisResult,
+    OrganizationExecutionResult,
     # Duplicates
     DuplicateGroup,
     DuplicatePair,
@@ -59,11 +60,14 @@ from .result_types import (
     DuplicateDeletionResult,
     # HEIC
     HeicAnalysisResult,
-    HeicDeletionResult,
+    HeicExecutionResult,
     # Live Photos
-    LivePhotoCleanupAnalysisResult,
-    LivePhotoCleanupDeletionResult,
+    LivePhotosAnalysisResult,
+    LivePhotosExecutionResult,
     LivePhotoDetectionResult,
+    # Zero Byte
+    ZeroByteAnalysisResult,
+    ZeroByteExecutionResult,
 )
 
 __all__ = [
@@ -71,9 +75,10 @@ __all__ = [
     'FileRenamer',
     'LivePhotoService',
     'FileOrganizer',
-    'HEICRemover',
+    'HeicService',
     'DuplicatesExactService',
     'DuplicatesSimilarService',
+    'ZeroByteService',
     # Servicios base
     'BaseService',
     'DuplicatesBaseService',
@@ -96,18 +101,20 @@ __all__ = [
     # Tipos de resultado base
     'BaseResult',
     'AnalysisResult',
-    'DeletionResult',
-    'RenameDeletionResult',
+    'ExecutionResult',
     'RenameAnalysisResult',
-    'OrganizationDeletionResult',
+    'RenameExecutionResult',
     'OrganizationAnalysisResult',
+    'OrganizationExecutionResult',
     'DuplicateAnalysisResult',
     'DuplicateDeletionResult',
     'HeicAnalysisResult',
-    'HeicDeletionResult',
-    'LivePhotoCleanupAnalysisResult',
-    'LivePhotoCleanupDeletionResult',
+    'HeicExecutionResult',
+    'LivePhotosAnalysisResult',
+    'LivePhotosExecutionResult',
     'LivePhotoDetectionResult',
+    'ZeroByteAnalysisResult',
+    'ZeroByteExecutionResult',
     # View Models
     'TreeNode',
     'TableRow',

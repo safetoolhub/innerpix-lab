@@ -9,16 +9,15 @@ from .base_worker import BaseWorker
 
 if TYPE_CHECKING:
     from services.result_types import (
-        RenameDeletionResult,
         RenameAnalysisResult,
-        OrganizationDeletionResult,
+        OrganizationExecutionResult,
         OrganizationAnalysisResult,
-        LivePhotoCleanupDeletionResult,
-        LivePhotoCleanupAnalysisResult,
-        HeicDeletionResult,
+        LivePhotosExecutionResult,
+        LivePhotosAnalysisResult,
+        HeicExecutionResult,
         HeicAnalysisResult,
         DuplicateDeletionResult,
-        ZeroByteDeletionResult
+        ZeroByteExecutionResult
     )
     from services.file_renamer_service import FileRenamer
     from services.live_photos_service import LivePhotoService
@@ -33,7 +32,7 @@ class FileRenamerExecutionWorker(BaseWorker):
     """
     Worker para ejecutar renombrado de nombres de archivos
     """
-    finished = pyqtSignal(object)  # RenameDeletionResult
+    finished = pyqtSignal(object)  # RenameExecutionResult
 
     def __init__(
         self, 
@@ -54,7 +53,7 @@ class FileRenamerExecutionWorker(BaseWorker):
                 return
             
             # Importar aquí para evitar circularidad real
-            from services.result_types import RenameDeletionResult
+            from services.result_types import RenameExecutionResult
             
             results = self.renamer.execute(
                 self.analysis.renaming_plan,
@@ -76,9 +75,9 @@ class LivePhotosExecutionWorker(BaseWorker):
     """
     Worker para ejecutar limpieza de Live Photos
     """
-    finished = pyqtSignal(object)  # LivePhotoCleanupDeletionResult
+    finished = pyqtSignal(object)  # LivePhotosExecutionResult
 
-    def __init__(self, service: 'LivePhotoService', analysis: 'LivePhotoCleanupAnalysisResult', 
+    def __init__(self, service: 'LivePhotoService', analysis: 'LivePhotosAnalysisResult', 
                  create_backup: bool = True, dry_run: bool = False):
         super().__init__()
         self.service = service
@@ -111,7 +110,7 @@ class FileOrganizerExecutionWorker(BaseWorker):
     """
     Worker para ejecutar organización de archivos
     """
-    finished = pyqtSignal(object)  # OrganizationDeletionResult
+    finished = pyqtSignal(object)  # OrganizationExecutionResult
 
     def __init__(
         self,
@@ -134,7 +133,7 @@ class FileOrganizerExecutionWorker(BaseWorker):
                 return
             
             results = self.organizer.execute(
-                self.analysis.move_plan,
+                self.analysis,
                 create_backup=self.create_backup,
                 cleanup_empty_dirs=self.cleanup_empty_dirs,
                 dry_run=self.dry_run,
@@ -154,7 +153,7 @@ class HeicExecutionWorker(BaseWorker):
     """
     Worker para ejecutar eliminación de duplicados HEIC
     """
-    finished = pyqtSignal(object)  # HeicDeletionResult
+    finished = pyqtSignal(object)  # HeicExecutionResult
 
     def __init__(
         self,
@@ -177,7 +176,7 @@ class HeicExecutionWorker(BaseWorker):
                 return
             
             results = self.service.execute(
-                self.analysis.duplicate_pairs,
+                self.analysis,
                 keep_format=self.keep_format,
                 create_backup=self.create_backup,
                 dry_run=self.dry_run,
@@ -202,7 +201,7 @@ class DuplicatesExecutionWorker(BaseWorker):
     def __init__(
         self,
         detector: 'DuplicatesExactService | DuplicatesSimilarService',
-        groups: List,
+        analysis: 'DuplicateAnalysisResult',
         keep_strategy: str,
         create_backup: bool = True,
         dry_run: bool = False,
@@ -210,7 +209,7 @@ class DuplicatesExecutionWorker(BaseWorker):
     ):
         super().__init__()
         self.detector = detector
-        self.groups = groups
+        self.analysis = analysis
         self.keep_strategy = keep_strategy
         self.create_backup = create_backup
         self.dry_run = dry_run
@@ -222,7 +221,7 @@ class DuplicatesExecutionWorker(BaseWorker):
                 return
             
             results = self.detector.execute(
-                self.groups,
+                self.analysis,
                 keep_strategy=self.keep_strategy,
                 create_backup=self.create_backup,
                 dry_run=self.dry_run,
@@ -244,18 +243,18 @@ class ZeroByteExecutionWorker(BaseWorker):
     """
     Worker para eliminación de archivos de 0 bytes
     """
-    finished = pyqtSignal(object)  # ZeroByteDeletionResult
+    finished = pyqtSignal(object)  # ZeroByteExecutionResult
 
     def __init__(
         self,
         service: 'ZeroByteService',
-        files: List[Path],
+        analysis: 'ZeroByteAnalysisResult',
         create_backup: bool = True,
         dry_run: bool = False
     ):
         super().__init__()
         self.service = service
-        self.files = files
+        self.analysis = analysis
         self.create_backup = create_backup
         self.dry_run = dry_run
 
@@ -265,7 +264,7 @@ class ZeroByteExecutionWorker(BaseWorker):
                 return
             
             results = self.service.execute(
-                self.files,
+                self.analysis,
                 create_backup=self.create_backup,
                 dry_run=self.dry_run,
                 progress_callback=self._create_progress_callback(emit_numbers=True)

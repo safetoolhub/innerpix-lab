@@ -115,11 +115,10 @@ See `PROJECT_TREE.md` for structure. Ignore `docs/` (author's notes).
   - `OrganizationExecutionResult`: empty_directories_removed, moved_files, folders_created
   - `HeicExecutionResult`: format_kept
   - `DuplicateDeletionResult`: files_kept, keep_strategy
-  - `LivePhotoCleanupExecutionResult`
-  - `ZeroByteDeletionResult`
-- **Orchestrator Types**:
+  - `LivePhotosExecutionResult`
+  - `ZeroByteExecutionResult`
+- **Directory Scanner Types**:
   - `DirectoryScanResult`: total_files, images, videos, others, metadata_cache, total_size, extensions breakdown
-  - `PhaseTimingInfo`: phase_id, phase_name, start_time, end_time, duration
   - `ScanSnapshot`: directory, scan
 - **Rule**: ALL services return dataclasses (no dicts)
 

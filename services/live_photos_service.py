@@ -16,7 +16,7 @@ from enum import Enum
 
 from config import Config
 from utils.date_utils import get_date_from_file
-from services.result_types import LivePhotoCleanupAnalysisResult, LivePhotoCleanupDeletionResult
+from services.result_types import LivePhotosAnalysisResult, LivePhotosExecutionResult
 from services.base_service import BaseService, BackupCreationError
 from services.metadata_cache import FileMetadataCache, MetadataCache
 from utils.logger import log_section_header_discrete, log_section_footer_discrete, log_section_header_relevant, log_section_footer_relevant, get_logger
@@ -193,7 +193,7 @@ class LivePhotoService(BaseService):
         cleanup_mode: CleanupMode = CleanupMode.KEEP_IMAGE,
         progress_callback: Optional[Callable[[int, int, str], bool]] = None,
         **kwargs
-    ) -> LivePhotoCleanupAnalysisResult:
+    ) -> LivePhotosAnalysisResult:
         """
         Analiza Live Photos usando MetadataCache.
         
@@ -228,7 +228,7 @@ class LivePhotoService(BaseService):
         total_space = sum(lp.total_size for lp in live_photos)
         space_to_free = sum(item['size'] for item in cleanup_plan['files_to_delete'])
 
-        result = LivePhotoCleanupAnalysisResult(
+        result = LivePhotosAnalysisResult(
             items_count=len(live_photos),
             groups=live_photos,
             bytes_total=total_space,
@@ -258,10 +258,10 @@ class LivePhotoService(BaseService):
 
     def execute(
         self,
-        analysis_result: LivePhotoCleanupAnalysisResult,
+        analysis_result: LivePhotosAnalysisResult,
         dry_run: bool = False,
         **kwargs
-    ) -> LivePhotoCleanupDeletionResult:
+    ) -> LivePhotosExecutionResult:
         """
         Ejecuta la limpieza de Live Photos.
         
@@ -276,7 +276,7 @@ class LivePhotoService(BaseService):
         files_to_delete = analysis_result.data.get('files_to_delete', [])
 
         if not files_to_delete:
-            return LivePhotoCleanupDeletionResult(
+            return LivePhotosExecutionResult(
                 success=True,
                 files_deleted=0,
                 space_freed=0,
@@ -304,16 +304,16 @@ class LivePhotoService(BaseService):
     def _do_live_photo_cleanup(
         self,
         files_to_delete: List[dict],
-        analysis: LivePhotoCleanupAnalysisResult,
+        analysis: LivePhotosAnalysisResult,
         dry_run: bool,
         progress_callback: Optional[Callable[[int, int, str], bool]]
-    ) -> LivePhotoCleanupDeletionResult:
+    ) -> LivePhotosExecutionResult:
         """Lógica real de eliminación de Live Photos."""
         mode_label = "SIMULACIÓN" if dry_run else ""
         log_section_header_relevant(self.logger, "INICIANDO LIMPIEZA DE LIVE PHOTOS", mode=mode_label)
         self.logger.info(f"*** Archivos a procesar: {len(files_to_delete)}")
 
-        results = LivePhotoCleanupDeletionResult(success=True, dry_run=dry_run)
+        results = LivePhotosExecutionResult(success=True, dry_run=dry_run)
         files_deleted_list = []
 
         try:
@@ -404,8 +404,8 @@ class LivePhotoService(BaseService):
 
         return results
 
-    def _create_empty_result(self, cleanup_mode: CleanupMode) -> LivePhotoCleanupAnalysisResult:
-        return LivePhotoCleanupAnalysisResult(
+    def _create_empty_result(self, cleanup_mode: CleanupMode) -> LivePhotosAnalysisResult:
+        return LivePhotosAnalysisResult(
             items_count=0, 
             groups=[],
             space_to_free=0, 

@@ -18,7 +18,7 @@ from config import Config
 from utils.logger import get_logger, log_section_header_relevant, log_section_footer_relevant, log_section_header_discrete, log_section_footer_discrete
 from utils.date_utils import parse_renamed_name, get_date_from_file, select_chosen_date, _get_all_file_dates_cached
 from utils.file_utils import is_whatsapp_file, detect_file_source, cleanup_empty_directories
-from services.result_types import OrganizationDeletionResult, OrganizationAnalysisResult
+from services.result_types import OrganizationExecutionResult, OrganizationAnalysisResult
 from services.base_service import BaseService, ProgressCallback, BackupCreationError
 from services.metadata_cache import FileMetadataCache
 
@@ -237,7 +237,7 @@ class FileOrganizer(BaseService):
                 create_backup: bool = True, 
                 dry_run: bool = False, 
                 progress_callback: Optional[ProgressCallback] = None, 
-                **kwargs) -> OrganizationDeletionResult:
+                **kwargs) -> OrganizationExecutionResult:
         """
         Ejecuta la organización (renombrado/movimiento).
         Adaptado para usar OrganizationAnalysisResult.
@@ -246,7 +246,7 @@ class FileOrganizer(BaseService):
         cleanup_empty_dirs = kwargs.get('cleanup_empty_dirs', True)
         
         if not move_plan:
-            return OrganizationDeletionResult(success=True, message='No hay archivos para mover')
+            return OrganizationExecutionResult(success=True, message='No hay archivos para mover')
 
         root_directory = Path(analysis_result.root_directory)
         
@@ -254,7 +254,7 @@ class FileOrganizer(BaseService):
         log_section_header_relevant(self.logger, "INICIANDO ORGANIZACIÓN DE ARCHIVOS", mode=mode_label)
         self.logger.info(f"*** Archivos a mover: {len(move_plan)}")
         
-        results = OrganizationDeletionResult(success=True, dry_run=dry_run)
+        results = OrganizationExecutionResult(success=True, dry_run=dry_run)
         
         try:
              # Crear carpetas

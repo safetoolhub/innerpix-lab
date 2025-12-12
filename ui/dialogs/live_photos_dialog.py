@@ -236,7 +236,7 @@ class LivePhotosDialog(BaseDialog):
 
     def accept(self):
         # Construir dataclass de análisis con los archivos a eliminar según el modo seleccionado
-        from services.result_types import LivePhotoCleanupAnalysisResult
+        from services.result_types import LivePhotosAnalysisResult
         
         groups = self.analysis.groups  # Dataclass attribute
         files_to_delete = []
@@ -288,7 +288,7 @@ class LivePhotosDialog(BaseDialog):
         space_to_free = sum(f['size'] for f in files_to_delete)
         total_space = self.analysis.total_space
         
-        cleanup_analysis = LivePhotoCleanupAnalysisResult(
+        cleanup_analysis = LivePhotosAnalysisResult(
             items_count=len(groups),
             groups=groups,
             bytes_total=total_space,

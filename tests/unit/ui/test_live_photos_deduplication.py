@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import MagicMock, patch
 from pathlib import Path
 from services.live_photos_service import LivePhotoGroup, CleanupMode
-from services.result_types import LivePhotoCleanupAnalysisResult
+from services.result_types import LivePhotosAnalysisResult
 
 # Mock Config to avoid import errors or side effects
 with patch('config.Config') as MockConfig:
@@ -44,7 +44,7 @@ def mock_analysis_with_duplicates():
             video_size=5000
         )
         
-        return LivePhotoCleanupAnalysisResult(
+        return LivePhotosAnalysisResult(
             total_files=4,
             files_to_delete=[], # Not used by dialog directly, it rebuilds plan
             files_to_keep=[],

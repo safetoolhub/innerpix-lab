@@ -19,7 +19,7 @@ from pathlib import Path
 from datetime import datetime, timedelta
 from services.heic_service import HeicService, DuplicatePair
 from config import Config
-from services.result_types import HeicAnalysisResult, HeicDeletionResult
+from services.result_types import HeicAnalysisResult, HeicExecutionResult
 import time
 import os
 

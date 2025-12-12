@@ -599,13 +599,13 @@ class Stage3Window(BaseStage):
             )
         
         elif tool_id == 'heic':
-            from services.heic_remover_service import HEICRemover
-            remover = HEICRemover()
-            # HeicExecutionWorker espera (remover, analysis: dataclass, keep_format, create_backup, dry_run)
+            from services.heic_service import HeicService
+            service = HeicService()
+            # HeicExecutionWorker espera (service, analysis: dataclass, keep_format, create_backup, dry_run)
             worker = HeicExecutionWorker(
-                remover=remover,
+                service=service,
                 analysis=plan.get('analysis'),
-                keep_format=plan.get('keep_format', 'file-jpg-box'),
+                keep_format=plan.get('keep_format', 'jpg'),
                 create_backup=plan.get('create_backup', True),
                 dry_run=plan.get('dry_run', False)
             )
@@ -613,10 +613,10 @@ class Stage3Window(BaseStage):
         elif tool_id == 'exact_copies':
             from services.duplicates_exact_service import DuplicatesExactService
             detector = DuplicatesExactService()
-            # DuplicatesExecutionWorker espera (detector, groups, keep_strategy, create_backup, dry_run, metadata_cache)
+            # DuplicatesExecutionWorker espera (detector, analysis: dataclass, keep_strategy, create_backup, dry_run, metadata_cache)
             worker = DuplicatesExecutionWorker(
                 detector=detector,
-                groups=plan.get('groups', []),
+                analysis=plan.get('analysis'),
                 keep_strategy=plan.get('keep_strategy', 'first'),
                 create_backup=plan.get('create_backup', True),
                 dry_run=plan.get('dry_run', False),
@@ -626,10 +626,10 @@ class Stage3Window(BaseStage):
         elif tool_id == 'similar_files':
             from services.duplicates_similar_service import DuplicatesSimilarService
             detector = DuplicatesSimilarService()
-            # DuplicatesExecutionWorker espera (detector, groups, keep_strategy, create_backup, dry_run, metadata_cache)
+            # DuplicatesExecutionWorker espera (detector, analysis: dataclass, keep_strategy, create_backup, dry_run, metadata_cache)
             worker = DuplicatesExecutionWorker(
                 detector=detector,
-                groups=plan.get('groups', []),
+                analysis=plan.get('analysis'),
                 keep_strategy=plan.get('keep_strategy', 'manual'),
                 create_backup=plan.get('create_backup', True),
                 dry_run=plan.get('dry_run', False),
@@ -662,10 +662,10 @@ class Stage3Window(BaseStage):
         elif tool_id == 'zero_byte':
             from services.zero_byte_service import ZeroByteService
             service = ZeroByteService()
-            # ZeroByteExecutionWorker espera (service, files, create_backup, dry_run)
+            # ZeroByteExecutionWorker espera (service, analysis: dataclass, create_backup, dry_run)
             worker = ZeroByteExecutionWorker(
                 service=service,
-                files=plan.get('files_to_delete', []),
+                analysis=plan.get('analysis'),
                 create_backup=plan.get('create_backup', True),
                 dry_run=plan.get('dry_run', False)
             )
