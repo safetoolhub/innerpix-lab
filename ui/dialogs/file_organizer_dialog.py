@@ -24,49 +24,8 @@ from utils.icons import icon_manager
 from utils.logger import get_logger
 from services.file_organizer_service import FileOrganizer, OrganizationType
 from services.result_types import OrganizationAnalysisResult
+from ui.workers import FileOrganizerAnalysisWorker
 from .base_dialog import BaseDialog
-
-
-class OrganizationWorker(QThread):
-    """Worker para análisis de organización en background"""
-    
-    finished = pyqtSignal(OrganizationAnalysisResult)
-    progress = pyqtSignal(int, int, str)
-    error = pyqtSignal(str)
-    
-    def __init__(self, root_directory: Path, organization_type: OrganizationType, metadata_cache=None, group_by_source=False, group_by_type=False, date_grouping_type: Optional[str] = None):
-        super().__init__()
-        self.root_directory = root_directory
-        self.organization_type = organization_type
-        self.metadata_cache = metadata_cache
-        self.group_by_source = group_by_source
-        self.group_by_type = group_by_type
-        self.date_grouping_type = date_grouping_type
-        self.organizer = FileOrganizer()
-        self.logger = get_logger("OrganizationWorker")
-    
-    def run(self):
-        """Ejecuta el análisis"""
-        try:
-            self.logger.info(f"Analizando con tipo: {self.organization_type.value}")
-            
-            def progress_callback(current, total, message):
-                self.progress.emit(current, total, message)
-                return True  # Continue processing
-            
-            result = self.organizer.analyze(
-                self.root_directory,
-                self.organization_type,
-                progress_callback,
-                group_by_source=self.group_by_source,
-                group_by_type=self.group_by_type,
-                date_grouping_type=self.date_grouping_type
-            )
-            self.finished.emit(result)
-            
-        except Exception as e:
-            self.logger.error(f"Error en análisis: {e}", exc_info=True)
-            self.error.emit(str(e))
 
 
 class FileOrganizerDialog(BaseDialog):
@@ -100,7 +59,7 @@ class FileOrganizerDialog(BaseDialog):
         self.total_pages = 0
         
         # Worker para análisis
-        self.worker: Optional[OrganizationWorker] = None
+        self.worker: Optional[FileOrganizerAnalysisWorker] = None
         self.is_analyzing = False
         
         # Flag para evitar disparar eventos durante la construcción de la UI
@@ -572,16 +531,16 @@ class FileOrganizerDialog(BaseDialog):
         self._set_ui_loading_state(True)
         
         # Crear y configurar worker
-        self.worker = OrganizationWorker(
-            self.root_directory, 
-            org_type, 
-            self.metadata_cache,
+        self.worker = FileOrganizerAnalysisWorker(
+            directory=self.root_directory,
+            organization_type=org_type,
+            metadata_cache=self.metadata_cache,
             group_by_source=group_by_source,
             group_by_type=group_by_type,
             date_grouping_type=date_grouping_type
         )
         self.worker.finished.connect(self._on_analysis_finished)
-        self.worker.progress.connect(self._on_analysis_progress)
+        self.worker.progress_update.connect(self._on_analysis_progress)
         self.worker.error.connect(self._on_analysis_error)
         
         # Iniciar

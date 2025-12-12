@@ -12,12 +12,12 @@ try:
     print("Importing ui.workers...")
     from ui.workers import (
         AnalysisWorker,
-        LivePhotoAnalysisWorker,
+        LivePhotosAnalysisWorker,
         HeicAnalysisWorker,
-        ExactDuplicatesAnalysisWorker,
+        DuplicatesExactAnalysisWorker,
         ZeroByteAnalysisWorker,
-        RenamingAnalysisWorker,
-        OrganizationAnalysisWorker
+        FileRenamerAnalysisWorker,
+        FileOrganizerAnalysisWorker
     )
     print("✅ ui.workers imports successful")
 except ImportError as e:

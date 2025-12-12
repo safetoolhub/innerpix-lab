@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from services.zero_byte_service import ZeroByteService
 
 
-class RenamingWorker(BaseWorker):
+class FileRenamerExecutionWorker(BaseWorker):
     """
     Worker para ejecutar renombrado de nombres de archivos
     """
@@ -72,7 +72,7 @@ class RenamingWorker(BaseWorker):
                 self.error.emit(error_msg)
 
 
-class LivePhotoCleanupWorker(BaseWorker):
+class LivePhotosExecutionWorker(BaseWorker):
     """
     Worker para ejecutar limpieza de Live Photos
     """
@@ -107,7 +107,7 @@ class LivePhotoCleanupWorker(BaseWorker):
                 self.error.emit(error_msg)
 
 
-class FileOrganizerWorker(BaseWorker):
+class FileOrganizerExecutionWorker(BaseWorker):
     """
     Worker para ejecutar organización de archivos
     """
@@ -150,7 +150,7 @@ class FileOrganizerWorker(BaseWorker):
                 self.error.emit(error_msg)
 
 
-class HEICRemovalWorker(BaseWorker):
+class HeicExecutionWorker(BaseWorker):
     """
     Worker para ejecutar eliminación de duplicados HEIC
     """
@@ -193,7 +193,7 @@ class HEICRemovalWorker(BaseWorker):
                 self.error.emit(error_msg)
 
 
-class DuplicateDeletionWorker(BaseWorker):
+class DuplicatesExecutionWorker(BaseWorker):
     """
     Worker para eliminación de duplicados
     """
@@ -240,7 +240,7 @@ class DuplicateDeletionWorker(BaseWorker):
                 self.error.emit(error_msg)
 
 
-class ZeroByteDeletionWorker(BaseWorker):
+class ZeroByteExecutionWorker(BaseWorker):
     """
     Worker para eliminación de archivos de 0 bytes
     """

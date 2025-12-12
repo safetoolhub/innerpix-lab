@@ -2,35 +2,37 @@ from .main_window import MainWindow
 from .workers import (
     BaseWorker,
     AnalysisWorker,
-    RenamingWorker,
-    LivePhotoCleanupWorker,
-    FileOrganizerWorker,
-    HEICRemovalWorker,
-    DuplicateDeletionWorker,
+    FileRenamerExecutionWorker,
+    LivePhotosExecutionWorker,
+    FileOrganizerExecutionWorker,
+    HeicExecutionWorker,
+    DuplicatesExecutionWorker,
+    ZeroByteExecutionWorker,
     DuplicatesSimilarAnalysisWorker,
-    # New analysis workers
-    LivePhotoAnalysisWorker,
+    # Analysis workers
+    LivePhotosAnalysisWorker,
     HeicAnalysisWorker,
-    ExactDuplicatesAnalysisWorker,
+    DuplicatesExactAnalysisWorker,
     ZeroByteAnalysisWorker,
-    RenamingAnalysisWorker,
-    OrganizationAnalysisWorker
+    FileRenamerAnalysisWorker,
+    FileOrganizerAnalysisWorker
 )
 
 __all__ = [
     'MainWindow',
     'BaseWorker',
     'AnalysisWorker',
-    'RenamingWorker',
-    'LivePhotoCleanupWorker',
-    'FileOrganizerWorker',
-    'HEICRemovalWorker',
-    'DuplicateDeletionWorker',
+    'FileRenamerExecutionWorker',
+    'LivePhotosExecutionWorker',
+    'FileOrganizerExecutionWorker',
+    'HeicExecutionWorker',
+    'DuplicatesExecutionWorker',
+    'ZeroByteExecutionWorker',
     'DuplicatesSimilarAnalysisWorker',
-    'LivePhotoAnalysisWorker',
+    'LivePhotosAnalysisWorker',
     'HeicAnalysisWorker',
-    'ExactDuplicatesAnalysisWorker',
+    'DuplicatesExactAnalysisWorker',
     'ZeroByteAnalysisWorker',
-    'RenamingAnalysisWorker',
-    'OrganizationAnalysisWorker'
+    'FileRenamerAnalysisWorker',
+    'FileOrganizerAnalysisWorker'
 ]

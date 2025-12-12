@@ -1,37 +1,37 @@
 from .base_worker import BaseWorker
 from .analysis_workers import (
     AnalysisWorker,
-    LivePhotoAnalysisWorker,
+    LivePhotosAnalysisWorker,
     HeicAnalysisWorker,
-    ExactDuplicatesAnalysisWorker,
+    DuplicatesExactAnalysisWorker,
     DuplicatesSimilarAnalysisWorker,
     ZeroByteAnalysisWorker,
-    RenamingAnalysisWorker,
-    OrganizationAnalysisWorker
+    FileRenamerAnalysisWorker,
+    FileOrganizerAnalysisWorker
 )
 from .execution_workers import (
-    RenamingWorker,
-    LivePhotoCleanupWorker,
-    FileOrganizerWorker,
-    HEICRemovalWorker,
-    DuplicateDeletionWorker,
-    ZeroByteDeletionWorker
+    FileRenamerExecutionWorker,
+    LivePhotosExecutionWorker,
+    FileOrganizerExecutionWorker,
+    HeicExecutionWorker,
+    DuplicatesExecutionWorker,
+    ZeroByteExecutionWorker
 )
 
 __all__ = [
     'BaseWorker',
     'AnalysisWorker',
-    'LivePhotoAnalysisWorker',
+    'LivePhotosAnalysisWorker',
     'HeicAnalysisWorker',
-    'ExactDuplicatesAnalysisWorker',
+    'DuplicatesExactAnalysisWorker',
     'DuplicatesSimilarAnalysisWorker',
     'ZeroByteAnalysisWorker',
-    'RenamingAnalysisWorker',
-    'OrganizationAnalysisWorker',
-    'RenamingWorker',
-    'LivePhotoCleanupWorker',
-    'FileOrganizerWorker',
-    'HEICRemovalWorker',
-    'DuplicateDeletionWorker',
-    'ZeroByteDeletionWorker'
+    'FileRenamerAnalysisWorker',
+    'FileOrganizerAnalysisWorker',
+    'FileRenamerExecutionWorker',
+    'LivePhotosExecutionWorker',
+    'FileOrganizerExecutionWorker',
+    'HeicExecutionWorker',
+    'DuplicatesExecutionWorker',
+    'ZeroByteExecutionWorker'
 ]

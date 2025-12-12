@@ -446,23 +446,23 @@ class Stage3Window(BaseStage):
         Ejecuta el análisis específico para una herramienta y luego abre su diálogo.
         """
         from ui.workers import (
-            LivePhotoAnalysisWorker,
+            LivePhotosAnalysisWorker,
             HeicAnalysisWorker,
-            ExactDuplicatesAnalysisWorker,
+            DuplicatesExactAnalysisWorker,
             ZeroByteAnalysisWorker,
-            OrganizationAnalysisWorker,
-            RenamingAnalysisWorker
+            FileOrganizerAnalysisWorker,
+            FileRenamerAnalysisWorker
         )
         from PyQt6.QtWidgets import QProgressDialog
         
         # Mapeo de tool_id a Worker Class
         worker_map = {
-            'live_photos': (LivePhotoAnalysisWorker, "Analizando Live Photos..."),
+            'live_photos': (LivePhotosAnalysisWorker, "Analizando Live Photos..."),
             'heic': (HeicAnalysisWorker, "Buscando duplicados HEIC/JPG..."),
-            'exact_copies': (ExactDuplicatesAnalysisWorker, "Buscando copias exactas..."),
+            'exact_copies': (DuplicatesExactAnalysisWorker, "Buscando copias exactas..."),
             'zero_byte': (ZeroByteAnalysisWorker, "Buscando archivos vacíos..."),
-            'folder-move': (OrganizationAnalysisWorker, "Analizando estructura..."),
-            'rename-box': (RenamingAnalysisWorker, "Analizando nombres...")
+            'folder-move': (FileOrganizerAnalysisWorker, "Analizando estructura..."),
+            'rename-box': (FileRenamerAnalysisWorker, "Analizando nombres...")
         }
         
         if tool_id not in worker_map:
@@ -534,12 +534,12 @@ class Stage3Window(BaseStage):
             dialog: Diálogo que contiene el accepted_plan
         """
         from ui.workers import (
-            LivePhotoCleanupWorker,
-            HEICRemovalWorker,
-            DuplicateDeletionWorker,
-            FileOrganizerWorker,
-            RenamingWorker,
-            ZeroByteDeletionWorker,
+            LivePhotosExecutionWorker,
+            HeicExecutionWorker,
+            DuplicatesExecutionWorker,
+            FileOrganizerExecutionWorker,
+            FileRenamerExecutionWorker,
+            ZeroByteExecutionWorker,
         )
         from PyQt6.QtWidgets import QProgressDialog
         from PyQt6.QtCore import Qt
@@ -590,8 +590,8 @@ class Stage3Window(BaseStage):
         if tool_id == 'live_photos':
             from services.live_photos_service import LivePhotoService
             service = LivePhotoService()
-            # LivePhotoCleanupWorker espera (service, analysis: dataclass, create_backup, dry_run)
-            worker = LivePhotoCleanupWorker(
+            # LivePhotosExecutionWorker espera (service, analysis: dataclass, create_backup, dry_run)
+            worker = LivePhotosExecutionWorker(
                 service,
                 analysis=plan.get('analysis'),
                 create_backup=plan.get('create_backup', True),
@@ -601,8 +601,8 @@ class Stage3Window(BaseStage):
         elif tool_id == 'heic':
             from services.heic_remover_service import HEICRemover
             remover = HEICRemover()
-            # HEICRemovalWorker espera (remover, analysis: dataclass, keep_format, create_backup, dry_run)
-            worker = HEICRemovalWorker(
+            # HeicExecutionWorker espera (remover, analysis: dataclass, keep_format, create_backup, dry_run)
+            worker = HeicExecutionWorker(
                 remover=remover,
                 analysis=plan.get('analysis'),
                 keep_format=plan.get('keep_format', 'file-jpg-box'),
@@ -613,8 +613,8 @@ class Stage3Window(BaseStage):
         elif tool_id == 'exact_copies':
             from services.duplicates_exact_service import DuplicatesExactService
             detector = DuplicatesExactService()
-            # DuplicateDeletionWorker espera (detector, groups, keep_strategy, create_backup, dry_run, metadata_cache)
-            worker = DuplicateDeletionWorker(
+            # DuplicatesExecutionWorker espera (detector, groups, keep_strategy, create_backup, dry_run, metadata_cache)
+            worker = DuplicatesExecutionWorker(
                 detector=detector,
                 groups=plan.get('groups', []),
                 keep_strategy=plan.get('keep_strategy', 'first'),
@@ -626,8 +626,8 @@ class Stage3Window(BaseStage):
         elif tool_id == 'similar_files':
             from services.duplicates_similar_service import DuplicatesSimilarService
             detector = DuplicatesSimilarService()
-            # DuplicateDeletionWorker espera (detector, groups, keep_strategy, create_backup, dry_run, metadata_cache)
-            worker = DuplicateDeletionWorker(
+            # DuplicatesExecutionWorker espera (detector, groups, keep_strategy, create_backup, dry_run, metadata_cache)
+            worker = DuplicatesExecutionWorker(
                 detector=detector,
                 groups=plan.get('groups', []),
                 keep_strategy=plan.get('keep_strategy', 'manual'),
@@ -639,8 +639,8 @@ class Stage3Window(BaseStage):
         elif tool_id == 'folder-move':
             from services.file_organizer_service import FileOrganizer
             organizer = FileOrganizer()
-            # FileOrganizerWorker espera (organizer, analysis: dataclass, cleanup_empty_dirs, create_backup, dry_run)
-            worker = FileOrganizerWorker(
+            # FileOrganizerExecutionWorker espera (organizer, analysis: dataclass, cleanup_empty_dirs, create_backup, dry_run)
+            worker = FileOrganizerExecutionWorker(
                 organizer=organizer,
                 analysis=plan.get('analysis'),
                 cleanup_empty_dirs=plan.get('cleanup_empty_dirs', True),
@@ -651,8 +651,8 @@ class Stage3Window(BaseStage):
         elif tool_id == 'rename-box':
             from services.file_renamer_service import FileRenamer
             renamer = FileRenamer()
-            # RenamingWorker espera (renamer, analysis: dataclass, create_backup, dry_run)
-            worker = RenamingWorker(
+            # FileRenamerExecutionWorker espera (renamer, analysis: dataclass, create_backup, dry_run)
+            worker = FileRenamerExecutionWorker(
                 renamer=renamer,
                 analysis=plan.get('analysis'),
                 create_backup=plan.get('create_backup', True),
@@ -662,8 +662,8 @@ class Stage3Window(BaseStage):
         elif tool_id == 'zero_byte':
             from services.zero_byte_service import ZeroByteService
             service = ZeroByteService()
-            # ZeroByteDeletionWorker espera (service, files, create_backup, dry_run)
-            worker = ZeroByteDeletionWorker(
+            # ZeroByteExecutionWorker espera (service, files, create_backup, dry_run)
+            worker = ZeroByteExecutionWorker(
                 service=service,
                 files=plan.get('files_to_delete', []),
                 create_backup=plan.get('create_backup', True),

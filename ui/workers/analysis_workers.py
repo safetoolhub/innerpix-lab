@@ -131,7 +131,7 @@ class AnalysisWorker(BaseWorker):
 # ON-DEMAND ANALYSIS WORKERS (STAGE 3)
 # ============================================================================
 
-class LivePhotoAnalysisWorker(BaseWorker):
+class LivePhotosAnalysisWorker(BaseWorker):
     finished = pyqtSignal(object)
     
     def __init__(self, directory: Path, metadata_cache=None):
@@ -190,7 +190,7 @@ class HeicAnalysisWorker(BaseWorker):
             self.error.emit(str(e))
 
 
-class ExactDuplicatesAnalysisWorker(BaseWorker):
+class DuplicatesExactAnalysisWorker(BaseWorker):
     finished = pyqtSignal(object)
     
     def __init__(self, directory: Path, metadata_cache=None):
@@ -238,7 +238,7 @@ class ZeroByteAnalysisWorker(BaseWorker):
             self.error.emit(str(e))
 
 
-class RenamingAnalysisWorker(BaseWorker):
+class FileRenamerAnalysisWorker(BaseWorker):
     finished = pyqtSignal(object)
     
     def __init__(self, directory: Path, metadata_cache=None):
@@ -262,14 +262,26 @@ class RenamingAnalysisWorker(BaseWorker):
             self.error.emit(str(e))
 
 
-class OrganizationAnalysisWorker(BaseWorker):
+class FileOrganizerAnalysisWorker(BaseWorker):
+    """Worker para análisis de organización de archivos con opciones de agrupación"""
     finished = pyqtSignal(object)
     
-    def __init__(self, directory: Path, organization_type=None, metadata_cache=None):
+    def __init__(
+        self,
+        directory: Path,
+        organization_type=None,
+        metadata_cache=None,
+        group_by_source: bool = False,
+        group_by_type: bool = False,
+        date_grouping_type: Optional[str] = None
+    ):
         super().__init__()
         self.directory = directory
         self.organization_type = organization_type
         self.metadata_cache = metadata_cache
+        self.group_by_source = group_by_source
+        self.group_by_type = group_by_type
+        self.date_grouping_type = date_grouping_type
         
     def run(self):
         try:
@@ -289,7 +301,10 @@ class OrganizationAnalysisWorker(BaseWorker):
                 directory=self.directory,
                 organization_type=org_type,
                 progress_callback=self._create_progress_callback(emit_numbers=True),
-                metadata_cache=self.metadata_cache
+                metadata_cache=self.metadata_cache,
+                group_by_source=self.group_by_source,
+                group_by_type=self.group_by_type,
+                date_grouping_type=self.date_grouping_type
             )
             if not self._stop_requested:
                 self.finished.emit(result)
