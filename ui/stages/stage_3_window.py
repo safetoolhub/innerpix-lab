@@ -89,7 +89,7 @@ class Stage3Window(BaseStage):
             on_about_clicked=self._on_about_clicked
         )
         self.main_layout.addWidget(self.header)
-        self.main_layout.addSpacing(DesignSystem.SPACE_8)
+        self.main_layout.addSpacing(DesignSystem.SPACE_6)  # Reducido para optimizar espacio vertical
 
         # Crear banner de advertencia (oculto por defecto)
         self.stale_banner = self._create_stale_banner()
@@ -271,7 +271,7 @@ class Stage3Window(BaseStage):
         # Container para el grid
         grid_container = QWidget()
         grid_layout = QGridLayout(grid_container)
-        grid_layout.setSpacing(12)  # Reducido para optimizar espacio vertical
+        grid_layout.setSpacing(10)  # Reducido para optimizar espacio vertical
         grid_layout.setContentsMargins(0, 0, 0, 0)
 
         # Obtener datos de análisis (todos dataclasses tipados)

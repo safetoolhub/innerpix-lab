@@ -33,35 +33,15 @@ class AnalysisResult(BaseResult):
 class ExecutionResult(BaseResult):
     """
     Generic result for the Execution phase.
+    All execution operations support dry_run mode and backup creation.
     """
     items_processed: int = 0
     bytes_processed: int = 0      # Bytes freed, moved, or renamed
     files_affected: List[Path] = field(default_factory=list) # List of files modified
     backup_path: Optional[Path] = None # If backup was created
+    dry_run: bool = False         # Whether this was a dry-run (simulation)
 
 DeletionResult = ExecutionResult
-
-# ============================================================================
-# SERVICE SPECIFIC RESULT ADAPTERS (For backwards compatibility & typed access)
-# ============================================================================
-# These classes adapt the specific data needs of each service to the generic structure
-# while maintaining the fields expected by current ViewModels/UI.
-
-# --- Shared Mixins (kept for transition, can be phased out) ---
-@dataclass
-class DryRunMixin:
-    dry_run: bool = False
-
-DryRunStatsMixin = DryRunMixin
-
-@dataclass
-class BackupMixin:
-    backup_path: Optional[Path] = None
-
-@dataclass
-class FileListMixin:
-    files: List[Path] = field(default_factory=list)
-
 
 
 # --- Rename Service ---
@@ -81,7 +61,7 @@ class RenameAnalysisResult(AnalysisResult):
             self.items_count = len(self.renaming_plan)
 
 @dataclass
-class RenameExecutionResult(ExecutionResult, DryRunMixin):
+class RenameExecutionResult(ExecutionResult):
     # Inherits items_processed (files_renamed), bytes_processed
     # Specifics
     renamed_files: List[dict] = field(default_factory=list)
@@ -107,7 +87,7 @@ class OrganizationAnalysisResult(AnalysisResult):
              self.bytes_total = sum(m.size for m in self.move_plan)
 
 @dataclass
-class OrganizationExecutionResult(ExecutionResult, DryRunMixin):
+class OrganizationExecutionResult(ExecutionResult):
     # Specifics
     empty_directories_removed: int = 0
     moved_files: List[str] = field(default_factory=list) # Path strings
@@ -149,7 +129,7 @@ class HeicAnalysisResult(AnalysisResult):
              self.bytes_total = sum(p.total_size for p in self.duplicate_pairs)
 
 @dataclass
-class HeicExecutionResult(ExecutionResult, DryRunMixin):
+class HeicExecutionResult(ExecutionResult):
     format_kept: Optional[str] = None
     # items_processed = deleted pairs count
     # bytes_processed = space freed
@@ -185,7 +165,7 @@ class DuplicateAnalysisResult(AnalysisResult):
             self.bytes_total = self.space_wasted
 
 @dataclass
-class DuplicateDeletionResult(ExecutionResult, DryRunMixin):
+class DuplicateDeletionResult(ExecutionResult):
     # Renamed from DuplicateExecutionResult to maintain some compat or just preferred name
     # Actually let's keep it as DuplicateDeletionResult since that's what it primarily does
     files_kept: int = 0
@@ -217,7 +197,7 @@ class LivePhotoCleanupAnalysisResult(AnalysisResult):
             self.bytes_total = self.total_space
 
 @dataclass
-class LivePhotoCleanupExecutionResult(ExecutionResult, DryRunMixin):
+class LivePhotoCleanupExecutionResult(ExecutionResult):
     pass
 
 LivePhotoCleanupDeletionResult = LivePhotoCleanupExecutionResult
@@ -245,7 +225,7 @@ class ZeroByteAnalysisResult(AnalysisResult):
             self.items_count = len(self.files)
 
 @dataclass
-class ZeroByteDeletionResult(ExecutionResult, DryRunMixin):
+class ZeroByteDeletionResult(ExecutionResult):
     pass
 
 # ============================================================================
