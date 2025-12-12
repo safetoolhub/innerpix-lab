@@ -33,14 +33,14 @@ Aplicación PyQt6 para gestión de colecciones de fotos/videos (enfoque iOS).
 │   │   ├── about_dialog.py
 │   │   ├── base_dialog.py
 │   │   ├── dialog_utils.py
-│   │   ├── exact_copies_dialog.py
+│   │   ├── duplicates_exact_similar_dialog.py
 │   │   ├── file_organizer_dialog.py
-│   │   ├── file_renaming_dialog.py
+│   │   ├── file_renamer_dialog.py
 │   │   ├── heic_dialog.py
 │   │   ├── live_photos_dialog.py
 │   │   ├── settings_dialog.py
-│   │   ├── similar_files_dialog.py
-│   │   ├── similar_files_progress_dialog.py
+│   │   ├── duplicates_similar_dialog.py
+│   │   ├── duplicates_similar_progress_dialog.py
 │   │   └── zero_byte_dialog.py
 │   ├── stages
 │   │   ├── base_stage.py

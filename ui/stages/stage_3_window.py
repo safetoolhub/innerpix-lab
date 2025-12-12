@@ -23,14 +23,14 @@ from ui.widgets.summary_card import SummaryCard
 from ui.widgets.tool_card import ToolCard
 from ui.dialogs.live_photos_dialog import LivePhotoCleanupDialog
 from ui.dialogs.heic_dialog import HeicDuplicateRemovalDialog
-from ui.dialogs.exact_copies_dialog import ExactCopiesDialog
+from ui.dialogs.duplicates_exact_similar_dialog import ExactCopiesDialog
 from ui.dialogs.file_organizer_dialog import FileOrganizationDialog
 from ui.dialogs.file_organizer_dialog import FileOrganizationDialog
-from ui.dialogs.file_renaming_dialog import RenamingPreviewDialog
+from ui.dialogs.file_renamer_dialog import RenamingPreviewDialog
 from ui.dialogs.zero_byte_dialog import ZeroByteDialog
 from ui.dialogs.settings_dialog import SettingsDialog
 from ui.dialogs.about_dialog import AboutDialog
-from ui.dialogs.similar_files_progress_dialog import SimilarFilesProgressDialog
+from ui.dialogs.duplicates_similar_progress_dialog import SimilarFilesProgressDialog
 from utils.format_utils import format_size, format_file_count
 from ui.workers import DuplicatesSimilarAnalysisWorker
 from utils.logger import log_section_header_discrete
@@ -1323,7 +1323,7 @@ class Stage3Window(BaseStage):
         Args:
             analysis: DuplicatesSimilarAnalysis con hashes calculados
         """
-        from ui.dialogs.similar_files_dialog import SimilarFilesDialog
+        from ui.dialogs.duplicates_similar_dialog import SimilarFilesDialog
         
         dialog = SimilarFilesDialog(analysis, self.main_window)
         result = dialog.exec()
@@ -1361,7 +1361,7 @@ class Stage3Window(BaseStage):
         Args:
             results: DuplicateAnalysisResult
         """
-        from ui.dialogs.similar_files_dialog import SimilarFilesDialog
+        from ui.dialogs.duplicates_similar_dialog import SimilarFilesDialog
         
         # Intentar convertir o mostrar advertencia
         self.logger.warning(

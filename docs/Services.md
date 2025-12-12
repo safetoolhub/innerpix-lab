@@ -13,12 +13,12 @@ Ofrece al usuario 7 servicios principales; cada una se presenta mediante un diá
 
 3. **Detección de copias exactas**
    - **Descripción**: Encuentra archivos idénticos byte-a-byte mediante hashing. Permite revisar los pares/grupos detectados y elegir qué conservar o eliminar.
-   - **Dialog asociado**: `ui/dialogs/exact_copies_dialog.py`
+   - **Dialog asociado**: `ui/dialogs/duplicates_exact_similar_dialog.py`
 
 4. **Detección de archivos similares**
    - **Descripción**: Detecta imágenes o videos visualmente similares (mismo contenido con pequeñas variaciones: recorte, rotación, compresión). Ofrece herramientas para comparar y decidir qué mantener.
-   - **Dialog asociado**: `ui/dialogs/similar_files_dialog.py`
-   - **Dialog asociado para analisis previo**: `ui/dialogs/similar_files_progress_dialog.py`
+   - **Dialog asociado**: `ui/dialogs/duplicates_similar_dialog.py`
+   - **Dialog asociado para analisis previo**: `ui/dialogs/duplicates_similar_progress_dialog.py`
 
 5. **Organización de archivos**
    - **Descripción**: Genera planes para reorganizar la colección (por fecha, por carpeta raíz, por origen como WhatsApp, etc.), mostrando la estructura propuesta antes de mover archivos.
@@ -26,7 +26,7 @@ Ofrece al usuario 7 servicios principales; cada una se presenta mediante un diá
 
 6. **Renombrado de archivos**
    - **Descripción**: Propone esquemas de renombrado (patrones con fecha, secuencias, metadatos) y muestra una vista previa de los nombres resultantes, detectando conflictos y proponiendo resoluciones.
-   - **Dialog asociado**: `ui/dialogs/file_renaming_dialog.py`
+   - **Dialog asociado**: `ui/dialogs/file_renamer_dialog.py`
 
 7. **Eliminación de archivos de 0 bytes**
    - **Descripción**: Busca archivos con tamaño 0 bytes y propone su eliminación.
