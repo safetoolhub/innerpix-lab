@@ -154,10 +154,10 @@ class LivePhotoAnalysisWorker(BaseWorker):
             )
             
             result = LivePhotoDetectionResult(
-                total_files=cleanup_analysis.total_files,
+                items_count=cleanup_analysis.items_count,
                 groups=cleanup_analysis.groups,
-                live_photos_found=cleanup_analysis.live_photos_found,
-                space_to_free=cleanup_analysis.space_to_free
+                space_to_free=cleanup_analysis.space_to_free,
+                bytes_total=cleanup_analysis.bytes_total
             )
             
             if not self._stop_requested:

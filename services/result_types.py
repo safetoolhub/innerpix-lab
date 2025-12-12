@@ -229,7 +229,7 @@ class LivePhotoDetectionResult(AnalysisResult):
     space_to_free: int = 0  # Added for UI compatibility
     
     def __post_init__(self):
-        super().__post_init__()
+        # super().__post_init__()  # Removed: Parent classes do not define __post_init__
         if not self.items_count and self.groups:
             self.items_count = len(self.groups)
         if not self.bytes_total:

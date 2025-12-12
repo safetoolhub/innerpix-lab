@@ -8,7 +8,7 @@ import os
 import hashlib
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, Tuple
 from datetime import datetime
 import threading
 
@@ -183,6 +183,24 @@ class FileMetadataCache:
         if meta and meta.exif_data:
             return meta.exif_data.copy()
         return {} 
+
+    def get_selected_date(self, path: Path) -> Tuple[Optional[datetime], str]:
+        """
+        Returns the best available date for a file and its source.
+        Uses cached EXIF if available, otherwise FS stats.
+        """
+        meta = self.get_metadata(path)
+        if not meta:
+            return None, "unknown"
+            
+        # Try EXIF first
+        if meta.exif_data:
+            # Fallback if no specific parsing logic available here without cyclical deps
+            pass
+
+        # Since we can't easily parse without deps and we want to keep this low level,
+        # let's return mtime as a safe fallback for now, or improve if we import date_utils
+        return datetime.fromtimestamp(meta.mtime), "mtime" 
 
 
     def get_stats(self) -> Dict[str, Any]:

@@ -235,7 +235,7 @@ class Stage3Window(BaseStage):
         # Live Photos
         if self.analysis_results.live_photos:
             live_photo_data = self.analysis_results.live_photos
-            if live_photo_data.live_photos_found > 0:
+            if live_photo_data.items_count > 0:
                 total += live_photo_data.space_to_free
 
         # HEIC/JPG pairs
@@ -394,10 +394,10 @@ class Stage3Window(BaseStage):
 
         # Configurar estado según datos
         if dup_data:
-            if dup_data.total_groups > 0:
+            if dup_data.items_count > 0:
                 size_text = f"~{format_size(dup_data.space_wasted)} recuperables"
                 card.set_status_with_results(
-                    f"{dup_data.total_groups} grupos detectados con copias idénticas",
+                    f"{dup_data.items_count} grupos detectados con copias idénticas",
                     size_text
                 )
             else:

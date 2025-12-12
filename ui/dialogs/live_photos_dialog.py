@@ -111,7 +111,7 @@ class LivePhotoCleanupDialog(BaseDialog):
             description='Live Photos de iPhone (Imagen + MOV). Selecciona qué componente conservar.',
             metrics=[
                 {
-                    'value': str(self.analysis.live_photos_found),
+                    'value': str(self.analysis.items_count),
                     'label': 'Grupos',
                     'color': DesignSystem.COLOR_PRIMARY
                 },
@@ -176,7 +176,7 @@ class LivePhotoCleanupDialog(BaseDialog):
         content_layout.addWidget(security_options)
 
         # Botones con estilo Material Design
-        live_photos_found = self.analysis.live_photos_found
+        live_photos_found = self.analysis.items_count
         ok_enabled = live_photos_found > 0
         ok_text = None if ok_enabled else "No hay Live Photos para limpiar"
         self.buttons = self.make_ok_cancel_buttons(
@@ -289,13 +289,16 @@ class LivePhotoCleanupDialog(BaseDialog):
         total_space = self.analysis.total_space
         
         cleanup_analysis = LivePhotoCleanupAnalysisResult(
-            total_files=len(groups) * 2,
-            files_to_delete=files_to_delete,
-            files_to_keep=files_to_keep,
+            items_count=len(groups),
+            groups=groups,
+            bytes_total=total_space,
             space_to_free=space_to_free,
             total_space=total_space,
-            cleanup_mode=self.selected_mode.value,
-            groups=groups  # Necesario para que live_photos_found se calcule correctamente
+            data={
+                'files_to_delete': files_to_delete,
+                'files_to_keep': files_to_keep,
+                'cleanup_mode': self.selected_mode.value
+            }
         )
         
         # Pasar dataclass + parámetros por separado

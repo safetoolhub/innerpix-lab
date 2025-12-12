@@ -229,13 +229,16 @@ class LivePhotoService(BaseService):
         space_to_free = sum(item['size'] for item in cleanup_plan['files_to_delete'])
 
         result = LivePhotoCleanupAnalysisResult(
-            total_files=len(live_photos) * 2,
-            files_to_delete=cleanup_plan['files_to_delete'],
-            files_to_keep=cleanup_plan['files_to_keep'],
+            items_count=len(live_photos),
+            groups=live_photos,
+            bytes_total=total_space,
             space_to_free=space_to_free,
             total_space=total_space,
-            cleanup_mode=cleanup_mode.value,
-            groups=live_photos
+            data={
+                'files_to_delete': cleanup_plan['files_to_delete'],
+                'files_to_keep': cleanup_plan['files_to_keep'],
+                'cleanup_mode': cleanup_mode.value
+            }
         )
 
         # Logging detallado
@@ -270,7 +273,7 @@ class LivePhotoService(BaseService):
         create_backup = kwargs.get('create_backup', True)
         progress_callback = kwargs.get('progress_callback')
         
-        files_to_delete = analysis_result.files_to_delete
+        files_to_delete = analysis_result.data.get('files_to_delete', [])
 
         if not files_to_delete:
             return LivePhotoCleanupDeletionResult(
@@ -403,8 +406,15 @@ class LivePhotoService(BaseService):
 
     def _create_empty_result(self, cleanup_mode: CleanupMode) -> LivePhotoCleanupAnalysisResult:
         return LivePhotoCleanupAnalysisResult(
-            total_files=0, files_to_delete=[], files_to_keep=[],
-            space_to_free=0, total_space=0, cleanup_mode=cleanup_mode.value, groups=[]
+            items_count=0, 
+            groups=[],
+            space_to_free=0, 
+            total_space=0, 
+            data={
+                'files_to_delete': [], 
+                'files_to_keep': [],
+                'cleanup_mode': cleanup_mode.value
+            }
         )
 
     def _detect_in_directory(
@@ -509,8 +519,10 @@ class LivePhotoService(BaseService):
                             image_size = None
                             video_size = None
                             if metadata_cache:
-                                image_size = metadata_cache.get_size(photo)
-                                video_size = metadata_cache.get_size(video)
+                                meta_img = metadata_cache.get_metadata(photo)
+                                meta_vid = metadata_cache.get_metadata(video)
+                                if meta_img: image_size = meta_img.size
+                                if meta_vid: video_size = meta_vid.size
                             
                             if image_size is None: image_size = photo.stat().st_size
                             if video_size is None: video_size = video.stat().st_size
