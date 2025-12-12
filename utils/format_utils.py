@@ -124,7 +124,3 @@ def truncate_path(path: str, max_length: int = 40) -> str:
 
     part = (max_length - 3) // 2
     return f"{s[:part]}...{s[-part:]}"
-
-
-
-

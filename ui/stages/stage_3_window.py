@@ -1112,7 +1112,7 @@ class Stage3Window(BaseStage):
         # Crear el worker (sin sensibilidad)
         self.similarity_worker = DuplicatesSimilarAnalysisWorker(
             detector=detector,
-            workspace_path=Path(self.selected_folder)
+            metadata_cache=self.metadata_cache
         )
         
         # Crear diálogo de progreso bloqueante

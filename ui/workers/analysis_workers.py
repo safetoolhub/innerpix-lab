@@ -305,11 +305,11 @@ class DuplicatesSimilarAnalysisWorker(BaseWorker):
     def __init__(
         self,
         detector, # Type hint omitted to avoid circular import here
-        workspace_path: Path
+        metadata_cache
     ):
         super().__init__()
         self.detector = detector
-        self.workspace_path = workspace_path
+        self.metadata_cache = metadata_cache
     
     def run(self) -> None:
         try:
@@ -327,7 +327,7 @@ class DuplicatesSimilarAnalysisWorker(BaseWorker):
             
             # Ejecutar análisis inicial (solo hashes)
             analysis = self.detector.analyze_initial(
-                workspace_path=self.workspace_path,
+                metadata_cache=self.metadata_cache,
                 progress_callback=progress_callback
             )
             
