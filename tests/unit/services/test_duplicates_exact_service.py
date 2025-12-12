@@ -13,12 +13,12 @@ from datetime import datetime, timedelta
 from PIL import Image
 from services.duplicates_exact_service import DuplicatesExactService, _is_valid_image_file
 from services.result_types import DuplicateAnalysisResult
-from services.metadata_cache import FileMetadataCache
+from services.file_info_repository import FileInfoRepository
 
 
 def analyze_helper(detector, directory, **kwargs):
     """Helper to bridge legacy test calls (directory) to new architecture (cache)"""
-    cache = FileMetadataCache()
+    cache = FileInfoRepository()
     if directory.exists():
         for path in directory.rglob('*'):
             if path.is_file():
@@ -509,7 +509,7 @@ class TestDuplicatesExactServiceCache:
         original = create_test_image(temp_dir / "original.jpg", color='red')
         shutil.copy2(original, temp_dir / "duplicate.jpg")
         
-        cache = FileMetadataCache()
+        cache = FileInfoRepository()
         detector = DuplicatesExactService()
         
         # Primera ejecución: cachea hashes
@@ -528,7 +528,7 @@ class TestDuplicatesExactServiceCache:
         
         original = create_test_image(temp_dir / "original.jpg", color='red')
         
-        cache = FileMetadataCache()
+        cache = FileInfoRepository()
         detector = DuplicatesExactService()
         
         # Primera ejecución

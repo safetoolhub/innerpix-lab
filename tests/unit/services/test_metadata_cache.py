@@ -1,5 +1,5 @@
 """
-Tests unitarios para FileMetadataCache
+Tests unitarios para FileInfoRepository
 
 Valida funcionalidad de caché compartida de metadatos entre fases del análisis:
 - Hashes SHA256
@@ -13,7 +13,7 @@ import pytest
 import time
 from pathlib import Path
 from datetime import datetime
-from services.metadata_cache import FileMetadataCache, FileMetadata
+from services.file_info_repository import FileInfoRepository, FileMetadata
 
 
 @pytest.mark.unit
@@ -22,27 +22,20 @@ class TestFileMetadataCacheBasics:
     
     def test_cache_creation(self):
         """Debe crear caché con configuración por defecto"""
-        cache = FileMetadataCache()
+        cache = FileInfoRepository()
         assert cache is not None
         assert len(cache) == 0
         assert cache._enabled is True
     
+    @pytest.mark.skip(reason="max_age_seconds removido en refactor - funcionalidad obsoleta")
     def test_cache_creation_with_custom_max_age(self):
         """Debe crear caché con max_age personalizado"""
-        cache = FileMetadataCache(max_age_seconds=7200)
-        assert cache._max_age_seconds == 7200
+        pass
     
+    @pytest.mark.skip(reason="enable/disable removido en refactor - funcionalidad obsoleta")
     def test_cache_enable_disable(self):
         """Debe permitir habilitar/deshabilitar caché"""
-        cache = FileMetadataCache()
-        assert cache._enabled is True
-        
-        cache.disable()
-        assert cache._enabled is False
-        assert len(cache) == 0
-        
-        cache.enable()
-        assert cache._enabled is True
+        pass
 
 
 @pytest.mark.unit
@@ -51,7 +44,7 @@ class TestFileMetadataCacheHashes:
     
     def test_set_and_get_hash(self, temp_dir):
         """Debe cachear y recuperar hashes SHA256"""
-        cache = FileMetadataCache()
+        cache = FileInfoRepository()
         file_path = temp_dir / "test.jpg"
         file_path.touch()
         
@@ -61,26 +54,25 @@ class TestFileMetadataCacheHashes:
         retrieved_hash = cache.get_hash(file_path)
         assert retrieved_hash == test_hash
     
-    def test_get_hash_not_cached(self, temp_dir):
-        """Debe retornar None para hash no cacheado"""
-        cache = FileMetadataCache()
-        file_path = temp_dir / "nonexistent.jpg"
+    def test_get_hash_not_cached_calculates_it(self, temp_dir):
+        """Debe calcular hash si no está cacheado"""
+        cache = FileInfoRepository()
+        file_path = temp_dir / "test.jpg"
+        file_path.write_text("test content")
         
+        # Primera llamada calcula y cachea
         retrieved_hash = cache.get_hash(file_path)
-        assert retrieved_hash is None
+        assert retrieved_hash is not None
+        assert len(retrieved_hash) == 64  # SHA256 hex length
+        
+        # Segunda llamada usa caché
+        cached_hash = cache.get_hash(file_path)
+        assert cached_hash == retrieved_hash
     
+    @pytest.mark.skip(reason="disable() removido en refactor - funcionalidad obsoleta")
     def test_hash_cache_disabled(self, temp_dir):
         """No debe cachear cuando está deshabilitado"""
-        cache = FileMetadataCache()
-        cache.disable()
-        
-        file_path = temp_dir / "test.jpg"
-        file_path.touch()
-        
-        cache.set_hash(file_path, "hash123")
-        retrieved = cache.get_hash(file_path)
-        
-        assert retrieved is None
+        pass
 
 
 @pytest.mark.unit
@@ -89,7 +81,7 @@ class TestFileMetadataCacheExifDates:
     
     def test_set_and_get_all_dates(self, temp_dir):
         """Debe cachear y recuperar todas las fechas"""
-        cache = FileMetadataCache()
+        cache = FileInfoRepository()
         file_path = temp_dir / "photo.jpg"
         file_path.touch()
         
@@ -112,7 +104,7 @@ class TestFileMetadataCacheExifDates:
     
     def test_get_all_dates_not_cached(self, temp_dir):
         """Debe retornar None para fechas no cacheadas"""
-        cache = FileMetadataCache()
+        cache = FileInfoRepository()
         file_path = temp_dir / "photo.jpg"
         
         retrieved_dates = cache.get_all_dates(file_path)
@@ -120,7 +112,7 @@ class TestFileMetadataCacheExifDates:
     
     def test_multiple_date_sources(self, temp_dir):
         """Debe cachear fechas de múltiples fuentes correctamente"""
-        cache = FileMetadataCache()
+        cache = FileInfoRepository()
         file_path = temp_dir / "photo.jpg"
         file_path.touch()
         
@@ -147,7 +139,7 @@ class TestFileMetadataCacheBasicMetadata:
     
     def test_set_and_get_size(self, temp_dir):
         """Debe cachear y recuperar tamaño de archivo"""
-        cache = FileMetadataCache()
+        cache = FileInfoRepository()
         file_path = temp_dir / "file.bin"
         file_path.touch()
         
@@ -159,7 +151,7 @@ class TestFileMetadataCacheBasicMetadata:
     
     def test_set_all_basic_metadata(self, temp_dir):
         """Debe cachear todo el metadata básico"""
-        cache = FileMetadataCache()
+        cache = FileInfoRepository()
         file_path = temp_dir / "photo.jpg"
         file_path.touch()
         
@@ -189,7 +181,7 @@ class TestFileMetadataCacheInvalidation:
     
     def test_invalidate_specific_file(self, temp_dir):
         """Debe invalidar caché de archivo específico"""
-        cache = FileMetadataCache()
+        cache = FileInfoRepository()
         file1 = temp_dir / "file1.jpg"
         file2 = temp_dir / "file2.jpg"
         file1.touch()
@@ -208,7 +200,7 @@ class TestFileMetadataCacheInvalidation:
     
     def test_invalidate_all(self, temp_dir):
         """Debe invalidar toda la caché"""
-        cache = FileMetadataCache()
+        cache = FileInfoRepository()
         
         for i in range(5):
             file_path = temp_dir / f"file{i}.jpg"
@@ -223,7 +215,7 @@ class TestFileMetadataCacheInvalidation:
     
     def test_invalidate_resets_stats(self, temp_dir):
         """Debe resetear estadísticas al invalidar todo"""
-        cache = FileMetadataCache()
+        cache = FileInfoRepository()
         file_path = temp_dir / "test.jpg"
         file_path.touch()
         
@@ -247,34 +239,15 @@ class TestFileMetadataCacheInvalidation:
 class TestFileMetadataCacheExpiration:
     """Tests de expiración de caché"""
     
+    @pytest.mark.skip(reason="Expiración automática removida en refactor - funcionalidad obsoleta")
     def test_expired_entry_removed(self, temp_dir):
         """Debe remover entradas expiradas automáticamente"""
-        cache = FileMetadataCache(max_age_seconds=1)
-        file_path = temp_dir / "test.jpg"
-        file_path.touch()
-        
-        cache.set_hash(file_path, "hash123")
-        assert cache.get_hash(file_path) == "hash123"
-        
-        # Esperar a que expire
-        time.sleep(1.1)
-        
-        # Debe retornar None y remover entrada
-        assert cache.get_hash(file_path) is None
-        assert file_path.resolve() not in cache._cache
+        pass
     
+    @pytest.mark.skip(reason="is_valid() removido en refactor - funcionalidad obsoleta")
     def test_metadata_is_valid(self):
         """Debe validar metadata por edad"""
-        metadata = FileMetadata(path=Path("test.jpg"))
-        
-        # Recién creado, debe ser válido
-        assert metadata.is_valid(max_age_seconds=3600)
-        
-        # Simular metadata antiguo
-        metadata.cached_at = time.time() - 7200  # 2 horas atrás
-        
-        # Debe ser inválido con max_age de 1 hora
-        assert not metadata.is_valid(max_age_seconds=3600)
+        pass
 
 
 @pytest.mark.unit
@@ -283,7 +256,7 @@ class TestFileMetadataCacheStatistics:
     
     def test_hit_rate_calculation(self, temp_dir):
         """Debe calcular hit rate correctamente"""
-        cache = FileMetadataCache()
+        cache = FileInfoRepository()
         file_path = temp_dir / "test.jpg"
         file_path.touch()
         
@@ -306,24 +279,22 @@ class TestFileMetadataCacheStatistics:
     
     def test_stats_structure(self, temp_dir):
         """Debe retornar estructura de estadísticas correcta"""
-        cache = FileMetadataCache()
+        cache = FileInfoRepository()
         
         stats = cache.get_stats()
         
-        assert 'enabled' in stats
         assert 'size' in stats
+        assert 'max_entries' in stats
         assert 'hits' in stats
         assert 'misses' in stats
         assert 'hit_rate' in stats
-        assert 'max_age_seconds' in stats
         
-        assert stats['enabled'] is True
         assert stats['size'] == 0
         assert stats['hit_rate'] == 0.0
     
     def test_log_stats_no_error(self, temp_dir):
         """log_stats no debe generar errores"""
-        cache = FileMetadataCache()
+        cache = FileInfoRepository()
         file_path = temp_dir / "test.jpg"
         file_path.touch()
         
@@ -340,7 +311,7 @@ class TestFileMetadataCacheContains:
     
     def test_contains_operator(self, temp_dir):
         """Debe soportar operador 'in'"""
-        cache = FileMetadataCache()
+        cache = FileInfoRepository()
         file_path = temp_dir / "test.jpg"
         file_path.touch()
         
@@ -352,7 +323,7 @@ class TestFileMetadataCacheContains:
     
     def test_len_operator(self, temp_dir):
         """Debe soportar función len()"""
-        cache = FileMetadataCache()
+        cache = FileInfoRepository()
         
         assert len(cache) == 0
         
@@ -370,7 +341,7 @@ class TestFileMetadataCacheGetOrCreate:
     
     def test_get_or_create_new(self, temp_dir):
         """Debe crear nueva entrada si no existe"""
-        cache = FileMetadataCache()
+        cache = FileInfoRepository()
         file_path = temp_dir / "new.jpg"
         file_path.touch()
         
@@ -382,7 +353,7 @@ class TestFileMetadataCacheGetOrCreate:
     
     def test_get_or_create_existing(self, temp_dir):
         """Debe retornar entrada existente si ya está cacheada"""
-        cache = FileMetadataCache()
+        cache = FileInfoRepository()
         file_path = temp_dir / "existing.jpg"
         file_path.touch()
         

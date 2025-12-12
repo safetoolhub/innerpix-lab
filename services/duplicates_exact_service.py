@@ -19,7 +19,7 @@ from config import Config
 from services.result_types import DuplicateAnalysisResult, DuplicateGroup
 from services.duplicates_base_service import DuplicatesBaseService
 from services.base_service import ProgressCallback
-from services.metadata_cache import MetadataCache, FileMetadata
+from services.file_info_repository import MetadataCache, FileMetadata
 from utils.logger import log_section_header_discrete, log_section_footer_discrete
 
 

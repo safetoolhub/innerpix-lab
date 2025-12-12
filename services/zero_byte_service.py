@@ -7,7 +7,7 @@ from typing import List, Optional
 
 from services.base_service import BaseService, ProgressCallback
 from services.result_types import ZeroByteAnalysisResult, ZeroByteExecutionResult
-from services.metadata_cache import MetadataCache
+from services.file_info_repository import MetadataCache
 from utils.logger import log_section_header_relevant, log_section_footer_relevant
 from utils.file_utils import delete_file_securely
 

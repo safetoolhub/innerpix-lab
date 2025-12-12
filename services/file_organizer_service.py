@@ -20,7 +20,7 @@ from utils.date_utils import parse_renamed_name, get_date_from_file, select_chos
 from utils.file_utils import is_whatsapp_file, detect_file_source, cleanup_empty_directories
 from services.result_types import OrganizationExecutionResult, OrganizationAnalysisResult
 from services.base_service import BaseService, ProgressCallback, BackupCreationError
-from services.metadata_cache import FileMetadataCache
+from services.file_info_repository import FileInfoRepository
 
 class OrganizationType(Enum):
     """Tipos de organización disponibles"""
@@ -62,12 +62,12 @@ class FileOrganizer(BaseService):
 
     def __init__(self):
         super().__init__("FileOrganizer")
-        self._metadata_cache: Optional[FileMetadataCache] = None
+        self._metadata_cache: Optional[FileInfoRepository] = None
 
     def analyze(self, 
                 root_directory: Path, 
                 organization_type: OrganizationType, 
-                metadata_cache: Optional[FileMetadataCache] = None,
+                metadata_cache: Optional[FileInfoRepository] = None,
                 progress_callback: Optional[ProgressCallback] = None,
                 group_by_source: bool = False,
                 group_by_type: bool = False,
@@ -122,7 +122,7 @@ class FileOrganizer(BaseService):
                      # Crear dummy meta (solo necesitamos path, size, type)
                      # No tenemos clase FileMetadata expuesta fácil, usaremos dict o objeto simple
                      # Mejor usar la clase real si importada
-                     from services.metadata_cache import FileMetadata
+                     from services.file_info_repository import FileMetadata
                      try:
                         sz = p.stat().st_size
                         # mtime

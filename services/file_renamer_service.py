@@ -23,7 +23,7 @@ from utils.file_utils import (
     find_next_available_name,
     validate_file_exists,
 )
-from services.metadata_cache import FileMetadataCache
+from services.file_info_repository import FileInfoRepository
 
 
 class FileRenamer(BaseService):
@@ -37,7 +37,7 @@ class FileRenamer(BaseService):
         self,
         directory: Path,
         progress_callback: Optional[ProgressCallback] = None,
-        metadata_cache: Optional[FileMetadataCache] = None,
+        metadata_cache: Optional[FileInfoRepository] = None,
         **kwargs
     ) -> RenameAnalysisResult:
         """

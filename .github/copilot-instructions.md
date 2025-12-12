@@ -15,15 +15,21 @@ See `PROJECT_TREE.md` for structure. Ignore `docs/` (author's notes).
    - Organizar: `FileOrganizer.analyze()` → `OrganizationAnalysisResult`
 - Detectors: `ExactCopiesDetector` (SHA256), `SimilarFilesDetector` (perceptual hash)
 
-**Metadata Cache** (`services/metadata_cache.py`) - Shared optimization system (under refactor)
-- `FileMetadataCache`: Thread-safe cache for expensive operations
+**File Info Repository** (`services/file_info_repository.py`) - Singleton file information repository
+- `FileInfoRepository`: Thread-safe singleton for file metadata and expensive operations
+- Pattern: Services access via `FileInfoRepository.get_instance()` - NOT passed as parameter
+- Auto-fetch: Methods retrieve data if cached, calculate/fetch if not (e.g., `get_hash()`)
+- Uses: `utils.file_utils.calculate_file_hash()` instead of reimplementing
 - Caches: SHA256 hashes, EXIF dates, file stats (size, type, timestamps)
 - Shared across services: ExactCopiesDetector, HEICRemover share hashes
-- Auto-sizing: `Config.get_max_cache_entries()` based on system RAM
-- Lifecycle: Created in scan phase, passed to all services via orchestrator
-- Invalidation: Auto-invalidates after destructive ops (delete/move)
-- Stats: `get_stats()` for hits/misses/hit_rate monitoring
-- Thread-safe: Uses RLock for concurrent access
+- Lifecycle: Singleton created in scan phase, services access directly
+- Invalidation: `clear()` after destructive ops or dataset change
+- Stats: `get_stats()` for hits/misses/hit_rate, `log_stats()` for logging
+- Performance: `get_file_count()` optimized (O(1) vs len(get_all_files()))
+- Thread-safe: Uses RLock for concurrent access + singleton lock
+- Magic methods: `len(repo)`, `path in repo`, `repo.get_or_create(path)`
+- Future-proof: Prepared for SQLite/PostgreSQL migration via Protocol interface
+- Logging: Professional logging with `utils.logger.get_logger('FileInfoRepository')`
 
 **Similar Files Analysis** (`services/similar_files_detector.py`) - Two-phase system
 - Phase 1: `analyze_initial()` - Expensive perceptual hash calculation (~5 min for 40k files)

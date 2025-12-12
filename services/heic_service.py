@@ -12,7 +12,7 @@ from utils.file_utils import validate_file_exists
 from utils.date_utils import get_date_from_file
 from services.result_types import HeicAnalysisResult, HeicExecutionResult, DuplicatePair, AnalysisResult
 from services.base_service import BaseService, BackupCreationError, ProgressCallback
-from services.metadata_cache import MetadataCache, FileMetadata
+from services.file_info_repository import MetadataCache, FileMetadata
 from config import Config
 from utils.logger import (
     log_section_header_discrete,

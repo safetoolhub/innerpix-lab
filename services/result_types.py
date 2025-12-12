@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from typing import List, Optional, Any, Dict
 from pathlib import Path
 from datetime import datetime
-from services.metadata_cache import FileMetadataCache
+from services.file_info_repository import FileInfoRepository
 
 # ============================================================================
 # GENERIC BASE CLASSES (The Core of the Refactor)
@@ -41,6 +41,21 @@ class ExecutionResult(BaseResult):
     backup_path: Optional[Path] = None # If backup was created
     dry_run: bool = False         # Whether this was a dry-run (simulation)
 
+
+# --- Zero Byte ---
+@dataclass
+class ZeroByteAnalysisResult(AnalysisResult):
+    """Result for zero-byte files detection."""
+    files: List[Path] = field(default_factory=list)
+    
+    def __post_init__(self):
+        if not self.items_count and self.files:
+            self.items_count = len(self.files)
+
+@dataclass
+class ZeroByteExecutionResult(ExecutionResult):
+    """Result for zero-byte files deletion."""
+    pass
 
 # --- Rename Service ---
 @dataclass
@@ -173,20 +188,7 @@ class LivePhotosExecutionResult(ExecutionResult):
     """Result for Live Photos execution."""
     pass
 
-# --- Zero Byte ---
-@dataclass
-class ZeroByteAnalysisResult(AnalysisResult):
-    """Result for zero-byte files detection."""
-    files: List[Path] = field(default_factory=list)
-    
-    def __post_init__(self):
-        if not self.items_count and self.files:
-            self.items_count = len(self.files)
 
-@dataclass
-class ZeroByteExecutionResult(ExecutionResult):
-    """Result for zero-byte files deletion."""
-    pass
 
 # ============================================================================
 # DIRECTORY SCANNER RESULT TYPES
@@ -201,7 +203,7 @@ class DirectoryScanResult:
     others: List[Path] = field(default_factory=list)
     
     # Caché compartida de metadatos para optimizar fases subsecuentes
-    metadata_cache: Optional[FileMetadataCache] = None
+    metadata_cache: Optional[FileInfoRepository] = None
     
     # Tamaño total del directorio (calculado durante finalizacion)
     total_size: int = 0
@@ -230,5 +232,3 @@ class ScanSnapshot:
     """Simple snapshot of scan results for Stage 2 → Stage 3 transition."""
     directory: Path
     scan: DirectoryScanResult
-
-

@@ -18,7 +18,7 @@ from config import Config
 from utils.date_utils import get_date_from_file
 from services.result_types import LivePhotosAnalysisResult, LivePhotosExecutionResult
 from services.base_service import BaseService, BackupCreationError
-from services.metadata_cache import FileMetadataCache, MetadataCache
+from services.file_info_repository import FileInfoRepository, MetadataCache
 from utils.logger import log_section_header_discrete, log_section_footer_discrete, log_section_header_relevant, log_section_footer_relevant, get_logger
 
 
@@ -35,7 +35,7 @@ class LivePhotoGroup:
     video_date: Optional[datetime] = None
     image_date_source: str = "unknown"
     video_date_source: str = "unknown"
-    metadata_cache: Optional[FileMetadataCache] = None
+    metadata_cache: Optional[FileInfoRepository] = None
 
     def __post_init__(self):
         """Validaciones y cálculos adicionales"""
@@ -137,7 +137,7 @@ class LivePhotoGroup:
                 mtime_date = None
                 if self.metadata_cache:
                     # El método correcto en cache es get_file_stats que incluye mtime
-                    # Assuming metadata_cache (FileMetadataCache) has get_metadata returning FileMetadata with mtime
+                    # Assuming metadata_cache (FileInfoRepository) has get_metadata returning FileMetadata with mtime
                     meta = self.metadata_cache.get_metadata(self.image_path)
                     if meta:
                         mtime_date = datetime.fromtimestamp(meta.mtime)
@@ -492,7 +492,7 @@ class LivePhotoService(BaseService):
         photos: List[Path], 
         videos: List[Path], 
         progress_callback: Optional[Callable] = None,
-        metadata_cache: Optional[FileMetadataCache] = None
+        metadata_cache: Optional[FileInfoRepository] = None
     ) -> Optional[List[LivePhotoGroup]]:
         """Detecta parejas de fotos/videos."""
         

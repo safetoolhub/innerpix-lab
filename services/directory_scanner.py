@@ -9,7 +9,7 @@ import logging
 from config import Config
 from utils.logger import get_logger
 from utils.file_utils import calculate_file_hash, validate_directory_exists
-from services.metadata_cache import FileMetadataCache
+from services.file_info_repository import FileInfoRepository
 from services.result_types import DirectoryScanResult
 
 class DirectoryScanner:
@@ -43,23 +43,24 @@ class DirectoryScanner:
         
         self.logger.info(f"Escaneando directorio: {directory}")
         
-        # Crear caché de metadatos si se solicita
+        # Obtener/crear instancia singleton del repositorio
         self.logger.info(f"DEBUG: create_metadata_cache={create_metadata_cache}")
         metadata_cache = None
         if create_metadata_cache:
             try:
-                metadata_cache = FileMetadataCache()
-                self.logger.info(f"✅ Caché de metadatos creada exitosamente")
+                from services.file_info_repository import FileInfoRepository
+                metadata_cache = FileInfoRepository.get_instance()
+                self.logger.info(f"✅ Repositorio de archivos obtenido exitosamente")
                 self.logger.info(f"  - Tipo: {type(metadata_cache).__name__}")
                 self.logger.info(f"  - Max entries: {metadata_cache._max_entries:,}")
                 self.logger.info(f"  - Habilitada: {metadata_cache._enabled}")
-                self.logger.info(f"  - ID objeto: {id(metadata_cache)}")
+                self.logger.info(f"  - Archivos actuales: {metadata_cache.get_file_count()}")
             except Exception as e:
-                self.logger.error(f"❌ ERROR creando FileMetadataCache: {type(e).__name__}: {e}")
+                self.logger.error(f"❌ ERROR obteniendo FileInfoRepository: {type(e).__name__}: {e}")
                 import traceback
                 self.logger.error(f"Traceback:\n{traceback.format_exc()}")
         else:
-            self.logger.warning("⚠️  Caché de metadatos NO creada (create_metadata_cache=False)")
+            self.logger.warning("⚠️  Repositorio de archivos NO usado (create_metadata_cache=False)")
         
         self.logger.info(f"DEBUG ANTES DE CONTAR: metadata_cache={'presente' if metadata_cache is not None else 'None'}")
         
