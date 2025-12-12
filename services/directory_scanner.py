@@ -145,14 +145,11 @@ class DirectoryScanner:
                         except Exception as e:
                             self.logger.warning(f"Error calculando hash de {f}: {e}")
                     
-                    # Log detallado en modo DEBUG (una línea por archivo)
+                    # Log detallado en modo DEBUG usando get_file_info_in_one_line()
                     if self.logger.isEnabledFor(logging.DEBUG):
-                        hash_info = f"hash={file_hash[:8]}..." if file_hash else "hash=pending"
-                        exif_info = f"exif=[{','.join(exif_dates)}]" if exif_dates else "exif=none"
-                        self.logger.debug(
-                            f"FILE: {f.name} | type={file_type} | size={stat_info.st_size} | "
-                            f"{hash_info} | {exif_info}"
-                        )
+                        file_info = repo.get_metadata(f)
+                        if file_info:
+                            self.logger.debug(file_info.get_file_info_in_one_line(verbose=True))
                             
                 except Exception as e:
                     self.logger.warning(f"No se pudo poblar repositorio para {f}: {e}")

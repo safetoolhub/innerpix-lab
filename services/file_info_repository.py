@@ -72,6 +72,57 @@ class FileMetadata:
     def sha256_hash(self) -> Optional[str]:
         """Hash SHA256 del archivo (alias para compatibilidad)"""
         return self.sha256
+    
+    def get_file_info_in_one_line(self, verbose: bool = False) -> str:
+        """Retorna toda la información del archivo en una línea de texto para logging.
+        
+        Formato: [FileMetadata Info]: path=... | size=... | sha256=... | exif_count=... | dates=...
+        Sin emojis, solo texto plano para logs profesionales.
+        
+        Args:
+            verbose: Si True, muestra todos los campos EXIF en lugar de solo el recuento y fechas principales
+            
+        Returns:
+            str: Línea completa con toda la metadata del archivo
+        """
+        # Hash (primeros 8 caracteres o 'pending')
+        hash_val = self.sha256[:8] + '...' if self.sha256 else 'pending'
+        
+        # EXIF: contar campos y listar fechas principales o todos los campos si verbose
+        exif_count = len(self.exif_data) if self.exif_data else 0
+        
+        if verbose and self.exif_data:
+            # Mostrar todos los campos EXIF
+            exif_items = [f"{k}={v}" for k, v in self.exif_data.items()]
+            exif_info = f"exif_fields={exif_count} [{', '.join(exif_items)}]"
+        else:
+            # Modo normal: contar campos y listar fechas principales
+            exif_dates = []
+            if self.exif_data:
+                for key in ['DateTimeOriginal', 'CreateDate', 'DateTimeDigitized']:
+                    if key in self.exif_data:
+                        exif_dates.append(f"{key}={self.exif_data[key]}")
+            
+            exif_info = f"exif_fields={exif_count}"
+            if exif_dates:
+                exif_info += f" [{', '.join(exif_dates)}]"
+        
+        # Timestamps del filesystem
+        from datetime import datetime
+        ctime_str = datetime.fromtimestamp(self.ctime).strftime('%Y-%m-%d %H:%M:%S')
+        mtime_str = datetime.fromtimestamp(self.mtime).strftime('%Y-%m-%d %H:%M:%S')
+        atime_str = datetime.fromtimestamp(self.atime).strftime('%Y-%m-%d %H:%M:%S')
+
+        return (
+            f"[FileMetadata Info]: path={self.path.name} | "
+            f"size={self.size} bytes | "
+            f"extension={self.extension} | "
+            f"sha256={hash_val} | "
+            f"ctime={ctime_str} | "
+            f"mtime={mtime_str} | "
+            f"atime={atime_str} | "            
+            f"{exif_info}"
+        )
 
 
 class IFileRepository(Protocol):
