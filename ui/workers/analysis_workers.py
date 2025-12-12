@@ -50,7 +50,7 @@ class AnalysisWorker(BaseWorker):
             scan_result = scanner.scan(
                 directory=self.directory,
                 progress_callback=self._create_progress_callback(emit_numbers=True),
-                create_metadata_cache=True,
+                use_file_info_repository=True,
                 precalculate_hashes=precalculate_hashes
             )
             

@@ -1,13 +1,13 @@
 """
 Servicio para detectar y eliminar archivos de 0 bytes.
-Refactorizado para usar MetadataCache y ResultTypes genéricos.
+Refactorizado para usar FileInfoRepository como fuente única de verdad.
 """
 from pathlib import Path
 from typing import List, Optional
 
 from services.base_service import BaseService, ProgressCallback
 from services.result_types import ZeroByteAnalysisResult, ZeroByteExecutionResult
-from services.file_info_repository import MetadataCache
+from services.file_info_repository import FileInfoRepository
 from utils.logger import log_section_header_relevant, log_section_footer_relevant
 from utils.file_utils import delete_file_securely
 
@@ -15,40 +15,44 @@ from utils.file_utils import delete_file_securely
 class ZeroByteService(BaseService):
     """
     Servicio para gestionar archivos de 0 bytes.
+    
+    Patrón:
+    - Análisis: Filtra archivos de 0 bytes del FileInfoRepository
+    - Ejecución: Elimina archivos con backup y logging estandarizado
+    - Usa FileInfoRepository.get_instance()
     """
     
     def __init__(self):
         super().__init__('ZeroByteService')
 
     def analyze(self, 
-                metadata_cache: MetadataCache, 
                 progress_callback: Optional[ProgressCallback] = None,
                 **kwargs) -> ZeroByteAnalysisResult:
         """
-        Busca archivos de 0 bytes usando la caché de metadatos.
+        Busca archivos de 0 bytes usando FileInfoRepository como fuente de verdad.
         
         Args:
-            metadata_cache: Caché con metadatos de archivos
-            progress_callback: Callback de progreso
+            progress_callback: Callback opcional para reportar progreso
             
         Returns:
-            ZeroByteAnalysisResult
+            ZeroByteAnalysisResult con lista de archivos de 0 bytes encontrados
         """
-        # Ya no validamos directorio aqui, asumimos que metadata_cache está poblada
-        self.logger.info(f"Buscando archivos de 0 bytes en caché ({len(metadata_cache.get_all_files())} archivos)")
+        repo = FileInfoRepository.get_instance()
+        total = repo.get_file_count()  # O(1) optimizado
+        
+        self.logger.info(f"Buscando archivos de 0 bytes en repositorio ({total} archivos)")
         
         zero_byte_files = []
-        all_files = metadata_cache.get_all_files()
-        total = len(all_files)
+        all_files = repo.get_all_files()
         
         for i, meta in enumerate(all_files):
             if meta.size == 0:
                 zero_byte_files.append(meta.path)
             
-            # Reportar progreso periódicamente
-            if self._should_report_progress(i, interval=5000): # Intervalo alto, es memoria rapida
-                 if not self._report_progress(progress_callback, i, total, "Filtrando archivos vacíos..."):
-                     break
+            # Reportar progreso periódicamente (intervalo alto, operación en memoria rápida)
+            if self._should_report_progress(i, interval=5000):
+                if not self._report_progress(progress_callback, i, total, "Filtrando archivos vacíos..."):
+                    break
                      
         self.logger.info(f"Encontrados {len(zero_byte_files)} archivos de 0 bytes")
         
@@ -64,7 +68,16 @@ class ZeroByteService(BaseService):
                 progress_callback: Optional[ProgressCallback] = None,
                 **kwargs) -> ZeroByteExecutionResult:
         """
-        Elimina los archivos identificados en el análisis.
+        Elimina los archivos de 0 bytes identificados en el análisis.
+        
+        Args:
+            analysis_result: Resultado del análisis con archivos a eliminar
+            dry_run: Si True, simula la operación sin eliminar archivos
+            create_backup: Si True, crea backup antes de eliminar
+            progress_callback: Callback opcional para reportar progreso
+            
+        Returns:
+            ZeroByteExecutionResult con estadísticas de la operación
         """
         files_to_delete = analysis_result.files
         
@@ -90,6 +103,14 @@ class ZeroByteService(BaseService):
     ) -> ZeroByteExecutionResult:
         """
         Lógica real de eliminación de archivos de 0 bytes.
+        
+        Args:
+            files_to_delete: Lista de paths de archivos a eliminar
+            dry_run: Si True, solo simula la eliminación
+            progress_callback: Callback opcional para reportar progreso
+            
+        Returns:
+            ZeroByteExecutionResult con estadísticas de archivos procesados
         """
         result = ZeroByteExecutionResult(dry_run=dry_run)
         total = len(files_to_delete)
@@ -115,11 +136,7 @@ class ZeroByteService(BaseService):
                 file_extension = file_path.suffix.upper().lstrip('.')
                 file_type = file_extension if file_extension else 'UNKNOWN'
                 
-                # Intentar obtener fecha (opcional, para log)
-                # Podríamos sacarla de metadata_cache si la pasamos, pero aqui acceso a disco es OK
-                file_date_str = "unknown" # Simplificado para evitar import circular o lecturas extra
-                
-                # Formato de log estandarizado
+                # Formato de log estandarizado (fecha omitida, archivos vacíos)
                 log_type = "FILE_DELETED_SIMULATION" if dry_run else "FILE_DELETED"
                 log_msg = (
                     f"{log_type}: {file_path} | Size: 0 B | "

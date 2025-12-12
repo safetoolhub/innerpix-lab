@@ -1,5 +1,5 @@
 """
-Configuración centralizada para Pixaro Lab
+Configuración centralizada para InnerPix Lab
 """
 from pathlib import Path
 from typing import Optional
@@ -11,8 +11,8 @@ class Config:
     # ========================================================================
     # INFORMACIÓN DE LA APLICACIÓN
     # ========================================================================
-    APP_NAME = "Pixaro Lab"
-    APP_VERSION = "1.0.0"
+    APP_NAME = "Innerpix Lab"
+    APP_VERSION = "0.8"
     APP_DESCRIPTION = "Organiza, renombra y optimiza tu biblioteca de fotos"
 
     # ========================================================================

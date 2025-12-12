@@ -202,9 +202,7 @@ class DirectoryScanResult:
     videos: List[Path] = field(default_factory=list)
     others: List[Path] = field(default_factory=list)
     
-    # Caché compartida de metadatos para optimizar fases subsecuentes
-    metadata_cache: Optional[FileInfoRepository] = None
-    
+   
     # Tamaño total del directorio (calculado durante finalizacion)
     total_size: int = 0
     

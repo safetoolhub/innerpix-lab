@@ -53,9 +53,10 @@ class BaseService(ABC):
     r"""
     Clase base abstracta para todos los servicios.
     
-    Refactorizada para soportar la arquitectura de 2 fases:
-    1. Fase de Análisis: analyze(metadata_cache) -> AnalysisResult
-       - Usa metadatos pre-calculados (MetadataCache)
+    Arquitectura de 2 fases:
+    1. Fase de Análisis: analyze() -> AnalysisResult
+       - Accede a FileInfoRepository.get_instance() para metadatos
+       - No recibe metadata_cache como parámetro (patrón singleton)
        - No realiza I/O intensivo si es posible
        - Retorna un plan de acción
        
@@ -71,16 +72,19 @@ class BaseService(ABC):
         self._cancelled = False
 
     @abstractmethod
-    def analyze(self, metadata_cache: 'MetadataCache', **kwargs) -> 'AnalysisResult':
+    def analyze(self, **kwargs) -> 'AnalysisResult':
         """
-        Analiza usando la caché de metadatos proporcionada.
+        Analiza usando FileInfoRepository como fuente de verdad.
         
         Args:
-            metadata_cache: La caché con metadatos de archivos (Stage 2)
             **kwargs: Argumentos específicos del servicio
             
         Returns:
             AnalysisResult: El resultado del análisis / plan de acción
+            
+        Note:
+            Los servicios NO reciben metadata_cache. Acceden directamente a
+            FileInfoRepository.get_instance() para obtener metadatos.
         """
         pass
 
