@@ -101,9 +101,9 @@ class ImagePreviewDialog(QDialog):
         layout.addWidget(button_container)
 
 
-class SimilarFilesDialog(BaseDialog):
+class DuplicatesSimilarDialog(BaseDialog):
     """
-    Diálogo para gestionar archivos similares con UX mejorado.
+    Diálogo para gestionar archivos similares
     """
 
     # Constantes para navegación progresiva (desde Config)
@@ -588,7 +588,7 @@ class SimilarFilesDialog(BaseDialog):
         from PyQt6.QtCore import Qt
         from utils.logger import get_logger
         
-        logger = get_logger('SimilarFilesDialog')
+        logger = get_logger('DuplicatesSimilarDialog')
         
         try:
             # Determinar cuántos archivos procesar
@@ -694,7 +694,7 @@ class SimilarFilesDialog(BaseDialog):
         from PyQt6.QtCore import Qt
         from utils.logger import get_logger
         
-        logger = get_logger('SimilarFilesDialog')
+        logger = get_logger('DuplicatesSimilarDialog')
         
         if self.files_processed == 0:
             logger.warning("No hay archivos procesados aún")
@@ -1051,7 +1051,7 @@ class SimilarFilesDialog(BaseDialog):
             menu.exec(QCursor.pos())
         except Exception as e:
             from utils.logger import get_logger
-            logger = get_logger('SimilarFilesDialog')
+            logger = get_logger('DuplicatesSimilarDialog')
             logger.error(f"Error showing context menu: {e}")
 
     def _get_card_style(self, is_selected: bool) -> str:
@@ -1337,7 +1337,7 @@ class SimilarFilesDialog(BaseDialog):
             
         except Exception as e:
             from utils.logger import get_logger
-            logger = get_logger('SimilarFilesDialog')
+            logger = get_logger('DuplicatesSimilarDialog')
             logger.debug(f"Error creando thumbnail para {file_path.name}: {e}")
             return None, False
 

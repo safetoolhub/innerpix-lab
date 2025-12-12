@@ -18,7 +18,7 @@ from utils.icons import icon_manager
 from .base_dialog import BaseDialog
 
 
-class HeicDuplicateRemovalDialog(BaseDialog):
+class HeicDialog(BaseDialog):
     """Diálogo para eliminación de duplicados HEIC/JPG con vista de grupos expandibles"""
     
     # Configuración de paginación

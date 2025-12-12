@@ -26,7 +26,7 @@ except ImportError as e:
 
 try:
     print("Importing ui.stages.stage_2_window...")
-    from ui.stages.stage_2_window import Stage2Window
+    from ui.screens.stage_2_window import Stage2Window
     print("✅ Stage 2 Window import successful")
 except ImportError as e:
     print(f"❌ Failed to import stage_2_window: {e}")
@@ -34,7 +34,7 @@ except ImportError as e:
 
 try:
     print("Importing ui.stages.stage_3_window...")
-    from ui.stages.stage_3_window import Stage3Window
+    from ui.screens.stage_3_window import Stage3Window
     print("✅ Stage 3 Window import successful")
 except ImportError as e:
     print(f"❌ Failed to import stage_3_window: {e}")

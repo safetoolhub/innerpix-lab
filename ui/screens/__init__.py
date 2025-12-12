@@ -1,6 +1,6 @@
 """
-Módulos de stages de la interfaz de usuario de Pixaro Lab.
-Cada stage representa una etapa diferente de la aplicación.
+Módulos de screens de la interfaz de usuario de Innerpix Lab.
+Cada screen representa una etapa diferente de la aplicación.
 """
 
 from .base_stage import BaseStage

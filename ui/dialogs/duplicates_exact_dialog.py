@@ -16,7 +16,7 @@ from .dialog_utils import show_file_details_dialog
 from datetime import datetime
 
 
-class ExactCopiesDialog(BaseDialog):
+class DuplicatesExactDialog(BaseDialog):
     """
     Diálogo para gestionar copias exactas.
     

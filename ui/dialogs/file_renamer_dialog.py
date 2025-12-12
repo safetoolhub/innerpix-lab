@@ -1,5 +1,5 @@
 """
-Diálogo de preview para renombrado - Rediseñado
+Diálogo de renombrado de archivos
 Incluye filtrado, búsqueda, estadísticas detalladas y mejor UX
 """
 from pathlib import Path
@@ -21,7 +21,7 @@ from utils.logger import get_logger
 from .base_dialog import BaseDialog
 
 
-class RenamingPreviewDialog(BaseDialog):
+class FileRenamerDialog(BaseDialog):
     """Diálogo de preview para renombrado con funcionalidades avanzadas"""
     
     # Configuración de paginación

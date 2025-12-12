@@ -21,12 +21,11 @@ from .base_stage import BaseStage
 from ui.styles.design_system import DesignSystem
 from ui.widgets.summary_card import SummaryCard
 from ui.widgets.tool_card import ToolCard
-from ui.dialogs.live_photos_dialog import LivePhotoCleanupDialog
-from ui.dialogs.heic_dialog import HeicDuplicateRemovalDialog
-from ui.dialogs.duplicates_exact_similar_dialog import ExactCopiesDialog
-from ui.dialogs.file_organizer_dialog import FileOrganizationDialog
-from ui.dialogs.file_organizer_dialog import FileOrganizationDialog
-from ui.dialogs.file_renamer_dialog import RenamingPreviewDialog
+from ui.dialogs.live_photos_dialog import LivePhotosDialog
+from ui.dialogs.heic_dialog import HeicDialog
+from ui.dialogs.duplicates_exact_dialog import DuplicatesExactDialog
+from ui.dialogs.file_organizer_dialog import FileOrganizerDialog
+from ui.dialogs.file_renamer_dialog import FileRenamerDialog
 from ui.dialogs.zero_byte_dialog import ZeroByteDialog
 from ui.dialogs.settings_dialog import SettingsDialog
 from ui.dialogs.about_dialog import AboutDialog
@@ -34,6 +33,19 @@ from ui.dialogs.duplicates_similar_progress_dialog import SimilarFilesProgressDi
 from utils.format_utils import format_size, format_file_count
 from ui.workers import DuplicatesSimilarAnalysisWorker
 from utils.logger import log_section_header_discrete
+
+# Importar tool cards
+from ui.screens.tool_cards import (
+    create_live_photos_card,
+    create_heic_card,
+    create_duplicates_exact_card,
+    create_duplicates_similar_card,
+    create_file_organizer_card,
+    create_file_renamer_card,
+    create_zero_byte_card,
+)
+# Importar similarity handler
+from ui.screens.similarity_handlers import SimilarityAnalysisHandler
 
 
 class Stage3Window(BaseStage):
@@ -64,10 +76,8 @@ class Stage3Window(BaseStage):
         self.tools_grid = None
         self.tool_cards = {}  # Dict de tool_id -> ToolCard
         
-        # Worker y diálogos para análisis de similares
-        self.similarity_worker = None
-        self.similarity_progress_dialog = None
-        self.similarity_results = None  # Guardar resultados del análisis
+        # Worker y diálogos para análisis de similares (manejado por handler)
+        self.similarity_handler = None  # Se inicializa en _create_tools_grid
 
     def setup_ui(self) -> None:
         """Configura la interfaz de usuario del Stage 3."""
@@ -247,7 +257,7 @@ class Stage3Window(BaseStage):
         
         # Archivos de 0 bytes
         if hasattr(self.analysis_results, 'zero_byte') and self.analysis_results.zero_byte:
-            total += self.analysis_results.zero_byte.total_size or 0
+            total += self.analysis_results.zero_byte.bytes_total or 0
         
         return total
 
@@ -275,36 +285,46 @@ class Stage3Window(BaseStage):
         # Nota: Los análisis se hacen bajo demanda, así que todas las cards empiezan sin datos
         
         # Fila 0: Archivos Vacíos + HEIC/JPG
-        zero_byte_card = self._create_zero_byte_card()
+        zero_byte_card = create_zero_byte_card(self.analysis_results, self._on_tool_clicked)
         grid_layout.addWidget(zero_byte_card, 0, 0)
         self.tool_cards['zero_byte'] = zero_byte_card
         
-        heic_card = self._create_heic_card()
+        heic_card = create_heic_card(self.analysis_results, self._on_tool_clicked)
         grid_layout.addWidget(heic_card, 0, 1)
         self.tool_cards['heic'] = heic_card
 
         # Fila 1: Live Photos + Duplicados Exactos
-        live_photos_card = self._create_live_photos_card()
+        live_photos_card = create_live_photos_card(self.analysis_results, self._on_tool_clicked)
         grid_layout.addWidget(live_photos_card, 1, 0)
         self.tool_cards['live_photos'] = live_photos_card
 
-        exact_dup_card = self._create_exact_duplicates_card()
+        exact_dup_card = create_duplicates_exact_card(self.analysis_results, self._on_tool_clicked)
         grid_layout.addWidget(exact_dup_card, 1, 1)
         self.tool_cards['exact_copies'] = exact_dup_card
 
         # Fila 2: Archivos Similares + (espacio vacío)
-        similar_dup_card = self._create_similar_duplicates_card()
+        similar_dup_card = create_duplicates_similar_card(self._on_tool_clicked)
         grid_layout.addWidget(similar_dup_card, 2, 0)
-        self.tool_cards['similar'] = similar_dup_card
+        self.tool_cards['similar_files'] = similar_dup_card
 
         # Fila 3: Organizar + Renombrar (herramientas de reorganización juntas)
-        organize_card = self._create_organize_card()
+        organize_card = create_file_organizer_card(self._on_tool_clicked)
         grid_layout.addWidget(organize_card, 3, 0)
         self.tool_cards['folder-move'] = organize_card
 
-        rename_card = self._create_rename_card()
+        rename_card = create_file_renamer_card(self._on_tool_clicked)
         grid_layout.addWidget(rename_card, 3, 1)
         self.tool_cards['rename-box'] = rename_card
+        
+        # Inicializar similarity handler después de crear las cards
+        self.similarity_handler = SimilarityAnalysisHandler(
+            parent_window=self,
+            main_window=self.main_window,
+            analysis_results=self.analysis_results,
+            metadata_cache=self.metadata_cache,
+            tool_cards=self.tool_cards,
+            logger=self.logger
+        )
 
         # Agregar grid al layout principal
         # Remover el stretch temporal antes de añadir el grid
@@ -329,187 +349,8 @@ class Stage3Window(BaseStage):
                 scroll_widget.layout().invalidate()
                 scroll_widget.layout().activate()
 
-    def _create_live_photos_card(self) -> ToolCard:
-        """Crea la card de Live Photos"""
-        
-        # Verificar si hay análisis disponible
-        has_analysis = (hasattr(self.analysis_results, 'live_photos') and 
-                       self.analysis_results.live_photos is not None)
-        
-        card = ToolCard(
-            icon_name='camera-burst',
-            title='Live Photos',
-            description='Las Live Photos de iPhone combinan imagen y vídeo corto. '\
-                       'Libera espacio eliminando el componente de vídeo o foto según prefieras, '\
-                       'mientras conservas la esencia de tus recuerdos.',
-            action_text='Gestionar ahora' if has_analysis else 'Analizar ahora'
-        )
-
-        # Configurar estado según datos
-        if has_analysis:
-            live_photo_data = self.analysis_results.live_photos
-            if live_photo_data.items_count > 0:
-                size_text = f"~{format_size(live_photo_data.space_to_free)} recuperables"
-                card.set_status_with_results(
-                    f"{live_photo_data.items_count} Grupos de Live Photos detectados",
-                    size_text
-                )
-            else:
-                card.set_status_no_results("No se encontraron Live Photos")
-        else:
-            # Estado pendiente de análisis
-            card.set_status_pending("Analizar para detectar Live Photos")
-
-        card.clicked.connect(lambda: self._on_tool_clicked('live_photos'))
-        return card
-
-    def _create_heic_card(self) -> ToolCard:
-        """Crea la card de HEIC/JPG con información del análisis (si existe)."""
-        
-        # Verificar si hay análisis disponible
-        has_analysis = (hasattr(self.analysis_results, 'heic') and 
-                       self.analysis_results.heic is not None)
-        
-        card = ToolCard(
-            icon_name='file-image',
-            title='HEIC/JPG Duplicados',
-            description='iPhone guarda fotos en HEIC (eficiente) y crea versiones JPG para '\
-                       'compatibilidad. Elimina duplicados conservando el formato que prefieras '\
-                       'y recupera espacio valioso.',
-            action_text='Gestionar ahora' if has_analysis else 'Analizar ahora'
-        )
-        
-        if has_analysis:
-            heic_data = self.analysis_results.heic
-            if heic_data.items_count > 0:
-                savings_jpg = heic_data.potential_savings_keep_jpg or 0
-                savings_heic = heic_data.potential_savings_keep_heic or 0
-                max_savings = max(savings_jpg, savings_heic)
-                card.set_status_with_results(
-                    f"{heic_data.items_count} grupos de duplicados HEIC/JPG encontrados",
-                    f"~{format_size(max_savings)} recuperables"
-                )
-            else:
-                card.set_status_no_results("No se encontraron pares HEIC/JPG")
-        else:
-            # Estado pendiente de análisis
-            card.set_status_pending("Analizar para detectar duplicados HEIC/JPG")
-
-        card.clicked.connect(lambda: self._on_tool_clicked('heic'))
-        return card
-
-    def _create_exact_duplicates_card(self) -> ToolCard:
-        """Crea la card de Duplicados Exactos"""
-        
-        # Verificar si hay análisis disponible
-        has_analysis = (hasattr(self.analysis_results, 'duplicates') and 
-                       self.analysis_results.duplicates is not None)
-        
-        card = ToolCard(
-            icon_name='content-copy',
-            title='Copias Exactas',
-            description='Detecta archivos idénticos y ayuda a eliminar copias innecesarias. '\
-                       'Mantén solo una copia y recupera espacio sin perder ningún archivo único.',
-            action_text='Gestionar ahora' if has_analysis else 'Analizar ahora'
-        )
-
-        # Configurar estado según datos
-        if has_analysis:
-            dup_data = self.analysis_results.duplicates
-            if dup_data.duplicate_count > 0:
-                size_text = f"~{format_size(dup_data.space_wasted)} desperdiciados"
-                card.set_status_with_results(
-                    f"{dup_data.duplicate_count} archivos duplicados encontrados",
-                    size_text
-                )
-            else:
-                card.set_status_no_results("No se encontraron archivos duplicados")
-        else:
-            # Estado pendiente de análisis
-            card.set_status_pending("Analizar para detectar copias exactas")
-
-        card.clicked.connect(lambda: self._on_tool_clicked('exact_copies'))
-        return card
-
-    def _create_similar_duplicates_card(self) -> ToolCard:
-        """Crea la card de Archivos similares (pendiente por defecto)"""
-        card = ToolCard(
-            icon_name='image-search',
-            title='Archivos similares',
-            description='Detecta fotos y vídeos visualmente idénticos aunque tengan metadatos '
-                       'diferentes (fechas, compresión, etc.). Al 100% de similitud son '
-                       'prácticamente idénticos visualmente.',
-            action_text='Analizar ahora'
-        )
-
-        # Por defecto está pendiente
-        card.set_status_pending("Este análisis puede tardar bastante tiempo según la cantidad de archivos, por eso no se ha realizado anteriormente.")
-        card.clicked.connect(lambda: self._on_tool_clicked('similar_files'))
-        return card
-
-    def _create_organize_card(self) -> ToolCard:
-        """Crea la card de Organizar"""
-        card = ToolCard(
-            icon_name='folder-move',
-            title='Organizar',
-            description='Organiza tus fotos en carpetas por fecha (año/mes o año/mes/día). '\
-                       'Reorganiza tu biblioteca de forma automática y mantén todo ordenado.',
-            action_text='Organizar ahora'
-        )
-
-        # Esta herramienta no requiere análisis previo
-        card.set_status_ready("Listo para organizar archivos")
-        card.clicked.connect(lambda: self._on_tool_clicked('folder-move'))
-        return card
-
-    def _create_rename_card(self) -> ToolCard:
-        """Crea la card de Renombrar"""
-        card = ToolCard(
-            icon_name='rename-box',
-            title='Renombrar',
-            description='Renombra tus archivos con fechas de captura en formato legible. '\
-                       'Convierte nombres crípticos en nombres descriptivos y fáciles de buscar.',
-            action_text='Renombrar ahora'
-        )
-
-        # Esta herramienta no requiere análisis previo
-        card.set_status_ready("Listo para renombrar archivos")
-        card.clicked.connect(lambda: self._on_tool_clicked('rename-box'))
-        return card
-
-    def _create_zero_byte_card(self) -> ToolCard:
-        """Crea la card de Archivos vacios"""
-        
-        # Verificar si hay análisis disponible
-        has_analysis = (hasattr(self.analysis_results, 'zero_byte') and 
-                       self.analysis_results.zero_byte is not None)
-        
-        card = ToolCard(
-            icon_name='file-x',
-            title='Archivos vacíos',
-            description='Detecta archivos de 0 bytes que no contienen datos útiles. '\
-                       'Elimínalos de forma segura para mantener tu biblioteca limpia y ordenada.',
-            action_text='Gestionar ahora' if has_analysis else 'Analizar ahora'
-        )
-
-        # Configurar estado según datos
-        if has_analysis:
-            zero_byte_data = self.analysis_results.zero_byte
-            if zero_byte_data.file_count > 0:
-                size_text = f"{zero_byte_data.file_count} archivos"
-                card.set_status_with_results(
-                    f"{zero_byte_data.file_count} archivos vacíos detectados",
-                    size_text
-                )
-            else:
-                card.set_status_no_results("No se encontraron archivos vacíos")
-        else:
-            # Estado pendiente de análisis
-            card.set_status_pending("Analizar para detectar archivos vacíos")
-
-            
-        card.clicked.connect(lambda: self._on_tool_clicked('zero_byte'))
-        return card
+    # Card creation methods moved to ui/screens/tool_cards/
+    # They are now imported as functions
 
     def _on_tool_clicked(self, tool_id: str):
         """
@@ -521,71 +362,78 @@ class Stage3Window(BaseStage):
             QMessageBox.warning(self.main_window, "Error", "No hay datos de análisis disponibles")
             return
 
-        # Verificar si necesitamos ejecutar análisis primero
+        # Verificar si necesitamos ejecutar análisis primero (usando hasattr)
         should_analyze = False
         
-        if tool_id == 'live_photos' and not self.analysis_results.live_photos:
+        if tool_id == 'live_photos' and not (hasattr(self.analysis_results, 'live_photos') and self.analysis_results.live_photos):
             should_analyze = True
-        elif tool_id == 'heic' and not self.analysis_results.heic:
+        elif tool_id == 'heic' and not (hasattr(self.analysis_results, 'heic') and self.analysis_results.heic):
             should_analyze = True
-        elif tool_id == 'exact_copies' and not self.analysis_results.duplicates:
+        elif tool_id == 'exact_copies' and not (hasattr(self.analysis_results, 'duplicates') and self.analysis_results.duplicates):
             should_analyze = True
-        elif tool_id == 'zero_byte' and not self.analysis_results.zero_byte:
+        elif tool_id == 'zero_byte' and not (hasattr(self.analysis_results, 'zero_byte') and self.analysis_results.zero_byte):
             should_analyze = True
-        elif tool_id == 'folder-move' and not self.analysis_results.organization:
+        elif tool_id == 'folder-move' and not (hasattr(self.analysis_results, 'organization') and self.analysis_results.organization):
             should_analyze = True
-        elif tool_id == 'rename-box' and not self.analysis_results.renaming:
+        elif tool_id == 'rename-box' and not (hasattr(self.analysis_results, 'renaming') and self.analysis_results.renaming):
             should_analyze = True
             
         if should_analyze:
+            # Ejecutar análisis bajo demanda
             self._run_analysis_and_open_dialog(tool_id)
             return
 
-        # Si ya tenemos datos, abrir el diálogo
+        
+        # Abrir diálogo correspondiente si ya tenemos datos
         dialog = None
-
+        
         if tool_id == 'live_photos':
-            live_photo_data = self.analysis_results.live_photos
-            if live_photo_data.items_count > 0:
-                dialog = LivePhotoCleanupDialog(live_photo_data, self.main_window)
-            else:
-                QMessageBox.information(self.main_window, "Info", "No se encontraron Live Photos.")
+            if hasattr(self.analysis_results, 'live_photos') and self.analysis_results.live_photos:
+                live_photo_data = self.analysis_results.live_photos
+                if live_photo_data.items_count > 0:
+                    dialog = LivePhotosDialog(live_photo_data, self.main_window)
+                else:
+                    QMessageBox.information(self.main_window, "Info", "No se encontraron Live Photos.")
 
         elif tool_id == 'heic':
-            heic_data = self.analysis_results.heic
-            if heic_data.items_count > 0:
-                dialog = HeicDuplicateRemovalDialog(heic_data, self.main_window)
-            else:
-                 QMessageBox.information(self.main_window, "Info", "No se encontraron pares HEIC/JPG.")
+            if hasattr(self.analysis_results, 'heic') and self.analysis_results.heic:
+                heic_data = self.analysis_results.heic
+                if heic_data.items_count > 0:
+                    dialog = HeicDialog(heic_data, self.main_window)
+                else:
+                     QMessageBox.information(self.main_window, "Info", "No se encontraron pares HEIC/JPG.")
 
         elif tool_id == 'exact_copies':
-            dup_data = self.analysis_results.duplicates
-            if dup_data.total_groups > 0:
-                dialog = ExactCopiesDialog(dup_data, self.main_window, self.metadata_cache)
-            else:
-                 QMessageBox.information(self.main_window, "Info", "No se encontraron copias exactas.")
+            if hasattr(self.analysis_results, 'duplicates') and self.analysis_results.duplicates:
+                dup_data = self.analysis_results.duplicates
+                if dup_data.total_groups > 0:
+                    dialog = DuplicatesExactDialog(dup_data, self.main_window, self.metadata_cache)
+                else:
+                     QMessageBox.information(self.main_window, "Info", "No se encontraron copias exactas.")
 
         elif tool_id == 'similar_files':
             # Similares requieren configuración previa y tienen su propio flujo
-            self._on_similar_duplicates_clicked()
+            if self.similarity_handler:
+                self.similarity_handler.start_analysis()
             return
 
         elif tool_id == 'folder-move':
             # Organizing puede funcionar sin análisis previo (usa defaults o analiza on-fly)
-            org_data = self.analysis_results.organization
-            dialog = FileOrganizationDialog(org_data, self.main_window, self.metadata_cache)
+            org_data = getattr(self.analysis_results, 'organization', None) if hasattr(self.analysis_results, 'organization') else None
+            dialog = FileOrganizerDialog(org_data, self.main_window, self.metadata_cache)
 
         elif tool_id == 'rename-box':
             # Renaming igual
-            rename_data = self.analysis_results.renaming
-            dialog = RenamingPreviewDialog(rename_data, self.main_window)
+            rename_data = getattr(self.analysis_results, 'renaming', None) if hasattr(self.analysis_results, 'renaming') else None
+            dialog = FileRenamerDialog(rename_data, self.main_window)
             
         elif tool_id == 'zero_byte':
-            zero_byte_data = self.analysis_results.zero_byte
-            if zero_byte_data.items_count > 0:
-                dialog = ZeroByteDialog(zero_byte_data, self.main_window)
-            else:
-                 QMessageBox.information(self.main_window, "Info", "No se encontraron archivos vacíos.")
+            if hasattr(self.analysis_results, 'zero_byte') and self.analysis_results.zero_byte:
+                zero_byte_data = self.analysis_results.zero_byte
+                if zero_byte_data.items_count > 0:
+                    dialog = ZeroByteDialog(zero_byte_data, self.main_window)
+                else:
+                     QMessageBox.information(self.main_window, "Info", "No se encontraron archivos vacíos.")
 
         if dialog:
             result = dialog.exec()
@@ -637,13 +485,7 @@ class Stage3Window(BaseStage):
                 # Guardar resultado en analysis_results
                 if tool_id == 'live_photos':
                     self.analysis_results.live_photos = result
-                    # Actualizar card
-                    self.tool_cards['live_photos'].setParent(None) # Reemplazar card
-                    self.tool_cards['live_photos'] = self._create_live_photos_card(result)
-                    # Re-insertar en grid... (complicado, mejor update status)
-                    # Implementar update methods en cards o simplemente llamar _create_cards_grid de nuevo?
-                    # Mejor actualizar status de la card existente si es posible, o refrescar todo el grid.
-                    # Por simplicidad ahora, refrescaremos todo el grid:
+                    # Refrescar el grid completo para actualizar la card
                     self._create_tools_grid()
                     
                 elif tool_id == 'heic':
@@ -1065,327 +907,7 @@ class Stage3Window(BaseStage):
         dialog.exec()
     
     # ==================== SIMILAR DUPLICATES ====================
-    
-    def _on_similar_duplicates_clicked(self):
-        """
-        Maneja el clic en la card de duplicados similares.
-        
-        Flujo simplificado sin config dialog:
-        1. Lanzar análisis directo (solo hashes, sin clustering)
-        2. Mostrar diálogo de progreso bloqueante
-        3. Al completar, abrir diálogo de gestión con slider
-        """
-        self.logger.info("Iniciando análisis de archivos similares")
-        
-        # Si ya hay análisis completado, abrir directamente
-        if hasattr(self, 'similarity_analysis') and self.similarity_analysis:
-            # Verificar si hay archivos analizados antes de abrir el diálogo
-            if self.similarity_analysis.total_files == 0 or not self.similarity_analysis.perceptual_hashes:
-                QMessageBox.information(
-                    self.main_window,
-                    "Sin archivos similares",
-                    "No se encontraron archivos similares en el análisis.\n\n"
-                    "Esto puede ocurrir si:\n"
-                    "• No hay suficientes imágenes para comparar\n"
-                    "• Las imágenes son muy diferentes entre sí\n"
-                    "• La sensibilidad del análisis es demasiado estricta"
-                )
-                return
-            
-            self._open_similarity_dialog_with_analysis(self.similarity_analysis)
-            return
-        
-        # Obtener número de archivos a analizar
-        file_count = (
-            self.analysis_results.scan.total_files
-            if self.analysis_results.scan
-            else 0
-        )
-        
-        self.logger.info(f"Iniciando análisis de {file_count} archivos")
-        self._start_similarity_analysis(file_count)
-    
-    def _start_similarity_analysis(self, file_count: int):
-        """
-        Inicia el análisis inicial de archivos similares (solo hashes).
-        
-        Args:
-            file_count: Número de archivos a analizar
-        """
-        from services.duplicates_similar_service import DuplicatesSimilarService
-        from pathlib import Path
-        
-        # Crear el detector
-        detector = DuplicatesSimilarService()
-        
-        # Crear el worker (sin sensibilidad)
-        self.similarity_worker = DuplicatesSimilarAnalysisWorker(
-            detector=detector,
-            metadata_cache=self.metadata_cache
-        )
-        
-        # Crear diálogo de progreso bloqueante
-        self.similarity_progress_dialog = SimilarFilesProgressDialog(
-            parent=self.main_window,
-            total_files=file_count
-        )
-        
-        # Conectar señales del worker
-        self.similarity_worker.progress_update.connect(
-            self._on_similarity_progress_update
-        )
-        self.similarity_worker.finished.connect(
-            self._on_similarity_analysis_completed
-        )
-        self.similarity_worker.error.connect(
-            self._on_similarity_analysis_error
-        )
-        
-        # Conectar cancelación del diálogo
-        self.similarity_progress_dialog.cancel_requested.connect(
-            self._on_similarity_analysis_cancelled
-        )
-        
-        # Iniciar worker
-        self.similarity_worker.start()
-        
-        # Mostrar diálogo bloqueante
-        self.similarity_progress_dialog.exec()
-    
-    def _on_similarity_progress_update(self, current: int, total: int, message: str):
-        """Actualiza el progreso en el diálogo"""
-        if self.similarity_progress_dialog:
-            self.similarity_progress_dialog.update_progress(current, total, message)
-    
-    def _on_similarity_analysis_completed(self, analysis):
-        """
-        Maneja la finalización exitosa del análisis.
-        
-        Args:
-            analysis: DuplicatesSimilarAnalysis con hashes calculados
-        """
-        self.logger.info("Análisis inicial de archivos similares completado")
-        self.similarity_analysis = analysis
-        
-        # Cerrar diálogo de progreso
-        if self.similarity_progress_dialog:
-            self.similarity_progress_dialog.accept()
-            self.similarity_progress_dialog = None
-        
-        # Limpiar worker
-        if self.similarity_worker:
-            self.similarity_worker.deleteLater()
-            self.similarity_worker = None
-        
-        # Actualizar la card indicando que el análisis está completado
-        self._update_similar_duplicates_card_after_analysis(analysis)
-        
-        # Verificar si hay hashes calculados antes de abrir el diálogo
-        if analysis.total_files == 0 or not analysis.perceptual_hashes:
-            QMessageBox.information(
-                self.main_window,
-                "Sin archivos similares",
-                "No se encontraron archivos similares en la carpeta analizada.\n\n"
-                "Esto puede ocurrir si:\n"
-                "• No hay suficientes imágenes para comparar\n"
-                "• Las imágenes son muy diferentes entre sí\n"
-                "• Ya se han eliminado todos los duplicados"
-            )
-            return
-        
-        # Para datasets grandes, no abrir automáticamente
-        # para evitar problemas de memoria al cargar la UI
-        # El umbral es dinámico según la RAM del sistema
-        auto_open_threshold = Config.get_similarity_dialog_auto_open_threshold()
-        if analysis.total_files > auto_open_threshold:
-            self.logger.info(
-                f"Dataset grande ({analysis.total_files} archivos, "
-                f"umbral: {auto_open_threshold}). "
-                "Diálogo no abierto automáticamente para evitar problemas de memoria."
-            )
-            QMessageBox.information(
-                self.main_window,
-                "Análisis completado",
-                f"Se analizaron {analysis.total_files} archivos con éxito.\n\n"
-                "Debido al tamaño del dataset, el diálogo de gestión no se "
-                "abre automáticamente para evitar problemas de memoria.\n\n"
-                "Haz clic en 'Gestionar ahora' cuando estés listo."
-            )
-            return
-        
-        # Abrir automáticamente el diálogo de gestión con slider (solo datasets pequeños)
-        self._open_similarity_dialog_with_analysis(analysis)
-    
-    def _on_similarity_analysis_error(self, error_message: str):
-        """
-        Maneja errores durante el análisis
-        
-        Args:
-            error_message: Mensaje de error con traceback
-        """
-        self.logger.error(f"Error en análisis de similares: {error_message}")
-        
-        # Cerrar diálogo de progreso
-        if self.similarity_progress_dialog:
-            self.similarity_progress_dialog.reject()
-            self.similarity_progress_dialog = None
-        
-        # Limpiar worker
-        if self.similarity_worker:
-            self.similarity_worker.deleteLater()
-            self.similarity_worker = None
-        
-        # Mostrar error al usuario
-        QMessageBox.critical(
-            self.main_window,
-            "Error en análisis",
-            f"Ocurrió un error durante el análisis:\n\n{error_message[:500]}"
-        )
-    
-    def _on_similarity_analysis_cancelled(self):
-        """Maneja la cancelación del análisis por el usuario"""
-        self.logger.info("Análisis de similares cancelado por el usuario")
-        
-        # Detener worker
-        if self.similarity_worker:
-            self.similarity_worker.stop()
-            self.similarity_worker.wait(2000)  # Esperar 2 segundos
-            self.similarity_worker.deleteLater()
-            self.similarity_worker = None
-        
-        # Cerrar diálogo
-        if self.similarity_progress_dialog:
-            self.similarity_progress_dialog.reject()
-            self.similarity_progress_dialog = None
-    
-    def _update_similar_duplicates_card(self, results):
-        """
-        Actualiza la card de similares con los resultados del análisis.
-        
-        Args:
-            results: DuplicateAnalysisResult
-        """
-        if 'similar_files' not in self.tool_cards:
-            return
-        
-        card = self.tool_cards['similar_files']
-        
-        if results.total_groups > 0:
-            size_text = f"~{format_size(results.space_potential)} recuperables"
-            card.set_status_with_results(
-                f"{results.total_groups} grupos detectados",
-                size_text
-            )
-            card.action_button.setText("Gestionar ahora")
-        else:
-            card.set_status_no_results("No se encontraron duplicados similares")
-            # No cambiar action_button porque está oculto en no_results
-        
-        # Actualizar descripción para indicar que ya se analizó
-        card.description_label.setText(
-            "Detecta fotos visualmente similares pero no idénticas "
-            "(recortes, rotaciones, ediciones). Análisis completado."
-        )
-    
-    def _update_similar_duplicates_card_after_analysis(self, analysis):
-        """
-        Actualiza la card después del análisis inicial.
-        
-        Args:
-            analysis: DuplicatesSimilarAnalysis con hashes calculados
-        """
-        if 'similar_files' not in self.tool_cards:
-            return
-        
-        card = self.tool_cards['similar_files']
-        
-        # Verificar si hay archivos analizados
-        if analysis.total_files == 0:
-            card.set_status_no_results("No hay archivos para analizar")
-            card.description_label.setText(
-                "No se encontraron imágenes o vídeos para analizar."
-            )
-        elif not analysis.perceptual_hashes or len(analysis.perceptual_hashes) == 0:
-            card.set_status_no_results("No se encontraron archivos similares")
-            card.description_label.setText(
-                f"{analysis.total_files} archivos analizados. "
-                "No se encontraron similitudes visuales."
-            )
-        else:
-            # Mostrar que el análisis está completado con hashes calculados
-            card.set_status_with_results(
-                f"{len(analysis.perceptual_hashes)} archivos analizados",
-                "Listo para ajustar sensibilidad"
-            )
-            card.action_button.setText("Gestionar ahora")
-            
-            # Actualizar descripción
-            card.description_label.setText(
-                "Análisis completado. Puedes ajustar la sensibilidad "
-                "interactivamente para detectar más o menos similitudes."
-            )
-    
-    def _open_similarity_dialog_with_analysis(self, analysis):
-        """
-        Abre el diálogo de gestión con el análisis (slider interactivo).
-        
-        Args:
-            analysis: DuplicatesSimilarAnalysis con hashes calculados
-        """
-        from ui.dialogs.duplicates_similar_dialog import SimilarFilesDialog
-        
-        dialog = SimilarFilesDialog(analysis, self.main_window)
-        result = dialog.exec()
-        
-        if result == QDialog.DialogCode.Accepted:
-            # Usuario ejecutó acciones, ejecutar con worker
-            self._execute_tool_action("similar_files", dialog)
-    
-    def _convert_result_to_analysis(self, result):
-        """
-        Convierte DuplicateAnalysisResult obsoleto a DuplicatesSimilarAnalysis.
-        
-        (Para compatibilidad con snapshots antiguos)
-        
-        Args:
-            result: DuplicateAnalysisResult
-            
-        Returns:
-            DuplicatesSimilarAnalysis o None si no es posible convertir
-        """
-        # Por ahora, retornamos None para forzar re-análisis
-        # En el futuro podríamos implementar conversión si necesario
-        self.logger.warning(
-            "No se puede convertir resultado antiguo, "
-            "se requiere re-análisis"
-        )
-        return None
-    
-    def _open_similarity_dialog(self, results):
-        """
-        DEPRECATED: Usa _open_similarity_dialog_with_analysis en su lugar.
-        
-        Mantiene compatibilidad con código antiguo.
-        
-        Args:
-            results: DuplicateAnalysisResult
-        """
-        from ui.dialogs.duplicates_similar_dialog import SimilarFilesDialog
-        
-        # Intentar convertir o mostrar advertencia
-        self.logger.warning(
-            "Usando método deprecated _open_similarity_dialog, "
-            "considera usar _open_similarity_dialog_with_analysis"
-        )
-        
-        # Crear análisis temporal con grupos
-        from services.duplicates_similar_service import DuplicatesSimilarAnalysis
-        temp_analysis = DuplicatesSimilarAnalysis()
-        temp_analysis.groups = results.groups
-        temp_analysis.total_files = results.total_files
-        
-        dialog = SimilarFilesDialog(temp_analysis, self.main_window)
-        dialog.exec()
-
+    # Similarity handling moved to ui/screens/similarity_handlers.py
+    # Handle through self.similarity_handler
     
 

@@ -1,5 +1,5 @@
 """
-Diálogo de Organización de Archivos - Versión 2.0
+Diálogo de Organización de Archivos
 Permite elegir el tipo de organización en tiempo real y ver los resultados dinámicamente
 """
 from pathlib import Path
@@ -69,7 +69,7 @@ class OrganizationWorker(QThread):
             self.error.emit(str(e))
 
 
-class FileOrganizationDialog(BaseDialog):
+class FileOrganizerDialog(BaseDialog):
     """
     Diálogo profesional para organización de archivos con:
     - Selector de tipo de organización en tiempo real

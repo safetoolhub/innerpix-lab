@@ -9,7 +9,7 @@ from ui.styles.design_system import DesignSystem
 from .base_dialog import BaseDialog
 
 
-class LivePhotoCleanupDialog(BaseDialog):
+class LivePhotosDialog(BaseDialog):
     """Diálogo para limpieza de Live Photos"""
 
     def __init__(self, analysis, parent=None):
