@@ -3,13 +3,16 @@
 PyQt6 desktop app for photo/video management. Workflow: **analyze → preview → execute**.
 See `PROJECT_TREE.md` for structure. Ignore `docs/` (author's notes).
 
-### Architecture (3-layer)
-
-**Services** (`services/`) - Pure logic, no UI
-- Pattern: `analyze()` returns dataclass, `execute()` accepts `create_backup=True`
-- Logger: `from utils.logger import get_logger; self.logger = get_logger('ServiceName')`
-- Returns: 100% typed dataclasses from `services/result_types.py`
-- Orchestrator: `AnalysisOrchestrator.run_full_analysis()` → `FullAnalysisResult`
+### Flujo de Análisis
+1. **Stage 2**: Escaneo inicial usando `DirectoryScanner.scan()` → `DirectoryScanResult`
+2. **Stage 3**: Análisis bajo demanda para cada herramienta
+   - Live Photos: `LivePhotoService.analyze()` → `LivePhotoDetectionResult`
+   - HEIC/JPG: `HeicService.analyze()` → `HeicAnalysisResult`
+   - Copias exactas: `DuplicatesExactService.analyze()` → `DuplicateAnalysisResult`
+   - Archivos similares: `DuplicatesSimilarService.analyze()` → analysisresult
+   - Archivos vacíos: `ZeroByteService.analyze()` → `ZeroByteAnalysisResult`
+   - Renombrar: `FileRenamer.analyze()` → `RenameAnalysisResult`
+   - Organizar: `FileOrganizer.analyze()` → `OrganizationAnalysisResult`
 - Detectors: `ExactCopiesDetector` (SHA256), `SimilarFilesDetector` (perceptual hash)
 
 **Metadata Cache** (`services/metadata_cache.py`) - Shared optimization system
