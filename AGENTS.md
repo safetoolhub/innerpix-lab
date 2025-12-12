@@ -60,19 +60,6 @@ Prácticas específicas del repositorio
 - **Dialogs / UI**: Los diálogos en `ui/dialogs/` usan `BaseDialog` y la presentación debe ser solo UI; no incluir lógica pesada.
 - **Design system**: Usar `DesignSystem` y evitar QSS o estilos inline fuera del sistema de diseño.
 
-Seguridad y privacidad
-- **Datos sensibles**: Evitar exponer rutas completas o metadatos sensibles en logs por defecto; usar máscaras cuando sea necesario.
-
-Cómo contribuir a AGENTS.md
-- Abrir PR con cambios propuestos y describir la necesidad del cambio.
-- Mantener el documento en español e inglés si el equipo así lo decide; actualmente este archivo es la versión en español.
-
-Checklist rápida antes de merge
-- **Tests locales**: `pytest -q` pasa.
-- **Formateo**: `black` / `isort` aplicado.
-- **Lint**: `flake8`/`ruff` sin errores nuevos relevantes.
-- **Backup/simulación**: Las funciones destructivas ofrecen `create_backup` y un modo simulación probado.
-
 Preguntas frecuentes (FAQ)
 - **Dónde poner nueva lógica?**: En `services/` como servicio reutilizable. UI solo para render y orquestación.
 - **Cómo pruebo cambios de UI?**: Ejecutar localmente y usar los tests de UI en `tests/ui` si existen; preferir pruebas manuales guiadas por dialogs cuando no haya automatización.
