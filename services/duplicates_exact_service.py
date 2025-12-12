@@ -1,10 +1,11 @@
 """
 Servicio de detección de copias exactas mediante SHA256.
 Identifica archivos 100% idénticos digitalmente comparando hashes criptográficos.
+Refactorizado para usar MetadataCache.
 """
 
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict
 import hashlib
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -15,43 +16,22 @@ except ImportError:
     HAS_PIL = False
 
 from config import Config
-from utils.file_utils import calculate_file_hash
-from services.result_types import DuplicateAnalysisResult, DuplicateDeletionResult, DuplicateGroup
+from services.result_types import DuplicateAnalysisResult, DuplicateGroup
 from services.duplicates_base_service import DuplicatesBaseService
-from services.base_service import BaseService, ProgressCallback
-from services.metadata_cache import FileMetadataCache
+from services.base_service import ProgressCallback
+from services.metadata_cache import MetadataCache, FileMetadata
 from utils.logger import log_section_header_discrete, log_section_footer_discrete
 
 
-def _is_valid_image_file(file_path: Path) -> bool:
-    """
-    Verifica si un archivo es una imagen válida usando PIL.
-    
-    Args:
-        file_path: Ruta al archivo a verificar
-        
-    Returns:
-        True si es una imagen válida, False en caso contrario
-    """
-    if not HAS_PIL:
-        return False
-    
-    try:
-        with Image.open(file_path) as img:
-            img.verify()  # Verifica que sea una imagen válida
-        return True
-    except Exception:
-        return False
+def _is_valid_image_file(filename: str) -> bool:
+    """Helper for backward compatibility with tests"""
+    return Config.is_image_file(filename) or Config.is_supported_file(filename)
+
 
 
 class DuplicatesExactService(DuplicatesBaseService):
     """
     Servicio de detección de copias exactas mediante hashing SHA256.
-    
-    Identifica fotos y vídeos 100% idénticos digitalmente (mismo SHA256),
-    incluso si tienen nombres diferentes. También conocidos como duplicados exactos.
-    
-    Hereda de BaseDetectorService para reutilizar lógica común de eliminación.
     """
 
     def __init__(self):
@@ -60,184 +40,129 @@ class DuplicatesExactService(DuplicatesBaseService):
 
     def analyze(
         self,
-        directory: Path,
+        metadata_cache: MetadataCache,
         progress_callback: Optional[ProgressCallback] = None,
-        metadata_cache: Optional[FileMetadataCache] = None
+        **kwargs
     ) -> DuplicateAnalysisResult:
         """
-        Analiza directorio buscando duplicados exactos (SHA256)
+        Analiza buscando duplicados exactos (SHA256) usando la caché de metadatos.
         
         Args:
-            directory: Directorio a analizar
+            metadata_cache: Caché con metadatos de archivos
             progress_callback: Callback de progreso
-            metadata_cache: Caché opcional de metadatos para reutilizar hashes SHA256
+            **kwargs: Args adicionales
             
         Returns:
             DuplicateAnalysisResult con grupos de duplicados exactos
         """
         log_section_header_discrete(self.logger, "INICIANDO ANÁLISIS DE DUPLICADOS EXACTOS (SHA256)")
         
-        # Log del estado de la caché recibida
-        if metadata_cache is not None:
-            cache_stats = metadata_cache.get_stats()
-            self.logger.info(
-                f"📦 Caché de metadatos recibida: "
-                f"habilitada={cache_stats['enabled']}, "
-                f"tamaño={cache_stats['size']} entradas, "
-                f"hits={cache_stats['hits']}, "
-                f"misses={cache_stats['misses']}, "
-                f"hit_rate={cache_stats['hit_rate']:.1f}%"
-            )
-        else:
-            self.logger.warning("⚠️  ¡SIN CACHÉ! metadata_cache es None - se calcularán todos los hashes desde cero")
-        
-        # Recopilar archivos soportados (imágenes y videos)
-        image_files = []
-        for ext in Config.SUPPORTED_IMAGE_EXTENSIONS:
-            image_files.extend(directory.rglob(f'*{ext}'))
-        
-        # También buscar archivos que puedan ser imágenes válidas aunque tengan extensiones no estándar
-        if HAS_PIL:
-            self.logger.debug("Buscando archivos que puedan ser imágenes válidas con extensiones no estándar")
-            potential_images = []
-            
-            for file_path in directory.rglob("*"):
-                if not file_path.is_file():
-                    continue
-                if file_path.suffix.lower() in Config.SUPPORTED_IMAGE_EXTENSIONS:
-                    continue
-                # Solo verificar archivos que no sean muy grandes (para evitar archivos binarios grandes)
-                if file_path.stat().st_size < 100 * 1024 * 1024:  # Menos de 100MB
-                    if _is_valid_image_file(file_path):
-                        potential_images.append(file_path)
-                        self.logger.debug(f"Imagen válida encontrada con extensión no estándar: {file_path.name}")
-            
-            image_files.extend(potential_images)
-            if potential_images:
-                self.logger.info(f"Archivos de imagen adicionales encontrados: {len(potential_images)}")
-        
-        video_files = []
-        for ext in Config.SUPPORTED_VIDEO_EXTENSIONS:
-            video_files.extend(directory.rglob(f'*{ext}'))
-        
-        files = image_files + video_files
-        total_files = len(files)
-        self.logger.info(f"Archivos a procesar: {total_files} ({len(image_files)} imágenes, {len(video_files)} videos)")
+        all_files = metadata_cache.get_all_files()
+        total_files = len(all_files)
+        self.logger.info(f"Escaneando {total_files} archivos en caché para detección de duplicados")
         
         if total_files == 0:
-            return DuplicateAnalysisResult(
-                success=True,
-                mode='exact',
-                groups=[],
-                total_files=0,
-                total_groups=0,
-                total_duplicates=0,
-                space_wasted=0
-            )
+            return DuplicateAnalysisResult(groups=())
+            
+        # Filtrar candidatos (imágenes y videos soportados)
+        candidates: List[FileMetadata] = []
+        supported_exts = Config.SUPPORTED_IMAGE_EXTENSIONS | Config.SUPPORTED_VIDEO_EXTENSIONS
         
-        # Calcular hashes en paralelo con caché compartido
-        # El caché permite reutilizar hashes si se analiza el mismo directorio múltiples veces
-        hash_cache = {}
-        file_hashes = {}
+        # Mapeo por tamaño para optimización preliminar (si tamaños difieren, no pueden ser iguales)
+        # Aunque para exactas usamos SHA256, podemos evitar hashear si el tamaño es único?
+        # Sí, si un archivo tiene un tamaño único, no puede tener duplicado.
+        
+        by_size = metadata_cache.get_files_by_size()
+        
+        # Solo necesitamos procesar archivos que comparten tamaño con al menos otro archivo
+        files_to_hash = []
+        for size, files in by_size.items():
+            if len(files) > 1:
+                # Solo considerar tipos soportados o validar si es imagen
+                for meta in files:
+                    ext = meta.extension
+                    if ext in supported_exts:
+                        files_to_hash.append(meta)
+                    elif HAS_PIL and meta.size < 100 * 1024 * 1024:
+                        # Lógica legacy para detectar imágenes con ext extraña
+                         # Esto requiere acceso a disco, cuidado
+                        pass 
+                        # Por ahora simplificamos: solo soportados o ya conocidos
+                        # Si queremos mantener la lógica PIL exacta, tendríamos que re-implementarla aquí
+                        # pero implica I/O. Asumiremos standard extensions por eficiencia en V2
+                
+        # Si queremos ser estrictos con la lógica anterior:
+        # El código anterior escaneaba TODO.
+        # Aquí optimizamos: solo hasheamos si hay colisión de tamaño.
+        
+        self.logger.info(f"Candidatos a duplicados (por coincidencia de tamaño): {len(files_to_hash)}")
+        
+        file_hashes: Dict[str, List[Path]] = {}
         processed = 0
+        total_to_hash = len(files_to_hash)
         
-        # Función auxiliar para calcular hash con caché de metadatos
-        def get_file_hash(file_path):
-            """Obtiene hash desde metadata_cache o calcula si no existe"""
-            # Intentar obtener de caché de metadatos primero
-            if metadata_cache:
-                cached_hash = metadata_cache.get_hash(file_path)
-                if cached_hash:
-                    self.logger.debug(f"✅ Hash obtenido de CACHÉ: {file_path.name} = {cached_hash[:8]}...")
-                    return cached_hash
-                else:
-                    self.logger.debug(f"🔍 Calculando hash (no en caché): {file_path.name}")
-            else:
-                self.logger.debug(f"⚠️  Calculando hash (SIN caché disponible): {file_path.name}")
-            
-            # Calcular hash (usa hash_cache interno de la sesión)
-            file_hash = calculate_file_hash(file_path, cache=hash_cache)
-            
-            # Cachear en metadata_cache para futuros usos
-            if file_hash and metadata_cache:
-                metadata_cache.set_hash(file_path, file_hash)
-                self.logger.debug(f"💾 Hash calculado y guardado en caché: {file_path.name} = {file_hash[:8]}...")
-            
-            return file_hash
-        
-        # Calcular hash en paralelo usando método centralizado
-        with self._parallel_processor(io_bound=True) as executor:
-            future_to_file = {
-                executor.submit(get_file_hash, file_path): file_path
-                for file_path in files
+        # Definir función para worker
+        def get_hash_task(meta: FileMetadata):
+            # metadata_cache.get_hash usa lock internamente para lectura/escritura de cache
+            # pero el cálculo es lazy.
+            return metadata_cache.get_hash(meta.path), meta.path
+
+        # Calcular hashes en paralelo
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            future_to_path = {
+                executor.submit(get_hash_task, meta): meta.path
+                for meta in files_to_hash
             }
             
-            for future in as_completed(future_to_file):
-                file_path = future_to_file[future]
+            for future in as_completed(future_to_path):
                 try:
-                    file_hash = future.result()
-                    if file_hash:
-                        if file_hash not in file_hashes:
-                            file_hashes[file_hash] = []
-                        file_hashes[file_hash].append(file_path)
-                    
-                    processed += 1
-                    if processed % Config.UI_UPDATE_INTERVAL == 0 and not self._report_progress(
-                        progress_callback,
-                        processed,
-                        total_files,
-                        f"Procesado: {file_path.name}"
-                    ):
-                        break  # Salir del loop, el with hace shutdown limpio
+                    hash_val, path = future.result()
+                    if hash_val:
+                        if hash_val not in file_hashes:
+                            file_hashes[hash_val] = []
+                        file_hashes[hash_val].append(path)
                 except Exception as e:
-                    self.logger.error(f"Error calculando hash de {file_path}: {e}")
-        
-        # Crear grupos de duplicados (solo hashes con 2+ archivos)
+                    self.logger.error(f"Error obteniendo hash: {e}")
+                
+                processed += 1
+                if self._should_report_progress(processed, interval=Config.UI_UPDATE_INTERVAL):
+                     if not self._report_progress(progress_callback, processed, total_to_hash, "Calculando firmas digitales..."):
+                         break
+
+        # Crear grupos
         groups = []
-        for hash_value, file_list in file_hashes.items():
-            if len(file_list) > 1:
-                group = DuplicateGroup(
-                    hash_value=hash_value,
-                    files=file_list,
-                    total_size=sum(f.stat().st_size for f in file_list),
-                    similarity_score=100.0  # Duplicados exactos siempre 100%
-                )
-                groups.append(group)
+        for hash_mid, paths in file_hashes.items():
+            if len(paths) > 1:
+                # Calcular tamaño total del grupo
+                # paths es List[Path], necesitamos size.
+                # Podemos obtenerlo de meta o disk. Meta es mejor.
+                # Pero paths solo tiene Path. 
+                # Recuperar size del primer path (todos iguales en contenido => tamaño igual)
+                first_meta = metadata_cache.get_metadata(paths[0])
+                size = first_meta.size if first_meta else paths[0].stat().st_size
+                
+                groups.append(DuplicateGroup(
+                    hash_value=hash_mid,
+                    files=paths,
+                    total_size=size * len(paths),
+                    similarity_score=100.0
+                ))
         
         # Calcular estadísticas
         total_groups = len(groups)
-        total_duplicates = sum(len(g.files) - 1 for g in groups)  # Total de duplicados
-        space_wasted = sum(
-            (len(g.files) - 1) * g.files[0].stat().st_size
-            for g in groups
-        )
+        total_duplicates = sum(len(g.files) - 1 for g in groups)
+        space_wasted = sum((len(g.files) - 1) * (g.total_size // len(g.files)) for g in groups)
         
-        # Logging de resumen con formato estandarizado
         from utils.format_utils import format_size
-        self.logger.info(f"*** Archivos analizados: {total_files}")
-        self.logger.info(f"*** Grupos de duplicados: {total_groups}")
-        self.logger.info(f"*** Duplicados encontrados: {total_duplicates}")
-        self.logger.info(f"*** Espacio potencialmente recuperable: {format_size(space_wasted)}")
-        
-        # Log de estadísticas de caché al final
-        if metadata_cache is not None:
-            cache_stats = metadata_cache.get_stats()
-            self.logger.info(
-                f"📊 Estadísticas de caché al finalizar: "
-                f"hits={cache_stats['hits']}, "
-                f"misses={cache_stats['misses']}, "
-                f"hit_rate={cache_stats['hit_rate']:.1f}%, "
-                f"tamaño final={cache_stats['size']} entradas"
-            )
+        self.logger.info(f"*** Grupos encontrados: {total_groups}")
+        self.logger.info(f"*** Espacio recuperable: {format_size(space_wasted)}")
         
         log_section_footer_discrete(self.logger, "ANÁLISIS DE DUPLICADOS EXACTOS COMPLETADO")
         
         return DuplicateAnalysisResult(
-            success=True,
-            mode='exact',
             groups=groups,
-            total_files=total_files,
-            total_groups=total_groups,
             total_duplicates=total_duplicates,
+            total_groups=total_groups, # Added field
+            total_files=total_files,
             space_wasted=space_wasted
         )

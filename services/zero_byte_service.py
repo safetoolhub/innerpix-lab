@@ -1,11 +1,13 @@
 """
 Servicio para detectar y eliminar archivos de 0 bytes.
+Refactorizado para usar MetadataCache y ResultTypes genéricos.
 """
 from pathlib import Path
 from typing import List, Optional
 
 from services.base_service import BaseService, ProgressCallback
 from services.result_types import ZeroByteAnalysisResult, ZeroByteDeletionResult
+from services.metadata_cache import MetadataCache
 from utils.logger import log_section_header_relevant, log_section_footer_relevant
 from utils.file_utils import delete_file_securely
 
@@ -19,83 +21,60 @@ class ZeroByteService(BaseService):
         super().__init__('ZeroByteService')
 
     def analyze(self, 
-                directory: Path, 
-                progress_callback: Optional[ProgressCallback] = None) -> ZeroByteAnalysisResult:
+                metadata_cache: MetadataCache, 
+                progress_callback: Optional[ProgressCallback] = None,
+                **kwargs) -> ZeroByteAnalysisResult:
         """
-        Busca archivos de 0 bytes en el directorio.
+        Busca archivos de 0 bytes usando la caché de metadatos.
         
         Args:
-            directory: Directorio a analizar
+            metadata_cache: Caché con metadatos de archivos
             progress_callback: Callback de progreso
             
         Returns:
-            ZeroByteAnalysisResult con los archivos encontrados
+            ZeroByteAnalysisResult
         """
-        # Validar directorio usando método de BaseService
-        self._validate_directory(directory)
-        
-        self.logger.info(f"Buscando archivos de 0 bytes en: {directory}")
+        # Ya no validamos directorio aqui, asumimos que metadata_cache está poblada
+        self.logger.info(f"Buscando archivos de 0 bytes en caché ({len(metadata_cache.get_all_files())} archivos)")
         
         zero_byte_files = []
-        processed = 0
+        all_files = metadata_cache.get_all_files()
+        total = len(all_files)
         
-        # Recorrer directorio en streaming (sin bloquear)
-        for file_path in directory.rglob("*"):
-            if not file_path.is_file():
-                continue
+        for i, meta in enumerate(all_files):
+            if meta.size == 0:
+                zero_byte_files.append(meta.path)
             
-            # Usar _report_progress de BaseService
-            if self._should_report_progress(processed):
-                if not self._report_progress(
-                    progress_callback, 
-                    processed, 
-                    -1, 
-                    "Buscando archivos vacíos..."
-                ):
-                    break
-            
-            if file_path.stat().st_size == 0:
-                zero_byte_files.append(file_path)
-            
-            processed += 1
+            # Reportar progreso periódicamente
+            if self._should_report_progress(i, interval=5000): # Intervalo alto, es memoria rapida
+                 if not self._report_progress(progress_callback, i, total, "Filtrando archivos vacíos..."):
+                     break
+                     
+        self.logger.info(f"Encontrados {len(zero_byte_files)} archivos de 0 bytes")
         
-        # Reporte final
-        self._report_progress(
-            progress_callback, 
-            processed, 
-            processed, 
-            "Búsqueda completada"
-        )
-            
         return ZeroByteAnalysisResult(
-            total_files=processed,
-            files=zero_byte_files
+            files=zero_byte_files,
+            items_count=len(zero_byte_files)
         )
 
     def execute(self, 
-                files_to_delete: List[Path],
-                create_backup: bool = True,
+                analysis_result: ZeroByteAnalysisResult,
                 dry_run: bool = False,
-                progress_callback: Optional[ProgressCallback] = None) -> ZeroByteDeletionResult:
+                create_backup: bool = True,
+                progress_callback: Optional[ProgressCallback] = None,
+                **kwargs) -> ZeroByteDeletionResult:
         """
-        Elimina los archivos especificados.
+        Elimina los archivos identificados en el análisis.
+        """
+        files_to_delete = analysis_result.files
         
-        Args:
-            files_to_delete: Lista de archivos a eliminar
-            create_backup: Si crear backup antes de eliminar (aunque sean 0 bytes, por consistencia)
-            dry_run: Si es simulación
-            progress_callback: Callback de progreso
-            
-        Returns:
-            ZeroByteDeletionResult
-        """
         # Usar template method _execute_operation de BaseService
         return self._execute_operation(
             files=files_to_delete,
             operation_name='zero_byte_deletion',
-            execute_fn=lambda dry: self._do_zero_byte_deletion(
+            execute_fn=lambda dr: self._do_zero_byte_deletion(
                 files_to_delete, 
-                dry, 
+                dr, 
                 progress_callback
             ),
             create_backup=create_backup,
@@ -111,14 +90,6 @@ class ZeroByteService(BaseService):
     ) -> ZeroByteDeletionResult:
         """
         Lógica real de eliminación de archivos de 0 bytes.
-        
-        Args:
-            files_to_delete: Archivos a eliminar
-            dry_run: Si es simulación
-            progress_callback: Callback de progreso
-            
-        Returns:
-            ZeroByteDeletionResult con resultados de la operación
         """
         result = ZeroByteDeletionResult(dry_run=dry_run)
         total = len(files_to_delete)
@@ -127,8 +98,10 @@ class ZeroByteService(BaseService):
         log_section_header_relevant(self.logger, "ELIMINACIÓN DE ARCHIVOS VACÍOS", mode=mode)
         self.logger.info(f"*** Archivos a procesar: {total}")
         
+        files_affected = []
+        items_processed = 0
+        
         for i, file_path in enumerate(files_to_delete):
-            # Usar _report_progress de BaseService
             if not self._report_progress(
                 progress_callback,
                 i,
@@ -138,33 +111,29 @@ class ZeroByteService(BaseService):
                 break
             
             try:
-                # Obtener extensión del archivo para el tipo
+                # Obtener extensión para log
                 file_extension = file_path.suffix.upper().lstrip('.')
                 file_type = file_extension if file_extension else 'UNKNOWN'
                 
-                # Obtener fecha del archivo
-                from utils.date_utils import get_date_from_file
-                try:
-                    file_date = get_date_from_file(file_path, verbose=False)
-                    file_date_str = file_date.strftime('%Y-%m-%d %H:%M:%S') if file_date else 'unknown'
-                except Exception:
-                    file_date_str = 'unknown'
+                # Intentar obtener fecha (opcional, para log)
+                # Podríamos sacarla de metadata_cache si la pasamos, pero aqui acceso a disco es OK
+                file_date_str = "unknown" # Simplificado para evitar import circular o lecturas extra
                 
                 # Formato de log estandarizado
                 log_type = "FILE_DELETED_SIMULATION" if dry_run else "FILE_DELETED"
                 log_msg = (
                     f"{log_type}: {file_path} | Size: 0 B | "
-                    f"Type: {file_type} | Date: {file_date_str}"
+                    f"Type: {file_type}"
                 )
                 
                 if dry_run:
-                    result.simulated_files_deleted += 1
-                    result.deleted_files.append(str(file_path))
+                    items_processed += 1
+                    files_affected.append(file_path)
                     self.logger.info(log_msg)
                 else:
                     if delete_file_securely(file_path):
-                        result.files_deleted += 1
-                        result.deleted_files.append(str(file_path))
+                        items_processed += 1
+                        files_affected.append(file_path)
                         self.logger.info(log_msg)
                     else:
                         result.add_error(f"No se pudo eliminar: {file_path}")
@@ -172,10 +141,13 @@ class ZeroByteService(BaseService):
             except Exception as e:
                 result.add_error(f"Error procesando {file_path}: {e}")
         
+        result.items_processed = items_processed
+        result.files_affected = files_affected
+        
         # Usar _format_operation_summary de BaseService
         summary = self._format_operation_summary(
             "Eliminación de archivos vacíos",
-            result.simulated_files_deleted if dry_run else result.files_deleted,
+            items_processed,
             space_amount=0,  # Son archivos de 0 bytes
             dry_run=dry_run
         )
@@ -183,13 +155,7 @@ class ZeroByteService(BaseService):
         result.message = summary
         log_section_footer_relevant(self.logger, summary)
         
-        # Reporte final
-        self._report_progress(
-            progress_callback,
-            total,
-            total,
-            "Operación completada"
-        )
+        self._report_progress(progress_callback, total, total, "Operación completada")
             
         return result
 

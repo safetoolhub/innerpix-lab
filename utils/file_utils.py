@@ -192,6 +192,27 @@ def validate_file_exists(path) -> Path:
     return p
 
 
+def validate_directory_exists(path) -> Path:
+    """Normalize input to Path and verify the directory exists.
+
+    Args:
+        path: str or Path-like to validate
+
+    Returns:
+        Path object for the validated directory
+
+    Raises:
+        FileNotFoundError: if the path does not exist
+        NotADirectoryError: if the path is not a directory
+    """
+    p = Path(path)
+    if not p.exists():
+        raise FileNotFoundError(f"El directorio no existe: {p}")
+    if not p.is_dir():
+        raise NotADirectoryError(f"La ruta no es un directorio: {p}")
+    return p
+
+
 def to_path(obj, attr_names=('path', 'source_path', 'original_path')) -> Path:
     """Convierte un objeto flexible a Path.
 

@@ -166,6 +166,11 @@ class ToolCard(QFrame):
         """Maneja el clic en el botón (igual que clic en card)"""
         if self.is_enabled:
             self.clicked.emit()
+
+    def set_action_text(self, text: str):
+        """Actualiza el texto del botón de acción"""
+        self.action_text = text
+        self.action_button.setText(text)
     
     def set_status_with_results(self, count_text: str, size_text: str = None):
         """

@@ -1,209 +1,124 @@
-"""
-Tipos de resultados estandarizados para servicios de Innerpix Lab
-
-Centraliza TODAS las dataclasses de resultados.
-Define dataclasses consistentes para resultados de análisis y operaciones.
-
-Jerarquía de clases:
-    - BaseResult: Clase base con campos universales (success, errors, message)
-    - BackupMixin: Para operaciones que crean backup
-    - DryRunMixin: Para modo simulación básico
-    - DryRunStatsMixin: Extiende DryRunMixin con estadísticas de simulación
-    - FileListMixin: Para operaciones que rastrean archivos eliminados
-"""
-
 from dataclasses import dataclass, field
-from typing import List, Optional, Dict
+from typing import List, Optional, Any, Dict
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime
+from services.metadata_cache import FileMetadataCache
 
+# ============================================================================
+# GENERIC BASE CLASSES (The Core of the Refactor)
+# ============================================================================
 
-# === Base Classes and Mixins ===
 @dataclass
 class BaseResult:
-    """
-    Clase base para todos los resultados.
-    
-    Proporciona campos universales y métodos comunes para manejo de errores.
-    """
+    """Base class for all results (Analysis and Execution)."""
     success: bool = True
     errors: List[str] = field(default_factory=list)
     message: Optional[str] = None
-
-    def __post_init__(self):
-        """Validaciones post-inicialización"""
-        if self.errors is None:
-            self.errors = []
-
-    @property
-    def has_errors(self) -> bool:
-        """True si hay errores"""
-        return len(self.errors) > 0
     
-    @property
-    def error(self) -> Optional[str]:
-        """Primer error de la lista (para compatibilidad)"""
-        return self.errors[0] if self.errors else None
-
     def add_error(self, error: str):
-        """Añade un error a la lista y marca success=False"""
         self.errors.append(error)
-        if self.success:
-            self.success = False
+        self.success = False
 
+@dataclass
+class AnalysisResult(BaseResult):
+    """
+    Generic result for the Analysis phase.
+    Services should populate `data` with specific findings if `items` is not enough.
+    """
+    items_count: int = 0          # Number of items found/analyzed
+    bytes_total: int = 0          # Total size in bytes of relevance
+    data: Any = None              # Payload specific to the service (e.g. list of duplicates)
+
+@dataclass
+class ExecutionResult(BaseResult):
+    """
+    Generic result for the Execution phase.
+    """
+    items_processed: int = 0
+    bytes_processed: int = 0      # Bytes freed, moved, or renamed
+    files_affected: List[Path] = field(default_factory=list) # List of files modified
+    backup_path: Optional[Path] = None # If backup was created
+
+DeletionResult = ExecutionResult
+
+# ============================================================================
+# SERVICE SPECIFIC RESULT ADAPTERS (For backwards compatibility & typed access)
+# ============================================================================
+# These classes adapt the specific data needs of each service to the generic structure
+# while maintaining the fields expected by current ViewModels/UI.
+
+# --- Shared Mixins (kept for transition, can be phased out) ---
+@dataclass
+class DryRunMixin:
+    dry_run: bool = False
+
+DryRunStatsMixin = DryRunMixin
 
 @dataclass
 class BackupMixin:
-    """Mixin para operaciones que soportan creación de backup"""
-    backup_path: Optional[str] = None
-
-
-@dataclass
-class DryRunMixin:
-    """Mixin para operaciones que soportan modo simulación"""
-    dry_run: bool = False
-
-
-@dataclass
-class DryRunStatsMixin(DryRunMixin):
-    """
-    Mixin para operaciones con estadísticas de simulación.
-    
-    Extiende DryRunMixin añadiendo campos para rastrear operaciones simuladas.
-    """
-    simulated_files_deleted: int = 0
-    simulated_space_freed: int = 0
-
+    backup_path: Optional[Path] = None
 
 @dataclass
 class FileListMixin:
-    """Mixin para operaciones que rastrean lista de archivos eliminados"""
-    deleted_files: List[str] = field(default_factory=list)
+    files: List[Path] = field(default_factory=list)
 
 
-# === Specialized Base Classes ===
-@dataclass
-class AnalysisResult(BaseResult):
-    """Resultado base de análisis"""
-    total_files: int = 0
 
-
-@dataclass
-class DeletionResult(BaseResult, BackupMixin, FileListMixin):
-    """Resultado de operación de eliminación con backup y tracking de archivos"""
-    files_deleted: int = 0
-    space_freed: int = 0
-
-
-# === File Renamer Service ===
-@dataclass
-class RenameDeletionResult(BaseResult, BackupMixin, DryRunMixin):
-    """Resultado de operación de renombrado"""
-    files_renamed: int = 0
-    renamed_files: List[dict] = field(default_factory=list)
-    conflicts_resolved: int = 0
-
-
+# --- Rename Service ---
 @dataclass
 class RenameAnalysisResult(AnalysisResult):
-    """Resultado de análisis de renombrado"""
+    # Specific fields expected by ViewModel
+    renaming_plan: List[Dict] = field(default_factory=list) # List of dicts with 'original_path', 'new_name', etc.
+    # We can map renaming_plan len to items_count
+    
+    # Backwards compatibility fields (optional, can be calculated or kept)
     already_renamed: int = 0
     cannot_process: int = 0
     conflicts: int = 0
-    files_by_year: Dict = field(default_factory=dict)
-    renaming_plan: List[Dict] = field(default_factory=list)
-    issues: List[str] = field(default_factory=list)
+    
+    def __post_init__(self):
+        if not self.items_count and self.renaming_plan:
+            self.items_count = len(self.renaming_plan)
 
-    @property
-    def need_renaming(self) -> int:
-        """Número de archivos que necesitan ser renombrados (calculado)"""
-        return len(self.renaming_plan)
-
-
-# === File Organizer Service ===
 @dataclass
-class OrganizationDeletionResult(BaseResult, BackupMixin, DryRunMixin):
-    """Resultado de operación de organización"""
-    files_moved: int = 0
-    empty_directories_removed: int = 0
-    moved_files: List[str] = field(default_factory=list)
-    folders_created: List[str] = field(default_factory=list)
+class RenameExecutionResult(ExecutionResult, DryRunMixin):
+    # Inherits items_processed (files_renamed), bytes_processed
+    # Specifics
+    renamed_files: List[dict] = field(default_factory=list)
+    conflicts_resolved: int = 0
 
+# Alias for backwards compatibility
+RenameDeletionResult = RenameExecutionResult
 
+# --- Organization Service ---
 @dataclass
 class OrganizationAnalysisResult(AnalysisResult):
-    """Resultado de análisis de organización de archivos"""
+    move_plan: List[Any] = field(default_factory=list) # List of FileMove objects
+    
+    # Context info
     root_directory: str = ''
     organization_type: str = 'to_root'
-    subdirectories: Dict = field(default_factory=dict)
-    root_files: List = field(default_factory=list)
-    total_size_to_move: int = 0
-    potential_conflicts: int = 0
-    files_by_type: Dict = field(default_factory=dict)
-    move_plan: List = field(default_factory=list)
     folders_to_create: List[str] = field(default_factory=list)
-    group_by_source: bool = False
-    group_by_type: bool = False
-    date_grouping_type: Optional[str] = None
-
-    @property
-    def total_files_to_move(self) -> int:
-        """Número total de archivos a mover (calculado desde move_plan)"""
-        return len(self.move_plan)
-
-
-# === Duplicates Services (Exact & Similar) ===
-@dataclass
-class DuplicateGroup:
-    """
-    Grupo de archivos duplicados (exactos o similares).
     
-    Usado por DuplicatesExactService y DuplicatesSimilarService.
-    """
-    hash_value: str  # SHA256 hash o perceptual hash
-    files: List[Path]
-    total_size: int
-    similarity_score: float = 100.0  # Copias exactas = 100%, similares = variable
-
-
-@dataclass
-class DuplicateAnalysisResult(AnalysisResult):
-    """Resultado de análisis de duplicados (exactos o similares)"""
-    mode: str = 'exact'  # 'exact' o 'perceptual'
-    groups: List = field(default_factory=list)  # List[DuplicateGroup]
-    total_groups: int = 0
-    total_duplicates: int = 0  # Para exactos
-    total_similar: int = 0  # Para similares
-    space_wasted: int = 0  # Para exactos
-    space_potential: int = 0  # Para similares
-    sensitivity: Optional[int] = None  # Solo para similares
-    min_similarity: Optional[float] = None  # Solo para similares
-    max_similarity: Optional[float] = None  # Solo para similares
-
     def __post_init__(self):
-        """Post-init validation"""
-        super().__post_init__()
-        # Normalizar campos según modo
-        if self.mode == 'exact':
-            self.total_similar = 0
-            self.space_potential = 0
-        elif self.mode == 'perceptual':
-            self.total_duplicates = 0
-            self.space_wasted = 0
-
+        if not self.items_count and self.move_plan:
+            self.items_count = len(self.move_plan)
+        if not self.bytes_total and self.move_plan:
+             self.bytes_total = sum(m.size for m in self.move_plan)
 
 @dataclass
-class DuplicateDeletionResult(DeletionResult, DryRunStatsMixin):
-    """Resultado de eliminación de duplicados"""
-    files_kept: int = 0
-    keep_strategy: Optional[str] = None
+class OrganizationExecutionResult(ExecutionResult, DryRunMixin):
+    # Specifics
+    empty_directories_removed: int = 0
+    moved_files: List[str] = field(default_factory=list) # Path strings
+    folders_created: List[str] = field(default_factory=list)
 
+OrganizationDeletionResult = OrganizationExecutionResult
 
-# === HEIC Service ===
+# --- HEIC Service ---
 @dataclass
 class DuplicatePair:
-    """Representa un par de archivos duplicados (HEIC + JPG)"""
-    
+    """Represents a pair of HEIC + JPG files."""
     heic_path: Path
     jpg_path: Path
     base_name: str
@@ -212,128 +127,200 @@ class DuplicatePair:
     directory: Path
     heic_date: Optional[datetime] = None
     jpg_date: Optional[datetime] = None
-    similarity_score: float = 1.0  # 1.0 = idénticos (mismo nombre base)
     
     @property
     def total_size(self) -> int:
-        """Tamaño total del par"""
         return self.heic_size + self.jpg_size
-    
-    @property
-    def size_saving_keep_jpg(self) -> int:
-        """Ahorro eliminando HEIC"""
-        return self.heic_size
-    
-    @property
-    def size_saving_keep_heic(self) -> int:
-        """Ahorro eliminando JPG"""
-        return self.jpg_size
-    
-    @property
-    def time_difference(self) -> Optional[timedelta]:
-        """Diferencia de tiempo entre archivos"""
-        if self.heic_date and self.jpg_date:
-            return abs(self.heic_date - self.jpg_date)
-        return None
-
 
 @dataclass
 class HeicAnalysisResult(AnalysisResult):
-    """Resultado de análisis de duplicados HEIC"""
-    duplicate_pairs: List = field(default_factory=list)  # List[DuplicatePair]
+    duplicate_pairs: List[DuplicatePair] = field(default_factory=list)
+    
+    # Stats
     heic_files: int = 0
     jpg_files: int = 0
-    total_size: int = 0
     potential_savings_keep_jpg: int = 0
     potential_savings_keep_heic: int = 0
-    orphan_heic: List = field(default_factory=list)
-    orphan_jpg: List = field(default_factory=list)
-    by_directory: Dict = field(default_factory=dict)
     
     def __post_init__(self):
-        """Calcular total_files desde heic_files + jpg_files si no se proporcionó"""
-        super().__post_init__()
-        if self.total_files == 0 and (self.heic_files > 0 or self.jpg_files > 0):
-            object.__setattr__(self, 'total_files', self.heic_files + self.jpg_files)
-    
-    @property
-    def total_pairs(self) -> int:
-        """Número total de pares duplicados (calculado)"""
-        return len(self.duplicate_pairs)
-    
-    @property
-    def total_duplicates(self) -> int:
-        """Alias para compatibilidad con otros servicios"""
-        return self.total_pairs
-
+        if not self.items_count:
+             self.items_count = len(self.duplicate_pairs)
+        if not self.bytes_total:
+             self.bytes_total = sum(p.total_size for p in self.duplicate_pairs)
 
 @dataclass
-class HeicDeletionResult(DeletionResult, DryRunStatsMixin):
-    """Resultado de eliminación de HEIC"""
+class HeicExecutionResult(ExecutionResult, DryRunMixin):
     format_kept: Optional[str] = None
+    # items_processed = deleted pairs count
+    # bytes_processed = space freed
+
+HeicDeletionResult = HeicExecutionResult
+
+# --- Duplicates (Exact & Similar) ---
+@dataclass
+class DuplicateGroup:
+    hash_value: str
+    files: List[Path]
+    total_size: int
+    file_sizes: List[int] = field(default_factory=list) # Size of each file
+    similarity_score: float = 100.0
+
+@dataclass
+class DuplicateAnalysisResult(AnalysisResult):
+    groups: List[DuplicateGroup] = field(default_factory=list)
+    mode: str = 'exact' # 'exact' or 'perceptual'
+    
+    # Stats
+    total_duplicates: int = 0
+    total_groups: int = 0  # Added for UI compatibility
+    total_files: int = 0   # Total files scanned
+    space_wasted: int = 0
+    
+    def __post_init__(self):
+        if not self.items_count:
+            self.items_count = len(self.groups) # Or total duplicates? Usually usage implies groups or dupes.
+        if not self.total_groups and self.groups:
+            self.total_groups = len(self.groups)
+        if not self.bytes_total:
+            self.bytes_total = self.space_wasted
+
+@dataclass
+class DuplicateDeletionResult(ExecutionResult, DryRunMixin):
+    # Renamed from DuplicateExecutionResult to maintain some compat or just preferred name
+    # Actually let's keep it as DuplicateDeletionResult since that's what it primarily does
+    files_kept: int = 0
+    keep_strategy: Optional[str] = None
+    
+    # Aliases for backwards compatibility if needed
+    @property
+    def files_deleted(self):
+        return self.items_processed
+    
+    @files_deleted.setter
+    def files_deleted(self, value):
+        self.items_processed = value
 
 
-# === Live Photos Service ===
+# --- Live Photos ---
 @dataclass
 class LivePhotoCleanupAnalysisResult(AnalysisResult):
-    """Resultado de análisis de limpieza de Live Photos"""
-    files_to_delete: List[dict] = field(default_factory=list)
-    files_to_keep: List[dict] = field(default_factory=list)
+    groups: List[Any] = field(default_factory=list) # Generic to avoid circular import if possible
+    # We expect objects with .video_size, .total_size
+    
     space_to_free: int = 0
-    total_space: int = 0
-    cleanup_mode: str = 'keep_image'
-    groups: List = field(default_factory=list)  # Lista de LivePhotoGroup para compatibilidad con UI
-
-    @property
-    def live_photos_found(self) -> int:
-        """Número de Live Photos encontradas (calculado desde groups)"""
-        return len(self.groups)
-
+    total_space: int = 0 # Total space of Live Photos (img+vid)
+    
+    def __post_init__(self):
+        if not self.items_count:
+            self.items_count = len(self.groups)
+        if not self.bytes_total:
+            self.bytes_total = self.total_space
 
 @dataclass
-class LivePhotoCleanupDeletionResult(DeletionResult, DryRunStatsMixin):
-    """Resultado de limpieza de Live Photos"""
+class LivePhotoCleanupExecutionResult(ExecutionResult, DryRunMixin):
     pass
 
+LivePhotoCleanupDeletionResult = LivePhotoCleanupExecutionResult
 
 @dataclass
 class LivePhotoDetectionResult(AnalysisResult):
-    """Resultado de detección de Live Photos (usado por AnalysisOrchestrator)"""
-    groups: List = field(default_factory=list)  # List[LivePhotoGroup] - evitar import circular
+    """Result for Live Photo Detection (Analysis Phase wrapper)."""
+    groups: List[Any] = field(default_factory=list)
+    space_to_free: int = 0  # Added for UI compatibility
     
-    @property
-    def live_photos_found(self) -> int:
-        """Número de Live Photos encontradas (calculado)"""
-        return len(self.groups)
-    
-    @property
-    def total_space(self) -> int:
-        """Espacio total ocupado por Live Photos (calculado)"""
-        if not self.groups or not hasattr(self.groups[0], 'total_size'):
-            return 0
-        return sum(g.total_size for g in self.groups)
-    
-    @property
-    def space_to_free(self) -> int:
-        """Espacio que se liberaría eliminando videos (calculado)"""
-        if not self.groups or not hasattr(self.groups[0], 'video_size'):
-            return 0
-        return sum(g.video_size for g in self.groups)
+    def __post_init__(self):
+        super().__post_init__()
+        if not self.items_count and self.groups:
+            self.items_count = len(self.groups)
+        if not self.bytes_total:
+            self.bytes_total = self.space_to_free
 
-
-# === Zero Byte Service ===
+# --- Zero Byte ---
 @dataclass
 class ZeroByteAnalysisResult(AnalysisResult):
-    """Resultado de análisis de archivos de 0 bytes"""
     files: List[Path] = field(default_factory=list)
     
+    def __post_init__(self):
+        if not self.items_count:
+            self.items_count = len(self.files)
+
+@dataclass
+class ZeroByteDeletionResult(ExecutionResult, DryRunMixin):
+    pass
+
+# ============================================================================
+# ORCHESTRATOR SPECIFIC RESULT TYPES
+# ============================================================================
+
+@dataclass
+class DirectoryScanResult:
+    """Resultado del escaneo inicial de directorio"""
+    total_files: int
+    images: List[Path] = field(default_factory=list)
+    videos: List[Path] = field(default_factory=list)
+    others: List[Path] = field(default_factory=list)
+    
+    # Caché compartida de metadatos para optimizar fases subsecuentes
+    metadata_cache: Optional[FileMetadataCache] = None
+    
+    # Tamaño total del directorio (calculado durante finalizacion)
+    total_size: int = 0
+    
+    # Desglose por extensiones
+    image_extensions: Dict[str, int] = field(default_factory=dict)
+    video_extensions: Dict[str, int] = field(default_factory=dict)
+    unsupported_extensions: Dict[str, int] = field(default_factory=dict)
+    unsupported_files: List[Path] = field(default_factory=list)  # Rutas completas para DEBUG
+    
     @property
-    def zero_byte_files_found(self) -> int:
-        """Número de archivos de 0 bytes encontrados (calculado)"""
-        return len(self.files)
+    def image_count(self) -> int:
+        return len(self.images)
+    
+    @property
+    def video_count(self) -> int:
+        return len(self.videos)
+    
+    @property
+    def other_count(self) -> int:
+        return len(self.others)
 
 
 @dataclass
-class ZeroByteDeletionResult(DeletionResult, DryRunStatsMixin):
-    """Resultado de eliminación de archivos de 0 bytes"""
-    pass
+class PhaseTimingInfo:
+    """Información de timing de una fase del análisis"""
+    phase_id: str
+    phase_name: str
+    start_time: float
+    end_time: float
+    duration: float
+    
+    def needs_delay(self, min_duration: float = 2.0) -> float:
+        """
+        Calcula si necesita delay para alcanzar duración mínima.
+        
+        Args:
+            min_duration: Duración mínima en segundos
+            
+        Returns:
+            Segundos de delay necesarios (0 si no necesita)
+        """
+        if self.duration >= min_duration:
+            return 0.0
+        return min_duration - self.duration
+
+
+@dataclass
+class FullAnalysisResult:
+    """Resultado completo de análisis de directorio - 100% tipado"""
+    directory: Path
+    scan: DirectoryScanResult
+    phase_timings: Dict[str, PhaseTimingInfo] = field(default_factory=dict)
+    
+    # Todos los resultados tipados con sus dataclasses específicos
+    renaming: Optional['RenameAnalysisResult'] = None 
+    live_photos: Optional['LivePhotoDetectionResult'] = None
+    organization: Optional['OrganizationAnalysisResult'] = None
+    heic: Optional['HeicAnalysisResult'] = None
+    duplicates: Optional['DuplicateAnalysisResult'] = None
+    zero_byte: Optional['ZeroByteAnalysisResult'] = None
+    total_duration: float = 0.0

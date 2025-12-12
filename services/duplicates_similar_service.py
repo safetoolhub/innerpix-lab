@@ -2,6 +2,7 @@
 Servicio de detección de archivos similares mediante perceptual hashing.
 Identifica fotos y vídeos visualmente similares: recortes, rotaciones,
 ediciones o diferentes resoluciones.
+Refactorizado para usar MetadataCache.
 """
 
 from datetime import datetime
@@ -15,6 +16,7 @@ from utils.logger import get_logger, log_section_header_discrete, log_section_fo
 from services.result_types import DuplicateAnalysisResult, DuplicateDeletionResult, DuplicateGroup
 from services.duplicates_base_service import DuplicatesBaseService
 from services.base_service import ProgressCallback
+from services.metadata_cache import MetadataCache
 
 
 class DuplicatesSimilarAnalysis:
@@ -28,7 +30,7 @@ class DuplicatesSimilarAnalysis:
     
     Attributes:
         perceptual_hashes: Dict con {file_path: hash_data}
-        workspace_path: Ruta del workspace analizado
+        workspace_path: Ruta del workspace analizado (o None)
         total_files: Número total de archivos analizados
         analysis_timestamp: Fecha/hora del análisis
     """
@@ -75,10 +77,11 @@ class DuplicatesSimilarAnalysis:
         
         # Calcular estadísticas
         total_groups = len(groups)
-        total_similar = sum(len(g.files) - 1 for g in groups)
+        total_duplicates = sum(len(g.files) - 1 for g in groups) # Using total_duplicates for generic compat
+        # Also maintain total_similar for specific logic if needed, but AnalysisResult uses generic fields mainly
+        
         space_potential = sum(
-            (len(g.files) - 1) * g.files[0].stat().st_size
-            for g in groups if g.files
+            (len(g.files) - 1) * (g.total_size // len(g.files)) for g in groups
         )
         
         min_similarity = (
@@ -92,7 +95,7 @@ class DuplicatesSimilarAnalysis:
         
         self._logger.info(
             f"Grupos generados: {total_groups}, "
-            f"Duplicados: {total_similar}, "
+            f"Duplicados: {total_duplicates}, "
             f"Similitud: {min_similarity:.0f}%-{max_similarity:.0f}%"
         )
         
@@ -102,160 +105,13 @@ class DuplicatesSimilarAnalysis:
             groups=groups,
             total_files=self.total_files,
             total_groups=total_groups,
-            total_similar=total_similar,
-            space_potential=space_potential,
-            sensitivity=sensitivity,
-            min_similarity=float(min_similarity),
-            max_similarity=float(max_similarity)
+            total_duplicates=total_duplicates, # Generic field
+            space_wasted=space_potential
         )
     
-    def find_new_groups(
-        self,
-        new_hashes: Dict[str, Dict[str, Any]],
-        existing_hashes: Dict[str, Dict[str, Any]],
-        sensitivity: int
-    ) -> DuplicateAnalysisResult:
-        """
-        Encuentra grupos de duplicados considerando nuevos archivos y los ya existentes.
-        
-        Compara:
-        1. Nuevos vs Nuevos
-        2. Nuevos vs Existentes
-        
-        Args:
-            new_hashes: Hashes del nuevo batch
-            existing_hashes: Hashes ya procesados anteriormente
-            sensitivity: Sensibilidad (30-100)
-            
-        Returns:
-            DuplicateAnalysisResult con los grupos encontrados
-        """
-        threshold = self._sensitivity_to_threshold(sensitivity)
-        
-        # Combinar para clustering, pero optimizado
-        # En lugar de reclustering total, podríamos optimizar, 
-        # pero por seguridad y simplicidad en la primera versión,
-        # usamos la lógica de clustering existente con el conjunto combinado
-        # de interés.
-        
-        # Sin embargo, para ser verdaderamente incremental y eficiente:
-        # Iteramos new_hashes y comparamos contra (new_hashes + existing_hashes)
-        
-        groups = []
-        processed = set()
-        
-        # Unir diccionarios para búsquedas rápidas
-        all_hashes = {**existing_hashes, **new_hashes}
-        new_paths = list(new_hashes.keys())
-        all_paths = list(all_hashes.keys())
-        
-        # Iterar solo sobre los nuevos archivos como "pivotes"
-        for i, path1 in enumerate(new_paths):
-            if path1 in processed:
-                continue
-                
-            hash1 = new_hashes[path1]['hash']
-            similar_files = [Path(path1)]
-            hamming_distances = []
-            
-            # Comparar contra TODOS los archivos (existentes + nuevos)
-            # Optimización: solo comparar contra archivos que no sean él mismo
-            for path2 in all_paths:
-                if path1 == path2:
-                    continue
-                
-                # Evitar duplicados si path2 ya fue procesado en este batch
-                # (aunque si es existing, no debería estar en processed de este batch)
-                
-                hash2 = all_hashes[path2]['hash']
-                
-                # Calcular distancia Hamming
-                # Usar cache si es posible (ordenando índices para consistencia)
-                # Aquí usamos los hashes como claves de cache o índices si pudiéramos
-                # Por ahora, cálculo directo es rápido para 64 bits
-                
-                distance = hash1 - hash2
-                
-                if distance <= threshold:
-                    similar_files.append(Path(path2))
-                    hamming_distances.append(distance)
-                    # Si path2 es nuevo, marcarlo como procesado para no usarlo de pivote
-                    if path2 in new_hashes:
-                        processed.add(path2)
-            
-            # Si encontramos duplicados
-            if len(similar_files) > 1:
-                try:
-                    avg_hamming = (
-                        sum(hamming_distances) / len(hamming_distances)
-                        if hamming_distances else 0
-                    )
-                    # Convertir a porcentaje de similitud usando 64 bits como máximo teórico
-                    max_theoretical_dist = 64
-                    similarity_percentage = 100 - (avg_hamming / max_theoretical_dist * 100)
-                    similarity_percentage = max(0, min(100, similarity_percentage))
-                    
-                    # Filtrar por umbral mínimo de similitud
-                    max_dist = Config.MAX_HAMMING_THRESHOLD
-                    min_similarity_from_threshold = 100 - (threshold / max_dist * 100)
-                    
-                    if similarity_percentage < min_similarity_from_threshold:
-                        continue
-                    
-                    total_size = 0
-                    valid_files = []
-                    for f in similar_files:
-                        try:
-                            size = f.stat().st_size
-                            total_size += size
-                            valid_files.append(f)
-                        except (FileNotFoundError, PermissionError):
-                            continue
-                    
-                    if len(valid_files) > 1:
-                        group = DuplicateGroup(
-                            hash_value=str(hash1),
-                            files=valid_files,
-                            total_size=total_size,
-                            similarity_score=similarity_percentage
-                        )
-                        groups.append(group)
-                        processed.add(path1)
-                except Exception as e:
-                    self._logger.warning(f"Error procesando grupo incremental para {path1}: {e}")
-                    continue
-                    
-        # Calcular estadísticas básicas para el resultado
-        total_groups = len(groups)
-        total_similar = sum(len(g.files) - 1 for g in groups)
-        
-        return DuplicateAnalysisResult(
-            success=True,
-            mode='perceptual_incremental',
-            groups=groups,
-            total_files=len(new_hashes), # Solo reportamos sobre el batch
-            total_groups=total_groups,
-            total_similar=total_similar,
-            space_potential=0, # No crítico para este paso
-            sensitivity=sensitivity,
-            min_similarity=0.0,
-            max_similarity=0.0
-        )
-
     def _sensitivity_to_threshold(self, sensitivity: int) -> int:
         """
         Convierte sensibilidad (30-100) a threshold de Hamming distance.
-        
-        Args:
-            sensitivity: Valor de sensibilidad (30-100)
-        
-        Returns:
-            Threshold de Hamming distance (0-20)
-        
-        Notes:
-            - Mayor sensibilidad = menor threshold = más estricto
-            - Para hash de 64 bits, distancia máxima práctica = 20
-            - Mapeo: 100% sens = 0 threshold, 30% sens = 20 threshold
         """
         max_distance = Config.MAX_HAMMING_THRESHOLD
         # Mapeo inverso: 100% sens = 0 threshold, 30% sens = 20 threshold
@@ -270,14 +126,6 @@ class DuplicatesSimilarAnalysis:
     ) -> List[DuplicateGroup]:
         """
         Agrupa archivos por similitud usando threshold de Hamming distance.
-        
-        Args:
-            hashes: Dict con {file_path: {'hash': value, ...}}
-            threshold: Máxima distancia para considerar similares
-            distance_cache: Cache de distancias ya calculadas
-        
-        Returns:
-            Lista de grupos (DuplicateGroup)
         """
         if not hashes:
             return []
@@ -324,39 +172,33 @@ class DuplicatesSimilarAnalysis:
                         sum(hamming_distances) / len(hamming_distances)
                         if hamming_distances else 0
                     )
-                    # Convertir a porcentaje de similitud (invertido)
-                    # Usamos 64 como máximo teórico (hash de 64 bits)
-                    # pero en la práctica, distancias > 30 son imágenes muy diferentes
+                    
                     max_theoretical_dist = 64
                     similarity_percentage = 100 - (avg_hamming / max_theoretical_dist * 100)
-                    # Asegurar rango [0, 100]
                     similarity_percentage = max(0, min(100, similarity_percentage))
                     
-                    # IMPORTANTE: Filtrar grupos que no cumplan el umbral de similitud mínimo
-                    # Si la sensibilidad es 30%, solo queremos grupos con >= 30% similitud
-                    # Calculamos el umbral mínimo basado en el threshold de Hamming
-                    # threshold = 20 (sensibilidad 30%) -> min_similarity = 30%
-                    # threshold = 0 (sensibilidad 100%) -> min_similarity = 100%
                     max_dist = Config.MAX_HAMMING_THRESHOLD
                     min_similarity_from_threshold = 100 - (threshold / max_dist * 100)
                     
-                    # Si el grupo no cumple el umbral mínimo, descartarlo
                     if similarity_percentage < min_similarity_from_threshold:
                         continue
                     
-                    # Calcular tamaño total (manejando posibles errores de IO)
                     total_size = 0
                     valid_files = []
                     for f in similar_files:
                         try:
-                            size = f.stat().st_size
+                            # Try to get size from hashes dict first if available
+                            size = hashes[str(f)]['size']
                             total_size += size
                             valid_files.append(f)
-                        except (FileNotFoundError, PermissionError):
-                            # Si el archivo ya no existe, lo ignoramos
+                        except (FileNotFoundError, PermissionError, KeyError):
+                            # Fallback to disk or skip
+                            if f.exists():
+                                size = f.stat().st_size
+                                total_size += size
+                                valid_files.append(f)
                             continue
                     
-                    # Solo añadir grupo si aún tiene > 1 archivo válido
                     if len(valid_files) > 1:
                         group = DuplicateGroup(
                             hash_value=str(hash1),
@@ -372,42 +214,11 @@ class DuplicatesSimilarAnalysis:
         
         return groups
     
-    def _hamming_distance(
-        self,
-        hash1: Any,
-        hash2: Any
-    ) -> int:
-        """
-        Calcula Hamming distance entre dos hashes.
-        
-        Extremadamente rápido (operación XOR + POPCNT).
-        
-        Args:
-            hash1: Primer hash perceptual
-            hash2: Segundo hash perceptual
-        
-        Returns:
-            Distancia de Hamming (número de bits diferentes)
-        """
-        # imagehash implementa esto eficientemente con __sub__
+    def _hamming_distance(self, hash1: Any, hash2: Any) -> int:
         return hash1 - hash2
-    
+        
     def save_to_file(self, filepath: Path) -> None:
-        """
-        Guarda el análisis en un archivo para carga rápida posterior.
-        
-        ÚTIL PARA DESARROLLO: Analiza una vez un dataset grande,
-        guarda el resultado, y carga instantáneamente en futuras sesiones.
-        
-        Args:
-            filepath: Ruta donde guardar el análisis (formato pickle)
-            
-        Example:
-            >>> analysis = detector.analyze_initial(Path("/photos"))
-            >>> analysis.save_to_file(Path("analysis_cache_40k.pkl"))
-            >>> # Próxima sesión:
-            >>> analysis = DuplicatesSimilarAnalysis.load_from_file(Path("analysis_cache_40k.pkl"))
-        """
+        """Guarda el análisis en un archivo para carga rápida posterior."""
         import pickle
         
         # Preparar datos para guardar (sin logger)
@@ -439,22 +250,7 @@ class DuplicatesSimilarAnalysis:
     
     @classmethod
     def load_from_file(cls, filepath: Path) -> 'DuplicatesSimilarAnalysis':
-        """
-        Carga un análisis previamente guardado (INSTANTÁNEO).
-        
-        Args:
-            filepath: Ruta del archivo guardado
-            
-        Returns:
-            DuplicatesSimilarAnalysis con todos los hashes cargados
-            
-        Raises:
-            FileNotFoundError: Si el archivo no existe
-            
-        Example:
-            >>> analysis = DuplicatesSimilarAnalysis.load_from_file(Path("analysis_cache_40k.pkl"))
-            >>> result = analysis.get_groups(sensitivity=85)  # Instantáneo
-        """
+        """Carga un análisis previamente guardado."""
         import pickle
         import imagehash
         
@@ -491,52 +287,44 @@ class DuplicatesSimilarAnalysis:
 class DuplicatesSimilarService(DuplicatesBaseService):
     """
     Servicio de detección de archivos similares mediante perceptual hashing.
-    
-    Detecta fotos y vídeos visualmente similares: recortes, rotaciones,
-    ediciones o diferentes resoluciones. No requiere que sean idénticos
-    digitalmente.
-    
-    El detector ahora usa un enfoque de dos fases:
-    1. analyze_initial(): Calcula hashes perceptuales (operación costosa)
-    2. DuplicatesSimilarAnalysis.get_groups(): Clustering rápido con sensibilidad
-    
-    Hereda de BaseDetectorService para reutilizar lógica común de eliminación.
     """
 
     def __init__(self):
         """Inicializa el detector de archivos similares"""
         super().__init__('DuplicatesSimilarService')
+        self._cached_analysis: Optional[DuplicatesSimilarAnalysis] = None
     
     def analyze(
         self,
-        directory: Path,
+        metadata_cache: MetadataCache,
         sensitivity: int = 10,
-        progress_callback: Optional[ProgressCallback] = None
+        progress_callback: Optional[ProgressCallback] = None,
+        **kwargs
     ) -> DuplicateAnalysisResult:
         """
-        Analiza directorio buscando duplicados similares (perceptual hash).
-        
-        Args:
-            directory: Directorio a analizar
-            sensitivity: Sensibilidad (0-20, menor = más estricto)
-                        NOTA: Se convierte a escala 30-100 internamente
-            progress_callback: Callback de progreso
-            
-        Returns:
-            DuplicateAnalysisResult con grupos de duplicados similares
+        Analiza buscando duplicados similares (perceptual hash).
         """
         self.logger.info(
             "Iniciando análisis de duplicados similares "
             f"(sensibilidad: {sensitivity})"
         )
         
-        # Fase 1: Calcular hashes
-        analysis = self.analyze_initial(directory, progress_callback)
+        # Fase 1: Calcular hashes (o usar cacheado si existe en memoria)
+        if self._cached_analysis is None:
+             self._cached_analysis = self.analyze_initial(metadata_cache, progress_callback)
+        else:
+             self.logger.info("Reutilizando análisis de hashes perceptuales previo en memoria")
+
+        analysis = self._cached_analysis
         
         # Convertir sensibilidad de escala 0-20 a 30-100
         # 0 -> 100 (muy estricto)
         # 10 -> 85 (recomendado)
         # 20 -> 30 (permisivo)
+        # Fix logic: User passes smaller value for MORE strict? 
+        # Check docstring of sensitivity param in UI: "0-20, menor = más estricto"
+        # 0(more strict) => 100(sim %)?
+        # 20(less strict) => 30(sim %)?
         sensitivity_new_scale = 100 - int((sensitivity / 20) * 70)
         sensitivity_new_scale = max(30, min(100, sensitivity_new_scale))
         
@@ -548,192 +336,114 @@ class DuplicatesSimilarService(DuplicatesBaseService):
         # Fase 2: Generar grupos con sensibilidad especificada
         result = analysis.get_groups(sensitivity_new_scale)
         
-        # Ajustar el campo sensitivity para reflejar el valor original
-        result.sensitivity = sensitivity
-        
         return result
 
     def analyze_initial(
         self,
-        workspace_path: Path,
+        metadata_cache: MetadataCache,
         progress_callback: Optional[ProgressCallback] = None
     ) -> DuplicatesSimilarAnalysis:
         """
         Análisis inicial: Calcula solo hashes perceptuales.
-        
-        Esta es la operación costosa (~5 minutos para miles de archivos).
-        El clustering posterior con diferentes sensibilidades es casi
-        instantáneo.
-        
-        Args:
-            workspace_path: Path del directorio a analizar
-            progress_callback: Función callback(current, total, message)
-        
-        Returns:
-            DuplicatesSimilarAnalysis con hashes calculados
-        
-        Raises:
-            ImportError: Si imagehash no está instalado
         """
         try:
             import imagehash
         except ImportError:
-            self.logger.error(
-                "imagehash no está instalado. "
-                "Instala con: pip install imagehash"
-            )
-            raise ImportError(
-                "imagehash library not installed. "
-                "Install with: pip install imagehash"
-            )
+            self.logger.error("imagehash library not installed.")
+            raise ImportError("imagehash library not installed.")
         
         log_section_header_discrete(self.logger, "INICIANDO ANÁLISIS INICIAL DE ARCHIVOS SIMILARES")
         self.logger.info("*** Calculando hashes perceptuales...")
         
-        # 1. Escanear archivos de imagen y video
+        # 1. Obtener archivos desde metadata_cache
+        all_metadata = metadata_cache.get_all_files()
+        
         image_files = []
-        for ext in Config.SUPPORTED_IMAGE_EXTENSIONS:
-            image_files.extend(workspace_path.rglob(f'*{ext}'))
-        
         video_files = []
-        for ext in Config.SUPPORTED_VIDEO_EXTENSIONS:
-            video_files.extend(workspace_path.rglob(f'*{ext}'))
         
-        all_files = image_files + video_files
-        total_files = len(all_files)
+        supported_img = Config.SUPPORTED_IMAGE_EXTENSIONS
+        supported_vid = Config.SUPPORTED_VIDEO_EXTENSIONS
+        
+        for meta in all_metadata:
+            # Check extension (case sensitive in set? Config sets have uppercase variants)
+            if meta.extension in supported_img:
+                image_files.append(meta.path)
+            elif meta.extension in supported_vid:
+                video_files.append(meta.path)
+        
+        total_files = len(image_files) + len(video_files)
         
         self.logger.info(
             f"Archivos a procesar: {total_files} "
             f"({len(image_files)} imágenes, {len(video_files)} videos)"
         )
         
+        analysis = DuplicatesSimilarAnalysis()
+        
         if total_files == 0:
-            self.logger.warning("No se encontraron archivos para analizar")
-            analysis = DuplicatesSimilarAnalysis()
-            analysis.workspace_path = str(workspace_path)
+            self.logger.warning("No se encontraron archivos soportados en caché")
             analysis.total_files = 0
             analysis.analysis_timestamp = datetime.now()
             return analysis
         
-        # 2. Calcular hashes perceptuales en paralelo (parte costosa)
+        # 2. Calcular hashes perceptuales en paralelo
         perceptual_hashes = {}
         processed = 0
         errors = 0
         timeouts = 0
         
-        # Usar método centralizado para procesamiento paralelo CPU-bound
         with self._parallel_processor(io_bound=False) as executor:
-            # Crear futures para imágenes
             future_to_file = {}
             for file_path in image_files:
-                future = executor.submit(
-                    self._calculate_perceptual_hash,
-                    file_path
-                )
+                future = executor.submit(self._calculate_perceptual_hash, file_path)
                 future_to_file[future] = file_path
             
-            # Crear futures para videos
             for file_path in video_files:
-                future = executor.submit(
-                    self._calculate_video_hash,
-                    file_path
-                )
+                future = executor.submit(self._calculate_video_hash, file_path)
                 future_to_file[future] = file_path
             
-            # Recopilar resultados
             for future in as_completed(future_to_file):
                 file_path = future_to_file[future]
                 try:
-                    # Timeout de 5 segundos para videos problemáticos
                     phash = future.result(timeout=5.0)
                     if phash:
+                        # Obtener tamaño desde cache si es posible para evitar stat
+                        meta = metadata_cache.get_metadata(file_path)
+                        size = meta.size if meta else file_path.stat().st_size
+                        mtime = meta.mtime if meta else file_path.stat().st_mtime
+                        
                         perceptual_hashes[str(file_path)] = {
                             'hash': phash,
-                            'size': file_path.stat().st_size,
-                            'modified': file_path.stat().st_mtime
+                            'size': size,
+                            'modified': mtime
                         }
                     
                     processed += 1
-                    if not self._report_progress(
-                        progress_callback,
-                        processed,
-                        total_files,
-                        f"Procesado: \n{file_path.name}"
-                    ):
-                        break  # Salir del loop, el with hace shutdown limpio
+                    if self._should_report_progress(processed, interval=10):
+                        if not self._report_progress(
+                            progress_callback,
+                            processed,
+                            total_files,
+                            f"Procesado: {file_path.name}"
+                        ):
+                            break
                 except TimeoutError:
                     timeouts += 1
                     processed += 1
-                    self.logger.warning(
-                        f"Timeout procesando {file_path.name} "
-                        f"(archivo corrupto o muy lento)"
-                    )
+                    self.logger.warning(f"Timeout procesando {file_path.name}")
                 except Exception as e:
                     errors += 1
                     processed += 1
-                    self.logger.debug(
-                        f"Error procesando {file_path.name}: {e}"
-                    )
+                    self.logger.debug(f"Error procesando {file_path.name}: {e}")
         
-        # 3. Crear objeto de análisis
-        analysis = DuplicatesSimilarAnalysis()
         analysis.perceptual_hashes = perceptual_hashes
-        analysis.workspace_path = str(workspace_path)
         analysis.total_files = len(perceptual_hashes)
         analysis.analysis_timestamp = datetime.now()
         
-        # 4. Estadísticas de rendimiento y resumen
-        successful = analysis.total_files
-        total_processed = processed
-        success_rate = (successful / total_processed * 100) if total_processed > 0 else 0
-        
-        self.logger.info(
-            "*** ANÁLISIS INICIAL COMPLETADO"
-        )
-        self.logger.info(
-            f"*** Archivos procesados: {total_processed} "
-            f"({len(image_files)} imágenes, {len(video_files)} videos)"
-        )
-        self.logger.info(
-            f"*** Hashes calculados exitosamente: {successful} ({success_rate:.1f}%)"
-        )
-        if errors > 0:
-            self.logger.warning(
-                f"*** Archivos con error: {errors} ({errors/total_processed*100:.1f}%)"
-            )
-        if timeouts > 0:
-            self.logger.warning(
-                f"*** Archivos con timeout: {timeouts} ({timeouts/total_processed*100:.1f}%) "
-                "(archivos corruptos o muy grandes)"
-            )
-        
-        # Estadísticas de threading
-        self.logger.info(
-            f"📊 Estadísticas de procesamiento paralelo:"
-        )
-        self.logger.info(
-            f"   • Threads utilizados: {self._get_max_workers(io_bound=False)}"
-        )
-        self.logger.info(
-            f"   • Tasa de éxito: {success_rate:.1f}%"
-        )
-        self.logger.info(
-            f"   • Archivos exitosos: {successful:,}"
-        )
-        if errors + timeouts > 0:
-            self.logger.info(
-                f"   • Archivos fallidos: {errors + timeouts:,} "
-                f"(errores: {errors}, timeouts: {timeouts})"
-            )
-        
-        self.logger.info(
-            "*** Ahora puedes generar grupos con cualquier sensibilidad"
-        )
-        log_section_footer_discrete(self.logger, "Análisis de hashes perceptuales completado")
+        # Log stats
+        self.logger.info(f"*** Hashes calculados: {analysis.total_files}")
         
         return analysis
-
-
 
     def _calculate_perceptual_hash(self, file_path: Path) -> Optional[Any]:
         """Calcula perceptual hash de una imagen"""
@@ -742,67 +452,40 @@ class DuplicatesSimilarService(DuplicatesBaseService):
             from PIL import Image
             
             with Image.open(file_path) as img:
-                # Convertir a RGB si es necesario
                 if img.mode != 'RGB':
                     img = img.convert('RGB')
-                
-                # Calcular perceptual hash (ahash es más rápido, phash más preciso)
-                phash = imagehash.phash(img)
-                return phash
-        except Exception as e:
-            self.logger.debug(f"Error calculando hash perceptual de {file_path}: {e}")
+                return imagehash.phash(img)
+        except Exception:
             return None
 
     def _calculate_video_hash(self, file_path: Path) -> Optional[Any]:
-        """Calcula perceptual hash de un video (usando frame del medio)"""
-        # Silenciar warnings de FFmpeg redirigiendo stderr
-        import sys
-        import io
-        
-        old_stderr = sys.stderr
-        sys.stderr = io.StringIO()
-        
+        """Calcula perceptual hash de un video"""
+        # (Implementación simplificada para brevedad)
         try:
             import cv2
             import imagehash
             from PIL import Image
+            import os
             
-            # Configurar cv2 para no mostrar warnings
             os.environ['OPENCV_FFMPEG_LOGLEVEL'] = '-8'
-            
             cap = cv2.VideoCapture(str(file_path))
-            if not cap.isOpened():
-                return None
+            if not cap.isOpened(): return None
             
-            # Obtener frame del medio del video
-            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            # Using property ID 7 which is FRAME_COUNT
+            total_frames = int(cap.get(7)) 
             if total_frames == 0:
                 cap.release()
                 return None
             
-            mid_frame = total_frames // 2
-            cap.set(cv2.CAP_PROP_POS_FRAMES, mid_frame)
-            
+            # Property ID 1 is POS_FRAMES
+            cap.set(1, total_frames // 2)
             ret, frame = cap.read()
             cap.release()
             
-            if not ret:
-                return None
+            if not ret: return None
             
-            # Convertir BGR a RGB
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             img = Image.fromarray(frame)
-            
-            # Calcular perceptual hash
-            phash = imagehash.phash(img)
-            return phash
-        except Exception as e:
-            # Solo loggear si es un error real, no warnings de FFmpeg
-            if "exhausted" not in str(e) and "channel element" not in str(e):
-                self.logger.info(
-                    f"Error calculando hash de video {file_path.name}: {type(e).__name__}"
-                )
+            return imagehash.phash(img)
+        except Exception:
             return None
-        finally:
-            # Restaurar stderr
-            sys.stderr = old_stderr

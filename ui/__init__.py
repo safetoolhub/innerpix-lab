@@ -1,7 +1,3 @@
-"""
-Componentes de interfaz de usuario para Pixaro Lab
-"""
-
 from .main_window import MainWindow
 from .workers import (
     BaseWorker,
@@ -10,9 +6,15 @@ from .workers import (
     LivePhotoCleanupWorker,
     FileOrganizerWorker,
     HEICRemovalWorker,
-    DuplicateAnalysisWorker,
     DuplicateDeletionWorker,
     DuplicatesSimilarAnalysisWorker,
+    # New analysis workers
+    LivePhotoAnalysisWorker,
+    HeicAnalysisWorker,
+    ExactDuplicatesAnalysisWorker,
+    ZeroByteAnalysisWorker,
+    RenamingAnalysisWorker,
+    OrganizationAnalysisWorker
 )
 
 __all__ = [
@@ -23,7 +25,12 @@ __all__ = [
     'LivePhotoCleanupWorker',
     'FileOrganizerWorker',
     'HEICRemovalWorker',
-    'DuplicateAnalysisWorker',
     'DuplicateDeletionWorker',
     'DuplicatesSimilarAnalysisWorker',
+    'LivePhotoAnalysisWorker',
+    'HeicAnalysisWorker',
+    'ExactDuplicatesAnalysisWorker',
+    'ZeroByteAnalysisWorker',
+    'RenamingAnalysisWorker',
+    'OrganizationAnalysisWorker'
 ]

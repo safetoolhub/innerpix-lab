@@ -3,10 +3,14 @@ Stage 3: Grid de herramientas.
 Muestra el resumen del análisis y el grid de herramientas disponibles.
 """
 
-from typing import Dict, Any
+from datetime import datetime
+from pathlib import Path
+from typing import Dict, Any, List, Optional
+
 from PyQt6.QtWidgets import (
-    QWidget, QGridLayout, QMessageBox, QDialog, 
-    QFrame, QHBoxLayout, QLabel, QPushButton
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
+    QScrollArea, QFrame, QGridLayout, QMessageBox,
+    QDialog, QProgressDialog, QPushButton
 )
 from PyQt6.QtCore import QTimer, Qt
 import qtawesome as qta
@@ -328,15 +332,20 @@ class Stage3Window(BaseStage):
             action_text='Gestionar ahora'
         )
 
-        # Configurar estado según datos (live_photo_data es LivePhotoDetectionResult o None)
-        if live_photo_data and live_photo_data.live_photos_found > 0:
-            size_text = f"~{format_size(live_photo_data.space_to_free)} recuperables"
-            card.set_status_with_results(
-                f"{live_photo_data.live_photos_found} Grupos de Live Photos detectados",
-                size_text
-            )
+        # Configurar estado según datos
+        if live_photo_data:
+            if live_photo_data.items_count > 0:
+                size_text = f"~{format_size(live_photo_data.space_to_free)} recuperables"
+                card.set_status_with_results(
+                    f"{live_photo_data.items_count} Grupos de Live Photos detectados",
+                    size_text
+                )
+            else:
+                card.set_status_no_results("No se encontraron Live Photos")
         else:
-            card.set_status_no_results("No se encontraron Live Photos")
+            # Estado pendiente de análisis
+            card.set_status_pending("Analizar para detectar Live Photos")
+            card.set_action_text("Analizar ahora")
 
         card.clicked.connect(lambda: self._on_tool_clicked('live_photos'))
         return card
@@ -352,17 +361,22 @@ class Stage3Window(BaseStage):
             action_text='Gestionar ahora'
         )
 
-        # Configurar estado según datos (heic_data es HeicAnalysisResult o None)
-        if heic_data and heic_data.total_pairs > 0:
-            # Calcular tamaño total (usar el potencial de ahorro)
-            savings = max(heic_data.potential_savings_keep_jpg, heic_data.potential_savings_keep_heic)
-            size_text = f"~{format_size(savings)} recuperables"
-            card.set_status_with_results(
-                f"{heic_data.total_pairs} grupos de duplicados HEIC /JPG encontrados",
-                size_text
-            )
+        # Configurar estado según datos
+        if heic_data:
+            if heic_data.items_count > 0:
+                # Calcular tamaño total (usar el potencial de ahorro)
+                savings = max(heic_data.potential_savings_keep_jpg, heic_data.potential_savings_keep_heic)
+                size_text = f"~{format_size(savings)} recuperables"
+                card.set_status_with_results(
+                    f"{heic_data.items_count} grupos de duplicados HEIC /JPG encontrados",
+                    size_text
+                )
+            else:
+                card.set_status_no_results("No se encontraron pares HEIC/JPG")
         else:
-            card.set_status_no_results("No se encontraron pares HEIC/JPG")
+            # Estado pendiente de análisis
+            card.set_status_pending("Analizar para detectar duplicados HEIC/JPG")
+            card.set_action_text("Analizar ahora")
 
         card.clicked.connect(lambda: self._on_tool_clicked('heic'))
         return card
@@ -378,15 +392,20 @@ class Stage3Window(BaseStage):
             action_text='Gestionar ahora'
         )
 
-        # Configurar estado según datos (dup_data es DuplicateAnalysisResult o None)
-        if dup_data and dup_data.total_groups > 0:
-            size_text = f"~{format_size(dup_data.space_wasted)} recuperables"
-            card.set_status_with_results(
-                f"{dup_data.total_groups} grupos detectados con copias idénticas",
-                size_text
-            )
+        # Configurar estado según datos
+        if dup_data:
+            if dup_data.total_groups > 0:
+                size_text = f"~{format_size(dup_data.space_wasted)} recuperables"
+                card.set_status_with_results(
+                    f"{dup_data.total_groups} grupos detectados con copias idénticas",
+                    size_text
+                )
+            else:
+                card.set_status_no_results("No se encontraron copias exactas")
         else:
-            card.set_status_no_results("No se encontraron copias exactas")
+            # Estado pendiente de análisis
+            card.set_status_pending("Analizar para detectar copias exactas")
+            card.set_action_text("Analizar ahora")
 
         card.clicked.connect(lambda: self._on_tool_clicked('exact_copies'))
         return card
@@ -454,13 +473,18 @@ class Stage3Window(BaseStage):
         
         # Configurar estado
         zero_byte_data = self.analysis_results.zero_byte
-        if zero_byte_data and zero_byte_data.zero_byte_files_found > 0:
-            card.set_status_with_results(
-                f"{zero_byte_data.zero_byte_files_found} archivos vacíos encontrados",
-                "0 B recuperables (limpieza)"
-            )
+        if zero_byte_data:
+            if zero_byte_data.items_count > 0:
+                card.set_status_with_results(
+                    f"{zero_byte_data.items_count} archivos vacíos encontrados",
+                    "0 B recuperables (limpieza)"
+                )
+            else:
+                card.set_status_no_results("No se encontraron archivos vacíos")
         else:
-            card.set_status_no_results("No se encontraron archivos vacíos")
+            # Estado pendiente
+            card.set_status_pending("Analizar para detectar archivos vacíos")
+            card.set_action_text("Analizar ahora")
             
         card.clicked.connect(lambda: self._on_tool_clicked('zero_byte'))
         return card
@@ -468,72 +492,174 @@ class Stage3Window(BaseStage):
     def _on_tool_clicked(self, tool_id: str):
         """
         Maneja el clic en una tool card y abre el diálogo correspondiente
-
-        Args:
-            tool_id: ID de la herramienta ('live_photos', 'heic', etc.)
         """
-        self.logger.info(f"Abriendo diálogo para: {tool_id}")
+        self.logger.info(f"Clic en herramienta: {tool_id}")
 
         if not self.analysis_results:
             QMessageBox.warning(self.main_window, "Error", "No hay datos de análisis disponibles")
             return
 
+        # Verificar si necesitamos ejecutar análisis primero
+        should_analyze = False
+        
+        if tool_id == 'live_photos' and not self.analysis_results.live_photos:
+            should_analyze = True
+        elif tool_id == 'heic' and not self.analysis_results.heic:
+            should_analyze = True
+        elif tool_id == 'exact_copies' and not self.analysis_results.duplicates:
+            should_analyze = True
+        elif tool_id == 'zero_byte' and not self.analysis_results.zero_byte:
+            should_analyze = True
+        elif tool_id == 'folder-move' and not self.analysis_results.organization:
+            should_analyze = True
+        elif tool_id == 'rename-box' and not self.analysis_results.renaming:
+            should_analyze = True
+            
+        if should_analyze:
+            self._run_analysis_and_open_dialog(tool_id)
+            return
+
+        # Si ya tenemos datos, abrir el diálogo
         dialog = None
 
         if tool_id == 'live_photos':
             live_photo_data = self.analysis_results.live_photos
-            if not live_photo_data or live_photo_data.live_photos_found == 0:
-                # Card está deshabilitada, no debería llegar aquí
-                return
-            dialog = LivePhotoCleanupDialog(live_photo_data, self.main_window)
+            if live_photo_data.items_count > 0:
+                dialog = LivePhotoCleanupDialog(live_photo_data, self.main_window)
+            else:
+                QMessageBox.information(self.main_window, "Info", "No se encontraron Live Photos.")
 
         elif tool_id == 'heic':
             heic_data = self.analysis_results.heic
-            if not heic_data or heic_data.total_pairs == 0:
-                # Card está deshabilitada, no debería llegar aquí
-                return
-            dialog = HeicDuplicateRemovalDialog(heic_data, self.main_window)
+            if heic_data.items_count > 0:
+                dialog = HeicDuplicateRemovalDialog(heic_data, self.main_window)
+            else:
+                 QMessageBox.information(self.main_window, "Info", "No se encontraron pares HEIC/JPG.")
 
         elif tool_id == 'exact_copies':
             dup_data = self.analysis_results.duplicates
-            if not dup_data or dup_data.total_groups == 0:
-                # Card está deshabilitada, no debería llegar aquí
-                return
-            dialog = ExactCopiesDialog(dup_data, self.main_window, self.metadata_cache)
+            if dup_data.total_groups > 0:
+                dialog = ExactCopiesDialog(dup_data, self.main_window, self.metadata_cache)
+            else:
+                 QMessageBox.information(self.main_window, "Info", "No se encontraron copias exactas.")
 
         elif tool_id == 'similar_files':
-            # Similares requieren configuración previa
+            # Similares requieren configuración previa y tienen su propio flujo
             self._on_similar_duplicates_clicked()
             return
 
         elif tool_id == 'folder-move':
+            # Organizing puede funcionar sin análisis previo (usa defaults o analiza on-fly)
             org_data = self.analysis_results.organization
-            if not org_data:
-                # Card está deshabilitada, no debería llegar aquí
-                return
-            # Permitir abrir el dialog incluso con 0 archivos, ya que el usuario puede cambiar el tipo
-            # Pasar metadata_cache para optimizar re-análisis cuando se cambia el tipo
             dialog = FileOrganizationDialog(org_data, self.main_window, self.metadata_cache)
 
         elif tool_id == 'rename-box':
+            # Renaming igual
             rename_data = self.analysis_results.renaming
-            if not rename_data:
-                # No hay datos, no debería llegar aquí
-                return
-            # Permitir abrir incluso con need_renaming=0, el usuario puede configurar patrones personalizados
             dialog = RenamingPreviewDialog(rename_data, self.main_window)
             
         elif tool_id == 'zero_byte':
             zero_byte_data = self.analysis_results.zero_byte
-            if not zero_byte_data or zero_byte_data.zero_byte_files_found == 0:
-                return
-            dialog = ZeroByteDialog(zero_byte_data, self.main_window)
+            if zero_byte_data.items_count > 0:
+                dialog = ZeroByteDialog(zero_byte_data, self.main_window)
+            else:
+                 QMessageBox.information(self.main_window, "Info", "No se encontraron archivos vacíos.")
 
         if dialog:
             result = dialog.exec()
             # Si el usuario aceptó el diálogo, ejecutar las acciones
             if result == QDialog.DialogCode.Accepted:
                 self._execute_tool_action(tool_id, dialog)
+            
+    def _run_analysis_and_open_dialog(self, tool_id: str):
+        """
+        Ejecuta el análisis específico para una herramienta y luego abre su diálogo.
+        """
+        from ui.workers import (
+            LivePhotoAnalysisWorker,
+            HeicAnalysisWorker,
+            ExactDuplicatesAnalysisWorker,
+            ZeroByteAnalysisWorker,
+            OrganizationAnalysisWorker,
+            RenamingAnalysisWorker
+        )
+        from PyQt6.QtWidgets import QProgressDialog
+        
+        # Mapeo de tool_id a Worker Class
+        worker_map = {
+            'live_photos': (LivePhotoAnalysisWorker, "Analizando Live Photos..."),
+            'heic': (HeicAnalysisWorker, "Buscando duplicados HEIC/JPG..."),
+            'exact_copies': (ExactDuplicatesAnalysisWorker, "Buscando copias exactas..."),
+            'zero_byte': (ZeroByteAnalysisWorker, "Buscando archivos vacíos..."),
+            'folder-move': (OrganizationAnalysisWorker, "Analizando estructura..."),
+            'rename-box': (RenamingAnalysisWorker, "Analizando nombres...")
+        }
+        
+        if tool_id not in worker_map:
+            return
+
+        WorkerClass, message = worker_map[tool_id]
+        
+        # Crear diálogo de progreso
+        progress = QProgressDialog(message, "Cancelar", 0, 0, self.main_window)
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.setMinimumDuration(0)
+        progress.setValue(0)
+        
+        # Crear worker
+        worker = WorkerClass(Path(self.selected_folder), self.metadata_cache)
+        
+        def on_finished(result):
+            progress.close()
+            if result:
+                # Guardar resultado en analysis_results
+                if tool_id == 'live_photos':
+                    self.analysis_results.live_photos = result
+                    # Actualizar card
+                    self.tool_cards['live_photos'].setParent(None) # Reemplazar card
+                    self.tool_cards['live_photos'] = self._create_live_photos_card(result)
+                    # Re-insertar en grid... (complicado, mejor update status)
+                    # Implementar update methods en cards o simplemente llamar _create_cards_grid de nuevo?
+                    # Mejor actualizar status de la card existente si es posible, o refrescar todo el grid.
+                    # Por simplicidad ahora, refrescaremos todo el grid:
+                    self._create_tools_grid()
+                    
+                elif tool_id == 'heic':
+                    self.analysis_results.heic = result
+                    self._create_tools_grid()
+                    
+                elif tool_id == 'exact_copies':
+                    self.analysis_results.duplicates = result
+                    self._create_tools_grid()
+                    
+                elif tool_id == 'zero_byte':
+                    self.analysis_results.zero_byte = result
+                    self._create_tools_grid()
+                
+                # Update summary card recoverable space
+                recoverable = self._calculate_recoverable_space()
+                if self.summary_card:
+                    self.summary_card.update_recoverable_space(recoverable)
+
+                # Abrir el diálogo automáticamente
+                self._on_tool_clicked(tool_id)
+                
+            worker.deleteLater()
+            
+        def on_error(msg):
+            progress.close()
+            QMessageBox.critical(self.main_window, "Error", f"Error en análisis: {msg}")
+            worker.deleteLater()
+            
+        worker.progress_update.connect(
+            lambda c, t, m: progress.setLabelText(f"{message}\n{m}")
+        )
+        worker.finished.connect(on_finished)
+        worker.error.connect(on_error)
+        
+        progress.canceled.connect(worker.stop)
+        worker.start()
+        progress.exec()
     
     def _execute_tool_action(self, tool_id: str, dialog):
         """

@@ -53,133 +53,52 @@ class BaseService(ABC):
     r"""
     Clase base abstracta para todos los servicios.
     
-    Proporciona:
-    - Logger configurado por servicio
-    - Gestión de backup_dir
-    - Logging estandarizado con banners
-    - Métodos de formateo de resumen
-    - Convención de nomenclatura: analyze() + execute()
-    
-    Los servicios concretos deben heredar de esta clase e implementar
-    sus métodos específicos de análisis y ejecución.
-    
-    Nomenclatura Recomendada (desde Nov 2025):
-    ============================================
-    - analyze(directory: Path, **kwargs) -> *AnalysisResult
-      Analiza el directorio y genera un plan de operación.
-      Reemplaza: analyze_directory(), analyze_*_duplicates(), detect_in_directory()
-      
-    - execute(analysis_result: AnalysisResult, **kwargs) -> *Result  
-      Ejecuta la operación según el análisis previo.
-      Reemplaza: execute_renaming(), execute_cleanup(), execute_deletion()
-    
-    Esta convención mejora:
-    - Autocompletado consistente en IDEs
-    - Documentación uniforme
-    - Reducción de carga cognitiva para nuevos desarrolladores
-    
-    Los métodos antiguos se mantienen con @deprecated para compatibilidad.
-    
-    
-    CONVENCIONES DE LOGGING
-    =======================
-    
-    Este proyecto usa sistema centralizado en utils.logger.
-    Todos los servicios deben seguir estas convenciones:
-    
-    Headers de Sección
-    ------------------
-    - log_section_header_relevant(): Operaciones que MODIFICAN disco (execute)
-    - log_section_header_discrete(): Operaciones de SOLO LECTURA (analyze)
-    - Parámetro mode: Pasar mode="SIMULACIÓN" cuando dry_run=True
-    
-    Ejemplo:
-        log_section_header_relevant(
-            self.logger,
-            "ELIMINACIÓN DE ARCHIVOS",
-            mode="SIMULACIÓN" if dry_run else ""
-        )
-    
-    Logs de Operaciones Sobre Archivos
-    -----------------------------------
-    Formato estándar: {TIPO}: {path} | Size: {size} | Date: {date} | Type: {filetype}
-    
-    Tipos válidos:
-    - FILE_DELETED / FILE_DELETED_SIMULATION
-    - FILE_MOVED / FILE_MOVED_SIMULATION
-    - FILE_RENAMED / FILE_RENAMED_SIMULATION
-    - FILE_CONVERTED / FILE_CONVERTED_SIMULATION
-    
-    Simulación: Añadir sufijo _SIMULATION al tipo de log
-    
-    Ejemplo:
-        log_type = "FILE_DELETED_SIMULATION" if dry_run else "FILE_DELETED"
-        self.logger.info(
-            f"{log_type}: {filepath} | Size: {format_size(size)} | "
-            f"Date: {date_str} | Type: {file_type}"
-        )
-        
-    Footers de Sección
-    ------------------
-    - log_section_footer_relevant(): Con summary de operación
-    - Usar self._format_operation_summary() para construir mensaje
-    
-    Ejemplo:
-        summary = self._format_operation_summary(
-            "Eliminación",
-            files_deleted,
-            space_freed,
-            dry_run
-        )
-        log_section_footer_relevant(self.logger, summary)
-    
-    Niveles de Log
-    --------------
-    - INFO: Operaciones de modificación, resúmenes, inicio/fin de fases
-    - DEBUG: Detalles internos, procesamiento archivo por archivo frecuente
-    - WARNING: Archivos no encontrados (operación continúa), problemas no críticos
-    - ERROR: Fallos en operaciones críticas, excepciones capturadas
-    
-    Intervalos de Reporte
-    ----------------------
-    - Operaciones individuales: Cada Config.LOG_PROGRESS_INTERVAL en INFO
-    - Operaciones muy frecuentes: DEBUG o usar intervalos
-    - Resúmenes periódicos: Cada N archivos según Config.UI_UPDATE_INTERVAL
-    
-    Formato Parseable
-    -----------------
-    Los logs deben ser parseables con regex para análisis posterior:
-    
-    FILE_DELETED:
-        Pattern: r'^FILE_DELETED(?:_SIMULATION)?: (.+) \| Size: (.+) \| Date: (.+) \| Type: (.+)$'
-        Grupos: 1=path, 2=size, 3=date, 4=type
-    
-    FILE_MOVED:
-        Pattern: r'^FILE_MOVED(?:_SIMULATION)?: (.+) \| From: (.+) \| To: (.+) \| Size: (.+)$'
-        Grupos: 1=filename, 2=source_dir, 3=target_dir, 4=size
-    
-    FILE_RENAMED:
-        Pattern: r'^FILE_RENAMED(?:_SIMULATION)?: (.+) -> (.+) \| Date: (.+)(?:\| Conflict: (\d+))?$'
-        Grupos: 1=old_name, 2=new_name, 3=date, 4=conflict_sequence (opcional)
-    
-    Ejemplo de uso:
-        import re
-        pattern = r'^FILE_DELETED(?:_SIMULATION)?: (.+) \| Size: (.+) \| Date: (.+) \| Type: (.+)$'
-        match = re.match(pattern, log_line)
-        if match:
-            path, size, date, filetype = match.groups()
+    Refactorizada para soportar la arquitectura de 2 fases:
+    1. Fase de Análisis: analyze(metadata_cache) -> AnalysisResult
+       - Usa metadatos pre-calculados (MetadataCache)
+       - No realiza I/O intensivo si es posible
+       - Retorna un plan de acción
+       
+    2. Fase de Ejecución: execute(analysis_result) -> ExecutionResult
+       - Ejecuta las acciones del plan (delete, move, rename)
+       - Maneja backups y dry-run
+       - Retorna resultado de la operación
     """
     
     def __init__(self, service_name: str):
-        """
-        Inicializa el servicio base.
-        
-        Args:
-            service_name: Nombre del servicio para el logger
-        """
         self.logger = get_logger(service_name)
         self.backup_dir: Optional[Path] = None
         self._cancelled = False
+
+    @abstractmethod
+    def analyze(self, metadata_cache: 'MetadataCache', **kwargs) -> 'AnalysisResult':
+        """
+        Analiza usando la caché de metadatos proporcionada.
+        
+        Args:
+            metadata_cache: La caché con metadatos de archivos (Stage 2)
+            **kwargs: Argumentos específicos del servicio
+            
+        Returns:
+            AnalysisResult: El resultado del análisis / plan de acción
+        """
+        pass
+
+    @abstractmethod
+    def execute(self, analysis_result: 'AnalysisResult', dry_run: bool = False, **kwargs) -> 'ExecutionResult':
+        """
+        Ejecuta la operación basada en el análisis previo.
+        
+        Args:
+            analysis_result: El resultado obtenido de analyze()
+            dry_run: Si True, solo simula las acciones
+            **kwargs: Argumentos adicionales
+            
+        Returns:
+            ExecutionResult: Resultado de la ejecución
+        """
+        pass
+
     
     def _report_progress(
         self,
