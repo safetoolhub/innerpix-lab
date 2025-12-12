@@ -6,7 +6,6 @@ utilizados en la aplicación, incluyendo:
 
 - Servicios principales: FileRenamer, LivePhotoService, FileOrganizer, etc.
 - Servicios base: BaseService, DuplicatesBaseService
-- Orquestador: AnalysisOrchestrator para coordinar análisis completos
 - Tipos de resultado: Todas las dataclasses de resultado de operaciones
 - View Models: Modelos de presentación sin dependencias de UI
 - Utilidades: Funciones helper y tipos de datos auxiliares
@@ -19,9 +18,6 @@ from .file_organizer_service import FileOrganizer, FileMove, OrganizationType
 from .heic_service import HeicService, DuplicatePair
 from .duplicates_exact_service import DuplicatesExactService
 from .duplicates_similar_service import DuplicatesSimilarService, DuplicatesSimilarAnalysis
-
-# Orquestador
-from .analysis_orchestrator import AnalysisOrchestrator
 
 # Servicios base
 from .base_service import BaseService, BackupCreationError, ProgressCallback
@@ -78,7 +74,6 @@ __all__ = [
     'HEICRemover',
     'DuplicatesExactService',
     'DuplicatesSimilarService',
-    'AnalysisOrchestrator',
     # Servicios base
     'BaseService',
     'DuplicatesBaseService',

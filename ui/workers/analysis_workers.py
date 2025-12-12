@@ -60,7 +60,6 @@ class AnalysisWorker(BaseWorker):
     def run(self) -> None:
         try:
             # Importar dependencias aquí (evita imports circulares)
-            from services.analysis_orchestrator import AnalysisOrchestrator
             from utils.settings_manager import settings_manager
             from services.directory_scanner import DirectoryScanner
             
@@ -119,7 +118,6 @@ class AnalysisWorker(BaseWorker):
                 
                 import gc
                 del result
-                del orchestrator
                 gc.collect()
 
         except Exception as e:
