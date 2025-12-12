@@ -979,7 +979,7 @@ class DuplicatesExactDialog(BaseDialog):
     
     def accept(self):
         self.accepted_plan = {
-            'groups': self.analysis.groups,
+            'analysis': self.analysis,
             'keep_strategy': self.keep_strategy,
             'create_backup': self.is_backup_enabled(),
             'dry_run': self.is_dry_run_enabled()

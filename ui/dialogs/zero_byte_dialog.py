@@ -159,9 +159,16 @@ class ZeroByteDialog(BaseDialog):
         
         if not files_to_delete:
             return
+        
+        # Construir analysis con los archivos seleccionados
+        from services.result_types import ZeroByteAnalysisResult
+        analysis = ZeroByteAnalysisResult(
+            files=files_to_delete,
+            items_count=len(files_to_delete)
+        )
             
         self.accepted_plan = {
-            'files_to_delete': files_to_delete,
+            'analysis': analysis,
             'create_backup': self.is_backup_enabled(),
             'dry_run': self.is_dry_run_enabled()
         }

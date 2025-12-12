@@ -1112,8 +1112,18 @@ class DuplicatesSimilarDialog(BaseDialog):
                 )
                 selected_groups.append(selected_group)
         
+        # Construir analysis con los grupos seleccionados
+        from services.result_types import DuplicateAnalysisResult
+        analysis = DuplicateAnalysisResult(
+            groups=selected_groups,
+            mode='perceptual',
+            items_count=len(selected_groups),
+            total_groups=len(selected_groups),
+            space_wasted=sum(g.total_size - min(g.file_sizes) for g in selected_groups if g.file_sizes)
+        )
+        
         self.accepted_plan = {
-            'groups': selected_groups,
+            'analysis': analysis,
             'keep_strategy': 'manual',
             'create_backup': self.is_backup_enabled(),
             'dry_run': self.is_dry_run_enabled()
