@@ -62,12 +62,10 @@ class FileOrganizer(BaseService):
 
     def __init__(self):
         super().__init__("FileOrganizer")
-        self._metadata_cache: Optional[FileInfoRepository] = None
 
     def analyze(self, 
                 root_directory: Path, 
                 organization_type: OrganizationType, 
-                metadata_cache: Optional[FileInfoRepository] = None,
                 progress_callback: Optional[ProgressCallback] = None,
                 group_by_source: bool = False,
                 group_by_type: bool = False,
@@ -78,7 +76,7 @@ class FileOrganizer(BaseService):
         """
         log_section_header_discrete(self.logger, f"ANALIZANDO ORGANIZACIÓN ({organization_type.value}): {root_directory}")
 
-        self._metadata_cache = metadata_cache
+        repo = FileInfoRepository.get_instance()
         
         subdirectories = {}
         root_files = []
@@ -386,7 +384,7 @@ class FileOrganizer(BaseService):
             raise ValueError(f"Tipo no soportado: {organization_type}")
 
     # ... (Copiar todos los métodos _generate_move_plan_* y _resolve_conflicts_in_folder tal cual estaban, 
-    # pero asegurando que get_date_from_file use self._metadata_cache)
+    # pero asegurando que get_date_from_file use FileInfoRepository)
     
     def _resolve_conflicts_in_folder(self, name_conflicts: Dict, target_folder: Path) -> List[FileMove]:
         # Logica identica a original (ver lectura previa)
@@ -449,7 +447,7 @@ class FileOrganizer(BaseService):
         def process(files, subdir_name):
             for info in files:
                 path = Path(info['path'])
-                date = get_date_from_file(path, metadata_cache=self._metadata_cache, skip_expensive_ops=True) or datetime.now()
+                date = get_date_from_file(path, metadata_cache=repo, skip_expensive_ops=True) or datetime.now()
                 folder = date.strftime(date_fmt)
                 if group_src: folder += f"/{detect_file_source(info['name'], path)}"
                 if group_type:
@@ -493,7 +491,7 @@ class FileOrganizer(BaseService):
                     folder_name = f"{folder_name}/{source}"
                 
                 if date_grouping_type:
-                    file_date = get_date_from_file(file_path, metadata_cache=self._metadata_cache, skip_expensive_ops=True) or datetime.now()
+                    file_date = get_date_from_file(file_path, metadata_cache=repo, skip_expensive_ops=True) or datetime.now()
                     date_folder = ""
                     if date_grouping_type == 'month': date_folder = file_date.strftime('%Y_%m')
                     elif date_grouping_type == 'year': date_folder = file_date.strftime('%Y')
@@ -541,7 +539,7 @@ class FileOrganizer(BaseService):
                 source = detect_file_source(info['name'], file_path)
 
                 if date_grouping_type:
-                     file_date = get_date_from_file(file_path, metadata_cache=self._metadata_cache, skip_expensive_ops=True) or datetime.now()
+                     file_date = get_date_from_file(file_path, metadata_cache=repo, skip_expensive_ops=True) or datetime.now()
                      date_folder = ""
                      if date_grouping_type == 'month': date_folder = file_date.strftime('%Y_%m')
                      elif date_grouping_type == 'year': date_folder = file_date.strftime('%Y')

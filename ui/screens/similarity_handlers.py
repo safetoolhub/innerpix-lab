@@ -107,8 +107,7 @@ class SimilarityAnalysisHandler:
 
         # Crear el worker (sin sensibilidad)
         self.similarity_worker = DuplicatesSimilarAnalysisWorker(
-            detector=detector,
-            metadata_cache=self.metadata_cache
+            detector=detector
         )
 
         # Crear diálogo de progreso bloqueante

@@ -18,7 +18,7 @@ from config import Config
 from utils.date_utils import get_date_from_file
 from services.result_types import LivePhotosAnalysisResult, LivePhotosExecutionResult
 from services.base_service import BaseService, BackupCreationError
-from services.file_info_repository import FileInfoRepository, MetadataCache
+from services.file_info_repository import FileInfoRepository
 from utils.logger import log_section_header_discrete, log_section_footer_discrete, log_section_header_relevant, log_section_footer_relevant, get_logger
 
 
@@ -35,7 +35,7 @@ class LivePhotoGroup:
     video_date: Optional[datetime] = None
     image_date_source: str = "unknown"
     video_date_source: str = "unknown"
-    metadata_cache: Optional[FileInfoRepository] = None
+    file_info_repo: Optional[FileInfoRepository] = None
 
     def __post_init__(self):
         """Validaciones y cálculos adicionales"""
@@ -66,17 +66,17 @@ class LivePhotoGroup:
         """
         if not self.image_date:
             # Primero intentar desde caché
-            if self.metadata_cache:
-                cached_date, source = self.metadata_cache.get_selected_date(self.image_path)
+            if self.file_info_repo:
+                cached_date, source = self.file_info_repo.get_selected_date(self.image_path)
                 if cached_date:
                     self.image_date = cached_date
                     self.image_date_source = source
             
             # Si no hay caché o no estaba cacheado, calcular
             if not self.image_date:
-                if self.metadata_cache:
+                if self.file_info_repo:
                     # Con cache disponible: usar fallback rápido
-                    self.image_date = get_date_from_file(self.image_path, metadata_cache=self.metadata_cache, skip_expensive_ops=True)
+                    self.image_date = get_date_from_file(self.image_path, metadata_cache=self.file_info_repo, skip_expensive_ops=True)
                     self.image_date_source = "mtime_fallback"
                 else:
                     self.image_date = get_date_from_file(self.image_path)
@@ -87,16 +87,16 @@ class LivePhotoGroup:
         
         if not self.video_date:
             # Primero intentar desde caché
-            if self.metadata_cache:
-                cached_date, source = self.metadata_cache.get_selected_date(self.video_path)
+            if self.file_info_repo:
+                cached_date, source = self.file_info_repo.get_selected_date(self.video_path)
                 if cached_date:
                     self.video_date = cached_date
                     self.video_date_source = source
             
             # Si no hay caché o no estaba cacheado, calcular
             if not self.video_date:
-                if self.metadata_cache:
-                    self.video_date = get_date_from_file(self.video_path, metadata_cache=self.metadata_cache, skip_expensive_ops=True)
+                if self.file_info_repo:
+                    self.video_date = get_date_from_file(self.video_path, metadata_cache=self.file_info_repo, skip_expensive_ops=True)
                     self.video_date_source = "mtime_fallback"
                 else:
                     self.video_date = get_date_from_file(self.video_path)
@@ -135,10 +135,10 @@ class LivePhotoGroup:
         if self._is_filesystem_source(vid_source) and self._is_exif_source(img_source):
             try:
                 mtime_date = None
-                if self.metadata_cache:
+                if self.file_info_repo:
                     # El método correcto en cache es get_file_stats que incluye mtime
-                    # Assuming metadata_cache (FileInfoRepository) has get_metadata returning FileMetadata with mtime
-                    meta = self.metadata_cache.get_metadata(self.image_path)
+                    # Assuming file_info_repo (FileInfoRepository) has get_metadata returning FileMetadata with mtime
+                    meta = self.file_info_repo.get_metadata(self.image_path)
                     if meta:
                         mtime_date = datetime.fromtimestamp(meta.mtime)
                 
@@ -189,30 +189,31 @@ class LivePhotoService(BaseService):
 
     def analyze(
         self, 
-        metadata_cache: MetadataCache,
         cleanup_mode: CleanupMode = CleanupMode.KEEP_IMAGE,
         progress_callback: Optional[Callable[[int, int, str], bool]] = None,
         **kwargs
     ) -> LivePhotosAnalysisResult:
         """
-        Analiza Live Photos usando MetadataCache.
+        Analiza Live Photos usando FileInfoRepository.
         
         Args:
-            metadata_cache: Caché de metadatos (REQUERIDO)
             cleanup_mode: Modo de limpieza a aplicar
             progress_callback: Callback de progreso
             **kwargs: Args adicionales
         """
-        # Extraer directory de kwargs si existe, aunque usaremos metadata_cache.
+        # Obtener FileInfoRepository
+        repo = FileInfoRepository.get_instance()
+        
+        # Extraer directory de kwargs si existe, aunque usaremos repo.
         # Si orchestator pasa directory, lo usaremos para loggear.
         directory = kwargs.get('directory', Path('.')) 
         
         log_section_header_discrete(self.logger, "ANÁLISIS DE LIVE PHOTOS")
-        self.logger.info(f"Usando caché de metadatos con {metadata_cache.get_stats()['size']} archivos")
+        self.logger.info(f"Usando FileInfoRepository con {repo.get_file_count()} archivos")
         self.logger.info(f"Modo de limpieza: {cleanup_mode.value}")
 
         # Paso 1: Detectar Live Photos
-        live_photos = self._detect_in_directory(metadata_cache, progress_callback)
+        live_photos = self._detect_in_directory(progress_callback)
         
         if live_photos is None: # Cancelado
             return self._create_empty_result(cleanup_mode)
@@ -419,14 +420,16 @@ class LivePhotoService(BaseService):
 
     def _detect_in_directory(
         self, 
-        metadata_cache: MetadataCache,
         progress_callback: Optional[Callable] = None
     ) -> Optional[List[LivePhotoGroup]]:
         """
-        Detecta Live Photos usando metadata_cache.
+        Detecta Live Photos usando FileInfoRepository.
         """
-        # Recopilar archivos desde cache
-        all_files = metadata_cache.get_all_files()
+        # Obtener FileInfoRepository
+        repo = FileInfoRepository.get_instance()
+        
+        # Recopilar archivos desde repo
+        all_files = repo.get_all_files()
         
         photos = []
         videos = []
@@ -437,7 +440,7 @@ class LivePhotoService(BaseService):
         photo_exts = self.photo_extensions
         video_exts = self.video_extensions
 
-        self.logger.info(f"Escaneando {total_in_cache} archivos en caché...")
+        self.logger.info(f"Escaneando {total_in_cache} archivos en FileInfoRepository...")
         
         for meta in all_files:
             file_path = meta.path
@@ -447,8 +450,8 @@ class LivePhotoService(BaseService):
                 if not progress_callback(processed, total_in_cache, "Filtrando archivos"):
                     return None
             
-            # Use meta.extension (assuming it is lower case in MetadataCache but we have UPPER in sets)
-            # Actually MetadataCache typically stores lower case extension (e.g. .jpg)
+            # Use meta.extension (assuming it is lower case in FileInfoRepository but we have UPPER in sets)
+            # Actually FileInfoRepository typically stores lower case extension (e.g. .jpg)
             # self.photo_extensions has UPPER.
             # Convert meta.extension to upper for check.
             ext_upper = meta.extension.upper()
@@ -467,7 +470,7 @@ class LivePhotoService(BaseService):
 
         # Detectar grupos
         self.logger.info("Iniciando matching de Live Photos...")
-        groups = self._detect_live_photos(photos, videos, progress_callback, metadata_cache)
+        groups = self._detect_live_photos(photos, videos, progress_callback)
 
         if groups is None:
             return None
@@ -491,10 +494,12 @@ class LivePhotoService(BaseService):
         self, 
         photos: List[Path], 
         videos: List[Path], 
-        progress_callback: Optional[Callable] = None,
-        metadata_cache: Optional[FileInfoRepository] = None
+        progress_callback: Optional[Callable] = None
     ) -> Optional[List[LivePhotoGroup]]:
         """Detecta parejas de fotos/videos."""
+        
+        # Obtener FileInfoRepository
+        repo = FileInfoRepository.get_instance()
         
         groups = []
         total_photos = len(photos)
@@ -518,11 +523,11 @@ class LivePhotoService(BaseService):
                         try:
                             image_size = None
                             video_size = None
-                            if metadata_cache:
-                                meta_img = metadata_cache.get_metadata(photo)
-                                meta_vid = metadata_cache.get_metadata(video)
-                                if meta_img: image_size = meta_img.size
-                                if meta_vid: video_size = meta_vid.size
+                            
+                            meta_img = repo.get_metadata(photo)
+                            meta_vid = repo.get_metadata(video)
+                            if meta_img: image_size = meta_img.size
+                            if meta_vid: video_size = meta_vid.size
                             
                             if image_size is None: image_size = photo.stat().st_size
                             if video_size is None: video_size = video.stat().st_size
@@ -534,7 +539,7 @@ class LivePhotoService(BaseService):
                                 directory=photo.parent,
                                 image_size=image_size,
                                 video_size=video_size,
-                                metadata_cache=metadata_cache
+                                file_info_repo=repo
                             )
                             
                             time_diff = group.time_difference

@@ -37,7 +37,6 @@ class FileRenamer(BaseService):
         self,
         directory: Path,
         progress_callback: Optional[ProgressCallback] = None,
-        metadata_cache: Optional[FileInfoRepository] = None,
         **kwargs
     ) -> RenameAnalysisResult:
         """
@@ -45,10 +44,11 @@ class FileRenamer(BaseService):
         """
         log_section_header_discrete(self.logger, f"ANALIZANDO DIRECTORIO PARA RENOMBRADO: {directory}")
 
+        repo = FileInfoRepository.get_instance()
         all_files = []
-        if metadata_cache:
-            self.logger.info(f"Usando caché de metadatos ({metadata_cache.get_stats()['size']} archivos)")
-            cached_files = metadata_cache.get_all_files()
+        if repo.get_file_count() > 0:
+            self.logger.info(f"Usando FileInfoRepository ({repo.get_file_count()} archivos)")
+            cached_files = repo.get_all_files()
             for meta in cached_files:
                 try:
                     if meta.path.is_relative_to(directory):
@@ -77,22 +77,12 @@ class FileRenamer(BaseService):
             if is_renamed_filename(file_path.name):
                 return ('already_renamed', file_path, None)
             
-            # Obtener fecha
-            # Si tenemos metadata_cache, usemoslo para optimizar get_date_from_file
-            # La funcion get_date_from_file no acepta metadata_cache como tal, 
-            # pero acepta un path y kwargs. Si le pasamos metadata_cache como argumento, 
-            # necesita estar preparada.
-            # BaseService original usaba get_date_from_file(file_path, metadata_cache=metadata_cache)
-            # Asumimos que get_date_from_file soporta este argumento si ha sido actualizada.
-            # En la lectura de LivePhotoService la usé, pero debo asegurarme.
-            # Si no, uso la caché para sacar dates.
-            
-            file_date = get_date_from_file(file_path, metadata_cache=metadata_cache, skip_expensive_ops=True)
+            # Obtener fecha usando FileInfoRepository
+            file_date = get_date_from_file(file_path, metadata_cache=repo, skip_expensive_ops=True)
             
             if not file_date:
                 # Intento final sin cache si falló
-                if metadata_cache:
-                     file_date = get_date_from_file(file_path)
+                file_date = get_date_from_file(file_path)
                 
                 if not file_date:
                     return ('no_date', file_path, f"No se pudo obtener fecha: {file_path.name}")

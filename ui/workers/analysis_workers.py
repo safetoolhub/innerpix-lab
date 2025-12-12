@@ -110,7 +110,6 @@ class LivePhotosAnalysisWorker(BaseWorker):
             
             service = LivePhotoService()
             result = service.analyze(
-                self.metadata_cache,
                 cleanup_mode=CleanupMode.KEEP_IMAGE,
                 progress_callback=self._create_progress_callback(emit_numbers=True),
                 directory=self.directory
@@ -136,7 +135,6 @@ class HeicAnalysisWorker(BaseWorker):
             from services.heic_service import HeicService
             service = HeicService()
             result = service.analyze(
-                self.metadata_cache,
                 progress_callback=self._create_progress_callback(emit_numbers=True),
                 directory=self.directory
             )
@@ -160,7 +158,6 @@ class DuplicatesExactAnalysisWorker(BaseWorker):
             from services.duplicates_exact_service import DuplicatesExactService
             service = DuplicatesExactService()
             result = service.analyze(
-                self.metadata_cache,
                 progress_callback=self._create_progress_callback(emit_numbers=True),
                 directory=self.directory
             )
@@ -197,10 +194,9 @@ class ZeroByteAnalysisWorker(BaseWorker):
 class FileRenamerAnalysisWorker(BaseWorker):
     finished = pyqtSignal(object)
     
-    def __init__(self, directory: Path, metadata_cache=None):
+    def __init__(self, directory: Path):
         super().__init__()
         self.directory = directory
-        self.metadata_cache = metadata_cache
         
     def run(self):
         try:
@@ -209,8 +205,7 @@ class FileRenamerAnalysisWorker(BaseWorker):
             service = FileRenamer()
             result = service.analyze(
                 directory=self.directory,
-                progress_callback=self._create_progress_callback(emit_numbers=True),
-                metadata_cache=self.metadata_cache
+                progress_callback=self._create_progress_callback(emit_numbers=True)
             )
             if not self._stop_requested:
                 self.finished.emit(result)
@@ -226,7 +221,6 @@ class FileOrganizerAnalysisWorker(BaseWorker):
         self,
         directory: Path,
         organization_type=None,
-        metadata_cache=None,
         group_by_source: bool = False,
         group_by_type: bool = False,
         date_grouping_type: Optional[str] = None
@@ -234,7 +228,6 @@ class FileOrganizerAnalysisWorker(BaseWorker):
         super().__init__()
         self.directory = directory
         self.organization_type = organization_type
-        self.metadata_cache = metadata_cache
         self.group_by_source = group_by_source
         self.group_by_type = group_by_type
         self.date_grouping_type = date_grouping_type
@@ -257,7 +250,6 @@ class FileOrganizerAnalysisWorker(BaseWorker):
                 directory=self.directory,
                 organization_type=org_type,
                 progress_callback=self._create_progress_callback(emit_numbers=True),
-                metadata_cache=self.metadata_cache,
                 group_by_source=self.group_by_source,
                 group_by_type=self.group_by_type,
                 date_grouping_type=self.date_grouping_type
@@ -275,12 +267,10 @@ class DuplicatesSimilarAnalysisWorker(BaseWorker):
     
     def __init__(
         self,
-        detector, # Type hint omitted to avoid circular import here
-        metadata_cache
+        detector # Type hint omitted to avoid circular import here
     ):
         super().__init__()
         self.detector = detector
-        self.metadata_cache = metadata_cache
     
     def run(self) -> None:
         try:
@@ -298,7 +288,6 @@ class DuplicatesSimilarAnalysisWorker(BaseWorker):
             
             # Ejecutar análisis inicial (solo hashes)
             analysis = self.detector.analyze_initial(
-                metadata_cache=self.metadata_cache,
                 progress_callback=progress_callback
             )
             

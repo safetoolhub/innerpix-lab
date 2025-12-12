@@ -146,7 +146,7 @@ class DirectoryScanner:
                             self.logger.warning(f"Error calculando hash de {f}: {e}")
                     
                     # Log detallado en modo DEBUG (una línea por archivo)
-                    if self.logger.level <= logging.DEBUG:
+                    if self.logger.isEnabledFor(logging.DEBUG):
                         hash_info = f"hash={file_hash[:8]}..." if file_hash else "hash=pending"
                         exif_info = f"exif=[{','.join(exif_dates)}]" if exif_dates else "exif=none"
                         self.logger.debug(

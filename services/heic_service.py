@@ -12,7 +12,7 @@ from utils.file_utils import validate_file_exists
 from utils.date_utils import get_date_from_file
 from services.result_types import HeicAnalysisResult, HeicExecutionResult, DuplicatePair, AnalysisResult
 from services.base_service import BaseService, BackupCreationError, ProgressCallback
-from services.file_info_repository import MetadataCache, FileMetadata
+from services.file_info_repository import FileInfoRepository
 from config import Config
 from utils.logger import (
     log_section_header_discrete,
@@ -50,24 +50,25 @@ class HeicService(BaseService):
     
     def analyze(
         self,
-        metadata_cache: MetadataCache,
         progress_callback: Optional[ProgressCallback] = None,
         validate_dates: bool = True,
         **kwargs
     ) -> HeicAnalysisResult:
         """
-        Analiza duplicados HEIC/JPG usando la caché de metadatos.
+        Analiza duplicados HEIC/JPG usando FileInfoRepository.
         
         Args:
-            metadata_cache: Caché con metadatos de archivos
             progress_callback: Callback
             validate_dates: Si validar fechas
             
         Returns:
             HeicAnalysisResult con análisis detallado
         """
+        # Obtener FileInfoRepository
+        repo = FileInfoRepository.get_instance()
+        
         log_section_header_discrete(self.logger, "ANÁLISIS DE DUPLICADOS HEIC/JPG")
-        self.logger.info(f"Usando caché de metadatos con {metadata_cache.get_stats()['size']} archivos")
+        self.logger.info(f"Usando FileInfoRepository con {repo.get_file_count()} archivos")
         self.logger.info(f"Validación de fechas: {'ACTIVADA' if validate_dates else 'DESACTIVADA'}")
         
         if validate_dates:
@@ -87,8 +88,8 @@ class HeicService(BaseService):
             'by_directory': defaultdict(int)
         }
         
-        # Obtener todos los archivos de la caché
-        all_files = metadata_cache.get_all_files()
+        # Obtener todos los archivos del repo
+        all_files = repo.get_all_files()
         total_files = len(all_files)
         
         # Estructura optimizada: dict[Path, dict[str, FileMetadata]]

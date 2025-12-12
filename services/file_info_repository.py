@@ -268,7 +268,6 @@ class FileInfoRepository:
         )
         with self._lock:
             self._cache[path] = meta
-            self._logger.debug(f"Metadatos básicos establecidos: {path}")
 
     def get_hash(self, path: Path) -> str:
         """
@@ -328,7 +327,6 @@ class FileInfoRepository:
         
         with self._lock:
             meta.sha256 = hash_val
-            self._logger.debug(f"Hash establecido para: {path}")
 
     def set_exif(self, path: Path, exif_data: Dict[str, Any]) -> None:
         """
@@ -429,7 +427,6 @@ class FileInfoRepository:
         
         with self._lock:
             meta.exif_data = all_dates.copy()
-            self._logger.debug(f"Fechas establecidas para: {path}")
 
     def get_all_dates(self, path: Path) -> Dict[str, Any]:
         """

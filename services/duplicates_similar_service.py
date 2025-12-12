@@ -16,7 +16,7 @@ from utils.logger import get_logger, log_section_header_discrete, log_section_fo
 from services.result_types import DuplicateAnalysisResult, DuplicateExecutionResult, DuplicateGroup
 from services.duplicates_base_service import DuplicatesBaseService
 from services.base_service import ProgressCallback
-from services.file_info_repository import MetadataCache
+from services.file_info_repository import FileInfoRepository
 
 
 class DuplicatesSimilarAnalysis:
@@ -296,7 +296,6 @@ class DuplicatesSimilarService(DuplicatesBaseService):
     
     def analyze(
         self,
-        metadata_cache: MetadataCache,
         sensitivity: int = 10,
         progress_callback: Optional[ProgressCallback] = None,
         **kwargs
@@ -310,8 +309,9 @@ class DuplicatesSimilarService(DuplicatesBaseService):
         )
         
         # Fase 1: Calcular hashes (o usar cacheado si existe en memoria)
+        repo = FileInfoRepository.get_instance()
         if self._cached_analysis is None:
-             self._cached_analysis = self.analyze_initial(metadata_cache, progress_callback)
+             self._cached_analysis = self.analyze_initial(repo, progress_callback)
         else:
              self.logger.info("Reutilizando análisis de hashes perceptuales previo en memoria")
 
@@ -340,7 +340,7 @@ class DuplicatesSimilarService(DuplicatesBaseService):
 
     def analyze_initial(
         self,
-        metadata_cache: MetadataCache,
+        repo: FileInfoRepository,
         progress_callback: Optional[ProgressCallback] = None
     ) -> DuplicatesSimilarAnalysis:
         """
@@ -355,8 +355,8 @@ class DuplicatesSimilarService(DuplicatesBaseService):
         log_section_header_discrete(self.logger, "INICIANDO ANÁLISIS INICIAL DE ARCHIVOS SIMILARES")
         self.logger.info("*** Calculando hashes perceptuales...")
         
-        # 1. Obtener archivos desde metadata_cache
-        all_metadata = metadata_cache.get_all_files()
+        # 1. Obtener archivos desde FileInfoRepository
+        all_metadata = repo.get_all_files()
         
         image_files = []
         video_files = []
@@ -408,7 +408,7 @@ class DuplicatesSimilarService(DuplicatesBaseService):
                     phash = future.result(timeout=5.0)
                     if phash:
                         # Obtener tamaño desde cache si es posible para evitar stat
-                        meta = metadata_cache.get_metadata(file_path)
+                        meta = repo.get_metadata(file_path)
                         size = meta.size if meta else file_path.stat().st_size
                         mtime = meta.mtime if meta else file_path.stat().st_mtime
                         

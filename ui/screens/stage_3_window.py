@@ -476,8 +476,12 @@ class Stage3Window(BaseStage):
         progress.setMinimumDuration(0)
         progress.setValue(0)
         
-        # Crear worker
-        worker = WorkerClass(Path(self.selected_folder), self.metadata_cache)
+        # Crear worker - algunos servicios ya no necesitan metadata_cache
+        refactorized_tools = {'live_photos', 'heic', 'exact_copies', 'zero_byte', 'rename-box', 'folder-move'}
+        if tool_id in refactorized_tools:
+            worker = WorkerClass(Path(self.selected_folder))
+        else:
+            worker = WorkerClass(Path(self.selected_folder), self.metadata_cache)
         
         def on_finished(result):
             progress.close()

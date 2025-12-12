@@ -19,7 +19,7 @@ from config import Config
 from services.result_types import DuplicateAnalysisResult, DuplicateGroup
 from services.duplicates_base_service import DuplicatesBaseService
 from services.base_service import ProgressCallback
-from services.file_info_repository import MetadataCache, FileMetadata
+from services.file_info_repository import FileInfoRepository
 from utils.logger import log_section_header_discrete, log_section_footer_discrete
 
 
@@ -40,26 +40,27 @@ class DuplicatesExactService(DuplicatesBaseService):
 
     def analyze(
         self,
-        metadata_cache: MetadataCache,
         progress_callback: Optional[ProgressCallback] = None,
         **kwargs
     ) -> DuplicateAnalysisResult:
         """
-        Analiza buscando duplicados exactos (SHA256) usando la caché de metadatos.
+        Analiza buscando duplicados exactos (SHA256) usando FileInfoRepository.
         
         Args:
-            metadata_cache: Caché con metadatos de archivos
             progress_callback: Callback de progreso
             **kwargs: Args adicionales
             
         Returns:
             DuplicateAnalysisResult con grupos de duplicados exactos
         """
+        # Obtener FileInfoRepository
+        repo = FileInfoRepository.get_instance()
+        
         log_section_header_discrete(self.logger, "INICIANDO ANÁLISIS DE DUPLICADOS EXACTOS (SHA256)")
         
-        all_files = metadata_cache.get_all_files()
+        all_files = repo.get_all_files()
         total_files = len(all_files)
-        self.logger.info(f"Escaneando {total_files} archivos en caché para detección de duplicados")
+        self.logger.info(f"Escaneando {total_files} archivos en FileInfoRepository para detección de duplicados")
         
         if total_files == 0:
             return DuplicateAnalysisResult(groups=())
@@ -72,7 +73,7 @@ class DuplicatesExactService(DuplicatesBaseService):
         # Aunque para exactas usamos SHA256, podemos evitar hashear si el tamaño es único?
         # Sí, si un archivo tiene un tamaño único, no puede tener duplicado.
         
-        by_size = metadata_cache.get_files_by_size()
+        by_size = repo.get_files_by_size()
         
         # Solo necesitamos procesar archivos que comparten tamaño con al menos otro archivo
         files_to_hash = []
@@ -103,9 +104,9 @@ class DuplicatesExactService(DuplicatesBaseService):
         
         # Definir función para worker
         def get_hash_task(meta: FileMetadata):
-            # metadata_cache.get_hash usa lock internamente para lectura/escritura de cache
+            # repo.get_hash usa lock internamente para lectura/escritura de cache
             # pero el cálculo es lazy.
-            return metadata_cache.get_hash(meta.path), meta.path
+            return repo.get_hash(meta.path), meta.path
 
         # Calcular hashes en paralelo
         with ThreadPoolExecutor(max_workers=4) as executor:
@@ -138,7 +139,7 @@ class DuplicatesExactService(DuplicatesBaseService):
                 # Podemos obtenerlo de meta o disk. Meta es mejor.
                 # Pero paths solo tiene Path. 
                 # Recuperar size del primer path (todos iguales en contenido => tamaño igual)
-                first_meta = metadata_cache.get_metadata(paths[0])
+                first_meta = repo.get_metadata(paths[0])
                 size = first_meta.size if first_meta else paths[0].stat().st_size
                 
                 groups.append(DuplicateGroup(
