@@ -178,14 +178,10 @@ class FileRenamer(BaseService):
         log_section_footer_discrete(self.logger, f"Análisis completado: {need_renaming} archivos para renombrar")
         
         return RenameAnalysisResult(
-            success=True,
-            total_files=total_files,
+            renaming_plan=renaming_plan,
             already_renamed=already_renamed,
             cannot_process=cannot_process,
-            conflicts=conflicts,
-            files_by_year=dict(files_by_year),
-            renaming_plan=renaming_plan,
-            issues=issues
+            conflicts=conflicts
         )
     
     def execute(
@@ -317,4 +313,9 @@ class FileRenamer(BaseService):
         return results
     
     def _create_empty_result(self, total):
-        return RenameAnalysisResult(success=False, total_files=total, already_renamed=0, cannot_process=0, conflicts=0, files_by_year={}, renaming_plan=[], issues=[])
+        return RenameAnalysisResult(
+            renaming_plan=[],
+            already_renamed=0,
+            cannot_process=0,
+            conflicts=0
+        )

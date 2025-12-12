@@ -130,7 +130,7 @@ class FileOrganizationDialog(BaseDialog):
             metrics=[
                 {
                     'label': 'Archivos',
-                    'value': str(self.analysis.total_files_to_move) if self.analysis else '0',
+                    'value': str(self.analysis.items_count) if self.analysis else '0',
                     'icon': 'description'
                 },
                 {
@@ -589,7 +589,7 @@ class FileOrganizationDialog(BaseDialog):
     
     def _on_analysis_finished(self, result: OrganizationAnalysisResult):
         """Maneja la finalización del análisis"""
-        self.logger.info(f"Análisis completado: {result.total_files_to_move} archivos (tipo: {result.organization_type})")
+        self.logger.info(f"Análisis completado: {result.items_count} archivos (tipo: {result.organization_type})")
         self.analysis = result
         self.counter_label.setText(f"{len(result.move_plan)} archivos")
         
@@ -679,7 +679,7 @@ class FileOrganizationDialog(BaseDialog):
             metrics_data = ["0", "0", "0 B"]
         else:
             metrics_data = [
-                str(self.analysis.total_files_to_move),
+                str(self.analysis.items_count),
                 str(len(self.analysis.subdirectories)),
                 format_size(self.analysis.total_size_to_move)
             ]
@@ -1057,11 +1057,11 @@ class FileOrganizationDialog(BaseDialog):
     def _create_action_buttons(self) -> QDialogButtonBox:
         """Crea botones de acción con estilo Material Design"""
         # Determinar si el botón OK debe estar habilitado
-        ok_enabled = bool(self.analysis and self.analysis.total_files_to_move > 0)
+        ok_enabled = bool(self.analysis and self.analysis.items_count > 0)
         
         if ok_enabled:
             size_formatted = format_size(self.analysis.total_size_to_move)
-            ok_text = f"Organizar Archivos ({self.analysis.total_files_to_move} archivos, {size_formatted})"
+            ok_text = f"Organizar Archivos ({self.analysis.items_count} archivos, {size_formatted})"
         else:
             ok_text = "Selecciona una opción"
         
@@ -1079,14 +1079,14 @@ class FileOrganizationDialog(BaseDialog):
         if not hasattr(self, 'ok_button') or not self.ok_button:
             return
         
-        ok_enabled = self.analysis.total_files_to_move > 0
+        ok_enabled = self.analysis.items_count > 0
         final_enabled = ok_enabled and not self.is_analyzing
         
         self.ok_button.setEnabled(final_enabled)
         
         if ok_enabled:
             size_formatted = format_size(self.analysis.total_size_to_move)
-            ok_text = f"Organizar Archivos ({self.analysis.total_files_to_move} archivos, {size_formatted})"
+            ok_text = f"Organizar Archivos ({self.analysis.items_count} archivos, {size_formatted})"
         else:
             ok_text = "Sin archivos para organizar"
         

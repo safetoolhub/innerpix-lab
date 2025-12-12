@@ -75,7 +75,7 @@ class RenamingPreviewDialog(BaseDialog):
             description='Los archivos se renombrarán al formato YYYY-MM-DD_HH-MM-SS según fecha de creación.',
             metrics=[
                 {
-                    'value': str(self.analysis_results.total_files),
+                    'value': str(self.analysis_results.items_count),
                     'label': 'Total',
                     'color': DesignSystem.COLOR_PRIMARY
                 },

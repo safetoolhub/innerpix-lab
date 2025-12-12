@@ -211,16 +211,11 @@ class HeicService(BaseService):
         log_section_footer_discrete(self.logger, f"Análisis completado: {len(duplicate_pairs)} pares")
         
         return HeicAnalysisResult(
-            total_files=results['total_heic_files'] + results['total_jpg_files'],
             duplicate_pairs=duplicate_pairs,
             heic_files=results['total_heic_files'],
             jpg_files=results['total_jpg_files'],
-            total_size=self.stats['total_heic_size'] + self.stats['total_jpg_size'],
             potential_savings_keep_jpg=results['potential_savings_keep_jpg'],
-            potential_savings_keep_heic=results['potential_savings_keep_heic'],
-            orphan_heic=results.get('orphan_heic', []),
-            orphan_jpg=results.get('orphan_jpg', []),
-            by_directory=results.get('by_directory', {})
+            potential_savings_keep_heic=results['potential_savings_keep_heic']
         )
 
     def execute(
@@ -350,8 +345,11 @@ class HeicService(BaseService):
 
     def _create_empty_result(self) -> HeicAnalysisResult:
         return HeicAnalysisResult(
-            total_files=0, duplicate_pairs=[], heic_files=0, jpg_files=0,
-            total_size=0, potential_savings_keep_jpg=0, potential_savings_keep_heic=0
+            duplicate_pairs=[],
+            heic_files=0,
+            jpg_files=0,
+            potential_savings_keep_jpg=0,
+            potential_savings_keep_heic=0
         )
 
     def _reset_stats(self):

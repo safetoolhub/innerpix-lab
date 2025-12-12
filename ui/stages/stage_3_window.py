@@ -255,6 +255,19 @@ class Stage3Window(BaseStage):
 
     def _create_tools_grid(self):
         """Crea el grid 2x4 con las 7 herramientas"""
+        # Limpiar grid existente si ya existe (para evitar duplicación al refrescar)
+        if self.tools_grid:
+            # Remover del layout
+            self.main_layout.removeWidget(self.tools_grid)
+            # Ocultar y eliminar el widget antiguo
+            self.tools_grid.hide()
+            self.tools_grid.setParent(None)
+            self.tools_grid.deleteLater()
+            self.tools_grid = None
+        
+        # Limpiar diccionario de cards antiguas
+        self.tool_cards.clear()
+        
         # Container para el grid
         grid_container = QWidget()
         grid_layout = QGridLayout(grid_container)

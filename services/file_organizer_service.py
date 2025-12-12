@@ -226,20 +226,10 @@ class FileOrganizer(BaseService):
              })
 
         return OrganizationAnalysisResult(
-            success=True,
-            total_files=len(move_plan),
+            move_plan=move_plan,
             root_directory=str(root_directory),
             organization_type=organization_type.value,
-            subdirectories=files_by_subdir,
-            root_files=root_files,
-            total_size_to_move=total_size,
-            potential_conflicts=potential_conflicts,
-            files_by_type=dict(final_files_by_type),
-            move_plan=move_plan,
-            folders_to_create=folders_to_create,
-            group_by_source=group_by_source,
-            group_by_type=group_by_type,
-            date_grouping_type=date_grouping_type
+            folders_to_create=folders_to_create
         )
     
     def execute(self, 
@@ -370,10 +360,10 @@ class FileOrganizer(BaseService):
         
     def _create_empty_result(self, root, type_):
         return OrganizationAnalysisResult(
-            success=False, total_files=0, root_directory=str(root),
-            organization_type=type_.value, subdirectories={}, root_files=[],
-            total_size_to_move=0, potential_conflicts=0, files_by_type={},
-            move_plan=[], folders_to_create=[]
+            move_plan=[],
+            root_directory=str(root),
+            organization_type=type_.value,
+            folders_to_create=[]
         )
 
     # --- MÉTODOS DE GENERACIÓN DE PLAN (Idénticos a original, simplificados llamada) ---
