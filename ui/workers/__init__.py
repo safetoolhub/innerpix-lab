@@ -1,6 +1,6 @@
 from .base_worker import BaseWorker
+from .initial_analysis_worker import InitialAnalysisWorker
 from .analysis_workers import (
-    AnalysisWorker,
     LivePhotosAnalysisWorker,
     HeicAnalysisWorker,
     DuplicatesExactAnalysisWorker,
@@ -20,7 +20,7 @@ from .execution_workers import (
 
 __all__ = [
     'BaseWorker',
-    'AnalysisWorker',
+    'InitialAnalysisWorker',
     'LivePhotosAnalysisWorker',
     'HeicAnalysisWorker',
     'DuplicatesExactAnalysisWorker',

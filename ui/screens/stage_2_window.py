@@ -11,7 +11,7 @@ from config import Config
 from .base_stage import BaseStage
 from ui.styles.design_system import DesignSystem
 from ui.screens.progress_card import ProgressCard
-from ui.workers import AnalysisWorker
+from ui.workers.initial_analysis_worker import InitialAnalysisWorker
 # Los servicios se importan lazy en _start_analysis() para evitar bloquear la UI
 
 
@@ -117,11 +117,6 @@ class Stage2Window(BaseStage):
 
     def _start_analysis(self):
         """Inicia el análisis del directorio seleccionado"""
-        # Marcar la fase de duplicados similares como "skipped" desde el inicio
-        # ya que no se ejecutará por ser costosa en tiempo
-        if self.progress_card:
-            self.progress_card.set_phase_status('duplicates_similar', 'skipped')
-        
         # === MODO DESARROLLADOR: CARGAR CACHÉ ===
         if Config.DEV_USE_CACHED_ANALYSIS:
             import pickle
@@ -149,23 +144,21 @@ class Stage2Window(BaseStage):
             else:
                 self.logger.warning(f"🛠️ MODO DESARROLLADOR: No se encontró archivo de caché: {cache_path}")
 
-        # Crear worker de análisis (Solo escaneo metadata)
-        self.analysis_worker = AnalysisWorker(
+        # Crear worker de análisis inicial (multi-fase)
+        self.analysis_worker = InitialAnalysisWorker(
             directory=Path(self.selected_folder)
         )
 
         # Conectar señales del worker
         self.analysis_worker.progress_update.connect(self._on_analysis_progress)
-        self.analysis_worker.phase_update.connect(self._on_phase_started)
+        self.analysis_worker.phase_started.connect(self._on_phase_started)
         self.analysis_worker.phase_completed.connect(self._on_phase_completed)
-        self.analysis_worker.phase_text_update.connect(self._on_phase_text_update)
         self.analysis_worker.stats_update.connect(self._on_analysis_stats)
-        self.analysis_worker.partial_results.connect(self._on_partial_results)
         self.analysis_worker.finished.connect(self._on_analysis_finished)
         self.analysis_worker.error.connect(self._on_analysis_error)
 
         # Iniciar análisis
-        self.logger.debug("Iniciando worker de análisis")
+        self.logger.debug("Iniciando worker de análisis inicial")
         self.analysis_worker.start()
 
     def _on_analysis_progress(self, current: int, total: int, message: str):
@@ -181,14 +174,16 @@ class Stage2Window(BaseStage):
         if self.current_phase and self.progress_card and total > 0:
             self.progress_card.update_phase_progress(self.current_phase, current, total)
 
-    def _on_phase_started(self, phase_id: str):
+    def _on_phase_started(self, phase_id: str, phase_message: str = ""):
         """
         Callback cuando inicia una nueva fase del análisis.
         
         Args:
             phase_id: ID de la fase que inicia
+            phase_message: Mensaje descriptivo de la fase (opcional)
         """
-        # Log ya se hace en el worker (mismo thread del análisis, más preciso)
+        self.logger.info(f"Phase started: {phase_id} - {phase_message}")
+        
         if not self.progress_card:
             return
 
@@ -210,38 +205,14 @@ class Stage2Window(BaseStage):
         # Marcar la fase como completada
         self.progress_card.set_phase_status(phase_id, 'completed')
 
-    def _on_phase_text_update(self, phase_id: str, text: str):
-        """
-        Callback para actualizar el texto de una fase durante su ejecución.
-        
-        Args:
-            phase_id: ID de la fase
-            text: Nuevo texto a mostrar
-        """
-        if not self.progress_card:
-            return
-        
-        self.progress_card.update_phase_text(phase_id, text)
-
     def _on_analysis_stats(self, stats):
         """
-        Callback con estadísticas del análisis (ignorado - barra indeterminada)
+        Callback con estadísticas del análisis.
         
         Args:
-            stats: Objeto con estadísticas (ignorado)
+            stats: Dict con estadísticas (total, images, videos, others)
         """
-        # Con barra indeterminada, no necesitamos mostrar estadísticas detalladas
-        pass
-
-    def _on_partial_results(self, results):
-        """
-        Callback con resultados parciales de cada fase
-
-        Args:
-            results: Diccionario con resultados parciales
-        """
-        self.logger.debug(f"Resultados parciales: {results.keys()}")
-        # TODO: Podríamos mostrar más info en el UI si es necesario
+        self.logger.info(f"Scan statistics: {stats}")
 
     def _on_analysis_finished(self, results):
         """

@@ -12,20 +12,24 @@ Arquitectura:
 - Auto-fetch opcional por parámetro
 
 Estrategias de población:
-1. BASIC: Solo filesystem metadata (rápido, scan inicial)
-2. WITH_HASH: Filesystem + hash SHA256 (costoso, para duplicados)
-3. WITH_EXIF_IMAGES: Filesystem + EXIF solo imágenes (moderado)
-4. WITH_EXIF_VIDEOS: Filesystem + EXIF solo videos (muy costoso)
-5. WITH_EXIF_ALL: Filesystem + EXIF imágenes + videos (muy costoso)
-6. FULL: Todo (filesystem + hash + EXIF) - extremadamente costoso
+1. BASIC: Solo filesystem metadata (rápido, scan inicial, OBLIGATORIO primero)
+2. HASH: Solo hash SHA256 (requiere BASIC previo, para duplicados exactos)
+3. EXIF_IMAGES: Solo EXIF de imágenes (requiere BASIC previo, para organización)
+4. EXIF_VIDEOS: Solo EXIF de videos (requiere BASIC previo, muy costoso)
+5. EXIF_ALL: EXIF de imágenes y videos (requiere BASIC previo, muy costoso)
+6. FULL: Hash + EXIF completo (requiere BASIC previo, extremadamente costoso)
 
 Los servicios consultan este repositorio sin recibirlo como parámetro.
 El repositorio es global y compartido entre todos los servicios.
 
 Uso:
-    # Inicializar (desde Directory Scanner al escanear)
+    # Paso 1: Scan inicial con BASIC (OBLIGATORIO)
     repo = FileInfoRepository.get_instance()
     repo.populate_from_scan(files, strategy=PopulationStrategy.BASIC)
+    
+    # Paso 2: Análisis incremental bajo demanda
+    repo.populate_from_scan(files, strategy=PopulationStrategy.HASH)  # Solo hashes
+    repo.populate_from_scan(files, strategy=PopulationStrategy.EXIF_IMAGES)  # Solo EXIF imágenes
     
     # Consultar desde servicios (auto-fetch si no está)
     hash_val = repo.get_hash(file_path, auto_fetch=True)
@@ -55,14 +59,15 @@ class PopulationStrategy(Enum):
     """
     Estrategias para poblar el repositorio con metadatos.
     
-    Define qué información se carga durante el scan inicial.
+    IMPORTANTE: BASIC debe ejecutarse PRIMERO (scan inicial).
+    Las demás estrategias son incrementales y requieren que BASIC ya se haya ejecutado.
     """
-    BASIC = "basic"                      # Solo filesystem metadata (rápido)
-    WITH_HASH = "with_hash"              # Filesystem + hash SHA256 (costoso)
-    WITH_EXIF_IMAGES = "with_exif_images"  # Filesystem + EXIF solo imágenes (moderado)
-    WITH_EXIF_VIDEOS = "with_exif_videos"  # Filesystem + EXIF solo videos (muy costoso)
-    WITH_EXIF_ALL = "with_exif_all"      # Filesystem + EXIF imágenes + videos (muy costoso)
-    FULL = "full"                        # Todo: filesystem + hash + EXIF (extremadamente costoso)
+    BASIC = "basic"              # Solo filesystem metadata (OBLIGATORIO primero, rápido)
+    HASH = "hash"                # Solo hash SHA256 (requiere BASIC previo, para duplicados)
+    EXIF_IMAGES = "exif_images"  # Solo EXIF imágenes (requiere BASIC previo, moderado)
+    EXIF_VIDEOS = "exif_videos"  # Solo EXIF videos (requiere BASIC previo, muy costoso)
+    EXIF_ALL = "exif_all"        # EXIF imágenes + videos (requiere BASIC previo, muy costoso)
+    FULL = "full"                # Hash + EXIF completo (requiere BASIC previo, extremadamente costoso)
 
 
 class IFileRepository(Protocol):
@@ -223,20 +228,24 @@ class FileInfoRepository:
             progress_callback: Callback opcional para reportar progreso
         
         Examples:
-            # Solo filesystem (rápido, para UI inicial)
+            # Paso 1: SIEMPRE empezar con BASIC (scan inicial)
             repo.populate_from_scan(files, PopulationStrategy.BASIC)
             
-            # Con hashes (para detector de duplicados exactos)
-            repo.populate_from_scan(files, PopulationStrategy.WITH_HASH)
+            # Paso 2: Análisis incremental según necesidad
+            # Para detector de duplicados exactos (solo calcula hashes)
+            repo.populate_from_scan(files, PopulationStrategy.HASH)
             
-            # Con EXIF solo para imágenes (para organizador/renombrador de fotos)
-            repo.populate_from_scan(files, PopulationStrategy.WITH_EXIF_IMAGES)
+            # Para organizador/renombrador de fotos (solo EXIF de imágenes)
+            repo.populate_from_scan(files, PopulationStrategy.EXIF_IMAGES)
             
-            # Con EXIF solo para videos (más costoso)
-            repo.populate_from_scan(files, PopulationStrategy.WITH_EXIF_VIDEOS)
+            # Para análisis de videos (solo EXIF de videos, muy costoso)
+            repo.populate_from_scan(files, PopulationStrategy.EXIF_VIDEOS)
             
-            # Con EXIF para imágenes y videos
-            repo.populate_from_scan(files, PopulationStrategy.WITH_EXIF_ALL)
+            # Para análisis completo multimedia (EXIF imágenes + videos)
+            repo.populate_from_scan(files, PopulationStrategy.EXIF_ALL)
+            
+            # Para análisis completo (hash + EXIF todo)
+            repo.populate_from_scan(files, PopulationStrategy.FULL)
         """
         if not files:
             self._logger.warning("populate_from_scan llamado con lista vacía")
@@ -250,14 +259,14 @@ class FileInfoRepository:
         # Determinar función de procesamiento según estrategia
         if strategy == PopulationStrategy.BASIC:
             process_func = self._process_file_basic
-        elif strategy == PopulationStrategy.WITH_HASH:
-            process_func = self._process_file_with_hash
-        elif strategy == PopulationStrategy.WITH_EXIF_IMAGES:
-            process_func = self._process_file_with_exif_images
-        elif strategy == PopulationStrategy.WITH_EXIF_VIDEOS:
-            process_func = self._process_file_with_exif_videos
-        elif strategy == PopulationStrategy.WITH_EXIF_ALL:
-            process_func = self._process_file_with_exif_all
+        elif strategy == PopulationStrategy.HASH:
+            process_func = self._process_file_hash
+        elif strategy == PopulationStrategy.EXIF_IMAGES:
+            process_func = self._process_file_exif_images
+        elif strategy == PopulationStrategy.EXIF_VIDEOS:
+            process_func = self._process_file_exif_videos
+        elif strategy == PopulationStrategy.EXIF_ALL:
+            process_func = self._process_file_exif_all
         elif strategy == PopulationStrategy.FULL:
             process_func = self._process_file_full
         else:
@@ -320,72 +329,140 @@ class FileInfoRepository:
             self._logger.error(f"Error en _process_file_basic para {path}: {e}")
             return None
     
-    def _process_file_with_hash(self, path: Path) -> Optional[FileMetadata]:
+    def _process_file_hash(self, path: Path) -> Optional[FileMetadata]:
         """
-        Procesa archivo con estrategia WITH_HASH: filesystem + hash SHA256.
+        Procesa archivo con estrategia HASH: solo calcula hash SHA256.
         
-        Costoso, usa para duplicados exactos.
+        Requiere que BASIC ya se haya ejecutado.
+        Si el archivo no está en caché, hace autofetch de filesystem metadata.
         """
-        metadata = self._process_file_basic(path)
+        path = path.resolve()
+        
+        # Obtener metadata existente (autofetch si no existe)
+        with self._lock:
+            metadata = self._cache.get(path)
+        
         if not metadata:
-            return None
+            # Autofetch: crear metadata básica
+            metadata = self._process_file_basic(path)
+            if not metadata:
+                return None
+            with self._lock:
+                self._cache[path] = metadata
         
+        # Ya tiene hash? Skip
+        if metadata.sha256:
+            return metadata
+        
+        # Calcular y cachear hash
         try:
             metadata.sha256 = calculate_file_hash(path)
         except Exception as e:
             self._logger.error(f"Error calculando hash para {path}: {e}")
-            # Continuar sin hash
         
         return metadata
     
-    def _process_file_with_exif_images(self, path: Path) -> Optional[FileMetadata]:
+    def _process_file_exif_images(self, path: Path) -> Optional[FileMetadata]:
         """
-        Procesa archivo con estrategia WITH_EXIF_IMAGES: filesystem + EXIF solo para imágenes.
+        Procesa archivo con estrategia EXIF_IMAGES: solo extrae EXIF de imágenes.
         
-        Moderado, usa para organización/renombrado de imágenes.
-        Solo procesa EXIF si el archivo es una imagen.
+        Requiere que BASIC ya se haya ejecutado.
+        Si el archivo no está en caché, hace autofetch de filesystem metadata.
+        Solo procesa si es imagen y no tiene EXIF ya.
         """
-        metadata = self._process_file_basic(path)
+        path = path.resolve()
+        
+        # Obtener metadata existente (autofetch si no existe)
+        with self._lock:
+            metadata = self._cache.get(path)
+        
         if not metadata:
-            return None
+            # Autofetch: crear metadata básica
+            metadata = self._process_file_basic(path)
+            if not metadata:
+                return None
+            with self._lock:
+                self._cache[path] = metadata
         
-        # Solo extraer EXIF si es imagen
-        if metadata.is_image:
-            # TODO: Integrar extracción de EXIF para imágenes
-            # Por ahora retornar sin EXIF, se puede poblar después con set_exif()
-            pass
+        # No es imagen? Skip
+        if not metadata.is_image:
+            return metadata
+        
+        # Ya tiene EXIF? Skip
+        if metadata.has_exif:
+            return metadata
+        
+        # TODO: Integrar extracción de EXIF para imágenes
+        # Por ahora retornar sin EXIF, se puede poblar después con set_exif()
         
         return metadata
     
-    def _process_file_with_exif_videos(self, path: Path) -> Optional[FileMetadata]:
+    def _process_file_exif_videos(self, path: Path) -> Optional[FileMetadata]:
         """
-        Procesa archivo con estrategia WITH_EXIF_VIDEOS: filesystem + EXIF solo para videos.
+        Procesa archivo con estrategia EXIF_VIDEOS: solo extrae EXIF de videos.
         
-        Costoso (videos requieren más procesamiento), usa solo cuando sea necesario.
-        Solo procesa EXIF si el archivo es un video.
+        Requiere que BASIC ya se haya ejecutado.
+        Si el archivo no está en caché, hace autofetch de filesystem metadata.
+        Solo procesa si es video y no tiene EXIF ya.
+        Muy costoso (videos requieren más procesamiento).
         """
-        metadata = self._process_file_basic(path)
+        path = path.resolve()
+        
+        # Obtener metadata existente (autofetch si no existe)
+        with self._lock:
+            metadata = self._cache.get(path)
+        
         if not metadata:
-            return None
+            # Autofetch: crear metadata básica
+            metadata = self._process_file_basic(path)
+            if not metadata:
+                return None
+            with self._lock:
+                self._cache[path] = metadata
         
-        # Solo extraer EXIF si es video
-        if metadata.is_video:
-            # TODO: Integrar extracción de EXIF para videos (más costoso)
-            # Por ahora retornar sin EXIF, se puede poblar después con set_exif()
-            pass
+        # No es video? Skip
+        if not metadata.is_video:
+            return metadata
+        
+        # Ya tiene EXIF? Skip
+        if metadata.has_exif:
+            return metadata
+        
+        # TODO: Integrar extracción de EXIF para videos (más costoso)
+        # Por ahora retornar sin EXIF, se puede poblar después con set_exif()
         
         return metadata
     
-    def _process_file_with_exif_all(self, path: Path) -> Optional[FileMetadata]:
+    def _process_file_exif_all(self, path: Path) -> Optional[FileMetadata]:
         """
-        Procesa archivo con estrategia WITH_EXIF_ALL: filesystem + EXIF para imágenes y videos.
+        Procesa archivo con estrategia EXIF_ALL: EXIF para imágenes y videos.
         
-        Moderado a costoso, usa para análisis completo de multimedia.
-        Procesa EXIF para ambos tipos, respetando que videos son más costosos.
+        Requiere que BASIC ya se haya ejecutado.
+        Si el archivo no está en caché, hace autofetch de filesystem metadata.
+        Solo procesa si es imagen o video y no tiene EXIF ya.
+        Costoso (especialmente para videos).
         """
-        metadata = self._process_file_basic(path)
+        path = path.resolve()
+        
+        # Obtener metadata existente (autofetch si no existe)
+        with self._lock:
+            metadata = self._cache.get(path)
+        
         if not metadata:
-            return None
+            # Autofetch: crear metadata básica
+            metadata = self._process_file_basic(path)
+            if not metadata:
+                return None
+            with self._lock:
+                self._cache[path] = metadata
+        
+        # No es imagen ni video? Skip
+        if not metadata.is_image and not metadata.is_video:
+            return metadata
+        
+        # Ya tiene EXIF? Skip
+        if metadata.has_exif:
+            return metadata
         
         # Extraer EXIF según tipo de archivo
         if metadata.is_image:
@@ -399,28 +476,41 @@ class FileInfoRepository:
     
     def _process_file_full(self, path: Path) -> Optional[FileMetadata]:
         """
-        Procesa archivo con estrategia FULL: filesystem + hash + EXIF.
+        Procesa archivo con estrategia FULL: hash + EXIF completo.
         
-        Muy costoso, usar solo si realmente se necesita todo.
-        Diferencia entre imágenes (EXIF más rápido) y videos (EXIF más costoso).
+        Requiere que BASIC ya se haya ejecutado.
+        Si el archivo no está en caché, hace autofetch de filesystem metadata.
+        Extremadamente costoso, usar solo si realmente se necesita todo.
         """
-        metadata = self._process_file_basic(path)
+        path = path.resolve()
+        
+        # Obtener metadata existente (autofetch si no existe)
+        with self._lock:
+            metadata = self._cache.get(path)
+        
         if not metadata:
-            return None
+            # Autofetch: crear metadata básica
+            metadata = self._process_file_basic(path)
+            if not metadata:
+                return None
+            with self._lock:
+                self._cache[path] = metadata
         
-        # Hash
-        try:
-            metadata.sha256 = calculate_file_hash(path)
-        except Exception as e:
-            self._logger.error(f"Error calculando hash para {path}: {e}")
+        # Hash (si no lo tiene)
+        if not metadata.sha256:
+            try:
+                metadata.sha256 = calculate_file_hash(path)
+            except Exception as e:
+                self._logger.error(f"Error calculando hash para {path}: {e}")
         
-        # EXIF según tipo de archivo
-        if metadata.is_image:
-            # TODO: Integrar extracción de EXIF para imágenes
-            pass
-        elif metadata.is_video:
-            # TODO: Integrar extracción de EXIF para videos (más costoso)
-            pass
+        # EXIF (si no lo tiene y es imagen/video)
+        if not metadata.has_exif and (metadata.is_image or metadata.is_video):
+            if metadata.is_image:
+                # TODO: Integrar extracción de EXIF para imágenes
+                pass
+            elif metadata.is_video:
+                # TODO: Integrar extracción de EXIF para videos (más costoso)
+                pass
         
         return metadata
     

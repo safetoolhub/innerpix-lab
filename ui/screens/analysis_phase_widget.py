@@ -64,13 +64,16 @@ class AnalysisPhaseWidget(QFrame):
         layout.addLayout(header_layout)
         layout.addSpacing(DesignSystem.SPACE_2)  # Separador más pequeño después del header
         
-        # Fase única del análisis inicial (escaneo)
-        # El texto se actualiza dinámicamente según las sub-fases del DirectoryScanner:
-        # - "Obteniendo lista de archivos"
-        # - "Obteniendo metadatos de archivos" 
-        # - "Finalizando análisis"
+        # Fases del análisis inicial con InitialScanner:
+        # 1. BASIC: Análisis de estructura del directorio
+        # 2. WITH_HASH: Cálculo de hashes SHA256
+        # 3. WITH_EXIF_IMAGES: Extracción de metadatos de imágenes
+        # 4. WITH_EXIF_VIDEOS: Extracción de metadatos de videos
         phases = [
-            ("scan", "Preparando análisis..."),
+            ("phase_basic", "Analizando estructura de la carpeta"),
+            ("phase_hash", "Calculando hashes de los archivos"),
+            ("phase_exif_images", "Obteniendo metadatos de las imagenes"),
+            ("phase_exif_videos", "Obteniendo metadatos de los videos"),
         ]
         
         for phase_id, phase_text in phases:

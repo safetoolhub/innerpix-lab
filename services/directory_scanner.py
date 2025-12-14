@@ -190,7 +190,7 @@ class DirectoryScanner:
         if repo is not None:
             # Determinar estrategia de población
             if precalculate_hashes:
-                strategy = PopulationStrategy.WITH_HASH
+                strategy = PopulationStrategy.HASH
                 self.logger.info("Poblando FileInfoRepository con hashes (pre-calculo activado)")
             else:
                 strategy = PopulationStrategy.BASIC

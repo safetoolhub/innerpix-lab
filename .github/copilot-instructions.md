@@ -4,7 +4,11 @@ PyQt6 desktop app for photo/video management. Workflow: **analyze → preview �
 See `PROJECT_TREE.md` for structure. Ignore `docs/` (author's notes).
 
 ### Flujo de Análisis
-1. **Stage 2**: Escaneo inicial usando `DirectoryScanner.scan()` → `DirectoryScanResult`. Para analisis de ficheros y de metadatos. No se analizan tools especificas
+1. **Stage 2**: Escaneo inicial multi-fase usando `InitialScanner.scan()` → `DirectoryScanResult`. 4 fases diferenciadas:
+   - Fase 1 (BASIC): Análisis de estructura del directorio → "Analizando estructura de la carpeta"
+   - Fase 2 (HASH): Cálculo de hashes SHA256 → "Calculando hashes de los archivos"
+   - Fase 3 (EXIF_IMAGES): Extracción de metadatos de imágenes → "Obteniendo metadatos de las imagenes"
+   - Fase 4 (EXIF_VIDEOS): Extracción de metadatos de videos → "Obteniendo metadatos de los videos"
 2. **Stage 3**: Análisis bajo demanda para cada herramienta
    - Live Photos: `LivePhotoService.analyze()` → `LivePhotosAnalysisResult`
    - HEIC/JPG: `HeicService.analyze()` → `HeicAnalysisResult`
@@ -17,13 +21,15 @@ See `PROJECT_TREE.md` for structure. Ignore `docs/` (author's notes).
 
 **File Info Repository** (`services/file_info_repository.py`) - Singleton cache system
 - **Pattern**: `FileInfoRepository.get_instance()` - NOT passed as parameter to services
-- **Population**: Use `populate_from_scan(files, strategy)` - bulk loading with strategies
-  - `BASIC`: Solo filesystem metadata (rápido)
-  - `WITH_HASH`: + SHA256 hashes (para duplicados exactos)
-  - `WITH_EXIF_IMAGES`: + EXIF solo imágenes (moderado)
-  - `WITH_EXIF_VIDEOS`: + EXIF solo videos (muy costoso)
-  - `WITH_EXIF_ALL`: + EXIF imágenes y videos
-  - `FULL`: Hash + EXIF completo (extremadamente costoso)
+- **Population**: Use `populate_from_scan(files, strategy)` - bulk loading with strategies (incremental)
+  - `BASIC`: Solo filesystem metadata (rápido, OBLIGATORIO primero)
+  - `HASH`: Solo SHA256 hashes (requiere BASIC previo, para duplicados exactos)
+  - `EXIF_IMAGES`: Solo EXIF de imágenes (requiere BASIC previo, moderado)
+  - `EXIF_VIDEOS`: Solo EXIF de videos (requiere BASIC previo, muy costoso)
+  - `EXIF_ALL`: EXIF de imágenes + videos (requiere BASIC previo, muy costoso)
+  - `FULL`: Hash + EXIF completo (requiere BASIC previo, extremadamente costoso)
+- **Incremental workflow**: BASIC siempre primero, luego estrategias específicas según necesidad
+- **Auto-fetch**: Si metadata básica no existe, las estrategias la crean automáticamente
 - **Auto-fetch**: `get_file_metadata(path, auto_fetch=True)`, `get_hash(path, auto_fetch=True)`, `get_exif(path, auto_fetch=False)`
 - **Cache Management**:
   - `remove_file(path)`, `remove_files(paths)` - Después de operaciones destructivas
@@ -40,7 +46,7 @@ See `PROJECT_TREE.md` for structure. Ignore `docs/` (author's notes).
 - **Magic methods**: `len(repo)`, `path in repo`, `repo[path]`
 - **Future-proof**: Preparado para MySQL/PostgreSQL via Protocol interface
 
-**Similar Files Analysis** (`services/similar_files_detector.py`) - Two-phase system
+**Similar Files Analysis** (`services/duplicates_similar_service.py`) - Two-phase system
 - Phase 1: `analyze_initial()` - Expensive perceptual hash calculation (~5 min for 40k files)
 - Phase 2: `get_groups(sensitivity)` - Fast clustering with adjustable sensitivity (<1 sec)
 - `SimilarFilesAnalysis`: Container for pre-calculated hashes, enables real-time re-clustering
@@ -49,10 +55,24 @@ See `PROJECT_TREE.md` for structure. Ignore `docs/` (author's notes).
 - Hamming distance: 64-bit perceptual hash comparison for similarity detection
 - Sensitivity scale: 30-100% (30=permissive, 100=identical only, 85=recommended)
 
-**Workers** (`ui/workers.py`) - QThread background
+**Initial Scanner** (`services/initial_scanner.py`) - Multi-phase Stage 2 scanner
+- 4 fases secuenciales: BASIC → HASH → EXIF_IMAGES → EXIF_VIDEOS
+- Callbacks: `phase_callback(phase_id, message)` para inicio, `progress_callback(PhaseProgress)` para progreso
+- Población incremental usando `FileInfoRepository.populate_from_scan()` con estrategias específicas
+- Cancelación: `request_stop()` detiene escaneo de forma segura
+- Clasificación automática: separa imágenes, videos y otros según extensión
+
+**File Metadata** (`services/file_metadata.py`) - Immutable data model
+- Dataclass con: path, fs_size, fs_mtime, sha256, exif_* fields
+- Propiedades: `is_image`, `is_video`, `has_hash`, `has_exif`, `extension`, `file_type`
+- Serialización: `to_dict()` / `from_dict(data)` para persistencia
+- Helper: `get_exif_dates()` retorna dict con fechas EXIF disponibles
+
+**Workers** (`ui/workers/`) - QThread background
 - Base: `BaseWorker` with `progress_update`, `finished`, `error` signals
 - Type-safe: hints on `__init__` and `run()`, TYPE_CHECKING for imports
-- Unified: `AnalysisWorker` delegates to orchestrator
+- `InitialAnalysisWorker`: Stage 2 multi-phase scan worker, emits `phase_started(phase_id, message)`, `phase_completed(phase_id)`, `stats_update(dict)`
+- On-demand workers: `LivePhotosAnalysisWorker`, `HeicAnalysisWorker`, `DuplicatesExactAnalysisWorker`, etc.
 
 **UI Stages** (`ui/screens/`) - 3-stage flow
 - Stage 1: Folder selector

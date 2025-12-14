@@ -88,12 +88,15 @@ def demo_strategies():
     print(f"  Archivos: {repo.count()}")
     print(f"  Con hash: {repo.count_with_hash()}")
     
-    # Estrategia 2: WITH_HASH
-    print("\n→ Estrategia 2: WITH_HASH (filesystem + SHA256)")
+    # Estrategia 2: HASH
+    print("\n→ Estrategia 2: HASH (solo SHA256, requiere BASIC previo)")
     repo.clear()
-    repo.populate_from_scan(files, PopulationStrategy.WITH_HASH)
-    print(f"  Archivos: {repo.count()}")
-    print(f"  Con hash: {repo.count_with_hash()}")
+    # Primero BASIC
+    repo.populate_from_scan(files, PopulationStrategy.BASIC)
+    print(f"  Después de BASIC: {repo.count()} archivos")
+    # Luego HASH incremental
+    repo.populate_from_scan(files, PopulationStrategy.HASH)
+    print(f"  Después de HASH: {repo.count_with_hash()} con hash")
     
     # Mostrar hashes
     print("\n  Hashes calculados:")

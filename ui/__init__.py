@@ -1,7 +1,7 @@
 from ui.screens.main_window import MainWindow
 from .workers import (
     BaseWorker,
-    AnalysisWorker,
+    InitialAnalysisWorker,
     FileRenamerExecutionWorker,
     LivePhotosExecutionWorker,
     FileOrganizerExecutionWorker,
@@ -21,7 +21,7 @@ from .workers import (
 __all__ = [
     'MainWindow',
     'BaseWorker',
-    'AnalysisWorker',
+    'InitialAnalysisWorker',
     'FileRenamerExecutionWorker',
     'LivePhotosExecutionWorker',
     'FileOrganizerExecutionWorker',
