@@ -26,7 +26,6 @@ Aplicación PyQt6 para gestión de colecciones de fotos/videos (enfoque iOS).
 │   ├── live_photos_service.py
 │   ├── metadata_cache.py
 │   ├── result_types.py
-│   ├── view_models.py
 │   └── zero_byte_service.py
 ├── ui
 │   ├── dialogs
@@ -42,31 +41,30 @@ Aplicación PyQt6 para gestión de colecciones de fotos/videos (enfoque iOS).
 │   │   ├── duplicates_similar_dialog.py
 │   │   ├── duplicates_similar_progress_dialog.py
 │   │   └── zero_byte_dialog.py
-│   ├── stages
-│   │   ├── base_stage.py
-│   │   ├── stage_1_window.py
-│   │   ├── stage_2_window.py
-│   │   └── stage_3_window.py
-│   ├── styles
-│   │   └── design_system.py
-│   ├── widgets
+│   ├── screens
 │   │   ├── analysis_phase_widget.py
+│   │   ├── base_stage.py
 │   │   ├── custom_spinbox.py
 │   │   ├── dropzone_widget.py
+│   │   ├── main_window.py
 │   │   ├── progress_card.py
+│   │   ├── stage_1_window.py
+│   │   ├── stage_2_window.py
+│   │   ├── stage_3_window.py
 │   │   ├── summary_card.py
 │   │   └── tool_card.py
+│   ├── styles
+│   │   ├── design_system.py
+│   │   └── icons.py
 │   ├── workers
 │   │   ├── analysis_workers.py
 │   │   ├── base_worker.py
 │   │   └── execution_workers.py
-│   └── main_window.py
 ├── utils
 │   ├── callback_utils.py
 │   ├── date_utils.py
 │   ├── file_utils.py
 │   ├── format_utils.py
-│   ├── icons.py
 │   ├── image_loader.py
 │   ├── logger.py
 │   ├── platform_utils.py
@@ -82,5 +80,5 @@ Aplicación PyQt6 para gestión de colecciones de fotos/videos (enfoque iOS).
 ├── requirements-dev.txt
 └── requirements.txt
 
-13 directories, 63 files
+13 directories, 62 files
 ```

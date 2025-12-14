@@ -45,7 +45,7 @@ See `PROJECT_TREE.md` for structure. Ignore `docs/` (author's notes).
 - Type-safe: hints on `__init__` and `run()`, TYPE_CHECKING for imports
 - Unified: `AnalysisWorker` delegates to orchestrator
 
-**UI Stages** (`ui/stages/`) - 3-stage flow
+**UI Stages** (`ui/screens/`) - 3-stage flow
 - Stage 1: Folder selector
 - Stage 2: Analysis progress
 - Stage 3: Tools grid → dialogs

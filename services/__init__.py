@@ -7,7 +7,6 @@ utilizados en la aplicación, incluyendo:
 - Servicios principales: FileRenamer, LivePhotoService, FileOrganizer, etc.
 - Servicios base: BaseService, DuplicatesBaseService
 - Tipos de resultado: Todas las dataclasses de resultado de operaciones
-- View Models: Modelos de presentación sin dependencias de UI
 - Utilidades: Funciones helper y tipos de datos auxiliares
 """
 
@@ -23,20 +22,6 @@ from .zero_byte_service import ZeroByteService
 # Servicios base
 from .base_service import BaseService, BackupCreationError, ProgressCallback
 from .duplicates_base_service import DuplicatesBaseService
-
-# View Models
-from .view_models import (
-    TreeNode,
-    TableRow,
-    OrganizationTreeNode,
-    OrganizationViewModel,
-    RenameTableRow,
-    RenameViewModel,
-    HEICTreeNode,
-    HEICViewModel,
-    DuplicateTreeNode,
-    DuplicatesViewModel,
-)
 
 # Utilidades de file_utils
 # (none currently)
@@ -115,15 +100,4 @@ __all__ = [
 
     'ZeroByteAnalysisResult',
     'ZeroByteExecutionResult',
-    # View Models
-    'TreeNode',
-    'TableRow',
-    'OrganizationTreeNode',
-    'OrganizationViewModel',
-    'RenameTableRow',
-    'RenameViewModel',
-    'HEICTreeNode',
-    'HEICViewModel',
-    'DuplicateTreeNode',
-    'DuplicatesViewModel',
 ]

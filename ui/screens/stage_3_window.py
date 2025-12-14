@@ -908,10 +908,7 @@ class Stage3Window(BaseStage):
         """Maneja el clic en el botón 'Acerca de'"""
         self.logger.debug("Abriendo diálogo 'Acerca de'")
         dialog = AboutDialog(self.main_window)
-        dialog.exec()
-    
-    # ==================== SIMILAR DUPLICATES ====================
-    # Similarity handling moved to ui/screens/similarity_handlers.py
-    # Handle through self.similarity_handler
+        dialog.exec()   
+
     
 
