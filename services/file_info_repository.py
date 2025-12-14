@@ -33,54 +33,58 @@ class FileMetadata:
     """
     Metadatos puros de un archivo.
     
-    Contiene información del sistema de archivos y metadatos extendidos
-    como EXIF y hashes calculados bajo demanda.
+    Contiene información del sistema de archivos (prefijo fs_) y metadatos EXIF
+    (prefijo exif_) separados campo a campo para facilitar el acceso y verificación.
     """
+    # Información del archivo
     path: Path
     size: int
-    ctime: float  # Creation time (timestamp)
-    mtime: float  # Modification time (timestamp)
-    atime: float  # Access time (timestamp)
     
-    # Extended Metadata (Lazy loaded or populated during scan)
-    exif_data: Dict[str, Any] = field(default_factory=dict)
+    # Información del filesystem (prefijo fs_)
+    fs_ctime: float  # Creation time (timestamp)
+    fs_mtime: float  # Modification time (timestamp)
+    fs_atime: float  # Access time (timestamp)
     
-    # Hash (Lazy loaded - expensive operation)
+    # Hash SHA256 (Lazy loaded - expensive operation)
     sha256: Optional[str] = None
+    
+    # Metadatos EXIF específicos (prefijo exif_)
+    exif_ImageWidth: Optional[int] = None
+    exif_ImageLength: Optional[int] = None
+    exif_DateTime: Optional[str] = None
+    exif_GPSTimeStamp: Optional[str] = None
+    exif_GPSDateStamp: Optional[str] = None
+    exif_DateTimeOriginal: Optional[str] = None
+    exif_DateTimeDigitized: Optional[str] = None
+    exif_ExifVersion: Optional[str] = None
     
     @property
     def extension(self) -> str:
         """Extensión del archivo en minúsculas"""
         return self.path.suffix.lower()
-
+    
     @property
-    def exif_date_time_original(self) -> Optional[str]:
-        """Fecha EXIF DateTimeOriginal (fecha de captura)"""
-        return self.exif_data.get('DateTimeOriginal')
-
-    @property
-    def exif_create_date(self) -> Optional[str]:
-        """Fecha EXIF CreateDate"""
-        return self.exif_data.get('CreateDate')
-        
-    @property
-    def exif_date_digitized(self) -> Optional[str]:
-        """Fecha EXIF DateTimeDigitized"""
-        return self.exif_data.get('DateTimeDigitized')
-
-    @property
-    def sha256_hash(self) -> Optional[str]:
-        """Hash SHA256 del archivo (alias para compatibilidad)"""
-        return self.sha256
+    def has_exif(self) -> bool:
+        """Verifica si tiene algún campo EXIF poblado"""
+        return any([
+            self.exif_ImageWidth is not None,
+            self.exif_ImageLength is not None,
+            self.exif_DateTime is not None,
+            self.exif_GPSTimeStamp is not None,
+            self.exif_GPSDateStamp is not None,
+            self.exif_DateTimeOriginal is not None,
+            self.exif_DateTimeDigitized is not None,
+            self.exif_ExifVersion is not None
+        ])
     
     def get_file_info_in_one_line(self, verbose: bool = False) -> str:
         """Retorna toda la información del archivo en una línea de texto para logging.
         
-        Formato: [FileMetadata Info]: path=... | size=... | sha256=... | exif_count=... | dates=...
+        Formato: [FileMetadata Info]: path=... | size=... | sha256=... | exif=... | fs_times=...
         Sin emojis, solo texto plano para logs profesionales.
         
         Args:
-            verbose: Si True, muestra todos los campos EXIF en lugar de solo el recuento y fechas principales
+            verbose: Si True, muestra todos los campos EXIF en lugar de solo las fechas principales
             
         Returns:
             str: Línea completa con toda la metadata del archivo
@@ -88,39 +92,47 @@ class FileMetadata:
         # Hash (primeros 8 caracteres o 'pending')
         hash_val = self.sha256[:8] + '...' if self.sha256 else 'pending'
         
-        # EXIF: contar campos y listar fechas principales o todos los campos si verbose
-        exif_count = len(self.exif_data) if self.exif_data else 0
-        
-        if verbose and self.exif_data:
-            # Mostrar todos los campos EXIF
-            exif_items = [f"{k}={v}" for k, v in self.exif_data.items()]
-            exif_info = f"exif_fields={exif_count} [{', '.join(exif_items)}]"
-        else:
-            # Modo normal: contar campos y listar fechas principales
-            exif_dates = []
-            if self.exif_data:
-                for key in ['DateTimeOriginal', 'CreateDate', 'DateTimeDigitized']:
-                    if key in self.exif_data:
-                        exif_dates.append(f"{key}={self.exif_data[key]}")
+        # EXIF: listar campos poblados
+        if verbose:
+            # Mostrar todos los campos EXIF poblados
+            exif_items = []
+            for field_name in ['ImageWidth', 'ImageLength', 'DateTime', 'GPSTimeStamp', 
+                              'GPSDateStamp', 'DateTimeOriginal', 'DateTimeDigitized', 'ExifVersion']:
+                value = getattr(self, f'exif_{field_name}', None)
+                if value is not None:
+                    exif_items.append(f"{field_name}={value}")
             
-            exif_info = f"exif_fields={exif_count}"
+            exif_info = f"exif_fields={len(exif_items)}"
+            if exif_items:
+                exif_info += f" [{', '.join(exif_items)}]"
+        else:
+            # Modo normal: solo fechas principales
+            exif_dates = []
+            if self.exif_DateTimeOriginal:
+                exif_dates.append(f"DateTimeOriginal={self.exif_DateTimeOriginal}")
+            if self.exif_DateTime:
+                exif_dates.append(f"DateTime={self.exif_DateTime}")
+            if self.exif_DateTimeDigitized:
+                exif_dates.append(f"DateTimeDigitized={self.exif_DateTimeDigitized}")
+            
             if exif_dates:
-                exif_info += f" [{', '.join(exif_dates)}]"
+                exif_info = f"exif=[{', '.join(exif_dates)}]"
+            else:
+                exif_info = "exif=none"
         
         # Timestamps del filesystem
-        from datetime import datetime
-        ctime_str = datetime.fromtimestamp(self.ctime).strftime('%Y-%m-%d %H:%M:%S')
-        mtime_str = datetime.fromtimestamp(self.mtime).strftime('%Y-%m-%d %H:%M:%S')
-        atime_str = datetime.fromtimestamp(self.atime).strftime('%Y-%m-%d %H:%M:%S')
+        ctime_str = datetime.fromtimestamp(self.fs_ctime).strftime('%Y-%m-%d %H:%M:%S')
+        mtime_str = datetime.fromtimestamp(self.fs_mtime).strftime('%Y-%m-%d %H:%M:%S')
+        atime_str = datetime.fromtimestamp(self.fs_atime).strftime('%Y-%m-%d %H:%M:%S')
 
         return (
             f"[FileMetadata Info]: path={self.path.name} | "
             f"size={self.size} bytes | "
             f"extension={self.extension} | "
             f"sha256={hash_val} | "
-            f"ctime={ctime_str} | "
-            f"mtime={mtime_str} | "
-            f"atime={atime_str} | "            
+            f"fs_ctime={ctime_str} | "
+            f"fs_mtime={mtime_str} | "
+            f"fs_atime={atime_str} | "            
             f"{exif_info}"
         )
 
@@ -258,9 +270,9 @@ class FileInfoRepository:
             meta = FileMetadata(
                 path=path,
                 size=stat.st_size,
-                ctime=stat.st_ctime,
-                mtime=stat.st_mtime,
-                atime=stat.st_atime
+                fs_ctime=stat.st_ctime,
+                fs_mtime=stat.st_mtime,
+                fs_atime=stat.st_atime
             )
             with self._lock:
                 self._cache[path] = meta
@@ -297,7 +309,6 @@ class FileInfoRepository:
         ctime: float, 
         mtime: float, 
         atime: float, 
-        file_type: str = "OTHER"
     ) -> None:
         """
         Establece metadatos básicos directamente (usado por orchestrator).
@@ -308,14 +319,13 @@ class FileInfoRepository:
             ctime: Creation time (timestamp)
             mtime: Modification time (timestamp)
             atime: Access time (timestamp)
-            file_type: Tipo de archivo (ignorado, para compatibilidad)
         """
         meta = FileMetadata(
             path=path,
             size=size,
-            ctime=ctime,
-            mtime=mtime,
-            atime=atime
+            fs_ctime=ctime,
+            fs_mtime=mtime,
+            fs_atime=atime
         )
         with self._lock:
             self._cache[path] = meta
@@ -387,7 +397,7 @@ class FileInfoRepository:
         
         Args:
             path: Ruta del archivo
-            exif_data: Diccionario con datos EXIF parseados
+            exif_data: Diccionario con datos EXIF parseados (solo campos soportados)
         """
         meta = self.get_metadata(path)
         if not meta:
@@ -397,8 +407,25 @@ class FileInfoRepository:
                 self._logger.warning(f"Intento de establecer EXIF para archivo no existente: {path}")
                 return
         
+        # Mapear campos EXIF del diccionario a atributos específicos
         with self._lock:
-            meta.exif_data = exif_data
+            if 'ImageWidth' in exif_data:
+                meta.exif_ImageWidth = exif_data['ImageWidth']
+            if 'ImageLength' in exif_data:
+                meta.exif_ImageLength = exif_data['ImageLength']
+            if 'DateTime' in exif_data:
+                meta.exif_DateTime = exif_data['DateTime']
+            if 'GPSTimeStamp' in exif_data:
+                meta.exif_GPSTimeStamp = exif_data['GPSTimeStamp']
+            if 'GPSDateStamp' in exif_data:
+                meta.exif_GPSDateStamp = exif_data['GPSDateStamp']
+            if 'DateTimeOriginal' in exif_data:
+                meta.exif_DateTimeOriginal = exif_data['DateTimeOriginal']
+            if 'DateTimeDigitized' in exif_data:
+                meta.exif_DateTimeDigitized = exif_data['DateTimeDigitized']
+            if 'ExifVersion' in exif_data:
+                meta.exif_ExifVersion = exif_data['ExifVersion']
+            
             self._logger.debug(f"EXIF establecido para: {path}")
 
     def get_files_by_size(self) -> Dict[int, List[FileMetadata]]:
@@ -468,16 +495,8 @@ class FileInfoRepository:
             path: Ruta del archivo
             all_dates: Diccionario con todas las fechas encontradas
         """
-        meta = self.get_metadata(path)
-        if not meta:
-            if path.exists():
-                meta = self.add_file(path)
-            else:
-                self._logger.warning(f"Intento de establecer fechas para archivo no existente: {path}")
-                return
-        
-        with self._lock:
-            meta.exif_data = all_dates.copy()
+        # Reutilizar set_exif que ya maneja el mapeo de campos
+        self.set_exif(path, all_dates)
 
     def get_all_dates(self, path: Path) -> Dict[str, Any]:
         """
@@ -487,12 +506,26 @@ class FileInfoRepository:
             path: Ruta del archivo
             
         Returns:
-            Dict[str, Any]: Diccionario con fechas, vacío si no hay datos
+            Dict[str, Any]: Diccionario con fechas EXIF, vacío si no hay datos
         """
         meta = self.get_metadata(path)
-        if meta and meta.exif_data:
-            return meta.exif_data.copy()
-        return {}
+        if not meta:
+            return {}
+        
+        # Reconstruir diccionario desde atributos específicos
+        dates = {}
+        if meta.exif_DateTime:
+            dates['DateTime'] = meta.exif_DateTime
+        if meta.exif_DateTimeOriginal:
+            dates['DateTimeOriginal'] = meta.exif_DateTimeOriginal
+        if meta.exif_DateTimeDigitized:
+            dates['DateTimeDigitized'] = meta.exif_DateTimeDigitized
+        if meta.exif_GPSTimeStamp:
+            dates['GPSTimeStamp'] = meta.exif_GPSTimeStamp
+        if meta.exif_GPSDateStamp:
+            dates['GPSDateStamp'] = meta.exif_GPSDateStamp
+        
+        return dates
 
     def get_selected_date(self, path: Path) -> Tuple[Optional[datetime], str]:
         """
@@ -513,8 +546,8 @@ class FileInfoRepository:
             return None, "unknown"
             
         # Try EXIF first (implementación completa requeriría date_utils)
-        # Por ahora retornamos mtime como fallback seguro
-        return datetime.fromtimestamp(meta.mtime), "mtime"
+        # Por ahora retornamos fs_mtime como fallback seguro
+        return datetime.fromtimestamp(meta.fs_mtime), "mtime"
 
     def get_stats(self) -> Dict[str, Any]:
         """

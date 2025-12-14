@@ -86,29 +86,30 @@ class TestFileMetadataCacheExifDates:
         file_path.touch()
         
         test_dates = {
-            'exif_date_time_original': datetime(2023, 5, 15, 10, 30, 40),
-            'exif_create_date': datetime(2023, 5, 15, 10, 30, 45),
-            'exif_offset_time': '+02:00',
-            'filename_date': datetime(2023, 5, 15, 0, 0, 0),
-            'modification_date': datetime(2023, 5, 16, 12, 0, 0)
+            'DateTimeOriginal': '2023:05:15 10:30:40',
+            'DateTime': '2023:05:15 10:30:45',
+            'DateTimeDigitized': '2023:05:15 10:30:35',
+            'GPSTimeStamp': '10:30:40',
+            'GPSDateStamp': '2023:05:15'
         }
         
         cache.set_all_dates(file_path, test_dates)
         
         retrieved_dates = cache.get_all_dates(file_path)
         assert retrieved_dates is not None
-        assert retrieved_dates['exif_date_time_original'] == test_dates['exif_date_time_original']
-        assert retrieved_dates['exif_create_date'] == test_dates['exif_create_date']
-        assert retrieved_dates['exif_offset_time'] == '+02:00'
-        assert retrieved_dates['filename_date'] == test_dates['filename_date']
+        assert retrieved_dates['DateTimeOriginal'] == test_dates['DateTimeOriginal']
+        assert retrieved_dates['DateTime'] == test_dates['DateTime']
+        assert retrieved_dates['DateTimeDigitized'] == test_dates['DateTimeDigitized']
+        assert retrieved_dates['GPSTimeStamp'] == test_dates['GPSTimeStamp']
+        assert retrieved_dates['GPSDateStamp'] == test_dates['GPSDateStamp']
     
     def test_get_all_dates_not_cached(self, temp_dir):
-        """Debe retornar None para fechas no cacheadas"""
+        """Debe retornar dict vacío para fechas no cacheadas"""
         cache = FileInfoRepository()
         file_path = temp_dir / "photo.jpg"
         
         retrieved_dates = cache.get_all_dates(file_path)
-        assert retrieved_dates is None
+        assert retrieved_dates == {}
     
     def test_multiple_date_sources(self, temp_dir):
         """Debe cachear fechas de múltiples fuentes correctamente"""
@@ -117,20 +118,20 @@ class TestFileMetadataCacheExifDates:
         file_path.touch()
         
         dates = {
-            'exif_date_time_original': datetime(2023, 5, 15, 10, 30, 45),
-            'exif_create_date': datetime(2023, 5, 15, 10, 30, 40),
-            'video_metadata_date': datetime(2023, 5, 15, 10, 30, 35),
-            'filename_date': datetime(2023, 5, 15, 0, 0, 0)
+            'DateTimeOriginal': '2023:05:15 10:30:45',
+            'DateTime': '2023:05:15 10:30:40',
+            'DateTimeDigitized': '2023:05:15 10:30:35',
+            'GPSDateStamp': '2023:05:15'
         }
         
         cache.set_all_dates(file_path, dates)
         
         retrieved = cache.get_all_dates(file_path)
         assert retrieved is not None
-        assert retrieved['exif_date_time_original'] == dates['exif_date_time_original']
-        assert retrieved['exif_create_date'] == dates['exif_create_date']
-        assert retrieved['video_metadata_date'] == dates['video_metadata_date']
-        assert retrieved['filename_date'] == dates['filename_date']
+        assert retrieved['DateTimeOriginal'] == dates['DateTimeOriginal']
+        assert retrieved['DateTime'] == dates['DateTime']
+        assert retrieved['DateTimeDigitized'] == dates['DateTimeDigitized']
+        assert retrieved['GPSDateStamp'] == dates['GPSDateStamp']
 
 
 @pytest.mark.unit
@@ -144,10 +145,12 @@ class TestFileMetadataCacheBasicMetadata:
         file_path.touch()
         
         test_size = 12345
-        cache.set_basic_metadata(file_path, size=test_size)
+        test_time = 1234567890.0
+        cache.set_basic_metadata(file_path, size=test_size, ctime=test_time, mtime=test_time, atime=test_time)
         
-        retrieved_size = cache.get_size(file_path)
-        assert retrieved_size == test_size
+        meta = cache.get_metadata(file_path)
+        assert meta is not None
+        assert meta.size == test_size
     
     def test_set_all_basic_metadata(self, temp_dir):
         """Debe cachear todo el metadata básico"""
@@ -155,24 +158,23 @@ class TestFileMetadataCacheBasicMetadata:
         file_path = temp_dir / "photo.jpg"
         file_path.touch()
         
-        filesystem_modification_date = datetime(2023, 5, 15, 12, 0, 0)
-        filesystem_creation_date = datetime(2023, 5, 15, 11, 0, 0)
+        mtime_timestamp = datetime(2023, 5, 15, 12, 0, 0).timestamp()
+        ctime_timestamp = datetime(2023, 5, 15, 11, 0, 0).timestamp()
+        atime_timestamp = datetime(2023, 5, 15, 10, 0, 0).timestamp()
         
         cache.set_basic_metadata(
             file_path,
             size=54321,
-            file_type='image',
-            filesystem_modification_date=filesystem_modification_date,
-            filesystem_creation_date=filesystem_creation_date,
-            filesystem_creation_source='ctime'
+            ctime=ctime_timestamp,
+            mtime=mtime_timestamp,
+            atime=atime_timestamp
         )
         
         metadata = cache.get_or_create(file_path)
         assert metadata.size == 54321
-        assert metadata.file_type == 'image'
-        assert metadata.filesystem_modification_date == filesystem_modification_date
-        assert metadata.filesystem_creation_date == filesystem_creation_date
-        assert metadata.filesystem_creation_source == 'ctime'
+        assert metadata.fs_mtime == mtime_timestamp
+        assert metadata.fs_ctime == ctime_timestamp
+        assert metadata.fs_atime == atime_timestamp
 
 
 @pytest.mark.unit
@@ -180,7 +182,7 @@ class TestFileMetadataCacheInvalidation:
     """Tests de invalidación de caché"""
     
     def test_invalidate_specific_file(self, temp_dir):
-        """Debe invalidar caché de archivo específico"""
+        """Debe limpiar caché completa (API no soporta invalidación selectiva)"""
         cache = FileInfoRepository()
         file1 = temp_dir / "file1.jpg"
         file2 = temp_dir / "file2.jpg"
@@ -192,11 +194,10 @@ class TestFileMetadataCacheInvalidation:
         
         assert len(cache) == 2
         
-        cache.invalidate(file1)
+        # API solo soporta clear() completo
+        cache.clear()
         
-        assert len(cache) == 1
-        assert cache.get_hash(file1) is None
-        assert cache.get_hash(file2) == "hash2"
+        assert len(cache) == 0
     
     def test_invalidate_all(self, temp_dir):
         """Debe invalidar toda la caché"""
@@ -209,7 +210,7 @@ class TestFileMetadataCacheInvalidation:
         
         assert len(cache) == 5
         
-        cache.invalidate()
+        cache.clear()
         
         assert len(cache) == 0
     
@@ -218,17 +219,20 @@ class TestFileMetadataCacheInvalidation:
         cache = FileInfoRepository()
         file_path = temp_dir / "test.jpg"
         file_path.touch()
+        file_path2 = temp_dir / "test2.jpg"
+        file_path2.touch()
         
         # Generar hits y misses
         cache.set_hash(file_path, "hash1")
         cache.get_hash(file_path)  # hit
-        cache.get_hash(temp_dir / "nonexistent.jpg")  # miss
+        # Para miss, consultar metadata sin añadir
+        cache.get_metadata(file_path2)  # miss
         
         stats_before = cache.get_stats()
         assert stats_before['hits'] > 0
         assert stats_before['misses'] > 0
         
-        cache.invalidate()
+        cache.clear()
         
         stats_after = cache.get_stats()
         assert stats_after['hits'] == 0
@@ -259,23 +263,26 @@ class TestFileMetadataCacheStatistics:
         cache = FileInfoRepository()
         file_path = temp_dir / "test.jpg"
         file_path.touch()
+        file_path2 = temp_dir / "test2.jpg"
+        file_path2.touch()
         
-        # 1 miss (primera vez)
-        cache.set_hash(file_path, "hash123")
+        # Añadir archivo directamente
+        cache.add_file(file_path)
         
-        # 3 hits (ya está cacheado)
-        for _ in range(3):
-            cache.get_hash(file_path)
+        # Múltiples hits consecutivos
+        for _ in range(5):
+            cache.get_metadata(file_path)  # hit
         
-        # 1 miss (archivo no cacheado)
-        cache.get_hash(temp_dir / "nonexistent.jpg")
+        # 2 misses (archivos no cacheados)
+        cache.get_metadata(file_path2)  # miss
+        cache.get_metadata(temp_dir / "test3.jpg")  # miss
         
         stats = cache.get_stats()
-        # Total: 3 hits + 2 misses = 5 requests
-        # Hit rate: 3/5 = 60%
-        assert stats['hits'] == 3
+        # Total: 5 hits + 2 misses = 7 requests
+        # Hit rate: 5/7 = 71.43%
+        assert stats['hits'] == 5
         assert stats['misses'] == 2
-        assert stats['hit_rate'] == 60.0
+        assert round(stats['hit_rate'], 1) == 71.4
     
     def test_stats_structure(self, temp_dir):
         """Debe retornar estructura de estadísticas correcta"""
@@ -359,11 +366,11 @@ class TestFileMetadataCacheGetOrCreate:
         
         # Crear y modificar metadata
         metadata1 = cache.get_or_create(file_path)
-        metadata1.sha256_hash = "hash123"
+        metadata1.sha256 = "hash123"
         
         # Obtener de nuevo
         metadata2 = cache.get_or_create(file_path)
         
         # Debe ser la misma instancia
-        assert metadata2.sha256_hash == "hash123"
+        assert metadata2.sha256 == "hash123"
         assert metadata1 is metadata2

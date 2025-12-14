@@ -209,7 +209,7 @@ class DirectoryScanner:
                 1 for m in repo._cache.values() 
                 if m.exif_date_time_original or m.exif_create_date or m.exif_date_digitized
             )
-            hashes_cached = sum(1 for m in repo._cache.values() if m.sha256_hash)
+            hashes_cached = sum(1 for m in repo._cache.values() if m.sha256)
             self.logger.info(
                 f"FileInfoRepository despues del escaneo: "
                 f"{stats['size']} entradas, "

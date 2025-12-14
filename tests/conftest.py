@@ -426,3 +426,21 @@ def pytest_collection_modifyitems(config, items):
         # Auto-marcar tests lentos (puedes personalizarlo)
         if 'slow' in item.nodeid:
             item.add_marker(pytest.mark.slow)
+
+
+# ==================== FIXTURES DE REPOSITORIO ====================
+
+@pytest.fixture(autouse=True)
+def reset_file_info_repository():
+    """
+    Resetea el singleton FileInfoRepository entre tests automáticamente.
+    
+    Esto garantiza que cada test comience con un repositorio limpio
+    y evita efectos secundarios entre tests.
+    """
+    from services.file_info_repository import FileInfoRepository
+    # Resetear antes del test
+    FileInfoRepository.reset_instance()
+    yield
+    # Resetear después del test
+    FileInfoRepository.reset_instance()

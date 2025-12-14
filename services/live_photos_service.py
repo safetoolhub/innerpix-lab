@@ -140,7 +140,7 @@ class LivePhotoGroup:
                     # Assuming file_info_repo (FileInfoRepository) has get_metadata returning FileMetadata with mtime
                     meta = self.file_info_repo.get_metadata(self.image_path)
                     if meta:
-                        mtime_date = datetime.fromtimestamp(meta.mtime)
+                        mtime_date = datetime.fromtimestamp(meta.fs_mtime)
                 
                 if not mtime_date:
                     mtime_date = datetime.fromtimestamp(self.image_path.stat().st_mtime)

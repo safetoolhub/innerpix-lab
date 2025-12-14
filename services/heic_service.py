@@ -155,11 +155,11 @@ class HeicService(BaseService):
                     
                     # TODO: Optimizar lectura de fecha si es posible
                     heic_date_raw = get_date_from_file(heic_meta.path)
-                    heic_date = heic_date_raw or datetime.fromtimestamp(heic_meta.mtime)
+                    heic_date = heic_date_raw or datetime.fromtimestamp(heic_meta.fs_mtime)
                     heic_source = "EXIF" if heic_date_raw else "filesystem"
                     
                     jpg_date_raw = get_date_from_file(jpg_meta.path)
-                    jpg_date = jpg_date_raw or datetime.fromtimestamp(jpg_meta.mtime)
+                    jpg_date = jpg_date_raw or datetime.fromtimestamp(jpg_meta.fs_mtime)
                     jpg_source = "EXIF" if jpg_date_raw else "filesystem"
                     
                     # Validación de fecha
