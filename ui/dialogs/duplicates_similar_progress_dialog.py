@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal
 
 from ui.styles.design_system import DesignSystem
-from utils.icons import icon_manager
+from ui.styles.icons import icon_manager
 from utils.format_utils import format_file_count
 from .base_dialog import BaseDialog
 

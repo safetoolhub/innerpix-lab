@@ -2,7 +2,7 @@
 Crea la card de Live Photos para el grid de herramientas.
 """
 
-from ui.widgets.tool_card import ToolCard
+from ui.screens.tool_card import ToolCard
 from utils.format_utils import format_size
 
 

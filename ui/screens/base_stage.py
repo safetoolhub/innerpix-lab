@@ -11,7 +11,7 @@ from PyQt6.QtCore import QPropertyAnimation, QEasingCurve, QTimer, QObject, QSiz
 from utils.settings_manager import settings_manager
 from utils.logger import get_logger
 from ui.styles.design_system import DesignSystem
-from utils.icons import icon_manager
+from ui.styles.icons import icon_manager
 from config import Config
 
 

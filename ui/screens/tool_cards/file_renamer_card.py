@@ -2,7 +2,7 @@
 Crea la card de Renombrar para el grid de herramientas.
 """
 
-from ui.widgets.tool_card import ToolCard
+from ui.screens.tool_card import ToolCard
 
 
 def create_file_renamer_card(on_click_callback) -> ToolCard:

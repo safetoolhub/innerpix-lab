@@ -13,7 +13,7 @@ Características:
 - Totalmente multiplataforma (Windows, Linux, macOS, Android, iOS)
 
 Uso básico:
-    from utils.icons import icon_manager
+    from ui.styles.icons import icon_manager
     
     # En un botón
     icon_manager.set_button_icon(button, 'settings')

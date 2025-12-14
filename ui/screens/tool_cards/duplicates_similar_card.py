@@ -2,7 +2,7 @@
 Crea la card de Archivos Similares para el grid de herramientas.
 """
 
-from ui.widgets.tool_card import ToolCard
+from ui.screens.tool_card import ToolCard
 
 
 def create_duplicates_similar_card(on_click_callback) -> ToolCard:

@@ -20,7 +20,7 @@ from utils.format_utils import format_size
 from utils.date_utils import get_date_from_file
 from utils.file_utils import is_whatsapp_file
 from ui.styles.design_system import DesignSystem
-from utils.icons import icon_manager
+from ui.styles.icons import icon_manager
 from utils.logger import get_logger
 from services.file_organizer_service import FileOrganizer, OrganizationType
 from services.result_types import OrganizationAnalysisResult

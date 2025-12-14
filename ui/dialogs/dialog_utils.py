@@ -77,7 +77,7 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
                                 QPushButton, QFrame, QGroupBox, QWidget, QScrollArea)
     from PyQt6.QtCore import Qt
     from ui.styles.design_system import DesignSystem
-    from utils.icons import icon_manager
+    from ui.styles.icons import icon_manager
     
     # Obtener toda la información de fechas disponible
     dates_info = get_all_file_dates(file_path)
@@ -262,7 +262,7 @@ def _create_material_section(title: str, items: list, use_code_style: bool = Fal
     """Crea una sección Material Design con título e items"""
     from PyQt6.QtWidgets import QGroupBox, QVBoxLayout
     from ui.styles.design_system import DesignSystem
-    from utils.icons import icon_manager
+    from ui.styles.icons import icon_manager
     
     group = QGroupBox(title)
     group.setStyleSheet(f"""
@@ -304,7 +304,7 @@ def _create_material_info_row(label_text: str, value_text: str, icon_name: str, 
     """Crea una fila de información con icono usando Material Design"""
     from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel
     from ui.styles.design_system import DesignSystem
-    from utils.icons import icon_manager
+    from ui.styles.icons import icon_manager
     
     widget = QWidget()
     layout = QHBoxLayout(widget)
@@ -358,7 +358,7 @@ def _create_dates_section(dates_info: dict):
     """Crea la sección especial de fechas con información detallada"""
     from PyQt6.QtWidgets import QGroupBox, QVBoxLayout, QLabel, QHBoxLayout, QWidget
     from ui.styles.design_system import DesignSystem
-    from utils.icons import icon_manager
+    from ui.styles.icons import icon_manager
     
     group = QGroupBox("Información de Fechas")
     group.setStyleSheet(f"""
@@ -550,7 +550,7 @@ def _create_info_row(title: str, value_text: str, description: str, icon_name: s
     """Crea una fila especializada para mostrar información no-fechas"""
     from PyQt6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLabel
     from ui.styles.design_system import DesignSystem
-    from utils.icons import icon_manager
+    from ui.styles.icons import icon_manager
     
     widget = QWidget()
     main_layout = QHBoxLayout(widget)
@@ -595,7 +595,7 @@ def _create_date_row(title: str, date_str: str, description: str, icon_name: str
     """Crea una fila especializada para mostrar información de fecha"""
     from PyQt6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLabel
     from ui.styles.design_system import DesignSystem
-    from utils.icons import icon_manager
+    from ui.styles.icons import icon_manager
     
     widget = QWidget()
     main_layout = QHBoxLayout(widget)

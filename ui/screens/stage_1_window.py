@@ -13,10 +13,10 @@ from PyQt6.QtCore import Qt, pyqtSignal
 
 from .base_stage import BaseStage
 from ui.styles.design_system import DesignSystem
-from ui.widgets.dropzone_widget import DropzoneWidget
+from ui.screens.dropzone_widget import DropzoneWidget
 from ui.dialogs.settings_dialog import SettingsDialog
 from ui.dialogs.about_dialog import AboutDialog
-from utils.icons import icon_manager
+from ui.styles.icons import icon_manager
 from config import Config
 
 

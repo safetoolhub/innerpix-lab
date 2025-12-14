@@ -4,7 +4,7 @@ Widget que muestra el progreso de cada fase del análisis (STAGE 2)
 from PyQt6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel
 
 from ui.styles.design_system import DesignSystem
-from utils.icons import icon_manager
+from ui.styles.icons import icon_manager
 
 
 class AnalysisPhaseWidget(QFrame):

@@ -535,7 +535,7 @@ class SettingsDialog(QDialog):
         """)
         workers_layout.addWidget(workers_label)
 
-        from ui.widgets.custom_spinbox import CustomSpinBox
+        from ui.screens.custom_spinbox import CustomSpinBox
         self.max_workers_spin = CustomSpinBox()
         self.max_workers_spin.setMinimum(0)  # 0 = automático
         self.max_workers_spin.setMaximum(Config.MAX_WORKER_THREADS)

@@ -10,7 +10,7 @@ from PyQt6.QtCore import QTimer, pyqtSignal
 from config import Config
 from .base_stage import BaseStage
 from ui.styles.design_system import DesignSystem
-from ui.widgets.progress_card import ProgressCard
+from ui.screens.progress_card import ProgressCard
 from ui.workers import AnalysisWorker
 # Los servicios se importan lazy en _start_analysis() para evitar bloquear la UI
 

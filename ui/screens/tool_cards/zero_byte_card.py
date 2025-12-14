@@ -2,7 +2,7 @@
 Crea la card de Archivos vacíos para el grid de herramientas.
 """
 
-from ui.widgets.tool_card import ToolCard
+from ui.screens.tool_card import ToolCard
 
 
 def create_zero_byte_card(analysis_results, on_click_callback) -> ToolCard:

@@ -12,7 +12,7 @@ sys.path.insert(0, str(project_root))
 
 from PyQt6.QtWidgets import QApplication, QDialog, QVBoxLayout, QSpinBox, QLabel
 from ui.styles.design_system import DesignSystem
-from ui.widgets.custom_spinbox import CustomSpinBox
+from ui.screens.custom_spinbox import CustomSpinBox
 
 class TestDialog(QDialog):
     def __init__(self):

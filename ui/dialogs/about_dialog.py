@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt
 from config import Config
 from ui.styles.design_system import DesignSystem
-from utils.icons import icon_manager
+from ui.styles.icons import icon_manager
 
 
 class AboutDialog(QDialog):

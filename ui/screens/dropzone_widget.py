@@ -7,7 +7,7 @@ from PyQt6.QtCore import Qt, pyqtSignal, QTimer
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent
 
 from ui.styles.design_system import DesignSystem
-from utils.icons import icon_manager
+from ui.styles.icons import icon_manager
 
 
 class DropzoneWidget(QFrame):

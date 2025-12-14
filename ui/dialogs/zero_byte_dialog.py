@@ -13,7 +13,7 @@ from ui.styles.design_system import DesignSystem
 from utils.format_utils import format_file_count
 from services.result_types import ZeroByteAnalysisResult
 from .base_dialog import BaseDialog
-from utils.icons import icon_manager
+from ui.styles.icons import icon_manager
 
 class ZeroByteDialog(BaseDialog):
     """

@@ -6,7 +6,7 @@ from PyQt6.QtCore import Qt, pyqtSignal
 
 from ui.styles.design_system import DesignSystem
 from ui.styles.design_system import DesignSystem
-from utils.icons import icon_manager
+from ui.styles.icons import icon_manager
 from utils.settings_manager import settings_manager
 from pathlib import Path
 

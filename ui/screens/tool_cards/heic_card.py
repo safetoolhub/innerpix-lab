@@ -2,7 +2,7 @@
 Crea la card de HEIC/JPG Duplicados para el grid de herramientas.
 """
 
-from ui.widgets.tool_card import ToolCard
+from ui.screens.tool_card import ToolCard
 from utils.format_utils import format_size
 
 

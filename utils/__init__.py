@@ -56,10 +56,6 @@ from .platform_utils import (
 from .callback_utils import (
     safe_progress_callback,
 )
-from .icons import (
-    IconManager,
-    icon_manager
-)
 from .storage import (
     StorageBackend,
     JsonStorageBackend,
@@ -122,10 +118,6 @@ __all__ = [
 
     # Callback utilities
     'safe_progress_callback',
-
-    # Icon utilities
-    'IconManager',
-    'icon_manager',
 
     # Storage utilities
     'StorageBackend',

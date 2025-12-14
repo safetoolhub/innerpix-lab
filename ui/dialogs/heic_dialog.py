@@ -14,7 +14,7 @@ from PyQt6.QtCore import Qt, QTimer
 from config import Config
 from utils.format_utils import format_size
 from ui.styles.design_system import DesignSystem
-from utils.icons import icon_manager
+from ui.styles.icons import icon_manager
 from .base_dialog import BaseDialog
 
 

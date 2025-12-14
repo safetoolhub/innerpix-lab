@@ -19,8 +19,8 @@ from config import Config
 from utils.settings_manager import settings_manager
 from .base_stage import BaseStage
 from ui.styles.design_system import DesignSystem
-from ui.widgets.summary_card import SummaryCard
-from ui.widgets.tool_card import ToolCard
+from ui.screens.summary_card import SummaryCard
+from ui.screens.tool_card import ToolCard
 from ui.dialogs.live_photos_dialog import LivePhotosDialog
 from ui.dialogs.heic_dialog import HeicDialog
 from ui.dialogs.duplicates_exact_dialog import DuplicatesExactDialog

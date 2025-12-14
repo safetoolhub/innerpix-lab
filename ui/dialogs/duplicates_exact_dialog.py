@@ -10,7 +10,7 @@ from services.result_types import DuplicateGroup
 from utils.format_utils import format_size
 from utils.logger import get_logger
 from ui.styles.design_system import DesignSystem
-from utils.icons import icon_manager
+from ui.styles.icons import icon_manager
 from .base_dialog import BaseDialog
 from .dialog_utils import show_file_details_dialog
 from datetime import datetime

@@ -149,7 +149,7 @@ class BaseDialog(QDialog):
         """
         btn = QPushButton(text)
         if icon_name:
-            from utils.icons import icon_manager
+            from ui.styles.icons import icon_manager
             btn.setIcon(icon_manager.get_icon(icon_name))
         if tooltip:
             btn.setToolTip(tooltip)
@@ -221,7 +221,7 @@ class BaseDialog(QDialog):
         """
         from PyQt6.QtWidgets import QFrame, QHBoxLayout, QVBoxLayout, QLabel
         from ui.styles.design_system import DesignSystem
-        from utils.icons import icon_manager
+        from ui.styles.icons import icon_manager
         
         frame = QFrame()
         frame.setStyleSheet(f"""
@@ -408,7 +408,7 @@ class BaseDialog(QDialog):
         """
         from PyQt6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel, QRadioButton
         from ui.styles.design_system import DesignSystem
-        from utils.icons import icon_manager
+        from ui.styles.icons import icon_manager
         
         card = QFrame()
         card.setObjectName(card_id)
@@ -517,7 +517,7 @@ class BaseDialog(QDialog):
         """
         from PyQt6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel, QRadioButton, QButtonGroup
         from ui.styles.design_system import DesignSystem
-        from utils.icons import icon_manager
+        from ui.styles.icons import icon_manager
         
         frame = QFrame()
         frame.setObjectName("option-selector-frame")
@@ -656,7 +656,7 @@ class BaseDialog(QDialog):
         """
         from PyQt6.QtWidgets import QLabel
         from ui.styles.design_system import DesignSystem
-        from utils.icons import icon_manager
+        from ui.styles.icons import icon_manager
         
         # Encontrar el icono (segundo QLabel en el header layout)
         layout = card.layout()
@@ -703,7 +703,7 @@ class BaseDialog(QDialog):
         """
         from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel
         from ui.styles.design_system import DesignSystem
-        from utils.icons import icon_manager
+        from ui.styles.icons import icon_manager
         from utils.settings_manager import settings_manager
         
         frame = QFrame()
@@ -810,7 +810,7 @@ class BaseDialog(QDialog):
         from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout
         from PyQt6.QtCore import Qt
         from ui.styles.design_system import DesignSystem
-        from utils.icons import icon_manager
+        from ui.styles.icons import icon_manager
         
         frame = QFrame()
         frame.setObjectName("warningBanner")
@@ -984,7 +984,7 @@ class BaseDialog(QDialog):
         from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel, QCheckBox
         from PyQt6.QtCore import Qt
         from ui.styles.design_system import DesignSystem
-        from utils.icons import icon_manager
+        from ui.styles.icons import icon_manager
         
         # Contenedor tipo chip
         container = QWidget()

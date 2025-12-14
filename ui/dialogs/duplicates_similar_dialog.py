@@ -20,7 +20,7 @@ from utils.image_loader import load_image_as_qpixmap
 from utils.video_thumbnail import get_video_thumbnail
 from utils.platform_utils import open_file_with_default_app
 from ui.styles.design_system import DesignSystem
-from utils.icons import icon_manager
+from ui.styles.icons import icon_manager
 from .base_dialog import BaseDialog
 from .dialog_utils import show_file_details_dialog
 from .image_preview_dialog import ImagePreviewDialog
@@ -351,7 +351,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         files_layout.setSpacing(DesignSystem.SPACE_8)
         files_layout.addWidget(QLabel("Mín. Archivos:", styleSheet=f"color: {DesignSystem.COLOR_TEXT_SECONDARY};"))
         
-        from ui.widgets.custom_spinbox import CustomSpinBox
+        from ui.screens.custom_spinbox import CustomSpinBox
         self.min_files_spin = CustomSpinBox()
         self.min_files_spin.setRange(2, 50)
         self.min_files_spin.setValue(self.filter_min_files)
