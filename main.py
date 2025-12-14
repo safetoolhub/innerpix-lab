@@ -10,7 +10,7 @@ import os
 os.environ['QT_LOGGING_RULES'] = 'qt.qpa.wayland=false'
 
 from PyQt6.QtWidgets import QApplication
-from ui.main_window import MainWindow
+from ui.screens.main_window import MainWindow
 from ui.styles.design_system import DesignSystem
 from config import Config
 from utils.logger import configure_logging, get_logger

@@ -1,4 +1,4 @@
-from .main_window import MainWindow
+from ui.screens.main_window import MainWindow
 from .workers import (
     BaseWorker,
     AnalysisWorker,
