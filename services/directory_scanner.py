@@ -1,6 +1,6 @@
 """
 Directory Scanner Service.
-Handles the initial scan of the directory to populate metadata cache.
+Handles the initial scan of the directory to populate FileInfoRepository
 """
 from pathlib import Path
 from typing import Optional, Callable, Dict, List
@@ -15,9 +15,32 @@ from services.result_types import DirectoryScanResult
 class DirectoryScanner:
     """
     Handles scanning of a directory to collect file metadata.
+    
+    El escaneo se realiza en 3 fases:
+    1. Obtención de lista de archivos
+    2. Clasificación y extracción de metadatos
+    3. Estadísticas finales
     """
     def __init__(self):
         self.logger = get_logger('DirectoryScanner')
+    
+    def _get_file_list(self, directory: Path) -> List[Path]:
+        """
+        FASE 1: Obtiene la lista completa de archivos en el directorio.
+        
+        Excluye archivos de caché de desarrollo.
+        
+        Args:
+            directory: Directorio a escanear
+            
+        Returns:
+            Lista de Path con todos los archivos encontrados
+        """
+        all_files = [
+            f for f in directory.rglob("*") 
+            if f.is_file() and f.name != Config.DEV_CACHE_FILENAME
+        ]
+        return all_files
 
     def scan(self, 
              directory: Path,
@@ -56,19 +79,11 @@ class DirectoryScanner:
         else:
             self.logger.info("FileInfoRepository NO usado (use_file_info_repository=False)")
         
-        # Preparar estructuras de datos
-        images, videos, others = [], [], []
-        image_extensions = {}
-        video_extensions = {}
-        unsupported_extensions = {}
-        unsupported_files = []
-        processed = 0
+        # ==================== FASE 1: OBTENCIÓN DE LISTA DE ARCHIVOS ====================
+        if progress_callback:
+            progress_callback(0, 100, "Obteniendo lista de archivos")
         
-        # Primera pasada: obtener lista de archivos (excluir archivo de caché de desarrollo)
-        all_files = [
-            f for f in directory.rglob("*") 
-            if f.is_file() and f.name != Config.DEV_CACHE_FILENAME
-        ]
+        all_files = self._get_file_list(directory)
         total_files = len(all_files)
         
         self.logger.info(f"Archivos encontrados: {total_files:,}")
@@ -78,9 +93,15 @@ class DirectoryScanner:
             repo.update_max_entries(total_files)
             self.logger.info(f"FileInfoRepository actualizado para {total_files:,} archivos")
         
+        # Preparar estructuras de datos
+        images, videos, others = [], [], []
+        image_extensions = {}
+        video_extensions = {}
+        unsupported_extensions = {}
+        unsupported_files = []
         
-        # Segunda pasada: clasificar archivos y poblar repositorio con metadatos completos
-        scan_message = "Escaneando y calculando hashes (esto puede tardar...)" if precalculate_hashes else "Escaneando archivos y extrayendo metadatos"
+        # ==================== FASE 2: OBTENCIÓN DE METADATOS DE ARCHIVOS ====================
+        scan_message = "Obteniendo metadatos de archivos"
         
         if precalculate_hashes:
             self.logger.warning(
@@ -88,6 +109,7 @@ class DirectoryScanner:
                 "la fase de duplicados exactos sera instantanea"
             )
         
+        processed = 0
         for f in all_files:
             if progress_callback and not progress_callback(processed, total_files, scan_message):
                 self.logger.warning("Escaneo cancelado por usuario")
@@ -120,8 +142,7 @@ class DirectoryScanner:
                         size=stat_info.st_size,
                         ctime=stat_info.st_ctime,
                         mtime=stat_info.st_mtime,
-                        atime=stat_info.st_atime,
-                        file_type=file_type
+                        atime=stat_info.st_atime
                     )
                     
                     # Para archivos de imagen y video, extraer y cachear TODAS las fechas EXIF
@@ -160,9 +181,13 @@ class DirectoryScanner:
             if progress_callback and processed % Config.UI_UPDATE_INTERVAL == 0:
                 progress_callback(processed, total_files, scan_message)
         
-        # Reportar progreso final (100%)
+        # Reportar progreso final de fase 2
         if progress_callback and total_files > 0:
             progress_callback(total_files, total_files, scan_message)
+        
+        # ==================== FASE 3: FINALIZANDO ANÁLISIS ====================
+        if progress_callback:
+            progress_callback(total_files, total_files, "Finalizando análisis")
         
         result = DirectoryScanResult(
             total_files=total_files,
@@ -207,7 +232,7 @@ class DirectoryScanner:
             # Contar cuántas entradas tienen al menos una fecha EXIF o hash
             exif_cached = sum(
                 1 for m in repo._cache.values() 
-                if m.exif_date_time_original or m.exif_create_date or m.exif_date_digitized
+                if m.exif_DateTimeOriginal or m.exif_DateTime or m.exif_DateTimeDigitized
             )
             hashes_cached = sum(1 for m in repo._cache.values() if m.sha256)
             self.logger.info(

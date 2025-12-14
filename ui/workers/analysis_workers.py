@@ -32,6 +32,28 @@ class AnalysisWorker(BaseWorker):
         
         # Delay final antes de transición a Stage 3
         self.final_delay: float = Config.FINAL_DELAY_BEFORE_STAGE3_SECONDS
+    
+    def _create_scan_progress_callback(self):
+        """
+        Crea un callback personalizado para el escaneo que detecta
+        las fases del DirectoryScanner y actualiza el texto de la fase.
+        """
+        def callback(current: int, total: int, message: str) -> bool:
+            if self._stop_requested:
+                return False
+            
+            try:
+                # Actualizar el texto de la fase 'scan' según el mensaje
+                self.phase_text_update.emit("scan", message)
+                
+                # Emitir progreso numérico
+                self.progress_update.emit(current, total, message)
+            except Exception:
+                pass
+            
+            return not self._stop_requested
+        
+        return callback
 
     def run(self) -> None:
         try:
@@ -49,7 +71,7 @@ class AnalysisWorker(BaseWorker):
             scanner = DirectoryScanner()
             scan_result = scanner.scan(
                 directory=self.directory,
-                progress_callback=self._create_progress_callback(emit_numbers=True),
+                progress_callback=self._create_scan_progress_callback(),
                 use_file_info_repository=True,
                 precalculate_hashes=precalculate_hashes
             )

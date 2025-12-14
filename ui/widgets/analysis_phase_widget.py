@@ -64,18 +64,13 @@ class AnalysisPhaseWidget(QFrame):
         layout.addLayout(header_layout)
         layout.addSpacing(DesignSystem.SPACE_2)  # Separador más pequeño después del header
         
-        # Fases del análisis (9 fases totales)
+        # Fase única del análisis inicial (escaneo)
+        # El texto se actualiza dinámicamente según las sub-fases del DirectoryScanner:
+        # - "Obteniendo lista de archivos"
+        # - "Obteniendo metadatos de archivos" 
+        # - "Finalizando análisis"
         phases = [
-            ("scan", "Escaneando archivos..."),
-            ("renaming", "Analizando nombres de archivos..."),
-            ("live_photos", "Buscando Live Photos..."),
-            ("heic", "Buscando duplicados HEIC/JPG..."),
-            ("duplicates", "Identificando copias exactas..."),
-            ("duplicates_similar", "Identificando archivos similares..."),
-            ("zero_byte", "Buscando archivos vacíos..."),
-            ("organization", "Analizando estructura de carpetas..."),
-            ("calculating_size", "Calculando tamaño del directorio..."),
-            ("finalizing", "Finalizando análisis...")
+            ("scan", "Preparando análisis..."),
         ]
         
         for phase_id, phase_text in phases:
