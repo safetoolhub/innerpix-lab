@@ -225,7 +225,7 @@ def test_rotation_consistency_across_restarts():
         
         # Cerrar logger
         import logging
-        root_logger = logging.getLogger('PixaroLab')
+        root_logger = logging.getLogger('InnerpixLab')
         for handler in root_logger.handlers[:]:
             handler.close()
             root_logger.removeHandler(handler)

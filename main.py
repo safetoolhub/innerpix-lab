@@ -1,5 +1,5 @@
 """
-Pixaro Lab - Punto de entrada de la aplicación
+Innerpix Lab - Punto de entrada de la aplicación
 
 Aplicación de gestión de archivos multimedia con herramientas para la organización y limpieza de duplicados
 """
@@ -83,7 +83,7 @@ def main():
     # Configurar la aplicación
     app.setApplicationName(Config.APP_NAME)
     app.setApplicationVersion(Config.APP_VERSION)
-    app.setOrganizationName("PixaroLab")
+    app.setOrganizationName("InnerpixLab")
 
     # Crear y mostrar ventana principal (nueva implementación)
     window = MainWindow()

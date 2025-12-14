@@ -26,7 +26,7 @@ class SettingsDialog(QDialog):
     def __init__(self, parent=None, initial_tab=0):
         super().__init__(parent)
         self.parent_window = parent
-        self.logger = logging.getLogger('PixaroLab.SettingsDialog')
+        self.logger = logging.getLogger('InnerpixLab.SettingsDialog')
         
         # Referencia al botón de guardar (se asignará en init_ui)
         self.save_button = None

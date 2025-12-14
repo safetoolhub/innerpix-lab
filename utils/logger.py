@@ -1,5 +1,5 @@
 """
-Logger para Pixaro Lab
+Logger para Innerpix Lab
 
 Convenciones de niveles de log:
 - DEBUG: detalles internos de bajo nivel, útiles para debugging
@@ -29,7 +29,7 @@ from logging.handlers import RotatingFileHandler
 
 
 # Logger raíz para toda la aplicación
-_ROOT_LOGGER_NAME = 'PixaroLab'
+_ROOT_LOGGER_NAME = 'InnerpixLab'
 _root_logger = None
 _current_level = logging.INFO
 _log_lock = threading.RLock()  # RLock permite re-entrada del mismo thread

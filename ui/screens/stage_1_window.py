@@ -192,7 +192,7 @@ class Stage1Window(BaseStage):
 
         tips_container.addWidget(self._create_centered_tip(
             "shield",
-            "Pixaro Lab únicamente " \
+            "Innerpix Lab únicamente " \
             "analizará esa carpeta y todas sus subcarpetas. "
             "No se modificará nada hasta que tú lo autorices.",
             icon_color=DesignSystem.COLOR_ACCENT,  # Azul acento para resaltar

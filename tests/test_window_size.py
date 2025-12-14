@@ -1,5 +1,5 @@
 """
-Tests para la lógica de configuración de tamaño de ventana de Pixaro Lab
+Tests para la lógica de configuración de tamaño de ventana de Innerpix Lab
 """
 import pytest
 from unittest.mock import Mock, patch

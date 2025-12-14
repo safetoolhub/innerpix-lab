@@ -1,5 +1,5 @@
 """
-Sistema de diseño y estilos para Pixaro Lab
+Sistema de diseño y estilos para Innerpix Lab
 """
 
 from .design_system import DesignSystem

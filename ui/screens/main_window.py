@@ -26,7 +26,7 @@ class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.logger = get_logger('PixaroLab.MainWindow')
+        self.logger = get_logger('MainWindow')
 
         # Sistema de estados
         self.current_state = None

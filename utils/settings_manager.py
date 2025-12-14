@@ -49,7 +49,7 @@ class SettingsManager:
     KEY_ANALYSIS_TIMESTAMP = "interface/analysis_timestamp"  # Timestamp del último análisis
 
     def __init__(self, backend: Optional[StorageBackend] = None,
-                 organization: str = "PixaroLab", application: str = "Pixaro Lab"):
+                 organization: str = "InnerpixLab", application: str = "Innerpix Lab"):
         """
         Inicializa el gestor de configuración.
 

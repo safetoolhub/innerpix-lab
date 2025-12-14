@@ -409,24 +409,34 @@ class FileInfoRepository:
         
         # Mapear campos EXIF del diccionario a atributos específicos
         with self._lock:
+            exif_updated = False
             if 'ImageWidth' in exif_data:
                 meta.exif_ImageWidth = exif_data['ImageWidth']
+                exif_updated = True
             if 'ImageLength' in exif_data:
                 meta.exif_ImageLength = exif_data['ImageLength']
+                exif_updated = True
             if 'DateTime' in exif_data:
                 meta.exif_DateTime = exif_data['DateTime']
+                exif_updated = True
             if 'GPSTimeStamp' in exif_data:
                 meta.exif_GPSTimeStamp = exif_data['GPSTimeStamp']
+                exif_updated = True
             if 'GPSDateStamp' in exif_data:
                 meta.exif_GPSDateStamp = exif_data['GPSDateStamp']
+                exif_updated = True
             if 'DateTimeOriginal' in exif_data:
                 meta.exif_DateTimeOriginal = exif_data['DateTimeOriginal']
+                exif_updated = True
             if 'DateTimeDigitized' in exif_data:
                 meta.exif_DateTimeDigitized = exif_data['DateTimeDigitized']
+                exif_updated = True
             if 'ExifVersion' in exif_data:
                 meta.exif_ExifVersion = exif_data['ExifVersion']
+                exif_updated = True
             
-            self._logger.debug(f"EXIF establecido para: {path}")
+            if exif_updated:
+                self._logger.debug(f"EXIF establecido para: {path}")
 
     def get_files_by_size(self) -> Dict[int, List[FileMetadata]]:
         """

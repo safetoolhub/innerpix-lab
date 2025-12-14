@@ -1,5 +1,5 @@
 """
-Utilidades compartidas para Pixaro Lab
+Utilidades compartidas para Innerpix Lab
 """
 from .logger import (
     get_logger,
