@@ -68,7 +68,7 @@ class DuplicatesExactDialog(BaseDialog):
             Timestamp de modificación (epoch seconds)
         """
         if self.metadata_cache:
-            dates = self.metadata_cache.get_all_dates(file_path)
+            dates = self.metadata_cache.get_exif(file_path)
             if dates and dates.get('filesystem_modification_date'):
                 return dates['filesystem_modification_date'].timestamp()
         

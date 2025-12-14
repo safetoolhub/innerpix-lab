@@ -1242,7 +1242,8 @@ class DuplicatesSimilarDialog(BaseDialog):
             Tupla (QLabel, is_video) o (None, False) si falla
         """
         try:
-            is_video = Config.is_video_file(str(file_path))
+            from utils.file_utils import is_video_file
+            is_video = is_video_file(str(file_path))
             
             if is_video:
                 # Generar thumbnail de video

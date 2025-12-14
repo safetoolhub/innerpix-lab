@@ -137,8 +137,8 @@ class LivePhotoGroup:
                 mtime_date = None
                 if self.file_info_repo:
                     # El método correcto en cache es get_file_stats que incluye mtime
-                    # Assuming file_info_repo (FileInfoRepository) has get_metadata returning FileMetadata with mtime
-                    meta = self.file_info_repo.get_metadata(self.image_path)
+                    # Assuming file_info_repo (FileInfoRepository) has get_file_metadata returning FileMetadata with mtime
+                    meta = self.file_info_repo.get_file_metadata(self.image_path)
                     if meta:
                         mtime_date = datetime.fromtimestamp(meta.fs_mtime)
                 
@@ -524,10 +524,10 @@ class LivePhotoService(BaseService):
                             image_size = None
                             video_size = None
                             
-                            meta_img = repo.get_metadata(photo)
-                            meta_vid = repo.get_metadata(video)
-                            if meta_img: image_size = meta_img.size
-                            if meta_vid: video_size = meta_vid.size
+                            meta_img = repo.get_file_metadata(photo)
+                            meta_vid = repo.get_file_metadata(video)
+                            if meta_img: image_size = meta_img.fs_size
+                            if meta_vid: video_size = meta_vid.fs_size
                             
                             if image_size is None: image_size = photo.stat().st_size
                             if video_size is None: video_size = video.stat().st_size

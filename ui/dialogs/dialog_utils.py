@@ -640,7 +640,8 @@ def _get_file_type_display(file_path: Path) -> str:
     """Obtiene una descripción amigable del tipo de archivo"""
     from config import Config
     
-    file_type = Config.get_file_type(file_path)
+    from utils.file_utils import get_file_type
+    file_type = get_file_type(file_path)
     if file_type == 'image':
         return "Imagen"
     elif file_type == 'video':

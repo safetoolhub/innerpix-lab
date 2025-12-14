@@ -555,7 +555,7 @@ class BaseService(ABC):
         """
         Recopila archivos multimedia soportados en directorio.
         
-        Usa Config.is_supported_file() para filtrar.
+        Usa utils.file_utils.is_supported_file() para filtrar.
         Puede reportar progreso y soporta cancelación.
         
         Este método elimina ~20 líneas de código duplicado por servicio.
@@ -583,7 +583,8 @@ class BaseService(ABC):
         processed = 0
         
         for filepath in directory.glob(pattern):
-            if filepath.is_file() and Config.is_supported_file(filepath.name):
+            from utils.file_utils import is_supported_file
+            if filepath.is_file() and is_supported_file(filepath.name):
                 files.append(filepath)
             
             processed += 1

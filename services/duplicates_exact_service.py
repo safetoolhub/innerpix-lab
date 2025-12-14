@@ -25,7 +25,8 @@ from utils.logger import log_section_header_discrete, log_section_footer_discret
 
 def _is_valid_image_file(filename: str) -> bool:
     """Helper for backward compatibility with tests"""
-    return Config.is_image_file(filename) or Config.is_supported_file(filename)
+    from utils.file_utils import is_image_file, is_supported_file
+    return is_image_file(filename) or is_supported_file(filename)
 
 
 
@@ -84,7 +85,7 @@ class DuplicatesExactService(DuplicatesBaseService):
                     ext = meta.extension
                     if ext in supported_exts:
                         files_to_hash.append(meta)
-                    elif HAS_PIL and meta.size < 100 * 1024 * 1024:
+                    elif HAS_PIL and meta.fs_size < 100 * 1024 * 1024:
                         # Lógica legacy para detectar imágenes con ext extraña
                          # Esto requiere acceso a disco, cuidado
                         pass 
@@ -139,8 +140,8 @@ class DuplicatesExactService(DuplicatesBaseService):
                 # Podemos obtenerlo de meta o disk. Meta es mejor.
                 # Pero paths solo tiene Path. 
                 # Recuperar size del primer path (todos iguales en contenido => tamaño igual)
-                first_meta = repo.get_metadata(paths[0])
-                size = first_meta.size if first_meta else paths[0].stat().st_size
+                first_meta = repo.get_file_metadata(paths[0])
+                size = first_meta.fs_size if first_meta else paths[0].stat().st_size
                 
                 groups.append(DuplicateGroup(
                     hash_value=hash_mid,

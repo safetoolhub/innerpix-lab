@@ -8,8 +8,8 @@ import logging
 
 from config import Config
 from utils.logger import get_logger
-from utils.file_utils import calculate_file_hash, validate_directory_exists
-from services.file_info_repository import FileInfoRepository
+from utils.file_utils import calculate_file_hash, validate_directory_exists, get_file_stat_info
+from services.file_info_repository import FileInfoRepository, PopulationStrategy
 from services.result_types import DirectoryScanResult
 
 class DirectoryScanner:
@@ -71,7 +71,7 @@ class DirectoryScanner:
         if use_file_info_repository:
             try:
                 repo = FileInfoRepository.get_instance()
-                self.logger.info(f"FileInfoRepository obtenido: max_entries={repo._max_entries:,}, enabled={repo._enabled}, current_files={repo.get_file_count()}")
+                self.logger.info(f"FileInfoRepository obtenido: max_entries={repo._max_entries:,}, current_files={repo.count()}")
             except Exception as e:
                 self.logger.error(f"ERROR obteniendo FileInfoRepository: {type(e).__name__}: {e}")
                 import traceback
@@ -119,11 +119,12 @@ class DirectoryScanner:
             ext = f.suffix.lower() if f.suffix else '(sin extensión)'
             
             # Clasificar archivo
-            if Config.is_image_file(f.name):
+            from utils.file_utils import is_image_file, is_video_file
+            if is_image_file(f.name):
                 images.append(f)
                 file_type = 'image'
                 image_extensions[ext] = image_extensions.get(ext, 0) + 1
-            elif Config.is_video_file(f.name):
+            elif is_video_file(f.name):
                 videos.append(f)
                 file_type = 'video'
                 video_extensions[ext] = video_extensions.get(ext, 0) + 1
@@ -132,48 +133,6 @@ class DirectoryScanner:
                 file_type = 'other'
                 unsupported_extensions[ext] = unsupported_extensions.get(ext, 0) + 1
                 unsupported_files.append(f)
-            
-            # Poblar repositorio con metadatos
-            if repo is not None:
-                try:
-                    stat_info = f.stat()
-                    repo.set_basic_metadata(
-                        path=f,
-                        size=stat_info.st_size,
-                        ctime=stat_info.st_ctime,
-                        mtime=stat_info.st_mtime,
-                        atime=stat_info.st_atime
-                    )
-                    
-                    # Para archivos de imagen y video, extraer y cachear TODAS las fechas EXIF
-                    exif_dates = None
-                    if file_type in ('image', 'video'):
-                        try:
-                            from utils.date_utils import get_all_file_dates
-                            all_dates = get_all_file_dates(f)
-                            if all_dates and any(all_dates.values()):
-                                repo.set_all_dates(f, all_dates)
-                                exif_dates = [k for k, v in all_dates.items() if v]
-                        except Exception as e:
-                            pass
-                    
-                    # Pre-calcular hash si está habilitado
-                    file_hash = None
-                    if precalculate_hashes and file_type in ('image', 'video'):
-                        try:
-                            file_hash = calculate_file_hash(f)
-                            repo.set_hash(f, file_hash)
-                        except Exception as e:
-                            self.logger.warning(f"Error calculando hash de {f}: {e}")
-                    
-                    # Log detallado en modo DEBUG usando get_file_info_in_one_line()
-                    if self.logger.isEnabledFor(logging.DEBUG):
-                        file_info = repo.get_metadata(f)
-                        if file_info:
-                            self.logger.debug(file_info.get_file_info_in_one_line(verbose=True))
-                            
-                except Exception as e:
-                    self.logger.warning(f"No se pudo poblar repositorio para {f}: {e}")
             
             processed += 1
             
@@ -227,24 +186,42 @@ class DirectoryScanner:
             f"- Extensiones: {ext_summary}"
         )
         
+        # Poblar FileInfoRepository si está habilitado
         if repo is not None:
+            # Determinar estrategia de población
+            if precalculate_hashes:
+                strategy = PopulationStrategy.WITH_HASH
+                self.logger.info("Poblando FileInfoRepository con hashes (pre-calculo activado)")
+            else:
+                strategy = PopulationStrategy.BASIC
+                self.logger.info("Poblando FileInfoRepository con metadatos básicos")
+
+            # Obtener archivos soportados para poblar el repositorio
+            supported_files = images + videos
+
+            try:
+                repo.populate_from_scan(
+                    files=supported_files,
+                    strategy=strategy,
+                    progress_callback=lambda current, total: progress_callback(current, total, "Poblando repositorio") if progress_callback else None
+                )
+                self.logger.info(f"FileInfoRepository poblado exitosamente con {len(supported_files)} archivos")
+            except Exception as e:
+                self.logger.error(f"Error poblando FileInfoRepository: {e}")
+                import traceback
+                self.logger.error(f"Traceback:\n{traceback.format_exc()}")
+
+            # Mostrar estadísticas del repositorio poblado
             stats = repo.get_stats()
-            # Contar cuántas entradas tienen al menos una fecha EXIF o hash
-            exif_cached = sum(
-                1 for m in repo._cache.values() 
-                if m.exif_DateTimeOriginal or m.exif_DateTime or m.exif_DateTimeDigitized
-            )
-            hashes_cached = sum(1 for m in repo._cache.values() if m.sha256)
             self.logger.info(
                 f"FileInfoRepository despues del escaneo: "
-                f"{stats['size']} entradas, "
-                f"{exif_cached} con fechas EXIF, "
-                f"{hashes_cached} con hashes SHA256"
+                f"{stats.total_files} entradas, "
+                f"{stats.files_with_hash} con hashes SHA256"
             )
-            
-            if precalculate_hashes and hashes_cached > 0:
+
+            if precalculate_hashes and stats.files_with_hash > 0:
                 self.logger.info(
-                    f"Pre-calculo de hashes completado: {hashes_cached} archivos "
+                    f"Pre-calculo de hashes completado: {stats.files_with_hash} archivos "
                     "(la fase de duplicados exactos sera instantanea)"
                 )
             elif not precalculate_hashes:

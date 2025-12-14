@@ -15,21 +15,30 @@ See `PROJECT_TREE.md` for structure. Ignore `docs/` (author's notes).
    - Organizar: `FileOrganizer.analyze()` → `OrganizationAnalysisResult`
 - Detectors: `ExactCopiesDetector` (SHA256), `SimilarFilesDetector` (perceptual hash)
 
-**File Info Repository** (`services/file_info_repository.py`) - Singleton file information repository
-- `FileInfoRepository`: Thread-safe singleton for file metadata and expensive operations
-- Pattern: Services access via `FileInfoRepository.get_instance()` - NOT passed as parameter
-- Auto-fetch: Methods retrieve data if cached, calculate/fetch if not (e.g., `get_hash()`)
-- Uses: `utils.file_utils.calculate_file_hash()` instead of reimplementing
-- Caches: SHA256 hashes, EXIF dates, file stats (size, type, timestamps)
-- Shared across services: ExactCopiesDetector, HEICRemover share hashes
-- Lifecycle: Singleton created in scan phase, services access directly
-- Invalidation: `clear()` after destructive ops or dataset change
-- Stats: `get_stats()` for hits/misses/hit_rate, `log_stats()` for logging
-- Performance: `get_file_count()` optimized (O(1) vs len(get_all_files()))
-- Thread-safe: Uses RLock for concurrent access + singleton lock
-- Magic methods: `len(repo)`, `path in repo`, `repo.get_or_create(path)`
-- Future-proof: Prepared for SQLite/PostgreSQL migration via Protocol interface
-- Logging: Professional logging with `utils.logger.get_logger('FileInfoRepository')`
+**File Info Repository** (`services/file_info_repository.py`) - Singleton cache system
+- **Pattern**: `FileInfoRepository.get_instance()` - NOT passed as parameter to services
+- **Population**: Use `populate_from_scan(files, strategy)` - bulk loading with strategies
+  - `BASIC`: Solo filesystem metadata (rápido)
+  - `WITH_HASH`: + SHA256 hashes (para duplicados exactos)
+  - `WITH_EXIF_IMAGES`: + EXIF solo imágenes (moderado)
+  - `WITH_EXIF_VIDEOS`: + EXIF solo videos (muy costoso)
+  - `WITH_EXIF_ALL`: + EXIF imágenes y videos
+  - `FULL`: Hash + EXIF completo (extremadamente costoso)
+- **Auto-fetch**: `get_file_metadata(path, auto_fetch=True)`, `get_hash(path, auto_fetch=True)`, `get_exif(path, auto_fetch=False)`
+- **Cache Management**:
+  - `remove_file(path)`, `remove_files(paths)` - Después de operaciones destructivas
+  - `set_max_entries(max)` - Ajuste dinámico con eviction LRU automático
+  - `clear()` - Limpia todo entre datasets
+- **Persistence** (opcional):
+  - `save_to_disk(path)` - Serializa cache completo a JSON con metadata y stats
+  - `load_from_disk(path, validate=True)` - Deserializa cache, opcionalmente valida existencia de archivos
+  - Formato versionado (version=1) para compatibilidad futura
+  - Thread-safe con manejo robusto de errores (IOError, FileNotFoundError, ValueError)
+- **LRU Eviction**: Score-based (EXIF video=20, EXIF imagen=12, hash=5) + age penalty
+- **Stats**: `get_stats()` → `RepositoryStats` (total_files, files_with_hash, files_with_exif, cache_hits, cache_misses, hit_rate)
+- **Thread-safe**: RLock para acceso concurrente + singleton lock
+- **Magic methods**: `len(repo)`, `path in repo`, `repo[path]`
+- **Future-proof**: Preparado para MySQL/PostgreSQL via Protocol interface
 
 **Similar Files Analysis** (`services/similar_files_detector.py`) - Two-phase system
 - Phase 1: `analyze_initial()` - Expensive perceptual hash calculation (~5 min for 40k files)
@@ -95,7 +104,10 @@ See `PROJECT_TREE.md` for structure. Ignore `docs/` (author's notes).
 - Platform detection: `is_linux()`, `is_macos()`, `is_windows()`
 
 **File Utils** (`utils/file_utils.py`)
-- `calculate_file_hash()`, `to_path()`, `cleanup_empty_directories()`, `find_next_available_name()`
+- Type detection: `is_image_file()`, `is_video_file()`, `is_media_file()`, `is_supported_file()`, `get_file_type()`
+- Hash & paths: `calculate_file_hash()`, `to_path()`, `find_next_available_name()`
+- Cleanup: `cleanup_empty_directories()`, `delete_file_securely()`
+- Validation: `validate_directory_exists()`, `validate_file_exists()`
 
 **Date Utils** (`utils/date_utils.py`)
 - `select_chosen_date()`: EXIF → filename → video → filesystem

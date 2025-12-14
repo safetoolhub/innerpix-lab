@@ -450,3 +450,100 @@ def create_backup_for_file(file_path: Path, backup_root: Optional[Path] = None) 
         return str(dest)
     except Exception:
         return None
+
+
+def get_file_stat_info(file_path: Path) -> dict:
+    """
+    Obtiene información básica del sistema de archivos para un archivo.
+    
+    Args:
+        file_path: Ruta del archivo
+        
+    Returns:
+        Diccionario con size, ctime, mtime, atime
+    """
+    stat_info = file_path.stat()
+    return {
+        'size': stat_info.st_size,
+        'ctime': stat_info.st_ctime,
+        'mtime': stat_info.st_mtime,
+        'atime': stat_info.st_atime
+    }
+
+
+# =============================================================================
+# DETECCIÓN DE TIPO DE ARCHIVO
+# =============================================================================
+
+def is_image_file(filename: str | Path) -> bool:
+    """
+    Verifica si un archivo es una imagen soportada.
+    
+    Args:
+        filename: Nombre o Path del archivo a verificar
+    
+    Returns:
+        True si es una imagen soportada, False en caso contrario
+    """
+    from config import Config
+    ext = Path(filename).suffix.lower()
+    return ext in Config.SUPPORTED_IMAGE_EXTENSIONS
+
+
+def is_video_file(filename: str | Path) -> bool:
+    """
+    Verifica si un archivo es un video soportado.
+    
+    Args:
+        filename: Nombre o Path del archivo a verificar
+    
+    Returns:
+        True si es un video soportado, False en caso contrario
+    """
+    from config import Config
+    ext = Path(filename).suffix.lower()
+    return ext in Config.SUPPORTED_VIDEO_EXTENSIONS
+
+
+def is_media_file(filename: str | Path) -> bool:
+    """
+    Verifica si un archivo es multimedia soportado (imagen o video).
+    
+    Args:
+        filename: Nombre o Path del archivo a verificar
+    
+    Returns:
+        True si es multimedia soportado, False en caso contrario
+    """
+    return is_image_file(filename) or is_video_file(filename)
+
+
+def is_supported_file(filename: str | Path) -> bool:
+    """
+    Verifica si un archivo es soportado.
+    
+    Args:
+        filename: Nombre o Path del archivo a verificar
+    
+    Returns:
+        True si es soportado, False en caso contrario
+    """
+    return is_media_file(filename)
+
+
+def get_file_type(filename: str | Path) -> str:
+    """
+    Obtiene el tipo de archivo.
+    
+    Args:
+        filename: Nombre o Path del archivo
+    
+    Returns:
+        'PHOTO', 'VIDEO', u 'OTHER'
+    """
+    if is_image_file(filename):
+        return 'PHOTO'
+    elif is_video_file(filename):
+        return 'VIDEO'
+    else:
+        return 'OTHER'

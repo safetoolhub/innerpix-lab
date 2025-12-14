@@ -13,6 +13,7 @@ from PyQt6.QtGui import QColor, QFont, QCursor
 from PyQt6.QtCore import Qt, QTimer
 from utils.format_utils import format_size
 from utils.settings_manager import settings_manager
+from utils.file_utils import get_file_type
 from config import Config
 from ui.styles.design_system import DesignSystem
 from ui.styles.design_system import DesignSystem
@@ -236,7 +237,7 @@ class FileRenamerDialog(BaseDialog):
         
         self.type_combo = QComboBox()
         file_types = ["Todos"] + sorted(list(set(
-            Config.get_file_type(item['original_path'].name) 
+            get_file_type(item['original_path'].name) 
             for item in self.analysis_results.renaming_plan
         )))
         self.type_combo.addItems(file_types)

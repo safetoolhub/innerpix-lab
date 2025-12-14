@@ -408,8 +408,8 @@ class DuplicatesSimilarService(DuplicatesBaseService):
                     phash = future.result(timeout=5.0)
                     if phash:
                         # Obtener tamaño desde cache si es posible para evitar stat
-                        meta = repo.get_metadata(file_path)
-                        size = meta.size if meta else file_path.stat().st_size
+                        meta = repo.get_file_metadata(file_path)
+                        size = meta.fs_size if meta else file_path.stat().st_size
                         mtime = meta.fs_mtime if meta else file_path.stat().st_mtime
                         
                         perceptual_hashes[str(file_path)] = {

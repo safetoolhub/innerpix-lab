@@ -1034,7 +1034,8 @@ def get_all_file_dates(file_path: Path) -> dict:
     
     try:
         # 1. Intentar obtener todas las fechas EXIF disponibles (solo para imágenes)
-        if Config.is_image_file(file_path):
+        from utils.file_utils import is_image_file, get_file_type
+        if is_image_file(file_path):
             exif_dates = get_exif_dates(file_path)
             result['exif_date_time_original'] = exif_dates.get('DateTimeOriginal')
             result['exif_create_date'] = exif_dates.get('CreateDate')
@@ -1044,7 +1045,7 @@ def get_all_file_dates(file_path: Path) -> dict:
             result['exif_software'] = exif_dates.get('Software')
         
         # 2. Intentar obtener metadata de video (solo si está habilitado en configuración)
-        if Config.get_file_type(file_path) == 'VIDEO' and Config.USE_VIDEO_METADATA:
+        if get_file_type(file_path) == 'VIDEO' and Config.USE_VIDEO_METADATA:
             result['video_metadata_date'] = get_video_metadata_date(file_path)
         
         # 3. Intentar extraer fecha del nombre de archivo

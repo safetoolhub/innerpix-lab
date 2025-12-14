@@ -2,7 +2,8 @@
 import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
-from services.duplicates_base_service import DuplicatesBaseService, DuplicateGroup
+from services.duplicates_base_service import DuplicateGroup
+from services.duplicates_exact_service import DuplicatesExactService
 
 @pytest.mark.unit
 class TestBaseDetectorMissingFiles:
@@ -22,7 +23,7 @@ class TestBaseDetectorMissingFiles:
             total_size=2000
         )
         
-        service = DuplicatesBaseService("TestService")
+        service = DuplicatesExactService()
         
         # Execute
         with patch.object(service.logger, 'warning') as mock_warning:
@@ -68,7 +69,7 @@ class TestBaseDetectorMissingFiles:
             total_size=1000
         )
         
-        service = DuplicatesBaseService("TestService")
+        service = DuplicatesExactService()
         
         with patch.object(service.logger, 'warning') as mock_warning:
             result = service.execute(

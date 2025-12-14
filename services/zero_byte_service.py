@@ -46,7 +46,7 @@ class ZeroByteService(BaseService):
         all_files = repo.get_all_files()
         
         for i, meta in enumerate(all_files):
-            if meta.size == 0:
+            if meta.fs_size == 0:
                 zero_byte_files.append(meta.path)
             
             # Reportar progreso periódicamente (intervalo alto, operación en memoria rápida)

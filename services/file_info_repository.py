@@ -1,207 +1,140 @@
 """
-File Info Repository
+File Info Repository - Sistema de Caché Centralizado
 
-Repositorio centralizado de información de archivos del dataset seleccionado.
-Almacena metadata del sistema de archivos y metadatos extendidos (EXIF, hashes, etc.)
-para evitar búsquedas repetitivas sobre el mismo dataset.
+Repositorio singleton que actúa como caché inteligente para metadatos de archivos.
+Diseñado para ser migrado a MySQL en el futuro.
 
-Este módulo actúa como caché inteligente: si tiene el dato lo devuelve,
-si no lo tiene lo busca automáticamente.
+Arquitectura:
+- Backend en memoria (dict) actualmente
+- Interfaz preparada para backend de BBDD (Protocol)
+- Singleton thread-safe
+- Auto-population con diferentes estrategias
+- Auto-fetch opcional por parámetro
 
-Los servicios NO reciben este repositorio como parámetro, sino que lo consultan
-directamente. El repositorio es un singleton de facto creado en el scan inicial.
+Estrategias de población:
+1. BASIC: Solo filesystem metadata (rápido, scan inicial)
+2. WITH_HASH: Filesystem + hash SHA256 (costoso, para duplicados)
+3. WITH_EXIF_IMAGES: Filesystem + EXIF solo imágenes (moderado)
+4. WITH_EXIF_VIDEOS: Filesystem + EXIF solo videos (muy costoso)
+5. WITH_EXIF_ALL: Filesystem + EXIF imágenes + videos (muy costoso)
+6. FULL: Todo (filesystem + hash + EXIF) - extremadamente costoso
 
-Diseño: Preparado para futura migración a BBDD si el rendimiento con datasets
-enormes no es adecuado. La interfaz pública está desacoplada de la implementación
-interna (dict en memoria).
+Los servicios consultan este repositorio sin recibirlo como parámetro.
+El repositorio es global y compartido entre todos los servicios.
+
+Uso:
+    # Inicializar (desde Directory Scanner al escanear)
+    repo = FileInfoRepository.get_instance()
+    repo.populate_from_scan(files, strategy=PopulationStrategy.BASIC)
+    
+    # Consultar desde servicios (auto-fetch si no está)
+    hash_val = repo.get_hash(file_path, auto_fetch=True)
+    exif = repo.get_exif(file_path, auto_fetch=False)
+    
+    # Limpiar entre datasets
+    repo.clear()
+
+Preparado para migración a MySQL:
+- Protocol IFileRepository define interfaz abstracta
+- Métodos to_dict/from_dict en FileMetadata
+- Separación clara entre lógica y almacenamiento
 """
 from pathlib import Path
-from dataclasses import dataclass, field
-from typing import Dict, Optional, Any, Tuple, List, Protocol
-from datetime import datetime
+from typing import Dict, List, Optional, Protocol, Any
+from enum import Enum
+from dataclasses import dataclass
 import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
+from services.file_metadata import FileMetadata
 from utils.logger import get_logger
 from utils.file_utils import calculate_file_hash
 
-# Type alias for external compatibility
-MetadataCache = 'FileInfoRepository'
 
-
-@dataclass
-class FileMetadata:
+class PopulationStrategy(Enum):
     """
-    Metadatos puros de un archivo.
+    Estrategias para poblar el repositorio con metadatos.
     
-    Contiene información del sistema de archivos (prefijo fs_) y metadatos EXIF
-    (prefijo exif_) separados campo a campo para facilitar el acceso y verificación.
+    Define qué información se carga durante el scan inicial.
     """
-    # Información del archivo
-    path: Path
-    size: int
-    
-    # Información del filesystem (prefijo fs_)
-    fs_ctime: float  # Creation time (timestamp)
-    fs_mtime: float  # Modification time (timestamp)
-    fs_atime: float  # Access time (timestamp)
-    
-    # Hash SHA256 (Lazy loaded - expensive operation)
-    sha256: Optional[str] = None
-    
-    # Metadatos EXIF específicos (prefijo exif_)
-    exif_ImageWidth: Optional[int] = None
-    exif_ImageLength: Optional[int] = None
-    exif_DateTime: Optional[str] = None
-    exif_GPSTimeStamp: Optional[str] = None
-    exif_GPSDateStamp: Optional[str] = None
-    exif_DateTimeOriginal: Optional[str] = None
-    exif_DateTimeDigitized: Optional[str] = None
-    exif_ExifVersion: Optional[str] = None
-    
-    @property
-    def extension(self) -> str:
-        """Extensión del archivo en minúsculas"""
-        return self.path.suffix.lower()
-    
-    @property
-    def has_exif(self) -> bool:
-        """Verifica si tiene algún campo EXIF poblado"""
-        return any([
-            self.exif_ImageWidth is not None,
-            self.exif_ImageLength is not None,
-            self.exif_DateTime is not None,
-            self.exif_GPSTimeStamp is not None,
-            self.exif_GPSDateStamp is not None,
-            self.exif_DateTimeOriginal is not None,
-            self.exif_DateTimeDigitized is not None,
-            self.exif_ExifVersion is not None
-        ])
-    
-    def get_file_info_in_one_line(self, verbose: bool = False) -> str:
-        """Retorna toda la información del archivo en una línea de texto para logging.
-        
-        Formato: [FileMetadata Info]: path=... | size=... | sha256=... | exif=... | fs_times=...
-        Sin emojis, solo texto plano para logs profesionales.
-        
-        Args:
-            verbose: Si True, muestra todos los campos EXIF en lugar de solo las fechas principales
-            
-        Returns:
-            str: Línea completa con toda la metadata del archivo
-        """
-        # Hash (primeros 8 caracteres o 'pending')
-        hash_val = self.sha256[:8] + '...' if self.sha256 else 'pending'
-        
-        # EXIF: listar campos poblados
-        if verbose:
-            # Mostrar todos los campos EXIF poblados
-            exif_items = []
-            for field_name in ['ImageWidth', 'ImageLength', 'DateTime', 'GPSTimeStamp', 
-                              'GPSDateStamp', 'DateTimeOriginal', 'DateTimeDigitized', 'ExifVersion']:
-                value = getattr(self, f'exif_{field_name}', None)
-                if value is not None:
-                    exif_items.append(f"{field_name}={value}")
-            
-            exif_info = f"exif_fields={len(exif_items)}"
-            if exif_items:
-                exif_info += f" [{', '.join(exif_items)}]"
-        else:
-            # Modo normal: solo fechas principales
-            exif_dates = []
-            if self.exif_DateTimeOriginal:
-                exif_dates.append(f"DateTimeOriginal={self.exif_DateTimeOriginal}")
-            if self.exif_DateTime:
-                exif_dates.append(f"DateTime={self.exif_DateTime}")
-            if self.exif_DateTimeDigitized:
-                exif_dates.append(f"DateTimeDigitized={self.exif_DateTimeDigitized}")
-            
-            if exif_dates:
-                exif_info = f"exif=[{', '.join(exif_dates)}]"
-            else:
-                exif_info = "exif=none"
-        
-        # Timestamps del filesystem
-        ctime_str = datetime.fromtimestamp(self.fs_ctime).strftime('%Y-%m-%d %H:%M:%S')
-        mtime_str = datetime.fromtimestamp(self.fs_mtime).strftime('%Y-%m-%d %H:%M:%S')
-        atime_str = datetime.fromtimestamp(self.fs_atime).strftime('%Y-%m-%d %H:%M:%S')
-
-        return (
-            f"[FileMetadata Info]: path={self.path.name} | "
-            f"size={self.size} bytes | "
-            f"extension={self.extension} | "
-            f"sha256={hash_val} | "
-            f"fs_ctime={ctime_str} | "
-            f"fs_mtime={mtime_str} | "
-            f"fs_atime={atime_str} | "            
-            f"{exif_info}"
-        )
+    BASIC = "basic"                      # Solo filesystem metadata (rápido)
+    WITH_HASH = "with_hash"              # Filesystem + hash SHA256 (costoso)
+    WITH_EXIF_IMAGES = "with_exif_images"  # Filesystem + EXIF solo imágenes (moderado)
+    WITH_EXIF_VIDEOS = "with_exif_videos"  # Filesystem + EXIF solo videos (muy costoso)
+    WITH_EXIF_ALL = "with_exif_all"      # Filesystem + EXIF imágenes + videos (muy costoso)
+    FULL = "full"                        # Todo: filesystem + hash + EXIF (extremadamente costoso)
 
 
 class IFileRepository(Protocol):
     """
     Interfaz abstracta del repositorio de archivos.
     
-    Define el contrato que debe cumplir cualquier implementación,
-    facilitando la migración futura a BBDD.
+    Define el contrato que debe cumplir cualquier implementación
+    (memoria, SQLite, MySQL, PostgreSQL, etc.)
+    
+    Facilita la migración futura sin cambiar el código de los servicios.
     """
-    def add_file(self, path: Path) -> FileMetadata: ...
-    def get_metadata(self, path: Path) -> Optional[FileMetadata]: ...
-    def get_hash(self, path: Path) -> str: ...
-    def set_hash(self, path: Path, hash_val: str) -> None: ...
+    def add_file(self, path: Path, metadata: FileMetadata) -> None: ...
+    def get_file(self, path: Path) -> Optional[FileMetadata]: ...
+    def has_file(self, path: Path) -> bool: ...
+    def update_metadata(self, path: Path, **updates) -> None: ...
     def get_all_files(self) -> List[FileMetadata]: ...
-    def get_file_count(self) -> int: ...
-    def get_files_by_size(self) -> Dict[int, List[FileMetadata]]: ...
+    def get_files_by_size(self, size: int) -> List[FileMetadata]: ...
+    def get_files_by_extension(self, extension: str) -> List[FileMetadata]: ...
+    def count(self) -> int: ...
     def clear(self) -> None: ...
+
+
+@dataclass
+class RepositoryStats:
+    """Estadísticas del repositorio"""
+    total_files: int
+    files_with_hash: int
+    files_with_exif: int
+    cache_hits: int
+    cache_misses: int
+    hit_rate: float
 
 
 class FileInfoRepository:
     """
     Repositorio centralizado de información de archivos (Singleton).
     
-    Actúa como caché inteligente thread-safe para metadatos de archivos del dataset
-    seleccionado por el usuario. Los métodos buscan automáticamente si no tienen
-    el dato cacheado.
-    
-    Patrón de uso (Singleton):
-    - Los servicios acceden a la instancia global via get_instance()
-    - NO se pasa como parámetro a servicios
-    - Si el dato está cacheado, lo devuelve
-    - Si no está cacheado, lo busca y cachea automáticamente
+    Sistema de caché inteligente thread-safe para metadatos de archivos.
+    Actúa como fuente única de verdad para todos los servicios.
     
     Características:
-    - Thread-safe: Usa RLock para acceso concurrente
     - Singleton: Una única instancia compartida globalmente
-    - Auto-sizing: Ajusta capacidad según RAM disponible
-    - Hit/Miss tracking: Estadísticas de rendimiento
-    - Lazy loading: Hashes y EXIF se calculan bajo demanda
-    - Auto-fetch: Si no tiene un dato, lo busca automáticamente
+    - Thread-safe: Usa RLock para acceso concurrente seguro
+    - Estrategias de población: Control fino sobre qué datos cargar
+    - Auto-fetch: Obtención automática de datos faltantes (opcional)
+    - LRU Cache: Política de eviction inteligente basada en valor de datos
+    - Cache Management: remove_file(), remove_files(), set_max_entries()
+    - Estadísticas: Hit/miss tracking para optimización
+    - Preparado para BBDD: Arquitectura desacoplada
     
-    Compartido entre servicios:
-    - ExactCopiesDetector y HEICRemover comparten hashes
-    - FileOrganizer y FileRenamer usan fechas EXIF cacheadas
-    - Todos los servicios usan stats básicos (size, mtime)
-    
-    Diseño:
-    - Interfaz pública desacoplada de implementación (dict en memoria)
-    - Preparado para migración futura a BBDD (SQLite, PostgreSQL, etc.)
-    - Protocol IFileRepository define contrato abstracto
-    
-    Uso:
-        # Obtener instancia (orchestrator o cualquier servicio)
+    Patrón de uso:
+        # Los servicios NO reciben el repositorio como parámetro
+        # Acceden a la instancia global directamente
+        
+        # En Directory_Scanner (scan inicial):
         repo = FileInfoRepository.get_instance()
+        repo.populate_from_scan(files, PopulationStrategy.BASIC)
         
-        # Población (orchestrator durante scan)
-        for file in scan_results:
-            repo.add_file(file)
-        
-        # Uso en servicios (acceso directo a instancia global)
+        # En cualquier servicio:
         repo = FileInfoRepository.get_instance()
-        all_files = repo.get_all_files()
-        file_count = repo.get_file_count()
-        hash_val = repo.get_hash(path)  # Calcula automáticamente si no está cacheado
+        hash_val = repo.get_hash(path, auto_fetch=True)  # Calcula si no está
+        exif = repo.get_exif(path, auto_fetch=False)     # None si no está
         
-        # Reset entre datasets
+        # Entre datasets:
         repo.clear()
+    
+    Diseño para migración a BBDD:
+    - Backend actual: dict en memoria (rápido, datasets pequeños/medianos)
+    - Backend futuro: MySQL/PostgreSQL (datasets enormes, persistencia)
+    - Interfaz IFileRepository: contrato abstracto
+    - Métodos to_dict/from_dict en FileMetadata: serialización lista
+    - Separación lógica/almacenamiento: fácil swap de backend
     """
     
     _instance: Optional['FileInfoRepository'] = None
@@ -217,21 +150,35 @@ class FileInfoRepository:
     
     def __init__(self):
         """Inicializa el repositorio vacío (solo la primera vez)"""
-        # Solo inicializar si es la primera vez
         if not hasattr(self, '_initialized'):
+            # Backend de almacenamiento (dict en memoria por ahora)
             self._cache: Dict[Path, FileMetadata] = {}
+            
+            # LRU tracking: orden de acceso para política de eviction
+            self._access_order: List[Path] = []
+            
+            # Thread safety
             self._lock = threading.RLock()
-            self._max_entries = 100000 
-            self._enabled = True
+            
+            # Configuración
+            self._max_entries = 100000
+            
+            # Estadísticas
             self._hits = 0
             self._misses = 0
+            
+            # Logger
             self._logger = get_logger('FileInfoRepository')
+            
             self._initialized = True
+            self._logger.info("FileInfoRepository inicializado (Singleton)")
     
     @classmethod
     def get_instance(cls) -> 'FileInfoRepository':
         """
         Obtiene la instancia singleton del repositorio.
+        
+        Este es el método principal para acceder al repositorio desde cualquier servicio.
         
         Returns:
             FileInfoRepository: Instancia única del repositorio
@@ -243,219 +190,450 @@ class FileInfoRepository:
     @classmethod
     def reset_instance(cls) -> None:
         """
-        Resetea la instancia singleton (útil para tests).
+        Resetea la instancia singleton.
         
-        PRECAUCIÓN: Solo usar en tests o al cambiar de dataset.
+        PRECAUCIÓN: Solo usar en tests o al cambiar de dataset completo.
         """
         with cls._lock_singleton:
             if cls._instance is not None:
                 cls._instance.clear()
                 cls._instance = None
     
-    def add_file(self, path: Path) -> FileMetadata:
+    # =========================================================================
+    # POBLACIÓN DEL REPOSITORIO
+    # =========================================================================
+    
+    def populate_from_scan(
+        self,
+        files: List[Path],
+        strategy: PopulationStrategy = PopulationStrategy.BASIC,
+        max_workers: Optional[int] = None,
+        progress_callback: Optional[callable] = None
+    ) -> None:
         """
-        Añade un archivo al repositorio, leyendo stats básicos del disco.
+        Puebla el repositorio con información de archivos usando una estrategia.
+        
+        Este método es llamado por el Directory Scanner después del scan inicial
+        del directorio. Población en paralelo para rendimiento.
         
         Args:
-            path: Ruta del archivo a añadir
+            files: Lista de rutas de archivos a procesar
+            strategy: Estrategia de población (qué información cargar)
+            max_workers: Número de workers paralelos (None = auto)
+            progress_callback: Callback opcional para reportar progreso
+        
+        Examples:
+            # Solo filesystem (rápido, para UI inicial)
+            repo.populate_from_scan(files, PopulationStrategy.BASIC)
             
-        Returns:
-            FileMetadata: Metadatos del archivo añadido
+            # Con hashes (para detector de duplicados exactos)
+            repo.populate_from_scan(files, PopulationStrategy.WITH_HASH)
             
-        Raises:
-            Exception: Si el archivo no existe o hay error de permisos
+            # Con EXIF solo para imágenes (para organizador/renombrador de fotos)
+            repo.populate_from_scan(files, PopulationStrategy.WITH_EXIF_IMAGES)
+            
+            # Con EXIF solo para videos (más costoso)
+            repo.populate_from_scan(files, PopulationStrategy.WITH_EXIF_VIDEOS)
+            
+            # Con EXIF para imágenes y videos
+            repo.populate_from_scan(files, PopulationStrategy.WITH_EXIF_ALL)
+        """
+        if not files:
+            self._logger.warning("populate_from_scan llamado con lista vacía")
+            return
+        
+        self._logger.info(f"Iniciando población con estrategia {strategy.value} - {len(files)} archivos")
+        
+        # Actualizar límite de entradas
+        self.update_max_entries(len(files))
+        
+        # Determinar función de procesamiento según estrategia
+        if strategy == PopulationStrategy.BASIC:
+            process_func = self._process_file_basic
+        elif strategy == PopulationStrategy.WITH_HASH:
+            process_func = self._process_file_with_hash
+        elif strategy == PopulationStrategy.WITH_EXIF_IMAGES:
+            process_func = self._process_file_with_exif_images
+        elif strategy == PopulationStrategy.WITH_EXIF_VIDEOS:
+            process_func = self._process_file_with_exif_videos
+        elif strategy == PopulationStrategy.WITH_EXIF_ALL:
+            process_func = self._process_file_with_exif_all
+        elif strategy == PopulationStrategy.FULL:
+            process_func = self._process_file_full
+        else:
+            raise ValueError(f"Estrategia desconocida: {strategy}")
+        
+        # Procesar en paralelo
+        processed = 0
+        errors = 0
+        
+        max_workers = max_workers or min(32, (len(files) // 10) + 1)
+        
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {executor.submit(process_func, file_path): file_path 
+                      for file_path in files}
+            
+            for future in as_completed(futures):
+                file_path = futures[future]
+                try:
+                    metadata = future.result()
+                    if metadata:
+                        with self._lock:
+                            self._cache[file_path] = metadata
+                        processed += 1
+                    else:
+                        errors += 1
+                except Exception as e:
+                    self._logger.error(f"Error procesando {file_path}: {e}")
+                    errors += 1
+                
+                # Progress callback
+                if progress_callback and processed % 100 == 0:
+                    progress_callback(processed, len(files))
+        
+        self._logger.info(
+            f"Población completada - "
+            f"Procesados: {processed}, "
+            f"Errores: {errors}, "
+            f"Total en caché: {len(self._cache)}"
+        )
+    
+    def _process_file_basic(self, path: Path) -> Optional[FileMetadata]:
+        """
+        Procesa archivo con estrategia BASIC: solo filesystem metadata.
+        
+        Rápido, sin I/O costoso.
         """
         try:
+            if not path.exists():
+                return None
+            
             stat = path.stat()
-            meta = FileMetadata(
-                path=path,
-                size=stat.st_size,
+            return FileMetadata(
+                path=path.resolve(),
+                fs_size=stat.st_size,
                 fs_ctime=stat.st_ctime,
                 fs_mtime=stat.st_mtime,
                 fs_atime=stat.st_atime
             )
-            with self._lock:
-                self._cache[path] = meta
-                self._logger.debug(f"Archivo añadido al repositorio: {path}")
-            return meta
         except Exception as e:
-            self._logger.error(f"Error añadiendo archivo al repositorio: {path} - {e}")
-            raise
-
-    def get_metadata(self, path: Path) -> Optional[FileMetadata]:
+            self._logger.error(f"Error en _process_file_basic para {path}: {e}")
+            return None
+    
+    def _process_file_with_hash(self, path: Path) -> Optional[FileMetadata]:
         """
-        Obtiene metadatos de un archivo del repositorio.
+        Procesa archivo con estrategia WITH_HASH: filesystem + hash SHA256.
         
-        Si no está en caché, retorna None (no lo busca automáticamente).
-        Usar get_or_create() para auto-fetch.
+        Costoso, usa para duplicados exactos.
+        """
+        metadata = self._process_file_basic(path)
+        if not metadata:
+            return None
+        
+        try:
+            metadata.sha256 = calculate_file_hash(path)
+        except Exception as e:
+            self._logger.error(f"Error calculando hash para {path}: {e}")
+            # Continuar sin hash
+        
+        return metadata
+    
+    def _process_file_with_exif_images(self, path: Path) -> Optional[FileMetadata]:
+        """
+        Procesa archivo con estrategia WITH_EXIF_IMAGES: filesystem + EXIF solo para imágenes.
+        
+        Moderado, usa para organización/renombrado de imágenes.
+        Solo procesa EXIF si el archivo es una imagen.
+        """
+        metadata = self._process_file_basic(path)
+        if not metadata:
+            return None
+        
+        # Solo extraer EXIF si es imagen
+        if metadata.is_image:
+            # TODO: Integrar extracción de EXIF para imágenes
+            # Por ahora retornar sin EXIF, se puede poblar después con set_exif()
+            pass
+        
+        return metadata
+    
+    def _process_file_with_exif_videos(self, path: Path) -> Optional[FileMetadata]:
+        """
+        Procesa archivo con estrategia WITH_EXIF_VIDEOS: filesystem + EXIF solo para videos.
+        
+        Costoso (videos requieren más procesamiento), usa solo cuando sea necesario.
+        Solo procesa EXIF si el archivo es un video.
+        """
+        metadata = self._process_file_basic(path)
+        if not metadata:
+            return None
+        
+        # Solo extraer EXIF si es video
+        if metadata.is_video:
+            # TODO: Integrar extracción de EXIF para videos (más costoso)
+            # Por ahora retornar sin EXIF, se puede poblar después con set_exif()
+            pass
+        
+        return metadata
+    
+    def _process_file_with_exif_all(self, path: Path) -> Optional[FileMetadata]:
+        """
+        Procesa archivo con estrategia WITH_EXIF_ALL: filesystem + EXIF para imágenes y videos.
+        
+        Moderado a costoso, usa para análisis completo de multimedia.
+        Procesa EXIF para ambos tipos, respetando que videos son más costosos.
+        """
+        metadata = self._process_file_basic(path)
+        if not metadata:
+            return None
+        
+        # Extraer EXIF según tipo de archivo
+        if metadata.is_image:
+            # TODO: Integrar extracción de EXIF para imágenes
+            pass
+        elif metadata.is_video:
+            # TODO: Integrar extracción de EXIF para videos (más costoso)
+            pass
+        
+        return metadata
+    
+    def _process_file_full(self, path: Path) -> Optional[FileMetadata]:
+        """
+        Procesa archivo con estrategia FULL: filesystem + hash + EXIF.
+        
+        Muy costoso, usar solo si realmente se necesita todo.
+        Diferencia entre imágenes (EXIF más rápido) y videos (EXIF más costoso).
+        """
+        metadata = self._process_file_basic(path)
+        if not metadata:
+            return None
+        
+        # Hash
+        try:
+            metadata.sha256 = calculate_file_hash(path)
+        except Exception as e:
+            self._logger.error(f"Error calculando hash para {path}: {e}")
+        
+        # EXIF según tipo de archivo
+        if metadata.is_image:
+            # TODO: Integrar extracción de EXIF para imágenes
+            pass
+        elif metadata.is_video:
+            # TODO: Integrar extracción de EXIF para videos (más costoso)
+            pass
+        
+        return metadata
+    
+    # =========================================================================
+    # CONSULTAS (GET) - Con auto-fetch opcional
+    # =========================================================================
+    
+    def get_file_metadata(
+        self,
+        path: Path,
+        auto_fetch: bool = False
+    ) -> Optional[FileMetadata]:
+        """
+        Obtiene metadatos completos de un archivo.
         
         Args:
             path: Ruta del archivo
+            auto_fetch: Si True, añade el archivo automáticamente si no está en caché
             
         Returns:
-            FileMetadata si existe en caché, None en caso contrario
+            FileMetadata si existe (o se creó con auto_fetch), None en caso contrario
         """
+        path = path.resolve()
+        
         with self._lock:
             if path in self._cache:
                 self._hits += 1
+                self._update_access_order(path)  # Actualizar LRU
                 return self._cache[path]
             self._misses += 1
-            return None
-
-    def set_basic_metadata(
-        self, 
-        path: Path, 
-        size: int, 
-        ctime: float, 
-        mtime: float, 
-        atime: float, 
-    ) -> None:
+        
+        # No está en caché
+        if auto_fetch:
+            self._logger.debug(f"Auto-fetch activado para {path.name}")
+            metadata = self._process_file_basic(path)
+            if metadata:
+                with self._lock:
+                    self._cache[path] = metadata
+                    self._update_access_order(path)
+                    # Verificar límite de caché
+                    if len(self._cache) > self._max_entries:
+                        self._evict_lru_entries(len(self._cache) - self._max_entries)
+                return metadata
+        
+        return None
+    
+    def get_hash(self, path: Path, auto_fetch: bool = True) -> Optional[str]:
         """
-        Establece metadatos básicos directamente (usado por orchestrator).
+        Obtiene el hash SHA256 de un archivo.
         
         Args:
             path: Ruta del archivo
-            size: Tamaño en bytes
-            ctime: Creation time (timestamp)
-            mtime: Modification time (timestamp)
-            atime: Access time (timestamp)
-        """
-        meta = FileMetadata(
-            path=path,
-            size=size,
-            fs_ctime=ctime,
-            fs_mtime=mtime,
-            fs_atime=atime
-        )
-        with self._lock:
-            self._cache[path] = meta
-
-    def get_hash(self, path: Path) -> str:
-        """
-        Obtiene el hash SHA256 del archivo.
-        
-        AUTO-FETCH: Si no está cacheado, lo calcula automáticamente usando
-        utils.file_utils.calculate_file_hash() y lo cachea.
-        
-        Args:
-            path: Ruta del archivo
+            auto_fetch: Si True (default), calcula el hash si no está cacheado
             
         Returns:
-            str: Hash SHA256 en hexadecimal
+            str: Hash SHA256 en hexadecimal, o None si auto_fetch=False y no está
+        """
+        path = path.resolve()
+        metadata = self.get_file_metadata(path, auto_fetch=False)
+        
+        # Si tiene hash cacheado, retornarlo
+        if metadata and metadata.sha256:
+            return metadata.sha256
+        
+        # No tiene hash
+        if not auto_fetch:
+            return None
+        
+        # Auto-fetch: calcular hash
+        self._logger.debug(f"Calculando hash para {path.name}")
+        
+        # Si no existe metadata, crearla
+        if not metadata:
+            metadata = self._process_file_basic(path)
+            if not metadata:
+                return None
+            with self._lock:
+                self._cache[path] = metadata
+        
+        # Calcular y cachear hash
+        try:
+            hash_val = calculate_file_hash(path)
+            with self._lock:
+                metadata.sha256 = hash_val
+            return hash_val
+        except Exception as e:
+            self._logger.error(f"Error calculando hash para {path}: {e}")
+            return None
+    
+    def get_exif(self, path: Path, auto_fetch: bool = False) -> Dict[str, Any]:
+        """
+        Obtiene datos EXIF de un archivo.
+        
+        Args:
+            path: Ruta del archivo
+            auto_fetch: Si True, añade el archivo si no está en caché
             
-        Raises:
-            Exception: Si el archivo no existe o hay error de lectura
+        Returns:
+            Dict con campos EXIF presentes (vacío si no hay datos)
         """
-        # Intentar obtener del caché primero
-        meta = self.get_metadata(path)
-        if meta and meta.sha256:
-            self._logger.debug(f"Hash cacheado para: {path}")
-            return meta.sha256
+        path = path.resolve()
+        metadata = self.get_file_metadata(path, auto_fetch=auto_fetch)
         
-        # No está en caché o no tiene hash: añadir/actualizar
-        if not meta:
-            self._logger.debug(f"Archivo no en caché, añadiendo: {path}")
-            meta = self.add_file(path)
+        if not metadata:
+            return {}
         
-        # Calcular hash usando file_utils
-        self._logger.debug(f"Calculando hash SHA256 para: {path}")
-        sha256 = calculate_file_hash(path)
-        
-        with self._lock:
-            meta.sha256 = sha256
-        
-        return sha256
-
-    def set_hash(self, path: Path, hash_val: str) -> None:
+        return metadata.get_exif_dates()
+    
+    def get_filesystem_metadata(
+        self,
+        path: Path,
+        auto_fetch: bool = False
+    ) -> Optional[Dict[str, Any]]:
         """
-        Establece el hash SHA256 de un archivo directamente.
+        Obtiene metadatos del sistema de archivos.
         
+        Args:
+            path: Ruta del archivo
+            auto_fetch: Si True, añade el archivo si no está en caché
+            
+        Returns:
+            Dict con fs_size, fs_ctime, fs_mtime, fs_atime, o None si no existe
+        """
+        path = path.resolve()
+        metadata = self.get_file_metadata(path, auto_fetch=auto_fetch)
+        
+        if not metadata:
+            return None
+        
+        return {
+            'fs_size': metadata.fs_size,
+            'fs_ctime': metadata.fs_ctime,
+            'fs_mtime': metadata.fs_mtime,
+            'fs_atime': metadata.fs_atime
+        }
+    
+    # =========================================================================
+    # ACTUALIZACIONES (SET) - Solo para archivos ya en caché
+    # =========================================================================
+    
+    def set_hash(self, path: Path, hash_val: str) -> bool:
+        """
+        Establece el hash SHA256 de un archivo.
+        
+        Solo actualiza si el archivo ya está en caché.
         Útil cuando el hash se ha calculado externamente.
-        AUTO-FETCH: Si el archivo no está en caché, lo añade automáticamente.
         
         Args:
             path: Ruta del archivo
             hash_val: Hash SHA256 en hexadecimal
+            
+        Returns:
+            bool: True si se actualizó, False si el archivo no está en caché
         """
-        meta = self.get_metadata(path)
-        if not meta:
-            # Añadir archivo automáticamente si no está en caché
-            if path.exists():
-                meta = self.add_file(path)
-            else:
-                self._logger.warning(f"Intento de establecer hash para archivo no existente: {path}")
-                return
+        path = path.resolve()
         
         with self._lock:
-            meta.sha256 = hash_val
-
-    def set_exif(self, path: Path, exif_data: Dict[str, Any]) -> None:
+            if path not in self._cache:
+                self._logger.warning(
+                    f"Intento de set_hash para archivo no en caché: {path.name}"
+                )
+                return False
+            
+            self._cache[path].sha256 = hash_val
+            return True
+    
+    def set_exif(self, path: Path, exif_data: Dict[str, Any]) -> bool:
         """
         Establece datos EXIF de un archivo.
         
-        AUTO-FETCH: Si el archivo no está en caché, lo añade automáticamente.
+        Solo actualiza si el archivo ya está en caché.
         
         Args:
             path: Ruta del archivo
-            exif_data: Diccionario con datos EXIF parseados (solo campos soportados)
-        """
-        meta = self.get_metadata(path)
-        if not meta:
-            if path.exists():
-                meta = self.add_file(path)
-            else:
-                self._logger.warning(f"Intento de establecer EXIF para archivo no existente: {path}")
-                return
-        
-        # Mapear campos EXIF del diccionario a atributos específicos
-        with self._lock:
-            exif_updated = False
-            if 'ImageWidth' in exif_data:
-                meta.exif_ImageWidth = exif_data['ImageWidth']
-                exif_updated = True
-            if 'ImageLength' in exif_data:
-                meta.exif_ImageLength = exif_data['ImageLength']
-                exif_updated = True
-            if 'DateTime' in exif_data:
-                meta.exif_DateTime = exif_data['DateTime']
-                exif_updated = True
-            if 'GPSTimeStamp' in exif_data:
-                meta.exif_GPSTimeStamp = exif_data['GPSTimeStamp']
-                exif_updated = True
-            if 'GPSDateStamp' in exif_data:
-                meta.exif_GPSDateStamp = exif_data['GPSDateStamp']
-                exif_updated = True
-            if 'DateTimeOriginal' in exif_data:
-                meta.exif_DateTimeOriginal = exif_data['DateTimeOriginal']
-                exif_updated = True
-            if 'DateTimeDigitized' in exif_data:
-                meta.exif_DateTimeDigitized = exif_data['DateTimeDigitized']
-                exif_updated = True
-            if 'ExifVersion' in exif_data:
-                meta.exif_ExifVersion = exif_data['ExifVersion']
-                exif_updated = True
+            exif_data: Diccionario con campos EXIF
             
-            if exif_updated:
-                self._logger.debug(f"EXIF establecido para: {path}")
-
-    def get_files_by_size(self) -> Dict[int, List[FileMetadata]]:
-        """
-        Agrupa archivos por tamaño.
-        
-        Útil para detección de duplicados exactos (pre-filtrado).
-        
         Returns:
-            Dict[int, List[FileMetadata]]: Diccionario size -> lista de archivos
+            bool: True si se actualizó, False si el archivo no está en caché
         """
-        by_size: Dict[int, List[FileMetadata]] = {}
-        with self._lock:
-            for meta in self._cache.values():
-                if meta.size not in by_size:
-                    by_size[meta.size] = []
-                by_size[meta.size].append(meta)
+        path = path.resolve()
         
-        self._logger.debug(f"Archivos agrupados por tamaño: {len(by_size)} grupos")
-        return by_size
+        with self._lock:
+            if path not in self._cache:
+                self._logger.warning(
+                    f"Intento de set_exif para archivo no en caché: {path.name}"
+                )
+                return False
+            
+            metadata = self._cache[path]
+            
+            # Actualizar campos EXIF presentes
+            if 'ImageWidth' in exif_data:
+                metadata.exif_ImageWidth = exif_data['ImageWidth']
+            if 'ImageLength' in exif_data:
+                metadata.exif_ImageLength = exif_data['ImageLength']
+            if 'DateTime' in exif_data:
+                metadata.exif_DateTime = exif_data['DateTime']
+            if 'GPSTimeStamp' in exif_data:
+                metadata.exif_GPSTimeStamp = exif_data['GPSTimeStamp']
+            if 'GPSDateStamp' in exif_data:
+                metadata.exif_GPSDateStamp = exif_data['GPSDateStamp']
+            if 'DateTimeOriginal' in exif_data:
+                metadata.exif_DateTimeOriginal = exif_data['DateTimeOriginal']
+            if 'DateTimeDigitized' in exif_data:
+                metadata.exif_DateTimeDigitized = exif_data['DateTimeDigitized']
+            if 'ExifVersion' in exif_data:
+                metadata.exif_ExifVersion = exif_data['ExifVersion']
+            
+            return True
+    
+    # =========================================================================
+    # CONSULTAS MASIVAS Y AGRUPACIONES
+    # =========================================================================
     
     def get_all_files(self) -> List[FileMetadata]:
         """
@@ -467,24 +645,72 @@ class FileInfoRepository:
         with self._lock:
             return list(self._cache.values())
     
-    def get_file_count(self) -> int:
+    def get_files_by_size(self) -> Dict[int, List[FileMetadata]]:
         """
-        Obtiene el número total de archivos en el repositorio.
+        Agrupa archivos por tamaño.
         
-        Método optimizado que no requiere crear una lista completa.
-        Usar este método en lugar de len(get_all_files()).
+        Útil para detección de duplicados exactos (pre-filtrado).
         
         Returns:
-            int: Número de archivos en el repositorio
+            Dict[int, List[FileMetadata]]: size -> lista de archivos
+        """
+        by_size: Dict[int, List[FileMetadata]] = {}
+        
+        with self._lock:
+            for metadata in self._cache.values():
+                if metadata.fs_size not in by_size:
+                    by_size[metadata.fs_size] = []
+                by_size[metadata.fs_size].append(metadata)
+        
+        return by_size
+    
+    def get_files_by_extension(self, extension: str) -> List[FileMetadata]:
+        """
+        Obtiene archivos con una extensión específica.
+        
+        Args:
+            extension: Extensión (ej: '.jpg', case-insensitive)
+            
+        Returns:
+            List[FileMetadata]: Archivos con esa extensión
+        """
+        extension = extension.lower()
+        
+        with self._lock:
+            return [
+                metadata for metadata in self._cache.values()
+                if metadata.extension == extension
+            ]
+    
+    def count(self) -> int:
+        """
+        Número total de archivos en el repositorio.
+        
+        Método optimizado, usar en lugar de len(get_all_files()).
+        
+        Returns:
+            int: Número de archivos
         """
         with self._lock:
-            count = len(self._cache)
-        self._logger.debug(f"Conteo de archivos: {count}")
-        return count
-
+            return len(self._cache)
+    
+    def count_with_hash(self) -> int:
+        """Número de archivos con hash calculado"""
+        with self._lock:
+            return sum(1 for m in self._cache.values() if m.has_hash)
+    
+    def count_with_exif(self) -> int:
+        """Número de archivos con EXIF"""
+        with self._lock:
+            return sum(1 for m in self._cache.values() if m.has_exif)
+    
+    # =========================================================================
+    # UTILIDADES
+    # =========================================================================
+    
     def update_max_entries(self, total_files: int) -> None:
         """
-        Actualiza el límite interno de entradas basado en el conteo de archivos.
+        Actualiza el límite interno basado en el conteo de archivos.
         
         Args:
             total_files: Número total de archivos en el dataset
@@ -493,156 +719,375 @@ class FileInfoRepository:
             old_max = self._max_entries
             self._max_entries = max(self._max_entries, total_files + 1000)
             if old_max != self._max_entries:
-                self._logger.info(f"Límite de entradas actualizado: {old_max} -> {self._max_entries}")
-
-    def set_all_dates(self, path: Path, all_dates: Dict[str, Any]) -> None:
-        """
-        Establece todas las fechas extraídas (incluyendo EXIF) para un archivo.
-        
-        AUTO-FETCH: Si el archivo no está en caché, lo añade automáticamente.
-        
-        Args:
-            path: Ruta del archivo
-            all_dates: Diccionario con todas las fechas encontradas
-        """
-        # Reutilizar set_exif que ya maneja el mapeo de campos
-        self.set_exif(path, all_dates)
-
-    def get_all_dates(self, path: Path) -> Dict[str, Any]:
-        """
-        Obtiene todas las fechas cacheadas (incluyendo EXIF) de un archivo.
-        
-        Args:
-            path: Ruta del archivo
-            
-        Returns:
-            Dict[str, Any]: Diccionario con fechas EXIF, vacío si no hay datos
-        """
-        meta = self.get_metadata(path)
-        if not meta:
-            return {}
-        
-        # Reconstruir diccionario desde atributos específicos
-        dates = {}
-        if meta.exif_DateTime:
-            dates['DateTime'] = meta.exif_DateTime
-        if meta.exif_DateTimeOriginal:
-            dates['DateTimeOriginal'] = meta.exif_DateTimeOriginal
-        if meta.exif_DateTimeDigitized:
-            dates['DateTimeDigitized'] = meta.exif_DateTimeDigitized
-        if meta.exif_GPSTimeStamp:
-            dates['GPSTimeStamp'] = meta.exif_GPSTimeStamp
-        if meta.exif_GPSDateStamp:
-            dates['GPSDateStamp'] = meta.exif_GPSDateStamp
-        
-        return dates
-
-    def get_selected_date(self, path: Path) -> Tuple[Optional[datetime], str]:
-        """
-        Obtiene la mejor fecha disponible para un archivo y su fuente.
-        
-        Usa fechas EXIF cacheadas si están disponibles, sino usa stats del FS.
-        
-        Args:
-            path: Ruta del archivo
-            
-        Returns:
-            Tuple[Optional[datetime], str]: (fecha, fuente)
-                fuente puede ser: "exif", "mtime", "unknown"
-        """
-        meta = self.get_metadata(path)
-        if not meta:
-            self._logger.warning(f"Archivo no en caché para get_selected_date: {path}")
-            return None, "unknown"
-            
-        # Try EXIF first (implementación completa requeriría date_utils)
-        # Por ahora retornamos fs_mtime como fallback seguro
-        return datetime.fromtimestamp(meta.fs_mtime), "mtime"
-
-    def get_stats(self) -> Dict[str, Any]:
+                self._logger.info(
+                    f"Límite de entradas actualizado: {old_max} -> {self._max_entries}"
+                )
+    
+    def get_stats(self) -> RepositoryStats:
         """
         Obtiene estadísticas del repositorio.
         
         Returns:
-            Dict con: size, max_entries, hits, misses, hit_rate
+            RepositoryStats: Estadísticas actuales
         """
         with self._lock:
+            total = len(self._cache)
+            with_hash = self.count_with_hash()
+            with_exif = self.count_with_exif()
             total_access = self._hits + self._misses
             hit_rate = (self._hits / total_access * 100) if total_access > 0 else 0.0
-            stats = {
-                'size': len(self._cache),
-                'max_entries': self._max_entries,
-                'hits': self._hits,
-                'misses': self._misses,
-                'hit_rate': hit_rate
-            }
-        return stats
-
+        
+        return RepositoryStats(
+            total_files=total,
+            files_with_hash=with_hash,
+            files_with_exif=with_exif,
+            cache_hits=self._hits,
+            cache_misses=self._misses,
+            hit_rate=hit_rate
+        )
+    
     def log_stats(self) -> None:
-        """Registra estadísticas actuales del repositorio en el log"""
+        """Registra estadísticas en el log"""
         stats = self.get_stats()
         self._logger.info(
-            f"Estadísticas del repositorio - "
-            f"Archivos: {stats['size']}, "
-            f"Límite: {stats['max_entries']}, "
-            f"Hits: {stats['hits']}, "
-            f"Misses: {stats['misses']}, "
-            f"Hit Rate: {stats['hit_rate']:.1f}%"
+            f"Repositorio - "
+            f"Files: {stats.total_files}, "
+            f"With hash: {stats.files_with_hash}, "
+            f"With EXIF: {stats.files_with_exif}, "
+            f"Hits: {stats.cache_hits}, "
+            f"Misses: {stats.cache_misses}, "
+            f"Hit rate: {stats.hit_rate:.1f}%"
         )
-
+    
     def clear(self) -> None:
         """
         Limpia completamente el repositorio.
         
-        Útil después de operaciones destructivas o al cambiar de dataset.
+        Usar al cambiar de dataset o después de operaciones destructivas.
         """
         with self._lock:
             old_size = len(self._cache)
             self._cache.clear()
+            self._access_order.clear()
             self._hits = 0
             self._misses = 0
             self._logger.info(f"Repositorio limpiado - {old_size} archivos eliminados")
     
-    def get_or_create(self, path: Path) -> FileMetadata:
+    # =========================================================================
+    # GESTIÓN DE CACHÉ Y ELIMINACIÓN
+    # =========================================================================
+    
+    def remove_file(self, path: Path) -> bool:
         """
-        Obtiene metadata de un archivo, añadiéndolo si no existe (AUTO-FETCH).
+        Elimina un archivo del repositorio.
         
-        Método conveniente que combina get_metadata() y add_file().
+        Útil cuando se borra un archivo del disco y queremos actualizar la caché
+        sin necesidad de reanalizar todo el dataset.
         
         Args:
-            path: Ruta del archivo
+            path: Ruta del archivo a eliminar
             
         Returns:
-            FileMetadata: Metadatos del archivo
+            bool: True si se eliminó, False si no estaba en caché
+        """
+        path = path.resolve()
+        
+        with self._lock:
+            if path in self._cache:
+                del self._cache[path]
+                if path in self._access_order:
+                    self._access_order.remove(path)
+                self._logger.debug(f"Archivo eliminado del repositorio: {path.name}")
+                return True
+            return False
+    
+    def remove_files(self, paths: List[Path]) -> int:
+        """
+        Elimina múltiples archivos del repositorio en batch.
+        
+        Más eficiente que llamar a remove_file() múltiples veces.
+        
+        Args:
+            paths: Lista de rutas a eliminar
+            
+        Returns:
+            int: Número de archivos eliminados
+        """
+        removed = 0
+        
+        with self._lock:
+            for path in paths:
+                path_resolved = path.resolve()
+                if path_resolved in self._cache:
+                    del self._cache[path_resolved]
+                    if path_resolved in self._access_order:
+                        self._access_order.remove(path_resolved)
+                    removed += 1
+            
+            if removed > 0:
+                self._logger.info(f"Eliminados {removed} archivos del repositorio")
+        
+        return removed
+    
+    def save_to_disk(self, path: Path) -> None:
+        """
+        Guarda el estado actual del repositorio a disco.
+        
+        Útil para datasets grandes que no cambian seguido. Permite recargar
+        el repositorio sin tener que reanalizar todos los archivos.
+        
+        Args:
+            path: Ruta del archivo donde guardar (extensión .json recomendada)
             
         Raises:
-            Exception: Si el archivo no existe o hay error de lectura
+            IOError: Si no se puede escribir el archivo
         """
-        meta = self.get_metadata(path)
-        if meta:
-            return meta
-        return self.add_file(path)
-    
-    def __len__(self) -> int:
-        """
-        Devuelve el número de archivos en el repositorio.
+        import json
         
-        Permite usar len(repository).
-        """
         with self._lock:
-            return len(self._cache)
+            cache_data = {
+                'version': 1,
+                'metadata': {
+                    'total_files': len(self._cache),
+                    'files_with_hash': self.count_with_hash(),
+                    'files_with_exif': self.count_with_exif(),
+                },
+                'files': [
+                    metadata.to_dict() for metadata in self._cache.values()
+                ]
+            }
+            
+            try:
+                with open(path, 'w', encoding='utf-8') as f:
+                    json.dump(cache_data, f, indent=2, default=str)
+                
+                self._logger.info(
+                    f"Repositorio guardado a disco: {path} "
+                    f"({len(self._cache)} archivos, {path.stat().st_size / 1024 / 1024:.2f} MB)"
+                )
+            except Exception as e:
+                self._logger.error(f"Error guardando repositorio a disco: {e}")
+                raise IOError(f"No se pudo guardar el repositorio: {e}")
     
-    def __contains__(self, path: Path) -> bool:
+    def load_from_disk(self, path: Path, validate: bool = True) -> int:
         """
-        Verifica si un archivo está en el repositorio.
-        
-        Permite usar 'path in repository'.
+        Carga el repositorio desde un archivo guardado previamente.
         
         Args:
-            path: Ruta del archivo a verificar
+            path: Ruta del archivo a cargar
+            validate: Si True, valida que los archivos aún existan en disco
             
         Returns:
-            bool: True si el archivo está en el repositorio
+            int: Número de archivos cargados (después de validación si aplica)
+            
+        Raises:
+            FileNotFoundError: Si el archivo no existe
+            ValueError: Si el archivo está corrupto o tiene versión incompatible
         """
+        import json
+        
+        if not path.exists():
+            raise FileNotFoundError(f"Archivo de caché no encontrado: {path}")
+        
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                cache_data = json.load(f)
+            
+            # Validar versión
+            version = cache_data.get('version', 0)
+            if version != 1:
+                raise ValueError(f"Versión de caché incompatible: {version}")
+            
+            # Cargar archivos
+            files_data = cache_data.get('files', [])
+            loaded = 0
+            skipped = 0
+            
+            with self._lock:
+                # Limpiar caché actual
+                self._cache.clear()
+                self._access_order.clear()
+                
+                for file_data in files_data:
+                    try:
+                        metadata = FileMetadata.from_dict(file_data)
+                        
+                        # Validar que el archivo existe si está solicitado
+                        if validate and not metadata.path.exists():
+                            skipped += 1
+                            continue
+                        
+                        self._cache[metadata.path] = metadata
+                        self._access_order.append(metadata.path)
+                        loaded += 1
+                        
+                    except Exception as e:
+                        self._logger.warning(f"Error cargando entrada: {e}")
+                        skipped += 1
+                
+                # Actualizar límite de entradas
+                self.update_max_entries(loaded)
+                
+                self._logger.info(
+                    f"Repositorio cargado desde disco: {path} "
+                    f"({loaded} archivos cargados, {skipped} omitidos)"
+                )
+                
+                if validate and skipped > 0:
+                    self._logger.warning(
+                        f"Validación: {skipped} archivos ya no existen en disco"
+                    )
+            
+            return loaded
+            
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Archivo de caché corrupto: {e}")
+        except Exception as e:
+            self._logger.error(f"Error cargando repositorio desde disco: {e}")
+            raise
+    
+    def set_max_entries(self, max_entries: int) -> None:
+        """
+        Establece el límite máximo de entradas en la caché.
+        
+        Si el nuevo límite es menor que el actual número de entradas,
+        se aplicará la política LRU para eliminar las entradas menos usadas.
+        
+        Args:
+            max_entries: Nuevo límite máximo (debe ser > 0)
+            
+        Raises:
+            ValueError: Si max_entries <= 0
+        """
+        if max_entries <= 0:
+            raise ValueError("max_entries debe ser mayor que 0")
+        
+        with self._lock:
+            old_max = self._max_entries
+            self._max_entries = max_entries
+            
+            self._logger.info(
+                f"Límite de caché actualizado: {old_max} -> {self._max_entries}"
+            )
+            
+            # Si excedemos el límite, aplicar política de eviction
+            current_size = len(self._cache)
+            if current_size > self._max_entries:
+                self._evict_lru_entries(current_size - self._max_entries)
+    
+    def _evict_lru_entries(self, num_to_evict: int) -> None:
+        """
+        Elimina las entradas menos recientemente usadas (LRU).
+        
+        Política de eviction basada en scoring:
+        - EXIF video: +20 puntos (muy costoso de recalcular)
+        - EXIF imagen: +12 puntos (costoso)
+        - Hash SHA256: +5 puntos (moderadamente costoso)
+        - Penalización por antigüedad: -3 * (posición_acceso / total)
+        
+        Elimina primero las entradas con menor score (menos valiosas).
+        
+        Args:
+            num_to_evict: Número de entradas a eliminar
+        """
+        if num_to_evict <= 0:
+            return
+        
+        # Ya estamos dentro de self._lock
+        
+        # Ordenar entradas por "valor" (cantidad de datos)
+        # Prioridad de eliminación:
+        # 1. Sin hash ni EXIF (menos datos)
+        # 2. Solo filesystem metadata
+        # 3. Las menos recientemente accedidas
+        
+        entries_by_value = []
+        for path, metadata in self._cache.items():
+            # Calcular "score" de la entrada (más alto = más valioso)
+            score = 0
+            if metadata.has_hash:
+                score += 5   # Hash moderadamente costoso
+            if metadata.has_exif:
+                # EXIF de video es muy costoso, de imagen moderado
+                if metadata.is_video:
+                    score += 20  # EXIF video muy costoso
+                elif metadata.is_image:
+                    score += 12  # EXIF imagen costoso
+            
+            # Penalizar por antigüedad de acceso
+            try:
+                access_index = self._access_order.index(path)
+                # Más bajo = más reciente (final de la lista)
+                age_penalty = access_index / len(self._access_order)
+                score -= age_penalty * 3
+            except ValueError:
+                # No está en access_order, muy viejo
+                score -= 5
+            
+            entries_by_value.append((score, path))
+        
+        # Ordenar por score (menor primero = eliminar primero)
+        entries_by_value.sort()
+        
+        # Eliminar los num_to_evict con menor score
+        evicted = 0
+        for score, path in entries_by_value:
+            if evicted >= num_to_evict:
+                break
+            
+            del self._cache[path]
+            if path in self._access_order:
+                self._access_order.remove(path)
+            evicted += 1
+        
+        self._logger.info(
+            f"Política LRU: Eliminadas {evicted} entradas "
+            f"(límite: {self._max_entries}, actual: {len(self._cache)})"
+        )
+    
+    def _update_access_order(self, path: Path) -> None:
+        """
+        Actualiza el orden de acceso para LRU.
+        
+        Mueve el path al final de la lista (más reciente).
+        
+        Args:
+            path: Path accedido recientemente
+        """
+        # Ya estamos dentro de self._lock
+        
+        if path in self._access_order:
+            self._access_order.remove(path)
+        self._access_order.append(path)
+        
+        # Mantener la lista de acceso razonable (no más de max_entries * 1.5)
+        max_access_list = int(self._max_entries * 1.5)
+        if len(self._access_order) > max_access_list:
+            # Eliminar la mitad más antigua
+            self._access_order = self._access_order[len(self._access_order) // 2:]
+    
+    # =========================================================================
+    # OPERADORES
+    # =========================================================================
+    
+    def __len__(self) -> int:
+        """Permite usar len(repository)"""
+        return self.count()
+    
+    def __contains__(self, path: Path) -> bool:
+        """Permite usar 'path in repository'"""
+        path = path.resolve()
         with self._lock:
             return path in self._cache
+    
+    def __getitem__(self, path: Path) -> Optional[FileMetadata]:
+        """Permite usar repository[path]"""
+        return self.get_file_metadata(path, auto_fetch=False)
+
+
+# =============================================================================
+# ALIAS Y COMPATIBILIDAD
+# =============================================================================
+
+# Alias para compatibilidad con código existente
+MetadataCache = FileInfoRepository

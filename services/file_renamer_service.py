@@ -58,7 +58,8 @@ class FileRenamer(BaseService):
         else:
             self.logger.info("Escaneando disco...")
             for file_path in directory.rglob("*"):
-                if file_path.is_file() and Config.is_supported_file(file_path.name):
+                from utils.file_utils import is_supported_file, get_file_type
+                if file_path.is_file() and is_supported_file(file_path.name):
                     all_files.append(file_path)
 
         total_files = len(all_files)
@@ -87,7 +88,7 @@ class FileRenamer(BaseService):
                 if not file_date:
                     return ('no_date', file_path, f"No se pudo obtener fecha: {file_path.name}")
             
-            file_type = Config.get_file_type(file_path.name)
+            file_type = get_file_type(file_path.name)
             if file_type == 'OTHER':
                 return ('unsupported', file_path, f"Tipo de archivo no soportado: {file_path.name}")
             

@@ -110,11 +110,11 @@ class HeicService(BaseService):
             
             if extension in self.heic_extensions:
                 heic_by_dir[parent_dir][base_name] = meta
-                self.stats['total_heic_size'] += meta.size
+                self.stats['total_heic_size'] += meta.fs_size
                 total_heic_count += 1
             elif extension in self.jpg_extensions:
                 jpg_by_dir[parent_dir][base_name] = meta
-                self.stats['total_jpg_size'] += meta.size
+                self.stats['total_jpg_size'] += meta.fs_size
                 total_jpg_count += 1
         
         results['total_heic_files'] = total_heic_count
@@ -175,8 +175,8 @@ class HeicService(BaseService):
                         heic_path=heic_meta.path,
                         jpg_path=jpg_meta.path,
                         base_name=base_name,
-                        heic_size=heic_meta.size,
-                        jpg_size=jpg_meta.size,
+                        heic_size=heic_meta.fs_size,
+                        jpg_size=jpg_meta.fs_size,
                         directory=directory,
                         heic_date=heic_date,
                         jpg_date=jpg_date
@@ -186,8 +186,8 @@ class HeicService(BaseService):
                     matched_heic.add(heic_meta.path)
                     matched_jpg.add(jpg_meta.path)
                     
-                    results['potential_savings_keep_jpg'] += heic_meta.size
-                    results['potential_savings_keep_heic'] += jpg_meta.size
+                    results['potential_savings_keep_jpg'] += heic_meta.fs_size
+                    results['potential_savings_keep_heic'] += jpg_meta.fs_size
                     results['by_directory'][str(directory)] += 1
                     
                 except Exception as e:

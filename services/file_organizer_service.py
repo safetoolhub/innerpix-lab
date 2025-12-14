@@ -116,7 +116,8 @@ class FileOrganizer(BaseService):
              self.logger.info("Sin metadata cache, escaneando disco...")
              # Simulamos FileMetadata
              for p in root_directory.rglob("*"):
-                 if p.is_file() and Config.is_supported_file(p.name):
+                 from utils.file_utils import is_supported_file, get_file_type
+                 if p.is_file() and is_supported_file(p.name):
                      # Crear dummy meta (solo necesitamos path, size, type)
                      # No tenemos clase FileMetadata expuesta fácil, usaremos dict o objeto simple
                      # Mejor usar la clase real si importada
@@ -130,7 +131,7 @@ class FileOrganizer(BaseService):
                             size=sz,
                             mtime=mt,
                             extension=p.suffix.lower(),
-                            file_type=Config.get_file_type(p.name)
+                            file_type=get_file_type(p.name)
                         ))
                      except Exception:
                          pass
@@ -151,8 +152,8 @@ class FileOrganizer(BaseService):
             info = {
                     'path': file_path,
                     'name': file_path.name,
-                    'size': meta.size,
-                    'type': Config.get_file_type(file_path.name) # Recalcular o usar meta.file_type si confiamos
+                    'size': meta.fs_size,
+                    'type': get_file_type(file_path.name) # Recalcular o usar meta.file_type si confiamos
             }
             files_by_type[info['type']] += 1
 
@@ -172,7 +173,7 @@ class FileOrganizer(BaseService):
                     }
                 subdirectories[subdir_name]['files'].append(info)
                 subdirectories[subdir_name]['file_count'] += 1
-                subdirectories[subdir_name]['total_size'] += meta.size
+                subdirectories[subdir_name]['total_size'] += meta.fs_size
         
         # Generar plan usando la lógica existente
         # existing_file_names es folder_names_in_root
