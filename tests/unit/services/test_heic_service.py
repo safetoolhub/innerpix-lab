@@ -596,7 +596,7 @@ class TestHeicServiceDeletionKeepJPG:
         assert result.files_deleted == 1
         assert not heic_path.exists()  # HEIC eliminado
         assert jpg_path.exists()  # JPG preservado
-        assert result.space_freed > 0
+        assert result.bytes_processed > 0
     
     def test_delete_multiple_heic_keep_jpg(self, heic_service, temp_dir, create_heic_jpg_pair):
         """Test de eliminación múltiple: varios pares HEIC/JPG."""
@@ -724,7 +724,7 @@ class TestHeicServiceDryRun:
         )
         
         assert result.simulated_space_freed > 0
-        assert result.space_freed == 0
+        assert result.bytes_processed == 0
 
 
 # ==================== TESTS DE BACKUP ====================

@@ -85,7 +85,7 @@ class TestLivePhotoDuplicateHandling:
         assert len(result.errors) == 0
         
         # files_deleted debe ser 0 (porque el archivo ya no existía)
-        assert result.files_deleted == 0
+        assert result.files_affected == 0
     
     def test_deduplication_in_keep_video_mode(
         self, temp_dir, create_test_image, create_test_video

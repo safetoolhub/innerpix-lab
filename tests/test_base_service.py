@@ -337,12 +337,8 @@ class TestGetSupportedFiles:
         (tmp_path / "documento.txt").write_text("txt")
         (tmp_path / "programa.exe").write_text("exe")
         
-        with patch('config.Config') as mock_config:
-            # Simular que solo jpg y mp4 son soportados
-            def is_supported(filename):
-                return filename.endswith(('.jpg', '.mp4'))
-            
-            mock_config.is_supported_file = is_supported
+        with patch('config.Config.SUPPORTED_IMAGE_EXTENSIONS', ['.jpg']), \
+             patch('config.Config.SUPPORTED_VIDEO_EXTENSIONS', ['.mp4']):
             
             files = service._get_supported_files(tmp_path, recursive=False)
             
@@ -360,8 +356,8 @@ class TestGetSupportedFiles:
         subdir.mkdir()
         (subdir / "sub.jpg").write_text("sub")
         
-        with patch('config.Config') as mock_config:
-            mock_config.is_supported_file = lambda x: x.endswith('.jpg')
+        with patch('config.Config.SUPPORTED_IMAGE_EXTENSIONS', ['.jpg']), \
+             patch('config.Config.SUPPORTED_VIDEO_EXTENSIONS', []):
             
             # Recursive=False: solo raíz
             files = service._get_supported_files(tmp_path, recursive=False)
@@ -513,8 +509,8 @@ class TestBaseServiceIntegration:
         service._validate_directory(tmp_path)
         
         # 2. Escanear archivos
-        with patch('config.Config') as mock_config:
-            mock_config.is_supported_file = lambda x: x.endswith('.jpg')
+        with patch('config.Config.SUPPORTED_IMAGE_EXTENSIONS', ['.jpg']), \
+             patch('config.Config.SUPPORTED_VIDEO_EXTENSIONS', []):
             files = service._get_supported_files(tmp_path)
         
         assert len(files) == 3

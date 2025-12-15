@@ -273,12 +273,32 @@ try:
             return self.heic_files + self.jpg_files
         HeicAnalysisResult.total_files = _total_files
 
+    # Add properties for execution results
+    if not hasattr(LivePhotosExecutionResult, 'files_deleted'):
+        @property
+        def _files_deleted(self):
+            return self.files_affected
+        LivePhotosExecutionResult.files_deleted = _files_deleted
+
+    if not hasattr(LivePhotosExecutionResult, 'space_freed'):
+        @property
+        def _space_freed(self):
+            return self.bytes_processed
+        LivePhotosExecutionResult.space_freed = _space_freed
+
+    if not hasattr(DuplicateExecutionResult, 'files_deleted'):
+        @property
+        def _files_deleted_dup(self):
+            return self.files_affected
+        DuplicateExecutionResult.files_deleted = _files_deleted_dup
+
     # Monkeypatch analyze methods to accept old signature (directory first)
     import services.live_photos_service
     import services.duplicates_exact_service
     import services.duplicates_similar_service
     import services.heic_service
     from services.file_metadata import FileMetadata
+    from services.result_types import LivePhotosExecutionResult, DuplicateExecutionResult
     from services.file_metadata_repository_cache import PopulationStrategy
 
     def _populate_cache_from_directory(directory: Path, repo):
@@ -302,7 +322,7 @@ try:
             # Enable debug logging for this test
             import logging
             self.logger.setLevel(logging.DEBUG)
-            return original_analyze_live(self, cleanup_mode=cleanup_mode or services.live_photos_service.CleanupMode.KEEP_IMAGE, progress_callback=progress_callback, **kwargs)
+            return original_analyze_live(self, cleanup_mode=cleanup_mode or services.live_photos_service.CleanupMode.KEEP_IMAGE, progress_callback=progress_callback, directory=directory)
         else:
             # New signature: cleanup_mode first
             return original_analyze_live(self, cleanup_mode=directory_or_cleanup, progress_callback=cleanup_mode, **kwargs)

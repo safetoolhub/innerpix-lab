@@ -85,7 +85,7 @@ class TestLivePhotosMultipleFormats:
         
         # Verificar ejecución exitosa
         assert result.success == True
-        assert result.files_deleted == 1  # Solo el video
+        assert result.files_affected == 1  # Solo el video
         assert len(result.errors) == 0    # Sin errores
         
         # Verificar archivos finales
@@ -132,7 +132,7 @@ class TestLivePhotosMultipleFormats:
         result = service.execute(analysis, create_backup=False, dry_run=False)
         
         assert result.success == True
-        assert result.files_deleted == 2, "Deben eliminarse 2 archivos (ambas imágenes)"
+        assert result.files_affected == 2, "Deben eliminarse 2 archivos (ambas imágenes)"
         assert len(result.errors) == 0, "No debe haber errores"
         
         # Verificar estado final
@@ -246,5 +246,5 @@ class TestLivePhotosMultipleFormats:
         # Ejecutar
         result = service.execute(analysis, create_backup=False, dry_run=False)
         
-        # space_freed debe coincidir con space_to_free
-        assert result.space_freed == mov_size
+        # bytes_processed debe coincidir con space_to_free
+        assert result.bytes_processed == mov_size
