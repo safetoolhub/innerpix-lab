@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from PIL import Image
 from services.duplicates_exact_service import DuplicatesExactService, _is_valid_image_file
 from services.result_types import DuplicateAnalysisResult
-from services.file_info_repository import FileInfoRepository
+from services.file_metadata_repository_cache import FileInfoRepositoryCache as FileInfoRepository
 
 
 # ==================== TESTS BÁSICOS ====================

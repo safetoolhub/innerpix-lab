@@ -1,6 +1,6 @@
 """
 Directory Scanner Service.
-Handles the initial scan of the directory to populate FileInfoRepository
+Handles the initial scan of the directory to populate FileInfoRepositoryCache
 """
 from pathlib import Path
 from typing import Optional, Callable, Dict, List

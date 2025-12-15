@@ -23,7 +23,7 @@ PyQt6 desktop application for photo/video management.
 │   ├── duplicates_base_service.py
 │   ├── duplicates_exact_service.py
 │   ├── duplicates_similar_service.py
-│   ├── file_info_repository.py
+│   ├── file_metadata_repository_cache.py
 │   ├── file_metadata.py
 │   ├── file_organizer_service.py
 │   ├── file_renamer_service.py

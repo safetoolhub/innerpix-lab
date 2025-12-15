@@ -1,6 +1,6 @@
 """
 Initial Scanner Service.
-Handles the initial multi-phase scan of a directory to populate FileInfoRepository.
+Handles the initial multi-phase scan of a directory to populate FileInfoRepositoryCache.
 
 This scanner operates in 4 distinct phases:
 1. BASIC: File structure analysis (filesystem metadata only)
@@ -31,7 +31,7 @@ class PhaseProgress:
 
 class InitialScanner:
     """
-    Handles multi-phase scanning of a directory to populate FileInfoRepository.
+    Handles multi-phase scanning of a directory to populate FileInfoRepositoryCache.
     
     The scan is performed in 4 distinct phases:
     1. BASIC: Filesystem structure analysis (fast, OBLIGATORY first)

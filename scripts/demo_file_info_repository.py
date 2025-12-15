@@ -6,7 +6,7 @@ Demuestra el uso del sistema de caché con diferentes estrategias.
 """
 from pathlib import Path
 from services.file_metadata import FileMetadata
-from services.file_info_repository import (
+from services.file_metadata_repository_cache import (
     FileInfoRepositoryCache,
     PopulationStrategy
 )
@@ -248,7 +248,7 @@ def demo_serialization():
 if __name__ == "__main__":
     print("\n")
     print("╔" + "=" * 68 + "╗")
-    print("║" + " " * 15 + "FileInfoRepositoryCacheCache V2 - Demo" + " " * 20 + "║")
+    print("║" + " " * 15 + "FileInfoRepositoryCache V2 - Demo" + " " * 20 + "║")
     print("║" + " " * 20 + "Nueva Arquitectura" + " " * 30 + "║")
     print("╚" + "=" * 68 + "╝")
     
