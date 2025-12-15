@@ -10,7 +10,7 @@ import time
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from services.analysis_orchestrator import AnalysisOrchestrator
-from services.metadata_cache import FileMetadataCache
+from services.file_metadata_repository_cache import FileInfoRepositoryCache
 from services.duplicates_exact_service import DuplicatesExactService
 from services.zero_byte_service import ZeroByteService
 from config import Config

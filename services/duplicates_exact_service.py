@@ -19,7 +19,7 @@ from config import Config
 from services.result_types import DuplicateAnalysisResult, DuplicateGroup
 from services.duplicates_base_service import DuplicatesBaseService
 from services.base_service import ProgressCallback
-from services.file_info_repository import FileInfoRepository
+from services.file_metadata_repository_cache import FileInfoRepositoryCache
 from utils.logger import log_section_header_discrete, log_section_footer_discrete
 
 
@@ -54,14 +54,14 @@ class DuplicatesExactService(DuplicatesBaseService):
         Returns:
             DuplicateAnalysisResult con grupos de duplicados exactos
         """
-        # Obtener FileInfoRepository
-        repo = FileInfoRepository.get_instance()
+        # Obtener FileInfoRepositoryCache
+        repo = FileInfoRepositoryCache.get_instance()
         
         log_section_header_discrete(self.logger, "INICIANDO ANÁLISIS DE DUPLICADOS EXACTOS (SHA256)")
         
         all_files = repo.get_all_files()
         total_files = len(all_files)
-        self.logger.info(f"Escaneando {total_files} archivos en FileInfoRepository para detección de duplicados")
+        self.logger.info(f"Escaneando {total_files} archivos en FileInfoRepositoryCache para detección de duplicados")
         
         if total_files == 0:
             return DuplicateAnalysisResult(groups=())

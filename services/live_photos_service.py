@@ -18,7 +18,7 @@ from config import Config
 from utils.date_utils import get_date_from_file
 from services.result_types import LivePhotosAnalysisResult, LivePhotosExecutionResult
 from services.base_service import BaseService, BackupCreationError
-from services.file_info_repository import FileInfoRepository
+from services.file_metadata_repository_cache import FileInfoRepositoryCache
 from utils.logger import log_section_header_discrete, log_section_footer_discrete, log_section_header_relevant, log_section_footer_relevant, get_logger
 
 
@@ -35,7 +35,7 @@ class LivePhotoGroup:
     video_date: Optional[datetime] = None
     image_date_source: str = "unknown"
     video_date_source: str = "unknown"
-    file_info_repo: Optional[FileInfoRepository] = None
+    file_info_repo: Optional[FileInfoRepositoryCache] = None
 
     def __post_init__(self):
         """Validaciones y cálculos adicionales"""
@@ -201,15 +201,15 @@ class LivePhotoService(BaseService):
             progress_callback: Callback de progreso
             **kwargs: Args adicionales
         """
-        # Obtener FileInfoRepository
-        repo = FileInfoRepository.get_instance()
+        # Obtener FileInfoRepositoryCache
+        repo = FileInfoRepositoryCache.get_instance()
         
         # Extraer directory de kwargs si existe, aunque usaremos repo.
         # Si orchestator pasa directory, lo usaremos para loggear.
         directory = kwargs.get('directory', Path('.')) 
         
         log_section_header_discrete(self.logger, "ANÁLISIS DE LIVE PHOTOS")
-        self.logger.info(f"Usando FileInfoRepository con {repo.get_file_count()} archivos")
+        self.logger.info(f"Usando FileInfoRepositoryCache con {repo.get_file_count()} archivos")
         self.logger.info(f"Modo de limpieza: {cleanup_mode.value}")
 
         # Paso 1: Detectar Live Photos
@@ -423,10 +423,10 @@ class LivePhotoService(BaseService):
         progress_callback: Optional[Callable] = None
     ) -> Optional[List[LivePhotoGroup]]:
         """
-        Detecta Live Photos usando FileInfoRepository.
+        Detecta Live Photos usando FileInfoRepositoryCache.
         """
-        # Obtener FileInfoRepository
-        repo = FileInfoRepository.get_instance()
+        # Obtener FileInfoRepositoryCache
+        repo = FileInfoRepositoryCache.get_instance()
         
         # Recopilar archivos desde repo
         all_files = repo.get_all_files()
@@ -440,7 +440,7 @@ class LivePhotoService(BaseService):
         photo_exts = self.photo_extensions
         video_exts = self.video_extensions
 
-        self.logger.info(f"Escaneando {total_in_cache} archivos en FileInfoRepository...")
+        self.logger.info(f"Escaneando {total_in_cache} archivos en FileInfoRepositoryCache...")
         
         for meta in all_files:
             file_path = meta.path
@@ -498,8 +498,8 @@ class LivePhotoService(BaseService):
     ) -> Optional[List[LivePhotoGroup]]:
         """Detecta parejas de fotos/videos."""
         
-        # Obtener FileInfoRepository
-        repo = FileInfoRepository.get_instance()
+        # Obtener FileInfoRepositoryCache
+        repo = FileInfoRepositoryCache.get_instance()
         
         groups = []
         total_photos = len(photos)

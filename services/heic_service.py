@@ -12,7 +12,7 @@ from utils.file_utils import validate_file_exists
 from utils.date_utils import get_date_from_file
 from services.result_types import HeicAnalysisResult, HeicExecutionResult, DuplicatePair, AnalysisResult
 from services.base_service import BaseService, BackupCreationError, ProgressCallback
-from services.file_info_repository import FileInfoRepository
+from services.file_metadata_repository_cache import FileInfoRepositoryCache
 from config import Config
 from utils.logger import (
     log_section_header_discrete,
@@ -64,11 +64,11 @@ class HeicService(BaseService):
         Returns:
             HeicAnalysisResult con análisis detallado
         """
-        # Obtener FileInfoRepository
-        repo = FileInfoRepository.get_instance()
+        # Obtener FileInfoRepositoryCache
+        repo = FileInfoRepositoryCache.get_instance()
         
         log_section_header_discrete(self.logger, "ANÁLISIS DE DUPLICADOS HEIC/JPG")
-        self.logger.info(f"Usando FileInfoRepository con {repo.get_file_count()} archivos")
+        self.logger.info(f"Usando FileInfoRepositoryCache con {repo.get_file_count()} archivos")
         self.logger.info(f"Validación de fechas: {'ACTIVADA' if validate_dates else 'DESACTIVADA'}")
         
         if validate_dates:

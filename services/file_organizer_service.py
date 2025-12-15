@@ -20,7 +20,7 @@ from utils.date_utils import parse_renamed_name, get_date_from_file, select_chos
 from utils.file_utils import is_whatsapp_file, detect_file_source, cleanup_empty_directories
 from services.result_types import OrganizationExecutionResult, OrganizationAnalysisResult
 from services.base_service import BaseService, ProgressCallback, BackupCreationError
-from services.file_info_repository import FileInfoRepository
+from services.file_metadata_repository_cache import FileInfoRepositoryCache
 
 class OrganizationType(Enum):
     """Tipos de organización disponibles"""
@@ -76,7 +76,7 @@ class FileOrganizer(BaseService):
         """
         log_section_header_discrete(self.logger, f"ANALIZANDO ORGANIZACIÓN ({organization_type.value}): {root_directory}")
 
-        repo = FileInfoRepository.get_instance()
+        repo = FileInfoRepositoryCache.get_instance()
         
         subdirectories = {}
         root_files = []

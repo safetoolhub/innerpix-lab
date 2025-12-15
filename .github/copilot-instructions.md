@@ -19,8 +19,8 @@ See `PROJECT_TREE.md` for structure. Ignore `docs/` (author's notes).
    - Organizar: `FileOrganizer.analyze()` → `OrganizationAnalysisResult`
 - Detectors: `ExactCopiesDetector` (SHA256), `SimilarFilesDetector` (perceptual hash)
 
-**File Info Repository** (`services/file_info_repository.py`) - Singleton cache system
-- **Pattern**: `FileInfoRepository.get_instance()` - NOT passed as parameter to services
+**File Metadata Repository Cache** (`services/file_metadata_repository_cache.py`) - Singleton cache system (SQLite migration ready)
+- **Pattern**: `FileInfoRepositoryCache.get_instance()` - NOT passed as parameter to services
 - **Population**: Use `populate_from_scan(files, strategy)` - bulk loading with strategies (incremental)
   - `BASIC`: Solo filesystem metadata (rápido, OBLIGATORIO primero)
   - `HASH`: Solo SHA256 hashes (requiere BASIC previo, para duplicados exactos)
@@ -44,7 +44,7 @@ See `PROJECT_TREE.md` for structure. Ignore `docs/` (author's notes).
 - **Stats**: `get_stats()` → `RepositoryStats` (total_files, files_with_hash, files_with_exif, cache_hits, cache_misses, hit_rate)
 - **Thread-safe**: RLock para acceso concurrente + singleton lock
 - **Magic methods**: `len(repo)`, `path in repo`, `repo[path]`
-- **Future-proof**: Preparado para MySQL/PostgreSQL via Protocol interface
+- **Future-proof**: Preparado para SQLite via Protocol interface (IFileRepository)
 
 **Similar Files Analysis** (`services/duplicates_similar_service.py`) - Two-phase system
 - Phase 1: `analyze_initial()` - Expensive perceptual hash calculation (~5 min for 40k files)
@@ -58,7 +58,7 @@ See `PROJECT_TREE.md` for structure. Ignore `docs/` (author's notes).
 **Initial Scanner** (`services/initial_scanner.py`) - Multi-phase Stage 2 scanner
 - 4 fases secuenciales: BASIC → HASH → EXIF_IMAGES → EXIF_VIDEOS
 - Callbacks: `phase_callback(phase_id, message)` para inicio, `progress_callback(PhaseProgress)` para progreso
-- Población incremental usando `FileInfoRepository.populate_from_scan()` con estrategias específicas
+- Población incremental usando `FileInfoRepositoryCache.populate_from_scan()` con estrategias específicas
 - Cancelación: `request_stop()` detiene escaneo de forma segura
 - Clasificación automática: separa imágenes, videos y otros según extensión
 

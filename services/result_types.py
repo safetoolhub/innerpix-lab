@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from typing import List, Optional, Any, Dict
 from pathlib import Path
 from datetime import datetime
-from services.file_info_repository import FileInfoRepository
+from services.file_metadata_repository_cache import FileInfoRepositoryCache
 
 # ============================================================================
 # GENERIC BASE CLASSES (The Core of the Refactor)

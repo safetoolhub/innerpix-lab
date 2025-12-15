@@ -1,12 +1,12 @@
 """
-File Info Repository - Sistema de Caché Centralizado
+File Metadata Repository Cache - Sistema de Caché Centralizado
 
 Repositorio singleton que actúa como caché inteligente para metadatos de archivos.
-Diseñado para ser migrado a MySQL en el futuro.
+Diseñado para ser migrado a SQLite en el futuro.
 
 Arquitectura:
 - Backend en memoria (dict) actualmente
-- Interfaz preparada para backend de BBDD (Protocol)
+- Interfaz preparada para backend SQLite/BBDD (Protocol)
 - Singleton thread-safe
 - Auto-population con diferentes estrategias
 - Auto-fetch opcional por parámetro
@@ -24,7 +24,7 @@ El repositorio es global y compartido entre todos los servicios.
 
 Uso:
     # Paso 1: Scan inicial con BASIC (OBLIGATORIO)
-    repo = FileInfoRepository.get_instance()
+    repo = FileInfoRepositoryCache.get_instance()
     repo.populate_from_scan(files, strategy=PopulationStrategy.BASIC)
     
     # Paso 2: Análisis incremental bajo demanda
@@ -38,7 +38,7 @@ Uso:
     # Limpiar entre datasets
     repo.clear()
 
-Preparado para migración a MySQL:
+Preparado para migración a SQLite:
 - Protocol IFileRepository define interfaz abstracta
 - Métodos to_dict/from_dict en FileMetadata
 - Separación clara entre lógica y almacenamiento
@@ -79,15 +79,42 @@ class IFileRepository(Protocol):
     
     Facilita la migración futura sin cambiar el código de los servicios.
     """
+    # Operaciones básicas
     def add_file(self, path: Path, metadata: FileMetadata) -> None: ...
     def get_file(self, path: Path) -> Optional[FileMetadata]: ...
     def has_file(self, path: Path) -> bool: ...
     def update_metadata(self, path: Path, **updates) -> None: ...
+    def clear(self) -> None: ...
+    
+    # Consultas
     def get_all_files(self) -> List[FileMetadata]: ...
     def get_files_by_size(self, size: int) -> List[FileMetadata]: ...
     def get_files_by_extension(self, extension: str) -> List[FileMetadata]: ...
+    def get_file_metadata(self, path: Path, auto_fetch: bool = False) -> Optional[FileMetadata]: ...
+    def get_hash(self, path: Path, auto_fetch: bool = True) -> Optional[str]: ...
+    def get_exif(self, path: Path, auto_fetch: bool = False) -> Dict[str, Any]: ...
+    
+    # Contadores
     def count(self) -> int: ...
-    def clear(self) -> None: ...
+    def get_file_count(self) -> int: ...
+    def count_with_hash(self) -> int: ...
+    def count_with_exif(self) -> int: ...
+    
+    # Actualizaciones
+    def set_hash(self, path: Path, hash_val: str) -> bool: ...
+    def set_exif(self, path: Path, exif_data: Dict[str, Any]) -> bool: ...
+    
+    # Gestión de caché
+    def remove_file(self, path: Path) -> bool: ...
+    def remove_files(self, paths: List[Path]) -> int: ...
+    def set_max_entries(self, max_entries: int) -> None: ...
+    
+    # Estadísticas
+    def get_stats(self) -> 'RepositoryStats': ...
+    
+    # Persistencia
+    def save_to_disk(self, path: Path) -> None: ...
+    def load_from_disk(self, path: Path, validate: bool = True) -> int: ...
 
 
 @dataclass
@@ -101,9 +128,9 @@ class RepositoryStats:
     hit_rate: float
 
 
-class FileInfoRepository:
+class FileInfoRepositoryCache:
     """
-    Repositorio centralizado de información de archivos (Singleton).
+    Repositorio centralizado de información de archivos (Singleton - Cache).
     
     Sistema de caché inteligente thread-safe para metadatos de archivos.
     Actúa como fuente única de verdad para todos los servicios.
@@ -123,11 +150,11 @@ class FileInfoRepository:
         # Acceden a la instancia global directamente
         
         # En Directory_Scanner (scan inicial):
-        repo = FileInfoRepository.get_instance()
+        repo = FileInfoRepositoryCache.get_instance()
         repo.populate_from_scan(files, PopulationStrategy.BASIC)
         
         # En cualquier servicio:
-        repo = FileInfoRepository.get_instance()
+        repo = FileInfoRepositoryCache.get_instance()
         hash_val = repo.get_hash(path, auto_fetch=True)  # Calcula si no está
         exif = repo.get_exif(path, auto_fetch=False)     # None si no está
         
@@ -136,13 +163,13 @@ class FileInfoRepository:
     
     Diseño para migración a BBDD:
     - Backend actual: dict en memoria (rápido, datasets pequeños/medianos)
-    - Backend futuro: MySQL/PostgreSQL (datasets enormes, persistencia)
+    - Backend futuro: SQLite (datasets enormes, persistencia)
     - Interfaz IFileRepository: contrato abstracto
     - Métodos to_dict/from_dict en FileMetadata: serialización lista
     - Separación lógica/almacenamiento: fácil swap de backend
     """
     
-    _instance: Optional['FileInfoRepository'] = None
+    _instance: Optional['FileInfoRepositoryCache'] = None
     _lock_singleton = threading.Lock()
     
     def __new__(cls):
@@ -173,20 +200,20 @@ class FileInfoRepository:
             self._misses = 0
             
             # Logger
-            self._logger = get_logger('FileInfoRepository')
+            self._logger = get_logger('FileInfoRepositoryCache')
             
             self._initialized = True
-            self._logger.info("FileInfoRepository inicializado (Singleton)")
+            self._logger.info("FileInfoRepositoryCache inicializado (Singleton)")
     
     @classmethod
-    def get_instance(cls) -> 'FileInfoRepository':
+    def get_instance(cls) -> 'FileInfoRepositoryCache':
         """
         Obtiene la instancia singleton del repositorio.
         
         Este es el método principal para acceder al repositorio desde cualquier servicio.
         
         Returns:
-            FileInfoRepository: Instancia única del repositorio
+            FileInfoRepositoryCache: Instancia única del repositorio
         """
         if cls._instance is None:
             cls._instance = cls()
@@ -807,6 +834,15 @@ class FileInfoRepository:
         with self._lock:
             return len(self._cache)
     
+    def get_file_count(self) -> int:
+        """
+        Alias de count() para compatibilidad con servicios existentes.
+        
+        Returns:
+            int: Número de archivos
+        """
+        return self.count()
+    
     def count_with_hash(self) -> int:
         """Número de archivos con hash calculado"""
         with self._lock:
@@ -1213,10 +1249,3 @@ class FileInfoRepository:
         """Permite usar repository[path]"""
         return self.get_file_metadata(path, auto_fetch=False)
 
-
-# =============================================================================
-# ALIAS Y COMPATIBILIDAD
-# =============================================================================
-
-# Alias para compatibilidad con código existente
-MetadataCache = FileInfoRepository

@@ -396,7 +396,7 @@ def get_date_from_file(file_path: Path, verbose: bool = False, metadata_cache=No
     Args:
         file_path: Ruta al archivo a analizar
         verbose: Si True, muestra análisis detallado en modo INFO. Si False, solo en DEBUG
-        metadata_cache: Instancia opcional de FileMetadataCache para reutilizar fechas calculadas
+        metadata_cache: Instancia opcional de FileInfoRepositoryCache para reutilizar fechas calculadas
         skip_expensive_ops: Si True y metadata_cache no tiene la fecha, usa fallback rápido (mtime)
                            en lugar de calcular con ffprobe/EXIF. Útil para análisis masivos.
 

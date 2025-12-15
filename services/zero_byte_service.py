@@ -7,7 +7,7 @@ from typing import List, Optional
 
 from services.base_service import BaseService, ProgressCallback
 from services.result_types import ZeroByteAnalysisResult, ZeroByteExecutionResult
-from services.file_info_repository import FileInfoRepository
+from services.file_metadata_repository_cache import FileInfoRepositoryCache
 from utils.logger import log_section_header_relevant, log_section_footer_relevant
 from utils.file_utils import delete_file_securely
 
@@ -37,7 +37,7 @@ class ZeroByteService(BaseService):
         Returns:
             ZeroByteAnalysisResult con lista de archivos de 0 bytes encontrados
         """
-        repo = FileInfoRepository.get_instance()
+        repo = FileInfoRepositoryCache.get_instance()
         total = repo.get_file_count()  # O(1) optimizado
         
         self.logger.info(f"Buscando archivos de 0 bytes en repositorio ({total} archivos)")

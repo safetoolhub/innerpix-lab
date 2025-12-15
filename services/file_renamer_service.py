@@ -23,7 +23,7 @@ from utils.file_utils import (
     find_next_available_name,
     validate_file_exists,
 )
-from services.file_info_repository import FileInfoRepository
+from services.file_metadata_repository_cache import FileInfoRepositoryCache
 
 
 class FileRenamer(BaseService):

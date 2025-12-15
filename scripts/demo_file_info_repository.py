@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Demo de FileInfoRepository V2 - Nueva Arquitectura
+Demo de FileInfoRepositoryCache V2 - Nueva Arquitectura
 
 Demuestra el uso del sistema de caché con diferentes estrategias.
 """
 from pathlib import Path
 from services.file_metadata import FileMetadata
 from services.file_info_repository import (
-    FileInfoRepository,
+    FileInfoRepositoryCache,
     PopulationStrategy
 )
 
@@ -18,7 +18,7 @@ def demo_basic():
     print("=" * 70)
     
     # Obtener instancia singleton
-    repo = FileInfoRepository.get_instance()
+    repo = FileInfoRepositoryCache.get_instance()
     print(f"✓ Repositorio inicializado: {type(repo).__name__}")
     print(f"  Archivos en caché: {repo.count()}")
     
@@ -68,7 +68,7 @@ def demo_strategies():
     print("DEMO 2: Estrategias de Población")
     print("=" * 70)
     
-    repo = FileInfoRepository.get_instance()
+    repo = FileInfoRepositoryCache.get_instance()
     
     # Crear archivos de prueba
     test_dir = Path("/tmp/fileinfo_demo")
@@ -119,7 +119,7 @@ def demo_auto_fetch():
     print("DEMO 3: Auto-fetch")
     print("=" * 70)
     
-    repo = FileInfoRepository.get_instance()
+    repo = FileInfoRepositoryCache.get_instance()
     
     # Crear archivo de prueba
     test_dir = Path("/tmp/fileinfo_demo")
@@ -167,7 +167,7 @@ def demo_operators():
     print("DEMO 4: Operadores Pythonic")
     print("=" * 70)
     
-    repo = FileInfoRepository.get_instance()
+    repo = FileInfoRepositoryCache.get_instance()
     
     # Crear archivos de prueba
     test_dir = Path("/tmp/fileinfo_demo")
@@ -248,7 +248,7 @@ def demo_serialization():
 if __name__ == "__main__":
     print("\n")
     print("╔" + "=" * 68 + "╗")
-    print("║" + " " * 15 + "FileInfoRepository V2 - Demo" + " " * 25 + "║")
+    print("║" + " " * 15 + "FileInfoRepositoryCacheCache V2 - Demo" + " " * 20 + "║")
     print("║" + " " * 20 + "Nueva Arquitectura" + " " * 30 + "║")
     print("╚" + "=" * 68 + "╝")
     

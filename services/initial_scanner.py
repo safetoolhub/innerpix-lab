@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from config import Config
 from utils.logger import get_logger
 from utils.file_utils import validate_directory_exists, is_image_file, is_video_file
-from services.file_info_repository import FileInfoRepository, PopulationStrategy
+from services.file_metadata_repository_cache import FileInfoRepositoryCache, PopulationStrategy
 from services.result_types import DirectoryScanResult
 
 
@@ -84,7 +84,7 @@ class InitialScanner:
         self.logger.info(f"Starting initial scan: {directory}")
         
         # Get repository instance
-        repo = FileInfoRepository.get_instance()
+        repo = FileInfoRepositoryCache.get_instance()
         
         # ==================== PHASE 1: BASIC STRUCTURE ====================
         phase_id = self.PHASE_BASIC

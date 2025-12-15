@@ -16,7 +16,7 @@ from utils.logger import get_logger, log_section_header_discrete, log_section_fo
 from services.result_types import DuplicateAnalysisResult, DuplicateExecutionResult, DuplicateGroup
 from services.duplicates_base_service import DuplicatesBaseService
 from services.base_service import ProgressCallback
-from services.file_info_repository import FileInfoRepository
+from services.file_metadata_repository_cache import FileInfoRepositoryCache
 
 
 class DuplicatesSimilarAnalysis:
@@ -309,7 +309,7 @@ class DuplicatesSimilarService(DuplicatesBaseService):
         )
         
         # Fase 1: Calcular hashes (o usar cacheado si existe en memoria)
-        repo = FileInfoRepository.get_instance()
+        repo = FileInfoRepositoryCache.get_instance()
         if self._cached_analysis is None:
              self._cached_analysis = self.analyze_initial(repo, progress_callback)
         else:
@@ -340,7 +340,7 @@ class DuplicatesSimilarService(DuplicatesBaseService):
 
     def analyze_initial(
         self,
-        repo: FileInfoRepository,
+        repo: FileInfoRepositoryCache,
         progress_callback: Optional[ProgressCallback] = None
     ) -> DuplicatesSimilarAnalysis:
         """

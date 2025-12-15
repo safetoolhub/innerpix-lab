@@ -433,14 +433,14 @@ def pytest_collection_modifyitems(config, items):
 @pytest.fixture(autouse=True)
 def reset_file_info_repository():
     """
-    Resetea el singleton FileInfoRepository entre tests automáticamente.
+    Resetea el singleton FileInfoRepositoryCache entre tests automáticamente.
     
     Esto garantiza que cada test comience con un repositorio limpio
     y evita efectos secundarios entre tests.
     """
-    from services.file_info_repository import FileInfoRepository
+    from services.file_metadata_repository_cache import FileInfoRepositoryCache
     # Resetear antes del test
-    FileInfoRepository.reset_instance()
+    FileInfoRepositoryCache.reset_instance()
     yield
-    # Resetear después del test
-    FileInfoRepository.reset_instance()
+    # Resetear despu\u00e9s del test
+    FileInfoRepositoryCache.reset_instance()

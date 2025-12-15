@@ -9,7 +9,7 @@ import logging
 from config import Config
 from utils.logger import get_logger
 from utils.file_utils import calculate_file_hash, validate_directory_exists, get_file_stat_info
-from services.file_info_repository import FileInfoRepository, PopulationStrategy
+from services.file_metadata_repository_cache import FileInfoRepositoryCache, PopulationStrategy
 from services.result_types import DirectoryScanResult
 
 class DirectoryScanner:
@@ -49,13 +49,13 @@ class DirectoryScanner:
              precalculate_hashes: bool = False) -> DirectoryScanResult:
         """
         Escanea un directorio y clasifica archivos por tipo.
-        Cuando use_file_info_repository=True, puebla el FileInfoRepository y extrae fechas EXIF.
+        Cuando use_file_info_repository=True, puebla el FileInfoRepositoryCache y extrae fechas EXIF.
         
         Args:
             directory: Directorio a escanear
             progress_callback: Función opcional (current, total, message) -> bool.
                              Retorna False para cancelar.
-            use_file_info_repository: Si poblar FileInfoRepository con metadatos completos.
+            use_file_info_repository: Si poblar FileInfoRepositoryCache con metadatos completos.
             precalculate_hashes: Si pre-calcular hashes SHA256 (más lento pero duplicados instantáneos).
         
         Returns:
@@ -70,14 +70,14 @@ class DirectoryScanner:
         repo = None
         if use_file_info_repository:
             try:
-                repo = FileInfoRepository.get_instance()
-                self.logger.info(f"FileInfoRepository obtenido: max_entries={repo._max_entries:,}, current_files={repo.count()}")
+                repo = FileInfoRepositoryCache.get_instance()
+                self.logger.info(f"FileInfoRepositoryCache obtenido: max_entries={repo._max_entries:,}, current_files={repo.count()}")
             except Exception as e:
-                self.logger.error(f"ERROR obteniendo FileInfoRepository: {type(e).__name__}: {e}")
+                self.logger.error(f"ERROR obteniendo FileInfoRepositoryCache: {type(e).__name__}: {e}")
                 import traceback
                 self.logger.error(f"Traceback:\n{traceback.format_exc()}")
         else:
-            self.logger.info("FileInfoRepository NO usado (use_file_info_repository=False)")
+            self.logger.info("FileInfoRepositoryCache NO usado (use_file_info_repository=False)")
         
         # ==================== FASE 1: OBTENCIÓN DE LISTA DE ARCHIVOS ====================
         if progress_callback:
@@ -91,7 +91,7 @@ class DirectoryScanner:
         # Actualizar límite del repositorio basándose en el número de archivos
         if repo is not None:
             repo.update_max_entries(total_files)
-            self.logger.info(f"FileInfoRepository actualizado para {total_files:,} archivos")
+            self.logger.info(f"FileInfoRepositoryCache actualizado para {total_files:,} archivos")
         
         # Preparar estructuras de datos
         images, videos, others = [], [], []
@@ -186,15 +186,15 @@ class DirectoryScanner:
             f"- Extensiones: {ext_summary}"
         )
         
-        # Poblar FileInfoRepository si está habilitado
+        # Poblar FileInfoRepositoryCache si está habilitado
         if repo is not None:
             # Determinar estrategia de población
             if precalculate_hashes:
                 strategy = PopulationStrategy.HASH
-                self.logger.info("Poblando FileInfoRepository con hashes (pre-calculo activado)")
+                self.logger.info("Poblando FileInfoRepositoryCache con hashes (pre-calculo activado)")
             else:
                 strategy = PopulationStrategy.BASIC
-                self.logger.info("Poblando FileInfoRepository con metadatos básicos")
+                self.logger.info("Poblando FileInfoRepositoryCache con metadatos básicos")
 
             # Obtener archivos soportados para poblar el repositorio
             supported_files = images + videos
@@ -205,16 +205,16 @@ class DirectoryScanner:
                     strategy=strategy,
                     progress_callback=lambda current, total: progress_callback(current, total, "Poblando repositorio") if progress_callback else None
                 )
-                self.logger.info(f"FileInfoRepository poblado exitosamente con {len(supported_files)} archivos")
+                self.logger.info(f"FileInfoRepositoryCache poblado exitosamente con {len(supported_files)} archivos")
             except Exception as e:
-                self.logger.error(f"Error poblando FileInfoRepository: {e}")
+                self.logger.error(f"Error poblando FileInfoRepositoryCache: {e}")
                 import traceback
                 self.logger.error(f"Traceback:\n{traceback.format_exc()}")
 
             # Mostrar estadísticas del repositorio poblado
             stats = repo.get_stats()
             self.logger.info(
-                f"FileInfoRepository despues del escaneo: "
+                f"FileInfoRepositoryCache despues del escaneo: "
                 f"{stats.total_files} entradas, "
                 f"{stats.files_with_hash} con hashes SHA256"
             )

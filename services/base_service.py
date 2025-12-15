@@ -55,7 +55,7 @@ class BaseService(ABC):
     
     Arquitectura de 2 fases:
     1. Fase de Análisis: analyze() -> AnalysisResult
-       - Accede a FileInfoRepository.get_instance() para metadatos
+       - Accede a FileInfoRepositoryCache.get_instance() para metadatos
        - No recibe metadata_cache como parámetro (patrón singleton)
        - No realiza I/O intensivo si es posible
        - Retorna un plan de acción
@@ -74,7 +74,7 @@ class BaseService(ABC):
     @abstractmethod
     def analyze(self, **kwargs) -> 'AnalysisResult':
         """
-        Analiza usando FileInfoRepository como fuente de verdad.
+        Analiza usando FileInfoRepositoryCache como fuente de verdad.
         
         Args:
             **kwargs: Argumentos específicos del servicio
@@ -84,7 +84,7 @@ class BaseService(ABC):
             
         Note:
             Los servicios NO reciben metadata_cache. Acceden directamente a
-            FileInfoRepository.get_instance() para obtener metadatos.
+            FileInfoRepositoryCache.get_instance() para obtener metadatos.
         """
         pass
 
