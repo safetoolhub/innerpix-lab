@@ -292,8 +292,14 @@ class FileInfoRepository:
                         processed += 1
                     else:
                         errors += 1
+                except PermissionError as e:
+                    self._logger.warning(f"Permiso denegado: {file_path.name}")
+                    errors += 1
+                except OSError as e:
+                    self._logger.error(f"Error de I/O procesando {file_path.name}: {e}")
+                    errors += 1
                 except Exception as e:
-                    self._logger.error(f"Error procesando {file_path}: {e}")
+                    self._logger.error(f"Error inesperado procesando {file_path.name}: {type(e).__name__}: {e}")
                     errors += 1
                 
                 # Progress callback
@@ -313,20 +319,27 @@ class FileInfoRepository:
         
         Rápido, sin I/O costoso.
         """
+        from utils.file_utils import get_file_stat_info
+        
         try:
             if not path.exists():
+                self._logger.debug(f"Archivo no existe: {path}")
                 return None
             
-            stat = path.stat()
+            stat_info = get_file_stat_info(path, resolve_path=False)
             return FileMetadata(
                 path=path.resolve(),
-                fs_size=stat.st_size,
-                fs_ctime=stat.st_ctime,
-                fs_mtime=stat.st_mtime,
-                fs_atime=stat.st_atime
+                fs_size=stat_info['size'],
+                fs_ctime=stat_info['ctime'],
+                fs_mtime=stat_info['mtime'],
+                fs_atime=stat_info['atime']
             )
+        except (FileNotFoundError, PermissionError, OSError):
+            # Logging detallado ya hecho en get_file_stat_info()
+            self._logger.debug(f"No se puede procesar archivo básico: {path.name}")
+            return None
         except Exception as e:
-            self._logger.error(f"Error en _process_file_basic para {path}: {e}")
+            self._logger.error(f"Error inesperado en _process_file_basic para {path.name}: {type(e).__name__}: {e}")
             return None
     
     def _process_file_hash(self, path: Path) -> Optional[FileMetadata]:
@@ -357,8 +370,11 @@ class FileInfoRepository:
         # Calcular y cachear hash
         try:
             metadata.sha256 = calculate_file_hash(path)
+        except (PermissionError, FileNotFoundError, IOError):
+            # Logging detallado ya hecho en calculate_file_hash()
+            self._logger.debug(f"No se pudo calcular hash: {path.name}")
         except Exception as e:
-            self._logger.error(f"Error calculando hash para {path}: {e}")
+            self._logger.error(f"Error inesperado calculando hash de {path.name}: {type(e).__name__}: {e}")
         
         return metadata
     
@@ -500,8 +516,11 @@ class FileInfoRepository:
         if not metadata.sha256:
             try:
                 metadata.sha256 = calculate_file_hash(path)
+            except (PermissionError, FileNotFoundError, IOError):
+                # Logging detallado ya hecho en calculate_file_hash()
+                self._logger.debug(f"No se pudo calcular hash: {path.name}")
             except Exception as e:
-                self._logger.error(f"Error calculando hash para {path}: {e}")
+                self._logger.error(f"Error inesperado calculando hash de {path.name}: {type(e).__name__}: {e}")
         
         # EXIF (si no lo tiene y es imagen/video)
         if not metadata.has_exif and (metadata.is_image or metadata.is_video):
@@ -596,8 +615,12 @@ class FileInfoRepository:
             with self._lock:
                 metadata.sha256 = hash_val
             return hash_val
+        except (PermissionError, FileNotFoundError, IOError):
+            # Logging detallado ya hecho en calculate_file_hash()
+            self._logger.debug(f"No se pudo calcular hash: {path.name}")
+            return None
         except Exception as e:
-            self._logger.error(f"Error calculando hash para {path}: {e}")
+            self._logger.error(f"Error inesperado calculando hash de {path.name}: {type(e).__name__}: {e}")
             return None
     
     def get_exif(self, path: Path, auto_fetch: bool = False) -> Dict[str, Any]:
@@ -955,9 +978,15 @@ class FileInfoRepository:
                     f"Repositorio guardado a disco: {path} "
                     f"({len(self._cache)} archivos, {path.stat().st_size / 1024 / 1024:.2f} MB)"
                 )
+            except PermissionError as e:
+                self._logger.error(f"Permiso denegado al guardar repositorio en {path}: {e}")
+                raise IOError(f"Permiso denegado: {e}") from e
+            except OSError as e:
+                self._logger.error(f"Error de I/O guardando repositorio: {e}")
+                raise IOError(f"Error de I/O: {e}") from e
             except Exception as e:
-                self._logger.error(f"Error guardando repositorio a disco: {e}")
-                raise IOError(f"No se pudo guardar el repositorio: {e}")
+                self._logger.error(f"Error inesperado guardando repositorio: {type(e).__name__}: {e}")
+                raise IOError(f"No se pudo guardar el repositorio: {e}") from e
     
     def load_from_disk(self, path: Path, validate: bool = True) -> int:
         """
@@ -1011,8 +1040,11 @@ class FileInfoRepository:
                         self._access_order.append(metadata.path)
                         loaded += 1
                         
+                    except (KeyError, ValueError, TypeError) as e:
+                        self._logger.warning(f"Datos inválidos en entrada: {type(e).__name__}: {e}")
+                        skipped += 1
                     except Exception as e:
-                        self._logger.warning(f"Error cargando entrada: {e}")
+                        self._logger.warning(f"Error inesperado cargando entrada: {type(e).__name__}: {e}")
                         skipped += 1
                 
                 # Actualizar límite de entradas
@@ -1031,9 +1063,16 @@ class FileInfoRepository:
             return loaded
             
         except json.JSONDecodeError as e:
-            raise ValueError(f"Archivo de caché corrupto: {e}")
+            self._logger.error(f"Archivo de caché corrupto: {e}")
+            raise ValueError(f"Archivo de caché corrupto: {e}") from e
+        except PermissionError as e:
+            self._logger.error(f"Permiso denegado al leer {path}: {e}")
+            raise
+        except OSError as e:
+            self._logger.error(f"Error de I/O leyendo caché: {e}")
+            raise
         except Exception as e:
-            self._logger.error(f"Error cargando repositorio desde disco: {e}")
+            self._logger.error(f"Error inesperado cargando repositorio: {type(e).__name__}: {e}")
             raise
     
     def set_max_entries(self, max_entries: int) -> None:

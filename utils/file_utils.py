@@ -1,11 +1,35 @@
 """Utilities for file operations shared across services.
 
-Functions:
-- calculate_file_hash(path, chunk_size=8192, cache=None)
-- create_backup(files, base_directory, backup_prefix, progress_callback=None)
-- cleanup_empty_directories(root_directory)
-- find_next_available_name(base_path, base_name, extension)
-- is_whatsapp_file(filename, file_path=None)
+Organized by thematic categories:
+
+1. FILE TYPE DETECTION:
+   - is_image_file(filename)
+   - is_video_file(filename)
+   - is_media_file(filename)
+   - is_supported_file(filename)
+   - get_file_type(filename)
+
+2. SOURCE/ORIGIN DETECTION:
+   - detect_file_source(filename, file_path, exif_data)
+   - is_whatsapp_file(filename, file_path)
+
+3. FILE VALIDATION:
+   - validate_file_exists(path)
+   - validate_directory_exists(path)
+   - to_path(obj, attr_names)
+
+4. FILE HASHING:
+   - calculate_file_hash(file_path, chunk_size, cache)
+
+5. BACKUP OPERATIONS:
+   - launch_backup_creation(files, base_directory, backup_prefix, progress_callback, metadata_name)
+   - create_backup_for_file(file_path, backup_root)
+
+6. FILE SYSTEM OPERATIONS:
+   - cleanup_empty_directories(root_directory)
+   - delete_file_securely(file_path)
+   - find_next_available_name(base_path, base_name, extension)
+   - get_file_stat_info(file_path)
 
 These are pure helpers designed to centralize duplicated code from services.
 """
@@ -15,13 +39,13 @@ import shutil
 import re
 from typing import Iterable, Optional, Tuple, List, Callable
 import hashlib
-from dataclasses import dataclass
-
 from utils.format_utils import format_size
 from utils.callback_utils import safe_progress_callback
 from utils.logger import get_logger
-from utils.date_utils import get_date_from_file
 
+# =============================================================================
+# CONSTANTS
+# =============================================================================
 
 # Patrones de WhatsApp (iPhone y Android)
 WHATSAPP_PATTERNS = [
@@ -34,6 +58,88 @@ WHATSAPP_PATTERNS = [
     r'^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}(_\d{3})?\.(jpg|jpeg|png|mp4|mov|heic)$',  # UUID format (iPhone export) with optional suffix
 ]
 
+
+# =============================================================================
+# FILE TYPE DETECTION
+# =============================================================================
+
+def is_image_file(filename: str | Path) -> bool:
+    """
+    Verifica si un archivo es una imagen soportada.
+    
+    Args:
+        filename: Nombre o Path del archivo a verificar
+    
+    Returns:
+        True si es una imagen soportada, False en caso contrario
+    """
+    from config import Config
+    ext = Path(filename).suffix.lower()
+    return ext in Config.SUPPORTED_IMAGE_EXTENSIONS
+
+
+def is_video_file(filename: str | Path) -> bool:
+    """
+    Verifica si un archivo es un video soportado.
+    
+    Args:
+        filename: Nombre o Path del archivo a verificar
+    
+    Returns:
+        True si es un video soportado, False en caso contrario
+    """
+    from config import Config
+    ext = Path(filename).suffix.lower()
+    return ext in Config.SUPPORTED_VIDEO_EXTENSIONS
+
+
+def is_media_file(filename: str | Path) -> bool:
+    """
+    Verifica si un archivo es multimedia soportado (imagen o video).
+    
+    Args:
+        filename: Nombre o Path del archivo a verificar
+    
+    Returns:
+        True si es multimedia soportado, False en caso contrario
+    """
+    return is_image_file(filename) or is_video_file(filename)
+
+
+def is_supported_file(filename: str | Path) -> bool:
+    """
+    Verifica si un archivo es soportado.
+    
+    Args:
+        filename: Nombre o Path del archivo a verificar
+    
+    Returns:
+        True si es soportado, False en caso contrario
+    """
+    return is_media_file(filename)
+
+
+def get_file_type(filename: str | Path) -> str:
+    """
+    Obtiene el tipo de archivo.
+    
+    Args:
+        filename: Nombre o Path del archivo
+    
+    Returns:
+        'PHOTO', 'VIDEO', u 'OTHER'
+    """
+    if is_image_file(filename):
+        return 'PHOTO'
+    elif is_video_file(filename):
+        return 'VIDEO'
+    else:
+        return 'OTHER'
+
+
+# =============================================================================
+# SOURCE/ORIGIN DETECTION
+# =============================================================================
 
 def detect_file_source(filename: str, file_path: Optional[Path] = None, exif_data: Optional[dict] = None) -> str:
     """
@@ -172,6 +278,10 @@ def is_whatsapp_file(filename: str, file_path: Path = None) -> bool:
     return False
 
 
+# =============================================================================
+# FILE VALIDATION
+# =============================================================================
+
 def validate_file_exists(path) -> Path:
     """Normalize input to Path and verify the file exists and is a file.
 
@@ -246,28 +356,55 @@ def to_path(obj, attr_names=('path', 'source_path', 'original_path')) -> Path:
         raise ValueError(f"No se pudo convertir {type(obj).__name__} a Path") from e
 
 
+# =============================================================================
+# FILE HASHING
+# =============================================================================
+
 def calculate_file_hash(file_path: Path, chunk_size: int = 8192, cache: Optional[dict] = None) -> str:
     """Calculate SHA256 hash of a file.
 
     If a cache dict is provided, the function will store and reuse computed hashes
     keyed by the file's string path.
+    
+    Raises:
+        FileNotFoundError: Si el archivo no existe
+        PermissionError: Si no hay permisos para leer el archivo
+        IOError: Si hay un error de I/O durante la lectura
     """
     key = str(file_path)
     if cache is not None and key in cache:
         return cache[key]
 
-    sha256 = hashlib.sha256()
-    with open(file_path, 'rb') as f:
-        for chunk in iter(lambda: f.read(chunk_size), b''):
-            sha256.update(chunk)
+    try:
+        sha256 = hashlib.sha256()
+        with open(file_path, 'rb') as f:
+            for chunk in iter(lambda: f.read(chunk_size), b''):
+                sha256.update(chunk)
 
-    digest = sha256.hexdigest()
-    if cache is not None:
-        cache[key] = digest
-    return digest
+        digest = sha256.hexdigest()
+        if cache is not None:
+            cache[key] = digest
+        return digest
+    except FileNotFoundError:
+        logger = get_logger('file_utils')
+        logger.error(f"Archivo no encontrado: {file_path}")
+        raise
+    except PermissionError as e:
+        logger = get_logger('file_utils')
+        logger.error(f"Permiso denegado al leer {file_path.name}: {e}")
+        raise
+    except IOError as e:
+        logger = get_logger('file_utils')
+        logger.error(f"Error de I/O leyendo {file_path.name}: {e}")
+        raise
 
+
+# =============================================================================
+# BACKUP OPERATIONS
+# =============================================================================
 
 def _ensure_backup_dir(backup_dir: Path):
+    """Crea el directorio de backup si no existe (helper privado)."""
     backup_dir.mkdir(parents=True, exist_ok=True)
 
 
@@ -328,7 +465,21 @@ def launch_backup_creation(
 
             safe_progress_callback(progress_callback, copied, total, f"Creando backup: {backup_path} ({copied}/{total})")
 
-        except Exception:
+        except PermissionError as e:
+            logger = get_logger('file_utils')
+            logger.error(f"Permiso denegado al copiar {file_path.name}: {e}")
+            raise PermissionError(f"No se pudo crear backup de {file_path.name}: permiso denegado") from e
+        except FileNotFoundError as e:
+            logger = get_logger('file_utils')
+            logger.error(f"Archivo no encontrado: {file_path}")
+            raise FileNotFoundError(f"Archivo {file_path.name} no encontrado durante backup") from e
+        except OSError as e:
+            logger = get_logger('file_utils')
+            logger.error(f"Error de I/O copiando {file_path.name}: {e}")
+            raise OSError(f"Error creando backup de {file_path.name}: {e}") from e
+        except Exception as e:
+            logger = get_logger('file_utils')
+            logger.error(f"Error inesperado en backup de {file_path.name}: {type(e).__name__}: {e}")
             raise
 
     # Write metadata
@@ -347,20 +498,68 @@ def launch_backup_creation(
     return backup_path
 
 
+def create_backup_for_file(file_path: Path, backup_root: Optional[Path] = None) -> Optional[str]:
+    """
+    Crea un backup de un solo archivo.
+    
+    Args:
+        file_path: Archivo a respaldar
+        backup_root: Directorio raíz de backups (opcional)
+        
+    Returns:
+        Ruta del archivo de backup o None si falló
+    """
+    try:
+        if not backup_root:
+            from config import Config
+            backup_root = Config.DEFAULT_BACKUP_DIR
+            
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        backup_dir = backup_root / f"single_file_backup_{timestamp}"
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        
+        dest = backup_dir / file_path.name
+        shutil.copy2(file_path, dest)
+        return str(dest)
+    except PermissionError as e:
+        logger = get_logger('file_utils')
+        logger.warning(f"Permiso denegado al crear backup de {file_path.name}: {e}")
+        return None
+    except FileNotFoundError:
+        logger = get_logger('file_utils')
+        logger.warning(f"Archivo no encontrado: {file_path.name}")
+        return None
+    except OSError as e:
+        logger = get_logger('file_utils')
+        logger.error(f"Error de I/O creando backup de {file_path.name}: {e}")
+        return None
+    except Exception as e:
+        logger = get_logger('file_utils')
+        logger.error(f"Error inesperado creando backup de {file_path.name}: {type(e).__name__}: {e}")
+        return None
+
+
+# =============================================================================
+# FILE SYSTEM OPERATIONS
+# =============================================================================
+
 def cleanup_empty_directories(root_directory: Path) -> int:
     """Remove empty directories under root_directory (excluding root).
 
     Returns the number of directories removed.
     """
     removed_count = 0
+    logger = get_logger('file_utils')
     for item in sorted(root_directory.rglob("*"), key=lambda p: len(p.parts), reverse=True):
         if item.is_dir() and item != root_directory:
             try:
                 if not any(item.iterdir()):
                     item.rmdir()
                     removed_count += 1
-            except OSError:
-                pass
+            except PermissionError:
+                logger.debug(f"Permiso denegado al eliminar directorio: {item.name}")
+            except OSError as e:
+                logger.debug(f"No se pudo eliminar directorio {item.name}: {e}")
     return removed_count
 
 
@@ -413,137 +612,72 @@ def delete_file_securely(file_path: Path) -> bool:
     Returns:
         True si se eliminó correctamente
     """
+    logger = get_logger('file_utils')
     try:
         try:
             from send2trash import send2trash
             send2trash(str(file_path))
+            logger.debug(f"Archivo enviado a papelera: {file_path.name}")
         except ImportError:
             # Fallback a eliminación permanente si no hay send2trash
             file_path.unlink()
+            logger.debug(f"Archivo eliminado permanentemente: {file_path.name}")
         return True
-    except Exception:
+    except PermissionError as e:
+        logger.warning(f"Permiso denegado al eliminar {file_path.name}: {e}")
+        return False
+    except FileNotFoundError:
+        logger.debug(f"Archivo ya no existe: {file_path.name}")
+        return False
+    except OSError as e:
+        logger.error(f"Error de I/O eliminando {file_path.name}: {e}")
+        return False
+    except Exception as e:
+        logger.error(f"Error inesperado eliminando {file_path.name}: {type(e).__name__}: {e}")
         return False
 
 
-def create_backup_for_file(file_path: Path, backup_root: Optional[Path] = None) -> Optional[str]:
-    """
-    Crea un backup de un solo archivo.
-    
-    Args:
-        file_path: Archivo a respaldar
-        backup_root: Directorio raíz de backups (opcional)
-        
-    Returns:
-        Ruta del archivo de backup o None si falló
-    """
-    try:
-        if not backup_root:
-            from config import Config
-            backup_root = Config.DEFAULT_BACKUP_DIR
-            
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        backup_dir = backup_root / f"single_file_backup_{timestamp}"
-        backup_dir.mkdir(parents=True, exist_ok=True)
-        
-        dest = backup_dir / file_path.name
-        shutil.copy2(file_path, dest)
-        return str(dest)
-    except Exception:
-        return None
-
-
-def get_file_stat_info(file_path: Path) -> dict:
+def get_file_stat_info(file_path: Path, resolve_path: bool = True) -> dict:
     """
     Obtiene información básica del sistema de archivos para un archivo.
     
+    Función centralizada para evitar duplicación de código al obtener
+    metadatos del sistema de archivos.
+    
     Args:
         file_path: Ruta del archivo
+        resolve_path: Si True, incluye el path resuelto en el resultado
         
     Returns:
-        Diccionario con size, ctime, mtime, atime
+        Diccionario con size, ctime, mtime, atime y opcionalmente resolved_path
+        
+    Raises:
+        FileNotFoundError: Si el archivo no existe
+        PermissionError: Si no hay permisos para acceder al archivo
+        OSError: Si hay un error de I/O
     """
-    stat_info = file_path.stat()
-    return {
-        'size': stat_info.st_size,
-        'ctime': stat_info.st_ctime,
-        'mtime': stat_info.st_mtime,
-        'atime': stat_info.st_atime
-    }
-
-
-# =============================================================================
-# DETECCIÓN DE TIPO DE ARCHIVO
-# =============================================================================
-
-def is_image_file(filename: str | Path) -> bool:
-    """
-    Verifica si un archivo es una imagen soportada.
-    
-    Args:
-        filename: Nombre o Path del archivo a verificar
-    
-    Returns:
-        True si es una imagen soportada, False en caso contrario
-    """
-    from config import Config
-    ext = Path(filename).suffix.lower()
-    return ext in Config.SUPPORTED_IMAGE_EXTENSIONS
-
-
-def is_video_file(filename: str | Path) -> bool:
-    """
-    Verifica si un archivo es un video soportado.
-    
-    Args:
-        filename: Nombre o Path del archivo a verificar
-    
-    Returns:
-        True si es un video soportado, False en caso contrario
-    """
-    from config import Config
-    ext = Path(filename).suffix.lower()
-    return ext in Config.SUPPORTED_VIDEO_EXTENSIONS
-
-
-def is_media_file(filename: str | Path) -> bool:
-    """
-    Verifica si un archivo es multimedia soportado (imagen o video).
-    
-    Args:
-        filename: Nombre o Path del archivo a verificar
-    
-    Returns:
-        True si es multimedia soportado, False en caso contrario
-    """
-    return is_image_file(filename) or is_video_file(filename)
-
-
-def is_supported_file(filename: str | Path) -> bool:
-    """
-    Verifica si un archivo es soportado.
-    
-    Args:
-        filename: Nombre o Path del archivo a verificar
-    
-    Returns:
-        True si es soportado, False en caso contrario
-    """
-    return is_media_file(filename)
-
-
-def get_file_type(filename: str | Path) -> str:
-    """
-    Obtiene el tipo de archivo.
-    
-    Args:
-        filename: Nombre o Path del archivo
-    
-    Returns:
-        'PHOTO', 'VIDEO', u 'OTHER'
-    """
-    if is_image_file(filename):
-        return 'PHOTO'
-    elif is_video_file(filename):
-        return 'VIDEO'
-    else:
-        return 'OTHER'
+    try:
+        stat_info = file_path.stat()
+        result = {
+            'size': stat_info.st_size,
+            'ctime': stat_info.st_ctime,
+            'mtime': stat_info.st_mtime,
+            'atime': stat_info.st_atime
+        }
+        
+        if resolve_path:
+            result['resolved_path'] = file_path.resolve()
+        
+        return result
+    except FileNotFoundError:
+        logger = get_logger('file_utils')
+        logger.error(f"Archivo no encontrado: {file_path}")
+        raise
+    except PermissionError as e:
+        logger = get_logger('file_utils')
+        logger.error(f"Permiso denegado al acceder a {file_path.name}: {e}")
+        raise
+    except OSError as e:
+        logger = get_logger('file_utils')
+        logger.error(f"Error de I/O obteniendo info de {file_path.name}: {e}")
+        raise
