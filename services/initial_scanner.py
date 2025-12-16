@@ -289,6 +289,14 @@ class InitialScanner:
             f"{stats.files_with_exif} with EXIF"
         )
         
+        # Log detailed metadata information (DEBUG level)
+        if self.logger.isEnabledFor(10):  # DEBUG = 10
+            self.logger.debug("=== FileMetadata Repository Contents ===")
+            all_metadata = repo.get_all_files()
+            for idx, metadata in enumerate(all_metadata, 1):
+                self.logger.debug(f"[{idx}/{len(all_metadata)}] {metadata.get_summary(verbose=True)}")
+            self.logger.debug("=== End Repository Contents ===")
+        
         return result
     
     def _get_file_list(self, directory: Path) -> List[Path]:

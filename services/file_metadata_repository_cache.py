@@ -315,7 +315,7 @@ class FileInfoRepositoryCache:
                     metadata = future.result()
                     if metadata:
                         with self._lock:
-                            self._cache[file_path] = metadata
+                            self._cache[metadata.path] = metadata
                         processed += 1
                     else:
                         errors += 1
@@ -330,8 +330,10 @@ class FileInfoRepositoryCache:
                     errors += 1
                 
                 # Progress callback
-                if progress_callback and processed % 100 == 0:
-                    progress_callback(processed, len(files))
+                if progress_callback:
+                    if not progress_callback(processed, len(files)):
+                        self._logger.warning("Población cancelada por usuario")
+                        break
         
         self._logger.info(
             f"Población completada - "
@@ -392,16 +394,32 @@ class FileInfoRepositoryCache:
         
         # Ya tiene hash? Skip
         if metadata.sha256:
+            self._logger.debug(f"Hash ya calculado para {path.name}: {metadata.sha256[:8]}...")
             return metadata
         
-        # Calcular y cachear hash
+        # Calcular hash (fuera del lock porque es costoso)
+        hash_val = None
         try:
-            metadata.sha256 = calculate_file_hash(path)
+            hash_val = calculate_file_hash(path)
+            self._logger.debug(f"Hash calculado para {path.name}: {hash_val[:8]}...")
         except (PermissionError, FileNotFoundError, IOError):
             # Logging detallado ya hecho en calculate_file_hash()
             self._logger.debug(f"No se pudo calcular hash: {path.name}")
         except Exception as e:
             self._logger.error(f"Error inesperado calculando hash de {path.name}: {type(e).__name__}: {e}")
+        
+        # Actualizar metadata con lock (thread-safe)
+        if hash_val:
+            with self._lock:
+                # Volver a obtener metadata del caché por si cambió
+                cached_metadata = self._cache.get(path)
+                if cached_metadata:
+                    cached_metadata.sha256 = hash_val
+                    self._logger.debug(f"Hash asignado en caché para {path.name}: {hash_val[:8]}...")
+                else:
+                    # Raro pero posible: se eliminó del caché entre tanto
+                    metadata.sha256 = hash_val
+                    self._cache[path] = metadata
         
         return metadata
     
