@@ -357,13 +357,15 @@ class FileInfoRepositoryCache:
                 return None
             
             stat_info = get_file_stat_info(path, resolve_path=False)
-            return FileMetadata(
+            metadata = FileMetadata(
                 path=path.resolve(),
                 fs_size=stat_info['size'],
                 fs_ctime=stat_info['ctime'],
                 fs_mtime=stat_info['mtime'],
                 fs_atime=stat_info['atime']
             )
+            self._logger.debug(f"Metadata básica procesada para {path.name}: {stat_info['size']} bytes")
+            return metadata
         except (FileNotFoundError, PermissionError, OSError):
             # Logging detallado ya hecho en get_file_stat_info()
             self._logger.debug(f"No se puede procesar archivo básico: {path.name}")
@@ -448,6 +450,12 @@ class FileInfoRepositoryCache:
         
         # No es imagen? Skip
         if not metadata.is_image:
+            self._logger.debug(f"No es imagen, skip EXIF: {path.name}")
+            return metadata
+        
+        # Ya tiene EXIF? Skip
+        if metadata.has_exif:
+            self._logger.debug(f"EXIF ya extraído para imagen {path.name}: {len(metadata.get_exif_dates())} campos")
             return metadata
         
         # Extraer EXIF de imágenes
@@ -455,6 +463,7 @@ class FileInfoRepositoryCache:
             from utils.file_utils import get_exif_from_image
             
             exif_dates = get_exif_from_image(path)
+            exif_count = len(exif_dates)
             
             # Establecer campos EXIF de fecha
             if exif_dates.get('DateTimeOriginal'):
@@ -471,6 +480,8 @@ class FileInfoRepositoryCache:
                 metadata.exif_GPSDateStamp = exif_dates['GPSDateStamp']
             if exif_dates.get('Software'):
                 metadata.exif_Software = exif_dates['Software']
+            
+            self._logger.debug(f"EXIF extraído para imagen {path.name}: {exif_count} campos")
                 
         except Exception as e:
             self._logger.warning(f"Error extrayendo EXIF de {path.name}: {e}")
@@ -502,14 +513,17 @@ class FileInfoRepositoryCache:
         
         # No es video? Skip
         if not metadata.is_video:
+            self._logger.debug(f"No es video, skip EXIF: {path.name}")
             return metadata
         
         # Ya tiene EXIF? Skip
         if metadata.has_exif:
+            self._logger.debug(f"EXIF ya extraído para video {path.name}: {len(metadata.get_exif_dates())} campos")
             return metadata
         
         # TODO: Integrar extracción de EXIF para videos (más costoso)
         # Por ahora retornar sin EXIF, se puede poblar después con set_exif()
+        self._logger.debug(f"EXIF no implementado para video {path.name} (pendiente)")
         
         return metadata
     
