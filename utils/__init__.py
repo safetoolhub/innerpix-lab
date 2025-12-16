@@ -16,11 +16,15 @@ from .logger import (
 )
 from .date_utils import (
     get_date_from_file,
-    get_all_file_dates,
     select_chosen_date,
     format_renamed_name,
     is_renamed_filename,
-    parse_renamed_name
+    parse_renamed_name,
+    get_all_file_dates
+)
+from .file_utils import (
+    get_exif_from_image,
+    get_exif_from_video
 )
 from .screen_utils import (
     ScreenResolution,
@@ -101,6 +105,9 @@ __all__ = [
     'find_next_available_name',
     'detect_file_source',
     'is_whatsapp_file',
+    'get_exif_from_image',
+    'get_exif_from_video',
+    'get_all_file_dates',
 
     # Format utilities
     'format_size',

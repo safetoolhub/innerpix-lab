@@ -1141,7 +1141,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         - Line 2: "Fuente: EXIF DateTimeOriginal"
         """
         try:
-            from utils.date_utils import get_all_file_dates, select_chosen_date
+            from utils.date_utils import select_chosen_date, get_all_file_dates
             
             # Get all available dates for this file
             all_dates = get_all_file_dates(file_path)

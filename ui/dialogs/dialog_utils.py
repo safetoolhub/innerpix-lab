@@ -8,7 +8,7 @@ from pathlib import Path
 from PyQt6.QtWidgets import QMessageBox
 from PyQt6.QtCore import Qt
 from utils.format_utils import format_size
-from utils.date_utils import get_date_from_file, get_all_file_dates, select_chosen_date
+from utils.date_utils import get_date_from_file, select_chosen_date, get_all_file_dates
 from utils.platform_utils import open_file_with_default_app, open_folder_in_explorer
 
 

@@ -66,7 +66,7 @@ See `PROJECT_TREE.md` for structure. Ignore `docs/` (author's notes).
 - Dataclass con: path, fs_size, fs_mtime, sha256, exif_* fields
 - Propiedades: `is_image`, `is_video`, `has_hash`, `has_exif`, `extension`, `file_type`
 - Serialización: `to_dict()` / `from_dict(data)` para persistencia
-- Helper: `get_exif_dates()` retorna dict con fechas EXIF disponibles
+- Helper: `utils.file_utils.get_exif_from_image()` retorna dict con fechas EXIF disponibles
 
 **Workers** (`ui/workers/`) - QThread background
 - Base: `BaseWorker` with `progress_update`, `finished`, `error` signals

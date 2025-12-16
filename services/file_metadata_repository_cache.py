@@ -431,12 +431,30 @@ class FileInfoRepositoryCache:
         if not metadata.is_image:
             return metadata
         
-        # Ya tiene EXIF? Skip
-        if metadata.has_exif:
-            return metadata
-        
-        # TODO: Integrar extracción de EXIF para imágenes
-        # Por ahora retornar sin EXIF, se puede poblar después con set_exif()
+        # Extraer EXIF de imágenes
+        try:
+            from utils.file_utils import get_exif_from_image
+            
+            exif_dates = get_exif_from_image(path)
+            
+            # Establecer campos EXIF de fecha
+            if exif_dates.get('DateTimeOriginal'):
+                metadata.exif_DateTimeOriginal = exif_dates['DateTimeOriginal']
+            if exif_dates.get('CreateDate'):
+                metadata.exif_DateTime = exif_dates['CreateDate']  # CreateDate mapea a DateTime
+            if exif_dates.get('DateTimeDigitized'):
+                metadata.exif_DateTimeDigitized = exif_dates['DateTimeDigitized']
+            if exif_dates.get('SubSecTimeOriginal'):
+                metadata.exif_SubSecTimeOriginal = exif_dates['SubSecTimeOriginal']
+            if exif_dates.get('OffsetTimeOriginal'):
+                metadata.exif_OffsetTimeOriginal = exif_dates['OffsetTimeOriginal']
+            if exif_dates.get('GPSDateStamp'):
+                metadata.exif_GPSDateStamp = exif_dates['GPSDateStamp']
+            if exif_dates.get('Software'):
+                metadata.exif_Software = exif_dates['Software']
+                
+        except Exception as e:
+            self._logger.warning(f"Error extrayendo EXIF de {path.name}: {e}")
         
         return metadata
     

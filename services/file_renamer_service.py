@@ -13,10 +13,10 @@ from services.result_types import RenameExecutionResult, RenameAnalysisResult
 from services.base_service import BaseService, ProgressCallback
 from utils.date_utils import (
     get_date_from_file,
-    get_all_file_dates,
     format_renamed_name,
     is_renamed_filename,
-    parse_renamed_name
+    parse_renamed_name,
+    get_all_file_dates
 )
 from utils.file_utils import (
     launch_backup_creation,
