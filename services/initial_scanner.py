@@ -11,6 +11,7 @@ This scanner operates in 4 distinct phases:
 from pathlib import Path
 from typing import Optional, Callable, List
 from dataclasses import dataclass
+import logging
 
 from config import Config
 from utils.logger import get_logger
@@ -177,9 +178,9 @@ class InitialScanner:
         )
         
         # Log repository stats after Phase 1 (DEBUG)
-        if self.logger.isEnabledFor(10):  # DEBUG = 10
+        if self.logger.isEnabledFor(logging.DEBUG):
             self.logger.debug("=== Repository Stats after Phase 1 (BASIC) ===")
-            repo.log_stats()
+            repo.log_stats(level=logging.DEBUG)  # DEBUG
         
         # ==================== PHASE 2: HASH CALCULATION ====================
         if calculate_hashes and supported_files and not self._should_stop:
@@ -215,9 +216,9 @@ class InitialScanner:
             self.logger.info("Phase 2 complete: Hashes calculated")
             
             # Log repository stats after Phase 2 (DEBUG)
-            if self.logger.isEnabledFor(10):  # DEBUG = 10
+            if self.logger.isEnabledFor(logging.DEBUG):
                 self.logger.debug("=== Repository Stats after Phase 2 (HASH) ===")
-                repo.log_stats()
+                repo.log_stats(level=logging.DEBUG)  # DEBUG
         
         # ==================== PHASE 3: IMAGE EXIF ====================
         if extract_image_exif and images and not self._should_stop:
@@ -253,9 +254,9 @@ class InitialScanner:
             self.logger.info("Phase 3 complete: Image EXIF extracted")
             
             # Log repository stats after Phase 3 (DEBUG)
-            if self.logger.isEnabledFor(10):  # DEBUG = 10
+            if self.logger.isEnabledFor(logging.DEBUG):
                 self.logger.debug("=== Repository Stats after Phase 3 (EXIF_IMAGES) ===")
-                repo.log_stats()
+                repo.log_stats(level=logging.DEBUG)  # DEBUG
         
         # ==================== PHASE 4: VIDEO EXIF ====================
         if extract_video_exif and videos and not self._should_stop:
@@ -291,9 +292,9 @@ class InitialScanner:
             self.logger.info("Phase 4 complete: Video EXIF extracted")
             
             # Log repository stats after Phase 4 (DEBUG)
-            if self.logger.isEnabledFor(10):  # DEBUG = 10
+            if self.logger.isEnabledFor(logging.DEBUG):
                 self.logger.debug("=== Repository Stats after Phase 4 (EXIF_VIDEOS) ===")
-                repo.log_stats()
+                repo.log_stats(level=logging.DEBUG)  # DEBUG
         
         # ==================== FINALIZATION ====================
         result = self._create_result_from_data(

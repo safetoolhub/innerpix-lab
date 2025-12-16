@@ -238,6 +238,10 @@ class SimpleLogger:
         """Log de errores que requieren atención"""
         self.logger.error(self._sanitize_message(message))
     
+    def log(self, level, message):
+        """Log genérico con nivel especificado"""
+        self.logger.log(level, self._sanitize_message(message))
+    
     def setLevel(self, level):
         """Configura el nivel de log para este logger específico"""
         self.logger.setLevel(level)

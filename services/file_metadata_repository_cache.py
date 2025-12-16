@@ -48,6 +48,7 @@ from typing import Dict, List, Optional, Protocol, Any
 from enum import Enum
 from dataclasses import dataclass
 import threading
+import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from services.file_metadata import FileMetadata
@@ -931,10 +932,15 @@ class FileInfoRepositoryCache:
             hit_rate=hit_rate
         )
     
-    def log_stats(self) -> None:
-        """Registra estadísticas en el log"""
+    def log_stats(self, level: int = logging.INFO) -> None:
+        """
+        Registra estadísticas en el log con el nivel especificado.
+        
+        Args:
+            level: Nivel de logging (ej: logging.DEBUG, logging.INFO, logging.WARNING)
+        """
         stats = self.get_stats()
-        self._logger.info(
+        self._logger.log(level,
             f"Repositorio - "
             f"Files: {stats.total_files}, "
             f"With hash: {stats.files_with_hash}, "
