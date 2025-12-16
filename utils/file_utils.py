@@ -29,9 +29,9 @@ Organized by thematic categories:
    - cleanup_empty_directories(root_directory)
    - delete_file_securely(file_path)
    - find_next_available_name(base_path, base_name, extension)
-   - get_file_stat_info(file_path)
 
 7. METADATA EXTRACTION:
+   - get_file_stat_info(file_path)
    - get_exif_from_image(file_path)
    - get_exif_from_video(file_path)
 
@@ -641,6 +641,10 @@ def delete_file_securely(file_path: Path) -> bool:
         return False
 
 
+# =============================================================================
+# METADATA EXTRACTION
+# =============================================================================
+
 def get_file_stat_info(file_path: Path, resolve_path: bool = True) -> dict:
     """
     Obtiene información básica del sistema de archivos para un archivo.
@@ -686,10 +690,6 @@ def get_file_stat_info(file_path: Path, resolve_path: bool = True) -> dict:
         logger.error(f"Error de I/O obteniendo info de {file_path.name}: {e}")
         raise
 
-
-# =============================================================================
-# METADATA EXTRACTION
-# =============================================================================
 
 def get_exif_from_image(file_path: Path) -> dict:
     """
@@ -961,5 +961,3 @@ def get_exif_from_video(file_path: Path) -> Optional[datetime]:
     except Exception as e:
         logger.debug(f"Error obteniendo metadata de video {file_path.name}: {e}")
         return None
-
-
