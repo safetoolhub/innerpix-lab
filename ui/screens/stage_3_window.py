@@ -875,8 +875,24 @@ class Stage3Window(BaseStage):
             updated_analysis = self._get_updated_service_analysis(tool_id)
             
             if updated_analysis:
-                # Actualizar el análisis en analysis_results
-                self.analysis_results[tool_id] = updated_analysis
+                # Actualizar el análisis en analysis_results según el tipo de servicio
+                if tool_id == 'live_photos':
+                    self.analysis_results.live_photos = updated_analysis
+                elif tool_id == 'heic':
+                    self.analysis_results.heic = updated_analysis
+                elif tool_id == 'duplicates_exact':
+                    self.analysis_results.duplicates = updated_analysis
+                elif tool_id == 'duplicates_similar':
+                    self.analysis_results.duplicates_similar = updated_analysis
+                elif tool_id == 'file_organizer':
+                    self.analysis_results.organization = updated_analysis
+                elif tool_id == 'file_renamer':
+                    self.analysis_results.renaming = updated_analysis
+                elif tool_id == 'zero_byte':
+                    self.analysis_results.zero_byte = updated_analysis
+                else:
+                    self.logger.warning(f"No se puede asignar resultado para servicio desconocido: {tool_id}")
+                    return
                 
                 # Guardar los resultados actualizados
                 self.save_analysis_results(self.analysis_results)
@@ -929,37 +945,37 @@ class Stage3Window(BaseStage):
             if tool_id == 'live_photos':
                 from services.live_photos_service import LivePhotosService
                 service = LivePhotosService()
-                return service.analyze(self.selected_folder, self.metadata_cache)
+                return service.analyze()
                 
             elif tool_id == 'heic':
                 from services.heic_service import HeicService
                 service = HeicService()
-                return service.analyze(self.selected_folder, self.metadata_cache)
+                return service.analyze()
                 
             elif tool_id == 'duplicates_exact':
                 from services.duplicates_exact_service import DuplicatesExactService
                 service = DuplicatesExactService()
-                return service.analyze(self.selected_folder, self.metadata_cache)
+                return service.analyze()
                 
             elif tool_id == 'duplicates_similar':
                 from services.duplicates_similar_service import DuplicatesSimilarService
                 service = DuplicatesSimilarService()
-                return service.analyze(self.selected_folder, self.metadata_cache)
+                return service.analyze()
                 
             elif tool_id == 'file_organizer':
                 from services.file_organizer_service import FileOrganizerService
                 service = FileOrganizerService()
-                return service.analyze(self.selected_folder, self.metadata_cache)
+                return service.analyze()
                 
             elif tool_id == 'file_renamer':
                 from services.file_renamer_service import FileRenamerService
                 service = FileRenamerService()
-                return service.analyze(self.selected_folder, self.metadata_cache)
+                return service.analyze()
                 
             elif tool_id == 'zero_byte':
                 from services.zero_byte_service import ZeroByteService
                 service = ZeroByteService()
-                return service.analyze(self.selected_folder, self.metadata_cache)
+                return service.analyze()
                 
             else:
                 self.logger.warning(f"Servicio desconocido: {tool_id}")
@@ -997,6 +1013,8 @@ class Stage3Window(BaseStage):
             
             # Recrear la UI con los datos actualizados
             self._show_summary_card()
+            # Crear el grid de tools inmediatamente (sin delay para refresh)
+            self._create_tools_grid()
             
             self.logger.debug("UI de Stage 3 refrescada exitosamente")
             
