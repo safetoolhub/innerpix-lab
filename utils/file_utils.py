@@ -23,7 +23,6 @@ Organized by thematic categories:
 
 5. BACKUP OPERATIONS:
    - launch_backup_creation(files, base_directory, backup_prefix, progress_callback, metadata_name)
-   - create_backup_for_file(file_path, backup_root)
 
 6. FILE SYSTEM OPERATIONS:
    - cleanup_empty_directories(root_directory)
@@ -35,6 +34,10 @@ Organized by thematic categories:
    - get_exif_from_image(file_path)
    - get_exif_from_video(file_path)
 
+8. DATA STRUCTURES:
+   - FileInfo (dataclass)
+   - validate_and_get_file_info(file_path)
+
 These are pure helpers designed to centralize duplicated code from services.
 """
 from pathlib import Path
@@ -43,6 +46,7 @@ import shutil
 import re
 from typing import Iterable, Optional, Tuple, List, Callable
 import hashlib
+from dataclasses import dataclass
 from utils.format_utils import format_size
 from utils.callback_utils import safe_progress_callback
 from utils.logger import get_logger
@@ -502,47 +506,6 @@ def launch_backup_creation(
     return backup_path
 
 
-def create_backup_for_file(file_path: Path, backup_root: Optional[Path] = None) -> Optional[str]:
-    """
-    Crea un backup de un solo archivo.
-    
-    Args:
-        file_path: Archivo a respaldar
-        backup_root: Directorio raíz de backups (opcional)
-        
-    Returns:
-        Ruta del archivo de backup o None si falló
-    """
-    try:
-        if not backup_root:
-            from config import Config
-            backup_root = Config.DEFAULT_BACKUP_DIR
-            
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        backup_dir = backup_root / f"single_file_backup_{timestamp}"
-        backup_dir.mkdir(parents=True, exist_ok=True)
-        
-        dest = backup_dir / file_path.name
-        shutil.copy2(file_path, dest)
-        return str(dest)
-    except PermissionError as e:
-        logger = get_logger('file_utils')
-        logger.warning(f"Permiso denegado al crear backup de {file_path.name}: {e}")
-        return None
-    except FileNotFoundError:
-        logger = get_logger('file_utils')
-        logger.warning(f"Archivo no encontrado: {file_path.name}")
-        return None
-    except OSError as e:
-        logger = get_logger('file_utils')
-        logger.error(f"Error de I/O creando backup de {file_path.name}: {e}")
-        return None
-    except Exception as e:
-        logger = get_logger('file_utils')
-        logger.error(f"Error inesperado creando backup de {file_path.name}: {type(e).__name__}: {e}")
-        return None
-
-
 # =============================================================================
 # FILE SYSTEM OPERATIONS
 # =============================================================================
@@ -565,6 +528,42 @@ def cleanup_empty_directories(root_directory: Path) -> int:
             except OSError as e:
                 logger.debug(f"No se pudo eliminar directorio {item.name}: {e}")
     return removed_count
+
+
+def delete_file_securely(file_path: Path) -> bool:
+    """
+    Elimina un archivo de forma segura (intentando enviar a la papelera primero).
+    Si send2trash no está disponible, usa eliminación permanente.
+    
+    Args:
+        file_path: Ruta del archivo a eliminar
+        
+    Returns:
+        True si se eliminó correctamente
+    """
+    logger = get_logger('file_utils')
+    try:
+        try:
+            from send2trash import send2trash
+            send2trash(str(file_path))
+            logger.debug(f"Archivo enviado a papelera: {file_path.name}")
+        except ImportError:
+            # Fallback a eliminación permanente si no hay send2trash
+            file_path.unlink()
+            logger.debug(f"Archivo eliminado permanentemente: {file_path.name}")
+        return True
+    except PermissionError as e:
+        logger.warning(f"Permiso denegado al eliminar {file_path.name}: {e}")
+        return False
+    except FileNotFoundError:
+        logger.debug(f"Archivo ya no existe: {file_path.name}")
+        return False
+    except OSError as e:
+        logger.error(f"Error de I/O eliminando {file_path.name}: {e}")
+        return False
+    except Exception as e:
+        logger.error(f"Error inesperado eliminando {file_path.name}: {type(e).__name__}: {e}")
+        return False
 
 
 def find_next_available_name(base_path: Path, base_name: str, extension: str) -> Tuple[str, int]:
@@ -603,42 +602,6 @@ def find_next_available_name(base_path: Path, base_name: str, extension: str) ->
 
     new_name = f"{base_without_suffix}_{sequence:03d}{extension}"
     return new_name, sequence
-
-
-def delete_file_securely(file_path: Path) -> bool:
-    """
-    Elimina un archivo de forma segura (intentando enviar a la papelera primero).
-    Si send2trash no está disponible, usa eliminación permanente.
-    
-    Args:
-        file_path: Ruta del archivo a eliminar
-        
-    Returns:
-        True si se eliminó correctamente
-    """
-    logger = get_logger('file_utils')
-    try:
-        try:
-            from send2trash import send2trash
-            send2trash(str(file_path))
-            logger.debug(f"Archivo enviado a papelera: {file_path.name}")
-        except ImportError:
-            # Fallback a eliminación permanente si no hay send2trash
-            file_path.unlink()
-            logger.debug(f"Archivo eliminado permanentemente: {file_path.name}")
-        return True
-    except PermissionError as e:
-        logger.warning(f"Permiso denegado al eliminar {file_path.name}: {e}")
-        return False
-    except FileNotFoundError:
-        logger.debug(f"Archivo ya no existe: {file_path.name}")
-        return False
-    except OSError as e:
-        logger.error(f"Error de I/O eliminando {file_path.name}: {e}")
-        return False
-    except Exception as e:
-        logger.error(f"Error inesperado eliminando {file_path.name}: {type(e).__name__}: {e}")
-        return False
 
 
 # =============================================================================
@@ -963,6 +926,10 @@ def get_exif_from_video(file_path: Path) -> Optional[datetime]:
         return None
 
 
+# =============================================================================
+# DATA STRUCTURES
+# =============================================================================
+
 @dataclass
 class FileInfo:
     """
@@ -980,54 +947,6 @@ class FileInfo:
     size_formatted: str
     date: Optional[datetime]
     date_formatted: str
-
-
-def create_service_backup(
-    files: List[Path],
-    directory: Path,
-    service_name: str,
-    progress_callback: Optional[Callable] = None
-) -> Path:
-    """
-    Crea backup estandarizado para cualquier servicio.
-    
-    Elimina la necesidad de crear backups manualmente en cada servicio,
-    delegando a la utilidad centralizada launch_backup_creation.
-    
-    Args:
-        files: Lista de archivos a respaldar
-        directory: Directorio base para el backup
-        service_name: Nombre del servicio (usado en el nombre del backup)
-        progress_callback: Callback opcional de progreso
-    
-    Returns:
-        Path del directorio de backup creado
-    
-    Raises:
-        Exception: Si falla la creación del backup
-    
-    Example:
-        >>> files = [Path('/path/file1.jpg'), Path('/path/file2.jpg')]
-        >>> backup_path = create_service_backup(
-        ...     files, Path('/path'), 'heic_removal'
-        ... )
-        >>> print(backup_path)
-        /path/.backups/backup_heic_removal_20231112_143022
-    """
-    logger = get_logger('ServiceUtils')
-    
-    logger.info(f"Creando backup para {service_name}...")
-    
-    backup_path = launch_backup_creation(
-        files,
-        directory,
-        backup_prefix=f'backup_{service_name}',
-        progress_callback=progress_callback,
-        metadata_name=f'{service_name}_metadata.txt'
-    )
-    
-    logger.info(f"Backup creado exitosamente en: {backup_path}")
-    return backup_path
 
 
 def validate_and_get_file_info(file_path: Path) -> FileInfo:
@@ -1087,35 +1006,3 @@ def validate_and_get_file_info(file_path: Path) -> FileInfo:
         date=file_date,
         date_formatted=date_formatted
     )
-
-
-def format_file_list(files: List[Path], max_display: int = 10) -> str:
-    """
-    Formatea lista de archivos para logging legible.
-    
-    Args:
-        files: Lista de archivos
-        max_display: Máximo número de archivos a mostrar
-    
-    Returns:
-        String formateado con lista de archivos
-    
-    Example:
-        >>> files = [Path('a.jpg'), Path('b.jpg'), Path('c.jpg')]
-        >>> print(format_file_list(files, max_display=2))
-        - a.jpg
-        - b.jpg
-        ... y 1 más
-    """
-    if not files:
-        return "(ninguno)"
-    
-    lines = []
-    for i, file_path in enumerate(files[:max_display]):
-        lines.append(f"  - {file_path.name}")
-    
-    remaining = len(files) - max_display
-    if remaining > 0:
-        lines.append(f"  ... y {remaining} más")
-    
-    return "\n".join(lines)
