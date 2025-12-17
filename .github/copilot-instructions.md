@@ -114,11 +114,15 @@ Dry-run mode for testing. No deletions/moves/renames.
 - Modern Design
 - Consistent Design
 
-**File Utils** (`utils/file_utils.py`)
-- Type detection: `is_image_file()`, `is_video_file()`, `is_media_file()`, `is_supported_file()`, `get_file_type()`
-- Hash & paths: `calculate_file_hash()`, `to_path()`, `find_next_available_name()`
-- Cleanup: `cleanup_empty_directories()`, `delete_file_securely()`
-- Validation: `validate_directory_exists()`, `validate_file_exists()`
+**File Utils** (`utils/file_utils.py`) - Organized by thematic categories
+- **FILE TYPE DETECTION**: `is_image_file()`, `is_video_file()`, `is_media_file()`, `is_supported_file()`, `get_file_type()`
+- **SOURCE/ORIGIN DETECTION**: `detect_file_source()`, `is_whatsapp_file()`
+- **FILE VALIDATION**: `validate_file_exists()`, `validate_directory_exists()`, `to_path()`
+- **FILE HASHING**: `calculate_file_hash()`
+- **BACKUP OPERATIONS**: `launch_backup_creation()`
+- **FILE SYSTEM OPERATIONS**: `cleanup_empty_directories()`, `delete_file_securely()`, `find_next_available_name()`
+- **METADATA EXTRACTION**: `get_file_stat_info()`, `get_exif_from_image()`, `get_exif_from_video()`
+- **DATA STRUCTURES**: `FileInfo` (dataclass), `validate_and_get_file_info()`
 
 ## Development Workflow
 
@@ -184,12 +188,11 @@ Dry-run mode for testing. No deletions/moves/renames.
 **Debug**: `utils.logger.set_global_log_level(logging.DEBUG)`
 
 ### Code Quality
-
-## Code Quality
 - PEP 8 + type hints
 - All services return dataclasses (no dicts)
 - All public methods typed
 - No empty try/except with pass
+- Functions organized by thematic categories with section separators
 
 ## Platform Support
 - Primary: Windows
