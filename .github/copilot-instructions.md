@@ -1,7 +1,6 @@
 ## Innerpix Lab - AI Assistant Instructions
 
-PyQt6 desktop app for photo/video management. Workflow: **analyze → preview → execute**.
-See `PROJECT_TREE.md` for structure. Ignore `docs/` (author's notes).
+PyQt6 desktop app for photo/video management oriented to privacy.
 
 ### Flujo de Análisis
 1. **Stage 2**: Escaneo inicial multi-fase usando `InitialScanner.scan()` → `DirectoryScanResult`. 4 fases diferenciadas:
@@ -18,6 +17,7 @@ See `PROJECT_TREE.md` for structure. Ignore `docs/` (author's notes).
    - Renombrar: `FileRenamer.analyze()` → `RenameAnalysisResult`
    - Organizar: `FileOrganizer.analyze()` → `OrganizationAnalysisResult`
 - Detectors: `ExactCopiesDetector` (SHA256), `SimilarFilesDetector` (perceptual hash)
+- Other services: `FileOrganizerService`, `FileRenamerService`, `HeicRemoverService`, `LivePhotosService`
 
 **File Metadata Repository Cache** (`services/file_metadata_repository_cache.py`) - Singleton cache system (SQLite migration ready)
 - **Pattern**: `FileInfoRepositoryCache.get_instance()` - NOT passed as parameter to services
@@ -80,31 +80,22 @@ See `PROJECT_TREE.md` for structure. Ignore `docs/` (author's notes).
 - Stage 3: Tools grid → dialogs
 - All extend `BaseStage`
 
-**UI Components**
-- Widgets: ToolCard, ProgressCard, SummaryCard, etc.
-- Dialogs: extend `BaseDialog` with `add_backup_checkbox()`
-- Design: `ui/styles/design_system.py` (single source of truth)
-- Icons: qtawesome Material Design (NO emojis)
-- Utils: `dialog_utils.py` (`open_file`, `open_folder`, `show_file_details_dialog`)
+## Critical Patterns
 
-**Design Rules**
-- ALL styling via `DesignSystem` class only.
-- No inline styles, ad-hoc QSS, or emojis
-- Ask before adding/modifying styles
-- Remember that CSS is not available fully, it has to be compatible with qt
-
-### Critical Patterns
-
-**Backup**: All destructive ops accept `create_backup=True`
+### Backup
+All destructive ops accept `create_backup=True`
 - `from utils.file_utils import launch_backup_creation`
 
-**Config**: `from config import Config` (static class)
+### Simulation Mode
+Dry-run mode for testing. No deletions/moves/renames.
+
+### Config
+`from config import Config` (static class)
 - `Config.APP_NAME`, `Config.is_supported_file()`, etc.
 
-**Logging** (`utils/logger.py`)
+### Logging (`utils/logger.py`)
 - Init: `configure_logging(logs_dir, level="INFO", dual_log_enabled=True)`
 - Use: `get_logger('Module')` not print()
-- Thread-safe with RLock
 - Dual logging: Creates 2 files when level=INFO/DEBUG and enabled:
   - Main log: All messages with level suffix (e.g., `innerpix_lab_20251204_220143_INFO.log`)
   - Warnings log: Only WARNING/ERROR (e.g., `innerpix_lab_20251204_220143_WARNERROR.log`)
@@ -113,15 +104,15 @@ See `PROJECT_TREE.md` for structure. Ignore `docs/` (author's notes).
 - Grep-friendly: `grep "FILE_DELETED:" logs/*.log` finds all deletions across tools
 - Runtime control: `set_dual_log_enabled(bool)` to enable/disable on the fly
 
-**Storage** (`utils/storage.py`)
-- `JsonStorageBackend`: file-based, no PyQt6
-- `QSettingsBackend`: native OS storage
-- `SettingsManager` auto-detects
-- Settings keys include: `KEY_DUAL_LOG_ENABLED` for dual logging preference
+### Dialogs (extend `BaseDialog`)
+- One Dialog per functionality
+- settings_dialog for configuration
+- about_dialog for app info
 
-**Platform** (`utils/platform_utils.py`)
-- `open_file_with_default_app`, `open_folder_in_explorer`
-- Platform detection: `is_linux()`, `is_macos()`, `is_windows()`
+### UX Rules
+- Professional Design
+- Modern Design
+- Consistent Design
 
 **File Utils** (`utils/file_utils.py`)
 - Type detection: `is_image_file()`, `is_video_file()`, `is_media_file()`, `is_supported_file()`, `get_file_type()`
@@ -129,9 +120,7 @@ See `PROJECT_TREE.md` for structure. Ignore `docs/` (author's notes).
 - Cleanup: `cleanup_empty_directories()`, `delete_file_securely()`
 - Validation: `validate_directory_exists()`, `validate_file_exists()`
 
-**Date Utils** (`utils/date_utils.py`)
-- `select_chosen_date()`: EXIF → filename → video → filesystem
-- GPS DateStamp: validation only (NOT primary source)
+## Development Workflow
 
 **Other Utils**
 - `callback_utils.py`, `format_utils.py`, `icons.py`
@@ -196,83 +185,26 @@ See `PROJECT_TREE.md` for structure. Ignore `docs/` (author's notes).
 
 ### Code Quality
 
+## Code Quality
 - PEP 8 + type hints
 - All services return dataclasses (no dicts)
 - All public methods typed
-- No empty try/except
-- Preserve `create_backup` params
-- `DesignSystem` only for styling
+- No empty try/except with pass
 
-### Testing
-
-- Use fixtures: `temp_dir`, `create_test_image`, etc.
-- Markers: `@pytest.mark.unit`, `@pytest.mark.slow`
-- Structure: Arrange-Act-Assert
-
-**Test Structure**:
-```
-tests/
-├── conftest.py              # Shared fixtures (temp_dir, create_test_image, etc.)
-├── unit/                    # Unit tests (isolated logic)
-│   ├── services/           # Service tests (all 6 tools covered)
-│   │   ├── test_metadata_cache.py
-│   │   ├── test_exact_copies_detector.py
-│   │   ├── test_similar_files_detector.py
-│   │   ├── test_live_photos_service.py
-│   │   ├── test_heic_remover_service.py
-│   │   ├── test_file_organizer_service.py
-│   │   └── test_analysis_orchestrator.py
-│   └── utils/              # Utils tests (file_utils, date_utils, etc.)
-├── integration/            # Integration tests (multiple components)
-├── performance/            # Performance tests (large datasets)
-└── ui/                     # UI tests (minimal, PyQt6 required)
-```
-
-**Pytest Markers**:
-- `@pytest.mark.unit` - Unit tests (fast, isolated)
-- `@pytest.mark.integration` - Integration tests
-- `@pytest.mark.slow` - Tests >1 second
-- `@pytest.mark.performance` - Large dataset tests
-- Functional: `live_photos`, `duplicates`, `similar`, `heic`, `renaming`, `organization`
-
-**Key Fixtures** (`conftest.py`):
-- `temp_dir` - Auto-cleanup temp directory
-- `create_test_image(path, size, color, format)` - Image factory
-- `create_test_video(path, size)` - Video factory
-- `create_live_photo_pair(dir, name)` - Photo+video pair
-- `sample_live_photos_directory(temp_dir)` - Complete test dataset
-
-**Running Tests**:
-```bash
-pytest                              # All tests
-pytest tests/unit/                  # Unit tests only
-pytest -m "unit and not slow"       # Fast unit tests
-pytest -k "cache"                   # Tests matching "cache"
-pytest --cov=services --cov=utils --cov-report=html  # With coverage
-```
-
-**Test Pattern**:
-```python
-@pytest.mark.unit
-class TestServiceAspect:
-    def test_behavior(self, temp_dir):
-        # Arrange
-        service = Service()
-        # Act
-        result = service.method(temp_dir)
-        # Assert
-        assert result.success == True
-```
-
-**Coverage Requirements**:
-- Services: 80%+ (comprehensive business logic)
-- Utils: 90%+ (critical shared code)
-- HTML reports: `htmlcov/index.html`
-
-See `tests/README.md` for details.
-
-### Platform
-
+## Platform Support
 - Primary: Windows
 - Secondary: macOS/Linux
 - Future: Android/iOS (UI/logic separation critical)
+
+## Additional Notes
+
+### Common Notes
+- Directory selection: User chooses a root directory for recursive analysis including all subfolders; plans and results in dialogs are based on this scanned file set.
+- All dialogs follow the preview → plan → execute pattern and respect the "backup-first" policy for destructive operations (backup option before delete/move/rename).
+- Business logic is decoupled from UI (services in `services/`) and each Dialog acts as the user interface to inspect and accept plans generated by those services.
+
+### Tech Stack and Scope
+- InnerPix Lab is developed in Python and is a cross-platform desktop application (Linux, Windows, macOS).
+- The desktop version uses Qt (e.g., PyQt6 / PySide6) for the UI.
+- Simplicity and decoupling between business logic and UI are maintained to facilitate future iOS/Android migration. Mobile versions will be implemented with native libraries or the strategy decided at that time.
+- For this reason, services in `services/` are PyQt6-free and act as the reusable layer that can be leveraged by future mobile implementations.
