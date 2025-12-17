@@ -59,7 +59,7 @@ class SettingsDialog(QDialog):
     def init_ui(self):
         self.setWindowTitle("Configuración")
         self.setModal(True)
-        self.resize(800, 850)
+        self.resize(800, 875)
         
         # Aplicar estilo base del DesignSystem
         self.setStyleSheet(f"""
@@ -293,6 +293,78 @@ class SettingsDialog(QDialog):
         dryrun_layout.addWidget(self.dry_run_default_checkbox)
 
         layout.addWidget(dryrun_group)
+
+        # === CONFIGURACIÓN DE ANÁLISIS INICIAL ===
+        analysis_group = self._create_groupbox("Configuración de Análisis Inicial")
+        analysis_layout = QVLayout(analysis_group)
+        analysis_layout.setSpacing(DesignSystem.SPACE_12)
+
+        analysis_info = self._create_info_label(
+            "Controla qué información se extrae durante el escaneo inicial del directorio. "
+            "Desactivar opciones hace el escaneo más rápido, pero el análisis de cada herramienta tomará más tiempo al abrirla."
+        )
+        analysis_layout.addWidget(analysis_info)
+
+        # Checkbox para pre-cálculo de hashes
+        self.precalculate_hashes_checkbox = QCheckBox("Pre-calcular hashes SHA256 de todos los archivos")
+        self.precalculate_hashes_checkbox.setChecked(False)
+        self.precalculate_hashes_checkbox.setToolTip(
+            "Pre-calcula hashes SHA256 de todos los archivos durante el escaneo inicial.\n"
+            "\n"
+            "VENTAJAS:\n"
+            "  • Herramienta 'Duplicados exactos' es INSTANTÁNEA (ya tiene todos los hashes)\n"
+            "  • Ideal si siempre buscas duplicados\n"
+            "\n"
+            "DESVENTAJAS:\n"
+            "  • Hace el escaneo inicial MUY lento (calcula hash de cada archivo)\n"
+            "  • Para 10,000 archivos: escaneo pasa de ~10s a ~2-5 min\n"
+            "\n"
+            "RECOMENDACIÓN: Dejar DESACTIVADO (el análisis bajo demanda es eficiente)."
+        )
+        self.precalculate_hashes_checkbox.setStyleSheet(DesignSystem.get_checkbox_style())
+        analysis_layout.addWidget(self.precalculate_hashes_checkbox)
+
+        # Checkbox para EXIF de imágenes
+        self.precalculate_image_exif_checkbox = QCheckBox("Extraer metadatos EXIF de imágenes")
+        self.precalculate_image_exif_checkbox.setChecked(True)
+        self.precalculate_image_exif_checkbox.setToolTip(
+            "Extrae metadatos EXIF de todas las imágenes durante el escaneo inicial.\n"
+            "\n"
+            "VENTAJAS:\n"
+            "  • Herramientas de organización y renombrado son más rápidas\n"
+            "  • Costo moderado en el escaneo inicial (~30-60 seg para 30k fotos)\n"
+            "\n"
+            "DESVENTAJAS:\n"
+            "  • Añade tiempo al escaneo inicial\n"
+            "\n"
+            "RECOMENDACIÓN: Dejar ACTIVADO (el costo es razonable y útil para la mayoría)."
+        )
+        self.precalculate_image_exif_checkbox.setStyleSheet(DesignSystem.get_checkbox_style())
+        analysis_layout.addWidget(self.precalculate_image_exif_checkbox)
+
+        # Checkbox para EXIF de videos
+        self.precalculate_video_exif_checkbox = QCheckBox("Extraer metadatos EXIF de videos (MUY LENTO)")
+        self.precalculate_video_exif_checkbox.setChecked(False)
+        self.precalculate_video_exif_checkbox.setToolTip(
+            "Extrae metadatos de videos usando ffprobe durante el escaneo inicial.\n"
+            "\n"
+            "⚠️ ADVERTENCIA: Este proceso es EXTREMADAMENTE LENTO\n"
+            "  • Para 5,000 videos: ~3-10 minutos adicionales\n"
+            "  • Bloquea el escaneo inicial\n"
+            "\n"
+            "VENTAJAS:\n"
+            "  • Herramienta de organización de videos tiene datos listos\n"
+            "\n"
+            "DESVENTAJAS:\n"
+            "  • Hace el escaneo inicial MUCHO más lento\n"
+            "  • La mayoría de usuarios no organizan videos por fecha\n"
+            "\n"
+            "RECOMENDACIÓN: Dejar DESACTIVADO (análisis bajo demanda es mucho más eficiente)."
+        )
+        self.precalculate_video_exif_checkbox.setStyleSheet(DesignSystem.get_checkbox_style())
+        analysis_layout.addWidget(self.precalculate_video_exif_checkbox)
+
+        layout.addWidget(analysis_group)
 
         layout.addStretch()
         return widget
@@ -589,38 +661,6 @@ class SettingsDialog(QDialog):
             "Cambiar el número de hilos requiere reiniciar la aplicación para tener efecto completo."
         )
         perf_layout.addWidget(perf_info)
-        
-        # Checkbox para metadatos de video
-        self.use_video_metadata_checkbox = QCheckBox("Extraer metadatos de archivos de video (lento)")
-        self.use_video_metadata_checkbox.setChecked(Config.USE_VIDEO_METADATA)
-        self.use_video_metadata_checkbox.setToolTip(
-            "Habilitar extracción de metadatos de videos usando ffprobe.\n"
-            "ADVERTENCIA: Este proceso es muy lento y puede afectar el rendimiento.\n"
-            "La aplicación está optimizada para imágenes, por lo que esta opción\n"
-            "está deshabilitada por defecto."
-        )
-        self.use_video_metadata_checkbox.setStyleSheet(DesignSystem.get_checkbox_style())
-        perf_layout.addWidget(self.use_video_metadata_checkbox)
-        
-        # Checkbox para pre-cálculo de hashes
-        self.precalculate_hashes_checkbox = QCheckBox("Pre-calcular hashes SHA256 durante el escaneo inicial (LENTO pero optimiza duplicados)")
-        self.precalculate_hashes_checkbox.setChecked(False)
-        self.precalculate_hashes_checkbox.setToolTip(
-            "Pre-calcula hashes SHA256 de todos los archivos durante el escaneo inicial.\n"
-            "\n"
-            "VENTAJAS:\n"
-            "  • Fase de 'duplicados exactos' es INSTANTÁNEA (ya tiene todos los hashes)\n"
-            "  • Ideal si siempre buscas duplicados\n"
-            "\n"
-            "DESVENTAJAS:\n"
-            "  • Hace el escaneo inicial MUY lento (calcula hash de cada archivo)\n"
-            "  • Para 500 archivos: escaneo pasa de ~2s a ~15-30s\n"
-            "\n"
-            "RECOMENDACIÓN: Dejar desactivado (el comportamiento por defecto ya es\n"
-            "eficiente con threading paralelo en la fase de duplicados)."
-        )
-        self.precalculate_hashes_checkbox.setStyleSheet(DesignSystem.get_checkbox_style())
-        perf_layout.addWidget(self.precalculate_hashes_checkbox)
 
         layout.addWidget(perf_group)
 
@@ -672,6 +712,11 @@ class SettingsDialog(QDialog):
             self.show_notifications_checkbox.setChecked(settings_manager.get_show_notifications())
             self.show_full_path_checkbox.setChecked(settings_manager.get_show_full_path())
 
+            # Configuración de análisis inicial (General tab)
+            self.precalculate_hashes_checkbox.setChecked(settings_manager.get_precalculate_hashes())
+            self.precalculate_image_exif_checkbox.setChecked(settings_manager.get_precalculate_image_exif())
+            self.precalculate_video_exif_checkbox.setChecked(settings_manager.get_precalculate_video_exif())
+
             # Advanced tab
             # Workers: 0 significa automático, cualquier otro valor es override manual
             saved_workers = settings_manager.get_max_workers(0)
@@ -679,8 +724,6 @@ class SettingsDialog(QDialog):
             
             self.ui_update_spin.setValue(settings_manager.get_int("ui_update_interval", Config.UI_UPDATE_INTERVAL))
             self.dry_run_default_checkbox.setChecked(settings_manager.get_bool(settings_manager.KEY_DRY_RUN_DEFAULT, False))
-            self.precalculate_hashes_checkbox.setChecked(settings_manager.get_precalculate_hashes())
-            self.use_video_metadata_checkbox.setChecked(settings_manager.get_bool(settings_manager.KEY_USE_VIDEO_METADATA, False))
 
             # Directories tab - Log level
             current_level = settings_manager.get_log_level("INFO")
@@ -723,11 +766,10 @@ class SettingsDialog(QDialog):
             'show_path': self.show_full_path_checkbox.isChecked(),
             'max_workers': self.max_workers_spin.value(),
             'dry_run': self.dry_run_default_checkbox.isChecked(),
-            'max_workers': self.max_workers_spin.value(),
             'ui_update_interval': self.ui_update_spin.value(),
-            'dry_run': self.dry_run_default_checkbox.isChecked(),
-            'use_video_metadata': self.use_video_metadata_checkbox.isChecked(),
             'precalculate_hashes': self.precalculate_hashes_checkbox.isChecked(),
+            'precalculate_image_exif': self.precalculate_image_exif_checkbox.isChecked(),
+            'precalculate_video_exif': self.precalculate_video_exif_checkbox.isChecked(),
         }
         self.logger.debug(f"Valores originales guardados: {self.original_values}")
     
@@ -740,8 +782,9 @@ class SettingsDialog(QDialog):
         self.show_notifications_checkbox.stateChanged.connect(lambda: self._on_widget_changed("show_notif"))
         self.show_full_path_checkbox.stateChanged.connect(lambda: self._on_widget_changed("show_path"))
         self.dry_run_default_checkbox.stateChanged.connect(lambda: self._on_widget_changed("dry_run"))
-        self.use_video_metadata_checkbox.stateChanged.connect(lambda: self._on_widget_changed("use_video_metadata"))
         self.precalculate_hashes_checkbox.stateChanged.connect(lambda: self._on_widget_changed("precalculate_hashes"))
+        self.precalculate_image_exif_checkbox.stateChanged.connect(lambda: self._on_widget_changed("precalculate_image_exif"))
+        self.precalculate_video_exif_checkbox.stateChanged.connect(lambda: self._on_widget_changed("precalculate_video_exif"))
         self.dual_log_checkbox.stateChanged.connect(lambda: self._on_widget_changed("dual_log"))
         
         # Spinbox
@@ -817,13 +860,17 @@ class SettingsDialog(QDialog):
         original_dry_run = self.original_values['dry_run']
         dry_run_changed = current_dry_run != original_dry_run
         
-        current_use_video_metadata = self.use_video_metadata_checkbox.isChecked()
-        original_use_video_metadata = self.original_values['use_video_metadata']
-        use_video_metadata_changed = current_use_video_metadata != original_use_video_metadata
-        
         current_precalculate_hashes = self.precalculate_hashes_checkbox.isChecked()
         original_precalculate_hashes = self.original_values['precalculate_hashes']
         precalculate_hashes_changed = current_precalculate_hashes != original_precalculate_hashes
+        
+        current_precalculate_image_exif = self.precalculate_image_exif_checkbox.isChecked()
+        original_precalculate_image_exif = self.original_values['precalculate_image_exif']
+        precalculate_image_exif_changed = current_precalculate_image_exif != original_precalculate_image_exif
+        
+        current_precalculate_video_exif = self.precalculate_video_exif_checkbox.isChecked()
+        original_precalculate_video_exif = self.original_values['precalculate_video_exif']
+        precalculate_video_exif_changed = current_precalculate_video_exif != original_precalculate_video_exif
         
         current_dual_log = self.dual_log_checkbox.isChecked()
         original_dual_log = self.original_values['dual_log']
@@ -833,7 +880,8 @@ class SettingsDialog(QDialog):
             logs_changed or backup_changed or level_changed or auto_backup_changed or
             confirm_delete_changed or show_notif_changed or
             show_path_changed or max_workers_changed or dry_run_changed or
-            use_video_metadata_changed or ui_update_changed or precalculate_hashes_changed or
+            ui_update_changed or precalculate_hashes_changed or
+            precalculate_image_exif_changed or precalculate_video_exif_changed or
             dual_log_changed
         )
         
@@ -850,7 +898,7 @@ class SettingsDialog(QDialog):
         Detecta si algún cambio requiere reiniciar la aplicación.
         
         Settings que requieren reinicio:
-        - Pestaña Avanzado: max_workers, use_video_metadata
+        - Pestaña Avanzado: max_workers
         - Pestaña Backup y Logs: logs_dir, backup_dir, log_level
         
         Returns:
@@ -863,7 +911,6 @@ class SettingsDialog(QDialog):
         restart_required_changes = [
             # Avanzado tab
             self.max_workers_spin.value() != self.original_values['max_workers'],
-            self.use_video_metadata_checkbox.isChecked() != self.original_values['use_video_metadata'],
             # Backup y Logs tab
             self.logs_edit.text() != self.original_values['logs_dir'],
             self.backup_edit.text() != self.original_values['backup_dir'],
@@ -1086,9 +1133,10 @@ class SettingsDialog(QDialog):
             current_show_path = settings_manager.get_show_full_path()
             current_max_workers = settings_manager.get_max_workers(Config.MAX_WORKERS)
             current_dry_run = settings_manager.get_bool(settings_manager.KEY_DRY_RUN_DEFAULT, False)
-            current_use_video_metadata = settings_manager.get_bool(settings_manager.KEY_USE_VIDEO_METADATA, False)
             current_ui_update = settings_manager.get_int("ui_update_interval", Config.UI_UPDATE_INTERVAL)
             current_precalculate_hashes = settings_manager.get_precalculate_hashes()
+            current_precalculate_image_exif = settings_manager.get_precalculate_image_exif()
+            current_precalculate_video_exif = settings_manager.get_precalculate_video_exif()
             current_dual_log = settings_manager.get_dual_log_enabled()
             
             # Valores nuevos (desde UI)
@@ -1102,8 +1150,9 @@ class SettingsDialog(QDialog):
             new_max_workers = self.max_workers_spin.value()
             new_ui_update = self.ui_update_spin.value()
             new_dry_run = self.dry_run_default_checkbox.isChecked()
-            new_use_video_metadata = self.use_video_metadata_checkbox.isChecked()
             new_precalculate_hashes = self.precalculate_hashes_checkbox.isChecked()
+            new_precalculate_image_exif = self.precalculate_image_exif_checkbox.isChecked()
+            new_precalculate_video_exif = self.precalculate_video_exif_checkbox.isChecked()
             new_dual_log = self.dual_log_checkbox.isChecked()
             
             # Detectar qué cambió
@@ -1119,8 +1168,9 @@ class SettingsDialog(QDialog):
                 current_max_workers != new_max_workers or
                 current_ui_update != new_ui_update or
                 current_dry_run != new_dry_run or
-                current_use_video_metadata != new_use_video_metadata or
                 current_precalculate_hashes != new_precalculate_hashes or
+                current_precalculate_image_exif != new_precalculate_image_exif or
+                current_precalculate_video_exif != new_precalculate_video_exif or
                 current_dual_log != new_dual_log
             )
             
@@ -1174,12 +1224,14 @@ class SettingsDialog(QDialog):
                 Config.UI_UPDATE_INTERVAL = new_ui_update
             if current_dry_run != new_dry_run:
                 settings_manager.set(settings_manager.KEY_DRY_RUN_DEFAULT, new_dry_run)
-            if current_use_video_metadata != new_use_video_metadata:
-                settings_manager.set(settings_manager.KEY_USE_VIDEO_METADATA, new_use_video_metadata)
-                # Actualizar Config.USE_VIDEO_METADATA para que tenga efecto inmediato
-                Config.USE_VIDEO_METADATA = new_use_video_metadata
             if current_precalculate_hashes != new_precalculate_hashes:
                 settings_manager.set(settings_manager.KEY_PRECALCULATE_HASHES, new_precalculate_hashes)
+            if current_precalculate_image_exif != new_precalculate_image_exif:
+                settings_manager.set(settings_manager.KEY_PRECALCULATE_IMAGE_EXIF, new_precalculate_image_exif)
+            if current_precalculate_video_exif != new_precalculate_video_exif:
+                settings_manager.set(settings_manager.KEY_PRECALCULATE_VIDEO_EXIF, new_precalculate_video_exif)
+                # Actualizar Config.USE_VIDEO_METADATA para que tenga efecto inmediato
+                Config.USE_VIDEO_METADATA = new_precalculate_video_exif
             
             # Dual log (solo si cambió)
             if current_dual_log != new_dual_log:
@@ -1210,8 +1262,6 @@ class SettingsDialog(QDialog):
                 changes_list = []
                 if self.max_workers_spin.value() != self.original_values['max_workers']:
                     changes_list.append("• Número de hilos de procesamiento")
-                if self.use_video_metadata_checkbox.isChecked() != self.original_values['use_video_metadata']:
-                    changes_list.append("• Extracción de metadatos de video")
                 if self.logs_edit.text() != self.original_values['logs_dir']:
                     changes_list.append("• Directorio de logs")
                 if self.backup_edit.text() != self.original_values['backup_dir']:

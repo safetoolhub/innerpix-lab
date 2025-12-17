@@ -36,8 +36,11 @@ class SettingsManager:
     # === AVANZADO ===
     KEY_DRY_RUN_DEFAULT = "advanced/dry_run_default"
     KEY_MAX_WORKERS = "advanced/max_workers"
-    KEY_USE_VIDEO_METADATA = "advanced/use_video_metadata"
-    KEY_PRECALCULATE_HASHES = "advanced/precalculate_hashes"
+    
+    # === ANÁLISIS INICIAL (movido a General) ===
+    KEY_PRECALCULATE_HASHES = "general/precalculate_hashes"
+    KEY_PRECALCULATE_IMAGE_EXIF = "general/precalculate_image_exif"
+    KEY_PRECALCULATE_VIDEO_EXIF = "general/precalculate_video_exif"
 
     # === VENTANA ===
     KEY_WINDOW_GEOMETRY = "window/geometry"
@@ -240,8 +243,16 @@ class SettingsManager:
         return self.get_int(self.KEY_MAX_WORKERS, default)
     
     def get_precalculate_hashes(self) -> bool:
-        """Obtiene si se debe pre-calcular hashes SHA256 durante el escaneo (por defecto True)"""
-        return self.get_bool(self.KEY_PRECALCULATE_HASHES, True)
+        """Obtiene si se debe pre-calcular hashes SHA256 durante el escaneo (por defecto False)"""
+        return self.get_bool(self.KEY_PRECALCULATE_HASHES, False)
+    
+    def get_precalculate_image_exif(self) -> bool:
+        """Obtiene si se debe pre-calcular EXIF de imágenes durante el escaneo (por defecto True)"""
+        return self.get_bool(self.KEY_PRECALCULATE_IMAGE_EXIF, True)
+    
+    def get_precalculate_video_exif(self) -> bool:
+        """Obtiene si se debe pre-calcular EXIF de videos durante el escaneo (por defecto False)"""
+        return self.get_bool(self.KEY_PRECALCULATE_VIDEO_EXIF, False)
 
     def get_show_full_path(self) -> bool:
         """Obtiene si se debe mostrar la ruta completa del directorio (por defecto True)"""

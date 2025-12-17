@@ -51,8 +51,10 @@ class InitialAnalysisWorker(BaseWorker):
             # Lazy import to avoid circular dependencies
             from utils.settings_manager import settings_manager
             
-            # Read configuration for what to extract
+            # Read configuration for what to extract during initial scan
             precalculate_hashes = settings_manager.get_precalculate_hashes()
+            precalculate_image_exif = settings_manager.get_precalculate_image_exif()
+            precalculate_video_exif = settings_manager.get_precalculate_video_exif()
             
             # Create scanner
             self.scanner = InitialScanner()
@@ -84,15 +86,15 @@ class InitialAnalysisWorker(BaseWorker):
                 
                 return True
             
-            # Execute multi-phase scan
+            # Execute multi-phase scan with user-configured phases
             scan_result = self.scanner.scan(
                 directory=self.directory,
                 phase_callback=phase_callback,
                 phase_completed_callback=phase_completed_callback,
                 progress_callback=progress_callback,
                 calculate_hashes=precalculate_hashes,
-                extract_image_exif=True,
-                extract_video_exif=True
+                extract_image_exif=precalculate_image_exif,
+                extract_video_exif=precalculate_video_exif
             )
             
             if self._stop_requested:
