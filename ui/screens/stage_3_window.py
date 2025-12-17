@@ -720,29 +720,31 @@ class Stage3Window(BaseStage):
                 was_simulation = plan.get('dry_run', False)
                 
                 if not was_simulation:
+                    # Crear mensaje específico para el servicio
+                    service_message = self._get_service_update_message(tool_id)
+                    
                     # Then ask user about re-analysis
                     reply = QMessageBox.question(
                         self.main_window,
-                        "Re-analizar carpeta",
-                        "¿Deseas re-analizar la carpeta para actualizar las estadísticas?\n\n"
-                        "Nota: El re-análisis puede tardar varios minutos con datasets grandes. "
-                        "Si omites este paso, las estadísticas mostradas pueden no reflejar los cambios realizados.",
+                        "Actualizar estadísticas",
+                        service_message,
                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                         QMessageBox.StandardButton.Yes  # Default to Yes
                     )
                     
                     if reply == QMessageBox.StandardButton.Yes:
-                        # Re-analyze as before
-                        log_section_header_discrete(self.logger, f"Re-análisis solicitado por usuario tras completar {tool_id}")
-                        # NOTA: No invalidamos la caché aquí porque el usuario quiere reanalizar
-                        # La nueva caché se creará en Stage 2 y reemplazará a la antigua
-                        QTimer.singleShot(500, self._on_reanalyze)
+                        # Re-analyze specific service
+                        log_section_header_discrete(self.logger, f"Actualización de estadísticas solicitada para {tool_id}")
+                        # NOTA: No invalidamos la caché aquí porque el usuario quiere actualizar estadísticas
+                        # La caché ya está actualizada, solo necesitamos recalcular el análisis del servicio
+                        QTimer.singleShot(500, lambda: self._update_service_stats(tool_id))
                     else:
                         # User chose to skip re-analysis
                         self.logger.info("Usuario omitió re-análisis, las estadísticas pueden estar desactualizadas")
                         
-                        # Invalidar caché de metadatos porque los archivos han cambiado
-                        # y la caché ya no es confiable
+                        # NOTA: La caché ya se actualizó automáticamente durante la operación.
+                        # Esta invalidación completa es opcional y conservadora por si hubo
+                        # algún error en las actualizaciones individuales.
                         self._invalidate_metadata_cache()
                         
                         # Mostrar banner de advertencia
@@ -751,18 +753,6 @@ class Stage3Window(BaseStage):
                             # Asegurar que el banner sea visible (scroll to top if needed)
                             if hasattr(self.main_window, 'scroll_area'):
                                 self.main_window.scroll_area.ensureWidgetVisible(self.stale_banner)
-                else:
-                    # Operation was simulated, no need to re-analyze
-                    self.logger.info("Operación simulada completada, no se requiere re-análisis")
-            else:
-                error_msg = result.message if (result and hasattr(result, 'message')) else "Operación fallida"
-                QMessageBox.warning(
-                    self.main_window,
-                    "Operación Fallida",
-                    f"La operación no se completó correctamente.\n\n{error_msg}"
-                )
-            
-            worker.deleteLater()
         
         def on_error(error_message):
             # Ignorar si ya se canceló
@@ -841,6 +831,202 @@ class Stage3Window(BaseStage):
         # Iniciar worker
         worker.start()
         self.logger.debug(f"Worker de {tool_id} iniciado")
+    
+    def _get_service_update_message(self, tool_id: str) -> str:
+        """
+        Genera el mensaje específico para actualizar estadísticas de un servicio.
+        
+        Args:
+            tool_id: ID del servicio (live_photos, heic, duplicates_exact, etc.)
+            
+        Returns:
+            Mensaje personalizado para el diálogo
+        """
+        service_names = {
+            'live_photos': 'Live Photos',
+            'heic': 'HEIC/JPG',
+            'duplicates_exact': 'Duplicados Exactos',
+            'duplicates_similar': 'Duplicados Similares', 
+            'file_organizer': 'Organización de Archivos',
+            'file_renamer': 'Renombrado de Archivos',
+            'zero_byte': 'Archivos Vacíos'
+        }
+        
+        service_name = service_names.get(tool_id, tool_id)
+        
+        return (
+            f"¿Deseas actualizar las estadísticas de {service_name}?\n\n"
+            f"Esto recalculará únicamente el análisis de {service_name} para reflejar "
+            f"los cambios realizados. La caché de metadatos ya está actualizada.\n\n"
+            f"Nota: Esta operación es rápida y solo afecta a {service_name}."
+        )
+    
+    def _update_service_stats(self, tool_id: str) -> None:
+        """
+        Actualiza las estadísticas de un servicio específico y refresca la UI.
+        
+        Args:
+            tool_id: ID del servicio a actualizar
+        """
+        self.logger.info(f"Actualizando estadísticas para servicio: {tool_id}")
+        
+        try:
+            # Obtener el análisis actualizado para este servicio específico
+            updated_analysis = self._get_updated_service_analysis(tool_id)
+            
+            if updated_analysis:
+                # Actualizar el análisis en analysis_results
+                self.analysis_results[tool_id] = updated_analysis
+                
+                # Guardar los resultados actualizados
+                self.save_analysis_results(self.analysis_results)
+                
+                # Refrescar toda la UI de Stage 3 con los nuevos datos
+                self._refresh_stage_3_ui()
+                
+                self.logger.info(f"Estadísticas actualizadas exitosamente para {tool_id}")
+                
+                # Mostrar mensaje de éxito
+                service_names = {
+                    'live_photos': 'Live Photos',
+                    'heic': 'HEIC/JPG',
+                    'duplicates_exact': 'Duplicados Exactos',
+                    'duplicates_similar': 'Duplicados Similares', 
+                    'file_organizer': 'Organización de Archivos',
+                    'file_renamer': 'Renombrado de Archivos',
+                    'zero_byte': 'Archivos Vacíos'
+                }
+                service_name = service_names.get(tool_id, tool_id)
+                
+                QMessageBox.information(
+                    self.main_window,
+                    "Estadísticas actualizadas",
+                    f"Las estadísticas de {service_name} han sido actualizadas correctamente."
+                )
+            else:
+                self.logger.warning(f"No se pudo obtener análisis actualizado para {tool_id}")
+                
+        except Exception as e:
+            self.logger.error(f"Error actualizando estadísticas de {tool_id}: {e}")
+            QMessageBox.warning(
+                self.main_window,
+                "Error",
+                f"No se pudieron actualizar las estadísticas.\n\n{str(e)}"
+            )
+    
+    def _get_updated_service_analysis(self, tool_id: str):
+        """
+        Obtiene el análisis actualizado para un servicio específico.
+        
+        Args:
+            tool_id: ID del servicio
+            
+        Returns:
+            Análisis actualizado o None si falla
+        """
+        try:
+            # Importar servicios según tool_id
+            if tool_id == 'live_photos':
+                from services.live_photos_service import LivePhotosService
+                service = LivePhotosService()
+                return service.analyze(self.selected_folder, self.metadata_cache)
+                
+            elif tool_id == 'heic':
+                from services.heic_service import HeicService
+                service = HeicService()
+                return service.analyze(self.selected_folder, self.metadata_cache)
+                
+            elif tool_id == 'duplicates_exact':
+                from services.duplicates_exact_service import DuplicatesExactService
+                service = DuplicatesExactService()
+                return service.analyze(self.selected_folder, self.metadata_cache)
+                
+            elif tool_id == 'duplicates_similar':
+                from services.duplicates_similar_service import DuplicatesSimilarService
+                service = DuplicatesSimilarService()
+                return service.analyze(self.selected_folder, self.metadata_cache)
+                
+            elif tool_id == 'file_organizer':
+                from services.file_organizer_service import FileOrganizerService
+                service = FileOrganizerService()
+                return service.analyze(self.selected_folder, self.metadata_cache)
+                
+            elif tool_id == 'file_renamer':
+                from services.file_renamer_service import FileRenamerService
+                service = FileRenamerService()
+                return service.analyze(self.selected_folder, self.metadata_cache)
+                
+            elif tool_id == 'zero_byte':
+                from services.zero_byte_service import ZeroByteService
+                service = ZeroByteService()
+                return service.analyze(self.selected_folder, self.metadata_cache)
+                
+            else:
+                self.logger.warning(f"Servicio desconocido: {tool_id}")
+                return None
+                
+        except Exception as e:
+            self.logger.error(f"Error obteniendo análisis para {tool_id}: {e}")
+            return None
+    
+    def _update_tool_card_ui(self, tool_id: str, analysis_result) -> None:
+        """
+        Método legacy - ahora usamos _refresh_stage_3_ui() para actualizar todo.
+        """
+        pass  # Implementación movida a _refresh_stage_3_ui
+    
+    def _refresh_stage_3_ui(self) -> None:
+        """
+        Refresca la UI completa de Stage 3 con los analysis_results actualizados.
+        """
+        try:
+            self.logger.debug("Refrescando UI de Stage 3 con datos actualizados")
+            
+            # Limpiar widgets existentes (excepto header que permanece)
+            if self.summary_card:
+                self.summary_card.hide()
+                self.summary_card.setParent(None)
+                self.summary_card = None
+                
+            if self.tools_grid:
+                self.tools_grid.hide()
+                self.tools_grid.setParent(None)
+                self.tools_grid = None
+                
+            self.tool_cards.clear()
+            
+            # Recrear la UI con los datos actualizados
+            self._show_summary_card()
+            
+            self.logger.debug("UI de Stage 3 refrescada exitosamente")
+            
+        except Exception as e:
+            self.logger.error(f"Error refrescando UI de Stage 3: {e}")
+    
+    def _on_reanalyze(self):
+        """Maneja el clic en "Reanalizar" (legacy - ahora debería ser raro usarlo)"""
+        self.logger.info("Reanalizando carpeta completa (modo legacy)")
+
+        # Limpiar widgets del ESTADO 3
+        if self.stale_banner:
+            self.stale_banner.hide()
+            self.stale_banner.setParent(None)
+            self.stale_banner = None
+
+        if self.summary_card:
+            self.summary_card.hide()
+            self.summary_card.setParent(None)
+            self.summary_card = None
+
+        if self.tools_grid:
+            self.tools_grid.hide()
+            self.tools_grid.setParent(None)
+            self.tools_grid = None
+
+        self.tool_cards.clear()
+
+        # Volver a ESTADO 2 y reanalizar a través de MainWindow
+        self.main_window._transition_to_state_2(self.selected_folder)
 
     def _on_change_folder(self):
         """Maneja el clic en "Cambiar carpeta" """

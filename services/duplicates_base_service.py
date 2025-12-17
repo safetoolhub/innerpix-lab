@@ -406,6 +406,11 @@ class DuplicatesBaseService(BaseService):
                     deleted.append(file_path)
                     space_freed += file_size
                     
+                    # Actualizar caché eliminando el archivo
+                    from services.file_metadata_repository_cache import FileInfoRepositoryCache
+                    repo = FileInfoRepositoryCache.get_instance()
+                    repo.remove_file(file_path)
+                    
                     # Log unificado con toda la información en UNA sola línea
                     if keep_file_info:
                         # Comparación completa: archivo eliminado vs archivo conservado

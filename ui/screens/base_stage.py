@@ -185,31 +185,37 @@ class BaseStage(QObject):
     
     def _invalidate_metadata_cache(self) -> None:
         """
-        Invalida la caché de metadatos de archivos del singleton FileInfoRepositoryCache.
+        Invalida completamente la caché de metadatos del singleton FileInfoRepositoryCache.
         
-        IMPORTANTE: Este método debe llamarse SOLO después de operaciones destructivas:
-        - Eliminación de archivos (duplicados, HEIC, Live Photos, zero bytes)
-        - Movimiento de archivos (organización)
-        - Renombrado de archivos
+        ⚠️  ATENCIÓN: Este método debe usarse CON MUCHA PRECAUCIÓN.
         
-        NO debe llamarse después de un análisis exitoso, ya que la caché recién
-        creada debe preservarse para uso en Stage 3.
+        Solo debe llamarse en situaciones excepcionales donde:
+        - Ha ocurrido un error grave durante operaciones destructivas
+        - La caché se ha corrompido o desincronizado
+        - Se necesita forzar una recarga completa
+        
+        NO debe llamarse después de operaciones exitosas, ya que los servicios
+        individuales actualizan la caché automáticamente (remove_file/move_file).
+        
+        Para operaciones normales, usar:
+        - remove_file() para eliminaciones
+        - move_file() para movimientos/renombrados
         """
         try:
             from services.file_metadata_repository_cache import FileInfoRepositoryCache
             
-            # Obtener instancia singleton y limpiar
+            # Obtener instancia singleton y limpiar completamente
             repo = FileInfoRepositoryCache.get_instance()
             entries_count = len(repo)
             
             if entries_count > 0:
                 repo.clear()
-                self.logger.debug(f"Caché de metadatos limpiada ({entries_count} entradas eliminadas)")
+                self.logger.warning(f"Caché de metadatos INVALIDADA COMPLETAMENTE ({entries_count} entradas eliminadas)")
             else:
                 self.logger.debug("Caché de metadatos ya estaba vacía")
             
         except Exception as e:
-            self.logger.warning(f"Error invalidando caché de metadatos: {e}")
+            self.logger.error(f"Error invalidando caché de metadatos: {e}")
 
     def get_analysis_summary(self) -> Optional[dict]:
         """

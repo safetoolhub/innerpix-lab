@@ -264,6 +264,11 @@ class FileRenamer(BaseService):
 
                 if not dry_run:
                     original_path.rename(new_path)
+                    
+                    # Actualizar caché moviendo el archivo
+                    from services.file_metadata_repository_cache import FileInfoRepositoryCache
+                    repo = FileInfoRepositoryCache.get_instance()
+                    repo.move_file(original_path, new_path)
 
                 results.files_renamed += 1
                 files_processed += 1

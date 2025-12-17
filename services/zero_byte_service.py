@@ -152,6 +152,11 @@ class ZeroByteService(BaseService):
                         items_processed += 1
                         files_affected.append(file_path)
                         self.logger.info(log_msg)
+                        
+                        # Actualizar caché eliminando el archivo
+                        from services.file_metadata_repository_cache import FileInfoRepositoryCache
+                        repo = FileInfoRepositoryCache.get_instance()
+                        repo.remove_file(file_path)
                     else:
                         result.add_error(f"No se pudo eliminar: {file_path}")
                         
