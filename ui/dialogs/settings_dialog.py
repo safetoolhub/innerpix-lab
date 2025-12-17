@@ -1111,6 +1111,11 @@ class SettingsDialog(QDialog):
             self.dry_run_default_checkbox.setChecked(False)
             self.max_workers_spin.setValue(Config.MAX_WORKERS)
             
+            # Restaurar opciones de análisis inicial
+            self.precalculate_hashes_checkbox.setChecked(False)
+            self.precalculate_image_exif_checkbox.setChecked(True)
+            self.precalculate_video_exif_checkbox.setChecked(False)
+            
             # Revalidar cambios (las señales ya se dispararán automáticamente)
 
             QMessageBox.information(self, "Restaurado", "Configuracion restaurada a valores por defecto.\n\n"
@@ -1225,11 +1230,11 @@ class SettingsDialog(QDialog):
             if current_dry_run != new_dry_run:
                 settings_manager.set(settings_manager.KEY_DRY_RUN_DEFAULT, new_dry_run)
             if current_precalculate_hashes != new_precalculate_hashes:
-                settings_manager.set(settings_manager.KEY_PRECALCULATE_HASHES, new_precalculate_hashes)
+                settings_manager.set_precalculate_hashes(new_precalculate_hashes)
             if current_precalculate_image_exif != new_precalculate_image_exif:
-                settings_manager.set(settings_manager.KEY_PRECALCULATE_IMAGE_EXIF, new_precalculate_image_exif)
+                settings_manager.set_precalculate_image_exif(new_precalculate_image_exif)
             if current_precalculate_video_exif != new_precalculate_video_exif:
-                settings_manager.set(settings_manager.KEY_PRECALCULATE_VIDEO_EXIF, new_precalculate_video_exif)
+                settings_manager.set_precalculate_video_exif(new_precalculate_video_exif)
                 # Actualizar Config.USE_VIDEO_METADATA para que tenga efecto inmediato
                 Config.USE_VIDEO_METADATA = new_precalculate_video_exif
             
