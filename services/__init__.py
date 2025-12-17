@@ -6,9 +6,7 @@ utilizados en la aplicación, incluyendo:
 
 - Servicios principales: FileRenamer, LivePhotoService, FileOrganizer, etc.
 - Servicios base: BaseService, DuplicatesBaseService
-- Orquestador: AnalysisOrchestrator para coordinar análisis completos
 - Tipos de resultado: Todas las dataclasses de resultado de operaciones
-- View Models: Modelos de presentación sin dependencias de UI
 - Utilidades: Funciones helper y tipos de datos auxiliares
 """
 
@@ -19,60 +17,42 @@ from .file_organizer_service import FileOrganizer, FileMove, OrganizationType
 from .heic_service import HeicService, DuplicatePair
 from .duplicates_exact_service import DuplicatesExactService
 from .duplicates_similar_service import DuplicatesSimilarService, DuplicatesSimilarAnalysis
-
-# Orquestador
-from .analysis_orchestrator import AnalysisOrchestrator, FullAnalysisResult
+from .zero_byte_service import ZeroByteService
 
 # Servicios base
 from .base_service import BaseService, BackupCreationError, ProgressCallback
 from .duplicates_base_service import DuplicatesBaseService
 
-# View Models
-from .view_models import (
-    TreeNode,
-    TableRow,
-    OrganizationTreeNode,
-    OrganizationViewModel,
-    RenameTableRow,
-    RenameViewModel,
-    HEICTreeNode,
-    HEICViewModel,
-    DuplicateTreeNode,
-    DuplicatesViewModel,
-)
-
 # Utilidades de file_utils
-from utils.file_utils import (
-    create_service_backup,
-    validate_and_get_file_info,
-    FileInfo,
-    format_file_list,
-)
+# (none currently)
 
 # Tipos de resultado
 from .result_types import (
     # Base
-    OperationResult,
+    BaseResult,
     AnalysisResult,
-    DeletionResult,
+    ExecutionResult,
     # Renaming
-    RenameDeletionResult,
     RenameAnalysisResult,
+    RenameExecutionResult,
     # Organization
-    OrganizationDeletionResult,
     OrganizationAnalysisResult,
+    OrganizationExecutionResult,
     # Duplicates
     DuplicateGroup,
     DuplicatePair,
     DuplicateAnalysisResult,
-    DuplicateDeletionResult,
+    DuplicateExecutionResult,
     # HEIC
     HeicAnalysisResult,
-    HeicDeletionResult,
+    HeicExecutionResult,
     # Live Photos
-    LivePhotoCleanupAnalysisResult,
-    LivePhotoCleanupDeletionResult,
-    LivePhotoDetectionResult,
+    LivePhotosAnalysisResult,
+    LivePhotosExecutionResult,
+
+    # Zero Byte
+    ZeroByteAnalysisResult,
+    ZeroByteExecutionResult,
 )
 
 __all__ = [
@@ -80,10 +60,10 @@ __all__ = [
     'FileRenamer',
     'LivePhotoService',
     'FileOrganizer',
-    'HEICRemover',
+    'HeicService',
     'DuplicatesExactService',
     'DuplicatesSimilarService',
-    'AnalysisOrchestrator',
+    'ZeroByteService',
     # Servicios base
     'BaseService',
     'DuplicatesBaseService',
@@ -101,36 +81,23 @@ __all__ = [
     'DuplicateGroup',
     'SimilarFilesAnalysis',
     # Utilidades de file_utils
-    'create_service_backup',
-    'validate_and_get_file_info',
-    'FileInfo',
-    'format_file_list',
+    # (none currently)
     # Orquestador results
-    'FullAnalysisResult',
     # Tipos de resultado base
-    'OperationResult',
+    'BaseResult',
     'AnalysisResult',
-    'DeletionResult',
-    'RenameDeletionResult',
+    'ExecutionResult',
     'RenameAnalysisResult',
-    'OrganizationDeletionResult',
+    'RenameExecutionResult',
     'OrganizationAnalysisResult',
+    'OrganizationExecutionResult',
     'DuplicateAnalysisResult',
-    'DuplicateDeletionResult',
+    'DuplicateExecutionResult',
     'HeicAnalysisResult',
-    'HeicDeletionResult',
-    'LivePhotoCleanupAnalysisResult',
-    'LivePhotoCleanupDeletionResult',
-    'LivePhotoDetectionResult',
-    # View Models
-    'TreeNode',
-    'TableRow',
-    'OrganizationTreeNode',
-    'OrganizationViewModel',
-    'RenameTableRow',
-    'RenameViewModel',
-    'HEICTreeNode',
-    'HEICViewModel',
-    'DuplicateTreeNode',
-    'DuplicatesViewModel',
+    'HeicExecutionResult',
+    'LivePhotosAnalysisResult',
+    'LivePhotosExecutionResult',
+
+    'ZeroByteAnalysisResult',
+    'ZeroByteExecutionResult',
 ]

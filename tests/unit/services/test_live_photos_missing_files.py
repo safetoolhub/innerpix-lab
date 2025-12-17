@@ -2,7 +2,7 @@
 import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
-from services.live_photos_service import LivePhotoService, CleanupMode, LivePhotoCleanupAnalysisResult
+from services.live_photos_service import LivePhotoService, CleanupMode, LivePhotosAnalysisResult
 
 @pytest.mark.unit
 class TestLivePhotosMissingFiles:
@@ -14,8 +14,7 @@ class TestLivePhotosMissingFiles:
         video_path = temp_dir / 'missing.MOV'
         # We purposely do NOT create the file to simulate it being missing
         
-        analysis = LivePhotoCleanupAnalysisResult(
-            live_photos_found=1,
+        analysis = LivePhotosAnalysisResult(
             files_to_delete=[{
                 'path': video_path,
                 'size': 1000,
@@ -38,8 +37,8 @@ class TestLivePhotosMissingFiles:
             
             # Verify results
             assert result.success == True
-            assert result.files_deleted == 0  # Should NOT be counted
-            assert result.space_freed == 0    # Should NOT be counted
+            assert result.files_affected == 0  # Should NOT be counted
+            assert result.bytes_processed == 0    # Should NOT be counted
             
             # Verify warning was logged
             mock_warning.assert_called_with(f"Archivo no encontrado durante eliminación: {video_path}")
@@ -48,8 +47,7 @@ class TestLivePhotosMissingFiles:
         """Test missing file handling in dry-run mode."""
         video_path = temp_dir / 'missing.MOV'
         
-        analysis = LivePhotoCleanupAnalysisResult(
-            live_photos_found=1,
+        analysis = LivePhotosAnalysisResult(
             files_to_delete=[{
                 'path': video_path,
                 'size': 1000,
@@ -69,7 +67,7 @@ class TestLivePhotosMissingFiles:
             )
             
             assert result.success == True
-            assert result.simulated_files_deleted == 0
-            assert result.simulated_space_freed == 0
+            assert result.items_processed == 0
+            assert result.bytes_processed == 0
             
             mock_warning.assert_called_with(f"[SIMULACIÓN] Archivo no encontrado durante eliminación: {video_path}")

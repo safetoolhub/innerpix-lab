@@ -1,6 +1,6 @@
 """
 Renombrador de nombres de archivos multimedia - VERSIÓN FINAL
-Con logs detallados y resolución inteligente de conflictos
+Refactorizado para usar MetadataCache.
 """
 from pathlib import Path
 from typing import List, Dict, Optional
@@ -9,22 +9,21 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from config import Config
 from utils.logger import get_logger, log_section_header_relevant, log_section_footer_relevant, log_section_header_discrete, log_section_footer_discrete
-from utils.settings_manager import settings_manager
-from services.result_types import RenameDeletionResult, RenameAnalysisResult
+from services.result_types import RenameExecutionResult, RenameAnalysisResult
 from services.base_service import BaseService, ProgressCallback
 from utils.date_utils import (
     get_date_from_file,
-    get_all_file_dates,
     format_renamed_name,
     is_renamed_filename,
-    parse_renamed_name
+    parse_renamed_name,
+    get_all_file_dates
 )
 from utils.file_utils import (
     launch_backup_creation,
     find_next_available_name,
     validate_file_exists,
 )
-from services.metadata_cache import FileMetadataCache
+from services.file_metadata_repository_cache import FileInfoRepositoryCache
 
 
 class FileRenamer(BaseService):
@@ -34,40 +33,34 @@ class FileRenamer(BaseService):
     def __init__(self):
         super().__init__("FileRenamer")
     
-    # ========================================================================
-    # MÉTODOS UNIFICADOS (Nomenclatura estándar desde Nov 2025)
-    # ========================================================================
-    
     def analyze(
         self,
         directory: Path,
         progress_callback: Optional[ProgressCallback] = None,
-        metadata_cache: Optional[FileMetadataCache] = None
+        **kwargs
     ) -> RenameAnalysisResult:
         """
         Analiza un directorio para renombrado.
-        
-        Este es el método estándar de análisis.
-        
-        Args:
-            directory: Directorio a analizar
-            progress_callback: Función callback(current, total, message) para
-                             reportar progreso
-            metadata_cache: Caché opcional de metadatos para reutilizar fechas EXIF
-            
-        Returns:
-            RenameAnalysisResult con análisis detallado
-        
-        Raises:
-            FileNotFoundError: Si directory no existe
         """
         log_section_header_discrete(self.logger, f"ANALIZANDO DIRECTORIO PARA RENOMBRADO: {directory}")
 
-        # Recopilar archivos en streaming (sin bloquear)
+        repo = FileInfoRepository.get_instance()
         all_files = []
-        for file_path in directory.rglob("*"):
-            if file_path.is_file() and Config.is_supported_file(file_path.name):
-                all_files.append(file_path)
+        if repo.get_file_count() > 0:
+            self.logger.info(f"Usando FileInfoRepository ({repo.get_file_count()} archivos)")
+            cached_files = repo.get_all_files()
+            for meta in cached_files:
+                try:
+                    if meta.path.is_relative_to(directory):
+                        all_files.append(meta.path)
+                except ValueError:
+                    continue
+        else:
+            self.logger.info("Escaneando disco...")
+            for file_path in directory.rglob("*"):
+                from utils.file_utils import is_supported_file, get_file_type
+                if file_path.is_file() and is_supported_file(file_path.name):
+                    all_files.append(file_path)
 
         total_files = len(all_files)
         self.logger.info(f"Encontrados {total_files} archivos para analizar")
@@ -79,27 +72,23 @@ class FileRenamer(BaseService):
         renaming_plan = []
         issues = []
         
-        # Obtener max_workers de la configuración
-        user_override = settings_manager.get_max_workers(0)
-        max_workers = Config.get_actual_worker_threads(override=user_override, io_bound=True)
-        self.logger.debug(f"Usando {max_workers} workers para análisis paralelo")
-
         # Función para procesar un archivo
         def process_file(file_path):
             """Procesa un archivo y retorna su información de renombrado"""
-            # Archivo ya renombrado
             if is_renamed_filename(file_path.name):
                 return ('already_renamed', file_path, None)
             
-            # Obtener fecha usando metadata_cache para reutilizar fechas calculadas
-            # get_date_from_file ahora cachea automáticamente selected_date + date_source
-            file_date = get_date_from_file(file_path, metadata_cache=metadata_cache)
+            # Obtener fecha usando FileInfoRepository
+            file_date = get_date_from_file(file_path, metadata_cache=repo, skip_expensive_ops=True)
             
             if not file_date:
-                return ('no_date', file_path, f"No se pudo obtener fecha: {file_path.name}")
+                # Intento final sin cache si falló
+                file_date = get_date_from_file(file_path)
+                
+                if not file_date:
+                    return ('no_date', file_path, f"No se pudo obtener fecha: {file_path.name}")
             
-            # Verificar tipo de archivo
-            file_type = Config.get_file_type(file_path.name)
+            file_type = get_file_type(file_path.name)
             if file_type == 'OTHER':
                 return ('unsupported', file_path, f"Tipo de archivo no soportado: {file_path.name}")
             
@@ -114,24 +103,18 @@ class FileRenamer(BaseService):
                 'extension': extension
             })
 
-        # Procesar archivos en paralelo
         processed = 0
-        # OPTIMIZACIÓN: Reducir frecuencia de callbacks
-        # Menor overhead de comunicación Qt sin perder responsividad
         progress_interval = Config.UI_UPDATE_INTERVAL
         
-        cancelled = False
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        with self._parallel_processor(io_bound=True) as executor:
             futures = {executor.submit(process_file, f): f for f in all_files}
             
             for future in as_completed(futures):
                 processed += 1
                 
                 if processed % progress_interval == 0:
-                    # Si el callback retorna False, detener procesamiento
                     if not self._report_progress(progress_callback, processed, total_files, "Analizando nombres de archivos"):
-                        cancelled = True
-                        break  # Salir del loop, el with hace shutdown limpio
+                         return self._create_empty_result(total_files) # Cancelled
                 
                 status, file_path, data = future.result()
                 
@@ -150,8 +133,6 @@ class FileRenamer(BaseService):
                     renaming_map[renamed_name].append(data)
                     files_by_year[data['date'].year] += 1
 
-        self._report_progress(progress_callback, total_files, total_files, "Analizando nombres de archivos")
-
         need_renaming = 0
         for renamed_name, file_list in renaming_map.items():
             if len(file_list) == 1:
@@ -166,7 +147,6 @@ class FileRenamer(BaseService):
                 need_renaming += 1
             else:
                 conflicts += len(file_list) - 1
-
                 file_list.sort(key=lambda x: x['original_path'].stat().st_mtime)
 
                 for i, file_info in enumerate(file_list, 1):
@@ -189,225 +169,144 @@ class FileRenamer(BaseService):
         log_section_footer_discrete(self.logger, f"Análisis completado: {need_renaming} archivos para renombrar")
         
         return RenameAnalysisResult(
-            success=True,
-            total_files=total_files,
-            already_renamed=already_renamed,
-            need_renaming=need_renaming,
-            cannot_process=cannot_process,
-            conflicts=conflicts,
-            files_by_year=dict(files_by_year),
             renaming_plan=renaming_plan,
-            issues=issues
+            already_renamed=already_renamed,
+            cannot_process=cannot_process,
+            conflicts=conflicts
         )
     
     def execute(
         self,
-        renaming_plan: List[Dict],
+        analysis_result: RenameAnalysisResult,
         create_backup: bool = True,
         dry_run: bool = False,
-        progress_callback: Optional[ProgressCallback] = None
-    ) -> RenameDeletionResult:
+        progress_callback: Optional[ProgressCallback] = None,
+        **kwargs
+    ) -> RenameExecutionResult:
         """
         Ejecuta el renombrado según el plan.
-        
-        Si el destino existe, busca siguiente sufijo disponible.
-        
-        Args:
-            renaming_plan: Plan de renombrado del análisis
-            create_backup: Si crear backup antes de proceder
-            dry_run: Si True, simula la operación sin renombrar archivos
-            progress_callback: Callback para reportar progreso
-            
-        Returns:
-            RenameDeletionResult con resultados de la operación
         """
+        renaming_plan = analysis_result.renaming_plan
+        
         if not renaming_plan:
-            return RenameDeletionResult(
+            return RenameExecutionResult(
                 success=True,
                 files_renamed=0,
                 message='No hay archivos para renombrar',
                 dry_run=dry_run
             )
 
-        mode_label = "SIMULACIÓN" if dry_run else ""
-        log_section_header_relevant(
-            self.logger,
-            "INICIANDO RENOMBRADO DE ARCHIVOS",
-            mode=mode_label
+        return self._execute_operation(
+            files=[item['original_path'] for item in renaming_plan],
+            operation_name='renaming',
+            execute_fn=lambda dry: self._do_renaming(
+                renaming_plan,
+                dry,
+                progress_callback
+            ),
+            create_backup=create_backup,
+            dry_run=dry_run,
+            progress_callback=progress_callback
         )
+    
+    def _do_renaming(
+        self,
+        renaming_plan: List[Dict],
+        dry_run: bool,
+        progress_callback: Optional[ProgressCallback]
+    ) -> RenameExecutionResult:
+        """
+        Lógica real de renombrado de archivos.
+        """
+        mode_label = "SIMULACIÓN" if dry_run else ""
+        log_section_header_relevant(self.logger, "INICIANDO RENOMBRADO DE ARCHIVOS", mode=mode_label)
         self.logger.info(f"*** Archivos a renombrar: {len(renaming_plan)}")
 
-        results = RenameDeletionResult(success=True, dry_run=dry_run)
+        results = RenameExecutionResult(success=True, dry_run=dry_run)
+        total_files = len(renaming_plan)
+        files_processed = 0
+        
+        for item in renaming_plan:
+            original_path = item['original_path']
+            new_name = item['new_name']
+            new_path = original_path.parent / new_name
 
-        try:
-            # Crear backup usando método centralizado
-            if create_backup and renaming_plan and not dry_run:
-                self._report_progress(progress_callback, 0, len(renaming_plan), "Creando backup...")
+            try:
+                try:
+                    if not original_path.exists():
+                        raise FileNotFoundError(f"Archivo no encontrado: {original_path.name}")
+                except FileNotFoundError as e:
+                    self.logger.warning(str(e))
+                    continue
+
+                had_conflict = False
+                conflict_sequence = None
                 
-                try:
-                    from services.base_service import BackupCreationError
-                    backup_path = self._create_backup_for_operation(
-                        renaming_plan,
-                        'renaming',
-                        progress_callback
-                    )
-                    if backup_path:
-                        results.backup_path = str(backup_path)
-                except BackupCreationError as e:
-                    error_msg = f"Error creando backup: {e}"
-                    self.logger.error(error_msg)
-                    results.add_error(error_msg)
-                    results.message = error_msg
-                    return results
-
-            total_files = len(renaming_plan)
-            files_processed = 0
-            for item in renaming_plan:
-                original_path = item['original_path']
-                new_name = item['new_name']
-                new_path = original_path.parent / new_name
-
-                try:
-                    try:
-                        validate_file_exists(original_path)
-                    except FileNotFoundError:
-                        error_msg = f"Archivo no encontrado: {original_path.name}"
-                        self.logger.error(error_msg)
-                        self.logger.error(f"  → Ruta completa: {original_path}")
-                        results.add_error(f"{original_path}: {error_msg}")
-                        continue
-
-                    # Variable para rastrear si hubo conflicto
-                    had_conflict = False
-                    conflict_sequence = None
+                # Chequeo dinámico de conflictos
+                if new_path.exists():
+                     # (Lógica original de preservación de sufijos, etc.)
+                    original_stem = original_path.stem
+                    original_parts = original_stem.split('_')
+                    preserved_suffix = ""
+                    if len(original_parts) > 0 and original_parts[-1].isdigit() and len(original_parts[-1]) != 3:
+                        preserved_suffix = f"_{original_parts[-1]}"
                     
-                    if new_path.exists():
-                        # Preservar sufijos no estándar del nombre original
-                        # (sufijos que no sean de 3 dígitos generados por este programa)
-                        original_stem = original_path.stem
-                        original_parts = original_stem.split('_')
-                        
-                        # Detectar si el original tiene un sufijo numérico que no sea de 3 dígitos
-                        preserved_suffix = ""
-                        if len(original_parts) > 0 and original_parts[-1].isdigit() and len(original_parts[-1]) != 3:
-                            preserved_suffix = f"_{original_parts[-1]}"
-                        
-                        base_name = Path(new_name).stem
-                        extension = Path(new_name).suffix
-
-                        # Añadir el sufijo preservado al nombre base antes de buscar secuencia
-                        base_name_with_preserved = base_name + preserved_suffix
-
-                        new_name, sequence = find_next_available_name(
-                            original_path.parent,
-                            base_name_with_preserved,
-                            extension
-                        )
-
-                        new_path = original_path.parent / new_name
-                        had_conflict = True
-                        conflict_sequence = sequence
-                        results.conflicts_resolved += 1
-
-                    # Solo renombrar si no es simulación
-                    if not dry_run:
-                        original_path.rename(new_path)
-
-                    results.files_renamed += 1
-                    files_processed += 1
-                    date_obj = item.get('date') if isinstance(item, dict) else None
-                    if date_obj is not None:
-                        date_str = date_obj.strftime('%Y-%m-%d %H:%M:%S')
-                    else:
-                        date_str = ''
-
-                    results.renamed_files.append({
-                        'original': original_path.name,
-                        'new_name': new_name,
-                        'date': date_str,
-                        'had_conflict': item.get('has_conflict', False) if isinstance(item, dict) else False
-                    })
-
-                    progress_label = "Simulando renombrado" if dry_run else "Renombrando archivos"
-                    # Si el callback retorna False, detener procesamiento
-                    if not self._report_progress(progress_callback, files_processed, total_files,
-                                       f"{progress_label}... {files_processed}/{total_files}"):
-                        break
-
-                    # Log consolidado en una sola línea
-                    log_prefix = "FILE_RENAMED_SIMULATION" if dry_run else "FILE_RENAMED"
-                    conflict_info = f" | Conflict: seq={conflict_sequence}" if had_conflict else ""
-                    
-                    self.logger.info(
-                        f"{log_prefix}: {original_path} → {new_path}{conflict_info}"
+                    base_name = Path(new_name).stem
+                    extension = Path(new_name).suffix
+                    base_name_with_preserved = base_name + preserved_suffix
+                    new_name, sequence = find_next_available_name(
+                        original_path.parent, base_name_with_preserved, extension
                     )
+                    new_path = original_path.parent / new_name
+                    had_conflict = True
+                    conflict_sequence = sequence
+                    results.conflicts_resolved += 1
 
-                except Exception as e:
-                    error_msg = f"Error renombrando {original_path.name}: {str(e)}"
-                    self.logger.error(error_msg)
-                    self.logger.error(f"  → Archivo origen: {original_path}")
-                    self.logger.error(f"  → Destino intentado: {new_path}")
-                    self.logger.error(f"  → Tipo de error: {type(e).__name__}")
-                    self.logger.error(f"  → Detalle: {str(e)}")
+                if not dry_run:
+                    original_path.rename(new_path)
 
-                    results.add_error(f"{original_path.name}: {str(e)}")
+                results.files_renamed += 1
+                files_processed += 1
+                
+                date_str = item['date'].strftime('%Y-%m-%d %H:%M:%S') if item.get('date') else ''
+                
+                results.renamed_files.append({
+                    'original': original_path.name,
+                    'new_name': new_name,
+                    'date': date_str,
+                    'had_conflict': item.get('has_conflict', False)
+                })
 
-            if results.has_errors:
-                results.success = len(results.errors) < len(renaming_plan)
+                if not self._report_progress(progress_callback, files_processed, total_files, f"{'Simulando' if dry_run else 'Renombrando'}... {files_processed}/{total_files}"):
+                    break
 
-            completion_label = "RENOMBRADO DE ARCHIVOS COMPLETADO"
-            result_verb = "se renombrarían" if dry_run else "renombrados"
-            conflicts_verb = "se resolverían" if dry_run else "resueltos"
-            
-            summary = f"{completion_label}\nResultado: {results.files_renamed} archivos {result_verb}, {results.conflicts_resolved} conflictos {conflicts_verb}"
-            log_section_footer_relevant(self.logger, summary)
-            
-            # Construir mensaje para UI
-            if dry_run:
-                results.message = f"Simulación completada: {results.files_renamed} archivos se renombrarían"
-            else:
-                results.message = f"Renombrados {results.files_renamed} archivos"
-                if results.conflicts_resolved > 0:
-                    results.message += f", resueltos {results.conflicts_resolved} conflictos"
-                if results.backup_path:
-                    results.message += f"\n\nBackup creado en:\n{results.backup_path}"
-            
-            if results.has_errors:
-                self.logger.info(f"*** Errores encontrados durante el renombrado:")
-                for error in results.errors:
-                    self.logger.error(f"  ✗ {error}")
-                results.message += f"\n\nAdvertencia: {len(results.errors)} errores encontrados"
+                log_prefix = "FILE_RENAMED_SIMULATION" if dry_run else "FILE_RENAMED"
+                conflict_info = f" | Conflict: {conflict_sequence}" if had_conflict else ""
+                self.logger.info(f"{log_prefix}: {original_path.name} -> {new_name} | Date: {date_str}{conflict_info}")
 
-        except Exception as e:
-            self.logger.error(f"Error crítico en renombrado: {str(e)}")
-            results.success = False
-            results.add_error(f"Error crítico: {str(e)}")
-            results.message = f"Error crítico: {str(e)}"
+            except Exception as e:
+                error_msg = f"Error renombrando {original_path.name}: {str(e)}"
+                self.logger.error(error_msg)
+                results.add_error(f"{original_path.name}: {str(e)}")
+
+        if results.has_errors:
+            results.success = len(results.errors) < len(renaming_plan)
+
+        completion_label = "RENOMBRADO DE ARCHIVOS COMPLETADO"
+        result_verb = "se renombrarían" if dry_run else "renombrados"
+        summary = f"{completion_label}\nResultado: {results.files_renamed} archivos {result_verb}"
+        log_section_footer_relevant(self.logger, summary)
+        
+        results.message = summary if dry_run else f"Renombrados {results.files_renamed} archivos"
+        if results.backup_path: results.message += f"\nBackup: {results.backup_path}"
+        if results.has_errors: results.message += f"\nAdvertencia: {len(results.errors)} errores"
 
         return results
     
-    def rename_files(self, directory: Path, progress_callback: Optional[ProgressCallback] = None):
-        """
-        Renombra los archivos en el directorio dado
-
-        Args:
-            directory: Directorio donde se renombrarán los archivos
-            progress_callback: Función callback(current, total, message) para reportar progreso
-        """
-        self.logger.info(f"Renombrando archivos en: {directory}")
-
-        all_files = []
-        for file_path in directory.rglob("*"):
-            if file_path.is_file() and Config.is_supported_file(file_path.name):
-                all_files.append(file_path)
-
-        total_files = len(all_files)
-        renamed_files = 0
-
-        for file_path in all_files:
-            renamed_files += 1
-
-            if renamed_files % Config.UI_UPDATE_INTERVAL == 0:
-                self._report_progress(progress_callback, renamed_files, total_files, f"Renombrando archivo {renamed_files} de {total_files}")
-
-        self._report_progress(progress_callback, total_files, total_files, "Renombrado completado")
+    def _create_empty_result(self, total):
+        return RenameAnalysisResult(
+            renaming_plan=[],
+            already_renamed=0,
+            cannot_process=0,
+            conflicts=0
+        )

@@ -9,6 +9,7 @@ import os
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Optional, Iterable, Callable, Union, Any, TypeAlias
+from contextlib import contextmanager
 from utils.logger import get_logger, log_section_header_discrete, log_section_footer_discrete, log_section_header_relevant, log_section_footer_relevant
 
 
@@ -49,47 +50,59 @@ class BackupCreationError(Exception):
 
 
 class BaseService(ABC):
-    """
+    r"""
     Clase base abstracta para todos los servicios.
     
-    Proporciona:
-    - Logger configurado por servicio
-    - Gestión de backup_dir
-    - Logging estandarizado con banners
-    - Métodos de formateo de resumen
-    - Convención de nomenclatura: analyze() + execute()
-    
-    Los servicios concretos deben heredar de esta clase e implementar
-    sus métodos específicos de análisis y ejecución.
-    
-    Nomenclatura Recomendada (desde Nov 2025):
-    ============================================
-    - analyze(directory: Path, **kwargs) -> *AnalysisResult
-      Analiza el directorio y genera un plan de operación.
-      Reemplaza: analyze_directory(), analyze_*_duplicates(), detect_in_directory()
-      
-    - execute(analysis_result: AnalysisResult, **kwargs) -> *Result  
-      Ejecuta la operación según el análisis previo.
-      Reemplaza: execute_renaming(), execute_cleanup(), execute_deletion()
-    
-    Esta convención mejora:
-    - Autocompletado consistente en IDEs
-    - Documentación uniforme
-    - Reducción de carga cognitiva para nuevos desarrolladores
-    
-    Los métodos antiguos se mantienen con @deprecated para compatibilidad.
+    Arquitectura de 2 fases:
+    1. Fase de Análisis: analyze() -> AnalysisResult
+       - Accede a FileInfoRepositoryCache.get_instance() para metadatos
+       - No recibe metadata_cache como parámetro (patrón singleton)
+       - No realiza I/O intensivo si es posible
+       - Retorna un plan de acción
+       
+    2. Fase de Ejecución: execute(analysis_result) -> ExecutionResult
+       - Ejecuta las acciones del plan (delete, move, rename)
+       - Maneja backups y dry-run
+       - Retorna resultado de la operación
     """
     
     def __init__(self, service_name: str):
-        """
-        Inicializa el servicio base.
-        
-        Args:
-            service_name: Nombre del servicio para el logger
-        """
         self.logger = get_logger(service_name)
         self.backup_dir: Optional[Path] = None
         self._cancelled = False
+
+    @abstractmethod
+    def analyze(self, **kwargs) -> 'AnalysisResult':
+        """
+        Analiza usando FileInfoRepositoryCache como fuente de verdad.
+        
+        Args:
+            **kwargs: Argumentos específicos del servicio
+            
+        Returns:
+            AnalysisResult: El resultado del análisis / plan de acción
+            
+        Note:
+            Los servicios NO reciben metadata_cache. Acceden directamente a
+            FileInfoRepositoryCache.get_instance() para obtener metadatos.
+        """
+        pass
+
+    @abstractmethod
+    def execute(self, analysis_result: 'AnalysisResult', dry_run: bool = False, **kwargs) -> 'ExecutionResult':
+        """
+        Ejecuta la operación basada en el análisis previo.
+        
+        Args:
+            analysis_result: El resultado obtenido de analyze()
+            dry_run: Si True, solo simula las acciones
+            **kwargs: Argumentos adicionales
+            
+        Returns:
+            ExecutionResult: Resultado de la ejecución
+        """
+        pass
+
     
     def _report_progress(
         self,
@@ -314,3 +327,274 @@ class BaseService(ABC):
         self.logger.info("Operación cancelada por el usuario")
         # NO llamar executor.shutdown() dentro de un with statement
         # El with ya maneja el shutdown limpiamente
+    
+    def _execute_operation(
+        self,
+        files: Iterable[Union[Path, dict, Any]],
+        operation_name: str,
+        execute_fn: Callable[[bool], Any],
+        create_backup: bool,
+        dry_run: bool,
+        progress_callback: Optional[ProgressCallback] = None
+    ) -> Any:
+        """
+        Template method para ejecutar operaciones con gestión automática de backup.
+        
+        Encapsula toda la lógica común de ejecución:
+        - Decisión de crear backup según flags
+        - Manejo de BackupCreationError
+        - Población de backup_path en resultado
+        - Logging de errores
+        
+        Este método elimina ~120 líneas de código duplicado en servicios.
+        
+        Args:
+            files: Archivos para incluir en backup. Acepta Path, dict, dataclass, etc.
+            operation_name: String para logs y nombre de backup (ej: 'renaming', 'deletion', 'organization')
+            execute_fn: Función que realiza el trabajo real.
+                       Firma: execute_fn(dry_run: bool) -> OperationResult
+                       Debe retornar un resultado con campos success, message, etc.
+            create_backup: Si True y dry_run=False, crea backup antes de ejecutar
+            dry_run: Si True, simula operación sin modificar disco (no crea backup)
+            progress_callback: Callback opcional de progreso
+            
+        Returns:
+            Resultado de execute_fn con campo backup_path poblado si corresponde
+            
+        Raises:
+            Las excepciones de execute_fn se propagan (excepto BackupCreationError)
+            
+        Example:
+            >>> def execute(self, renaming_plan, create_backup=True, dry_run=False, progress_callback=None):
+            ...     return self._execute_operation(
+            ...         files=[item['original_path'] for item in renaming_plan],
+            ...         operation_name='renaming',
+            ...         execute_fn=lambda dry: self._do_renaming(renaming_plan, dry, progress_callback),
+            ...         create_backup=create_backup,
+            ...         dry_run=dry_run,
+            ...         progress_callback=progress_callback
+            ...     )
+        """
+        backup_path = None
+        
+        # Decisión: solo crear backup si create_backup=True AND dry_run=False
+        should_create_backup = create_backup and not dry_run
+        
+        if should_create_backup:
+            try:
+                backup_path = self._create_backup_for_operation(
+                    files=files,
+                    operation_name=operation_name,
+                    progress_callback=progress_callback
+                )
+            except BackupCreationError as e:
+                # Error crítico de backup: retornar resultado de error sin ejecutar
+                self.logger.error(f"Operación abortada debido a fallo en backup: {e}")
+                
+                # Importar aquí para evitar dependencia circular
+                from services.result_types import BaseResult
+                
+                # Retornar resultado de error genérico
+                # El servicio específico debería manejar esto mejor con su tipo de resultado
+                return BaseResult(
+                    success=False,
+                    message=f"Fallo al crear backup: {str(e)}. Operación no ejecutada."
+                )
+        
+        # Ejecutar operación real
+        try:
+            result = execute_fn(dry_run)
+            
+            # Poblar backup_path en resultado si tiene ese campo
+            if hasattr(result, 'backup_path'):
+                result.backup_path = backup_path
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Error ejecutando {operation_name}: {e}")
+            raise
+    
+    def _get_max_workers(self, io_bound: bool = True) -> int:
+        """
+        Obtiene número óptimo de workers para ThreadPoolExecutor.
+        
+        Centraliza configuración de workers eliminando ~30 líneas duplicadas
+        por servicio que usa ThreadPool.
+        
+        Considera:
+        - Override del usuario desde settings
+        - Tipo de operación (IO-bound vs CPU-bound)
+        - Configuración por defecto del sistema
+        
+        Args:
+            io_bound: Si True, operación es IO-bound (lectura disco, red, hashes).
+                     Si False, operación es CPU-bound (cálculos intensivos, procesamiento imagen).
+                     
+                     IO-bound: Puede usar más workers que CPU cores (ej: 4x cores)
+                     CPU-bound: Limitado a número de cores para evitar contención
+        
+        Returns:
+            Número de workers a usar en ThreadPoolExecutor
+            
+        Example:
+            >>> # Para lectura de archivos y cálculo de hashes (IO-bound)
+            >>> max_workers = self._get_max_workers(io_bound=True)
+            >>> 
+            >>> # Para procesamiento intensivo de imágenes (CPU-bound)
+            >>> max_workers = self._get_max_workers(io_bound=False)
+        """
+        from utils.settings_manager import settings_manager
+        from config import Config
+        
+        # Obtener override del usuario (0 = usar default)
+        user_override = settings_manager.get_max_workers(0)
+        
+        # Calcular workers según tipo de operación
+        max_workers = Config.get_actual_worker_threads(
+            override=user_override,
+            io_bound=io_bound
+        )
+        
+        self.logger.debug(
+            f"Usando {max_workers} workers para operación "
+            f"{'IO-bound' if io_bound else 'CPU-bound'}"
+        )
+        
+        return max_workers
+    
+    @contextmanager
+    def _parallel_processor(self, io_bound: bool = True):
+        """
+        Context manager para procesamiento paralelo con ThreadPoolExecutor.
+        
+        Configura ThreadPoolExecutor con max_workers apropiado según tipo de operación.
+        Compatible con cancelación cooperativa.
+        
+        Este context manager elimina ~20 líneas duplicadas por uso de ThreadPool.
+        
+        Args:
+            io_bound: Si True, operación es IO-bound (lectura disco, red).
+                     Si False, operación es CPU-bound (cálculos intensivos).
+        
+        Yields:
+            ThreadPoolExecutor configurado y listo para usar
+            
+        Example:
+            >>> with self._parallel_processor(io_bound=True) as executor:
+            ...     futures = {executor.submit(process_file, f): f for f in files}
+            ...     for future in as_completed(futures):
+            ...         if self._cancelled:
+            ...             break
+            ...         result = future.result()
+            ...         # Procesar resultado...
+        """
+        from concurrent.futures import ThreadPoolExecutor
+        
+        max_workers = self._get_max_workers(io_bound)
+        
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            yield executor
+    
+    def _should_report_progress(self, counter: int, interval: int = None) -> bool:
+        """
+        Determina si debe reportarse progreso según intervalo configurado.
+        
+        Ayuda a evitar spam de logs/callbacks reportando solo cada N elementos.
+        
+        Args:
+            counter: Número actual de elementos procesados
+            interval: Intervalo de reporte (usa Config.UI_UPDATE_INTERVAL si es None)
+        
+        Returns:
+            True si counter es múltiplo del intervalo
+            
+        Example:
+            >>> for i, file in enumerate(files):
+            ...     # Solo reportar cada 50 archivos
+            ...     if self._should_report_progress(i):
+            ...         self._report_progress(callback, i, len(files), f"Procesando...")
+        """
+        from config import Config
+        
+        if interval is None:
+            interval = Config.UI_UPDATE_INTERVAL
+        
+        return counter % interval == 0
+    
+    def _validate_directory(self, directory: Path, must_exist: bool = True) -> None:
+        """
+        Valida que un path sea un directorio válido.
+        
+        Centraliza validación común eliminando ~10 líneas por servicio.
+        
+        Args:
+            directory: Path a validar
+            must_exist: Si True, verifica que existe
+            
+        Raises:
+            ValueError: Si validación falla con mensaje descriptivo
+            
+        Example:
+            >>> def analyze(self, directory: Path, ...):
+            ...     self._validate_directory(directory)
+            ...     # Continuar con análisis...
+        """
+        if must_exist and not directory.exists():
+            raise ValueError(f"Directorio no existe: {directory}")
+        
+        if must_exist and not directory.is_dir():
+            raise ValueError(f"No es un directorio: {directory}")
+    
+    def _get_supported_files(
+        self,
+        directory: Path,
+        recursive: bool = True,
+        progress_callback: Optional[ProgressCallback] = None
+    ) -> list[Path]:
+        """
+        Recopila archivos multimedia soportados en directorio.
+        
+        Usa utils.file_utils.is_supported_file() para filtrar.
+        Puede reportar progreso y soporta cancelación.
+        
+        Este método elimina ~20 líneas de código duplicado por servicio.
+        
+        Args:
+            directory: Directorio a escanear
+            recursive: Si True, busca recursivamente con **/*
+            progress_callback: Callback opcional para progreso de scan
+            
+        Returns:
+            Lista de Paths de archivos soportados
+            
+        Example:
+            >>> files = self._get_supported_files(
+            ...     directory,
+            ...     recursive=True,
+            ...     progress_callback=progress_callback
+            ... )
+            >>> self.logger.info(f"Encontrados {len(files)} archivos soportados")
+        """
+        from config import Config
+        
+        files = []
+        pattern = "**/*" if recursive else "*"
+        processed = 0
+        
+        for filepath in directory.glob(pattern):
+            from utils.file_utils import is_supported_file
+            if filepath.is_file() and is_supported_file(filepath.name):
+                files.append(filepath)
+            
+            processed += 1
+            if progress_callback and self._should_report_progress(processed):
+                if not self._report_progress(
+                    progress_callback,
+                    processed,
+                    -1,  # Total desconocido en scan
+                    f"Escaneando: {filepath.name}"
+                ):
+                    break  # Cancelado
+        
+        return files

@@ -1,5 +1,5 @@
 """
-Utilidades compartidas para Pixaro Lab
+Utilidades compartidas para Innerpix Lab
 """
 from .logger import (
     get_logger,
@@ -16,11 +16,15 @@ from .logger import (
 )
 from .date_utils import (
     get_date_from_file,
-    get_all_file_dates,
     select_chosen_date,
     format_renamed_name,
     is_renamed_filename,
-    parse_renamed_name
+    parse_renamed_name,
+    get_all_file_dates
+)
+from .file_utils import (
+    get_exif_from_image,
+    get_exif_from_video
 )
 from .screen_utils import (
     ScreenResolution,
@@ -31,7 +35,6 @@ from .screen_utils import (
 )
 from .file_utils import (
     validate_file_exists,
-    validate_files_list,
     to_path,
     calculate_file_hash,
     launch_backup_creation,
@@ -46,10 +49,6 @@ from .format_utils import (
     format_file_count,
     format_percentage,
     truncate_path,
-    format_count_short,
-    format_size_short,
-    format_count_full,
-    format_size_full
 )
 from .platform_utils import (
     open_file_with_default_app,
@@ -57,15 +56,9 @@ from .platform_utils import (
     is_linux,
     is_macos,
     is_windows,
-    get_default_file_manager
 )
 from .callback_utils import (
     safe_progress_callback,
-    create_safe_callback
-)
-from .icons import (
-    IconManager,
-    icon_manager
 )
 from .storage import (
     StorageBackend,
@@ -105,7 +98,6 @@ __all__ = [
 
     # File utilities
     'validate_file_exists',
-    'validate_files_list',
     'to_path',
     'calculate_file_hash',
     'launch_backup_creation',
@@ -113,6 +105,9 @@ __all__ = [
     'find_next_available_name',
     'detect_file_source',
     'is_whatsapp_file',
+    'get_exif_from_image',
+    'get_exif_from_video',
+    'get_all_file_dates',
 
     # Format utilities
     'format_size',
@@ -120,10 +115,6 @@ __all__ = [
     'format_file_count',
     'format_percentage',
     'truncate_path',
-    'format_count_short',
-    'format_size_short',
-    'format_count_full',
-    'format_size_full',
 
     # Platform utilities
     'open_file_with_default_app',
@@ -131,15 +122,9 @@ __all__ = [
     'is_linux',
     'is_macos',
     'is_windows',
-    'get_default_file_manager',
 
     # Callback utilities
     'safe_progress_callback',
-    'create_safe_callback',
-
-    # Icon utilities
-    'IconManager',
-    'icon_manager',
 
     # Storage utilities
     'StorageBackend',

@@ -49,7 +49,7 @@ class SettingsManager:
     KEY_ANALYSIS_TIMESTAMP = "interface/analysis_timestamp"  # Timestamp del último análisis
 
     def __init__(self, backend: Optional[StorageBackend] = None,
-                 organization: str = "PixaroLab", application: str = "Pixaro Lab"):
+                 organization: str = "InnerpixLab", application: str = "Innerpix Lab"):
         """
         Inicializa el gestor de configuración.
 
@@ -240,8 +240,8 @@ class SettingsManager:
         return self.get_int(self.KEY_MAX_WORKERS, default)
     
     def get_precalculate_hashes(self) -> bool:
-        """Obtiene si se debe pre-calcular hashes SHA256 durante el escaneo (por defecto False)"""
-        return self.get_bool(self.KEY_PRECALCULATE_HASHES, False)
+        """Obtiene si se debe pre-calcular hashes SHA256 durante el escaneo (por defecto True)"""
+        return self.get_bool(self.KEY_PRECALCULATE_HASHES, True)
 
     def get_show_full_path(self) -> bool:
         """Obtiene si se debe mostrar la ruta completa del directorio (por defecto True)"""

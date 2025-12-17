@@ -2,7 +2,9 @@
 import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
-from services.duplicates_base_service import DuplicatesBaseService, DuplicateGroup
+from services.duplicates_base_service import DuplicateGroup
+from services.duplicates_exact_service import DuplicatesExactService
+from services.result_types import DuplicateAnalysisResult
 
 @pytest.mark.unit
 class TestBaseDetectorMissingFiles:
@@ -22,7 +24,17 @@ class TestBaseDetectorMissingFiles:
             total_size=2000
         )
         
-        service = DuplicatesBaseService("TestService")
+        service = DuplicatesExactService()
+        
+        # Create analysis result
+        analysis = DuplicateAnalysisResult(
+            success=True,
+            errors=[],
+            message="",
+            items_count=1,
+            bytes_total=2000,
+            data={'groups': [group], 'mode': 'exact', 'total_duplicates': 1, 'total_groups': 1, 'space_wasted': 2000}
+        )
         
         # Execute
         with patch.object(service.logger, 'warning') as mock_warning:
@@ -38,7 +50,7 @@ class TestBaseDetectorMissingFiles:
             # Let's trigger the "deletion loop" logic by using 'manual' which deletes ALL files in group.
             
             result = service.execute(
-                groups=[group],
+                analysis,
                 keep_strategy='manual', 
                 create_backup=False, 
                 dry_run=False
@@ -46,7 +58,7 @@ class TestBaseDetectorMissingFiles:
             
             # Verify results
             assert result.success == True
-            assert result.files_deleted == 1 # The keep_file WAS deleted (manual mode deletes all)
+            assert result.files_affected == 1 # The keep_file WAS deleted (manual mode deletes all)
             # wait, I wanted to keep one. 
             # In manual mode, it iterates all.
             # missing_file -> triggers warning, continue
@@ -68,17 +80,27 @@ class TestBaseDetectorMissingFiles:
             total_size=1000
         )
         
-        service = DuplicatesBaseService("TestService")
+        service = DuplicatesExactService()
+        
+        # Create analysis result
+        analysis = DuplicateAnalysisResult(
+            success=True,
+            errors=[],
+            message="",
+            items_count=1,
+            bytes_total=1000,
+            data={'groups': [group], 'mode': 'exact', 'total_duplicates': 1, 'total_groups': 1, 'space_wasted': 1000}
+        )
         
         with patch.object(service.logger, 'warning') as mock_warning:
             result = service.execute(
-                groups=[group],
+                analysis,
                 keep_strategy='manual',
                 create_backup=False, 
                 dry_run=True
             )
             
             assert result.success == True
-            assert result.simulated_files_deleted == 0
+            assert result.items_processed == 0
             
             mock_warning.assert_called_with(f"Archivo no encontrado durante eliminación: {missing_file}")

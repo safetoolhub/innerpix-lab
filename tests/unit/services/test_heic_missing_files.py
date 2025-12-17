@@ -3,6 +3,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 from services.heic_service import HeicService, DuplicatePair
+from services.result_types import HeicAnalysisResult
 
 @pytest.mark.unit
 class TestHeicServiceMissingFiles:
@@ -28,10 +29,20 @@ class TestHeicServiceMissingFiles:
         
         service = HeicService()
         
+        # Create analysis result
+        analysis = HeicAnalysisResult(
+            success=True,
+            errors=[],
+            message="",
+            items_count=1,
+            bytes_total=2000,
+            data={'duplicate_pairs': [pair], 'heic_files': [heic_path], 'jpg_files': [jpg_path], 'potential_savings_heic': 1000, 'potential_savings_jpg': 1000, 'potential_savings_total': 1000}
+        )
+        
         # Execute
         with patch.object(service.logger, 'warning') as mock_warning:
             result = service.execute(
-                duplicate_pairs=[pair], 
+                analysis,
                 keep_format='jpg',
                 create_backup=False, 
                 dry_run=False
@@ -39,8 +50,8 @@ class TestHeicServiceMissingFiles:
             
             # Verify results
             assert result.success == True
-            assert result.files_deleted == 0  # Should NOT be counted
-            assert result.space_freed == 0    # Should NOT be counted
+            assert result.files_affected == 0  # Should NOT be counted
+            assert result.bytes_processed == 0    # Should NOT be counted
             
             # Verify warning was logged
             mock_warning.assert_called_with(f"Archivo no encontrado durante eliminación: {heic_path}")
@@ -59,16 +70,26 @@ class TestHeicServiceMissingFiles:
         
         service = HeicService()
         
+        # Create analysis result
+        analysis = HeicAnalysisResult(
+            success=True,
+            errors=[],
+            message="",
+            items_count=1,
+            bytes_total=2000,
+            data={'duplicate_pairs': [pair], 'heic_files': [heic_path], 'jpg_files': [jpg_path], 'potential_savings_heic': 1000, 'potential_savings_jpg': 1000, 'potential_savings_total': 1000}
+        )
+        
         with patch.object(service.logger, 'warning') as mock_warning:
             result = service.execute(
-                duplicate_pairs=[pair], 
+                analysis, 
                 keep_format='jpg',
                 create_backup=False, 
                 dry_run=True
             )
             
             assert result.success == True
-            assert result.simulated_files_deleted == 0
-            assert result.simulated_space_freed == 0
+            assert result.items_processed == 0
+            assert result.bytes_processed == 0
             
             mock_warning.assert_called_with(f"Archivo no encontrado durante eliminación: {heic_path}")

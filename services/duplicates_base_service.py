@@ -11,8 +11,7 @@ from pathlib import Path
 from typing import List, Callable, Optional
 from dataclasses import dataclass, field
 from services.base_service import BaseService
-from services.result_types import DuplicateGroup, DuplicateDeletionResult
-from utils.callback_utils import safe_progress_callback
+from services.result_types import DuplicateGroup, DuplicateExecutionResult
 from utils.logger import log_section_header_relevant, log_section_footer_relevant
 
 
@@ -87,31 +86,27 @@ class DuplicatesBaseService(BaseService):
     
     def execute(
         self,
-        groups: List[DuplicateGroup],
-        keep_strategy: str = 'oldest',
-        create_backup: bool = True,
+        analysis_result: 'DuplicateAnalysisResult',
         dry_run: bool = False,
+        create_backup: bool = True,
         progress_callback: Optional[Callable[[int, int, str], None]] = None,
-        metadata_cache = None
-    ) -> DuplicateDeletionResult:
+        **kwargs
+    ) -> DuplicateExecutionResult:
         """
         Ejecuta la eliminación de duplicados (lógica unificada).
         
-        Elimina el código duplicado de 200+ líneas entre detectores.
-        Maneja backup, dry-run, progress reporting y error handling.
-        
         Args:
-            groups: Lista de grupos de duplicados
-            keep_strategy: Estrategia para seleccionar archivo a mantener
-            create_backup: Si crear backup antes de eliminar
-            dry_run: Si solo simular sin eliminar archivos reales
-            progress_callback: Callback para reportar progreso
-            metadata_cache: Caché opcional de metadatos para reutilizar fechas
-        
-        Returns:
-            DuplicateDeletionResult con estadísticas de la operación
+            analysis_result: Resultado del análisis (contiene los grupos)
+            dry_run: Si solo simular
+            create_backup: Si crear backup
+            progress_callback: Callback
+            **kwargs: Debe contener 'keep_strategy' y opcionalmente 'metadata_cache'
         """
         from datetime import datetime
+        
+        groups = analysis_result.groups
+        keep_strategy = kwargs.get('keep_strategy', 'oldest')
+        metadata_cache = kwargs.get('metadata_cache')
         
         # Header con información de operación
         mode = "SIMULACIÓN" if dry_run else ""
@@ -123,7 +118,7 @@ class DuplicatesBaseService(BaseService):
         
         if not groups:
             self.logger.warning("No hay grupos para procesar")
-            return DuplicateDeletionResult(
+            return DuplicateExecutionResult(
                 success=True,
                 files_deleted=0,
                 files_kept=0,
@@ -151,7 +146,7 @@ class DuplicatesBaseService(BaseService):
                         # Si no se pudo crear backup, no continuar con la operación
                         error_msg = "No se pudo crear el backup. Operación cancelada por seguridad."
                         self.logger.error(error_msg)
-                        return DuplicateDeletionResult(
+                        return DuplicateExecutionResult(
                             success=False,
                             errors=[error_msg],
                             keep_strategy=keep_strategy,
@@ -160,7 +155,7 @@ class DuplicatesBaseService(BaseService):
                 except BackupCreationError as e:
                     error_msg = f"Error creando backup: {e}"
                     self.logger.error(error_msg)
-                    return DuplicateDeletionResult(
+                    return DuplicateExecutionResult(
                         success=False,
                         errors=[error_msg],
                         keep_strategy=keep_strategy,
@@ -212,19 +207,22 @@ class DuplicatesBaseService(BaseService):
             for e in errors
         ]
         
-        result = DuplicateDeletionResult(
+        result = DuplicateExecutionResult(
             success=len(error_messages) == 0,
             files_deleted=len(deleted_files) if not dry_run else 0,
             files_kept=len(kept_files),
             space_freed=space_freed if not dry_run else 0,
             errors=error_messages,
             backup_path=str(backup_path) if backup_path else None,
-            deleted_files=[str(f) for f in deleted_files],
+            files_affected=deleted_files if not dry_run else [],   # New field in base
             keep_strategy=keep_strategy,
             dry_run=dry_run,
-            simulated_files_deleted=len(deleted_files) if dry_run else 0,
+            simulated_files_deleted=len(deleted_files) if dry_run else 0, # kept for compat
             simulated_space_freed=simulated_space_freed if dry_run else 0
         )
+        # Populate new generic fields manually if needed, or rely on properties
+        if dry_run:
+             result.files_affected = deleted_files
         
         # Logging de resumen usando método centralizado
         from utils.format_utils import format_size
@@ -243,7 +241,7 @@ class DuplicatesBaseService(BaseService):
         
         result.message = summary
         
-        if result.has_errors:
+        if result.errors: # Changed from has_errors property if it's not available in Generic
             error_prefix = "[SIMULACIÓN] " if dry_run else ""
             self.logger.info(f"*** {error_prefix}Errores durante la operación:")
             for error in result.errors:
@@ -431,15 +429,17 @@ class DuplicatesBaseService(BaseService):
                 
                 processed += 1
                 
-                # Reportar progreso (formato de dos líneas para evitar movimiento con texto centrado)
+                # Reportar progreso usando método de BaseService
                 action = "[Simulación] Eliminaría" if dry_run else "Eliminado"
                 progress_msg = f"{action}\n{file_path.name}"
-                safe_progress_callback(
+                if not self._report_progress(
                     progress_callback,
                     processed_count + processed,
                     total_count,
                     progress_msg
-                )
+                ):
+                    # Cancelación detectada
+                    break
                 
             except FileNotFoundError:
                 # Archivo ya no existe, por causa desconocida

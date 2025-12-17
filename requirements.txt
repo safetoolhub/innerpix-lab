@@ -1,4 +1,4 @@
-# Pixaro Lab - Gestor de archivos multimedia
+# Innerpix Lab - Gestor de archivos multimedia
 # Python 3.9+
 
 # ============================================================================

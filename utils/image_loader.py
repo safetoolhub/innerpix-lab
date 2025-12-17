@@ -193,35 +193,3 @@ def load_image_as_qpixmap(
         return None
 
 
-def is_image_loadable(file_path: Path) -> bool:
-    """
-    Verifica rápidamente si una imagen puede ser cargada.
-    
-    Args:
-        file_path: Ruta al archivo de imagen
-        
-    Returns:
-        True si la imagen puede ser cargada, False en caso contrario
-    """
-    pixmap = load_image_as_qpixmap(file_path, max_size=(1, 1))
-    return pixmap is not None
-
-
-def clear_thumbnail_cache():
-    """
-    Limpia el caché de thumbnails.
-    
-    Útil para liberar memoria cuando sea necesario.
-    """
-    _load_thumbnail_cached.cache_clear()
-    logger.debug("Caché de thumbnails limpiado")
-
-
-def get_cache_info():
-    """
-    Obtiene información sobre el estado del caché de thumbnails.
-    
-    Returns:
-        CacheInfo con hits, misses, maxsize, currsize
-    """
-    return _load_thumbnail_cached.cache_info()

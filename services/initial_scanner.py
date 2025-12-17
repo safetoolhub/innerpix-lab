@@ -1,0 +1,390 @@
+"""
+Initial Scanner Service.
+Handles the initial multi-phase scan of a directory to populate FileInfoRepositoryCache.
+
+This scanner operates in 4 distinct phases:
+1. BASIC: File structure analysis (filesystem metadata only)
+2. HASH: SHA256 hash calculation (requires BASIC first)
+3. EXIF_IMAGES: Image metadata extraction (requires BASIC first)
+4. EXIF_VIDEOS: Video metadata extraction (requires BASIC first)
+"""
+from pathlib import Path
+from typing import Optional, Callable, List
+from dataclasses import dataclass
+import logging
+
+from config import Config
+from utils.logger import get_logger
+from utils.file_utils import validate_directory_exists, is_image_file, is_video_file
+from services.file_metadata_repository_cache import FileInfoRepositoryCache, PopulationStrategy
+from services.result_types import DirectoryScanResult
+
+
+@dataclass
+class PhaseProgress:
+    """Progress information for a single phase."""
+    phase_id: str
+    phase_name: str
+    current: int
+    total: int
+    message: str
+
+
+class InitialScanner:
+    """
+    Handles multi-phase scanning of a directory to populate FileInfoRepositoryCache.
+    
+    The scan is performed in 4 distinct phases:
+    1. BASIC: Filesystem structure analysis (fast, OBLIGATORY first)
+    2. HASH: SHA256 hash calculation for duplicate detection (requires BASIC)
+    3. EXIF_IMAGES: Image metadata extraction (moderate cost, requires BASIC)
+    4. EXIF_VIDEOS: Video metadata extraction (expensive, requires BASIC)
+    """
+    
+    # Phase identifiers
+    PHASE_BASIC = "phase_basic"
+    PHASE_HASH = "phase_hash"
+    PHASE_EXIF_IMAGES = "phase_exif_images"
+    PHASE_EXIF_VIDEOS = "phase_exif_videos"
+    
+    def __init__(self):
+        self.logger = get_logger('InitialScanner')
+        self._should_stop = False
+    
+    def request_stop(self):
+        """Request the scanner to stop processing."""
+        self._should_stop = True
+        self.logger.info("Stop requested for InitialScanner")
+    
+    def scan(
+        self,
+        directory: Path,
+        phase_callback: Optional[Callable[[str, str], None]] = None,
+        phase_completed_callback: Optional[Callable[[str], None]] = None,
+        progress_callback: Optional[Callable[[PhaseProgress], bool]] = None,
+        calculate_hashes: bool = True,
+        extract_image_exif: bool = True,
+        extract_video_exif: bool = True
+    ) -> DirectoryScanResult:
+        """
+        Performs multi-phase scan of a directory.
+        
+        Args:
+            directory: Directory to scan
+            phase_callback: Called when a phase starts: (phase_id, phase_message)
+            phase_completed_callback: Called when a phase completes: (phase_id)
+            progress_callback: Called with PhaseProgress for each file processed.
+                             Returns False to cancel.
+            calculate_hashes: Whether to calculate SHA256 hashes (Phase 2)
+            extract_image_exif: Whether to extract image EXIF metadata (Phase 3)
+            extract_video_exif: Whether to extract video EXIF metadata (Phase 4)
+        
+        Returns:
+            DirectoryScanResult with classified files and statistics
+        """
+        # Validation
+        validate_directory_exists(directory)
+        self.logger.info(f"Starting initial scan: {directory}")
+        
+        # Get repository instance
+        repo = FileInfoRepositoryCache.get_instance()
+        
+        # ==================== PHASE 1: BASIC STRUCTURE ====================
+        phase_id = self.PHASE_BASIC
+        phase_msg = "Analizando estructura de la carpeta"
+        
+        if phase_callback:
+            phase_callback(phase_id, phase_msg)
+        
+        self.logger.info(f"Phase 1: {phase_msg}")
+        
+        # Get all files
+        all_files = self._get_file_list(directory)
+        total_files = len(all_files)
+        
+        if total_files == 0:
+            self.logger.warning("No files found in directory")
+            return self._create_empty_result()
+        
+        self.logger.info(f"Found {total_files:,} files")
+        
+        # Classify files
+        images, videos, others = [], [], []
+        image_extensions = {}
+        video_extensions = {}
+        unsupported_extensions = {}
+        
+        for idx, f in enumerate(all_files, 1):
+            if self._should_stop:
+                self.logger.warning("Scan cancelled during phase 1")
+                break
+            
+            # Classify by type
+            ext = f.suffix.lower() if f.suffix else '(sin extensión)'
+            
+            if is_image_file(f.name):
+                images.append(f)
+                image_extensions[ext] = image_extensions.get(ext, 0) + 1
+            elif is_video_file(f.name):
+                videos.append(f)
+                video_extensions[ext] = video_extensions.get(ext, 0) + 1
+            else:
+                others.append(f)
+                unsupported_extensions[ext] = unsupported_extensions.get(ext, 0) + 1
+            
+            # Report progress
+            if progress_callback and idx % Config.UI_UPDATE_INTERVAL == 0:
+                phase_progress = PhaseProgress(
+                    phase_id=phase_id,
+                    phase_name=phase_msg,
+                    current=idx,
+                    total=total_files,
+                    message=phase_msg
+                )
+                if not progress_callback(phase_progress):
+                    self.logger.warning("Scan cancelled by user")
+                    self._should_stop = True
+                    break
+        
+        # Final progress for phase 1
+        if progress_callback and not self._should_stop:
+            phase_progress = PhaseProgress(
+                phase_id=phase_id,
+                phase_name=phase_msg,
+                current=total_files,
+                total=total_files,
+                message=phase_msg
+            )
+            progress_callback(phase_progress)
+        
+        supported_files = images + videos
+        self.logger.info(
+            f"Phase 1 complete: {len(images):,} images, "
+            f"{len(videos):,} videos, {len(others):,} other files"
+        )
+        
+        if self._should_stop:
+            return self._create_result_from_data(
+                total_files, images, videos, others,
+                image_extensions, video_extensions, unsupported_extensions
+            )
+        
+        # Update repository size
+        repo.update_max_entries(len(supported_files))
+        
+        # Populate with BASIC metadata (filesystem only)
+        repo.populate_from_scan(
+            files=supported_files,
+            strategy=PopulationStrategy.BASIC,
+            progress_callback=None
+        )
+        
+        # Notify phase 1 completion
+        if phase_completed_callback and not self._should_stop:
+            phase_completed_callback(self.PHASE_BASIC)
+        
+        # Log repository stats after Phase 1 (DEBUG)
+        if self.logger.isEnabledFor(logging.DEBUG):
+            self.logger.debug("=== Repository Stats after Phase 1 (BASIC) ===")
+            repo.log_stats(level=logging.DEBUG)  # DEBUG
+        
+        # ==================== PHASE 2: HASH CALCULATION ====================
+        if calculate_hashes and supported_files and not self._should_stop:
+            phase_id = self.PHASE_HASH
+            phase_msg = "Calculando hashes de los archivos"
+            
+            if phase_callback:
+                phase_callback(phase_id, phase_msg)
+            
+            self.logger.info(f"Phase 2: {phase_msg}")
+            
+            def hash_progress(current: int, total: int) -> bool:
+                if self._should_stop:
+                    return False
+                
+                if progress_callback:
+                    phase_progress = PhaseProgress(
+                        phase_id=phase_id,
+                        phase_name=phase_msg,
+                        current=current,
+                        total=total,
+                        message=phase_msg
+                    )
+                    return progress_callback(phase_progress)
+                return True
+            
+            repo.populate_from_scan(
+                files=supported_files,
+                strategy=PopulationStrategy.HASH,
+                progress_callback=hash_progress
+            )
+            
+            self.logger.info("Phase 2 complete: Hashes calculated")
+            
+            # Notify phase 2 completion
+            if phase_completed_callback and not self._should_stop:
+                phase_completed_callback(self.PHASE_HASH)
+            
+            # Log repository stats after Phase 2 (DEBUG)
+            if self.logger.isEnabledFor(logging.DEBUG):
+                self.logger.debug("=== Repository Stats after Phase 2 (HASH) ===")
+                repo.log_stats(level=logging.DEBUG)  # DEBUG
+        
+        # ==================== PHASE 3: IMAGE EXIF ====================
+        if extract_image_exif and images and not self._should_stop:
+            phase_id = self.PHASE_EXIF_IMAGES
+            phase_msg = "Obteniendo metadatos de las imagenes"
+            
+            if phase_callback:
+                phase_callback(phase_id, phase_msg)
+            
+            self.logger.info(f"Phase 3: {phase_msg}")
+            
+            def image_exif_progress(current: int, total: int) -> bool:
+                if self._should_stop:
+                    return False
+                
+                if progress_callback:
+                    phase_progress = PhaseProgress(
+                        phase_id=phase_id,
+                        phase_name=phase_msg,
+                        current=current,
+                        total=total,
+                        message=phase_msg
+                    )
+                    return progress_callback(phase_progress)
+                return True
+            
+            repo.populate_from_scan(
+                files=images,
+                strategy=PopulationStrategy.EXIF_IMAGES,
+                progress_callback=image_exif_progress
+            )
+            
+            self.logger.info("Phase 3 complete: Image EXIF extracted")
+            
+            # Notify phase 3 completion
+            if phase_completed_callback and not self._should_stop:
+                phase_completed_callback(self.PHASE_EXIF_IMAGES)
+            
+            # Log repository stats after Phase 3 (DEBUG)
+            if self.logger.isEnabledFor(logging.DEBUG):
+                self.logger.debug("=== Repository Stats after Phase 3 (EXIF_IMAGES) ===")
+                repo.log_stats(level=logging.DEBUG)  # DEBUG
+        
+        # ==================== PHASE 4: VIDEO EXIF ====================
+        if extract_video_exif and videos and not self._should_stop:
+            phase_id = self.PHASE_EXIF_VIDEOS
+            phase_msg = "Obteniendo metadatos de los videos"
+            
+            if phase_callback:
+                phase_callback(phase_id, phase_msg)
+            
+            self.logger.info(f"Phase 4: {phase_msg}")
+            
+            def video_exif_progress(current: int, total: int) -> bool:
+                if self._should_stop:
+                    return False
+                
+                if progress_callback:
+                    phase_progress = PhaseProgress(
+                        phase_id=phase_id,
+                        phase_name=phase_msg,
+                        current=current,
+                        total=total,
+                        message=phase_msg
+                    )
+                    return progress_callback(phase_progress)
+                return True
+            
+            repo.populate_from_scan(
+                files=videos,
+                strategy=PopulationStrategy.EXIF_VIDEOS,
+                progress_callback=video_exif_progress
+            )
+            
+            self.logger.info("Phase 4 complete: Video EXIF extracted")
+            
+            # Notify phase 4 completion
+            if phase_completed_callback and not self._should_stop:
+                phase_completed_callback(self.PHASE_EXIF_VIDEOS)
+            
+            # Log repository stats after Phase 4 (DEBUG)
+            if self.logger.isEnabledFor(logging.DEBUG):
+                self.logger.debug("=== Repository Stats after Phase 4 (EXIF_VIDEOS) ===")
+                repo.log_stats(level=logging.DEBUG)  # DEBUG
+        
+        # ==================== FINALIZATION ====================
+        result = self._create_result_from_data(
+            total_files, images, videos, others,
+            image_extensions, video_extensions, unsupported_extensions
+        )
+        
+        # Log statistics
+        stats = repo.get_stats()
+        self.logger.info(
+            f"Scan complete: {stats.total_files} files in repository, "
+            f"{stats.files_with_hash} with hashes, "
+            f"{stats.files_with_exif} with EXIF"
+        )
+        
+        # Log detailed metadata information (DEBUG level)
+        if self.logger.isEnabledFor(10):  # DEBUG = 10
+            self.logger.debug("=== FileMetadata Repository Contents ===")
+            all_metadata = repo.get_all_files()
+            for idx, metadata in enumerate(all_metadata, 1):
+                self.logger.debug(f"[{idx}/{len(all_metadata)}] {metadata.get_summary(verbose=True)}")
+            self.logger.debug("=== End Repository Contents ===")
+        
+        return result
+    
+    def _get_file_list(self, directory: Path) -> List[Path]:
+        """
+        Get complete list of files in directory.
+        
+        Args:
+            directory: Directory to scan
+            
+        Returns:
+            List of Path objects for all files
+        """
+        all_files = [
+            f for f in directory.rglob("*") 
+            if f.is_file()
+        ]
+        return all_files
+    
+    def _create_empty_result(self) -> DirectoryScanResult:
+        """Create an empty scan result."""
+        return DirectoryScanResult(
+            total_files=0,
+            images=[],
+            videos=[],
+            others=[],
+            image_extensions={},
+            video_extensions={},
+            unsupported_extensions={},
+            unsupported_files=[]
+        )
+    
+    def _create_result_from_data(
+        self,
+        total_files: int,
+        images: List[Path],
+        videos: List[Path],
+        others: List[Path],
+        image_extensions: dict,
+        video_extensions: dict,
+        unsupported_extensions: dict
+    ) -> DirectoryScanResult:
+        """Create a DirectoryScanResult from collected data."""
+        return DirectoryScanResult(
+            total_files=total_files,
+            images=images,
+            videos=videos,
+            others=others,
+            image_extensions=image_extensions,
+            video_extensions=video_extensions,
+            unsupported_extensions=unsupported_extensions,
+            unsupported_files=others
+        )

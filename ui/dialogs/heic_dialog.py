@@ -1,5 +1,5 @@
 """
-Diálogo de eliminación de duplicados HEIC/JPG - Rediseñado
+Diálogo de eliminación de duplicados HEIC/JPG
 Grupos expandibles con archivos HEIC y JPG individuales, diseño Material Design
 """
 from pathlib import Path
@@ -14,11 +14,11 @@ from PyQt6.QtCore import Qt, QTimer
 from config import Config
 from utils.format_utils import format_size
 from ui.styles.design_system import DesignSystem
-from utils.icons import icon_manager
+from ui.styles.icons import icon_manager
 from .base_dialog import BaseDialog
 
 
-class HeicDuplicateRemovalDialog(BaseDialog):
+class HeicDialog(BaseDialog):
     """Diálogo para eliminación de duplicados HEIC/JPG con vista de grupos expandibles"""
     
     # Configuración de paginación
@@ -63,7 +63,7 @@ class HeicDuplicateRemovalDialog(BaseDialog):
             description='Fotos HEIC con versiones JPG idénticas. Elige qué formato conservar y libera espacio.',
             metrics=[
                 {
-                    'value': str(self.analysis.total_pairs),
+                    'value': str(self.analysis.items_count),
                     'label': 'Grupos',
                     'color': DesignSystem.COLOR_PRIMARY
                 },
@@ -109,7 +109,7 @@ class HeicDuplicateRemovalDialog(BaseDialog):
         content_layout.addWidget(options_group)
         
         # Botones con estilo Material Design
-        ok_enabled = self.analysis.total_pairs > 0
+        ok_enabled = self.analysis.items_count > 0
         self.buttons = self.make_ok_cancel_buttons(
             ok_enabled=ok_enabled,
             button_style='danger'
@@ -639,7 +639,7 @@ class HeicDuplicateRemovalDialog(BaseDialog):
     
     def _update_button_text(self):
         """Actualiza el texto del botón según el formato seleccionado"""
-        if self.analysis.total_pairs > 0:
+        if self.analysis.items_count > 0:
             if self.selected_format == 'jpg':
                 savings = self.analysis.potential_savings_keep_jpg
             else:
@@ -647,7 +647,7 @@ class HeicDuplicateRemovalDialog(BaseDialog):
 
             space_formatted = format_size(savings)
             self.ok_button.setText(
-                f"Eliminar Duplicados ({self.analysis.total_pairs} grupos, {space_formatted})"
+                f"Eliminar Duplicados ({self.analysis.items_count} grupos, {space_formatted})"
             )
 
     def accept(self):

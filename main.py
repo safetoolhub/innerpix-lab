@@ -1,5 +1,5 @@
 """
-Pixaro Lab - Punto de entrada de la aplicación
+Innerpix Lab - Punto de entrada de la aplicación
 
 Aplicación de gestión de archivos multimedia con herramientas para la organización y limpieza de duplicados
 """
@@ -10,7 +10,7 @@ import os
 os.environ['QT_LOGGING_RULES'] = 'qt.qpa.wayland=false'
 
 from PyQt6.QtWidgets import QApplication
-from ui.main_window import MainWindow
+from ui.screens.main_window import MainWindow
 from ui.styles.design_system import DesignSystem
 from config import Config
 from utils.logger import configure_logging, get_logger
@@ -83,7 +83,7 @@ def main():
     # Configurar la aplicación
     app.setApplicationName(Config.APP_NAME)
     app.setApplicationVersion(Config.APP_VERSION)
-    app.setOrganizationName("PixaroLab")
+    app.setOrganizationName("InnerpixLab")
 
     # Crear y mostrar ventana principal (nueva implementación)
     window = MainWindow()

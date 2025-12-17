@@ -9,7 +9,7 @@ from ui.styles.design_system import DesignSystem
 from .base_dialog import BaseDialog
 
 
-class LivePhotoCleanupDialog(BaseDialog):
+class LivePhotosDialog(BaseDialog):
     """Diálogo para limpieza de Live Photos"""
 
     def __init__(self, analysis, parent=None):
@@ -111,7 +111,7 @@ class LivePhotoCleanupDialog(BaseDialog):
             description='Live Photos de iPhone (Imagen + MOV). Selecciona qué componente conservar.',
             metrics=[
                 {
-                    'value': str(self.analysis.live_photos_found),
+                    'value': str(self.analysis.items_count),
                     'label': 'Grupos',
                     'color': DesignSystem.COLOR_PRIMARY
                 },
@@ -176,7 +176,7 @@ class LivePhotoCleanupDialog(BaseDialog):
         content_layout.addWidget(security_options)
 
         # Botones con estilo Material Design
-        live_photos_found = self.analysis.live_photos_found
+        live_photos_found = self.analysis.items_count
         ok_enabled = live_photos_found > 0
         ok_text = None if ok_enabled else "No hay Live Photos para limpiar"
         self.buttons = self.make_ok_cancel_buttons(
@@ -236,7 +236,7 @@ class LivePhotoCleanupDialog(BaseDialog):
 
     def accept(self):
         # Construir dataclass de análisis con los archivos a eliminar según el modo seleccionado
-        from services.result_types import LivePhotoCleanupAnalysisResult
+        from services.result_types import LivePhotosAnalysisResult
         
         groups = self.analysis.groups  # Dataclass attribute
         files_to_delete = []
@@ -288,14 +288,17 @@ class LivePhotoCleanupDialog(BaseDialog):
         space_to_free = sum(f['size'] for f in files_to_delete)
         total_space = self.analysis.total_space
         
-        cleanup_analysis = LivePhotoCleanupAnalysisResult(
-            total_files=len(groups) * 2,
-            live_photos_found=len(groups),
-            files_to_delete=files_to_delete,
-            files_to_keep=files_to_keep,
+        cleanup_analysis = LivePhotosAnalysisResult(
+            items_count=len(groups),
+            groups=groups,
+            bytes_total=total_space,
             space_to_free=space_to_free,
             total_space=total_space,
-            cleanup_mode=self.selected_mode.value
+            data={
+                'files_to_delete': files_to_delete,
+                'files_to_keep': files_to_keep,
+                'cleanup_mode': self.selected_mode.value
+            }
         )
         
         # Pasar dataclass + parámetros por separado

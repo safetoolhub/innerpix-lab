@@ -26,7 +26,7 @@ class SettingsDialog(QDialog):
     def __init__(self, parent=None, initial_tab=0):
         super().__init__(parent)
         self.parent_window = parent
-        self.logger = logging.getLogger('PixaroLab.SettingsDialog')
+        self.logger = logging.getLogger('InnerpixLab.SettingsDialog')
         
         # Referencia al botón de guardar (se asignará en init_ui)
         self.save_button = None
@@ -535,7 +535,7 @@ class SettingsDialog(QDialog):
         """)
         workers_layout.addWidget(workers_label)
 
-        from ui.widgets.custom_spinbox import CustomSpinBox
+        from ui.screens.custom_spinbox import CustomSpinBox
         self.max_workers_spin = CustomSpinBox()
         self.max_workers_spin.setMinimum(0)  # 0 = automático
         self.max_workers_spin.setMaximum(Config.MAX_WORKER_THREADS)

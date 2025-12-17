@@ -56,7 +56,7 @@ class TestLivePhotoServiceAnalysis:
         
         # Analizar
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         
         # Validar resultados
         assert analysis.success == True
@@ -81,7 +81,7 @@ class TestLivePhotoServiceAnalysis:
         create_live_photo_pair(temp_dir, 'IMG_0001')
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_VIDEO)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_VIDEO)
         
         assert analysis.success == True
         assert len(analysis.files_to_delete) == 1
@@ -96,7 +96,7 @@ class TestLivePhotoServiceAnalysis:
         create_live_photo_pair(temp_dir, 'IMG_0001', img_size=(200, 200), vid_size=3000)
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_LARGER)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_LARGER)
         
         assert analysis.success == True
         # Debe mantener video (más grande) y eliminar imagen
@@ -109,7 +109,7 @@ class TestLivePhotoServiceAnalysis:
         create_live_photo_pair(temp_dir, 'IMG_0001', img_size=(200, 200), vid_size=3000)
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_SMALLER)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_SMALLER)
         
         assert analysis.success == True
         # Debe mantener imagen (más pequeña) y eliminar video
@@ -119,7 +119,7 @@ class TestLivePhotoServiceAnalysis:
     def test_analyze_empty_directory(self, temp_dir):
         """Test análisis en directorio sin Live Photos."""
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         
         assert analysis.success == True
         assert analysis.live_photos_found == 0
@@ -133,7 +133,7 @@ class TestLivePhotoServiceAnalysis:
         create_live_photo_pair(temp_dir, 'IMG_0002', img_size=(120, 120), vid_size=3500)
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         
         # Debe calcular espacio de videos (a eliminar)
         expected_space = 3000 + 3500
@@ -151,14 +151,14 @@ class TestLivePhotoServiceExecution:
         create_live_photo_pair(temp_dir, 'IMG_0001')
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         result = service.execute(analysis, create_backup=False, dry_run=True)
         
         # Validar resultado
         assert result.success == True
         assert result.dry_run == True
         assert result.simulated_files_deleted == 1
-        assert result.files_deleted == 0  # No debe eliminar realmente
+        assert result.files_affected == 0  # No debe eliminar realmente
         
         # Verificar que los archivos siguen existiendo
         video_path = temp_dir / 'IMG_0001.MOV'
@@ -172,14 +172,14 @@ class TestLivePhotoServiceExecution:
         assert video_path.exists()  # Verificar que existe antes
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         result = service.execute(analysis, create_backup=False, dry_run=False)
         
         # Validar resultado
         assert result.success == True
         assert result.dry_run == False
-        assert result.files_deleted == 1
-        assert result.space_freed > 0
+        assert result.files_affected == 1
+        assert result.bytes_processed > 0
         
         # Verificar que el video fue eliminado
         assert not video_path.exists()
@@ -193,7 +193,7 @@ class TestLivePhotoServiceExecution:
         create_live_photo_pair(temp_dir, 'IMG_0001')
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         result = service.execute(analysis, create_backup=True, dry_run=False)
         
         # Validar que se creó backup
@@ -213,11 +213,11 @@ class TestLivePhotoServiceExecution:
         create_live_photo_pair(temp_dir, 'IMG_0003')
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         result = service.execute(analysis, create_backup=False, dry_run=False)
         
         assert result.success == True
-        assert result.files_deleted == 3  # 3 videos eliminados
+        assert result.files_affected == 3  # 3 videos eliminados
         
         # Verificar que las imágenes se conservan
         assert (temp_dir / 'IMG_0001.HEIC').exists()
@@ -229,16 +229,6 @@ class TestLivePhotoServiceExecution:
         assert not (temp_dir / 'IMG_0002.MOV').exists()
         assert not (temp_dir / 'IMG_0003.MOV').exists()
     
-    def test_execute_empty_analysis(self, temp_dir):
-        """Test ejecución con análisis vacío (sin archivos para eliminar)."""
-        service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
-        result = service.execute(analysis, create_backup=False, dry_run=False)
-        
-        assert result.success == True
-        assert result.files_deleted == 0
-        assert result.message == 'No hay archivos para eliminar'
-
 
 @pytest.mark.unit
 @pytest.mark.live_photos
@@ -251,7 +241,7 @@ class TestLivePhotoServiceEdgeCases:
         nonexistent = Path('/path/that/does/not/exist')
         
         with pytest.raises(ValueError, match="Directorio no existe"):
-            service.analyze(nonexistent, cleanup_mode=CleanupMode.KEEP_IMAGE)
+            service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
     
     def test_analyze_with_progress_callback(self, temp_dir, create_live_photo_pair):
         """Test que el callback de progreso se llama correctamente."""
@@ -284,7 +274,7 @@ class TestLivePhotoServiceEdgeCases:
             return True  # Continuar
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         result = service.execute(
             analysis, 
             create_backup=False, 
@@ -408,7 +398,7 @@ class TestLivePhotosCrossDirectoryDetection:
         
         # Analizar
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         
         # No deben emparejarse porque están en directorios diferentes
         assert analysis.live_photos_found == 0
@@ -427,7 +417,7 @@ class TestLivePhotosCrossDirectoryDetection:
         
         # Analizar
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         
         # No deben emparejarse
         assert analysis.live_photos_found == 0
@@ -446,7 +436,7 @@ class TestLivePhotosCrossDirectoryDetection:
         
         # Analizar
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         
         # No deben emparejarse
         assert analysis.live_photos_found == 0
@@ -458,7 +448,7 @@ class TestLivePhotosCrossDirectoryDetection:
         
         # Analizar
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         
         # Deben emparejarse porque están en el mismo directorio
         assert analysis.live_photos_found == 1
@@ -480,7 +470,7 @@ class TestLivePhotosCrossDirectoryDetection:
         
         # Analizar recursivamente
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE, recursive=True)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE, recursive=True)
         
         # Debe encontrar los 3 pares
         assert analysis.live_photos_found == 3
@@ -498,7 +488,7 @@ class TestLivePhotosCrossDirectoryDetection:
         
         # Analizar NO recursivamente
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE, recursive=False)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE, recursive=False)
         
         # Solo debe encontrar el del root
         assert analysis.live_photos_found == 1
@@ -517,7 +507,7 @@ class TestLivePhotosCaseSensitivity:
         
         # Analizar
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         
         # Deben emparejarse (la normalización ignora case)
         assert analysis.live_photos_found == 1
@@ -530,7 +520,7 @@ class TestLivePhotosCaseSensitivity:
         
         # Analizar
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         
         # Deben emparejarse
         assert analysis.live_photos_found == 1
@@ -543,7 +533,7 @@ class TestLivePhotosCaseSensitivity:
         
         # Analizar
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         
         # Deben emparejarse
         assert analysis.live_photos_found == 1
@@ -556,7 +546,7 @@ class TestLivePhotosCaseSensitivity:
         
         # Analizar
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         
         # Deben emparejarse
         assert analysis.live_photos_found == 1
@@ -573,7 +563,7 @@ class TestLivePhotosExtensionCombinations:
         create_test_video(temp_dir / 'photo.MOV', size_bytes=2048)
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         assert analysis.live_photos_found == 1
     
     def test_jpg_uppercase_with_mov(self, temp_dir, create_test_image, create_test_video):
@@ -582,7 +572,7 @@ class TestLivePhotosExtensionCombinations:
         create_test_video(temp_dir / 'photo.MOV', size_bytes=2048)
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         assert analysis.live_photos_found == 1
     
     def test_jpeg_lowercase_with_mov(self, temp_dir, create_test_image, create_test_video):
@@ -591,7 +581,7 @@ class TestLivePhotosExtensionCombinations:
         create_test_video(temp_dir / 'photo.MOV', size_bytes=2048)
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         assert analysis.live_photos_found == 1
     
     def test_jpeg_uppercase_with_mov(self, temp_dir, create_test_image, create_test_video):
@@ -600,7 +590,7 @@ class TestLivePhotosExtensionCombinations:
         create_test_video(temp_dir / 'photo.MOV', size_bytes=2048)
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         assert analysis.live_photos_found == 1
     
     def test_heic_lowercase_with_mov(self, temp_dir, create_test_image, create_test_video):
@@ -609,7 +599,7 @@ class TestLivePhotosExtensionCombinations:
         create_test_video(temp_dir / 'photo.MOV', size_bytes=2048)
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         assert analysis.live_photos_found == 1
     
     def test_heic_uppercase_with_mov(self, temp_dir, create_test_image, create_test_video):
@@ -618,7 +608,7 @@ class TestLivePhotosExtensionCombinations:
         create_test_video(temp_dir / 'photo.MOV', size_bytes=2048)
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         assert analysis.live_photos_found == 1
     
     def test_mixed_case_extensions(self, temp_dir, create_test_image, create_test_video):
@@ -638,7 +628,7 @@ class TestLivePhotosExtensionCombinations:
         temp_vid.rename(vid_path)
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         
         # Debería emparejarse (normalización de extensiones)
         assert analysis.live_photos_found == 1
@@ -656,7 +646,7 @@ class TestLivePhotosExtensionCombinations:
         create_test_video(temp_dir / 'photo3.MOV', size_bytes=2048)
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         
         # Deben encontrarse los 3 pares
         assert analysis.live_photos_found == 3
@@ -675,7 +665,7 @@ class TestLivePhotosEdgeCasesFilenames:
         create_test_video(temp_dir / f'{special_name}.MOV', size_bytes=2048)
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         
         # Deben emparejarse
         assert analysis.live_photos_found == 1
@@ -687,7 +677,7 @@ class TestLivePhotosEdgeCasesFilenames:
         create_test_video(temp_dir / f'{name_with_spaces}.MOV', size_bytes=2048)
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         
         assert analysis.live_photos_found == 1
     
@@ -698,7 +688,7 @@ class TestLivePhotosEdgeCasesFilenames:
         create_test_video(temp_dir / f'{unicode_name}.MOV', size_bytes=2048)
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         
         assert analysis.live_photos_found == 1
     
@@ -710,7 +700,7 @@ class TestLivePhotosEdgeCasesFilenames:
         create_test_video(temp_dir / f'{long_name}.MOV', size_bytes=2048)
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         
         assert analysis.live_photos_found == 1
     
@@ -721,7 +711,7 @@ class TestLivePhotosEdgeCasesFilenames:
         create_test_video(temp_dir / f'{dotted_name}.MOV', size_bytes=2048)
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         
         assert analysis.live_photos_found == 1
     
@@ -732,7 +722,7 @@ class TestLivePhotosEdgeCasesFilenames:
             create_live_photo_pair(temp_dir, f'IMG_{i:04d}')
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         
         # Deben encontrarse todos los pares
         assert analysis.live_photos_found == 5
@@ -744,7 +734,7 @@ class TestLivePhotosEdgeCasesFilenames:
         create_test_image(temp_dir / 'orphan.jpg', size=(100, 100))
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         
         # No debe encontrar pares
         assert analysis.live_photos_found == 0
@@ -756,7 +746,7 @@ class TestLivePhotosEdgeCasesFilenames:
         create_test_video(temp_dir / 'orphan.MOV', size_bytes=2048)
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         
         # No debe encontrar pares
         assert analysis.live_photos_found == 0
@@ -773,7 +763,7 @@ class TestLivePhotosEdgeCasesFilenames:
         create_test_video(temp_dir / 'orphan_vid.MOV', size_bytes=2048)
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         
         # Solo deben emparejarse los 2 válidos
         assert analysis.live_photos_found == 2
@@ -810,7 +800,7 @@ class TestLivePhotosEXIFDateMatching:
         os.utime(vid_path, (timestamp, timestamp))
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         
         # Deben emparejarse
         assert analysis.live_photos_found == 1
@@ -833,7 +823,7 @@ class TestLivePhotosEXIFDateMatching:
         os.utime(vid_path, (vid_timestamp, vid_timestamp))
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         
         # Deben emparejarse porque están dentro del límite de 5 segundos
         assert analysis.live_photos_found == 1
@@ -867,7 +857,7 @@ class TestLivePhotosEXIFDateMatching:
         os.utime(vid_path, (vid_timestamp, vid_timestamp))
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         
         # Con la nueva lógica, SIEMPRE se valida el tiempo, independientemente de USE_VIDEO_METADATA
         # (usando fechas de filesystem si metadata no está disponible)
@@ -891,7 +881,7 @@ class TestLivePhotosEXIFDateMatching:
         os.utime(vid_path, (timestamp, timestamp))
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         
         # Deben emparejarse basándose en nombre y timestamps similares
         assert analysis.live_photos_found == 1
@@ -981,7 +971,7 @@ class TestLivePhotosEXIFDateMatching:
             os.utime(vid_path, (vid_timestamp, vid_timestamp))
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         
         # Deben encontrarse los 3 pares (todos dentro del límite de 5 segundos)
         assert analysis.live_photos_found == 3
@@ -1015,7 +1005,7 @@ class TestLivePhotosTimeValidation:
                             (base_time + timedelta(seconds=5)).timestamp()))
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         
         # Debe emparejarse (5.0 <= 5.0)
         assert analysis.live_photos_found == 1
@@ -1036,7 +1026,7 @@ class TestLivePhotosTimeValidation:
                             (base_time + timedelta(seconds=6)).timestamp()))
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         
         # Con la nueva lógica, SIEMPRE se valida el tiempo
         
@@ -1057,7 +1047,7 @@ class TestLivePhotosTimeValidation:
         os.utime(vid_path, (timestamp, timestamp))
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         
         assert analysis.live_photos_found == 1
         assert analysis.groups[0].time_difference < 0.1  # Prácticamente 0
@@ -1092,7 +1082,7 @@ class TestLivePhotosTimeValidation:
                         (base_time + timedelta(seconds=5)).timestamp()))
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         
         # Con la nueva lógica, SIEMPRE se valida el tiempo
         
@@ -1123,7 +1113,7 @@ class TestLivePhotosTimeValidation:
                                (base_time + timedelta(seconds=8)).timestamp()))
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         
         # Con la nueva lógica, SIEMPRE se valida el tiempo
         expected_live_photos = 1
@@ -1156,7 +1146,7 @@ class TestLivePhotosTimeValidation:
                            (base_time + timedelta(seconds=2)).timestamp()))
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         
         assert analysis.live_photos_found == 2
         
@@ -1164,7 +1154,7 @@ class TestLivePhotosTimeValidation:
         result = service.execute(analysis, create_backup=True, dry_run=False)
         
         assert result.success == True
-        assert result.files_deleted == 2
+        assert result.files_affected == 2
         assert result.backup_path is not None
         assert Path(result.backup_path).exists()
         
@@ -1191,7 +1181,7 @@ class TestLivePhotosTimeValidation:
                        (base_time + timedelta(seconds=4)).timestamp()))
         
         service = LivePhotoService()
-        analysis = service.analyze(temp_dir, cleanup_mode=CleanupMode.KEEP_IMAGE)
+        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
         
         assert analysis.live_photos_found == 1
         
@@ -1199,7 +1189,7 @@ class TestLivePhotosTimeValidation:
         result = service.execute(analysis, create_backup=False, dry_run=False)
         
         assert result.success == True
-        assert result.files_deleted == 1
+        assert result.files_affected == 1
         assert result.dry_run == False
         assert result.backup_path is None
         

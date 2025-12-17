@@ -1,0 +1,222 @@
+"""
+Worker threads para análisis bajo demanda (Stage 3).
+Permite ejecutar tareas de análisis de herramientas específicas en background.
+
+Note: InitialAnalysisWorker (Stage 2) está en initial_analysis_worker.py
+"""
+
+from PyQt6.QtCore import pyqtSignal
+from pathlib import Path
+from typing import Optional
+
+from .base_worker import BaseWorker
+
+
+# ============================================================================
+# ON-DEMAND ANALYSIS WORKERS (STAGE 3)
+# ============================================================================
+
+class LivePhotosAnalysisWorker(BaseWorker):
+    finished = pyqtSignal(object)
+    
+    def __init__(self, directory: Path, metadata_cache=None):
+        super().__init__()
+        self.directory = directory
+        self.metadata_cache = metadata_cache
+        
+    def run(self):
+        try:
+            if self._stop_requested: return
+            from services.live_photos_service import LivePhotoService, CleanupMode
+            
+            service = LivePhotoService()
+            result = service.analyze(
+                cleanup_mode=CleanupMode.KEEP_IMAGE,
+                progress_callback=self._create_progress_callback(emit_numbers=True),
+                directory=self.directory
+            )
+            
+            if not self._stop_requested:
+                self.finished.emit(result)
+        except Exception as e:
+            self.error.emit(str(e))
+
+
+class HeicAnalysisWorker(BaseWorker):
+    finished = pyqtSignal(object)
+    
+    def __init__(self, directory: Path, metadata_cache=None):
+        super().__init__()
+        self.directory = directory
+        self.metadata_cache = metadata_cache
+        
+    def run(self):
+        try:
+            if self._stop_requested: return
+            from services.heic_service import HeicService
+            service = HeicService()
+            result = service.analyze(
+                progress_callback=self._create_progress_callback(emit_numbers=True),
+                directory=self.directory
+            )
+            if not self._stop_requested:
+                self.finished.emit(result)
+        except Exception as e:
+            self.error.emit(str(e))
+
+
+class DuplicatesExactAnalysisWorker(BaseWorker):
+    finished = pyqtSignal(object)
+    
+    def __init__(self, directory: Path, metadata_cache=None):
+        super().__init__()
+        self.directory = directory
+        self.metadata_cache = metadata_cache
+        
+    def run(self):
+        try:
+            if self._stop_requested: return
+            from services.duplicates_exact_service import DuplicatesExactService
+            service = DuplicatesExactService()
+            result = service.analyze(
+                progress_callback=self._create_progress_callback(emit_numbers=True),
+                directory=self.directory
+            )
+            if not self._stop_requested:
+                self.finished.emit(result)
+        except Exception as e:
+            self.error.emit(str(e))
+
+
+class ZeroByteAnalysisWorker(BaseWorker):
+    finished = pyqtSignal(object)
+    
+    def __init__(self, directory: Path, metadata_cache=None):
+        super().__init__()
+        self.directory = directory
+        self.metadata_cache = metadata_cache
+        
+    def run(self):
+        try:
+            if self._stop_requested: return
+            from services.zero_byte_service import ZeroByteService
+            service = ZeroByteService()
+            result = service.analyze(
+                directory=self.directory,
+                progress_callback=self._create_progress_callback(emit_numbers=True),
+                metadata_cache=self.metadata_cache
+            )
+            if not self._stop_requested:
+                self.finished.emit(result)
+        except Exception as e:
+            self.error.emit(str(e))
+
+
+class FileRenamerAnalysisWorker(BaseWorker):
+    finished = pyqtSignal(object)
+    
+    def __init__(self, directory: Path):
+        super().__init__()
+        self.directory = directory
+        
+    def run(self):
+        try:
+            if self._stop_requested: return
+            from services.file_renamer_service import FileRenamer
+            service = FileRenamer()
+            result = service.analyze(
+                directory=self.directory,
+                progress_callback=self._create_progress_callback(emit_numbers=True)
+            )
+            if not self._stop_requested:
+                self.finished.emit(result)
+        except Exception as e:
+            self.error.emit(str(e))
+
+
+class FileOrganizerAnalysisWorker(BaseWorker):
+    """Worker para análisis de organización de archivos con opciones de agrupación"""
+    finished = pyqtSignal(object)
+    
+    def __init__(
+        self,
+        directory: Path,
+        organization_type=None,
+        group_by_source: bool = False,
+        group_by_type: bool = False,
+        date_grouping_type: Optional[str] = None
+    ):
+        super().__init__()
+        self.directory = directory
+        self.organization_type = organization_type
+        self.group_by_source = group_by_source
+        self.group_by_type = group_by_type
+        self.date_grouping_type = date_grouping_type
+        
+    def run(self):
+        try:
+            if self._stop_requested: return
+            from services.file_organizer_service import FileOrganizer
+            from services.file_organizer_service import OrganizationType
+            
+            service = FileOrganizer()
+            
+            org_type = self.organization_type
+            if org_type is None:
+                org_type = OrganizationType.TO_ROOT
+            elif isinstance(org_type, str):
+                org_type = OrganizationType(org_type)
+                
+            result = service.analyze(
+                directory=self.directory,
+                organization_type=org_type,
+                progress_callback=self._create_progress_callback(emit_numbers=True),
+                group_by_source=self.group_by_source,
+                group_by_type=self.group_by_type,
+                date_grouping_type=self.date_grouping_type
+            )
+            if not self._stop_requested:
+                self.finished.emit(result)
+        except Exception as e:
+            self.error.emit(str(e))
+
+class DuplicatesSimilarAnalysisWorker(BaseWorker):
+    """
+    Worker para análisis inicial de archivos similares (perceptual hash).
+    """
+    finished = pyqtSignal(object)  # DuplicatesSimilarAnalysis
+    
+    def __init__(
+        self,
+        detector # Type hint omitted to avoid circular import here
+    ):
+        super().__init__()
+        self.detector = detector
+    
+    def run(self) -> None:
+        try:
+            if self._stop_requested:
+                return
+            
+            def progress_callback(current: int, total: int, message: str) -> bool:
+                if self._stop_requested:
+                    return False
+                self.progress_update.emit(current, total, message)
+                return True
+            
+            # Importar tipo para type hint
+            from services.duplicates_similar_service import DuplicatesSimilarAnalysis
+            
+            # Ejecutar análisis inicial (solo hashes)
+            analysis = self.detector.analyze_initial(
+                progress_callback=progress_callback
+            )
+            
+            if not self._stop_requested:
+                self.finished.emit(analysis)
+        
+        except Exception as e:
+            if not self._stop_requested:
+                import traceback
+                error_msg = f"{str(e)}\n{traceback.format_exc()}"
+                self.error.emit(error_msg)

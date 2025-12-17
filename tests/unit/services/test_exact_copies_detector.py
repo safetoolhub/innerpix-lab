@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from PIL import Image
 from services.duplicates_exact_service import DuplicatesExactService, _is_valid_image_file
 from services.result_types import DuplicateAnalysisResult
-from services.metadata_cache import FileMetadataCache
+from services.file_metadata_repository_cache import FileInfoRepositoryCache as FileInfoRepository
 
 
 # ==================== TESTS BÁSICOS ====================
@@ -491,7 +491,7 @@ class TestDuplicatesExactServiceCache:
         original = create_test_image(temp_dir / "original.jpg", color='red')
         shutil.copy2(original, temp_dir / "duplicate.jpg")
         
-        cache = FileMetadataCache()
+        cache = FileInfoRepository()
         detector = DuplicatesExactService()
         
         # Primera ejecución: cachea hashes
@@ -510,7 +510,7 @@ class TestDuplicatesExactServiceCache:
         
         original = create_test_image(temp_dir / "original.jpg", color='red')
         
-        cache = FileMetadataCache()
+        cache = FileInfoRepository()
         detector = DuplicatesExactService()
         
         # Primera ejecución
@@ -720,7 +720,7 @@ class TestDuplicatesExactServiceExecution:
         )
         
         assert result.success is True
-        assert result.files_deleted > 0
+        assert result.files_affected > 0
         assert original.exists()  # El antiguo debe permanecer
         assert not duplicate.exists()  # El nuevo debe eliminarse
     
@@ -947,7 +947,7 @@ class TestDuplicatesExactServiceBackup:
         
         assert result.success is True
         assert result.backup_path is not None
-        assert result.files_deleted == 3  # Se eliminan las 3 copias más nuevas
+        assert result.files_affected == 3  # Se eliminan las 3 copias más nuevas
         
         backup_path = Path(result.backup_path)
         
@@ -1039,7 +1039,7 @@ class TestDuplicatesExactServiceIntegration:
         )
         
         assert result.success is True
-        assert result.files_deleted == 2
+        assert result.files_affected == 2
         assert result.backup_path is not None
         
         # Verificar que quedan 2 archivos (1 por grupo)

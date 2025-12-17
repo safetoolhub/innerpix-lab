@@ -1,5 +1,5 @@
 """
-Configuración centralizada para Pixaro Lab
+Configuración centralizada para InnerPix Lab
 """
 from pathlib import Path
 from typing import Optional
@@ -11,8 +11,8 @@ class Config:
     # ========================================================================
     # INFORMACIÓN DE LA APLICACIÓN
     # ========================================================================
-    APP_NAME = "Pixaro Lab"
-    APP_VERSION = "1.0.0"
+    APP_NAME = "Innerpix Lab"
+    APP_VERSION = "0.8"
     APP_DESCRIPTION = "Organiza, renombra y optimiza tu biblioteca de fotos"
 
     # ========================================================================
@@ -49,7 +49,7 @@ class Config:
     # ========================================================================
     # DIRECTORIOS POR DEFECTO
     # ========================================================================
-    DEFAULT_BASE_DIR = Path.home() / "Documents" / "Pixaro_Lab"
+    DEFAULT_BASE_DIR = Path.home() / "Documents" / "Innerpix_Lab"
     DEFAULT_LOG_DIR = DEFAULT_BASE_DIR / "logs"
     DEFAULT_BACKUP_DIR = DEFAULT_BASE_DIR / "backups"
 
@@ -144,22 +144,13 @@ class Config:
     # CONFIGURACIÓN DE DESARROLLO
     # ========================================================================
     DEVELOPMENT_MODE = False  # Si True, salta directamente a Stage 2 con la última carpeta usada
-    
-    # Configuración de caché para desarrollo (acelerar pruebas con datasets grandes)
-    DEV_USE_CACHED_ANALYSIS = True  # Si True, intenta cargar .pixaro_analysis_cache.pkl
-    DEV_CACHE_FILENAME = ".pixaro_analysis_cache.pkl"
-
 
     # ========================================================================
-    # TIMING MÍNIMO DE ANÁLISIS (Stage 2)
+    # TIMING DE TRANSICIÓN (Stage 2 → Stage 3)
     # ========================================================================
-    # Duración mínima de visualización de cada fase del análisis en segundos
-    # Esto garantiza que el usuario siempre vea el progreso, incluso si el
-    # análisis real es muy rápido
-    MIN_PHASE_DURATION_SECONDS = 0.0  # Default: 1 segundo por fase
-    
-    # Delay adicional antes de transicionar a Stage 3 (después de completar todo)
-    FINAL_DELAY_BEFORE_STAGE3_SECONDS =1.0  # Default: 2 segundos
+    # Delay antes de transicionar a Stage 3 después de completar el análisis
+    # Permite al usuario ver brevemente el resultado final antes del cambio de vista
+    FINAL_DELAY_BEFORE_STAGE3_SECONDS = 1.0  # Default: 1 segundo
 
     # ========================================================================
     # CONSTANTES DE UI
@@ -360,78 +351,5 @@ class Config:
     
 
 
-    # ========================================================================
-    # MÉTODOS DE UTILIDAD
-    # ========================================================================
-    @classmethod
-    def is_image_file(cls, filename: str) -> bool:
-        """
-        Verifica si un archivo es una imagen soportada
 
-        Args:
-            filename: Nombre del archivo a verificar
-
-        Returns:
-            True si es una imagen soportada, False en caso contrario
-        """
-        ext = Path(filename).suffix.lower()
-        return ext in cls.SUPPORTED_IMAGE_EXTENSIONS
-
-    @classmethod
-    def is_video_file(cls, filename: str) -> bool:
-        """
-        Verifica si un archivo es un video soportado
-
-        Args:
-            filename: Nombre del archivo a verificar
-
-        Returns:
-            True si es un video soportado, False en caso contrario
-        """
-        ext = Path(filename).suffix.lower()
-        return ext in cls.SUPPORTED_VIDEO_EXTENSIONS
-
-    @classmethod
-    def is_media_file(cls, filename: str) -> bool:
-        """
-        Verifica si un archivo es multimedia soportado (imagen o video)
-
-        Args:
-            filename: Nombre del archivo a verificar
-
-        Returns:
-            True si es multimedia soportado, False en caso contrario
-        """
-        return cls.is_image_file(filename) or cls.is_video_file(filename)
-
-    @classmethod
-    def is_supported_file(cls, filename: str) -> bool:
-        """
-        Verifica si un archivo es soportado
-
-        Args:
-            filename: Nombre del archivo a verificar
-
-        Returns:
-            True si es soportado, False en caso contrario
-        """
-        return cls.is_media_file(filename)
-
-    @classmethod
-    def get_file_type(cls, filename: str) -> str:
-        """
-        Obtiene el tipo de archivo
-
-        Args:
-            filename: Nombre del archivo
-
-        Returns:
-            'PHOTO', 'VIDEO', u 'OTHER'
-        """
-        if cls.is_image_file(filename):
-            return 'PHOTO'
-        elif cls.is_video_file(filename):
-            return 'VIDEO'
-        else:
-            return 'OTHER'
 

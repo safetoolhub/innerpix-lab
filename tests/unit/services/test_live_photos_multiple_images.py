@@ -132,7 +132,7 @@ class TestMultipleImagesOneVideo:
         
         # Verificaciones post-ejecución
         assert execution_result.success, "La ejecución debe ser exitosa"
-        assert execution_result.files_deleted == 1, f"Debe eliminar 1 archivo (el video), eliminó {execution_result.files_deleted}"
+        assert execution_result.files_affected == 1, f"Debe eliminar 1 archivo (el video), eliminó {execution_result.files_affected}"
         
         # CRÍTICO: Verificar que las imágenes siguen existiendo
         assert heic_file.exists(), "HEIC debe seguir existiendo"
@@ -142,8 +142,8 @@ class TestMultipleImagesOneVideo:
         assert not mov_file.exists(), "El video MOV debe haber sido eliminado"
         
         print(f"\n✅ Ejecución correcta:")
-        print(f"  - Files deleted: {execution_result.files_deleted}")
-        print(f"  - Space freed: {execution_result.space_freed} bytes")
+        print(f"  - Files deleted: {execution_result.files_affected}")
+        print(f"  - Space freed: {execution_result.bytes_processed} bytes")
         print(f"  - HEIC existe: {heic_file.exists()}")
         print(f"  - JPG existe: {jpg_file.exists()}")
         print(f"  - MOV existe: {mov_file.exists()}")

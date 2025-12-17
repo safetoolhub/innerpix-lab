@@ -11,11 +11,14 @@ from unittest.mock import Mock, patch, MagicMock
 from utils.date_utils import (
     select_chosen_date,
     get_date_from_file,
-    get_exif_dates,
-    get_all_file_dates,
     format_renamed_name,
     parse_renamed_name,
-    is_renamed_filename
+    is_renamed_filename,
+    get_all_file_dates
+)
+from utils.file_utils import (
+    get_exif_from_image,
+    get_exif_from_video
 )
 from config import Config
 
@@ -273,7 +276,7 @@ class TestGetExifDates:
         """Sin PIL debe devolver diccionario con valores None"""
         # PIL se importa dentro de la función, entonces hacemos patch en PIL.Image
         with patch('PIL.Image.open', side_effect=ImportError):
-            result = get_exif_dates(Path('/fake/image.jpg'))
+            result = get_exif_from_image(Path('/fake/image.jpg'))
             
             assert result == {
                 'DateTimeOriginal': None,
@@ -293,7 +296,7 @@ class TestGetExifDates:
         mock_image._getexif.return_value = None
         
         with patch('PIL.Image.open', return_value=mock_image):
-            result = get_exif_dates(Path('/fake/image.jpg'))
+            result = get_exif_from_image(Path('/fake/image.jpg'))
             
             assert result == {
                 'DateTimeOriginal': None,
@@ -322,7 +325,7 @@ class TestGetExifDates:
                  306: 'DateTime',
                  36868: 'DateTimeDigitized'
              }):
-            result = get_exif_dates(Path('/fake/image.jpg'))
+            result = get_exif_from_image(Path('/fake/image.jpg'))
             
             assert result['DateTimeOriginal'] == datetime(2023, 1, 15, 10, 30, 0)
             assert result['CreateDate'] == datetime(2023, 1, 15, 10, 31, 0)
@@ -339,7 +342,7 @@ class TestGetExifDates:
         
         with patch('PIL.Image.open', return_value=mock_image), \
              patch('PIL.ExifTags.TAGS', {36867: 'DateTimeOriginal'}):
-            result = get_exif_dates(Path('/fake/image.jpg'))
+            result = get_exif_from_image(Path('/fake/image.jpg'))
             
             assert result['DateTimeOriginal'] == datetime(2023, 1, 15, 10, 30, 0)
             assert result['CreateDate'] is None
@@ -356,7 +359,7 @@ class TestGetExifDates:
         
         with patch('PIL.Image.open', return_value=mock_image), \
              patch('PIL.ExifTags.TAGS', {36867: 'DateTimeOriginal'}):
-            result = get_exif_dates(Path('/fake/image.jpg'))
+            result = get_exif_from_image(Path('/fake/image.jpg'))
             
             assert result['DateTimeOriginal'] is None
             assert result['CreateDate'] is None
@@ -379,7 +382,7 @@ class TestGetExifDates:
                  306: 'DateTime',
                  36868: 'DateTimeDigitized'
              }):
-            result = get_exif_dates(Path('/fake/image.jpg'))
+            result = get_exif_from_image(Path('/fake/image.jpg'))
             
             assert result['DateTimeOriginal'] == datetime(2023, 1, 15, 10, 30, 0)
             assert result['CreateDate'] is None  # Corrupta
@@ -388,7 +391,7 @@ class TestGetExifDates:
     def test_image_open_error_returns_empty_dict(self):
         """Error al abrir imagen debe devolver diccionario con valores None"""
         with patch('PIL.Image.open', side_effect=Exception("Cannot open")):
-            result = get_exif_dates(Path('/fake/image.jpg'))
+            result = get_exif_from_image(Path('/fake/image.jpg'))
             
             assert result == {
                 'DateTimeOriginal': None,
@@ -421,7 +424,7 @@ class TestGetExifDates:
         with patch('PIL.Image.open', return_value=mock_image), \
              patch('PIL.ExifTags.TAGS', {36867: 'DateTimeOriginal', 32867: 'OffsetTimeOriginal', 999: 'GPSInfo'}), \
              patch('PIL.ExifTags.GPSTAGS', {1: 'GPSDateStamp', 2: 'GPSTimeStamp'}):
-            result = get_exif_dates(Path('/fake/image.jpg'))
+            result = get_exif_from_image(Path('/fake/image.jpg'))
 
             assert result['DateTimeOriginal'] == datetime(2023, 1, 15, 10, 30, 0)
             assert result['OffsetTimeOriginal'] == '+02:00'
@@ -437,7 +440,7 @@ class TestGetAllFileDates:
         image_path = create_test_image(temp_dir / 'test.jpg', size=(100, 100))
         
         # Mock EXIF dates
-        with patch('utils.date_utils.get_exif_dates', return_value={
+        with patch('utils.file_utils.get_exif_from_image', return_value={
             'DateTimeOriginal': datetime(2023, 1, 15, 10, 30, 0),
             'CreateDate': datetime(2023, 1, 15, 10, 31, 0),
             'DateTimeDigitized': datetime(2023, 1, 15, 10, 32, 0),
@@ -458,7 +461,7 @@ class TestGetAllFileDates:
         """Archivo sin EXIF debe tener solo fechas del sistema"""
         image_path = create_test_image(temp_dir / 'test.jpg', size=(100, 100))
         
-        with patch('utils.date_utils.get_exif_dates', return_value={
+        with patch('utils.file_utils.get_exif_from_image', return_value={
             'DateTimeOriginal': None,
             'CreateDate': None,
             'DateTimeDigitized': None,
@@ -485,12 +488,12 @@ class TestGetAllFileDates:
         assert result['filesystem_modification_date'] is None
 
     def test_video_metadata_disabled_by_config(self, temp_dir, create_test_video):
-        """Cuando USE_VIDEO_METADATA es False, no debe llamar a get_video_metadata_date"""
+        """Cuando USE_VIDEO_METADATA es False, no debe llamar a get_exif_from_video"""
         video_path = create_test_video(temp_dir / 'test.mp4')
 
         with patch('config.Config.USE_VIDEO_METADATA', False), \
-             patch('utils.date_utils.get_video_metadata_date') as mock_get_video_metadata, \
-             patch('utils.date_utils.get_exif_dates', return_value={
+             patch('utils.file_utils.get_exif_from_video') as mock_get_video_metadata, \
+             patch('utils.file_utils.get_exif_from_image', return_value={
                  'DateTimeOriginal': None,
                  'CreateDate': None,
                  'DateTimeDigitized': None,
@@ -501,20 +504,20 @@ class TestGetAllFileDates:
              }):
             result = get_all_file_dates(video_path)
 
-            # No debe llamar a get_video_metadata_date
+            # No debe llamar a get_exif_from_video
             mock_get_video_metadata.assert_not_called()
 
             # video_metadata_date debe ser None
             assert result['video_metadata_date'] is None
 
     def test_video_metadata_enabled_by_config(self, temp_dir, create_test_video):
-        """Cuando USE_VIDEO_METADATA es True, debe llamar a get_video_metadata_date"""
+        """Cuando USE_VIDEO_METADATA es True, debe llamar a get_exif_from_video"""
         video_path = create_test_video(temp_dir / 'test.mp4')
         expected_video_date = datetime(2023, 6, 15, 14, 30, 0)
 
         with patch('config.Config.USE_VIDEO_METADATA', True), \
-             patch('utils.date_utils.get_video_metadata_date', return_value=expected_video_date) as mock_get_video_metadata, \
-             patch('utils.date_utils.get_exif_dates', return_value={
+             patch('utils.file_utils.get_exif_from_video', return_value=expected_video_date) as mock_get_video_metadata, \
+             patch('utils.file_utils.get_exif_from_image', return_value={
                  'DateTimeOriginal': None,
                  'CreateDate': None,
                  'DateTimeDigitized': None,
@@ -525,7 +528,7 @@ class TestGetAllFileDates:
              }):
             result = get_all_file_dates(video_path)
 
-            # Debe llamar a get_video_metadata_date
+            # Debe llamar a get_exif_from_video
             mock_get_video_metadata.assert_called_once_with(video_path)
 
             # video_metadata_date debe tener el valor esperado
@@ -536,8 +539,8 @@ class TestGetAllFileDates:
         video_path = create_test_video(temp_dir / 'test.mp4')
 
         with patch('config.Config.USE_VIDEO_METADATA', True), \
-             patch('utils.date_utils.get_video_metadata_date', return_value=None) as mock_get_video_metadata, \
-             patch('utils.date_utils.get_exif_dates', return_value={
+             patch('utils.file_utils.get_exif_from_video', return_value=None) as mock_get_video_metadata, \
+             patch('utils.file_utils.get_exif_from_image', return_value={
                  'DateTimeOriginal': None,
                  'CreateDate': None,
                  'DateTimeDigitized': None,
@@ -548,7 +551,7 @@ class TestGetAllFileDates:
              }):
             result = get_all_file_dates(video_path)
 
-            # Debe llamar a get_video_metadata_date
+            # Debe llamar a get_exif_from_video
             mock_get_video_metadata.assert_called_once_with(video_path)
 
             # video_metadata_date debe ser None

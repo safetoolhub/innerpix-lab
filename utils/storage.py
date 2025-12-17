@@ -83,12 +83,12 @@ class JsonStorageBackend(StorageBackend):
         """Inicializa el backend JSON.
         
         Args:
-            file_path: Ruta al archivo JSON. Si es None, usa ~/.pixaro_lab/settings.json
+            file_path: Ruta al archivo JSON. Si es None, usa ~/.innerpix_lab/settings.json
         """
         self.logger = get_logger('JsonStorageBackend')
         
         if file_path is None:
-            config_dir = Path.home() / ".pixaro_lab"
+            config_dir = Path.home() / ".innerpix_lab"
             config_dir.mkdir(parents=True, exist_ok=True)
             file_path = config_dir / "settings.json"
         
@@ -200,7 +200,7 @@ class QSettingsBackend(StorageBackend):
     Usa el almacenamiento nativo de Qt (registry en Windows, plist en macOS, etc.)
     """
 
-    def __init__(self, organization: str = "PixaroLab", application: str = "Pixaro Lab"):
+    def __init__(self, organization: str = "InnerpixLab", application: str = "Innerpix Lab"):
         """Inicializa el backend QSettings.
         
         Args:

@@ -13,7 +13,7 @@ from ui.styles.design_system import DesignSystem
 from utils.format_utils import format_file_count
 from services.result_types import ZeroByteAnalysisResult
 from .base_dialog import BaseDialog
-from utils.icons import icon_manager
+from ui.styles.icons import icon_manager
 
 class ZeroByteDialog(BaseDialog):
     """
@@ -159,9 +159,16 @@ class ZeroByteDialog(BaseDialog):
         
         if not files_to_delete:
             return
+        
+        # Construir analysis con los archivos seleccionados
+        from services.result_types import ZeroByteAnalysisResult
+        analysis = ZeroByteAnalysisResult(
+            files=files_to_delete,
+            items_count=len(files_to_delete)
+        )
             
         self.accepted_plan = {
-            'files_to_delete': files_to_delete,
+            'analysis': analysis,
             'create_backup': self.is_backup_enabled(),
             'dry_run': self.is_dry_run_enabled()
         }

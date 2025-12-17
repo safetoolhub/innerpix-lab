@@ -396,7 +396,7 @@ def get_date_from_file(file_path: Path, verbose: bool = False, metadata_cache=No
     Args:
         file_path: Ruta al archivo a analizar
         verbose: Si True, muestra análisis detallado en modo INFO. Si False, solo en DEBUG
-        metadata_cache: Instancia opcional de FileMetadataCache para reutilizar fechas calculadas
+        metadata_cache: Instancia opcional de FileInfoRepositoryCache para reutilizar fechas calculadas
         skip_expensive_ops: Si True y metadata_cache no tiene la fecha, usa fallback rápido (mtime)
                            en lugar de calcular con ffprobe/EXIF. Útil para análisis masivos.
 
@@ -430,8 +430,7 @@ def get_date_from_file(file_path: Path, verbose: bool = False, metadata_cache=No
         
         # OPTIMIZACIÓN 2: Usar versión cacheada para evitar lecturas EXIF repetidas
         # La clave incluye mtime para invalidar caché si el archivo se modifica
-        mtime = file_path.stat().st_mtime
-        all_dates = _get_all_file_dates_cached(str(file_path), mtime)
+        all_dates = get_all_file_dates(file_path)
         
         # Seleccionar la fecha más antigua según prioridad
         selected_date, selected_source = select_chosen_date(all_dates)
@@ -493,507 +492,204 @@ def get_date_from_file(file_path: Path, verbose: bool = False, metadata_cache=No
         return None
 
 
-def get_exif_dates(file_path: Path) -> dict:
+def format_renamed_name(date: datetime, file_type: str, extension: str, sequence: Optional[int] = None) -> str:
     """
-    Extrae TODOS los campos de fecha EXIF disponibles de una imagen
+    Genera nombre de archivo renombrado en formato estandarizado
     
-    NOTA: Solo soporta imágenes (JPEG, PNG, etc.). No hay soporte para EXIF en videos por ahora.
-
     Args:
-        file_path: Ruta a la imagen (NO videos)
-
+        date: Fecha a usar en el nombre
+        file_type: Tipo de archivo ('PHOTO', 'VIDEO', etc.)
+        extension: Extensión del archivo (incluyendo punto)
+        sequence: Número de secuencia opcional para evitar conflictos
+        
     Returns:
-        Dict con los campos de fecha EXIF encontrados:
-        {
-            'DateTimeOriginal': datetime or None,     # Fecha de captura original
-            'CreateDate': datetime or None,           # Fecha de creación (DateTime en EXIF)
-            'DateTimeDigitized': datetime or None,    # Fecha de digitalización
-            'SubSecTimeOriginal': str or None,        # Subsegundos de precisión
-            'OffsetTimeOriginal': str or None,        # Zona horaria de captura
-            'GPSDateStamp': datetime or None,         # Timestamp GPS
-            'Software': str or None                   # Software usado (detecta edición)
-        }
-    
+        Nombre de archivo formateado: YYYYMMDD_HHMMSS_TYPE[_SEQ].EXT
+        
     Examples:
-        >>> # Imagen con EXIF completo
-        >>> dates = get_exif_dates(Path('photo.jpg'))
-        >>> dates['DateTimeOriginal']
-        datetime(2023, 1, 15, 10, 30, 0)
-        >>> dates['OffsetTimeOriginal']
-        '+01:00'
-        >>> dates['Software']
-        'Adobe Photoshop CS6'
+        >>> from datetime import datetime
+        >>> format_renamed_name(datetime(2023, 1, 15, 10, 30, 45), 'PHOTO', '.jpg')
+        '20230115_103045_PHOTO.JPG'
+        
+        >>> format_renamed_name(datetime(2023, 1, 15, 10, 30, 45), 'VIDEO', '.mov', sequence=5)
+        '20230115_103045_VIDEO_005.MOV'
     """
-    result = {
-        'DateTimeOriginal': None,
-        'CreateDate': None,
-        'DateTimeDigitized': None,
-        'SubSecTimeOriginal': None,
-        'OffsetTimeOriginal': None,
-        'GPSDateStamp': None,
-        'Software': None
-    }
+    base_name = date.strftime('%Y%m%d_%H%M%S')
+    type_part = f"_{file_type}"
     
+    if sequence is not None and sequence > 0:
+        sequence_part = f"_{sequence:03d}"
+    else:
+        sequence_part = ""
+    
+    extension_part = extension.upper()
+    
+    return f"{base_name}{type_part}{sequence_part}{extension_part}"
+
+
+def is_renamed_filename(filename: str) -> bool:
+    """
+    Verifica si un nombre de archivo sigue el patrón de nombres renombrados
+    
+    Args:
+        filename: Nombre del archivo a verificar
+        
+    Returns:
+        True si el nombre sigue el patrón YYYYMMDD_HHMMSS_TYPE[_SEQ].EXT
+        
+    Examples:
+        >>> is_renamed_filename('20230115_103045_PHOTO.JPG')
+        True
+        
+        >>> is_renamed_filename('20230115_103045_VIDEO_042.MOV')
+        True
+        
+        >>> is_renamed_filename('IMG_1234.JPG')
+        False
+    """
+    import re
+    
+    # Patrón: YYYYMMDD_HHMMSS_TYPE[_SEQ].EXT
+    pattern = r'^\d{8}_\d{6}_[A-Z]+(?:_\d{3})?\.[A-Z]{2,4}$'
+    return bool(re.match(pattern, filename))
+
+
+def parse_renamed_name(filename: str | Path) -> Optional[dict]:
+    """
+    Parsea un nombre de archivo renombrado y extrae sus componentes
+    
+    Args:
+        filename: Nombre del archivo o Path object
+        
+    Returns:
+        Dict con componentes o None si no es un nombre válido:
+        {
+            'date': datetime,
+            'type': str,  # 'PHOTO' o 'VIDEO'
+            'sequence': int or None,
+            'extension': str,  # '.JPG', '.MOV', etc.
+            'is_renamed': bool  # Siempre True si llega aquí
+        }
+        
+    Examples:
+        >>> parse_renamed_name('20230115_103045_PHOTO.JPG')
+        {'date': datetime(2023, 1, 15, 10, 30, 45), 'type': 'PHOTO', 'sequence': None, 'extension': '.JPG', 'is_renamed': True}
+        
+        >>> parse_renamed_name('20230115_103045_VIDEO_042.MOV')
+        {'date': datetime(2023, 1, 15, 10, 30, 45), 'type': 'VIDEO', 'sequence': 42, 'extension': '.MOV', 'is_renamed': True}
+    """
+    if isinstance(filename, Path):
+        filename = filename.name
+    
+    if not is_renamed_filename(filename):
+        return None
+    
+    import re
+    
+    # Patrón con grupos nombrados - solo acepta PHOTO y VIDEO
+    pattern = r'^(?P<date>\d{8}_\d{6})_(?P<type>PHOTO|VIDEO)(?:_(?P<sequence>\d{3}))?\.(?P<ext>[A-Z]{2,4})$'
+    match = re.match(pattern, filename)
+    
+    if not match:
+        return None
+    
+    groups = match.groupdict()
+    
+    # Parsear fecha
+    date_str = groups['date']
     try:
-        # Intentar con PIL/Pillow
-        from PIL import Image
-        from PIL.ExifTags import TAGS, GPSTAGS
-
-        # Para archivos HEIC, necesitamos pillow-heif
-        if file_path.suffix.lower() in ['.heic', '.heif']:
-            try:
-                import pillow_heif
-                pillow_heif.register_heif_opener()
-            except ImportError:
-                _logger.warning(f"pillow-heif no disponible, no se puede procesar {file_path.name}")
-                return result
-
-        with Image.open(file_path) as image:
-            # Obtener datos EXIF - diferente para HEIC vs otros formatos
-            exif_data = None
-            
-            if file_path.suffix.lower() in ['.heic', '.heif']:
-                # Para HEIC, los metadatos están en image.info['exif'] como bytes
-                exif_bytes = image.info.get('exif')
-                if exif_bytes:
-                    try:
-                        exif_obj = Image.Exif()
-                        exif_obj.load(exif_bytes)
-                        exif_data = exif_obj._getexif()
-                    except Exception:
-                        pass
-            else:
-                # Para otros formatos, usar el método estándar
-                exif_data = image._getexif()
-
-            if exif_data:
-                gps_info = None
-                
-                for tag_id, value in exif_data.items():
-                    tag = TAGS.get(tag_id, tag_id)
-
-                    # Extraer cada campo de fecha EXIF
-                    if tag == 'DateTimeOriginal':
-                        try:
-                            result['DateTimeOriginal'] = datetime.strptime(value, '%Y:%m:%d %H:%M:%S')
-                        except ValueError:
-                            pass
-                    elif tag == 'DateTime':  # Este es el CreateDate
-                        try:
-                            result['CreateDate'] = datetime.strptime(value, '%Y:%m:%d %H:%M:%S')
-                        except ValueError:
-                            pass
-                    elif tag == 'DateTimeDigitized':
-                        try:
-                            result['DateTimeDigitized'] = datetime.strptime(value, '%Y:%m:%d %H:%M:%S')
-                        except ValueError:
-                            pass
-                    elif tag == 'SubSecTimeOriginal':
-                        result['SubSecTimeOriginal'] = str(value)
-                    elif tag == 'OffsetTimeOriginal':
-                        result['OffsetTimeOriginal'] = str(value)
-                    elif tag == 'Software':
-                        result['Software'] = str(value)
-                    elif tag == 'GPSInfo':
-                        gps_info = value
-                
-                # Procesar información GPS si existe
-                if gps_info:
-                    try:
-                        gps_date = None
-                        gps_time = None
-                        
-                        for gps_tag_id, gps_value in gps_info.items():
-                            gps_tag = GPSTAGS.get(gps_tag_id, gps_tag_id)
-                            
-                            if gps_tag == 'GPSDateStamp':
-                                gps_date = gps_value
-                            elif gps_tag == 'GPSTimeStamp':
-                                gps_time = gps_value
-                        
-                        # Combinar fecha y hora GPS
-                        if gps_date and gps_time:
-                            try:
-                                # GPSDateStamp formato: 'YYYY:MM:DD'
-                                # GPSTimeStamp formato: (HH, MM, SS) como tupla de racionales
-                                date_str = gps_date.replace(':', '-')
-                                
-                                # Convertir tupla de racionales a hora
-                                hours = int(gps_time[0]) if hasattr(gps_time[0], '__int__') else int(gps_time[0].numerator / gps_time[0].denominator)
-                                minutes = int(gps_time[1]) if hasattr(gps_time[1], '__int__') else int(gps_time[1].numerator / gps_time[1].denominator)
-                                seconds = int(gps_time[2]) if hasattr(gps_time[2], '__int__') else int(gps_time[2].numerator / gps_time[2].denominator)
-                                
-                                time_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-                                
-                                result['GPSDateStamp'] = datetime.strptime(f"{date_str} {time_str}", '%Y-%m-%d %H:%M:%S')
-                            except (ValueError, AttributeError, IndexError, TypeError):
-                                pass
-                    except Exception:
-                        pass
-
-    except ImportError:
-        # PIL no disponible, continuar sin EXIF
-        pass
-    except Exception as e:
-        # Error accediendo a EXIF
-        _logger.warning(f"Error extrayendo EXIF de {file_path.name}: {e}")
+        parsed_date = datetime.strptime(date_str, '%Y%m%d_%H%M%S')
+    except ValueError:
+        return None
     
-    return result
+    # Parsear secuencia
+    sequence = None
+    if groups['sequence']:
+        try:
+            sequence = int(groups['sequence'])
+        except ValueError:
+            return None
+    
+    return {
+        'date': parsed_date,
+        'type': groups['type'],
+        'sequence': sequence,
+        'extension': f".{groups['ext']}",
+        'is_renamed': True
+    }
 
 
 def extract_date_from_filename(filename: str) -> Optional[datetime]:
     """
-    Extrae fecha del nombre de archivo usando patrones comunes.
+    Intenta extraer una fecha del nombre de archivo usando patrones comunes
     
-    Esta función es útil cuando los metadatos EXIF no están disponibles o son poco confiables,
-    como en imágenes recibidas por WhatsApp o screenshots.
-
     Args:
-        filename: Nombre del archivo (con o sin ruta)
-
+        filename: Nombre del archivo (sin path)
+        
     Returns:
-        datetime extraído o None si no se encuentra patrón válido
+        datetime si se encuentra un patrón válido, None en caso contrario
         
-    Examples:
-        >>> # WhatsApp
-        >>> extract_date_from_filename('IMG-20241113-WA0001.jpg')
-        datetime(2024, 11, 13, 0, 0)
-        >>> extract_date_from_filename('VID-20231225-WA0042.mp4')
-        datetime(2023, 12, 25, 0, 0)
-        
-        >>> # Screenshot con hora
-        >>> extract_date_from_filename('Screenshot_20240101_153045.png')
-        datetime(2024, 1, 1, 15, 30, 45)
-        
-        >>> # Cámara genérica
-        >>> extract_date_from_filename('DSC_20231215_103022.jpg')
-        datetime(2023, 12, 15, 10, 30, 22)
-        
-        >>> # Formato ISO
-        >>> extract_date_from_filename('2024-03-15_vacation.jpg')
-        datetime(2024, 3, 15, 0, 0)
-        
-        >>> # No hay patrón reconocible
-        >>> extract_date_from_filename('random_photo.jpg')
-        None
+    Patrones soportados:
+        - IMG_YYYYMMDD_HHMMSS.ext
+        - DSC_YYYYMMDD_HHMMSS.ext  
+        - YYYYMMDD_HHMMSS.ext
+        - YYYY-MM-DD_HH-MM-SS.ext
+        - WhatsApp: IMG-YYYYMMDD-WAXXXX.ext
     """
     import re
+    from pathlib import Path
     
-    # Extraer solo el nombre del archivo sin ruta
-    name = Path(filename).name
+    # Remover extensión
+    name_without_ext = Path(filename).stem
     
-    # Patrón 1: WhatsApp - IMG-YYYYMMDD-WAXXXX.jpg o VID-YYYYMMDD-WAXXXX.mp4
-    pattern_wa = r'(?:IMG|VID)-(\d{8})-WA\d+'
-    match = re.search(pattern_wa, name)
-    if match:
-        try:
-            date_str = match.group(1)
-            return datetime.strptime(date_str, '%Y%m%d')
-        except ValueError:
-            pass
+    # Patrones de fecha comunes en nombres de archivo
+    patterns = [
+        # IMG_20231113_123456 o DSC_20231113_123456
+        r'(?:IMG|DSC)_(\d{8})_(\d{6})',
+        # 20231113_123456 (sin prefijo)
+        r'^(\d{8})_(\d{6})',
+        # YYYY-MM-DD_HH-MM-SS
+        r'(\d{4})-(\d{2})-(\d{2})_(\d{2})-(\d{2})-(\d{2})',
+        # WhatsApp: IMG-20231113-WA0001
+        r'IMG-(\d{8})-WA\d+',
+    ]
     
-    # Patrón 2: Screenshot_YYYYMMDD_HHMMSS.png
-    pattern_screenshot = r'Screenshot[_-](\d{8})[_-](\d{6})'
-    match = re.search(pattern_screenshot, name, re.IGNORECASE)
-    if match:
-        try:
-            date_str = match.group(1)
-            time_str = match.group(2)
-            return datetime.strptime(f"{date_str}_{time_str}", '%Y%m%d_%H%M%S')
-        except ValueError:
-            pass
-    
-    # Patrón 3: DSC_YYYYMMDD_HHMMSS.jpg (cámaras genéricas)
-    pattern_camera = r'DSC[_-](\d{8})[_-](\d{6})'
-    match = re.search(pattern_camera, name, re.IGNORECASE)
-    if match:
-        try:
-            date_str = match.group(1)
-            time_str = match.group(2)
-            return datetime.strptime(f"{date_str}_{time_str}", '%Y%m%d_%H%M%S')
-        except ValueError:
-            pass
-    
-    # Patrón 4: YYYYMMDD_HHMMSS_* (formato general al inicio)
-    pattern_generic_time = r'^(\d{8})[_-](\d{6})'
-    match = re.search(pattern_generic_time, name)
-    if match:
-        try:
-            date_str = match.group(1)
-            time_str = match.group(2)
-            return datetime.strptime(f"{date_str}_{time_str}", '%Y%m%d_%H%M%S')
-        except ValueError:
-            pass
-    
-    # Patrón 5: YYYYMMDD_* (formato general al inicio sin hora)
-    pattern_generic_date = r'^(\d{8})[_-]'
-    match = re.search(pattern_generic_date, name)
-    if match:
-        try:
-            date_str = match.group(1)
-            return datetime.strptime(date_str, '%Y%m%d')
-        except ValueError:
-            pass
-    
-    # Patrón 6: Formato ISO YYYY-MM-DD
-    pattern_iso = r'(\d{4})-(\d{2})-(\d{2})'
-    match = re.search(pattern_iso, name)
-    if match:
-        try:
-            year = int(match.group(1))
-            month = int(match.group(2))
-            day = int(match.group(3))
-            return datetime(year, month, day)
-        except (ValueError, OverflowError):
-            pass
+    for pattern in patterns:
+        match = re.search(pattern, name_without_ext)
+        if match:
+            groups = match.groups()
+            
+            try:
+                if len(groups) == 2:  # YYYYMMDD_HHMMSS
+                    date_str, time_str = groups
+                    year, month, day = int(date_str[:4]), int(date_str[4:6]), int(date_str[6:8])
+                    hour, minute, second = int(time_str[:2]), int(time_str[2:4]), int(time_str[4:6])
+                    
+                elif len(groups) == 6:  # YYYY-MM-DD_HH-MM-SS
+                    year, month, day, hour, minute, second = map(int, groups)
+                    
+                elif len(groups) == 1:  # WhatsApp IMG-YYYYMMDD
+                    date_str = groups[0]
+                    year, month, day = int(date_str[:4]), int(date_str[4:6]), int(date_str[6:8])
+                    hour = minute = second = 0  # WhatsApp no incluye hora
+                    
+                else:
+                    continue
+                    
+                # Validar rangos básicos
+                if not (1900 <= year <= 2100 and 1 <= month <= 12 and 1 <= day <= 31):
+                    continue
+                    
+                return datetime(year, month, day, hour, minute, second)
+                
+            except (ValueError, TypeError):
+                continue
     
     return None
-
-
-def get_video_metadata_date(file_path: Path) -> Optional[datetime]:
-    """
-    Extrae fecha de creación de archivos de video usando exiftool y ffprobe.
-    
-    PRIORIDAD:
-    1. exiftool Keys:CreationDate - Para Live Photos de iPhone (campo correcto)
-    2. ffprobe creation_time - Para otros videos
-    
-    Esta función requiere que exiftool o ffprobe esté instalado en el sistema.
-    Si ninguno está disponible, devuelve None sin generar error.
-
-    Args:
-        file_path: Ruta al archivo de video
-
-    Returns:
-        datetime de la fecha de creación del video o None si no está disponible
-        
-    Examples:
-        >>> # Live Photo MOV con Keys:CreationDate
-        >>> get_video_metadata_date(Path('IMG_0017_HAYLIVE.MOV'))
-        datetime(2019, 11, 13, 15, 38, 59)
-        
-        >>> # Video regular con metadata de creación
-        >>> get_video_metadata_date(Path('video.mp4'))
-        datetime(2024, 1, 15, 14, 30, 0)
-        
-        >>> # Video sin metadata
-        >>> get_video_metadata_date(Path('video_without_metadata.mp4'))
-        None
-    """
-    import shutil
-    import subprocess
-    import json
-    
-    # PRIORIDAD 1: Intentar leer Keys:CreationDate con exiftool (Live Photos)
-    if shutil.which('exiftool'):
-        try:
-            result = subprocess.run(
-                ['exiftool', '-Keys:CreationDate', '-d', '%Y:%m:%d %H:%M:%S', '-s3', str(file_path)],
-                capture_output=True,
-                text=True,
-                timeout=3
-            )
-            
-            if result.returncode == 0 and result.stdout.strip():
-                creation_date_str = result.stdout.strip()
-                try:
-                    # Formato: "2019:11:13 15:38:59+01:00" o "2019:11:13 15:38:59"
-                    # Extraer solo fecha y hora, ignorar zona horaria
-                    if '+' in creation_date_str or '-' in creation_date_str[-6:]:
-                        # Tiene zona horaria
-                        date_part = creation_date_str.rsplit('+', 1)[0].rsplit('-', 1)[0]
-                    else:
-                        date_part = creation_date_str
-                    
-                    parsed_date = datetime.strptime(date_part.strip(), '%Y:%m:%d %H:%M:%S')
-                    _logger.debug(f"Video {file_path.name}: usando Keys:CreationDate = {parsed_date}")
-                    return parsed_date
-                except ValueError as e:
-                    _logger.debug(f"Error parseando Keys:CreationDate '{creation_date_str}': {e}")
-        except (subprocess.TimeoutExpired, subprocess.SubprocessError) as e:
-            _logger.debug(f"Error ejecutando exiftool en {file_path.name}: {e}")
-    
-    # PRIORIDAD 2: Intentar ffprobe creation_time (videos regulares)
-    if not shutil.which('ffprobe'):
-        _logger.debug("Ni exiftool ni ffprobe disponibles")
-        return None
-    
-    try:
-        # Ejecutar ffprobe para obtener metadata
-        cmd = [
-            'ffprobe',
-            '-v', 'quiet',
-            '-print_format', 'json',
-            '-show_entries', 'format_tags=creation_time',
-            str(file_path)
-        ]
-        
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=5  # Timeout de 5 segundos
-        )
-        
-        if result.returncode != 0:
-            return None
-        
-        # Parsear JSON
-        metadata = json.loads(result.stdout)
-        
-        # Extraer creation_time
-        if 'format-text' in metadata and 'tags' in metadata['format-text']:
-            creation_time = metadata['format-text']['tags'].get('creation_time')
-            
-            if creation_time:
-                try:
-                    # Formato típico: '2024-01-15T14:30:00.000000Z'
-                    # Intentar varios formatos comunes
-                    for fmt in ['%Y-%m-%dT%H:%M:%S.%fZ', '%Y-%m-%dT%H:%M:%SZ', '%Y-%m-%d %H:%M:%S']:
-                        try:
-                            parsed_date = datetime.strptime(creation_time, fmt)
-                            _logger.debug(f"Video {file_path.name}: usando ffprobe creation_time = {parsed_date}")
-                            return parsed_date
-                        except ValueError:
-                            continue
-                except Exception:
-                    pass
-        
-        return None
-        
-    except subprocess.TimeoutExpired:
-        _logger.debug(f"Timeout ejecutando ffprobe en {file_path.name}")
-        return None
-    except (subprocess.SubprocessError, json.JSONDecodeError, KeyError):
-        return None
-    except Exception as e:
-        _logger.debug(f"Error obteniendo metadata de video {file_path.name}: {e}")
-        return None
-
-
-def format_renamed_name(date: datetime, file_type: str, extension: str, sequence: Optional[int] = None) -> str:
-    """
-    Genera nombre de renombrado en formato YYYYMMDD_HHMMSS_TIPO_NNN.ext
-
-    Args:
-        date: Fecha del archivo
-        file_type: 'PHOTO' o 'VIDEO'
-        extension: Extensión del archivo (incluyendo punto)
-        sequence: Número de secuencia opcional (para resolver conflictos)
-
-    Returns:
-        Nombre de archivo renombrado
-    """
-    date_str = date.strftime('%Y%m%d')
-    time_str = date.strftime('%H%M%S')
-
-    base_name = f"{date_str}_{time_str}_{file_type}"
-
-    if sequence:
-        base_name += f"_{sequence:03d}"
-
-    return base_name + extension.upper()  # Usuario prefiere extensiones en mayúscula
-
-def parse_renamed_name(filename: str) -> Optional[dict]:
-    """
-    Analiza si un nombre ya corresponde al formato renombrado y extrae sus componentes
-
-    Args:
-        filename: Nombre del archivo
-
-    Returns:
-        Dict con componentes o None si no está en formato renombrado
-    """
-    try:
-        # Formato esperado: YYYYMMDD_HHMMSS_TIPO[_NNN].ext
-        name = Path(filename).stem
-        extension = Path(filename).suffix
-
-        parts = name.split('_')
-
-        if len(parts) < 3:
-            return None
-
-        # Verificar formato de fecha
-        date_part = parts[0]
-        if len(date_part) != 8 or not date_part.isdigit():
-            return None
-
-        # Verificar formato de tiempo
-        time_part = parts[1]
-        if len(time_part) != 6 or not time_part.isdigit():
-            return None
-
-        # Verificar tipo
-        type_part = parts[2]
-        if type_part not in ['PHOTO', 'VIDEO']:
-            return None
-
-        # Verificar secuencia opcional
-        sequence = None
-        if len(parts) == 4:
-            seq_part = parts[3]
-            if len(seq_part) == 3 and seq_part.isdigit():
-                sequence = int(seq_part)
-            else:
-                return None
-        elif len(parts) > 4:
-            return None
-
-        # Crear datetime
-        try:
-            file_date = datetime.strptime(f"{date_part}_{time_part}", '%Y%m%d_%H%M%S')
-        except ValueError:
-            return None
-
-        return {
-            'date': file_date,
-            'type': type_part,
-            'sequence': sequence,
-            'extension': extension,
-            'is_renamed': True
-        }
-
-    except (AttributeError, ValueError, IndexError, OSError):
-        return None
-
-def is_renamed_filename(filename: str) -> bool:
-    """
-    Verifica rápidamente si un archivo ya está en formato renombrado
-
-    Args:
-        filename: Nombre del archivo
-
-    Returns:
-        True si ya tiene formato de renombrado
-    """
-    return parse_renamed_name(filename) is not None
-
-
-@lru_cache(maxsize=10000)
-def _get_all_file_dates_cached(file_path_str: str, mtime: float) -> dict:
-    """
-    Versión cacheada de get_all_file_dates.
-    
-    OPTIMIZACIÓN: Usa LRU cache para evitar lecturas EXIF repetidas.
-    La clave incluye mtime para invalidar caché si el archivo cambia.
-    
-    Args:
-        file_path_str: Ruta como string (para hashabilidad)
-        mtime: Timestamp de modificación (invalida cache si cambia)
-    
-    Returns:
-        Dict con todas las fechas (mismo formato que get_all_file_dates)
-    """
-    return get_all_file_dates(Path(file_path_str))
 
 
 def get_all_file_dates(file_path: Path) -> dict:
     """
     Obtiene toda la información de fechas disponible para un archivo
-    
-    NOTA: Esta función NO está cacheada directamente. Usa _get_all_file_dates_cached
-    para aprovechar el caché en operaciones masivas.
     
     Args:
         file_path: Ruta al archivo a analizar
@@ -1016,6 +712,7 @@ def get_all_file_dates(file_path: Path) -> dict:
         }
     """
     from config import Config
+    from utils.file_utils import get_exif_from_image, get_exif_from_video, is_image_file, get_file_type
     
     result = {
         'exif_date_time_original': None,
@@ -1034,8 +731,8 @@ def get_all_file_dates(file_path: Path) -> dict:
     
     try:
         # 1. Intentar obtener todas las fechas EXIF disponibles (solo para imágenes)
-        if Config.is_image_file(file_path):
-            exif_dates = get_exif_dates(file_path)
+        if is_image_file(file_path):
+            exif_dates = get_exif_from_image(file_path)
             result['exif_date_time_original'] = exif_dates.get('DateTimeOriginal')
             result['exif_create_date'] = exif_dates.get('CreateDate')
             result['exif_date_digitized'] = exif_dates.get('DateTimeDigitized')
@@ -1044,8 +741,8 @@ def get_all_file_dates(file_path: Path) -> dict:
             result['exif_software'] = exif_dates.get('Software')
         
         # 2. Intentar obtener metadata de video (solo si está habilitado en configuración)
-        if Config.get_file_type(file_path) == 'VIDEO' and Config.USE_VIDEO_METADATA:
-            result['video_metadata_date'] = get_video_metadata_date(file_path)
+        if get_file_type(file_path) == 'VIDEO' and Config.USE_VIDEO_METADATA:
+            result['video_metadata_date'] = get_exif_from_video(file_path)
         
         # 3. Intentar extraer fecha del nombre de archivo
         result['filename_date'] = extract_date_from_filename(file_path.name)

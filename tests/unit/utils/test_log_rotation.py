@@ -309,7 +309,7 @@ class TestLogRotationMultipleSessions:
                 logger1.info(f"[Session1-{i:06d}] " + "x" * 200)
             
             # Limpiar primera sesión
-            root_logger = logging.getLogger('PixaroLab')
+            root_logger = logging.getLogger('InnerpixLab')
             for handler in root_logger.handlers[:]:
                 handler.close()
                 root_logger.removeHandler(handler)

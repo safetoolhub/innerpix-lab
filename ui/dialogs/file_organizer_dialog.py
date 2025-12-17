@@ -1,5 +1,5 @@
 """
-Diálogo de Organización de Archivos - Versión 2.0
+Diálogo de Organización de Archivos
 Permite elegir el tipo de organización en tiempo real y ver los resultados dinámicamente
 """
 from pathlib import Path
@@ -20,56 +20,15 @@ from utils.format_utils import format_size
 from utils.date_utils import get_date_from_file
 from utils.file_utils import is_whatsapp_file
 from ui.styles.design_system import DesignSystem
-from utils.icons import icon_manager
+from ui.styles.icons import icon_manager
 from utils.logger import get_logger
 from services.file_organizer_service import FileOrganizer, OrganizationType
 from services.result_types import OrganizationAnalysisResult
+from ui.workers import FileOrganizerAnalysisWorker
 from .base_dialog import BaseDialog
 
 
-class OrganizationWorker(QThread):
-    """Worker para análisis de organización en background"""
-    
-    finished = pyqtSignal(OrganizationAnalysisResult)
-    progress = pyqtSignal(int, int, str)
-    error = pyqtSignal(str)
-    
-    def __init__(self, root_directory: Path, organization_type: OrganizationType, metadata_cache=None, group_by_source=False, group_by_type=False, date_grouping_type: Optional[str] = None):
-        super().__init__()
-        self.root_directory = root_directory
-        self.organization_type = organization_type
-        self.metadata_cache = metadata_cache
-        self.group_by_source = group_by_source
-        self.group_by_type = group_by_type
-        self.date_grouping_type = date_grouping_type
-        self.organizer = FileOrganizer()
-        self.logger = get_logger("OrganizationWorker")
-    
-    def run(self):
-        """Ejecuta el análisis"""
-        try:
-            self.logger.info(f"Analizando con tipo: {self.organization_type.value}")
-            
-            def progress_callback(current, total, message):
-                self.progress.emit(current, total, message)
-                return True  # Continue processing
-            
-            result = self.organizer.analyze(
-                self.root_directory,
-                self.organization_type,
-                progress_callback,
-                group_by_source=self.group_by_source,
-                group_by_type=self.group_by_type,
-                date_grouping_type=self.date_grouping_type
-            )
-            self.finished.emit(result)
-            
-        except Exception as e:
-            self.logger.error(f"Error en análisis: {e}", exc_info=True)
-            self.error.emit(str(e))
-
-
-class FileOrganizationDialog(BaseDialog):
+class FileOrganizerDialog(BaseDialog):
     """
     Diálogo profesional para organización de archivos con:
     - Selector de tipo de organización en tiempo real
@@ -100,7 +59,7 @@ class FileOrganizationDialog(BaseDialog):
         self.total_pages = 0
         
         # Worker para análisis
-        self.worker: Optional[OrganizationWorker] = None
+        self.worker: Optional[FileOrganizerAnalysisWorker] = None
         self.is_analyzing = False
         
         # Flag para evitar disparar eventos durante la construcción de la UI
@@ -130,7 +89,7 @@ class FileOrganizationDialog(BaseDialog):
             metrics=[
                 {
                     'label': 'Archivos',
-                    'value': str(self.analysis.total_files_to_move) if self.analysis else '0',
+                    'value': str(self.analysis.items_count) if self.analysis else '0',
                     'icon': 'description'
                 },
                 {
@@ -572,16 +531,16 @@ class FileOrganizationDialog(BaseDialog):
         self._set_ui_loading_state(True)
         
         # Crear y configurar worker
-        self.worker = OrganizationWorker(
-            self.root_directory, 
-            org_type, 
-            self.metadata_cache,
+        self.worker = FileOrganizerAnalysisWorker(
+            directory=self.root_directory,
+            organization_type=org_type,
+            metadata_cache=self.metadata_cache,
             group_by_source=group_by_source,
             group_by_type=group_by_type,
             date_grouping_type=date_grouping_type
         )
         self.worker.finished.connect(self._on_analysis_finished)
-        self.worker.progress.connect(self._on_analysis_progress)
+        self.worker.progress_update.connect(self._on_analysis_progress)
         self.worker.error.connect(self._on_analysis_error)
         
         # Iniciar
@@ -589,7 +548,7 @@ class FileOrganizationDialog(BaseDialog):
     
     def _on_analysis_finished(self, result: OrganizationAnalysisResult):
         """Maneja la finalización del análisis"""
-        self.logger.info(f"Análisis completado: {result.total_files_to_move} archivos (tipo: {result.organization_type})")
+        self.logger.info(f"Análisis completado: {result.items_count} archivos (tipo: {result.organization_type})")
         self.analysis = result
         self.counter_label.setText(f"{len(result.move_plan)} archivos")
         
@@ -679,7 +638,7 @@ class FileOrganizationDialog(BaseDialog):
             metrics_data = ["0", "0", "0 B"]
         else:
             metrics_data = [
-                str(self.analysis.total_files_to_move),
+                str(self.analysis.items_count),
                 str(len(self.analysis.subdirectories)),
                 format_size(self.analysis.total_size_to_move)
             ]
@@ -1057,11 +1016,11 @@ class FileOrganizationDialog(BaseDialog):
     def _create_action_buttons(self) -> QDialogButtonBox:
         """Crea botones de acción con estilo Material Design"""
         # Determinar si el botón OK debe estar habilitado
-        ok_enabled = bool(self.analysis and self.analysis.total_files_to_move > 0)
+        ok_enabled = bool(self.analysis and self.analysis.items_count > 0)
         
         if ok_enabled:
             size_formatted = format_size(self.analysis.total_size_to_move)
-            ok_text = f"Organizar Archivos ({self.analysis.total_files_to_move} archivos, {size_formatted})"
+            ok_text = f"Organizar Archivos ({self.analysis.items_count} archivos, {size_formatted})"
         else:
             ok_text = "Selecciona una opción"
         
@@ -1079,14 +1038,14 @@ class FileOrganizationDialog(BaseDialog):
         if not hasattr(self, 'ok_button') or not self.ok_button:
             return
         
-        ok_enabled = self.analysis.total_files_to_move > 0
+        ok_enabled = self.analysis.items_count > 0
         final_enabled = ok_enabled and not self.is_analyzing
         
         self.ok_button.setEnabled(final_enabled)
         
         if ok_enabled:
             size_formatted = format_size(self.analysis.total_size_to_move)
-            ok_text = f"Organizar Archivos ({self.analysis.total_files_to_move} archivos, {size_formatted})"
+            ok_text = f"Organizar Archivos ({self.analysis.items_count} archivos, {size_formatted})"
         else:
             ok_text = "Sin archivos para organizar"
         
