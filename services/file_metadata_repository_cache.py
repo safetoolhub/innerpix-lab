@@ -521,9 +521,23 @@ class FileInfoRepositoryCache:
             self._logger.debug(f"EXIF ya extraído para video {path.name}: {len(metadata.get_exif_dates())} campos")
             return metadata
         
-        # TODO: Integrar extracción de EXIF para videos (más costoso)
-        # Por ahora retornar sin EXIF, se puede poblar después con set_exif()
-        self._logger.debug(f"EXIF no implementado para video {path.name} (pendiente)")
+        # Extraer EXIF de videos
+        try:
+            from utils.file_utils import get_exif_from_video
+            
+            creation_date = get_exif_from_video(path)
+            
+            if creation_date:
+                # Para videos, solemos tener una única fecha de creación
+                # La mapeamos a DateTimeOriginal y DateTime para consistencia
+                metadata.exif_DateTimeOriginal = creation_date
+                metadata.exif_DateTime = creation_date
+                self._logger.debug(f"EXIF extraído para video {path.name}: {creation_date}")
+            else:
+                self._logger.debug(f"No se encontró fecha EXIF para video {path.name}")
+                
+        except Exception as e:
+            self._logger.warning(f"Error extrayendo EXIF de video {path.name}: {e}")
         
         return metadata
     
@@ -560,11 +574,9 @@ class FileInfoRepositoryCache:
         
         # Extraer EXIF según tipo de archivo
         if metadata.is_image:
-            # TODO: Integrar extracción de EXIF para imágenes
-            pass
+            return self._process_file_exif_images(path)
         elif metadata.is_video:
-            # TODO: Integrar extracción de EXIF para videos (más costoso)
-            pass
+            return self._process_file_exif_videos(path)
         
         return metadata
     
@@ -603,11 +615,9 @@ class FileInfoRepositoryCache:
         # EXIF (si no lo tiene y es imagen/video)
         if not metadata.has_exif and (metadata.is_image or metadata.is_video):
             if metadata.is_image:
-                # TODO: Integrar extracción de EXIF para imágenes
-                pass
+                return self._process_file_exif_images(path)
             elif metadata.is_video:
-                # TODO: Integrar extracción de EXIF para videos (más costoso)
-                pass
+                return self._process_file_exif_videos(path)
         
         return metadata
     
