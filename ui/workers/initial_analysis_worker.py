@@ -63,6 +63,12 @@ class InitialAnalysisWorker(BaseWorker):
                 if not self._stop_requested:
                     self.phase_started.emit(phase_id, phase_message)
             
+            # Define phase completed callback
+            def phase_completed_callback(phase_id: str):
+                """Called when a phase completes."""
+                if not self._stop_requested:
+                    self.phase_completed.emit(phase_id)
+            
             # Define progress callback
             def progress_callback(phase_progress: PhaseProgress) -> bool:
                 """Called for progress updates within a phase."""
@@ -82,6 +88,7 @@ class InitialAnalysisWorker(BaseWorker):
             scan_result = self.scanner.scan(
                 directory=self.directory,
                 phase_callback=phase_callback,
+                phase_completed_callback=phase_completed_callback,
                 progress_callback=progress_callback,
                 calculate_hashes=precalculate_hashes,
                 extract_image_exif=True,
@@ -90,16 +97,6 @@ class InitialAnalysisWorker(BaseWorker):
             
             if self._stop_requested:
                 return
-            
-            # Emit phase completions (for phases that were executed)
-            if precalculate_hashes:
-                self.phase_completed.emit(InitialScanner.PHASE_HASH)
-            
-            if scan_result.image_count > 0:
-                self.phase_completed.emit(InitialScanner.PHASE_EXIF_IMAGES)
-            
-            if scan_result.video_count > 0:
-                self.phase_completed.emit(InitialScanner.PHASE_EXIF_VIDEOS)
             
             # Create snapshot with scan result
             result = ScanSnapshot(

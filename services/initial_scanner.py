@@ -60,6 +60,7 @@ class InitialScanner:
         self,
         directory: Path,
         phase_callback: Optional[Callable[[str, str], None]] = None,
+        phase_completed_callback: Optional[Callable[[str], None]] = None,
         progress_callback: Optional[Callable[[PhaseProgress], bool]] = None,
         calculate_hashes: bool = True,
         extract_image_exif: bool = True,
@@ -71,6 +72,7 @@ class InitialScanner:
         Args:
             directory: Directory to scan
             phase_callback: Called when a phase starts: (phase_id, phase_message)
+            phase_completed_callback: Called when a phase completes: (phase_id)
             progress_callback: Called with PhaseProgress for each file processed.
                              Returns False to cancel.
             calculate_hashes: Whether to calculate SHA256 hashes (Phase 2)
@@ -177,6 +179,10 @@ class InitialScanner:
             progress_callback=None
         )
         
+        # Notify phase 1 completion
+        if phase_completed_callback and not self._should_stop:
+            phase_completed_callback(self.PHASE_BASIC)
+        
         # Log repository stats after Phase 1 (DEBUG)
         if self.logger.isEnabledFor(logging.DEBUG):
             self.logger.debug("=== Repository Stats after Phase 1 (BASIC) ===")
@@ -214,6 +220,10 @@ class InitialScanner:
             )
             
             self.logger.info("Phase 2 complete: Hashes calculated")
+            
+            # Notify phase 2 completion
+            if phase_completed_callback and not self._should_stop:
+                phase_completed_callback(self.PHASE_HASH)
             
             # Log repository stats after Phase 2 (DEBUG)
             if self.logger.isEnabledFor(logging.DEBUG):
@@ -253,6 +263,10 @@ class InitialScanner:
             
             self.logger.info("Phase 3 complete: Image EXIF extracted")
             
+            # Notify phase 3 completion
+            if phase_completed_callback and not self._should_stop:
+                phase_completed_callback(self.PHASE_EXIF_IMAGES)
+            
             # Log repository stats after Phase 3 (DEBUG)
             if self.logger.isEnabledFor(logging.DEBUG):
                 self.logger.debug("=== Repository Stats after Phase 3 (EXIF_IMAGES) ===")
@@ -290,6 +304,10 @@ class InitialScanner:
             )
             
             self.logger.info("Phase 4 complete: Video EXIF extracted")
+            
+            # Notify phase 4 completion
+            if phase_completed_callback and not self._should_stop:
+                phase_completed_callback(self.PHASE_EXIF_VIDEOS)
             
             # Log repository stats after Phase 4 (DEBUG)
             if self.logger.isEnabledFor(logging.DEBUG):
