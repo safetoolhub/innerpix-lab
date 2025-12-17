@@ -144,11 +144,6 @@ class Config:
     # CONFIGURACIÓN DE DESARROLLO
     # ========================================================================
     DEVELOPMENT_MODE = False  # Si True, salta directamente a Stage 2 con la última carpeta usada
-    
-    # Configuración de caché para desarrollo (acelerar pruebas con datasets grandes)
-    DEV_USE_CACHED_ANALYSIS = True  # Si True, intenta cargar .innerpix_analysis_cache.pkl
-    DEV_CACHE_FILENAME = ".innerpix_analysis_cache.pkl"
-
 
     # ========================================================================
     # TIMING DE TRANSICIÓN (Stage 2 → Stage 3)

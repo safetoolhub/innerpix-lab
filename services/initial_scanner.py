@@ -350,7 +350,7 @@ class InitialScanner:
         """
         all_files = [
             f for f in directory.rglob("*") 
-            if f.is_file() and f.name != Config.DEV_CACHE_FILENAME
+            if f.is_file()
         ]
         return all_files
     
