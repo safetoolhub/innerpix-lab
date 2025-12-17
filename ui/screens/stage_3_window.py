@@ -734,10 +734,17 @@ class Stage3Window(BaseStage):
                     if reply == QMessageBox.StandardButton.Yes:
                         # Re-analyze as before
                         log_section_header_discrete(self.logger, f"Re-análisis solicitado por usuario tras completar {tool_id}")
+                        # NOTA: No invalidamos la caché aquí porque el usuario quiere reanalizar
+                        # La nueva caché se creará en Stage 2 y reemplazará a la antigua
                         QTimer.singleShot(500, self._on_reanalyze)
                     else:
                         # User chose to skip re-analysis
                         self.logger.info("Usuario omitió re-análisis, las estadísticas pueden estar desactualizadas")
+                        
+                        # Invalidar caché de metadatos porque los archivos han cambiado
+                        # y la caché ya no es confiable
+                        self._invalidate_metadata_cache()
+                        
                         # Mostrar banner de advertencia
                         if self.stale_banner:
                             self.stale_banner.show()
