@@ -315,6 +315,11 @@ class HeicService(BaseService):
                      files_deleted_list.append(str(file_to_delete))
                      self.logger.info(f"FILE_DELETED: {file_to_delete} | Type: {format_deleted}")
                      
+                     # Actualizar caché eliminando el archivo
+                     from services.file_metadata_repository_cache import FileInfoRepositoryCache
+                     repo = FileInfoRepositoryCache.get_instance()
+                     repo.remove_file(file_to_delete)
+                     
              except Exception as e:
                  err = f"Error eliminando {file_to_delete}: {e}"
                  results.add_error(err)

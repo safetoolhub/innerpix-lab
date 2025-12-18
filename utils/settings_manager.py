@@ -25,8 +25,7 @@ class SettingsManager:
     KEY_AUTO_BACKUP = "behavior/auto_backup_enabled"
     KEY_CONFIRM_OPERATIONS = "behavior/confirm_operations"
     KEY_CONFIRM_DELETE = "behavior/confirm_delete"
-    KEY_SHOW_NOTIFICATIONS = "behavior/show_notifications"
-    KEY_SOUND_NOTIFICATIONS = "behavior/sound_notifications"
+    KEY_CONFIRM_REANALYZE = "behavior/confirm_reanalyze"
     KEY_AUTO_ANALYZE = "behavior/auto_analyze_on_open"
 
     # === LOGGING ===
@@ -36,8 +35,11 @@ class SettingsManager:
     # === AVANZADO ===
     KEY_DRY_RUN_DEFAULT = "advanced/dry_run_default"
     KEY_MAX_WORKERS = "advanced/max_workers"
-    KEY_USE_VIDEO_METADATA = "advanced/use_video_metadata"
-    KEY_PRECALCULATE_HASHES = "advanced/precalculate_hashes"
+    
+    # === ANÁLISIS INICIAL (movido a General) ===
+    KEY_PRECALCULATE_HASHES = "General/precalculate_hashes"
+    KEY_PRECALCULATE_IMAGE_EXIF = "General/precalculate_image_exif"
+    KEY_PRECALCULATE_VIDEO_EXIF = "General/precalculate_video_exif"
 
     # === VENTANA ===
     KEY_WINDOW_GEOMETRY = "window/geometry"
@@ -227,9 +229,9 @@ class SettingsManager:
         """Obtiene si se debe confirmar eliminaciones (por defecto True)"""
         return self.get_bool(self.KEY_CONFIRM_DELETE, True)
 
-    def get_show_notifications(self) -> bool:
-        """Obtiene si se deben mostrar notificaciones (por defecto True)"""
-        return self.get_bool(self.KEY_SHOW_NOTIFICATIONS, True)
+    def get_confirm_reanalyze(self) -> bool:
+        """Obtiene si se debe confirmar antes de reanalizar tras operaciones (por defecto True)"""
+        return self.get_bool(self.KEY_CONFIRM_REANALYZE, True)
 
     def get_auto_analyze(self) -> bool:
         """Obtiene si se debe auto-analizar al abrir directorio (por defecto False)"""
@@ -240,8 +242,28 @@ class SettingsManager:
         return self.get_int(self.KEY_MAX_WORKERS, default)
     
     def get_precalculate_hashes(self) -> bool:
-        """Obtiene si se debe pre-calcular hashes SHA256 durante el escaneo (por defecto True)"""
-        return self.get_bool(self.KEY_PRECALCULATE_HASHES, True)
+        """Obtiene si se debe pre-calcular hashes SHA256 durante el escaneo (por defecto False)"""
+        return self.get_bool(self.KEY_PRECALCULATE_HASHES, False)
+    
+    def set_precalculate_hashes(self, enabled: bool) -> None:
+        """Establece si se debe pre-calcular hashes SHA256 durante el escaneo"""
+        self.set(self.KEY_PRECALCULATE_HASHES, enabled)
+    
+    def get_precalculate_image_exif(self) -> bool:
+        """Obtiene si se debe pre-calcular EXIF de imágenes durante el escaneo (por defecto True)"""
+        return self.get_bool(self.KEY_PRECALCULATE_IMAGE_EXIF, True)
+    
+    def set_precalculate_image_exif(self, enabled: bool) -> None:
+        """Establece si se debe pre-calcular EXIF de imágenes durante el escaneo"""
+        self.set(self.KEY_PRECALCULATE_IMAGE_EXIF, enabled)
+    
+    def get_precalculate_video_exif(self) -> bool:
+        """Obtiene si se debe pre-calcular EXIF de videos durante el escaneo (por defecto False)"""
+        return self.get_bool(self.KEY_PRECALCULATE_VIDEO_EXIF, False)
+    
+    def set_precalculate_video_exif(self, enabled: bool) -> None:
+        """Establece si se debe pre-calcular EXIF de videos durante el escaneo"""
+        self.set(self.KEY_PRECALCULATE_VIDEO_EXIF, enabled)
 
     def get_show_full_path(self) -> bool:
         """Obtiene si se debe mostrar la ruta completa del directorio (por defecto True)"""

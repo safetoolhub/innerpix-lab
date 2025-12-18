@@ -363,6 +363,11 @@ class LivePhotoService(BaseService):
                         log_msg = f"FILE_DELETED: {file_path} | Size: {format_size(file_size)} | Type: {file_info['type']} | Date: {file_date_str}"
                         self.logger.info(log_msg)
                         
+                        # Actualizar caché eliminando el archivo
+                        from services.file_metadata_repository_cache import FileInfoRepositoryCache
+                        repo = FileInfoRepositoryCache.get_instance()
+                        repo.remove_file(file_path)
+                        
                         if file_info['type'] == 'video' and file_size > Config.LIVE_PHOTO_MAX_VIDEO_SIZE:
                              self.logger.warning(f"⚠️ SOSPECHA: Video grande eliminado: {file_path} ({format_size(file_size)})")
 

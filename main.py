@@ -34,11 +34,9 @@ def main():
     
     # Cargar configuración persistente
     Config.USE_VIDEO_METADATA = settings_manager.get_bool(
-        settings_manager.KEY_USE_VIDEO_METADATA, 
+        settings_manager.KEY_PRECALCULATE_VIDEO_EXIF, 
         False  # Por defecto deshabilitado
     )
-    
-    # Obtener logger y mostrar información de inicio
     logger = get_logger()
     log_level = logging.getLevelName(logger.logger.level)
     

@@ -108,6 +108,7 @@ class IFileRepository(Protocol):
     # Gestión de caché
     def remove_file(self, path: Path) -> bool: ...
     def remove_files(self, paths: List[Path]) -> int: ...
+    def move_file(self, old_path: Path, new_path: Path) -> bool: ...
     def set_max_entries(self, max_entries: int) -> None: ...
     
     # Estadísticas
@@ -521,9 +522,23 @@ class FileInfoRepositoryCache:
             self._logger.debug(f"EXIF ya extraído para video {path.name}: {len(metadata.get_exif_dates())} campos")
             return metadata
         
-        # TODO: Integrar extracción de EXIF para videos (más costoso)
-        # Por ahora retornar sin EXIF, se puede poblar después con set_exif()
-        self._logger.debug(f"EXIF no implementado para video {path.name} (pendiente)")
+        # Extraer EXIF de videos
+        try:
+            from utils.file_utils import get_exif_from_video
+            
+            creation_date = get_exif_from_video(path)
+            
+            if creation_date:
+                # Para videos, solemos tener una única fecha de creación
+                # La mapeamos a DateTimeOriginal y DateTime para consistencia
+                metadata.exif_DateTimeOriginal = creation_date
+                metadata.exif_DateTime = creation_date
+                self._logger.debug(f"EXIF extraído para video {path.name}: {creation_date}")
+            else:
+                self._logger.debug(f"No se encontró fecha EXIF para video {path.name}")
+                
+        except Exception as e:
+            self._logger.warning(f"Error extrayendo EXIF de video {path.name}: {e}")
         
         return metadata
     
@@ -560,11 +575,9 @@ class FileInfoRepositoryCache:
         
         # Extraer EXIF según tipo de archivo
         if metadata.is_image:
-            # TODO: Integrar extracción de EXIF para imágenes
-            pass
+            return self._process_file_exif_images(path)
         elif metadata.is_video:
-            # TODO: Integrar extracción de EXIF para videos (más costoso)
-            pass
+            return self._process_file_exif_videos(path)
         
         return metadata
     
@@ -603,11 +616,9 @@ class FileInfoRepositoryCache:
         # EXIF (si no lo tiene y es imagen/video)
         if not metadata.has_exif and (metadata.is_image or metadata.is_video):
             if metadata.is_image:
-                # TODO: Integrar extracción de EXIF para imágenes
-                pass
+                return self._process_file_exif_images(path)
             elif metadata.is_video:
-                # TODO: Integrar extracción de EXIF para videos (más costoso)
-                pass
+                return self._process_file_exif_videos(path)
         
         return metadata
     
@@ -1033,6 +1044,73 @@ class FileInfoRepositoryCache:
                 self._logger.info(f"Eliminados {removed} archivos del repositorio")
         
         return removed
+    
+    def move_file(self, old_path: Path, new_path: Path) -> bool:
+        """
+        Mueve un archivo en la caché de un path a otro.
+        
+        Útil cuando se renombra o mueve un archivo en el disco.
+        Preserva todos los metadatos (hash, EXIF, etc.) pero actualiza el path.
+        
+        Args:
+            old_path: Ruta original del archivo
+            new_path: Nueva ruta del archivo
+            
+        Returns:
+            bool: True si se movió correctamente, False si no existía el archivo original
+        """
+        old_path_resolved = old_path.resolve()
+        new_path_resolved = new_path.resolve()
+        
+        with self._lock:
+            if old_path_resolved in self._cache:
+                # Obtener metadatos del archivo antiguo
+                metadata = self._cache[old_path_resolved]
+                
+                # Crear nueva entrada con el path actualizado
+                # FileMetadata es inmutable, así que necesitamos crear uno nuevo
+                from services.file_metadata import FileMetadata
+                new_metadata = FileMetadata(
+                    path=new_path_resolved,
+                    fs_size=metadata.fs_size,
+                    fs_mtime=metadata.fs_mtime,
+                    sha256=metadata.sha256,
+                    exif_date_time_original=metadata.exif_date_time_original,
+                    exif_date_time_digitized=metadata.exif_date_time_digitized,
+                    exif_date_time=metadata.exif_date_time,
+                    exif_gps_latitude=metadata.exif_gps_latitude,
+                    exif_gps_longitude=metadata.exif_gps_longitude,
+                    exif_gps_latitude_ref=metadata.exif_gps_latitude_ref,
+                    exif_gps_longitude_ref=metadata.exif_gps_longitude_ref,
+                    exif_make=metadata.exif_make,
+                    exif_model=metadata.exif_model,
+                    exif_orientation=metadata.exif_orientation,
+                    exif_width=metadata.exif_width,
+                    exif_height=metadata.exif_height,
+                    exif_video_date_time_original=metadata.exif_video_date_time_original,
+                    exif_video_date_time_digitized=metadata.exif_video_date_time_digitized,
+                    exif_video_date_time=metadata.exif_video_date_time,
+                    exif_video_width=metadata.exif_video_width,
+                    exif_video_height=metadata.exif_video_height,
+                    exif_video_duration=metadata.exif_video_duration,
+                    exif_video_codec=metadata.exif_video_codec
+                )
+                
+                # Eliminar entrada antigua
+                del self._cache[old_path_resolved]
+                if old_path_resolved in self._access_order:
+                    self._access_order.remove(old_path_resolved)
+                
+                # Agregar entrada nueva
+                self._cache[new_path_resolved] = new_metadata
+                self._access_order.append(new_path_resolved)
+                
+                # Mantener límite de LRU si es necesario
+                self._enforce_max_entries()
+                
+                self._logger.debug(f"Archivo movido en repositorio: {old_path.name} -> {new_path.name}")
+                return True
+            return False
     
     def save_to_disk(self, path: Path) -> None:
         """

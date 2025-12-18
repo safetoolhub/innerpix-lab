@@ -152,16 +152,15 @@ class BaseStage(QObject):
         """
         Guarda el resumen del análisis en la configuración.
         
-        Automáticamente invalida la caché anterior si existe, ya que un nuevo
-        análisis significa que puede haber cambios en los archivos.
+        NOTA: La caché de metadatos NO se invalida aquí porque acabamos de
+        crear una caché nueva y poblada que debe usarse en Stage 3.
+        La invalidación solo debe hacerse después de operaciones destructivas
+        (ver _invalidate_metadata_cache).
 
         Args:
             results: Resultados del análisis a guardar (objeto o dict)
         """
         try:
-            # Invalidar caché anterior antes de guardar nuevos resultados
-            self._invalidate_metadata_cache()
-            
             # Si es un dataclass, convertir a dict para persistencia
             from dataclasses import is_dataclass, asdict
             if is_dataclass(results):
@@ -186,33 +185,37 @@ class BaseStage(QObject):
     
     def _invalidate_metadata_cache(self) -> None:
         """
-        Invalida la caché de metadatos de archivos.
+        Invalida completamente la caché de metadatos del singleton FileInfoRepositoryCache.
         
-        Debe llamarse después de operaciones destructivas:
-        - Eliminación de archivos (duplicados, HEIC, Live Photos)
-        - Movimiento de archivos (organización)
-        - Renombrado de archivos
+        ⚠️  ATENCIÓN: Este método debe usarse CON MUCHA PRECAUCIÓN.
         
-        La caché se invalida automáticamente al guardar nuevos resultados
-        de análisis (save_analysis_results).
+        Solo debe llamarse en situaciones excepcionales donde:
+        - Ha ocurrido un error grave durante operaciones destructivas
+        - La caché se ha corrompido o desincronizado
+        - Se necesita forzar una recarga completa
+        
+        NO debe llamarse después de operaciones exitosas, ya que los servicios
+        individuales actualizan la caché automáticamente (remove_file/move_file).
+        
+        Para operaciones normales, usar:
+        - remove_file() para eliminaciones
+        - move_file() para movimientos/renombrados
         """
         try:
-            # Obtener resultados actuales
-            current_results = self.get_analysis_summary()
+            from services.file_metadata_repository_cache import FileInfoRepositoryCache
             
-            # Si hay resultados y contienen caché
-            if current_results and isinstance(current_results, dict):
-                # Verificar si hay metadata_cache en scan
-                scan_data = current_results.get('scan', {})
-                if scan_data and isinstance(scan_data, dict):
-                    # La caché no se serializa (es un objeto), pero logueamos la acción
-                    self.logger.debug("Invalidando caché de metadatos por nuevo análisis")
+            # Obtener instancia singleton y limpiar completamente
+            repo = FileInfoRepositoryCache.get_instance()
+            entries_count = len(repo)
             
-            # La próxima vez que se ejecute el análisis, se creará una nueva caché
-            self.logger.debug("Caché de metadatos marcada para regeneración")
+            if entries_count > 0:
+                repo.clear()
+                self.logger.warning(f"Caché de metadatos INVALIDADA COMPLETAMENTE ({entries_count} entradas eliminadas)")
+            else:
+                self.logger.debug("Caché de metadatos ya estaba vacía")
             
         except Exception as e:
-            self.logger.warning(f"Error invalidando caché de metadatos: {e}")
+            self.logger.error(f"Error invalidando caché de metadatos: {e}")
 
     def get_analysis_summary(self) -> Optional[dict]:
         """
