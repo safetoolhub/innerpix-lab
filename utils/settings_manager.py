@@ -25,8 +25,7 @@ class SettingsManager:
     KEY_AUTO_BACKUP = "behavior/auto_backup_enabled"
     KEY_CONFIRM_OPERATIONS = "behavior/confirm_operations"
     KEY_CONFIRM_DELETE = "behavior/confirm_delete"
-    KEY_SHOW_NOTIFICATIONS = "behavior/show_notifications"
-    KEY_SOUND_NOTIFICATIONS = "behavior/sound_notifications"
+    KEY_CONFIRM_REANALYZE = "behavior/confirm_reanalyze"
     KEY_AUTO_ANALYZE = "behavior/auto_analyze_on_open"
 
     # === LOGGING ===
@@ -230,9 +229,9 @@ class SettingsManager:
         """Obtiene si se debe confirmar eliminaciones (por defecto True)"""
         return self.get_bool(self.KEY_CONFIRM_DELETE, True)
 
-    def get_show_notifications(self) -> bool:
-        """Obtiene si se deben mostrar notificaciones (por defecto True)"""
-        return self.get_bool(self.KEY_SHOW_NOTIFICATIONS, True)
+    def get_confirm_reanalyze(self) -> bool:
+        """Obtiene si se debe confirmar antes de reanalizar tras operaciones (por defecto True)"""
+        return self.get_bool(self.KEY_CONFIRM_REANALYZE, True)
 
     def get_auto_analyze(self) -> bool:
         """Obtiene si se debe auto-analizar al abrir directorio (por defecto False)"""

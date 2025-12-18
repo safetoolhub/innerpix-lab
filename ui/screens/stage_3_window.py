@@ -720,39 +720,47 @@ class Stage3Window(BaseStage):
                 was_simulation = plan.get('dry_run', False)
                 
                 if not was_simulation:
-                    # Crear mensaje específico para el servicio
-                    service_message = self._get_service_update_message(tool_id)
+                    # Verificar si se debe pedir confirmación antes de reanalizar
+                    should_confirm = settings_manager.get_confirm_reanalyze()
                     
-                    # Then ask user about re-analysis
-                    reply = QMessageBox.question(
-                        self.main_window,
-                        "Actualizar estadísticas",
-                        service_message,
-                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                        QMessageBox.StandardButton.Yes  # Default to Yes
-                    )
-                    
-                    if reply == QMessageBox.StandardButton.Yes:
-                        # Re-analyze specific service
-                        log_section_header_discrete(self.logger, f"Actualización de estadísticas solicitada para {tool_id}")
-                        # NOTA: No invalidamos la caché aquí porque el usuario quiere actualizar estadísticas
-                        # La caché ya está actualizada, solo necesitamos recalcular el análisis del servicio
-                        QTimer.singleShot(500, lambda: self._update_service_stats(tool_id))
+                    if should_confirm:
+                        # Pedir confirmación al usuario
+                        service_message = self._get_service_update_message(tool_id)
+                        
+                        reply = QMessageBox.question(
+                            self.main_window,
+                            "Actualizar estadísticas",
+                            service_message,
+                            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                            QMessageBox.StandardButton.Yes  # Default to Yes
+                        )
+                        
+                        if reply == QMessageBox.StandardButton.Yes:
+                            # Re-analyze specific service
+                            log_section_header_discrete(self.logger, f"Actualización de estadísticas solicitada para {tool_id}")
+                            # NOTA: No invalidamos la caché aquí porque el usuario quiere actualizar estadísticas
+                            # La caché ya está actualizada, solo necesitamos recalcular el análisis del servicio
+                            QTimer.singleShot(500, lambda: self._update_service_stats(tool_id))
+                        else:
+                            # User chose to skip re-analysis
+                            self.logger.info("Usuario omitió re-análisis, las estadísticas pueden estar desactualizadas")
+                            
+                            # NOTA: La caché ya se actualizó automáticamente durante la operación.
+                            # Esta invalidación completa es opcional y conservadora por si hubo
+                            # algún error en las actualizaciones individuales.
+                            self._invalidate_metadata_cache()
+                            
+                            # Mostrar banner de advertencia
+                            if self.stale_banner:
+                                self.stale_banner.show()
+                                # Asegurar que el banner sea visible (scroll to top if needed)
+                                if hasattr(self.main_window, 'scroll_area'):
+                                    self.main_window.scroll_area.ensureWidgetVisible(self.stale_banner)
                     else:
-                        # User chose to skip re-analysis
-                        self.logger.info("Usuario omitió re-análisis, las estadísticas pueden estar desactualizadas")
-                        
-                        # NOTA: La caché ya se actualizó automáticamente durante la operación.
-                        # Esta invalidación completa es opcional y conservadora por si hubo
-                        # algún error en las actualizaciones individuales.
-                        self._invalidate_metadata_cache()
-                        
-                        # Mostrar banner de advertencia
-                        if self.stale_banner:
-                            self.stale_banner.show()
-                            # Asegurar que el banner sea visible (scroll to top if needed)
-                            if hasattr(self.main_window, 'scroll_area'):
-                                self.main_window.scroll_area.ensureWidgetVisible(self.stale_banner)
+                        # Actualizar automáticamente sin confirmación
+                        self.logger.info(f"Actualizando estadísticas automáticamente para {tool_id} (sin confirmación)")
+                        log_section_header_discrete(self.logger, f"Actualización automática de estadísticas para {tool_id}")
+                        QTimer.singleShot(500, lambda: self._update_service_stats(tool_id, auto_update=True))
         
         def on_error(error_message):
             # Ignorar si ya se canceló
@@ -861,14 +869,15 @@ class Stage3Window(BaseStage):
             f"Nota: Esta operación es rápida y solo afecta a {service_name}."
         )
     
-    def _update_service_stats(self, tool_id: str) -> None:
+    def _update_service_stats(self, tool_id: str, auto_update: bool = False) -> None:
         """
         Actualiza las estadísticas de un servicio específico y refresca la UI.
         
         Args:
             tool_id: ID del servicio a actualizar
+            auto_update: Si es True, no muestra mensaje de confirmación al finalizar
         """
-        self.logger.info(f"Actualizando estadísticas para servicio: {tool_id}")
+        self.logger.info(f"Actualizando estadísticas para servicio: {tool_id} (auto_update={auto_update})")
         
         try:
             # Obtener el análisis actualizado para este servicio específico
@@ -902,23 +911,24 @@ class Stage3Window(BaseStage):
                 
                 self.logger.info(f"Estadísticas actualizadas exitosamente para {tool_id}")
                 
-                # Mostrar mensaje de éxito
-                service_names = {
-                    'live_photos': 'Live Photos',
-                    'heic': 'HEIC/JPG',
-                    'duplicates_exact': 'Duplicados Exactos',
-                    'duplicates_similar': 'Duplicados Similares', 
-                    'file_organizer': 'Organización de Archivos',
-                    'file_renamer': 'Renombrado de Archivos',
-                    'zero_byte': 'Archivos Vacíos'
-                }
-                service_name = service_names.get(tool_id, tool_id)
-                
-                QMessageBox.information(
-                    self.main_window,
-                    "Estadísticas actualizadas",
-                    f"Las estadísticas de {service_name} han sido actualizadas correctamente."
-                )
+                # Solo mostrar mensaje de éxito si NO es actualización automática
+                if not auto_update:
+                    service_names = {
+                        'live_photos': 'Live Photos',
+                        'heic': 'HEIC/JPG',
+                        'duplicates_exact': 'Duplicados Exactos',
+                        'duplicates_similar': 'Duplicados Similares', 
+                        'file_organizer': 'Organización de Archivos',
+                        'file_renamer': 'Renombrado de Archivos',
+                        'zero_byte': 'Archivos Vacíos'
+                    }
+                    service_name = service_names.get(tool_id, tool_id)
+                    
+                    QMessageBox.information(
+                        self.main_window,
+                        "Estadísticas actualizadas",
+                        f"Las estadísticas de {service_name} han sido actualizadas correctamente."
+                    )
             else:
                 self.logger.warning(f"No se pudo obtener análisis actualizado para {tool_id}")
                 

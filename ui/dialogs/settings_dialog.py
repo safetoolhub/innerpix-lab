@@ -240,20 +240,16 @@ class SettingsDialog(QDialog):
         self.confirm_delete_checkbox.setStyleSheet(DesignSystem.get_checkbox_style())
         confirm_layout.addWidget(self.confirm_delete_checkbox)
 
+        self.confirm_reanalyze_checkbox = QCheckBox("Confirmar antes de reanalizar tras ejecutar operaciones")
+        self.confirm_reanalyze_checkbox.setChecked(True)
+        self.confirm_reanalyze_checkbox.setToolTip(
+            "Si está activado, se pedirá confirmación antes de actualizar las estadísticas.\n"
+            "Si está desactivado, se actualizarán automáticamente tras operaciones destructivas."
+        )
+        self.confirm_reanalyze_checkbox.setStyleSheet(DesignSystem.get_checkbox_style())
+        confirm_layout.addWidget(self.confirm_reanalyze_checkbox)
+
         layout.addWidget(confirm_group)
-
-        # === NOTIFICACIONES ===
-        notif_group = self._create_groupbox("Notificaciones")
-        notif_layout = QVLayout(notif_group)
-        notif_layout.setSpacing(DesignSystem.SPACE_12)
-
-        self.show_notifications_checkbox = QCheckBox("Mostrar notificación al completar operaciones")
-        self.show_notifications_checkbox.setChecked(True)
-        self.show_notifications_checkbox.setToolTip("Muestra una notificación cuando se completan las operaciones")
-        self.show_notifications_checkbox.setStyleSheet(DesignSystem.get_checkbox_style())
-        notif_layout.addWidget(self.show_notifications_checkbox)
-
-        layout.addWidget(notif_group)
 
         # === INTERFAZ ===
         interface_group = self._create_groupbox("Interfaz")
@@ -709,7 +705,7 @@ class SettingsDialog(QDialog):
             self.auto_backup_checkbox.setChecked(settings_manager.get_auto_backup_enabled())
 
             self.confirm_delete_checkbox.setChecked(settings_manager.get_confirm_delete())
-            self.show_notifications_checkbox.setChecked(settings_manager.get_show_notifications())
+            self.confirm_reanalyze_checkbox.setChecked(settings_manager.get_confirm_reanalyze())
             self.show_full_path_checkbox.setChecked(settings_manager.get_show_full_path())
 
             # Configuración de análisis inicial (General tab)
@@ -762,7 +758,7 @@ class SettingsDialog(QDialog):
             'auto_backup': self.auto_backup_checkbox.isChecked(),
 
             'confirm_delete': self.confirm_delete_checkbox.isChecked(),
-            'show_notif': self.show_notifications_checkbox.isChecked(),
+            'confirm_reanalyze': self.confirm_reanalyze_checkbox.isChecked(),
             'show_path': self.show_full_path_checkbox.isChecked(),
             'max_workers': self.max_workers_spin.value(),
             'dry_run': self.dry_run_default_checkbox.isChecked(),
@@ -779,7 +775,7 @@ class SettingsDialog(QDialog):
         self.auto_backup_checkbox.stateChanged.connect(lambda: self._on_widget_changed("auto_backup"))
 
         self.confirm_delete_checkbox.stateChanged.connect(lambda: self._on_widget_changed("confirm_delete"))
-        self.show_notifications_checkbox.stateChanged.connect(lambda: self._on_widget_changed("show_notif"))
+        self.confirm_reanalyze_checkbox.stateChanged.connect(lambda: self._on_widget_changed("confirm_reanalyze"))
         self.show_full_path_checkbox.stateChanged.connect(lambda: self._on_widget_changed("show_path"))
         self.dry_run_default_checkbox.stateChanged.connect(lambda: self._on_widget_changed("dry_run"))
         self.precalculate_hashes_checkbox.stateChanged.connect(lambda: self._on_widget_changed("precalculate_hashes"))
@@ -838,9 +834,9 @@ class SettingsDialog(QDialog):
         original_confirm_delete = self.original_values['confirm_delete']
         confirm_delete_changed = current_confirm_delete != original_confirm_delete
         
-        current_show_notif = self.show_notifications_checkbox.isChecked()
-        original_show_notif = self.original_values['show_notif']
-        show_notif_changed = current_show_notif != original_show_notif
+        current_confirm_reanalyze = self.confirm_reanalyze_checkbox.isChecked()
+        original_confirm_reanalyze = self.original_values['confirm_reanalyze']
+        confirm_reanalyze_changed = current_confirm_reanalyze != original_confirm_reanalyze
         
         current_show_path = self.show_full_path_checkbox.isChecked()
         original_show_path = self.original_values['show_path']
@@ -878,7 +874,7 @@ class SettingsDialog(QDialog):
         
         has_changes = (
             logs_changed or backup_changed or level_changed or auto_backup_changed or
-            confirm_delete_changed or show_notif_changed or
+            confirm_delete_changed or confirm_reanalyze_changed or
             show_path_changed or max_workers_changed or dry_run_changed or
             ui_update_changed or precalculate_hashes_changed or
             precalculate_image_exif_changed or precalculate_video_exif_changed or
@@ -1104,9 +1100,8 @@ class SettingsDialog(QDialog):
             self.backup_edit.setText(str(Config.DEFAULT_BACKUP_DIR))
             self.log_level_combo.setCurrentIndex(1)  # INFO
             self.auto_backup_checkbox.setChecked(True)
-            self.confirm_operations_checkbox.setChecked(True)
             self.confirm_delete_checkbox.setChecked(True)
-            self.show_notifications_checkbox.setChecked(True)
+            self.confirm_reanalyze_checkbox.setChecked(True)
             self.show_full_path_checkbox.setChecked(True)
             self.dry_run_default_checkbox.setChecked(False)
             self.max_workers_spin.setValue(Config.MAX_WORKERS)
@@ -1134,7 +1129,7 @@ class SettingsDialog(QDialog):
             current_auto_backup = settings_manager.get_auto_backup_enabled()
             current_confirm_ops = settings_manager.get_confirm_operations()
             current_confirm_delete = settings_manager.get_confirm_delete()
-            current_show_notif = settings_manager.get_show_notifications()
+            current_confirm_reanalyze = settings_manager.get_confirm_reanalyze()
             current_show_path = settings_manager.get_show_full_path()
             current_max_workers = settings_manager.get_max_workers(Config.MAX_WORKERS)
             current_dry_run = settings_manager.get_bool(settings_manager.KEY_DRY_RUN_DEFAULT, False)
@@ -1150,7 +1145,7 @@ class SettingsDialog(QDialog):
             new_log_level = self.log_level_combo.currentText().split()[0].split(" - ")[0].upper()
             new_auto_backup = self.auto_backup_checkbox.isChecked()
             new_confirm_delete = self.confirm_delete_checkbox.isChecked()
-            new_show_notif = self.show_notifications_checkbox.isChecked()
+            new_confirm_reanalyze = self.confirm_reanalyze_checkbox.isChecked()
             new_show_path = self.show_full_path_checkbox.isChecked()
             new_max_workers = self.max_workers_spin.value()
             new_ui_update = self.ui_update_spin.value()
@@ -1168,7 +1163,7 @@ class SettingsDialog(QDialog):
                 logs_dir_changed or backup_dir_changed or log_level_changed or
                 current_auto_backup != new_auto_backup or
                 current_confirm_delete != new_confirm_delete or
-                current_show_notif != new_show_notif or
+                current_confirm_reanalyze != new_confirm_reanalyze or
                 current_show_path != new_show_path or
                 current_max_workers != new_max_workers or
                 current_ui_update != new_ui_update or
@@ -1215,8 +1210,8 @@ class SettingsDialog(QDialog):
                 settings_manager.set_auto_backup_enabled(new_auto_backup)
             if current_confirm_delete != new_confirm_delete:
                 settings_manager.set(settings_manager.KEY_CONFIRM_DELETE, new_confirm_delete)
-            if current_show_notif != new_show_notif:
-                settings_manager.set(settings_manager.KEY_SHOW_NOTIFICATIONS, new_show_notif)
+            if current_confirm_reanalyze != new_confirm_reanalyze:
+                settings_manager.set(settings_manager.KEY_CONFIRM_REANALYZE, new_confirm_reanalyze)
             if current_show_path != new_show_path:
                 settings_manager.set_show_full_path(new_show_path)
 
