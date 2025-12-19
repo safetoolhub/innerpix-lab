@@ -13,6 +13,17 @@ PyQt6 desktop application for photo/video management.
 │   └── Services.md
 ├── fixtures/
 │   └── cache_test/
+├── tests/
+│   ├── unit/
+│   │   ├── services/
+│   │   │   └── test_zero_byte_service.py  # 28 tests pasando
+│   │   ├── ui/
+│   │   └── utils/
+│   ├── integration/
+│   ├── performance/
+│   │   └── test_large_dataset.py
+│   ├── conftest.py
+│   └── README.md
 ├── scripts/
 │   ├── demo_file_info_repository.py
 │   ├── verify_refactor_smoke.py

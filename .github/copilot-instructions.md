@@ -21,7 +21,7 @@ PyQt6 desktop app for photo/video management oriented to privacy.
 
 **File Metadata Repository Cache** (`services/file_metadata_repository_cache.py`) - Singleton cache system (SQLite migration ready)
 - **Pattern**: `FileInfoRepositoryCache.get_instance()` - NOT passed as parameter to services
-- **Population**: Use `populate_from_scan(files, strategy)` - bulk loading with strategies (incremental)
+- **Population**: Use `populate_from_scan(files, strategy, stop_check_callback)` - bulk loading with strategies (incremental)
   - `BASIC`: Solo filesystem metadata (rápido, OBLIGATORIO primero)
   - `HASH`: Solo SHA256 hashes (requiere BASIC previo, para duplicados exactos)
   - `EXIF_IMAGES`: Solo EXIF de imágenes (requiere BASIC previo, moderado)
@@ -31,10 +31,12 @@ PyQt6 desktop app for photo/video management oriented to privacy.
 - **Incremental workflow**: BASIC siempre primero, luego estrategias específicas según necesidad
 - **Auto-fetch**: Si metadata básica no existe, las estrategias la crean automáticamente
 - **Auto-fetch**: `get_file_metadata(path, auto_fetch=True)`, `get_hash(path, auto_fetch=True)`, `get_exif(path, auto_fetch=False)`
+- **Cancelación cooperativa**: `stop_check_callback` verifica cancelación en cada iteración del loop
+- **Progress throttling**: Reporta cada 1% o cada 100 archivos (evita saturación Qt en datasets grandes)
 - **Cache Management**:
   - `remove_file(path)`, `remove_files(paths)` - Después de operaciones destructivas
   - `set_max_entries(max)` - Ajuste dinámico con eviction LRU automático
-  - `clear()` - Limpia todo entre datasets
+  - `clear()` - Limpia todo entre datasets (usar `_invalidate_metadata_cache()` desde UI)
 - **Persistence** (opcional):
   - `save_to_disk(path)` - Serializa cache completo a JSON con metadata y stats
   - `load_from_disk(path, validate=True)` - Deserializa cache, opcionalmente valida existencia de archivos
@@ -76,7 +78,10 @@ PyQt6 desktop app for photo/video management oriented to privacy.
 
 **UI Stages** (`ui/screens/`) - 3-stage flow
 - Stage 1: Folder selector
-- Stage 2: Analysis progress
+- Stage 2: Analysis progress with graceful cancellation
+  - Timeout: 30 segundos para cancelación cooperativa (datasets grandes)
+  - Logging INFO cada 10% en fases 2, 3, 4
+  - Invalidación de caché al volver a Stage 1 con `_invalidate_metadata_cache()`
 - Stage 3: Tools grid → dialogs
 - All extend `BaseStage`
 

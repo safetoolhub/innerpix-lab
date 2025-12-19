@@ -40,6 +40,7 @@ Backups y modo simulación
 - **Simulación**: Implementar y probar el modo dry-run; las acciones deben registrar eventos marcados con `SIMULATION` y no modificar el FS.
 
 Guidelines para tests
+
 - **Tipos de tests**: Unitarios (rápidos), integración (interacción entre servicios), performance (datasets grandes) y tests de UI (si proceden).
 - **Ubicación**: `tests/unit`, `tests/integration`, `tests/performance`, `tests/ui`.
 - **Naming**: Tests claros y deterministas. Prefiere nombres como `test_<comportamiento>_cuando_<condicion>` o en inglés si el repo usa inglés.
