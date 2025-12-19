@@ -388,11 +388,11 @@ class FileInfoRepositoryCache:
                 fs_mtime=stat_info['mtime'],
                 fs_atime=stat_info['atime']
             )
-            self._logger.debug(f"Metadata básica procesada para {path.name}: {stat_info['size']} bytes")
+            self._logger.debug(f"Metadatos básicos procesados para {path.name}: {stat_info['size']} bytes")
             return metadata
         except (FileNotFoundError, PermissionError, OSError):
             # Logging detallado ya hecho en get_file_stat_info()
-            self._logger.debug(f"No se puede procesar archivo básico: {path.name}")
+            self._logger.debug(f"No se puede procesar archivo : {path.name} para obtener su metadata basica")
             return None
         except Exception as e:
             self._logger.error(f"Error inesperado en _process_file_basic para {path.name}: {type(e).__name__}: {e}")

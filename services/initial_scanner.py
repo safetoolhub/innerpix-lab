@@ -200,9 +200,19 @@ class InitialScanner:
             
             self.logger.info(f"Phase 2: {phase_msg}")
             
+            # Track percentage for logging
+            last_logged_percentage = 0
+            
             def hash_progress(current: int, total: int) -> bool:
+                nonlocal last_logged_percentage
                 if self._should_stop:
                     return False
+                
+                # Log progress every 10% at INFO level
+                current_percentage = (current * 100) // total
+                if current_percentage >= last_logged_percentage + 10 and current_percentage < 100:
+                    self.logger.info(f"Phase 2 (HASH) progreso: {current_percentage}% ({current:,}/{total:,} archivos)")
+                    last_logged_percentage = current_percentage
                 
                 if progress_callback:
                     phase_progress = PhaseProgress(
@@ -225,7 +235,7 @@ class InitialScanner:
             if self._should_stop:
                 self.logger.info("Phase 2 (HASH) cancelada por el usuario")
             else:
-                self.logger.info("Phase 2 complete: Hashes calculated")
+                self.logger.info("Phase 2 (HASH) complete: Hashes calculated")
             
             # Notify phase 2 completion
             if phase_completed_callback and not self._should_stop:
@@ -246,9 +256,19 @@ class InitialScanner:
             
             self.logger.info(f"Phase 3: {phase_msg}")
             
+            # Track percentage for logging
+            last_logged_percentage = 0
+            
             def image_exif_progress(current: int, total: int) -> bool:
+                nonlocal last_logged_percentage
                 if self._should_stop:
                     return False
+                
+                # Log progress every 10% at INFO level
+                current_percentage = (current * 100) // total
+                if current_percentage >= last_logged_percentage + 10 and current_percentage < 100:
+                    self.logger.info(f"Phase 3 (EXIF_IMAGES) progreso: {current_percentage}% ({current:,}/{total:,} imágenes)")
+                    last_logged_percentage = current_percentage
                 
                 if progress_callback:
                     phase_progress = PhaseProgress(
@@ -271,7 +291,7 @@ class InitialScanner:
             if self._should_stop:
                 self.logger.info("Phase 3 (EXIF_IMAGES) cancelada por el usuario")
             else:
-                self.logger.info("Phase 3 complete: Image EXIF extracted")
+                self.logger.info("Phase 3 (EXIF_IMAGES) complete: Image EXIF extracted")
             
             # Notify phase 3 completion
             if phase_completed_callback and not self._should_stop:
@@ -292,9 +312,19 @@ class InitialScanner:
             
             self.logger.info(f"Phase 4: {phase_msg}")
             
+            # Track percentage for logging
+            last_logged_percentage = 0
+            
             def video_exif_progress(current: int, total: int) -> bool:
+                nonlocal last_logged_percentage
                 if self._should_stop:
                     return False
+                
+                # Log progress every 10% at INFO level
+                current_percentage = (current * 100) // total
+                if current_percentage >= last_logged_percentage + 10 and current_percentage < 100:
+                    self.logger.info(f"Phase 4 (EXIF_VIDEOS) progreso: {current_percentage}% ({current:,}/{total:,} videos)")
+                    last_logged_percentage = current_percentage
                 
                 if progress_callback:
                     phase_progress = PhaseProgress(
@@ -317,7 +347,7 @@ class InitialScanner:
             if self._should_stop:
                 self.logger.info("Phase 4 (EXIF_VIDEOS) cancelada por el usuario")
             else:
-                self.logger.info("Phase 4 complete: Video EXIF extracted")
+                self.logger.info("Phase 4 (EXIF_VIDEOS) complete: Video EXIF extracted")
             
             # Notify phase 4 completion
             if phase_completed_callback and not self._should_stop:
