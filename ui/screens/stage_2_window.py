@@ -303,11 +303,7 @@ class Stage2Window(BaseStage):
         self.analysis_results = None
         
         # Invalidar caché para tener datos frescos en el próximo análisis
-        from services.file_metadata_repository_cache import FileInfoRepositoryCache
-        repo = FileInfoRepositoryCache.get_instance()
-        files_count = repo.count()
-        repo.clear()
-        self.logger.info(f"Caché invalidada - {files_count} archivos eliminados")
+        self._invalidate_metadata_cache()
 
         # Transición al Estado 1 a través de MainWindow
         self.main_window._transition_to_state_1()
