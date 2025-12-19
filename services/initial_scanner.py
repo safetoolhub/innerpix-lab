@@ -164,6 +164,7 @@ class InitialScanner:
         )
         
         if self._should_stop:
+            self.logger.info(f"Scan cancelado después de fase 1 (BASIC) - Archivos clasificados: {total_files}")
             return self._create_result_from_data(
                 total_files, images, videos, others,
                 image_extensions, video_extensions, unsupported_extensions
@@ -176,7 +177,8 @@ class InitialScanner:
         repo.populate_from_scan(
             files=supported_files,
             strategy=PopulationStrategy.BASIC,
-            progress_callback=None
+            progress_callback=None,
+            stop_check_callback=lambda: self._should_stop
         )
         
         # Notify phase 1 completion
@@ -216,10 +218,14 @@ class InitialScanner:
             repo.populate_from_scan(
                 files=supported_files,
                 strategy=PopulationStrategy.HASH,
-                progress_callback=hash_progress
+                progress_callback=hash_progress,
+                stop_check_callback=lambda: self._should_stop
             )
             
-            self.logger.info("Phase 2 complete: Hashes calculated")
+            if self._should_stop:
+                self.logger.info("Phase 2 (HASH) cancelada por el usuario")
+            else:
+                self.logger.info("Phase 2 complete: Hashes calculated")
             
             # Notify phase 2 completion
             if phase_completed_callback and not self._should_stop:
@@ -258,10 +264,14 @@ class InitialScanner:
             repo.populate_from_scan(
                 files=images,
                 strategy=PopulationStrategy.EXIF_IMAGES,
-                progress_callback=image_exif_progress
+                progress_callback=image_exif_progress,
+                stop_check_callback=lambda: self._should_stop
             )
             
-            self.logger.info("Phase 3 complete: Image EXIF extracted")
+            if self._should_stop:
+                self.logger.info("Phase 3 (EXIF_IMAGES) cancelada por el usuario")
+            else:
+                self.logger.info("Phase 3 complete: Image EXIF extracted")
             
             # Notify phase 3 completion
             if phase_completed_callback and not self._should_stop:
@@ -300,10 +310,14 @@ class InitialScanner:
             repo.populate_from_scan(
                 files=videos,
                 strategy=PopulationStrategy.EXIF_VIDEOS,
-                progress_callback=video_exif_progress
+                progress_callback=video_exif_progress,
+                stop_check_callback=lambda: self._should_stop
             )
             
-            self.logger.info("Phase 4 complete: Video EXIF extracted")
+            if self._should_stop:
+                self.logger.info("Phase 4 (EXIF_VIDEOS) cancelada por el usuario")
+            else:
+                self.logger.info("Phase 4 complete: Video EXIF extracted")
             
             # Notify phase 4 completion
             if phase_completed_callback and not self._should_stop:
@@ -322,8 +336,9 @@ class InitialScanner:
         
         # Log statistics
         stats = repo.get_stats()
+        scan_status = "cancelado" if self._should_stop else "completado"
         self.logger.info(
-            f"Scan complete: {stats.total_files} files in repository, "
+            f"Scan {scan_status}: {stats.total_files} files in repository, "
             f"{stats.files_with_hash} with hashes, "
             f"{stats.files_with_exif} with EXIF"
         )

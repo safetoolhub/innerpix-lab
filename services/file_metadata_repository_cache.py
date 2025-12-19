@@ -242,7 +242,8 @@ class FileInfoRepositoryCache:
         files: List[Path],
         strategy: PopulationStrategy = PopulationStrategy.BASIC,
         max_workers: Optional[int] = None,
-        progress_callback: Optional[callable] = None
+        progress_callback: Optional[callable] = None,
+        stop_check_callback: Optional[callable] = None
     ) -> None:
         """
         Puebla el repositorio con información de archivos usando una estrategia.
@@ -255,6 +256,7 @@ class FileInfoRepositoryCache:
             strategy: Estrategia de población (qué información cargar)
             max_workers: Número de workers paralelos (None = auto)
             progress_callback: Callback opcional para reportar progreso
+            stop_check_callback: Callback opcional que retorna True si debe cancelarse
         
         Examples:
             # Paso 1: SIEMPRE empezar con BASIC (scan inicial)
@@ -312,6 +314,15 @@ class FileInfoRepositoryCache:
                       for file_path in files}
             
             for future in as_completed(futures):
+                # Check for cancellation request BEFORE processing result
+                if stop_check_callback and stop_check_callback():
+                    self._logger.info(f"Cancelación detectada - Procesados: {processed}/{len(files)}")
+                    # Cancel pending futures cooperatively
+                    for pending_future in futures:
+                        if not pending_future.done():
+                            pending_future.cancel()
+                    break
+                
                 file_path = futures[future]
                 try:
                     metadata = future.result()
@@ -334,12 +345,15 @@ class FileInfoRepositoryCache:
                 # Progress callback
                 if progress_callback:
                     if not progress_callback(processed, len(files)):
-                        self._logger.warning("Población cancelada por usuario")
+                        self._logger.warning("Población cancelada por progress_callback")
                         break
         
+        # Log final con información de cancelación si aplica
+        cancelled = (stop_check_callback and stop_check_callback()) or processed < len(files)
+        status = "cancelada" if cancelled else "completada"
         self._logger.info(
-            f"Población completada - "
-            f"Procesados: {processed}, "
+            f"Población {status} - "
+            f"Procesados: {processed}/{len(files)}, "
             f"Errores: {errors}, "
             f"Total en caché: {len(self._cache)}"
         )

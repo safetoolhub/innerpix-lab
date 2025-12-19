@@ -94,11 +94,12 @@ class Stage2Window(BaseStage):
             self.logger.info("Deteniendo worker durante cleanup...")
             self.analysis_worker.stop()
             
-            # Esperar con timeout para evitar bloqueos indefinidos
-            if not self.analysis_worker.wait(5000):  # 5 segundos de timeout
-                self.logger.warning("Worker no respondió durante cleanup, terminando forzosamente")
+            # Esperar con timeout generoso para datasets grandes (100k+ archivos)
+            # 30 segundos permite cancelación cooperativa de workers paralelos
+            if not self.analysis_worker.wait(30000):  # 30 segundos de timeout
+                self.logger.warning("Worker no respondió en 30 segundos durante cleanup, terminando forzosamente")
                 self.analysis_worker.terminate()
-                self.analysis_worker.wait(1000)
+                self.analysis_worker.wait(2000)
             else:
                 self.logger.info("Worker detenido correctamente durante cleanup")
 
@@ -451,18 +452,20 @@ class Stage2Window(BaseStage):
         
         # Detener worker si está ejecutándose
         if self.analysis_worker and self.analysis_worker.isRunning():
-            self.logger.debug("Deteniendo worker de análisis...")
+            self.logger.info("Solicitando cancelación del worker de análisis...")
             self.analysis_worker.stop()
             
-            # Esperar con timeout para evitar bloqueos indefinidos
-            # Con 50000 archivos, el worker debería responder en menos de 5 segundos
-            if not self.analysis_worker.wait(5000):  # 5 segundos de timeout
-                self.logger.warning("Worker no respondió en 5 segundos, terminando forzosamente")
+            # Esperar con timeout generoso para datasets grandes (100k+ archivos)
+            # 30 segundos permite que los workers paralelos terminen cooperativamente
+            self.logger.debug("Esperando hasta 30 segundos para cancelación cooperativa...")
+            if not self.analysis_worker.wait(30000):  # 30 segundos de timeout
+                self.logger.warning("Worker no respondió en 30 segundos, terminando forzosamente")
                 self.analysis_worker.terminate()
                 # Esperar un poco más después de terminate
-                self.analysis_worker.wait(1000)
+                self.analysis_worker.wait(2000)
+                self.logger.warning("⚠️ Cancelación forzosa aplicada - puede haber inconsistencias")
             else:
-                self.logger.info("Worker detenido correctamente")
+                self.logger.info("✓ Worker cancelado correctamente de forma cooperativa")
         
         # Volver a Estado 1
         self._return_to_state_1()
