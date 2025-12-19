@@ -144,6 +144,10 @@ class Stage2Window(BaseStage):
             total: Total de archivos
             message: Mensaje descriptivo (ignorado)
         """
+        # Debug logging para fase de hashes (cada 100 archivos)
+        if self.current_phase == 'phase_hash' and current % 100 == 0:
+            self.logger.debug(f"Hash progress: {current}/{total}")
+        
         # Actualizar contador de la fase actual si hay números válidos
         if self.current_phase and self.progress_card and total > 0:
             self.progress_card.update_phase_progress(self.current_phase, current, total)
@@ -297,6 +301,13 @@ class Stage2Window(BaseStage):
 
         # Limpiar datos del análisis
         self.analysis_results = None
+        
+        # Invalidar caché para tener datos frescos en el próximo análisis
+        from services.file_metadata_repository_cache import FileInfoRepositoryCache
+        repo = FileInfoRepositoryCache.get_instance()
+        files_count = repo.count()
+        repo.clear()
+        self.logger.info(f"Caché invalidada - {files_count} archivos eliminados")
 
         # Transición al Estado 1 a través de MainWindow
         self.main_window._transition_to_state_1()

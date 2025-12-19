@@ -306,6 +306,8 @@ class FileInfoRepositoryCache:
         # Procesar en paralelo
         processed = 0
         errors = 0
+        last_progress_report = 0
+        progress_report_interval = max(1, len(files) // 100)  # Report every 1% or at least every file
         
         max_workers = max_workers or min(32, (len(files) // 10) + 1)
         
@@ -342,11 +344,18 @@ class FileInfoRepositoryCache:
                     self._logger.error(f"Error inesperado procesando {file_path.name}: {type(e).__name__}: {e}")
                     errors += 1
                 
-                # Progress callback
+                # Progress callback with throttling (report every N files or on last file)
                 if progress_callback:
-                    if not progress_callback(processed, len(files)):
-                        self._logger.warning("Población cancelada por progress_callback")
-                        break
+                    should_report = (
+                        processed - last_progress_report >= progress_report_interval or
+                        processed == len(files) or
+                        processed % 100 == 0  # Always report every 100 files
+                    )
+                    if should_report:
+                        if not progress_callback(processed, len(files)):
+                            self._logger.warning("Población cancelada por progress_callback")
+                            break
+                        last_progress_report = processed
         
         # Log final con información de cancelación si aplica
         cancelled = (stop_check_callback and stop_check_callback()) or processed < len(files)
