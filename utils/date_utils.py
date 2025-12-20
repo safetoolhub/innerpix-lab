@@ -3,12 +3,140 @@ Utilidades para extracción de fechas de archivos multimedia
 """
 import logging
 from pathlib import Path
-from datetime import datetime
-from typing import Optional
+from datetime import datetime, timezone
+from typing import Optional, Tuple, Protocol, Any, runtime_checkable
+
+try:
+    # Intento de importar FileMetadata si existe en el path indicado por el usuario
+    # o donde se encuentre realmente en el proyecto
+    from services.file_metadata import FileMetadata
+except ImportError:
+    pass
+
 from functools import lru_cache
 from utils.logger import get_logger
 
 _logger = get_logger("DateUtils")
+
+
+# Protocolo para definir la estructura esperada de FileInfo/FileMetadata
+# según la especificación del usuario
+@runtime_checkable
+class FileInfoProtocol(Protocol):
+    path: Path
+    # Campos EXIF (opcionales, datetime)
+    exif_date_time_original: Optional[datetime]
+    exif_create_date: Optional[datetime]
+    exif_modify_date: Optional[datetime]
+    # Timestamps del filesystem (opcionales, datetime)
+    atime: Optional[datetime]
+    ctime: Optional[datetime]
+    mtime: Optional[datetime]
+
+
+def get_best_creation_date(
+    file1: Any, 
+    file2: Any
+) -> Optional[Tuple[datetime, datetime, str]]:
+    """
+    Compara las fechas de creación más realistas posibles de dos archivos de imagen.
+    
+    Devuelve una tupla con (fecha_file1, fecha_file2, fuente) donde las fechas son
+    del mismo tipo para ambos archivos (nunca mezcla EXIF con filesystem).
+    
+    Prioriza fidelidad al momento de captura/creación original:
+    1. EXIF DateTimeOriginal (Captura exacta)
+    2. EXIF CreateDate (Creación digital)
+    3. EXIF ModifyDate (Última modificación EXIF)
+    4. Filesystem ctime (Change time - creación/metadatos)
+    5. Filesystem mtime (Modify time - contenido)
+    6. Filesystem atime (Access time - último recurso)
+    
+    Args:
+        file1: Objeto con metadatos del primer archivo (FileInfo/FileMetadata)
+        file2: Objeto con metadatos del segundo archivo (FileInfo/FileMetadata)
+        
+    Returns:
+        Tuple[datetime, datetime, str]: (fecha1, fecha2, fuente_usada)
+        None: Si no se puede determinar ninguna fecha válida común
+        
+    Examples:
+        >>> from types import SimpleNamespace
+        >>> dt1 = datetime(2023, 1, 1, 12, 0, 0)
+        >>> dt2 = datetime(2023, 1, 2, 12, 0, 0)
+        >>> f1 = SimpleNamespace(path='f1', exif_date_time_original=dt1)
+        >>> f2 = SimpleNamespace(path='f2', exif_date_time_original=dt2)
+        >>> get_best_creation_date(f1, f2)
+        (datetime.datetime(2023, 1, 1, 12, 0), datetime.datetime(2023, 1, 2, 12, 0), 'exif_date_time_original')
+    """
+    # Validar que los objetos tienen los atributos necesarios
+    # Se usa getattr para seguridad si los objetos no cumplen estrictamente el protocolo
+    
+    # ---------------------------------------------------------
+    # 1. PRIORIDAD: AMBOS TIENEN EXIF VÁLIDOS
+    # ---------------------------------------------------------
+    
+    # Prioridad 1: EXIF DateTimeOriginal (Captura exacta)
+    f1_dto = getattr(file1, 'exif_date_time_original', None)
+    f2_dto = getattr(file2, 'exif_date_time_original', None)
+    
+    if f1_dto is not None and f2_dto is not None:
+        _logger.debug(f"Source selected: exif_date_time_original for {getattr(file1, 'path', 'f1')} and {getattr(file2, 'path', 'f2')}")
+        return f1_dto, f2_dto, 'exif_date_time_original'
+        
+    # Prioridad 2: EXIF CreateDate (Creación digital)
+    # Nota: A veces llamado DateTimeDigitized en estandares, aquí usamos create_date
+    f1_cd = getattr(file1, 'exif_create_date', None)
+    f2_cd = getattr(file2, 'exif_create_date', None)
+    
+    if f1_cd is not None and f2_cd is not None:
+        _logger.debug(f"Source selected: exif_create_date for {getattr(file1, 'path', 'f1')} and {getattr(file2, 'path', 'f2')}")
+        return f1_cd, f2_cd, 'exif_create_date'
+        
+    # Prioridad 3: EXIF ModifyDate (Última modificación EXIF)
+    f1_md = getattr(file1, 'exif_modify_date', None)
+    f2_md = getattr(file2, 'exif_modify_date', None)
+    
+    if f1_md is not None and f2_md is not None:
+        _logger.debug(f"Source selected: exif_modify_date for {getattr(file1, 'path', 'f1')} and {getattr(file2, 'path', 'f2')}")
+        return f1_md, f2_md, 'exif_modify_date'
+
+    # ---------------------------------------------------------
+    # 2. SOLO UNO O NINGUNO TIENE EXIF -> FILESYSTEM (FALLBACK)
+    # ---------------------------------------------------------
+    
+    # Prioridad 1: ctime (Change time - más cercano a creación original en muchos OS)
+    f1_ctime = getattr(file1, 'ctime', None)
+    f2_ctime = getattr(file2, 'ctime', None)
+    
+    if f1_ctime is not None and f2_ctime is not None:
+        _logger.debug(f"Source selected: fs_ctime for {getattr(file1, 'path', 'f1')} and {getattr(file2, 'path', 'f2')}")
+        return f1_ctime, f2_ctime, 'fs_ctime'
+        
+    # Prioridad 2: mtime (Modify time - contenido)
+    f1_mtime = getattr(file1, 'mtime', None)
+    f2_mtime = getattr(file2, 'mtime', None)
+    
+    if f1_mtime is not None and f2_mtime is not None:
+        _logger.debug(f"Source selected: fs_mtime for {getattr(file1, 'path', 'f1')} and {getattr(file2, 'path', 'f2')}")
+        return f1_mtime, f2_mtime, 'fs_mtime'
+        
+    # Prioridad 3: atime (Access time - menos fiable)
+    f1_atime = getattr(file1, 'atime', None)
+    f2_atime = getattr(file2, 'atime', None)
+    
+    if f1_atime is not None and f2_atime is not None:
+        _logger.debug(f"Source selected: fs_atime for {getattr(file1, 'path', 'f1')} and {getattr(file2, 'path', 'f2')}")
+        return f1_atime, f2_atime, 'fs_atime'
+
+    # ---------------------------------------------------------
+    # 3. NO SE PUDO DETERMINAR NINGUNA FECHA COMÚN
+    # ---------------------------------------------------------
+    _logger.warning(
+        f"Unable to find common date source for comparison between "
+        f"{getattr(file1, 'path', 'file1')} and {getattr(file2, 'path', 'file2')}"
+    )
+    return None
 
 
 def validate_date_coherence(all_dates: dict) -> dict:
