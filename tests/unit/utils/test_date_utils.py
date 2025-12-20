@@ -9,6 +9,7 @@ from pathlib import Path
 from datetime import datetime
 from unittest.mock import Mock, patch, MagicMock
 from utils.date_utils import (
+    get_best_creation_date,
     select_chosen_date,
     get_date_from_file,
     format_renamed_name,
@@ -1344,3 +1345,155 @@ class TestVideoMetadataConfiguration:
         
         # Verificar que Config.USE_VIDEO_METADATA se actualizó
         assert Config.USE_VIDEO_METADATA is True
+
+@pytest.mark.unit
+class TestGetBestCreationDateComprehensive:
+    """Tests exhaustivos para get_best_creation_date con la nueva lógica profesional"""
+
+    @pytest.fixture
+    def file1_exif(self):
+        from types import SimpleNamespace
+        return SimpleNamespace(
+            path="file1.jpg",
+            exif_date_time_original=datetime(2023, 1, 1, 12, 0, 0),
+            exif_create_date=datetime(2023, 1, 1, 12, 30, 0),
+            mtime=datetime(2023, 1, 1, 15, 0, 0).timestamp(),
+            ctime=datetime(2023, 1, 1, 16, 0, 0).timestamp(),
+            atime=datetime(2023, 1, 1, 17, 0, 0).timestamp()
+        )
+
+    @pytest.fixture
+    def file2_exif(self):
+        from types import SimpleNamespace
+        return SimpleNamespace(
+            path="file2.heic",
+            exif_date_time_original=datetime(2023, 1, 1, 12, 0, 5),
+            exif_create_date=datetime(2023, 1, 1, 12, 31, 0),
+            mtime=datetime(2023, 1, 1, 15, 1, 0).timestamp(),
+            ctime=datetime(2023, 1, 1, 16, 1, 0).timestamp(),
+            atime=datetime(2023, 1, 1, 17, 1, 0).timestamp()
+        )
+
+    def test_priority_1_exif_original(self, file1_exif, file2_exif):
+        """Debe priorizar EXIF DateTimeOriginal sobre todo lo demás"""
+        # Cambiamos mtime para que sea "más viejo" pero EXIF debe mandar
+        file1_exif.mtime = datetime(2020, 1, 1).timestamp()
+        file2_exif.mtime = datetime(2020, 1, 1).timestamp()
+        
+        d1, d2, source = get_best_creation_date(file1_exif, file2_exif)
+        
+        assert d1 == datetime(2023, 1, 1, 12, 0, 0)
+        assert d2 == datetime(2023, 1, 1, 12, 0, 5)
+        assert source == 'exif_date_time_original'
+
+    def test_fallback_to_exif_create_date(self, file1_exif, file2_exif):
+        """Debe caer a EXIF CreateDate si no hay Original"""
+        file1_exif.exif_date_time_original = None
+        file2_exif.exif_date_time_original = None
+        
+        d1, d2, source = get_best_creation_date(file1_exif, file2_exif)
+        
+        assert d1 == datetime(2023, 1, 1, 12, 30, 0)
+        assert d2 == datetime(2023, 1, 1, 12, 31, 0)
+        assert source == 'exif_create_date'
+
+    def test_filesystem_fallback_mtime_is_oldest(self, file1_exif, file2_exif):
+        """Sin EXIF, debe elegir mtime si es la fuente común más antigua (caso normal)"""
+        file1_exif.exif_date_time_original = None
+        file1_exif.exif_create_date = None
+        file2_exif.exif_date_time_original = None
+        file2_exif.exif_create_date = None
+        
+        # mtime < ctime < atime
+        d1, d2, source = get_best_creation_date(file1_exif, file2_exif)
+        
+        assert d1 == datetime(2023, 1, 1, 15, 0, 0)
+        assert d2 == datetime(2023, 1, 1, 15, 1, 0)
+        assert source == 'fs_mtime'
+
+    def test_filesystem_fallback_ctime_is_oldest(self, file1_exif, file2_exif, caplog):
+        """Sin EXIF, debe elegir ctime si es más antigua que mtime (anomalía detectada)"""
+        import logging
+        file1_exif.exif_date_time_original = None
+        file1_exif.exif_create_date = None
+        file1_exif.exif_modify_date = None
+        file2_exif.exif_date_time_original = None
+        file2_exif.exif_create_date = None
+        file2_exif.exif_modify_date = None
+        
+        # ctime (14:00) < mtime (15:00)
+        file1_exif.ctime = datetime(2023, 1, 1, 14, 0, 0).timestamp()
+        file2_exif.ctime = datetime(2023, 1, 1, 14, 1, 0).timestamp()
+        
+        with caplog.at_level(logging.WARNING):
+            d1, d2, source = get_best_creation_date(file1_exif, file2_exif)
+            
+            assert d1 == datetime(2023, 1, 1, 14, 0, 0)
+            assert d2 == datetime(2023, 1, 1, 14, 1, 0)
+            assert source == 'fs_ctime'
+            assert "ANOMALÍA DE FECHAS" in caplog.text
+            assert "fs_ctime" in caplog.text
+
+    def test_only_returns_if_source_present_in_both(self, file1_exif, file2_exif):
+        """Solo debe devolver una fuente si ambos archivos disponen de ella"""
+        from types import SimpleNamespace
+        file1_exif.exif_date_time_original = None
+        file1_exif.exif_create_date = None
+        file1_exif.exif_modify_date = None
+        file2_exif.exif_date_time_original = None
+        file2_exif.exif_create_date = None
+        file2_exif.exif_modify_date = None
+
+        # f1 solo tiene mtime, f2 solo tiene ctime
+        # No hay fuente COMÚN
+        f1_solo_m = SimpleNamespace(path="f1", mtime=datetime(2020,1,1).timestamp())
+        f2_solo_c = SimpleNamespace(path="f2", ctime=datetime(2020,1,1).timestamp())
+        
+        result = get_best_creation_date(f1_solo_m, f2_solo_c)
+        assert result is None
+
+    def test_mixed_exif_one_file_only(self, file1_exif, file2_exif):
+        """Si solo un archivo tiene EXIF, debe caer a filesystem (fuente común)"""
+        # file1 tiene EXIF, file2 no
+        file2_exif.exif_date_time_original = None
+        file2_exif.exif_create_date = None
+        file2_exif.exif_modify_date = None
+        
+        d1, d2, source = get_best_creation_date(file1_exif, file2_exif)
+        
+        # Cae a mtime porque es la fuente común (pese a que f1 tenía EXIF)
+        assert source == 'fs_mtime'
+        assert d1 == datetime(2023, 1, 1, 15, 0, 0)
+        assert d2 == datetime(2023, 1, 1, 15, 1, 0)
+
+    def test_absolute_oldest_among_commons(self, file1_exif, file2_exif):
+        """Debe elegir la fuente común que contenga la fecha absoluta más antigua"""
+        file1_exif.exif_date_time_original = None
+        file1_exif.exif_create_date = None
+        file2_exif.exif_date_time_original = None
+        file2_exif.exif_create_date = None
+
+        # mtime: 2023
+        # ctime: 2022 (La más antigua común)
+        # atime: 2024
+        file1_exif.mtime = datetime(2023, 1, 1).timestamp()
+        file1_exif.ctime = datetime(2022, 1, 1).timestamp()
+        file1_exif.atime = datetime(2024, 1, 1).timestamp()
+        
+        file2_exif.mtime = datetime(2023, 1, 1, 1).timestamp()
+        file2_exif.ctime = datetime(2022, 1, 1, 1).timestamp()
+        file2_exif.atime = datetime(2024, 1, 1, 1).timestamp()
+        
+        d1, d2, source = get_best_creation_date(file1_exif, file2_exif)
+        
+        assert source == 'fs_ctime'
+        assert d1 == datetime(2022, 1, 1)
+
+    def test_handles_missing_attributes_gracefully(self):
+        """Debe manejar objetos que no tienen todos los campos del protocolo"""
+        from types import SimpleNamespace
+        f1 = SimpleNamespace(path="f1") # Sin mtime/ctime/atime/exif
+        f2 = SimpleNamespace(path="f2")
+        
+        result = get_best_creation_date(f1, f2)
+        assert result is None
