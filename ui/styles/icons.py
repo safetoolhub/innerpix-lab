@@ -55,6 +55,7 @@ class IconManager:
         'checkbox-marked-circle': 'mdi6.checkbox-marked-circle',
         'shield': 'mdi6.shield',
         'shield-check': 'mdi6.shield-check',
+        'fingerprint': 'mdi6.fingerprint',
         'close': 'mdi6.close',
         'close-circle': 'mdi6.close-circle',
         'pause-circle': 'mdi6.pause-circle',

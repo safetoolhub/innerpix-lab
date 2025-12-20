@@ -160,10 +160,6 @@ class HeicService(BaseService):
                 
                 self.logger.debug(f"Analizando par: {base_name} en {directory}")
                 
-                # Log INFO cada 10% de los pares totales
-                if total_common_bases > 0 and processed_pairs % progress_checkpoint == 0:
-                    percent = (processed_pairs / total_common_bases) * 100
-                    self.logger.info(f"Progreso análisis HEIC: {percent:.0f}% ({processed_pairs}/{total_common_bases} pares)")
                 
                 try:
                     # Validación de fechas usando get_best_creation_date
@@ -173,11 +169,11 @@ class HeicService(BaseService):
                     
                     if not best_date_result:
                         # No hay fecha común válida, rechazar
-                        reject_reason = "No common date found"
-                        self.logger.debug(f"Par rechazado {base_name}: {reject_reason}")
+                        reject_reason = "No existe fecha común para comparar"
+                        self.logger.info(f"Par rechazado {base_name}: {reject_reason}")
                         # Detalles para diagnóstico
-                        self.logger.debug(f"  Metadatos HEIC: {heic_meta.get_summary(verbose=True)}")
-                        self.logger.debug(f"  Metadatos JPG:  {jpg_meta.get_summary(verbose=True)}")
+                        self.logger.info(f"  Metadatos HEIC: {heic_meta.get_summary(verbose=True)}")
+                        self.logger.info(f"  Metadatos JPG:  {jpg_meta.get_summary(verbose=True)}")
                         
                         rejected_pair = HEICDuplicatePair(
                             heic_path=heic_meta.path,
@@ -199,9 +195,13 @@ class HeicService(BaseService):
                     # Calcular diferencia
                     time_diff = abs((heic_date - jpg_date).total_seconds())
                     
-                    # Validar diferencia si corresponde
-                    if validate_dates and time_diff > Config.MAX_TIME_DIFFERENCE_SECONDS: # Usar config o 5.0
-                        self.logger.debug(f"Par rechazado por tiempo {base_name}: diff {time_diff:.2f}s (> {Config.MAX_TIME_DIFFERENCE_SECONDS}s)")
+                    # Validar diferencia si corresponde (con pequeña tolerancia para evitar errores de precisión/drift del filesystem)
+                    # Usamos 50ms (0.05s) como margen de seguridad razonable para operaciones en lote
+                    if validate_dates and time_diff > (Config.MAX_TIME_DIFFERENCE_SECONDS + 0.05):
+                        self.logger.info(f"Par rechazado por tiempo {base_name}: source={source_used}, diff {time_diff:.2f}s (> {Config.MAX_TIME_DIFFERENCE_SECONDS}s)")
+                        # Detalles para diagnóstico
+                        self.logger.info(f"  Metadatos HEIC: {heic_meta.get_summary(verbose=True)}")
+                        self.logger.info(f"  Metadatos JPG:  {jpg_meta.get_summary(verbose=True)}")
                         self.stats['rejected_by_time_diff'] += 1
                         
                         rejected_pair = HEICDuplicatePair(
@@ -220,7 +220,7 @@ class HeicService(BaseService):
                         continue
                              
                     # Crear par válido
-                    self.logger.debug(f"Par admitido {base_name}: source={source_used}, diff={time_diff:.2f}s")
+                    self.logger.info(f"Par admitido {base_name}: source={source_used}, diff={time_diff:.2f}s")
                     duplicate_pair = HEICDuplicatePair(
                         heic_path=heic_meta.path,
                         jpg_path=jpg_meta.path,
@@ -246,6 +246,11 @@ class HeicService(BaseService):
                     self.logger.warning(f"Error procesando par {base_name}: {e}")
                     import traceback
                     self.logger.debug(traceback.format_exc())
+
+                # Log INFO cada 10% de los pares totales
+                if total_common_bases > 0 and processed_pairs % progress_checkpoint == 0:
+                    percent = (processed_pairs / total_common_bases) * 100
+                    self.logger.info(f"Progreso análisis HEIC: {percent:.0f}% ({processed_pairs}/{total_common_bases} pares)")
 
         results['duplicate_pairs'] = duplicate_pairs
         results['total_duplicates'] = len(duplicate_pairs)

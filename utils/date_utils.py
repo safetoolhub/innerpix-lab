@@ -44,6 +44,7 @@ def get_best_creation_date(
     
     Devuelve una tupla con (fecha_file1, fecha_file2, fuente) donde las fechas son
     del mismo tipo para ambos archivos (nunca mezcla EXIF con filesystem).
+    Usado por HEICService para determinar la fecha correcta de los pares de archivos.
     
     Prioriza fidelidad al momento de captura/creación original:
     1. EXIF DateTimeOriginal (Captura exacta)
@@ -88,6 +89,8 @@ def get_best_creation_date(
         return None
 
     if verbose:
+        def _fmt(dt):
+            return dt.strftime('%Y-%m-%d %H:%M:%S.%f') if dt else 'None'
         _logger.debug(f"DEBUG: Comparing dates for {getattr(file1, 'path', 'f1')} and {getattr(file2, 'path', 'f2')}")
 
     # ---------------------------------------------------------
@@ -98,7 +101,7 @@ def get_best_creation_date(
     f1_dto = _to_dt(_get_val(file1, 'exif_date_time_original', 'exif_DateTimeOriginal'))
     f2_dto = _to_dt(_get_val(file2, 'exif_date_time_original', 'exif_DateTimeOriginal'))
     
-    if verbose: _logger.debug(f"    - EXIF DateTimeOriginal: f1={f1_dto}, f2={f2_dto}")
+    if verbose: _logger.debug(f"    - EXIF DateTimeOriginal: f1={_fmt(f1_dto)}, f2={_fmt(f2_dto)}")
     if f1_dto is not None and f2_dto is not None:
         if verbose: _logger.debug(f"    => Match found: exif_date_time_original")
         _logger.debug(f"Source selected: exif_date_time_original for {getattr(file1, 'path', 'f1')} and {getattr(file2, 'path', 'f2')}")
@@ -108,7 +111,7 @@ def get_best_creation_date(
     f1_cd = _to_dt(_get_val(file1, 'exif_create_date', 'exif_CreateDate', 'exif_DateTimeDigitized'))
     f2_cd = _to_dt(_get_val(file2, 'exif_create_date', 'exif_CreateDate', 'exif_DateTimeDigitized'))
     
-    if verbose: _logger.debug(f"    - EXIF CreateDate: f1={f1_cd}, f2={f2_cd}")
+    if verbose: _logger.debug(f"    - EXIF CreateDate: f1={_fmt(f1_cd)}, f2={_fmt(f2_cd)}")
     if f1_cd is not None and f2_cd is not None:
         if verbose: _logger.debug(f"    => Match found: exif_create_date")
         _logger.debug(f"Source selected: exif_create_date for {getattr(file1, 'path', 'f1')} and {getattr(file2, 'path', 'f2')}")
@@ -118,7 +121,7 @@ def get_best_creation_date(
     f1_md = _to_dt(_get_val(file1, 'exif_modify_date', 'exif_DateTime'))
     f2_md = _to_dt(_get_val(file2, 'exif_modify_date', 'exif_DateTime'))
     
-    if verbose: _logger.debug(f"    - EXIF ModifyDate: f1={f1_md}, f2={f2_md}")
+    if verbose: _logger.debug(f"    - EXIF ModifyDate: f1={_fmt(f1_md)}, f2={_fmt(f2_md)}")
     if f1_md is not None and f2_md is not None:
         if verbose: _logger.debug(f"    => Match found: exif_modify_date")
         _logger.debug(f"Source selected: exif_modify_date for {getattr(file1, 'path', 'f1')} and {getattr(file2, 'path', 'f2')}")
@@ -132,7 +135,7 @@ def get_best_creation_date(
     f1_ctime = _to_dt(_get_val(file1, 'ctime', 'fs_ctime'))
     f2_ctime = _to_dt(_get_val(file2, 'ctime', 'fs_ctime'))
     
-    if verbose: _logger.debug(f"    - FS ctime: f1={f1_ctime}, f2={f2_ctime}")
+    if verbose: _logger.debug(f"    - FS ctime: f1={_fmt(f1_ctime)}, f2={_fmt(f2_ctime)}")
     if f1_ctime is not None and f2_ctime is not None:
         if verbose: _logger.debug(f"    => Match found: fs_ctime")
         _logger.debug(f"Source selected: fs_ctime for {getattr(file1, 'path', 'f1')} and {getattr(file2, 'path', 'f2')}")
@@ -142,7 +145,7 @@ def get_best_creation_date(
     f1_mtime = _to_dt(_get_val(file1, 'mtime', 'fs_mtime'))
     f2_mtime = _to_dt(_get_val(file2, 'mtime', 'fs_mtime'))
     
-    if verbose: _logger.debug(f"    - FS mtime: f1={f1_mtime}, f2={f2_mtime}")
+    if verbose: _logger.debug(f"    - FS mtime: f1={_fmt(f1_mtime)}, f2={_fmt(f2_mtime)}")
     if f1_mtime is not None and f2_mtime is not None:
         if verbose: _logger.debug(f"    => Match found: fs_mtime")
         _logger.debug(f"Source selected: fs_mtime for {getattr(file1, 'path', 'f1')} and {getattr(file2, 'path', 'f2')}")
@@ -152,7 +155,7 @@ def get_best_creation_date(
     f1_atime = _to_dt(_get_val(file1, 'atime', 'fs_atime'))
     f2_atime = _to_dt(_get_val(file2, 'atime', 'fs_atime'))
     
-    if verbose: _logger.debug(f"    - FS atime: f1={f1_atime}, f2={f2_atime}")
+    if verbose: _logger.debug(f"    - FS atime: f1={_fmt(f1_atime)}, f2={_fmt(f2_atime)}")
     if f1_atime is not None and f2_atime is not None:
         if verbose: _logger.debug(f"    => Match found: fs_atime")
         _logger.debug(f"Source selected: fs_atime for {getattr(file1, 'path', 'f1')} and {getattr(file2, 'path', 'f2')}")

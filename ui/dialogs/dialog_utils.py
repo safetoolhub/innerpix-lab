@@ -10,6 +10,8 @@ from PyQt6.QtCore import Qt
 from utils.format_utils import format_size
 from utils.date_utils import get_date_from_file, select_chosen_date, get_all_file_dates
 from utils.platform_utils import open_file_with_default_app, open_folder_in_explorer
+from services.file_metadata_repository_cache import FileInfoRepositoryCache
+from services.file_metadata import FileMetadata
 
 
 def open_file(file_path: Path, parent_widget=None):
@@ -65,13 +67,8 @@ def open_folder(folder_path: Path, parent_widget=None, select_file: Path = None)
 
 def show_file_details_dialog(file_path: Path, parent_widget=None, additional_info=None):
     """
-    Muestra un diálogo con detalles completos del archivo usando Material Design
-    
-    Args:
-        file_path: Ruta del archivo
-        parent_widget: Widget padre para el diálogo
-        additional_info: Dict con información adicional a mostrar (opcional)
-            Puede incluir: original_name, new_name, file_type, etc.
+    Muestra un diálogo con detalles completos del archivo usando toda la información
+    disponible en FileMetadata y el sistema de fechas.
     """
     from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                                 QPushButton, QFrame, QGroupBox, QWidget, QScrollArea)
@@ -79,7 +76,28 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     from ui.styles.design_system import DesignSystem
     from ui.styles.icons import icon_manager
     
-    # Obtener toda la información de fechas disponible
+    # === 1. RECOPILACIÓN DE DATOS ===
+    
+    # Intentar obtener metadatos del repositorio centralizado
+    repo = FileInfoRepositoryCache.get_instance()
+    metadata = repo.get_file_metadata(file_path)
+    
+    # Si no existe en el repo, crear uno básico para tener la estructura
+    if not metadata:
+        try:
+            stat = file_path.stat()
+            metadata = FileMetadata(
+                path=file_path,
+                fs_size=stat.st_size,
+                fs_ctime=stat.st_ctime,
+                fs_mtime=stat.st_mtime,
+                fs_atime=stat.st_atime
+            )
+        except Exception:
+            # Archivo inaccesible, creamos metadatos vacíos para evitar errores
+            metadata = FileMetadata(path=file_path, fs_size=0, fs_ctime=0, fs_mtime=0, fs_atime=0)
+
+    # Obtener toda la información de fechas disponible (sistema enriquecido)
     dates_info = get_all_file_dates(file_path)
     
     # Seleccionar la fecha más representativa
@@ -87,137 +105,99 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     dates_info['selected_date'] = selected_date
     dates_info['selected_source'] = selected_source
     
-    # Mapear la fecha EXIF principal para compatibilidad con la UI
+    # Mapear la fecha EXIF principal para compatibilidad si es necesario
     dates_info['exif_date'] = (dates_info.get('exif_date_time_original') or 
                               dates_info.get('exif_create_date') or 
                               dates_info.get('exif_date_digitized'))
     
-    # Obtener información básica del archivo
-    try:
-        file_stat = os.stat(file_path)
-        file_size = file_stat.st_size
-    except Exception as e:
-        file_size = 0
+    # === 2. CONSTRUCCIÓN DE LA IU ===
     
-    # Crear diálogo
     dialog = QDialog(parent_widget)
     dialog.setWindowTitle("Detalles del Archivo")
     dialog.setModal(True)
     dialog.setMinimumWidth(900)
     dialog.setMaximumWidth(950)
-    dialog.setMinimumHeight(600)
+    dialog.setMinimumHeight(700)
     
-    # Layout principal
     main_layout = QVBoxLayout(dialog)
-    main_layout.setContentsMargins(
-        DesignSystem.SPACE_24, DesignSystem.SPACE_20, 
-        DesignSystem.SPACE_24, DesignSystem.SPACE_20
-    )
+    main_layout.setContentsMargins(DesignSystem.SPACE_24, DesignSystem.SPACE_20, DesignSystem.SPACE_24, DesignSystem.SPACE_20)
     main_layout.setSpacing(DesignSystem.SPACE_16)
     
-    # Header con título e icono
+    # Header
     header_layout = QHBoxLayout()
     header_layout.setSpacing(DesignSystem.SPACE_12)
     
-    # Icono del archivo
-    file_icon = icon_manager.get_icon('file', size=DesignSystem.ICON_SIZE_LG, 
-                                     color=DesignSystem.COLOR_PRIMARY)
+    file_icon_name = 'image' if metadata.is_image else ('video' if metadata.is_video else 'file')
     header_icon = QLabel()
-    header_icon.setPixmap(file_icon.pixmap(DesignSystem.ICON_SIZE_LG, DesignSystem.ICON_SIZE_LG))
+    icon_manager.set_label_icon(header_icon, file_icon_name, size=DesignSystem.ICON_SIZE_LG, color=DesignSystem.COLOR_PRIMARY)
     header_layout.addWidget(header_icon)
     
-    # Título
-    title_label = QLabel("Detalles del Archivo")
-    title_label.setStyleSheet(f"""
-        font-size: {DesignSystem.FONT_SIZE_2XL}px;
-        font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-        color: {DesignSystem.COLOR_TEXT};
-    """)
+    title_label = QLabel(file_path.name)
+    title_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_2XL}px; font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD}; color: {DesignSystem.COLOR_TEXT};")
     header_layout.addWidget(title_label)
     header_layout.addStretch()
-    
     main_layout.addLayout(header_layout)
     
-    # Área de scroll para el contenido
+    # Área de scroll
     scroll_area = QScrollArea()
     scroll_area.setWidgetResizable(True)
-    scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-    scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-    scroll_area.setStyleSheet(f"""
-        QScrollArea {{
-            border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
-            border-radius: {DesignSystem.RADIUS_LG}px;
-            background-color: {DesignSystem.COLOR_SURFACE};
-        }}
-        QScrollArea QWidget {{
-            background-color: transparent;
-        }}
-    """)
+    scroll_area.setStyleSheet(f"QScrollArea {{ border: 1px solid {DesignSystem.COLOR_CARD_BORDER}; border-radius: {DesignSystem.RADIUS_LG}px; background-color: {DesignSystem.COLOR_SURFACE}; }}")
     
-    # Widget contenedor del scroll
     scroll_widget = QWidget()
     scroll_layout = QVBoxLayout(scroll_widget)
-    scroll_layout.setContentsMargins(
-        DesignSystem.SPACE_20, DesignSystem.SPACE_16, 
-        DesignSystem.SPACE_20, DesignSystem.SPACE_16
-    )
+    scroll_layout.setContentsMargins(DesignSystem.SPACE_20, DesignSystem.SPACE_16, DesignSystem.SPACE_20, DesignSystem.SPACE_16)
     scroll_layout.setSpacing(DesignSystem.SPACE_20)
     
-    # === SECCIÓN 1: INFORMACIÓN GENERAL ===
-    general_section = _create_material_section("Información General", [
-        ("Nombre del archivo", file_path.name, 'file'),
-        ("Tamaño", format_size(file_size), 'ruler'),
-        ("Tipo", _get_file_type_display(file_path), 'image'),
-    ])
-    scroll_layout.addWidget(general_section)
-    
-    # Información adicional si se proporcionó
-    if additional_info:
-        additional_items = []
-        
-        if 'original_name' in additional_info and 'new_name' in additional_info:
-            additional_items.extend([
-                ("Nombre original", additional_info['original_name'], 'file'),
-                ("Nombre nuevo", additional_info['new_name'], 'file'),
-            ])
-        
-        if 'file_type' in additional_info:
-            additional_items.append(("Tipo de archivo", additional_info['file_type'], 'image'))
-        
-        if 'conflict' in additional_info:
-            status_text = "Conflicto de nombre" if additional_info['conflict'] else "Sin conflictos"
-            status_icon = 'alert-circle' if additional_info['conflict'] else 'check-circle'
-            status_color = DesignSystem.COLOR_DANGER if additional_info['conflict'] else DesignSystem.COLOR_SUCCESS
-            additional_items.append(("Estado", status_text, status_icon))
-        
-        if 'sequence' in additional_info and additional_info['sequence']:
-            additional_items.append(("Secuencia", str(additional_info['sequence']), 'update'))
-        
-        if additional_items:
-            additional_section = _create_material_section("Información Adicional", additional_items)
-            scroll_layout.addWidget(additional_section)
-    
-    # === SECCIÓN 2: UBICACIÓN ===
-    location_items = [
-        ("Ruta actual", str(file_path.parent), 'folder'),
+    # SECCIÓN: INFORMACIÓN GENERAL
+    general_items = [
+        ("Ubicación", str(file_path.parent), 'folder'),
+        ("Tamaño real", format_size(metadata.fs_size), 'ruler'),
+        ("Tipo de archivo", _get_file_type_display(file_path), 'information'),
     ]
+    if metadata.sha256:
+        general_items.append(("Hash SHA256", metadata.sha256, 'fingerprint'))
     
-    if additional_info and 'target_path' in additional_info:
-        location_items.append(("Ruta destino", str(additional_info['target_path']), 'folder-open'))
+    scroll_layout.addWidget(_create_material_section("Archivo", general_items, use_code_style=True))
     
-    location_section = _create_material_section("Ubicación", location_items, use_code_style=True)
-    scroll_layout.addWidget(location_section)
+    # SECCIÓN: FECHAS DEL SISTEMA (RAW FileMetadata)
+    fs_dates = [
+        ("Creación (ctime)", datetime.fromtimestamp(metadata.fs_ctime).strftime('%Y-%m-%d %H:%M:%S.%f'), 'update'),
+        ("Modificación (mtime)", datetime.fromtimestamp(metadata.fs_mtime).strftime('%Y-%m-%d %H:%M:%S.%f'), 'clock-outline'),
+        ("Último acceso (atime)", datetime.fromtimestamp(metadata.fs_atime).strftime('%Y-%m-%d %H:%M:%S.%f'), 'clock-outline'),
+    ]
+    scroll_layout.addWidget(_create_material_section("Filesystem (RAW)", fs_dates))
     
-    # === SECCIÓN 3: FECHAS DETALLADAS ===
-    dates_section = _create_dates_section(dates_info)
-    scroll_layout.addWidget(dates_section)
+    # SECCIÓN: DATOS EXIF (De FileMetadata structure)
+    if metadata.has_exif:
+        exif_raw = []
+        for field in ['ImageWidth', 'ImageLength', 'DateTime', 'GPSTimeStamp', 
+                     'GPSDateStamp', 'DateTimeOriginal', 'DateTimeDigitized', 'ExifVersion']:
+            val = getattr(metadata, f'exif_{field}', None)
+            if val is not None:
+                icon = 'camera'
+                if 'Width' in field or 'Length' in field: icon = 'aspect-ratio'
+                if 'GPS' in field: icon = 'map-marker'
+                exif_raw.append((field, str(val), icon))
+        
+        if exif_raw:
+            scroll_layout.addWidget(_create_material_section("Metadatos EXIF (Estructura)", exif_raw, use_code_style=True))
+
+    # SECCIÓN: ANÁLISIS DE FECHAS (Sistema enriquecido)
+    scroll_layout.addWidget(_create_dates_section(dates_info))
     
-    # === SECCIÓN 4: METADATOS ADICIONALES ===
-    if additional_info and 'metadata' in additional_info and additional_info['metadata']:
-        metadata_items = [(key, str(value), 'information') for key, value in additional_info['metadata'].items()]
-        metadata_section = _create_material_section("Metadatos", metadata_items)
-        scroll_layout.addWidget(metadata_section)
-    
+    # SECCIÓN: INFORMACIÓN ADICIONAL (Contexto del diálogo actual)
+    if additional_info:
+        add_items = []
+        for key, val in additional_info.items():
+            if key in ['metadata', 'target_path']: continue # Manejados aparte o ignorados
+            icon = 'tag'
+            if 'name' in key: icon = 'file-rename'
+            if 'conflict' in key: icon = 'alert-decagram'
+            add_items.append((key.replace('_', ' ').title(), str(val), icon))
+        
+        if add_items:
+            scroll_layout.addWidget(_create_material_section("Contexto de la Operación", add_items))
+
     scroll_layout.addStretch()
     scroll_area.setWidget(scroll_widget)
     main_layout.addWidget(scroll_area)
