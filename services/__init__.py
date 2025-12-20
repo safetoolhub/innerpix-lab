@@ -14,7 +14,7 @@ utilizados en la aplicación, incluyendo:
 from .file_renamer_service import FileRenamer
 from .live_photos_service import LivePhotoService, LivePhotoGroup, CleanupMode
 from .file_organizer_service import FileOrganizer, FileMove, OrganizationType
-from .heic_service import HeicService, DuplicatePair
+from .heic_service import HeicService, HEICDuplicatePair
 from .duplicates_exact_service import DuplicatesExactService
 from .duplicates_similar_service import DuplicatesSimilarService, DuplicatesSimilarAnalysis
 from .zero_byte_service import ZeroByteService
@@ -40,7 +40,7 @@ from .result_types import (
     OrganizationExecutionResult,
     # Duplicates
     DuplicateGroup,
-    DuplicatePair,
+    HEICDuplicatePair,
     DuplicateAnalysisResult,
     DuplicateExecutionResult,
     # HEIC
@@ -77,7 +77,7 @@ __all__ = [
     # Dataclasses de servicios
     'LivePhotoGroup',
     'FileMove',
-    'DuplicatePair',
+    'HEICDuplicatePair',
     'DuplicateGroup',
     'SimilarFilesAnalysis',
     # Utilidades de file_utils

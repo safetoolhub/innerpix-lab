@@ -189,7 +189,7 @@ class Config:
     MAX_HAMMING_THRESHOLD = 20
     
     # Configuración para detección de duplicados HEIC/JPG
-    MAX_TIME_DIFFERENCE_SECONDS = 60  # Tolerancia máxima de tiempo entre archivos duplicados (segundos)
+    MAX_TIME_DIFFERENCE_SECONDS = 5  # Tolerancia máxima de tiempo entre archivos duplicados (segundos)
     
     # Configuración de extracción de metadatos de video
     # Por defecto False porque es muy lento y la app se enfoca en imágenes

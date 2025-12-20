@@ -203,7 +203,7 @@ class BaseService(ABC):
                   - Path objects directamente
                   - Dicts con keys: 'original_path', 'path', 'source_path'
                   - Dataclasses con attrs: path, original_path, source_path
-                  - Objetos con atributo 'heic_path' o 'jpg_path' (DuplicatePair)
+                  - Objetos con atributo 'heic_path' o 'jpg_path' (HEICDuplicatePair)
             operation_name: Nombre de la operación (ej: 'renaming', 'deletion', 'heic_removal')
             progress_callback: Callback opcional para reportar progreso
             
@@ -232,7 +232,7 @@ class BaseService(ABC):
         file_list = []
         for item in files:
             try:
-                # to_path maneja Path, dict, dataclass, DuplicatePair, etc.
+                # to_path maneja Path, dict, dataclass, HEICDuplicatePair, etc.
                 file_path = to_path(
                     item, 
                     attr_names=('original_path', 'path', 'source_path', 'heic_path', 'jpg_path')

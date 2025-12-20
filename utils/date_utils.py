@@ -36,7 +36,8 @@ class FileInfoProtocol(Protocol):
 
 def get_best_creation_date(
     file1: Any, 
-    file2: Any
+    file2: Any,
+    verbose: bool = False
 ) -> Optional[Tuple[datetime, datetime, str]]:
     """
     Compara las fechas de creación más realistas posibles de dos archivos de imagen.
@@ -72,32 +73,54 @@ def get_best_creation_date(
     # Validar que los objetos tienen los atributos necesarios
     # Se usa getattr para seguridad si los objetos no cumplen estrictamente el protocolo
     
+    def _get_val(obj, *attrs):
+        for attr in attrs:
+            val = getattr(obj, attr, None)
+            if val is not None:
+                if verbose: _logger.debug(f"      - Found {attr} on {getattr(obj, 'path', 'file')}: {val}")
+                return val
+        return None
+
+    def _to_dt(val):
+        if val is None: return None
+        if isinstance(val, datetime): return val
+        if isinstance(val, (int, float)): return datetime.fromtimestamp(val)
+        return None
+
+    if verbose:
+        _logger.debug(f"DEBUG: Comparing dates for {getattr(file1, 'path', 'f1')} and {getattr(file2, 'path', 'f2')}")
+
     # ---------------------------------------------------------
     # 1. PRIORIDAD: AMBOS TIENEN EXIF VÁLIDOS
     # ---------------------------------------------------------
     
-    # Prioridad 1: EXIF DateTimeOriginal (Captura exacta)
-    f1_dto = getattr(file1, 'exif_date_time_original', None)
-    f2_dto = getattr(file2, 'exif_date_time_original', None)
+    # Priority 1: EXIF DateTimeOriginal
+    f1_dto = _to_dt(_get_val(file1, 'exif_date_time_original', 'exif_DateTimeOriginal'))
+    f2_dto = _to_dt(_get_val(file2, 'exif_date_time_original', 'exif_DateTimeOriginal'))
     
+    if verbose: _logger.debug(f"    - EXIF DateTimeOriginal: f1={f1_dto}, f2={f2_dto}")
     if f1_dto is not None and f2_dto is not None:
+        if verbose: _logger.debug(f"    => Match found: exif_date_time_original")
         _logger.debug(f"Source selected: exif_date_time_original for {getattr(file1, 'path', 'f1')} and {getattr(file2, 'path', 'f2')}")
         return f1_dto, f2_dto, 'exif_date_time_original'
         
-    # Prioridad 2: EXIF CreateDate (Creación digital)
-    # Nota: A veces llamado DateTimeDigitized en estandares, aquí usamos create_date
-    f1_cd = getattr(file1, 'exif_create_date', None)
-    f2_cd = getattr(file2, 'exif_create_date', None)
+    # Priority 2: EXIF CreateDate
+    f1_cd = _to_dt(_get_val(file1, 'exif_create_date', 'exif_CreateDate', 'exif_DateTimeDigitized'))
+    f2_cd = _to_dt(_get_val(file2, 'exif_create_date', 'exif_CreateDate', 'exif_DateTimeDigitized'))
     
+    if verbose: _logger.debug(f"    - EXIF CreateDate: f1={f1_cd}, f2={f2_cd}")
     if f1_cd is not None and f2_cd is not None:
+        if verbose: _logger.debug(f"    => Match found: exif_create_date")
         _logger.debug(f"Source selected: exif_create_date for {getattr(file1, 'path', 'f1')} and {getattr(file2, 'path', 'f2')}")
         return f1_cd, f2_cd, 'exif_create_date'
         
-    # Prioridad 3: EXIF ModifyDate (Última modificación EXIF)
-    f1_md = getattr(file1, 'exif_modify_date', None)
-    f2_md = getattr(file2, 'exif_modify_date', None)
+    # Priority 3: EXIF ModifyDate
+    f1_md = _to_dt(_get_val(file1, 'exif_modify_date', 'exif_DateTime'))
+    f2_md = _to_dt(_get_val(file2, 'exif_modify_date', 'exif_DateTime'))
     
+    if verbose: _logger.debug(f"    - EXIF ModifyDate: f1={f1_md}, f2={f2_md}")
     if f1_md is not None and f2_md is not None:
+        if verbose: _logger.debug(f"    => Match found: exif_modify_date")
         _logger.debug(f"Source selected: exif_modify_date for {getattr(file1, 'path', 'f1')} and {getattr(file2, 'path', 'f2')}")
         return f1_md, f2_md, 'exif_modify_date'
 
@@ -105,33 +128,40 @@ def get_best_creation_date(
     # 2. SOLO UNO O NINGUNO TIENE EXIF -> FILESYSTEM (FALLBACK)
     # ---------------------------------------------------------
     
-    # Prioridad 1: ctime (Change time - más cercano a creación original en muchos OS)
-    f1_ctime = getattr(file1, 'ctime', None)
-    f2_ctime = getattr(file2, 'ctime', None)
+    # Priority 1: ctime
+    f1_ctime = _to_dt(_get_val(file1, 'ctime', 'fs_ctime'))
+    f2_ctime = _to_dt(_get_val(file2, 'ctime', 'fs_ctime'))
     
+    if verbose: _logger.debug(f"    - FS ctime: f1={f1_ctime}, f2={f2_ctime}")
     if f1_ctime is not None and f2_ctime is not None:
+        if verbose: _logger.debug(f"    => Match found: fs_ctime")
         _logger.debug(f"Source selected: fs_ctime for {getattr(file1, 'path', 'f1')} and {getattr(file2, 'path', 'f2')}")
         return f1_ctime, f2_ctime, 'fs_ctime'
         
-    # Prioridad 2: mtime (Modify time - contenido)
-    f1_mtime = getattr(file1, 'mtime', None)
-    f2_mtime = getattr(file2, 'mtime', None)
+    # Priority 2: mtime
+    f1_mtime = _to_dt(_get_val(file1, 'mtime', 'fs_mtime'))
+    f2_mtime = _to_dt(_get_val(file2, 'mtime', 'fs_mtime'))
     
+    if verbose: _logger.debug(f"    - FS mtime: f1={f1_mtime}, f2={f2_mtime}")
     if f1_mtime is not None and f2_mtime is not None:
+        if verbose: _logger.debug(f"    => Match found: fs_mtime")
         _logger.debug(f"Source selected: fs_mtime for {getattr(file1, 'path', 'f1')} and {getattr(file2, 'path', 'f2')}")
         return f1_mtime, f2_mtime, 'fs_mtime'
         
-    # Prioridad 3: atime (Access time - menos fiable)
-    f1_atime = getattr(file1, 'atime', None)
-    f2_atime = getattr(file2, 'atime', None)
+    # Priority 3: atime
+    f1_atime = _to_dt(_get_val(file1, 'atime', 'fs_atime'))
+    f2_atime = _to_dt(_get_val(file2, 'atime', 'fs_atime'))
     
+    if verbose: _logger.debug(f"    - FS atime: f1={f1_atime}, f2={f2_atime}")
     if f1_atime is not None and f2_atime is not None:
+        if verbose: _logger.debug(f"    => Match found: fs_atime")
         _logger.debug(f"Source selected: fs_atime for {getattr(file1, 'path', 'f1')} and {getattr(file2, 'path', 'f2')}")
         return f1_atime, f2_atime, 'fs_atime'
 
     # ---------------------------------------------------------
     # 3. NO SE PUDO DETERMINAR NINGUNA FECHA COMÚN
     # ---------------------------------------------------------
+    if verbose: _logger.debug(f"    !! NO COMMON DATE SOURCE FOUND !!")
     _logger.warning(
         f"Unable to find common date source for comparison between "
         f"{getattr(file1, 'path', 'file1')} and {getattr(file2, 'path', 'file2')}"

@@ -10,7 +10,7 @@ from collections import defaultdict
 
 from utils.file_utils import validate_file_exists
 from utils.date_utils import get_date_from_file
-from services.result_types import HeicAnalysisResult, HeicExecutionResult, DuplicatePair, AnalysisResult
+from services.result_types import HeicAnalysisResult, HeicExecutionResult, HEICDuplicatePair, AnalysisResult
 from services.base_service import BaseService, BackupCreationError, ProgressCallback
 from services.file_metadata_repository_cache import FileInfoRepositoryCache
 from config import Config
@@ -85,7 +85,8 @@ class HeicService(BaseService):
             'total_duplicates': 0,
             'potential_savings_keep_jpg': 0,
             'potential_savings_keep_heic': 0,
-            'by_directory': defaultdict(int)
+            'by_directory': defaultdict(int),
+            'rejected_pairs': []
         }
         
         # Obtener todos los archivos del repo
@@ -127,6 +128,15 @@ class HeicService(BaseService):
         matched_heic: Set[Path] = set()
         matched_jpg: Set[Path] = set()
         
+        # Calcular total de pares a analizar para el log de progreso (INFO cada 10%)
+        total_common_bases = 0
+        for directory, h_dict in heic_by_dir.items():
+            if directory in jpg_by_dir:
+                total_common_bases += len(set(h_dict.keys()) & set(jpg_by_dir[directory].keys()))
+        
+        processed_pairs = 0
+        progress_checkpoint = max(1, total_common_bases // 10)
+        
         processed_dirs = 0
         total_dirs = len(heic_by_dir)
         
@@ -141,37 +151,77 @@ class HeicService(BaseService):
             jpg_dict = jpg_by_dir[directory]
             
             # Bases comunes
-            common_bases = set(heic_dict.keys()) & set(jpg_dict.keys())
+            common_bases = sorted(list(set(heic_dict.keys()) & set(jpg_dict.keys())))
             
             for base_name in common_bases:
+                processed_pairs += 1
                 heic_meta = heic_dict[base_name]
                 jpg_meta = jpg_dict[base_name]
                 
+                self.logger.debug(f"Analizando par: {base_name} en {directory}")
+                
+                # Log INFO cada 10% de los pares totales
+                if total_common_bases > 0 and processed_pairs % progress_checkpoint == 0:
+                    percent = (processed_pairs / total_common_bases) * 100
+                    self.logger.info(f"Progreso análisis HEIC: {percent:.0f}% ({processed_pairs}/{total_common_bases} pares)")
+                
                 try:
-                    # Obtener fechas
-                    # Intentar usar metadata cacheada si tuviera exif, o get_date_from_file (que abre archivo)
-                    # Para optimizar, podríamos confiar en mtime si no hay exif, pero heic/jpg suelen requerir exif para ser precisos.
-                    # Asumimos que get_date_from_file maneja su propia cache o lectura.
+                    # Validación de fechas usando get_best_creation_date
+                    from utils.date_utils import get_best_creation_date
                     
-                    # TODO: Optimizar lectura de fecha si es posible
-                    heic_date_raw = get_date_from_file(heic_meta.path)
-                    heic_date = heic_date_raw or datetime.fromtimestamp(heic_meta.fs_mtime)
-                    heic_source = "EXIF" if heic_date_raw else "filesystem"
+                    best_date_result = get_best_creation_date(heic_meta, jpg_meta, verbose=True)
                     
-                    jpg_date_raw = get_date_from_file(jpg_meta.path)
-                    jpg_date = jpg_date_raw or datetime.fromtimestamp(jpg_meta.fs_mtime)
-                    jpg_source = "EXIF" if jpg_date_raw else "filesystem"
+                    if not best_date_result:
+                        # No hay fecha común válida, rechazar
+                        reject_reason = "No common date found"
+                        self.logger.debug(f"Par rechazado {base_name}: {reject_reason}")
+                        # Detalles para diagnóstico
+                        self.logger.debug(f"  Metadatos HEIC: {heic_meta.get_summary(verbose=True)}")
+                        self.logger.debug(f"  Metadatos JPG:  {jpg_meta.get_summary(verbose=True)}")
+                        
+                        rejected_pair = HEICDuplicatePair(
+                            heic_path=heic_meta.path,
+                            jpg_path=jpg_meta.path,
+                            base_name=base_name,
+                            heic_size=heic_meta.fs_size,
+                            jpg_size=jpg_meta.fs_size,
+                            directory=directory,
+                            heic_date=None, 
+                            jpg_date=None,
+                            date_source=None,
+                            date_difference=None
+                        )
+                        results['rejected_pairs'].append(rejected_pair)
+                        continue
+                        
+                    heic_date, jpg_date, source_used = best_date_result
                     
-                    # Validación de fecha
-                    if validate_dates:
-                        time_diff = abs(heic_date - jpg_date)
-                        if time_diff.total_seconds() > Config.MAX_TIME_DIFFERENCE_SECONDS:
-                            self.logger.warning(f"Par rechazado por tiempo {base_name}: diff {time_diff.total_seconds()}s")
-                            self.stats['rejected_by_time_diff'] += 1
-                            continue
-                            
-                    # Crear par
-                    duplicate_pair = DuplicatePair(
+                    # Calcular diferencia
+                    time_diff = abs((heic_date - jpg_date).total_seconds())
+                    
+                    # Validar diferencia si corresponde
+                    if validate_dates and time_diff > Config.MAX_TIME_DIFFERENCE_SECONDS: # Usar config o 5.0
+                        self.logger.debug(f"Par rechazado por tiempo {base_name}: diff {time_diff:.2f}s (> {Config.MAX_TIME_DIFFERENCE_SECONDS}s)")
+                        self.stats['rejected_by_time_diff'] += 1
+                        
+                        rejected_pair = HEICDuplicatePair(
+                            heic_path=heic_meta.path,
+                            jpg_path=jpg_meta.path,
+                            base_name=base_name,
+                            heic_size=heic_meta.fs_size,
+                            jpg_size=jpg_meta.fs_size,
+                            directory=directory,
+                            heic_date=heic_date,
+                            jpg_date=jpg_date,
+                            date_source=source_used,
+                            date_difference=time_diff
+                        )
+                        results['rejected_pairs'].append(rejected_pair)
+                        continue
+                             
+                    # Crear par válido
+                    self.logger.debug(f"Par admitido {base_name}: source={source_used}, diff={time_diff:.2f}s")
+                    duplicate_pair = HEICDuplicatePair(
                         heic_path=heic_meta.path,
                         jpg_path=jpg_meta.path,
                         base_name=base_name,
@@ -179,7 +229,9 @@ class HeicService(BaseService):
                         jpg_size=jpg_meta.fs_size,
                         directory=directory,
                         heic_date=heic_date,
-                        jpg_date=jpg_date
+                        jpg_date=jpg_date,
+                        date_source=source_used,
+                        date_difference=time_diff
                     )
                     
                     duplicate_pairs.append(duplicate_pair)
@@ -192,6 +244,8 @@ class HeicService(BaseService):
                     
                 except Exception as e:
                     self.logger.warning(f"Error procesando par {base_name}: {e}")
+                    import traceback
+                    self.logger.debug(traceback.format_exc())
 
         results['duplicate_pairs'] = duplicate_pairs
         results['total_duplicates'] = len(duplicate_pairs)
@@ -213,6 +267,7 @@ class HeicService(BaseService):
         
         return HeicAnalysisResult(
             duplicate_pairs=duplicate_pairs,
+            rejected_pairs=results.get('rejected_pairs', []),
             heic_files=results['total_heic_files'],
             jpg_files=results['total_jpg_files'],
             potential_savings_keep_jpg=results['potential_savings_keep_jpg'],
@@ -272,7 +327,7 @@ class HeicService(BaseService):
 
     def _do_heic_cleanup(
         self,
-        duplicate_pairs: List[DuplicatePair],
+        duplicate_pairs: List[HEICDuplicatePair],
         keep_format: str,
         dry_run: bool,
         progress_callback: Optional[ProgressCallback]

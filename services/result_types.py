@@ -100,7 +100,7 @@ class OrganizationExecutionResult(ExecutionResult):
 
 # --- HEIC Service ---
 @dataclass
-class DuplicatePair:
+class HEICDuplicatePair:
     """Represents a pair of HEIC + JPG files."""
     heic_path: Path
     jpg_path: Path
@@ -110,6 +110,8 @@ class DuplicatePair:
     directory: Path
     heic_date: Optional[datetime] = None
     jpg_date: Optional[datetime] = None
+    date_source: Optional[str] = None
+    date_difference: Optional[float] = None
     
     @property
     def total_size(self) -> int:
@@ -118,7 +120,8 @@ class DuplicatePair:
 @dataclass
 class HeicAnalysisResult(AnalysisResult):
     """Result for HEIC/JPG duplicate analysis."""
-    duplicate_pairs: List[DuplicatePair] = field(default_factory=list)
+    duplicate_pairs: List[HEICDuplicatePair] = field(default_factory=list)
+    rejected_pairs: List[HEICDuplicatePair] = field(default_factory=list)
     heic_files: int = 0
     jpg_files: int = 0
     potential_savings_keep_jpg: int = 0
