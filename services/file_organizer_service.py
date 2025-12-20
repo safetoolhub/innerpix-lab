@@ -253,7 +253,7 @@ class FileOrganizer(BaseService):
         log_section_header_relevant(self.logger, "INICIANDO ORGANIZACIÓN DE ARCHIVOS", mode=mode_label)
         self.logger.info(f"*** Archivos a mover: {len(move_plan)}")
         
-        results = OrganizationExecutionResult(success=True, dry_run=dry_run)
+        result = OrganizationExecutionResult(success=True, dry_run=dry_run)
         
         try:
              # Crear carpetas
@@ -261,54 +261,33 @@ class FileOrganizer(BaseService):
              if not dry_run:
                  for f in folders:
                      (root_directory / f).mkdir(parents=True, exist_ok=True)
-                     results.folders_created.append(str(root_directory / f))
+                     result.folders_created.append(str(root_directory / f))
              
              # Backup
              if create_backup and not dry_run:
                  self._report_progress(progress_callback, 0, len(move_plan), "Creando backup...")
                  files = [m.source_path for m in move_plan]
-                 # Usar create_backup metodo heredado es dificil porque toma lista de files.
-                 # El metodo create_backup original en este archivo usaba launch_backup_creation con root_directory.
-                 # Replicamos logica original o usamos BaseService._create_backup_for_operation (preferido)
                  bk_path = self._create_backup_for_operation(
                      files, 'organization', progress_callback
                  )
                  if bk_path:
-                     results.backup_path = str(bk_path)
+                     result.backup_path = bk_path
              
              # Ejecución
-             used_names = defaultdict(set)
-             # Pre-llenar usados
-             if not dry_run:
-                  # En run real, chequear en el momento
-                  pass
-             
              total = len(move_plan)
-             files_processed = 0
+             items_processed = 0
+             bytes_processed = 0
+             files_affected = []
+             
              self._report_progress(progress_callback, 0, total, "Organizando...")
              
-             from utils.format_utils import format_size
-             
              for move in move_plan:
-                 files_processed += 1
-                 if files_processed % 10 == 0:
-                      if not self._report_progress(progress_callback, files_processed, total, f"Procesando {files_processed}/{total}"):
+                 items_processed += 1
+                 if items_processed % 10 == 0:
+                      if not self._report_progress(progress_callback, items_processed, total, f"Procesando {items_processed}/{total}"):
                           break
                  
-                 # Lógica de conflicto y movimiento
-                 # Simplificado para brevedad, usando la logica original seria mejor pero es muy larga.
-                 # Asumimos que move_plan ya tiene target_path calculado en analyze.
-                 # Pero analyze calculó conflictos ESTATICOS.
-                 # Si 'analyze' se corrió hace tiempo, puede haber cambios.
-                 # Pero asumimos consistencia inmediata.
-                 
-                 # Re-validar conflicto dinámico si no es dry_run?
                  target = move.target_path
-                 
-                 # Ajuste dinámico de nombres si hay conflicto en ejecución (race condition o multiple files to same name in same batch)
-                 # El plan ya debió manejar conflictos entre archivos del batch.
-                 # Conflictos con archivos existentes en disco ya detectados en analyze.
-                 # Solo queda simulación vs real.
                  
                  try:
                      if not move.source_path.exists():
@@ -316,8 +295,8 @@ class FileOrganizer(BaseService):
                          continue
                      
                      if dry_run:
-                         results.files_moved += 1
-                         results.moved_files.append(str(target))
+                         bytes_processed += move.size
+                         files_affected.append(target)
                          self.logger.info(f"FILE_MOVED_SIMULATION: {move.source_path.name} -> {target}")
                      else:
                          target.parent.mkdir(parents=True, exist_ok=True)
@@ -331,8 +310,8 @@ class FileOrganizer(BaseService):
                                  counter += 1
                          
                          move.source_path.rename(target)
-                         results.files_moved += 1
-                         results.moved_files.append(str(target))
+                         bytes_processed += move.size
+                         files_affected.append(target)
                          self.logger.info(f"FILE_MOVED: {move.source_path.name} -> {target}")
                          
                          # Actualizar caché moviendo el archivo
@@ -341,23 +320,28 @@ class FileOrganizer(BaseService):
                          repo.move_file(move.source_path, target)
 
                  except Exception as e:
-                     results.add_error(f"Error {move.source_path.name}: {e}")
-            
+                     result.add_error(f"Error {move.source_path.name}: {e}")
+             
+             result.items_processed = items_processed
+             result.bytes_processed = bytes_processed
+             result.files_affected = files_affected
+
              # Limpieza directorios vacios
              if cleanup_empty_dirs and not dry_run:
                  removed = cleanup_empty_directories(root_directory)
-                 results.empty_directories_removed = removed
+                 result.empty_directories_removed = removed
                  
-             summary = self._format_operation_summary("Organización", results.files_moved, 0, dry_run)
+             summary = self._format_operation_summary("Organización", items_processed, bytes_processed, dry_run)
              log_section_footer_relevant(self.logger, summary)
-             results.message = summary
-             if results.backup_path: results.message += f"\nBackup: {results.backup_path}"
-
+             result.message = summary
+             if result.backup_path:
+                  result.message += f"\nBackup: {result.backup_path}"
+ 
         except Exception as e:
-            results.add_error(str(e))
+            result.add_error(str(e))
             self.logger.error(f"Error critico: {e}")
             
-        return results
+        return result
 
     def _get_default_subdir_info(self):
         return {'path': '', 'file_count': 0, 'total_size': 0, 'files': []}

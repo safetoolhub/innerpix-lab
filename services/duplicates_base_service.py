@@ -120,9 +120,8 @@ class DuplicatesBaseService(BaseService):
             self.logger.warning("No hay grupos para procesar")
             return DuplicateExecutionResult(
                 success=True,
-                files_deleted=0,
-                files_kept=0,
-                space_freed=0,
+                items_processed=0,
+                bytes_processed=0,
                 keep_strategy=keep_strategy,
                 dry_run=dry_run,
                 message="No hay duplicados para eliminar"
@@ -163,11 +162,10 @@ class DuplicatesBaseService(BaseService):
                     )
         
         # Procesar eliminaciones grupo por grupo
-        deleted_files = []
+        files_affected = []
         kept_files = []
         errors = []
-        space_freed = 0
-        simulated_space_freed = 0
+        bytes_processed = 0
         
         # Calcular total de operaciones para progress
         if keep_strategy == 'manual':
@@ -175,30 +173,25 @@ class DuplicatesBaseService(BaseService):
         else:
             total_operations = sum(len(g.files) - 1 for g in groups)
         
-        processed = 0
+        items_processed = 0
         
         for group in groups:
-            result = self._process_group_deletion(
+            result_group = self._process_group_deletion(
                 group=group,
                 keep_strategy=keep_strategy,
                 dry_run=dry_run,
                 backup_path=backup_path,
                 progress_callback=progress_callback,
-                processed_count=processed,
+                processed_count=items_processed,
                 total_count=total_operations,
                 metadata_cache=metadata_cache
             )
             
-            deleted_files.extend(result.deleted)
-            kept_files.extend(result.kept)
-            errors.extend(result.errors)
-            
-            if dry_run:
-                simulated_space_freed += result.space_freed
-            else:
-                space_freed += result.space_freed
-            
-            processed += result.processed
+            files_affected.extend(result_group.deleted)
+            kept_files.extend(result_group.kept)
+            errors.extend(result_group.errors)
+            bytes_processed += result_group.space_freed
+            items_processed += result_group.processed
         
         # Construir resultado
         error_messages = [
@@ -209,30 +202,21 @@ class DuplicatesBaseService(BaseService):
         
         result = DuplicateExecutionResult(
             success=len(error_messages) == 0,
-            files_deleted=len(deleted_files) if not dry_run else 0,
+            items_processed=items_processed,
+            bytes_processed=bytes_processed,
+            files_affected=files_affected,
             files_kept=len(kept_files),
-            space_freed=space_freed if not dry_run else 0,
             errors=error_messages,
             backup_path=str(backup_path) if backup_path else None,
-            files_affected=deleted_files if not dry_run else [],   # New field in base
             keep_strategy=keep_strategy,
-            dry_run=dry_run,
-            simulated_files_deleted=len(deleted_files) if dry_run else 0, # kept for compat
-            simulated_space_freed=simulated_space_freed if dry_run else 0
+            dry_run=dry_run
         )
-        # Populate new generic fields manually if needed, or rely on properties
-        if dry_run:
-             result.files_affected = deleted_files
         
         # Logging de resumen usando método centralizado
-        from utils.format_utils import format_size
-        
-        count = len(deleted_files)
-        space = simulated_space_freed if dry_run else space_freed
         summary = self._format_operation_summary(
             "Eliminación duplicados",
-            count,
-            space,
+            items_processed,
+            bytes_processed,
             dry_run
         )
         
@@ -241,7 +225,7 @@ class DuplicatesBaseService(BaseService):
         
         result.message = summary
         
-        if result.errors: # Changed from has_errors property if it's not available in Generic
+        if result.errors:
             error_prefix = "[SIMULACIÓN] " if dry_run else ""
             self.logger.info(f"*** {error_prefix}Errores durante la operación:")
             for error in result.errors:

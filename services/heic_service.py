@@ -303,8 +303,8 @@ class HeicService(BaseService):
         if not duplicate_pairs:
              return HeicExecutionResult(
                 success=True,
-                files_deleted=0,
-                space_freed=0,
+                items_processed=0,
+                bytes_processed=0,
                 message='No hay archivos duplicados para eliminar',
                 format_kept=keep_format,
                 dry_run=dry_run
@@ -342,17 +342,18 @@ class HeicService(BaseService):
         mode = "SIMULACIÓN" if dry_run else ""
         log_section_header_relevant(self.logger, "ELIMINACIÓN DE DUPLICADOS HEIC/JPG", mode=mode)
         
-        results = HeicExecutionResult(success=True, format_kept=keep_format, dry_run=dry_run)
+        result = HeicExecutionResult(success=True, format_kept=keep_format, dry_run=dry_run)
         total_pairs = len(duplicate_pairs)
         
-        files_deleted_list = []
+        files_affected = []
+        items_processed = 0
+        bytes_processed = 0
         
         for idx, pair in enumerate(duplicate_pairs):
              if not self._report_progress(progress_callback, idx+1, total_pairs, f"Procesando par {idx+1}/{total_pairs}"):
                  break
                  
              file_to_delete = pair.heic_path if keep_format.lower() == 'jpg' else pair.jpg_path
-             file_to_keep = pair.jpg_path if keep_format.lower() == 'jpg' else pair.heic_path
              file_size = pair.heic_size if keep_format.lower() == 'jpg' else pair.jpg_size
              
              try:
@@ -360,20 +361,23 @@ class HeicService(BaseService):
                      self.logger.warning(f"Archivo no encontrado: {file_to_delete}")
                      continue
                  
-                 from utils.format_utils import format_size
                  format_deleted = 'HEIC' if keep_format.lower() == 'jpg' else 'JPG'
                  
+                 # Formato de log estandarizado
+                 log_type = "FILE_DELETED_SIMULATION" if dry_run else "FILE_DELETED"
+                 log_msg = f"{log_type}: {file_to_delete} | Size: {file_size} B | Type: {format_deleted}"
+                 
                  if dry_run:
-                     results.simulated_files_deleted += 1
-                     results.simulated_space_freed += file_size
-                     files_deleted_list.append(str(file_to_delete))
-                     self.logger.info(f"FILE_DELETED_SIMULATION: {file_to_delete} | Type: {format_deleted}")
+                     items_processed += 1
+                     bytes_processed += file_size
+                     files_affected.append(file_to_delete)
+                     self.logger.info(log_msg)
                  else:
                      file_to_delete.unlink()
-                     results.files_deleted += 1
-                     results.space_freed += file_size
-                     files_deleted_list.append(str(file_to_delete))
-                     self.logger.info(f"FILE_DELETED: {file_to_delete} | Type: {format_deleted}")
+                     items_processed += 1
+                     bytes_processed += file_size
+                     files_affected.append(file_to_delete)
+                     self.logger.info(log_msg)
                      
                      # Actualizar caché eliminando el archivo
                      from services.file_metadata_repository_cache import FileInfoRepositoryCache
@@ -382,26 +386,23 @@ class HeicService(BaseService):
                      
              except Exception as e:
                  err = f"Error eliminando {file_to_delete}: {e}"
-                 results.add_error(err)
+                 result.add_error(err)
                  self.logger.error(err)
 
-        # Set files_affected using files_deleted_list for generic compatibility
-        results.files_affected = [Path(f) for f in files_deleted_list] if not dry_run else [] 
-        # HeicExecutionResult inherits from ExecutionResult, so files_affected is available
-        
-        results.deleted_files = files_deleted_list # Backward compatibility
+        # Poblar estadísticas en el objeto de resultado
+        result.items_processed = items_processed
+        result.bytes_processed = bytes_processed
+        result.files_affected = files_affected
 
         # Resumen
-        count = results.simulated_files_deleted if dry_run else results.files_deleted
-        space = results.simulated_space_freed if dry_run else results.space_freed
-        summary = self._format_operation_summary("Eliminación HEIC/JPG", count, space, dry_run)
+        summary = self._format_operation_summary("Eliminación HEIC/JPG", items_processed, bytes_processed, dry_run)
         
-        results.message = summary
-        if results.backup_path:
-            results.message += f"\n\nBackup: {results.backup_path}"
+        result.message = summary
+        if result.backup_path:
+            result.message += f"\n\nBackup: {result.backup_path}"
             
         log_section_footer_relevant(self.logger, summary)
-        return results
+        return result
 
     def _create_empty_result(self) -> HeicAnalysisResult:
         return HeicAnalysisResult(

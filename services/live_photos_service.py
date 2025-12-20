@@ -279,8 +279,8 @@ class LivePhotoService(BaseService):
         if not files_to_delete:
             return LivePhotosExecutionResult(
                 success=True,
-                files_deleted=0,
-                space_freed=0,
+                items_processed=0,
+                bytes_processed=0,
                 dry_run=dry_run,
                 message='No hay archivos para eliminar'
             )
@@ -314,8 +314,10 @@ class LivePhotoService(BaseService):
         log_section_header_relevant(self.logger, "INICIANDO LIMPIEZA DE LIVE PHOTOS", mode=mode_label)
         self.logger.info(f"*** Archivos a procesar: {len(files_to_delete)}")
 
-        results = LivePhotosExecutionResult(success=True, dry_run=dry_run)
-        files_deleted_list = []
+        result = LivePhotosExecutionResult(success=True, dry_run=dry_run)
+        files_affected = []
+        items_processed = 0
+        bytes_processed = 0
 
         try:
             total = len(files_to_delete)
@@ -334,33 +336,31 @@ class LivePhotoService(BaseService):
                         continue
 
                     # Capturar fecha
-                    from utils.format_utils import format_size
                     from utils.date_utils import get_date_from_file
                     
                     try:
-                         # Uso get_date_from_file por ahora, podría usar cache si tuviera acceso fácil aquí
                         file_date = get_date_from_file(file_path, verbose=False)
                         file_date_str = file_date.strftime('%Y-%m-%d %H:%M:%S') if file_date else 'unknown'
                     except Exception:
                         file_date_str = 'unknown'
 
+                    # Formato de log estandarizado
+                    log_type = "FILE_DELETED_SIMULATION" if dry_run else "FILE_DELETED"
+                    log_msg = f"{log_type}: {file_path} | Size: {file_size} B | Type: {file_info['type']} | Date: {file_date_str}"
+                    
                     if dry_run:
-                        results.simulated_files_deleted += 1
-                        results.simulated_space_freed += file_size
-                        files_deleted_list.append(str(file_path))
-                        
-                        log_msg = f"FILE_DELETED_SIMULATION: {file_path} | Size: {format_size(file_size)} | Type: {file_info['type']} | Date: {file_date_str}"
+                        items_processed += 1
+                        bytes_processed += file_size
+                        files_affected.append(file_path)
                         self.logger.info(log_msg)
                         
                         if file_info['type'] == 'video' and file_size > Config.LIVE_PHOTO_MAX_VIDEO_SIZE:
-                             self.logger.warning(f"⚠️ SOSPECHA: Video grande eliminado: {file_path} ({format_size(file_size)})")
+                             self.logger.warning(f"⚠️ SOSPECHA: Video grande eliminado: {file_path} ({file_size} B)")
                     else:
                         file_path.unlink()
-                        results.files_deleted += 1
-                        results.space_freed += file_size
-                        files_deleted_list.append(str(file_path))
-                        
-                        log_msg = f"FILE_DELETED: {file_path} | Size: {format_size(file_size)} | Type: {file_info['type']} | Date: {file_date_str}"
+                        items_processed += 1
+                        bytes_processed += file_size
+                        files_affected.append(file_path)
                         self.logger.info(log_msg)
                         
                         # Actualizar caché eliminando el archivo
@@ -369,46 +369,38 @@ class LivePhotoService(BaseService):
                         repo.remove_file(file_path)
                         
                         if file_info['type'] == 'video' and file_size > Config.LIVE_PHOTO_MAX_VIDEO_SIZE:
-                             self.logger.warning(f"⚠️ SOSPECHA: Video grande eliminado: {file_path} ({format_size(file_size)})")
+                             self.logger.warning(f"⚠️ SOSPECHA: Video grande eliminado: {file_path} ({file_size} B)")
 
                 except Exception as e:
                     error_msg = f"Error eliminando {file_path.name}: {str(e)}"
-                    results.add_error(error_msg)
+                    result.add_error(error_msg)
                     self.logger.error(error_msg)
 
-            results.success = len(results.errors) == 0
+            result.success = len(result.errors) == 0
             
-            # Compatibilidad generic
-            if not dry_run:
-                 results.files_affected = [Path(f) for f in files_deleted_list]
-            else:
-                 results.files_affected = []
-                 
-            results.deleted_files = files_deleted_list
+            # Poblar estadísticas en el objeto de resultado
+            result.items_processed = items_processed
+            result.bytes_processed = bytes_processed
+            result.files_affected = files_affected
 
             # Resumen
-            from utils.format_utils import format_size
-            count = results.simulated_files_deleted if dry_run else results.files_deleted
-            space = results.simulated_space_freed if dry_run else results.space_freed
-            freed = format_size(space)
-            
-            summary = self._format_operation_summary("Limpieza Live Photos", count, space, dry_run)
+            summary = self._format_operation_summary("Limpieza Live Photos", items_processed, bytes_processed, dry_run)
             log_section_footer_relevant(self.logger, summary)
             
-            results.message = summary
-            if results.backup_path:
-                results.message += f"\n\nBackup: {results.backup_path}"
+            result.message = summary
+            if result.backup_path:
+                result.message += f"\n\nBackup: {result.backup_path}"
                 
-            if results.errors:
-                 results.message += f"\nAdvertencia: {len(results.errors)} errores"
+            if result.errors:
+                 result.message += f"\nAdvertencia: {len(result.errors)} errores"
 
         except Exception as e:
             error_msg = f"Error durante limpieza: {str(e)}"
-            results.add_error(error_msg)
-            results.message = error_msg
+            result.add_error(error_msg)
+            result.message = error_msg
             self.logger.error(error_msg)
 
-        return results
+        return result
 
     def _create_empty_result(self, cleanup_mode: CleanupMode) -> LivePhotosAnalysisResult:
         return LivePhotosAnalysisResult(

@@ -427,7 +427,7 @@ class FileInfoRepositoryCache:
         hash_val = None
         try:
             hash_val = calculate_file_hash(path)
-            self._logger.debug(f"Hash calculado para {path.name}: {hash_val[:8]}...")
+            self._logger.debug(f"Hash {path.name} calculado:{hash_val[:8]}...")
         except (PermissionError, FileNotFoundError, IOError):
             # Logging detallado ya hecho en calculate_file_hash()
             self._logger.debug(f"No se pudo calcular hash: {path.name}")
@@ -441,7 +441,7 @@ class FileInfoRepositoryCache:
                 cached_metadata = self._cache.get(path)
                 if cached_metadata:
                     cached_metadata.sha256 = hash_val
-                    self._logger.debug(f"Hash asignado en caché para {path.name}: {hash_val[:8]}...")
+                    self._logger.debug(f"Hash {path.name} asignado en caché: {hash_val[:8]}...")
                 else:
                     # Raro pero posible: se eliminó del caché entre tanto
                     metadata.sha256 = hash_val
