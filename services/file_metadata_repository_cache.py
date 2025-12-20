@@ -9,7 +9,7 @@ Arquitectura:
 - Interfaz preparada para backend SQLite/BBDD (Protocol)
 - Singleton thread-safe
 - Auto-population con diferentes estrategias
-- Auto-fetch opcional por parámetro
+
 
 Estrategias de población:
 1. BASIC: Solo filesystem metadata (rápido, scan inicial, OBLIGATORIO primero)
@@ -31,9 +31,9 @@ Uso:
     repo.populate_from_scan(files, strategy=PopulationStrategy.HASH)  # Solo hashes
     repo.populate_from_scan(files, strategy=PopulationStrategy.EXIF_IMAGES)  # Solo EXIF imágenes
     
-    # Consultar desde servicios (auto-fetch si no está)
-    hash_val = repo.get_hash(file_path, auto_fetch=True)
-    exif = repo.get_exif(file_path, auto_fetch=False)
+    # Consultar desde servicios (solo lectura)
+    hash_val = repo.get_hash(file_path)
+    exif = repo.get_exif(file_path)
     
     # Limpiar entre datasets
     repo.clear()
@@ -91,9 +91,9 @@ class IFileRepository(Protocol):
     def get_all_files(self) -> List[FileMetadata]: ...
     def get_files_by_size(self, size: int) -> List[FileMetadata]: ...
     def get_files_by_extension(self, extension: str) -> List[FileMetadata]: ...
-    def get_file_metadata(self, path: Path, auto_fetch: bool = False) -> Optional[FileMetadata]: ...
-    def get_hash(self, path: Path, auto_fetch: bool = True) -> Optional[str]: ...
-    def get_exif(self, path: Path, auto_fetch: bool = False) -> Dict[str, Any]: ...
+    def get_file_metadata(self, path: Path) -> Optional[FileMetadata]: ...
+    def get_hash(self, path: Path) -> Optional[str]: ...
+    def get_exif(self, path: Path) -> Dict[str, Any]: ...
     
     # Contadores
     def count(self) -> int: ...
@@ -141,7 +141,6 @@ class FileInfoRepositoryCache:
     - Singleton: Una única instancia compartida globalmente
     - Thread-safe: Usa RLock para acceso concurrente seguro
     - Estrategias de población: Control fino sobre qué datos cargar
-    - Auto-fetch: Obtención automática de datos faltantes (opcional)
     - LRU Cache: Política de eviction inteligente basada en valor de datos
     - Cache Management: remove_file(), remove_files(), set_max_entries()
     - Estadísticas: Hit/miss tracking para optimización
@@ -157,8 +156,8 @@ class FileInfoRepositoryCache:
         
         # En cualquier servicio:
         repo = FileInfoRepositoryCache.get_instance()
-        hash_val = repo.get_hash(path, auto_fetch=True)  # Calcula si no está
-        exif = repo.get_exif(path, auto_fetch=False)     # None si no está
+        hash_val = repo.get_hash(path)           # None si no está
+        exif = repo.get_exif(path)               # {} si no está
         
         # Entre datasets:
         repo.clear()
@@ -651,18 +650,16 @@ class FileInfoRepositoryCache:
     
     def get_file_metadata(
         self,
-        path: Path,
-        auto_fetch: bool = False
+        path: Path
     ) -> Optional[FileMetadata]:
         """
         Obtiene metadatos completos de un archivo.
         
         Args:
             path: Ruta del archivo
-            auto_fetch: Si True, añade el archivo automáticamente si no está en caché
             
         Returns:
-            FileMetadata si existe (o se creó con auto_fetch), None en caso contrario
+            FileMetadata si existe en caché, None en caso contrario
         """
         path = path.resolve()
         
@@ -673,81 +670,39 @@ class FileInfoRepositoryCache:
                 return self._cache[path]
             self._misses += 1
         
-        # No está en caché
-        if auto_fetch:
-            self._logger.debug(f"Auto-fetch activado para {path.name}")
-            metadata = self._process_file_basic(path)
-            if metadata:
-                with self._lock:
-                    self._cache[path] = metadata
-                    self._update_access_order(path)
-                    # Verificar límite de caché
-                    if len(self._cache) > self._max_entries:
-                        self._evict_lru_entries(len(self._cache) - self._max_entries)
-                return metadata
-        
         return None
     
-    def get_hash(self, path: Path, auto_fetch: bool = True) -> Optional[str]:
+    def get_hash(self, path: Path) -> Optional[str]:
         """
-        Obtiene el hash SHA256 de un archivo.
+        Obtiene el hash SHA256 de un archivo desde la caché.
         
         Args:
             path: Ruta del archivo
-            auto_fetch: Si True (default), calcula el hash si no está cacheado
             
         Returns:
-            str: Hash SHA256 en hexadecimal, o None si auto_fetch=False y no está
+            str: Hash SHA256 en hexadecimal, o None si no está calculado/cacheado
         """
         path = path.resolve()
-        metadata = self.get_file_metadata(path, auto_fetch=False)
+        metadata = self.get_file_metadata(path)
         
         # Si tiene hash cacheado, retornarlo
         if metadata and metadata.sha256:
             return metadata.sha256
         
-        # No tiene hash
-        if not auto_fetch:
-            return None
-        
-        # Auto-fetch: calcular hash
-        self._logger.debug(f"Calculando hash para {path.name}")
-        
-        # Si no existe metadata, crearla
-        if not metadata:
-            metadata = self._process_file_basic(path)
-            if not metadata:
-                return None
-            with self._lock:
-                self._cache[path] = metadata
-        
-        # Calcular y cachear hash
-        try:
-            hash_val = calculate_file_hash(path)
-            with self._lock:
-                metadata.sha256 = hash_val
-            return hash_val
-        except (PermissionError, FileNotFoundError, IOError):
-            # Logging detallado ya hecho en calculate_file_hash()
-            self._logger.debug(f"No se pudo calcular hash: {path.name}")
-            return None
-        except Exception as e:
-            self._logger.error(f"Error inesperado calculando hash de {path.name}: {type(e).__name__}: {e}")
-            return None
+        return None
     
-    def get_exif(self, path: Path, auto_fetch: bool = False) -> Dict[str, Any]:
+    def get_exif(self, path: Path) -> Dict[str, Any]:
         """
-        Obtiene datos EXIF de un archivo.
+        Obtiene datos EXIF de un archivo desde la caché.
         
         Args:
             path: Ruta del archivo
-            auto_fetch: Si True, añade el archivo si no está en caché
             
         Returns:
-            Dict con campos EXIF presentes (vacío si no hay datos)
+            Dict con campos EXIF presentes (vacío si no hay datos o no está cacheado)
         """
         path = path.resolve()
-        metadata = self.get_file_metadata(path, auto_fetch=auto_fetch)
+        metadata = self.get_file_metadata(path)
         
         if not metadata:
             return {}
@@ -756,21 +711,19 @@ class FileInfoRepositoryCache:
     
     def get_filesystem_metadata(
         self,
-        path: Path,
-        auto_fetch: bool = False
+        path: Path
     ) -> Optional[Dict[str, Any]]:
         """
-        Obtiene metadatos del sistema de archivos.
+        Obtiene metadatos del sistema de archivos desde la caché.
         
         Args:
             path: Ruta del archivo
-            auto_fetch: Si True, añade el archivo si no está en caché
             
         Returns:
             Dict con fs_size, fs_ctime, fs_mtime, fs_atime, o None si no existe
         """
         path = path.resolve()
-        metadata = self.get_file_metadata(path, auto_fetch=auto_fetch)
+        metadata = self.get_file_metadata(path)
         
         if not metadata:
             return None

@@ -29,8 +29,8 @@ PyQt6 desktop app for photo/video management oriented to privacy.
   - `EXIF_ALL`: EXIF de imágenes + videos (requiere BASIC previo, muy costoso)
   - `FULL`: Hash + EXIF completo (requiere BASIC previo, extremadamente costoso)
 - **Incremental workflow**: BASIC siempre primero, luego estrategias específicas según necesidad
-- **Auto-fetch**: Si metadata básica no existe, las estrategias la crean automáticamente
-- **Auto-fetch**: `get_file_metadata(path, auto_fetch=True)`, `get_hash(path, auto_fetch=True)`, `get_exif(path, auto_fetch=False)`
+- **No Auto-fetch**: Repositorio pasivo. Si el dato no está en caché, retorna None o estructura vacía.
+- **Consultas**: `get_file_metadata(path)`, `get_hash(path)`, `get_exif(path)` - Solo lectura (O(1)).
 - **Cancelación cooperativa**: `stop_check_callback` verifica cancelación en cada iteración del loop
 - **Progress throttling**: Reporta cada 1% o cada 100 archivos (evita saturación Qt en datasets grandes)
 - **Cache Management**:
