@@ -457,6 +457,11 @@ def configure_logging(
         except Exception as e:
             _root_logger.error(f"No se pudo crear archivo de log de warnings: {e}")
     
+    # Actualizar todos los loggers hijos que ya existan para que hereden el nuevo nivel
+    # Esto es necesario porque módulos pueden haber sido importados antes de configure_logging()
+    # y sus loggers habrían sido creados con el nivel por defecto (INFO)
+    set_global_log_level(_current_level)
+    
     return _log_file, _logs_directory
 
 
