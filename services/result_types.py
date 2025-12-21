@@ -57,6 +57,66 @@ class ZeroByteExecutionResult(ExecutionResult):
     """Result for zero-byte files deletion."""
     pass
 
+# --- HEIC Service ---
+@dataclass
+class HEICDuplicatePair:
+    """Represents a pair of HEIC + JPG files."""
+    heic_path: Path
+    jpg_path: Path
+    base_name: str
+    heic_size: int
+    jpg_size: int
+    directory: Path
+    heic_date: Optional[datetime] = None
+    jpg_date: Optional[datetime] = None
+    date_source: Optional[str] = None
+    date_difference: Optional[float] = None
+    
+    @property
+    def total_size(self) -> int:
+        return self.heic_size + self.jpg_size
+
+@dataclass
+class HeicAnalysisResult(AnalysisResult):
+    """Result for HEIC/JPG duplicate analysis."""
+    duplicate_pairs: List[HEICDuplicatePair] = field(default_factory=list)
+    rejected_pairs: List[HEICDuplicatePair] = field(default_factory=list)
+    heic_files: int = 0
+    jpg_files: int = 0
+    potential_savings_keep_jpg: int = 0
+    potential_savings_keep_heic: int = 0
+    
+    def __post_init__(self):
+        if not self.items_count and self.duplicate_pairs:
+            self.items_count = len(self.duplicate_pairs)
+        if not self.bytes_total and self.duplicate_pairs:
+            self.bytes_total = sum(p.total_size for p in self.duplicate_pairs)
+
+@dataclass
+class HeicExecutionResult(ExecutionResult):
+    """Result for HEIC/JPG duplicate execution."""
+    format_kept: Optional[str] = None  # 'heic' or 'jpg'
+
+
+# --- Live Photos ---
+@dataclass
+class LivePhotosAnalysisResult(AnalysisResult):
+    """Result for Live Photos detection analysis."""
+    groups: List[Any] = field(default_factory=list)  # List of LivePhotoGroup objects
+    space_to_free: int = 0  # Space that would be freed by removing videos
+    total_space: int = 0  # Total space used by Live Photos (images + videos)
+    
+    def __post_init__(self):
+        if not self.items_count and self.groups:
+            self.items_count = len(self.groups)
+        if not self.bytes_total and self.total_space:
+            self.bytes_total = self.total_space
+
+@dataclass
+class LivePhotosExecutionResult(ExecutionResult):
+    """Result for Live Photos execution."""
+    pass
+
 # --- Rename Service ---
 @dataclass
 class RenameAnalysisResult(AnalysisResult):
@@ -98,45 +158,7 @@ class OrganizationExecutionResult(ExecutionResult):
     moved_files: List[str] = field(default_factory=list)
     folders_created: List[str] = field(default_factory=list)
 
-# --- HEIC Service ---
-@dataclass
-class HEICDuplicatePair:
-    """Represents a pair of HEIC + JPG files."""
-    heic_path: Path
-    jpg_path: Path
-    base_name: str
-    heic_size: int
-    jpg_size: int
-    directory: Path
-    heic_date: Optional[datetime] = None
-    jpg_date: Optional[datetime] = None
-    date_source: Optional[str] = None
-    date_difference: Optional[float] = None
-    
-    @property
-    def total_size(self) -> int:
-        return self.heic_size + self.jpg_size
 
-@dataclass
-class HeicAnalysisResult(AnalysisResult):
-    """Result for HEIC/JPG duplicate analysis."""
-    duplicate_pairs: List[HEICDuplicatePair] = field(default_factory=list)
-    rejected_pairs: List[HEICDuplicatePair] = field(default_factory=list)
-    heic_files: int = 0
-    jpg_files: int = 0
-    potential_savings_keep_jpg: int = 0
-    potential_savings_keep_heic: int = 0
-    
-    def __post_init__(self):
-        if not self.items_count and self.duplicate_pairs:
-            self.items_count = len(self.duplicate_pairs)
-        if not self.bytes_total and self.duplicate_pairs:
-            self.bytes_total = sum(p.total_size for p in self.duplicate_pairs)
-
-@dataclass
-class HeicExecutionResult(ExecutionResult):
-    """Result for HEIC/JPG duplicate execution."""
-    format_kept: Optional[str] = None  # 'heic' or 'jpg'
 
 # --- Duplicates (Exact & Similar) ---
 @dataclass
@@ -172,24 +194,7 @@ class DuplicateExecutionResult(ExecutionResult):
     keep_strategy: Optional[str] = None
 
 
-# --- Live Photos ---
-@dataclass
-class LivePhotosAnalysisResult(AnalysisResult):
-    """Result for Live Photos detection analysis."""
-    groups: List[Any] = field(default_factory=list)  # List of LivePhotoGroup objects
-    space_to_free: int = 0  # Space that would be freed by removing videos
-    total_space: int = 0  # Total space used by Live Photos (images + videos)
-    
-    def __post_init__(self):
-        if not self.items_count and self.groups:
-            self.items_count = len(self.groups)
-        if not self.bytes_total and self.total_space:
-            self.bytes_total = self.total_space
 
-@dataclass
-class LivePhotosExecutionResult(ExecutionResult):
-    """Result for Live Photos execution."""
-    pass
 
 
 

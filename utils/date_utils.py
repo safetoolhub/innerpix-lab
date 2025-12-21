@@ -40,7 +40,7 @@ def get_best_creation_date(
     verbose: bool = False
 ) -> Optional[Tuple[datetime, datetime, str]]:
     """
-    Compara las fechas de creación más realistas posibles de dos archivos de imagen.
+    Compara las fechas de creación más realistas posibles de dos archivos.
     
     Devuelve una tupla con (fecha_file1, fecha_file2, fuente) donde las fechas son
     del mismo tipo para ambos archivos (nunca mezcla EXIF con filesystem).
