@@ -8,12 +8,12 @@ from pathlib import Path
 from PyQt6.QtWidgets import QMessageBox
 from PyQt6.QtCore import Qt
 from utils.format_utils import format_size
-from utils.date_utils import get_date_from_file, select_chosen_date, get_all_file_dates, _convert_file_metadata_to_dates_dict
+from utils.date_utils import get_date_from_file, get_all_file_dates, _convert_file_metadata_to_dates_dict
 from utils.platform_utils import open_file_with_default_app, open_folder_in_explorer
 from utils.logger import get_logger
 
 # Logger del módulo siguiendo el patrón estándar del proyecto
-_logger = get_logger("DialogUtils")
+logger = get_logger('UI.Dialogs.Utils')
 
 
 def open_file(file_path: Path, parent_widget=None):
@@ -81,22 +81,16 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     from ui.styles.design_system import DesignSystem
     from ui.styles.icons import icon_manager
     
-    _logger.debug(f"Mostrando detalles del archivo: {file_path.name}")
+    logger.debug(f"Mostrando detalles del archivo: {file_path.name}")
     
     # === 1. RECOPILACIÓN DE DATOS ===
     
     # Obtener TODA la información de metadatos usando get_all_file_dates()
     # Esta función es la ÚNICA fuente de verdad para metadatos de archivos
     metadata = get_all_file_dates(file_path)
-    _logger.debug(f"Metadatos obtenidos - Size: {metadata.fs_size}, Hash: {metadata.has_hash}, EXIF: {metadata.has_exif}")
+    logger.debug(f"Metadatos obtenidos - Size: {metadata.fs_size}, Hash: {metadata.has_hash}, EXIF: {metadata.has_exif}")
     
     dates_info = _convert_file_metadata_to_dates_dict(metadata)
-    
-    # Seleccionar la fecha más representativa
-    selected_date, selected_source = select_chosen_date(dates_info)
-    dates_info['selected_date'] = selected_date
-    dates_info['selected_source'] = selected_source
-    _logger.debug(f"Fecha seleccionada: {selected_date} (fuente: {selected_source})")
     
     # === 2. CONSTRUCCIÓN DE LA IU ===
     
@@ -355,23 +349,6 @@ def _create_dates_section(dates_info: dict):
         DesignSystem.SPACE_16, DesignSystem.SPACE_16
     )
     layout.setSpacing(DesignSystem.SPACE_12)
-    
-    # === FECHA SELECCIONADA (la que usa la aplicación) ===
-    if dates_info.get('selected_date'):
-        selected_row = _create_date_row(
-            "Fecha utilizada por la aplicación", 
-            dates_info['selected_date'].strftime("%Y-%m-%d %H:%M:%S"),
-            f"Fuente: {dates_info.get('selected_source', 'Desconocida')}",
-            'check-circle',
-            DesignSystem.COLOR_SUCCESS
-        )
-        layout.addWidget(selected_row)
-        
-        # Separador sutil
-        separator = QWidget()
-        separator.setFixedHeight(1)
-        separator.setStyleSheet(f"background-color: {DesignSystem.COLOR_CARD_BORDER};")
-        layout.addWidget(separator)
     
     # === FECHAS EXIF ===
     exif_dates_added = False
