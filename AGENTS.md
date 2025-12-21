@@ -34,6 +34,8 @@ Logging y registros
 - **Logger**: Usar `from utils.logger import get_logger` y obtener el logger por módulo: `get_logger('ModuleName')`.
 - **Dual logging**: El proyecto soporta log dual (archivo completo + archivo WARN/ERROR). Respetar la convención y no imprimir directamente.
 - **Formato de borrado**: Cuando se eliminen archivos, usar el formato `FILE_DELETED:` o `FILE_DELETED_SIMULATION:` para operaciones en modo simulación.
+  - **Tamaños de archivo**: SIEMPRE usar `format_size()` de `utils.format_utils` para mostrar tamaños en unidades apropiadas (KB, MB, GB) en lugar de bytes puros.
+  - Ejemplo: `f"Size: {format_size(file_size)}"` NO `f"Size: {file_size} B"`
 
 Backups y modo simulación
 - **Política**: Todas las operaciones destructivas aceptan `create_backup=True`. Antes de borrar/mover/renombrar, crear backup por defecto salvo indicación explícita.

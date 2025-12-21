@@ -17,7 +17,7 @@ PyQt6 desktop app for photo/video management oriented to privacy.
    - Renombrar: `FileRenamer.analyze()` → `RenameAnalysisResult`
    - Organizar: `FileOrganizer.analyze()` → `OrganizationAnalysisResult`
 - Detectors: `ExactCopiesDetector` (SHA256), `SimilarFilesDetector` (perceptual hash)
-- Other services: `FileOrganizerService`, `FileRenamerService`, `HeicRemoverService`, `LivePhotosService`
+- Other services: `FileOrganizerService`, `FileRenamerService`, `HeicService`, `LivePhotoService` (singular, not LivePhotosService)
 
 **File Metadata Repository Cache** (`services/file_metadata_repository_cache.py`) - Singleton cache system (SQLite migration ready)
 - **Pattern**: `FileInfoRepositoryCache.get_instance()` - NOT passed as parameter to services
@@ -105,6 +105,8 @@ Dry-run mode for testing. No deletions/moves/renames.
   - Main log: All messages with level suffix (e.g., `innerpix_lab_20251204_220143_INFO.log`)
   - Warnings log: Only WARNING/ERROR (e.g., `innerpix_lab_20251204_220143_WARNERROR.log`)
 - File deletion logs: Unified format `FILE_DELETED: <path> | Size: <size> | Type: <type> | Date: <date>`
+  - Size usa `format_size()` desde `utils.format_utils` para mostrar unidades apropiadas (B, KB, MB, GB)
+  - Import requerido: `from utils.format_utils import format_size`
 - Simulation logs: `FILE_DELETED_SIMULATION:` prefix for dry-run operations
 - Grep-friendly: `grep "FILE_DELETED:" logs/*.log` finds all deletions across tools
 - Runtime control: `set_dual_log_enabled(bool)` to enable/disable on the fly
@@ -144,7 +146,9 @@ Dry-run mode for testing. No deletions/moves/renames.
   - `OrganizationAnalysisResult`: move_plan, root_directory, organization_type, folders_to_create
   - `HeicAnalysisResult`: duplicate_pairs, heic_files, jpg_files, potential_savings_*
   - `DuplicateAnalysisResult`: groups, mode, total_duplicates, total_groups, space_wasted
-  - `LivePhotosAnalysisResult`: groups, space_to_free, total_space
+  - `LivePhotosAnalysisResult`: groups, rejected_groups, potential_savings (property), total_space
+    - Filtrado individual de imágenes: Si múltiples imágenes comparten nombre base con video, solo se rechazan las que excedan threshold
+    - Grupos sin imágenes válidas van a `rejected_groups`
   - `ZeroByteAnalysisResult`: files
 - **Execution Results** (per service):
   - `RenameExecutionResult`: renamed_files, conflicts_resolved

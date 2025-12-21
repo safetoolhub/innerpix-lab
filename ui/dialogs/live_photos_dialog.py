@@ -97,7 +97,7 @@ class LivePhotosDialog(BaseDialog):
             warning_banner = self._create_warning_banner(
                 title='Detección sin validación temporal',
                 message='La extracción de metadata de video está desactivada. Los Live Photos se detectan '
-                        'solo por coincidencia de nombres, sin validar que las fechas de captura coincidan. '
+                        'solo por coincidencia de nombres, validando únicamente las fechas provenientes del sistema '
                         'Esto puede incluir falsos positivos.',
                 action_text='Activar en Configuración',
                 action_callback=self._open_settings
@@ -658,5 +658,5 @@ class LivePhotosDialog(BaseDialog):
     def _open_settings(self):
         """Abre el diálogo de configuración en la pestaña Avanzado"""
         from .settings_dialog import SettingsDialog
-        settings_dialog = SettingsDialog(self, initial_tab=2)  # 2 = Avanzado tab
+        settings_dialog = SettingsDialog(self, initial_tab=1)  # 1 = General tab
         settings_dialog.exec()
