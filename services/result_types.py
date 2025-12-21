@@ -197,6 +197,41 @@ class LivePhotosExecutionResult(ExecutionResult):
     """Result for Live Photos execution."""
     videos_deleted: int = 0
 
+
+# --- Duplicates (Exact & Similar) ---
+@dataclass
+class DuplicateGroup:
+    hash_value: str
+    files: List[Path]
+    total_size: int
+    file_sizes: List[int] = field(default_factory=list) # Size of each file
+    similarity_score: float = 100.0
+
+@dataclass
+class DuplicateAnalysisResult(AnalysisResult):
+    """Result for duplicate detection analysis (exact or similar)."""
+    groups: List[DuplicateGroup] = field(default_factory=list)
+    mode: str = 'exact'  # 'exact' or 'perceptual'
+    total_duplicates: int = 0
+    total_groups: int = 0
+    total_files: int = 0
+    space_wasted: int = 0
+    
+    def __post_init__(self):
+        if not self.items_count and self.groups:
+            self.items_count = len(self.groups)
+        if not self.total_groups and self.groups:
+            self.total_groups = len(self.groups)
+        if not self.bytes_total and self.space_wasted:
+            self.bytes_total = self.space_wasted
+
+@dataclass
+class DuplicateExecutionResult(ExecutionResult):
+    """Result for duplicate deletion execution."""
+    files_kept: int = 0
+    keep_strategy: Optional[str] = None
+
+
 # --- Rename Service ---
 @dataclass
 class RenameAnalysisResult(AnalysisResult):
@@ -237,44 +272,6 @@ class OrganizationExecutionResult(ExecutionResult):
     empty_directories_removed: int = 0
     moved_files: List[str] = field(default_factory=list)
     folders_created: List[str] = field(default_factory=list)
-
-
-
-# --- Duplicates (Exact & Similar) ---
-@dataclass
-class DuplicateGroup:
-    hash_value: str
-    files: List[Path]
-    total_size: int
-    file_sizes: List[int] = field(default_factory=list) # Size of each file
-    similarity_score: float = 100.0
-
-@dataclass
-class DuplicateAnalysisResult(AnalysisResult):
-    """Result for duplicate detection analysis (exact or similar)."""
-    groups: List[DuplicateGroup] = field(default_factory=list)
-    mode: str = 'exact'  # 'exact' or 'perceptual'
-    total_duplicates: int = 0
-    total_groups: int = 0
-    total_files: int = 0
-    space_wasted: int = 0
-    
-    def __post_init__(self):
-        if not self.items_count and self.groups:
-            self.items_count = len(self.groups)
-        if not self.total_groups and self.groups:
-            self.total_groups = len(self.groups)
-        if not self.bytes_total and self.space_wasted:
-            self.bytes_total = self.space_wasted
-
-@dataclass
-class DuplicateExecutionResult(ExecutionResult):
-    """Result for duplicate deletion execution."""
-    files_kept: int = 0
-    keep_strategy: Optional[str] = None
-
-
-
 
 
 

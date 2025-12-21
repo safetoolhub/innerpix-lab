@@ -44,7 +44,7 @@ def get_best_creation_date(
     
     Devuelve una tupla con (fecha_file1, fecha_file2, fuente) donde las fechas son
     del mismo tipo para ambos archivos (nunca mezcla EXIF con filesystem).
-    Usado por HEICService para determinar la fecha correcta de los pares de archivos.
+    Usado por HEICService y LivePhotoService para determinar la fecha correcta de los pares de archivos.
     
     Prioriza fidelidad al momento de captura/creación original:
     1. EXIF DateTimeOriginal (Captura exacta)
