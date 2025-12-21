@@ -12,7 +12,7 @@ utilizados en la aplicación, incluyendo:
 
 # Servicios principales
 from .file_renamer_service import FileRenamer
-from .live_photos_service import LivePhotoService, LivePhotoGroup, CleanupMode
+from .live_photos_service import LivePhotoService
 from .file_organizer_service import FileOrganizer, FileMove, OrganizationType
 from .heic_service import HeicService, HEICDuplicatePair
 from .duplicates_exact_service import DuplicatesExactService
@@ -47,6 +47,8 @@ from .result_types import (
     HeicAnalysisResult,
     HeicExecutionResult,
     # Live Photos
+    LivePhotoImageInfo,
+    LivePhotoGroup,
     LivePhotosAnalysisResult,
     LivePhotosExecutionResult,
 
@@ -72,10 +74,10 @@ __all__ = [
     # Type aliases
     'ProgressCallback',
     # Enums
-    'CleanupMode',
     'OrganizationType',
     # Dataclasses de servicios
     'LivePhotoGroup',
+    'LivePhotoImageInfo',
     'FileMove',
     'HEICDuplicatePair',
     'DuplicateGroup',

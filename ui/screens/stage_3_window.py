@@ -242,7 +242,7 @@ class Stage3Window(BaseStage):
         # Ahora los análisis se hacen bajo demanda, así que solo sumamos si existen
         # Live Photos
         if hasattr(self.analysis_results, 'live_photos') and self.analysis_results.live_photos:
-            total += self.analysis_results.live_photos.space_to_free
+            total += self.analysis_results.live_photos.potential_savings
         
         # HEIC/JPG
         if hasattr(self.analysis_results, 'heic') and self.analysis_results.heic:

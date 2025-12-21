@@ -10,6 +10,7 @@ from services.result_types import ZeroByteAnalysisResult, ZeroByteExecutionResul
 from services.file_metadata_repository_cache import FileInfoRepositoryCache
 from utils.logger import log_section_header_relevant, log_section_footer_relevant
 from utils.file_utils import delete_file_securely
+from utils.format_utils import format_size
 
 
 class ZeroByteService(BaseService):

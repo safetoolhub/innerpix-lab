@@ -25,7 +25,7 @@ def create_live_photos_card(analysis_results, on_click_callback) -> ToolCard:
         icon_name='camera-burst',
         title='Live Photos',
         description='Las Live Photos de iPhone combinan imagen y vídeo corto. '
-                   'Libera espacio eliminando el componente de vídeo o foto según prefieras, '
+                   'Libera espacio eliminando el componente de vídeo, '
                    'mientras conservas la esencia de tus recuerdos.',
         action_text='Gestionar ahora' if has_analysis else 'Analizar ahora'
     )
@@ -34,7 +34,7 @@ def create_live_photos_card(analysis_results, on_click_callback) -> ToolCard:
     if has_analysis:
         live_photo_data = analysis_results.live_photos
         if live_photo_data.items_count > 0:
-            size_text = f"~{format_size(live_photo_data.space_to_free)} recuperables"
+            size_text = f"~{format_size(live_photo_data.potential_savings)} recuperables"
             card.set_status_with_results(
                 f"{live_photo_data.items_count} Grupos de Live Photos detectados",
                 size_text

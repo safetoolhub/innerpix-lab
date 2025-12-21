@@ -312,20 +312,19 @@ try:
             repo.populate_from_scan(files, PopulationStrategy.BASIC)
 
     original_analyze_live = services.live_photos_service.LivePhotoService.analyze
-    def _wrapped_analyze_live(self, directory_or_cleanup, cleanup_mode=None, progress_callback=None, **kwargs):
-        if isinstance(directory_or_cleanup, str) or hasattr(directory_or_cleanup, '__fspath__'):
-            # Old signature: directory first
-            directory = Path(directory_or_cleanup)
+    def _wrapped_analyze_live(self, directory_or_validate_dates, validate_dates=None, progress_callback=None, **kwargs):
+        if isinstance(directory_or_validate_dates, str) or hasattr(directory_or_validate_dates, '__fspath__'):
+            # Old signature: directory first - populate cache and call new API
+            directory = Path(directory_or_validate_dates)
             repo = FileInfoRepositoryCache.get_instance()
             _populate_cache_from_directory(directory, repo)
-            kwargs['directory'] = directory
             # Enable debug logging for this test
             import logging
             self.logger.setLevel(logging.DEBUG)
-            return original_analyze_live(self, cleanup_mode=cleanup_mode or services.live_photos_service.CleanupMode.KEEP_IMAGE, progress_callback=progress_callback, directory=directory)
+            return original_analyze_live(self, validate_dates=validate_dates if validate_dates is not None else True, progress_callback=progress_callback)
         else:
-            # New signature: cleanup_mode first
-            return original_analyze_live(self, cleanup_mode=directory_or_cleanup, progress_callback=cleanup_mode, **kwargs)
+            # New signature: validate_dates first
+            return original_analyze_live(self, validate_dates=directory_or_validate_dates, progress_callback=validate_dates, **kwargs)
     services.live_photos_service.LivePhotoService.analyze = _wrapped_analyze_live
 
     original_analyze_exact = services.duplicates_exact_service.DuplicatesExactService.analyze

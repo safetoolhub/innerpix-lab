@@ -27,13 +27,12 @@ class LivePhotosAnalysisWorker(BaseWorker):
     def run(self):
         try:
             if self._stop_requested: return
-            from services.live_photos_service import LivePhotoService, CleanupMode
+            from services.live_photos_service import LivePhotoService
             
             service = LivePhotoService()
             result = service.analyze(
-                cleanup_mode=CleanupMode.KEEP_IMAGE,
-                progress_callback=self._create_progress_callback(emit_numbers=True),
-                directory=self.directory
+                validate_dates=True,  # Validar fechas por defecto
+                progress_callback=self._create_progress_callback(emit_numbers=True)
             )
             
             if not self._stop_requested:

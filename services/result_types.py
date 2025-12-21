@@ -100,10 +100,74 @@ class HeicExecutionResult(ExecutionResult):
 
 # --- Live Photos ---
 @dataclass
+class LivePhotoImageInfo:
+    """Información de una imagen en un grupo Live Photo."""
+    path: Path
+    size: int
+    date: Optional[datetime] = None
+    date_source: Optional[str] = None
+
+
+@dataclass
+class LivePhotoGroup:
+    """
+    Representa un grupo de Live Photo: un video con una o más imágenes asociadas.
+    
+    Un Live Photo puede tener múltiples imágenes si el usuario ha editado/renombrado
+    archivos manteniendo el mismo nombre base.
+    """
+    video_path: Path
+    video_size: int
+    images: List[LivePhotoImageInfo] = field(default_factory=list)
+    base_name: str = ""
+    directory: Path = field(default_factory=Path)
+    video_date: Optional[datetime] = None
+    video_date_source: Optional[str] = None
+    date_source: Optional[str] = None  # Fuente usada para comparar fechas
+    date_difference: Optional[float] = None  # Diferencia en segundos (max entre todas las imágenes)
+    
+    @property
+    def total_size(self) -> int:
+        """Tamaño total: video + todas las imágenes"""
+        return self.video_size + sum(img.size for img in self.images)
+    
+    @property
+    def images_size(self) -> int:
+        """Tamaño total de todas las imágenes"""
+        return sum(img.size for img in self.images)
+    
+    @property
+    def image_count(self) -> int:
+        """Número de imágenes en el grupo"""
+        return len(self.images)
+    
+    @property
+    def primary_image(self) -> Optional[LivePhotoImageInfo]:
+        """Devuelve la primera imagen del grupo (la principal)"""
+        return self.images[0] if self.images else None
+    
+    @property
+    def best_date(self) -> Optional[datetime]:
+        """Devuelve la mejor fecha disponible (video o primera imagen)"""
+        if self.video_date:
+            return self.video_date
+        if self.images and self.images[0].date:
+            return self.images[0].date
+        return None
+
+
+@dataclass
 class LivePhotosAnalysisResult(AnalysisResult):
-    """Result for Live Photos detection analysis."""
-    groups: List[Any] = field(default_factory=list)  # List of LivePhotoGroup objects
-    space_to_free: int = 0  # Space that would be freed by removing videos
+    """
+    Result for Live Photos detection analysis.
+    
+    Attributes:
+        groups: Lista de LivePhotoGroup validados (aceptados)
+        rejected_groups: Lista de LivePhotoGroup rechazados por diferencia de fecha
+        total_space: Espacio total usado por todos los Live Photos
+    """
+    groups: List[LivePhotoGroup] = field(default_factory=list)
+    rejected_groups: List[LivePhotoGroup] = field(default_factory=list)
     total_space: int = 0  # Total space used by Live Photos (images + videos)
     
     def __post_init__(self):
@@ -111,11 +175,27 @@ class LivePhotosAnalysisResult(AnalysisResult):
             self.items_count = len(self.groups)
         if not self.bytes_total and self.total_space:
             self.bytes_total = self.total_space
+    
+    @property
+    def potential_savings(self) -> int:
+        """Espacio que se liberaría eliminando todos los videos"""
+        return sum(g.video_size for g in self.groups)
+    
+    @property
+    def total_images(self) -> int:
+        """Total de imágenes en todos los grupos"""
+        return sum(g.image_count for g in self.groups)
+    
+    @property
+    def total_videos(self) -> int:
+        """Total de videos (igual a número de grupos)"""
+        return len(self.groups)
+
 
 @dataclass
 class LivePhotosExecutionResult(ExecutionResult):
     """Result for Live Photos execution."""
-    pass
+    videos_deleted: int = 0
 
 # --- Rename Service ---
 @dataclass

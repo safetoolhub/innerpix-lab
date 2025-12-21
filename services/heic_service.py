@@ -20,6 +20,7 @@ from utils.logger import (
     log_section_header_relevant,
     log_section_footer_relevant
 )
+from utils.format_utils import format_size
 
 
 class HeicService(BaseService):
@@ -365,7 +366,7 @@ class HeicService(BaseService):
                  
                  # Formato de log estandarizado
                  log_type = "FILE_DELETED_SIMULATION" if dry_run else "FILE_DELETED"
-                 log_msg = f"{log_type}: {file_to_delete} | Size: {file_size} B | Type: {format_deleted}"
+                 log_msg = f"{log_type}: {file_to_delete} | Size: {format_size(file_size)} | Type: {format_deleted}"
                  
                  if dry_run:
                      items_processed += 1
