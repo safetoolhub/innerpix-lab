@@ -20,7 +20,8 @@ from .date_utils import (
     format_renamed_name,
     is_renamed_filename,
     parse_renamed_name,
-    get_all_file_dates
+    get_all_file_dates,
+    _convert_file_metadata_to_dates_dict
 )
 from .file_utils import (
     get_exif_from_image,
@@ -84,6 +85,7 @@ __all__ = [
     # Date utilities
     'get_date_from_file',
     'get_all_file_dates',
+    '_convert_file_metadata_to_dates_dict',
     'select_chosen_date',
     'format_renamed_name',
     'is_renamed_filename',
@@ -107,7 +109,6 @@ __all__ = [
     'is_whatsapp_file',
     'get_exif_from_image',
     'get_exif_from_video',
-    'get_all_file_dates',
 
     # Format utilities
     'format_size',

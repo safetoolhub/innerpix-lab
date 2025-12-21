@@ -645,7 +645,7 @@ class FileInfoRepositoryCache:
         return metadata
     
     # =========================================================================
-    # CONSULTAS (GET) - Con auto-fetch opcional
+    # CONSULTAS (GET) 
     # =========================================================================
     
     def get_file_metadata(

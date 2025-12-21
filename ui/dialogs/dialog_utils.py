@@ -8,10 +8,12 @@ from pathlib import Path
 from PyQt6.QtWidgets import QMessageBox
 from PyQt6.QtCore import Qt
 from utils.format_utils import format_size
-from utils.date_utils import get_date_from_file, select_chosen_date, get_all_file_dates
+from utils.date_utils import get_date_from_file, select_chosen_date, get_all_file_dates, _convert_file_metadata_to_dates_dict
 from utils.platform_utils import open_file_with_default_app, open_folder_in_explorer
-from services.file_metadata_repository_cache import FileInfoRepositoryCache
-from services.file_metadata import FileMetadata
+from utils.logger import get_logger
+
+# Logger del módulo siguiendo el patrón estándar del proyecto
+_logger = get_logger("DialogUtils")
 
 
 def open_file(file_path: Path, parent_widget=None):
@@ -69,6 +71,9 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     """
     Muestra un diálogo con detalles completos del archivo usando toda la información
     disponible en FileMetadata y el sistema de fechas.
+    
+    ÚNICA FUENTE DE VERDAD: get_all_file_dates()
+    Esta función centraliza toda la obtención de metadatos.
     """
     from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                                 QPushButton, QFrame, QGroupBox, QWidget, QScrollArea)
@@ -76,39 +81,22 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     from ui.styles.design_system import DesignSystem
     from ui.styles.icons import icon_manager
     
+    _logger.debug(f"Mostrando detalles del archivo: {file_path.name}")
+    
     # === 1. RECOPILACIÓN DE DATOS ===
     
-    # Intentar obtener metadatos del repositorio centralizado
-    repo = FileInfoRepositoryCache.get_instance()
-    metadata = repo.get_file_metadata(file_path)
+    # Obtener TODA la información de metadatos usando get_all_file_dates()
+    # Esta función es la ÚNICA fuente de verdad para metadatos de archivos
+    metadata = get_all_file_dates(file_path)
+    _logger.debug(f"Metadatos obtenidos - Size: {metadata.fs_size}, Hash: {metadata.has_hash}, EXIF: {metadata.has_exif}")
     
-    # Si no existe en el repo, crear uno básico para tener la estructura
-    if not metadata:
-        try:
-            stat = file_path.stat()
-            metadata = FileMetadata(
-                path=file_path,
-                fs_size=stat.st_size,
-                fs_ctime=stat.st_ctime,
-                fs_mtime=stat.st_mtime,
-                fs_atime=stat.st_atime
-            )
-        except Exception:
-            # Archivo inaccesible, creamos metadatos vacíos para evitar errores
-            metadata = FileMetadata(path=file_path, fs_size=0, fs_ctime=0, fs_mtime=0, fs_atime=0)
-
-    # Obtener toda la información de fechas disponible (sistema enriquecido)
-    dates_info = get_all_file_dates(file_path)
+    dates_info = _convert_file_metadata_to_dates_dict(metadata)
     
     # Seleccionar la fecha más representativa
     selected_date, selected_source = select_chosen_date(dates_info)
     dates_info['selected_date'] = selected_date
     dates_info['selected_source'] = selected_source
-    
-    # Mapear la fecha EXIF principal para compatibilidad si es necesario
-    dates_info['exif_date'] = (dates_info.get('exif_date_time_original') or 
-                              dates_info.get('exif_create_date') or 
-                              dates_info.get('exif_date_digitized'))
+    _logger.debug(f"Fecha seleccionada: {selected_date} (fuente: {selected_source})")
     
     # === 2. CONSTRUCCIÓN DE LA IU ===
     

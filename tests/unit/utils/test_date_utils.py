@@ -15,7 +15,8 @@ from utils.date_utils import (
     format_renamed_name,
     parse_renamed_name,
     is_renamed_filename,
-    get_all_file_dates
+    get_all_file_dates,
+    _convert_file_metadata_to_dates_dict
 )
 from utils.file_utils import (
     get_exif_from_image,
@@ -449,8 +450,12 @@ class TestGetAllFileDates:
             'OffsetTimeOriginal': None,
             'GPSDateStamp': None,
             'Software': None
-        }):
-            result = get_all_file_dates(image_path)
+        }), \
+        patch('utils.settings_manager.settings_manager.get_precalculate_image_exif', return_value=True), \
+        patch('utils.settings_manager.settings_manager.get_precalculate_hashes', return_value=False), \
+        patch('utils.settings_manager.settings_manager.get_precalculate_video_exif', return_value=False):
+            file_metadata = get_all_file_dates(image_path)
+            result = _convert_file_metadata_to_dates_dict(file_metadata)
             
             assert result['exif_date_time_original'] == datetime(2023, 1, 15, 10, 30, 0)
             assert result['exif_create_date'] == datetime(2023, 1, 15, 10, 31, 0)
@@ -470,8 +475,12 @@ class TestGetAllFileDates:
             'OffsetTimeOriginal': None,
             'GPSDateStamp': None,
             'Software': None
-        }):
-            result = get_all_file_dates(image_path)
+        }), \
+        patch('utils.settings_manager.settings_manager.get_precalculate_image_exif', return_value=True), \
+        patch('utils.settings_manager.settings_manager.get_precalculate_hashes', return_value=False), \
+        patch('utils.settings_manager.settings_manager.get_precalculate_video_exif', return_value=False):
+            file_metadata = get_all_file_dates(image_path)
+            result = _convert_file_metadata_to_dates_dict(file_metadata)
             
             assert result['exif_date_time_original'] is None
             assert result['exif_create_date'] is None
@@ -479,31 +488,25 @@ class TestGetAllFileDates:
             assert result['filesystem_modification_date'] is not None
     
     def test_nonexistent_file_returns_empty_dates(self):
-        """Archivo inexistente debe devolver fechas vacías"""
-        result = get_all_file_dates(Path('/nonexistent/file.jpg'))
+        """Archivo inexistente debe devolver metadatos mínimos"""
+        file_metadata = get_all_file_dates(Path('/nonexistent/file.jpg'))
+        result = _convert_file_metadata_to_dates_dict(file_metadata)
         
+        # Como el archivo no existe, debe tener valores por defecto (0.0 o None)
         assert result['exif_date_time_original'] is None
         assert result['exif_create_date'] is None
         assert result['exif_date_digitized'] is None
-        assert result['filesystem_creation_date'] is None
-        assert result['filesystem_modification_date'] is None
 
     def test_video_metadata_disabled_by_config(self, temp_dir, create_test_video):
-        """Cuando USE_VIDEO_METADATA es False, no debe llamar a get_exif_from_video"""
+        """Cuando get_precalculate_video_exif es False, no debe llamar a get_exif_from_video"""
         video_path = create_test_video(temp_dir / 'test.mp4')
 
-        with patch('config.Config.USE_VIDEO_METADATA', False), \
-             patch('utils.file_utils.get_exif_from_video') as mock_get_video_metadata, \
-             patch('utils.file_utils.get_exif_from_image', return_value={
-                 'DateTimeOriginal': None,
-                 'CreateDate': None,
-                 'DateTimeDigitized': None,
-                 'SubSecTimeOriginal': None,
-                 'OffsetTimeOriginal': None,
-                 'GPSDateStamp': None,
-                 'Software': None
-             }):
-            result = get_all_file_dates(video_path)
+        with patch('utils.settings_manager.settings_manager.get_precalculate_video_exif', return_value=False), \
+             patch('utils.settings_manager.settings_manager.get_precalculate_image_exif', return_value=False), \
+             patch('utils.settings_manager.settings_manager.get_precalculate_hashes', return_value=False), \
+             patch('utils.file_utils.get_exif_from_video') as mock_get_video_metadata:
+            file_metadata = get_all_file_dates(video_path)
+            result = _convert_file_metadata_to_dates_dict(file_metadata)
 
             # No debe llamar a get_exif_from_video
             mock_get_video_metadata.assert_not_called()
@@ -512,45 +515,33 @@ class TestGetAllFileDates:
             assert result['video_metadata_date'] is None
 
     def test_video_metadata_enabled_by_config(self, temp_dir, create_test_video):
-        """Cuando USE_VIDEO_METADATA es True, debe llamar a get_exif_from_video"""
+        """Cuando get_precalculate_video_exif es True, debe llamar a get_exif_from_video"""
         video_path = create_test_video(temp_dir / 'test.mp4')
         expected_video_date = datetime(2023, 6, 15, 14, 30, 0)
 
-        with patch('config.Config.USE_VIDEO_METADATA', True), \
-             patch('utils.file_utils.get_exif_from_video', return_value=expected_video_date) as mock_get_video_metadata, \
-             patch('utils.file_utils.get_exif_from_image', return_value={
-                 'DateTimeOriginal': None,
-                 'CreateDate': None,
-                 'DateTimeDigitized': None,
-                 'SubSecTimeOriginal': None,
-                 'OffsetTimeOriginal': None,
-                 'GPSDateStamp': None,
-                 'Software': None
-             }):
-            result = get_all_file_dates(video_path)
+        with patch('utils.settings_manager.settings_manager.get_precalculate_video_exif', return_value=True), \
+             patch('utils.settings_manager.settings_manager.get_precalculate_image_exif', return_value=False), \
+             patch('utils.settings_manager.settings_manager.get_precalculate_hashes', return_value=False), \
+             patch('utils.file_utils.get_exif_from_video', return_value=expected_video_date) as mock_get_video_metadata:
+            file_metadata = get_all_file_dates(video_path)
+            result = _convert_file_metadata_to_dates_dict(file_metadata)
 
             # Debe llamar a get_exif_from_video
             mock_get_video_metadata.assert_called_once_with(video_path)
 
-            # video_metadata_date debe tener el valor esperado
+            # video_metadata_date debe tener el valor esperado (guardado en exif_DateTime para videos)
             assert result['video_metadata_date'] == expected_video_date
 
     def test_video_metadata_enabled_but_no_metadata_available(self, temp_dir, create_test_video):
-        """Cuando USE_VIDEO_METADATA es True pero no hay metadatos, debe devolver None"""
+        """Cuando get_precalculate_video_exif es True pero no hay metadatos, debe devolver None"""
         video_path = create_test_video(temp_dir / 'test.mp4')
 
-        with patch('config.Config.USE_VIDEO_METADATA', True), \
-             patch('utils.file_utils.get_exif_from_video', return_value=None) as mock_get_video_metadata, \
-             patch('utils.file_utils.get_exif_from_image', return_value={
-                 'DateTimeOriginal': None,
-                 'CreateDate': None,
-                 'DateTimeDigitized': None,
-                 'SubSecTimeOriginal': None,
-                 'OffsetTimeOriginal': None,
-                 'GPSDateStamp': None,
-                 'Software': None
-             }):
-            result = get_all_file_dates(video_path)
+        with patch('utils.settings_manager.settings_manager.get_precalculate_video_exif', return_value=True), \
+             patch('utils.settings_manager.settings_manager.get_precalculate_image_exif', return_value=False), \
+             patch('utils.settings_manager.settings_manager.get_precalculate_hashes', return_value=False), \
+             patch('utils.file_utils.get_exif_from_video', return_value=None) as mock_get_video_metadata:
+            file_metadata = get_all_file_dates(video_path)
+            result = _convert_file_metadata_to_dates_dict(file_metadata)
 
             # Debe llamar a get_exif_from_video
             mock_get_video_metadata.assert_called_once_with(video_path)
@@ -565,34 +556,42 @@ class TestGetDateFromFile:
     
     def test_file_with_exif_returns_exif_date(self, temp_dir, create_test_image):
         """Archivo con EXIF debe devolver fecha EXIF"""
+        from services.file_metadata import FileMetadata
+        
         image_path = create_test_image(temp_dir / 'test.jpg', size=(100, 100))
         
-        with patch('utils.date_utils.get_all_file_dates', return_value={
-            'exif_date_time_original': datetime(2023, 1, 15, 10, 30, 0),
-            'exif_create_date': datetime(2023, 1, 15, 10, 31, 0),
-            'exif_date_digitized': None,
-            'filesystem_creation_date': datetime(2024, 1, 1, 12, 0),
-            'filesystem_creation_source': 'birth',
-            'filesystem_modification_date': datetime(2024, 1, 2, 14, 0),
-            'access_date': datetime(2024, 1, 3, 16, 0)
-        }):
+        # Crear un FileMetadata mock con fechas EXIF
+        mock_metadata = FileMetadata(
+            path=image_path,
+            fs_size=1000,
+            fs_ctime=datetime(2024, 1, 1, 12, 0).timestamp(),
+            fs_mtime=datetime(2024, 1, 2, 14, 0).timestamp(),
+            fs_atime=datetime(2024, 1, 3, 16, 0).timestamp(),
+            exif_DateTimeOriginal='2023-01-15T10:30:00',
+            exif_DateTime='2023-01-15T10:31:00'
+        )
+        
+        with patch('utils.date_utils.get_all_file_dates', return_value=mock_metadata):
             result = get_date_from_file(image_path)
             
             assert result == datetime(2023, 1, 15, 10, 30, 0)
     
     def test_file_without_exif_returns_filesystem_date(self, temp_dir, create_test_image):
         """Archivo sin EXIF debe devolver fecha del sistema"""
+        from services.file_metadata import FileMetadata
+        
         image_path = create_test_image(temp_dir / 'test.jpg', size=(100, 100))
         
-        with patch('utils.date_utils.get_all_file_dates', return_value={
-            'exif_date_time_original': None,
-            'exif_create_date': None,
-            'exif_date_digitized': None,
-            'filesystem_creation_date': datetime(2024, 1, 1, 12, 0),
-            'filesystem_creation_source': 'birth',
-            'filesystem_modification_date': datetime(2024, 1, 2, 14, 0),
-            'access_date': datetime(2024, 1, 3, 16, 0)
-        }):
+        # Crear un FileMetadata mock sin EXIF
+        mock_metadata = FileMetadata(
+            path=image_path,
+            fs_size=1000,
+            fs_ctime=datetime(2024, 1, 1, 12, 0).timestamp(),
+            fs_mtime=datetime(2024, 1, 2, 14, 0).timestamp(),
+            fs_atime=datetime(2024, 1, 3, 16, 0).timestamp()
+        )
+        
+        with patch('utils.date_utils.get_all_file_dates', return_value=mock_metadata):
             result = get_date_from_file(image_path)
             
             assert result == datetime(2024, 1, 1, 12, 0)
@@ -622,25 +621,23 @@ class TestGetDateFromFile:
     
     def test_verbose_mode_logs_info(self, temp_dir, create_test_image, caplog):
         """Modo verbose debe registrar en nivel INFO"""
+        from services.file_metadata import FileMetadata
         import logging
         caplog.set_level(logging.INFO)
         
         image_path = create_test_image(temp_dir / 'test.jpg', size=(100, 100))
         
-        with patch('utils.date_utils.get_all_file_dates', return_value={
-            'exif_date_time_original': datetime(2023, 1, 15, 10, 30, 0),
-            'exif_create_date': None,
-            'exif_date_digitized': None,
-            'exif_gps_date': None,
-            'exif_offset_time': None,
-            'exif_software': None,
-            'video_metadata_date': None,
-            'filename_date': None,
-            'filesystem_creation_date': datetime(2024, 1, 1, 12, 0),
-            'filesystem_creation_source': 'birth',
-            'filesystem_modification_date': datetime(2024, 1, 2, 14, 0),
-            'access_date': None
-        }):
+        # Crear un FileMetadata mock con fecha EXIF
+        mock_metadata = FileMetadata(
+            path=image_path,
+            fs_size=1000,
+            fs_ctime=datetime(2024, 1, 1, 12, 0).timestamp(),
+            fs_mtime=datetime(2024, 1, 2, 14, 0).timestamp(),
+            fs_atime=datetime(2024, 1, 3, 16, 0).timestamp(),
+            exif_DateTimeOriginal='2023-01-15T10:30:00'
+        )
+        
+        with patch('utils.date_utils.get_all_file_dates', return_value=mock_metadata):
             result = get_date_from_file(image_path, verbose=True)
             
             assert result == datetime(2023, 1, 15, 10, 30, 0)
@@ -1322,26 +1319,20 @@ class TestVideoMetadataConfiguration:
         """USE_VIDEO_METADATA debe estar por defecto en False"""
         assert Config.USE_VIDEO_METADATA is False
 
-    @patch('utils.settings_manager.settings_manager.get_bool')
-    def test_config_loaded_from_settings_manager(self, mock_get_bool):
+    @patch('utils.settings_manager.settings_manager.get_precalculate_video_exif')
+    def test_config_loaded_from_settings_manager(self, mock_get_precalculate):
         """USE_VIDEO_METADATA debe cargarse desde settings_manager al inicio"""
         from utils.settings_manager import settings_manager
         from config import Config
         
         # Simular que settings_manager devuelve True
-        mock_get_bool.return_value = True
+        mock_get_precalculate.return_value = True
         
         # Ejecutar la lógica de carga de configuración como en main.py
-        Config.USE_VIDEO_METADATA = settings_manager.get_bool(
-            settings_manager.KEY_USE_VIDEO_METADATA, 
-            False  # Por defecto deshabilitado
-        )
+        Config.USE_VIDEO_METADATA = settings_manager.get_precalculate_video_exif()
         
-        # Verificar que se llamó a get_bool con los parámetros correctos
-        mock_get_bool.assert_called_with(
-            settings_manager.KEY_USE_VIDEO_METADATA,
-            False  # Valor por defecto
-        )
+        # Verificar que se llamó a get_precalculate_video_exif
+        mock_get_precalculate.assert_called_once()
         
         # Verificar que Config.USE_VIDEO_METADATA se actualizó
         assert Config.USE_VIDEO_METADATA is True

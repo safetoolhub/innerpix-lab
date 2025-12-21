@@ -44,10 +44,10 @@ class FileRenamer(BaseService):
         """
         log_section_header_discrete(self.logger, f"ANALIZANDO DIRECTORIO PARA RENOMBRADO: {directory}")
 
-        repo = FileInfoRepository.get_instance()
+        repo = FileInfoRepositoryCache.get_instance()
         all_files = []
         if repo.get_file_count() > 0:
-            self.logger.info(f"Usando FileInfoRepository ({repo.get_file_count()} archivos)")
+            self.logger.info(f"Usando FileInfoRepositoryCache ({repo.get_file_count()} archivos)")
             cached_files = repo.get_all_files()
             for meta in cached_files:
                 try:
@@ -78,7 +78,7 @@ class FileRenamer(BaseService):
             if is_renamed_filename(file_path.name):
                 return ('already_renamed', file_path, None)
             
-            # Obtener fecha usando FileInfoRepository
+            # Obtener fecha usando FileInfoRepositoryCache
             file_date = get_date_from_file(file_path, metadata_cache=repo, skip_expensive_ops=True)
             
             if not file_date:
