@@ -172,18 +172,18 @@ class LivePhotoService(BaseService):
                     )
                     
                     if group is not None:
-                        if validate_dates and group.date_difference is not None and group.date_difference > Config.MAX_TIME_DIFFERENCE_SECONDS:
-                            # Rechazado por diferencia de tiempo
+                        # El filtrado individual ya se hizo en _create_live_photo_group
+                        # Si el grupo no tiene imágenes válidas, va a rejected_groups
+                        if group.image_count == 0:
+                            diff_str = f"{group.date_difference:.2f}s" if group.date_difference is not None else "N/A"
                             self.logger.info(
                                 f"Grupo rechazado por tiempo {base_name}: "
-                                f"source={group.date_source}, diff={group.date_difference:.2f}s "
-                                f"(> {Config.MAX_TIME_DIFFERENCE_SECONDS}s)"
+                                f"source={group.date_source}, diff={diff_str}"
                             )
-                            self._log_group_metadata(video_meta, photo_metas)
                             self.stats['rejected_by_time_diff'] += 1
                             rejected_groups.append(group)
                         else:
-                            # Grupo válido
+                            # Grupo válido con al menos una imagen
                             diff_str = f"{group.date_difference:.2f}s" if group.date_difference is not None else "N/A"
                             self.logger.info(
                                 f"Grupo admitido {base_name}: "
@@ -299,6 +299,7 @@ class LivePhotoService(BaseService):
             LivePhotoGroup o None si no se puede crear
         """
         images: List[LivePhotoImageInfo] = []
+        rejected_images: List[str] = []  # Para log
         max_time_diff: float = 0.0
         date_source: Optional[str] = None
         video_date: Optional[datetime] = None
@@ -309,29 +310,31 @@ class LivePhotoService(BaseService):
                 best_date_result = get_best_creation_date(video_meta, photo_meta, verbose=True)
                 
                 if not best_date_result:
-                    # No hay fecha común válida, pero aún así incluimos la imagen
-                    # El rechazo se hace a nivel de grupo si ninguna imagen tiene fecha válida
+                    # No hay fecha común válida - rechazar esta imagen
                     self.logger.debug(
-                        f"Sin fecha común para {base_name}: {photo_meta.path.name}"
+                        f"Imagen rechazada (sin fecha común) para {base_name}: {photo_meta.path.name}"
                     )
-                    img_info = LivePhotoImageInfo(
-                        path=photo_meta.path,
-                        size=photo_meta.fs_size,
-                        date=None,
-                        date_source=None
-                    )
-                    images.append(img_info)
+                    rejected_images.append(photo_meta.path.name)
                     continue
                 
                 vid_date, img_date, source = best_date_result
                 time_diff = abs((vid_date - img_date).total_seconds())
+                
+                # FILTRAR: Si esta imagen específica excede el threshold, descartarla
+                if time_diff > Config.MAX_TIME_DIFFERENCE_SECONDS:
+                    self.logger.debug(
+                        f"Imagen rechazada (diff={time_diff:.2f}s > {Config.MAX_TIME_DIFFERENCE_SECONDS}s) "
+                        f"para {base_name}: {photo_meta.path.name}"
+                    )
+                    rejected_images.append(photo_meta.path.name)
+                    continue
                 
                 # Actualizar video_date y source si es la primera vez
                 if video_date is None:
                     video_date = vid_date
                     date_source = source
                 
-                # Actualizar max time diff
+                # Actualizar max time diff (solo con imágenes aceptadas)
                 if time_diff > max_time_diff:
                     max_time_diff = time_diff
                 
@@ -353,10 +356,37 @@ class LivePhotoService(BaseService):
             
             images.append(img_info)
         
-        if not images:
-            return None
+        # Log de imágenes rechazadas si hubo
+        if rejected_images:
+            self.logger.info(
+                f"Grupo {base_name}: {len(images)} imágenes aceptadas, "
+                f"{len(rejected_images)} rechazadas: {', '.join(rejected_images)}"
+            )
         
-        # Crear el grupo
+        # Si no hay imágenes válidas, crear un grupo vacío para rejected_groups
+        # Usamos la primera imagen rechazada para calcular date_difference
+        if not images and validate_dates and rejected_images:
+            # Intentar obtener la máxima diferencia de tiempo de las rechazadas
+            # para reportar en rejected_groups
+            for photo_meta in photo_metas:
+                best_date_result = get_best_creation_date(video_meta, photo_meta, verbose=False)
+                if best_date_result:
+                    vid_date, img_date, source = best_date_result
+                    time_diff = abs((vid_date - img_date).total_seconds())
+                    if time_diff > max_time_diff:
+                        max_time_diff = time_diff
+                        video_date = vid_date
+                        date_source = source
+        
+        if not images:
+            # Retornar None solo si no hay imágenes Y no estamos validando fechas
+            # (caso de error genuino)
+            if not validate_dates:
+                return None
+            # Si estamos validando y todas fueron rechazadas, crear grupo vacío
+            # para rejected_groups
+        
+        # Crear el grupo (puede tener 0 imágenes si todas fueron rechazadas)
         return LivePhotoGroup(
             video_path=video_meta.path,
             video_size=video_meta.fs_size,

@@ -953,8 +953,8 @@ class Stage3Window(BaseStage):
         try:
             # Importar servicios según tool_id
             if tool_id == 'live_photos':
-                from services.live_photos_service import LivePhotosService
-                service = LivePhotosService()
+                from services.live_photos_service import LivePhotoService
+                service = LivePhotoService()
                 return service.analyze()
                 
             elif tool_id == 'heic':
