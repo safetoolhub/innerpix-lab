@@ -167,6 +167,7 @@ class IconManager:
         'calendar-month': 'mdi6.calendar-month',
         'calendar-today': 'mdi6.calendar-today',
         'calendar-range': 'mdi6.calendar-range',
+        'calendar-check': 'mdi6.calendar-check',
         'devices': 'mdi6.devices',
         
         # Ayuda e información

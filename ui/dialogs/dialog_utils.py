@@ -70,25 +70,34 @@ def open_folder(folder_path: Path, parent_widget=None, select_file: Path = None)
 def show_file_details_dialog(file_path: Path, parent_widget=None, additional_info=None):
     """
     Muestra un diálogo con detalles completos del archivo usando toda la información
-    disponible en FileMetadata y el sistema de fechas.
+    disponible en FileMetadata desde el FileInfoRepositoryCache.
     
-    ÚNICA FUENTE DE VERDAD: get_all_file_dates()
-    Esta función centraliza toda la obtención de metadatos.
+    ÚNICA FUENTE DE VERDAD: FileInfoRepositoryCache.get_file_metadata()
+    Esta función obtiene directamente los metadatos del repositorio de caché.
     """
     from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                                 QPushButton, QFrame, QGroupBox, QWidget, QScrollArea)
     from PyQt6.QtCore import Qt
     from ui.styles.design_system import DesignSystem
     from ui.styles.icons import icon_manager
+    from services.file_metadata_repository_cache import FileInfoRepositoryCache
     
     logger.debug(f"Mostrando detalles del archivo: {file_path.name}")
     
     # === 1. RECOPILACIÓN DE DATOS ===
     
-    # Obtener TODA la información de metadatos usando get_all_file_dates()
+    # Obtener TODA la información de metadatos desde el repositorio de caché
     # Esta función es la ÚNICA fuente de verdad para metadatos de archivos
-    metadata = get_all_file_dates(file_path)
-    logger.debug(f"Metadatos obtenidos - Size: {metadata.fs_size}, Hash: {metadata.has_hash}, EXIF: {metadata.has_exif}")
+    repo = FileInfoRepositoryCache.get_instance()
+    metadata = repo.get_file_metadata(file_path)
+    
+    if metadata is None:
+        logger.warning(f"No se encontraron metadatos en caché para {file_path}")
+        # Fallback: intentar obtener con get_all_file_dates si no está en caché
+        from utils.date_utils import get_all_file_dates
+        metadata = get_all_file_dates(file_path)
+    
+    logger.debug(f"Metadatos obtenidos - Size: {metadata.fs_size}, Hash: {metadata.has_hash}, EXIF: {metadata.has_exif}, Best Date: {metadata.has_best_date}")
     
     # === 2. CONSTRUCCIÓN DE LA IU ===
     
@@ -374,6 +383,23 @@ def _create_dates_section(metadata: 'FileMetadata'):
     )
     layout.setSpacing(DesignSystem.SPACE_12)
     
+    # === FECHA MEJOR SELECCIONADA ===
+    if metadata.best_date:
+        best_date_row = _create_date_row(
+            "Fecha Mejor Seleccionada", 
+            metadata.best_date.strftime("%Y-%m-%d %H:%M:%S"),
+            f"Fecha más representativa ({metadata.best_date_source})",
+            'calendar-check',
+            DesignSystem.COLOR_SUCCESS
+        )
+        layout.addWidget(best_date_row)
+        
+        # Separador después de best date
+        separator = QWidget()
+        separator.setFixedHeight(1)
+        separator.setStyleSheet(f"background-color: {DesignSystem.COLOR_CARD_BORDER};")
+        layout.addWidget(separator)
+    
     # === FECHAS EXIF ===
     exif_dates_added = False
     
@@ -482,41 +508,8 @@ def _create_dates_section(metadata: 'FileMetadata'):
         layout.addWidget(separator)
     
     # === FECHAS DEL SISTEMA DE ARCHIVOS ===
-    import platform
-    
-    # Fecha de creación
-    if metadata.fs_ctime:
-        source_desc = "Fecha de creación del archivo" if platform.system() == 'Darwin' else "Fecha de creación (ctime)"
-        creation_row = _create_date_row(
-            "Fecha de creación", 
-            datetime.fromtimestamp(metadata.fs_ctime).strftime("%Y-%m-%d %H:%M:%S"),
-            source_desc,
-            'update',
-            DesignSystem.COLOR_TEXT_SECONDARY
-        )
-        layout.addWidget(creation_row)
-    
-    # Fecha de modificación
-    if metadata.fs_mtime:
-        mod_row = _create_date_row(
-            "Fecha de modificación", 
-            datetime.fromtimestamp(metadata.fs_mtime).strftime("%Y-%m-%d %H:%M:%S"),
-            "Última modificación del archivo",
-            'clock-outline',
-            DesignSystem.COLOR_TEXT_SECONDARY
-        )
-        layout.addWidget(mod_row)
-    
-    # Fecha de último acceso
-    if metadata.fs_atime:
-        access_row = _create_date_row(
-            "Último acceso", 
-            datetime.fromtimestamp(metadata.fs_atime).strftime("%Y-%m-%d %H:%M:%S"),
-            "Última vez que se accedió al archivo",
-            'clock-outline',
-            DesignSystem.COLOR_TEXT_SECONDARY
-        )
-        layout.addWidget(access_row)
+    # NOTA: Las fechas del filesystem (ctime, mtime, atime) ya se muestran en la sección "Filesystem (RAW)"
+    # por lo que no se repiten aquí para evitar duplicación
     
     group.setLayout(layout)
     return group
