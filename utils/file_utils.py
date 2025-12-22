@@ -658,7 +658,7 @@ def get_exif_from_image(file_path: Path) -> dict:
     """
     Extrae TODOS los campos de fecha EXIF disponibles de una imagen
     
-    NOTA: Solo soporta imágenes (JPEG, PNG, etc.). No hay soporte para EXIF en videos por ahora.
+    NOTA: Solo soporta imágenes (JPEG, PNG, HEIC, etc.). No hay soporte para EXIF en videos por ahora.
 
     Args:
         file_path: Ruta a la imagen (NO videos)
@@ -672,7 +672,8 @@ def get_exif_from_image(file_path: Path) -> dict:
             'SubSecTimeOriginal': str or None,        # Subsegundos de precisión
             'OffsetTimeOriginal': str or None,        # Zona horaria de captura
             'GPSDateStamp': datetime or None,         # Timestamp GPS
-            'Software': str or None                   # Software usado (detecta edición)
+            'Software': str or None,                  # Software usado (detecta edición)
+            'ExifVersion': str or None                # Versión del estándar EXIF (ej: '0232')
         }
     
     Examples:
@@ -684,6 +685,8 @@ def get_exif_from_image(file_path: Path) -> dict:
         '+01:00'
         >>> dates['Software']
         'Adobe Photoshop CS6'
+        >>> dates['ExifVersion']
+        '0232'
     """
     result = {
         'DateTimeOriginal': None,
@@ -692,7 +695,8 @@ def get_exif_from_image(file_path: Path) -> dict:
         'SubSecTimeOriginal': None,
         'OffsetTimeOriginal': None,
         'GPSDateStamp': None,
-        'Software': None
+        'Software': None,
+        'ExifVersion': None
     }
     
     try:
@@ -711,53 +715,86 @@ def get_exif_from_image(file_path: Path) -> dict:
                 return result
 
         with Image.open(file_path) as image:
-            # Obtener datos EXIF - diferente para HEIC vs otros formatos
-            exif_data = None
-            
-            if file_path.suffix.lower() in ['.heic', '.heif']:
-                # Para HEIC, los metadatos están en image.info['exif'] como bytes
-                exif_bytes = image.info.get('exif')
-                if exif_bytes:
-                    try:
-                        exif_obj = Image.Exif()
-                        exif_obj.load(exif_bytes)
-                        exif_data = exif_obj._getexif()
-                    except Exception:
-                        pass
-            else:
-                # Para otros formatos, usar el método estándar
+            # Obtener datos EXIF usando API moderna (getexif()) que funciona para todos los formatos
+            try:
+                exif = image.getexif()
+                if not exif:
+                    return result
+            except AttributeError:
+                # Fallback a API antigua para versiones muy viejas de Pillow
                 exif_data = image._getexif()
+                if not exif_data:
+                    return result
+                # Convertir a objeto Exif-like para API unificada
+                from PIL import Image as PIL_Image
+                exif = PIL_Image.Exif()
+                for k, v in exif_data.items():
+                    exif[k] = v
+            
+            # Procesar tags principales (nivel superior)
+            gps_info = None
+            
+            for tag_id, value in exif.items():
+                tag = TAGS.get(tag_id, tag_id)
 
-            if exif_data:
-                gps_info = None
-                
-                for tag_id, value in exif_data.items():
-                    tag = TAGS.get(tag_id, tag_id)
-
-                    # Extraer cada campo de fecha EXIF
-                    if tag == 'DateTimeOriginal':
-                        try:
-                            result['DateTimeOriginal'] = datetime.strptime(value, '%Y:%m:%d %H:%M:%S')
-                        except ValueError:
-                            pass
-                    elif tag == 'DateTime':  # Este es el CreateDate
-                        try:
-                            result['CreateDate'] = datetime.strptime(value, '%Y:%m:%d %H:%M:%S')
-                        except ValueError:
-                            pass
-                    elif tag == 'DateTimeDigitized':
-                        try:
-                            result['DateTimeDigitized'] = datetime.strptime(value, '%Y:%m:%d %H:%M:%S')
-                        except ValueError:
-                            pass
-                    elif tag == 'SubSecTimeOriginal':
-                        result['SubSecTimeOriginal'] = str(value)
-                    elif tag == 'OffsetTimeOriginal':
-                        result['OffsetTimeOriginal'] = str(value)
-                    elif tag == 'Software':
-                        result['Software'] = str(value)
-                    elif tag == 'GPSInfo':
-                        gps_info = value
+                # Extraer cada campo de fecha EXIF
+                if tag == 'DateTimeOriginal':
+                    try:
+                        result['DateTimeOriginal'] = datetime.strptime(value, '%Y:%m:%d %H:%M:%S')
+                    except ValueError:
+                        pass
+                elif tag == 'DateTime':  # Este es el CreateDate
+                    try:
+                        result['CreateDate'] = datetime.strptime(value, '%Y:%m:%d %H:%M:%S')
+                    except ValueError:
+                        pass
+                elif tag == 'DateTimeDigitized':
+                    try:
+                        result['DateTimeDigitized'] = datetime.strptime(value, '%Y:%m:%d %H:%M:%S')
+                    except ValueError:
+                        pass
+                elif tag == 'SubSecTimeOriginal':
+                    result['SubSecTimeOriginal'] = str(value)
+                elif tag == 'OffsetTimeOriginal':
+                    result['OffsetTimeOriginal'] = str(value)
+                elif tag == 'Software':
+                    result['Software'] = str(value)
+                elif tag == 'ExifVersion':
+                    # ExifVersion es bytes, convertir a string legible
+                    result['ExifVersion'] = value.decode('utf-8') if isinstance(value, bytes) else str(value)
+                elif tag == 'GPSInfo':
+                    gps_info = value
+            
+            # Procesar EXIF IFD (sub-tags) - muchos campos importantes están aquí
+            try:
+                exif_ifd = exif.get_ifd(0x8769)  # ExifOffset IFD
+                if exif_ifd:
+                    for tag_id, value in exif_ifd.items():
+                        tag = TAGS.get(tag_id, tag_id)
+                        
+                        if tag == 'DateTimeOriginal' and not result['DateTimeOriginal']:
+                            try:
+                                result['DateTimeOriginal'] = datetime.strptime(value, '%Y:%m:%d %H:%M:%S')
+                            except ValueError:
+                                pass
+                        elif tag == 'DateTimeDigitized' and not result['DateTimeDigitized']:
+                            try:
+                                result['DateTimeDigitized'] = datetime.strptime(value, '%Y:%m:%d %H:%M:%S')
+                            except ValueError:
+                                pass
+                        elif tag == 'SubsecTimeOriginal' and not result['SubSecTimeOriginal']:
+                            result['SubSecTimeOriginal'] = str(value)
+                        elif tag == 'OffsetTimeOriginal' and not result['OffsetTimeOriginal']:
+                            result['OffsetTimeOriginal'] = str(value)
+                        elif tag == 'ExifVersion' and not result['ExifVersion']:
+                            # ExifVersion es bytes, convertir a string legible
+                            result['ExifVersion'] = value.decode('utf-8') if isinstance(value, bytes) else str(value)
+            except (KeyError, AttributeError):
+                # No hay EXIF IFD o no se puede acceder
+                pass
+            
+            # Procesar GPS IFD si existe
+            if gps_info:
                 
                 # Procesar información GPS si existe
                 if gps_info:

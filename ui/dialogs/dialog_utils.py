@@ -152,14 +152,25 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     # SECCIÓN: DATOS EXIF (De FileMetadata structure)
     if metadata.has_exif:
         exif_raw = []
-        for field in ['ImageWidth', 'ImageLength', 'DateTime', 'GPSTimeStamp', 
-                     'GPSDateStamp', 'DateTimeOriginal', 'DateTimeDigitized', 'ExifVersion']:
-            val = getattr(metadata, f'exif_{field}', None)
+        # Lista completa de campos EXIF en FileMetadata
+        exif_fields = [
+            ('ImageWidth', 'aspect-ratio'),
+            ('ImageLength', 'aspect-ratio'),
+            ('DateTime', 'camera'),
+            ('GPSTimeStamp', 'map-marker'),
+            ('GPSDateStamp', 'map-marker'),
+            ('DateTimeOriginal', 'camera'),
+            ('DateTimeDigitized', 'camera'),
+            ('ExifVersion', 'information'),
+            ('SubSecTimeOriginal', 'clock-outline'),
+            ('OffsetTimeOriginal', 'earth'),
+            ('Software', 'cog')
+        ]
+        
+        for field_name, icon_name in exif_fields:
+            val = getattr(metadata, f'exif_{field_name}', None)
             if val is not None:
-                icon = 'camera'
-                if 'Width' in field or 'Length' in field: icon = 'aspect-ratio'
-                if 'GPS' in field: icon = 'map-marker'
-                exif_raw.append((field, str(val), icon))
+                exif_raw.append((field_name, str(val), icon_name))
         
         if exif_raw:
             scroll_layout.addWidget(_create_material_section("Metadatos EXIF (Estructura)", exif_raw, use_code_style=True))

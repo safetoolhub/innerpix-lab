@@ -481,33 +481,61 @@ class FileInfoRepositoryCache:
             self._logger.debug(f"EXIF ya extraído para imagen {path.name}: {len(metadata.get_exif_dates())} campos")
             return metadata
         
-        # Extraer EXIF de imágenes
+        # Extraer EXIF de imágenes (fuera del lock porque es costoso)
+        exif_dates = None
         try:
             from utils.file_utils import get_exif_from_image
             
             exif_dates = get_exif_from_image(path)
             exif_count = len(exif_dates)
-            
-            # Establecer campos EXIF de fecha
-            if exif_dates.get('DateTimeOriginal'):
-                metadata.exif_DateTimeOriginal = exif_dates['DateTimeOriginal']
-            if exif_dates.get('CreateDate'):
-                metadata.exif_DateTime = exif_dates['CreateDate']  # CreateDate mapea a DateTime
-            if exif_dates.get('DateTimeDigitized'):
-                metadata.exif_DateTimeDigitized = exif_dates['DateTimeDigitized']
-            if exif_dates.get('SubSecTimeOriginal'):
-                metadata.exif_SubSecTimeOriginal = exif_dates['SubSecTimeOriginal']
-            if exif_dates.get('OffsetTimeOriginal'):
-                metadata.exif_OffsetTimeOriginal = exif_dates['OffsetTimeOriginal']
-            if exif_dates.get('GPSDateStamp'):
-                metadata.exif_GPSDateStamp = exif_dates['GPSDateStamp']
-            if exif_dates.get('Software'):
-                metadata.exif_Software = exif_dates['Software']
-            
             self._logger.debug(f"EXIF extraído para imagen {path.name}: {exif_count} campos")
                 
         except Exception as e:
             self._logger.warning(f"Error extrayendo EXIF de {path.name}: {e}")
+        
+        # Actualizar metadata con lock (thread-safe)
+        if exif_dates:
+            with self._lock:
+                # Volver a obtener metadata del caché por si cambió
+                cached_metadata = self._cache.get(path)
+                if cached_metadata:
+                    # Establecer campos EXIF de fecha
+                    if exif_dates.get('DateTimeOriginal'):
+                        cached_metadata.exif_DateTimeOriginal = exif_dates['DateTimeOriginal']
+                    if exif_dates.get('CreateDate'):
+                        cached_metadata.exif_DateTime = exif_dates['CreateDate']  # CreateDate mapea a DateTime
+                    if exif_dates.get('DateTimeDigitized'):
+                        cached_metadata.exif_DateTimeDigitized = exif_dates['DateTimeDigitized']
+                    if exif_dates.get('SubSecTimeOriginal'):
+                        cached_metadata.exif_SubSecTimeOriginal = exif_dates['SubSecTimeOriginal']
+                    if exif_dates.get('OffsetTimeOriginal'):
+                        cached_metadata.exif_OffsetTimeOriginal = exif_dates['OffsetTimeOriginal']
+                    if exif_dates.get('GPSDateStamp'):
+                        cached_metadata.exif_GPSDateStamp = exif_dates['GPSDateStamp']
+                    if exif_dates.get('Software'):
+                        cached_metadata.exif_Software = exif_dates['Software']
+                    if exif_dates.get('ExifVersion'):
+                        cached_metadata.exif_ExifVersion = exif_dates['ExifVersion']
+                    self._logger.debug(f"EXIF asignado en caché para imagen {path.name}: {len(exif_dates)} campos")
+                else:
+                    # Raro pero posible: se eliminó del caché entre tanto
+                    if exif_dates.get('DateTimeOriginal'):
+                        metadata.exif_DateTimeOriginal = exif_dates['DateTimeOriginal']
+                    if exif_dates.get('CreateDate'):
+                        metadata.exif_DateTime = exif_dates['CreateDate']
+                    if exif_dates.get('DateTimeDigitized'):
+                        metadata.exif_DateTimeDigitized = exif_dates['DateTimeDigitized']
+                    if exif_dates.get('SubSecTimeOriginal'):
+                        metadata.exif_SubSecTimeOriginal = exif_dates['SubSecTimeOriginal']
+                    if exif_dates.get('OffsetTimeOriginal'):
+                        metadata.exif_OffsetTimeOriginal = exif_dates['OffsetTimeOriginal']
+                    if exif_dates.get('GPSDateStamp'):
+                        metadata.exif_GPSDateStamp = exif_dates['GPSDateStamp']
+                    if exif_dates.get('Software'):
+                        metadata.exif_Software = exif_dates['Software']
+                    if exif_dates.get('ExifVersion'):
+                        metadata.exif_ExifVersion = exif_dates['ExifVersion']
+                    self._cache[path] = metadata
         
         return metadata
     
@@ -544,23 +572,37 @@ class FileInfoRepositoryCache:
             self._logger.debug(f"EXIF ya extraído para video {path.name}: {len(metadata.get_exif_dates())} campos")
             return metadata
         
-        # Extraer EXIF de videos
+        # Extraer EXIF de videos (fuera del lock porque es muy costoso)
+        creation_date = None
         try:
             from utils.file_utils import get_exif_from_video
             
             creation_date = get_exif_from_video(path)
             
             if creation_date:
-                # Para videos, solemos tener una única fecha de creación
-                # La mapeamos a DateTimeOriginal y DateTime para consistencia
-                metadata.exif_DateTimeOriginal = creation_date
-                metadata.exif_DateTime = creation_date
                 self._logger.debug(f"EXIF extraído para video {path.name}: {creation_date}")
             else:
                 self._logger.debug(f"No se encontró fecha EXIF para video {path.name}")
                 
         except Exception as e:
             self._logger.warning(f"Error extrayendo EXIF de video {path.name}: {e}")
+        
+        # Actualizar metadata con lock (thread-safe)
+        if creation_date:
+            with self._lock:
+                # Volver a obtener metadata del caché por si cambió
+                cached_metadata = self._cache.get(path)
+                if cached_metadata:
+                    # Para videos, solemos tener una única fecha de creación
+                    # La mapeamos a DateTimeOriginal y DateTime para consistencia
+                    cached_metadata.exif_DateTimeOriginal = creation_date
+                    cached_metadata.exif_DateTime = creation_date
+                    self._logger.debug(f"EXIF asignado en caché para video {path.name}")
+                else:
+                    # Raro pero posible: se eliminó del caché entre tanto
+                    metadata.exif_DateTimeOriginal = creation_date
+                    metadata.exif_DateTime = creation_date
+                    self._cache[path] = metadata
         
         return metadata
     
@@ -625,17 +667,13 @@ class FileInfoRepositoryCache:
             with self._lock:
                 self._cache[path] = metadata
         
-        # Hash (si no lo tiene)
+        # Hash (si no lo tiene) - usar método que actualiza caché
         if not metadata.sha256:
-            try:
-                metadata.sha256 = calculate_file_hash(path)
-            except (PermissionError, FileNotFoundError, IOError):
-                # Logging detallado ya hecho en calculate_file_hash()
-                self._logger.debug(f"No se pudo calcular hash: {path.name}")
-            except Exception as e:
-                self._logger.error(f"Error inesperado calculando hash de {path.name}: {type(e).__name__}: {e}")
+            metadata = self._process_file_hash(path)
+            if not metadata:
+                return None
         
-        # EXIF (si no lo tiene y es imagen/video)
+        # EXIF (si no lo tiene y es imagen/video) - usar métodos que actualizan caché
         if not metadata.has_exif and (metadata.is_image or metadata.is_video):
             if metadata.is_image:
                 return self._process_file_exif_images(path)

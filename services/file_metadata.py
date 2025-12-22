@@ -55,6 +55,9 @@ class FileMetadata:
     exif_DateTimeOriginal: Optional[str] = None
     exif_DateTimeDigitized: Optional[str] = None
     exif_ExifVersion: Optional[str] = None
+    exif_SubSecTimeOriginal: Optional[str] = None
+    exif_OffsetTimeOriginal: Optional[str] = None
+    exif_Software: Optional[str] = None
     
     @property
     def extension(self) -> str:
@@ -72,7 +75,10 @@ class FileMetadata:
             self.exif_GPSDateStamp is not None,
             self.exif_DateTimeOriginal is not None,
             self.exif_DateTimeDigitized is not None,
-            self.exif_ExifVersion is not None
+            self.exif_ExifVersion is not None,
+            self.exif_SubSecTimeOriginal is not None,
+            self.exif_OffsetTimeOriginal is not None,
+            self.exif_Software is not None
         ])
     
     @property
@@ -147,6 +153,9 @@ class FileMetadata:
             'exif_DateTimeOriginal': self.exif_DateTimeOriginal,
             'exif_DateTimeDigitized': self.exif_DateTimeDigitized,
             'exif_ExifVersion': self.exif_ExifVersion,
+            'exif_SubSecTimeOriginal': self.exif_SubSecTimeOriginal,
+            'exif_OffsetTimeOriginal': self.exif_OffsetTimeOriginal,
+            'exif_Software': self.exif_Software,
         }
     
     @classmethod
@@ -177,6 +186,9 @@ class FileMetadata:
             exif_DateTimeOriginal=data.get('exif_DateTimeOriginal'),
             exif_DateTimeDigitized=data.get('exif_DateTimeDigitized'),
             exif_ExifVersion=data.get('exif_ExifVersion'),
+            exif_SubSecTimeOriginal=data.get('exif_SubSecTimeOriginal'),
+            exif_OffsetTimeOriginal=data.get('exif_OffsetTimeOriginal'),
+            exif_Software=data.get('exif_Software'),
         )
     
     def get_summary(self, verbose: bool = False) -> str:
