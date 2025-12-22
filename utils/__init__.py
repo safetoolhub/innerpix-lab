@@ -15,7 +15,7 @@ from .logger import (
     log_section_footer_relevant,
 )
 from .date_utils import (
-    select_chosen_date,
+    select_best_date_from_file,
     format_renamed_name,
     is_renamed_filename,
     parse_renamed_name,
@@ -84,7 +84,7 @@ __all__ = [
     # Date utilities
     'get_all_file_dates',
     'extract_date_from_filename',
-    'select_chosen_date',
+    'select_best_date_from_file',
     'format_renamed_name',
     'is_renamed_filename',
     'parse_renamed_name',

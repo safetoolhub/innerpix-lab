@@ -10,7 +10,7 @@ from datetime import datetime
 from unittest.mock import Mock, patch, MagicMock
 from utils.date_utils import (
     get_best_common_creation_date_2_files,
-    select_chosen_date,
+    select_best_date_from_file,
     format_renamed_name,
     parse_renamed_name,
     is_renamed_filename,
@@ -70,7 +70,7 @@ class TestSelectEarliestDate:
             exif_DateTimeDigitized='2023:01:15 10:32:00',
         )
         
-        result_date, result_source = select_chosen_date(metadata)
+        result_date, result_source = select_best_date_from_file(metadata)
         
         assert result_date == datetime(2023, 1, 15, 10, 30)
         assert result_source == 'EXIF DateTimeOriginal'
@@ -81,7 +81,7 @@ class TestSelectEarliestDate:
             exif_DateTime='2023:03:20 14:45:00',
         )
         
-        result_date, result_source = select_chosen_date(metadata)
+        result_date, result_source = select_best_date_from_file(metadata)
         
         assert result_date == datetime(2023, 3, 20, 14, 45)
         assert result_source == 'EXIF CreateDate'
@@ -94,7 +94,7 @@ class TestSelectEarliestDate:
             exif_GPSDateStamp='2023:01:15 10:30:00',
         )
 
-        result_date, result_source = select_chosen_date(metadata)
+        result_date, result_source = select_best_date_from_file(metadata)
 
         # GPS ya no tiene prioridad máxima, se selecciona DateTimeOriginal
         assert result_date == datetime(2023, 1, 15, 10, 31)
@@ -107,7 +107,7 @@ class TestSelectEarliestDate:
             exif_OffsetTimeOriginal='+02:00',
         )
 
-        result_date, result_source = select_chosen_date(metadata)
+        result_date, result_source = select_best_date_from_file(metadata)
 
         assert result_date == datetime(2023, 6, 1, 9, 0)
         assert 'OffsetTime' in result_source or '+02:00' in result_source
@@ -119,7 +119,7 @@ class TestSelectEarliestDate:
             path=Path('/test/IMG-20241113-WA0001.jpg'),
         )
 
-        result_date, result_source = select_chosen_date(metadata)
+        result_date, result_source = select_best_date_from_file(metadata)
 
         # Debe usar la fecha del nombre de archivo
         assert result_date == datetime(2024, 11, 13, 0, 0)
@@ -133,7 +133,7 @@ class TestSelectEarliestDate:
             exif_DateTime='2024:01:15 14:30:00',
         )
 
-        result_date, result_source = select_chosen_date(metadata)
+        result_date, result_source = select_best_date_from_file(metadata)
 
         # Para videos, exif_DateTime se usa como EXIF CreateDate o Video Metadata
         assert result_date == datetime(2024, 1, 15, 14, 30)
@@ -144,7 +144,7 @@ class TestSelectEarliestDate:
             exif_DateTimeDigitized='2023:05:10 09:00:00',
         )
         
-        result_date, result_source = select_chosen_date(metadata)
+        result_date, result_source = select_best_date_from_file(metadata)
         
         assert result_date == datetime(2023, 5, 10, 9, 0)
         assert result_source == 'EXIF DateTimeDigitized'
@@ -157,7 +157,7 @@ class TestSelectEarliestDate:
             exif_DateTimeDigitized='2023:05:15 08:00:00',  # Más antigua
         )
         
-        result_date, result_source = select_chosen_date(metadata)
+        result_date, result_source = select_best_date_from_file(metadata)
         
         # Se selecciona la fecha EXIF más antigua (DateTimeDigitized)
         assert result_date == datetime(2023, 5, 15, 8, 0)
@@ -170,7 +170,7 @@ class TestSelectEarliestDate:
             fs_mtime=datetime(2024, 1, 2, 14, 0).timestamp(),
         )
         
-        result_date, result_source = select_chosen_date(metadata)
+        result_date, result_source = select_best_date_from_file(metadata)
         
         assert result_date == datetime(2024, 1, 1, 12, 0)
         # Source puede ser 'ctime' o 'birth' dependiendo de la plataforma
@@ -183,7 +183,7 @@ class TestSelectEarliestDate:
             fs_mtime=datetime(2024, 1, 1, 12, 0).timestamp(),  # Más antigua
         )
         
-        result_date, result_source = select_chosen_date(metadata)
+        result_date, result_source = select_best_date_from_file(metadata)
         
         assert result_date == datetime(2024, 1, 1, 12, 0)
         assert result_source == 'mtime'
@@ -196,7 +196,7 @@ class TestSelectEarliestDate:
             fs_mtime=datetime(2019, 6, 15, 8, 0).timestamp(),  # Más antigua pero ignorada
         )
         
-        result_date, result_source = select_chosen_date(metadata)
+        result_date, result_source = select_best_date_from_file(metadata)
         
         # Debe devolver EXIF CreateDate, no las fechas más antiguas del sistema
         assert result_date == datetime(2023, 6, 15, 10, 0)
@@ -206,7 +206,7 @@ class TestSelectEarliestDate:
         """Sin fechas disponibles debe devolver None, None"""
         metadata = _create_test_metadata()  # Sin fechas
         
-        result_date, result_source = select_chosen_date(metadata)
+        result_date, result_source = select_best_date_from_file(metadata)
         
         assert result_date is None
         assert result_source is None
@@ -217,7 +217,7 @@ class TestSelectEarliestDate:
             fs_mtime=datetime(2024, 1, 1, 12, 0).timestamp(),
         )
         
-        result_date, result_source = select_chosen_date(metadata)
+        result_date, result_source = select_best_date_from_file(metadata)
         
         assert result_date == datetime(2024, 1, 1, 12, 0)
         assert result_source == 'mtime'
@@ -228,7 +228,7 @@ class TestSelectEarliestDate:
             fs_ctime=datetime(2024, 1, 1, 12, 0).timestamp(),
         )
         
-        result_date, result_source = select_chosen_date(metadata)
+        result_date, result_source = select_best_date_from_file(metadata)
         
         assert result_date == datetime(2024, 1, 1, 12, 0)
         # Source depende de la plataforma
@@ -538,7 +538,7 @@ class TestGetDateFromFile:
             exif_DateTime='2023-01-15T10:31:00'
         )
         
-        result_date, result_source = select_chosen_date(mock_metadata)
+        result_date, result_source = select_best_date_from_file(mock_metadata)
         assert result_date == datetime(2023, 1, 15, 10, 30, 0)
         assert 'EXIF' in result_source
     
@@ -557,7 +557,7 @@ class TestGetDateFromFile:
             fs_atime=datetime(2024, 1, 3, 16, 0).timestamp()
         )
         
-        result_date, result_source = select_chosen_date(mock_metadata)
+        result_date, result_source = select_best_date_from_file(mock_metadata)
         assert result_date == datetime(2024, 1, 1, 12, 0)
     
     def test_file_with_no_dates_returns_none(self, temp_dir, create_test_image):
@@ -574,7 +574,7 @@ class TestGetDateFromFile:
             fs_atime=0.0
         )
         
-        result_date, result_source = select_chosen_date(mock_metadata)
+        result_date, result_source = select_best_date_from_file(mock_metadata)
         assert result_date is None
         assert result_source is None
             assert result == datetime(2023, 1, 15, 10, 30, 0)
@@ -741,7 +741,7 @@ class TestEdgeCasesAndCorruptedData:
             exif_DateTimeDigitized='2023:01:15 10:30:00',
         )
         
-        result_date, result_source = select_chosen_date(metadata)
+        result_date, result_source = select_best_date_from_file(metadata)
         
         assert result_date == datetime(2023, 1, 15, 10, 30)
         assert result_source == 'EXIF DateTimeDigitized'
@@ -758,7 +758,7 @@ class TestEdgeCasesAndCorruptedData:
             fs_mtime=same_ts,
         )
         
-        result_date, result_source = select_chosen_date(metadata)
+        result_date, result_source = select_best_date_from_file(metadata)
         
         # Debe devolver una fecha EXIF (prioridad)
         assert result_date == datetime(2023, 1, 15, 10, 30)
@@ -792,7 +792,7 @@ class TestSelectChosenDateCombinatorial:
             exif_DateTimeOriginal='2023:05:10 14:30:00',
         )
         
-        result_date, result_source = select_chosen_date(metadata)
+        result_date, result_source = select_best_date_from_file(metadata)
         
         assert result_date == datetime(2023, 5, 10, 14, 30)
         assert result_source == 'EXIF DateTimeOriginal'
@@ -804,7 +804,7 @@ class TestSelectChosenDateCombinatorial:
             exif_OffsetTimeOriginal='+02:00',
         )
         
-        result_date, result_source = select_chosen_date(metadata)
+        result_date, result_source = select_best_date_from_file(metadata)
         
         assert result_date == datetime(2023, 5, 10, 14, 30)
         assert '+02:00' in result_source
@@ -816,7 +816,7 @@ class TestSelectChosenDateCombinatorial:
             exif_DateTime='2023:06:15 09:00:00',
         )
         
-        result_date, result_source = select_chosen_date(metadata)
+        result_date, result_source = select_best_date_from_file(metadata)
         
         assert result_date == datetime(2023, 6, 15, 9, 0)
         assert result_source == 'EXIF CreateDate'
@@ -827,7 +827,7 @@ class TestSelectChosenDateCombinatorial:
             exif_DateTimeDigitized='2023:07:20 11:45:00',
         )
         
-        result_date, result_source = select_chosen_date(metadata)
+        result_date, result_source = select_best_date_from_file(metadata)
         
         assert result_date == datetime(2023, 7, 20, 11, 45)
         assert result_source == 'EXIF DateTimeDigitized'
@@ -840,7 +840,7 @@ class TestSelectChosenDateCombinatorial:
             exif_DateTimeDigitized='2023:05:10 16:00:00',
         )
         
-        result_date, result_source = select_chosen_date(metadata)
+        result_date, result_source = select_best_date_from_file(metadata)
         
         assert result_date == datetime(2023, 5, 10, 12, 0)
         assert result_source == 'EXIF CreateDate'
@@ -854,7 +854,7 @@ class TestSelectChosenDateCombinatorial:
             exif_GPSDateStamp='2023:08:04 20:00:00',
         )
         
-        result_date, result_source = select_chosen_date(metadata)
+        result_date, result_source = select_best_date_from_file(metadata)
         
         # GPS no debe ser seleccionado
         assert result_date == datetime(2023, 8, 4, 18, 49, 23)
@@ -868,7 +868,7 @@ class TestSelectChosenDateCombinatorial:
             fs_mtime=datetime(2024, 1, 2, 14, 0).timestamp(),
         )
         
-        result_date, result_source = select_chosen_date(metadata)
+        result_date, result_source = select_best_date_from_file(metadata)
         
         # Debe caer a fechas filesystem (GPS no se usa como principal)
         assert result_date == datetime(2024, 1, 1, 12, 0)
@@ -884,7 +884,7 @@ class TestSelectChosenDateCombinatorial:
             fs_mtime=datetime(2024, 11, 16, 14, 0).timestamp(),
         )
         
-        result_date, result_source = select_chosen_date(metadata)
+        result_date, result_source = select_best_date_from_file(metadata)
         
         assert result_date == datetime(2024, 11, 13, 0, 0)
         assert result_source == 'Filename'
@@ -896,7 +896,7 @@ class TestSelectChosenDateCombinatorial:
             exif_DateTimeOriginal='2023:05:10 14:30:00',
         )
         
-        result_date, result_source = select_chosen_date(metadata)
+        result_date, result_source = select_best_date_from_file(metadata)
         
         # EXIF tiene prioridad sobre filename
         assert result_date == datetime(2023, 5, 10, 14, 30)
@@ -913,7 +913,7 @@ class TestSelectChosenDateCombinatorial:
             fs_mtime=datetime(2024, 1, 15, 16, 0).timestamp(),
         )
         
-        result_date, result_source = select_chosen_date(metadata)
+        result_date, result_source = select_best_date_from_file(metadata)
         
         # Para videos sin DateTimeOriginal, usa exif_DateTime
         assert result_date == datetime(2024, 1, 15, 14, 30)
@@ -926,7 +926,7 @@ class TestSelectChosenDateCombinatorial:
             fs_ctime=datetime(2024, 1, 1, 12, 0).timestamp(),
         )
         
-        result_date, result_source = select_chosen_date(metadata)
+        result_date, result_source = select_best_date_from_file(metadata)
         
         assert result_date == datetime(2024, 1, 1, 12, 0)
         assert result_source in ('ctime', 'birth')
@@ -937,7 +937,7 @@ class TestSelectChosenDateCombinatorial:
             fs_mtime=datetime(2024, 1, 2, 14, 0).timestamp(),
         )
         
-        result_date, result_source = select_chosen_date(metadata)
+        result_date, result_source = select_best_date_from_file(metadata)
         
         assert result_date == datetime(2024, 1, 2, 14, 0)
         assert result_source == 'mtime'
@@ -949,7 +949,7 @@ class TestSelectChosenDateCombinatorial:
             fs_mtime=datetime(2024, 1, 2, 14, 0).timestamp(),
         )
         
-        result_date, result_source = select_chosen_date(metadata)
+        result_date, result_source = select_best_date_from_file(metadata)
         
         assert result_date == datetime(2024, 1, 1, 12, 0)
         assert result_source in ('ctime', 'birth')
@@ -962,7 +962,7 @@ class TestSelectChosenDateCombinatorial:
             fs_mtime=datetime(2021, 6, 15, 8, 0).timestamp(),  # Mucho más antigua
         )
         
-        result_date, result_source = select_chosen_date(metadata)
+        result_date, result_source = select_best_date_from_file(metadata)
         
         # EXIF tiene prioridad absoluta sobre filesystem
         assert result_date == datetime(2023, 5, 10, 14, 30)
@@ -982,7 +982,7 @@ class TestSelectChosenDateCombinatorial:
             fs_mtime=datetime(2021, 6, 15, 8, 0).timestamp(),
         )
         
-        result_date, result_source = select_chosen_date(metadata)
+        result_date, result_source = select_best_date_from_file(metadata)
         
         # Debe seleccionar la EXIF más antigua
         assert result_date == datetime(2023, 5, 10, 12, 0)
@@ -992,7 +992,7 @@ class TestSelectChosenDateCombinatorial:
         """Sin ninguna fecha disponible debe devolver None"""
         metadata = _create_test_metadata()
         
-        result_date, result_source = select_chosen_date(metadata)
+        result_date, result_source = select_best_date_from_file(metadata)
         
         assert result_date is None
         assert result_source is None
@@ -1008,7 +1008,7 @@ class TestSelectChosenDateCombinatorial:
             fs_mtime=same_ts,
         )
         
-        result_date, result_source = select_chosen_date(metadata)
+        result_date, result_source = select_best_date_from_file(metadata)
         
         assert result_date == datetime(2023, 5, 10, 12, 0)
         assert 'EXIF' in result_source
@@ -1021,7 +1021,7 @@ class TestSelectChosenDateCombinatorial:
             fs_ctime=datetime(2024, 12, 31, 23, 59).timestamp(),  # En el futuro
         )
         
-        result_date, result_source = select_chosen_date(metadata)
+        result_date, result_source = select_best_date_from_file(metadata)
         
         # Debe devolver la EXIF más antigua sin error
         assert result_date == datetime(1990, 1, 1, 0, 0)

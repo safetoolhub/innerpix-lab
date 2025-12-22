@@ -182,7 +182,7 @@ def get_best_common_creation_date_2_files(
     return None
 
 
-def select_chosen_date(metadata: 'FileMetadata') -> tuple[Optional[datetime], Optional[str]]:
+def select_best_date_from_file(file_metadata: 'FileMetadata') -> tuple[Optional[datetime], Optional[str]]:
     """
     Selecciona la fecha más representativa de un archivo según lógica de priorización avanzada.
     
@@ -225,13 +225,13 @@ def select_chosen_date(metadata: 'FileMetadata') -> tuple[Optional[datetime], Op
     
     Examples:
         >>> from services.file_metadata import FileMetadata
-        >>> metadata = FileMetadata(
+        >>> file_metadata = FileMetadata(
         ...     path=Path('/test.jpg'),
         ...     fs_size=1000, fs_ctime=1609459200.0, fs_mtime=1609459200.0, fs_atime=1609459200.0,
         ...     exif_DateTimeOriginal='2021:08:04 18:49:23',
         ...     exif_OffsetTimeOriginal='+02:00'
         ... )
-        >>> select_chosen_date(metadata)
+        >>> select_best_date_from_file(file_metadata)
         (datetime(2021, 8, 4, 18, 49, 23), 'EXIF DateTimeOriginal (+02:00)')
     """
     import platform
@@ -253,27 +253,27 @@ def select_chosen_date(metadata: 'FileMetadata') -> tuple[Optional[datetime], Op
             return None
     
     # Extraer fechas de FileMetadata
-    exif_date_time_original = _parse_exif_date(metadata.exif_DateTimeOriginal)
-    exif_create_date = _parse_exif_date(metadata.exif_DateTime)  # CreateDate mapea a DateTime
-    exif_date_digitized = _parse_exif_date(metadata.exif_DateTimeDigitized)
-    exif_gps_date = _parse_exif_date(metadata.exif_GPSDateStamp)
-    exif_offset_time = metadata.exif_OffsetTimeOriginal
+    exif_date_time_original = _parse_exif_date(file_metadata.exif_DateTimeOriginal)
+    exif_create_date = _parse_exif_date(file_metadata.exif_DateTime)  # CreateDate mapea a DateTime
+    exif_date_digitized = _parse_exif_date(file_metadata.exif_DateTimeDigitized)
+    exif_gps_date = _parse_exif_date(file_metadata.exif_GPSDateStamp)
+    exif_offset_time = file_metadata.exif_OffsetTimeOriginal
     
     # Fechas del filesystem
-    fs_ctime = datetime.fromtimestamp(metadata.fs_ctime) if metadata.fs_ctime else None
-    fs_mtime = datetime.fromtimestamp(metadata.fs_mtime) if metadata.fs_mtime else None
+    fs_ctime = datetime.fromtimestamp(file_metadata.fs_ctime) if file_metadata.fs_ctime else None
+    fs_mtime = datetime.fromtimestamp(file_metadata.fs_mtime) if file_metadata.fs_mtime else None
     
     # Fecha del nombre de archivo
-    filename_date = extract_date_from_filename(metadata.path.name)
+    filename_date = extract_date_from_filename(file_metadata.path.name)
     
     # Video metadata (para videos usamos exif_DateTime)
-    video_metadata_date = exif_create_date if metadata.is_video else None
+    video_metadata_date = exif_create_date if file_metadata.is_video else None
     
     # Determinar fuente de creation (birth vs ctime)
     filesystem_creation_source = 'birth' if platform.system() == 'Darwin' else 'ctime'
     
     # Validar coherencia de fechas directamente con FileMetadata
-    validation = _validate_date_coherence(metadata)
+    validation = _validate_date_coherence(file_metadata)
     
     # Loguear warnings si existen
     if validation['warnings']:
@@ -318,7 +318,7 @@ def select_chosen_date(metadata: 'FileMetadata') -> tuple[Optional[datetime], Op
         selected_date, source = earliest_exif
         
         # Validar coherencia GPS vs DateTimeOriginal
-        _validate_gps_coherence(metadata, selected_date)
+        _validate_gps_coherence(file_metadata, selected_date)
         
         return selected_date, source
     
@@ -717,11 +717,11 @@ def _normalize_date_source(source: str) -> str:
     """
     Normaliza el nombre de la fuente de fecha al formato de caché.
     
-    Convierte los nombres descriptivos de select_chosen_date() al formato
+    Convierte los nombres descriptivos de select_best_date_from_file() al formato
     compacto usado en metadata_cache.
     
     Args:
-        source: Nombre de fuente de select_chosen_date() 
+        source: Nombre de fuente de select_best_date_from_file() 
                 (ej: 'EXIF DateTimeOriginal (+02:00)', 'Filename', 'mtime')
     
     Returns:
@@ -775,7 +775,7 @@ def _normalize_date_source(source: str) -> str:
     return 'other'
 
 
-def _validate_gps_coherence(metadata: 'FileMetadata', selected_date: datetime) -> None:
+def _validate_gps_coherence(file_metadata: 'FileMetadata', selected_date: datetime) -> None:
     """
     Valida coherencia entre GPS DateStamp y DateTimeOriginal.
     
@@ -787,7 +787,7 @@ def _validate_gps_coherence(metadata: 'FileMetadata', selected_date: datetime) -
     Esta función registra warnings cuando la diferencia es mayor a 24 horas.
     
     Args:
-        metadata: FileMetadata con los metadatos del archivo
+        file_metadata: FileMetadata con los metadatos del archivo
         selected_date: Fecha seleccionada (normalmente DateTimeOriginal)
     """
     # Helper para parsear fechas EXIF string a datetime
@@ -805,7 +805,7 @@ def _validate_gps_coherence(metadata: 'FileMetadata', selected_date: datetime) -
         except (ValueError, TypeError):
             return None
     
-    gps_date = _parse_exif_date(metadata.exif_GPSDateStamp)
+    gps_date = _parse_exif_date(file_metadata.exif_GPSDateStamp)
     
     if not gps_date:
         return
@@ -824,11 +824,11 @@ def _validate_gps_coherence(metadata: 'FileMetadata', selected_date: datetime) -
         )
 
 
-def _validate_date_coherence(metadata: 'FileMetadata') -> dict:
+def _validate_date_coherence(file_metadata: 'FileMetadata') -> dict:
     """
     Valida coherencia entre fechas y detecta anomalías en metadatos.
     
-    MÉTODO INTERNO usado exclusivamente por select_chosen_date().
+    MÉTODO INTERNO usado exclusivamente por select_best_date_from_file().
     
     Esta función aplica varias reglas de validación para detectar metadatos corruptos,
     archivos editados, o transferencias recientes que pueden afectar la confiabilidad
@@ -874,13 +874,13 @@ def _validate_date_coherence(metadata: 'FileMetadata') -> dict:
     is_valid = True
     
     # Extraer fechas relevantes del FileMetadata
-    exif_date_time_original = _parse_exif_date(metadata.exif_DateTimeOriginal)
-    exif_create_date = _parse_exif_date(metadata.exif_DateTime)
-    exif_date_digitized = _parse_exif_date(metadata.exif_DateTimeDigitized)
-    exif_gps_date = _parse_exif_date(metadata.exif_GPSDateStamp)
-    exif_software = metadata.exif_Software
-    fs_mtime_date = datetime.fromtimestamp(metadata.fs_mtime) if metadata.fs_mtime else None
-    fs_ctime_date = datetime.fromtimestamp(metadata.fs_ctime) if metadata.fs_ctime else None
+    exif_date_time_original = _parse_exif_date(file_metadata.exif_DateTimeOriginal)
+    exif_create_date = _parse_exif_date(file_metadata.exif_DateTime)
+    exif_date_digitized = _parse_exif_date(file_metadata.exif_DateTimeDigitized)
+    exif_gps_date = _parse_exif_date(file_metadata.exif_GPSDateStamp)
+    exif_software = file_metadata.exif_Software
+    fs_mtime_date = datetime.fromtimestamp(file_metadata.fs_mtime) if file_metadata.fs_mtime else None
+    fs_ctime_date = datetime.fromtimestamp(file_metadata.fs_ctime) if file_metadata.fs_ctime else None
     
     # Validación 1: EXIF posterior a modification_date (sospechoso)
     if exif_date_time_original and fs_mtime_date:

@@ -671,7 +671,7 @@ class FileInfoRepositoryCache:
         """
         Procesa archivo con estrategia BEST_DATE: calcula la mejor fecha disponible.
         
-        Usa la lógica de select_chosen_date() de date_utils.py que prioriza:
+        Usa la lógica de select_best_date_from_file() de date_utils.py que prioriza:
         1. EXIF DateTimeOriginal (con/sin timezone)
         2. EXIF CreateDate
         3. EXIF DateTimeDigitized
@@ -683,25 +683,25 @@ class FileInfoRepositoryCache:
         
         Es una operación rápida porque solo consulta datos ya en caché.
         """
-        from utils.date_utils import select_chosen_date, _normalize_date_source
+        from utils.date_utils import select_best_date_from_file, _normalize_date_source
         
         path = path.resolve()
         
         # Obtener metadata existente
         with self._lock:
-            metadata = self._cache.get(path)
+            file_metadata = self._cache.get(path)
         
-        if not metadata:
+        if not file_metadata:
             self._logger.debug(f"No se puede calcular best_date: archivo no en caché: {path.name}")
             return None
         
         # Ya tiene best_date? Skip
-        if metadata.has_best_date:
-            self._logger.debug(f"best_date ya calculado para {path.name}: {metadata.best_date}")
-            return metadata
+        if file_metadata.has_best_date:
+            self._logger.debug(f"best_date ya calculado para {path.name}: {file_metadata.best_date}")
+            return file_metadata
         
         # Calcular la mejor fecha pasando directamente el FileMetadata
-        selected_date, selected_source = select_chosen_date(metadata)
+        selected_date, selected_source = select_best_date_from_file(file_metadata)
         
         if selected_date:
             # Normalizar el nombre de la fuente
@@ -721,7 +721,7 @@ class FileInfoRepositoryCache:
         else:
             self._logger.debug(f"No se pudo determinar best_date para {path.name}")
         
-        return metadata
+        return file_metadata
     
     def _process_file_full(self, path: Path) -> Optional[FileMetadata]:
         """
@@ -856,7 +856,7 @@ class FileInfoRepositoryCache:
         Obtiene la mejor fecha disponible de un archivo desde la caché.
         
         Esta fecha se calcula en Phase 5 del InitialScanner usando la lógica
-        de select_chosen_date() que prioriza EXIF sobre filesystem.
+        de select_best_date_from_file() que prioriza EXIF sobre filesystem.
         
         Args:
             path: Ruta del archivo

@@ -47,7 +47,7 @@ class FileMetadata:
     sha256: Optional[str] = None
     
     # Best date available (fecha más representativa calculada)
-    # Calculada en Phase 5 del InitialScanner usando select_chosen_date()
+    # Calculada en Phase 5 del InitialScanner usando select_best_date_from_file()
     best_date: Optional[datetime] = None
     best_date_source: Optional[str] = None  # Fuente de la fecha (ej: 'exif_datetime_original', 'mtime')
     

@@ -274,7 +274,7 @@ class DuplicatesBaseService(BaseService):
         """
         from utils.file_utils import validate_file_exists
         from utils.format_utils import format_size
-        from utils.date_utils import select_chosen_date, get_all_file_dates
+        from utils.date_utils import select_best_date_from_file, get_all_file_dates
         
         deleted = []
         kept = []
@@ -301,7 +301,7 @@ class DuplicatesBaseService(BaseService):
                 # Usar metadata_cache para evitar recalcular EXIF/video metadata
                 try:
                     file_metadata = get_all_file_dates(keep_file)
-                    keep_date, keep_date_source = select_chosen_date(file_metadata)
+                    keep_date, keep_date_source = select_best_date_from_file(file_metadata)
                     keep_date_str = (
                         keep_date.strftime('%Y-%m-%d %H:%M:%S')
                         if keep_date else 'fecha desconocida'
@@ -347,7 +347,7 @@ class DuplicatesBaseService(BaseService):
                 
                 try:
                     file_metadata = get_all_file_dates(file_path)
-                    file_date, file_date_source = select_chosen_date(file_metadata)
+                    file_date, file_date_source = select_best_date_from_file(file_metadata)
                     file_date_str = (
                         file_date.strftime('%Y-%m-%d %H:%M:%S')
                         if file_date else 'fecha desconocida'

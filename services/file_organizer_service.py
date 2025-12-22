@@ -16,7 +16,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from config import Config
 from utils.logger import log_section_header_relevant, log_section_footer_relevant, log_section_header_discrete, log_section_footer_discrete
-from utils.date_utils import select_chosen_date, get_all_file_dates
+from utils.date_utils import select_best_date_from_file, get_all_file_dates
 from utils.file_utils import detect_file_source, cleanup_empty_directories
 from services.result_types import OrganizationExecutionResult, OrganizationAnalysisResult
 from services.base_service import BaseService, ProgressCallback, BackupCreationError
@@ -374,7 +374,7 @@ class FileOrganizer(BaseService):
             raise ValueError(f"Tipo no soportado: {organization_type}")
 
     # ... (Copiar todos los métodos _generate_move_plan_* y _resolve_conflicts_in_folder tal cual estaban, 
-    # pero asegurando que select_chosen_date use FileInfoRepository)
+    # pero asegurando que select_best_date_from_file use FileInfoRepository)
     
     def _resolve_conflicts_in_folder(self, name_conflicts: Dict, target_folder: Path) -> List[FileMove]:
         # Logica identica a original (ver lectura previa)
@@ -438,7 +438,7 @@ class FileOrganizer(BaseService):
             for info in files:
                 path = Path(info['path'])
                 file_metadata = get_all_file_dates(path)
-                date, _ = select_chosen_date(file_metadata)
+                date, _ = select_best_date_from_file(file_metadata)
                 if not date:
                     date = datetime.now()
                 folder = date.strftime(date_fmt)
@@ -485,7 +485,7 @@ class FileOrganizer(BaseService):
                 
                 if date_grouping_type:
                     file_metadata = get_all_file_dates(file_path)
-                    file_date, _ = select_chosen_date(file_metadata)
+                    file_date, _ = select_best_date_from_file(file_metadata)
                     if not file_date:
                         file_date = datetime.now()
                     date_folder = ""
@@ -536,7 +536,7 @@ class FileOrganizer(BaseService):
 
                 if date_grouping_type:
                      file_metadata = get_all_file_dates(file_path)
-                     file_date, _ = select_chosen_date(file_metadata)
+                     file_date, _ = select_best_date_from_file(file_metadata)
                      if not file_date:
                          file_date = datetime.now()
                      date_folder = ""
