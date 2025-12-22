@@ -14,7 +14,7 @@ from typing import List, Optional, Dict, Set
 from collections import defaultdict
 
 from config import Config
-from utils.date_utils import get_best_creation_date
+from utils.date_utils import get_best_common_creation_date_2_files
 from services.result_types import (
     LivePhotosAnalysisResult, 
     LivePhotosExecutionResult,
@@ -306,8 +306,8 @@ class LivePhotoService(BaseService):
         
         for photo_meta in photo_metas:
             if validate_dates:
-                # Usar get_best_creation_date para comparar fechas
-                best_date_result = get_best_creation_date(video_meta, photo_meta, verbose=True)
+                # Usar get_best_common_creation_date_2_files para comparar fechas
+                best_date_result = get_best_common_creation_date_2_files(video_meta, photo_meta, verbose=True)
                 
                 if not best_date_result:
                     # No hay fecha común válida - rechazar esta imagen
@@ -369,7 +369,7 @@ class LivePhotoService(BaseService):
             # Intentar obtener la máxima diferencia de tiempo de las rechazadas
             # para reportar en rejected_groups
             for photo_meta in photo_metas:
-                best_date_result = get_best_creation_date(video_meta, photo_meta, verbose=False)
+                best_date_result = get_best_common_creation_date_2_files(video_meta, photo_meta, verbose=False)
                 if best_date_result:
                     vid_date, img_date, source = best_date_result
                     time_diff = abs((vid_date - img_date).total_seconds())

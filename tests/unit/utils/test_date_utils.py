@@ -9,7 +9,7 @@ from pathlib import Path
 from datetime import datetime
 from unittest.mock import Mock, patch, MagicMock
 from utils.date_utils import (
-    get_best_creation_date,
+    get_best_common_creation_date_2_files,
     select_chosen_date,
     get_date_from_file,
     format_renamed_name,
@@ -1338,8 +1338,8 @@ class TestVideoMetadataConfiguration:
         assert Config.USE_VIDEO_METADATA is True
 
 @pytest.mark.unit
-class TestGetBestCreationDateComprehensive:
-    """Tests exhaustivos para get_best_creation_date con la nueva lógica profesional"""
+class TestGetBestCommonCreationDate2FilesComprehensive:
+    """Tests exhaustivos para get_best_common_creation_date_2_files con la nueva lógica profesional"""
 
     @pytest.fixture
     def file1_exif(self):
@@ -1371,7 +1371,7 @@ class TestGetBestCreationDateComprehensive:
         file1_exif.mtime = datetime(2020, 1, 1).timestamp()
         file2_exif.mtime = datetime(2020, 1, 1).timestamp()
         
-        d1, d2, source = get_best_creation_date(file1_exif, file2_exif)
+        d1, d2, source = get_best_common_creation_date_2_files(file1_exif, file2_exif)
         
         assert d1 == datetime(2023, 1, 1, 12, 0, 0)
         assert d2 == datetime(2023, 1, 1, 12, 0, 5)
@@ -1382,7 +1382,7 @@ class TestGetBestCreationDateComprehensive:
         file1_exif.exif_date_time_original = None
         file2_exif.exif_date_time_original = None
         
-        d1, d2, source = get_best_creation_date(file1_exif, file2_exif)
+        d1, d2, source = get_best_common_creation_date_2_files(file1_exif, file2_exif)
         
         assert d1 == datetime(2023, 1, 1, 12, 30, 0)
         assert d2 == datetime(2023, 1, 1, 12, 31, 0)
@@ -1396,7 +1396,7 @@ class TestGetBestCreationDateComprehensive:
         file2_exif.exif_create_date = None
         
         # mtime < ctime < atime
-        d1, d2, source = get_best_creation_date(file1_exif, file2_exif)
+        d1, d2, source = get_best_common_creation_date_2_files(file1_exif, file2_exif)
         
         assert d1 == datetime(2023, 1, 1, 15, 0, 0)
         assert d2 == datetime(2023, 1, 1, 15, 1, 0)
@@ -1417,7 +1417,7 @@ class TestGetBestCreationDateComprehensive:
         file2_exif.ctime = datetime(2023, 1, 1, 14, 1, 0).timestamp()
         
         with caplog.at_level(logging.WARNING):
-            d1, d2, source = get_best_creation_date(file1_exif, file2_exif)
+            d1, d2, source = get_best_common_creation_date_2_files(file1_exif, file2_exif)
             
             assert d1 == datetime(2023, 1, 1, 14, 0, 0)
             assert d2 == datetime(2023, 1, 1, 14, 1, 0)
@@ -1440,7 +1440,7 @@ class TestGetBestCreationDateComprehensive:
         f1_solo_m = SimpleNamespace(path="f1", mtime=datetime(2020,1,1).timestamp())
         f2_solo_c = SimpleNamespace(path="f2", ctime=datetime(2020,1,1).timestamp())
         
-        result = get_best_creation_date(f1_solo_m, f2_solo_c)
+        result = get_best_common_creation_date_2_files(f1_solo_m, f2_solo_c)
         assert result is None
 
     def test_mixed_exif_one_file_only(self, file1_exif, file2_exif):
@@ -1450,7 +1450,7 @@ class TestGetBestCreationDateComprehensive:
         file2_exif.exif_create_date = None
         file2_exif.exif_modify_date = None
         
-        d1, d2, source = get_best_creation_date(file1_exif, file2_exif)
+        d1, d2, source = get_best_common_creation_date_2_files(file1_exif, file2_exif)
         
         # Cae a mtime porque es la fuente común (pese a que f1 tenía EXIF)
         assert source == 'fs_mtime'
@@ -1475,7 +1475,7 @@ class TestGetBestCreationDateComprehensive:
         file2_exif.ctime = datetime(2022, 1, 1, 1).timestamp()
         file2_exif.atime = datetime(2024, 1, 1, 1).timestamp()
         
-        d1, d2, source = get_best_creation_date(file1_exif, file2_exif)
+        d1, d2, source = get_best_common_creation_date_2_files(file1_exif, file2_exif)
         
         assert source == 'fs_ctime'
         assert d1 == datetime(2022, 1, 1)
@@ -1486,5 +1486,5 @@ class TestGetBestCreationDateComprehensive:
         f1 = SimpleNamespace(path="f1") # Sin mtime/ctime/atime/exif
         f2 = SimpleNamespace(path="f2")
         
-        result = get_best_creation_date(f1, f2)
+        result = get_best_common_creation_date_2_files(f1, f2)
         assert result is None

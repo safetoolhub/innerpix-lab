@@ -163,10 +163,10 @@ class HeicService(BaseService):
                 
                 
                 try:
-                    # Validación de fechas usando get_best_creation_date
-                    from utils.date_utils import get_best_creation_date
+                    # Validación de fechas usando get_best_common_creation_date_2_files
+                    from utils.date_utils import get_best_common_creation_date_2_files
                     
-                    best_date_result = get_best_creation_date(heic_meta, jpg_meta, verbose=True)
+                    best_date_result = get_best_common_creation_date_2_files(heic_meta, jpg_meta, verbose=True)
                     
                     if not best_date_result:
                         # No hay fecha común válida, rechazar
