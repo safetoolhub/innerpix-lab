@@ -216,50 +216,18 @@ class Stage3Window(BaseStage):
         # Actualizar estadísticas de la summary card (datos ya calculados en Stage 2)
         total_files = self.analysis_results.scan.total_files
         total_size = self.analysis_results.scan.total_size
-        
-        # Calcular espacio recuperable (rápido, solo suma valores ya calculados)
-        recoverable = self._calculate_recoverable_space()
+        num_images = len(self.analysis_results.scan.images) if hasattr(self.analysis_results.scan, 'images') else 0
+        num_videos = len(self.analysis_results.scan.videos) if hasattr(self.analysis_results.scan, 'videos') else 0
+        num_others = len(self.analysis_results.scan.others) if hasattr(self.analysis_results.scan, 'others') else 0
         
         # Mostrar estadísticas
-        self.summary_card.update_stats(total_files, total_size)
-        self.summary_card.update_recoverable_space(recoverable)
+        self.summary_card.update_stats(total_files, total_size, num_images, num_videos, num_others)
 
         # Añadir stretch después de la summary card para mantener el layout
         self.main_layout.addStretch()
 
         # Crear grid de herramientas con delay escalonado
         QTimer.singleShot(200, self._create_tools_grid)
-
-    def _calculate_recoverable_space(self) -> int:
-        """
-        Calcula el espacio total recuperable de todas las herramientas.
-        
-        Returns:
-            Bytes totales recuperables (0 si no hay análisis disponibles)
-        """
-        total = 0
-        
-        # Ahora los análisis se hacen bajo demanda, así que solo sumamos si existen
-        # Live Photos
-        if hasattr(self.analysis_results, 'live_photos') and self.analysis_results.live_photos:
-            total += self.analysis_results.live_photos.potential_savings
-        
-        # HEIC/JPG
-        if hasattr(self.analysis_results, 'heic') and self.analysis_results.heic:
-            # Usar el mayor ahorro entre mantener JPG o mantener HEIC
-            savings_jpg = getattr(self.analysis_results.heic, 'potential_savings_keep_jpg', 0) or 0
-            savings_heic = getattr(self.analysis_results.heic, 'potential_savings_keep_heic', 0) or 0
-            total += max(savings_jpg, savings_heic)
-        
-        # Duplicados exactos
-        if hasattr(self.analysis_results, 'duplicates') and self.analysis_results.duplicates:
-            total += self.analysis_results.duplicates.space_wasted or 0
-        
-        # Archivos de 0 bytes
-        if hasattr(self.analysis_results, 'zero_byte') and self.analysis_results.zero_byte:
-            total += self.analysis_results.zero_byte.bytes_total or 0
-        
-        return total
 
     def _create_tools_grid(self):
         """Crea el grid 2x4 con las 7 herramientas"""

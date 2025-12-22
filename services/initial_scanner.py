@@ -462,6 +462,7 @@ class InitialScanner:
             images=[],
             videos=[],
             others=[],
+            total_size=0,
             image_extensions={},
             video_extensions={},
             unsupported_extensions={},
@@ -479,11 +480,24 @@ class InitialScanner:
         unsupported_extensions: dict
     ) -> DirectoryScanResult:
         """Create a DirectoryScanResult from collected data."""
+        # Calculate total size of all files
+        total_size = 0
+        all_paths = images + videos + others
+        for path in all_paths:
+            try:
+                if path.exists():
+                    total_size += path.stat().st_size
+            except (OSError, PermissionError) as e:
+                self.logger.warning(f"Could not get size for {path}: {e}")
+        
+        self.logger.debug(f"Total size calculated: {total_size:,} bytes for {len(all_paths):,} files")
+        
         return DirectoryScanResult(
             total_files=total_files,
             images=images,
             videos=videos,
             others=others,
+            total_size=total_size,
             image_extensions=image_extensions,
             video_extensions=video_extensions,
             unsupported_extensions=unsupported_extensions,

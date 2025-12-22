@@ -31,7 +31,9 @@ class SummaryCard(QFrame):
         self.directory_path = directory_path
         self.total_files = 0
         self.total_size = 0
-        self.recoverable_space = 0
+        self.num_images = 0
+        self.num_videos = 0
+        self.num_others = 0
         self._setup_ui()
     
     def _setup_ui(self):
@@ -99,7 +101,7 @@ class SummaryCard(QFrame):
         # Actualizar visualización según configuración
         self.update_path_display()
         
-        # Línea única: Estadísticas + Espacio optimizable + Botón Reanalizar
+        # Línea única: Estadísticas completas + Botón Reanalizar
         info_layout = QHBoxLayout()
         info_layout.setSpacing(DesignSystem.SPACE_8)
         
@@ -113,7 +115,7 @@ class SummaryCard(QFrame):
         )
         info_layout.addWidget(stats_icon)
         
-        # 1. Estadísticas (Archivos y Tamaño)
+        # 1. Estadísticas (Archivos totales y Tamaño)
         self.stats_label = QLabel("Calculando...")
         self.stats_label.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_BASE}px;
@@ -123,20 +125,20 @@ class SummaryCard(QFrame):
         info_layout.addWidget(self.stats_label)
         
         # 2. Separador vertical
-        separator = QFrame()
-        separator.setFrameShape(QFrame.Shape.VLine)
-        separator.setStyleSheet(f"background-color: {DesignSystem.COLOR_BORDER}; margin: 4px 0;")
-        separator.setFixedWidth(1)
-        info_layout.addWidget(separator)
+        separator1 = QFrame()
+        separator1.setFrameShape(QFrame.Shape.VLine)
+        separator1.setStyleSheet(f"background-color: {DesignSystem.COLOR_BORDER}; margin: 4px 0;")
+        separator1.setFixedWidth(1)
+        info_layout.addWidget(separator1)
         
-        # 3. Espacio optimizable (con color primario para destacar)
-        self.space_label = QLabel("Espacio optimizable: ...")
-        self.space_label.setStyleSheet(f"""
+        # 3. Desglose de tipos de archivo
+        self.breakdown_label = QLabel("...")
+        self.breakdown_label.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            color: {DesignSystem.COLOR_PRIMARY};
-            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+            color: {DesignSystem.COLOR_TEXT};
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
         """)
-        info_layout.addWidget(self.space_label)
+        info_layout.addWidget(self.breakdown_label)
         
         info_layout.addStretch()
         
@@ -156,46 +158,47 @@ class SummaryCard(QFrame):
         
         layout.addLayout(info_layout)
     
-    def update_stats(self, total_files: int, total_size: int = 0):
+    def update_stats(self, total_files: int, total_size: int = 0, num_images: int = 0, num_videos: int = 0, num_others: int = 0):
         """
         Actualiza las estadísticas mostradas
         
         Args:
             total_files: Número total de archivos
             total_size: Tamaño total en bytes
+            num_images: Número de imágenes
+            num_videos: Número de videos
+            num_others: Número de archivos no soportados
         """
         self.total_files = total_files
         self.total_size = total_size
+        self.num_images = num_images
+        self.num_videos = num_videos
+        self.num_others = num_others
         
         # Formatear estadísticas
         from utils.format_utils import format_file_count, format_size
         
-        stats_text = f"{format_file_count(total_files)} archivos"
-        if total_size > 0:
-            stats_text += f" • {format_size(total_size)}"
+        # Asegurar que total_size no sea None
+        size_value = total_size if total_size is not None else 0
+        stats_text = f"{format_file_count(total_files)} archivos • {format_size(size_value)}"
         
         self.stats_label.setText(stats_text)
-    
-    def update_recoverable_space(self, recoverable_bytes: int):
-        """
-        Actualiza el espacio recuperable
         
-        Args:
-            recoverable_bytes: Espacio recuperable en bytes
-        """
-        self.recoverable_space = recoverable_bytes
+        # Actualizar desglose de tipos
+        breakdown_parts = []
+        if num_images > 0:
+            breakdown_parts.append(f"{format_file_count(num_images)} imágenes")
+        if num_videos > 0:
+            breakdown_parts.append(f"{format_file_count(num_videos)} videos")
+        if num_others > 0:
+            breakdown_parts.append(f"{format_file_count(num_others)} ficheros no soportados")
         
-        from utils.format_utils import format_size
-        
-        if recoverable_bytes > 0 and self.total_size > 0:
-            percentage = int((recoverable_bytes / self.total_size) * 100)
-            space_text = f"Espacio optimizable: ~{format_size(recoverable_bytes)} ({percentage}%)"
-        elif recoverable_bytes > 0:
-            space_text = f"Espacio optimizable: ~{format_size(recoverable_bytes)}"
+        if breakdown_parts:
+            self.breakdown_label.setText(" • ".join(breakdown_parts))
         else:
-            space_text = "No hay espacio optimizable detectado"
-        
-        self.space_label.setText(space_text)
+            self.breakdown_label.setText("No hay archivos para mostrar")
+    
+
     
     def _on_change_clicked(self):
         """Maneja el clic en "Cambiar..." """
