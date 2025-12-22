@@ -501,6 +501,11 @@ class FileInfoRepositoryCache:
         except Exception as e:
             self._logger.warning(f"Error extrayendo EXIF de {path.name}: {e}")
         
+        # Helper para convertir datetime a string EXIF
+        def _datetime_to_exif_str(dt: datetime) -> str:
+            """Convierte datetime a string en formato EXIF: 'YYYY:MM:DD HH:MM:SS'"""
+            return dt.strftime('%Y:%m:%d %H:%M:%S')
+        
         # Actualizar metadata con lock (thread-safe)
         if exif_dates:
             with self._lock:
@@ -508,18 +513,19 @@ class FileInfoRepositoryCache:
                 cached_metadata = self._cache.get(path)
                 if cached_metadata:
                     # Establecer campos EXIF de fecha
+                    # CRÍTICO: Convertir datetime objects a strings EXIF porque FileMetadata espera strings
                     if exif_dates.get('DateTimeOriginal'):
-                        cached_metadata.exif_DateTimeOriginal = exif_dates['DateTimeOriginal']
+                        cached_metadata.exif_DateTimeOriginal = _datetime_to_exif_str(exif_dates['DateTimeOriginal'])
                     if exif_dates.get('CreateDate'):
-                        cached_metadata.exif_DateTime = exif_dates['CreateDate']  # CreateDate mapea a DateTime
+                        cached_metadata.exif_DateTime = _datetime_to_exif_str(exif_dates['CreateDate'])  # CreateDate mapea a DateTime
                     if exif_dates.get('DateTimeDigitized'):
-                        cached_metadata.exif_DateTimeDigitized = exif_dates['DateTimeDigitized']
+                        cached_metadata.exif_DateTimeDigitized = _datetime_to_exif_str(exif_dates['DateTimeDigitized'])
                     if exif_dates.get('SubSecTimeOriginal'):
                         cached_metadata.exif_SubSecTimeOriginal = exif_dates['SubSecTimeOriginal']
                     if exif_dates.get('OffsetTimeOriginal'):
                         cached_metadata.exif_OffsetTimeOriginal = exif_dates['OffsetTimeOriginal']
                     if exif_dates.get('GPSDateStamp'):
-                        cached_metadata.exif_GPSDateStamp = exif_dates['GPSDateStamp']
+                        cached_metadata.exif_GPSDateStamp = _datetime_to_exif_str(exif_dates['GPSDateStamp'])
                     if exif_dates.get('Software'):
                         cached_metadata.exif_Software = exif_dates['Software']
                     if exif_dates.get('ExifVersion'):
@@ -528,17 +534,17 @@ class FileInfoRepositoryCache:
                 else:
                     # Raro pero posible: se eliminó del caché entre tanto
                     if exif_dates.get('DateTimeOriginal'):
-                        metadata.exif_DateTimeOriginal = exif_dates['DateTimeOriginal']
+                        metadata.exif_DateTimeOriginal = _datetime_to_exif_str(exif_dates['DateTimeOriginal'])
                     if exif_dates.get('CreateDate'):
-                        metadata.exif_DateTime = exif_dates['CreateDate']
+                        metadata.exif_DateTime = _datetime_to_exif_str(exif_dates['CreateDate'])
                     if exif_dates.get('DateTimeDigitized'):
-                        metadata.exif_DateTimeDigitized = exif_dates['DateTimeDigitized']
+                        metadata.exif_DateTimeDigitized = _datetime_to_exif_str(exif_dates['DateTimeDigitized'])
                     if exif_dates.get('SubSecTimeOriginal'):
                         metadata.exif_SubSecTimeOriginal = exif_dates['SubSecTimeOriginal']
                     if exif_dates.get('OffsetTimeOriginal'):
                         metadata.exif_OffsetTimeOriginal = exif_dates['OffsetTimeOriginal']
                     if exif_dates.get('GPSDateStamp'):
-                        metadata.exif_GPSDateStamp = exif_dates['GPSDateStamp']
+                        metadata.exif_GPSDateStamp = _datetime_to_exif_str(exif_dates['GPSDateStamp'])
                     if exif_dates.get('Software'):
                         metadata.exif_Software = exif_dates['Software']
                     if exif_dates.get('ExifVersion'):
@@ -595,6 +601,11 @@ class FileInfoRepositoryCache:
         except Exception as e:
             self._logger.warning(f"Error extrayendo EXIF de video {path.name}: {e}")
         
+        # Helper para convertir datetime a string EXIF
+        def _datetime_to_exif_str(dt: datetime) -> str:
+            """Convierte datetime a string en formato EXIF: 'YYYY:MM:DD HH:MM:SS'"""
+            return dt.strftime('%Y:%m:%d %H:%M:%S')
+        
         # Actualizar metadata con lock (thread-safe)
         if creation_date:
             with self._lock:
@@ -603,13 +614,16 @@ class FileInfoRepositoryCache:
                 if cached_metadata:
                     # Para videos, solemos tener una única fecha de creación
                     # La mapeamos a DateTimeOriginal y DateTime para consistencia
-                    cached_metadata.exif_DateTimeOriginal = creation_date
-                    cached_metadata.exif_DateTime = creation_date
+                    # CRÍTICO: Convertir datetime object a string EXIF porque FileMetadata espera strings
+                    creation_date_str = _datetime_to_exif_str(creation_date)
+                    cached_metadata.exif_DateTimeOriginal = creation_date_str
+                    cached_metadata.exif_DateTime = creation_date_str
                     self._logger.debug(f"EXIF asignado en caché para video {path.name}")
                 else:
                     # Raro pero posible: se eliminó del caché entre tanto
-                    metadata.exif_DateTimeOriginal = creation_date
-                    metadata.exif_DateTime = creation_date
+                    creation_date_str = _datetime_to_exif_str(creation_date)
+                    metadata.exif_DateTimeOriginal = creation_date_str
+                    metadata.exif_DateTime = creation_date_str
                     self._cache[path] = metadata
         
         return metadata

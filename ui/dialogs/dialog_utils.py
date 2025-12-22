@@ -418,7 +418,7 @@ def _create_dates_section(metadata: 'FileMetadata'):
         except (ValueError, TypeError):
             return None
     
-    group = QGroupBox("Información Adicional")
+    group = QGroupBox("Fechas EXIF")
     group.setStyleSheet(f"""
         QGroupBox {{
             font-size: {DesignSystem.FONT_SIZE_LG}px;
