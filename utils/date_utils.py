@@ -359,15 +359,17 @@ def select_best_date_from_file(file_metadata: 'FileMetadata') -> tuple[Optional[
     return None, None
 
 
-def get_all_file_dates(file_path: Path) -> 'FileMetadata':
+def get_all_file_dates(file_path: Path, force_search: bool = False) -> 'FileMetadata':
     """
     Obtiene toda la información de metadatos disponible para un archivo.
     
     Usa el caché de FileInfoRepositoryCache primero. Si no está disponible,
-    intenta obtener directamente solo si está habilitado en configuración.
+    intenta obtener directamente según configuración o si force_search=True.
     
     Args:
         file_path: Ruta al archivo a analizar
+        force_search: Si True, fuerza la búsqueda de todos los metadatos (hash, EXIF)
+                     ignorando la configuración de la aplicación. Por defecto False.
     
     Returns:
         FileMetadata: Objeto con metadatos completos del archivo.
@@ -375,9 +377,10 @@ def get_all_file_dates(file_path: Path) -> 'FileMetadata':
     
     Note:
         - Metadatos básicos del filesystem (fs_size, fs_mtime, fs_ctime, fs_atime) siempre están disponibles
-        - Hash SHA256 solo si está habilitado en settings o está en caché
-        - EXIF de imágenes solo si está habilitado en settings o está en caché
-        - EXIF de videos solo si está habilitado en settings o está en caché
+        - Hash SHA256 solo si está habilitado en settings, force_search=True, o está en caché
+        - EXIF de imágenes solo si está habilitado en settings, force_search=True, o está en caché
+        - EXIF de videos solo si está habilitado en settings, force_search=True, o está en caché
+        - force_search=True es útil para análisis bajo demanda en diálogos que requieren datos completos
     """
     from services.file_metadata import FileMetadata
     from config import Config
@@ -425,8 +428,8 @@ def get_all_file_dates(file_path: Path) -> 'FileMetadata':
         if cached_hash:
             metadata.sha256 = cached_hash
             _logger.debug(f"Hash obtenido del caché para {file_path.name}: {cached_hash[:8]}...")
-        elif settings_manager.get_precalculate_hashes():
-            # Si no está en caché y está habilitado, calcular directamente
+        elif force_search or settings_manager.get_precalculate_hashes():
+            # Si force_search=True o está habilitado en settings, calcular directamente
             try:
                 from utils.file_utils import calculate_file_hash
                 metadata.sha256 = calculate_file_hash(file_path)
@@ -453,10 +456,10 @@ def get_all_file_dates(file_path: Path) -> 'FileMetadata':
             metadata.exif_GPSTimeStamp = datetime_to_str(cached_exif.get('GPSTimeStamp'))
             _logger.debug(f"EXIF obtenido del caché para {file_path.name}: {len(cached_exif)} campos")
         else:
-            # Si no está en caché, extraer según tipo y configuración
+            # Si no está en caché, extraer según tipo y configuración (o force_search)
             
-            # 2c.1. EXIF de imágenes (solo si está habilitado)
-            if is_image_file(file_path) and settings_manager.get_precalculate_image_exif():
+            # 2c.1. EXIF de imágenes (si está habilitado o force_search=True)
+            if is_image_file(file_path) and (force_search or settings_manager.get_precalculate_image_exif()):
                 try:
                     exif_data = get_exif_from_image(file_path)
                     if exif_data:
@@ -481,8 +484,8 @@ def get_all_file_dates(file_path: Path) -> 'FileMetadata':
                 except Exception as e:
                     _logger.debug(f"No se pudo extraer EXIF de imagen para {file_path.name}: {e}")
             
-            # 2c.2. EXIF de videos (solo si está habilitado)
-            elif is_video_file(file_path) and settings_manager.get_precalculate_video_exif():
+            # 2c.2. EXIF de videos (si está habilitado o force_search=True)
+            elif is_video_file(file_path) and (force_search or settings_manager.get_precalculate_video_exif()):
                 try:
                     video_date = get_exif_from_video(file_path)
                     if video_date:
