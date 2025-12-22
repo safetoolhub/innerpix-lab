@@ -274,7 +274,7 @@ class DuplicatesBaseService(BaseService):
         """
         from utils.file_utils import validate_file_exists
         from utils.format_utils import format_size
-        from utils.date_utils import select_best_date_from_file, get_all_file_dates
+        from utils.date_utils import select_best_date_from_file, get_all_metadata_from_file
         
         deleted = []
         kept = []
@@ -300,7 +300,7 @@ class DuplicatesBaseService(BaseService):
                 # Obtener información del archivo que se mantiene (sin verbose para evitar logs extra)
                 # Usar metadata_cache para evitar recalcular EXIF/video metadata
                 try:
-                    file_metadata = get_all_file_dates(keep_file)
+                    file_metadata = get_all_metadata_from_file(keep_file)
                     keep_date, keep_date_source = select_best_date_from_file(file_metadata)
                     keep_date_str = (
                         keep_date.strftime('%Y-%m-%d %H:%M:%S')
@@ -346,7 +346,7 @@ class DuplicatesBaseService(BaseService):
                 file_size = file_path.stat().st_size
                 
                 try:
-                    file_metadata = get_all_file_dates(file_path)
+                    file_metadata = get_all_metadata_from_file(file_path)
                     file_date, file_date_source = select_best_date_from_file(file_metadata)
                     file_date_str = (
                         file_date.strftime('%Y-%m-%d %H:%M:%S')

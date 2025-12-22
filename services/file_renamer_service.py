@@ -13,7 +13,7 @@ from services.result_types import RenameExecutionResult, RenameAnalysisResult
 from services.base_service import BaseService, ProgressCallback
 from utils.date_utils import (
     select_best_date_from_file,
-    get_all_file_dates,
+    get_all_metadata_from_file,
     format_renamed_name,
     is_renamed_filename    
 )
@@ -78,7 +78,7 @@ class FileRenamer(BaseService):
                 return ('already_renamed', file_path, None)
             
             # Obtener fecha usando FileInfoRepositoryCache
-            file_metadata = get_all_file_dates(file_path)
+            file_metadata = get_all_metadata_from_file(file_path)
             file_date, _ = select_best_date_from_file(file_metadata)
             
             if not file_date:

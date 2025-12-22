@@ -66,7 +66,7 @@ class TestLivePhotoServiceAnalysis:
         
         # Fechas coinciden dentro de 5 segundos
         dt = datetime(2023, 6, 15, 14, 30, 0)
-        with patch('services.live_photos_service.get_best_common_creation_date_2_files', 
+        with patch('services.live_photos_service.select_best_date_from_common_date_to_2_files', 
                    return_value=(dt, dt, 'exif_date_time_original')):
             result = live_photos_service.analyze(validate_dates=True)
         
@@ -97,7 +97,7 @@ class TestLivePhotoServiceAnalysis:
         # Diferencia de 10 segundos (> 5s threshold)
         dt_vid = datetime(2023, 6, 15, 14, 30, 0)
         dt_img = datetime(2023, 6, 15, 14, 30, 10)
-        with patch('services.live_photos_service.get_best_common_creation_date_2_files', 
+        with patch('services.live_photos_service.select_best_date_from_common_date_to_2_files', 
                    return_value=(dt_vid, dt_img, 'fs_mtime')):
             result = live_photos_service.analyze(validate_dates=True)
         
@@ -163,7 +163,7 @@ class TestLivePhotoServiceAnalysis:
         mock_repo.get_file_count.return_value = 3
         
         dt = datetime(2023, 6, 15, 14, 30, 0)
-        with patch('services.live_photos_service.get_best_common_creation_date_2_files', 
+        with patch('services.live_photos_service.select_best_date_from_common_date_to_2_files', 
                    return_value=(dt, dt, 'exif_date_time_original')):
             result = live_photos_service.analyze(validate_dates=True)
         

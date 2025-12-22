@@ -27,7 +27,7 @@ class FileInfoProtocol(Protocol):
     mtime: Optional[datetime]
 
 
-def get_best_common_creation_date_2_files(
+def select_best_date_from_common_date_to_2_files(
     file1: Any, 
     file2: Any,
     verbose: bool = False
@@ -61,7 +61,7 @@ def get_best_common_creation_date_2_files(
         >>> dt2 = datetime(2023, 1, 2, 12, 0, 0)
         >>> f1 = SimpleNamespace(path='f1', exif_date_time_original=dt1)
         >>> f2 = SimpleNamespace(path='f2', exif_date_time_original=dt2)
-        >>> get_best_common_creation_date_2_files(f1, f2)
+        >>> select_best_date_from_common_date_to_2_files(f1, f2)
         (datetime.datetime(2023, 1, 1, 12, 0), datetime.datetime(2023, 1, 2, 12, 0), 'exif_date_time_original')
     """
     # Validar que los objetos tienen los atributos necesarios
@@ -359,7 +359,7 @@ def select_best_date_from_file(file_metadata: 'FileMetadata') -> tuple[Optional[
     return None, None
 
 
-def get_all_file_dates(file_path: Path, force_search: bool = False) -> 'FileMetadata':
+def get_all_metadata_from_file(file_path: Path, force_search: bool = False) -> 'FileMetadata':
     """
     Obtiene toda la información de metadatos disponible para un archivo.
     

@@ -37,7 +37,7 @@ def test_heic_analysis_logic(heic_service, mock_repo):
     
     # Test case 1: Dates match within 5s
     dt = datetime(2023, 1, 1, 12, 0, 0)
-    with patch('utils.date_utils.get_best_common_creation_date_2_files', return_value=(dt, dt, 'EXIF')):
+    with patch('utils.date_utils.select_best_date_from_common_date_to_2_files', return_value=(dt, dt, 'EXIF')):
         result = heic_service.analyze(validate_dates=True)
         
         assert len(result.duplicate_pairs) == 1
@@ -48,7 +48,7 @@ def test_heic_analysis_logic(heic_service, mock_repo):
     # Test case 2: Dates differ by > 5s
     dt_heic = datetime(2023, 1, 1, 12, 0, 0)
     dt_jpg = datetime(2023, 1, 1, 12, 0, 10)
-    with patch('utils.date_utils.get_best_common_creation_date_2_files', return_value=(dt_heic, dt_jpg, 'EXIF')):
+    with patch('utils.date_utils.select_best_date_from_common_date_to_2_files', return_value=(dt_heic, dt_jpg, 'EXIF')):
         result = heic_service.analyze(validate_dates=True)
         
         assert len(result.duplicate_pairs) == 0
@@ -57,7 +57,7 @@ def test_heic_analysis_logic(heic_service, mock_repo):
         assert result.rejected_pairs[0].date_source == 'EXIF'
 
     # Test case 3: No common date
-    with patch('utils.date_utils.get_best_common_creation_date_2_files', return_value=None):
+    with patch('utils.date_utils.select_best_date_from_common_date_to_2_files', return_value=None):
         result = heic_service.analyze(validate_dates=True)
         
         assert len(result.duplicate_pairs) == 0

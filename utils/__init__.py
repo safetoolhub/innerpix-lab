@@ -19,7 +19,7 @@ from .date_utils import (
     format_renamed_name,
     is_renamed_filename,
     parse_renamed_name,
-    get_all_file_dates,
+    get_all_metadata_from_file,
     extract_date_from_filename
 )
 from .file_utils import (
@@ -82,7 +82,7 @@ __all__ = [
     'log_section_footer_relevant',
 
     # Date utilities
-    'get_all_file_dates',
+    'get_all_metadata_from_file',
     'extract_date_from_filename',
     'select_best_date_from_file',
     'format_renamed_name',

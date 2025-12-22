@@ -92,9 +92,9 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     
     if metadata is None:
         logger.warning(f"No se encontraron metadatos en caché para {file_path}")
-        # Fallback: intentar obtener con get_all_file_dates si no está en caché
-        from utils.date_utils import get_all_file_dates
-        metadata = get_all_file_dates(file_path)
+        # Fallback: intentar obtener con get_all_metadata_from_file si no está en caché
+        from utils.date_utils import get_all_metadata_from_file
+        metadata = get_all_metadata_from_file(file_path, force_search=True)
     
     logger.debug(f"Metadatos obtenidos - Size: {metadata.fs_size}, Hash: {metadata.has_hash}, EXIF: {metadata.has_exif}, Best Date: {metadata.has_best_date}")
     

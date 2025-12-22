@@ -9,12 +9,12 @@ from pathlib import Path
 from datetime import datetime
 from unittest.mock import Mock, patch, MagicMock
 from utils.date_utils import (
-    get_best_common_creation_date_2_files,
+    select_best_date_from_common_date_to_2_files,
     select_best_date_from_file,
     format_renamed_name,
     parse_renamed_name,
     is_renamed_filename,
-    get_all_file_dates,
+    get_all_metadata_from_file,
 )
 from services.file_metadata import FileMetadata
 from utils.file_utils import (
@@ -426,7 +426,7 @@ class TestGetAllFileDates:
         patch('utils.settings_manager.settings_manager.get_precalculate_image_exif', return_value=True), \
         patch('utils.settings_manager.settings_manager.get_precalculate_hashes', return_value=False), \
         patch('utils.settings_manager.settings_manager.get_precalculate_video_exif', return_value=False):
-            file_metadata = get_all_file_dates(image_path)
+            file_metadata = get_all_metadata_from_file(image_path)
             
             # Verificar atributos directamente en FileMetadata
             assert file_metadata.exif_DateTimeOriginal is not None
@@ -451,7 +451,7 @@ class TestGetAllFileDates:
         patch('utils.settings_manager.settings_manager.get_precalculate_image_exif', return_value=True), \
         patch('utils.settings_manager.settings_manager.get_precalculate_hashes', return_value=False), \
         patch('utils.settings_manager.settings_manager.get_precalculate_video_exif', return_value=False):
-            file_metadata = get_all_file_dates(image_path)
+            file_metadata = get_all_metadata_from_file(image_path)
             
             assert file_metadata.exif_DateTimeOriginal is None
             assert file_metadata.exif_DateTime is None
@@ -460,7 +460,7 @@ class TestGetAllFileDates:
     
     def test_nonexistent_file_returns_empty_dates(self):
         """Archivo inexistente debe devolver metadatos mínimos"""
-        file_metadata = get_all_file_dates(Path('/nonexistent/file.jpg'))
+        file_metadata = get_all_metadata_from_file(Path('/nonexistent/file.jpg'))
         
         # Como el archivo no existe, debe tener valores por defecto (0.0 o None)
         assert file_metadata.exif_DateTimeOriginal is None
@@ -475,7 +475,7 @@ class TestGetAllFileDates:
              patch('utils.settings_manager.settings_manager.get_precalculate_image_exif', return_value=False), \
              patch('utils.settings_manager.settings_manager.get_precalculate_hashes', return_value=False), \
              patch('utils.file_utils.get_exif_from_video') as mock_get_video_metadata:
-            file_metadata = get_all_file_dates(video_path)
+            file_metadata = get_all_metadata_from_file(video_path)
 
             # No debe llamar a get_exif_from_video
             mock_get_video_metadata.assert_not_called()
@@ -492,7 +492,7 @@ class TestGetAllFileDates:
              patch('utils.settings_manager.settings_manager.get_precalculate_image_exif', return_value=False), \
              patch('utils.settings_manager.settings_manager.get_precalculate_hashes', return_value=False), \
              patch('utils.file_utils.get_exif_from_video', return_value=expected_video_date) as mock_get_video_metadata:
-            file_metadata = get_all_file_dates(video_path)
+            file_metadata = get_all_metadata_from_file(video_path)
 
             # Debe llamar a get_exif_from_video
             mock_get_video_metadata.assert_called_once_with(video_path)
@@ -508,7 +508,7 @@ class TestGetAllFileDates:
              patch('utils.settings_manager.settings_manager.get_precalculate_image_exif', return_value=False), \
              patch('utils.settings_manager.settings_manager.get_precalculate_hashes', return_value=False), \
              patch('utils.file_utils.get_exif_from_video', return_value=None) as mock_get_video_metadata:
-            file_metadata = get_all_file_dates(video_path)
+            file_metadata = get_all_metadata_from_file(video_path)
 
             # Debe llamar a get_exif_from_video
             mock_get_video_metadata.assert_called_once_with(video_path)
@@ -577,9 +577,6 @@ class TestGetDateFromFile:
         result_date, result_source = select_best_date_from_file(mock_metadata)
         assert result_date is None
         assert result_source is None
-            assert result == datetime(2023, 1, 15, 10, 30, 0)
-            # Verificar que se registró algo (el logging existe)
-            assert len(caplog.records) > 0
 
 
 @pytest.mark.unit
@@ -1056,7 +1053,7 @@ class TestVideoMetadataConfiguration:
 
 @pytest.mark.unit
 class TestGetBestCommonCreationDate2FilesComprehensive:
-    """Tests exhaustivos para get_best_common_creation_date_2_files con la nueva lógica profesional"""
+    """Tests exhaustivos para select_best_date_from_common_date_to_2_files con la nueva lógica profesional"""
 
     @pytest.fixture
     def file1_exif(self):
@@ -1088,7 +1085,7 @@ class TestGetBestCommonCreationDate2FilesComprehensive:
         file1_exif.mtime = datetime(2020, 1, 1).timestamp()
         file2_exif.mtime = datetime(2020, 1, 1).timestamp()
         
-        d1, d2, source = get_best_common_creation_date_2_files(file1_exif, file2_exif)
+        d1, d2, source = select_best_date_from_common_date_to_2_files(file1_exif, file2_exif)
         
         assert d1 == datetime(2023, 1, 1, 12, 0, 0)
         assert d2 == datetime(2023, 1, 1, 12, 0, 5)
@@ -1099,7 +1096,7 @@ class TestGetBestCommonCreationDate2FilesComprehensive:
         file1_exif.exif_date_time_original = None
         file2_exif.exif_date_time_original = None
         
-        d1, d2, source = get_best_common_creation_date_2_files(file1_exif, file2_exif)
+        d1, d2, source = select_best_date_from_common_date_to_2_files(file1_exif, file2_exif)
         
         assert d1 == datetime(2023, 1, 1, 12, 30, 0)
         assert d2 == datetime(2023, 1, 1, 12, 31, 0)
@@ -1113,7 +1110,7 @@ class TestGetBestCommonCreationDate2FilesComprehensive:
         file2_exif.exif_create_date = None
         
         # mtime < ctime < atime
-        d1, d2, source = get_best_common_creation_date_2_files(file1_exif, file2_exif)
+        d1, d2, source = select_best_date_from_common_date_to_2_files(file1_exif, file2_exif)
         
         assert d1 == datetime(2023, 1, 1, 15, 0, 0)
         assert d2 == datetime(2023, 1, 1, 15, 1, 0)
@@ -1134,7 +1131,7 @@ class TestGetBestCommonCreationDate2FilesComprehensive:
         file2_exif.ctime = datetime(2023, 1, 1, 14, 1, 0).timestamp()
         
         with caplog.at_level(logging.WARNING):
-            d1, d2, source = get_best_common_creation_date_2_files(file1_exif, file2_exif)
+            d1, d2, source = select_best_date_from_common_date_to_2_files(file1_exif, file2_exif)
             
             assert d1 == datetime(2023, 1, 1, 14, 0, 0)
             assert d2 == datetime(2023, 1, 1, 14, 1, 0)
@@ -1157,7 +1154,7 @@ class TestGetBestCommonCreationDate2FilesComprehensive:
         f1_solo_m = SimpleNamespace(path="f1", mtime=datetime(2020,1,1).timestamp())
         f2_solo_c = SimpleNamespace(path="f2", ctime=datetime(2020,1,1).timestamp())
         
-        result = get_best_common_creation_date_2_files(f1_solo_m, f2_solo_c)
+        result = select_best_date_from_common_date_to_2_files(f1_solo_m, f2_solo_c)
         assert result is None
 
     def test_mixed_exif_one_file_only(self, file1_exif, file2_exif):
@@ -1167,7 +1164,7 @@ class TestGetBestCommonCreationDate2FilesComprehensive:
         file2_exif.exif_create_date = None
         file2_exif.exif_modify_date = None
         
-        d1, d2, source = get_best_common_creation_date_2_files(file1_exif, file2_exif)
+        d1, d2, source = select_best_date_from_common_date_to_2_files(file1_exif, file2_exif)
         
         # Cae a mtime porque es la fuente común (pese a que f1 tenía EXIF)
         assert source == 'fs_mtime'
@@ -1192,7 +1189,7 @@ class TestGetBestCommonCreationDate2FilesComprehensive:
         file2_exif.ctime = datetime(2022, 1, 1, 1).timestamp()
         file2_exif.atime = datetime(2024, 1, 1, 1).timestamp()
         
-        d1, d2, source = get_best_common_creation_date_2_files(file1_exif, file2_exif)
+        d1, d2, source = select_best_date_from_common_date_to_2_files(file1_exif, file2_exif)
         
         assert source == 'fs_ctime'
         assert d1 == datetime(2022, 1, 1)
@@ -1203,5 +1200,5 @@ class TestGetBestCommonCreationDate2FilesComprehensive:
         f1 = SimpleNamespace(path="f1") # Sin mtime/ctime/atime/exif
         f2 = SimpleNamespace(path="f2")
         
-        result = get_best_common_creation_date_2_files(f1, f2)
+        result = select_best_date_from_common_date_to_2_files(f1, f2)
         assert result is None

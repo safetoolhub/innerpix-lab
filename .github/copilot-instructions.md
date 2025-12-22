@@ -135,6 +135,21 @@ Dry-run mode for testing. No deletions/moves/renames.
 
 ## Development Workflow
 
+**Date Utils** (`utils/date_utils.py`) - Date extraction and metadata retrieval
+- **Core Functions**:
+  - `select_best_date_from_file(file_metadata)` - Selects best representative creation date from FileMetadata (EXIF priority → filename → filesystem)
+  - `get_all_metadata_from_file(file_path, force_search=False)` - Retrieves complete file metadata (cache-first, with force_search bypass)
+  - `select_best_date_from_common_date_to_2_files(file1, file2, verbose=False)` - Compares dates for file pairs and gets the vest representative creation_date available in both files (Used by HEIC/JPG, Live Photos)
+- **force_search Parameter**: 
+  - When `True`, bypasses settings_manager configuration and forces extraction of all metadata (hash, EXIF)
+  - Useful for on-demand analysis in dialogs requiring complete data
+  - Default `False` respects user settings (precalculate_hashes, precalculate_image_exif, precalculate_video_exif)
+- **Naming Functions**:
+  - `format_renamed_name(date, file_type, extension, sequence)` - Generates standardized filename: YYYYMMDD_HHMMSS_TYPE[_SEQ].EXT
+  - `is_renamed_filename(filename)` - Validates renamed filename pattern
+  - `parse_renamed_name(filename)` - Extracts components from renamed filename
+  - `extract_date_from_filename(filename)` - Extracts date from common filename patterns (IMG_*, WhatsApp, etc.)
+
 **Other Utils**
 - `callback_utils.py`, `format_utils.py`, `icons.py`
 

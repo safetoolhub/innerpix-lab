@@ -230,7 +230,7 @@ try:
 
     if not hasattr(FileInfoRepositoryCache, 'get_selected_date'):
         def _get_selected_date(self, path):
-            # For tests, return None to fall back to select_best_date_from_file with get_all_file_dates
+            # For tests, return None to fall back to select_best_date_from_file with get_all_metadata_from_file
             return None, None
         FileInfoRepositoryCache.get_selected_date = _get_selected_date
 
