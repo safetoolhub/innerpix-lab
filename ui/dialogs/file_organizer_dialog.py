@@ -17,7 +17,7 @@ from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QThread
 
 from config import Config
 from utils.format_utils import format_size
-from utils.date_utils import get_date_from_file
+from utils.date_utils import select_chosen_date, get_all_file_dates
 from utils.file_utils import is_whatsapp_file
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
@@ -1294,7 +1294,8 @@ class FileOrganizerDialog(BaseDialog):
                 
                 # Fecha
                 try:
-                    file_date = get_date_from_file(move.source_path)
+                    file_metadata = get_all_file_dates(move.source_path)
+                    file_date, _ = select_chosen_date(file_metadata)
                     if file_date:
                         child.setText(2, file_date.strftime("%Y-%m-%d"))
                     else:
@@ -1366,7 +1367,8 @@ class FileOrganizerDialog(BaseDialog):
                 
                 # Fecha
                 try:
-                    file_date = get_date_from_file(move.source_path)
+                    file_metadata = get_all_file_dates(move.source_path)
+                    file_date, _ = select_chosen_date(file_metadata)
                     if file_date:
                         child.setText(2, file_date.strftime("%Y-%m-%d"))
                     else:
@@ -1456,7 +1458,8 @@ class FileOrganizerDialog(BaseDialog):
                 
                 # Fecha
                 try:
-                    file_date = get_date_from_file(move.source_path)
+                    file_metadata = get_all_file_dates(move.source_path)
+                    file_date, _ = select_chosen_date(file_metadata)
                     if file_date:
                         child.setText(2, file_date.strftime("%Y-%m-%d"))
                     else:

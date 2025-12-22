@@ -274,7 +274,7 @@ class DuplicatesBaseService(BaseService):
         """
         from utils.file_utils import validate_file_exists
         from utils.format_utils import format_size
-        from utils.date_utils import get_date_from_file
+        from utils.date_utils import select_chosen_date, get_all_file_dates
         
         deleted = []
         kept = []
@@ -300,17 +300,14 @@ class DuplicatesBaseService(BaseService):
                 # Obtener información del archivo que se mantiene (sin verbose para evitar logs extra)
                 # Usar metadata_cache para evitar recalcular EXIF/video metadata
                 try:
-                    keep_date = get_date_from_file(keep_file, verbose=False, metadata_cache=metadata_cache)
+                    file_metadata = get_all_file_dates(keep_file)
+                    keep_date, keep_date_source = select_chosen_date(file_metadata)
                     keep_date_str = (
                         keep_date.strftime('%Y-%m-%d %H:%M:%S')
                         if keep_date else 'fecha desconocida'
                     )
-                    # Obtener fuente desde caché si está disponible
-                    if metadata_cache:
-                        _, keep_date_source = metadata_cache.get_selected_date(keep_file)
-                        if not keep_date_source:
-                            keep_date_source = 'unknown'
-                    else:
+                    # Normalizar source si está disponible
+                    if not keep_date_source:
                         keep_date_source = 'unknown'
                 except Exception:
                     keep_date_str = 'fecha desconocida'
@@ -349,17 +346,14 @@ class DuplicatesBaseService(BaseService):
                 file_size = file_path.stat().st_size
                 
                 try:
-                    file_date = get_date_from_file(file_path, verbose=False, metadata_cache=metadata_cache)
+                    file_metadata = get_all_file_dates(file_path)
+                    file_date, file_date_source = select_chosen_date(file_metadata)
                     file_date_str = (
                         file_date.strftime('%Y-%m-%d %H:%M:%S')
                         if file_date else 'fecha desconocida'
                     )
-                    # Obtener fuente desde caché si está disponible
-                    if metadata_cache:
-                        _, file_date_source = metadata_cache.get_selected_date(file_path)
-                        if not file_date_source:
-                            file_date_source = 'unknown'
-                    else:
+                    # Normalizar source si está disponible
+                    if not file_date_source:
                         file_date_source = 'unknown'
                 except Exception:
                     file_date_str = 'fecha desconocida'

@@ -12,7 +12,8 @@ from utils.logger import get_logger, log_section_header_relevant, log_section_fo
 from services.result_types import RenameExecutionResult, RenameAnalysisResult
 from services.base_service import BaseService, ProgressCallback
 from utils.date_utils import (
-    get_date_from_file,
+    select_chosen_date,
+    get_all_file_dates,
     format_renamed_name,
     is_renamed_filename    
 )
@@ -77,11 +78,12 @@ class FileRenamer(BaseService):
                 return ('already_renamed', file_path, None)
             
             # Obtener fecha usando FileInfoRepositoryCache
-            file_date = get_date_from_file(file_path, metadata_cache=repo, skip_expensive_ops=True)
+            file_metadata = get_all_file_dates(file_path)
+            file_date, _ = select_chosen_date(file_metadata)
             
             if not file_date:
-                # Intento final sin cache si falló
-                file_date = get_date_from_file(file_path)
+                # No hay fecha disponible
+                pass
                 
                 if not file_date:
                     return ('no_date', file_path, f"No se pudo obtener fecha: {file_path.name}")

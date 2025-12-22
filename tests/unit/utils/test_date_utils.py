@@ -11,7 +11,6 @@ from unittest.mock import Mock, patch, MagicMock
 from utils.date_utils import (
     get_best_common_creation_date_2_files,
     select_chosen_date,
-    get_date_from_file,
     format_renamed_name,
     parse_renamed_name,
     is_renamed_filename,
@@ -539,10 +538,9 @@ class TestGetDateFromFile:
             exif_DateTime='2023-01-15T10:31:00'
         )
         
-        with patch('utils.date_utils.get_all_file_dates', return_value=mock_metadata):
-            result = get_date_from_file(image_path)
-            
-            assert result == datetime(2023, 1, 15, 10, 30, 0)
+        result_date, result_source = select_chosen_date(mock_metadata)
+        assert result_date == datetime(2023, 1, 15, 10, 30, 0)
+        assert 'EXIF' in result_source
     
     def test_file_without_exif_returns_filesystem_date(self, temp_dir, create_test_image):
         """Archivo sin EXIF debe devolver fecha del sistema"""
@@ -559,55 +557,26 @@ class TestGetDateFromFile:
             fs_atime=datetime(2024, 1, 3, 16, 0).timestamp()
         )
         
-        with patch('utils.date_utils.get_all_file_dates', return_value=mock_metadata):
-            result = get_date_from_file(image_path)
-            
-            assert result == datetime(2024, 1, 1, 12, 0)
+        result_date, result_source = select_chosen_date(mock_metadata)
+        assert result_date == datetime(2024, 1, 1, 12, 0)
     
     def test_file_with_no_dates_returns_none(self, temp_dir, create_test_image):
         """Archivo sin fechas debe devolver None"""
-        image_path = create_test_image(temp_dir / 'test.jpg', size=(100, 100))
-        
-        with patch('utils.date_utils.get_all_file_dates', return_value={
-            'exif_date_time_original': None,
-            'exif_create_date': None,
-            'exif_date_digitized': None,
-            'filesystem_creation_date': None,
-            'filesystem_creation_source': None,
-            'filesystem_modification_date': None,
-            'access_date': None
-        }):
-            result = get_date_from_file(image_path)
-            
-            assert result is None
-    
-    def test_nonexistent_file_returns_none(self):
-        """Archivo inexistente debe devolver None"""
-        result = get_date_from_file(Path('/nonexistent/file.jpg'))
-        
-        assert result is None
-    
-    def test_verbose_mode_logs_info(self, temp_dir, create_test_image, caplog):
-        """Modo verbose debe registrar en nivel INFO"""
         from services.file_metadata import FileMetadata
-        import logging
-        caplog.set_level(logging.INFO)
         
         image_path = create_test_image(temp_dir / 'test.jpg', size=(100, 100))
         
-        # Crear un FileMetadata mock con fecha EXIF
         mock_metadata = FileMetadata(
             path=image_path,
             fs_size=1000,
-            fs_ctime=datetime(2024, 1, 1, 12, 0).timestamp(),
-            fs_mtime=datetime(2024, 1, 2, 14, 0).timestamp(),
-            fs_atime=datetime(2024, 1, 3, 16, 0).timestamp(),
-            exif_DateTimeOriginal='2023-01-15T10:30:00'
+            fs_ctime=0.0,
+            fs_mtime=0.0,
+            fs_atime=0.0
         )
         
-        with patch('utils.date_utils.get_all_file_dates', return_value=mock_metadata):
-            result = get_date_from_file(image_path, verbose=True)
-            
+        result_date, result_source = select_chosen_date(mock_metadata)
+        assert result_date is None
+        assert result_source is None
             assert result == datetime(2023, 1, 15, 10, 30, 0)
             # Verificar que se registró algo (el logging existe)
             assert len(caplog.records) > 0
@@ -794,13 +763,6 @@ class TestEdgeCasesAndCorruptedData:
         # Debe devolver una fecha EXIF (prioridad)
         assert result_date == datetime(2023, 1, 15, 10, 30)
         assert 'EXIF' in result_source
-    
-    def test_get_date_from_file_with_exception_returns_none(self):
-        """Excepción durante procesamiento debe devolver None"""
-        with patch('utils.date_utils.get_all_file_dates', side_effect=Exception("Error")):
-            result = get_date_from_file(Path('/fake/file.jpg'))
-            
-            assert result is None
     
     def test_format_renamed_name_with_zero_sequence(self):
         """Secuencia 0 debe generar nombre con _000"""

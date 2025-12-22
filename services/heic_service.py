@@ -10,7 +10,6 @@ from typing import List, Dict, Optional, Set, Tuple, Any
 from collections import defaultdict
 
 from utils.file_utils import validate_file_exists
-from utils.date_utils import get_date_from_file
 from services.result_types import HeicAnalysisResult, HeicExecutionResult, HEICDuplicatePair, AnalysisResult
 from services.base_service import BaseService, BackupCreationError, ProgressCallback
 from services.file_metadata_repository_cache import FileInfoRepositoryCache

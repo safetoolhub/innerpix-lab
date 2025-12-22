@@ -1025,7 +1025,9 @@ def validate_and_get_file_info(file_path: Path) -> FileInfo:
     
     # Obtener fecha
     try:
-        file_date = get_date_from_file(file_path, verbose=True)
+        from utils.date_utils import select_chosen_date, get_all_file_dates
+        file_metadata = get_all_file_dates(file_path)
+        file_date, _ = select_chosen_date(file_metadata)
         date_formatted = (
             file_date.strftime('%Y%m%d_%H%M%S')
             if file_date else 'fecha desconocida'
