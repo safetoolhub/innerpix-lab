@@ -760,7 +760,20 @@ class Stage3Window(BaseStage):
                         # Actualizar automáticamente sin confirmación
                         self.logger.info(f"Actualizando estadísticas automáticamente para {tool_id} (sin confirmación)")
                         log_section_header_discrete(self.logger, f"Actualización automática de estadísticas para {tool_id}")
-                        QTimer.singleShot(500, lambda: self._update_service_stats(tool_id, auto_update=True))
+                        # Usar QTimer con lambda que capture excepciones
+                        def safe_update():
+                            try:
+                                self._update_service_stats(tool_id, auto_update=True)
+                            except Exception as e:
+                                self.logger.error(f"Error crítico en actualización automática de {tool_id}: {e}")
+                                import traceback
+                                self.logger.error(traceback.format_exc())
+                                QMessageBox.critical(
+                                    self.main_window,
+                                    "Error en actualización",
+                                    f"Error actualizando estadísticas de {tool_id}:\n\n{str(e)[:300]}"
+                                )
+                        QTimer.singleShot(500, safe_update)
         
         def on_error(error_message):
             # Ignorar si ya se canceló
@@ -880,10 +893,13 @@ class Stage3Window(BaseStage):
         self.logger.info(f"Actualizando estadísticas para servicio: {tool_id} (auto_update={auto_update})")
         
         try:
+            self.logger.debug(f"Paso 1: Obteniendo análisis actualizado para {tool_id}")
             # Obtener el análisis actualizado para este servicio específico
             updated_analysis = self._get_updated_service_analysis(tool_id)
+            self.logger.debug(f"Paso 1 completado: Análisis obtenido = {updated_analysis is not None}")
             
             if updated_analysis:
+                self.logger.debug(f"Paso 2: Asignando resultado al objeto analysis_results")
                 # Actualizar el análisis en analysis_results según el tipo de servicio
                 if tool_id == 'live_photos':
                     self.analysis_results.live_photos = updated_analysis
@@ -902,12 +918,17 @@ class Stage3Window(BaseStage):
                 else:
                     self.logger.warning(f"No se puede asignar resultado para servicio desconocido: {tool_id}")
                     return
+                self.logger.debug(f"Paso 2 completado: Resultado asignado")
                 
                 # Guardar los resultados actualizados
+                self.logger.debug(f"Paso 3: Guardando resultados actualizados")
                 self.save_analysis_results(self.analysis_results)
+                self.logger.debug(f"Paso 3 completado: Resultados guardados")
                 
                 # Refrescar toda la UI de Stage 3 con los nuevos datos
+                self.logger.debug(f"Paso 4: Refrescando UI de Stage 3")
                 self._refresh_stage_3_ui()
+                self.logger.debug(f"Paso 4 completado: UI refrescada")
                 
                 self.logger.info(f"Estadísticas actualizadas exitosamente para {tool_id}")
                 
@@ -951,40 +972,52 @@ class Stage3Window(BaseStage):
             Análisis actualizado o None si falla
         """
         try:
+            self.logger.debug(f"Iniciando análisis actualizado para {tool_id}")
             # Importar servicios según tool_id
             if tool_id == 'live_photos':
                 from services.live_photos_service import LivePhotoService
                 service = LivePhotoService()
-                return service.analyze()
+                self.logger.debug(f"Ejecutando service.analyze() para {tool_id}")
+                result = service.analyze()
+                self.logger.debug(f"Análisis completado para {tool_id}: {result}")
+                return result
                 
             elif tool_id == 'heic':
                 from services.heic_service import HeicService
                 service = HeicService()
-                return service.analyze()
+                self.logger.debug(f"Ejecutando service.analyze() para {tool_id}")
+                result = service.analyze()
+                self.logger.debug(f"Análisis completado para {tool_id}: items_count={result.items_count if result else 'None'}")
+                return result
                 
             elif tool_id == 'duplicates_exact':
                 from services.duplicates_exact_service import DuplicatesExactService
                 service = DuplicatesExactService()
+                self.logger.debug(f"Ejecutando service.analyze() para {tool_id}")
                 return service.analyze()
                 
             elif tool_id == 'duplicates_similar':
                 from services.duplicates_similar_service import DuplicatesSimilarService
                 service = DuplicatesSimilarService()
+                self.logger.debug(f"Ejecutando service.analyze() para {tool_id}")
                 return service.analyze()
                 
             elif tool_id == 'file_organizer':
                 from services.file_organizer_service import FileOrganizerService
                 service = FileOrganizerService()
+                self.logger.debug(f"Ejecutando service.analyze() para {tool_id}")
                 return service.analyze()
                 
             elif tool_id == 'file_renamer':
                 from services.file_renamer_service import FileRenamerService
                 service = FileRenamerService()
+                self.logger.debug(f"Ejecutando service.analyze() para {tool_id}")
                 return service.analyze()
                 
             elif tool_id == 'zero_byte':
                 from services.zero_byte_service import ZeroByteService
                 service = ZeroByteService()
+                self.logger.debug(f"Ejecutando service.analyze() para {tool_id}")
                 return service.analyze()
                 
             else:
@@ -992,7 +1025,9 @@ class Stage3Window(BaseStage):
                 return None
                 
         except Exception as e:
-            self.logger.error(f"Error obteniendo análisis para {tool_id}: {e}")
+            self.logger.error(f"Error crítico obteniendo análisis para {tool_id}: {e}")
+            import traceback
+            self.logger.error(traceback.format_exc())
             return None
     
     def _update_tool_card_ui(self, tool_id: str, analysis_result) -> None:
@@ -1009,11 +1044,13 @@ class Stage3Window(BaseStage):
             self.logger.debug("Refrescando UI de Stage 3 con datos actualizados")
             
             # Limpiar widgets existentes (excepto header que permanece)
+            self.logger.debug("Limpiando summary_card...")
             if self.summary_card:
                 self.summary_card.hide()
                 self.summary_card.setParent(None)
                 self.summary_card = None
-                
+            
+            self.logger.debug("Limpiando tools_grid...")
             if self.tools_grid:
                 self.tools_grid.hide()
                 self.tools_grid.setParent(None)
@@ -1022,14 +1059,20 @@ class Stage3Window(BaseStage):
             self.tool_cards.clear()
             
             # Recrear la UI con los datos actualizados
+            self.logger.debug("Recreando summary_card...")
             self._show_summary_card()
+            
             # Crear el grid de tools inmediatamente (sin delay para refresh)
+            self.logger.debug("Recreando tools_grid...")
             self._create_tools_grid()
             
             self.logger.debug("UI de Stage 3 refrescada exitosamente")
             
         except Exception as e:
             self.logger.error(f"Error refrescando UI de Stage 3: {e}")
+            import traceback
+            self.logger.error(traceback.format_exc())
+            raise  # Re-lanzar para que se capture en el nivel superior
     
     def _on_reanalyze(self):
         """Maneja el clic en "Reanalizar" (legacy - ahora debería ser raro usarlo)"""

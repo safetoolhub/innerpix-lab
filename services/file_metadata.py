@@ -201,36 +201,40 @@ class FileMetadata:
         Returns:
             str: Línea de texto con información del archivo
         """
-        hash_val = self.sha256[:8] + '...' if self.sha256 else 'pending'
-        
-        # Timestamps del filesystem
-        ctime_str = datetime.fromtimestamp(self.fs_ctime).strftime('%Y-%m-%d %H:%M:%S')
-        mtime_str = datetime.fromtimestamp(self.fs_mtime).strftime('%Y-%m-%d %H:%M:%S')
-        
-        # EXIF info
-        if verbose:
-            exif_items = []
-            for field in ['ImageWidth', 'ImageLength', 'DateTime', 'GPSTimeStamp', 
-                         'GPSDateStamp', 'DateTimeOriginal', 'DateTimeDigitized', 'ExifVersion']:
-                value = getattr(self, f'exif_{field}', None)
-                if value is not None:
-                    exif_items.append(f"{field}={value}")
-            exif_info = f"exif_fields={len(exif_items)}"
-            if exif_items:
-                exif_info += f" [{', '.join(exif_items)}]"
-        else:
-            dates = self.get_exif_dates()
-            if dates:
-                exif_info = f"exif_dates={len(dates)}"
+        try:
+            hash_val = self.sha256[:8] + '...' if self.sha256 else 'pending'
+            
+            # Timestamps del filesystem
+            ctime_str = datetime.fromtimestamp(self.fs_ctime).strftime('%Y-%m-%d %H:%M:%S')
+            mtime_str = datetime.fromtimestamp(self.fs_mtime).strftime('%Y-%m-%d %H:%M:%S')
+            
+            # EXIF info
+            if verbose:
+                exif_items = []
+                for field in ['ImageWidth', 'ImageLength', 'DateTime', 'GPSTimeStamp', 
+                             'GPSDateStamp', 'DateTimeOriginal', 'DateTimeDigitized', 'ExifVersion']:
+                    value = getattr(self, f'exif_{field}', None)
+                    if value is not None:
+                        exif_items.append(f"{field}={value}")
+                exif_info = f"exif_fields={len(exif_items)}"
+                if exif_items:
+                    exif_info += f" [{', '.join(exif_items)}]"
             else:
-                exif_info = "exif=none"
-        
-        return (
-            f"path={self.path.name} | "
-            f"size={self.fs_size}b | "
-            f"ext={self.extension} | "
-            f"sha256={hash_val} | "
-            f"mtime={mtime_str} | "
-            f"ctime={ctime_str} | "
-            f"{exif_info}"
-        )
+                dates = self.get_exif_dates()
+                if dates:
+                    exif_info = f"exif_dates={len(dates)}"
+                else:
+                    exif_info = "exif=none"
+            
+            return (
+                f"path={self.path.name} | "
+                f"size={self.fs_size}b | "
+                f"ext={self.extension} | "
+                f"sha256={hash_val} | "
+                f"mtime={mtime_str} | "
+                f"ctime={ctime_str} | "
+                f"{exif_info}"
+            )
+        except Exception as e:
+            # Fallback seguro si algo falla
+            return f"path={self.path.name if hasattr(self.path, 'name') else str(self.path)} | error_generating_summary: {e}"

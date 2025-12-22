@@ -14,6 +14,7 @@ from utils.date_utils import get_date_from_file
 from services.result_types import HeicAnalysisResult, HeicExecutionResult, HEICDuplicatePair, AnalysisResult
 from services.base_service import BaseService, BackupCreationError, ProgressCallback
 from services.file_metadata_repository_cache import FileInfoRepositoryCache
+from services.file_metadata import FileMetadata
 from config import Config
 from utils.logger import (
     log_section_header_discrete,
@@ -92,7 +93,13 @@ class HeicService(BaseService):
         }
         
         # Obtener todos los archivos del repo
-        all_files = repo.get_all_files()
+        try:
+            all_files = repo.get_all_files()
+        except Exception as e:
+            self.logger.error(f"Error obteniendo archivos del repositorio: {e}")
+            import traceback
+            self.logger.error(traceback.format_exc())
+            return self._create_empty_result()
         total_files = len(all_files)
         
         # Estructura optimizada: dict[Path, dict[str, FileMetadata]]
@@ -104,21 +111,25 @@ class HeicService(BaseService):
         
         # Clasificar archivos
         for i, meta in enumerate(all_files):
-            if i % 1000 == 0 and not self._report_progress(progress_callback, i, total_files, "Clasificando archivos HEIC/JPG"):
-                return self._create_empty_result()
+            try:
+                if i % 1000 == 0 and not self._report_progress(progress_callback, i, total_files, "Clasificando archivos HEIC/JPG"):
+                    return self._create_empty_result()
+                    
+                extension = meta.extension
+                base_name = meta.path.stem
+                parent_dir = meta.path.parent
                 
-            extension = meta.extension
-            base_name = meta.path.stem
-            parent_dir = meta.path.parent
-            
-            if extension in self.heic_extensions:
-                heic_by_dir[parent_dir][base_name] = meta
-                self.stats['total_heic_size'] += meta.fs_size
-                total_heic_count += 1
-            elif extension in self.jpg_extensions:
-                jpg_by_dir[parent_dir][base_name] = meta
-                self.stats['total_jpg_size'] += meta.fs_size
-                total_jpg_count += 1
+                if extension in self.heic_extensions:
+                    heic_by_dir[parent_dir][base_name] = meta
+                    self.stats['total_heic_size'] += meta.fs_size
+                    total_heic_count += 1
+                elif extension in self.jpg_extensions:
+                    jpg_by_dir[parent_dir][base_name] = meta
+                    self.stats['total_jpg_size'] += meta.fs_size
+                    total_jpg_count += 1
+            except Exception as e:
+                self.logger.warning(f"Error clasificando archivo {meta.path if hasattr(meta, 'path') else 'desconocido'}: {e}")
+                continue
         
         results['total_heic_files'] = total_heic_count
         results['total_jpg_files'] = total_jpg_count
