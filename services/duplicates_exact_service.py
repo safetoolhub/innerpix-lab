@@ -129,7 +129,7 @@ class DuplicatesExactService(DuplicatesBaseService):
                 stop_check_callback=lambda: self._should_stop_check() if hasattr(self, '_should_stop_check') else False
             )
 
-        # 2. Recolectar resultados de la caché (ahora sí están)
+        # 2. Recolectar resultados de la caché (si no estaban antes ahora sí estarán)
         processed = 0
         for meta in files_to_hash:
             hash_val = repo.get_hash(meta.path)
