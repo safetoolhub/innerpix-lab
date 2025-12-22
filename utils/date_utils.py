@@ -182,16 +182,18 @@ def get_best_common_creation_date_2_files(
     return None
 
 
-def validate_date_coherence(all_dates: dict) -> dict:
+def _validate_date_coherence(metadata: 'FileMetadata') -> dict:
     """
     Valida coherencia entre fechas y detecta anomalías en metadatos.
+    
+    MÉTODO INTERNO usado exclusivamente por select_chosen_date().
     
     Esta función aplica varias reglas de validación para detectar metadatos corruptos,
     archivos editados, o transferencias recientes que pueden afectar la confiabilidad
     de las fechas.
 
     Args:
-        all_dates: Dict con todas las fechas del archivo (estructura de get_all_file_dates)
+        metadata: FileMetadata con los metadatos del archivo
 
     Returns:
         Dict con resultado de validación:
@@ -208,46 +210,44 @@ def validate_date_coherence(all_dates: dict) -> dict:
         - 'RECENT_TRANSFER': Más de 7 días entre creation_date y EXIF (transferencia)
         - 'SOFTWARE_DETECTED': Campo Software presente (archivo editado)
         - 'GPS_DIVERGENCE': GPS date muy diferente de EXIF (más de 1 día)
-        
-    Examples:
-        >>> # Fechas coherentes
-        >>> dates = {
-        ...     'exif_date_time_original': datetime(2023, 1, 15, 10, 30),
-        ...     'modification_date': datetime(2023, 1, 16, 12, 0)
-        ... }
-        >>> validate_date_coherence(dates)
-        {'is_valid': True, 'warnings': [], 'confidence': 'high'}
-        
-        >>> # EXIF posterior a mtime (sospechoso)
-        >>> dates = {
-        ...     'exif_date_time_original': datetime(2024, 1, 15, 10, 30),
-        ...     'modification_date': datetime(2023, 1, 16, 12, 0)
-        ... }
-        >>> validate_date_coherence(dates)
-        {'is_valid': False, 'warnings': ['EXIF_AFTER_MTIME'], 'confidence': 'low'}
     """
     from datetime import timedelta
+    
+    # Helper para parsear fechas EXIF string a datetime
+    def _parse_exif_date(date_str: Optional[str]) -> Optional[datetime]:
+        if not date_str:
+            return None
+        try:
+            # Formato típico EXIF: "2023:01:15 10:30:00"
+            if ':' in date_str[:10]:
+                return datetime.strptime(date_str[:19], '%Y:%m:%d %H:%M:%S')
+            # Formato ISO
+            elif 'T' in date_str:
+                return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+            return None
+        except (ValueError, TypeError):
+            return None
     
     warnings = []
     is_valid = True
     
-    # Extraer fechas relevantes
-    exif_original = all_dates.get('exif_date_time_original')
-    exif_create = all_dates.get('exif_create_date')
-    exif_digitized = all_dates.get('exif_date_digitized')
-    exif_gps = all_dates.get('exif_gps_date')
-    exif_software = all_dates.get('exif_software')
-    modification_date = all_dates.get('modification_date')
-    creation_date = all_dates.get('creation_date')
+    # Extraer fechas relevantes del FileMetadata
+    exif_date_time_original = _parse_exif_date(metadata.exif_DateTimeOriginal)
+    exif_create_date = _parse_exif_date(metadata.exif_DateTime)
+    exif_date_digitized = _parse_exif_date(metadata.exif_DateTimeDigitized)
+    exif_gps_date = _parse_exif_date(metadata.exif_GPSDateStamp)
+    exif_software = metadata.exif_Software
+    fs_mtime_date = datetime.fromtimestamp(metadata.fs_mtime) if metadata.fs_mtime else None
+    fs_ctime_date = datetime.fromtimestamp(metadata.fs_ctime) if metadata.fs_ctime else None
     
     # Validación 1: EXIF posterior a modification_date (sospechoso)
-    if exif_original and modification_date:
-        if exif_original > modification_date:
+    if exif_date_time_original and fs_mtime_date:
+        if exif_date_time_original > fs_mtime_date:
             warnings.append('EXIF_AFTER_MTIME')
             is_valid = False
     
     # Validación 2: Divergencia entre campos EXIF (más de 1 año)
-    exif_dates = [d for d in [exif_original, exif_create, exif_digitized] if d is not None]
+    exif_dates = [d for d in [exif_date_time_original, exif_create_date, exif_date_digitized] if d is not None]
     if len(exif_dates) >= 2:
         min_exif = min(exif_dates)
         max_exif = max(exif_dates)
@@ -256,14 +256,14 @@ def validate_date_coherence(all_dates: dict) -> dict:
             is_valid = False
     
     # Validación 3: DateTimeDigitized anterior a DateTimeOriginal (imposible)
-    if exif_original and exif_digitized:
-        if exif_digitized < exif_original:
+    if exif_date_time_original and exif_date_digitized:
+        if exif_date_digitized < exif_date_time_original:
             warnings.append('DIGITIZED_BEFORE_ORIGINAL')
             is_valid = False
     
     # Validación 4: Transferencia reciente (creation_date muy diferente de EXIF)
-    if exif_original and creation_date:
-        diff = abs((creation_date - exif_original).days)
+    if exif_date_time_original and fs_ctime_date:
+        diff = abs((fs_ctime_date - exif_date_time_original).days)
         if diff > 7:
             warnings.append('RECENT_TRANSFER')
             # No marca como inválido, solo advertencia
@@ -274,8 +274,8 @@ def validate_date_coherence(all_dates: dict) -> dict:
         # No marca como inválido, solo informativo
     
     # Validación 6: GPS date muy diferente de EXIF
-    if exif_gps and exif_original:
-        diff = abs((exif_gps - exif_original).days)
+    if exif_gps_date and exif_date_time_original:
+        diff = abs((exif_gps_date - exif_date_time_original).days)
         if diff > 1:
             warnings.append('GPS_DIVERGENCE')
             # No marca como inválido, puede ser zona horaria
@@ -387,23 +387,8 @@ def select_chosen_date(metadata: 'FileMetadata') -> tuple[Optional[datetime], Op
     # Determinar fuente de creation (birth vs ctime)
     filesystem_creation_source = 'birth' if platform.system() == 'Darwin' else 'ctime'
     
-    # Construir dict para validate_date_coherence (mantiene compatibilidad)
-    all_dates = {
-        'exif_date_time_original': exif_date_time_original,
-        'exif_create_date': exif_create_date,
-        'exif_date_digitized': exif_date_digitized,
-        'exif_gps_date': exif_gps_date,
-        'exif_offset_time': exif_offset_time,
-        'exif_software': metadata.exif_Software,
-        'video_metadata_date': video_metadata_date,
-        'filename_date': filename_date,
-        'filesystem_creation_date': fs_ctime,
-        'filesystem_creation_source': filesystem_creation_source,
-        'filesystem_modification_date': fs_mtime,
-    }
-    
-    # Validar coherencia de fechas
-    validation = validate_date_coherence(all_dates)
+    # Validar coherencia de fechas directamente con FileMetadata
+    validation = _validate_date_coherence(metadata)
     
     # Loguear warnings si existen
     if validation['warnings']:
@@ -448,7 +433,7 @@ def select_chosen_date(metadata: 'FileMetadata') -> tuple[Optional[datetime], Op
         selected_date, source = earliest_exif
         
         # Validar coherencia GPS vs DateTimeOriginal
-        _validate_gps_coherence(all_dates, selected_date)
+        _validate_gps_coherence(metadata, selected_date)
         
         return selected_date, source
     
@@ -551,7 +536,7 @@ def _normalize_date_source(source: str) -> str:
     return 'other'
 
 
-def _validate_gps_coherence(all_dates: dict, selected_date: datetime) -> None:
+def _validate_gps_coherence(metadata: 'FileMetadata', selected_date: datetime) -> None:
     """
     Valida coherencia entre GPS DateStamp y DateTimeOriginal.
     
@@ -563,10 +548,25 @@ def _validate_gps_coherence(all_dates: dict, selected_date: datetime) -> None:
     Esta función registra warnings cuando la diferencia es mayor a 24 horas.
     
     Args:
-        all_dates: Dict con todas las fechas disponibles
+        metadata: FileMetadata con los metadatos del archivo
         selected_date: Fecha seleccionada (normalmente DateTimeOriginal)
     """
-    gps_date = all_dates.get('exif_gps_date')
+    # Helper para parsear fechas EXIF string a datetime
+    def _parse_exif_date(date_str: Optional[str]) -> Optional[datetime]:
+        if not date_str:
+            return None
+        try:
+            # Formato típico EXIF: "2023:01:15 10:30:00"
+            if ':' in date_str[:10]:
+                return datetime.strptime(date_str[:19], '%Y:%m:%d %H:%M:%S')
+            # Formato ISO
+            elif 'T' in date_str:
+                return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+            return None
+        except (ValueError, TypeError):
+            return None
+    
+    gps_date = _parse_exif_date(metadata.exif_GPSDateStamp)
     
     if not gps_date:
         return
