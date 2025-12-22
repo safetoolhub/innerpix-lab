@@ -69,7 +69,11 @@ class IconManager:
         'folder-remove': 'mdi6.folder-remove',
         'folder-multiple': 'mdi6.folder-multiple',
         'file': 'mdi6.file',
+        'file-check': 'mdi6.file-check',
         'file-document-outline': 'mdi6.file-document-outline',
+        'file-edit': 'mdi6.file-edit',
+        'file-plus': 'mdi6.file-plus',
+        'file-rename': 'mdi6.file-rename',
         'file-x': 'mdi6.file-remove',
         'files': 'mdi6.file-multiple',
         'open-in-new': 'mdi6.open-in-new',
@@ -88,6 +92,7 @@ class IconManager:
         'chart-line': 'mdi6.chart-line',
         'timer': 'mdi6.timer',
         'clock-outline': 'mdi6.clock-outline',
+        'clock-time-four': 'mdi6.clock-time-four',
         'ruler': 'mdi6.ruler',
         'update': 'mdi6.update',
         'map-marker': 'mdi6.map-marker',
@@ -134,6 +139,7 @@ class IconManager:
         'timer-sand': 'mdi6.timer-sand',
         
         # Opciones y configuración
+        'application-cog': 'mdi6.application-cog',
         'cog-outline': 'mdi6.cog-outline',
         'tune': 'mdi6.tune',
         'filter-variant': 'mdi6.filter-variant',

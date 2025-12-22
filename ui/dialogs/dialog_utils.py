@@ -139,53 +139,57 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     
     # SECCIÓN: INFORMACIÓN GENERAL
     general_items = [
-        ("Ubicación", str(file_path.parent), 'folder'),
-        ("Tamaño real", format_size(metadata.fs_size), 'ruler'),
-        ("Tipo de archivo", _get_file_type_display(file_path), 'information'),
+        ("Ubicación", str(file_path.parent), "Directorio donde se encuentra el archivo", 'folder', DesignSystem.COLOR_INFO),
+        ("Nombre de archivo", file_path.name, "Nombre completo con extensión", 'file-document-outline', DesignSystem.COLOR_INFO),
+        ("Tamaño en disco", format_size(metadata.fs_size), "Espacio que ocupa en el sistema de archivos", 'harddisk', DesignSystem.COLOR_INFO),
+        ("Tipo de archivo", _get_file_type_display(file_path), "Categoría detectada por extensión", 'file-check', DesignSystem.COLOR_INFO),
     ]
     if metadata.sha256:
-        general_items.append(("Hash SHA256", metadata.sha256, 'fingerprint'))
+        general_items.append(("Hash SHA256", metadata.sha256, "Huella digital única del contenido del archivo", 'fingerprint', DesignSystem.COLOR_INFO))
     
-    scroll_layout.addWidget(_create_material_section("Archivo", general_items, use_code_style=True))
+    scroll_layout.addWidget(_create_enhanced_section("Información General", general_items))
     
     # SECCIÓN: FECHAS DEL SISTEMA (RAW FileMetadata)
     fs_dates = [
-        ("Creación (ctime)", datetime.fromtimestamp(metadata.fs_ctime).strftime('%Y-%m-%d %H:%M:%S.%f'), 'update'),
-        ("Modificación (mtime)", datetime.fromtimestamp(metadata.fs_mtime).strftime('%Y-%m-%d %H:%M:%S.%f'), 'clock-outline'),
-        ("Último acceso (atime)", datetime.fromtimestamp(metadata.fs_atime).strftime('%Y-%m-%d %H:%M:%S.%f'), 'clock-outline'),
+        ("Creación (ctime)", datetime.fromtimestamp(metadata.fs_ctime).strftime('%Y-%m-%d %H:%M:%S'), "Fecha de creación del archivo en el sistema de archivos", 'file-plus', DesignSystem.COLOR_WARNING),
+        ("Modificación (mtime)", datetime.fromtimestamp(metadata.fs_mtime).strftime('%Y-%m-%d %H:%M:%S'), "Última modificación del contenido del archivo", 'file-edit', DesignSystem.COLOR_WARNING),
+        ("Último acceso (atime)", datetime.fromtimestamp(metadata.fs_atime).strftime('%Y-%m-%d %H:%M:%S'), "Última vez que se abrió o leyó el archivo", 'eye', DesignSystem.COLOR_WARNING),
     ]
-    scroll_layout.addWidget(_create_material_section("Filesystem (RAW)", fs_dates))
+    scroll_layout.addWidget(_create_enhanced_section("Fechas del Sistema de Archivos", fs_dates))
     
     # SECCIÓN: DATOS EXIF (De FileMetadata structure)
     if metadata.has_exif:
-        exif_raw = []
-        # Lista completa de campos EXIF en FileMetadata
-        exif_fields = [
-            ('ImageWidth', 'aspect-ratio'),
-            ('ImageLength', 'aspect-ratio'),
-            ('DateTime', 'camera'),
-            ('GPSTimeStamp', 'map-marker'),
-            ('GPSDateStamp', 'map-marker'),
-            ('DateTimeOriginal', 'camera'),
-            ('DateTimeDigitized', 'camera'),
-            ('ExifVersion', 'information'),
-            ('SubSecTimeOriginal', 'clock-outline'),
-            ('OffsetTimeOriginal', 'earth'),
-            ('Software', 'cog')
-        ]
+        exif_items = []
         
-        for field_name, icon_name in exif_fields:
-            val = getattr(metadata, f'exif_{field_name}', None)
-            if val is not None:
-                exif_raw.append((field_name, str(val), icon_name))
+        # Dimensiones
+        if metadata.exif_ImageWidth:
+            exif_items.append(("Ancho", f"{metadata.exif_ImageWidth} píxeles", "Ancho de la imagen original", 'ruler', DesignSystem.COLOR_ACCENT))
+        if metadata.exif_ImageLength:
+            exif_items.append(("Alto", f"{metadata.exif_ImageLength} píxeles", "Alto de la imagen original", 'ruler', DesignSystem.COLOR_ACCENT))
         
-        if exif_raw:
-            scroll_layout.addWidget(_create_material_section("Metadatos EXIF (Estructura)", exif_raw, use_code_style=True))
+        # Versión EXIF
+        if metadata.exif_ExifVersion:
+            exif_items.append(("Versión EXIF", str(metadata.exif_ExifVersion), "Versión del estándar EXIF usado", 'information', DesignSystem.COLOR_ACCENT))
+        
+        # Software (solo si existe y es relevante - no duplicado)
+        if metadata.exif_Software:
+            exif_items.append(("Software", metadata.exif_Software, "Aplicación que creó o modificó el archivo", 'application-cog', DesignSystem.COLOR_ACCENT))
+        
+        # Subsegundos
+        if metadata.exif_SubSecTimeOriginal:
+            exif_items.append(("Subsegundos", metadata.exif_SubSecTimeOriginal, "Fracción de segundo en la captura original", 'timer-sand', DesignSystem.COLOR_ACCENT))
+        
+        # Zona horaria
+        if metadata.exif_OffsetTimeOriginal:
+            exif_items.append(("Zona horaria", metadata.exif_OffsetTimeOriginal, "Desplazamiento UTC en el momento de captura", 'clock-time-four', DesignSystem.COLOR_ACCENT))
+        
+        if exif_items:
+            scroll_layout.addWidget(_create_enhanced_section("Metadatos Técnicos (EXIF)", exif_items))
 
-    # SECCIÓN: ANÁLISIS DE FECHAS (Sistema enriquecido)
+    # SECCIÓN: INFORMACIÓN ADICIONAL (Fechas y metadatos adicionales)
     scroll_layout.addWidget(_create_dates_section(metadata))
     
-    # SECCIÓN: INFORMACIÓN ADICIONAL (Contexto del diálogo actual)
+    # SECCIÓN: CONTEXTO DE LA OPERACIÓN (Si hay información adicional del diálogo)
     if additional_info:
         add_items = []
         for key, val in additional_info.items():
@@ -197,6 +201,10 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
         
         if add_items:
             scroll_layout.addWidget(_create_material_section("Contexto de la Operación", add_items))
+
+    # SECCIÓN: MEJOR FECHA DISPONIBLE (Última sección - solo si existe)
+    if metadata.best_date:
+        scroll_layout.addWidget(_create_best_date_section(metadata))
 
     scroll_layout.addStretch()
     scroll_area.setWidget(scroll_widget)
@@ -238,8 +246,63 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     dialog.exec()
 
 
+def _create_enhanced_section(title: str, items: list):
+    """Crea una sección mejorada con formato unificado (título + valor + descripción)
+    
+    Args:
+        title: Título de la sección
+        items: Lista de tuplas (título, valor, descripción, icono, color)
+    """
+    from PyQt6.QtWidgets import QGroupBox, QVBoxLayout, QWidget
+    from ui.styles.design_system import DesignSystem
+    
+    group = QGroupBox(title)
+    group.setStyleSheet(f"""
+        QGroupBox {{
+            font-size: {DesignSystem.FONT_SIZE_LG}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            color: {DesignSystem.COLOR_TEXT};
+            border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
+            border-radius: {DesignSystem.RADIUS_LG}px;
+            padding: {DesignSystem.SPACE_16}px;
+            margin: 0;
+            background-color: {DesignSystem.COLOR_SURFACE};
+        }}
+        QGroupBox::title {{
+            subcontrol-origin: margin;
+            left: {DesignSystem.SPACE_12}px;
+            padding: 0 {DesignSystem.SPACE_8}px;
+            color: {DesignSystem.COLOR_PRIMARY};
+            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+        }}
+    """)
+    
+    layout = QVBoxLayout()
+    layout.setContentsMargins(
+        DesignSystem.SPACE_16, DesignSystem.SPACE_24, 
+        DesignSystem.SPACE_16, DesignSystem.SPACE_16
+    )
+    layout.setSpacing(DesignSystem.SPACE_12)
+    
+    for i, (label_text, value_text, description, icon_name, accent_color) in enumerate(items):
+        row = _create_info_row(label_text, value_text, description, icon_name, accent_color)
+        layout.addWidget(row)
+        
+        # Agregar separador entre items (excepto el último)
+        if i < len(items) - 1:
+            separator = QWidget()
+            separator.setFixedHeight(1)
+            separator.setStyleSheet(f"background-color: {DesignSystem.COLOR_CARD_BORDER}; margin: {DesignSystem.SPACE_4}px 0;")
+            layout.addWidget(separator)
+    
+    group.setLayout(layout)
+    return group
+
+
 def _create_material_section(title: str, items: list, use_code_style: bool = False):
-    """Crea una sección Material Design con título e items"""
+    """Crea una sección Material Design con título e items
+    DEPRECATED: Usar _create_enhanced_section en su lugar
+    """
     from PyQt6.QtWidgets import QGroupBox, QVBoxLayout
     from ui.styles.design_system import DesignSystem
     from ui.styles.icons import icon_manager
@@ -355,7 +418,7 @@ def _create_dates_section(metadata: 'FileMetadata'):
         except (ValueError, TypeError):
             return None
     
-    group = QGroupBox("Información de Fechas")
+    group = QGroupBox("Información Adicional")
     group.setStyleSheet(f"""
         QGroupBox {{
             font-size: {DesignSystem.FONT_SIZE_LG}px;
@@ -382,23 +445,6 @@ def _create_dates_section(metadata: 'FileMetadata'):
         DesignSystem.SPACE_16, DesignSystem.SPACE_16
     )
     layout.setSpacing(DesignSystem.SPACE_12)
-    
-    # === FECHA MEJOR SELECCIONADA ===
-    if metadata.best_date:
-        best_date_row = _create_date_row(
-            "Fecha Mejor Seleccionada", 
-            metadata.best_date.strftime("%Y-%m-%d %H:%M:%S"),
-            f"Fecha más representativa ({metadata.best_date_source})",
-            'calendar-check',
-            DesignSystem.COLOR_SUCCESS
-        )
-        layout.addWidget(best_date_row)
-        
-        # Separador después de best date
-        separator = QWidget()
-        separator.setFixedHeight(1)
-        separator.setStyleSheet(f"background-color: {DesignSystem.COLOR_CARD_BORDER};")
-        layout.addWidget(separator)
     
     # === FECHAS EXIF ===
     exif_dates_added = False
@@ -458,22 +504,11 @@ def _create_dates_section(metadata: 'FileMetadata'):
         layout.addWidget(exif_row)
         exif_dates_added = True
     
-    # Software EXIF
-    if metadata.exif_Software:
-        software_row = _create_info_row(
-            "Software EXIF", 
-            metadata.exif_Software,
-            "Aplicación que creó/modificó el archivo",
-            'cog'
-        )
-        layout.addWidget(software_row)
-        exif_dates_added = True
-    
     # Separador después de EXIF si se agregó algo
     if exif_dates_added:
         separator = QWidget()
         separator.setFixedHeight(1)
-        separator.setStyleSheet(f"background-color: {DesignSystem.COLOR_CARD_BORDER};")
+        separator.setStyleSheet(f"background-color: {DesignSystem.COLOR_CARD_BORDER}; margin: {DesignSystem.SPACE_8}px 0;")
         layout.addWidget(separator)
     
     # === FECHA DEL NOMBRE DE ARCHIVO ===
@@ -515,11 +550,68 @@ def _create_dates_section(metadata: 'FileMetadata'):
     return group
 
 
-def _create_info_row(title: str, value_text: str, description: str, icon_name: str):
-    """Crea una fila especializada para mostrar información no-fechas"""
+def _create_best_date_section(metadata: 'FileMetadata'):
+    """Crea la sección especial para mostrar la mejor fecha disponible"""
+    from PyQt6.QtWidgets import QGroupBox, QVBoxLayout
+    from ui.styles.design_system import DesignSystem
+    
+    group = QGroupBox("Mejor Fecha Disponible")
+    group.setStyleSheet(f"""
+        QGroupBox {{
+            font-size: {DesignSystem.FONT_SIZE_LG}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            color: {DesignSystem.COLOR_TEXT};
+            border: 2px solid {DesignSystem.COLOR_SUCCESS};
+            border-radius: {DesignSystem.RADIUS_LG}px;
+            padding: {DesignSystem.SPACE_16}px;
+            margin: 0;
+            background-color: {DesignSystem.COLOR_SURFACE};
+        }}
+        QGroupBox::title {{
+            subcontrol-origin: margin;
+            left: {DesignSystem.SPACE_12}px;
+            padding: 0 {DesignSystem.SPACE_8}px;
+            color: {DesignSystem.COLOR_SUCCESS};
+            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+        }}
+    """)
+    
+    layout = QVBoxLayout()
+    layout.setContentsMargins(
+        DesignSystem.SPACE_16, DesignSystem.SPACE_24, 
+        DesignSystem.SPACE_16, DesignSystem.SPACE_16
+    )
+    layout.setSpacing(DesignSystem.SPACE_12)
+    
+    best_date_row = _create_date_row(
+        "Fecha seleccionada", 
+        metadata.best_date.strftime("%Y-%m-%d %H:%M:%S"),
+        f"Fecha más representativa seleccionada automáticamente (Origen: {metadata.best_date_source})",
+        'calendar-check',
+        DesignSystem.COLOR_SUCCESS
+    )
+    layout.addWidget(best_date_row)
+    
+    group.setLayout(layout)
+    return group
+
+
+def _create_info_row(title: str, value_text: str, description: str, icon_name: str, accent_color: str = None):
+    """Crea una fila especializada para mostrar información con icono, título, valor y descripción
+    
+    Args:
+        title: Título del campo
+        value_text: Valor a mostrar
+        description: Descripción explicativa
+        icon_name: Nombre del icono MDI
+        accent_color: Color del icono (opcional, por defecto COLOR_ACCENT)
+    """
     from PyQt6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLabel
     from ui.styles.design_system import DesignSystem
     from ui.styles.icons import icon_manager
+    
+    if accent_color is None:
+        accent_color = DesignSystem.COLOR_ACCENT
     
     widget = QWidget()
     main_layout = QHBoxLayout(widget)
@@ -527,7 +619,7 @@ def _create_info_row(title: str, value_text: str, description: str, icon_name: s
     main_layout.setSpacing(DesignSystem.SPACE_12)
     
     # Icono
-    icon = icon_manager.get_icon(icon_name, size=DesignSystem.ICON_SIZE_MD, color=DesignSystem.COLOR_ACCENT)
+    icon = icon_manager.get_icon(icon_name, size=DesignSystem.ICON_SIZE_MD, color=accent_color)
     icon_label = QLabel()
     icon_label.setPixmap(icon.pixmap(DesignSystem.ICON_SIZE_MD, DesignSystem.ICON_SIZE_MD))
     icon_label.setFixedSize(DesignSystem.ICON_SIZE_MD + 4, DesignSystem.ICON_SIZE_MD + 4)
@@ -545,6 +637,7 @@ def _create_info_row(title: str, value_text: str, description: str, icon_name: s
         font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
         font-size: {DesignSystem.FONT_SIZE_BASE}px;
     """)
+    title_label.setWordWrap(True)
     content_layout.addWidget(title_label)
     
     # Descripción
@@ -553,6 +646,7 @@ def _create_info_row(title: str, value_text: str, description: str, icon_name: s
         color: {DesignSystem.COLOR_TEXT_SECONDARY};
         font-size: {DesignSystem.FONT_SIZE_SM}px;
     """)
+    desc_label.setWordWrap(True)
     content_layout.addWidget(desc_label)
     
     main_layout.addLayout(content_layout, 1)
@@ -561,48 +655,11 @@ def _create_info_row(title: str, value_text: str, description: str, icon_name: s
 
 
 def _create_date_row(title: str, date_str: str, description: str, icon_name: str, accent_color: str):
-    """Crea una fila especializada para mostrar información de fecha"""
-    from PyQt6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLabel
-    from ui.styles.design_system import DesignSystem
-    from ui.styles.icons import icon_manager
+    """Crea una fila especializada para mostrar información de fecha
     
-    widget = QWidget()
-    main_layout = QHBoxLayout(widget)
-    main_layout.setContentsMargins(0, 0, 0, 0)
-    main_layout.setSpacing(DesignSystem.SPACE_12)
-    
-    # Icono
-    icon = icon_manager.get_icon(icon_name, size=DesignSystem.ICON_SIZE_MD, color=accent_color)
-    icon_label = QLabel()
-    icon_label.setPixmap(icon.pixmap(DesignSystem.ICON_SIZE_MD, DesignSystem.ICON_SIZE_MD))
-    icon_label.setFixedSize(DesignSystem.ICON_SIZE_MD + 4, DesignSystem.ICON_SIZE_MD + 4)
-    main_layout.addWidget(icon_label)
-    
-    # Contenido de fecha
-    content_layout = QVBoxLayout()
-    content_layout.setContentsMargins(0, 0, 0, 0)
-    content_layout.setSpacing(DesignSystem.SPACE_2)
-    
-    # Título y fecha
-    title_label = QLabel(f"{title}: {date_str}")
-    title_label.setStyleSheet(f"""
-        color: {DesignSystem.COLOR_TEXT};
-        font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-        font-size: {DesignSystem.FONT_SIZE_BASE}px;
-    """)
-    content_layout.addWidget(title_label)
-    
-    # Descripción
-    desc_label = QLabel(description)
-    desc_label.setStyleSheet(f"""
-        color: {DesignSystem.COLOR_TEXT_SECONDARY};
-        font-size: {DesignSystem.FONT_SIZE_SM}px;
-    """)
-    content_layout.addWidget(desc_label)
-    
-    main_layout.addLayout(content_layout, 1)
-    
-    return widget
+    Alias de _create_info_row para mantener compatibilidad con código existente.
+    """
+    return _create_info_row(title, date_str, description, icon_name, accent_color)
 
 
 def _get_file_type_display(file_path: Path) -> str:
