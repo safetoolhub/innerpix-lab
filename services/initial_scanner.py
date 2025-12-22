@@ -34,11 +34,12 @@ class InitialScanner:
     """
     Handles multi-phase scanning of a directory to populate FileInfoRepositoryCache.
     
-    The scan is performed in 4 distinct phases:
+    The scan is performed in 5 distinct phases:
     1. BASIC: Filesystem structure analysis (fast, OBLIGATORY first)
     2. HASH: SHA256 hash calculation for duplicate detection (requires BASIC)
     3. EXIF_IMAGES: Image metadata extraction (moderate cost, requires BASIC)
     4. EXIF_VIDEOS: Video metadata extraction (expensive, requires BASIC)
+    5. BEST_DATE: Calculate best available date for each file (requires EXIF)
     """
     
     # Phase identifiers
@@ -46,6 +47,7 @@ class InitialScanner:
     PHASE_HASH = "phase_hash"
     PHASE_EXIF_IMAGES = "phase_exif_images"
     PHASE_EXIF_VIDEOS = "phase_exif_videos"
+    PHASE_BEST_DATE = "phase_best_date"
     
     def __init__(self):
         self.logger = get_logger('InitialScanner')
@@ -357,6 +359,62 @@ class InitialScanner:
             if self.logger.isEnabledFor(logging.DEBUG):
                 self.logger.debug("=== Repository Stats after Phase 4 (EXIF_VIDEOS) ===")
                 repo.log_cache_statistics(level=logging.DEBUG)  # DEBUG
+        
+        # ==================== PHASE 5: BEST DATE CALCULATION ====================
+        if supported_files and not self._should_stop:
+            phase_id = self.PHASE_BEST_DATE
+            phase_msg = "Calculando mejor fecha disponible"
+            
+            if phase_callback:
+                phase_callback(phase_id, phase_msg)
+            
+            self.logger.info(f"Phase 5: {phase_msg}")
+            
+            # Track percentage for logging
+            last_logged_percentage = 0
+            
+            def best_date_progress(current: int, total: int) -> bool:
+                nonlocal last_logged_percentage
+                if self._should_stop:
+                    return False
+                
+                # Log progress every 10% at INFO level
+                current_percentage = (current * 100) // total
+                if current_percentage >= last_logged_percentage + 10 and current_percentage < 100:
+                    self.logger.info(f"Phase 5 (BEST_DATE) progreso: {current_percentage}% ({current:,}/{total:,} archivos)")
+                    last_logged_percentage = current_percentage
+                
+                if progress_callback:
+                    phase_progress = PhaseProgress(
+                        phase_id=phase_id,
+                        phase_name=phase_msg,
+                        current=current,
+                        total=total,
+                        message=phase_msg
+                    )
+                    return progress_callback(phase_progress)
+                return True
+            
+            repo.populate_from_scan(
+                files=supported_files,
+                strategy=PopulationStrategy.BEST_DATE,
+                progress_callback=best_date_progress,
+                stop_check_callback=lambda: self._should_stop
+            )
+            
+            if self._should_stop:
+                self.logger.info("Phase 5 (BEST_DATE) cancelada por el usuario")
+            else:
+                self.logger.info("Phase 5 (BEST_DATE) complete: Best dates calculated")
+            
+            # Notify phase 5 completion
+            if phase_completed_callback and not self._should_stop:
+                phase_completed_callback(self.PHASE_BEST_DATE)
+            
+            # Log repository stats after Phase 5 (DEBUG)
+            if self.logger.isEnabledFor(logging.DEBUG):
+                self.logger.debug("=== Repository Stats after Phase 5 (BEST_DATE) ===")
+                repo.log_cache_statistics(level=logging.DEBUG)
         
         # ==================== FINALIZATION ====================
         result = self._create_result_from_data(

@@ -46,6 +46,11 @@ class FileMetadata:
     # Hash SHA256 (opcional, cálculo costoso)
     sha256: Optional[str] = None
     
+    # Best date available (fecha más representativa calculada)
+    # Calculada en Phase 5 del InitialScanner usando select_chosen_date()
+    best_date: Optional[datetime] = None
+    best_date_source: Optional[str] = None  # Fuente de la fecha (ej: 'exif_datetime_original', 'mtime')
+    
     # Metadatos EXIF (opcionales)
     exif_ImageWidth: Optional[int] = None
     exif_ImageLength: Optional[int] = None
@@ -85,6 +90,11 @@ class FileMetadata:
     def has_hash(self) -> bool:
         """Verifica si tiene el hash calculado"""
         return self.sha256 is not None
+    
+    @property
+    def has_best_date(self) -> bool:
+        """Verifica si tiene la mejor fecha calculada"""
+        return self.best_date is not None
     
     @property
     def is_image(self) -> bool:
@@ -145,6 +155,8 @@ class FileMetadata:
             'fs_mtime': self.fs_mtime,
             'fs_atime': self.fs_atime,
             'sha256': self.sha256,
+            'best_date': self.best_date.isoformat() if self.best_date else None,
+            'best_date_source': self.best_date_source,
             'exif_ImageWidth': self.exif_ImageWidth,
             'exif_ImageLength': self.exif_ImageLength,
             'exif_DateTime': self.exif_DateTime,
@@ -171,6 +183,15 @@ class FileMetadata:
         Returns:
             FileMetadata: Instancia creada
         """
+        # Parse best_date from ISO format string
+        best_date_str = data.get('best_date')
+        best_date = None
+        if best_date_str:
+            try:
+                best_date = datetime.fromisoformat(best_date_str)
+            except (ValueError, TypeError):
+                pass
+        
         return cls(
             path=Path(data['path']),
             fs_size=data['fs_size'],
@@ -178,6 +199,8 @@ class FileMetadata:
             fs_mtime=data['fs_mtime'],
             fs_atime=data['fs_atime'],
             sha256=data.get('sha256'),
+            best_date=best_date,
+            best_date_source=data.get('best_date_source'),
             exif_ImageWidth=data.get('exif_ImageWidth'),
             exif_ImageLength=data.get('exif_ImageLength'),
             exif_DateTime=data.get('exif_DateTime'),
@@ -226,11 +249,19 @@ class FileMetadata:
                 else:
                     exif_info = "exif=none"
             
+            # Best date info
+            if self.best_date:
+                best_date_str = self.best_date.strftime('%Y-%m-%d %H:%M:%S')
+                best_date_info = f"best_date={best_date_str} ({self.best_date_source or 'unknown'})"
+            else:
+                best_date_info = "best_date=pending"
+            
             return (
                 f"path={self.path.name} | "
                 f"size={self.fs_size}b | "
                 f"ext={self.extension} | "
                 f"sha256={hash_val} | "
+                f"{best_date_info} | "
                 f"mtime={mtime_str} | "
                 f"ctime={ctime_str} | "
                 f"{exif_info}"

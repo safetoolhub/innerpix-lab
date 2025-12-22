@@ -1141,14 +1141,13 @@ class DuplicatesSimilarDialog(BaseDialog):
         - Line 2: "Fuente: EXIF DateTimeOriginal"
         """
         try:
-            from utils.date_utils import select_chosen_date, get_all_file_dates, _convert_file_metadata_to_dates_dict
+            from utils.date_utils import select_chosen_date, get_all_file_dates
             
-            # Get all available dates for this file
+            # Get FileMetadata for this file
             file_metadata = get_all_file_dates(file_path)
-            all_dates = _convert_file_metadata_to_dates_dict(file_metadata)
             
-            # Select the most representative date
-            selected_date, source = select_chosen_date(all_dates)
+            # Select the most representative date (now accepts FileMetadata directly)
+            selected_date, source = select_chosen_date(file_metadata)
             
             if not selected_date or not source:
                 return ""

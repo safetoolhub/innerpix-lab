@@ -21,7 +21,7 @@ from .date_utils import (
     is_renamed_filename,
     parse_renamed_name,
     get_all_file_dates,
-    _convert_file_metadata_to_dates_dict
+    extract_date_from_filename
 )
 from .file_utils import (
     get_exif_from_image,
@@ -85,7 +85,7 @@ __all__ = [
     # Date utilities
     'get_date_from_file',
     'get_all_file_dates',
-    '_convert_file_metadata_to_dates_dict',
+    'extract_date_from_filename',
     'select_chosen_date',
     'format_renamed_name',
     'is_renamed_filename',

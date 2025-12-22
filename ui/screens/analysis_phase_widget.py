@@ -69,11 +69,13 @@ class AnalysisPhaseWidget(QFrame):
         # 2. WITH_HASH: Cálculo de hashes SHA256
         # 3. WITH_EXIF_IMAGES: Extracción de metadatos de imágenes
         # 4. WITH_EXIF_VIDEOS: Extracción de metadatos de videos
+        # 5. BEST_DATE: Cálculo de la mejor fecha disponible
         phases = [
             ("phase_basic", "Analizando estructura de la carpeta"),
             ("phase_hash", "Calculando hashes de los archivos"),
             ("phase_exif_images", "Obteniendo metadatos de las imagenes"),
             ("phase_exif_videos", "Obteniendo metadatos de los videos"),
+            ("phase_best_date", "Calculando mejor fecha disponible"),
         ]
         
         for phase_id, phase_text in phases:

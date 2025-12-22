@@ -8,7 +8,7 @@ from pathlib import Path
 from PyQt6.QtWidgets import QMessageBox
 from PyQt6.QtCore import Qt
 from utils.format_utils import format_size
-from utils.date_utils import get_date_from_file, get_all_file_dates, _convert_file_metadata_to_dates_dict
+from utils.date_utils import get_date_from_file, get_all_file_dates, select_chosen_date, extract_date_from_filename
 from utils.platform_utils import open_file_with_default_app, open_folder_in_explorer
 from utils.logger import get_logger
 
@@ -89,8 +89,6 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     # Esta función es la ÚNICA fuente de verdad para metadatos de archivos
     metadata = get_all_file_dates(file_path)
     logger.debug(f"Metadatos obtenidos - Size: {metadata.fs_size}, Hash: {metadata.has_hash}, EXIF: {metadata.has_exif}")
-    
-    dates_info = _convert_file_metadata_to_dates_dict(metadata)
     
     # === 2. CONSTRUCCIÓN DE LA IU ===
     
@@ -176,7 +174,7 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
             scroll_layout.addWidget(_create_material_section("Metadatos EXIF (Estructura)", exif_raw, use_code_style=True))
 
     # SECCIÓN: ANÁLISIS DE FECHAS (Sistema enriquecido)
-    scroll_layout.addWidget(_create_dates_section(dates_info))
+    scroll_layout.addWidget(_create_dates_section(metadata))
     
     # SECCIÓN: INFORMACIÓN ADICIONAL (Contexto del diálogo actual)
     if additional_info:
@@ -327,11 +325,26 @@ def _create_material_info_row(label_text: str, value_text: str, icon_name: str, 
     return widget
 
 
-def _create_dates_section(dates_info: dict):
-    """Crea la sección especial de fechas con información detallada"""
+def _create_dates_section(metadata: 'FileMetadata'):
+    """Crea la sección especial de fechas con información detallada usando FileMetadata directamente"""
     from PyQt6.QtWidgets import QGroupBox, QVBoxLayout, QLabel, QHBoxLayout, QWidget
     from ui.styles.design_system import DesignSystem
     from ui.styles.icons import icon_manager
+    from datetime import datetime
+    from utils.date_utils import extract_date_from_filename
+    
+    # Helper para parsear fechas EXIF string a datetime
+    def _parse_exif_date(date_str):
+        if not date_str:
+            return None
+        try:
+            if ':' in date_str[:10]:
+                return datetime.strptime(date_str[:19], '%Y:%m:%d %H:%M:%S')
+            elif 'T' in date_str:
+                return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+            return None
+        except (ValueError, TypeError):
+            return None
     
     group = QGroupBox("Información de Fechas")
     group.setStyleSheet(f"""
@@ -365,13 +378,14 @@ def _create_dates_section(dates_info: dict):
     exif_dates_added = False
     
     # DateTimeOriginal (fecha de captura principal)
-    if dates_info.get('exif_date_time_original'):
+    exif_date_time_original = _parse_exif_date(metadata.exif_DateTimeOriginal)
+    if exif_date_time_original:
         tz_info = ""
-        if dates_info.get('exif_offset_time'):
-            tz_info = f" (Zona horaria: {dates_info['exif_offset_time']})"
+        if metadata.exif_OffsetTimeOriginal:
+            tz_info = f" (Zona horaria: {metadata.exif_OffsetTimeOriginal})"
         exif_row = _create_date_row(
             "EXIF DateTimeOriginal", 
-            dates_info['exif_date_time_original'].strftime("%Y-%m-%d %H:%M:%S"),
+            exif_date_time_original.strftime("%Y-%m-%d %H:%M:%S"),
             f"Fecha de captura original{tz_info}",
             'camera',
             DesignSystem.COLOR_ACCENT
@@ -379,11 +393,12 @@ def _create_dates_section(dates_info: dict):
         layout.addWidget(exif_row)
         exif_dates_added = True
     
-    # CreateDate
-    if dates_info.get('exif_create_date'):
+    # CreateDate (DateTime en FileMetadata)
+    exif_create_date = _parse_exif_date(metadata.exif_DateTime)
+    if exif_create_date:
         exif_row = _create_date_row(
             "EXIF CreateDate", 
-            dates_info['exif_create_date'].strftime("%Y-%m-%d %H:%M:%S"),
+            exif_create_date.strftime("%Y-%m-%d %H:%M:%S"),
             "Fecha de creación del archivo según EXIF",
             'camera',
             DesignSystem.COLOR_ACCENT
@@ -392,10 +407,11 @@ def _create_dates_section(dates_info: dict):
         exif_dates_added = True
     
     # DateTimeDigitized
-    if dates_info.get('exif_date_digitized'):
+    exif_date_digitized = _parse_exif_date(metadata.exif_DateTimeDigitized)
+    if exif_date_digitized:
         exif_row = _create_date_row(
             "EXIF DateTimeDigitized", 
-            dates_info['exif_date_digitized'].strftime("%Y-%m-%d %H:%M:%S"),
+            exif_date_digitized.strftime("%Y-%m-%d %H:%M:%S"),
             "Fecha de digitalización",
             'camera',
             DesignSystem.COLOR_ACCENT
@@ -404,10 +420,11 @@ def _create_dates_section(dates_info: dict):
         exif_dates_added = True
     
     # GPS DateStamp
-    if dates_info.get('exif_gps_date'):
+    exif_gps_date = _parse_exif_date(metadata.exif_GPSDateStamp)
+    if exif_gps_date:
         exif_row = _create_date_row(
             "EXIF GPS DateStamp", 
-            dates_info['exif_gps_date'].strftime("%Y-%m-%d %H:%M:%S"),
+            exif_gps_date.strftime("%Y-%m-%d %H:%M:%S"),
             "Fecha GPS del archivo",
             'map-marker',
             DesignSystem.COLOR_ACCENT
@@ -416,10 +433,10 @@ def _create_dates_section(dates_info: dict):
         exif_dates_added = True
     
     # Software EXIF
-    if dates_info.get('exif_software'):
+    if metadata.exif_Software:
         software_row = _create_info_row(
             "Software EXIF", 
-            dates_info['exif_software'],
+            metadata.exif_Software,
             "Aplicación que creó/modificó el archivo",
             'cog'
         )
@@ -434,10 +451,11 @@ def _create_dates_section(dates_info: dict):
         layout.addWidget(separator)
     
     # === FECHA DEL NOMBRE DE ARCHIVO ===
-    if dates_info.get('filename_date'):
+    filename_date = extract_date_from_filename(metadata.path.name)
+    if filename_date:
         filename_row = _create_date_row(
             "Fecha del nombre", 
-            dates_info['filename_date'].strftime("%Y-%m-%d %H:%M:%S"),
+            filename_date.strftime("%Y-%m-%d %H:%M:%S"),
             "Extraída del nombre del archivo (WhatsApp, etc.)",
             'file-document-outline',
             DesignSystem.COLOR_INFO
@@ -445,10 +463,11 @@ def _create_dates_section(dates_info: dict):
         layout.addWidget(filename_row)
     
     # === METADATA DE VIDEO ===
-    if dates_info.get('video_metadata_date'):
+    # Para videos, exif_DateTime contiene la fecha de creación del video
+    if metadata.is_video and exif_create_date:
         video_row = _create_date_row(
             "Metadata de video", 
-            dates_info['video_metadata_date'].strftime("%Y-%m-%d %H:%M:%S"),
+            exif_create_date.strftime("%Y-%m-%d %H:%M:%S"),
             "Fecha de creación del video (ffprobe)",
             'video',
             DesignSystem.COLOR_INFO
@@ -456,20 +475,21 @@ def _create_dates_section(dates_info: dict):
         layout.addWidget(video_row)
     
     # Separador antes de fechas del sistema
-    if dates_info.get('filename_date') or dates_info.get('video_metadata_date'):
+    if filename_date or (metadata.is_video and exif_create_date):
         separator = QWidget()
         separator.setFixedHeight(1)
         separator.setStyleSheet(f"background-color: {DesignSystem.COLOR_CARD_BORDER};")
         layout.addWidget(separator)
     
     # === FECHAS DEL SISTEMA DE ARCHIVOS ===
+    import platform
     
     # Fecha de creación
-    if dates_info.get('creation_date'):
-        source_desc = "Fecha de creación del archivo" if dates_info.get('creation_source') == 'birth' else "Fecha de creación (ctime)"
+    if metadata.fs_ctime:
+        source_desc = "Fecha de creación del archivo" if platform.system() == 'Darwin' else "Fecha de creación (ctime)"
         creation_row = _create_date_row(
             "Fecha de creación", 
-            dates_info['creation_date'].strftime("%Y-%m-%d %H:%M:%S"),
+            datetime.fromtimestamp(metadata.fs_ctime).strftime("%Y-%m-%d %H:%M:%S"),
             source_desc,
             'update',
             DesignSystem.COLOR_TEXT_SECONDARY
@@ -477,10 +497,10 @@ def _create_dates_section(dates_info: dict):
         layout.addWidget(creation_row)
     
     # Fecha de modificación
-    if dates_info.get('modification_date'):
+    if metadata.fs_mtime:
         mod_row = _create_date_row(
             "Fecha de modificación", 
-            dates_info['modification_date'].strftime("%Y-%m-%d %H:%M:%S"),
+            datetime.fromtimestamp(metadata.fs_mtime).strftime("%Y-%m-%d %H:%M:%S"),
             "Última modificación del archivo",
             'clock-outline',
             DesignSystem.COLOR_TEXT_SECONDARY
@@ -488,10 +508,10 @@ def _create_dates_section(dates_info: dict):
         layout.addWidget(mod_row)
     
     # Fecha de último acceso
-    if dates_info.get('access_date'):
+    if metadata.fs_atime:
         access_row = _create_date_row(
             "Último acceso", 
-            dates_info['access_date'].strftime("%Y-%m-%d %H:%M:%S"),
+            datetime.fromtimestamp(metadata.fs_atime).strftime("%Y-%m-%d %H:%M:%S"),
             "Última vez que se accedió al archivo",
             'clock-outline',
             DesignSystem.COLOR_TEXT_SECONDARY

@@ -47,6 +47,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Protocol, Any
 from enum import Enum
 from dataclasses import dataclass
+from datetime import datetime
 import threading
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -68,6 +69,7 @@ class PopulationStrategy(Enum):
     EXIF_IMAGES = "exif_images"  # Solo EXIF imágenes (requiere BASIC previo, moderado)
     EXIF_VIDEOS = "exif_videos"  # Solo EXIF videos (requiere BASIC previo, muy costoso)
     EXIF_ALL = "exif_all"        # EXIF imágenes + videos (requiere BASIC previo, muy costoso)
+    BEST_DATE = "best_date"      # Calcula mejor fecha (requiere BASIC y EXIF previo, rápido)
     FULL = "full"                # Hash + EXIF completo (requiere BASIC previo, extremadamente costoso)
 
 
@@ -94,16 +96,19 @@ class IFileRepository(Protocol):
     def get_file_metadata(self, path: Path) -> Optional[FileMetadata]: ...
     def get_hash(self, path: Path) -> Optional[str]: ...
     def get_exif(self, path: Path) -> Dict[str, Any]: ...
+    def get_best_date(self, path: Path) -> tuple: ...  # (datetime, source)
     
     # Contadores
     def count(self) -> int: ...
     def get_file_count(self) -> int: ...
     def count_with_hash(self) -> int: ...
     def count_with_exif(self) -> int: ...
+    def count_with_best_date(self) -> int: ...
     
     # Actualizaciones
     def set_hash(self, path: Path, hash_val: str) -> bool: ...
     def set_exif(self, path: Path, exif_data: Dict[str, Any]) -> bool: ...
+    def set_best_date(self, path: Path, best_date: datetime, source: str) -> bool: ...
     
     # Gestión de caché
     def remove_file(self, path: Path) -> bool: ...
@@ -125,6 +130,7 @@ class RepositoryStats:
     total_files: int
     files_with_hash: int
     files_with_exif: int
+    files_with_best_date: int
     cache_hits: int
     cache_misses: int
     hit_rate: float
@@ -297,6 +303,8 @@ class FileInfoRepositoryCache:
             process_func = self._process_file_exif_videos
         elif strategy == PopulationStrategy.EXIF_ALL:
             process_func = self._process_file_exif_all
+        elif strategy == PopulationStrategy.BEST_DATE:
+            process_func = self._process_file_best_date
         elif strategy == PopulationStrategy.FULL:
             process_func = self._process_file_full
         else:
@@ -645,6 +653,62 @@ class FileInfoRepositoryCache:
         
         return metadata
     
+    def _process_file_best_date(self, path: Path) -> Optional[FileMetadata]:
+        """
+        Procesa archivo con estrategia BEST_DATE: calcula la mejor fecha disponible.
+        
+        Usa la lógica de select_chosen_date() de date_utils.py que prioriza:
+        1. EXIF DateTimeOriginal (con/sin timezone)
+        2. EXIF CreateDate
+        3. EXIF DateTimeDigitized
+        4. Fecha del nombre de archivo
+        5. Fecha de filesystem (mtime/ctime)
+        
+        Requiere que BASIC y EXIF ya se hayan ejecutado para obtener el mejor resultado.
+        Si no hay EXIF, usará fechas del filesystem como fallback.
+        
+        Es una operación rápida porque solo consulta datos ya en caché.
+        """
+        from utils.date_utils import select_chosen_date, _normalize_date_source
+        
+        path = path.resolve()
+        
+        # Obtener metadata existente
+        with self._lock:
+            metadata = self._cache.get(path)
+        
+        if not metadata:
+            self._logger.debug(f"No se puede calcular best_date: archivo no en caché: {path.name}")
+            return None
+        
+        # Ya tiene best_date? Skip
+        if metadata.has_best_date:
+            self._logger.debug(f"best_date ya calculado para {path.name}: {metadata.best_date}")
+            return metadata
+        
+        # Calcular la mejor fecha pasando directamente el FileMetadata
+        selected_date, selected_source = select_chosen_date(metadata)
+        
+        if selected_date:
+            # Normalizar el nombre de la fuente
+            normalized_source = _normalize_date_source(selected_source) if selected_source else 'unknown'
+            
+            # Actualizar metadata con lock
+            with self._lock:
+                cached_metadata = self._cache.get(path)
+                if cached_metadata:
+                    cached_metadata.best_date = selected_date
+                    cached_metadata.best_date_source = normalized_source
+                    self._logger.debug(
+                        f"best_date calculado para {path.name}: "
+                        f"{selected_date.strftime('%Y-%m-%d %H:%M:%S')} ({normalized_source})"
+                    )
+                    return cached_metadata
+        else:
+            self._logger.debug(f"No se pudo determinar best_date para {path.name}")
+        
+        return metadata
+    
     def _process_file_full(self, path: Path) -> Optional[FileMetadata]:
         """
         Procesa archivo con estrategia FULL: hash + EXIF completo.
@@ -773,6 +837,49 @@ class FileInfoRepositoryCache:
             'fs_atime': metadata.fs_atime
         }
     
+    def get_best_date(self, path: Path) -> tuple[Optional[datetime], Optional[str]]:
+        """
+        Obtiene la mejor fecha disponible de un archivo desde la caché.
+        
+        Esta fecha se calcula en Phase 5 del InitialScanner usando la lógica
+        de select_chosen_date() que prioriza EXIF sobre filesystem.
+        
+        Args:
+            path: Ruta del archivo
+            
+        Returns:
+            Tuple (datetime, source) donde:
+            - datetime: La mejor fecha disponible, o None si no está calculada
+            - source: Fuente de la fecha ('exif_datetime_original', 'mtime', etc.)
+        """
+        path = path.resolve()
+        metadata = self.get_file_metadata(path)
+        
+        if not metadata:
+            return None, None
+        
+        return metadata.best_date, metadata.best_date_source
+    
+    def get_filesystem_modification_date(self, path: Path) -> Optional[datetime]:
+        """
+        Obtiene la fecha de modificación del filesystem desde la caché.
+        
+        Útil como fallback rápido cuando best_date no está disponible.
+        
+        Args:
+            path: Ruta del archivo
+            
+        Returns:
+            datetime de fs_mtime, o None si no existe en caché
+        """
+        path = path.resolve()
+        metadata = self.get_file_metadata(path)
+        
+        if not metadata:
+            return None
+        
+        return datetime.fromtimestamp(metadata.fs_mtime)
+    
     # =========================================================================
     # ACTUALIZACIONES (SET) - Solo para archivos ya en caché
     # =========================================================================
@@ -845,6 +952,34 @@ class FileInfoRepositoryCache:
             if 'ExifVersion' in exif_data:
                 metadata.exif_ExifVersion = exif_data['ExifVersion']
             
+            return True
+    
+    def set_best_date(self, path: Path, best_date: datetime, source: str) -> bool:
+        """
+        Establece la mejor fecha disponible de un archivo.
+        
+        Solo actualiza si el archivo ya está en caché.
+        
+        Args:
+            path: Ruta del archivo
+            best_date: La fecha calculada como la mejor disponible
+            source: Fuente de la fecha ('exif_datetime_original', 'mtime', etc.)
+            
+        Returns:
+            bool: True si se actualizó, False si el archivo no está en caché
+        """
+        path = path.resolve()
+        
+        with self._lock:
+            if path not in self._cache:
+                self._logger.debug(
+                    f"Intento de set_best_date para archivo no en caché: {path.name}"
+                )
+                return False
+            
+            metadata = self._cache[path]
+            metadata.best_date = best_date
+            metadata.best_date_source = source
             return True
     
     # =========================================================================
@@ -929,6 +1064,11 @@ class FileInfoRepositoryCache:
         with self._lock:
             return sum(1 for m in self._cache.values() if m.has_exif)
     
+    def count_with_best_date(self) -> int:
+        """Número de archivos con best_date calculado"""
+        with self._lock:
+            return sum(1 for m in self._cache.values() if m.has_best_date)
+    
     # =========================================================================
     # UTILIDADES
     # =========================================================================
@@ -959,6 +1099,7 @@ class FileInfoRepositoryCache:
             total = len(self._cache)
             with_hash = self.count_with_hash()
             with_exif = self.count_with_exif()
+            with_best_date = self.count_with_best_date()
             total_access = self._hits + self._misses
             hit_rate = (self._hits / total_access * 100) if total_access > 0 else 0.0
         
@@ -966,6 +1107,7 @@ class FileInfoRepositoryCache:
             total_files=total,
             files_with_hash=with_hash,
             files_with_exif=with_exif,
+            files_with_best_date=with_best_date,
             cache_hits=self._hits,
             cache_misses=self._misses,
             hit_rate=hit_rate
@@ -984,6 +1126,7 @@ class FileInfoRepositoryCache:
             f"Files: {stats.total_files}, "
             f"With hash: {stats.files_with_hash}, "
             f"With EXIF: {stats.files_with_exif}, "
+            f"With best_date: {stats.files_with_best_date}, "
             f"Hits: {stats.cache_hits}, "
             f"Misses: {stats.cache_misses}, "
             f"Hit rate: {stats.hit_rate:.1f}%"

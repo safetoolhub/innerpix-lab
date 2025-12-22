@@ -3,11 +3,12 @@
 PyQt6 desktop app for photo/video management oriented to privacy.
 
 ### Flujo de Análisis
-1. **Stage 2**: Escaneo inicial multi-fase usando `InitialScanner.scan()` → `DirectoryScanResult`. 4 fases diferenciadas:
+1. **Stage 2**: Escaneo inicial multi-fase usando `InitialScanner.scan()` → `DirectoryScanResult`. 5 fases diferenciadas:
    - Fase 1 (BASIC): Análisis de estructura del directorio → "Analizando estructura de la carpeta"
    - Fase 2 (HASH): Cálculo de hashes SHA256 → "Calculando hashes de los archivos"
    - Fase 3 (EXIF_IMAGES): Extracción de metadatos de imágenes → "Obteniendo metadatos de las imagenes"
    - Fase 4 (EXIF_VIDEOS): Extracción de metadatos de videos → "Obteniendo metadatos de los videos"
+   - Fase 5 (BEST_DATE): Cálculo de mejor fecha disponible → "Calculando mejor fecha disponible"
 2. **Stage 3**: Análisis bajo demanda para cada herramienta
    - Live Photos: `LivePhotoService.analyze()` → `LivePhotosAnalysisResult`
    - HEIC/JPG: `HeicService.analyze()` → `HeicAnalysisResult`
@@ -27,10 +28,11 @@ PyQt6 desktop app for photo/video management oriented to privacy.
   - `EXIF_IMAGES`: Solo EXIF de imágenes (requiere BASIC previo, moderado)
   - `EXIF_VIDEOS`: Solo EXIF de videos (requiere BASIC previo, muy costoso)
   - `EXIF_ALL`: EXIF de imágenes + videos (requiere BASIC previo, muy costoso)
+  - `BEST_DATE`: Calcula mejor fecha disponible (requiere EXIF previo, rápido)
   - `FULL`: Hash + EXIF completo (requiere BASIC previo, extremadamente costoso)
 - **Incremental workflow**: BASIC siempre primero, luego estrategias específicas según necesidad
 - **No Auto-fetch**: Repositorio pasivo. Si el dato no está en caché, retorna None o estructura vacía.
-- **Consultas**: `get_file_metadata(path)`, `get_hash(path)`, `get_exif(path)` - Solo lectura (O(1)).
+- **Consultas**: `get_file_metadata(path)`, `get_hash(path)`, `get_exif(path)`, `get_best_date(path)` - Solo lectura (O(1)).
 - **Cancelación cooperativa**: `stop_check_callback` verifica cancelación en cada iteración del loop
 - **Progress throttling**: Reporta cada 1% o cada 100 archivos (evita saturación Qt en datasets grandes)
 - **Cache Management**:
