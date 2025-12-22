@@ -587,19 +587,20 @@ class FileInfoRepositoryCache:
             return metadata
         
         # Extraer EXIF de videos (fuera del lock porque es muy costoso)
-        creation_date = None
+        video_metadata = None
         try:
             from utils.file_utils import get_exif_from_video
             
-            creation_date = get_exif_from_video(path)
+            video_metadata = get_exif_from_video(path)
             
-            if creation_date:
-                self._logger.debug(f"EXIF extraído para video {path.name}: {creation_date}")
+            if video_metadata:
+                field_count = len(video_metadata)
+                self._logger.debug(f"Metadatos de video extraídos para {path.name}: {field_count} campos")
             else:
-                self._logger.debug(f"No se encontró fecha EXIF para video {path.name}")
+                self._logger.debug(f"No se encontraron metadatos para video {path.name}")
                 
         except Exception as e:
-            self._logger.warning(f"Error extrayendo EXIF de video {path.name}: {e}")
+            self._logger.warning(f"Error extrayendo metadatos de video {path.name}: {e}")
         
         # Helper para convertir datetime a string EXIF
         def _datetime_to_exif_str(dt: datetime) -> str:
@@ -607,24 +608,55 @@ class FileInfoRepositoryCache:
             return dt.strftime('%Y:%m:%d %H:%M:%S')
         
         # Actualizar metadata con lock (thread-safe)
-        if creation_date:
+        if video_metadata:
             with self._lock:
                 # Volver a obtener metadata del caché por si cambió
                 cached_metadata = self._cache.get(path)
-                if cached_metadata:
-                    # Para videos, solemos tener una única fecha de creación
-                    # La mapeamos a DateTimeOriginal y DateTime para consistencia
-                    # CRÍTICO: Convertir datetime object a string EXIF porque FileMetadata espera strings
-                    creation_date_str = _datetime_to_exif_str(creation_date)
-                    cached_metadata.exif_DateTimeOriginal = creation_date_str
-                    cached_metadata.exif_DateTime = creation_date_str
-                    self._logger.debug(f"EXIF asignado en caché para video {path.name}")
-                else:
-                    # Raro pero posible: se eliminó del caché entre tanto
-                    creation_date_str = _datetime_to_exif_str(creation_date)
-                    metadata.exif_DateTimeOriginal = creation_date_str
-                    metadata.exif_DateTime = creation_date_str
+                target_metadata = cached_metadata if cached_metadata else metadata
+                
+                # Mapear creation_time (fecha de creación)
+                if 'creation_time' in video_metadata and video_metadata['creation_time']:
+                    creation_date_str = _datetime_to_exif_str(video_metadata['creation_time'])
+                    target_metadata.exif_DateTimeOriginal = creation_date_str
+                    target_metadata.exif_DateTime = creation_date_str
+                
+                # Mapear dimensiones de video
+                if 'width' in video_metadata and video_metadata['width']:
+                    target_metadata.exif_ImageWidth = video_metadata['width']
+                if 'height' in video_metadata and video_metadata['height']:
+                    target_metadata.exif_ImageLength = video_metadata['height']
+                
+                # Mapear información de duración
+                # Nota: FileMetadata no tiene campo específico para duration, 
+                # pero se podría agregar en el futuro
+                
+                # Mapear información de codec y formato
+                # Nota: FileMetadata no tiene campos específicos para codec/format,
+                # pero esta información está disponible si se agregan campos en el futuro
+                
+                # Mapear encoder (Software)
+                if 'encoder' in video_metadata and video_metadata['encoder']:
+                    target_metadata.exif_Software = video_metadata['encoder']
+                
+                # Mapear duración del video
+                if 'duration' in video_metadata and video_metadata['duration']:
+                    target_metadata.exif_VideoDuration = video_metadata['duration']
+                
+                if not cached_metadata:
+                    # Si no estaba en caché, agregarlo
                     self._cache[path] = metadata
+                
+                fields_set = sum([
+                    1 if 'creation_time' in video_metadata else 0,
+                    1 if 'width' in video_metadata else 0,
+                    1 if 'height' in video_metadata else 0,
+                    1 if 'encoder' in video_metadata else 0,
+                    1 if 'duration' in video_metadata else 0,
+                ])
+                self._logger.debug(
+                    f"Metadatos de video asignados en caché para {path.name}: "
+                    f"{fields_set} campos mapeados a FileMetadata"
+                )
         
         return metadata
     

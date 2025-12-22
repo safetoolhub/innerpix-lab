@@ -391,11 +391,14 @@ def get_all_metadata_from_file(file_path: Path, force_search: bool = False) -> '
     try:
         repo = FileInfoRepositoryCache.get_instance()
         
-        # 1. Intentar obtener metadata completo del caché primero
-        cached_metadata = repo.get_file_metadata(file_path)
-        if cached_metadata:
-            _logger.debug(f"Metadatos completos obtenidos del caché para {file_path.name}")
-            return cached_metadata
+        # 1. Intentar obtener metadata completo del caché primero (solo si NO es force_search)
+        if not force_search:
+            cached_metadata = repo.get_file_metadata(file_path)
+            if cached_metadata:
+                _logger.debug(f"Metadatos completos obtenidos del caché para {file_path.name}")
+                return cached_metadata
+        else:
+            _logger.debug(f"force_search=True: ignorando caché, extrayendo metadatos directamente para {file_path.name}")
         
         # 2. Si no está en caché completo, construir metadatos paso a paso
         # usando métodos dedicados del caché cuando sea posible
@@ -437,29 +440,11 @@ def get_all_metadata_from_file(file_path: Path, force_search: bool = False) -> '
             except Exception as e:
                 _logger.debug(f"No se pudo calcular hash para {file_path.name}: {e}")
         
-        # 2c. EXIF - intentar del caché primero
-        cached_exif = repo.get_exif(file_path)
-        if cached_exif:
-            # Mapear EXIF del caché al formato FileMetadata
-            def datetime_to_str(dt):
-                """Convierte datetime a string ISO format"""
-                if dt is None:
-                    return None
-                if isinstance(dt, datetime):
-                    return dt.isoformat()
-                return str(dt)
-            
-            metadata.exif_DateTimeOriginal = datetime_to_str(cached_exif.get('DateTimeOriginal'))
-            metadata.exif_DateTime = datetime_to_str(cached_exif.get('DateTime'))
-            metadata.exif_DateTimeDigitized = datetime_to_str(cached_exif.get('DateTimeDigitized'))
-            metadata.exif_GPSDateStamp = datetime_to_str(cached_exif.get('GPSDateStamp'))
-            metadata.exif_GPSTimeStamp = datetime_to_str(cached_exif.get('GPSTimeStamp'))
-            _logger.debug(f"EXIF obtenido del caché para {file_path.name}: {len(cached_exif)} campos")
-        else:
-            # Si no está en caché, extraer según tipo y configuración (o force_search)
-            
-            # 2c.1. EXIF de imágenes (si está habilitado o force_search=True)
-            if is_image_file(file_path) and (force_search or settings_manager.get_precalculate_image_exif()):
+        # 2c. EXIF - Con force_search, extraer directamente; sin force_search, intentar caché primero
+        if force_search:
+            # FORCE SEARCH: Extraer directamente ignorando caché
+            # 2c.1. EXIF de imágenes
+            if is_image_file(file_path):
                 try:
                     exif_data = get_exif_from_image(file_path)
                     if exif_data:
@@ -478,23 +463,124 @@ def get_all_metadata_from_file(file_path: Path, force_search: bool = False) -> '
                         metadata.exif_DateTimeDigitized = datetime_to_str(exif_data.get('DateTimeDigitized'))
                         metadata.exif_GPSDateStamp = datetime_to_str(exif_data.get('GPSDateStamp'))
                         metadata.exif_GPSTimeStamp = datetime_to_str(exif_data.get('GPSTimeStamp'))
-                        # Campos adicionales disponibles en get_exif_from_image pero no en FileMetadata:
-                        # OffsetTimeOriginal, Software (se pierden en esta conversión)
-                        _logger.debug(f"EXIF de imagen extraído directamente para {file_path.name}")
+                        metadata.exif_SubSecTimeOriginal = exif_data.get('SubSecTimeOriginal')
+                        metadata.exif_OffsetTimeOriginal = exif_data.get('OffsetTimeOriginal')
+                        metadata.exif_Software = exif_data.get('Software')
+                        metadata.exif_ExifVersion = exif_data.get('ExifVersion')
+                        _logger.debug(f"EXIF de imagen extraído directamente (force_search) para {file_path.name}")
                 except Exception as e:
                     _logger.debug(f"No se pudo extraer EXIF de imagen para {file_path.name}: {e}")
             
-            # 2c.2. EXIF de videos (si está habilitado o force_search=True)
-            elif is_video_file(file_path) and (force_search or settings_manager.get_precalculate_video_exif()):
+            # 2c.2. EXIF de videos
+            elif is_video_file(file_path):
                 try:
-                    video_date = get_exif_from_video(file_path)
-                    if video_date:
-                        # Para videos, guardar la fecha en DateTime (campo genérico)
-                        if isinstance(video_date, datetime):
-                            metadata.exif_DateTime = video_date.isoformat()
-                        _logger.debug(f"EXIF de video extraído directamente para {file_path.name}")
+                    video_metadata = get_exif_from_video(file_path)
+                    if video_metadata:
+                        # Mapear fecha de creación
+                        if 'creation_time' in video_metadata and video_metadata['creation_time']:
+                            creation_time = video_metadata['creation_time']
+                            if isinstance(creation_time, datetime):
+                                # IMPORTANTE: Usar formato EXIF string 'YYYY:MM:DD HH:MM:SS' no ISO
+                                exif_date_str = creation_time.strftime('%Y:%m:%d %H:%M:%S')
+                                metadata.exif_DateTimeOriginal = exif_date_str
+                                metadata.exif_DateTime = exif_date_str
+                                _logger.debug(f"Video EXIF fecha mapeada: DateTimeOriginal={exif_date_str}, DateTime={exif_date_str}")
+                        
+                        # Mapear dimensiones
+                        if 'width' in video_metadata and video_metadata['width']:
+                            metadata.exif_ImageWidth = video_metadata['width']
+                        if 'height' in video_metadata and video_metadata['height']:
+                            metadata.exif_ImageLength = video_metadata['height']
+                        
+                        # Mapear duración
+                        if 'duration' in video_metadata and video_metadata['duration']:
+                            metadata.exif_VideoDuration = video_metadata['duration']
+                        
+                        # Mapear encoder (Software)
+                        if 'encoder' in video_metadata and video_metadata['encoder']:
+                            metadata.exif_Software = video_metadata['encoder']
+                        
+                        _logger.debug(f"EXIF de video extraído directamente (force_search) para {file_path.name}: {len(video_metadata)} campos")
+                        _logger.debug(f"Estado metadata después de mapeo: has_exif={metadata.has_exif}, DateTimeOriginal={metadata.exif_DateTimeOriginal}, DateTime={metadata.exif_DateTime}")
                 except Exception as e:
                     _logger.debug(f"No se pudo extraer EXIF de video para {file_path.name}: {e}")
+        else:
+            # SIN FORCE SEARCH: Intentar del caché primero
+            cached_exif = repo.get_exif(file_path)
+            if cached_exif:
+                # Mapear EXIF del caché al formato FileMetadata
+                def datetime_to_str(dt):
+                    """Convierte datetime a string ISO format"""
+                    if dt is None:
+                        return None
+                    if isinstance(dt, datetime):
+                        return dt.isoformat()
+                    return str(dt)
+                
+                metadata.exif_DateTimeOriginal = datetime_to_str(cached_exif.get('DateTimeOriginal'))
+                metadata.exif_DateTime = datetime_to_str(cached_exif.get('DateTime'))
+                metadata.exif_DateTimeDigitized = datetime_to_str(cached_exif.get('DateTimeDigitized'))
+                metadata.exif_GPSDateStamp = datetime_to_str(cached_exif.get('GPSDateStamp'))
+                metadata.exif_GPSTimeStamp = datetime_to_str(cached_exif.get('GPSTimeStamp'))
+                _logger.debug(f"EXIF obtenido del caché para {file_path.name}: {len(cached_exif)} campos")
+            else:
+                # Si no está en caché, extraer según tipo y configuración
+                
+                # 2c.1. EXIF de imágenes (si está habilitado)
+                if is_image_file(file_path) and settings_manager.get_precalculate_image_exif():
+                    try:
+                        exif_data = get_exif_from_image(file_path)
+                        if exif_data:
+                            # Mapear los campos EXIF al formato de FileMetadata
+                            # get_exif_from_image devuelve datetime objects, necesitamos convertirlos a strings
+                            def datetime_to_str(dt):
+                                """Convierte datetime a string ISO format"""
+                                if dt is None:
+                                    return None
+                                if isinstance(dt, datetime):
+                                    return dt.isoformat()
+                                return str(dt)
+                            
+                            metadata.exif_DateTimeOriginal = datetime_to_str(exif_data.get('DateTimeOriginal'))
+                            metadata.exif_DateTime = datetime_to_str(exif_data.get('CreateDate') or exif_data.get('DateTime'))
+                            metadata.exif_DateTimeDigitized = datetime_to_str(exif_data.get('DateTimeDigitized'))
+                            metadata.exif_GPSDateStamp = datetime_to_str(exif_data.get('GPSDateStamp'))
+                            metadata.exif_GPSTimeStamp = datetime_to_str(exif_data.get('GPSTimeStamp'))
+                            _logger.debug(f"EXIF de imagen extraído directamente para {file_path.name}")
+                    except Exception as e:
+                        _logger.debug(f"No se pudo extraer EXIF de imagen para {file_path.name}: {e}")
+                
+                # 2c.2. EXIF de videos (si está habilitado)
+                elif is_video_file(file_path) and settings_manager.get_precalculate_video_exif():
+                    try:
+                        video_metadata = get_exif_from_video(file_path)
+                        if video_metadata:
+                            # Mapear fecha de creación
+                            if 'creation_time' in video_metadata and video_metadata['creation_time']:
+                                creation_time = video_metadata['creation_time']
+                                if isinstance(creation_time, datetime):
+                                    # IMPORTANTE: Usar formato EXIF string 'YYYY:MM:DD HH:MM:SS' no ISO
+                                    exif_date_str = creation_time.strftime('%Y:%m:%d %H:%M:%S')
+                                    metadata.exif_DateTimeOriginal = exif_date_str
+                                    metadata.exif_DateTime = exif_date_str
+                            
+                            # Mapear dimensiones
+                            if 'width' in video_metadata and video_metadata['width']:
+                                metadata.exif_ImageWidth = video_metadata['width']
+                            if 'height' in video_metadata and video_metadata['height']:
+                                metadata.exif_ImageLength = video_metadata['height']
+                            
+                            # Mapear duración
+                            if 'duration' in video_metadata and video_metadata['duration']:
+                                metadata.exif_VideoDuration = video_metadata['duration']
+                            
+                            # Mapear encoder (Software)
+                            if 'encoder' in video_metadata and video_metadata['encoder']:
+                                metadata.exif_Software = video_metadata['encoder']
+                            
+                            _logger.debug(f"EXIF de video extraído directamente para {file_path.name}: {len(video_metadata)} campos")
+                    except Exception as e:
+                        _logger.debug(f"No se pudo extraer EXIF de video para {file_path.name}: {e}")
         
         return metadata
         

@@ -153,7 +153,7 @@ class TestGetAllMetadataFromFileForceSearch:
                         
                         # Mock get_exif_from_video para devolver fecha
                         with patch('utils.file_utils.get_exif_from_video') as mock_video_exif:
-                            mock_video_exif.return_value = datetime(2023, 1, 15, 10, 30, 0)
+                            mock_video_exif.return_value = {'creation_time': datetime(2023, 1, 15, 10, 30, 0)}
                             
                             # Ejecutar CON force_search
                             result = get_all_metadata_from_file(test_file, force_search=True)

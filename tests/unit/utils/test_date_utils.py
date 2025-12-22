@@ -491,7 +491,7 @@ class TestGetAllFileDates:
         with patch('utils.settings_manager.settings_manager.get_precalculate_video_exif', return_value=True), \
              patch('utils.settings_manager.settings_manager.get_precalculate_image_exif', return_value=False), \
              patch('utils.settings_manager.settings_manager.get_precalculate_hashes', return_value=False), \
-             patch('utils.file_utils.get_exif_from_video', return_value=expected_video_date) as mock_get_video_metadata:
+             patch('utils.file_utils.get_exif_from_video', return_value={'creation_time': expected_video_date}) as mock_get_video_metadata:
             file_metadata = get_all_metadata_from_file(video_path)
 
             # Debe llamar a get_exif_from_video
@@ -507,7 +507,7 @@ class TestGetAllFileDates:
         with patch('utils.settings_manager.settings_manager.get_precalculate_video_exif', return_value=True), \
              patch('utils.settings_manager.settings_manager.get_precalculate_image_exif', return_value=False), \
              patch('utils.settings_manager.settings_manager.get_precalculate_hashes', return_value=False), \
-             patch('utils.file_utils.get_exif_from_video', return_value=None) as mock_get_video_metadata:
+             patch('utils.file_utils.get_exif_from_video', return_value={}) as mock_get_video_metadata:
             file_metadata = get_all_metadata_from_file(video_path)
 
             # Debe llamar a get_exif_from_video

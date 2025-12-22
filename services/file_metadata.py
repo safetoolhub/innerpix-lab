@@ -63,6 +63,7 @@ class FileMetadata:
     exif_SubSecTimeOriginal: Optional[str] = None
     exif_OffsetTimeOriginal: Optional[str] = None
     exif_Software: Optional[str] = None
+    exif_VideoDuration: Optional[str] = None  # Duración de video (ej: "5:23 min")
     
     @property
     def extension(self) -> str:
@@ -83,7 +84,8 @@ class FileMetadata:
             self.exif_ExifVersion is not None,
             self.exif_SubSecTimeOriginal is not None,
             self.exif_OffsetTimeOriginal is not None,
-            self.exif_Software is not None
+            self.exif_Software is not None,
+            self.exif_VideoDuration is not None
         ])
     
     @property
@@ -168,6 +170,7 @@ class FileMetadata:
             'exif_SubSecTimeOriginal': self.exif_SubSecTimeOriginal,
             'exif_OffsetTimeOriginal': self.exif_OffsetTimeOriginal,
             'exif_Software': self.exif_Software,
+            'exif_VideoDuration': self.exif_VideoDuration,
         }
     
     @classmethod
@@ -212,6 +215,7 @@ class FileMetadata:
             exif_SubSecTimeOriginal=data.get('exif_SubSecTimeOriginal'),
             exif_OffsetTimeOriginal=data.get('exif_OffsetTimeOriginal'),
             exif_Software=data.get('exif_Software'),
+            exif_VideoDuration=data.get('exif_VideoDuration'),
         )
     
     def get_summary(self, verbose: bool = False) -> str:

@@ -188,6 +188,14 @@ class IconManager:
         # Discos y almacenamiento
         'harddisk': 'mdi6.harddisk',
         'database': 'mdi6.database',
+        'database-refresh': 'mdi6.database-refresh',
+        'database-check': 'mdi6.database-check',
+        
+        # Multimedia y video
+        'monitor': 'mdi6.monitor',
+        'file-video': 'mdi6.file-video',
+        'folder-zip': 'mdi6.folder-zip',
+        'palette': 'mdi6.palette',
     }
     
     def __init__(self):

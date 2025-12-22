@@ -6,7 +6,7 @@ import os
 from datetime import datetime
 from pathlib import Path
 from PyQt6.QtWidgets import QMessageBox
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QSize
 from utils.format_utils import format_size
 from utils.platform_utils import open_file_with_default_app, open_folder_in_explorer
 from utils.logger import get_logger
@@ -66,13 +66,20 @@ def open_folder(folder_path: Path, parent_widget=None, select_file: Path = None)
                                    error_callback=show_error)
 
 
-def show_file_details_dialog(file_path: Path, parent_widget=None, additional_info=None):
+def show_file_details_dialog(file_path: Path, parent_widget=None, additional_info=None, force_metadata_search=False):
     """
     Muestra un diálogo con detalles completos del archivo usando toda la información
     disponible en FileMetadata desde el FileInfoRepositoryCache.
     
     ÚNICA FUENTE DE VERDAD: FileInfoRepositoryCache.get_file_metadata()
     Esta función obtiene directamente los metadatos del repositorio de caché.
+    
+    Args:
+        file_path: Ruta del archivo a mostrar
+        parent_widget: Widget padre para el diálogo
+        additional_info: Información adicional contextual (opcional)
+        force_metadata_search: Si True, fuerza la extracción completa de metadatos
+                              ignorando caché y configuración (hash + EXIF)
     """
     from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel, 
                                 QPushButton, QFrame, QGroupBox, QWidget, QScrollArea)
@@ -80,23 +87,40 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     from ui.styles.design_system import DesignSystem
     from ui.styles.icons import icon_manager
     from services.file_metadata_repository_cache import FileInfoRepositoryCache
+    from utils.date_utils import get_all_metadata_from_file
     
-    logger.debug(f"Mostrando detalles del archivo: {file_path.name}")
+    logger.debug(f"Mostrando detalles del archivo: {file_path.name} (force_search={force_metadata_search})")
     
     # === 1. RECOPILACIÓN DE DATOS ===
     
-    # Obtener TODA la información de metadatos desde el repositorio de caché
-    # Esta función es la ÚNICA fuente de verdad para metadatos de archivos
-    repo = FileInfoRepositoryCache.get_instance()
-    metadata = repo.get_file_metadata(file_path)
-    
-    if metadata is None:
-        logger.warning(f"No se encontraron metadatos en caché para {file_path}")
-        # Fallback: intentar obtener con get_all_metadata_from_file si no está en caché
-        from utils.date_utils import get_all_metadata_from_file
+    if force_metadata_search:
+        # Búsqueda forzada: extraer TODOS los metadatos disponibles (hash + EXIF)
+        logger.info(f"Búsqueda forzada de metadatos completos para: {file_path.name}")
         metadata = get_all_metadata_from_file(file_path, force_search=True)
+    else:
+        # Búsqueda normal: usar caché primero
+        repo = FileInfoRepositoryCache.get_instance()
+        metadata = repo.get_file_metadata(file_path)
+        
+        if metadata is None:
+            logger.warning(f"No se encontraron metadatos en caché para {file_path}")
+            # Fallback: intentar obtener con get_all_metadata_from_file si no está en caché
+            metadata = get_all_metadata_from_file(file_path, force_search=True)
     
     logger.debug(f"Metadatos obtenidos - Size: {metadata.fs_size}, Hash: {metadata.has_hash}, EXIF: {metadata.has_exif}, Best Date: {metadata.has_best_date}")
+    if metadata.is_video:
+        logger.debug(f"Video metadata EXIF - DateTimeOriginal: {metadata.exif_DateTimeOriginal}, DateTime: {metadata.exif_DateTime}, Width: {metadata.exif_ImageWidth}, Height: {metadata.exif_ImageLength}, Duration: {metadata.exif_VideoDuration}")
+    
+    # Para videos con force_search, extraer metadatos técnicos adicionales
+    video_metadata = None
+    if force_metadata_search and metadata.is_video:
+        try:
+            from utils.file_utils import get_exif_from_video
+            video_metadata = get_exif_from_video(file_path)
+            if video_metadata:
+                logger.debug(f"Metadatos técnicos de video obtenidos: {len(video_metadata)} campos")
+        except Exception as e:
+            logger.warning(f"Error obteniendo metadatos técnicos de video: {e}")
     
     # === 2. CONSTRUCCIÓN DE LA IU ===
     
@@ -124,6 +148,44 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     title_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_2XL}px; font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD}; color: {DesignSystem.COLOR_TEXT};")
     header_layout.addWidget(title_label)
     header_layout.addStretch()
+    
+    # Botón de búsqueda completa de metadatos (solo si no se ha forzado ya)
+    if not force_metadata_search:
+        refresh_btn = QPushButton()
+        refresh_icon = icon_manager.get_icon('database-refresh', size=DesignSystem.ICON_SIZE_MD, color=DesignSystem.COLOR_ACCENT)
+        refresh_btn.setIcon(refresh_icon)
+        refresh_btn.setIconSize(QSize(DesignSystem.ICON_SIZE_MD, DesignSystem.ICON_SIZE_MD))
+        refresh_btn.setFixedSize(DesignSystem.ICON_SIZE_LG + 8, DesignSystem.ICON_SIZE_LG + 8)
+        refresh_btn.setToolTip(
+            "Buscar todos los metadatos disponibles\n"
+            "Extrae hash SHA256 y metadatos EXIF completos\n"
+            "aunque no se hayan obtenido en el análisis inicial"
+        )
+        refresh_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
+                border-radius: {DesignSystem.RADIUS_MD}px;
+                padding: {DesignSystem.SPACE_4}px;
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
+                border-color: {DesignSystem.COLOR_ACCENT};
+            }}
+            QPushButton:pressed {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+            }}
+        """)
+        refresh_btn.clicked.connect(lambda: _reload_with_full_metadata(file_path, parent_widget, additional_info, dialog))
+        header_layout.addWidget(refresh_btn)
+    else:
+        # Indicador de que se realizó búsqueda completa
+        search_indicator = QLabel()
+        search_icon = icon_manager.get_icon('database-check', size=DesignSystem.ICON_SIZE_MD, color=DesignSystem.COLOR_SUCCESS)
+        search_indicator.setPixmap(search_icon.pixmap(DesignSystem.ICON_SIZE_MD, DesignSystem.ICON_SIZE_MD))
+        search_indicator.setToolTip("Metadatos completos cargados (búsqueda forzada)")
+        header_layout.addWidget(search_indicator)
+    
     main_layout.addLayout(header_layout)
     
     # Área de scroll
@@ -184,6 +246,10 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     
     # SECCIÓN: FECHAS EXIF (Penúltima posición)
     scroll_layout.addWidget(_create_dates_section(metadata))
+    
+    # SECCIÓN: METADATOS TÉCNICOS DE VIDEO (Si es video y hay metadatos)
+    if metadata.is_video and video_metadata:
+        scroll_layout.addWidget(_create_video_metadata_section(video_metadata))
     
     # SECCIÓN: METADATOS TÉCNICOS EXIF (Última posición)
     if metadata.has_exif:
@@ -359,8 +425,11 @@ def _create_dates_section(metadata: 'FileMetadata'):
     # === FECHAS EXIF ===
     exif_dates_added = False
     
+    logger.debug(f"_create_dates_section - Entrada: DateTimeOriginal={metadata.exif_DateTimeOriginal}, DateTime={metadata.exif_DateTime}, DateTimeDigitized={metadata.exif_DateTimeDigitized}")
+    
     # DateTimeOriginal (fecha de captura principal)
     exif_date_time_original = _parse_exif_date(metadata.exif_DateTimeOriginal)
+    logger.debug(f"_parse_exif_date(DateTimeOriginal) retornó: {exif_date_time_original}")
     if exif_date_time_original:
         tz_info = ""
         if metadata.exif_OffsetTimeOriginal:
@@ -377,6 +446,7 @@ def _create_dates_section(metadata: 'FileMetadata'):
     
     # CreateDate (DateTime en FileMetadata)
     exif_create_date = _parse_exif_date(metadata.exif_DateTime)
+    logger.debug(f"_parse_exif_date(DateTime/CreateDate) retornó: {exif_create_date}")
     if exif_create_date:
         exif_row = _create_date_row(
             "EXIF CreateDate", 
@@ -596,6 +666,143 @@ def _open_folder_and_close(file_path: Path, dialog):
     """Abre la carpeta del archivo y cierra el diálogo"""
     open_folder(file_path.parent)
     dialog.accept()
+
+
+def _reload_with_full_metadata(file_path: Path, parent_widget, additional_info, current_dialog):
+    """Recarga el diálogo con búsqueda completa de metadatos
+    
+    Args:
+        file_path: Ruta del archivo a analizar
+        parent_widget: Widget padre
+        additional_info: Información adicional
+        current_dialog: Diálogo actual a cerrar
+    """
+    logger.info(f"Recargando diálogo con búsqueda forzada de metadatos para: {file_path.name}")
+    
+    # Cerrar el diálogo actual
+    current_dialog.accept()
+    
+    # Reabrir con force_metadata_search=True
+    show_file_details_dialog(
+        file_path=file_path,
+        parent_widget=parent_widget,
+        additional_info=additional_info,
+        force_metadata_search=True
+    )
+
+
+
+
+def _create_video_metadata_section(video_metadata: dict):
+    """Crea una sección para mostrar metadatos técnicos de video
+    
+    Args:
+        video_metadata: Diccionario con metadatos técnicos del video desde get_exif_from_video()
+        
+    Returns:
+        QGroupBox con la sección de metadatos de video
+    """
+    from PyQt6.QtWidgets import QGroupBox, QVBoxLayout
+    from ui.styles.design_system import DesignSystem
+    
+    video_items = []
+    
+    # Dimensiones
+    if 'width' in video_metadata and 'height' in video_metadata:
+        resolution = f"{video_metadata['width']} × {video_metadata['height']}"
+        video_items.append((
+            "Resolución",
+            resolution,
+            "Dimensiones del video en píxeles",
+            'monitor',
+            DesignSystem.COLOR_INFO
+        ))
+    
+    # Duración
+    if 'duration' in video_metadata:
+        video_items.append((
+            "Duración",
+            video_metadata['duration'],
+            "Duración total del video",
+            'clock-outline',
+            DesignSystem.COLOR_INFO
+        ))
+    
+    # Frame rate
+    if 'fps' in video_metadata:
+        video_items.append((
+            "Frames por segundo",
+            video_metadata['fps'],
+            "Tasa de fotogramas del video",
+            'speedometer',
+            DesignSystem.COLOR_INFO
+        ))
+    
+    # Códec de video
+    if 'video_codec' in video_metadata:
+        codec_display = video_metadata['video_codec'].upper()
+        if 'video_codec_long' in video_metadata:
+            codec_display = f"{codec_display} ({video_metadata['video_codec_long']})"
+        video_items.append((
+            "Códec de video",
+            codec_display,
+            "Códec utilizado para comprimir el video",
+            'file-video',
+            DesignSystem.COLOR_INFO
+        ))
+    
+    # Bitrate
+    if 'bitrate' in video_metadata:
+        video_items.append((
+            "Bitrate",
+            video_metadata['bitrate'],
+            "Tasa de bits del video",
+            'speedometer',
+            DesignSystem.COLOR_INFO
+        ))
+    
+    # Formato
+    if 'format_long' in video_metadata:
+        video_items.append((
+            "Formato contenedor",
+            video_metadata['format_long'],
+            "Formato del archivo contenedor",
+            'folder-zip',
+            DesignSystem.COLOR_INFO
+        ))
+    elif 'format' in video_metadata:
+        video_items.append((
+            "Formato",
+            video_metadata['format'],
+            "Formato del archivo",
+            'folder-zip',
+            DesignSystem.COLOR_INFO
+        ))
+    
+    # Pixel format
+    if 'pixel_format' in video_metadata:
+        video_items.append((
+            "Formato de píxel",
+            video_metadata['pixel_format'],
+            "Formato de representación de color",
+            'palette',
+            DesignSystem.COLOR_INFO
+        ))
+    
+    # Encoder
+    if 'encoder' in video_metadata:
+        video_items.append((
+            "Codificador",
+            video_metadata['encoder'],
+            "Software usado para codificar el video",
+            'application-cog',
+            DesignSystem.COLOR_INFO
+        ))
+    
+    if not video_items:
+        return None
+    
+    return _create_enhanced_section("Metadatos Técnicos de Video (ffprobe)", video_items)
 
 
 
