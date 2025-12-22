@@ -97,7 +97,7 @@ class FileOrganizer(BaseService):
         # Si tenemos metadata_cache, lo usamos para listar archivos con O(0) IO
         all_files = []
         if metadata_cache:
-            self.logger.info(f"Usando caché de metadatos ({metadata_cache.get_stats()['size']} archivos)")
+            self.logger.info(f"Usando caché de metadatos ({metadata_cache.get_cache_statistics().total_files} archivos)")
             
             # Filtrar archivos que pertenecen a root_directory
             # Asumimos que metadata_cache tiene items con path.

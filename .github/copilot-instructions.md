@@ -43,7 +43,7 @@ PyQt6 desktop app for photo/video management oriented to privacy.
   - Formato versionado (version=1) para compatibilidad futura
   - Thread-safe con manejo robusto de errores (IOError, FileNotFoundError, ValueError)
 - **LRU Eviction**: Score-based (EXIF video=20, EXIF imagen=12, hash=5) + age penalty
-- **Stats**: `get_stats()` → `RepositoryStats` (total_files, files_with_hash, files_with_exif, cache_hits, cache_misses, hit_rate)
+- **Stats**: `get_cache_statistics()` → `RepositoryStats` (total_files, files_with_hash, files_with_exif, cache_hits, cache_misses, hit_rate)
 - **Thread-safe**: RLock para acceso concurrente + singleton lock
 - **Magic methods**: `len(repo)`, `path in repo`, `repo[path]`
 - **Future-proof**: Preparado para SQLite via Protocol interface (IFileRepository)

@@ -112,7 +112,7 @@ class IFileRepository(Protocol):
     def set_max_entries(self, max_entries: int) -> None: ...
     
     # Estadísticas
-    def get_stats(self) -> 'RepositoryStats': ...
+    def get_cache_statistics(self) -> 'RepositoryStats': ...
     
     # Persistencia
     def save_to_disk(self, path: Path) -> None: ...
@@ -948,7 +948,7 @@ class FileInfoRepositoryCache:
                     f"Límite de entradas actualizado: {old_max} -> {self._max_entries}"
                 )
     
-    def get_stats(self) -> RepositoryStats:
+    def get_cache_statistics(self) -> RepositoryStats:
         """
         Obtiene estadísticas del repositorio.
         
@@ -971,16 +971,16 @@ class FileInfoRepositoryCache:
             hit_rate=hit_rate
         )
     
-    def log_stats(self, level: int = logging.INFO) -> None:
+    def log_cache_statistics(self, level: int = logging.INFO) -> None:
         """
         Registra estadísticas en el log con el nivel especificado.
         
         Args:
             level: Nivel de logging (ej: logging.DEBUG, logging.INFO, logging.WARNING)
         """
-        stats = self.get_stats()
+        stats = self.get_cache_statistics()
         self._logger.log(level,
-            f"Repositorio - "
+            f"[REPO CACHE STATUS] - "
             f"Files: {stats.total_files}, "
             f"With hash: {stats.files_with_hash}, "
             f"With EXIF: {stats.files_with_exif}, "

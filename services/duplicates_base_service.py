@@ -7,10 +7,12 @@ Proporciona lógica unificada para:
 - Procesamiento de grupos con dry-run
 """
 
+import logging
 from pathlib import Path
 from typing import List, Callable, Optional
 from dataclasses import dataclass, field
 from services.base_service import BaseService
+from services.file_metadata_repository_cache import FileInfoRepositoryCache
 from services.result_types import DuplicateGroup, DuplicateExecutionResult
 from utils.logger import log_section_header_relevant, log_section_footer_relevant
 
@@ -233,6 +235,10 @@ class DuplicatesBaseService(BaseService):
             result.message += f"\n\nAdvertencia: {len(result.errors)} errores encontrados"
         
         log_section_footer_relevant(self.logger, summary)
+
+        # Mostramos estadísticas de la caché al final
+        repo = FileInfoRepositoryCache.get_instance()
+        repo.log_cache_statistics(level=logging.INFO)
         
         return result
     

@@ -2,6 +2,7 @@
 Servicio para detectar y eliminar archivos de 0 bytes.
 Refactorizado para usar FileInfoRepository como fuente única de verdad.
 """
+import logging
 from pathlib import Path
 from typing import List, Optional
 
@@ -177,6 +178,10 @@ class ZeroByteService(BaseService):
         
         result.message = summary
         log_section_footer_relevant(self.logger, summary)
+
+        # Mostramos estadísticas de la caché al final
+        repo = FileInfoRepositoryCache.get_instance()
+        repo.log_cache_statistics(level=logging.INFO)
         
         self._report_progress(progress_callback, total, total, "Operación completada")
             

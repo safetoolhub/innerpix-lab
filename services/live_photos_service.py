@@ -488,6 +488,10 @@ class LivePhotoService(BaseService):
             )
             log_section_footer_relevant(self.logger, summary)
             
+            # Mostramos estadísticas de la caché al final
+            repo = FileInfoRepositoryCache.get_instance()
+            repo.log_cache_statistics(level=logging.INFO)
+
             result.message = summary
             if result.backup_path:
                 result.message += f"\n\nBackup: {result.backup_path}"

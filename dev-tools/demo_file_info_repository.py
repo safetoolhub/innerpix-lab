@@ -101,7 +101,7 @@ def demo_strategies():
     # Mostrar hashes
     print("\n  Hashes calculados:")
     for file_path in files:
-        hash_val = repo.get_hash(file_path, auto_fetch=False)
+        hash_val = repo.get_hash(file_path)
         if hash_val:
             print(f"    {file_path.name}: {hash_val[:16]}...")
     
@@ -149,7 +149,7 @@ def demo_auto_fetch():
     
     # Estadísticas
     print("\n→ Estadísticas:")
-    stats = repo.get_stats()
+    stats = repo.get_cache_statistics()
     print(f"  Hits: {stats.cache_hits}")
     print(f"  Misses: {stats.cache_misses}")
     print(f"  Hit rate: {stats.hit_rate:.1f}%")

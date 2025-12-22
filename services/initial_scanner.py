@@ -188,7 +188,7 @@ class InitialScanner:
         # Log repository stats after Phase 1 (DEBUG)
         if self.logger.isEnabledFor(logging.DEBUG):
             self.logger.debug("=== Repository Stats after Phase 1 (BASIC) ===")
-            repo.log_stats(level=logging.DEBUG)  # DEBUG
+            repo.log_cache_statistics(level=logging.DEBUG)  # DEBUG
         
         # ==================== PHASE 2: HASH CALCULATION ====================
         if calculate_hashes and supported_files and not self._should_stop:
@@ -244,7 +244,7 @@ class InitialScanner:
             # Log repository stats after Phase 2 (DEBUG)
             if self.logger.isEnabledFor(logging.DEBUG):
                 self.logger.debug("=== Repository Stats after Phase 2 (HASH) ===")
-                repo.log_stats(level=logging.DEBUG)  # DEBUG
+                repo.log_cache_statistics(level=logging.DEBUG)  # DEBUG
         
         # ==================== PHASE 3: IMAGE EXIF ====================
         if extract_image_exif and images and not self._should_stop:
@@ -300,7 +300,7 @@ class InitialScanner:
             # Log repository stats after Phase 3 (DEBUG)
             if self.logger.isEnabledFor(logging.DEBUG):
                 self.logger.debug("=== Repository Stats after Phase 3 (EXIF_IMAGES) ===")
-                repo.log_stats(level=logging.DEBUG)  # DEBUG
+                repo.log_cache_statistics(level=logging.DEBUG)  # DEBUG
         
         # ==================== PHASE 4: VIDEO EXIF ====================
         if extract_video_exif and videos and not self._should_stop:
@@ -356,7 +356,7 @@ class InitialScanner:
             # Log repository stats after Phase 4 (DEBUG)
             if self.logger.isEnabledFor(logging.DEBUG):
                 self.logger.debug("=== Repository Stats after Phase 4 (EXIF_VIDEOS) ===")
-                repo.log_stats(level=logging.DEBUG)  # DEBUG
+                repo.log_cache_statistics(level=logging.DEBUG)  # DEBUG
         
         # ==================== FINALIZATION ====================
         result = self._create_result_from_data(
@@ -365,14 +365,12 @@ class InitialScanner:
         )
         
         # Log statistics
-        stats = repo.get_stats()
+
         scan_status = "cancelado" if self._should_stop else "completado"
         self.logger.info(
-            f"Scan {scan_status}: {stats.total_files} files in repository, "
-            f"{stats.files_with_hash} with hashes, "
-            f"{stats.files_with_exif} with EXIF"
-        )
-        
+            f"Scan {scan_status}")
+        repo.log_cache_statistics(level=logging.DEBUG)
+
         # Log detailed metadata information (DEBUG level)
         if self.logger.isEnabledFor(10):  # DEBUG = 10
             self.logger.debug("=== FileMetadata Repository Contents ===")

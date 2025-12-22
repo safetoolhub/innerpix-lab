@@ -3,6 +3,7 @@ Eliminador de HEIC Duplicados
 Refactorizado para usar MetadataCache.
 """
 
+import logging
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Set, Tuple, Any
@@ -403,6 +404,10 @@ class HeicService(BaseService):
             result.message += f"\n\nBackup: {result.backup_path}"
             
         log_section_footer_relevant(self.logger, summary)
+        
+        # Mostramos estadísticas de la caché al final
+        repo = FileInfoRepositoryCache.get_instance()
+        repo.log_cache_statistics(level=logging.INFO)
         return result
 
     def _create_empty_result(self) -> HeicAnalysisResult:
