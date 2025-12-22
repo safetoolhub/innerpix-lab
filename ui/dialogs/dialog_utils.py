@@ -8,7 +8,6 @@ from pathlib import Path
 from PyQt6.QtWidgets import QMessageBox
 from PyQt6.QtCore import Qt
 from utils.format_utils import format_size
-from utils.date_utils import get_date_from_file, get_all_file_dates, select_chosen_date, extract_date_from_filename
 from utils.platform_utils import open_file_with_default_app, open_folder_in_explorer
 from utils.logger import get_logger
 
@@ -149,6 +148,10 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     
     scroll_layout.addWidget(_create_enhanced_section("Información General", general_items))
     
+    # SECCIÓN: MEJOR FECHA DISPONIBLE (Segunda posición - solo si existe)
+    if metadata.best_date:
+        scroll_layout.addWidget(_create_best_date_section(metadata))
+    
     # SECCIÓN: FECHAS DEL SISTEMA (RAW FileMetadata)
     fs_dates = [
         ("Creación (ctime)", datetime.fromtimestamp(metadata.fs_ctime).strftime('%Y-%m-%d %H:%M:%S'), "Fecha de creación del archivo en el sistema de archivos", 'file-plus', DesignSystem.COLOR_WARNING),
@@ -157,7 +160,32 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     ]
     scroll_layout.addWidget(_create_enhanced_section("Fechas del Sistema de Archivos", fs_dates))
     
-    # SECCIÓN: DATOS EXIF (De FileMetadata structure)
+    # SECCIÓN: CONTEXTO DE LA OPERACIÓN (Si hay información adicional del diálogo)
+    if additional_info:
+        add_items = []
+        for key, val in additional_info.items():
+            if key in ['metadata', 'target_path']: continue # Manejados aparte o ignorados
+            # Determinar icono y color según el tipo de información
+            icon = 'tag'
+            color = DesignSystem.COLOR_INFO
+            if 'name' in key: 
+                icon = 'file-rename'
+                color = DesignSystem.COLOR_ACCENT
+            if 'conflict' in key: 
+                icon = 'alert-decagram'
+                color = DesignSystem.COLOR_ERROR
+            
+            # Generar descripción genérica
+            description = f"Información adicional del contexto de la operación"
+            add_items.append((key.replace('_', ' ').title(), str(val), description, icon, color))
+        
+        if add_items:
+            scroll_layout.addWidget(_create_enhanced_section("Contexto de la Operación", add_items))
+    
+    # SECCIÓN: FECHAS EXIF (Penúltima posición)
+    scroll_layout.addWidget(_create_dates_section(metadata))
+    
+    # SECCIÓN: METADATOS TÉCNICOS EXIF (Última posición)
     if metadata.has_exif:
         exif_items = []
         
@@ -185,26 +213,6 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
         
         if exif_items:
             scroll_layout.addWidget(_create_enhanced_section("Metadatos Técnicos (EXIF)", exif_items))
-
-    # SECCIÓN: INFORMACIÓN ADICIONAL (Fechas y metadatos adicionales)
-    scroll_layout.addWidget(_create_dates_section(metadata))
-    
-    # SECCIÓN: CONTEXTO DE LA OPERACIÓN (Si hay información adicional del diálogo)
-    if additional_info:
-        add_items = []
-        for key, val in additional_info.items():
-            if key in ['metadata', 'target_path']: continue # Manejados aparte o ignorados
-            icon = 'tag'
-            if 'name' in key: icon = 'file-rename'
-            if 'conflict' in key: icon = 'alert-decagram'
-            add_items.append((key.replace('_', ' ').title(), str(val), icon))
-        
-        if add_items:
-            scroll_layout.addWidget(_create_material_section("Contexto de la Operación", add_items))
-
-    # SECCIÓN: MEJOR FECHA DISPONIBLE (Última sección - solo si existe)
-    if metadata.best_date:
-        scroll_layout.addWidget(_create_best_date_section(metadata))
 
     scroll_layout.addStretch()
     scroll_area.setWidget(scroll_widget)
@@ -297,104 +305,6 @@ def _create_enhanced_section(title: str, items: list):
     
     group.setLayout(layout)
     return group
-
-
-def _create_material_section(title: str, items: list, use_code_style: bool = False):
-    """Crea una sección Material Design con título e items
-    DEPRECATED: Usar _create_enhanced_section en su lugar
-    """
-    from PyQt6.QtWidgets import QGroupBox, QVBoxLayout
-    from ui.styles.design_system import DesignSystem
-    from ui.styles.icons import icon_manager
-    
-    group = QGroupBox(title)
-    group.setStyleSheet(f"""
-        QGroupBox {{
-            font-size: {DesignSystem.FONT_SIZE_LG}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-            color: {DesignSystem.COLOR_TEXT};
-            border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
-            border-radius: {DesignSystem.RADIUS_LG}px;
-            padding: {DesignSystem.SPACE_16}px;
-            margin: 0;
-            background-color: {DesignSystem.COLOR_SURFACE};
-        }}
-        QGroupBox::title {{
-            subcontrol-origin: margin;
-            left: {DesignSystem.SPACE_12}px;
-            padding: 0 {DesignSystem.SPACE_8}px;
-            color: {DesignSystem.COLOR_PRIMARY};
-            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-        }}
-    """)
-    
-    layout = QVBoxLayout()
-    layout.setContentsMargins(
-        DesignSystem.SPACE_16, DesignSystem.SPACE_24, 
-        DesignSystem.SPACE_16, DesignSystem.SPACE_16
-    )
-    layout.setSpacing(DesignSystem.SPACE_12)
-    
-    for label_text, value_text, icon_name in items:
-        row = _create_material_info_row(label_text, value_text, icon_name, use_code_style)
-        layout.addWidget(row)
-    
-    group.setLayout(layout)
-    return group
-
-
-def _create_material_info_row(label_text: str, value_text: str, icon_name: str, use_code_style: bool = False):
-    """Crea una fila de información con icono usando Material Design"""
-    from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel
-    from ui.styles.design_system import DesignSystem
-    from ui.styles.icons import icon_manager
-    
-    widget = QWidget()
-    layout = QHBoxLayout(widget)
-    layout.setContentsMargins(0, 0, 0, 0)
-    layout.setSpacing(DesignSystem.SPACE_12)
-    
-    # Icono
-    icon = icon_manager.get_icon(icon_name, size=DesignSystem.ICON_SIZE_MD, 
-                                color=DesignSystem.COLOR_TEXT_SECONDARY)
-    icon_label = QLabel()
-    icon_label.setPixmap(icon.pixmap(DesignSystem.ICON_SIZE_MD, DesignSystem.ICON_SIZE_MD))
-    icon_label.setFixedSize(DesignSystem.ICON_SIZE_MD + 4, DesignSystem.ICON_SIZE_MD + 4)
-    layout.addWidget(icon_label)
-    
-    # Label
-    label = QLabel(f"{label_text}:")
-    label.setStyleSheet(f"""
-        color: {DesignSystem.COLOR_TEXT_SECONDARY};
-        font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-        font-size: {DesignSystem.FONT_SIZE_BASE}px;
-    """)
-    label.setMinimumWidth(140)
-    layout.addWidget(label)
-    
-    # Valor
-    value = QLabel(value_text)
-    if use_code_style:
-        value.setStyleSheet(f"""
-            background-color: {DesignSystem.COLOR_BG_2};
-            color: {DesignSystem.COLOR_TEXT};
-            font-family: {DesignSystem.FONT_FAMILY_MONO};
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_10}px;
-            border-radius: {DesignSystem.RADIUS_BASE}px;
-            border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
-        """)
-        value.setWordWrap(True)
-    else:
-        value.setStyleSheet(f"""
-            color: {DesignSystem.COLOR_TEXT};
-            font-size: {DesignSystem.FONT_SIZE_BASE}px;
-        """)
-        value.setWordWrap(True)
-    
-    layout.addWidget(value, 1)
-    
-    return widget
 
 
 def _create_dates_section(metadata: 'FileMetadata'):

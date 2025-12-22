@@ -15,9 +15,9 @@ from enum import Enum
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from config import Config
-from utils.logger import get_logger, log_section_header_relevant, log_section_footer_relevant, log_section_header_discrete, log_section_footer_discrete
-from utils.date_utils import parse_renamed_name, get_date_from_file, get_all_file_dates
-from utils.file_utils import is_whatsapp_file, detect_file_source, cleanup_empty_directories
+from utils.logger import log_section_header_relevant, log_section_footer_relevant, log_section_header_discrete, log_section_footer_discrete
+from utils.date_utils import get_date_from_file
+from utils.file_utils import detect_file_source, cleanup_empty_directories
 from services.result_types import OrganizationExecutionResult, OrganizationAnalysisResult
 from services.base_service import BaseService, ProgressCallback, BackupCreationError
 from services.file_metadata_repository_cache import FileInfoRepositoryCache
