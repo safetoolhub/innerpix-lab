@@ -26,5 +26,5 @@ def create_duplicates_similar_card(on_click_callback) -> ToolCard:
 
     # Por defecto está pendiente
     card.set_status_pending("Este análisis puede tardar bastante tiempo según la cantidad de archivos, por eso no se ha realizado anteriormente.")
-    card.clicked.connect(lambda: on_click_callback('similar_files'))
+    card.clicked.connect(lambda: on_click_callback('duplicates_similar'))
     return card

@@ -268,21 +268,21 @@ class Stage3Window(BaseStage):
 
         exact_dup_card = create_duplicates_exact_card(self.analysis_results, self._on_tool_clicked)
         grid_layout.addWidget(exact_dup_card, 1, 1)
-        self.tool_cards['exact_copies'] = exact_dup_card
+        self.tool_cards['duplicates_exact'] = exact_dup_card
 
         # Fila 2: Archivos Similares + (espacio vacío)
         similar_dup_card = create_duplicates_similar_card(self._on_tool_clicked)
         grid_layout.addWidget(similar_dup_card, 2, 0)
-        self.tool_cards['similar_files'] = similar_dup_card
+        self.tool_cards['duplicates_similar'] = similar_dup_card
 
         # Fila 3: Organizar + Renombrar (herramientas de reorganización juntas)
         organize_card = create_file_organizer_card(self._on_tool_clicked)
         grid_layout.addWidget(organize_card, 3, 0)
-        self.tool_cards['folder-move'] = organize_card
+        self.tool_cards['file_organizer'] = organize_card
 
         rename_card = create_file_renamer_card(self._on_tool_clicked)
         grid_layout.addWidget(rename_card, 3, 1)
-        self.tool_cards['rename-box'] = rename_card
+        self.tool_cards['file_renamer'] = rename_card
         
         # Inicializar similarity handler después de crear las cards
         self.similarity_handler = SimilarityAnalysisHandler(
@@ -337,13 +337,13 @@ class Stage3Window(BaseStage):
             should_analyze = True
         elif tool_id == 'heic' and not (hasattr(self.analysis_results, 'heic') and self.analysis_results.heic):
             should_analyze = True
-        elif tool_id == 'exact_copies' and not (hasattr(self.analysis_results, 'duplicates') and self.analysis_results.duplicates):
+        elif tool_id == 'duplicates_exact' and not (hasattr(self.analysis_results, 'duplicates') and self.analysis_results.duplicates):
             should_analyze = True
         elif tool_id == 'zero_byte' and not (hasattr(self.analysis_results, 'zero_byte') and self.analysis_results.zero_byte):
             should_analyze = True
-        elif tool_id == 'folder-move' and not (hasattr(self.analysis_results, 'organization') and self.analysis_results.organization):
+        elif tool_id == 'file_organizer' and not (hasattr(self.analysis_results, 'organization') and self.analysis_results.organization):
             should_analyze = True
-        elif tool_id == 'rename-box' and not (hasattr(self.analysis_results, 'renaming') and self.analysis_results.renaming):
+        elif tool_id == 'file_renamer' and not (hasattr(self.analysis_results, 'renaming') and self.analysis_results.renaming):
             should_analyze = True
             
         if should_analyze:
@@ -371,7 +371,7 @@ class Stage3Window(BaseStage):
                 else:
                      QMessageBox.information(self.main_window, "Info", "No se encontraron pares HEIC/JPG.")
 
-        elif tool_id == 'exact_copies':
+        elif tool_id == 'duplicates_exact':
             if hasattr(self.analysis_results, 'duplicates') and self.analysis_results.duplicates:
                 dup_data = self.analysis_results.duplicates
                 if dup_data.total_groups > 0:
@@ -379,18 +379,18 @@ class Stage3Window(BaseStage):
                 else:
                      QMessageBox.information(self.main_window, "Info", "No se encontraron copias exactas.")
 
-        elif tool_id == 'similar_files':
+        elif tool_id == 'duplicates_similar':
             # Similares requieren configuración previa y tienen su propio flujo
             if self.similarity_handler:
                 self.similarity_handler.start_analysis()
             return
 
-        elif tool_id == 'folder-move':
+        elif tool_id == 'file_organizer':
             # Organizing puede funcionar sin análisis previo (usa defaults o analiza on-fly)
             org_data = getattr(self.analysis_results, 'organization', None) if hasattr(self.analysis_results, 'organization') else None
             dialog = FileOrganizerDialog(org_data, self.main_window, self.metadata_cache)
 
-        elif tool_id == 'rename-box':
+        elif tool_id == 'file_renamer':
             # Renaming igual
             rename_data = getattr(self.analysis_results, 'renaming', None) if hasattr(self.analysis_results, 'renaming') else None
             dialog = FileRenamerDialog(rename_data, self.main_window)
@@ -427,10 +427,10 @@ class Stage3Window(BaseStage):
         worker_map = {
             'live_photos': (LivePhotosAnalysisWorker, "Analizando Live Photos..."),
             'heic': (HeicAnalysisWorker, "Buscando duplicados HEIC/JPG..."),
-            'exact_copies': (DuplicatesExactAnalysisWorker, "Buscando copias exactas..."),
+            'duplicates_exact': (DuplicatesExactAnalysisWorker, "Buscando copias exactas..."),
             'zero_byte': (ZeroByteAnalysisWorker, "Buscando archivos vacíos..."),
-            'folder-move': (FileOrganizerAnalysisWorker, "Analizando estructura..."),
-            'rename-box': (FileRenamerAnalysisWorker, "Analizando nombres...")
+            'file_organizer': (FileOrganizerAnalysisWorker, "Analizando estructura..."),
+            'file_renamer': (FileRenamerAnalysisWorker, "Analizando nombres...")
         }
         
         if tool_id not in worker_map:
@@ -445,7 +445,7 @@ class Stage3Window(BaseStage):
         progress.setValue(0)
         
         # Crear worker - algunos servicios ya no necesitan metadata_cache
-        refactorized_tools = {'live_photos', 'heic', 'exact_copies', 'zero_byte', 'rename-box', 'folder-move'}
+        refactorized_tools = {'live_photos', 'heic', 'duplicates_exact', 'zero_byte', 'file_renamer', 'file_organizer'}
         if tool_id in refactorized_tools:
             worker = WorkerClass(Path(self.selected_folder))
         else:
@@ -464,7 +464,7 @@ class Stage3Window(BaseStage):
                     self.analysis_results.heic = result
                     self._create_tools_grid()
                     
-                elif tool_id == 'exact_copies':
+                elif tool_id == 'duplicates_exact':
                     self.analysis_results.duplicates = result
                     self._create_tools_grid()
                     
@@ -472,11 +472,6 @@ class Stage3Window(BaseStage):
                     self.analysis_results.zero_byte = result
                     self._create_tools_grid()
                 
-                # Update summary card recoverable space
-                recoverable = self._calculate_recoverable_space()
-                if self.summary_card:
-                    self.summary_card.update_recoverable_space(recoverable)
-
                 # Abrir el diálogo automáticamente
                 self._on_tool_clicked(tool_id)
                 
@@ -525,7 +520,7 @@ class Stage3Window(BaseStage):
         
         # === VERIFICAR CONFIRMACIÓN ADICIONAL PARA ELIMINACIÓN ===
         # Lista de herramientas destructivas (que eliminan archivos)
-        destructive_tools = ['live_photos', 'heic', 'exact_copies', 'similar_files', 'zero_byte']
+        destructive_tools = ['live_photos', 'heic', 'duplicates_exact', 'duplicates_similar', 'zero_byte']
         
         # Solo pedir confirmación si es una operación real (no simulada)
         is_dry_run = plan.get('dry_run', False)
@@ -582,7 +577,7 @@ class Stage3Window(BaseStage):
                 dry_run=plan.get('dry_run', False)
             )
         
-        elif tool_id == 'exact_copies':
+        elif tool_id == 'duplicates_exact':
             from services.duplicates_exact_service import DuplicatesExactService
             detector = DuplicatesExactService()
             # DuplicatesExecutionWorker espera (detector, analysis: dataclass, keep_strategy, create_backup, dry_run, metadata_cache)
@@ -595,7 +590,7 @@ class Stage3Window(BaseStage):
                 metadata_cache=self.metadata_cache
             )
         
-        elif tool_id == 'similar_files':
+        elif tool_id == 'duplicates_similar':
             from services.duplicates_similar_service import DuplicatesSimilarService
             detector = DuplicatesSimilarService()
             # DuplicatesExecutionWorker espera (detector, analysis: dataclass, keep_strategy, create_backup, dry_run, metadata_cache)
@@ -608,9 +603,9 @@ class Stage3Window(BaseStage):
                 metadata_cache=self.metadata_cache
             )
         
-        elif tool_id == 'folder-move':
-            from services.file_organizer_service import FileOrganizer
-            organizer = FileOrganizer()
+        elif tool_id == 'file_organizer':
+            from services.file_organizer_service import FileOrganizerService
+            organizer = FileOrganizerService()
             # FileOrganizerExecutionWorker espera (organizer, analysis: dataclass, cleanup_empty_dirs, create_backup, dry_run)
             worker = FileOrganizerExecutionWorker(
                 organizer=organizer,
@@ -620,9 +615,9 @@ class Stage3Window(BaseStage):
                 dry_run=plan.get('dry_run', False)
             )
         
-        elif tool_id == 'rename-box':
-            from services.file_renamer_service import FileRenamer
-            renamer = FileRenamer()
+        elif tool_id == 'file_renamer':
+            from services.file_renamer_service import FileRenamerService
+            renamer = FileRenamerService()
             # FileRenamerExecutionWorker espera (renamer, analysis: dataclass, create_backup, dry_run)
             worker = FileRenamerExecutionWorker(
                 renamer=renamer,

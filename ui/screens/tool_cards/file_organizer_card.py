@@ -25,5 +25,5 @@ def create_file_organizer_card(on_click_callback) -> ToolCard:
 
     # Esta herramienta no requiere análisis previo
     card.set_status_ready("Listo para organizar archivos")
-    card.clicked.connect(lambda: on_click_callback('folder-move'))
+    card.clicked.connect(lambda: on_click_callback('file_organizer'))
     return card

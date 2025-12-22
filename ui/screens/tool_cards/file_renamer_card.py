@@ -25,5 +25,5 @@ def create_file_renamer_card(on_click_callback) -> ToolCard:
 
     # Esta herramienta no requiere análisis previo
     card.set_status_ready("Listo para renombrar archivos")
-    card.clicked.connect(lambda: on_click_callback('rename-box'))
+    card.clicked.connect(lambda: on_click_callback('file_renamer'))
     return card
