@@ -292,10 +292,6 @@ class RenameAnalysisResult(AnalysisResult):
     def cannot_process(self) -> int:
         """Número de archivos con problemas."""
         return len(self.issues)
-    
-    def __post_init__(self):
-        # We now keep __post_init__ empty to avoid automatic overrides
-        pass
 
 @dataclass
 class RenameExecutionResult(ExecutionResult):

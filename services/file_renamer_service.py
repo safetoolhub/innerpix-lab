@@ -13,7 +13,6 @@ from services.result_types import RenameExecutionResult, RenameAnalysisResult
 from services.base_service import BaseService, ProgressCallback
 from utils.date_utils import (
     select_best_date_from_file,
-    get_all_metadata_from_file,
     format_renamed_name,
     is_renamed_filename    
 )
@@ -71,14 +70,16 @@ class FileRenamerService(BaseService):
             if is_renamed_filename(file_path.name):
                 return ('already_renamed', file_path, None)
             
-            # Obtener fecha usando FileInfoRepositoryCache
-            file_metadata = get_all_metadata_from_file(file_path)
-            file_date, _ = select_best_date_from_file(file_metadata)
+            # Obtener metadata del repositorio (debe estar precargada)
+            file_metadata = repo.get_file_metadata(file_path)
+            if not file_metadata:
+                return ('no_metadata', file_path, f"Metadata no disponible: {file_path.name}")
             
+            # Obtener fecha usando la mejor fecha calculada o calcularla
+            file_date, date_source = repo.get_best_date(file_path)
             if not file_date:
-                # No hay fecha disponible
-                pass
-                
+                # Intentar calcular fecha ahora si no está en caché
+                file_date, date_source = select_best_date_from_file(file_metadata)
                 if not file_date:
                     return ('no_date', file_path, f"No se pudo obtener fecha: {file_path.name}")
             
@@ -93,6 +94,7 @@ class FileRenamerService(BaseService):
                 'renamed_name': renamed_name,
                 'original_path': file_path,
                 'date': file_date,
+                'date_source': date_source,
                 'type': file_type,
                 'extension': extension
             })
@@ -114,6 +116,8 @@ class FileRenamerService(BaseService):
                 
                 if status == 'already_renamed':
                     already_renamed += 1
+                elif status == 'no_metadata':
+                    issues.append(data)
                 elif status == 'no_date':
                     issues.append(data)
                 elif status == 'unsupported':
@@ -132,6 +136,7 @@ class FileRenamerService(BaseService):
                     'original_path': file_info['original_path'],
                     'new_name': renamed_name,
                     'date': file_info['date'],
+                    'date_source': file_info['date_source'],
                     'has_conflict': False,
                     'sequence': None
                 })
@@ -151,29 +156,24 @@ class FileRenamerService(BaseService):
                         'original_path': file_info['original_path'],
                         'new_name': sequenced_name,
                         'date': file_info['date'],
+                        'date_source': file_info['date_source'],
                         'has_conflict': True,
                         'sequence': i
                     })
 
         log_section_footer_discrete(self.logger, f"Análisis completado: {len(renaming_plan)} archivos para renombrar")
         
-        # Calculate total scanned metrics for stable reference
-        total_files = sum(files_by_year.values()) + already_renamed
-        total_size = sum(item.get('size', 0) for item in renaming_plan) # Simplified
-        # In a real scan we'd have the total size. Since renamer is specialized, 
-        # we'll approximate or use repo if available.
-        repo = FileInfoRepositoryCache.get_instance()
-        items_count = repo.get_file_count() if repo.get_file_count() > 0 else total_files
-        bytes_total = repo.get_total_size() if repo.get_total_size() > 0 else total_size
-
+        # Calcular totales del análisis
+        total_analyzed = len(renaming_plan) + already_renamed + len(issues)
+        
         return RenameAnalysisResult(
             renaming_plan=renaming_plan,
             already_renamed=already_renamed,
             conflicts=conflicts,
             files_by_year=dict(files_by_year),
             issues=issues,
-            items_count=items_count,
-            bytes_total=bytes_total
+            items_count=total_analyzed,
+            bytes_total=0  # No necesitamos calcular tamaño para renombrado
         )
     
     def execute(
@@ -268,8 +268,6 @@ class FileRenamerService(BaseService):
                     original_path.rename(new_path)
                     
                     # Actualizar caché moviendo el archivo
-                    from services.file_metadata_repository_cache import FileInfoRepositoryCache
-                    repo = FileInfoRepositoryCache.get_instance()
                     repo.move_file(original_path, new_path)
 
                 items_processed += 1
