@@ -70,7 +70,7 @@ class FileOrganizerDialog(BaseDialog):
         """Inicializa la interfaz"""
         self.setWindowTitle("Organización de Archivos")
         self.setModal(True)
-        self.resize(1200, 800)
+        self.resize(1400, 800)
         
         # Inicializar progress bar temprano para evitar crashes si se disparan señales durante la construcción de la UI
         self.progress_bar = QProgressBar()
@@ -904,17 +904,16 @@ class FileOrganizerDialog(BaseDialog):
     
     def _configure_tree_columns(self, tree: QTreeWidget):
         """Configura las columnas del tree de forma estandarizada"""
-        # Estándar: Nombre Original, Nuevo Nombre, Fecha, Origen, Estado, Tamaño
-        headers = ["Nombre Original", "Nuevo Nombre", "Fecha", "Origen / Cantidad", "Estado", "Tamaño"]
+        # Estándar: Nombre Original, Nuevo Nombre, Fecha, Origen, Tamaño
+        headers = ["Nombre Original", "Nuevo Nombre", "Fecha", "Origen", "Tamaño"]
         tree.setHeaderLabels(headers)
         
         # Ajustar anchos
-        tree.setColumnWidth(0, 300) # Nombre Original
+        tree.setColumnWidth(0, 400) # Nombre Original (más ancho para path completo)
         tree.setColumnWidth(1, 300) # Nuevo Nombre
-        tree.setColumnWidth(2, 100) # Fecha
-        tree.setColumnWidth(3, 150) # Origen
-        tree.setColumnWidth(4, 100) # Estado
-        tree.setColumnWidth(5, 80)  # Tamaño
+        tree.setColumnWidth(2, 160) # Fecha
+        tree.setColumnWidth(3, 180) # Origen
+        tree.setColumnWidth(4, 80)  # Tamaño
     
     def _create_pagination_controls(self) -> QWidget:
         """Crea controles de paginación con estilo Material Design"""
@@ -1239,16 +1238,11 @@ class FileOrganizerDialog(BaseDialog):
         total_conflicts = sum(1 for m in moves if m.has_conflict)
         
         root_parent = QTreeWidgetItem()
-        root_parent.setText(0, "Raíz del directorio")
+        root_parent.setText(0, f"Raíz del directorio ({total_moves} archivos)")
         root_parent.setText(1, "") # Nuevo Nombre
         root_parent.setText(2, "") # Fecha
-        root_parent.setText(3, f"{total_moves} archivos") # Origen (usado para resumen)
-        if total_conflicts > 0:
-            root_parent.setText(4, f"{total_conflicts} conflictos")
-            root_parent.setForeground(4, QColor(DesignSystem.COLOR_ERROR))
-        else:
-            root_parent.setText(4, "OK")
-        root_parent.setText(5, format_size(total_size_all))
+        root_parent.setText(3, "") # Origen
+        root_parent.setText(4, format_size(total_size_all))
         
         root_font = QFont()
         root_font.setBold(True)
@@ -1265,16 +1259,11 @@ class FileOrganizerDialog(BaseDialog):
             conflicts = sum(1 for m in moves_in_subdir if m.has_conflict)
             
             subdir_node = QTreeWidgetItem()
-            subdir_node.setText(0, f"  Desde: {subdir}")
+            subdir_node.setText(0, f"  Desde: {subdir} ({len(moves_in_subdir)} archivos)")
             subdir_node.setText(1, "")
             subdir_node.setText(2, "")
-            subdir_node.setText(3, f"{len(moves_in_subdir)} archivos")
-            if conflicts > 0:
-                subdir_node.setText(4, f"{conflicts} conflictos")
-                subdir_node.setForeground(4, QColor(DesignSystem.COLOR_ERROR))
-            else:
-                subdir_node.setText(4, "OK")
-            subdir_node.setText(5, format_size(total_size))
+            subdir_node.setText(3, "")
+            subdir_node.setText(4, format_size(total_size))
             
             subdir_font = QFont()
             subdir_font.setBold(True)
@@ -1286,7 +1275,7 @@ class FileOrganizerDialog(BaseDialog):
             # Archivos
             for move in sorted(moves_in_subdir, key=lambda m: m.original_name):
                 child = QTreeWidgetItem()
-                child.setText(0, f"    {move.original_name}")
+                child.setText(0, f"    {move.source_path}")
                 
                 # Nuevo Nombre
                 if move.has_conflict:
@@ -1296,29 +1285,26 @@ class FileOrganizerDialog(BaseDialog):
                     child.setText(1, "Igual")
                     child.setForeground(1, QColor(DesignSystem.COLOR_TEXT_SECONDARY))
                 
-                # Fecha
+                # Fecha y Origen
                 try:
                     file_metadata = get_all_metadata_from_file(move.source_path)
-                    file_date, _ = select_best_date_from_file(file_metadata)
+                    file_date, date_source = select_best_date_from_file(file_metadata)
                     if file_date:
-                        child.setText(2, file_date.strftime("%Y-%m-%d"))
+                        child.setText(2, file_date.strftime("%Y-%m-%d %H:%M:%S"))
+                        child.setText(3, date_source if date_source else "-")
                     else:
                         child.setText(2, "-")
+                        child.setText(3, "-")
                 except:
                     child.setText(2, "-")
+                    child.setText(3, "-")
 
-                child.setText(3, subdir)
+                child.setText(4, format_size(move.size))
                 
-                # Estado
+                # Marcado visual de conflictos (texto en rojo)
                 if move.has_conflict:
-                    child.setText(4, "Conflicto")
-                    child.setForeground(4, QColor(DesignSystem.COLOR_ERROR))
                     child.setForeground(0, QColor(DesignSystem.COLOR_ERROR))
-                else:
-                    child.setText(4, "OK")
-                    child.setForeground(4, QColor(DesignSystem.COLOR_SUCCESS))
                 
-                child.setText(5, format_size(move.size))
                 child.setData(0, Qt.ItemDataRole.UserRole, move)
                 subdir_node.addChild(child)
             
@@ -1343,12 +1329,11 @@ class FileOrganizerDialog(BaseDialog):
             total_size = sum(m.size for m in moves_in_folder)
             
             parent = QTreeWidgetItem()
-            parent.setText(0, f"{folder}/")
+            parent.setText(0, f"{folder}/ ({len(moves_in_folder)} archivos)")
             parent.setText(1, "")
             parent.setText(2, "")
-            parent.setText(3, f"{len(moves_in_folder)} archivos")
-            parent.setText(4, "")
-            parent.setText(5, format_size(total_size))
+            parent.setText(3, "")
+            parent.setText(4, format_size(total_size))
             
             parent_font = QFont()
             parent_font.setBold(True)
@@ -1359,7 +1344,7 @@ class FileOrganizerDialog(BaseDialog):
             
             for move in sorted(moves_in_folder, key=lambda m: m.original_name):
                 child = QTreeWidgetItem()
-                child.setText(0, f"  {move.original_name}")
+                child.setText(0, f"  {move.source_path}")
                 
                 # Nuevo Nombre
                 if move.has_conflict:
@@ -1369,29 +1354,26 @@ class FileOrganizerDialog(BaseDialog):
                     child.setText(1, "Igual")
                     child.setForeground(1, QColor(DesignSystem.COLOR_TEXT_SECONDARY))
                 
-                # Fecha
+                # Fecha y Origen
                 try:
                     file_metadata = get_all_metadata_from_file(move.source_path)
-                    file_date, _ = select_best_date_from_file(file_metadata)
+                    file_date, date_source = select_best_date_from_file(file_metadata)
                     if file_date:
-                        child.setText(2, file_date.strftime("%Y-%m-%d"))
+                        child.setText(2, file_date.strftime("%Y-%m-%d %H:%M:%S"))
+                        child.setText(3, date_source if date_source else "-")
                     else:
                         child.setText(2, "Sin fecha")
+                        child.setText(3, "-")
                 except Exception:
                     child.setText(2, "Error")
+                    child.setText(3, "-")
                 
-                child.setText(3, move.subdirectory)
+                child.setText(4, format_size(move.size))
                 
-                # Estado
+                # Marcado visual de conflictos (texto en rojo)
                 if move.has_conflict:
-                    child.setText(4, "Conflicto")
-                    child.setForeground(4, QColor(DesignSystem.COLOR_ERROR))
                     child.setForeground(0, QColor(DesignSystem.COLOR_ERROR))
-                else:
-                    child.setText(4, "OK")
-                    child.setForeground(4, QColor(DesignSystem.COLOR_SUCCESS))
                 
-                child.setText(5, format_size(move.size))
                 child.setData(0, Qt.ItemDataRole.UserRole, move)
                 
                 parent.addChild(child)
@@ -1421,12 +1403,11 @@ class FileOrganizerDialog(BaseDialog):
             total_size = sum(m.size for m in moves_in_category)
             
             parent = QTreeWidgetItem()
-            parent.setText(0, f"{category}/")
+            parent.setText(0, f"{category}/ ({len(moves_in_category)} archivos)")
             parent.setText(1, "")
             parent.setText(2, "")
-            parent.setText(3, f"{len(moves_in_category)} archivos")
-            parent.setText(4, "")
-            parent.setText(5, format_size(total_size))
+            parent.setText(3, "")
+            parent.setText(4, format_size(total_size))
             
             parent_font = QFont()
             parent_font.setBold(True)
@@ -1450,7 +1431,7 @@ class FileOrganizerDialog(BaseDialog):
             
             for move in sorted(moves_in_category, key=lambda m: m.original_name):
                 child = QTreeWidgetItem()
-                child.setText(0, f"  {move.original_name}")
+                child.setText(0, f"  {move.source_path}")
                 
                 # Nuevo Nombre
                 if move.has_conflict:
@@ -1460,30 +1441,26 @@ class FileOrganizerDialog(BaseDialog):
                     child.setText(1, "Igual")
                     child.setForeground(1, QColor(DesignSystem.COLOR_TEXT_SECONDARY))
                 
-                # Fecha
+                # Fecha y Origen
                 try:
                     file_metadata = get_all_metadata_from_file(move.source_path)
-                    file_date, _ = select_best_date_from_file(file_metadata)
+                    file_date, date_source = select_best_date_from_file(file_metadata)
                     if file_date:
-                        child.setText(2, file_date.strftime("%Y-%m-%d"))
+                        child.setText(2, file_date.strftime("%Y-%m-%d %H:%M:%S"))
+                        child.setText(3, date_source if date_source else "-")
                     else:
                         child.setText(2, "-")
+                        child.setText(3, "-")
                 except:
                     child.setText(2, "-")
+                    child.setText(3, "-")
 
-                child.setText(3, move.subdirectory if move.subdirectory != "<root>" else "Raíz")
+                child.setText(4, format_size(move.size))
                 
-                # Estado
+                # Marcado visual de conflictos (texto en rojo)
                 if move.has_conflict:
-                    child.setText(4, "Conflicto")
-                    child.setForeground(4, QColor(DesignSystem.COLOR_ERROR))
-                    child.setText(0, f"  {move.original_name} (Conflicto)")
                     child.setForeground(0, QColor(DesignSystem.COLOR_ERROR))
-                else:
-                    child.setText(4, "OK")
-                    child.setForeground(4, QColor(DesignSystem.COLOR_SUCCESS))
                 
-                child.setText(5, format_size(move.size))
                 child.setData(0, Qt.ItemDataRole.UserRole, move)
                 
                 parent.addChild(child)
