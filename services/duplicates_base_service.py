@@ -7,10 +7,12 @@ Proporciona lógica unificada para:
 - Procesamiento de grupos con dry-run
 """
 
+import logging
 from pathlib import Path
 from typing import List, Callable, Optional
 from dataclasses import dataclass, field
 from services.base_service import BaseService
+from services.file_metadata_repository_cache import FileInfoRepositoryCache
 from services.result_types import DuplicateGroup, DuplicateExecutionResult
 from utils.logger import log_section_header_relevant, log_section_footer_relevant
 
@@ -100,13 +102,12 @@ class DuplicatesBaseService(BaseService):
             dry_run: Si solo simular
             create_backup: Si crear backup
             progress_callback: Callback
-            **kwargs: Debe contener 'keep_strategy' y opcionalmente 'metadata_cache'
+            **kwargs: Debe contener 'keep_strategy'
         """
         from datetime import datetime
         
         groups = analysis_result.groups
         keep_strategy = kwargs.get('keep_strategy', 'oldest')
-        metadata_cache = kwargs.get('metadata_cache')
         
         # Header con información de operación
         mode = "SIMULACIÓN" if dry_run else ""
@@ -120,9 +121,8 @@ class DuplicatesBaseService(BaseService):
             self.logger.warning("No hay grupos para procesar")
             return DuplicateExecutionResult(
                 success=True,
-                files_deleted=0,
-                files_kept=0,
-                space_freed=0,
+                items_processed=0,
+                bytes_processed=0,
                 keep_strategy=keep_strategy,
                 dry_run=dry_run,
                 message="No hay duplicados para eliminar"
@@ -163,11 +163,10 @@ class DuplicatesBaseService(BaseService):
                     )
         
         # Procesar eliminaciones grupo por grupo
-        deleted_files = []
+        files_affected = []
         kept_files = []
         errors = []
-        space_freed = 0
-        simulated_space_freed = 0
+        bytes_processed = 0
         
         # Calcular total de operaciones para progress
         if keep_strategy == 'manual':
@@ -175,30 +174,24 @@ class DuplicatesBaseService(BaseService):
         else:
             total_operations = sum(len(g.files) - 1 for g in groups)
         
-        processed = 0
+        items_processed = 0
         
         for group in groups:
-            result = self._process_group_deletion(
+            result_group = self._process_group_deletion(
                 group=group,
                 keep_strategy=keep_strategy,
                 dry_run=dry_run,
                 backup_path=backup_path,
                 progress_callback=progress_callback,
-                processed_count=processed,
-                total_count=total_operations,
-                metadata_cache=metadata_cache
+                processed_count=items_processed,
+                total_count=total_operations
             )
             
-            deleted_files.extend(result.deleted)
-            kept_files.extend(result.kept)
-            errors.extend(result.errors)
-            
-            if dry_run:
-                simulated_space_freed += result.space_freed
-            else:
-                space_freed += result.space_freed
-            
-            processed += result.processed
+            files_affected.extend(result_group.deleted)
+            kept_files.extend(result_group.kept)
+            errors.extend(result_group.errors)
+            bytes_processed += result_group.space_freed
+            items_processed += result_group.processed
         
         # Construir resultado
         error_messages = [
@@ -209,30 +202,21 @@ class DuplicatesBaseService(BaseService):
         
         result = DuplicateExecutionResult(
             success=len(error_messages) == 0,
-            files_deleted=len(deleted_files) if not dry_run else 0,
+            items_processed=items_processed,
+            bytes_processed=bytes_processed,
+            files_affected=files_affected,
             files_kept=len(kept_files),
-            space_freed=space_freed if not dry_run else 0,
             errors=error_messages,
             backup_path=str(backup_path) if backup_path else None,
-            files_affected=deleted_files if not dry_run else [],   # New field in base
             keep_strategy=keep_strategy,
-            dry_run=dry_run,
-            simulated_files_deleted=len(deleted_files) if dry_run else 0, # kept for compat
-            simulated_space_freed=simulated_space_freed if dry_run else 0
+            dry_run=dry_run
         )
-        # Populate new generic fields manually if needed, or rely on properties
-        if dry_run:
-             result.files_affected = deleted_files
         
         # Logging de resumen usando método centralizado
-        from utils.format_utils import format_size
-        
-        count = len(deleted_files)
-        space = simulated_space_freed if dry_run else space_freed
         summary = self._format_operation_summary(
             "Eliminación duplicados",
-            count,
-            space,
+            items_processed,
+            bytes_processed,
             dry_run
         )
         
@@ -241,7 +225,7 @@ class DuplicatesBaseService(BaseService):
         
         result.message = summary
         
-        if result.errors: # Changed from has_errors property if it's not available in Generic
+        if result.errors:
             error_prefix = "[SIMULACIÓN] " if dry_run else ""
             self.logger.info(f"*** {error_prefix}Errores durante la operación:")
             for error in result.errors:
@@ -249,6 +233,10 @@ class DuplicatesBaseService(BaseService):
             result.message += f"\n\nAdvertencia: {len(result.errors)} errores encontrados"
         
         log_section_footer_relevant(self.logger, summary)
+
+        # Mostramos estadísticas de la caché al final
+        repo = FileInfoRepositoryCache.get_instance()
+        repo.log_cache_statistics(level=logging.INFO)
         
         return result
     
@@ -260,8 +248,7 @@ class DuplicatesBaseService(BaseService):
         backup_path: Optional[Path],
         progress_callback: Optional[Callable],
         processed_count: int,
-        total_count: int,
-        metadata_cache = None
+        total_count: int
     ) -> GroupDeletionResult:
         """
         Procesa eliminación de un grupo de duplicados.
@@ -277,14 +264,13 @@ class DuplicatesBaseService(BaseService):
             progress_callback: Callback de progreso
             processed_count: Archivos procesados hasta ahora
             total_count: Total de archivos a procesar
-            metadata_cache: Caché opcional de metadatos para reutilizar fechas
         
         Returns:
             GroupDeletionResult con archivos procesados y estadísticas
         """
         from utils.file_utils import validate_file_exists
         from utils.format_utils import format_size
-        from utils.date_utils import get_date_from_file
+        from utils.date_utils import select_best_date_from_file, get_all_metadata_from_file
         
         deleted = []
         kept = []
@@ -308,25 +294,21 @@ class DuplicatesBaseService(BaseService):
                 files_to_delete = [f for f in group.files if f != keep_file]
                 
                 # Obtener información del archivo que se mantiene (sin verbose para evitar logs extra)
-                # Usar metadata_cache para evitar recalcular EXIF/video metadata
                 try:
-                    keep_date = get_date_from_file(keep_file, verbose=False, metadata_cache=metadata_cache)
+                    file_metadata = get_all_metadata_from_file(keep_file)
+                    keep_date, keep_date_source = select_best_date_from_file(file_metadata)
                     keep_date_str = (
                         keep_date.strftime('%Y-%m-%d %H:%M:%S')
                         if keep_date else 'fecha desconocida'
                     )
-                    # Obtener fuente desde caché si está disponible
-                    if metadata_cache:
-                        _, keep_date_source = metadata_cache.get_selected_date(keep_file)
-                        if not keep_date_source:
-                            keep_date_source = 'unknown'
-                    else:
+                    # Normalizar source si está disponible
+                    if not keep_date_source:
                         keep_date_source = 'unknown'
+                    keep_file_size = file_metadata.fs_size
                 except Exception:
                     keep_date_str = 'fecha desconocida'
                     keep_date_source = 'unknown'
-                
-                keep_file_size = keep_file.stat().st_size
+                    keep_file_size = keep_file.stat().st_size  # Fallback si falla metadata
                 
                 # Guardar info para incluir en logs de eliminación
                 keep_file_info = {
@@ -355,25 +337,22 @@ class DuplicatesBaseService(BaseService):
                 validate_file_exists(file_path)
                 
                 # Obtener información del archivo a eliminar (sin verbose para evitar logs extra)
-                # Usar metadata_cache para evitar recalcular EXIF/video metadata
-                file_size = file_path.stat().st_size
-                
+                # FileInfoRepositoryCache.get_instance() se llama internamente en get_all_metadata_from_file()
                 try:
-                    file_date = get_date_from_file(file_path, verbose=False, metadata_cache=metadata_cache)
+                    file_metadata = get_all_metadata_from_file(file_path)
+                    file_date, file_date_source = select_best_date_from_file(file_metadata)
                     file_date_str = (
                         file_date.strftime('%Y-%m-%d %H:%M:%S')
                         if file_date else 'fecha desconocida'
                     )
-                    # Obtener fuente desde caché si está disponible
-                    if metadata_cache:
-                        _, file_date_source = metadata_cache.get_selected_date(file_path)
-                        if not file_date_source:
-                            file_date_source = 'unknown'
-                    else:
+                    # Normalizar source si está disponible
+                    if not file_date_source:
                         file_date_source = 'unknown'
+                    file_size = file_metadata.fs_size
                 except Exception:
                     file_date_str = 'fecha desconocida'
                     file_date_source = 'unknown'
+                    file_size = file_path.stat().st_size  # Fallback si falla metadata
                 
                 # Ejecutar eliminación (o simulación)
                 if dry_run:

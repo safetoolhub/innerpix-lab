@@ -658,7 +658,7 @@ def get_exif_from_image(file_path: Path) -> dict:
     """
     Extrae TODOS los campos de fecha EXIF disponibles de una imagen
     
-    NOTA: Solo soporta imágenes (JPEG, PNG, etc.). No hay soporte para EXIF en videos por ahora.
+    NOTA: Solo soporta imágenes (JPEG, PNG, HEIC, etc.). No hay soporte para EXIF en videos por ahora.
 
     Args:
         file_path: Ruta a la imagen (NO videos)
@@ -672,7 +672,8 @@ def get_exif_from_image(file_path: Path) -> dict:
             'SubSecTimeOriginal': str or None,        # Subsegundos de precisión
             'OffsetTimeOriginal': str or None,        # Zona horaria de captura
             'GPSDateStamp': datetime or None,         # Timestamp GPS
-            'Software': str or None                   # Software usado (detecta edición)
+            'Software': str or None,                  # Software usado (detecta edición)
+            'ExifVersion': str or None                # Versión del estándar EXIF (ej: '0232')
         }
     
     Examples:
@@ -684,6 +685,8 @@ def get_exif_from_image(file_path: Path) -> dict:
         '+01:00'
         >>> dates['Software']
         'Adobe Photoshop CS6'
+        >>> dates['ExifVersion']
+        '0232'
     """
     result = {
         'DateTimeOriginal': None,
@@ -692,7 +695,8 @@ def get_exif_from_image(file_path: Path) -> dict:
         'SubSecTimeOriginal': None,
         'OffsetTimeOriginal': None,
         'GPSDateStamp': None,
-        'Software': None
+        'Software': None,
+        'ExifVersion': None
     }
     
     try:
@@ -711,53 +715,86 @@ def get_exif_from_image(file_path: Path) -> dict:
                 return result
 
         with Image.open(file_path) as image:
-            # Obtener datos EXIF - diferente para HEIC vs otros formatos
-            exif_data = None
-            
-            if file_path.suffix.lower() in ['.heic', '.heif']:
-                # Para HEIC, los metadatos están en image.info['exif'] como bytes
-                exif_bytes = image.info.get('exif')
-                if exif_bytes:
-                    try:
-                        exif_obj = Image.Exif()
-                        exif_obj.load(exif_bytes)
-                        exif_data = exif_obj._getexif()
-                    except Exception:
-                        pass
-            else:
-                # Para otros formatos, usar el método estándar
+            # Obtener datos EXIF usando API moderna (getexif()) que funciona para todos los formatos
+            try:
+                exif = image.getexif()
+                if not exif:
+                    return result
+            except AttributeError:
+                # Fallback a API antigua para versiones muy viejas de Pillow
                 exif_data = image._getexif()
+                if not exif_data:
+                    return result
+                # Convertir a objeto Exif-like para API unificada
+                from PIL import Image as PIL_Image
+                exif = PIL_Image.Exif()
+                for k, v in exif_data.items():
+                    exif[k] = v
+            
+            # Procesar tags principales (nivel superior)
+            gps_info = None
+            
+            for tag_id, value in exif.items():
+                tag = TAGS.get(tag_id, tag_id)
 
-            if exif_data:
-                gps_info = None
-                
-                for tag_id, value in exif_data.items():
-                    tag = TAGS.get(tag_id, tag_id)
-
-                    # Extraer cada campo de fecha EXIF
-                    if tag == 'DateTimeOriginal':
-                        try:
-                            result['DateTimeOriginal'] = datetime.strptime(value, '%Y:%m:%d %H:%M:%S')
-                        except ValueError:
-                            pass
-                    elif tag == 'DateTime':  # Este es el CreateDate
-                        try:
-                            result['CreateDate'] = datetime.strptime(value, '%Y:%m:%d %H:%M:%S')
-                        except ValueError:
-                            pass
-                    elif tag == 'DateTimeDigitized':
-                        try:
-                            result['DateTimeDigitized'] = datetime.strptime(value, '%Y:%m:%d %H:%M:%S')
-                        except ValueError:
-                            pass
-                    elif tag == 'SubSecTimeOriginal':
-                        result['SubSecTimeOriginal'] = str(value)
-                    elif tag == 'OffsetTimeOriginal':
-                        result['OffsetTimeOriginal'] = str(value)
-                    elif tag == 'Software':
-                        result['Software'] = str(value)
-                    elif tag == 'GPSInfo':
-                        gps_info = value
+                # Extraer cada campo de fecha EXIF
+                if tag == 'DateTimeOriginal':
+                    try:
+                        result['DateTimeOriginal'] = datetime.strptime(value, '%Y:%m:%d %H:%M:%S')
+                    except ValueError:
+                        pass
+                elif tag == 'DateTime':  # Este es el CreateDate
+                    try:
+                        result['CreateDate'] = datetime.strptime(value, '%Y:%m:%d %H:%M:%S')
+                    except ValueError:
+                        pass
+                elif tag == 'DateTimeDigitized':
+                    try:
+                        result['DateTimeDigitized'] = datetime.strptime(value, '%Y:%m:%d %H:%M:%S')
+                    except ValueError:
+                        pass
+                elif tag == 'SubSecTimeOriginal':
+                    result['SubSecTimeOriginal'] = str(value)
+                elif tag == 'OffsetTimeOriginal':
+                    result['OffsetTimeOriginal'] = str(value)
+                elif tag == 'Software':
+                    result['Software'] = str(value)
+                elif tag == 'ExifVersion':
+                    # ExifVersion es bytes, convertir a string legible
+                    result['ExifVersion'] = value.decode('utf-8') if isinstance(value, bytes) else str(value)
+                elif tag == 'GPSInfo':
+                    gps_info = value
+            
+            # Procesar EXIF IFD (sub-tags) - muchos campos importantes están aquí
+            try:
+                exif_ifd = exif.get_ifd(0x8769)  # ExifOffset IFD
+                if exif_ifd:
+                    for tag_id, value in exif_ifd.items():
+                        tag = TAGS.get(tag_id, tag_id)
+                        
+                        if tag == 'DateTimeOriginal' and not result['DateTimeOriginal']:
+                            try:
+                                result['DateTimeOriginal'] = datetime.strptime(value, '%Y:%m:%d %H:%M:%S')
+                            except ValueError:
+                                pass
+                        elif tag == 'DateTimeDigitized' and not result['DateTimeDigitized']:
+                            try:
+                                result['DateTimeDigitized'] = datetime.strptime(value, '%Y:%m:%d %H:%M:%S')
+                            except ValueError:
+                                pass
+                        elif tag == 'SubsecTimeOriginal' and not result['SubSecTimeOriginal']:
+                            result['SubSecTimeOriginal'] = str(value)
+                        elif tag == 'OffsetTimeOriginal' and not result['OffsetTimeOriginal']:
+                            result['OffsetTimeOriginal'] = str(value)
+                        elif tag == 'ExifVersion' and not result['ExifVersion']:
+                            # ExifVersion es bytes, convertir a string legible
+                            result['ExifVersion'] = value.decode('utf-8') if isinstance(value, bytes) else str(value)
+            except (KeyError, AttributeError):
+                # No hay EXIF IFD o no se puede acceder
+                pass
+            
+            # Procesar GPS IFD si existe
+            if gps_info:
                 
                 # Procesar información GPS si existe
                 if gps_info:
@@ -804,53 +841,86 @@ def get_exif_from_image(file_path: Path) -> dict:
     return result
 
 
-def get_exif_from_video(file_path: Path) -> Optional[datetime]:
+def get_exif_from_video(file_path: Path) -> dict:
     """
-    Extrae fecha de creación de archivos de video usando exiftool y ffprobe.
+    Extrae metadatos completos de archivos de video usando exiftool y ffprobe.
     
-    PRIORIDAD:
+    PRIORIDAD PARA FECHA:
     1. exiftool Keys:CreationDate - Para Live Photos de iPhone (campo correcto)
     2. ffprobe creation_time - Para otros videos
     
+    METADATOS TÉCNICOS (con ffprobe):
+    - Dimensiones (width, height)
+    - Duración (duration)
+    - Códec (video_codec)
+    - Frame rate (fps)
+    - Bitrate
+    - Formato contenedor
+    
     Esta función requiere que exiftool o ffprobe esté instalado en el sistema.
-    Si ninguno está disponible, devuelve None sin generar error.
+    Si ninguno está disponible, devuelve dict vacío sin generar error.
 
     Args:
         file_path: Ruta al archivo de video
 
     Returns:
-        datetime de la fecha de creación del video o None si no está disponible
+        Diccionario con metadatos del video:
+        {
+            'creation_time': datetime or None,  # Fecha de creación
+            'width': int or None,               # Ancho en píxeles
+            'height': int or None,              # Alto en píxeles
+            'duration': str or None,            # Duración (ej: "5:23 min")
+            'duration_seconds': float or None,  # Duración en segundos
+            'fps': str or None,                 # Frame rate (ej: "30.00 fps")
+            'video_codec': str or None,         # Códec (ej: "h264")
+            'video_codec_long': str or None,    # Nombre largo del códec
+            'bitrate': str or None,             # Bitrate (ej: "5000 kbps")
+            'format': str or None,              # Formato contenedor
+            'format_long': str or None,         # Nombre largo del formato
+            'pixel_format': str or None,        # Formato de píxel (ej: "yuv420p")
+            'encoder': str or None              # Software de codificación
+        }
         
     Examples:
         >>> # Live Photo MOV con Keys:CreationDate
-        >>> get_exif_from_video(Path('IMG_0017_HAYLIVE.MOV'))
+        >>> metadata = get_exif_from_video(Path('IMG_0017_HAYLIVE.MOV'))
+        >>> metadata['creation_time']
         datetime(2019, 11, 13, 15, 38, 59)
+        >>> metadata['width']
+        1920
         
         >>> # Video regular con metadata de creación
-        >>> get_exif_from_video(Path('video.mp4'))
+        >>> metadata = get_exif_from_video(Path('video.mp4'))
+        >>> metadata['creation_time']
         datetime(2024, 1, 15, 14, 30, 0)
+        >>> metadata['duration']
+        '5:23 min'
         
         >>> # Video sin metadata
-        >>> get_exif_from_video(Path('video_without_metadata.mp4'))
-        None
+        >>> metadata = get_exif_from_video(Path('video_without_metadata.mp4'))
+        >>> metadata
+        {}
     """
     import subprocess
     import json
     
     logger = get_logger('file_utils')
     
+    result = {}
+    creation_date = None
+    
     # PRIORIDAD 1: Intentar leer Keys:CreationDate con exiftool (Live Photos)
     if shutil.which('exiftool'):
         try:
-            result = subprocess.run(
+            exiftool_result = subprocess.run(
                 ['exiftool', '-Keys:CreationDate', '-d', '%Y:%m:%d %H:%M:%S', '-s3', str(file_path)],
                 capture_output=True,
                 text=True,
                 timeout=3
             )
             
-            if result.returncode == 0 and result.stdout.strip():
-                creation_date_str = result.stdout.strip()
+            if exiftool_result.returncode == 0 and exiftool_result.stdout.strip():
+                creation_date_str = exiftool_result.stdout.strip()
                 try:
                     # Formato: "2019:11:13 15:38:59+01:00" o "2019:11:13 15:38:59"
                     # Extraer solo fecha y hora, ignorar zona horaria
@@ -860,70 +930,131 @@ def get_exif_from_video(file_path: Path) -> Optional[datetime]:
                     else:
                         date_part = creation_date_str
                     
-                    parsed_date = datetime.strptime(date_part.strip(), '%Y:%m:%d %H:%M:%S')
-                    logger.debug(f"Video {file_path.name}: usando Keys:CreationDate = {parsed_date}")
-                    return parsed_date
+                    creation_date = datetime.strptime(date_part.strip(), '%Y:%m:%d %H:%M:%S')
+                    result['creation_time'] = creation_date
+                    logger.debug(f"Video {file_path.name}: usando Keys:CreationDate = {creation_date}")
                 except ValueError as e:
                     logger.debug(f"Error parseando Keys:CreationDate '{creation_date_str}': {e}")
         except (subprocess.TimeoutExpired, subprocess.SubprocessError) as e:
             logger.debug(f"Error ejecutando exiftool en {file_path.name}: {e}")
     
-    # PRIORIDAD 2: Intentar ffprobe creation_time (videos regulares)
+    # PRIORIDAD 2: Intentar ffprobe para metadatos técnicos + creation_time
     if not shutil.which('ffprobe'):
-        logger.debug("Ni exiftool ni ffprobe disponibles")
-        return None
+        logger.debug("ffprobe no disponible")
+        return result
     
     try:
-        # Ejecutar ffprobe para obtener metadata
+        # Ejecutar ffprobe para obtener TODOS los metadatos
         cmd = [
             'ffprobe',
             '-v', 'quiet',
             '-print_format', 'json',
-            '-show_entries', 'format_tags=creation_time',
+            '-show_format',
+            '-show_streams',
             str(file_path)
         ]
         
-        result = subprocess.run(
+        ffprobe_result = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
-            timeout=5  # Timeout de 5 segundos
+            timeout=10  # Timeout de 10 segundos
         )
         
-        if result.returncode != 0:
-            return None
+        if ffprobe_result.returncode != 0:
+            return result
         
         # Parsear JSON
-        metadata = json.loads(result.stdout)
+        data = json.loads(ffprobe_result.stdout)
         
-        # Extraer creation_time
-        if 'format' in metadata and 'tags' in metadata['format']:
-            creation_time = metadata['format']['tags'].get('creation_time')
+        # Extraer información del formato
+        if 'format' in data:
+            fmt = data['format']
             
-            if creation_time:
+            # Duración
+            if 'duration' in fmt:
                 try:
-                    # Formato típico: '2024-01-15T14:30:00.000000Z'
-                    # Intentar varios formatos comunes
-                    for fmt in ['%Y-%m-%dT%H:%M:%S.%fZ', '%Y-%m-%dT%H:%M:%SZ', '%Y-%m-%d %H:%M:%S']:
-                        try:
-                            parsed_date = datetime.strptime(creation_time, fmt)
-                            logger.debug(f"Video {file_path.name}: usando ffprobe creation_time = {parsed_date}")
-                            return parsed_date
-                        except ValueError:
-                            continue
-                except Exception:
+                    duration_sec = float(fmt['duration'])
+                    minutes = int(duration_sec // 60)
+                    seconds = int(duration_sec % 60)
+                    result['duration'] = f"{minutes}:{seconds:02d} min"
+                    result['duration_seconds'] = duration_sec
+                except (ValueError, TypeError):
                     pass
+            
+            # Bitrate
+            if 'bit_rate' in fmt:
+                try:
+                    bitrate_kbps = int(fmt['bit_rate']) // 1000
+                    result['bitrate'] = f"{bitrate_kbps} kbps"
+                except (ValueError, TypeError):
+                    pass
+            
+            # Formato
+            if 'format_name' in fmt:
+                result['format'] = fmt['format_name']
+            
+            if 'format_long_name' in fmt:
+                result['format_long'] = fmt['format_long_name']
+            
+            # Tags (creation_time, encoder, etc.)
+            if 'tags' in fmt:
+                tags = fmt['tags']
+                
+                # Creation time (solo si no se obtuvo con exiftool)
+                if not creation_date and 'creation_time' in tags:
+                    creation_time_str = tags['creation_time']
+                    try:
+                        # Formato típico: '2024-01-15T14:30:00.000000Z'
+                        for fmt_str in ['%Y-%m-%dT%H:%M:%S.%fZ', '%Y-%m-%dT%H:%M:%SZ', '%Y-%m-%d %H:%M:%S']:
+                            try:
+                                creation_date = datetime.strptime(creation_time_str, fmt_str)
+                                result['creation_time'] = creation_date
+                                logger.debug(f"Video {file_path.name}: usando ffprobe creation_time = {creation_date}")
+                                break
+                            except ValueError:
+                                continue
+                    except Exception:
+                        pass
+                
+                if 'encoder' in tags:
+                    result['encoder'] = tags['encoder']
         
-        return None
+        # Información de streams de video
+        if 'streams' in data:
+            for stream in data['streams']:
+                if stream.get('codec_type') == 'video':
+                    if 'width' in stream:
+                        result['width'] = stream['width']
+                    if 'height' in stream:
+                        result['height'] = stream['height']
+                    if 'codec_name' in stream:
+                        result['video_codec'] = stream['codec_name']
+                    if 'codec_long_name' in stream:
+                        result['video_codec_long'] = stream['codec_long_name']
+                    if 'r_frame_rate' in stream:
+                        # Frame rate como fracción "30000/1001"
+                        try:
+                            num, den = stream['r_frame_rate'].split('/')
+                            fps = float(num) / float(den)
+                            result['fps'] = f"{fps:.2f} fps"
+                        except (ValueError, ZeroDivisionError, AttributeError):
+                            pass
+                    if 'pix_fmt' in stream:
+                        result['pixel_format'] = stream['pix_fmt']
+                    break  # Solo el primer stream de video
+        
+        return result
         
     except subprocess.TimeoutExpired:
-        logger.debug(f"Timeout ejecutando ffprobe en {file_path.name}")
-        return None
-    except (subprocess.SubprocessError, json.JSONDecodeError, KeyError):
-        return None
+        logger.debug(f"Timeout ejecutando ffprobe para {file_path.name}")
+        return result
+    except (subprocess.SubprocessError, json.JSONDecodeError, KeyError) as e:
+        logger.debug(f"Error parseando metadata de {file_path.name}: {e}")
+        return result
     except Exception as e:
         logger.debug(f"Error obteniendo metadata de video {file_path.name}: {e}")
-        return None
+        return result
 
 
 # =============================================================================
@@ -988,7 +1119,9 @@ def validate_and_get_file_info(file_path: Path) -> FileInfo:
     
     # Obtener fecha
     try:
-        file_date = get_date_from_file(file_path, verbose=True)
+        from utils.date_utils import select_best_date_from_file, get_all_metadata_from_file
+        file_metadata = get_all_metadata_from_file(file_path)
+        file_date, _ = select_best_date_from_file(file_metadata)
         date_formatted = (
             file_date.strftime('%Y%m%d_%H%M%S')
             if file_date else 'fecha desconocida'

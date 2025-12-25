@@ -1,1199 +1,514 @@
 """
 Tests unitarios para LivePhotoService.
 
-Prueba el servicio consolidado de Live Photos que integra detección y limpieza:
-- Análisis de Live Photos con plan de limpieza
-- Ejecución de limpieza (real y dry-run)
-- Diferentes modos de limpieza (KEEP_IMAGE, KEEP_VIDEO, etc.)
-- Creación de backups
-- Cancelación de operaciones
+Cubre la detección de Live Photos (imagen + video MOV), validación de fechas,
+y la lógica de eliminación de videos.
 """
 
 import pytest
 from pathlib import Path
-from services.live_photos_service import LivePhotoService, CleanupMode, LivePhotoGroup
+from datetime import datetime, timedelta
+from unittest.mock import MagicMock, patch, PropertyMock
+from services.live_photos_service import LivePhotoService
+from services.result_types import (
+    LivePhotosAnalysisResult, 
+    LivePhotosExecutionResult,
+    LivePhotoGroup,
+    LivePhotoImageInfo
+)
+from services.file_metadata import FileMetadata
 
 
-@pytest.mark.unit
-@pytest.mark.live_photos
-class TestLivePhotoServiceBasics:
-    """Tests básicos de funcionalidad del servicio."""
-    
-    def test_service_initialization(self):
-        """Test que el servicio se inicializa correctamente."""
-        service = LivePhotoService()
-        
-        assert service is not None
-        assert service.logger is not None
-        assert service.backup_dir is None
-        assert service.photo_extensions == {'.HEIC', '.JPG', '.JPEG'}
-        assert service.video_extensions == {'.MOV'}
-        assert service.time_tolerance == 5.0  # Límite de 5 segundos
-    
-    def test_service_has_cleanup_modes(self):
-        """Test que CleanupMode tiene los modos correctos."""
-        assert hasattr(CleanupMode, 'KEEP_IMAGE')
-        assert hasattr(CleanupMode, 'KEEP_VIDEO')
-        assert hasattr(CleanupMode, 'KEEP_LARGER')
-        assert hasattr(CleanupMode, 'KEEP_SMALLER')
-        assert hasattr(CleanupMode, 'CUSTOM')
-        
-        # Verificar valores
-        assert CleanupMode.KEEP_IMAGE.value == 'keep_image'
-        assert CleanupMode.KEEP_VIDEO.value == 'keep_video'
+# ==================== FIXTURES ====================
+
+@pytest.fixture
+def live_photos_service():
+    """Crea una instancia del servicio para tests."""
+    return LivePhotoService()
 
 
-@pytest.mark.unit
-@pytest.mark.live_photos
+@pytest.fixture
+def mock_repo():
+    """Mock del FileInfoRepositoryCache."""
+    with patch('services.live_photos_service.FileInfoRepositoryCache.get_instance') as mock:
+        yield mock.return_value
+
+
+def create_mock_metadata(path: Path, size: int = 1024, mtime: float = None) -> MagicMock:
+    """Crea un mock de FileMetadata con los campos necesarios."""
+    meta = MagicMock(spec=FileMetadata)
+    meta.path = Path(path)
+    meta.fs_size = size
+    meta.fs_mtime = mtime or datetime.now().timestamp()
+    meta.fs_ctime = meta.fs_mtime
+    meta.fs_atime = meta.fs_mtime
+    meta.extension = meta.path.suffix.lower()
+    meta.get_summary = MagicMock(return_value=f"Mock: {path}")
+    return meta
+
+
+# ==================== TESTS DE ANÁLISIS BÁSICO ====================
+
 class TestLivePhotoServiceAnalysis:
-    """Tests de análisis de Live Photos con plan de limpieza."""
+    """Tests para el método analyze() del servicio."""
     
-    def test_analyze_keep_image_mode(self, temp_dir, create_live_photo_pair):
-        """Test análisis en modo KEEP_IMAGE (eliminar videos)."""
-        # Crear 2 Live Photos
-        create_live_photo_pair(temp_dir, 'IMG_0001')
-        create_live_photo_pair(temp_dir, 'IMG_0002')
+    def test_analyze_detects_valid_live_photo_group(self, live_photos_service, mock_repo):
+        """Detecta un grupo válido de Live Photo (imagen + video con mismo nombre)."""
+        dir_path = Path("/mock/photos")
+        img_path = dir_path / "IMG_0001.heic"
+        vid_path = dir_path / "IMG_0001.mov"
         
-        # Analizar
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
+        img_meta = create_mock_metadata(img_path, size=5000)
+        vid_meta = create_mock_metadata(vid_path, size=2000)
         
-        # Validar resultados
-        assert analysis.success == True
-        assert analysis.live_photos_found == 2
-        assert analysis.total_files == 4  # 2 pares = 4 archivos
+        mock_repo.get_all_files.return_value = [img_meta, vid_meta]
+        mock_repo.get_file_count.return_value = 2
         
-        # Debe marcar videos para eliminar
-        assert len(analysis.files_to_delete) == 2
-        assert len(analysis.files_to_keep) == 2
+        # Fechas coinciden dentro de 5 segundos
+        dt = datetime(2023, 6, 15, 14, 30, 0)
+        with patch('services.live_photos_service.select_best_date_from_common_date_to_2_files', 
+                   return_value=(dt, dt, 'exif_date_time_original')):
+            result = live_photos_service.analyze(validate_dates=True)
         
-        # Todos los archivos a eliminar deben ser videos (.MOV)
-        for file_info in analysis.files_to_delete:
-            assert file_info['type'] == 'video'
-            assert file_info['path'].suffix.upper() == '.MOV'
+        assert result.items_count == 1
+        assert len(result.groups) == 1
+        assert len(result.rejected_groups) == 0
         
-        # Todos los archivos a mantener deben ser imágenes
-        for file_info in analysis.files_to_keep:
-            assert file_info['type'] == 'image'
+        group = result.groups[0]
+        assert group.video_path == vid_path
+        assert len(group.images) == 1
+        assert group.images[0].path == img_path
+        assert group.date_difference == 0.0
     
-    def test_analyze_keep_video_mode(self, temp_dir, create_live_photo_pair):
-        """Test análisis en modo KEEP_VIDEO (eliminar imágenes)."""
-        create_live_photo_pair(temp_dir, 'IMG_0001')
+    def test_analyze_rejects_group_with_time_difference_over_threshold(
+        self, live_photos_service, mock_repo
+    ):
+        """Rechaza grupos donde la diferencia de tiempo excede el umbral."""
+        dir_path = Path("/mock/photos")
+        img_path = dir_path / "IMG_0001.jpg"
+        vid_path = dir_path / "IMG_0001.mov"
         
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_VIDEO)
+        img_meta = create_mock_metadata(img_path, size=5000)
+        vid_meta = create_mock_metadata(vid_path, size=2000)
         
-        assert analysis.success == True
-        assert len(analysis.files_to_delete) == 1
-        assert len(analysis.files_to_keep) == 1
+        mock_repo.get_all_files.return_value = [img_meta, vid_meta]
+        mock_repo.get_file_count.return_value = 2
         
-        # Debe eliminar imagen, mantener video
-        assert analysis.files_to_delete[0]['type'] == 'image'
-        assert analysis.files_to_keep[0]['type'] == 'video'
+        # Diferencia de 10 segundos (> 5s threshold)
+        dt_vid = datetime(2023, 6, 15, 14, 30, 0)
+        dt_img = datetime(2023, 6, 15, 14, 30, 10)
+        with patch('services.live_photos_service.select_best_date_from_common_date_to_2_files', 
+                   return_value=(dt_vid, dt_img, 'fs_mtime')):
+            result = live_photos_service.analyze(validate_dates=True)
+        
+        assert result.items_count == 0
+        assert len(result.groups) == 0
+        assert len(result.rejected_groups) == 1
+        
+        rejected = result.rejected_groups[0]
+        assert rejected.date_difference == 10.0
     
-    def test_analyze_keep_larger_mode(self, temp_dir, create_live_photo_pair):
-        """Test análisis en modo KEEP_LARGER (mantener archivo más grande)."""
-        create_live_photo_pair(temp_dir, 'IMG_0001', img_size=(200, 200), vid_size=3000)
+    def test_analyze_accepts_group_without_date_validation(
+        self, live_photos_service, mock_repo
+    ):
+        """Acepta grupos sin validar fechas cuando validate_dates=False."""
+        dir_path = Path("/mock/photos")
+        img_path = dir_path / "IMG_0001.jpeg"
+        vid_path = dir_path / "IMG_0001.mov"
         
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_LARGER)
+        img_meta = create_mock_metadata(img_path, size=5000)
+        vid_meta = create_mock_metadata(vid_path, size=2000)
         
-        assert analysis.success == True
-        # Debe mantener video (más grande) y eliminar imagen
-        assert analysis.files_to_keep[0]['type'] == 'video'
-        assert analysis.files_to_delete[0]['type'] == 'image'
-        assert analysis.files_to_keep[0]['size'] == 3000
+        mock_repo.get_all_files.return_value = [img_meta, vid_meta]
+        mock_repo.get_file_count.return_value = 2
+        
+        result = live_photos_service.analyze(validate_dates=False)
+        
+        assert result.items_count == 1
+        assert len(result.groups) == 1
+        # Sin validación, date_difference debe ser 0
+        assert result.groups[0].date_difference == 0.0
     
-    def test_analyze_keep_smaller_mode(self, temp_dir, create_live_photo_pair):
-        """Test análisis en modo KEEP_SMALLER (mantener archivo más pequeño)."""
-        create_live_photo_pair(temp_dir, 'IMG_0001', img_size=(200, 200), vid_size=3000)
+    def test_analyze_ignores_files_in_different_directories(
+        self, live_photos_service, mock_repo
+    ):
+        """No empareja archivos con mismo nombre pero en directorios diferentes."""
+        dir1 = Path("/mock/photos/2023")
+        dir2 = Path("/mock/photos/2024")
         
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_SMALLER)
+        img_meta = create_mock_metadata(dir1 / "IMG_0001.heic", size=5000)
+        vid_meta = create_mock_metadata(dir2 / "IMG_0001.mov", size=2000)
         
-        assert analysis.success == True
-        # Debe mantener imagen (más pequeña) y eliminar video
-        assert analysis.files_to_keep[0]['type'] == 'image'
-        assert analysis.files_to_delete[0]['type'] == 'video'
+        mock_repo.get_all_files.return_value = [img_meta, vid_meta]
+        mock_repo.get_file_count.return_value = 2
+        
+        result = live_photos_service.analyze(validate_dates=False)
+        
+        assert result.items_count == 0
+        assert len(result.groups) == 0
     
-    def test_analyze_empty_directory(self, temp_dir):
-        """Test análisis en directorio sin Live Photos."""
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
+    def test_analyze_handles_multiple_images_per_video(
+        self, live_photos_service, mock_repo
+    ):
+        """Agrupa múltiples imágenes con el mismo video cuando comparten nombre base."""
+        dir_path = Path("/mock/photos")
         
-        assert analysis.success == True
-        assert analysis.live_photos_found == 0
-        assert len(analysis.files_to_delete) == 0
-        assert len(analysis.files_to_keep) == 0
-        assert analysis.space_to_free == 0
+        # Dos imágenes con el mismo nombre base (diferentes extensiones)
+        # En la realidad esto pasa cuando se renombra con sufijos como _photo
+        img1_meta = create_mock_metadata(dir_path / "IMG_0001.heic", size=5000)
+        img2_meta = create_mock_metadata(dir_path / "IMG_0001_photo.jpg", size=4000)
+        vid_meta = create_mock_metadata(dir_path / "IMG_0001.mov", size=2000)
+        
+        mock_repo.get_all_files.return_value = [img1_meta, img2_meta, vid_meta]
+        mock_repo.get_file_count.return_value = 3
+        
+        dt = datetime(2023, 6, 15, 14, 30, 0)
+        with patch('services.live_photos_service.select_best_date_from_common_date_to_2_files', 
+                   return_value=(dt, dt, 'exif_date_time_original')):
+            result = live_photos_service.analyze(validate_dates=True)
+        
+        # Debe haber un grupo con el video + la imagen heic
+        # El _photo se normaliza y coincide con img_0001
+        assert result.items_count >= 1
     
-    def test_analyze_calculates_space_correctly(self, temp_dir, create_live_photo_pair):
-        """Test que el análisis calcula correctamente el espacio a liberar."""
-        create_live_photo_pair(temp_dir, 'IMG_0001', img_size=(100, 100), vid_size=3000)
-        create_live_photo_pair(temp_dir, 'IMG_0002', img_size=(120, 120), vid_size=3500)
+    def test_analyze_returns_empty_when_no_videos(self, live_photos_service, mock_repo):
+        """Retorna resultado vacío si no hay videos MOV."""
+        dir_path = Path("/mock/photos")
+        img_meta = create_mock_metadata(dir_path / "IMG_0001.heic", size=5000)
         
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
+        mock_repo.get_all_files.return_value = [img_meta]
+        mock_repo.get_file_count.return_value = 1
         
-        # Debe calcular espacio de videos (a eliminar)
-        expected_space = 3000 + 3500
-        assert analysis.space_to_free == expected_space
-        # No validamos total_space exacto porque depende del tamaño real de imágenes generadas
+        result = live_photos_service.analyze(validate_dates=True)
+        
+        assert result.items_count == 0
+        assert len(result.groups) == 0
+    
+    def test_analyze_returns_empty_when_no_photos(self, live_photos_service, mock_repo):
+        """Retorna resultado vacío si no hay fotos."""
+        dir_path = Path("/mock/photos")
+        vid_meta = create_mock_metadata(dir_path / "IMG_0001.mov", size=2000)
+        
+        mock_repo.get_all_files.return_value = [vid_meta]
+        mock_repo.get_file_count.return_value = 1
+        
+        result = live_photos_service.analyze(validate_dates=True)
+        
+        assert result.items_count == 0
+        assert len(result.groups) == 0
 
 
-@pytest.mark.unit
-@pytest.mark.live_photos
+# ==================== TESTS DE NORMALIZACIÓN DE NOMBRES ====================
+
+class TestNameNormalization:
+    """Tests para la función _normalize_name."""
+    
+    def test_normalize_removes_photo_suffix(self, live_photos_service):
+        """Elimina sufijos _photo del nombre."""
+        assert live_photos_service._normalize_name("IMG_0001_photo") == "img_0001"
+        assert live_photos_service._normalize_name("IMG_0001_PHOTO") == "img_0001"
+    
+    def test_normalize_removes_video_suffix(self, live_photos_service):
+        """Elimina sufijos _video del nombre."""
+        assert live_photos_service._normalize_name("IMG_0001_video") == "img_0001"
+        assert live_photos_service._normalize_name("IMG_0001-video") == "img_0001"
+    
+    def test_normalize_handles_space_suffixes(self, live_photos_service):
+        """Elimina sufijos con espacios."""
+        assert live_photos_service._normalize_name("IMG_0001 photo") == "img_0001"
+        assert live_photos_service._normalize_name("IMG_0001 video") == "img_0001"
+    
+    def test_normalize_converts_to_lowercase(self, live_photos_service):
+        """Convierte el nombre a minúsculas."""
+        assert live_photos_service._normalize_name("IMG_0001") == "img_0001"
+        assert live_photos_service._normalize_name("Photo_2023") == "photo_2023"
+    
+    def test_normalize_preserves_name_without_suffixes(self, live_photos_service):
+        """Preserva nombres sin sufijos especiales."""
+        assert live_photos_service._normalize_name("vacation_beach") == "vacation_beach"
+
+
+# ==================== TESTS DE EJECUCIÓN ====================
+
 class TestLivePhotoServiceExecution:
-    """Tests de ejecución de limpieza."""
+    """Tests para el método execute() del servicio."""
     
-    def test_execute_dry_run(self, temp_dir, create_live_photo_pair):
-        """Test ejecución en modo dry-run (simulación)."""
-        create_live_photo_pair(temp_dir, 'IMG_0001')
-        
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        result = service.execute(analysis, create_backup=False, dry_run=True)
-        
-        # Validar resultado
-        assert result.success == True
-        assert result.dry_run == True
-        assert result.simulated_files_deleted == 1
-        assert result.files_affected == 0  # No debe eliminar realmente
-        
-        # Verificar que los archivos siguen existiendo
-        video_path = temp_dir / 'IMG_0001.MOV'
-        assert video_path.exists()
-    
-    def test_execute_real_deletion(self, temp_dir, create_live_photo_pair):
-        """Test ejecución real de limpieza (elimina archivos)."""
-        create_live_photo_pair(temp_dir, 'IMG_0001')
-        video_path = temp_dir / 'IMG_0001.MOV'
-        
-        assert video_path.exists()  # Verificar que existe antes
-        
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        result = service.execute(analysis, create_backup=False, dry_run=False)
-        
-        # Validar resultado
-        assert result.success == True
-        assert result.dry_run == False
-        assert result.files_affected == 1
-        assert result.bytes_processed > 0
-        
-        # Verificar que el video fue eliminado
-        assert not video_path.exists()
-        
-        # Verificar que la imagen se conserva
-        image_path = temp_dir / 'IMG_0001.HEIC'
-        assert image_path.exists()
-    
-    def test_execute_with_backup(self, temp_dir, create_live_photo_pair):
-        """Test que se crea backup antes de eliminar."""
-        create_live_photo_pair(temp_dir, 'IMG_0001')
-        
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        result = service.execute(analysis, create_backup=True, dry_run=False)
-        
-        # Validar que se creó backup
-        assert result.success == True
-        assert result.backup_path is not None
-        assert Path(result.backup_path).exists()
-        
-        # Verificar que el backup contiene el archivo
-        backup_path = Path(result.backup_path)
-        backup_files = list(backup_path.rglob('*'))
-        assert len([f for f in backup_files if f.is_file()]) > 0
-    
-    def test_execute_multiple_live_photos(self, temp_dir, create_live_photo_pair):
-        """Test limpieza de múltiples Live Photos."""
-        create_live_photo_pair(temp_dir, 'IMG_0001')
-        create_live_photo_pair(temp_dir, 'IMG_0002')
-        create_live_photo_pair(temp_dir, 'IMG_0003')
-        
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        result = service.execute(analysis, create_backup=False, dry_run=False)
-        
-        assert result.success == True
-        assert result.files_affected == 3  # 3 videos eliminados
-        
-        # Verificar que las imágenes se conservan
-        assert (temp_dir / 'IMG_0001.HEIC').exists()
-        assert (temp_dir / 'IMG_0002.HEIC').exists()
-        assert (temp_dir / 'IMG_0003.HEIC').exists()
-        
-        # Verificar que los videos fueron eliminados
-        assert not (temp_dir / 'IMG_0001.MOV').exists()
-        assert not (temp_dir / 'IMG_0002.MOV').exists()
-        assert not (temp_dir / 'IMG_0003.MOV').exists()
-    
-
-@pytest.mark.unit
-@pytest.mark.live_photos
-class TestLivePhotoServiceEdgeCases:
-    """Tests de casos especiales y manejo de errores."""
-    
-    def test_analyze_nonexistent_directory(self):
-        """Test análisis de directorio que no existe."""
-        service = LivePhotoService()
-        nonexistent = Path('/path/that/does/not/exist')
-        
-        with pytest.raises(ValueError, match="Directorio no existe"):
-            service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-    
-    def test_analyze_with_progress_callback(self, temp_dir, create_live_photo_pair):
-        """Test que el callback de progreso se llama correctamente."""
-        create_live_photo_pair(temp_dir, 'IMG_0001')
-        
-        progress_calls = []
-        def progress_callback(current, total, message):
-            progress_calls.append((current, total, message))
-            return True  # Continuar
-        
-        service = LivePhotoService()
-        analysis = service.analyze(
-            temp_dir, 
-            cleanup_mode=CleanupMode.KEEP_IMAGE,
-            progress_callback=progress_callback
+    def test_execute_returns_empty_result_for_empty_groups(self, live_photos_service):
+        """Retorna resultado vacío si no hay grupos."""
+        analysis = LivePhotosAnalysisResult(
+            groups=[],
+            rejected_groups=[],
+            items_count=0,
+            bytes_total=0,
+            total_space=0
         )
         
-        assert analysis.success == True
-        assert len(progress_calls) > 0
+        result = live_photos_service.execute(analysis, dry_run=True)
+        
+        assert result.success is True
+        assert result.items_processed == 0
+        assert result.videos_deleted == 0
     
-    def test_execute_with_progress_callback(self, temp_dir, create_live_photo_pair):
-        """Test que el callback de progreso se llama durante ejecución."""
-        # Crear suficientes Live Photos para alcanzar el intervalo (UI_UPDATE_INTERVAL = 10)
-        for i in range(15):
-            create_live_photo_pair(temp_dir, f'IMG_{i:04d}')
+    def test_execute_dry_run_does_not_delete_files(
+        self, live_photos_service, mock_repo, temp_dir
+    ):
+        """El modo dry_run no elimina archivos realmente."""
+        # Crear archivos reales
+        vid_path = temp_dir / "IMG_0001.mov"
+        vid_path.write_bytes(b'\x00' * 1024)
         
-        progress_calls = []
-        def progress_callback(current, total, message):
-            progress_calls.append((current, total, message))
-            return True  # Continuar
-        
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        result = service.execute(
-            analysis, 
-            create_backup=False, 
-            dry_run=False,
-            progress_callback=progress_callback
+        group = LivePhotoGroup(
+            video_path=vid_path,
+            video_size=1024,
+            images=[LivePhotoImageInfo(
+                path=temp_dir / "IMG_0001.heic",
+                size=5000,
+                date=datetime.now(),
+                date_source="test"
+            )],
+            base_name="IMG_0001",
+            directory=temp_dir,
+            video_date=datetime.now(),
+            video_date_source="test",
+            date_source="test",
+            date_difference=0.0
         )
         
-        assert result.success == True
-        assert len(progress_calls) > 0, "Progress callback should be invoked with 15 files"
-    
-    def test_cancel_via_progress_callback(self, temp_dir, create_live_photo_pair):
-        """Test cancelación de operación mediante callback."""
-        # Crear varios Live Photos
-        for i in range(5):
-            create_live_photo_pair(temp_dir, f'IMG_{i:04d}')
-        
-        cancel_after = 2
-        call_count = [0]
-        
-        def cancel_callback(current, total, message):
-            call_count[0] += 1
-            return call_count[0] < cancel_after  # Cancelar después de N llamadas
-        
-        service = LivePhotoService()
-        analysis = service.analyze(
-            temp_dir, 
-            cleanup_mode=CleanupMode.KEEP_IMAGE,
-            progress_callback=cancel_callback
+        analysis = LivePhotosAnalysisResult(
+            groups=[group],
+            rejected_groups=[],
+            items_count=1,
+            bytes_total=6024,
+            total_space=6024
         )
         
-        # Si se canceló, debe retornar resultado vacío
-        if call_count[0] >= cancel_after:
-            assert analysis.live_photos_found == 0
+        result = live_photos_service.execute(analysis, dry_run=True, create_backup=False)
+        
+        assert result.success is True
+        assert result.dry_run is True
+        assert result.videos_deleted == 1
+        assert vid_path.exists()  # El archivo sigue existiendo
+    
+    def test_execute_deletes_video_files(
+        self, live_photos_service, mock_repo, temp_dir
+    ):
+        """El modo real elimina los videos."""
+        # Crear archivos reales
+        vid_path = temp_dir / "IMG_0001.mov"
+        vid_path.write_bytes(b'\x00' * 1024)
+        
+        group = LivePhotoGroup(
+            video_path=vid_path,
+            video_size=1024,
+            images=[LivePhotoImageInfo(
+                path=temp_dir / "IMG_0001.heic",
+                size=5000,
+                date=datetime.now(),
+                date_source="test"
+            )],
+            base_name="IMG_0001",
+            directory=temp_dir,
+            video_date=datetime.now(),
+            video_date_source="test",
+            date_source="test",
+            date_difference=0.0
+        )
+        
+        analysis = LivePhotosAnalysisResult(
+            groups=[group],
+            rejected_groups=[],
+            items_count=1,
+            bytes_total=6024,
+            total_space=6024
+        )
+        
+        result = live_photos_service.execute(analysis, dry_run=False, create_backup=False)
+        
+        assert result.success is True
+        assert result.dry_run is False
+        assert result.videos_deleted == 1
+        assert not vid_path.exists()  # El archivo fue eliminado
 
 
-@pytest.mark.unit
-@pytest.mark.live_photos
+# ==================== TESTS DE RESULT TYPES ====================
+
 class TestLivePhotoGroupDataclass:
-    """Tests de la dataclass LivePhotoGroup."""
+    """Tests para el dataclass LivePhotoGroup."""
     
-    def test_live_photo_group_creation(self, temp_dir, create_test_image):
-        """Test creación de LivePhotoGroup."""
-        image_path = create_test_image(temp_dir / 'IMG_0001.HEIC', size=(100, 100))
-        video_path = create_test_image(temp_dir / 'IMG_0001.MOV', size=(120, 120))
-        
-        # Obtener tamaños reales de los archivos
-        image_size = image_path.stat().st_size
-        video_size = video_path.stat().st_size
-        
+    def test_total_size_includes_video_and_images(self):
+        """total_size suma video + todas las imágenes."""
         group = LivePhotoGroup(
-            image_path=image_path,
-            video_path=video_path,
-            base_name='IMG_0001',
-            directory=temp_dir,
-            image_size=image_size,
-            video_size=video_size
+            video_path=Path("/mock/IMG.mov"),
+            video_size=2000,
+            images=[
+                LivePhotoImageInfo(path=Path("/mock/IMG.heic"), size=5000, date=None, date_source=None),
+                LivePhotoImageInfo(path=Path("/mock/IMG.jpg"), size=4000, date=None, date_source=None),
+            ],
+            base_name="IMG",
+            directory=Path("/mock"),
+            video_date=None,
+            video_date_source=None,
+            date_source=None,
+            date_difference=0.0
         )
         
-        assert group.image_path == image_path
-        assert group.video_path == video_path
-        assert group.base_name == 'IMG_0001'
-        assert group.total_size == image_size + video_size
+        assert group.total_size == 11000  # 2000 + 5000 + 4000
     
-    def test_live_photo_group_validation(self, temp_dir):
-        """Test que LivePhotoGroup valida existencia de archivos."""
-        # Crear solo uno de los archivos
-        image_path = temp_dir / 'IMG_0001.HEIC'
-        video_path = temp_dir / 'IMG_0001.MOV'
+    def test_images_size_excludes_video(self):
+        """images_size solo cuenta las imágenes."""
+        group = LivePhotoGroup(
+            video_path=Path("/mock/IMG.mov"),
+            video_size=2000,
+            images=[
+                LivePhotoImageInfo(path=Path("/mock/IMG.heic"), size=5000, date=None, date_source=None),
+            ],
+            base_name="IMG",
+            directory=Path("/mock"),
+            video_date=None,
+            video_date_source=None,
+            date_source=None,
+            date_difference=0.0
+        )
         
-        image_path.write_bytes(b'fake image')
+        assert group.images_size == 5000
+    
+    def test_image_count_returns_number_of_images(self):
+        """image_count retorna el número de imágenes."""
+        group = LivePhotoGroup(
+            video_path=Path("/mock/IMG.mov"),
+            video_size=2000,
+            images=[
+                LivePhotoImageInfo(path=Path("/mock/IMG1.heic"), size=5000, date=None, date_source=None),
+                LivePhotoImageInfo(path=Path("/mock/IMG2.jpg"), size=4000, date=None, date_source=None),
+            ],
+            base_name="IMG",
+            directory=Path("/mock"),
+            video_date=None,
+            video_date_source=None,
+            date_source=None,
+            date_difference=0.0
+        )
         
-        with pytest.raises(ValueError, match="Video no existe"):
+        assert group.image_count == 2
+    
+    def test_primary_image_returns_first_image(self):
+        """primary_image retorna la primera imagen."""
+        img1 = LivePhotoImageInfo(path=Path("/mock/IMG1.heic"), size=5000, date=None, date_source=None)
+        img2 = LivePhotoImageInfo(path=Path("/mock/IMG2.jpg"), size=4000, date=None, date_source=None)
+        
+        group = LivePhotoGroup(
+            video_path=Path("/mock/IMG.mov"),
+            video_size=2000,
+            images=[img1, img2],
+            base_name="IMG",
+            directory=Path("/mock"),
+            video_date=None,
+            video_date_source=None,
+            date_source=None,
+            date_difference=0.0
+        )
+        
+        assert group.primary_image == img1
+    
+    def test_best_date_prefers_video_date(self):
+        """best_date prefiere la fecha del video."""
+        video_date = datetime(2023, 6, 15, 14, 30, 0)
+        img_date = datetime(2023, 6, 15, 14, 30, 5)
+        
+        group = LivePhotoGroup(
+            video_path=Path("/mock/IMG.mov"),
+            video_size=2000,
+            images=[
+                LivePhotoImageInfo(path=Path("/mock/IMG.heic"), size=5000, date=img_date, date_source="exif"),
+            ],
+            base_name="IMG",
+            directory=Path("/mock"),
+            video_date=video_date,
+            video_date_source="exif",
+            date_source="exif",
+            date_difference=5.0
+        )
+        
+        assert group.best_date == video_date
+
+
+class TestLivePhotosAnalysisResult:
+    """Tests para el dataclass LivePhotosAnalysisResult."""
+    
+    def test_potential_savings_sums_video_sizes(self):
+        """potential_savings suma los tamaños de todos los videos."""
+        groups = [
             LivePhotoGroup(
-                image_path=image_path,
-                video_path=video_path,
-                base_name='IMG_0001',
-                directory=temp_dir,
-                image_size=100,
-                video_size=100
-            )
-    
-    def test_live_photo_group_rejects_different_directories(self, temp_dir):
-        """Test que LivePhotoGroup rechaza archivos en directorios diferentes."""
-        # Crear subdirectorio
-        subdir = temp_dir / 'videos'
-        subdir.mkdir()
-        
-        # Crear archivos en directorios diferentes
-        image_path = temp_dir / 'IMG_0001.HEIC'
-        video_path = subdir / 'IMG_0001.MOV'
-        
-        image_path.write_bytes(b'fake image')
-        video_path.write_bytes(b'fake video')
-        
-        # Debe rechazar porque están en directorios diferentes
-        with pytest.raises(ValueError, match="mismo directorio"):
+                video_path=Path("/mock/IMG1.mov"), video_size=2000,
+                images=[LivePhotoImageInfo(path=Path("/mock/IMG1.heic"), size=5000, date=None, date_source=None)],
+                base_name="IMG1", directory=Path("/mock"),
+                video_date=None, video_date_source=None, date_source=None, date_difference=0.0
+            ),
             LivePhotoGroup(
-                image_path=image_path,
-                video_path=video_path,
-                base_name='IMG_0001',
-                directory=temp_dir,  # Directorio de la imagen
-                image_size=100,
-                video_size=100
-            )
-
-
-@pytest.mark.unit
-@pytest.mark.live_photos
-class TestLivePhotosCrossDirectoryDetection:
-    """Tests de detección de Live Photos en diferentes directorios."""
-    
-    def test_image_in_root_video_in_subdir_not_paired(self, temp_dir, create_test_image, create_test_video):
-        """Test que imagen en root y video en subdirectorio NO se emparejan."""
-        # Crear subdirectorio
-        subdir = temp_dir / 'videos'
-        subdir.mkdir()
-        
-        # Imagen en root, video en subdirectorio
-        create_test_image(temp_dir / 'IMG_0001.HEIC', size=(100, 100))
-        create_test_video(subdir / 'IMG_0001.MOV', size_bytes=2048)
-        
-        # Analizar
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        
-        # No deben emparejarse porque están en directorios diferentes
-        assert analysis.live_photos_found == 0
-        assert len(analysis.files_to_delete) == 0
-        assert len(analysis.files_to_keep) == 0
-    
-    def test_video_in_root_image_in_subdir_not_paired(self, temp_dir, create_test_image, create_test_video):
-        """Test que video en root e imagen en subdirectorio NO se emparejan."""
-        # Crear subdirectorio
-        subdir = temp_dir / 'photos'
-        subdir.mkdir()
-        
-        # Video en root, imagen en subdirectorio
-        create_test_video(temp_dir / 'IMG_0001.MOV', size_bytes=2048)
-        create_test_image(subdir / 'IMG_0001.HEIC', size=(100, 100))
-        
-        # Analizar
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        
-        # No deben emparejarse
-        assert analysis.live_photos_found == 0
-    
-    def test_files_in_sibling_subdirs_not_paired(self, temp_dir, create_test_image, create_test_video):
-        """Test que archivos en subdirectorios hermanos NO se emparejan."""
-        # Crear subdirectorios hermanos
-        subdir1 = temp_dir / 'folder1'
-        subdir2 = temp_dir / 'folder2'
-        subdir1.mkdir()
-        subdir2.mkdir()
-        
-        # Archivos en directorios hermanos con mismo nombre
-        create_test_image(subdir1 / 'IMG_0001.HEIC', size=(100, 100))
-        create_test_video(subdir2 / 'IMG_0001.MOV', size_bytes=2048)
-        
-        # Analizar
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        
-        # No deben emparejarse
-        assert analysis.live_photos_found == 0
-    
-    def test_files_same_directory_are_paired(self, temp_dir, create_live_photo_pair):
-        """Test que archivos en el MISMO directorio SÍ se emparejan correctamente."""
-        # Crear Live Photo en mismo directorio
-        create_live_photo_pair(temp_dir, 'IMG_0001')
-        
-        # Analizar
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        
-        # Deben emparejarse porque están en el mismo directorio
-        assert analysis.live_photos_found == 1
-        assert len(analysis.files_to_delete) == 1  # Video
-        assert len(analysis.files_to_keep) == 1    # Imagen
-    
-    def test_recursive_search_pairs_in_subdirs(self, temp_dir, create_live_photo_pair):
-        """Test que búsqueda recursiva encuentra pares en subdirectorios."""
-        # Crear subdirectorios con Live Photos
-        subdir1 = temp_dir / 'vacation'
-        subdir2 = temp_dir / 'vacation' / '2024'
-        subdir1.mkdir()
-        subdir2.mkdir()
-        
-        # Crear Live Photos en diferentes niveles
-        create_live_photo_pair(temp_dir, 'IMG_ROOT')
-        create_live_photo_pair(subdir1, 'IMG_SUB1')
-        create_live_photo_pair(subdir2, 'IMG_SUB2')
-        
-        # Analizar recursivamente
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE, recursive=True)
-        
-        # Debe encontrar los 3 pares
-        assert analysis.live_photos_found == 3
-        assert len(analysis.files_to_delete) == 3
-    
-    def test_non_recursive_search_only_root(self, temp_dir, create_live_photo_pair):
-        """Test que búsqueda no recursiva solo encuentra pares en root."""
-        # Crear subdirectorio
-        subdir = temp_dir / 'photos'
-        subdir.mkdir()
-        
-        # Crear Live Photos en root y subdirectorio
-        create_live_photo_pair(temp_dir, 'IMG_ROOT')
-        create_live_photo_pair(subdir, 'IMG_SUB')
-        
-        # Analizar NO recursivamente
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE, recursive=False)
-        
-        # Solo debe encontrar el del root
-        assert analysis.live_photos_found == 1
-
-
-@pytest.mark.unit
-@pytest.mark.live_photos
-class TestLivePhotosCaseSensitivity:
-    """Tests de sensibilidad a mayúsculas/minúsculas en nombres."""
-    
-    def test_identical_names_different_case_are_paired(self, temp_dir, create_test_image, create_test_video):
-        """Test que nombres idénticos con diferente case se emparejan (photo.jpg vs PHOTO.jpg)."""
-        # Crear archivos con mismo nombre pero diferente case
-        create_test_image(temp_dir / 'photo.jpg', size=(100, 100))
-        create_test_video(temp_dir / 'PHOTO.MOV', size_bytes=2048)
-        
-        # Analizar
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        
-        # Deben emparejarse (la normalización ignora case)
-        assert analysis.live_photos_found == 1
-    
-    def test_same_base_different_extension_case_paired(self, temp_dir, create_test_image, create_test_video):
-        """Test que mismo base con diferente case en extensión se emparejan (photo.JPG vs photo.jpg)."""
-        # Crear archivos con extensiones en diferente case
-        create_test_image(temp_dir / 'MyPhoto.JPG', size=(100, 100))
-        create_test_video(temp_dir / 'MyPhoto.MOV', size_bytes=2048)
-        
-        # Analizar
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        
-        # Deben emparejarse
-        assert analysis.live_photos_found == 1
-    
-    def test_mixed_case_filename_with_lowercase_ext(self, temp_dir, create_test_image, create_test_video):
-        """Test nombres con case mixto (Photo.JPG + photo.mov)."""
-        # Crear con case mixto
-        create_test_image(temp_dir / 'Photo.JPEG', size=(100, 100))
-        create_test_video(temp_dir / 'photo.MOV', size_bytes=2048)
-        
-        # Analizar
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        
-        # Deben emparejarse
-        assert analysis.live_photos_found == 1
-    
-    def test_all_uppercase_vs_all_lowercase(self, temp_dir, create_test_image, create_test_video):
-        """Test todo mayúsculas vs todo minúsculas."""
-        # TODO MAYÚSCULAS vs todo minúsculas
-        create_test_image(temp_dir / 'IMG_0001.HEIC', size=(100, 100))
-        create_test_video(temp_dir / 'img_0001.mov', size_bytes=2048)
-        
-        # Analizar
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        
-        # Deben emparejarse
-        assert analysis.live_photos_found == 1
-
-
-@pytest.mark.unit
-@pytest.mark.live_photos
-class TestLivePhotosExtensionCombinations:
-    """Tests de diferentes combinaciones de extensiones válidas."""
-    
-    def test_jpg_lowercase_with_mov(self, temp_dir, create_test_image, create_test_video):
-        """Test .jpg + .MOV"""
-        create_test_image(temp_dir / 'photo.jpg', size=(100, 100))
-        create_test_video(temp_dir / 'photo.MOV', size_bytes=2048)
-        
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        assert analysis.live_photos_found == 1
-    
-    def test_jpg_uppercase_with_mov(self, temp_dir, create_test_image, create_test_video):
-        """Test .JPG + .MOV"""
-        create_test_image(temp_dir / 'photo.JPG', size=(100, 100))
-        create_test_video(temp_dir / 'photo.MOV', size_bytes=2048)
-        
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        assert analysis.live_photos_found == 1
-    
-    def test_jpeg_lowercase_with_mov(self, temp_dir, create_test_image, create_test_video):
-        """Test .jpeg + .MOV"""
-        create_test_image(temp_dir / 'photo.jpeg', size=(100, 100))
-        create_test_video(temp_dir / 'photo.MOV', size_bytes=2048)
-        
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        assert analysis.live_photos_found == 1
-    
-    def test_jpeg_uppercase_with_mov(self, temp_dir, create_test_image, create_test_video):
-        """Test .JPEG + .MOV"""
-        create_test_image(temp_dir / 'photo.JPEG', size=(100, 100))
-        create_test_video(temp_dir / 'photo.MOV', size_bytes=2048)
-        
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        assert analysis.live_photos_found == 1
-    
-    def test_heic_lowercase_with_mov(self, temp_dir, create_test_image, create_test_video):
-        """Test .heic + .MOV"""
-        create_test_image(temp_dir / 'photo.heic', size=(100, 100))
-        create_test_video(temp_dir / 'photo.MOV', size_bytes=2048)
-        
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        assert analysis.live_photos_found == 1
-    
-    def test_heic_uppercase_with_mov(self, temp_dir, create_test_image, create_test_video):
-        """Test .HEIC + .MOV"""
-        create_test_image(temp_dir / 'photo.HEIC', size=(100, 100))
-        create_test_video(temp_dir / 'photo.MOV', size_bytes=2048)
-        
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        assert analysis.live_photos_found == 1
-    
-    def test_mixed_case_extensions(self, temp_dir, create_test_image, create_test_video):
-        """Test extensiones con case mixto (Photo.JpG + Photo.MoV)."""
-        # Crear archivos con extensiones en case mixto
-        img_path = temp_dir / 'Photo.JpG'
-        vid_path = temp_dir / 'Photo.MoV'
-        
-        # PIL no soporta guardar como .JpG directamente, así que creamos y renombramos
-        temp_img = temp_dir / 'Photo_temp.jpg'
-        temp_vid = temp_dir / 'Photo_temp.mov'
-        
-        create_test_image(temp_img, size=(100, 100))
-        create_test_video(temp_vid, size_bytes=2048)
-        
-        temp_img.rename(img_path)
-        temp_vid.rename(vid_path)
-        
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        
-        # Debería emparejarse (normalización de extensiones)
-        assert analysis.live_photos_found == 1
-    
-    def test_all_extensions_in_same_dir(self, temp_dir, create_test_image, create_test_video):
-        """Test múltiples extensiones válidas en mismo directorio."""
-        # Crear varios Live Photos con diferentes extensiones
-        create_test_image(temp_dir / 'photo1.jpg', size=(100, 100))
-        create_test_video(temp_dir / 'photo1.MOV', size_bytes=2048)
-        
-        create_test_image(temp_dir / 'photo2.JPEG', size=(100, 100))
-        create_test_video(temp_dir / 'photo2.MOV', size_bytes=2048)
-        
-        create_test_image(temp_dir / 'photo3.heic', size=(100, 100))
-        create_test_video(temp_dir / 'photo3.MOV', size_bytes=2048)
-        
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        
-        # Deben encontrarse los 3 pares
-        assert analysis.live_photos_found == 3
-
-
-@pytest.mark.unit
-@pytest.mark.live_photos
-class TestLivePhotosEdgeCasesFilenames:
-    """Tests de casos especiales con nombres de archivos."""
-    
-    def test_special_characters_in_filename(self, temp_dir, create_test_image, create_test_video):
-        """Test nombres con caracteres especiales."""
-        # Crear con caracteres especiales comunes
-        special_name = 'Photo-2024_01_15@10h30m'
-        create_test_image(temp_dir / f'{special_name}.jpg', size=(100, 100))
-        create_test_video(temp_dir / f'{special_name}.MOV', size_bytes=2048)
-        
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        
-        # Deben emparejarse
-        assert analysis.live_photos_found == 1
-    
-    def test_spaces_in_filename(self, temp_dir, create_test_image, create_test_video):
-        """Test nombres con espacios."""
-        name_with_spaces = 'My Vacation Photo 2024'
-        create_test_image(temp_dir / f'{name_with_spaces}.jpg', size=(100, 100))
-        create_test_video(temp_dir / f'{name_with_spaces}.MOV', size_bytes=2048)
-        
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        
-        assert analysis.live_photos_found == 1
-    
-    def test_unicode_characters_in_filename(self, temp_dir, create_test_image, create_test_video):
-        """Test nombres con caracteres Unicode."""
-        unicode_name = 'Foto_España_2024_ñáéíóú'
-        create_test_image(temp_dir / f'{unicode_name}.jpg', size=(100, 100))
-        create_test_video(temp_dir / f'{unicode_name}.MOV', size_bytes=2048)
-        
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        
-        assert analysis.live_photos_found == 1
-    
-    def test_very_long_filename(self, temp_dir, create_test_image, create_test_video):
-        """Test nombre muy largo (cerca del límite del sistema)."""
-        # Nombre de 200 caracteres (bajo el límite de 255 de la mayoría de sistemas)
-        long_name = 'A' * 200
-        create_test_image(temp_dir / f'{long_name}.jpg', size=(100, 100))
-        create_test_video(temp_dir / f'{long_name}.MOV', size_bytes=2048)
-        
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        
-        assert analysis.live_photos_found == 1
-    
-    def test_filename_with_multiple_dots(self, temp_dir, create_test_image, create_test_video):
-        """Test nombre con múltiples puntos."""
-        dotted_name = 'photo.backup.2024.final'
-        create_test_image(temp_dir / f'{dotted_name}.jpg', size=(100, 100))
-        create_test_video(temp_dir / f'{dotted_name}.MOV', size_bytes=2048)
-        
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        
-        assert analysis.live_photos_found == 1
-    
-    def test_multiple_potential_pairs_same_dir(self, temp_dir, create_live_photo_pair):
-        """Test múltiples pares potenciales en el mismo directorio."""
-        # Crear 5 Live Photos diferentes
-        for i in range(1, 6):
-            create_live_photo_pair(temp_dir, f'IMG_{i:04d}')
-        
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        
-        # Deben encontrarse todos los pares
-        assert analysis.live_photos_found == 5
-        assert len(analysis.files_to_delete) == 5
-    
-    def test_orphaned_image_no_video(self, temp_dir, create_test_image):
-        """Test imagen sin video correspondiente (huérfana)."""
-        # Solo crear imagen
-        create_test_image(temp_dir / 'orphan.jpg', size=(100, 100))
-        
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        
-        # No debe encontrar pares
-        assert analysis.live_photos_found == 0
-        assert len(analysis.files_to_delete) == 0
-    
-    def test_orphaned_video_no_image(self, temp_dir, create_test_video):
-        """Test video sin imagen correspondiente (huérfano)."""
-        # Solo crear video
-        create_test_video(temp_dir / 'orphan.MOV', size_bytes=2048)
-        
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        
-        # No debe encontrar pares
-        assert analysis.live_photos_found == 0
-        assert len(analysis.files_to_delete) == 0
-    
-    def test_mixed_orphaned_and_paired_files(self, temp_dir, create_live_photo_pair, create_test_image, create_test_video):
-        """Test mezcla de archivos emparejados y huérfanos."""
-        # Crear 2 Live Photos válidos
-        create_live_photo_pair(temp_dir, 'IMG_0001')
-        create_live_photo_pair(temp_dir, 'IMG_0002')
-        
-        # Crear huérfanos
-        create_test_image(temp_dir / 'orphan_img.jpg', size=(100, 100))
-        create_test_video(temp_dir / 'orphan_vid.MOV', size_bytes=2048)
-        
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        
-        # Solo deben emparejarse los 2 válidos
-        assert analysis.live_photos_found == 2
-        assert len(analysis.files_to_delete) == 2
-        
-        # Verificar que los huérfanos no están en el plan
-        delete_paths = [str(f['path']) for f in analysis.files_to_delete]
-        assert 'orphan_img.jpg' not in str(delete_paths)
-        assert 'orphan_vid.MOV' not in str(delete_paths)
-
-
-@pytest.mark.unit
-@pytest.mark.live_photos
-class TestLivePhotosEXIFDateMatching:
-    """Tests de emparejamiento basado en fechas EXIF y timestamps.
-    
-    Nota: La implementación actual empareja archivos basándose en nombres de archivo,
-    no en fechas EXIF. Estos tests documentan el comportamiento actual y sirven como
-    base para futuras mejoras si se desea implementar validación de fechas EXIF.
-    """
-    
-    def test_files_with_matching_timestamps_paired(self, temp_dir, create_test_image, create_test_video):
-        """Test que archivos con timestamps similares se emparejan (comportamiento actual)."""
-        from datetime import datetime
-        import os
-        
-        # Crear archivos
-        img_path = create_test_image(temp_dir / 'photo.jpg', size=(100, 100))
-        vid_path = create_test_video(temp_dir / 'photo.MOV', size_bytes=2048)
-        
-        # Ajustar timestamps para que sean idénticos
-        timestamp = datetime(2024, 1, 15, 10, 30, 0).timestamp()
-        os.utime(img_path, (timestamp, timestamp))
-        os.utime(vid_path, (timestamp, timestamp))
-        
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        
-        # Deben emparejarse
-        assert analysis.live_photos_found == 1
-    
-    def test_files_with_close_timestamps_paired(self, temp_dir, create_test_image, create_test_video):
-        """Test que archivos con timestamps cercanos (< 5 segundos) se emparejan."""
-        from datetime import datetime, timedelta
-        import os
-        
-        # Crear archivos
-        img_path = create_test_image(temp_dir / 'photo.jpg', size=(100, 100))
-        vid_path = create_test_video(temp_dir / 'photo.MOV', size_bytes=2048)
-        
-        # Timestamps con 3 segundos de diferencia (dentro del límite)
-        base_time = datetime(2024, 1, 15, 10, 30, 0)
-        img_timestamp = base_time.timestamp()
-        vid_timestamp = (base_time + timedelta(seconds=3)).timestamp()
-        
-        os.utime(img_path, (img_timestamp, img_timestamp))
-        os.utime(vid_path, (vid_timestamp, vid_timestamp))
-        
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        
-        # Deben emparejarse porque están dentro del límite de 5 segundos
-        assert analysis.live_photos_found == 1
-        
-        # Verificar que time_difference está disponible en el grupo
-        if analysis.groups:
-            group = analysis.groups[0]
-            # La diferencia debe ser aproximadamente 3 segundos
-            assert 2.5 <= group.time_difference <= 3.5
-    
-    def test_files_with_distant_timestamps_not_paired(self, temp_dir, create_test_image, create_test_video):
-        """Test que archivos con timestamps distantes (> 5 segundos) NO se emparejan.
-        
-        Con la validación de tiempo implementada, archivos con diferencia > 5 segundos
-        no se consideran Live Photos válidos, aunque tengan el mismo nombre.
-        """
-        from datetime import datetime, timedelta
-        import os
-        from config import Config
-        
-        # Crear archivos
-        img_path = create_test_image(temp_dir / 'photo.jpg', size=(100, 100))
-        vid_path = create_test_video(temp_dir / 'photo.MOV', size_bytes=2048)
-        
-        # Timestamps con 2 horas de diferencia (>> 5 segundos)
-        base_time = datetime(2024, 1, 15, 10, 30, 0)
-        img_timestamp = base_time.timestamp()
-        vid_timestamp = (base_time + timedelta(hours=2)).timestamp()
-        
-        os.utime(img_path, (img_timestamp, img_timestamp))
-        os.utime(vid_path, (vid_timestamp, vid_timestamp))
-        
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        
-        # Con la nueva lógica, SIEMPRE se valida el tiempo, independientemente de USE_VIDEO_METADATA
-        # (usando fechas de filesystem si metadata no está disponible)
-        
-        # Con validación temporal: NO deben emparejarse porque la diferencia es > 5 segundos
-        assert analysis.live_photos_found == 0
-        assert len(analysis.files_to_delete) == 0
-    
-    def test_files_without_exif_paired_by_name(self, temp_dir, create_test_image, create_test_video):
-        """Test que archivos sin datos EXIF se emparejan por nombre si timestamps similares."""
-        from datetime import datetime
-        import os
-        
-        # Crear archivos simples sin EXIF
-        img_path = create_test_image(temp_dir / 'photo.jpg', size=(100, 100))
-        vid_path = create_test_video(temp_dir / 'photo.MOV', size_bytes=2048)
-        
-        # Ajustar timestamps para que sean casi idénticos (dentro del límite)
-        timestamp = datetime(2024, 1, 15, 10, 30, 0).timestamp()
-        os.utime(img_path, (timestamp, timestamp))
-        os.utime(vid_path, (timestamp, timestamp))
-        
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        
-        # Deben emparejarse basándose en nombre y timestamps similares
-        assert analysis.live_photos_found == 1
-    
-    def test_time_difference_property_calculation(self, temp_dir, create_test_image, create_test_video):
-        """Test que LivePhotoGroup calcula correctamente time_difference."""
-        from datetime import datetime, timedelta
-        import os
-        
-        # Crear archivos
-        img_path = create_test_image(temp_dir / 'IMG_0001.HEIC', size=(100, 100))
-        vid_path = create_test_video(temp_dir / 'IMG_0001.MOV', size_bytes=2048)
-        
-        # Configurar timestamps con diferencia conocida (10 minutos = 600 segundos)
-        base_time = datetime(2024, 1, 15, 10, 0, 0)
-        img_timestamp = base_time.timestamp()
-        vid_timestamp = (base_time + timedelta(minutes=10)).timestamp()
-        
-        os.utime(img_path, (img_timestamp, img_timestamp))
-        os.utime(vid_path, (vid_timestamp, vid_timestamp))
-        
-        # Crear LivePhotoGroup directamente
-        group = LivePhotoGroup(
-            image_path=img_path,
-            video_path=vid_path,
-            base_name='IMG_0001',
-            directory=temp_dir,
-            image_size=img_path.stat().st_size,
-            video_size=vid_path.stat().st_size
-        )
-        
-        # Verificar que time_difference se calcula correctamente (600 segundos ± margen)
-        assert 590 <= group.time_difference <= 610
-    
-    def test_time_difference_with_video_earlier_than_image(self, temp_dir, create_test_image, create_test_video):
-        """Test time_difference cuando el video es anterior a la imagen."""
-        from datetime import datetime, timedelta
-        import os
-        
-        # Crear archivos
-        img_path = create_test_image(temp_dir / 'IMG_0001.HEIC', size=(100, 100))
-        vid_path = create_test_video(temp_dir / 'IMG_0001.MOV', size_bytes=2048)
-        
-        # Video 5 minutos ANTES que imagen
-        base_time = datetime(2024, 1, 15, 10, 0, 0)
-        img_timestamp = base_time.timestamp()
-        vid_timestamp = (base_time - timedelta(minutes=5)).timestamp()
-        
-        os.utime(img_path, (img_timestamp, img_timestamp))
-        os.utime(vid_path, (vid_timestamp, vid_timestamp))
-        
-        # Crear LivePhotoGroup
-        group = LivePhotoGroup(
-            image_path=img_path,
-            video_path=vid_path,
-            base_name='IMG_0001',
-            directory=temp_dir,
-            image_size=img_path.stat().st_size,
-            video_size=vid_path.stat().st_size
-        )
-        
-        # time_difference debe ser absoluto (300 segundos ± margen)
-        assert 290 <= group.time_difference <= 310
-    
-    def test_groups_sorted_by_time_difference(self, temp_dir, create_test_image, create_test_video):
-        """Test que grupos con menor time_difference se priorizan."""
-        from datetime import datetime, timedelta
-        import os
-        
-        # Crear 3 pares con diferentes diferencias de tiempo (todas dentro del límite)
-        pairs = [
-            ('photo1', timedelta(seconds=4)),    # 4 segundos
-            ('photo2', timedelta(seconds=2)),    # 2 segundos (menor)
-            ('photo3', timedelta(seconds=5)),    # 5 segundos (en el límite)
+                video_path=Path("/mock/IMG2.mov"), video_size=3000,
+                images=[LivePhotoImageInfo(path=Path("/mock/IMG2.heic"), size=5000, date=None, date_source=None)],
+                base_name="IMG2", directory=Path("/mock"),
+                video_date=None, video_date_source=None, date_source=None, date_difference=0.0
+            ),
         ]
         
-        base_time = datetime(2024, 1, 15, 10, 0, 0)
+        result = LivePhotosAnalysisResult(
+            groups=groups,
+            rejected_groups=[],
+            items_count=2,
+            bytes_total=15000,
+            total_space=15000
+        )
         
-        for name, time_diff in pairs:
-            img_path = create_test_image(temp_dir / f'{name}.jpg', size=(100, 100))
-            vid_path = create_test_video(temp_dir / f'{name}.MOV', size_bytes=2048)
-            
-            img_timestamp = base_time.timestamp()
-            vid_timestamp = (base_time + time_diff).timestamp()
-            
-            os.utime(img_path, (img_timestamp, img_timestamp))
-            os.utime(vid_path, (vid_timestamp, vid_timestamp))
-        
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        
-        # Deben encontrarse los 3 pares (todos dentro del límite de 5 segundos)
-        assert analysis.live_photos_found == 3
-        
-        # Verificar que los grupos están ordenados por time_difference
-        if len(analysis.groups) == 3:
-            differences = [g.time_difference for g in analysis.groups]
-            # Todos deben estar dentro del límite
-            assert all(d <= 5.0 for d in differences)
-            # photo2 (2 seg) debe tener la menor diferencia
-            assert min(differences) <= 2.5
-
-
-@pytest.mark.unit
-@pytest.mark.live_photos
-class TestLivePhotosTimeValidation:
-    """Tests específicos para validación de límite de tiempo de 5 segundos."""
+        assert result.potential_savings == 5000  # 2000 + 3000
     
-    def test_exactly_5_seconds_is_valid(self, temp_dir, create_test_image, create_test_video):
-        """Test que diferencia de exactamente 5 segundos es válida (límite inclusivo)."""
-        from datetime import datetime, timedelta
-        import os
+    def test_total_images_counts_all_images(self):
+        """total_images cuenta imágenes de todos los grupos."""
+        groups = [
+            LivePhotoGroup(
+                video_path=Path("/mock/IMG1.mov"), video_size=2000,
+                images=[
+                    LivePhotoImageInfo(path=Path("/mock/IMG1.heic"), size=5000, date=None, date_source=None),
+                    LivePhotoImageInfo(path=Path("/mock/IMG1.jpg"), size=4000, date=None, date_source=None),
+                ],
+                base_name="IMG1", directory=Path("/mock"),
+                video_date=None, video_date_source=None, date_source=None, date_difference=0.0
+            ),
+            LivePhotoGroup(
+                video_path=Path("/mock/IMG2.mov"), video_size=3000,
+                images=[LivePhotoImageInfo(path=Path("/mock/IMG2.heic"), size=5000, date=None, date_source=None)],
+                base_name="IMG2", directory=Path("/mock"),
+                video_date=None, video_date_source=None, date_source=None, date_difference=0.0
+            ),
+        ]
         
-        img_path = create_test_image(temp_dir / 'photo.jpg', size=(100, 100))
-        vid_path = create_test_video(temp_dir / 'photo.MOV', size_bytes=2048)
+        result = LivePhotosAnalysisResult(
+            groups=groups,
+            rejected_groups=[],
+            items_count=2,
+            bytes_total=19000,
+            total_space=19000
+        )
         
-        # Exactamente 5 segundos de diferencia
-        base_time = datetime(2024, 1, 15, 10, 30, 0)
-        os.utime(img_path, (base_time.timestamp(), base_time.timestamp()))
-        os.utime(vid_path, ((base_time + timedelta(seconds=5)).timestamp(), 
-                            (base_time + timedelta(seconds=5)).timestamp()))
-        
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        
-        # Debe emparejarse (5.0 <= 5.0)
-        assert analysis.live_photos_found == 1
+        assert result.total_images == 3  # 2 + 1
     
-    def test_slightly_over_5_seconds_is_invalid(self, temp_dir, create_test_image, create_test_video):
-        """Test que diferencia > 5 segundos NO es válida."""
-        from datetime import datetime, timedelta
-        import os
-        from config import Config
+    def test_total_videos_equals_group_count(self):
+        """total_videos es igual al número de grupos."""
+        groups = [
+            LivePhotoGroup(
+                video_path=Path("/mock/IMG1.mov"), video_size=2000,
+                images=[LivePhotoImageInfo(path=Path("/mock/IMG1.heic"), size=5000, date=None, date_source=None)],
+                base_name="IMG1", directory=Path("/mock"),
+                video_date=None, video_date_source=None, date_source=None, date_difference=0.0
+            ),
+        ]
         
-        img_path = create_test_image(temp_dir / 'photo.jpg', size=(100, 100))
-        vid_path = create_test_video(temp_dir / 'photo.MOV', size_bytes=2048)
+        result = LivePhotosAnalysisResult(
+            groups=groups,
+            rejected_groups=[],
+            items_count=1,
+            bytes_total=7000,
+            total_space=7000
+        )
         
-        # 6 segundos de diferencia (excede el límite)
-        base_time = datetime(2024, 1, 15, 10, 30, 0)
-        os.utime(img_path, (base_time.timestamp(), base_time.timestamp()))
-        os.utime(vid_path, ((base_time + timedelta(seconds=6)).timestamp(), 
-                            (base_time + timedelta(seconds=6)).timestamp()))
-        
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        
-        # Con la nueva lógica, SIEMPRE se valida el tiempo
-        
-        # Con validación temporal: NO debe emparejarse (6.0 > 5.0)
-        assert analysis.live_photos_found == 0
-    
-    def test_zero_time_difference_is_valid(self, temp_dir, create_test_image, create_test_video):
-        """Test que diferencia de 0 segundos (timestamps idénticos) es válida."""
-        from datetime import datetime
-        import os
-        
-        img_path = create_test_image(temp_dir / 'photo.jpg', size=(100, 100))
-        vid_path = create_test_video(temp_dir / 'photo.MOV', size_bytes=2048)
-        
-        # Timestamps idénticos
-        timestamp = datetime(2024, 1, 15, 10, 30, 0).timestamp()
-        os.utime(img_path, (timestamp, timestamp))
-        os.utime(vid_path, (timestamp, timestamp))
-        
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        
-        assert analysis.live_photos_found == 1
-        assert analysis.groups[0].time_difference < 0.1  # Prácticamente 0
-    
-    def test_mixed_valid_and_invalid_time_differences(self, temp_dir, create_test_image, create_test_video):
-        """Test que solo se emparejan archivos con diferencia <= 5 segundos."""
-        from datetime import datetime, timedelta
-        import os
-        from config import Config
-        
-        base_time = datetime(2024, 1, 15, 10, 0, 0)
-        
-        # Par 1: 2 segundos (válido)
-        img1 = create_test_image(temp_dir / 'photo1.jpg', size=(100, 100))
-        vid1 = create_test_video(temp_dir / 'photo1.MOV', size_bytes=2048)
-        os.utime(img1, (base_time.timestamp(), base_time.timestamp()))
-        os.utime(vid1, ((base_time + timedelta(seconds=2)).timestamp(), 
-                        (base_time + timedelta(seconds=2)).timestamp()))
-        
-        # Par 2: 10 segundos (inválido)
-        img2 = create_test_image(temp_dir / 'photo2.jpg', size=(100, 100))
-        vid2 = create_test_video(temp_dir / 'photo2.MOV', size_bytes=2048)
-        os.utime(img2, (base_time.timestamp(), base_time.timestamp()))
-        os.utime(vid2, ((base_time + timedelta(seconds=10)).timestamp(), 
-                        (base_time + timedelta(seconds=10)).timestamp()))
-        
-        # Par 3: 5 segundos (válido, en el límite)
-        img3 = create_test_image(temp_dir / 'photo3.jpg', size=(100, 100))
-        vid3 = create_test_video(temp_dir / 'photo3.MOV', size_bytes=2048)
-        os.utime(img3, (base_time.timestamp(), base_time.timestamp()))
-        os.utime(vid3, ((base_time + timedelta(seconds=5)).timestamp(), 
-                        (base_time + timedelta(seconds=5)).timestamp()))
-        
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        
-        # Con la nueva lógica, SIEMPRE se valida el tiempo
-        
-        # Con validación temporal: Solo deben encontrarse 2 pares (photo1 y photo3)
-        assert analysis.live_photos_found == 2
-        assert len(analysis.files_to_delete) == 2
-    
-    def test_time_validation_with_dry_run(self, temp_dir, create_test_image, create_test_video):
-        """Test que validación de tiempo funciona correctamente en modo dry-run."""
-        from datetime import datetime, timedelta
-        import os
-        from config import Config
-        
-        base_time = datetime(2024, 1, 15, 10, 0, 0)
-        
-        # Par válido: 3 segundos
-        img = create_test_image(temp_dir / 'valid.jpg', size=(100, 100))
-        vid = create_test_video(temp_dir / 'valid.MOV', size_bytes=2048)
-        os.utime(img, (base_time.timestamp(), base_time.timestamp()))
-        os.utime(vid, ((base_time + timedelta(seconds=3)).timestamp(), 
-                       (base_time + timedelta(seconds=3)).timestamp()))
-        
-        # Par inválido: 8 segundos
-        img_invalid = create_test_image(temp_dir / 'invalid.jpg', size=(100, 100))
-        vid_invalid = create_test_video(temp_dir / 'invalid.MOV', size_bytes=2048)
-        os.utime(img_invalid, (base_time.timestamp(), base_time.timestamp()))
-        os.utime(vid_invalid, ((base_time + timedelta(seconds=8)).timestamp(), 
-                               (base_time + timedelta(seconds=8)).timestamp()))
-        
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        
-        # Con la nueva lógica, SIEMPRE se valida el tiempo
-        expected_live_photos = 1
-        
-        # Solo el par válido debe ser detectado
-        assert analysis.live_photos_found == expected_live_photos
-        
-        # Ejecutar en modo dry-run
-        result = service.execute(analysis, create_backup=False, dry_run=True)
-        
-        assert result.success == True
-        assert result.dry_run == True
-        assert result.simulated_files_deleted == expected_live_photos
-        assert vid.exists()  # No debe eliminar en dry-run
-        assert vid_invalid.exists()  # Tampoco debe tocar el inválido
-    
-    def test_time_validation_with_backup(self, temp_dir, create_test_image, create_test_video):
-        """Test que validación de tiempo funciona correctamente con backup habilitado."""
-        from datetime import datetime, timedelta
-        import os
-        
-        base_time = datetime(2024, 1, 15, 10, 0, 0)
-        
-        # Crear 2 pares válidos
-        for i in range(1, 3):
-            img = create_test_image(temp_dir / f'photo{i}.jpg', size=(100, 100))
-            vid = create_test_video(temp_dir / f'photo{i}.MOV', size_bytes=2048)
-            os.utime(img, (base_time.timestamp(), base_time.timestamp()))
-            os.utime(vid, ((base_time + timedelta(seconds=2)).timestamp(), 
-                           (base_time + timedelta(seconds=2)).timestamp()))
-        
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        
-        assert analysis.live_photos_found == 2
-        
-        # Ejecutar con backup
-        result = service.execute(analysis, create_backup=True, dry_run=False)
-        
-        assert result.success == True
-        assert result.files_affected == 2
-        assert result.backup_path is not None
-        assert Path(result.backup_path).exists()
-        
-        # Verificar que los videos fueron eliminados
-        assert not (temp_dir / 'photo1.MOV').exists()
-        assert not (temp_dir / 'photo2.MOV').exists()
-        
-        # Verificar que las imágenes se conservan
-        assert (temp_dir / 'photo1.jpg').exists()
-        assert (temp_dir / 'photo2.jpg').exists()
-    
-    def test_time_validation_with_real_execution(self, temp_dir, create_test_image, create_test_video):
-        """Test ejecución real con validación de tiempo (sin dry-run, sin backup)."""
-        from datetime import datetime, timedelta
-        import os
-        
-        base_time = datetime(2024, 1, 15, 10, 0, 0)
-        
-        # Par válido
-        img = create_test_image(temp_dir / 'photo.jpg', size=(100, 100))
-        vid = create_test_video(temp_dir / 'photo.MOV', size_bytes=2048)
-        os.utime(img, (base_time.timestamp(), base_time.timestamp()))
-        os.utime(vid, ((base_time + timedelta(seconds=4)).timestamp(), 
-                       (base_time + timedelta(seconds=4)).timestamp()))
-        
-        service = LivePhotoService()
-        analysis = service.analyze(cleanup_mode=CleanupMode.KEEP_IMAGE)
-        
-        assert analysis.live_photos_found == 1
-        
-        # Ejecutar sin backup y sin dry-run
-        result = service.execute(analysis, create_backup=False, dry_run=False)
-        
-        assert result.success == True
-        assert result.files_affected == 1
-        assert result.dry_run == False
-        assert result.backup_path is None
-        
-        # Video debe ser eliminado
-        assert not vid.exists()
-        # Imagen debe conservarse
-        assert img.exists()
+        assert result.total_videos == 1

@@ -543,8 +543,8 @@ class DuplicatesSimilarDialog(BaseDialog):
                 )
                 
                 # Crear análisis temporal con subset
-                from services.duplicates_similar_service import SimilarFilesAnalysis
-                temp_analysis = SimilarFilesAnalysis()
+                from services.duplicates_similar_service import DuplicatesSimilarAnalysis
+                temp_analysis = DuplicatesSimilarAnalysis()
                 temp_analysis.workspace_path = self.analysis.workspace_path
                 
                 # Usar find_new_groups para comparar batch actual vs todo lo anterior
@@ -637,8 +637,8 @@ class DuplicatesSimilarDialog(BaseDialog):
                 f"({self.files_processed:,} archivos procesados)"
             )
             
-            from services.duplicates_similar_service import SimilarFilesAnalysis
-            temp_analysis = SimilarFilesAnalysis()
+            from services.duplicates_similar_service import DuplicatesSimilarAnalysis
+            temp_analysis = DuplicatesSimilarAnalysis()
             temp_analysis.perceptual_hashes = processed_hashes
             temp_analysis.workspace_path = self.analysis.workspace_path
             temp_analysis.total_files = len(processed_hashes)
@@ -1141,13 +1141,13 @@ class DuplicatesSimilarDialog(BaseDialog):
         - Line 2: "Fuente: EXIF DateTimeOriginal"
         """
         try:
-            from utils.date_utils import select_chosen_date, get_all_file_dates
+            from utils.date_utils import select_best_date_from_file, get_all_metadata_from_file
             
-            # Get all available dates for this file
-            all_dates = get_all_file_dates(file_path)
+            # Get FileMetadata for this file
+            file_metadata = get_all_metadata_from_file(file_path)
             
-            # Select the most representative date
-            selected_date, source = select_chosen_date(all_dates)
+            # Select the most representative date (now accepts FileMetadata directly)
+            selected_date, source = select_best_date_from_file(file_metadata)
             
             if not selected_date or not source:
                 return ""

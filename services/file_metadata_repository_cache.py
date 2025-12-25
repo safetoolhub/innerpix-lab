@@ -9,7 +9,7 @@ Arquitectura:
 - Interfaz preparada para backend SQLite/BBDD (Protocol)
 - Singleton thread-safe
 - Auto-population con diferentes estrategias
-- Auto-fetch opcional por parámetro
+
 
 Estrategias de población:
 1. BASIC: Solo filesystem metadata (rápido, scan inicial, OBLIGATORIO primero)
@@ -31,9 +31,9 @@ Uso:
     repo.populate_from_scan(files, strategy=PopulationStrategy.HASH)  # Solo hashes
     repo.populate_from_scan(files, strategy=PopulationStrategy.EXIF_IMAGES)  # Solo EXIF imágenes
     
-    # Consultar desde servicios (auto-fetch si no está)
-    hash_val = repo.get_hash(file_path, auto_fetch=True)
-    exif = repo.get_exif(file_path, auto_fetch=False)
+    # Consultar desde servicios (solo lectura)
+    hash_val = repo.get_hash(file_path)
+    exif = repo.get_exif(file_path)
     
     # Limpiar entre datasets
     repo.clear()
@@ -46,7 +46,8 @@ Preparado para migración a SQLite:
 from pathlib import Path
 from typing import Dict, List, Optional, Protocol, Any
 from enum import Enum
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from datetime import datetime
 import threading
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -68,6 +69,7 @@ class PopulationStrategy(Enum):
     EXIF_IMAGES = "exif_images"  # Solo EXIF imágenes (requiere BASIC previo, moderado)
     EXIF_VIDEOS = "exif_videos"  # Solo EXIF videos (requiere BASIC previo, muy costoso)
     EXIF_ALL = "exif_all"        # EXIF imágenes + videos (requiere BASIC previo, muy costoso)
+    BEST_DATE = "best_date"      # Calcula mejor fecha (requiere BASIC y EXIF previo, rápido)
     FULL = "full"                # Hash + EXIF completo (requiere BASIC previo, extremadamente costoso)
 
 
@@ -91,19 +93,22 @@ class IFileRepository(Protocol):
     def get_all_files(self) -> List[FileMetadata]: ...
     def get_files_by_size(self, size: int) -> List[FileMetadata]: ...
     def get_files_by_extension(self, extension: str) -> List[FileMetadata]: ...
-    def get_file_metadata(self, path: Path, auto_fetch: bool = False) -> Optional[FileMetadata]: ...
-    def get_hash(self, path: Path, auto_fetch: bool = True) -> Optional[str]: ...
-    def get_exif(self, path: Path, auto_fetch: bool = False) -> Dict[str, Any]: ...
+    def get_file_metadata(self, path: Path) -> Optional[FileMetadata]: ...
+    def get_hash(self, path: Path) -> Optional[str]: ...
+    def get_exif(self, path: Path) -> Dict[str, Any]: ...
+    def get_best_date(self, path: Path) -> tuple: ...  # (datetime, source)
     
     # Contadores
     def count(self) -> int: ...
     def get_file_count(self) -> int: ...
     def count_with_hash(self) -> int: ...
     def count_with_exif(self) -> int: ...
+    def count_with_best_date(self) -> int: ...
     
     # Actualizaciones
     def set_hash(self, path: Path, hash_val: str) -> bool: ...
     def set_exif(self, path: Path, exif_data: Dict[str, Any]) -> bool: ...
+    def set_best_date(self, path: Path, best_date: datetime, source: str) -> bool: ...
     
     # Gestión de caché
     def remove_file(self, path: Path) -> bool: ...
@@ -112,7 +117,7 @@ class IFileRepository(Protocol):
     def set_max_entries(self, max_entries: int) -> None: ...
     
     # Estadísticas
-    def get_stats(self) -> 'RepositoryStats': ...
+    def get_cache_statistics(self) -> 'RepositoryStats': ...
     
     # Persistencia
     def save_to_disk(self, path: Path) -> None: ...
@@ -125,6 +130,7 @@ class RepositoryStats:
     total_files: int
     files_with_hash: int
     files_with_exif: int
+    files_with_best_date: int
     cache_hits: int
     cache_misses: int
     hit_rate: float
@@ -141,7 +147,6 @@ class FileInfoRepositoryCache:
     - Singleton: Una única instancia compartida globalmente
     - Thread-safe: Usa RLock para acceso concurrente seguro
     - Estrategias de población: Control fino sobre qué datos cargar
-    - Auto-fetch: Obtención automática de datos faltantes (opcional)
     - LRU Cache: Política de eviction inteligente basada en valor de datos
     - Cache Management: remove_file(), remove_files(), set_max_entries()
     - Estadísticas: Hit/miss tracking para optimización
@@ -157,8 +162,8 @@ class FileInfoRepositoryCache:
         
         # En cualquier servicio:
         repo = FileInfoRepositoryCache.get_instance()
-        hash_val = repo.get_hash(path, auto_fetch=True)  # Calcula si no está
-        exif = repo.get_exif(path, auto_fetch=False)     # None si no está
+        hash_val = repo.get_hash(path)           # None si no está
+        exif = repo.get_exif(path)               # {} si no está
         
         # Entre datasets:
         repo.clear()
@@ -242,7 +247,8 @@ class FileInfoRepositoryCache:
         files: List[Path],
         strategy: PopulationStrategy = PopulationStrategy.BASIC,
         max_workers: Optional[int] = None,
-        progress_callback: Optional[callable] = None
+        progress_callback: Optional[callable] = None,
+        stop_check_callback: Optional[callable] = None
     ) -> None:
         """
         Puebla el repositorio con información de archivos usando una estrategia.
@@ -255,6 +261,7 @@ class FileInfoRepositoryCache:
             strategy: Estrategia de población (qué información cargar)
             max_workers: Número de workers paralelos (None = auto)
             progress_callback: Callback opcional para reportar progreso
+            stop_check_callback: Callback opcional que retorna True si debe cancelarse
         
         Examples:
             # Paso 1: SIEMPRE empezar con BASIC (scan inicial)
@@ -296,6 +303,8 @@ class FileInfoRepositoryCache:
             process_func = self._process_file_exif_videos
         elif strategy == PopulationStrategy.EXIF_ALL:
             process_func = self._process_file_exif_all
+        elif strategy == PopulationStrategy.BEST_DATE:
+            process_func = self._process_file_best_date
         elif strategy == PopulationStrategy.FULL:
             process_func = self._process_file_full
         else:
@@ -304,6 +313,8 @@ class FileInfoRepositoryCache:
         # Procesar en paralelo
         processed = 0
         errors = 0
+        last_progress_report = 0
+        progress_report_interval = max(1, len(files) // 100)  # Report every 1% or at least every file
         
         max_workers = max_workers or min(32, (len(files) // 10) + 1)
         
@@ -312,6 +323,15 @@ class FileInfoRepositoryCache:
                       for file_path in files}
             
             for future in as_completed(futures):
+                # Check for cancellation request BEFORE processing result
+                if stop_check_callback and stop_check_callback():
+                    self._logger.info(f"Cancelación detectada - Procesados: {processed}/{len(files)}")
+                    # Cancel pending futures cooperatively
+                    for pending_future in futures:
+                        if not pending_future.done():
+                            pending_future.cancel()
+                    break
+                
                 file_path = futures[future]
                 try:
                     metadata = future.result()
@@ -331,15 +351,25 @@ class FileInfoRepositoryCache:
                     self._logger.error(f"Error inesperado procesando {file_path.name}: {type(e).__name__}: {e}")
                     errors += 1
                 
-                # Progress callback
+                # Progress callback with throttling (report every N files or on last file)
                 if progress_callback:
-                    if not progress_callback(processed, len(files)):
-                        self._logger.warning("Población cancelada por usuario")
-                        break
+                    should_report = (
+                        processed - last_progress_report >= progress_report_interval or
+                        processed == len(files) or
+                        processed % 100 == 0  # Always report every 100 files
+                    )
+                    if should_report:
+                        if not progress_callback(processed, len(files)):
+                            self._logger.warning("Población cancelada por progress_callback")
+                            break
+                        last_progress_report = processed
         
+        # Log final con información de cancelación si aplica
+        cancelled = (stop_check_callback and stop_check_callback()) or processed < len(files)
+        status = "cancelada" if cancelled else "completada"
         self._logger.info(
-            f"Población completada - "
-            f"Procesados: {processed}, "
+            f"Población {status} - "
+            f"Procesados: {processed}/{len(files)}, "
             f"Errores: {errors}, "
             f"Total en caché: {len(self._cache)}"
         )
@@ -365,11 +395,11 @@ class FileInfoRepositoryCache:
                 fs_mtime=stat_info['mtime'],
                 fs_atime=stat_info['atime']
             )
-            self._logger.debug(f"Metadata básica procesada para {path.name}: {stat_info['size']} bytes")
+            self._logger.debug(f"Metadatos básicos procesados para {path.name}: {stat_info['size']} bytes")
             return metadata
         except (FileNotFoundError, PermissionError, OSError):
             # Logging detallado ya hecho en get_file_stat_info()
-            self._logger.debug(f"No se puede procesar archivo básico: {path.name}")
+            self._logger.debug(f"No se puede procesar archivo : {path.name} para obtener su metadata basica")
             return None
         except Exception as e:
             self._logger.error(f"Error inesperado en _process_file_basic para {path.name}: {type(e).__name__}: {e}")
@@ -405,7 +435,7 @@ class FileInfoRepositoryCache:
         hash_val = None
         try:
             hash_val = calculate_file_hash(path)
-            self._logger.debug(f"Hash calculado para {path.name}: {hash_val[:8]}...")
+            self._logger.debug(f"Hash {path.name} calculado:{hash_val[:8]}...")
         except (PermissionError, FileNotFoundError, IOError):
             # Logging detallado ya hecho en calculate_file_hash()
             self._logger.debug(f"No se pudo calcular hash: {path.name}")
@@ -419,7 +449,7 @@ class FileInfoRepositoryCache:
                 cached_metadata = self._cache.get(path)
                 if cached_metadata:
                     cached_metadata.sha256 = hash_val
-                    self._logger.debug(f"Hash asignado en caché para {path.name}: {hash_val[:8]}...")
+                    self._logger.debug(f"Hash {path.name} asignado en caché: {hash_val[:8]}...")
                 else:
                     # Raro pero posible: se eliminó del caché entre tanto
                     metadata.sha256 = hash_val
@@ -459,33 +489,67 @@ class FileInfoRepositoryCache:
             self._logger.debug(f"EXIF ya extraído para imagen {path.name}: {len(metadata.get_exif_dates())} campos")
             return metadata
         
-        # Extraer EXIF de imágenes
+        # Extraer EXIF de imágenes (fuera del lock porque es costoso)
+        exif_dates = None
         try:
             from utils.file_utils import get_exif_from_image
             
             exif_dates = get_exif_from_image(path)
             exif_count = len(exif_dates)
-            
-            # Establecer campos EXIF de fecha
-            if exif_dates.get('DateTimeOriginal'):
-                metadata.exif_DateTimeOriginal = exif_dates['DateTimeOriginal']
-            if exif_dates.get('CreateDate'):
-                metadata.exif_DateTime = exif_dates['CreateDate']  # CreateDate mapea a DateTime
-            if exif_dates.get('DateTimeDigitized'):
-                metadata.exif_DateTimeDigitized = exif_dates['DateTimeDigitized']
-            if exif_dates.get('SubSecTimeOriginal'):
-                metadata.exif_SubSecTimeOriginal = exif_dates['SubSecTimeOriginal']
-            if exif_dates.get('OffsetTimeOriginal'):
-                metadata.exif_OffsetTimeOriginal = exif_dates['OffsetTimeOriginal']
-            if exif_dates.get('GPSDateStamp'):
-                metadata.exif_GPSDateStamp = exif_dates['GPSDateStamp']
-            if exif_dates.get('Software'):
-                metadata.exif_Software = exif_dates['Software']
-            
             self._logger.debug(f"EXIF extraído para imagen {path.name}: {exif_count} campos")
                 
         except Exception as e:
             self._logger.warning(f"Error extrayendo EXIF de {path.name}: {e}")
+        
+        # Helper para convertir datetime a string EXIF
+        def _datetime_to_exif_str(dt: datetime) -> str:
+            """Convierte datetime a string en formato EXIF: 'YYYY:MM:DD HH:MM:SS'"""
+            return dt.strftime('%Y:%m:%d %H:%M:%S')
+        
+        # Actualizar metadata con lock (thread-safe)
+        if exif_dates:
+            with self._lock:
+                # Volver a obtener metadata del caché por si cambió
+                cached_metadata = self._cache.get(path)
+                if cached_metadata:
+                    # Establecer campos EXIF de fecha
+                    # CRÍTICO: Convertir datetime objects a strings EXIF porque FileMetadata espera strings
+                    if exif_dates.get('DateTimeOriginal'):
+                        cached_metadata.exif_DateTimeOriginal = _datetime_to_exif_str(exif_dates['DateTimeOriginal'])
+                    if exif_dates.get('CreateDate'):
+                        cached_metadata.exif_DateTime = _datetime_to_exif_str(exif_dates['CreateDate'])  # CreateDate mapea a DateTime
+                    if exif_dates.get('DateTimeDigitized'):
+                        cached_metadata.exif_DateTimeDigitized = _datetime_to_exif_str(exif_dates['DateTimeDigitized'])
+                    if exif_dates.get('SubSecTimeOriginal'):
+                        cached_metadata.exif_SubSecTimeOriginal = exif_dates['SubSecTimeOriginal']
+                    if exif_dates.get('OffsetTimeOriginal'):
+                        cached_metadata.exif_OffsetTimeOriginal = exif_dates['OffsetTimeOriginal']
+                    if exif_dates.get('GPSDateStamp'):
+                        cached_metadata.exif_GPSDateStamp = _datetime_to_exif_str(exif_dates['GPSDateStamp'])
+                    if exif_dates.get('Software'):
+                        cached_metadata.exif_Software = exif_dates['Software']
+                    if exif_dates.get('ExifVersion'):
+                        cached_metadata.exif_ExifVersion = exif_dates['ExifVersion']
+                    self._logger.debug(f"EXIF asignado en caché para imagen {path.name}: {len(exif_dates)} campos")
+                else:
+                    # Raro pero posible: se eliminó del caché entre tanto
+                    if exif_dates.get('DateTimeOriginal'):
+                        metadata.exif_DateTimeOriginal = _datetime_to_exif_str(exif_dates['DateTimeOriginal'])
+                    if exif_dates.get('CreateDate'):
+                        metadata.exif_DateTime = _datetime_to_exif_str(exif_dates['CreateDate'])
+                    if exif_dates.get('DateTimeDigitized'):
+                        metadata.exif_DateTimeDigitized = _datetime_to_exif_str(exif_dates['DateTimeDigitized'])
+                    if exif_dates.get('SubSecTimeOriginal'):
+                        metadata.exif_SubSecTimeOriginal = exif_dates['SubSecTimeOriginal']
+                    if exif_dates.get('OffsetTimeOriginal'):
+                        metadata.exif_OffsetTimeOriginal = exif_dates['OffsetTimeOriginal']
+                    if exif_dates.get('GPSDateStamp'):
+                        metadata.exif_GPSDateStamp = _datetime_to_exif_str(exif_dates['GPSDateStamp'])
+                    if exif_dates.get('Software'):
+                        metadata.exif_Software = exif_dates['Software']
+                    if exif_dates.get('ExifVersion'):
+                        metadata.exif_ExifVersion = exif_dates['ExifVersion']
+                    self._cache[path] = metadata
         
         return metadata
     
@@ -522,23 +586,77 @@ class FileInfoRepositoryCache:
             self._logger.debug(f"EXIF ya extraído para video {path.name}: {len(metadata.get_exif_dates())} campos")
             return metadata
         
-        # Extraer EXIF de videos
+        # Extraer EXIF de videos (fuera del lock porque es muy costoso)
+        video_metadata = None
         try:
             from utils.file_utils import get_exif_from_video
             
-            creation_date = get_exif_from_video(path)
+            video_metadata = get_exif_from_video(path)
             
-            if creation_date:
-                # Para videos, solemos tener una única fecha de creación
-                # La mapeamos a DateTimeOriginal y DateTime para consistencia
-                metadata.exif_DateTimeOriginal = creation_date
-                metadata.exif_DateTime = creation_date
-                self._logger.debug(f"EXIF extraído para video {path.name}: {creation_date}")
+            if video_metadata:
+                field_count = len(video_metadata)
+                self._logger.debug(f"Metadatos de video extraídos para {path.name}: {field_count} campos")
             else:
-                self._logger.debug(f"No se encontró fecha EXIF para video {path.name}")
+                self._logger.debug(f"No se encontraron metadatos para video {path.name}")
                 
         except Exception as e:
-            self._logger.warning(f"Error extrayendo EXIF de video {path.name}: {e}")
+            self._logger.warning(f"Error extrayendo metadatos de video {path.name}: {e}")
+        
+        # Helper para convertir datetime a string EXIF
+        def _datetime_to_exif_str(dt: datetime) -> str:
+            """Convierte datetime a string en formato EXIF: 'YYYY:MM:DD HH:MM:SS'"""
+            return dt.strftime('%Y:%m:%d %H:%M:%S')
+        
+        # Actualizar metadata con lock (thread-safe)
+        if video_metadata:
+            with self._lock:
+                # Volver a obtener metadata del caché por si cambió
+                cached_metadata = self._cache.get(path)
+                target_metadata = cached_metadata if cached_metadata else metadata
+                
+                # Mapear creation_time (fecha de creación)
+                if 'creation_time' in video_metadata and video_metadata['creation_time']:
+                    creation_date_str = _datetime_to_exif_str(video_metadata['creation_time'])
+                    target_metadata.exif_DateTimeOriginal = creation_date_str
+                    target_metadata.exif_DateTime = creation_date_str
+                
+                # Mapear dimensiones de video
+                if 'width' in video_metadata and video_metadata['width']:
+                    target_metadata.exif_ImageWidth = video_metadata['width']
+                if 'height' in video_metadata and video_metadata['height']:
+                    target_metadata.exif_ImageLength = video_metadata['height']
+                
+                # Mapear información de duración
+                # Nota: FileMetadata no tiene campo específico para duration, 
+                # pero se podría agregar en el futuro
+                
+                # Mapear información de codec y formato
+                # Nota: FileMetadata no tiene campos específicos para codec/format,
+                # pero esta información está disponible si se agregan campos en el futuro
+                
+                # Mapear encoder (Software)
+                if 'encoder' in video_metadata and video_metadata['encoder']:
+                    target_metadata.exif_Software = video_metadata['encoder']
+                
+                # Mapear duración del video
+                if 'duration' in video_metadata and video_metadata['duration']:
+                    target_metadata.exif_VideoDuration = video_metadata['duration']
+                
+                if not cached_metadata:
+                    # Si no estaba en caché, agregarlo
+                    self._cache[path] = metadata
+                
+                fields_set = sum([
+                    1 if 'creation_time' in video_metadata else 0,
+                    1 if 'width' in video_metadata else 0,
+                    1 if 'height' in video_metadata else 0,
+                    1 if 'encoder' in video_metadata else 0,
+                    1 if 'duration' in video_metadata else 0,
+                ])
+                self._logger.debug(
+                    f"Metadatos de video asignados en caché para {path.name}: "
+                    f"{fields_set} campos mapeados a FileMetadata"
+                )
         
         return metadata
     
@@ -581,6 +699,62 @@ class FileInfoRepositoryCache:
         
         return metadata
     
+    def _process_file_best_date(self, path: Path) -> Optional[FileMetadata]:
+        """
+        Procesa archivo con estrategia BEST_DATE: calcula la mejor fecha disponible.
+        
+        Usa la lógica de select_best_date_from_file() de date_utils.py que prioriza:
+        1. EXIF DateTimeOriginal (con/sin timezone)
+        2. EXIF CreateDate
+        3. EXIF DateTimeDigitized
+        4. Fecha del nombre de archivo
+        5. Fecha de filesystem (mtime/ctime)
+        
+        Requiere que BASIC y EXIF ya se hayan ejecutado para obtener el mejor resultado.
+        Si no hay EXIF, usará fechas del filesystem como fallback.
+        
+        Es una operación rápida porque solo consulta datos ya en caché.
+        """
+        from utils.date_utils import select_best_date_from_file, _normalize_date_source
+        
+        path = path.resolve()
+        
+        # Obtener metadata existente
+        with self._lock:
+            file_metadata = self._cache.get(path)
+        
+        if not file_metadata:
+            self._logger.debug(f"No se puede calcular best_date: archivo no en caché: {path.name}")
+            return None
+        
+        # Ya tiene best_date? Skip
+        if file_metadata.has_best_date:
+            self._logger.debug(f"best_date ya calculado para {path.name}: {file_metadata.best_date}")
+            return file_metadata
+        
+        # Calcular la mejor fecha pasando directamente el FileMetadata
+        selected_date, selected_source = select_best_date_from_file(file_metadata)
+        
+        if selected_date:
+            # Normalizar el nombre de la fuente
+            normalized_source = _normalize_date_source(selected_source) if selected_source else 'unknown'
+            
+            # Actualizar metadata con lock
+            with self._lock:
+                cached_metadata = self._cache.get(path)
+                if cached_metadata:
+                    cached_metadata.best_date = selected_date
+                    cached_metadata.best_date_source = normalized_source
+                    self._logger.debug(
+                        f"best_date calculado para {path.name}: "
+                        f"{selected_date.strftime('%Y-%m-%d %H:%M:%S')} ({normalized_source})"
+                    )
+                    return cached_metadata
+        else:
+            self._logger.debug(f"No se pudo determinar best_date para {path.name}")
+        
+        return file_metadata
+    
     def _process_file_full(self, path: Path) -> Optional[FileMetadata]:
         """
         Procesa archivo con estrategia FULL: hash + EXIF completo.
@@ -603,17 +777,13 @@ class FileInfoRepositoryCache:
             with self._lock:
                 self._cache[path] = metadata
         
-        # Hash (si no lo tiene)
+        # Hash (si no lo tiene) - usar método que actualiza caché
         if not metadata.sha256:
-            try:
-                metadata.sha256 = calculate_file_hash(path)
-            except (PermissionError, FileNotFoundError, IOError):
-                # Logging detallado ya hecho en calculate_file_hash()
-                self._logger.debug(f"No se pudo calcular hash: {path.name}")
-            except Exception as e:
-                self._logger.error(f"Error inesperado calculando hash de {path.name}: {type(e).__name__}: {e}")
+            metadata = self._process_file_hash(path)
+            if not metadata:
+                return None
         
-        # EXIF (si no lo tiene y es imagen/video)
+        # EXIF (si no lo tiene y es imagen/video) - usar métodos que actualizan caché
         if not metadata.has_exif and (metadata.is_image or metadata.is_video):
             if metadata.is_image:
                 return self._process_file_exif_images(path)
@@ -623,23 +793,21 @@ class FileInfoRepositoryCache:
         return metadata
     
     # =========================================================================
-    # CONSULTAS (GET) - Con auto-fetch opcional
+    # CONSULTAS (GET) 
     # =========================================================================
     
     def get_file_metadata(
         self,
-        path: Path,
-        auto_fetch: bool = False
+        path: Path
     ) -> Optional[FileMetadata]:
         """
         Obtiene metadatos completos de un archivo.
         
         Args:
             path: Ruta del archivo
-            auto_fetch: Si True, añade el archivo automáticamente si no está en caché
             
         Returns:
-            FileMetadata si existe (o se creó con auto_fetch), None en caso contrario
+            FileMetadata si existe en caché, None en caso contrario
         """
         path = path.resolve()
         
@@ -650,81 +818,39 @@ class FileInfoRepositoryCache:
                 return self._cache[path]
             self._misses += 1
         
-        # No está en caché
-        if auto_fetch:
-            self._logger.debug(f"Auto-fetch activado para {path.name}")
-            metadata = self._process_file_basic(path)
-            if metadata:
-                with self._lock:
-                    self._cache[path] = metadata
-                    self._update_access_order(path)
-                    # Verificar límite de caché
-                    if len(self._cache) > self._max_entries:
-                        self._evict_lru_entries(len(self._cache) - self._max_entries)
-                return metadata
-        
         return None
     
-    def get_hash(self, path: Path, auto_fetch: bool = True) -> Optional[str]:
+    def get_hash(self, path: Path) -> Optional[str]:
         """
-        Obtiene el hash SHA256 de un archivo.
+        Obtiene el hash SHA256 de un archivo desde la caché.
         
         Args:
             path: Ruta del archivo
-            auto_fetch: Si True (default), calcula el hash si no está cacheado
             
         Returns:
-            str: Hash SHA256 en hexadecimal, o None si auto_fetch=False y no está
+            str: Hash SHA256 en hexadecimal, o None si no está calculado/cacheado
         """
         path = path.resolve()
-        metadata = self.get_file_metadata(path, auto_fetch=False)
+        metadata = self.get_file_metadata(path)
         
         # Si tiene hash cacheado, retornarlo
         if metadata and metadata.sha256:
             return metadata.sha256
         
-        # No tiene hash
-        if not auto_fetch:
-            return None
-        
-        # Auto-fetch: calcular hash
-        self._logger.debug(f"Calculando hash para {path.name}")
-        
-        # Si no existe metadata, crearla
-        if not metadata:
-            metadata = self._process_file_basic(path)
-            if not metadata:
-                return None
-            with self._lock:
-                self._cache[path] = metadata
-        
-        # Calcular y cachear hash
-        try:
-            hash_val = calculate_file_hash(path)
-            with self._lock:
-                metadata.sha256 = hash_val
-            return hash_val
-        except (PermissionError, FileNotFoundError, IOError):
-            # Logging detallado ya hecho en calculate_file_hash()
-            self._logger.debug(f"No se pudo calcular hash: {path.name}")
-            return None
-        except Exception as e:
-            self._logger.error(f"Error inesperado calculando hash de {path.name}: {type(e).__name__}: {e}")
-            return None
+        return None
     
-    def get_exif(self, path: Path, auto_fetch: bool = False) -> Dict[str, Any]:
+    def get_exif(self, path: Path) -> Dict[str, Any]:
         """
-        Obtiene datos EXIF de un archivo.
+        Obtiene datos EXIF de un archivo desde la caché.
         
         Args:
             path: Ruta del archivo
-            auto_fetch: Si True, añade el archivo si no está en caché
             
         Returns:
-            Dict con campos EXIF presentes (vacío si no hay datos)
+            Dict con campos EXIF presentes (vacío si no hay datos o no está cacheado)
         """
         path = path.resolve()
-        metadata = self.get_file_metadata(path, auto_fetch=auto_fetch)
+        metadata = self.get_file_metadata(path)
         
         if not metadata:
             return {}
@@ -733,21 +859,19 @@ class FileInfoRepositoryCache:
     
     def get_filesystem_metadata(
         self,
-        path: Path,
-        auto_fetch: bool = False
+        path: Path
     ) -> Optional[Dict[str, Any]]:
         """
-        Obtiene metadatos del sistema de archivos.
+        Obtiene metadatos del sistema de archivos desde la caché.
         
         Args:
             path: Ruta del archivo
-            auto_fetch: Si True, añade el archivo si no está en caché
             
         Returns:
             Dict con fs_size, fs_ctime, fs_mtime, fs_atime, o None si no existe
         """
         path = path.resolve()
-        metadata = self.get_file_metadata(path, auto_fetch=auto_fetch)
+        metadata = self.get_file_metadata(path)
         
         if not metadata:
             return None
@@ -758,6 +882,49 @@ class FileInfoRepositoryCache:
             'fs_mtime': metadata.fs_mtime,
             'fs_atime': metadata.fs_atime
         }
+    
+    def get_best_date(self, path: Path) -> tuple[Optional[datetime], Optional[str]]:
+        """
+        Obtiene la mejor fecha disponible de un archivo desde la caché.
+        
+        Esta fecha se calcula en Phase 5 del InitialScanner usando la lógica
+        de select_best_date_from_file() que prioriza EXIF sobre filesystem.
+        
+        Args:
+            path: Ruta del archivo
+            
+        Returns:
+            Tuple (datetime, source) donde:
+            - datetime: La mejor fecha disponible, o None si no está calculada
+            - source: Fuente de la fecha ('exif_datetime_original', 'mtime', etc.)
+        """
+        path = path.resolve()
+        metadata = self.get_file_metadata(path)
+        
+        if not metadata:
+            return None, None
+        
+        return metadata.best_date, metadata.best_date_source
+    
+    def get_filesystem_modification_date(self, path: Path) -> Optional[datetime]:
+        """
+        Obtiene la fecha de modificación del filesystem desde la caché.
+        
+        Útil como fallback rápido cuando best_date no está disponible.
+        
+        Args:
+            path: Ruta del archivo
+            
+        Returns:
+            datetime de fs_mtime, o None si no existe en caché
+        """
+        path = path.resolve()
+        metadata = self.get_file_metadata(path)
+        
+        if not metadata:
+            return None
+        
+        return datetime.fromtimestamp(metadata.fs_mtime)
     
     # =========================================================================
     # ACTUALIZACIONES (SET) - Solo para archivos ya en caché
@@ -831,6 +998,34 @@ class FileInfoRepositoryCache:
             if 'ExifVersion' in exif_data:
                 metadata.exif_ExifVersion = exif_data['ExifVersion']
             
+            return True
+    
+    def set_best_date(self, path: Path, best_date: datetime, source: str) -> bool:
+        """
+        Establece la mejor fecha disponible de un archivo.
+        
+        Solo actualiza si el archivo ya está en caché.
+        
+        Args:
+            path: Ruta del archivo
+            best_date: La fecha calculada como la mejor disponible
+            source: Fuente de la fecha ('exif_datetime_original', 'mtime', etc.)
+            
+        Returns:
+            bool: True si se actualizó, False si el archivo no está en caché
+        """
+        path = path.resolve()
+        
+        with self._lock:
+            if path not in self._cache:
+                self._logger.debug(
+                    f"Intento de set_best_date para archivo no en caché: {path.name}"
+                )
+                return False
+            
+            metadata = self._cache[path]
+            metadata.best_date = best_date
+            metadata.best_date_source = source
             return True
     
     # =========================================================================
@@ -915,6 +1110,11 @@ class FileInfoRepositoryCache:
         with self._lock:
             return sum(1 for m in self._cache.values() if m.has_exif)
     
+    def count_with_best_date(self) -> int:
+        """Número de archivos con best_date calculado"""
+        with self._lock:
+            return sum(1 for m in self._cache.values() if m.has_best_date)
+    
     # =========================================================================
     # UTILIDADES
     # =========================================================================
@@ -934,7 +1134,7 @@ class FileInfoRepositoryCache:
                     f"Límite de entradas actualizado: {old_max} -> {self._max_entries}"
                 )
     
-    def get_stats(self) -> RepositoryStats:
+    def get_cache_statistics(self) -> RepositoryStats:
         """
         Obtiene estadísticas del repositorio.
         
@@ -945,6 +1145,7 @@ class FileInfoRepositoryCache:
             total = len(self._cache)
             with_hash = self.count_with_hash()
             with_exif = self.count_with_exif()
+            with_best_date = self.count_with_best_date()
             total_access = self._hits + self._misses
             hit_rate = (self._hits / total_access * 100) if total_access > 0 else 0.0
         
@@ -952,24 +1153,26 @@ class FileInfoRepositoryCache:
             total_files=total,
             files_with_hash=with_hash,
             files_with_exif=with_exif,
+            files_with_best_date=with_best_date,
             cache_hits=self._hits,
             cache_misses=self._misses,
             hit_rate=hit_rate
         )
     
-    def log_stats(self, level: int = logging.INFO) -> None:
+    def log_cache_statistics(self, level: int = logging.INFO) -> None:
         """
         Registra estadísticas en el log con el nivel especificado.
         
         Args:
             level: Nivel de logging (ej: logging.DEBUG, logging.INFO, logging.WARNING)
         """
-        stats = self.get_stats()
+        stats = self.get_cache_statistics()
         self._logger.log(level,
-            f"Repositorio - "
+            f"[REPO CACHE STATUS] - "
             f"Files: {stats.total_files}, "
             f"With hash: {stats.files_with_hash}, "
             f"With EXIF: {stats.files_with_exif}, "
+            f"With best_date: {stats.files_with_best_date}, "
             f"Hits: {stats.cache_hits}, "
             f"Misses: {stats.cache_misses}, "
             f"Hit rate: {stats.hit_rate:.1f}%"
@@ -1069,32 +1272,7 @@ class FileInfoRepositoryCache:
                 
                 # Crear nueva entrada con el path actualizado
                 # FileMetadata es inmutable, así que necesitamos crear uno nuevo
-                from services.file_metadata import FileMetadata
-                new_metadata = FileMetadata(
-                    path=new_path_resolved,
-                    fs_size=metadata.fs_size,
-                    fs_mtime=metadata.fs_mtime,
-                    sha256=metadata.sha256,
-                    exif_date_time_original=metadata.exif_date_time_original,
-                    exif_date_time_digitized=metadata.exif_date_time_digitized,
-                    exif_date_time=metadata.exif_date_time,
-                    exif_gps_latitude=metadata.exif_gps_latitude,
-                    exif_gps_longitude=metadata.exif_gps_longitude,
-                    exif_gps_latitude_ref=metadata.exif_gps_latitude_ref,
-                    exif_gps_longitude_ref=metadata.exif_gps_longitude_ref,
-                    exif_make=metadata.exif_make,
-                    exif_model=metadata.exif_model,
-                    exif_orientation=metadata.exif_orientation,
-                    exif_width=metadata.exif_width,
-                    exif_height=metadata.exif_height,
-                    exif_video_date_time_original=metadata.exif_video_date_time_original,
-                    exif_video_date_time_digitized=metadata.exif_video_date_time_digitized,
-                    exif_video_date_time=metadata.exif_video_date_time,
-                    exif_video_width=metadata.exif_video_width,
-                    exif_video_height=metadata.exif_video_height,
-                    exif_video_duration=metadata.exif_video_duration,
-                    exif_video_codec=metadata.exif_video_codec
-                )
+                new_metadata = replace(metadata, path=new_path_resolved)
                 
                 # Eliminar entrada antigua
                 del self._cache[old_path_resolved]
@@ -1381,5 +1559,5 @@ class FileInfoRepositoryCache:
     
     def __getitem__(self, path: Path) -> Optional[FileMetadata]:
         """Permite usar repository[path]"""
-        return self.get_file_metadata(path, auto_fetch=False)
+        return self.get_file_metadata(path)
 

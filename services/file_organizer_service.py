@@ -15,9 +15,9 @@ from enum import Enum
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from config import Config
-from utils.logger import get_logger, log_section_header_relevant, log_section_footer_relevant, log_section_header_discrete, log_section_footer_discrete
-from utils.date_utils import parse_renamed_name, get_date_from_file, select_chosen_date, get_all_file_dates
-from utils.file_utils import is_whatsapp_file, detect_file_source, cleanup_empty_directories
+from utils.logger import log_section_header_relevant, log_section_footer_relevant, log_section_header_discrete, log_section_footer_discrete
+from utils.date_utils import select_best_date_from_file, get_all_metadata_from_file
+from utils.file_utils import detect_file_source, cleanup_empty_directories, get_file_type, is_supported_file
 from services.result_types import OrganizationExecutionResult, OrganizationAnalysisResult
 from services.base_service import BaseService, ProgressCallback, BackupCreationError
 from services.file_metadata_repository_cache import FileInfoRepositoryCache
@@ -57,7 +57,7 @@ class FileMove:
     def will_rename(self) -> bool:
         return self.original_name != self.new_name
 
-class FileOrganizer(BaseService):
+class FileOrganizerService(BaseService):
     """Organizador de archivos - Mueve archivos multimedia de subdirectorios al directorio raíz"""
 
     def __init__(self):
@@ -77,6 +77,7 @@ class FileOrganizer(BaseService):
         log_section_header_discrete(self.logger, f"ANALIZANDO ORGANIZACIÓN ({organization_type.value}): {root_directory}")
 
         repo = FileInfoRepositoryCache.get_instance()
+        self.logger.info(f"Usando FileInfoRepositoryCache con {repo.get_file_count()} archivos")
         
         subdirectories = {}
         root_files = []
@@ -86,64 +87,35 @@ class FileOrganizer(BaseService):
              raise ValueError(f"Directorio no existe: {root_directory}")
 
         # Recopilar nombres existentes en root (para TO_ROOT y check de conflictos)
-        # Esto siempre necesitamos hacerlo "live" porque metadata_cache puede no tener items de root si solo escaneó subdirs,
-        # o si hay carpetas no cacheadas.
-        # Pero TO_ROOT solo necesita 'existing_file_names'.
         try:
             folder_names_in_root = {item.name for item in root_directory.iterdir()}
         except Exception:
             pass
 
-        # Si tenemos metadata_cache, lo usamos para listar archivos con O(0) IO
+        # Usar caché de metadatos (repositorio pasivo)
         all_files = []
-        if metadata_cache:
-            self.logger.info(f"Usando caché de metadatos ({metadata_cache.get_stats()['size']} archivos)")
-            
-            # Filtrar archivos que pertenecen a root_directory
-            # Asumimos que metadata_cache tiene items con path.
-            # Iteramos todos y chequeamos parent.
-            cache_files = metadata_cache.get_all_files()
-            
-            for meta in cache_files:
-                # Comprobar si está dentro de root_directory
-                try:
-                    if meta.path.is_relative_to(root_directory):
-                        all_files.append(meta)
-                except ValueError:
-                    continue
-        else:
-             # Fallback si no hay cache (scan manual)
-             self.logger.info("Sin metadata cache, escaneando disco...")
-             # Simulamos FileMetadata
-             for p in root_directory.rglob("*"):
-                 from utils.file_utils import is_supported_file, get_file_type
-                 if p.is_file() and is_supported_file(p.name):
-                     # Crear dummy meta (solo necesitamos path, size, type)
-                     # No tenemos clase FileMetadata expuesta fácil, usaremos dict o objeto simple
-                     # Mejor usar la clase real si importada
-                     from services.file_info_repository import FileMetadata
-                     try:
-                        sz = p.stat().st_size
-                        # mtime
-                        mt = p.stat().st_mtime
-                        all_files.append(FileMetadata(
-                            path=p,
-                            size=sz,
-                            mtime=mt,
-                            extension=p.suffix.lower(),
-                            file_type=get_file_type(p.name)
-                        ))
-                     except Exception:
-                         pass
+        self.logger.info(f"Usando caché de metadatos ({repo.get_file_count()} archivos)")
+        
+        # Filtrar archivos que pertenecen a root_directory
+        cache_files = repo.get_all_files()
+        
+        for meta in cache_files:
+            # Comprobar si está dentro de root_directory
+            try:
+                if meta.path.is_relative_to(root_directory):
+                    all_files.append(meta)
+            except ValueError:
+                continue
 
         total_files = len(all_files)
+        total_scanned_size = sum(meta.fs_size for meta in all_files)
         files_by_type = Counter()
         processed_files = 0
         
         # Clasificar archivos en subdirectories y root_files
         for idx, meta in enumerate(all_files):
             if idx % 500 == 0 and not self._report_progress(progress_callback, idx, total_files, "Clasificando archivos"):
-                return self._create_empty_result(root_directory, organization_type)
+                return self._create_empty_result(root_directory, organization_type, group_by_source, group_by_type, date_grouping_type)
 
             file_path = meta.path
             parent_dir = file_path.parent
@@ -180,7 +152,6 @@ class FileOrganizer(BaseService):
         
         move_plan = []
         potential_conflicts = 0
-        folders_to_create = []
 
         if subdirectories or root_files:
              move_plan = self._generate_move_plan(
@@ -195,7 +166,6 @@ class FileOrganizer(BaseService):
                 date_grouping_type
             )
              potential_conflicts = sum(1 for move in move_plan if move.has_conflict)
-             folders_to_create = sorted(set(move.target_folder for move in move_plan if move.target_folder))
         
         log_section_footer_discrete(self.logger, f"Plan generado: {len(move_plan)} movimientos")
 
@@ -228,7 +198,12 @@ class FileOrganizer(BaseService):
             move_plan=move_plan,
             root_directory=str(root_directory),
             organization_type=organization_type.value,
-            folders_to_create=folders_to_create
+            subdirectories=subdirectories,
+            items_count=total_files,
+            bytes_total=total_scanned_size,
+            group_by_source=group_by_source,
+            group_by_type=group_by_type,
+            date_grouping_type=date_grouping_type
         )
     
     def execute(self, 
@@ -253,62 +228,41 @@ class FileOrganizer(BaseService):
         log_section_header_relevant(self.logger, "INICIANDO ORGANIZACIÓN DE ARCHIVOS", mode=mode_label)
         self.logger.info(f"*** Archivos a mover: {len(move_plan)}")
         
-        results = OrganizationExecutionResult(success=True, dry_run=dry_run)
+        result = OrganizationExecutionResult(success=True, dry_run=dry_run)
         
         try:
              # Crear carpetas
-             folders = set(move.target_folder for move in move_plan if move.target_folder)
+             folders = analysis_result.folders_to_create
              if not dry_run:
                  for f in folders:
                      (root_directory / f).mkdir(parents=True, exist_ok=True)
-                     results.folders_created.append(str(root_directory / f))
+                     result.folders_created.append(str(root_directory / f))
              
              # Backup
              if create_backup and not dry_run:
                  self._report_progress(progress_callback, 0, len(move_plan), "Creando backup...")
                  files = [m.source_path for m in move_plan]
-                 # Usar create_backup metodo heredado es dificil porque toma lista de files.
-                 # El metodo create_backup original en este archivo usaba launch_backup_creation con root_directory.
-                 # Replicamos logica original o usamos BaseService._create_backup_for_operation (preferido)
                  bk_path = self._create_backup_for_operation(
                      files, 'organization', progress_callback
                  )
                  if bk_path:
-                     results.backup_path = str(bk_path)
+                     result.backup_path = bk_path
              
              # Ejecución
-             used_names = defaultdict(set)
-             # Pre-llenar usados
-             if not dry_run:
-                  # En run real, chequear en el momento
-                  pass
-             
              total = len(move_plan)
-             files_processed = 0
+             items_processed = 0
+             bytes_processed = 0
+             files_affected = []
+             
              self._report_progress(progress_callback, 0, total, "Organizando...")
              
-             from utils.format_utils import format_size
-             
              for move in move_plan:
-                 files_processed += 1
-                 if files_processed % 10 == 0:
-                      if not self._report_progress(progress_callback, files_processed, total, f"Procesando {files_processed}/{total}"):
+                 items_processed += 1
+                 if items_processed % 10 == 0:
+                      if not self._report_progress(progress_callback, items_processed, total, f"Procesando {items_processed}/{total}"):
                           break
                  
-                 # Lógica de conflicto y movimiento
-                 # Simplificado para brevedad, usando la logica original seria mejor pero es muy larga.
-                 # Asumimos que move_plan ya tiene target_path calculado en analyze.
-                 # Pero analyze calculó conflictos ESTATICOS.
-                 # Si 'analyze' se corrió hace tiempo, puede haber cambios.
-                 # Pero asumimos consistencia inmediata.
-                 
-                 # Re-validar conflicto dinámico si no es dry_run?
                  target = move.target_path
-                 
-                 # Ajuste dinámico de nombres si hay conflicto en ejecución (race condition o multiple files to same name in same batch)
-                 # El plan ya debió manejar conflictos entre archivos del batch.
-                 # Conflictos con archivos existentes en disco ya detectados en analyze.
-                 # Solo queda simulación vs real.
                  
                  try:
                      if not move.source_path.exists():
@@ -316,9 +270,9 @@ class FileOrganizer(BaseService):
                          continue
                      
                      if dry_run:
-                         results.files_moved += 1
-                         results.moved_files.append(str(target))
-                         self.logger.info(f"FILE_MOVED_SIMULATION: {move.source_path.name} -> {target}")
+                         bytes_processed += move.size
+                         files_affected.append(target)
+                         self.logger.info(f"FILE_MOVED_SIMULATION: {move.source_path} -> {target}")
                      else:
                          target.parent.mkdir(parents=True, exist_ok=True)
                          if target.exists():
@@ -331,43 +285,50 @@ class FileOrganizer(BaseService):
                                  counter += 1
                          
                          move.source_path.rename(target)
-                         results.files_moved += 1
-                         results.moved_files.append(str(target))
-                         self.logger.info(f"FILE_MOVED: {move.source_path.name} -> {target}")
+                         bytes_processed += move.size
+                         files_affected.append(target)
+                         self.logger.info(f"FILE_MOVED: {move.source_path} -> {target}")
                          
                          # Actualizar caché moviendo el archivo
-                         from services.file_metadata_repository_cache import FileInfoRepositoryCache
                          repo = FileInfoRepositoryCache.get_instance()
                          repo.move_file(move.source_path, target)
 
                  except Exception as e:
-                     results.add_error(f"Error {move.source_path.name}: {e}")
-            
+                     result.add_error(f"Error {move.source_path.name}: {e}")
+             
+             result.items_processed = items_processed
+             result.bytes_processed = bytes_processed
+             result.files_affected = files_affected
+
              # Limpieza directorios vacios
              if cleanup_empty_dirs and not dry_run:
                  removed = cleanup_empty_directories(root_directory)
-                 results.empty_directories_removed = removed
+                 result.empty_directories_removed = removed
                  
-             summary = self._format_operation_summary("Organización", results.files_moved, 0, dry_run)
+             summary = self._format_operation_summary("Organización", items_processed, bytes_processed, dry_run)
              log_section_footer_relevant(self.logger, summary)
-             results.message = summary
-             if results.backup_path: results.message += f"\nBackup: {results.backup_path}"
-
+             result.message = summary
+             if result.backup_path:
+                  result.message += f"\nBackup: {result.backup_path}"
+ 
         except Exception as e:
-            results.add_error(str(e))
+            result.add_error(str(e))
             self.logger.error(f"Error critico: {e}")
             
-        return results
+        return result
 
     def _get_default_subdir_info(self):
         return {'path': '', 'file_count': 0, 'total_size': 0, 'files': []}
         
-    def _create_empty_result(self, root, type_):
+    def _create_empty_result(self, root, type_, group_by_source=False, group_by_type=False, date_grouping_type=None):
         return OrganizationAnalysisResult(
             move_plan=[],
             root_directory=str(root),
             organization_type=type_.value,
-            folders_to_create=[]
+            subdirectories={},
+            group_by_source=group_by_source,
+            group_by_type=group_by_type,
+            date_grouping_type=date_grouping_type
         )
 
     # --- MÉTODOS DE GENERACIÓN DE PLAN (Idénticos a original, simplificados llamada) ---
@@ -390,7 +351,7 @@ class FileOrganizer(BaseService):
             raise ValueError(f"Tipo no soportado: {organization_type}")
 
     # ... (Copiar todos los métodos _generate_move_plan_* y _resolve_conflicts_in_folder tal cual estaban, 
-    # pero asegurando que get_date_from_file use FileInfoRepository)
+    # pero asegurando que select_best_date_from_file use FileInfoRepository)
     
     def _resolve_conflicts_in_folder(self, name_conflicts: Dict, target_folder: Path) -> List[FileMove]:
         # Logica identica a original (ver lectura previa)
@@ -453,7 +414,10 @@ class FileOrganizer(BaseService):
         def process(files, subdir_name):
             for info in files:
                 path = Path(info['path'])
-                date = get_date_from_file(path, metadata_cache=repo, skip_expensive_ops=True) or datetime.now()
+                file_metadata = get_all_metadata_from_file(path)
+                date, _ = select_best_date_from_file(file_metadata)
+                if not date:
+                    date = datetime.now()
                 folder = date.strftime(date_fmt)
                 if group_src: folder += f"/{detect_file_source(info['name'], path)}"
                 if group_type:
@@ -497,7 +461,10 @@ class FileOrganizer(BaseService):
                     folder_name = f"{folder_name}/{source}"
                 
                 if date_grouping_type:
-                    file_date = get_date_from_file(file_path, metadata_cache=repo, skip_expensive_ops=True) or datetime.now()
+                    file_metadata = get_all_metadata_from_file(file_path)
+                    file_date, _ = select_best_date_from_file(file_metadata)
+                    if not file_date:
+                        file_date = datetime.now()
                     date_folder = ""
                     if date_grouping_type == 'month': date_folder = file_date.strftime('%Y_%m')
                     elif date_grouping_type == 'year': date_folder = file_date.strftime('%Y')
@@ -545,7 +512,10 @@ class FileOrganizer(BaseService):
                 source = detect_file_source(info['name'], file_path)
 
                 if date_grouping_type:
-                     file_date = get_date_from_file(file_path, metadata_cache=repo, skip_expensive_ops=True) or datetime.now()
+                     file_metadata = get_all_metadata_from_file(file_path)
+                     file_date, _ = select_best_date_from_file(file_metadata)
+                     if not file_date:
+                         file_date = datetime.now()
                      date_folder = ""
                      if date_grouping_type == 'month': date_folder = file_date.strftime('%Y_%m')
                      elif date_grouping_type == 'year': date_folder = file_date.strftime('%Y')

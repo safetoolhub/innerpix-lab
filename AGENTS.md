@@ -34,12 +34,15 @@ Logging y registros
 - **Logger**: Usar `from utils.logger import get_logger` y obtener el logger por módulo: `get_logger('ModuleName')`.
 - **Dual logging**: El proyecto soporta log dual (archivo completo + archivo WARN/ERROR). Respetar la convención y no imprimir directamente.
 - **Formato de borrado**: Cuando se eliminen archivos, usar el formato `FILE_DELETED:` o `FILE_DELETED_SIMULATION:` para operaciones en modo simulación.
+  - **Tamaños de archivo**: SIEMPRE usar `format_size()` de `utils.format_utils` para mostrar tamaños en unidades apropiadas (KB, MB, GB) en lugar de bytes puros.
+  - Ejemplo: `f"Size: {format_size(file_size)}"` NO `f"Size: {file_size} B"`
 
 Backups y modo simulación
 - **Política**: Todas las operaciones destructivas aceptan `create_backup=True`. Antes de borrar/mover/renombrar, crear backup por defecto salvo indicación explícita.
 - **Simulación**: Implementar y probar el modo dry-run; las acciones deben registrar eventos marcados con `SIMULATION` y no modificar el FS.
 
 Guidelines para tests
+
 - **Tipos de tests**: Unitarios (rápidos), integración (interacción entre servicios), performance (datasets grandes) y tests de UI (si proceden).
 - **Ubicación**: `tests/unit`, `tests/integration`, `tests/performance`, `tests/ui`.
 - **Naming**: Tests claros y deterministas. Prefiere nombres como `test_<comportamiento>_cuando_<condicion>` o en inglés si el repo usa inglés.

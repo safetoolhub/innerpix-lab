@@ -251,10 +251,10 @@ class SimilarityAnalysisHandler:
         Args:
             results: DuplicateAnalysisResult
         """
-        if 'similar_files' not in self.tool_cards:
+        if 'duplicates_similar' not in self.tool_cards:
             return
 
-        card = self.tool_cards['similar_files']
+        card = self.tool_cards['duplicates_similar']
 
         if results.total_groups > 0:
             size_text = f"~{format_size(results.space_potential)} recuperables"
@@ -280,10 +280,10 @@ class SimilarityAnalysisHandler:
         Args:
             analysis: DuplicatesSimilarAnalysis con hashes calculados
         """
-        if 'similar_files' not in self.tool_cards:
+        if 'duplicates_similar' not in self.tool_cards:
             return
 
-        card = self.tool_cards['similar_files']
+        card = self.tool_cards['duplicates_similar']
 
         # Verificar si hay archivos analizados
         if analysis.total_files == 0:
@@ -327,4 +327,4 @@ class SimilarityAnalysisHandler:
             # Usuario ejecutó acciones, ejecutar con worker
             # Delegación a stage_3_window para ejecución
             if hasattr(self.parent_window, '_execute_tool_action'):
-                self.parent_window._execute_tool_action("similar_files", dialog)
+                self.parent_window._execute_tool_action("duplicates_similar", dialog)

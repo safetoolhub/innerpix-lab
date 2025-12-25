@@ -3,16 +3,17 @@ Eliminador de HEIC Duplicados
 Refactorizado para usar MetadataCache.
 """
 
+import logging
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Set, Tuple, Any
 from collections import defaultdict
 
 from utils.file_utils import validate_file_exists
-from utils.date_utils import get_date_from_file
-from services.result_types import HeicAnalysisResult, HeicExecutionResult, DuplicatePair, AnalysisResult
+from services.result_types import HeicAnalysisResult, HeicExecutionResult, HEICDuplicatePair, AnalysisResult
 from services.base_service import BaseService, BackupCreationError, ProgressCallback
 from services.file_metadata_repository_cache import FileInfoRepositoryCache
+from services.file_metadata import FileMetadata
 from config import Config
 from utils.logger import (
     log_section_header_discrete,
@@ -20,6 +21,7 @@ from utils.logger import (
     log_section_header_relevant,
     log_section_footer_relevant
 )
+from utils.format_utils import format_size
 
 
 class HeicService(BaseService):
@@ -85,11 +87,18 @@ class HeicService(BaseService):
             'total_duplicates': 0,
             'potential_savings_keep_jpg': 0,
             'potential_savings_keep_heic': 0,
-            'by_directory': defaultdict(int)
+            'by_directory': defaultdict(int),
+            'rejected_pairs': []
         }
         
         # Obtener todos los archivos del repo
-        all_files = repo.get_all_files()
+        try:
+            all_files = repo.get_all_files()
+        except Exception as e:
+            self.logger.error(f"Error obteniendo archivos del repositorio: {e}")
+            import traceback
+            self.logger.error(traceback.format_exc())
+            return self._create_empty_result()
         total_files = len(all_files)
         
         # Estructura optimizada: dict[Path, dict[str, FileMetadata]]
@@ -101,21 +110,25 @@ class HeicService(BaseService):
         
         # Clasificar archivos
         for i, meta in enumerate(all_files):
-            if i % 1000 == 0 and not self._report_progress(progress_callback, i, total_files, "Clasificando archivos HEIC/JPG"):
-                return self._create_empty_result()
+            try:
+                if i % 1000 == 0 and not self._report_progress(progress_callback, i, total_files, "Clasificando archivos HEIC/JPG"):
+                    return self._create_empty_result()
+                    
+                extension = meta.extension
+                base_name = meta.path.stem
+                parent_dir = meta.path.parent
                 
-            extension = meta.extension
-            base_name = meta.path.stem
-            parent_dir = meta.path.parent
-            
-            if extension in self.heic_extensions:
-                heic_by_dir[parent_dir][base_name] = meta
-                self.stats['total_heic_size'] += meta.fs_size
-                total_heic_count += 1
-            elif extension in self.jpg_extensions:
-                jpg_by_dir[parent_dir][base_name] = meta
-                self.stats['total_jpg_size'] += meta.fs_size
-                total_jpg_count += 1
+                if extension in self.heic_extensions:
+                    heic_by_dir[parent_dir][base_name] = meta
+                    self.stats['total_heic_size'] += meta.fs_size
+                    total_heic_count += 1
+                elif extension in self.jpg_extensions:
+                    jpg_by_dir[parent_dir][base_name] = meta
+                    self.stats['total_jpg_size'] += meta.fs_size
+                    total_jpg_count += 1
+            except Exception as e:
+                self.logger.warning(f"Error clasificando archivo {meta.path if hasattr(meta, 'path') else 'desconocido'}: {e}")
+                continue
         
         results['total_heic_files'] = total_heic_count
         results['total_jpg_files'] = total_jpg_count
@@ -126,6 +139,15 @@ class HeicService(BaseService):
         duplicate_pairs = []
         matched_heic: Set[Path] = set()
         matched_jpg: Set[Path] = set()
+        
+        # Calcular total de pares a analizar para el log de progreso (INFO cada 10%)
+        total_common_bases = 0
+        for directory, h_dict in heic_by_dir.items():
+            if directory in jpg_by_dir:
+                total_common_bases += len(set(h_dict.keys()) & set(jpg_by_dir[directory].keys()))
+        
+        processed_pairs = 0
+        progress_checkpoint = max(1, total_common_bases // 10)
         
         processed_dirs = 0
         total_dirs = len(heic_by_dir)
@@ -141,37 +163,77 @@ class HeicService(BaseService):
             jpg_dict = jpg_by_dir[directory]
             
             # Bases comunes
-            common_bases = set(heic_dict.keys()) & set(jpg_dict.keys())
+            common_bases = sorted(list(set(heic_dict.keys()) & set(jpg_dict.keys())))
             
             for base_name in common_bases:
+                processed_pairs += 1
                 heic_meta = heic_dict[base_name]
                 jpg_meta = jpg_dict[base_name]
                 
+                self.logger.debug(f"Analizando par: {base_name} en {directory}")
+                
+                
                 try:
-                    # Obtener fechas
-                    # Intentar usar metadata cacheada si tuviera exif, o get_date_from_file (que abre archivo)
-                    # Para optimizar, podríamos confiar en mtime si no hay exif, pero heic/jpg suelen requerir exif para ser precisos.
-                    # Asumimos que get_date_from_file maneja su propia cache o lectura.
+                    # Validación de fechas usando select_best_date_from_common_date_to_2_files
+                    from utils.date_utils import select_best_date_from_common_date_to_2_files
                     
-                    # TODO: Optimizar lectura de fecha si es posible
-                    heic_date_raw = get_date_from_file(heic_meta.path)
-                    heic_date = heic_date_raw or datetime.fromtimestamp(heic_meta.fs_mtime)
-                    heic_source = "EXIF" if heic_date_raw else "filesystem"
+                    best_date_result = select_best_date_from_common_date_to_2_files(heic_meta, jpg_meta, verbose=True)
                     
-                    jpg_date_raw = get_date_from_file(jpg_meta.path)
-                    jpg_date = jpg_date_raw or datetime.fromtimestamp(jpg_meta.fs_mtime)
-                    jpg_source = "EXIF" if jpg_date_raw else "filesystem"
+                    if not best_date_result:
+                        # No hay fecha común válida, rechazar
+                        reject_reason = "No existe fecha común para comparar"
+                        self.logger.info(f"Par rechazado {base_name}: {reject_reason}")
+                        # Detalles para diagnóstico
+                        self.logger.info(f"  Metadatos HEIC: {heic_meta.get_summary(verbose=True)}")
+                        self.logger.info(f"  Metadatos JPG:  {jpg_meta.get_summary(verbose=True)}")
+                        
+                        rejected_pair = HEICDuplicatePair(
+                            heic_path=heic_meta.path,
+                            jpg_path=jpg_meta.path,
+                            base_name=base_name,
+                            heic_size=heic_meta.fs_size,
+                            jpg_size=jpg_meta.fs_size,
+                            directory=directory,
+                            heic_date=None, 
+                            jpg_date=None,
+                            date_source=None,
+                            date_difference=None
+                        )
+                        results['rejected_pairs'].append(rejected_pair)
+                        continue
+                        
+                    heic_date, jpg_date, source_used = best_date_result
                     
-                    # Validación de fecha
-                    if validate_dates:
-                        time_diff = abs(heic_date - jpg_date)
-                        if time_diff.total_seconds() > Config.MAX_TIME_DIFFERENCE_SECONDS:
-                            self.logger.warning(f"Par rechazado por tiempo {base_name}: diff {time_diff.total_seconds()}s")
-                            self.stats['rejected_by_time_diff'] += 1
-                            continue
-                            
-                    # Crear par
-                    duplicate_pair = DuplicatePair(
+                    # Calcular diferencia
+                    time_diff = abs((heic_date - jpg_date).total_seconds())
+                    
+                    # Validar diferencia si corresponde (con pequeña tolerancia para evitar errores de precisión/drift del filesystem)
+                    # Usamos 50ms (0.05s) como margen de seguridad razonable para operaciones en lote
+                    if validate_dates and time_diff > (Config.MAX_TIME_DIFFERENCE_SECONDS + 0.05):
+                        self.logger.info(f"Par rechazado por tiempo {base_name}: source={source_used}, diff {time_diff:.2f}s (> {Config.MAX_TIME_DIFFERENCE_SECONDS}s)")
+                        # Detalles para diagnóstico
+                        self.logger.info(f"  Metadatos HEIC: {heic_meta.get_summary(verbose=True)}")
+                        self.logger.info(f"  Metadatos JPG:  {jpg_meta.get_summary(verbose=True)}")
+                        self.stats['rejected_by_time_diff'] += 1
+                        
+                        rejected_pair = HEICDuplicatePair(
+                            heic_path=heic_meta.path,
+                            jpg_path=jpg_meta.path,
+                            base_name=base_name,
+                            heic_size=heic_meta.fs_size,
+                            jpg_size=jpg_meta.fs_size,
+                            directory=directory,
+                            heic_date=heic_date,
+                            jpg_date=jpg_date,
+                            date_source=source_used,
+                            date_difference=time_diff
+                        )
+                        results['rejected_pairs'].append(rejected_pair)
+                        continue
+                             
+                    # Crear par válido
+                    self.logger.info(f"Par admitido {base_name}: source={source_used}, diff={time_diff:.2f}s")
+                    duplicate_pair = HEICDuplicatePair(
                         heic_path=heic_meta.path,
                         jpg_path=jpg_meta.path,
                         base_name=base_name,
@@ -179,7 +241,9 @@ class HeicService(BaseService):
                         jpg_size=jpg_meta.fs_size,
                         directory=directory,
                         heic_date=heic_date,
-                        jpg_date=jpg_date
+                        jpg_date=jpg_date,
+                        date_source=source_used,
+                        date_difference=time_diff
                     )
                     
                     duplicate_pairs.append(duplicate_pair)
@@ -192,6 +256,13 @@ class HeicService(BaseService):
                     
                 except Exception as e:
                     self.logger.warning(f"Error procesando par {base_name}: {e}")
+                    import traceback
+                    self.logger.debug(traceback.format_exc())
+
+                # Log INFO cada 10% de los pares totales
+                if total_common_bases > 0 and processed_pairs % progress_checkpoint == 0:
+                    percent = (processed_pairs / total_common_bases) * 100
+                    self.logger.info(f"Progreso análisis HEIC: {percent:.0f}% ({processed_pairs}/{total_common_bases} pares)")
 
         results['duplicate_pairs'] = duplicate_pairs
         results['total_duplicates'] = len(duplicate_pairs)
@@ -213,6 +284,7 @@ class HeicService(BaseService):
         
         return HeicAnalysisResult(
             duplicate_pairs=duplicate_pairs,
+            rejected_pairs=results.get('rejected_pairs', []),
             heic_files=results['total_heic_files'],
             jpg_files=results['total_jpg_files'],
             potential_savings_keep_jpg=results['potential_savings_keep_jpg'],
@@ -243,8 +315,8 @@ class HeicService(BaseService):
         if not duplicate_pairs:
              return HeicExecutionResult(
                 success=True,
-                files_deleted=0,
-                space_freed=0,
+                items_processed=0,
+                bytes_processed=0,
                 message='No hay archivos duplicados para eliminar',
                 format_kept=keep_format,
                 dry_run=dry_run
@@ -272,7 +344,7 @@ class HeicService(BaseService):
 
     def _do_heic_cleanup(
         self,
-        duplicate_pairs: List[DuplicatePair],
+        duplicate_pairs: List[HEICDuplicatePair],
         keep_format: str,
         dry_run: bool,
         progress_callback: Optional[ProgressCallback]
@@ -282,17 +354,18 @@ class HeicService(BaseService):
         mode = "SIMULACIÓN" if dry_run else ""
         log_section_header_relevant(self.logger, "ELIMINACIÓN DE DUPLICADOS HEIC/JPG", mode=mode)
         
-        results = HeicExecutionResult(success=True, format_kept=keep_format, dry_run=dry_run)
+        result = HeicExecutionResult(success=True, format_kept=keep_format, dry_run=dry_run)
         total_pairs = len(duplicate_pairs)
         
-        files_deleted_list = []
+        files_affected = []
+        items_processed = 0
+        bytes_processed = 0
         
         for idx, pair in enumerate(duplicate_pairs):
              if not self._report_progress(progress_callback, idx+1, total_pairs, f"Procesando par {idx+1}/{total_pairs}"):
                  break
                  
              file_to_delete = pair.heic_path if keep_format.lower() == 'jpg' else pair.jpg_path
-             file_to_keep = pair.jpg_path if keep_format.lower() == 'jpg' else pair.heic_path
              file_size = pair.heic_size if keep_format.lower() == 'jpg' else pair.jpg_size
              
              try:
@@ -300,20 +373,23 @@ class HeicService(BaseService):
                      self.logger.warning(f"Archivo no encontrado: {file_to_delete}")
                      continue
                  
-                 from utils.format_utils import format_size
                  format_deleted = 'HEIC' if keep_format.lower() == 'jpg' else 'JPG'
                  
+                 # Formato de log estandarizado
+                 log_type = "FILE_DELETED_SIMULATION" if dry_run else "FILE_DELETED"
+                 log_msg = f"{log_type}: {file_to_delete} | Size: {format_size(file_size)} | Type: {format_deleted}"
+                 
                  if dry_run:
-                     results.simulated_files_deleted += 1
-                     results.simulated_space_freed += file_size
-                     files_deleted_list.append(str(file_to_delete))
-                     self.logger.info(f"FILE_DELETED_SIMULATION: {file_to_delete} | Type: {format_deleted}")
+                     items_processed += 1
+                     bytes_processed += file_size
+                     files_affected.append(file_to_delete)
+                     self.logger.info(log_msg)
                  else:
                      file_to_delete.unlink()
-                     results.files_deleted += 1
-                     results.space_freed += file_size
-                     files_deleted_list.append(str(file_to_delete))
-                     self.logger.info(f"FILE_DELETED: {file_to_delete} | Type: {format_deleted}")
+                     items_processed += 1
+                     bytes_processed += file_size
+                     files_affected.append(file_to_delete)
+                     self.logger.info(log_msg)
                      
                      # Actualizar caché eliminando el archivo
                      from services.file_metadata_repository_cache import FileInfoRepositoryCache
@@ -322,26 +398,27 @@ class HeicService(BaseService):
                      
              except Exception as e:
                  err = f"Error eliminando {file_to_delete}: {e}"
-                 results.add_error(err)
+                 result.add_error(err)
                  self.logger.error(err)
 
-        # Set files_affected using files_deleted_list for generic compatibility
-        results.files_affected = [Path(f) for f in files_deleted_list] if not dry_run else [] 
-        # HeicExecutionResult inherits from ExecutionResult, so files_affected is available
-        
-        results.deleted_files = files_deleted_list # Backward compatibility
+        # Poblar estadísticas en el objeto de resultado
+        result.items_processed = items_processed
+        result.bytes_processed = bytes_processed
+        result.files_affected = files_affected
 
         # Resumen
-        count = results.simulated_files_deleted if dry_run else results.files_deleted
-        space = results.simulated_space_freed if dry_run else results.space_freed
-        summary = self._format_operation_summary("Eliminación HEIC/JPG", count, space, dry_run)
+        summary = self._format_operation_summary("Eliminación HEIC/JPG", items_processed, bytes_processed, dry_run)
         
-        results.message = summary
-        if results.backup_path:
-            results.message += f"\n\nBackup: {results.backup_path}"
+        result.message = summary
+        if result.backup_path:
+            result.message += f"\n\nBackup: {result.backup_path}"
             
         log_section_footer_relevant(self.logger, summary)
-        return results
+        
+        # Mostramos estadísticas de la caché al final
+        repo = FileInfoRepositoryCache.get_instance()
+        repo.log_cache_statistics(level=logging.INFO)
+        return result
 
     def _create_empty_result(self) -> HeicAnalysisResult:
         return HeicAnalysisResult(

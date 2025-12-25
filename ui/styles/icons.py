@@ -55,6 +55,7 @@ class IconManager:
         'checkbox-marked-circle': 'mdi6.checkbox-marked-circle',
         'shield': 'mdi6.shield',
         'shield-check': 'mdi6.shield-check',
+        'fingerprint': 'mdi6.fingerprint',
         'close': 'mdi6.close',
         'close-circle': 'mdi6.close-circle',
         'pause-circle': 'mdi6.pause-circle',
@@ -68,7 +69,10 @@ class IconManager:
         'folder-remove': 'mdi6.folder-remove',
         'folder-multiple': 'mdi6.folder-multiple',
         'file': 'mdi6.file',
+        'file-check': 'mdi6.file-check',
         'file-document-outline': 'mdi6.file-document-outline',
+        'file-edit': 'mdi6.file-edit',
+        'file-plus': 'mdi6.file-plus',
         'file-x': 'mdi6.file-remove',
         'files': 'mdi6.file-multiple',
         'open-in-new': 'mdi6.open-in-new',
@@ -87,9 +91,11 @@ class IconManager:
         'chart-line': 'mdi6.chart-line',
         'timer': 'mdi6.timer',
         'clock-outline': 'mdi6.clock-outline',
+        'clock-time-four': 'mdi6.clock-time-four',
         'ruler': 'mdi6.ruler',
         'update': 'mdi6.update',
         'map-marker': 'mdi6.map-marker',
+        'earth': 'mdi6.earth',
         'arrow-expand': 'mdi6.arrow-expand',
         'arrow-collapse': 'mdi6.arrow-collapse',
         
@@ -132,6 +138,7 @@ class IconManager:
         'timer-sand': 'mdi6.timer-sand',
         
         # Opciones y configuración
+        'application-cog': 'mdi6.application-cog',
         'cog-outline': 'mdi6.cog-outline',
         'tune': 'mdi6.tune',
         'filter-variant': 'mdi6.filter-variant',
@@ -165,6 +172,7 @@ class IconManager:
         'calendar-month': 'mdi6.calendar-month',
         'calendar-today': 'mdi6.calendar-today',
         'calendar-range': 'mdi6.calendar-range',
+        'calendar-check': 'mdi6.calendar-check',
         'devices': 'mdi6.devices',
         
         # Ayuda e información
@@ -179,6 +187,14 @@ class IconManager:
         # Discos y almacenamiento
         'harddisk': 'mdi6.harddisk',
         'database': 'mdi6.database',
+        'database-refresh': 'mdi6.database-refresh',
+        'database-check': 'mdi6.database-check',
+        
+        # Multimedia y video
+        'monitor': 'mdi6.monitor',
+        'file-video': 'mdi6.file-video',
+        'folder-zip': 'mdi6.folder-zip',
+        'palette': 'mdi6.palette',
     }
     
     def __init__(self):

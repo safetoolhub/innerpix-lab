@@ -57,22 +57,30 @@ class DuplicatesExactDialog(BaseDialog):
         
         self.init_ui()
     
-    def _get_modification_time(self, file_path: Path) -> float:
+    def _get_best_date_timestamp(self, file_path: Path) -> float:
         """
-        Obtiene el timestamp de modificación usando metadata_cache si está disponible.
+        Obtiene el timestamp de la mejor fecha disponible desde el repositorio.
+        
+        Usa best_date calculado en Phase 5 del InitialScanner, que prioriza
+        EXIF sobre filesystem. Si no está disponible, usa mtime como fallback.
         
         Args:
             file_path: Ruta del archivo
             
         Returns:
-            Timestamp de modificación (epoch seconds)
+            Timestamp (epoch seconds) de la mejor fecha disponible
         """
         if self.metadata_cache:
-            dates = self.metadata_cache.get_exif(file_path)
-            if dates and dates.get('filesystem_modification_date'):
-                return dates['filesystem_modification_date'].timestamp()
+            best_date, _ = self.metadata_cache.get_best_date(file_path)
+            if best_date:
+                return best_date.timestamp()
+            
+            # Fallback a mtime del cache
+            fs_mtime = self.metadata_cache.get_filesystem_modification_date(file_path)
+            if fs_mtime:
+                return fs_mtime.timestamp()
         
-        # Fallback a stat() directo si no hay cache o no se encuentra
+        # Fallback final a stat() directo
         return file_path.stat().st_mtime
     
     def _calculate_recoverable_space(self):
@@ -86,9 +94,9 @@ class DuplicatesExactDialog(BaseDialog):
         for group in self.filtered_groups:
             # Determinar qué archivo mantener según estrategia
             if self.keep_strategy == 'oldest':
-                keep_file = min(group.files, key=lambda f: self._get_modification_time(f))
+                keep_file = min(group.files, key=lambda f: self._get_best_date_timestamp(f))
             else:  # newest
-                keep_file = max(group.files, key=lambda f: self._get_modification_time(f))
+                keep_file = max(group.files, key=lambda f: self._get_best_date_timestamp(f))
             
             # Sumar el tamaño de todos los archivos excepto el que se mantiene
             for file_path in group.files:
@@ -638,9 +646,9 @@ class DuplicatesExactDialog(BaseDialog):
         
         # Calcular espacio a liberar (total - archivo que se mantendrá)
         if self.keep_strategy == 'oldest':
-            keep_file = min(group.files, key=lambda f: self._get_modification_time(f))
+            keep_file = min(group.files, key=lambda f: self._get_best_date_timestamp(f))
         else:  # newest
-            keep_file = max(group.files, key=lambda f: self._get_modification_time(f))
+            keep_file = max(group.files, key=lambda f: self._get_best_date_timestamp(f))
         
         keep_file_size = keep_file.stat().st_size
         space_to_free = group.total_size - keep_file_size
@@ -696,9 +704,10 @@ class DuplicatesExactDialog(BaseDialog):
             file_item.setText(0, file_path.name)
             file_item.setText(1, format_size(file_path.stat().st_size))
             
-            # Fecha de modificación con formato mejorado
-            mtime = datetime.fromtimestamp(self._get_modification_time(file_path))
-            file_item.setText(2, mtime.strftime('%d/%m/%Y %H:%M'))
+            # Fecha de modificación con formato mejorado (usando best_date)
+            best_date_ts = self._get_best_date_timestamp(file_path)
+            file_date = datetime.fromtimestamp(best_date_ts)
+            file_item.setText(2, file_date.strftime('%d/%m/%Y %H:%M'))
             
             # Ruta del directorio padre
             path_str = str(file_path.parent)
@@ -728,7 +737,7 @@ class DuplicatesExactDialog(BaseDialog):
                 f"<b>{file_path.name}</b><br>"
                 f"📂 {file_path.parent}<br>"
                 f"📊 {format_size(file_path.stat().st_size)}<br>"
-                f"📅 {mtime.strftime('%d/%m/%Y %H:%M:%S')}<br>"
+                f"📅 {file_date.strftime('%d/%m/%Y %H:%M:%S')}<br>"
                 f"{'✓ Se conservará' if is_keep else '✗ Se eliminará'}"
             )
             file_item.setToolTip(0, tooltip_text)
@@ -756,9 +765,9 @@ class DuplicatesExactDialog(BaseDialog):
             
             # Determinar archivo a mantener según estrategia
             if self.keep_strategy == 'oldest':
-                keep_file = min(files, key=lambda f: self._get_modification_time(f))
+                keep_file = min(files, key=lambda f: self._get_best_date_timestamp(f))
             elif self.keep_strategy == 'newest':
-                keep_file = max(files, key=lambda f: self._get_modification_time(f))
+                keep_file = max(files, key=lambda f: self._get_best_date_timestamp(f))
             else:
                 keep_file = files[0]  # Fallback
             
@@ -941,9 +950,9 @@ class DuplicatesExactDialog(BaseDialog):
             if file_path in group.files:
                 # Determinar qué archivo se mantiene
                 if self.keep_strategy == 'oldest':
-                    keep_file = min(group.files, key=lambda f: self._get_modification_time(f))
+                    keep_file = min(group.files, key=lambda f: self._get_best_date_timestamp(f))
                 else:
-                    keep_file = max(group.files, key=lambda f: self._get_modification_time(f))
+                    keep_file = max(group.files, key=lambda f: self._get_best_date_timestamp(f))
                 
                 is_keep = file_path == keep_file
                 status_info = {

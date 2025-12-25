@@ -11,10 +11,10 @@ utilizados en la aplicación, incluyendo:
 """
 
 # Servicios principales
-from .file_renamer_service import FileRenamer
-from .live_photos_service import LivePhotoService, LivePhotoGroup, CleanupMode
-from .file_organizer_service import FileOrganizer, FileMove, OrganizationType
-from .heic_service import HeicService, DuplicatePair
+from .file_renamer_service import FileRenamerService
+from .live_photos_service import LivePhotoService
+from .file_organizer_service import FileOrganizerService, FileMove, OrganizationType
+from .heic_service import HeicService, HEICDuplicatePair
 from .duplicates_exact_service import DuplicatesExactService
 from .duplicates_similar_service import DuplicatesSimilarService, DuplicatesSimilarAnalysis
 from .zero_byte_service import ZeroByteService
@@ -40,13 +40,15 @@ from .result_types import (
     OrganizationExecutionResult,
     # Duplicates
     DuplicateGroup,
-    DuplicatePair,
+    HEICDuplicatePair,
     DuplicateAnalysisResult,
     DuplicateExecutionResult,
     # HEIC
     HeicAnalysisResult,
     HeicExecutionResult,
     # Live Photos
+    LivePhotoImageInfo,
+    LivePhotoGroup,
     LivePhotosAnalysisResult,
     LivePhotosExecutionResult,
 
@@ -57,9 +59,9 @@ from .result_types import (
 
 __all__ = [
     # Servicios
-    'FileRenamer',
+    'FileRenamerService',
     'LivePhotoService',
-    'FileOrganizer',
+    'FileOrganizerService',
     'HeicService',
     'DuplicatesExactService',
     'DuplicatesSimilarService',
@@ -72,14 +74,14 @@ __all__ = [
     # Type aliases
     'ProgressCallback',
     # Enums
-    'CleanupMode',
     'OrganizationType',
     # Dataclasses de servicios
     'LivePhotoGroup',
+    'LivePhotoImageInfo',
     'FileMove',
-    'DuplicatePair',
+    'HEICDuplicatePair',
     'DuplicateGroup',
-    'SimilarFilesAnalysis',
+    'DuplicatesSimilarAnalysis',
     # Utilidades de file_utils
     # (none currently)
     # Orquestador results

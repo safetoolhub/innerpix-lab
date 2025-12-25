@@ -44,5 +44,5 @@ def create_duplicates_exact_card(analysis_results, on_click_callback) -> ToolCar
         # Estado pendiente de análisis
         card.set_status_pending("Analizar para detectar copias exactas")
 
-    card.clicked.connect(lambda: on_click_callback('exact_copies'))
+    card.clicked.connect(lambda: on_click_callback('duplicates_exact'))
     return card

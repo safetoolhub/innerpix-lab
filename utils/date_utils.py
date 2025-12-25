@@ -3,139 +3,195 @@ Utilidades para extracción de fechas de archivos multimedia
 """
 import logging
 from pathlib import Path
-from datetime import datetime
-from typing import Optional
+from datetime import datetime, timezone
+from typing import Optional, Tuple, Protocol, Any, runtime_checkable
+
 from functools import lru_cache
 from utils.logger import get_logger
 
 _logger = get_logger("DateUtils")
 
 
-def validate_date_coherence(all_dates: dict) -> dict:
+# Protocolo para definir la estructura esperada de FileInfo/FileMetadata
+# según la especificación del usuario
+@runtime_checkable
+class FileInfoProtocol(Protocol):
+    path: Path
+    # Campos EXIF (opcionales, datetime)
+    exif_date_time_original: Optional[datetime]
+    exif_create_date: Optional[datetime]
+    exif_modify_date: Optional[datetime]
+    # Timestamps del filesystem (opcionales, datetime)
+    atime: Optional[datetime]
+    ctime: Optional[datetime]
+    mtime: Optional[datetime]
+
+
+def select_best_date_from_common_date_to_2_files(
+    file1: Any, 
+    file2: Any,
+    verbose: bool = False
+) -> Optional[Tuple[datetime, datetime, str]]:
     """
-    Valida coherencia entre fechas y detecta anomalías en metadatos.
+    Compara las fechas de creación más realistas posibles de dos archivos.
     
-    Esta función aplica varias reglas de validación para detectar metadatos corruptos,
-    archivos editados, o transferencias recientes que pueden afectar la confiabilidad
-    de las fechas.
-
+    Devuelve una tupla con (fecha_file1, fecha_file2, fuente) donde las fechas son
+    del mismo tipo para ambos archivos (nunca mezcla EXIF con filesystem).
+    Usado por HEICService y LivePhotoService para determinar la fecha correcta de los pares de archivos.
+    
+    Prioriza fidelidad al momento de captura/creación original:
+    1. EXIF DateTimeOriginal (Captura exacta)
+    2. EXIF CreateDate (Creación digital)
+    3. EXIF ModifyDate (Última modificación EXIF)
+    4. Filesystem ctime (Change time - creación/metadatos)
+    5. Filesystem mtime (Modify time - contenido)
+    6. Filesystem atime (Access time - último recurso)
+    
     Args:
-        all_dates: Dict con todas las fechas del archivo (estructura de get_all_file_dates)
-
-    Returns:
-        Dict con resultado de validación:
-        {
-            'is_valid': bool,              # True si pasa todas las validaciones críticas
-            'warnings': list[str],         # Lista de códigos de advertencia
-            'confidence': str              # 'high', 'medium', 'low'
-        }
+        file1: Objeto con metadatos del primer archivo (FileInfo/FileMetadata)
+        file2: Objeto con metadatos del segundo archivo (FileInfo/FileMetadata)
         
-    Códigos de advertencia:
-        - 'EXIF_AFTER_MTIME': EXIF posterior a modification_date (sospechoso)
-        - 'EXIF_DIVERGENCE': Más de 1 año entre campos EXIF (probable corrupción)
-        - 'DIGITIZED_BEFORE_ORIGINAL': DateTimeDigitized anterior a DateTimeOriginal (imposible)
-        - 'RECENT_TRANSFER': Más de 7 días entre creation_date y EXIF (transferencia)
-        - 'SOFTWARE_DETECTED': Campo Software presente (archivo editado)
-        - 'GPS_DIVERGENCE': GPS date muy diferente de EXIF (más de 1 día)
+    Returns:
+        Tuple[datetime, datetime, str]: (fecha1, fecha2, fuente_usada)
+        None: Si no se puede determinar ninguna fecha válida común
         
     Examples:
-        >>> # Fechas coherentes
-        >>> dates = {
-        ...     'exif_date_time_original': datetime(2023, 1, 15, 10, 30),
-        ...     'modification_date': datetime(2023, 1, 16, 12, 0)
-        ... }
-        >>> validate_date_coherence(dates)
-        {'is_valid': True, 'warnings': [], 'confidence': 'high'}
-        
-        >>> # EXIF posterior a mtime (sospechoso)
-        >>> dates = {
-        ...     'exif_date_time_original': datetime(2024, 1, 15, 10, 30),
-        ...     'modification_date': datetime(2023, 1, 16, 12, 0)
-        ... }
-        >>> validate_date_coherence(dates)
-        {'is_valid': False, 'warnings': ['EXIF_AFTER_MTIME'], 'confidence': 'low'}
+        >>> from types import SimpleNamespace
+        >>> dt1 = datetime(2023, 1, 1, 12, 0, 0)
+        >>> dt2 = datetime(2023, 1, 2, 12, 0, 0)
+        >>> f1 = SimpleNamespace(path='f1', exif_date_time_original=dt1)
+        >>> f2 = SimpleNamespace(path='f2', exif_date_time_original=dt2)
+        >>> select_best_date_from_common_date_to_2_files(f1, f2)
+        (datetime.datetime(2023, 1, 1, 12, 0), datetime.datetime(2023, 1, 2, 12, 0), 'exif_date_time_original')
     """
-    from datetime import timedelta
+    # Validar que los objetos tienen los atributos necesarios
+    # Se usa getattr para seguridad si los objetos no cumplen estrictamente el protocolo
     
-    warnings = []
-    is_valid = True
+    def _get_val(obj, *attrs):
+        for attr in attrs:
+            val = getattr(obj, attr, None)
+            if val is not None:
+                if verbose: _logger.debug(f"      - Found {attr} on {getattr(obj, 'path', 'file')}: {val}")
+                return val
+        return None
+
+    def _to_dt(val):
+        if val is None: return None
+        if isinstance(val, datetime): return val
+        if isinstance(val, (int, float)): return datetime.fromtimestamp(val)
+        return None
+
+    def _fmt(dt):
+        return dt.strftime('%Y-%m-%d %H:%M:%S.%f') if dt else 'None'
+
+    if verbose:
+        _logger.debug(f"DEBUG: Comparing dates for {getattr(file1, 'path', 'f1')} and {getattr(file2, 'path', 'f2')}")
+
+    # ---------------------------------------------------------
+    # 1. PRIORIDAD: AMBOS TIENEN EXIF VÁLIDOS
+    # ---------------------------------------------------------
     
-    # Extraer fechas relevantes
-    exif_original = all_dates.get('exif_date_time_original')
-    exif_create = all_dates.get('exif_create_date')
-    exif_digitized = all_dates.get('exif_date_digitized')
-    exif_gps = all_dates.get('exif_gps_date')
-    exif_software = all_dates.get('exif_software')
-    modification_date = all_dates.get('modification_date')
-    creation_date = all_dates.get('creation_date')
+    # Priority 1: EXIF DateTimeOriginal
+    file1_datetime_original = _to_dt(_get_val(file1, 'exif_date_time_original', 'exif_DateTimeOriginal'))
+    file2_datetime_original = _to_dt(_get_val(file2, 'exif_date_time_original', 'exif_DateTimeOriginal'))
     
-    # Validación 1: EXIF posterior a modification_date (sospechoso)
-    if exif_original and modification_date:
-        if exif_original > modification_date:
-            warnings.append('EXIF_AFTER_MTIME')
-            is_valid = False
+    if verbose: _logger.debug(f"    - EXIF DateTimeOriginal: file1={_fmt(file1_datetime_original)}, file2={_fmt(file2_datetime_original)}")
+    if file1_datetime_original is not None and file2_datetime_original is not None:
+        if verbose: _logger.debug("    => Match found: exif_date_time_original")
+        _logger.debug(f"Source selected: exif_date_time_original for {getattr(file1, 'path', 'f1')} and {getattr(file2, 'path', 'f2')}")
+        return file1_datetime_original, file2_datetime_original, 'exif_date_time_original'
+        
+    # Priority 2: EXIF CreateDate
+    file1_create_date = _to_dt(_get_val(file1, 'exif_create_date', 'exif_CreateDate', 'exif_DateTimeDigitized'))
+    file2_create_date = _to_dt(_get_val(file2, 'exif_create_date', 'exif_CreateDate', 'exif_DateTimeDigitized'))
     
-    # Validación 2: Divergencia entre campos EXIF (más de 1 año)
-    exif_dates = [d for d in [exif_original, exif_create, exif_digitized] if d is not None]
-    if len(exif_dates) >= 2:
-        min_exif = min(exif_dates)
-        max_exif = max(exif_dates)
-        if (max_exif - min_exif) > timedelta(days=365):
-            warnings.append('EXIF_DIVERGENCE')
-            is_valid = False
+    if verbose: _logger.debug(f"    - EXIF CreateDate: file1={_fmt(file1_create_date)}, file2={_fmt(file2_create_date)}")
+    if file1_create_date is not None and file2_create_date is not None:
+        if verbose: _logger.debug("    => Match found: exif_create_date")
+        _logger.debug(f"Source selected: exif_create_date for {getattr(file1, 'path', 'f1')} and {getattr(file2, 'path', 'f2')}")
+        return file1_create_date, file2_create_date, 'exif_create_date'
+        
+    # Priority 3: EXIF ModifyDate
+    file1_modify_date = _to_dt(_get_val(file1, 'exif_modify_date', 'exif_DateTime'))
+    file2_modify_date = _to_dt(_get_val(file2, 'exif_modify_date', 'exif_DateTime'))
     
-    # Validación 3: DateTimeDigitized anterior a DateTimeOriginal (imposible)
-    if exif_original and exif_digitized:
-        if exif_digitized < exif_original:
-            warnings.append('DIGITIZED_BEFORE_ORIGINAL')
-            is_valid = False
+    if verbose: _logger.debug(f"    - EXIF ModifyDate: file1={_fmt(file1_modify_date)}, file2={_fmt(file2_modify_date)}")
+    if file1_modify_date is not None and file2_modify_date is not None:
+        if verbose: _logger.debug("    => Match found: exif_modify_date")
+        _logger.debug(f"Source selected: exif_modify_date for {getattr(file1, 'path', 'f1')} and {getattr(file2, 'path', 'f2')}")
+        return file1_modify_date, file2_modify_date, 'exif_modify_date'
+
+    # -------------------------------------------------------------------------
+    # 2. FILESYSTEM FALLBACK (Solo uno o ninguno tiene EXIF)
+    # -------------------------------------------------------------------------
+    # Buscamos la fecha más antigua común entre mtime, ctime y atime.
+    # Priorizar la fecha más antigua ayuda a encontrar la fecha original incluso
+    # si el archivo fue copiado (reseteando ctime) o modificado (reseteando mtime).
     
-    # Validación 4: Transferencia reciente (creation_date muy diferente de EXIF)
-    if exif_original and creation_date:
-        diff = abs((creation_date - exif_original).days)
-        if diff > 7:
-            warnings.append('RECENT_TRANSFER')
-            # No marca como inválido, solo advertencia
+    # Fuentes a evaluar en orden de relevancia lógica (mtime suele ser la más real)
+    filesystem_sources = [
+        ('mtime', 'fs_mtime'),
+        ('ctime', 'fs_ctime'),
+        ('atime', 'fs_atime')
+    ]
     
-    # Validación 5: Software detectado (archivo editado)
-    if exif_software:
-        warnings.append('SOFTWARE_DETECTED')
-        # No marca como inválido, solo informativo
+    common_candidates = []
     
-    # Validación 6: GPS date muy diferente de EXIF
-    if exif_gps and exif_original:
-        diff = abs((exif_gps - exif_original).days)
-        if diff > 1:
-            warnings.append('GPS_DIVERGENCE')
-            # No marca como inválido, puede ser zona horaria
-    
-    # Determinar nivel de confianza
-    if not is_valid:
-        confidence = 'low'
-    elif len(warnings) >= 2:
-        confidence = 'medium'
-    elif len(warnings) == 1:
-        confidence = 'medium'
-    else:
-        confidence = 'high'
-    
-    return {
-        'is_valid': is_valid,
-        'warnings': warnings,
-        'confidence': confidence
-    }
+    # Solo consideramos fuentes que ESTÉN PRESENTES EN AMBOS archivos
+    for attr_name, source_label in filesystem_sources:
+        date_f1 = _to_dt(_get_val(file1, attr_name, f'fs_{attr_name}'))
+        date_f2 = _to_dt(_get_val(file2, attr_name, f'fs_{attr_name}'))
+        
+        if date_f1 and date_f2:
+            common_candidates.append({
+                'date1': date_f1,
+                'date2': date_f2,
+                'source': source_label
+            })
+            
+    if common_candidates:
+        # Seleccionamos la combinación que contenga la fecha absoluta más antigua
+        # Para evitar sesgos, comparamos el mínimo de ambas fechas en cada candidato
+        best_match = min(common_candidates, key=lambda candidate: min(candidate['date1'], candidate['date2']))
+        
+        result_date1 = best_match['date1']
+        result_date2 = best_match['date2']
+        selected_source = best_match['source']
+        
+        # Log de advertencia si la fuente elegida no es la de modificación (mtime)
+        if selected_source != 'fs_mtime':
+            # Extraer todos los valores para un log informativo completo
+            file1_stats = {source: _fmt(_to_dt(_get_val(file1, source, f'fs_{source}'))) for source, _ in filesystem_sources}
+            file2_stats = {source: _fmt(_to_dt(_get_val(file2, source, f'fs_{source}'))) for source, _ in filesystem_sources}
+            
+            _logger.warning(
+                f"ANOMALÍA DE FECHAS: Se ha seleccionado '{selected_source}' por ser la fuente común más antigua "
+                f"entre {getattr(file1, 'path', 'f1')} y {getattr(file2, 'path', 'f2')}.\n"
+                f"File 1: mtime={file1_stats['mtime']}, ctime={file1_stats['ctime']}, atime={file1_stats['atime']}\n"
+                f"File 2: mtime={file2_stats['mtime']}, ctime={file2_stats['ctime']}, atime={file2_stats['atime']}"
+            )
+        elif verbose:
+            _logger.debug(f"    => Match found: {selected_source} (Earliest common FS date)")
+            
+        return result_date1, result_date2, selected_source
+
+    # -------------------------------------------------------------------------
+    # 3. FALLBACK FINAL
+    # -------------------------------------------------------------------------
+    if verbose: _logger.debug("    !! NO COMMON DATE SOURCE FOUND !!")
+    return None
 
 
-def select_chosen_date(all_dates: dict) -> tuple[Optional[datetime], Optional[str]]:
+def select_best_date_from_file(file_metadata: 'FileMetadata') -> tuple[Optional[datetime], Optional[str]]:
     """
     Selecciona la fecha más representativa de un archivo según lógica de priorización avanzada.
     
-    LÓGICA DE PRIORIZACIÓN (CORREGIDA):
+    LÓGICA DE PRIORIZACIÓN:
     
     PASO 1 - PRIORIDAD MÁXIMA (Fechas EXIF de cámara):
     1. DateTimeOriginal con OffsetTimeOriginal (la más precisa)
     2. DateTimeOriginal sin OffsetTimeOriginal
-    3. CreateDate
+    3. CreateDate (DateTime en FileMetadata)
     4. DateTimeDigitized
     
     Regla: Se comparan TODAS estas fechas EXIF y se devuelve la MÁS ANTIGUA.
@@ -146,8 +202,7 @@ def select_chosen_date(all_dates: dict) -> tuple[Optional[datetime], Optional[st
        - Útil para WhatsApp y otros archivos sin EXIF
        - Patrones: IMG-YYYYMMDD-WA, Screenshot_YYYYMMDD_HHMMSS, etc.
     
-    6. Video metadata (creation_time de ffprobe)
-       - Para archivos de video
+    6. Video metadata (para archivos de video usa exif_DateTime)
     
     PASO 3 - VALIDACIÓN GPS (NO se usa como fecha principal):
     - GPS DateStamp se valida contra DateTimeOriginal
@@ -155,17 +210,12 @@ def select_chosen_date(all_dates: dict) -> tuple[Optional[datetime], Optional[st
     - GPS está en UTC y puede estar redondeado, por lo que NO es confiable
     
     PASO 4 - ÚLTIMO RECURSO (Fechas de sistema):
-    7. creation_date y modification_date del sistema de archivos
+    7. fs_ctime y fs_mtime del sistema de archivos
        - Se comparan ambas y se devuelve la más antigua
        - Menos confiables por cambiar al copiar/mover
     
-    VALIDACIÓN:
-    - Llama a validate_date_coherence() para detectar metadatos corruptos
-    - Loguea warnings encontrados
-    - Valida coherencia entre GPS DateStamp y DateTimeOriginal
-    
     Args:
-        all_dates: Dict con todas las fechas disponibles (estructura de get_all_file_dates)
+        metadata: FileMetadata con todos los metadatos del archivo
 
     Returns:
         Tupla (fecha_seleccionada, fuente_seleccionada)
@@ -174,25 +224,56 @@ def select_chosen_date(all_dates: dict) -> tuple[Optional[datetime], Optional[st
         - Devuelve (None, None) si no hay fechas disponibles
     
     Examples:
-        >>> # Imagen con EXIF completo
-        >>> dates = {
-        ...     'exif_date_time_original': datetime(2021, 8, 4, 18, 49, 23),
-        ...     'exif_gps_date': datetime(2021, 8, 4, 20, 0, 0),
-        ...     'exif_offset_time': '+02:00'
-        ... }
-        >>> select_chosen_date(dates)
+        >>> from services.file_metadata import FileMetadata
+        >>> file_metadata = FileMetadata(
+        ...     path=Path('/test.jpg'),
+        ...     fs_size=1000, fs_ctime=1609459200.0, fs_mtime=1609459200.0, fs_atime=1609459200.0,
+        ...     exif_DateTimeOriginal='2021:08:04 18:49:23',
+        ...     exif_OffsetTimeOriginal='+02:00'
+        ... )
+        >>> select_best_date_from_file(file_metadata)
         (datetime(2021, 8, 4, 18, 49, 23), 'EXIF DateTimeOriginal (+02:00)')
-        
-        >>> # WhatsApp sin EXIF
-        >>> dates = {
-        ...     'filename_date': datetime(2024, 11, 13, 0, 0),
-        ...     'creation_date': datetime(2024, 11, 15, 12, 0)
-        ... }
-        >>> select_chosen_date(dates)
-        (datetime(2024, 11, 13, 0, 0), 'Filename')
     """
-    # Validar coherencia de fechas
-    validation = validate_date_coherence(all_dates)
+    import platform
+    from services.file_metadata import FileMetadata
+    
+    # Helper para parsear fechas EXIF string a datetime
+    def _parse_exif_date(date_str: Optional[str]) -> Optional[datetime]:
+        if not date_str:
+            return None
+        try:
+            # Formato típico EXIF: "2023:01:15 10:30:00"
+            if ':' in date_str[:10]:
+                return datetime.strptime(date_str[:19], '%Y:%m:%d %H:%M:%S')
+            # Formato ISO
+            elif 'T' in date_str:
+                return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+            return None
+        except (ValueError, TypeError):
+            return None
+    
+    # Extraer fechas de FileMetadata
+    exif_date_time_original = _parse_exif_date(file_metadata.exif_DateTimeOriginal)
+    exif_create_date = _parse_exif_date(file_metadata.exif_DateTime)  # CreateDate mapea a DateTime
+    exif_date_digitized = _parse_exif_date(file_metadata.exif_DateTimeDigitized)
+    exif_gps_date = _parse_exif_date(file_metadata.exif_GPSDateStamp)
+    exif_offset_time = file_metadata.exif_OffsetTimeOriginal
+    
+    # Fechas del filesystem
+    fs_ctime = datetime.fromtimestamp(file_metadata.fs_ctime) if file_metadata.fs_ctime else None
+    fs_mtime = datetime.fromtimestamp(file_metadata.fs_mtime) if file_metadata.fs_mtime else None
+    
+    # Fecha del nombre de archivo
+    filename_date = extract_date_from_filename(file_metadata.path.name)
+    
+    # Video metadata (para videos usamos exif_DateTime)
+    video_metadata_date = exif_create_date if file_metadata.is_video else None
+    
+    # Determinar fuente de creation (birth vs ctime)
+    filesystem_creation_source = 'birth' if platform.system() == 'Darwin' else 'ctime'
+    
+    # Validar coherencia de fechas directamente con FileMetadata
+    validation = _validate_date_coherence(file_metadata)
     
     # Loguear warnings si existen
     if validation['warnings']:
@@ -204,30 +285,30 @@ def select_chosen_date(all_dates: dict) -> tuple[Optional[datetime], Optional[st
     exif_camera_dates = []
     
     # DateTimeOriginal con zona horaria
-    if all_dates.get('exif_date_time_original') and all_dates.get('exif_offset_time'):
+    if exif_date_time_original and exif_offset_time:
         exif_camera_dates.append((
-            all_dates['exif_date_time_original'],
-            f"EXIF DateTimeOriginal ({all_dates['exif_offset_time']})"
+            exif_date_time_original,
+            f"EXIF DateTimeOriginal ({exif_offset_time})"
         ))
     
     # DateTimeOriginal sin zona horaria
-    elif all_dates.get('exif_date_time_original'):
+    elif exif_date_time_original:
         exif_camera_dates.append((
-            all_dates['exif_date_time_original'],
+            exif_date_time_original,
             'EXIF DateTimeOriginal'
         ))
     
     # CreateDate
-    if all_dates.get('exif_create_date'):
+    if exif_create_date:
         exif_camera_dates.append((
-            all_dates['exif_create_date'],
+            exif_create_date,
             'EXIF CreateDate'
         ))
     
     # DateTimeDigitized
-    if all_dates.get('exif_date_digitized'):
+    if exif_date_digitized:
         exif_camera_dates.append((
-            all_dates['exif_date_digitized'],
+            exif_date_digitized,
             'EXIF DateTimeDigitized'
         ))
     
@@ -237,7 +318,7 @@ def select_chosen_date(all_dates: dict) -> tuple[Optional[datetime], Optional[st
         selected_date, source = earliest_exif
         
         # Validar coherencia GPS vs DateTimeOriginal
-        _validate_gps_coherence(all_dates, selected_date)
+        _validate_gps_coherence(file_metadata, selected_date)
         
         return selected_date, source
     
@@ -246,12 +327,12 @@ def select_chosen_date(all_dates: dict) -> tuple[Optional[datetime], Optional[st
     # ============================================================================
     
     # Fecha del nombre de archivo
-    if all_dates.get('filename_date'):
-        return all_dates['filename_date'], 'Filename'
+    if filename_date:
+        return filename_date, 'Filename'
     
     # Video metadata
-    if all_dates.get('video_metadata_date'):
-        return all_dates['video_metadata_date'], 'Video Metadata'
+    if video_metadata_date:
+        return video_metadata_date, 'Video Metadata'
     
     # ============================================================================
     # PASO 3: GPS DateStamp - Solo para validación (ya ejecutado en PASO 1)
@@ -264,17 +345,11 @@ def select_chosen_date(all_dates: dict) -> tuple[Optional[datetime], Optional[st
     # ============================================================================
     fs_dates = []
     
-    if all_dates.get('filesystem_creation_date'):
-        fs_dates.append((
-            all_dates['filesystem_creation_date'],
-            all_dates.get('filesystem_creation_source', 'creation')
-        ))
+    if fs_ctime:
+        fs_dates.append((fs_ctime, filesystem_creation_source))
     
-    if all_dates.get('filesystem_modification_date'):
-        fs_dates.append((
-            all_dates['filesystem_modification_date'],
-            'mtime'
-        ))
+    if fs_mtime:
+        fs_dates.append((fs_mtime, 'mtime'))
     
     if fs_dates:
         earliest_fs = min(fs_dates, key=lambda x: x[0])
@@ -284,212 +359,252 @@ def select_chosen_date(all_dates: dict) -> tuple[Optional[datetime], Optional[st
     return None, None
 
 
-def _normalize_date_source(source: str) -> str:
+def get_all_metadata_from_file(file_path: Path, force_search: bool = False) -> 'FileMetadata':
     """
-    Normaliza el nombre de la fuente de fecha al formato de caché.
+    Obtiene toda la información de metadatos disponible para un archivo.
     
-    Convierte los nombres descriptivos de select_chosen_date() al formato
-    compacto usado en metadata_cache.
+    Usa el caché de FileInfoRepositoryCache primero. Si no está disponible,
+    intenta obtener directamente según configuración o si force_search=True.
     
-    Args:
-        source: Nombre de fuente de select_chosen_date() 
-                (ej: 'EXIF DateTimeOriginal (+02:00)', 'Filename', 'mtime')
-    
-    Returns:
-        Nombre normalizado para caché:
-        - 'exif_datetime_original_tz': DateTimeOriginal con timezone
-        - 'exif_datetime_original': DateTimeOriginal sin timezone
-        - 'exif_create_date': CreateDate
-        - 'exif_datetime_digitized': DateTimeDigitized
-        - 'filename': Extraída del nombre de archivo
-        - 'video': Metadata de video  
-        - 'mtime': Modification time
-        - 'ctime': Creation time
-        - 'other': Cualquier otra fuente
-    """
-    if not source:
-        return 'unknown'
-    
-    source_lower = source.lower()
-    
-    # EXIF DateTimeOriginal con timezone
-    if 'datetimeoriginal' in source_lower and '(' in source:
-        return 'exif_datetime_original_tz'
-    
-    # EXIF DateTimeOriginal sin timezone
-    if 'datetimeoriginal' in source_lower:
-        return 'exif_datetime_original'
-    
-    # EXIF CreateDate
-    if 'createdate' in source_lower:
-        return 'exif_create_date'
-    
-    # EXIF DateTimeDigitized
-    if 'datetimedigitized' in source_lower or 'digitized' in source_lower:
-        return 'exif_datetime_digitized'
-    
-    # Filename
-    if 'filename' in source_lower:
-        return 'filename'
-    
-    # Video metadata
-    if 'video' in source_lower:
-        return 'video'
-    
-    # Filesystem timestamps
-    if source_lower == 'mtime':
-        return 'mtime'
-    if source_lower in ['ctime', 'creation', 'birthtime']:
-        return 'ctime'
-    
-    # Otras fuentes desconocidas
-    return 'other'
-
-
-def _validate_gps_coherence(all_dates: dict, selected_date: datetime) -> None:
-    """
-    Valida coherencia entre GPS DateStamp y DateTimeOriginal.
-    
-    GPS DateStamp puede diferir significativamente de DateTimeOriginal debido a:
-    - GPS está siempre en UTC (sin zona horaria local)
-    - Muchos dispositivos redondean GPS timestamp a horas completas
-    - GPS puede estar ausente o incorrecto por problemas de señal
-    
-    Esta función registra warnings cuando la diferencia es mayor a 24 horas.
-    
-    Args:
-        all_dates: Dict con todas las fechas disponibles
-        selected_date: Fecha seleccionada (normalmente DateTimeOriginal)
-    """
-    gps_date = all_dates.get('exif_gps_date')
-    
-    if not gps_date:
-        return
-    
-    # Calcular diferencia en segundos
-    diff_seconds = abs((gps_date - selected_date).total_seconds())
-    
-    # GPS debe estar dentro de ±24 horas de DateTimeOriginal
-    if diff_seconds > 86400:  # 24 horas en segundos
-        diff_hours = diff_seconds / 3600
-        _logger.warning(
-            f"GPS DateStamp ({gps_date.strftime('%Y-%m-%d %H:%M:%S')}) difiere "
-            f"significativamente de DateTimeOriginal ({selected_date.strftime('%Y-%m-%d %H:%M:%S')}). "
-            f"Diferencia: {diff_hours:.1f} horas. "
-            f"Posible problema de zona horaria o GPS incorrecto."
-        )
-
-def get_date_from_file(file_path: Path, verbose: bool = False, metadata_cache=None, skip_expensive_ops: bool = False) -> Optional[datetime]:
-    """
-    Extrae la fecha más representativa de un archivo mediante análisis de múltiples fuentes.
-    
-    Esta función es un wrapper conveniente que:
-    1. Intenta obtener la fecha desde metadata_cache si está disponible
-    2. Si no está cacheada, recopila todas las fechas disponibles (EXIF y sistema de archivos)
-    3. Delega la lógica de priorización a select_chosen_date()
-    4. Cachea el resultado en metadata_cache para reutilización futura
-    5. Opcionalmente registra información detallada del proceso
-    
-    La lógica de priorización está implementada en select_chosen_date() y prioriza
-    los metadatos EXIF sobre las fechas del sistema de archivos.
-
     Args:
         file_path: Ruta al archivo a analizar
-        verbose: Si True, muestra análisis detallado en modo INFO. Si False, solo en DEBUG
-        metadata_cache: Instancia opcional de FileInfoRepositoryCache para reutilizar fechas calculadas
-        skip_expensive_ops: Si True y metadata_cache no tiene la fecha, usa fallback rápido (mtime)
-                           en lugar de calcular con ffprobe/EXIF. Útil para análisis masivos.
-
+        force_search: Si True, fuerza la búsqueda de todos los metadatos (hash, EXIF)
+                     ignorando la configuración de la aplicación. Por defecto False.
+    
     Returns:
-        datetime: Fecha seleccionada según la lógica de priorización
-        None: Si no se puede obtener ninguna fecha válida
-        
-    See Also:
-        select_chosen_date(): Implementación de la lógica de priorización
-        get_all_file_dates(): Extracción de todas las fechas disponibles
+        FileMetadata: Objeto con metadatos completos del archivo.
+                     Los campos opcionales (sha256, exif_*) serán None si no están disponibles.
+    
+    Note:
+        - Metadatos básicos del filesystem (fs_size, fs_mtime, fs_ctime, fs_atime) siempre están disponibles
+        - Hash SHA256 solo si está habilitado en settings, force_search=True, o está en caché
+        - EXIF de imágenes solo si está habilitado en settings, force_search=True, o está en caché
+        - EXIF de videos solo si está habilitado en settings, force_search=True, o está en caché
+        - force_search=True es útil para análisis bajo demanda en diálogos que requieren datos completos
     """
+    from services.file_metadata import FileMetadata
+    from config import Config
+    from utils.file_utils import get_exif_from_image, get_exif_from_video, is_image_file, is_video_file, get_file_stat_info
+    from services.file_metadata_repository_cache import FileInfoRepositoryCache
+    from utils.settings_manager import settings_manager
+    
     try:
-        # OPTIMIZACIÓN 1: Intentar obtener de metadata_cache primero
-        if metadata_cache:
-            cached_date, cached_source = metadata_cache.get_selected_date(file_path)
-            if cached_date is not None:
-                _logger.debug(f"✓ Fecha obtenida de caché: {file_path.name} = {cached_source}")
-                return cached_date
+        repo = FileInfoRepositoryCache.get_instance()
         
-        # Si skip_expensive_ops y no está en caché, usar fallback rápido (filesystem_modification_date)
-        if skip_expensive_ops and metadata_cache:
-            # Usar API consistente del cache (puede tener mtime cacheado del scan)
-            mtime_date = metadata_cache.get_filesystem_modification_date(file_path)
-            if mtime_date:
-                _logger.debug(f"⚡ Fecha rápida (filesystem_modification_date) para {file_path.name}: {mtime_date}")
-                return mtime_date
-            # Fallback final si el cache no tiene nada (edge case)
-            mtime_date = datetime.fromtimestamp(file_path.stat().st_mtime)
-            _logger.debug(f"⚡ Fecha rápida (st_mtime directo) para {file_path.name}: {mtime_date}")
-            return mtime_date
+        # 1. Intentar obtener metadata completo del caché primero (solo si NO es force_search)
+        if not force_search:
+            cached_metadata = repo.get_file_metadata(file_path)
+            if cached_metadata:
+                _logger.debug(f"Metadatos completos obtenidos del caché para {file_path.name}")
+                return cached_metadata
+        else:
+            _logger.debug(f"force_search=True: ignorando caché, extrayendo metadatos directamente para {file_path.name}")
         
-        # OPTIMIZACIÓN 2: Usar versión cacheada para evitar lecturas EXIF repetidas
-        # La clave incluye mtime para invalidar caché si el archivo se modifica
-        all_dates = get_all_file_dates(file_path)
+        # 2. Si no está en caché completo, construir metadatos paso a paso
+        # usando métodos dedicados del caché cuando sea posible
         
-        # Seleccionar la fecha más antigua según prioridad
-        selected_date, selected_source = select_chosen_date(all_dates)
+        # 2a. Metadatos del filesystem - intentar del caché primero
+        fs_metadata = repo.get_filesystem_metadata(file_path)
+        if fs_metadata:
+            _logger.debug(f"Metadatos filesystem obtenidos del caché para {file_path.name}")
+            metadata = FileMetadata(
+                path=file_path.resolve(),
+                fs_size=fs_metadata['fs_size'],
+                fs_ctime=fs_metadata['fs_ctime'],
+                fs_mtime=fs_metadata['fs_mtime'],
+                fs_atime=fs_metadata['fs_atime']
+            )
+        else:
+            # Si no está en caché, obtener directamente del filesystem (siempre disponible)
+            stat_info = get_file_stat_info(file_path, resolve_path=False)
+            metadata = FileMetadata(
+                path=file_path.resolve(),
+                fs_size=stat_info['size'],
+                fs_ctime=stat_info['ctime'],
+                fs_mtime=stat_info['mtime'],
+                fs_atime=stat_info['atime']
+            )
+            _logger.debug(f"Metadatos filesystem obtenidos directamente para {file_path.name}")
         
-        # OPTIMIZACIÓN 3: Cachear resultado en metadata_cache para futuros usos
-        if metadata_cache and selected_date:
-            # Normalizar el nombre de la fuente al formato de caché
-            normalized_source = _normalize_date_source(selected_source)
-            metadata_cache.set_selected_date(file_path, selected_date, normalized_source)
+        # 2b. Hash SHA256 - intentar del caché primero
+        cached_hash = repo.get_hash(file_path)
+        if cached_hash:
+            metadata.sha256 = cached_hash
+            _logger.debug(f"Hash obtenido del caché para {file_path.name}: {cached_hash[:8]}...")
+        elif force_search or settings_manager.get_precalculate_hashes():
+            # Si force_search=True o está habilitado en settings, calcular directamente
+            try:
+                from utils.file_utils import calculate_file_hash
+                metadata.sha256 = calculate_file_hash(file_path)
+                _logger.debug(f"Hash calculado directamente para {file_path.name}: {metadata.sha256[:8]}...")
+            except Exception as e:
+                _logger.debug(f"No se pudo calcular hash para {file_path.name}: {e}")
         
-        # OPTIMIZACIÓN 4: Solo formatear strings si realmente se va a loguear
-        # Esto evita overhead de formateo cuando logging está en INFO/WARNING
-        if verbose or _logger.isEnabledFor(logging.DEBUG):
-            if selected_date:
-                # Lazy evaluation: solo construir el mensaje si se necesita
-                log_func = _logger.info if verbose else _logger.debug
+        # 2c. EXIF - Con force_search, extraer directamente; sin force_search, intentar caché primero
+        if force_search:
+            # FORCE SEARCH: Extraer directamente ignorando caché
+            # 2c.1. EXIF de imágenes
+            if is_image_file(file_path):
+                try:
+                    exif_data = get_exif_from_image(file_path)
+                    if exif_data:
+                        # Mapear los campos EXIF al formato de FileMetadata
+                        # get_exif_from_image devuelve datetime objects, necesitamos convertirlos a strings
+                        def datetime_to_str(dt):
+                            """Convierte datetime a string ISO format"""
+                            if dt is None:
+                                return None
+                            if isinstance(dt, datetime):
+                                return dt.isoformat()
+                            return str(dt)
+                        
+                        metadata.exif_DateTimeOriginal = datetime_to_str(exif_data.get('DateTimeOriginal'))
+                        metadata.exif_DateTime = datetime_to_str(exif_data.get('CreateDate') or exif_data.get('DateTime'))
+                        metadata.exif_DateTimeDigitized = datetime_to_str(exif_data.get('DateTimeDigitized'))
+                        metadata.exif_GPSDateStamp = datetime_to_str(exif_data.get('GPSDateStamp'))
+                        metadata.exif_GPSTimeStamp = datetime_to_str(exif_data.get('GPSTimeStamp'))
+                        metadata.exif_SubSecTimeOriginal = exif_data.get('SubSecTimeOriginal')
+                        metadata.exif_OffsetTimeOriginal = exif_data.get('OffsetTimeOriginal')
+                        metadata.exif_Software = exif_data.get('Software')
+                        metadata.exif_ExifVersion = exif_data.get('ExifVersion')
+                        _logger.debug(f"EXIF de imagen extraído directamente (force_search) para {file_path.name}")
+                except Exception as e:
+                    _logger.debug(f"No se pudo extraer EXIF de imagen para {file_path.name}: {e}")
+            
+            # 2c.2. EXIF de videos
+            elif is_video_file(file_path):
+                try:
+                    video_metadata = get_exif_from_video(file_path)
+                    if video_metadata:
+                        # Mapear fecha de creación
+                        if 'creation_time' in video_metadata and video_metadata['creation_time']:
+                            creation_time = video_metadata['creation_time']
+                            if isinstance(creation_time, datetime):
+                                # IMPORTANTE: Usar formato EXIF string 'YYYY:MM:DD HH:MM:SS' no ISO
+                                exif_date_str = creation_time.strftime('%Y:%m:%d %H:%M:%S')
+                                metadata.exif_DateTimeOriginal = exif_date_str
+                                metadata.exif_DateTime = exif_date_str
+                                _logger.debug(f"Video EXIF fecha mapeada: DateTimeOriginal={exif_date_str}, DateTime={exif_date_str}")
+                        
+                        # Mapear dimensiones
+                        if 'width' in video_metadata and video_metadata['width']:
+                            metadata.exif_ImageWidth = video_metadata['width']
+                        if 'height' in video_metadata and video_metadata['height']:
+                            metadata.exif_ImageLength = video_metadata['height']
+                        
+                        # Mapear duración
+                        if 'duration' in video_metadata and video_metadata['duration']:
+                            metadata.exif_VideoDuration = video_metadata['duration']
+                        
+                        # Mapear encoder (Software)
+                        if 'encoder' in video_metadata and video_metadata['encoder']:
+                            metadata.exif_Software = video_metadata['encoder']
+                        
+                        _logger.debug(f"EXIF de video extraído directamente (force_search) para {file_path.name}: {len(video_metadata)} campos")
+                        _logger.debug(f"Estado metadata después de mapeo: has_exif={metadata.has_exif}, DateTimeOriginal={metadata.exif_DateTimeOriginal}, DateTime={metadata.exif_DateTime}")
+                except Exception as e:
+                    _logger.debug(f"No se pudo extraer EXIF de video para {file_path.name}: {e}")
+        else:
+            # SIN FORCE SEARCH: Intentar del caché primero
+            cached_exif = repo.get_exif(file_path)
+            if cached_exif:
+                # Mapear EXIF del caché al formato FileMetadata
+                def datetime_to_str(dt):
+                    """Convierte datetime a string ISO format"""
+                    if dt is None:
+                        return None
+                    if isinstance(dt, datetime):
+                        return dt.isoformat()
+                    return str(dt)
                 
-                # Formato compacto: nombre | fechas disponibles → seleccionada
-                dates_str = []
+                metadata.exif_DateTimeOriginal = datetime_to_str(cached_exif.get('DateTimeOriginal'))
+                metadata.exif_DateTime = datetime_to_str(cached_exif.get('DateTime'))
+                metadata.exif_DateTimeDigitized = datetime_to_str(cached_exif.get('DateTimeDigitized'))
+                metadata.exif_GPSDateStamp = datetime_to_str(cached_exif.get('GPSDateStamp'))
+                metadata.exif_GPSTimeStamp = datetime_to_str(cached_exif.get('GPSTimeStamp'))
+                _logger.debug(f"EXIF obtenido del caché para {file_path.name}: {len(cached_exif)} campos")
+            else:
+                # Si no está en caché, extraer según tipo y configuración
                 
-                # Mostrar TODOS los campos EXIF disponibles
-                if all_dates.get('exif_date_time_original'):
-                    tz = f" {all_dates.get('exif_offset_time')}" if all_dates.get('exif_offset_time') else ""
-                    dates_str.append(f"EXIF_DTO:{all_dates['exif_date_time_original'].strftime('%Y%m%d_%H%M%S')}{tz}")
-                if all_dates.get('exif_create_date'):
-                    dates_str.append(f"EXIF_CD:{all_dates['exif_create_date'].strftime('%Y%m%d_%H%M%S')}")
-                if all_dates.get('exif_date_digitized'):
-                    dates_str.append(f"EXIF_DD:{all_dates['exif_date_digitized'].strftime('%Y%m%d_%H%M%S')}")
-                if all_dates.get('exif_gps_date'):
-                    dates_str.append(f"GPS:{all_dates['exif_gps_date'].strftime('%Y%m%d_%H%M%S')}")
+                # 2c.1. EXIF de imágenes (si está habilitado)
+                if is_image_file(file_path) and settings_manager.get_precalculate_image_exif():
+                    try:
+                        exif_data = get_exif_from_image(file_path)
+                        if exif_data:
+                            # Mapear los campos EXIF al formato de FileMetadata
+                            # get_exif_from_image devuelve datetime objects, necesitamos convertirlos a strings
+                            def datetime_to_str(dt):
+                                """Convierte datetime a string ISO format"""
+                                if dt is None:
+                                    return None
+                                if isinstance(dt, datetime):
+                                    return dt.isoformat()
+                                return str(dt)
+                            
+                            metadata.exif_DateTimeOriginal = datetime_to_str(exif_data.get('DateTimeOriginal'))
+                            metadata.exif_DateTime = datetime_to_str(exif_data.get('CreateDate') or exif_data.get('DateTime'))
+                            metadata.exif_DateTimeDigitized = datetime_to_str(exif_data.get('DateTimeDigitized'))
+                            metadata.exif_GPSDateStamp = datetime_to_str(exif_data.get('GPSDateStamp'))
+                            metadata.exif_GPSTimeStamp = datetime_to_str(exif_data.get('GPSTimeStamp'))
+                            _logger.debug(f"EXIF de imagen extraído directamente para {file_path.name}")
+                    except Exception as e:
+                        _logger.debug(f"No se pudo extraer EXIF de imagen para {file_path.name}: {e}")
                 
-                # Mostrar metadata de video
-                if all_dates.get('video_metadata_date'):
-                    dates_str.append(f"Video:{all_dates['video_metadata_date'].strftime('%Y%m%d_%H%M%S')}")
-                
-                # Mostrar fecha del nombre de archivo
-                if all_dates.get('filename_date'):
-                    dates_str.append(f"Filename:{all_dates['filename_date'].strftime('%Y%m%d_%H%M%S')}")
-                
-                # Mostrar software si está presente
-                if all_dates.get('exif_software'):
-                    dates_str.append(f"SW:{all_dates['exif_software'][:20]}")  # Truncar a 20 chars
-                
-                # Mostrar fechas del sistema de archivos
-                if all_dates.get('filesystem_creation_date'):
-                    dates_str.append(f"{all_dates.get('filesystem_creation_source', 'creation')}:{all_dates['filesystem_creation_date'].strftime('%Y%m%d_%H%M%S')}")
-                if all_dates.get('filesystem_modification_date'):
-                    dates_str.append(f"mtime:{all_dates['filesystem_modification_date'].strftime('%Y%m%d_%H%M%S')}")
-                
-                log_func(
-                    f"{file_path.name} | {' | '.join(dates_str)} → "
-                    f"✓ {selected_source}:{selected_date.strftime('%Y%m%d_%H%M%S')}"
-                )
-
-        return selected_date
-
+                # 2c.2. EXIF de videos (si está habilitado)
+                elif is_video_file(file_path) and settings_manager.get_precalculate_video_exif():
+                    try:
+                        video_metadata = get_exif_from_video(file_path)
+                        if video_metadata:
+                            # Mapear fecha de creación
+                            if 'creation_time' in video_metadata and video_metadata['creation_time']:
+                                creation_time = video_metadata['creation_time']
+                                if isinstance(creation_time, datetime):
+                                    # IMPORTANTE: Usar formato EXIF string 'YYYY:MM:DD HH:MM:SS' no ISO
+                                    exif_date_str = creation_time.strftime('%Y:%m:%d %H:%M:%S')
+                                    metadata.exif_DateTimeOriginal = exif_date_str
+                                    metadata.exif_DateTime = exif_date_str
+                            
+                            # Mapear dimensiones
+                            if 'width' in video_metadata and video_metadata['width']:
+                                metadata.exif_ImageWidth = video_metadata['width']
+                            if 'height' in video_metadata and video_metadata['height']:
+                                metadata.exif_ImageLength = video_metadata['height']
+                            
+                            # Mapear duración
+                            if 'duration' in video_metadata and video_metadata['duration']:
+                                metadata.exif_VideoDuration = video_metadata['duration']
+                            
+                            # Mapear encoder (Software)
+                            if 'encoder' in video_metadata and video_metadata['encoder']:
+                                metadata.exif_Software = video_metadata['encoder']
+                            
+                            _logger.debug(f"EXIF de video extraído directamente para {file_path.name}: {len(video_metadata)} campos")
+                    except Exception as e:
+                        _logger.debug(f"No se pudo extraer EXIF de video para {file_path.name}: {e}")
+        
+        return metadata
+        
     except Exception as e:
-        _logger.error(f"Error obteniendo fecha de {file_path}: {e}")
-        return None
+        _logger.error(f"Error obteniendo metadatos de {file_path}: {e}")
+        # Retornar metadatos mínimos en caso de error
+        try:
+            stat = file_path.stat()
+            return FileMetadata(
+                path=file_path.resolve(),
+                fs_size=stat.st_size,
+                fs_ctime=stat.st_ctime,
+                fs_mtime=stat.st_mtime,
+                fs_atime=stat.st_atime
+            )
+        except:
+            # Si incluso stat() falla, crear un objeto con valores por defecto
+            return FileMetadata(
+                path=file_path.resolve(),
+                fs_size=0,
+                fs_ctime=0.0,
+                fs_mtime=0.0,
+                fs_atime=0.0
+            )
 
 
 def format_renamed_name(date: datetime, file_type: str, extension: str, sequence: Optional[int] = None) -> str:
@@ -687,84 +802,227 @@ def extract_date_from_filename(filename: str) -> Optional[datetime]:
     return None
 
 
-def get_all_file_dates(file_path: Path) -> dict:
+def _normalize_date_source(source: str) -> str:
     """
-    Obtiene toda la información de fechas disponible para un archivo
+    Normaliza el nombre de la fuente de fecha al formato de caché.
+    
+    Convierte los nombres descriptivos de select_best_date_from_file() al formato
+    compacto usado en metadata_cache.
     
     Args:
-        file_path: Ruta al archivo a analizar
+        source: Nombre de fuente de select_best_date_from_file() 
+                (ej: 'EXIF DateTimeOriginal (+02:00)', 'Filename', 'mtime')
     
     Returns:
-        Dict con todas las fechas encontradas y sus fuentes:
-        {
-            'exif_date_time_original': datetime or None,  # DateTimeOriginal
-            'exif_create_date': datetime or None,         # CreateDate/DateTime
-            'exif_date_digitized': datetime or None,      # DateTimeDigitized
-            'exif_gps_date': datetime or None,            # GPS DateStamp
-            'exif_offset_time': str or None,              # Zona horaria
-            'exif_software': str or None,                 # Software usado
-            'video_metadata_date': datetime or None,      # Metadata de video
-            'filename_date': datetime or None,            # Fecha del nombre
-            'filesystem_creation_date': datetime or None, # Fecha de creación FS
-            'filesystem_creation_source': str or None,    # Fuente de creación
-            'filesystem_modification_date': datetime or None, # Fecha de modificación
-            'filesystem_access_date': datetime or None    # Fecha de acceso
-        }
+        Nombre normalizado para caché:
+        - 'exif_datetime_original_tz': DateTimeOriginal con timezone
+        - 'exif_datetime_original': DateTimeOriginal sin timezone
+        - 'exif_create_date': CreateDate
+        - 'exif_datetime_digitized': DateTimeDigitized
+        - 'filename': Extraída del nombre de archivo
+        - 'video': Metadata de video  
+        - 'mtime': Modification time
+        - 'ctime': Creation time
+        - 'other': Cualquier otra fuente
     """
-    from config import Config
-    from utils.file_utils import get_exif_from_image, get_exif_from_video, is_image_file, get_file_type
+    if not source:
+        return 'unknown'
     
-    result = {
-        'exif_date_time_original': None,
-        'exif_create_date': None,
-        'exif_date_digitized': None,
-        'exif_gps_date': None,
-        'exif_offset_time': None,
-        'exif_software': None,
-        'video_metadata_date': None,
-        'filename_date': None,
-        'filesystem_creation_date': None,
-        'filesystem_creation_source': None,
-        'filesystem_modification_date': None,
-        'filesystem_access_date': None
+    source_lower = source.lower()
+    
+    # EXIF DateTimeOriginal con timezone
+    if 'datetimeoriginal' in source_lower and '(' in source:
+        return 'exif_datetime_original_tz'
+    
+    # EXIF DateTimeOriginal sin timezone
+    if 'datetimeoriginal' in source_lower:
+        return 'exif_datetime_original'
+    
+    # EXIF CreateDate
+    if 'createdate' in source_lower:
+        return 'exif_create_date'
+    
+    # EXIF DateTimeDigitized
+    if 'datetimedigitized' in source_lower or 'digitized' in source_lower:
+        return 'exif_datetime_digitized'
+    
+    # Filename
+    if 'filename' in source_lower:
+        return 'filename'
+    
+    # Video metadata
+    if 'video' in source_lower:
+        return 'video'
+    
+    # Filesystem timestamps
+    if source_lower == 'mtime':
+        return 'mtime'
+    if source_lower in ['ctime', 'creation', 'birthtime']:
+        return 'ctime'
+    
+    # Otras fuentes desconocidas
+    return 'other'
+
+
+def _validate_gps_coherence(file_metadata: 'FileMetadata', selected_date: datetime) -> None:
+    """
+    Valida coherencia entre GPS DateStamp y DateTimeOriginal.
+    
+    GPS DateStamp puede diferir significativamente de DateTimeOriginal debido a:
+    - GPS está siempre en UTC (sin zona horaria local)
+    - Muchos dispositivos redondean GPS timestamp a horas completas
+    - GPS puede estar ausente o incorrecto por problemas de señal
+    
+    Esta función registra warnings cuando la diferencia es mayor a 24 horas.
+    
+    Args:
+        file_metadata: FileMetadata con los metadatos del archivo
+        selected_date: Fecha seleccionada (normalmente DateTimeOriginal)
+    """
+    # Helper para parsear fechas EXIF string a datetime
+    def _parse_exif_date(date_str: Optional[str]) -> Optional[datetime]:
+        if not date_str:
+            return None
+        try:
+            # Formato típico EXIF: "2023:01:15 10:30:00"
+            if ':' in date_str[:10]:
+                return datetime.strptime(date_str[:19], '%Y:%m:%d %H:%M:%S')
+            # Formato ISO
+            elif 'T' in date_str:
+                return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+            return None
+        except (ValueError, TypeError):
+            return None
+    
+    gps_date = _parse_exif_date(file_metadata.exif_GPSDateStamp)
+    
+    if not gps_date:
+        return
+    
+    # Calcular diferencia en segundos
+    diff_seconds = abs((gps_date - selected_date).total_seconds())
+    
+    # GPS debe estar dentro de ±24 horas de DateTimeOriginal
+    if diff_seconds > 86400:  # 24 horas en segundos
+        diff_hours = diff_seconds / 3600
+        _logger.warning(
+            f"GPS DateStamp ({gps_date.strftime('%Y-%m-%d %H:%M:%S')}) difiere "
+            f"significativamente de DateTimeOriginal ({selected_date.strftime('%Y-%m-%d %H:%M:%S')}). "
+            f"Diferencia: {diff_hours:.1f} horas. "
+            f"Posible problema de zona horaria o GPS incorrecto."
+        )
+
+
+def _validate_date_coherence(file_metadata: 'FileMetadata') -> dict:
+    """
+    Valida coherencia entre fechas y detecta anomalías en metadatos.
+    
+    MÉTODO INTERNO usado exclusivamente por select_best_date_from_file().
+    
+    Esta función aplica varias reglas de validación para detectar metadatos corruptos,
+    archivos editados, o transferencias recientes que pueden afectar la confiabilidad
+    de las fechas.
+
+    Args:
+        metadata: FileMetadata con los metadatos del archivo
+
+    Returns:
+        Dict con resultado de validación:
+        {
+            'is_valid': bool,              # True si pasa todas las validaciones críticas
+            'warnings': list[str],         # Lista de códigos de advertencia
+            'confidence': str              # 'high', 'medium', 'low'
+        }
+        
+    Códigos de advertencia:
+        - 'EXIF_AFTER_MTIME': EXIF posterior a modification_date (sospechoso)
+        - 'EXIF_DIVERGENCE': Más de 1 año entre campos EXIF (probable corrupción)
+        - 'DIGITIZED_BEFORE_ORIGINAL': DateTimeDigitized anterior a DateTimeOriginal (imposible)
+        - 'RECENT_TRANSFER': Más de 7 días entre creation_date y EXIF (transferencia)
+        - 'SOFTWARE_DETECTED': Campo Software presente (archivo editado)
+        - 'GPS_DIVERGENCE': GPS date muy diferente de EXIF (más de 1 día)
+    """
+    from datetime import timedelta
+    
+    # Helper para parsear fechas EXIF string a datetime
+    def _parse_exif_date(date_str: Optional[str]) -> Optional[datetime]:
+        if not date_str:
+            return None
+        try:
+            # Formato típico EXIF: "2023:01:15 10:30:00"
+            if ':' in date_str[:10]:
+                return datetime.strptime(date_str[:19], '%Y:%m:%d %H:%M:%S')
+            # Formato ISO
+            elif 'T' in date_str:
+                return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+            return None
+        except (ValueError, TypeError):
+            return None
+    
+    warnings = []
+    is_valid = True
+    
+    # Extraer fechas relevantes del FileMetadata
+    exif_date_time_original = _parse_exif_date(file_metadata.exif_DateTimeOriginal)
+    exif_create_date = _parse_exif_date(file_metadata.exif_DateTime)
+    exif_date_digitized = _parse_exif_date(file_metadata.exif_DateTimeDigitized)
+    exif_gps_date = _parse_exif_date(file_metadata.exif_GPSDateStamp)
+    exif_software = file_metadata.exif_Software
+    fs_mtime_date = datetime.fromtimestamp(file_metadata.fs_mtime) if file_metadata.fs_mtime else None
+    fs_ctime_date = datetime.fromtimestamp(file_metadata.fs_ctime) if file_metadata.fs_ctime else None
+    
+    # Validación 1: EXIF posterior a modification_date (sospechoso)
+    if exif_date_time_original and fs_mtime_date:
+        if exif_date_time_original > fs_mtime_date:
+            warnings.append('EXIF_AFTER_MTIME')
+            is_valid = False
+    
+    # Validación 2: Divergencia entre campos EXIF (más de 1 año)
+    exif_dates = [d for d in [exif_date_time_original, exif_create_date, exif_date_digitized] if d is not None]
+    if len(exif_dates) >= 2:
+        min_exif = min(exif_dates)
+        max_exif = max(exif_dates)
+        if (max_exif - min_exif) > timedelta(days=365):
+            warnings.append('EXIF_DIVERGENCE')
+            is_valid = False
+    
+    # Validación 3: DateTimeDigitized anterior a DateTimeOriginal (imposible)
+    if exif_date_time_original and exif_date_digitized:
+        if exif_date_digitized < exif_date_time_original:
+            warnings.append('DIGITIZED_BEFORE_ORIGINAL')
+            is_valid = False
+    
+    # Validación 4: Transferencia reciente (creation_date muy diferente de EXIF)
+    if exif_date_time_original and fs_ctime_date:
+        diff = abs((fs_ctime_date - exif_date_time_original).days)
+        if diff > 7:
+            warnings.append('RECENT_TRANSFER')
+            # No marca como inválido, solo advertencia
+    
+    # Validación 5: Software detectado (archivo editado)
+    if exif_software:
+        warnings.append('SOFTWARE_DETECTED')
+        # No marca como inválido, solo informativo
+    
+    # Validación 6: GPS date muy diferente de EXIF
+    if exif_gps_date and exif_date_time_original:
+        diff = abs((exif_gps_date - exif_date_time_original).days)
+        if diff > 1:
+            warnings.append('GPS_DIVERGENCE')
+            # No marca como inválido, puede ser zona horaria
+    
+    # Determinar nivel de confianza
+    if not is_valid:
+        confidence = 'low'
+    elif len(warnings) >= 2:
+        confidence = 'medium'
+    elif len(warnings) == 1:
+        confidence = 'medium'
+    else:
+        confidence = 'high'
+    
+    return {
+        'is_valid': is_valid,
+        'warnings': warnings,
+        'confidence': confidence
     }
-    
-    try:
-        # 1. Intentar obtener todas las fechas EXIF disponibles (solo para imágenes)
-        if is_image_file(file_path):
-            exif_dates = get_exif_from_image(file_path)
-            result['exif_date_time_original'] = exif_dates.get('DateTimeOriginal')
-            result['exif_create_date'] = exif_dates.get('CreateDate')
-            result['exif_date_digitized'] = exif_dates.get('DateTimeDigitized')
-            result['exif_gps_date'] = exif_dates.get('GPSDateStamp')
-            result['exif_offset_time'] = exif_dates.get('OffsetTimeOriginal')
-            result['exif_software'] = exif_dates.get('Software')
-        
-        # 2. Intentar obtener metadata de video (solo si está habilitado en configuración)
-        if get_file_type(file_path) == 'VIDEO' and Config.USE_VIDEO_METADATA:
-            result['video_metadata_date'] = get_exif_from_video(file_path)
-        
-        # 3. Intentar extraer fecha del nombre de archivo
-        result['filename_date'] = extract_date_from_filename(file_path.name)
-        
-        # 4. Obtener fechas del sistema de archivos
-        stat = file_path.stat()
-        
-        # Fecha de creación (birth time en macOS/Unix, ctime en Windows/Linux)
-        if hasattr(stat, 'st_birthtime'):
-            result['filesystem_creation_date'] = datetime.fromtimestamp(stat.st_birthtime)
-            result['filesystem_creation_source'] = 'birth'
-        elif hasattr(stat, 'st_ctime'):
-            result['filesystem_creation_date'] = datetime.fromtimestamp(stat.st_ctime)
-            result['filesystem_creation_source'] = 'ctime'
-        
-        # Fecha de modificación
-        result['filesystem_modification_date'] = datetime.fromtimestamp(stat.st_mtime)
-        
-        # Fecha de último acceso
-        result['filesystem_access_date'] = datetime.fromtimestamp(stat.st_atime)
-            
-    except Exception as e:
-        _logger.error(f"Error obteniendo fechas de {file_path}: {e}")
-    
-    return result

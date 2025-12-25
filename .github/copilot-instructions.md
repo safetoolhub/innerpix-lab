@@ -3,11 +3,12 @@
 PyQt6 desktop app for photo/video management oriented to privacy.
 
 ### Flujo de Análisis
-1. **Stage 2**: Escaneo inicial multi-fase usando `InitialScanner.scan()` → `DirectoryScanResult`. 4 fases diferenciadas:
+1. **Stage 2**: Escaneo inicial multi-fase usando `InitialScanner.scan()` → `DirectoryScanResult`. 5 fases diferenciadas:
    - Fase 1 (BASIC): Análisis de estructura del directorio → "Analizando estructura de la carpeta"
    - Fase 2 (HASH): Cálculo de hashes SHA256 → "Calculando hashes de los archivos"
    - Fase 3 (EXIF_IMAGES): Extracción de metadatos de imágenes → "Obteniendo metadatos de las imagenes"
    - Fase 4 (EXIF_VIDEOS): Extracción de metadatos de videos → "Obteniendo metadatos de los videos"
+   - Fase 5 (BEST_DATE): Cálculo de mejor fecha disponible → "Calculando mejor fecha disponible"
 2. **Stage 3**: Análisis bajo demanda para cada herramienta
    - Live Photos: `LivePhotoService.analyze()` → `LivePhotosAnalysisResult`
    - HEIC/JPG: `HeicService.analyze()` → `HeicAnalysisResult`
@@ -17,40 +18,47 @@ PyQt6 desktop app for photo/video management oriented to privacy.
    - Renombrar: `FileRenamer.analyze()` → `RenameAnalysisResult`
    - Organizar: `FileOrganizer.analyze()` → `OrganizationAnalysisResult`
 - Detectors: `ExactCopiesDetector` (SHA256), `SimilarFilesDetector` (perceptual hash)
-- Other services: `FileOrganizerService`, `FileRenamerService`, `HeicRemoverService`, `LivePhotosService`
+- Other services: `FileOrganizerService`, `FileRenamerService`, `HeicService`, `LivePhotoService` (singular, not LivePhotosService)
 
 **File Metadata Repository Cache** (`services/file_metadata_repository_cache.py`) - Singleton cache system (SQLite migration ready)
 - **Pattern**: `FileInfoRepositoryCache.get_instance()` - NOT passed as parameter to services
-- **Population**: Use `populate_from_scan(files, strategy)` - bulk loading with strategies (incremental)
+- **Population**: Use `populate_from_scan(files, strategy, stop_check_callback)` - bulk loading with strategies (incremental)
   - `BASIC`: Solo filesystem metadata (rápido, OBLIGATORIO primero)
   - `HASH`: Solo SHA256 hashes (requiere BASIC previo, para duplicados exactos)
   - `EXIF_IMAGES`: Solo EXIF de imágenes (requiere BASIC previo, moderado)
   - `EXIF_VIDEOS`: Solo EXIF de videos (requiere BASIC previo, muy costoso)
   - `EXIF_ALL`: EXIF de imágenes + videos (requiere BASIC previo, muy costoso)
+  - `BEST_DATE`: Calcula mejor fecha disponible (requiere EXIF previo, rápido)
   - `FULL`: Hash + EXIF completo (requiere BASIC previo, extremadamente costoso)
 - **Incremental workflow**: BASIC siempre primero, luego estrategias específicas según necesidad
-- **Auto-fetch**: Si metadata básica no existe, las estrategias la crean automáticamente
-- **Auto-fetch**: `get_file_metadata(path, auto_fetch=True)`, `get_hash(path, auto_fetch=True)`, `get_exif(path, auto_fetch=False)`
+- **No Auto-fetch**: Repositorio pasivo. Si el dato no está en caché, retorna None o estructura vacía.
+- **Consultas**: `get_file_metadata(path)`, `get_hash(path)`, `get_exif(path)`, `get_best_date(path)` - Solo lectura (O(1)).
+- **Cancelación cooperativa**: `stop_check_callback` verifica cancelación en cada iteración del loop
+- **Progress throttling**: Reporta cada 1% o cada 100 archivos (evita saturación Qt en datasets grandes)
 - **Cache Management**:
   - `remove_file(path)`, `remove_files(paths)` - Después de operaciones destructivas
   - `set_max_entries(max)` - Ajuste dinámico con eviction LRU automático
-  - `clear()` - Limpia todo entre datasets
+  - `clear()` - Limpia todo entre datasets (usar `_invalidate_metadata_cache()` desde UI)
 - **Persistence** (opcional):
   - `save_to_disk(path)` - Serializa cache completo a JSON con metadata y stats
   - `load_from_disk(path, validate=True)` - Deserializa cache, opcionalmente valida existencia de archivos
   - Formato versionado (version=1) para compatibilidad futura
   - Thread-safe con manejo robusto de errores (IOError, FileNotFoundError, ValueError)
 - **LRU Eviction**: Score-based (EXIF video=20, EXIF imagen=12, hash=5) + age penalty
-- **Stats**: `get_stats()` → `RepositoryStats` (total_files, files_with_hash, files_with_exif, cache_hits, cache_misses, hit_rate)
+- **Stats**: `get_cache_statistics()` → `RepositoryStats` (total_files, files_with_hash, files_with_exif, cache_hits, cache_misses, hit_rate)
 - **Thread-safe**: RLock para acceso concurrente + singleton lock
 - **Magic methods**: `len(repo)`, `path in repo`, `repo[path]`
 - **Future-proof**: Preparado para SQLite via Protocol interface (IFileRepository)
 
-**Similar Files Analysis** (`services/duplicates_similar_service.py`) - Two-phase system
-- Phase 1: `analyze_initial()` - Expensive perceptual hash calculation (~5 min for 40k files)
-- Phase 2: `get_groups(sensitivity)` - Fast clustering with adjustable sensitivity (<1 sec)
-- `SimilarFilesAnalysis`: Container for pre-calculated hashes, enables real-time re-clustering
-- `find_new_groups()`: Incremental analysis for new files vs existing dataset
+**Similar Files Analysis** (`services/duplicates_similar_service.py`) - Dual API pattern
+- **Standard API**: `analyze(sensitivity=85)` - Returns `DuplicateAnalysisResult` (compatible with other services)
+- **Interactive API**: `get_analysis_for_dialog()` - Returns `DuplicatesSimilarAnalysis` for real-time sensitivity adjustment
+- `DuplicatesSimilarAnalysis`: Container for pre-calculated hashes, enables real-time re-clustering via `get_groups(sensitivity)`
+- Internal method: `_calculate_perceptual_hashes()` - Expensive hash calculation (~5 min for 40k files), cached in memory
+- **Incremental analysis**: `find_new_groups(new_hashes, existing_hashes, sensitivity)` - Compares new batch vs existing for progressive loading
+  - Used by dialog for batch processing (avoids loading all groups at once)
+  - Returns `DuplicateAnalysisResult` with only groups containing new files
+  - Prevents UI freezing with large datasets (>10k files)
 - Serialization: `save_to_file()` / `load_from_file()` for instant cache reload
 - Hamming distance: 64-bit perceptual hash comparison for similarity detection
 - Sensitivity scale: 30-100% (30=permissive, 100=identical only, 85=recommended)
@@ -72,11 +80,15 @@ PyQt6 desktop app for photo/video management oriented to privacy.
 - Base: `BaseWorker` with `progress_update`, `finished`, `error` signals
 - Type-safe: hints on `__init__` and `run()`, TYPE_CHECKING for imports
 - `InitialAnalysisWorker`: Stage 2 multi-phase scan worker, emits `phase_started(phase_id, message)`, `phase_completed(phase_id)`, `stats_update(dict)`
-- On-demand workers: `LivePhotosAnalysisWorker`, `HeicAnalysisWorker`, `DuplicatesExactAnalysisWorker`, etc.
+- On-demand workers: `LivePhotosAnalysisWorker`, `HeicAnalysisWorker`, `DuplicatesExactAnalysisWorker`, `ZeroByteAnalysisWorker`, `FileRenamerAnalysisWorker`, `FileOrganizerAnalysisWorker`
+- `DuplicatesSimilarAnalysisWorker`: Special case - calls `get_analysis_for_dialog()` instead of `analyze()` to enable interactive sensitivity adjustment in dialog
 
 **UI Stages** (`ui/screens/`) - 3-stage flow
 - Stage 1: Folder selector
-- Stage 2: Analysis progress
+- Stage 2: Analysis progress with graceful cancellation
+  - Timeout: 30 segundos para cancelación cooperativa (datasets grandes)
+  - Logging INFO cada 10% en fases 2, 3, 4
+  - Invalidación de caché al volver a Stage 1 con `_invalidate_metadata_cache()`
 - Stage 3: Tools grid → dialogs
 - All extend `BaseStage`
 
@@ -100,6 +112,8 @@ Dry-run mode for testing. No deletions/moves/renames.
   - Main log: All messages with level suffix (e.g., `innerpix_lab_20251204_220143_INFO.log`)
   - Warnings log: Only WARNING/ERROR (e.g., `innerpix_lab_20251204_220143_WARNERROR.log`)
 - File deletion logs: Unified format `FILE_DELETED: <path> | Size: <size> | Type: <type> | Date: <date>`
+  - Size usa `format_size()` desde `utils.format_utils` para mostrar unidades apropiadas (B, KB, MB, GB)
+  - Import requerido: `from utils.format_utils import format_size`
 - Simulation logs: `FILE_DELETED_SIMULATION:` prefix for dry-run operations
 - Grep-friendly: `grep "FILE_DELETED:" logs/*.log` finds all deletions across tools
 - Runtime control: `set_dual_log_enabled(bool)` to enable/disable on the fly
@@ -126,6 +140,21 @@ Dry-run mode for testing. No deletions/moves/renames.
 
 ## Development Workflow
 
+**Date Utils** (`utils/date_utils.py`) - Date extraction and metadata retrieval
+- **Core Functions**:
+  - `select_best_date_from_file(file_metadata)` - Selects best representative creation date from FileMetadata (EXIF priority → filename → filesystem)
+  - `get_all_metadata_from_file(file_path, force_search=False)` - Retrieves complete file metadata (cache-first, with force_search bypass)
+  - `select_best_date_from_common_date_to_2_files(file1, file2, verbose=False)` - Compares dates for file pairs and gets the vest representative creation_date available in both files (Used by HEIC/JPG, Live Photos)
+- **force_search Parameter**: 
+  - When `True`, bypasses settings_manager configuration and forces extraction of all metadata (hash, EXIF)
+  - Useful for on-demand analysis in dialogs requiring complete data
+  - Default `False` respects user settings (precalculate_hashes, precalculate_image_exif, precalculate_video_exif)
+- **Naming Functions**:
+  - `format_renamed_name(date, file_type, extension, sequence)` - Generates standardized filename: YYYYMMDD_HHMMSS_TYPE[_SEQ].EXT
+  - `is_renamed_filename(filename)` - Validates renamed filename pattern
+  - `parse_renamed_name(filename)` - Extracts components from renamed filename
+  - `extract_date_from_filename(filename)` - Extracts date from common filename patterns (IMG_*, WhatsApp, etc.)
+
 **Other Utils**
 - `callback_utils.py`, `format_utils.py`, `icons.py`
 
@@ -136,10 +165,12 @@ Dry-run mode for testing. No deletions/moves/renames.
   - `ExecutionResult`: Extends BaseResult, adds items_processed, bytes_processed, files_affected, backup_path, dry_run
 - **Analysis Results** (per service):
   - `RenameAnalysisResult`: renaming_plan, already_renamed, cannot_process, conflicts
-  - `OrganizationAnalysisResult`: move_plan, root_directory, organization_type, folders_to_create
+  - `OrganizationAnalysisResult`: move_plan, root_directory, organization_type
   - `HeicAnalysisResult`: duplicate_pairs, heic_files, jpg_files, potential_savings_*
   - `DuplicateAnalysisResult`: groups, mode, total_duplicates, total_groups, space_wasted
-  - `LivePhotosAnalysisResult`: groups, space_to_free, total_space
+  - `LivePhotosAnalysisResult`: groups, rejected_groups, potential_savings (property), total_space
+    - Filtrado individual de imágenes: Si múltiples imágenes comparten nombre base con video, solo se rechazan las que excedan threshold
+    - Grupos sin imágenes válidas van a `rejected_groups`
   - `ZeroByteAnalysisResult`: files
 - **Execution Results** (per service):
   - `RenameExecutionResult`: renamed_files, conflicts_resolved
@@ -160,6 +191,9 @@ Dry-run mode for testing. No deletions/moves/renames.
 - **Tool Dialogs**:
   - `duplicates_exact_dialog.py`: Gestión de duplicados exactos (SHA256), estrategias de eliminación
   - `duplicates_similar_dialog.py`: Gestión de duplicados similares (perceptual hash), ajuste de sensibilidad en tiempo real
+    - Progressive batch loading: Loads groups in batches to avoid UI freeze with large datasets (>10k files)
+    - Uses `DuplicatesSimilarAnalysis.find_new_groups()` for incremental group detection
+    - Default batch size: 25 files (configurable via `Config.SIMILAR_FILES_INITIAL_BATCH_SIZE`)
   - `duplicates_similar_progress_dialog.py`: Diálogo de progreso para análisis de similares
   - `file_organizer_dialog.py`: Organización de archivos, 3 modos (TO_ROOT, BY_MONTH, WHATSAPP_SEPARATE), paginación (200/page)
   - `file_renamer_dialog.py`: Renombrado de archivos, mapeos original → nuevo, indicadores de conflictos

@@ -34,11 +34,12 @@ class InitialScanner:
     """
     Handles multi-phase scanning of a directory to populate FileInfoRepositoryCache.
     
-    The scan is performed in 4 distinct phases:
+    The scan is performed in 5 distinct phases:
     1. BASIC: Filesystem structure analysis (fast, OBLIGATORY first)
     2. HASH: SHA256 hash calculation for duplicate detection (requires BASIC)
     3. EXIF_IMAGES: Image metadata extraction (moderate cost, requires BASIC)
     4. EXIF_VIDEOS: Video metadata extraction (expensive, requires BASIC)
+    5. BEST_DATE: Calculate best available date for each file (requires EXIF)
     """
     
     # Phase identifiers
@@ -46,6 +47,7 @@ class InitialScanner:
     PHASE_HASH = "phase_hash"
     PHASE_EXIF_IMAGES = "phase_exif_images"
     PHASE_EXIF_VIDEOS = "phase_exif_videos"
+    PHASE_BEST_DATE = "phase_best_date"
     
     def __init__(self):
         self.logger = get_logger('InitialScanner')
@@ -164,6 +166,7 @@ class InitialScanner:
         )
         
         if self._should_stop:
+            self.logger.info(f"Scan cancelado después de fase 1 (BASIC) - Archivos clasificados: {total_files}")
             return self._create_result_from_data(
                 total_files, images, videos, others,
                 image_extensions, video_extensions, unsupported_extensions
@@ -176,7 +179,8 @@ class InitialScanner:
         repo.populate_from_scan(
             files=supported_files,
             strategy=PopulationStrategy.BASIC,
-            progress_callback=None
+            progress_callback=None,
+            stop_check_callback=lambda: self._should_stop
         )
         
         # Notify phase 1 completion
@@ -186,7 +190,7 @@ class InitialScanner:
         # Log repository stats after Phase 1 (DEBUG)
         if self.logger.isEnabledFor(logging.DEBUG):
             self.logger.debug("=== Repository Stats after Phase 1 (BASIC) ===")
-            repo.log_stats(level=logging.DEBUG)  # DEBUG
+            repo.log_cache_statistics(level=logging.DEBUG)  # DEBUG
         
         # ==================== PHASE 2: HASH CALCULATION ====================
         if calculate_hashes and supported_files and not self._should_stop:
@@ -198,9 +202,19 @@ class InitialScanner:
             
             self.logger.info(f"Phase 2: {phase_msg}")
             
+            # Track percentage for logging
+            last_logged_percentage = 0
+            
             def hash_progress(current: int, total: int) -> bool:
+                nonlocal last_logged_percentage
                 if self._should_stop:
                     return False
+                
+                # Log progress every 10% at INFO level
+                current_percentage = (current * 100) // total
+                if current_percentage >= last_logged_percentage + 10 and current_percentage < 100:
+                    self.logger.info(f"Phase 2 (HASH) progreso: {current_percentage}% ({current:,}/{total:,} archivos)")
+                    last_logged_percentage = current_percentage
                 
                 if progress_callback:
                     phase_progress = PhaseProgress(
@@ -216,10 +230,14 @@ class InitialScanner:
             repo.populate_from_scan(
                 files=supported_files,
                 strategy=PopulationStrategy.HASH,
-                progress_callback=hash_progress
+                progress_callback=hash_progress,
+                stop_check_callback=lambda: self._should_stop
             )
             
-            self.logger.info("Phase 2 complete: Hashes calculated")
+            if self._should_stop:
+                self.logger.info("Phase 2 (HASH) cancelada por el usuario")
+            else:
+                self.logger.info("Phase 2 (HASH) complete: Hashes calculated")
             
             # Notify phase 2 completion
             if phase_completed_callback and not self._should_stop:
@@ -228,7 +246,7 @@ class InitialScanner:
             # Log repository stats after Phase 2 (DEBUG)
             if self.logger.isEnabledFor(logging.DEBUG):
                 self.logger.debug("=== Repository Stats after Phase 2 (HASH) ===")
-                repo.log_stats(level=logging.DEBUG)  # DEBUG
+                repo.log_cache_statistics(level=logging.DEBUG)  # DEBUG
         
         # ==================== PHASE 3: IMAGE EXIF ====================
         if extract_image_exif and images and not self._should_stop:
@@ -240,9 +258,19 @@ class InitialScanner:
             
             self.logger.info(f"Phase 3: {phase_msg}")
             
+            # Track percentage for logging
+            last_logged_percentage = 0
+            
             def image_exif_progress(current: int, total: int) -> bool:
+                nonlocal last_logged_percentage
                 if self._should_stop:
                     return False
+                
+                # Log progress every 10% at INFO level
+                current_percentage = (current * 100) // total
+                if current_percentage >= last_logged_percentage + 10 and current_percentage < 100:
+                    self.logger.info(f"Phase 3 (EXIF_IMAGES) progreso: {current_percentage}% ({current:,}/{total:,} imágenes)")
+                    last_logged_percentage = current_percentage
                 
                 if progress_callback:
                     phase_progress = PhaseProgress(
@@ -258,10 +286,14 @@ class InitialScanner:
             repo.populate_from_scan(
                 files=images,
                 strategy=PopulationStrategy.EXIF_IMAGES,
-                progress_callback=image_exif_progress
+                progress_callback=image_exif_progress,
+                stop_check_callback=lambda: self._should_stop
             )
             
-            self.logger.info("Phase 3 complete: Image EXIF extracted")
+            if self._should_stop:
+                self.logger.info("Phase 3 (EXIF_IMAGES) cancelada por el usuario")
+            else:
+                self.logger.info("Phase 3 (EXIF_IMAGES) complete: Image EXIF extracted")
             
             # Notify phase 3 completion
             if phase_completed_callback and not self._should_stop:
@@ -270,7 +302,7 @@ class InitialScanner:
             # Log repository stats after Phase 3 (DEBUG)
             if self.logger.isEnabledFor(logging.DEBUG):
                 self.logger.debug("=== Repository Stats after Phase 3 (EXIF_IMAGES) ===")
-                repo.log_stats(level=logging.DEBUG)  # DEBUG
+                repo.log_cache_statistics(level=logging.DEBUG)  # DEBUG
         
         # ==================== PHASE 4: VIDEO EXIF ====================
         if extract_video_exif and videos and not self._should_stop:
@@ -282,9 +314,19 @@ class InitialScanner:
             
             self.logger.info(f"Phase 4: {phase_msg}")
             
+            # Track percentage for logging
+            last_logged_percentage = 0
+            
             def video_exif_progress(current: int, total: int) -> bool:
+                nonlocal last_logged_percentage
                 if self._should_stop:
                     return False
+                
+                # Log progress every 10% at INFO level
+                current_percentage = (current * 100) // total
+                if current_percentage >= last_logged_percentage + 10 and current_percentage < 100:
+                    self.logger.info(f"Phase 4 (EXIF_VIDEOS) progreso: {current_percentage}% ({current:,}/{total:,} videos)")
+                    last_logged_percentage = current_percentage
                 
                 if progress_callback:
                     phase_progress = PhaseProgress(
@@ -300,10 +342,14 @@ class InitialScanner:
             repo.populate_from_scan(
                 files=videos,
                 strategy=PopulationStrategy.EXIF_VIDEOS,
-                progress_callback=video_exif_progress
+                progress_callback=video_exif_progress,
+                stop_check_callback=lambda: self._should_stop
             )
             
-            self.logger.info("Phase 4 complete: Video EXIF extracted")
+            if self._should_stop:
+                self.logger.info("Phase 4 (EXIF_VIDEOS) cancelada por el usuario")
+            else:
+                self.logger.info("Phase 4 (EXIF_VIDEOS) complete: Video EXIF extracted")
             
             # Notify phase 4 completion
             if phase_completed_callback and not self._should_stop:
@@ -312,7 +358,63 @@ class InitialScanner:
             # Log repository stats after Phase 4 (DEBUG)
             if self.logger.isEnabledFor(logging.DEBUG):
                 self.logger.debug("=== Repository Stats after Phase 4 (EXIF_VIDEOS) ===")
-                repo.log_stats(level=logging.DEBUG)  # DEBUG
+                repo.log_cache_statistics(level=logging.DEBUG)  # DEBUG
+        
+        # ==================== PHASE 5: BEST DATE CALCULATION ====================
+        if supported_files and not self._should_stop:
+            phase_id = self.PHASE_BEST_DATE
+            phase_msg = "Calculando mejor fecha disponible"
+            
+            if phase_callback:
+                phase_callback(phase_id, phase_msg)
+            
+            self.logger.info(f"Phase 5: {phase_msg}")
+            
+            # Track percentage for logging
+            last_logged_percentage = 0
+            
+            def best_date_progress(current: int, total: int) -> bool:
+                nonlocal last_logged_percentage
+                if self._should_stop:
+                    return False
+                
+                # Log progress every 10% at INFO level
+                current_percentage = (current * 100) // total
+                if current_percentage >= last_logged_percentage + 10 and current_percentage < 100:
+                    self.logger.info(f"Phase 5 (BEST_DATE) progreso: {current_percentage}% ({current:,}/{total:,} archivos)")
+                    last_logged_percentage = current_percentage
+                
+                if progress_callback:
+                    phase_progress = PhaseProgress(
+                        phase_id=phase_id,
+                        phase_name=phase_msg,
+                        current=current,
+                        total=total,
+                        message=phase_msg
+                    )
+                    return progress_callback(phase_progress)
+                return True
+            
+            repo.populate_from_scan(
+                files=supported_files,
+                strategy=PopulationStrategy.BEST_DATE,
+                progress_callback=best_date_progress,
+                stop_check_callback=lambda: self._should_stop
+            )
+            
+            if self._should_stop:
+                self.logger.info("Phase 5 (BEST_DATE) cancelada por el usuario")
+            else:
+                self.logger.info("Phase 5 (BEST_DATE) complete: Best dates calculated")
+            
+            # Notify phase 5 completion
+            if phase_completed_callback and not self._should_stop:
+                phase_completed_callback(self.PHASE_BEST_DATE)
+            
+            # Log repository stats after Phase 5 (DEBUG)
+            if self.logger.isEnabledFor(logging.DEBUG):
+                self.logger.debug("=== Repository Stats after Phase 5 (BEST_DATE) ===")
+                repo.log_cache_statistics(level=logging.DEBUG)
         
         # ==================== FINALIZATION ====================
         result = self._create_result_from_data(
@@ -321,13 +423,12 @@ class InitialScanner:
         )
         
         # Log statistics
-        stats = repo.get_stats()
+
+        scan_status = "cancelado" if self._should_stop else "completado"
         self.logger.info(
-            f"Scan complete: {stats.total_files} files in repository, "
-            f"{stats.files_with_hash} with hashes, "
-            f"{stats.files_with_exif} with EXIF"
-        )
-        
+            f"Scan {scan_status}")
+        repo.log_cache_statistics(level=logging.DEBUG)
+
         # Log detailed metadata information (DEBUG level)
         if self.logger.isEnabledFor(10):  # DEBUG = 10
             self.logger.debug("=== FileMetadata Repository Contents ===")
@@ -361,6 +462,7 @@ class InitialScanner:
             images=[],
             videos=[],
             others=[],
+            total_size=0,
             image_extensions={},
             video_extensions={},
             unsupported_extensions={},
@@ -378,11 +480,24 @@ class InitialScanner:
         unsupported_extensions: dict
     ) -> DirectoryScanResult:
         """Create a DirectoryScanResult from collected data."""
+        # Calculate total size of all files
+        total_size = 0
+        all_paths = images + videos + others
+        for path in all_paths:
+            try:
+                if path.exists():
+                    total_size += path.stat().st_size
+            except (OSError, PermissionError) as e:
+                self.logger.warning(f"Could not get size for {path}: {e}")
+        
+        self.logger.debug(f"Total size calculated: {total_size:,} bytes for {len(all_paths):,} files")
+        
         return DirectoryScanResult(
             total_files=total_files,
             images=images,
             videos=videos,
             others=others,
+            total_size=total_size,
             image_extensions=image_extensions,
             video_extensions=video_extensions,
             unsupported_extensions=unsupported_extensions,

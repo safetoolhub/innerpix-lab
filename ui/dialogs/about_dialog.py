@@ -93,8 +93,8 @@ class AboutDialog(QDialog):
             ("file-image", "HEIC/JPG Duplicados"),
             ("content-copy", "Copias exactas"),
             ("image-search", "Archivos similares"),
-            ("folder-move", "Organizar Archivos"),
-            ("rename-box", "Renombrar Archivos"),
+            ("folder-move", "Organización de Archivos"),
+            ("rename-box", "Renombrado de Archivos"),
             ("trash-alt", "Archivos Vacíos"),
         ]
 

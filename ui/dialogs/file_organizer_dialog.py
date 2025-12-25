@@ -17,12 +17,12 @@ from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QThread
 
 from config import Config
 from utils.format_utils import format_size
-from utils.date_utils import get_date_from_file
+from utils.date_utils import select_best_date_from_file, get_all_metadata_from_file
 from utils.file_utils import is_whatsapp_file
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
 from utils.logger import get_logger
-from services.file_organizer_service import FileOrganizer, OrganizationType
+from services.file_organizer_service import FileOrganizerService, OrganizationType
 from services.result_types import OrganizationAnalysisResult
 from ui.workers import FileOrganizerAnalysisWorker
 from .base_dialog import BaseDialog
@@ -41,7 +41,7 @@ class FileOrganizerDialog(BaseDialog):
     ITEMS_PER_PAGE = 200
     MAX_ITEMS_WITHOUT_PAGINATION = 500
 
-    def __init__(self, initial_analysis: OrganizationAnalysisResult, parent=None, metadata_cache=None):
+    def __init__(self, initial_analysis: OrganizationAnalysisResult, parent=None):
         super().__init__(parent)
         self.logger = get_logger("FileOrganizationDialog")
         
@@ -51,7 +51,6 @@ class FileOrganizerDialog(BaseDialog):
         self.analysis = None  # Empezar sin análisis hasta que el usuario seleccione
         self.current_organization_type = None  # Sin tipo seleccionado inicialmente
         self.accepted_plan = None
-        self.metadata_cache = metadata_cache  # Caché para reutilizar en re-análisis
         
         # Datos filtrados y paginación
         self.filtered_moves = []  # Empezar vacío hasta que el usuario seleccione
@@ -71,7 +70,7 @@ class FileOrganizerDialog(BaseDialog):
         """Inicializa la interfaz"""
         self.setWindowTitle("Organización de Archivos")
         self.setModal(True)
-        self.resize(1200, 800)
+        self.resize(1400, 800)
         
         # Inicializar progress bar temprano para evitar crashes si se disparan señales durante la construcción de la UI
         self.progress_bar = QProgressBar()
@@ -88,18 +87,18 @@ class FileOrganizerDialog(BaseDialog):
             description='Elige cómo organizar tus archivos',
             metrics=[
                 {
-                    'label': 'Archivos',
+                    'label': 'Total',
                     'value': str(self.analysis.items_count) if self.analysis else '0',
                     'icon': 'description'
                 },
                 {
-                    'label': 'Carpetas',
-                    'value': str(len(self.analysis.subdirectories)) if self.analysis else '0',
+                    'label': 'Organizar',
+                    'value': str(self.analysis.files_to_move) if self.analysis else '0',
                     'icon': 'folder'
                 },
                 {
                     'label': 'Tamaño',
-                    'value': format_size(self.analysis.total_size_to_move) if self.analysis else '0 B',
+                    'value': format_size(self.analysis.bytes_total) if self.analysis else '0 B',
                     'icon': 'database'
                 }
             ]
@@ -377,21 +376,27 @@ class FileOrganizerDialog(BaseDialog):
         # Determinar la estrategia inicial basada en initial_analysis o un valor por defecto
         initial_strategy_key = 'date' # Default
         if self.initial_analysis:
-            if self.initial_analysis.organization_type in self.strategies['date']['types']:
+            # organization_type es un string, comparar con .value de los enums
+            org_type_str = self.initial_analysis.organization_type
+            
+            # Convertir tipos de fecha a enum para comparación
+            date_types = [t.value for t in self.strategies['date']['types']]
+            
+            if org_type_str in date_types:
                 initial_strategy_key = 'date'
                 # Set initial combo box value for date granularity
-                if self.initial_analysis.organization_type == OrganizationType.BY_MONTH:
+                if org_type_str == OrganizationType.BY_MONTH.value:
                     self.date_granularity_combo.setCurrentIndex(0)
-                elif self.initial_analysis.organization_type == OrganizationType.BY_YEAR:
+                elif org_type_str == OrganizationType.BY_YEAR.value:
                     self.date_granularity_combo.setCurrentIndex(1)
-                elif self.initial_analysis.organization_type == OrganizationType.BY_YEAR_MONTH:
+                elif org_type_str == OrganizationType.BY_YEAR_MONTH.value:
                     self.date_granularity_combo.setCurrentIndex(2)
                 
                 # Set initial checkbox states
                 self.chk_date_source.setChecked(self.initial_analysis.group_by_source)
                 self.chk_date_type.setChecked(self.initial_analysis.group_by_type)
 
-            elif self.initial_analysis.organization_type == OrganizationType.BY_TYPE:
+            elif org_type_str == OrganizationType.BY_TYPE.value:
                 initial_strategy_key = 'type'
                 # Set initial combo box value for secondary grouping
                 if self.initial_analysis.date_grouping_type == 'month':
@@ -403,7 +408,7 @@ class FileOrganizerDialog(BaseDialog):
                 else:
                     self.type_secondary_combo.setCurrentIndex(0) # Ninguna
 
-            elif self.initial_analysis.organization_type == OrganizationType.BY_SOURCE:
+            elif org_type_str == OrganizationType.BY_SOURCE.value:
                 initial_strategy_key = 'source'
                 # Set initial combo box value for secondary grouping
                 if self.initial_analysis.date_grouping_type == 'month':
@@ -415,7 +420,7 @@ class FileOrganizerDialog(BaseDialog):
                 else:
                     self.source_secondary_combo.setCurrentIndex(0) # Ninguna
 
-            elif self.initial_analysis.organization_type == OrganizationType.TO_ROOT:
+            elif org_type_str == OrganizationType.TO_ROOT.value:
                 initial_strategy_key = 'cleanup'
         
         # Simulate a click on the initial strategy card to set up UI and trigger analysis
@@ -534,7 +539,6 @@ class FileOrganizerDialog(BaseDialog):
         self.worker = FileOrganizerAnalysisWorker(
             directory=self.root_directory,
             organization_type=org_type,
-            metadata_cache=self.metadata_cache,
             group_by_source=group_by_source,
             group_by_type=group_by_type,
             date_grouping_type=date_grouping_type
@@ -639,8 +643,8 @@ class FileOrganizerDialog(BaseDialog):
         else:
             metrics_data = [
                 str(self.analysis.items_count),
-                str(len(self.analysis.subdirectories)),
-                format_size(self.analysis.total_size_to_move)
+                str(self.analysis.files_to_move),
+                format_size(self.analysis.bytes_total)
             ]
         
         for idx, new_value in enumerate(metrics_data):
@@ -900,17 +904,16 @@ class FileOrganizerDialog(BaseDialog):
     
     def _configure_tree_columns(self, tree: QTreeWidget):
         """Configura las columnas del tree de forma estandarizada"""
-        # Estándar: Nombre Original, Nuevo Nombre, Fecha, Origen, Estado, Tamaño
-        headers = ["Nombre Original", "Nuevo Nombre", "Fecha", "Origen / Cantidad", "Estado", "Tamaño"]
+        # Estándar: Nombre Original, Nuevo Nombre, Fecha, Origen, Tamaño
+        headers = ["Nombre Original", "Nuevo Nombre", "Fecha", "Origen", "Tamaño"]
         tree.setHeaderLabels(headers)
         
         # Ajustar anchos
-        tree.setColumnWidth(0, 300) # Nombre Original
+        tree.setColumnWidth(0, 400) # Nombre Original (más ancho para path completo)
         tree.setColumnWidth(1, 300) # Nuevo Nombre
-        tree.setColumnWidth(2, 100) # Fecha
-        tree.setColumnWidth(3, 150) # Origen
-        tree.setColumnWidth(4, 100) # Estado
-        tree.setColumnWidth(5, 80)  # Tamaño
+        tree.setColumnWidth(2, 160) # Fecha
+        tree.setColumnWidth(3, 180) # Origen
+        tree.setColumnWidth(4, 80)  # Tamaño
     
     def _create_pagination_controls(self) -> QWidget:
         """Crea controles de paginación con estilo Material Design"""
@@ -1016,11 +1019,11 @@ class FileOrganizerDialog(BaseDialog):
     def _create_action_buttons(self) -> QDialogButtonBox:
         """Crea botones de acción con estilo Material Design"""
         # Determinar si el botón OK debe estar habilitado
-        ok_enabled = bool(self.analysis and self.analysis.items_count > 0)
+        ok_enabled = bool(self.analysis and self.analysis.files_to_move > 0)
         
         if ok_enabled:
-            size_formatted = format_size(self.analysis.total_size_to_move)
-            ok_text = f"Organizar Archivos ({self.analysis.items_count} archivos, {size_formatted})"
+            size_formatted = format_size(self.analysis.bytes_to_move)
+            ok_text = f"Organizar Archivos ({self.analysis.files_to_move} archivos, {size_formatted})"
         else:
             ok_text = "Selecciona una opción"
         
@@ -1038,14 +1041,14 @@ class FileOrganizerDialog(BaseDialog):
         if not hasattr(self, 'ok_button') or not self.ok_button:
             return
         
-        ok_enabled = self.analysis.items_count > 0
+        ok_enabled = self.analysis.files_to_move > 0
         final_enabled = ok_enabled and not self.is_analyzing
         
         self.ok_button.setEnabled(final_enabled)
         
         if ok_enabled:
-            size_formatted = format_size(self.analysis.total_size_to_move)
-            ok_text = f"Organizar Archivos ({self.analysis.items_count} archivos, {size_formatted})"
+            size_formatted = format_size(self.analysis.bytes_to_move)
+            ok_text = f"Organizar Archivos ({self.analysis.files_to_move} archivos, {size_formatted})"
         else:
             ok_text = "Sin archivos para organizar"
         
@@ -1235,16 +1238,11 @@ class FileOrganizerDialog(BaseDialog):
         total_conflicts = sum(1 for m in moves if m.has_conflict)
         
         root_parent = QTreeWidgetItem()
-        root_parent.setText(0, "Raíz del directorio")
+        root_parent.setText(0, f"Raíz del directorio ({total_moves} archivos)")
         root_parent.setText(1, "") # Nuevo Nombre
         root_parent.setText(2, "") # Fecha
-        root_parent.setText(3, f"{total_moves} archivos") # Origen (usado para resumen)
-        if total_conflicts > 0:
-            root_parent.setText(4, f"{total_conflicts} conflictos")
-            root_parent.setForeground(4, QColor(DesignSystem.COLOR_ERROR))
-        else:
-            root_parent.setText(4, "OK")
-        root_parent.setText(5, format_size(total_size_all))
+        root_parent.setText(3, "") # Origen
+        root_parent.setText(4, format_size(total_size_all))
         
         root_font = QFont()
         root_font.setBold(True)
@@ -1261,16 +1259,11 @@ class FileOrganizerDialog(BaseDialog):
             conflicts = sum(1 for m in moves_in_subdir if m.has_conflict)
             
             subdir_node = QTreeWidgetItem()
-            subdir_node.setText(0, f"  Desde: {subdir}")
+            subdir_node.setText(0, f"  Desde: {subdir} ({len(moves_in_subdir)} archivos)")
             subdir_node.setText(1, "")
             subdir_node.setText(2, "")
-            subdir_node.setText(3, f"{len(moves_in_subdir)} archivos")
-            if conflicts > 0:
-                subdir_node.setText(4, f"{conflicts} conflictos")
-                subdir_node.setForeground(4, QColor(DesignSystem.COLOR_ERROR))
-            else:
-                subdir_node.setText(4, "OK")
-            subdir_node.setText(5, format_size(total_size))
+            subdir_node.setText(3, "")
+            subdir_node.setText(4, format_size(total_size))
             
             subdir_font = QFont()
             subdir_font.setBold(True)
@@ -1282,7 +1275,7 @@ class FileOrganizerDialog(BaseDialog):
             # Archivos
             for move in sorted(moves_in_subdir, key=lambda m: m.original_name):
                 child = QTreeWidgetItem()
-                child.setText(0, f"    {move.original_name}")
+                child.setText(0, f"    {move.source_path}")
                 
                 # Nuevo Nombre
                 if move.has_conflict:
@@ -1292,28 +1285,26 @@ class FileOrganizerDialog(BaseDialog):
                     child.setText(1, "Igual")
                     child.setForeground(1, QColor(DesignSystem.COLOR_TEXT_SECONDARY))
                 
-                # Fecha
+                # Fecha y Origen
                 try:
-                    file_date = get_date_from_file(move.source_path)
+                    file_metadata = get_all_metadata_from_file(move.source_path)
+                    file_date, date_source = select_best_date_from_file(file_metadata)
                     if file_date:
-                        child.setText(2, file_date.strftime("%Y-%m-%d"))
+                        child.setText(2, file_date.strftime("%Y-%m-%d %H:%M:%S"))
+                        child.setText(3, date_source if date_source else "-")
                     else:
                         child.setText(2, "-")
+                        child.setText(3, "-")
                 except:
                     child.setText(2, "-")
+                    child.setText(3, "-")
 
-                child.setText(3, subdir)
+                child.setText(4, format_size(move.size))
                 
-                # Estado
+                # Marcado visual de conflictos (texto en rojo)
                 if move.has_conflict:
-                    child.setText(4, "Conflicto")
-                    child.setForeground(4, QColor(DesignSystem.COLOR_ERROR))
                     child.setForeground(0, QColor(DesignSystem.COLOR_ERROR))
-                else:
-                    child.setText(4, "OK")
-                    child.setForeground(4, QColor(DesignSystem.COLOR_SUCCESS))
                 
-                child.setText(5, format_size(move.size))
                 child.setData(0, Qt.ItemDataRole.UserRole, move)
                 subdir_node.addChild(child)
             
@@ -1338,12 +1329,11 @@ class FileOrganizerDialog(BaseDialog):
             total_size = sum(m.size for m in moves_in_folder)
             
             parent = QTreeWidgetItem()
-            parent.setText(0, f"{folder}/")
+            parent.setText(0, f"{folder}/ ({len(moves_in_folder)} archivos)")
             parent.setText(1, "")
             parent.setText(2, "")
-            parent.setText(3, f"{len(moves_in_folder)} archivos")
-            parent.setText(4, "")
-            parent.setText(5, format_size(total_size))
+            parent.setText(3, "")
+            parent.setText(4, format_size(total_size))
             
             parent_font = QFont()
             parent_font.setBold(True)
@@ -1354,7 +1344,7 @@ class FileOrganizerDialog(BaseDialog):
             
             for move in sorted(moves_in_folder, key=lambda m: m.original_name):
                 child = QTreeWidgetItem()
-                child.setText(0, f"  {move.original_name}")
+                child.setText(0, f"  {move.source_path}")
                 
                 # Nuevo Nombre
                 if move.has_conflict:
@@ -1364,28 +1354,26 @@ class FileOrganizerDialog(BaseDialog):
                     child.setText(1, "Igual")
                     child.setForeground(1, QColor(DesignSystem.COLOR_TEXT_SECONDARY))
                 
-                # Fecha
+                # Fecha y Origen
                 try:
-                    file_date = get_date_from_file(move.source_path)
+                    file_metadata = get_all_metadata_from_file(move.source_path)
+                    file_date, date_source = select_best_date_from_file(file_metadata)
                     if file_date:
-                        child.setText(2, file_date.strftime("%Y-%m-%d"))
+                        child.setText(2, file_date.strftime("%Y-%m-%d %H:%M:%S"))
+                        child.setText(3, date_source if date_source else "-")
                     else:
                         child.setText(2, "Sin fecha")
+                        child.setText(3, "-")
                 except Exception:
                     child.setText(2, "Error")
+                    child.setText(3, "-")
                 
-                child.setText(3, move.subdirectory)
+                child.setText(4, format_size(move.size))
                 
-                # Estado
+                # Marcado visual de conflictos (texto en rojo)
                 if move.has_conflict:
-                    child.setText(4, "Conflicto")
-                    child.setForeground(4, QColor(DesignSystem.COLOR_ERROR))
                     child.setForeground(0, QColor(DesignSystem.COLOR_ERROR))
-                else:
-                    child.setText(4, "OK")
-                    child.setForeground(4, QColor(DesignSystem.COLOR_SUCCESS))
                 
-                child.setText(5, format_size(move.size))
                 child.setData(0, Qt.ItemDataRole.UserRole, move)
                 
                 parent.addChild(child)
@@ -1415,12 +1403,11 @@ class FileOrganizerDialog(BaseDialog):
             total_size = sum(m.size for m in moves_in_category)
             
             parent = QTreeWidgetItem()
-            parent.setText(0, f"{category}/")
+            parent.setText(0, f"{category}/ ({len(moves_in_category)} archivos)")
             parent.setText(1, "")
             parent.setText(2, "")
-            parent.setText(3, f"{len(moves_in_category)} archivos")
-            parent.setText(4, "")
-            parent.setText(5, format_size(total_size))
+            parent.setText(3, "")
+            parent.setText(4, format_size(total_size))
             
             parent_font = QFont()
             parent_font.setBold(True)
@@ -1444,7 +1431,7 @@ class FileOrganizerDialog(BaseDialog):
             
             for move in sorted(moves_in_category, key=lambda m: m.original_name):
                 child = QTreeWidgetItem()
-                child.setText(0, f"  {move.original_name}")
+                child.setText(0, f"  {move.source_path}")
                 
                 # Nuevo Nombre
                 if move.has_conflict:
@@ -1454,29 +1441,26 @@ class FileOrganizerDialog(BaseDialog):
                     child.setText(1, "Igual")
                     child.setForeground(1, QColor(DesignSystem.COLOR_TEXT_SECONDARY))
                 
-                # Fecha
+                # Fecha y Origen
                 try:
-                    file_date = get_date_from_file(move.source_path)
+                    file_metadata = get_all_metadata_from_file(move.source_path)
+                    file_date, date_source = select_best_date_from_file(file_metadata)
                     if file_date:
-                        child.setText(2, file_date.strftime("%Y-%m-%d"))
+                        child.setText(2, file_date.strftime("%Y-%m-%d %H:%M:%S"))
+                        child.setText(3, date_source if date_source else "-")
                     else:
                         child.setText(2, "-")
+                        child.setText(3, "-")
                 except:
                     child.setText(2, "-")
+                    child.setText(3, "-")
 
-                child.setText(3, move.subdirectory if move.subdirectory != "<root>" else "Raíz")
+                child.setText(4, format_size(move.size))
                 
-                # Estado
+                # Marcado visual de conflictos (texto en rojo)
                 if move.has_conflict:
-                    child.setText(4, "Conflicto")
-                    child.setForeground(4, QColor(DesignSystem.COLOR_ERROR))
-                    child.setText(0, f"  {move.original_name} (Conflicto)")
                     child.setForeground(0, QColor(DesignSystem.COLOR_ERROR))
-                else:
-                    child.setText(4, "OK")
-                    child.setForeground(4, QColor(DesignSystem.COLOR_SUCCESS))
                 
-                child.setText(5, format_size(move.size))
                 child.setData(0, Qt.ItemDataRole.UserRole, move)
                 
                 parent.addChild(child)

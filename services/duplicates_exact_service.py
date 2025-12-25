@@ -103,33 +103,49 @@ class DuplicatesExactService(DuplicatesBaseService):
         processed = 0
         total_to_hash = len(files_to_hash)
         
-        # Definir función para worker
-        def get_hash_task(meta: FileMetadata):
-            # repo.get_hash usa lock internamente para lectura/escritura de cache
-            # pero el cálculo es lazy.
-            return repo.get_hash(meta.path), meta.path
-
-        # Calcular hashes en paralelo
-        with ThreadPoolExecutor(max_workers=4) as executor:
-            future_to_path = {
-                executor.submit(get_hash_task, meta): meta.path
-                for meta in files_to_hash
-            }
+        # 1. Poblar cache con hashes (Explicitamente)
+        # Esto delega la paralelización y el cálculo al repositorio
+        failed_hashes = []
+        if files_to_hash:
+            files_paths_to_hash = [meta.path for meta in files_to_hash]
             
-            for future in as_completed(future_to_path):
-                try:
-                    hash_val, path = future.result()
-                    if hash_val:
-                        if hash_val not in file_hashes:
-                            file_hashes[hash_val] = []
-                        file_hashes[hash_val].append(path)
-                except Exception as e:
-                    self.logger.error(f"Error obteniendo hash: {e}")
-                
-                processed += 1
-                if self._should_report_progress(processed, interval=Config.UI_UPDATE_INTERVAL):
-                     if not self._report_progress(progress_callback, processed, total_to_hash, "Calculando firmas digitales..."):
-                         break
+            # Adaptador para reportar progreso
+            # populate_from_scan llama a callback(processed, total)
+            def repo_progress_callback(processed_count, total_count):
+                return self._report_progress(
+                    progress_callback, 
+                    processed_count, 
+                    total_count, 
+                    "Calculando firmas digitales..."
+                )
+
+            # Iniciar población
+            from services.file_metadata_repository_cache import PopulationStrategy
+            repo.populate_from_scan(
+                files_paths_to_hash, 
+                strategy=PopulationStrategy.HASH,
+                max_workers=4,
+                progress_callback=repo_progress_callback,
+                stop_check_callback=lambda: self._should_stop_check() if hasattr(self, '_should_stop_check') else False
+            )
+
+        # 2. Recolectar resultados de la caché (si no estaban antes ahora sí estarán)
+        processed = 0
+        for meta in files_to_hash:
+            hash_val = repo.get_hash(meta.path)
+            if hash_val:
+                if hash_val not in file_hashes:
+                    file_hashes[hash_val] = []
+                file_hashes[hash_val].append(meta.path)
+            else:
+                 # Si después de populate no hay hash, es un error de lectura o permiso
+                 failed_hashes.append(meta.path)
+            
+            processed += 1
+            # Progreso ligero durante la recolección
+            if self._should_report_progress(processed, interval=Config.UI_UPDATE_INTERVAL * 2):
+                if not self._report_progress(progress_callback, 0, 0, "Agrupando duplicados..."):
+                    break # Cancelado
 
         # Crear grupos
         groups = []

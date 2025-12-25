@@ -2,6 +2,7 @@
 Servicio para detectar y eliminar archivos de 0 bytes.
 Refactorizado para usar FileInfoRepository como fuente única de verdad.
 """
+import logging
 from pathlib import Path
 from typing import List, Optional
 
@@ -10,6 +11,7 @@ from services.result_types import ZeroByteAnalysisResult, ZeroByteExecutionResul
 from services.file_metadata_repository_cache import FileInfoRepositoryCache
 from utils.logger import log_section_header_relevant, log_section_footer_relevant
 from utils.file_utils import delete_file_securely
+from utils.format_utils import format_size
 
 
 class ZeroByteService(BaseService):
@@ -154,9 +156,8 @@ class ZeroByteService(BaseService):
                         self.logger.info(log_msg)
                         
                         # Actualizar caché eliminando el archivo
-                        from services.file_metadata_repository_cache import FileInfoRepositoryCache
-                        repo = FileInfoRepositoryCache.get_instance()
-                        repo.remove_file(file_path)
+                        repo_temp = FileInfoRepositoryCache.get_instance()
+                        repo_temp.remove_file(file_path)
                     else:
                         result.add_error(f"No se pudo eliminar: {file_path}")
                         
@@ -176,6 +177,10 @@ class ZeroByteService(BaseService):
         
         result.message = summary
         log_section_footer_relevant(self.logger, summary)
+
+        # Mostramos estadísticas de la caché al final
+        repo = FileInfoRepositoryCache.get_instance()
+        repo.log_cache_statistics(level=logging.INFO)
         
         self._report_progress(progress_callback, total, total, "Operación completada")
             

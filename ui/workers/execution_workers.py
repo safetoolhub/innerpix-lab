@@ -19,9 +19,9 @@ if TYPE_CHECKING:
         DuplicateExecutionResult,
         ZeroByteExecutionResult
     )
-    from services.file_renamer_service import FileRenamer
+    from services.file_renamer_service import FileRenamerService
     from services.live_photos_service import LivePhotoService
-    from services.file_organizer_service import FileOrganizer
+    from services.file_organizer_service import FileOrganizerService
     from services.heic_service import HeicService
     from services.duplicates_exact_service import DuplicatesExactService
     from services.duplicates_similar_service import DuplicatesSimilarService
@@ -36,7 +36,7 @@ class FileRenamerExecutionWorker(BaseWorker):
 
     def __init__(
         self, 
-        renamer: 'FileRenamer',
+        renamer: 'FileRenamerService',
         analysis: 'RenameAnalysisResult',
         create_backup: bool = True,
         dry_run: bool = False
@@ -56,7 +56,7 @@ class FileRenamerExecutionWorker(BaseWorker):
             from services.result_types import RenameExecutionResult
             
             results = self.renamer.execute(
-                self.analysis.renaming_plan,
+                self.analysis,
                 create_backup=self.create_backup,
                 dry_run=self.dry_run,
                 progress_callback=self._create_progress_callback(emit_numbers=True)
@@ -114,7 +114,7 @@ class FileOrganizerExecutionWorker(BaseWorker):
 
     def __init__(
         self,
-        organizer: 'FileOrganizer',
+        organizer: 'FileOrganizerService',
         analysis: 'OrganizationAnalysisResult',
         cleanup_empty_dirs: bool = True,
         create_backup: bool = True,

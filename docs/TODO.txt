@@ -99,3 +99,19 @@ Si tuviera que elegir las 3 más valiosas para implementar primero:
 #9 - Conversión Masiva de Formatos: Muy demandado, especialmente HEIC→JPG
 #10 - Detección de Capturas de Pantalla: Alto impacto, fácil de implementar
 #14 - Compresión Inteligente: Gran valor para usuarios con espacio limitado
+
+Mejoras técnicas FileMetadataRepositoryCache
+---------------------------------------------
+1. Optimización de Memoria (slots):
+   En services/file_metadata.py, usar __slots__ en la dataclass FileMetadata para reducir consumo de RAM en datasets grandes (+100k archivos).
+
+2. Migración a SQLite:
+   - Esquema: Tabla única 'files' con 'path' como Primary Key.
+   - Índices: Crear índices en 'sha256' y 'fs_size'.
+   - Persistencia: Implementar save_to_disk usando sqlite3 en lugar de JSON para permitir cargas parciales (lazy loading real).
+
+3. Batch Updates:
+   Añadir método add_files_batch(List[FileMetadata]) al protocolo IFileRepository para optimizar la inserción masiva durante la migración a SQLite.
+
+4. Watchdog Integration:
+   Implementar sistema Observer con watchdog para sincronizar cambios del sistema de archivos con el repositorio automáticamente (remove_file, update_metadata).

@@ -15,12 +15,12 @@ from .logger import (
     log_section_footer_relevant,
 )
 from .date_utils import (
-    get_date_from_file,
-    select_chosen_date,
+    select_best_date_from_file,
     format_renamed_name,
     is_renamed_filename,
     parse_renamed_name,
-    get_all_file_dates
+    get_all_metadata_from_file,
+    extract_date_from_filename
 )
 from .file_utils import (
     get_exif_from_image,
@@ -82,9 +82,9 @@ __all__ = [
     'log_section_footer_relevant',
 
     # Date utilities
-    'get_date_from_file',
-    'get_all_file_dates',
-    'select_chosen_date',
+    'get_all_metadata_from_file',
+    'extract_date_from_filename',
+    'select_best_date_from_file',
     'format_renamed_name',
     'is_renamed_filename',
     'parse_renamed_name',
@@ -107,7 +107,6 @@ __all__ = [
     'is_whatsapp_file',
     'get_exif_from_image',
     'get_exif_from_video',
-    'get_all_file_dates',
 
     # Format utilities
     'format_size',

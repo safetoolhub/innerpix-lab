@@ -276,11 +276,13 @@ class HeicDialog(BaseDialog):
     def _create_files_tree(self):
         """Crea TreeWidget con grupos expandibles estilo Material Design"""
         tree = QTreeWidget()
-        tree.setHeaderLabels(["Grupos / Archivos", "Tamaño", "Tipo", "Estado"])
-        tree.setColumnWidth(0, 350)
-        tree.setColumnWidth(1, 120)
-        tree.setColumnWidth(2, 100)
-        tree.setColumnWidth(3, 150)
+        tree.setHeaderLabels(["Grupos / Archivos", "Tamaño", "Tipo", "Fecha", "Origen Fecha", "Estado"])
+        tree.setColumnWidth(0, 300)
+        tree.setColumnWidth(1, 100)
+        tree.setColumnWidth(2, 80)
+        tree.setColumnWidth(3, 160)
+        tree.setColumnWidth(4, 150)
+        tree.setColumnWidth(5, 120)
         tree.setAlternatingRowColors(True)
         tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         
@@ -529,6 +531,12 @@ class HeicDialog(BaseDialog):
         # Texto del grupo - Solo columna 0
         group_item.setText(0, f"Grupo #{group_number} • {pair.base_name}")
         
+        # Fecha y origen en el grupo
+        group_date = pair.heic_date or pair.jpg_date
+        if group_date:
+            group_item.setText(3, group_date.strftime('%d/%m/%Y %H:%M:%S'))
+        group_item.setText(4, pair.date_source or "")
+        
         # Estilo del grupo padre estándar (Bold + Blue + BASE size)
         font = group_item.font(0)
         font.setBold(True)
@@ -537,9 +545,15 @@ class HeicDialog(BaseDialog):
         group_item.setForeground(0, QColor(DesignSystem.COLOR_PRIMARY))
         
         # Tooltip informativo
-        group_item.setToolTip(0, f"Grupo #{group_number}: {pair.base_name}\n"
-                                 f"▶ Doble clic para expandir y ver archivos HEIC y JPG\n"
-                                 f"• Las columnas muestran información de cada archivo individual")
+        tooltip_msg = (f"Grupo #{group_number}: {pair.base_name}\n"
+                       f"▶ Doble clic para expandir y ver archivos HEIC y JPG\n")
+        
+        if pair.date_source:
+            tooltip_msg += f"📅 Fecha común: {pair.date_source}\n"
+            if pair.date_difference is not None:
+                tooltip_msg += f"⏱️ Diferencia: {pair.date_difference:.3f}s\n"
+        
+        group_item.setToolTip(0, tooltip_msg)
         
         # Añadir archivo HEIC como hijo
         heic_item = QTreeWidgetItem(group_item)
@@ -547,24 +561,32 @@ class HeicDialog(BaseDialog):
         heic_item.setText(0, pair.heic_path.name)
         heic_item.setText(1, format_size(pair.heic_size))
         heic_item.setText(2, "HEIC")
+        if pair.heic_date:
+            heic_item.setText(3, pair.heic_date.strftime('%d/%m/%Y %H:%M:%S'))
+        heic_item.setText(4, pair.date_source or "")
         
         if format_to_delete == "HEIC":
-            heic_item.setText(3, "✗ Eliminar")
-            heic_item.setForeground(3, QColor(DesignSystem.COLOR_ERROR))
+            heic_item.setText(5, "✗ Eliminar")
+            heic_item.setForeground(5, QColor(DesignSystem.COLOR_ERROR))
         else:
-            heic_item.setText(3, "✓ Conservar")
-            heic_item.setForeground(3, QColor(DesignSystem.COLOR_SUCCESS))
+            heic_item.setText(5, "✓ Conservar")
+            heic_item.setForeground(5, QColor(DesignSystem.COLOR_SUCCESS))
         
         # Guardar referencia al archivo HEIC
         heic_item.setData(0, Qt.ItemDataRole.UserRole, pair.heic_path)
         
         # Tooltip para HEIC
         heic_mtime = datetime.fromtimestamp(pair.heic_path.stat().st_mtime)
-        heic_item.setToolTip(0, f"<b>{pair.heic_path.name}</b><br>"
-                                f"📂 {pair.heic_path.parent}<br>"
-                                f"📊 {format_size(pair.heic_size)}<br>"
-                                f"📅 {heic_mtime.strftime('%d/%m/%Y %H:%M:%S')}<br>"
-                                f"{'✓ Se conservará' if format_to_delete == 'JPG' else '✗ Se eliminará'}")
+        heic_tooltip = (f"<b>{pair.heic_path.name}</b><br>"
+                       f"📂 {pair.heic_path.parent}<br>"
+                       f"📊 {format_size(pair.heic_size)}<br>"
+                       f"📅 {heic_mtime.strftime('%d/%m/%Y %H:%M:%S')}<br>")
+        
+        if pair.date_source:
+             heic_tooltip += f"🔍 Origen fecha: {pair.date_source}<br>"
+             
+        heic_tooltip += f"{'✓ Se conservará' if format_to_delete == 'JPG' else '✗ Se eliminará'}"
+        heic_item.setToolTip(0, heic_tooltip)
         
         # Añadir archivo JPG como hijo
         jpg_item = QTreeWidgetItem(group_item)
@@ -572,24 +594,32 @@ class HeicDialog(BaseDialog):
         jpg_item.setText(0, pair.jpg_path.name)
         jpg_item.setText(1, format_size(pair.jpg_size))
         jpg_item.setText(2, "JPG")
+        if pair.jpg_date:
+            jpg_item.setText(3, pair.jpg_date.strftime('%d/%m/%Y %H:%M:%S'))
+        jpg_item.setText(4, pair.date_source or "")
         
         if format_to_delete == "JPG":
-            jpg_item.setText(3, "✗ Eliminar")
-            jpg_item.setForeground(3, QColor(DesignSystem.COLOR_ERROR))
+            jpg_item.setText(5, "✗ Eliminar")
+            jpg_item.setForeground(5, QColor(DesignSystem.COLOR_ERROR))
         else:
-            jpg_item.setText(3, "✓ Conservar")
-            jpg_item.setForeground(3, QColor(DesignSystem.COLOR_SUCCESS))
+            jpg_item.setText(5, "✓ Conservar")
+            jpg_item.setForeground(5, QColor(DesignSystem.COLOR_SUCCESS))
         
         # Guardar referencia al archivo JPG
         jpg_item.setData(0, Qt.ItemDataRole.UserRole, pair.jpg_path)
         
         # Tooltip para JPG
         jpg_mtime = datetime.fromtimestamp(pair.jpg_path.stat().st_mtime)
-        jpg_item.setToolTip(0, f"<b>{pair.jpg_path.name}</b><br>"
-                               f"📂 {pair.jpg_path.parent}<br>"
-                               f"📊 {format_size(pair.jpg_size)}<br>"
-                               f"📅 {jpg_mtime.strftime('%d/%m/%Y %H:%M:%S')}<br>"
-                               f"{'✓ Se conservará' if format_to_delete == 'HEIC' else '✗ Se eliminará'}")
+        jpg_tooltip = (f"<b>{pair.jpg_path.name}</b><br>"
+                       f"📂 {pair.jpg_path.parent}<br>"
+                       f"📊 {format_size(pair.jpg_size)}<br>"
+                       f"📅 {jpg_mtime.strftime('%d/%m/%Y %H:%M:%S')}<br>")
+        
+        if pair.date_source:
+             jpg_tooltip += f"🔍 Origen fecha: {pair.date_source}<br>"
+             
+        jpg_tooltip += f"{'✓ Se conservará' if format_to_delete == 'HEIC' else '✗ Se eliminará'}"
+        jpg_item.setToolTip(0, jpg_tooltip)
     
     def _on_item_double_clicked(self, item, column):
         """Maneja doble click: expande grupos o abre archivos"""

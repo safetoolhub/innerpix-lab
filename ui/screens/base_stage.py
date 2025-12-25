@@ -280,7 +280,7 @@ class BaseStage(QObject):
                 background-color: {DesignSystem.COLOR_SURFACE};
                 border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
                 border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: {DesignSystem.SPACE_12}px {DesignSystem.SPACE_20}px;
+                padding: 10px {DesignSystem.SPACE_20}px;
             }}
         """)
 

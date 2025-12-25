@@ -12,21 +12,21 @@ from utils.logger import get_logger, log_section_header_relevant, log_section_fo
 from services.result_types import RenameExecutionResult, RenameAnalysisResult
 from services.base_service import BaseService, ProgressCallback
 from utils.date_utils import (
-    get_date_from_file,
+    select_best_date_from_file,
     format_renamed_name,
-    is_renamed_filename,
-    parse_renamed_name,
-    get_all_file_dates
+    is_renamed_filename    
 )
 from utils.file_utils import (
     launch_backup_creation,
     find_next_available_name,
     validate_file_exists,
+    get_file_type,
+    is_supported_file
 )
 from services.file_metadata_repository_cache import FileInfoRepositoryCache
 
 
-class FileRenamer(BaseService):
+class FileRenamerService(BaseService):
     """
     Renombrador de nombres de archivos multimedia
     """
@@ -44,29 +44,21 @@ class FileRenamer(BaseService):
         """
         log_section_header_discrete(self.logger, f"ANALIZANDO DIRECTORIO PARA RENOMBRADO: {directory}")
 
-        repo = FileInfoRepository.get_instance()
+        repo = FileInfoRepositoryCache.get_instance()
         all_files = []
-        if repo.get_file_count() > 0:
-            self.logger.info(f"Usando FileInfoRepository ({repo.get_file_count()} archivos)")
-            cached_files = repo.get_all_files()
-            for meta in cached_files:
-                try:
-                    if meta.path.is_relative_to(directory):
-                        all_files.append(meta.path)
-                except ValueError:
-                    continue
-        else:
-            self.logger.info("Escaneando disco...")
-            for file_path in directory.rglob("*"):
-                from utils.file_utils import is_supported_file, get_file_type
-                if file_path.is_file() and is_supported_file(file_path.name):
-                    all_files.append(file_path)
+        self.logger.info(f"Usando FileInfoRepositoryCache ({repo.get_file_count()} archivos)")
+        cached_files = repo.get_all_files()
+        for meta in cached_files:
+            try:
+                if meta.path.is_relative_to(directory):
+                    all_files.append(meta.path)
+            except ValueError:
+                continue
 
         total_files = len(all_files)
         self.logger.info(f"Encontrados {total_files} archivos para analizar")
         renaming_map = {}
         already_renamed = 0
-        cannot_process = 0
         conflicts = 0
         files_by_year = Counter()
         renaming_plan = []
@@ -78,13 +70,16 @@ class FileRenamer(BaseService):
             if is_renamed_filename(file_path.name):
                 return ('already_renamed', file_path, None)
             
-            # Obtener fecha usando FileInfoRepository
-            file_date = get_date_from_file(file_path, metadata_cache=repo, skip_expensive_ops=True)
+            # Obtener metadata del repositorio (debe estar precargada)
+            file_metadata = repo.get_file_metadata(file_path)
+            if not file_metadata:
+                return ('no_metadata', file_path, f"Metadata no disponible: {file_path.name}")
             
+            # Obtener fecha usando la mejor fecha calculada o calcularla
+            file_date, date_source = repo.get_best_date(file_path)
             if not file_date:
-                # Intento final sin cache si falló
-                file_date = get_date_from_file(file_path)
-                
+                # Intentar calcular fecha ahora si no está en caché
+                file_date, date_source = select_best_date_from_file(file_metadata)
                 if not file_date:
                     return ('no_date', file_path, f"No se pudo obtener fecha: {file_path.name}")
             
@@ -95,10 +90,11 @@ class FileRenamer(BaseService):
             extension = file_path.suffix
             renamed_name = format_renamed_name(file_date, file_type, extension)
             
-            return ('rename-box', file_path, {
+            return ('file_renamer', file_path, {
                 'renamed_name': renamed_name,
                 'original_path': file_path,
                 'date': file_date,
+                'date_source': date_source,
                 'type': file_type,
                 'extension': extension
             })
@@ -120,20 +116,19 @@ class FileRenamer(BaseService):
                 
                 if status == 'already_renamed':
                     already_renamed += 1
+                elif status == 'no_metadata':
+                    issues.append(data)
                 elif status == 'no_date':
-                    cannot_process += 1
                     issues.append(data)
                 elif status == 'unsupported':
-                    cannot_process += 1
                     issues.append(data)
-                elif status == 'rename-box':
+                elif status == 'file_renamer':
                     renamed_name = data['renamed_name']
                     if renamed_name not in renaming_map:
                         renaming_map[renamed_name] = []
                     renaming_map[renamed_name].append(data)
                     files_by_year[data['date'].year] += 1
 
-        need_renaming = 0
         for renamed_name, file_list in renaming_map.items():
             if len(file_list) == 1:
                 file_info = file_list[0]
@@ -141,10 +136,10 @@ class FileRenamer(BaseService):
                     'original_path': file_info['original_path'],
                     'new_name': renamed_name,
                     'date': file_info['date'],
+                    'date_source': file_info['date_source'],
                     'has_conflict': False,
                     'sequence': None
                 })
-                need_renaming += 1
             else:
                 conflicts += len(file_list) - 1
                 file_list.sort(key=lambda x: x['original_path'].stat().st_mtime)
@@ -161,18 +156,24 @@ class FileRenamer(BaseService):
                         'original_path': file_info['original_path'],
                         'new_name': sequenced_name,
                         'date': file_info['date'],
+                        'date_source': file_info['date_source'],
                         'has_conflict': True,
                         'sequence': i
                     })
-                    need_renaming += 1
 
-        log_section_footer_discrete(self.logger, f"Análisis completado: {need_renaming} archivos para renombrar")
+        log_section_footer_discrete(self.logger, f"Análisis completado: {len(renaming_plan)} archivos para renombrar")
+        
+        # Calcular totales del análisis
+        total_analyzed = len(renaming_plan) + already_renamed + len(issues)
         
         return RenameAnalysisResult(
             renaming_plan=renaming_plan,
             already_renamed=already_renamed,
-            cannot_process=cannot_process,
-            conflicts=conflicts
+            conflicts=conflicts,
+            files_by_year=dict(files_by_year),
+            issues=issues,
+            items_count=total_analyzed,
+            bytes_total=0  # No necesitamos calcular tamaño para renombrado
         )
     
     def execute(
@@ -191,7 +192,7 @@ class FileRenamer(BaseService):
         if not renaming_plan:
             return RenameExecutionResult(
                 success=True,
-                files_renamed=0,
+                items_processed=0,
                 message='No hay archivos para renombrar',
                 dry_run=dry_run
             )
@@ -222,9 +223,13 @@ class FileRenamer(BaseService):
         log_section_header_relevant(self.logger, "INICIANDO RENOMBRADO DE ARCHIVOS", mode=mode_label)
         self.logger.info(f"*** Archivos a renombrar: {len(renaming_plan)}")
 
-        results = RenameExecutionResult(success=True, dry_run=dry_run)
+        # Obtener instancia del repositorio para actualizar caché después de renombrar
+        repo = FileInfoRepositoryCache.get_instance()
+        
+        result = RenameExecutionResult(success=True, dry_run=dry_run)
         total_files = len(renaming_plan)
-        files_processed = 0
+        items_processed = 0
+        files_affected = []
         
         for item in renaming_plan:
             original_path = item['original_path']
@@ -260,29 +265,27 @@ class FileRenamer(BaseService):
                     new_path = original_path.parent / new_name
                     had_conflict = True
                     conflict_sequence = sequence
-                    results.conflicts_resolved += 1
+                    result.conflicts_resolved += 1
 
                 if not dry_run:
                     original_path.rename(new_path)
                     
                     # Actualizar caché moviendo el archivo
-                    from services.file_metadata_repository_cache import FileInfoRepositoryCache
-                    repo = FileInfoRepositoryCache.get_instance()
                     repo.move_file(original_path, new_path)
 
-                results.files_renamed += 1
-                files_processed += 1
+                items_processed += 1
+                files_affected.append(original_path)
                 
                 date_str = item['date'].strftime('%Y-%m-%d %H:%M:%S') if item.get('date') else ''
                 
-                results.renamed_files.append({
+                result.renamed_files.append({
                     'original': original_path.name,
                     'new_name': new_name,
                     'date': date_str,
                     'had_conflict': item.get('has_conflict', False)
                 })
 
-                if not self._report_progress(progress_callback, files_processed, total_files, f"{'Simulando' if dry_run else 'Renombrando'}... {files_processed}/{total_files}"):
+                if not self._report_progress(progress_callback, items_processed, total_files, f"{'Simulando' if dry_run else 'Renombrando'}... {items_processed}/{total_files}"):
                     break
 
                 log_prefix = "FILE_RENAMED_SIMULATION" if dry_run else "FILE_RENAMED"
@@ -292,26 +295,30 @@ class FileRenamer(BaseService):
             except Exception as e:
                 error_msg = f"Error renombrando {original_path.name}: {str(e)}"
                 self.logger.error(error_msg)
-                results.add_error(f"{original_path.name}: {str(e)}")
+                result.add_error(f"{original_path.name}: {str(e)}")
 
-        if results.has_errors:
-            results.success = len(results.errors) < len(renaming_plan)
+        result.items_processed = items_processed
+        result.files_affected = files_affected
+
+        if result.errors:
+            result.success = len(result.errors) < len(renaming_plan)
 
         completion_label = "RENOMBRADO DE ARCHIVOS COMPLETADO"
         result_verb = "se renombrarían" if dry_run else "renombrados"
-        summary = f"{completion_label}\nResultado: {results.files_renamed} archivos {result_verb}"
+        summary = f"{completion_label}\nResultado: {items_processed} archivos {result_verb}"
         log_section_footer_relevant(self.logger, summary)
         
-        results.message = summary if dry_run else f"Renombrados {results.files_renamed} archivos"
-        if results.backup_path: results.message += f"\nBackup: {results.backup_path}"
-        if results.has_errors: results.message += f"\nAdvertencia: {len(results.errors)} errores"
+        result.message = summary if dry_run else f"Renombrados {items_processed} archivos"
+        if result.backup_path: result.message += f"\nBackup: {result.backup_path}"
+        if result.errors: result.message += f"\nAdvertencia: {len(result.errors)} errores encontrados"
 
-        return results
+        return result
     
     def _create_empty_result(self, total):
         return RenameAnalysisResult(
             renaming_plan=[],
             already_renamed=0,
-            cannot_process=0,
-            conflicts=0
+            conflicts=0,
+            files_by_year={},
+            issues=[]
         )

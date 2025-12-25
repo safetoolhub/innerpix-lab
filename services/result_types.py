@@ -57,50 +57,9 @@ class ZeroByteExecutionResult(ExecutionResult):
     """Result for zero-byte files deletion."""
     pass
 
-# --- Rename Service ---
-@dataclass
-class RenameAnalysisResult(AnalysisResult):
-    """Result for file renaming analysis."""
-    renaming_plan: List[Dict] = field(default_factory=list)  # List of dicts with 'original_path', 'new_name', etc.
-    already_renamed: int = 0
-    cannot_process: int = 0
-    conflicts: int = 0
-    
-    def __post_init__(self):
-        if not self.items_count and self.renaming_plan:
-            self.items_count = len(self.renaming_plan)
-
-@dataclass
-class RenameExecutionResult(ExecutionResult):
-    """Result for file renaming execution."""
-    renamed_files: List[dict] = field(default_factory=list)
-    conflicts_resolved: int = 0
-
-# --- Organization Service ---
-@dataclass
-class OrganizationAnalysisResult(AnalysisResult):
-    """Result for file organization analysis."""
-    move_plan: List[Any] = field(default_factory=list)  # List of FileMove objects
-    root_directory: str = ''
-    organization_type: str = 'to_root'  # 'to_root', 'by_month', 'whatsapp_separate'
-    folders_to_create: List[str] = field(default_factory=list)
-    
-    def __post_init__(self):
-        if not self.items_count and self.move_plan:
-            self.items_count = len(self.move_plan)
-        if not self.bytes_total and self.move_plan:
-             self.bytes_total = sum(m.size for m in self.move_plan)
-
-@dataclass
-class OrganizationExecutionResult(ExecutionResult):
-    """Result for file organization execution."""
-    empty_directories_removed: int = 0
-    moved_files: List[str] = field(default_factory=list)
-    folders_created: List[str] = field(default_factory=list)
-
 # --- HEIC Service ---
 @dataclass
-class DuplicatePair:
+class HEICDuplicatePair:
     """Represents a pair of HEIC + JPG files."""
     heic_path: Path
     jpg_path: Path
@@ -110,6 +69,8 @@ class DuplicatePair:
     directory: Path
     heic_date: Optional[datetime] = None
     jpg_date: Optional[datetime] = None
+    date_source: Optional[str] = None
+    date_difference: Optional[float] = None
     
     @property
     def total_size(self) -> int:
@@ -118,7 +79,8 @@ class DuplicatePair:
 @dataclass
 class HeicAnalysisResult(AnalysisResult):
     """Result for HEIC/JPG duplicate analysis."""
-    duplicate_pairs: List[DuplicatePair] = field(default_factory=list)
+    duplicate_pairs: List[HEICDuplicatePair] = field(default_factory=list)
+    rejected_pairs: List[HEICDuplicatePair] = field(default_factory=list)
     heic_files: int = 0
     jpg_files: int = 0
     potential_savings_keep_jpg: int = 0
@@ -134,6 +96,107 @@ class HeicAnalysisResult(AnalysisResult):
 class HeicExecutionResult(ExecutionResult):
     """Result for HEIC/JPG duplicate execution."""
     format_kept: Optional[str] = None  # 'heic' or 'jpg'
+
+
+# --- Live Photos ---
+@dataclass
+class LivePhotoImageInfo:
+    """Información de una imagen en un grupo Live Photo."""
+    path: Path
+    size: int
+    date: Optional[datetime] = None
+    date_source: Optional[str] = None
+
+
+@dataclass
+class LivePhotoGroup:
+    """
+    Representa un grupo de Live Photo: un video con una o más imágenes asociadas.
+    
+    Un Live Photo puede tener múltiples imágenes si el usuario ha editado/renombrado
+    archivos manteniendo el mismo nombre base.
+    """
+    video_path: Path
+    video_size: int
+    images: List[LivePhotoImageInfo] = field(default_factory=list)
+    base_name: str = ""
+    directory: Path = field(default_factory=Path)
+    video_date: Optional[datetime] = None
+    video_date_source: Optional[str] = None
+    date_source: Optional[str] = None  # Fuente usada para comparar fechas
+    date_difference: Optional[float] = None  # Diferencia en segundos (max entre todas las imágenes)
+    
+    @property
+    def total_size(self) -> int:
+        """Tamaño total: video + todas las imágenes"""
+        return self.video_size + sum(img.size for img in self.images)
+    
+    @property
+    def images_size(self) -> int:
+        """Tamaño total de todas las imágenes"""
+        return sum(img.size for img in self.images)
+    
+    @property
+    def image_count(self) -> int:
+        """Número de imágenes en el grupo"""
+        return len(self.images)
+    
+    @property
+    def primary_image(self) -> Optional[LivePhotoImageInfo]:
+        """Devuelve la primera imagen del grupo (la principal)"""
+        return self.images[0] if self.images else None
+    
+    @property
+    def best_date(self) -> Optional[datetime]:
+        """Devuelve la mejor fecha disponible (video o primera imagen)"""
+        if self.video_date:
+            return self.video_date
+        if self.images and self.images[0].date:
+            return self.images[0].date
+        return None
+
+
+@dataclass
+class LivePhotosAnalysisResult(AnalysisResult):
+    """
+    Result for Live Photos detection analysis.
+    
+    Attributes:
+        groups: Lista de LivePhotoGroup validados (aceptados)
+        rejected_groups: Lista de LivePhotoGroup rechazados por diferencia de fecha
+        total_space: Espacio total usado por todos los Live Photos
+    """
+    groups: List[LivePhotoGroup] = field(default_factory=list)
+    rejected_groups: List[LivePhotoGroup] = field(default_factory=list)
+    total_space: int = 0  # Total space used by Live Photos (images + videos)
+    
+    def __post_init__(self):
+        if not self.items_count and self.groups:
+            self.items_count = len(self.groups)
+        if not self.bytes_total and self.total_space:
+            self.bytes_total = self.total_space
+    
+    @property
+    def potential_savings(self) -> int:
+        """Espacio que se liberaría eliminando todos los videos"""
+        return sum(g.video_size for g in self.groups)
+    
+    @property
+    def total_images(self) -> int:
+        """Total de imágenes en todos los grupos"""
+        return sum(g.image_count for g in self.groups)
+    
+    @property
+    def total_videos(self) -> int:
+        """Total de videos (igual a número de grupos)"""
+        return len(self.groups)
+
+
+@dataclass
+class LivePhotosExecutionResult(ExecutionResult):
+    """Result for Live Photos execution."""
+    videos_deleted: int = 0
+
 
 # --- Duplicates (Exact & Similar) ---
 @dataclass
@@ -169,26 +232,77 @@ class DuplicateExecutionResult(ExecutionResult):
     keep_strategy: Optional[str] = None
 
 
-# --- Live Photos ---
+# --- Organization Service ---
 @dataclass
-class LivePhotosAnalysisResult(AnalysisResult):
-    """Result for Live Photos detection analysis."""
-    groups: List[Any] = field(default_factory=list)  # List of LivePhotoGroup objects
-    space_to_free: int = 0  # Space that would be freed by removing videos
-    total_space: int = 0  # Total space used by Live Photos (images + videos)
+class OrganizationAnalysisResult(AnalysisResult):
+    """Result for file organization analysis."""
+    move_plan: List[Any] = field(default_factory=list)  # List of FileMove objects
+    root_directory: str = ''
+    organization_type: str = 'to_root'  # Base organization type: 'to_root', 'by_month', 'by_year', 'by_year_month', 'by_type', 'by_source'
+    subdirectories: Dict[str, Any] = field(default_factory=dict)  # Subdirectories found in root
     
+    # Required for the UI to remember selection
+    group_by_source: bool = False  # Whether to group by source (WhatsApp, Camera, etc.)
+    group_by_type: bool = False    # Whether to group by type (Photos/Videos)
+    date_grouping_type: Optional[str] = None  # Secondary date grouping: 'month', 'year', 'year_month'
+    
+    @property
+    def files_to_move(self) -> int:
+        """Número de archivos que la estrategia actual moverá."""
+        return len(self.move_plan)
+
+    @property
+    def bytes_to_move(self) -> int:
+        """Tamaño total de los archivos que la estrategia actual moverá."""
+        return sum(m.size for m in self.move_plan)
+
+    @property
+    def folders_to_create(self) -> List[str]:
+        """Lista de carpetas únicas que se crearán."""
+        return sorted(set(m.target_folder for m in self.move_plan if m.target_folder))
+
     def __post_init__(self):
-        if not self.items_count and self.groups:
-            self.items_count = len(self.groups)
-        if not self.bytes_total and self.total_space:
-            self.bytes_total = self.total_space
+        # We now keep __post_init__ empty to avoid automatic overrides
+        pass
 
 @dataclass
-class LivePhotosExecutionResult(ExecutionResult):
-    """Result for Live Photos execution."""
-    pass
+class OrganizationExecutionResult(ExecutionResult):
+    """Result for file organization execution."""
+    empty_directories_removed: int = 0
+    moved_files: List[str] = field(default_factory=list)
+    folders_created: List[str] = field(default_factory=list)
 
 
+# --- Rename Service ---
+@dataclass
+class RenameAnalysisResult(AnalysisResult):
+    """Result for file renaming analysis."""
+    renaming_plan: List[Dict] = field(default_factory=list)  # List of dicts with 'original_path', 'new_name', etc.
+    already_renamed: int = 0
+    conflicts: int = 0
+    files_by_year: Dict[int, int] = field(default_factory=dict)
+    issues: List[str] = field(default_factory=list)
+    
+    @property
+    def need_renaming(self) -> int:
+        """Número de archivos que realmente serán renombrados."""
+        return len(self.renaming_plan)
+
+    @property
+    def cannot_process(self) -> int:
+        """Número de archivos con problemas."""
+        return len(self.issues)
+
+@dataclass
+class RenameExecutionResult(ExecutionResult):
+    """Result for file renaming execution."""
+    renamed_files: List[dict] = field(default_factory=list)
+    conflicts_resolved: int = 0
+
+    @property
+    def files_renamed(self) -> int:
+        """Alias para items_processed que usa la UI."""
+        return self.items_processed
 
 # ============================================================================
 # DIRECTORY SCANNER RESULT TYPES
@@ -230,3 +344,12 @@ class ScanSnapshot:
     """Simple snapshot of scan results for Stage 2 → Stage 3 transition."""
     directory: Path
     scan: DirectoryScanResult
+    
+    # Tool-specific analysis results (dynamically populated in Stage 3)
+    live_photos: Optional[Any] = None
+    heic: Optional[Any] = None
+    duplicates_exact: Optional[Any] = None
+    duplicates_similar: Optional[Any] = None
+    zero_byte: Optional[Any] = None
+    organization: Optional[Any] = None
+    renaming: Optional[Any] = None

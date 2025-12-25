@@ -91,7 +91,7 @@ class Stage3Window(BaseStage):
                 child.widget().setParent(None)
 
         # Añadir espaciado encima del header
-        self.main_layout.addSpacing(DesignSystem.SPACE_4)
+        self.main_layout.addSpacing(2)
 
         # Crear y mostrar header
         self.header = self.create_header(
@@ -99,7 +99,7 @@ class Stage3Window(BaseStage):
             on_about_clicked=self._on_about_clicked
         )
         self.main_layout.addWidget(self.header)
-        self.main_layout.addSpacing(DesignSystem.SPACE_6)  # Reducido para optimizar espacio vertical
+        self.main_layout.addSpacing(DesignSystem.SPACE_4)  # Reducido de SPACE_6 para optimizar espacio vertical
 
         # Crear banner de advertencia (oculto por defecto)
         self.stale_banner = self._create_stale_banner()
@@ -216,50 +216,18 @@ class Stage3Window(BaseStage):
         # Actualizar estadísticas de la summary card (datos ya calculados en Stage 2)
         total_files = self.analysis_results.scan.total_files
         total_size = self.analysis_results.scan.total_size
-        
-        # Calcular espacio recuperable (rápido, solo suma valores ya calculados)
-        recoverable = self._calculate_recoverable_space()
+        num_images = len(self.analysis_results.scan.images) if hasattr(self.analysis_results.scan, 'images') else 0
+        num_videos = len(self.analysis_results.scan.videos) if hasattr(self.analysis_results.scan, 'videos') else 0
+        num_others = len(self.analysis_results.scan.others) if hasattr(self.analysis_results.scan, 'others') else 0
         
         # Mostrar estadísticas
-        self.summary_card.update_stats(total_files, total_size)
-        self.summary_card.update_recoverable_space(recoverable)
+        self.summary_card.update_stats(total_files, total_size, num_images, num_videos, num_others)
 
         # Añadir stretch después de la summary card para mantener el layout
         self.main_layout.addStretch()
 
         # Crear grid de herramientas con delay escalonado
         QTimer.singleShot(200, self._create_tools_grid)
-
-    def _calculate_recoverable_space(self) -> int:
-        """
-        Calcula el espacio total recuperable de todas las herramientas.
-        
-        Returns:
-            Bytes totales recuperables (0 si no hay análisis disponibles)
-        """
-        total = 0
-        
-        # Ahora los análisis se hacen bajo demanda, así que solo sumamos si existen
-        # Live Photos
-        if hasattr(self.analysis_results, 'live_photos') and self.analysis_results.live_photos:
-            total += self.analysis_results.live_photos.space_to_free
-        
-        # HEIC/JPG
-        if hasattr(self.analysis_results, 'heic') and self.analysis_results.heic:
-            # Usar el mayor ahorro entre mantener JPG o mantener HEIC
-            savings_jpg = getattr(self.analysis_results.heic, 'potential_savings_keep_jpg', 0) or 0
-            savings_heic = getattr(self.analysis_results.heic, 'potential_savings_keep_heic', 0) or 0
-            total += max(savings_jpg, savings_heic)
-        
-        # Duplicados exactos
-        if hasattr(self.analysis_results, 'duplicates') and self.analysis_results.duplicates:
-            total += self.analysis_results.duplicates.space_wasted or 0
-        
-        # Archivos de 0 bytes
-        if hasattr(self.analysis_results, 'zero_byte') and self.analysis_results.zero_byte:
-            total += self.analysis_results.zero_byte.bytes_total or 0
-        
-        return total
 
     def _create_tools_grid(self):
         """Crea el grid 2x4 con las 7 herramientas"""
@@ -279,7 +247,7 @@ class Stage3Window(BaseStage):
         # Container para el grid
         grid_container = QWidget()
         grid_layout = QGridLayout(grid_container)
-        grid_layout.setSpacing(10)  # Reducido para optimizar espacio vertical
+        grid_layout.setSpacing(8)  # Reducido de 10 para optimizar espacio vertical
         grid_layout.setContentsMargins(0, 0, 0, 0)
 
         # Nota: Los análisis se hacen bajo demanda, así que todas las cards empiezan sin datos
@@ -300,21 +268,21 @@ class Stage3Window(BaseStage):
 
         exact_dup_card = create_duplicates_exact_card(self.analysis_results, self._on_tool_clicked)
         grid_layout.addWidget(exact_dup_card, 1, 1)
-        self.tool_cards['exact_copies'] = exact_dup_card
+        self.tool_cards['duplicates_exact'] = exact_dup_card
 
         # Fila 2: Archivos Similares + (espacio vacío)
         similar_dup_card = create_duplicates_similar_card(self._on_tool_clicked)
         grid_layout.addWidget(similar_dup_card, 2, 0)
-        self.tool_cards['similar_files'] = similar_dup_card
+        self.tool_cards['duplicates_similar'] = similar_dup_card
 
         # Fila 3: Organizar + Renombrar (herramientas de reorganización juntas)
         organize_card = create_file_organizer_card(self._on_tool_clicked)
         grid_layout.addWidget(organize_card, 3, 0)
-        self.tool_cards['folder-move'] = organize_card
+        self.tool_cards['file_organizer'] = organize_card
 
         rename_card = create_file_renamer_card(self._on_tool_clicked)
         grid_layout.addWidget(rename_card, 3, 1)
-        self.tool_cards['rename-box'] = rename_card
+        self.tool_cards['file_renamer'] = rename_card
         
         # Inicializar similarity handler después de crear las cards
         self.similarity_handler = SimilarityAnalysisHandler(
@@ -332,9 +300,10 @@ class Stage3Window(BaseStage):
             self.main_layout.takeAt(self.main_layout.count() - 1)  # Remover stretch
 
         # Añadir espaciado entre summary card y tool cards
-        self.main_layout.addSpacing(DesignSystem.SPACE_4)
+        self.main_layout.addSpacing(2)  # Reducido de SPACE_4 para optimizar espacio vertical
 
         self.main_layout.addWidget(grid_container)
+
         self.tools_grid = grid_container
 
         # Forzar actualización del scroll area para que funcione correctamente
@@ -363,27 +332,38 @@ class Stage3Window(BaseStage):
             return
 
         # Verificar si necesitamos ejecutar análisis primero (usando hasattr)
+        # NOTA: file_renamer y file_organizer SIEMPRE requieren análisis fresco porque
+        # modifican los archivos (nombres/ubicaciones) y el análisis previo queda obsoleto
         should_analyze = False
         
         if tool_id == 'live_photos' and not (hasattr(self.analysis_results, 'live_photos') and self.analysis_results.live_photos):
             should_analyze = True
         elif tool_id == 'heic' and not (hasattr(self.analysis_results, 'heic') and self.analysis_results.heic):
             should_analyze = True
-        elif tool_id == 'exact_copies' and not (hasattr(self.analysis_results, 'duplicates') and self.analysis_results.duplicates):
+        elif tool_id == 'duplicates_exact' and not (hasattr(self.analysis_results, 'duplicates') and self.analysis_results.duplicates):
             should_analyze = True
         elif tool_id == 'zero_byte' and not (hasattr(self.analysis_results, 'zero_byte') and self.analysis_results.zero_byte):
             should_analyze = True
-        elif tool_id == 'folder-move' and not (hasattr(self.analysis_results, 'organization') and self.analysis_results.organization):
+        elif tool_id == 'file_organizer':
+            # SIEMPRE analizar file_organizer (modifica ubicaciones de archivos)
             should_analyze = True
-        elif tool_id == 'rename-box' and not (hasattr(self.analysis_results, 'renaming') and self.analysis_results.renaming):
+        elif tool_id == 'file_renamer':
+            # SIEMPRE analizar file_renamer (modifica nombres de archivos)
             should_analyze = True
             
         if should_analyze:
             # Ejecutar análisis bajo demanda
             self._run_analysis_and_open_dialog(tool_id)
             return
-
         
+        # Si ya tenemos datos, abrir el diálogo
+        self._open_tool_dialog(tool_id)
+    
+    def _open_tool_dialog(self, tool_id: str):
+        """
+        Abre el diálogo correspondiente a una herramienta sin hacer análisis.
+        Asume que el análisis ya está disponible en self.analysis_results.
+        """
         # Abrir diálogo correspondiente si ya tenemos datos
         dialog = None
         
@@ -403,7 +383,7 @@ class Stage3Window(BaseStage):
                 else:
                      QMessageBox.information(self.main_window, "Info", "No se encontraron pares HEIC/JPG.")
 
-        elif tool_id == 'exact_copies':
+        elif tool_id == 'duplicates_exact':
             if hasattr(self.analysis_results, 'duplicates') and self.analysis_results.duplicates:
                 dup_data = self.analysis_results.duplicates
                 if dup_data.total_groups > 0:
@@ -411,18 +391,18 @@ class Stage3Window(BaseStage):
                 else:
                      QMessageBox.information(self.main_window, "Info", "No se encontraron copias exactas.")
 
-        elif tool_id == 'similar_files':
+        elif tool_id == 'duplicates_similar':
             # Similares requieren configuración previa y tienen su propio flujo
             if self.similarity_handler:
                 self.similarity_handler.start_analysis()
             return
 
-        elif tool_id == 'folder-move':
+        elif tool_id == 'file_organizer':
             # Organizing puede funcionar sin análisis previo (usa defaults o analiza on-fly)
             org_data = getattr(self.analysis_results, 'organization', None) if hasattr(self.analysis_results, 'organization') else None
-            dialog = FileOrganizerDialog(org_data, self.main_window, self.metadata_cache)
+            dialog = FileOrganizerDialog(org_data, self.main_window)
 
-        elif tool_id == 'rename-box':
+        elif tool_id == 'file_renamer':
             # Renaming igual
             rename_data = getattr(self.analysis_results, 'renaming', None) if hasattr(self.analysis_results, 'renaming') else None
             dialog = FileRenamerDialog(rename_data, self.main_window)
@@ -459,10 +439,10 @@ class Stage3Window(BaseStage):
         worker_map = {
             'live_photos': (LivePhotosAnalysisWorker, "Analizando Live Photos..."),
             'heic': (HeicAnalysisWorker, "Buscando duplicados HEIC/JPG..."),
-            'exact_copies': (DuplicatesExactAnalysisWorker, "Buscando copias exactas..."),
+            'duplicates_exact': (DuplicatesExactAnalysisWorker, "Buscando copias exactas..."),
             'zero_byte': (ZeroByteAnalysisWorker, "Buscando archivos vacíos..."),
-            'folder-move': (FileOrganizerAnalysisWorker, "Analizando estructura..."),
-            'rename-box': (FileRenamerAnalysisWorker, "Analizando nombres...")
+            'file_organizer': (FileOrganizerAnalysisWorker, "Analizando estructura..."),
+            'file_renamer': (FileRenamerAnalysisWorker, "Analizando nombres...")
         }
         
         if tool_id not in worker_map:
@@ -477,7 +457,7 @@ class Stage3Window(BaseStage):
         progress.setValue(0)
         
         # Crear worker - algunos servicios ya no necesitan metadata_cache
-        refactorized_tools = {'live_photos', 'heic', 'exact_copies', 'zero_byte', 'rename-box', 'folder-move'}
+        refactorized_tools = {'live_photos', 'heic', 'duplicates_exact', 'zero_byte', 'file_renamer', 'file_organizer'}
         if tool_id in refactorized_tools:
             worker = WorkerClass(Path(self.selected_folder))
         else:
@@ -496,7 +476,7 @@ class Stage3Window(BaseStage):
                     self.analysis_results.heic = result
                     self._create_tools_grid()
                     
-                elif tool_id == 'exact_copies':
+                elif tool_id == 'duplicates_exact':
                     self.analysis_results.duplicates = result
                     self._create_tools_grid()
                     
@@ -504,13 +484,16 @@ class Stage3Window(BaseStage):
                     self.analysis_results.zero_byte = result
                     self._create_tools_grid()
                 
-                # Update summary card recoverable space
-                recoverable = self._calculate_recoverable_space()
-                if self.summary_card:
-                    self.summary_card.update_recoverable_space(recoverable)
-
-                # Abrir el diálogo automáticamente
-                self._on_tool_clicked(tool_id)
+                elif tool_id == 'file_organizer':
+                    self.analysis_results.organization = result
+                    self._create_tools_grid()
+                
+                elif tool_id == 'file_renamer':
+                    self.analysis_results.renaming = result
+                    self._create_tools_grid()
+                
+                # Abrir el diálogo automáticamente, pero sin volver a analizar
+                self._open_tool_dialog(tool_id)
                 
             worker.deleteLater()
             
@@ -557,7 +540,7 @@ class Stage3Window(BaseStage):
         
         # === VERIFICAR CONFIRMACIÓN ADICIONAL PARA ELIMINACIÓN ===
         # Lista de herramientas destructivas (que eliminan archivos)
-        destructive_tools = ['live_photos', 'heic', 'exact_copies', 'similar_files', 'zero_byte']
+        destructive_tools = ['live_photos', 'heic', 'duplicates_exact', 'duplicates_similar', 'zero_byte']
         
         # Solo pedir confirmación si es una operación real (no simulada)
         is_dry_run = plan.get('dry_run', False)
@@ -614,7 +597,7 @@ class Stage3Window(BaseStage):
                 dry_run=plan.get('dry_run', False)
             )
         
-        elif tool_id == 'exact_copies':
+        elif tool_id == 'duplicates_exact':
             from services.duplicates_exact_service import DuplicatesExactService
             detector = DuplicatesExactService()
             # DuplicatesExecutionWorker espera (detector, analysis: dataclass, keep_strategy, create_backup, dry_run, metadata_cache)
@@ -627,7 +610,7 @@ class Stage3Window(BaseStage):
                 metadata_cache=self.metadata_cache
             )
         
-        elif tool_id == 'similar_files':
+        elif tool_id == 'duplicates_similar':
             from services.duplicates_similar_service import DuplicatesSimilarService
             detector = DuplicatesSimilarService()
             # DuplicatesExecutionWorker espera (detector, analysis: dataclass, keep_strategy, create_backup, dry_run, metadata_cache)
@@ -640,9 +623,9 @@ class Stage3Window(BaseStage):
                 metadata_cache=self.metadata_cache
             )
         
-        elif tool_id == 'folder-move':
-            from services.file_organizer_service import FileOrganizer
-            organizer = FileOrganizer()
+        elif tool_id == 'file_organizer':
+            from services.file_organizer_service import FileOrganizerService
+            organizer = FileOrganizerService()
             # FileOrganizerExecutionWorker espera (organizer, analysis: dataclass, cleanup_empty_dirs, create_backup, dry_run)
             worker = FileOrganizerExecutionWorker(
                 organizer=organizer,
@@ -652,9 +635,9 @@ class Stage3Window(BaseStage):
                 dry_run=plan.get('dry_run', False)
             )
         
-        elif tool_id == 'rename-box':
-            from services.file_renamer_service import FileRenamer
-            renamer = FileRenamer()
+        elif tool_id == 'file_renamer':
+            from services.file_renamer_service import FileRenamerService
+            renamer = FileRenamerService()
             # FileRenamerExecutionWorker espera (renamer, analysis: dataclass, create_backup, dry_run)
             worker = FileRenamerExecutionWorker(
                 renamer=renamer,
@@ -695,8 +678,22 @@ class Stage3Window(BaseStage):
             if is_cancelled:
                 return
             
+            # Desconectar señal de cancelación antes de cerrar
+            try:
+                progress_dialog.canceled.disconnect(on_cancel)
+            except (RuntimeError, TypeError):
+                pass
+            
             progress_dialog.close()
-            self.logger.info(f"Operación {tool_id} completada: {result}")
+            
+            # Registrar resultado
+            log_msg = f"Operación {tool_id} completada"
+            if hasattr(result, 'success'):
+                log_msg += f" (Success={result.success})"
+            self.logger.info(log_msg)
+            
+            # Log detallado en debug para no inundar el info con listas enormes de archivos
+            self.logger.debug(f"Resultado detallado de {tool_id}: {result}")
             
             # Mostrar resultado
             if result and hasattr(result, 'success') and result.success:
@@ -760,13 +757,32 @@ class Stage3Window(BaseStage):
                         # Actualizar automáticamente sin confirmación
                         self.logger.info(f"Actualizando estadísticas automáticamente para {tool_id} (sin confirmación)")
                         log_section_header_discrete(self.logger, f"Actualización automática de estadísticas para {tool_id}")
-                        QTimer.singleShot(500, lambda: self._update_service_stats(tool_id, auto_update=True))
+                        # Usar QTimer con lambda que capture excepciones
+                        def safe_update():
+                            try:
+                                self._update_service_stats(tool_id, auto_update=True)
+                            except Exception as e:
+                                self.logger.error(f"Error crítico en actualización automática de {tool_id}: {e}")
+                                import traceback
+                                self.logger.error(traceback.format_exc())
+                                QMessageBox.critical(
+                                    self.main_window,
+                                    "Error en actualización",
+                                    f"Error actualizando estadísticas de {tool_id}:\n\n{str(e)[:300]}"
+                                )
+                        QTimer.singleShot(500, safe_update)
         
         def on_error(error_message):
             # Ignorar si ya se canceló
             if is_cancelled:
                 return
             
+            # Desconectar señal de cancelación antes de cerrar
+            try:
+                progress_dialog.canceled.disconnect(on_cancel)
+            except (RuntimeError, TypeError):
+                pass
+                
             progress_dialog.close()
             self.logger.error(f"Error en operación {tool_id}: {error_message}")
             QMessageBox.critical(
@@ -880,10 +896,13 @@ class Stage3Window(BaseStage):
         self.logger.info(f"Actualizando estadísticas para servicio: {tool_id} (auto_update={auto_update})")
         
         try:
+            self.logger.debug(f"Paso 1: Obteniendo análisis actualizado para {tool_id}")
             # Obtener el análisis actualizado para este servicio específico
             updated_analysis = self._get_updated_service_analysis(tool_id)
+            self.logger.debug(f"Paso 1 completado: Análisis obtenido = {updated_analysis is not None}")
             
             if updated_analysis:
+                self.logger.debug(f"Paso 2: Asignando resultado al objeto analysis_results")
                 # Actualizar el análisis en analysis_results según el tipo de servicio
                 if tool_id == 'live_photos':
                     self.analysis_results.live_photos = updated_analysis
@@ -902,12 +921,17 @@ class Stage3Window(BaseStage):
                 else:
                     self.logger.warning(f"No se puede asignar resultado para servicio desconocido: {tool_id}")
                     return
+                self.logger.debug(f"Paso 2 completado: Resultado asignado")
                 
                 # Guardar los resultados actualizados
+                self.logger.debug(f"Paso 3: Guardando resultados actualizados")
                 self.save_analysis_results(self.analysis_results)
+                self.logger.debug(f"Paso 3 completado: Resultados guardados")
                 
                 # Refrescar toda la UI de Stage 3 con los nuevos datos
+                self.logger.debug(f"Paso 4: Refrescando UI de Stage 3")
                 self._refresh_stage_3_ui()
+                self.logger.debug(f"Paso 4 completado: UI refrescada")
                 
                 self.logger.info(f"Estadísticas actualizadas exitosamente para {tool_id}")
                 
@@ -951,40 +975,52 @@ class Stage3Window(BaseStage):
             Análisis actualizado o None si falla
         """
         try:
+            self.logger.debug(f"Iniciando análisis actualizado para {tool_id}")
             # Importar servicios según tool_id
             if tool_id == 'live_photos':
-                from services.live_photos_service import LivePhotosService
-                service = LivePhotosService()
-                return service.analyze()
+                from services.live_photos_service import LivePhotoService
+                service = LivePhotoService()
+                self.logger.debug(f"Ejecutando service.analyze() para {tool_id}")
+                result = service.analyze()
+                self.logger.debug(f"Análisis completado para {tool_id}: {result}")
+                return result
                 
             elif tool_id == 'heic':
                 from services.heic_service import HeicService
                 service = HeicService()
-                return service.analyze()
+                self.logger.debug(f"Ejecutando service.analyze() para {tool_id}")
+                result = service.analyze()
+                self.logger.debug(f"Análisis completado para {tool_id}: items_count={result.items_count if result else 'None'}")
+                return result
                 
             elif tool_id == 'duplicates_exact':
                 from services.duplicates_exact_service import DuplicatesExactService
                 service = DuplicatesExactService()
+                self.logger.debug(f"Ejecutando service.analyze() para {tool_id}")
                 return service.analyze()
                 
             elif tool_id == 'duplicates_similar':
                 from services.duplicates_similar_service import DuplicatesSimilarService
                 service = DuplicatesSimilarService()
+                self.logger.debug(f"Ejecutando service.analyze() para {tool_id}")
                 return service.analyze()
                 
             elif tool_id == 'file_organizer':
                 from services.file_organizer_service import FileOrganizerService
                 service = FileOrganizerService()
+                self.logger.debug(f"Ejecutando service.analyze() para {tool_id}")
                 return service.analyze()
                 
             elif tool_id == 'file_renamer':
                 from services.file_renamer_service import FileRenamerService
                 service = FileRenamerService()
+                self.logger.debug(f"Ejecutando service.analyze() para {tool_id}")
                 return service.analyze()
                 
             elif tool_id == 'zero_byte':
                 from services.zero_byte_service import ZeroByteService
                 service = ZeroByteService()
+                self.logger.debug(f"Ejecutando service.analyze() para {tool_id}")
                 return service.analyze()
                 
             else:
@@ -992,7 +1028,9 @@ class Stage3Window(BaseStage):
                 return None
                 
         except Exception as e:
-            self.logger.error(f"Error obteniendo análisis para {tool_id}: {e}")
+            self.logger.error(f"Error crítico obteniendo análisis para {tool_id}: {e}")
+            import traceback
+            self.logger.error(traceback.format_exc())
             return None
     
     def _update_tool_card_ui(self, tool_id: str, analysis_result) -> None:
@@ -1009,11 +1047,13 @@ class Stage3Window(BaseStage):
             self.logger.debug("Refrescando UI de Stage 3 con datos actualizados")
             
             # Limpiar widgets existentes (excepto header que permanece)
+            self.logger.debug("Limpiando summary_card...")
             if self.summary_card:
                 self.summary_card.hide()
                 self.summary_card.setParent(None)
                 self.summary_card = None
-                
+            
+            self.logger.debug("Limpiando tools_grid...")
             if self.tools_grid:
                 self.tools_grid.hide()
                 self.tools_grid.setParent(None)
@@ -1022,14 +1062,20 @@ class Stage3Window(BaseStage):
             self.tool_cards.clear()
             
             # Recrear la UI con los datos actualizados
+            self.logger.debug("Recreando summary_card...")
             self._show_summary_card()
+            
             # Crear el grid de tools inmediatamente (sin delay para refresh)
+            self.logger.debug("Recreando tools_grid...")
             self._create_tools_grid()
             
             self.logger.debug("UI de Stage 3 refrescada exitosamente")
             
         except Exception as e:
             self.logger.error(f"Error refrescando UI de Stage 3: {e}")
+            import traceback
+            self.logger.error(traceback.format_exc())
+            raise  # Re-lanzar para que se capture en el nivel superior
     
     def _on_reanalyze(self):
         """Maneja el clic en "Reanalizar" (legacy - ahora debería ser raro usarlo)"""
@@ -1070,30 +1116,6 @@ class Stage3Window(BaseStage):
             # Limpiar estado y volver a ESTADO 1
             self._reset_to_state_1()
 
-    def _on_reanalyze(self):
-        """Maneja el clic en "Reanalizar" """
-        self.logger.info("Reanalizando carpeta")
-
-        # Limpiar widgets del ESTADO 3
-        if self.stale_banner:
-            self.stale_banner.hide()
-            self.stale_banner.setParent(None)
-            self.stale_banner = None
-
-        if self.summary_card:
-            self.summary_card.hide()
-            self.summary_card.setParent(None)
-            self.summary_card = None
-
-        if self.tools_grid:
-            self.tools_grid.hide()
-            self.tools_grid.setParent(None)
-            self.tools_grid = None
-
-        self.tool_cards.clear()
-
-        # Volver a ESTADO 2 y reanalizar a través de MainWindow
-        self.main_window._transition_to_state_2(self.selected_folder)
 
     def _reset_to_state_1(self):
         """Reinicia la ventana al ESTADO 1"""

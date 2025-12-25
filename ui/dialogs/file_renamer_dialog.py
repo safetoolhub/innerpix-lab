@@ -13,7 +13,7 @@ from PyQt6.QtGui import QColor, QFont, QCursor
 from PyQt6.QtCore import Qt, QTimer
 from utils.format_utils import format_size
 from utils.settings_manager import settings_manager
-from utils.file_utils import get_file_type
+from utils.file_utils import get_file_type, is_image_file, is_video_file
 from config import Config
 from ui.styles.design_system import DesignSystem
 from ui.styles.design_system import DesignSystem
@@ -248,6 +248,23 @@ class FileRenamerDialog(BaseDialog):
         toolbar.addWidget(type_label)
         toolbar.addWidget(self.type_combo)
         
+        # Filtro por fuente de fecha
+        source_label = QLabel("Fuente:")
+        source_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
+        
+        self.source_combo = QComboBox()
+        date_sources = ["Todos"] + sorted(list(set(
+            item.get('date_source', 'Desconocido') 
+            for item in self.analysis_results.renaming_plan
+        )))
+        self.source_combo.addItems(date_sources)
+        self.source_combo.currentTextChanged.connect(self._apply_filters)
+        self.source_combo.setMinimumWidth(150)
+        self.source_combo.setStyleSheet(DesignSystem.get_combobox_style())
+        
+        toolbar.addWidget(source_label)
+        toolbar.addWidget(self.source_combo)
+        
         # Filtro por año
         year_label = QLabel("Año:")
         year_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
@@ -302,7 +319,7 @@ class FileRenamerDialog(BaseDialog):
         table = QTableWidget()
         table.setColumnCount(5)
         table.setHorizontalHeaderLabels([
-            "Original", "Nuevo", "Fecha", "Tipo", "Conflicto"
+            "Original", "Nuevo", "Fecha", "Fuente", "Tipo"
         ])
         
         header = table.horizontalHeader()
@@ -529,7 +546,7 @@ class FileRenamerDialog(BaseDialog):
         """Analiza los tipos de archivo en el plan de renombrado"""
         type_counter = Counter()
         for item in self.analysis_results.renaming_plan:
-            file_type = Config.get_file_type(item['original_path'].name)
+            file_type = get_file_type(item['original_path'].name)
             type_counter[file_type] += 1
         return type_counter
 
@@ -539,6 +556,7 @@ class FileRenamerDialog(BaseDialog):
         filter_option = self.filter_combo.currentText()
         year_filter = self.year_combo.currentText()
         type_filter = self.type_combo.currentText()
+        source_filter = self.source_combo.currentText()
         
         self.filtered_plan = []
         
@@ -559,8 +577,14 @@ class FileRenamerDialog(BaseDialog):
             
             # Filtro por tipo de archivo
             if type_filter != "Todos":
-                file_type = Config.get_file_type(item['original_path'].name)
+                file_type = get_file_type(item['original_path'].name)
                 if file_type != type_filter:
+                    continue
+            
+            # Filtro por fuente de fecha
+            if source_filter != "Todos":
+                item_source = item.get('date_source', 'Desconocido')
+                if item_source != source_filter:
                     continue
             
             self.filtered_plan.append(item)
@@ -574,6 +598,7 @@ class FileRenamerDialog(BaseDialog):
         self.search_input.clear()
         self.filter_combo.setCurrentIndex(0)
         self.year_combo.setCurrentIndex(0)
+        self.source_combo.setCurrentIndex(0)
         self.type_combo.setCurrentIndex(0)
 
     def _update_table(self):
@@ -621,38 +646,43 @@ class FileRenamerDialog(BaseDialog):
             
             # Procesar eventos cada 100 filas para evitar congelación
             for row, item in enumerate(items_to_show):
+                has_conflict = item.get('has_conflict', False)
+                conflict_color = QColor(255, 200, 200) if has_conflict else None  # Rojo suave para conflictos
+                
                 # Original
                 original_item = QTableWidgetItem(item['original_path'].name)
                 original_item.setData(Qt.ItemDataRole.UserRole, str(item['original_path']))
+                if conflict_color:
+                    original_item.setBackground(conflict_color)
                 self.changes_table.setItem(row, 0, original_item)
                 
                 # Nuevo
                 new_item = QTableWidgetItem(item['new_name'])
-                if item['has_conflict']:
-                    new_item.setBackground(QColor(255, 243, 205))
+                if conflict_color:
+                    new_item.setBackground(conflict_color)
                 self.changes_table.setItem(row, 1, new_item)
                 
                 # Fecha
                 date_item = QTableWidgetItem(item['date'].strftime('%Y-%m-%d %H:%M:%S'))
+                if conflict_color:
+                    date_item.setBackground(conflict_color)
                 self.changes_table.setItem(row, 2, date_item)
                 
+                # Fuente de la fecha
+                date_source = item.get('date_source', 'Desconocido')
+                source_item = QTableWidgetItem(date_source)
+                source_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+                if conflict_color:
+                    source_item.setBackground(conflict_color)
+                self.changes_table.setItem(row, 3, source_item)
+                
                 # Tipo
-                file_type = Config.get_file_type(item['original_path'].name)
+                file_type = get_file_type(item['original_path'].name)
                 type_item = QTableWidgetItem(file_type)
                 type_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                self.changes_table.setItem(row, 3, type_item)
-                
-                # Conflicto
-                conflict_text = "Sí" if item['has_conflict'] else "No"
-                conflict_item = QTableWidgetItem(conflict_text)
-                conflict_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                if item['has_conflict']:
-                    conflict_item.setBackground(QColor(255, 193, 7))  # DesignSystem.COLOR_CONFLICT_BG
-                    conflict_item.setForeground(QColor(0, 0, 0))
-                else:
-                    conflict_item.setBackground(QColor(76, 175, 80))  # DesignSystem.COLOR_SUCCESS_BG
-                    conflict_item.setForeground(QColor(255, 255, 255))
-                self.changes_table.setItem(row, 4, conflict_item)
+                if conflict_color:
+                    type_item.setBackground(conflict_color)
+                self.changes_table.setItem(row, 4, type_item)
                 
                 # Procesar eventos cada 100 filas para mantener UI responsiva
                 if row % 100 == 0:
@@ -789,8 +819,7 @@ class FileRenamerDialog(BaseDialog):
         file_path = file_info['original_path']
         
         # Detectar tipo de archivo desde la extensión
-        from config import Config
-        file_type = 'Imagen' if Config.is_image_file(file_path) else 'Video' if Config.is_video_file(file_path) else 'Desconocido'
+        file_type = 'Imagen' if is_image_file(file_path) else 'Video' if is_video_file(file_path) else 'Desconocido'
         
         additional_info = {
             'original_name': file_path.name,

@@ -27,13 +27,12 @@ class LivePhotosAnalysisWorker(BaseWorker):
     def run(self):
         try:
             if self._stop_requested: return
-            from services.live_photos_service import LivePhotoService, CleanupMode
+            from services.live_photos_service import LivePhotoService
             
             service = LivePhotoService()
             result = service.analyze(
-                cleanup_mode=CleanupMode.KEEP_IMAGE,
-                progress_callback=self._create_progress_callback(emit_numbers=True),
-                directory=self.directory
+                validate_dates=True,  # Validar fechas por defecto
+                progress_callback=self._create_progress_callback(emit_numbers=True)
             )
             
             if not self._stop_requested:
@@ -122,8 +121,8 @@ class FileRenamerAnalysisWorker(BaseWorker):
     def run(self):
         try:
             if self._stop_requested: return
-            from services.file_renamer_service import FileRenamer
-            service = FileRenamer()
+            from services.file_renamer_service import FileRenamerService
+            service = FileRenamerService()
             result = service.analyze(
                 directory=self.directory,
                 progress_callback=self._create_progress_callback(emit_numbers=True)
@@ -156,10 +155,10 @@ class FileOrganizerAnalysisWorker(BaseWorker):
     def run(self):
         try:
             if self._stop_requested: return
-            from services.file_organizer_service import FileOrganizer
+            from services.file_organizer_service import FileOrganizerService
             from services.file_organizer_service import OrganizationType
             
-            service = FileOrganizer()
+            service = FileOrganizerService()
             
             org_type = self.organization_type
             if org_type is None:
@@ -168,7 +167,7 @@ class FileOrganizerAnalysisWorker(BaseWorker):
                 org_type = OrganizationType(org_type)
                 
             result = service.analyze(
-                directory=self.directory,
+                root_directory=self.directory,
                 organization_type=org_type,
                 progress_callback=self._create_progress_callback(emit_numbers=True),
                 group_by_source=self.group_by_source,
@@ -182,7 +181,10 @@ class FileOrganizerAnalysisWorker(BaseWorker):
 
 class DuplicatesSimilarAnalysisWorker(BaseWorker):
     """
-    Worker para análisis inicial de archivos similares (perceptual hash).
+    Worker para análisis de archivos similares (perceptual hash).
+    
+    Retorna DuplicatesSimilarAnalysis para permitir ajuste interactivo
+    de sensibilidad en el diálogo sin recalcular hashes.
     """
     finished = pyqtSignal(object)  # DuplicatesSimilarAnalysis
     
@@ -198,18 +200,9 @@ class DuplicatesSimilarAnalysisWorker(BaseWorker):
             if self._stop_requested:
                 return
             
-            def progress_callback(current: int, total: int, message: str) -> bool:
-                if self._stop_requested:
-                    return False
-                self.progress_update.emit(current, total, message)
-                return True
-            
-            # Importar tipo para type hint
-            from services.duplicates_similar_service import DuplicatesSimilarAnalysis
-            
-            # Ejecutar análisis inicial (solo hashes)
-            analysis = self.detector.analyze_initial(
-                progress_callback=progress_callback
+            # Obtener análisis para uso interactivo (hashes precalculados)
+            analysis = self.detector.get_analysis_for_dialog(
+                progress_callback=self._create_progress_callback(emit_numbers=True)
             )
             
             if not self._stop_requested:
