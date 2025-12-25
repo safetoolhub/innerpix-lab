@@ -228,13 +228,13 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
         for key, val in additional_info.items():
             if key in ['metadata', 'target_path']: continue # Manejados aparte o ignorados
             # Determinar icono y color según el tipo de información
-            icon = 'tag'
+            icon = 'information-outline'
             color = DesignSystem.COLOR_INFO
             if 'name' in key: 
-                icon = 'file-rename'
+                icon = 'file-edit'
                 color = DesignSystem.COLOR_ACCENT
             if 'conflict' in key: 
-                icon = 'alert-decagram'
+                icon = 'alert'
                 color = DesignSystem.COLOR_ERROR
             
             # Generar descripción genérica

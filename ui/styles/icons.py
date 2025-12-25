@@ -73,7 +73,6 @@ class IconManager:
         'file-document-outline': 'mdi6.file-document-outline',
         'file-edit': 'mdi6.file-edit',
         'file-plus': 'mdi6.file-plus',
-        'file-rename': 'mdi6.file-rename',
         'file-x': 'mdi6.file-remove',
         'files': 'mdi6.file-multiple',
         'open-in-new': 'mdi6.open-in-new',
