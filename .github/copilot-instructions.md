@@ -55,7 +55,10 @@ PyQt6 desktop app for photo/video management oriented to privacy.
 - **Interactive API**: `get_analysis_for_dialog()` - Returns `DuplicatesSimilarAnalysis` for real-time sensitivity adjustment
 - `DuplicatesSimilarAnalysis`: Container for pre-calculated hashes, enables real-time re-clustering via `get_groups(sensitivity)`
 - Internal method: `_calculate_perceptual_hashes()` - Expensive hash calculation (~5 min for 40k files), cached in memory
-- `find_new_groups()`: Incremental analysis for new files vs existing dataset
+- **Incremental analysis**: `find_new_groups(new_hashes, existing_hashes, sensitivity)` - Compares new batch vs existing for progressive loading
+  - Used by dialog for batch processing (avoids loading all groups at once)
+  - Returns `DuplicateAnalysisResult` with only groups containing new files
+  - Prevents UI freezing with large datasets (>10k files)
 - Serialization: `save_to_file()` / `load_from_file()` for instant cache reload
 - Hamming distance: 64-bit perceptual hash comparison for similarity detection
 - Sensitivity scale: 30-100% (30=permissive, 100=identical only, 85=recommended)
@@ -77,7 +80,8 @@ PyQt6 desktop app for photo/video management oriented to privacy.
 - Base: `BaseWorker` with `progress_update`, `finished`, `error` signals
 - Type-safe: hints on `__init__` and `run()`, TYPE_CHECKING for imports
 - `InitialAnalysisWorker`: Stage 2 multi-phase scan worker, emits `phase_started(phase_id, message)`, `phase_completed(phase_id)`, `stats_update(dict)`
-- On-demand workers: `LivePhotosAnalysisWorker`, `HeicAnalysisWorker`, `DuplicatesExactAnalysisWorker`, etc.
+- On-demand workers: `LivePhotosAnalysisWorker`, `HeicAnalysisWorker`, `DuplicatesExactAnalysisWorker`, `ZeroByteAnalysisWorker`, `FileRenamerAnalysisWorker`, `FileOrganizerAnalysisWorker`
+- `DuplicatesSimilarAnalysisWorker`: Special case - calls `get_analysis_for_dialog()` instead of `analyze()` to enable interactive sensitivity adjustment in dialog
 
 **UI Stages** (`ui/screens/`) - 3-stage flow
 - Stage 1: Folder selector
@@ -187,6 +191,9 @@ Dry-run mode for testing. No deletions/moves/renames.
 - **Tool Dialogs**:
   - `duplicates_exact_dialog.py`: Gestión de duplicados exactos (SHA256), estrategias de eliminación
   - `duplicates_similar_dialog.py`: Gestión de duplicados similares (perceptual hash), ajuste de sensibilidad en tiempo real
+    - Progressive batch loading: Loads groups in batches to avoid UI freeze with large datasets (>10k files)
+    - Uses `DuplicatesSimilarAnalysis.find_new_groups()` for incremental group detection
+    - Default batch size: 25 files (configurable via `Config.SIMILAR_FILES_INITIAL_BATCH_SIZE`)
   - `duplicates_similar_progress_dialog.py`: Diálogo de progreso para análisis de similares
   - `file_organizer_dialog.py`: Organización de archivos, 3 modos (TO_ROOT, BY_MONTH, WHATSAPP_SEPARATE), paginación (200/page)
   - `file_renamer_dialog.py`: Renombrado de archivos, mapeos original → nuevo, indicadores de conflictos

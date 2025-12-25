@@ -41,7 +41,7 @@ class FileOrganizerDialog(BaseDialog):
     ITEMS_PER_PAGE = 200
     MAX_ITEMS_WITHOUT_PAGINATION = 500
 
-    def __init__(self, initial_analysis: OrganizationAnalysisResult, parent=None, metadata_cache=None):
+    def __init__(self, initial_analysis: OrganizationAnalysisResult, parent=None):
         super().__init__(parent)
         self.logger = get_logger("FileOrganizationDialog")
         
@@ -51,7 +51,6 @@ class FileOrganizerDialog(BaseDialog):
         self.analysis = None  # Empezar sin análisis hasta que el usuario seleccione
         self.current_organization_type = None  # Sin tipo seleccionado inicialmente
         self.accepted_plan = None
-        self.metadata_cache = metadata_cache  # Caché para reutilizar en re-análisis
         
         # Datos filtrados y paginación
         self.filtered_moves = []  # Empezar vacío hasta que el usuario seleccione
@@ -377,21 +376,27 @@ class FileOrganizerDialog(BaseDialog):
         # Determinar la estrategia inicial basada en initial_analysis o un valor por defecto
         initial_strategy_key = 'date' # Default
         if self.initial_analysis:
-            if self.initial_analysis.organization_type in self.strategies['date']['types']:
+            # organization_type es un string, comparar con .value de los enums
+            org_type_str = self.initial_analysis.organization_type
+            
+            # Convertir tipos de fecha a enum para comparación
+            date_types = [t.value for t in self.strategies['date']['types']]
+            
+            if org_type_str in date_types:
                 initial_strategy_key = 'date'
                 # Set initial combo box value for date granularity
-                if self.initial_analysis.organization_type == OrganizationType.BY_MONTH:
+                if org_type_str == OrganizationType.BY_MONTH.value:
                     self.date_granularity_combo.setCurrentIndex(0)
-                elif self.initial_analysis.organization_type == OrganizationType.BY_YEAR:
+                elif org_type_str == OrganizationType.BY_YEAR.value:
                     self.date_granularity_combo.setCurrentIndex(1)
-                elif self.initial_analysis.organization_type == OrganizationType.BY_YEAR_MONTH:
+                elif org_type_str == OrganizationType.BY_YEAR_MONTH.value:
                     self.date_granularity_combo.setCurrentIndex(2)
                 
                 # Set initial checkbox states
                 self.chk_date_source.setChecked(self.initial_analysis.group_by_source)
                 self.chk_date_type.setChecked(self.initial_analysis.group_by_type)
 
-            elif self.initial_analysis.organization_type == OrganizationType.BY_TYPE:
+            elif org_type_str == OrganizationType.BY_TYPE.value:
                 initial_strategy_key = 'type'
                 # Set initial combo box value for secondary grouping
                 if self.initial_analysis.date_grouping_type == 'month':
@@ -403,7 +408,7 @@ class FileOrganizerDialog(BaseDialog):
                 else:
                     self.type_secondary_combo.setCurrentIndex(0) # Ninguna
 
-            elif self.initial_analysis.organization_type == OrganizationType.BY_SOURCE:
+            elif org_type_str == OrganizationType.BY_SOURCE.value:
                 initial_strategy_key = 'source'
                 # Set initial combo box value for secondary grouping
                 if self.initial_analysis.date_grouping_type == 'month':
@@ -415,7 +420,7 @@ class FileOrganizerDialog(BaseDialog):
                 else:
                     self.source_secondary_combo.setCurrentIndex(0) # Ninguna
 
-            elif self.initial_analysis.organization_type == OrganizationType.TO_ROOT:
+            elif org_type_str == OrganizationType.TO_ROOT.value:
                 initial_strategy_key = 'cleanup'
         
         # Simulate a click on the initial strategy card to set up UI and trigger analysis
@@ -534,7 +539,6 @@ class FileOrganizerDialog(BaseDialog):
         self.worker = FileOrganizerAnalysisWorker(
             directory=self.root_directory,
             organization_type=org_type,
-            metadata_cache=self.metadata_cache,
             group_by_source=group_by_source,
             group_by_type=group_by_type,
             date_grouping_type=date_grouping_type

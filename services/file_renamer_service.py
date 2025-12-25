@@ -21,6 +21,8 @@ from utils.file_utils import (
     launch_backup_creation,
     find_next_available_name,
     validate_file_exists,
+    get_file_type,
+    is_supported_file
 )
 from services.file_metadata_repository_cache import FileInfoRepositoryCache
 
@@ -57,7 +59,6 @@ class FileRenamer(BaseService):
         else:
             self.logger.info("Escaneando disco...")
             for file_path in directory.rglob("*"):
-                from utils.file_utils import is_supported_file, get_file_type
                 if file_path.is_file() and is_supported_file(file_path.name):
                     all_files.append(file_path)
 

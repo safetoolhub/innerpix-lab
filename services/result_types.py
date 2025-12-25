@@ -232,6 +232,38 @@ class DuplicateExecutionResult(ExecutionResult):
     keep_strategy: Optional[str] = None
 
 
+# --- Organization Service ---
+@dataclass
+class OrganizationAnalysisResult(AnalysisResult):
+    """Result for file organization analysis."""
+    move_plan: List[Any] = field(default_factory=list)  # List of FileMove objects
+    root_directory: str = ''
+    organization_type: str = 'to_root'  # Base organization type: 'to_root', 'by_month', 'by_year', 'by_year_month', 'by_type', 'by_source'
+    folders_to_create: List[str] = field(default_factory=list)
+    subdirectories: Dict[str, Any] = field(default_factory=dict)  # Subdirectories found in root
+    total_size_to_move: int = 0  # Total size of files to move
+    
+    # New fields for combined organization options
+    group_by_source: bool = False  # Whether to group by source (WhatsApp, Camera, etc.)
+    group_by_type: bool = False    # Whether to group by type (Photos/Videos)
+    date_grouping_type: Optional[str] = None  # Secondary date grouping: 'month', 'year', 'year_month'
+    
+    def __post_init__(self):
+        if not self.items_count and self.move_plan:
+            self.items_count = len(self.move_plan)
+        if not self.bytes_total and self.move_plan:
+             self.bytes_total = sum(m.size for m in self.move_plan)
+        if not self.total_size_to_move and self.move_plan:
+             self.total_size_to_move = sum(m.size for m in self.move_plan)
+
+@dataclass
+class OrganizationExecutionResult(ExecutionResult):
+    """Result for file organization execution."""
+    empty_directories_removed: int = 0
+    moved_files: List[str] = field(default_factory=list)
+    folders_created: List[str] = field(default_factory=list)
+
+
 # --- Rename Service ---
 @dataclass
 class RenameAnalysisResult(AnalysisResult):
@@ -250,30 +282,6 @@ class RenameExecutionResult(ExecutionResult):
     """Result for file renaming execution."""
     renamed_files: List[dict] = field(default_factory=list)
     conflicts_resolved: int = 0
-
-# --- Organization Service ---
-@dataclass
-class OrganizationAnalysisResult(AnalysisResult):
-    """Result for file organization analysis."""
-    move_plan: List[Any] = field(default_factory=list)  # List of FileMove objects
-    root_directory: str = ''
-    organization_type: str = 'to_root'  # 'to_root', 'by_month', 'whatsapp_separate'
-    folders_to_create: List[str] = field(default_factory=list)
-    
-    def __post_init__(self):
-        if not self.items_count and self.move_plan:
-            self.items_count = len(self.move_plan)
-        if not self.bytes_total and self.move_plan:
-             self.bytes_total = sum(m.size for m in self.move_plan)
-
-@dataclass
-class OrganizationExecutionResult(ExecutionResult):
-    """Result for file organization execution."""
-    empty_directories_removed: int = 0
-    moved_files: List[str] = field(default_factory=list)
-    folders_created: List[str] = field(default_factory=list)
-
-
 
 # ============================================================================
 # DIRECTORY SCANNER RESULT TYPES

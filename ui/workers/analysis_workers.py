@@ -167,7 +167,7 @@ class FileOrganizerAnalysisWorker(BaseWorker):
                 org_type = OrganizationType(org_type)
                 
             result = service.analyze(
-                directory=self.directory,
+                root_directory=self.directory,
                 organization_type=org_type,
                 progress_callback=self._create_progress_callback(emit_numbers=True),
                 group_by_source=self.group_by_source,

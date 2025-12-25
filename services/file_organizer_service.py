@@ -17,7 +17,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from config import Config
 from utils.logger import log_section_header_relevant, log_section_footer_relevant, log_section_header_discrete, log_section_footer_discrete
 from utils.date_utils import select_best_date_from_file, get_all_metadata_from_file
-from utils.file_utils import detect_file_source, cleanup_empty_directories
+from utils.file_utils import detect_file_source, cleanup_empty_directories, get_file_type, is_supported_file
 from services.result_types import OrganizationExecutionResult, OrganizationAnalysisResult
 from services.base_service import BaseService, ProgressCallback, BackupCreationError
 from services.file_metadata_repository_cache import FileInfoRepositoryCache
@@ -77,6 +77,7 @@ class FileOrganizer(BaseService):
         log_section_header_discrete(self.logger, f"ANALIZANDO ORGANIZACIÓN ({organization_type.value}): {root_directory}")
 
         repo = FileInfoRepositoryCache.get_instance()
+        self.logger.info(f"Usando FileInfoRepositoryCache con {repo.get_file_count()} archivos")
         
         subdirectories = {}
         root_files = []
@@ -86,7 +87,7 @@ class FileOrganizer(BaseService):
              raise ValueError(f"Directorio no existe: {root_directory}")
 
         # Recopilar nombres existentes en root (para TO_ROOT y check de conflictos)
-        # Esto siempre necesitamos hacerlo "live" porque metadata_cache puede no tener items de root si solo escaneó subdirs,
+        # Esto siempre necesitamos hacerlo "live" porque el caché puede no tener items de root si solo escaneó subdirs,
         # o si hay carpetas no cacheadas.
         # Pero TO_ROOT solo necesita 'existing_file_names'.
         try:
@@ -94,15 +95,14 @@ class FileOrganizer(BaseService):
         except Exception:
             pass
 
-        # Si tenemos metadata_cache, lo usamos para listar archivos con O(0) IO
+        # Si tenemos caché poblado, lo usamos para listar archivos con O(0) IO
         all_files = []
-        if metadata_cache:
-            self.logger.info(f"Usando caché de metadatos ({metadata_cache.get_cache_statistics().total_files} archivos)")
+        if repo.get_file_count() > 0:
+            self.logger.info(f"Usando caché de metadatos ({repo.get_file_count()} archivos)")
             
             # Filtrar archivos que pertenecen a root_directory
-            # Asumimos que metadata_cache tiene items con path.
             # Iteramos todos y chequeamos parent.
-            cache_files = metadata_cache.get_all_files()
+            cache_files = repo.get_all_files()
             
             for meta in cache_files:
                 # Comprobar si está dentro de root_directory
@@ -112,26 +112,21 @@ class FileOrganizer(BaseService):
                 except ValueError:
                     continue
         else:
-             # Fallback si no hay cache (scan manual)
-             self.logger.info("Sin metadata cache, escaneando disco...")
-             # Simulamos FileMetadata
+             # Fallback si el caché está vacío (scan manual)
+             self.logger.info("Caché vacío, escaneando disco...")
+             from services.file_metadata import FileMetadata
+             
              for p in root_directory.rglob("*"):
-                 from utils.file_utils import is_supported_file, get_file_type
                  if p.is_file() and is_supported_file(p.name):
-                     # Crear dummy meta (solo necesitamos path, size, type)
-                     # No tenemos clase FileMetadata expuesta fácil, usaremos dict o objeto simple
-                     # Mejor usar la clase real si importada
-                     from services.file_info_repository import FileMetadata
                      try:
                         sz = p.stat().st_size
-                        # mtime
-                        mt = p.stat().st_mtime
+                        st = p.stat()
                         all_files.append(FileMetadata(
                             path=p,
-                            size=sz,
-                            mtime=mt,
-                            extension=p.suffix.lower(),
-                            file_type=get_file_type(p.name)
+                            fs_size=sz,
+                            fs_ctime=st.st_ctime,
+                            fs_mtime=st.st_mtime,
+                            fs_atime=st.st_atime
                         ))
                      except Exception:
                          pass
@@ -143,7 +138,7 @@ class FileOrganizer(BaseService):
         # Clasificar archivos en subdirectories y root_files
         for idx, meta in enumerate(all_files):
             if idx % 500 == 0 and not self._report_progress(progress_callback, idx, total_files, "Clasificando archivos"):
-                return self._create_empty_result(root_directory, organization_type)
+                return self._create_empty_result(root_directory, organization_type, group_by_source, group_by_type, date_grouping_type)
 
             file_path = meta.path
             parent_dir = file_path.parent
@@ -228,7 +223,12 @@ class FileOrganizer(BaseService):
             move_plan=move_plan,
             root_directory=str(root_directory),
             organization_type=organization_type.value,
-            folders_to_create=folders_to_create
+            folders_to_create=folders_to_create,
+            subdirectories=subdirectories,
+            total_size_to_move=total_size,
+            group_by_source=group_by_source,
+            group_by_type=group_by_type,
+            date_grouping_type=date_grouping_type
         )
     
     def execute(self, 
@@ -346,12 +346,17 @@ class FileOrganizer(BaseService):
     def _get_default_subdir_info(self):
         return {'path': '', 'file_count': 0, 'total_size': 0, 'files': []}
         
-    def _create_empty_result(self, root, type_):
+    def _create_empty_result(self, root, type_, group_by_source=False, group_by_type=False, date_grouping_type=None):
         return OrganizationAnalysisResult(
             move_plan=[],
             root_directory=str(root),
             organization_type=type_.value,
-            folders_to_create=[]
+            folders_to_create=[],
+            subdirectories={},
+            total_size_to_move=0,
+            group_by_source=group_by_source,
+            group_by_type=group_by_type,
+            date_grouping_type=date_grouping_type
         )
 
     # --- MÉTODOS DE GENERACIÓN DE PLAN (Idénticos a original, simplificados llamada) ---

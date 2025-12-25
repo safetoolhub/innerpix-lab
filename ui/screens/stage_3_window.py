@@ -388,7 +388,7 @@ class Stage3Window(BaseStage):
         elif tool_id == 'file_organizer':
             # Organizing puede funcionar sin análisis previo (usa defaults o analiza on-fly)
             org_data = getattr(self.analysis_results, 'organization', None) if hasattr(self.analysis_results, 'organization') else None
-            dialog = FileOrganizerDialog(org_data, self.main_window, self.metadata_cache)
+            dialog = FileOrganizerDialog(org_data, self.main_window)
 
         elif tool_id == 'file_renamer':
             # Renaming igual
