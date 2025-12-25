@@ -121,8 +121,8 @@ class FileRenamerAnalysisWorker(BaseWorker):
     def run(self):
         try:
             if self._stop_requested: return
-            from services.file_renamer_service import FileRenamer
-            service = FileRenamer()
+            from services.file_renamer_service import FileRenamerService
+            service = FileRenamerService()
             result = service.analyze(
                 directory=self.directory,
                 progress_callback=self._create_progress_callback(emit_numbers=True)
@@ -155,10 +155,10 @@ class FileOrganizerAnalysisWorker(BaseWorker):
     def run(self):
         try:
             if self._stop_requested: return
-            from services.file_organizer_service import FileOrganizer
+            from services.file_organizer_service import FileOrganizerService
             from services.file_organizer_service import OrganizationType
             
-            service = FileOrganizer()
+            service = FileOrganizerService()
             
             org_type = self.organization_type
             if org_type is None:

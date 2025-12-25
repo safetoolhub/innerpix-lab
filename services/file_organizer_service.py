@@ -57,7 +57,7 @@ class FileMove:
     def will_rename(self) -> bool:
         return self.original_name != self.new_name
 
-class FileOrganizer(BaseService):
+class FileOrganizerService(BaseService):
     """Organizador de archivos - Mueve archivos multimedia de subdirectorios al directorio raíz"""
 
     def __init__(self):
@@ -87,49 +87,25 @@ class FileOrganizer(BaseService):
              raise ValueError(f"Directorio no existe: {root_directory}")
 
         # Recopilar nombres existentes en root (para TO_ROOT y check de conflictos)
-        # Esto siempre necesitamos hacerlo "live" porque el caché puede no tener items de root si solo escaneó subdirs,
-        # o si hay carpetas no cacheadas.
-        # Pero TO_ROOT solo necesita 'existing_file_names'.
         try:
             folder_names_in_root = {item.name for item in root_directory.iterdir()}
         except Exception:
             pass
 
-        # Si tenemos caché poblado, lo usamos para listar archivos con O(0) IO
+        # Usar caché de metadatos (repositorio pasivo)
         all_files = []
-        if repo.get_file_count() > 0:
-            self.logger.info(f"Usando caché de metadatos ({repo.get_file_count()} archivos)")
-            
-            # Filtrar archivos que pertenecen a root_directory
-            # Iteramos todos y chequeamos parent.
-            cache_files = repo.get_all_files()
-            
-            for meta in cache_files:
-                # Comprobar si está dentro de root_directory
-                try:
-                    if meta.path.is_relative_to(root_directory):
-                        all_files.append(meta)
-                except ValueError:
-                    continue
-        else:
-             # Fallback si el caché está vacío (scan manual)
-             self.logger.info("Caché vacío, escaneando disco...")
-             from services.file_metadata import FileMetadata
-             
-             for p in root_directory.rglob("*"):
-                 if p.is_file() and is_supported_file(p.name):
-                     try:
-                        sz = p.stat().st_size
-                        st = p.stat()
-                        all_files.append(FileMetadata(
-                            path=p,
-                            fs_size=sz,
-                            fs_ctime=st.st_ctime,
-                            fs_mtime=st.st_mtime,
-                            fs_atime=st.st_atime
-                        ))
-                     except Exception:
-                         pass
+        self.logger.info(f"Usando caché de metadatos ({repo.get_file_count()} archivos)")
+        
+        # Filtrar archivos que pertenecen a root_directory
+        cache_files = repo.get_all_files()
+        
+        for meta in cache_files:
+            # Comprobar si está dentro de root_directory
+            try:
+                if meta.path.is_relative_to(root_directory):
+                    all_files.append(meta)
+            except ValueError:
+                continue
 
         total_files = len(all_files)
         files_by_type = Counter()

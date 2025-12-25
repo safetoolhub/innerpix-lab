@@ -27,7 +27,7 @@ from utils.file_utils import (
 from services.file_metadata_repository_cache import FileInfoRepositoryCache
 
 
-class FileRenamer(BaseService):
+class FileRenamerService(BaseService):
     """
     Renombrador de nombres de archivos multimedia
     """
@@ -47,20 +47,14 @@ class FileRenamer(BaseService):
 
         repo = FileInfoRepositoryCache.get_instance()
         all_files = []
-        if repo.get_file_count() > 0:
-            self.logger.info(f"Usando FileInfoRepositoryCache ({repo.get_file_count()} archivos)")
-            cached_files = repo.get_all_files()
-            for meta in cached_files:
-                try:
-                    if meta.path.is_relative_to(directory):
-                        all_files.append(meta.path)
-                except ValueError:
-                    continue
-        else:
-            self.logger.info("Escaneando disco...")
-            for file_path in directory.rglob("*"):
-                if file_path.is_file() and is_supported_file(file_path.name):
-                    all_files.append(file_path)
+        self.logger.info(f"Usando FileInfoRepositoryCache ({repo.get_file_count()} archivos)")
+        cached_files = repo.get_all_files()
+        for meta in cached_files:
+            try:
+                if meta.path.is_relative_to(directory):
+                    all_files.append(meta.path)
+            except ValueError:
+                continue
 
         total_files = len(all_files)
         self.logger.info(f"Encontrados {total_files} archivos para analizar")

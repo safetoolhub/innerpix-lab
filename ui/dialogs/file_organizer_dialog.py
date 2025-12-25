@@ -22,7 +22,7 @@ from utils.file_utils import is_whatsapp_file
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
 from utils.logger import get_logger
-from services.file_organizer_service import FileOrganizer, OrganizationType
+from services.file_organizer_service import FileOrganizerService, OrganizationType
 from services.result_types import OrganizationAnalysisResult
 from ui.workers import FileOrganizerAnalysisWorker
 from .base_dialog import BaseDialog

@@ -472,6 +472,14 @@ class Stage3Window(BaseStage):
                     self.analysis_results.zero_byte = result
                     self._create_tools_grid()
                 
+                elif tool_id == 'file_organizer':
+                    self.analysis_results.organization = result
+                    self._create_tools_grid()
+                
+                elif tool_id == 'file_renamer':
+                    self.analysis_results.renaming = result
+                    self._create_tools_grid()
+                
                 # Abrir el diálogo automáticamente
                 self._on_tool_clicked(tool_id)
                 
