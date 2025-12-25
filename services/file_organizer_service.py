@@ -108,6 +108,7 @@ class FileOrganizerService(BaseService):
                 continue
 
         total_files = len(all_files)
+        total_scanned_size = sum(meta.fs_size for meta in all_files)
         files_by_type = Counter()
         processed_files = 0
         
@@ -201,7 +202,8 @@ class FileOrganizerService(BaseService):
             organization_type=organization_type.value,
             folders_to_create=folders_to_create,
             subdirectories=subdirectories,
-            total_size_to_move=total_size,
+            items_count=total_files,
+            bytes_total=total_scanned_size,
             group_by_source=group_by_source,
             group_by_type=group_by_type,
             date_grouping_type=date_grouping_type
@@ -328,7 +330,6 @@ class FileOrganizerService(BaseService):
             organization_type=type_.value,
             folders_to_create=[],
             subdirectories={},
-            total_size_to_move=0,
             group_by_source=group_by_source,
             group_by_type=group_by_type,
             date_grouping_type=date_grouping_type

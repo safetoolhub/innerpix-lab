@@ -241,20 +241,25 @@ class OrganizationAnalysisResult(AnalysisResult):
     organization_type: str = 'to_root'  # Base organization type: 'to_root', 'by_month', 'by_year', 'by_year_month', 'by_type', 'by_source'
     folders_to_create: List[str] = field(default_factory=list)
     subdirectories: Dict[str, Any] = field(default_factory=dict)  # Subdirectories found in root
-    total_size_to_move: int = 0  # Total size of files to move
     
-    # New fields for combined organization options
+    # Required for the UI to remember selection
     group_by_source: bool = False  # Whether to group by source (WhatsApp, Camera, etc.)
     group_by_type: bool = False    # Whether to group by type (Photos/Videos)
     date_grouping_type: Optional[str] = None  # Secondary date grouping: 'month', 'year', 'year_month'
     
+    @property
+    def files_to_move(self) -> int:
+        """Número de archivos que la estrategia actual moverá."""
+        return len(self.move_plan)
+
+    @property
+    def bytes_to_move(self) -> int:
+        """Tamaño total de los archivos que la estrategia actual moverá."""
+        return sum(m.size for m in self.move_plan)
+
     def __post_init__(self):
-        if not self.items_count and self.move_plan:
-            self.items_count = len(self.move_plan)
-        if not self.bytes_total and self.move_plan:
-             self.bytes_total = sum(m.size for m in self.move_plan)
-        if not self.total_size_to_move and self.move_plan:
-             self.total_size_to_move = sum(m.size for m in self.move_plan)
+        # We now keep __post_init__ empty to avoid automatic overrides
+        pass
 
 @dataclass
 class OrganizationExecutionResult(ExecutionResult):
@@ -285,8 +290,8 @@ class RenameAnalysisResult(AnalysisResult):
         return len(self.issues)
     
     def __post_init__(self):
-        if not self.items_count and self.renaming_plan:
-            self.items_count = len(self.renaming_plan)
+        # We now keep __post_init__ empty to avoid automatic overrides
+        pass
 
 @dataclass
 class RenameExecutionResult(ExecutionResult):

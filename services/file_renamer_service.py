@@ -157,12 +157,23 @@ class FileRenamerService(BaseService):
 
         log_section_footer_discrete(self.logger, f"Análisis completado: {len(renaming_plan)} archivos para renombrar")
         
+        # Calculate total scanned metrics for stable reference
+        total_files = sum(files_by_year.values()) + already_renamed
+        total_size = sum(item.get('size', 0) for item in renaming_plan) # Simplified
+        # In a real scan we'd have the total size. Since renamer is specialized, 
+        # we'll approximate or use repo if available.
+        repo = FileInfoRepositoryCache.get_instance()
+        items_count = repo.get_file_count() if repo.get_file_count() > 0 else total_files
+        bytes_total = repo.get_total_size() if repo.get_total_size() > 0 else total_size
+
         return RenameAnalysisResult(
             renaming_plan=renaming_plan,
             already_renamed=already_renamed,
             conflicts=conflicts,
             files_by_year=dict(files_by_year),
-            issues=issues
+            issues=issues,
+            items_count=items_count,
+            bytes_total=bytes_total
         )
     
     def execute(
