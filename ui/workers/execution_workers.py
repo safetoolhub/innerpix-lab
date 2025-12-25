@@ -56,7 +56,7 @@ class FileRenamerExecutionWorker(BaseWorker):
             from services.result_types import RenameExecutionResult
             
             results = self.renamer.execute(
-                self.analysis.renaming_plan,
+                self.analysis,
                 create_backup=self.create_backup,
                 dry_run=self.dry_run,
                 progress_callback=self._create_progress_callback(emit_numbers=True)

@@ -332,6 +332,8 @@ class Stage3Window(BaseStage):
             return
 
         # Verificar si necesitamos ejecutar análisis primero (usando hasattr)
+        # NOTA: file_renamer y file_organizer SIEMPRE requieren análisis fresco porque
+        # modifican los archivos (nombres/ubicaciones) y el análisis previo queda obsoleto
         should_analyze = False
         
         if tool_id == 'live_photos' and not (hasattr(self.analysis_results, 'live_photos') and self.analysis_results.live_photos):
@@ -342,17 +344,26 @@ class Stage3Window(BaseStage):
             should_analyze = True
         elif tool_id == 'zero_byte' and not (hasattr(self.analysis_results, 'zero_byte') and self.analysis_results.zero_byte):
             should_analyze = True
-        elif tool_id == 'file_organizer' and not (hasattr(self.analysis_results, 'organization') and self.analysis_results.organization):
+        elif tool_id == 'file_organizer':
+            # SIEMPRE analizar file_organizer (modifica ubicaciones de archivos)
             should_analyze = True
-        elif tool_id == 'file_renamer' and not (hasattr(self.analysis_results, 'renaming') and self.analysis_results.renaming):
+        elif tool_id == 'file_renamer':
+            # SIEMPRE analizar file_renamer (modifica nombres de archivos)
             should_analyze = True
             
         if should_analyze:
             # Ejecutar análisis bajo demanda
             self._run_analysis_and_open_dialog(tool_id)
             return
-
         
+        # Si ya tenemos datos, abrir el diálogo
+        self._open_tool_dialog(tool_id)
+    
+    def _open_tool_dialog(self, tool_id: str):
+        """
+        Abre el diálogo correspondiente a una herramienta sin hacer análisis.
+        Asume que el análisis ya está disponible en self.analysis_results.
+        """
         # Abrir diálogo correspondiente si ya tenemos datos
         dialog = None
         
@@ -481,8 +492,8 @@ class Stage3Window(BaseStage):
                     self.analysis_results.renaming = result
                     self._create_tools_grid()
                 
-                # Abrir el diálogo automáticamente
-                self._on_tool_clicked(tool_id)
+                # Abrir el diálogo automáticamente, pero sin volver a analizar
+                self._open_tool_dialog(tool_id)
                 
             worker.deleteLater()
             
