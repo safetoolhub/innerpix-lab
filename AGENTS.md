@@ -59,12 +59,6 @@ CI / Integración continua
 - **Pre-merge checks**: Ejecutar `pytest`, linters (`flake8`/`ruff`) y formateadores (`black`, `isort`) en CI antes de merge.
 - **Pull requests**: Incluir descripción clara, cambios relevantes y pasos para reproducir manualmente si aplica.
 
-Bugs resueltos y lecciones aprendidas
-- **FileInfoRepositoryCache.move_file()**: Línea 1287 llamaba a `self._enforce_max_entries()` (método inexistente). SOLUCIÓN: Eliminada - move_file() no necesita evicción LRU porque solo mueve entradas existentes, no añade nuevas.
-- **Test API mismatch**: Tests iniciales usaban `repo.add_file(metadata)` con un parámetro. API real requiere `repo.add_file(path, metadata)` con DOS parámetros.
-- **FileMetadata campos**: Tests fallaban por no incluir `fs_ctime` y `fs_atime` (requeridos). SIEMPRE incluir todos los campos del filesystem.
-- **Formato de nombres**: FileRenamerService usa 'PHOTO'/'VIDEO' (no 'IMG'/'VID') y extensiones en MAYÚSCULAS. Tests deben usar formato real.
-
 
 Prácticas específicas del repositorio
 - **Servicios**: Implementar `analyze()` que devuelva dataclasses definidos en `services/result_types.py`. Mantener `execute(create_backup=True)` con la lógica de backup y simulación.
