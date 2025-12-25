@@ -152,7 +152,6 @@ class FileOrganizerService(BaseService):
         
         move_plan = []
         potential_conflicts = 0
-        folders_to_create = []
 
         if subdirectories or root_files:
              move_plan = self._generate_move_plan(
@@ -167,7 +166,6 @@ class FileOrganizerService(BaseService):
                 date_grouping_type
             )
              potential_conflicts = sum(1 for move in move_plan if move.has_conflict)
-             folders_to_create = sorted(set(move.target_folder for move in move_plan if move.target_folder))
         
         log_section_footer_discrete(self.logger, f"Plan generado: {len(move_plan)} movimientos")
 
@@ -200,7 +198,6 @@ class FileOrganizerService(BaseService):
             move_plan=move_plan,
             root_directory=str(root_directory),
             organization_type=organization_type.value,
-            folders_to_create=folders_to_create,
             subdirectories=subdirectories,
             items_count=total_files,
             bytes_total=total_scanned_size,
@@ -235,7 +232,7 @@ class FileOrganizerService(BaseService):
         
         try:
              # Crear carpetas
-             folders = set(move.target_folder for move in move_plan if move.target_folder)
+             folders = analysis_result.folders_to_create
              if not dry_run:
                  for f in folders:
                      (root_directory / f).mkdir(parents=True, exist_ok=True)
@@ -328,7 +325,6 @@ class FileOrganizerService(BaseService):
             move_plan=[],
             root_directory=str(root),
             organization_type=type_.value,
-            folders_to_create=[],
             subdirectories={},
             group_by_source=group_by_source,
             group_by_type=group_by_type,

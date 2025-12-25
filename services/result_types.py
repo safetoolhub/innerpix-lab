@@ -239,7 +239,6 @@ class OrganizationAnalysisResult(AnalysisResult):
     move_plan: List[Any] = field(default_factory=list)  # List of FileMove objects
     root_directory: str = ''
     organization_type: str = 'to_root'  # Base organization type: 'to_root', 'by_month', 'by_year', 'by_year_month', 'by_type', 'by_source'
-    folders_to_create: List[str] = field(default_factory=list)
     subdirectories: Dict[str, Any] = field(default_factory=dict)  # Subdirectories found in root
     
     # Required for the UI to remember selection
@@ -256,6 +255,11 @@ class OrganizationAnalysisResult(AnalysisResult):
     def bytes_to_move(self) -> int:
         """Tamaño total de los archivos que la estrategia actual moverá."""
         return sum(m.size for m in self.move_plan)
+
+    @property
+    def folders_to_create(self) -> List[str]:
+        """Lista de carpetas únicas que se crearán."""
+        return sorted(set(m.target_folder for m in self.move_plan if m.target_folder))
 
     def __post_init__(self):
         # We now keep __post_init__ empty to avoid automatic overrides

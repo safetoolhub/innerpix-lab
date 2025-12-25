@@ -165,7 +165,7 @@ Dry-run mode for testing. No deletions/moves/renames.
   - `ExecutionResult`: Extends BaseResult, adds items_processed, bytes_processed, files_affected, backup_path, dry_run
 - **Analysis Results** (per service):
   - `RenameAnalysisResult`: renaming_plan, already_renamed, cannot_process, conflicts
-  - `OrganizationAnalysisResult`: move_plan, root_directory, organization_type, folders_to_create
+  - `OrganizationAnalysisResult`: move_plan, root_directory, organization_type
   - `HeicAnalysisResult`: duplicate_pairs, heic_files, jpg_files, potential_savings_*
   - `DuplicateAnalysisResult`: groups, mode, total_duplicates, total_groups, space_wasted
   - `LivePhotosAnalysisResult`: groups, rejected_groups, potential_savings (property), total_space
