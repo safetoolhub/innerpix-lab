@@ -273,7 +273,7 @@ class FileOrganizerService(BaseService):
                      if dry_run:
                          bytes_processed += move.size
                          files_affected.append(target)
-                         self.logger.info(f"FILE_MOVED_SIMULATION: {move.source_path.name} -> {target}")
+                         self.logger.info(f"FILE_MOVED_SIMULATION: {move.source_path} -> {target}")
                      else:
                          target.parent.mkdir(parents=True, exist_ok=True)
                          if target.exists():
@@ -288,7 +288,7 @@ class FileOrganizerService(BaseService):
                          move.source_path.rename(target)
                          bytes_processed += move.size
                          files_affected.append(target)
-                         self.logger.info(f"FILE_MOVED: {move.source_path.name} -> {target}")
+                         self.logger.info(f"FILE_MOVED: {move.source_path} -> {target}")
                          
                          # Actualizar caché moviendo el archivo
                          repo = FileInfoRepositoryCache.get_instance()

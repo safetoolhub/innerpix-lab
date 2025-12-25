@@ -60,7 +60,6 @@ class FileRenamerService(BaseService):
         self.logger.info(f"Encontrados {total_files} archivos para analizar")
         renaming_map = {}
         already_renamed = 0
-        cannot_process = 0
         conflicts = 0
         files_by_year = Counter()
         renaming_plan = []
@@ -116,10 +115,8 @@ class FileRenamerService(BaseService):
                 if status == 'already_renamed':
                     already_renamed += 1
                 elif status == 'no_date':
-                    cannot_process += 1
                     issues.append(data)
                 elif status == 'unsupported':
-                    cannot_process += 1
                     issues.append(data)
                 elif status == 'file_renamer':
                     renamed_name = data['renamed_name']
@@ -128,7 +125,6 @@ class FileRenamerService(BaseService):
                     renaming_map[renamed_name].append(data)
                     files_by_year[data['date'].year] += 1
 
-        need_renaming = 0
         for renamed_name, file_list in renaming_map.items():
             if len(file_list) == 1:
                 file_info = file_list[0]
@@ -139,7 +135,6 @@ class FileRenamerService(BaseService):
                     'has_conflict': False,
                     'sequence': None
                 })
-                need_renaming += 1
             else:
                 conflicts += len(file_list) - 1
                 file_list.sort(key=lambda x: x['original_path'].stat().st_mtime)
@@ -159,15 +154,15 @@ class FileRenamerService(BaseService):
                         'has_conflict': True,
                         'sequence': i
                     })
-                    need_renaming += 1
 
-        log_section_footer_discrete(self.logger, f"Análisis completado: {need_renaming} archivos para renombrar")
+        log_section_footer_discrete(self.logger, f"Análisis completado: {len(renaming_plan)} archivos para renombrar")
         
         return RenameAnalysisResult(
             renaming_plan=renaming_plan,
             already_renamed=already_renamed,
-            cannot_process=cannot_process,
-            conflicts=conflicts
+            conflicts=conflicts,
+            files_by_year=dict(files_by_year),
+            issues=issues
         )
     
     def execute(
@@ -311,6 +306,7 @@ class FileRenamerService(BaseService):
         return RenameAnalysisResult(
             renaming_plan=[],
             already_renamed=0,
-            cannot_process=0,
-            conflicts=0
+            conflicts=0,
+            files_by_year={},
+            issues=[]
         )

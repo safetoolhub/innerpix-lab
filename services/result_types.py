@@ -270,8 +270,19 @@ class RenameAnalysisResult(AnalysisResult):
     """Result for file renaming analysis."""
     renaming_plan: List[Dict] = field(default_factory=list)  # List of dicts with 'original_path', 'new_name', etc.
     already_renamed: int = 0
-    cannot_process: int = 0
     conflicts: int = 0
+    files_by_year: Dict[int, int] = field(default_factory=dict)
+    issues: List[str] = field(default_factory=list)
+    
+    @property
+    def need_renaming(self) -> int:
+        """Número de archivos que realmente serán renombrados."""
+        return len(self.renaming_plan)
+
+    @property
+    def cannot_process(self) -> int:
+        """Número de archivos con problemas."""
+        return len(self.issues)
     
     def __post_init__(self):
         if not self.items_count and self.renaming_plan:
@@ -282,6 +293,11 @@ class RenameExecutionResult(ExecutionResult):
     """Result for file renaming execution."""
     renamed_files: List[dict] = field(default_factory=list)
     conflicts_resolved: int = 0
+
+    @property
+    def files_renamed(self) -> int:
+        """Alias para items_processed que usa la UI."""
+        return self.items_processed
 
 # ============================================================================
 # DIRECTORY SCANNER RESULT TYPES
