@@ -667,8 +667,22 @@ class Stage3Window(BaseStage):
             if is_cancelled:
                 return
             
+            # Desconectar señal de cancelación antes de cerrar
+            try:
+                progress_dialog.canceled.disconnect(on_cancel)
+            except (RuntimeError, TypeError):
+                pass
+            
             progress_dialog.close()
-            self.logger.info(f"Operación {tool_id} completada: {result}")
+            
+            # Registrar resultado
+            log_msg = f"Operación {tool_id} completada"
+            if hasattr(result, 'success'):
+                log_msg += f" (Success={result.success})"
+            self.logger.info(log_msg)
+            
+            # Log detallado en debug para no inundar el info con listas enormes de archivos
+            self.logger.debug(f"Resultado detallado de {tool_id}: {result}")
             
             # Mostrar resultado
             if result and hasattr(result, 'success') and result.success:
@@ -752,6 +766,12 @@ class Stage3Window(BaseStage):
             if is_cancelled:
                 return
             
+            # Desconectar señal de cancelación antes de cerrar
+            try:
+                progress_dialog.canceled.disconnect(on_cancel)
+            except (RuntimeError, TypeError):
+                pass
+                
             progress_dialog.close()
             self.logger.error(f"Error en operación {tool_id}: {error_message}")
             QMessageBox.critical(
@@ -1085,30 +1105,6 @@ class Stage3Window(BaseStage):
             # Limpiar estado y volver a ESTADO 1
             self._reset_to_state_1()
 
-    def _on_reanalyze(self):
-        """Maneja el clic en "Reanalizar" """
-        self.logger.info("Reanalizando carpeta")
-
-        # Limpiar widgets del ESTADO 3
-        if self.stale_banner:
-            self.stale_banner.hide()
-            self.stale_banner.setParent(None)
-            self.stale_banner = None
-
-        if self.summary_card:
-            self.summary_card.hide()
-            self.summary_card.setParent(None)
-            self.summary_card = None
-
-        if self.tools_grid:
-            self.tools_grid.hide()
-            self.tools_grid.setParent(None)
-            self.tools_grid = None
-
-        self.tool_cards.clear()
-
-        # Volver a ESTADO 2 y reanalizar a través de MainWindow
-        self.main_window._transition_to_state_2(self.selected_folder)
 
     def _reset_to_state_1(self):
         """Reinicia la ventana al ESTADO 1"""

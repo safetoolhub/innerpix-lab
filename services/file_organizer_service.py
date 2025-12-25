@@ -291,7 +291,6 @@ class FileOrganizerService(BaseService):
                          self.logger.info(f"FILE_MOVED: {move.source_path.name} -> {target}")
                          
                          # Actualizar caché moviendo el archivo
-                         from services.file_metadata_repository_cache import FileInfoRepositoryCache
                          repo = FileInfoRepositoryCache.get_instance()
                          repo.move_file(move.source_path, target)
 

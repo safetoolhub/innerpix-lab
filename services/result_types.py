@@ -323,3 +323,12 @@ class ScanSnapshot:
     """Simple snapshot of scan results for Stage 2 → Stage 3 transition."""
     directory: Path
     scan: DirectoryScanResult
+    
+    # Tool-specific analysis results (dynamically populated in Stage 3)
+    live_photos: Optional[Any] = None
+    heic: Optional[Any] = None
+    duplicates_exact: Optional[Any] = None
+    duplicates_similar: Optional[Any] = None
+    zero_byte: Optional[Any] = None
+    organization: Optional[Any] = None
+    renaming: Optional[Any] = None

@@ -46,7 +46,7 @@ Preparado para migración a SQLite:
 from pathlib import Path
 from typing import Dict, List, Optional, Protocol, Any
 from enum import Enum
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 import threading
 import logging
@@ -1272,32 +1272,7 @@ class FileInfoRepositoryCache:
                 
                 # Crear nueva entrada con el path actualizado
                 # FileMetadata es inmutable, así que necesitamos crear uno nuevo
-                from services.file_metadata import FileMetadata
-                new_metadata = FileMetadata(
-                    path=new_path_resolved,
-                    fs_size=metadata.fs_size,
-                    fs_mtime=metadata.fs_mtime,
-                    sha256=metadata.sha256,
-                    exif_date_time_original=metadata.exif_date_time_original,
-                    exif_date_time_digitized=metadata.exif_date_time_digitized,
-                    exif_date_time=metadata.exif_date_time,
-                    exif_gps_latitude=metadata.exif_gps_latitude,
-                    exif_gps_longitude=metadata.exif_gps_longitude,
-                    exif_gps_latitude_ref=metadata.exif_gps_latitude_ref,
-                    exif_gps_longitude_ref=metadata.exif_gps_longitude_ref,
-                    exif_make=metadata.exif_make,
-                    exif_model=metadata.exif_model,
-                    exif_orientation=metadata.exif_orientation,
-                    exif_width=metadata.exif_width,
-                    exif_height=metadata.exif_height,
-                    exif_video_date_time_original=metadata.exif_video_date_time_original,
-                    exif_video_date_time_digitized=metadata.exif_video_date_time_digitized,
-                    exif_video_date_time=metadata.exif_video_date_time,
-                    exif_video_width=metadata.exif_video_width,
-                    exif_video_height=metadata.exif_video_height,
-                    exif_video_duration=metadata.exif_video_duration,
-                    exif_video_codec=metadata.exif_video_codec
-                )
+                new_metadata = replace(metadata, path=new_path_resolved)
                 
                 # Eliminar entrada antigua
                 del self._cache[old_path_resolved]
@@ -1584,5 +1559,5 @@ class FileInfoRepositoryCache:
     
     def __getitem__(self, path: Path) -> Optional[FileMetadata]:
         """Permite usar repository[path]"""
-        return self.get_file_metadata(path, auto_fetch=False)
+        return self.get_file_metadata(path)
 
