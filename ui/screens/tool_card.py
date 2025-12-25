@@ -61,7 +61,7 @@ class ToolCard(QFrame):
                 background-color: {DesignSystem.COLOR_SURFACE};
                 border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
                 border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: {DesignSystem.SPACE_16}px;
+                padding: 14px;
             }}
             ToolCard:hover {{
                 border-color: {DesignSystem.COLOR_PRIMARY};
@@ -73,7 +73,7 @@ class ToolCard(QFrame):
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         
         layout = QVBoxLayout(self)
-        layout.setSpacing(DesignSystem.SPACE_8)
+        layout.setSpacing(6)
         layout.setContentsMargins(0, 0, 0, 0)
         
         # Header: Icono + Título
@@ -341,7 +341,7 @@ class ToolCard(QFrame):
                 background-color: {DesignSystem.COLOR_SURFACE};
                 border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
                 border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: {DesignSystem.SPACE_16}px;
+                padding: 14px;
             }}
             ToolCard:hover {{
                 border-color: {DesignSystem.COLOR_PRIMARY};

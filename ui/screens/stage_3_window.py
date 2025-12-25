@@ -91,7 +91,7 @@ class Stage3Window(BaseStage):
                 child.widget().setParent(None)
 
         # Añadir espaciado encima del header
-        self.main_layout.addSpacing(DesignSystem.SPACE_4)
+        self.main_layout.addSpacing(2)
 
         # Crear y mostrar header
         self.header = self.create_header(
@@ -99,7 +99,7 @@ class Stage3Window(BaseStage):
             on_about_clicked=self._on_about_clicked
         )
         self.main_layout.addWidget(self.header)
-        self.main_layout.addSpacing(DesignSystem.SPACE_6)  # Reducido para optimizar espacio vertical
+        self.main_layout.addSpacing(DesignSystem.SPACE_4)  # Reducido de SPACE_6 para optimizar espacio vertical
 
         # Crear banner de advertencia (oculto por defecto)
         self.stale_banner = self._create_stale_banner()
@@ -247,7 +247,7 @@ class Stage3Window(BaseStage):
         # Container para el grid
         grid_container = QWidget()
         grid_layout = QGridLayout(grid_container)
-        grid_layout.setSpacing(10)  # Reducido para optimizar espacio vertical
+        grid_layout.setSpacing(8)  # Reducido de 10 para optimizar espacio vertical
         grid_layout.setContentsMargins(0, 0, 0, 0)
 
         # Nota: Los análisis se hacen bajo demanda, así que todas las cards empiezan sin datos
@@ -300,9 +300,10 @@ class Stage3Window(BaseStage):
             self.main_layout.takeAt(self.main_layout.count() - 1)  # Remover stretch
 
         # Añadir espaciado entre summary card y tool cards
-        self.main_layout.addSpacing(DesignSystem.SPACE_4)
+        self.main_layout.addSpacing(2)  # Reducido de SPACE_4 para optimizar espacio vertical
 
         self.main_layout.addWidget(grid_container)
+
         self.tools_grid = grid_container
 
         # Forzar actualización del scroll area para que funcione correctamente
