@@ -223,6 +223,9 @@ class FileRenamerService(BaseService):
         log_section_header_relevant(self.logger, "INICIANDO RENOMBRADO DE ARCHIVOS", mode=mode_label)
         self.logger.info(f"*** Archivos a renombrar: {len(renaming_plan)}")
 
+        # Obtener instancia del repositorio para actualizar caché después de renombrar
+        repo = FileInfoRepositoryCache.get_instance()
+        
         result = RenameExecutionResult(success=True, dry_run=dry_run)
         total_files = len(renaming_plan)
         items_processed = 0
