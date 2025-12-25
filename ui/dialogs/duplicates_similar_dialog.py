@@ -543,8 +543,8 @@ class DuplicatesSimilarDialog(BaseDialog):
                 )
                 
                 # Crear análisis temporal con subset
-                from services.duplicates_similar_service import SimilarFilesAnalysis
-                temp_analysis = SimilarFilesAnalysis()
+                from services.duplicates_similar_service import DuplicatesSimilarAnalysis
+                temp_analysis = DuplicatesSimilarAnalysis()
                 temp_analysis.workspace_path = self.analysis.workspace_path
                 
                 # Usar find_new_groups para comparar batch actual vs todo lo anterior
@@ -637,8 +637,8 @@ class DuplicatesSimilarDialog(BaseDialog):
                 f"({self.files_processed:,} archivos procesados)"
             )
             
-            from services.duplicates_similar_service import SimilarFilesAnalysis
-            temp_analysis = SimilarFilesAnalysis()
+            from services.duplicates_similar_service import DuplicatesSimilarAnalysis
+            temp_analysis = DuplicatesSimilarAnalysis()
             temp_analysis.perceptual_hashes = processed_hashes
             temp_analysis.workspace_path = self.analysis.workspace_path
             temp_analysis.total_files = len(processed_hashes)

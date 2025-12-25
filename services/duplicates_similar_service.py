@@ -216,6 +216,78 @@ class DuplicatesSimilarAnalysis:
     
     def _hamming_distance(self, hash1: Any, hash2: Any) -> int:
         return hash1 - hash2
+    
+    def find_new_groups(
+        self,
+        new_hashes: Dict[str, Dict[str, Any]],
+        existing_hashes: Dict[str, Dict[str, Any]],
+        sensitivity: int
+    ) -> DuplicateAnalysisResult:
+        """
+        Encuentra grupos que incluyan archivos del batch nuevo.
+        
+        Compara archivos nuevos contra existentes para análisis incremental
+        sin reprocesar todo el dataset. Usado para carga progresiva en UI.
+        
+        Args:
+            new_hashes: Hashes del batch actual a procesar
+            existing_hashes: Hashes ya procesados previamente
+            sensitivity: Sensibilidad de detección (30-100)
+        
+        Returns:
+            DuplicateAnalysisResult con grupos que incluyen archivos nuevos
+        """
+        if not new_hashes:
+            return DuplicateAnalysisResult(
+                success=True,
+                mode='perceptual',
+                groups=[],
+                total_files=0,
+                total_groups=0,
+                total_duplicates=0,
+                space_wasted=0
+            )
+        
+        # Combinar hashes para clustering
+        all_hashes = {**existing_hashes, **new_hashes}
+        
+        # Convertir sensibilidad a threshold
+        threshold = self._sensitivity_to_threshold(sensitivity)
+        
+        # Hacer clustering de todos los hashes
+        all_groups = self._cluster_by_similarity(
+            all_hashes,
+            threshold,
+            self._distance_cache
+        )
+        
+        # Filtrar solo grupos que contengan al menos un archivo del batch nuevo
+        new_paths = set(new_hashes.keys())
+        filtered_groups = []
+        
+        for group in all_groups:
+            # Verificar si algún archivo del grupo pertenece al batch nuevo
+            group_paths = {str(f) for f in group.files}
+            if group_paths & new_paths:  # Intersección no vacía
+                filtered_groups.append(group)
+        
+        # Calcular estadísticas
+        total_groups = len(filtered_groups)
+        total_duplicates = sum(len(g.files) - 1 for g in filtered_groups)
+        space_wasted = sum(
+            (len(g.files) - 1) * (g.total_size // len(g.files))
+            for g in filtered_groups
+        )
+        
+        return DuplicateAnalysisResult(
+            success=True,
+            mode='perceptual',
+            groups=filtered_groups,
+            total_files=len(new_hashes),
+            total_groups=total_groups,
+            total_duplicates=total_duplicates,
+            space_wasted=space_wasted
+        )
         
     def save_to_file(self, filepath: Path) -> None:
         """Guarda el análisis en un archivo para carga rápida posterior."""
@@ -296,55 +368,77 @@ class DuplicatesSimilarService(DuplicatesBaseService):
     
     def analyze(
         self,
-        sensitivity: int = 10,
+        sensitivity: int = 85,
         progress_callback: Optional[ProgressCallback] = None,
         **kwargs
     ) -> DuplicateAnalysisResult:
         """
         Analiza buscando duplicados similares (perceptual hash).
-        """
-        self.logger.info(
-            "Iniciando análisis de duplicados similares "
-            f"(sensibilidad: {sensitivity})"
-        )
         
-        # Fase 1: Calcular hashes (o usar cacheado si existe en memoria)
+        Este es el método estándar compatible con el patrón de otros servicios.
+        Calcula hashes perceptuales y genera grupos con la sensibilidad especificada.
+        
+        Args:
+            sensitivity: Sensibilidad de detección (30-100, default 85)
+                - 100: Solo imágenes idénticas
+                - 85: Muy similares (recomendado)
+                - 50: Similares
+                - 30: Algo similares
+            progress_callback: Callback de progreso
+            **kwargs: Args adicionales
+            
+        Returns:
+            DuplicateAnalysisResult con grupos detectados
+        """
+        log_section_header_discrete(self.logger, "ANÁLISIS DE DUPLICADOS SIMILARES")
+        self.logger.info(f"Sensibilidad configurada: {sensitivity}%")
+        
+        # Fase 1: Calcular hashes perceptuales
         repo = FileInfoRepositoryCache.get_instance()
         if self._cached_analysis is None:
-             self._cached_analysis = self.analyze_initial(repo, progress_callback)
+            self._cached_analysis = self._calculate_perceptual_hashes(repo, progress_callback)
         else:
-             self.logger.info("Reutilizando análisis de hashes perceptuales previo en memoria")
+            self.logger.info("Reutilizando análisis de hashes perceptuales previo en memoria")
 
-        analysis = self._cached_analysis
-        
-        # Convertir sensibilidad de escala 0-20 a 30-100
-        # 0 -> 100 (muy estricto)
-        # 10 -> 85 (recomendado)
-        # 20 -> 30 (permisivo)
-        # Fix logic: User passes smaller value for MORE strict? 
-        # Check docstring of sensitivity param in UI: "0-20, menor = más estricto"
-        # 0(more strict) => 100(sim %)?
-        # 20(less strict) => 30(sim %)?
-        sensitivity_new_scale = 100 - int((sensitivity / 20) * 70)
-        sensitivity_new_scale = max(30, min(100, sensitivity_new_scale))
-        
-        self.logger.info(
-            f"Convirtiendo sensibilidad: {sensitivity} (0-20) -> "
-            f"{sensitivity_new_scale} (30-100)"
-        )
-        
         # Fase 2: Generar grupos con sensibilidad especificada
-        result = analysis.get_groups(sensitivity_new_scale)
+        result = self._cached_analysis.get_groups(sensitivity)
         
+        log_section_footer_discrete(self.logger, "ANÁLISIS DE DUPLICADOS SIMILARES COMPLETADO")
         return result
+    
+    def get_analysis_for_dialog(
+        self,
+        progress_callback: Optional[ProgressCallback] = None
+    ) -> DuplicatesSimilarAnalysis:
+        """
+        Obtiene objeto DuplicatesSimilarAnalysis para uso interactivo en diálogos.
+        
+        Permite ajustar sensibilidad en tiempo real sin recalcular hashes.
+        Este método es específico para el flujo de UI con ajuste dinámico.
+        
+        Args:
+            progress_callback: Callback de progreso para cálculo de hashes
+            
+        Returns:
+            DuplicatesSimilarAnalysis con hashes precalculados
+        """
+        repo = FileInfoRepositoryCache.get_instance()
+        if self._cached_analysis is None:
+            self._cached_analysis = self._calculate_perceptual_hashes(repo, progress_callback)
+        else:
+            self.logger.info("Reutilizando análisis de hashes perceptuales previo en memoria")
+        
+        return self._cached_analysis
 
-    def analyze_initial(
+    def _calculate_perceptual_hashes(
         self,
         repo: FileInfoRepositoryCache,
         progress_callback: Optional[ProgressCallback] = None
     ) -> DuplicatesSimilarAnalysis:
         """
-        Análisis inicial: Calcula solo hashes perceptuales.
+        Calcula hashes perceptuales de todos los archivos.
+        
+        Método interno usado por analyze() y get_analysis_for_dialog().
         """
         try:
             import imagehash

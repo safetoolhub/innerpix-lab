@@ -50,10 +50,11 @@ PyQt6 desktop app for photo/video management oriented to privacy.
 - **Magic methods**: `len(repo)`, `path in repo`, `repo[path]`
 - **Future-proof**: Preparado para SQLite via Protocol interface (IFileRepository)
 
-**Similar Files Analysis** (`services/duplicates_similar_service.py`) - Two-phase system
-- Phase 1: `analyze_initial()` - Expensive perceptual hash calculation (~5 min for 40k files)
-- Phase 2: `get_groups(sensitivity)` - Fast clustering with adjustable sensitivity (<1 sec)
-- `SimilarFilesAnalysis`: Container for pre-calculated hashes, enables real-time re-clustering
+**Similar Files Analysis** (`services/duplicates_similar_service.py`) - Dual API pattern
+- **Standard API**: `analyze(sensitivity=85)` - Returns `DuplicateAnalysisResult` (compatible with other services)
+- **Interactive API**: `get_analysis_for_dialog()` - Returns `DuplicatesSimilarAnalysis` for real-time sensitivity adjustment
+- `DuplicatesSimilarAnalysis`: Container for pre-calculated hashes, enables real-time re-clustering via `get_groups(sensitivity)`
+- Internal method: `_calculate_perceptual_hashes()` - Expensive hash calculation (~5 min for 40k files), cached in memory
 - `find_new_groups()`: Incremental analysis for new files vs existing dataset
 - Serialization: `save_to_file()` / `load_from_file()` for instant cache reload
 - Hamming distance: 64-bit perceptual hash comparison for similarity detection

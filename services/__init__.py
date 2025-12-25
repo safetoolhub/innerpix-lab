@@ -81,7 +81,7 @@ __all__ = [
     'FileMove',
     'HEICDuplicatePair',
     'DuplicateGroup',
-    'SimilarFilesAnalysis',
+    'DuplicatesSimilarAnalysis',
     # Utilidades de file_utils
     # (none currently)
     # Orquestador results
