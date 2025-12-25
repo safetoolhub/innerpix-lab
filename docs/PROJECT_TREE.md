@@ -16,14 +16,20 @@ PyQt6 desktop application for photo/video management.
 ├── tests/
 │   ├── unit/
 │   │   ├── services/
-│   │   │   └── test_zero_byte_service.py  # 28 tests pasando
+│   │   │   ├── test_file_metadata_repository_cache.py  # 22 tests - Singleton, CRUD, persistence, thread-safety
+│   │   │   ├── test_duplicates_exact_service.py        # 18 tests - Analysis, execution strategies, consecutive ops
+│   │   │   ├── test_file_renamer_service.py            # 19 tests - Renaming logic, conflict resolution, cache updates
+│   │   │   └── test_zero_byte_service.py               # 28 tests - Zero byte file detection
 │   │   ├── ui/
 │   │   └── utils/
+│   │       └── test_date_utils_force_search.py          # Date extraction tests
 │   ├── integration/
+│   │   └── test_live_photos_integration.py
 │   ├── performance/
 │   │   └── test_large_dataset.py
 │   ├── conftest.py
-│   └── README.md
+│   ├── README.md
+│   └── test_base_service.py
 ├── scripts/
 │   ├── demo_file_info_repository.py
 │   ├── verify_refactor_smoke.py

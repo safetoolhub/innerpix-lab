@@ -1283,8 +1283,8 @@ class FileInfoRepositoryCache:
                 self._cache[new_path_resolved] = new_metadata
                 self._access_order.append(new_path_resolved)
                 
-                # Mantener límite de LRU si es necesario
-                self._enforce_max_entries()
+                # No es necesario enforce_max_entries aquí porque no estamos
+                # añadiendo una nueva entrada, solo moviendo una existente
                 
                 self._logger.debug(f"Archivo movido en repositorio: {old_path.name} -> {new_path.name}")
                 return True

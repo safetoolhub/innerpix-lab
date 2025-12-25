@@ -48,11 +48,22 @@ Guidelines para tests
 - **Naming**: Tests claros y deterministas. Prefiere nombres como `test_<comportamiento>_cuando_<condicion>` o en inglés si el repo usa inglés.
 - **Fixtures**: Reutilizar fixtures centralizadas en `tests/conftest.py` para crear entornos controlados.
 - **No acceso a red**: Tests deben poder correr offline. Mockear I/O externo y recursos del sistema de archivos cuando sea posible.
+- **Patrón Singleton**: Para FileInfoRepositoryCache, SIEMPRE usar `self.repo = FileInfoRepositoryCache.get_instance()` y `self.repo.clear()` en setup_method.
+- **FileMetadata**: Al crear instancias, incluir TODOS los campos requeridos: `path`, `fs_size`, `fs_ctime`, `fs_mtime`, `fs_atime`. Opcionalmente `best_date`, `best_date_source`.
+- **Repositorio API**: Usar `repo.add_file(path, metadata)` con DOS parámetros (path y FileMetadata), NO uno solo.
+- **Tests de integración**: CRÍTICO - Verificar operaciones consecutivas (analyze → execute → analyze) para detectar bugs de estado.
+- **Test classes**: Organizar en clases por funcionalidad: TestBasics, TestAnalyze, TestExecute, TestEdgeCases, TestIntegration.
 - **Cobertura**: CI debe ejecutar test suite completa; mantener cobertura razonable para servicios críticos.
 
 CI / Integración continua
 - **Pre-merge checks**: Ejecutar `pytest`, linters (`flake8`/`ruff`) y formateadores (`black`, `isort`) en CI antes de merge.
 - **Pull requests**: Incluir descripción clara, cambios relevantes y pasos para reproducir manualmente si aplica.
+
+Bugs resueltos y lecciones aprendidas
+- **FileInfoRepositoryCache.move_file()**: Línea 1287 llamaba a `self._enforce_max_entries()` (método inexistente). SOLUCIÓN: Eliminada - move_file() no necesita evicción LRU porque solo mueve entradas existentes, no añade nuevas.
+- **Test API mismatch**: Tests iniciales usaban `repo.add_file(metadata)` con un parámetro. API real requiere `repo.add_file(path, metadata)` con DOS parámetros.
+- **FileMetadata campos**: Tests fallaban por no incluir `fs_ctime` y `fs_atime` (requeridos). SIEMPRE incluir todos los campos del filesystem.
+- **Formato de nombres**: FileRenamerService usa 'PHOTO'/'VIDEO' (no 'IMG'/'VID') y extensiones en MAYÚSCULAS. Tests deben usar formato real.
 
 
 Prácticas específicas del repositorio
