@@ -77,18 +77,9 @@ def run_analysis_and_save(folder_path, logger):
         start_time = time.time()
         
         # Read settings from user configuration (same as main app)
-        calculate_hashes = settings_manager.get_bool(
-            settings_manager.KEY_PRECALCULATE_HASHES,
-            True  # Default enabled
-        )
-        extract_image_exif = settings_manager.get_bool(
-            settings_manager.KEY_PRECALCULATE_IMAGE_EXIF,
-            True  # Default enabled
-        )
-        extract_video_exif = settings_manager.get_bool(
-            settings_manager.KEY_PRECALCULATE_VIDEO_EXIF,
-            False  # Default disabled (slow)
-        )
+        calculate_hashes = settings_manager.get_precalculate_hashes()
+        extract_image_exif = settings_manager.get_precalculate_image_exif()
+        extract_video_exif = settings_manager.get_precalculate_video_exif()
         
         logger.info(f"Configuration: Hashes={calculate_hashes}, Image EXIF={extract_image_exif}, Video EXIF={extract_video_exif}")
         
