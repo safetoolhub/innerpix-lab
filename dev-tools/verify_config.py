@@ -8,7 +8,7 @@ sys.path.insert(0, str(project_root))
 
 try:
     from config import Config
-    from utils.system_utils import get_system_info
+    from utils.platform_utils import get_system_info
     
     print("✅ Config module imported successfully")
     
@@ -22,6 +22,7 @@ try:
     print(f"CPU Count (via Config): {Config.get_cpu_count()}")
     print(f"Optimal Workers (via Config): {Config.get_optimal_worker_threads()}")
     print(f"Max Time Difference (seconds): {Config.MAX_TIME_DIFFERENCE_SECONDS}")
+    print(f"Max Hamming Threshold: {Config.MAX_HAMMING_THRESHOLD}")
     
     # Check for removed attributes (should raise AttributeError or be None if I kept them as None)
     # I kept MAX_WORKERS as None for compat

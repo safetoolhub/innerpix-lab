@@ -1236,8 +1236,7 @@ class FileInfoRepositoryCache:
                 path_resolved = path.resolve()
                 if path_resolved in self._cache:
                     del self._cache[path_resolved]
-                    if path_resolved in self._access_order:
-                        self._access_order.remove(path_resolved)
+                    # _access_order was removed, OrderedDict handles LRU directly
                     removed += 1
             
             if removed > 0:
@@ -1273,12 +1272,11 @@ class FileInfoRepositoryCache:
                 
                 # Eliminar entrada antigua
                 del self._cache[old_path_resolved]
-                if old_path_resolved in self._access_order:
-                    self._access_order.remove(old_path_resolved)
+                # _access_order was removed, OrderedDict handles LRU directly
                 
                 # Agregar entrada nueva
                 self._cache[new_path_resolved] = new_metadata
-                self._access_order.append(new_path_resolved)
+                # OrderedDict automatically maintains insertion order
                 
                 # No es necesario enforce_max_entries aquí porque no estamos
                 # añadiendo una nueva entrada, solo moviendo una existente

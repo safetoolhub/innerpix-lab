@@ -195,7 +195,7 @@ class TestDuplicatesExactServiceAnalyze:
                 fs_ctime=1234567890.0,
                 fs_mtime=1234567890.0,
                 fs_atime=1234567890.0,
-                sha256="hash"
+                sha256=None  # No pre-calcular hash para que se llame el callback
             )
             repo.add_file(test_file, metadata)
         
@@ -207,7 +207,7 @@ class TestDuplicatesExactServiceAnalyze:
         
         result = service.analyze(progress_callback=progress_callback)
         
-        # Debe haber llamado al callback
+        # Debe haber llamado al callback durante el cálculo de hashes
         assert len(progress_calls) > 0
 
 

@@ -4,7 +4,7 @@ Configuración centralizada para InnerPix Lab
 from pathlib import Path
 from typing import Optional, Dict
 
-from utils.system_utils import get_cpu_count, get_system_ram_gb, get_system_info as sys_get_system_info
+from utils.platform_utils import get_cpu_count, get_system_ram_gb, get_system_info as sys_get_system_info
 
 
 class Config:
@@ -114,6 +114,7 @@ class Config:
     LIVE_PHOTO_MAX_VIDEO_SIZE = 8 * 1024 * 1024  # 8 MB
 
     # Archivos Similares (Clustering)
+    MAX_HAMMING_THRESHOLD = 20  # Máximo threshold de distancia de Hamming (0-20)
     SIMILAR_FILES_MAX_GROUPS_WARNING = 500
     SIMILAR_FILES_MAX_GROUPS_NAVIGABLE = 1000
     SIMILAR_FILES_LARGE_DATASET_THRESHOLD = 10000
