@@ -24,13 +24,21 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from config import Config
 from utils.logger import configure_logging, get_logger
+from utils.settings_manager import settings_manager
 from services.file_metadata_repository_cache import FileInfoRepositoryCache
 from services.initial_scanner import InitialScanner, PhaseProgress
 
 def setup_environment():
     """Configure logging and environment"""
-    configure_logging(level="INFO")
+    # Configure logging using the same directory as the main app
+    log_file, logs_dir = configure_logging(
+        logs_dir=Config.DEFAULT_LOG_DIR,
+        level="INFO",
+        dual_log_enabled=True
+    )
     logger = get_logger("SaveAnalysisCache")
+    logger.info(f"Log file: {log_file}")
+    logger.info(f"Logs directory: {logs_dir}")
     return logger
 
 def run_analysis_and_save(folder_path, logger):
@@ -68,15 +76,31 @@ def run_analysis_and_save(folder_path, logger):
     try:
         start_time = time.time()
         
-        # Configure what to scan (simulate full analysis)
+        # Read settings from user configuration (same as main app)
+        calculate_hashes = settings_manager.get_bool(
+            settings_manager.KEY_PRECALCULATE_HASHES,
+            True  # Default enabled
+        )
+        extract_image_exif = settings_manager.get_bool(
+            settings_manager.KEY_PRECALCULATE_IMAGE_EXIF,
+            True  # Default enabled
+        )
+        extract_video_exif = settings_manager.get_bool(
+            settings_manager.KEY_PRECALCULATE_VIDEO_EXIF,
+            False  # Default disabled (slow)
+        )
+        
+        logger.info(f"Configuration: Hashes={calculate_hashes}, Image EXIF={extract_image_exif}, Video EXIF={extract_video_exif}")
+        
+        # Configure what to scan (respecting user settings)
         result = scanner.scan(
             directory=folder,
             phase_callback=phase_callback,
             phase_completed_callback=phase_completed_callback,
             progress_callback=progress_callback,
-            calculate_hashes=True,       # Enable hashing
-            extract_image_exif=True,     # Enable Image EXIF
-            extract_video_exif=False     # Video EXIF is too slow/optional usually
+            calculate_hashes=calculate_hashes,
+            extract_image_exif=extract_image_exif,
+            extract_video_exif=extract_video_exif
         )
         
         elapsed = time.time() - start_time
