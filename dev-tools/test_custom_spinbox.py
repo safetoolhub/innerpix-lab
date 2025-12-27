@@ -10,9 +10,16 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from PyQt6.QtWidgets import QApplication, QDialog, QVBoxLayout, QSpinBox, QLabel
-from ui.styles.design_system import DesignSystem
-from ui.screens.custom_spinbox import CustomSpinBox
+try:
+    from PyQt6.QtWidgets import QApplication, QDialog, QVBoxLayout, QSpinBox, QLabel
+    from PyQt6.QtCore import QTimer
+    from ui.styles.design_system import DesignSystem
+    from ui.screens.custom_spinbox import CustomSpinBox
+except ImportError as e:
+    print("Error: PyQt6 not found. Please activate the virtual environment:")
+    print("  source .venv/bin/activate")
+    print("Then run: python dev-tools/test_custom_spinbox.py")
+    sys.exit(1)
 
 class TestDialog(QDialog):
     def __init__(self):
@@ -41,4 +48,8 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     dlg = TestDialog()
     dlg.show()
+    
+    # Auto-close after 2 seconds for testing purposes
+    QTimer.singleShot(2000, app.quit)
+    
     sys.exit(app.exec())
