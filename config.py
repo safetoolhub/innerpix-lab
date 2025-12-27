@@ -52,6 +52,7 @@ class Config:
     DEFAULT_BASE_DIR = Path.home() / "Documents" / "Innerpix_Lab"
     DEFAULT_LOG_DIR = DEFAULT_BASE_DIR / "logs"
     DEFAULT_BACKUP_DIR = DEFAULT_BASE_DIR / "backups"
+    DEFAULT_CACHE_SAVED_DIR = DEFAULT_BASE_DIR / "cache_saved"
 
     # ========================================================================
     # CONFIGURACIÓN DE PROCESAMIENTO
@@ -141,9 +142,11 @@ class Config:
     MAX_WORKER_THREADS = 16  # Límite máximo absoluto
 
     # ========================================================================
+    # ========================================================================
     # CONFIGURACIÓN DE DESARROLLO
     # ========================================================================
     DEVELOPMENT_MODE = False  # Si True, salta directamente a Stage 2 con la última carpeta usada
+    SAVED_CACHE_DEV_MODE_PATH = None  # Ruta a archivo de caché específico para cargar al inicio
 
     # ========================================================================
     # TIMING DE TRANSICIÓN (Stage 2 → Stage 3)

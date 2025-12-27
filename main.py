@@ -18,9 +18,19 @@ from utils import get_optimal_window_config
 from utils.settings_manager import settings_manager
 import logging
 
+import argparse
 
 def main():
     """Punto de entrada principal de la aplicación"""
+    
+    # Parsear argumentos de línea de comandos
+    # (Ya no se usan argumentos, se configura directamente en config.py)
+
+    if Config.DEVELOPMENT_MODE:
+        print(f"🔧 MODO DESARROLLADOR ACTIVADO")
+        if Config.SAVED_CACHE_DEV_MODE_PATH:
+             print(f"🔧 Cargando caché desde: {Config.SAVED_CACHE_DEV_MODE_PATH}")
+
     # Leer nivel de log desde configuración persistente
     saved_log_level = settings_manager.get_log_level("INFO")  # INFO por defecto
     saved_dual_log = settings_manager.get_dual_log_enabled()  # True por defecto

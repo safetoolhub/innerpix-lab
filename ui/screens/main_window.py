@@ -38,14 +38,23 @@ class MainWindow(QMainWindow):
         self._setup_ui()
         self._apply_stylesheet()
 
-        # Modo desarrollo: saltar directamente a Stage 2 si hay una última carpeta
-        if Config.DEVELOPMENT_MODE:
-            from utils.settings_manager import settings_manager
-            last_folder = settings_manager.get('last_analyzed_folder')
-            if last_folder and Path(last_folder).exists():
-                self.logger.info(f"Modo desarrollo activado - Saltando a Stage 2 con carpeta: {last_folder}")
-                self._transition_to_state_2(last_folder)
-                return
+        # Modo desarrollo: Intentar cargar caché y saltar directamente a Stage 3
+        # Modo desarrollo: Intentar cargar caché y saltar directamente a Stage 3
+        if Config.DEVELOPMENT_MODE and Config.SAVED_CACHE_DEV_MODE_PATH:
+            cache_file = Path(Config.SAVED_CACHE_DEV_MODE_PATH)
+            
+            if cache_file.exists():
+                self.logger.info(f"🔧 Modo desarrollo: Cargando caché específica {cache_file}")
+                # En este caso, no conocemos el folder_path aún, lo inferiremos dentro de _load_cache_and_transition
+                if self._load_cache_and_transition(None, cache_file):
+                    return
+            else:
+                msg = f"🔧 ERROR CRÍTICO Modo desarrollo: No se encontró archivo de caché en {cache_file}"
+                self.logger.error(msg)
+                print(msg)
+                print("Abortando ejecución debido a configuración de desarrollo inválida.")
+                import sys
+                sys.exit(1)
 
         # Inicializar con Estado 1
         self._transition_to_state_1()
@@ -171,3 +180,104 @@ class MainWindow(QMainWindow):
             center_point = screen_geometry.center()
             window_geometry.moveCenter(center_point)
             self.move(window_geometry.topLeft())
+
+    def _load_cache_and_transition(self, folder_path, cache_file):
+        """
+        Carga la caché desde disco y transiciona a Stage 3.
+        Reconstruye la estructura de resultados esperada por Stage 3.
+        """
+        try:
+            from services.file_metadata_repository_cache import FileInfoRepositoryCache
+            from services.result_types import ScanSnapshot, DirectoryScanResult
+            
+            repo = FileInfoRepositoryCache.get_instance()
+            repo.clear()
+            
+            # Cargar caché
+            loaded_count = repo.load_from_disk(cache_file, validate=True)
+            self.logger.info(f"Caché cargada: {loaded_count} archivos")
+            
+            if loaded_count == 0:
+                self.logger.warning("Caché vacía o inválida")
+                return False
+                
+            # Reconstruir resultados del escaneo iterando el repositorio
+            # Esto es necesario porque load_from_disk solo llena el repo, no devuelve estadísticas
+            images = []
+            videos = []
+            others = []
+            total_size = 0
+            
+            # Extensiones
+            image_extensions = {}
+            video_extensions = {}
+            unsupported_extensions = {}
+            
+            all_files = repo.get_all_files()
+            
+            if not all_files:
+                self.logger.warning("Cache loaded but empty repository")
+                return False
+
+            # Inferir directorio raíz desde los archivos (si no se proporciona)
+            if folder_path is None:
+                try:
+                    import os
+                    # Usar commonpath para encontrar la raíz común
+                    common_root = os.path.commonpath([str(f.path) for f in all_files])
+                    folder_path = Path(common_root)
+                    self.logger.info(f"Directorio inferido desde caché: {folder_path}")
+                except Exception as e:
+                    self.logger.warning(f"No se pudo inferir directorio raíz: {e}")
+                    # Fallback al directorio del primer archivo
+                    folder_path = all_files[0].path.parent
+            
+            for metadata in all_files:
+                path = metadata.path
+                total_size += metadata.fs_size
+                ext = metadata.extension
+                
+                if metadata.is_image:
+                    images.append(path)
+                    image_extensions[ext] = image_extensions.get(ext, 0) + 1
+                elif metadata.is_video:
+                    videos.append(path)
+                    video_extensions[ext] = video_extensions.get(ext, 0) + 1
+                else:
+                    others.append(path)
+                    unsupported_extensions[ext] = unsupported_extensions.get(ext, 0) + 1
+            
+            # Crear objetos de resultado
+            scan_result = DirectoryScanResult(
+                total_files=len(all_files),
+                images=images,
+                videos=videos,
+                others=others,
+                total_size=total_size,
+                image_extensions=image_extensions,
+                video_extensions=video_extensions,
+                unsupported_extensions=unsupported_extensions,
+                unsupported_files=others
+            )
+            
+            snapshot = ScanSnapshot(
+                directory=folder_path,
+                scan=scan_result
+            )
+            
+            # Configurar estado dummy para que Stage 3 funcione
+            class DummyState:
+                def __init__(self, folder):
+                    self.selected_folder = str(folder)
+                def cleanup(self): pass
+            
+            self.current_state = DummyState(folder_path)
+            
+            # Transición directa
+            self.logger.info("Transicionando a Stage 3 con datos de caché")
+            self._transition_to_state_3(snapshot)
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error cargando caché en modo desarrollo: {e}", exc_info=True)
+            return False

@@ -17,6 +17,23 @@
         "panel": "shared"
       },
       "problemMatcher": []
+    },
+    {
+      "label": "run-venv-main-dev",
+      "type": "shell",
+      "command": "source .venv/bin/activate && python main.py --dev",
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "shell": {
+          "executable": "/bin/bash",
+          "args": ["-lc"]
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
     }
   ]
 }
