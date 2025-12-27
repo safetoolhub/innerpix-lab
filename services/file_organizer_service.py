@@ -422,17 +422,20 @@ class FileOrganizerService(BaseService):
         move_plan = []
         files_map = defaultdict(list)
         
+        # Calculate total files for global progress
+        total_files = len(root_files) + sum(len(d['files']) for d in subdirs.values())
+        processed_count = 0
+        
         def process(files, subdir_name):
-            count = 0
-            total_subdir = len(files)
+            nonlocal processed_count
+            # Avoid reporting too frequently inside the loop if not needed, 
+            # but since we process one by one, we check modulo.
+            
             for info in files:
-                count += 1
-                if count % 100 == 0:
-                   self._report_progress(progress_callback, count, total_subdir, f"Analizando fechas... {count}/{total_subdir} en {subdir_name}")
+                processed_count += 1
+                if processed_count % 500 == 0:
+                   self._report_progress(progress_callback, processed_count, total_files, f"Analizando fechas... {processed_count}/{total_files}")
                 
-                if count % 1000 == 0:
-                     self.logger.info(f"Organizador (Date Plan): Procesando fechas {count}/{total_subdir} en {subdir_name}")
-
                 path = Path(info['path'])
                 file_metadata = get_all_metadata_from_file(path)
                 date, _ = select_best_date_from_file(file_metadata)
@@ -445,7 +448,11 @@ class FileOrganizerService(BaseService):
                     folder += f"/{t}"
                 files_map[folder].append({'info': info, 'subdir': subdir_name})
 
-        for sd in subdirs.values(): process(sd['files'], '<subdir>') # subdir name logic missing here, simplified
+        # Iterate all files
+        # Subdirectories
+        for name, data in subdirs.items(): 
+            process(data['files'], name)
+        # Root files
         process(root_files, '<root>')
         
         for folder, items in files_map.items():
@@ -470,13 +477,17 @@ class FileOrganizerService(BaseService):
         files_by_type = defaultdict(list)
         type_folder_map = {'PHOTO': 'Fotos', 'VIDEO': 'Videos'}
 
+        # Calculate total files for global progress
+        total_files = len(root_files) + sum(len(d['files']) for d in subdirectories.values())
+        processed_count = 0
+
         def process_files(file_list, subdir_name):
-            count = 0 
-            total_subdir = len(file_list)
+            nonlocal processed_count
+            
             for info in file_list:
-                count += 1
-                if count % 500 == 0:
-                     self._report_progress(progress_callback, count, total_subdir, f"Analizando tipos... {count}/{total_subdir}")
+                processed_count += 1
+                if processed_count % 500 == 0:
+                     self._report_progress(progress_callback, processed_count, total_files, f"Analizando tipos... {processed_count}/{total_files}")
                 
                 path = Path(info['path'])
                 info['path'] = str(path) # Ensure string for consistency if needed, though previously it was mixed usage
@@ -534,15 +545,18 @@ class FileOrganizerService(BaseService):
         """Genera plan de movimiento separando por fuente detectada"""
         move_plan = []
         files_by_source = defaultdict(list)
+        
+        # Calculate total files for global progress
+        total_files = len(root_files) + sum(len(d['files']) for d in subdirectories.values())
+        processed_count = 0
 
         def process_files(file_list, subdir_name):
-            count = 0 
-            total_subdir = len(file_list)
+            nonlocal processed_count
             
             for info in file_list:
-                count += 1
-                if count % 500 == 0:
-                     self._report_progress(progress_callback, count, total_subdir, f"Analizando fuentes... {count}/{total_subdir}")
+                processed_count += 1
+                if processed_count % 500 == 0:
+                     self._report_progress(progress_callback, processed_count, total_files, f"Analizando fuentes... {processed_count}/{total_files}")
                 
                 file_path = Path(info['path'])
                 source = detect_file_source(info['name'], file_path)
