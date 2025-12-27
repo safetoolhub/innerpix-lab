@@ -142,11 +142,10 @@ class Config:
     MAX_WORKER_THREADS = 16  # Límite máximo absoluto
 
     # ========================================================================
-    # ========================================================================
     # CONFIGURACIÓN DE DESARROLLO
     # ========================================================================
-    DEVELOPMENT_MODE = False  # Si True, salta directamente a Stage 2 con la última carpeta usada
-    SAVED_CACHE_DEV_MODE_PATH = None  # Ruta a archivo de caché específico para cargar al inicio
+    DEVELOPMENT_MODE = True  # Si True, salta directamente a Stage 2 con la última carpeta usada
+    SAVED_CACHE_DEV_MODE_PATH = "/home/ed/Documents/Innerpix_Lab/cache_saved/RAW.json"  # Ruta a archivo de caché específico para cargar al inicio
 
     # ========================================================================
     # TIMING DE TRANSICIÓN (Stage 2 → Stage 3)
