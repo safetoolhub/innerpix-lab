@@ -447,7 +447,7 @@ class LivePhotoService(BaseService):
                         
                         if video_size > Config.LIVE_PHOTO_MAX_VIDEO_SIZE:
                             self.logger.warning(
-                                f"⚠️ SOSPECHA: Video grande en Live Photo: {video_path} ({video_size} B)"
+                                f"⚠️ SOSPECHA: Video grande en Live Photo: {video_path} ({format_size(video_size)})"
                             )
                     else:
                         video_path.unlink()
@@ -463,7 +463,7 @@ class LivePhotoService(BaseService):
                         
                         if video_size > Config.LIVE_PHOTO_MAX_VIDEO_SIZE:
                             self.logger.warning(
-                                f"⚠️ SOSPECHA: Video grande eliminado: {video_path} ({video_size} B)"
+                                f"⚠️ SOSPECHA: Video grande eliminado: {video_path} ({format_size(video_size)})"
                             )
 
                 except Exception as e:
