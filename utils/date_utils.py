@@ -256,7 +256,19 @@ def select_best_date_from_file(file_metadata: 'FileMetadata') -> tuple[Optional[
     exif_date_time_original = _parse_exif_date(file_metadata.exif_DateTimeOriginal)
     exif_create_date = _parse_exif_date(file_metadata.exif_DateTime)  # CreateDate mapea a DateTime
     exif_date_digitized = _parse_exif_date(file_metadata.exif_DateTimeDigitized)
-    exif_gps_date = _parse_exif_date(file_metadata.exif_GPSDateStamp)
+    
+    # GPS Date: Combinar GPSDateStamp y GPSTimeStamp si ambos están presentes
+    exif_gps_date = None
+    if file_metadata.exif_GPSDateStamp and file_metadata.exif_GPSTimeStamp:
+        try:
+            gps_datetime_str = f"{file_metadata.exif_GPSDateStamp} {file_metadata.exif_GPSTimeStamp}"
+            exif_gps_date = datetime.strptime(gps_datetime_str, '%Y:%m:%d %H:%M:%S')
+        except (ValueError, TypeError):
+            pass
+    elif file_metadata.exif_GPSDateStamp:
+        # Solo fecha GPS disponible
+        exif_gps_date = _parse_exif_date(file_metadata.exif_GPSDateStamp)
+    
     exif_offset_time = file_metadata.exif_OffsetTimeOriginal
     
     # Fechas del filesystem
@@ -449,7 +461,7 @@ def get_all_metadata_from_file(file_path: Path, force_search: bool = False) -> '
                     exif_data = get_exif_from_image(file_path)
                     if exif_data:
                         # Mapear los campos EXIF al formato de FileMetadata
-                        # get_exif_from_image devuelve datetime objects, necesitamos convertirlos a strings
+                        # get_exif_from_image devuelve datetime objects para fechas, necesitamos convertirlos a strings
                         def datetime_to_str(dt):
                             """Convierte datetime a string ISO format"""
                             if dt is None:
@@ -461,8 +473,9 @@ def get_all_metadata_from_file(file_path: Path, force_search: bool = False) -> '
                         metadata.exif_DateTimeOriginal = datetime_to_str(exif_data.get('DateTimeOriginal'))
                         metadata.exif_DateTime = datetime_to_str(exif_data.get('CreateDate') or exif_data.get('DateTime'))
                         metadata.exif_DateTimeDigitized = datetime_to_str(exif_data.get('DateTimeDigitized'))
-                        metadata.exif_GPSDateStamp = datetime_to_str(exif_data.get('GPSDateStamp'))
-                        metadata.exif_GPSTimeStamp = datetime_to_str(exif_data.get('GPSTimeStamp'))
+                        # GPS Date/Time son strings, no datetime
+                        metadata.exif_GPSDateStamp = exif_data.get('GPSDateStamp')
+                        metadata.exif_GPSTimeStamp = exif_data.get('GPSTimeStamp')
                         metadata.exif_SubSecTimeOriginal = exif_data.get('SubSecTimeOriginal')
                         metadata.exif_OffsetTimeOriginal = exif_data.get('OffsetTimeOriginal')
                         metadata.exif_Software = exif_data.get('Software')
@@ -520,8 +533,9 @@ def get_all_metadata_from_file(file_path: Path, force_search: bool = False) -> '
                 metadata.exif_DateTimeOriginal = datetime_to_str(cached_exif.get('DateTimeOriginal'))
                 metadata.exif_DateTime = datetime_to_str(cached_exif.get('DateTime'))
                 metadata.exif_DateTimeDigitized = datetime_to_str(cached_exif.get('DateTimeDigitized'))
-                metadata.exif_GPSDateStamp = datetime_to_str(cached_exif.get('GPSDateStamp'))
-                metadata.exif_GPSTimeStamp = datetime_to_str(cached_exif.get('GPSTimeStamp'))
+                # GPS Date/Time son strings en caché
+                metadata.exif_GPSDateStamp = cached_exif.get('GPSDateStamp')
+                metadata.exif_GPSTimeStamp = cached_exif.get('GPSTimeStamp')
                 _logger.debug(f"EXIF obtenido del caché para {file_path.name}: {len(cached_exif)} campos")
             else:
                 # Si no está en caché, extraer según tipo y configuración
@@ -544,8 +558,9 @@ def get_all_metadata_from_file(file_path: Path, force_search: bool = False) -> '
                             metadata.exif_DateTimeOriginal = datetime_to_str(exif_data.get('DateTimeOriginal'))
                             metadata.exif_DateTime = datetime_to_str(exif_data.get('CreateDate') or exif_data.get('DateTime'))
                             metadata.exif_DateTimeDigitized = datetime_to_str(exif_data.get('DateTimeDigitized'))
-                            metadata.exif_GPSDateStamp = datetime_to_str(exif_data.get('GPSDateStamp'))
-                            metadata.exif_GPSTimeStamp = datetime_to_str(exif_data.get('GPSTimeStamp'))
+                            # GPS Date/Time son strings, no datetime
+                            metadata.exif_GPSDateStamp = exif_data.get('GPSDateStamp')
+                            metadata.exif_GPSTimeStamp = exif_data.get('GPSTimeStamp')
                             _logger.debug(f"EXIF de imagen extraído directamente para {file_path.name}")
                     except Exception as e:
                         _logger.debug(f"No se pudo extraer EXIF de imagen para {file_path.name}: {e}")
@@ -894,7 +909,17 @@ def _validate_gps_coherence(file_metadata: 'FileMetadata', selected_date: dateti
         except (ValueError, TypeError):
             return None
     
-    gps_date = _parse_exif_date(file_metadata.exif_GPSDateStamp)
+    # GPS Date: Combinar GPSDateStamp y GPSTimeStamp si ambos están presentes
+    gps_date = None
+    if file_metadata.exif_GPSDateStamp and file_metadata.exif_GPSTimeStamp:
+        try:
+            gps_datetime_str = f"{file_metadata.exif_GPSDateStamp} {file_metadata.exif_GPSTimeStamp}"
+            gps_date = datetime.strptime(gps_datetime_str, '%Y:%m:%d %H:%M:%S')
+        except (ValueError, TypeError):
+            pass
+    elif file_metadata.exif_GPSDateStamp:
+        # Solo fecha GPS disponible
+        gps_date = _parse_exif_date(file_metadata.exif_GPSDateStamp)
     
     if not gps_date:
         return
@@ -966,7 +991,19 @@ def _validate_date_coherence(file_metadata: 'FileMetadata') -> dict:
     exif_date_time_original = _parse_exif_date(file_metadata.exif_DateTimeOriginal)
     exif_create_date = _parse_exif_date(file_metadata.exif_DateTime)
     exif_date_digitized = _parse_exif_date(file_metadata.exif_DateTimeDigitized)
-    exif_gps_date = _parse_exif_date(file_metadata.exif_GPSDateStamp)
+    
+    # GPS Date: Combinar GPSDateStamp y GPSTimeStamp si ambos están presentes
+    exif_gps_date = None
+    if file_metadata.exif_GPSDateStamp and file_metadata.exif_GPSTimeStamp:
+        try:
+            gps_datetime_str = f"{file_metadata.exif_GPSDateStamp} {file_metadata.exif_GPSTimeStamp}"
+            exif_gps_date = datetime.strptime(gps_datetime_str, '%Y:%m:%d %H:%M:%S')
+        except (ValueError, TypeError):
+            pass
+    elif file_metadata.exif_GPSDateStamp:
+        # Solo fecha GPS disponible
+        exif_gps_date = _parse_exif_date(file_metadata.exif_GPSDateStamp)
+    
     exif_software = file_metadata.exif_Software
     fs_mtime_date = datetime.fromtimestamp(file_metadata.fs_mtime) if file_metadata.fs_mtime else None
     fs_ctime_date = datetime.fromtimestamp(file_metadata.fs_ctime) if file_metadata.fs_ctime else None

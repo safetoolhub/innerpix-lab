@@ -252,6 +252,7 @@ class TestGetExifDates:
                 'SubSecTimeOriginal': None,
                 'OffsetTimeOriginal': None,
                 'GPSDateStamp': None,
+                'GPSTimeStamp': None,
                 'Software': None,
                 'ExifVersion': None
             }
@@ -273,6 +274,7 @@ class TestGetExifDates:
                 'SubSecTimeOriginal': None,
                 'OffsetTimeOriginal': None,
                 'GPSDateStamp': None,
+                'GPSTimeStamp': None,
                 'Software': None,
                 'ExifVersion': None
             }
@@ -372,6 +374,7 @@ class TestGetExifDates:
                 'SubSecTimeOriginal': None,
                 'OffsetTimeOriginal': None,
                 'GPSDateStamp': None,
+                'GPSTimeStamp': None,
                 'Software': None,
                 'ExifVersion': None
             }
@@ -402,7 +405,9 @@ class TestGetExifDates:
 
             assert result['DateTimeOriginal'] == datetime(2023, 1, 15, 10, 30, 0)
             assert result['OffsetTimeOriginal'] == '+02:00'
-            assert isinstance(result['GPSDateStamp'], datetime)
+            # GPS Date y Time ahora son strings separados
+            assert result['GPSDateStamp'] == '2023:01:15'
+            assert result['GPSTimeStamp'] == '10:30:00'
 
 
 @pytest.mark.unit

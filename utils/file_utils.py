@@ -671,7 +671,8 @@ def get_exif_from_image(file_path: Path) -> dict:
             'DateTimeDigitized': datetime or None,    # Fecha de digitalización
             'SubSecTimeOriginal': str or None,        # Subsegundos de precisión
             'OffsetTimeOriginal': str or None,        # Zona horaria de captura
-            'GPSDateStamp': datetime or None,         # Timestamp GPS
+            'GPSDateStamp': str or None,              # Fecha GPS en formato 'YYYY:MM:DD'
+            'GPSTimeStamp': str or None,              # Hora GPS en formato 'HH:MM:SS'
             'Software': str or None,                  # Software usado (detecta edición)
             'ExifVersion': str or None                # Versión del estándar EXIF (ej: '0232')
         }
@@ -695,6 +696,7 @@ def get_exif_from_image(file_path: Path) -> dict:
         'SubSecTimeOriginal': None,
         'OffsetTimeOriginal': None,
         'GPSDateStamp': None,
+        'GPSTimeStamp': None,
         'Software': None,
         'ExifVersion': None
     }
@@ -815,16 +817,16 @@ def get_exif_from_image(file_path: Path) -> dict:
                             try:
                                 # GPSDateStamp formato: 'YYYY:MM:DD'
                                 # GPSTimeStamp formato: (HH, MM, SS) como tupla de racionales
-                                date_str = gps_date.replace(':', '-')
                                 
-                                # Convertir tupla de racionales a hora
+                                # Guardar GPSDateStamp como string de fecha
+                                result['GPSDateStamp'] = gps_date
+                                
+                                # Convertir tupla de racionales a hora y guardar GPSTimeStamp
                                 hours = int(gps_time[0]) if hasattr(gps_time[0], '__int__') else int(gps_time[0].numerator / gps_time[0].denominator)
                                 minutes = int(gps_time[1]) if hasattr(gps_time[1], '__int__') else int(gps_time[1].numerator / gps_time[1].denominator)
                                 seconds = int(gps_time[2]) if hasattr(gps_time[2], '__int__') else int(gps_time[2].numerator / gps_time[2].denominator)
                                 
-                                time_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-                                
-                                result['GPSDateStamp'] = datetime.strptime(f"{date_str} {time_str}", '%Y-%m-%d %H:%M:%S')
+                                result['GPSTimeStamp'] = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
                             except (ValueError, AttributeError, IndexError, TypeError):
                                 pass
                     except Exception:
