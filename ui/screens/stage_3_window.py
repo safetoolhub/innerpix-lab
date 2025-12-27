@@ -502,9 +502,20 @@ class Stage3Window(BaseStage):
             QMessageBox.critical(self.main_window, "Error", f"Error en análisis: {msg}")
             worker.deleteLater()
             
-        worker.progress_update.connect(
-            lambda c, t, m: progress.setLabelText(f"{message}\n{m}")
-        )
+        def on_progress_update(current, total, msg):
+            # Si total > 0, usar barra determinada. Si no, indeterminada.
+            if total > 0:
+                if progress.maximum() != total:
+                    progress.setMaximum(total)
+                progress.setValue(current)
+            else:
+                if progress.maximum() != 0:
+                    progress.setMaximum(0)
+                    progress.setValue(0)
+            
+            progress.setLabelText(f"{message}\n{msg}")
+
+        worker.progress_update.connect(on_progress_update)
         worker.finished.connect(on_finished)
         worker.error.connect(on_error)
         

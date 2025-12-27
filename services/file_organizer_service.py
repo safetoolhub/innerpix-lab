@@ -114,8 +114,12 @@ class FileOrganizerService(BaseService):
         
         # Clasificar archivos en subdirectories y root_files
         for idx, meta in enumerate(all_files):
-            if idx % 500 == 0 and not self._report_progress(progress_callback, idx, total_files, "Clasificando archivos"):
-                return self._create_empty_result(root_directory, organization_type, group_by_source, group_by_type, date_grouping_type)
+            if idx % 500 == 0:
+                if idx % 5000 == 0 and idx > 0:
+                    self.logger.info(f"Organizador: Clasificando archivos {idx}/{total_files}")
+                    
+                if not self._report_progress(progress_callback, idx, total_files, "Clasificando archivos"):
+                    return self._create_empty_result(root_directory, organization_type, group_by_source, group_by_type, date_grouping_type)
 
             file_path = meta.path
             parent_dir = file_path.parent
@@ -336,17 +340,17 @@ class FileOrganizerService(BaseService):
     
     def _generate_move_plan(self, subdirectories, root_files, root_directory, existing_file_names, organization_type, progress_callback, group_by_source, group_by_type, date_grouping_type):
         if organization_type == OrganizationType.TO_ROOT:
-            return self._generate_move_plan_to_root(subdirectories, root_directory, existing_file_names)
+            return self._generate_move_plan_to_root(subdirectories, root_directory, existing_file_names, progress_callback)
         elif organization_type == OrganizationType.BY_MONTH:
-            return self._generate_move_plan_by_month(subdirectories, root_files, root_directory, group_by_source, group_by_type)
+            return self._generate_move_plan_by_month(subdirectories, root_files, root_directory, group_by_source, group_by_type, progress_callback)
         elif organization_type == OrganizationType.BY_YEAR:
-            return self._generate_move_plan_by_year(subdirectories, root_files, root_directory, group_by_source, group_by_type)
+            return self._generate_move_plan_by_year(subdirectories, root_files, root_directory, group_by_source, group_by_type, progress_callback)
         elif organization_type == OrganizationType.BY_YEAR_MONTH:
-            return self._generate_move_plan_by_year_month(subdirectories, root_files, root_directory, group_by_source, group_by_type)
+            return self._generate_move_plan_by_year_month(subdirectories, root_files, root_directory, group_by_source, group_by_type, progress_callback)
         elif organization_type == OrganizationType.BY_TYPE:
-            return self._generate_move_plan_by_type(subdirectories, root_files, root_directory, group_by_source, date_grouping_type)
+            return self._generate_move_plan_by_type(subdirectories, root_files, root_directory, group_by_source, date_grouping_type, progress_callback)
         elif organization_type == OrganizationType.BY_SOURCE:
-            return self._generate_move_plan_by_source(subdirectories, root_files, root_directory, date_grouping_type)
+            return self._generate_move_plan_by_source(subdirectories, root_files, root_directory, date_grouping_type, progress_callback)
         else:
             raise ValueError(f"Tipo no soportado: {organization_type}")
 
@@ -386,11 +390,18 @@ class FileOrganizerService(BaseService):
                     move_plan.append(move)
         return move_plan
 
-    def _generate_move_plan_to_root(self, subdirectories: Dict, root_directory: Path, existing_files: Set[str]) -> List[FileMove]:
+    def _generate_move_plan_to_root(self, subdirectories: Dict, root_directory: Path, existing_files: Set[str], progress_callback=None) -> List[FileMove]:
         move_plan = []
         name_conflicts = defaultdict(list)
+        total_items = sum(len(d['files']) for d in subdirectories.values())
+        processed = 0
+
         for subdir_name, subdir_data in subdirectories.items():
             for file_info in subdir_data['files']:
+                processed += 1
+                if processed % 1000 == 0:
+                     self._report_progress(progress_callback, processed, total_items, f"Moviendo a raíz... {processed}/{total_items}")
+                
                 fname = file_info['name']
                 fpath = Path(file_info['path'])
                 conflict = fname in existing_files
@@ -398,21 +409,30 @@ class FileOrganizerService(BaseService):
                 name_conflicts[fname].append(move)
         return self._resolve_conflicts_in_folder(name_conflicts, root_directory)
 
-    def _generate_move_plan_by_month(self, subdirs, root_files, root_dir, group_src, group_type):
-        return self._generic_date_plan(subdirs, root_files, root_dir, group_src, group_type, "%Y_%m")
+    def _generate_move_plan_by_month(self, subdirs, root_files, root_dir, group_src, group_type, progress_callback=None):
+        return self._generic_date_plan(subdirs, root_files, root_dir, group_src, group_type, "%Y_%m", progress_callback)
 
-    def _generate_move_plan_by_year(self, subdirs, root_files, root_dir, group_src, group_type):
-         return self._generic_date_plan(subdirs, root_files, root_dir, group_src, group_type, "%Y")
+    def _generate_move_plan_by_year(self, subdirs, root_files, root_dir, group_src, group_type, progress_callback=None):
+         return self._generic_date_plan(subdirs, root_files, root_dir, group_src, group_type, "%Y", progress_callback)
          
-    def _generate_move_plan_by_year_month(self, subdirs, root_files, root_dir, group_src, group_type):
-         return self._generic_date_plan(subdirs, root_files, root_dir, group_src, group_type, "%Y/%m")
+    def _generate_move_plan_by_year_month(self, subdirs, root_files, root_dir, group_src, group_type, progress_callback=None):
+         return self._generic_date_plan(subdirs, root_files, root_dir, group_src, group_type, "%Y/%m", progress_callback)
 
-    def _generic_date_plan(self, subdirs, root_files, root_dir, group_src, group_type, date_fmt):
+    def _generic_date_plan(self, subdirs, root_files, root_dir, group_src, group_type, date_fmt, progress_callback=None):
         move_plan = []
         files_map = defaultdict(list)
         
         def process(files, subdir_name):
+            count = 0
+            total_subdir = len(files)
             for info in files:
+                count += 1
+                if count % 100 == 0:
+                   self._report_progress(progress_callback, count, total_subdir, f"Analizando fechas... {count}/{total_subdir} en {subdir_name}")
+                
+                if count % 1000 == 0:
+                     self.logger.info(f"Organizador (Date Plan): Procesando fechas {count}/{total_subdir} en {subdir_name}")
+
                 path = Path(info['path'])
                 file_metadata = get_all_metadata_from_file(path)
                 date, _ = select_best_date_from_file(file_metadata)
@@ -444,14 +464,23 @@ class FileOrganizerService(BaseService):
             move_plan.extend(self._resolve_conflicts_in_folder(conflicts, target_folder))
         return move_plan
 
-    def _generate_move_plan_by_type(self, subdirectories: Dict, root_files: List[Dict], root_directory: Path, group_by_source: bool = False, date_grouping_type: Optional[str] = None) -> List[FileMove]:
+    def _generate_move_plan_by_type(self, subdirectories: Dict, root_files: List[Dict], root_directory: Path, group_by_source: bool = False, date_grouping_type: Optional[str] = None, progress_callback=None) -> List[FileMove]:
         """Genera plan de movimiento separando por tipo de archivo (Fotos/Videos)"""
         move_plan = []
         files_by_type = defaultdict(list)
         type_folder_map = {'PHOTO': 'Fotos', 'VIDEO': 'Videos'}
 
         def process_files(file_list, subdir_name):
+            count = 0 
+            total_subdir = len(file_list)
             for info in file_list:
+                count += 1
+                if count % 500 == 0:
+                     self._report_progress(progress_callback, count, total_subdir, f"Analizando tipos... {count}/{total_subdir}")
+                
+                path = Path(info['path'])
+                info['path'] = str(path) # Ensure string for consistency if needed, though previously it was mixed usage
+                
                 file_path = Path(info['path'])
                 file_type = info['type']
                 folder_name = type_folder_map.get(file_type, 'Otros')
@@ -501,13 +530,20 @@ class FileOrganizerService(BaseService):
             
         return move_plan
 
-    def _generate_move_plan_by_source(self, subdirectories: Dict, root_files: List[Dict], root_directory: Path, date_grouping_type: Optional[str] = None) -> List[FileMove]:
+    def _generate_move_plan_by_source(self, subdirectories: Dict, root_files: List[Dict], root_directory: Path, date_grouping_type: Optional[str] = None, progress_callback=None) -> List[FileMove]:
         """Genera plan de movimiento separando por fuente detectada"""
         move_plan = []
         files_by_source = defaultdict(list)
 
         def process_files(file_list, subdir_name):
+            count = 0 
+            total_subdir = len(file_list)
+            
             for info in file_list:
+                count += 1
+                if count % 500 == 0:
+                     self._report_progress(progress_callback, count, total_subdir, f"Analizando fuentes... {count}/{total_subdir}")
+                
                 file_path = Path(info['path'])
                 source = detect_file_source(info['name'], file_path)
 

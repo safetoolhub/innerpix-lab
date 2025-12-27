@@ -44,13 +44,14 @@ Preparado para migración a SQLite:
 - Separación clara entre lógica y almacenamiento
 """
 from pathlib import Path
-from typing import Dict, List, Optional, Protocol, Any
+from typing import Dict, List, Optional, Protocol, Any, OrderedDict
 from enum import Enum
 from dataclasses import dataclass, replace
 from datetime import datetime
 import threading
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from collections import OrderedDict
 
 from services.file_metadata import FileMetadata
 from utils.logger import get_logger
@@ -190,11 +191,10 @@ class FileInfoRepositoryCache:
     def __init__(self):
         """Inicializa el repositorio vacío (solo la primera vez)"""
         if not hasattr(self, '_initialized'):
-            # Backend de almacenamiento (dict en memoria por ahora)
-            self._cache: Dict[Path, FileMetadata] = {}
+            # Backend de almacenamiento (OrderedDict para LRU integrado)
+            self._cache: OrderedDict[Path, FileMetadata] = OrderedDict()
             
-            # LRU tracking: orden de acceso para política de eviction
-            self._access_order: List[Path] = []
+             # (Remove access_order)
             
             # Thread safety
             self._lock = threading.RLock()
@@ -1187,7 +1187,6 @@ class FileInfoRepositoryCache:
         with self._lock:
             old_size = len(self._cache)
             self._cache.clear()
-            self._access_order.clear()
             self._hits = 0
             self._misses = 0
             self._logger.info(f"Repositorio limpiado - {old_size} archivos eliminados")
@@ -1214,8 +1213,6 @@ class FileInfoRepositoryCache:
         with self._lock:
             if path in self._cache:
                 del self._cache[path]
-                if path in self._access_order:
-                    self._access_order.remove(path)
                 self._logger.debug(f"Archivo eliminado del repositorio: {path.name}")
                 return True
             return False
@@ -1373,7 +1370,6 @@ class FileInfoRepositoryCache:
             with self._lock:
                 # Limpiar caché actual
                 self._cache.clear()
-                self._access_order.clear()
                 
                 for file_data in files_data:
                     try:
@@ -1385,7 +1381,7 @@ class FileInfoRepositoryCache:
                             continue
                         
                         self._cache[metadata.path] = metadata
-                        self._access_order.append(metadata.path)
+                        # OrderedDict maintains insertion order automatically
                         loaded += 1
                         
                     except (KeyError, ValueError, TypeError) as e:
@@ -1456,14 +1452,6 @@ class FileInfoRepositoryCache:
         """
         Elimina las entradas menos recientemente usadas (LRU).
         
-        Política de eviction basada en scoring:
-        - EXIF video: +20 puntos (muy costoso de recalcular)
-        - EXIF imagen: +12 puntos (costoso)
-        - Hash SHA256: +5 puntos (moderadamente costoso)
-        - Penalización por antigüedad: -3 * (posición_acceso / total)
-        
-        Elimina primero las entradas con menor score (menos valiosas).
-        
         Args:
             num_to_evict: Número de entradas a eliminar
         """
@@ -1471,51 +1459,13 @@ class FileInfoRepositoryCache:
             return
         
         # Ya estamos dentro de self._lock
-        
-        # Ordenar entradas por "valor" (cantidad de datos)
-        # Prioridad de eliminación:
-        # 1. Sin hash ni EXIF (menos datos)
-        # 2. Solo filesystem metadata
-        # 3. Las menos recientemente accedidas
-        
-        entries_by_value = []
-        for path, metadata in self._cache.items():
-            # Calcular "score" de la entrada (más alto = más valioso)
-            score = 0
-            if metadata.has_hash:
-                score += 5   # Hash moderadamente costoso
-            if metadata.has_exif:
-                # EXIF de video es muy costoso, de imagen moderado
-                if metadata.is_video:
-                    score += 20  # EXIF video muy costoso
-                elif metadata.is_image:
-                    score += 12  # EXIF imagen costoso
-            
-            # Penalizar por antigüedad de acceso
-            try:
-                access_index = self._access_order.index(path)
-                # Más bajo = más reciente (final de la lista)
-                age_penalty = access_index / len(self._access_order)
-                score -= age_penalty * 3
-            except ValueError:
-                # No está en access_order, muy viejo
-                score -= 5
-            
-            entries_by_value.append((score, path))
-        
-        # Ordenar por score (menor primero = eliminar primero)
-        entries_by_value.sort()
-        
-        # Eliminar los num_to_evict con menor score
         evicted = 0
-        for score, path in entries_by_value:
-            if evicted >= num_to_evict:
-                break
-            
-            del self._cache[path]
-            if path in self._access_order:
-                self._access_order.remove(path)
-            evicted += 1
+        while len(self._cache) > self._max_entries and evicted < num_to_evict * 2: # Limit iterations safely
+             self._cache.popitem(last=False) # FIFO = LIFO of LRU (last=False pops oldest)
+             evicted += 1
+             
+             if len(self._cache) <= self._max_entries:
+                 break
         
         self._logger.info(
             f"Política LRU: Eliminadas {evicted} entradas "
@@ -1526,22 +1476,16 @@ class FileInfoRepositoryCache:
         """
         Actualiza el orden de acceso para LRU.
         
-        Mueve el path al final de la lista (más reciente).
+        Mueve el path al final del OrderedDict (más reciente).
+        O(1) operation.
         
         Args:
             path: Path accedido recientemente
         """
         # Ya estamos dentro de self._lock
         
-        if path in self._access_order:
-            self._access_order.remove(path)
-        self._access_order.append(path)
-        
-        # Mantener la lista de acceso razonable (no más de max_entries * 1.5)
-        max_access_list = int(self._max_entries * 1.5)
-        if len(self._access_order) > max_access_list:
-            # Eliminar la mitad más antigua
-            self._access_order = self._access_order[len(self._access_order) // 2:]
+        if path in self._cache:
+            self._cache.move_to_end(path)
     
     # =========================================================================
     # OPERADORES
