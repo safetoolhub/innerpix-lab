@@ -1,6 +1,6 @@
 Innerpix lab
 ---------------
-
+La estrategia de populacion EXIF_ALL y FULL son iinutiles, habria que borrarlas. 
 
 Antiguas versiones
 --------------------
