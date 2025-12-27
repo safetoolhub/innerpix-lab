@@ -6,8 +6,8 @@ Runs a complete analysis (Structure + Hash + Image EXIF) on a directory and save
 the resulting cache repository to disk. This allows for reloading the analysis state
 later for testing or development purposes without re-scanning.
 
-Usage:
-    python3 dev-tools/save_analysis_cache.py --folder /path/to/folder
+Usage:    
+    source .venv/bin/activate && python dev-tools/save_analysis_cache.py --folder <PATH_TO_FOLER_WITH_PHOTOS>
 
 The cache file will be saved in the configured DEFAULT_CACHE_SAVED_DIR.
 """
@@ -39,6 +39,11 @@ def setup_environment():
     logger = get_logger("SaveAnalysisCache")
     logger.info(f"Log file: {log_file}")
     logger.info(f"Logs directory: {logs_dir}")
+    
+    # Log Python executable to verify we're using the right one
+    logger.info(f"Python executable: {sys.executable}")
+    logger.info(f"Python version: {sys.version}")
+    
     return logger
 
 def run_analysis_and_save(folder_path, logger):
@@ -81,7 +86,12 @@ def run_analysis_and_save(folder_path, logger):
         extract_image_exif = settings_manager.get_precalculate_image_exif()
         extract_video_exif = settings_manager.get_precalculate_video_exif()
         
-        logger.info(f"Configuration: Hashes={calculate_hashes}, Image EXIF={extract_image_exif}, Video EXIF={extract_video_exif}")
+        logger.info("="*60)
+        logger.info(f"CONFIGURATION LOADED FROM SETTINGS:")
+        logger.info(f"  - Hashes: {calculate_hashes}")
+        logger.info(f"  - Image EXIF: {extract_image_exif}")
+        logger.info(f"  - Video EXIF: {extract_video_exif} ← CHECK THIS")
+        logger.info("="*60)
         
         # Configure what to scan (respecting user settings)
         result = scanner.scan(
