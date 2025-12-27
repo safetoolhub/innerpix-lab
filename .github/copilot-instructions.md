@@ -191,6 +191,9 @@ Dry-run mode for testing. No deletions/moves/renames.
 
 - **Tool Dialogs**:
   - `duplicates_exact_dialog.py`: Gestión de duplicados exactos (SHA256), estrategias de eliminación
+    - TreeWidget con columnas: Archivos, Tamaño, Fecha, Origen, Ubicación, Estado
+    - Obtiene metadata del repositorio singleton con `FileInfoRepositoryCache.get_instance()`
+    - Muestra origen de fecha (exif_datetime_original, mtime, etc.) en columna dedicada
   - `duplicates_similar_dialog.py`: Gestión de duplicados similares (perceptual hash), ajuste de sensibilidad en tiempo real
     - Progressive batch loading: Loads groups in batches to avoid UI freeze with large datasets (>10k files)
     - Uses `DuplicatesSimilarAnalysis.find_new_groups()` for incremental group detection
@@ -199,7 +202,9 @@ Dry-run mode for testing. No deletions/moves/renames.
   - `file_organizer_dialog.py`: Organización de archivos, 3 modos (TO_ROOT, BY_MONTH, WHATSAPP_SEPARATE), paginación (200/page)
   - `file_renamer_dialog.py`: Renombrado de archivos, mapeos original → nuevo, indicadores de conflictos
   - `heic_dialog.py`: Gestión de pares HEIC/JPG, menú contextual
+    - Muestra origen de fecha compartida entre pares HEIC/JPG
   - `live_photos_dialog.py`: Gestión de Live Photos (pares foto + video)
+    - Muestra origen de fecha para imágenes y videos en columna dedicada
   - `zero_byte_dialog.py`: Gestión de archivos de cero bytes
 
 - **Auxiliary Dialogs**:

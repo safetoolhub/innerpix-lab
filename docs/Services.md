@@ -13,7 +13,7 @@ Ofrece al usuario 7 servicios principales; cada una se presenta mediante un diá
 
 3. **Detección de copias exactas**
    - **Descripción**: Encuentra archivos idénticos byte-a-byte mediante hashing. Permite revisar los pares/grupos detectados y elegir qué conservar o eliminar.
-   - **Dialog asociado**: `ui/dialogs/duplicates_exact_similar_dialog.py`
+   - **Dialog asociado**: `ui/dialogs/duplicates_exact_dialog.py`
 
 4. **Detección de archivos similares**
    - **Descripción**: Detecta imágenes o videos visualmente similares (mismo contenido con pequeñas variaciones: recorte, rotación, compresión). Ofrece herramientas para comparar y decidir qué mantener.
