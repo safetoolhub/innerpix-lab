@@ -490,12 +490,12 @@ class FileInfoRepositoryCache:
             return metadata
         
         # Extraer EXIF de imágenes (fuera del lock porque es costoso)
-        exif_dates = None
+        exif_data_from_image = None
         try:
             from utils.file_utils import get_exif_from_image
             
-            exif_dates = get_exif_from_image(path)
-            exif_count = len(exif_dates)
+            exif_data_from_image = get_exif_from_image(path)
+            exif_count = len(exif_data_from_image)
             self._logger.debug(f"EXIF extraído para imagen {path.name}: {exif_count} campos")
                 
         except Exception as e:
@@ -507,48 +507,56 @@ class FileInfoRepositoryCache:
             return dt.strftime('%Y:%m:%d %H:%M:%S')
         
         # Actualizar metadata con lock (thread-safe)
-        if exif_dates:
+        if exif_data_from_image:
             with self._lock:
                 # Volver a obtener metadata del caché por si cambió
                 cached_metadata = self._cache.get(path)
                 if cached_metadata:
                     # Establecer campos EXIF de fecha
                     # CRÍTICO: Convertir datetime objects a strings EXIF porque FileMetadata espera strings
-                    if exif_dates.get('DateTimeOriginal'):
-                        cached_metadata.exif_DateTimeOriginal = _datetime_to_exif_str(exif_dates['DateTimeOriginal'])
-                    if exif_dates.get('CreateDate'):
-                        cached_metadata.exif_DateTime = _datetime_to_exif_str(exif_dates['CreateDate'])  # CreateDate mapea a DateTime
-                    if exif_dates.get('DateTimeDigitized'):
-                        cached_metadata.exif_DateTimeDigitized = _datetime_to_exif_str(exif_dates['DateTimeDigitized'])
-                    if exif_dates.get('SubSecTimeOriginal'):
-                        cached_metadata.exif_SubSecTimeOriginal = exif_dates['SubSecTimeOriginal']
-                    if exif_dates.get('OffsetTimeOriginal'):
-                        cached_metadata.exif_OffsetTimeOriginal = exif_dates['OffsetTimeOriginal']
-                    if exif_dates.get('GPSDateStamp'):
-                        cached_metadata.exif_GPSDateStamp = _datetime_to_exif_str(exif_dates['GPSDateStamp'])
-                    if exif_dates.get('Software'):
-                        cached_metadata.exif_Software = exif_dates['Software']
-                    if exif_dates.get('ExifVersion'):
-                        cached_metadata.exif_ExifVersion = exif_dates['ExifVersion']
-                    self._logger.debug(f"EXIF asignado en caché para imagen {path.name}: {len(exif_dates)} campos")
+                    if exif_data_from_image.get('DateTimeOriginal'):
+                        cached_metadata.exif_DateTimeOriginal = _datetime_to_exif_str(exif_data_from_image['DateTimeOriginal'])
+                    if exif_data_from_image.get('CreateDate'):
+                        cached_metadata.exif_DateTime = _datetime_to_exif_str(exif_data_from_image['CreateDate'])  # CreateDate mapea a DateTime
+                    if exif_data_from_image.get('DateTimeDigitized'):
+                        cached_metadata.exif_DateTimeDigitized = _datetime_to_exif_str(exif_data_from_image['DateTimeDigitized'])
+                    if exif_data_from_image.get('SubSecTimeOriginal'):
+                        cached_metadata.exif_SubSecTimeOriginal = exif_data_from_image['SubSecTimeOriginal']
+                    if exif_data_from_image.get('OffsetTimeOriginal'):
+                        cached_metadata.exif_OffsetTimeOriginal = exif_data_from_image['OffsetTimeOriginal']
+                    if exif_data_from_image.get('GPSDateStamp'):
+                        cached_metadata.exif_GPSDateStamp = _datetime_to_exif_str(exif_data_from_image['GPSDateStamp'])
+                    if exif_data_from_image.get('Software'):
+                        cached_metadata.exif_Software = exif_data_from_image['Software']
+                    if exif_data_from_image.get('ExifVersion'):
+                        cached_metadata.exif_ExifVersion = exif_data_from_image['ExifVersion']
+                    if exif_data_from_image.get('ImageWidth'):
+                        cached_metadata.exif_ImageWidth = exif_data_from_image['ImageWidth']
+                    if exif_data_from_image.get('ImageLength'):
+                        cached_metadata.exif_ImageLength = exif_data_from_image['ImageLength']
+                    self._logger.debug(f"EXIF asignado en caché para imagen {path.name}: {len(exif_data_from_image)} campos")
                 else:
                     # Raro pero posible: se eliminó del caché entre tanto
-                    if exif_dates.get('DateTimeOriginal'):
-                        metadata.exif_DateTimeOriginal = _datetime_to_exif_str(exif_dates['DateTimeOriginal'])
-                    if exif_dates.get('CreateDate'):
-                        metadata.exif_DateTime = _datetime_to_exif_str(exif_dates['CreateDate'])
-                    if exif_dates.get('DateTimeDigitized'):
-                        metadata.exif_DateTimeDigitized = _datetime_to_exif_str(exif_dates['DateTimeDigitized'])
-                    if exif_dates.get('SubSecTimeOriginal'):
-                        metadata.exif_SubSecTimeOriginal = exif_dates['SubSecTimeOriginal']
-                    if exif_dates.get('OffsetTimeOriginal'):
-                        metadata.exif_OffsetTimeOriginal = exif_dates['OffsetTimeOriginal']
-                    if exif_dates.get('GPSDateStamp'):
-                        metadata.exif_GPSDateStamp = _datetime_to_exif_str(exif_dates['GPSDateStamp'])
-                    if exif_dates.get('Software'):
-                        metadata.exif_Software = exif_dates['Software']
-                    if exif_dates.get('ExifVersion'):
-                        metadata.exif_ExifVersion = exif_dates['ExifVersion']
+                    if exif_data_from_image.get('DateTimeOriginal'):
+                        metadata.exif_DateTimeOriginal = _datetime_to_exif_str(exif_data_from_image['DateTimeOriginal'])
+                    if exif_data_from_image.get('CreateDate'):
+                        metadata.exif_DateTime = _datetime_to_exif_str(exif_data_from_image['CreateDate'])
+                    if exif_data_from_image.get('DateTimeDigitized'):
+                        metadata.exif_DateTimeDigitized = _datetime_to_exif_str(exif_data_from_image['DateTimeDigitized'])
+                    if exif_data_from_image.get('SubSecTimeOriginal'):
+                        metadata.exif_SubSecTimeOriginal = exif_data_from_image['SubSecTimeOriginal']
+                    if exif_data_from_image.get('OffsetTimeOriginal'):
+                        metadata.exif_OffsetTimeOriginal = exif_data_from_image['OffsetTimeOriginal']
+                    if exif_data_from_image.get('GPSDateStamp'):
+                        metadata.exif_GPSDateStamp = _datetime_to_exif_str(exif_data_from_image['GPSDateStamp'])
+                    if exif_data_from_image.get('Software'):
+                        metadata.exif_Software = exif_data_from_image['Software']
+                    if exif_data_from_image.get('ExifVersion'):
+                        metadata.exif_ExifVersion = exif_data_from_image['ExifVersion']
+                    if exif_data_from_image.get('ImageWidth'):
+                        metadata.exif_ImageWidth = exif_data_from_image['ImageWidth']
+                    if exif_data_from_image.get('ImageLength'):
+                        metadata.exif_ImageLength = exif_data_from_image['ImageLength']
                     self._cache[path] = metadata
         
         return metadata
