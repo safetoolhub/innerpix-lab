@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QDesktopServices, QColor, QShowEvent
 from services.result_types import DuplicateGroup
+from services.file_metadata_repository_cache import FileInfoRepositoryCache
 from utils.format_utils import format_size
 from utils.logger import get_logger
 from ui.styles.design_system import DesignSystem
@@ -30,11 +31,11 @@ class DuplicatesExactDialog(BaseDialog):
     LOAD_INCREMENT = 50
     WARNING_THRESHOLD = 200
     
-    def __init__(self, analysis, parent=None, metadata_cache=None):
+    def __init__(self, analysis, parent=None):
         super().__init__(parent)
         self.logger = get_logger('ExactCopiesDialog')
         self.analysis = analysis
-        self.metadata_cache = metadata_cache
+        self.repo = FileInfoRepositoryCache.get_instance()
         self.keep_strategy = 'oldest'
         self.accepted_plan = None
         
@@ -70,13 +71,13 @@ class DuplicatesExactDialog(BaseDialog):
         Returns:
             Timestamp (epoch seconds) de la mejor fecha disponible
         """
-        if self.metadata_cache:
-            best_date, _ = self.metadata_cache.get_best_date(file_path)
+        if self.repo:
+            best_date, _ = self.repo.get_best_date(file_path)
             if best_date:
                 return best_date.timestamp()
             
             # Fallback a mtime del cache
-            fs_mtime = self.metadata_cache.get_filesystem_modification_date(file_path)
+            fs_mtime = self.repo.get_filesystem_modification_date(file_path)
             if fs_mtime:
                 return fs_mtime.timestamp()
         
@@ -352,12 +353,13 @@ class DuplicatesExactDialog(BaseDialog):
         
         # ========== ÁRBOL DE GRUPOS ==========
         self.tree_widget = QTreeWidget()
-        self.tree_widget.setHeaderLabels(["Grupos / Archivos", "Tamaño", "Fecha", "Ubicación", "Estado"])
+        self.tree_widget.setHeaderLabels(["Grupos / Archivos", "Tamaño", "Fecha", "Origen", "Ubicación", "Estado"])
         self.tree_widget.setColumnWidth(0, 300)  # Ajustado para grupos más simples
-        self.tree_widget.setColumnWidth(1, 120)
+        self.tree_widget.setColumnWidth(1, 100)
         self.tree_widget.setColumnWidth(2, 140)  # Más espacio para fecha completa
-        self.tree_widget.setColumnWidth(3, 200)  # Más espacio para ubicación
-        self.tree_widget.setColumnWidth(4, 130)
+        self.tree_widget.setColumnWidth(3, 100)  # Origen de la fecha
+        self.tree_widget.setColumnWidth(4, 180)  # Más espacio para ubicación
+        self.tree_widget.setColumnWidth(5, 130)
         self.tree_widget.setAlternatingRowColors(True)
         self.tree_widget.setRootIsDecorated(True)
         self.tree_widget.setAnimated(True)
@@ -675,12 +677,13 @@ class DuplicatesExactDialog(BaseDialog):
         group_item.setBackground(2, QColor(DesignSystem.COLOR_BG_1))
         group_item.setBackground(3, QColor(DesignSystem.COLOR_BG_1))
         group_item.setBackground(4, QColor(DesignSystem.COLOR_BG_1))
+        group_item.setBackground(5, QColor(DesignSystem.COLOR_BG_1))
         
         # Color del texto de la columna de espacio recuperable
-        group_item.setForeground(4, QColor(DesignSystem.COLOR_SUCCESS))
-        font_space = group_item.font(4)
+        group_item.setForeground(5, QColor(DesignSystem.COLOR_SUCCESS))
+        font_space = group_item.font(5)
         font_space.setBold(True)
-        group_item.setFont(4, font_space)
+        group_item.setFont(5, font_space)
         
         # Añadir archivos como hijos
         for file_path in group.files:
@@ -704,30 +707,35 @@ class DuplicatesExactDialog(BaseDialog):
             file_item.setText(0, file_path.name)
             file_item.setText(1, format_size(file_path.stat().st_size))
             
-            # Fecha de modificación con formato mejorado (usando best_date)
-            best_date_ts = self._get_best_date_timestamp(file_path)
-            file_date = datetime.fromtimestamp(best_date_ts)
-            file_item.setText(2, file_date.strftime('%d/%m/%Y %H:%M'))
+            # Obtener fecha y origen directamente de la caché
+            if self.repo:
+                best_date, date_source = self.repo.get_best_date(file_path)
+            else:
+                best_date = datetime.fromtimestamp(file_path.stat().st_mtime)
+                date_source = "mtime"
+            
+            file_item.setText(2, best_date.strftime('%d/%m/%Y %H:%M'))
+            file_item.setText(3, date_source or "")
             
             # Ruta del directorio padre
             path_str = str(file_path.parent)
-            file_item.setText(3, path_str)
+            file_item.setText(4, path_str)
             
             # Estado: mantener o eliminar con iconos y colores Material Design
             if is_keep:
-                file_item.setText(4, "✓ Mantener")
-                file_item.setForeground(4, QColor(DesignSystem.COLOR_SUCCESS))
+                file_item.setText(5, "✓ Mantener")
+                file_item.setForeground(5, QColor(DesignSystem.COLOR_SUCCESS))
                 
                 # Resaltar archivo que se mantiene con fondo sutil
-                for col in range(5):
+                for col in range(6):
                     file_item.setBackground(col, QColor(f"{DesignSystem.COLOR_SUCCESS}15"))  # 15 = alpha hex
                 
-                font_keep = file_item.font(4)
+                font_keep = file_item.font(5)
                 font_keep.setBold(True)
-                file_item.setFont(4, font_keep)
+                file_item.setFont(5, font_keep)
             else:
-                file_item.setText(4, "✗ Eliminar")
-                file_item.setForeground(4, QColor(DesignSystem.COLOR_ERROR))
+                file_item.setText(5, "✗ Eliminar")
+                file_item.setForeground(5, QColor(DesignSystem.COLOR_ERROR))
             
             # Guardar referencia al archivo en el item
             file_item.setData(0, Qt.ItemDataRole.UserRole, file_path)
@@ -737,14 +745,16 @@ class DuplicatesExactDialog(BaseDialog):
                 f"<b>{file_path.name}</b><br>"
                 f"📂 {file_path.parent}<br>"
                 f"📊 {format_size(file_path.stat().st_size)}<br>"
-                f"📅 {file_date.strftime('%d/%m/%Y %H:%M:%S')}<br>"
+                f"📅 {best_date.strftime('%d/%m/%Y %H:%M:%S')}<br>"
+                f"🔍 Origen fecha: {date_source or 'Desconocido'}<br>"
                 f"{'✓ Se conservará' if is_keep else '✗ Se eliminará'}"
             )
             file_item.setToolTip(0, tooltip_text)
             file_item.setToolTip(1, tooltip_text)
             file_item.setToolTip(2, tooltip_text)
-            file_item.setToolTip(3, f"Ruta completa: {file_path}")
-            file_item.setToolTip(4, tooltip_text)
+            file_item.setToolTip(3, date_source or "")
+            file_item.setToolTip(4, f"Ruta completa: {file_path}")
+            file_item.setToolTip(5, tooltip_text)
     
     def _update_status_labels(self):
         """Actualiza las etiquetas de estado según la estrategia seleccionada con estilo Material Design"""
@@ -777,27 +787,27 @@ class DuplicatesExactDialog(BaseDialog):
                 filepath = child.data(0, Qt.ItemDataRole.UserRole)
                 
                 if filepath == keep_file:
-                    child.setText(4, "✓ Mantener")
-                    child.setForeground(4, QColor(DesignSystem.COLOR_SUCCESS))
+                    child.setText(5, "✓ Mantener")
+                    child.setForeground(5, QColor(DesignSystem.COLOR_SUCCESS))
                     
                     # Resaltar archivo que se mantiene
-                    for col in range(5):
+                    for col in range(6):
                         child.setBackground(col, QColor(f"{DesignSystem.COLOR_SUCCESS}15"))
                     
-                    font_keep = child.font(4)
+                    font_keep = child.font(5)
                     font_keep.setBold(True)
-                    child.setFont(4, font_keep)
+                    child.setFont(5, font_keep)
                 else:
-                    child.setText(4, "✗ Eliminar")
-                    child.setForeground(4, QColor(DesignSystem.COLOR_ERROR))
+                    child.setText(5, "✗ Eliminar")
+                    child.setForeground(5, QColor(DesignSystem.COLOR_ERROR))
                     
                     # Limpiar fondo resaltado
-                    for col in range(5):
+                    for col in range(6):
                         child.setBackground(col, QColor("transparent"))
                     
-                    font_del = child.font(4)
+                    font_del = child.font(5)
                     font_del.setBold(False)
-                    child.setFont(4, font_del)
+                    child.setFont(5, font_del)
     
     def _on_search_changed(self):
         """Maneja cambios en la búsqueda"""

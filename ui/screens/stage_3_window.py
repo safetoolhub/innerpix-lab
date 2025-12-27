@@ -387,7 +387,7 @@ class Stage3Window(BaseStage):
             if hasattr(self.analysis_results, 'duplicates') and self.analysis_results.duplicates:
                 dup_data = self.analysis_results.duplicates
                 if dup_data.total_groups > 0:
-                    dialog = DuplicatesExactDialog(dup_data, self.main_window, self.metadata_cache)
+                    dialog = DuplicatesExactDialog(dup_data, self.main_window)
                 else:
                      QMessageBox.information(self.main_window, "Info", "No se encontraron copias exactas.")
 
