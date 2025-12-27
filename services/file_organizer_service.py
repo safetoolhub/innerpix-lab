@@ -262,7 +262,7 @@ class FileOrganizerService(BaseService):
              
              for move in move_plan:
                  items_processed += 1
-                 if items_processed % 10 == 0:
+                 if items_processed % Config.UI_UPDATE_INTERVAL == 0:
                       if not self._report_progress(progress_callback, items_processed, total, f"Procesando {items_processed}/{total}"):
                           break
                  
