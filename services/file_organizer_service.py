@@ -309,7 +309,7 @@ class FileOrganizerService(BaseService):
                  removed = cleanup_empty_directories(root_directory)
                  result.empty_directories_removed = removed
                  
-             summary = self._format_operation_summary("Organización", items_processed, bytes_processed, dry_run)
+             summary = self._format_operation_summary("Organización", items_processed, 0, dry_run)
              log_section_footer_relevant(self.logger, summary)
              result.message = summary
              if result.backup_path:
