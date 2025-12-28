@@ -3,11 +3,12 @@ Servicio de detección de archivos similares mediante perceptual hashing.
 Identifica fotos y vídeos visualmente similares: recortes, rotaciones,
 ediciones o diferentes resoluciones.
 Refactorizado para usar MetadataCache.
+Optimizado con BK-Tree para clustering O(N log N).
 """
 
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Any, Dict, Tuple
+from typing import List, Optional, Any, Dict, Tuple, Set
 from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError
 import os
 
@@ -17,6 +18,96 @@ from services.result_types import DuplicateAnalysisResult, DuplicateExecutionRes
 from services.duplicates_base_service import DuplicatesBaseService
 from services.base_service import ProgressCallback
 from services.file_metadata_repository_cache import FileInfoRepositoryCache
+
+
+class BKTreeNode:
+    """
+    Nodo de un BK-Tree (Burkhard-Keller Tree) para búsqueda métrica.
+    Estructura de datos optimizada para búsquedas por distancia de Hamming.
+    """
+    def __init__(self, hash_value: Any, path: str):
+        self.hash = hash_value
+        self.path = path
+        self.children: Dict[int, 'BKTreeNode'] = {}
+
+
+class BKTree:
+    """
+    BK-Tree implementado para búsqueda eficiente de hashes perceptuales similares.
+    
+    Reduce complejidad de O(N²) a O(N log N) promedio para clustering.
+    Basado en métrica de distancia de Hamming.
+    """
+    
+    def __init__(self, distance_func):
+        """
+        Args:
+            distance_func: Función para calcular distancia entre hashes (e.g., Hamming)
+        """
+        self.root: Optional[BKTreeNode] = None
+        self.distance_func = distance_func
+        self._size = 0
+    
+    def add(self, hash_value: Any, path: str) -> None:
+        """Añade un hash al árbol."""
+        if self.root is None:
+            self.root = BKTreeNode(hash_value, path)
+            self._size += 1
+            return
+        
+        current = self.root
+        while True:
+            distance = self.distance_func(current.hash, hash_value)
+            
+            if distance in current.children:
+                current = current.children[distance]
+            else:
+                current.children[distance] = BKTreeNode(hash_value, path)
+                self._size += 1
+                break
+    
+    def search(self, target_hash: Any, threshold: int) -> List[Tuple[str, int]]:
+        """
+        Busca todos los hashes dentro del threshold de distancia.
+        
+        Args:
+            target_hash: Hash objetivo a buscar
+            threshold: Distancia máxima permitida
+            
+        Returns:
+            Lista de tuplas (path, distance) dentro del threshold
+        """
+        if self.root is None:
+            return []
+        
+        results = []
+        self._search_recursive(self.root, target_hash, threshold, results)
+        return results
+    
+    def _search_recursive(
+        self, 
+        node: BKTreeNode, 
+        target: Any, 
+        threshold: int,
+        results: List[Tuple[str, int]]
+    ) -> None:
+        """Búsqueda recursiva en el árbol."""
+        distance = self.distance_func(node.hash, target)
+        
+        if distance <= threshold:
+            results.append((node.path, distance))
+        
+        # Solo explorar ramas que puedan contener matches
+        # Poda basada en desigualdad triangular
+        min_dist = max(0, distance - threshold)
+        max_dist = distance + threshold
+        
+        for child_dist, child_node in node.children.items():
+            if min_dist <= child_dist <= max_dist:
+                self._search_recursive(child_node, target, threshold, results)
+    
+    def __len__(self) -> int:
+        return self._size
 
 
 class DuplicatesSimilarAnalysis:
@@ -61,8 +152,11 @@ class DuplicatesSimilarAnalysis:
         Returns:
             DuplicateAnalysisResult con grupos detectados
         """
-        self._logger.debug(
-            f"Generando grupos con sensibilidad {sensitivity}%"
+        import time
+        start_time = time.time()
+        
+        self._logger.info(
+            f"🔍 Iniciando clustering con sensibilidad {sensitivity}% para {len(self.perceptual_hashes)} archivos..."
         )
         
         # Convertir sensibilidad a threshold de Hamming distance
@@ -73,6 +167,11 @@ class DuplicatesSimilarAnalysis:
             self.perceptual_hashes,
             threshold,
             self._distance_cache
+        )
+        
+        elapsed = time.time() - start_time
+        self._logger.info(
+            f"⚡ Clustering completado en {elapsed:.3f}s ({len(groups)} grupos encontrados)"
         )
         
         # Calcular estadísticas
@@ -126,43 +225,56 @@ class DuplicatesSimilarAnalysis:
     ) -> List[DuplicateGroup]:
         """
         Agrupa archivos por similitud usando threshold de Hamming distance.
+        
+        Optimizado con BK-Tree: O(N log N) en promedio vs O(N²) anterior.
         """
+        import time
+        
         if not hashes:
             return []
         
-        groups = []
-        processed = set()
+        # Construir BK-Tree para búsqueda eficiente
+        tree_start = time.time()
+        bk_tree = BKTree(distance_func=self._hamming_distance)
         
         paths = list(hashes.keys())
+        for path in paths:
+            bk_tree.add(hashes[path]['hash'], path)
         
-        for i, path1 in enumerate(paths):
+        tree_time = time.time() - tree_start
+        self._logger.info(f"  🌲 BK-Tree construido: {len(bk_tree)} nodos en {tree_time:.3f}s")
+        
+        # Fase de búsqueda y agrupación
+        search_start = time.time()
+        groups = []
+        processed: Set[str] = set()
+        total_searches = 0
+        total_matches = 0
+        
+        for path1 in paths:
             if path1 in processed:
                 continue
             
             hash1 = hashes[path1]['hash']
-            similar_files = [Path(path1)]
+            
+            # Búsqueda eficiente de similares usando BK-Tree
+            similar_matches = bk_tree.search(hash1, threshold)
+            total_searches += 1
+            total_matches += len(similar_matches)
+            
+            if len(similar_matches) <= 1:  # Solo encontró a sí mismo
+                continue
+            
+            # Construir grupo con archivos similares no procesados
+            similar_files = []
             hamming_distances = []
             
-            for j, path2 in enumerate(paths[i + 1:], i + 1):
-                if path2 in processed:
-                    continue
-                
-                hash2 = hashes[path2]['hash']
-                
-                # Calcular o recuperar distancia del cache
-                cache_key = (i, j)  # Siempre i < j
-                
-                if cache_key in distance_cache:
-                    distance = distance_cache[cache_key]
-                else:
-                    distance = self._hamming_distance(hash1, hash2)
-                    distance_cache[cache_key] = distance
-                
-                # Si es similar según threshold, añadir al grupo
-                if distance <= threshold:
-                    similar_files.append(Path(path2))
-                    hamming_distances.append(distance)
-                    processed.add(path2)
+            for match_path, distance in similar_matches:
+                if match_path not in processed:
+                    similar_files.append(Path(match_path))
+                    if match_path != path1:  # No contar distancia a sí mismo
+                        hamming_distances.append(distance)
+                    processed.add(match_path)
             
             # Si el grupo tiene más de 1 archivo, guardarlo
             if len(similar_files) > 1:
@@ -207,10 +319,14 @@ class DuplicatesSimilarAnalysis:
                             similarity_score=similarity_percentage
                         )
                         groups.append(group)
-                        processed.add(path1)
                 except Exception as e:
                     self._logger.warning(f"Error procesando grupo para {path1}: {e}")
                     continue
+        
+        search_time = time.time() - search_start
+        self._logger.info(
+            f"  🔎 Búsquedas: {total_searches} archivos, {total_matches} matches totales en {search_time:.3f}s"
+        )
         
         return groups
     
@@ -446,8 +562,11 @@ class DuplicatesSimilarService(DuplicatesBaseService):
             self.logger.error("imagehash library not installed.")
             raise ImportError("imagehash library not installed.")
         
+        import time
+        
         log_section_header_discrete(self.logger, "INICIANDO ANÁLISIS INICIAL DE ARCHIVOS SIMILARES")
-        self.logger.info("*** Calculando hashes perceptuales...")
+        hash_calc_start = time.time()
+        self.logger.info("⏳ Calculando hashes perceptuales...")
         
         # 1. Obtener archivos desde FileInfoRepository
         all_metadata = repo.get_all_files()
@@ -535,7 +654,14 @@ class DuplicatesSimilarService(DuplicatesBaseService):
         analysis.analysis_timestamp = datetime.now()
         
         # Log stats
-        self.logger.info(f"*** Hashes calculados: {analysis.total_files}")
+        hash_calc_time = time.time() - hash_calc_start
+        self.logger.info(
+            f"✅ Hashes calculados: {analysis.total_files} en {hash_calc_time:.1f}s "
+            f"({analysis.total_files/hash_calc_time:.1f} archivos/s)"
+        )
+        
+        if errors > 0:
+            self.logger.warning(f"⚠️  Errores: {errors}, Timeouts: {timeouts}")
         
         return analysis
 
