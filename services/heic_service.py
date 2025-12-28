@@ -21,7 +21,7 @@ from utils.logger import (
     log_section_header_relevant,
     log_section_footer_relevant
 )
-from utils.format_utils import format_size
+from utils.format_utils import format_size, format_duration
 
 
 class HeicService(BaseService):
@@ -210,7 +210,7 @@ class HeicService(BaseService):
                     # Validar diferencia si corresponde (con pequeña tolerancia para evitar errores de precisión/drift del filesystem)
                     # Usamos 50ms (0.05s) como margen de seguridad razonable para operaciones en lote
                     if validate_dates and time_diff > (Config.MAX_TIME_DIFFERENCE_SECONDS + 0.05):
-                        self.logger.info(f"Par rechazado por tiempo {base_name}: source={source_used}, diff {time_diff:.2f}s (> {Config.MAX_TIME_DIFFERENCE_SECONDS}s)")
+                        self.logger.info(f"** Par rechazado por tiempo {heic_meta.path}: source={source_used}, diff={format_duration(time_diff)} (> {format_duration(Config.MAX_TIME_DIFFERENCE_SECONDS)})")
                         # Detalles para diagnóstico
                         self.logger.info(f"  Metadatos HEIC: {heic_meta.get_summary(verbose=True)}")
                         self.logger.info(f"  Metadatos JPG:  {jpg_meta.get_summary(verbose=True)}")
@@ -232,7 +232,7 @@ class HeicService(BaseService):
                         continue
                              
                     # Crear par válido
-                    self.logger.info(f"Par admitido {base_name}: source={source_used}, diff={time_diff:.2f}s")
+                    self.logger.debug(f"Par admitido {base_name}: source={source_used}, diff={time_diff:.2f}s")
                     duplicate_pair = HEICDuplicatePair(
                         heic_path=heic_meta.path,
                         jpg_path=jpg_meta.path,
@@ -262,7 +262,7 @@ class HeicService(BaseService):
                 # Log INFO cada 10% de los pares totales
                 if total_common_bases > 0 and processed_pairs % progress_checkpoint == 0:
                     percent = (processed_pairs / total_common_bases) * 100
-                    self.logger.info(f"Progreso análisis HEIC: {percent:.0f}% ({processed_pairs}/{total_common_bases} pares)")
+                    self.logger.info(f"** Progreso análisis HEIC: {percent:.0f}% ({processed_pairs}/{total_common_bases} pares)")
 
         results['duplicate_pairs'] = duplicate_pairs
         results['total_duplicates'] = len(duplicate_pairs)

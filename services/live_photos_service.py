@@ -30,7 +30,7 @@ from utils.logger import (
     log_section_header_relevant, 
     log_section_footer_relevant
 )
-from utils.format_utils import format_size
+from utils.format_utils import format_size, format_duration
 
 
 class LivePhotoService(BaseService):
@@ -175,17 +175,17 @@ class LivePhotoService(BaseService):
                         # El filtrado individual ya se hizo en _create_live_photo_group
                         # Si el grupo no tiene imágenes válidas, va a rejected_groups
                         if group.image_count == 0:
-                            diff_str = f"{group.date_difference:.2f}s" if group.date_difference is not None else "N/A"
+                            diff_str = format_duration(group.date_difference)
                             self.logger.info(
-                                f"Grupo rechazado por tiempo {base_name}: "
-                                f"source={group.date_source}, diff={diff_str}"
+                                f"Grupo rechazado por tiempo {video_meta.path}: "
+                                f"source={group.date_source}, diff={diff_str} (> {format_duration(Config.MAX_TIME_DIFFERENCE_SECONDS)})"
                             )
                             self.stats['rejected_by_time_diff'] += 1
                             rejected_groups.append(group)
                         else:
                             # Grupo válido con al menos una imagen
                             diff_str = f"{group.date_difference:.2f}s" if group.date_difference is not None else "N/A"
-                            self.logger.info(
+                            self.logger.debug(
                                 f"Grupo admitido {base_name}: "
                                 f"source={group.date_source}, diff={diff_str}, "
                                 f"imágenes={group.image_count}"
@@ -201,7 +201,7 @@ class LivePhotoService(BaseService):
                 if total_possible_groups > 0 and processed_groups % progress_checkpoint == 0:
                     percent = (processed_groups / total_possible_groups) * 100
                     self.logger.info(
-                        f"Progreso análisis Live Photos: {percent:.0f}% "
+                        f"** Progreso análisis Live Photos: {percent:.0f}% "
                         f"({processed_groups}/{total_possible_groups} grupos)"
                     )
         
