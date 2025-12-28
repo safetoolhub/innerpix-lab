@@ -163,6 +163,21 @@ class TestSelectEarliestDate:
         assert result_date == datetime(2023, 5, 15, 8, 0)
         assert result_source == 'EXIF DateTimeDigitized'
     
+    def test_epoch_zero_exif_dates_are_ignored(self):
+        """Fechas EXIF de epoch 0 (1970-01-01 00:00:00) deben ignorarse y usar siguiente prioridad"""
+        metadata = _create_test_metadata(
+            exif_DateTimeOriginal='1970:01:01 00:00:00',  # Epoch zero - debe ignorarse
+            exif_DateTime='1970:01:01 00:00:00',  # Epoch zero - debe ignorarse
+            exif_DateTimeDigitized='1970:01:01 00:00:00',  # Epoch zero - debe ignorarse
+            path=Path('/test/20230115_103045_VIDEO.mp4'),  # Fecha en nombre de archivo
+        )
+        
+        result_date, result_source = select_best_date_from_file(metadata)
+        
+        # Debe usar la fecha del nombre de archivo ya que todas las EXIF son epoch zero
+        assert result_date == datetime(2023, 1, 15, 10, 30, 45)
+        assert result_source == 'Filename'
+    
     def test_no_exif_uses_filesystem_dates(self):
         """Sin EXIF debe usar fechas del sistema de archivos"""
         metadata = _create_test_metadata(
@@ -1273,3 +1288,32 @@ class TestGetBestCommonCreationDate2FilesComprehensive:
         assert source == 'exif_date_time_original'
         assert d1.year == 2023  # NO 2020
         assert d2.year == 2023
+    
+    def test_epoch_zero_exif_dates_are_ignored_in_common_date_selection(self):
+        """Fechas EXIF de epoch 0 deben ignorarse en la selección común entre dos archivos"""
+        from types import SimpleNamespace
+        
+        # Archivo 1 con fecha EXIF epoch zero
+        file1 = SimpleNamespace(
+            path="/test/file1.mp4",
+            exif_date_time_original=datetime(1970, 1, 1, 0, 0, 0),  # Epoch zero - debe ignorarse
+            exif_DateTime=datetime(1970, 1, 1, 0, 0, 0),  # Epoch zero - debe ignorarse
+            fs_mtime=datetime(2021, 9, 4, 11, 56, 41).timestamp(),  # Fecha real del filesystem
+            fs_ctime=datetime(2021, 9, 4, 11, 56, 41).timestamp()
+        )
+        
+        # Archivo 2 con fecha EXIF epoch zero
+        file2 = SimpleNamespace(
+            path="/test/file2.jpg",
+            exif_date_time_original=datetime(1970, 1, 1, 0, 0, 0),  # Epoch zero - debe ignorarse
+            exif_DateTime=datetime(1970, 1, 1, 0, 0, 0),  # Epoch zero - debe ignorarse
+            fs_mtime=datetime(2021, 9, 4, 11, 56, 42).timestamp(),  # Fecha real del filesystem
+            fs_ctime=datetime(2021, 9, 4, 11, 56, 42).timestamp()
+        )
+        
+        d1, d2, source = select_best_date_from_common_date_to_2_files(file1, file2)
+        
+        # Debe usar filesystem dates ya que EXIF epoch zero se ignora
+        assert source == 'fs_mtime'
+        assert d1 == datetime(2021, 9, 4, 11, 56, 41)
+        assert d2 == datetime(2021, 9, 4, 11, 56, 42)

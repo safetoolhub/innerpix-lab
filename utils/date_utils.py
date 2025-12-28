@@ -95,6 +95,10 @@ def select_best_date_from_common_date_to_2_files(
     def _fmt(dt):
         return dt.strftime('%Y-%m-%d %H:%M:%S.%f') if dt else 'None'
 
+    # Helper para verificar si una fecha es la de epoch 0 (1970-01-01 00:00:00)
+    def _is_epoch_zero_date(dt: datetime) -> bool:
+        return dt == datetime(1970, 1, 1, 0, 0, 0)
+
     if verbose:
         _logger.debug(f"DEBUG: Comparing dates for {getattr(file1, 'path', 'f1')} and {getattr(file2, 'path', 'f2')}")
 
@@ -107,7 +111,7 @@ def select_best_date_from_common_date_to_2_files(
     file2_datetime_original = _to_dt(_get_val(file2, 'exif_date_time_original', 'exif_DateTimeOriginal'))
     
     if verbose: _logger.debug(f"    - EXIF DateTimeOriginal: file1={_fmt(file1_datetime_original)}, file2={_fmt(file2_datetime_original)}")
-    if file1_datetime_original is not None and file2_datetime_original is not None:
+    if file1_datetime_original is not None and file2_datetime_original is not None and not _is_epoch_zero_date(file1_datetime_original) and not _is_epoch_zero_date(file2_datetime_original):
         if verbose: _logger.debug("    => Match found: exif_date_time_original")
         _logger.debug(f"Source selected: exif_date_time_original for {getattr(file1, 'path', 'f1')} and {getattr(file2, 'path', 'f2')}")
         return file1_datetime_original, file2_datetime_original, 'exif_date_time_original'
@@ -117,7 +121,7 @@ def select_best_date_from_common_date_to_2_files(
     file2_create_date = _to_dt(_get_val(file2, 'exif_create_date', 'exif_CreateDate', 'exif_DateTimeDigitized'))
     
     if verbose: _logger.debug(f"    - EXIF CreateDate: file1={_fmt(file1_create_date)}, file2={_fmt(file2_create_date)}")
-    if file1_create_date is not None and file2_create_date is not None:
+    if file1_create_date is not None and file2_create_date is not None and not _is_epoch_zero_date(file1_create_date) and not _is_epoch_zero_date(file2_create_date):
         if verbose: _logger.debug("    => Match found: exif_create_date")
         _logger.debug(f"Source selected: exif_create_date for {getattr(file1, 'path', 'f1')} and {getattr(file2, 'path', 'f2')}")
         return file1_create_date, file2_create_date, 'exif_create_date'
@@ -127,7 +131,7 @@ def select_best_date_from_common_date_to_2_files(
     file2_modify_date = _to_dt(_get_val(file2, 'exif_modify_date', 'exif_DateTime'))
     
     if verbose: _logger.debug(f"    - EXIF ModifyDate: file1={_fmt(file1_modify_date)}, file2={_fmt(file2_modify_date)}")
-    if file1_modify_date is not None and file2_modify_date is not None:
+    if file1_modify_date is not None and file2_modify_date is not None and not _is_epoch_zero_date(file1_modify_date) and not _is_epoch_zero_date(file2_modify_date):
         if verbose: _logger.debug("    => Match found: exif_modify_date")
         _logger.debug(f"Source selected: exif_modify_date for {getattr(file1, 'path', 'f1')} and {getattr(file2, 'path', 'f2')}")
         return file1_modify_date, file2_modify_date, 'exif_modify_date'
@@ -263,6 +267,10 @@ def select_best_date_from_file(file_metadata: 'FileMetadata') -> tuple[Optional[
         except (ValueError, TypeError):
             return None
     
+    # Helper para verificar si una fecha es la de epoch 0 (1970-01-01 00:00:00)
+    def _is_epoch_zero_date(dt: datetime) -> bool:
+        return dt == datetime(1970, 1, 1, 0, 0, 0)
+    
     # Extraer fechas de FileMetadata
     exif_date_time_original = _parse_exif_date(file_metadata.exif_DateTimeOriginal)
     exif_create_date = _parse_exif_date(file_metadata.exif_DateTime)  # CreateDate mapea a DateTime
@@ -308,28 +316,28 @@ def select_best_date_from_file(file_metadata: 'FileMetadata') -> tuple[Optional[
     exif_camera_dates = []
     
     # DateTimeOriginal con zona horaria
-    if exif_date_time_original and exif_offset_time:
+    if exif_date_time_original and not _is_epoch_zero_date(exif_date_time_original) and exif_offset_time:
         exif_camera_dates.append((
             exif_date_time_original,
             f"EXIF DateTimeOriginal ({exif_offset_time})"
         ))
     
     # DateTimeOriginal sin zona horaria
-    elif exif_date_time_original:
+    elif exif_date_time_original and not _is_epoch_zero_date(exif_date_time_original):
         exif_camera_dates.append((
             exif_date_time_original,
             'EXIF DateTimeOriginal'
         ))
     
     # CreateDate
-    if exif_create_date:
+    if exif_create_date and not _is_epoch_zero_date(exif_create_date):
         exif_camera_dates.append((
             exif_create_date,
             'EXIF CreateDate'
         ))
     
     # DateTimeDigitized
-    if exif_date_digitized:
+    if exif_date_digitized and not _is_epoch_zero_date(exif_date_digitized):
         exif_camera_dates.append((
             exif_date_digitized,
             'EXIF DateTimeDigitized'

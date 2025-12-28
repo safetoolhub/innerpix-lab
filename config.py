@@ -169,7 +169,7 @@ class Config:
     # 9. DESARROLLO
     # ========================================================================
     DEVELOPMENT_MODE = True
-    SAVED_CACHE_DEV_MODE_PATH = "/home/ed/Documents/Innerpix_Lab/cache_saved/RAW_yamedioborrado.json"
+    SAVED_CACHE_DEV_MODE_PATH = "/home/ed/Documents/Innerpix_Lab/cache_saved/RAW_bugfixed-fecha.json"
     
     @classmethod
     def get_system_info(cls) -> Dict:
