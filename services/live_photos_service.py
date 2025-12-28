@@ -175,11 +175,7 @@ class LivePhotoService(BaseService):
                         # El filtrado individual ya se hizo en _create_live_photo_group
                         # Si el grupo no tiene imágenes válidas, va a rejected_groups
                         if group.image_count == 0:
-                            diff_str = format_duration(group.date_difference)
-                            self.logger.info(
-                                f"Grupo rechazado por tiempo {video_meta.path}: "
-                                f"source={group.date_source}, diff={diff_str} (> {format_duration(Config.MAX_TIME_DIFFERENCE_SECONDS)})"
-                            )
+                            # El log detallado ya se hizo en _create_live_photo_group
                             self.stats['rejected_by_time_diff'] += 1
                             rejected_groups.append(group)
                         else:
@@ -299,7 +295,7 @@ class LivePhotoService(BaseService):
             LivePhotoGroup o None si no se puede crear
         """
         images: List[LivePhotoImageInfo] = []
-        rejected_images: List[str] = []  # Para log
+        rejected_images: Dict[str, str] = {}  # {nombre: motivo}
         max_time_diff: float = 0.0
         date_source: Optional[str] = None
         video_date: Optional[datetime] = None
@@ -311,10 +307,11 @@ class LivePhotoService(BaseService):
                 
                 if not best_date_result:
                     # No hay fecha común válida - rechazar esta imagen
+                    reason = "sin fecha común"
                     self.logger.debug(
-                        f"Imagen rechazada (sin fecha común) para {base_name}: {photo_meta.path.name}"
+                        f"Imagen rechazada ({reason}) para {base_name}: {photo_meta.path.name}"
                     )
-                    rejected_images.append(photo_meta.path.name)
+                    rejected_images[photo_meta.path.name] = reason
                     continue
                 
                 vid_date, img_date, source = best_date_result
@@ -322,11 +319,12 @@ class LivePhotoService(BaseService):
                 
                 # FILTRAR: Si esta imagen específica excede el threshold, descartarla
                 if time_diff > Config.MAX_TIME_DIFFERENCE_SECONDS:
+                    reason = f"diff={format_duration(time_diff)} > {format_duration(Config.MAX_TIME_DIFFERENCE_SECONDS)}"
                     self.logger.debug(
-                        f"Imagen rechazada (diff={time_diff:.2f}s > {Config.MAX_TIME_DIFFERENCE_SECONDS}s) "
+                        f"Imagen rechazada ({reason}) "
                         f"para {base_name}: {photo_meta.path.name}"
                     )
-                    rejected_images.append(photo_meta.path.name)
+                    rejected_images[photo_meta.path.name] = reason
                     continue
                 
                 # Actualizar video_date y source si es la primera vez
@@ -358,9 +356,12 @@ class LivePhotoService(BaseService):
         
         # Log de imágenes rechazadas si hubo
         if rejected_images:
+            accepted_names = [img.path.name for img in images]
+            rejected_with_reasons = [f"{name} ({reason})" for name, reason in rejected_images.items()]
             self.logger.info(
-                f"Grupo {base_name}: {len(images)} imágenes aceptadas, "
-                f"{len(rejected_images)} rechazadas: {', '.join(rejected_images)}"
+                f"Grupo '{base_name}' en {directory}: "
+                f"{len(images)} aceptadas [{', '.join(accepted_names)}], "
+                f"{len(rejected_images)} rechazadas [{', '.join(rejected_with_reasons)}]"
             )
         
         # Si no hay imágenes válidas, crear un grupo vacío para rejected_groups
