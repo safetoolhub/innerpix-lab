@@ -141,7 +141,7 @@ class ZeroByteService(BaseService):
                 # Formato de log estandarizado (fecha omitida, archivos vacíos)
                 log_type = "FILE_DELETED_SIMULATION" if dry_run else "FILE_DELETED"
                 log_msg = (
-                    f"{log_type}: {file_path} | Size: 0 B | "
+                    f"{log_type}: {file_path} | Size: {format_size(0)} | "
                     f"Type: {file_type}"
                 )
                 

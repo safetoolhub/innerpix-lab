@@ -656,24 +656,32 @@ def get_file_stat_info(file_path: Path, resolve_path: bool = True) -> dict:
 
 def get_exif_from_image(file_path: Path) -> dict:
     """
-    Extrae TODOS los campos de fecha EXIF disponibles de una imagen
+    Extrae campos de fecha EXIF y metadatos básicos de una imagen
     
-    NOTA: Solo soporta imágenes (JPEG, PNG, HEIC, etc.). No hay soporte para EXIF en videos por ahora.
+    Campos extraídos:
+    - Fechas EXIF: DateTimeOriginal, CreateDate, DateTimeDigitized, GPS DateStamp/TimeStamp
+    - Dimensiones: ImageWidth, ImageLength
+    - Metadatos técnicos: Software, ExifVersion, SubSecTimeOriginal, OffsetTimeOriginal
+    
+    NOTA: Solo soporta imágenes (JPEG, PNG, HEIC, etc.). No hay soporte para EXIF en videos.
 
     Args:
         file_path: Ruta a la imagen (NO videos)
 
     Returns:
-        Dict con los campos de fecha EXIF encontrados:
+        Dict con los campos EXIF encontrados:
         {
             'DateTimeOriginal': datetime or None,     # Fecha de captura original
             'CreateDate': datetime or None,           # Fecha de creación (DateTime en EXIF)
             'DateTimeDigitized': datetime or None,    # Fecha de digitalización
             'SubSecTimeOriginal': str or None,        # Subsegundos de precisión
             'OffsetTimeOriginal': str or None,        # Zona horaria de captura
-            'GPSDateStamp': datetime or None,         # Timestamp GPS
+            'GPSDateStamp': str or None,              # Fecha GPS en formato 'YYYY:MM:DD'
+            'GPSTimeStamp': str or None,              # Hora GPS en formato 'HH:MM:SS'
             'Software': str or None,                  # Software usado (detecta edición)
-            'ExifVersion': str or None                # Versión del estándar EXIF (ej: '0232')
+            'ExifVersion': str or None,               # Versión del estándar EXIF (ej: '0232')
+            'ImageWidth': int or None,                # Ancho de la imagen en píxeles
+            'ImageLength': int or None                # Alto de la imagen en píxeles
         }
     
     Examples:
@@ -687,6 +695,10 @@ def get_exif_from_image(file_path: Path) -> dict:
         'Adobe Photoshop CS6'
         >>> dates['ExifVersion']
         '0232'
+        >>> dates['ImageWidth']
+        4032
+        >>> dates['ImageLength']
+        3024
     """
     result = {
         'DateTimeOriginal': None,
@@ -695,8 +707,11 @@ def get_exif_from_image(file_path: Path) -> dict:
         'SubSecTimeOriginal': None,
         'OffsetTimeOriginal': None,
         'GPSDateStamp': None,
+        'GPSTimeStamp': None,
         'Software': None,
-        'ExifVersion': None
+        'ExifVersion': None,
+        'ImageWidth': None,
+        'ImageLength': None
     }
     
     try:
@@ -715,6 +730,11 @@ def get_exif_from_image(file_path: Path) -> dict:
                 return result
 
         with Image.open(file_path) as image:
+            # Obtener dimensiones directamente de la imagen (más confiable que EXIF)
+            if hasattr(image, 'width') and hasattr(image, 'height'):
+                result['ImageWidth'] = image.width
+                result['ImageLength'] = image.height
+            
             # Obtener datos EXIF usando API moderna (getexif()) que funciona para todos los formatos
             try:
                 exif = image.getexif()
@@ -762,6 +782,10 @@ def get_exif_from_image(file_path: Path) -> dict:
                 elif tag == 'ExifVersion':
                     # ExifVersion es bytes, convertir a string legible
                     result['ExifVersion'] = value.decode('utf-8') if isinstance(value, bytes) else str(value)
+                elif tag in ['ImageWidth', 'ExifImageWidth'] and not result['ImageWidth']:
+                    result['ImageWidth'] = int(value) if value else None
+                elif tag in ['ImageLength', 'ImageHeight', 'ExifImageHeight'] and not result['ImageLength']:
+                    result['ImageLength'] = int(value) if value else None
                 elif tag == 'GPSInfo':
                     gps_info = value
             
@@ -789,6 +813,10 @@ def get_exif_from_image(file_path: Path) -> dict:
                         elif tag == 'ExifVersion' and not result['ExifVersion']:
                             # ExifVersion es bytes, convertir a string legible
                             result['ExifVersion'] = value.decode('utf-8') if isinstance(value, bytes) else str(value)
+                        elif tag in ['ExifImageWidth', 'PixelXDimension'] and not result['ImageWidth']:
+                            result['ImageWidth'] = int(value) if value else None
+                        elif tag in ['ExifImageHeight', 'PixelYDimension'] and not result['ImageLength']:
+                            result['ImageLength'] = int(value) if value else None
             except (KeyError, AttributeError):
                 # No hay EXIF IFD o no se puede acceder
                 pass
@@ -815,16 +843,16 @@ def get_exif_from_image(file_path: Path) -> dict:
                             try:
                                 # GPSDateStamp formato: 'YYYY:MM:DD'
                                 # GPSTimeStamp formato: (HH, MM, SS) como tupla de racionales
-                                date_str = gps_date.replace(':', '-')
                                 
-                                # Convertir tupla de racionales a hora
+                                # Guardar GPSDateStamp como string de fecha
+                                result['GPSDateStamp'] = gps_date
+                                
+                                # Convertir tupla de racionales a hora y guardar GPSTimeStamp
                                 hours = int(gps_time[0]) if hasattr(gps_time[0], '__int__') else int(gps_time[0].numerator / gps_time[0].denominator)
                                 minutes = int(gps_time[1]) if hasattr(gps_time[1], '__int__') else int(gps_time[1].numerator / gps_time[1].denominator)
                                 seconds = int(gps_time[2]) if hasattr(gps_time[2], '__int__') else int(gps_time[2].numerator / gps_time[2].denominator)
                                 
-                                time_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-                                
-                                result['GPSDateStamp'] = datetime.strptime(f"{date_str} {time_str}", '%Y-%m-%d %H:%M:%S')
+                                result['GPSTimeStamp'] = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
                             except (ValueError, AttributeError, IndexError, TypeError):
                                 pass
                     except Exception:

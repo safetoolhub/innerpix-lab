@@ -44,13 +44,14 @@ Preparado para migración a SQLite:
 - Separación clara entre lógica y almacenamiento
 """
 from pathlib import Path
-from typing import Dict, List, Optional, Protocol, Any
+from typing import Dict, List, Optional, Protocol, Any, OrderedDict
 from enum import Enum
 from dataclasses import dataclass, replace
 from datetime import datetime
 import threading
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from collections import OrderedDict
 
 from services.file_metadata import FileMetadata
 from utils.logger import get_logger
@@ -190,11 +191,10 @@ class FileInfoRepositoryCache:
     def __init__(self):
         """Inicializa el repositorio vacío (solo la primera vez)"""
         if not hasattr(self, '_initialized'):
-            # Backend de almacenamiento (dict en memoria por ahora)
-            self._cache: Dict[Path, FileMetadata] = {}
+            # Backend de almacenamiento (OrderedDict para LRU integrado)
+            self._cache: OrderedDict[Path, FileMetadata] = OrderedDict()
             
-            # LRU tracking: orden de acceso para política de eviction
-            self._access_order: List[Path] = []
+             # (Remove access_order)
             
             # Thread safety
             self._lock = threading.RLock()
@@ -490,12 +490,12 @@ class FileInfoRepositoryCache:
             return metadata
         
         # Extraer EXIF de imágenes (fuera del lock porque es costoso)
-        exif_dates = None
+        exif_data_from_image = None
         try:
             from utils.file_utils import get_exif_from_image
             
-            exif_dates = get_exif_from_image(path)
-            exif_count = len(exif_dates)
+            exif_data_from_image = get_exif_from_image(path)
+            exif_count = len(exif_data_from_image)
             self._logger.debug(f"EXIF extraído para imagen {path.name}: {exif_count} campos")
                 
         except Exception as e:
@@ -507,48 +507,56 @@ class FileInfoRepositoryCache:
             return dt.strftime('%Y:%m:%d %H:%M:%S')
         
         # Actualizar metadata con lock (thread-safe)
-        if exif_dates:
+        if exif_data_from_image:
             with self._lock:
                 # Volver a obtener metadata del caché por si cambió
                 cached_metadata = self._cache.get(path)
                 if cached_metadata:
                     # Establecer campos EXIF de fecha
                     # CRÍTICO: Convertir datetime objects a strings EXIF porque FileMetadata espera strings
-                    if exif_dates.get('DateTimeOriginal'):
-                        cached_metadata.exif_DateTimeOriginal = _datetime_to_exif_str(exif_dates['DateTimeOriginal'])
-                    if exif_dates.get('CreateDate'):
-                        cached_metadata.exif_DateTime = _datetime_to_exif_str(exif_dates['CreateDate'])  # CreateDate mapea a DateTime
-                    if exif_dates.get('DateTimeDigitized'):
-                        cached_metadata.exif_DateTimeDigitized = _datetime_to_exif_str(exif_dates['DateTimeDigitized'])
-                    if exif_dates.get('SubSecTimeOriginal'):
-                        cached_metadata.exif_SubSecTimeOriginal = exif_dates['SubSecTimeOriginal']
-                    if exif_dates.get('OffsetTimeOriginal'):
-                        cached_metadata.exif_OffsetTimeOriginal = exif_dates['OffsetTimeOriginal']
-                    if exif_dates.get('GPSDateStamp'):
-                        cached_metadata.exif_GPSDateStamp = _datetime_to_exif_str(exif_dates['GPSDateStamp'])
-                    if exif_dates.get('Software'):
-                        cached_metadata.exif_Software = exif_dates['Software']
-                    if exif_dates.get('ExifVersion'):
-                        cached_metadata.exif_ExifVersion = exif_dates['ExifVersion']
-                    self._logger.debug(f"EXIF asignado en caché para imagen {path.name}: {len(exif_dates)} campos")
+                    if exif_data_from_image.get('DateTimeOriginal'):
+                        cached_metadata.exif_DateTimeOriginal = _datetime_to_exif_str(exif_data_from_image['DateTimeOriginal'])
+                    if exif_data_from_image.get('CreateDate'):
+                        cached_metadata.exif_DateTime = _datetime_to_exif_str(exif_data_from_image['CreateDate'])  # CreateDate mapea a DateTime
+                    if exif_data_from_image.get('DateTimeDigitized'):
+                        cached_metadata.exif_DateTimeDigitized = _datetime_to_exif_str(exif_data_from_image['DateTimeDigitized'])
+                    if exif_data_from_image.get('SubSecTimeOriginal'):
+                        cached_metadata.exif_SubSecTimeOriginal = exif_data_from_image['SubSecTimeOriginal']
+                    if exif_data_from_image.get('OffsetTimeOriginal'):
+                        cached_metadata.exif_OffsetTimeOriginal = exif_data_from_image['OffsetTimeOriginal']
+                    if exif_data_from_image.get('GPSDateStamp'):
+                        cached_metadata.exif_GPSDateStamp = _datetime_to_exif_str(exif_data_from_image['GPSDateStamp'])
+                    if exif_data_from_image.get('Software'):
+                        cached_metadata.exif_Software = exif_data_from_image['Software']
+                    if exif_data_from_image.get('ExifVersion'):
+                        cached_metadata.exif_ExifVersion = exif_data_from_image['ExifVersion']
+                    if exif_data_from_image.get('ImageWidth'):
+                        cached_metadata.exif_ImageWidth = exif_data_from_image['ImageWidth']
+                    if exif_data_from_image.get('ImageLength'):
+                        cached_metadata.exif_ImageLength = exif_data_from_image['ImageLength']
+                    self._logger.debug(f"EXIF asignado en caché para imagen {path.name}: {len(exif_data_from_image)} campos")
                 else:
                     # Raro pero posible: se eliminó del caché entre tanto
-                    if exif_dates.get('DateTimeOriginal'):
-                        metadata.exif_DateTimeOriginal = _datetime_to_exif_str(exif_dates['DateTimeOriginal'])
-                    if exif_dates.get('CreateDate'):
-                        metadata.exif_DateTime = _datetime_to_exif_str(exif_dates['CreateDate'])
-                    if exif_dates.get('DateTimeDigitized'):
-                        metadata.exif_DateTimeDigitized = _datetime_to_exif_str(exif_dates['DateTimeDigitized'])
-                    if exif_dates.get('SubSecTimeOriginal'):
-                        metadata.exif_SubSecTimeOriginal = exif_dates['SubSecTimeOriginal']
-                    if exif_dates.get('OffsetTimeOriginal'):
-                        metadata.exif_OffsetTimeOriginal = exif_dates['OffsetTimeOriginal']
-                    if exif_dates.get('GPSDateStamp'):
-                        metadata.exif_GPSDateStamp = _datetime_to_exif_str(exif_dates['GPSDateStamp'])
-                    if exif_dates.get('Software'):
-                        metadata.exif_Software = exif_dates['Software']
-                    if exif_dates.get('ExifVersion'):
-                        metadata.exif_ExifVersion = exif_dates['ExifVersion']
+                    if exif_data_from_image.get('DateTimeOriginal'):
+                        metadata.exif_DateTimeOriginal = _datetime_to_exif_str(exif_data_from_image['DateTimeOriginal'])
+                    if exif_data_from_image.get('CreateDate'):
+                        metadata.exif_DateTime = _datetime_to_exif_str(exif_data_from_image['CreateDate'])
+                    if exif_data_from_image.get('DateTimeDigitized'):
+                        metadata.exif_DateTimeDigitized = _datetime_to_exif_str(exif_data_from_image['DateTimeDigitized'])
+                    if exif_data_from_image.get('SubSecTimeOriginal'):
+                        metadata.exif_SubSecTimeOriginal = exif_data_from_image['SubSecTimeOriginal']
+                    if exif_data_from_image.get('OffsetTimeOriginal'):
+                        metadata.exif_OffsetTimeOriginal = exif_data_from_image['OffsetTimeOriginal']
+                    if exif_data_from_image.get('GPSDateStamp'):
+                        metadata.exif_GPSDateStamp = _datetime_to_exif_str(exif_data_from_image['GPSDateStamp'])
+                    if exif_data_from_image.get('Software'):
+                        metadata.exif_Software = exif_data_from_image['Software']
+                    if exif_data_from_image.get('ExifVersion'):
+                        metadata.exif_ExifVersion = exif_data_from_image['ExifVersion']
+                    if exif_data_from_image.get('ImageWidth'):
+                        metadata.exif_ImageWidth = exif_data_from_image['ImageWidth']
+                    if exif_data_from_image.get('ImageLength'):
+                        metadata.exif_ImageLength = exif_data_from_image['ImageLength']
                     self._cache[path] = metadata
         
         return metadata
@@ -1187,7 +1195,6 @@ class FileInfoRepositoryCache:
         with self._lock:
             old_size = len(self._cache)
             self._cache.clear()
-            self._access_order.clear()
             self._hits = 0
             self._misses = 0
             self._logger.info(f"Repositorio limpiado - {old_size} archivos eliminados")
@@ -1214,8 +1221,6 @@ class FileInfoRepositoryCache:
         with self._lock:
             if path in self._cache:
                 del self._cache[path]
-                if path in self._access_order:
-                    self._access_order.remove(path)
                 self._logger.debug(f"Archivo eliminado del repositorio: {path.name}")
                 return True
             return False
@@ -1239,8 +1244,7 @@ class FileInfoRepositoryCache:
                 path_resolved = path.resolve()
                 if path_resolved in self._cache:
                     del self._cache[path_resolved]
-                    if path_resolved in self._access_order:
-                        self._access_order.remove(path_resolved)
+                    # _access_order was removed, OrderedDict handles LRU directly
                     removed += 1
             
             if removed > 0:
@@ -1276,15 +1280,14 @@ class FileInfoRepositoryCache:
                 
                 # Eliminar entrada antigua
                 del self._cache[old_path_resolved]
-                if old_path_resolved in self._access_order:
-                    self._access_order.remove(old_path_resolved)
+                # _access_order was removed, OrderedDict handles LRU directly
                 
                 # Agregar entrada nueva
                 self._cache[new_path_resolved] = new_metadata
-                self._access_order.append(new_path_resolved)
+                # OrderedDict automatically maintains insertion order
                 
-                # Mantener límite de LRU si es necesario
-                self._enforce_max_entries()
+                # No es necesario enforce_max_entries aquí porque no estamos
+                # añadiendo una nueva entrada, solo moviendo una existente
                 
                 self._logger.debug(f"Archivo movido en repositorio: {old_path.name} -> {new_path.name}")
                 return True
@@ -1373,7 +1376,6 @@ class FileInfoRepositoryCache:
             with self._lock:
                 # Limpiar caché actual
                 self._cache.clear()
-                self._access_order.clear()
                 
                 for file_data in files_data:
                     try:
@@ -1385,7 +1387,7 @@ class FileInfoRepositoryCache:
                             continue
                         
                         self._cache[metadata.path] = metadata
-                        self._access_order.append(metadata.path)
+                        # OrderedDict maintains insertion order automatically
                         loaded += 1
                         
                     except (KeyError, ValueError, TypeError) as e:
@@ -1456,14 +1458,6 @@ class FileInfoRepositoryCache:
         """
         Elimina las entradas menos recientemente usadas (LRU).
         
-        Política de eviction basada en scoring:
-        - EXIF video: +20 puntos (muy costoso de recalcular)
-        - EXIF imagen: +12 puntos (costoso)
-        - Hash SHA256: +5 puntos (moderadamente costoso)
-        - Penalización por antigüedad: -3 * (posición_acceso / total)
-        
-        Elimina primero las entradas con menor score (menos valiosas).
-        
         Args:
             num_to_evict: Número de entradas a eliminar
         """
@@ -1471,51 +1465,13 @@ class FileInfoRepositoryCache:
             return
         
         # Ya estamos dentro de self._lock
-        
-        # Ordenar entradas por "valor" (cantidad de datos)
-        # Prioridad de eliminación:
-        # 1. Sin hash ni EXIF (menos datos)
-        # 2. Solo filesystem metadata
-        # 3. Las menos recientemente accedidas
-        
-        entries_by_value = []
-        for path, metadata in self._cache.items():
-            # Calcular "score" de la entrada (más alto = más valioso)
-            score = 0
-            if metadata.has_hash:
-                score += 5   # Hash moderadamente costoso
-            if metadata.has_exif:
-                # EXIF de video es muy costoso, de imagen moderado
-                if metadata.is_video:
-                    score += 20  # EXIF video muy costoso
-                elif metadata.is_image:
-                    score += 12  # EXIF imagen costoso
-            
-            # Penalizar por antigüedad de acceso
-            try:
-                access_index = self._access_order.index(path)
-                # Más bajo = más reciente (final de la lista)
-                age_penalty = access_index / len(self._access_order)
-                score -= age_penalty * 3
-            except ValueError:
-                # No está en access_order, muy viejo
-                score -= 5
-            
-            entries_by_value.append((score, path))
-        
-        # Ordenar por score (menor primero = eliminar primero)
-        entries_by_value.sort()
-        
-        # Eliminar los num_to_evict con menor score
         evicted = 0
-        for score, path in entries_by_value:
-            if evicted >= num_to_evict:
-                break
-            
-            del self._cache[path]
-            if path in self._access_order:
-                self._access_order.remove(path)
-            evicted += 1
+        while len(self._cache) > self._max_entries and evicted < num_to_evict * 2: # Limit iterations safely
+             self._cache.popitem(last=False) # FIFO = LIFO of LRU (last=False pops oldest)
+             evicted += 1
+             
+             if len(self._cache) <= self._max_entries:
+                 break
         
         self._logger.info(
             f"Política LRU: Eliminadas {evicted} entradas "
@@ -1526,22 +1482,16 @@ class FileInfoRepositoryCache:
         """
         Actualiza el orden de acceso para LRU.
         
-        Mueve el path al final de la lista (más reciente).
+        Mueve el path al final del OrderedDict (más reciente).
+        O(1) operation.
         
         Args:
             path: Path accedido recientemente
         """
         # Ya estamos dentro de self._lock
         
-        if path in self._access_order:
-            self._access_order.remove(path)
-        self._access_order.append(path)
-        
-        # Mantener la lista de acceso razonable (no más de max_entries * 1.5)
-        max_access_list = int(self._max_entries * 1.5)
-        if len(self._access_order) > max_access_list:
-            # Eliminar la mitad más antigua
-            self._access_order = self._access_order[len(self._access_order) // 2:]
+        if path in self._cache:
+            self._cache.move_to_end(path)
     
     # =========================================================================
     # OPERADORES

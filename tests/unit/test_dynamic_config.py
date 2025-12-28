@@ -8,6 +8,7 @@ basados en RAM y CPU del sistema.
 import pytest
 from unittest.mock import patch, MagicMock
 from config import Config
+from utils import platform_utils
 
 
 class TestSystemDetection:
@@ -19,18 +20,18 @@ class TestSystemDetection:
         mock_memory.total = 16 * (1024 ** 3)  # 16 GB en bytes
         
         with patch('psutil.virtual_memory', return_value=mock_memory):
-            ram_gb = Config._get_system_ram_gb()
+            ram_gb = platform_utils.get_system_ram_gb()
             assert ram_gb == 16.0
     
     def test_get_system_ram_gb_without_psutil(self):
         """Test: Usa valor por defecto cuando psutil no está disponible"""
-        with patch('config.Config._get_system_ram_gb') as mock:
+        with patch('utils.platform_utils.get_system_ram_gb') as mock:
             # Simular ImportError de psutil
             mock.side_effect = ImportError("psutil not available")
             
             # El método debe manejar el error y retornar default
             try:
-                Config._get_system_ram_gb()
+                platform_utils.get_system_ram_gb()
             except ImportError:
                 # Verificar que el método real tiene el fallback
                 ram_gb = 8.0  # Default esperado
@@ -38,13 +39,14 @@ class TestSystemDetection:
     
     def test_get_cpu_count(self):
         """Test: Detecta número de CPUs correctamente"""
-        with patch('os.cpu_count', return_value=12):
+        with patch('config.get_cpu_count', return_value=12):
             assert Config.get_cpu_count() == 12
     
     def test_get_cpu_count_fallback(self):
         """Test: Usa fallback cuando no se puede detectar CPU"""
         with patch('os.cpu_count', return_value=None):
-            assert Config.get_cpu_count() == 4  # Default mínimo
+            # platform_utils.get_cpu_count tiene fallback a 4
+            assert platform_utils.get_cpu_count() == 4  # Default mínimo
 
 
 class TestCacheConfiguration:
@@ -60,18 +62,18 @@ class TestCacheConfiguration:
     ])
     def test_get_max_cache_entries(self, ram_gb, expected_cache):
         """Test: Calcula max cache entries correctamente según RAM"""
-        with patch.object(Config, '_get_system_ram_gb', return_value=ram_gb):
+        with patch('config.get_system_ram_gb', return_value=ram_gb):
             assert Config.get_max_cache_entries() == expected_cache
     
     def test_max_cache_entries_minimum_limit(self):
         """Test: Aplica límite mínimo de 5000 entradas"""
-        with patch.object(Config, '_get_system_ram_gb', return_value=1.0):
+        with patch('config.get_system_ram_gb', return_value=1.0):
             # 1GB * 1000 = 1000, pero mínimo es 5000
             assert Config.get_max_cache_entries() == 5000
     
     def test_max_cache_entries_maximum_limit(self):
         """Test: Aplica límite máximo de 200000 entradas"""
-        with patch.object(Config, '_get_system_ram_gb', return_value=100.0):
+        with patch('config.get_system_ram_gb', return_value=100.0):
             # 100GB * 1000 = 100000, menor que máximo 200000
             assert Config.get_max_cache_entries() == 100000
     
@@ -84,24 +86,24 @@ class TestCacheConfiguration:
     ])
     def test_get_large_dataset_threshold(self, ram_gb, expected_threshold):
         """Test: Calcula threshold de dataset grande según RAM"""
-        with patch.object(Config, '_get_system_ram_gb', return_value=ram_gb):
+        with patch('config.get_system_ram_gb', return_value=ram_gb):
             assert Config.get_large_dataset_threshold() == expected_threshold
     
     def test_large_dataset_threshold_minimum(self):
         """Test: Aplica límite mínimo de 3000 archivos"""
-        with patch.object(Config, '_get_system_ram_gb', return_value=2.0):
+        with patch('config.get_system_ram_gb', return_value=2.0):
             # 2GB * 500 = 1000, pero mínimo es 3000
             assert Config.get_large_dataset_threshold() == 3000
     
     def test_large_dataset_threshold_maximum(self):
         """Test: Aplica límite máximo de 50000 archivos"""
-        with patch.object(Config, '_get_system_ram_gb', return_value=100.0):
+        with patch('config.get_system_ram_gb', return_value=100.0):
             # 100GB * 500 = 50000, que es exactamente el máximo
             assert Config.get_large_dataset_threshold() == 50000
     
     def test_similarity_dialog_auto_open_threshold(self):
         """Test: Threshold de auto-open es 60% del large dataset"""
-        with patch.object(Config, '_get_system_ram_gb', return_value=16.0):
+        with patch('config.get_system_ram_gb', return_value=16.0):
             large_threshold = Config.get_large_dataset_threshold()  # 8000
             auto_open = Config.get_similarity_dialog_auto_open_threshold()
             
@@ -123,7 +125,7 @@ class TestWorkerConfiguration:
     ])
     def test_get_optimal_worker_threads(self, cpu_count, expected_io, expected_cpu):
         """Test: Calcula workers I/O y CPU correctamente según cores"""
-        with patch.object(Config, 'get_cpu_count', return_value=cpu_count):
+        with patch('config.get_cpu_count', return_value=cpu_count):
             io_workers = Config.get_optimal_worker_threads()
             cpu_workers = Config.get_cpu_bound_workers()
             
@@ -132,19 +134,19 @@ class TestWorkerConfiguration:
     
     def test_io_bound_uses_double_cores(self):
         """Test: I/O bound usa 2x cores (hasta el máximo)"""
-        with patch.object(Config, 'get_cpu_count', return_value=6):
+        with patch('config.get_cpu_count', return_value=6):
             workers = Config.get_optimal_worker_threads()
             assert workers == 12  # 6 * 2 = 12
     
     def test_cpu_bound_uses_single_core(self):
         """Test: CPU bound usa 1x cores"""
-        with patch.object(Config, 'get_cpu_count', return_value=6):
+        with patch('config.get_cpu_count', return_value=6):
             workers = Config.get_cpu_bound_workers()
             assert workers == 6  # 6 * 1 = 6
     
     def test_workers_minimum_limit(self):
         """Test: Aplica límite mínimo de 4 workers"""
-        with patch.object(Config, 'get_cpu_count', return_value=2):
+        with patch('config.get_cpu_count', return_value=2):
             io_workers = Config.get_optimal_worker_threads()
             cpu_workers = Config.get_cpu_bound_workers()
             
@@ -153,7 +155,7 @@ class TestWorkerConfiguration:
     
     def test_workers_maximum_limit(self):
         """Test: Aplica límite máximo de 16 workers"""
-        with patch.object(Config, 'get_cpu_count', return_value=32):
+        with patch('config.get_cpu_count', return_value=32):
             io_workers = Config.get_optimal_worker_threads()
             cpu_workers = Config.get_cpu_bound_workers()
             
@@ -162,7 +164,7 @@ class TestWorkerConfiguration:
     
     def test_get_actual_worker_threads_automatic(self):
         """Test: Sin override, usa valor automático"""
-        with patch.object(Config, 'get_cpu_count', return_value=8):
+        with patch('config.get_cpu_count', return_value=8):
             # Override = 0 significa automático
             io_workers = Config.get_actual_worker_threads(override=0, io_bound=True)
             cpu_workers = Config.get_actual_worker_threads(override=0, io_bound=False)
@@ -172,7 +174,7 @@ class TestWorkerConfiguration:
     
     def test_get_actual_worker_threads_with_override(self):
         """Test: Con override, usa el valor especificado"""
-        with patch.object(Config, 'get_cpu_count', return_value=16):
+        with patch('config.get_cpu_count', return_value=16):
             # Override manual a 8 threads
             workers = Config.get_actual_worker_threads(override=8, io_bound=True)
             assert workers == 8
@@ -183,7 +185,7 @@ class TestWorkerConfiguration:
     
     def test_get_actual_worker_threads_override_respects_max(self):
         """Test: Override respeta límite máximo"""
-        with patch.object(Config, 'get_cpu_count', return_value=8):
+        with patch('config.get_cpu_count', return_value=8):
             # Intentar override a 100 (debe limitarse a MAX_WORKER_THREADS)
             workers = Config.get_actual_worker_threads(override=100, io_bound=True)
             assert workers <= Config.MAX_WORKER_THREADS
@@ -199,7 +201,7 @@ class TestWorkerConfiguration:
     ])
     def test_get_actual_worker_threads_combinations(self, override, io_bound, expected):
         """Test: Combinaciones de override y tipo de operación"""
-        with patch.object(Config, 'get_cpu_count', return_value=8):
+        with patch('config.get_cpu_count', return_value=8):
             workers = Config.get_actual_worker_threads(override=override, io_bound=io_bound)
             
             if expected is not None:
@@ -219,23 +221,24 @@ class TestSystemInfo:
         mock_memory.available = 8 * (1024 ** 3)
         
         with patch('psutil.virtual_memory', return_value=mock_memory):
-            with patch.object(Config, 'get_cpu_count', return_value=8):
-                info = Config.get_system_info()
-                
-                assert 'ram_total_gb' in info
-                assert 'ram_available_gb' in info
-                assert 'psutil_available' in info
-                assert 'cpu_count' in info
-                assert 'max_cache_entries' in info
-                assert 'large_dataset_threshold' in info
-                assert 'auto_open_threshold' in info
-                assert 'io_workers' in info
-                assert 'cpu_workers' in info
-                
-                assert info['psutil_available'] is True
-                assert info['cpu_count'] == 8
-                assert info['ram_total_gb'] == pytest.approx(16.0, 0.1)
-                assert info['ram_available_gb'] == pytest.approx(8.0, 0.1)
+            with patch('utils.platform_utils.get_cpu_count', return_value=8):
+                with patch('config.get_system_ram_gb', return_value=16.0):
+                    info = Config.get_system_info()
+                    
+                    assert 'ram_total_gb' in info
+                    assert 'ram_available_gb' in info
+                    assert 'psutil_available' in info
+                    assert 'cpu_count' in info
+                    assert 'max_cache_entries' in info
+                    assert 'large_dataset_threshold' in info
+                    assert 'auto_open_threshold' in info
+                    assert 'io_workers' in info
+                    assert 'cpu_workers' in info
+                    
+                    assert info['psutil_available'] is True
+                    assert info['cpu_count'] == 8
+                    assert info['ram_total_gb'] == pytest.approx(16.0, 0.1)
+                    assert info['ram_available_gb'] == pytest.approx(8.0, 0.1)
     
     def test_get_system_info_without_psutil(self):
         """Test: get_system_info() funciona sin psutil disponible"""
@@ -271,8 +274,8 @@ class TestSystemInfo:
     
     def test_system_info_consistency(self):
         """Test: Valores en system_info son consistentes entre sí"""
-        with patch.object(Config, '_get_system_ram_gb', return_value=16.0):
-            with patch.object(Config, 'get_cpu_count', return_value=8):
+        with patch('config.get_system_ram_gb', return_value=16.0):
+            with patch('config.get_cpu_count', return_value=8):
                 info = Config.get_system_info()
                 
                 # Verificar consistencia
@@ -288,7 +291,7 @@ class TestEdgeCases:
     
     def test_zero_ram_detected(self):
         """Test: Maneja RAM de 0 correctamente"""
-        with patch.object(Config, '_get_system_ram_gb', return_value=0.0):
+        with patch('config.get_system_ram_gb', return_value=0.0):
             # Debe aplicar mínimos
             cache = Config.get_max_cache_entries()
             threshold = Config.get_large_dataset_threshold()
@@ -298,7 +301,7 @@ class TestEdgeCases:
     
     def test_negative_ram_detected(self):
         """Test: Maneja RAM negativa (caso imposible pero defensivo)"""
-        with patch.object(Config, '_get_system_ram_gb', return_value=-1.0):
+        with patch('config.get_system_ram_gb', return_value=-1.0):
             # Debe aplicar mínimos
             cache = Config.get_max_cache_entries()
             threshold = Config.get_large_dataset_threshold()
@@ -308,7 +311,7 @@ class TestEdgeCases:
     
     def test_single_core_system(self):
         """Test: Maneja sistemas de 1 core"""
-        with patch.object(Config, 'get_cpu_count', return_value=1):
+        with patch('config.get_cpu_count', return_value=1):
             io_workers = Config.get_optimal_worker_threads()
             cpu_workers = Config.get_cpu_bound_workers()
             
@@ -318,7 +321,7 @@ class TestEdgeCases:
     
     def test_massive_ram_system(self):
         """Test: Maneja sistemas con RAM masiva (>100GB)"""
-        with patch.object(Config, '_get_system_ram_gb', return_value=256.0):
+        with patch('config.get_system_ram_gb', return_value=256.0):
             cache = Config.get_max_cache_entries()
             threshold = Config.get_large_dataset_threshold()
             
@@ -328,7 +331,7 @@ class TestEdgeCases:
     
     def test_massive_cpu_system(self):
         """Test: Maneja sistemas con muchos cores (>64)"""
-        with patch.object(Config, 'get_cpu_count', return_value=128):
+        with patch('config.get_cpu_count', return_value=128):
             io_workers = Config.get_optimal_worker_threads()
             cpu_workers = Config.get_cpu_bound_workers()
             
@@ -342,8 +345,8 @@ class TestIntegration:
     
     def test_typical_laptop_4gb_4cores(self):
         """Test: Configuración para laptop típico (4GB RAM, 4 cores)"""
-        with patch.object(Config, '_get_system_ram_gb', return_value=4.0):
-            with patch.object(Config, 'get_cpu_count', return_value=4):
+        with patch('config.get_system_ram_gb', return_value=4.0):
+            with patch('config.get_cpu_count', return_value=4):
                 info = Config.get_system_info()
                 
                 assert info['max_cache_entries'] == 5000  # Mínimo
@@ -354,8 +357,8 @@ class TestIntegration:
     
     def test_typical_desktop_16gb_8cores(self):
         """Test: Configuración para desktop típico (16GB RAM, 8 cores)"""
-        with patch.object(Config, '_get_system_ram_gb', return_value=16.0):
-            with patch.object(Config, 'get_cpu_count', return_value=8):
+        with patch('config.get_system_ram_gb', return_value=16.0):
+            with patch('config.get_cpu_count', return_value=8):
                 info = Config.get_system_info()
                 
                 assert info['max_cache_entries'] == 16000
@@ -366,8 +369,8 @@ class TestIntegration:
     
     def test_workstation_32gb_16cores(self):
         """Test: Configuración para workstation (32GB RAM, 16 cores)"""
-        with patch.object(Config, '_get_system_ram_gb', return_value=32.0):
-            with patch.object(Config, 'get_cpu_count', return_value=16):
+        with patch('config.get_system_ram_gb', return_value=32.0):
+            with patch('config.get_cpu_count', return_value=16):
                 info = Config.get_system_info()
                 
                 assert info['max_cache_entries'] == 32000  # 32*1000 = 32000
@@ -378,8 +381,8 @@ class TestIntegration:
     
     def test_server_64gb_32cores(self):
         """Test: Configuración para servidor (64GB RAM, 32 cores)"""
-        with patch.object(Config, '_get_system_ram_gb', return_value=64.0):
-            with patch.object(Config, 'get_cpu_count', return_value=32):
+        with patch('config.get_system_ram_gb', return_value=64.0):
+            with patch('config.get_cpu_count', return_value=32):
                 info = Config.get_system_info()
                 
                 # Valores según fórmulas (no máximos aún)

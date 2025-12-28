@@ -107,27 +107,49 @@ class DuplicatesExactService(DuplicatesBaseService):
         # Esto delega la paralelización y el cálculo al repositorio
         failed_hashes = []
         if files_to_hash:
-            files_paths_to_hash = [meta.path for meta in files_to_hash]
+            # Filter files that already have a hash in the cache to avoid re-processing overhead
+            files_missing_hash = []
+            files_cached_hash = 0
             
-            # Adaptador para reportar progreso
-            # populate_from_scan llama a callback(processed, total)
-            def repo_progress_callback(processed_count, total_count):
-                return self._report_progress(
-                    progress_callback, 
-                    processed_count, 
-                    total_count, 
-                    "Calculando firmas digitales..."
-                )
-
-            # Iniciar población
-            from services.file_metadata_repository_cache import PopulationStrategy
-            repo.populate_from_scan(
-                files_paths_to_hash, 
-                strategy=PopulationStrategy.HASH,
-                max_workers=4,
-                progress_callback=repo_progress_callback,
-                stop_check_callback=lambda: self._should_stop_check() if hasattr(self, '_should_stop_check') else False
-            )
+            self.logger.info("Verificando caché de hashes...")
+            
+            for meta in files_to_hash:
+                if meta.sha256:
+                    files_cached_hash += 1
+                else:
+                    files_missing_hash.append(meta.path)
+            
+            if files_cached_hash > 0:
+                self.logger.info(f"Hashes encontrados en caché: {files_cached_hash} (se omitirá cálculo)")
+                
+            if files_missing_hash:
+                 self.logger.info(f"Archivos requiriendo cálculo de hash: {len(files_missing_hash)}")
+                 
+                 # Adaptador para reportar progreso
+                 # populate_from_scan llama a callback(processed, total)
+                 def repo_progress_callback(processed_count, total_count):
+                     # Log inmediato inicial y luego periódico
+                     if processed_count == 0 or (processed_count % 1000 == 0):
+                         self.logger.info(f"Hashing progreso: {processed_count}/{total_count} archivos procesados")
+                         
+                     return self._report_progress(
+                         progress_callback, 
+                         processed_count, 
+                         total_count, 
+                         "Calculando firmas digitales..."
+                     )
+    
+                 # Iniciar población solo para faltantes
+                 from services.file_metadata_repository_cache import PopulationStrategy
+                 repo.populate_from_scan(
+                     files_missing_hash, 
+                     strategy=PopulationStrategy.HASH,
+                     max_workers=4,
+                     progress_callback=repo_progress_callback,
+                     stop_check_callback=lambda: self._should_stop_check() if hasattr(self, '_should_stop_check') else False
+                 )
+            else:
+                 self.logger.info("Todos los archivos candidatos ya tienen hash en caché.")
 
         # 2. Recolectar resultados de la caché (si no estaban antes ahora sí estarán)
         processed = 0
@@ -144,7 +166,10 @@ class DuplicatesExactService(DuplicatesBaseService):
             processed += 1
             # Progreso ligero durante la recolección
             if self._should_report_progress(processed, interval=Config.UI_UPDATE_INTERVAL * 2):
-                if not self._report_progress(progress_callback, 0, 0, "Agrupando duplicados..."):
+                if processed % 10000 == 0:
+                    self.logger.info(f"Agrupando duplicados: {processed}/{len(files_to_hash)} revisados")
+                    
+                if not self._report_progress(progress_callback, processed, len(files_to_hash), "Agrupando duplicados..."):
                     break # Cancelado
 
         # Crear grupos

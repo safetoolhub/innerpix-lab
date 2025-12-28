@@ -48,6 +48,11 @@ Guidelines para tests
 - **Naming**: Tests claros y deterministas. Prefiere nombres como `test_<comportamiento>_cuando_<condicion>` o en inglés si el repo usa inglés.
 - **Fixtures**: Reutilizar fixtures centralizadas en `tests/conftest.py` para crear entornos controlados.
 - **No acceso a red**: Tests deben poder correr offline. Mockear I/O externo y recursos del sistema de archivos cuando sea posible.
+- **Patrón Singleton**: Para FileInfoRepositoryCache, SIEMPRE usar `self.repo = FileInfoRepositoryCache.get_instance()` y `self.repo.clear()` en setup_method.
+- **FileMetadata**: Al crear instancias, incluir TODOS los campos requeridos: `path`, `fs_size`, `fs_ctime`, `fs_mtime`, `fs_atime`. Opcionalmente `best_date`, `best_date_source`.
+- **Repositorio API**: Usar `repo.add_file(path, metadata)` con DOS parámetros (path y FileMetadata), NO uno solo.
+- **Tests de integración**: CRÍTICO - Verificar operaciones consecutivas (analyze → execute → analyze) para detectar bugs de estado.
+- **Test classes**: Organizar en clases por funcionalidad: TestBasics, TestAnalyze, TestExecute, TestEdgeCases, TestIntegration.
 - **Cobertura**: CI debe ejecutar test suite completa; mantener cobertura razonable para servicios críticos.
 
 CI / Integración continua

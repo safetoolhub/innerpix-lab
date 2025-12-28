@@ -285,8 +285,9 @@ class FileRenamerService(BaseService):
                     'had_conflict': item.get('has_conflict', False)
                 })
 
-                if not self._report_progress(progress_callback, items_processed, total_files, f"{'Simulando' if dry_run else 'Renombrando'}... {items_processed}/{total_files}"):
-                    break
+                if items_processed % Config.UI_UPDATE_INTERVAL == 0:
+                    if not self._report_progress(progress_callback, items_processed, total_files, f"{'Simulando' if dry_run else 'Renombrando'}... {items_processed}/{total_files}"):
+                         break
 
                 log_prefix = "FILE_RENAMED_SIMULATION" if dry_run else "FILE_RENAMED"
                 conflict_info = f" | Conflict: {conflict_sequence}" if had_conflict else ""

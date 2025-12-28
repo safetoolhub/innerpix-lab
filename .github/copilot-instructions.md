@@ -37,6 +37,7 @@ PyQt6 desktop app for photo/video management oriented to privacy.
 - **Progress throttling**: Reporta cada 1% o cada 100 archivos (evita saturación Qt en datasets grandes)
 - **Cache Management**:
   - `remove_file(path)`, `remove_files(paths)` - Después de operaciones destructivas
+  - `move_file(old_path, new_path)` - Actualiza path en caché sin perder metadata (usado por FileRenamerService)
   - `set_max_entries(max)` - Ajuste dinámico con eviction LRU automático
   - `clear()` - Limpia todo entre datasets (usar `_invalidate_metadata_cache()` desde UI)
 - **Persistence** (opcional):
@@ -190,6 +191,9 @@ Dry-run mode for testing. No deletions/moves/renames.
 
 - **Tool Dialogs**:
   - `duplicates_exact_dialog.py`: Gestión de duplicados exactos (SHA256), estrategias de eliminación
+    - TreeWidget con columnas: Archivos, Tamaño, Fecha, Origen, Ubicación, Estado
+    - Obtiene metadata del repositorio singleton con `FileInfoRepositoryCache.get_instance()`
+    - Muestra origen de fecha (exif_datetime_original, mtime, etc.) en columna dedicada
   - `duplicates_similar_dialog.py`: Gestión de duplicados similares (perceptual hash), ajuste de sensibilidad en tiempo real
     - Progressive batch loading: Loads groups in batches to avoid UI freeze with large datasets (>10k files)
     - Uses `DuplicatesSimilarAnalysis.find_new_groups()` for incremental group detection
@@ -198,7 +202,9 @@ Dry-run mode for testing. No deletions/moves/renames.
   - `file_organizer_dialog.py`: Organización de archivos, 3 modos (TO_ROOT, BY_MONTH, WHATSAPP_SEPARATE), paginación (200/page)
   - `file_renamer_dialog.py`: Renombrado de archivos, mapeos original → nuevo, indicadores de conflictos
   - `heic_dialog.py`: Gestión de pares HEIC/JPG, menú contextual
+    - Muestra origen de fecha compartida entre pares HEIC/JPG
   - `live_photos_dialog.py`: Gestión de Live Photos (pares foto + video)
+    - Muestra origen de fecha para imágenes y videos en columna dedicada
   - `zero_byte_dialog.py`: Gestión de archivos de cero bytes
 
 - **Auxiliary Dialogs**:
@@ -227,6 +233,18 @@ Dry-run mode for testing. No deletions/moves/renames.
 - All public methods typed
 - No empty try/except with pass
 - Functions organized by thematic categories with section separators
+
+### Testing
+- **Framework**: pytest 9.0.2 + pytest-qt 4.5.0 + pytest-mock 3.15.1
+- **Coverage**: 460+ tests passing (Dec 2025)
+- **Test Structure**: Class-based organization (TestClassName), setup_method/teardown_method for isolation
+- **Key Tests**:
+  - `tests/unit/services/test_file_metadata_repository_cache.py` (22 tests) - Singleton, CRUD, persistence, thread-safety, LRU eviction
+  - `tests/unit/services/test_duplicates_exact_service.py` (18 tests) - Analysis, execution strategies, dry run, consecutive operations
+  - `tests/unit/services/test_file_renamer_service.py` (19 tests) - Renaming logic, conflict resolution, cache updates, idempotency
+- **Integration Tests**: Verify consecutive operations (analyze → execute → analyze), multi-service interaction, cache consistency
+- **Pattern**: Tests must verify behavior with repository singleton using `repo.clear()` in setup_method
+- **Run Tests**: `source .venv/bin/activate && pytest` (full suite ~60s), `pytest tests/unit/services/test_*.py -v` (specific)
 
 ## Platform Support
 - Primary: Windows

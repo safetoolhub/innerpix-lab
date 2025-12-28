@@ -87,6 +87,8 @@ class InitialScanner:
         # Validation
         validate_directory_exists(directory)
         self.logger.info(f"Starting initial scan: {directory}")
+        self.logger.info(f"Scan configuration: calculate_hashes={calculate_hashes}, "
+                        f"extract_image_exif={extract_image_exif}, extract_video_exif={extract_video_exif}")
         
         # Get repository instance
         repo = FileInfoRepositoryCache.get_instance()

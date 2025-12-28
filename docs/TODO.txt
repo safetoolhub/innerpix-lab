@@ -1,6 +1,8 @@
 Innerpix lab
 ---------------
+La estrategia de populacion EXIF_ALL y FULL son iinutiles, habria que borrarlas. 
 
+Podriamos para live photos comprobar que el video es mas corto de 5 segundos
 
 Antiguas versiones
 --------------------

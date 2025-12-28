@@ -387,7 +387,7 @@ class Stage3Window(BaseStage):
             if hasattr(self.analysis_results, 'duplicates') and self.analysis_results.duplicates:
                 dup_data = self.analysis_results.duplicates
                 if dup_data.total_groups > 0:
-                    dialog = DuplicatesExactDialog(dup_data, self.main_window, self.metadata_cache)
+                    dialog = DuplicatesExactDialog(dup_data, self.main_window)
                 else:
                      QMessageBox.information(self.main_window, "Info", "No se encontraron copias exactas.")
 
@@ -502,9 +502,20 @@ class Stage3Window(BaseStage):
             QMessageBox.critical(self.main_window, "Error", f"Error en análisis: {msg}")
             worker.deleteLater()
             
-        worker.progress_update.connect(
-            lambda c, t, m: progress.setLabelText(f"{message}\n{m}")
-        )
+        def on_progress_update(current, total, msg):
+            # Si total > 0, usar barra determinada. Si no, indeterminada.
+            if total > 0:
+                if progress.maximum() != total:
+                    progress.setMaximum(total)
+                progress.setValue(current)
+            else:
+                if progress.maximum() != 0:
+                    progress.setMaximum(0)
+                    progress.setValue(0)
+            
+            progress.setLabelText(f"{message}\n{msg}")
+
+        worker.progress_update.connect(on_progress_update)
         worker.finished.connect(on_finished)
         worker.error.connect(on_error)
         
