@@ -107,6 +107,62 @@ def format_percentage(numerator: float, denominator: float) -> str:
         return "0%"
 
 
+def format_duration(seconds: Optional[float]) -> str:
+    """Formatea una duración en segundos a formato legible.
+    
+    Ejemplos:
+    - 0.5s -> "0.5s"
+    - 65s -> "1m 5s"
+    - 3661s -> "1h 1m 1s"
+    - 86400s -> "1d"
+    
+    Args:
+        seconds: Duración en segundos
+        
+    Returns:
+        String formateado con componentes separados por espacios
+    """
+    if seconds is None:
+        return "N/A"
+    
+    try:
+        sec = float(seconds)
+    except (TypeError, ValueError):
+        return "N/A"
+    
+    if sec < 0:
+        return f"-{format_duration(abs(sec))}"
+    
+    # Menos de 1 segundo: mostrar con decimales
+    if sec < 1:
+        return f"{sec:.2f}s"
+    
+    # Menos de 60 segundos: mostrar segundos enteros
+    if sec < 60:
+        return f"{int(sec)}s"
+    
+    # Calcular componentes
+    days = int(sec // 86400)
+    remaining = sec % 86400
+    hours = int(remaining // 3600)
+    remaining = remaining % 3600
+    minutes = int(remaining // 60)
+    secs = int(remaining % 60)
+    
+    # Construir string con espacios entre componentes
+    parts = []
+    if days > 0:
+        parts.append(f"{days}d")
+    if hours > 0:
+        parts.append(f"{hours}h")
+    if minutes > 0:
+        parts.append(f"{minutes}m")
+    if secs > 0:
+        parts.append(f"{secs}s")
+    
+    return " ".join(parts) if parts else "0s"
+
+
 def truncate_path(path: str, max_length: int = 40) -> str:
     """Trunca rutas largas insertando '...' en el centro para ajustarse a max_length.
 

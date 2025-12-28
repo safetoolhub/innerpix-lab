@@ -400,7 +400,7 @@ class FileOrganizerService(BaseService):
             for file_info in subdir_data['files']:
                 processed += 1
                 if processed % 1000 == 0:
-                     self._report_progress(progress_callback, processed, total_items, f"Moviendo a raíz... {processed}/{total_items}")
+                     self._report_progress(progress_callback, processed, total_items, f"Analizando... {processed}/{total_items}")
                 
                 fname = file_info['name']
                 fpath = Path(file_info['path'])

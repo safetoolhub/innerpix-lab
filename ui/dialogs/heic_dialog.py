@@ -208,34 +208,82 @@ class HeicDialog(BaseDialog):
         search_layout.addWidget(self.search_input)
         toolbar.addWidget(search_container)
         
-        # Separador vertical
-        sep = QFrame()
-        sep.setFrameShape(QFrame.Shape.VLine)
-        sep.setFrameShadow(QFrame.Shadow.Sunken)
-        sep.setStyleSheet(f"color: {DesignSystem.COLOR_BORDER}; background-color: {DesignSystem.COLOR_BORDER};")
-        sep.setFixedHeight(20)
-        toolbar.addWidget(sep)
-        
-        # Filtro por directorio
-        dir_container = QHBoxLayout()
-        dir_container.setSpacing(DesignSystem.SPACE_8)
-        
-        dir_label = QLabel("Directorio:")
-        dir_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
-        
+        # Filtro por directorio (sin etiqueta, estilo Material)
         self.dir_combo = QComboBox()
-        directories = ["Todos"] + sorted(list(set(
+        directories = ["Todos los directorios"] + sorted(list(set(
             str(pair.directory) for pair in self.analysis.duplicate_pairs
         )))
         self.dir_combo.addItems(directories)
         self.dir_combo.currentTextChanged.connect(self._apply_filters)
         self.dir_combo.setMinimumWidth(200)
-        self.dir_combo.setStyleSheet(DesignSystem.get_combobox_style())
+        self.dir_combo.setStyleSheet(f"""
+            QComboBox {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                border: 2px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_TEXT};
+            }}
+            QComboBox:hover {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+                background-color: {DesignSystem.COLOR_SURFACE};
+            }}
+            QComboBox::drop-down {{
+                border: none;
+                padding-right: {DesignSystem.SPACE_8}px;
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                selection-background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
+                selection-color: {DesignSystem.COLOR_TEXT};
+                padding: {DesignSystem.SPACE_4}px;
+            }}
+        """)
         self.dir_combo.setToolTip("Filtrar grupos por directorio")
+        toolbar.addWidget(self.dir_combo)
         
-        dir_container.addWidget(dir_label)
-        dir_container.addWidget(self.dir_combo)
-        toolbar.addLayout(dir_container)
+        # Filtro por origen de fecha (sin etiqueta, estilo Material)
+        self.source_combo = QComboBox()
+        self.source_combo.addItems([
+            "Todos los orígenes de fecha",
+            "EXIF DateTimeOriginal",
+            "EXIF CreateDate",
+            "EXIF ModifyDate",
+            "Filesystem (mtime)",
+            "Filesystem (ctime)",
+            "Filesystem (atime)"
+        ])
+        self.source_combo.currentTextChanged.connect(self._apply_filters)
+        self.source_combo.setMinimumWidth(200)
+        self.source_combo.setStyleSheet(f"""
+            QComboBox {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                border: 2px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_TEXT};
+            }}
+            QComboBox:hover {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+                background-color: {DesignSystem.COLOR_SURFACE};
+            }}
+            QComboBox::drop-down {{
+                border: none;
+                padding-right: {DesignSystem.SPACE_8}px;
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                selection-background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
+                selection-color: {DesignSystem.COLOR_TEXT};
+                padding: {DesignSystem.SPACE_4}px;
+            }}
+        """)
+        self.source_combo.setToolTip("Filtrar grupos por origen de la fecha de comparación")
+        toolbar.addWidget(self.source_combo)
         
         toolbar.addStretch()
         
@@ -261,13 +309,18 @@ class HeicDialog(BaseDialog):
         clear_btn.setToolTip("Limpiar todos los filtros")
         toolbar.addWidget(clear_btn)
         
-        # Contador de grupos
+        # Contador de grupos (Estilo Badge Azul para homogeneizar)
         self.counter_label = QLabel()
         self.counter_label.setStyleSheet(f"""
-            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-            color: {DesignSystem.COLOR_PRIMARY};
-            margin-left: {DesignSystem.SPACE_12}px;
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            QLabel {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                color: {DesignSystem.COLOR_PRIMARY_TEXT};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_12}px;
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+                margin-left: {DesignSystem.SPACE_8}px;
+            }}
         """)
         toolbar.addWidget(self.counter_label)
         
@@ -341,65 +394,74 @@ class HeicDialog(BaseDialog):
         layout = QHBoxLayout(widget)
         layout.setSpacing(DesignSystem.SPACE_8)
         layout.setContentsMargins(DesignSystem.SPACE_8, DesignSystem.SPACE_4, DesignSystem.SPACE_8, DesignSystem.SPACE_4)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
-        # Botones de navegación con iconos
+        # Botones de navegación con iconos - Tamaño 40x40 para coincidir con ComboBox (premium height)
         self.first_page_btn = QPushButton()
         self.first_page_btn.setToolTip("Primera página")
         icon_manager.set_button_icon(self.first_page_btn, 'skip-previous', size=DesignSystem.ICON_SIZE_MD)
         self.first_page_btn.clicked.connect(self._go_first_page)
         self.first_page_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
-        self.first_page_btn.setFixedSize(36, 36)
-        layout.addWidget(self.first_page_btn)
+        self.first_page_btn.setFixedSize(40, 40)
+        layout.addWidget(self.first_page_btn, 0, Qt.AlignmentFlag.AlignVCenter)
         
         self.prev_page_btn = QPushButton()
         self.prev_page_btn.setToolTip("Página anterior")
         icon_manager.set_button_icon(self.prev_page_btn, 'chevron-left', size=DesignSystem.ICON_SIZE_MD)
         self.prev_page_btn.clicked.connect(self._go_prev_page)
         self.prev_page_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
-        self.prev_page_btn.setFixedSize(36, 36)
-        layout.addWidget(self.prev_page_btn)
+        self.prev_page_btn.setFixedSize(40, 40)
+        layout.addWidget(self.prev_page_btn, 0, Qt.AlignmentFlag.AlignVCenter)
         
-        # Indicador de página
+        # Indicador de página (Estilo caja/input para coherencia con la imagen)
         self.page_label = QLabel()
         self.page_label.setStyleSheet(f"""
-            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-            padding: 0 {DesignSystem.SPACE_16}px;
-            font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            color: {DesignSystem.COLOR_TEXT};
+            QLabel {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: 0px {DesignSystem.SPACE_16}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_TEXT};
+                min-height: 40px;
+                max-height: 40px;
+            }}
         """)
         self.page_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self.page_label)
+        layout.addWidget(self.page_label, 0, Qt.AlignmentFlag.AlignVCenter)
         
         self.next_page_btn = QPushButton()
         self.next_page_btn.setToolTip("Página siguiente")
         icon_manager.set_button_icon(self.next_page_btn, 'chevron-right', size=DesignSystem.ICON_SIZE_MD)
         self.next_page_btn.clicked.connect(self._go_next_page)
         self.next_page_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
-        self.next_page_btn.setFixedSize(36, 36)
-        layout.addWidget(self.next_page_btn)
+        self.next_page_btn.setFixedSize(40, 40)
+        layout.addWidget(self.next_page_btn, 0, Qt.AlignmentFlag.AlignVCenter)
         
         self.last_page_btn = QPushButton()
         self.last_page_btn.setToolTip("Última página")
         icon_manager.set_button_icon(self.last_page_btn, 'skip-next', size=DesignSystem.ICON_SIZE_MD)
         self.last_page_btn.clicked.connect(self._go_last_page)
         self.last_page_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
-        self.last_page_btn.setFixedSize(36, 36)
-        layout.addWidget(self.last_page_btn)
+        self.last_page_btn.setFixedSize(40, 40)
+        layout.addWidget(self.last_page_btn, 0, Qt.AlignmentFlag.AlignVCenter)
         
         layout.addStretch()
         
         # Items per page
         items_label = QLabel("Items por página:")
         items_label.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_SM}px;")
-        layout.addWidget(items_label)
+        layout.addWidget(items_label, 0, Qt.AlignmentFlag.AlignVCenter)
         
         self.items_per_page_combo = QComboBox()
         self.items_per_page_combo.addItems(["100", "200", "500", "Todos"])
         self.items_per_page_combo.setCurrentText("200")
         self.items_per_page_combo.currentTextChanged.connect(self._change_items_per_page)
         self.items_per_page_combo.setFixedWidth(100)
+        # El estilo de DesignSystem ya tiene 40px de min-height
         self.items_per_page_combo.setStyleSheet(DesignSystem.get_combobox_style())
-        layout.addWidget(self.items_per_page_combo)
+        layout.addWidget(self.items_per_page_combo, 0, Qt.AlignmentFlag.AlignVCenter)
         
         widget.setVisible(False)
         return widget
@@ -417,6 +479,7 @@ class HeicDialog(BaseDialog):
         """Aplica filtros a la lista de grupos"""
         search_text = self.search_input.text().lower()
         dir_filter = self.dir_combo.currentText()
+        source_filter = self.source_combo.currentText()
         
         self.filtered_pairs = []
         
@@ -426,7 +489,11 @@ class HeicDialog(BaseDialog):
                 continue
             
             # Filtro por directorio
-            if dir_filter != "Todos" and str(pair.directory) != dir_filter:
+            if dir_filter != "Todos los directorios" and str(pair.directory) != dir_filter:
+                continue
+            
+            # Filtro por origen de fecha
+            if not self._matches_source_filter(pair.date_source, source_filter):
                 continue
             
             self.filtered_pairs.append(pair)
@@ -434,10 +501,42 @@ class HeicDialog(BaseDialog):
         self.current_page = 0
         self._update_tree()
     
+    def _matches_source_filter(self, date_source: str, filter_value: str) -> bool:
+        """Verifica si el origen de fecha coincide con el filtro seleccionado.
+        
+        Args:
+            date_source: Origen de la fecha (ej: 'exif_date_time_original', 'fs_mtime')
+            filter_value: Valor del filtro seleccionado
+            
+        Returns:
+            True si coincide con el filtro
+        """
+        if not date_source or filter_value == "Todos los orígenes de fecha":
+            return True
+        
+        source_lower = date_source.lower()
+        
+        # Mapeo de filtros a patrones de búsqueda
+        if filter_value == "EXIF DateTimeOriginal":
+            return "exif_date_time_original" in source_lower or "exif_datetimeoriginal" in source_lower
+        elif filter_value == "EXIF CreateDate":
+            return "exif_create_date" in source_lower or "exif_createdate" in source_lower
+        elif filter_value == "EXIF ModifyDate":
+            return "exif_modify_date" in source_lower or "exif_modifydate" in source_lower or "exif_datetime" in source_lower
+        elif filter_value == "Filesystem (mtime)":
+            return "fs_mtime" in source_lower or "mtime" in source_lower
+        elif filter_value == "Filesystem (ctime)":
+            return "fs_ctime" in source_lower or "ctime" in source_lower
+        elif filter_value == "Filesystem (atime)":
+            return "fs_atime" in source_lower or "atime" in source_lower
+        
+        return False
+    
     def _clear_filters(self):
         """Limpia todos los filtros"""
         self.search_input.clear()
         self.dir_combo.setCurrentIndex(0)
+        self.source_combo.setCurrentIndex(0)
     
     def _go_first_page(self):
         self.current_page = 0
@@ -471,7 +570,9 @@ class HeicDialog(BaseDialog):
         
         try:
             total_filtered = len(self.filtered_pairs)
-            use_pagination = total_filtered > self.MAX_ITEMS_WITHOUT_PAGINATION
+            # Usar paginación si el dataset ORIGINAL era grande, no el filtrado
+            total_items = len(self.analysis.duplicate_pairs)
+            use_pagination = total_items > self.MAX_ITEMS_WITHOUT_PAGINATION
             
             if use_pagination:
                 self.total_pages = (total_filtered + self.ITEMS_PER_PAGE - 1) // self.ITEMS_PER_PAGE

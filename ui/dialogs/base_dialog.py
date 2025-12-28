@@ -720,6 +720,7 @@ class BaseDialog(QDialog):
         main_layout = QHBoxLayout(frame)
         main_layout.setSpacing(int(DesignSystem.SPACE_12))
         main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         
         # === Label "Opciones:" inline minimalista ===
         options_label = QLabel("Opciones:")
@@ -730,7 +731,7 @@ class BaseDialog(QDialog):
             padding: 0px;
             margin: 0px;
         """)
-        main_layout.addWidget(options_label)
+        main_layout.addWidget(options_label, 0, Qt.AlignmentFlag.AlignVCenter)
         
         # === Checkbox de backup (inline chip style) ===
         if show_backup:

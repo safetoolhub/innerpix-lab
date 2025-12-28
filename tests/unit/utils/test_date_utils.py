@@ -1207,3 +1207,69 @@ class TestGetBestCommonCreationDate2FilesComprehensive:
         
         result = select_best_date_from_common_date_to_2_files(f1, f2)
         assert result is None
+    def test_exif_dates_as_strings_are_parsed_correctly(self):
+        """
+        BUG FIX: EXIF dates como strings deben ser parseados correctamente.
+        
+        Antes del fix, cuando FileMetadata tenía exif_DateTimeOriginal como string
+        "2023:08:10 15:41:34", la función _to_dt() no podía convertirlo y caía
+        a filesystem timestamps (mtime/ctime).
+        
+        Este test verifica que strings EXIF se parsean correctamente y tienen
+        prioridad sobre filesystem dates.
+        """
+        from types import SimpleNamespace
+        
+        # Simular FileMetadata con EXIF como strings (formato real del caché)
+        file1 = SimpleNamespace(
+            path="/home/ed/Pictures/RAW/iPhoneC_hasta_202311/IMG_0022.HEIC",
+            exif_DateTimeOriginal="2023:08:10 15:41:34",  # String EXIF, NO datetime
+            exif_DateTime="2023:08:10 15:41:34",
+            fs_mtime=1691703949.0,  # 2023-08-10 pero hora diferente
+            fs_ctime=1766818401.512191,
+            fs_atime=1766832805.0878773
+        )
+        
+        file2 = SimpleNamespace(
+            path="/home/ed/Pictures/RAW/iPhoneC_hasta_202311/IMG_0022.jpg",
+            exif_DateTimeOriginal="2023:08:10 15:41:34",  # String EXIF, NO datetime
+            exif_DateTime="2023:08:10 15:41:34",
+            fs_mtime=1691703949.0,
+            fs_ctime=1766818401.5821912,
+            fs_atime=1766832805.0838773
+        )
+        
+        d1, d2, source = select_best_date_from_common_date_to_2_files(file1, file2)
+        
+        # DEBE usar EXIF, NO filesystem timestamps
+        assert source == 'exif_date_time_original', f"Expected EXIF source but got {source}"
+        assert d1 == datetime(2023, 8, 10, 15, 41, 34)
+        assert d2 == datetime(2023, 8, 10, 15, 41, 34)
+
+    def test_exif_strings_mixed_with_filesystem_timestamps(self):
+        """
+        Verifica que strings EXIF tienen prioridad incluso cuando filesystem
+        timestamps están disponibles y son más antiguos.
+        """
+        from types import SimpleNamespace
+        
+        file1 = SimpleNamespace(
+            path="/test/file1.jpg",
+            exif_DateTimeOriginal="2023:08:10 15:41:34",  # String EXIF
+            fs_mtime=datetime(2020, 1, 1).timestamp(),  # Mucho más antiguo
+            fs_ctime=datetime(2020, 1, 1).timestamp()
+        )
+        
+        file2 = SimpleNamespace(
+            path="/test/file2.jpg",
+            exif_DateTimeOriginal="2023:08:10 15:41:35",  # String EXIF
+            fs_mtime=datetime(2020, 1, 1).timestamp(),
+            fs_ctime=datetime(2020, 1, 1).timestamp()
+        )
+        
+        d1, d2, source = select_best_date_from_common_date_to_2_files(file1, file2)
+        
+        # DEBE priorizar EXIF sobre filesystem
+        assert source == 'exif_date_time_original'
+        assert d1.year == 2023  # NO 2020
+        assert d2.year == 2023

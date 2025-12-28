@@ -363,12 +363,12 @@ class DuplicatesBaseService(BaseService):
                     if keep_file_info:
                         # Comparación completa: archivo eliminado vs archivo conservado
                         self.logger.info(
-                            f"DUPLICATE_DELETED_SIMULATION: "
-                            f"DELETED=[{file_path} | size={format_size(file_size)} | "
+                            f"FILE_DELETED_SIMULATION: "
+                            f"{file_path} | size={format_size(file_size)} | "
                             f"date={file_date_str} ({file_date_source})] "
                             f"<> KEPT=[{keep_file_info['path']} | "
                             f"size={format_size(keep_file_info['size'])} | "
-                            f"date={keep_file_info['date']} ({keep_file_info['date_source']})] | "
+                            f"date={keep_file_info['date']} ({keep_file_info['date_source']}) | "
                             f"strategy={keep_strategy}"
                         )
                     else:

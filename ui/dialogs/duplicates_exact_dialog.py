@@ -246,7 +246,7 @@ class DuplicatesExactDialog(BaseDialog):
         
         search_row.addWidget(search_container, 3)
         
-        # ComboBox de filtros con estilo Material
+        # ComboBox de filtros de tamaño con estilo Material
         self.filter_combo = QComboBox()
         self.filter_combo.addItems([
             "Todos los grupos",
@@ -285,26 +285,68 @@ class DuplicatesExactDialog(BaseDialog):
         
         search_row.addWidget(self.filter_combo, 2)
         
-        search_card_layout.addLayout(search_row)
-        
-        # Información de estado con chips Material Design
-        status_row = QHBoxLayout()
-        status_row.setSpacing(int(DesignSystem.SPACE_8))
-        
+        # ComboBox de filtro por origen de fecha
+        self.source_combo = QComboBox()
+        self.source_combo.addItems([
+            "Todos los orígenes",
+            "EXIF DateTimeOriginal",
+            "EXIF CreateDate",
+            "EXIF ModifyDate",
+            "Filesystem (mtime)",
+            "Filesystem (ctime)",
+            "Filesystem (atime)"
+        ])
+        self.source_combo.currentIndexChanged.connect(self._on_source_filter_changed)
+        self.source_combo.setFixedHeight(int(DesignSystem.SPACE_8 * 5))
+        self.source_combo.setStyleSheet(f"""
+            QComboBox {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                border: 2px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_TEXT};
+                min-width: 180px;
+            }}
+            QComboBox:hover {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+                background-color: {DesignSystem.COLOR_SURFACE};
+            }}
+            QComboBox::drop-down {{
+                border: none;
+                padding-right: {DesignSystem.SPACE_8}px;
+            }}
+            QComboBox::down-arrow {{
+                width: 12px;
+                height: 12px;
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                selection-background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
+                selection-color: {DesignSystem.COLOR_TEXT};
+                padding: {DesignSystem.SPACE_4}px;
+            }}
+        """)
+        self.source_combo.setToolTip("Filtrar archivos por origen de la fecha")
+        search_row.addWidget(self.source_combo, 2)
+
+        # ========== CONTADORES (BAGDES) EN LA MISMA LÍNEA ==========
         # Chip de grupos cargados
         self.loaded_chip = QLabel()
         self.loaded_chip.setStyleSheet(f"""
             QLabel {{
-                background-color: {DesignSystem.COLOR_INFO};
-                color: {DesignSystem.COLOR_SURFACE};
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                color: {DesignSystem.COLOR_PRIMARY_TEXT};
                 border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_12}px;
+                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
                 font-size: {DesignSystem.FONT_SIZE_SM}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+                height: 40px; /* Coincidir con combos */
             }}
         """)
-        status_row.addWidget(self.loaded_chip)
-        
+        search_row.addWidget(self.loaded_chip)
+
         # Chip de grupos filtrados (solo visible cuando hay filtros)
         self.filtered_chip = QLabel()
         self.filtered_chip.setStyleSheet(f"""
@@ -312,42 +354,16 @@ class DuplicatesExactDialog(BaseDialog):
                 background-color: {DesignSystem.COLOR_WARNING};
                 color: {DesignSystem.COLOR_SURFACE};
                 border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_12}px;
+                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
                 font-size: {DesignSystem.FONT_SIZE_SM}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+                height: 40px;
             }}
         """)
         self.filtered_chip.hide()  # Oculto por defecto
-        status_row.addWidget(self.filtered_chip)
+        search_row.addWidget(self.filtered_chip)
         
-        status_row.addStretch()
-        
-        # Botón para cargar todos (solo visible cuando hay más grupos)
-        self.load_all_btn = QPushButton()
-        icon_manager.set_button_icon(self.load_all_btn, 'download', size=16)
-        self.load_all_btn.clicked.connect(self._load_all_groups)
-        self.load_all_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: transparent;
-                color: {DesignSystem.COLOR_PRIMARY};
-                border: 2px solid {DesignSystem.COLOR_PRIMARY};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-            }}
-            QPushButton:hover {{
-                background-color: {DesignSystem.COLOR_PRIMARY};
-                color: {DesignSystem.COLOR_PRIMARY_TEXT};
-            }}
-            QPushButton:pressed {{
-                background-color: {DesignSystem.COLOR_PRIMARY_HOVER};
-            }}
-        """)
-        self.load_all_btn.hide()  # Oculto hasta que se sepa si hay más grupos
-        status_row.addWidget(self.load_all_btn)
-        
-        search_card_layout.addLayout(status_row)
+        search_card_layout.addLayout(search_row)
         
         content_layout.addWidget(search_card)
         
@@ -453,6 +469,31 @@ class DuplicatesExactDialog(BaseDialog):
         self.progress_bar_fill.setGeometry(0, 0, 0, 8)
         
         pagination_layout.addWidget(self.progress_bar_container, 1)
+        
+        # Botón para cargar todos (solo visible cuando hay más grupos)
+        self.load_all_btn = QPushButton()
+        icon_manager.set_button_icon(self.load_all_btn, 'download', size=16)
+        self.load_all_btn.clicked.connect(self._load_all_groups)
+        self.load_all_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                color: {DesignSystem.COLOR_PRIMARY};
+                border: 2px solid {DesignSystem.COLOR_PRIMARY};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_10}px {DesignSystem.SPACE_20}px;
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                color: {DesignSystem.COLOR_PRIMARY_TEXT};
+            }}
+            QPushButton:pressed {{
+                background-color: {DesignSystem.COLOR_PRIMARY_HOVER};
+            }}
+        """)
+        self.load_all_btn.hide()
+        pagination_layout.addWidget(self.load_all_btn)
         
         # Botón para cargar más grupos
         self.load_more_btn = QPushButton()
@@ -819,6 +860,42 @@ class DuplicatesExactDialog(BaseDialog):
         search_text = self.search_input.text().strip().lower()
         self._apply_filters(search_text)
     
+    def _on_source_filter_changed(self):
+        """Maneja cambios en el filtro de origen de fecha"""
+        search_text = self.search_input.text().strip().lower()
+        self._apply_filters(search_text)
+    
+    def _matches_source_filter(self, date_source: str, filter_value: str) -> bool:
+        """Verifica si el origen de fecha coincide con el filtro seleccionado.
+        
+        Args:
+            date_source: Origen de la fecha (ej: 'exif_date_time_original', 'fs_mtime')
+            filter_value: Valor del filtro seleccionado
+            
+        Returns:
+            True si coincide con el filtro
+        """
+        if not date_source or filter_value == "Todos los orígenes":
+            return True
+        
+        source_lower = date_source.lower()
+        
+        # Mapeo de filtros a patrones de búsqueda
+        if filter_value == "EXIF DateTimeOriginal":
+            return "exif_date_time_original" in source_lower or "exif_datetimeoriginal" in source_lower
+        elif filter_value == "EXIF CreateDate":
+            return "exif_create_date" in source_lower or "exif_createdate" in source_lower
+        elif filter_value == "EXIF ModifyDate":
+            return "exif_modify_date" in source_lower or "exif_modifydate" in source_lower or "exif_datetime" in source_lower
+        elif filter_value == "Filesystem (mtime)":
+            return "fs_mtime" in source_lower or "mtime" in source_lower
+        elif filter_value == "Filesystem (ctime)":
+            return "fs_ctime" in source_lower or "ctime" in source_lower
+        elif filter_value == "Filesystem (atime)":
+            return "fs_atime" in source_lower or "atime" in source_lower
+        
+        return False
+    
     def _apply_filters(self, search_text: str = ""):
         """Aplica búsqueda y filtros a los grupos"""
         filtered = self.all_groups
@@ -842,6 +919,26 @@ class DuplicatesExactDialog(BaseDialog):
             filtered = [g for g in filtered if len(g.files) >= 3]
         elif filter_idx == 5:  # 5+ archivos
             filtered = [g for g in filtered if len(g.files) >= 5]
+        
+        # Aplicar filtro de origen de fecha
+        source_filter = self.source_combo.currentText()
+        if source_filter != "Todos los orígenes":
+            filtered_by_source = []
+            for group in filtered:
+                # Verificar que al menos un archivo en el grupo coincida con el filtro
+                group_matches_source = False
+                for file_path in group.files:
+                    _, date_source = self.repo.get_best_date(file_path)
+                    if not date_source:
+                        date_source = "mtime"
+                    if self._matches_source_filter(date_source, source_filter):
+                        group_matches_source = True
+                        break
+                
+                if group_matches_source:
+                    filtered_by_source.append(group)
+            
+            filtered = filtered_by_source
         
         # Actualizar grupos filtrados y recargar
         self.filtered_groups = filtered

@@ -398,15 +398,16 @@ class FileRenamerDialog(BaseDialog):
         layout = QHBoxLayout(widget)
         layout.setSpacing(DesignSystem.SPACE_8)
         layout.setContentsMargins(DesignSystem.SPACE_8, DesignSystem.SPACE_4, DesignSystem.SPACE_8, DesignSystem.SPACE_4)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
-        # Botón primera página
+        # Botón primera página - Tamaño 40x40 para coincidir con ComboBox (premium height)
         self.first_page_btn = QPushButton()
         self.first_page_btn.setToolTip("Primera página")
         icon_manager.set_button_icon(self.first_page_btn, 'skip-previous', size=DesignSystem.ICON_SIZE_MD)
         self.first_page_btn.clicked.connect(self._go_first_page)
         self.first_page_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
-        self.first_page_btn.setFixedSize(36, 36)
-        layout.addWidget(self.first_page_btn)
+        self.first_page_btn.setFixedSize(40, 40)
+        layout.addWidget(self.first_page_btn, 0, Qt.AlignmentFlag.AlignVCenter)
         
         # Botón página anterior
         self.prev_page_btn = QPushButton()
@@ -414,19 +415,26 @@ class FileRenamerDialog(BaseDialog):
         icon_manager.set_button_icon(self.prev_page_btn, 'chevron-left', size=DesignSystem.ICON_SIZE_MD)
         self.prev_page_btn.clicked.connect(self._go_prev_page)
         self.prev_page_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
-        self.prev_page_btn.setFixedSize(36, 36)
-        layout.addWidget(self.prev_page_btn)
+        self.prev_page_btn.setFixedSize(40, 40)
+        layout.addWidget(self.prev_page_btn, 0, Qt.AlignmentFlag.AlignVCenter)
         
-        # Label de página actual
+        # Indicador de página (Estilo caja/input para coherencia con la imagen)
         self.page_label = QLabel()
         self.page_label.setStyleSheet(f"""
-            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-            padding: 0 {DesignSystem.SPACE_16}px;
-            font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            color: {DesignSystem.COLOR_TEXT};
+            QLabel {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: 0px {DesignSystem.SPACE_16}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_TEXT};
+                min-height: 40px;
+                max-height: 40px;
+            }}
         """)
         self.page_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self.page_label)
+        layout.addWidget(self.page_label, 0, Qt.AlignmentFlag.AlignVCenter)
         
         # Botón página siguiente
         self.next_page_btn = QPushButton()
@@ -434,8 +442,8 @@ class FileRenamerDialog(BaseDialog):
         icon_manager.set_button_icon(self.next_page_btn, 'chevron-right', size=DesignSystem.ICON_SIZE_MD)
         self.next_page_btn.clicked.connect(self._go_next_page)
         self.next_page_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
-        self.next_page_btn.setFixedSize(36, 36)
-        layout.addWidget(self.next_page_btn)
+        self.next_page_btn.setFixedSize(40, 40)
+        layout.addWidget(self.next_page_btn, 0, Qt.AlignmentFlag.AlignVCenter)
         
         # Botón última página
         self.last_page_btn = QPushButton()
@@ -443,20 +451,23 @@ class FileRenamerDialog(BaseDialog):
         icon_manager.set_button_icon(self.last_page_btn, 'skip-next', size=DesignSystem.ICON_SIZE_MD)
         self.last_page_btn.clicked.connect(self._go_last_page)
         self.last_page_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
-        self.last_page_btn.setFixedSize(36, 36)
-        layout.addWidget(self.last_page_btn)
+        self.last_page_btn.setFixedSize(40, 40)
+        layout.addWidget(self.last_page_btn, 0, Qt.AlignmentFlag.AlignVCenter)
         
         layout.addStretch()
         
         # Combo para cambiar items por página
-        layout.addWidget(QLabel("Items por página:"))
+        items_per_page_label = QLabel("Items por página:")
+        items_per_page_label.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_SM}px;")
+        layout.addWidget(items_per_page_label, 0, Qt.AlignmentFlag.AlignVCenter)
+        
         self.items_per_page_combo = QComboBox()
         self.items_per_page_combo.addItems(["100", "250", "500", "1000", "Todos"])
         self.items_per_page_combo.setCurrentText("250")
         self.items_per_page_combo.currentTextChanged.connect(self._change_items_per_page)
         self.items_per_page_combo.setFixedWidth(100)
         self.items_per_page_combo.setStyleSheet(DesignSystem.get_combobox_style())
-        layout.addWidget(self.items_per_page_combo)
+        layout.addWidget(self.items_per_page_combo, 0, Qt.AlignmentFlag.AlignVCenter)
         
         widget.setVisible(False)  # Oculto por defecto
         return widget

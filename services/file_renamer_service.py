@@ -290,8 +290,9 @@ class FileRenamerService(BaseService):
                          break
 
                 log_prefix = "FILE_RENAMED_SIMULATION" if dry_run else "FILE_RENAMED"
+                date_source = item.get('date_source', 'unknown')
                 conflict_info = f" | Conflict: {conflict_sequence}" if had_conflict else ""
-                self.logger.info(f"{log_prefix}: {original_path.name} -> {new_name} | Date: {date_str}{conflict_info}")
+                self.logger.info(f"{log_prefix}: {original_path} -> {new_name} | Date: {date_str} ({date_source}){conflict_info}")
 
             except Exception as e:
                 error_msg = f"Error renombrando {original_path.name}: {str(e)}"
