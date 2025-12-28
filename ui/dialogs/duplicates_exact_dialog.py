@@ -330,27 +330,23 @@ class DuplicatesExactDialog(BaseDialog):
         """)
         self.source_combo.setToolTip("Filtrar archivos por origen de la fecha")
         search_row.addWidget(self.source_combo, 2)
-        
-        search_card_layout.addLayout(search_row)
-        
-        # Información de estado con chips Material Design
-        status_row = QHBoxLayout()
-        status_row.setSpacing(int(DesignSystem.SPACE_8))
-        
+
+        # ========== CONTADORES (BAGDES) EN LA MISMA LÍNEA ==========
         # Chip de grupos cargados
         self.loaded_chip = QLabel()
         self.loaded_chip.setStyleSheet(f"""
             QLabel {{
-                background-color: {DesignSystem.COLOR_INFO};
-                color: {DesignSystem.COLOR_SURFACE};
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                color: {DesignSystem.COLOR_PRIMARY_TEXT};
                 border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_12}px;
+                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
                 font-size: {DesignSystem.FONT_SIZE_SM}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+                height: 40px; /* Coincidir con combos */
             }}
         """)
-        status_row.addWidget(self.loaded_chip)
-        
+        search_row.addWidget(self.loaded_chip)
+
         # Chip de grupos filtrados (solo visible cuando hay filtros)
         self.filtered_chip = QLabel()
         self.filtered_chip.setStyleSheet(f"""
@@ -358,42 +354,16 @@ class DuplicatesExactDialog(BaseDialog):
                 background-color: {DesignSystem.COLOR_WARNING};
                 color: {DesignSystem.COLOR_SURFACE};
                 border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_12}px;
+                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
                 font-size: {DesignSystem.FONT_SIZE_SM}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+                height: 40px;
             }}
         """)
         self.filtered_chip.hide()  # Oculto por defecto
-        status_row.addWidget(self.filtered_chip)
+        search_row.addWidget(self.filtered_chip)
         
-        status_row.addStretch()
-        
-        # Botón para cargar todos (solo visible cuando hay más grupos)
-        self.load_all_btn = QPushButton()
-        icon_manager.set_button_icon(self.load_all_btn, 'download', size=16)
-        self.load_all_btn.clicked.connect(self._load_all_groups)
-        self.load_all_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: transparent;
-                color: {DesignSystem.COLOR_PRIMARY};
-                border: 2px solid {DesignSystem.COLOR_PRIMARY};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-            }}
-            QPushButton:hover {{
-                background-color: {DesignSystem.COLOR_PRIMARY};
-                color: {DesignSystem.COLOR_PRIMARY_TEXT};
-            }}
-            QPushButton:pressed {{
-                background-color: {DesignSystem.COLOR_PRIMARY_HOVER};
-            }}
-        """)
-        self.load_all_btn.hide()  # Oculto hasta que se sepa si hay más grupos
-        status_row.addWidget(self.load_all_btn)
-        
-        search_card_layout.addLayout(status_row)
+        search_card_layout.addLayout(search_row)
         
         content_layout.addWidget(search_card)
         
@@ -499,6 +469,31 @@ class DuplicatesExactDialog(BaseDialog):
         self.progress_bar_fill.setGeometry(0, 0, 0, 8)
         
         pagination_layout.addWidget(self.progress_bar_container, 1)
+        
+        # Botón para cargar todos (solo visible cuando hay más grupos)
+        self.load_all_btn = QPushButton()
+        icon_manager.set_button_icon(self.load_all_btn, 'download', size=16)
+        self.load_all_btn.clicked.connect(self._load_all_groups)
+        self.load_all_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                color: {DesignSystem.COLOR_PRIMARY};
+                border: 2px solid {DesignSystem.COLOR_PRIMARY};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_10}px {DesignSystem.SPACE_20}px;
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                color: {DesignSystem.COLOR_PRIMARY_TEXT};
+            }}
+            QPushButton:pressed {{
+                background-color: {DesignSystem.COLOR_PRIMARY_HOVER};
+            }}
+        """)
+        self.load_all_btn.hide()
+        pagination_layout.addWidget(self.load_all_btn)
         
         # Botón para cargar más grupos
         self.load_more_btn = QPushButton()

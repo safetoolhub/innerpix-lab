@@ -288,13 +288,18 @@ class LivePhotosDialog(BaseDialog):
         clear_btn.setToolTip("Limpiar todos los filtros")
         toolbar.addWidget(clear_btn)
         
-        # Contador de grupos
+        # Contador de grupos (Estilo Badge Azul para homogeneizar)
         self.counter_label = QLabel()
         self.counter_label.setStyleSheet(f"""
-            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-            color: {DesignSystem.COLOR_PRIMARY};
-            margin-left: {DesignSystem.SPACE_12}px;
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            QLabel {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                color: {DesignSystem.COLOR_PRIMARY_TEXT};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_12}px;
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+                margin-left: {DesignSystem.SPACE_8}px;
+            }}
         """)
         toolbar.addWidget(self.counter_label)
         
