@@ -208,53 +208,46 @@ class HeicDialog(BaseDialog):
         search_layout.addWidget(self.search_input)
         toolbar.addWidget(search_container)
         
-        # Separador vertical
-        sep = QFrame()
-        sep.setFrameShape(QFrame.Shape.VLine)
-        sep.setFrameShadow(QFrame.Shadow.Sunken)
-        sep.setStyleSheet(f"color: {DesignSystem.COLOR_BORDER}; background-color: {DesignSystem.COLOR_BORDER};")
-        sep.setFixedHeight(20)
-        toolbar.addWidget(sep)
-        
-        # Filtro por directorio
-        dir_container = QHBoxLayout()
-        dir_container.setSpacing(DesignSystem.SPACE_8)
-        
-        dir_label = QLabel("Directorio:")
-        dir_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
-        
+        # Filtro por directorio (sin etiqueta, estilo Material)
         self.dir_combo = QComboBox()
-        directories = ["Todos"] + sorted(list(set(
+        directories = ["Todos los directorios"] + sorted(list(set(
             str(pair.directory) for pair in self.analysis.duplicate_pairs
         )))
         self.dir_combo.addItems(directories)
         self.dir_combo.currentTextChanged.connect(self._apply_filters)
         self.dir_combo.setMinimumWidth(200)
-        self.dir_combo.setStyleSheet(DesignSystem.get_combobox_style())
+        self.dir_combo.setStyleSheet(f"""
+            QComboBox {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                border: 2px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_TEXT};
+            }}
+            QComboBox:hover {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+                background-color: {DesignSystem.COLOR_SURFACE};
+            }}
+            QComboBox::drop-down {{
+                border: none;
+                padding-right: {DesignSystem.SPACE_8}px;
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                selection-background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
+                selection-color: {DesignSystem.COLOR_TEXT};
+                padding: {DesignSystem.SPACE_4}px;
+            }}
+        """)
         self.dir_combo.setToolTip("Filtrar grupos por directorio")
+        toolbar.addWidget(self.dir_combo)
         
-        dir_container.addWidget(dir_label)
-        dir_container.addWidget(self.dir_combo)
-        toolbar.addLayout(dir_container)
-        
-        # Separador vertical
-        sep2 = QFrame()
-        sep2.setFrameShape(QFrame.Shape.VLine)
-        sep2.setFrameShadow(QFrame.Shadow.Sunken)
-        sep2.setStyleSheet(f"color: {DesignSystem.COLOR_BORDER}; background-color: {DesignSystem.COLOR_BORDER};")
-        sep2.setFixedHeight(20)
-        toolbar.addWidget(sep2)
-        
-        # Filtro por origen de fecha
-        source_container = QHBoxLayout()
-        source_container.setSpacing(DesignSystem.SPACE_8)
-        
-        source_label = QLabel("Origen Fecha:")
-        source_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
-        
+        # Filtro por origen de fecha (sin etiqueta, estilo Material)
         self.source_combo = QComboBox()
         self.source_combo.addItems([
-            "Todos",
+            "Todos los orígenes de fecha",
             "EXIF DateTimeOriginal",
             "EXIF CreateDate",
             "EXIF ModifyDate",
@@ -263,13 +256,34 @@ class HeicDialog(BaseDialog):
             "Filesystem (atime)"
         ])
         self.source_combo.currentTextChanged.connect(self._apply_filters)
-        self.source_combo.setMinimumWidth(180)
-        self.source_combo.setStyleSheet(DesignSystem.get_combobox_style())
+        self.source_combo.setMinimumWidth(200)
+        self.source_combo.setStyleSheet(f"""
+            QComboBox {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                border: 2px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_TEXT};
+            }}
+            QComboBox:hover {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+                background-color: {DesignSystem.COLOR_SURFACE};
+            }}
+            QComboBox::drop-down {{
+                border: none;
+                padding-right: {DesignSystem.SPACE_8}px;
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                selection-background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
+                selection-color: {DesignSystem.COLOR_TEXT};
+                padding: {DesignSystem.SPACE_4}px;
+            }}
+        """)
         self.source_combo.setToolTip("Filtrar grupos por origen de la fecha de comparación")
-        
-        source_container.addWidget(source_label)
-        source_container.addWidget(self.source_combo)
-        toolbar.addLayout(source_container)
+        toolbar.addWidget(self.source_combo)
         
         toolbar.addStretch()
         
@@ -470,7 +484,7 @@ class HeicDialog(BaseDialog):
                 continue
             
             # Filtro por directorio
-            if dir_filter != "Todos" and str(pair.directory) != dir_filter:
+            if dir_filter != "Todos los directorios" and str(pair.directory) != dir_filter:
                 continue
             
             # Filtro por origen de fecha
@@ -492,7 +506,7 @@ class HeicDialog(BaseDialog):
         Returns:
             True si coincide con el filtro
         """
-        if not date_source or filter_value == "Todos":
+        if not date_source or filter_value == "Todos los orígenes de fecha":
             return True
         
         source_lower = date_source.lower()

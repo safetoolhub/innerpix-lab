@@ -288,7 +288,7 @@ class DuplicatesExactDialog(BaseDialog):
         # ComboBox de filtro por origen de fecha
         self.source_combo = QComboBox()
         self.source_combo.addItems([
-            "Todos",
+            "Todos los orígenes",
             "EXIF DateTimeOriginal",
             "EXIF CreateDate",
             "EXIF ModifyDate",
