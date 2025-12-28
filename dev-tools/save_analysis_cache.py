@@ -7,8 +7,9 @@ the resulting cache repository to disk. This allows for reloading the analysis s
 later for testing or development purposes without re-scanning.
 
 Usage:    
-    source .venv/bin/activate && python dev-tools/save_analysis_cache.py --folder <PATH_TO_FOLER_WITH_PHOTOS>
-
+    source .venv/bin/activate && python dev-tools/save_analysis_cache.py --folder <PATH_TO_FOLDER_WITH_PHOTOS>
+    source .venv/bin/activate && python dev-tools/save_analysis_cache.py --folder /home/ued/Pictures/RAW
+    
 The cache file will be saved in the configured DEFAULT_CACHE_SAVED_DIR.
 """
 
