@@ -79,6 +79,17 @@ def select_best_date_from_common_date_to_2_files(
         if val is None: return None
         if isinstance(val, datetime): return val
         if isinstance(val, (int, float)): return datetime.fromtimestamp(val)
+        # Parse EXIF string format: "2023:08:10 15:41:34"
+        if isinstance(val, str):
+            try:
+                # Formato típico EXIF: "2023:01:15 10:30:00"
+                if ':' in val[:10]:
+                    return datetime.strptime(val[:19], '%Y:%m:%d %H:%M:%S')
+                # Formato ISO
+                elif 'T' in val:
+                    return datetime.fromisoformat(val.replace('Z', '+00:00'))
+            except (ValueError, TypeError, IndexError):
+                pass
         return None
 
     def _fmt(dt):
