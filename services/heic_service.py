@@ -354,6 +354,9 @@ class HeicService(BaseService):
         mode = "SIMULACIÓN" if dry_run else ""
         log_section_header_relevant(self.logger, "ELIMINACIÓN DE DUPLICADOS HEIC/JPG", mode=mode)
         
+        # Instanciar repo al principio para uso en todo el método
+        repo = FileInfoRepositoryCache.get_instance()
+        
         result = HeicExecutionResult(success=True, format_kept=keep_format, dry_run=dry_run)
         total_pairs = len(duplicate_pairs)
         
@@ -392,8 +395,6 @@ class HeicService(BaseService):
                      self.logger.info(log_msg)
                      
                      # Actualizar caché eliminando el archivo
-                     from services.file_metadata_repository_cache import FileInfoRepositoryCache
-                     repo = FileInfoRepositoryCache.get_instance()
                      repo.remove_file(file_to_delete)
                      
              except Exception as e:
