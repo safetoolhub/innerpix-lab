@@ -4,6 +4,11 @@ La estrategia de populacion EXIF_ALL y FULL son iinutiles, habria que borrarlas.
 
 Podriamos para live photos comprobar que el video es mas corto de 5 segundos
 
+BUG: si se va a similar duplciates, se borra 1 y se vuelve a stage 3, y se le da de nuevo se queda colgado. Seguramente 
+
+Podria hacer el caluclo del perceptual has tambien al inicio si el usuario loquieres (con una opcion en settings_dialog. Eso me permitiriía usar la cache  tambien con similar duplicates. )
+HACER: hacer un modo para similar duplicates muy seguro, que sea el de mostrar grupos con el 100% de similaridad y que además la diferencia en tamaño sea superior al 50% , así quitariamos las que son rafagas muy parecidas. 
+
 Antiguas versiones
 --------------------
 BUGS produccion

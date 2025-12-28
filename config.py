@@ -119,7 +119,7 @@ class Config:
     SIMILAR_FILES_MAX_GROUPS_NAVIGABLE = 1000
     SIMILAR_FILES_LARGE_DATASET_THRESHOLD = 10000
     
-    SIMILAR_FILES_DEFAULT_SENSITIVITY = 85
+    SIMILAR_FILES_DEFAULT_SENSITIVITY = 100
     SIMILAR_FILES_LARGE_DATASET_SENSITIVITY = 100
     
     SIMILAR_FILES_INITIAL_BATCH_SIZE = 200
@@ -168,7 +168,7 @@ class Config:
     # ========================================================================
     # 9. DESARROLLO
     # ========================================================================
-    DEVELOPMENT_MODE = True
+    DEVELOPMENT_MODE = False
     SAVED_CACHE_DEV_MODE_PATH = "/home/ed/Documents/Innerpix_Lab/cache_saved/RAW_yamedioborrado.json"
     
     @classmethod

@@ -106,7 +106,7 @@ class TestDuplicatesSimilarAnalysis:
     
     def test_empty_analysis(self):
         """Test análisis vacío."""
-        result = self.analysis.get_groups(sensitivity=85)
+        result = self.analysis.get_groups(sensitivity=100)
         
         assert result.success is True
         assert len(result.groups) == 0

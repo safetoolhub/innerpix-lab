@@ -48,7 +48,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         if total_files >= self.LARGE_DATASET_THRESHOLD:
             self.current_sensitivity = Config.SIMILAR_FILES_LARGE_DATASET_SENSITIVITY  # 100% para datasets grandes
         else:
-            self.current_sensitivity = Config.SIMILAR_FILES_DEFAULT_SENSITIVITY  # 85% para datasets pequeños
+            self.current_sensitivity = Config.SIMILAR_FILES_DEFAULT_SENSITIVITY  # 100% para mostrar duplicados idénticos primero
         
         self.current_result = None
         self.current_group_index = 0

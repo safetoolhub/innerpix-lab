@@ -162,3 +162,22 @@ for path in paths:
 - **No se requiere acción**
 - Análisis de similares ahora es significativamente más rápido
 - Funcionalidad idéntica, solo mejora de velocidad
+
+## Configuración de Sensibilidad por Defecto
+
+### Cambio Reciente (Diciembre 2025)
+**Antes**: Sensibilidad por defecto = 85% (mostraba archivos similares pero no idénticos)  
+**Después**: Sensibilidad por defecto = 100% (muestra solo archivos idénticos)
+
+**Motivación**:
+- Mejor UX: Los usuarios ven primero duplicados reales (mismas fotos con diferentes resoluciones)
+- Reducción de ruido: Evita mostrar falsos positivos inicialmente
+- Ajuste posterior: Los usuarios pueden bajar la sensibilidad si quieren ver más similares
+
+**Archivos modificados**:
+- `config.py`: `SIMILAR_FILES_DEFAULT_SENSITIVITY = 100`
+- `services/duplicates_similar_service.py`: `analyze(sensitivity=100)`
+- `ui/dialogs/duplicates_similar_dialog.py`: Inicializa con 100%
+- `tests/unit/services/test_duplicates_similar_service.py`: Tests actualizados
+
+**Impacto**: Ninguno - la funcionalidad es idéntica, solo cambia el valor por defecto.
