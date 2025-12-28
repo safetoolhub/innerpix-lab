@@ -455,6 +455,7 @@ class Stage3Window(BaseStage):
         progress.setWindowModality(Qt.WindowModality.WindowModal)
         progress.setMinimumDuration(0)
         progress.setValue(0)
+        progress.resize(600, 120)  # Ancho aumentado para que el texto no se corte
         
         # Crear worker - algunos servicios ya no necesitan metadata_cache
         refactorized_tools = {'live_photos', 'heic', 'duplicates_exact', 'zero_byte', 'file_renamer', 'file_organizer'}
