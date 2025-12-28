@@ -246,7 +246,7 @@ class DuplicatesExactDialog(BaseDialog):
         
         search_row.addWidget(search_container, 3)
         
-        # ComboBox de filtros con estilo Material
+        # ComboBox de filtros de tamaño con estilo Material
         self.filter_combo = QComboBox()
         self.filter_combo.addItems([
             "Todos los grupos",
@@ -284,6 +284,52 @@ class DuplicatesExactDialog(BaseDialog):
         self.filter_combo.setToolTip("Filtra grupos por tamaño o cantidad de archivos")
         
         search_row.addWidget(self.filter_combo, 2)
+        
+        # ComboBox de filtro por origen de fecha
+        self.source_combo = QComboBox()
+        self.source_combo.addItems([
+            "Todos",
+            "EXIF DateTimeOriginal",
+            "EXIF CreateDate",
+            "EXIF ModifyDate",
+            "Filesystem (mtime)",
+            "Filesystem (ctime)",
+            "Filesystem (atime)"
+        ])
+        self.source_combo.currentIndexChanged.connect(self._on_source_filter_changed)
+        self.source_combo.setFixedHeight(int(DesignSystem.SPACE_8 * 5))
+        self.source_combo.setStyleSheet(f"""
+            QComboBox {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                border: 2px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_TEXT};
+                min-width: 180px;
+            }}
+            QComboBox:hover {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+                background-color: {DesignSystem.COLOR_SURFACE};
+            }}
+            QComboBox::drop-down {{
+                border: none;
+                padding-right: {DesignSystem.SPACE_8}px;
+            }}
+            QComboBox::down-arrow {{
+                width: 12px;
+                height: 12px;
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                selection-background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
+                selection-color: {DesignSystem.COLOR_TEXT};
+                padding: {DesignSystem.SPACE_4}px;
+            }}
+        """)
+        self.source_combo.setToolTip("Filtrar archivos por origen de la fecha")
+        search_row.addWidget(self.source_combo, 2)
         
         search_card_layout.addLayout(search_row)
         
@@ -819,6 +865,42 @@ class DuplicatesExactDialog(BaseDialog):
         search_text = self.search_input.text().strip().lower()
         self._apply_filters(search_text)
     
+    def _on_source_filter_changed(self):
+        """Maneja cambios en el filtro de origen de fecha"""
+        search_text = self.search_input.text().strip().lower()
+        self._apply_filters(search_text)
+    
+    def _matches_source_filter(self, date_source: str, filter_value: str) -> bool:
+        """Verifica si el origen de fecha coincide con el filtro seleccionado.
+        
+        Args:
+            date_source: Origen de la fecha (ej: 'exif_date_time_original', 'fs_mtime')
+            filter_value: Valor del filtro seleccionado
+            
+        Returns:
+            True si coincide con el filtro
+        """
+        if not date_source or filter_value == "Todos los orígenes":
+            return True
+        
+        source_lower = date_source.lower()
+        
+        # Mapeo de filtros a patrones de búsqueda
+        if filter_value == "EXIF DateTimeOriginal":
+            return "exif_date_time_original" in source_lower or "exif_datetimeoriginal" in source_lower
+        elif filter_value == "EXIF CreateDate":
+            return "exif_create_date" in source_lower or "exif_createdate" in source_lower
+        elif filter_value == "EXIF ModifyDate":
+            return "exif_modify_date" in source_lower or "exif_modifydate" in source_lower or "exif_datetime" in source_lower
+        elif filter_value == "Filesystem (mtime)":
+            return "fs_mtime" in source_lower or "mtime" in source_lower
+        elif filter_value == "Filesystem (ctime)":
+            return "fs_ctime" in source_lower or "ctime" in source_lower
+        elif filter_value == "Filesystem (atime)":
+            return "fs_atime" in source_lower or "atime" in source_lower
+        
+        return False
+    
     def _apply_filters(self, search_text: str = ""):
         """Aplica búsqueda y filtros a los grupos"""
         filtered = self.all_groups
@@ -842,6 +924,26 @@ class DuplicatesExactDialog(BaseDialog):
             filtered = [g for g in filtered if len(g.files) >= 3]
         elif filter_idx == 5:  # 5+ archivos
             filtered = [g for g in filtered if len(g.files) >= 5]
+        
+        # Aplicar filtro de origen de fecha
+        source_filter = self.source_combo.currentText()
+        if source_filter != "Todos los orígenes":
+            filtered_by_source = []
+            for group in filtered:
+                # Verificar que al menos un archivo en el grupo coincida con el filtro
+                group_matches_source = False
+                for file_path in group.files:
+                    _, date_source = self.repo.get_best_date(file_path)
+                    if not date_source:
+                        date_source = "mtime"
+                    if self._matches_source_filter(date_source, source_filter):
+                        group_matches_source = True
+                        break
+                
+                if group_matches_source:
+                    filtered_by_source.append(group)
+            
+            filtered = filtered_by_source
         
         # Actualizar grupos filtrados y recargar
         self.filtered_groups = filtered

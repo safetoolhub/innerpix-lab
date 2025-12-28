@@ -216,6 +216,40 @@ class LivePhotosDialog(BaseDialog):
         dir_container.addWidget(self.dir_combo)
         toolbar.addLayout(dir_container)
         
+        # Separador vertical
+        sep2 = QFrame()
+        sep2.setFrameShape(QFrame.Shape.VLine)
+        sep2.setFrameShadow(QFrame.Shadow.Sunken)
+        sep2.setStyleSheet(f"color: {DesignSystem.COLOR_BORDER}; background-color: {DesignSystem.COLOR_BORDER};")
+        sep2.setFixedHeight(20)
+        toolbar.addWidget(sep2)
+        
+        # Filtro por origen de fecha
+        source_container = QHBoxLayout()
+        source_container.setSpacing(DesignSystem.SPACE_8)
+        
+        source_label = QLabel("Origen Fecha:")
+        source_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
+        
+        self.source_combo = QComboBox()
+        self.source_combo.addItems([
+            "Todos",
+            "EXIF DateTimeOriginal",
+            "EXIF CreateDate",
+            "EXIF ModifyDate",
+            "Filesystem (mtime)",
+            "Filesystem (ctime)",
+            "Filesystem (atime)"
+        ])
+        self.source_combo.currentTextChanged.connect(self._apply_filters)
+        self.source_combo.setMinimumWidth(180)
+        self.source_combo.setStyleSheet(DesignSystem.get_combobox_style())
+        self.source_combo.setToolTip("Filtrar grupos por origen de la fecha de comparación")
+        
+        source_container.addWidget(source_label)
+        source_container.addWidget(self.source_combo)
+        toolbar.addLayout(source_container)
+        
         toolbar.addStretch()
         
         # Botón limpiar filtros
@@ -404,6 +438,7 @@ class LivePhotosDialog(BaseDialog):
         """Aplica filtros a la lista de grupos"""
         search_text = self.search_input.text().lower()
         dir_filter = self.dir_combo.currentText()
+        source_filter = self.source_combo.currentText()
         
         self.filtered_groups = []
         
@@ -416,15 +451,51 @@ class LivePhotosDialog(BaseDialog):
             if dir_filter != "Todos" and str(group.directory) != dir_filter:
                 continue
             
+            # Filtro por origen de fecha
+            if not self._matches_source_filter(group.date_source, source_filter):
+                continue
+            
             self.filtered_groups.append(group)
         
         self.current_page = 0
         self._update_tree()
     
+    def _matches_source_filter(self, date_source: str, filter_value: str) -> bool:
+        """Verifica si el origen de fecha coincide con el filtro seleccionado.
+        
+        Args:
+            date_source: Origen de la fecha (ej: 'exif_date_time_original', 'fs_mtime')
+            filter_value: Valor del filtro seleccionado
+            
+        Returns:
+            True si coincide con el filtro
+        """
+        if not date_source or filter_value == "Todos":
+            return True
+        
+        source_lower = date_source.lower()
+        
+        # Mapeo de filtros a patrones de búsqueda
+        if filter_value == "EXIF DateTimeOriginal":
+            return "exif_date_time_original" in source_lower or "exif_datetimeoriginal" in source_lower
+        elif filter_value == "EXIF CreateDate":
+            return "exif_create_date" in source_lower or "exif_createdate" in source_lower
+        elif filter_value == "EXIF ModifyDate":
+            return "exif_modify_date" in source_lower or "exif_modifydate" in source_lower or "exif_datetime" in source_lower
+        elif filter_value == "Filesystem (mtime)":
+            return "fs_mtime" in source_lower or "mtime" in source_lower
+        elif filter_value == "Filesystem (ctime)":
+            return "fs_ctime" in source_lower or "ctime" in source_lower
+        elif filter_value == "Filesystem (atime)":
+            return "fs_atime" in source_lower or "atime" in source_lower
+        
+        return False
+    
     def _clear_filters(self):
         """Limpia todos los filtros"""
         self.search_input.clear()
         self.dir_combo.setCurrentIndex(0)
+        self.source_combo.setCurrentIndex(0)
     
     def _go_first_page(self):
         self.current_page = 0
@@ -458,7 +529,9 @@ class LivePhotosDialog(BaseDialog):
         
         try:
             total_filtered = len(self.filtered_groups)
-            use_pagination = total_filtered > self.MAX_ITEMS_WITHOUT_PAGINATION
+            # Usar paginación si el dataset ORIGINAL era grande, no el filtrado
+            total_items = len(self.analysis.groups)
+            use_pagination = total_items > self.MAX_ITEMS_WITHOUT_PAGINATION
             
             if use_pagination:
                 self.total_pages = (total_filtered + self.ITEMS_PER_PAGE - 1) // self.ITEMS_PER_PAGE
