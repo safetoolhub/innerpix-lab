@@ -328,6 +328,58 @@ class DuplicatesSimilarAnalysis:
             f"  🔎 Búsquedas: {total_searches} archivos, {total_matches} matches totales en {search_time:.3f}s"
         )
         
+        # Ordenar grupos priorizando aquellos con mayor diferencia de tamaño
+        # Los grupos con imágenes de diferentes tamaños (ej. WhatsApp vs originales) son más relevantes
+        def calculate_size_variation_score(group: DuplicateGroup) -> float:
+            """
+            Calcula un score basado en la variación de tamaño entre archivos del grupo.
+            Score más alto = mayor prioridad.
+            
+            Retorna:
+                - 100.0 si hay archivos con diferencia de tamaño > 50%
+                - Porcentaje de variación (0-100) en caso contrario
+            """
+            if len(group.files) < 2:
+                return 0.0
+            
+            # Obtener tamaños de todos los archivos
+            sizes = []
+            for f in group.files:
+                try:
+                    size = hashes[str(f)]['size']
+                    sizes.append(size)
+                except (KeyError, FileNotFoundError):
+                    continue
+            
+            if len(sizes) < 2:
+                return 0.0
+            
+            min_size = min(sizes)
+            max_size = max(sizes)
+            
+            # Evitar división por cero
+            if min_size == 0:
+                return 0.0
+            
+            # Calcular diferencia porcentual
+            size_diff_percent = ((max_size - min_size) / min_size) * 100
+            
+            # Priorizar grupos con diferencia >50% dándoles score máximo
+            if size_diff_percent > 50:
+                return 100.0 + size_diff_percent  # Score extra para ordenar internamente
+            
+            return size_diff_percent
+        
+        # Ordenar grupos: primero los de mayor variación de tamaño
+        groups.sort(key=calculate_size_variation_score, reverse=True)
+        
+        # Log de grupos con alta variación de tamaño
+        high_variation_count = sum(1 for g in groups if calculate_size_variation_score(g) > 100)
+        if high_variation_count > 0:
+            self._logger.info(
+                f"  📊 Grupos con diferencia de tamaño >50%: {high_variation_count}/{len(groups)}"
+            )
+        
         return groups
     
     def _hamming_distance(self, hash1: Any, hash2: Any) -> int:
