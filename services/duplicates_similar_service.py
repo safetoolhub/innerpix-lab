@@ -333,11 +333,8 @@ class DuplicatesSimilarAnalysis:
         def calculate_size_variation_score(group: DuplicateGroup) -> float:
             """
             Calcula un score basado en la variación de tamaño entre archivos del grupo.
+            Retorna el porcentaje de diferencia entre el archivo más grande y el más pequeño.
             Score más alto = mayor prioridad.
-            
-            Retorna:
-                - 100.0 si hay archivos con diferencia de tamaño > 50%
-                - Porcentaje de variación (0-100) en caso contrario
             """
             if len(group.files) < 2:
                 return 0.0
@@ -361,23 +358,20 @@ class DuplicatesSimilarAnalysis:
             if min_size == 0:
                 return 0.0
             
-            # Calcular diferencia porcentual
+            # Calcular y retornar diferencia porcentual
             size_diff_percent = ((max_size - min_size) / min_size) * 100
-            
-            # Priorizar grupos con diferencia >50% dándoles score máximo
-            if size_diff_percent > 50:
-                return 100.0 + size_diff_percent  # Score extra para ordenar internamente
-            
             return size_diff_percent
         
         # Ordenar grupos: primero los de mayor variación de tamaño
         groups.sort(key=calculate_size_variation_score, reverse=True)
         
-        # Log de grupos con alta variación de tamaño
-        high_variation_count = sum(1 for g in groups if calculate_size_variation_score(g) > 100)
-        if high_variation_count > 0:
+        # Log de estadísticas de variación
+        if groups:
+            scores = [calculate_size_variation_score(g) for g in groups]
+            max_variation = max(scores) if scores else 0
+            avg_variation = sum(scores) / len(scores) if scores else 0
             self._logger.info(
-                f"  📊 Grupos con diferencia de tamaño >50%: {high_variation_count}/{len(groups)}"
+                f"  📊 Variación de tamaño - Máx: {max_variation:.1f}%, Promedio: {avg_variation:.1f}%"
             )
         
         return groups

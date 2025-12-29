@@ -53,6 +53,7 @@ def demo_size_prioritization():
     def calculate_size_variation_score(group: DuplicateGroup) -> float:
         """
         Calcula un score basado en la variación de tamaño entre archivos del grupo.
+        Retorna el porcentaje de diferencia entre el archivo más grande y el más pequeño.
         """
         if len(group.files) < 2:
             return 0.0
@@ -75,13 +76,8 @@ def demo_size_prioritization():
         if min_size == 0:
             return 0.0
         
-        # Calcular diferencia porcentual
+        # Calcular y retornar diferencia porcentual
         size_diff_percent = ((max_size - min_size) / min_size) * 100
-        
-        # Priorizar grupos con diferencia >50%
-        if size_diff_percent > 50:
-            return 100.0 + size_diff_percent
-        
         return size_diff_percent
     
     # Mostrar ANTES de ordenar
@@ -105,7 +101,7 @@ def demo_size_prioritization():
     
     # Mostrar DESPUÉS de ordenar
     print("\n" + "=" * 80)
-    print("DESPUÉS DE ORDENAR (priorizando diferencia >50%):")
+    print("DESPUÉS DE ORDENAR (por diferencia de tamaño):")
     print("=" * 80)
     for i, group in enumerate(groups, 1):
         sizes = [hashes[str(f)]['size'] for f in group.files]
@@ -113,9 +109,7 @@ def demo_size_prioritization():
         diff = ((max_s - min_s) / min_s * 100) if min_s > 0 else 0
         score = calculate_size_variation_score(group)
         
-        priority = "⭐ ALTA PRIORIDAD" if score > 100 else "Baja prioridad"
-        
-        print(f"\nGrupo {i}: Similitud {group.similarity_score:.1f}% - {priority}")
+        print(f"\nGrupo {i}: Similitud {group.similarity_score:.1f}%")
         print(f"  Archivos: {[f.name for f in group.files]}")
         print(f"  Tamaños: {[f'{s/1_000_000:.1f} MB' for s in sizes]}")
         print(f"  Diferencia: {diff:.1f}%")
@@ -124,12 +118,12 @@ def demo_size_prioritization():
     print("\n" + "=" * 80)
     print("RESUMEN:")
     print("=" * 80)
-    high_priority = sum(1 for g in groups if calculate_size_variation_score(g) > 100)
+    scores = [calculate_size_variation_score(g) for g in groups]
     print(f"Total de grupos: {len(groups)}")
-    print(f"Grupos con alta prioridad (diferencia >50%): {high_priority}")
-    print(f"Grupos con baja prioridad: {len(groups) - high_priority}")
-    print("\n💡 Los grupos con alta prioridad (WhatsApp, email, etc.) aparecen primero")
-    print("   para facilitar la revisión de duplicados en diferentes calidades.\n")
+    print(f"Variación máxima: {max(scores):.1f}%")
+    print(f"Variación promedio: {sum(scores)/len(scores):.1f}%")
+    print("\n💡 Los grupos están ordenados por diferencia de tamaño (mayor primero)")
+    print("   facilitando la revisión de duplicados en diferentes calidades.\n")
 
 
 if __name__ == "__main__":

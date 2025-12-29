@@ -560,6 +560,9 @@ class DuplicatesSimilarDialog(BaseDialog):
                 
                 logger.info(f"Batch completado: +{new_groups_count:,} grupos nuevos (total: {len(self.all_groups):,})")
                 
+                # Ordenar todos los grupos por variación de tamaño
+                self._sort_all_groups_by_size_variation()
+                
                 # Actualizar contador
                 self.files_processed = end_idx
                 
@@ -648,6 +651,9 @@ class DuplicatesSimilarDialog(BaseDialog):
             
             logger.info(f"Regenerados {len(self.all_groups):,} grupos")
             
+            # Ordenar grupos por variación de tamaño
+            self._sort_all_groups_by_size_variation()
+            
             self.selections.clear()
             self._apply_current_filters()
             
@@ -662,6 +668,56 @@ class DuplicatesSimilarDialog(BaseDialog):
     def _reset_filters(self):
         self.min_files_spin.setValue(2)
         self.min_size_spin.setValue(0)
+    
+    def _sort_all_groups_by_size_variation(self):
+        """Ordena todos los grupos por variación de tamaño (mayor a menor).
+        
+        Esta ordenación se aplica GLOBALMENTE a todos los grupos cargados,
+        garantizando que los grupos con mayor diferencia de tamaño aparezcan primero,
+        independientemente de en qué batch fueron detectados.
+        
+        El costo es O(n log n) donde n = número de grupos, lo cual es rápido
+        incluso con miles de grupos.
+        """
+        from utils.logger import get_logger
+        logger = get_logger('DuplicatesSimilarDialog')
+        
+        if not self.all_groups:
+            return
+        
+        def calculate_size_variation(group) -> float:
+            """Calcula variación de tamaño para ordenación."""
+            if len(group.files) < 2:
+                return 0.0
+            
+            try:
+                sizes = [f.stat().st_size for f in group.files if f.exists()]
+                if len(sizes) < 2:
+                    return 0.0
+                
+                min_size = min(sizes)
+                max_size = max(sizes)
+                
+                if min_size == 0:
+                    return 0.0
+                
+                # Porcentaje de diferencia
+                return ((max_size - min_size) / min_size) * 100
+            except Exception:
+                return 0.0
+        
+        # Ordenar grupos: mayor diferencia primero
+        self.all_groups.sort(key=calculate_size_variation, reverse=True)
+        
+        # Log de estadísticas
+        if self.all_groups:
+            scores = [calculate_size_variation(g) for g in self.all_groups]
+            max_var = max(scores) if scores else 0
+            avg_var = sum(scores) / len(scores) if scores else 0
+            logger.info(
+                f"Grupos ordenados por tamaño - Total: {len(self.all_groups)}, "
+                f"Variación máx: {max_var:.1f}%, promedio: {avg_var:.1f}%"
+            )
 
     def _apply_current_filters(self):
         if not self.all_groups:
