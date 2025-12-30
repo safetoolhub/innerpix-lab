@@ -65,6 +65,16 @@ Prácticas específicas del repositorio
 - **Dialogs / UI**: Los diálogos en `ui/dialogs/` usan `BaseDialog` y la presentación debe ser solo UI; no incluir lógica pesada.
 - **Design system**: Usar `DesignSystem` y evitar QSS o estilos inline fuera del sistema de diseño.
 
+Configuración de Hash Perceptual (Similar Files)
+- **Config.PERCEPTUAL_HASH_ALGORITHM**: Algoritmo de hash perceptual. Valores: "dhash" (default), "phash", "ahash"
+  - dhash: Rápido, bueno para recortes/ediciones (compara píxeles adyacentes)
+  - phash: Robusto, basado en DCT (tolerante a cambios de tamaño/brillo)
+  - ahash: Más rápido y simple (compara con media de brillo)
+- **Config.PERCEPTUAL_HASH_SIZE**: Tamaño del hash. Valores: 8 (64 bits, default), 16 (256 bits), 32 (1024 bits)
+- **Config.PERCEPTUAL_HASH_TARGET**: Archivos a procesar. Valores: "images" (default), "videos", "both"
+- **Config.PERCEPTUAL_HASH_HIGHFREQ_FACTOR**: Factor de alta frecuencia para phash. Valores: 4 (default), 8
+- **Tests**: `tests/unit/services/test_perceptual_hash_algorithms.py` - Tests para los 3 algoritmos con diferentes configuraciones
+
 Preguntas frecuentes (FAQ)
 - **Dónde poner nueva lógica?**: En `services/` como servicio reutilizable. UI solo para render y orquestación.
 - **Cómo pruebo cambios de UI?**: Ejecutar localmente y usar los tests de UI en `tests/ui` si existen; preferir pruebas manuales guiadas por dialogs cuando no haya automatización.

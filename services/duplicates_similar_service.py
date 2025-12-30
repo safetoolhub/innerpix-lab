@@ -555,10 +555,16 @@ class DuplicatesSimilarService(DuplicatesBaseService):
         log_section_header_discrete(self.logger, "ANÁLISIS DE DUPLICADOS SIMILARES")
         self.logger.info(f"Sensibilidad configurada: {sensitivity}%")
         
-        # Fase 1: Calcular hashes perceptuales
         repo = FileInfoRepositoryCache.get_instance()
         if self._cached_analysis is None:
-            self._cached_analysis = self._calculate_perceptual_hashes(repo, progress_callback)
+            self._cached_analysis = self._calculate_perceptual_hashes(
+                repo,
+                progress_callback,
+                algorithm=Config.PERCEPTUAL_HASH_ALGORITHM,
+                hash_size=Config.PERCEPTUAL_HASH_SIZE,
+                target=Config.PERCEPTUAL_HASH_TARGET,
+                highfreq_factor=Config.PERCEPTUAL_HASH_HIGHFREQ_FACTOR
+            )
         else:
             self.logger.info("Reutilizando análisis de hashes perceptuales previo en memoria")
 
@@ -586,7 +592,14 @@ class DuplicatesSimilarService(DuplicatesBaseService):
         """
         repo = FileInfoRepositoryCache.get_instance()
         if self._cached_analysis is None:
-            self._cached_analysis = self._calculate_perceptual_hashes(repo, progress_callback)
+            self._cached_analysis = self._calculate_perceptual_hashes(
+                repo,
+                progress_callback,
+                algorithm=Config.PERCEPTUAL_HASH_ALGORITHM,
+                hash_size=Config.PERCEPTUAL_HASH_SIZE,
+                target=Config.PERCEPTUAL_HASH_TARGET,
+                highfreq_factor=Config.PERCEPTUAL_HASH_HIGHFREQ_FACTOR
+            )
         else:
             self.logger.info("Reutilizando análisis de hashes perceptuales previo en memoria")
         
@@ -595,12 +608,27 @@ class DuplicatesSimilarService(DuplicatesBaseService):
     def _calculate_perceptual_hashes(
         self,
         repo: FileInfoRepositoryCache,
-        progress_callback: Optional[ProgressCallback] = None
+        progress_callback: Optional[ProgressCallback] = None,
+        algorithm: str = "dhash",
+        hash_size: int = 8,
+        target: str = "images",
+        highfreq_factor: int = 4
     ) -> DuplicatesSimilarAnalysis:
         """
         Calcula hashes perceptuales de todos los archivos.
         
         Método interno usado por analyze() y get_analysis_for_dialog().
+        
+        Args:
+            repo: Repositorio de metadatos de archivos
+            progress_callback: Callback de progreso
+            algorithm: Algoritmo de hash ("dhash", "phash", "ahash")
+            hash_size: Tamaño del hash (8, 16, 32)
+            target: Target de archivos ("images", "videos", "both")
+            highfreq_factor: Factor de alta frecuencia para phash (4, 8)
+        
+        Returns:
+            DuplicatesSimilarAnalysis con hashes calculados
         """
         try:
             import imagehash
@@ -612,7 +640,10 @@ class DuplicatesSimilarService(DuplicatesBaseService):
         
         log_section_header_discrete(self.logger, "INICIANDO ANÁLISIS INICIAL DE ARCHIVOS SIMILARES")
         hash_calc_start = time.time()
-        self.logger.info("⏳ Calculando hashes perceptuales...")
+        self.logger.info(
+            f"⏳ Calculando hashes perceptuales (algoritmo={algorithm}, "
+            f"hash_size={hash_size}, target={target})..."
+        )
         
         # 1. Obtener archivos desde FileInfoRepository
         all_metadata = repo.get_all_files()
@@ -624,23 +655,27 @@ class DuplicatesSimilarService(DuplicatesBaseService):
         supported_vid = Config.SUPPORTED_VIDEO_EXTENSIONS
         
         for meta in all_metadata:
-            # Check extension (case sensitive in set? Config sets have uppercase variants)
             if meta.extension in supported_img:
                 image_files.append(meta.path)
             elif meta.extension in supported_vid:
                 video_files.append(meta.path)
         
-        total_files = len(image_files) + len(video_files)
+        # Filtrar según target configurado
+        files_to_process_images = [] if target == "videos" else image_files
+        files_to_process_videos = [] if target == "images" else video_files
+        
+        total_files = len(files_to_process_images) + len(files_to_process_videos)
         
         self.logger.info(
             f"Archivos a procesar: {total_files} "
-            f"({len(image_files)} imágenes, {len(video_files)} videos)"
+            f"({len(files_to_process_images)} imágenes, {len(files_to_process_videos)} videos) "
+            f"[target={target}]"
         )
         
         analysis = DuplicatesSimilarAnalysis()
         
         if total_files == 0:
-            self.logger.warning("No se encontraron archivos soportados en caché")
+            self.logger.warning("No se encontraron archivos soportados para procesar")
             analysis.total_files = 0
             analysis.analysis_timestamp = datetime.now()
             return analysis
@@ -653,12 +688,27 @@ class DuplicatesSimilarService(DuplicatesBaseService):
         
         with self._parallel_processor(io_bound=False) as executor:
             future_to_file = {}
-            for file_path in image_files:
-                future = executor.submit(self._calculate_perceptual_hash, file_path)
+            
+            # Procesar imágenes
+            for file_path in files_to_process_images:
+                future = executor.submit(
+                    self._calculate_image_perceptual_hash,
+                    file_path,
+                    algorithm,
+                    hash_size,
+                    highfreq_factor
+                )
                 future_to_file[future] = file_path
             
-            for file_path in video_files:
-                future = executor.submit(self._calculate_video_hash, file_path)
+            # Procesar videos
+            for file_path in files_to_process_videos:
+                future = executor.submit(
+                    self._calculate_video_perceptual_hash,
+                    file_path,
+                    algorithm,
+                    hash_size,
+                    highfreq_factor
+                )
                 future_to_file[future] = file_path
             
             for future in as_completed(future_to_file):
@@ -711,8 +761,25 @@ class DuplicatesSimilarService(DuplicatesBaseService):
         
         return analysis
 
-    def _calculate_perceptual_hash(self, file_path: Path) -> Optional[Any]:
-        """Calcula perceptual hash de una imagen"""
+    def _calculate_image_perceptual_hash(
+        self,
+        file_path: Path,
+        algorithm: str = "dhash",
+        hash_size: int = 8,
+        highfreq_factor: int = 4
+    ) -> Optional[Any]:
+        """
+        Calcula hash perceptual de una imagen.
+        
+        Args:
+            file_path: Ruta al archivo de imagen
+            algorithm: Algoritmo de hash ("dhash", "phash", "ahash")
+            hash_size: Tamaño del hash (8, 16, 32). Mayor = más preciso pero más lento
+            highfreq_factor: Factor de alta frecuencia para phash (solo aplica a phash)
+        
+        Returns:
+            Hash perceptual de la imagen o None si hay error
+        """
         try:
             import imagehash
             from PIL import Image
@@ -720,13 +787,37 @@ class DuplicatesSimilarService(DuplicatesBaseService):
             with Image.open(file_path) as img:
                 if img.mode != 'RGB':
                     img = img.convert('RGB')
-                return imagehash.phash(img)
+                
+                # Seleccionar algoritmo de hash
+                if algorithm == "phash":
+                    return imagehash.phash(img, hash_size=hash_size, highfreq_factor=highfreq_factor)
+                elif algorithm == "ahash":
+                    return imagehash.average_hash(img, hash_size=hash_size)
+                else:  # dhash (default)
+                    return imagehash.dhash(img, hash_size=hash_size)
+                    
         except Exception:
             return None
 
-    def _calculate_video_hash(self, file_path: Path) -> Optional[Any]:
-        """Calcula perceptual hash de un video"""
-        # (Implementación simplificada para brevedad)
+    def _calculate_video_perceptual_hash(
+        self,
+        file_path: Path,
+        algorithm: str = "dhash",
+        hash_size: int = 8,
+        highfreq_factor: int = 4
+    ) -> Optional[Any]:
+        """
+        Calcula hash perceptual de un video extrayendo el frame central.
+        
+        Args:
+            file_path: Ruta al archivo de video
+            algorithm: Algoritmo de hash ("dhash", "phash", "ahash")
+            hash_size: Tamaño del hash (8, 16, 32). Mayor = más preciso pero más lento
+            highfreq_factor: Factor de alta frecuencia para phash (solo aplica a phash)
+        
+        Returns:
+            Hash perceptual del video (basado en frame central) o None si hay error
+        """
         try:
             import cv2
             import imagehash
@@ -735,23 +826,34 @@ class DuplicatesSimilarService(DuplicatesBaseService):
             
             os.environ['OPENCV_FFMPEG_LOGLEVEL'] = '-8'
             cap = cv2.VideoCapture(str(file_path))
-            if not cap.isOpened(): return None
+            if not cap.isOpened():
+                return None
             
-            # Using property ID 7 which is FRAME_COUNT
-            total_frames = int(cap.get(7)) 
+            # Property ID 7 = CAP_PROP_FRAME_COUNT
+            total_frames = int(cap.get(7))
             if total_frames == 0:
                 cap.release()
                 return None
             
-            # Property ID 1 is POS_FRAMES
+            # Property ID 1 = CAP_PROP_POS_FRAMES - buscar frame central
             cap.set(1, total_frames // 2)
             ret, frame = cap.read()
             cap.release()
             
-            if not ret: return None
+            if not ret:
+                return None
             
+            # Convertir BGR a RGB para PIL
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             img = Image.fromarray(frame)
-            return imagehash.phash(img)
+            
+            # Seleccionar algoritmo de hash
+            if algorithm == "phash":
+                return imagehash.phash(img, hash_size=hash_size, highfreq_factor=highfreq_factor)
+            elif algorithm == "ahash":
+                return imagehash.average_hash(img, hash_size=hash_size)
+            else:  # dhash (default)
+                return imagehash.dhash(img, hash_size=hash_size)
+                
         except Exception:
             return None
