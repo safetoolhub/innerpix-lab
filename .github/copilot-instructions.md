@@ -55,13 +55,24 @@ PyQt6 desktop app for photo/video management oriented to privacy.
 - **Standard API**: `analyze(sensitivity=85)` - Returns `DuplicateAnalysisResult` (compatible with other services)
 - **Interactive API**: `get_analysis_for_dialog()` - Returns `DuplicatesSimilarAnalysis` for real-time sensitivity adjustment
 - `DuplicatesSimilarAnalysis`: Container for pre-calculated hashes, enables real-time re-clustering via `get_groups(sensitivity)`
-- Internal method: `_calculate_perceptual_hashes()` - Expensive hash calculation (~5 min for 40k files), cached in memory
+- Internal methods:
+  - `_calculate_perceptual_hashes(repo, callback, algorithm, hash_size, target, highfreq_factor)` - Expensive hash calculation (~5 min for 40k files), cached in memory
+  - `_calculate_image_perceptual_hash(path, algorithm, hash_size, highfreq_factor)` - Hash for single image
+  - `_calculate_video_perceptual_hash(path, algorithm, hash_size, highfreq_factor)` - Hash for single video (uses central frame)
+- **Perceptual Hash Configuration** (via `Config`):
+  - `PERCEPTUAL_HASH_ALGORITHM`: Algorithm to use ("dhash", "phash", "ahash"). Default: "dhash"
+    - dhash: Fast, good for crops/edits (compares adjacent pixel differences)
+    - phash: Robust, DCT-based (better tolerance to size/brightness changes)
+    - ahash: Fastest, simplest (compares with average brightness)
+  - `PERCEPTUAL_HASH_SIZE`: Hash size (8, 16, 32). Default: 8 (64-bit hash)
+  - `PERCEPTUAL_HASH_TARGET`: Files to process ("images", "videos", "both"). Default: "images"
+  - `PERCEPTUAL_HASH_HIGHFREQ_FACTOR`: Highfreq factor for phash (4, 8). Default: 4
 - **Incremental analysis**: `find_new_groups(new_hashes, existing_hashes, sensitivity)` - Compares new batch vs existing for progressive loading
   - Used by dialog for batch processing (avoids loading all groups at once)
   - Returns `DuplicateAnalysisResult` with only groups containing new files
   - Prevents UI freezing with large datasets (>10k files)
 - Serialization: `save_to_file()` / `load_from_file()` for instant cache reload
-- Hamming distance: 64-bit perceptual hash comparison for similarity detection
+- Hamming distance: Perceptual hash comparison for similarity detection (bits depend on hash_size)
 - Sensitivity scale: 30-100% (30=permissive, 100=identical only, 85=recommended)
 
 **Initial Scanner** (`services/initial_scanner.py`) - Multi-phase Stage 2 scanner

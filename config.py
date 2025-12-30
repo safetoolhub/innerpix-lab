@@ -119,11 +119,45 @@ class Config:
     SIMILAR_FILES_MAX_GROUPS_NAVIGABLE = 1000
     SIMILAR_FILES_LARGE_DATASET_THRESHOLD = 10000
     
-    SIMILAR_FILES_DEFAULT_SENSITIVITY = 85
+    SIMILAR_FILES_DEFAULT_SENSITIVITY = 100
     SIMILAR_FILES_LARGE_DATASET_SENSITIVITY = 100
     
     SIMILAR_FILES_INITIAL_BATCH_SIZE = 200
     SIMILAR_FILES_LOAD_MORE_BATCH_SIZE = 300
+    
+    # ========================================================================
+    # 6.1 CONFIGURACIÓN DE HASH PERCEPTUAL
+    # ========================================================================
+    # Algoritmo de hash perceptual para detección de similares.
+    # Valores aceptados: "dhash", "phash", "ahash"
+    # - dhash (Difference Hash): Rápido, bueno para detectar recortes y ediciones.
+    #                            Compara diferencias entre píxeles adyacentes.
+    # - phash (Perceptual Hash): Más robusto, basado en DCT (transformada de coseno).
+    #                            Mejor tolerancia a cambios de tamaño/brillo.
+    # - ahash (Average Hash): El más rápido y simple. Compara con la media de brillo.
+    #                         Menos preciso pero muy eficiente.
+    PERCEPTUAL_HASH_ALGORITHM = "phash"  # Opciones: "phash", "dhash", "ahash"
+    
+    # Tamaño del hash perceptual (hash_size).
+    # Valores típicos: 8, 16, 32
+    # - 8 (default): Hash de 64 bits. Buen balance entre velocidad y precisión.
+    # - 16: Hash de 256 bits. Más preciso pero más lento.
+    # - 32: Hash de 1024 bits. Máxima precisión, significativamente más lento.
+    # Mayor hash_size = mayor precisión pero mayor distancia Hamming potencial.
+    PERCEPTUAL_HASH_SIZE = 16  # Opciones: 8, 16, 32
+    
+    # Target de archivos para hash perceptual.
+    # Valores aceptados: "images", "videos", "both"
+    # - images: Solo procesa imágenes (más rápido, recomendado para la mayoría de casos)
+    # - videos: Solo procesa videos (extrae frame central para hash)
+    # - both: Procesa imágenes y videos (más costoso computacionalmente)
+    PERCEPTUAL_HASH_TARGET = "images"  # Opciones: "images", "videos", "both"
+    
+    # Highfreq factor para phash (solo aplica a phash).
+    # Multiplica hash_size para la imagen resampleada antes de DCT.
+    # Valores típicos: 4 (rápido), 8 (más preciso)
+    # Solo relevante cuando PERCEPTUAL_HASH_ALGORITHM = "phash"
+    PERCEPTUAL_HASH_HIGHFREQ_FACTOR = 8  # Opciones: 4, 8
 
     # ========================================================================
     # 7. GESTIÓN DE MEMORIA Y CACHÉ
@@ -169,7 +203,7 @@ class Config:
     # 9. DESARROLLO
     # ========================================================================
     DEVELOPMENT_MODE = True
-    SAVED_CACHE_DEV_MODE_PATH = "/home/ed/Documents/Innerpix_Lab/cache_saved/RAW_todo.json"
+    SAVED_CACHE_DEV_MODE_PATH = "/home/ed/Documents/Innerpix_Lab/cache_saved/RAW_PODADO.json"
     
     @classmethod
     def get_system_info(cls) -> Dict:

@@ -3,11 +3,12 @@ Servicio de detección de archivos similares mediante perceptual hashing.
 Identifica fotos y vídeos visualmente similares: recortes, rotaciones,
 ediciones o diferentes resoluciones.
 Refactorizado para usar MetadataCache.
+Optimizado con BK-Tree para clustering O(N log N).
 """
 
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Any, Dict, Tuple
+from typing import List, Optional, Any, Dict, Tuple, Set
 from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError
 import os
 
@@ -17,6 +18,96 @@ from services.result_types import DuplicateAnalysisResult, DuplicateExecutionRes
 from services.duplicates_base_service import DuplicatesBaseService
 from services.base_service import ProgressCallback
 from services.file_metadata_repository_cache import FileInfoRepositoryCache
+
+
+class BKTreeNode:
+    """
+    Nodo de un BK-Tree (Burkhard-Keller Tree) para búsqueda métrica.
+    Estructura de datos optimizada para búsquedas por distancia de Hamming.
+    """
+    def __init__(self, hash_value: Any, path: str):
+        self.hash = hash_value
+        self.path = path
+        self.children: Dict[int, 'BKTreeNode'] = {}
+
+
+class BKTree:
+    """
+    BK-Tree implementado para búsqueda eficiente de hashes perceptuales similares.
+    
+    Reduce complejidad de O(N²) a O(N log N) promedio para clustering.
+    Basado en métrica de distancia de Hamming.
+    """
+    
+    def __init__(self, distance_func):
+        """
+        Args:
+            distance_func: Función para calcular distancia entre hashes (e.g., Hamming)
+        """
+        self.root: Optional[BKTreeNode] = None
+        self.distance_func = distance_func
+        self._size = 0
+    
+    def add(self, hash_value: Any, path: str) -> None:
+        """Añade un hash al árbol."""
+        if self.root is None:
+            self.root = BKTreeNode(hash_value, path)
+            self._size += 1
+            return
+        
+        current = self.root
+        while True:
+            distance = self.distance_func(current.hash, hash_value)
+            
+            if distance in current.children:
+                current = current.children[distance]
+            else:
+                current.children[distance] = BKTreeNode(hash_value, path)
+                self._size += 1
+                break
+    
+    def search(self, target_hash: Any, threshold: int) -> List[Tuple[str, int]]:
+        """
+        Busca todos los hashes dentro del threshold de distancia.
+        
+        Args:
+            target_hash: Hash objetivo a buscar
+            threshold: Distancia máxima permitida
+            
+        Returns:
+            Lista de tuplas (path, distance) dentro del threshold
+        """
+        if self.root is None:
+            return []
+        
+        results = []
+        self._search_recursive(self.root, target_hash, threshold, results)
+        return results
+    
+    def _search_recursive(
+        self, 
+        node: BKTreeNode, 
+        target: Any, 
+        threshold: int,
+        results: List[Tuple[str, int]]
+    ) -> None:
+        """Búsqueda recursiva en el árbol."""
+        distance = self.distance_func(node.hash, target)
+        
+        if distance <= threshold:
+            results.append((node.path, distance))
+        
+        # Solo explorar ramas que puedan contener matches
+        # Poda basada en desigualdad triangular
+        min_dist = max(0, distance - threshold)
+        max_dist = distance + threshold
+        
+        for child_dist, child_node in node.children.items():
+            if min_dist <= child_dist <= max_dist:
+                self._search_recursive(child_node, target, threshold, results)
+    
+    def __len__(self) -> int:
+        return self._size
 
 
 class DuplicatesSimilarAnalysis:
@@ -61,8 +152,11 @@ class DuplicatesSimilarAnalysis:
         Returns:
             DuplicateAnalysisResult con grupos detectados
         """
-        self._logger.debug(
-            f"Generando grupos con sensibilidad {sensitivity}%"
+        import time
+        start_time = time.time()
+        
+        self._logger.info(
+            f"🔍 Iniciando clustering con sensibilidad {sensitivity}% para {len(self.perceptual_hashes)} archivos..."
         )
         
         # Convertir sensibilidad a threshold de Hamming distance
@@ -73,6 +167,11 @@ class DuplicatesSimilarAnalysis:
             self.perceptual_hashes,
             threshold,
             self._distance_cache
+        )
+        
+        elapsed = time.time() - start_time
+        self._logger.info(
+            f"⚡ Clustering completado en {elapsed:.3f}s ({len(groups)} grupos encontrados)"
         )
         
         # Calcular estadísticas
@@ -126,43 +225,56 @@ class DuplicatesSimilarAnalysis:
     ) -> List[DuplicateGroup]:
         """
         Agrupa archivos por similitud usando threshold de Hamming distance.
+        
+        Optimizado con BK-Tree: O(N log N) en promedio vs O(N²) anterior.
         """
+        import time
+        
         if not hashes:
             return []
         
-        groups = []
-        processed = set()
+        # Construir BK-Tree para búsqueda eficiente
+        tree_start = time.time()
+        bk_tree = BKTree(distance_func=self._hamming_distance)
         
         paths = list(hashes.keys())
+        for path in paths:
+            bk_tree.add(hashes[path]['hash'], path)
         
-        for i, path1 in enumerate(paths):
+        tree_time = time.time() - tree_start
+        self._logger.info(f"  🌲 BK-Tree construido: {len(bk_tree)} nodos en {tree_time:.3f}s")
+        
+        # Fase de búsqueda y agrupación
+        search_start = time.time()
+        groups = []
+        processed: Set[str] = set()
+        total_searches = 0
+        total_matches = 0
+        
+        for path1 in paths:
             if path1 in processed:
                 continue
             
             hash1 = hashes[path1]['hash']
-            similar_files = [Path(path1)]
+            
+            # Búsqueda eficiente de similares usando BK-Tree
+            similar_matches = bk_tree.search(hash1, threshold)
+            total_searches += 1
+            total_matches += len(similar_matches)
+            
+            if len(similar_matches) <= 1:  # Solo encontró a sí mismo
+                continue
+            
+            # Construir grupo con archivos similares no procesados
+            similar_files = []
             hamming_distances = []
             
-            for j, path2 in enumerate(paths[i + 1:], i + 1):
-                if path2 in processed:
-                    continue
-                
-                hash2 = hashes[path2]['hash']
-                
-                # Calcular o recuperar distancia del cache
-                cache_key = (i, j)  # Siempre i < j
-                
-                if cache_key in distance_cache:
-                    distance = distance_cache[cache_key]
-                else:
-                    distance = self._hamming_distance(hash1, hash2)
-                    distance_cache[cache_key] = distance
-                
-                # Si es similar según threshold, añadir al grupo
-                if distance <= threshold:
-                    similar_files.append(Path(path2))
-                    hamming_distances.append(distance)
-                    processed.add(path2)
+            for match_path, distance in similar_matches:
+                if match_path not in processed:
+                    similar_files.append(Path(match_path))
+                    if match_path != path1:  # No contar distancia a sí mismo
+                        hamming_distances.append(distance)
+                    processed.add(match_path)
             
             # Si el grupo tiene más de 1 archivo, guardarlo
             if len(similar_files) > 1:
@@ -207,10 +319,60 @@ class DuplicatesSimilarAnalysis:
                             similarity_score=similarity_percentage
                         )
                         groups.append(group)
-                        processed.add(path1)
                 except Exception as e:
                     self._logger.warning(f"Error procesando grupo para {path1}: {e}")
                     continue
+        
+        search_time = time.time() - search_start
+        self._logger.info(
+            f"  🔎 Búsquedas: {total_searches} archivos, {total_matches} matches totales en {search_time:.3f}s"
+        )
+        
+        # Ordenar grupos priorizando aquellos con mayor diferencia de tamaño
+        # Los grupos con imágenes de diferentes tamaños (ej. WhatsApp vs originales) son más relevantes
+        def calculate_size_variation_score(group: DuplicateGroup) -> float:
+            """
+            Calcula un score basado en la variación de tamaño entre archivos del grupo.
+            Retorna el porcentaje de diferencia entre el archivo más grande y el más pequeño.
+            Score más alto = mayor prioridad.
+            """
+            if len(group.files) < 2:
+                return 0.0
+            
+            # Obtener tamaños de todos los archivos
+            sizes = []
+            for f in group.files:
+                try:
+                    size = hashes[str(f)]['size']
+                    sizes.append(size)
+                except (KeyError, FileNotFoundError):
+                    continue
+            
+            if len(sizes) < 2:
+                return 0.0
+            
+            min_size = min(sizes)
+            max_size = max(sizes)
+            
+            # Evitar división por cero
+            if min_size == 0:
+                return 0.0
+            
+            # Calcular y retornar diferencia porcentual
+            size_diff_percent = ((max_size - min_size) / min_size) * 100
+            return size_diff_percent
+        
+        # Ordenar grupos: primero los de mayor variación de tamaño
+        groups.sort(key=calculate_size_variation_score, reverse=True)
+        
+        # Log de estadísticas de variación
+        if groups:
+            scores = [calculate_size_variation_score(g) for g in groups]
+            max_variation = max(scores) if scores else 0
+            avg_variation = sum(scores) / len(scores) if scores else 0
+            self._logger.info(
+                f"  📊 Variación de tamaño - Máx: {max_variation:.1f}%, Promedio: {avg_variation:.1f}%"
+            )
         
         return groups
     
@@ -393,10 +555,16 @@ class DuplicatesSimilarService(DuplicatesBaseService):
         log_section_header_discrete(self.logger, "ANÁLISIS DE DUPLICADOS SIMILARES")
         self.logger.info(f"Sensibilidad configurada: {sensitivity}%")
         
-        # Fase 1: Calcular hashes perceptuales
         repo = FileInfoRepositoryCache.get_instance()
         if self._cached_analysis is None:
-            self._cached_analysis = self._calculate_perceptual_hashes(repo, progress_callback)
+            self._cached_analysis = self._calculate_perceptual_hashes(
+                repo,
+                progress_callback,
+                algorithm=Config.PERCEPTUAL_HASH_ALGORITHM,
+                hash_size=Config.PERCEPTUAL_HASH_SIZE,
+                target=Config.PERCEPTUAL_HASH_TARGET,
+                highfreq_factor=Config.PERCEPTUAL_HASH_HIGHFREQ_FACTOR
+            )
         else:
             self.logger.info("Reutilizando análisis de hashes perceptuales previo en memoria")
 
@@ -424,7 +592,14 @@ class DuplicatesSimilarService(DuplicatesBaseService):
         """
         repo = FileInfoRepositoryCache.get_instance()
         if self._cached_analysis is None:
-            self._cached_analysis = self._calculate_perceptual_hashes(repo, progress_callback)
+            self._cached_analysis = self._calculate_perceptual_hashes(
+                repo,
+                progress_callback,
+                algorithm=Config.PERCEPTUAL_HASH_ALGORITHM,
+                hash_size=Config.PERCEPTUAL_HASH_SIZE,
+                target=Config.PERCEPTUAL_HASH_TARGET,
+                highfreq_factor=Config.PERCEPTUAL_HASH_HIGHFREQ_FACTOR
+            )
         else:
             self.logger.info("Reutilizando análisis de hashes perceptuales previo en memoria")
         
@@ -433,12 +608,27 @@ class DuplicatesSimilarService(DuplicatesBaseService):
     def _calculate_perceptual_hashes(
         self,
         repo: FileInfoRepositoryCache,
-        progress_callback: Optional[ProgressCallback] = None
+        progress_callback: Optional[ProgressCallback] = None,
+        algorithm: str = "dhash",
+        hash_size: int = 8,
+        target: str = "images",
+        highfreq_factor: int = 4
     ) -> DuplicatesSimilarAnalysis:
         """
         Calcula hashes perceptuales de todos los archivos.
         
         Método interno usado por analyze() y get_analysis_for_dialog().
+        
+        Args:
+            repo: Repositorio de metadatos de archivos
+            progress_callback: Callback de progreso
+            algorithm: Algoritmo de hash ("dhash", "phash", "ahash")
+            hash_size: Tamaño del hash (8, 16, 32)
+            target: Target de archivos ("images", "videos", "both")
+            highfreq_factor: Factor de alta frecuencia para phash (4, 8)
+        
+        Returns:
+            DuplicatesSimilarAnalysis con hashes calculados
         """
         try:
             import imagehash
@@ -446,8 +636,14 @@ class DuplicatesSimilarService(DuplicatesBaseService):
             self.logger.error("imagehash library not installed.")
             raise ImportError("imagehash library not installed.")
         
+        import time
+        
         log_section_header_discrete(self.logger, "INICIANDO ANÁLISIS INICIAL DE ARCHIVOS SIMILARES")
-        self.logger.info("*** Calculando hashes perceptuales...")
+        hash_calc_start = time.time()
+        self.logger.info(
+            f"⏳ Calculando hashes perceptuales (algoritmo={algorithm}, "
+            f"hash_size={hash_size}, target={target})..."
+        )
         
         # 1. Obtener archivos desde FileInfoRepository
         all_metadata = repo.get_all_files()
@@ -459,23 +655,27 @@ class DuplicatesSimilarService(DuplicatesBaseService):
         supported_vid = Config.SUPPORTED_VIDEO_EXTENSIONS
         
         for meta in all_metadata:
-            # Check extension (case sensitive in set? Config sets have uppercase variants)
             if meta.extension in supported_img:
                 image_files.append(meta.path)
             elif meta.extension in supported_vid:
                 video_files.append(meta.path)
         
-        total_files = len(image_files) + len(video_files)
+        # Filtrar según target configurado
+        files_to_process_images = [] if target == "videos" else image_files
+        files_to_process_videos = [] if target == "images" else video_files
+        
+        total_files = len(files_to_process_images) + len(files_to_process_videos)
         
         self.logger.info(
             f"Archivos a procesar: {total_files} "
-            f"({len(image_files)} imágenes, {len(video_files)} videos)"
+            f"({len(files_to_process_images)} imágenes, {len(files_to_process_videos)} videos) "
+            f"[target={target}]"
         )
         
         analysis = DuplicatesSimilarAnalysis()
         
         if total_files == 0:
-            self.logger.warning("No se encontraron archivos soportados en caché")
+            self.logger.warning("No se encontraron archivos soportados para procesar")
             analysis.total_files = 0
             analysis.analysis_timestamp = datetime.now()
             return analysis
@@ -488,12 +688,27 @@ class DuplicatesSimilarService(DuplicatesBaseService):
         
         with self._parallel_processor(io_bound=False) as executor:
             future_to_file = {}
-            for file_path in image_files:
-                future = executor.submit(self._calculate_perceptual_hash, file_path)
+            
+            # Procesar imágenes
+            for file_path in files_to_process_images:
+                future = executor.submit(
+                    self._calculate_image_perceptual_hash,
+                    file_path,
+                    algorithm,
+                    hash_size,
+                    highfreq_factor
+                )
                 future_to_file[future] = file_path
             
-            for file_path in video_files:
-                future = executor.submit(self._calculate_video_hash, file_path)
+            # Procesar videos
+            for file_path in files_to_process_videos:
+                future = executor.submit(
+                    self._calculate_video_perceptual_hash,
+                    file_path,
+                    algorithm,
+                    hash_size,
+                    highfreq_factor
+                )
                 future_to_file[future] = file_path
             
             for future in as_completed(future_to_file):
@@ -535,12 +750,36 @@ class DuplicatesSimilarService(DuplicatesBaseService):
         analysis.analysis_timestamp = datetime.now()
         
         # Log stats
-        self.logger.info(f"*** Hashes calculados: {analysis.total_files}")
+        hash_calc_time = time.time() - hash_calc_start
+        self.logger.info(
+            f"✅ Hashes calculados: {analysis.total_files} en {hash_calc_time:.1f}s "
+            f"({analysis.total_files/hash_calc_time:.1f} archivos/s)"
+        )
+        
+        if errors > 0:
+            self.logger.warning(f"⚠️  Errores: {errors}, Timeouts: {timeouts}")
         
         return analysis
 
-    def _calculate_perceptual_hash(self, file_path: Path) -> Optional[Any]:
-        """Calcula perceptual hash de una imagen"""
+    def _calculate_image_perceptual_hash(
+        self,
+        file_path: Path,
+        algorithm: str = "dhash",
+        hash_size: int = 8,
+        highfreq_factor: int = 4
+    ) -> Optional[Any]:
+        """
+        Calcula hash perceptual de una imagen.
+        
+        Args:
+            file_path: Ruta al archivo de imagen
+            algorithm: Algoritmo de hash ("dhash", "phash", "ahash")
+            hash_size: Tamaño del hash (8, 16, 32). Mayor = más preciso pero más lento
+            highfreq_factor: Factor de alta frecuencia para phash (solo aplica a phash)
+        
+        Returns:
+            Hash perceptual de la imagen o None si hay error
+        """
         try:
             import imagehash
             from PIL import Image
@@ -548,13 +787,37 @@ class DuplicatesSimilarService(DuplicatesBaseService):
             with Image.open(file_path) as img:
                 if img.mode != 'RGB':
                     img = img.convert('RGB')
-                return imagehash.phash(img)
+                
+                # Seleccionar algoritmo de hash
+                if algorithm == "phash":
+                    return imagehash.phash(img, hash_size=hash_size, highfreq_factor=highfreq_factor)
+                elif algorithm == "ahash":
+                    return imagehash.average_hash(img, hash_size=hash_size)
+                else:  # dhash (default)
+                    return imagehash.dhash(img, hash_size=hash_size)
+                    
         except Exception:
             return None
 
-    def _calculate_video_hash(self, file_path: Path) -> Optional[Any]:
-        """Calcula perceptual hash de un video"""
-        # (Implementación simplificada para brevedad)
+    def _calculate_video_perceptual_hash(
+        self,
+        file_path: Path,
+        algorithm: str = "dhash",
+        hash_size: int = 8,
+        highfreq_factor: int = 4
+    ) -> Optional[Any]:
+        """
+        Calcula hash perceptual de un video extrayendo el frame central.
+        
+        Args:
+            file_path: Ruta al archivo de video
+            algorithm: Algoritmo de hash ("dhash", "phash", "ahash")
+            hash_size: Tamaño del hash (8, 16, 32). Mayor = más preciso pero más lento
+            highfreq_factor: Factor de alta frecuencia para phash (solo aplica a phash)
+        
+        Returns:
+            Hash perceptual del video (basado en frame central) o None si hay error
+        """
         try:
             import cv2
             import imagehash
@@ -563,23 +826,34 @@ class DuplicatesSimilarService(DuplicatesBaseService):
             
             os.environ['OPENCV_FFMPEG_LOGLEVEL'] = '-8'
             cap = cv2.VideoCapture(str(file_path))
-            if not cap.isOpened(): return None
+            if not cap.isOpened():
+                return None
             
-            # Using property ID 7 which is FRAME_COUNT
-            total_frames = int(cap.get(7)) 
+            # Property ID 7 = CAP_PROP_FRAME_COUNT
+            total_frames = int(cap.get(7))
             if total_frames == 0:
                 cap.release()
                 return None
             
-            # Property ID 1 is POS_FRAMES
+            # Property ID 1 = CAP_PROP_POS_FRAMES - buscar frame central
             cap.set(1, total_frames // 2)
             ret, frame = cap.read()
             cap.release()
             
-            if not ret: return None
+            if not ret:
+                return None
             
+            # Convertir BGR a RGB para PIL
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             img = Image.fromarray(frame)
-            return imagehash.phash(img)
+            
+            # Seleccionar algoritmo de hash
+            if algorithm == "phash":
+                return imagehash.phash(img, hash_size=hash_size, highfreq_factor=highfreq_factor)
+            elif algorithm == "ahash":
+                return imagehash.average_hash(img, hash_size=hash_size)
+            else:  # dhash (default)
+                return imagehash.dhash(img, hash_size=hash_size)
+                
         except Exception:
             return None

@@ -33,6 +33,7 @@ from ui.dialogs.duplicates_similar_progress_dialog import SimilarFilesProgressDi
 from utils.format_utils import format_size, format_file_count
 from ui.workers import DuplicatesSimilarAnalysisWorker
 from utils.logger import log_section_header_discrete
+from services.file_metadata_repository_cache import FileInfoRepositoryCache
 
 # Importar tool cards
 from ui.screens.tool_cards import (
@@ -1051,6 +1052,30 @@ class Stage3Window(BaseStage):
         Método legacy - ahora usamos _refresh_stage_3_ui() para actualizar todo.
         """
         pass  # Implementación movida a _refresh_stage_3_ui
+
+    def _sync_scan_results_with_cache(self) -> None:
+        """
+        Sincroniza los resultados del escaneo inicial con el estado actual de la caché.
+        Útil después de operaciones que eliminan o mueven archivos.
+        """
+        if not self.analysis_results or not hasattr(self.analysis_results, 'scan') or not self.analysis_results.scan:
+            return
+
+        repo = FileInfoRepositoryCache.get_instance()
+        all_metadata = repo.get_all_files()
+        
+        # Reiniciar contadores y listas en el objeto scan existente
+        scan = self.analysis_results.scan
+        scan.total_files = len(all_metadata)
+        scan.total_size = sum(m.fs_size for m in all_metadata)
+        scan.images = [m.path for m in all_metadata if m.is_image]
+        scan.videos = [m.path for m in all_metadata if m.is_video]
+        scan.others = [m.path for m in all_metadata if not m.is_image and not m.is_video]
+        
+        self.logger.debug(
+            f"Escaneo sincronizado con caché: {scan.total_files} archivos, "
+            f"{format_size(scan.total_size)}"
+        )
     
     def _refresh_stage_3_ui(self) -> None:
         """
@@ -1058,6 +1083,9 @@ class Stage3Window(BaseStage):
         """
         try:
             self.logger.debug("Refrescando UI de Stage 3 con datos actualizados")
+
+            # Paso 0: Sincronizar estadísticas globales con la caché
+            self._sync_scan_results_with_cache()
             
             # Limpiar widgets existentes (excepto header que permanece)
             self.logger.debug("Limpiando summary_card...")

@@ -309,7 +309,7 @@ class FileOrganizerService(BaseService):
                  removed = cleanup_empty_directories(root_directory)
                  result.empty_directories_removed = removed
                  
-             summary = self._format_operation_summary("Organización", items_processed, bytes_processed, dry_run)
+             summary = self._format_operation_summary("Organización", items_processed, 0, dry_run)
              log_section_footer_relevant(self.logger, summary)
              result.message = summary
              if result.backup_path:
@@ -400,7 +400,7 @@ class FileOrganizerService(BaseService):
             for file_info in subdir_data['files']:
                 processed += 1
                 if processed % 1000 == 0:
-                     self._report_progress(progress_callback, processed, total_items, f"Analizando... {processed}/{total_items}")
+                     self._report_progress(progress_callback, processed, total_items, "Analizando")
                 
                 fname = file_info['name']
                 fpath = Path(file_info['path'])
@@ -434,7 +434,7 @@ class FileOrganizerService(BaseService):
             for info in files:
                 processed_count += 1
                 if processed_count % 500 == 0:
-                   self._report_progress(progress_callback, processed_count, total_files, f"Analizando fechas... {processed_count}/{total_files}")
+                   self._report_progress(progress_callback, processed_count, total_files, "Analizando fechas")
                 
                 path = Path(info['path'])
                 file_metadata = get_all_metadata_from_file(path)
@@ -487,7 +487,7 @@ class FileOrganizerService(BaseService):
             for info in file_list:
                 processed_count += 1
                 if processed_count % 500 == 0:
-                     self._report_progress(progress_callback, processed_count, total_files, f"Analizando tipos... {processed_count}/{total_files}")
+                     self._report_progress(progress_callback, processed_count, total_files, "Analizando tipos")
                 
                 path = Path(info['path'])
                 info['path'] = str(path) # Ensure string for consistency if needed, though previously it was mixed usage
@@ -556,7 +556,7 @@ class FileOrganizerService(BaseService):
             for info in file_list:
                 processed_count += 1
                 if processed_count % 500 == 0:
-                     self._report_progress(progress_callback, processed_count, total_files, f"Analizando fuentes... {processed_count}/{total_files}")
+                     self._report_progress(progress_callback, processed_count, total_files, "Analizando fuentes")
                 
                 file_path = Path(info['path'])
                 source = detect_file_source(info['name'], file_path)
