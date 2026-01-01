@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "run-venv-main",
+      "label": "main",
       "type": "shell",
       "command": "source .venv/bin/activate && python main.py",
       "options": {
