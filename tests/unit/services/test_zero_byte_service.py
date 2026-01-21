@@ -66,8 +66,8 @@ class TestZeroByteServiceAnalysis:
         
         # Poblar repositorio
         repo = FileInfoRepositoryCache.get_instance()
-        from services.initial_scanner import PopulationStrategy
-        repo.populate_from_scan([file1, file2], PopulationStrategy.BASIC)
+        from services.file_metadata_repository_cache import PopulationStrategy
+        repo.populate_from_scan([file1, file2], PopulationStrategy.FILESYSTEM_METADATA)
         
         service = ZeroByteService()
         result = service.analyze()
@@ -93,9 +93,9 @@ class TestZeroByteServiceAnalysis:
         
         # Poblar repositorio
         repo = FileInfoRepositoryCache.get_instance()
-        from services.initial_scanner import PopulationStrategy
+        from services.file_metadata_repository_cache import PopulationStrategy
         all_files = [zero_file1, zero_file2, zero_file3, normal_file]
-        repo.populate_from_scan(all_files, PopulationStrategy.BASIC)
+        repo.populate_from_scan(all_files, PopulationStrategy.FILESYSTEM_METADATA)
         
         service = ZeroByteService()
         result = service.analyze()
@@ -137,8 +137,8 @@ class TestZeroByteServiceAnalysis:
         
         # Poblar repositorio
         repo = FileInfoRepositoryCache.get_instance()
-        from services.initial_scanner import PopulationStrategy
-        repo.populate_from_scan(all_files, PopulationStrategy.BASIC)
+        from services.file_metadata_repository_cache import PopulationStrategy
+        repo.populate_from_scan(all_files, PopulationStrategy.FILESYSTEM_METADATA)
         
         service = ZeroByteService()
         result = service.analyze()
@@ -162,8 +162,8 @@ class TestZeroByteServiceAnalysis:
         
         # Poblar repositorio
         repo = FileInfoRepositoryCache.get_instance()
-        from services.initial_scanner import PopulationStrategy
-        repo.populate_from_scan(all_files, PopulationStrategy.BASIC)
+        from services.file_metadata_repository_cache import PopulationStrategy
+        repo.populate_from_scan(all_files, PopulationStrategy.FILESYSTEM_METADATA)
         
         # Callback para capturar progreso
         progress_calls = []
@@ -198,8 +198,8 @@ class TestZeroByteServiceAnalysis:
         
         # Poblar repositorio
         repo = FileInfoRepositoryCache.get_instance()
-        from services.initial_scanner import PopulationStrategy
-        repo.populate_from_scan(all_files, PopulationStrategy.BASIC)
+        from services.file_metadata_repository_cache import PopulationStrategy
+        repo.populate_from_scan(all_files, PopulationStrategy.FILESYSTEM_METADATA)
         
         # Callback que cancela después de algunos llamados
         call_count = [0]
@@ -232,8 +232,8 @@ class TestZeroByteServiceExecution:
         
         # Poblar repositorio
         repo = FileInfoRepositoryCache.get_instance()
-        from services.initial_scanner import PopulationStrategy
-        repo.populate_from_scan([empty1, empty2], PopulationStrategy.BASIC)
+        from services.file_metadata_repository_cache import PopulationStrategy
+        repo.populate_from_scan([empty1, empty2], PopulationStrategy.FILESYSTEM_METADATA)
         
         # Analizar
         service = ZeroByteService()
@@ -270,8 +270,8 @@ class TestZeroByteServiceExecution:
         
         # Poblar repositorio
         repo = FileInfoRepositoryCache.get_instance()
-        from services.initial_scanner import PopulationStrategy
-        repo.populate_from_scan([empty1, empty2], PopulationStrategy.BASIC)
+        from services.file_metadata_repository_cache import PopulationStrategy
+        repo.populate_from_scan([empty1, empty2], PopulationStrategy.FILESYSTEM_METADATA)
         
         # Analizar
         service = ZeroByteService()
@@ -307,8 +307,8 @@ class TestZeroByteServiceExecution:
         
         # Poblar repositorio
         repo = FileInfoRepositoryCache.get_instance()
-        from services.initial_scanner import PopulationStrategy
-        repo.populate_from_scan([empty1, empty2], PopulationStrategy.BASIC)
+        from services.file_metadata_repository_cache import PopulationStrategy
+        repo.populate_from_scan([empty1, empty2], PopulationStrategy.FILESYSTEM_METADATA)
         
         # Analizar
         service = ZeroByteService()
@@ -341,8 +341,8 @@ class TestZeroByteServiceExecution:
         
         # Poblar repositorio
         repo = FileInfoRepositoryCache.get_instance()
-        from services.initial_scanner import PopulationStrategy
-        repo.populate_from_scan([empty1, empty2, empty3], PopulationStrategy.BASIC)
+        from services.file_metadata_repository_cache import PopulationStrategy
+        repo.populate_from_scan([empty1, empty2, empty3], PopulationStrategy.FILESYSTEM_METADATA)
         
         # Analizar (encuentra 3)
         service = ZeroByteService()
@@ -382,8 +382,8 @@ class TestZeroByteServiceExecution:
         
         # Poblar repositorio
         repo = FileInfoRepositoryCache.get_instance()
-        from services.initial_scanner import PopulationStrategy
-        repo.populate_from_scan(empty_files, PopulationStrategy.BASIC)
+        from services.file_metadata_repository_cache import PopulationStrategy
+        repo.populate_from_scan(empty_files, PopulationStrategy.FILESYSTEM_METADATA)
         
         # Analizar
         service = ZeroByteService()
@@ -426,8 +426,8 @@ class TestZeroByteServiceExecution:
         
         # Poblar repositorio
         repo = FileInfoRepositoryCache.get_instance()
-        from services.initial_scanner import PopulationStrategy
-        repo.populate_from_scan(empty_files, PopulationStrategy.BASIC)
+        from services.file_metadata_repository_cache import PopulationStrategy
+        repo.populate_from_scan(empty_files, PopulationStrategy.FILESYSTEM_METADATA)
         
         # Analizar
         service = ZeroByteService()
@@ -465,8 +465,8 @@ class TestZeroByteServiceExecution:
         
         # Poblar repositorio
         repo = FileInfoRepositoryCache.get_instance()
-        from services.initial_scanner import PopulationStrategy
-        repo.populate_from_scan([empty1, empty2, empty3], PopulationStrategy.BASIC)
+        from services.file_metadata_repository_cache import PopulationStrategy
+        repo.populate_from_scan([empty1, empty2, empty3], PopulationStrategy.FILESYSTEM_METADATA)
         
         # Analizar
         service = ZeroByteService()
@@ -544,8 +544,8 @@ class TestZeroByteServiceEdgeCases:
         
         # Poblar repositorio
         repo = FileInfoRepositoryCache.get_instance()
-        from services.initial_scanner import PopulationStrategy
-        repo.populate_from_scan(all_files, PopulationStrategy.BASIC)
+        from services.file_metadata_repository_cache import PopulationStrategy
+        repo.populate_from_scan(all_files, PopulationStrategy.FILESYSTEM_METADATA)
         
         # Analizar
         service = ZeroByteService()
@@ -589,8 +589,8 @@ class TestZeroByteServiceEdgeCases:
         
         # Poblar repositorio
         repo = FileInfoRepositoryCache.get_instance()
-        from services.initial_scanner import PopulationStrategy
-        repo.populate_from_scan(nested_files, PopulationStrategy.BASIC)
+        from services.file_metadata_repository_cache import PopulationStrategy
+        repo.populate_from_scan(nested_files, PopulationStrategy.FILESYSTEM_METADATA)
         
         # Analizar
         service = ZeroByteService()
@@ -618,8 +618,8 @@ class TestZeroByteServiceEdgeCases:
         
         # Poblar repositorio
         repo = FileInfoRepositoryCache.get_instance()
-        from services.initial_scanner import PopulationStrategy
-        repo.populate_from_scan(special_files, PopulationStrategy.BASIC)
+        from services.file_metadata_repository_cache import PopulationStrategy
+        repo.populate_from_scan(special_files, PopulationStrategy.FILESYSTEM_METADATA)
         
         # Analizar
         service = ZeroByteService()
@@ -642,8 +642,8 @@ class TestZeroByteServiceIntegration:
         
         # Poblar repositorio
         repo1 = FileInfoRepositoryCache.get_instance()
-        from services.initial_scanner import PopulationStrategy
-        repo1.populate_from_scan([empty_file], PopulationStrategy.BASIC)
+        from services.file_metadata_repository_cache import PopulationStrategy
+        repo1.populate_from_scan([empty_file], PopulationStrategy.FILESYSTEM_METADATA)
         
         # El servicio debe usar el mismo repositorio
         service = ZeroByteService()
@@ -665,8 +665,8 @@ class TestZeroByteServiceIntegration:
         
         # Poblar repositorio
         repo = FileInfoRepositoryCache.get_instance()
-        from services.initial_scanner import PopulationStrategy
-        repo.populate_from_scan([empty1, empty2], PopulationStrategy.BASIC)
+        from services.file_metadata_repository_cache import PopulationStrategy
+        repo.populate_from_scan([empty1, empty2], PopulationStrategy.FILESYSTEM_METADATA)
         
         initial_count = repo.get_file_count()
         assert initial_count == 2
@@ -697,8 +697,8 @@ class TestZeroByteServiceIntegration:
         
         # Poblar repositorio
         repo = FileInfoRepositoryCache.get_instance()
-        from services.initial_scanner import PopulationStrategy
-        repo.populate_from_scan([empty1, empty2], PopulationStrategy.BASIC)
+        from services.file_metadata_repository_cache import PopulationStrategy
+        repo.populate_from_scan([empty1, empty2], PopulationStrategy.FILESYSTEM_METADATA)
         
         initial_count = repo.get_file_count()
         

@@ -417,8 +417,8 @@ class TestFileInfoRepositoryCachePopulateFromScan:
         repo = FileInfoRepositoryCache.get_instance()
         repo.clear()
     
-    def test_populate_basic_strategy(self, tmp_path):
-        """Debe poblar con estrategia BASIC (filesystem metadata)"""
+    def test_populate_filesystem_metadata_strategy(self, tmp_path):
+        """Debe poblar con estrategia FILESYSTEM_METADATA (filesystem metadata)"""
         repo = FileInfoRepositoryCache.get_instance()
         
         # Crear archivos de prueba
@@ -428,8 +428,8 @@ class TestFileInfoRepositoryCachePopulateFromScan:
             test_file.write_bytes(b"test data")
             files.append(test_file)
         
-        # Poblar con estrategia BASIC
-        repo.populate_from_scan(files, PopulationStrategy.BASIC, stop_check_callback=None)
+        # Poblar con estrategia FILESYSTEM_METADATA
+        repo.populate_from_scan(files, PopulationStrategy.FILESYSTEM_METADATA, stop_check_callback=None)
         
         # Verificar que se agregaron
         assert len(repo) == 3
@@ -457,7 +457,7 @@ class TestFileInfoRepositoryCachePopulateFromScan:
             call_count[0] += 1
             return call_count[0] > 5  # Cancelar después de 5 llamadas
         
-        repo.populate_from_scan(files, PopulationStrategy.BASIC, stop_check_callback=stop_after_5)
+        repo.populate_from_scan(files, PopulationStrategy.FILESYSTEM_METADATA, stop_check_callback=stop_after_5)
         
         # Debe haberse detenido antes de procesar todos
         assert len(repo) < 100

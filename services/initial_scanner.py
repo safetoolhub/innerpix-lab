@@ -3,10 +3,10 @@ Initial Scanner Service.
 Handles the initial multi-phase scan of a directory to populate FileInfoRepositoryCache.
 
 This scanner operates in 4 distinct phases:
-1. BASIC: File structure analysis (filesystem metadata only)
-2. HASH: SHA256 hash calculation (requires BASIC first)
-3. EXIF_IMAGES: Image metadata extraction (requires BASIC first)
-4. EXIF_VIDEOS: Video metadata extraction (requires BASIC first)
+1. FILESYSTEM_METADATA: File structure analysis (filesystem metadata only)
+2. HASH: SHA256 hash calculation (requires FILESYSTEM_METADATA first)
+3. EXIF_IMAGES: Image metadata extraction (requires FILESYSTEM_METADATA first)
+4. EXIF_VIDEOS: Video metadata extraction (requires FILESYSTEM_METADATA first)
 """
 from pathlib import Path
 from typing import Optional, Callable, List
@@ -35,15 +35,15 @@ class InitialScanner:
     Handles multi-phase scanning of a directory to populate FileInfoRepositoryCache.
     
     The scan is performed in 5 distinct phases:
-    1. BASIC: Filesystem structure analysis (fast, OBLIGATORY first)
-    2. HASH: SHA256 hash calculation for duplicate detection (requires BASIC)
-    3. EXIF_IMAGES: Image metadata extraction (moderate cost, requires BASIC)
-    4. EXIF_VIDEOS: Video metadata extraction (expensive, requires BASIC)
+    1. FILESYSTEM_METADATA: Filesystem structure analysis (fast, OBLIGATORIO first)
+    2. HASH: SHA256 hash calculation for duplicate detection (requires FILESYSTEM_METADATA)
+    3. EXIF_IMAGES: Image metadata extraction (moderate cost, requires FILESYSTEM_METADATA)
+    4. EXIF_VIDEOS: Video metadata extraction (expensive, requires FILESYSTEM_METADATA)
     5. BEST_DATE: Calculate best available date for each file (requires EXIF)
     """
     
     # Phase identifiers
-    PHASE_BASIC = "phase_basic"
+    PHASE_FILESYSTEM_METADATA = "phase_filesystem_metadata"
     PHASE_HASH = "phase_hash"
     PHASE_EXIF_IMAGES = "phase_exif_images"
     PHASE_EXIF_VIDEOS = "phase_exif_videos"
@@ -93,8 +93,8 @@ class InitialScanner:
         # Get repository instance
         repo = FileInfoRepositoryCache.get_instance()
         
-        # ==================== PHASE 1: BASIC STRUCTURE ====================
-        phase_id = self.PHASE_BASIC
+        # ==================== PHASE 1: FILESYSTEM METADATA ====================
+        phase_id = self.PHASE_FILESYSTEM_METADATA
         phase_msg = "Analizando estructura de la carpeta"
         
         if phase_callback:
@@ -168,7 +168,7 @@ class InitialScanner:
         )
         
         if self._should_stop:
-            self.logger.info(f"Scan cancelado después de fase 1 (BASIC) - Archivos clasificados: {total_files}")
+            self.logger.info(f"Scan cancelado después de fase 1 (FILESYSTEM_METADATA) - Archivos clasificados: {total_files}")
             return self._create_result_from_data(
                 total_files, images, videos, others,
                 image_extensions, video_extensions, unsupported_extensions
@@ -177,21 +177,21 @@ class InitialScanner:
         # Update repository size
         repo.update_max_entries(len(supported_files))
         
-        # Populate with BASIC metadata (filesystem only)
+        # Populate with FILESYSTEM_METADATA (filesystem only)
         repo.populate_from_scan(
             files=supported_files,
-            strategy=PopulationStrategy.BASIC,
+            strategy=PopulationStrategy.FILESYSTEM_METADATA,
             progress_callback=None,
             stop_check_callback=lambda: self._should_stop
         )
         
         # Notify phase 1 completion
         if phase_completed_callback and not self._should_stop:
-            phase_completed_callback(self.PHASE_BASIC)
+            phase_completed_callback(self.PHASE_FILESYSTEM_METADATA)
         
         # Log repository stats after Phase 1 (DEBUG)
         if self.logger.isEnabledFor(logging.DEBUG):
-            self.logger.debug("=== Repository Stats after Phase 1 (BASIC) ===")
+            self.logger.debug("=== Repository Stats after Phase 1 (FILESYSTEM_METADATA) ===")
             repo.log_cache_statistics(level=logging.DEBUG)  # DEBUG
         
         # ==================== PHASE 2: HASH CALCULATION ====================

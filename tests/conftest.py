@@ -309,7 +309,7 @@ try:
             if f.is_file():
                 files.append(f)
         if files:
-            repo.populate_from_scan(files, PopulationStrategy.BASIC)
+            repo.populate_from_scan(files, PopulationStrategy.FILESYSTEM_METADATA)
 
     original_analyze_live = services.live_photos_service.LivePhotoService.analyze
     def _wrapped_analyze_live(self, directory_or_validate_dates, validate_dates=None, progress_callback=None, **kwargs):

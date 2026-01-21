@@ -77,7 +77,7 @@ class TestLivePhotoServiceIntegration:
         # Poblar el repositorio con los archivos
         repo.populate_from_scan(
             [img_path, vid_path],
-            strategy=PopulationStrategy.BASIC,
+            strategy=PopulationStrategy.FILESYSTEM_METADATA,
             stop_check_callback=lambda: False
         )
         
@@ -100,7 +100,7 @@ class TestLivePhotoServiceIntegration:
         all_files = [f for pair in multiple_live_photos for f in pair]
         repo.populate_from_scan(
             all_files,
-            strategy=PopulationStrategy.BASIC,
+            strategy=PopulationStrategy.FILESYSTEM_METADATA,
             stop_check_callback=lambda: False
         )
         
@@ -119,7 +119,7 @@ class TestLivePhotoServiceIntegration:
         
         repo.populate_from_scan(
             [img_path, vid_path],
-            strategy=PopulationStrategy.BASIC,
+            strategy=PopulationStrategy.FILESYSTEM_METADATA,
             stop_check_callback=lambda: False
         )
         
@@ -143,7 +143,7 @@ class TestLivePhotoServiceIntegration:
         
         repo.populate_from_scan(
             [img_path, vid_path],
-            strategy=PopulationStrategy.BASIC,
+            strategy=PopulationStrategy.FILESYSTEM_METADATA,
             stop_check_callback=lambda: False
         )
         
@@ -167,7 +167,7 @@ class TestLivePhotoServiceIntegration:
         all_files = [f for pair in multiple_live_photos for f in pair]
         repo.populate_from_scan(
             all_files,
-            strategy=PopulationStrategy.BASIC,
+            strategy=PopulationStrategy.FILESYSTEM_METADATA,
             stop_check_callback=lambda: False
         )
         
@@ -202,7 +202,7 @@ class TestLivePhotoServiceIntegration:
         repo = reset_repository
         repo.populate_from_scan(
             [img_path, vid_path],
-            strategy=PopulationStrategy.BASIC,
+            strategy=PopulationStrategy.FILESYSTEM_METADATA,
             stop_check_callback=lambda: False
         )
         
@@ -230,7 +230,7 @@ class TestLivePhotoServiceIntegration:
         repo = reset_repository
         repo.populate_from_scan(
             [vid_path],
-            strategy=PopulationStrategy.BASIC,
+            strategy=PopulationStrategy.FILESYSTEM_METADATA,
             stop_check_callback=lambda: False
         )
         
@@ -249,7 +249,7 @@ class TestLivePhotoServiceIntegration:
         repo = reset_repository
         repo.populate_from_scan(
             [img_path],
-            strategy=PopulationStrategy.BASIC,
+            strategy=PopulationStrategy.FILESYSTEM_METADATA,
             stop_check_callback=lambda: False
         )
         
@@ -278,7 +278,7 @@ class TestLivePhotoServicePotentialSavings:
         all_files = list(temp_dir.glob("*"))
         repo.populate_from_scan(
             all_files,
-            strategy=PopulationStrategy.BASIC,
+            strategy=PopulationStrategy.FILESYSTEM_METADATA,
             stop_check_callback=lambda: False
         )
         
