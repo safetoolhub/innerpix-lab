@@ -4,7 +4,7 @@ PyQt6 desktop app for photo/video management oriented to privacy.
 
 ### Flujo de Análisis
 1. **Stage 2**: Escaneo inicial multi-fase usando `InitialScanner.scan()` → `DirectoryScanResult`. 5 fases diferenciadas:
-   - Fase 1 (BASIC): Análisis de estructura del directorio → "Analizando estructura de la carpeta"
+   - Fase 1 (FILESYSTEM_METADATA): Análisis de estructura del directorio → "Analizando estructura de la carpeta"
    - Fase 2 (HASH): Cálculo de hashes SHA256 → "Calculando hashes de los archivos"
    - Fase 3 (EXIF_IMAGES): Extracción de metadatos de imágenes → "Obteniendo metadatos de las imagenes"
    - Fase 4 (EXIF_VIDEOS): Extracción de metadatos de videos → "Obteniendo metadatos de los videos"
@@ -23,14 +23,12 @@ PyQt6 desktop app for photo/video management oriented to privacy.
 **File Metadata Repository Cache** (`services/file_metadata_repository_cache.py`) - Singleton cache system (SQLite migration ready)
 - **Pattern**: `FileInfoRepositoryCache.get_instance()` - NOT passed as parameter to services
 - **Population**: Use `populate_from_scan(files, strategy, stop_check_callback)` - bulk loading with strategies (incremental)
-  - `BASIC`: Solo filesystem metadata (rápido, OBLIGATORIO primero)
-  - `HASH`: Solo SHA256 hashes (requiere BASIC previo, para duplicados exactos)
-  - `EXIF_IMAGES`: Solo EXIF de imágenes (requiere BASIC previo, moderado)
-  - `EXIF_VIDEOS`: Solo EXIF de videos (requiere BASIC previo, muy costoso)
-  - `EXIF_ALL`: EXIF de imágenes + videos (requiere BASIC previo, muy costoso)
+  - `FILESYSTEM_METADATA`: Solo filesystem metadata (rápido, OBLIGATORIO primero)
+  - `HASH`: Solo SHA256 hashes (requiere FILESYSTEM_METADATA previo, para duplicados exactos)
+  - `EXIF_IMAGES`: Solo EXIF de imágenes (requiere FILESYSTEM_METADATA previo, moderado)
+  - `EXIF_VIDEOS`: Solo EXIF de videos (requiere FILESYSTEM_METADATA previo, muy costoso)
   - `BEST_DATE`: Calcula mejor fecha disponible (requiere EXIF previo, rápido)
-  - `FULL`: Hash + EXIF completo (requiere BASIC previo, extremadamente costoso)
-- **Incremental workflow**: BASIC siempre primero, luego estrategias específicas según necesidad
+- **Incremental workflow**: FILESYSTEM_METADATA siempre primero, luego estrategias específicas según necesidad
 - **No Auto-fetch**: Repositorio pasivo. Si el dato no está en caché, retorna None o estructura vacía.
 - **Consultas**: `get_file_metadata(path)`, `get_hash(path)`, `get_exif(path)`, `get_best_date(path)` - Solo lectura (O(1)).
 - **Cancelación cooperativa**: `stop_check_callback` verifica cancelación en cada iteración del loop
@@ -76,7 +74,7 @@ PyQt6 desktop app for photo/video management oriented to privacy.
 - Sensitivity scale: 30-100% (30=permissive, 100=identical only, 85=recommended)
 
 **Initial Scanner** (`services/initial_scanner.py`) - Multi-phase Stage 2 scanner
-- 4 fases secuenciales: BASIC → HASH → EXIF_IMAGES → EXIF_VIDEOS
+- 4 fases secuenciales: FILESYSTEM_METADATA → HASH → EXIF_IMAGES → EXIF_VIDEOS
 - Callbacks: `phase_callback(phase_id, message)` para inicio, `progress_callback(PhaseProgress)` para progreso
 - Población incremental usando `FileInfoRepositoryCache.populate_from_scan()` con estrategias específicas
 - Cancelación: `request_stop()` detiene escaneo de forma segura
