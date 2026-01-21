@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel
 
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
+from services.initial_scanner import InitialScanner
 
 
 class AnalysisPhaseWidget(QFrame):
@@ -71,11 +72,11 @@ class AnalysisPhaseWidget(QFrame):
         # 4. WITH_EXIF_VIDEOS: Extracción de metadatos de videos
         # 5. BEST_DATE: Cálculo de la mejor fecha disponible
         phases = [
-            ("phase_basic", "Analizando estructura de la carpeta"),
-            ("phase_hash", "Calculando hashes de los archivos"),
-            ("phase_exif_images", "Obteniendo metadatos de las imagenes"),
-            ("phase_exif_videos", "Obteniendo metadatos de los videos"),
-            ("phase_best_date", "Calculando mejor fecha disponible"),
+            (InitialScanner.PHASE_FILESYSTEM_METADATA, "Analizando estructura de la carpeta"),
+            (InitialScanner.PHASE_HASH, "Calculando hashes de los archivos"),
+            (InitialScanner.PHASE_EXIF_IMAGES, "Obteniendo metadatos de las imagenes"),
+            (InitialScanner.PHASE_EXIF_VIDEOS, "Obteniendo metadatos de los videos"),
+            (InitialScanner.PHASE_BEST_DATE, "Calculando mejor fecha disponible"),
         ]
         
         for phase_id, phase_text in phases:
