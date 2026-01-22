@@ -85,9 +85,19 @@ class DesignSystem:
     RADIUS_MD = 8
     RADIUS_LG = 12
     RADIUS_XL = 16
-    RADIUS_FULL = 9999    # ==================== SOMBRAS ====================
+    RADIUS_FULL = 9999
     
-
+    # ==================== SOMBRAS ====================
+    
+    SHADOW_SM = "rgba(0, 0, 0, 0.05) 0px 1px 2px 0px"
+    SHADOW_MD = "rgba(0, 0, 0, 0.1) 0px 4px 6px -1px, rgba(0, 0, 0, 0.06) 0px 2px 4px -1px"
+    SHADOW_LG = "rgba(0, 0, 0, 0.1) 0px 10px 15px -3px, rgba(0, 0, 0, 0.05) 0px 4px 6px -2px"
+    
+    # ==================== ANIMACIONES ====================
+    
+    TRANSITION_QUICK = 150
+    TRANSITION_BASE = 250
+    TRANSITION_SLOW = 400
     
     # ==================== DIMENSIONES ====================
     

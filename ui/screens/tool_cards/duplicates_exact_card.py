@@ -36,7 +36,8 @@ def create_duplicates_exact_card(analysis_results, on_click_callback) -> ToolCar
             size_text = f"~{format_size(dup_data.space_wasted)} desperdiciados"
             card.set_status_with_results(
                 f"{dup_data.total_duplicates} archivos duplicados encontrados",
-                size_text
+                size_text,
+                badge_count=dup_data.total_duplicates
             )
         else:
             card.set_status_no_results("No se encontraron archivos duplicados")

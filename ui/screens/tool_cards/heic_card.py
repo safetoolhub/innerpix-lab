@@ -38,7 +38,8 @@ def create_heic_card(analysis_results, on_click_callback) -> ToolCard:
             max_savings = max(savings_jpg, savings_heic)
             card.set_status_with_results(
                 f"{heic_data.items_count} grupos de duplicados HEIC/JPG encontrados",
-                f"~{format_size(max_savings)} recuperables"
+                f"~{format_size(max_savings)} recuperables",
+                badge_count=heic_data.items_count
             )
         else:
             card.set_status_no_results("No se encontraron pares HEIC/JPG")

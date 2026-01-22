@@ -52,6 +52,33 @@ class SimilarityAnalysisHandler:
         self.similarity_worker: Optional[DuplicatesSimilarAnalysisWorker] = None
         self.similarity_progress_dialog: Optional[SimilarFilesProgressDialog] = None
         self.similarity_analysis = None  # Guardar análisis completado
+        
+        # Restaurar estado si ya existe análisis previo en analysis_results
+        self._restore_state()
+
+    def _restore_state(self):
+        """Restaura el estado del análisis si ya existe en analysis_results"""
+        if not self.analysis_results:
+            return
+            
+        # Intentar obtener resultados previos (DuplicateAnalysisResult o DuplicatesSimilarAnalysis)
+        sim_results = None
+        if hasattr(self.analysis_results, 'duplicates_similar') and self.analysis_results.duplicates_similar:
+            sim_results = self.analysis_results.duplicates_similar
+            
+        if sim_results:
+            self.logger.debug("Restaurando estado de análisis de similares previo")
+            # El objeto puede ser de dos tipos según si vino de caché o worker
+            # update_card_with_results espera DuplicateAnalysisResult
+            # Pero si viene de caché puede ser el objeto de análisis puro.
+            # Verificamos si tiene total_groups (DuplicateAnalysisResult)
+            if hasattr(sim_results, 'total_groups'):
+                self.update_card_with_results(sim_results)
+            elif hasattr(sim_results, 'perceptual_hashes'):
+                # Es un DuplicatesSimilarAnalysis (hashes calculados pero no clúster)
+                self.update_card_after_analysis(sim_results)
+                # Guardar referencia para evitar re-analizar hashes
+                self.similarity_analysis = sim_results
 
     def start_analysis(self):
         """
@@ -152,6 +179,12 @@ class SimilarityAnalysisHandler:
         """
         self.logger.info("Análisis inicial de archivos similares completado")
         self.similarity_analysis = analysis
+
+        # PERSISTENCIA:
+        # Guardar en analysis_results de la ventana principal para que sobreviva a refrescos
+        if hasattr(self.analysis_results, 'duplicates_similar'):
+             self.analysis_results.duplicates_similar = analysis
+             self.logger.debug("Resultados de similares guardados en analysis_results global")
 
         # Cerrar diálogo de progreso
         if self.similarity_progress_dialog:
@@ -260,7 +293,8 @@ class SimilarityAnalysisHandler:
             size_text = f"~{format_size(results.space_potential)} recuperables"
             card.set_status_with_results(
                 f"{results.total_groups} grupos detectados",
-                size_text
+                size_text,
+                badge_count=results.total_groups
             )
             card.action_button.setText("Gestionar ahora")
         else:
@@ -301,7 +335,8 @@ class SimilarityAnalysisHandler:
             # Mostrar que el análisis está completado con hashes calculados
             card.set_status_with_results(
                 f"{len(analysis.perceptual_hashes)} archivos analizados",
-                "Listo para ajustar sensibilidad"
+                "Listo para ajustar sensibilidad",
+                badge_count=len(analysis.perceptual_hashes)
             )
             card.action_button.setText("Gestionar ahora")
 

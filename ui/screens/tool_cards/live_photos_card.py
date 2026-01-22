@@ -37,7 +37,8 @@ def create_live_photos_card(analysis_results, on_click_callback) -> ToolCard:
             size_text = f"~{format_size(live_photo_data.potential_savings)} recuperables"
             card.set_status_with_results(
                 f"{live_photo_data.items_count} Grupos de Live Photos detectados",
-                size_text
+                size_text,
+                badge_count=live_photo_data.items_count
             )
         else:
             card.set_status_no_results("No se encontraron Live Photos")

@@ -203,7 +203,7 @@ class Config:
     # 9. DESARROLLO
     # ========================================================================
     DEVELOPMENT_MODE = False
-    SAVED_CACHE_DEV_MODE_PATH = "/home/ed/Documents/Innerpix_Lab/cache_saved/RAW_SINHEIC.json"
+    SAVED_CACHE_DEV_MODE_PATH = "/home/ed/Documents/Innerpix_Lab/cache_saved/RAW_SINVACIAS_SINHEIC.json"
     
     @classmethod
     def get_system_info(cls) -> Dict:
