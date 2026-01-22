@@ -91,6 +91,7 @@ class IconManager:
         'chart-line': 'mdi6.chart-line',
         'timer': 'mdi6.timer',
         'clock-outline': 'mdi6.clock-outline',
+        'clock-fast': 'mdi6.clock-fast',
         'clock-time-four': 'mdi6.clock-time-four',
         'ruler': 'mdi6.ruler',
         'update': 'mdi6.update',
@@ -98,6 +99,8 @@ class IconManager:
         'earth': 'mdi6.earth',
         'arrow-expand': 'mdi6.arrow-expand',
         'arrow-collapse': 'mdi6.arrow-collapse',
+        'arrow-expand-all': 'mdi6.arrow-expand-all',
+        'arrow-collapse-all': 'mdi6.arrow-collapse-all',
         
         # Tipos de archivos multimedia
         'image': 'mdi6.image',

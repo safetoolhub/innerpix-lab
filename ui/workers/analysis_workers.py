@@ -183,33 +183,76 @@ class DuplicatesSimilarAnalysisWorker(BaseWorker):
     """
     Worker para análisis de archivos similares (perceptual hash).
     
-    Retorna DuplicatesSimilarAnalysis para permitir ajuste interactivo
-    de sensibilidad en el diálogo sin recalcular hashes.
+    Calcula hashes perceptuales y retorna DuplicatesSimilarAnalysis
+    para uso interactivo en el diálogo con ajuste de sensibilidad en tiempo real.
     """
     finished = pyqtSignal(object)  # DuplicatesSimilarAnalysis
     
     def __init__(
         self,
-        detector # Type hint omitted to avoid circular import here
+        directory: Path,
+        sensitivity: int = 85
     ):
         super().__init__()
-        self.detector = detector
+        self.directory = directory
+        self.sensitivity = sensitivity
     
     def run(self) -> None:
         try:
             if self._stop_requested:
                 return
             
-            # Obtener análisis para uso interactivo (hashes precalculados)
-            analysis = self.detector.get_analysis_for_dialog(
+            from services.duplicates_similar_service import DuplicatesSimilarService
+            
+            service = DuplicatesSimilarService()
+            # Usar get_analysis_for_dialog() para obtener DuplicatesSimilarAnalysis
+            # que permite ajuste de sensibilidad en tiempo real en el diálogo
+            result = service.get_analysis_for_dialog(
                 progress_callback=self._create_progress_callback(emit_numbers=True)
             )
             
             if not self._stop_requested:
-                self.finished.emit(analysis)
+                self.finished.emit(result)
         
         except Exception as e:
             if not self._stop_requested:
                 import traceback
                 error_msg = f"{str(e)}\n{traceback.format_exc()}"
                 self.error.emit(error_msg)
+
+
+class VisualIdenticalAnalysisWorker(BaseWorker):
+    """
+    Worker para análisis de copias visuales idénticas.
+    
+    Detecta archivos visualmente IDÉNTICOS al 100% aunque tengan
+    diferente resolución, compresión o metadatos.
+    """
+    finished = pyqtSignal(object)  # VisualIdenticalAnalysisResult
+    
+    def __init__(self, directory: Path, metadata_cache=None):
+        super().__init__()
+        self.directory = directory
+        self.metadata_cache = metadata_cache
+    
+    def run(self) -> None:
+        try:
+            if self._stop_requested:
+                return
+            
+            from services.visual_identical_service import VisualIdenticalService
+            
+            service = VisualIdenticalService()
+            result = service.analyze(
+                progress_callback=self._create_progress_callback(emit_numbers=True)
+            )
+            
+            if not self._stop_requested:
+                self.finished.emit(result)
+        
+        except Exception as e:
+            if not self._stop_requested:
+                import traceback
+                error_msg = f"{str(e)}\n{traceback.format_exc()}"
+                self.error.emit(error_msg)
+

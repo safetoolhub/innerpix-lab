@@ -9,6 +9,7 @@ from .heic_dialog import HeicDialog
 from .settings_dialog import SettingsDialog
 from .duplicates_exact_dialog import DuplicatesExactDialog
 from .duplicates_similar_dialog import DuplicatesSimilarDialog
+from .visual_identical_dialog import VisualIdenticalDialog
 from .base_dialog import BaseDialog
 from .about_dialog import AboutDialog
 from .zero_byte_dialog import ZeroByteDialog
@@ -22,6 +23,7 @@ __all__ = [
     'HeicDialog',
     'DuplicatesExactDialog',
     'DuplicatesSimilarDialog',
+    'VisualIdenticalDialog',
     'SettingsDialog',
     'AboutDialog',
     'ZeroByteDialog',

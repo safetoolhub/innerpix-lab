@@ -16,7 +16,7 @@ from PyQt6.QtCore import QTimer, Qt
 import qtawesome as qta
 
 from config import Config
-from utils.settings_manager import settings_manager
+from utils.settings_manager import settings_manager, SettingsManager
 from .base_stage import BaseStage
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
@@ -30,9 +30,9 @@ from ui.dialogs.file_renamer_dialog import FileRenamerDialog
 from ui.dialogs.zero_byte_dialog import ZeroByteDialog
 from ui.dialogs.settings_dialog import SettingsDialog
 from ui.dialogs.about_dialog import AboutDialog
-from ui.dialogs.duplicates_similar_progress_dialog import SimilarFilesProgressDialog
+from ui.dialogs.visual_identical_dialog import VisualIdenticalDialog
+from ui.dialogs.duplicates_similar_dialog import DuplicatesSimilarDialog
 from utils.format_utils import format_size, format_file_count
-from ui.workers import DuplicatesSimilarAnalysisWorker
 from utils.logger import log_section_header_discrete
 from services.file_metadata_repository_cache import FileInfoRepositoryCache
 
@@ -42,12 +42,11 @@ from ui.screens.tool_cards import (
     create_heic_card,
     create_duplicates_exact_card,
     create_duplicates_similar_card,
+    create_visual_identical_card,
     create_file_organizer_card,
     create_file_renamer_card,
     create_zero_byte_card,
 )
-# Importar similarity handler
-from ui.screens.similarity_handlers import SimilarityAnalysisHandler
 
 
 class Stage3Window(BaseStage):
@@ -77,9 +76,6 @@ class Stage3Window(BaseStage):
         self.summary_card = None
         self.tools_grid = None
         self.tool_cards = {}  # Dict de tool_id -> ToolCard
-        
-        # Worker y diálogos para análisis de similares (manejado por handler)
-        self.similarity_handler = None  # Se inicializa en _create_tools_grid
 
 
     def setup_ui(self) -> None:
@@ -329,12 +325,19 @@ class Stage3Window(BaseStage):
         
         main_grid_layout.addWidget(cleanup_section)
 
-        # 2. SECCIÓN: SIMILARES
-        similar_section, similar_grid = create_section("Gestión de imágenes y videos similares", "image-search")
+        # 2. SECCIÓN: SIMILARES Y COPIAS VISUALES
+        similar_section, similar_grid = create_section("Detección visual de duplicados", "image-search")
+        
+        # Card de copias visuales idénticas (100% similitud)
+        visual_identical_card = create_visual_identical_card(self.analysis_results, self._on_tool_clicked)
+        similar_grid.addWidget(visual_identical_card, 0, 0)
+        self.tool_cards['visual_identical'] = visual_identical_card
+        
+        # Card de archivos similares (sensibilidad ajustable)
         similar_dup_card = create_duplicates_similar_card(self._on_tool_clicked)
-        similar_grid.addWidget(similar_dup_card, 0, 0)
-        # No ponemos stretch manual aquí, ya lo hace create_section para ambas columnas
+        similar_grid.addWidget(similar_dup_card, 0, 1)
         self.tool_cards['duplicates_similar'] = similar_dup_card
+        
         main_grid_layout.addWidget(similar_section)
 
         # 3. SECCIÓN: ORGANIZACIÓN
@@ -346,19 +349,6 @@ class Stage3Window(BaseStage):
         self.tool_cards['file_organizer'] = organize_card
         self.tool_cards['file_renamer'] = rename_card
         main_grid_layout.addWidget(org_section)
-        
-        # Añadir stretch al final del GRID
-        # main_grid_layout.addStretch() # Eliminado para evitar conflictos con el stretch principal
-
-        # Similarity handler
-        self.similarity_handler = SimilarityAnalysisHandler(
-            parent_window=self,
-            main_window=self.main_window,
-            analysis_results=self.analysis_results,
-            metadata_cache=self.metadata_cache,
-            tool_cards=self.tool_cards,
-            logger=self.logger
-        )
 
         # Añadir al layout principal
         self.main_layout.addSpacing(DesignSystem.SPACE_16)
@@ -400,6 +390,10 @@ class Stage3Window(BaseStage):
         elif tool_id == 'duplicates_exact' and not (hasattr(self.analysis_results, 'duplicates') and self.analysis_results.duplicates):
             should_analyze = True
         elif tool_id == 'zero_byte' and not (hasattr(self.analysis_results, 'zero_byte') and self.analysis_results.zero_byte):
+            should_analyze = True
+        elif tool_id == 'visual_identical' and not (hasattr(self.analysis_results, 'visual_identical') and self.analysis_results.visual_identical):
+            should_analyze = True
+        elif tool_id == 'duplicates_similar' and not (hasattr(self.analysis_results, 'duplicates_similar') and self.analysis_results.duplicates_similar):
             should_analyze = True
         elif tool_id == 'file_organizer':
             # SIEMPRE analizar file_organizer (modifica ubicaciones de archivos)
@@ -448,11 +442,33 @@ class Stage3Window(BaseStage):
                 else:
                      QMessageBox.information(self.main_window, "Info", "No se encontraron copias exactas.")
 
+        elif tool_id == 'visual_identical':
+            if hasattr(self.analysis_results, 'visual_identical') and self.analysis_results.visual_identical:
+                vi_data = self.analysis_results.visual_identical
+                if vi_data.total_groups > 0:
+                    dialog = VisualIdenticalDialog(vi_data, self.main_window)
+                else:
+                    QMessageBox.information(
+                        self.main_window, 
+                        "Sin copias visuales idénticas", 
+                        "No se encontraron copias visuales idénticas.\n\n"
+                        "Todas las imágenes son visualmente únicas."
+                    )
+
         elif tool_id == 'duplicates_similar':
-            # Similares requieren configuración previa y tienen su propio flujo
-            if self.similarity_handler:
-                self.similarity_handler.start_analysis()
-            return
+            if hasattr(self.analysis_results, 'duplicates_similar') and self.analysis_results.duplicates_similar:
+                sim_data = self.analysis_results.duplicates_similar
+                # DuplicatesSimilarAnalysis contiene perceptual_hashes, no total_groups
+                # El diálogo genera los grupos dinámicamente con get_groups()
+                if len(sim_data.perceptual_hashes) > 0:
+                    dialog = DuplicatesSimilarDialog(sim_data, self.main_window)
+                else:
+                    QMessageBox.information(
+                        self.main_window, 
+                        "Sin archivos para analizar", 
+                        "No se encontraron imágenes o videos para analizar.\n\n"
+                        "Asegúrate de que el directorio contenga archivos soportados."
+                    )
 
         elif tool_id == 'file_organizer':
             # Organizing puede funcionar sin análisis previo (usa defaults o analiza on-fly)
@@ -486,6 +502,8 @@ class Stage3Window(BaseStage):
             LivePhotosAnalysisWorker,
             HeicAnalysisWorker,
             DuplicatesExactAnalysisWorker,
+            DuplicatesSimilarAnalysisWorker,
+            VisualIdenticalAnalysisWorker,
             ZeroByteAnalysisWorker,
             FileOrganizerAnalysisWorker,
             FileRenamerAnalysisWorker
@@ -497,6 +515,8 @@ class Stage3Window(BaseStage):
             'live_photos': (LivePhotosAnalysisWorker, "Analizando Live Photos..."),
             'heic': (HeicAnalysisWorker, "Buscando duplicados HEIC/JPG..."),
             'duplicates_exact': (DuplicatesExactAnalysisWorker, "Buscando copias exactas..."),
+            'visual_identical': (VisualIdenticalAnalysisWorker, "Buscando copias visuales idénticas..."),
+            'duplicates_similar': (DuplicatesSimilarAnalysisWorker, "Analizando archivos similares..."),
             'zero_byte': (ZeroByteAnalysisWorker, "Buscando archivos vacíos..."),
             'file_organizer': (FileOrganizerAnalysisWorker, "Analizando estructura..."),
             'file_renamer': (FileRenamerAnalysisWorker, "Analizando nombres...")
@@ -515,9 +535,12 @@ class Stage3Window(BaseStage):
         progress.resize(450, 120)  # Ancho aumentado para que el texto no se corte
         
         # Crear worker - algunos servicios ya no necesitan metadata_cache
-        refactorized_tools = {'live_photos', 'heic', 'duplicates_exact', 'zero_byte', 'file_renamer', 'file_organizer'}
+        refactorized_tools = {'live_photos', 'heic', 'duplicates_exact', 'visual_identical', 'zero_byte', 'file_renamer', 'file_organizer'}
         if tool_id in refactorized_tools:
             worker = WorkerClass(Path(self.selected_folder))
+        elif tool_id == 'duplicates_similar':
+            # DuplicatesSimilarAnalysisWorker necesita directory y opcionalmente sensibilidad
+            worker = WorkerClass(Path(self.selected_folder), sensitivity=85)
         else:
             worker = WorkerClass(Path(self.selected_folder), self.metadata_cache)
         
@@ -536,6 +559,14 @@ class Stage3Window(BaseStage):
                     
                 elif tool_id == 'duplicates_exact':
                     self.analysis_results.duplicates = result
+                    self._create_tools_grid()
+                    
+                elif tool_id == 'visual_identical':
+                    self.analysis_results.visual_identical = result
+                    self._create_tools_grid()
+                    
+                elif tool_id == 'duplicates_similar':
+                    self.analysis_results.duplicates_similar = result
                     self._create_tools_grid()
                     
                 elif tool_id == 'zero_byte':
@@ -593,6 +624,7 @@ class Stage3Window(BaseStage):
             LivePhotosExecutionWorker,
             HeicExecutionWorker,
             DuplicatesExecutionWorker,
+            VisualIdenticalExecutionWorker,
             FileOrganizerExecutionWorker,
             FileRenamerExecutionWorker,
             ZeroByteExecutionWorker,
@@ -609,7 +641,7 @@ class Stage3Window(BaseStage):
         
         # === VERIFICAR CONFIRMACIÓN ADICIONAL PARA ELIMINACIÓN ===
         # Lista de herramientas destructivas (que eliminan archivos)
-        destructive_tools = ['live_photos', 'heic', 'duplicates_exact', 'duplicates_similar', 'zero_byte']
+        destructive_tools = ['live_photos', 'heic', 'duplicates_exact', 'duplicates_similar', 'visual_identical', 'zero_byte']
         
         # Solo pedir confirmación si es una operación real (no simulada)
         is_dry_run = plan.get('dry_run', False)
@@ -723,6 +755,18 @@ class Stage3Window(BaseStage):
             worker = ZeroByteExecutionWorker(
                 service=service,
                 analysis=plan.get('analysis'),
+                create_backup=plan.get('create_backup', True),
+                dry_run=plan.get('dry_run', False)
+            )
+        
+        elif tool_id == 'visual_identical':
+            from services.visual_identical_service import VisualIdenticalService
+            service = VisualIdenticalService()
+            # VisualIdenticalExecutionWorker espera (service, groups, files_to_delete, create_backup, dry_run)
+            worker = VisualIdenticalExecutionWorker(
+                service=service,
+                groups=plan.get('groups', []),
+                files_to_delete=plan.get('files_to_delete', []),
                 create_backup=plan.get('create_backup', True),
                 dry_run=plan.get('dry_run', False)
             )
@@ -940,7 +984,8 @@ class Stage3Window(BaseStage):
             'live_photos': 'Live Photos',
             'heic': 'HEIC/JPG',
             'duplicates_exact': 'Duplicados Exactos',
-            'duplicates_similar': 'Duplicados Similares', 
+            'duplicates_similar': 'Archivos Similares',
+            'visual_identical': 'Copias Visuales Idénticas',
             'file_organizer': 'Organización de Archivos',
             'file_renamer': 'Renombrado de Archivos',
             'zero_byte': 'Archivos Vacíos'
@@ -982,6 +1027,8 @@ class Stage3Window(BaseStage):
                     self.analysis_results.duplicates = updated_analysis
                 elif tool_id == 'duplicates_similar':
                     self.analysis_results.duplicates_similar = updated_analysis
+                elif tool_id == 'visual_identical':
+                    self.analysis_results.visual_identical = updated_analysis
                 elif tool_id == 'file_organizer':
                     self.analysis_results.organization = updated_analysis
                 elif tool_id == 'file_renamer':
@@ -1072,6 +1119,12 @@ class Stage3Window(BaseStage):
             elif tool_id == 'duplicates_similar':
                 from services.duplicates_similar_service import DuplicatesSimilarService
                 service = DuplicatesSimilarService()
+                self.logger.debug(f"Ejecutando service.analyze() para {tool_id}")
+                return service.analyze()
+                
+            elif tool_id == 'visual_identical':
+                from services.visual_identical_service import VisualIdenticalService
+                service = VisualIdenticalService()
                 self.logger.debug(f"Ejecutando service.analyze() para {tool_id}")
                 return service.analyze()
                 

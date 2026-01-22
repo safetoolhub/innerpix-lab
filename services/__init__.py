@@ -17,6 +17,7 @@ from .file_organizer_service import FileOrganizerService, FileMove, Organization
 from .heic_service import HeicService, HEICDuplicatePair
 from .duplicates_exact_service import DuplicatesExactService
 from .duplicates_similar_service import DuplicatesSimilarService, DuplicatesSimilarAnalysis
+from .visual_identical_service import VisualIdenticalService
 from .zero_byte_service import ZeroByteService
 
 # Servicios base
@@ -51,7 +52,10 @@ from .result_types import (
     LivePhotoGroup,
     LivePhotosAnalysisResult,
     LivePhotosExecutionResult,
-
+    # Visual Identical
+    VisualIdenticalGroup,
+    VisualIdenticalAnalysisResult,
+    VisualIdenticalExecutionResult,
     # Zero Byte
     ZeroByteAnalysisResult,
     ZeroByteExecutionResult,
@@ -65,6 +69,7 @@ __all__ = [
     'HeicService',
     'DuplicatesExactService',
     'DuplicatesSimilarService',
+    'VisualIdenticalService',
     'ZeroByteService',
     # Servicios base
     'BaseService',
@@ -82,6 +87,7 @@ __all__ = [
     'HEICDuplicatePair',
     'DuplicateGroup',
     'DuplicatesSimilarAnalysis',
+    'VisualIdenticalGroup',
     # Utilidades de file_utils
     # (none currently)
     # Orquestador results
@@ -99,7 +105,8 @@ __all__ = [
     'HeicExecutionResult',
     'LivePhotosAnalysisResult',
     'LivePhotosExecutionResult',
-
+    'VisualIdenticalAnalysisResult',
+    'VisualIdenticalExecutionResult',
     'ZeroByteAnalysisResult',
     'ZeroByteExecutionResult',
 ]

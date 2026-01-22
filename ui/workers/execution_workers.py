@@ -277,3 +277,46 @@ class ZeroByteExecutionWorker(BaseWorker):
                 import traceback
                 error_msg = f"{str(e)}\n{traceback.format_exc()}"
                 self.error.emit(error_msg)
+
+
+class VisualIdenticalExecutionWorker(BaseWorker):
+    """
+    Worker para eliminación de copias visuales idénticas.
+    """
+    finished = pyqtSignal(object)  # VisualIdenticalExecutionResult
+
+    def __init__(
+        self,
+        service,  # VisualIdenticalService
+        groups: List,  # List[VisualIdenticalGroup]
+        files_to_delete: List[Path],
+        create_backup: bool = True,
+        dry_run: bool = False
+    ):
+        super().__init__()
+        self.service = service
+        self.groups = groups
+        self.files_to_delete = files_to_delete
+        self.create_backup = create_backup
+        self.dry_run = dry_run
+
+    def run(self) -> None:
+        try:
+            if self._stop_requested:
+                return
+            
+            results = self.service.execute(
+                groups=self.groups,
+                files_to_delete=self.files_to_delete,
+                create_backup=self.create_backup,
+                dry_run=self.dry_run,
+                progress_callback=self._create_progress_callback(emit_numbers=True)
+            )
+            
+            if not self._stop_requested:
+                self.finished.emit(results)
+        except Exception as e:
+            if not self._stop_requested:
+                import traceback
+                error_msg = f"{str(e)}\n{traceback.format_exc()}"
+                self.error.emit(error_msg)

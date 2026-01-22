@@ -119,8 +119,10 @@ class Config:
     SIMILAR_FILES_MAX_GROUPS_NAVIGABLE = 1000
     SIMILAR_FILES_LARGE_DATASET_THRESHOLD = 10000
     
-    SIMILAR_FILES_DEFAULT_SENSITIVITY = 100
-    SIMILAR_FILES_LARGE_DATASET_SENSITIVITY = 100
+    # Sensibilidad por defecto: 85% es un buen balance para similares
+    # (No usar 100% porque eso es para idénticos, usar visual_identical para eso)
+    SIMILAR_FILES_DEFAULT_SENSITIVITY = 85
+    SIMILAR_FILES_LARGE_DATASET_SENSITIVITY = 85
     
     SIMILAR_FILES_INITIAL_BATCH_SIZE = 200
     SIMILAR_FILES_LOAD_MORE_BATCH_SIZE = 300
@@ -202,7 +204,7 @@ class Config:
     # ========================================================================
     # 9. DESARROLLO
     # ========================================================================
-    DEVELOPMENT_MODE = False
+    DEVELOPMENT_MODE = True
     SAVED_CACHE_DEV_MODE_PATH = "/home/ed/Documents/Innerpix_Lab/cache_saved/RAW_SINVACIAS_SINHEIC.json"
     
     @classmethod
