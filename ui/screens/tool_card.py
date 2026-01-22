@@ -85,7 +85,7 @@ class ToolCard(QFrame):
         header_layout.addWidget(self.title_label)
         header_layout.addStretch()
         
-        # Badge (PENDIENTE / SIN DATOS / NUMERO)
+        # Badge (PENDIENTE / NADA ENCONTRADO / NUMERO)
         self.badge_label = QLabel("")
         self.badge_label.setObjectName("statusBadge")
         self.badge_label.setVisible(False)
@@ -242,7 +242,7 @@ class ToolCard(QFrame):
         self._clear_status()
         
         # Badge gris
-        self.badge_label.setText("SIN DATOS")
+        self.badge_label.setText("NADA ENCONTRADO")
         self._update_badge_style(DesignSystem.COLOR_TEXT_SECONDARY)
         self.badge_label.setVisible(True)
         

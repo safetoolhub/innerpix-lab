@@ -329,8 +329,8 @@ class Stage3Window(BaseStage):
         
         main_grid_layout.addWidget(cleanup_section)
 
-        # 2. SECCIÓN: SIMILITUD
-        similar_section, similar_grid = create_section("Inteligencia y Similitud", "image-search")
+        # 2. SECCIÓN: SIMILARES
+        similar_section, similar_grid = create_section("Gestión de imágenes y videos similares", "image-search")
         similar_dup_card = create_duplicates_similar_card(self._on_tool_clicked)
         similar_grid.addWidget(similar_dup_card, 0, 0)
         # No ponemos stretch manual aquí, ya lo hace create_section para ambas columnas
