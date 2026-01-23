@@ -844,8 +844,8 @@ class VisualIdenticalDialog(BaseDialog):
             'groups': self.filtered_groups,  # Grupos para referencia
             'files_to_delete': files_to_delete,
             'keep_strategy': self.keep_strategy,
-            'create_backup': self.backup_checkbox.isChecked() if hasattr(self, 'backup_checkbox') else True,
-            'dry_run': self.dry_run_checkbox.isChecked() if hasattr(self, 'dry_run_checkbox') else False
+            'create_backup': self.is_backup_enabled(),
+            'dry_run': self.is_dry_run_enabled()
         }
         
         super().accept()
