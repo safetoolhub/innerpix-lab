@@ -126,9 +126,6 @@ class DesignSystem:
     COLOR_SURFACE_DISABLED = COLOR_SECONDARY_LIGHT
     COLOR_ERROR = COLOR_DANGER
     
-    LINE_HEIGHT_NORMAL = 1.5
-    LINE_HEIGHT_RELAXED = 1.75
-    
     RADIUS_SMALL = RADIUS_SM
     
     # ==================== ICONOS ====================
@@ -635,4 +632,631 @@ class DesignSystem:
             QLabel:hover {{
                 background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
             }}
+        """
+
+    # ==================== CARDS Y CONTENEDORES ====================
+    
+    @staticmethod
+    def get_card_style():
+        """
+        Estilo base para cards (QFrame).
+        Usado en: summary_card, progress_card, folder_selection_card, header_card, etc.
+        """
+        return f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                padding: {DesignSystem.SPACE_16}px;
+            }}
+        """
+    
+    @staticmethod
+    def get_card_style_compact():
+        """
+        Estilo para cards más compactas con menos padding.
+        """
+        return f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                padding: 10px;
+            }}
+        """
+    
+    @staticmethod
+    def get_header_card_style():
+        """
+        Estilo para la card de header de la aplicación.
+        """
+        return f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                padding: 10px {DesignSystem.SPACE_20}px;
+            }}
+        """
+    
+    @staticmethod
+    def get_stale_banner_style():
+        """
+        Estilo para banner de advertencia (estadísticas desactualizadas).
+        """
+        return f"""
+            QFrame#staleBanner {{
+                background-color: {DesignSystem.COLOR_WARNING_BG};
+                border: 1px solid {DesignSystem.COLOR_WARNING};
+                border-radius: {DesignSystem.RADIUS_MD}px;
+            }}
+        """
+    
+    @staticmethod
+    def get_warning_button_style():
+        """
+        Estilo para botón de acción en banners de advertencia.
+        """
+        return f"""
+            QPushButton {{
+                background-color: rgba(255, 255, 255, 0.5);
+                border: 1px solid {DesignSystem.COLOR_WARNING};
+                border-radius: {DesignSystem.RADIUS_SM}px;
+                padding: 6px 12px;
+                color: {DesignSystem.COLOR_TEXT};
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            }}
+            QPushButton:hover {{
+                background-color: rgba(255, 255, 255, 0.8);
+            }}
+        """
+    
+    # ==================== LABELS Y TEXTO ====================
+    
+    @staticmethod
+    def get_label_title_style():
+        """
+        Estilo para títulos principales (welcome title, header title).
+        """
+        return f"""
+            font-size: {DesignSystem.FONT_SIZE_LG}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+            color: {DesignSystem.COLOR_TEXT};
+        """
+    
+    @staticmethod
+    def get_label_subtitle_style():
+        """
+        Estilo para subtítulos.
+        """
+        return f"""
+            QLabel {{
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                border: none;
+                background: transparent;
+                padding: 0px;
+                margin: 0px;
+            }}
+        """
+    
+    @staticmethod
+    def get_label_mono_style():
+        """
+        Estilo para texto monoespaciado (rutas, código).
+        """
+        return f"""
+            font-family: {DesignSystem.FONT_FAMILY_MONO};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_TEXT};
+            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+        """
+    
+    @staticmethod
+    def get_label_secondary_style():
+        """
+        Estilo para texto secundario (hints, descripciones cortas).
+        """
+        return f"""
+            font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+        """
+    
+    @staticmethod
+    def get_section_title_style():
+        """
+        Estilo para títulos de sección (categorías de herramientas).
+        """
+        return f"""
+            font-size: 10px;
+            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            letter-spacing: 0.5px;
+        """
+    
+    # ==================== SEPARADORES ====================
+    
+    @staticmethod
+    def get_separator_style():
+        """
+        Estilo para líneas separadoras horizontales.
+        """
+        return f"background-color: {DesignSystem.COLOR_BORDER};"
+    
+    # ==================== DROPZONE ====================
+    
+    @staticmethod
+    def get_dropzone_style(dragging: bool = False):
+        """
+        Estilo para el widget de dropzone.
+        
+        Args:
+            dragging: Si el usuario está arrastrando algo sobre el widget
+        """
+        if dragging:
+            return f"""
+                DropzoneWidget {{
+                    background-color: rgba(37, 99, 235, 0.15);
+                    border: 2px solid {DesignSystem.COLOR_PRIMARY};
+                    border-radius: {DesignSystem.RADIUS_LG}px;
+                }}
+            """
+        else:
+            return f"""
+                DropzoneWidget {{
+                    background-color: rgba(245, 245, 245, 0.8);
+                    border: 2px dashed {DesignSystem.COLOR_BORDER};
+                    border-radius: {DesignSystem.RADIUS_LG}px;
+                }}
+                DropzoneWidget:hover {{
+                    border: 2px dashed {DesignSystem.COLOR_PRIMARY};
+                    background-color: rgba(37, 99, 235, 0.05);
+                }}
+            """
+    
+    # ==================== TOOL CARD ====================
+    
+    @staticmethod
+    def get_tool_card_style():
+        """
+        Estilo para las cards de herramientas en el grid.
+        """
+        return f"""
+            ToolCard {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+            }}
+            ToolCard:hover {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+                background-color: rgba(37, 99, 235, 0.02);
+            }}
+            ToolCard[enabled_state="disabled"] {{
+                background-color: {DesignSystem.COLOR_SURFACE_DISABLED};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+            }}
+        """
+    
+    @staticmethod
+    def get_tool_card_action_button_style():
+        """
+        Estilo para el botón de acción dentro de las tool cards.
+        Incluye clases para estados: primary (azul), warning (ámbar).
+        """
+        return f"""
+            QPushButton {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                color: white;
+                border: none;
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: 10px 20px;
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+            }}
+            QPushButton:hover {{ 
+                background-color: {DesignSystem.COLOR_PRIMARY_HOVER}; 
+            }}
+            
+            /* Clase para ANALIZAR (Ámbar) */
+            QPushButton[class="warning"] {{
+                background-color: {DesignSystem.COLOR_WARNING};
+                color: {DesignSystem.COLOR_TEXT};
+            }}
+            QPushButton[class="warning"]:hover {{
+                background-color: #e5ac06;
+            }}
+            
+            /* Clase para GESTIONAR (Azul) */
+            QPushButton[class="primary"] {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                color: white;
+            }}
+            
+            QPushButton:disabled {{
+                background-color: {DesignSystem.COLOR_SURFACE_DISABLED};
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+            }}
+        """
+    
+    @staticmethod
+    def get_status_badge_style(bg_color: str):
+        """
+        Estilo para badges de estado en tool cards.
+        
+        Args:
+            bg_color: Color de fondo del badge
+        """
+        return f"""
+            QLabel#statusBadge {{
+                background-color: {bg_color};
+                color: white;
+                border-radius: 9px;
+                padding: 1px 6px;
+                min-width: 14px;
+                font-size: 10px;
+                font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+            }}
+        """
+    
+    # ==================== SPINBOX ====================
+    
+    @staticmethod
+    def get_spinbox_style():
+        """
+        Estilo para QSpinBox personalizado.
+        """
+        return f"""
+            QSpinBox {{
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_8}px;
+                padding-right: 36px;
+                background-color: {DesignSystem.COLOR_SURFACE};
+                color: {DesignSystem.COLOR_TEXT};
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                min-height: 38px;
+                min-width: 120px;
+            }}
+            QSpinBox:hover {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+            QSpinBox:focus {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+            QSpinBox::up-button {{
+                subcontrol-origin: border;
+                subcontrol-position: top right;
+                width: 32px;
+                height: 18px;
+                border-left: 1px solid {DesignSystem.COLOR_BORDER};
+                border-bottom: 1px solid {DesignSystem.COLOR_BORDER};
+                background-color: {DesignSystem.COLOR_BACKGROUND};
+                border-top-right-radius: {DesignSystem.RADIUS_BASE}px;
+            }}
+            QSpinBox::up-button:hover {{
+                background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
+            }}
+            QSpinBox::up-button:pressed {{
+                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
+            }}
+            QSpinBox::down-button {{
+                subcontrol-origin: border;
+                subcontrol-position: bottom right;
+                width: 32px;
+                height: 18px;
+                border-left: 1px solid {DesignSystem.COLOR_BORDER};
+                background-color: {DesignSystem.COLOR_BACKGROUND};
+                border-bottom-right-radius: {DesignSystem.RADIUS_BASE}px;
+            }}
+            QSpinBox::down-button:hover {{
+                background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
+            }}
+            QSpinBox::down-button:pressed {{
+                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
+            }}
+        """
+    
+    # ==================== BOTONES SECUNDARIOS PEQUEÑOS ====================
+    
+    @staticmethod
+    def get_secondary_small_button_style():
+        """
+        Estilo para botones secundarios pequeños (badges, acciones menores).
+        """
+        return f"""
+            QPushButton {{
+                background-color: {DesignSystem.COLOR_BG_2};
+                color: {DesignSystem.COLOR_TEXT};
+                border: none;
+                border-radius: {DesignSystem.RADIUS_SM}px;
+                padding: 4px 10px;
+                font-size: {DesignSystem.FONT_SIZE_XS}px;
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_BORDER};
+            }}
+        """
+    
+    @staticmethod
+    def get_cancel_button_style():
+        """
+        Estilo para botones de cancelar (discretos).
+        """
+        return f"""
+            QPushButton {{
+                background: transparent;
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_8}px;
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+            }}
+            QPushButton:hover {{
+                background: {DesignSystem.COLOR_BG_2};
+                border-color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            }}
+        """
+    
+    @staticmethod
+    def get_link_button_style():
+        """
+        Estilo para botones que parecen links (Reanalizar, etc).
+        """
+        return f"""
+            QPushButton {{
+                background: transparent;
+                border: none;
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                padding: 4px 8px;
+            }}
+            QPushButton:hover {{
+                color: {DesignSystem.COLOR_PRIMARY};
+                text-decoration: underline;
+            }}
+        """
+    
+    @staticmethod
+    def get_last_folder_container_style():
+        """
+        Estilo para el contenedor de última carpeta analizada.
+        """
+        return f"""
+            QWidget {{
+                background-color: rgba(59, 130, 246, 0.08);
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
+            }}
+        """
+    
+    @staticmethod
+    def get_use_folder_button_style():
+        """
+        Estilo para botón "Usar esta carpeta".
+        """
+        return f"""
+            QPushButton {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                color: white;
+                border: none;
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_PRIMARY_HOVER};
+            }}
+            QPushButton:pressed {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+        """
+    
+    # ==================== PHASE WIDGET ====================
+    
+    @staticmethod
+    def get_phase_text_style(status: str = 'pending'):
+        """
+        Estilo para texto de fases de análisis.
+        
+        Args:
+            status: 'pending', 'running', 'completed', 'error', 'skipped'
+        """
+        base_style = f"font-size: {DesignSystem.FONT_SIZE_LG}px; line-height: 1.0;"
+        
+        if status == 'completed':
+            return f"""
+                {base_style}
+                color: {DesignSystem.COLOR_SUCCESS};
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            """
+        elif status == 'running':
+            return f"""
+                {base_style}
+                color: {DesignSystem.COLOR_PRIMARY};
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            """
+        elif status == 'error':
+            return f"""
+                {base_style}
+                color: {DesignSystem.COLOR_ERROR};
+            """
+        elif status == 'skipped':
+            return f"""
+                {base_style}
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                font-style: italic;
+            """
+        else:  # pending
+            return f"""
+                {base_style}
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            """
+    
+    @staticmethod
+    def get_phase_counter_style(active: bool = False):
+        """
+        Estilo para contadores de progreso de fases.
+        
+        Args:
+            active: Si la fase está activa (azul) o no (gris)
+        """
+        color = DesignSystem.COLOR_PRIMARY if active else DesignSystem.COLOR_TEXT_SECONDARY
+        weight = DesignSystem.FONT_WEIGHT_MEDIUM if active else DesignSystem.FONT_WEIGHT_NORMAL
+        return f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {color};
+            font-family: {DesignSystem.FONT_FAMILY_MONO};
+            line-height: 1.0;
+            font-weight: {weight};
+        """
+    
+    @staticmethod
+    def get_phase_skipped_counter_style():
+        """
+        Estilo para contador de fase omitida.
+        """
+        return f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            font-family: {DesignSystem.FONT_FAMILY_BASE};
+            line-height: 1.0;
+            font-style: italic;
+        """
+
+    # ==================== ESTILOS DE TEXTO GENÉRICOS ====================
+    
+    @staticmethod
+    def get_dropzone_main_text_style():
+        """
+        Estilo para texto principal del dropzone.
+        """
+        return f"""
+            font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            color: {DesignSystem.COLOR_TEXT};
+        """
+    
+    @staticmethod
+    def get_dropzone_hint_text_style():
+        """
+        Estilo para texto secundario (hint) del dropzone.
+        """
+        return f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+        """
+    
+    @staticmethod
+    def get_analysis_phase_frame_style():
+        """
+        Estilo para el frame del widget de fases de análisis.
+        """
+        return f"""
+            QFrame {{
+                background-color: transparent;
+                border: none;
+            }}
+        """
+    
+    @staticmethod
+    def get_analysis_phase_header_style():
+        """
+        Estilo para el header del widget de fases de análisis.
+        """
+        return f"""
+            font-size: {DesignSystem.FONT_SIZE_LG}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            color: {DesignSystem.COLOR_TEXT};
+        """
+    
+    @staticmethod
+    def get_stats_label_style():
+        """
+        Estilo para labels de estadísticas.
+        """
+        return f"""
+            font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            color: {DesignSystem.COLOR_TEXT};
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+        """
+    
+    @staticmethod
+    def get_visual_bar_container_style():
+        """
+        Estilo para el contenedor de la barra visual de estadísticas.
+        """
+        return f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_BORDER_LIGHT};
+                border-radius: 4px;
+                border: none;
+            }}
+        """
+    
+    @staticmethod
+    def get_status_label_style(state: str = 'normal'):
+        """
+        Estilo para labels de estado (ej: "Analizando...", "Completado").
+        
+        Args:
+            state: 'normal', 'success'
+        """
+        if state == 'success':
+            return f"""
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_SUCCESS};
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            """
+        else:
+            return f"""
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_TEXT};
+            """
+    
+    @staticmethod
+    def get_tip_text_style(color: str = None):
+        """
+        Estilo para texto de tips/consejos.
+        
+        Args:
+            color: Color opcional del texto
+        """
+        text_color = color if color else DesignSystem.COLOR_TEXT_SECONDARY
+        return f"""
+            QLabel {{
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {text_color};
+                border: none;
+                background: transparent;
+                padding: 0px;
+                margin: 0px;
+            }}
+        """
+    
+    @staticmethod
+    def get_empty_state_text_style():
+        """
+        Estilo para texto de estado vacío (placeholder).
+        """
+        return f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            font-style: italic;
+            padding: {DesignSystem.SPACE_16}px 0;
+        """
+    
+    @staticmethod
+    def get_info_text_style():
+        """
+        Estilo para texto informativo (ej: última carpeta analizada).
+        """
+        return f"""
+            color: {DesignSystem.COLOR_TEXT};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
         """

@@ -275,14 +275,7 @@ class BaseStage(QObject):
         """
         card = QFrame()
         card.setProperty("class", "card")
-        card.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: 10px {DesignSystem.SPACE_20}px;
-            }}
-        """)
+        card.setStyleSheet(DesignSystem.get_header_card_style())
 
         # Layout horizontal compacto
         layout = QHBoxLayout(card)
@@ -297,11 +290,7 @@ class BaseStage(QObject):
         # Título principal
         title = title_text if title_text is not None else Config.APP_NAME
         welcome_title = QLabel(title)
-        welcome_title.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_LG}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
-            color: {DesignSystem.COLOR_TEXT};
-        """)
+        welcome_title.setStyleSheet(DesignSystem.get_label_title_style())
         layout.addWidget(welcome_title)
 
         # Separador visual sutil
@@ -314,17 +303,7 @@ class BaseStage(QObject):
         # Subtítulo compacto
         subtitle = subtitle_text if subtitle_text is not None else ""
         welcome_subtitle = QLabel(subtitle)
-        welcome_subtitle.setStyleSheet(f"""
-            QLabel {{
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-                border: none;
-                background: transparent;
-                padding: 0px;
-                margin: 0px;
-            }}
-        """)
+        welcome_subtitle.setStyleSheet(DesignSystem.get_label_subtitle_style())
         layout.addWidget(welcome_subtitle)
 
         # Espaciador para empujar botones a la derecha

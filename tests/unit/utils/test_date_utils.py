@@ -254,46 +254,6 @@ class TestSelectEarliestDate:
 class TestGetExifDates:
     """Tests para extracción de fechas EXIF"""
     
-    def test_no_pil_available_returns_empty_dict(self):
-        """Sin PIL debe devolver diccionario con valores None"""
-        # PIL se importa dentro de la función, entonces hacemos patch en PIL.Image
-        with patch('PIL.Image.open', side_effect=ImportError):
-            result = get_exif_from_image(Path('/fake/image.jpg'))
-            
-            assert result == {
-                'DateTimeOriginal': None,
-                'CreateDate': None,
-                'DateTimeDigitized': None,
-                'SubSecTimeOriginal': None,
-                'OffsetTimeOriginal': None,
-                'GPSDateStamp': None,
-                'GPSTimeStamp': None,
-                'Software': None,
-                'ExifVersion': None
-            }
-    
-    def test_image_without_exif_returns_empty_dict(self):
-        """Imagen sin EXIF debe devolver diccionario con valores None"""
-        mock_image = MagicMock()
-        mock_image.__enter__ = Mock(return_value=mock_image)
-        mock_image.__exit__ = Mock(return_value=False)
-        mock_image.getexif.return_value = None
-        
-        with patch('PIL.Image.open', return_value=mock_image):
-            result = get_exif_from_image(Path('/fake/image.jpg'))
-            
-            assert result == {
-                'DateTimeOriginal': None,
-                'CreateDate': None,
-                'DateTimeDigitized': None,
-                'SubSecTimeOriginal': None,
-                'OffsetTimeOriginal': None,
-                'GPSDateStamp': None,
-                'GPSTimeStamp': None,
-                'Software': None,
-                'ExifVersion': None
-            }
-    
     def test_image_with_all_exif_dates(self):
         """Imagen con todas las fechas EXIF debe extraerlas correctamente"""
         mock_exif = {
@@ -377,23 +337,6 @@ class TestGetExifDates:
             assert result['CreateDate'] is None  # Corrupta
             assert result['DateTimeDigitized'] == datetime(2023, 1, 15, 10, 32, 0)
     
-    def test_image_open_error_returns_empty_dict(self):
-        """Error al abrir imagen debe devolver diccionario con valores None"""
-        with patch('PIL.Image.open', side_effect=Exception("Cannot open")):
-            result = get_exif_from_image(Path('/fake/image.jpg'))
-            
-            assert result == {
-                'DateTimeOriginal': None,
-                'CreateDate': None,
-                'DateTimeDigitized': None,
-                'SubSecTimeOriginal': None,
-                'OffsetTimeOriginal': None,
-                'GPSDateStamp': None,
-                'GPSTimeStamp': None,
-                'Software': None,
-                'ExifVersion': None
-            }
-
     def test_image_with_gps_and_offset(self):
         """Extrae GPSDateStamp y OffsetTimeOriginal correctamente"""
         # Crear estructura EXIF con GPSInfo

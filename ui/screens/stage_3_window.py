@@ -177,13 +177,7 @@ class Stage3Window(BaseStage):
         banner.setObjectName("staleBanner")
         
         # Estilo del banner
-        banner.setStyleSheet(f"""
-            QFrame#staleBanner {{
-                background-color: {DesignSystem.COLOR_WARNING_BG};
-                border: 1px solid {DesignSystem.COLOR_WARNING};
-                border-radius: {DesignSystem.RADIUS_MD}px;
-            }}
-        """)
+        banner.setStyleSheet(DesignSystem.get_stale_banner_style())
         
         layout = QHBoxLayout(banner)
         layout.setContentsMargins(DesignSystem.SPACE_16, DesignSystem.SPACE_12, 
@@ -211,19 +205,7 @@ class Stage3Window(BaseStage):
         btn = QPushButton("Re-analizar ahora")
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setIcon(qta.icon('fa5s.sync-alt', color=DesignSystem.COLOR_TEXT))
-        btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: rgba(255, 255, 255, 0.5);
-                border: 1px solid {DesignSystem.COLOR_WARNING};
-                border-radius: {DesignSystem.RADIUS_SM}px;
-                padding: 6px 12px;
-                color: {DesignSystem.COLOR_TEXT};
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-            }}
-            QPushButton:hover {{
-                background-color: rgba(255, 255, 255, 0.8);
-            }}
-        """)
+        btn.setStyleSheet(DesignSystem.get_warning_button_style())
         btn.clicked.connect(self._on_reanalyze)
         layout.addWidget(btn)
         
@@ -286,12 +268,7 @@ class Stage3Window(BaseStage):
             header_layout.addWidget(icon_label)
             
             title_label = QLabel(title.upper())
-            title_label.setStyleSheet(f"""
-                font-size: 10px;
-                font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                letter-spacing: 0.5px;
-            """)
+            title_label.setStyleSheet(DesignSystem.get_section_title_style())
             header_layout.addWidget(title_label)
             header_layout.addStretch()
             section_layout.addLayout(header_layout)

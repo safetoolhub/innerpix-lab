@@ -53,20 +53,13 @@ class DropzoneWidget(QFrame):
         self.main_text = QLabel("Arrastra una carpeta aquí")
         self.main_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.main_text.setFixedWidth(250)  # Ancho fijo para evitar movimiento del layout al cambiar texto
-        self.main_text.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-            color: {DesignSystem.COLOR_TEXT};
-        """)
+        self.main_text.setStyleSheet(DesignSystem.get_dropzone_main_text_style())
         layout.addWidget(self.main_text)
         
         # Texto secundario (hint sutil, más corto)
         self.hint_text = QLabel("o usa el botón de debajo")
         self.hint_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.hint_text.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            color: {DesignSystem.COLOR_TEXT_SECONDARY};
-        """)
+        self.hint_text.setStyleSheet(DesignSystem.get_dropzone_hint_text_style())
         # Mantener referencia a un efecto de opacidad para poder ocultarlo
         # visualmente sin cambiar el tamaño del layout (opacity=0 mantiene
         # el espacio ocupado por el QLabel)
@@ -99,13 +92,7 @@ class DropzoneWidget(QFrame):
     def _update_appearance(self, dragging=False):
         """Actualiza la apariencia según el estado"""
         if dragging:
-            self.setStyleSheet(f"""
-                DropzoneWidget {{
-                    background-color: rgba(37, 99, 235, 0.15);
-                    border: 2px solid {DesignSystem.COLOR_PRIMARY};
-                    border-radius: {DesignSystem.RADIUS_LG}px;
-                }}
-            """)
+            self.setStyleSheet(DesignSystem.get_dropzone_style(dragging=True))
             self.main_text.setText("Suelta para analizar")
             # No ocultar el hint_text ya que provoca que el layout se encoja
             # (al ocultarlo quedan solo 2 QLabel). En su lugar dejamos el
@@ -115,20 +102,7 @@ class DropzoneWidget(QFrame):
                 self._hint_opacity_effect.setOpacity(0.0)
             # No necesitamos update() ya que Qt repinta automáticamente con los cambios de texto
         else:
-            bg_color = "rgba(245, 245, 245, 0.8)"
-            border_color = DesignSystem.COLOR_BORDER
-            
-            self.setStyleSheet(f"""
-                DropzoneWidget {{
-                    background-color: {bg_color};
-                    border: 2px dashed {border_color};
-                    border-radius: {DesignSystem.RADIUS_LG}px;
-                }}
-                DropzoneWidget:hover {{
-                    border: 2px dashed {DesignSystem.COLOR_PRIMARY};
-                    background-color: rgba(37, 99, 235, 0.05);
-                }}
-            """)
+            self.setStyleSheet(DesignSystem.get_dropzone_style(dragging=False))
             self.main_text.setText("Arrastra una carpeta aquí")
             # Restaurar la visibilidad del hint estableciendo opacidad a 1
             if hasattr(self, '_hint_opacity_effect'):

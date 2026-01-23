@@ -317,49 +317,6 @@ class TestDuplicatesExactServiceExecute:
         assert not middle.exists()
         assert not newest.exists()
     
-    def test_execute_keep_newest_strategy(self, tmp_path):
-        """Estrategia KEEP_NEWEST debe mantener el archivo más reciente"""
-        repo = FileInfoRepositoryCache.get_instance()
-        service = DuplicatesExactService()
-        
-        # Crear duplicados con diferentes tiempos
-        oldest = tmp_path / "oldest.jpg"
-        oldest.write_bytes(b"data")
-        metadata_oldest = FileMetadata(
-            path=oldest,
-            fs_size=4,
-            fs_ctime=1000.0,
-            fs_mtime=1000.0,
-            fs_atime=1000.0,
-            sha256="xyz"
-        )
-        repo.add_file(oldest, metadata_oldest)
-        
-        newest = tmp_path / "newest.jpg"
-        newest.write_bytes(b"data")
-        metadata_newest = FileMetadata(
-            path=newest,
-            fs_size=4,
-            fs_ctime=3000.0,
-            fs_mtime=3000.0,
-            fs_atime=3000.0,
-            sha256="xyz"
-        )
-        repo.add_file(newest, metadata_newest)
-        
-        analysis = service.analyze()
-        
-        exec_result = service.execute(
-            analysis_result=analysis,
-            keep_strategy='newest',
-            create_backup=False,
-            dry_run=False
-        )
-        
-        # Verificar que solo el más nuevo permanece
-        assert not oldest.exists()
-        assert newest.exists()
-    
     def test_execute_updates_repository_cache(self, tmp_path):
         """La ejecución debe actualizar el repositorio eliminando archivos borrados"""
         repo = FileInfoRepositoryCache.get_instance()

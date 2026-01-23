@@ -47,21 +47,7 @@ class ToolCard(QFrame):
     def _setup_ui(self):
         """Configura la interfaz de la card con estilos estables"""
         # Estilo consolidado y estable para evitar jitter.
-        self.setStyleSheet(f"""
-            ToolCard {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-            }}
-            ToolCard:hover {{
-                border-color: {DesignSystem.COLOR_PRIMARY};
-                background-color: rgba(37, 99, 235, 0.02);
-            }}
-            ToolCard[enabled_state="disabled"] {{
-                background-color: {DesignSystem.COLOR_SURFACE_DISABLED};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-            }}
-        """)
+        self.setStyleSheet(DesignSystem.get_tool_card_style())
         self.setProperty("enabled_state", "enabled")
         
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
@@ -114,58 +100,14 @@ class ToolCard(QFrame):
         self.action_button.setMinimumWidth(180)
         
         # QSS para el botón con estados claros
-        self.action_button.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {DesignSystem.COLOR_PRIMARY};
-                color: white;
-                border: none;
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: 10px 20px;
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
-            }}
-            QPushButton:hover {{ 
-                background-color: {DesignSystem.COLOR_PRIMARY_HOVER}; 
-            }}
-            
-            /* Clase para ANALIZAR (Ámbar) */
-            QPushButton[class="warning"] {{
-                background-color: {DesignSystem.COLOR_WARNING};
-                color: {DesignSystem.COLOR_TEXT};
-            }}
-            QPushButton[class="warning"]:hover {{
-                background-color: #e5ac06; /* Ámbar más oscuro */
-            }}
-            
-            /* Clase para GESTIONAR (Azul) - ya es el default por QPushButton arriba, pero lo repetimos por claridad */
-            QPushButton[class="primary"] {{
-                background-color: {DesignSystem.COLOR_PRIMARY};
-                color: white;
-            }}
-            
-            QPushButton:disabled {{
-                background-color: {DesignSystem.COLOR_SURFACE_DISABLED};
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-            }}
-        """)
+        self.action_button.setStyleSheet(DesignSystem.get_tool_card_action_button_style())
         self.action_button.clicked.connect(self._on_button_clicked)
         btn_container.addWidget(self.action_button)
         btn_container.addStretch()
         layout.addLayout(btn_container)
 
     def _update_badge_style(self, bg_color: str):
-        self.badge_label.setStyleSheet(f"""
-            QLabel#statusBadge {{
-                background-color: {bg_color};
-                color: white;
-                border-radius: 9px;
-                padding: 1px 6px;
-                min-width: 14px;
-                font-size: 10px;
-                font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
-            }}
-        """)
+        self.badge_label.setStyleSheet(DesignSystem.get_status_badge_style(bg_color))
 
     def _setup_interactions(self):
         self.mousePressEvent = self._on_card_clicked

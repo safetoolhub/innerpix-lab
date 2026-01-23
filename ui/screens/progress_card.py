@@ -32,14 +32,7 @@ class ProgressCard(QFrame):
     
     def _setup_ui(self):
         """Configura la interfaz de la card"""
-        self.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: {DesignSystem.SPACE_16}px;
-            }}
-        """)
+        self.setStyleSheet(DesignSystem.get_card_style())
         
         layout = QVBoxLayout(self)
         layout.setSpacing(DesignSystem.SPACE_8)
@@ -60,23 +53,14 @@ class ProgressCard(QFrame):
         
         # 2. Etiqueta "Carpeta:"
         header_text = QLabel("Carpeta:")
-        header_text.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-            color: {DesignSystem.COLOR_TEXT_SECONDARY};
-        """)
+        header_text.setStyleSheet(DesignSystem.get_label_secondary_style())
         header_layout.addWidget(header_text)
         
         # 3. Ruta del directorio (mono)
         self.path_label = QLabel(self.directory_path)
         self.path_label.setProperty("class", "mono")
         self.path_label.setToolTip(self.directory_path)
-        self.path_label.setStyleSheet(f"""
-            font-family: {DesignSystem.FONT_FAMILY_MONO};
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            color: {DesignSystem.COLOR_TEXT};
-            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
-        """)
+        self.path_label.setStyleSheet(DesignSystem.get_label_mono_style())
         header_layout.addWidget(self.path_label)
         
         # 4. Stretch
@@ -85,20 +69,7 @@ class ProgressCard(QFrame):
         # 5. Botón cancelar (discreto, en la esquina)
         self.cancel_btn = QPushButton("Cancelar")
         icon_manager.set_button_icon(self.cancel_btn, 'close', size=14)
-        self.cancel_btn.setStyleSheet(f"""
-            QPushButton {{
-                background: transparent;
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_8}px;
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-            }}
-            QPushButton:hover {{
-                background: {DesignSystem.COLOR_BG_2};
-                border-color: {DesignSystem.COLOR_TEXT_SECONDARY};
-            }}
-        """)
+        self.cancel_btn.setStyleSheet(DesignSystem.get_cancel_button_style())
         self.cancel_btn.clicked.connect(self.cancel_requested.emit)
         header_layout.addWidget(self.cancel_btn)
         
@@ -110,7 +81,7 @@ class ProgressCard(QFrame):
         # Separador
         separator = QFrame()
         separator.setFrameShape(QFrame.Shape.HLine)
-        separator.setStyleSheet(f"background-color: {DesignSystem.COLOR_BORDER};")
+        separator.setStyleSheet(DesignSystem.get_separator_style())
         separator.setFixedHeight(1)
         layout.addWidget(separator)
         
@@ -128,10 +99,7 @@ class ProgressCard(QFrame):
         status_layout.addWidget(self.status_icon)
         
         self.status_label = QLabel("Analizando tu colección...")
-        self.status_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            color: {DesignSystem.COLOR_TEXT};
-        """)
+        self.status_label.setStyleSheet(DesignSystem.get_status_label_style('normal'))
         status_layout.addWidget(self.status_label)
         status_layout.addStretch()
         
@@ -154,7 +122,7 @@ class ProgressCard(QFrame):
         # Separador antes de las fases
         phase_separator = QFrame()
         phase_separator.setFrameShape(QFrame.Shape.HLine)
-        phase_separator.setStyleSheet(f"background-color: {DesignSystem.COLOR_BORDER};")
+        phase_separator.setStyleSheet(DesignSystem.get_separator_style())
         phase_separator.setFixedHeight(1)
         layout.addWidget(phase_separator)
         
@@ -177,11 +145,7 @@ class ProgressCard(QFrame):
         
         # Cambiar texto con indicación de transición automática
         self.status_label.setText("Análisis completado - Cargando resultados...")
-        self.status_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            color: {DesignSystem.COLOR_SUCCESS};
-            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-        """)
+        self.status_label.setStyleSheet(DesignSystem.get_status_label_style('success'))
         
         # Detener animación de barra indeterminada
         self.progress_bar.setMaximum(100)
@@ -234,10 +198,7 @@ class ProgressCard(QFrame):
             size=16
         )
         self.status_label.setText("Analizando tu colección...")
-        self.status_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            color: {DesignSystem.COLOR_TEXT};
-        """)
+        self.status_label.setStyleSheet(DesignSystem.get_status_label_style('normal'))
         
         # Resetear fases
         self.reset_phases()

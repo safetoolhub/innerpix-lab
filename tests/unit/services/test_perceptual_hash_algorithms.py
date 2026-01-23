@@ -547,11 +547,11 @@ class TestPerceptualHashConfiguration:
         assert hasattr(Config, 'PERCEPTUAL_HASH_HIGHFREQ_FACTOR')
         assert Config.PERCEPTUAL_HASH_HIGHFREQ_FACTOR in [4, 8]
     
-    def test_default_algorithm_is_dhash(self):
-        """Test que el algoritmo por defecto es dhash."""
+    def test_default_algorithm_is_phash(self):
+        """Test que el algoritmo por defecto es phash (elegido por ser más robusto)."""
         from config import Config
         
-        assert Config.PERCEPTUAL_HASH_ALGORITHM == "dhash"
+        assert Config.PERCEPTUAL_HASH_ALGORITHM == "phash"
     
     def test_default_target_is_images(self):
         """Test que el target por defecto es images."""
