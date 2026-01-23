@@ -69,7 +69,7 @@ class ProgressCard(QFrame):
         # 5. Botón cancelar (discreto, en la esquina)
         self.cancel_btn = QPushButton("Cancelar")
         icon_manager.set_button_icon(self.cancel_btn, 'close', size=14)
-        self.cancel_btn.setStyleSheet(DesignSystem.get_cancel_button_style())
+        self.cancel_btn.setStyleSheet(DesignSystem.get_small_button_style("cancel"))
         self.cancel_btn.clicked.connect(self.cancel_requested.emit)
         header_layout.addWidget(self.cancel_btn)
         

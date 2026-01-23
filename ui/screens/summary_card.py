@@ -77,7 +77,7 @@ class SummaryCard(QFrame):
         self.btn_change.setProperty("class", "secondary-small")
         self.btn_change.setToolTip("Seleccionar otra carpeta")
         self.btn_change.clicked.connect(self._on_change_clicked)
-        self.btn_change.setStyleSheet(DesignSystem.get_secondary_small_button_style())
+        self.btn_change.setStyleSheet(DesignSystem.get_small_button_style("secondary"))
         header_layout.addWidget(self.btn_change)
         
         layout.addLayout(header_layout)
@@ -139,7 +139,7 @@ class SummaryCard(QFrame):
         )
         self.btn_reanalyze.setText("Reanalizar")
         self.btn_reanalyze.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_reanalyze.setStyleSheet(DesignSystem.get_link_button_style())
+        self.btn_reanalyze.setStyleSheet(DesignSystem.get_small_button_style("link"))
         self.btn_reanalyze.clicked.connect(self._on_reanalyze_clicked)
         info_layout.addWidget(self.btn_reanalyze)
         

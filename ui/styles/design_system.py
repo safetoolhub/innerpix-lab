@@ -1,27 +1,46 @@
-"""
-Design System para Pixaro Lab
-Tokens CSS centralizados para garantizar coherencia visual
+"""Design System para Innerpix Lab.
+
+Sistema de diseño centralizado que proporciona tokens CSS consistentes
+y métodos de estilo reutilizables para toda la aplicación.
+
+Este módulo define:
+- Tokens de diseño (colores, tipografía, espaciado, etc.)
+- Métodos de estilo QSS para componentes comunes
+- Estilos Material Design modernos y coherentes
+
+Usage:
+    from ui.styles.design_system import DesignSystem
+    
+    # Usar tokens
+    button.setStyleSheet(f"color: {DesignSystem.COLOR_PRIMARY};")
+    
+    # Usar métodos de estilo
+    button.setStyleSheet(DesignSystem.get_primary_button_style())
 """
 
 
 class DesignSystem:
-    """Design system centralizado con todos los tokens de diseño"""    
-  
-    # ==================== COLORES MODERNOS ====================
+    """Sistema de diseño centralizado con tokens y estilos reutilizables.
+    
+    Proporciona constantes de diseño (colores, tipografía, espaciado) y
+    métodos estáticos que retornan estilos QSS para componentes de PyQt6.
+    Sigue principios de Material Design para una experiencia moderna y coherente.
+    """
+    
+    # ==================== COLORES ====================
     
     # Colores base
-    COLOR_BACKGROUND = "#F8F9FA"  # Gris muy claro, más moderno que #f5f5f5
+    COLOR_BACKGROUND = "#F8F9FA"  # Gris muy claro y moderno
     COLOR_SURFACE = "#FFFFFF"
     COLOR_TEXT = "#212529"
     COLOR_TEXT_SECONDARY = "#6C757D"
-
     
-    # Colores primarios (Azul vibrante pero profesional)
+    # Colores primarios (Azul vibrante profesional)
     COLOR_PRIMARY = "#0D6EFD"
     COLOR_PRIMARY_HOVER = "#0B5ED7"
     COLOR_PRIMARY_ACTIVE = "#0A58CA"
-    COLOR_PRIMARY_LIGHT = "#E7F1FF"  # Para fondos sutiles
-    COLOR_PRIMARY_SUBTLE = "rgba(37, 99, 235, 0.02)"  # Para fondos muy sutiles (hover cards)
+    COLOR_PRIMARY_LIGHT = "#E7F1FF"  # Fondos sutiles
+    COLOR_PRIMARY_SUBTLE = "rgba(37, 99, 235, 0.02)"  # Fondos muy sutiles
     COLOR_PRIMARY_TEXT = "#FFFFFF"
     
     # Colores secundarios (Gris neutro)
@@ -43,7 +62,7 @@ class DesignSystem:
     # Bordes
     COLOR_BORDER = "#DEE2E6"
     COLOR_BORDER_LIGHT = "#E9ECEF"
-    COLOR_CARD_BORDER = "#DEE2E6"  # Alias for backward compatibility
+    COLOR_CARD_BORDER = "#DEE2E6"  # Alias para compatibilidad
     
     # ==================== TIPOGRAFÍA ====================
     
@@ -116,8 +135,8 @@ class DesignSystem:
     DROPZONE_WIDTH_MOBILE = 250
     DROPZONE_HEIGHT_MOBILE = 180
     
-    # ==================== LEGACY / COMPATIBILITY ====================
-    # Aliases maintained for backward compatibility with existing dialogs
+    # ==================== ALIASES PARA COMPATIBILIDAD ====================
+    # Mantenidos para retrocompatibilidad con diálogos existentes
     
     COLOR_ACCENT = COLOR_PRIMARY
     COLOR_BG_1 = COLOR_BACKGROUND
@@ -125,7 +144,6 @@ class DesignSystem:
     COLOR_BG_4 = COLOR_WARNING_BG
     COLOR_SURFACE_DISABLED = COLOR_SECONDARY_LIGHT
     COLOR_ERROR = COLOR_DANGER
-    
     RADIUS_SMALL = RADIUS_SM
     
     # ==================== ICONOS ====================
@@ -139,8 +157,13 @@ class DesignSystem:
     
     @staticmethod
     def get_stylesheet():
-        """
-        Retorna el stylesheet QSS global de la aplicación
+        """Retorna el stylesheet QSS global de la aplicación.
+        
+        Incluye estilos base para QMainWindow, QWidget y componentes comunes
+        como botones primarios/secundarios, cards y labels.
+        
+        Returns:
+            str: Stylesheet QSS global.
         """
         return f"""
             * {{
@@ -243,10 +266,13 @@ class DesignSystem:
     
     @staticmethod
     def get_tooltip_style():
-        """
-        Retorna el estilo QSS para tooltips de manera centralizada
-        TODOS los tooltips de la aplicación deben usar este estilo
-        Estilo Material Design: fondo oscuro, texto claro, sombra elegante
+        """Retorna el estilo QSS para tooltips.
+        
+        TODOS los tooltips de la aplicación deben usar este estilo.
+        Sigue Material Design: fondo oscuro semitransparente, texto claro.
+        
+        Returns:
+            str: Estilo QSS para tooltips.
         """
         return f"""
             QToolTip {{
@@ -263,8 +289,12 @@ class DesignSystem:
     
     @staticmethod
     def get_tab_widget_style():
-        """
-        Retorna el estilo QSS para widgets de pestañas (QTabWidget)
+        """Retorna el estilo QSS para widgets de pestañas (QTabWidget).
+        
+        Incluye estilos para el panel y las pestañas con estados hover/selected.
+        
+        Returns:
+            str: Estilo QSS para QTabWidget.
         """
         return f"""
             QTabWidget::pane {{
@@ -309,8 +339,12 @@ class DesignSystem:
 
     @staticmethod
     def get_context_menu_style():
-        """
-        Retorna el estilo QSS para menús contextuales (QMenu) Material Design
+        """Retorna el estilo QSS para menús contextuales (QMenu).
+        
+        Estilo Material Design con estados hover, disabled y separadores.
+        
+        Returns:
+            str: Estilo QSS para QMenu.
         """
         return f"""
             QMenu {{
@@ -351,9 +385,13 @@ class DesignSystem:
     
     @staticmethod
     def get_combobox_style():
-        """
-        Retorna el estilo QSS completo para ComboBox Material Design Premium
-        Incluye el dropdown y los items del menú con un look moderno y espacioso
+        """Retorna el estilo QSS completo para QComboBox.
+        
+        Estilo Material Design premium con dropdown y menú moderno.
+        Incluye estados hover, focus y selected.
+        
+        Returns:
+            str: Estilo QSS para QComboBox.
         """
         return f"""
             QComboBox {{
@@ -421,8 +459,12 @@ class DesignSystem:
 
     @staticmethod
     def get_progressbar_style():
-        """
-        Retorna el estilo QSS para barras de progreso
+        """Retorna el estilo QSS para QProgressBar.
+        
+        Barra de progreso con bordes redondeados y estilo moderno.
+        
+        Returns:
+            str: Estilo QSS para QProgressBar.
         """
         return f"""
             QProgressBar {{
@@ -445,8 +487,12 @@ class DesignSystem:
 
     @staticmethod
     def get_checkbox_style():
-        """
-        Retorna el estilo consistente para checkboxes
+        """Retorna el estilo QSS para QCheckBox.
+        
+        Incluye indicador personalizado con checkmark SVG y estados hover/disabled.
+        
+        Returns:
+            str: Estilo QSS para QCheckBox.
         """
         return f"""
             QCheckBox {{
@@ -480,8 +526,12 @@ class DesignSystem:
 
     @staticmethod
     def get_lineedit_style():
-        """
-        Retorna el estilo consistente para QLineEdit
+        """Retorna el estilo QSS para QLineEdit.
+        
+        Incluye estados focus y read-only con colores diferenciados.
+        
+        Returns:
+            str: Estilo QSS para QLineEdit.
         """
         return f"""
             QLineEdit {{
@@ -501,13 +551,17 @@ class DesignSystem:
             }}
         """
 
-    # ==================== BOTONES DE ACCIÓN (MATERIAL DESIGN) ====================
+    # ==================== ESTILOS DE BOTONES ====================
     
     @staticmethod
     def get_primary_button_style():
-        """
-        Estilo para botón primario (acción principal).
-        Ejemplo: "Organizar Archivos", "Proceder", "Eliminar Ahora"
+        """Retorna el estilo para botón primario (acción principal).
+        
+        Uso recomendado: Acciones principales como "Organizar Archivos",
+        "Proceder", "Guardar", "Aceptar".
+        
+        Returns:
+            str: Estilo QSS con estados hover, pressed y disabled.
         """
         return f"""
             QPushButton {{
@@ -535,10 +589,13 @@ class DesignSystem:
     
     @staticmethod
     def get_danger_button_style():
-        """
-        Estilo para botón de acción destructiva.
-        Ejemplo: "Eliminar", "Borrar Archivos"
-        Material Design: hover más oscuro para mejor feedback visual
+        """Retorna el estilo para botón de acción destructiva.
+        
+        Uso recomendado: Acciones irreversibles como "Eliminar",
+        "Borrar Archivos", "Eliminar Permanentemente".
+        
+        Returns:
+            str: Estilo QSS con hover más oscuro para feedback visual.
         """
         return f"""
             QPushButton {{
@@ -566,10 +623,13 @@ class DesignSystem:
     
     @staticmethod
     def get_secondary_button_style():
-        """
-        Estilo para botón secundario (cancelar, cerrar).
-        Ejemplo: "Cancelar"
-        Material Design: hover sutil con fondo claro
+        """Retorna el estilo para botón secundario.
+        
+        Uso recomendado: Acciones de cancelación, cerrar diálogos,
+        acciones alternativas no destructivas.
+        
+        Returns:
+            str: Estilo QSS con hover sutil y borde visible.
         """
         return f"""
             QPushButton {{
@@ -590,18 +650,21 @@ class DesignSystem:
                 background-color: {DesignSystem.COLOR_BORDER_LIGHT};
             }}
             QPushButton:disabled {{
-            background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
-            color: {DesignSystem.COLOR_TEXT_SECONDARY};
-            border: 1px solid {DesignSystem.COLOR_BORDER};
-        }}
+                background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+            }}
         """
     
     @staticmethod
     def get_icon_button_style():
-        """
-        Estilo para botones de icono (QToolButton) en header.
-        Material Design: hover sutil con fondo claro, no opaco.
-        Ejemplo: Botones de configuración y about en el header.
+        """Retorna el estilo para botones de icono (QToolButton).
+        
+        Uso recomendado: Botones con solo iconos en headers, toolbars.
+        Ejemplos: Configuración, información, menús.
+        
+        Returns:
+            str: Estilo QSS transparente con hover sutil.
         """
         return f"""
             QToolButton {{
@@ -620,9 +683,13 @@ class DesignSystem:
 
     @staticmethod
     def get_info_badge_style():
-        """
-        Estilo para el badge de información en las cards.
-        Fondo transparente por defecto, azul claro al hover para mantener contraste con el icono azul.
+        """Retorna el estilo para badges de información.
+        
+        Badge transparente por defecto, con fondo azul claro al hover.
+        Usado en cards para mostrar información adicional.
+        
+        Returns:
+            str: Estilo QSS para QLabel tipo badge.
         """
         return f"""
             QLabel {{
@@ -638,9 +705,13 @@ class DesignSystem:
     
     @staticmethod
     def get_card_style():
-        """
-        Estilo base para cards (QFrame).
-        Usado en: summary_card, progress_card, folder_selection_card, header_card, etc.
+        """Retorna el estilo base para cards (QFrame).
+        
+        Card estándar con padding normal. Usado en summary_card,
+        progress_card, folder_selection_card, etc.
+        
+        Returns:
+            str: Estilo QSS para QFrame tipo card.
         """
         return f"""
             QFrame {{
@@ -653,8 +724,12 @@ class DesignSystem:
     
     @staticmethod
     def get_card_style_compact():
-        """
-        Estilo para cards más compactas con menos padding.
+        """Retorna el estilo para cards compactas.
+        
+        Variante con menos padding para espacios reducidos.
+        
+        Returns:
+            str: Estilo QSS para QFrame compacto.
         """
         return f"""
             QFrame {{
@@ -667,8 +742,12 @@ class DesignSystem:
     
     @staticmethod
     def get_header_card_style():
-        """
-        Estilo para la card de header de la aplicación.
+        """Retorna el estilo para la card de header.
+        
+        Card del encabezado principal de la aplicación con padding horizontal.
+        
+        Returns:
+            str: Estilo QSS para header.
         """
         return f"""
             QFrame {{
@@ -681,8 +760,13 @@ class DesignSystem:
     
     @staticmethod
     def get_stale_banner_style():
-        """
-        Estilo para banner de advertencia (estadísticas desactualizadas).
+        """Retorna el estilo para banner de advertencia.
+        
+        Banner amarillo para mostrar estadísticas desactualizadas u
+        otras advertencias no críticas.
+        
+        Returns:
+            str: Estilo QSS para banner de advertencia.
         """
         return f"""
             QFrame#staleBanner {{
@@ -694,8 +778,13 @@ class DesignSystem:
     
     @staticmethod
     def get_warning_button_style():
-        """
-        Estilo para botón de acción en banners de advertencia.
+        """Retorna el estilo para botones en banners de advertencia.
+        
+        Botón semitransparente que se integra con el fondo amarillo
+        del banner de advertencia.
+        
+        Returns:
+            str: Estilo QSS para botones en banners.
         """
         return f"""
             QPushButton {{
@@ -711,12 +800,16 @@ class DesignSystem:
             }}
         """
     
-    # ==================== LABELS Y TEXTO ====================
+    # ==================== ESTILOS DE TEXTO Y LABELS ====================
     
     @staticmethod
     def get_label_title_style():
-        """
-        Estilo para títulos principales (welcome title, header title).
+        """Retorna el estilo para títulos principales.
+        
+        Usado en welcome title, header title y otros títulos destacados.
+        
+        Returns:
+            str: Estilo CSS para texto de título.
         """
         return f"""
             font-size: {DesignSystem.FONT_SIZE_LG}px;
@@ -726,8 +819,12 @@ class DesignSystem:
     
     @staticmethod
     def get_label_subtitle_style():
-        """
-        Estilo para subtítulos.
+        """Retorna el estilo para subtítulos.
+        
+        Texto secundario más pequeño para complementar títulos.
+        
+        Returns:
+            str: Estilo QSS para QLabel de subtítulo.
         """
         return f"""
             QLabel {{
@@ -743,8 +840,12 @@ class DesignSystem:
     
     @staticmethod
     def get_label_mono_style():
-        """
-        Estilo para texto monoespaciado (rutas, código).
+        """Retorna el estilo para texto monoespaciado.
+        
+        Usado para rutas de archivos, código y datos técnicos.
+        
+        Returns:
+            str: Estilo CSS con fuente monoespaciada.
         """
         return f"""
             font-family: {DesignSystem.FONT_FAMILY_MONO};
@@ -755,8 +856,12 @@ class DesignSystem:
     
     @staticmethod
     def get_label_secondary_style():
-        """
-        Estilo para texto secundario (hints, descripciones cortas).
+        """Retorna el estilo para texto secundario.
+        
+        Usado para hints, descripciones cortas y texto de apoyo.
+        
+        Returns:
+            str: Estilo CSS con color secundario.
         """
         return f"""
             font-size: {DesignSystem.FONT_SIZE_BASE}px;
@@ -766,8 +871,13 @@ class DesignSystem:
     
     @staticmethod
     def get_section_title_style():
-        """
-        Estilo para títulos de sección (categorías de herramientas).
+        """Retorna el estilo para títulos de sección.
+        
+        Títulos pequeños en mayúsculas para categorizar contenido
+        (ej: categorías de herramientas).
+        
+        Returns:
+            str: Estilo CSS uppercase con letra espaciada.
         """
         return f"""
             font-size: 10px;
@@ -776,12 +886,16 @@ class DesignSystem:
             letter-spacing: 0.5px;
         """
     
-    # ==================== SEPARADORES ====================
+    # ==================== OTROS COMPONENTES ====================
     
     @staticmethod
     def get_separator_style():
-        """
-        Estilo para líneas separadoras horizontales.
+        """Retorna el estilo para líneas separadoras.
+        
+        Línea horizontal simple para dividir secciones.
+        
+        Returns:
+            str: Estilo CSS para QFrame tipo separador.
         """
         return f"background-color: {DesignSystem.COLOR_BORDER};"
     
@@ -789,11 +903,15 @@ class DesignSystem:
     
     @staticmethod
     def get_dropzone_style(dragging: bool = False):
-        """
-        Estilo para el widget de dropzone.
+        """Retorna el estilo para el widget de dropzone.
+        
+        Zona de arrastrar y soltar archivos con estados visual diferenciados.
         
         Args:
-            dragging: Si el usuario está arrastrando algo sobre el widget
+            dragging: True si el usuario está arrastrando sobre el widget.
+        
+        Returns:
+            str: Estilo QSS con estado drag activo o inactivo.
         """
         if dragging:
             return f"""
@@ -820,8 +938,13 @@ class DesignSystem:
     
     @staticmethod
     def get_tool_card_style():
-        """
-        Estilo para las cards de herramientas en el grid.
+        """Retorna el estilo para cards de herramientas.
+        
+        Cards interactivas en el grid de herramientas del Stage 3.
+        Incluye estados hover y disabled.
+        
+        Returns:
+            str: Estilo QSS para ToolCard.
         """
         return f"""
             ToolCard {{
@@ -841,9 +964,15 @@ class DesignSystem:
     
     @staticmethod
     def get_tool_card_action_button_style():
-        """
-        Estilo para el botón de acción dentro de las tool cards.
-        Incluye clases para estados: primary (azul), warning (ámbar).
+        """Retorna el estilo para botones de acción en tool cards.
+        
+        Incluye variantes por clase:
+        - 'primary': Botón azul para GESTIONAR
+        - 'warning': Botón ámbar para ANALIZAR
+        - disabled: Estado deshabilitado
+        
+        Returns:
+            str: Estilo QSS con clases primary/warning.
         """
         return f"""
             QPushButton {{
@@ -883,11 +1012,16 @@ class DesignSystem:
     
     @staticmethod
     def get_status_badge_style(bg_color: str):
-        """
-        Estilo para badges de estado en tool cards.
+        """Retorna el estilo para badges de estado.
+        
+        Pequeños badges redondeados para mostrar contadores o estados
+        en tool cards.
         
         Args:
-            bg_color: Color de fondo del badge
+            bg_color: Color de fondo del badge (hex o rgb).
+        
+        Returns:
+            str: Estilo QSS para QLabel con objectName 'statusBadge'.
         """
         return f"""
             QLabel#statusBadge {{
@@ -905,8 +1039,12 @@ class DesignSystem:
     
     @staticmethod
     def get_spinbox_style():
-        """
-        Estilo para QSpinBox personalizado.
+        """Retorna el estilo para QSpinBox.
+        
+        Spinbox personalizado con botones up/down estilizados.
+        
+        Returns:
+            str: Estilo QSS completo para QSpinBox.
         """
         return f"""
             QSpinBox {{
@@ -959,71 +1097,75 @@ class DesignSystem:
             }}
         """
     
-    # ==================== BOTONES SECUNDARIOS PEQUEÑOS ====================
-    
     @staticmethod
-    def get_secondary_small_button_style():
+    def get_small_button_style(style_type: str = "secondary"):
+        """Retorna el estilo para botones pequeños.
+        
+        Uso recomendado: Badges, acciones menores, botones compactos.
+        
+        Args:
+            style_type: Tipo de estilo ('secondary', 'cancel', 'link').
+                - 'secondary': Fondo gris claro (default)
+                - 'cancel': Transparente con borde
+                - 'link': Estilo texto/link sin fondo
+        
+        Returns:
+            str: Estilo QSS para botones pequeños.
         """
-        Estilo para botones secundarios pequeños (badges, acciones menores).
-        """
-        return f"""
-            QPushButton {{
-                background-color: {DesignSystem.COLOR_BG_2};
-                color: {DesignSystem.COLOR_TEXT};
-                border: none;
-                border-radius: {DesignSystem.RADIUS_SM}px;
-                padding: 4px 10px;
-                font-size: {DesignSystem.FONT_SIZE_XS}px;
-            }}
-            QPushButton:hover {{
-                background-color: {DesignSystem.COLOR_BORDER};
-            }}
-        """
-    
-    @staticmethod
-    def get_cancel_button_style():
-        """
-        Estilo para botones de cancelar (discretos).
-        """
-        return f"""
-            QPushButton {{
-                background: transparent;
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_8}px;
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-            }}
-            QPushButton:hover {{
-                background: {DesignSystem.COLOR_BG_2};
-                border-color: {DesignSystem.COLOR_TEXT_SECONDARY};
-            }}
-        """
-    
-    @staticmethod
-    def get_link_button_style():
-        """
-        Estilo para botones que parecen links (Reanalizar, etc).
-        """
-        return f"""
-            QPushButton {{
-                background: transparent;
-                border: none;
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-                padding: 4px 8px;
-            }}
-            QPushButton:hover {{
-                color: {DesignSystem.COLOR_PRIMARY};
-                text-decoration: underline;
-            }}
-        """
+        if style_type == "cancel":
+            return f"""
+                QPushButton {{
+                    background: transparent;
+                    border: 1px solid {DesignSystem.COLOR_BORDER};
+                    border-radius: {DesignSystem.RADIUS_BASE}px;
+                    padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_8}px;
+                    color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                    font-size: {DesignSystem.FONT_SIZE_SM}px;
+                }}
+                QPushButton:hover {{
+                    background: {DesignSystem.COLOR_BG_2};
+                    border-color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                }}
+            """
+        elif style_type == "link":
+            return f"""
+                QPushButton {{
+                    background: transparent;
+                    border: none;
+                    color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                    font-size: {DesignSystem.FONT_SIZE_SM}px;
+                    font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                    padding: 4px 8px;
+                }}
+                QPushButton:hover {{
+                    color: {DesignSystem.COLOR_PRIMARY};
+                    text-decoration: underline;
+                }}
+            """
+        else:  # secondary (default)
+            return f"""
+                QPushButton {{
+                    background-color: {DesignSystem.COLOR_BG_2};
+                    color: {DesignSystem.COLOR_TEXT};
+                    border: none;
+                    border-radius: {DesignSystem.RADIUS_SM}px;
+                    padding: 4px 10px;
+                    font-size: {DesignSystem.FONT_SIZE_XS}px;
+                }}
+                QPushButton:hover {{
+                    background-color: {DesignSystem.COLOR_BORDER};
+                }}
+            """
     
     @staticmethod
     def get_last_folder_container_style():
-        """
-        Estilo para el contenedor de última carpeta analizada.
+        """Retorna el estilo para contenedor de última carpeta.
+        
+        Contenedor con fondo azul sutil para destacar la última
+        carpeta analizada en Stage 1.
+        
+        Returns:
+            str: Estilo QSS para QWidget contenedor.
         """
         return f"""
             QWidget {{
@@ -1035,8 +1177,12 @@ class DesignSystem:
     
     @staticmethod
     def get_use_folder_button_style():
-        """
-        Estilo para botón "Usar esta carpeta".
+        """Retorna el estilo para botón 'Usar esta carpeta'.
+        
+        Botón compacto de acción rápida en Stage 1.
+        
+        Returns:
+            str: Estilo QSS compacto con color primario.
         """
         return f"""
             QPushButton {{
@@ -1056,15 +1202,18 @@ class DesignSystem:
             }}
         """
     
-    # ==================== PHASE WIDGET ====================
+    # ==================== ESTILOS DE ANÁLISIS Y FASES ====================
     
     @staticmethod
     def get_phase_text_style(status: str = 'pending'):
-        """
-        Estilo para texto de fases de análisis.
+        """Retorna el estilo para texto de fases de análisis.
         
         Args:
-            status: 'pending', 'running', 'completed', 'error', 'skipped'
+            status: Estado de la fase ('pending', 'running', 'completed',
+                   'error', 'skipped').
+        
+        Returns:
+            str: Estilo CSS con color según estado.
         """
         base_style = f"font-size: {DesignSystem.FONT_SIZE_LG}px; line-height: 1.0;"
         
@@ -1099,11 +1248,15 @@ class DesignSystem:
     
     @staticmethod
     def get_phase_counter_style(active: bool = False):
-        """
-        Estilo para contadores de progreso de fases.
+        """Retorna el estilo para contadores de progreso.
+        
+        Contadores numéricos que muestran progreso de archivos procesados.
         
         Args:
-            active: Si la fase está activa (azul) o no (gris)
+            active: True para fase activa (azul), False para inactiva (gris).
+        
+        Returns:
+            str: Estilo CSS con fuente monoespaciada.
         """
         color = DesignSystem.COLOR_PRIMARY if active else DesignSystem.COLOR_TEXT_SECONDARY
         weight = DesignSystem.FONT_WEIGHT_MEDIUM if active else DesignSystem.FONT_WEIGHT_NORMAL
@@ -1117,8 +1270,12 @@ class DesignSystem:
     
     @staticmethod
     def get_phase_skipped_counter_style():
-        """
-        Estilo para contador de fase omitida.
+        """Retorna el estilo para contador de fase omitida.
+        
+        Texto en itálica gris para indicar que la fase fue saltada.
+        
+        Returns:
+            str: Estilo CSS con font-style italic.
         """
         return f"""
             font-size: {DesignSystem.FONT_SIZE_SM}px;
@@ -1128,12 +1285,14 @@ class DesignSystem:
             font-style: italic;
         """
 
-    # ==================== ESTILOS DE TEXTO GENÉRICOS ====================
+    # ==================== ESTILOS DE TEXTO AUXILIARES ====================
     
     @staticmethod
     def get_dropzone_main_text_style():
-        """
-        Estilo para texto principal del dropzone.
+        """Retorna el estilo para texto principal del dropzone.
+        
+        Returns:
+            str: Estilo CSS para texto destacado.
         """
         return f"""
             font-size: {DesignSystem.FONT_SIZE_BASE}px;
@@ -1143,8 +1302,10 @@ class DesignSystem:
     
     @staticmethod
     def get_dropzone_hint_text_style():
-        """
-        Estilo para texto secundario (hint) del dropzone.
+        """Retorna el estilo para hint del dropzone.
+        
+        Returns:
+            str: Estilo CSS para texto secundario/hint.
         """
         return f"""
             font-size: {DesignSystem.FONT_SIZE_SM}px;
@@ -1153,8 +1314,10 @@ class DesignSystem:
     
     @staticmethod
     def get_analysis_phase_frame_style():
-        """
-        Estilo para el frame del widget de fases de análisis.
+        """Retorna el estilo para frame del widget de fases.
+        
+        Returns:
+            str: Estilo QSS transparente sin borde.
         """
         return f"""
             QFrame {{
@@ -1165,8 +1328,10 @@ class DesignSystem:
     
     @staticmethod
     def get_analysis_phase_header_style():
-        """
-        Estilo para el header del widget de fases de análisis.
+        """Retorna el estilo para header del widget de fases.
+        
+        Returns:
+            str: Estilo CSS para título de sección.
         """
         return f"""
             font-size: {DesignSystem.FONT_SIZE_LG}px;
@@ -1176,8 +1341,10 @@ class DesignSystem:
     
     @staticmethod
     def get_stats_label_style():
-        """
-        Estilo para labels de estadísticas.
+        """Retorna el estilo para labels de estadísticas.
+        
+        Returns:
+            str: Estilo CSS para texto de estadísticas.
         """
         return f"""
             font-size: {DesignSystem.FONT_SIZE_BASE}px;
@@ -1187,8 +1354,12 @@ class DesignSystem:
     
     @staticmethod
     def get_visual_bar_container_style():
-        """
-        Estilo para el contenedor de la barra visual de estadísticas.
+        """Retorna el estilo para contenedor de barra visual.
+        
+        Contenedor con fondo gris para barras de progreso visuales.
+        
+        Returns:
+            str: Estilo QSS para QFrame contenedor.
         """
         return f"""
             QFrame {{
@@ -1200,11 +1371,13 @@ class DesignSystem:
     
     @staticmethod
     def get_status_label_style(state: str = 'normal'):
-        """
-        Estilo para labels de estado (ej: "Analizando...", "Completado").
+        """Retorna el estilo para labels de estado.
         
         Args:
-            state: 'normal', 'success'
+            state: 'normal' para texto estándar, 'success' para verde.
+        
+        Returns:
+            str: Estilo CSS con color según estado.
         """
         if state == 'success':
             return f"""
@@ -1220,11 +1393,13 @@ class DesignSystem:
     
     @staticmethod
     def get_tip_text_style(color: str = None):
-        """
-        Estilo para texto de tips/consejos.
+        """Retorna el estilo para texto de tips/consejos.
         
         Args:
-            color: Color opcional del texto
+            color: Color opcional del texto (hex o rgb).
+        
+        Returns:
+            str: Estilo QSS para QLabel de tip.
         """
         text_color = color if color else DesignSystem.COLOR_TEXT_SECONDARY
         return f"""
@@ -1240,8 +1415,12 @@ class DesignSystem:
     
     @staticmethod
     def get_empty_state_text_style():
-        """
-        Estilo para texto de estado vacío (placeholder).
+        """Retorna el estilo para texto de estado vacío.
+        
+        Texto placeholder en itálica para secciones sin contenido.
+        
+        Returns:
+            str: Estilo CSS con font-style italic.
         """
         return f"""
             font-size: {DesignSystem.FONT_SIZE_SM}px;
@@ -1252,8 +1431,13 @@ class DesignSystem:
     
     @staticmethod
     def get_info_text_style():
-        """
-        Estilo para texto informativo (ej: última carpeta analizada).
+        """Retorna el estilo para texto informativo.
+        
+        Usado para mostrar información contextual como última
+        carpeta analizada.
+        
+        Returns:
+            str: Estilo CSS compacto para información.
         """
         return f"""
             color: {DesignSystem.COLOR_TEXT};
