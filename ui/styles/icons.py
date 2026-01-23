@@ -1,28 +1,43 @@
-"""
-Icon Manager - Sistema centralizado de gestión de iconos con QtAwesome
+"""Icon Manager - Sistema centralizado de gestión de iconos con QtAwesome.
 
 Este módulo proporciona una interfaz unificada para gestionar iconos Material Design
-en toda la aplicación usando QtAwesome, reemplazando el uso problemático de emojis.
+en toda la aplicación usando QtAwesome.
 
 Características:
-- Sistema de caché para mejorar rendimiento
-- Diccionario centralizado de mapeo de iconos
-- Métodos helper para aplicar iconos a botones y labels
-- Soporte para diferentes tamaños y colores
-- Sin dependencia de fuentes de emojis
-- Totalmente multiplataforma (Windows, Linux, macOS, Android, iOS)
+- Diccionario centralizado de mapeo de iconos (ICON_MAP)
+- Métodos helper para aplicar iconos a botones, labels y QToolButtons
+- Soporte para diferentes tamaños y colores con caché integrado
+- Sistema de caché para optimizar rendimiento
+- Soporte HiDPI con devicePixelRatio automático
+- Totalmente multiplataforma (Windows, Linux, macOS)
 
 Uso básico:
     from ui.styles.icons import icon_manager
     
-    # En un botón
-    icon_manager.set_button_icon(button, 'settings')
+    # Aplicar icono a un botón
+    icon_manager.set_button_icon(button, 'cog', color='#2563eb', size=20)
     
-    # En un label
-    icon_manager.set_label_icon(label, 'info', size=16, color='#1e40af')
+    # Aplicar icono a un label
+    icon_manager.set_label_icon(label, 'information', size=16, color='#1e40af')
     
     # Obtener un QIcon directamente
     icon = icon_manager.get_icon('folder', color='#2563eb')
+    
+    # Crear un QToolButton con icono
+    icon_button = icon_manager.create_icon_label('alert', size=18)
+
+Categorías de iconos disponibles:
+- Configuración y sistema: cog, information, devices, monitor, etc.
+- Estados y notificaciones: alert, check, close, shield, etc.
+- Archivos y carpetas: folder, file, open-in-new, magnify, etc.
+- Operaciones: delete, content-save, backup-restore, refresh, etc.
+- Multimedia: image, video, camera, eye, etc.
+- Duplicados: content-copy
+- Renombrado: rename-box, rename-box-outline
+- Tiempo y progreso: clock-outline, loading, progress-clock, etc.
+- Navegación: chevron-left, chevron-right, skip-previous, skip-next, etc.
+- Metadatos: ruler, fingerprint, map-marker, palette, etc.
+- Almacenamiento: database, database-refresh, database-check, etc.
 """
 
 import qtawesome as qta
@@ -40,14 +55,18 @@ class IconManager:
     """
     
     # Diccionario de mapeo: nombre lógico → nombre de icono Material Design en QtAwesome
-    # Solo incluye iconos actualmente en uso en el proyecto
+    # Iconos organizados por categorías funcionales
     ICON_MAP = {
-        # Top Bar y configuración
+        # === CONFIGURACIÓN Y SISTEMA ===
         'cog': 'mdi6.cog',
         'information': 'mdi6.information',
         'information-outline': 'mdi6.information-outline',
+        'devices': 'mdi6.devices',
+        'monitor': 'mdi6.monitor',
+        'harddisk': 'mdi6.harddisk',
+        'speedometer': 'mdi6.speedometer',
         
-        # Estados y notificaciones
+        # === ESTADOS Y NOTIFICACIONES ===
         'alert': 'mdi6.alert',
         'alert-circle': 'mdi6.alert-circle',
         'check': 'mdi6.check',
@@ -57,8 +76,9 @@ class IconManager:
         'pause-circle': 'mdi6.pause-circle',
         'plus-circle': 'mdi6.plus-circle',
         'shield': 'mdi6.shield',
+        'target': 'mdi6.target',
         
-        # Archivos y carpetas
+        # === ARCHIVOS Y CARPETAS ===
         'folder': 'mdi6.folder',
         'folder-open': 'mdi6.folder-open',
         'folder-cog': 'mdi6.folder-cog',
@@ -70,6 +90,8 @@ class IconManager:
         'file-x': 'mdi6.file-remove',
         'file-image': 'mdi6.file-image',
         'file-video': 'mdi6.file-video',
+        
+        # === OPERACIONES DE ARCHIVOS ===
         'open-in-new': 'mdi6.open-in-new',
         'magnify': 'mdi6.magnify',
         'refresh': 'mdi6.refresh',
@@ -81,19 +103,19 @@ class IconManager:
         'backup-restore': 'mdi6.backup-restore',
         'history': 'mdi6.history',
         
-        # Estadísticas y tiempo
+        # === TIEMPO Y ESTADÍSTICAS ===
         'chart-bar': 'mdi6.chart-bar',
         'clock-outline': 'mdi6.clock-outline',
         'clock-fast': 'mdi6.clock-fast',
         'clock-time-four': 'mdi6.clock-time-four',
         'timer-sand': 'mdi6.timer-sand',
         'update': 'mdi6.update',
-        'arrow-expand-all': 'mdi6.arrow-expand-all',
-        'arrow-collapse-all': 'mdi6.arrow-collapse-all',
         'calendar-month': 'mdi6.calendar-month',
         'calendar-check': 'mdi6.calendar-check',
+        'arrow-expand-all': 'mdi6.arrow-expand-all',
+        'arrow-collapse-all': 'mdi6.arrow-collapse-all',
         
-        # Archivos multimedia
+        # === MULTIMEDIA ===
         'image': 'mdi6.image',
         'image-multiple': 'mdi6.image-multiple',
         'image-album': 'mdi6.image-album',
@@ -102,44 +124,33 @@ class IconManager:
         'camera-burst': 'mdi6.camera-burst',
         'video': 'mdi6.video',
         'eye': 'mdi6.eye',
+        'movie-open': 'mdi6.movie-open',
+        'play-circle': 'mdi6.play-circle',
         
-        # Duplicados y copias
+        # === DUPLICADOS Y COPIAS ===
         'content-copy': 'mdi6.content-copy',
         
-        # Renombrado
+        # === RENOMBRADO ===
         'rename-box': 'mdi6.rename-box',
         'rename-box-outline': 'mdi6.rename-box-outline',
         
-        # Progreso y loading
+        # === PROGRESO Y LOADING ===
         'loading': 'mdi6.loading',
         'progress-clock': 'mdi6.progress-clock',
         
-        # Reproducción y navegación
-        'play-circle': 'mdi6.play-circle',
+        # === NAVEGACIÓN ===
         'skip-previous': 'mdi6.skip-previous',
         'skip-next': 'mdi6.skip-next',
         'chevron-left': 'mdi6.chevron-left',
         'chevron-right': 'mdi6.chevron-right',
         
-        # Aplicación
-        'movie-open': 'mdi6.movie-open',
-        
-        # Dispositivos y hardware
-        'devices': 'mdi6.devices',
-        'monitor': 'mdi6.monitor',
-        'harddisk': 'mdi6.harddisk',
-        'speedometer': 'mdi6.speedometer',
-        
-        # Metadatos y medición
+        # === METADATOS Y PROPIEDADES ===
         'ruler': 'mdi6.ruler',
         'fingerprint': 'mdi6.fingerprint',
         'map-marker': 'mdi6.map-marker',
         'palette': 'mdi6.palette',
         
-        # Objetivos
-        'target': 'mdi6.target',
-        
-        # Almacenamiento
+        # === ALMACENAMIENTO Y BASE DE DATOS ===
         'database': 'mdi6.database',
         'database-refresh': 'mdi6.database-refresh',
         'database-check': 'mdi6.database-check',
@@ -292,8 +303,12 @@ class IconManager:
         icon_name: str,
         color: Optional[str] = None,
         size: int = 16
-    ) -> QLabel:
-        """Crea un nuevo QLabel con un icono Material Design.
+    ) -> QToolButton:
+        """Crea un QToolButton con un icono Material Design.
+        
+        Utiliza QToolButton en lugar de QLabel para aprovechar el renderizado
+        nativo de QIcon, lo que garantiza consistencia con pestañas y mejora
+        el soporte HiDPI en todas las plataformas.
         
         Args:
             icon_name: Nombre lógico del icono
@@ -301,7 +316,7 @@ class IconManager:
             size: Tamaño del icono en píxeles
         
         Returns:
-            QLabel configurado con el icono
+            QToolButton configurado con el icono y estilo plano transparente
         """
         # Para evitar inconsistencias de rasterizado en HiDPI, creamos un
         # QToolButton plano que usa QIcon internamente. Esto permite que Qt
