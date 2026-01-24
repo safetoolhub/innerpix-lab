@@ -588,21 +588,40 @@ class VisualIdenticalDialog(BaseDialog):
             self._load_more_groups()
     
     def _add_group_to_tree(self, group: VisualIdenticalGroup, group_num: int):
-        """Añade un grupo al árbol."""
+        """Añade un grupo al árbol con estilo Material Design."""
         # Determinar archivo a conservar
         keep_file = self._get_file_to_keep(group)
+        file_count = len(group.files)
         
         # Crear item de grupo
         group_item = QTreeWidgetItem()
-        group_item.setText(0, f"Grupo {group_num} ({len(group.files)} archivos)")
-        group_item.setText(1, format_size(group.total_size))
-        group_item.setText(2, "")
-        group_item.setText(3, "")
+        group_item.setText(0, f"Grupo #{group_num} • {file_count} copias")
+        # Las otras columnas quedan vacías para grupos - solo se usan para archivos
         
-        # Indicar variación de tamaño si es significativa
+        # Estilo del grupo padre estándar (Bold + Blue + BASE size)
+        font = group_item.font(0)
+        font.setBold(True)
+        font.setPointSize(int(DesignSystem.FONT_SIZE_XS))
+        group_item.setFont(0, font)
+        group_item.setForeground(0, QColor(DesignSystem.COLOR_PRIMARY))
+        
+        # Tooltip informativo sobre doble click
+        group_item.setToolTip(0, f"Grupo #{group_num} con {file_count} archivos visualmente idénticos\n"
+                                 f"▶ 💡 Doble clic para expandir y ver detalles de archivos\n"
+                                 f"💡 Las columnas muestran información de cada archivo individual")
+        
+        # Color de fondo sutil Material Design
+        group_item.setBackground(0, QColor(DesignSystem.COLOR_BG_1))
+        group_item.setBackground(1, QColor(DesignSystem.COLOR_BG_1))
+        group_item.setBackground(2, QColor(DesignSystem.COLOR_BG_1))
+        group_item.setBackground(3, QColor(DesignSystem.COLOR_BG_1))
+        group_item.setBackground(4, QColor(DesignSystem.COLOR_BG_1))
+        
+        # Indicar variación de tamaño si es significativa (en tooltip)
         if group.size_variation_percent > 10:
-            group_item.setText(4, f"↕ {group.size_variation_percent:.0f}% variación")
-            group_item.setForeground(4, QColor(DesignSystem.COLOR_WARNING))
+            tooltip = group_item.toolTip(0)
+            tooltip += f"\n⚠ Variación de tamaño: {group.size_variation_percent:.0f}%"
+            group_item.setToolTip(0, tooltip)
         
         group_item.setData(0, Qt.ItemDataRole.UserRole, group)
         group_item.setExpanded(True)
@@ -770,40 +789,73 @@ class VisualIdenticalDialog(BaseDialog):
         self._load_initial_groups()
     
     def _on_item_double_clicked(self, item: QTreeWidgetItem, column: int):
-        """Maneja doble clic en un item."""
+        """Maneja doble clic: expande grupos o abre archivos."""
+        from .dialog_utils import open_file
+        
         data = item.data(0, Qt.ItemDataRole.UserRole)
         
         if isinstance(data, Path):
-            # Es un archivo - abrir ubicación
-            QDesktopServices.openUrl(QUrl.fromLocalFile(str(data.parent)))
+            # Es un archivo - abrirlo
+            open_file(data, self)
         elif isinstance(data, VisualIdenticalGroup):
             # Es un grupo - expandir/colapsar
             item.setExpanded(not item.isExpanded())
     
     def _show_context_menu(self, pos):
-        """Muestra menú contextual."""
+        """Muestra menú contextual para archivos individuales."""
+        from .dialog_utils import open_file, open_folder, show_file_details_dialog
+        
         item = self.tree_widget.itemAt(pos)
         if not item:
             return
         
         data = item.data(0, Qt.ItemDataRole.UserRole)
+        if not isinstance(data, Path):
+            return  # Es un grupo padre, no mostrar menú
+        
+        file_path = data
         
         menu = QMenu(self)
+        menu.setStyleSheet(DesignSystem.get_context_menu_style())
         
-        if isinstance(data, Path):
-            # Menú para archivo
-            open_action = menu.addAction("Abrir archivo")
-            open_action.triggered.connect(lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(data))))
-            
-            open_folder_action = menu.addAction("Abrir carpeta")
-            open_folder_action.triggered.connect(lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(data.parent))))
-            
-            menu.addSeparator()
-            
-            details_action = menu.addAction("Ver detalles")
-            details_action.triggered.connect(lambda: show_file_details_dialog(data, self))
+        # Opciones para abrir archivo
+        open_action = menu.addAction(icon_manager.get_icon('open-in-new'), "Abrir archivo")
+        open_action.triggered.connect(lambda: open_file(file_path, self))
         
-        menu.exec(self.tree_widget.mapToGlobal(pos))
+        # Opción para abrir carpeta
+        open_folder_action = menu.addAction(icon_manager.get_icon('folder-open'), "Abrir carpeta contenedora")
+        open_folder_action.triggered.connect(lambda: open_folder(file_path.parent, self))
+        
+        menu.addSeparator()
+        
+        # Opción para ver detalles
+        details_action = menu.addAction(icon_manager.get_icon('information'), "Ver detalles del archivo")
+        details_action.triggered.connect(lambda: self._show_file_details(file_path))
+        
+        menu.exec(self.tree_widget.viewport().mapToGlobal(pos))
+    
+    def _show_file_details(self, file_path: Path):
+        """Muestra diálogo con detalles del archivo."""
+        # Determinar el estado del archivo (mantener/eliminar)
+        # Buscar en qué grupo está este archivo
+        status_info = None
+        for group in self.filtered_groups:
+            if file_path in group.files:
+                # Determinar qué archivo se mantiene
+                keep_file = self._get_file_to_keep(group)
+                
+                is_keep = file_path == keep_file
+                status_info = {
+                    'metadata': {
+                        'Estado': 'Se mantendrá' if is_keep else 'Se eliminará',
+                        'Grupo': f'{len(group.files)} archivos visualmente idénticos',
+                        'Espacio grupo': format_size(group.total_size),
+                        'Estrategia': self._strategy_name()
+                    }
+                }
+                break
+        
+        show_file_details_dialog(file_path, self, status_info)
     
     def accept(self):
         """Maneja la aceptación del diálogo."""
