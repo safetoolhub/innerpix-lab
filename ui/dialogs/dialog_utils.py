@@ -183,6 +183,56 @@ def get_file_icon_name(file_path: Path) -> str:
         return "file"
 
 
+def create_groups_tree_widget(
+    headers: list[str],
+    column_widths: list[int],
+    double_click_handler: Callable = None,
+    context_menu_handler: Callable = None
+) -> QTreeWidget:
+    """
+    Crea un QTreeWidget configurado para mostrar grupos expandibles.
+    
+    Configuración unificada con estilo Material Design para todos los diálogos.
+    
+    Args:
+        headers: Lista de nombres de columnas
+        column_widths: Lista de anchos de columna (debe tener mismo tamaño que headers)
+        double_click_handler: Función a conectar con itemDoubleClicked
+        context_menu_handler: Función a conectar con customContextMenuRequested
+        
+    Returns:
+        QTreeWidget configurado y estilizado
+    """
+    from PyQt6.QtWidgets import QTreeWidget
+    from PyQt6.QtCore import Qt
+    from ui.styles.design_system import DesignSystem
+    
+    tree = QTreeWidget()
+    tree.setHeaderLabels(headers)
+    
+    # Configurar anchos de columna
+    for i, width in enumerate(column_widths):
+        tree.setColumnWidth(i, width)
+    
+    # Configuración estándar para grupos expandibles
+    tree.setAlternatingRowColors(True)
+    tree.setRootIsDecorated(True)
+    tree.setAnimated(True)
+    tree.setIndentation(20)
+    tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+    
+    # Estilo Material Design
+    tree.setStyleSheet(DesignSystem.get_tree_widget_style())
+    
+    # Conectar señales si se proporcionan handlers
+    if double_click_handler:
+        tree.itemDoubleClicked.connect(double_click_handler)
+    if context_menu_handler:
+        tree.customContextMenuRequested.connect(context_menu_handler)
+    
+    return tree
+
+
 def show_file_context_menu(
     tree_widget: QTreeWidget, 
     position: QPoint, 

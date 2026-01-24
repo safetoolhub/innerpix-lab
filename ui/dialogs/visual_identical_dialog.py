@@ -27,7 +27,16 @@ from utils.logger import get_logger
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
 from .base_dialog import BaseDialog
-from .dialog_utils import show_file_details_dialog
+from .dialog_utils import (
+    show_file_details_dialog, 
+    create_groups_tree_widget, 
+    handle_tree_item_double_click, 
+    show_file_context_menu,
+    apply_group_item_style,
+    create_group_tooltip,
+    apply_file_item_status,
+    get_file_icon_name
+)
 
 
 class VisualIdenticalDialog(BaseDialog):
@@ -421,48 +430,15 @@ class VisualIdenticalDialog(BaseDialog):
     
     def _create_tree_widget(self) -> QTreeWidget:
         """Crea el widget de árbol para mostrar grupos."""
-        tree = QTreeWidget()
-        tree.setHeaderLabels(["Grupos / Archivos", "Tamaño", "Fecha", "Ubicación", "Estado"])
-        tree.setColumnWidth(0, 350)
-        tree.setColumnWidth(1, 100)
-        tree.setColumnWidth(2, 150)
-        tree.setColumnWidth(3, 250)
-        tree.setColumnWidth(4, 120)
-        tree.setAlternatingRowColors(True)
-        tree.setRootIsDecorated(True)
-        tree.setAnimated(True)
-        tree.setIndentation(20)
-        tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        tree.setStyleSheet(f"""
-            QTreeWidget {{
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-            }}
-            QTreeWidget::item {{
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_4}px;
-                border-bottom: 1px solid {DesignSystem.COLOR_BORDER_LIGHT};
-            }}
-            QTreeWidget::item:hover {{
-                background-color: {DesignSystem.COLOR_BG_2};
-            }}
-            QTreeWidget::item:selected {{
-                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
-                color: {DesignSystem.COLOR_TEXT};
-            }}
-            QHeaderView::section {{
-                background-color: {DesignSystem.COLOR_BG_1};
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                padding: {DesignSystem.SPACE_8}px;
-                border: none;
-                border-bottom: 2px solid {DesignSystem.COLOR_BORDER};
-                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-            }}
-        """)
-        tree.itemDoubleClicked.connect(self._on_item_double_clicked)
-        tree.customContextMenuRequested.connect(self._show_context_menu)
+        headers = ["Grupos / Archivos", "Tamaño", "Fecha", "Ubicación", "Estado"]
+        column_widths = [350, 100, 150, 250, 120]
         
-        return tree
+        return create_groups_tree_widget(
+            headers=headers,
+            column_widths=column_widths,
+            double_click_handler=self._on_item_double_clicked,
+            context_menu_handler=self._show_context_menu
+        )
     
     def _create_pagination_bar(self) -> QFrame:
         """Crea la barra de paginación."""

@@ -13,7 +13,16 @@ from utils.logger import get_logger
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
 from .base_dialog import BaseDialog
-from .dialog_utils import show_file_details_dialog
+from .dialog_utils import (
+    show_file_details_dialog,
+    create_groups_tree_widget,
+    handle_tree_item_double_click,
+    show_file_context_menu,
+    apply_group_item_style,
+    create_group_tooltip,
+    apply_file_item_status,
+    get_file_icon_name
+)
 from datetime import datetime
 
 
@@ -368,52 +377,15 @@ class DuplicatesExactDialog(BaseDialog):
         content_layout.addWidget(search_card)
         
         # ========== ÁRBOL DE GRUPOS ==========
-        self.tree_widget = QTreeWidget()
-        self.tree_widget.setHeaderLabels(["Grupos / Archivos", "Tamaño", "Fecha", "Origen", "Ubicación", "Estado"])
-        self.tree_widget.setColumnWidth(0, 300)  # Ajustado para grupos más simples
-        self.tree_widget.setColumnWidth(1, 100)
-        self.tree_widget.setColumnWidth(2, 140)  # Más espacio para fecha completa
-        self.tree_widget.setColumnWidth(3, 100)  # Origen de la fecha
-        self.tree_widget.setColumnWidth(4, 180)  # Más espacio para ubicación
-        self.tree_widget.setColumnWidth(5, 130)
-        self.tree_widget.setAlternatingRowColors(True)
-        self.tree_widget.setRootIsDecorated(True)
-        self.tree_widget.setAnimated(True)
-        self.tree_widget.setIndentation(20)
-        self.tree_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.tree_widget.setStyleSheet(f"""
-            QTreeWidget {{
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                outline: none;
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_4}px;
-            }}
-            QTreeWidget::item {{
-                border: none;
-                outline: none;
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_4}px;
-                border-bottom: 1px solid {DesignSystem.COLOR_BORDER_LIGHT};
-            }}
-            QTreeWidget::item:hover {{
-                background-color: {DesignSystem.COLOR_BG_2};
-            }}
-            QTreeWidget::item:selected {{
-                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
-                color: {DesignSystem.COLOR_TEXT};
-            }}
-            QHeaderView::section {{
-                background-color: {DesignSystem.COLOR_BG_1};
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                padding: {DesignSystem.SPACE_8}px;
-                border: none;
-                border-bottom: 2px solid {DesignSystem.COLOR_BORDER};
-                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-            }}
-        """)
-        self.tree_widget.itemDoubleClicked.connect(self._on_item_double_clicked)
-        self.tree_widget.customContextMenuRequested.connect(self._show_context_menu)
+        headers = ["Grupos / Archivos", "Tamaño", "Fecha", "Origen", "Ubicación", "Estado"]
+        column_widths = [300, 100, 140, 100, 180, 130]
+        
+        self.tree_widget = create_groups_tree_widget(
+            headers=headers,
+            column_widths=column_widths,
+            double_click_handler=self._on_item_double_clicked,
+            context_menu_handler=self._show_context_menu
+        )
         content_layout.addWidget(self.tree_widget)
         
         # ========== PAGINACIÓN INTELIGENTE ==========

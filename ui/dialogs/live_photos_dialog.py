@@ -307,55 +307,14 @@ class LivePhotosDialog(BaseDialog):
     
     def _create_files_tree(self):
         """Crea TreeWidget con grupos expandibles estilo Material Design"""
-        tree = QTreeWidget()
-        tree.setHeaderLabels(["Grupos / Archivos", "Tamaño", "Tipo", "Fecha", "Origen Fecha", "Estado"])
-        tree.setColumnWidth(0, 350)
-        tree.setColumnWidth(1, 100)
-        tree.setColumnWidth(2, 80)
-        tree.setColumnWidth(3, 160)
-        tree.setColumnWidth(4, 150)
-        tree.setColumnWidth(5, 120)
-        tree.setAlternatingRowColors(True)
-        tree.setRootIsDecorated(True)
-        tree.setAnimated(True)
-        tree.setIndentation(20)
-        tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        from .dialog_utils import create_groups_tree_widget
         
-        tree.setStyleSheet(f"""
-            QTreeWidget {{
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                outline: none;
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_4}px;
-            }}
-            QTreeWidget::item {{
-                border: none;
-                outline: none;
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_4}px;
-                border-bottom: 1px solid {DesignSystem.COLOR_BORDER_LIGHT};
-            }}
-            QTreeWidget::item:hover {{
-                background-color: {DesignSystem.COLOR_BG_2};
-            }}
-            QTreeWidget::item:selected {{
-                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
-                color: {DesignSystem.COLOR_TEXT};
-            }}
-            QHeaderView::section {{
-                background-color: {DesignSystem.COLOR_BG_1};
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                padding: {DesignSystem.SPACE_8}px;
-                border: none;
-                border-bottom: 2px solid {DesignSystem.COLOR_BORDER};
-                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-            }}
-        """)
-        tree.itemDoubleClicked.connect(self._on_item_double_clicked)
-        tree.customContextMenuRequested.connect(self._show_context_menu)
-        
-        return tree
+        return create_groups_tree_widget(
+            headers=["Grupos / Archivos", "Tamaño", "Tipo", "Fecha", "Origen Fecha", "Estado"],
+            column_widths=[350, 100, 80, 160, 150, 120],
+            double_click_handler=self._on_item_double_clicked,
+            context_menu_handler=self._show_context_menu
+        )
     
     def _create_pagination_controls(self):
         """Crea controles de paginación con estilo Material Design"""

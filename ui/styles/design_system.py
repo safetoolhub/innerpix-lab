@@ -870,6 +870,48 @@ class DesignSystem:
         """
     
     @staticmethod
+    def get_tree_widget_style():
+        """Retorna el estilo Material Design para QTreeWidget.
+        
+        Estilo unificado para todos los TreeWidgets de grupos en diálogos.
+        Incluye estilos para items, hover, selección y headers.
+        
+        Returns:
+            str: Estilo CSS completo para QTreeWidget.
+        """
+        return f"""
+            QTreeWidget {{
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                outline: none;
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_4}px;
+            }}
+            QTreeWidget::item {{
+                border: none;
+                outline: none;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_4}px;
+                border-bottom: 1px solid {DesignSystem.COLOR_BORDER_LIGHT};
+            }}
+            QTreeWidget::item:hover {{
+                background-color: {DesignSystem.COLOR_BG_2};
+            }}
+            QTreeWidget::item:selected {{
+                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
+                color: {DesignSystem.COLOR_TEXT};
+            }}
+            QHeaderView::section {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                padding: {DesignSystem.SPACE_8}px;
+                border: none;
+                border-bottom: 2px solid {DesignSystem.COLOR_BORDER};
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+            }}
+        """
+    
+    @staticmethod
     def get_section_title_style():
         """Retorna el estilo para títulos de sección.
         
