@@ -135,7 +135,11 @@ class DuplicatesSimilarAnalysis:
         self._distance_cache: Dict[Tuple[int, int], int] = {}
         self._logger = get_logger('DuplicatesSimilarAnalysis')
     
-    def get_groups(self, sensitivity: int) -> DuplicateAnalysisResult:
+    def get_groups(
+        self, 
+        sensitivity: int,
+        progress_callback: Optional[Any] = None
+    ) -> DuplicateAnalysisResult:
         """
         Genera grupos con la sensibilidad especificada.
         
@@ -148,6 +152,9 @@ class DuplicatesSimilarAnalysis:
                 - 85: Muy similares (recomendado)
                 - 50: Similares
                 - 30: Algo similares
+            progress_callback: Callable opcional (current, total, message) -> bool
+                Permite reportar progreso y mantener UI responsiva.
+                Si retorna False, el proceso debe detenerse.
         
         Returns:
             DuplicateAnalysisResult con grupos detectados
@@ -166,7 +173,8 @@ class DuplicatesSimilarAnalysis:
         groups = self._cluster_by_similarity(
             self.perceptual_hashes,
             threshold,
-            self._distance_cache
+            self._distance_cache,
+            progress_callback
         )
         
         elapsed = time.time() - start_time
@@ -221,35 +229,56 @@ class DuplicatesSimilarAnalysis:
         self,
         hashes: Dict[str, Dict[str, Any]],
         threshold: int,
-        distance_cache: Dict[Tuple[int, int], int]
+        distance_cache: Dict[Tuple[int, int], int],
+        progress_callback: Optional[Any] = None
     ) -> List[DuplicateGroup]:
         """
         Agrupa archivos por similitud usando threshold de Hamming distance.
         
         Optimizado con BK-Tree: O(N log N) en promedio vs O(N²) anterior.
+        
+        Args:
+            hashes: Dict con {path: {hash, size, ...}}
+            threshold: Distancia Hamming máxima para considerar similares
+            distance_cache: Cache de distancias (no usado actualmente con BK-Tree)
+            progress_callback: Callable opcional (current, total, message) -> bool
         """
         import time
         
         if not hashes:
             return []
         
-        # Construir BK-Tree para búsqueda eficiente
+        total_files = len(hashes)
+        
+        # Fase 1: Construir BK-Tree para búsqueda eficiente
         tree_start = time.time()
         bk_tree = BKTree(distance_func=self._hamming_distance)
         
         paths = list(hashes.keys())
-        for path in paths:
+        
+        # Reportar progreso durante construcción del árbol
+        for i, path in enumerate(paths):
             bk_tree.add(hashes[path]['hash'], path)
+            
+            # Reportar cada 5% para no saturar la UI
+            if progress_callback and i % max(1, total_files // 20) == 0:
+                should_continue = progress_callback(
+                    i, total_files, 
+                    f"Construyendo índice... ({i:,}/{total_files:,})"
+                )
+                if should_continue is False:
+                    return []
         
         tree_time = time.time() - tree_start
         self._logger.info(f"  🌲 BK-Tree construido: {len(bk_tree)} nodos en {tree_time:.3f}s")
         
-        # Fase de búsqueda y agrupación
+        # Fase 2: Búsqueda y agrupación
         search_start = time.time()
         groups = []
         processed: Set[str] = set()
         total_searches = 0
         total_matches = 0
+        files_searched = 0
         
         for path1 in paths:
             if path1 in processed:
@@ -261,6 +290,16 @@ class DuplicatesSimilarAnalysis:
             similar_matches = bk_tree.search(hash1, threshold)
             total_searches += 1
             total_matches += len(similar_matches)
+            files_searched += 1
+            
+            # Reportar progreso cada 5% durante la búsqueda
+            if progress_callback and files_searched % max(1, total_files // 20) == 0:
+                should_continue = progress_callback(
+                    files_searched, total_files,
+                    f"Agrupando archivos similares... ({files_searched:,}/{total_files:,})"
+                )
+                if should_continue is False:
+                    return groups  # Retornar lo que tengamos hasta ahora
             
             if len(similar_matches) <= 1:  # Solo encontró a sí mismo
                 continue

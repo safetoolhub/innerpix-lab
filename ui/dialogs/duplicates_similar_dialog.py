@@ -350,7 +350,12 @@ class DuplicatesSimilarDialog(BaseDialog):
     # ================= LOADING STATE =================
 
     def _show_loading_state(self):
-        """Muestra estado de carga mientras se procesan los grupos."""
+        """Muestra estado de carga con barra de progreso real.
+        
+        Usa QProgressBar con rango determinado para mostrar porcentaje real
+        del proceso de clustering, manteniendo la UI responsiva mediante
+        callbacks que llaman a processEvents().
+        """
         for i in reversed(range(self.group_layout.count())):
             item = self.group_layout.itemAt(i)
             if item and item.widget():
@@ -359,25 +364,16 @@ class DuplicatesSimilarDialog(BaseDialog):
         container = QWidget()
         layout = QVBoxLayout(container)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.setSpacing(DesignSystem.SPACE_20)
+        layout.setSpacing(DesignSystem.SPACE_16)
         
-        # Spinner animado
-        spinner = QLabel()
-        spinner.setFixedSize(64, 64)
-        spinner.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # Icono de búsqueda (estático, no animado)
+        icon_label = icon_manager.create_icon_label(
+            'image-search', size=48, color=DesignSystem.COLOR_PRIMARY
+        )
+        layout.addWidget(icon_label, alignment=Qt.AlignmentFlag.AlignCenter)
         
-        # Usar icono de loading con animación CSS
-        loading_icon = icon_manager.get_icon('loading', size=48, color=DesignSystem.COLOR_PRIMARY)
-        spinner.setPixmap(loading_icon.pixmap(48, 48))
-        spinner.setStyleSheet("""
-            QLabel {
-                background: transparent;
-            }
-        """)
-        layout.addWidget(spinner, alignment=Qt.AlignmentFlag.AlignCenter)
-        
-        # Mensaje
-        self.loading_label = QLabel("Analizando similitud entre imágenes...")
+        # Mensaje principal (se actualiza dinámicamente)
+        self.loading_label = QLabel("Preparando análisis...")
         self.loading_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.loading_label.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_LG}px;
@@ -386,15 +382,47 @@ class DuplicatesSimilarDialog(BaseDialog):
         """)
         layout.addWidget(self.loading_label)
         
-        # Submensaje
+        # Barra de progreso con porcentaje real
         total_files = len(self.analysis.perceptual_hashes)
-        sub_msg = QLabel(f"Procesando {total_files:,} archivos con sensibilidad {self.current_sensitivity}%")
-        sub_msg.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        sub_msg.setStyleSheet(f"""
+        self.loading_progress = QProgressBar()
+        self.loading_progress.setRange(0, total_files)
+        self.loading_progress.setValue(0)
+        self.loading_progress.setFixedWidth(350)
+        self.loading_progress.setFixedHeight(8)
+        self.loading_progress.setTextVisible(False)
+        self.loading_progress.setStyleSheet(f"""
+            QProgressBar {{
+                border: none;
+                border-radius: 4px;
+                background-color: {DesignSystem.COLOR_BORDER_LIGHT};
+            }}
+            QProgressBar::chunk {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                border-radius: 4px;
+            }}
+        """)
+        layout.addWidget(self.loading_progress, alignment=Qt.AlignmentFlag.AlignCenter)
+        
+        # Porcentaje y contador
+        self.loading_percent = QLabel("0%")
+        self.loading_percent.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.loading_percent.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_MD}px;
+            color: {DesignSystem.COLOR_PRIMARY};
+            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+        """)
+        layout.addWidget(self.loading_percent)
+        
+        # Submensaje con detalle de la fase actual
+        self.loading_submsg = QLabel(
+            f"Sensibilidad: {self.current_sensitivity}% · {total_files:,} archivos"
+        )
+        self.loading_submsg.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.loading_submsg.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_SM}px;
             color: {DesignSystem.COLOR_TEXT_SECONDARY};
         """)
-        layout.addWidget(sub_msg)
+        layout.addWidget(self.loading_submsg)
         
         self.group_layout.addWidget(container)
         
@@ -402,6 +430,36 @@ class DuplicatesSimilarDialog(BaseDialog):
         self.sensitivity_slider.setEnabled(False)
         self.prev_btn.setEnabled(False)
         self.next_btn.setEnabled(False)
+
+    def _update_loading_progress(self, current: int, total: int, message: str) -> bool:
+        """Callback para actualizar la barra de progreso durante el clustering.
+        
+        Args:
+            current: Archivo actual siendo procesado
+            total: Total de archivos
+            message: Mensaje descriptivo de la fase actual
+            
+        Returns:
+            True para continuar, False para cancelar (no implementado)
+        """
+        from PyQt6.QtWidgets import QApplication
+        
+        if hasattr(self, 'loading_progress') and self.loading_progress:
+            self.loading_progress.setValue(current)
+            
+            # Actualizar porcentaje
+            percent = (current / total * 100) if total > 0 else 0
+            if hasattr(self, 'loading_percent') and self.loading_percent:
+                self.loading_percent.setText(f"{percent:.0f}%")
+            
+            # Actualizar mensaje de fase
+            if hasattr(self, 'loading_label') and self.loading_label:
+                self.loading_label.setText(message)
+            
+            # Procesar eventos para mantener UI responsiva
+            QApplication.processEvents()
+        
+        return True  # Continuar procesando
 
     def _initial_load(self):
         """Carga inicial de grupos (llamada después de mostrar el diálogo)."""
@@ -424,17 +482,36 @@ class DuplicatesSimilarDialog(BaseDialog):
     def _on_slider_released(self):
         """Regenera grupos cuando se suelta el slider."""
         if not self._is_loading:
-            self._regenerate_groups()
+            self._show_loading_state()
+            # Pequeño delay para que la UI se actualice antes del procesamiento
+            QTimer.singleShot(50, self._regenerate_groups)
 
     def _regenerate_groups(self):
-        """Regenera los grupos con la sensibilidad actual."""
+        """Regenera los grupos con la sensibilidad actual.
+        
+        Usa callback de progreso para mantener la UI responsiva
+        y mostrar el avance real del clustering.
+        """
         from PyQt6.QtWidgets import QApplication
         
         self.logger.info(f"Regenerando grupos con sensibilidad {self.current_sensitivity}%...")
         
+        # Actualizar info de sensibilidad
+        if hasattr(self, 'loading_submsg') and self.loading_submsg:
+            total_files = len(self.analysis.perceptual_hashes)
+            self.loading_submsg.setText(
+                f"Sensibilidad: {self.current_sensitivity}% · {total_files:,} archivos"
+            )
+            QApplication.processEvents()
+        
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
-            result = self.analysis.get_groups(self.current_sensitivity)
+            # Ejecutar clustering con callback de progreso
+            result = self.analysis.get_groups(
+                self.current_sensitivity,
+                progress_callback=self._update_loading_progress
+            )
+            
             self.current_result = result
             self.all_groups = result.groups.copy()
             
