@@ -267,7 +267,7 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
         
         # Software (solo si existe y es relevante - no duplicado)
         if metadata.exif_Software:
-            exif_items.append(("Software", metadata.exif_Software, "Aplicación que creó o modificó el archivo", 'application-cog', DesignSystem.COLOR_ACCENT))
+            exif_items.append(("Software", metadata.exif_Software, "Aplicación que creó o modificó el archivo", 'cog', DesignSystem.COLOR_ACCENT))
         
         # Subsegundos
         if metadata.exif_SubSecTimeOriginal:
@@ -795,7 +795,7 @@ def _create_video_metadata_section(video_metadata: dict):
             "Codificador",
             video_metadata['encoder'],
             "Software usado para codificar el video",
-            'application-cog',
+            'cog',
             DesignSystem.COLOR_INFO
         ))
     

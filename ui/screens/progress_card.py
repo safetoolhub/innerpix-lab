@@ -1,10 +1,9 @@
 """
 Widget de card de progreso para el análisis (ESTADO 2)
 """
-from PyQt6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel, QProgressBar, QPushButton
+from PyQt6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel, QProgressBar, QPushButton, QWidget
 from PyQt6.QtCore import pyqtSignal
 
-from ui.styles.design_system import DesignSystem
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
 from utils.settings_manager import settings_manager
@@ -14,11 +13,13 @@ from ui.screens.analysis_phase_widget import AnalysisPhaseWidget
 
 class ProgressCard(QFrame):
     """
-    Card que muestra el progreso del análisis de directorio
-    Incluye:
-    - Ruta del directorio
-    - Barra de progreso indeterminada (animada)
-    - Fases del análisis con indicadores de estado
+    Card que muestra el progreso del análisis de directorio.
+    
+    Diseño moderno con:
+    - Header con badge de carpeta
+    - Indicador de estado visual con fondo coloreado
+    - Barra de progreso elegante
+    - Widget de fases detallado
     """
     
     # Señales
@@ -28,136 +29,163 @@ class ProgressCard(QFrame):
         super().__init__(parent)
         self.directory_path = directory_path
         self.phase_widget = None
+        self.current_status = 'running'  # running, completed, error
         self._setup_ui()
     
     def _setup_ui(self):
         """Configura la interfaz de la card"""
-        self.setStyleSheet(DesignSystem.get_card_style())
+        self.setStyleSheet(DesignSystem.get_progress_card_style())
         
         layout = QVBoxLayout(self)
-        layout.setSpacing(DesignSystem.SPACE_8)
+        layout.setSpacing(DesignSystem.SPACE_16)
+        layout.setContentsMargins(
+            DesignSystem.SPACE_20, 
+            DesignSystem.SPACE_20, 
+            DesignSystem.SPACE_20, 
+            DesignSystem.SPACE_20
+        )
         
-        # Header unificado: Icono + "Carpeta:" + Ruta + Botón Cancelar
+        # ===== HEADER: Título + Botón Cancelar =====
         header_layout = QHBoxLayout()
-        header_layout.setSpacing(DesignSystem.SPACE_8)
+        header_layout.setSpacing(DesignSystem.SPACE_12)
         
-        # 1. Icono
+        # Icono de análisis
         header_icon = QLabel()
         icon_manager.set_label_icon(
             header_icon, 
-            'folder-open', 
-            color=DesignSystem.COLOR_TEXT, 
-            size=16
+            'magnify', 
+            color=DesignSystem.COLOR_PRIMARY, 
+            size=24
         )
         header_layout.addWidget(header_icon)
         
-        # 2. Etiqueta "Carpeta:"
-        header_text = QLabel("Carpeta:")
-        header_text.setStyleSheet(DesignSystem.get_label_secondary_style())
-        header_layout.addWidget(header_text)
+        # Título
+        header_title = QLabel("Analizando carpeta")
+        header_title.setStyleSheet(DesignSystem.get_progress_header_style())
+        header_layout.addWidget(header_title)
         
-        # 3. Ruta del directorio (mono)
-        self.path_label = QLabel(self.directory_path)
-        self.path_label.setProperty("class", "mono")
-        self.path_label.setToolTip(self.directory_path)
-        self.path_label.setStyleSheet(DesignSystem.get_label_mono_style())
-        header_layout.addWidget(self.path_label)
-        
-        # 4. Stretch
         header_layout.addStretch()
         
-        # 5. Botón cancelar (discreto, en la esquina)
+        # Botón cancelar (discreto)
         self.cancel_btn = QPushButton("Cancelar")
         icon_manager.set_button_icon(self.cancel_btn, 'close', size=14)
-        self.cancel_btn.setStyleSheet(DesignSystem.get_small_button_style("cancel"))
+        self.cancel_btn.setStyleSheet(DesignSystem.get_cancel_button_discrete_style())
         self.cancel_btn.clicked.connect(self.cancel_requested.emit)
         header_layout.addWidget(self.cancel_btn)
         
         layout.addLayout(header_layout)
         
-        # Actualizar visualización según configuración
+        # ===== BADGE DE CARPETA =====
+        folder_badge = QFrame()
+        folder_badge.setStyleSheet(DesignSystem.get_folder_path_badge_style())
+        badge_layout = QHBoxLayout(folder_badge)
+        badge_layout.setContentsMargins(0, 0, 0, 0)
+        badge_layout.setSpacing(DesignSystem.SPACE_8)
+        
+        folder_icon = QLabel()
+        icon_manager.set_label_icon(
+            folder_icon, 
+            'folder-open', 
+            color=DesignSystem.COLOR_TEXT_SECONDARY, 
+            size=16
+        )
+        badge_layout.addWidget(folder_icon)
+        
+        self.path_label = QLabel(self.directory_path)
+        self.path_label.setProperty("class", "mono")
+        self.path_label.setToolTip(self.directory_path)
+        self.path_label.setStyleSheet(f"""
+            font-family: {DesignSystem.FONT_FAMILY_MONO};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_TEXT};
+        """)
+        badge_layout.addWidget(self.path_label)
+        badge_layout.addStretch()
+        
+        layout.addWidget(folder_badge)
         self.update_path_display()
         
-        # Separador
-        separator = QFrame()
-        separator.setFrameShape(QFrame.Shape.HLine)
-        separator.setStyleSheet(DesignSystem.get_separator_style())
-        separator.setFixedHeight(1)
-        layout.addWidget(separator)
-        
-        # Estado: "Analizando tu colección..."
-        status_layout = QHBoxLayout()
-        status_layout.setSpacing(DesignSystem.SPACE_8)
+        # ===== INDICADOR DE ESTADO =====
+        self.status_container = QFrame()
+        self.status_container.setStyleSheet(DesignSystem.get_progress_status_style('running'))
+        status_inner_layout = QHBoxLayout(self.status_container)
+        status_inner_layout.setContentsMargins(0, 0, 0, 0)
+        status_inner_layout.setSpacing(DesignSystem.SPACE_10)
         
         self.status_icon = QLabel()
         icon_manager.set_label_icon(
             self.status_icon, 
             'progress-clock', 
             color=DesignSystem.COLOR_PRIMARY, 
-            size=16
+            size=20
         )
-        status_layout.addWidget(self.status_icon)
+        status_inner_layout.addWidget(self.status_icon)
         
         self.status_label = QLabel("Analizando tu colección...")
-        self.status_label.setStyleSheet(DesignSystem.get_status_label_style('normal'))
-        status_layout.addWidget(self.status_label)
-        status_layout.addStretch()
+        self.status_label.setStyleSheet(DesignSystem.get_progress_status_text_style('running'))
+        status_inner_layout.addWidget(self.status_label)
+        status_inner_layout.addStretch()
         
-        layout.addLayout(status_layout)
+        layout.addWidget(self.status_container)
         
-        # Barra de progreso (sin porcentaje)
-        progress_layout = QHBoxLayout()
-        progress_layout.setSpacing(DesignSystem.SPACE_12)
-        
+        # ===== BARRA DE PROGRESO =====
         self.progress_bar = QProgressBar()
         self.progress_bar.setMinimum(0)
         self.progress_bar.setMaximum(0)  # Modo indeterminado
         self.progress_bar.setTextVisible(False)
-        self.progress_bar.setFixedHeight(8)
-        self.progress_bar.setStyleSheet(DesignSystem.get_progressbar_style())
-        progress_layout.addWidget(self.progress_bar, 1)
+        self.progress_bar.setFixedHeight(6)
+        self.progress_bar.setStyleSheet(DesignSystem.get_modern_progressbar_style())
+        layout.addWidget(self.progress_bar)
         
-        layout.addLayout(progress_layout)
+        # ===== SEPARADOR =====
+        separator = QFrame()
+        separator.setFrameShape(QFrame.Shape.HLine)
+        separator.setStyleSheet(f"background-color: {DesignSystem.COLOR_BORDER_LIGHT};")
+        separator.setFixedHeight(1)
+        layout.addWidget(separator)
         
-        # Separador antes de las fases
-        phase_separator = QFrame()
-        phase_separator.setFrameShape(QFrame.Shape.HLine)
-        phase_separator.setStyleSheet(DesignSystem.get_separator_style())
-        phase_separator.setFixedHeight(1)
-        layout.addWidget(phase_separator)
-        
-        # Widget de fases del análisis
+        # ===== WIDGET DE FASES =====
         self.phase_widget = AnalysisPhaseWidget()
         layout.addWidget(self.phase_widget)
     
+    def _update_status_style(self, status: str):
+        """Actualiza los estilos del indicador de estado"""
+        self.current_status = status
+        self.status_container.setStyleSheet(DesignSystem.get_progress_status_style(status))
+        self.status_label.setStyleSheet(DesignSystem.get_progress_status_text_style(status))
+    
     def mark_completed(self):
         """Marca el análisis como completado"""
-        # Ocultar botón de cancelar cuando se completa
+        # Ocultar botón de cancelar
         self.cancel_btn.hide()
         
-        # Cambiar icono a checkmark
+        # Actualizar estilo a completado
+        self._update_status_style('completed')
+        
+        # Cambiar icono
         icon_manager.set_label_icon(
             self.status_icon,
             'check-circle',
             color=DesignSystem.COLOR_SUCCESS,
-            size=16
+            size=20
         )
         
-        # Cambiar texto con indicación de transición automática
-        self.status_label.setText("Análisis completado - Cargando resultados...")
-        self.status_label.setStyleSheet(DesignSystem.get_status_label_style('success'))
+        # Cambiar texto
+        self.status_label.setText("✓ Análisis completado — Cargando resultados...")
         
-        # Detener animación de barra indeterminada
+        # Completar barra de progreso
         self.progress_bar.setMaximum(100)
         self.progress_bar.setValue(100)
     
     def stop_progress(self):
         """Detiene la barra de progreso (por error o cancelación)"""
-        # Detener animación de barra indeterminada
+        self._update_status_style('error')
+        
+        # Detener animación
         self.progress_bar.setMaximum(100)
         self.progress_bar.setValue(0)
         
-        # Mostrar botón de cancelar (por si el usuario quiere interactuar)
+        # Mostrar botón de cancelar
         self.cancel_btn.show()
     
     def get_phase_widget(self):
@@ -190,15 +218,22 @@ class ProgressCard(QFrame):
         self.progress_bar.setMaximum(0)
         self.progress_bar.setValue(0)
         
-        # Resetear icono y texto
+        # Resetear estilo y estado
+        self._update_status_style('running')
+        
+        # Resetear icono
         icon_manager.set_label_icon(
             self.status_icon,
             'progress-clock',
             color=DesignSystem.COLOR_PRIMARY,
-            size=16
+            size=20
         )
+        
+        # Resetear texto
         self.status_label.setText("Analizando tu colección...")
-        self.status_label.setStyleSheet(DesignSystem.get_status_label_style('normal'))
+        
+        # Mostrar botón cancelar
+        self.cancel_btn.show()
         
         # Resetear fases
         self.reset_phases()

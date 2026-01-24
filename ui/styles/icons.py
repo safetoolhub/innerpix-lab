@@ -90,6 +90,10 @@ class IconManager:
         'file-x': 'mdi6.file-remove',
         'file-image': 'mdi6.file-image',
         'file-video': 'mdi6.file-video',
+        'file-document-outline': 'mdi6.file-document-outline',
+        'file-check': 'mdi6.file-check',
+        'file-plus': 'mdi6.file-plus',
+        'file-edit': 'mdi6.file-edit',
         
         # === OPERACIONES DE ARCHIVOS ===
         'open-in-new': 'mdi6.open-in-new',

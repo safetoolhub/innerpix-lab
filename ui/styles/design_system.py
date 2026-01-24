@@ -1713,3 +1713,415 @@ class DesignSystem:
                 padding: {DesignSystem.SPACE_4}px 0px;
             }}
         """
+
+    # ==================== ESTILOS HEADER STAGE ====================
+    
+    @staticmethod
+    def get_stage_header_style():
+        """Retorna el estilo para el header moderno de stages.
+        
+        Header minimalista con gradiente sutil y sombra.
+        
+        Returns:
+            str: Estilo QSS para QFrame header de stage.
+        """
+        return f"""
+            QFrame {{
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 {DesignSystem.COLOR_SURFACE},
+                    stop:1 {DesignSystem.COLOR_BACKGROUND});
+                border: 1px solid {DesignSystem.COLOR_BORDER_LIGHT};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                padding: {DesignSystem.SPACE_12}px {DesignSystem.SPACE_20}px;
+            }}
+        """
+    
+    @staticmethod
+    def get_stage_title_style():
+        """Retorna el estilo para el título del header de stages.
+        
+        Returns:
+            str: Estilo CSS para título principal.
+        """
+        return f"""
+            font-size: {DesignSystem.FONT_SIZE_XL}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+            color: {DesignSystem.COLOR_TEXT};
+            letter-spacing: -0.5px;
+        """
+    
+    @staticmethod
+    def get_stage_subtitle_style():
+        """Retorna el estilo para el subtítulo del header de stages.
+        
+        Returns:
+            str: Estilo CSS para subtítulo descriptivo.
+        """
+        return f"""
+            font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_NORMAL};
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+        """
+    
+    @staticmethod
+    def get_stage_badge_style(variant: str = 'default'):
+        """Retorna el estilo para badges indicadores de stage.
+        
+        Args:
+            variant: 'default', 'primary', 'success', 'warning'
+        
+        Returns:
+            str: Estilo QSS para QLabel tipo badge.
+        """
+        colors = {
+            'default': (DesignSystem.COLOR_SECONDARY_LIGHT, DesignSystem.COLOR_TEXT_SECONDARY),
+            'primary': (DesignSystem.COLOR_PRIMARY_LIGHT, DesignSystem.COLOR_PRIMARY),
+            'success': (DesignSystem.COLOR_SUCCESS_BG, DesignSystem.COLOR_SUCCESS),
+            'warning': (DesignSystem.COLOR_WARNING_BG, "#856404"),  # Darker warning text
+        }
+        bg_color, text_color = colors.get(variant, colors['default'])
+        
+        return f"""
+            QLabel {{
+                background-color: {bg_color};
+                color: {text_color};
+                font-size: {DesignSystem.FONT_SIZE_XS}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+                padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_8}px;
+                border-radius: {DesignSystem.RADIUS_FULL}px;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+            }}
+        """
+
+    # ==================== ESTILOS PROGRESS CARD STAGE 2 ====================
+    
+    @staticmethod
+    def get_progress_card_style():
+        """Retorna el estilo para la card de progreso de Stage 2.
+        
+        Returns:
+            str: Estilo QSS para QFrame progress card.
+        """
+        return f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                padding: {DesignSystem.SPACE_20}px;
+            }}
+        """
+    
+    @staticmethod
+    def get_progress_header_style():
+        """Retorna el estilo para el header de la card de progreso.
+        
+        Returns:
+            str: Estilo CSS para header.
+        """
+        return f"""
+            font-size: {DesignSystem.FONT_SIZE_LG}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            color: {DesignSystem.COLOR_TEXT};
+        """
+    
+    @staticmethod
+    def get_folder_path_badge_style():
+        """Retorna el estilo para el badge de ruta de carpeta.
+        
+        Returns:
+            str: Estilo QSS para QFrame con ruta.
+        """
+        return f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
+                border: none;
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
+            }}
+        """
+    
+    @staticmethod
+    def get_progress_status_style(status: str = 'running'):
+        """Retorna el estilo para el indicador de estado de progreso.
+        
+        Args:
+            status: 'running', 'completed', 'error'
+        
+        Returns:
+            str: Estilo QSS para QFrame status container.
+        """
+        colors = {
+            'running': (f"rgba(13, 110, 253, 0.08)", DesignSystem.COLOR_PRIMARY),
+            'completed': (DesignSystem.COLOR_SUCCESS_BG, DesignSystem.COLOR_SUCCESS),
+            'error': (DesignSystem.COLOR_DANGER_BG, DesignSystem.COLOR_DANGER),
+        }
+        bg_color, border_color = colors.get(status, colors['running'])
+        
+        return f"""
+            QFrame {{
+                background-color: {bg_color};
+                border: 1px solid {border_color};
+                border-radius: {DesignSystem.RADIUS_MD}px;
+                padding: {DesignSystem.SPACE_12}px {DesignSystem.SPACE_16}px;
+            }}
+        """
+    
+    @staticmethod
+    def get_progress_status_text_style(status: str = 'running'):
+        """Retorna el estilo para el texto del estado de progreso.
+        
+        Args:
+            status: 'running', 'completed', 'error'
+        
+        Returns:
+            str: Estilo CSS para texto.
+        """
+        colors = {
+            'running': DesignSystem.COLOR_PRIMARY,
+            'completed': DesignSystem.COLOR_SUCCESS,
+            'error': DesignSystem.COLOR_DANGER,
+        }
+        color = colors.get(status, colors['running'])
+        
+        return f"""
+            font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            color: {color};
+        """
+    
+    @staticmethod
+    def get_modern_progressbar_style():
+        """Retorna el estilo para barra de progreso moderna.
+        
+        Returns:
+            str: Estilo QSS para QProgressBar moderno.
+        """
+        return f"""
+            QProgressBar {{
+                border: none;
+                border-radius: {DesignSystem.RADIUS_SM}px;
+                background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
+                text-align: center;
+                height: 6px;
+            }}
+            
+            QProgressBar::chunk {{
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                    stop:0 {DesignSystem.COLOR_PRIMARY},
+                    stop:1 {DesignSystem.COLOR_PRIMARY_HOVER});
+                border-radius: {DesignSystem.RADIUS_SM}px;
+            }}
+        """
+
+    # ==================== ESTILOS PHASE WIDGET STAGE 2 ====================
+    
+    @staticmethod
+    def get_phase_item_style(status: str = 'pending'):
+        """Retorna el estilo para items de fase con fondo.
+        
+        Args:
+            status: 'pending', 'running', 'completed', 'error', 'skipped'
+        
+        Returns:
+            str: Estilo QSS para QFrame phase item.
+        """
+        styles = {
+            'pending': f"""
+                QFrame {{
+                    background-color: transparent;
+                    border: none;
+                    border-radius: {DesignSystem.RADIUS_BASE}px;
+                    padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
+                }}
+            """,
+            'running': f"""
+                QFrame {{
+                    background-color: rgba(13, 110, 253, 0.06);
+                    border: none;
+                    border-left: 3px solid {DesignSystem.COLOR_PRIMARY};
+                    border-radius: 0px {DesignSystem.RADIUS_BASE}px {DesignSystem.RADIUS_BASE}px 0px;
+                    padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
+                }}
+            """,
+            'completed': f"""
+                QFrame {{
+                    background-color: rgba(25, 135, 84, 0.04);
+                    border: none;
+                    border-radius: {DesignSystem.RADIUS_BASE}px;
+                    padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
+                }}
+            """,
+            'error': f"""
+                QFrame {{
+                    background-color: rgba(220, 53, 69, 0.06);
+                    border: none;
+                    border-left: 3px solid {DesignSystem.COLOR_DANGER};
+                    border-radius: 0px {DesignSystem.RADIUS_BASE}px {DesignSystem.RADIUS_BASE}px 0px;
+                    padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
+                }}
+            """,
+            'skipped': f"""
+                QFrame {{
+                    background-color: transparent;
+                    border: none;
+                    border-radius: {DesignSystem.RADIUS_BASE}px;
+                    padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
+                    opacity: 0.6;
+                }}
+            """,
+        }
+        return styles.get(status, styles['pending'])
+    
+    @staticmethod
+    def get_phase_number_style(status: str = 'pending'):
+        """Retorna el estilo para número circular de fase.
+        
+        Args:
+            status: 'pending', 'running', 'completed', 'error', 'skipped'
+        
+        Returns:
+            str: Estilo QSS para QLabel número.
+        """
+        styles = {
+            'pending': f"""
+                QLabel {{
+                    background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
+                    color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                    font-size: {DesignSystem.FONT_SIZE_SM}px;
+                    font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+                    min-width: 24px;
+                    max-width: 24px;
+                    min-height: 24px;
+                    max-height: 24px;
+                    border-radius: 12px;
+                    qproperty-alignment: AlignCenter;
+                }}
+            """,
+            'running': f"""
+                QLabel {{
+                    background-color: {DesignSystem.COLOR_PRIMARY};
+                    color: {DesignSystem.COLOR_PRIMARY_TEXT};
+                    font-size: {DesignSystem.FONT_SIZE_SM}px;
+                    font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+                    min-width: 24px;
+                    max-width: 24px;
+                    min-height: 24px;
+                    max-height: 24px;
+                    border-radius: 12px;
+                    qproperty-alignment: AlignCenter;
+                }}
+            """,
+            'completed': f"""
+                QLabel {{
+                    background-color: {DesignSystem.COLOR_SUCCESS};
+                    color: white;
+                    font-size: {DesignSystem.FONT_SIZE_SM}px;
+                    font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+                    min-width: 24px;
+                    max-width: 24px;
+                    min-height: 24px;
+                    max-height: 24px;
+                    border-radius: 12px;
+                    qproperty-alignment: AlignCenter;
+                }}
+            """,
+            'error': f"""
+                QLabel {{
+                    background-color: {DesignSystem.COLOR_DANGER};
+                    color: white;
+                    font-size: {DesignSystem.FONT_SIZE_SM}px;
+                    font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+                    min-width: 24px;
+                    max-width: 24px;
+                    min-height: 24px;
+                    max-height: 24px;
+                    border-radius: 12px;
+                    qproperty-alignment: AlignCenter;
+                }}
+            """,
+            'skipped': f"""
+                QLabel {{
+                    background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
+                    color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                    font-size: {DesignSystem.FONT_SIZE_SM}px;
+                    font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                    min-width: 24px;
+                    max-width: 24px;
+                    min-height: 24px;
+                    max-height: 24px;
+                    border-radius: 12px;
+                    qproperty-alignment: AlignCenter;
+                }}
+            """,
+        }
+        return styles.get(status, styles['pending'])
+    
+    @staticmethod
+    def get_phase_title_style(status: str = 'pending'):
+        """Retorna el estilo para título de fase.
+        
+        Args:
+            status: 'pending', 'running', 'completed', 'error', 'skipped'
+        
+        Returns:
+            str: Estilo CSS para texto de fase.
+        """
+        colors = {
+            'pending': DesignSystem.COLOR_TEXT_SECONDARY,
+            'running': DesignSystem.COLOR_TEXT,
+            'completed': DesignSystem.COLOR_SUCCESS,
+            'error': DesignSystem.COLOR_DANGER,
+            'skipped': DesignSystem.COLOR_TEXT_SECONDARY,
+        }
+        weights = {
+            'pending': DesignSystem.FONT_WEIGHT_NORMAL,
+            'running': DesignSystem.FONT_WEIGHT_MEDIUM,
+            'completed': DesignSystem.FONT_WEIGHT_MEDIUM,
+            'error': DesignSystem.FONT_WEIGHT_MEDIUM,
+            'skipped': DesignSystem.FONT_WEIGHT_NORMAL,
+        }
+        
+        return f"""
+            font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            font-weight: {weights.get(status, DesignSystem.FONT_WEIGHT_NORMAL)};
+            color: {colors.get(status, DesignSystem.COLOR_TEXT_SECONDARY)};
+        """
+    
+    @staticmethod
+    def get_phase_progress_text_style():
+        """Retorna el estilo para texto de progreso de fase.
+        
+        Returns:
+            str: Estilo CSS para contador de progreso.
+        """
+        return f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            color: {DesignSystem.COLOR_PRIMARY};
+            font-family: {DesignSystem.FONT_FAMILY_MONO};
+        """
+    
+    @staticmethod
+    def get_cancel_button_discrete_style():
+        """Retorna el estilo para botón de cancelar discreto.
+        
+        Returns:
+            str: Estilo QSS para QPushButton.
+        """
+        return f"""
+            QPushButton {{
+                background-color: transparent;
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_DANGER_BG};
+                color: {DesignSystem.COLOR_DANGER};
+                border-color: {DesignSystem.COLOR_DANGER};
+            }}
+        """

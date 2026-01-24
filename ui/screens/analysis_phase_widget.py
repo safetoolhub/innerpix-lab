@@ -1,7 +1,7 @@
 """
 Widget que muestra el progreso de cada fase del análisis (STAGE 2)
 """
-from PyQt6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel
+from PyQt6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel, QWidget
 
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
@@ -10,228 +10,270 @@ from services.initial_scanner import InitialScanner
 
 class AnalysisPhaseWidget(QFrame):
     """
-    Card que muestra las diferentes fases del análisis
-    con indicadores de estado:
-    - ✓ Completado
-    - ⏳ En proceso
-    - ⏸ Pendiente
+    Widget que muestra las diferentes fases del análisis
+    con indicadores de estado numerados y diseño moderno.
+    
+    Estados visuales:
+    - Pendiente: Número gris, texto secundario
+    - En proceso: Número azul con fondo, texto destacado
+    - Completado: Check verde, texto verde
+    - Error: X roja, texto rojo
+    - Omitido: Número gris tachado
     """
     
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.phase_labels = {}
-        self.phase_icons = {}
-        self.phase_counters = {}  # Nuevos contadores de progreso
-        self.phase_original_texts = {}  # Textos originales de cada fase
+        self.phase_items = {}  # phase_id -> dict con widgets
+        self.phase_original_texts = {}  # Textos originales
         self._setup_ui()
     
     def _setup_ui(self):
         """Configura la interfaz del widget"""
-        # Sin borde, sin padding extra - solo el contenido
         self.setStyleSheet(DesignSystem.get_analysis_phase_frame_style())
         
         layout = QVBoxLayout(self)
-        layout.setSpacing(0)  # Sin espacio entre fases para máxima compacidad
-        layout.setContentsMargins(0, 0, 0, 0)  # Sin márgenes
+        layout.setSpacing(DesignSystem.SPACE_4)
+        layout.setContentsMargins(0, 0, 0, 0)
         
-        # Header
+        # Header del panel de fases
         header_layout = QHBoxLayout()
-        header_layout.setSpacing(DesignSystem.SPACE_6)
-        header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setSpacing(DesignSystem.SPACE_8)
+        header_layout.setContentsMargins(0, 0, 0, DesignSystem.SPACE_8)
         
         header_icon = QLabel()
         icon_manager.set_label_icon(
             header_icon,
-            'magnify',
+            'chart-bar',
             color=DesignSystem.COLOR_TEXT_SECONDARY,
-            size=14
+            size=18
         )
         header_layout.addWidget(header_icon)
         
-        header_text = QLabel("¿Qué estamos analizando?")
-        header_text.setStyleSheet(DesignSystem.get_analysis_phase_header_style())
+        header_text = QLabel("Progreso del análisis")
+        header_text.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            color: {DesignSystem.COLOR_TEXT};
+        """)
         header_layout.addWidget(header_text)
         header_layout.addStretch()
         
         layout.addLayout(header_layout)
-        layout.addSpacing(DesignSystem.SPACE_2)  # Separador más pequeño después del header
         
-        # Fases del análisis inicial con InitialScanner:
-        # 1. BASIC: Análisis de estructura del directorio
-        # 2. WITH_HASH: Cálculo de hashes SHA256
-        # 3. WITH_EXIF_IMAGES: Extracción de metadatos de imágenes
-        # 4. WITH_EXIF_VIDEOS: Extracción de metadatos de videos
-        # 5. BEST_DATE: Cálculo de la mejor fecha disponible
+        # Definir las fases con sus IDs y textos
         phases = [
-            (InitialScanner.PHASE_FILESYSTEM_METADATA, "Analizando estructura de la carpeta"),
-            (InitialScanner.PHASE_HASH, "Calculando hashes de los archivos"),
-            (InitialScanner.PHASE_EXIF_IMAGES, "Obteniendo metadatos de las imagenes"),
-            (InitialScanner.PHASE_EXIF_VIDEOS, "Obteniendo metadatos de los videos"),
-            (InitialScanner.PHASE_BEST_DATE, "Calculando mejor fecha disponible"),
+            (InitialScanner.PHASE_FILESYSTEM_METADATA, "Escaneando estructura de carpetas", 1),
+            (InitialScanner.PHASE_HASH, "Calculando hashes de archivos", 2),
+            (InitialScanner.PHASE_EXIF_IMAGES, "Extrayendo metadatos de imágenes", 3),
+            (InitialScanner.PHASE_EXIF_VIDEOS, "Extrayendo metadatos de vídeos", 4),
+            (InitialScanner.PHASE_BEST_DATE, "Determinando fecha óptima", 5),
         ]
         
-        for phase_id, phase_text in phases:
-            phase_layout = self._create_phase_item(phase_id, phase_text)
-            layout.addLayout(phase_layout)
-            # Guardar el texto original para poder modificarlo después
+        for phase_id, phase_text, phase_num in phases:
+            phase_widget = self._create_phase_item(phase_id, phase_text, phase_num)
+            layout.addWidget(phase_widget)
             self.phase_original_texts[phase_id] = phase_text
     
-    def _create_phase_item(self, phase_id: str, text: str) -> QHBoxLayout:
+    def _create_phase_item(self, phase_id: str, text: str, number: int) -> QFrame:
         """
-        Crea un item de fase con icono + texto (diseño compacto)
+        Crea un item de fase con número circular + texto + contador.
         
         Args:
             phase_id: ID de la fase
             text: Texto descriptivo
+            number: Número de la fase
         
         Returns:
-            Layout horizontal con el item
+            QFrame con el item de fase
         """
-        item_layout = QHBoxLayout()
-        item_layout.setSpacing(DesignSystem.SPACE_6)  # Espacio compacto entre icono y texto
+        container = QFrame()
+        container.setStyleSheet(DesignSystem.get_phase_item_style('pending'))
+        
+        item_layout = QHBoxLayout(container)
+        item_layout.setSpacing(DesignSystem.SPACE_12)
         item_layout.setContentsMargins(0, 0, 0, 0)
         
-        # Icono de estado (pendiente por defecto)
-        icon_label = QLabel()
-        icon_manager.set_label_icon(
-            icon_label,
-            'pause-circle',
-            color=DesignSystem.COLOR_TEXT_SECONDARY,
-            size=12  # Icono más pequeño
-        )
-        self.phase_icons[phase_id] = icon_label
-        item_layout.addWidget(icon_label)
+        # Indicador numérico circular
+        number_label = QLabel(str(number))
+        number_label.setStyleSheet(DesignSystem.get_phase_number_style('pending'))
+        number_label.setFixedSize(24, 24)
+        item_layout.addWidget(number_label)
         
-        # Texto compacto
+        # Texto de la fase
         text_label = QLabel(text)
-        text_label.setStyleSheet(DesignSystem.get_phase_text_style('pending'))
-        self.phase_labels[phase_id] = text_label
+        text_label.setStyleSheet(DesignSystem.get_phase_title_style('pending'))
         item_layout.addWidget(text_label)
-        
-        # Contador de progreso (inicialmente oculto)
-        counter_label = QLabel("")
-        counter_label.setStyleSheet(DesignSystem.get_phase_counter_style(active=False))
-        counter_label.hide()  # Oculto por defecto
-        self.phase_counters[phase_id] = counter_label
-        item_layout.addWidget(counter_label)
         
         item_layout.addStretch()
         
-        return item_layout
+        # Contador de progreso (oculto por defecto)
+        counter_label = QLabel("")
+        counter_label.setStyleSheet(DesignSystem.get_phase_progress_text_style())
+        counter_label.hide()
+        item_layout.addWidget(counter_label)
+        
+        # Icono de estado (para completado/error)
+        status_icon = QLabel()
+        status_icon.hide()
+        item_layout.addWidget(status_icon)
+        
+        # Guardar referencias
+        self.phase_items[phase_id] = {
+            'container': container,
+            'number': number_label,
+            'number_value': number,
+            'text': text_label,
+            'counter': counter_label,
+            'status_icon': status_icon,
+        }
+        
+        return container
     
     def set_phase_status(self, phase_id: str, status: str):
         """
-        Actualiza el estado visual de una fase
+        Actualiza el estado visual de una fase.
         
         Args:
             phase_id: ID de la fase
             status: 'pending', 'running', 'completed', 'alert-circle', 'skipped'
         """
-        if phase_id not in self.phase_icons:
+        if phase_id not in self.phase_items:
             return
         
-        icon_label = self.phase_icons[phase_id]
-        text_label = self.phase_labels[phase_id]
-        counter_label = self.phase_counters[phase_id]
+        items = self.phase_items[phase_id]
+        container = items['container']
+        number_label = items['number']
+        text_label = items['text']
+        counter_label = items['counter']
+        status_icon = items['status_icon']
+        number_value = items['number_value']
+        original_text = self.phase_original_texts.get(phase_id, "")
         
         if status == 'completed':
+            # Actualizar contenedor
+            container.setStyleSheet(DesignSystem.get_phase_item_style('completed'))
+            
+            # Mostrar check en lugar de número
             icon_manager.set_label_icon(
-                icon_label,
+                number_label,
+                'check',
+                color='white',
+                size=14
+            )
+            number_label.setStyleSheet(DesignSystem.get_phase_number_style('completed'))
+            
+            # Texto verde con "OK"
+            text_label.setText(f"{original_text}")
+            text_label.setStyleSheet(DesignSystem.get_phase_title_style('completed'))
+            
+            # Ocultar contador, mostrar icono de estado
+            counter_label.hide()
+            icon_manager.set_label_icon(
+                status_icon,
                 'check-circle',
                 color=DesignSystem.COLOR_SUCCESS,
-                size=12
+                size=16
             )
-            # Añadir "- OK" al texto original
-            original_text = self.phase_original_texts.get(phase_id, "")
-            # Remover "..." del final si existe
-            if original_text.endswith("..."):
-                original_text = original_text[:-3]
-            text_label.setText(f"{original_text} - OK")
-            text_label.setStyleSheet(DesignSystem.get_phase_text_style('completed'))
-            # Ocultar contador cuando se completa
-            counter_label.hide()
+            status_icon.show()
         
         elif status == 'running':
-            icon_manager.set_label_icon(
-                icon_label,
-                'progress-clock',
-                color=DesignSystem.COLOR_PRIMARY,
-                size=12
-            )
-            # Restaurar texto original sin modificación durante ejecución
-            original_text = self.phase_original_texts.get(phase_id, "")
+            # Actualizar contenedor con fondo destacado
+            container.setStyleSheet(DesignSystem.get_phase_item_style('running'))
+            
+            # Número destacado
+            number_label.setText(str(number_value))
+            number_label.setStyleSheet(DesignSystem.get_phase_number_style('running'))
+            
+            # Texto principal
             text_label.setText(original_text)
-            text_label.setStyleSheet(DesignSystem.get_phase_text_style('running'))
-            # Mostrar contador en azul cuando está en ejecución
-            counter_label.setStyleSheet(DesignSystem.get_phase_counter_style(active=True))
+            text_label.setStyleSheet(DesignSystem.get_phase_title_style('running'))
+            
+            # Mostrar contador
             counter_label.show()
+            status_icon.hide()
         
         elif status == 'alert-circle':
+            # Estado de error
+            container.setStyleSheet(DesignSystem.get_phase_item_style('error'))
+            
+            # X en número
             icon_manager.set_label_icon(
-                icon_label,
-                'alert-circle',  # Usar 'alert-circle' que mapea a 'mdi6.alert-circle'
-                color=DesignSystem.COLOR_ERROR,
-                size=12
+                number_label,
+                'close',
+                color='white',
+                size=14
             )
-            text_label.setStyleSheet(DesignSystem.get_phase_text_style('error'))
-            # Ocultar contador en caso de error
+            number_label.setStyleSheet(DesignSystem.get_phase_number_style('error'))
+            
+            # Texto rojo
+            text_label.setStyleSheet(DesignSystem.get_phase_title_style('error'))
+            
+            # Ocultar contador
             counter_label.hide()
+            status_icon.hide()
         
         elif status == 'skipped':
-            icon_manager.set_label_icon(
-                icon_label,
-                'close-circle',
-                color=DesignSystem.COLOR_TEXT_SECONDARY,
-                size=12
-            )
-            text_label.setStyleSheet(DesignSystem.get_phase_text_style('skipped'))
-            # Mostrar "No realizado" en el contador
-            counter_label.setText("(se realizará más adelante)")
-            counter_label.setStyleSheet(DesignSystem.get_phase_skipped_counter_style())
+            # Fase omitida
+            container.setStyleSheet(DesignSystem.get_phase_item_style('skipped'))
+            
+            number_label.setText(str(number_value))
+            number_label.setStyleSheet(DesignSystem.get_phase_number_style('skipped'))
+            
+            text_label.setStyleSheet(DesignSystem.get_phase_title_style('skipped'))
+            
+            # Mostrar texto "se realizará más adelante"
+            counter_label.setText("(más adelante)")
+            counter_label.setStyleSheet(f"""
+                font-size: {DesignSystem.FONT_SIZE_XS}px;
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                font-style: italic;
+            """)
             counter_label.show()
+            status_icon.hide()
         
         else:  # pending
-            icon_manager.set_label_icon(
-                icon_label,
-                'pause-circle',
-                color=DesignSystem.COLOR_TEXT_SECONDARY,
-                size=12
-            )
-            text_label.setStyleSheet(DesignSystem.get_phase_text_style('pending'))
-            # Ocultar contador cuando está pendiente
+            container.setStyleSheet(DesignSystem.get_phase_item_style('pending'))
+            
+            number_label.setText(str(number_value))
+            number_label.setStyleSheet(DesignSystem.get_phase_number_style('pending'))
+            
+            text_label.setText(original_text)
+            text_label.setStyleSheet(DesignSystem.get_phase_title_style('pending'))
+            
             counter_label.hide()
+            status_icon.hide()
     
     def reset_all_phases(self):
         """Resetea todas las fases a estado pendiente"""
-        for phase_id in self.phase_icons.keys():
+        for phase_id in self.phase_items.keys():
             self.set_phase_status(phase_id, 'pending')
     
     def update_phase_progress(self, phase_id: str, current: int, total: int):
         """
-        Actualiza el contador de progreso de una fase
+        Actualiza el contador de progreso de una fase.
         
         Args:
             phase_id: ID de la fase
             current: Número de archivos procesados
             total: Total de archivos
         """
-        if phase_id not in self.phase_counters:
+        if phase_id not in self.phase_items:
             return
         
-        counter_label = self.phase_counters[phase_id]
-        counter_label.setText(f"({current}/{total})")
-        counter_label.setStyleSheet(DesignSystem.get_phase_counter_style(active=True))
+        counter_label = self.phase_items[phase_id]['counter']
+        counter_label.setText(f"{current:,} / {total:,}")
+        counter_label.setStyleSheet(DesignSystem.get_phase_progress_text_style())
     
     def update_phase_text(self, phase_id: str, text: str):
         """
-        Actualiza el texto descriptivo de una fase (temporalmente)
+        Actualiza el texto descriptivo de una fase (temporalmente).
         
         Args:
             phase_id: ID de la fase
             text: Nuevo texto a mostrar
         """
-        if phase_id not in self.phase_labels:
+        if phase_id not in self.phase_items:
             return
         
-        text_label = self.phase_labels[phase_id]
+        text_label = self.phase_items[phase_id]['text']
         text_label.setText(text)
