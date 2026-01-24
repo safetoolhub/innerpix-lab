@@ -34,15 +34,17 @@ class InitialScanner:
     """
     Handles multi-phase scanning of a directory to populate FileInfoRepositoryCache.
     
-    The scan is performed in 5 distinct phases:
-    1. FILESYSTEM_METADATA: Filesystem structure analysis (fast, OBLIGATORIO first)
-    2. HASH: SHA256 hash calculation for duplicate detection (requires FILESYSTEM_METADATA)
-    3. EXIF_IMAGES: Image metadata extraction (moderate cost, requires FILESYSTEM_METADATA)
-    4. EXIF_VIDEOS: Video metadata extraction (expensive, requires FILESYSTEM_METADATA)
-    5. BEST_DATE: Calculate best available date for each file (requires EXIF)
+    The scan is performed in 6 distinct phases:
+    1. FILE_CLASSIFICATION: Scan directory and classify files by type (very fast)
+    2. FILESYSTEM_METADATA: Read filesystem metadata for supported files (fast)
+    3. HASH: SHA256 hash calculation for duplicate detection (requires FILESYSTEM_METADATA)
+    4. EXIF_IMAGES: Image metadata extraction (moderate cost, requires FILESYSTEM_METADATA)
+    5. EXIF_VIDEOS: Video metadata extraction (expensive, requires FILESYSTEM_METADATA)
+    6. BEST_DATE: Calculate best available date for each file (requires EXIF)
     """
     
     # Phase identifiers
+    PHASE_FILE_CLASSIFICATION = "phase_file_classification"
     PHASE_FILESYSTEM_METADATA = "phase_filesystem_metadata"
     PHASE_HASH = "phase_hash"
     PHASE_EXIF_IMAGES = "phase_exif_images"
@@ -93,9 +95,9 @@ class InitialScanner:
         # Get repository instance
         repo = FileInfoRepositoryCache.get_instance()
         
-        # ==================== PHASE 1: FILESYSTEM METADATA ====================
-        phase_id = self.PHASE_FILESYSTEM_METADATA
-        phase_msg = "Analizando estructura de la carpeta"
+        # ==================== PHASE 1: FILE CLASSIFICATION ====================
+        phase_id = self.PHASE_FILE_CLASSIFICATION
+        phase_msg = "Escaneando estructura de carpetas"
         
         if phase_callback:
             phase_callback(phase_id, phase_msg)
@@ -112,6 +114,17 @@ class InitialScanner:
         
         self.logger.info(f"Found {total_files:,} files")
         
+        # Emit initial progress (0/total) so UI knows the total before classification starts
+        if progress_callback:
+            phase_progress = PhaseProgress(
+                phase_id=phase_id,
+                phase_name=phase_msg,
+                current=0,
+                total=total_files,
+                message=phase_msg
+            )
+            progress_callback(phase_progress)
+        
         # Classify files
         images, videos, others = [], [], []
         image_extensions = {}
@@ -120,7 +133,7 @@ class InitialScanner:
         
         for idx, f in enumerate(all_files, 1):
             if self._should_stop:
-                self.logger.warning("Scan cancelled during phase 1")
+                self.logger.warning("Scan cancelled during phase 1 (FILE_CLASSIFICATION)")
                 break
             
             # Classify by type
@@ -167,34 +180,68 @@ class InitialScanner:
             f"{len(videos):,} videos, {len(others):,} other files"
         )
         
+        # Notify phase 1 completion
+        if phase_completed_callback and not self._should_stop:
+            phase_completed_callback(self.PHASE_FILE_CLASSIFICATION)
+        
         if self._should_stop:
-            self.logger.info(f"Scan cancelado después de fase 1 (FILESYSTEM_METADATA) - Archivos clasificados: {total_files}")
+            self.logger.info(f"Scan cancelado después de fase 1 (FILE_CLASSIFICATION) - Archivos clasificados: {total_files}")
             return self._create_result_from_data(
                 total_files, images, videos, others,
                 image_extensions, video_extensions, unsupported_extensions
             )
         
+        # ==================== PHASE 2: FILESYSTEM METADATA ====================
+        phase_id = self.PHASE_FILESYSTEM_METADATA
+        phase_msg = "Obteniendo información de archivos"
+        
+        if phase_callback:
+            phase_callback(phase_id, phase_msg)
+        
+        self.logger.info(f"Phase 2: {phase_msg}")
+        
         # Update repository size
         repo.update_max_entries(len(supported_files))
+        
+        # Define progress callback for filesystem metadata population
+        def filesystem_metadata_progress(current: int, total: int) -> bool:
+            if self._should_stop:
+                return False
+            
+            if progress_callback:
+                phase_progress = PhaseProgress(
+                    phase_id=phase_id,
+                    phase_name=phase_msg,
+                    current=current,
+                    total=total,
+                    message=phase_msg
+                )
+                return progress_callback(phase_progress)
+            return True
         
         # Populate with FILESYSTEM_METADATA (filesystem only)
         repo.populate_from_scan(
             files=supported_files,
             strategy=PopulationStrategy.FILESYSTEM_METADATA,
-            progress_callback=None,
+            progress_callback=filesystem_metadata_progress,
             stop_check_callback=lambda: self._should_stop
         )
         
-        # Notify phase 1 completion
+        if self._should_stop:
+            self.logger.info("Phase 2 (FILESYSTEM_METADATA) cancelada por el usuario")
+        else:
+            self.logger.info("Phase 2 (FILESYSTEM_METADATA) complete: Metadata collected")
+        
+        # Notify phase 2 completion
         if phase_completed_callback and not self._should_stop:
             phase_completed_callback(self.PHASE_FILESYSTEM_METADATA)
         
-        # Log repository stats after Phase 1 (DEBUG)
+        # Log repository stats after Phase 2 (DEBUG)
         if self.logger.isEnabledFor(logging.DEBUG):
-            self.logger.debug("=== Repository Stats after Phase 1 (FILESYSTEM_METADATA) ===")
+            self.logger.debug("=== Repository Stats after Phase 2 (FILESYSTEM_METADATA) ===")
             repo.log_cache_statistics(level=logging.DEBUG)  # DEBUG
         
-        # ==================== PHASE 2: HASH CALCULATION ====================
+        # ==================== PHASE 3: HASH CALCULATION ====================
         if calculate_hashes and supported_files and not self._should_stop:
             phase_id = self.PHASE_HASH
             phase_msg = "Calculando hashes de los archivos"
@@ -202,7 +249,7 @@ class InitialScanner:
             if phase_callback:
                 phase_callback(phase_id, phase_msg)
             
-            self.logger.info(f"Phase 2: {phase_msg}")
+            self.logger.info(f"Phase 3: {phase_msg}")
             
             # Track percentage for logging
             last_logged_percentage = 0
@@ -215,7 +262,7 @@ class InitialScanner:
                 # Log progress every 10% at INFO level
                 current_percentage = (current * 100) // total
                 if current_percentage >= last_logged_percentage + 10 and current_percentage < 100:
-                    self.logger.info(f"Phase 2 (HASH) progreso: {current_percentage}% ({current:,}/{total:,} archivos)")
+                    self.logger.info(f"Phase 3 (HASH) progreso: {current_percentage}% ({current:,}/{total:,} archivos)")
                     last_logged_percentage = current_percentage
                 
                 if progress_callback:
@@ -237,20 +284,20 @@ class InitialScanner:
             )
             
             if self._should_stop:
-                self.logger.info("Phase 2 (HASH) cancelada por el usuario")
+                self.logger.info("Phase 3 (HASH) cancelada por el usuario")
             else:
-                self.logger.info("Phase 2 (HASH) complete: Hashes calculated")
+                self.logger.info("Phase 3 (HASH) complete: Hashes calculated")
             
-            # Notify phase 2 completion
+            # Notify phase 3 completion
             if phase_completed_callback and not self._should_stop:
                 phase_completed_callback(self.PHASE_HASH)
             
-            # Log repository stats after Phase 2 (DEBUG)
+            # Log repository stats after Phase 3 (DEBUG)
             if self.logger.isEnabledFor(logging.DEBUG):
-                self.logger.debug("=== Repository Stats after Phase 2 (HASH) ===")
+                self.logger.debug("=== Repository Stats after Phase 3 (HASH) ===")
                 repo.log_cache_statistics(level=logging.DEBUG)  # DEBUG
         
-        # ==================== PHASE 3: IMAGE EXIF ====================
+        # ==================== PHASE 4: IMAGE EXIF ====================
         if extract_image_exif and images and not self._should_stop:
             phase_id = self.PHASE_EXIF_IMAGES
             phase_msg = "Obteniendo metadatos de las imagenes"
@@ -258,7 +305,7 @@ class InitialScanner:
             if phase_callback:
                 phase_callback(phase_id, phase_msg)
             
-            self.logger.info(f"Phase 3: {phase_msg}")
+            self.logger.info(f"Phase 4: {phase_msg}")
             
             # Track percentage for logging
             last_logged_percentage = 0
@@ -271,7 +318,7 @@ class InitialScanner:
                 # Log progress every 10% at INFO level
                 current_percentage = (current * 100) // total
                 if current_percentage >= last_logged_percentage + 10 and current_percentage < 100:
-                    self.logger.info(f"Phase 3 (EXIF_IMAGES) progreso: {current_percentage}% ({current:,}/{total:,} imágenes)")
+                    self.logger.info(f"Phase 4 (EXIF_IMAGES) progreso: {current_percentage}% ({current:,}/{total:,} imágenes)")
                     last_logged_percentage = current_percentage
                 
                 if progress_callback:
@@ -293,20 +340,20 @@ class InitialScanner:
             )
             
             if self._should_stop:
-                self.logger.info("Phase 3 (EXIF_IMAGES) cancelada por el usuario")
+                self.logger.info("Phase 4 (EXIF_IMAGES) cancelada por el usuario")
             else:
-                self.logger.info("Phase 3 (EXIF_IMAGES) complete: Image EXIF extracted")
+                self.logger.info("Phase 4 (EXIF_IMAGES) complete: Image EXIF extracted")
             
-            # Notify phase 3 completion
+            # Notify phase 4 completion
             if phase_completed_callback and not self._should_stop:
                 phase_completed_callback(self.PHASE_EXIF_IMAGES)
             
-            # Log repository stats after Phase 3 (DEBUG)
+            # Log repository stats after Phase 4 (DEBUG)
             if self.logger.isEnabledFor(logging.DEBUG):
-                self.logger.debug("=== Repository Stats after Phase 3 (EXIF_IMAGES) ===")
+                self.logger.debug("=== Repository Stats after Phase 4 (EXIF_IMAGES) ===")
                 repo.log_cache_statistics(level=logging.DEBUG)  # DEBUG
         
-        # ==================== PHASE 4: VIDEO EXIF ====================
+        # ==================== PHASE 5: VIDEO EXIF ====================
         if extract_video_exif and videos and not self._should_stop:
             phase_id = self.PHASE_EXIF_VIDEOS
             phase_msg = "Obteniendo metadatos de los videos"
@@ -314,7 +361,7 @@ class InitialScanner:
             if phase_callback:
                 phase_callback(phase_id, phase_msg)
             
-            self.logger.info(f"Phase 4: {phase_msg}")
+            self.logger.info(f"Phase 5: {phase_msg}")
             
             # Track percentage for logging
             last_logged_percentage = 0
@@ -327,7 +374,7 @@ class InitialScanner:
                 # Log progress every 10% at INFO level
                 current_percentage = (current * 100) // total
                 if current_percentage >= last_logged_percentage + 10 and current_percentage < 100:
-                    self.logger.info(f"Phase 4 (EXIF_VIDEOS) progreso: {current_percentage}% ({current:,}/{total:,} videos)")
+                    self.logger.info(f"Phase 5 (EXIF_VIDEOS) progreso: {current_percentage}% ({current:,}/{total:,} videos)")
                     last_logged_percentage = current_percentage
                 
                 if progress_callback:
@@ -349,20 +396,20 @@ class InitialScanner:
             )
             
             if self._should_stop:
-                self.logger.info("Phase 4 (EXIF_VIDEOS) cancelada por el usuario")
+                self.logger.info("Phase 5 (EXIF_VIDEOS) cancelada por el usuario")
             else:
-                self.logger.info("Phase 4 (EXIF_VIDEOS) complete: Video EXIF extracted")
+                self.logger.info("Phase 5 (EXIF_VIDEOS) complete: Video EXIF extracted")
             
-            # Notify phase 4 completion
+            # Notify phase 5 completion
             if phase_completed_callback and not self._should_stop:
                 phase_completed_callback(self.PHASE_EXIF_VIDEOS)
             
-            # Log repository stats after Phase 4 (DEBUG)
+            # Log repository stats after Phase 5 (DEBUG)
             if self.logger.isEnabledFor(logging.DEBUG):
-                self.logger.debug("=== Repository Stats after Phase 4 (EXIF_VIDEOS) ===")
+                self.logger.debug("=== Repository Stats after Phase 5 (EXIF_VIDEOS) ===")
                 repo.log_cache_statistics(level=logging.DEBUG)  # DEBUG
         
-        # ==================== PHASE 5: BEST DATE CALCULATION ====================
+        # ==================== PHASE 6: BEST DATE CALCULATION ====================
         if supported_files and not self._should_stop:
             phase_id = self.PHASE_BEST_DATE
             phase_msg = "Calculando mejor fecha disponible"
@@ -370,7 +417,7 @@ class InitialScanner:
             if phase_callback:
                 phase_callback(phase_id, phase_msg)
             
-            self.logger.info(f"Phase 5: {phase_msg}")
+            self.logger.info(f"Phase 6: {phase_msg}")
             
             # Track percentage for logging
             last_logged_percentage = 0
@@ -383,7 +430,7 @@ class InitialScanner:
                 # Log progress every 10% at INFO level
                 current_percentage = (current * 100) // total
                 if current_percentage >= last_logged_percentage + 10 and current_percentage < 100:
-                    self.logger.info(f"Phase 5 (BEST_DATE) progreso: {current_percentage}% ({current:,}/{total:,} archivos)")
+                    self.logger.info(f"Phase 6 (BEST_DATE) progreso: {current_percentage}% ({current:,}/{total:,} archivos)")
                     last_logged_percentage = current_percentage
                 
                 if progress_callback:
@@ -405,17 +452,17 @@ class InitialScanner:
             )
             
             if self._should_stop:
-                self.logger.info("Phase 5 (BEST_DATE) cancelada por el usuario")
+                self.logger.info("Phase 6 (BEST_DATE) cancelada por el usuario")
             else:
-                self.logger.info("Phase 5 (BEST_DATE) complete: Best dates calculated")
+                self.logger.info("Phase 6 (BEST_DATE) complete: Best dates calculated")
             
-            # Notify phase 5 completion
+            # Notify phase 6 completion
             if phase_completed_callback and not self._should_stop:
                 phase_completed_callback(self.PHASE_BEST_DATE)
             
-            # Log repository stats after Phase 5 (DEBUG)
+            # Log repository stats after Phase 6 (DEBUG)
             if self.logger.isEnabledFor(logging.DEBUG):
-                self.logger.debug("=== Repository Stats after Phase 5 (BEST_DATE) ===")
+                self.logger.debug("=== Repository Stats after Phase 6 (BEST_DATE) ===")
                 repo.log_cache_statistics(level=logging.DEBUG)
         
         # ==================== FINALIZATION ====================

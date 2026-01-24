@@ -62,11 +62,12 @@ class AnalysisPhaseWidget(QFrame):
         
         # Definir las fases con sus IDs y textos
         phases = [
-            (InitialScanner.PHASE_FILESYSTEM_METADATA, "Escaneando estructura de carpetas", 1),
-            (InitialScanner.PHASE_HASH, "Calculando hashes de archivos", 2),
-            (InitialScanner.PHASE_EXIF_IMAGES, "Extrayendo metadatos de imágenes", 3),
-            (InitialScanner.PHASE_EXIF_VIDEOS, "Extrayendo metadatos de vídeos", 4),
-            (InitialScanner.PHASE_BEST_DATE, "Determinando fecha óptima", 5),
+            (InitialScanner.PHASE_FILE_CLASSIFICATION, "Escaneando estructura de carpetas", 1),
+            (InitialScanner.PHASE_FILESYSTEM_METADATA, "Obteniendo información de archivos", 2),
+            (InitialScanner.PHASE_HASH, "Calculando hashes de archivos", 3),
+            (InitialScanner.PHASE_EXIF_IMAGES, "Extrayendo metadatos de imágenes", 4),
+            (InitialScanner.PHASE_EXIF_VIDEOS, "Extrayendo metadatos de vídeos", 5),
+            (InitialScanner.PHASE_BEST_DATE, "Determinando fecha óptima", 6),
         ]
         
         for phase_id, phase_text, phase_num in phases:
