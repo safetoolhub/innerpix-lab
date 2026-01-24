@@ -202,6 +202,11 @@ Dry-run mode for testing. No deletions/moves/renames.
   - `BaseDialog`: Clase base con métodos comunes como `add_backup_checkbox()`, `add_dry_run_checkbox()`
 
 - **Tool Dialogs**:
+  - `zero_byte_dialog.py`: Gestión de archivos de cero bytes
+  - `heic_dialog.py`: Gestión de pares HEIC/JPG, menú contextual
+    - Muestra origen de fecha compartida entre pares HEIC/JPG
+  - `live_photos_dialog.py`: Gestión de Live Photos (pares foto + video)
+    - Muestra origen de fecha para imágenes y videos en columna dedicada
   - `duplicates_exact_dialog.py`: Gestión de duplicados exactos (SHA256), estrategias de eliminación
     - TreeWidget con columnas: Archivos, Tamaño, Fecha, Origen, Ubicación, Estado
     - Obtiene metadata del repositorio singleton con `FileInfoRepositoryCache.get_instance()`
@@ -215,16 +220,12 @@ Dry-run mode for testing. No deletions/moves/renames.
     - Revisión manual de grupos con archivos similares pero no idénticos
   - `file_organizer_dialog.py`: Organización de archivos, 3 modos (TO_ROOT, BY_MONTH, WHATSAPP_SEPARATE), paginación (200/page)
   - `file_renamer_dialog.py`: Renombrado de archivos, mapeos original → nuevo, indicadores de conflictos
-  - `heic_dialog.py`: Gestión de pares HEIC/JPG, menú contextual
-    - Muestra origen de fecha compartida entre pares HEIC/JPG
-  - `live_photos_dialog.py`: Gestión de Live Photos (pares foto + video)
-    - Muestra origen de fecha para imágenes y videos en columna dedicada
-  - `zero_byte_dialog.py`: Gestión de archivos de cero bytes
 
 - **Auxiliary Dialogs**:
   - `about_dialog.py`: Diálogo "Acerca de" con información de la aplicación
   - `settings_dialog.py`: Configuración de la aplicación
   - `dialog_utils.py`: Utilidades como `show_file_details_dialog()`, `open_file_with_default_app()`
+  - `image_preview_dialog.py`: Visor de imágenes simple para previsualizaciones rápidas
 
 **UX Rules**
 - Never show empty dialogs
