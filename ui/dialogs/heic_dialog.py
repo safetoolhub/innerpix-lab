@@ -738,35 +738,8 @@ class HeicDialog(BaseDialog):
     
     def _show_context_menu(self, position):
         """Muestra menú contextual para archivos individuales"""
-        from .dialog_utils import open_file, open_folder, show_file_details_dialog
-        
-        item = self.tree_widget.itemAt(position)
-        if not item:
-            return
-        
-        # Obtener el archivo asociado al item
-        file_path = item.data(0, Qt.ItemDataRole.UserRole)
-        if not file_path or not isinstance(file_path, Path):
-            return  # Es un grupo padre, no mostrar menú
-        
-        menu = QMenu(self)
-        menu.setStyleSheet(DesignSystem.get_context_menu_style())
-        
-        # Opciones para abrir archivo
-        open_action = menu.addAction(icon_manager.get_icon('open-in-new'), "Abrir archivo")
-        open_action.triggered.connect(lambda: open_file(file_path, self))
-        
-        # Opción para abrir carpeta
-        open_folder_action = menu.addAction(icon_manager.get_icon('folder-open'), "Abrir carpeta contenedora")
-        open_folder_action.triggered.connect(lambda: open_folder(file_path.parent, self))
-        
-        menu.addSeparator()
-        
-        # Opción para ver detalles
-        details_action = menu.addAction(icon_manager.get_icon('information'), "Ver detalles del archivo")
-        details_action.triggered.connect(lambda: show_file_details_dialog(file_path, self))
-        
-        menu.exec(self.tree_widget.viewport().mapToGlobal(position))
+        from .dialog_utils import show_file_context_menu
+        show_file_context_menu(self.tree_widget, position, self)
     
     def _update_button_text(self):
         """Actualiza el texto del botón según el formato seleccionado"""

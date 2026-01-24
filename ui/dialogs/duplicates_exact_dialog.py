@@ -995,58 +995,8 @@ class DuplicatesExactDialog(BaseDialog):
     
     def _show_context_menu(self, position):
         """Muestra el menú contextual para un archivo con estilo Material Design"""
-        from .dialog_utils import open_file, open_folder
-        
-        item = self.tree_widget.itemAt(position)
-        if not item:
-            return
-        
-        # Obtener el archivo asociado al item
-        file_path = item.data(0, Qt.ItemDataRole.UserRole)
-        if not file_path or not isinstance(file_path, Path):
-            return  # Es un grupo padre, no mostrar menú
-        
-        menu = QMenu(self)
-        menu.setStyleSheet(f"""
-            QMenu {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_4}px;
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            }}
-            QMenu::item {{
-                background-color: transparent;
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_16}px;
-                border-radius: {DesignSystem.RADIUS_SMALL}px;
-                color: {DesignSystem.COLOR_TEXT};
-            }}
-            QMenu::item:selected {{
-                background-color: {DesignSystem.COLOR_PRIMARY};
-                color: {DesignSystem.COLOR_PRIMARY_TEXT};
-            }}
-            QMenu::separator {{
-                height: 1px;
-                background-color: {DesignSystem.COLOR_BORDER};
-                margin: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_8}px;
-            }}
-        """)
-        
-        # Acción: Abrir archivo
-        open_action = menu.addAction("Abrir archivo")
-        open_action.triggered.connect(lambda: open_file(file_path, self))
-        
-        # Acción: Abrir carpeta
-        open_folder_action = menu.addAction("Abrir carpeta contenedora")
-        open_folder_action.triggered.connect(lambda: open_folder(file_path.parent, self))
-        
-        menu.addSeparator()
-        
-        # Acción: Ver detalles
-        details_action = menu.addAction("Ver detalles del archivo")
-        details_action.triggered.connect(lambda: self._show_file_details(file_path))
-        
-        menu.exec(self.tree_widget.viewport().mapToGlobal(position))
+        from .dialog_utils import show_file_context_menu
+        show_file_context_menu(self.tree_widget, position, self, details_callback=self._show_file_details)
     
     def _show_file_details(self, file_path: Path):
         """Muestra diálogo con detalles del archivo"""

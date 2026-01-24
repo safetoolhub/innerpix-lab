@@ -803,36 +803,8 @@ class VisualIdenticalDialog(BaseDialog):
     
     def _show_context_menu(self, pos):
         """Muestra menú contextual para archivos individuales."""
-        from .dialog_utils import open_file, open_folder, show_file_details_dialog
-        
-        item = self.tree_widget.itemAt(pos)
-        if not item:
-            return
-        
-        data = item.data(0, Qt.ItemDataRole.UserRole)
-        if not isinstance(data, Path):
-            return  # Es un grupo padre, no mostrar menú
-        
-        file_path = data
-        
-        menu = QMenu(self)
-        menu.setStyleSheet(DesignSystem.get_context_menu_style())
-        
-        # Opciones para abrir archivo
-        open_action = menu.addAction(icon_manager.get_icon('open-in-new'), "Abrir archivo")
-        open_action.triggered.connect(lambda: open_file(file_path, self))
-        
-        # Opción para abrir carpeta
-        open_folder_action = menu.addAction(icon_manager.get_icon('folder-open'), "Abrir carpeta contenedora")
-        open_folder_action.triggered.connect(lambda: open_folder(file_path.parent, self))
-        
-        menu.addSeparator()
-        
-        # Opción para ver detalles
-        details_action = menu.addAction(icon_manager.get_icon('information'), "Ver detalles del archivo")
-        details_action.triggered.connect(lambda: self._show_file_details(file_path))
-        
-        menu.exec(self.tree_widget.viewport().mapToGlobal(pos))
+        from .dialog_utils import show_file_context_menu
+        show_file_context_menu(self.tree_widget, pos, self, details_callback=self._show_file_details)
     
     def _show_file_details(self, file_path: Path):
         """Muestra diálogo con detalles del archivo."""

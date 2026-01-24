@@ -5,8 +5,9 @@ Funciones comunes para abrir archivos, carpetas y mostrar detalles
 import os
 from datetime import datetime
 from pathlib import Path
-from PyQt6.QtWidgets import QMessageBox
-from PyQt6.QtCore import Qt, QSize
+from typing import Callable, Optional
+from PyQt6.QtWidgets import QMessageBox, QMenu, QTreeWidget, QWidget
+from PyQt6.QtCore import Qt, QSize, QPoint
 from utils.format_utils import format_size
 from utils.platform_utils import open_file_with_default_app, open_folder_in_explorer
 from utils.logger import get_logger
@@ -64,6 +65,63 @@ def open_folder(folder_path: Path, parent_widget=None, select_file: Path = None)
     return open_folder_in_explorer(folder_path, 
                                    select_file=select_file,
                                    error_callback=show_error)
+
+
+def show_file_context_menu(
+    tree_widget: QTreeWidget, 
+    position: QPoint, 
+    parent_widget: QWidget,
+    details_callback: Optional[Callable[[Path], None]] = None
+) -> None:
+    """
+    Muestra menú contextual estándar para archivos en TreeWidgets.
+    
+    Menú unificado con estilo Material Design para todos los diálogos:
+    - Abrir archivo
+    - Abrir carpeta contenedora
+    - Ver detalles del archivo
+    
+    Args:
+        tree_widget: QTreeWidget donde se muestra el menú
+        position: Posición del clic (desde customContextMenuRequested)
+        parent_widget: Widget padre para el menú y callbacks
+        details_callback: Callback opcional para "Ver detalles" con información adicional.
+                         Si es None, usa show_file_details_dialog directamente.
+                         La función recibe file_path como parámetro.
+    """
+    from ui.styles.design_system import DesignSystem
+    from ui.styles.icons import icon_manager
+    
+    item = tree_widget.itemAt(position)
+    if not item:
+        return
+    
+    # Obtener el archivo asociado al item
+    file_path = item.data(0, Qt.ItemDataRole.UserRole)
+    if not file_path or not isinstance(file_path, Path):
+        return  # Es un grupo padre, no mostrar menú
+    
+    menu = QMenu(parent_widget)
+    menu.setStyleSheet(DesignSystem.get_context_menu_style())
+    
+    # Opción: Abrir archivo
+    open_action = menu.addAction(icon_manager.get_icon('open-in-new'), "Abrir archivo")
+    open_action.triggered.connect(lambda: open_file(file_path, parent_widget))
+    
+    # Opción: Abrir carpeta contenedora
+    open_folder_action = menu.addAction(icon_manager.get_icon('folder-open'), "Abrir carpeta contenedora")
+    open_folder_action.triggered.connect(lambda: open_folder(file_path.parent, parent_widget))
+    
+    menu.addSeparator()
+    
+    # Opción: Ver detalles del archivo
+    details_action = menu.addAction(icon_manager.get_icon('information'), "Ver detalles del archivo")
+    if details_callback:
+        details_action.triggered.connect(lambda: details_callback(file_path))
+    else:
+        details_action.triggered.connect(lambda: show_file_details_dialog(file_path, parent_widget))
+    
+    menu.exec(tree_widget.viewport().mapToGlobal(position))
 
 
 def show_file_details_dialog(file_path: Path, parent_widget=None, additional_info=None, force_metadata_search=False):
