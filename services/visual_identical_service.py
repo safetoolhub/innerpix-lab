@@ -349,6 +349,7 @@ class VisualIdenticalService(BaseService):
         Returns:
             ExecutionResult con resultados
         """
+        import os
         from services.result_types import VisualIdenticalExecutionResult
         from utils.file_utils import delete_file_securely, launch_backup_creation
         from utils.format_utils import format_size
@@ -368,7 +369,25 @@ class VisualIdenticalService(BaseService):
         backup_path = None
         if create_backup and not dry_run:
             self.logger.info("Creando backup de archivos...")
-            backup_path = launch_backup_creation(files_to_delete)
+            
+            # Calcular directorio base común para el backup
+            base_dir = files_to_delete[0].parent
+            for file_path in files_to_delete[1:]:
+                try:
+                    base_dir = Path(os.path.commonpath([base_dir, file_path.parent]))
+                except ValueError:
+                    # No hay path común (ej: diferentes drives en Windows)
+                    self.logger.warning(
+                        f"No hay path común entre {base_dir} y {file_path.parent}, "
+                        f"usando {base_dir}"
+                    )
+                    break
+            
+            backup_path = launch_backup_creation(
+                files_to_delete,
+                base_dir,
+                backup_prefix='backup_visual_identical'
+            )
             if backup_path:
                 self.logger.info(f"Backup creado en: {backup_path}")
         
