@@ -683,6 +683,8 @@ class DuplicatesExactDialog(BaseDialog):
     
     def _add_group_to_tree(self, group: DuplicateGroup, group_number: int):
         """Añade un grupo como nodo padre expandible en el tree con estilo Material Design"""
+        from .dialog_utils import apply_group_item_style, create_group_tooltip, get_file_icon_name, apply_file_item_status
+        
         # Nodo padre del grupo
         group_item = QTreeWidgetItem(self.tree_widget)
         file_count = len(group.files)
@@ -700,25 +702,15 @@ class DuplicatesExactDialog(BaseDialog):
         group_item.setText(0, f"Grupo #{group_number} • {file_count} copias")
         # Las otras columnas quedan vacías para grupos - solo se usan para archivos
         
-        # Estilo del grupo padre estándar (Bold + Blue + BASE size)
-        font = group_item.font(0)
-        font.setBold(True)
-        font.setPointSize(int(DesignSystem.FONT_SIZE_XS))
-        group_item.setFont(0, font)
-        group_item.setForeground(0, QColor(DesignSystem.COLOR_PRIMARY))
+        # Aplicar estilo unificado de grupo
+        apply_group_item_style(group_item, num_columns=6)
         
         # Tooltip informativo sobre doble click
-        group_item.setToolTip(0, f"Grupo #{group_number} con {file_count} archivos idénticos\n"
-                                 f"▶ 💡 Doble clic para expandir y ver detalles de archivos\n"
-                                 f"💡 Las columnas muestran información de cada archivo individual")
-        
-        # Color de fondo sutil Material Design
-        group_item.setBackground(0, QColor(DesignSystem.COLOR_BG_1))
-        group_item.setBackground(1, QColor(DesignSystem.COLOR_BG_1))
-        group_item.setBackground(2, QColor(DesignSystem.COLOR_BG_1))
-        group_item.setBackground(3, QColor(DesignSystem.COLOR_BG_1))
-        group_item.setBackground(4, QColor(DesignSystem.COLOR_BG_1))
-        group_item.setBackground(5, QColor(DesignSystem.COLOR_BG_1))
+        group_item.setToolTip(0, create_group_tooltip(
+            group_number,
+            f"{file_count} archivos idénticos",
+            ""
+        ))
         
         # Color del texto de la columna de espacio recuperable
         group_item.setForeground(5, QColor(DesignSystem.COLOR_SUCCESS))
@@ -733,16 +725,8 @@ class DuplicatesExactDialog(BaseDialog):
             # Determinar si este archivo se mantiene o se elimina
             is_keep = file_path == keep_file
             
-            # Icono según tipo de archivo (con color diferenciado)
-            ext = file_path.suffix.lower()
-            if ext in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp']:
-                icon_name = "image"
-            elif ext in ['.mov', '.mp4', '.avi', '.mkv']:
-                icon_name = "video"
-            elif ext in ['.heic', '.heif']:
-                icon_name = "camera"
-            else:
-                icon_name = "file"
+            # Icono según tipo de archivo
+            icon_name = get_file_icon_name(file_path)
             
             file_item.setIcon(0, icon_manager.get_icon(icon_name, size=18))
             file_item.setText(0, file_path.name)
@@ -983,15 +967,8 @@ class DuplicatesExactDialog(BaseDialog):
     
     def _on_item_double_clicked(self, item, column):
         """Maneja doble click en un item del tree"""
-        # Obtener el archivo asociado al item
-        file_path = item.data(0, Qt.ItemDataRole.UserRole)
-        
-        if file_path and isinstance(file_path, Path):
-            # Es un archivo, abrirlo
-            self._open_file(file_path)
-        else:
-            # Es un grupo, expandir/colapsar
-            item.setExpanded(not item.isExpanded())
+        from .dialog_utils import handle_tree_item_double_click
+        handle_tree_item_double_click(item, column, self)
     
     def _show_context_menu(self, position):
         """Muestra el menú contextual para un archivo con estilo Material Design"""

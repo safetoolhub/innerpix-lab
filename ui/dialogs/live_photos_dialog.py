@@ -316,11 +316,10 @@ class LivePhotosDialog(BaseDialog):
         tree.setColumnWidth(4, 150)
         tree.setColumnWidth(5, 120)
         tree.setAlternatingRowColors(True)
+        tree.setRootIsDecorated(True)
+        tree.setAnimated(True)
+        tree.setIndentation(20)
         tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        
-        tree.setEditTriggers(QTreeWidget.EditTrigger.NoEditTriggers)
-        tree.setSelectionMode(QTreeWidget.SelectionMode.NoSelection)
-        tree.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         
         tree.setStyleSheet(f"""
             QTreeWidget {{
@@ -600,6 +599,8 @@ class LivePhotosDialog(BaseDialog):
     
     def _add_group_to_tree(self, group: LivePhotoGroup, group_number: int):
         """Añade un grupo como nodo padre expandible con archivos de imagen y video"""
+        from .dialog_utils import apply_group_item_style, create_group_tooltip
+        
         # Nodo padre del grupo
         group_item = QTreeWidgetItem(self.tree_widget)
         
@@ -613,24 +614,21 @@ class LivePhotosDialog(BaseDialog):
             group_item.setText(3, group_date.strftime('%d/%m/%Y %H:%M:%S'))
         group_item.setText(4, group.date_source or "")
         
-        # Estilo del grupo padre estándar (Bold + Blue + BASE size)
-        font = group_item.font(0)
-        font.setBold(True)
-        font.setPointSize(int(DesignSystem.FONT_SIZE_XS))
-        group_item.setFont(0, font)
-        group_item.setForeground(0, QColor(DesignSystem.COLOR_PRIMARY))
+        # Aplicar estilo unificado de grupo
+        apply_group_item_style(group_item, num_columns=6)
         
         # Tooltip informativo
-        tooltip_msg = (f"Grupo #{group_number}: {group.base_name}\n"
-                       f"▶ Doble clic para expandir y ver archivos\n"
-                       f"📷 {group.image_count} imagen(es) + 1 video MOV\n")
-        
+        extra_info = f"📷 {group.image_count} imagen(es) + 1 video MOV"
         if group.date_source:
-            tooltip_msg += f"📅 Fecha común: {group.date_source}\n"
+            extra_info += f"\n📅 Fecha común: {group.date_source}"
             if group.date_difference is not None:
-                tooltip_msg += f"⏱️ Diferencia: {group.date_difference:.3f}s\n"
+                extra_info += f"\n⏱️ Diferencia: {group.date_difference:.3f}s"
         
-        group_item.setToolTip(0, tooltip_msg)
+        group_item.setToolTip(0, create_group_tooltip(
+            group_number,
+            f"Live Photo: {group.base_name}",
+            extra_info
+        ))
         
         # Añadir imágenes como hijos
         for idx, img_info in enumerate(group.images):
@@ -693,17 +691,8 @@ class LivePhotosDialog(BaseDialog):
     
     def _on_item_double_clicked(self, item, column):
         """Maneja doble click: expande grupos o abre archivos"""
-        from .dialog_utils import open_file
-        
-        # Obtener el archivo asociado al item
-        file_path = item.data(0, Qt.ItemDataRole.UserRole)
-        
-        if file_path and isinstance(file_path, Path):
-            # Es un archivo, abrirlo
-            open_file(file_path, self)
-        else:
-            # Es un grupo, expandir/colapsar
-            item.setExpanded(not item.isExpanded())
+        from .dialog_utils import handle_tree_item_double_click
+        handle_tree_item_double_click(item, column, self)
     
     def _show_context_menu(self, position):
         """Muestra menú contextual para archivos individuales"""

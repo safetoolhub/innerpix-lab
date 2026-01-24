@@ -67,6 +67,122 @@ def open_folder(folder_path: Path, parent_widget=None, select_file: Path = None)
                                    error_callback=show_error)
 
 
+# ============================================================================
+# FUNCIONES COMUNES PARA TREEWIDGETS DE DIÁLOGOS
+# ============================================================================
+
+def handle_tree_item_double_click(item, column, parent_widget=None) -> None:
+    """
+    Maneja el doble clic en un item del TreeWidget de forma unificada.
+    
+    - Si es un archivo (Path en UserRole): lo abre con la app predeterminada
+    - Si es un grupo (cualquier otro dato o None): expande/colapsa el nodo
+    
+    Args:
+        item: QTreeWidgetItem que recibió el doble clic
+        column: Columna del clic (no usado, pero requerido por la señal)
+        parent_widget: Widget padre para mostrar errores
+    """
+    # Obtener el dato asociado al item
+    data = item.data(0, Qt.ItemDataRole.UserRole)
+    
+    if isinstance(data, Path):
+        # Es un archivo - abrirlo
+        open_file(data, parent_widget)
+    else:
+        # Es un grupo - expandir/colapsar
+        item.setExpanded(not item.isExpanded())
+
+
+def apply_group_item_style(group_item, num_columns: int = 5) -> None:
+    """
+    Aplica estilo Material Design unificado a un nodo de grupo en TreeWidget.
+    
+    Estilo: Texto en negrita, color primario (azul), fondo sutil.
+    
+    Args:
+        group_item: QTreeWidgetItem del grupo
+        num_columns: Número de columnas a las que aplicar el fondo
+    """
+    from PyQt6.QtGui import QColor, QFont
+    from ui.styles.design_system import DesignSystem
+    
+    # Estilo del texto: Bold + Primary color + tamaño XS
+    font = group_item.font(0)
+    font.setBold(True)
+    font.setPointSize(int(DesignSystem.FONT_SIZE_XS))
+    group_item.setFont(0, font)
+    group_item.setForeground(0, QColor(DesignSystem.COLOR_PRIMARY))
+    
+    # Color de fondo sutil Material Design para todas las columnas
+    bg_color = QColor(DesignSystem.COLOR_BG_1)
+    for col in range(num_columns):
+        group_item.setBackground(col, bg_color)
+
+
+def create_group_tooltip(group_number: int, description: str, extra_info: str = "") -> str:
+    """
+    Crea un tooltip estándar para nodos de grupo.
+    
+    Args:
+        group_number: Número del grupo
+        description: Descripción del contenido (ej: "3 archivos idénticos")
+        extra_info: Información adicional opcional (ej: fecha, variación)
+        
+    Returns:
+        Texto del tooltip formateado
+    """
+    tooltip = (f"Grupo #{group_number} con {description}\n"
+               f"▶ 💡 Doble clic para expandir y ver detalles de archivos\n"
+               f"💡 Las columnas muestran información de cada archivo individual")
+    
+    if extra_info:
+        tooltip += f"\n{extra_info}"
+    
+    return tooltip
+
+
+def apply_file_item_status(file_item, is_keep: bool, status_column: int = 4) -> None:
+    """
+    Aplica el estado (conservar/eliminar) a un item de archivo.
+    
+    Args:
+        file_item: QTreeWidgetItem del archivo
+        is_keep: True si se conservará, False si se eliminará
+        status_column: Índice de la columna de estado
+    """
+    from PyQt6.QtGui import QColor
+    from ui.styles.design_system import DesignSystem
+    
+    if is_keep:
+        file_item.setText(status_column, "✓ Conservar")
+        file_item.setForeground(status_column, QColor(DesignSystem.COLOR_SUCCESS))
+    else:
+        file_item.setText(status_column, "✗ Eliminar")
+        file_item.setForeground(status_column, QColor(DesignSystem.COLOR_ERROR))
+
+
+def get_file_icon_name(file_path: Path) -> str:
+    """
+    Determina el nombre del icono según el tipo de archivo.
+    
+    Args:
+        file_path: Ruta del archivo
+        
+    Returns:
+        Nombre del icono ('image', 'video', 'camera', 'file')
+    """
+    ext = file_path.suffix.lower()
+    if ext in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp']:
+        return "image"
+    elif ext in ['.mov', '.mp4', '.avi', '.mkv', '.m4v']:
+        return "video"
+    elif ext in ['.heic', '.heif']:
+        return "camera"
+    else:
+        return "file"
+
+
 def show_file_context_menu(
     tree_widget: QTreeWidget, 
     position: QPoint, 

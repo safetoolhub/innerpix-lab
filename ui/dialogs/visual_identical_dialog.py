@@ -589,6 +589,8 @@ class VisualIdenticalDialog(BaseDialog):
     
     def _add_group_to_tree(self, group: VisualIdenticalGroup, group_num: int):
         """Añade un grupo al árbol con estilo Material Design."""
+        from .dialog_utils import apply_group_item_style, create_group_tooltip
+        
         # Determinar archivo a conservar
         keep_file = self._get_file_to_keep(group)
         file_count = len(group.files)
@@ -598,30 +600,19 @@ class VisualIdenticalDialog(BaseDialog):
         group_item.setText(0, f"Grupo #{group_num} • {file_count} copias")
         # Las otras columnas quedan vacías para grupos - solo se usan para archivos
         
-        # Estilo del grupo padre estándar (Bold + Blue + BASE size)
-        font = group_item.font(0)
-        font.setBold(True)
-        font.setPointSize(int(DesignSystem.FONT_SIZE_XS))
-        group_item.setFont(0, font)
-        group_item.setForeground(0, QColor(DesignSystem.COLOR_PRIMARY))
+        # Aplicar estilo unificado de grupo
+        apply_group_item_style(group_item, num_columns=5)
         
         # Tooltip informativo sobre doble click
-        group_item.setToolTip(0, f"Grupo #{group_num} con {file_count} archivos visualmente idénticos\n"
-                                 f"▶ 💡 Doble clic para expandir y ver detalles de archivos\n"
-                                 f"💡 Las columnas muestran información de cada archivo individual")
-        
-        # Color de fondo sutil Material Design
-        group_item.setBackground(0, QColor(DesignSystem.COLOR_BG_1))
-        group_item.setBackground(1, QColor(DesignSystem.COLOR_BG_1))
-        group_item.setBackground(2, QColor(DesignSystem.COLOR_BG_1))
-        group_item.setBackground(3, QColor(DesignSystem.COLOR_BG_1))
-        group_item.setBackground(4, QColor(DesignSystem.COLOR_BG_1))
-        
-        # Indicar variación de tamaño si es significativa (en tooltip)
+        extra_info = ""
         if group.size_variation_percent > 10:
-            tooltip = group_item.toolTip(0)
-            tooltip += f"\n⚠ Variación de tamaño: {group.size_variation_percent:.0f}%"
-            group_item.setToolTip(0, tooltip)
+            extra_info = f"⚠ Variación de tamaño: {group.size_variation_percent:.0f}%"
+        
+        group_item.setToolTip(0, create_group_tooltip(
+            group_num,
+            f"{file_count} archivos visualmente idénticos",
+            extra_info
+        ))
         
         group_item.setData(0, Qt.ItemDataRole.UserRole, group)
         group_item.setExpanded(True)
@@ -638,7 +629,14 @@ class VisualIdenticalDialog(BaseDialog):
     def _add_file_to_group(self, parent_item: QTreeWidgetItem, file_path: Path, 
                            file_size: int, is_keep: bool):
         """Añade un archivo a un grupo en el árbol."""
+        from .dialog_utils import apply_file_item_status, get_file_icon_name
+        from ui.styles.icons import icon_manager
+        
         file_item = QTreeWidgetItem()
+        
+        # Icono según tipo de archivo
+        icon_name = get_file_icon_name(file_path)
+        file_item.setIcon(0, icon_manager.get_icon(icon_name, size=18))
         
         # Nombre del archivo
         file_item.setText(0, file_path.name)
@@ -656,13 +654,8 @@ class VisualIdenticalDialog(BaseDialog):
         # Ubicación
         file_item.setText(3, str(file_path.parent))
         
-        # Estado (conservar/eliminar)
-        if is_keep:
-            file_item.setText(4, "✓ Conservar")
-            file_item.setForeground(4, QColor(DesignSystem.COLOR_SUCCESS))
-        else:
-            file_item.setText(4, "✗ Eliminar")
-            file_item.setForeground(4, QColor(DesignSystem.COLOR_DANGER))
+        # Estado (conservar/eliminar) - usar función común
+        apply_file_item_status(file_item, is_keep, status_column=4)
         
         file_item.setData(0, Qt.ItemDataRole.UserRole, file_path)
         parent_item.addChild(file_item)
@@ -790,16 +783,8 @@ class VisualIdenticalDialog(BaseDialog):
     
     def _on_item_double_clicked(self, item: QTreeWidgetItem, column: int):
         """Maneja doble clic: expande grupos o abre archivos."""
-        from .dialog_utils import open_file
-        
-        data = item.data(0, Qt.ItemDataRole.UserRole)
-        
-        if isinstance(data, Path):
-            # Es un archivo - abrirlo
-            open_file(data, self)
-        elif isinstance(data, VisualIdenticalGroup):
-            # Es un grupo - expandir/colapsar
-            item.setExpanded(not item.isExpanded())
+        from .dialog_utils import handle_tree_item_double_click
+        handle_tree_item_double_click(item, column, self)
     
     def _show_context_menu(self, pos):
         """Muestra menú contextual para archivos individuales."""
