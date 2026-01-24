@@ -426,16 +426,7 @@ class AboutDialog(QDialog):
         # Número circular pequeño
         num_label = QLabel(number)
         num_label.setFixedSize(24, 24)
-        num_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        num_label.setStyleSheet(f"""
-            QLabel {{
-                background-color: {DesignSystem.COLOR_PRIMARY};
-                color: white;
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
-                border-radius: 12px;
-            }}
-        """)
+        num_label.setStyleSheet(DesignSystem.get_tutorial_step_number_style())
         layout.addWidget(num_label)
         
         # Contenido
@@ -443,15 +434,11 @@ class AboutDialog(QDialog):
         content.setSpacing(0)
         
         title_label = QLabel(title)
-        title_label.setStyleSheet(f"""
-            color: {DesignSystem.COLOR_TEXT};
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-        """)
+        title_label.setStyleSheet(DesignSystem.get_tutorial_card_title_style())
         content.addWidget(title_label)
         
         desc_label = QLabel(description)
-        desc_label.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_XS}px;")
+        desc_label.setStyleSheet(DesignSystem.get_tutorial_card_desc_style())
         content.addWidget(desc_label)
         
         layout.addLayout(content, 1)
@@ -467,15 +454,11 @@ class AboutDialog(QDialog):
         layout.setSpacing(4)
         
         header = QLabel(f"{emoji} {title}")
-        header.setStyleSheet(f"""
-            color: {DesignSystem.COLOR_TEXT};
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-        """)
+        header.setStyleSheet(DesignSystem.get_tutorial_card_title_style())
         layout.addWidget(header)
         
         desc_label = QLabel(desc)
-        desc_label.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_XS}px;")
+        desc_label.setStyleSheet(DesignSystem.get_tutorial_card_desc_style())
         desc_label.setWordWrap(True)
         layout.addWidget(desc_label)
         
@@ -500,18 +483,14 @@ class AboutDialog(QDialog):
         header.addWidget(icon_label)
         
         title_label = QLabel(title)
-        title_label.setStyleSheet(f"""
-            color: {DesignSystem.COLOR_TEXT};
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-        """)
+        title_label.setStyleSheet(DesignSystem.get_tutorial_card_title_style())
         header.addWidget(title_label)
         header.addStretch()
         
         layout.addLayout(header)
         
         desc_label = QLabel(description)
-        desc_label.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_XS}px;")
+        desc_label.setStyleSheet(DesignSystem.get_tutorial_card_desc_style())
         desc_label.setWordWrap(True)
         layout.addWidget(desc_label)
         
@@ -525,11 +504,7 @@ class AboutDialog(QDialog):
         layout.setSpacing(12)
         
         title_label = QLabel(title)
-        title_label.setStyleSheet(f"""
-            color: {DesignSystem.COLOR_TEXT};
-            font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-        """)
+        title_label.setStyleSheet(DesignSystem.get_tutorial_card_title_style())
         layout.addWidget(title_label)
         
         subtitle_label = QLabel(f"— {subtitle}")
@@ -558,15 +533,11 @@ class AboutDialog(QDialog):
         content.setSpacing(2)
         
         title_label = QLabel(title)
-        title_label.setStyleSheet(f"""
-            color: {DesignSystem.COLOR_TEXT};
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-        """)
+        title_label.setStyleSheet(DesignSystem.get_tutorial_card_title_style())
         content.addWidget(title_label)
         
         desc_label = QLabel(description)
-        desc_label.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_XS}px;")
+        desc_label.setStyleSheet(DesignSystem.get_tutorial_card_desc_style())
         desc_label.setWordWrap(True)
         content.addWidget(desc_label)
         
@@ -583,11 +554,7 @@ class AboutDialog(QDialog):
         layout.setContentsMargins(14, 12, 14, 12)
         
         title_label = QLabel(title)
-        title_label.setStyleSheet(f"""
-            color: {DesignSystem.COLOR_TEXT};
-            font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-        """)
+        title_label.setStyleSheet(DesignSystem.get_tutorial_card_title_style())
         layout.addWidget(title_label)
         
         for label, value in items:
@@ -621,11 +588,7 @@ class AboutDialog(QDialog):
         layout.setContentsMargins(14, 12, 14, 12)
         
         title_label = QLabel("Formatos Soportados")
-        title_label.setStyleSheet(f"""
-            color: {DesignSystem.COLOR_TEXT};
-            font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-        """)
+        title_label.setStyleSheet(DesignSystem.get_tutorial_card_title_style())
         layout.addWidget(title_label)
         
         formats = [
@@ -661,15 +624,11 @@ class AboutDialog(QDialog):
         layout.setContentsMargins(14, 10, 14, 10)
         
         title_label = QLabel(title)
-        title_label.setStyleSheet(f"""
-            color: {DesignSystem.COLOR_TEXT};
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-        """)
+        title_label.setStyleSheet(DesignSystem.get_tutorial_card_title_style())
         layout.addWidget(title_label)
         
         content_label = QLabel(content)
-        content_label.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT}; font-size: {DesignSystem.FONT_SIZE_XS}px;")
+        content_label.setStyleSheet(DesignSystem.get_tutorial_card_desc_style())
         content_label.setWordWrap(True)
         layout.addWidget(content_label)
         

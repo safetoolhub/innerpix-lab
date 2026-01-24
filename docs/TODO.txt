@@ -3,6 +3,8 @@ Innerpix lab
 
 Tenemos que poner en las cards avisos antes del analisis de que si hay metadatos que serian muy utiles tener avisar al usuario. Ejemplo, lo de best date es critico para organizar arhivos, así que debemos avisarlo. 
 
+COn videos creo que no se hace nada en los de similares. Se gestioann imagenes solo
+
 Podriamos para live photos comprobar que el video es mas corto de 5 segundos
 
 BUG: si se va a similar duplciates, se borra 1 y se vuelve a stage 3, y se le da de nuevo se queda colgado. Seguramente 

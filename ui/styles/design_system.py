@@ -1544,21 +1544,17 @@ class DesignSystem:
     def get_tutorial_feature_card_style():
         """Retorna el estilo para cards de features en tutoriales.
         
-        Cards con borde izquierdo coloreado y hover sutil.
-        
-        Returns:
-            str: Estilo QSS para QFrame tipo feature card.
+        Card sin bordes ruidosos, usando contraste de fondo.
         """
         return f"""
             QFrame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_MD}px;
+                background-color: {DesignSystem.COLOR_BACKGROUND};
+                border: none;
+                border-radius: {DesignSystem.RADIUS_LG}px;
                 padding: {DesignSystem.SPACE_16}px;
             }}
             QFrame:hover {{
-                background-color: {DesignSystem.COLOR_BACKGROUND};
-                border-color: {DesignSystem.COLOR_PRIMARY};
+                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
             }}
         """
     
@@ -1566,24 +1562,18 @@ class DesignSystem:
     def get_tutorial_feature_card_accent_style(accent_color: str):
         """Retorna el estilo para cards de features con acento de color.
         
-        Cards con borde izquierdo del color especificado.
-        
-        Args:
-            accent_color: Color del borde izquierdo en formato hex.
-        
-        Returns:
-            str: Estilo QSS para QFrame con acento.
+        Sin borde exterior, solo el acento lateral.
         """
         return f"""
             QFrame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
+                background-color: {DesignSystem.COLOR_BACKGROUND};
+                border: none;
                 border-left: 4px solid {accent_color};
                 border-radius: {DesignSystem.RADIUS_MD}px;
                 padding: {DesignSystem.SPACE_16}px;
             }}
             QFrame:hover {{
-                background-color: {DesignSystem.COLOR_BACKGROUND};
+                background-color: {DesignSystem.COLOR_PRIMARY_SUBTLE};
             }}
         """
     
@@ -1629,18 +1619,11 @@ class DesignSystem:
         """Retorna el estilo para cajas destacadas en tutoriales.
         
         Usado para tips, advertencias, información importante.
-        
-        Args:
-            bg_color: Color de fondo de la caja.
-            border_color: Color del borde.
-        
-        Returns:
-            str: Estilo QSS para QFrame tipo highlight box.
         """
         return f"""
             QFrame {{
                 background-color: {bg_color};
-                border: 1px solid {border_color};
+                border: none;
                 border-radius: {DesignSystem.RADIUS_MD}px;
                 padding: {DesignSystem.SPACE_12}px {DesignSystem.SPACE_16}px;
             }}
@@ -1687,54 +1670,43 @@ class DesignSystem:
     def get_tutorial_step_card_style():
         """Retorna el estilo para cards de pasos numerados en tutoriales.
         
-        Card limpia con borde sutil para pasos de flujo de trabajo.
-        
-        Returns:
-            str: Estilo QSS para QFrame tipo step card.
+        Card limpia sin bordes, usando el fondo base para contraste.
         """
         return f"""
             QFrame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_MD}px;
+                background-color: {DesignSystem.COLOR_BACKGROUND};
+                border: none;
+                border-radius: {DesignSystem.RADIUS_LG}px;
+            }}
+            QFrame:hover {{
+                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
             }}
         """
     
     @staticmethod
     def get_tutorial_tip_card_style():
         """Retorna el estilo para cards de tips en tutoriales.
-        
-        Card con fondo azul claro para tips y consejos.
-        
-        Returns:
-            str: Estilo QSS para QFrame tipo tip card.
         """
         return f"""
             QFrame {{
-                background-color: {DesignSystem.COLOR_INFO_BG};
-                border: 1px solid {DesignSystem.COLOR_INFO};
-                border-radius: {DesignSystem.RADIUS_MD}px;
+                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
+                border: none;
+                border-radius: {DesignSystem.RADIUS_LG}px;
             }}
         """
     
     @staticmethod
     def get_tutorial_tool_card_style():
         """Retorna el estilo para mini cards de herramientas en tutoriales.
-        
-        Card con hover que resalta al pasar el cursor.
-        
-        Returns:
-            str: Estilo QSS para QFrame tipo tool card.
         """
         return f"""
             QFrame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_MD}px;
+                background-color: {DesignSystem.COLOR_BACKGROUND};
+                border: none;
+                border-radius: {DesignSystem.RADIUS_LG}px;
             }}
             QFrame:hover {{
                 background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
-                border-color: {DesignSystem.COLOR_PRIMARY};
             }}
         """
     
@@ -2166,4 +2138,35 @@ class DesignSystem:
                 color: {DesignSystem.COLOR_DANGER};
                 border-color: {DesignSystem.COLOR_DANGER};
             }}
+        """
+
+    @staticmethod
+    def get_tutorial_step_number_style():
+        """Estilo para el círculo del número en pasos del tutorial."""
+        return f"""
+            QLabel {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                color: white;
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+                border-radius: 12px;
+                qproperty-alignment: AlignCenter;
+            }}
+        """
+
+    @staticmethod
+    def get_tutorial_card_title_style():
+        """Estilo para títulos dentro de cards del tutorial."""
+        return f"""
+            color: {DesignSystem.COLOR_TEXT};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+        """
+
+    @staticmethod
+    def get_tutorial_card_desc_style():
+        """Estilo para descripciones dentro de cards del tutorial."""
+        return f"""
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            font-size: {DesignSystem.FONT_SIZE_XS}px;
         """
