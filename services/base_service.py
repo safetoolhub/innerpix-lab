@@ -598,3 +598,56 @@ class BaseService(ABC):
                     break  # Cancelado
         
         return files
+
+    def _delete_file_with_logging(
+        self,
+        file_path: Path,
+        file_size: int,
+        file_type: str,
+        dry_run: bool
+    ) -> bool:
+        """
+        Elimina un archivo con logging estandarizado y actualización de caché.
+        
+        Centraliza el patrón repetido de:
+        - Log FILE_DELETED o FILE_DELETED_SIMULATION
+        - Llamada a delete_file_securely()
+        - Actualización de FileInfoRepositoryCache
+        
+        Args:
+            file_path: Ruta del archivo a eliminar
+            file_size: Tamaño en bytes para el log
+            file_type: Tipo de archivo para el log (ej: 'HEIC', 'MOV', 'visual_identical')
+            dry_run: Si True, solo simula y loguea sin eliminar
+            
+        Returns:
+            True si se eliminó/simuló exitosamente, False en caso de error
+            
+        Example:
+            >>> success = self._delete_file_with_logging(
+            ...     file_path=Path('/tmp/foto.jpg'),
+            ...     file_size=1024,
+            ...     file_type='JPG',
+            ...     dry_run=False
+            ... )
+        """
+        from utils.file_utils import delete_file_securely
+        from utils.format_utils import format_size
+        from services.file_metadata_repository_cache import FileInfoRepositoryCache
+        
+        log_type = "FILE_DELETED_SIMULATION" if dry_run else "FILE_DELETED"
+        log_msg = f"{log_type}: {file_path} | Size: {format_size(file_size)} | Type: {file_type}"
+        
+        if dry_run:
+            self.logger.info(log_msg)
+            return True
+        else:
+            if delete_file_securely(file_path):
+                self.logger.info(log_msg)
+                # Actualizar caché eliminando el archivo
+                repo = FileInfoRepositoryCache.get_instance()
+                repo.remove_file(file_path)
+                return True
+            else:
+                self.logger.error(f"No se pudo eliminar: {file_path}")
+                return False

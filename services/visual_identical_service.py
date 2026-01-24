@@ -349,10 +349,8 @@ class VisualIdenticalService(BaseService):
         Returns:
             ExecutionResult con resultados
         """
-        import os
         from services.result_types import VisualIdenticalExecutionResult
-        from utils.file_utils import delete_file_securely, launch_backup_creation
-        from utils.format_utils import format_size
+        from services.base_service import BackupCreationError
         
         log_section_header_discrete(self.logger, "EJECUTANDO ELIMINACIÓN DE COPIAS IDÉNTICAS")
         
@@ -365,60 +363,43 @@ class VisualIdenticalService(BaseService):
                 bytes_processed=0
             )
         
-        # Crear backup si es necesario
+        # Crear backup usando método centralizado de BaseService
         backup_path = None
         if create_backup and not dry_run:
             self.logger.info("Creando backup de archivos...")
-            
-            # Calcular directorio base común para el backup
-            base_dir = files_to_delete[0].parent
-            for file_path in files_to_delete[1:]:
-                try:
-                    base_dir = Path(os.path.commonpath([base_dir, file_path.parent]))
-                except ValueError:
-                    # No hay path común (ej: diferentes drives en Windows)
-                    self.logger.warning(
-                        f"No hay path común entre {base_dir} y {file_path.parent}, "
-                        f"usando {base_dir}"
-                    )
-                    break
-            
-            backup_path = launch_backup_creation(
-                files_to_delete,
-                base_dir,
-                backup_prefix='backup_visual_identical'
-            )
-            if backup_path:
-                self.logger.info(f"Backup creado en: {backup_path}")
+            try:
+                backup_path = self._create_backup_for_operation(
+                    files_to_delete,
+                    'visual_identical',
+                    progress_callback
+                )
+                if backup_path:
+                    self.logger.info(f"Backup creado en: {backup_path}")
+            except BackupCreationError as e:
+                self.logger.error(f"Error creando backup: {e}")
+                return VisualIdenticalExecutionResult(
+                    success=False,
+                    dry_run=dry_run,
+                    errors=[f"Error creando backup: {e}"]
+                )
         
-        # Eliminar archivos
+        # Eliminar archivos usando método centralizado
         deleted_count = 0
         deleted_bytes = 0
         errors = []
+        files_affected = []
         
         total = len(files_to_delete)
         for i, file_path in enumerate(files_to_delete):
             try:
                 file_size = file_path.stat().st_size if file_path.exists() else 0
                 
-                if dry_run:
-                    self.logger.info(
-                        f"FILE_DELETED_SIMULATION: {file_path} | "
-                        f"Size: {format_size(file_size)} | Type: visual_identical"
-                    )
+                if self._delete_file_with_logging(file_path, file_size, 'visual_identical', dry_run):
+                    deleted_count += 1
+                    deleted_bytes += file_size
+                    files_affected.append(file_path)
                 else:
-                    delete_file_securely(file_path)
-                    self.logger.info(
-                        f"FILE_DELETED: {file_path} | "
-                        f"Size: {format_size(file_size)} | Type: visual_identical"
-                    )
-                    
-                    # Actualizar caché
-                    repo = FileInfoRepositoryCache.get_instance()
-                    repo.remove_file(file_path)
-                
-                deleted_count += 1
-                deleted_bytes += file_size
+                    errors.append(f"No se pudo eliminar: {file_path}")
                 
                 if self._should_report_progress(i, interval=10):
                     self._report_progress(
@@ -439,7 +420,7 @@ class VisualIdenticalService(BaseService):
             dry_run=dry_run,
             items_processed=deleted_count,
             bytes_processed=deleted_bytes,
-            files_affected=[Path(f) for f in files_to_delete[:deleted_count]],
+            files_affected=files_affected,
             backup_path=backup_path,
             errors=errors
         )

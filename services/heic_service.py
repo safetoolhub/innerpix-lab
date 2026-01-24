@@ -378,24 +378,11 @@ class HeicService(BaseService):
                  
                  format_deleted = 'HEIC' if keep_format.lower() == 'jpg' else 'JPG'
                  
-                 # Formato de log estandarizado
-                 log_type = "FILE_DELETED_SIMULATION" if dry_run else "FILE_DELETED"
-                 log_msg = f"{log_type}: {file_to_delete} | Size: {format_size(file_size)} | Type: {format_deleted}"
-                 
-                 if dry_run:
+                 # Usar método centralizado de BaseService
+                 if self._delete_file_with_logging(file_to_delete, file_size, format_deleted, dry_run):
                      items_processed += 1
                      bytes_processed += file_size
                      files_affected.append(file_to_delete)
-                     self.logger.info(log_msg)
-                 else:
-                     file_to_delete.unlink()
-                     items_processed += 1
-                     bytes_processed += file_size
-                     files_affected.append(file_to_delete)
-                     self.logger.info(log_msg)
-                     
-                     # Actualizar caché eliminando el archivo
-                     repo.remove_file(file_to_delete)
                      
              except Exception as e:
                  err = f"Error eliminando {file_to_delete}: {e}"
@@ -417,7 +404,6 @@ class HeicService(BaseService):
         log_section_footer_relevant(self.logger, summary)
         
         # Mostramos estadísticas de la caché al final
-        repo = FileInfoRepositoryCache.get_instance()
         repo.log_cache_statistics(level=logging.INFO)
         return result
 
