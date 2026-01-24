@@ -1444,3 +1444,272 @@ class DesignSystem:
             font-size: {DesignSystem.FONT_SIZE_SM}px;
             font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
         """
+
+    # ==================== ESTILOS TUTORIAL/ABOUT ====================
+    
+    @staticmethod
+    def get_tutorial_tab_widget_style():
+        """Retorna el estilo QSS para QTabWidget con pestañas laterales.
+        
+        Diseñado para diálogos de tutorial/about con navegación lateral compacta.
+        Pestañas a la izquierda con iconos y texto corto.
+        
+        Returns:
+            str: Estilo QSS para QTabWidget con tabs west.
+        """
+        return f"""
+            QTabWidget::pane {{
+                border: none;
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border-radius: 0;
+            }}
+            
+            QTabWidget::tab-bar {{
+                alignment: left;
+            }}
+            
+            QTabBar {{
+                background-color: {DesignSystem.COLOR_BACKGROUND};
+            }}
+            
+            QTabBar::tab {{
+                background-color: transparent;
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                padding: {DesignSystem.SPACE_10}px {DesignSystem.SPACE_12}px;
+                border: none;
+                border-left: 3px solid transparent;
+                margin-bottom: 0px;
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                min-width: 110px;
+                text-align: left;
+            }}
+            
+            QTabBar::tab:selected {{
+                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
+                color: {DesignSystem.COLOR_PRIMARY};
+                border-left: 3px solid {DesignSystem.COLOR_PRIMARY};
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            }}
+            
+            QTabBar::tab:hover:!selected {{
+                background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
+                color: {DesignSystem.COLOR_TEXT};
+            }}
+        """
+    
+    @staticmethod
+    def get_tutorial_feature_card_style():
+        """Retorna el estilo para cards de features en tutoriales.
+        
+        Cards con borde izquierdo coloreado y hover sutil.
+        
+        Returns:
+            str: Estilo QSS para QFrame tipo feature card.
+        """
+        return f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_MD}px;
+                padding: {DesignSystem.SPACE_16}px;
+            }}
+            QFrame:hover {{
+                background-color: {DesignSystem.COLOR_BACKGROUND};
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+        """
+    
+    @staticmethod
+    def get_tutorial_feature_card_accent_style(accent_color: str):
+        """Retorna el estilo para cards de features con acento de color.
+        
+        Cards con borde izquierdo del color especificado.
+        
+        Args:
+            accent_color: Color del borde izquierdo en formato hex.
+        
+        Returns:
+            str: Estilo QSS para QFrame con acento.
+        """
+        return f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-left: 4px solid {accent_color};
+                border-radius: {DesignSystem.RADIUS_MD}px;
+                padding: {DesignSystem.SPACE_16}px;
+            }}
+            QFrame:hover {{
+                background-color: {DesignSystem.COLOR_BACKGROUND};
+            }}
+        """
+    
+    @staticmethod
+    def get_tutorial_section_header_style():
+        """Retorna el estilo para headers de sección en tutoriales.
+        
+        Returns:
+            str: Estilo CSS para títulos de sección.
+        """
+        return f"""
+            font-size: {DesignSystem.FONT_SIZE_LG}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            color: {DesignSystem.COLOR_TEXT};
+            padding-bottom: {DesignSystem.SPACE_8}px;
+        """
+    
+    @staticmethod
+    def get_tutorial_badge_style(bg_color: str, text_color: str = None):
+        """Retorna el estilo para badges de categoría en tutoriales.
+        
+        Args:
+            bg_color: Color de fondo del badge.
+            text_color: Color del texto. Si es None, usa blanco o texto oscuro según contraste.
+        
+        Returns:
+            str: Estilo QSS para QLabel tipo badge.
+        """
+        final_text_color = text_color if text_color else DesignSystem.COLOR_PRIMARY_TEXT
+        return f"""
+            QLabel {{
+                background-color: {bg_color};
+                color: {final_text_color};
+                font-size: {DesignSystem.FONT_SIZE_XS}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+                padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_10}px;
+                border-radius: {DesignSystem.RADIUS_FULL}px;
+            }}
+        """
+    
+    @staticmethod
+    def get_tutorial_highlight_box_style(bg_color: str, border_color: str):
+        """Retorna el estilo para cajas destacadas en tutoriales.
+        
+        Usado para tips, advertencias, información importante.
+        
+        Args:
+            bg_color: Color de fondo de la caja.
+            border_color: Color del borde.
+        
+        Returns:
+            str: Estilo QSS para QFrame tipo highlight box.
+        """
+        return f"""
+            QFrame {{
+                background-color: {bg_color};
+                border: 1px solid {border_color};
+                border-radius: {DesignSystem.RADIUS_MD}px;
+                padding: {DesignSystem.SPACE_12}px {DesignSystem.SPACE_16}px;
+            }}
+        """
+    
+    @staticmethod
+    def get_tutorial_scroll_area_style():
+        """Retorna el estilo para scroll areas en tutoriales.
+        
+        Scroll area transparente con scrollbar estilizada.
+        
+        Returns:
+            str: Estilo QSS para QScrollArea.
+        """
+        return f"""
+            QScrollArea {{
+                border: none;
+                background-color: transparent;
+            }}
+            QScrollArea > QWidget > QWidget {{
+                background-color: transparent;
+            }}
+            QScrollBar:vertical {{
+                border: none;
+                background-color: {DesignSystem.COLOR_BACKGROUND};
+                width: 8px;
+                border-radius: 4px;
+                margin: 0;
+            }}
+            QScrollBar::handle:vertical {{
+                background-color: {DesignSystem.COLOR_BORDER};
+                border-radius: 4px;
+                min-height: 30px;
+            }}
+            QScrollBar::handle:vertical:hover {{
+                background-color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            }}
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+                height: 0;
+            }}
+        """
+
+    @staticmethod
+    def get_tutorial_step_card_style():
+        """Retorna el estilo para cards de pasos numerados en tutoriales.
+        
+        Card limpia con borde sutil para pasos de flujo de trabajo.
+        
+        Returns:
+            str: Estilo QSS para QFrame tipo step card.
+        """
+        return f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_MD}px;
+            }}
+        """
+    
+    @staticmethod
+    def get_tutorial_tip_card_style():
+        """Retorna el estilo para cards de tips en tutoriales.
+        
+        Card con fondo azul claro para tips y consejos.
+        
+        Returns:
+            str: Estilo QSS para QFrame tipo tip card.
+        """
+        return f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_INFO_BG};
+                border: 1px solid {DesignSystem.COLOR_INFO};
+                border-radius: {DesignSystem.RADIUS_MD}px;
+            }}
+        """
+    
+    @staticmethod
+    def get_tutorial_tool_card_style():
+        """Retorna el estilo para mini cards de herramientas en tutoriales.
+        
+        Card con hover que resalta al pasar el cursor.
+        
+        Returns:
+            str: Estilo QSS para QFrame tipo tool card.
+        """
+        return f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_MD}px;
+            }}
+            QFrame:hover {{
+                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+        """
+    
+    @staticmethod
+    def get_tutorial_note_style():
+        """Retorna el estilo para notas informativas en tutoriales.
+        
+        Texto con estilo sutil sin fondo destacado.
+        
+        Returns:
+            str: Estilo QSS para QLabel tipo nota.
+        """
+        return f"""
+            QLabel {{
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                font-style: italic;
+                padding: {DesignSystem.SPACE_4}px 0px;
+            }}
+        """
