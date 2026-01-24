@@ -3,12 +3,13 @@
 PyQt6 desktop app for photo/video management oriented to privacy.
 
 ### Flujo de Análisis
-1. **Stage 2**: Escaneo inicial multi-fase usando `InitialScanner.scan()` → `DirectoryScanResult`. 5 fases diferenciadas:
-   - Fase 1 (FILESYSTEM_METADATA): Análisis de estructura del directorio → "Analizando estructura de la carpeta"
-   - Fase 2 (HASH): Cálculo de hashes SHA256 → "Calculando hashes de los archivos"
-   - Fase 3 (EXIF_IMAGES): Extracción de metadatos de imágenes → "Obteniendo metadatos de las imagenes"
-   - Fase 4 (EXIF_VIDEOS): Extracción de metadatos de videos → "Obteniendo metadatos de los videos"
-   - Fase 5 (BEST_DATE): Cálculo de mejor fecha disponible → "Calculando mejor fecha disponible"
+1. **Stage 2**: Escaneo inicial multi-fase usando `InitialScanner.scan()` → `DirectoryScanResult`. 6 fases diferenciadas:
+   - Fase 1 (FILE_CLASSIFICATION): Escaneo y clasificación de archivos por tipo → "Escaneando estructura de carpetas"
+   - Fase 2 (FILESYSTEM_METADATA): Lectura de metadata del filesystem → "Obteniendo información de archivos"
+   - Fase 3 (HASH): Cálculo de hashes SHA256 → "Calculando hashes de archivos"
+   - Fase 4 (EXIF_IMAGES): Extracción de metadatos de imágenes → "Extrayendo metadatos de imágenes"
+   - Fase 5 (EXIF_VIDEOS): Extracción de metadatos de videos → "Extrayendo metadatos de vídeos"
+   - Fase 6 (BEST_DATE): Cálculo de mejor fecha disponible → "Determinando fecha óptima"
 2. **Stage 3**: Análisis bajo demanda para cada herramienta
    - Live Photos: `LivePhotoService.analyze()` → `LivePhotosAnalysisResult`
    - HEIC/JPG: `HeicService.analyze()` → `HeicAnalysisResult`
@@ -78,11 +79,12 @@ PyQt6 desktop app for photo/video management oriented to privacy.
 - **Use case**: Finding similar but not identical images (edits, crops, rotations)
 
 **Initial Scanner** (`services/initial_scanner.py`) - Multi-phase Stage 2 scanner
-- 4 fases secuenciales: FILESYSTEM_METADATA → HASH → EXIF_IMAGES → EXIF_VIDEOS
+- 6 fases secuenciales: FILE_CLASSIFICATION → FILESYSTEM_METADATA → HASH → EXIF_IMAGES → EXIF_VIDEOS → BEST_DATE
+- Fase 1 separa escaneo/clasificación (muy rápida) de fase 2 que lee metadata del filesystem
 - Callbacks: `phase_callback(phase_id, message)` para inicio, `progress_callback(PhaseProgress)` para progreso
 - Población incremental usando `FileInfoRepositoryCache.populate_from_scan()` con estrategias específicas
 - Cancelación: `request_stop()` detiene escaneo de forma segura
-- Clasificación automática: separa imágenes, videos y otros según extensión
+- Progreso reporta 0/total al inicio y total/total al final de cada fase
 
 **File Metadata** (`services/file_metadata.py`) - Immutable data model
 - Dataclass con: path, fs_size, fs_mtime, sha256, exif_* fields
@@ -100,7 +102,7 @@ PyQt6 desktop app for photo/video management oriented to privacy.
 - Stage 1: Folder selector
 - Stage 2: Analysis progress with graceful cancellation
   - Timeout: 30 segundos para cancelación cooperativa (datasets grandes)
-  - Logging INFO cada 10% en fases 2, 3, 4
+  - Logging INFO cada 10% en fases 3, 4, 5, 6 (hash, EXIF images, EXIF videos, best date)
   - Invalidación de caché al volver a Stage 1 con `_invalidate_metadata_cache()`
 - Stage 3: Tools grid → dialogs
 - All extend `BaseStage`

@@ -2,11 +2,13 @@
 Initial Scanner Service.
 Handles the initial multi-phase scan of a directory to populate FileInfoRepositoryCache.
 
-This scanner operates in 4 distinct phases:
-1. FILESYSTEM_METADATA: File structure analysis (filesystem metadata only)
-2. HASH: SHA256 hash calculation (requires FILESYSTEM_METADATA first)
-3. EXIF_IMAGES: Image metadata extraction (requires FILESYSTEM_METADATA first)
-4. EXIF_VIDEOS: Video metadata extraction (requires FILESYSTEM_METADATA first)
+This scanner operates in 6 distinct phases:
+1. FILE_CLASSIFICATION: Scan directory and classify files by type (very fast)
+2. FILESYSTEM_METADATA: Read filesystem metadata for supported files (fast)
+3. HASH: SHA256 hash calculation (requires FILESYSTEM_METADATA first)
+4. EXIF_IMAGES: Image metadata extraction (requires FILESYSTEM_METADATA first)
+5. EXIF_VIDEOS: Video metadata extraction (requires FILESYSTEM_METADATA first)
+6. BEST_DATE: Calculate best available date for each file (requires EXIF)
 """
 from pathlib import Path
 from typing import Optional, Callable, List
