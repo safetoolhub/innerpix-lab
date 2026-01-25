@@ -1,5 +1,5 @@
 """
-Clase base abstracta para todos los servicios de Pixaro Lab.
+Clase base abstracta para todos los servicios de Innerpix Lab.
 
 Proporciona funcionalidad común: logging estandarizado, gestión de backup,
 y métodos template para operaciones consistentes.

@@ -1,5 +1,5 @@
 """
-Ventana Principal de Pixaro Lab - Arquitectura basada en Stages
+Ventana Principal de Innerpix Lab - Arquitectura basada en Stages
 Stage 1: Selector de carpeta y bienvenida
 Stage 2: Análisis con progreso
 Stage 3: Grid de herramientas
@@ -17,7 +17,7 @@ from config import Config
 
 class MainWindow(QMainWindow):
     """
-    Ventana principal de Pixaro Lab
+    Ventana principal de Innerpix Lab
     Maneja los tres stages principales de la aplicación usando el patrón State:
     - Stage 1: Selector de carpeta y bienvenida
     - Stage 2: Análisis con progreso

@@ -1,5 +1,5 @@
 """
-Servicios de lógica de negocio para Pixaro Lab.
+Servicios de lógica de negocio para Innerpix Lab.
 
 Este módulo expone todos los servicios y tipos de datos principales
 utilizados en la aplicación, incluyendo:

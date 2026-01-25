@@ -1,1 +1,1 @@
-"""Tests unitarios para servicios de Pixaro Lab."""
+"""Tests unitarios para servicios de Innerpix Lab."""
