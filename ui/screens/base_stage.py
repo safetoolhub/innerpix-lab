@@ -337,7 +337,7 @@ class BaseStage(QObject):
         if show_about_button and on_about_clicked:
             btn_about = QToolButton()
             btn_about.setAutoRaise(True)
-            btn_about.setToolTip("Acerca de")
+            btn_about.setToolTip("Acerca de - Instrucciones y capacidades de la aplicación")
             icon_manager.set_button_icon(btn_about, 'information-outline', color=DesignSystem.COLOR_TEXT_SECONDARY, size=20)
             btn_about.setIconSize(QSize(20, 20))
             btn_about.clicked.connect(on_about_clicked)

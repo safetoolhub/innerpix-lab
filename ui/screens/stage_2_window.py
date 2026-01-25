@@ -60,7 +60,6 @@ class Stage2Window(BaseStage):
 
         # Crear y mostrar header con pequeño margen superior
         self.header = self.create_header(
-            subtitle_text="Análisis de tu carpeta",
             show_settings_button=False,
             show_about_button=False
         )
