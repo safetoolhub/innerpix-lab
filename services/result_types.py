@@ -198,6 +198,68 @@ class LivePhotosExecutionResult(ExecutionResult):
     videos_deleted: int = 0
 
 
+# --- Visual Identical (Perceptual 100%) ---
+@dataclass
+class VisualIdenticalGroup:
+    """
+    Grupo de archivos visualmente idénticos.
+    
+    Archivos con el mismo hash perceptual (distancia Hamming = 0),
+    aunque pueden tener diferente tamaño, resolución o metadatos.
+    """
+    hash_value: str
+    files: List[Path]
+    file_sizes: List[int] = field(default_factory=list)
+    total_size: int = 0
+    space_recoverable: int = 0  # Espacio que se puede recuperar (total - archivo más grande)
+    size_variation_percent: float = 0.0  # Variación de tamaño entre archivos
+    
+    @property
+    def file_count(self) -> int:
+        return len(self.files)
+    
+    @property
+    def largest_file(self) -> Optional[Path]:
+        """Devuelve el archivo más grande del grupo."""
+        if not self.files or not self.file_sizes:
+            return self.files[0] if self.files else None
+        max_idx = self.file_sizes.index(max(self.file_sizes))
+        return self.files[max_idx]
+    
+    @property
+    def smallest_file(self) -> Optional[Path]:
+        """Devuelve el archivo más pequeño del grupo."""
+        if not self.files or not self.file_sizes:
+            return self.files[0] if self.files else None
+        min_idx = self.file_sizes.index(min(self.file_sizes))
+        return self.files[min_idx]
+
+
+@dataclass
+class VisualIdenticalAnalysisResult(AnalysisResult):
+    """Result for visual identical detection (100% perceptual match)."""
+    groups: List[VisualIdenticalGroup] = field(default_factory=list)
+    total_files: int = 0
+    total_groups: int = 0
+    total_duplicates: int = 0  # Archivos duplicados (total - 1 por grupo)
+    space_recoverable: int = 0
+    
+    def __post_init__(self):
+        if not self.items_count and self.groups:
+            self.items_count = len(self.groups)
+        if not self.total_groups and self.groups:
+            self.total_groups = len(self.groups)
+        if not self.bytes_total and self.space_recoverable:
+            self.bytes_total = self.space_recoverable
+
+
+@dataclass
+class VisualIdenticalExecutionResult(ExecutionResult):
+    """Result for visual identical deletion execution."""
+    files_kept: int = 0
+    keep_strategy: Optional[str] = None  # 'largest', 'smallest', 'oldest', 'newest'
+
+
 # --- Duplicates (Exact & Similar) ---
 @dataclass
 class DuplicateGroup:
@@ -348,8 +410,9 @@ class ScanSnapshot:
     # Tool-specific analysis results (dynamically populated in Stage 3)
     live_photos: Optional[Any] = None
     heic: Optional[Any] = None
-    duplicates_exact: Optional[Any] = None
-    duplicates_similar: Optional[Any] = None
+    duplicates: Optional[Any] = None  # Duplicados exactos
+    duplicates_similar: Optional[Any] = None  # Archivos similares
+    visual_identical: Optional[Any] = None  # Copias visuales idénticas
     zero_byte: Optional[Any] = None
     organization: Optional[Any] = None
     renaming: Optional[Any] = None

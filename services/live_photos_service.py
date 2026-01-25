@@ -435,36 +435,16 @@ class LivePhotoService(BaseService):
                         self.logger.warning(f"Video no encontrado: {video_path}")
                         continue
 
-                    # Formato de log estandarizado
-                    log_type = "FILE_DELETED_SIMULATION" if dry_run else "FILE_DELETED"
-                    log_msg = f"{log_type}: {video_path} | Size: {format_size(video_size)} | Type: MOV"
-                    
-                    if dry_run:
+                    # Usar método centralizado de BaseService
+                    if self._delete_file_with_logging(video_path, video_size, 'MOV', dry_run):
                         items_processed += 1
                         bytes_processed += video_size
                         videos_deleted += 1
                         files_affected.append(video_path)
-                        self.logger.info(log_msg)
                         
                         if video_size > Config.LIVE_PHOTO_MAX_VIDEO_SIZE:
                             self.logger.warning(
-                                f"⚠️ SOSPECHA: Video grande en Live Photo: {video_path} ({format_size(video_size)})"
-                            )
-                    else:
-                        video_path.unlink()
-                        items_processed += 1
-                        bytes_processed += video_size
-                        videos_deleted += 1
-                        files_affected.append(video_path)
-                        self.logger.info(log_msg)
-                        
-                        # Actualizar caché eliminando el archivo
-                        repo = FileInfoRepositoryCache.get_instance()
-                        repo.remove_file(video_path)
-                        
-                        if video_size > Config.LIVE_PHOTO_MAX_VIDEO_SIZE:
-                            self.logger.warning(
-                                f"⚠️ SOSPECHA: Video grande eliminado: {video_path} ({format_size(video_size)})"
+                                f"⚠️ SOSPECHA: Video grande {'en' if dry_run else 'eliminado:'} Live Photo: {video_path} ({format_size(video_size)})"
                             )
 
                 except Exception as e:

@@ -65,12 +65,21 @@ Prácticas específicas del repositorio
 - **Dialogs / UI**: Los diálogos en `ui/dialogs/` usan `BaseDialog` y la presentación debe ser solo UI; no incluir lógica pesada.
 - **Design system**: Usar `DesignSystem` y evitar QSS o estilos inline fuera del sistema de diseño.
 
+Herramientas de Archivos Similares (Similar Files Tools)
+- **Copias Visuales Idénticas** (`visual_identical`): Detecta copias 100% idénticas visualmente usando perceptual hash con threshold=0
+  - Servicio: `VisualIdenticalService.analyze()` → `VisualIdenticalAnalysisResult`
+  - Diálogo: `visual_identical_dialog.py` - TreeView con estrategias de conservación
+  - Eliminación automática y segura (una copia siempre se conserva)
+- **Archivos Similares** (`duplicates_similar`): Detecta archivos 70-99% similares para revisión manual
+  - Servicio: `DuplicatesSimilarService.analyze(sensitivity=85)` → `DuplicateAnalysisResult`
+  - Diálogo: `duplicates_similar_dialog.py` - Slider de sensibilidad para ajuste en tiempo real
+
 Configuración de Hash Perceptual (Similar Files)
-- **Config.PERCEPTUAL_HASH_ALGORITHM**: Algoritmo de hash perceptual. Valores: "dhash" (default), "phash", "ahash"
-  - dhash: Rápido, bueno para recortes/ediciones (compara píxeles adyacentes)
+- **Config.PERCEPTUAL_HASH_ALGORITHM**: Algoritmo de hash perceptual. Valores: "phash" (default), "dhash", "ahash"
   - phash: Robusto, basado en DCT (tolerante a cambios de tamaño/brillo)
+  - dhash: Rápido, bueno para recortes/ediciones (compara píxeles adyacentes)
   - ahash: Más rápido y simple (compara con media de brillo)
-- **Config.PERCEPTUAL_HASH_SIZE**: Tamaño del hash. Valores: 8 (64 bits, default), 16 (256 bits), 32 (1024 bits)
+- **Config.PERCEPTUAL_HASH_SIZE**: Tamaño del hash. Valores: 16 (256 bits, default), 8 (64 bits), 32 (1024 bits)
 - **Config.PERCEPTUAL_HASH_TARGET**: Archivos a procesar. Valores: "images" (default), "videos", "both"
 - **Config.PERCEPTUAL_HASH_HIGHFREQ_FACTOR**: Factor de alta frecuencia para phash. Valores: 4 (default), 8
 - **Tests**: `tests/unit/services/test_perceptual_hash_algorithms.py` - Tests para los 3 algoritmos con diferentes configuraciones

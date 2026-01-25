@@ -13,7 +13,16 @@ from utils.logger import get_logger
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
 from .base_dialog import BaseDialog
-from .dialog_utils import show_file_details_dialog
+from .dialog_utils import (
+    show_file_details_dialog,
+    create_groups_tree_widget,
+    handle_tree_item_double_click,
+    show_file_context_menu,
+    apply_group_item_style,
+    create_group_tooltip,
+    apply_file_item_status,
+    get_file_icon_name
+)
 from datetime import datetime
 
 
@@ -368,52 +377,15 @@ class DuplicatesExactDialog(BaseDialog):
         content_layout.addWidget(search_card)
         
         # ========== ÁRBOL DE GRUPOS ==========
-        self.tree_widget = QTreeWidget()
-        self.tree_widget.setHeaderLabels(["Grupos / Archivos", "Tamaño", "Fecha", "Origen", "Ubicación", "Estado"])
-        self.tree_widget.setColumnWidth(0, 300)  # Ajustado para grupos más simples
-        self.tree_widget.setColumnWidth(1, 100)
-        self.tree_widget.setColumnWidth(2, 140)  # Más espacio para fecha completa
-        self.tree_widget.setColumnWidth(3, 100)  # Origen de la fecha
-        self.tree_widget.setColumnWidth(4, 180)  # Más espacio para ubicación
-        self.tree_widget.setColumnWidth(5, 130)
-        self.tree_widget.setAlternatingRowColors(True)
-        self.tree_widget.setRootIsDecorated(True)
-        self.tree_widget.setAnimated(True)
-        self.tree_widget.setIndentation(20)
-        self.tree_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.tree_widget.setStyleSheet(f"""
-            QTreeWidget {{
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                outline: none;
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_4}px;
-            }}
-            QTreeWidget::item {{
-                border: none;
-                outline: none;
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_4}px;
-                border-bottom: 1px solid {DesignSystem.COLOR_BORDER_LIGHT};
-            }}
-            QTreeWidget::item:hover {{
-                background-color: {DesignSystem.COLOR_BG_2};
-            }}
-            QTreeWidget::item:selected {{
-                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
-                color: {DesignSystem.COLOR_TEXT};
-            }}
-            QHeaderView::section {{
-                background-color: {DesignSystem.COLOR_BG_1};
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                padding: {DesignSystem.SPACE_8}px;
-                border: none;
-                border-bottom: 2px solid {DesignSystem.COLOR_BORDER};
-                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-            }}
-        """)
-        self.tree_widget.itemDoubleClicked.connect(self._on_item_double_clicked)
-        self.tree_widget.customContextMenuRequested.connect(self._show_context_menu)
+        headers = ["Grupos / Archivos", "Tamaño", "Fecha", "Origen", "Ubicación", "Estado"]
+        column_widths = [300, 100, 140, 100, 180, 130]
+        
+        self.tree_widget = create_groups_tree_widget(
+            headers=headers,
+            column_widths=column_widths,
+            double_click_handler=self._on_item_double_clicked,
+            context_menu_handler=self._show_context_menu
+        )
         content_layout.addWidget(self.tree_widget)
         
         # ========== PAGINACIÓN INTELIGENTE ==========
@@ -683,6 +655,8 @@ class DuplicatesExactDialog(BaseDialog):
     
     def _add_group_to_tree(self, group: DuplicateGroup, group_number: int):
         """Añade un grupo como nodo padre expandible en el tree con estilo Material Design"""
+        from .dialog_utils import apply_group_item_style, create_group_tooltip, get_file_icon_name, apply_file_item_status
+        
         # Nodo padre del grupo
         group_item = QTreeWidgetItem(self.tree_widget)
         file_count = len(group.files)
@@ -700,25 +674,15 @@ class DuplicatesExactDialog(BaseDialog):
         group_item.setText(0, f"Grupo #{group_number} • {file_count} copias")
         # Las otras columnas quedan vacías para grupos - solo se usan para archivos
         
-        # Estilo del grupo padre estándar (Bold + Blue + BASE size)
-        font = group_item.font(0)
-        font.setBold(True)
-        font.setPointSize(int(DesignSystem.FONT_SIZE_XS))
-        group_item.setFont(0, font)
-        group_item.setForeground(0, QColor(DesignSystem.COLOR_PRIMARY))
+        # Aplicar estilo unificado de grupo
+        apply_group_item_style(group_item, num_columns=6)
         
         # Tooltip informativo sobre doble click
-        group_item.setToolTip(0, f"Grupo #{group_number} con {file_count} archivos idénticos\n"
-                                 f"▶ 💡 Doble clic para expandir y ver detalles de archivos\n"
-                                 f"💡 Las columnas muestran información de cada archivo individual")
-        
-        # Color de fondo sutil Material Design
-        group_item.setBackground(0, QColor(DesignSystem.COLOR_BG_1))
-        group_item.setBackground(1, QColor(DesignSystem.COLOR_BG_1))
-        group_item.setBackground(2, QColor(DesignSystem.COLOR_BG_1))
-        group_item.setBackground(3, QColor(DesignSystem.COLOR_BG_1))
-        group_item.setBackground(4, QColor(DesignSystem.COLOR_BG_1))
-        group_item.setBackground(5, QColor(DesignSystem.COLOR_BG_1))
+        group_item.setToolTip(0, create_group_tooltip(
+            group_number,
+            f"{file_count} archivos idénticos",
+            ""
+        ))
         
         # Color del texto de la columna de espacio recuperable
         group_item.setForeground(5, QColor(DesignSystem.COLOR_SUCCESS))
@@ -733,16 +697,8 @@ class DuplicatesExactDialog(BaseDialog):
             # Determinar si este archivo se mantiene o se elimina
             is_keep = file_path == keep_file
             
-            # Icono según tipo de archivo (con color diferenciado)
-            ext = file_path.suffix.lower()
-            if ext in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp']:
-                icon_name = "image"
-            elif ext in ['.mov', '.mp4', '.avi', '.mkv']:
-                icon_name = "video"
-            elif ext in ['.heic', '.heif']:
-                icon_name = "camera"
-            else:
-                icon_name = "file"
+            # Icono según tipo de archivo
+            icon_name = get_file_icon_name(file_path)
             
             file_item.setIcon(0, icon_manager.get_icon(icon_name, size=18))
             file_item.setText(0, file_path.name)
@@ -983,70 +939,13 @@ class DuplicatesExactDialog(BaseDialog):
     
     def _on_item_double_clicked(self, item, column):
         """Maneja doble click en un item del tree"""
-        # Obtener el archivo asociado al item
-        file_path = item.data(0, Qt.ItemDataRole.UserRole)
-        
-        if file_path and isinstance(file_path, Path):
-            # Es un archivo, abrirlo
-            self._open_file(file_path)
-        else:
-            # Es un grupo, expandir/colapsar
-            item.setExpanded(not item.isExpanded())
+        from .dialog_utils import handle_tree_item_double_click
+        handle_tree_item_double_click(item, column, self)
     
     def _show_context_menu(self, position):
         """Muestra el menú contextual para un archivo con estilo Material Design"""
-        from .dialog_utils import open_file, open_folder
-        
-        item = self.tree_widget.itemAt(position)
-        if not item:
-            return
-        
-        # Obtener el archivo asociado al item
-        file_path = item.data(0, Qt.ItemDataRole.UserRole)
-        if not file_path or not isinstance(file_path, Path):
-            return  # Es un grupo padre, no mostrar menú
-        
-        menu = QMenu(self)
-        menu.setStyleSheet(f"""
-            QMenu {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_4}px;
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            }}
-            QMenu::item {{
-                background-color: transparent;
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_16}px;
-                border-radius: {DesignSystem.RADIUS_SMALL}px;
-                color: {DesignSystem.COLOR_TEXT};
-            }}
-            QMenu::item:selected {{
-                background-color: {DesignSystem.COLOR_PRIMARY};
-                color: {DesignSystem.COLOR_PRIMARY_TEXT};
-            }}
-            QMenu::separator {{
-                height: 1px;
-                background-color: {DesignSystem.COLOR_BORDER};
-                margin: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_8}px;
-            }}
-        """)
-        
-        # Acción: Abrir archivo
-        open_action = menu.addAction("Abrir archivo")
-        open_action.triggered.connect(lambda: open_file(file_path, self))
-        
-        # Acción: Abrir carpeta
-        open_folder_action = menu.addAction("Abrir carpeta contenedora")
-        open_folder_action.triggered.connect(lambda: open_folder(file_path.parent, self))
-        
-        menu.addSeparator()
-        
-        # Acción: Ver detalles
-        details_action = menu.addAction("Ver detalles del archivo")
-        details_action.triggered.connect(lambda: self._show_file_details(file_path))
-        
-        menu.exec(self.tree_widget.viewport().mapToGlobal(position))
+        from .dialog_utils import show_file_context_menu
+        show_file_context_menu(self.tree_widget, position, self, details_callback=self._show_file_details)
     
     def _show_file_details(self, file_path: Path):
         """Muestra diálogo con detalles del archivo"""

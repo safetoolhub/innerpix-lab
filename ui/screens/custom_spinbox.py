@@ -22,56 +22,7 @@ class CustomSpinBox(QSpinBox):
         self._down_icon = qta.icon('mdi.chevron-down', color=DesignSystem.COLOR_TEXT)
         
         # Aplicar estilo base sin flechas personalizadas
-        self.setStyleSheet(f"""
-            QSpinBox {{
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_8}px;
-                padding-right: 36px;
-                background-color: {DesignSystem.COLOR_SURFACE};
-                color: {DesignSystem.COLOR_TEXT};
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                min-height: 38px;
-                min-width: 120px;
-            }}
-            QSpinBox:hover {{
-                border-color: {DesignSystem.COLOR_PRIMARY};
-            }}
-            QSpinBox:focus {{
-                border-color: {DesignSystem.COLOR_PRIMARY};
-            }}
-            QSpinBox::up-button {{
-                subcontrol-origin: border;
-                subcontrol-position: top right;
-                width: 32px;
-                height: 18px;
-                border-left: 1px solid {DesignSystem.COLOR_BORDER};
-                border-bottom: 1px solid {DesignSystem.COLOR_BORDER};
-                background-color: {DesignSystem.COLOR_BACKGROUND};
-                border-top-right-radius: {DesignSystem.RADIUS_BASE}px;
-            }}
-            QSpinBox::up-button:hover {{
-                background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
-            }}
-            QSpinBox::up-button:pressed {{
-                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
-            }}
-            QSpinBox::down-button {{
-                subcontrol-origin: border;
-                subcontrol-position: bottom right;
-                width: 32px;
-                height: 18px;
-                border-left: 1px solid {DesignSystem.COLOR_BORDER};
-                background-color: {DesignSystem.COLOR_BACKGROUND};
-                border-bottom-right-radius: {DesignSystem.RADIUS_BASE}px;
-            }}
-            QSpinBox::down-button:hover {{
-                background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
-            }}
-            QSpinBox::down-button:pressed {{
-                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
-            }}
-        """)
+        self.setStyleSheet(DesignSystem.get_spinbox_style())
     
     def paintEvent(self, event):
         """Override paintEvent para dibujar los iconos"""

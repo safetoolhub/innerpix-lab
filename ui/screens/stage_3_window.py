@@ -16,9 +16,10 @@ from PyQt6.QtCore import QTimer, Qt
 import qtawesome as qta
 
 from config import Config
-from utils.settings_manager import settings_manager
+from utils.settings_manager import settings_manager, SettingsManager
 from .base_stage import BaseStage
 from ui.styles.design_system import DesignSystem
+from ui.styles.icons import icon_manager
 from ui.screens.summary_card import SummaryCard
 from ui.screens.tool_card import ToolCard
 from ui.dialogs.live_photos_dialog import LivePhotosDialog
@@ -29,9 +30,9 @@ from ui.dialogs.file_renamer_dialog import FileRenamerDialog
 from ui.dialogs.zero_byte_dialog import ZeroByteDialog
 from ui.dialogs.settings_dialog import SettingsDialog
 from ui.dialogs.about_dialog import AboutDialog
-from ui.dialogs.duplicates_similar_progress_dialog import SimilarFilesProgressDialog
+from ui.dialogs.visual_identical_dialog import VisualIdenticalDialog
+from ui.dialogs.duplicates_similar_dialog import DuplicatesSimilarDialog
 from utils.format_utils import format_size, format_file_count
-from ui.workers import DuplicatesSimilarAnalysisWorker
 from utils.logger import log_section_header_discrete
 from services.file_metadata_repository_cache import FileInfoRepositoryCache
 
@@ -41,12 +42,11 @@ from ui.screens.tool_cards import (
     create_heic_card,
     create_duplicates_exact_card,
     create_duplicates_similar_card,
+    create_visual_identical_card,
     create_file_organizer_card,
     create_file_renamer_card,
     create_zero_byte_card,
 )
-# Importar similarity handler
-from ui.screens.similarity_handlers import SimilarityAnalysisHandler
 
 
 class Stage3Window(BaseStage):
@@ -76,9 +76,7 @@ class Stage3Window(BaseStage):
         self.summary_card = None
         self.tools_grid = None
         self.tool_cards = {}  # Dict de tool_id -> ToolCard
-        
-        # Worker y diálogos para análisis de similares (manejado por handler)
-        self.similarity_handler = None  # Se inicializa en _create_tools_grid
+
 
     def setup_ui(self) -> None:
         """Configura la interfaz de usuario del Stage 3."""
@@ -105,12 +103,10 @@ class Stage3Window(BaseStage):
         # Crear banner de advertencia (oculto por defecto)
         self.stale_banner = self._create_stale_banner()
         self.main_layout.addWidget(self.stale_banner)
-
-        # Añadir stretch para mantener el header en la parte superior
-        self.main_layout.addStretch()
-
-        # Crear y mostrar summary card con delay
-        QTimer.singleShot(300, self._show_summary_card)
+        
+        # Iniciar creación de UI
+        self._show_summary_card()
+        self._create_tools_grid()
 
         self.logger.debug("UI del Stage 3 configurada")
 
@@ -141,19 +137,47 @@ class Stage3Window(BaseStage):
 
         self.tool_cards.clear()
 
+    def _cleanup_grid_section(self) -> None:
+        """
+        Elimina todos los items del layout principal que están después del summary_card.
+        Esto incluye: spacings, tools_grid, y stretches añadidos en _create_tools_grid.
+        Necesario para evitar acumulación de gaps al recrear el grid.
+        """
+        if not self.summary_card:
+            return
+        
+        # Encontrar el índice del summary_card en el layout
+        summary_index = -1
+        for i in range(self.main_layout.count()):
+            item = self.main_layout.itemAt(i)
+            if item and item.widget() == self.summary_card:
+                summary_index = i
+                break
+        
+        if summary_index == -1:
+            return
+        
+        # Eliminar todos los items después del summary_card (en orden inverso)
+        while self.main_layout.count() > summary_index + 1:
+            item = self.main_layout.takeAt(summary_index + 1)
+            if item:
+                widget = item.widget()
+                if widget:
+                    widget.hide()
+                    widget.setParent(None)
+                    widget.deleteLater()
+                # Los spacers y stretches no tienen widget, se eliminan automáticamente con takeAt
+        
+        self.tools_grid = None
+
     def _create_stale_banner(self) -> QWidget:
         """Crea el banner de advertencia de estadísticas desactualizadas"""
-        banner = QFrame()
+        parent_widget = self.main_window.centralWidget() if self.main_window.centralWidget() else self.main_window
+        banner = QFrame(parent_widget)
         banner.setObjectName("staleBanner")
         
         # Estilo del banner
-        banner.setStyleSheet(f"""
-            QFrame#staleBanner {{
-                background-color: {DesignSystem.COLOR_WARNING_BG};
-                border: 1px solid {DesignSystem.COLOR_WARNING};
-                border-radius: {DesignSystem.RADIUS_MD}px;
-            }}
-        """)
+        banner.setStyleSheet(DesignSystem.get_stale_banner_style())
         
         layout = QHBoxLayout(banner)
         layout.setContentsMargins(DesignSystem.SPACE_16, DesignSystem.SPACE_12, 
@@ -181,19 +205,7 @@ class Stage3Window(BaseStage):
         btn = QPushButton("Re-analizar ahora")
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setIcon(qta.icon('fa5s.sync-alt', color=DesignSystem.COLOR_TEXT))
-        btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: rgba(255, 255, 255, 0.5);
-                border: 1px solid {DesignSystem.COLOR_WARNING};
-                border-radius: {DesignSystem.RADIUS_SM}px;
-                padding: 6px 12px;
-                color: {DesignSystem.COLOR_TEXT};
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-            }}
-            QPushButton:hover {{
-                background-color: rgba(255, 255, 255, 0.8);
-            }}
-        """)
+        btn.setStyleSheet(DesignSystem.get_warning_button_style())
         btn.clicked.connect(self._on_reanalyze)
         layout.addWidget(btn)
         
@@ -201,123 +213,134 @@ class Stage3Window(BaseStage):
         return banner
 
     def _show_summary_card(self):
-        """Muestra la summary card con animaciones"""
-        # Remover el stretch temporal para que el contenido se alinee correctamente
-        if self.main_layout.count() > 2:  # header + spacing + stretch
-            self.main_layout.takeAt(self.main_layout.count() - 1)  # Remover stretch
-
+        """Muestra la summary card"""
         # Crear y mostrar summary card
         self.summary_card = SummaryCard(self.selected_folder)
         self.summary_card.change_folder_requested.connect(self._on_change_folder)
         self.summary_card.reanalyze_requested.connect(self._on_reanalyze)
-        self.main_layout.addWidget(self.summary_card)
-        # No usar fade_in para evitar problemas con el scroll
-        # self.fade_in_widget(self.summary_card, duration=400)
-
-        # Actualizar estadísticas de la summary card (datos ya calculados en Stage 2)
-        total_files = self.analysis_results.scan.total_files
-        total_size = self.analysis_results.scan.total_size
-        num_images = len(self.analysis_results.scan.images) if hasattr(self.analysis_results.scan, 'images') else 0
-        num_videos = len(self.analysis_results.scan.videos) if hasattr(self.analysis_results.scan, 'videos') else 0
-        num_others = len(self.analysis_results.scan.others) if hasattr(self.analysis_results.scan, 'others') else 0
         
+        # Añadir al layout principal
+        self.main_layout.addWidget(self.summary_card)
+
+        # Actualizar estadísticas de la summary card
+        total_files = 0
+        total_size = 0
+        num_images = 0
+        num_videos = 0
+        num_others = 0
+        
+        if self.analysis_results and hasattr(self.analysis_results, 'scan'):
+            scan = self.analysis_results.scan
+            total_files = scan.total_files
+            total_size = scan.total_size
+            num_images = len(scan.images) if hasattr(scan, 'images') else 0
+            num_videos = len(scan.videos) if hasattr(scan, 'videos') else 0
+            num_others = len(scan.others) if hasattr(scan, 'others') else 0
+
         # Mostrar estadísticas
         self.summary_card.update_stats(total_files, total_size, num_images, num_videos, num_others)
 
-        # Añadir stretch después de la summary card para mantener el layout
-        self.main_layout.addStretch()
-
-        # Crear grid de herramientas con delay escalonado
-        QTimer.singleShot(200, self._create_tools_grid)
-
     def _create_tools_grid(self):
-        """Crea el grid 2x4 con las 7 herramientas"""
-        # Limpiar grid existente si ya existe (para evitar duplicación al refrescar)
-        if self.tools_grid:
-            # Remover del layout
-            self.main_layout.removeWidget(self.tools_grid)
-            # Ocultar y eliminar el widget antiguo
-            self.tools_grid.hide()
-            self.tools_grid.setParent(None)
-            self.tools_grid.deleteLater()
-            self.tools_grid = None
+        """Crea el grid categorizado de herramientas"""
+        # Limpiar todos los items del layout después del summary_card
+        # Esto incluye: spacing, tools_grid previo, y stretch
+        self._cleanup_grid_section()
         
-        # Limpiar diccionario de cards antiguas
         self.tool_cards.clear()
         
-        # Container para el grid
+        # Container principal para el grid
         grid_container = QWidget()
-        grid_layout = QGridLayout(grid_container)
-        grid_layout.setSpacing(8)  # Reducido de 10 para optimizar espacio vertical
-        grid_layout.setContentsMargins(0, 0, 0, 0)
+        main_grid_layout = QVBoxLayout(grid_container)
+        main_grid_layout.setSpacing(DesignSystem.SPACE_12) # Aún más reducido
+        main_grid_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Nota: Los análisis se hacen bajo demanda, así que todas las cards empiezan sin datos
+        # Helper para crear secciones
+        def create_section(title, icon_name):
+            section_widget = QWidget()
+            section_layout = QVBoxLayout(section_widget)
+            section_layout.setSpacing(DesignSystem.SPACE_4) # Mínimo
+            section_layout.setContentsMargins(0, 0, 0, 0)
+            
+            header_layout = QHBoxLayout()
+            header_layout.setContentsMargins(0, 0, 0, 0)
+            icon_label = QLabel()
+            icon_manager.set_label_icon(icon_label, icon_name, color=DesignSystem.COLOR_TEXT_SECONDARY, size=12)
+            header_layout.addWidget(icon_label)
+            
+            title_label = QLabel(title.upper())
+            title_label.setStyleSheet(DesignSystem.get_section_title_style())
+            header_layout.addWidget(title_label)
+            header_layout.addStretch()
+            section_layout.addLayout(header_layout)
+            
+            grid = QGridLayout()
+            grid.setSpacing(DesignSystem.SPACE_8) # Más compacto
+            # Asegurar que las columnas tengan el mismo ancho
+            grid.setColumnStretch(0, 1)
+            grid.setColumnStretch(1, 1)
+            section_layout.addLayout(grid)
+            return section_widget, grid
+
+        # 1. SECCIÓN: LIMPIEZA Y ESPACIO
+        cleanup_section, cleanup_grid = create_section("Limpieza y Espacio", "delete-sweep")
         
-        # Fila 0: Archivos Vacíos + HEIC/JPG
+        # Cards de limpieza
         zero_byte_card = create_zero_byte_card(self.analysis_results, self._on_tool_clicked)
-        grid_layout.addWidget(zero_byte_card, 0, 0)
-        self.tool_cards['zero_byte'] = zero_byte_card
-        
         heic_card = create_heic_card(self.analysis_results, self._on_tool_clicked)
-        grid_layout.addWidget(heic_card, 0, 1)
-        self.tool_cards['heic'] = heic_card
-
-        # Fila 1: Live Photos + Duplicados Exactos
         live_photos_card = create_live_photos_card(self.analysis_results, self._on_tool_clicked)
-        grid_layout.addWidget(live_photos_card, 1, 0)
-        self.tool_cards['live_photos'] = live_photos_card
-
         exact_dup_card = create_duplicates_exact_card(self.analysis_results, self._on_tool_clicked)
-        grid_layout.addWidget(exact_dup_card, 1, 1)
-        self.tool_cards['duplicates_exact'] = exact_dup_card
-
-        # Fila 2: Archivos Similares + (espacio vacío)
-        similar_dup_card = create_duplicates_similar_card(self._on_tool_clicked)
-        grid_layout.addWidget(similar_dup_card, 2, 0)
-        self.tool_cards['duplicates_similar'] = similar_dup_card
-
-        # Fila 3: Organizar + Renombrar (herramientas de reorganización juntas)
-        organize_card = create_file_organizer_card(self._on_tool_clicked)
-        grid_layout.addWidget(organize_card, 3, 0)
-        self.tool_cards['file_organizer'] = organize_card
-
-        rename_card = create_file_renamer_card(self._on_tool_clicked)
-        grid_layout.addWidget(rename_card, 3, 1)
-        self.tool_cards['file_renamer'] = rename_card
         
-        # Inicializar similarity handler después de crear las cards
-        self.similarity_handler = SimilarityAnalysisHandler(
-            parent_window=self,
-            main_window=self.main_window,
-            analysis_results=self.analysis_results,
-            metadata_cache=self.metadata_cache,
-            tool_cards=self.tool_cards,
-            logger=self.logger
-        )
+        cleanup_grid.addWidget(zero_byte_card, 0, 0)
+        cleanup_grid.addWidget(heic_card, 0, 1)
+        cleanup_grid.addWidget(live_photos_card, 1, 0)
+        cleanup_grid.addWidget(exact_dup_card, 1, 1)
+        
+        self.tool_cards['zero_byte'] = zero_byte_card
+        self.tool_cards['heic'] = heic_card
+        self.tool_cards['live_photos'] = live_photos_card
+        self.tool_cards['duplicates_exact'] = exact_dup_card
+        
+        main_grid_layout.addWidget(cleanup_section)
 
-        # Agregar grid al layout principal
-        # Remover el stretch temporal antes de añadir el grid
-        if self.main_layout.count() > 3:  # header + spacing + summary_card + stretch
-            self.main_layout.takeAt(self.main_layout.count() - 1)  # Remover stretch
+        # 2. SECCIÓN: SIMILARES Y COPIAS VISUALES
+        similar_section, similar_grid = create_section("Detección visual de duplicados", "image-search")
+        
+        # Card de copias visuales idénticas (100% similitud)
+        visual_identical_card = create_visual_identical_card(self.analysis_results, self._on_tool_clicked)
+        similar_grid.addWidget(visual_identical_card, 0, 0)
+        self.tool_cards['visual_identical'] = visual_identical_card
+        
+        # Card de archivos similares (sensibilidad ajustable)
+        similar_dup_card = create_duplicates_similar_card(self._on_tool_clicked)
+        similar_grid.addWidget(similar_dup_card, 0, 1)
+        self.tool_cards['duplicates_similar'] = similar_dup_card
+        
+        main_grid_layout.addWidget(similar_section)
 
-        # Añadir espaciado entre summary card y tool cards
-        self.main_layout.addSpacing(2)  # Reducido de SPACE_4 para optimizar espacio vertical
+        # 3. SECCIÓN: ORGANIZACIÓN
+        org_section, org_grid = create_section("Organización", "folder-move")
+        organize_card = create_file_organizer_card(self._on_tool_clicked)
+        rename_card = create_file_renamer_card(self._on_tool_clicked)
+        org_grid.addWidget(organize_card, 0, 0)
+        org_grid.addWidget(rename_card, 0, 1)
+        self.tool_cards['file_organizer'] = organize_card
+        self.tool_cards['file_renamer'] = rename_card
+        main_grid_layout.addWidget(org_section)
 
+        # Añadir al layout principal
+        self.main_layout.addSpacing(DesignSystem.SPACE_16)
         self.main_layout.addWidget(grid_container)
-
+        
         self.tools_grid = grid_container
+        
+        # Añadir stretch al final del layout principal para empujar todo hacia arriba
+        self.main_layout.addStretch()
 
-        # Forzar actualización del scroll area para que funcione correctamente
+        # Update scroll
         if hasattr(self.main_window, 'scroll_area'):
             self.main_window.scroll_area.update()
-            self.main_window.scroll_area.viewport().update()
-            # Asegurar que el widget contenido tenga el tamaño correcto
-            scroll_widget = self.main_window.scroll_area.widget()
-            if scroll_widget:
-                scroll_widget.adjustSize()
-                # Forzar recalculo del layout
-                scroll_widget.layout().invalidate()
-                scroll_widget.layout().activate()
+
+
 
     # Card creation methods moved to ui/screens/tool_cards/
     # They are now imported as functions
@@ -344,6 +367,10 @@ class Stage3Window(BaseStage):
         elif tool_id == 'duplicates_exact' and not (hasattr(self.analysis_results, 'duplicates') and self.analysis_results.duplicates):
             should_analyze = True
         elif tool_id == 'zero_byte' and not (hasattr(self.analysis_results, 'zero_byte') and self.analysis_results.zero_byte):
+            should_analyze = True
+        elif tool_id == 'visual_identical' and not (hasattr(self.analysis_results, 'visual_identical') and self.analysis_results.visual_identical):
+            should_analyze = True
+        elif tool_id == 'duplicates_similar' and not (hasattr(self.analysis_results, 'duplicates_similar') and self.analysis_results.duplicates_similar):
             should_analyze = True
         elif tool_id == 'file_organizer':
             # SIEMPRE analizar file_organizer (modifica ubicaciones de archivos)
@@ -392,11 +419,33 @@ class Stage3Window(BaseStage):
                 else:
                      QMessageBox.information(self.main_window, "Info", "No se encontraron copias exactas.")
 
+        elif tool_id == 'visual_identical':
+            if hasattr(self.analysis_results, 'visual_identical') and self.analysis_results.visual_identical:
+                vi_data = self.analysis_results.visual_identical
+                if vi_data.total_groups > 0:
+                    dialog = VisualIdenticalDialog(vi_data, self.main_window)
+                else:
+                    QMessageBox.information(
+                        self.main_window, 
+                        "Sin copias visuales idénticas", 
+                        "No se encontraron copias visuales idénticas.\n\n"
+                        "Todas las imágenes son visualmente únicas."
+                    )
+
         elif tool_id == 'duplicates_similar':
-            # Similares requieren configuración previa y tienen su propio flujo
-            if self.similarity_handler:
-                self.similarity_handler.start_analysis()
-            return
+            if hasattr(self.analysis_results, 'duplicates_similar') and self.analysis_results.duplicates_similar:
+                sim_data = self.analysis_results.duplicates_similar
+                # DuplicatesSimilarAnalysis contiene perceptual_hashes, no total_groups
+                # El diálogo genera los grupos dinámicamente con get_groups()
+                if len(sim_data.perceptual_hashes) > 0:
+                    dialog = DuplicatesSimilarDialog(sim_data, self.main_window)
+                else:
+                    QMessageBox.information(
+                        self.main_window, 
+                        "Sin archivos para analizar", 
+                        "No se encontraron imágenes o videos para analizar.\n\n"
+                        "Asegúrate de que el directorio contenga archivos soportados."
+                    )
 
         elif tool_id == 'file_organizer':
             # Organizing puede funcionar sin análisis previo (usa defaults o analiza on-fly)
@@ -430,6 +479,8 @@ class Stage3Window(BaseStage):
             LivePhotosAnalysisWorker,
             HeicAnalysisWorker,
             DuplicatesExactAnalysisWorker,
+            DuplicatesSimilarAnalysisWorker,
+            VisualIdenticalAnalysisWorker,
             ZeroByteAnalysisWorker,
             FileOrganizerAnalysisWorker,
             FileRenamerAnalysisWorker
@@ -441,6 +492,8 @@ class Stage3Window(BaseStage):
             'live_photos': (LivePhotosAnalysisWorker, "Analizando Live Photos..."),
             'heic': (HeicAnalysisWorker, "Buscando duplicados HEIC/JPG..."),
             'duplicates_exact': (DuplicatesExactAnalysisWorker, "Buscando copias exactas..."),
+            'visual_identical': (VisualIdenticalAnalysisWorker, "Buscando copias visuales idénticas..."),
+            'duplicates_similar': (DuplicatesSimilarAnalysisWorker, "Analizando archivos similares..."),
             'zero_byte': (ZeroByteAnalysisWorker, "Buscando archivos vacíos..."),
             'file_organizer': (FileOrganizerAnalysisWorker, "Analizando estructura..."),
             'file_renamer': (FileRenamerAnalysisWorker, "Analizando nombres...")
@@ -459,9 +512,12 @@ class Stage3Window(BaseStage):
         progress.resize(450, 120)  # Ancho aumentado para que el texto no se corte
         
         # Crear worker - algunos servicios ya no necesitan metadata_cache
-        refactorized_tools = {'live_photos', 'heic', 'duplicates_exact', 'zero_byte', 'file_renamer', 'file_organizer'}
+        refactorized_tools = {'live_photos', 'heic', 'duplicates_exact', 'visual_identical', 'zero_byte', 'file_renamer', 'file_organizer'}
         if tool_id in refactorized_tools:
             worker = WorkerClass(Path(self.selected_folder))
+        elif tool_id == 'duplicates_similar':
+            # DuplicatesSimilarAnalysisWorker necesita directory y opcionalmente sensibilidad
+            worker = WorkerClass(Path(self.selected_folder), sensitivity=85)
         else:
             worker = WorkerClass(Path(self.selected_folder), self.metadata_cache)
         
@@ -480,6 +536,14 @@ class Stage3Window(BaseStage):
                     
                 elif tool_id == 'duplicates_exact':
                     self.analysis_results.duplicates = result
+                    self._create_tools_grid()
+                    
+                elif tool_id == 'visual_identical':
+                    self.analysis_results.visual_identical = result
+                    self._create_tools_grid()
+                    
+                elif tool_id == 'duplicates_similar':
+                    self.analysis_results.duplicates_similar = result
                     self._create_tools_grid()
                     
                 elif tool_id == 'zero_byte':
@@ -537,6 +601,7 @@ class Stage3Window(BaseStage):
             LivePhotosExecutionWorker,
             HeicExecutionWorker,
             DuplicatesExecutionWorker,
+            VisualIdenticalExecutionWorker,
             FileOrganizerExecutionWorker,
             FileRenamerExecutionWorker,
             ZeroByteExecutionWorker,
@@ -553,7 +618,7 @@ class Stage3Window(BaseStage):
         
         # === VERIFICAR CONFIRMACIÓN ADICIONAL PARA ELIMINACIÓN ===
         # Lista de herramientas destructivas (que eliminan archivos)
-        destructive_tools = ['live_photos', 'heic', 'duplicates_exact', 'duplicates_similar', 'zero_byte']
+        destructive_tools = ['live_photos', 'heic', 'duplicates_exact', 'duplicates_similar', 'visual_identical', 'zero_byte']
         
         # Solo pedir confirmación si es una operación real (no simulada)
         is_dry_run = plan.get('dry_run', False)
@@ -667,6 +732,18 @@ class Stage3Window(BaseStage):
             worker = ZeroByteExecutionWorker(
                 service=service,
                 analysis=plan.get('analysis'),
+                create_backup=plan.get('create_backup', True),
+                dry_run=plan.get('dry_run', False)
+            )
+        
+        elif tool_id == 'visual_identical':
+            from services.visual_identical_service import VisualIdenticalService
+            service = VisualIdenticalService()
+            # VisualIdenticalExecutionWorker espera (service, groups, files_to_delete, create_backup, dry_run)
+            worker = VisualIdenticalExecutionWorker(
+                service=service,
+                groups=plan.get('groups', []),
+                files_to_delete=plan.get('files_to_delete', []),
                 create_backup=plan.get('create_backup', True),
                 dry_run=plan.get('dry_run', False)
             )
@@ -884,7 +961,8 @@ class Stage3Window(BaseStage):
             'live_photos': 'Live Photos',
             'heic': 'HEIC/JPG',
             'duplicates_exact': 'Duplicados Exactos',
-            'duplicates_similar': 'Duplicados Similares', 
+            'duplicates_similar': 'Archivos Similares',
+            'visual_identical': 'Copias Visuales Idénticas',
             'file_organizer': 'Organización de Archivos',
             'file_renamer': 'Renombrado de Archivos',
             'zero_byte': 'Archivos Vacíos'
@@ -926,6 +1004,8 @@ class Stage3Window(BaseStage):
                     self.analysis_results.duplicates = updated_analysis
                 elif tool_id == 'duplicates_similar':
                     self.analysis_results.duplicates_similar = updated_analysis
+                elif tool_id == 'visual_identical':
+                    self.analysis_results.visual_identical = updated_analysis
                 elif tool_id == 'file_organizer':
                     self.analysis_results.organization = updated_analysis
                 elif tool_id == 'file_renamer':
@@ -1019,6 +1099,12 @@ class Stage3Window(BaseStage):
                 self.logger.debug(f"Ejecutando service.analyze() para {tool_id}")
                 return service.analyze()
                 
+            elif tool_id == 'visual_identical':
+                from services.visual_identical_service import VisualIdenticalService
+                service = VisualIdenticalService()
+                self.logger.debug(f"Ejecutando service.analyze() para {tool_id}")
+                return service.analyze()
+                
             elif tool_id == 'file_organizer':
                 from services.file_organizer_service import FileOrganizerService
                 service = FileOrganizerService()
@@ -1084,30 +1170,43 @@ class Stage3Window(BaseStage):
         try:
             self.logger.debug("Refrescando UI de Stage 3 con datos actualizados")
 
-            # Paso 0: Sincronizar estadísticas globales con la caché
+            # Sincronizar estadísticas globales con la caché
             self._sync_scan_results_with_cache()
+
+            # Paso 1: Identificar índice del banner para limpiar SOLO lo que hay debajo
+            banner_index = -1
+            for i in range(self.main_layout.count()):
+                item = self.main_layout.itemAt(i)
+                if item.widget() and item.widget().objectName() == "staleBanner":
+                    banner_index = i
+                    break
             
-            # Limpiar widgets existentes (excepto header que permanece)
-            self.logger.debug("Limpiando summary_card...")
-            if self.summary_card:
-                self.summary_card.hide()
-                self.summary_card.setParent(None)
-                self.summary_card = None
+            # Si no encontramos banner (raro), asumimos después del header (index 1 aprox)
+            # Pero mejor buscar header si falla banner
+            if banner_index == -1:
+                # Fallback seguro: limpiar todo menos los primeros 2 elementos (Header + Spacing)
+                banner_index = 2 
+
+            # Paso 2: Limpiar todo lo que esté DESPUÉS del banner
+            # Iteramos hacia atrás hasta llegar al banner_index
+            while self.main_layout.count() > banner_index + 1:
+                item = self.main_layout.takeAt(self.main_layout.count() - 1)
+                if item.widget():
+                    item.widget().hide()
+                    item.widget().deleteLater()
+                elif item.spacerItem():
+                    # Eliminar spacers también
+                    pass
             
-            self.logger.debug("Limpiando tools_grid...")
-            if self.tools_grid:
-                self.tools_grid.hide()
-                self.tools_grid.setParent(None)
-                self.tools_grid = None
-                
+            self.summary_card = None
+            self.tools_grid = None
             self.tool_cards.clear()
             
-            # Recrear la UI con los datos actualizados
-            self.logger.debug("Recreando summary_card...")
-            self._show_summary_card()
+            # Recrear la UI de forma atómica dentro del results_container
+            self.logger.debug("Recreando UI de Stage 3...")
             
-            # Crear el grid de tools inmediatamente (sin delay para refresh)
-            self.logger.debug("Recreando tools_grid...")
+            # Recrear sin animaciones
+            self._show_summary_card()
             self._create_tools_grid()
             
             self.logger.debug("UI de Stage 3 refrescada exitosamente")

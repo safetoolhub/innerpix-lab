@@ -10,8 +10,6 @@ from services.base_service import BaseService, ProgressCallback
 from services.result_types import ZeroByteAnalysisResult, ZeroByteExecutionResult
 from services.file_metadata_repository_cache import FileInfoRepositoryCache
 from utils.logger import log_section_header_relevant, log_section_footer_relevant
-from utils.file_utils import delete_file_securely
-from utils.format_utils import format_size
 
 
 class ZeroByteService(BaseService):
@@ -138,28 +136,12 @@ class ZeroByteService(BaseService):
                 file_extension = file_path.suffix.upper().lstrip('.')
                 file_type = file_extension if file_extension else 'UNKNOWN'
                 
-                # Formato de log estandarizado (fecha omitida, archivos vacíos)
-                log_type = "FILE_DELETED_SIMULATION" if dry_run else "FILE_DELETED"
-                log_msg = (
-                    f"{log_type}: {file_path} | Size: {format_size(0)} | "
-                    f"Type: {file_type}"
-                )
-                
-                if dry_run:
+                # Usar método centralizado de BaseService
+                if self._delete_file_with_logging(file_path, 0, file_type, dry_run):
                     items_processed += 1
                     files_affected.append(file_path)
-                    self.logger.info(log_msg)
                 else:
-                    if delete_file_securely(file_path):
-                        items_processed += 1
-                        files_affected.append(file_path)
-                        self.logger.info(log_msg)
-                        
-                        # Actualizar caché eliminando el archivo
-                        repo_temp = FileInfoRepositoryCache.get_instance()
-                        repo_temp.remove_file(file_path)
-                    else:
-                        result.add_error(f"No se pudo eliminar: {file_path}")
+                    result.add_error(f"No se pudo eliminar: {file_path}")
                         
             except Exception as e:
                 result.add_error(f"Error procesando {file_path}: {e}")

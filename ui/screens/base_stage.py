@@ -5,7 +5,7 @@ Proporciona utilidades comunes como animaciones, persistencia y navegación.
 
 from typing import Optional, Callable, Any
 from pathlib import Path
-from PyQt6.QtWidgets import QWidget, QMainWindow, QGraphicsOpacityEffect, QFrame, QHBoxLayout, QLabel, QToolButton
+from PyQt6.QtWidgets import QWidget, QMainWindow, QGraphicsOpacityEffect, QFrame, QHBoxLayout, QVBoxLayout, QLabel, QToolButton
 from PyQt6.QtCore import QPropertyAnimation, QEasingCurve, QTimer, QObject, QSize
 
 from utils.settings_manager import settings_manager
@@ -275,57 +275,50 @@ class BaseStage(QObject):
         """
         card = QFrame()
         card.setProperty("class", "card")
-        card.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: 10px {DesignSystem.SPACE_20}px;
-            }}
-        """)
+        card.setStyleSheet(DesignSystem.get_stage_header_style())
 
-        # Layout horizontal compacto
+        # Layout horizontal con mejor organización
         layout = QHBoxLayout(card)
-        layout.setSpacing(DesignSystem.SPACE_16)
+        layout.setSpacing(DesignSystem.SPACE_12)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        # Logo/Icono de la aplicación
+        # Logo/Icono de la aplicación con fondo sutil
+        icon_container = QFrame()
+        icon_container.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
+                border-radius: {DesignSystem.RADIUS_MD}px;
+                padding: {DesignSystem.SPACE_8}px;
+            }}
+        """)
+        icon_layout = QHBoxLayout(icon_container)
+        icon_layout.setContentsMargins(8, 8, 8, 8)
+        icon_layout.setSpacing(0)
+        
         app_icon = QLabel()
         icon_manager.set_label_icon(app_icon, 'movie-open', color=DesignSystem.COLOR_PRIMARY, size=DesignSystem.ICON_SIZE_LG)
-        layout.addWidget(app_icon)
+        icon_layout.addWidget(app_icon)
+        layout.addWidget(icon_container)
+
+        # Contenedor de texto (título + subtítulo verticalmente)
+        text_container = QWidget()
+        text_layout = QVBoxLayout(text_container)
+        text_layout.setContentsMargins(0, 0, 0, 0)
+        text_layout.setSpacing(2)
 
         # Título principal
         title = title_text if title_text is not None else Config.APP_NAME
         welcome_title = QLabel(title)
-        welcome_title.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_LG}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
-            color: {DesignSystem.COLOR_TEXT};
-        """)
-        layout.addWidget(welcome_title)
+        welcome_title.setStyleSheet(DesignSystem.get_stage_title_style())
+        text_layout.addWidget(welcome_title)
 
-        # Separador visual sutil
-        separator = QFrame()
-        separator.setFrameShape(QFrame.Shape.VLine)
-        separator.setStyleSheet(f"background-color: {DesignSystem.COLOR_BORDER}; margin: 0 {DesignSystem.SPACE_8}px;")
-        separator.setFixedWidth(1)
-        layout.addWidget(separator)
+        # Subtítulo (si se proporciona)
+        if subtitle_text:
+            welcome_subtitle = QLabel(subtitle_text)
+            welcome_subtitle.setStyleSheet(DesignSystem.get_stage_subtitle_style())
+            text_layout.addWidget(welcome_subtitle)
 
-        # Subtítulo compacto
-        subtitle = subtitle_text if subtitle_text is not None else ""
-        welcome_subtitle = QLabel(subtitle)
-        welcome_subtitle.setStyleSheet(f"""
-            QLabel {{
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-                border: none;
-                background: transparent;
-                padding: 0px;
-                margin: 0px;
-            }}
-        """)
-        layout.addWidget(welcome_subtitle)
+        layout.addWidget(text_container)
 
         # Espaciador para empujar botones a la derecha
         layout.addStretch()

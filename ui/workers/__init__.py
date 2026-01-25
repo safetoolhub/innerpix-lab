@@ -5,6 +5,7 @@ from .analysis_workers import (
     HeicAnalysisWorker,
     DuplicatesExactAnalysisWorker,
     DuplicatesSimilarAnalysisWorker,
+    VisualIdenticalAnalysisWorker,
     ZeroByteAnalysisWorker,
     FileRenamerAnalysisWorker,
     FileOrganizerAnalysisWorker
@@ -15,6 +16,7 @@ from .execution_workers import (
     FileOrganizerExecutionWorker,
     HeicExecutionWorker,
     DuplicatesExecutionWorker,
+    VisualIdenticalExecutionWorker,
     ZeroByteExecutionWorker
 )
 
@@ -25,6 +27,7 @@ __all__ = [
     'HeicAnalysisWorker',
     'DuplicatesExactAnalysisWorker',
     'DuplicatesSimilarAnalysisWorker',
+    'VisualIdenticalAnalysisWorker',
     'ZeroByteAnalysisWorker',
     'FileRenamerAnalysisWorker',
     'FileOrganizerAnalysisWorker',
@@ -33,5 +36,7 @@ __all__ = [
     'FileOrganizerExecutionWorker',
     'HeicExecutionWorker',
     'DuplicatesExecutionWorker',
+    'VisualIdenticalExecutionWorker',
     'ZeroByteExecutionWorker'
 ]
+

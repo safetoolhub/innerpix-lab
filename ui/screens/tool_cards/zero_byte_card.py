@@ -35,7 +35,8 @@ def create_zero_byte_card(analysis_results, on_click_callback) -> ToolCard:
             size_text = f"{zero_byte_data.items_count} archivos"
             card.set_status_with_results(
                 f"{zero_byte_data.items_count} archivos vacíos detectados",
-                size_text
+                size_text,
+                badge_count=zero_byte_data.items_count
             )
         else:
             card.set_status_no_results("No se encontraron archivos vacíos")

@@ -38,14 +38,7 @@ class SummaryCard(QFrame):
     
     def _setup_ui(self):
         """Configura la interfaz de la card"""
-        self.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: 10px;
-            }}
-        """)
+        self.setStyleSheet(DesignSystem.get_card_style_compact())
         
         layout = QVBoxLayout(self)
         layout.setSpacing(DesignSystem.SPACE_6)
@@ -66,35 +59,26 @@ class SummaryCard(QFrame):
         
         # 2. Etiqueta "Carpeta:"
         header_text = QLabel("Carpeta:")
-        header_text.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-            color: {DesignSystem.COLOR_TEXT_SECONDARY};
-        """)
+        header_text.setStyleSheet(DesignSystem.get_label_secondary_style())
         header_layout.addWidget(header_text)
         
         # 3. Ruta del directorio (mono)
         self.path_label = QLabel(self.directory_path)
         self.path_label.setProperty("class", "mono")
         self.path_label.setToolTip(self.directory_path)
-        # Estilo específico para que se vea bien en línea
-        self.path_label.setStyleSheet(f"""
-            font-family: {DesignSystem.FONT_FAMILY_MONO};
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            color: {DesignSystem.COLOR_TEXT};
-            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
-        """)
+        self.path_label.setStyleSheet(DesignSystem.get_label_mono_style())
         header_layout.addWidget(self.path_label)
         
         # 4. Espaciador
         header_layout.addStretch()
         
         # 5. Botón "Cambiar"
-        btn_change = QPushButton("Cambiar")
-        btn_change.setProperty("class", "secondary-small")
-        btn_change.setToolTip("Seleccionar otra carpeta")
-        btn_change.clicked.connect(self._on_change_clicked)
-        header_layout.addWidget(btn_change)
+        self.btn_change = QPushButton("Cambiar")
+        self.btn_change.setProperty("class", "secondary-small")
+        self.btn_change.setToolTip("Seleccionar otra carpeta")
+        self.btn_change.clicked.connect(self._on_change_clicked)
+        self.btn_change.setStyleSheet(DesignSystem.get_small_button_style("secondary"))
+        header_layout.addWidget(self.btn_change)
         
         layout.addLayout(header_layout)
         
@@ -117,11 +101,7 @@ class SummaryCard(QFrame):
         
         # 1. Estadísticas (Archivos totales y Tamaño)
         self.stats_label = QLabel("Calculando...")
-        self.stats_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            color: {DesignSystem.COLOR_TEXT};
-            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-        """)
+        self.stats_label.setStyleSheet(DesignSystem.get_stats_label_style())
         info_layout.addWidget(self.stats_label)
         
         # 2. Separador vertical
@@ -133,28 +113,35 @@ class SummaryCard(QFrame):
         
         # 3. Desglose de tipos de archivo
         self.breakdown_label = QLabel("...")
-        self.breakdown_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            color: {DesignSystem.COLOR_TEXT};
-            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-        """)
+        self.breakdown_label.setStyleSheet(DesignSystem.get_stats_label_style())
         info_layout.addWidget(self.breakdown_label)
         
         info_layout.addStretch()
         
-        # Botón "Reanalizar"
-        btn_reanalyze = QPushButton()
+        # Barra de desglose visual (NUEVO)
+        self.bar_container = QFrame()
+        self.bar_container.setFixedHeight(8) # Más delgado para look premium
+        self.bar_container.setStyleSheet(DesignSystem.get_visual_bar_container_style())
+        self.bar_layout = QHBoxLayout(self.bar_container)
+        self.bar_layout.setContentsMargins(0, 0, 0, 0)
+        self.bar_layout.setSpacing(0)
+        
+        layout.addWidget(self.bar_container)
+        layout.addSpacing(DesignSystem.SPACE_8)
+        
+        # Botón "Reanalizar" (Restaurado)
+        self.btn_reanalyze = QPushButton()
         icon_manager.set_button_icon(
-            btn_reanalyze,
+            self.btn_reanalyze,
             'refresh',
-            color=DesignSystem.COLOR_TEXT,
-            size=16
+            color=DesignSystem.COLOR_TEXT_SECONDARY,
+            size=14
         )
-        btn_reanalyze.setText("Reanalizar")
-        btn_reanalyze.setProperty("class", "secondary-small")
-        btn_reanalyze.setToolTip("Volver a analizar la carpeta")
-        btn_reanalyze.clicked.connect(self._on_reanalyze_clicked)
-        info_layout.addWidget(btn_reanalyze)
+        self.btn_reanalyze.setText("Reanalizar")
+        self.btn_reanalyze.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_reanalyze.setStyleSheet(DesignSystem.get_small_button_style("link"))
+        self.btn_reanalyze.clicked.connect(self._on_reanalyze_clicked)
+        info_layout.addWidget(self.btn_reanalyze)
         
         layout.addLayout(info_layout)
     
@@ -197,6 +184,51 @@ class SummaryCard(QFrame):
             self.breakdown_label.setText(" • ".join(breakdown_parts))
         else:
             self.breakdown_label.setText("No hay archivos para mostrar")
+            
+        # Actualizar barra visual
+        self._update_visual_bar()
+
+    def _update_visual_bar(self):
+        """Actualiza el tamaño de los segmentos en la barra visual"""
+        if self.total_files == 0:
+            self.img_segment.hide()
+            self.vid_segment.hide()
+            self.other_segment.hide()
+            return
+            
+        # Calcular porcentajes
+        img_pct = (self.num_images / self.total_files) * 100
+        vid_pct = (self.num_videos / self.total_files) * 100
+        other_pct = (self.num_others / self.total_files) * 100
+        
+        # Limpiar barra
+        while self.bar_layout.count():
+            item = self.bar_layout.takeAt(0)
+            if item.widget():
+                item.widget().setParent(None)
+                
+        # Añadir segmentos si tienen valor
+        if self.num_images > 0:
+            self.img_segment = QFrame()
+            self.img_segment.setStyleSheet(f"background-color: {DesignSystem.COLOR_PRIMARY}; border-top-left-radius: 6px; border-bottom-left-radius: 6px;")
+            self.bar_layout.addWidget(self.img_segment, int(img_pct))
+            
+        if self.num_videos > 0:
+            self.vid_segment = QFrame()
+            self.vid_segment.setStyleSheet(f"background-color: {DesignSystem.COLOR_WARNING};")
+            # Redondear esquinas si es el único o el último
+            if self.num_images == 0:
+                self.vid_segment.setStyleSheet(self.vid_segment.styleSheet() + "border-top-left-radius: 6px; border-bottom-left-radius: 6px;")
+            if self.num_others == 0:
+                self.vid_segment.setStyleSheet(self.vid_segment.styleSheet() + "border-top-right-radius: 6px; border-bottom-right-radius: 6px;")
+            self.bar_layout.addWidget(self.vid_segment, int(vid_pct))
+            
+        if self.num_others > 0:
+            self.other_segment = QFrame()
+            self.other_segment.setStyleSheet(f"background-color: {DesignSystem.COLOR_SECONDARY}; border-top-right-radius: 6px; border-bottom-right-radius: 6px;")
+            if self.num_images == 0 and self.num_videos == 0:
+                self.other_segment.setStyleSheet(self.other_segment.styleSheet() + "border-top-left-radius: 6px; border-bottom-left-radius: 6px;")
+            self.bar_layout.addWidget(self.other_segment, int(other_pct))
     
 
     

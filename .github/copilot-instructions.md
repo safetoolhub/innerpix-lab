@@ -3,12 +3,13 @@
 PyQt6 desktop app for photo/video management oriented to privacy.
 
 ### Flujo de Análisis
-1. **Stage 2**: Escaneo inicial multi-fase usando `InitialScanner.scan()` → `DirectoryScanResult`. 5 fases diferenciadas:
-   - Fase 1 (FILESYSTEM_METADATA): Análisis de estructura del directorio → "Analizando estructura de la carpeta"
-   - Fase 2 (HASH): Cálculo de hashes SHA256 → "Calculando hashes de los archivos"
-   - Fase 3 (EXIF_IMAGES): Extracción de metadatos de imágenes → "Obteniendo metadatos de las imagenes"
-   - Fase 4 (EXIF_VIDEOS): Extracción de metadatos de videos → "Obteniendo metadatos de los videos"
-   - Fase 5 (BEST_DATE): Cálculo de mejor fecha disponible → "Calculando mejor fecha disponible"
+1. **Stage 2**: Escaneo inicial multi-fase usando `InitialScanner.scan()` → `DirectoryScanResult`. 6 fases diferenciadas:
+   - Fase 1 (FILE_CLASSIFICATION): Escaneo y clasificación de archivos por tipo → "Escaneando estructura de carpetas"
+   - Fase 2 (FILESYSTEM_METADATA): Lectura de metadata del filesystem → "Obteniendo información de archivos"
+   - Fase 3 (HASH): Cálculo de hashes SHA256 → "Calculando hashes de archivos"
+   - Fase 4 (EXIF_IMAGES): Extracción de metadatos de imágenes → "Extrayendo metadatos de imágenes"
+   - Fase 5 (EXIF_VIDEOS): Extracción de metadatos de videos → "Extrayendo metadatos de vídeos"
+   - Fase 6 (BEST_DATE): Cálculo de mejor fecha disponible → "Determinando fecha óptima"
 2. **Stage 3**: Análisis bajo demanda para cada herramienta
    - Live Photos: `LivePhotoService.analyze()` → `LivePhotosAnalysisResult`
    - HEIC/JPG: `HeicService.analyze()` → `HeicAnalysisResult`
@@ -49,36 +50,41 @@ PyQt6 desktop app for photo/video management oriented to privacy.
 - **Magic methods**: `len(repo)`, `path in repo`, `repo[path]`
 - **Future-proof**: Preparado para SQLite via Protocol interface (IFileRepository)
 
-**Similar Files Analysis** (`services/duplicates_similar_service.py`) - Dual API pattern
-- **Standard API**: `analyze(sensitivity=85)` - Returns `DuplicateAnalysisResult` (compatible with other services)
-- **Interactive API**: `get_analysis_for_dialog()` - Returns `DuplicatesSimilarAnalysis` for real-time sensitivity adjustment
+**Visual Identical Service** (`services/visual_identical_service.py`) - 100% visually identical copies
+- **API**: `analyze()` → `VisualIdenticalAnalysisResult` with groups of perceptually identical files
+- Uses perceptual hashing with threshold=0 (exact visual match)
+- Automatic grouping and safe batch deletion with keep strategies (largest, smallest, oldest, newest)
+- Result types: `VisualIdenticalGroup`, `VisualIdenticalAnalysisResult`, `VisualIdenticalExecutionResult`
+- **Use case**: Detecting exact visual copies (same image in different formats/resolutions)
+
+**Similar Files Analysis** (`services/duplicates_similar_service.py`) - 70-95% similar files
+- **Standard API**: `analyze(sensitivity=85)` - Returns `DuplicateAnalysisResult`
+- **Dialog API**: `get_analysis_for_dialog()` - Returns `DuplicatesSimilarAnalysis` for interactive UI
 - `DuplicatesSimilarAnalysis`: Container for pre-calculated hashes, enables real-time re-clustering via `get_groups(sensitivity)`
 - Internal methods:
   - `_calculate_perceptual_hashes(repo, callback, algorithm, hash_size, target, highfreq_factor)` - Expensive hash calculation (~5 min for 40k files), cached in memory
   - `_calculate_image_perceptual_hash(path, algorithm, hash_size, highfreq_factor)` - Hash for single image
   - `_calculate_video_perceptual_hash(path, algorithm, hash_size, highfreq_factor)` - Hash for single video (uses central frame)
 - **Perceptual Hash Configuration** (via `Config`):
-  - `PERCEPTUAL_HASH_ALGORITHM`: Algorithm to use ("dhash", "phash", "ahash"). Default: "dhash"
+  - `PERCEPTUAL_HASH_ALGORITHM`: Algorithm to use ("dhash", "phash", "ahash"). Default: "phash"
     - dhash: Fast, good for crops/edits (compares adjacent pixel differences)
     - phash: Robust, DCT-based (better tolerance to size/brightness changes)
     - ahash: Fastest, simplest (compares with average brightness)
-  - `PERCEPTUAL_HASH_SIZE`: Hash size (8, 16, 32). Default: 8 (64-bit hash)
+  - `PERCEPTUAL_HASH_SIZE`: Hash size (8, 16, 32). Default: 16 (256-bit hash)
   - `PERCEPTUAL_HASH_TARGET`: Files to process ("images", "videos", "both"). Default: "images"
   - `PERCEPTUAL_HASH_HIGHFREQ_FACTOR`: Highfreq factor for phash (4, 8). Default: 4
-- **Incremental analysis**: `find_new_groups(new_hashes, existing_hashes, sensitivity)` - Compares new batch vs existing for progressive loading
-  - Used by dialog for batch processing (avoids loading all groups at once)
-  - Returns `DuplicateAnalysisResult` with only groups containing new files
-  - Prevents UI freezing with large datasets (>10k files)
-- Serialization: `save_to_file()` / `load_from_file()` for instant cache reload
 - Hamming distance: Perceptual hash comparison for similarity detection (bits depend on hash_size)
-- Sensitivity scale: 30-100% (30=permissive, 100=identical only, 85=recommended)
+- Sensitivity scale: 70-95% in dialog (70=permissive more groups, 95=very similar few groups, 85=recommended)
+- **Important**: For 100% identical files, use `VisualIdenticalService` instead
+- **Use case**: Finding similar but not identical images (edits, crops, rotations)
 
 **Initial Scanner** (`services/initial_scanner.py`) - Multi-phase Stage 2 scanner
-- 4 fases secuenciales: FILESYSTEM_METADATA → HASH → EXIF_IMAGES → EXIF_VIDEOS
+- 6 fases secuenciales: FILE_CLASSIFICATION → FILESYSTEM_METADATA → HASH → EXIF_IMAGES → EXIF_VIDEOS → BEST_DATE
+- Fase 1 separa escaneo/clasificación (muy rápida) de fase 2 que lee metadata del filesystem
 - Callbacks: `phase_callback(phase_id, message)` para inicio, `progress_callback(PhaseProgress)` para progreso
 - Población incremental usando `FileInfoRepositoryCache.populate_from_scan()` con estrategias específicas
 - Cancelación: `request_stop()` detiene escaneo de forma segura
-- Clasificación automática: separa imágenes, videos y otros según extensión
+- Progreso reporta 0/total al inicio y total/total al final de cada fase
 
 **File Metadata** (`services/file_metadata.py`) - Immutable data model
 - Dataclass con: path, fs_size, fs_mtime, sha256, exif_* fields
@@ -90,14 +96,13 @@ PyQt6 desktop app for photo/video management oriented to privacy.
 - Base: `BaseWorker` with `progress_update`, `finished`, `error` signals
 - Type-safe: hints on `__init__` and `run()`, TYPE_CHECKING for imports
 - `InitialAnalysisWorker`: Stage 2 multi-phase scan worker, emits `phase_started(phase_id, message)`, `phase_completed(phase_id)`, `stats_update(dict)`
-- On-demand workers: `LivePhotosAnalysisWorker`, `HeicAnalysisWorker`, `DuplicatesExactAnalysisWorker`, `ZeroByteAnalysisWorker`, `FileRenamerAnalysisWorker`, `FileOrganizerAnalysisWorker`
-- `DuplicatesSimilarAnalysisWorker`: Special case - calls `get_analysis_for_dialog()` instead of `analyze()` to enable interactive sensitivity adjustment in dialog
+- On-demand workers: `LivePhotosAnalysisWorker`, `HeicAnalysisWorker`, `DuplicatesExactAnalysisWorker`, `VisualIdenticalAnalysisWorker`, `DuplicatesSimilarAnalysisWorker`, `ZeroByteAnalysisWorker`, `FileRenamerAnalysisWorker`, `FileOrganizerAnalysisWorker`
 
 **UI Stages** (`ui/screens/`) - 3-stage flow
 - Stage 1: Folder selector
 - Stage 2: Analysis progress with graceful cancellation
   - Timeout: 30 segundos para cancelación cooperativa (datasets grandes)
-  - Logging INFO cada 10% en fases 2, 3, 4
+  - Logging INFO cada 10% en fases 3, 4, 5, 6 (hash, EXIF images, EXIF videos, best date)
   - Invalidación de caché al volver a Stage 1 con `_invalidate_metadata_cache()`
 - Stage 3: Tools grid → dialogs
 - All extend `BaseStage`
@@ -199,27 +204,30 @@ Dry-run mode for testing. No deletions/moves/renames.
   - `BaseDialog`: Clase base con métodos comunes como `add_backup_checkbox()`, `add_dry_run_checkbox()`
 
 - **Tool Dialogs**:
-  - `duplicates_exact_dialog.py`: Gestión de duplicados exactos (SHA256), estrategias de eliminación
-    - TreeWidget con columnas: Archivos, Tamaño, Fecha, Origen, Ubicación, Estado
-    - Obtiene metadata del repositorio singleton con `FileInfoRepositoryCache.get_instance()`
-    - Muestra origen de fecha (exif_datetime_original, mtime, etc.) en columna dedicada
-  - `duplicates_similar_dialog.py`: Gestión de duplicados similares (perceptual hash), ajuste de sensibilidad en tiempo real
-    - Progressive batch loading: Loads groups in batches to avoid UI freeze with large datasets (>10k files)
-    - Uses `DuplicatesSimilarAnalysis.find_new_groups()` for incremental group detection
-    - Default batch size: 25 files (configurable via `Config.SIMILAR_FILES_INITIAL_BATCH_SIZE`)
-  - `duplicates_similar_progress_dialog.py`: Diálogo de progreso para análisis de similares
-  - `file_organizer_dialog.py`: Organización de archivos, 3 modos (TO_ROOT, BY_MONTH, WHATSAPP_SEPARATE), paginación (200/page)
-  - `file_renamer_dialog.py`: Renombrado de archivos, mapeos original → nuevo, indicadores de conflictos
+  - `zero_byte_dialog.py`: Gestión de archivos de cero bytes
   - `heic_dialog.py`: Gestión de pares HEIC/JPG, menú contextual
     - Muestra origen de fecha compartida entre pares HEIC/JPG
   - `live_photos_dialog.py`: Gestión de Live Photos (pares foto + video)
     - Muestra origen de fecha para imágenes y videos en columna dedicada
-  - `zero_byte_dialog.py`: Gestión de archivos de cero bytes
+  - `duplicates_exact_dialog.py`: Gestión de duplicados exactos (SHA256), estrategias de eliminación
+    - TreeWidget con columnas: Archivos, Tamaño, Fecha, Origen, Ubicación, Estado
+    - Obtiene metadata del repositorio singleton con `FileInfoRepositoryCache.get_instance()`
+    - Muestra origen de fecha (exif_datetime_original, mtime, etc.) en columna dedicada
+  - `visual_identical_dialog.py`: Gestión de copias visuales idénticas (perceptual hash, threshold=0)
+    - TreeView con estrategias: keep largest, smallest, oldest, newest
+    - Paginación, búsqueda/filtro, menú contextual
+    - Elimina copias exactas visualmente de forma automática y segura
+  - `duplicates_similar_dialog.py`: Gestión de archivos similares (perceptual hash, 70-99%)
+    - Slider de sensibilidad para ajuste en tiempo real
+    - Revisión manual de grupos con archivos similares pero no idénticos
+  - `file_organizer_dialog.py`: Organización de archivos, 3 modos (TO_ROOT, BY_MONTH, WHATSAPP_SEPARATE), paginación (200/page)
+  - `file_renamer_dialog.py`: Renombrado de archivos, mapeos original → nuevo, indicadores de conflictos
 
 - **Auxiliary Dialogs**:
   - `about_dialog.py`: Diálogo "Acerca de" con información de la aplicación
   - `settings_dialog.py`: Configuración de la aplicación
   - `dialog_utils.py`: Utilidades como `show_file_details_dialog()`, `open_file_with_default_app()`
+  - `image_preview_dialog.py`: Visor de imágenes simple para previsualizaciones rápidas
 
 **UX Rules**
 - Never show empty dialogs

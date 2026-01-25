@@ -104,14 +104,7 @@ class Stage1Window(BaseStage):
         """Crea la card principal para seleccionar carpeta"""
         card = QFrame()
         card.setProperty("class", "card")
-        card.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: {DesignSystem.SPACE_20}px;
-            }}
-        """)
+        card.setStyleSheet(DesignSystem.get_card_style())
 
         layout = QVBoxLayout(card)
         layout.setSpacing(DesignSystem.SPACE_16)
@@ -146,24 +139,7 @@ class Stage1Window(BaseStage):
         btn_select = QPushButton("Seleccionar carpeta...")
         btn_select.setObjectName("primary-button")
         btn_select.setMinimumWidth(200)
-        # Aplicar estilos directamente al botón
-        btn_select.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {DesignSystem.COLOR_PRIMARY};
-                color: {DesignSystem.COLOR_PRIMARY_TEXT};
-                border: none;
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: 10px 24px;
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-            }}
-            QPushButton:hover {{
-                background-color: {DesignSystem.COLOR_PRIMARY_HOVER};
-            }}
-            QPushButton:pressed {{
-                background-color: {DesignSystem.COLOR_PRIMARY};
-            }}
-        """)
+        btn_select.setStyleSheet(DesignSystem.get_primary_button_style())
         btn_select.clicked.connect(self._on_browse_folder)
         btn_container.addWidget(btn_select)
 
@@ -213,13 +189,7 @@ class Stage1Window(BaseStage):
     def _create_last_folder_line(self) -> QWidget:
         """Crea una línea con la última carpeta analizada y botón para reutilizarla"""
         container = QWidget()
-        container.setStyleSheet(f"""
-            QWidget {{
-                background-color: rgba(59, 130, 246, 0.08);
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
-            }}
-        """)
+        container.setStyleSheet(DesignSystem.get_last_folder_container_style())
 
         layout = QHBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -240,33 +210,13 @@ class Stage1Window(BaseStage):
 
         combined_text = f"Última carpeta analizada: {display_path}"
         info_label = QLabel(combined_text)
-        info_label.setStyleSheet(f"""
-            color: {DesignSystem.COLOR_TEXT};
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-        """)
+        info_label.setStyleSheet(DesignSystem.get_info_text_style())
         info_label.setToolTip(folder_path)
         layout.addWidget(info_label, 1)
 
         # Botón para usar esta carpeta
         use_btn = QPushButton("Usar esta carpeta")
-        use_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {DesignSystem.COLOR_PRIMARY};
-                color: white;
-                border: none;
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-            }}
-            QPushButton:hover {{
-                background-color: {DesignSystem.COLOR_PRIMARY_HOVER};
-            }}
-            QPushButton:pressed {{
-                background-color: {DesignSystem.COLOR_PRIMARY};
-            }}
-        """)
+        use_btn.setStyleSheet(DesignSystem.get_use_folder_button_style())
         use_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         use_btn.clicked.connect(lambda: self._on_use_last_folder())
         layout.addWidget(use_btn)
@@ -295,16 +245,7 @@ class Stage1Window(BaseStage):
         text_color_value = text_color if text_color else DesignSystem.COLOR_TEXT_SECONDARY
         text_label = QLabel(text)
         text_label.setWordWrap(True)
-        text_label.setStyleSheet(f"""
-            QLabel {{
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                color: {text_color_value};
-                border: none;
-                background: transparent;
-                padding: 0px;
-                margin: 0px;
-            }}
-        """)
+        text_label.setStyleSheet(DesignSystem.get_tip_text_style(text_color_value))
         layout.addWidget(text_label, 1)  # Permite que el texto se expanda
 
         return tip
@@ -334,15 +275,7 @@ class Stage1Window(BaseStage):
         """Crea la card "Paso 2" (vacía inicialmente)"""
         card = QFrame()
         card.setProperty("class", "card")
-        card.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: {DesignSystem.SPACE_16}px;
-                opacity: 0.5;
-            }}
-        """)
+        card.setStyleSheet(DesignSystem.get_card_style())
 
         layout = QVBoxLayout(card)
         layout.setSpacing(DesignSystem.SPACE_12)
@@ -356,12 +289,7 @@ class Stage1Window(BaseStage):
         # Texto centrado
         empty_text = QLabel("Las herramientas aparecerán aquí después de analizar tu carpeta")
         empty_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        empty_text.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            color: {DesignSystem.COLOR_TEXT_SECONDARY};
-            font-style: italic;
-            padding: {DesignSystem.SPACE_16}px 0;
-        """)
+        empty_text.setStyleSheet(DesignSystem.get_empty_state_text_style())
         layout.addWidget(empty_text)
 
         return card

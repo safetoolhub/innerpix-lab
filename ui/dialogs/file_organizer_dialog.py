@@ -88,18 +88,15 @@ class FileOrganizerDialog(BaseDialog):
             metrics=[
                 {
                     'label': 'Total',
-                    'value': str(self.analysis.items_count) if self.analysis else '0',
-                    'icon': 'description'
+                    'value': str(self.analysis.items_count) if self.analysis else '0'
                 },
                 {
                     'label': 'Organizar',
-                    'value': str(self.analysis.files_to_move) if self.analysis else '0',
-                    'icon': 'folder'
+                    'value': str(self.analysis.files_to_move) if self.analysis else '0'
                 },
                 {
                     'label': 'Tamaño',
-                    'value': format_size(self.analysis.bytes_total) if self.analysis else '0 B',
-                    'icon': 'database'
+                    'value': format_size(self.analysis.bytes_total) if self.analysis else '0 B'
                 }
             ]
         )
@@ -193,25 +190,25 @@ class FileOrganizerDialog(BaseDialog):
             'date': {
                 'icon': 'calendar-month', 
                 'label': 'Por Fecha', 
-                'tooltip-text': 'Organizar archivos cronológicamente (Año, Mes...)',
+                'tooltip': 'Organizar archivos cronológicamente (Año, Mes...)',
                 'types': [OrganizationType.BY_MONTH, OrganizationType.BY_YEAR, OrganizationType.BY_YEAR_MONTH]
             },
             'type': {
                 'icon': 'image', 
                 'label': 'Por Tipo', 
-                'tooltip-text': 'Agrupar por tipo de archivo (Fotos, Videos...)',
+                'tooltip': 'Agrupar por tipo de archivo (Fotos, Videos...)',
                 'types': [OrganizationType.BY_TYPE]
             },
             'source': {
                 'icon': 'devices', 
                 'label': 'Por Fuente', 
-                'tooltip-text': 'Agrupar por dispositivo de origen (Cámara, WhatsApp...)',
+                'tooltip': 'Agrupar por dispositivo de origen (Cámara, WhatsApp...)',
                 'types': [OrganizationType.BY_SOURCE]
             },
             'cleanup': {
                 'icon': 'folder-open', 
                 'label': 'Todo junto', 
-                'tooltip-text': 'Mover todo a la raíz y eliminar carpetas vacías',
+                'tooltip': 'Mover todo a la raíz y eliminar carpetas vacías',
                 'types': [OrganizationType.TO_ROOT]
             }
         }
@@ -263,7 +260,7 @@ class FileOrganizerDialog(BaseDialog):
         card = QFrame()
         card.setCursor(Qt.CursorShape.PointingHandCursor)
         card.setProperty("strategy_key", key)
-        card.setToolTip(data['tooltip-text'])
+        card.setToolTip(data['tooltip'])
         
         # Layout de la tarjeta
         layout = QVBoxLayout(card)

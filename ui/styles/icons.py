@@ -1,28 +1,43 @@
-"""
-Icon Manager - Sistema centralizado de gestión de iconos con QtAwesome
+"""Icon Manager - Sistema centralizado de gestión de iconos con QtAwesome.
 
 Este módulo proporciona una interfaz unificada para gestionar iconos Material Design
-en toda la aplicación usando QtAwesome, reemplazando el uso problemático de emojis.
+en toda la aplicación usando QtAwesome.
 
 Características:
-- Sistema de caché para mejorar rendimiento
-- Diccionario centralizado de mapeo de iconos
-- Métodos helper para aplicar iconos a botones y labels
-- Soporte para diferentes tamaños y colores
-- Sin dependencia de fuentes de emojis
-- Totalmente multiplataforma (Windows, Linux, macOS, Android, iOS)
+- Diccionario centralizado de mapeo de iconos (ICON_MAP)
+- Métodos helper para aplicar iconos a botones, labels y QToolButtons
+- Soporte para diferentes tamaños y colores con caché integrado
+- Sistema de caché para optimizar rendimiento
+- Soporte HiDPI con devicePixelRatio automático
+- Totalmente multiplataforma (Windows, Linux, macOS)
 
 Uso básico:
     from ui.styles.icons import icon_manager
     
-    # En un botón
-    icon_manager.set_button_icon(button, 'settings')
+    # Aplicar icono a un botón
+    icon_manager.set_button_icon(button, 'cog', color='#2563eb', size=20)
     
-    # En un label
-    icon_manager.set_label_icon(label, 'info', size=16, color='#1e40af')
+    # Aplicar icono a un label
+    icon_manager.set_label_icon(label, 'information', size=16, color='#1e40af')
     
     # Obtener un QIcon directamente
     icon = icon_manager.get_icon('folder', color='#2563eb')
+    
+    # Crear un QToolButton con icono
+    icon_button = icon_manager.create_icon_label('alert', size=18)
+
+Categorías de iconos disponibles:
+- Configuración y sistema: cog, information, devices, monitor, etc.
+- Estados y notificaciones: alert, check, close, shield, etc.
+- Archivos y carpetas: folder, file, open-in-new, magnify, etc.
+- Operaciones: delete, content-save, backup-restore, refresh, etc.
+- Multimedia: image, video, camera, eye, etc.
+- Duplicados: content-copy
+- Renombrado: rename-box, rename-box-outline
+- Tiempo y progreso: clock-outline, loading, progress-clock, etc.
+- Navegación: chevron-left, chevron-right, skip-previous, skip-next, etc.
+- Metadatos: ruler, fingerprint, map-marker, palette, etc.
+- Almacenamiento: database, database-refresh, database-check, etc.
 """
 
 import qtawesome as qta
@@ -40,41 +55,47 @@ class IconManager:
     """
     
     # Diccionario de mapeo: nombre lógico → nombre de icono Material Design en QtAwesome
+    # Iconos organizados por categorías funcionales
     ICON_MAP = {
-        # Top Bar - Acciones principales
+        # === CONFIGURACIÓN Y SISTEMA ===
         'cog': 'mdi6.cog',
         'information': 'mdi6.information',
         'information-outline': 'mdi6.information-outline',
+        'devices': 'mdi6.devices',
+        'monitor': 'mdi6.monitor',
+        'harddisk': 'mdi6.harddisk',
+        'speedometer': 'mdi6.speedometer',
         
-        # Estados y notificaciones
+        # === ESTADOS Y NOTIFICACIONES ===
         'alert': 'mdi6.alert',
         'alert-circle': 'mdi6.alert-circle',
         'check': 'mdi6.check',
         'check-circle': 'mdi6.check-circle',
-        'checkbox-marked': 'mdi6.checkbox-marked',
-        'checkbox-marked-circle': 'mdi6.checkbox-marked-circle',
-        'shield': 'mdi6.shield',
-        'shield-check': 'mdi6.shield-check',
-        'fingerprint': 'mdi6.fingerprint',
         'close': 'mdi6.close',
         'close-circle': 'mdi6.close-circle',
         'pause-circle': 'mdi6.pause-circle',
         'plus-circle': 'mdi6.plus-circle',
+        'shield': 'mdi6.shield',
+        'target': 'mdi6.target',
         
-        # Navegación y acciones de archivos
+        # === ARCHIVOS Y CARPETAS ===
         'folder': 'mdi6.folder',
         'folder-open': 'mdi6.folder-open',
-        'folder-outline': 'mdi6.folder-outline',
         'folder-cog': 'mdi6.folder-cog',
         'folder-remove': 'mdi6.folder-remove',
         'folder-multiple': 'mdi6.folder-multiple',
+        'folder-move': 'mdi6.folder-move',
+        'folder-zip': 'mdi6.folder-zip',
         'file': 'mdi6.file',
-        'file-check': 'mdi6.file-check',
-        'file-document-outline': 'mdi6.file-document-outline',
-        'file-edit': 'mdi6.file-edit',
-        'file-plus': 'mdi6.file-plus',
         'file-x': 'mdi6.file-remove',
-        'files': 'mdi6.file-multiple',
+        'file-image': 'mdi6.file-image',
+        'file-video': 'mdi6.file-video',
+        'file-document-outline': 'mdi6.file-document-outline',
+        'file-check': 'mdi6.file-check',
+        'file-plus': 'mdi6.file-plus',
+        'file-edit': 'mdi6.file-edit',
+        
+        # === OPERACIONES DE ARCHIVOS ===
         'open-in-new': 'mdi6.open-in-new',
         'magnify': 'mdi6.magnify',
         'refresh': 'mdi6.refresh',
@@ -86,115 +107,61 @@ class IconManager:
         'backup-restore': 'mdi6.backup-restore',
         'history': 'mdi6.history',
         
-        # Estadísticas y métricas
+        # === TIEMPO Y ESTADÍSTICAS ===
         'chart-bar': 'mdi6.chart-bar',
-        'chart-line': 'mdi6.chart-line',
-        'timer': 'mdi6.timer',
         'clock-outline': 'mdi6.clock-outline',
+        'clock-fast': 'mdi6.clock-fast',
         'clock-time-four': 'mdi6.clock-time-four',
-        'ruler': 'mdi6.ruler',
+        'timer-sand': 'mdi6.timer-sand',
         'update': 'mdi6.update',
-        'map-marker': 'mdi6.map-marker',
-        'earth': 'mdi6.earth',
-        'arrow-expand': 'mdi6.arrow-expand',
-        'arrow-collapse': 'mdi6.arrow-collapse',
+        'calendar-month': 'mdi6.calendar-month',
+        'calendar-check': 'mdi6.calendar-check',
+        'arrow-expand-all': 'mdi6.arrow-expand-all',
+        'arrow-collapse-all': 'mdi6.arrow-collapse-all',
         
-        # Tipos de archivos multimedia
+        # === MULTIMEDIA ===
         'image': 'mdi6.image',
         'image-multiple': 'mdi6.image-multiple',
-        'camera': 'mdi6.camera',
-        'video': 'mdi6.video',
-        'movie': 'mdi6.movie',
-        'image-outline': 'mdi6.image-outline',
         'image-album': 'mdi6.image-album',
-        
-        # Live Photos y duplicados
-        'camera-burst': 'mdi6.camera-burst',
-        'content-duplicate': 'mdi6.content-duplicate',
-        'content-copy': 'mdi6.content-copy',
-        'equal': 'mdi6.equal',
         'image-search': 'mdi6.image-search',
+        'camera': 'mdi6.camera',
+        'camera-burst': 'mdi6.camera-burst',
+        'video': 'mdi6.video',
         'eye': 'mdi6.eye',
+        'eye-off': 'mdi6.eye-off',
+        'movie-open': 'mdi6.movie-open',
+        'play-circle': 'mdi6.play-circle',
         
-        # Organización
-        'folder-move': 'mdi6.folder-move',
-        'folder-arrow-right': 'mdi6.folder-arrow-right',
-        'sort': 'mdi6.sort',
+        # === DUPLICADOS Y COPIAS ===
+        'content-copy': 'mdi6.content-copy',
         
-        # Renombrado
+        # === RENOMBRADO ===
         'rename-box': 'mdi6.rename-box',
         'rename-box-outline': 'mdi6.rename-box-outline',
-        'pencil': 'mdi6.pencil',
-        'format-text': 'mdi6.format-text',
         
-        # HEIC
-        'file-image': 'mdi6.file-image',
-        'file-jpg-box': 'mdi6.file-jpg-box',
-        'image-filter-hdr': 'mdi6.image-filter-hdr',
-        
-        # Progreso y loading
+        # === PROGRESO Y LOADING ===
         'loading': 'mdi6.loading',
         'progress-clock': 'mdi6.progress-clock',
-        'timer-sand': 'mdi6.timer-sand',
         
-        # Opciones y configuración
-        'application-cog': 'mdi6.application-cog',
-        'cog-outline': 'mdi6.cog-outline',
-        'tune': 'mdi6.tune',
-        'filter-variant': 'mdi6.filter-variant',
-        'auto-fix': 'mdi6.auto-fix',
-        'flash': 'mdi6.flash',
-        
-        # Acciones de usuario
-        'play': 'mdi6.play',
-        'play-circle': 'mdi6.play-circle',
-        'stop': 'mdi6.stop',
-        'pause': 'mdi6.pause',
+        # === NAVEGACIÓN ===
         'skip-previous': 'mdi6.skip-previous',
         'skip-next': 'mdi6.skip-next',
-        
-        # Directorio y navegación
-        'home': 'mdi6.home',
-        'arrow-up': 'mdi6.arrow-up',
-        'arrow-down': 'mdi6.arrow-down',
-        'arrow-left': 'mdi6.arrow-left',
-        'arrow-right': 'mdi6.arrow-right',
         'chevron-left': 'mdi6.chevron-left',
         'chevron-right': 'mdi6.chevron-right',
-        'chevron-down': 'mdi6.chevron-down',
         
-        # Aplicación
-        'movie-open': 'mdi6.movie-open',
+        # === METADATOS Y PROPIEDADES ===
+        'ruler': 'mdi6.ruler',
+        'fingerprint': 'mdi6.fingerprint',
+        'map-marker': 'mdi6.map-marker',
+        'palette': 'mdi6.palette',
         
-        # Dispositivos
-        'cellphone': 'mdi6.cellphone',
-        'speedometer': 'mdi6.speedometer',
-        'calendar-month': 'mdi6.calendar-month',
-        'calendar-today': 'mdi6.calendar-today',
-        'calendar-range': 'mdi6.calendar-range',
-        'calendar-check': 'mdi6.calendar-check',
-        'devices': 'mdi6.devices',
-        
-        # Ayuda e información
-        'help-circle': 'mdi6.help-circle',
-        'lightbulb-on': 'mdi6.lightbulb-on',
-        'tooltip-text': 'mdi6.tooltip-text',
-        
-        # Targets y objetivos
-        'target': 'mdi6.target',
-        'bullseye': 'mdi6.bullseye',
-        
-        # Discos y almacenamiento
-        'harddisk': 'mdi6.harddisk',
+        # === ALMACENAMIENTO Y BASE DE DATOS ===
         'database': 'mdi6.database',
         'database-refresh': 'mdi6.database-refresh',
         'database-check': 'mdi6.database-check',
         
-        # Multimedia y video
-        'monitor': 'mdi6.monitor',
-        'file-video': 'mdi6.file-video',
-        'folder-zip': 'mdi6.folder-zip',
-        'palette': 'mdi6.palette',
+        # === CONECTIVIDAD ===
+        'wifi-off': 'mdi6.wifi-off',
     }
     
     def __init__(self):
@@ -344,8 +311,12 @@ class IconManager:
         icon_name: str,
         color: Optional[str] = None,
         size: int = 16
-    ) -> QLabel:
-        """Crea un nuevo QLabel con un icono Material Design.
+    ) -> QToolButton:
+        """Crea un QToolButton con un icono Material Design.
+        
+        Utiliza QToolButton en lugar de QLabel para aprovechar el renderizado
+        nativo de QIcon, lo que garantiza consistencia con pestañas y mejora
+        el soporte HiDPI en todas las plataformas.
         
         Args:
             icon_name: Nombre lógico del icono
@@ -353,7 +324,7 @@ class IconManager:
             size: Tamaño del icono en píxeles
         
         Returns:
-            QLabel configurado con el icono
+            QToolButton configurado con el icono y estilo plano transparente
         """
         # Para evitar inconsistencias de rasterizado en HiDPI, creamos un
         # QToolButton plano que usa QIcon internamente. Esto permite que Qt
@@ -367,36 +338,6 @@ class IconManager:
         # Aplicar icono usando la canalización de QIcon/QToolButton
         self.set_button_icon(btn, icon_name, color=color, size=size)
         return btn
-    
-    def clear_cache(self) -> None:
-        """Limpia la caché de iconos.
-        
-        Útil si se cambia el tema de la aplicación o se necesita liberar memoria.
-        """
-        self._cache.clear()
-    
-    def get_cache_size(self) -> int:
-        """Retorna el número de iconos en caché."""
-        return len(self._cache)
-    
-    def preload_common_icons(self, color: Optional[str] = None) -> None:
-        """Precarga iconos comunes en la caché para mejorar rendimiento.
-        
-        Args:
-            color: Color por defecto para los iconos precargados
-        """
-        common_icons = [
-            'cog', 'information', 'alert', 'alert-circle', 'check-circle',
-            'folder', 'file', 'magnify', 'refresh', 'delete',
-            'image', 'video', 'camera', 'check', 'close', 'plus-circle'
-        ]
-        
-        for icon_name in common_icons:
-            try:
-                self.get_icon(icon_name, color=color)
-            except ValueError:
-                # Ignorar iconos que no existan
-                pass
 
 
 # Instancia global del gestor de iconos

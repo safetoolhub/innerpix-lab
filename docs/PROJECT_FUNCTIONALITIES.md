@@ -1,33 +1,49 @@
 # Funcionalidades de InnerPix Lab
 
-InnerPix Lab es una aplicación para analizar, previsualizar y ejecutar acciones sobre colecciones de imágenes y vídeos (principalmente orientada a fotos iOS), con un enfoque orientado a la privacidad.
-Ofrece al usuario 7 servicios principales; cada una se presenta mediante un diálogo (Dialog) específico en la interfaz para permitir la vista previa de los cambios y opciones de ejecución (por ejemplo, creación de backup antes de operaciones destructivas y simulación de la operación (dry-run) sin eliminar ni mover nada realmente).
+InnerPix Lab es una suite de herramientas diseñada para gestionar, optimizar y organizar colecciones de fotos y vídeos personales. Su filosofía central es la **privacidad absoluta**: todo el análisis y procesamiento se realiza 100% en su computadora. Ningún archivo, metadato ni información personal sale de su dispositivo en ningún momento.
 
-1. **Limpieza de Live Photos**
-   - **Descripción**: Detecta pares foto+vídeo que forman Live Photos y ofrece opciones para limpiar, separar o eliminar el componente de vídeo asociado cuando procede. Facilita mantener sólo el elemento deseado y ahorrar espacio.
-   - **Dialog asociado**: `ui/dialogs/live_photos_dialog.py`
+## Compromiso con la Seguridad y Transparencia
 
-2. **Eliminación de duplicados HEIC/JPG**
-   - **Descripción**: Busca pares HEIC/JPG que son duplicados del mismo contenido (mismas fotos en formatos distintos) y propone eliminar o conservar según políticas (ej. conservar JPG/HEIC, por tamaño, fecha).
-   - **Dialog asociado**: `ui/dialogs/heic_dialog.py`
+Para garantizar la tranquilidad del usuario, la aplicación incorpora mecanismos de seguridad robustos en todas sus operaciones:
 
-3. **Detección de copias exactas**
-   - **Descripción**: Encuentra archivos idénticos byte-a-byte mediante hashing. Permite revisar los pares/grupos detectados y elegir qué conservar o eliminar.
-   - **Dialog asociado**: `ui/dialogs/duplicates_exact_dialog.py`
+### 🛡️ Copia de Seguridad Automática (Backup)
+Antes de realizar cualquier operación que implique eliminar o modificar archivos, InnerPix Lab crea automáticamente una copia de seguridad. Los archivos originales no se borran inmediatamente, sino que se mueven a una carpeta de seguridad predefinida. Esto permite revertir cualquier cambio no deseado y recuperar archivos "eliminados" con total facilidad.
 
-4. **Detección de archivos similares**
-   - **Descripción**: Detecta imágenes o videos visualmente similares (mismo contenido con pequeñas variaciones: recorte, rotación, compresión). Ofrece herramientas para comparar y decidir qué mantener.
-   - **Dialog asociado**: `ui/dialogs/duplicates_similar_dialog.py`
-   - **Dialog asociado para analisis previo**: `ui/dialogs/duplicates_similar_progress_dialog.py`
+### 📝 Registro de Operaciones (Logs)
+La transparencia es fundamental. Todas las acciones realizadas por la aplicación quedan registradas en un historial de operaciones (logs). Usted puede consultar exactamente qué archivos fueron analizados, movidos o eliminados, cuándo ocurrió y por qué motivo.
 
-5. **Organización de archivos**
-   - **Descripción**: Genera planes para reorganizar la colección (por fecha, por carpeta raíz, por origen como WhatsApp, etc.), mostrando la estructura propuesta antes de mover archivos.
-   - **Dialog asociado**: `ui/dialogs/file_organizer_dialog.py`
+### 👁️ Modo Simulación (Dry-Run)
+Para mayor seguridad, todas las herramientas incluyen un modo de simulación. Puede ejecutar cualquier proceso de limpieza u organización en modo "prueba" para ver qué resultaría, sin modificar ni un solo archivo en realidad.
 
-6. **Renombrado de archivos**
-   - **Descripción**: Propone esquemas de renombrado (patrones con fecha, secuencias, metadatos) y muestra una vista previa de los nombres resultantes, detectando conflictos y proponiendo resoluciones.
-   - **Dialog asociado**: `ui/dialogs/file_renamer_dialog.py`
+---
 
-7. **Eliminación de archivos de 0 bytes**
-   - **Descripción**: Busca archivos con tamaño 0 bytes y propone su eliminación.
-   - **Dialog asociado**: `ui/dialogs/zero_byte_dialog.py`
+## Herramientas Principales
+
+InnerPix Lab pone a su disposición 8 herramientas especializadas, organizadas según su función:
+
+### 1. Limpieza de Archivos Vacíos
+Escanea sus carpetas en busca de "archivos fantasma" (archivos de 0 bytes) que no contienen información pero ensucian su sistema de archivos, y le permite eliminarlos de forma segura.
+
+### 2. Optimización HEIC/JPG
+Encuentra casos donde tiene la misma fotografía guardada en dos formatos: el moderno y eficiente HEIC y el tradicional JPG. La herramienta le ayuda a identificar estos duplicados de formato y eliminar las versiones redundantes para liberar espacio sin perder sus recuerdos.
+
+### 3. Limpieza de Live Photos
+Gestiona inteligentemente las "Live Photos" (que constan de una imagen y un video clip). Detecta estos pares y le permite decidir si desea conservar ambos, o limpiar el componente de video para ahorrar espacio si solo le interesa la fotografía estática.
+
+### 4. Detección de Duplicados Exactos
+Analiza su colección byte por byte para encontrar archivos que son matemáticamente idénticos. Es la forma más segura de limpieza, ya que garantiza que no está borrando una foto "parecida", sino exactamente el mismo archivo repetido en diferentes carpetas.
+
+### 5. Copias Visualmente Idénticas
+Identifica imágenes que son visualmente indistinguibles para el ojo humano, aunque técnicamente sean archivos diferentes (por ejemplo, una copia descargada de internet vs la original, o la misma foto guardada con diferente metadata). Ideal para limpiar su galería de repeticiones innecesarias.
+
+### 6. Archivos Similares
+Detecta fotos y vídeos que son muy parecidos pero no idénticos. Esto es perfecto para:
+- Seleccionar la mejor toma de una ráfaga de fotos.
+- Eliminar versiones ligeramente editadas o recortadas que ya no necesita.
+- Detectar copias de baja resolución.
+
+### 7. Organización Inteligente
+Pone orden en el caos. Esta herramienta analiza sus archivos y propone una nueva estructura de carpetas organizada lógicamente (por ejemplo, por Año/Mes/Día), permitiéndole reubicar miles de fotos con un solo clic y mantener su biblioteca impecable.
+
+### 8. Renombrado Masivo
+Estandarice los nombres de sus archivos de forma profesional. Puede cambiar nombres crípticos como `IMG_8823.JPG` a formatos útiles y legibles como `20241231_112300_PHOTO.jpg`, utilizando fechas y secuencias automáticas para evitar conflictos.
