@@ -173,8 +173,8 @@ class AboutDialog(QDialog):
         """Crea la pestaña de bienvenida (compacta)."""
         container = QWidget()
         layout = QVBoxLayout(container)
-        layout.setContentsMargins(28, 20, 28, 20)
-        layout.setSpacing(16)
+        layout.setContentsMargins(DesignSystem.SPACE_24, DesignSystem.SPACE_16, DesignSystem.SPACE_24, DesignSystem.SPACE_16)
+        layout.setSpacing(DesignSystem.SPACE_12)
         
         # Título + descripción en la misma sección
         welcome_title = QLabel("Bienvenido a InnerPix Lab")
@@ -199,7 +199,7 @@ class AboutDialog(QDialog):
         layout.addWidget(workflow_title)
         
         steps_grid = QGridLayout()
-        steps_grid.setSpacing(12)
+        steps_grid.setSpacing(DesignSystem.SPACE_8)
         
         steps = [
             ("1", "Selecciona carpeta", "Elige la carpeta con tus fotos"),
@@ -217,7 +217,7 @@ class AboutDialog(QDialog):
         
         # Tips en horizontal
         tips_layout = QHBoxLayout()
-        tips_layout.setSpacing(12)
+        tips_layout.setSpacing(DesignSystem.SPACE_8)
         
         tip1 = self._create_mini_tip("💡", "Modo Simulación", "Prueba sin modificar archivos")
         tip2 = self._create_mini_tip("📦", "Backup Automático", "Siempre hay copia de seguridad")
@@ -233,57 +233,93 @@ class AboutDialog(QDialog):
         return self._create_scroll_content(container)
 
     def _create_privacy_tab(self) -> QWidget:
-        """Crea la pestaña de privacidad y seguridad (compacta)."""
+        """Crea la pestaña de privacidad y seguridad con un diseño elegante."""
         container = QWidget()
         layout = QVBoxLayout(container)
-        layout.setContentsMargins(28, 20, 28, 20)
-        layout.setSpacing(16)
+        layout.setContentsMargins(DesignSystem.SPACE_24, DesignSystem.SPACE_16, DesignSystem.SPACE_24, DesignSystem.SPACE_16)
+        layout.setSpacing(DesignSystem.SPACE_12)
         
-        title = QLabel("Privacidad y Seguridad")
-        title.setStyleSheet(DesignSystem.get_tutorial_section_header_style())
-        layout.addWidget(title)
+        # === HERO SECTION: PRIVACIDAD TOTAL ===
+        hero_frame = QFrame()
+        hero_frame.setStyleSheet(DesignSystem.get_privacy_hero_style())
+        hero_layout = QVBoxLayout(hero_frame)
+        hero_layout.setSpacing(DesignSystem.SPACE_4)
+        hero_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
-        intro = QLabel(
-            "InnerPix Lab incorpora mecanismos de seguridad robustos para proteger tus archivos:"
-        )
-        intro.setWordWrap(True)
-        intro.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT}; font-size: {DesignSystem.FONT_SIZE_BASE}px;")
-        layout.addWidget(intro)
+        shield_icon = QLabel()
+        icon_manager.set_label_icon(shield_icon, "shield", color=DesignSystem.COLOR_SUCCESS, size=32)
+        hero_layout.addWidget(shield_icon, 0, Qt.AlignmentFlag.AlignCenter)
         
-        # Features en grid 1x3 horizontal
-        features_grid = QGridLayout()
-        features_grid.setSpacing(12)
+        hero_title = QLabel("Privacidad Absoluta")
+        hero_title.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_LG}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+            color: {DesignSystem.COLOR_TEXT};
+        """)
+        hero_layout.addWidget(hero_title, 0, Qt.AlignmentFlag.AlignCenter)
         
-        features = [
-            ("backup-restore", "Backup Automático", 
-             "Antes de eliminar o modificar, se crea una copia de seguridad. "
-             "Los archivos se mueven a una carpeta segura para recuperarlos fácilmente.",
-             DesignSystem.COLOR_SUCCESS),
-            ("history", "Registro de Operaciones", 
-             "Todas las acciones quedan registradas en logs. Consulta qué archivos "
-             "fueron procesados, cuándo y por qué motivo.",
-             DesignSystem.COLOR_PRIMARY),
-            ("eye", "Modo Simulación", 
-             "Ejecuta cualquier proceso en modo \"prueba\" para ver el resultado "
-             "sin modificar ningún archivo real.",
-             DesignSystem.COLOR_WARNING),
+        hero_subtitle = QLabel("Tus archivos nunca salen de tu computadora")
+        hero_subtitle.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_SM}px;")
+        hero_layout.addWidget(hero_subtitle, 0, Qt.AlignmentFlag.AlignCenter)
+        
+        layout.addWidget(hero_frame)
+        
+        # === LISTA DE GARANTÍAS ===
+        guarantees_container = QWidget()
+        guarantees_layout = QVBoxLayout(guarantees_container)
+        guarantees_layout.setContentsMargins(DesignSystem.SPACE_8, 0, DesignSystem.SPACE_8, 0)
+        guarantees_layout.setSpacing(DesignSystem.SPACE_8)
+        
+        guarantees = [
+            ("wifi-off", "100% Offline", 
+             "InnerPix Lab funciona completamente sin conexión a internet. "
+             "No enviamos estadísticas, telemetría ni datos de tus archivos a ningún servidor."),
+            ("eye-off", "Sin Rastreo", 
+             "No utilizamos bases de datos externas ni servicios en la nube. "
+             "Todo el procesamiento de imágenes y vídeos es puramente local."),
+            ("backup-restore", "Seguridad de Archivos", 
+             "Protegemos tus datos con un robusto sistema de copias de seguridad. "
+             "Antes de cada operación destructiva, creas un backup para tu tranquilidad.")
         ]
         
-        for i, (icon, title, desc, color) in enumerate(features):
-            card = self._create_feature_card_compact(icon, title, desc, color)
-            features_grid.addWidget(card, 0, i)
+        for icon, title, desc in guarantees:
+            item_frame = QFrame()
+            item_frame.setStyleSheet(DesignSystem.get_privacy_item_style())
+            item_layout = QHBoxLayout(item_frame)
+            item_layout.setContentsMargins(0, 0, 0, 0)
+            item_layout.setSpacing(DesignSystem.SPACE_16)
+            
+            icon_lbl = QLabel()
+            icon_manager.set_label_icon(icon_lbl, icon, color=DesignSystem.COLOR_PRIMARY, size=24)
+            item_layout.addWidget(icon_lbl, 0, Qt.AlignmentFlag.AlignTop)
+            
+            text_layout = QVBoxLayout()
+            text_layout.setSpacing(DesignSystem.SPACE_4)
+            
+            title_lbl = QLabel(title)
+            title_lbl.setStyleSheet(DesignSystem.get_tutorial_card_title_style())
+            text_layout.addWidget(title_lbl)
+            
+            desc_lbl = QLabel(desc)
+            desc_lbl.setWordWrap(True)
+            desc_lbl.setStyleSheet(DesignSystem.get_tutorial_card_desc_style())
+            text_layout.addWidget(desc_lbl)
+            
+            item_layout.addLayout(text_layout, 1)
+            guarantees_layout.addWidget(item_frame)
         
-        layout.addLayout(features_grid)
+        layout.addWidget(guarantees_container)
         
-        # Box de privacidad
-        privacy_box = self._create_highlight_box(
-            "🔒 Privacidad Total",
-            "InnerPix Lab <b>nunca</b> se conecta a internet. Todo el análisis ocurre "
-            "localmente. Tus fotos son tuyas y solo tuyas.",
-            DesignSystem.COLOR_SUCCESS_BG,
-            DesignSystem.COLOR_SUCCESS
-        )
-        layout.addWidget(privacy_box)
+        # === FOOTER DE CONFIANZA ===
+        trust_footer = QLabel("🔒 Todo tu contenido está a salvo y bajo tu control exclusivo.")
+        trust_footer.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        trust_footer.setStyleSheet(f"""
+            color: {DesignSystem.COLOR_SUCCESS};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            padding-top: {DesignSystem.SPACE_8}px;
+        """)
+        layout.addWidget(trust_footer)
         
         layout.addStretch()
         return self._create_scroll_content(container)
@@ -292,8 +328,8 @@ class AboutDialog(QDialog):
         """Crea la pestaña de herramientas (8 tools organizadas)."""
         container = QWidget()
         layout = QVBoxLayout(container)
-        layout.setContentsMargins(28, 20, 28, 20)
-        layout.setSpacing(16)
+        layout.setContentsMargins(DesignSystem.SPACE_24, DesignSystem.SPACE_16, DesignSystem.SPACE_24, DesignSystem.SPACE_16)
+        layout.setSpacing(DesignSystem.SPACE_12)
         
         title = QLabel("Herramientas Disponibles")
         title.setStyleSheet(DesignSystem.get_tutorial_section_header_style())
@@ -304,13 +340,13 @@ class AboutDialog(QDialog):
         layout.addWidget(cleanup_header)
         
         cleanup_grid = QGridLayout()
-        cleanup_grid.setSpacing(10)
+        cleanup_grid.setSpacing(DesignSystem.SPACE_8)
         
         cleanup_tools = [
-            ("file-x", "Archivos Vacíos", "Detecta archivos de 0 bytes sin datos útiles"),
-            ("file-image", "HEIC/JPG", "Elimina duplicados de formato (iPhone)"),
-            ("camera-burst", "Live Photos", "Gestiona pares imagen+video de iPhone"),
-            ("content-copy", "Copias Exactas", "Encuentra archivos idénticos (SHA256)"),
+            ("file-x", "Archivos Vacíos", "Busca 'archivos fantasma' (0 bytes) que ensucian su sistema y los elimina de forma segura."),
+            ("file-image", "HEIC/JPG", "Identifica fotos guardadas en HEIC y JPG. Ayuda a eliminar versiones redundantes para ahorrar espacio."),
+            ("camera-burst", "Live Photos", "Gestiona inteligentemente las 'Live Photos' (imagen + vídeo) y permite limpiar el vídeo si solo desea la foto."),
+            ("content-copy", "Copias Exactas", "Analiza su colección bit a bit para encontrar archivos matemáticamente idénticos. La forma más segura."),
         ]
         
         for i, (icon, name, desc) in enumerate(cleanup_tools):
@@ -325,11 +361,11 @@ class AboutDialog(QDialog):
         layout.addWidget(visual_header)
         
         visual_grid = QGridLayout()
-        visual_grid.setSpacing(10)
+        visual_grid.setSpacing(DesignSystem.SPACE_8)
         
         visual_tools = [
-            ("image-multiple", "Copias Idénticas", "Imágenes visualmente indistinguibles (100% similitud)"),
-            ("image-search", "Archivos Similares", "Fotos parecidas con sensibilidad ajustable (70-95%)"),
+            ("image-multiple", "Copias Idénticas", "Identifica imágenes visualmente indistinguibles aunque sean archivos diferentes (ej: original vs copia web)."),
+            ("image-search", "Archivos Similares", "Detecta fotos y vídeos parecidos pero no idénticos. Perfecto para elegir la mejor toma de ráfagas."),
         ]
         
         for i, (icon, name, desc) in enumerate(visual_tools):
@@ -343,11 +379,11 @@ class AboutDialog(QDialog):
         layout.addWidget(org_header)
         
         org_grid = QGridLayout()
-        org_grid.setSpacing(10)
+        org_grid.setSpacing(DesignSystem.SPACE_8)
         
         org_tools = [
-            ("folder-move", "Organizar", "Estructura carpetas por fecha (Año/Mes/Día)"),
-            ("rename-box", "Renombrar", "Nombres descriptivos: 20241231_112300_PHOTO.jpg"),
+            ("folder-move", "Organizar", "Analiza sus archivos y propone una estructura lógica (Año/Mes/Día). Reubica miles de fotos con un clic."),
+            ("rename-box", "Renombrar", "Estandariza nombres crípticos a formatos legibles como 20241231_PHOTO.jpg, usando fechas y secuencias."),
         ]
         
         for i, (icon, name, desc) in enumerate(org_tools):
@@ -373,8 +409,8 @@ class AboutDialog(QDialog):
         """Crea la pestaña de información técnica (compacta)."""
         container = QWidget()
         layout = QVBoxLayout(container)
-        layout.setContentsMargins(28, 20, 28, 20)
-        layout.setSpacing(16)
+        layout.setContentsMargins(DesignSystem.SPACE_24, DesignSystem.SPACE_16, DesignSystem.SPACE_24, DesignSystem.SPACE_16)
+        layout.setSpacing(DesignSystem.SPACE_12)
         
         title = QLabel("Información Técnica")
         title.setStyleSheet(DesignSystem.get_tutorial_section_header_style())
@@ -382,7 +418,7 @@ class AboutDialog(QDialog):
         
         # Info en grid horizontal
         info_grid = QGridLayout()
-        info_grid.setSpacing(12)
+        info_grid.setSpacing(DesignSystem.SPACE_8)
         
         # Card 1: App Info
         app_card = self._create_info_card("Aplicación", [
@@ -431,7 +467,7 @@ class AboutDialog(QDialog):
         
         # Contenido
         content = QVBoxLayout()
-        content.setSpacing(0)
+        content.setSpacing(DesignSystem.SPACE_2)
         
         title_label = QLabel(title)
         title_label.setStyleSheet(DesignSystem.get_tutorial_card_title_style())
@@ -471,8 +507,8 @@ class AboutDialog(QDialog):
         frame.setStyleSheet(DesignSystem.get_tutorial_feature_card_accent_style(accent_color))
         
         layout = QVBoxLayout(frame)
-        layout.setSpacing(8)
-        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(DesignSystem.SPACE_4)
+        layout.setContentsMargins(DesignSystem.SPACE_12, DesignSystem.SPACE_12, DesignSystem.SPACE_12, DesignSystem.SPACE_12)
         
         # Header con icono
         header = QHBoxLayout()
@@ -500,8 +536,8 @@ class AboutDialog(QDialog):
         """Crea un header de categoría de herramientas."""
         widget = QWidget()
         layout = QHBoxLayout(widget)
-        layout.setContentsMargins(0, 8, 0, 4)
-        layout.setSpacing(12)
+        layout.setContentsMargins(0, DesignSystem.SPACE_4, 0, DesignSystem.SPACE_4)
+        layout.setSpacing(DesignSystem.SPACE_8)
         
         title_label = QLabel(title)
         title_label.setStyleSheet(DesignSystem.get_tutorial_card_title_style())
@@ -520,8 +556,8 @@ class AboutDialog(QDialog):
         frame.setStyleSheet(DesignSystem.get_tutorial_tool_card_style())
         
         layout = QHBoxLayout(frame)
-        layout.setSpacing(12)
-        layout.setContentsMargins(14, 12, 14, 12)
+        layout.setSpacing(DesignSystem.SPACE_8)
+        layout.setContentsMargins(DesignSystem.SPACE_12, DesignSystem.SPACE_12, DesignSystem.SPACE_12, DesignSystem.SPACE_12)
         
         # Icono
         icon_label = QLabel()
@@ -530,7 +566,7 @@ class AboutDialog(QDialog):
         
         # Contenido
         content = QVBoxLayout()
-        content.setSpacing(2)
+        content.setSpacing(4)
         
         title_label = QLabel(title)
         title_label.setStyleSheet(DesignSystem.get_tutorial_card_title_style())
@@ -547,11 +583,11 @@ class AboutDialog(QDialog):
     def _create_info_card(self, title: str, items: list) -> QFrame:
         """Crea una card de información con items."""
         frame = QFrame()
-        frame.setStyleSheet(DesignSystem.get_tutorial_feature_card_style())
+        frame.setStyleSheet(DesignSystem.get_tutorial_static_info_card_style())
         
         layout = QVBoxLayout(frame)
-        layout.setSpacing(8)
-        layout.setContentsMargins(14, 12, 14, 12)
+        layout.setSpacing(DesignSystem.SPACE_4)
+        layout.setContentsMargins(DesignSystem.SPACE_12, DesignSystem.SPACE_12, DesignSystem.SPACE_12, DesignSystem.SPACE_12)
         
         title_label = QLabel(title)
         title_label.setStyleSheet(DesignSystem.get_tutorial_card_title_style())
@@ -581,11 +617,11 @@ class AboutDialog(QDialog):
     def _create_formats_card(self) -> QFrame:
         """Crea la card de formatos soportados."""
         frame = QFrame()
-        frame.setStyleSheet(DesignSystem.get_tutorial_feature_card_style())
+        frame.setStyleSheet(DesignSystem.get_tutorial_static_info_card_style())
         
         layout = QVBoxLayout(frame)
-        layout.setSpacing(10)
-        layout.setContentsMargins(14, 12, 14, 12)
+        layout.setSpacing(DesignSystem.SPACE_4)
+        layout.setContentsMargins(DesignSystem.SPACE_12, DesignSystem.SPACE_12, DesignSystem.SPACE_12, DesignSystem.SPACE_12)
         
         title_label = QLabel("Formatos Soportados")
         title_label.setStyleSheet(DesignSystem.get_tutorial_card_title_style())

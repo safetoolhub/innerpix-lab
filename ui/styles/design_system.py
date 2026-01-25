@@ -1523,7 +1523,7 @@ class DesignSystem:
                 margin-bottom: 0px;
                 font-size: {DesignSystem.FONT_SIZE_SM}px;
                 font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-                min-width: 110px;
+                min-width: 100px;
                 text-align: left;
             }}
             
@@ -1607,10 +1607,11 @@ class DesignSystem:
             QLabel {{
                 background-color: {bg_color};
                 color: {final_text_color};
-                font-size: {DesignSystem.FONT_SIZE_XS}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-                padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_10}px;
+                font-size: 10px;
+                font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+                padding: 2px 8px;
                 border-radius: {DesignSystem.RADIUS_FULL}px;
+                text-transform: uppercase;
             }}
         """
     
@@ -2169,4 +2170,41 @@ class DesignSystem:
         return f"""
             color: {DesignSystem.COLOR_TEXT_SECONDARY};
             font-size: {DesignSystem.FONT_SIZE_XS}px;
+            line-height: 1.2;
+        """
+
+    @staticmethod
+    def get_tutorial_static_info_card_style():
+        """Estilo para cards informativas estáticas (sin hover)."""
+        return f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_BACKGROUND};
+                border: none;
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                padding: {DesignSystem.SPACE_12}px;
+            }}
+        """
+
+    @staticmethod
+    def get_privacy_hero_style():
+        """Estilo para el contenedor principal de privacidad (Hero)."""
+        return f"""
+            QFrame {{
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                    stop:0 rgba(25, 135, 84, 0.05), stop:1 rgba(13, 110, 253, 0.05));
+                border: 1px solid rgba(25, 135, 84, 0.1);
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                padding: {DesignSystem.SPACE_16}px;
+            }}
+        """
+
+    @staticmethod
+    def get_privacy_item_style():
+        """Estilo para items de privacidad en la lista vertical."""
+        return f"""
+            QFrame {{
+                background-color: transparent;
+                border: none;
+                padding: {DesignSystem.SPACE_8}px 0px;
+            }}
         """

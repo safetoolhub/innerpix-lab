@@ -128,6 +128,7 @@ class IconManager:
         'camera-burst': 'mdi6.camera-burst',
         'video': 'mdi6.video',
         'eye': 'mdi6.eye',
+        'eye-off': 'mdi6.eye-off',
         'movie-open': 'mdi6.movie-open',
         'play-circle': 'mdi6.play-circle',
         
@@ -158,6 +159,9 @@ class IconManager:
         'database': 'mdi6.database',
         'database-refresh': 'mdi6.database-refresh',
         'database-check': 'mdi6.database-check',
+        
+        # === CONECTIVIDAD ===
+        'wifi-off': 'mdi6.wifi-off',
     }
     
     def __init__(self):
