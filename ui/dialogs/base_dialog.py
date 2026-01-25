@@ -680,49 +680,51 @@ class BaseDialog(QDialog):
         self,
         show_backup: bool = True,
         show_dry_run: bool = False,
-        show_cleanup_empty_dirs: bool = False,
         backup_label: str = "Crear backup",
-        dry_run_label: str = "Modo simulación",
-        cleanup_label: str = "Limpiar carpetas vacías"
+        dry_run_label: str = "Modo simulación"
     ) -> 'QFrame':
-        """Crea sección de opciones ultra-compacta con diseño Material Design 3.
+        """Crea sección de opciones con diseño Material Design 3.
         
-        Diseño 100% horizontal tipo "chip" con máxima compacidad vertical.
-        Todo en una sola línea con chips minimalistas y profesionales.
+        Diseño profesional con chips inline y ruta de backup visible.
+        Consistente en todos los 8 diálogos principales.
         
         Args:
             show_backup: Si se debe mostrar el checkbox de backup
             show_dry_run: Si se debe mostrar el checkbox de dry-run
-            show_cleanup_empty_dirs: Si se debe mostrar el checkbox de limpieza de carpetas
             backup_label: Texto para el checkbox de backup
             dry_run_label: Texto para el checkbox de dry-run
-            cleanup_label: Texto para el checkbox de limpieza de carpetas
         
         Returns:
-            QFrame con la sección ultra-compacta configurada
+            QFrame con la sección configurada
         """
-        from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel
+        from PyQt6.QtWidgets import QFrame, QHBoxLayout, QVBoxLayout, QLabel, QWidget
         from ui.styles.design_system import DesignSystem
         from ui.styles.icons import icon_manager
         from utils.settings_manager import settings_manager
+        from config import Config
         
         frame = QFrame()
         frame.setObjectName("security-options-frame")
         frame.setStyleSheet(f"""
             QFrame#security-options-frame {{
-                background-color: transparent;
-                border: none;
-                padding: 0px;
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_12}px {DesignSystem.SPACE_16}px;
             }}
         """)
         
-        # Layout principal 100% horizontal (una sola línea)
-        main_layout = QHBoxLayout(frame)
-        main_layout.setSpacing(int(DesignSystem.SPACE_12))
+        # Layout principal vertical para chips + ruta
+        main_layout = QVBoxLayout(frame)
+        main_layout.setSpacing(int(DesignSystem.SPACE_8))
         main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         
-        # === Label "Opciones:" inline minimalista ===
+        # === Fila de chips ===
+        chips_layout = QHBoxLayout()
+        chips_layout.setSpacing(int(DesignSystem.SPACE_12))
+        chips_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Label "Opciones:" inline minimalista
         options_label = QLabel("Opciones:")
         options_label.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_SM}px;
@@ -731,19 +733,26 @@ class BaseDialog(QDialog):
             padding: 0px;
             margin: 0px;
         """)
-        main_layout.addWidget(options_label, 0, Qt.AlignmentFlag.AlignVCenter)
+        chips_layout.addWidget(options_label, 0, Qt.AlignmentFlag.AlignVCenter)
+        
+        # Obtener ruta de backup
+        backup_dir = settings_manager.get_backup_directory(Config.DEFAULT_BACKUP_DIR)
+        backup_path_str = str(backup_dir) if backup_dir else str(Config.DEFAULT_BACKUP_DIR)
         
         # === Checkbox de backup (inline chip style) ===
         if show_backup:
             backup_checked = settings_manager.get_auto_backup_enabled()
+            
             self.backup_checkbox = self._create_inline_chip_checkbox(
                 icon_name='content-save',
                 label=backup_label,
                 checked=backup_checked,
-                tooltip="Crea una copia de seguridad timestamped antes de realizar cambios.\n"
-                        "Recomendado para operaciones destructivas."
+                tooltip=f"Crea una copia de seguridad antes de realizar cambios.\n"
+                        f"Recomendado para operaciones destructivas.\n\n"
+                        f"Carpeta de backups: {backup_path_str}\n\n"
+                        f"Puedes cambiar la carpeta desde Configuración."
             )
-            main_layout.addWidget(self.backup_checkbox)
+            chips_layout.addWidget(self.backup_checkbox)
         
         # === Checkbox de dry-run (inline chip style) ===
         if show_dry_run:
@@ -757,30 +766,70 @@ class BaseDialog(QDialog):
                 checked=bool(dry_run_default),
                 tooltip="Simula la operación sin realizar cambios reales.\n"
                         "Útil para verificar qué archivos se verían afectados.\n\n"
-                        "⚠️ Nota: Al activar modo simulación, el backup se deshabilita automáticamente\n"
-                        "ya que no se realizarán cambios reales."
+                        "Al activar modo simulación, el backup se deshabilita\n"
+                        "automáticamente ya que no se realizarán cambios reales."
             )
-            main_layout.addWidget(self.dry_run_checkbox)
+            chips_layout.addWidget(self.dry_run_checkbox)
+        
+        # Spacer para empujar chips a la izquierda
+        chips_layout.addStretch()
+        main_layout.addLayout(chips_layout)
+        
+        # === Fila con ruta de backup (siempre presente para mantener tamaño fijo) ===
+        if show_backup:
+            # Truncar path si es muy largo
+            max_display_len = 60
+            display_path = backup_path_str
+            if len(display_path) > max_display_len:
+                display_path = "..." + display_path[-(max_display_len - 3):]
             
-            # Conectar lógica de deshabilitación mutua
-            if show_backup and hasattr(self, 'backup_checkbox'):
-                self._setup_dry_run_backup_logic()
-        
-        # === Checkbox de cleanup empty dirs (inline chip style) ===
-        if show_cleanup_empty_dirs:
-            self.cleanup_checkbox = self._create_inline_chip_checkbox(
-                icon_name='folder-remove',
-                label=cleanup_label,
-                checked=False,  # Default deshabilitado para ser conservador
-                tooltip="Elimina automáticamente las carpetas que queden vacías\n"
-                        "después de mover los archivos durante la organización."
+            # Contenedor para la ruta (mantiene espacio fijo)
+            self._backup_path_widget = QWidget()
+            # Reservar espacio incluso cuando está oculto para evitar saltos en la interfaz
+            sp = self._backup_path_widget.sizePolicy()
+            if hasattr(sp, 'setRetainSizeWhenHidden'):
+                sp.setRetainSizeWhenHidden(True)
+                self._backup_path_widget.setSizePolicy(sp)
+
+            path_layout = QHBoxLayout(self._backup_path_widget)
+            path_layout.setSpacing(int(DesignSystem.SPACE_6))
+            path_layout.setContentsMargins(0, 0, 0, 0)
+            
+            self._backup_folder_icon = QLabel()
+            icon_manager.set_label_icon(
+                self._backup_folder_icon, 'folder', 
+                size=DesignSystem.ICON_SIZE_SM, 
+                color=DesignSystem.COLOR_TEXT_SECONDARY
             )
-            main_layout.addWidget(self.cleanup_checkbox)
+            path_layout.addWidget(self._backup_folder_icon)
+            
+            self._backup_path_label = QLabel(f"Carpeta donde se guardarán los archivos eliminados: {display_path}")
+            self._backup_path_label.setStyleSheet(f"""
+                font-size: {DesignSystem.FONT_SIZE_XS}px;
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            """)
+            self._backup_path_label.setToolTip(
+                f"Ruta completa: {backup_path_str}\n\n"
+                f"Puedes cambiar esta carpeta desde Configuración."
+            )
+            path_layout.addWidget(self._backup_path_label)
+            path_layout.addStretch()
+            
+            main_layout.addWidget(self._backup_path_widget)
+            
+            # Actualizar visibilidad inicial del widget completo
+            self._backup_path_widget.setVisible(self.is_backup_enabled())
         
-        # Spacer para empujar contenido a la izquierda
-        main_layout.addStretch()
+        # Configurar lógica de interacción dry-run/backup
+        if show_dry_run and show_backup and hasattr(self, 'backup_checkbox'):
+            self._setup_dry_run_backup_logic()
         
         return frame
+    
+    def _update_backup_path_visibility(self, visible: bool):
+        """Actualiza la visibilidad de la ruta de backup preservando el espacio en el layout."""
+        if hasattr(self, '_backup_path_widget') and self._backup_path_widget:
+            self._backup_path_widget.setVisible(visible)
     
     def _create_warning_banner(
         self,
@@ -935,28 +984,57 @@ class BaseDialog(QDialog):
                 # Deshabilitar visualmente el widget
                 backup_widget.setEnabled(False)
                 backup_widget.setToolTip(
-                    "⚠️ El backup está deshabilitado porque el modo simulación está activo.\n"
+                    "El backup está deshabilitado porque el modo simulación está activo.\n"
                     "No se realizarán cambios reales, por lo que no es necesario crear backup."
                 )
+                
+                # Actualizar el estado visual del chip
+                if hasattr(backup_widget, '_update_visual_state'):
+                    backup_widget._update_visual_state()
             else:
+                # Rehabilitar visualmente el widget PRIMERO
+                backup_widget.setEnabled(True)
+                
                 # Restaurar estado previo del backup si existía
                 if self._backup_state_before_dry_run is not None:
                     backup_checkbox_internal.setChecked(self._backup_state_before_dry_run)
                     self._backup_state_before_dry_run = None
                 
-                # Rehabilitar visualmente el widget
-                backup_widget.setEnabled(True)
+                # Obtener ruta para el tooltip
+                from utils.settings_manager import settings_manager
+                from config import Config
+                backup_dir = settings_manager.get_backup_directory(Config.DEFAULT_BACKUP_DIR)
+                backup_path_str = str(backup_dir) if backup_dir else str(Config.DEFAULT_BACKUP_DIR)
+                
                 backup_widget.setToolTip(
-                    "Crea una copia de seguridad timestamped antes de realizar cambios.\n"
-                    "Recomendado para operaciones destructivas."
+                    f"Crea una copia de seguridad antes de realizar cambios.\n"
+                    f"Recomendado para operaciones destructivas.\n\n"
+                    f"Carpeta de backups: {backup_path_str}\n\n"
+                    f"Puedes cambiar la carpeta desde Configuración."
                 )
+                
+                # Actualizar el estado visual del chip
+                if hasattr(backup_widget, '_update_visual_state'):
+                    backup_widget._update_visual_state()
+            
+            # Actualizar visibilidad de la ruta de backup (contenido, no espacio)
+            self._update_backup_path_visibility(self.is_backup_enabled())
         
-        # Conectar señal
+        def on_backup_changed():
+            """Actualiza la visibilidad de la ruta cuando cambia el estado del backup."""
+            self._update_backup_path_visibility(self.is_backup_enabled())
+        
+        # Conectar señales
         if hasattr(self.dry_run_checkbox, '_checkbox'):
             self.dry_run_checkbox._checkbox.toggled.connect(on_dry_run_changed)
         else:
             self.dry_run_checkbox.toggled.connect(on_dry_run_changed)
         
+        # Conectar cambio de backup para actualizar visibilidad de ruta
+        if hasattr(self.backup_checkbox, '_checkbox'):
+            self.backup_checkbox._checkbox.toggled.connect(on_backup_changed)
+        else:
+            self.backup_checkbox.toggled.connect(on_backup_changed)
         
         # Ejecutar lógica inicial
         on_dry_run_changed()

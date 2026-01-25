@@ -998,26 +998,138 @@ class FileOrganizerDialog(BaseDialog):
         return widget
     
     def _create_options_group(self) -> QFrame:
-        """Crea grupo de opciones usando método centralizado con opción extra"""
-        from PyQt6.QtWidgets import QFrame, QVBoxLayout
+        """Crea grupo de opciones con sección de seguridad + opción de limpieza específica."""
+        from PyQt6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel, QWidget
         from ui.styles.design_system import DesignSystem
+        from ui.styles.icons import icon_manager
         
-        # Crear contenedor principal
+        # Crear contenedor principal con estilo consistente
         container = QFrame()
+        container.setObjectName("options-container")
+        container.setStyleSheet(f"""
+            QFrame#options-container {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_12}px {DesignSystem.SPACE_16}px;
+            }}
+        """)
+        
         container_layout = QVBoxLayout(container)
-        container_layout.setSpacing(int(DesignSystem.SPACE_12))
+        container_layout.setSpacing(int(DesignSystem.SPACE_8))
         container_layout.setContentsMargins(0, 0, 0, 0)
         
-        # Opciones de seguridad + limpieza de carpetas vacías
-        security_options = self._create_security_options_section(
-            show_backup=True,
-            show_dry_run=True,
-            show_cleanup_empty_dirs=True,
-            backup_label="Crear backup antes de mover",
-            dry_run_label="Modo simulación (no mover archivos realmente)",
-            cleanup_label="Eliminar carpetas vacías"
+        # === Fila 1: Opciones de seguridad + cleanup (todo inline) ===
+        options_row = QHBoxLayout()
+        options_row.setSpacing(int(DesignSystem.SPACE_12))
+        options_row.setContentsMargins(0, 0, 0, 0)
+        
+        # Label "Opciones:"
+        options_label = QLabel("Opciones:")
+        options_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+        """)
+        options_row.addWidget(options_label)
+        
+        # Obtener configuración de backup
+        from utils.settings_manager import settings_manager
+        from config import Config
+        
+        backup_dir = settings_manager.get_backup_directory(Config.DEFAULT_BACKUP_DIR)
+        backup_path_str = str(backup_dir) if backup_dir else str(Config.DEFAULT_BACKUP_DIR)
+        
+        # Chip de backup
+        backup_checked = settings_manager.get_auto_backup_enabled()
+        
+        self.backup_checkbox = self._create_inline_chip_checkbox(
+            icon_name='content-save',
+            label="Crear backup antes de mover",
+            checked=backup_checked,
+            tooltip=f"Crea una copia de seguridad antes de mover archivos.\n"
+                    f"Recomendado para operaciones destructivas.\n\n"
+                    f"Carpeta de backups: {backup_path_str}\n\n"
+                    f"Puedes cambiar la carpeta desde Configuración."
         )
-        container_layout.addWidget(security_options)
+        options_row.addWidget(self.backup_checkbox)
+        
+        # Chip de dry-run
+        dry_run_default = settings_manager.get(settings_manager.KEY_DRY_RUN_DEFAULT, False)
+        if isinstance(dry_run_default, str):
+            dry_run_default = dry_run_default.lower() in ('true', '1', 'yes')
+        
+        self.dry_run_checkbox = self._create_inline_chip_checkbox(
+            icon_name='eye',
+            label="Modo simulación",
+            checked=bool(dry_run_default),
+            tooltip="Simula la operación sin mover archivos realmente.\n"
+                    "Útil para verificar qué archivos se moverían.\n\n"
+                    "Al activar modo simulación, el backup se deshabilita\n"
+                    "automáticamente ya que no se realizarán cambios reales."
+        )
+        options_row.addWidget(self.dry_run_checkbox)
+        
+        # Separador visual (línea vertical)
+        separator = QFrame()
+        separator.setFixedWidth(1)
+        separator.setStyleSheet(f"background-color: {DesignSystem.COLOR_BORDER};")
+        options_row.addWidget(separator)
+        
+        # Chip de cleanup carpetas vacías (específico de organización)
+        self.cleanup_checkbox = self._create_inline_chip_checkbox(
+            icon_name='folder-remove',
+            label="Limpiar carpetas vacías",
+            checked=False,  # Default deshabilitado para ser conservador
+            tooltip="Elimina automáticamente las carpetas que queden vacías\n"
+                    "después de mover los archivos durante la organización.\n\n"
+                    "Solo aplica a carpetas dentro de la ruta seleccionada."
+        )
+        options_row.addWidget(self.cleanup_checkbox)
+        
+        options_row.addStretch()
+        container_layout.addLayout(options_row)
+        
+        # === Fila 2: Ruta de backup (siempre presente para mantener tamaño fijo) ===
+        # Truncar path si es muy largo
+        max_display_len = 60
+        display_path = backup_path_str
+        if len(display_path) > max_display_len:
+            display_path = "..." + display_path[-(max_display_len - 3):]
+        
+        # Contenedor para la ruta (mantiene espacio fijo)
+        self._backup_path_widget = QWidget()
+        path_layout = QHBoxLayout(self._backup_path_widget)
+        path_layout.setSpacing(int(DesignSystem.SPACE_6))
+        path_layout.setContentsMargins(0, 0, 0, 0)
+        
+        self._backup_folder_icon = QLabel()
+        icon_manager.set_label_icon(
+            self._backup_folder_icon, 'folder', 
+            size=DesignSystem.ICON_SIZE_SM, 
+            color=DesignSystem.COLOR_TEXT_SECONDARY
+        )
+        path_layout.addWidget(self._backup_folder_icon)
+        
+        self._backup_path_label = QLabel(f"Carpeta donde se guardarán los archivos movidos: {display_path}")
+        self._backup_path_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_XS}px;
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+        """)
+        self._backup_path_label.setToolTip(
+            f"Ruta completa: {backup_path_str}\n\n"
+            f"Puedes cambiar esta carpeta desde Configuración."
+        )
+        path_layout.addWidget(self._backup_path_label)
+        path_layout.addStretch()
+        
+        container_layout.addWidget(self._backup_path_widget)
+        
+        # Actualizar visibilidad inicial (solo contenido, no espacio)
+        self._update_backup_path_visibility(self.is_backup_enabled())
+        
+        # Configurar lógica de interacción dry-run/backup (actualiza visibilidad de ruta)
+        self._setup_dry_run_backup_logic()
         
         return container
     
