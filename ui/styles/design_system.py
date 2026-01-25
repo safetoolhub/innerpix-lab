@@ -282,20 +282,20 @@ class DesignSystem:
         """Retorna el estilo QSS para tooltips.
         
         TODOS los tooltips de la aplicación deben usar este estilo.
-        Sigue Material Design: fondo oscuro semitransparente, texto claro.
+        Diseño profesional: fondo oscuro, texto claro, compacto.
         
         Returns:
             str: Estilo QSS para tooltips.
         """
         return f"""
             QToolTip {{
-                background-color: rgba(97, 97, 97, 0.95);
-                color: #FFFFFF;
+                background-color: #2D3436;
+                color: #F5F6FA;
                 border: none;
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
+                border-radius: {DesignSystem.RADIUS_SM}px;
+                padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_8}px;
                 font-size: {DesignSystem.FONT_SIZE_SM}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                font-weight: {DesignSystem.FONT_WEIGHT_NORMAL};
                 font-family: {DesignSystem.FONT_FAMILY_BASE};
             }}
         """

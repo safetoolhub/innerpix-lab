@@ -133,8 +133,8 @@ def create_group_tooltip(group_number: int, description: str, extra_info: str = 
         Texto del tooltip formateado
     """
     tooltip = (f"Grupo #{group_number} con {description}\n"
-               f"▶ 💡 Doble clic para expandir y ver detalles de archivos\n"
-               f"💡 Las columnas muestran información de cada archivo individual")
+               f"Doble clic para expandir y ver detalles de archivos\n"
+               f"Las columnas muestran información de cada archivo individual")
     
     if extra_info:
         tooltip += f"\n{extra_info}"

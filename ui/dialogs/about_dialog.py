@@ -42,6 +42,9 @@ class AboutDialog(QDialog):
         self.setModal(True)
         self.setMinimumSize(1100, 780)
         self.resize(1100, 780)
+        
+        # Aplicar estilo global de tooltips
+        self.setStyleSheet(DesignSystem.get_tooltip_style())
 
         # Layout principal sin márgenes
         main_layout = QVBoxLayout(self)
@@ -63,10 +66,10 @@ class AboutDialog(QDialog):
         self.tab_widget.setStyleSheet(DesignSystem.get_tutorial_tab_widget_style())
         
         # Crear las pestañas (nombres compactos)
-        self.tab_widget.addTab(self._create_welcome_tab(), "🏠 Inicio")
-        self.tab_widget.addTab(self._create_tools_tab(), "🔧 Herramientas")
-        self.tab_widget.addTab(self._create_privacy_tab(), "🛡️ Seguridad")
-        self.tab_widget.addTab(self._create_tech_tab(), "ℹ️ Info")
+        self.tab_widget.addTab(self._create_welcome_tab(), "Inicio")
+        self.tab_widget.addTab(self._create_tools_tab(), "Herramientas")
+        self.tab_widget.addTab(self._create_privacy_tab(), "Seguridad")
+        self.tab_widget.addTab(self._create_tech_tab(), "Info")
 
         content_layout.addWidget(self.tab_widget)
         main_layout.addWidget(content_widget, 1)
@@ -110,7 +113,7 @@ class AboutDialog(QDialog):
         header_layout.addStretch()
         
         # Lado derecho: Badge de privacidad
-        privacy_badge = QLabel("🔒 100% Privado • Sin conexión a internet")
+        privacy_badge = QLabel("100% Privado • Sin conexión a internet")
         privacy_badge.setStyleSheet(f"""
             QLabel {{
                 background-color: rgba(255, 255, 255, 0.2);
@@ -139,7 +142,7 @@ class AboutDialog(QDialog):
         footer_layout.setContentsMargins(24, 10, 24, 10)
         
         # Créditos
-        credits = QLabel("Desarrollado con ❤️ para simplificar la gestión de fotos")
+        credits = QLabel("Desarrollado para simplificar la gestión de fotos")
         credits.setStyleSheet(f"""
             color: {DesignSystem.COLOR_TEXT_SECONDARY};
             font-size: {DesignSystem.FONT_SIZE_SM}px;
@@ -227,9 +230,9 @@ class AboutDialog(QDialog):
         tips_layout = QHBoxLayout()
         tips_layout.setSpacing(DesignSystem.SPACE_8)
         
-        tip1 = self._create_mini_tip("💡", "Modo Simulación", "Prueba sin modificar archivos")
-        tip2 = self._create_mini_tip("📦", "Backup Automático", "Siempre hay copia de seguridad")
-        tip3 = self._create_mini_tip("📋", "Logs Detallados", "Registro de todas las operaciones")
+        tip1 = self._create_mini_tip("Modo Simulación", "Prueba sin modificar archivos")
+        tip2 = self._create_mini_tip("Backup Automático", "Siempre hay copia de seguridad")
+        tip3 = self._create_mini_tip("Logs Detallados", "Registro de todas las operaciones")
         
         tips_layout.addWidget(tip1)
         tips_layout.addWidget(tip2)
@@ -319,7 +322,7 @@ class AboutDialog(QDialog):
         layout.addWidget(guarantees_container)
         
         # === FOOTER DE CONFIANZA ===
-        trust_footer = QLabel("🔒 Todo tu contenido está a salvo y bajo tu control exclusivo.")
+        trust_footer = QLabel("Todo tu contenido está a salvo y bajo tu control exclusivo.")
         trust_footer.setAlignment(Qt.AlignmentFlag.AlignCenter)
         trust_footer.setStyleSheet(f"""
             color: {DesignSystem.COLOR_SUCCESS};
@@ -344,7 +347,7 @@ class AboutDialog(QDialog):
         layout.addWidget(title)
         
         # === SECCIÓN 1: LIMPIEZA (4 tools en grid 2x2) ===
-        cleanup_header = self._create_category_header("🧹 Limpieza y Espacio", "Libera espacio eliminando archivos innecesarios")
+        cleanup_header = self._create_category_header("Limpieza y Espacio", "Libera espacio eliminando archivos innecesarios")
         layout.addWidget(cleanup_header)
         
         cleanup_grid = QGridLayout()
@@ -365,7 +368,7 @@ class AboutDialog(QDialog):
         layout.addLayout(cleanup_grid)
         
         # === SECCIÓN 2: DETECCIÓN VISUAL (2 tools) ===
-        visual_header = self._create_category_header("🔍 Detección Visual", "Encuentra imágenes visualmente similares")
+        visual_header = self._create_category_header("Detección Visual", "Encuentra imágenes visualmente similares")
         layout.addWidget(visual_header)
         
         visual_grid = QGridLayout()
@@ -383,7 +386,7 @@ class AboutDialog(QDialog):
         layout.addLayout(visual_grid)
         
         # === SECCIÓN 3: ORGANIZACIÓN (2 tools) ===
-        org_header = self._create_category_header("📁 Organización", "Ordena y renombra tu colección")
+        org_header = self._create_category_header("Organización", "Ordena y renombra tu colección")
         layout.addWidget(org_header)
         
         org_grid = QGridLayout()
@@ -402,7 +405,7 @@ class AboutDialog(QDialog):
         
         # Nota técnica compacta
         tech_note = QLabel(
-            "💡 <b>Hash perceptual</b>: La detección visual usa algoritmos que generan "
+            "<b>Hash perceptual</b>: La detección visual usa algoritmos que generan "
             "valores similares para imágenes parecidas, detectando duplicados aunque tengan "
             "diferente resolución o metadatos."
         )
@@ -445,7 +448,7 @@ class AboutDialog(QDialog):
         
         # Ubicaciones
         locations_box = self._create_highlight_box(
-            "📂 Ubicaciones del Sistema",
+            "Ubicaciones del Sistema",
             "<b>Logs:</b> ~/Documents/Innerpix_Lab/logs/<br>"
             "<b>Backups:</b> Configurables desde el menú de Ajustes",
             DesignSystem.COLOR_PRIMARY_LIGHT,
@@ -488,7 +491,7 @@ class AboutDialog(QDialog):
         layout.addLayout(content, 1)
         return frame
 
-    def _create_mini_tip(self, emoji: str, title: str, desc: str) -> QFrame:
+    def _create_mini_tip(self, title: str, desc: str) -> QFrame:
         """Crea un mini tip horizontal."""
         frame = QFrame()
         frame.setStyleSheet(DesignSystem.get_tutorial_tip_card_style())
@@ -497,7 +500,7 @@ class AboutDialog(QDialog):
         layout.setContentsMargins(12, 10, 12, 10)
         layout.setSpacing(4)
         
-        header = QLabel(f"{emoji} {title}")
+        header = QLabel(title)
         header.setStyleSheet(DesignSystem.get_tutorial_card_title_style())
         layout.addWidget(header)
         

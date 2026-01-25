@@ -516,9 +516,6 @@ class DuplicatesExactDialog(BaseDialog):
             button_style='danger'
         )
         content_layout.addWidget(buttons)
-        
-        # Aplicar estilo global de tooltips
-        self.setStyleSheet(DesignSystem.get_tooltip_style())
     
     def _create_strategy_selector(self) -> QFrame:
         """Crea selector de estrategia usando el método centralizado de BaseDialog."""
@@ -740,10 +737,10 @@ class DuplicatesExactDialog(BaseDialog):
             # Tooltips informativos
             tooltip_text = (
                 f"<b>{file_path.name}</b><br>"
-                f"📂 {file_path.parent}<br>"
-                f"📊 {format_size(file_path.stat().st_size)}<br>"
-                f"📅 {best_date.strftime('%d/%m/%Y %H:%M:%S')}<br>"
-                f"🔍 Origen fecha: {date_source or 'Desconocido'}<br>"
+                f"Carpeta: {file_path.parent}<br>"
+                f"Tamaño: {format_size(file_path.stat().st_size)}<br>"
+                f"Fecha: {best_date.strftime('%d/%m/%Y %H:%M:%S')}<br>"
+                f"Origen fecha: {date_source or 'Desconocido'}<br>"
                 f"{'✓ Se conservará' if is_keep else '✗ Se eliminará'}"
             )
             file_item.setToolTip(0, tooltip_text)

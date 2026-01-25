@@ -121,9 +121,6 @@ class HeicDialog(BaseDialog):
         
         # Actualizar vista inicial
         self._update_tree()
-        
-        # Aplicar estilo global de tooltips
-        self.setStyleSheet(DesignSystem.get_tooltip_style())
 
     def _create_format_selector(self) -> QFrame:
         """Crea selector de formato usando el método centralizado de BaseDialog."""
@@ -603,9 +600,9 @@ class HeicDialog(BaseDialog):
         # Tooltip informativo
         extra_info = ""
         if pair.date_source:
-            extra_info = f"📅 Fecha común: {pair.date_source}"
+            extra_info = f"Fecha común: {pair.date_source}"
             if pair.date_difference is not None:
-                extra_info += f"\n⏱️ Diferencia: {pair.date_difference:.3f}s"
+                extra_info += f"\nDiferencia: {pair.date_difference:.3f}s"
         
         group_item.setToolTip(0, create_group_tooltip(
             group_number, 
@@ -636,12 +633,12 @@ class HeicDialog(BaseDialog):
         # Tooltip para HEIC
         heic_mtime = datetime.fromtimestamp(pair.heic_path.stat().st_mtime)
         heic_tooltip = (f"<b>{pair.heic_path.name}</b><br>"
-                       f"📂 {pair.heic_path.parent}<br>"
-                       f"📊 {format_size(pair.heic_size)}<br>"
-                       f"📅 {heic_mtime.strftime('%d/%m/%Y %H:%M:%S')}<br>")
+                       f"Carpeta: {pair.heic_path.parent}<br>"
+                       f"Tamaño: {format_size(pair.heic_size)}<br>"
+                       f"Fecha: {heic_mtime.strftime('%d/%m/%Y %H:%M:%S')}<br>")
         
         if pair.date_source:
-             heic_tooltip += f"🔍 Origen fecha: {pair.date_source}<br>"
+             heic_tooltip += f"Origen fecha: {pair.date_source}<br>"
              
         heic_tooltip += f"{'✓ Se conservará' if format_to_delete == 'JPG' else '✗ Se eliminará'}"
         heic_item.setToolTip(0, heic_tooltip)
@@ -669,12 +666,12 @@ class HeicDialog(BaseDialog):
         # Tooltip para JPG
         jpg_mtime = datetime.fromtimestamp(pair.jpg_path.stat().st_mtime)
         jpg_tooltip = (f"<b>{pair.jpg_path.name}</b><br>"
-                       f"📂 {pair.jpg_path.parent}<br>"
-                       f"📊 {format_size(pair.jpg_size)}<br>"
-                       f"📅 {jpg_mtime.strftime('%d/%m/%Y %H:%M:%S')}<br>")
+                       f"Carpeta: {pair.jpg_path.parent}<br>"
+                       f"Tamaño: {format_size(pair.jpg_size)}<br>"
+                       f"Fecha: {jpg_mtime.strftime('%d/%m/%Y %H:%M:%S')}<br>")
         
         if pair.date_source:
-             jpg_tooltip += f"🔍 Origen fecha: {pair.date_source}<br>"
+             jpg_tooltip += f"Origen fecha: {pair.date_source}<br>"
              
         jpg_tooltip += f"{'✓ Se conservará' if format_to_delete == 'HEIC' else '✗ Se eliminará'}"
         jpg_item.setToolTip(0, jpg_tooltip)

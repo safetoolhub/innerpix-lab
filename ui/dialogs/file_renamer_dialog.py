@@ -150,9 +150,6 @@ class FileRenamerDialog(BaseDialog):
         
         # Actualizar tabla inicial
         self._update_table()
-        
-        # Aplicar estilo global de tooltips
-        self.setStyleSheet(DesignSystem.get_tooltip_style())
 
     def _create_info_section(self):
         """Crea sección de información y advertencias"""

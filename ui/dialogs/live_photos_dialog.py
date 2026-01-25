@@ -146,9 +146,6 @@ class LivePhotosDialog(BaseDialog):
         
         # Actualizar vista inicial
         self._update_tree()
-        
-        # Aplicar estilo global de tooltips
-        self.setStyleSheet(DesignSystem.get_tooltip_style())
 
     def _create_toolbar(self):
         """Crea barra de herramientas con filtros estilo Material Design"""
@@ -577,11 +574,11 @@ class LivePhotosDialog(BaseDialog):
         apply_group_item_style(group_item, num_columns=6)
         
         # Tooltip informativo
-        extra_info = f"📷 {group.image_count} imagen(es) + 1 video MOV"
+        extra_info = f"{group.image_count} imagen(es) + 1 video MOV"
         if group.date_source:
-            extra_info += f"\n📅 Fecha común: {group.date_source}"
+            extra_info += f"\nFecha común: {group.date_source}"
             if group.date_difference is not None:
-                extra_info += f"\n⏱️ Diferencia: {group.date_difference:.3f}s"
+                extra_info += f"\nDiferencia: {group.date_difference:.3f}s"
         
         group_item.setToolTip(0, create_group_tooltip(
             group_number,
@@ -609,11 +606,11 @@ class LivePhotosDialog(BaseDialog):
             try:
                 img_mtime = datetime.fromtimestamp(img_info.path.stat().st_mtime)
                 img_tooltip = (f"<b>{img_info.path.name}</b><br>"
-                               f"📂 {img_info.path.parent}<br>"
-                               f"📊 {format_size(img_info.size)}<br>"
-                               f"📅 {img_mtime.strftime('%d/%m/%Y %H:%M:%S')}<br>")
+                               f"Carpeta: {img_info.path.parent}<br>"
+                               f"Tamaño: {format_size(img_info.size)}<br>"
+                               f"Fecha: {img_mtime.strftime('%d/%m/%Y %H:%M:%S')}<br>")
                 if img_info.date_source:
-                    img_tooltip += f"🔍 Origen fecha: {img_info.date_source}<br>"
+                    img_tooltip += f"Origen fecha: {img_info.date_source}<br>"
                 img_tooltip += "✓ Se conservará"
                 img_item.setToolTip(0, img_tooltip)
             except Exception:
@@ -638,11 +635,11 @@ class LivePhotosDialog(BaseDialog):
         try:
             video_mtime = datetime.fromtimestamp(group.video_path.stat().st_mtime)
             video_tooltip = (f"<b>{group.video_path.name}</b><br>"
-                             f"📂 {group.video_path.parent}<br>"
-                             f"📊 {format_size(group.video_size)}<br>"
-                             f"📅 {video_mtime.strftime('%d/%m/%Y %H:%M:%S')}<br>")
+                             f"Carpeta: {group.video_path.parent}<br>"
+                             f"Tamaño: {format_size(group.video_size)}<br>"
+                             f"Fecha: {video_mtime.strftime('%d/%m/%Y %H:%M:%S')}<br>")
             if group.video_date_source:
-                video_tooltip += f"🔍 Origen fecha: {group.video_date_source}<br>"
+                video_tooltip += f"Origen fecha: {group.video_date_source}<br>"
             video_tooltip += "✗ Se eliminará"
             video_item.setToolTip(0, video_tooltip)
         except Exception:

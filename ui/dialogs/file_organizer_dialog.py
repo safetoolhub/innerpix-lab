@@ -166,9 +166,6 @@ class FileOrganizerDialog(BaseDialog):
         # Marcar UI como inicializada para permitir eventos
         self.ui_initialized = True
         
-        # Aplicar estilo global de tooltips
-        self.setStyleSheet(DesignSystem.get_tooltip_style())
-        
         # Inicializar la selección de estrategia y las opciones (ahora que la UI está lista)
         self._initialize_strategy_selection()
 
