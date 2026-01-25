@@ -27,6 +27,48 @@ class FileInfoProtocol(Protocol):
     mtime: Optional[datetime]
 
 
+def _parse_timezone_offset(offset_str: Optional[str]) -> Optional[int]:
+    """
+    Parsea un string de offset de timezone y retorna el offset en segundos.
+    
+    Args:
+        offset_str: String de offset como '+02:00', '-05:00', 'Z', etc.
+        
+    Returns:
+        Offset en segundos (positivo para este del UTC, negativo para oeste)
+        None si el offset no es válido o no se puede parsear
+    """
+    if not offset_str:
+        return None
+    
+    offset_str = offset_str.strip()
+    
+    # UTC
+    if offset_str in ('Z', 'UTC', '+00:00', '-00:00'):
+        return 0
+    
+    try:
+        # Formato ±HH:MM o ±HHMM
+        if len(offset_str) >= 5 and offset_str[0] in ('+', '-'):
+            sign = 1 if offset_str[0] == '+' else -1
+            
+            # Con : (ej: +02:00)
+            if ':' in offset_str:
+                parts = offset_str[1:].split(':')
+                hours = int(parts[0])
+                minutes = int(parts[1]) if len(parts) > 1 else 0
+            else:
+                # Sin : (ej: +0200)
+                hours = int(offset_str[1:3])
+                minutes = int(offset_str[3:5]) if len(offset_str) >= 5 else 0
+            
+            return sign * (hours * 3600 + minutes * 60)
+    except (ValueError, IndexError):
+        pass
+    
+    return None
+
+
 def select_best_date_from_common_date_to_2_files(
     file1: Any, 
     file2: Any,
@@ -38,6 +80,12 @@ def select_best_date_from_common_date_to_2_files(
     Devuelve una tupla con (fecha_file1, fecha_file2, fuente) donde las fechas son
     del mismo tipo para ambos archivos (nunca mezcla EXIF con filesystem).
     Usado por HEICService y LivePhotoService para determinar la fecha correcta de los pares de archivos.
+    
+    NORMALIZACIÓN DE TIMEZONE:
+    Cuando se comparan fechas EXIF con offset de timezone (ej: imagen con +02:00)
+    contra fechas sin offset (ej: video en UTC desde ffprobe), se normaliza a UTC
+    para comparación justa. Los datetimes retornados son las fechas originales
+    (hora local), pero la diferencia se calcula considerando el timezone.
     
     Prioriza fidelidad al momento de captura/creación original:
     1. EXIF DateTimeOriginal (Captura exacta)
@@ -64,6 +112,8 @@ def select_best_date_from_common_date_to_2_files(
         >>> select_best_date_from_common_date_to_2_files(f1, f2)
         (datetime.datetime(2023, 1, 1, 12, 0), datetime.datetime(2023, 1, 2, 12, 0), 'exif_date_time_original')
     """
+    from datetime import timedelta
+    
     # Validar que los objetos tienen los atributos necesarios
     # Se usa getattr para seguridad si los objetos no cumplen estrictamente el protocolo
     
@@ -91,6 +141,27 @@ def select_best_date_from_common_date_to_2_files(
             except (ValueError, TypeError, IndexError):
                 pass
         return None
+    
+    def _normalize_to_utc(dt: datetime, offset_str: Optional[str]) -> datetime:
+        """
+        Normaliza un datetime a UTC usando el offset de timezone si está disponible.
+        
+        - Si offset_str tiene un valor (ej: '+02:00'), resta el offset para obtener UTC
+        - Si offset_str es None, asume que dt ya está en UTC (como los videos de ffprobe)
+        
+        Args:
+            dt: datetime a normalizar
+            offset_str: string de offset de timezone (ej: '+02:00', '-05:00')
+            
+        Returns:
+            datetime normalizado a UTC
+        """
+        offset_seconds = _parse_timezone_offset(offset_str)
+        if offset_seconds is not None and offset_seconds != 0:
+            # Restar el offset para obtener UTC
+            # Si es +02:00, la hora local es 2 horas adelante de UTC
+            return dt - timedelta(seconds=offset_seconds)
+        return dt
 
     def _fmt(dt):
         return dt.strftime('%Y-%m-%d %H:%M:%S.%f') if dt else 'None'
@@ -106,15 +177,26 @@ def select_best_date_from_common_date_to_2_files(
     # 1. PRIORIDAD: AMBOS TIENEN EXIF VÁLIDOS
     # ---------------------------------------------------------
     
+    # Obtener offsets de timezone para normalización
+    file1_offset = _get_val(file1, 'exif_offset_time_original', 'exif_OffsetTimeOriginal')
+    file2_offset = _get_val(file2, 'exif_offset_time_original', 'exif_OffsetTimeOriginal')
+    
     # Priority 1: EXIF DateTimeOriginal
     file1_datetime_original = _to_dt(_get_val(file1, 'exif_date_time_original', 'exif_DateTimeOriginal'))
     file2_datetime_original = _to_dt(_get_val(file2, 'exif_date_time_original', 'exif_DateTimeOriginal'))
     
     if verbose: _logger.debug(f"    - EXIF DateTimeOriginal: file1={_fmt(file1_datetime_original)}, file2={_fmt(file2_datetime_original)}")
     if file1_datetime_original is not None and file2_datetime_original is not None and not _is_epoch_zero_date(file1_datetime_original) and not _is_epoch_zero_date(file2_datetime_original):
-        if verbose: _logger.debug("    => Match found: exif_date_time_original")
+        # Normalizar a UTC para comparación justa
+        file1_utc = _normalize_to_utc(file1_datetime_original, file1_offset)
+        file2_utc = _normalize_to_utc(file2_datetime_original, file2_offset)
+        
+        if verbose:
+            _logger.debug(f"    - Normalized to UTC: file1={_fmt(file1_utc)} (offset={file1_offset}), file2={_fmt(file2_utc)} (offset={file2_offset})")
+            _logger.debug("    => Match found: exif_date_time_original")
         _logger.debug(f"Source selected: exif_date_time_original for {getattr(file1, 'path', 'f1')} and {getattr(file2, 'path', 'f2')}")
-        return file1_datetime_original, file2_datetime_original, 'exif_date_time_original'
+        # Retornar fechas UTC normalizadas para comparación correcta de diferencias
+        return file1_utc, file2_utc, 'exif_date_time_original'
         
     # Priority 2: EXIF CreateDate
     file1_create_date = _to_dt(_get_val(file1, 'exif_create_date', 'exif_CreateDate', 'exif_DateTimeDigitized'))
@@ -527,6 +609,8 @@ def get_all_metadata_from_file(file_path: Path, force_search: bool = False) -> '
                         # Mapear duración
                         if 'duration' in video_metadata and video_metadata['duration']:
                             metadata.exif_VideoDuration = video_metadata['duration']
+                        if 'duration_seconds' in video_metadata and video_metadata['duration_seconds']:
+                            metadata.exif_VideoDurationSeconds = video_metadata['duration_seconds']
                         
                         # Mapear encoder (Software)
                         if 'encoder' in video_metadata and video_metadata['encoder']:
@@ -607,6 +691,8 @@ def get_all_metadata_from_file(file_path: Path, force_search: bool = False) -> '
                             # Mapear duración
                             if 'duration' in video_metadata and video_metadata['duration']:
                                 metadata.exif_VideoDuration = video_metadata['duration']
+                            if 'duration_seconds' in video_metadata and video_metadata['duration_seconds']:
+                                metadata.exif_VideoDurationSeconds = video_metadata['duration_seconds']
                             
                             # Mapear encoder (Software)
                             if 'encoder' in video_metadata and video_metadata['encoder']:

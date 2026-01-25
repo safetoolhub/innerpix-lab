@@ -63,7 +63,29 @@ class FileMetadata:
     exif_SubSecTimeOriginal: Optional[str] = None
     exif_OffsetTimeOriginal: Optional[str] = None
     exif_Software: Optional[str] = None
-    exif_VideoDuration: Optional[str] = None  # Duración de video (ej: "5:23 min")
+    # Duración de video - UNIFICADO: solo se almacena en segundos
+    # exif_VideoDuration (string) se mantiene por compatibilidad pero se genera desde segundos
+    exif_VideoDuration: Optional[str] = None  # DEPRECADO: usar video_duration_formatted
+    exif_VideoDurationSeconds: Optional[float] = None  # Duración de video en segundos (fuente de verdad)
+    
+    @property
+    def video_duration_formatted(self) -> Optional[str]:
+        """
+        Duración del video formateada como string (ej: "0:03 min", "5:23 min").
+        
+        Generado dinámicamente desde exif_VideoDurationSeconds.
+        Fallback a exif_VideoDuration si los segundos no están disponibles.
+        
+        Returns:
+            String formateado o None si no hay duración disponible
+        """
+        if self.exif_VideoDurationSeconds is not None:
+            seconds = self.exif_VideoDurationSeconds
+            minutes = int(seconds // 60)
+            secs = int(seconds % 60)
+            return f"{minutes}:{secs:02d} min"
+        # Fallback a campo string si existe (compatibilidad)
+        return self.exif_VideoDuration
     
     @property
     def extension(self) -> str:
@@ -85,7 +107,8 @@ class FileMetadata:
             self.exif_SubSecTimeOriginal is not None,
             self.exif_OffsetTimeOriginal is not None,
             self.exif_Software is not None,
-            self.exif_VideoDuration is not None
+            self.exif_VideoDuration is not None,
+            self.exif_VideoDurationSeconds is not None
         ])
     
     @property
@@ -171,6 +194,7 @@ class FileMetadata:
             'exif_OffsetTimeOriginal': self.exif_OffsetTimeOriginal,
             'exif_Software': self.exif_Software,
             'exif_VideoDuration': self.exif_VideoDuration,
+            'exif_VideoDurationSeconds': self.exif_VideoDurationSeconds,
         }
     
     @classmethod
@@ -216,6 +240,7 @@ class FileMetadata:
             exif_OffsetTimeOriginal=data.get('exif_OffsetTimeOriginal'),
             exif_Software=data.get('exif_Software'),
             exif_VideoDuration=data.get('exif_VideoDuration'),
+            exif_VideoDurationSeconds=data.get('exif_VideoDurationSeconds'),
         )
     
     def get_summary(self, verbose: bool = False) -> str:

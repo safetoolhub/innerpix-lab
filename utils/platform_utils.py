@@ -6,13 +6,199 @@ Funciones independientes de UI para interactuar con el SO (abrir archivos, carpe
 import subprocess
 import platform
 import os
+import shutil
 import psutil
 from pathlib import Path
-from typing import Optional, Callable, Dict, Any
+from typing import Optional, Callable, Dict, Any, Tuple
+from dataclasses import dataclass
 from utils.logger import get_logger
 
 
 logger = get_logger('PlatformUtils')
+
+
+# =============================================================================
+# SYSTEM TOOLS DETECTION
+# =============================================================================
+
+@dataclass
+class ToolStatus:
+    """Estado de una herramienta del sistema."""
+    name: str
+    available: bool
+    path: Optional[str] = None
+    version: Optional[str] = None
+    error: Optional[str] = None
+
+
+def find_executable(name: str) -> Optional[str]:
+    """
+    Busca un ejecutable en el PATH del sistema de forma multiplataforma.
+    
+    Args:
+        name: Nombre del ejecutable (sin extensión en Windows)
+    
+    Returns:
+        Ruta completa al ejecutable si se encuentra, None si no existe
+    """
+    # shutil.which funciona en Windows, Linux y macOS
+    return shutil.which(name)
+
+
+def get_tool_version(tool_name: str, version_args: list[str], timeout: int = 5) -> Optional[str]:
+    """
+    Obtiene la versión de una herramienta ejecutando un comando.
+    
+    Args:
+        tool_name: Nombre del ejecutable
+        version_args: Argumentos para obtener la versión (ej: ['-version'], ['-ver'])
+        timeout: Tiempo máximo de espera en segundos
+    
+    Returns:
+        String con la versión o None si falla
+    """
+    try:
+        result = subprocess.run(
+            [tool_name] + version_args,
+            capture_output=True,
+            text=True,
+            timeout=timeout
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+        return None
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        return None
+
+
+def check_ffprobe() -> ToolStatus:
+    """
+    Verifica si ffprobe está instalado y obtiene su versión.
+    
+    Returns:
+        ToolStatus con información sobre ffprobe
+    """
+    path = find_executable('ffprobe')
+    if not path:
+        return ToolStatus(
+            name='ffprobe',
+            available=False,
+            error='No instalado - Necesario para duración de videos'
+        )
+    
+    version_output = get_tool_version('ffprobe', ['-version'])
+    version = None
+    if version_output:
+        # Extraer primera línea: "ffprobe version X.X.X ..."
+        first_line = version_output.split('\n')[0]
+        version = first_line[:50] if len(first_line) > 50 else first_line
+    
+    return ToolStatus(
+        name='ffprobe',
+        available=True,
+        path=path,
+        version=version
+    )
+
+
+def check_exiftool() -> ToolStatus:
+    """
+    Verifica si exiftool está instalado y obtiene su versión.
+    
+    Returns:
+        ToolStatus con información sobre exiftool
+    """
+    path = find_executable('exiftool')
+    if not path:
+        return ToolStatus(
+            name='exiftool',
+            available=False,
+            error='No instalado - Necesario para fechas de Live Photos'
+        )
+    
+    version = get_tool_version('exiftool', ['-ver'])
+    
+    return ToolStatus(
+        name='exiftool',
+        available=True,
+        path=path,
+        version=version
+    )
+
+
+def are_video_tools_available() -> bool:
+    """
+    Verifica si las herramientas necesarias para extraer metadatos de video están disponibles.
+    
+    Para extraer metadatos de video (duración, fecha de creación) se necesita
+    al menos una de estas herramientas: ffprobe o exiftool.
+    
+    Returns:
+        True si al menos una herramienta está disponible, False si ninguna
+    """
+    return find_executable('ffprobe') is not None or find_executable('exiftool') is not None
+
+
+def check_all_video_tools() -> Tuple[ToolStatus, ToolStatus]:
+    """
+    Verifica el estado de todas las herramientas de video.
+    
+    Returns:
+        Tupla con (ffprobe_status, exiftool_status)
+    """
+    return check_ffprobe(), check_exiftool()
+
+
+def get_install_instructions() -> Dict[str, str]:
+    """
+    Obtiene instrucciones de instalación de herramientas según el SO.
+    
+    Returns:
+        Diccionario con instrucciones por sistema operativo
+    """
+    return {
+        'linux_debian': 'sudo apt install ffmpeg libimage-exiftool-perl',
+        'linux_fedora': 'sudo dnf install ffmpeg perl-Image-ExifTool',
+        'linux_arch': 'sudo pacman -S ffmpeg perl-image-exiftool',
+        'macos': 'brew install ffmpeg exiftool',
+        'windows': 'Descargar desde ffmpeg.org y exiftool.org'
+    }
+
+
+def get_current_os_install_hint() -> str:
+    """
+    Obtiene la sugerencia de instalación para el SO actual.
+    
+    Returns:
+        String con el comando o instrucción de instalación
+    """
+    system = platform.system()
+    
+    if system == 'Linux':
+        # Intentar detectar la distribución
+        try:
+            with open('/etc/os-release', 'r') as f:
+                content = f.read().lower()
+                if 'debian' in content or 'ubuntu' in content or 'mint' in content:
+                    return 'sudo apt install ffmpeg libimage-exiftool-perl'
+                elif 'fedora' in content or 'rhel' in content or 'centos' in content:
+                    return 'sudo dnf install ffmpeg perl-Image-ExifTool'
+                elif 'arch' in content or 'manjaro' in content:
+                    return 'sudo pacman -S ffmpeg perl-image-exiftool'
+        except (FileNotFoundError, PermissionError):
+            pass
+        return 'sudo apt install ffmpeg libimage-exiftool-perl'  # Default to Debian
+    elif system == 'Darwin':
+        return 'brew install ffmpeg exiftool'
+    elif system == 'Windows':
+        return 'Descargar desde ffmpeg.org y exiftool.org'
+    else:
+        return 'Consulta la documentación de tu sistema operativo'
+
+
+# =============================================================================
+# FILE OPERATIONS
+# =============================================================================
 
 
 def open_file_with_default_app(file_path: Path, 

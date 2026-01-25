@@ -637,6 +637,10 @@ class FileInfoRepositoryCache:
                 if 'duration' in video_metadata and video_metadata['duration']:
                     target_metadata.exif_VideoDuration = video_metadata['duration']
                 
+                # Mapear duración en segundos (para filtrado de Live Photos)
+                if 'duration_seconds' in video_metadata and video_metadata['duration_seconds']:
+                    target_metadata.exif_VideoDurationSeconds = video_metadata['duration_seconds']
+                
                 if not cached_metadata:
                     # Si no estaba en caché, agregarlo
                     self._cache[path] = metadata

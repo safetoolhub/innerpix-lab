@@ -111,7 +111,8 @@ class Config:
     MAX_TIME_DIFFERENCE_SECONDS = 1  # Tolerancia máxima de tiempo entre archivos duplicados (segundos)
     
     # Live Photos
-    LIVE_PHOTO_MAX_VIDEO_SIZE = 8 * 1024 * 1024  # 8 MB
+    LIVE_PHOTO_MAX_VIDEO_SIZE = 8 * 1024 * 1024  # 8 MB (solo para warning, no para filtrado)
+    LIVE_PHOTO_MAX_VIDEO_DURATION_SECONDS = 3.2  # Videos > 3.2s no se eliminan (Live Photos = 3s)
 
     # Archivos Similares (Clustering)
     MAX_HAMMING_THRESHOLD = 20  # Máximo threshold de distancia de Hamming (0-20)

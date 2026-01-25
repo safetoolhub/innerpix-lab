@@ -214,7 +214,7 @@ class AnalysisPhaseWidget(QFrame):
             status_icon.hide()
         
         elif status == 'skipped':
-            # Fase omitida
+            # Fase omitida (por falta de herramientas o configuración)
             container.setStyleSheet(DesignSystem.get_phase_item_style('skipped'))
             
             number_label.setText(str(number_value))
@@ -222,8 +222,8 @@ class AnalysisPhaseWidget(QFrame):
             
             text_label.setStyleSheet(DesignSystem.get_phase_title_style('skipped'))
             
-            # Mostrar texto "se realizará más adelante"
-            counter_label.setText("(más adelante)")
+            # Mostrar texto indicando que se saltó
+            counter_label.setText("(omitida)")
             counter_label.setStyleSheet(f"""
                 font-size: {DesignSystem.FONT_SIZE_XS}px;
                 color: {DesignSystem.COLOR_TEXT_SECONDARY};

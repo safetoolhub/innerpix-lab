@@ -1,19 +1,18 @@
 from pathlib import Path
 import logging
 import os
-import platform
-import subprocess
 import sys
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QTabWidget, QWidget, QGroupBox, QVBoxLayout as QVLayout,
     QHBoxLayout, QLabel, QLineEdit, QPushButton, QComboBox, QFrame, 
-    QMessageBox, QCheckBox, QSpinBox
+    QMessageBox, QCheckBox, QSpinBox, QScrollArea
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 from config import Config
 from ui.styles.design_system import DesignSystem
 from utils.logger import set_global_log_level, get_logger
 from utils.settings_manager import settings_manager
+from utils.platform_utils import check_ffprobe, check_exiftool, get_current_os_install_hint
 import logging
 
 
@@ -59,7 +58,7 @@ class SettingsDialog(QDialog):
     def init_ui(self):
         self.setWindowTitle("Configuración")
         self.setModal(True)
-        self.resize(800, 875)
+        self.resize(850, 960)  # Aumentado verticalmente para acomodar instrucciones sin scroll
         
         # Aplicar estilo base del DesignSystem
         self.setStyleSheet(f"""
@@ -80,15 +79,19 @@ class SettingsDialog(QDialog):
 
         # === PESTAÑA 1: GENERAL ===
         general_tab = self._create_general_tab()
-        self.tabs.addTab(general_tab, "General")
+        self.tabs.addTab(self._wrap_in_scroll_area(general_tab), "General")
 
-        # === PESTAÑA 2: BACKUPS ===
+        # === PESTAÑA 2: ANÁLISIS INICIAL ===
+        analysis_tab = self._create_analysis_tab()
+        self.tabs.addTab(self._wrap_in_scroll_area(analysis_tab), "Análisis inicial")
+
+        # === PESTAÑA 3: BACKUPS ===
         backups_tab = self._create_backups_tab()
-        self.tabs.addTab(backups_tab, "Backup y Logs")
+        self.tabs.addTab(self._wrap_in_scroll_area(backups_tab), "Backup y Logs")
 
-        # === PESTAÑA 3: AVANZADO ===
+        # === PESTAÑA 4: AVANZADO ===
         advanced_tab = self._create_advanced_tab()
-        self.tabs.addTab(advanced_tab, "Avanzado")
+        self.tabs.addTab(self._wrap_in_scroll_area(advanced_tab), "Avanzado")
 
         main_layout.addWidget(self.tabs)
 
@@ -144,6 +147,16 @@ class SettingsDialog(QDialog):
         footer_layout.addWidget(self.save_button)
 
         return footer
+
+    def _wrap_in_scroll_area(self, widget: QWidget) -> QScrollArea:
+        """Envuelve un widget en un QScrollArea para evitar cortes de contenido"""
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setWidget(widget)
+        # Hacer el fondo del scroll area transparente para que herede el del tab widget
+        scroll.setStyleSheet(f"background-color: transparent;")
+        return scroll
 
     def _create_groupbox(self, title: str) -> QGroupBox:
         """Crea un QGroupBox con estilo consistente del DesignSystem"""
@@ -290,10 +303,120 @@ class SettingsDialog(QDialog):
 
         layout.addWidget(dryrun_group)
 
+        layout.addStretch()
+        return widget
+
+    def _create_analysis_tab(self):
+        """Pestaña de configuración de análisis inicial y herramientas"""
+        widget = QWidget()
+        widget.setObjectName("analysis_tab")
+        widget.setStyleSheet(f"#analysis_tab {{ background-color: {DesignSystem.COLOR_BACKGROUND}; }}")
+        layout = QVLayout(widget)
+        layout.setContentsMargins(
+            DesignSystem.SPACE_20,
+            DesignSystem.SPACE_20,
+            DesignSystem.SPACE_20,
+            DesignSystem.SPACE_20
+        )
+        layout.setSpacing(DesignSystem.SPACE_16)  # Más compacto
+
+        # === HERRAMIENTAS DEL SISTEMA ===
+        tools_group = self._create_groupbox("Herramientas del Sistema")
+        tools_layout = QVLayout(tools_group)
+        tools_layout.setSpacing(DesignSystem.SPACE_8)  # Más compacto
+
+        tools_info = self._create_info_label(
+            "Para extraer metadatos de videos (duración, fecha de creación) se requieren herramientas externas. "
+            "Sin ellas, la fase de análisis de videos se saltará automáticamente."
+        )
+        tools_layout.addWidget(tools_info)
+
+        # Contenedor horizontal para estado + botón
+        tools_row = QWidget()
+        tools_row_layout = QHBoxLayout(tools_row)
+        tools_row_layout.setContentsMargins(0, 0, 0, 0)
+        tools_row_layout.setSpacing(DesignSystem.SPACE_12)  # Más compacto
+
+        # Frame para mostrar estado de herramientas
+        self.tools_status_frame = QFrame()
+        # Usamos el nuevo estilo profesional de DesignSystem
+        self.tools_status_frame.setStyleSheet(DesignSystem.get_status_frame_style(DesignSystem.COLOR_BORDER))
+        
+        tools_status_layout = QVLayout(self.tools_status_frame)
+        tools_status_layout.setSpacing(DesignSystem.SPACE_4)
+
+        self.ffprobe_status_label = QLabel("⏳ ffprobe: Verificando...")
+        self.ffprobe_status_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px;")
+        tools_status_layout.addWidget(self.ffprobe_status_label)
+
+        self.exiftool_status_label = QLabel("⏳ exiftool: Verificando...")
+        self.exiftool_status_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px;")
+        tools_status_layout.addWidget(self.exiftool_status_label)
+
+        tools_row_layout.addWidget(self.tools_status_frame, 1)
+
+        # Botón para verificar herramientas
+        check_tools_btn = QPushButton("Verificar")
+        check_tools_btn.setFixedWidth(120)  # Aumentado para evitar corte de texto
+        check_tools_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
+        check_tools_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        check_tools_btn.setToolTip("Verificar si las herramientas están instaladas")
+        check_tools_btn.clicked.connect(self._check_system_tools)
+        tools_row_layout.addWidget(check_tools_btn, 0, Qt.AlignmentFlag.AlignTop)
+
+        tools_layout.addWidget(tools_row)
+
+        # Info colapsable sobre instalación
+        self.install_info_btn = QPushButton("📦 ¿Cómo instalar estas herramientas?")
+        self.install_info_btn.setFlat(True)
+        self.install_info_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.install_info_btn.setStyleSheet(f"""
+            QPushButton {{
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                color: {DesignSystem.COLOR_PRIMARY};
+                text-align: left;
+                padding: {DesignSystem.SPACE_4}px 0;
+                border: none;
+            }}
+            QPushButton:hover {{
+                color: {DesignSystem.COLOR_PRIMARY_HOVER};
+                text-decoration: underline;
+            }}
+        """)
+        self.install_info_btn.clicked.connect(self._toggle_install_info)
+        tools_layout.addWidget(self.install_info_btn)
+
+        # Panel de instalación (oculto por defecto) - instrucciones según SO
+        current_os_hint = get_current_os_install_hint()
+        self.install_info_panel = QLabel(
+            f"<b>Tu sistema:</b> {current_os_hint}<br><br>"
+            "• <b>Ubuntu/Debian:</b> sudo apt install ffmpeg libimage-exiftool-perl<br>"
+            "• <b>Fedora/RHEL:</b> sudo dnf install ffmpeg perl-Image-ExifTool<br>"
+            "• <b>Arch/Manjaro:</b> sudo pacman -S ffmpeg perl-image-exiftool<br>"
+            "• <b>macOS:</b> brew install ffmpeg exiftool<br>"
+            "• <b>Windows:</b> Descargar desde ffmpeg.org y exiftool.org"
+        )
+        self.install_info_panel.setWordWrap(True)
+        self.install_info_panel.setOpenExternalLinks(True)
+        self.install_info_panel.setStyleSheet(f"""
+            QLabel {{
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                background-color: {DesignSystem.COLOR_BG_4};
+                border-radius: {DesignSystem.RADIUS_MD}px;
+                padding: {DesignSystem.SPACE_12}px;
+                margin-left: {DesignSystem.SPACE_8}px;
+            }}
+        """)
+        self.install_info_panel.hide()  # Oculto por defecto
+        tools_layout.addWidget(self.install_info_panel)
+
+        layout.addWidget(tools_group)
+
         # === CONFIGURACIÓN DE ANÁLISIS INICIAL ===
         analysis_group = self._create_groupbox("Configuración de Análisis Inicial")
         analysis_layout = QVLayout(analysis_group)
-        analysis_layout.setSpacing(DesignSystem.SPACE_12)
+        analysis_layout.setSpacing(DesignSystem.SPACE_8)  # Más compacto
 
         analysis_info = self._create_info_label(
             "Controla qué información se extrae durante el escaneo inicial del directorio. "
@@ -361,6 +484,9 @@ class SettingsDialog(QDialog):
         analysis_layout.addWidget(self.precalculate_video_exif_checkbox)
 
         layout.addWidget(analysis_group)
+
+        # Verificar herramientas al cargar
+        self._check_system_tools()
 
         layout.addStretch()
         return widget
@@ -682,15 +808,6 @@ class SettingsDialog(QDialog):
                 padding: {DesignSystem.SPACE_4}px 0;
             }}
         """)
-        debug_layout.addWidget(debug_info)
-
-        layout.addWidget(debug_group)
-
-        layout.addStretch()
-        return widget
-
-
-        debug_info.setWordWrap(True)
         debug_layout.addWidget(debug_info)
 
         layout.addWidget(debug_group)
@@ -1311,3 +1428,69 @@ class SettingsDialog(QDialog):
                 "Error",
                 f"No se pudo guardar la configuración:\n{str(e)}"
             )
+
+    def _toggle_install_info(self):
+        """Muestra u oculta el panel de instrucciones de instalación."""
+        if self.install_info_panel.isVisible():
+            self.install_info_panel.hide()
+            self.install_info_btn.setText("📦 ¿Cómo instalar estas herramientas?")
+        else:
+            self.install_info_panel.show()
+            self.install_info_btn.setText("📦 Ocultar instrucciones de instalación")
+
+    def _check_system_tools(self):
+        """
+        Verifica si las herramientas del sistema necesarias están instaladas.
+        
+        Usa las funciones unificadas de utils/platform_utils.py para verificación
+        multiplataforma (Windows, Linux, macOS).
+        """
+        self.logger.debug("Iniciando verificación de herramientas del sistema (ffprobe, exiftool)...")
+        
+        # Verificar ffprobe usando función unificada
+        ffprobe_status = check_ffprobe()
+        self.logger.debug(f"Resultado ffprobe: disponible={ffprobe_status.available}, versión={ffprobe_status.version}")
+        
+        if ffprobe_status.available:
+            display_text = f"✅ ffprobe: {ffprobe_status.version[:40]}" if ffprobe_status.version else "✅ ffprobe: Instalado"
+            self.ffprobe_status_label.setText(display_text)
+            self.ffprobe_status_label.setStyleSheet(f"""
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                color: {DesignSystem.COLOR_SUCCESS};
+            """)
+        else:
+            self.ffprobe_status_label.setText("❌ ffprobe: No instalado")
+            self.ffprobe_status_label.setStyleSheet(f"""
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                color: {DesignSystem.COLOR_ERROR};
+            """)
+        
+        # Verificar exiftool usando función unificada
+        exiftool_status = check_exiftool()
+        self.logger.debug(f"Resultado exiftool: disponible={exiftool_status.available}, versión={exiftool_status.version}")
+        
+        if exiftool_status.available:
+            display_text = f"✅ exiftool: v{exiftool_status.version}" if exiftool_status.version else "✅ exiftool: Instalado"
+            self.exiftool_status_label.setText(display_text)
+            self.exiftool_status_label.setStyleSheet(f"""
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                color: {DesignSystem.COLOR_SUCCESS};
+            """)
+        else:
+            self.exiftool_status_label.setText("❌ exiftool: No instalado")
+            self.exiftool_status_label.setStyleSheet(f"""
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                color: {DesignSystem.COLOR_ERROR};
+            """)
+        
+        # Actualizar estilo del frame según disponibilidad
+        has_ffprobe = ffprobe_status.available
+        has_exiftool = exiftool_status.available
+        
+        if has_ffprobe and has_exiftool:
+            self.tools_status_frame.setStyleSheet(DesignSystem.get_status_frame_style(DesignSystem.COLOR_SUCCESS))
+        elif has_ffprobe or has_exiftool:
+            self.tools_status_frame.setStyleSheet(DesignSystem.get_status_frame_style(DesignSystem.COLOR_WARNING))
+        else:
+            self.tools_status_frame.setStyleSheet(DesignSystem.get_status_frame_style(DesignSystem.COLOR_ERROR))
+

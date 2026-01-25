@@ -333,7 +333,7 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     
     logger.debug(f"Metadatos obtenidos - Size: {metadata.fs_size}, Hash: {metadata.has_hash}, EXIF: {metadata.has_exif}, Best Date: {metadata.has_best_date}")
     if metadata.is_video:
-        logger.debug(f"Video metadata EXIF - DateTimeOriginal: {metadata.exif_DateTimeOriginal}, DateTime: {metadata.exif_DateTime}, Width: {metadata.exif_ImageWidth}, Height: {metadata.exif_ImageLength}, Duration: {metadata.exif_VideoDuration}")
+        logger.debug(f"Video metadata EXIF - DateTimeOriginal: {metadata.exif_DateTimeOriginal}, DateTime: {metadata.exif_DateTime}, Width: {metadata.exif_ImageWidth}, Height: {metadata.exif_ImageLength}, Duration: {metadata.video_duration_formatted}, Seconds: {metadata.exif_VideoDurationSeconds}")
     
     # Para videos con force_search, extraer metadatos técnicos adicionales
     video_metadata = None

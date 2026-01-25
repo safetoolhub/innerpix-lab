@@ -755,6 +755,23 @@ class DesignSystem:
                 padding: 10px {DesignSystem.SPACE_20}px;
             }}
         """
+
+    @staticmethod
+    def get_status_frame_style(color: str):
+        """Retorna el estilo para un frame de estado con borde lateral coloreado.
+        
+        Diseño profesional: fondo de superficie, borde sutil y un acento
+        específico de color en el lateral izquierdo para indicar el estado.
+        """
+        return f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-left: 5px solid {color};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_8}px;
+            }}
+        """
     
     @staticmethod
     def get_stale_banner_style():

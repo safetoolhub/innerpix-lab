@@ -13,6 +13,7 @@ from PyQt6.QtGui import QColor, QFont, QCursor
 from PyQt6.QtCore import Qt, QTimer
 from config import Config
 from utils.format_utils import format_size
+from utils.platform_utils import are_video_tools_available
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
 from services.result_types import LivePhotosAnalysisResult, LivePhotoGroup
@@ -82,8 +83,11 @@ class LivePhotosDialog(BaseDialog):
         )
         main_layout.addWidget(self.header_frame)
         
-        # Warning sobre metadata de video desactivado
-        if not Config.USE_VIDEO_METADATA:
+        # Warning sobre metadata de video no disponible
+        # Prioridad: 1) Herramientas no instaladas, 2) Configuración desactivada
+        video_tools_available = are_video_tools_available()
+        
+        if not video_tools_available or not Config.USE_VIDEO_METADATA:
             warning_container = QWidget()
             warning_container_layout = QVBoxLayout(warning_container)
             warning_container_layout.setContentsMargins(
@@ -94,14 +98,29 @@ class LivePhotosDialog(BaseDialog):
             )
             warning_container_layout.setSpacing(0)
             
-            warning_banner = self._create_warning_banner(
-                title='Detección sin validación temporal',
-                message='La extracción de metadata de video está desactivada. Los Live Photos se detectan '
-                        'solo por coincidencia de nombres, validando únicamente las fechas provenientes del sistema. '
-                        'Esto puede incluir falsos positivos.',
-                action_text='Activar en Configuración',
-                action_callback=self._open_settings
-            )
+            if not video_tools_available:
+                # Herramientas no instaladas - warning más importante
+                warning_banner = self._create_warning_banner(
+                    title='Herramientas de video no disponibles',
+                    message='No se detectaron <b>ffprobe</b> ni <b>exiftool</b> en el sistema. '
+                            'Sin estas herramientas, no es posible validar la duración ni fechas de los videos. '
+                            'Los Live Photos se detectan solo por coincidencia de nombres, lo que puede incluir falsos positivos.',
+                    icon='alert-circle',
+                    action_text='Ver cómo instalar',
+                    action_callback=self._open_settings,
+                    bg_color=DesignSystem.COLOR_DANGER_BG,
+                    border_color=DesignSystem.COLOR_ERROR
+                )
+            else:
+                # Herramientas disponibles pero configuración desactivada
+                warning_banner = self._create_warning_banner(
+                    title='Detección sin validación temporal',
+                    message='La extracción de metadata de video está desactivada. Los Live Photos se detectan '
+                            'solo por coincidencia de nombres, validando únicamente las fechas provenientes del sistema. '
+                            'Esto puede incluir falsos positivos.',
+                    action_text='Activar en Configuración',
+                    action_callback=self._open_settings
+                )
             warning_container_layout.addWidget(warning_banner)
             main_layout.addWidget(warning_container)
         
@@ -675,7 +694,7 @@ class LivePhotosDialog(BaseDialog):
         super().accept()
     
     def _open_settings(self):
-        """Abre el diálogo de configuración en la pestaña General"""
+        """Abre el diálogo de configuración en la pestaña Análisis inicial"""
         from .settings_dialog import SettingsDialog
-        settings_dialog = SettingsDialog(self, initial_tab=0)  # 0 = General tab
+        settings_dialog = SettingsDialog(self, initial_tab=1)  # 1 = Análisis inicial tab
         settings_dialog.exec()
