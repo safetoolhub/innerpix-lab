@@ -153,6 +153,19 @@ class DesignSystem:
     ICON_SIZE_LG = 24
     ICON_SIZE_XL = 32
     
+    # ==================== HELPERS PRIVADOS (Estilos comunes reutilizables) ====================
+    
+    @staticmethod
+    def _get_button_disabled_style():
+        """Helper interno: estilo disabled compartido por todos los botones."""
+        return f"""
+            QPushButton:disabled {{
+                background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+            }}
+        """
+    
     # ==================== MÉTODOS DE AYUDA ====================
     
     @staticmethod
@@ -580,12 +593,7 @@ class DesignSystem:
             QPushButton:pressed {{
                 background-color: {DesignSystem.COLOR_PRIMARY};
             }}
-            QPushButton:disabled {{
-                background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-            }}
-        """
+        """ + DesignSystem._get_button_disabled_style()
     
     @staticmethod
     def get_danger_button_style():
@@ -614,12 +622,7 @@ class DesignSystem:
             QPushButton:pressed {{
                 background-color: #A02530;
             }}
-            QPushButton:disabled {{
-                background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-            }}
-        """
+        """ + DesignSystem._get_button_disabled_style()
     
     @staticmethod
     def get_secondary_button_style():
@@ -649,12 +652,7 @@ class DesignSystem:
             QPushButton:pressed {{
                 background-color: {DesignSystem.COLOR_BORDER_LIGHT};
             }}
-            QPushButton:disabled {{
-                background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-            }}
-        """
+        """ + DesignSystem._get_button_disabled_style()
     
     @staticmethod
     def get_icon_button_style():
@@ -1369,19 +1367,6 @@ class DesignSystem:
         """
     
     @staticmethod
-    def get_analysis_phase_header_style():
-        """Retorna el estilo para header del widget de fases.
-        
-        Returns:
-            str: Estilo CSS para título de sección.
-        """
-        return f"""
-            font-size: {DesignSystem.FONT_SIZE_LG}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-            color: {DesignSystem.COLOR_TEXT};
-        """
-    
-    @staticmethod
     def get_stats_label_style():
         """Retorna el estilo para labels de estadísticas.
         
@@ -1410,28 +1395,6 @@ class DesignSystem:
                 border: none;
             }}
         """
-    
-    @staticmethod
-    def get_status_label_style(state: str = 'normal'):
-        """Retorna el estilo para labels de estado.
-        
-        Args:
-            state: 'normal' para texto estándar, 'success' para verde.
-        
-        Returns:
-            str: Estilo CSS con color según estado.
-        """
-        if state == 'success':
-            return f"""
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                color: {DesignSystem.COLOR_SUCCESS};
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-            """
-        else:
-            return f"""
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                color: {DesignSystem.COLOR_TEXT};
-            """
     
     @staticmethod
     def get_tip_text_style(color: str = None):
@@ -1541,24 +1504,6 @@ class DesignSystem:
         """
     
     @staticmethod
-    def get_tutorial_feature_card_style():
-        """Retorna el estilo para cards de features en tutoriales.
-        
-        Card sin bordes ruidosos, usando contraste de fondo.
-        """
-        return f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_BACKGROUND};
-                border: none;
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: {DesignSystem.SPACE_16}px;
-            }}
-            QFrame:hover {{
-                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
-            }}
-        """
-    
-    @staticmethod
     def get_tutorial_feature_card_accent_style(accent_color: str):
         """Retorna el estilo para cards de features con acento de color.
         
@@ -1589,30 +1534,6 @@ class DesignSystem:
             font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
             color: {DesignSystem.COLOR_TEXT};
             padding-bottom: {DesignSystem.SPACE_8}px;
-        """
-    
-    @staticmethod
-    def get_tutorial_badge_style(bg_color: str, text_color: str = None):
-        """Retorna el estilo para badges de categoría en tutoriales.
-        
-        Args:
-            bg_color: Color de fondo del badge.
-            text_color: Color del texto. Si es None, usa blanco o texto oscuro según contraste.
-        
-        Returns:
-            str: Estilo QSS para QLabel tipo badge.
-        """
-        final_text_color = text_color if text_color else DesignSystem.COLOR_PRIMARY_TEXT
-        return f"""
-            QLabel {{
-                background-color: {bg_color};
-                color: {final_text_color};
-                font-size: 10px;
-                font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
-                padding: 2px 8px;
-                border-radius: {DesignSystem.RADIUS_FULL}px;
-                text-transform: uppercase;
-            }}
         """
     
     @staticmethod
@@ -1672,6 +1593,7 @@ class DesignSystem:
         """Retorna el estilo para cards de pasos numerados en tutoriales.
         
         Card limpia sin bordes, usando el fondo base para contraste.
+        También usado para mini cards de herramientas.
         """
         return f"""
             QFrame {{
@@ -1696,20 +1618,8 @@ class DesignSystem:
             }}
         """
     
-    @staticmethod
-    def get_tutorial_tool_card_style():
-        """Retorna el estilo para mini cards de herramientas en tutoriales.
-        """
-        return f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_BACKGROUND};
-                border: none;
-                border-radius: {DesignSystem.RADIUS_LG}px;
-            }}
-            QFrame:hover {{
-                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
-            }}
-        """
+    # Alias para retrocompatibilidad - idéntico a get_tutorial_step_card_style
+    get_tutorial_tool_card_style = get_tutorial_step_card_style
     
     @staticmethod
     def get_tutorial_note_style():
