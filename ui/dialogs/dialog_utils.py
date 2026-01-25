@@ -335,14 +335,14 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     if metadata.is_video:
         logger.debug(f"Video metadata EXIF - DateTimeOriginal: {metadata.exif_DateTimeOriginal}, DateTime: {metadata.exif_DateTime}, Width: {metadata.exif_ImageWidth}, Height: {metadata.exif_ImageLength}, Duration: {metadata.video_duration_formatted}, Seconds: {metadata.exif_VideoDurationSeconds}")
     
-    # Para videos con force_search, extraer metadatos técnicos adicionales
+    # Para videos con force_search, extraer metadatos técnicos adicionales de ffprobe
     video_metadata = None
     if force_metadata_search and metadata.is_video:
         try:
             from utils.file_utils import get_exif_from_video
             video_metadata = get_exif_from_video(file_path)
             if video_metadata:
-                logger.debug(f"Metadatos técnicos de video obtenidos: {len(video_metadata)} campos")
+                logger.debug(f"Metadatos técnicos de video obtenidos via ffprobe: {len(video_metadata)} campos")
         except Exception as e:
             logger.warning(f"Error obteniendo metadatos técnicos de video: {e}")
     
@@ -468,15 +468,120 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
         if add_items:
             scroll_layout.addWidget(_create_enhanced_section("Contexto de la Operación", add_items))
     
-    # SECCIÓN: FECHAS EXIF (Penúltima posición)
+    # SECCIÓN: METADATOS TÉCNICOS DE VIDEO (desde FileMetadata o ffprobe)
+    # Posicionada ANTES de las fechas para mayor visibilidad
+    if metadata.is_video:
+        video_tech_items = []
+        
+        # Dimensiones del video (desde FileMetadata)
+        if metadata.exif_ImageWidth and metadata.exif_ImageLength:
+            resolution = f"{metadata.exif_ImageWidth} × {metadata.exif_ImageLength}"
+            video_tech_items.append((
+                "Resolución",
+                resolution,
+                "Dimensiones del video en píxeles",
+                'monitor',
+                DesignSystem.COLOR_INFO
+            ))
+        elif metadata.exif_ImageWidth:
+            video_tech_items.append(("Ancho", f"{metadata.exif_ImageWidth} píxeles", "Ancho del video", 'ruler', DesignSystem.COLOR_INFO))
+        elif metadata.exif_ImageLength:
+            video_tech_items.append(("Alto", f"{metadata.exif_ImageLength} píxeles", "Alto del video", 'ruler', DesignSystem.COLOR_INFO))
+        
+        # Duración del video (desde FileMetadata)
+        if metadata.video_duration_formatted:
+            video_tech_items.append((
+                "Duración",
+                metadata.video_duration_formatted,
+                "Duración total del video",
+                'clock-outline',
+                DesignSystem.COLOR_INFO
+            ))
+        
+        # Si hay metadatos adicionales de ffprobe (force_metadata_search)
+        if video_metadata:
+            # Frame rate
+            if 'fps' in video_metadata:
+                video_tech_items.append((
+                    "Frames por segundo",
+                    video_metadata['fps'],
+                    "Tasa de fotogramas del video",
+                    'speedometer',
+                    DesignSystem.COLOR_INFO
+                ))
+            
+            # Códec de video
+            if 'video_codec' in video_metadata:
+                codec_display = video_metadata['video_codec'].upper()
+                if 'video_codec_long' in video_metadata:
+                    codec_display = f"{codec_display} ({video_metadata['video_codec_long']})"
+                video_tech_items.append((
+                    "Códec de video",
+                    codec_display,
+                    "Códec utilizado para comprimir el video",
+                    'file-video',
+                    DesignSystem.COLOR_INFO
+                ))
+            
+            # Bitrate
+            if 'bitrate' in video_metadata:
+                video_tech_items.append((
+                    "Bitrate",
+                    video_metadata['bitrate'],
+                    "Tasa de bits del video",
+                    'speedometer',
+                    DesignSystem.COLOR_INFO
+                ))
+            
+            # Formato
+            if 'format_long' in video_metadata:
+                video_tech_items.append((
+                    "Formato contenedor",
+                    video_metadata['format_long'],
+                    "Formato del archivo contenedor",
+                    'folder-zip',
+                    DesignSystem.COLOR_INFO
+                ))
+            elif 'format' in video_metadata:
+                video_tech_items.append((
+                    "Formato",
+                    video_metadata['format'],
+                    "Formato del archivo",
+                    'folder-zip',
+                    DesignSystem.COLOR_INFO
+                ))
+            
+            # Pixel format
+            if 'pixel_format' in video_metadata:
+                video_tech_items.append((
+                    "Formato de píxel",
+                    video_metadata['pixel_format'],
+                    "Formato de representación de color",
+                    'palette',
+                    DesignSystem.COLOR_INFO
+                ))
+            
+            # Encoder
+            if 'encoder' in video_metadata:
+                video_tech_items.append((
+                    "Codificador",
+                    video_metadata['encoder'],
+                    "Software usado para codificar el video",
+                    'cog',
+                    DesignSystem.COLOR_INFO
+                ))
+        
+        if video_tech_items:
+            section_title = "Metadatos Técnicos de Video"
+            if video_metadata:
+                section_title += " (ffprobe)"
+            scroll_layout.addWidget(_create_enhanced_section(section_title, video_tech_items))
+    
+    # SECCIÓN: FECHAS EXIF (después de metadatos técnicos de video)
     scroll_layout.addWidget(_create_dates_section(metadata))
     
-    # SECCIÓN: METADATOS TÉCNICOS DE VIDEO (Si es video y hay metadatos)
-    if metadata.is_video and video_metadata:
-        scroll_layout.addWidget(_create_video_metadata_section(video_metadata))
-    
-    # SECCIÓN: METADATOS TÉCNICOS EXIF (Última posición)
-    if metadata.has_exif:
+    # SECCIÓN: METADATOS TÉCNICOS EXIF (Última posición - solo para imágenes)
+    if metadata.has_exif and metadata.is_image:
         exif_items = []
         
         # Dimensiones
@@ -915,118 +1020,6 @@ def _reload_with_full_metadata(file_path: Path, parent_widget, additional_info, 
     )
 
 
-
-
-def _create_video_metadata_section(video_metadata: dict):
-    """Crea una sección para mostrar metadatos técnicos de video
-    
-    Args:
-        video_metadata: Diccionario con metadatos técnicos del video desde get_exif_from_video()
-        
-    Returns:
-        QGroupBox con la sección de metadatos de video
-    """
-    from PyQt6.QtWidgets import QGroupBox, QVBoxLayout
-    from ui.styles.design_system import DesignSystem
-    
-    video_items = []
-    
-    # Dimensiones
-    if 'width' in video_metadata and 'height' in video_metadata:
-        resolution = f"{video_metadata['width']} × {video_metadata['height']}"
-        video_items.append((
-            "Resolución",
-            resolution,
-            "Dimensiones del video en píxeles",
-            'monitor',
-            DesignSystem.COLOR_INFO
-        ))
-    
-    # Duración
-    if 'duration' in video_metadata:
-        video_items.append((
-            "Duración",
-            video_metadata['duration'],
-            "Duración total del video",
-            'clock-outline',
-            DesignSystem.COLOR_INFO
-        ))
-    
-    # Frame rate
-    if 'fps' in video_metadata:
-        video_items.append((
-            "Frames por segundo",
-            video_metadata['fps'],
-            "Tasa de fotogramas del video",
-            'speedometer',
-            DesignSystem.COLOR_INFO
-        ))
-    
-    # Códec de video
-    if 'video_codec' in video_metadata:
-        codec_display = video_metadata['video_codec'].upper()
-        if 'video_codec_long' in video_metadata:
-            codec_display = f"{codec_display} ({video_metadata['video_codec_long']})"
-        video_items.append((
-            "Códec de video",
-            codec_display,
-            "Códec utilizado para comprimir el video",
-            'file-video',
-            DesignSystem.COLOR_INFO
-        ))
-    
-    # Bitrate
-    if 'bitrate' in video_metadata:
-        video_items.append((
-            "Bitrate",
-            video_metadata['bitrate'],
-            "Tasa de bits del video",
-            'speedometer',
-            DesignSystem.COLOR_INFO
-        ))
-    
-    # Formato
-    if 'format_long' in video_metadata:
-        video_items.append((
-            "Formato contenedor",
-            video_metadata['format_long'],
-            "Formato del archivo contenedor",
-            'folder-zip',
-            DesignSystem.COLOR_INFO
-        ))
-    elif 'format' in video_metadata:
-        video_items.append((
-            "Formato",
-            video_metadata['format'],
-            "Formato del archivo",
-            'folder-zip',
-            DesignSystem.COLOR_INFO
-        ))
-    
-    # Pixel format
-    if 'pixel_format' in video_metadata:
-        video_items.append((
-            "Formato de píxel",
-            video_metadata['pixel_format'],
-            "Formato de representación de color",
-            'palette',
-            DesignSystem.COLOR_INFO
-        ))
-    
-    # Encoder
-    if 'encoder' in video_metadata:
-        video_items.append((
-            "Codificador",
-            video_metadata['encoder'],
-            "Software usado para codificar el video",
-            'cog',
-            DesignSystem.COLOR_INFO
-        ))
-    
-    if not video_items:
-        return None
-    
-    return _create_enhanced_section("Metadatos Técnicos de Video (ffprobe)", video_items)
 
 
 
