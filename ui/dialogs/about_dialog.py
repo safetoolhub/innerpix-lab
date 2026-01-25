@@ -64,8 +64,8 @@ class AboutDialog(QDialog):
         
         # Crear las pestañas (nombres compactos)
         self.tab_widget.addTab(self._create_welcome_tab(), "🏠 Inicio")
-        self.tab_widget.addTab(self._create_privacy_tab(), "🛡️ Seguridad")
         self.tab_widget.addTab(self._create_tools_tab(), "🔧 Herramientas")
+        self.tab_widget.addTab(self._create_privacy_tab(), "🛡️ Seguridad")
         self.tab_widget.addTab(self._create_tech_tab(), "ℹ️ Info")
 
         content_layout.addWidget(self.tab_widget)
@@ -189,31 +189,39 @@ class AboutDialog(QDialog):
         description.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT}; font-size: {DesignSystem.FONT_SIZE_BASE}px;")
         layout.addWidget(description)
         
-        # Flujo en grid horizontal (2x2)
-        workflow_title = QLabel("Cómo funciona")
+        # Flujo en lista vertical (4 pasos secuenciales)
+        workflow_title = QLabel("Proceso de trabajo (Pasos a seguir en orden)")
         workflow_title.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_MD}px;
             font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-            color: {DesignSystem.COLOR_TEXT};
+            color: {DesignSystem.COLOR_PRIMARY};
+            margin-top: {DesignSystem.SPACE_8}px;
         """)
         layout.addWidget(workflow_title)
+
+        workflow_desc = QLabel(
+            "InnerPix Lab está diseñado para seguir un flujo lógico y optimizar tu colección de manera progresiva. "
+            "Sigue estos 4 pasos para obtener el mejor resultado:"
+        )
+        workflow_desc.setWordWrap(True)
+        workflow_desc.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_SM}px; margin-bottom: {DesignSystem.SPACE_4}px;")
+        layout.addWidget(workflow_desc)
         
-        steps_grid = QGridLayout()
-        steps_grid.setSpacing(DesignSystem.SPACE_8)
+        steps_container = QVBoxLayout()
+        steps_container.setSpacing(DesignSystem.SPACE_8)
         
         steps = [
-            ("1", "Selecciona carpeta", "Elige la carpeta con tus fotos"),
-            ("2", "Análisis automático", "Escaneo de archivos y metadatos"),
-            ("3", "Usa las herramientas", "Cada tool analiza y optimiza"),
-            ("4", "Revisa y ejecuta", "Previsualiza antes de aplicar"),
+            ("1", "Selección del Origen", "El primer paso es elegir la carpeta que contiene tus fotos y vídeos. El sistema trabajará de forma recursiva."),
+            ("2", "Análisis Profundo", "Automáticamente escaneamos archivos, extraemos metadatos EXIF y calculamos firmas digitales (hashes)."),
+            ("3", "Uso de Herramientas", "Entra en cada herramienta para detectar duplicados, organizar por fechas o limpiar archivos innecesarios."),
+            ("4", "Ejecución de Cambios", "Tras revisar los planes de acción propuestos, confirma la ejecución. Recomendamos usar el Modo Simulación primero."),
         ]
         
-        for i, (num, title, desc) in enumerate(steps):
-            row, col = i // 2, i % 2
+        for num, title, desc in steps:
             step_widget = self._create_step_widget_compact(num, title, desc)
-            steps_grid.addWidget(step_widget, row, col)
+            steps_container.addWidget(step_widget)
         
-        layout.addLayout(steps_grid)
+        layout.addLayout(steps_container)
         
         # Tips en horizontal
         tips_layout = QHBoxLayout()
