@@ -278,11 +278,21 @@ class DuplicatesExactDialog(BaseDialog):
         # Opciones para filtro de origen de fecha (usar constantes de BaseDialog)
         source_options = self.DATE_SOURCE_FILTER_OPTIONS
         
+        # Diccionario de etiquetas para el DesignSystem.get_filter_label_style()
+        labels = {
+            'search': 'Buscar por nombre',
+            'size': 'Tamaño / Cantidad',
+            'groups': 'Grupos seleccionados',
+            'source': 'Origen de fecha',
+            'type': 'Tipo de archivo'
+        }
+        
         # Configuración de filtros expandibles
         expandable_filters = [
             {
                 'id': 'source',
                 'type': 'combo',
+                'label': labels['source'],
                 'tooltip': 'Filtrar por origen de la fecha',
                 'options': source_options,
                 'on_change': self._on_source_filter_changed,
@@ -292,6 +302,7 @@ class DuplicatesExactDialog(BaseDialog):
             {
                 'id': 'type',
                 'type': 'type_buttons',
+                'label': labels['type'],
                 'tooltip': 'Filtrar por tipo de archivo',
                 'options': [
                     ('all', 'view-grid', 'Mostrar todos los archivos'),
@@ -307,7 +318,8 @@ class DuplicatesExactDialog(BaseDialog):
             on_search_changed=self._on_search_changed,
             on_size_filter_changed=self._on_filter_changed,
             expandable_filters=expandable_filters,
-            is_files_mode=False
+            is_files_mode=False,
+            labels=labels
         )
         
         # Guardar referencias a los widgets

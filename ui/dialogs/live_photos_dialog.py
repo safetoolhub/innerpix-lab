@@ -180,11 +180,21 @@ class LivePhotosDialog(BaseDialog):
             str(group.directory) for group in self.analysis.groups
         )))
         
+        # Diccionario de etiquetas
+        labels = {
+            'search': 'Buscar por nombre',
+            'size': 'Mínimo tamaño',
+            'groups': 'Grupos seleccionados',
+            'source': 'Origen de fecha',
+            'directory': 'Directorio'
+        }
+        
         # Configuración de filtros expandibles
         expandable_filters = [
             {
                 'id': 'source',
                 'type': 'combo',
+                'label': labels['source'],
                 'tooltip': 'Filtrar grupos por origen de la fecha de comparación',
                 'options': self.DATE_SOURCE_FILTER_OPTIONS + ["Filesystem (atime)"],
                 'on_change': lambda idx: self._apply_filters(),
@@ -194,6 +204,7 @@ class LivePhotosDialog(BaseDialog):
             {
                 'id': 'directory',
                 'type': 'combo',
+                'label': labels['directory'],
                 'tooltip': 'Filtrar grupos por directorio',
                 'options': ["Todos los directorios"] + directories,
                 'on_change': lambda idx: self._apply_filters(),
@@ -207,7 +218,8 @@ class LivePhotosDialog(BaseDialog):
             on_search_changed=self._apply_filters,
             on_size_filter_changed=lambda idx: self._apply_filters(),
             expandable_filters=expandable_filters,
-            is_files_mode=False
+            is_files_mode=False,
+            labels=labels
         )
         
         # Guardar referencias a componentes

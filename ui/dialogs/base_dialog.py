@@ -1480,7 +1480,8 @@ class BaseDialog(QDialog):
         on_size_filter_changed: callable,
         expandable_filters: Optional[List[Dict]] = None,
         size_filter_options: Optional[List[str]] = None,
-        is_files_mode: bool = False
+        is_files_mode: bool = False,
+        labels: Optional[Dict[str, str]] = None
     ) -> 'QFrame':
         """Crea barra de filtros unificada con diseño consistente para todos los diálogos.
         
@@ -1491,28 +1492,14 @@ class BaseDialog(QDialog):
         Args:
             on_search_changed: Callback para cambios en búsqueda
             on_size_filter_changed: Callback para cambios en filtro tamaño/cantidad
-            expandable_filters: Lista de filtros para la barra desplegable. Cada filtro:
-                {
-                    'id': str,           # ID único del filtro
-                    'type': str,         # 'combo' o 'type_buttons'
-                    'tooltip': str,      # Tooltip del filtro
-                    'options': list,     # Opciones del combo o botones
-                    'on_change': callable,  # Callback(value) al cambiar
-                    'default_index': int    # Índice por defecto (para combos)
-                }
+            expandable_filters: Lista de filtros para la barra desplegable.
             size_filter_options: Lista personalizada de opciones para el filtro de tamaño.
-                Default: ["Todos", ">10 MB", ">50 MB", ">100 MB", "3+ copias", "5+ copias"]
             is_files_mode: Si True, muestra "Archivos" en vez de "Grupos" en el chip
+            labels: Diccionario opcional de etiquetas para los filtros.
+                Ej: {'search': 'Buscar:', 'size': 'Tamaño:', 'groups': 'Grupos:'}
             
         Returns:
             QFrame con la barra de filtros.
-            Atributos disponibles:
-            - search_input: QLineEdit
-            - size_filter_combo: QComboBox
-            - status_chip: QLabel
-            - expand_btn: QPushButton (para mostrar/ocultar filtros adicionales)
-            - expandable_container: QWidget (contenedor de filtros adicionales)
-            - filter_widgets: dict[str, QWidget] (widgets de filtros por ID)
         """
         from PyQt6.QtWidgets import (
             QFrame, QHBoxLayout, QVBoxLayout, QWidget, QLabel, 
@@ -1521,6 +1508,8 @@ class BaseDialog(QDialog):
         from PyQt6.QtCore import Qt
         from ui.styles.design_system import DesignSystem
         from ui.styles.icons import icon_manager
+        
+        labels = labels or {}
         
         # Default size filter options
         if size_filter_options is None:
@@ -1533,10 +1522,11 @@ class BaseDialog(QDialog):
                 "5+ copias"
             ]
         
-        # Frame principal
+        # Frame principal - más compacto
         main_frame = QFrame()
+        main_frame.setObjectName("UnifiedFilterBar")
         main_frame.setStyleSheet(f"""
-            QFrame {{
+            QFrame#UnifiedFilterBar {{
                 background-color: {DesignSystem.COLOR_SURFACE};
                 border: 1px solid {DesignSystem.COLOR_BORDER};
                 border-radius: {DesignSystem.RADIUS_LG}px;
@@ -1545,7 +1535,7 @@ class BaseDialog(QDialog):
         """)
         
         main_layout = QVBoxLayout(main_frame)
-        main_layout.setSpacing(int(DesignSystem.SPACE_12))
+        main_layout.setSpacing(int(DesignSystem.SPACE_8))
         main_layout.setContentsMargins(0, 0, 0, 0)
         
         # === BARRA PRINCIPAL ===
@@ -1553,107 +1543,137 @@ class BaseDialog(QDialog):
         primary_bar.setSpacing(int(DesignSystem.SPACE_12))
         primary_bar.setContentsMargins(0, 0, 0, 0)
         
-        # Input de búsqueda con icono
+        # --- BÚSQUEDA ---
+        search_vlayout = QVBoxLayout()
+        search_vlayout.setSpacing(2)  # Espacio mínimo entre label y control
+        search_vlayout.setContentsMargins(0, 0, 0, 0)
+        
+        if 'search' in labels:
+            search_label = QLabel(labels['search'])
+            search_label.setStyleSheet(DesignSystem.get_filter_label_style())
+            search_vlayout.addWidget(search_label)
+            
         search_container = QWidget()
+        search_container.setObjectName("SearchContainer")
+        search_container.setFixedHeight(36)  # Altura unificada
+        search_container.setStyleSheet(f"""
+            QWidget#SearchContainer {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                border: 2px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+            }}
+            QWidget#SearchContainer:hover {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+        """)
+        
         search_container_layout = QHBoxLayout(search_container)
-        search_container_layout.setContentsMargins(
-            int(DesignSystem.SPACE_12),
-            int(DesignSystem.SPACE_8),
-            int(DesignSystem.SPACE_12),
-            int(DesignSystem.SPACE_8)
-        )
-        search_container_layout.setSpacing(int(DesignSystem.SPACE_8))
+        search_container_layout.setContentsMargins(10, 6, 10, 6)
+        search_container_layout.setSpacing(8)
         
         search_icon = QLabel()
-        icon_manager.set_label_icon(search_icon, 'magnify', size=18)
+        icon_manager.set_label_icon(search_icon, 'magnify', size=16)
         search_container_layout.addWidget(search_icon)
         
         search_input = QLineEdit()
-        search_input.setPlaceholderText("Buscar por nombre o ruta...")
+        search_input.setPlaceholderText("Buscar...")
         search_input.textChanged.connect(on_search_changed)
         search_input.setStyleSheet(f"""
             QLineEdit {{
                 border: none;
                 background: transparent;
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
                 color: {DesignSystem.COLOR_TEXT};
+                padding: 0px;
             }}
         """)
         search_container_layout.addWidget(search_input, 1)
         
-        search_container.setStyleSheet(f"""
-            QWidget {{
-                background-color: {DesignSystem.COLOR_BG_1};
-                border: 2px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-            }}
-        """)
-        primary_bar.addWidget(search_container, 3)
+        search_vlayout.addWidget(search_container)
+        primary_bar.addLayout(search_vlayout, 3)
         
-        # Filtro de tamaño/cantidad
+        # --- FILTRO TAMAÑO/CANTIDAD ---
+        size_vlayout = QVBoxLayout()
+        size_vlayout.setSpacing(2)  # Espacio mínimo entre label y control
+        size_vlayout.setContentsMargins(0, 0, 0, 0)
+        
+        if 'size' in labels:
+            size_label = QLabel(labels['size'])
+            size_label.setStyleSheet(DesignSystem.get_filter_label_style())
+            size_vlayout.addWidget(size_label)
+            
         size_filter_combo = QComboBox()
         size_filter_combo.addItems(size_filter_options)
         size_filter_combo.currentIndexChanged.connect(on_size_filter_changed)
-        size_filter_combo.setToolTip("Filtrar por tamaño o cantidad de elementos")
+        size_filter_combo.setToolTip("Filtrar por tamaño o cantidad")
+        size_filter_combo.setFixedHeight(36)  # Altura unificada
         size_filter_combo.setStyleSheet(self._get_unified_combo_style())
-        size_filter_combo.setMinimumWidth(140)
-        primary_bar.addWidget(size_filter_combo)
+        size_filter_combo.setMinimumWidth(150)
+        size_vlayout.addWidget(size_filter_combo)
+        primary_bar.addLayout(size_vlayout)
         
         # Espaciador flexible
         primary_bar.addStretch()
         
+        # --- STATUS CHIP (Grupos:) ---
+        status_vlayout = QVBoxLayout()
+        status_vlayout.setSpacing(2)  # Espacio mínimo entre label y control
+        status_vlayout.setContentsMargins(0, 0, 0, 0)
+        
+        # Etiqueta de grupos - ahora alineada a la izquierda
+        entity_label_text = labels.get('groups', "Archivos seleccionados" if is_files_mode else "Grupos seleccionados")
+        groups_label = QLabel(entity_label_text)
+        groups_label.setStyleSheet(DesignSystem.get_filter_label_style())
+        groups_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        status_vlayout.addWidget(groups_label)
+        
+        # El chip en sí
+        status_chip = QLabel()
+        status_chip.setMinimumWidth(70)
+        status_chip.setFixedHeight(36)  # Altura unificada
+        status_chip.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # El estilo dinámico se aplica en _update_filter_chip
+        status_vlayout.addWidget(status_chip)
+        primary_bar.addLayout(status_vlayout)
+        
         # Botón expandir filtros (solo si hay filtros expandibles)
-        expand_btn = None
         if expandable_filters:
+            expand_vlayout = QVBoxLayout()
+            expand_vlayout.setSpacing(2)
+            expand_vlayout.setContentsMargins(0, 0, 0, 0)
+            
+            # Label vacío para alinear con otros controles
+            if 'search' in labels or 'size' in labels:
+                empty_label = QLabel()
+                empty_label.setStyleSheet("font-size: 9px; margin: 0px; padding: 0px;")
+                empty_label.setFixedHeight(11)  # Altura aproximada del label
+                expand_vlayout.addWidget(empty_label)
+            
             expand_btn = QPushButton()
             expand_btn.setCheckable(True)
             expand_btn.setChecked(False)
-            expand_btn.setToolTip("Mostrar filtros adicionales")
-            icon_manager.set_button_icon(expand_btn, 'filter-variant', size=18)
-            expand_btn.setFixedSize(36, 36)
+            expand_btn.setToolTip("Más filtros")
+            icon_manager.set_button_icon(expand_btn, 'filter-variant', size=16)
+            expand_btn.setFixedSize(36, 36)  # Altura unificada
             expand_btn.setStyleSheet(f"""
                 QPushButton {{
                     background-color: {DesignSystem.COLOR_BG_1};
                     border: 2px solid {DesignSystem.COLOR_BORDER};
                     border-radius: {DesignSystem.RADIUS_BASE}px;
-                    padding: 6px;
                 }}
                 QPushButton:hover {{
                     border-color: {DesignSystem.COLOR_PRIMARY};
-                    background-color: {DesignSystem.COLOR_SURFACE};
                 }}
                 QPushButton:checked {{
                     background-color: {DesignSystem.COLOR_PRIMARY};
                     border-color: {DesignSystem.COLOR_PRIMARY};
                 }}
             """)
-            primary_bar.addWidget(expand_btn)
-        
-        # Label + Chip de estado
-        entity_label = "Archivos:" if is_files_mode else "Grupos:"
-        groups_label = QLabel(entity_label)
-        groups_label.setStyleSheet(f"""
-            color: {DesignSystem.COLOR_TEXT_SECONDARY};
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            background: transparent;
-        """)
-        primary_bar.addWidget(groups_label)
-        
-        status_chip = QLabel()
-        status_chip.setMinimumWidth(70)
-        status_chip.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        status_chip.setStyleSheet(f"""
-            QLabel {{
-                background-color: {DesignSystem.COLOR_PRIMARY};
-                color: {DesignSystem.COLOR_PRIMARY_TEXT};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_10}px;
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
-            }}
-        """)
-        primary_bar.addWidget(status_chip)
-        
+            expand_vlayout.addWidget(expand_btn)
+            primary_bar.addLayout(expand_vlayout)
+        else:
+            expand_btn = None
+            
         main_layout.addLayout(primary_bar)
         
         # === BARRA EXPANDIBLE ===
@@ -1670,6 +1690,17 @@ class BaseDialog(QDialog):
             for filter_config in expandable_filters:
                 filter_id = filter_config['id']
                 filter_type = filter_config.get('type', 'combo')
+                filter_label_text = labels.get(filter_id, filter_config.get('label'))
+                
+                # Layout vertical para cada filtro en la barra expandible
+                v_box = QVBoxLayout()
+                v_box.setSpacing(2)  # Espacio mínimo entre label y control
+                v_box.setContentsMargins(0, 0, 0, 0)
+                
+                if filter_label_text:
+                    f_label = QLabel(filter_label_text)
+                    f_label.setStyleSheet(DesignSystem.get_filter_label_style())
+                    v_box.addWidget(f_label)
                 
                 if filter_type == 'combo':
                     combo = QComboBox()
@@ -1679,16 +1710,19 @@ class BaseDialog(QDialog):
                         lambda idx, cb=filter_config['on_change']: cb(idx)
                     )
                     combo.setToolTip(filter_config.get('tooltip', ''))
+                    combo.setFixedHeight(36)  # Altura unificada
                     combo.setStyleSheet(self._get_unified_combo_style())
-                    combo.setMinimumWidth(filter_config.get('min_width', 180))
-                    expandable_layout.addWidget(combo)
+                    combo.setMinimumWidth(filter_config.get('min_width', 150))
+                    v_box.addWidget(combo)
                     filter_widgets[filter_id] = combo
                     
                 elif filter_type == 'type_buttons':
                     # Botones para filtro de tipo (imágenes/vídeos/todo)
                     type_container = QFrame()
+                    type_container.setObjectName("TypeButtonsContainer")
+                    type_container.setFixedHeight(36)  # Altura unificada
                     type_container.setStyleSheet(f"""
-                        QFrame {{
+                        QFrame#TypeButtonsContainer {{
                             background-color: {DesignSystem.COLOR_BG_1};
                             border: 2px solid {DesignSystem.COLOR_BORDER};
                             border-radius: {DesignSystem.RADIUS_BASE}px;
@@ -1706,14 +1740,14 @@ class BaseDialog(QDialog):
                         btn.setChecked(btn_id == filter_config.get('default', 'all'))
                         btn.setToolTip(tooltip)
                         btn.setCursor(Qt.CursorShape.PointingHandCursor)
-                        icon_manager.set_button_icon(btn, icon_name, size=18)
-                        btn.setFixedSize(36, 36)
+                        icon_manager.set_button_icon(btn, icon_name, size=16)
+                        btn.setFixedSize(32, 28)  # Más compacto
                         btn.setStyleSheet(f"""
                             QPushButton {{
                                 background-color: transparent;
                                 border: none;
                                 border-radius: {DesignSystem.RADIUS_SM}px;
-                                padding: 6px;
+                                padding: 2px;
                             }}
                             QPushButton:hover {{
                                 background-color: {DesignSystem.COLOR_SURFACE};
@@ -1729,8 +1763,10 @@ class BaseDialog(QDialog):
                         type_layout.addWidget(btn)
                         type_buttons[btn_id] = btn
                     
-                    expandable_layout.addWidget(type_container)
+                    v_box.addWidget(type_container)
                     filter_widgets[filter_id] = type_buttons
+                
+                expandable_layout.addLayout(v_box)
             
             expandable_layout.addStretch()
             main_layout.addWidget(expandable_container)
@@ -1740,7 +1776,7 @@ class BaseDialog(QDialog):
                 is_expanded = expand_btn.isChecked()
                 expandable_container.setVisible(is_expanded)
                 icon_name = 'filter-variant-remove' if is_expanded else 'filter-variant'
-                icon_manager.set_button_icon(expand_btn, icon_name, size=18)
+                icon_manager.set_button_icon(expand_btn, icon_name, size=16)
                 expand_btn.setToolTip(
                     "Ocultar filtros adicionales" if is_expanded else "Mostrar filtros adicionales"
                 )
@@ -1805,7 +1841,7 @@ class BaseDialog(QDialog):
         loaded_count: Optional[int] = None,
         is_files_mode: bool = False
     ):
-        """Actualiza el chip de estado de filtros.
+        """Actualiza el chip de estado de filtros con estilo unificado.
         
         Args:
             status_chip: QLabel del chip
@@ -1815,16 +1851,17 @@ class BaseDialog(QDialog):
             is_files_mode: Si True, el tooltip dice "archivos" en vez de "grupos"
         """
         entity = "archivos" if is_files_mode else "grupos"
+        status_chip.setObjectName("StatusChip")
         
         if filtered_count != total_count:
-            # Hay filtros activos - color warning
+            # Hay filtros activos - color warning/accent
             status_chip.setText(f"{filtered_count}/{total_count}")
             status_chip.setStyleSheet(f"""
-                QLabel {{
+                QLabel#StatusChip {{
                     background-color: {DesignSystem.COLOR_WARNING};
                     color: {DesignSystem.COLOR_SURFACE};
-                    border-radius: {DesignSystem.RADIUS_BASE}px;
-                    padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_10}px;
+                    border-radius: 18px;
+                    padding: 0px 14px;
                     font-size: {DesignSystem.FONT_SIZE_SM}px;
                     font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
                     min-width: 70px;
@@ -1835,14 +1872,15 @@ class BaseDialog(QDialog):
                 tooltip += f"\n(Cargados en lista: {loaded_count} de {filtered_count})"
             status_chip.setToolTip(tooltip)
         else:
-            # Sin filtros - color primary
+            # Sin filtros - color primario más sutil o neutro
             status_chip.setText(f"{total_count}/{total_count}")
             status_chip.setStyleSheet(f"""
-                QLabel {{
-                    background-color: {DesignSystem.COLOR_PRIMARY};
-                    color: {DesignSystem.COLOR_PRIMARY_TEXT};
-                    border-radius: {DesignSystem.RADIUS_BASE}px;
-                    padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_10}px;
+                QLabel#StatusChip {{
+                    background-color: {DesignSystem.COLOR_BG_1};
+                    color: {DesignSystem.COLOR_PRIMARY};
+                    border: 2px solid {DesignSystem.COLOR_PRIMARY};
+                    border-radius: 18px;
+                    padding: 0px 14px;
                     font-size: {DesignSystem.FONT_SIZE_SM}px;
                     font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
                     min-width: 70px;

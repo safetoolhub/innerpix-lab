@@ -747,11 +747,21 @@ class FileOrganizerDialog(BaseDialog):
     
     def _create_filter_bar(self) -> QWidget:
         """Crea barra de filtros unificada usando método base"""
+        # Diccionario de etiquetas
+        labels = {
+            'search': 'Buscar por nombre',
+            'size': 'Mínimo tamaño',
+            'groups': 'Archivos seleccionados',
+            'category': 'Tipo de archivo',
+            'status': 'Estado'
+        }
+        
         # Configuración de filtros expandibles
         expandable_filters = [
             {
                 'id': 'category',
                 'type': 'combo',
+                'label': labels['category'],
                 'tooltip': 'Filtrar por tipo de archivo (Fotos/Videos)',
                 'options': ["Todos"],  # Se actualiza dinámicamente
                 'on_change': lambda idx: self._apply_filters(),
@@ -761,6 +771,7 @@ class FileOrganizerDialog(BaseDialog):
             {
                 'id': 'status',
                 'type': 'combo',
+                'label': labels['status'],
                 'tooltip': 'Filtrar por estado (Con/Sin conflictos)',
                 'options': ["Todos"],  # Se actualiza dinámicamente
                 'on_change': lambda idx: self._apply_filters(),
@@ -774,7 +785,8 @@ class FileOrganizerDialog(BaseDialog):
             on_search_changed=self._apply_filters,
             on_size_filter_changed=lambda idx: self._apply_filters(),
             expandable_filters=expandable_filters,
-            is_files_mode=True
+            is_files_mode=True,
+            labels=labels
         )
         
         # Guardar referencias a componentes

@@ -269,11 +269,20 @@ class VisualIdenticalDialog(BaseDialog):
         # Opciones para filtro de origen de fecha (usar constantes de BaseDialog)
         source_options = self.DATE_SOURCE_FILTER_OPTIONS
         
+        # Diccionario de etiquetas
+        labels = {
+            'search': 'Buscar por nombre',
+            'size': 'Tamaño / Cantidad',
+            'groups': 'Grupos seleccionados',
+            'source': 'Origen de fecha'
+        }
+        
         # Configuración de filtros expandibles
         expandable_filters = [
             {
                 'id': 'source',
                 'type': 'combo',
+                'label': labels['source'],
                 'tooltip': 'Filtrar por origen de la fecha',
                 'options': source_options,
                 'on_change': self._on_source_filter_changed,
@@ -297,7 +306,8 @@ class VisualIdenticalDialog(BaseDialog):
             on_size_filter_changed=self._on_filter_changed,
             expandable_filters=expandable_filters,
             size_filter_options=size_options,
-            is_files_mode=False
+            is_files_mode=False,
+            labels=labels
         )
         
         # Guardar referencias a los widgets

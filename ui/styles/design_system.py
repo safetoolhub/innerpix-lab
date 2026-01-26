@@ -278,6 +278,41 @@ class DesignSystem:
         """
     
     @staticmethod
+    def get_filter_label_style():
+        """Retorna el estilo para etiquetas de filtros.
+        
+        Diseño minimalista y compacto: texto muy pequeño, discreto.
+        Sin bordes y con espaciado mínimo.
+        """
+        return f"""
+            QLabel {{
+                font-size: 9px;
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                background: transparent;
+                border: none;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                margin: 0px;
+                padding: 0px 0px 2px 0px;
+            }}
+        """
+    
+    @staticmethod
+    def get_filter_container_style():
+        """Estilo para contenedores de inputs dentro de la barra de filtros."""
+        return f"""
+            QWidget {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                border: 2px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+            }}
+            QWidget:hover {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+        """
+    
+    @staticmethod
     def get_tooltip_style():
         """Retorna el estilo QSS para tooltips.
         

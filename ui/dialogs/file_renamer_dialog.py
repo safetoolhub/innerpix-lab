@@ -189,11 +189,23 @@ class FileRenamerDialog(BaseDialog):
         )))
         years = [str(year) for year in sorted(self.analysis_results.files_by_year.keys(), reverse=True)]
         
+        # Diccionario de etiquetas
+        labels = {
+            'search': 'Buscar por nombre',
+            'size': 'Mínimo tamaño',
+            'groups': 'Archivos seleccionados',
+            'conflict': 'Conflicto',
+            'file_type': 'Tipo archivo',
+            'source': 'Origen fecha',
+            'year': 'Año'
+        }
+        
         # Configuración de filtros expandibles
         expandable_filters = [
             {
                 'id': 'conflict',
                 'type': 'combo',
+                'label': labels['conflict'],
                 'tooltip': 'Filtrar por estado de conflicto',
                 'options': ["Todos", "Solo conflictos", "Sin conflictos"],
                 'on_change': lambda idx: self._apply_filters(),
@@ -203,6 +215,7 @@ class FileRenamerDialog(BaseDialog):
             {
                 'id': 'file_type',
                 'type': 'combo',
+                'label': labels['file_type'],
                 'tooltip': 'Filtrar por tipo de archivo',
                 'options': ["Todos"] + file_types,
                 'on_change': lambda idx: self._apply_filters(),
@@ -212,6 +225,7 @@ class FileRenamerDialog(BaseDialog):
             {
                 'id': 'source',
                 'type': 'combo',
+                'label': labels['source'],
                 'tooltip': 'Filtrar por fuente de la fecha',
                 'options': ["Todos"] + date_sources,
                 'on_change': lambda idx: self._apply_filters(),
@@ -221,6 +235,7 @@ class FileRenamerDialog(BaseDialog):
             {
                 'id': 'year',
                 'type': 'combo',
+                'label': labels['year'],
                 'tooltip': 'Filtrar por año',
                 'options': ["Todos"] + years,
                 'on_change': lambda idx: self._apply_filters(),
@@ -234,7 +249,8 @@ class FileRenamerDialog(BaseDialog):
             on_search_changed=self._apply_filters,
             on_size_filter_changed=lambda idx: self._apply_filters(),
             expandable_filters=expandable_filters,
-            is_files_mode=True
+            is_files_mode=True,
+            labels=labels
         )
         
         # Guardar referencias a componentes
