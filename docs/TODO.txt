@@ -1,13 +1,25 @@
 Innerpix lab
 ---------------
 
-Meter en duplicados exactos filtro por imagen o video
+Meter en duplicados exactos filtro por imagen o video para poder ver los videos y comprobar si se detectan
 
 Tenemos que poner en las cards avisos antes del analisis de que si hay metadatos que serian muy utiles tener avisar al usuario. Ejemplo, lo de best date es critico para organizar arhivos, así que debemos avisarlo. 
 
 COn videos creo que no se hace nada en los de similares. Se gestioann imagenes solo
 
+Revisar ls clases de servicio de duplciados que aun tienen herencia de cuando estaban juntos
+
+Revisar lode que la duracion de videos tengan 2 campos, en detalles y en todas partes
+      "exif_VideoDuration": "0:01 min",
+      "exif_VideoDurationSeconds": 1.201678
+Lo suyo es tener unicamente el de los segundo, hacer una funion que te lo muestra en string y en horas y cambiarlo donde se use, es peligroso, pero quedará mejor, porque el redondeo del string es un asco
+
+
+
 Podriamos para live photos comprobar que el video es mas corto de 5 segundos
+
+Revisar y unificar los mensajes que se muestran en stage 3 tras el uso de una tool_name
+Revisar y homogeniezar los logs que salen en debug e info
 
 BUG: si se va a similar duplciates, se borra 1 y se vuelve a stage 3, y se le da de nuevo se queda colgado. Seguramente 
 

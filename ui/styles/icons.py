@@ -29,7 +29,7 @@ Uso básico:
 Categorías de iconos disponibles:
 - Configuración y sistema: cog, information, devices, monitor, etc.
 - Estados y notificaciones: alert, check, close, shield, etc.
-- Archivos y carpetas: folder, file, open-in-new, magnify, etc.
+- Archivos y carpetas: folder, file, open-in-new, magnify, view-grid, etc.
 - Operaciones: delete, content-save, backup-restore, refresh, etc.
 - Multimedia: image, video, camera, eye, etc.
 - Duplicados: content-copy
@@ -94,6 +94,7 @@ class IconManager:
         'file-check': 'mdi6.file-check',
         'file-plus': 'mdi6.file-plus',
         'file-edit': 'mdi6.file-edit',
+        'view-grid': 'mdi6.view-grid',
         
         # === OPERACIONES DE ARCHIVOS ===
         'open-in-new': 'mdi6.open-in-new',

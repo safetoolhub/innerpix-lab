@@ -35,31 +35,6 @@ class AnalysisPhaseWidget(QFrame):
         layout.setSpacing(DesignSystem.SPACE_4)
         layout.setContentsMargins(0, 0, 0, 0)
         
-        # Header del panel de fases
-        header_layout = QHBoxLayout()
-        header_layout.setSpacing(DesignSystem.SPACE_8)
-        header_layout.setContentsMargins(0, 0, 0, DesignSystem.SPACE_8)
-        
-        header_icon = QLabel()
-        icon_manager.set_label_icon(
-            header_icon,
-            'chart-bar',
-            color=DesignSystem.COLOR_TEXT_SECONDARY,
-            size=18
-        )
-        header_layout.addWidget(header_icon)
-        
-        header_text = QLabel("Progreso del análisis")
-        header_text.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-            color: {DesignSystem.COLOR_TEXT};
-        """)
-        header_layout.addWidget(header_text)
-        header_layout.addStretch()
-        
-        layout.addLayout(header_layout)
-        
         # Definir las fases con sus IDs y textos
         phases = [
             (InitialScanner.PHASE_FILE_CLASSIFICATION, "Escaneando estructura de carpetas", 1),
