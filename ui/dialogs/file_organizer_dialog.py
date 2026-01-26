@@ -127,9 +127,9 @@ class FileOrganizerDialog(BaseDialog):
         if self.folders_info_widget:
             content_layout.addWidget(self.folders_info_widget)
         
-        # === BARRA DE HERRAMIENTAS ===
-        toolbar = self._create_toolbar()
-        content_layout.addLayout(toolbar)
+        # === BARRA DE FILTROS UNIFICADA ===
+        self.filter_bar = self._create_filter_bar()
+        content_layout.addWidget(self.filter_bar)
         
         # === TREE WIDGET ===
         self.files_tree = self._create_tree_widget()
@@ -555,7 +555,14 @@ class FileOrganizerDialog(BaseDialog):
         """Maneja la finalización del análisis"""
         self.logger.info(f"Análisis completado: {result.items_count} archivos (tipo: {result.organization_type})")
         self.analysis = result
-        self.counter_label.setText(f"{len(result.move_plan)} archivos")
+        
+        # Actualizar chip de estado
+        self._update_filter_chip(
+            status_chip=self.status_chip,
+            filtered_count=len(result.move_plan),
+            total_count=len(result.move_plan),
+            is_files_mode=True
+        )
         
         # Actualizar opciones de filtros basadas en los datos
         self._update_filter_options()
@@ -738,121 +745,47 @@ class FileOrganizerDialog(BaseDialog):
         
         self.folders_info_label.setText(f"Se crearán {count} carpetas: <b>{folders_text}</b>")
     
-    def _create_toolbar(self) -> QHBoxLayout:
-        """Crea barra de herramientas con filtros usando DesignSystem"""
-        toolbar = QHBoxLayout()
-        toolbar.setSpacing(DesignSystem.SPACE_12)
-        toolbar.setContentsMargins(0, 0, 0, 0)
+    def _create_filter_bar(self) -> QWidget:
+        """Crea barra de filtros unificada usando método base"""
+        # Configuración de filtros expandibles
+        expandable_filters = [
+            {
+                'id': 'category',
+                'type': 'combo',
+                'tooltip': 'Filtrar por tipo de archivo (Fotos/Videos)',
+                'options': ["Todos"],  # Se actualiza dinámicamente
+                'on_change': lambda idx: self._apply_filters(),
+                'default_index': 0,
+                'min_width': 120
+            },
+            {
+                'id': 'status',
+                'type': 'combo',
+                'tooltip': 'Filtrar por estado (Con/Sin conflictos)',
+                'options': ["Todos"],  # Se actualiza dinámicamente
+                'on_change': lambda idx: self._apply_filters(),
+                'default_index': 0,
+                'min_width': 150
+            }
+        ]
         
-        # Búsqueda
-        search_container = QWidget()
-        search_layout = QHBoxLayout(search_container)
-        search_layout.setContentsMargins(0, 0, 0, 0)
-        search_layout.setSpacing(DesignSystem.SPACE_8)
+        # Crear barra unificada
+        filter_bar = self._create_unified_filter_bar(
+            on_search_changed=self._apply_filters,
+            on_size_filter_changed=lambda idx: self._apply_filters(),
+            expandable_filters=expandable_filters,
+            is_files_mode=True
+        )
         
-        search_icon = QLabel()
-        icon_manager.set_label_icon(search_icon, 'magnify', size=DesignSystem.ICON_SIZE_SM, color=DesignSystem.COLOR_TEXT_SECONDARY)
+        # Guardar referencias a componentes
+        self.search_input = filter_bar.search_input
+        self.filter_combo = filter_bar.size_filter_combo
+        self.status_chip = filter_bar.status_chip
+        self.expand_button = filter_bar.expand_btn
+        self.category_combo = filter_bar.filter_widgets.get('category')
+        self.status_combo = filter_bar.filter_widgets.get('status')
         
-        self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Buscar por nombre...")
-        self.search_input.textChanged.connect(self._apply_filters)
-        self.search_input.setMinimumWidth(250)
-        self.search_input.setStyleSheet(f"""
-            QLineEdit {{
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                background-color: {DesignSystem.COLOR_SURFACE};
-            }}
-            QLineEdit:focus {{
-                border-color: {DesignSystem.COLOR_PRIMARY};
-            }}
-        """)
-        
-        search_layout.addWidget(search_icon)
-        search_layout.addWidget(self.search_input)
-        toolbar.addWidget(search_container)
-        
-        # Separador vertical
-        sep = QFrame()
-        sep.setFrameShape(QFrame.Shape.VLine)
-        sep.setFrameShadow(QFrame.Shadow.Sunken)
-        sep.setStyleSheet(f"color: {DesignSystem.COLOR_BORDER}; background-color: {DesignSystem.COLOR_BORDER};")
-        sep.setFixedHeight(20)
-        toolbar.addWidget(sep)
-        
-        # Filtro por Categoría
-        cat_container = QHBoxLayout()
-        cat_container.setSpacing(DesignSystem.SPACE_8)
-        
-        cat_label = QLabel("Categoría:")
-        cat_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
-        
-        self.category_combo = QComboBox()
-        self.category_combo.addItems(["Todos"])
-        self.category_combo.currentTextChanged.connect(self._apply_filters)
-        self.category_combo.setMinimumWidth(100)
-        self.category_combo.setStyleSheet(DesignSystem.get_combobox_style())
-        cat_container.addWidget(cat_label)
-        cat_container.addWidget(self.category_combo)
-        toolbar.addLayout(cat_container)
-
-
-        
-        # Filtro por Estado (Conflictos)
-        status_container = QHBoxLayout()
-        status_container.setSpacing(DesignSystem.SPACE_8)
-        
-        status_label = QLabel("Estado:")
-        status_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
-        
-        self.status_combo = QComboBox()
-        self.status_combo.addItems(["Todos"])
-        self.status_combo.currentTextChanged.connect(self._apply_filters)
-        self.status_combo.setMinimumWidth(130)
-        self.status_combo.setMinimumWidth(130)
-        self.status_combo.setStyleSheet(DesignSystem.get_combobox_style())
-        
-        status_container.addWidget(status_label)
-        status_container.addWidget(self.status_combo)
-        toolbar.addLayout(status_container)
-        
-        toolbar.addStretch()
-        
-        # Botón limpiar
-        clear_btn = QPushButton("Limpiar Filtros")
-        # Usar estilo secondary-small pero personalizado para que se vea bien en toolbar
-        clear_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                color: {DesignSystem.COLOR_TEXT};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-            }}
-            QPushButton:hover {{
-                background-color: {DesignSystem.COLOR_BG_2};
-                border-color: {DesignSystem.COLOR_PRIMARY};
-                color: {DesignSystem.COLOR_PRIMARY};
-            }}
-        """)
-        icon_manager.set_button_icon(clear_btn, 'close', size=DesignSystem.ICON_SIZE_SM)
-        clear_btn.clicked.connect(self._clear_filters)
-        toolbar.addWidget(clear_btn)
-        
-        # Contador
-        self.counter_label = QLabel()
-        self.counter_label.setStyleSheet(f"""
-            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-            color: {DesignSystem.COLOR_PRIMARY};
-            margin-left: {DesignSystem.SPACE_12}px;
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-        """)
-        toolbar.addWidget(self.counter_label)
-        
-        return toolbar
+        return filter_bar
     
     def _create_tree_widget(self) -> QTreeWidget:
         """Crea TreeWidget con configuración dinámica"""
@@ -1140,9 +1073,10 @@ class FileOrganizerDialog(BaseDialog):
         if not self.analysis:
             return
             
-        search_text = self.search_input.text().lower()
-        category_filter = self.category_combo.currentText()
-        status_filter = self.status_combo.currentText()
+        search_text = self.search_input.text().lower() if self.search_input else ""
+        size_filter = self.filter_combo.currentText() if self.filter_combo else "Todos los tamaños"
+        category_filter = self.category_combo.currentText() if self.category_combo else "Todos"
+        status_filter = self.status_combo.currentText() if self.status_combo else "Todos"
         
         self.filtered_moves = []
         
@@ -1154,13 +1088,15 @@ class FileOrganizerDialog(BaseDialog):
             if search_text and search_text not in move.original_name.lower():
                 continue
             
+            # Filtro por tamaño
+            if not self._matches_size_filter(move.size, size_filter):
+                continue
+            
             # Filtro por Categoría
             if category_filter != "Todos":
                 move_cat = type_map.get(move.file_type, 'Otros')
                 if move_cat != category_filter:
                     continue
-            
-
             
             # Filtro por Estado
             if status_filter == "Con Conflictos" and not move.has_conflict:
@@ -1173,11 +1109,34 @@ class FileOrganizerDialog(BaseDialog):
         # Reiniciar carga progresiva
         self._load_initial_items()
     
+    def _matches_size_filter(self, file_size: int, filter_value: str) -> bool:
+        """Verifica si el tamaño del archivo coincide con el filtro seleccionado."""
+        if filter_value == "Todos los tamaños":
+            return True
+        
+        mb = file_size / (1024 * 1024)
+        
+        if filter_value == "< 1 MB":
+            return mb < 1
+        elif filter_value == "1 - 10 MB":
+            return 1 <= mb < 10
+        elif filter_value == "10 - 100 MB":
+            return 10 <= mb < 100
+        elif filter_value == "> 100 MB":
+            return mb >= 100
+        
+        return True
+    
     def _clear_filters(self):
         """Limpia todos los filtros"""
-        self.search_input.clear()
-        self.category_combo.setCurrentIndex(0)
-        self.status_combo.setCurrentIndex(0)
+        if self.search_input:
+            self.search_input.clear()
+        if self.filter_combo:
+            self.filter_combo.setCurrentIndex(0)
+        if self.category_combo:
+            self.category_combo.setCurrentIndex(0)
+        if self.status_combo:
+            self.status_combo.setCurrentIndex(0)
     
     # ========================================================================
     # LÓGICA DE CARGA PROGRESIVA
@@ -1249,14 +1208,15 @@ class FileOrganizerDialog(BaseDialog):
                 total_count=len(self.all_moves),
                 load_increment=self.LOAD_INCREMENT
             )
-            
-            # Actualizar contador
-            total = len(self.all_moves)
-            filtered = len(self.filtered_moves)
-            if filtered == total:
-                self.counter_label.setText(f"Mostrando {self.loaded_count} de {filtered} archivos")
-            else:
-                self.counter_label.setText(f"Mostrando {self.loaded_count} de {filtered} archivos filtrados ({total} total)")
+        
+        # Actualizar chip de estado (independiente del loaded_count)
+        self._update_filter_chip(
+            status_chip=self.status_chip,
+            filtered_count=len(self.filtered_moves),
+            total_count=len(self.all_moves),
+            loaded_count=self.loaded_count,
+            is_files_mode=True
+        )
     
     def _populate_tree_to_root(self, moves):
         """Poblar tree para TO_ROOT"""

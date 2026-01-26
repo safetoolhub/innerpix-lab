@@ -108,6 +108,8 @@ class IconManager:
         'content-save': 'mdi6.content-save',
         'backup-restore': 'mdi6.backup-restore',
         'history': 'mdi6.history',
+        'filter-variant': 'mdi6.filter-variant',
+        'filter-variant-remove': 'mdi6.filter-variant-remove',
         
         # === TIEMPO Y ESTADÍSTICAS ===
         'chart-bar': 'mdi6.chart-bar',

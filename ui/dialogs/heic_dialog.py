@@ -40,8 +40,11 @@ class HeicDialog(BaseDialog):
         # Referencias a widgets
         self.tree_widget = None
         self.search_input = None
+        self.filter_combo = None
+        self.status_chip = None
+        self.source_combo = None
         self.dir_combo = None
-        self.counter_label = None
+        self.filter_bar = None
         self.pagination_bar = None
         
         self.init_ui()
@@ -92,9 +95,9 @@ class HeicDialog(BaseDialog):
         self.format_selector = self._create_format_selector()
         content_layout.addWidget(self.format_selector)
         
-        # Barra de herramientas (filtros y búsqueda)
-        toolbar = self._create_toolbar()
-        content_layout.addLayout(toolbar)
+        # Barra de filtros unificada
+        self.filter_bar = self._create_filter_bar()
+        content_layout.addWidget(self.filter_bar)
         
         # TreeWidget de grupos expandibles
         self.tree_widget = self._create_files_tree()
@@ -173,160 +176,70 @@ class HeicDialog(BaseDialog):
         # Recargar árbol con nuevo formato
         self._load_initial_groups()
     
-    def _create_toolbar(self):
-        """Crea barra de herramientas con filtros estilo Material Design"""
-        toolbar = QHBoxLayout()
-        toolbar.setSpacing(int(DesignSystem.SPACE_12))
-        toolbar.setContentsMargins(0, 0, 0, 0)
-        
-        # Búsqueda
-        search_container = QWidget()
-        search_layout = QHBoxLayout(search_container)
-        search_layout.setContentsMargins(0, 0, 0, 0)
-        search_layout.setSpacing(DesignSystem.SPACE_8)
-        
-        search_icon = QLabel()
-        icon_manager.set_label_icon(search_icon, 'magnify', size=DesignSystem.ICON_SIZE_SM, color=DesignSystem.COLOR_TEXT_SECONDARY)
-        
-        self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Buscar por nombre...")
-        self.search_input.textChanged.connect(self._apply_filters)
-        self.search_input.setMinimumWidth(250)
-        self.search_input.setStyleSheet(f"""
-            QLineEdit {{
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                background-color: {DesignSystem.COLOR_SURFACE};
-            }}
-            QLineEdit:focus {{
-                border-color: {DesignSystem.COLOR_PRIMARY};
-            }}
-        """)
-        self.search_input.setToolTip("Buscar grupos por nombre de archivo base")
-        
-        search_layout.addWidget(search_icon)
-        search_layout.addWidget(self.search_input)
-        toolbar.addWidget(search_container)
-        
-        # Filtro por directorio (sin etiqueta, estilo Material)
-        self.dir_combo = QComboBox()
-        directories = ["Todos los directorios"] + sorted(list(set(
+    def _create_filter_bar(self) -> QFrame:
+        """Crea la barra de filtros unificada."""
+        # Extraer directorios únicos
+        directories = sorted(list(set(
             str(pair.directory) for pair in self.analysis.duplicate_pairs
         )))
-        self.dir_combo.addItems(directories)
-        self.dir_combo.currentTextChanged.connect(self._apply_filters)
-        self.dir_combo.setMinimumWidth(200)
-        self.dir_combo.setStyleSheet(f"""
-            QComboBox {{
-                background-color: {DesignSystem.COLOR_BG_1};
-                border: 2px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                color: {DesignSystem.COLOR_TEXT};
-            }}
-            QComboBox:hover {{
-                border-color: {DesignSystem.COLOR_PRIMARY};
-                background-color: {DesignSystem.COLOR_SURFACE};
-            }}
-            QComboBox::drop-down {{
-                border: none;
-                padding-right: {DesignSystem.SPACE_8}px;
-            }}
-            QComboBox QAbstractItemView {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                selection-background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
-                selection-color: {DesignSystem.COLOR_TEXT};
-                padding: {DesignSystem.SPACE_4}px;
-            }}
-        """)
-        self.dir_combo.setToolTip("Filtrar grupos por directorio")
-        toolbar.addWidget(self.dir_combo)
+        dir_options = ["Todos los directorios"] + directories
         
-        # Filtro por origen de fecha (sin etiqueta, estilo Material)
-        self.source_combo = QComboBox()
-        self.source_combo.addItems([
-            "Todos los orígenes de fecha",
-            "EXIF DateTimeOriginal",
-            "EXIF CreateDate",
-            "EXIF ModifyDate",
-            "Filesystem (mtime)",
-            "Filesystem (ctime)",
-            "Filesystem (atime)"
-        ])
-        self.source_combo.currentTextChanged.connect(self._apply_filters)
-        self.source_combo.setMinimumWidth(200)
-        self.source_combo.setStyleSheet(f"""
-            QComboBox {{
-                background-color: {DesignSystem.COLOR_BG_1};
-                border: 2px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                color: {DesignSystem.COLOR_TEXT};
-            }}
-            QComboBox:hover {{
-                border-color: {DesignSystem.COLOR_PRIMARY};
-                background-color: {DesignSystem.COLOR_SURFACE};
-            }}
-            QComboBox::drop-down {{
-                border: none;
-                padding-right: {DesignSystem.SPACE_8}px;
-            }}
-            QComboBox QAbstractItemView {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                selection-background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
-                selection-color: {DesignSystem.COLOR_TEXT};
-                padding: {DesignSystem.SPACE_4}px;
-            }}
-        """)
-        self.source_combo.setToolTip("Filtrar grupos por origen de la fecha de comparación")
-        toolbar.addWidget(self.source_combo)
+        # Opciones para filtro de origen de fecha (usar constantes de BaseDialog)
+        source_options = self.DATE_SOURCE_FILTER_OPTIONS
         
-        toolbar.addStretch()
+        # Configuración de filtros expandibles
+        expandable_filters = [
+            {
+                'id': 'source',
+                'type': 'combo',
+                'tooltip': 'Filtrar por origen de la fecha',
+                'options': source_options,
+                'on_change': self._on_source_filter_changed,
+                'default_index': 0,
+                'min_width': 200
+            },
+            {
+                'id': 'directory',
+                'type': 'combo',
+                'tooltip': 'Filtrar por directorio',
+                'options': dir_options,
+                'on_change': self._on_dir_filter_changed,
+                'default_index': 0,
+                'min_width': 200
+            }
+        ]
         
-        # Botón limpiar filtros
-        clear_btn = QPushButton("Limpiar Filtros")
-        clear_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                color: {DesignSystem.COLOR_TEXT};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-            }}
-            QPushButton:hover {{
-                background-color: {DesignSystem.COLOR_BG_2};
-                border-color: {DesignSystem.COLOR_PRIMARY};
-                color: {DesignSystem.COLOR_PRIMARY};
-            }}
-        """)
-        icon_manager.set_button_icon(clear_btn, 'close', size=DesignSystem.ICON_SIZE_SM)
-        clear_btn.clicked.connect(self._clear_filters)
-        clear_btn.setToolTip("Limpiar todos los filtros")
-        toolbar.addWidget(clear_btn)
+        filter_bar = self._create_unified_filter_bar(
+            on_search_changed=self._on_search_changed,
+            on_size_filter_changed=self._on_size_filter_changed,
+            expandable_filters=expandable_filters,
+            is_files_mode=False
+        )
         
-        # Contador de grupos (Estilo Badge Azul para homogeneizar)
-        self.counter_label = QLabel()
-        self.counter_label.setStyleSheet(f"""
-            QLabel {{
-                background-color: {DesignSystem.COLOR_PRIMARY};
-                color: {DesignSystem.COLOR_PRIMARY_TEXT};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_12}px;
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
-                margin-left: {DesignSystem.SPACE_8}px;
-            }}
-        """)
-        toolbar.addWidget(self.counter_label)
+        # Guardar referencias
+        self.search_input = filter_bar.search_input
+        self.filter_combo = filter_bar.size_filter_combo
+        self.status_chip = filter_bar.status_chip
+        self.source_combo = filter_bar.filter_widgets.get('source')
+        self.dir_combo = filter_bar.filter_widgets.get('directory')
         
-        return toolbar
+        return filter_bar
+    
+    def _on_search_changed(self, text: str):
+        """Maneja cambios en la búsqueda."""
+        self._apply_filters()
+    
+    def _on_size_filter_changed(self, index: int):
+        """Maneja cambios en el filtro de tamaño."""
+        self._apply_filters()
+    
+    def _on_source_filter_changed(self, index: int):
+        """Maneja cambios en el filtro de origen de fecha."""
+        self._apply_filters()
+    
+    def _on_dir_filter_changed(self, index: int):
+        """Maneja cambios en el filtro de directorio."""
+        self._apply_filters()
     
     def _create_files_tree(self):
         """Crea TreeWidget con grupos expandibles estilo Material Design"""
@@ -351,8 +264,11 @@ class HeicDialog(BaseDialog):
     def _apply_filters(self):
         """Aplica filtros a la lista de grupos"""
         search_text = self.search_input.text().lower()
-        dir_filter = self.dir_combo.currentText()
-        source_filter = self.source_combo.currentText()
+        size_filter_index = self.filter_combo.currentIndex()
+        
+        # Obtener valores de filtros expandibles
+        dir_filter = self.dir_combo.currentText() if self.dir_combo else "Todos los directorios"
+        source_filter = self.source_combo.currentText() if self.source_combo else self.DATE_SOURCE_FILTER_ALL
         
         self.filtered_pairs = []
         
@@ -369,47 +285,21 @@ class HeicDialog(BaseDialog):
             if not self._matches_source_filter(pair.date_source, source_filter):
                 continue
             
+            # Filtro por tamaño
+            if size_filter_index == 1:  # >10 MB
+                if pair.total_size < 10 * 1024 * 1024:
+                    continue
+            elif size_filter_index == 2:  # >50 MB
+                if pair.total_size < 50 * 1024 * 1024:
+                    continue
+            elif size_filter_index == 3:  # >100 MB
+                if pair.total_size < 100 * 1024 * 1024:
+                    continue
+            
             self.filtered_pairs.append(pair)
         
         # Reiniciar carga progresiva
         self._load_initial_groups()
-    
-    def _matches_source_filter(self, date_source: str, filter_value: str) -> bool:
-        """Verifica si el origen de fecha coincide con el filtro seleccionado.
-        
-        Args:
-            date_source: Origen de la fecha (ej: 'exif_date_time_original', 'fs_mtime')
-            filter_value: Valor del filtro seleccionado
-            
-        Returns:
-            True si coincide con el filtro
-        """
-        if not date_source or filter_value == "Todos los orígenes de fecha":
-            return True
-        
-        source_lower = date_source.lower()
-        
-        # Mapeo de filtros a patrones de búsqueda
-        if filter_value == "EXIF DateTimeOriginal":
-            return "exif_date_time_original" in source_lower or "exif_datetimeoriginal" in source_lower
-        elif filter_value == "EXIF CreateDate":
-            return "exif_create_date" in source_lower or "exif_createdate" in source_lower
-        elif filter_value == "EXIF ModifyDate":
-            return "exif_modify_date" in source_lower or "exif_modifydate" in source_lower or "exif_datetime" in source_lower
-        elif filter_value == "Filesystem (mtime)":
-            return "fs_mtime" in source_lower or "mtime" in source_lower
-        elif filter_value == "Filesystem (ctime)":
-            return "fs_ctime" in source_lower or "ctime" in source_lower
-        elif filter_value == "Filesystem (atime)":
-            return "fs_atime" in source_lower or "atime" in source_lower
-        
-        return False
-    
-    def _clear_filters(self):
-        """Limpia todos los filtros"""
-        self.search_input.clear()
-        self.dir_combo.setCurrentIndex(0)
-        self.source_combo.setCurrentIndex(0)
     
     # ========================================================================
     # LÓGICA DE CARGA PROGRESIVA
@@ -465,14 +355,16 @@ class HeicDialog(BaseDialog):
                 total_count=len(self.all_pairs),
                 load_increment=self.LOAD_INCREMENT
             )
-            
-            # Actualizar contador
-            total = len(self.all_pairs)
-            filtered = len(self.filtered_pairs)
-            if filtered == total:
-                self.counter_label.setText(f"Mostrando {self.loaded_count} de {filtered} grupos")
-            else:
-                self.counter_label.setText(f"Mostrando {self.loaded_count} de {filtered} grupos filtrados ({total} total)")
+        
+        # Actualizar chip de estado
+        if self.status_chip:
+            self._update_filter_chip(
+                self.status_chip,
+                len(self.filtered_pairs),
+                len(self.all_pairs),
+                self.loaded_count,
+                is_files_mode=False
+            )
     
     def _add_group_to_tree(self, pair, group_number, format_to_keep, format_to_delete):
         """Añade un grupo como nodo padre expandible con archivos HEIC y JPG"""

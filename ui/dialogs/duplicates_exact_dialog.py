@@ -71,12 +71,17 @@ class DuplicatesExactDialog(BaseDialog):
         # Estado del filtro de tipo
         self.current_type_filter = 'all'  # 'all', 'images', 'videos'
         
+        # Estado del filtro de origen de fecha
+        self.current_source_filter = 'all'  # 'all' or specific source
+        
         # Referencias a widgets
         self.tree_widget = None
         self.search_input = None
         self.filter_combo = None
         self.type_filter_buttons = {}  # Botones de filtro de tipo
         self.status_chip = None  # Chip único de estado (X/Y)
+        self.source_combo = None  # Filtro de origen de fecha
+        self.filter_bar = None  # Barra de filtros unificada
         self.load_more_btn = None
         self.load_all_btn = None
         self.progress_indicator = None
@@ -215,9 +220,9 @@ class DuplicatesExactDialog(BaseDialog):
             """)
             content_layout.addWidget(warning)
         
-        # Barra de búsqueda y filtros
-        search_card = self._create_search_bar()
-        content_layout.addWidget(search_card)
+        # Barra de filtros unificada
+        self.filter_bar = self._create_filter_bar()
+        content_layout.addWidget(self.filter_bar)
         
         # Árbol de grupos
         self.tree_widget = self._create_tree_widget()
@@ -268,153 +273,51 @@ class DuplicatesExactDialog(BaseDialog):
         
         return frame
     
-    def _create_search_bar(self) -> QFrame:
-        """Crea la barra de búsqueda y filtros."""
-        search_card = QFrame()
-        search_card.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: {DesignSystem.SPACE_12}px;
-            }}
-        """)
+    def _create_filter_bar(self) -> QFrame:
+        """Crea la barra de filtros unificada."""
+        # Opciones para filtro de origen de fecha (usar constantes de BaseDialog)
+        source_options = self.DATE_SOURCE_FILTER_OPTIONS
         
-        search_layout = QHBoxLayout(search_card)
-        search_layout.setSpacing(int(DesignSystem.SPACE_12))
-        search_layout.setContentsMargins(0, 0, 0, 0)
-        
-        # Input de búsqueda con icono
-        search_container = QWidget()
-        search_container_layout = QHBoxLayout(search_container)
-        search_container_layout.setContentsMargins(
-            int(DesignSystem.SPACE_12), 
-            int(DesignSystem.SPACE_8),
-            int(DesignSystem.SPACE_12),
-            int(DesignSystem.SPACE_8)
-        )
-        search_container_layout.setSpacing(int(DesignSystem.SPACE_8))
-        
-        search_icon = QLabel()
-        icon_manager.set_label_icon(search_icon, 'magnify', size=18)
-        search_container_layout.addWidget(search_icon)
-        
-        self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Buscar por nombre o ruta...")
-        self.search_input.textChanged.connect(self._on_search_changed)
-        self.search_input.setStyleSheet(f"""
-            QLineEdit {{
-                border: none;
-                background: transparent;
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                color: {DesignSystem.COLOR_TEXT};
-            }}
-        """)
-        search_container_layout.addWidget(self.search_input, 1)
-        
-        search_container.setStyleSheet(f"""
-            QWidget {{
-                background-color: {DesignSystem.COLOR_BG_1};
-                border: 2px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-            }}
-        """)
-        search_layout.addWidget(search_container, 3)
-        
-        # Filtro por tipo de archivo con botones de iconos
-        type_filter_container = QFrame()
-        type_filter_container.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_BG_1};
-                border: 2px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: 2px;
-            }}
-        """)
-        type_filter_layout = QHBoxLayout(type_filter_container)
-        type_filter_layout.setSpacing(2)
-        type_filter_layout.setContentsMargins(2, 2, 2, 2)
-        
-        self.type_filter_buttons = {}
-        type_filters = [
-            ('all', 'view-grid', 'Todo', 'Mostrar todos los archivos'),
-            ('images', 'image', 'Imágenes', 'Solo grupos con imágenes'),
-            ('videos', 'video', 'Vídeos', 'Solo grupos con vídeos'),
+        # Configuración de filtros expandibles
+        expandable_filters = [
+            {
+                'id': 'source',
+                'type': 'combo',
+                'tooltip': 'Filtrar por origen de la fecha',
+                'options': source_options,
+                'on_change': self._on_source_filter_changed,
+                'default_index': 0,
+                'min_width': 200
+            },
+            {
+                'id': 'type',
+                'type': 'type_buttons',
+                'tooltip': 'Filtrar por tipo de archivo',
+                'options': [
+                    ('all', 'view-grid', 'Mostrar todos los archivos'),
+                    ('images', 'image', 'Solo grupos con imágenes'),
+                    ('videos', 'video', 'Solo grupos con vídeos'),
+                ],
+                'on_change': self._on_type_filter_changed,
+                'default': 'all'
+            }
         ]
         
-        for filter_id, icon_name, label, tooltip in type_filters:
-            btn = QPushButton()
-            btn.setCheckable(True)
-            btn.setChecked(filter_id == 'all')
-            btn.setToolTip(tooltip)
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            icon_manager.set_button_icon(btn, icon_name, size=18)
-            btn.setFixedSize(36, 36)
-            
-            btn.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: transparent;
-                    border: none;
-                    border-radius: {DesignSystem.RADIUS_SM}px;
-                    padding: 6px;
-                }}
-                QPushButton:hover {{
-                    background-color: {DesignSystem.COLOR_SURFACE};
-                }}
-                QPushButton:checked {{
-                    background-color: {DesignSystem.COLOR_PRIMARY};
-                }}
-            """)
-            
-            btn.clicked.connect(lambda checked, f=filter_id: self._on_type_filter_changed(f))
-            type_filter_layout.addWidget(btn)
-            self.type_filter_buttons[filter_id] = btn
+        filter_bar = self._create_unified_filter_bar(
+            on_search_changed=self._on_search_changed,
+            on_size_filter_changed=self._on_filter_changed,
+            expandable_filters=expandable_filters,
+            is_files_mode=False
+        )
         
-        search_layout.addWidget(type_filter_container)
+        # Guardar referencias a los widgets
+        self.search_input = filter_bar.search_input
+        self.filter_combo = filter_bar.size_filter_combo
+        self.status_chip = filter_bar.status_chip
+        self.type_filter_buttons = filter_bar.filter_widgets.get('type', {})
+        self.source_combo = filter_bar.filter_widgets.get('source')
         
-        # Filtro por tamaño/cantidad (más compacto)
-        self.filter_combo = QComboBox()
-        self.filter_combo.addItems([
-            "Todos",
-            ">10 MB",
-            ">50 MB",
-            ">100 MB",
-            "3+ copias",
-            "5+ copias"
-        ])
-        self.filter_combo.currentIndexChanged.connect(self._on_filter_changed)
-        self.filter_combo.setToolTip("Filtrar por tamaño de grupo o cantidad de copias")
-        self.filter_combo.setStyleSheet(self._get_combo_style())
-        search_layout.addWidget(self.filter_combo)
-        
-        # Espaciador flexible
-        search_layout.addStretch()
-        
-        # Label + Chip de grupos cargados (ancho fijo para estabilidad)
-        groups_label = QLabel("Grupos:")
-        groups_label.setStyleSheet(f"""
-            color: {DesignSystem.COLOR_TEXT_SECONDARY};
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            background: transparent;
-        """)
-        search_layout.addWidget(groups_label)
-        
-        self.status_chip = QLabel()
-        self.status_chip.setMinimumWidth(70)  # Ancho fijo para estabilidad
-        self.status_chip.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.status_chip.setStyleSheet(f"""
-            QLabel {{
-                background-color: {DesignSystem.COLOR_PRIMARY};
-                color: {DesignSystem.COLOR_PRIMARY_TEXT};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_10}px;
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
-            }}
-        """)
-        search_layout.addWidget(self.status_chip)
-        
-        return search_card
+        return filter_bar
     
     def _get_combo_style(self) -> str:
         """Retorna el estilo CSS para los ComboBox."""
@@ -692,42 +595,14 @@ class DuplicatesExactDialog(BaseDialog):
         loaded = self.loaded_count
         all_total = len(self.all_groups)
         
-        # Chip: muestra "grupos_filtrados / total_grupos_originales"
-        # Color diferente si hay filtros activos
-        if filtered_count != all_total:
-            # Hay filtros activos - mostrar en color warning
-            self.status_chip.setText(f"{filtered_count}/{all_total}")
-            self.status_chip.setStyleSheet(f"""
-                QLabel {{
-                    background-color: {DesignSystem.COLOR_WARNING};
-                    color: {DesignSystem.COLOR_SURFACE};
-                    border-radius: {DesignSystem.RADIUS_BASE}px;
-                    padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_10}px;
-                    font-size: {DesignSystem.FONT_SIZE_SM}px;
-                    font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
-                    min-width: 70px;
-                }}
-            """)
-            self.status_chip.setToolTip(
-                f"Grupos filtrados: {filtered_count}\n"
-                f"Total de grupos: {all_total}\n"
-                f"(Cargados en lista: {loaded} de {filtered_count})"
-            )
-        else:
-            # Sin filtros - mostrar en color primary
-            self.status_chip.setText(f"{all_total}/{all_total}")
-            self.status_chip.setStyleSheet(f"""
-                QLabel {{
-                    background-color: {DesignSystem.COLOR_PRIMARY};
-                    color: {DesignSystem.COLOR_PRIMARY_TEXT};
-                    border-radius: {DesignSystem.RADIUS_BASE}px;
-                    padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_10}px;
-                    font-size: {DesignSystem.FONT_SIZE_SM}px;
-                    font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
-                    min-width: 70px;
-                }}
-            """)
-            self.status_chip.setToolTip(f"Mostrando todos los grupos: {all_total}")
+        # Usar método unificado para actualizar chip
+        self._update_filter_chip(
+            self.status_chip,
+            filtered_count,
+            all_total,
+            loaded,
+            is_files_mode=False
+        )
         
         # Texto de progreso claro
         if filtered_count > 0:
@@ -793,18 +668,11 @@ class DuplicatesExactDialog(BaseDialog):
     
     def _on_type_filter_changed(self, filter_id: str):
         """Maneja cambios en el filtro de tipo de archivo."""
-        if filter_id == self.current_type_filter:
-            # Si ya está seleccionado, no hacer nada (mantener seleccionado)
-            self.type_filter_buttons[filter_id].setChecked(True)
-            return
-        
         self.current_type_filter = filter_id
-        
-        # Actualizar estado visual de los botones
-        for fid, btn in self.type_filter_buttons.items():
-            btn.setChecked(fid == filter_id)
-        
-        # Aplicar filtros
+        self._apply_filters()
+    
+    def _on_source_filter_changed(self, index: int):
+        """Maneja cambios en el filtro de origen de fecha."""
         self._apply_filters()
     
     def _group_matches_type_filter(self, group: DuplicateGroup) -> bool:
@@ -824,8 +692,25 @@ class DuplicatesExactDialog(BaseDialog):
         
         return False
     
+    def _group_matches_source_filter(self, group: DuplicateGroup) -> bool:
+        """Verifica si un grupo coincide con el filtro de origen de fecha."""
+        if not self.source_combo:
+            return True
+        
+        source_filter = self.source_combo.currentText()
+        if source_filter == self.DATE_SOURCE_FILTER_ALL:
+            return True
+        
+        # Verificar si algún archivo del grupo tiene el origen de fecha seleccionado
+        for file_path in group.files:
+            _, source = self.repo.get_best_date(file_path) if self.repo else (None, None)
+            if source and self._matches_source_filter(source, source_filter):
+                return True
+        
+        return False
+    
     def _apply_filters(self):
-        """Aplica todos los filtros activos (búsqueda, tipo, tamaño)."""
+        """Aplica todos los filtros activos (búsqueda, tipo, tamaño, origen)."""
         search_text = self.search_input.text().lower()
         size_filter_index = self.filter_combo.currentIndex()
         
@@ -834,6 +719,10 @@ class DuplicatesExactDialog(BaseDialog):
         for group in self.all_groups:
             # Filtro por tipo de archivo (imágenes/vídeos)
             if not self._group_matches_type_filter(group):
+                continue
+            
+            # Filtro por origen de fecha
+            if not self._group_matches_source_filter(group):
                 continue
             
             # Filtro de búsqueda por texto

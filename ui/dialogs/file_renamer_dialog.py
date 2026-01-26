@@ -118,9 +118,9 @@ class FileRenamerDialog(BaseDialog):
         info_section = self._create_info_section()
         content_layout.addWidget(info_section)
         
-        # Barra de herramientas: filtros y búsqueda
-        toolbar = self._create_toolbar()
-        content_layout.addLayout(toolbar)
+        # Barra de filtros unificada
+        self.filter_bar = self._create_filter_bar()
+        content_layout.addWidget(self.filter_bar)
         
         # Tabla de cambios propuestos
         self.changes_table = self._create_changes_table()
@@ -176,149 +176,80 @@ class FileRenamerDialog(BaseDialog):
 
 
 
-    def _create_toolbar(self):
-        """Crea la barra de herramientas con filtros y búsqueda"""
-        toolbar = QHBoxLayout()
-        toolbar.setSpacing(DesignSystem.SPACE_12)
-        toolbar.setContentsMargins(0, 0, 0, 0)
-        
-        # Búsqueda
-        search_container = QWidget()
-        search_layout = QHBoxLayout(search_container)
-        search_layout.setContentsMargins(0, 0, 0, 0)
-        search_layout.setSpacing(DesignSystem.SPACE_8)
-        
-        search_icon = QLabel()
-        icon_manager.set_label_icon(search_icon, 'magnify', size=DesignSystem.ICON_SIZE_SM, color=DesignSystem.COLOR_TEXT_SECONDARY)
-        
-        self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Buscar archivo...")
-        self.search_input.textChanged.connect(self._apply_filters)
-        self.search_input.setMinimumWidth(200)
-        self.search_input.setStyleSheet(f"""
-            QLineEdit {{
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                background-color: {DesignSystem.COLOR_SURFACE};
-            }}
-            QLineEdit:focus {{
-                border-color: {DesignSystem.COLOR_PRIMARY};
-            }}
-        """)
-        
-        search_layout.addWidget(search_icon)
-        search_layout.addWidget(self.search_input)
-        toolbar.addWidget(search_container)
-        
-        # Separador
-        sep = QFrame()
-        sep.setFrameShape(QFrame.Shape.VLine)
-        sep.setFrameShadow(QFrame.Shadow.Sunken)
-        sep.setStyleSheet(f"color: {DesignSystem.COLOR_BORDER}; background-color: {DesignSystem.COLOR_BORDER};")
-        sep.setFixedHeight(20)
-        toolbar.addWidget(sep)
-        
-        # Filtro por estado/conflicto
-        filter_label = QLabel("Estado:")
-        filter_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
-        
-        self.filter_combo = QComboBox()
-        self.filter_combo.addItems([
-            "Todos",
-            "Solo conflictos",
-            "Sin conflictos"
-        ])
-        self.filter_combo.currentTextChanged.connect(self._apply_filters)
-        self.filter_combo.setMinimumWidth(150)
-        self.filter_combo.setStyleSheet(DesignSystem.get_combobox_style())
-        
-        toolbar.addWidget(filter_label)
-        toolbar.addWidget(self.filter_combo)
-        
-        # Filtro por tipo de archivo
-        type_label = QLabel("Tipo:")
-        type_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
-        
-        self.type_combo = QComboBox()
-        file_types = ["Todos"] + sorted(list(set(
+    def _create_filter_bar(self) -> QWidget:
+        """Crea barra de filtros unificada usando método base"""
+        # Preparar opciones para filtros dinámicos
+        file_types = sorted(list(set(
             get_file_type(item['original_path'].name) 
             for item in self.analysis_results.renaming_plan
         )))
-        self.type_combo.addItems(file_types)
-        self.type_combo.currentTextChanged.connect(self._apply_filters)
-        self.type_combo.setMinimumWidth(120)
-        self.type_combo.setStyleSheet(DesignSystem.get_combobox_style())
-        
-        toolbar.addWidget(type_label)
-        toolbar.addWidget(self.type_combo)
-        
-        # Filtro por fuente de fecha
-        source_label = QLabel("Fuente:")
-        source_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
-        
-        self.source_combo = QComboBox()
-        date_sources = ["Todos"] + sorted(list(set(
+        date_sources = sorted(list(set(
             item.get('date_source', 'Desconocido') 
             for item in self.analysis_results.renaming_plan
         )))
-        self.source_combo.addItems(date_sources)
-        self.source_combo.currentTextChanged.connect(self._apply_filters)
-        self.source_combo.setMinimumWidth(150)
-        self.source_combo.setStyleSheet(DesignSystem.get_combobox_style())
+        years = [str(year) for year in sorted(self.analysis_results.files_by_year.keys(), reverse=True)]
         
-        toolbar.addWidget(source_label)
-        toolbar.addWidget(self.source_combo)
+        # Configuración de filtros expandibles
+        expandable_filters = [
+            {
+                'id': 'conflict',
+                'type': 'combo',
+                'tooltip': 'Filtrar por estado de conflicto',
+                'options': ["Todos", "Solo conflictos", "Sin conflictos"],
+                'on_change': lambda idx: self._apply_filters(),
+                'default_index': 0,
+                'min_width': 150
+            },
+            {
+                'id': 'file_type',
+                'type': 'combo',
+                'tooltip': 'Filtrar por tipo de archivo',
+                'options': ["Todos"] + file_types,
+                'on_change': lambda idx: self._apply_filters(),
+                'default_index': 0,
+                'min_width': 120
+            },
+            {
+                'id': 'source',
+                'type': 'combo',
+                'tooltip': 'Filtrar por fuente de la fecha',
+                'options': ["Todos"] + date_sources,
+                'on_change': lambda idx: self._apply_filters(),
+                'default_index': 0,
+                'min_width': 180
+            },
+            {
+                'id': 'year',
+                'type': 'combo',
+                'tooltip': 'Filtrar por año',
+                'options': ["Todos"] + years,
+                'on_change': lambda idx: self._apply_filters(),
+                'default_index': 0,
+                'min_width': 100
+            }
+        ]
         
-        # Filtro por año
-        year_label = QLabel("Año:")
-        year_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
+        # Crear barra unificada
+        filter_bar = self._create_unified_filter_bar(
+            on_search_changed=self._apply_filters,
+            on_size_filter_changed=lambda idx: self._apply_filters(),
+            expandable_filters=expandable_filters,
+            is_files_mode=True
+        )
         
-        self.year_combo = QComboBox()
-        years = ["Todos"] + [str(year) for year in sorted(self.analysis_results.files_by_year.keys(), reverse=True)]
-        self.year_combo.addItems(years)
-        self.year_combo.currentTextChanged.connect(self._apply_filters)
-        self.year_combo.setMinimumWidth(100)
-        self.year_combo.setStyleSheet(DesignSystem.get_combobox_style())
+        # Guardar referencias a componentes
+        self.search_input = filter_bar.search_input
+        self.size_filter_combo = filter_bar.size_filter_combo  # Renombrar para evitar conflicto
+        self.status_chip = filter_bar.status_chip
+        self.expand_button = filter_bar.expand_btn
         
-        toolbar.addWidget(year_label)
-        toolbar.addWidget(self.year_combo)
+        # Referencias a filtros expandibles
+        self.filter_combo = filter_bar.filter_widgets.get('conflict')  # Filtro de conflictos
+        self.type_combo = filter_bar.filter_widgets.get('file_type')
+        self.source_combo = filter_bar.filter_widgets.get('source')
+        self.year_combo = filter_bar.filter_widgets.get('year')
         
-        toolbar.addStretch()
-        
-        # Botón limpiar filtros
-        clear_btn = QPushButton("Limpiar")
-        clear_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                color: {DesignSystem.COLOR_TEXT};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-            }}
-            QPushButton:hover {{
-                background-color: {DesignSystem.COLOR_BG_2};
-                border-color: {DesignSystem.COLOR_PRIMARY};
-                color: {DesignSystem.COLOR_PRIMARY};
-            }}
-        """)
-        icon_manager.set_button_icon(clear_btn, 'close', size=DesignSystem.ICON_SIZE_SM)
-        clear_btn.clicked.connect(self._clear_filters)
-        toolbar.addWidget(clear_btn)
-        
-        # Contador de resultados
-        self.counter_label = QLabel()
-        self.counter_label.setStyleSheet(f"""
-            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-            color: {DesignSystem.COLOR_PRIMARY};
-            margin-left: {DesignSystem.SPACE_12}px;
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-        """)
-        toolbar.addWidget(self.counter_label)
-        
-        return toolbar
+        return filter_bar
     
     def _create_changes_table(self):
         """Crea la tabla de cambios propuestos"""
@@ -449,17 +380,23 @@ class FileRenamerDialog(BaseDialog):
 
     def _apply_filters(self):
         """Aplica los filtros a la tabla"""
-        search_text = self.search_input.text().lower()
-        filter_option = self.filter_combo.currentText()
-        year_filter = self.year_combo.currentText()
-        type_filter = self.type_combo.currentText()
-        source_filter = self.source_combo.currentText()
+        search_text = self.search_input.text().lower() if self.search_input else ""
+        size_filter = self.size_filter_combo.currentText() if hasattr(self, 'size_filter_combo') and self.size_filter_combo else "Todos los tamaños"
+        filter_option = self.filter_combo.currentText() if self.filter_combo else "Todos"
+        year_filter = self.year_combo.currentText() if self.year_combo else "Todos"
+        type_filter = self.type_combo.currentText() if self.type_combo else "Todos"
+        source_filter = self.source_combo.currentText() if self.source_combo else "Todos"
         
         self.filtered_plan = []
         
         for item in self.all_items:
             # Filtro de búsqueda
             if search_text and search_text not in item['original_path'].name.lower():
+                continue
+            
+            # Filtro por tamaño
+            file_size = item.get('size', 0)
+            if file_size and not self._matches_size_filter(file_size, size_filter):
                 continue
             
             # Filtro por conflicto
@@ -488,14 +425,39 @@ class FileRenamerDialog(BaseDialog):
         
         # Reiniciar carga progresiva
         self._load_initial_items()
+    
+    def _matches_size_filter(self, file_size: int, filter_value: str) -> bool:
+        """Verifica si el tamaño del archivo coincide con el filtro seleccionado."""
+        if filter_value == "Todos los tamaños":
+            return True
+        
+        mb = file_size / (1024 * 1024)
+        
+        if filter_value == "< 1 MB":
+            return mb < 1
+        elif filter_value == "1 - 10 MB":
+            return 1 <= mb < 10
+        elif filter_value == "10 - 100 MB":
+            return 10 <= mb < 100
+        elif filter_value == "> 100 MB":
+            return mb >= 100
+        
+        return True
 
     def _clear_filters(self):
         """Limpia todos los filtros"""
-        self.search_input.clear()
-        self.filter_combo.setCurrentIndex(0)
-        self.year_combo.setCurrentIndex(0)
-        self.source_combo.setCurrentIndex(0)
-        self.type_combo.setCurrentIndex(0)
+        if self.search_input:
+            self.search_input.clear()
+        if hasattr(self, 'size_filter_combo') and self.size_filter_combo:
+            self.size_filter_combo.setCurrentIndex(0)
+        if self.filter_combo:
+            self.filter_combo.setCurrentIndex(0)
+        if self.year_combo:
+            self.year_combo.setCurrentIndex(0)
+        if self.source_combo:
+            self.source_combo.setCurrentIndex(0)
+        if self.type_combo:
+            self.type_combo.setCurrentIndex(0)
     
     # ========================================================================
     # LÓGICA DE CARGA PROGRESIVA
@@ -597,14 +559,15 @@ class FileRenamerDialog(BaseDialog):
                 total_count=len(self.all_items),
                 load_increment=self.LOAD_INCREMENT
             )
-            
-            # Actualizar contador
-            total = len(self.all_items)
-            filtered = len(self.filtered_plan)
-            if filtered == total:
-                self.counter_label.setText(f"Mostrando {self.loaded_count} de {filtered} archivos")
-            else:
-                self.counter_label.setText(f"Mostrando {self.loaded_count} de {filtered} archivos filtrados ({total} total)")
+        
+        # Actualizar chip de estado (independiente del loaded_count)
+        self._update_filter_chip(
+            status_chip=self.status_chip,
+            filtered_count=len(self.filtered_plan),
+            total_count=len(self.all_items),
+            loaded_count=self.loaded_count,
+            is_files_mode=True
+        )
     
     def _on_file_double_clicked(self, item):
         """Abre el archivo con la aplicación predeterminada del sistema al hacer doble clic"""

@@ -1470,3 +1470,425 @@ class BaseDialog(QDialog):
         frame.strategy_buttons = strategy_buttons
         
         return frame
+    # ========================================================================
+    # UNIFIED FILTER BAR
+    # ========================================================================
+    
+    def _create_unified_filter_bar(
+        self,
+        on_search_changed: callable,
+        on_size_filter_changed: callable,
+        expandable_filters: Optional[List[Dict]] = None,
+        size_filter_options: Optional[List[str]] = None,
+        is_files_mode: bool = False
+    ) -> 'QFrame':
+        """Crea barra de filtros unificada con diseño consistente para todos los diálogos.
+        
+        Diseño estándar:
+        - Barra principal: Búsqueda, filtro de tamaño/cantidad, chip de estado, botón expandir
+        - Barra secundaria (desplegable): Filtros adicionales específicos por diálogo
+        
+        Args:
+            on_search_changed: Callback para cambios en búsqueda
+            on_size_filter_changed: Callback para cambios en filtro tamaño/cantidad
+            expandable_filters: Lista de filtros para la barra desplegable. Cada filtro:
+                {
+                    'id': str,           # ID único del filtro
+                    'type': str,         # 'combo' o 'type_buttons'
+                    'tooltip': str,      # Tooltip del filtro
+                    'options': list,     # Opciones del combo o botones
+                    'on_change': callable,  # Callback(value) al cambiar
+                    'default_index': int    # Índice por defecto (para combos)
+                }
+            size_filter_options: Lista personalizada de opciones para el filtro de tamaño.
+                Default: ["Todos", ">10 MB", ">50 MB", ">100 MB", "3+ copias", "5+ copias"]
+            is_files_mode: Si True, muestra "Archivos" en vez de "Grupos" en el chip
+            
+        Returns:
+            QFrame con la barra de filtros.
+            Atributos disponibles:
+            - search_input: QLineEdit
+            - size_filter_combo: QComboBox
+            - status_chip: QLabel
+            - expand_btn: QPushButton (para mostrar/ocultar filtros adicionales)
+            - expandable_container: QWidget (contenedor de filtros adicionales)
+            - filter_widgets: dict[str, QWidget] (widgets de filtros por ID)
+        """
+        from PyQt6.QtWidgets import (
+            QFrame, QHBoxLayout, QVBoxLayout, QWidget, QLabel, 
+            QLineEdit, QComboBox, QPushButton
+        )
+        from PyQt6.QtCore import Qt
+        from ui.styles.design_system import DesignSystem
+        from ui.styles.icons import icon_manager
+        
+        # Default size filter options
+        if size_filter_options is None:
+            size_filter_options = [
+                "Todos",
+                ">10 MB",
+                ">50 MB",
+                ">100 MB",
+                "3+ copias",
+                "5+ copias"
+            ]
+        
+        # Frame principal
+        main_frame = QFrame()
+        main_frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                padding: {DesignSystem.SPACE_12}px;
+            }}
+        """)
+        
+        main_layout = QVBoxLayout(main_frame)
+        main_layout.setSpacing(int(DesignSystem.SPACE_12))
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # === BARRA PRINCIPAL ===
+        primary_bar = QHBoxLayout()
+        primary_bar.setSpacing(int(DesignSystem.SPACE_12))
+        primary_bar.setContentsMargins(0, 0, 0, 0)
+        
+        # Input de búsqueda con icono
+        search_container = QWidget()
+        search_container_layout = QHBoxLayout(search_container)
+        search_container_layout.setContentsMargins(
+            int(DesignSystem.SPACE_12),
+            int(DesignSystem.SPACE_8),
+            int(DesignSystem.SPACE_12),
+            int(DesignSystem.SPACE_8)
+        )
+        search_container_layout.setSpacing(int(DesignSystem.SPACE_8))
+        
+        search_icon = QLabel()
+        icon_manager.set_label_icon(search_icon, 'magnify', size=18)
+        search_container_layout.addWidget(search_icon)
+        
+        search_input = QLineEdit()
+        search_input.setPlaceholderText("Buscar por nombre o ruta...")
+        search_input.textChanged.connect(on_search_changed)
+        search_input.setStyleSheet(f"""
+            QLineEdit {{
+                border: none;
+                background: transparent;
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_TEXT};
+            }}
+        """)
+        search_container_layout.addWidget(search_input, 1)
+        
+        search_container.setStyleSheet(f"""
+            QWidget {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                border: 2px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+            }}
+        """)
+        primary_bar.addWidget(search_container, 3)
+        
+        # Filtro de tamaño/cantidad
+        size_filter_combo = QComboBox()
+        size_filter_combo.addItems(size_filter_options)
+        size_filter_combo.currentIndexChanged.connect(on_size_filter_changed)
+        size_filter_combo.setToolTip("Filtrar por tamaño o cantidad de elementos")
+        size_filter_combo.setStyleSheet(self._get_unified_combo_style())
+        size_filter_combo.setMinimumWidth(140)
+        primary_bar.addWidget(size_filter_combo)
+        
+        # Espaciador flexible
+        primary_bar.addStretch()
+        
+        # Botón expandir filtros (solo si hay filtros expandibles)
+        expand_btn = None
+        if expandable_filters:
+            expand_btn = QPushButton()
+            expand_btn.setCheckable(True)
+            expand_btn.setChecked(False)
+            expand_btn.setToolTip("Mostrar filtros adicionales")
+            icon_manager.set_button_icon(expand_btn, 'filter-variant', size=18)
+            expand_btn.setFixedSize(36, 36)
+            expand_btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {DesignSystem.COLOR_BG_1};
+                    border: 2px solid {DesignSystem.COLOR_BORDER};
+                    border-radius: {DesignSystem.RADIUS_BASE}px;
+                    padding: 6px;
+                }}
+                QPushButton:hover {{
+                    border-color: {DesignSystem.COLOR_PRIMARY};
+                    background-color: {DesignSystem.COLOR_SURFACE};
+                }}
+                QPushButton:checked {{
+                    background-color: {DesignSystem.COLOR_PRIMARY};
+                    border-color: {DesignSystem.COLOR_PRIMARY};
+                }}
+            """)
+            primary_bar.addWidget(expand_btn)
+        
+        # Label + Chip de estado
+        entity_label = "Archivos:" if is_files_mode else "Grupos:"
+        groups_label = QLabel(entity_label)
+        groups_label.setStyleSheet(f"""
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            background: transparent;
+        """)
+        primary_bar.addWidget(groups_label)
+        
+        status_chip = QLabel()
+        status_chip.setMinimumWidth(70)
+        status_chip.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        status_chip.setStyleSheet(f"""
+            QLabel {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                color: {DesignSystem.COLOR_PRIMARY_TEXT};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_10}px;
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+            }}
+        """)
+        primary_bar.addWidget(status_chip)
+        
+        main_layout.addLayout(primary_bar)
+        
+        # === BARRA EXPANDIBLE ===
+        expandable_container = None
+        filter_widgets = {}
+        
+        if expandable_filters:
+            expandable_container = QWidget()
+            expandable_container.setVisible(False)
+            expandable_layout = QHBoxLayout(expandable_container)
+            expandable_layout.setSpacing(int(DesignSystem.SPACE_12))
+            expandable_layout.setContentsMargins(0, int(DesignSystem.SPACE_8), 0, 0)
+            
+            for filter_config in expandable_filters:
+                filter_id = filter_config['id']
+                filter_type = filter_config.get('type', 'combo')
+                
+                if filter_type == 'combo':
+                    combo = QComboBox()
+                    combo.addItems(filter_config['options'])
+                    combo.setCurrentIndex(filter_config.get('default_index', 0))
+                    combo.currentIndexChanged.connect(
+                        lambda idx, cb=filter_config['on_change']: cb(idx)
+                    )
+                    combo.setToolTip(filter_config.get('tooltip', ''))
+                    combo.setStyleSheet(self._get_unified_combo_style())
+                    combo.setMinimumWidth(filter_config.get('min_width', 180))
+                    expandable_layout.addWidget(combo)
+                    filter_widgets[filter_id] = combo
+                    
+                elif filter_type == 'type_buttons':
+                    # Botones para filtro de tipo (imágenes/vídeos/todo)
+                    type_container = QFrame()
+                    type_container.setStyleSheet(f"""
+                        QFrame {{
+                            background-color: {DesignSystem.COLOR_BG_1};
+                            border: 2px solid {DesignSystem.COLOR_BORDER};
+                            border-radius: {DesignSystem.RADIUS_BASE}px;
+                            padding: 2px;
+                        }}
+                    """)
+                    type_layout = QHBoxLayout(type_container)
+                    type_layout.setSpacing(2)
+                    type_layout.setContentsMargins(2, 2, 2, 2)
+                    
+                    type_buttons = {}
+                    for btn_id, icon_name, tooltip in filter_config['options']:
+                        btn = QPushButton()
+                        btn.setCheckable(True)
+                        btn.setChecked(btn_id == filter_config.get('default', 'all'))
+                        btn.setToolTip(tooltip)
+                        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                        icon_manager.set_button_icon(btn, icon_name, size=18)
+                        btn.setFixedSize(36, 36)
+                        btn.setStyleSheet(f"""
+                            QPushButton {{
+                                background-color: transparent;
+                                border: none;
+                                border-radius: {DesignSystem.RADIUS_SM}px;
+                                padding: 6px;
+                            }}
+                            QPushButton:hover {{
+                                background-color: {DesignSystem.COLOR_SURFACE};
+                            }}
+                            QPushButton:checked {{
+                                background-color: {DesignSystem.COLOR_PRIMARY};
+                            }}
+                        """)
+                        btn.clicked.connect(
+                            lambda checked, bid=btn_id, cb=filter_config['on_change'], btns=type_buttons:
+                            self._handle_type_button_click(bid, btns, cb)
+                        )
+                        type_layout.addWidget(btn)
+                        type_buttons[btn_id] = btn
+                    
+                    expandable_layout.addWidget(type_container)
+                    filter_widgets[filter_id] = type_buttons
+            
+            expandable_layout.addStretch()
+            main_layout.addWidget(expandable_container)
+            
+            # Conectar botón expandir
+            def toggle_expandable():
+                is_expanded = expand_btn.isChecked()
+                expandable_container.setVisible(is_expanded)
+                icon_name = 'filter-variant-remove' if is_expanded else 'filter-variant'
+                icon_manager.set_button_icon(expand_btn, icon_name, size=18)
+                expand_btn.setToolTip(
+                    "Ocultar filtros adicionales" if is_expanded else "Mostrar filtros adicionales"
+                )
+            
+            expand_btn.clicked.connect(toggle_expandable)
+        
+        # Guardar referencias
+        main_frame.search_input = search_input
+        main_frame.size_filter_combo = size_filter_combo
+        main_frame.status_chip = status_chip
+        main_frame.expand_btn = expand_btn
+        main_frame.expandable_container = expandable_container
+        main_frame.filter_widgets = filter_widgets
+        main_frame._is_files_mode = is_files_mode
+        
+        return main_frame
+    
+    def _handle_type_button_click(self, clicked_id: str, buttons: dict, callback: callable):
+        """Maneja click en botones de tipo (todo/imágenes/vídeos).
+        
+        Asegura que solo un botón esté seleccionado y llama al callback.
+        """
+        # Actualizar estado visual de todos los botones
+        for btn_id, btn in buttons.items():
+            btn.setChecked(btn_id == clicked_id)
+        
+        # Llamar al callback
+        callback(clicked_id)
+    
+    def _get_unified_combo_style(self) -> str:
+        """Retorna estilo CSS unificado para ComboBox en barras de filtros."""
+        return f"""
+            QComboBox {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                border: 2px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_TEXT};
+            }}
+            QComboBox:hover {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+            QComboBox::drop-down {{
+                border: none;
+                padding-right: {DesignSystem.SPACE_8}px;
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                selection-background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
+                selection-color: {DesignSystem.COLOR_TEXT};
+                padding: {DesignSystem.SPACE_4}px;
+            }}
+        """
+    
+    def _update_filter_chip(
+        self,
+        status_chip: 'QLabel',
+        filtered_count: int,
+        total_count: int,
+        loaded_count: Optional[int] = None,
+        is_files_mode: bool = False
+    ):
+        """Actualiza el chip de estado de filtros.
+        
+        Args:
+            status_chip: QLabel del chip
+            filtered_count: Elementos después de filtrar
+            total_count: Total de elementos sin filtrar
+            loaded_count: Elementos cargados en la vista (para tooltip)
+            is_files_mode: Si True, el tooltip dice "archivos" en vez de "grupos"
+        """
+        entity = "archivos" if is_files_mode else "grupos"
+        
+        if filtered_count != total_count:
+            # Hay filtros activos - color warning
+            status_chip.setText(f"{filtered_count}/{total_count}")
+            status_chip.setStyleSheet(f"""
+                QLabel {{
+                    background-color: {DesignSystem.COLOR_WARNING};
+                    color: {DesignSystem.COLOR_SURFACE};
+                    border-radius: {DesignSystem.RADIUS_BASE}px;
+                    padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_10}px;
+                    font-size: {DesignSystem.FONT_SIZE_SM}px;
+                    font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+                    min-width: 70px;
+                }}
+            """)
+            tooltip = f"{entity.capitalize()} filtrados: {filtered_count}\nTotal de {entity}: {total_count}"
+            if loaded_count is not None:
+                tooltip += f"\n(Cargados en lista: {loaded_count} de {filtered_count})"
+            status_chip.setToolTip(tooltip)
+        else:
+            # Sin filtros - color primary
+            status_chip.setText(f"{total_count}/{total_count}")
+            status_chip.setStyleSheet(f"""
+                QLabel {{
+                    background-color: {DesignSystem.COLOR_PRIMARY};
+                    color: {DesignSystem.COLOR_PRIMARY_TEXT};
+                    border-radius: {DesignSystem.RADIUS_BASE}px;
+                    padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_10}px;
+                    font-size: {DesignSystem.FONT_SIZE_SM}px;
+                    font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+                    min-width: 70px;
+                }}
+            """)
+            status_chip.setToolTip(f"Mostrando todos los {entity}: {total_count}")
+    
+    # Constantes para filtros de origen de fecha
+    DATE_SOURCE_FILTER_ALL = "Todas las fechas"
+    DATE_SOURCE_FILTER_OPTIONS = [
+        "Todas las fechas",
+        "EXIF DateTimeOriginal",
+        "EXIF CreateDate",
+        "EXIF ModifyDate",
+        "Filesystem (mtime)",
+        "Filesystem (ctime)"
+    ]
+    
+    def _matches_source_filter(self, date_source: str, filter_value: str) -> bool:
+        """Verifica si el origen de fecha coincide con el filtro seleccionado.
+        
+        Método centralizado para evitar duplicación entre diálogos.
+        
+        Args:
+            date_source: Origen de la fecha (ej: 'exif_date_time_original', 'fs_mtime')
+            filter_value: Valor del filtro seleccionado del combo
+            
+        Returns:
+            True si coincide con el filtro o si el filtro es "Todas las fechas"
+        """
+        if not date_source or filter_value == self.DATE_SOURCE_FILTER_ALL:
+            return True
+        
+        source_lower = date_source.lower()
+        
+        if filter_value == "EXIF DateTimeOriginal":
+            return "exif_date_time_original" in source_lower or "exif_datetimeoriginal" in source_lower
+        elif filter_value == "EXIF CreateDate":
+            return "exif_create_date" in source_lower or "exif_createdate" in source_lower
+        elif filter_value == "EXIF ModifyDate":
+            return "exif_modify_date" in source_lower or "exif_modifydate" in source_lower or "exif_datetime" in source_lower
+        elif filter_value == "Filesystem (mtime)":
+            return "fs_mtime" in source_lower or "mtime" in source_lower
+        elif filter_value == "Filesystem (ctime)":
+            return "fs_ctime" in source_lower or "ctime" in source_lower
+        elif filter_value == "Filesystem (atime)":
+            return "fs_atime" in source_lower or "atime" in source_lower
+        
+        return False
