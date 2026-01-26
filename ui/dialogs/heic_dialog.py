@@ -21,9 +21,10 @@ from .base_dialog import BaseDialog
 class HeicDialog(BaseDialog):
     """Diálogo para eliminación de duplicados HEIC/JPG con vista de grupos expandibles"""
     
-    # Configuración de paginación
-    ITEMS_PER_PAGE = 200
-    MAX_ITEMS_WITHOUT_PAGINATION = 500
+    # Constantes para carga progresiva
+    INITIAL_LOAD = 100
+    LOAD_INCREMENT = 100
+    WARNING_THRESHOLD = 500
 
     def __init__(self, analysis, parent=None):
         super().__init__(parent)
@@ -31,18 +32,17 @@ class HeicDialog(BaseDialog):
         self.selected_format = 'jpg'
         self.accepted_plan = None
         
-        # Datos filtrados
+        # Datos de grupos
+        self.all_pairs = list(analysis.duplicate_pairs)
         self.filtered_pairs = list(analysis.duplicate_pairs)
-        
-        # Paginación
-        self.current_page = 0
-        self.total_pages = 0
+        self.loaded_count = 0
         
         # Referencias a widgets
         self.tree_widget = None
         self.search_input = None
         self.dir_combo = None
         self.counter_label = None
+        self.pagination_bar = None
         
         self.init_ui()
 
@@ -100,9 +100,12 @@ class HeicDialog(BaseDialog):
         self.tree_widget = self._create_files_tree()
         content_layout.addWidget(self.tree_widget)
         
-        # Controles de paginación
-        self.pagination_widget = self._create_pagination_controls()
-        content_layout.addWidget(self.pagination_widget)
+        # Barra de carga progresiva
+        self.pagination_bar = self._create_progressive_loading_bar(
+            on_load_more=self._load_more_groups,
+            on_load_all=self._load_all_groups
+        )
+        content_layout.addWidget(self.pagination_bar)
         
         # Opciones de seguridad
         options_group = self._create_options_group()
@@ -119,44 +122,46 @@ class HeicDialog(BaseDialog):
             self._update_button_text()
         content_layout.addWidget(self.buttons)
         
-        # Actualizar vista inicial
-        self._update_tree()
+        # Cargar grupos iniciales
+        self._load_initial_groups()
 
     def _create_format_selector(self) -> QFrame:
-        """Crea selector de formato usando el método centralizado de BaseDialog."""
+        """Crea selector de formato usando el diseño compacto horizontal."""
         formats = [
-            ('jpg', 'image', 'Mantener JPG', 
-             f'Máxima compatibilidad. Los JPG funcionan en todos los dispositivos. Liberarás {format_size(self.analysis.potential_savings_keep_jpg)}'),
-            ('heic', 'camera', 'Mantener HEIC', 
-             f'Archivos más pequeños pero requiere soporte HEIC. Liberarás {format_size(self.analysis.potential_savings_keep_heic)}')
+            ('jpg', 'file-jpg-box', 'Mantener JPG', 
+             f'Máxima compatibilidad. Liberarás {format_size(self.analysis.potential_savings_keep_jpg)}'),
+            ('heic', 'file-image', 'Mantener HEIC', 
+             f'Archivos más pequeños. Liberarás {format_size(self.analysis.potential_savings_keep_heic)}')
         ]
         
-        return self._create_option_selector(
-            title="Elige qué formato conservar",
-            title_icon='image-album',
-            options=formats,
-            selected_value=self.selected_format,
-            on_change_callback=self._on_format_card_changed
+        frame = self._create_compact_strategy_selector(
+            title="Conservar:",
+            description="Elige qué formato mantener de cada par HEIC/JPG",
+            strategies=formats,
+            current_strategy=self.selected_format,
+            on_strategy_changed=self._on_format_changed
         )
+        
+        # Guardar referencia a los botones para actualizarlos posteriormente
+        self.format_buttons = frame.strategy_buttons
+        
+        return frame
     
-    def _on_format_card_changed(self, new_format: str) -> None:
-        """Maneja el cambio de formato seleccionado desde las cards.
+    def _on_format_changed(self, new_format: str) -> None:
+        """Maneja el cambio de formato seleccionado.
         
         Args:
-            new_format: Nuevo formato seleccionado ('file-jpg-box' o 'file-image')
+            new_format: Nuevo formato seleccionado ('jpg' o 'heic')
         """
         if new_format == self.selected_format:
             return
         
         self.selected_format = new_format
         
-        # Actualizar estilos de las cards usando el método centralizado
-        if hasattr(self, 'format_selector'):
-            self._update_option_selector_styles(
-                self.format_selector,
-                ['jpg', 'heic'],
-                self.selected_format
-            )
+        # Actualizar estilos de los botones
+        if hasattr(self, 'format_buttons'):
+            for fmt, btn in self.format_buttons.items():
+                btn.setChecked(fmt == new_format)
         
         # Actualizar métrica de espacio recuperable en el header
         recoverable_space = self.analysis.potential_savings_keep_jpg if new_format == 'jpg' else self.analysis.potential_savings_keep_heic
@@ -165,8 +170,8 @@ class HeicDialog(BaseDialog):
         # Actualizar texto del botón OK
         self._update_button_text()
         
-        # Actualizar tree
-        self._update_tree()
+        # Recargar árbol con nuevo formato
+        self._load_initial_groups()
     
     def _create_toolbar(self):
         """Crea barra de herramientas con filtros estilo Material Design"""
@@ -334,92 +339,6 @@ class HeicDialog(BaseDialog):
             context_menu_handler=self._show_context_menu
         )
     
-    def _create_pagination_controls(self):
-        """Crea controles de paginación con estilo Material Design"""
-        widget = QFrame()
-        widget.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_4}px;
-            }}
-        """)
-        layout = QHBoxLayout(widget)
-        layout.setSpacing(DesignSystem.SPACE_8)
-        layout.setContentsMargins(DesignSystem.SPACE_8, DesignSystem.SPACE_4, DesignSystem.SPACE_8, DesignSystem.SPACE_4)
-        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        # Botones de navegación con iconos - Tamaño 40x40 para coincidir con ComboBox (premium height)
-        self.first_page_btn = QPushButton()
-        self.first_page_btn.setToolTip("Primera página")
-        icon_manager.set_button_icon(self.first_page_btn, 'skip-previous', size=DesignSystem.ICON_SIZE_MD)
-        self.first_page_btn.clicked.connect(self._go_first_page)
-        self.first_page_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
-        self.first_page_btn.setFixedSize(40, 40)
-        layout.addWidget(self.first_page_btn, 0, Qt.AlignmentFlag.AlignVCenter)
-        
-        self.prev_page_btn = QPushButton()
-        self.prev_page_btn.setToolTip("Página anterior")
-        icon_manager.set_button_icon(self.prev_page_btn, 'chevron-left', size=DesignSystem.ICON_SIZE_MD)
-        self.prev_page_btn.clicked.connect(self._go_prev_page)
-        self.prev_page_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
-        self.prev_page_btn.setFixedSize(40, 40)
-        layout.addWidget(self.prev_page_btn, 0, Qt.AlignmentFlag.AlignVCenter)
-        
-        # Indicador de página (Estilo caja/input para coherencia con la imagen)
-        self.page_label = QLabel()
-        self.page_label.setStyleSheet(f"""
-            QLabel {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: 0px {DesignSystem.SPACE_16}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                color: {DesignSystem.COLOR_TEXT};
-                min-height: 40px;
-                max-height: 40px;
-            }}
-        """)
-        self.page_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self.page_label, 0, Qt.AlignmentFlag.AlignVCenter)
-        
-        self.next_page_btn = QPushButton()
-        self.next_page_btn.setToolTip("Página siguiente")
-        icon_manager.set_button_icon(self.next_page_btn, 'chevron-right', size=DesignSystem.ICON_SIZE_MD)
-        self.next_page_btn.clicked.connect(self._go_next_page)
-        self.next_page_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
-        self.next_page_btn.setFixedSize(40, 40)
-        layout.addWidget(self.next_page_btn, 0, Qt.AlignmentFlag.AlignVCenter)
-        
-        self.last_page_btn = QPushButton()
-        self.last_page_btn.setToolTip("Última página")
-        icon_manager.set_button_icon(self.last_page_btn, 'skip-next', size=DesignSystem.ICON_SIZE_MD)
-        self.last_page_btn.clicked.connect(self._go_last_page)
-        self.last_page_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
-        self.last_page_btn.setFixedSize(40, 40)
-        layout.addWidget(self.last_page_btn, 0, Qt.AlignmentFlag.AlignVCenter)
-        
-        layout.addStretch()
-        
-        # Items per page
-        items_label = QLabel("Items por página:")
-        items_label.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_SM}px;")
-        layout.addWidget(items_label, 0, Qt.AlignmentFlag.AlignVCenter)
-        
-        self.items_per_page_combo = QComboBox()
-        self.items_per_page_combo.addItems(["100", "200", "500", "Todos"])
-        self.items_per_page_combo.setCurrentText("200")
-        self.items_per_page_combo.currentTextChanged.connect(self._change_items_per_page)
-        self.items_per_page_combo.setFixedWidth(100)
-        # El estilo de DesignSystem ya tiene 40px de min-height
-        self.items_per_page_combo.setStyleSheet(DesignSystem.get_combobox_style())
-        layout.addWidget(self.items_per_page_combo, 0, Qt.AlignmentFlag.AlignVCenter)
-        
-        widget.setVisible(False)
-        return widget
-    
     def _create_options_group(self):
         """Crea grupo de opciones de seguridad usando método centralizado"""
         return self._create_security_options_section(
@@ -437,7 +356,7 @@ class HeicDialog(BaseDialog):
         
         self.filtered_pairs = []
         
-        for pair in self.analysis.duplicate_pairs:
+        for pair in self.all_pairs:
             # Filtro de búsqueda
             if search_text and search_text not in pair.base_name.lower():
                 continue
@@ -452,8 +371,8 @@ class HeicDialog(BaseDialog):
             
             self.filtered_pairs.append(pair)
         
-        self.current_page = 0
-        self._update_tree()
+        # Reiniciar carga progresiva
+        self._load_initial_groups()
     
     def _matches_source_filter(self, date_source: str, filter_value: str) -> bool:
         """Verifica si el origen de fecha coincide con el filtro seleccionado.
@@ -492,91 +411,68 @@ class HeicDialog(BaseDialog):
         self.dir_combo.setCurrentIndex(0)
         self.source_combo.setCurrentIndex(0)
     
-    def _go_first_page(self):
-        self.current_page = 0
-        QTimer.singleShot(0, self._update_tree)
+    # ========================================================================
+    # LÓGICA DE CARGA PROGRESIVA
+    # ========================================================================
     
-    def _go_prev_page(self):
-        if self.current_page > 0:
-            self.current_page -= 1
-            QTimer.singleShot(0, self._update_tree)
+    def _load_initial_groups(self):
+        """Carga los grupos iniciales en el árbol."""
+        self.loaded_count = 0
+        self.tree_widget.clear()
+        self._load_more_groups()
     
-    def _go_next_page(self):
-        if self.current_page < self.total_pages - 1:
-            self.current_page += 1
-            QTimer.singleShot(0, self._update_tree)
-    
-    def _go_last_page(self):
-        self.current_page = max(0, self.total_pages - 1)
-        QTimer.singleShot(0, self._update_tree)
-    
-    def _change_items_per_page(self, text):
-        if text == "Todos":
-            self.ITEMS_PER_PAGE = len(self.filtered_pairs)
-        else:
-            self.ITEMS_PER_PAGE = int(text)
-        self.current_page = 0
-        QTimer.singleShot(0, self._update_tree)
-    
-    def _update_tree(self):
-        """Actualiza el TreeWidget con grupos expandibles"""
-        QApplication.setOverrideCursor(QCursor(Qt.CursorShape.WaitCursor))
+    def _load_more_groups(self):
+        """Carga más grupos en el árbol."""
+        start = self.loaded_count
+        end = min(start + self.LOAD_INCREMENT, len(self.filtered_pairs))
         
-        try:
-            total_filtered = len(self.filtered_pairs)
-            # Usar paginación si el dataset ORIGINAL era grande, no el filtrado
-            total_items = len(self.analysis.duplicate_pairs)
-            use_pagination = total_items > self.MAX_ITEMS_WITHOUT_PAGINATION
-            
-            if use_pagination:
-                self.total_pages = (total_filtered + self.ITEMS_PER_PAGE - 1) // self.ITEMS_PER_PAGE
-                start_idx = self.current_page * self.ITEMS_PER_PAGE
-                end_idx = min(start_idx + self.ITEMS_PER_PAGE, total_filtered)
-                items_to_show = self.filtered_pairs[start_idx:end_idx]
-                
-                self.pagination_widget.setVisible(True)
-                self.page_label.setText(
-                    f"Página {self.current_page + 1} de {self.total_pages} "
-                    f"(mostrando {start_idx + 1}-{end_idx} de {total_filtered})"
-                )
-                
-                self.first_page_btn.setEnabled(self.current_page > 0)
-                self.prev_page_btn.setEnabled(self.current_page > 0)
-                self.next_page_btn.setEnabled(self.current_page < self.total_pages - 1)
-                self.last_page_btn.setEnabled(self.current_page < self.total_pages - 1)
-            else:
-                items_to_show = self.filtered_pairs
-                self.pagination_widget.setVisible(False)
-            
-            # Limpiar tree
-            self.tree_widget.clear()
-            
-            # Determinar qué se conservará y eliminará según formato seleccionado
-            format_to_keep = "JPG" if self.selected_format == 'jpg' else "HEIC"
-            format_to_delete = "HEIC" if self.selected_format == 'jpg' else "JPG"
-            
-            # Añadir grupos
-            for group_number, pair in enumerate(items_to_show, start=1):
-                self._add_group_to_tree(pair, group_number, format_to_keep, format_to_delete)
-                
-                # Procesar eventos cada 20 grupos
-                if group_number % 20 == 0:
-                    QApplication.processEvents()
+        # Determinar qué se conservará y eliminará según formato seleccionado
+        format_to_keep = "JPG" if self.selected_format == 'jpg' else "HEIC"
+        format_to_delete = "HEIC" if self.selected_format == 'jpg' else "JPG"
+        
+        for i in range(start, end):
+            pair = self.filtered_pairs[i]
+            self._add_group_to_tree(pair, i + 1, format_to_keep, format_to_delete)
+        
+        self.loaded_count = end
+        self._update_pagination_ui()
+    
+    def _load_all_groups(self):
+        """Carga todos los grupos restantes."""
+        from PyQt6.QtWidgets import QMessageBox
+        
+        if len(self.filtered_pairs) > 1000:
+            reply = QMessageBox.question(
+                self,
+                "Cargar todos los grupos",
+                f"Hay {len(self.filtered_pairs)} grupos. ¿Seguro que quieres cargarlos todos?\n"
+                "Esto puede tardar y consumir memoria.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+        
+        while self.loaded_count < len(self.filtered_pairs):
+            self._load_more_groups()
+    
+    def _update_pagination_ui(self):
+        """Actualiza la UI de la barra de carga progresiva."""
+        if self.pagination_bar:
+            self._update_progressive_loading_ui(
+                pagination_bar=self.pagination_bar,
+                loaded_count=self.loaded_count,
+                filtered_count=len(self.filtered_pairs),
+                total_count=len(self.all_pairs),
+                load_increment=self.LOAD_INCREMENT
+            )
             
             # Actualizar contador
-            total = len(self.analysis.duplicate_pairs)
-            if use_pagination:
-                self.counter_label.setText(
-                    f"Mostrando {len(items_to_show)} de {total_filtered} grupos filtrados ({total} total)"
-                )
+            total = len(self.all_pairs)
+            filtered = len(self.filtered_pairs)
+            if filtered == total:
+                self.counter_label.setText(f"Mostrando {self.loaded_count} de {filtered} grupos")
             else:
-                if total_filtered == total:
-                    self.counter_label.setText(f"Mostrando {total_filtered} grupos")
-                else:
-                    self.counter_label.setText(f"Mostrando {total_filtered} de {total} grupos")
-        
-        finally:
-            QApplication.restoreOverrideCursor()
+                self.counter_label.setText(f"Mostrando {self.loaded_count} de {filtered} grupos filtrados ({total} total)")
     
     def _add_group_to_tree(self, pair, group_number, format_to_keep, format_to_delete):
         """Añade un grupo como nodo padre expandible con archivos HEIC y JPG"""

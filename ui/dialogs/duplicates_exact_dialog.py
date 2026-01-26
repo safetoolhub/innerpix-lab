@@ -249,77 +249,22 @@ class DuplicatesExactDialog(BaseDialog):
         self._load_initial_groups()
     
     def _create_strategy_selector(self) -> QFrame:
-        """Crea el selector de estrategia de conservación (compacto, una línea)."""
-        frame = QFrame()
-        frame.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: {DesignSystem.SPACE_12}px {DesignSystem.SPACE_16}px;
-            }}
-        """)
-        
-        # Layout horizontal único para compactar todo en una línea
-        layout = QHBoxLayout(frame)
-        layout.setSpacing(int(DesignSystem.SPACE_16))
-        layout.setContentsMargins(0, 0, 0, 0)
-        
-        # Título + Descripción en línea
-        title_desc = QLabel("<b>Conservar:</b> Elige qué archivo mantener de cada grupo")
-        title_desc.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            color: {DesignSystem.COLOR_TEXT};
-        """)
-        layout.addWidget(title_desc)
-        
-        layout.addStretch()
-        
-        # Botones de estrategia
-        buttons_layout = QHBoxLayout()
-        buttons_layout.setSpacing(int(DesignSystem.SPACE_8))
-        
+        """Crea el selector de estrategia de conservación usando método centralizado."""
         strategies = [
             ('oldest', 'clock-outline', 'Más antiguo', 'Conserva el archivo con fecha más antigua (original)'),
             ('newest', 'clock-fast', 'Más reciente', 'Conserva el archivo con fecha más reciente'),
         ]
         
-        self.strategy_buttons = {}
+        frame = self._create_compact_strategy_selector(
+            title="Conservar:",
+            description="Elige qué archivo mantener de cada grupo",
+            strategies=strategies,
+            current_strategy=self.keep_strategy,
+            on_strategy_changed=self._on_strategy_changed
+        )
         
-        for strategy_id, icon_name, label, tooltip in strategies:
-            btn = QPushButton(label)
-            btn.setCheckable(True)
-            btn.setChecked(strategy_id == self.keep_strategy)
-            btn.setToolTip(tooltip)
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            icon_manager.set_button_icon(btn, icon_name, size=18)
-            
-            btn.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: {DesignSystem.COLOR_BG_1};
-                    border: 2px solid {DesignSystem.COLOR_BORDER};
-                    border-radius: {DesignSystem.RADIUS_BASE}px;
-                    padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_16}px;
-                    font-size: {DesignSystem.FONT_SIZE_SM}px;
-                    font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-                    color: {DesignSystem.COLOR_TEXT};
-                }}
-                QPushButton:hover {{
-                    border-color: {DesignSystem.COLOR_PRIMARY};
-                    background-color: {DesignSystem.COLOR_SURFACE};
-                }}
-                QPushButton:checked {{
-                    background-color: {DesignSystem.COLOR_PRIMARY};
-                    border-color: {DesignSystem.COLOR_PRIMARY};
-                    color: {DesignSystem.COLOR_PRIMARY_TEXT};
-                }}
-            """)
-            
-            btn.clicked.connect(lambda checked, s=strategy_id: self._on_strategy_changed(s))
-            buttons_layout.addWidget(btn)
-            self.strategy_buttons[strategy_id] = btn
-        
-        layout.addLayout(buttons_layout)
+        # Guardar referencia a los botones para actualizarlos posteriormente
+        self.strategy_buttons = frame.strategy_buttons
         
         return frame
     

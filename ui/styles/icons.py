@@ -94,6 +94,7 @@ class IconManager:
         'file-check': 'mdi6.file-check',
         'file-plus': 'mdi6.file-plus',
         'file-edit': 'mdi6.file-edit',
+        'file-jpg-box': 'mdi6.file-jpg-box',
         'view-grid': 'mdi6.view-grid',
         
         # === OPERACIONES DE ARCHIVOS ===

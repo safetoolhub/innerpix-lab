@@ -1185,4 +1185,288 @@ class BaseDialog(QDialog):
         container._update_visual_state = update_visual_state
         
         return container
-    
+
+    def _create_progressive_loading_bar(
+        self,
+        on_load_more: callable,
+        on_load_all: callable
+    ) -> 'QFrame':
+        """Crea barra de carga progresiva para listas grandes.
+        
+        La carga progresiva funciona así:
+        1. Inicialmente se cargan N items (ej: 100 grupos)
+        2. El usuario puede cargar más items con "Cargar más"
+        3. O cargar todos de una vez con "Cargar todos"
+        
+        Esto mejora el rendimiento en datasets grandes evitando
+        renderizar miles de elementos de golpe.
+        
+        Args:
+            on_load_more: Callback para cargar el siguiente lote
+            on_load_all: Callback para cargar todos los items restantes
+            
+        Returns:
+            QFrame con la barra de paginación progresiva.
+            El frame tiene atributos públicos para actualizar el estado:
+            - progress_indicator: QLabel con texto de progreso
+            - progress_bar_container: QFrame contenedor de la barra
+            - progress_bar_fill: QFrame de relleno de la barra
+            - load_more_btn: QPushButton para cargar más
+            - load_all_btn: QPushButton para cargar todos
+        """
+        from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton
+        from ui.styles.design_system import DesignSystem
+        from ui.styles.icons import icon_manager
+        
+        pagination_card = QFrame()
+        pagination_card.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                padding: {DesignSystem.SPACE_12}px {DesignSystem.SPACE_16}px;
+            }}
+        """)
+        
+        pagination_layout = QHBoxLayout(pagination_card)
+        pagination_layout.setSpacing(int(DesignSystem.SPACE_12))
+        pagination_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Indicador de progreso textual
+        progress_indicator = QLabel()
+        progress_indicator.setStyleSheet(f"""
+            QLabel {{
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+            }}
+        """)
+        progress_indicator.setToolTip(
+            "Muestra cuántos elementos se han cargado en la lista.\n"
+            "Por rendimiento, los elementos se cargan en lotes.\n"
+            "Usa 'Cargar más' para ver elementos adicionales."
+        )
+        pagination_layout.addWidget(progress_indicator)
+        
+        # Barra de progreso visual
+        progress_bar_container = QFrame()
+        progress_bar_container.setFixedHeight(8)
+        progress_bar_container.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_BORDER};
+                border-radius: 4px;
+            }}
+        """)
+        
+        progress_bar_fill = QFrame(progress_bar_container)
+        progress_bar_fill.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                border-radius: 4px;
+            }}
+        """)
+        progress_bar_fill.setGeometry(0, 0, 0, 8)
+        
+        pagination_layout.addWidget(progress_bar_container, 1)
+        
+        # Botón cargar todos
+        load_all_btn = QPushButton("Cargar todos")
+        icon_manager.set_button_icon(load_all_btn, 'download', size=16)
+        load_all_btn.clicked.connect(on_load_all)
+        load_all_btn.setToolTip("Cargar todos los elementos restantes de una vez")
+        load_all_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                color: {DesignSystem.COLOR_PRIMARY};
+                border: 2px solid {DesignSystem.COLOR_PRIMARY};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_16}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                color: {DesignSystem.COLOR_PRIMARY_TEXT};
+            }}
+        """)
+        load_all_btn.hide()
+        pagination_layout.addWidget(load_all_btn)
+        
+        # Botón cargar más
+        load_more_btn = QPushButton("Cargar más")
+        icon_manager.set_button_icon(load_more_btn, 'refresh', size=18)
+        load_more_btn.clicked.connect(on_load_more)
+        load_more_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                color: {DesignSystem.COLOR_PRIMARY_TEXT};
+                border: none;
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_10}px {DesignSystem.SPACE_20}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_PRIMARY_HOVER};
+            }}
+            QPushButton:disabled {{
+                background-color: {DesignSystem.COLOR_SURFACE_DISABLED};
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            }}
+        """)
+        pagination_layout.addWidget(load_more_btn)
+        
+        # Guardar referencias en el frame para acceso externo
+        pagination_card.progress_indicator = progress_indicator
+        pagination_card.progress_bar_container = progress_bar_container
+        pagination_card.progress_bar_fill = progress_bar_fill
+        pagination_card.load_more_btn = load_more_btn
+        pagination_card.load_all_btn = load_all_btn
+        
+        return pagination_card
+
+    def _update_progressive_loading_ui(
+        self,
+        pagination_bar: 'QFrame',
+        loaded_count: int,
+        filtered_count: int,
+        total_count: int,
+        load_increment: int = 100
+    ) -> None:
+        """Actualiza la UI de la barra de carga progresiva.
+        
+        Args:
+            pagination_bar: El QFrame retornado por _create_progressive_loading_bar
+            loaded_count: Número de elementos ya cargados en la lista
+            filtered_count: Número de elementos después de aplicar filtros
+            total_count: Número total de elementos sin filtrar
+            load_increment: Cuántos elementos se cargan por lote
+        """
+        # Texto de progreso claro
+        if filtered_count > 0:
+            percent = (loaded_count / filtered_count) * 100
+            pagination_bar.progress_indicator.setText(
+                f"{percent:.0f}% cargado en lista ({loaded_count} de {filtered_count})"
+            )
+            
+            # Actualizar barra
+            bar_width = pagination_bar.progress_bar_container.width()
+            fill_width = int(bar_width * loaded_count / filtered_count) if bar_width > 0 else 0
+            pagination_bar.progress_bar_fill.setGeometry(0, 0, fill_width, 8)
+        else:
+            pagination_bar.progress_indicator.setText("Sin elementos que mostrar")
+            pagination_bar.progress_bar_fill.setGeometry(0, 0, 0, 8)
+        
+        # Mostrar/ocultar botones según estado
+        has_more = loaded_count < filtered_count
+        pagination_bar.load_more_btn.setVisible(has_more)
+        pagination_bar.load_more_btn.setEnabled(has_more)
+        pagination_bar.load_all_btn.setVisible(has_more and (filtered_count - loaded_count) > load_increment)
+        
+        if has_more:
+            remaining = filtered_count - loaded_count
+            to_load = min(load_increment, remaining)
+            pagination_bar.load_more_btn.setText(f"Cargar {to_load} más")
+            pagination_bar.load_more_btn.setToolTip(f"Cargar {to_load} elementos más ({remaining} pendientes)")
+        else:
+            pagination_bar.load_more_btn.setText("✓ Todos cargados")
+
+    def _create_compact_strategy_selector(
+        self,
+        title: str,
+        description: str,
+        strategies: List[tuple],
+        current_strategy: str,
+        on_strategy_changed: callable
+    ) -> 'QFrame':
+        """Crea selector de estrategia compacto en una línea horizontal.
+        
+        Diseño minimalista que ahorra espacio vertical manteniendo funcionalidad completa.
+        
+        Args:
+            title: Título del selector (ej: "Conservar:")
+            description: Descripción breve (ej: "Elige qué archivo mantener")
+            strategies: Lista de tuplas (id, icon_name, label, tooltip)
+                Ejemplo: [
+                    ('oldest', 'clock-outline', 'Más antiguo', 'Conserva el archivo más antiguo'),
+                    ('newest', 'clock-fast', 'Más reciente', 'Conserva el archivo más reciente'),
+                ]
+            current_strategy: ID de la estrategia actualmente seleccionada
+            on_strategy_changed: Callback(strategy_id) cuando cambia la selección
+            
+        Returns:
+            QFrame con el selector compacto.
+            El frame tiene un atributo 'strategy_buttons' dict[str, QPushButton]
+        """
+        from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton
+        from PyQt6.QtCore import Qt
+        from ui.styles.design_system import DesignSystem
+        from ui.styles.icons import icon_manager
+        
+        frame = QFrame()
+        frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                padding: {DesignSystem.SPACE_12}px {DesignSystem.SPACE_16}px;
+            }}
+        """)
+        
+        # Layout horizontal único para compactar todo en una línea
+        layout = QHBoxLayout(frame)
+        layout.setSpacing(int(DesignSystem.SPACE_16))
+        layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Título + Descripción en línea
+        title_desc = QLabel(f"<b>{title}</b> {description}")
+        title_desc.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            color: {DesignSystem.COLOR_TEXT};
+        """)
+        layout.addWidget(title_desc)
+        
+        layout.addStretch()
+        
+        # Botones de estrategia
+        buttons_layout = QHBoxLayout()
+        buttons_layout.setSpacing(int(DesignSystem.SPACE_8))
+        
+        strategy_buttons = {}
+        
+        for strategy_id, icon_name, label, tooltip in strategies:
+            btn = QPushButton(label)
+            btn.setCheckable(True)
+            btn.setChecked(strategy_id == current_strategy)
+            btn.setToolTip(tooltip)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            icon_manager.set_button_icon(btn, icon_name, size=18)
+            
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {DesignSystem.COLOR_BG_1};
+                    border: 2px solid {DesignSystem.COLOR_BORDER};
+                    border-radius: {DesignSystem.RADIUS_BASE}px;
+                    padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_16}px;
+                    font-size: {DesignSystem.FONT_SIZE_SM}px;
+                    font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                    color: {DesignSystem.COLOR_TEXT};
+                }}
+                QPushButton:hover {{
+                    border-color: {DesignSystem.COLOR_PRIMARY};
+                    background-color: {DesignSystem.COLOR_SURFACE};
+                }}
+                QPushButton:checked {{
+                    background-color: {DesignSystem.COLOR_PRIMARY};
+                    border-color: {DesignSystem.COLOR_PRIMARY};
+                    color: {DesignSystem.COLOR_PRIMARY_TEXT};
+                }}
+            """)
+            
+            btn.clicked.connect(lambda checked, s=strategy_id: on_strategy_changed(s))
+            buttons_layout.addWidget(btn)
+            strategy_buttons[strategy_id] = btn
+        
+        layout.addLayout(buttons_layout)
+        
+        # Guardar referencia a los botones
+        frame.strategy_buttons = strategy_buttons
+        
+        return frame

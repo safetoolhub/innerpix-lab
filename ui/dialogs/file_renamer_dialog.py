@@ -25,9 +25,10 @@ from .base_dialog import BaseDialog
 class FileRenamerDialog(BaseDialog):
     """Diálogo de preview para renombrado con funcionalidades avanzadas"""
     
-    # Configuración de paginación
-    ITEMS_PER_PAGE = 250  # Mostrar 250 items por página para mejor rendimiento
-    MAX_ITEMS_WITHOUT_PAGINATION = 500  # Sin paginación hasta 500 items
+    # Constantes para carga progresiva
+    INITIAL_LOAD = 100
+    LOAD_INCREMENT = 100
+    WARNING_THRESHOLD = 500
 
     def __init__(self, analysis_results, parent=None):
         super().__init__(parent)
@@ -35,19 +36,21 @@ class FileRenamerDialog(BaseDialog):
         self.analysis_results = analysis_results  # RenameAnalysisResult (dataclass)
         self.accepted_plan = None
         
-        # Datos filtrados para la tabla
+        # Datos de archivos
         try:
+            self.all_items = list(analysis_results.renaming_plan)
             self.filtered_plan = list(analysis_results.renaming_plan)
         except AttributeError as e:
             self.logger.error(f"Error accediendo a renaming_plan: {e}")
+            self.all_items = []
             self.filtered_plan = []
         
-        # Paginación
-        self.current_page = 0
-        self.total_pages = 0
+        # Carga progresiva
+        self.loaded_count = 0
+        self.pagination_bar = None
         
         self.init_ui()
-        self._update_table()
+        self._load_initial_items()
 
     def update_statistics(self, results):
         """Actualiza las estadísticas después del renombrado
@@ -123,9 +126,12 @@ class FileRenamerDialog(BaseDialog):
         self.changes_table = self._create_changes_table()
         content_layout.addWidget(self.changes_table)
         
-        # Controles de paginación (si hay muchos archivos)
-        self.pagination_widget = self._create_pagination_controls()
-        content_layout.addWidget(self.pagination_widget)
+        # Barra de carga progresiva
+        self.pagination_bar = self._create_progressive_loading_bar(
+            on_load_more=self._load_more_items,
+            on_load_all=self._load_all_items
+        )
+        content_layout.addWidget(self.pagination_bar)
         
         # Panel de problemas (si hay) - colapsable al final
         if self.analysis_results.issues:
@@ -148,8 +154,11 @@ class FileRenamerDialog(BaseDialog):
         self.ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
         content_layout.addWidget(buttons)
         
+        # Inicializar all_items desde analysis_results
+        self.all_items = list(self.analysis_results.renaming_plan)
+        
         # Actualizar tabla inicial
-        self._update_table()
+        self._apply_filters()
 
     def _create_info_section(self):
         """Crea sección de información y advertencias"""
@@ -380,126 +389,6 @@ class FileRenamerDialog(BaseDialog):
         table.customContextMenuRequested.connect(self._show_context_menu)
         
         return table
-    
-    def _create_pagination_controls(self):
-        """Crea controles de paginación con estilo Material Design"""
-        widget = QFrame()
-        widget.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_4}px;
-            }}
-        """)
-        layout = QHBoxLayout(widget)
-        layout.setSpacing(DesignSystem.SPACE_8)
-        layout.setContentsMargins(DesignSystem.SPACE_8, DesignSystem.SPACE_4, DesignSystem.SPACE_8, DesignSystem.SPACE_4)
-        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        # Botón primera página - Tamaño 40x40 para coincidir con ComboBox (premium height)
-        self.first_page_btn = QPushButton()
-        self.first_page_btn.setToolTip("Primera página")
-        icon_manager.set_button_icon(self.first_page_btn, 'skip-previous', size=DesignSystem.ICON_SIZE_MD)
-        self.first_page_btn.clicked.connect(self._go_first_page)
-        self.first_page_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
-        self.first_page_btn.setFixedSize(40, 40)
-        layout.addWidget(self.first_page_btn, 0, Qt.AlignmentFlag.AlignVCenter)
-        
-        # Botón página anterior
-        self.prev_page_btn = QPushButton()
-        self.prev_page_btn.setToolTip("Página anterior")
-        icon_manager.set_button_icon(self.prev_page_btn, 'chevron-left', size=DesignSystem.ICON_SIZE_MD)
-        self.prev_page_btn.clicked.connect(self._go_prev_page)
-        self.prev_page_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
-        self.prev_page_btn.setFixedSize(40, 40)
-        layout.addWidget(self.prev_page_btn, 0, Qt.AlignmentFlag.AlignVCenter)
-        
-        # Indicador de página (Estilo caja/input para coherencia con la imagen)
-        self.page_label = QLabel()
-        self.page_label.setStyleSheet(f"""
-            QLabel {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: 0px {DesignSystem.SPACE_16}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                color: {DesignSystem.COLOR_TEXT};
-                min-height: 40px;
-                max-height: 40px;
-            }}
-        """)
-        self.page_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self.page_label, 0, Qt.AlignmentFlag.AlignVCenter)
-        
-        # Botón página siguiente
-        self.next_page_btn = QPushButton()
-        self.next_page_btn.setToolTip("Página siguiente")
-        icon_manager.set_button_icon(self.next_page_btn, 'chevron-right', size=DesignSystem.ICON_SIZE_MD)
-        self.next_page_btn.clicked.connect(self._go_next_page)
-        self.next_page_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
-        self.next_page_btn.setFixedSize(40, 40)
-        layout.addWidget(self.next_page_btn, 0, Qt.AlignmentFlag.AlignVCenter)
-        
-        # Botón última página
-        self.last_page_btn = QPushButton()
-        self.last_page_btn.setToolTip("Última página")
-        icon_manager.set_button_icon(self.last_page_btn, 'skip-next', size=DesignSystem.ICON_SIZE_MD)
-        self.last_page_btn.clicked.connect(self._go_last_page)
-        self.last_page_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
-        self.last_page_btn.setFixedSize(40, 40)
-        layout.addWidget(self.last_page_btn, 0, Qt.AlignmentFlag.AlignVCenter)
-        
-        layout.addStretch()
-        
-        # Combo para cambiar items por página
-        items_per_page_label = QLabel("Items por página:")
-        items_per_page_label.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_SM}px;")
-        layout.addWidget(items_per_page_label, 0, Qt.AlignmentFlag.AlignVCenter)
-        
-        self.items_per_page_combo = QComboBox()
-        self.items_per_page_combo.addItems(["100", "250", "500", "1000", "Todos"])
-        self.items_per_page_combo.setCurrentText("250")
-        self.items_per_page_combo.currentTextChanged.connect(self._change_items_per_page)
-        self.items_per_page_combo.setFixedWidth(100)
-        self.items_per_page_combo.setStyleSheet(DesignSystem.get_combobox_style())
-        layout.addWidget(self.items_per_page_combo, 0, Qt.AlignmentFlag.AlignVCenter)
-        
-        widget.setVisible(False)  # Oculto por defecto
-        return widget
-    
-    def _go_first_page(self):
-        """Ir a la primera página"""
-        self.current_page = 0
-        # Usar QTimer para evitar congelación en UI
-        QTimer.singleShot(0, self._update_table)
-    
-    def _go_prev_page(self):
-        """Ir a la página anterior"""
-        if self.current_page > 0:
-            self.current_page -= 1
-            QTimer.singleShot(0, self._update_table)
-    
-    def _go_next_page(self):
-        """Ir a la página siguiente"""
-        if self.current_page < self.total_pages - 1:
-            self.current_page += 1
-            QTimer.singleShot(0, self._update_table)
-    
-    def _go_last_page(self):
-        """Ir a la última página"""
-        self.current_page = max(0, self.total_pages - 1)
-        QTimer.singleShot(0, self._update_table)
-    
-    def _change_items_per_page(self, text):
-        """Cambia la cantidad de items por página"""
-        if text == "Todos":
-            self.ITEMS_PER_PAGE = len(self.filtered_plan)
-        else:
-            self.ITEMS_PER_PAGE = int(text)
-        self.current_page = 0  # Resetear a primera página
-        QTimer.singleShot(0, self._update_table)
 
     def _create_problems_section(self):
         """Crea sección colapsable de problemas"""
@@ -568,7 +457,7 @@ class FileRenamerDialog(BaseDialog):
         
         self.filtered_plan = []
         
-        for item in self.analysis_results.renaming_plan:
+        for item in self.all_items:
             # Filtro de búsqueda
             if search_text and search_text not in item['original_path'].name.lower():
                 continue
@@ -597,9 +486,8 @@ class FileRenamerDialog(BaseDialog):
             
             self.filtered_plan.append(item)
         
-        # Resetear a primera página cuando se cambian los filtros
-        self.current_page = 0
-        self._update_table()
+        # Reiniciar carga progresiva
+        self._load_initial_items()
 
     def _clear_filters(self):
         """Limpia todos los filtros"""
@@ -608,114 +496,115 @@ class FileRenamerDialog(BaseDialog):
         self.year_combo.setCurrentIndex(0)
         self.source_combo.setCurrentIndex(0)
         self.type_combo.setCurrentIndex(0)
-
-    def _update_table(self):
-        """Actualiza la tabla con los datos filtrados y paginación"""
-        # Mostrar cursor de espera
-        QApplication.setOverrideCursor(QCursor(Qt.CursorShape.WaitCursor))
+    
+    # ========================================================================
+    # LÓGICA DE CARGA PROGRESIVA
+    # ========================================================================
+    
+    def _load_initial_items(self):
+        """Carga los items iniciales en la tabla."""
+        self.loaded_count = 0
+        self.changes_table.setRowCount(0)
+        self._load_more_items()
+    
+    def _load_more_items(self):
+        """Carga más items en la tabla."""
+        start = self.loaded_count
+        end = min(start + self.LOAD_INCREMENT, len(self.filtered_plan))
         
-        try:
-            total_filtered = len(self.filtered_plan)
+        items_to_load = self.filtered_plan[start:end]
+        
+        # Optimización: desactivar updates durante la carga
+        self.changes_table.setUpdatesEnabled(False)
+        self.changes_table.setSortingEnabled(False)
+        
+        # Añadir filas
+        current_row_count = self.changes_table.rowCount()
+        self.changes_table.setRowCount(current_row_count + len(items_to_load))
+        
+        for i, item in enumerate(items_to_load):
+            row = current_row_count + i
+            has_conflict = item.get('has_conflict', False)
+            conflict_color = QColor(255, 200, 200) if has_conflict else None
             
-            # Determinar si necesitamos paginación
-            use_pagination = total_filtered > self.MAX_ITEMS_WITHOUT_PAGINATION
+            # Original
+            original_item = QTableWidgetItem(item['original_path'].name)
+            original_item.setData(Qt.ItemDataRole.UserRole, str(item['original_path']))
+            if conflict_color:
+                original_item.setBackground(conflict_color)
+            self.changes_table.setItem(row, 0, original_item)
             
-            if use_pagination:
-                # Calcular paginación
-                self.total_pages = (total_filtered + self.ITEMS_PER_PAGE - 1) // self.ITEMS_PER_PAGE
-                start_idx = self.current_page * self.ITEMS_PER_PAGE
-                end_idx = min(start_idx + self.ITEMS_PER_PAGE, total_filtered)
-                items_to_show = self.filtered_plan[start_idx:end_idx]
-                
-                # Actualizar controles de paginación
-                self.pagination_widget.setVisible(True)
-                self.page_label.setText(
-                    f"Página {self.current_page + 1} de {self.total_pages} "
-                    f"(mostrando {start_idx + 1}-{end_idx} de {total_filtered})"
-                )
-                
-                # Habilitar/deshabilitar botones
-                self.first_page_btn.setEnabled(self.current_page > 0)
-                self.prev_page_btn.setEnabled(self.current_page > 0)
-                self.next_page_btn.setEnabled(self.current_page < self.total_pages - 1)
-                self.last_page_btn.setEnabled(self.current_page < self.total_pages - 1)
-            else:
-                # Sin paginación, mostrar todos
-                items_to_show = self.filtered_plan
-                self.pagination_widget.setVisible(False)
+            # Nuevo
+            new_item = QTableWidgetItem(item['new_name'])
+            if conflict_color:
+                new_item.setBackground(conflict_color)
+            self.changes_table.setItem(row, 1, new_item)
             
-            # Optimización: desactivar updates durante la carga
-            self.changes_table.setUpdatesEnabled(False)
-            self.changes_table.setSortingEnabled(False)
+            # Fecha
+            date_item = QTableWidgetItem(item['date'].strftime('%Y-%m-%d %H:%M:%S'))
+            if conflict_color:
+                date_item.setBackground(conflict_color)
+            self.changes_table.setItem(row, 2, date_item)
             
-            # Limpiar tabla y redimensionar
-            self.changes_table.clearContents()
-            self.changes_table.setRowCount(len(items_to_show))
+            # Fuente de la fecha
+            date_source = item.get('date_source', 'Desconocido')
+            source_item = QTableWidgetItem(date_source)
+            source_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            if conflict_color:
+                source_item.setBackground(conflict_color)
+            self.changes_table.setItem(row, 3, source_item)
             
-            # Procesar eventos cada 100 filas para evitar congelación
-            for row, item in enumerate(items_to_show):
-                has_conflict = item.get('has_conflict', False)
-                conflict_color = QColor(255, 200, 200) if has_conflict else None  # Rojo suave para conflictos
-                
-                # Original
-                original_item = QTableWidgetItem(item['original_path'].name)
-                original_item.setData(Qt.ItemDataRole.UserRole, str(item['original_path']))
-                if conflict_color:
-                    original_item.setBackground(conflict_color)
-                self.changes_table.setItem(row, 0, original_item)
-                
-                # Nuevo
-                new_item = QTableWidgetItem(item['new_name'])
-                if conflict_color:
-                    new_item.setBackground(conflict_color)
-                self.changes_table.setItem(row, 1, new_item)
-                
-                # Fecha
-                date_item = QTableWidgetItem(item['date'].strftime('%Y-%m-%d %H:%M:%S'))
-                if conflict_color:
-                    date_item.setBackground(conflict_color)
-                self.changes_table.setItem(row, 2, date_item)
-                
-                # Fuente de la fecha
-                date_source = item.get('date_source', 'Desconocido')
-                source_item = QTableWidgetItem(date_source)
-                source_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                if conflict_color:
-                    source_item.setBackground(conflict_color)
-                self.changes_table.setItem(row, 3, source_item)
-                
-                # Tipo
-                file_type = get_file_type(item['original_path'].name)
-                type_item = QTableWidgetItem(file_type)
-                type_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-                if conflict_color:
-                    type_item.setBackground(conflict_color)
-                self.changes_table.setItem(row, 4, type_item)
-                
-                # Procesar eventos cada 100 filas para mantener UI responsiva
-                if row % 100 == 0:
-                    QApplication.processEvents()
-            
-            # Reactivar updates y ordenamiento
-            self.changes_table.setSortingEnabled(True)
-            self.changes_table.setUpdatesEnabled(True)
+            # Tipo
+            file_type = get_file_type(item['original_path'].name)
+            type_item = QTableWidgetItem(file_type)
+            type_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            if conflict_color:
+                type_item.setBackground(conflict_color)
+            self.changes_table.setItem(row, 4, type_item)
+        
+        # Reactivar updates
+        self.changes_table.setSortingEnabled(True)
+        self.changes_table.setUpdatesEnabled(True)
+        
+        self.loaded_count = end
+        self._update_pagination_ui()
+    
+    def _load_all_items(self):
+        """Carga todos los items restantes."""
+        from PyQt6.QtWidgets import QMessageBox
+        
+        if len(self.filtered_plan) > 1000:
+            reply = QMessageBox.question(
+                self,
+                "Cargar todos los archivos",
+                f"Hay {len(self.filtered_plan)} archivos. ¿Seguro que quieres cargarlos todos?\n"
+                "Esto puede tardar y consumir memoria.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+        
+        while self.loaded_count < len(self.filtered_plan):
+            self._load_more_items()
+    
+    def _update_pagination_ui(self):
+        """Actualiza la UI de la barra de carga progresiva."""
+        if self.pagination_bar:
+            self._update_progressive_loading_ui(
+                pagination_bar=self.pagination_bar,
+                loaded_count=self.loaded_count,
+                filtered_count=len(self.filtered_plan),
+                total_count=len(self.all_items),
+                load_increment=self.LOAD_INCREMENT
+            )
             
             # Actualizar contador
-            total = len(self.analysis_results.renaming_plan)
-            if use_pagination:
-                self.counter_label.setText(
-                    f"Mostrando {len(items_to_show)} de {total_filtered} archivos filtrados "
-                    f"({total} total)"
-                )
+            total = len(self.all_items)
+            filtered = len(self.filtered_plan)
+            if filtered == total:
+                self.counter_label.setText(f"Mostrando {self.loaded_count} de {filtered} archivos")
             else:
-                if total_filtered == total:
-                    self.counter_label.setText(f"Mostrando {total_filtered} archivos")
-                else:
-                    self.counter_label.setText(f"Mostrando {total_filtered} de {total} archivos")
-        
-        finally:
-            # Restaurar cursor normal
-            QApplication.restoreOverrideCursor()
+                self.counter_label.setText(f"Mostrando {self.loaded_count} de {filtered} archivos filtrados ({total} total)")
     
     def _on_file_double_clicked(self, item):
         """Abre el archivo con la aplicación predeterminada del sistema al hacer doble clic"""

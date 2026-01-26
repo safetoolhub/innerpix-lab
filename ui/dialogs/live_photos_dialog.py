@@ -23,27 +23,27 @@ from .base_dialog import BaseDialog
 class LivePhotosDialog(BaseDialog):
     """Diálogo para limpieza de Live Photos con vista de grupos expandibles"""
     
-    # Configuración de paginación
-    ITEMS_PER_PAGE = 200
-    MAX_ITEMS_WITHOUT_PAGINATION = 500
+    # Constantes para carga progresiva
+    INITIAL_LOAD = 100
+    LOAD_INCREMENT = 100
+    WARNING_THRESHOLD = 500
 
     def __init__(self, analysis: LivePhotosAnalysisResult, parent=None):
         super().__init__(parent)
         self.analysis = analysis
         self.accepted_plan = None
         
-        # Datos filtrados
+        # Datos de grupos
+        self.all_groups = list(analysis.groups)
         self.filtered_groups = list(analysis.groups)
-        
-        # Paginación
-        self.current_page = 0
-        self.total_pages = 0
+        self.loaded_count = 0
         
         # Referencias a widgets
         self.tree_widget = None
         self.search_input = None
         self.dir_combo = None
         self.counter_label = None
+        self.pagination_bar = None
         
         self.init_ui()
 
@@ -144,9 +144,12 @@ class LivePhotosDialog(BaseDialog):
         self.tree_widget = self._create_files_tree()
         content_layout.addWidget(self.tree_widget)
         
-        # Controles de paginación
-        self.pagination_widget = self._create_pagination_controls()
-        content_layout.addWidget(self.pagination_widget)
+        # Barra de carga progresiva
+        self.pagination_bar = self._create_progressive_loading_bar(
+            on_load_more=self._load_more_groups,
+            on_load_all=self._load_all_groups
+        )
+        content_layout.addWidget(self.pagination_bar)
         
         # Opciones de seguridad
         options_group = self._create_options_group()
@@ -163,8 +166,8 @@ class LivePhotosDialog(BaseDialog):
             self._update_button_text()
         content_layout.addWidget(self.buttons)
         
-        # Actualizar vista inicial
-        self._update_tree()
+        # Cargar grupos iniciales
+        self._load_initial_groups()
 
     def _create_toolbar(self):
         """Crea barra de herramientas con filtros estilo Material Design"""
@@ -332,92 +335,6 @@ class LivePhotosDialog(BaseDialog):
             context_menu_handler=self._show_context_menu
         )
     
-    def _create_pagination_controls(self):
-        """Crea controles de paginación con estilo Material Design"""
-        widget = QFrame()
-        widget.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_4}px;
-            }}
-        """)
-        layout = QHBoxLayout(widget)
-        layout.setSpacing(DesignSystem.SPACE_8)
-        layout.setContentsMargins(DesignSystem.SPACE_8, DesignSystem.SPACE_4, DesignSystem.SPACE_8, DesignSystem.SPACE_4)
-        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        # Botones de navegación con iconos - Tamaño 40x40 para coincidir con ComboBox (premium height)
-        self.first_page_btn = QPushButton()
-        self.first_page_btn.setToolTip("Primera página")
-        icon_manager.set_button_icon(self.first_page_btn, 'skip-previous', size=DesignSystem.ICON_SIZE_MD)
-        self.first_page_btn.clicked.connect(self._go_first_page)
-        self.first_page_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
-        self.first_page_btn.setFixedSize(40, 40)
-        layout.addWidget(self.first_page_btn, 0, Qt.AlignmentFlag.AlignVCenter)
-        
-        self.prev_page_btn = QPushButton()
-        self.prev_page_btn.setToolTip("Página anterior")
-        icon_manager.set_button_icon(self.prev_page_btn, 'chevron-left', size=DesignSystem.ICON_SIZE_MD)
-        self.prev_page_btn.clicked.connect(self._go_prev_page)
-        self.prev_page_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
-        self.prev_page_btn.setFixedSize(40, 40)
-        layout.addWidget(self.prev_page_btn, 0, Qt.AlignmentFlag.AlignVCenter)
-        
-        # Indicador de página (Estilo caja/input para coherencia con la imagen)
-        self.page_label = QLabel()
-        self.page_label.setStyleSheet(f"""
-            QLabel {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: 0px {DesignSystem.SPACE_16}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                color: {DesignSystem.COLOR_TEXT};
-                min-height: 40px;
-                max-height: 40px;
-            }}
-        """)
-        self.page_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self.page_label, 0, Qt.AlignmentFlag.AlignVCenter)
-        
-        self.next_page_btn = QPushButton()
-        self.next_page_btn.setToolTip("Página siguiente")
-        icon_manager.set_button_icon(self.next_page_btn, 'chevron-right', size=DesignSystem.ICON_SIZE_MD)
-        self.next_page_btn.clicked.connect(self._go_next_page)
-        self.next_page_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
-        self.next_page_btn.setFixedSize(40, 40)
-        layout.addWidget(self.next_page_btn, 0, Qt.AlignmentFlag.AlignVCenter)
-        
-        self.last_page_btn = QPushButton()
-        self.last_page_btn.setToolTip("Última página")
-        icon_manager.set_button_icon(self.last_page_btn, 'skip-next', size=DesignSystem.ICON_SIZE_MD)
-        self.last_page_btn.clicked.connect(self._go_last_page)
-        self.last_page_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
-        self.last_page_btn.setFixedSize(40, 40)
-        layout.addWidget(self.last_page_btn, 0, Qt.AlignmentFlag.AlignVCenter)
-        
-        layout.addStretch()
-        
-        # Items per page
-        items_label = QLabel("Items por página:")
-        items_label.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_SM}px;")
-        layout.addWidget(items_label, 0, Qt.AlignmentFlag.AlignVCenter)
-        
-        self.items_per_page_combo = QComboBox()
-        self.items_per_page_combo.addItems(["100", "200", "500", "Todos"])
-        self.items_per_page_combo.setCurrentText("200")
-        self.items_per_page_combo.currentTextChanged.connect(self._change_items_per_page)
-        self.items_per_page_combo.setFixedWidth(100)
-        # El estilo de DesignSystem ya tiene 40px de min-height
-        self.items_per_page_combo.setStyleSheet(DesignSystem.get_combobox_style())
-        layout.addWidget(self.items_per_page_combo, 0, Qt.AlignmentFlag.AlignVCenter)
-        
-        widget.setVisible(False)
-        return widget
-    
     def _create_options_group(self):
         """Crea grupo de opciones de seguridad usando método centralizado"""
         return self._create_security_options_section(
@@ -435,7 +352,7 @@ class LivePhotosDialog(BaseDialog):
         
         self.filtered_groups = []
         
-        for group in self.analysis.groups:
+        for group in self.all_groups:
             # Filtro de búsqueda
             if search_text and search_text not in group.base_name.lower():
                 continue
@@ -450,8 +367,8 @@ class LivePhotosDialog(BaseDialog):
             
             self.filtered_groups.append(group)
         
-        self.current_page = 0
-        self._update_tree()
+        # Reiniciar carga progresiva
+        self._load_initial_groups()
     
     def _matches_source_filter(self, date_source: str, filter_value: str) -> bool:
         """Verifica si el origen de fecha coincide con el filtro seleccionado.
@@ -490,87 +407,64 @@ class LivePhotosDialog(BaseDialog):
         self.dir_combo.setCurrentIndex(0)
         self.source_combo.setCurrentIndex(0)
     
-    def _go_first_page(self):
-        self.current_page = 0
-        QTimer.singleShot(0, self._update_tree)
+    # ========================================================================
+    # LÓGICA DE CARGA PROGRESIVA
+    # ========================================================================
     
-    def _go_prev_page(self):
-        if self.current_page > 0:
-            self.current_page -= 1
-            QTimer.singleShot(0, self._update_tree)
+    def _load_initial_groups(self):
+        """Carga los grupos iniciales en el árbol."""
+        self.loaded_count = 0
+        self.tree_widget.clear()
+        self._load_more_groups()
     
-    def _go_next_page(self):
-        if self.current_page < self.total_pages - 1:
-            self.current_page += 1
-            QTimer.singleShot(0, self._update_tree)
-    
-    def _go_last_page(self):
-        self.current_page = max(0, self.total_pages - 1)
-        QTimer.singleShot(0, self._update_tree)
-    
-    def _change_items_per_page(self, text):
-        if text == "Todos":
-            self.ITEMS_PER_PAGE = len(self.filtered_groups)
-        else:
-            self.ITEMS_PER_PAGE = int(text)
-        self.current_page = 0
-        QTimer.singleShot(0, self._update_tree)
-    
-    def _update_tree(self):
-        """Actualiza el TreeWidget con grupos expandibles"""
-        QApplication.setOverrideCursor(QCursor(Qt.CursorShape.WaitCursor))
+    def _load_more_groups(self):
+        """Carga más grupos en el árbol."""
+        start = self.loaded_count
+        end = min(start + self.LOAD_INCREMENT, len(self.filtered_groups))
         
-        try:
-            total_filtered = len(self.filtered_groups)
-            # Usar paginación si el dataset ORIGINAL era grande, no el filtrado
-            total_items = len(self.analysis.groups)
-            use_pagination = total_items > self.MAX_ITEMS_WITHOUT_PAGINATION
-            
-            if use_pagination:
-                self.total_pages = (total_filtered + self.ITEMS_PER_PAGE - 1) // self.ITEMS_PER_PAGE
-                start_idx = self.current_page * self.ITEMS_PER_PAGE
-                end_idx = min(start_idx + self.ITEMS_PER_PAGE, total_filtered)
-                items_to_show = self.filtered_groups[start_idx:end_idx]
-                
-                self.pagination_widget.setVisible(True)
-                self.page_label.setText(
-                    f"Página {self.current_page + 1} de {self.total_pages} "
-                    f"(mostrando {start_idx + 1}-{end_idx} de {total_filtered})"
-                )
-                
-                self.first_page_btn.setEnabled(self.current_page > 0)
-                self.prev_page_btn.setEnabled(self.current_page > 0)
-                self.next_page_btn.setEnabled(self.current_page < self.total_pages - 1)
-                self.last_page_btn.setEnabled(self.current_page < self.total_pages - 1)
-            else:
-                items_to_show = self.filtered_groups
-                self.pagination_widget.setVisible(False)
-            
-            # Limpiar tree
-            self.tree_widget.clear()
-            
-            # Añadir grupos
-            for group_number, group in enumerate(items_to_show, start=1):
-                self._add_group_to_tree(group, group_number)
-                
-                # Procesar eventos cada 20 grupos
-                if group_number % 20 == 0:
-                    QApplication.processEvents()
+        for i in range(start, end):
+            group = self.filtered_groups[i]
+            self._add_group_to_tree(group, i + 1)
+        
+        self.loaded_count = end
+        self._update_pagination_ui()
+    
+    def _load_all_groups(self):
+        """Carga todos los grupos restantes."""
+        from PyQt6.QtWidgets import QMessageBox
+        
+        if len(self.filtered_groups) > 1000:
+            reply = QMessageBox.question(
+                self,
+                "Cargar todos los grupos",
+                f"Hay {len(self.filtered_groups)} grupos. ¿Seguro que quieres cargarlos todos?\n"
+                "Esto puede tardar y consumir memoria.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+        
+        while self.loaded_count < len(self.filtered_groups):
+            self._load_more_groups()
+    
+    def _update_pagination_ui(self):
+        """Actualiza la UI de la barra de carga progresiva."""
+        if self.pagination_bar:
+            self._update_progressive_loading_ui(
+                pagination_bar=self.pagination_bar,
+                loaded_count=self.loaded_count,
+                filtered_count=len(self.filtered_groups),
+                total_count=len(self.all_groups),
+                load_increment=self.LOAD_INCREMENT
+            )
             
             # Actualizar contador
-            total = len(self.analysis.groups)
-            if use_pagination:
-                self.counter_label.setText(
-                    f"Mostrando {len(items_to_show)} de {total_filtered} grupos filtrados ({total} total)"
-                )
+            total = len(self.all_groups)
+            filtered = len(self.filtered_groups)
+            if filtered == total:
+                self.counter_label.setText(f"Mostrando {self.loaded_count} de {filtered} grupos")
             else:
-                if total_filtered == total:
-                    self.counter_label.setText(f"Mostrando {total_filtered} grupos")
-                else:
-                    self.counter_label.setText(f"Mostrando {total_filtered} de {total} grupos")
-        
-        finally:
-            QApplication.restoreOverrideCursor()
+                self.counter_label.setText(f"Mostrando {self.loaded_count} de {filtered} grupos filtrados ({total} total)")
     
     def _add_group_to_tree(self, group: LivePhotoGroup, group_number: int):
         """Añade un grupo como nodo padre expandible con archivos de imagen y video"""

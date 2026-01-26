@@ -37,9 +37,10 @@ class FileOrganizerDialog(BaseDialog):
     - Sin emojis, usando Icon Manager
     """
     
-    # Configuración de paginación
-    ITEMS_PER_PAGE = 200
-    MAX_ITEMS_WITHOUT_PAGINATION = 500
+    # Constantes para carga progresiva
+    INITIAL_LOAD = 100
+    LOAD_INCREMENT = 100
+    WARNING_THRESHOLD = 500
 
     def __init__(self, initial_analysis: OrganizationAnalysisResult, parent=None):
         super().__init__(parent)
@@ -52,10 +53,10 @@ class FileOrganizerDialog(BaseDialog):
         self.current_organization_type = None  # Sin tipo seleccionado inicialmente
         self.accepted_plan = None
         
-        # Datos filtrados y paginación
+        # Datos de archivos
+        self.all_moves = []  # Empezar vacío
         self.filtered_moves = []  # Empezar vacío hasta que el usuario seleccione
-        self.current_page = 0
-        self.total_pages = 0
+        self.loaded_count = 0
         
         # Worker para análisis
         self.worker: Optional[FileOrganizerAnalysisWorker] = None
@@ -63,6 +64,9 @@ class FileOrganizerDialog(BaseDialog):
         
         # Flag para evitar disparar eventos durante la construcción de la UI
         self.ui_initialized = False
+        
+        # Referencia a la barra de paginación
+        self.pagination_bar = None
         
         self.init_ui()
 
@@ -131,9 +135,12 @@ class FileOrganizerDialog(BaseDialog):
         self.files_tree = self._create_tree_widget()
         content_layout.addWidget(self.files_tree, 1)  # Stretch factor 1
         
-        # === PAGINACIÓN ===
-        self.pagination_widget = self._create_pagination_controls()
-        content_layout.addWidget(self.pagination_widget)
+        # === BARRA DE CARGA PROGRESIVA ===
+        self.pagination_bar = self._create_progressive_loading_bar(
+            on_load_more=self._load_more_items,
+            on_load_all=self._load_all_items
+        )
+        content_layout.addWidget(self.pagination_bar)
         
         # === PROGRESS BAR (inicialmente oculto) ===
         # === PROGRESS BAR (inicialmente oculto) ===
@@ -599,8 +606,11 @@ class FileOrganizerDialog(BaseDialog):
         # Actualizar info de carpetas
         self._update_folders_info()
         
-        # Actualizar tree
-        self._update_tree()
+        # Actualizar datos de archivos
+        if self.analysis:
+            self.all_moves = list(self.analysis.move_plan)
+            self.filtered_moves = list(self.analysis.move_plan)
+            self._load_initial_items()
         
         # Actualizar botón OK
         self._update_ok_button()
@@ -909,91 +919,6 @@ class FileOrganizerDialog(BaseDialog):
         tree.setColumnWidth(3, 180) # Origen
         tree.setColumnWidth(4, 80)  # Tamaño
     
-    def _create_pagination_controls(self) -> QWidget:
-        """Crea controles de paginación con estilo Material Design"""
-        widget = QFrame()
-        widget.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_4}px;
-            }}
-        """)
-        layout = QHBoxLayout(widget)
-        layout.setSpacing(DesignSystem.SPACE_8)
-        layout.setContentsMargins(DesignSystem.SPACE_8, DesignSystem.SPACE_4, DesignSystem.SPACE_8, DesignSystem.SPACE_4)
-        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        # Botones de navegación con iconos - Tamaño 40x40 para coincidir con ComboBox (premium height)
-        self.first_page_btn = QPushButton()
-        self.first_page_btn.setToolTip("Primera página")
-        icon_manager.set_button_icon(self.first_page_btn, 'skip-previous', size=DesignSystem.ICON_SIZE_MD)
-        self.first_page_btn.clicked.connect(self._go_first_page)
-        self.first_page_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
-        self.first_page_btn.setFixedSize(40, 40)
-        layout.addWidget(self.first_page_btn, 0, Qt.AlignmentFlag.AlignVCenter)
-        
-        self.prev_page_btn = QPushButton()
-        self.prev_page_btn.setToolTip("Página anterior")
-        icon_manager.set_button_icon(self.prev_page_btn, 'chevron-left', size=DesignSystem.ICON_SIZE_MD)
-        self.prev_page_btn.clicked.connect(self._go_prev_page)
-        self.prev_page_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
-        self.prev_page_btn.setFixedSize(40, 40)
-        layout.addWidget(self.prev_page_btn, 0, Qt.AlignmentFlag.AlignVCenter)
-        
-        # Indicador de página (Estilo caja/input para coherencia con la imagen)
-        self.page_label = QLabel()
-        self.page_label.setStyleSheet(f"""
-            QLabel {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: 0px {DesignSystem.SPACE_16}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                color: {DesignSystem.COLOR_TEXT};
-                min-height: 40px;
-                max-height: 40px;
-            }}
-        """)
-        self.page_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self.page_label, 0, Qt.AlignmentFlag.AlignVCenter)
-        
-        self.next_page_btn = QPushButton()
-        self.next_page_btn.setToolTip("Página siguiente")
-        icon_manager.set_button_icon(self.next_page_btn, 'chevron-right', size=DesignSystem.ICON_SIZE_MD)
-        self.next_page_btn.clicked.connect(self._go_next_page)
-        self.next_page_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
-        self.next_page_btn.setFixedSize(40, 40)
-        layout.addWidget(self.next_page_btn, 0, Qt.AlignmentFlag.AlignVCenter)
-        
-        self.last_page_btn = QPushButton()
-        self.last_page_btn.setToolTip("Última página")
-        icon_manager.set_button_icon(self.last_page_btn, 'skip-next', size=DesignSystem.ICON_SIZE_MD)
-        self.last_page_btn.clicked.connect(self._go_last_page)
-        self.last_page_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
-        self.last_page_btn.setFixedSize(40, 40)
-        layout.addWidget(self.last_page_btn, 0, Qt.AlignmentFlag.AlignVCenter)
-        
-        layout.addStretch()
-        
-        # Items per page
-        items_label = QLabel("Items por página:")
-        items_label.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_SM}px;")
-        layout.addWidget(items_label, 0, Qt.AlignmentFlag.AlignVCenter)
-        
-        self.items_per_page_combo = QComboBox()
-        self.items_per_page_combo.addItems(["100", "200", "500", "Todos"])
-        self.items_per_page_combo.setCurrentText("200")
-        self.items_per_page_combo.currentTextChanged.connect(self._change_items_per_page)
-        self.items_per_page_combo.setFixedWidth(100)
-        self.items_per_page_combo.setStyleSheet(DesignSystem.get_combobox_style())
-        layout.addWidget(self.items_per_page_combo, 0, Qt.AlignmentFlag.AlignVCenter)
-        
-        widget.setVisible(False)
-        return widget
-    
     def _create_options_group(self) -> QFrame:
         """Crea grupo de opciones con sección de seguridad + opción de limpieza específica."""
         from PyQt6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel, QWidget
@@ -1212,6 +1137,9 @@ class FileOrganizerDialog(BaseDialog):
 
     def _apply_filters(self):
         """Aplica filtros a la lista de movimientos"""
+        if not self.analysis:
+            return
+            
         search_text = self.search_input.text().lower()
         category_filter = self.category_combo.currentText()
         status_filter = self.status_combo.currentText()
@@ -1221,7 +1149,7 @@ class FileOrganizerDialog(BaseDialog):
         # Mapeo de categorías
         type_map = {'PHOTO': 'Fotos', 'VIDEO': 'Videos'}
         
-        for move in self.analysis.move_plan:
+        for move in self.all_moves:
             # Filtro de búsqueda
             if search_text and search_text not in move.original_name.lower():
                 continue
@@ -1242,8 +1170,8 @@ class FileOrganizerDialog(BaseDialog):
             
             self.filtered_moves.append(move)
         
-        self.current_page = 0
-        self._update_tree()
+        # Reiniciar carga progresiva
+        self._load_initial_items()
     
     def _clear_filters(self):
         """Limpia todos los filtros"""
@@ -1251,93 +1179,84 @@ class FileOrganizerDialog(BaseDialog):
         self.category_combo.setCurrentIndex(0)
         self.status_combo.setCurrentIndex(0)
     
-    # === PAGINACIÓN ===
+    # ========================================================================
+    # LÓGICA DE CARGA PROGRESIVA
+    # ========================================================================
     
-    def _go_first_page(self):
-        self.current_page = 0
-        QTimer.singleShot(0, self._update_tree)
-    
-    def _go_prev_page(self):
-        if self.current_page > 0:
-            self.current_page -= 1
-            QTimer.singleShot(0, self._update_tree)
-    
-    def _go_next_page(self):
-        if self.current_page < self.total_pages - 1:
-            self.current_page += 1
-            QTimer.singleShot(0, self._update_tree)
-    
-    def _go_last_page(self):
-        self.current_page = max(0, self.total_pages - 1)
-        QTimer.singleShot(0, self._update_tree)
-    
-    def _change_items_per_page(self, text: str):
-        if text == "Todos":
-            self.ITEMS_PER_PAGE = len(self.filtered_moves)
-        else:
-            self.ITEMS_PER_PAGE = int(text)
-        self.current_page = 0
-        QTimer.singleShot(0, self._update_tree)
-    
-    # === ACTUALIZACIÓN DEL TREE ===
-    
-    def _update_tree(self):
-        """Actualiza el TreeWidget con los datos filtrados"""
-        QApplication.setOverrideCursor(QCursor(Qt.CursorShape.WaitCursor))
+    def _load_initial_items(self):
+        """Carga los items iniciales en el árbol."""
+        self.loaded_count = 0
+        self.files_tree.clear()
         
-        try:
-            total_filtered = len(self.filtered_moves)
-            use_pagination = total_filtered > self.MAX_ITEMS_WITHOUT_PAGINATION
+        # Reconfigurar columnas si cambió el tipo
+        self._configure_tree_columns(self.files_tree)
+        
+        self._load_more_items()
+    
+    def _load_more_items(self):
+        """Carga más items en el árbol."""
+        if not self.filtered_moves:
+            self._update_pagination_ui()
+            return
             
-            if use_pagination:
-                self.total_pages = (total_filtered + self.ITEMS_PER_PAGE - 1) // self.ITEMS_PER_PAGE
-                start_idx = self.current_page * self.ITEMS_PER_PAGE
-                end_idx = min(start_idx + self.ITEMS_PER_PAGE, total_filtered)
-                items_to_show = self.filtered_moves[start_idx:end_idx]
-                
-                self.pagination_widget.setVisible(True)
-                self.page_label.setText(
-                    f"Página {self.current_page + 1} de {self.total_pages} "
-                    f"(mostrando {start_idx + 1}-{end_idx} de {total_filtered})"
-                )
-                
-                self.first_page_btn.setEnabled(self.current_page > 0)
-                self.prev_page_btn.setEnabled(self.current_page > 0)
-                self.next_page_btn.setEnabled(self.current_page < self.total_pages - 1)
-                self.last_page_btn.setEnabled(self.current_page < self.total_pages - 1)
-            else:
-                items_to_show = self.filtered_moves
-                self.pagination_widget.setVisible(False)
-            
-            # Limpiar tree
-            self.files_tree.clear()
-            
-            # Reconfigurar columnas si cambió el tipo
-            self._configure_tree_columns(self.files_tree)
-            
-            # Poblar según tipo
-            org_type = self.current_organization_type
+        start = self.loaded_count
+        end = min(start + self.LOAD_INCREMENT, len(self.filtered_moves))
+        
+        items_to_load = self.filtered_moves[start:end]
+        
+        # Poblar según tipo - para carga incremental, solo añadir archivos directamente
+        org_type = self.current_organization_type
+        
+        # En la primera carga, crear la estructura de grupos
+        if start == 0:
             if org_type == OrganizationType.TO_ROOT:
-                self._populate_tree_to_root(items_to_show)
+                self._populate_tree_to_root(self.filtered_moves)
             elif org_type in (OrganizationType.BY_MONTH, OrganizationType.BY_YEAR, OrganizationType.BY_YEAR_MONTH):
-                self._populate_tree_by_temporal(items_to_show)
+                self._populate_tree_by_temporal(self.filtered_moves)
             elif org_type in (OrganizationType.BY_TYPE, OrganizationType.BY_SOURCE):
-                self._populate_tree_by_category(items_to_show)
+                self._populate_tree_by_category(self.filtered_moves)
+            self.loaded_count = len(self.filtered_moves)
+        else:
+            self.loaded_count = end
+        
+        self._update_pagination_ui()
+    
+    def _load_all_items(self):
+        """Carga todos los items restantes."""
+        from PyQt6.QtWidgets import QMessageBox
+        
+        if len(self.filtered_moves) > 1000:
+            reply = QMessageBox.question(
+                self,
+                "Cargar todos los archivos",
+                f"Hay {len(self.filtered_moves)} archivos. ¿Seguro que quieres cargarlos todos?\n"
+                "Esto puede tardar y consumir memoria.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+        
+        while self.loaded_count < len(self.filtered_moves):
+            self._load_more_items()
+    
+    def _update_pagination_ui(self):
+        """Actualiza la UI de la barra de carga progresiva."""
+        if self.pagination_bar and self.analysis:
+            self._update_progressive_loading_ui(
+                pagination_bar=self.pagination_bar,
+                loaded_count=self.loaded_count,
+                filtered_count=len(self.filtered_moves),
+                total_count=len(self.all_moves),
+                load_increment=self.LOAD_INCREMENT
+            )
             
             # Actualizar contador
-            total = len(self.analysis.move_plan)
-            if use_pagination:
-                self.counter_label.setText(
-                    f"Mostrando {len(items_to_show)} de {total_filtered} archivos filtrados ({total} total)"
-                )
+            total = len(self.all_moves)
+            filtered = len(self.filtered_moves)
+            if filtered == total:
+                self.counter_label.setText(f"Mostrando {self.loaded_count} de {filtered} archivos")
             else:
-                if total_filtered == total:
-                    self.counter_label.setText(f"Mostrando {total_filtered} archivos")
-                else:
-                    self.counter_label.setText(f"Mostrando {total_filtered} de {total} archivos")
-        
-        finally:
-            QApplication.restoreOverrideCursor()
+                self.counter_label.setText(f"Mostrando {self.loaded_count} de {filtered} archivos filtrados ({total} total)")
     
     def _populate_tree_to_root(self, moves):
         """Poblar tree para TO_ROOT"""
