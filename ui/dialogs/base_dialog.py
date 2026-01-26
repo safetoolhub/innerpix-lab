@@ -1892,11 +1892,12 @@ class BaseDialog(QDialog):
     DATE_SOURCE_FILTER_ALL = "Todos"
     DATE_SOURCE_FILTER_OPTIONS = [
         "Todos",
-        "EXIF (Original)",
-        "EXIF (Digitized)",
-        "Filesystem (mtime)",
-        "Filesystem (ctime)",
-        "Nombre archivo"
+        "exif_datetime_original_tz",
+        "exif_datetime_original",
+        "exif_datetime_digitized",
+        "mtime",
+        "ctime",
+        "filename"
     ]
     
     def _matches_source_filter(self, date_source: str, filter_value: str) -> bool:
@@ -1905,28 +1906,14 @@ class BaseDialog(QDialog):
         Método centralizado para evitar duplicación entre diálogos.
         
         Args:
-            date_source: Origen de la fecha (ej: 'exif_date_time_original', 'fs_mtime')
-            filter_value: Valor del filtro seleccionado del combo
+            date_source: Origen de la fecha del archivo (ej: 'exif_datetime_original_tz', 'mtime')
+            filter_value: Valor seleccionado en el filtro
             
         Returns:
-            True si coincide con el filtro o si el filtro es "Todas las fechas"
+            True si coincide con el filtro
         """
         if not date_source or filter_value == self.DATE_SOURCE_FILTER_ALL:
             return True
         
-        source_lower = date_source.lower()
-        
-        if filter_value == "EXIF DateTimeOriginal":
-            return "exif_date_time_original" in source_lower or "exif_datetimeoriginal" in source_lower
-        elif filter_value == "EXIF CreateDate":
-            return "exif_create_date" in source_lower or "exif_createdate" in source_lower
-        elif filter_value == "EXIF ModifyDate":
-            return "exif_modify_date" in source_lower or "exif_modifydate" in source_lower or "exif_datetime" in source_lower
-        elif filter_value == "Filesystem (mtime)":
-            return "fs_mtime" in source_lower or "mtime" in source_lower
-        elif filter_value == "Filesystem (ctime)":
-            return "fs_ctime" in source_lower or "ctime" in source_lower
-        elif filter_value == "Filesystem (atime)":
-            return "fs_atime" in source_lower or "atime" in source_lower
-        
-        return False
+        # Coincidencia exacta con el valor del filtro
+        return date_source == filter_value

@@ -341,8 +341,8 @@ class VisualIdenticalDialog(BaseDialog):
     
     def _create_tree_widget(self) -> QTreeWidget:
         """Crea el widget de árbol para mostrar grupos."""
-        headers = ["Grupos / Archivos", "Tamaño", "Fecha", "Ubicación", "Estado"]
-        column_widths = [350, 100, 150, 250, 120]
+        headers = ["Grupos / Archivos", "Tamaño", "Fecha", "Origen Fecha", "Ubicación", "Estado"]
+        column_widths = [300, 90, 140, 140, 200, 100]
         
         return create_groups_tree_widget(
             headers=headers,
@@ -538,11 +538,17 @@ class VisualIdenticalDialog(BaseDialog):
         else:
             file_item.setText(2, "-")
         
+        # Origen Fecha
+        if source:
+            file_item.setText(3, source)
+        else:
+            file_item.setText(3, "-")
+        
         # Ubicación
-        file_item.setText(3, str(file_path.parent))
+        file_item.setText(4, str(file_path.parent))
         
         # Estado (conservar/eliminar) - usar función común
-        apply_file_item_status(file_item, is_keep, status_column=4)
+        apply_file_item_status(file_item, is_keep, status_column=5)
         
         file_item.setData(0, Qt.ItemDataRole.UserRole, file_path)
         parent_item.addChild(file_item)
