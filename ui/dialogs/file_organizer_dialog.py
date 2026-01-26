@@ -141,8 +141,7 @@ class FileOrganizerDialog(BaseDialog):
             on_load_all=self._load_all_items
         )
         content_layout.addWidget(self.pagination_bar)
-        
-        # === PROGRESS BAR (inicialmente oculto) ===
+
         # === PROGRESS BAR (inicialmente oculto) ===
         # self.progress_bar ya inicializado al principio
         self.progress_bar.setStyleSheet(f"""
@@ -966,6 +965,12 @@ class FileOrganizerDialog(BaseDialog):
         
         # Contenedor para la ruta (mantiene espacio fijo)
         self._backup_path_widget = QWidget()
+        # Reservar espacio incluso cuando está oculto para evitar saltos en la interfaz
+        sp = self._backup_path_widget.sizePolicy()
+        if hasattr(sp, 'setRetainSizeWhenHidden'):
+            sp.setRetainSizeWhenHidden(True)
+            self._backup_path_widget.setSizePolicy(sp)
+
         path_layout = QHBoxLayout(self._backup_path_widget)
         path_layout.setSpacing(int(DesignSystem.SPACE_6))
         path_layout.setContentsMargins(0, 0, 0, 0)

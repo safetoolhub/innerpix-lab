@@ -14,7 +14,7 @@ Revisar lode que la duracion de videos tengan 2 campos, en detalles y en todas p
       "exif_VideoDurationSeconds": 1.201678
 Lo suyo es tener unicamente el de los segundo, hacer una funion que te lo muestra en string y en horas y cambiarlo donde se use, es peligroso, pero quedará mejor, porque el redondeo del string es un asco
 
-
+El de Organizar debe rehacerse el UI del todo
 
 Podriamos para live photos comprobar que el video es mas corto de 5 segundos
 
