@@ -30,20 +30,40 @@ def create_visual_identical_card(
     Returns:
         ToolCard configurada
     """
+    # Verificar si hay análisis disponible
+    has_analysis = (hasattr(analysis_results, 'visual_identical') and 
+                   analysis_results.visual_identical is not None)
+    
     card = ToolCard(
         icon_name='image-multiple',
         title='Copias visuales idénticas',
         description='Detecta fotos visualmente idénticas aunque tengan diferente '
                    'resolución o metadatos. Ideal para eliminar copias de WhatsApp, '
                    'screenshots repetidos o imágenes redimensionadas.',
-        action_text='Analizar ahora'
+        action_text='Gestionar ahora' if has_analysis else 'Analizar ahora'
     )
     
-    # Por defecto está pendiente (requiere análisis)
-    card.set_status_pending(
-        "Analiza imágenes para encontrar copias visuales idénticas. "
-        "Este análisis puede tardar según la cantidad de archivos."
-    )
+    # Configurar estado según datos
+    if has_analysis:
+        vi_data = analysis_results.visual_identical
+        if vi_data.total_groups > 0:
+            size_text = f"~{format_size(vi_data.space_recoverable)} recuperables"
+            card.set_status_with_results(
+                f"{vi_data.total_groups} grupos detectados",
+                size_text,
+                badge_count=vi_data.total_duplicates
+            )
+        else:
+            card.set_status_no_results(
+                "No se encontraron copias visuales idénticas. "
+                "Todas las imágenes son únicas."
+            )
+    else:
+        # Estado pendiente de análisis
+        card.set_status_pending(
+            "Analiza imágenes para encontrar copias visuales idénticas. "
+            "Este análisis puede tardar según la cantidad de archivos."
+        )
     
     card.clicked.connect(lambda: on_click_callback('visual_identical'))
     
