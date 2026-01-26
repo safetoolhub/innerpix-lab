@@ -274,7 +274,7 @@ class VisualIdenticalDialog(BaseDialog):
             'search': 'Buscar por nombre',
             'size': 'Tamaño / Cantidad',
             'groups': 'Grupos seleccionados',
-            'source': 'Origen de fecha'
+            'source': 'Origen de la fecha'
         }
         
         # Configuración de filtros expandibles

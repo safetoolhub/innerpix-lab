@@ -196,7 +196,7 @@ class FileRenamerDialog(BaseDialog):
             'groups': 'Archivos seleccionados',
             'conflict': 'Conflicto',
             'file_type': 'Tipo archivo',
-            'source': 'Origen fecha',
+            'source': 'Origen de la fecha',
             'year': 'Año'
         }
         

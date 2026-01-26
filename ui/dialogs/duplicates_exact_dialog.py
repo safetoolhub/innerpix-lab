@@ -69,7 +69,6 @@ class DuplicatesExactDialog(BaseDialog):
         self.loaded_count = 0
         
         # Estado del filtro de tipo
-        self.current_type_filter = 'all'  # 'all', 'images', 'videos'
         
         # Estado del filtro de origen de fecha
         self.current_source_filter = 'all'  # 'all' or specific source
@@ -78,7 +77,7 @@ class DuplicatesExactDialog(BaseDialog):
         self.tree_widget = None
         self.search_input = None
         self.filter_combo = None
-        self.type_filter_buttons = {}  # Botones de filtro de tipo
+        self.type_combo = None  # Combo de filtro de tipo
         self.status_chip = None  # Chip único de estado (X/Y)
         self.source_combo = None  # Filtro de origen de fecha
         self.filter_bar = None  # Barra de filtros unificada
@@ -283,7 +282,7 @@ class DuplicatesExactDialog(BaseDialog):
             'search': 'Buscar por nombre',
             'size': 'Tamaño / Cantidad',
             'groups': 'Grupos seleccionados',
-            'source': 'Origen de fecha',
+            'source': 'Origen de la fecha',
             'type': 'Tipo de archivo'
         }
         
@@ -301,16 +300,13 @@ class DuplicatesExactDialog(BaseDialog):
             },
             {
                 'id': 'type',
-                'type': 'type_buttons',
+                'type': 'combo',
                 'label': labels['type'],
                 'tooltip': 'Filtrar por tipo de archivo',
-                'options': [
-                    ('all', 'view-grid', 'Mostrar todos los archivos'),
-                    ('images', 'image', 'Solo grupos con imágenes'),
-                    ('videos', 'video', 'Solo grupos con vídeos'),
-                ],
+                'options': ["Todos", "Fotos", "Videos"],
                 'on_change': self._on_type_filter_changed,
-                'default': 'all'
+                'default_index': 0,
+                'min_width': 120
             }
         ]
         
@@ -326,7 +322,7 @@ class DuplicatesExactDialog(BaseDialog):
         self.search_input = filter_bar.search_input
         self.filter_combo = filter_bar.size_filter_combo
         self.status_chip = filter_bar.status_chip
-        self.type_filter_buttons = filter_bar.filter_widgets.get('type', {})
+        self.type_combo = filter_bar.filter_widgets.get('type')
         self.source_combo = filter_bar.filter_widgets.get('source')
         
         return filter_bar
@@ -678,9 +674,8 @@ class DuplicatesExactDialog(BaseDialog):
         """Maneja cambios en cualquier filtro."""
         self._apply_filters()
     
-    def _on_type_filter_changed(self, filter_id: str):
+    def _on_type_filter_changed(self, index: int):
         """Maneja cambios en el filtro de tipo de archivo."""
-        self.current_type_filter = filter_id
         self._apply_filters()
     
     def _on_source_filter_changed(self, index: int):
@@ -693,13 +688,17 @@ class DuplicatesExactDialog(BaseDialog):
         
         Un grupo coincide si AL MENOS UN archivo del grupo es del tipo seleccionado.
         """
-        if self.current_type_filter == 'all':
+        if not self.type_combo:
+            return True
+            
+        type_filter = self.type_combo.currentText()
+        if type_filter == "Todos":
             return True
         
         for file_path in group.files:
-            if self.current_type_filter == 'images' and is_image_file(file_path):
+            if type_filter == 'Fotos' and is_image_file(file_path):
                 return True
-            elif self.current_type_filter == 'videos' and is_video_file(file_path):
+            elif type_filter == 'Videos' and is_video_file(file_path):
                 return True
         
         return False

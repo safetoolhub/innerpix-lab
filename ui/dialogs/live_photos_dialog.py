@@ -185,7 +185,7 @@ class LivePhotosDialog(BaseDialog):
             'search': 'Buscar por nombre',
             'size': 'Mínimo tamaño',
             'groups': 'Grupos seleccionados',
-            'source': 'Origen de fecha',
+            'source': 'Origen de la fecha',
             'directory': 'Directorio'
         }
         

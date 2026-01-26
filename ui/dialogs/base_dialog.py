@@ -1889,14 +1889,14 @@ class BaseDialog(QDialog):
             status_chip.setToolTip(f"Mostrando todos los {entity}: {total_count}")
     
     # Constantes para filtros de origen de fecha
-    DATE_SOURCE_FILTER_ALL = "Todas las fechas"
+    DATE_SOURCE_FILTER_ALL = "Todos"
     DATE_SOURCE_FILTER_OPTIONS = [
-        "Todas las fechas",
-        "EXIF DateTimeOriginal",
-        "EXIF CreateDate",
-        "EXIF ModifyDate",
+        "Todos",
+        "EXIF (Original)",
+        "EXIF (Digitized)",
         "Filesystem (mtime)",
-        "Filesystem (ctime)"
+        "Filesystem (ctime)",
+        "Nombre archivo"
     ]
     
     def _matches_source_filter(self, date_source: str, filter_value: str) -> bool:
