@@ -170,8 +170,28 @@ Dry-run mode for testing. No deletions/moves/renames.
   - `parse_renamed_name(filename)` - Extracts components from renamed filename
   - `extract_date_from_filename(filename)` - Extracts date from common filename patterns (IMG_*, WhatsApp, etc.)
 
+**Platform Utils** (`utils/platform_utils.py`) - Cross-platform system utilities
+- **System Tools Detection**:
+  - `find_executable(name)` - Finds executable in PATH cross-platform
+  - `get_tool_version(tool_name, version_args, timeout=5)` - Gets tool version by running command
+  - `check_ffprobe()` → `ToolStatus` - Checks ffprobe availability (video metadata)
+  - `check_exiftool()` → `ToolStatus` - Checks exiftool availability (Live Photos dates)
+  - `are_video_tools_available()` - Checks if at least one video tool is available
+  - `check_all_video_tools()` - Returns status of all video tools
+  - `get_install_instructions()` - Installation commands per OS
+  - `get_current_os_install_hint()` - Installation hint for current OS
+- **File Operations**:
+  - `open_file_with_default_app(file_path, error_callback=None)` - Opens file with system default app
+  - `open_folder_in_explorer(folder_path, select_file=None, error_callback=None)` - Opens folder in file explorer, optionally selecting a file
+- **Platform Detection**:
+  - `is_linux()`, `is_macos()`, `is_windows()` - Platform check functions
+- **System Hardware Info**:
+  - `get_cpu_count()` - Gets number of CPU cores
+  - `get_system_ram_gb()` - Gets total system RAM in GB
+  - `get_system_info(...)` - Gets complete system info for logging/configuration
+
 **Other Utils**
-- `callback_utils.py`, `format_utils.py`, `icons.py`
+- `callback_utils.py`, `format_utils.py`, `icons.py`, `platform_utils.py`
 
 **Result Types** (`services/result_types.py`)
 - **Base Classes**:
