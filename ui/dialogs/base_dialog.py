@@ -1592,26 +1592,6 @@ class BaseDialog(QDialog):
         search_vlayout.addWidget(search_container)
         primary_bar.addLayout(search_vlayout, 3)
         
-        # --- FILTRO TAMAÑO/CANTIDAD ---
-        size_vlayout = QVBoxLayout()
-        size_vlayout.setSpacing(2)  # Espacio mínimo entre label y control
-        size_vlayout.setContentsMargins(0, 0, 0, 0)
-        
-        if 'size' in labels:
-            size_label = QLabel(labels['size'])
-            size_label.setStyleSheet(DesignSystem.get_filter_label_style())
-            size_vlayout.addWidget(size_label)
-            
-        size_filter_combo = QComboBox()
-        size_filter_combo.addItems(size_filter_options)
-        size_filter_combo.currentIndexChanged.connect(on_size_filter_changed)
-        size_filter_combo.setToolTip("Filtrar por tamaño o cantidad")
-        size_filter_combo.setFixedHeight(36)  # Altura unificada
-        size_filter_combo.setStyleSheet(self._get_unified_combo_style())
-        size_filter_combo.setMinimumWidth(150)
-        size_vlayout.addWidget(size_filter_combo)
-        primary_bar.addLayout(size_vlayout)
-        
         # Espaciador flexible
         primary_bar.addStretch()
         
@@ -1636,14 +1616,15 @@ class BaseDialog(QDialog):
         status_vlayout.addWidget(status_chip)
         primary_bar.addLayout(status_vlayout)
         
-        # Botón expandir filtros (solo si hay filtros expandibles)
-        if expandable_filters:
+        # Botón expandir filtros (si hay filtros expandibles o filtro de tamaño)
+        has_expandable_filters = expandable_filters or (size_filter_options and on_size_filter_changed)
+        if has_expandable_filters:
             expand_vlayout = QVBoxLayout()
             expand_vlayout.setSpacing(2)
             expand_vlayout.setContentsMargins(0, 0, 0, 0)
             
             # Label vacío para alinear con otros controles
-            if 'search' in labels or 'size' in labels:
+            if 'search' in labels:
                 empty_label = QLabel()
                 empty_label.setStyleSheet("font-size: 9px; margin: 0px; padding: 0px;")
                 empty_label.setFixedHeight(11)  # Altura aproximada del label
@@ -1679,15 +1660,37 @@ class BaseDialog(QDialog):
         # === BARRA EXPANDIBLE ===
         expandable_container = None
         filter_widgets = {}
+        size_filter_combo = None  # Referencia al combo de tamaño
         
+        # Preparar la lista completa de filtros expandibles incluyendo el de tamaño
+        all_expandable_filters = []
+        
+        # Añadir filtro de tamaño como PRIMER filtro expandible
+        if size_filter_options and on_size_filter_changed:
+            size_filter_config = {
+                'id': 'size',
+                'type': 'combo',
+                'label': labels.get('size', 'Tamaño / Cantidad'),
+                'tooltip': 'Filtrar por tamaño o cantidad',
+                'options': size_filter_options,
+                'on_change': on_size_filter_changed,
+                'default_index': 0,
+                'min_width': 150
+            }
+            all_expandable_filters.append(size_filter_config)
+        
+        # Añadir el resto de filtros expandibles
         if expandable_filters:
+            all_expandable_filters.extend(expandable_filters)
+        
+        if all_expandable_filters:
             expandable_container = QWidget()
             expandable_container.setVisible(False)
             expandable_layout = QHBoxLayout(expandable_container)
             expandable_layout.setSpacing(int(DesignSystem.SPACE_12))
             expandable_layout.setContentsMargins(0, int(DesignSystem.SPACE_8), 0, 0)
             
-            for filter_config in expandable_filters:
+            for filter_config in all_expandable_filters:
                 filter_id = filter_config['id']
                 filter_type = filter_config.get('type', 'combo')
                 filter_label_text = labels.get(filter_id, filter_config.get('label'))
@@ -1765,6 +1768,10 @@ class BaseDialog(QDialog):
                     
                     v_box.addWidget(type_container)
                     filter_widgets[filter_id] = type_buttons
+                
+                # Guardar referencia especial al combo de tamaño
+                if filter_id == 'size' and filter_type == 'combo':
+                    size_filter_combo = filter_widgets.get('size')
                 
                 expandable_layout.addLayout(v_box)
             

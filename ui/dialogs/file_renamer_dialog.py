@@ -192,7 +192,6 @@ class FileRenamerDialog(BaseDialog):
         # Diccionario de etiquetas
         labels = {
             'search': 'Buscar por nombre',
-            'size': 'Mínimo tamaño',
             'groups': 'Archivos seleccionados',
             'conflict': 'Conflicto',
             'file_type': 'Tipo archivo',
@@ -244,18 +243,18 @@ class FileRenamerDialog(BaseDialog):
             }
         ]
         
-        # Crear barra unificada
+        # Crear barra unificada (sin filtro de tamaño)
         filter_bar = self._create_unified_filter_bar(
             on_search_changed=self._apply_filters,
-            on_size_filter_changed=lambda idx: self._apply_filters(),
+            on_size_filter_changed=None,
             expandable_filters=expandable_filters,
+            size_filter_options=None,
             is_files_mode=True,
             labels=labels
         )
         
         # Guardar referencias a componentes
         self.search_input = filter_bar.search_input
-        self.size_filter_combo = filter_bar.size_filter_combo  # Renombrar para evitar conflicto
         self.status_chip = filter_bar.status_chip
         self.expand_button = filter_bar.expand_btn
         
@@ -397,7 +396,6 @@ class FileRenamerDialog(BaseDialog):
     def _apply_filters(self):
         """Aplica los filtros a la tabla"""
         search_text = self.search_input.text().lower() if self.search_input else ""
-        size_filter = self.size_filter_combo.currentText() if hasattr(self, 'size_filter_combo') and self.size_filter_combo else "Todos los tamaños"
         filter_option = self.filter_combo.currentText() if self.filter_combo else "Todos"
         year_filter = self.year_combo.currentText() if self.year_combo else "Todos"
         type_filter = self.type_combo.currentText() if self.type_combo else "Todos"
@@ -408,11 +406,6 @@ class FileRenamerDialog(BaseDialog):
         for item in self.all_items:
             # Filtro de búsqueda
             if search_text and search_text not in item['original_path'].name.lower():
-                continue
-            
-            # Filtro por tamaño
-            file_size = item.get('size', 0)
-            if file_size and not self._matches_size_filter(file_size, size_filter):
                 continue
             
             # Filtro por conflicto
@@ -441,31 +434,11 @@ class FileRenamerDialog(BaseDialog):
         
         # Reiniciar carga progresiva
         self._load_initial_items()
-    
-    def _matches_size_filter(self, file_size: int, filter_value: str) -> bool:
-        """Verifica si el tamaño del archivo coincide con el filtro seleccionado."""
-        if filter_value == "Todos los tamaños":
-            return True
-        
-        mb = file_size / (1024 * 1024)
-        
-        if filter_value == "< 1 MB":
-            return mb < 1
-        elif filter_value == "1 - 10 MB":
-            return 1 <= mb < 10
-        elif filter_value == "10 - 100 MB":
-            return 10 <= mb < 100
-        elif filter_value == "> 100 MB":
-            return mb >= 100
-        
-        return True
 
     def _clear_filters(self):
         """Limpia todos los filtros"""
         if self.search_input:
             self.search_input.clear()
-        if hasattr(self, 'size_filter_combo') and self.size_filter_combo:
-            self.size_filter_combo.setCurrentIndex(0)
         if self.filter_combo:
             self.filter_combo.setCurrentIndex(0)
         if self.year_combo:
