@@ -564,6 +564,11 @@ class FileRenamerDialog(BaseDialog):
         show_file_details_dialog(file_path, self, additional_info)
 
     def accept(self):
+        # Validar que hay archivos para renombrar
+        if not self.analysis_results or not self.analysis_results.renaming_plan:
+            self.show_no_items_message("archivos para renombrar")
+            return
+        
         self.accepted_plan = {
             'analysis': self.analysis_results,
             'create_backup': self.is_backup_enabled(),

@@ -728,30 +728,12 @@ class VisualIdenticalDialog(BaseDialog):
                     files_to_delete.append(f)
         
         if not files_to_delete:
-            QMessageBox.information(
-                self,
-                "Sin cambios",
-                "No hay archivos para eliminar."
-            )
+            self.show_no_items_message("archivos")
             return
         
-        # Confirmar
-        total_size = sum(f.stat().st_size for f in files_to_delete if f.exists())
-        reply = QMessageBox.question(
-            self,
-            "Confirmar eliminación",
-            f"Se eliminarán {len(files_to_delete)} archivos "
-            f"({format_size(total_size)}).\n\n"
-            f"Estrategia: Conservar {self._strategy_name()}\n\n"
-            f"¿Continuar?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
-        
-        if reply != QMessageBox.StandardButton.Yes:
-            return
-        
-        # Guardar plan para ejecución
+        # Guardar plan para ejecución (incluye analysis para consistencia)
         self.accepted_plan = {
+            'analysis': self.analysis,  # Añadido para consistencia con otros diálogos
             'groups': self.filtered_groups,  # Grupos para referencia
             'files_to_delete': files_to_delete,
             'keep_strategy': self.keep_strategy,

@@ -5,6 +5,7 @@ from PyQt6.QtCore import pyqtSignal, Qt
 from PyQt6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
+    QMessageBox,
     QPushButton,
     QTableWidget,
     QWidget,
@@ -72,6 +73,65 @@ class BaseDialog(QDialog):
         
         # Si es QCheckBox directo
         return self.cleanup_checkbox.isChecked()
+
+    def confirm_destructive_operation(
+        self,
+        files_count: int,
+        total_size: int = 0,
+        operation_verb: str = "eliminarán",
+        extra_info: str = ""
+    ) -> bool:
+        """
+        Muestra confirmación antes de operaciones destructivas.
+        
+        Método común para todos los diálogos que realizan operaciones
+        de eliminación, movimiento o renombrado de archivos.
+        
+        Args:
+            files_count: Número de archivos afectados
+            total_size: Tamaño total en bytes (opcional)
+            operation_verb: Verbo de la operación (eliminarán, moverán, renombrarán)
+            extra_info: Información adicional para mostrar (ej: estrategia)
+            
+        Returns:
+            True si el usuario confirma, False en caso contrario
+        """
+        from utils.format_utils import format_size
+        
+        # Construir mensaje
+        if total_size > 0:
+            size_info = f" ({format_size(total_size)})"
+        else:
+            size_info = ""
+        
+        message = f"Se {operation_verb} {files_count} archivos{size_info}."
+        
+        if extra_info:
+            message += f"\n\n{extra_info}"
+        
+        message += "\n\n¿Continuar?"
+        
+        reply = QMessageBox.question(
+            self,
+            "Confirmar operación",
+            message,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No  # Default seguro
+        )
+        return reply == QMessageBox.StandardButton.Yes
+    
+    def show_no_items_message(self, item_type: str = "archivos") -> None:
+        """
+        Muestra mensaje informativo cuando no hay items para procesar.
+        
+        Args:
+            item_type: Tipo de items (archivos, grupos, pares, etc.)
+        """
+        QMessageBox.information(
+            self,
+            "Sin cambios",
+            f"No hay {item_type} para procesar."
+        )
 
 
 

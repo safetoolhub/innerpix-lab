@@ -1065,16 +1065,26 @@ class DuplicatesSimilarDialog(BaseDialog):
     def accept(self):
         """Construye plan de eliminación."""
         selected_groups = []
+        total_files_to_delete = 0
+        total_size_to_delete = 0
+        
         for idx, files_to_delete in self.selections.items():
             if files_to_delete and idx < len(self.all_groups):
                 og = self.all_groups[idx]
-                total_size = sum(self._get_file_size(f) for f in files_to_delete)
+                group_size = sum(self._get_file_size(f) for f in files_to_delete)
                 selected_groups.append(DuplicateGroup(
                     hash_value=og.hash_value,
                     files=files_to_delete,
-                    total_size=total_size,
+                    total_size=group_size,
                     similarity_score=og.similarity_score
                 ))
+                total_files_to_delete += len(files_to_delete)
+                total_size_to_delete += group_size
+        
+        # Validar que hay archivos seleccionados
+        if not selected_groups:
+            self.show_no_items_message("archivos similares seleccionados")
+            return
         
         from services.result_types import DuplicateAnalysisResult
         self.accepted_plan = {
@@ -1083,7 +1093,7 @@ class DuplicatesSimilarDialog(BaseDialog):
                 mode='perceptual',
                 items_count=len(selected_groups),
                 total_groups=len(selected_groups),
-                space_wasted=sum(g.total_size for g in selected_groups)
+                space_wasted=total_size_to_delete
             ),
             'keep_strategy': 'manual',
             'create_backup': self.is_backup_enabled(),

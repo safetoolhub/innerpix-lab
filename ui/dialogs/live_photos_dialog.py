@@ -495,6 +495,11 @@ class LivePhotosDialog(BaseDialog):
 
     def accept(self):
         """Acepta el diálogo y prepara los datos para la ejecución"""
+        # Validar que hay grupos para procesar
+        if not self.analysis.groups:
+            self.show_no_items_message("Live Photos")
+            return
+        
         # Pasar el analysis completo + parámetros por separado
         self.accepted_plan = {
             'analysis': self.analysis,  # Ya es un LivePhotosAnalysisResult dataclass

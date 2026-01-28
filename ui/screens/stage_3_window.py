@@ -788,18 +788,15 @@ class Stage3Window(BaseStage):
             
             # Mostrar resultado
             if result and hasattr(result, 'success') and result.success:
-                # Build success message
-                msg_content = result.message if (hasattr(result, 'message') and result.message) else ""
-                message = f"La operación se completó exitosamente.\n\n{msg_content}"
+                # Build standardized success message
+                was_simulation = plan.get('dry_run', False)
+                has_backup = plan.get('create_backup', False)
+                message, title = self._build_success_message(result, was_simulation, has_backup)
                 
-                # Add errors warning if any
-                if hasattr(result, 'errors') and result.errors:
-                    message += f"\n\nAdvertencia: Se encontraron {len(result.errors)} errores durante la operación."
-                
-                # First show success message
+                # Show success message using standard QMessageBox
                 QMessageBox.information(
                     self.main_window,
-                    "Operación Completada",
+                    title,
                     message
                 )
                 
@@ -807,7 +804,11 @@ class Stage3Window(BaseStage):
                 # Simulated operations (dry_run=True) don't modify files, so re-analysis is unnecessary
                 was_simulation = plan.get('dry_run', False)
                 
-                if not was_simulation:
+                # file_organizer y file_renamer no borran archivos, solo mueven/renombran
+                # No tiene sentido pedir re-análisis para ellos
+                skip_reanalysis_tools = {'file_organizer', 'file_renamer'}
+                
+                if not was_simulation and tool_id not in skip_reanalysis_tools:
                     # Verificar si se debe pedir confirmación antes de reanalizar
                     should_confirm = settings_manager.get_confirm_reanalyze()
                     
@@ -976,6 +977,81 @@ class Stage3Window(BaseStage):
             f"los cambios realizados. La caché de metadatos ya está actualizada.\n\n"
             f"Nota: Esta operación es rápida y solo afecta a {service_name}."
         )
+    
+    def _build_success_message(self, result, was_simulation: bool, has_backup: bool) -> tuple:
+        """
+        Construye mensaje de éxito estandarizado para todas las herramientas.
+        
+        Args:
+            result: ExecutionResult del servicio
+            was_simulation: Si la operación fue en modo simulación (dry_run)
+            has_backup: Si el usuario solicitó crear backup
+            
+        Returns:
+            Tuple (message, title) con el mensaje y título formateados
+        """
+        from utils.format_utils import format_size
+        
+        # Título según modo
+        if was_simulation:
+            title = "Simulación Completada"
+        else:
+            title = "Operación Completada"
+        
+        # Construir resumen detallado
+        summary_lines = []
+        
+        # Estadísticas de archivos procesados
+        if hasattr(result, 'items_processed') and result.items_processed > 0:
+            if was_simulation:
+                summary_lines.append(f"• Archivos que se procesarían: {result.items_processed}")
+            else:
+                summary_lines.append(f"• Archivos procesados: {result.items_processed}")
+        
+        # Espacio liberado/que se liberaría
+        if hasattr(result, 'bytes_processed') and result.bytes_processed > 0:
+            if was_simulation:
+                summary_lines.append(f"• Espacio que se liberaría: {format_size(result.bytes_processed)}")
+            else:
+                summary_lines.append(f"• Espacio liberado: {format_size(result.bytes_processed)}")
+        
+        # Contenido adicional del mensaje del servicio (si existe y no está vacío)
+        service_message = ""
+        if hasattr(result, 'message') and result.message:
+            # Evitar duplicar info que ya mostramos
+            service_message = result.message.strip()
+        
+        # Info de backup (siempre mostrar si se solicitó)
+        backup_info = ""
+        if has_backup:
+            if was_simulation:
+                backup_info = "\n📁 Backup: No se crea en modo simulación"
+            elif hasattr(result, 'backup_path') and result.backup_path:
+                backup_info = f"\n\n📁 Backup creado en:\n{result.backup_path}"
+            else:
+                backup_info = "\n\n📁 Backup: Solicitado pero no se encontraron archivos para respaldar"
+        
+        # Advertencias de errores
+        errors_info = ""
+        if hasattr(result, 'errors') and result.errors:
+            errors_info = f"\n\n⚠️ Advertencia: Se encontraron {len(result.errors)} errores durante la operación."
+        
+        # Nota de simulación
+        simulation_note = ""
+        if was_simulation:
+            simulation_note = "\n\n📋 MODO SIMULACIÓN: No se realizaron cambios reales en los archivos."
+        
+        # Construir mensaje final
+        if summary_lines:
+            summary = "\n".join(summary_lines)
+            message = f"{summary}{backup_info}{errors_info}{simulation_note}"
+        elif service_message:
+            message = f"{service_message}{backup_info}{errors_info}{simulation_note}"
+        else:
+            base = "La simulación se completó." if was_simulation else "La operación se completó exitosamente."
+            message = f"{base}{backup_info}{errors_info}{simulation_note}"
+        
+        return message, title
     
     def _update_service_stats(self, tool_id: str, auto_update: bool = False) -> None:
         """

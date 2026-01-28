@@ -1998,6 +1998,11 @@ class FileOrganizerDialog(BaseDialog):
     
     def accept(self):
         """Acepta el diálogo y construye el plan"""
+        # Validar que hay archivos para mover
+        if not self.analysis or not self.analysis.move_plan:
+            self.show_no_items_message("archivos para organizar")
+            return
+        
         # Pasar el analysis completo + parámetros por separado
         self.accepted_plan = {
             'analysis': self.analysis,  # Ya es OrganizationAnalysisResult dataclass

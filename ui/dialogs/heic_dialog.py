@@ -500,6 +500,11 @@ class HeicDialog(BaseDialog):
             )
 
     def accept(self):
+        # Validar que hay pares para procesar
+        if not self.analysis.duplicate_pairs:
+            self.show_no_items_message("pares HEIC/JPG")
+            return
+        
         # Pasar el analysis completo + parámetros por separado
         self.accepted_plan = {
             'analysis': self.analysis,  # Ya es un HeicAnalysisResult dataclass

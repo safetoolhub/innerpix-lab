@@ -335,7 +335,9 @@ class ZeroByteDialog(BaseDialog):
         show_file_details_dialog(file_path, self, additional_info)
         
     def accept(self):
+        # Validar que hay archivos seleccionados
         if not self.selected_files:
+            self.show_no_items_message("archivos vacíos seleccionados")
             return
         
         # Construir analysis con los archivos seleccionados

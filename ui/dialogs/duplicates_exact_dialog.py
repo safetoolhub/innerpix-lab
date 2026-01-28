@@ -838,27 +838,7 @@ class DuplicatesExactDialog(BaseDialog):
                     files_to_delete.append(f)
         
         if not files_to_delete:
-            QMessageBox.information(
-                self,
-                "Sin cambios",
-                "No hay archivos para eliminar."
-            )
-            return
-        
-        # Confirmar
-        total_size = sum(self._get_file_size(f) for f in files_to_delete)
-        reply = QMessageBox.question(
-            self,
-            "Confirmar eliminación",
-            f"Se eliminarán {len(files_to_delete)} archivos "
-            f"({format_size(total_size)}).\n\n"
-            f"Estrategia: Conservar {self._strategy_name()}\n"
-            f"Grupos afectados: {len(self.filtered_groups)}\n\n"
-            f"¿Continuar?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
-        
-        if reply != QMessageBox.StandardButton.Yes:
+            self.show_no_items_message("archivos")
             return
         
         # Guardar plan para ejecución
