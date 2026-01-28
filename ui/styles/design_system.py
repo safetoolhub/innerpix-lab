@@ -58,6 +58,7 @@ class DesignSystem:
     COLOR_DANGER_BG = "#F8D7DA"
     COLOR_INFO = "#0DCAF0"
     COLOR_INFO_BG = "#CFF4FC"
+    COLOR_INFO_TEXT = "#055160"  # Texto legible sobre fondo info
     
     # Bordes
     COLOR_BORDER = "#DEE2E6"

@@ -139,8 +139,8 @@ class VisualIdenticalDialog(BaseDialog):
         """Configura la interfaz del diálogo."""
         self.setWindowTitle("Gestionar copias visuales idénticas")
         self.setModal(True)
-        self.resize(1200, 900)
-        self.setMinimumSize(1000, 700)
+        self.resize(1350, 900)
+        self.setMinimumSize(1150, 700)
         
         layout = QVBoxLayout(self)
         layout.setSpacing(int(DesignSystem.SPACE_12))

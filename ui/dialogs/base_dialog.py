@@ -220,6 +220,7 @@ class BaseDialog(QDialog):
             QFrame con header compacto y profesional
         """
         from PyQt6.QtWidgets import QFrame, QHBoxLayout, QVBoxLayout, QLabel
+        from PyQt6.QtCore import Qt
         from ui.styles.design_system import DesignSystem
         from ui.styles.icons import icon_manager
         
@@ -246,15 +247,30 @@ class BaseDialog(QDialog):
         left_container = QHBoxLayout()
         left_container.setSpacing(int(DesignSystem.SPACE_12))
         
-        # Icono
+        # Icono con fondo circular
+        icon_container = QFrame()
+        icon_container.setFixedSize(48, 48)
+        icon_container.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
+                border-radius: 24px;
+                border: none;
+            }}
+        """)
+        icon_layout = QHBoxLayout(icon_container)
+        icon_layout.setContentsMargins(0, 0, 0, 0)
+        icon_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
         icon_label = QLabel()
+        icon_label.setStyleSheet("border: none; background: transparent;")
         icon_manager.set_label_icon(
             icon_label, 
             icon_name, 
-            size=DesignSystem.ICON_SIZE_XL,  # Más grande para impacto visual
+            size=DesignSystem.ICON_SIZE_LG,
             color=DesignSystem.COLOR_PRIMARY
         )
-        left_container.addWidget(icon_label)
+        icon_layout.addWidget(icon_label)
+        left_container.addWidget(icon_container)
         
         # Contenedor de texto (título + descripción apilados)
         text_container = QVBoxLayout()

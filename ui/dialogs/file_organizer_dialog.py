@@ -325,16 +325,23 @@ class FileOrganizerDialog(BaseDialog):
         
         # Hint de opciones adicionales (si existe)
         if hint:
-            hint_label = QLabel(f"⚙️ {hint}")
-            hint_label.setStyleSheet(f"""
+            hint_icon = QLabel()
+            icon_manager.set_label_icon(hint_icon, 'cog', size=12, color=DesignSystem.COLOR_PRIMARY)
+            hint_text = QLabel(hint)
+            hint_text.setStyleSheet(f"""
                 font-size: {DesignSystem.FONT_SIZE_XS}px;
                 color: {DesignSystem.COLOR_PRIMARY};
                 font-style: italic;
-                margin-top: 4px;
                 background: transparent;
                 border: none;
             """)
-            left_layout.addWidget(hint_label)
+            hint_container = QHBoxLayout()
+            hint_container.setContentsMargins(0, int(DesignSystem.SPACE_4), 0, 0)
+            hint_container.setSpacing(int(DesignSystem.SPACE_4))
+            hint_container.addWidget(hint_icon)
+            hint_container.addWidget(hint_text)
+            hint_container.addStretch()
+            left_layout.addLayout(hint_container)
         
         left_layout.addStretch()
         
@@ -357,10 +364,10 @@ class FileOrganizerDialog(BaseDialog):
         # Título del ejemplo
         example_title = QLabel("Vista previa:")
         example_title.setStyleSheet(f"""
-            font-size: 10px;
+            font-size: {DesignSystem.FONT_SIZE_XS}px;
             font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
             color: {DesignSystem.COLOR_TEXT_SECONDARY};
-            margin-bottom: 4px;
+            margin-bottom: {DesignSystem.SPACE_4}px;
             background: transparent;
             border: none;
         """)
@@ -369,8 +376,8 @@ class FileOrganizerDialog(BaseDialog):
         # Contenido del ejemplo
         example_label = QLabel(example)
         example_label.setStyleSheet(f"""
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 12px;
+            font-family: {DesignSystem.FONT_FAMILY_MONO};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
             color: {DesignSystem.COLOR_TEXT};
             line-height: 1.5;
             background: transparent;
@@ -528,7 +535,7 @@ class FileOrganizerDialog(BaseDialog):
                 border-radius: {DesignSystem.RADIUS_BASE}px;
                 color: {DesignSystem.COLOR_TEXT_SECONDARY};
                 font-size: {DesignSystem.FONT_SIZE_SM}px;
-                padding: 6px 12px;
+                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
             }}
             QPushButton:hover {{
                 background-color: {DesignSystem.COLOR_BG_2};
@@ -590,7 +597,7 @@ class FileOrganizerDialog(BaseDialog):
                     color: white;
                     border: 1px solid {DesignSystem.COLOR_PRIMARY};
                     border-radius: {DesignSystem.RADIUS_BASE}px;
-                    padding: 6px 14px;
+                    padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
                     font-size: {DesignSystem.FONT_SIZE_SM}px;
                     font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
                 }}
@@ -604,7 +611,7 @@ class FileOrganizerDialog(BaseDialog):
                 color: {DesignSystem.COLOR_TEXT};
                 border: 1px solid {DesignSystem.COLOR_BORDER};
                 border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: 6px 14px;
+                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
                 font-size: {DesignSystem.FONT_SIZE_SM}px;
             }}
             QPushButton:hover {{
@@ -627,7 +634,7 @@ class FileOrganizerDialog(BaseDialog):
                     color: white;
                     border: none;
                     border-radius: {DesignSystem.RADIUS_SM}px;
-                    padding: 4px 10px;
+                    padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_10}px;
                     font-size: {DesignSystem.FONT_SIZE_XS}px;
                 }}
                 QPushButton:hover {{
@@ -640,7 +647,7 @@ class FileOrganizerDialog(BaseDialog):
                 color: {DesignSystem.COLOR_TEXT_SECONDARY};
                 border: 1px dashed {DesignSystem.COLOR_BORDER};
                 border-radius: {DesignSystem.RADIUS_SM}px;
-                padding: 4px 10px;
+                padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_10}px;
                 font-size: {DesignSystem.FONT_SIZE_XS}px;
             }}
             QPushButton:hover {{
@@ -673,7 +680,7 @@ class FileOrganizerDialog(BaseDialog):
             color: {DesignSystem.COLOR_TEXT};
             background: transparent;
             border: none;
-            padding-right: 12px;
+            padding-right: {DesignSystem.SPACE_12}px;
         """)
         layout.addWidget(strategy_label)
         
@@ -683,7 +690,7 @@ class FileOrganizerDialog(BaseDialog):
             QFrame {{
                 background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
                 border-radius: {DesignSystem.RADIUS_SM}px;
-                padding: 2px 8px;
+                padding: {DesignSystem.SPACE_2}px {DesignSystem.SPACE_8}px;
             }}
         """)
         gran_layout = QHBoxLayout(gran_container)
@@ -761,7 +768,7 @@ class FileOrganizerDialog(BaseDialog):
             color: {DesignSystem.COLOR_TEXT};
             background: transparent;
             border: none;
-            padding-right: 12px;
+            padding-right: {DesignSystem.SPACE_12}px;
         """)
         layout.addWidget(strategy_label)
         
@@ -805,7 +812,7 @@ class FileOrganizerDialog(BaseDialog):
             color: {DesignSystem.COLOR_TEXT};
             background: transparent;
             border: none;
-            padding-right: 12px;
+            padding-right: {DesignSystem.SPACE_12}px;
         """)
         layout.addWidget(strategy_label)
         
@@ -849,7 +856,7 @@ class FileOrganizerDialog(BaseDialog):
             color: {DesignSystem.COLOR_TEXT};
             background: transparent;
             border: none;
-            padding-right: 12px;
+            padding-right: {DesignSystem.SPACE_12}px;
         """)
         layout.addWidget(strategy_label)
         
@@ -1165,7 +1172,9 @@ class FileOrganizerDialog(BaseDialog):
         self.folders_info_label.setTextFormat(Qt.TextFormat.RichText)
         self.folders_info_label.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_SM}px;
-            color: #055160; /* Darker info color for text readability */
+            color: {DesignSystem.COLOR_INFO_TEXT};
+            border: none;
+            background: transparent;
         """)
         layout.addWidget(self.folders_info_label, 1)
         
