@@ -302,7 +302,7 @@ class Stage3Window(BaseStage):
         
         main_grid_layout.addWidget(cleanup_section)
 
-        # 2. SECCIÓN: SIMILARES Y COPIAS VISUALES
+        # 2. SECCIÓN: COPIAS VISUALES IDÉNTICAS y SIMILARES
         similar_section, similar_grid = create_section("Detección visual de duplicados", "image-search")
         
         # Card de copias visuales idénticas (100% similitud)

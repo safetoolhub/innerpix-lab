@@ -33,7 +33,7 @@ Gestiona inteligentemente las "Live Photos" (que constan de una imagen y un vide
 ### 4. Detección de Duplicados Exactos
 Analiza su colección byte por byte para encontrar archivos que son matemáticamente idénticos. Es la forma más segura de limpieza, ya que garantiza que no está borrando una foto "parecida", sino exactamente el mismo archivo repetido en diferentes carpetas.
 
-### 5. Copias Visualmente Idénticas
+### 5. Copias Visuales Idénticas
 Identifica imágenes que son visualmente indistinguibles para el ojo humano, aunque técnicamente sean archivos diferentes (por ejemplo, una copia descargada de internet vs la original, o la misma foto guardada con diferente metadata). Ideal para limpiar su galería de repeticiones innecesarias.
 
 ### 6. Archivos Similares
