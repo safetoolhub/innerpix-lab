@@ -618,12 +618,48 @@ class FileOrganizerDialog(BaseDialog):
             }}
         """
     
+    def _get_secondary_chip_style(self, selected: bool = False) -> str:
+        """Estilo para chips de opciones secundarias (más sutiles)"""
+        if selected:
+            return f"""
+                QPushButton {{
+                    background-color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                    color: white;
+                    border: none;
+                    border-radius: {DesignSystem.RADIUS_SM}px;
+                    padding: 4px 10px;
+                    font-size: {DesignSystem.FONT_SIZE_XS}px;
+                }}
+                QPushButton:hover {{
+                    background-color: {DesignSystem.COLOR_TEXT};
+                }}
+            """
+        return f"""
+            QPushButton {{
+                background-color: transparent;
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                border: 1px dashed {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_SM}px;
+                padding: 4px 10px;
+                font-size: {DesignSystem.FONT_SIZE_XS}px;
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_BG_2};
+                border-style: solid;
+            }}
+            QPushButton:checked {{
+                background-color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                color: white;
+                border: none;
+            }}
+        """
+    
     def _create_date_options(self) -> QWidget:
         """Opciones para organización por fecha - diseño compacto horizontal"""
         page = QWidget()
         layout = QHBoxLayout(page)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(DesignSystem.SPACE_16)
+        layout.setSpacing(DesignSystem.SPACE_8)
         
         # Icono + Título de estrategia
         icon_label = QLabel()
@@ -635,18 +671,34 @@ class FileOrganizerDialog(BaseDialog):
             font-size: {DesignSystem.FONT_SIZE_BASE}px;
             font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
             color: {DesignSystem.COLOR_TEXT};
+            background: transparent;
+            border: none;
+            padding-right: 12px;
         """)
         layout.addWidget(strategy_label)
         
-        # Separador
-        sep1 = QLabel("|")
-        sep1.setStyleSheet(f"color: {DesignSystem.COLOR_BORDER}; margin: 0 4px;")
-        layout.addWidget(sep1)
+        # Opción principal: Granularidad (con fondo sutil para destacar)
+        gran_container = QFrame()
+        gran_container.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
+                border-radius: {DesignSystem.RADIUS_SM}px;
+                padding: 2px 8px;
+            }}
+        """)
+        gran_layout = QHBoxLayout(gran_container)
+        gran_layout.setContentsMargins(8, 4, 8, 4)
+        gran_layout.setSpacing(6)
         
-        # Granularidad
-        gran_label = QLabel("Granularidad:")
-        gran_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
-        layout.addWidget(gran_label)
+        gran_label = QLabel("Carpetas por:")
+        gran_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_PRIMARY};
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            background: transparent;
+            border: none;
+        """)
+        gran_layout.addWidget(gran_label)
         
         self.date_granularity_buttons = []
         granularities = [("Mes", 0), ("Año", 1), ("Año/Mes", 2)]
@@ -654,23 +706,28 @@ class FileOrganizerDialog(BaseDialog):
             btn = self._create_chip_button(text, "date_granularity", value, value == 0)
             btn.clicked.connect(lambda checked, v=value: self._on_date_granularity_changed(v))
             self.date_granularity_buttons.append(btn)
-            layout.addWidget(btn)
+            gran_layout.addWidget(btn)
         
-        # Separador
-        sep2 = QLabel("|")
-        sep2.setStyleSheet(f"color: {DesignSystem.COLOR_BORDER}; margin: 0 4px;")
-        layout.addWidget(sep2)
+        layout.addWidget(gran_container)
         
-        # Subcarpetas
+        # Espacio entre grupos
+        layout.addSpacing(8)
+        
+        # Opciones secundarias: Subcarpetas (más sutiles)
         sub_label = QLabel("Subcarpetas:")
-        sub_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
+        sub_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            background: transparent;
+            border: none;
+        """)
         layout.addWidget(sub_label)
         
         self.chk_date_source_btn = QPushButton("+ Fuente")
         self.chk_date_source_btn.setCheckable(True)
         self.chk_date_source_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.chk_date_source_btn.setToolTip("Añadir subcarpetas por fuente (WhatsApp, Cámara...)")
-        self.chk_date_source_btn.setStyleSheet(self._get_chip_style(False))
+        self.chk_date_source_btn.setStyleSheet(self._get_secondary_chip_style(False))
         self.chk_date_source_btn.clicked.connect(self._on_date_extra_changed)
         layout.addWidget(self.chk_date_source_btn)
         
@@ -678,7 +735,7 @@ class FileOrganizerDialog(BaseDialog):
         self.chk_date_type_btn.setCheckable(True)
         self.chk_date_type_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.chk_date_type_btn.setToolTip("Añadir subcarpetas por tipo (Fotos/Videos)")
-        self.chk_date_type_btn.setStyleSheet(self._get_chip_style(False))
+        self.chk_date_type_btn.setStyleSheet(self._get_secondary_chip_style(False))
         self.chk_date_type_btn.clicked.connect(self._on_date_extra_changed)
         layout.addWidget(self.chk_date_type_btn)
         
@@ -690,7 +747,7 @@ class FileOrganizerDialog(BaseDialog):
         page = QWidget()
         layout = QHBoxLayout(page)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(DesignSystem.SPACE_16)
+        layout.setSpacing(DesignSystem.SPACE_8)
         
         # Icono + Título de estrategia
         icon_label = QLabel()
@@ -702,17 +759,20 @@ class FileOrganizerDialog(BaseDialog):
             font-size: {DesignSystem.FONT_SIZE_BASE}px;
             font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
             color: {DesignSystem.COLOR_TEXT};
+            background: transparent;
+            border: none;
+            padding-right: 12px;
         """)
         layout.addWidget(strategy_label)
         
-        # Separador
-        sep = QLabel("|")
-        sep.setStyleSheet(f"color: {DesignSystem.COLOR_BORDER}; margin: 0 4px;")
-        layout.addWidget(sep)
-        
-        # Subcarpetas por fecha
+        # Opciones secundarias: Subcarpetas por fecha
         sub_label = QLabel("Subcarpetas por fecha:")
-        sub_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
+        sub_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            background: transparent;
+            border: none;
+        """)
         layout.addWidget(sub_label)
         
         self.type_date_buttons = []
@@ -731,7 +791,7 @@ class FileOrganizerDialog(BaseDialog):
         page = QWidget()
         layout = QHBoxLayout(page)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(DesignSystem.SPACE_16)
+        layout.setSpacing(DesignSystem.SPACE_8)
         
         # Icono + Título de estrategia
         icon_label = QLabel()
@@ -743,17 +803,20 @@ class FileOrganizerDialog(BaseDialog):
             font-size: {DesignSystem.FONT_SIZE_BASE}px;
             font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
             color: {DesignSystem.COLOR_TEXT};
+            background: transparent;
+            border: none;
+            padding-right: 12px;
         """)
         layout.addWidget(strategy_label)
         
-        # Separador
-        sep = QLabel("|")
-        sep.setStyleSheet(f"color: {DesignSystem.COLOR_BORDER}; margin: 0 4px;")
-        layout.addWidget(sep)
-        
         # Subcarpetas por fecha
         sub_label = QLabel("Subcarpetas por fecha:")
-        sub_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
+        sub_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            background: transparent;
+            border: none;
+        """)
         layout.addWidget(sub_label)
         
         self.source_date_buttons = []
@@ -772,7 +835,7 @@ class FileOrganizerDialog(BaseDialog):
         page = QWidget()
         layout = QHBoxLayout(page)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(DesignSystem.SPACE_16)
+        layout.setSpacing(DesignSystem.SPACE_8)
         
         # Icono + Título de estrategia
         icon_label = QLabel()
@@ -784,19 +847,19 @@ class FileOrganizerDialog(BaseDialog):
             font-size: {DesignSystem.FONT_SIZE_BASE}px;
             font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
             color: {DesignSystem.COLOR_TEXT};
+            background: transparent;
+            border: none;
+            padding-right: 12px;
         """)
         layout.addWidget(strategy_label)
-        
-        # Separador
-        sep = QLabel("|")
-        sep.setStyleSheet(f"color: {DesignSystem.COLOR_BORDER}; margin: 0 4px;")
-        layout.addWidget(sep)
         
         # Descripción
         info_label = QLabel("Todos los archivos se moverán al directorio principal, sin subcarpetas")
         info_label.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_SM}px;
             color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            background: transparent;
+            border: none;
         """)
         layout.addWidget(info_label)
         
@@ -818,8 +881,8 @@ class FileOrganizerDialog(BaseDialog):
     def _on_date_extra_changed(self):
         """Maneja cambio en opciones extras de fecha"""
         # Actualizar estilos de los botones toggle
-        self.chk_date_source_btn.setStyleSheet(self._get_chip_style(self.chk_date_source_btn.isChecked()))
-        self.chk_date_type_btn.setStyleSheet(self._get_chip_style(self.chk_date_type_btn.isChecked()))
+        self.chk_date_source_btn.setStyleSheet(self._get_secondary_chip_style(self.chk_date_source_btn.isChecked()))
+        self.chk_date_type_btn.setStyleSheet(self._get_secondary_chip_style(self.chk_date_type_btn.isChecked()))
         self._trigger_date_analysis()
     
     def _trigger_date_analysis(self):
