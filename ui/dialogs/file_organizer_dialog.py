@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QGroupBox, QDialogButtonBox, QCheckBox, QLabel,
     QTreeWidget, QTreeWidgetItem, QLineEdit, QComboBox, QPushButton, QFrame,
     QApplication, QMenu, QWidget, QProgressBar, QTabWidget, QRadioButton, QButtonGroup,
-    QStackedWidget, QScrollArea
+    QStackedWidget, QScrollArea, QGridLayout
 )
 from PyQt6.QtGui import QColor, QFont, QCursor
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QThread
@@ -23,9 +23,11 @@ from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
 from utils.logger import get_logger
 from services.file_organizer_service import FileOrganizerService, OrganizationType
+from services.file_metadata_repository_cache import FileInfoRepositoryCache
 from services.result_types import OrganizationAnalysisResult
 from ui.workers import FileOrganizerAnalysisWorker
 from .base_dialog import BaseDialog
+from .dialog_utils import show_file_details_dialog
 
 
 class FileOrganizerDialog(BaseDialog):
@@ -42,20 +44,30 @@ class FileOrganizerDialog(BaseDialog):
     LOAD_INCREMENT = 100
     WARNING_THRESHOLD = 500
 
-    def __init__(self, initial_analysis: OrganizationAnalysisResult, parent=None):
+    def __init__(self, initial_analysis: Optional[OrganizationAnalysisResult], parent=None):
         super().__init__(parent)
         self.logger = get_logger("FileOrganizationDialog")
+        self.repo = FileInfoRepositoryCache.get_instance()
+        
+        # Obtener root_directory desde initial_analysis o desde Stage 3
+        if initial_analysis:
+            self.root_directory = Path(initial_analysis.root_directory)
+        else:
+            # Si no hay análisis inicial, obtener desde el parent (MainWindow -> Stage3 -> selected_folder)
+            if hasattr(parent, 'current_stage') and hasattr(parent.current_stage, 'selected_folder'):
+                self.root_directory = Path(parent.current_stage.selected_folder)
+            else:
+                raise ValueError("No se pudo determinar el directorio raíz para organizar archivos")
         
         # Datos principales
-        self.root_directory = Path(initial_analysis.root_directory)
-        self.initial_analysis = initial_analysis  # Guardar para referencia pero no usar inicialmente
-        self.analysis = None  # Empezar sin análisis hasta que el usuario seleccione
-        self.current_organization_type = None  # Sin tipo seleccionado inicialmente
+        self.initial_analysis = initial_analysis  # Puede ser None
+        self.analysis = None  # Se llenará cuando el usuario seleccione
+        self.current_organization_type = None
         self.accepted_plan = None
         
         # Datos de archivos
-        self.all_moves = []  # Empezar vacío
-        self.filtered_moves = []  # Empezar vacío hasta que el usuario seleccione
+        self.all_moves = []
+        self.filtered_moves = []
         self.loaded_count = 0
         
         # Worker para análisis
@@ -68,43 +80,344 @@ class FileOrganizerDialog(BaseDialog):
         # Referencia a la barra de paginación
         self.pagination_bar = None
         
+        # Estado del dialog: 'selection' (pantalla inicial) o 'preview' (vista previa)
+        self.dialog_state = 'selection'
+        
         self.init_ui()
 
     def init_ui(self):
         """Inicializa la interfaz"""
         self.setWindowTitle("Organización de Archivos")
         self.setModal(True)
-        self.resize(1400, 800)
+        self.resize(1200, 720)  # Más ancho para cards horizontales con ejemplos
         
-        # Inicializar progress bar temprano para evitar crashes si se disparan señales durante la construcción de la UI
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setVisible(False)
-        
+        # Layout principal
         main_layout = QVBoxLayout(self)
         main_layout.setSpacing(0)
-        main_layout.setContentsMargins(0, 0, 0, DesignSystem.SPACE_20)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Stacked widget para cambiar entre pantalla de selección y preview
+        self.main_stack = QStackedWidget()
+        main_layout.addWidget(self.main_stack)
+        
+        # === PÁGINA 0: PANTALLA DE SELECCIÓN INICIAL ===
+        self.selection_page = self._create_selection_page()
+        self.main_stack.addWidget(self.selection_page)
+        
+        # === PÁGINA 1: PANTALLA DE PREVIEW Y CONFIGURACIÓN ===
+        self.preview_page = self._create_preview_page()
+        self.main_stack.addWidget(self.preview_page)
+        
+        # Marcar UI como inicializada
+        self.ui_initialized = True
+        
+        # Mostrar página de selección inicial
+        self.main_stack.setCurrentIndex(0)
+        
+        # NO actualizar vista inicial - dejar vacío hasta que el usuario seleccione
+        # self._update_all_ui()
+        
+        # Marcar UI como inicializada para permitir eventos
+        self.ui_initialized = True
+    
+    def _go_back_to_selection(self):
+        """Vuelve a la pantalla de selección inicial"""
+        # Cancelar análisis si está en curso
+        if self.is_analyzing and self.worker and self.worker.isRunning():
+            self.worker.stop()
+            self.worker.wait()
+        
+        # Limpiar datos
+        self.analysis = None
+        self.all_moves = []
+        self.filtered_moves = []
+        self.is_analyzing = False
+        
+        # Cambiar a página de selección
+        self.dialog_state = 'selection'
+        self.main_stack.setCurrentIndex(0)
+        self.resize(1100, 700)
+    
+    def _create_selection_page(self) -> QWidget:
+        """Crea la página inicial de selección de estrategia"""
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        
+        # Header simple
+        header = QFrame()
+        header.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                padding: {DesignSystem.SPACE_24}px;
+            }}
+        """)
+        header_layout = QVBoxLayout(header)
+        header_layout.setSpacing(DesignSystem.SPACE_8)
+        
+        # Título
+        title = QLabel("¿Cómo quieres organizar tus archivos?")
+        title.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_2XL}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+            color: {DesignSystem.COLOR_PRIMARY_TEXT};
+        """)
+        header_layout.addWidget(title)
+        
+        # Subtítulo
+        subtitle = QLabel("Selecciona una estrategia de organización")
+        subtitle.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            color: {DesignSystem.COLOR_PRIMARY_TEXT};
+            opacity: 0.9;
+        """)
+        header_layout.addWidget(subtitle)
+        
+        layout.addWidget(header)
+        
+        # Contenido con las tarjetas
+        content = QWidget()
+        content_layout = QVBoxLayout(content)
+        content_layout.setContentsMargins(DesignSystem.SPACE_32, DesignSystem.SPACE_32, DesignSystem.SPACE_32, DesignSystem.SPACE_32)
+        content_layout.setSpacing(DesignSystem.SPACE_20)
+        
+        # Grid de estrategias (2x2)
+        grid = QGridLayout()
+        grid.setSpacing(DesignSystem.SPACE_16)
+        
+        # Definir estrategias con descripciones detalladas y ejemplo visual
+        strategies = [
+            {
+                'key': 'date',
+                'icon': 'calendar-month',
+                'title': 'Organizar por Fecha',
+                'description': 'Crea carpetas cronológicas basadas en la fecha de cada archivo',
+                'hint': 'Opciones: mes, año, o ambos',
+                'example': '📁 2024_01/\n📁 2024_02/\n📁 2024_03/\n📁 2025_12/',
+                'row': 0, 'col': 0
+            },
+            {
+                'key': 'type',
+                'icon': 'image',
+                'title': 'Organizar por Tipo',
+                'description': 'Separa archivos en carpetas según su tipo',
+                'hint': 'Opcional: subcarpetas por fecha',
+                'example': '📁 Fotos/\n📁 Videos/\n📁 Otros/',
+                'row': 0, 'col': 1
+            },
+            {
+                'key': 'source',
+                'icon': 'devices',
+                'title': 'Organizar por Fuente',
+                'description': 'Agrupa por origen del archivo',
+                'hint': 'Opcional: subcarpetas por fecha',
+                'example': '📁 Cámara/\n📁 WhatsApp/\n📁 Instagram/\n📁 Otros/',
+                'row': 1, 'col': 0
+            },
+            {
+                'key': 'cleanup',
+                'icon': 'folder-open',
+                'title': 'Mover Todo al Raíz',
+                'description': 'Elimina subcarpetas y mueve todo al directorio principal',
+                'hint': '',
+                'example': '📄 IMG_001.jpg\n📄 VID_002.mp4\n📄 photo.heic\n(sin subcarpetas)',
+                'row': 1, 'col': 1
+            }
+        ]
+        
+        for strategy in strategies:
+            card = self._create_strategy_selection_card(
+                strategy['key'],
+                strategy['icon'],
+                strategy['title'],
+                strategy['description'],
+                strategy['example'],
+                strategy.get('hint', '')
+            )
+            grid.addWidget(card, strategy['row'], strategy['col'])
+        
+        content_layout.addLayout(grid)
+        content_layout.addStretch()
+        
+        # Botón cancelar al final
+        cancel_btn = QPushButton("Cancelar")
+        cancel_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
+        cancel_btn.clicked.connect(self.reject)
+        cancel_btn.setFixedWidth(120)
+        
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        btn_layout.addWidget(cancel_btn)
+        content_layout.addLayout(btn_layout)
+        
+        layout.addWidget(content, 1)
+        
+        return page
+    
+    def _create_strategy_selection_card(self, key: str, icon_name: str, title: str, description: str, example: str, hint: str = '') -> QFrame:
+        """Crea una tarjeta con layout horizontal: info izquierda, ejemplo derecha"""
+        card = QFrame()
+        card.setProperty("strategy_key", key)
+        card.setCursor(Qt.CursorShape.PointingHandCursor)
+        card.setMinimumHeight(190)
+        card.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 2px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+            }}
+            QFrame:hover {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+                background-color: {DesignSystem.COLOR_PRIMARY_SUBTLE};
+            }}
+        """)
+        
+        # Layout horizontal principal
+        main_layout = QHBoxLayout(card)
+        main_layout.setContentsMargins(DesignSystem.SPACE_20, DesignSystem.SPACE_16, DesignSystem.SPACE_16, DesignSystem.SPACE_16)
+        main_layout.setSpacing(DesignSystem.SPACE_20)
+        
+        # === LADO IZQUIERDO: Icono + Título + Descripción + Hint ===
+        left_widget = QWidget()
+        left_layout = QVBoxLayout(left_widget)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(DesignSystem.SPACE_8)
+        
+        # Icono
+        icon_label = QLabel()
+        icon_manager.set_label_icon(icon_label, icon_name, size=36, color=DesignSystem.COLOR_PRIMARY)
+        left_layout.addWidget(icon_label)
+        
+        # Título
+        title_label = QLabel(title)
+        title_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_LG}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+            color: {DesignSystem.COLOR_TEXT};
+        """)
+        left_layout.addWidget(title_label)
+        
+        # Descripción
+        desc_label = QLabel(description)
+        desc_label.setWordWrap(True)
+        desc_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+        """)
+        left_layout.addWidget(desc_label)
+        
+        # Hint de opciones adicionales (si existe)
+        if hint:
+            hint_label = QLabel(f"⚙️ {hint}")
+            hint_label.setStyleSheet(f"""
+                font-size: {DesignSystem.FONT_SIZE_XS}px;
+                color: {DesignSystem.COLOR_PRIMARY};
+                font-style: italic;
+                margin-top: 4px;
+            """)
+            left_layout.addWidget(hint_label)
+        
+        left_layout.addStretch()
+        
+        main_layout.addWidget(left_widget, 1)  # Stretch factor 1
+        
+        # === LADO DERECHO: Ejemplo visual con fondo ===
+        example_container = QFrame()
+        example_container.setFixedWidth(200)  # Un poco más ancho
+        example_container.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+            }}
+        """)
+        example_layout = QVBoxLayout(example_container)
+        example_layout.setContentsMargins(DesignSystem.SPACE_12, DesignSystem.SPACE_12, DesignSystem.SPACE_12, DesignSystem.SPACE_12)
+        
+        # Título del ejemplo
+        example_title = QLabel("Vista previa:")
+        example_title.setStyleSheet(f"""
+            font-size: 10px;
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            margin-bottom: 4px;
+        """)
+        example_layout.addWidget(example_title)
+        
+        # Contenido del ejemplo
+        example_label = QLabel(example)
+        example_label.setStyleSheet(f"""
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
+            color: {DesignSystem.COLOR_TEXT};
+            line-height: 1.5;
+        """)
+        example_layout.addWidget(example_label)
+        example_layout.addStretch()
+        
+        main_layout.addWidget(example_container)
+        
+        # Click handler
+        card.mousePressEvent = lambda e: self._on_strategy_selection(key)
+        
+        return card
+    
+    def _on_strategy_selection(self, key: str):
+        """Maneja la selección de una estrategia desde la pantalla inicial"""
+        self.logger.info(f"Estrategia seleccionada: {key}")
+        
+        # Mapear key a tipo de organización y página de opciones
+        strategy_config = {
+            'date': {'org_type': OrganizationType.BY_MONTH, 'page': 0},
+            'type': {'org_type': OrganizationType.BY_TYPE, 'page': 1},
+            'source': {'org_type': OrganizationType.BY_SOURCE, 'page': 2},
+            'cleanup': {'org_type': OrganizationType.TO_ROOT, 'page': 3}
+        }
+        
+        config = strategy_config.get(key, strategy_config['date'])
+        
+        # Cambiar a página de preview
+        self.dialog_state = 'preview'
+        self.main_stack.setCurrentIndex(1)
+        self.resize(1400, 800)
+        
+        # Guardar estrategia seleccionada
+        self.selected_strategy_key = key
+        
+        # Cambiar página de opciones correspondiente
+        self.options_stack.setCurrentIndex(config['page'])
+        
+        # Iniciar análisis con configuración por defecto
+        self._start_analysis(config['org_type'], group_by_source=False, group_by_type=False, date_grouping_type=None)
+    
+    def _configure_preview_for_strategy(self, key: str):
+        """Configura la página de preview según la estrategia seleccionada"""
+        # Actualizar indicador de estrategia
+        self._update_strategy_indicator(key)
+    
+    def _create_preview_page(self) -> QWidget:
+        """Crea la página de preview con configuración y vista de archivos"""
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setSpacing(0)
+        layout.setContentsMargins(0, 0, 0, DesignSystem.SPACE_20)
+        
+        # Inicializar progress bar temprano
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setVisible(False)
         
         # === HEADER COMPACTO CON MÉTRICAS ===
         self.header_frame = self._create_compact_header_with_metrics(
             icon_name='folder-cog',
             title='Organización de Archivos',
-            description='Elige cómo organizar tus archivos',
+            description='Configura y previsualiza la organización',
             metrics=[
-                {
-                    'label': 'Total',
-                    'value': str(self.analysis.items_count) if self.analysis else '0'
-                },
-                {
-                    'label': 'Organizar',
-                    'value': str(self.analysis.files_to_move) if self.analysis else '0'
-                },
-                {
-                    'label': 'Tamaño',
-                    'value': format_size(self.analysis.bytes_total) if self.analysis else '0 B'
-                }
+                {'label': 'Total', 'value': '0'},
+                {'label': 'Organizar', 'value': '0'},
+                {'label': 'Tamaño', 'value': '0 B'}
             ]
         )
-        main_layout.addWidget(self.header_frame)
+        layout.addWidget(self.header_frame)
         
         # Contenedor con márgenes para el resto del contenido
         content_container = QWidget()
@@ -116,11 +429,32 @@ class FileOrganizerDialog(BaseDialog):
             DesignSystem.SPACE_24,
             0
         )
-        main_layout.addWidget(content_container)
+        layout.addWidget(content_container)
         
-        # === SELECTOR DE ESTRATEGIA ===
-        self.selection_ui = self._create_selection_ui()
-        content_layout.addWidget(self.selection_ui)
+        # === BOTÓN DE VOLVER A SELECCIÓN ===
+        back_btn = QPushButton("← Cambiar estrategia")
+        back_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                border: none;
+                color: {DesignSystem.COLOR_PRIMARY};
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                padding: {DesignSystem.SPACE_8}px 0;
+                text-align: left;
+            }}
+            QPushButton:hover {{
+                color: {DesignSystem.COLOR_PRIMARY_HOVER};
+                text-decoration: underline;
+            }}
+        """)
+        back_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        back_btn.clicked.connect(self._go_back_to_selection)
+        content_layout.addWidget(back_btn)
+        
+        # === OPCIONES DE ORGANIZACIÓN (con estrategia + personalizacion) ===
+        self.options_panel = self._create_organization_options_panel()
+        content_layout.addWidget(self.options_panel)
         
         # === INFORMACIÓN DE CARPETAS ===
         self.folders_info_widget = self._create_folders_info()
@@ -143,7 +477,6 @@ class FileOrganizerDialog(BaseDialog):
         content_layout.addWidget(self.pagination_bar)
 
         # === PROGRESS BAR (inicialmente oculto) ===
-        # self.progress_bar ya inicializado al principio
         self.progress_bar.setStyleSheet(f"""
             QProgressBar {{
                 border: 1px solid {DesignSystem.COLOR_BORDER};
@@ -166,362 +499,360 @@ class FileOrganizerDialog(BaseDialog):
         self.buttons = self._create_action_buttons()
         content_layout.addWidget(self.buttons)
         
-        # NO actualizar vista inicial - dejar vacío hasta que el usuario seleccione
-        # self._update_all_ui()
-        
-        # Marcar UI como inicializada para permitir eventos
-        self.ui_initialized = True
-        
-        # Inicializar la selección de estrategia y las opciones (ahora que la UI está lista)
-        self._initialize_strategy_selection()
-
-    def _create_selection_ui(self) -> QWidget:
-        """Crea la nueva interfaz de selección con Estrategia + Opciones Contextuales"""
-        container = QWidget()
-        layout = QVBoxLayout(container)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(DesignSystem.SPACE_16)
-        
-        # 1. Selector de Estrategia (Tarjetas Horizontales)
-        strategy_container = QWidget()
-        strategy_layout = QHBoxLayout(strategy_container)
-        strategy_layout.setContentsMargins(0, 0, 0, 0)
-        strategy_layout.setSpacing(DesignSystem.SPACE_12)
-        
-        # Definir estrategias
-        self.strategies = {
-            'date': {
-                'icon': 'calendar-month', 
-                'label': 'Por Fecha', 
-                'tooltip': 'Organizar archivos cronológicamente (Año, Mes...)',
-                'types': [OrganizationType.BY_MONTH, OrganizationType.BY_YEAR, OrganizationType.BY_YEAR_MONTH]
-            },
-            'type': {
-                'icon': 'image', 
-                'label': 'Por Tipo', 
-                'tooltip': 'Agrupar por tipo de archivo (Fotos, Videos...)',
-                'types': [OrganizationType.BY_TYPE]
-            },
-            'source': {
-                'icon': 'devices', 
-                'label': 'Por Fuente', 
-                'tooltip': 'Agrupar por dispositivo de origen (Cámara, WhatsApp...)',
-                'types': [OrganizationType.BY_SOURCE]
-            },
-            'cleanup': {
-                'icon': 'folder-open', 
-                'label': 'Todo junto', 
-                'tooltip': 'Mover todo a la raíz y eliminar carpetas vacías',
-                'types': [OrganizationType.TO_ROOT]
-            }
-        }
-        
-        self.strategy_cards = {}
-        
-        # Crear tarjetas
-        for key, data in self.strategies.items():
-            card = self._create_strategy_card(key, data)
-            strategy_layout.addWidget(card)
-            self.strategy_cards[key] = card
-            
-        layout.addWidget(strategy_container)
-        
-        # 2. Panel de Opciones Contextuales (Stacked Widget)
-        self.settings_stack = QStackedWidget()
-        self.settings_stack.setStyleSheet(f"""
-            QStackedWidget {{
+        return page
+    
+    def _create_organization_options_panel(self) -> QWidget:
+        """Crea panel de opciones compacto con botones segmentados (sin combos)"""
+        container = QFrame()
+        container.setStyleSheet(f"""
+            QFrame {{
                 background-color: {DesignSystem.COLOR_SURFACE};
                 border: 1px solid {DesignSystem.COLOR_BORDER};
                 border-radius: {DesignSystem.RADIUS_BASE}px;
             }}
         """)
         
-        # Página 0: Configuración de Fecha
-        self.date_settings_page = self._create_date_settings_page()
-        self.settings_stack.addWidget(self.date_settings_page)
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(DesignSystem.SPACE_16, DesignSystem.SPACE_12, DesignSystem.SPACE_16, DesignSystem.SPACE_12)
+        layout.setSpacing(DesignSystem.SPACE_8)
         
-        # Página 1: Configuración de Tipo
-        self.type_settings_page = self._create_type_source_settings_page("type")
-        self.settings_stack.addWidget(self.type_settings_page)
+        # Stacked widget para opciones según estrategia
+        self.options_stack = QStackedWidget()
         
-        # Página 2: Configuración de Fuente
-        self.source_settings_page = self._create_type_source_settings_page("source")
-        self.settings_stack.addWidget(self.source_settings_page)
+        # Página 0: Opciones para "Por Fecha"
+        date_page = self._create_date_options()
+        self.options_stack.addWidget(date_page)
         
-        # Página 3: Configuración de Limpieza
-        self.cleanup_settings_page = self._create_cleanup_settings_page()
-        self.settings_stack.addWidget(self.cleanup_settings_page)
+        # Página 1: Opciones para "Por Tipo"
+        type_page = self._create_type_options()
+        self.options_stack.addWidget(type_page)
         
-        layout.addWidget(self.settings_stack)
+        # Página 2: Opciones para "Por Fuente"
+        source_page = self._create_source_options()
+        self.options_stack.addWidget(source_page)
         
-        layout.addWidget(self.settings_stack)
+        # Página 3: Opciones para "Al Raíz"
+        cleanup_page = self._create_cleanup_options()
+        self.options_stack.addWidget(cleanup_page)
+        
+        layout.addWidget(self.options_stack)
         
         return container
-
-    def _create_strategy_card(self, key: str, data: dict) -> QFrame:
-        """Crea una tarjeta de estrategia seleccionable"""
-        card = QFrame()
-        card.setCursor(Qt.CursorShape.PointingHandCursor)
-        card.setProperty("strategy_key", key)
-        card.setToolTip(data['tooltip'])
+    
+    def _create_chip_button(self, text: str, group_name: str, value: any, is_selected: bool = False) -> QPushButton:
+        """Crea un botón chip para selección de opciones"""
+        btn = QPushButton(text)
+        btn.setCheckable(True)
+        btn.setChecked(is_selected)
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.setProperty("group", group_name)
+        btn.setProperty("value", value)
+        btn.setStyleSheet(self._get_chip_style(is_selected))
+        return btn
+    
+    def _get_chip_style(self, selected: bool = False) -> str:
+        """Estilo para chips de selección"""
+        if selected:
+            return f"""
+                QPushButton {{
+                    background-color: {DesignSystem.COLOR_PRIMARY};
+                    color: white;
+                    border: 1px solid {DesignSystem.COLOR_PRIMARY};
+                    border-radius: {DesignSystem.RADIUS_BASE}px;
+                    padding: 6px 14px;
+                    font-size: {DesignSystem.FONT_SIZE_SM}px;
+                    font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                }}
+                QPushButton:hover {{
+                    background-color: {DesignSystem.COLOR_PRIMARY_HOVER};
+                }}
+            """
+        return f"""
+            QPushButton {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                color: {DesignSystem.COLOR_TEXT};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: 6px 14px;
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_PRIMARY_SUBTLE};
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+            QPushButton:checked {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                color: white;
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+        """
+    
+    def _create_date_options(self) -> QWidget:
+        """Opciones para organización por fecha - diseño compacto con chips"""
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(DesignSystem.SPACE_10)
         
-        # Layout de la tarjeta
-        layout = QVBoxLayout(card)
-        layout.setContentsMargins(DesignSystem.SPACE_12, DesignSystem.SPACE_12, DesignSystem.SPACE_12, DesignSystem.SPACE_12)
-        layout.setSpacing(DesignSystem.SPACE_8)
-        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # Fila 1: Estrategia + Granularidad en una línea
+        row1 = QHBoxLayout()
+        row1.setSpacing(DesignSystem.SPACE_12)
+        
+        strategy_label = QLabel("📅 Por Fecha →")
+        strategy_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            color: {DesignSystem.COLOR_PRIMARY};
+        """)
+        row1.addWidget(strategy_label)
+        
+        # Chips de granularidad
+        self.date_granularity_buttons = []
+        granularities = [("Mes", 0), ("Año", 1), ("Año/Mes", 2)]
+        for text, value in granularities:
+            btn = self._create_chip_button(text, "date_granularity", value, value == 0)
+            btn.clicked.connect(lambda checked, v=value: self._on_date_granularity_changed(v))
+            self.date_granularity_buttons.append(btn)
+            row1.addWidget(btn)
+        
+        row1.addStretch()
+        layout.addLayout(row1)
+        
+        # Fila 2: Agrupaciones adicionales (chips toggle)
+        row2 = QHBoxLayout()
+        row2.setSpacing(DesignSystem.SPACE_8)
+        
+        extra_label = QLabel("Subcarpetas:")
+        extra_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+        """)
+        row2.addWidget(extra_label)
+        
+        self.chk_date_source_btn = QPushButton("+ Fuente")
+        self.chk_date_source_btn.setCheckable(True)
+        self.chk_date_source_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.chk_date_source_btn.setToolTip("Añadir subcarpetas por fuente (WhatsApp, Cámara...)")
+        self.chk_date_source_btn.setStyleSheet(self._get_chip_style(False))
+        self.chk_date_source_btn.clicked.connect(self._on_date_extra_changed)
+        row2.addWidget(self.chk_date_source_btn)
+        
+        self.chk_date_type_btn = QPushButton("+ Tipo")
+        self.chk_date_type_btn.setCheckable(True)
+        self.chk_date_type_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.chk_date_type_btn.setToolTip("Añadir subcarpetas por tipo (Fotos/Videos)")
+        self.chk_date_type_btn.setStyleSheet(self._get_chip_style(False))
+        self.chk_date_type_btn.clicked.connect(self._on_date_extra_changed)
+        row2.addWidget(self.chk_date_type_btn)
+        
+        row2.addStretch()
+        layout.addLayout(row2)
+        
+        return page
+    
+    def _create_type_options(self) -> QWidget:
+        """Opciones para organización por tipo - diseño compacto con chips"""
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(DesignSystem.SPACE_10)
+        
+        # Una sola fila: Estrategia + subcarpetas temporales
+        row = QHBoxLayout()
+        row.setSpacing(DesignSystem.SPACE_12)
+        
+        strategy_label = QLabel("🖼️ Por Tipo →")
+        strategy_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            color: {DesignSystem.COLOR_PRIMARY};
+        """)
+        row.addWidget(strategy_label)
+        
+        sub_label = QLabel("Subcarpetas:")
+        sub_label.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_SM}px;")
+        row.addWidget(sub_label)
+        
+        # Chips de suborganización temporal
+        self.type_date_buttons = []
+        options = [("Ninguna", None), ("Mes", "month"), ("Año", "year"), ("Año/Mes", "year_month")]
+        for text, value in options:
+            btn = self._create_chip_button(text, "type_date", value, value is None)
+            btn.clicked.connect(lambda checked, v=value: self._on_type_date_changed(v))
+            self.type_date_buttons.append(btn)
+            row.addWidget(btn)
+        
+        row.addStretch()
+        layout.addLayout(row)
+        
+        return page
+    
+    def _create_source_options(self) -> QWidget:
+        """Opciones para organización por fuente - diseño compacto con chips"""
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(DesignSystem.SPACE_10)
+        
+        # Una sola fila: Estrategia + subcarpetas temporales
+        row = QHBoxLayout()
+        row.setSpacing(DesignSystem.SPACE_12)
+        
+        strategy_label = QLabel("📱 Por Fuente →")
+        strategy_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            color: {DesignSystem.COLOR_PRIMARY};
+        """)
+        row.addWidget(strategy_label)
+        
+        sub_label = QLabel("Subcarpetas:")
+        sub_label.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_SM}px;")
+        row.addWidget(sub_label)
+        
+        # Chips de suborganización temporal
+        self.source_date_buttons = []
+        options = [("Ninguna", None), ("Mes", "month"), ("Año", "year"), ("Año/Mes", "year_month")]
+        for text, value in options:
+            btn = self._create_chip_button(text, "source_date", value, value is None)
+            btn.clicked.connect(lambda checked, v=value: self._on_source_date_changed(v))
+            self.source_date_buttons.append(btn)
+            row.addWidget(btn)
+        
+        row.addStretch()
+        layout.addLayout(row)
+        
+        return page
+    
+    def _create_cleanup_options(self) -> QWidget:
+        """Opciones para mover al raíz - diseño compacto"""
+        page = QWidget()
+        layout = QHBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(DesignSystem.SPACE_12)
+        
+        strategy_label = QLabel("📁 Mover Todo al Raíz")
+        strategy_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            color: {DesignSystem.COLOR_PRIMARY};
+        """)
+        layout.addWidget(strategy_label)
+        
+        info_label = QLabel("— Todos los archivos se moverán al directorio principal")
+        info_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+        """)
+        layout.addWidget(info_label)
+        layout.addStretch()
+        
+        return page
+    
+    def _update_chip_group(self, buttons: list, selected_value):
+        """Actualiza el estado visual de un grupo de chips"""
+        for btn in buttons:
+            is_selected = btn.property("value") == selected_value
+            btn.setChecked(is_selected)
+            btn.setStyleSheet(self._get_chip_style(is_selected))
+    
+    def _on_date_granularity_changed(self, value: int):
+        """Maneja cambio de granularidad temporal en fecha"""
+        self._update_chip_group(self.date_granularity_buttons, value)
+        self._trigger_date_analysis()
+    
+    def _on_date_extra_changed(self):
+        """Maneja cambio en opciones extras de fecha"""
+        # Actualizar estilos de los botones toggle
+        self.chk_date_source_btn.setStyleSheet(self._get_chip_style(self.chk_date_source_btn.isChecked()))
+        self.chk_date_type_btn.setStyleSheet(self._get_chip_style(self.chk_date_type_btn.isChecked()))
+        self._trigger_date_analysis()
+    
+    def _trigger_date_analysis(self):
+        """Dispara análisis con las opciones de fecha actuales"""
+        if not self.ui_initialized or self.dialog_state != 'preview':
+            return
+        
+        # Obtener granularidad seleccionada
+        granularity_value = 0
+        for btn in self.date_granularity_buttons:
+            if btn.isChecked():
+                granularity_value = btn.property("value")
+                break
+        
+        org_type = OrganizationType.BY_MONTH
+        if granularity_value == 0:
+            org_type = OrganizationType.BY_MONTH
+        elif granularity_value == 1:
+            org_type = OrganizationType.BY_YEAR
+        elif granularity_value == 2:
+            org_type = OrganizationType.BY_YEAR_MONTH
+        
+        group_by_source = self.chk_date_source_btn.isChecked()
+        group_by_type = self.chk_date_type_btn.isChecked()
+        
+        self._start_analysis(org_type, group_by_source, group_by_type, None)
+    
+    def _on_type_date_changed(self, value):
+        """Maneja cambio de suborganización temporal en tipo"""
+        self._update_chip_group(self.type_date_buttons, value)
+        if not self.ui_initialized or self.dialog_state != 'preview':
+            return
+        self._start_analysis(OrganizationType.BY_TYPE, False, False, value)
+    
+    def _on_source_date_changed(self, value):
+        """Maneja cambio de suborganización temporal en fuente"""
+        self._update_chip_group(self.source_date_buttons, value)
+        if not self.ui_initialized or self.dialog_state != 'preview':
+            return
+        self._start_analysis(OrganizationType.BY_SOURCE, False, False, value)
+    
+    def _create_strategy_indicator(self) -> QWidget:
+        """Crea un indicador simple de la estrategia seleccionada"""
+        container = QFrame()
+        container.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
+                border-left: 3px solid {DesignSystem.COLOR_PRIMARY};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_12}px;
+            }}
+        """)
+        
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(DesignSystem.SPACE_12)
         
         # Icono
-        icon_label = QLabel()
-        icon_manager.set_label_icon(icon_label, data['icon'], size=DesignSystem.ICON_SIZE_LG, color=DesignSystem.COLOR_TEXT_SECONDARY)
-        icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        icon_label.setStyleSheet("border: none; background: transparent;")
-        layout.addWidget(icon_label)
+        self.indicator_icon = QLabel()
+        icon_manager.set_label_icon(self.indicator_icon, 'calendar-month', size=DesignSystem.ICON_SIZE_MD, color=DesignSystem.COLOR_PRIMARY)
+        layout.addWidget(self.indicator_icon)
         
-        # Etiqueta
-        text_label = QLabel(data['label'])
-        text_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        text_label.setStyleSheet(f"font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM}; color: {DesignSystem.COLOR_TEXT}; border: none;")
-        layout.addWidget(text_label)
+        # Texto
+        self.indicator_text = QLabel("Organizando por fecha")
+        self.indicator_text.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            color: {DesignSystem.COLOR_TEXT};
+        """)
+        layout.addWidget(self.indicator_text, 1)
         
-        # Guardar referencias para actualizar estilos
-        card.icon_label = icon_label
-        card.text_label = text_label
-        
-        # Evento de click
-        card.mousePressEvent = lambda e: self._on_strategy_clicked(key)
-        
-        return card
-
-    def _create_date_settings_page(self) -> QWidget:
-        """Crea la página de opciones para organización por fecha"""
-        page = QWidget()
-        layout = QHBoxLayout(page)
-        layout.setContentsMargins(DesignSystem.SPACE_20, DesignSystem.SPACE_16, DesignSystem.SPACE_20, DesignSystem.SPACE_16)
-        layout.setSpacing(DesignSystem.SPACE_16)
-        
-        label = QLabel("Granularidad:")
-        label.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT}; font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};")
-        
-        self.date_granularity_combo = QComboBox()
-        self.date_granularity_combo.addItems(["Por Mes (YYYY_MM)", "Por Año (YYYY)", "Por Año/Mes (YYYY/MM)"])
-        self.date_granularity_combo.setMinimumWidth(200)
-        self.date_granularity_combo.setStyleSheet(DesignSystem.get_combobox_style())
-        self.date_granularity_combo.currentIndexChanged.connect(lambda: self._on_option_changed(None))
-        
-        # Checkboxes para opciones combinadas
-        self.chk_date_source = QCheckBox("Agrupar también por Fuente (WhatsApp, etc.)")
-        self.chk_date_source.setToolTip("Crea subcarpetas por fuente dentro de cada carpeta de fecha")
-        self.chk_date_source.stateChanged.connect(lambda: self._on_option_changed(None))
-        
-        self.chk_date_type = QCheckBox("Agrupar también por Tipo (Fotos/Videos)")
-        self.chk_date_type.setToolTip("Crea subcarpetas Fotos y Videos dentro de cada carpeta de fecha")
-        self.chk_date_type.stateChanged.connect(lambda: self._on_option_changed(None))
-
-        layout.addWidget(label)
-        layout.addWidget(self.date_granularity_combo)
-        layout.addWidget(self.chk_date_source)
-        layout.addWidget(self.chk_date_type)
         layout.addStretch()
         
-        return page
-
-    def _create_type_source_settings_page(self, context: str) -> QWidget:
-        """Crea la página de opciones para organización por tipo o fuente"""
-        page = QWidget()
-        layout = QHBoxLayout(page)
-        layout.setContentsMargins(DesignSystem.SPACE_20, DesignSystem.SPACE_16, DesignSystem.SPACE_20, DesignSystem.SPACE_16)
-        layout.setSpacing(DesignSystem.SPACE_16)
+        return container
+    
+    def _update_strategy_indicator(self, key: str):
+        """Actualiza el indicador de estrategia"""
+        strategy_info = {
+            'date': {'icon': 'calendar-month', 'text': 'Organizando por fecha'},
+            'type': {'icon': 'image', 'text': 'Organizando por tipo de archivo'},
+            'source': {'icon': 'devices', 'text': 'Organizando por fuente'},
+            'cleanup': {'icon': 'folder-open', 'text': 'Moviendo todo al raíz'}
+        }
         
-        label = QLabel("Agrupación secundaria:")
-        label.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT}; font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};")
-        
-        combo = QComboBox()
-        combo.addItems(["Ninguna", "Por Mes (YYYY_MM)", "Por Año (YYYY)", "Por Año/Mes (YYYY/MM)"])
-        combo.setMinimumWidth(200)
-        combo.setStyleSheet(DesignSystem.get_combobox_style())
-        combo.currentIndexChanged.connect(lambda: self._on_option_changed(None))
-        
-        if context == "type":
-            self.type_secondary_combo = combo
-        else:
-            self.source_secondary_combo = combo
-            
-        layout.addWidget(label)
-        layout.addWidget(combo)
-        layout.addStretch()
-        
-        return page
-
-    def _create_cleanup_settings_page(self) -> QWidget:
-        """Crea la página de opciones para limpieza"""
-        page = QWidget()
-        layout = QHBoxLayout(page)
-        layout.setContentsMargins(DesignSystem.SPACE_20, DesignSystem.SPACE_16, DesignSystem.SPACE_20, DesignSystem.SPACE_16)
-        
-        icon_label = QLabel()
-        icon_manager.set_label_icon(icon_label, "information", size=DesignSystem.ICON_SIZE_MD, color=DesignSystem.COLOR_PRIMARY)
-        
-        text_label = QLabel("Esta opción moverá todos los archivos al directorio raíz y eliminará las carpetas vacías.")
-        text_label.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY};")
-        
-        layout.addWidget(icon_label)
-        layout.addWidget(text_label)
-        layout.addStretch()
-        
-        return page
-
-    def _initialize_strategy_selection(self):
-        """Inicializa la selección de estrategia y las opciones contextuales."""
-        # Determinar la estrategia inicial basada en initial_analysis o un valor por defecto
-        initial_strategy_key = 'date' # Default
-        if self.initial_analysis:
-            # organization_type es un string, comparar con .value de los enums
-            org_type_str = self.initial_analysis.organization_type
-            
-            # Convertir tipos de fecha a enum para comparación
-            date_types = [t.value for t in self.strategies['date']['types']]
-            
-            if org_type_str in date_types:
-                initial_strategy_key = 'date'
-                # Set initial combo box value for date granularity
-                if org_type_str == OrganizationType.BY_MONTH.value:
-                    self.date_granularity_combo.setCurrentIndex(0)
-                elif org_type_str == OrganizationType.BY_YEAR.value:
-                    self.date_granularity_combo.setCurrentIndex(1)
-                elif org_type_str == OrganizationType.BY_YEAR_MONTH.value:
-                    self.date_granularity_combo.setCurrentIndex(2)
-                
-                # Set initial checkbox states
-                self.chk_date_source.setChecked(self.initial_analysis.group_by_source)
-                self.chk_date_type.setChecked(self.initial_analysis.group_by_type)
-
-            elif org_type_str == OrganizationType.BY_TYPE.value:
-                initial_strategy_key = 'type'
-                # Set initial combo box value for secondary grouping
-                if self.initial_analysis.date_grouping_type == 'month':
-                    self.type_secondary_combo.setCurrentIndex(1)
-                elif self.initial_analysis.date_grouping_type == 'year':
-                    self.type_secondary_combo.setCurrentIndex(2)
-                elif self.initial_analysis.date_grouping_type == 'year_month':
-                    self.type_secondary_combo.setCurrentIndex(3)
-                else:
-                    self.type_secondary_combo.setCurrentIndex(0) # Ninguna
-
-            elif org_type_str == OrganizationType.BY_SOURCE.value:
-                initial_strategy_key = 'source'
-                # Set initial combo box value for secondary grouping
-                if self.initial_analysis.date_grouping_type == 'month':
-                    self.source_secondary_combo.setCurrentIndex(1)
-                elif self.initial_analysis.date_grouping_type == 'year':
-                    self.source_secondary_combo.setCurrentIndex(2)
-                elif self.initial_analysis.date_grouping_type == 'year_month':
-                    self.source_secondary_combo.setCurrentIndex(3)
-                else:
-                    self.source_secondary_combo.setCurrentIndex(0) # Ninguna
-
-            elif org_type_str == OrganizationType.TO_ROOT.value:
-                initial_strategy_key = 'cleanup'
-        
-        # Simulate a click on the initial strategy card to set up UI and trigger analysis
-        self._on_strategy_clicked(initial_strategy_key)
-
-
-    def _on_strategy_clicked(self, key: str):
-        """Maneja el click en una tarjeta de estrategia"""
-        # Actualizar estilos de tarjetas
-        for k, card in self.strategy_cards.items():
-            is_selected = (k == key)
-            
-            if is_selected:
-                bg_color = DesignSystem.COLOR_PRIMARY_LIGHT # Más sutil
-                border_color = DesignSystem.COLOR_PRIMARY
-                text_color = DesignSystem.COLOR_PRIMARY
-                icon_color = DesignSystem.COLOR_PRIMARY
-                border_style = f"1px solid {border_color}"
-            else:
-                bg_color = "transparent" # Sin fondo por defecto
-                border_color = "transparent"
-                text_color = DesignSystem.COLOR_TEXT
-                icon_color = DesignSystem.COLOR_TEXT_SECONDARY
-                border_style = "1px solid transparent" # Mantener borde transparente para evitar saltos
-            
-            card.setStyleSheet(f"""
-                QFrame {{
-                    background-color: {bg_color};
-                    border: {border_style};
-                    border-radius: {DesignSystem.RADIUS_BASE}px;
-                }}
-            """)
-            
-            # Asegurar que el label no tenga borde
-            card.text_label.setStyleSheet(f"font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM}; color: {text_color}; border: none; background: transparent;")
-            icon_manager.set_label_icon(card.icon_label, self.strategies[k]['icon'], size=DesignSystem.ICON_SIZE_LG, color=icon_color)
-
-        # Cambiar página del stack
-        stack_index = 0
-        if key == 'date': stack_index = 0
-        elif key == 'type': stack_index = 1
-        elif key == 'source': stack_index = 2
-        elif key == 'cleanup': stack_index = 3
-        
-        self.settings_stack.setCurrentIndex(stack_index)
-        
-        # Trigger update logic
-        self._on_option_changed(None)
-
-    def _on_option_changed(self, new_type_or_none):
-        """Maneja cambios en cualquier opción (tipo o checkboxes)"""
-        if not self.ui_initialized:
-            return
-
-        # Recopilar estado actual basado en la página activa del stack
-        stack_index = self.settings_stack.currentIndex()
-        
-        org_type = OrganizationType.BY_MONTH # Default
-        group_by_source = False
-        group_by_type = False
-        date_grouping_type = None
-        
-        if stack_index == 0: # Date Strategy
-            # Leer granularidad
-            granularity_index = self.date_granularity_combo.currentIndex()
-            if granularity_index == 0:
-                org_type = OrganizationType.BY_MONTH
-            elif granularity_index == 1:
-                org_type = OrganizationType.BY_YEAR
-            elif granularity_index == 2:
-                org_type = OrganizationType.BY_YEAR_MONTH
-                
-            # Leer checkboxes
-            group_by_source = self.chk_date_source.isChecked()
-            group_by_type = self.chk_date_type.isChecked()
-            
-        elif stack_index == 1: # Type Strategy
-            org_type = OrganizationType.BY_TYPE
-            # Leer agrupación secundaria
-            sec_index = self.type_secondary_combo.currentIndex()
-            if sec_index == 1: date_grouping_type = 'month'
-            elif sec_index == 2: date_grouping_type = 'year'
-            elif sec_index == 3: date_grouping_type = 'year_month'
-            
-        elif stack_index == 2: # Source Strategy
-            org_type = OrganizationType.BY_SOURCE
-            # Leer agrupación secundaria
-            sec_index = self.source_secondary_combo.currentIndex()
-            if sec_index == 1: date_grouping_type = 'month'
-            elif sec_index == 2: date_grouping_type = 'year'
-            elif sec_index == 3: date_grouping_type = 'year_month'
-            
-        elif stack_index == 3: # Cleanup Strategy
-            org_type = OrganizationType.TO_ROOT
-            
-        self.current_organization_type = org_type
-        
-        self.logger.info(f"Configuración cambiada: Tipo={self.current_organization_type.value}, "
-                         f"Source={group_by_source}, Type={group_by_type}, DateGrouping={date_grouping_type}")
-        
-        self._start_analysis(self.current_organization_type, group_by_source, group_by_type, date_grouping_type)
+        info = strategy_info.get(key, strategy_info['date'])
+        icon_manager.set_label_icon(self.indicator_icon, info['icon'], size=DesignSystem.ICON_SIZE_MD, color=DesignSystem.COLOR_PRIMARY)
+        self.indicator_text.setText(info['text'])
 
     def _start_analysis(self, org_type: OrganizationType, group_by_source=False, group_by_type=False, date_grouping_type: Optional[str] = None):
         """Inicia análisis en background"""
@@ -531,6 +862,9 @@ class FileOrganizerDialog(BaseDialog):
             # En este caso, permitiremos que termine y el usuario tendrá que esperar un poco
             self.logger.warning("Ya hay un análisis en curso")
             return
+        
+        # CRÍTICO: Guardar el tipo de organización actual para los treeviews
+        self.current_organization_type = org_type
         
         self.is_analyzing = True
         self._set_ui_loading_state(True)
@@ -751,11 +1085,22 @@ class FileOrganizerDialog(BaseDialog):
             'search': 'Buscar por nombre',
             'groups': 'Archivos seleccionados',
             'category': 'Tipo de archivo',
-            'status': 'Estado'
+            'status': 'Estado',
+            'source': 'Origen de la fecha'
         }
         
         # Configuración de filtros expandibles
         expandable_filters = [
+            {
+                'id': 'source',
+                'type': 'combo',
+                'label': labels['source'],
+                'tooltip': 'Filtrar por origen de la fecha',
+                'options': self.DATE_SOURCE_FILTER_OPTIONS,
+                'on_change': self._on_source_filter_changed,
+                'default_index': 0,
+                'min_width': 200
+            },
             {
                 'id': 'category',
                 'type': 'combo',
@@ -792,6 +1137,7 @@ class FileOrganizerDialog(BaseDialog):
         self.search_input = filter_bar.search_input
         self.status_chip = filter_bar.status_chip
         self.expand_button = filter_bar.expand_btn
+        self.source_combo = filter_bar.filter_widgets.get('source')
         self.category_combo = filter_bar.filter_widgets.get('category')
         self.status_combo = filter_bar.filter_widgets.get('status')
         
@@ -1029,6 +1375,12 @@ class FileOrganizerDialog(BaseDialog):
         if not hasattr(self, 'ok_button') or not self.ok_button:
             return
         
+        # Verificar si tenemos análisis disponible
+        if not self.analysis:
+            self.ok_button.setEnabled(False)
+            self.ok_button.setText("Esperando análisis...")
+            return
+        
         ok_enabled = self.analysis.files_to_move > 0
         final_enabled = ok_enabled and not self.is_analyzing
         
@@ -1084,12 +1436,17 @@ class FileOrganizerDialog(BaseDialog):
             self.status_combo.setCurrentIndex(0)
         self.status_combo.blockSignals(False)
 
+    def _on_source_filter_changed(self, index: int):
+        """Maneja cambios en el filtro de origen de fecha."""
+        self._apply_filters()
+    
     def _apply_filters(self):
         """Aplica filtros a la lista de movimientos"""
         if not self.analysis:
             return
             
         search_text = self.search_input.text().lower() if self.search_input else ""
+        source_filter = self.source_combo.currentText() if self.source_combo else self.DATE_SOURCE_FILTER_ALL
         category_filter = self.category_combo.currentText() if self.category_combo else "Todos"
         status_filter = self.status_combo.currentText() if self.status_combo else "Todos"
         
@@ -1102,6 +1459,13 @@ class FileOrganizerDialog(BaseDialog):
             # Filtro de búsqueda
             if search_text and search_text not in move.original_name.lower():
                 continue
+            
+            # Filtro por origen de fecha
+            if source_filter != self.DATE_SOURCE_FILTER_ALL:
+                file_path = Path(move.current_path)
+                _, date_source = self.repo.get_best_date(file_path) if self.repo else (None, None)
+                if not self._matches_source_filter(date_source, source_filter):
+                    continue
             
             # Filtro por Categoría
             if category_filter != "Todos":
@@ -1124,6 +1488,8 @@ class FileOrganizerDialog(BaseDialog):
         """Limpia todos los filtros"""
         if self.search_input:
             self.search_input.clear()
+        if self.source_combo:
+            self.source_combo.setCurrentIndex(0)
         if self.category_combo:
             self.category_combo.setCurrentIndex(0)
         if self.status_combo:
