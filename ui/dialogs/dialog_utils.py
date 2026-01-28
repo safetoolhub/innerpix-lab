@@ -264,8 +264,14 @@ def show_file_context_menu(
     
     # Obtener el archivo asociado al item
     file_path = item.data(0, Qt.ItemDataRole.UserRole)
-    if not file_path or not isinstance(file_path, Path):
+    if not file_path:
         return  # Es un grupo padre, no mostrar menú
+    
+    # Convertir a Path si es string
+    if isinstance(file_path, str):
+        file_path = Path(file_path)
+    elif not isinstance(file_path, Path):
+        return
     
     menu = QMenu(parent_widget)
     menu.setStyleSheet(DesignSystem.get_context_menu_style())

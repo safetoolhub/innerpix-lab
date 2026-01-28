@@ -1,11 +1,12 @@
 """
 Diálogo de renombrado de archivos
 Incluye filtrado, búsqueda, estadísticas detalladas y mejor UX
+Usa QTreeWidget con carpetas como nodos padre para consistencia con otros diálogos
 """
 from pathlib import Path
-from collections import Counter
+from collections import Counter, defaultdict
 from PyQt6.QtWidgets import (
-    QVBoxLayout, QHBoxLayout, QGroupBox, QTableWidget, QTableWidgetItem,
+    QVBoxLayout, QHBoxLayout, QGroupBox, QTreeWidget, QTreeWidgetItem,
     QHeaderView, QDialogButtonBox, QLabel, QCheckBox, QLineEdit, 
     QComboBox, QPushButton, QFrame, QApplication, QWidget
 )
@@ -16,10 +17,13 @@ from utils.settings_manager import settings_manager
 from utils.file_utils import get_file_type, is_image_file, is_video_file
 from config import Config
 from ui.styles.design_system import DesignSystem
-from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
 from utils.logger import get_logger
 from .base_dialog import BaseDialog
+from .dialog_utils import (
+    open_file, show_file_context_menu, show_file_details_dialog,
+    create_groups_tree_widget, handle_tree_item_double_click, apply_group_item_style
+)
 
 
 class FileRenamerDialog(BaseDialog):
@@ -45,12 +49,15 @@ class FileRenamerDialog(BaseDialog):
             self.all_items = []
             self.filtered_plan = []
         
-        # Carga progresiva
-        self.loaded_count = 0
+        # Carga progresiva (por grupos/carpetas)
+        self.loaded_groups = 0
+        self.all_groups = []  # Lista de (folder_path, files)
+        self.filtered_groups = []
         self.pagination_bar = None
         
         self.init_ui()
-        self._load_initial_items()
+        self._organize_by_folders()
+        self._load_initial_groups()
 
     def update_statistics(self, results):
         """Actualiza las estadísticas después del renombrado
@@ -122,14 +129,14 @@ class FileRenamerDialog(BaseDialog):
         self.filter_bar = self._create_filter_bar()
         content_layout.addWidget(self.filter_bar)
         
-        # Tabla de cambios propuestos
-        self.changes_table = self._create_changes_table()
-        content_layout.addWidget(self.changes_table)
+        # TreeWidget de cambios propuestos (reemplaza QTableWidget)
+        self.tree_widget = self._create_tree_widget()
+        content_layout.addWidget(self.tree_widget)
         
         # Barra de carga progresiva
         self.pagination_bar = self._create_progressive_loading_bar(
-            on_load_more=self._load_more_items,
-            on_load_all=self._load_all_items
+            on_load_more=self._load_more_groups,
+            on_load_all=self._load_all_groups
         )
         content_layout.addWidget(self.pagination_bar)
         
@@ -153,12 +160,6 @@ class FileRenamerDialog(BaseDialog):
         self.buttons = buttons
         self.ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
         content_layout.addWidget(buttons)
-        
-        # Inicializar all_items desde analysis_results
-        self.all_items = list(self.analysis_results.renaming_plan)
-        
-        # Actualizar tabla inicial
-        self._apply_filters()
 
     def _create_info_section(self):
         """Crea sección de información y advertencias"""
@@ -173,8 +174,6 @@ class FileRenamerDialog(BaseDialog):
             title="Nota Importante",
             message=message
         )
-
-
 
     def _create_filter_bar(self) -> QWidget:
         """Crea barra de filtros unificada usando método base"""
@@ -259,82 +258,24 @@ class FileRenamerDialog(BaseDialog):
         self.expand_button = filter_bar.expand_btn
         
         # Referencias a filtros expandibles
-        self.filter_combo = filter_bar.filter_widgets.get('conflict')  # Filtro de conflictos
+        self.filter_combo = filter_bar.filter_widgets.get('conflict')
         self.type_combo = filter_bar.filter_widgets.get('file_type')
         self.source_combo = filter_bar.filter_widgets.get('source')
         self.year_combo = filter_bar.filter_widgets.get('year')
         
         return filter_bar
     
-    def _create_changes_table(self):
-        """Crea la tabla de cambios propuestos"""
-        table = QTableWidget()
-        table.setColumnCount(5)
-        table.setHorizontalHeaderLabels([
-            "Original", "Nuevo", "Fecha", "Fuente", "Tipo"
-        ])
+    def _create_tree_widget(self) -> QTreeWidget:
+        """Crea el widget de árbol para mostrar archivos agrupados por carpeta."""
+        headers = ["Carpeta / Archivo", "Nuevo nombre", "Fecha", "Fuente", "Tipo"]
+        column_widths = [350, 250, 140, 120, 80]
         
-        header = table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
-        
-        table.setAlternatingRowColors(True)
-        table.setSortingEnabled(True)
-        table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        
-        # Hacer tabla no editable
-        table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        
-        # Estilos
-        table.setStyleSheet(f"""
-            QTableWidget {{
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                outline: none;
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_4}px;
-            }}
-            QTableWidget::item {{
-                border: none;
-                outline: none;
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_4}px;
-                border-bottom: 1px solid {DesignSystem.COLOR_BORDER_LIGHT};
-            }}
-            QTableWidget::item:hover {{
-                background-color: {DesignSystem.COLOR_BG_2};
-            }}
-            QTableWidget::item:selected {{
-                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
-                color: {DesignSystem.COLOR_TEXT};
-            }}
-            QHeaderView::section {{
-                background-color: {DesignSystem.COLOR_BG_1};
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                padding: {DesignSystem.SPACE_8}px;
-                border: none;
-                border-bottom: 2px solid {DesignSystem.COLOR_BORDER};
-                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-            }}
-        """)
-        
-        # Tooltip informativo
-        table.setToolTip(
-            "Doble clic en cualquier fila para abrir el archivo original\n"
-            "Clic derecho para ver detalles y opciones"
+        return create_groups_tree_widget(
+            headers=headers,
+            column_widths=column_widths,
+            double_click_handler=self._on_item_double_clicked,
+            context_menu_handler=self._show_context_menu
         )
-        
-        # Conectar doble clic para abrir archivos
-        table.itemDoubleClicked.connect(self._on_file_double_clicked)
-        
-        # Conectar menú contextual
-        table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        table.customContextMenuRequested.connect(self._show_context_menu)
-        
-        return table
 
     def _create_problems_section(self):
         """Crea sección colapsable de problemas"""
@@ -385,16 +326,23 @@ class FileRenamerDialog(BaseDialog):
             dry_run_label="Modo simulación (no renombrar realmente)"
         )
 
-    def _analyze_file_types(self):
-        """Analiza los tipos de archivo en el plan de renombrado"""
-        type_counter = Counter()
-        for item in self.analysis_results.renaming_plan:
-            file_type = get_file_type(item['original_path'].name)
-            type_counter[file_type] += 1
-        return type_counter
+    # ========================================================================
+    # ORGANIZACIÓN Y FILTRADO
+    # ========================================================================
+
+    def _organize_by_folders(self):
+        """Organiza los archivos por carpeta para el TreeWidget."""
+        folders = defaultdict(list)
+        for item in self.filtered_plan:
+            folder = item['original_path'].parent
+            folders[folder].append(item)
+        
+        # Ordenar carpetas y crear lista de grupos
+        self.all_groups = sorted(folders.items(), key=lambda x: str(x[0]))
+        self.filtered_groups = list(self.all_groups)
 
     def _apply_filters(self):
-        """Aplica los filtros a la tabla"""
+        """Aplica los filtros y reorganiza por carpetas"""
         search_text = self.search_input.text().lower() if self.search_input else ""
         filter_option = self.filter_combo.currentText() if self.filter_combo else "Todos"
         year_filter = self.year_combo.currentText() if self.year_combo else "Todos"
@@ -432,197 +380,158 @@ class FileRenamerDialog(BaseDialog):
             
             self.filtered_plan.append(item)
         
-        # Reiniciar carga progresiva
-        self._load_initial_items()
+        # Reorganizar por carpetas y recargar
+        self._organize_by_folders()
+        self._load_initial_groups()
 
-    def _clear_filters(self):
-        """Limpia todos los filtros"""
-        if self.search_input:
-            self.search_input.clear()
-        if self.filter_combo:
-            self.filter_combo.setCurrentIndex(0)
-        if self.year_combo:
-            self.year_combo.setCurrentIndex(0)
-        if self.source_combo:
-            self.source_combo.setCurrentIndex(0)
-        if self.type_combo:
-            self.type_combo.setCurrentIndex(0)
-    
     # ========================================================================
     # LÓGICA DE CARGA PROGRESIVA
     # ========================================================================
     
-    def _load_initial_items(self):
-        """Carga los items iniciales en la tabla."""
-        self.loaded_count = 0
-        self.changes_table.setRowCount(0)
-        self._load_more_items()
+    def _load_initial_groups(self):
+        """Carga los grupos iniciales en el árbol."""
+        self.loaded_groups = 0
+        self.tree_widget.clear()
+        self._load_more_groups()
     
-    def _load_more_items(self):
-        """Carga más items en la tabla."""
-        start = self.loaded_count
-        end = min(start + self.LOAD_INCREMENT, len(self.filtered_plan))
+    def _load_more_groups(self):
+        """Carga más grupos (carpetas) en el árbol."""
+        start = self.loaded_groups
+        end = min(start + self.LOAD_INCREMENT, len(self.filtered_groups))
         
-        items_to_load = self.filtered_plan[start:end]
+        groups_to_load = self.filtered_groups[start:end]
         
         # Optimización: desactivar updates durante la carga
-        self.changes_table.setUpdatesEnabled(False)
-        self.changes_table.setSortingEnabled(False)
+        self.tree_widget.setUpdatesEnabled(False)
         
-        # Añadir filas
-        current_row_count = self.changes_table.rowCount()
-        self.changes_table.setRowCount(current_row_count + len(items_to_load))
-        
-        for i, item in enumerate(items_to_load):
-            row = current_row_count + i
-            has_conflict = item.get('has_conflict', False)
-            conflict_color = QColor(255, 200, 200) if has_conflict else None
-            
-            # Original
-            original_item = QTableWidgetItem(item['original_path'].name)
-            original_item.setData(Qt.ItemDataRole.UserRole, str(item['original_path']))
-            if conflict_color:
-                original_item.setBackground(conflict_color)
-            self.changes_table.setItem(row, 0, original_item)
-            
-            # Nuevo
-            new_item = QTableWidgetItem(item['new_name'])
-            if conflict_color:
-                new_item.setBackground(conflict_color)
-            self.changes_table.setItem(row, 1, new_item)
-            
-            # Fecha
-            date_item = QTableWidgetItem(item['date'].strftime('%Y-%m-%d %H:%M:%S'))
-            if conflict_color:
-                date_item.setBackground(conflict_color)
-            self.changes_table.setItem(row, 2, date_item)
-            
-            # Fuente de la fecha
-            date_source = item.get('date_source', 'Desconocido')
-            source_item = QTableWidgetItem(date_source)
-            source_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            if conflict_color:
-                source_item.setBackground(conflict_color)
-            self.changes_table.setItem(row, 3, source_item)
-            
-            # Tipo
-            file_type = get_file_type(item['original_path'].name)
-            type_item = QTableWidgetItem(file_type)
-            type_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            if conflict_color:
-                type_item.setBackground(conflict_color)
-            self.changes_table.setItem(row, 4, type_item)
+        for folder_path, files in groups_to_load:
+            self._add_folder_group(folder_path, files)
         
         # Reactivar updates
-        self.changes_table.setSortingEnabled(True)
-        self.changes_table.setUpdatesEnabled(True)
+        self.tree_widget.setUpdatesEnabled(True)
         
-        self.loaded_count = end
+        self.loaded_groups = end
         self._update_pagination_ui()
     
-    def _load_all_items(self):
-        """Carga todos los items restantes."""
+    def _add_folder_group(self, folder_path: Path, files: list):
+        """Añade un grupo de carpeta con sus archivos al árbol."""
+        # Crear nodo de carpeta
+        folder_item = QTreeWidgetItem(self.tree_widget)
+        folder_name = str(folder_path.relative_to(folder_path.anchor)) if folder_path.anchor else str(folder_path)
+        folder_item.setText(0, f"📁 {folder_name} ({len(files)} archivos)")
+        folder_item.setExpanded(True)
+        
+        # Aplicar estilo de grupo
+        apply_group_item_style(folder_item, num_columns=5)
+        
+        # Tooltip del grupo
+        conflicts_in_folder = sum(1 for f in files if f.get('has_conflict', False))
+        tooltip = f"Carpeta: {folder_path}\n{len(files)} archivos a renombrar"
+        if conflicts_in_folder:
+            tooltip += f"\n⚠️ {conflicts_in_folder} conflictos"
+        folder_item.setToolTip(0, tooltip)
+        
+        # Añadir archivos como hijos
+        for file_info in files:
+            self._add_file_item(folder_item, file_info)
+    
+    def _add_file_item(self, parent_item: QTreeWidgetItem, file_info: dict):
+        """Añade un archivo como hijo de una carpeta."""
+        file_path = file_info['original_path']
+        has_conflict = file_info.get('has_conflict', False)
+        
+        file_item = QTreeWidgetItem(parent_item)
+        
+        # Columna 0: Nombre original
+        file_item.setText(0, file_path.name)
+        file_item.setData(0, Qt.ItemDataRole.UserRole, file_path)  # Para menú contextual
+        
+        # Icono según tipo
+        icon_name = 'image' if is_image_file(file_path) else 'video' if is_video_file(file_path) else 'file'
+        file_item.setIcon(0, icon_manager.get_icon(icon_name, size=16))
+        
+        # Columna 1: Nuevo nombre
+        file_item.setText(1, file_info['new_name'])
+        
+        # Columna 2: Fecha
+        file_item.setText(2, file_info['date'].strftime('%Y-%m-%d %H:%M:%S'))
+        
+        # Columna 3: Fuente de fecha
+        file_item.setText(3, file_info.get('date_source', 'Desconocido'))
+        
+        # Columna 4: Tipo
+        file_item.setText(4, get_file_type(file_path.name))
+        
+        # Resaltar conflictos
+        if has_conflict:
+            conflict_color = QColor(255, 200, 200)
+            for col in range(5):
+                file_item.setBackground(col, conflict_color)
+            file_item.setToolTip(0, f"⚠️ Conflicto: Se añadirá sufijo numérico")
+    
+    def _load_all_groups(self):
+        """Carga todos los grupos restantes."""
         from PyQt6.QtWidgets import QMessageBox
         
-        if len(self.filtered_plan) > 1000:
+        total_files = len(self.filtered_plan)
+        if total_files > 1000:
             reply = QMessageBox.question(
                 self,
                 "Cargar todos los archivos",
-                f"Hay {len(self.filtered_plan)} archivos. ¿Seguro que quieres cargarlos todos?\n"
-                "Esto puede tardar y consumir memoria.",
+                f"Hay {total_files} archivos en {len(self.filtered_groups)} carpetas. "
+                "¿Seguro que quieres cargarlos todos?\nEsto puede tardar y consumir memoria.",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
             )
             if reply != QMessageBox.StandardButton.Yes:
                 return
         
-        while self.loaded_count < len(self.filtered_plan):
-            self._load_more_items()
+        while self.loaded_groups < len(self.filtered_groups):
+            self._load_more_groups()
     
     def _update_pagination_ui(self):
         """Actualiza la UI de la barra de carga progresiva."""
+        # Contar archivos cargados
+        loaded_files = sum(len(files) for _, files in self.filtered_groups[:self.loaded_groups])
+        total_files = len(self.filtered_plan)
+        
         if self.pagination_bar:
             self._update_progressive_loading_ui(
                 pagination_bar=self.pagination_bar,
-                loaded_count=self.loaded_count,
-                filtered_count=len(self.filtered_plan),
+                loaded_count=loaded_files,
+                filtered_count=total_files,
                 total_count=len(self.all_items),
                 load_increment=self.LOAD_INCREMENT
             )
         
-        # Actualizar chip de estado (independiente del loaded_count)
+        # Actualizar chip de estado
         self._update_filter_chip(
             status_chip=self.status_chip,
-            filtered_count=len(self.filtered_plan),
+            filtered_count=total_files,
             total_count=len(self.all_items),
-            loaded_count=self.loaded_count,
+            loaded_count=loaded_files,
             is_files_mode=True
         )
+
+    # ========================================================================
+    # EVENTOS
+    # ========================================================================
     
-    def _on_file_double_clicked(self, item):
-        """Abre el archivo con la aplicación predeterminada del sistema al hacer doble clic"""
-        import subprocess
-        import platform
-        
-        # Obtener la ruta del archivo desde la primera columna de la fila
-        row = item.row()
-        first_column_item = self.changes_table.item(row, 0)
-        
-        if not first_column_item:
-            return
-        
-        file_path = first_column_item.data(Qt.ItemDataRole.UserRole)
-        if not file_path:
-            return
-        
-        file_path = Path(file_path)
-        if not file_path.exists():
-            from PyQt6.QtWidgets import QMessageBox
-            QMessageBox.warning(
-                self, 
-                "Archivo no encontrado", 
-                f"El archivo no existe:\n{file_path}"
-            )
-            return
-        
-        # Abrir con la aplicación predeterminada según el sistema operativo
-        try:
-            system = platform.system()
-            if system == 'Linux':
-                subprocess.Popen(['xdg-open', str(file_path)])
-            elif system == 'Darwin':  # macOS
-                subprocess.Popen(['open', str(file_path)])
-            elif system == 'Windows':
-                subprocess.Popen(['start', str(file_path)], shell=True)
-        except Exception as e:
-            from PyQt6.QtWidgets import QMessageBox
-            QMessageBox.warning(
-                self,
-                "Error al abrir archivo",
-                f"No se pudo abrir el archivo:\n{str(e)}"
-            )
+    def _on_item_double_clicked(self, item: QTreeWidgetItem, column: int):
+        """Maneja doble clic: expande grupos o abre archivos."""
+        handle_tree_item_double_click(item, column, self)
     
     def _show_context_menu(self, position):
-        """Muestra menú contextual para archivos"""
-        from PyQt6.QtWidgets import QMenu
-        
-        # Obtener item seleccionado
-        item = self.changes_table.itemAt(position)
-        if not item:
-            return
-        
-        row = item.row()
-        first_column_item = self.changes_table.item(row, 0)
-        
-        if not first_column_item:
-            return
-        
-        file_path = first_column_item.data(Qt.ItemDataRole.UserRole)
-        if not file_path:
-            return
-        
-        file_path = Path(file_path)
-        
-        # Obtener información adicional del archivo desde filtered_plan
+        """Muestra menú contextual estándar para archivos."""
+        show_file_context_menu(
+            tree_widget=self.tree_widget,
+            position=position,
+            parent_widget=self,
+            details_callback=self._show_file_details
+        )
+    
+    def _show_file_details(self, file_path: Path):
+        """Muestra un diálogo con detalles completos del archivo"""
+        # Buscar información del archivo en filtered_plan
         file_info = None
         for plan_item in self.filtered_plan:
             if plan_item['original_path'] == file_path:
@@ -630,58 +539,24 @@ class FileRenamerDialog(BaseDialog):
                 break
         
         if not file_info:
+            show_file_details_dialog(file_path, self)
             return
         
-        menu = QMenu(self)
-        menu.setStyleSheet(DesignSystem.get_context_menu_style())
-        
-        # Opción para abrir archivo
-        open_file_action = menu.addAction("Abrir archivo")
-        open_file_action.triggered.connect(lambda: self._open_file(file_path))
-        
-        # Opción para abrir carpeta
-        open_folder_action = menu.addAction("Abrir carpeta")
-        open_folder_action.triggered.connect(lambda: self._open_folder(file_path.parent))
-        
-        menu.addSeparator()
-        
-        # Opción para ver detalles
-        details_action = menu.addAction("Ver detalles completos")
-        details_action.triggered.connect(lambda: self._show_file_details(file_info))
-        
-        menu.exec(self.changes_table.viewport().mapToGlobal(position))
-    
-    def _open_file(self, file_path):
-        """Abre un archivo específico"""
-        from .dialog_utils import open_file
-        open_file(file_path, self)
-    
-    def _open_folder(self, folder_path):
-        """Abre una carpeta en el explorador de archivos"""
-        from .dialog_utils import open_folder
-        open_folder(folder_path, self)
-    
-    def _show_file_details(self, file_info):
-        """Muestra un diálogo con detalles completos del archivo"""
-        from .dialog_utils import show_file_details_dialog
-        
-        file_path = file_info['original_path']
-        
-        # Detectar tipo de archivo desde la extensión
         file_type = 'Imagen' if is_image_file(file_path) else 'Video' if is_video_file(file_path) else 'Desconocido'
         
         additional_info = {
             'original_name': file_path.name,
             'new_name': file_info['new_name'],
             'file_type': file_type,
-            'conflict': file_info.get('has_conflict', False),  # Key correcta: has_conflict
+            'conflict': file_info.get('has_conflict', False),
             'metadata': {
                 'Fecha detectada': file_info['date'].strftime('%Y-%m-%d %H:%M:%S'),
-                'Año': str(file_info['date'].year),  # Obtener año desde date
+                'Fuente de fecha': file_info.get('date_source', 'Desconocido'),
+                'Año': str(file_info['date'].year),
             }
         }
         
-        if file_info.get('has_conflict'):  # Key correcta: has_conflict
+        if file_info.get('has_conflict'):
             additional_info['metadata']['Conflicto'] = 'Sí - Se resolverá con sufijo numérico'
             if file_info.get('sequence'):
                 additional_info['metadata']['Secuencia'] = f"#{file_info['sequence']}"
@@ -689,9 +564,8 @@ class FileRenamerDialog(BaseDialog):
         show_file_details_dialog(file_path, self, additional_info)
 
     def accept(self):
-        # Pasar el analysis completo + parámetros por separado
         self.accepted_plan = {
-            'analysis': self.analysis_results,  # Ya es RenameAnalysisResult dataclass
+            'analysis': self.analysis_results,
             'create_backup': self.is_backup_enabled(),
             'dry_run': self.is_dry_run_enabled()
         }

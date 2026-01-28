@@ -9,7 +9,7 @@ from typing import Optional
 from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QGroupBox, QDialogButtonBox, QCheckBox, QLabel,
     QTreeWidget, QTreeWidgetItem, QLineEdit, QComboBox, QPushButton, QFrame,
-    QApplication, QMenu, QWidget, QProgressBar, QTabWidget, QRadioButton, QButtonGroup,
+    QApplication, QWidget, QProgressBar, QTabWidget, QRadioButton, QButtonGroup,
     QStackedWidget, QScrollArea, QGridLayout
 )
 from PyQt6.QtGui import QColor, QFont, QCursor
@@ -27,7 +27,7 @@ from services.file_metadata_repository_cache import FileInfoRepositoryCache
 from services.result_types import OrganizationAnalysisResult
 from ui.workers import FileOrganizerAnalysisWorker
 from .base_dialog import BaseDialog
-from .dialog_utils import show_file_details_dialog
+from .dialog_utils import open_file, show_file_context_menu, show_file_details_dialog
 
 
 class FileOrganizerDialog(BaseDialog):
@@ -1781,7 +1781,7 @@ class FileOrganizerDialog(BaseDialog):
                 if move.has_conflict:
                     child.setForeground(0, QColor(DesignSystem.COLOR_ERROR))
                 
-                child.setData(0, Qt.ItemDataRole.UserRole, move)
+                child.setData(0, Qt.ItemDataRole.UserRole, move.source_path)
                 subdir_node.addChild(child)
             
             if len(moves_in_subdir) <= 20:
@@ -1850,7 +1850,7 @@ class FileOrganizerDialog(BaseDialog):
                 if move.has_conflict:
                     child.setForeground(0, QColor(DesignSystem.COLOR_ERROR))
                 
-                child.setData(0, Qt.ItemDataRole.UserRole, move)
+                child.setData(0, Qt.ItemDataRole.UserRole, move.source_path)
                 
                 parent.addChild(child)
             
@@ -1937,7 +1937,7 @@ class FileOrganizerDialog(BaseDialog):
                 if move.has_conflict:
                     child.setForeground(0, QColor(DesignSystem.COLOR_ERROR))
                 
-                child.setData(0, Qt.ItemDataRole.UserRole, move)
+                child.setData(0, Qt.ItemDataRole.UserRole, move.source_path)
                 
                 parent.addChild(child)
             
@@ -1951,60 +1951,26 @@ class FileOrganizerDialog(BaseDialog):
     
     def _on_file_double_clicked(self, item: QTreeWidgetItem, column: int):
         """Abre el archivo con doble clic"""
-        move = item.data(0, Qt.ItemDataRole.UserRole)
-        if not move:
-            return
-        
-        from .dialog_utils import open_file
-        open_file(move.source_path, self)
+        from .dialog_utils import handle_tree_item_double_click
+        handle_tree_item_double_click(item, column, self)
     
     def _show_context_menu(self, position):
-        """Muestra menú contextual"""
-        item = self.files_tree.itemAt(position)
-        if not item:
-            return
-        
-        move = item.data(0, Qt.ItemDataRole.UserRole)
-        if not move:
-            return
-        
-        menu = QMenu(self)
-        menu.setStyleSheet(DesignSystem.get_context_menu_style())
-        
-        # Abrir archivo
-        open_file_action = menu.addAction("Abrir archivo")
-        open_file_action.triggered.connect(lambda: self._open_file(move.source_path))
-        
-        # Abrir carpeta origen
-        open_source_action = menu.addAction("Abrir carpeta origen")
-        open_source_action.triggered.connect(lambda: self._open_folder(move.source_path.parent))
-        
-        # Abrir carpeta destino
-        if move.target_path.parent.exists():
-            open_target_action = menu.addAction("Abrir carpeta destino")
-            open_target_action.triggered.connect(lambda: self._open_folder(move.target_path.parent))
-        
-        menu.addSeparator()
-        
-        # Ver detalles
-        details_action = menu.addAction("Ver detalles completos")
-        details_action.triggered.connect(lambda: self._show_file_details(move))
-        
-        menu.exec(self.files_tree.viewport().mapToGlobal(position))
+        """Muestra menú contextual estándar para archivos."""
+        show_file_context_menu(
+            tree_widget=self.files_tree,
+            position=position,
+            parent_widget=self,
+            details_callback=self._show_file_details
+        )
     
-    def _open_file(self, file_path: Path):
-        """Abre un archivo"""
-        from .dialog_utils import open_file
-        open_file(file_path, self)
-    
-    def _open_folder(self, folder_path: Path):
-        """Abre una carpeta"""
-        from .dialog_utils import open_folder
-        open_folder(folder_path, self)
-    
-    def _show_file_details(self, move):
+    def _show_file_details(self, file_path: Path):
         """Muestra detalles del archivo"""
-        from .dialog_utils import show_file_details_dialog
+        # Buscar el move correspondiente al file_path
+        move = self._find_move_by_path(file_path)
+        
+        if not move:
+            show_file_details_dialog(file_path, self)
+            return
         
         additional_info = {
             'original_name': move.original_name,
@@ -2021,7 +1987,14 @@ class FileOrganizerDialog(BaseDialog):
         if move.target_folder:
             additional_info['metadata']['Carpeta destino'] = move.target_folder
         
-        show_file_details_dialog(move.source_path, self, additional_info)
+        show_file_details_dialog(file_path, self, additional_info)
+    
+    def _find_move_by_path(self, file_path: Path):
+        """Busca el move correspondiente a un file_path."""
+        for m in self.filtered_moves:
+            if m.source_path == file_path:
+                return m
+        return None
     
     def accept(self):
         """Acepta el diálogo y construye el plan"""

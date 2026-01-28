@@ -1,36 +1,58 @@
-from typing import List, Dict, Any
+"""
+Diálogo para gestionar archivos de 0 bytes.
+Usa QTreeWidget con carpetas como nodos padre para consistencia con otros diálogos.
+"""
 from pathlib import Path
+from collections import defaultdict
+from typing import List
 
 from PyQt6.QtWidgets import (
-    QVBoxLayout, QHBoxLayout, QLabel, 
-    QPushButton, QListWidget, QListWidgetItem,
+    QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTreeWidget, QTreeWidgetItem,
     QCheckBox, QMessageBox, QWidget, QDialogButtonBox, QFrame
 )
 from PyQt6.QtCore import Qt
-import qtawesome as qta
 
 from ui.styles.design_system import DesignSystem
+from ui.styles.icons import icon_manager
 from utils.format_utils import format_file_count
 from services.result_types import ZeroByteAnalysisResult
 from .base_dialog import BaseDialog
-from ui.styles.icons import icon_manager
+from .dialog_utils import (
+    show_file_context_menu, show_file_details_dialog,
+    create_groups_tree_widget, handle_tree_item_double_click, apply_group_item_style
+)
+
 
 class ZeroByteDialog(BaseDialog):
     """
     Diálogo para gestionar archivos de 0 bytes.
-    Muestra la lista de archivos encontrados y permite eliminarlos.
+    Muestra archivos agrupados por carpeta y permite eliminarlos.
     """
     
+    # Constantes para carga progresiva
+    INITIAL_LOAD = 50
+    LOAD_INCREMENT = 50
+
     def __init__(self, analysis_result: ZeroByteAnalysisResult, parent=None):
         super().__init__(parent)
         self.analysis_result = analysis_result
-        self.accepted_plan = {}  # Plan de ejecución para el worker
+        self.accepted_plan = {}
+        
+        # Organizar archivos por carpeta
+        self.all_files = list(analysis_result.files)
+        self.all_groups = []  # Lista de (folder_path, files)
+        self.loaded_groups = 0
+        
+        # Track de archivos seleccionados (todos seleccionados por defecto)
+        self.selected_files = set(self.all_files)
         
         self.init_ui()
+        self._organize_by_folders()
+        self._load_initial_groups()
         
     def init_ui(self):
         self.setWindowTitle("Archivos Vacíos (0 bytes)")
-        self.resize(800, 600)
+        self.resize(900, 650)
         
         main_layout = QVBoxLayout(self)
         main_layout.setSpacing(int(DesignSystem.SPACE_12))
@@ -63,51 +85,38 @@ class ZeroByteDialog(BaseDialog):
         )
         main_layout.addWidget(content_container)
         
-        # Lista de archivos
-        self.files_list = QListWidget()
-        self.files_list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
-        self.files_list.setStyleSheet(f"""
-            QListWidget {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_MD}px;
-                padding: {DesignSystem.SPACE_8}px;
-            }}
-            QListWidget::item {{
-                padding: {DesignSystem.SPACE_8}px;
-                border-bottom: 1px solid {DesignSystem.COLOR_BORDER};
-            }}
-            QListWidget::item:selected {{
-                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
-                color: {DesignSystem.COLOR_PRIMARY};
-            }}
-        """)
+        # TreeWidget de archivos
+        self.tree_widget = self._create_tree_widget()
+        content_layout.addWidget(self.tree_widget)
         
-        # Poblar lista
-        for file_path in self.analysis_result.files:
-            item = QListWidgetItem(str(file_path))
-            item.setData(Qt.ItemDataRole.UserRole, file_path)
-            item.setCheckState(Qt.CheckState.Checked)
-            self.files_list.addItem(item)
-            
-        content_layout.addWidget(self.files_list)
+        # Barra de carga progresiva
+        self.pagination_bar = self._create_progressive_loading_bar(
+            on_load_more=self._load_more_groups,
+            on_load_all=self._load_all_groups
+        )
+        content_layout.addWidget(self.pagination_bar)
         
         # Botones de selección
         selection_layout = QHBoxLayout()
         
         select_all_btn = QPushButton("Seleccionar todos")
         select_all_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        select_all_btn.clicked.connect(self.select_all)
+        select_all_btn.clicked.connect(self._select_all)
         select_all_btn.setStyleSheet(f"color: {DesignSystem.COLOR_PRIMARY}; border: none; font-weight: bold;")
         
         select_none_btn = QPushButton("Deseleccionar todos")
         select_none_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        select_none_btn.clicked.connect(self.select_none)
+        select_none_btn.clicked.connect(self._select_none)
         select_none_btn.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; border: none;")
+        
+        # Contador de selección
+        self.selection_label = QLabel()
+        self.selection_label.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_SM}px;")
         
         selection_layout.addWidget(select_all_btn)
         selection_layout.addWidget(select_none_btn)
         selection_layout.addStretch()
+        selection_layout.addWidget(self.selection_label)
         
         content_layout.addLayout(selection_layout)
         
@@ -126,45 +135,213 @@ class ZeroByteDialog(BaseDialog):
             button_style='danger'
         )
         self.ok_button = self.buttons.button(QDialogButtonBox.StandardButton.Ok)
-        self.ok_button.setText(f"Eliminar {format_file_count(len(self.analysis_result.files))}")
+        self._update_button_text()
         
         content_layout.addWidget(self.buttons)
+    
+    def _create_tree_widget(self) -> QTreeWidget:
+        """Crea el widget de árbol para mostrar archivos agrupados por carpeta."""
+        headers = ["Carpeta / Archivo", "Ubicación"]
+        column_widths = [450, 350]
         
-        # Conectar cambios en selección para actualizar botón
-        self.files_list.itemChanged.connect(self.update_button_text)
+        tree = create_groups_tree_widget(
+            headers=headers,
+            column_widths=column_widths,
+            double_click_handler=self._on_item_double_clicked,
+            context_menu_handler=self._show_context_menu
+        )
         
-    def select_all(self):
-        for i in range(self.files_list.count()):
-            self.files_list.item(i).setCheckState(Qt.CheckState.Checked)
+        # Conectar cambios en checkboxes
+        tree.itemChanged.connect(self._on_item_changed)
+        
+        return tree
+    
+    # ========================================================================
+    # ORGANIZACIÓN Y CARGA
+    # ========================================================================
+    
+    def _organize_by_folders(self):
+        """Organiza los archivos por carpeta."""
+        folders = defaultdict(list)
+        for file_path in self.all_files:
+            folder = file_path.parent
+            folders[folder].append(file_path)
+        
+        self.all_groups = sorted(folders.items(), key=lambda x: str(x[0]))
+    
+    def _load_initial_groups(self):
+        """Carga los grupos iniciales en el árbol."""
+        self.loaded_groups = 0
+        self.tree_widget.clear()
+        self._load_more_groups()
+    
+    def _load_more_groups(self):
+        """Carga más grupos (carpetas) en el árbol."""
+        start = self.loaded_groups
+        end = min(start + self.LOAD_INCREMENT, len(self.all_groups))
+        
+        groups_to_load = self.all_groups[start:end]
+        
+        self.tree_widget.setUpdatesEnabled(False)
+        self.tree_widget.blockSignals(True)  # Evitar signals durante carga
+        
+        for folder_path, files in groups_to_load:
+            self._add_folder_group(folder_path, files)
+        
+        self.tree_widget.blockSignals(False)
+        self.tree_widget.setUpdatesEnabled(True)
+        
+        self.loaded_groups = end
+        self._update_pagination_ui()
+    
+    def _add_folder_group(self, folder_path: Path, files: List[Path]):
+        """Añade un grupo de carpeta con sus archivos al árbol."""
+        # Crear nodo de carpeta
+        folder_item = QTreeWidgetItem(self.tree_widget)
+        folder_name = str(folder_path.relative_to(folder_path.anchor)) if folder_path.anchor else str(folder_path)
+        folder_item.setText(0, f"📁 {folder_name} ({len(files)} archivos)")
+        folder_item.setExpanded(True)
+        
+        # Checkbox para la carpeta (tri-state)
+        folder_item.setFlags(folder_item.flags() | Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsAutoTristate)
+        folder_item.setCheckState(0, Qt.CheckState.Checked)
+        
+        # Aplicar estilo de grupo
+        apply_group_item_style(folder_item, num_columns=2)
+        
+        folder_item.setToolTip(0, f"Carpeta: {folder_path}\n{len(files)} archivos vacíos")
+        
+        # Añadir archivos como hijos
+        for file_path in files:
+            self._add_file_item(folder_item, file_path)
+    
+    def _add_file_item(self, parent_item: QTreeWidgetItem, file_path: Path):
+        """Añade un archivo como hijo de una carpeta."""
+        file_item = QTreeWidgetItem(parent_item)
+        
+        # Columna 0: Nombre del archivo con checkbox
+        file_item.setText(0, file_path.name)
+        file_item.setData(0, Qt.ItemDataRole.UserRole, file_path)
+        file_item.setFlags(file_item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+        
+        # Estado del checkbox según selección
+        is_selected = file_path in self.selected_files
+        file_item.setCheckState(0, Qt.CheckState.Checked if is_selected else Qt.CheckState.Unchecked)
+        
+        # Icono de archivo
+        file_item.setIcon(0, icon_manager.get_icon('file', size=16))
+        
+        # Columna 1: Ubicación completa
+        file_item.setText(1, str(file_path))
+        
+        file_item.setToolTip(0, f"Archivo vacío (0 bytes): {file_path}")
+    
+    def _load_all_groups(self):
+        """Carga todos los grupos restantes."""
+        while self.loaded_groups < len(self.all_groups):
+            self._load_more_groups()
+    
+    def _update_pagination_ui(self):
+        """Actualiza la UI de la barra de carga progresiva."""
+        loaded_files = sum(len(files) for _, files in self.all_groups[:self.loaded_groups])
+        total_files = len(self.all_files)
+        
+        if self.pagination_bar:
+            self._update_progressive_loading_ui(
+                pagination_bar=self.pagination_bar,
+                loaded_count=loaded_files,
+                filtered_count=total_files,
+                total_count=total_files,
+                load_increment=self.LOAD_INCREMENT
+            )
+    
+    # ========================================================================
+    # SELECCIÓN
+    # ========================================================================
+    
+    def _on_item_changed(self, item: QTreeWidgetItem, column: int):
+        """Maneja cambios en los checkboxes."""
+        if column != 0:
+            return
+        
+        file_path = item.data(0, Qt.ItemDataRole.UserRole)
+        if file_path and isinstance(file_path, Path):
+            # Es un archivo
+            if item.checkState(0) == Qt.CheckState.Checked:
+                self.selected_files.add(file_path)
+            else:
+                self.selected_files.discard(file_path)
             
-    def select_none(self):
-        for i in range(self.files_list.count()):
-            self.files_list.item(i).setCheckState(Qt.CheckState.Unchecked)
-            
-    def update_button_text(self):
-        count = 0
-        for i in range(self.files_list.count()):
-            if self.files_list.item(i).checkState() == Qt.CheckState.Checked:
-                count += 1
+            self._update_button_text()
+    
+    def _select_all(self):
+        """Selecciona todos los archivos."""
+        self.selected_files = set(self.all_files)
+        self._update_all_checkboxes(Qt.CheckState.Checked)
+        self._update_button_text()
+    
+    def _select_none(self):
+        """Deselecciona todos los archivos."""
+        self.selected_files.clear()
+        self._update_all_checkboxes(Qt.CheckState.Unchecked)
+        self._update_button_text()
+    
+    def _update_all_checkboxes(self, state: Qt.CheckState):
+        """Actualiza todos los checkboxes al estado dado."""
+        self.tree_widget.blockSignals(True)
         
+        for i in range(self.tree_widget.topLevelItemCount()):
+            folder_item = self.tree_widget.topLevelItem(i)
+            folder_item.setCheckState(0, state)
+            
+            for j in range(folder_item.childCount()):
+                file_item = folder_item.child(j)
+                file_item.setCheckState(0, state)
+        
+        self.tree_widget.blockSignals(False)
+    
+    def _update_button_text(self):
+        """Actualiza el texto del botón con el conteo de archivos seleccionados."""
+        count = len(self.selected_files)
         self.ok_button.setText(f"Eliminar {format_file_count(count)}")
         self.ok_button.setEnabled(count > 0)
+        self.selection_label.setText(f"{count} de {len(self.all_files)} seleccionados")
+    
+    # ========================================================================
+    # EVENTOS
+    # ========================================================================
+    
+    def _on_item_double_clicked(self, item: QTreeWidgetItem, column: int):
+        """Maneja doble clic: expande grupos o abre archivos."""
+        handle_tree_item_double_click(item, column, self)
+    
+    def _show_context_menu(self, position):
+        """Muestra menú contextual estándar para archivos."""
+        show_file_context_menu(
+            tree_widget=self.tree_widget,
+            position=position,
+            parent_widget=self,
+            details_callback=self._show_file_details
+        )
+    
+    def _show_file_details(self, file_path: Path):
+        """Muestra detalles del archivo."""
+        additional_info = {
+            'metadata': {
+                'Tamaño': '0 bytes',
+                'Estado': 'Archivo vacío - seguro eliminar',
+            }
+        }
+        show_file_details_dialog(file_path, self, additional_info)
         
     def accept(self):
-        files_to_delete = []
-        for i in range(self.files_list.count()):
-            item = self.files_list.item(i)
-            if item.checkState() == Qt.CheckState.Checked:
-                files_to_delete.append(item.data(Qt.ItemDataRole.UserRole))
-        
-        if not files_to_delete:
+        if not self.selected_files:
             return
         
         # Construir analysis con los archivos seleccionados
-        from services.result_types import ZeroByteAnalysisResult
         analysis = ZeroByteAnalysisResult(
-            files=files_to_delete,
-            items_count=len(files_to_delete)
+            files=list(self.selected_files),
+            items_count=len(self.selected_files)
         )
             
         self.accepted_plan = {
