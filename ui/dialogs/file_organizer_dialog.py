@@ -193,7 +193,7 @@ class FileOrganizerDialog(BaseDialog):
                 'icon': 'calendar-month',
                 'title': 'Organizar por Fecha',
                 'description': 'Crea carpetas cronológicas basadas en la fecha de cada archivo',
-                'hint': 'Opciones: mes, año, o ambos',
+                'hint': 'Granularidad: mes, año o ambos · Subcarpetas: fuente, tipo',
                 'example': '📁 2024_01/\n📁 2024_02/\n📁 2024_03/\n📁 2025_12/',
                 'row': 0, 'col': 0
             },
@@ -202,7 +202,7 @@ class FileOrganizerDialog(BaseDialog):
                 'icon': 'image',
                 'title': 'Organizar por Tipo',
                 'description': 'Separa archivos en carpetas según su tipo',
-                'hint': 'Opcional: subcarpetas por fecha',
+                'hint': 'Subcarpetas opcionales: por fecha',
                 'example': '📁 Fotos/\n📁 Videos/\n📁 Otros/',
                 'row': 0, 'col': 1
             },
@@ -211,7 +211,7 @@ class FileOrganizerDialog(BaseDialog):
                 'icon': 'devices',
                 'title': 'Organizar por Fuente',
                 'description': 'Agrupa por origen del archivo',
-                'hint': 'Opcional: subcarpetas por fecha',
+                'hint': 'Subcarpetas opcionales: por fecha',
                 'example': '📁 Cámara/\n📁 WhatsApp/\n📁 Instagram/\n📁 Otros/',
                 'row': 1, 'col': 0
             },
@@ -261,15 +261,27 @@ class FileOrganizerDialog(BaseDialog):
         card.setProperty("strategy_key", key)
         card.setCursor(Qt.CursorShape.PointingHandCursor)
         card.setMinimumHeight(190)
+        card.setObjectName("strategyCard")
         card.setStyleSheet(f"""
-            QFrame {{
+            QFrame#strategyCard {{
                 background-color: {DesignSystem.COLOR_SURFACE};
                 border: 2px solid {DesignSystem.COLOR_BORDER};
                 border-radius: {DesignSystem.RADIUS_LG}px;
             }}
-            QFrame:hover {{
+            QFrame#strategyCard:hover {{
                 border-color: {DesignSystem.COLOR_PRIMARY};
-                background-color: {DesignSystem.COLOR_PRIMARY_SUBTLE};
+                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
+            }}
+            QFrame#strategyCard QWidget {{
+                background: transparent;
+                border: none;
+            }}
+            QFrame#strategyCard QLabel {{
+                background: transparent;
+                border: none;
+            }}
+            QFrame#strategyCard QFrame {{
+                border: none;
             }}
         """)
         
@@ -295,6 +307,8 @@ class FileOrganizerDialog(BaseDialog):
             font-size: {DesignSystem.FONT_SIZE_LG}px;
             font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
             color: {DesignSystem.COLOR_TEXT};
+            background: transparent;
+            border: none;
         """)
         left_layout.addWidget(title_label)
         
@@ -304,6 +318,8 @@ class FileOrganizerDialog(BaseDialog):
         desc_label.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_SM}px;
             color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            background: transparent;
+            border: none;
         """)
         left_layout.addWidget(desc_label)
         
@@ -315,6 +331,8 @@ class FileOrganizerDialog(BaseDialog):
                 color: {DesignSystem.COLOR_PRIMARY};
                 font-style: italic;
                 margin-top: 4px;
+                background: transparent;
+                border: none;
             """)
             left_layout.addWidget(hint_label)
         
@@ -324,11 +342,13 @@ class FileOrganizerDialog(BaseDialog):
         
         # === LADO DERECHO: Ejemplo visual con fondo ===
         example_container = QFrame()
+        example_container.setObjectName("exampleContainer")
         example_container.setFixedWidth(200)  # Un poco más ancho
         example_container.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
+            QFrame#exampleContainer {{
+                background-color: rgba(0, 0, 0, 0.03);
                 border-radius: {DesignSystem.RADIUS_BASE}px;
+                border: none;
             }}
         """)
         example_layout = QVBoxLayout(example_container)
@@ -341,6 +361,8 @@ class FileOrganizerDialog(BaseDialog):
             font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
             color: {DesignSystem.COLOR_TEXT_SECONDARY};
             margin-bottom: 4px;
+            background: transparent;
+            border: none;
         """)
         example_layout.addWidget(example_title)
         
@@ -351,6 +373,8 @@ class FileOrganizerDialog(BaseDialog):
             font-size: 12px;
             color: {DesignSystem.COLOR_TEXT};
             line-height: 1.5;
+            background: transparent;
+            border: none;
         """)
         example_layout.addWidget(example_label)
         example_layout.addStretch()
