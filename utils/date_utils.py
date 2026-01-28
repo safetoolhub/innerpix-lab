@@ -606,9 +606,7 @@ def get_all_metadata_from_file(file_path: Path, force_search: bool = False) -> '
                         if 'height' in video_metadata and video_metadata['height']:
                             metadata.exif_ImageLength = video_metadata['height']
                         
-                        # Mapear duración
-                        if 'duration' in video_metadata and video_metadata['duration']:
-                            metadata.exif_VideoDuration = video_metadata['duration']
+                        # Mapear duración en segundos
                         if 'duration_seconds' in video_metadata and video_metadata['duration_seconds']:
                             metadata.exif_VideoDurationSeconds = video_metadata['duration_seconds']
                         
@@ -688,9 +686,7 @@ def get_all_metadata_from_file(file_path: Path, force_search: bool = False) -> '
                             if 'height' in video_metadata and video_metadata['height']:
                                 metadata.exif_ImageLength = video_metadata['height']
                             
-                            # Mapear duración
-                            if 'duration' in video_metadata and video_metadata['duration']:
-                                metadata.exif_VideoDuration = video_metadata['duration']
+                            # Mapear duración en segundos
                             if 'duration_seconds' in video_metadata and video_metadata['duration_seconds']:
                                 metadata.exif_VideoDurationSeconds = video_metadata['duration_seconds']
                             

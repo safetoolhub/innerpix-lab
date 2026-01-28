@@ -9,10 +9,8 @@ COn videos creo que no se hace nada en los de similares. Se gestioann imagenes s
 
 Revisar ls clases de servicio de duplciados que aun tienen herencia de cuando estaban juntos
 
-Revisar lode que la duracion de videos tengan 2 campos, en detalles y en todas partes
-      "exif_VideoDuration": "0:01 min",
-      "exif_VideoDurationSeconds": 1.201678
-Lo suyo es tener unicamente el de los segundo, hacer una funion que te lo muestra en string y en horas y cambiarlo donde se use, es peligroso, pero quedará mejor, porque el redondeo del string es un asco
+✅ RESUELTO: Duración de videos unificada - ahora solo exif_VideoDurationSeconds + property video_duration_formatted
+   Formato adaptativo: <10s muestra "1.2 seg", 10-59s muestra "45 seg", >=60s muestra "1:23 min"
 
 El de Organizar debe rehacerse el UI del todo
 

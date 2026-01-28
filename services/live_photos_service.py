@@ -661,8 +661,6 @@ class LivePhotoService(BaseService):
                 if video_exif and 'duration_seconds' in video_exif:
                     # Actualizar el FileMetadata directamente
                     meta.exif_VideoDurationSeconds = video_exif['duration_seconds']
-                    if 'duration' in video_exif:
-                        meta.exif_VideoDuration = video_exif['duration']
                     calculated += 1
                     self.logger.debug(
                         f"Duración calculada para {meta.path.name}: "

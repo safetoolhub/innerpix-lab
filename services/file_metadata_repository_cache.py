@@ -633,11 +633,7 @@ class FileInfoRepositoryCache:
                 if 'encoder' in video_metadata and video_metadata['encoder']:
                     target_metadata.exif_Software = video_metadata['encoder']
                 
-                # Mapear duración del video
-                if 'duration' in video_metadata and video_metadata['duration']:
-                    target_metadata.exif_VideoDuration = video_metadata['duration']
-                
-                # Mapear duración en segundos (para filtrado de Live Photos)
+                # Mapear duración en segundos
                 if 'duration_seconds' in video_metadata and video_metadata['duration_seconds']:
                     target_metadata.exif_VideoDurationSeconds = video_metadata['duration_seconds']
                 
