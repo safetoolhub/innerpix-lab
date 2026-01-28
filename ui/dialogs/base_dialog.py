@@ -266,6 +266,8 @@ class BaseDialog(QDialog):
             font-size: {DesignSystem.FONT_SIZE_XL}px;
             font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
             color: {DesignSystem.COLOR_TEXT};
+            border: none;
+            background: transparent;
         """)
         text_container.addWidget(title_label)
         
@@ -275,6 +277,8 @@ class BaseDialog(QDialog):
         desc_label.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_SM}px;
             color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            border: none;
+            background: transparent;
         """)
         text_container.addWidget(desc_label)
         
@@ -332,6 +336,8 @@ class BaseDialog(QDialog):
             font-size: {DesignSystem.FONT_SIZE_2XL}px;
             font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
             color: {color};
+            border: none;
+            background: transparent;
         """)
         value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(value_label)
@@ -343,6 +349,8 @@ class BaseDialog(QDialog):
             color: {DesignSystem.COLOR_TEXT_SECONDARY};
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            border: none;
+            background: transparent;
         """)
         label_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(label_widget)
