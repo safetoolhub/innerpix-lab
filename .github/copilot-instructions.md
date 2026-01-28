@@ -232,7 +232,13 @@ Dry-run mode for testing. No deletions/moves/renames.
 
 **Dialogs** (extend `BaseDialog`)
 - **Base Classes**:
-  - `BaseDialog`: Clase base con métodos comunes como `add_backup_checkbox()`, `add_dry_run_checkbox()`
+  - `BaseDialog`: Clase base con métodos comunes como `add_backup_checkbox()`, `add_dry_run_checkbox()`, `create_tip_button()`
+    - `create_tip_button(tip_message, width=450)`: Crea botón colapsable con icono de información que muestra/oculta un popup flotante
+      - Parámetros: `tip_message` (texto del tip), `width` (ancho del popup, default 450)
+      - Retorna: QPushButton checkable con icono 'information-outline'
+      - Uso: `tip_btn = self.create_tip_button("Mensaje informativo", width=500)`
+      - Estado interno: Popup almacenado en atributos del botón (`_tip_message`, `_tip_width`, `_tip_popup`)
+      - Métodos internos: `_toggle_tip_popup()`, `_show_tip_popup()`, `_hide_tip_popup()`
 
 - **Tool Dialogs**:
   - `zero_byte_dialog.py`: Gestión de archivos de cero bytes

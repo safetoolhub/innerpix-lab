@@ -1494,6 +1494,157 @@ class BaseDialog(QDialog):
         frame.strategy_buttons = strategy_buttons
         
         return frame
+    
+    # ========================================================================
+    # COLLAPSIBLE TIP / HELP POPUP
+    # ========================================================================
+    
+    def create_tip_button(self, tip_message: str, width: int = 450) -> QPushButton:
+        """Crea un botón de tip colapsable con popup flotante.
+        
+        Diseño minimalista que no ocupa espacio permanente en la UI.
+        El mensaje aparece en un popup flotante al hacer clic.
+        
+        Args:
+            tip_message: Mensaje HTML a mostrar en el popup (puede usar <b>, <i>, etc.)
+            width: Ancho del popup en píxeles (default: 450)
+        
+        Returns:
+            QPushButton configurado con el tip. Guardar referencia para posicionar popup.
+            
+        Example:
+            self.tip_btn = self.create_tip_button(
+                "<b>Tip:</b> Esta herramienta detecta imágenes <i>similares</i>..."
+            )
+            layout.addWidget(self.tip_btn)
+        """
+        from PyQt6.QtWidgets import QPushButton
+        from PyQt6.QtCore import Qt
+        from ui.styles.design_system import DesignSystem
+        from ui.styles.icons import icon_manager
+        
+        tip_btn = QPushButton()
+        tip_btn.setToolTip("Mostrar/ocultar consejo")
+        tip_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        tip_btn.setCheckable(True)
+        icon_manager.set_button_icon(tip_btn, 'information-outline', size=18)
+        tip_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                border: none;
+                padding: {DesignSystem.SPACE_4}px;
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_INFO_BG};
+            }}
+            QPushButton:checked {{
+                background-color: {DesignSystem.COLOR_INFO_BG};
+            }}
+        """)
+        
+        # Guardar mensaje y ancho para uso posterior
+        tip_btn._tip_message = tip_message
+        tip_btn._tip_width = width
+        tip_btn._tip_popup = None
+        
+        # Conectar eventos
+        tip_btn.clicked.connect(lambda: self._toggle_tip_popup(tip_btn))
+        
+        return tip_btn
+    
+    def _toggle_tip_popup(self, tip_btn: QPushButton):
+        """Muestra/oculta el popup de tip."""
+        if tip_btn.isChecked():
+            self._show_tip_popup(tip_btn)
+        else:
+            self._hide_tip_popup(tip_btn)
+    
+    def _show_tip_popup(self, tip_btn: QPushButton):
+        """Muestra el popup con el mensaje de ayuda."""
+        from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton
+        from PyQt6.QtCore import Qt
+        from ui.styles.design_system import DesignSystem
+        from ui.styles.icons import icon_manager
+        
+        # Si ya existe, solo mostrarlo
+        if tip_btn._tip_popup:
+            tip_btn._tip_popup.show()
+            return
+        
+        # Crear popup
+        popup = QFrame(self)
+        popup.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_INFO_BG};
+                border: 1px solid {DesignSystem.COLOR_INFO};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_12}px;
+            }}
+        """)
+        
+        popup_layout = QHBoxLayout(popup)
+        popup_layout.setContentsMargins(
+            DesignSystem.SPACE_12, DesignSystem.SPACE_8,
+            DesignSystem.SPACE_12, DesignSystem.SPACE_8
+        )
+        popup_layout.setSpacing(DesignSystem.SPACE_8)
+        
+        # Icono
+        icon = icon_manager.create_icon_label('information-outline', size=18, color=DesignSystem.COLOR_INFO)
+        popup_layout.addWidget(icon)
+        
+        # Texto
+        text = QLabel(tip_btn._tip_message)
+        text.setWordWrap(True)
+        text.setStyleSheet(f"""
+            color: {DesignSystem.COLOR_TEXT}; 
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            background: transparent;
+            border: none;
+        """)
+        popup_layout.addWidget(text, stretch=1)
+        
+        # Botón cerrar
+        close_btn = QPushButton("×")
+        close_btn.setFixedSize(20, 20)
+        close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        close_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: transparent;
+                border: none;
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                font-size: 16px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                color: {DesignSystem.COLOR_TEXT};
+            }}
+        """)
+        close_btn.clicked.connect(lambda: self._hide_tip_popup(tip_btn))
+        popup_layout.addWidget(close_btn)
+        
+        # Configurar tamaño y posición
+        popup.setFixedWidth(tip_btn._tip_width)
+        popup.adjustSize()
+        
+        # Posicionar debajo y a la derecha del botón
+        btn_pos = tip_btn.mapTo(self, tip_btn.rect().bottomRight())
+        popup_x = btn_pos.x() - popup.width() + 30
+        popup_y = btn_pos.y() + 8
+        
+        popup.move(popup_x, popup_y)
+        
+        # Guardar referencia y mostrar
+        tip_btn._tip_popup = popup
+        popup.show()
+    
+    def _hide_tip_popup(self, tip_btn: QPushButton):
+        """Oculta el popup de tip."""
+        if tip_btn._tip_popup:
+            tip_btn._tip_popup.hide()
+        tip_btn.setChecked(False)
+    
     # ========================================================================
     # UNIFIED FILTER BAR
     # ========================================================================

@@ -432,26 +432,10 @@ class DuplicatesSimilarDialog(BaseDialog):
         layout.addStretch()
         
         # Tip de ayuda colapsable
-        self.tip_btn = QPushButton()
-        self.tip_btn.setToolTip("Mostrar/ocultar consejo")
-        self.tip_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.tip_btn.setCheckable(True)
-        icon_manager.set_button_icon(self.tip_btn, 'information-outline', size=18)
-        self.tip_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: transparent;
-                border: none;
-                padding: {DesignSystem.SPACE_4}px;
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-            }}
-            QPushButton:hover {{
-                background-color: {DesignSystem.COLOR_INFO_BG};
-            }}
-            QPushButton:checked {{
-                background-color: {DesignSystem.COLOR_INFO_BG};
-            }}
-        """)
-        self.tip_btn.clicked.connect(self._toggle_tip)
+        self.tip_btn = self.create_tip_button(
+            "<b>Tip:</b> Esta herramienta detecta imágenes <i>similares</i> (recortes, ediciones). "
+            "Para copias <i>idénticas</i> visualmente, usa \"Copias Visuales Idénticas\"."
+        )
         layout.addWidget(self.tip_btn)
         
         # Contador de selección
@@ -466,85 +450,6 @@ class DuplicatesSimilarDialog(BaseDialog):
         layout.addWidget(self.global_summary_label)
         
         return container
-    
-    def _toggle_tip(self):
-        """Muestra/oculta el tip de ayuda."""
-        if self.tip_btn.isChecked():
-            self._show_tip_popup()
-        else:
-            self._hide_tip_popup()
-    
-    def _show_tip_popup(self):
-        """Muestra el popup con el tip de ayuda."""
-        if hasattr(self, 'tip_popup') and self.tip_popup:
-            self.tip_popup.show()
-            return
-        
-        self.tip_popup = QFrame(self)
-        self.tip_popup.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_INFO_BG};
-                border: 1px solid {DesignSystem.COLOR_INFO};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_12}px;
-            }}
-        """)
-        
-        popup_layout = QHBoxLayout(self.tip_popup)
-        popup_layout.setContentsMargins(DesignSystem.SPACE_12, DesignSystem.SPACE_8, DesignSystem.SPACE_12, DesignSystem.SPACE_8)
-        popup_layout.setSpacing(DesignSystem.SPACE_8)
-        
-        icon = icon_manager.create_icon_label('information-outline', size=18, color=DesignSystem.COLOR_INFO)
-        popup_layout.addWidget(icon)
-        
-        text = QLabel(
-            "<b>Tip:</b> Esta herramienta detecta imágenes <i>similares</i> (recortes, ediciones). "
-            "Para copias <i>idénticas</i> visualmente, usa \"Copias Visuales Idénticas\"."
-        )
-        text.setWordWrap(True)
-        text.setStyleSheet(f"""
-            color: {DesignSystem.COLOR_TEXT}; 
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            background: transparent;
-            border: none;
-        """)
-        popup_layout.addWidget(text, stretch=1)
-        
-        close_btn = QPushButton("×")
-        close_btn.setFixedSize(20, 20)
-        close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        close_btn.setStyleSheet(f"""
-            QPushButton {{
-                background: transparent;
-                border: none;
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                font-size: 16px;
-                font-weight: bold;
-            }}
-            QPushButton:hover {{
-                color: {DesignSystem.COLOR_TEXT};
-            }}
-        """)
-        close_btn.clicked.connect(self._hide_tip_popup)
-        popup_layout.addWidget(close_btn)
-        
-        # Posicionar debajo del botón de tip
-        self.tip_popup.setFixedWidth(450)
-        self.tip_popup.adjustSize()
-        
-        # Calcular posición relativa al botón
-        btn_pos = self.tip_btn.mapTo(self, self.tip_btn.rect().bottomRight())
-        popup_x = btn_pos.x() - self.tip_popup.width() + 30
-        popup_y = btn_pos.y() + 8
-        
-        self.tip_popup.move(popup_x, popup_y)
-        self.tip_popup.show()
-    
-    def _hide_tip_popup(self):
-        """Oculta el popup de tip."""
-        if hasattr(self, 'tip_popup') and self.tip_popup:
-            self.tip_popup.hide()
-        self.tip_btn.setChecked(False)
 
     # ================= LOADING STATE =================
 
