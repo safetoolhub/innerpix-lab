@@ -443,17 +443,25 @@ class DuplicatesSimilarDialog(BaseDialog):
             True para continuar, False para cancelar (no implementado)
         """
         from PyQt6.QtWidgets import QApplication
+        from PyQt6.sip import isdeleted
         
-        if hasattr(self, 'loading_progress') and self.loading_progress:
+        # Verificar que los widgets existen antes de usarlos
+        if (hasattr(self, 'loading_progress') and 
+            self.loading_progress is not None and 
+            not isdeleted(self.loading_progress)):
             self.loading_progress.setValue(current)
             
             # Actualizar porcentaje
             percent = (current / total * 100) if total > 0 else 0
-            if hasattr(self, 'loading_percent') and self.loading_percent:
+            if (hasattr(self, 'loading_percent') and 
+                self.loading_percent is not None and 
+                not isdeleted(self.loading_percent)):
                 self.loading_percent.setText(f"{percent:.0f}%")
             
             # Actualizar mensaje de fase
-            if hasattr(self, 'loading_label') and self.loading_label:
+            if (hasattr(self, 'loading_label') and 
+                self.loading_label is not None and 
+                not isdeleted(self.loading_label)):
                 self.loading_label.setText(message)
             
             # Procesar eventos para mantener UI responsiva
@@ -482,9 +490,22 @@ class DuplicatesSimilarDialog(BaseDialog):
     def _on_slider_released(self):
         """Regenera grupos cuando se suelta el slider."""
         if not self._is_loading:
+            self._is_loading = True
             self._show_loading_state()
             # Pequeño delay para que la UI se actualice antes del procesamiento
-            QTimer.singleShot(50, self._regenerate_groups)
+            QTimer.singleShot(50, self._do_regenerate_groups)
+
+    def _do_regenerate_groups(self):
+        """Ejecuta la regeneración de grupos y restaura el estado de la UI.
+        
+        Wrapper que llama a _regenerate_groups y luego restaura el slider.
+        """
+        try:
+            self._regenerate_groups()
+        finally:
+            # SIEMPRE restaurar el estado de la UI
+            self._is_loading = False
+            self.sensitivity_slider.setEnabled(True)
 
     def _regenerate_groups(self):
         """Regenera los grupos con la sensibilidad actual.
@@ -493,11 +514,14 @@ class DuplicatesSimilarDialog(BaseDialog):
         y mostrar el avance real del clustering.
         """
         from PyQt6.QtWidgets import QApplication
+        from PyQt6.sip import isdeleted
         
         self.logger.info(f"Regenerando grupos con sensibilidad {self.current_sensitivity}%...")
         
-        # Actualizar info de sensibilidad
-        if hasattr(self, 'loading_submsg') and self.loading_submsg:
+        # Actualizar info de sensibilidad (verificar que el widget existe)
+        if (hasattr(self, 'loading_submsg') and 
+            self.loading_submsg is not None and 
+            not isdeleted(self.loading_submsg)):
             total_files = len(self.analysis.perceptual_hashes)
             self.loading_submsg.setText(
                 f"Sensibilidad: {self.current_sensitivity}% · {total_files:,} archivos"
