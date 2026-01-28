@@ -21,6 +21,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QSize, QTimer
 from PyQt6.QtGui import QPixmap, QCursor, QPainter, QColor
 from services.duplicates_similar_service import DuplicatesSimilarAnalysis
+from services.file_metadata_repository_cache import FileInfoRepositoryCache
 from services.result_types import DuplicateGroup
 from utils.format_utils import format_size
 from utils.image_loader import load_image_as_qpixmap
@@ -49,6 +50,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         
         self.logger = get_logger('DuplicatesSimilarDialog')
         self.analysis = analysis
+        self.repo = FileInfoRepositoryCache.get_instance()
         
         self.current_sensitivity = self.DEFAULT_SENSITIVITY
         self.current_result = None
@@ -57,6 +59,8 @@ class DuplicatesSimilarDialog(BaseDialog):
         self.selections = {}
         self.accepted_plan = None
         self._is_loading = True
+        self.keep_strategy = None  # Ninguna estrategia por defecto
+        self.strategy_buttons = {}
         
         self._setup_ui()
         self._show_loading_state()
@@ -100,10 +104,6 @@ class DuplicatesSimilarDialog(BaseDialog):
         # Barra de sensibilidad
         self.sensitivity_bar = self._create_sensitivity_bar()
         content_layout.addWidget(self.sensitivity_bar)
-        
-        # Info card
-        self.info_card = self._create_info_card()
-        content_layout.addWidget(self.info_card)
         
         # Área de trabajo
         workspace_card = QFrame()
@@ -162,50 +162,58 @@ class DuplicatesSimilarDialog(BaseDialog):
         content_layout.addWidget(button_box)
 
     def _create_sensitivity_bar(self) -> QFrame:
-        """Crea la barra de control de sensibilidad."""
-        toolbar = QFrame()
-        toolbar.setStyleSheet(f"""
+        """Crea la barra de control de sensibilidad con diseño unificado."""
+        frame = QFrame()
+        frame.setStyleSheet(f"""
             QFrame {{
                 background-color: {DesignSystem.COLOR_SURFACE};
                 border: 1px solid {DesignSystem.COLOR_BORDER};
                 border-radius: {DesignSystem.RADIUS_LG}px;
+                padding: {DesignSystem.SPACE_12}px {DesignSystem.SPACE_16}px;
             }}
         """)
-        layout = QHBoxLayout(toolbar)
-        layout.setContentsMargins(
-            DesignSystem.SPACE_16, DesignSystem.SPACE_12,
-            DesignSystem.SPACE_16, DesignSystem.SPACE_12
-        )
-        layout.setSpacing(DesignSystem.SPACE_16)
         
-        # Icono y label
-        icon = icon_manager.create_icon_label('target', size=18, color=DesignSystem.COLOR_TEXT_SECONDARY)
-        layout.addWidget(icon)
+        layout = QHBoxLayout(frame)
+        layout.setSpacing(int(DesignSystem.SPACE_16))
+        layout.setContentsMargins(0, 0, 0, 0)
         
-        sens_label = QLabel("Sensibilidad:")
-        sens_label.setStyleSheet(f"font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM}; color: {DesignSystem.COLOR_TEXT};")
-        layout.addWidget(sens_label)
+        # Título + Descripción en línea
+        title_desc = QLabel("<b>Sensibilidad:</b> Ajusta lo parecidas que deben ser las imágenes para mostrarlas")
+        title_desc.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            color: {DesignSystem.COLOR_TEXT};
+        """)
+        layout.addWidget(title_desc)
         
-        # Marcadores
+        layout.addStretch()
+        
+        # Contenedor del slider con labels
+        slider_container = QHBoxLayout()
+        slider_container.setSpacing(int(DesignSystem.SPACE_8))
+        
+        # Marcador baja
         low_label = QLabel("Baja")
-        low_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_XS}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
-        layout.addWidget(low_label)
+        low_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_XS}px;
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+        """)
+        slider_container.addWidget(low_label)
         
         # Slider (70-95%)
         self.sensitivity_slider = QSlider(Qt.Orientation.Horizontal)
         self.sensitivity_slider.setRange(70, 95)
         self.sensitivity_slider.setValue(self.current_sensitivity)
-        self.sensitivity_slider.setFixedWidth(200)
+        self.sensitivity_slider.setFixedWidth(180)
         self.sensitivity_slider.setCursor(Qt.CursorShape.PointingHandCursor)
         self.sensitivity_slider.setToolTip(
-            "Ajusta qué tan parecidas deben ser las imágenes.\n"
+            "Ajusta el umbral de simulitud de las imágenes.\n"
             "• 95%: Muy similares\n• 85%: Similar (recomendado)\n• 70%: Más tolerante"
         )
         self.sensitivity_slider.setStyleSheet(f"""
             QSlider::groove:horizontal {{
                 border: 1px solid {DesignSystem.COLOR_BORDER};
                 height: 6px;
-                background: {DesignSystem.COLOR_BACKGROUND};
+                background: {DesignSystem.COLOR_BG_1};
                 border-radius: 3px;
             }}
             QSlider::handle:horizontal {{
@@ -223,97 +231,164 @@ class DuplicatesSimilarDialog(BaseDialog):
                 border-radius: 3px;
             }}
         """)
-        layout.addWidget(self.sensitivity_slider)
+        slider_container.addWidget(self.sensitivity_slider)
         
+        # Marcador alta
         high_label = QLabel("Alta")
-        high_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_XS}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
-        layout.addWidget(high_label)
-        
-        self.sensitivity_value_label = QLabel(f"{self.current_sensitivity}%")
-        self.sensitivity_value_label.setFixedWidth(50)
-        self.sensitivity_value_label.setStyleSheet(f"""
-            color: {DesignSystem.COLOR_PRIMARY}; 
-            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
-            font-size: {DesignSystem.FONT_SIZE_MD}px;
+        high_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_XS}px;
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
         """)
-        layout.addWidget(self.sensitivity_value_label)
+        slider_container.addWidget(high_label)
         
-        layout.addStretch()
+        # Valor actual
+        self.sensitivity_value_label = QLabel(f"{self.current_sensitivity}%")
+        self.sensitivity_value_label.setFixedWidth(45)
+        self.sensitivity_value_label.setStyleSheet(f"""
+            background-color: {DesignSystem.COLOR_PRIMARY};
+            color: {DesignSystem.COLOR_PRIMARY_TEXT};
+            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_8}px;
+            border-radius: {DesignSystem.RADIUS_BASE}px;
+        """)
+        self.sensitivity_value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        slider_container.addWidget(self.sensitivity_value_label)
         
-        # Acciones rápidas
-        actions_label = QLabel("Selección:")
-        actions_label.setStyleSheet(f"font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM}; color: {DesignSystem.COLOR_TEXT};")
-        layout.addWidget(actions_label)
-        
-        for text, strategy, tooltip in [
-            ("Mantener mejor", "keep_largest", "Conservar archivo de mayor calidad"),
-            ("Mantener primero", "keep_first", "Conservar primer archivo"),
-        ]:
-            btn = QPushButton(text)
-            btn.setToolTip(tooltip)
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: {DesignSystem.COLOR_BACKGROUND};
-                    border: 1px solid {DesignSystem.COLOR_BORDER};
-                    border-radius: {DesignSystem.RADIUS_BASE}px;
-                    padding: 6px 12px;
-                    font-size: {DesignSystem.FONT_SIZE_SM}px;
-                    color: {DesignSystem.COLOR_TEXT};
-                }}
-                QPushButton:hover {{
-                    background-color: {DesignSystem.COLOR_SECONDARY_LIGHT};
-                    border-color: {DesignSystem.COLOR_PRIMARY};
-                    color: {DesignSystem.COLOR_PRIMARY};
-                }}
-            """)
-            btn.clicked.connect(lambda _, s=strategy: self._apply_strategy(s))
-            layout.addWidget(btn)
+        layout.addLayout(slider_container)
         
         # Conexiones
         self.sensitivity_slider.valueChanged.connect(self._on_slider_changed)
         self.sensitivity_slider.sliderReleased.connect(self._on_slider_released)
         
-        return toolbar
-
-    def _create_info_card(self) -> QFrame:
-        """Crea tarjeta informativa."""
-        card = QFrame()
-        card.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_INFO_BG};
-                border: 1px solid {DesignSystem.COLOR_INFO};
-                border-radius: {DesignSystem.RADIUS_MD}px;
-                padding: {DesignSystem.SPACE_12}px;
+        return frame
+    
+    def _create_strategy_buttons(self, parent_layout: QHBoxLayout):
+        """Crea los botones de estrategia inline para la toolbar."""
+        self.strategy_buttons = {}
+        
+        strategies = [
+            ('keep_largest', 'arrow-expand-all', 'Mayor tamaño', 'Conservar archivo de mayor tamaño'),
+            ('keep_highest_res', 'ruler', 'Mayor res.', 'Conservar archivo con mayor resolución'),
+            ('keep_oldest', 'clock-outline', 'Más antigua', 'Conservar archivo más antiguo'),
+        ]
+        
+        for strategy_id, icon_name, label, tooltip in strategies:
+            btn = QPushButton(label)
+            btn.setCheckable(True)
+            btn.setChecked(False)  # Ninguno seleccionado por defecto
+            btn.setToolTip(tooltip)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            icon_manager.set_button_icon(btn, icon_name, size=16)
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {DesignSystem.COLOR_BG_1};
+                    border: 1px solid {DesignSystem.COLOR_BORDER};
+                    border-radius: {DesignSystem.RADIUS_BASE}px;
+                    padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_8}px;
+                    font-size: {DesignSystem.FONT_SIZE_XS}px;
+                    color: {DesignSystem.COLOR_TEXT};
+                }}
+                QPushButton:hover {{
+                    border-color: {DesignSystem.COLOR_PRIMARY};
+                    background-color: {DesignSystem.COLOR_SURFACE};
+                }}
+                QPushButton:checked {{
+                    background-color: {DesignSystem.COLOR_PRIMARY};
+                    border-color: {DesignSystem.COLOR_PRIMARY};
+                    color: {DesignSystem.COLOR_PRIMARY_TEXT};
+                }}
+            """)
+            btn.clicked.connect(lambda checked, s=strategy_id: self._on_strategy_changed(s))
+            parent_layout.addWidget(btn)
+            self.strategy_buttons[strategy_id] = btn
+        
+        # Separador antes del botón de selección masiva
+        sep = QFrame()
+        sep.setFixedWidth(1)
+        sep.setFixedHeight(20)
+        sep.setStyleSheet(f"background-color: {DesignSystem.COLOR_BORDER};")
+        parent_layout.addWidget(sep)
+        
+        # Botón de selección masiva (estilo diferenciado - warning sutil)
+        self.auto_select_all_btn = QPushButton("Auto")
+        self.auto_select_all_btn.setToolTip(
+            "Seleccionar automáticamente en TODOS los grupos.\n"
+            "⚠️ Requiere confirmación - los archivos NO son idénticos."
+        )
+        self.auto_select_all_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        icon_manager.set_button_icon(self.auto_select_all_btn, 'delete-sweep', size=14)
+        self.auto_select_all_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                border: 1px solid {DesignSystem.COLOR_WARNING};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_8}px;
+                font-size: {DesignSystem.FONT_SIZE_XS}px;
+                color: {DesignSystem.COLOR_WARNING};
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_WARNING};
+                color: white;
             }}
         """)
-        layout = QHBoxLayout(card)
-        layout.setSpacing(DesignSystem.SPACE_12)
+        self.auto_select_all_btn.clicked.connect(self._on_auto_select_all_clicked)
+        parent_layout.addWidget(self.auto_select_all_btn)
+    
+    def _on_strategy_changed(self, strategy_id: str):
+        """Maneja el cambio de estrategia de conservación."""
+        self.keep_strategy = strategy_id
         
-        icon = icon_manager.create_icon_label('information-outline', size=20, color=DesignSystem.COLOR_INFO)
-        layout.addWidget(icon)
+        # Actualizar estado visual de botones
+        for btn_id, btn in self.strategy_buttons.items():
+            btn.setChecked(btn_id == strategy_id)
         
-        text = QLabel(
-            "<b>Consejo:</b> Esta herramienta detecta imágenes <i>similares</i> "
-            "(recortes, ediciones, diferentes resoluciones). "
-            "Para eliminar copias <i>idénticas</i> visualmente, "
-            "usa primero \"Copias Visuales Idénticas\"."
+        # Aplicar estrategia al grupo actual
+        self._apply_strategy(strategy_id)
+    
+    def _reset_strategy_buttons(self):
+        """Resetea los botones de estrategia (ninguno seleccionado)."""
+        self.keep_strategy = None
+        for btn in self.strategy_buttons.values():
+            btn.setChecked(False)
+    
+    def _on_auto_select_all_clicked(self):
+        """Maneja el clic en el botón de selección automática masiva."""
+        from PyQt6.QtWidgets import QMessageBox
+        
+        # Diálogo de confirmación
+        msg = QMessageBox(self)
+        msg.setIcon(QMessageBox.Icon.Warning)
+        msg.setWindowTitle("Confirmar selección automática")
+        msg.setText(
+            "<b>¿Seleccionar automáticamente en todos los grupos?</b>"
         )
-        text.setWordWrap(True)
-        text.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT}; font-size: {DesignSystem.FONT_SIZE_SM}px;")
-        layout.addWidget(text, stretch=1)
+        msg.setInformativeText(
+            "⚠️ <b>Atención:</b> Los archivos similares <i>no son idénticos</i>.\n\n"
+            "Esta acción marcará para eliminación archivos que pueden tener "
+            "diferencias visuales (recortes, ediciones, resoluciones distintas).\n\n"
+            "Se recomienda revisar cada grupo individualmente."
+        )
+        msg.setStandardButtons(
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        msg.setDefaultButton(QMessageBox.StandardButton.No)
         
-        return card
+        # Estilo del diálogo
+        msg.setStyleSheet(DesignSystem.get_stylesheet())
+        
+        if msg.exec() == QMessageBox.StandardButton.Yes:
+            self._apply_strategy_to_all_groups()
 
     def _create_navigation_toolbar(self) -> QWidget:
-        """Crea la barra de navegación."""
+        """Crea la barra de navegación con estrategia y tip integrados."""
         container = QWidget()
         layout = QHBoxLayout(container)
         layout.setContentsMargins(
-            DesignSystem.SPACE_16, DesignSystem.SPACE_12,
-            DesignSystem.SPACE_16, DesignSystem.SPACE_12
+            DesignSystem.SPACE_16, DesignSystem.SPACE_10,
+            DesignSystem.SPACE_16, DesignSystem.SPACE_10
         )
-        layout.setSpacing(DesignSystem.SPACE_16)
+        layout.setSpacing(DesignSystem.SPACE_12)
         
         # Navegación
         self.prev_btn = self.make_styled_button(icon_name='chevron-left', button_style='secondary', tooltip="Anterior")
@@ -321,7 +396,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         self.prev_btn.setEnabled(False)
         
         self.group_counter_label = QLabel("Cargando...")
-        self.group_counter_label.setMinimumWidth(200)
+        self.group_counter_label.setMinimumWidth(140)
         self.group_counter_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.group_counter_label.setStyleSheet(f"font-weight: {DesignSystem.FONT_WEIGHT_BOLD}; color: {DesignSystem.COLOR_TEXT};")
         
@@ -336,16 +411,140 @@ class DuplicatesSimilarDialog(BaseDialog):
         nav_layout.addWidget(self.next_btn)
         
         layout.addLayout(nav_layout)
+        
+        # Separador visual
+        sep = QFrame()
+        sep.setFixedWidth(1)
+        sep.setFixedHeight(24)
+        sep.setStyleSheet(f"background-color: {DesignSystem.COLOR_BORDER};")
+        layout.addWidget(sep)
+        
+        # Botones de estrategia inline
+        strategy_label = QLabel("Conservar:")
+        strategy_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+        """)
+        layout.addWidget(strategy_label)
+        
+        self._create_strategy_buttons(layout)
+        
         layout.addStretch()
         
+        # Tip de ayuda colapsable
+        self.tip_btn = QPushButton()
+        self.tip_btn.setToolTip("Mostrar/ocultar consejo")
+        self.tip_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.tip_btn.setCheckable(True)
+        icon_manager.set_button_icon(self.tip_btn, 'information-outline', size=18)
+        self.tip_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                border: none;
+                padding: {DesignSystem.SPACE_4}px;
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_INFO_BG};
+            }}
+            QPushButton:checked {{
+                background-color: {DesignSystem.COLOR_INFO_BG};
+            }}
+        """)
+        self.tip_btn.clicked.connect(self._toggle_tip)
+        layout.addWidget(self.tip_btn)
+        
         # Contador de selección
-        self.global_summary_label = QLabel("0 archivos seleccionados (0 B)")
-        self.global_summary_label.setMinimumWidth(250)
+        self.global_summary_label = QLabel("0 seleccionados")
+        self.global_summary_label.setMinimumWidth(120)
         self.global_summary_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        self.global_summary_label.setStyleSheet(f"font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD}; color: {DesignSystem.COLOR_TEXT};")
+        self.global_summary_label.setStyleSheet(f"""
+            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD}; 
+            color: {DesignSystem.COLOR_TEXT};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+        """)
         layout.addWidget(self.global_summary_label)
         
         return container
+    
+    def _toggle_tip(self):
+        """Muestra/oculta el tip de ayuda."""
+        if self.tip_btn.isChecked():
+            self._show_tip_popup()
+        else:
+            self._hide_tip_popup()
+    
+    def _show_tip_popup(self):
+        """Muestra el popup con el tip de ayuda."""
+        if hasattr(self, 'tip_popup') and self.tip_popup:
+            self.tip_popup.show()
+            return
+        
+        self.tip_popup = QFrame(self)
+        self.tip_popup.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_INFO_BG};
+                border: 1px solid {DesignSystem.COLOR_INFO};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_12}px;
+            }}
+        """)
+        
+        popup_layout = QHBoxLayout(self.tip_popup)
+        popup_layout.setContentsMargins(DesignSystem.SPACE_12, DesignSystem.SPACE_8, DesignSystem.SPACE_12, DesignSystem.SPACE_8)
+        popup_layout.setSpacing(DesignSystem.SPACE_8)
+        
+        icon = icon_manager.create_icon_label('information-outline', size=18, color=DesignSystem.COLOR_INFO)
+        popup_layout.addWidget(icon)
+        
+        text = QLabel(
+            "<b>Tip:</b> Esta herramienta detecta imágenes <i>similares</i> (recortes, ediciones). "
+            "Para copias <i>idénticas</i> visualmente, usa \"Copias Visuales Idénticas\"."
+        )
+        text.setWordWrap(True)
+        text.setStyleSheet(f"""
+            color: {DesignSystem.COLOR_TEXT}; 
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            background: transparent;
+            border: none;
+        """)
+        popup_layout.addWidget(text, stretch=1)
+        
+        close_btn = QPushButton("×")
+        close_btn.setFixedSize(20, 20)
+        close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        close_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: transparent;
+                border: none;
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                font-size: 16px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                color: {DesignSystem.COLOR_TEXT};
+            }}
+        """)
+        close_btn.clicked.connect(self._hide_tip_popup)
+        popup_layout.addWidget(close_btn)
+        
+        # Posicionar debajo del botón de tip
+        self.tip_popup.setFixedWidth(450)
+        self.tip_popup.adjustSize()
+        
+        # Calcular posición relativa al botón
+        btn_pos = self.tip_btn.mapTo(self, self.tip_btn.rect().bottomRight())
+        popup_x = btn_pos.x() - self.tip_popup.width() + 30
+        popup_y = btn_pos.y() + 8
+        
+        self.tip_popup.move(popup_x, popup_y)
+        self.tip_popup.show()
+    
+    def _hide_tip_popup(self):
+        """Oculta el popup de tip."""
+        if hasattr(self, 'tip_popup') and self.tip_popup:
+            self.tip_popup.hide()
+        self.tip_btn.setChecked(False)
 
     # ================= LOADING STATE =================
 
@@ -609,6 +808,9 @@ class DuplicatesSimilarDialog(BaseDialog):
         self.prev_btn.setEnabled(len(self.all_groups) > 1)
         self.next_btn.setEnabled(len(self.all_groups) > 1)
         
+        # Resetear botones de estrategia (ninguno seleccionado)
+        self._reset_strategy_buttons()
+        
         # Limpiar
         for i in reversed(range(self.group_layout.count())):
             item = self.group_layout.itemAt(i)
@@ -850,15 +1052,97 @@ class DuplicatesSimilarDialog(BaseDialog):
         if len(files) < 2:
             return
         
-        if strategy == 'keep_first':
-            to_delete = files[1:]
-        elif strategy == 'keep_largest':
-            sorted_files = sorted(files, key=lambda f: f.stat().st_size if f.exists() else 0, reverse=True)
-            to_delete = sorted_files[1:]
+        if strategy == 'keep_largest':
+            # Conservar el de mayor tamaño
+            to_delete = self._get_files_to_delete_by_size(files, keep_largest=True)
+        elif strategy == 'keep_highest_res':
+            # Conservar el de mayor resolución
+            to_delete = self._get_files_to_delete_by_resolution(files)
+        elif strategy == 'keep_oldest':
+            # Conservar el más antiguo
+            to_delete = self._get_files_to_delete_by_date(files, keep_oldest=True)
         else:
             to_delete = []
         
         self.selections[self.current_group_index] = list(to_delete)
+        self._load_group(self.current_group_index)
+        self._update_summary()
+    
+    def _get_file_size(self, file_path: Path) -> int:
+        """Obtiene el tamaño del archivo desde el repositorio o fallback."""
+        if self.repo:
+            meta = self.repo.get_file_metadata(file_path)
+            if meta and meta.fs_size is not None:
+                return meta.fs_size
+        
+        # Fallback: leer del filesystem directamente
+        self.logger.warning(f"Tamaño no encontrado en caché, leyendo de filesystem: {file_path}")
+        try:
+            return file_path.stat().st_size if file_path.exists() else 0
+        except Exception:
+            return 0
+    
+    def _get_file_best_date(self, file_path: Path) -> float:
+        """Obtiene la mejor fecha del archivo desde el repositorio o fallback."""
+        if self.repo:
+            best_date, _ = self.repo.get_best_date(file_path)
+            if best_date:
+                return best_date.timestamp()
+        
+        # Fallback: leer mtime del filesystem directamente
+        self.logger.warning(f"Best_date no encontrada en caché, usando mtime: {file_path}")
+        try:
+            return file_path.stat().st_mtime if file_path.exists() else float('inf')
+        except Exception:
+            return float('inf')
+    
+    def _get_file_resolution(self, file_path: Path) -> int:
+        """Obtiene la resolución del archivo desde el repositorio o fallback."""
+        if self.repo:
+            meta = self.repo.get_file_metadata(file_path)
+            if meta and meta.exif_ImageWidth and meta.exif_ImageLength:
+                return meta.exif_ImageWidth * meta.exif_ImageLength
+        
+        # Fallback: leer con PIL directamente
+        self.logger.warning(f"Resolución no encontrada en caché, leyendo con PIL: {file_path}")
+        try:
+            from PIL import Image
+            with Image.open(file_path) as img:
+                width, height = img.size
+                return width * height
+        except Exception:
+            return 0
+    
+    def _get_files_to_delete_by_size(self, files: list, keep_largest: bool = True) -> list:
+        """Determina qué archivos eliminar según tamaño."""
+        sizes = [(f, self._get_file_size(f)) for f in files]
+        sorted_files = sorted(sizes, key=lambda x: x[1], reverse=keep_largest)
+        return [f for f, _ in sorted_files[1:]]
+    
+    def _get_files_to_delete_by_date(self, files: list, keep_oldest: bool = True) -> list:
+        """Determina qué archivos eliminar según fecha."""
+        dates = [(f, self._get_file_best_date(f)) for f in files]
+        sorted_files = sorted(dates, key=lambda x: x[1], reverse=not keep_oldest)
+        return [f for f, _ in sorted_files[1:]]
+    
+    def _get_files_to_delete_by_resolution(self, files: list) -> list:
+        """Determina qué archivos eliminar conservando el de mayor resolución."""
+        resolutions = [(f, self._get_file_resolution(f)) for f in files]
+        sorted_files = sorted(resolutions, key=lambda x: x[1], reverse=True)
+        return [f for f, _ in sorted_files[1:]]
+    
+    def _apply_strategy_to_all_groups(self):
+        """Aplica la estrategia 'keep_largest' a todos los grupos."""
+        for idx, group in enumerate(self.all_groups):
+            files = group.files
+            if len(files) < 2:
+                continue
+            
+            # Usar estrategia de mayor tamaño por defecto para selección masiva
+            to_delete = self._get_files_to_delete_by_size(files, keep_largest=True)
+            self.selections[idx] = list(to_delete)
+        
+        # Recargar grupo actual y actualizar resumen
         self._load_group(self.current_group_index)
         self._update_summary()
 
@@ -879,10 +1163,11 @@ class DuplicatesSimilarDialog(BaseDialog):
         for idx, files_to_delete in self.selections.items():
             if files_to_delete and idx < len(self.all_groups):
                 og = self.all_groups[idx]
+                total_size = sum(self._get_file_size(f) for f in files_to_delete)
                 selected_groups.append(DuplicateGroup(
                     hash_value=og.hash_value,
                     files=files_to_delete,
-                    total_size=sum(f.stat().st_size for f in files_to_delete if f.exists()),
+                    total_size=total_size,
                     similarity_score=og.similarity_score
                 ))
         

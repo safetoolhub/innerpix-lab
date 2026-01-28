@@ -152,6 +152,7 @@ class IconManager:
         'skip-next': 'mdi6.skip-next',
         'chevron-left': 'mdi6.chevron-left',
         'chevron-right': 'mdi6.chevron-right',
+        'numeric-1-circle': 'mdi6.numeric-1-circle',
         
         # === METADATOS Y PROPIEDADES ===
         'ruler': 'mdi6.ruler',
