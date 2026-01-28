@@ -446,7 +446,7 @@ class FileOrganizerDialog(BaseDialog):
         # Contenedor con márgenes para el resto del contenido
         content_container = QWidget()
         content_layout = QVBoxLayout(content_container)
-        content_layout.setSpacing(DesignSystem.SPACE_16)
+        content_layout.setSpacing(DesignSystem.SPACE_12)
         content_layout.setContentsMargins(
             DesignSystem.SPACE_24,
             DesignSystem.SPACE_12,
@@ -455,28 +455,7 @@ class FileOrganizerDialog(BaseDialog):
         )
         layout.addWidget(content_container)
         
-        # === BOTÓN DE VOLVER A SELECCIÓN ===
-        back_btn = QPushButton("← Cambiar estrategia")
-        back_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: transparent;
-                border: none;
-                color: {DesignSystem.COLOR_PRIMARY};
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-                padding: {DesignSystem.SPACE_8}px 0;
-                text-align: left;
-            }}
-            QPushButton:hover {{
-                color: {DesignSystem.COLOR_PRIMARY_HOVER};
-                text-decoration: underline;
-            }}
-        """)
-        back_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        back_btn.clicked.connect(self._go_back_to_selection)
-        content_layout.addWidget(back_btn)
-        
-        # === OPCIONES DE ORGANIZACIÓN (con estrategia + personalizacion) ===
+        # === OPCIONES DE ORGANIZACIÓN (con botón volver + estrategia + personalización) ===
         self.options_panel = self._create_organization_options_panel()
         content_layout.addWidget(self.options_panel)
         
@@ -526,7 +505,7 @@ class FileOrganizerDialog(BaseDialog):
         return page
     
     def _create_organization_options_panel(self) -> QWidget:
-        """Crea panel de opciones compacto con botones segmentados (sin combos)"""
+        """Crea panel de opciones compacto: [Volver] | Estrategia | Opciones - todo en una línea"""
         container = QFrame()
         container.setStyleSheet(f"""
             QFrame {{
@@ -536,11 +515,39 @@ class FileOrganizerDialog(BaseDialog):
             }}
         """)
         
-        layout = QVBoxLayout(container)
-        layout.setContentsMargins(DesignSystem.SPACE_16, DesignSystem.SPACE_12, DesignSystem.SPACE_16, DesignSystem.SPACE_12)
-        layout.setSpacing(DesignSystem.SPACE_8)
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(DesignSystem.SPACE_12, DesignSystem.SPACE_10, DesignSystem.SPACE_16, DesignSystem.SPACE_10)
+        layout.setSpacing(DesignSystem.SPACE_12)
         
-        # Stacked widget para opciones según estrategia
+        # Botón volver (izquierda)
+        back_btn = QPushButton("← Cambiar")
+        back_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                padding: 6px 12px;
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_BG_2};
+                color: {DesignSystem.COLOR_TEXT};
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+        """)
+        back_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        back_btn.setToolTip("Volver a elegir otra estrategia de organización")
+        back_btn.clicked.connect(self._go_back_to_selection)
+        layout.addWidget(back_btn)
+        
+        # Separador vertical
+        sep = QFrame()
+        sep.setFixedWidth(1)
+        sep.setStyleSheet(f"background-color: {DesignSystem.COLOR_BORDER};")
+        layout.addWidget(sep)
+        
+        # Stacked widget para opciones según estrategia (ocupa el resto del espacio)
         self.options_stack = QStackedWidget()
         
         # Página 0: Opciones para "Por Fecha"
@@ -559,7 +566,7 @@ class FileOrganizerDialog(BaseDialog):
         cleanup_page = self._create_cleanup_options()
         self.options_stack.addWidget(cleanup_page)
         
-        layout.addWidget(self.options_stack)
+        layout.addWidget(self.options_stack, 1)  # Stretch factor 1
         
         return container
     
@@ -612,46 +619,52 @@ class FileOrganizerDialog(BaseDialog):
         """
     
     def _create_date_options(self) -> QWidget:
-        """Opciones para organización por fecha - diseño compacto con chips"""
+        """Opciones para organización por fecha - diseño compacto horizontal"""
         page = QWidget()
-        layout = QVBoxLayout(page)
+        layout = QHBoxLayout(page)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(DesignSystem.SPACE_10)
+        layout.setSpacing(DesignSystem.SPACE_16)
         
-        # Fila 1: Estrategia + Granularidad en una línea
-        row1 = QHBoxLayout()
-        row1.setSpacing(DesignSystem.SPACE_12)
+        # Icono + Título de estrategia
+        icon_label = QLabel()
+        icon_manager.set_label_icon(icon_label, 'calendar-month', size=20, color=DesignSystem.COLOR_PRIMARY)
+        layout.addWidget(icon_label)
         
-        strategy_label = QLabel("📅 Por Fecha →")
+        strategy_label = QLabel("Por Fecha")
         strategy_label.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-            color: {DesignSystem.COLOR_PRIMARY};
+            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            color: {DesignSystem.COLOR_TEXT};
         """)
-        row1.addWidget(strategy_label)
+        layout.addWidget(strategy_label)
         
-        # Chips de granularidad
+        # Separador
+        sep1 = QLabel("|")
+        sep1.setStyleSheet(f"color: {DesignSystem.COLOR_BORDER}; margin: 0 4px;")
+        layout.addWidget(sep1)
+        
+        # Granularidad
+        gran_label = QLabel("Granularidad:")
+        gran_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
+        layout.addWidget(gran_label)
+        
         self.date_granularity_buttons = []
         granularities = [("Mes", 0), ("Año", 1), ("Año/Mes", 2)]
         for text, value in granularities:
             btn = self._create_chip_button(text, "date_granularity", value, value == 0)
             btn.clicked.connect(lambda checked, v=value: self._on_date_granularity_changed(v))
             self.date_granularity_buttons.append(btn)
-            row1.addWidget(btn)
+            layout.addWidget(btn)
         
-        row1.addStretch()
-        layout.addLayout(row1)
+        # Separador
+        sep2 = QLabel("|")
+        sep2.setStyleSheet(f"color: {DesignSystem.COLOR_BORDER}; margin: 0 4px;")
+        layout.addWidget(sep2)
         
-        # Fila 2: Agrupaciones adicionales (chips toggle)
-        row2 = QHBoxLayout()
-        row2.setSpacing(DesignSystem.SPACE_8)
-        
-        extra_label = QLabel("Subcarpetas:")
-        extra_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            color: {DesignSystem.COLOR_TEXT_SECONDARY};
-        """)
-        row2.addWidget(extra_label)
+        # Subcarpetas
+        sub_label = QLabel("Subcarpetas:")
+        sub_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
+        layout.addWidget(sub_label)
         
         self.chk_date_source_btn = QPushButton("+ Fuente")
         self.chk_date_source_btn.setCheckable(True)
@@ -659,7 +672,7 @@ class FileOrganizerDialog(BaseDialog):
         self.chk_date_source_btn.setToolTip("Añadir subcarpetas por fuente (WhatsApp, Cámara...)")
         self.chk_date_source_btn.setStyleSheet(self._get_chip_style(False))
         self.chk_date_source_btn.clicked.connect(self._on_date_extra_changed)
-        row2.addWidget(self.chk_date_source_btn)
+        layout.addWidget(self.chk_date_source_btn)
         
         self.chk_date_type_btn = QPushButton("+ Tipo")
         self.chk_date_type_btn.setCheckable(True)
@@ -667,110 +680,127 @@ class FileOrganizerDialog(BaseDialog):
         self.chk_date_type_btn.setToolTip("Añadir subcarpetas por tipo (Fotos/Videos)")
         self.chk_date_type_btn.setStyleSheet(self._get_chip_style(False))
         self.chk_date_type_btn.clicked.connect(self._on_date_extra_changed)
-        row2.addWidget(self.chk_date_type_btn)
+        layout.addWidget(self.chk_date_type_btn)
         
-        row2.addStretch()
-        layout.addLayout(row2)
-        
+        layout.addStretch()
         return page
     
     def _create_type_options(self) -> QWidget:
-        """Opciones para organización por tipo - diseño compacto con chips"""
+        """Opciones para organización por tipo - diseño compacto horizontal"""
         page = QWidget()
-        layout = QVBoxLayout(page)
+        layout = QHBoxLayout(page)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(DesignSystem.SPACE_10)
+        layout.setSpacing(DesignSystem.SPACE_16)
         
-        # Una sola fila: Estrategia + subcarpetas temporales
-        row = QHBoxLayout()
-        row.setSpacing(DesignSystem.SPACE_12)
+        # Icono + Título de estrategia
+        icon_label = QLabel()
+        icon_manager.set_label_icon(icon_label, 'image', size=20, color=DesignSystem.COLOR_PRIMARY)
+        layout.addWidget(icon_label)
         
-        strategy_label = QLabel("🖼️ Por Tipo →")
+        strategy_label = QLabel("Por Tipo")
         strategy_label.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-            color: {DesignSystem.COLOR_PRIMARY};
+            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            color: {DesignSystem.COLOR_TEXT};
         """)
-        row.addWidget(strategy_label)
+        layout.addWidget(strategy_label)
         
-        sub_label = QLabel("Subcarpetas:")
-        sub_label.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_SM}px;")
-        row.addWidget(sub_label)
+        # Separador
+        sep = QLabel("|")
+        sep.setStyleSheet(f"color: {DesignSystem.COLOR_BORDER}; margin: 0 4px;")
+        layout.addWidget(sep)
         
-        # Chips de suborganización temporal
+        # Subcarpetas por fecha
+        sub_label = QLabel("Subcarpetas por fecha:")
+        sub_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
+        layout.addWidget(sub_label)
+        
         self.type_date_buttons = []
         options = [("Ninguna", None), ("Mes", "month"), ("Año", "year"), ("Año/Mes", "year_month")]
         for text, value in options:
             btn = self._create_chip_button(text, "type_date", value, value is None)
             btn.clicked.connect(lambda checked, v=value: self._on_type_date_changed(v))
             self.type_date_buttons.append(btn)
-            row.addWidget(btn)
+            layout.addWidget(btn)
         
-        row.addStretch()
-        layout.addLayout(row)
-        
+        layout.addStretch()
         return page
     
     def _create_source_options(self) -> QWidget:
-        """Opciones para organización por fuente - diseño compacto con chips"""
+        """Opciones para organización por fuente - diseño compacto horizontal"""
         page = QWidget()
-        layout = QVBoxLayout(page)
+        layout = QHBoxLayout(page)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(DesignSystem.SPACE_10)
+        layout.setSpacing(DesignSystem.SPACE_16)
         
-        # Una sola fila: Estrategia + subcarpetas temporales
-        row = QHBoxLayout()
-        row.setSpacing(DesignSystem.SPACE_12)
+        # Icono + Título de estrategia
+        icon_label = QLabel()
+        icon_manager.set_label_icon(icon_label, 'devices', size=20, color=DesignSystem.COLOR_PRIMARY)
+        layout.addWidget(icon_label)
         
-        strategy_label = QLabel("📱 Por Fuente →")
+        strategy_label = QLabel("Por Fuente")
         strategy_label.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-            color: {DesignSystem.COLOR_PRIMARY};
+            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            color: {DesignSystem.COLOR_TEXT};
         """)
-        row.addWidget(strategy_label)
+        layout.addWidget(strategy_label)
         
-        sub_label = QLabel("Subcarpetas:")
-        sub_label.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_SM}px;")
-        row.addWidget(sub_label)
+        # Separador
+        sep = QLabel("|")
+        sep.setStyleSheet(f"color: {DesignSystem.COLOR_BORDER}; margin: 0 4px;")
+        layout.addWidget(sep)
         
-        # Chips de suborganización temporal
+        # Subcarpetas por fecha
+        sub_label = QLabel("Subcarpetas por fecha:")
+        sub_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
+        layout.addWidget(sub_label)
+        
         self.source_date_buttons = []
         options = [("Ninguna", None), ("Mes", "month"), ("Año", "year"), ("Año/Mes", "year_month")]
         for text, value in options:
             btn = self._create_chip_button(text, "source_date", value, value is None)
             btn.clicked.connect(lambda checked, v=value: self._on_source_date_changed(v))
             self.source_date_buttons.append(btn)
-            row.addWidget(btn)
+            layout.addWidget(btn)
         
-        row.addStretch()
-        layout.addLayout(row)
-        
+        layout.addStretch()
         return page
     
     def _create_cleanup_options(self) -> QWidget:
-        """Opciones para mover al raíz - diseño compacto"""
+        """Opciones para mover al raíz - diseño compacto horizontal"""
         page = QWidget()
         layout = QHBoxLayout(page)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(DesignSystem.SPACE_12)
+        layout.setSpacing(DesignSystem.SPACE_16)
         
-        strategy_label = QLabel("📁 Mover Todo al Raíz")
+        # Icono + Título de estrategia
+        icon_label = QLabel()
+        icon_manager.set_label_icon(icon_label, 'folder-open', size=20, color=DesignSystem.COLOR_PRIMARY)
+        layout.addWidget(icon_label)
+        
+        strategy_label = QLabel("Mover al Raíz")
         strategy_label.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-            color: {DesignSystem.COLOR_PRIMARY};
+            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            color: {DesignSystem.COLOR_TEXT};
         """)
         layout.addWidget(strategy_label)
         
-        info_label = QLabel("— Todos los archivos se moverán al directorio principal")
+        # Separador
+        sep = QLabel("|")
+        sep.setStyleSheet(f"color: {DesignSystem.COLOR_BORDER}; margin: 0 4px;")
+        layout.addWidget(sep)
+        
+        # Descripción
+        info_label = QLabel("Todos los archivos se moverán al directorio principal, sin subcarpetas")
         info_label.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_SM}px;
             color: {DesignSystem.COLOR_TEXT_SECONDARY};
         """)
         layout.addWidget(info_label)
-        layout.addStretch()
         
+        layout.addStretch()
         return page
     
     def _update_chip_group(self, buttons: list, selected_value):
