@@ -311,7 +311,7 @@ class Stage3Window(BaseStage):
         self.tool_cards['visual_identical'] = visual_identical_card
         
         # Card de archivos similares (sensibilidad ajustable)
-        similar_dup_card = create_duplicates_similar_card(self._on_tool_clicked)
+        similar_dup_card = create_duplicates_similar_card(self.analysis_results, self._on_tool_clicked)
         similar_grid.addWidget(similar_dup_card, 0, 1)
         self.tool_cards['duplicates_similar'] = similar_dup_card
         

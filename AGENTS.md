@@ -65,6 +65,17 @@ Prácticas específicas del repositorio
 - **Dialogs / UI**: Los diálogos en `ui/dialogs/` usan `BaseDialog` y la presentación debe ser solo UI; no incluir lógica pesada.
 - **Design system**: Usar `DesignSystem` y evitar QSS o estilos inline fuera del sistema de diseño.
 
+Tool Cards (Stage 3)
+- **Live Photos** (`live_photos_card.py`): "Live Photos" - Detecta y gestiona Live Photos de iPhone
+- **HEIC/JPG Duplicados** (`heic_card.py`): "HEIC/JPG Duplicados" - Detecta pares HEIC/JPG duplicados
+- **Copias Exactas** (`duplicates_exact_card.py`): "Copias Exactas" - Detecta archivos idénticos por SHA256
+- **Copias visuales idénticas** (`visual_identical_card.py`): "Copias visuales idénticas" - Detecta copias 100% visuales por perceptual hash
+- **Archivos similares** (`duplicates_similar_card.py`): "Archivos similares" - Detecta archivos 70-99% similares (revisión manual)
+- **Archivos vacíos** (`zero_byte_card.py`): "Archivos vacíos" - Detecta archivos de 0 bytes
+- **Organizar** (`file_organizer_card.py`): "Organizar" - Organiza archivos por fecha en carpetas
+- **Renombrar** (`file_renamer_card.py`): "Renombrar" - Renombra archivos con fechas de captura
+- Todas las cards siguen el mismo patrón: reciben `analysis_results` y `on_click_callback` excepto Organizar y Renombrar que no requieren análisis previo
+
 Herramientas de Archivos Similares (Similar Files Tools)
 - **Copias Visuales Idénticas** (`visual_identical`): Detecta copias 100% idénticas visualmente usando perceptual hash con threshold=0
   - Servicio: `VisualIdenticalService.analyze()` → `VisualIdenticalAnalysisResult`

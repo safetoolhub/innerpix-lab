@@ -105,6 +105,17 @@ PyQt6 desktop app for photo/video management oriented to privacy.
   - Logging INFO cada 10% en fases 3, 4, 5, 6 (hash, EXIF images, EXIF videos, best date)
   - Invalidación de caché al volver a Stage 1 con `_invalidate_metadata_cache()`
 - Stage 3: Tools grid → dialogs
+  - Tool Cards disponibles:
+    - "Live Photos" - Gestiona Live Photos de iPhone (imagen + video corto)
+    - "HEIC/JPG Duplicados" - Gestiona pares HEIC/JPG duplicados
+    - "Copias Exactas" - Detecta archivos idénticos (SHA256)
+    - "Copias visuales idénticas" - Detecta copias 100% visuales (threshold=0)
+    - "Archivos similares" - Detecta archivos 70-99% similares (revisión manual)
+    - "Archivos vacíos" - Detecta archivos de 0 bytes
+    - "Organizar" - Organiza archivos por fecha en carpetas
+    - "Renombrar" - Renombra archivos con fechas de captura
+  - Cards pattern: Reciben `analysis_results` y `on_click_callback`
+  - Excepción: Organizar y Renombrar no requieren análisis previo
 - All extend `BaseStage`
 
 ## Critical Patterns
