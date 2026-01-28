@@ -150,8 +150,8 @@ class VisualIdenticalDialog(BaseDialog):
         self.header_frame = self._create_compact_header_with_metrics(
             icon_name='image-multiple',
             title='Copias visuales idénticas',
-            description='Archivos visualmente idénticos aunque tengan diferente resolución, '
-                       'compresión o metadatos. Típico de fotos enviadas por WhatsApp o copias redimensionadas.',
+            description='Archivos visualmente idénticos, pero con diferente resolución o metedatos. '
+                       'Sucede en fotos enviadas por WhatsApp o redimensionadas.',
             metrics=[
                 {
                     'value': str(self.analysis.total_groups),

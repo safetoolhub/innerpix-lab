@@ -18,9 +18,8 @@ def create_duplicates_similar_card(on_click_callback) -> ToolCard:
     card = ToolCard(
         icon_name='image-search',
         title='Archivos similares',
-        description='Detecta fotos y vídeos visualmente idénticos aunque tengan metadatos '
-                   'diferentes (fechas, compresión, etc.). Al 100% de similitud son '
-                   'prácticamente idénticos visualmente.',
+        description='Detecta fotos y vídeos visualmente muy similares aunque tengan metadatos '
+                   'diferentes (fechas, compresión, etc.). Debes analizarlo manualmente y elegir los que quieras borrar. Es la única utilidad que no permite el borrado automático.',
         action_text='Analizar ahora'
     )
 
