@@ -25,7 +25,7 @@ def create_duplicates_similar_card(analysis_results, on_click_callback) -> ToolC
         icon_name='image-search',
         title='Archivos similares',
         description='Detecta fotos y vídeos visualmente muy similares aunque tengan metadatos '
-                   'diferentes (fechas, compresión, etc.). Debes analizarlo manualmente y elegir los que quieras borrar. Es la única utilidad que no permite el borrado automático.',
+                   'diferentes (fechas, compresión, etc.). Deberás analizarlo manualmente y elegir los que quieras borrar. ',
         action_text='Gestionar ahora' if has_analysis else 'Analizar ahora'
     )
 

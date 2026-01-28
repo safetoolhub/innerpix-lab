@@ -17,11 +17,12 @@ def create_file_organizer_card(on_click_callback) -> ToolCard:
     """
     card = ToolCard(
         icon_name='folder-move',
-        title='Organizar',
-        description='Organiza tus fotos en carpetas por fecha (año/mes o año/mes/día). '
-                   'Reorganiza tu biblioteca de forma automática y mantén todo ordenado.',
+        title='Organización inteligente',
+        description='Organiza tus archivos en una estructura de carpetas organizada lógicamente (por ejemplo, por Año/mes) '
+                   'Reubica miles de fotos con un solo clic y mantén todo ordenado.',
         action_text='Organizar ahora'
     )
+
 
     # Esta herramienta no requiere análisis previo
     card.set_status_ready("Listo para organizar archivos")

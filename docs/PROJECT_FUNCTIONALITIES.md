@@ -33,7 +33,7 @@ Gestiona inteligentemente las "Live Photos" (que constan de una imagen y un vide
 ### 4. Detección de Duplicados Exactos
 Analiza su colección byte por byte para encontrar archivos que son matemáticamente idénticos. Es la forma más segura de limpieza, ya que garantiza que no está borrando una foto "parecida", sino exactamente el mismo archivo repetido en diferentes carpetas.
 
-### 5. Copias Visuales Idénticas
+### 5. Copias Visualmente Idénticas
 Identifica imágenes que son visualmente indistinguibles para el ojo humano, aunque técnicamente sean archivos diferentes (por ejemplo, una copia descargada de internet vs la original, o la misma foto guardada con diferente metadata). Ideal para limpiar su galería de repeticiones innecesarias.
 
 ### 6. Archivos Similares
@@ -43,7 +43,7 @@ Detecta fotos y vídeos que son muy parecidos pero no idénticos. Esto es perfec
 - Detectar copias de baja resolución.
 
 ### 7. Organización Inteligente
-Pone orden en el caos. Esta herramienta analiza sus archivos y propone una nueva estructura de carpetas organizada lógicamente (por ejemplo, por Año/Mes/Día), permitiéndole reubicar miles de fotos con un solo clic y mantener su biblioteca impecable.
+Pone orden en el caos. Esta herramienta analiza sus archivos y propone una nueva estructura de carpetas organizada lógicamente (por ejemplo, por Año/Mes), permitiéndole reubicar miles de fotos con un solo clic y mantener su biblioteca impecable.
 
 ### 8. Renombrado Masivo
 Estandarice los nombres de sus archivos de forma profesional. Puede cambiar nombres crípticos como `IMG_8823.JPG` a formatos útiles y legibles como `20241231_112300_PHOTO.jpg`, utilizando fechas y secuencias automáticas para evitar conflictos.

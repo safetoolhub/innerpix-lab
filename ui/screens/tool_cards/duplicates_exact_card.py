@@ -25,9 +25,10 @@ def create_duplicates_exact_card(analysis_results, on_click_callback) -> ToolCar
         icon_name='content-copy',
         title='Copias Exactas',
         description='Detecta archivos idénticos y ayuda a eliminar copias innecesarias. '
-                   'Mantén solo una copia y recupera espacio sin perder ningún archivo único.',
+                   'Garantiza que no está borrando una foto "parecida", sino exactamente el mismo archivo repetido en diferentes carpetas (auqnue tenga disitnto nombre)',
         action_text='Gestionar ahora' if has_analysis else 'Analizar ahora'
     )
+
 
     # Configurar estado según datos
     if has_analysis:

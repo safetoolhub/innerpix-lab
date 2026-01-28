@@ -17,9 +17,9 @@ def create_file_renamer_card(on_click_callback) -> ToolCard:
     """
     card = ToolCard(
         icon_name='rename-box',
-        title='Renombrar',
-        description='Renombra tus archivos con fechas de captura en formato legible. '
-                   'Convierte nombres crípticos en nombres descriptivos y fáciles de buscar.',
+        title='Renombrado masivo',
+        description='Renombra todos tus archivos con fechas de captura en formato legible. '
+                   'Convierte nombres crípticos como `IMG_8823.JPG` en nombres descriptivos como `20241231_112300_PHOTO.jpg`',
         action_text='Renombrar ahora'
     )
 

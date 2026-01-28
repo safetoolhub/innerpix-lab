@@ -12,11 +12,10 @@ Revisar ls clases de servicio de duplciados que aun tienen herencia de cuando es
 ✅ RESUELTO: Duración de videos unificada - ahora solo exif_VideoDurationSeconds + property video_duration_formatted
    Formato adaptativo: <10s muestra "1.2 seg", 10-59s muestra "45 seg", >=60s muestra "1:23 min"
 
-El de Organizar debe rehacerse el UI del todo
-
 Podriamos para live photos comprobar que el video es mas corto de 5 segundos
 
-Revisar y unificar los mensajes que se muestran en stage 3 tras el uso de una tool_name
+✅ Revisar y unificar los mensajes que se muestran en stage 3 tras el uso de una tool_name
+
 Revisar y homogeniezar los logs que salen en debug e info
 
 BUG: si se va a similar duplciates, se borra 1 y se vuelve a stage 3, y se le da de nuevo se queda colgado. Seguramente 
