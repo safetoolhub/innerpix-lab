@@ -26,6 +26,7 @@ from utils.format_utils import format_size
 from utils.logger import get_logger
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
+from ui.tools_definitions import TOOL_VISUAL_IDENTICAL
 from .base_dialog import BaseDialog
 from .dialog_utils import (
     show_file_details_dialog, 
@@ -137,7 +138,7 @@ class VisualIdenticalDialog(BaseDialog):
     
     def _init_ui(self):
         """Configura la interfaz del diálogo."""
-        self.setWindowTitle("Gestionar copias visuales idénticas")
+        self.setWindowTitle(TOOL_VISUAL_IDENTICAL.title)
         self.setModal(True)
         self.resize(1350, 900)
         self.setMinimumSize(1150, 700)
@@ -148,10 +149,9 @@ class VisualIdenticalDialog(BaseDialog):
         
         # Header compacto con métricas
         self.header_frame = self._create_compact_header_with_metrics(
-            icon_name='image-multiple',
-            title='Copias visuales idénticas',
-            description='Archivos visualmente idénticos, pero con diferente resolución o metedatos. '
-                       'Sucede en fotos enviadas por WhatsApp o redimensionadas.',
+            icon_name=TOOL_VISUAL_IDENTICAL.icon_name,
+            title=TOOL_VISUAL_IDENTICAL.title,
+            description=TOOL_VISUAL_IDENTICAL.short_description,
             metrics=[
                 {
                     'value': str(self.analysis.total_groups),

@@ -65,15 +65,19 @@ Prácticas específicas del repositorio
 - **Dialogs / UI**: Los diálogos en `ui/dialogs/` usan `BaseDialog` y la presentación debe ser solo UI; no incluir lógica pesada.
 - **Design system**: Usar `DesignSystem` y evitar QSS o estilos inline fuera del sistema de diseño.
 
-Tool Cards (Stage 3)
-- **Live Photos** (`live_photos_card.py`): "Live Photos" - Detecta y gestiona Live Photos de iPhone
-- **HEIC/JPG Duplicados** (`heic_card.py`): "HEIC/JPG Duplicados" - Detecta pares HEIC/JPG duplicados
-- **Copias Exactas** (`duplicates_exact_card.py`): "Copias Exactas" - Detecta archivos idénticos por SHA256
-- **Copias visuales idénticas** (`visual_identical_card.py`): "Copias visuales idénticas" - Detecta copias 100% visuales por perceptual hash
-- **Archivos similares** (`duplicates_similar_card.py`): "Archivos similares" - Detecta archivos 70-99% similares (revisión manual)
-- **Archivos vacíos** (`zero_byte_card.py`): "Archivos vacíos" - Detecta archivos de 0 bytes
-- **Organizar** (`file_organizer_card.py`): "Organizar" - Organiza archivos por fecha en carpetas
-- **Renombrar** (`file_renamer_card.py`): "Renombrar" - Renombra archivos con fechas de captura
+Tool Cards (Stage 3) - Definiciones centralizadas en `ui/tools_definitions.py`
+- **Archivos vacíos** (`zero_byte_card.py`): "Archivos vacíos" - Archivos de 0 bytes sin información
+- **Duplicados HEIC/JPG** (`heic_card.py`): "Duplicados HEIC/JPG" - Fotos HEIC con versiones JPG idénticas
+- **Live Photos** (`live_photos_card.py`): "Live Photos" - Live Photos de iPhone (Imagen + MOV)
+- **Copias exactas** (`duplicates_exact_card.py`): "Copias exactas" - Archivos 100% idénticos aunque tengan nombres diferentes
+- **Copias visualmente idénticas** (`visual_identical_card.py`): "Copias visualmente idénticas" - Archivos visualmente idénticos con diferentes datos internos
+- **Archivos similares** (`duplicates_similar_card.py`): "Archivos similares" - Imágenes similares pero no iguales
+- **Organización inteligente** (`file_organizer_card.py`): "Organización inteligente" - Organiza imágenes y videos en carpetas
+- **Renombrado completo** (`file_renamer_card.py`): "Renombrado completo" - Renombra archivos al formato YYYY-MM-DD_HH-MM-SS
+- **Categorías** (centralizadas en `tools_definitions.py`):
+  - "Limpieza y espacio": zero_byte, live_photos, heic, duplicates_exact
+  - "Detección visual": visual_identical, duplicates_similar
+  - "Organización": file_organizer, file_renamer
 - Todas las cards siguen el mismo patrón: reciben `analysis_results` y `on_click_callback` excepto Organizar y Renombrar que no requieren análisis previo
 
 Herramientas de Archivos Similares (Similar Files Tools)

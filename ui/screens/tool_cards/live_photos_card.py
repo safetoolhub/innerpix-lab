@@ -3,6 +3,7 @@ Crea la card de Live Photos para el grid de herramientas.
 """
 
 from ui.screens.tool_card import ToolCard
+from ui.tools_definitions import TOOL_LIVE_PHOTOS
 from utils.format_utils import format_size
 
 
@@ -22,11 +23,9 @@ def create_live_photos_card(analysis_results, on_click_callback) -> ToolCard:
                    analysis_results.live_photos is not None)
     
     card = ToolCard(
-        icon_name='camera-burst',
-        title='Live Photos',
-        description='Las Live Photos de iPhone combinan imagen y vídeo corto. '
-                   'Libera espacio eliminando el componente de vídeo, '
-                   'mientras conservas la esencia de tus recuerdos.',
+        icon_name=TOOL_LIVE_PHOTOS.icon_name,
+        title=TOOL_LIVE_PHOTOS.title,
+        description=TOOL_LIVE_PHOTOS.long_description,
         action_text='Gestionar ahora' if has_analysis else 'Analizar ahora'
     )
 

@@ -3,6 +3,7 @@ Crea la card de Copias Visuales Idénticas para el grid de herramientas.
 """
 
 from ui.screens.tool_card import ToolCard
+from ui.tools_definitions import TOOL_VISUAL_IDENTICAL
 from utils.format_utils import format_size
 
 
@@ -22,11 +23,9 @@ def create_visual_identical_card(analysis_results, on_click_callback) -> ToolCar
                    analysis_results.visual_identical is not None)
     
     card = ToolCard(
-        icon_name='image-multiple',
-        title='Copias visualmente idénticas',
-        description='Detecta fotos visualmente idénticas aunque tengan diferente '
-                   'resolución o metadatos. Ideal para eliminar copias de WhatsApp, '
-                   'screenshots repetidos o imágenes redimensionadas.',
+        icon_name=TOOL_VISUAL_IDENTICAL.icon_name,
+        title=TOOL_VISUAL_IDENTICAL.title,
+        description=TOOL_VISUAL_IDENTICAL.long_description,
         action_text='Gestionar ahora' if has_analysis else 'Analizar ahora'
     )
     

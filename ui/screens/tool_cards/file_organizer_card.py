@@ -3,6 +3,7 @@ Crea la card de Organizar para el grid de herramientas.
 """
 
 from ui.screens.tool_card import ToolCard
+from ui.tools_definitions import TOOL_FILE_ORGANIZER
 
 
 def create_file_organizer_card(on_click_callback) -> ToolCard:
@@ -16,10 +17,9 @@ def create_file_organizer_card(on_click_callback) -> ToolCard:
         ToolCard configurada
     """
     card = ToolCard(
-        icon_name='folder-move',
-        title='Organización inteligente',
-        description='Organiza tus archivos en una estructura de carpetas organizada lógicamente (por ejemplo, por Año/mes) '
-                   'Reubica miles de fotos con un solo clic y mantén todo ordenado.',
+        icon_name=TOOL_FILE_ORGANIZER.icon_name,
+        title=TOOL_FILE_ORGANIZER.title,
+        description=TOOL_FILE_ORGANIZER.long_description,
         action_text='Organizar ahora'
     )
 

@@ -44,7 +44,7 @@ Reestructurar las definiciones de las 8 herramientas ("tools") para que:
 
 Asegúrate de reemplazar los textos actuales y usar las nuevas definiciones unificadas en los siguientes lugares:
 
-- **`Settings_dialog` → sección “Herramientas”**
+- **`About_dialog` → sección “Herramientas”**
 Usar: **Título** + **Descripción larga**
 - **`stage_3_window` → tarjetas dentro de `tools_cards`**
 (`zero_byte_card.py`, `file_renamer_card.py`, etc.)

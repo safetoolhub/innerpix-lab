@@ -15,6 +15,7 @@ from config import Config
 from utils.format_utils import format_size
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
+from ui.tools_definitions import TOOL_HEIC
 from .base_dialog import BaseDialog
 
 
@@ -50,7 +51,7 @@ class HeicDialog(BaseDialog):
         self.init_ui()
 
     def init_ui(self):
-        self.setWindowTitle("Limpieza de Duplicados HEIC/JPG")
+        self.setWindowTitle(TOOL_HEIC.title)
         self.setModal(True)
         self.resize(1200, 800)
         main_layout = QVBoxLayout(self)
@@ -61,9 +62,9 @@ class HeicDialog(BaseDialog):
         initial_recoverable = self.analysis.potential_savings_keep_jpg if self.selected_format == 'jpg' else self.analysis.potential_savings_keep_heic
         
         self.header_frame = self._create_compact_header_with_metrics(
-            icon_name='image-album',
-            title='Duplicados HEIC/JPG detectados',
-            description='Fotos HEIC con versiones JPG idénticas. Elige qué formato conservar y libera espacio.',
+            icon_name=TOOL_HEIC.icon_name,
+            title=TOOL_HEIC.title,
+            description=TOOL_HEIC.short_description,
             metrics=[
                 {
                     'value': str(self.analysis.items_count),

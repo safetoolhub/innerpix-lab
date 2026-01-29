@@ -18,6 +18,7 @@ from PyQt6.QtCore import Qt
 
 from services.result_types import ZeroByteAnalysisResult
 from ui.dialogs.zero_byte_dialog import ZeroByteDialog
+from ui.tools_definitions import TOOL_ZERO_BYTE
 
 
 @pytest.fixture(scope='module')
@@ -81,7 +82,7 @@ class TestZeroByteDialogBasics:
         
         assert dialog is not None
         assert dialog.analysis_result == analysis
-        assert dialog.windowTitle() == "Archivos Vacíos (0 bytes)"
+        assert dialog.windowTitle() == TOOL_ZERO_BYTE.title
     
     def test_dialog_inherits_base_dialog(self, qapp, temp_dir):
         """Test que el diálogo hereda de BaseDialog."""
@@ -492,7 +493,7 @@ class TestZeroByteDialogUX:
         dialog = ZeroByteDialog(analysis)
         
         title = dialog.windowTitle()
-        assert "Vacíos" in title or "0 bytes" in title
+        assert title == TOOL_ZERO_BYTE.title
     
     def test_dialog_has_reasonable_size(self, qapp, temp_dir):
         """Test que el diálogo tiene un tamaño razonable."""

@@ -18,6 +18,7 @@ from utils.file_utils import get_file_type, is_image_file, is_video_file
 from config import Config
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
+from ui.tools_definitions import TOOL_FILE_RENAMER
 from utils.logger import get_logger
 from .base_dialog import BaseDialog
 from .dialog_utils import (
@@ -71,7 +72,7 @@ class FileRenamerDialog(BaseDialog):
             self.stats_labels['errors'].setText(str(len(results.errors)))
 
     def init_ui(self):
-        self.setWindowTitle("Renombrado de archivos")
+        self.setWindowTitle(TOOL_FILE_RENAMER.title)
         self.setModal(True)
         self.resize(1200, 800)
         
@@ -81,9 +82,9 @@ class FileRenamerDialog(BaseDialog):
         
         # Header compacto integrado con métricas inline
         header = self._create_compact_header_with_metrics(
-            icon_name='rename-box-outline',
-            title='Renombrado de archivos',
-            description='Los archivos se renombrarán al formato YYYY-MM-DD_HH-MM-SS según fecha de creación.',
+            icon_name=TOOL_FILE_RENAMER.icon_name,
+            title=TOOL_FILE_RENAMER.title,
+            description=TOOL_FILE_RENAMER.short_description,
             metrics=[
                 {
                     'value': str(self.analysis_results.items_count),

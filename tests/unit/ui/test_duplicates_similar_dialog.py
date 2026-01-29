@@ -18,6 +18,7 @@ from PyQt6.QtCore import Qt
 from services.duplicates_similar_service import DuplicatesSimilarAnalysis
 from services.result_types import DuplicateGroup
 from ui.dialogs.duplicates_similar_dialog import DuplicatesSimilarDialog
+from ui.tools_definitions import TOOL_DUPLICATES_SIMILAR
 
 
 def create_mock_analysis(num_files: int = 10) -> DuplicatesSimilarAnalysis:
@@ -47,7 +48,7 @@ class TestDuplicatesSimilarDialogBasics:
         
         assert dialog is not None
         assert dialog.analysis == analysis
-        assert "Archivos Similares" in dialog.windowTitle()
+        assert TOOL_DUPLICATES_SIMILAR.title in dialog.windowTitle()
     
     def test_dialog_inherits_base_dialog(self, qtbot):
         """Test que el diálogo hereda de BaseDialog."""

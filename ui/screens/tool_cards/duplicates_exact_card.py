@@ -3,6 +3,7 @@ Crea la card de Duplicados Exactos (Copias Exactas) para el grid de herramientas
 """
 
 from ui.screens.tool_card import ToolCard
+from ui.tools_definitions import TOOL_DUPLICATES_EXACT
 from utils.format_utils import format_size
 
 
@@ -22,10 +23,9 @@ def create_duplicates_exact_card(analysis_results, on_click_callback) -> ToolCar
                    analysis_results.duplicates is not None)
     
     card = ToolCard(
-        icon_name='content-copy',
-        title='Copias Exactas',
-        description='Detecta archivos idénticos y ayuda a eliminar copias innecesarias. '
-                   'Garantiza que no está borrando una foto "parecida", sino exactamente el mismo archivo repetido en diferentes carpetas (auqnue tenga disitnto nombre)',
+        icon_name=TOOL_DUPLICATES_EXACT.icon_name,
+        title=TOOL_DUPLICATES_EXACT.title,
+        description=TOOL_DUPLICATES_EXACT.long_description,
         action_text='Gestionar ahora' if has_analysis else 'Analizar ahora'
     )
 

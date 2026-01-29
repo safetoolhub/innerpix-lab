@@ -21,6 +21,7 @@ from utils.date_utils import select_best_date_from_file, get_all_metadata_from_f
 from utils.file_utils import is_whatsapp_file
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
+from ui.tools_definitions import TOOL_FILE_ORGANIZER
 from utils.logger import get_logger
 from services.file_organizer_service import FileOrganizerService, OrganizationType
 from services.file_metadata_repository_cache import FileInfoRepositoryCache
@@ -87,7 +88,7 @@ class FileOrganizerDialog(BaseDialog):
 
     def init_ui(self):
         """Inicializa la interfaz"""
-        self.setWindowTitle("Organización de Archivos")
+        self.setWindowTitle(TOOL_FILE_ORGANIZER.title)
         self.setModal(True)
         self.resize(1200, 720)  # Más ancho para cards horizontales con ejemplos
         
@@ -439,9 +440,9 @@ class FileOrganizerDialog(BaseDialog):
         
         # === HEADER COMPACTO CON MÉTRICAS ===
         self.header_frame = self._create_compact_header_with_metrics(
-            icon_name='folder-cog',
-            title='Organización de Archivos',
-            description='Configura y previsualiza la organización',
+            icon_name=TOOL_FILE_ORGANIZER.icon_name,
+            title=TOOL_FILE_ORGANIZER.title,
+            description=TOOL_FILE_ORGANIZER.short_description,
             metrics=[
                 {'label': 'Total', 'value': '0'},
                 {'label': 'Organizar', 'value': '0'},

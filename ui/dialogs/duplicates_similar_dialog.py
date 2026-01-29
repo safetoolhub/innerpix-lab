@@ -30,6 +30,7 @@ from utils.platform_utils import open_file_with_default_app
 from utils.logger import get_logger
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
+from ui.tools_definitions import TOOL_DUPLICATES_SIMILAR
 from .base_dialog import BaseDialog
 from .dialog_utils import show_file_details_dialog
 from .image_preview_dialog import ImagePreviewDialog
@@ -70,7 +71,7 @@ class DuplicatesSimilarDialog(BaseDialog):
     
     def _setup_ui(self):
         """Configura la interfaz del diálogo."""
-        self.setWindowTitle("Gestionar Archivos Similares")
+        self.setWindowTitle(TOOL_DUPLICATES_SIMILAR.title)
         self.setModal(True)
         self.resize(1280, 900)
         self.setMinimumSize(1100, 750)
@@ -81,9 +82,9 @@ class DuplicatesSimilarDialog(BaseDialog):
         
         # Header
         self.header_frame = self._create_compact_header_with_metrics(
-            icon_name='image-search',
-            title='Archivos Similares',
-            description='Detecta imágenes parecidas (ediciones, recortes, diferentes resoluciones)',
+            icon_name=TOOL_DUPLICATES_SIMILAR.icon_name,
+            title=TOOL_DUPLICATES_SIMILAR.title,
+            description=TOOL_DUPLICATES_SIMILAR.short_description,
             metrics=[
                 {'value': '-', 'label': 'Grupos', 'color': DesignSystem.COLOR_PRIMARY},
                 {'value': '-', 'label': 'Similares', 'color': DesignSystem.COLOR_WARNING},

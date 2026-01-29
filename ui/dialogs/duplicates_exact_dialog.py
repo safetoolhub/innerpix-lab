@@ -26,6 +26,7 @@ from utils.file_utils import is_image_file, is_video_file
 from utils.logger import get_logger
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
+from ui.tools_definitions import TOOL_DUPLICATES_EXACT
 from .base_dialog import BaseDialog
 from .dialog_utils import (
     show_file_details_dialog,
@@ -147,7 +148,7 @@ class DuplicatesExactDialog(BaseDialog):
     
     def _init_ui(self):
         """Configura la interfaz del diálogo."""
-        self.setWindowTitle("Gestionar copias exactas")
+        self.setWindowTitle(TOOL_DUPLICATES_EXACT.title)
         self.setModal(True)
         self.resize(1200, 900)
         self.setMinimumSize(1000, 700)
@@ -158,10 +159,9 @@ class DuplicatesExactDialog(BaseDialog):
         
         # Header compacto con métricas
         self.header_frame = self._create_compact_header_with_metrics(
-            icon_name='content-copy',
-            title='Copias exactas detectadas',
-            description='Archivos 100% idénticos aunque tengan nombres diferentes. '
-                       'Es totalmente seguro borrarlos.',
+            icon_name=TOOL_DUPLICATES_EXACT.icon_name,
+            title=TOOL_DUPLICATES_EXACT.title,
+            description=TOOL_DUPLICATES_EXACT.short_description,
             metrics=[
                 {
                     'value': str(self.analysis.total_groups),

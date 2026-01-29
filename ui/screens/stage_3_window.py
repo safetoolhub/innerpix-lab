@@ -20,6 +20,7 @@ from utils.settings_manager import settings_manager, SettingsManager
 from .base_stage import BaseStage
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
+from ui.tools_definitions import get_tool_title, CATEGORY_CLEANUP, CATEGORY_VISUAL, CATEGORY_ORGANIZATION
 from ui.screens.summary_card import SummaryCard
 from ui.screens.tool_card import ToolCard
 from ui.dialogs.live_photos_dialog import LivePhotosDialog
@@ -282,7 +283,7 @@ class Stage3Window(BaseStage):
             return section_widget, grid
 
         # 1. SECCIÓN: LIMPIEZA Y ESPACIO
-        cleanup_section, cleanup_grid = create_section("Limpieza y Espacio", "delete-sweep")
+        cleanup_section, cleanup_grid = create_section(CATEGORY_CLEANUP.title, "delete-sweep")
         
         # Cards de limpieza
         zero_byte_card = create_zero_byte_card(self.analysis_results, self._on_tool_clicked)
@@ -302,8 +303,8 @@ class Stage3Window(BaseStage):
         
         main_grid_layout.addWidget(cleanup_section)
 
-        # 2. SECCIÓN: COPIAS VISUALES IDÉNTICAS y SIMILARES
-        similar_section, similar_grid = create_section("Detección visual de duplicados", "image-search")
+        # 2. SECCIÓN: DETECCIÓN VISUAL
+        similar_section, similar_grid = create_section(CATEGORY_VISUAL.title, "image-search")
         
         # Card de copias visuales idénticas (100% similitud)
         visual_identical_card = create_visual_identical_card(self.analysis_results, self._on_tool_clicked)
@@ -318,7 +319,7 @@ class Stage3Window(BaseStage):
         main_grid_layout.addWidget(similar_section)
 
         # 3. SECCIÓN: ORGANIZACIÓN
-        org_section, org_grid = create_section("Organización", "folder-move")
+        org_section, org_grid = create_section(CATEGORY_ORGANIZATION.title, "folder-move")
         organize_card = create_file_organizer_card(self._on_tool_clicked)
         rename_card = create_file_renamer_card(self._on_tool_clicked)
         org_grid.addWidget(organize_card, 0, 0)
@@ -958,18 +959,7 @@ class Stage3Window(BaseStage):
         Returns:
             Mensaje personalizado para el diálogo
         """
-        service_names = {
-            'live_photos': 'Live Photos',
-            'heic': 'HEIC/JPG',
-            'duplicates_exact': 'Duplicados Exactos',
-            'duplicates_similar': 'Archivos Similares',
-            'visual_identical': 'Copias Visuales Idénticas',
-            'file_organizer': 'Organización de Archivos',
-            'file_renamer': 'Renombrado de Archivos',
-            'zero_byte': 'Archivos Vacíos'
-        }
-        
-        service_name = service_names.get(tool_id, tool_id)
+        service_name = get_tool_title(tool_id)
         
         return (
             f"¿Deseas actualizar las estadísticas de {service_name}?\n\n"
@@ -1107,16 +1097,7 @@ class Stage3Window(BaseStage):
                 
                 # Solo mostrar mensaje de éxito si NO es actualización automática
                 if not auto_update:
-                    service_names = {
-                        'live_photos': 'Live Photos',
-                        'heic': 'HEIC/JPG',
-                        'duplicates_exact': 'Duplicados Exactos',
-                        'duplicates_similar': 'Duplicados Similares', 
-                        'file_organizer': 'Organización de Archivos',
-                        'file_renamer': 'Renombrado de Archivos',
-                        'zero_byte': 'Archivos Vacíos'
-                    }
-                    service_name = service_names.get(tool_id, tool_id)
+                    service_name = get_tool_title(tool_id)
                     
                     QMessageBox.information(
                         self.main_window,

@@ -16,6 +16,7 @@ from utils.format_utils import format_size
 from utils.platform_utils import are_video_tools_available
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
+from ui.tools_definitions import TOOL_LIVE_PHOTOS
 from services.result_types import LivePhotosAnalysisResult, LivePhotoGroup
 from .base_dialog import BaseDialog
 
@@ -52,7 +53,7 @@ class LivePhotosDialog(BaseDialog):
         self.init_ui()
 
     def init_ui(self):
-        self.setWindowTitle("Limpieza de Live Photos")
+        self.setWindowTitle(TOOL_LIVE_PHOTOS.title)
         self.setModal(True)
         self.resize(1200, 800)
         main_layout = QVBoxLayout(self)
@@ -64,9 +65,9 @@ class LivePhotosDialog(BaseDialog):
         
         # Header compacto integrado con métricas inline
         self.header_frame = self._create_compact_header_with_metrics(
-            icon_name='camera',
-            title='Live Photos detectadas',
-            description='Live Photos de iPhone (Imagen + MOV). Los videos MOV serán eliminados para liberar espacio.',
+            icon_name=TOOL_LIVE_PHOTOS.icon_name,
+            title=TOOL_LIVE_PHOTOS.title,
+            description=TOOL_LIVE_PHOTOS.short_description,
             metrics=[
                 {
                     'value': str(self.analysis.items_count),

@@ -3,6 +3,7 @@ Crea la card de Archivos Similares para el grid de herramientas.
 """
 
 from ui.screens.tool_card import ToolCard
+from ui.tools_definitions import TOOL_DUPLICATES_SIMILAR
 from utils.format_utils import format_size
 
 
@@ -22,10 +23,9 @@ def create_duplicates_similar_card(analysis_results, on_click_callback) -> ToolC
                    analysis_results.duplicates_similar is not None)
     
     card = ToolCard(
-        icon_name='image-search',
-        title='Archivos similares',
-        description='Detecta fotos y vídeos visualmente muy similares aunque tengan metadatos '
-                   'diferentes (fechas, compresión, etc.). Deberás analizarlo manualmente y elegir los que quieras borrar. ',
+        icon_name=TOOL_DUPLICATES_SIMILAR.icon_name,
+        title=TOOL_DUPLICATES_SIMILAR.title,
+        description=TOOL_DUPLICATES_SIMILAR.long_description,
         action_text='Gestionar ahora' if has_analysis else 'Analizar ahora'
     )
 

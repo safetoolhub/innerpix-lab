@@ -105,17 +105,22 @@ PyQt6 desktop app for photo/video management oriented to privacy.
   - Logging INFO cada 10% en fases 3, 4, 5, 6 (hash, EXIF images, EXIF videos, best date)
   - Invalidación de caché al volver a Stage 1 con `_invalidate_metadata_cache()`
 - Stage 3: Tools grid → dialogs
-  - Tool Cards disponibles:
-    - "Live Photos" - Gestiona Live Photos de iPhone (imagen + video corto)
-    - "HEIC/JPG Duplicados" - Gestiona pares HEIC/JPG duplicados
-    - "Copias Exactas" - Detecta archivos idénticos (SHA256)
-    - "Copias visuales idénticas" - Detecta copias 100% visuales (threshold=0)
-    - "Archivos similares" - Detecta archivos 70-99% similares (revisión manual)
-    - "Archivos vacíos" - Detecta archivos de 0 bytes
-    - "Organizar" - Organiza archivos por fecha en carpetas
-    - "Renombrar" - Renombra archivos con fechas de captura
+  - Tool Cards disponibles (definiciones centralizadas en `ui/tools_definitions.py`):
+    - "Archivos vacíos" - Archivos de 0 bytes que no contienen información
+    - "Duplicados HEIC/JPG" - Fotos HEIC con versiones JPG idénticas
+    - "Live Photos" - Live Photos de iPhone (Imagen + MOV)
+    - "Copias exactas" - Archivos 100% idénticos aunque tengan nombres diferentes
+    - "Copias visualmente idénticas" - Archivos visualmente idénticos con diferentes datos internos
+    - "Archivos similares" - Imágenes similares pero no iguales (ediciones, recortes)
+    - "Organización inteligente" - Organiza imágenes y videos en carpetas
+    - "Renombrado completo" - Renombra archivos al formato YYYY-MM-DD_HH-MM-SS
+  - **Categorías** (también centralizadas en `tools_definitions.py`):
+    - "Limpieza y espacio": zero_byte, live_photos, heic, duplicates_exact
+    - "Detección visual": visual_identical, duplicates_similar
+    - "Organización": file_organizer, file_renamer
   - Cards pattern: Reciben `analysis_results` y `on_click_callback`
   - Excepción: Organizar y Renombrar no requieren análisis previo
+  - **Definiciones centralizadas**: `ui/tools_definitions.py` contiene ToolDefinition dataclass con id, title, short_description, long_description, icon_name
 - All extend `BaseStage`
 
 ## Critical Patterns

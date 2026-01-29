@@ -14,6 +14,7 @@ from PyQt6.QtCore import Qt
 
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
+from ui.tools_definitions import TOOL_ZERO_BYTE
 from utils.format_utils import format_file_count
 from services.result_types import ZeroByteAnalysisResult
 from .base_dialog import BaseDialog
@@ -51,7 +52,7 @@ class ZeroByteDialog(BaseDialog):
         self._load_initial_groups()
         
     def init_ui(self):
-        self.setWindowTitle("Archivos Vacíos (0 bytes)")
+        self.setWindowTitle(TOOL_ZERO_BYTE.title)
         self.resize(900, 650)
         
         main_layout = QVBoxLayout(self)
@@ -60,9 +61,9 @@ class ZeroByteDialog(BaseDialog):
         
         # Header compacto
         self.header_frame = self._create_compact_header_with_metrics(
-            icon_name='trash-alt',
-            title='Archivos Vacíos Detectados',
-            description='Estos archivos ocupan 0 bytes y no contienen información. Es seguro eliminarlos.',
+            icon_name=TOOL_ZERO_BYTE.icon_name,
+            title=TOOL_ZERO_BYTE.title,
+            description=TOOL_ZERO_BYTE.short_description,
             metrics=[
                 {
                     'value': str(len(self.analysis_result.files)),

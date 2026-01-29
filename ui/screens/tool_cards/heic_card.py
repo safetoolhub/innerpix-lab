@@ -3,6 +3,7 @@ Crea la card de HEIC/JPG Duplicados para el grid de herramientas.
 """
 
 from ui.screens.tool_card import ToolCard
+from ui.tools_definitions import TOOL_HEIC
 from utils.format_utils import format_size
 
 
@@ -22,11 +23,9 @@ def create_heic_card(analysis_results, on_click_callback) -> ToolCard:
                    analysis_results.heic is not None)
     
     card = ToolCard(
-        icon_name='file-image',
-        title='HEIC/JPG Duplicados',
-        description='iPhone guarda fotos en HEIC (eficiente) y crea versiones JPG para '
-                   'compatibilidad. Elimina duplicados conservando el formato que prefieras '
-                   'y recupera espacio valioso.',
+        icon_name=TOOL_HEIC.icon_name,
+        title=TOOL_HEIC.title,
+        description=TOOL_HEIC.long_description,
         action_text='Gestionar ahora' if has_analysis else 'Analizar ahora'
     )
     

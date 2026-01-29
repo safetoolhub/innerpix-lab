@@ -19,6 +19,9 @@ from PyQt6.QtCore import Qt
 from config import Config
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
+from ui.tools_definitions import (
+    TOOL_CATEGORIES, get_tools_by_category
+)
 
 
 class AboutDialog(QDialog):
@@ -346,62 +349,31 @@ class AboutDialog(QDialog):
         title.setStyleSheet(DesignSystem.get_tutorial_section_header_style())
         layout.addWidget(title)
         
-        # === SECCIÓN 1: LIMPIEZA (4 tools en grid 2x2) ===
-        cleanup_header = self._create_category_header("Limpieza y Espacio", "Libera espacio eliminando archivos innecesarios")
-        layout.addWidget(cleanup_header)
-        
-        cleanup_grid = QGridLayout()
-        cleanup_grid.setSpacing(DesignSystem.SPACE_8)
-        
-        cleanup_tools = [
-            ("file-x", "Archivos Vacíos", "Busca 'archivos fantasma' (0 bytes) que ensucian su sistema y los elimina de forma segura."),
-            ("file-image", "HEIC/JPG", "Identifica fotos guardadas en HEIC y JPG. Ayuda a eliminar versiones redundantes para ahorrar espacio."),
-            ("camera-burst", "Live Photos", "Gestiona inteligentemente las 'Live Photos' (imagen + vídeo) y permite limpiar el vídeo si solo desea la foto."),
-            ("content-copy", "Copias Exactas", "Analiza su colección bit a bit para encontrar archivos matemáticamente idénticos. La forma más segura."),
-        ]
-        
-        for i, (icon, name, desc) in enumerate(cleanup_tools):
-            row, col = i // 2, i % 2
-            card = self._create_tool_mini_card(icon, name, desc)
-            cleanup_grid.addWidget(card, row, col)
-        
-        layout.addLayout(cleanup_grid)
-        
-        # === SECCIÓN 2: DETECCIÓN VISUAL (2 tools) ===
-        visual_header = self._create_category_header("Detección Visual", "Encuentra imágenes visualmente similares")
-        layout.addWidget(visual_header)
-        
-        visual_grid = QGridLayout()
-        visual_grid.setSpacing(DesignSystem.SPACE_8)
-        
-        visual_tools = [
-            ("image-multiple", "Copias Idénticas", "Identifica imágenes visualmente indistinguibles aunque sean archivos diferentes (ej: original vs copia web)."),
-            ("image-search", "Archivos Similares", "Detecta fotos y vídeos parecidos pero no idénticos. Perfecto para elegir la mejor toma de ráfagas."),
-        ]
-        
-        for i, (icon, name, desc) in enumerate(visual_tools):
-            card = self._create_tool_mini_card(icon, name, desc)
-            visual_grid.addWidget(card, 0, i)
-        
-        layout.addLayout(visual_grid)
-        
-        # === SECCIÓN 3: ORGANIZACIÓN (2 tools) ===
-        org_header = self._create_category_header("Organización", "Ordena y renombra tu colección")
-        layout.addWidget(org_header)
-        
-        org_grid = QGridLayout()
-        org_grid.setSpacing(DesignSystem.SPACE_8)
-        
-        org_tools = [
-            ("folder-move", "Organizar", "Analiza sus archivos y propone una estructura lógica (Año/Mes/Día). Reubica miles de fotos con un clic."),
-            ("rename-box", "Renombrar", "Estandariza nombres crípticos a formatos legibles como 20241231_PHOTO.jpg, usando fechas y secuencias."),
-        ]
-        
-        for i, (icon, name, desc) in enumerate(org_tools):
-            card = self._create_tool_mini_card(icon, name, desc)
-            org_grid.addWidget(card, 0, i)
-        
-        layout.addLayout(org_grid)
+        # Crear secciones dinámicamente usando tools_definitions
+        for category in TOOL_CATEGORIES:
+            # Header de la categoría
+            header = self._create_category_header(category.title, category.description)
+            layout.addWidget(header)
+            
+            # Grid de herramientas
+            tools = get_tools_by_category(category.id)
+            grid = QGridLayout()
+            grid.setSpacing(DesignSystem.SPACE_8)
+            
+            # Determinar layout: 2 columnas para categorías con 4+ tools, 1 fila para categorías con 2
+            if len(tools) > 2:
+                # Grid 2x2 (ej: Limpieza con 4 tools)
+                for i, tool in enumerate(tools):
+                    row, col = i // 2, i % 2
+                    card = self._create_tool_mini_card(tool.icon_name, tool.title, tool.long_description)
+                    grid.addWidget(card, row, col)
+            else:
+                # Una fila horizontal (ej: Visual y Organización con 2 tools)
+                for i, tool in enumerate(tools):
+                    card = self._create_tool_mini_card(tool.icon_name, tool.title, tool.long_description)
+                    grid.addWidget(card, 0, i)
+            
+            layout.addLayout(grid)
         
         # Nota técnica compacta
         tech_note = QLabel(
