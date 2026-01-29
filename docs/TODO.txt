@@ -1,6 +1,8 @@
 Innerpix lab
 ---------------
 
+Revisar en algun momento los nombres de los metadatos, que aprecen de formas diferentes en los detalles del archivo y otros sitios, aquqnu emas o menos funciona
+
 Meter en duplicados exactos filtro por imagen o video para poder ver los videos y comprobar si se detectan
 
 Tenemos que poner en las cards avisos antes del analisis de que si hay metadatos que serian muy utiles tener avisar al usuario. Ejemplo, lo de best date es critico para organizar arhivos, así que debemos avisarlo. 

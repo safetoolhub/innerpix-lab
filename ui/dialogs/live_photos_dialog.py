@@ -197,7 +197,7 @@ class LivePhotosDialog(BaseDialog):
                 'type': 'combo',
                 'label': labels['source'],
                 'tooltip': 'Filtrar grupos por origen de la fecha de comparación',
-                'options': self.DATE_SOURCE_FILTER_OPTIONS + ["Filesystem (atime)"],
+                'options': self.DATE_SOURCE_FILTER_OPTIONS,
                 'on_change': lambda idx: self._apply_filters(),
                 'default_index': 0,
                 'min_width': 200

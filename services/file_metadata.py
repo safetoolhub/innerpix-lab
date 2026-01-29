@@ -49,7 +49,7 @@ class FileMetadata:
     # Best date available (fecha más representativa calculada)
     # Calculada en Phase 5 del InitialScanner usando select_best_date_from_file()
     best_date: Optional[datetime] = None
-    best_date_source: Optional[str] = None  # Fuente de la fecha (ej: 'exif_datetime_original', 'mtime')
+    best_date_source: Optional[str] = None  # Fuente de la fecha (ej: 'EXIF DateTimeOriginal', 'mtime')
     
     # Metadatos EXIF (opcionales)
     exif_ImageWidth: Optional[int] = None
@@ -63,7 +63,6 @@ class FileMetadata:
     exif_SubSecTimeOriginal: Optional[str] = None
     exif_OffsetTimeOriginal: Optional[str] = None
     exif_Software: Optional[str] = None
-    # Duración de video en segundos (fuente de verdad única)
     exif_VideoDurationSeconds: Optional[float] = None
     
     @property

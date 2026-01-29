@@ -918,67 +918,6 @@ def extract_date_from_filename(filename: str) -> Optional[datetime]:
     return None
 
 
-def _normalize_date_source(source: str) -> str:
-    """
-    Normaliza el nombre de la fuente de fecha al formato de caché.
-    
-    Convierte los nombres descriptivos de select_best_date_from_file() al formato
-    compacto usado en metadata_cache.
-    
-    Args:
-        source: Nombre de fuente de select_best_date_from_file() 
-                (ej: 'EXIF DateTimeOriginal (+02:00)', 'Filename', 'mtime')
-    
-    Returns:
-        Nombre normalizado para caché:
-        - 'exif_datetime_original_tz': DateTimeOriginal con timezone
-        - 'exif_datetime_original': DateTimeOriginal sin timezone
-        - 'exif_create_date': CreateDate
-        - 'exif_datetime_digitized': DateTimeDigitized
-        - 'filename': Extraída del nombre de archivo
-        - 'video': Metadata de video  
-        - 'mtime': Modification time
-        - 'ctime': Creation time
-        - 'other': Cualquier otra fuente
-    """
-    if not source:
-        return 'unknown'
-    
-    source_lower = source.lower()
-    
-    # EXIF DateTimeOriginal con timezone
-    if 'datetimeoriginal' in source_lower and '(' in source:
-        return 'exif_datetime_original_tz'
-    
-    # EXIF DateTimeOriginal sin timezone
-    if 'datetimeoriginal' in source_lower:
-        return 'exif_datetime_original'
-    
-    # EXIF CreateDate
-    if 'createdate' in source_lower:
-        return 'exif_create_date'
-    
-    # EXIF DateTimeDigitized
-    if 'datetimedigitized' in source_lower or 'digitized' in source_lower:
-        return 'exif_datetime_digitized'
-    
-    # Filename
-    if 'filename' in source_lower:
-        return 'filename'
-    
-    # Video metadata
-    if 'video' in source_lower:
-        return 'video'
-    
-    # Filesystem timestamps
-    if source_lower == 'mtime':
-        return 'mtime'
-    if source_lower in ['ctime', 'creation', 'birthtime']:
-        return 'ctime'
-    
-    # Otras fuentes desconocidas
-    return 'other'
-
 
 def _validate_gps_coherence(file_metadata: 'FileMetadata', selected_date: datetime) -> None:
     """

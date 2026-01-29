@@ -2131,24 +2131,27 @@ class BaseDialog(QDialog):
             status_chip.setToolTip(f"Mostrando todos los {entity}: {total_count}")
     
     # Constantes para filtros de origen de fecha
+    # Nombres reales usados por select_best_date_from_file() y select_best_date_from_common_date_to_2_files()
     DATE_SOURCE_FILTER_ALL = "Todos"
     DATE_SOURCE_FILTER_OPTIONS = [
         "Todos",
-        "exif_datetime_original_tz",
-        "exif_datetime_original",
-        "exif_datetime_digitized",
-        "mtime",
-        "ctime",
-        "filename"
+        "EXIF",           # Agrupa todos los EXIF (DateTimeOriginal, CreateDate, etc.)
+        "Filename",       # Fecha extraída del nombre de archivo
+        "Filesystem",     # Agrupa mtime, ctime, atime
     ]
     
     def _matches_source_filter(self, date_source: str, filter_value: str) -> bool:
         """Verifica si el origen de fecha coincide con el filtro seleccionado.
         
         Método centralizado para evitar duplicación entre diálogos.
+        Soporta agrupación de fuentes relacionadas (EXIF, Filesystem).
         
         Args:
-            date_source: Origen de la fecha del archivo (ej: 'exif_datetime_original_tz', 'mtime')
+            date_source: Origen de la fecha del archivo. Valores posibles:
+                - De select_best_date_from_file(): 'EXIF DateTimeOriginal', 'EXIF DateTimeOriginal (+02:00)',
+                  'EXIF CreateDate', 'EXIF DateTimeDigitized', 'Filename', 'Video Metadata', 'mtime', 'ctime', 'birth'
+                - De select_best_date_from_common_date_to_2_files(): 'exif_date_time_original', 'exif_create_date',
+                  'exif_modify_date', 'fs_mtime', 'fs_ctime', 'fs_atime'
             filter_value: Valor seleccionado en el filtro
             
         Returns:
@@ -2157,5 +2160,20 @@ class BaseDialog(QDialog):
         if not date_source or filter_value == self.DATE_SOURCE_FILTER_ALL:
             return True
         
-        # Coincidencia exacta con el valor del filtro
+        source_lower = date_source.lower()
+        
+        # Filtro EXIF: agrupa todos los tipos de EXIF
+        if filter_value == "EXIF":
+            return 'exif' in source_lower or 'video metadata' in source_lower
+        
+        # Filtro Filename
+        if filter_value == "Filename":
+            return 'filename' in source_lower
+        
+        # Filtro Filesystem: agrupa mtime, ctime, atime, birth
+        if filter_value == "Filesystem":
+            filesystem_keywords = ['mtime', 'ctime', 'atime', 'birth', 'fs_']
+            return any(kw in source_lower for kw in filesystem_keywords)
+        
+        # Coincidencia exacta como fallback
         return date_source == filter_value
