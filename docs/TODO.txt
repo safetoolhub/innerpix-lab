@@ -1,6 +1,8 @@
 Innerpix lab
 ---------------
 
+Bug: con RAW_1_2_3_4_5 en analisis de simialres el filtro de mayor tamaño no funciona bien
+
 Revisar en algun momento los nombres de los metadatos, que aprecen de formas diferentes en los detalles del archivo y otros sitios, aquqnu emas o menos funciona
 
 Meter en duplicados exactos filtro por imagen o video para poder ver los videos y comprobar si se detectan

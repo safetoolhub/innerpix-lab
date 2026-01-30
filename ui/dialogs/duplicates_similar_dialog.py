@@ -740,8 +740,12 @@ class DuplicatesSimilarDialog(BaseDialog):
         current_selection = self.selections.get(index, [])
         
         cols = 3
+        # Determinar qué archivos se van a conservar (los NO seleccionados cuando hay selección)
+        has_selection = len(current_selection) > 0
         for i, file_path in enumerate(group.files):
-            card = self._create_file_card(file_path, file_path in current_selection)
+            is_selected = file_path in current_selection
+            will_be_kept = has_selection and not is_selected
+            card = self._create_file_card(file_path, is_selected, will_be_kept)
             grid_layout.addWidget(card, i // cols, i % cols)
         
         scroll.setWidget(grid_widget)
@@ -795,12 +799,12 @@ class DuplicatesSimilarDialog(BaseDialog):
         layout.addStretch()
         return container
 
-    def _create_file_card(self, file_path: Path, is_selected: bool) -> QFrame:
+    def _create_file_card(self, file_path: Path, is_selected: bool, will_be_kept: bool = False) -> QFrame:
         """Crea tarjeta para un archivo."""
         card = QFrame()
         card.setCursor(Qt.CursorShape.PointingHandCursor)
         card.mouseDoubleClickEvent = lambda e: show_file_details_dialog(file_path, self)  # type: ignore[assignment]
-        card.setStyleSheet(self._get_card_style(is_selected))
+        card.setStyleSheet(self._get_card_style(is_selected, will_be_kept))
         
         layout = QVBoxLayout(card)
         layout.setSpacing(DesignSystem.SPACE_8)
@@ -870,10 +874,26 @@ class DuplicatesSimilarDialog(BaseDialog):
         badge.mousePressEvent = lambda e, f=file_path: show_file_details_dialog(f, self)  # type: ignore[assignment]
         return badge
 
-    def _get_card_style(self, is_selected: bool) -> str:
-        border_color = DesignSystem.COLOR_DANGER if is_selected else DesignSystem.COLOR_BORDER
-        bg_color = DesignSystem.COLOR_DANGER_BG if is_selected else DesignSystem.COLOR_SURFACE
-        width = 2 if is_selected else 1
+    def _get_card_style(self, is_selected: bool, will_be_kept: bool = False) -> str:
+        """Retorna el estilo de la tarjeta según su estado.
+        
+        - is_selected (rojo): archivo marcado para eliminación
+        - will_be_kept (verde): archivo que se conservará (no seleccionado cuando hay selección en el grupo)
+        - neutro (blanco): sin selección en el grupo
+        """
+        if is_selected:
+            border_color = DesignSystem.COLOR_DANGER
+            bg_color = DesignSystem.COLOR_DANGER_BG
+            width = 2
+        elif will_be_kept:
+            border_color = DesignSystem.COLOR_SUCCESS
+            bg_color = f"{DesignSystem.COLOR_SUCCESS}15"  # Verde muy suave
+            width = 2
+        else:
+            border_color = DesignSystem.COLOR_BORDER
+            bg_color = DesignSystem.COLOR_SURFACE
+            width = 1
+        
         return f"""
             QFrame {{
                 background-color: {bg_color};
@@ -894,7 +914,12 @@ class DuplicatesSimilarDialog(BaseDialog):
             self.selections[self.current_group_index].remove(file_path)
         
         self._update_summary()
-        self._update_card_visual(file_path, checked)
+        
+        # Refrescar TODAS las tarjetas del grupo para actualizar estados verde/rojo/blanco
+        group = self.all_groups[self.current_group_index]
+        for file in group.files:
+            is_selected = file in self.selections[self.current_group_index]
+            self._update_card_visual(file, is_selected)
 
     def _update_card_visual(self, file_path: Path, is_selected: bool):
         """Actualiza visual de tarjeta."""
@@ -915,12 +940,17 @@ class DuplicatesSimilarDialog(BaseDialog):
         if not grid_layout:
             return
         
+        # Determinar si hay selección en el grupo actual para calcular will_be_kept
+        current_selection = self.selections.get(self.current_group_index, [])
+        has_selection = len(current_selection) > 0
+        will_be_kept = has_selection and not is_selected
+        
         target = str(file_path)
         for i in range(grid_layout.count()):
             item = grid_layout.itemAt(i)
             card = item.widget() if item else None
             if card and card.property("file_path") == target:
-                card.setStyleSheet(self._get_card_style(is_selected))
+                card.setStyleSheet(self._get_card_style(is_selected, will_be_kept))
                 checkbox = card.findChild(QCheckBox)
                 if checkbox:
                     checkbox.blockSignals(True)

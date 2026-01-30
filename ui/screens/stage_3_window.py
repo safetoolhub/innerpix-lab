@@ -805,6 +805,14 @@ class Stage3Window(BaseStage):
                 # Simulated operations (dry_run=True) don't modify files, so re-analysis is unnecessary
                 was_simulation = plan.get('dry_run', False)
                 
+                # ================================================================
+                # INVALIDAR ANÁLISIS RELACIONADOS DESPUÉS DE OPERACIÓN DESTRUCTIVA
+                # Esto previene que otras herramientas usen datos obsoletos que
+                # contienen referencias a archivos que ya fueron eliminados.
+                # ================================================================
+                if not was_simulation:
+                    self._invalidate_related_analysis_results(tool_id)
+                
                 # file_organizer y file_renamer no borran archivos, solo mueven/renombran
                 # No tiene sentido pedir re-análisis para ellos
                 skip_reanalysis_tools = {'file_organizer', 'file_renamer'}

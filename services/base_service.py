@@ -230,6 +230,7 @@ class BaseService(ABC):
         
         # Convertir iterador a lista y extraer Paths
         file_list = []
+        skipped_missing = []
         for item in files:
             try:
                 # to_path maneja Path, dict, dataclass, HEICDuplicatePair, etc.
@@ -238,13 +239,29 @@ class BaseService(ABC):
                     attr_names=('original_path', 'path', 'source_path', 'heic_path', 'jpg_path')
                 )
                 if file_path:
-                    file_list.append(file_path)
+                    # Verificar que el archivo existe antes de incluirlo en backup
+                    # Esto previene errores cuando otro servicio eliminó el archivo
+                    if file_path.exists():
+                        file_list.append(file_path)
+                    else:
+                        skipped_missing.append(file_path)
             except Exception as e:
                 self.logger.warning(f"No se pudo extraer path de {item}: {e}")
                 continue
         
+        # Log de archivos omitidos por no existir
+        if skipped_missing:
+            self.logger.warning(
+                f"⚠️ {len(skipped_missing)} archivos omitidos del backup (ya no existen, "
+                f"posiblemente eliminados por otra operación):"
+            )
+            for missing_path in skipped_missing[:10]:  # Mostrar máximo 10
+                self.logger.warning(f"   - {missing_path}")
+            if len(skipped_missing) > 10:
+                self.logger.warning(f"   ... y {len(skipped_missing) - 10} más")
+        
         if not file_list:
-            self.logger.warning("No hay archivos para backup")
+            self.logger.warning("No hay archivos para backup (todos fueron omitidos o no existen)")
             return None
         
         # Encontrar directorio común

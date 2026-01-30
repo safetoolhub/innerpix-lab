@@ -128,6 +128,64 @@ class DuplicatesBaseService(BaseService):
                 message="No hay duplicados para eliminar"
             )
         
+        # =====================================================================
+        # FILTRAR ARCHIVOS INEXISTENTES DE LOS GRUPOS
+        # Esto previene errores cuando otro servicio eliminó archivos entre
+        # el análisis y la ejecución (ej: Live Photos elimina MOVs que también
+        # aparecen como duplicados exactos)
+        # =====================================================================
+        filtered_groups = []
+        total_missing_files = 0
+        
+        for group in groups:
+            existing_files = [f for f in group.files if f.exists()]
+            missing_count = len(group.files) - len(existing_files)
+            
+            if missing_count > 0:
+                total_missing_files += missing_count
+                self.logger.debug(
+                    f"Grupo {group.hash_value[:8]}...: {missing_count} archivos ya no existen"
+                )
+            
+            # Solo mantener el grupo si tiene al menos 2 archivos existentes
+            # (un duplicado necesita al menos 2 archivos)
+            if len(existing_files) >= 2:
+                # Crear nuevo grupo con solo los archivos existentes
+                from services.result_types import DuplicateGroup
+                updated_group = DuplicateGroup(
+                    hash_value=group.hash_value,
+                    files=existing_files,
+                    total_size=sum(f.stat().st_size for f in existing_files),
+                    similarity_score=group.similarity_score
+                )
+                filtered_groups.append(updated_group)
+            elif len(existing_files) == 1:
+                # Solo queda 1 archivo, ya no es duplicado
+                self.logger.debug(
+                    f"Grupo {group.hash_value[:8]}... descartado: "
+                    f"solo queda 1 archivo ({existing_files[0].name})"
+                )
+        
+        if total_missing_files > 0:
+            self.logger.warning(
+                f"⚠️ {total_missing_files} archivos ya no existen "
+                f"(posiblemente eliminados por otra operación). "
+                f"Grupos reducidos: {len(groups)} → {len(filtered_groups)}"
+            )
+        
+        groups = filtered_groups
+        
+        if not groups:
+            self.logger.info("Todos los grupos fueron filtrados (archivos ya no existen)")
+            return DuplicateExecutionResult(
+                success=True,
+                items_processed=0,
+                bytes_processed=0,
+                keep_strategy=keep_strategy,
+                dry_run=dry_run,
+                message="No hay duplicados para eliminar (archivos ya procesados)"
+            )
+        
         # Crear backup una sola vez (común para todos los archivos)
         backup_path = None
         if create_backup and not dry_run:

@@ -537,3 +537,77 @@ class TestBaseServiceIntegration:
         
         assert result.success is True
         assert result.backup_path == Path('/backup')
+
+
+class TestBackupFiltersMissingFiles:
+    """Tests para validar que el backup filtra archivos que ya no existen."""
+    
+    def test_backup_filters_missing_files(self, service, tmp_path):
+        """Verifica que archivos eliminados entre análisis y ejecución son filtrados."""
+        # Crear 3 archivos
+        file1 = tmp_path / "file1.jpg"
+        file2 = tmp_path / "file2.jpg"
+        file3 = tmp_path / "file3.jpg"
+        
+        file1.write_text("content1")
+        file2.write_text("content2")
+        file3.write_text("content3")
+        
+        # Simular que file2 fue eliminado después del análisis
+        file2.unlink()
+        
+        # El backup solo debe incluir file1 y file3
+        with patch('utils.file_utils.launch_backup_creation') as mock_backup:
+            mock_backup.return_value = Path('/backup')
+            
+            result = service._create_backup_for_operation(
+                [file1, file2, file3],
+                'test_operation'
+            )
+            
+            # Verificar que launch_backup_creation recibió solo los archivos existentes
+            mock_backup.assert_called_once()
+            call_args = mock_backup.call_args
+            backed_up_files = call_args[0][0]  # Primer argumento posicional
+            
+            assert len(backed_up_files) == 2
+            assert file1 in backed_up_files
+            assert file2 not in backed_up_files  # Este fue eliminado
+            assert file3 in backed_up_files
+    
+    def test_backup_returns_none_if_all_files_missing(self, service, tmp_path):
+        """Si todos los archivos fueron eliminados, backup retorna None."""
+        # Crear y eliminar archivo
+        file1 = tmp_path / "file1.jpg"
+        file1.write_text("content")
+        file1.unlink()
+        
+        result = service._create_backup_for_operation(
+            [file1],
+            'test_operation'
+        )
+        
+        assert result is None
+    
+    def test_backup_logs_warning_for_missing_files(self, service, tmp_path, caplog):
+        """Verifica que se logea warning cuando hay archivos faltantes."""
+        import logging
+        caplog.set_level(logging.WARNING)
+        
+        file1 = tmp_path / "exists.jpg"
+        file2 = tmp_path / "missing.jpg"
+        
+        file1.write_text("content")
+        # file2 no se crea - simula archivo eliminado
+        
+        with patch('utils.file_utils.launch_backup_creation') as mock_backup:
+            mock_backup.return_value = Path('/backup')
+            
+            service._create_backup_for_operation(
+                [file1, file2],
+                'test_operation'
+            )
+        
+        # Verificar que se logeó el warning
+        assert "archivos omitidos del backup" in caplog.text.lower() or \
+               "ya no existen" in caplog.text.lower()
