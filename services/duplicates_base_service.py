@@ -109,6 +109,10 @@ class DuplicatesBaseService(BaseService):
         groups = analysis_result.groups
         keep_strategy = kwargs.get('keep_strategy', 'oldest')
         
+        # Obtener lista de archivos específicos a eliminar (para modo manual desde UI)
+        files_to_delete_list = kwargs.get('files_to_delete', None)
+        files_to_delete_set = set(files_to_delete_list) if files_to_delete_list is not None else None
+        
         # Header con información de operación
         mode = "SIMULACIÓN" if dry_run else ""
         log_section_header_relevant(
@@ -228,7 +232,11 @@ class DuplicatesBaseService(BaseService):
         
         # Calcular total de operaciones para progress
         if keep_strategy == 'manual':
-            total_operations = sum(len(g.files) for g in groups)
+            if files_to_delete_set is not None:
+                # Contar solo los archivos que están en la lista de eliminación
+                total_operations = len(files_to_delete_set)
+            else:
+                total_operations = sum(len(g.files) for g in groups)
         else:
             total_operations = sum(len(g.files) - 1 for g in groups)
         
@@ -242,7 +250,8 @@ class DuplicatesBaseService(BaseService):
                 backup_path=backup_path,
                 progress_callback=progress_callback,
                 processed_count=items_processed,
-                total_count=total_operations
+                total_count=total_operations,
+                files_to_delete_set=files_to_delete_set
             )
             
             files_affected.extend(result_group.deleted)
@@ -306,7 +315,8 @@ class DuplicatesBaseService(BaseService):
         backup_path: Optional[Path],
         progress_callback: Optional[Callable],
         processed_count: int,
-        total_count: int
+        total_count: int,
+        files_to_delete_set: Optional[set] = None
     ) -> GroupDeletionResult:
         """
         Procesa eliminación de un grupo de duplicados.
@@ -322,6 +332,7 @@ class DuplicatesBaseService(BaseService):
             progress_callback: Callback de progreso
             processed_count: Archivos procesados hasta ahora
             total_count: Total de archivos a procesar
+            files_to_delete_set: (Optional) Set de archivos específicos a eliminar en modo manual
         
         Returns:
             GroupDeletionResult con archivos procesados y estadísticas
@@ -341,9 +352,16 @@ class DuplicatesBaseService(BaseService):
         keep_file_info = None  # Para incluir en logs de eliminación
         
         if keep_strategy == 'manual':
-            # Modo manual: eliminar todos
-            files_to_delete = group.files
-            self.logger.info(f"  Grupo (manual): {len(group.files)} archivos a eliminar")
+            # Modo manual: eliminar archivos específicos (si se proporciona lista) o todos
+            if files_to_delete_set is not None:
+                # Filtrar solo los archivos de este grupo que están en la lista de eliminación
+                files_to_delete = [f for f in group.files if f in files_to_delete_set]
+                kept.extend([f for f in group.files if f not in files_to_delete_set])
+                self.logger.info(f"  Grupo (manual): {len(files_to_delete)}/{len(group.files)} archivos a eliminar")
+            else:
+                # Sin lista específica: eliminar todos
+                files_to_delete = group.files
+                self.logger.info(f"  Grupo (manual): {len(group.files)} archivos a eliminar")
         else:
             # Modo automático: seleccionar uno para mantener
             try:

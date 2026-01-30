@@ -687,7 +687,8 @@ class Stage3Window(BaseStage):
                 keep_strategy=plan.get('keep_strategy', 'first'),
                 create_backup=plan.get('create_backup', True),
                 dry_run=plan.get('dry_run', False),
-                metadata_cache=self.metadata_cache
+                metadata_cache=self.metadata_cache,
+                files_to_delete=plan.get('files_to_delete')
             )
         
         elif tool_id == 'duplicates_similar':
@@ -700,7 +701,8 @@ class Stage3Window(BaseStage):
                 keep_strategy=plan.get('keep_strategy', 'manual'),
                 create_backup=plan.get('create_backup', True),
                 dry_run=plan.get('dry_run', False),
-                metadata_cache=self.metadata_cache
+                metadata_cache=self.metadata_cache,
+                files_to_delete=plan.get('files_to_delete')
             )
         
         elif tool_id == 'file_organizer':

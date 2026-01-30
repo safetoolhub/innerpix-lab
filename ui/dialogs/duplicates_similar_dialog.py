@@ -1094,38 +1094,24 @@ class DuplicatesSimilarDialog(BaseDialog):
         menu.exec(QCursor.pos())
 
     def accept(self):
-        """Construye plan de eliminación."""
-        selected_groups = []
-        total_files_to_delete = 0
-        total_size_to_delete = 0
+        """Construye plan de eliminación: pasa grupos completos y lista de archivos a eliminar."""
+        # Recopilar todos los archivos a eliminar de todas las selecciones
+        files_to_delete = []
         
-        for idx, files_to_delete in self.selections.items():
-            if files_to_delete and idx < len(self.all_groups):
-                og = self.all_groups[idx]
-                group_size = sum(self._get_file_size(f) for f in files_to_delete)
-                selected_groups.append(DuplicateGroup(
-                    hash_value=og.hash_value,
-                    files=files_to_delete,
-                    total_size=group_size,
-                    similarity_score=og.similarity_score
-                ))
-                total_files_to_delete += len(files_to_delete)
-                total_size_to_delete += group_size
-        
+        for idx, selected_files in self.selections.items():
+            if selected_files and idx < len(self.all_groups):
+                files_to_delete.extend(selected_files)
+
         # Validar que hay archivos seleccionados
-        if not selected_groups:
+        if not files_to_delete:
             self.show_no_items_message("archivos similares seleccionados")
             return
-        
-        from services.result_types import DuplicateAnalysisResult
+
+        # Usar el current_result que contiene los grupos completos (>=2 archivos)
+        # Esto permite que el servicio pase las validaciones de grupos
         self.accepted_plan = {
-            'analysis': DuplicateAnalysisResult(
-                groups=selected_groups,
-                mode='perceptual',
-                items_count=len(selected_groups),
-                total_groups=len(selected_groups),
-                space_wasted=total_size_to_delete
-            ),
+            'analysis': self.current_result,  # DuplicateAnalysisResult con grupos completos
+            'files_to_delete': files_to_delete,  # Lista plana de archivos a eliminar
             'keep_strategy': 'manual',
             'create_backup': self.is_backup_enabled(),
             'dry_run': self.is_dry_run_enabled()
