@@ -1055,58 +1055,107 @@ class Stage3Window(BaseStage):
         """
         Actualiza las estadísticas de un servicio específico y refresca la UI.
         
+        Usa workers en segundo plano con diálogo de progreso para no congelar la UI,
+        especialmente importante para análisis costosos como duplicates_similar.
+        
         Args:
             tool_id: ID del servicio a actualizar
             auto_update: Si es True, no muestra mensaje de confirmación al finalizar
         """
         self.logger.info(f"Actualizando estadísticas para servicio: {tool_id} (auto_update={auto_update})")
         
-        try:
-            self.logger.debug(f"Paso 1: Obteniendo análisis actualizado para {tool_id}")
-            # Obtener el análisis actualizado para este servicio específico
-            updated_analysis = self._get_updated_service_analysis(tool_id)
-            self.logger.debug(f"Paso 1 completado: Análisis obtenido = {updated_analysis is not None}")
-            
-            if updated_analysis:
-                self.logger.debug(f"Paso 2: Asignando resultado al objeto analysis_results")
-                # Actualizar el análisis en analysis_results según el tipo de servicio
+        # Reutilizar el sistema de workers existente con diálogo de progreso
+        self._run_analysis_for_stats_update(tool_id, auto_update)
+    
+    def _run_analysis_for_stats_update(self, tool_id: str, auto_update: bool = False) -> None:
+        """
+        Ejecuta el análisis de una herramienta en segundo plano con diálogo de progreso.
+        
+        Similar a _run_analysis_and_open_dialog pero:
+        - NO abre el diálogo de la herramienta al finalizar
+        - Muestra mensaje de éxito según auto_update
+        - Refresca la UI de Stage 3
+        
+        Args:
+            tool_id: ID de la herramienta
+            auto_update: Si True, no muestra mensaje de confirmación
+        """
+        from ui.workers import (
+            LivePhotosAnalysisWorker,
+            HeicAnalysisWorker,
+            DuplicatesExactAnalysisWorker,
+            DuplicatesSimilarAnalysisWorker,
+            VisualIdenticalAnalysisWorker,
+            ZeroByteAnalysisWorker,
+            FileOrganizerAnalysisWorker,
+            FileRenamerAnalysisWorker
+        )
+        from PyQt6.QtWidgets import QProgressDialog
+        
+        # Mapeo de tool_id a Worker Class y mensaje
+        worker_map = {
+            'live_photos': (LivePhotosAnalysisWorker, "Actualizando Live Photos..."),
+            'heic': (HeicAnalysisWorker, "Actualizando duplicados HEIC/JPG..."),
+            'duplicates_exact': (DuplicatesExactAnalysisWorker, "Actualizando copias exactas..."),
+            'visual_identical': (VisualIdenticalAnalysisWorker, "Actualizando copias visuales..."),
+            'duplicates_similar': (DuplicatesSimilarAnalysisWorker, "Actualizando archivos similares..."),
+            'zero_byte': (ZeroByteAnalysisWorker, "Actualizando archivos vacíos..."),
+            'file_organizer': (FileOrganizerAnalysisWorker, "Actualizando estructura..."),
+            'file_renamer': (FileRenamerAnalysisWorker, "Actualizando nombres...")
+        }
+        
+        if tool_id not in worker_map:
+            self.logger.warning(f"Servicio desconocido para actualización: {tool_id}")
+            return
+
+        WorkerClass, message = worker_map[tool_id]
+        
+        # Crear diálogo de progreso
+        progress = QProgressDialog(message, "Cancelar", 0, 0, self.main_window)
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.setMinimumDuration(0)
+        progress.setValue(0)
+        progress.resize(450, 120)
+        
+        # Crear worker
+        refactorized_tools = {'live_photos', 'heic', 'duplicates_exact', 'visual_identical', 'zero_byte', 'file_renamer', 'file_organizer'}
+        if tool_id in refactorized_tools:
+            worker = WorkerClass(Path(self.selected_folder))
+        elif tool_id == 'duplicates_similar':
+            worker = WorkerClass(Path(self.selected_folder), sensitivity=85)
+        else:
+            worker = WorkerClass(Path(self.selected_folder), self.metadata_cache)
+        
+        def on_finished(result):
+            progress.close()
+            if result:
+                # Actualizar el análisis en analysis_results
                 if tool_id == 'live_photos':
-                    self.analysis_results.live_photos = updated_analysis
+                    self.analysis_results.live_photos = result
                 elif tool_id == 'heic':
-                    self.analysis_results.heic = updated_analysis
+                    self.analysis_results.heic = result
                 elif tool_id == 'duplicates_exact':
-                    self.analysis_results.duplicates = updated_analysis
+                    self.analysis_results.duplicates = result
                 elif tool_id == 'duplicates_similar':
-                    self.analysis_results.duplicates_similar = updated_analysis
+                    self.analysis_results.duplicates_similar = result
                 elif tool_id == 'visual_identical':
-                    self.analysis_results.visual_identical = updated_analysis
+                    self.analysis_results.visual_identical = result
                 elif tool_id == 'file_organizer':
-                    self.analysis_results.organization = updated_analysis
+                    self.analysis_results.organization = result
                 elif tool_id == 'file_renamer':
-                    self.analysis_results.renaming = updated_analysis
+                    self.analysis_results.renaming = result
                 elif tool_id == 'zero_byte':
-                    self.analysis_results.zero_byte = updated_analysis
-                else:
-                    self.logger.warning(f"No se puede asignar resultado para servicio desconocido: {tool_id}")
-                    return
-                self.logger.debug(f"Paso 2 completado: Resultado asignado")
+                    self.analysis_results.zero_byte = result
                 
-                # Guardar los resultados actualizados
-                self.logger.debug(f"Paso 3: Guardando resultados actualizados")
+                # Guardar resultados y refrescar UI
                 self.save_analysis_results(self.analysis_results)
-                self.logger.debug(f"Paso 3 completado: Resultados guardados")
-                
-                # Refrescar toda la UI de Stage 3 con los nuevos datos
-                self.logger.debug(f"Paso 4: Refrescando UI de Stage 3")
                 self._refresh_stage_3_ui()
-                self.logger.debug(f"Paso 4 completado: UI refrescada")
                 
                 self.logger.info(f"Estadísticas actualizadas exitosamente para {tool_id}")
                 
-                # Solo mostrar mensaje de éxito si NO es actualización automática
+                # Mostrar mensaje solo si NO es auto_update
                 if not auto_update:
                     service_name = get_tool_title(tool_id)
-                    
                     QMessageBox.information(
                         self.main_window,
                         "Estadísticas actualizadas",
@@ -1114,89 +1163,51 @@ class Stage3Window(BaseStage):
                     )
             else:
                 self.logger.warning(f"No se pudo obtener análisis actualizado para {tool_id}")
-                
-        except Exception as e:
-            self.logger.error(f"Error actualizando estadísticas de {tool_id}: {e}")
+            
+            worker.deleteLater()
+            
+        def on_error(msg):
+            progress.close()
+            self.logger.error(f"Error actualizando estadísticas de {tool_id}: {msg}")
             QMessageBox.warning(
                 self.main_window,
                 "Error",
-                f"No se pudieron actualizar las estadísticas.\n\n{str(e)}"
+                f"No se pudieron actualizar las estadísticas de {get_tool_title(tool_id)}.\n\n{msg}"
             )
-    
+            worker.deleteLater()
+            
+        def on_progress_update(current, total, msg):
+            if total > 0:
+                if progress.maximum() != total:
+                    progress.setMaximum(total)
+                progress.setValue(current)
+            else:
+                if progress.maximum() != 0:
+                    progress.setMaximum(0)
+                    progress.setValue(0)
+            
+            progress.setLabelText(f"{message}\n{msg}")
+
+        worker.progress_update.connect(on_progress_update)
+        worker.finished.connect(on_finished)
+        worker.error.connect(on_error)
+        
+        progress.canceled.connect(worker.stop)
+        worker.start()
+        progress.exec()
+
     def _get_updated_service_analysis(self, tool_id: str):
         """
-        Obtiene el análisis actualizado para un servicio específico.
+        DEPRECATED: Este método ejecutaba análisis de forma síncrona, congelando la UI.
         
-        Args:
-            tool_id: ID del servicio
-            
-        Returns:
-            Análisis actualizado o None si falla
+        Usar _run_analysis_for_stats_update() en su lugar, que usa workers con
+        diálogo de progreso.
         """
-        try:
-            self.logger.debug(f"Iniciando análisis actualizado para {tool_id}")
-            # Importar servicios según tool_id
-            if tool_id == 'live_photos':
-                from services.live_photos_service import LivePhotoService
-                service = LivePhotoService()
-                self.logger.debug(f"Ejecutando service.analyze() para {tool_id}")
-                result = service.analyze()
-                self.logger.debug(f"Análisis completado para {tool_id}: {result}")
-                return result
-                
-            elif tool_id == 'heic':
-                from services.heic_service import HeicService
-                service = HeicService()
-                self.logger.debug(f"Ejecutando service.analyze() para {tool_id}")
-                result = service.analyze()
-                self.logger.debug(f"Análisis completado para {tool_id}: items_count={result.items_count if result else 'None'}")
-                return result
-                
-            elif tool_id == 'duplicates_exact':
-                from services.duplicates_exact_service import DuplicatesExactService
-                service = DuplicatesExactService()
-                self.logger.debug(f"Ejecutando service.analyze() para {tool_id}")
-                return service.analyze()
-                
-            elif tool_id == 'duplicates_similar':
-                from services.duplicates_similar_service import DuplicatesSimilarService
-                service = DuplicatesSimilarService()
-                self.logger.debug(f"Ejecutando service.analyze() para {tool_id}")
-                return service.analyze()
-                
-            elif tool_id == 'visual_identical':
-                from services.visual_identical_service import VisualIdenticalService
-                service = VisualIdenticalService()
-                self.logger.debug(f"Ejecutando service.analyze() para {tool_id}")
-                return service.analyze()
-                
-            elif tool_id == 'file_organizer':
-                from services.file_organizer_service import FileOrganizerService
-                service = FileOrganizerService()
-                self.logger.debug(f"Ejecutando service.analyze() para {tool_id}")
-                return service.analyze()
-                
-            elif tool_id == 'file_renamer':
-                from services.file_renamer_service import FileRenamerService
-                service = FileRenamerService()
-                self.logger.debug(f"Ejecutando service.analyze() para {tool_id}")
-                return service.analyze()
-                
-            elif tool_id == 'zero_byte':
-                from services.zero_byte_service import ZeroByteService
-                service = ZeroByteService()
-                self.logger.debug(f"Ejecutando service.analyze() para {tool_id}")
-                return service.analyze()
-                
-            else:
-                self.logger.warning(f"Servicio desconocido: {tool_id}")
-                return None
-                
-        except Exception as e:
-            self.logger.error(f"Error crítico obteniendo análisis para {tool_id}: {e}")
-            import traceback
-            self.logger.error(traceback.format_exc())
-            return None
+        self.logger.warning(
+            f"_get_updated_service_analysis está deprecated. "
+            f"Usar _run_analysis_for_stats_update() para {tool_id}"
+        )
+        return None
     
     def _update_tool_card_ui(self, tool_id: str, analysis_result) -> None:
         """
