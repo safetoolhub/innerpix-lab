@@ -5,6 +5,7 @@ from PyQt6.QtCore import pyqtSignal, Qt
 from PyQt6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
+    QMessageBox,
     QPushButton,
     QTableWidget,
     QWidget,
@@ -72,6 +73,65 @@ class BaseDialog(QDialog):
         
         # Si es QCheckBox directo
         return self.cleanup_checkbox.isChecked()
+
+    def confirm_destructive_operation(
+        self,
+        files_count: int,
+        total_size: int = 0,
+        operation_verb: str = "eliminarán",
+        extra_info: str = ""
+    ) -> bool:
+        """
+        Muestra confirmación antes de operaciones destructivas.
+        
+        Método común para todos los diálogos que realizan operaciones
+        de eliminación, movimiento o renombrado de archivos.
+        
+        Args:
+            files_count: Número de archivos afectados
+            total_size: Tamaño total en bytes (opcional)
+            operation_verb: Verbo de la operación (eliminarán, moverán, renombrarán)
+            extra_info: Información adicional para mostrar (ej: estrategia)
+            
+        Returns:
+            True si el usuario confirma, False en caso contrario
+        """
+        from utils.format_utils import format_size
+        
+        # Construir mensaje
+        if total_size > 0:
+            size_info = f" ({format_size(total_size)})"
+        else:
+            size_info = ""
+        
+        message = f"Se {operation_verb} {files_count} archivos{size_info}."
+        
+        if extra_info:
+            message += f"\n\n{extra_info}"
+        
+        message += "\n\n¿Continuar?"
+        
+        reply = QMessageBox.question(
+            self,
+            "Confirmar operación",
+            message,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No  # Default seguro
+        )
+        return reply == QMessageBox.StandardButton.Yes
+    
+    def show_no_items_message(self, item_type: str = "archivos") -> None:
+        """
+        Muestra mensaje informativo cuando no hay items para procesar.
+        
+        Args:
+            item_type: Tipo de items (archivos, grupos, pares, etc.)
+        """
+        QMessageBox.information(
+            self,
+            "Sin cambios",
+            f"No hay {item_type} para procesar."
+        )
 
 
 
@@ -220,6 +280,7 @@ class BaseDialog(QDialog):
             QFrame con header compacto y profesional
         """
         from PyQt6.QtWidgets import QFrame, QHBoxLayout, QVBoxLayout, QLabel
+        from PyQt6.QtCore import Qt
         from ui.styles.design_system import DesignSystem
         from ui.styles.icons import icon_manager
         
@@ -246,15 +307,30 @@ class BaseDialog(QDialog):
         left_container = QHBoxLayout()
         left_container.setSpacing(int(DesignSystem.SPACE_12))
         
-        # Icono
+        # Icono con fondo circular
+        icon_container = QFrame()
+        icon_container.setFixedSize(48, 48)
+        icon_container.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
+                border-radius: 24px;
+                border: none;
+            }}
+        """)
+        icon_layout = QHBoxLayout(icon_container)
+        icon_layout.setContentsMargins(0, 0, 0, 0)
+        icon_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
         icon_label = QLabel()
+        icon_label.setStyleSheet("border: none; background: transparent;")
         icon_manager.set_label_icon(
             icon_label, 
             icon_name, 
-            size=DesignSystem.ICON_SIZE_XL,  # Más grande para impacto visual
+            size=DesignSystem.ICON_SIZE_LG,
             color=DesignSystem.COLOR_PRIMARY
         )
-        left_container.addWidget(icon_label)
+        icon_layout.addWidget(icon_label)
+        left_container.addWidget(icon_container)
         
         # Contenedor de texto (título + descripción apilados)
         text_container = QVBoxLayout()
@@ -266,6 +342,8 @@ class BaseDialog(QDialog):
             font-size: {DesignSystem.FONT_SIZE_XL}px;
             font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
             color: {DesignSystem.COLOR_TEXT};
+            border: none;
+            background: transparent;
         """)
         text_container.addWidget(title_label)
         
@@ -275,6 +353,8 @@ class BaseDialog(QDialog):
         desc_label.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_SM}px;
             color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            border: none;
+            background: transparent;
         """)
         text_container.addWidget(desc_label)
         
@@ -332,6 +412,8 @@ class BaseDialog(QDialog):
             font-size: {DesignSystem.FONT_SIZE_2XL}px;
             font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
             color: {color};
+            border: none;
+            background: transparent;
         """)
         value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(value_label)
@@ -343,6 +425,8 @@ class BaseDialog(QDialog):
             color: {DesignSystem.COLOR_TEXT_SECONDARY};
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            border: none;
+            background: transparent;
         """)
         label_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(label_widget)
@@ -680,49 +764,51 @@ class BaseDialog(QDialog):
         self,
         show_backup: bool = True,
         show_dry_run: bool = False,
-        show_cleanup_empty_dirs: bool = False,
         backup_label: str = "Crear backup",
-        dry_run_label: str = "Modo simulación",
-        cleanup_label: str = "Limpiar carpetas vacías"
+        dry_run_label: str = "Modo simulación"
     ) -> 'QFrame':
-        """Crea sección de opciones ultra-compacta con diseño Material Design 3.
+        """Crea sección de opciones con diseño Material Design 3.
         
-        Diseño 100% horizontal tipo "chip" con máxima compacidad vertical.
-        Todo en una sola línea con chips minimalistas y profesionales.
+        Diseño profesional con chips inline y ruta de backup visible.
+        Consistente en todos los 8 diálogos principales.
         
         Args:
             show_backup: Si se debe mostrar el checkbox de backup
             show_dry_run: Si se debe mostrar el checkbox de dry-run
-            show_cleanup_empty_dirs: Si se debe mostrar el checkbox de limpieza de carpetas
             backup_label: Texto para el checkbox de backup
             dry_run_label: Texto para el checkbox de dry-run
-            cleanup_label: Texto para el checkbox de limpieza de carpetas
         
         Returns:
-            QFrame con la sección ultra-compacta configurada
+            QFrame con la sección configurada
         """
-        from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel
+        from PyQt6.QtWidgets import QFrame, QHBoxLayout, QVBoxLayout, QLabel, QWidget
         from ui.styles.design_system import DesignSystem
         from ui.styles.icons import icon_manager
         from utils.settings_manager import settings_manager
+        from config import Config
         
         frame = QFrame()
         frame.setObjectName("security-options-frame")
         frame.setStyleSheet(f"""
             QFrame#security-options-frame {{
-                background-color: transparent;
-                border: none;
-                padding: 0px;
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_12}px {DesignSystem.SPACE_16}px;
             }}
         """)
         
-        # Layout principal 100% horizontal (una sola línea)
-        main_layout = QHBoxLayout(frame)
-        main_layout.setSpacing(int(DesignSystem.SPACE_12))
+        # Layout principal vertical para chips + ruta
+        main_layout = QVBoxLayout(frame)
+        main_layout.setSpacing(int(DesignSystem.SPACE_8))
         main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         
-        # === Label "Opciones:" inline minimalista ===
+        # === Fila de chips ===
+        chips_layout = QHBoxLayout()
+        chips_layout.setSpacing(int(DesignSystem.SPACE_12))
+        chips_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Label "Opciones:" inline minimalista
         options_label = QLabel("Opciones:")
         options_label.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_SM}px;
@@ -731,19 +817,26 @@ class BaseDialog(QDialog):
             padding: 0px;
             margin: 0px;
         """)
-        main_layout.addWidget(options_label, 0, Qt.AlignmentFlag.AlignVCenter)
+        chips_layout.addWidget(options_label, 0, Qt.AlignmentFlag.AlignVCenter)
+        
+        # Obtener ruta de backup
+        backup_dir = settings_manager.get_backup_directory(Config.DEFAULT_BACKUP_DIR)
+        backup_path_str = str(backup_dir) if backup_dir else str(Config.DEFAULT_BACKUP_DIR)
         
         # === Checkbox de backup (inline chip style) ===
         if show_backup:
             backup_checked = settings_manager.get_auto_backup_enabled()
+            
             self.backup_checkbox = self._create_inline_chip_checkbox(
                 icon_name='content-save',
                 label=backup_label,
                 checked=backup_checked,
-                tooltip="Crea una copia de seguridad timestamped antes de realizar cambios.\n"
-                        "Recomendado para operaciones destructivas."
+                tooltip=f"Crea una copia de seguridad antes de realizar cambios.\n"
+                        f"Recomendado para operaciones destructivas.\n\n"
+                        f"Carpeta de backups: {backup_path_str}\n\n"
+                        f"Puedes cambiar la carpeta desde Configuración."
             )
-            main_layout.addWidget(self.backup_checkbox)
+            chips_layout.addWidget(self.backup_checkbox)
         
         # === Checkbox de dry-run (inline chip style) ===
         if show_dry_run:
@@ -757,30 +850,70 @@ class BaseDialog(QDialog):
                 checked=bool(dry_run_default),
                 tooltip="Simula la operación sin realizar cambios reales.\n"
                         "Útil para verificar qué archivos se verían afectados.\n\n"
-                        "⚠️ Nota: Al activar modo simulación, el backup se deshabilita automáticamente\n"
-                        "ya que no se realizarán cambios reales."
+                        "Al activar modo simulación, el backup se deshabilita\n"
+                        "automáticamente ya que no se realizarán cambios reales."
             )
-            main_layout.addWidget(self.dry_run_checkbox)
+            chips_layout.addWidget(self.dry_run_checkbox)
+        
+        # Spacer para empujar chips a la izquierda
+        chips_layout.addStretch()
+        main_layout.addLayout(chips_layout)
+        
+        # === Fila con ruta de backup (siempre presente para mantener tamaño fijo) ===
+        if show_backup:
+            # Truncar path si es muy largo
+            max_display_len = 60
+            display_path = backup_path_str
+            if len(display_path) > max_display_len:
+                display_path = "..." + display_path[-(max_display_len - 3):]
             
-            # Conectar lógica de deshabilitación mutua
-            if show_backup and hasattr(self, 'backup_checkbox'):
-                self._setup_dry_run_backup_logic()
-        
-        # === Checkbox de cleanup empty dirs (inline chip style) ===
-        if show_cleanup_empty_dirs:
-            self.cleanup_checkbox = self._create_inline_chip_checkbox(
-                icon_name='folder-remove',
-                label=cleanup_label,
-                checked=False,  # Default deshabilitado para ser conservador
-                tooltip="Elimina automáticamente las carpetas que queden vacías\n"
-                        "después de mover los archivos durante la organización."
+            # Contenedor para la ruta (mantiene espacio fijo)
+            self._backup_path_widget = QWidget()
+            # Reservar espacio incluso cuando está oculto para evitar saltos en la interfaz
+            sp = self._backup_path_widget.sizePolicy()
+            if hasattr(sp, 'setRetainSizeWhenHidden'):
+                sp.setRetainSizeWhenHidden(True)
+                self._backup_path_widget.setSizePolicy(sp)
+
+            path_layout = QHBoxLayout(self._backup_path_widget)
+            path_layout.setSpacing(int(DesignSystem.SPACE_6))
+            path_layout.setContentsMargins(0, 0, 0, 0)
+            
+            self._backup_folder_icon = QLabel()
+            icon_manager.set_label_icon(
+                self._backup_folder_icon, 'folder', 
+                size=DesignSystem.ICON_SIZE_SM, 
+                color=DesignSystem.COLOR_TEXT_SECONDARY
             )
-            main_layout.addWidget(self.cleanup_checkbox)
+            path_layout.addWidget(self._backup_folder_icon)
+            
+            self._backup_path_label = QLabel(f"Carpeta donde se guardarán los archivos eliminados: {display_path}")
+            self._backup_path_label.setStyleSheet(f"""
+                font-size: {DesignSystem.FONT_SIZE_XS}px;
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            """)
+            self._backup_path_label.setToolTip(
+                f"Ruta completa: {backup_path_str}\n\n"
+                f"Puedes cambiar esta carpeta desde Configuración."
+            )
+            path_layout.addWidget(self._backup_path_label)
+            path_layout.addStretch()
+            
+            main_layout.addWidget(self._backup_path_widget)
+            
+            # Actualizar visibilidad inicial del widget completo
+            self._backup_path_widget.setVisible(self.is_backup_enabled())
         
-        # Spacer para empujar contenido a la izquierda
-        main_layout.addStretch()
+        # Configurar lógica de interacción dry-run/backup
+        if show_dry_run and show_backup and hasattr(self, 'backup_checkbox'):
+            self._setup_dry_run_backup_logic()
         
         return frame
+    
+    def _update_backup_path_visibility(self, visible: bool):
+        """Actualiza la visibilidad de la ruta de backup preservando el espacio en el layout."""
+        if hasattr(self, '_backup_path_widget') and self._backup_path_widget:
+            self._backup_path_widget.setVisible(visible)
     
     def _create_warning_banner(
         self,
@@ -935,28 +1068,57 @@ class BaseDialog(QDialog):
                 # Deshabilitar visualmente el widget
                 backup_widget.setEnabled(False)
                 backup_widget.setToolTip(
-                    "⚠️ El backup está deshabilitado porque el modo simulación está activo.\n"
+                    "El backup está deshabilitado porque el modo simulación está activo.\n"
                     "No se realizarán cambios reales, por lo que no es necesario crear backup."
                 )
+                
+                # Actualizar el estado visual del chip
+                if hasattr(backup_widget, '_update_visual_state'):
+                    backup_widget._update_visual_state()
             else:
+                # Rehabilitar visualmente el widget PRIMERO
+                backup_widget.setEnabled(True)
+                
                 # Restaurar estado previo del backup si existía
                 if self._backup_state_before_dry_run is not None:
                     backup_checkbox_internal.setChecked(self._backup_state_before_dry_run)
                     self._backup_state_before_dry_run = None
                 
-                # Rehabilitar visualmente el widget
-                backup_widget.setEnabled(True)
+                # Obtener ruta para el tooltip
+                from utils.settings_manager import settings_manager
+                from config import Config
+                backup_dir = settings_manager.get_backup_directory(Config.DEFAULT_BACKUP_DIR)
+                backup_path_str = str(backup_dir) if backup_dir else str(Config.DEFAULT_BACKUP_DIR)
+                
                 backup_widget.setToolTip(
-                    "Crea una copia de seguridad timestamped antes de realizar cambios.\n"
-                    "Recomendado para operaciones destructivas."
+                    f"Crea una copia de seguridad antes de realizar cambios.\n"
+                    f"Recomendado para operaciones destructivas.\n\n"
+                    f"Carpeta de backups: {backup_path_str}\n\n"
+                    f"Puedes cambiar la carpeta desde Configuración."
                 )
+                
+                # Actualizar el estado visual del chip
+                if hasattr(backup_widget, '_update_visual_state'):
+                    backup_widget._update_visual_state()
+            
+            # Actualizar visibilidad de la ruta de backup (contenido, no espacio)
+            self._update_backup_path_visibility(self.is_backup_enabled())
         
-        # Conectar señal
+        def on_backup_changed():
+            """Actualiza la visibilidad de la ruta cuando cambia el estado del backup."""
+            self._update_backup_path_visibility(self.is_backup_enabled())
+        
+        # Conectar señales
         if hasattr(self.dry_run_checkbox, '_checkbox'):
             self.dry_run_checkbox._checkbox.toggled.connect(on_dry_run_changed)
         else:
             self.dry_run_checkbox.toggled.connect(on_dry_run_changed)
         
+        # Conectar cambio de backup para actualizar visibilidad de ruta
+        if hasattr(self.backup_checkbox, '_checkbox'):
+            self.backup_checkbox._checkbox.toggled.connect(on_backup_changed)
+        else:
+            self.backup_checkbox.toggled.connect(on_backup_changed)
         
         # Ejecutar lógica inicial
         on_dry_run_changed()
@@ -1107,4 +1269,911 @@ class BaseDialog(QDialog):
         container._update_visual_state = update_visual_state
         
         return container
+
+    def _create_progressive_loading_bar(
+        self,
+        on_load_more: callable,
+        on_load_all: callable
+    ) -> 'QFrame':
+        """Crea barra de carga progresiva para listas grandes.
+        
+        La carga progresiva funciona así:
+        1. Inicialmente se cargan N items (ej: 100 grupos)
+        2. El usuario puede cargar más items con "Cargar más"
+        3. O cargar todos de una vez con "Cargar todos"
+        
+        Esto mejora el rendimiento en datasets grandes evitando
+        renderizar miles de elementos de golpe.
+        
+        Args:
+            on_load_more: Callback para cargar el siguiente lote
+            on_load_all: Callback para cargar todos los items restantes
+            
+        Returns:
+            QFrame con la barra de paginación progresiva.
+            El frame tiene atributos públicos para actualizar el estado:
+            - progress_indicator: QLabel con texto de progreso
+            - progress_bar_container: QFrame contenedor de la barra
+            - progress_bar_fill: QFrame de relleno de la barra
+            - load_more_btn: QPushButton para cargar más
+            - load_all_btn: QPushButton para cargar todos
+        """
+        from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton
+        from ui.styles.design_system import DesignSystem
+        from ui.styles.icons import icon_manager
+        
+        pagination_card = QFrame()
+        pagination_card.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                padding: {DesignSystem.SPACE_12}px {DesignSystem.SPACE_16}px;
+            }}
+        """)
+        
+        pagination_layout = QHBoxLayout(pagination_card)
+        pagination_layout.setSpacing(int(DesignSystem.SPACE_12))
+        pagination_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Indicador de progreso textual
+        progress_indicator = QLabel()
+        progress_indicator.setStyleSheet(f"""
+            QLabel {{
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+            }}
+        """)
+        progress_indicator.setToolTip(
+            "Muestra cuántos elementos se han cargado en la lista.\n"
+            "Por rendimiento, los elementos se cargan en lotes.\n"
+            "Usa 'Cargar más' para ver elementos adicionales."
+        )
+        pagination_layout.addWidget(progress_indicator)
+        
+        # Barra de progreso visual
+        progress_bar_container = QFrame()
+        progress_bar_container.setFixedHeight(8)
+        progress_bar_container.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_BORDER};
+                border-radius: 4px;
+            }}
+        """)
+        
+        progress_bar_fill = QFrame(progress_bar_container)
+        progress_bar_fill.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                border-radius: 4px;
+            }}
+        """)
+        progress_bar_fill.setGeometry(0, 0, 0, 8)
+        
+        pagination_layout.addWidget(progress_bar_container, 1)
+        
+        # Botón cargar todos
+        load_all_btn = QPushButton("Cargar todos")
+        icon_manager.set_button_icon(load_all_btn, 'download', size=16)
+        load_all_btn.clicked.connect(on_load_all)
+        load_all_btn.setToolTip("Cargar todos los elementos restantes de una vez")
+        load_all_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                color: {DesignSystem.COLOR_PRIMARY};
+                border: 2px solid {DesignSystem.COLOR_PRIMARY};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_16}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                color: {DesignSystem.COLOR_PRIMARY_TEXT};
+            }}
+        """)
+        load_all_btn.hide()
+        pagination_layout.addWidget(load_all_btn)
+        
+        # Botón cargar más
+        load_more_btn = QPushButton("Cargar más")
+        icon_manager.set_button_icon(load_more_btn, 'refresh', size=18)
+        load_more_btn.clicked.connect(on_load_more)
+        load_more_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                color: {DesignSystem.COLOR_PRIMARY_TEXT};
+                border: none;
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_10}px {DesignSystem.SPACE_20}px;
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_PRIMARY_HOVER};
+            }}
+            QPushButton:disabled {{
+                background-color: {DesignSystem.COLOR_SURFACE_DISABLED};
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            }}
+        """)
+        pagination_layout.addWidget(load_more_btn)
+        
+        # Guardar referencias en el frame para acceso externo
+        pagination_card.progress_indicator = progress_indicator
+        pagination_card.progress_bar_container = progress_bar_container
+        pagination_card.progress_bar_fill = progress_bar_fill
+        pagination_card.load_more_btn = load_more_btn
+        pagination_card.load_all_btn = load_all_btn
+        
+        return pagination_card
+
+    def _update_progressive_loading_ui(
+        self,
+        pagination_bar: 'QFrame',
+        loaded_count: int,
+        filtered_count: int,
+        total_count: int,
+        load_increment: int = 100
+    ) -> None:
+        """Actualiza la UI de la barra de carga progresiva.
+        
+        Args:
+            pagination_bar: El QFrame retornado por _create_progressive_loading_bar
+            loaded_count: Número de elementos ya cargados en la lista
+            filtered_count: Número de elementos después de aplicar filtros
+            total_count: Número total de elementos sin filtrar
+            load_increment: Cuántos elementos se cargan por lote
+        """
+        # Texto de progreso claro
+        if filtered_count > 0:
+            percent = (loaded_count / filtered_count) * 100
+            pagination_bar.progress_indicator.setText(
+                f"{percent:.0f}% cargado en lista ({loaded_count} de {filtered_count})"
+            )
+            
+            # Actualizar barra
+            bar_width = pagination_bar.progress_bar_container.width()
+            fill_width = int(bar_width * loaded_count / filtered_count) if bar_width > 0 else 0
+            pagination_bar.progress_bar_fill.setGeometry(0, 0, fill_width, 8)
+        else:
+            pagination_bar.progress_indicator.setText("Sin elementos que mostrar")
+            pagination_bar.progress_bar_fill.setGeometry(0, 0, 0, 8)
+        
+        # Mostrar/ocultar botones según estado
+        has_more = loaded_count < filtered_count
+        pagination_bar.load_more_btn.setVisible(has_more)
+        pagination_bar.load_more_btn.setEnabled(has_more)
+        pagination_bar.load_all_btn.setVisible(has_more and (filtered_count - loaded_count) > load_increment)
+        
+        if has_more:
+            remaining = filtered_count - loaded_count
+            to_load = min(load_increment, remaining)
+            pagination_bar.load_more_btn.setText(f"Cargar {to_load} más")
+            pagination_bar.load_more_btn.setToolTip(f"Cargar {to_load} elementos más ({remaining} pendientes)")
+        else:
+            pagination_bar.load_more_btn.setText("✓ Todos cargados")
+
+    def _create_compact_strategy_selector(
+        self,
+        title: str,
+        description: str,
+        strategies: List[tuple],
+        current_strategy: str,
+        on_strategy_changed: callable
+    ) -> 'QFrame':
+        """Crea selector de estrategia compacto en una línea horizontal.
+        
+        Diseño minimalista que ahorra espacio vertical manteniendo funcionalidad completa.
+        
+        Args:
+            title: Título del selector (ej: "Conservar:")
+            description: Descripción breve (ej: "Elige qué archivo mantener")
+            strategies: Lista de tuplas (id, icon_name, label, tooltip)
+                Ejemplo: [
+                    ('oldest', 'clock-outline', 'Más antiguo', 'Conserva el archivo más antiguo'),
+                    ('newest', 'clock-fast', 'Más reciente', 'Conserva el archivo más reciente'),
+                ]
+            current_strategy: ID de la estrategia actualmente seleccionada
+            on_strategy_changed: Callback(strategy_id) cuando cambia la selección
+            
+        Returns:
+            QFrame con el selector compacto.
+            El frame tiene un atributo 'strategy_buttons' dict[str, QPushButton]
+        """
+        from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton
+        from PyQt6.QtCore import Qt
+        from ui.styles.design_system import DesignSystem
+        from ui.styles.icons import icon_manager
+        
+        frame = QFrame()
+        frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                padding: {DesignSystem.SPACE_12}px {DesignSystem.SPACE_16}px;
+            }}
+        """)
+        
+        # Layout horizontal único para compactar todo en una línea
+        layout = QHBoxLayout(frame)
+        layout.setSpacing(int(DesignSystem.SPACE_16))
+        layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Título + Descripción en línea
+        title_desc = QLabel(f"<b>{title}</b> {description}")
+        title_desc.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            color: {DesignSystem.COLOR_TEXT};
+        """)
+        layout.addWidget(title_desc)
+        
+        layout.addStretch()
+        
+        # Botones de estrategia
+        buttons_layout = QHBoxLayout()
+        buttons_layout.setSpacing(int(DesignSystem.SPACE_8))
+        
+        strategy_buttons = {}
+        
+        for strategy_id, icon_name, label, tooltip in strategies:
+            btn = QPushButton(label)
+            btn.setCheckable(True)
+            btn.setChecked(strategy_id == current_strategy)
+            btn.setToolTip(tooltip)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            icon_manager.set_button_icon(btn, icon_name, size=18)
+            
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {DesignSystem.COLOR_BG_1};
+                    border: 2px solid {DesignSystem.COLOR_BORDER};
+                    border-radius: {DesignSystem.RADIUS_BASE}px;
+                    padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_16}px;
+                    font-size: {DesignSystem.FONT_SIZE_SM}px;
+                    font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                    color: {DesignSystem.COLOR_TEXT};
+                }}
+                QPushButton:hover {{
+                    border-color: {DesignSystem.COLOR_PRIMARY};
+                    background-color: {DesignSystem.COLOR_SURFACE};
+                }}
+                QPushButton:checked {{
+                    background-color: {DesignSystem.COLOR_PRIMARY};
+                    border-color: {DesignSystem.COLOR_PRIMARY};
+                    color: {DesignSystem.COLOR_PRIMARY_TEXT};
+                }}
+            """)
+            
+            btn.clicked.connect(lambda checked, s=strategy_id: on_strategy_changed(s))
+            buttons_layout.addWidget(btn)
+            strategy_buttons[strategy_id] = btn
+        
+        layout.addLayout(buttons_layout)
+        
+        # Guardar referencia a los botones
+        frame.strategy_buttons = strategy_buttons
+        
+        return frame
     
+    # ========================================================================
+    # COLLAPSIBLE TIP / HELP POPUP
+    # ========================================================================
+    
+    def create_tip_button(self, tip_message: str, width: int = 450) -> QPushButton:
+        """Crea un botón de tip colapsable con popup flotante.
+        
+        Diseño minimalista que no ocupa espacio permanente en la UI.
+        El mensaje aparece en un popup flotante al hacer clic.
+        
+        Args:
+            tip_message: Mensaje HTML a mostrar en el popup (puede usar <b>, <i>, etc.)
+            width: Ancho del popup en píxeles (default: 450)
+        
+        Returns:
+            QPushButton configurado con el tip. Guardar referencia para posicionar popup.
+            
+        Example:
+            self.tip_btn = self.create_tip_button(
+                "<b>Tip:</b> Esta herramienta detecta imágenes <i>similares</i>..."
+            )
+            layout.addWidget(self.tip_btn)
+        """
+        from PyQt6.QtWidgets import QPushButton
+        from PyQt6.QtCore import Qt
+        from ui.styles.design_system import DesignSystem
+        from ui.styles.icons import icon_manager
+        
+        tip_btn = QPushButton()
+        tip_btn.setToolTip("Mostrar/ocultar consejo")
+        tip_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        tip_btn.setCheckable(True)
+        icon_manager.set_button_icon(tip_btn, 'information-outline', size=18)
+        tip_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                border: none;
+                padding: {DesignSystem.SPACE_4}px;
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_INFO_BG};
+            }}
+            QPushButton:checked {{
+                background-color: {DesignSystem.COLOR_INFO_BG};
+            }}
+        """)
+        
+        # Guardar mensaje y ancho para uso posterior
+        tip_btn._tip_message = tip_message
+        tip_btn._tip_width = width
+        tip_btn._tip_popup = None
+        
+        # Conectar eventos
+        tip_btn.clicked.connect(lambda: self._toggle_tip_popup(tip_btn))
+        
+        return tip_btn
+    
+    def _toggle_tip_popup(self, tip_btn: QPushButton):
+        """Muestra/oculta el popup de tip."""
+        if tip_btn.isChecked():
+            self._show_tip_popup(tip_btn)
+        else:
+            self._hide_tip_popup(tip_btn)
+    
+    def _show_tip_popup(self, tip_btn: QPushButton):
+        """Muestra el popup con el mensaje de ayuda."""
+        from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton
+        from PyQt6.QtCore import Qt
+        from ui.styles.design_system import DesignSystem
+        from ui.styles.icons import icon_manager
+        
+        # Si ya existe, solo mostrarlo
+        if tip_btn._tip_popup:
+            tip_btn._tip_popup.show()
+            return
+        
+        # Crear popup
+        popup = QFrame(self)
+        popup.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_INFO_BG};
+                border: 1px solid {DesignSystem.COLOR_INFO};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_12}px;
+            }}
+        """)
+        
+        popup_layout = QHBoxLayout(popup)
+        popup_layout.setContentsMargins(
+            DesignSystem.SPACE_12, DesignSystem.SPACE_8,
+            DesignSystem.SPACE_12, DesignSystem.SPACE_8
+        )
+        popup_layout.setSpacing(DesignSystem.SPACE_8)
+        
+        # Icono
+        icon = icon_manager.create_icon_label('information-outline', size=18, color=DesignSystem.COLOR_INFO)
+        popup_layout.addWidget(icon)
+        
+        # Texto
+        text = QLabel(tip_btn._tip_message)
+        text.setWordWrap(True)
+        text.setStyleSheet(f"""
+            color: {DesignSystem.COLOR_TEXT}; 
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            background: transparent;
+            border: none;
+        """)
+        popup_layout.addWidget(text, stretch=1)
+        
+        # Botón cerrar
+        close_btn = QPushButton("×")
+        close_btn.setFixedSize(20, 20)
+        close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        close_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: transparent;
+                border: none;
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                font-size: 16px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                color: {DesignSystem.COLOR_TEXT};
+            }}
+        """)
+        close_btn.clicked.connect(lambda: self._hide_tip_popup(tip_btn))
+        popup_layout.addWidget(close_btn)
+        
+        # Configurar tamaño y posición
+        popup.setFixedWidth(tip_btn._tip_width)
+        popup.adjustSize()
+        
+        # Posicionar debajo y a la derecha del botón
+        btn_pos = tip_btn.mapTo(self, tip_btn.rect().bottomRight())
+        popup_x = btn_pos.x() - popup.width() + 30
+        popup_y = btn_pos.y() + 8
+        
+        popup.move(popup_x, popup_y)
+        
+        # Guardar referencia y mostrar
+        tip_btn._tip_popup = popup
+        popup.show()
+    
+    def _hide_tip_popup(self, tip_btn: QPushButton):
+        """Oculta el popup de tip."""
+        if tip_btn._tip_popup:
+            tip_btn._tip_popup.hide()
+        tip_btn.setChecked(False)
+    
+    # ========================================================================
+    # UNIFIED FILTER BAR
+    # ========================================================================
+    
+    def _create_unified_filter_bar(
+        self,
+        on_search_changed: callable,
+        on_size_filter_changed: callable,
+        expandable_filters: Optional[List[Dict]] = None,
+        size_filter_options: Optional[List[str]] = None,
+        is_files_mode: bool = False,
+        labels: Optional[Dict[str, str]] = None
+    ) -> 'QFrame':
+        """Crea barra de filtros unificada con diseño consistente para todos los diálogos.
+        
+        Diseño estándar:
+        - Barra principal: Búsqueda, filtro de tamaño/cantidad, chip de estado, botón expandir
+        - Barra secundaria (desplegable): Filtros adicionales específicos por diálogo
+        
+        Args:
+            on_search_changed: Callback para cambios en búsqueda
+            on_size_filter_changed: Callback para cambios en filtro tamaño/cantidad
+            expandable_filters: Lista de filtros para la barra desplegable.
+            size_filter_options: Lista personalizada de opciones para el filtro de tamaño.
+            is_files_mode: Si True, muestra "Archivos" en vez de "Grupos" en el chip
+            labels: Diccionario opcional de etiquetas para los filtros.
+                Ej: {'search': 'Buscar:', 'size': 'Tamaño:', 'groups': 'Grupos:'}
+            
+        Returns:
+            QFrame con la barra de filtros.
+        """
+        from PyQt6.QtWidgets import (
+            QFrame, QHBoxLayout, QVBoxLayout, QWidget, QLabel, 
+            QLineEdit, QComboBox, QPushButton
+        )
+        from PyQt6.QtCore import Qt
+        from ui.styles.design_system import DesignSystem
+        from ui.styles.icons import icon_manager
+        
+        labels = labels or {}
+        
+        # Default size filter options
+        if size_filter_options is None:
+            size_filter_options = [
+                "Todos",
+                ">10 MB",
+                ">50 MB",
+                ">100 MB",
+                "3+ copias",
+                "5+ copias"
+            ]
+        
+        # Frame principal - más compacto
+        main_frame = QFrame()
+        main_frame.setObjectName("UnifiedFilterBar")
+        main_frame.setStyleSheet(f"""
+            QFrame#UnifiedFilterBar {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                padding: {DesignSystem.SPACE_12}px;
+            }}
+        """)
+        
+        main_layout = QVBoxLayout(main_frame)
+        main_layout.setSpacing(int(DesignSystem.SPACE_8))
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # === BARRA PRINCIPAL ===
+        primary_bar = QHBoxLayout()
+        primary_bar.setSpacing(int(DesignSystem.SPACE_12))
+        primary_bar.setContentsMargins(0, 0, 0, 0)
+        
+        # --- BÚSQUEDA ---
+        search_vlayout = QVBoxLayout()
+        search_vlayout.setSpacing(2)  # Espacio mínimo entre label y control
+        search_vlayout.setContentsMargins(0, 0, 0, 0)
+        
+        if 'search' in labels:
+            search_label = QLabel(labels['search'])
+            search_label.setStyleSheet(DesignSystem.get_filter_label_style())
+            search_vlayout.addWidget(search_label)
+            
+        search_container = QWidget()
+        search_container.setObjectName("SearchContainer")
+        search_container.setFixedHeight(36)  # Altura unificada
+        search_container.setStyleSheet(f"""
+            QWidget#SearchContainer {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                border: 2px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+            }}
+            QWidget#SearchContainer:hover {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+        """)
+        
+        search_container_layout = QHBoxLayout(search_container)
+        search_container_layout.setContentsMargins(10, 6, 10, 6)
+        search_container_layout.setSpacing(8)
+        
+        search_icon = QLabel()
+        icon_manager.set_label_icon(search_icon, 'magnify', size=16)
+        search_container_layout.addWidget(search_icon)
+        
+        search_input = QLineEdit()
+        search_input.setPlaceholderText("Buscar...")
+        search_input.textChanged.connect(on_search_changed)
+        search_input.setStyleSheet(f"""
+            QLineEdit {{
+                border: none;
+                background: transparent;
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                color: {DesignSystem.COLOR_TEXT};
+                padding: 0px;
+            }}
+        """)
+        search_container_layout.addWidget(search_input, 1)
+        
+        search_vlayout.addWidget(search_container)
+        primary_bar.addLayout(search_vlayout, 3)
+        
+        # Espaciador flexible
+        primary_bar.addStretch()
+        
+        # --- STATUS CHIP (Grupos:) ---
+        status_vlayout = QVBoxLayout()
+        status_vlayout.setSpacing(2)  # Espacio mínimo entre label y control
+        status_vlayout.setContentsMargins(0, 0, 0, 0)
+        
+        # Etiqueta de grupos - ahora alineada a la izquierda
+        entity_label_text = labels.get('groups', "Archivos seleccionados" if is_files_mode else "Grupos seleccionados")
+        groups_label = QLabel(entity_label_text)
+        groups_label.setStyleSheet(DesignSystem.get_filter_label_style())
+        groups_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        status_vlayout.addWidget(groups_label)
+        
+        # El chip en sí
+        status_chip = QLabel()
+        status_chip.setMinimumWidth(70)
+        status_chip.setFixedHeight(36)  # Altura unificada
+        status_chip.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # El estilo dinámico se aplica en _update_filter_chip
+        status_vlayout.addWidget(status_chip)
+        primary_bar.addLayout(status_vlayout)
+        
+        # Botón expandir filtros (si hay filtros expandibles o filtro de tamaño)
+        has_expandable_filters = expandable_filters or (size_filter_options and on_size_filter_changed)
+        if has_expandable_filters:
+            expand_vlayout = QVBoxLayout()
+            expand_vlayout.setSpacing(2)
+            expand_vlayout.setContentsMargins(0, 0, 0, 0)
+            
+            # Label vacío para alinear con otros controles
+            if 'search' in labels:
+                empty_label = QLabel()
+                empty_label.setStyleSheet("font-size: 9px; margin: 0px; padding: 0px;")
+                empty_label.setFixedHeight(11)  # Altura aproximada del label
+                expand_vlayout.addWidget(empty_label)
+            
+            expand_btn = QPushButton()
+            expand_btn.setCheckable(True)
+            expand_btn.setChecked(False)
+            expand_btn.setToolTip("Más filtros")
+            icon_manager.set_button_icon(expand_btn, 'filter-variant', size=16)
+            expand_btn.setFixedSize(36, 36)  # Altura unificada
+            expand_btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {DesignSystem.COLOR_BG_1};
+                    border: 2px solid {DesignSystem.COLOR_BORDER};
+                    border-radius: {DesignSystem.RADIUS_BASE}px;
+                }}
+                QPushButton:hover {{
+                    border-color: {DesignSystem.COLOR_PRIMARY};
+                }}
+                QPushButton:checked {{
+                    background-color: {DesignSystem.COLOR_PRIMARY};
+                    border-color: {DesignSystem.COLOR_PRIMARY};
+                }}
+            """)
+            expand_vlayout.addWidget(expand_btn)
+            primary_bar.addLayout(expand_vlayout)
+        else:
+            expand_btn = None
+            
+        main_layout.addLayout(primary_bar)
+        
+        # === BARRA EXPANDIBLE ===
+        expandable_container = None
+        filter_widgets = {}
+        size_filter_combo = None  # Referencia al combo de tamaño
+        
+        # Preparar la lista completa de filtros expandibles incluyendo el de tamaño
+        all_expandable_filters = []
+        
+        # Añadir filtro de tamaño como PRIMER filtro expandible
+        if size_filter_options and on_size_filter_changed:
+            size_filter_config = {
+                'id': 'size',
+                'type': 'combo',
+                'label': labels.get('size', 'Tamaño / Cantidad'),
+                'tooltip': 'Filtrar por tamaño o cantidad',
+                'options': size_filter_options,
+                'on_change': on_size_filter_changed,
+                'default_index': 0,
+                'min_width': 150
+            }
+            all_expandable_filters.append(size_filter_config)
+        
+        # Añadir el resto de filtros expandibles
+        if expandable_filters:
+            all_expandable_filters.extend(expandable_filters)
+        
+        if all_expandable_filters:
+            expandable_container = QWidget()
+            expandable_container.setVisible(False)
+            expandable_layout = QHBoxLayout(expandable_container)
+            expandable_layout.setSpacing(int(DesignSystem.SPACE_12))
+            expandable_layout.setContentsMargins(0, int(DesignSystem.SPACE_8), 0, 0)
+            
+            for filter_config in all_expandable_filters:
+                filter_id = filter_config['id']
+                filter_type = filter_config.get('type', 'combo')
+                filter_label_text = labels.get(filter_id, filter_config.get('label'))
+                
+                # Layout vertical para cada filtro en la barra expandible
+                v_box = QVBoxLayout()
+                v_box.setSpacing(2)  # Espacio mínimo entre label y control
+                v_box.setContentsMargins(0, 0, 0, 0)
+                
+                if filter_label_text:
+                    f_label = QLabel(filter_label_text)
+                    f_label.setStyleSheet(DesignSystem.get_filter_label_style())
+                    v_box.addWidget(f_label)
+                
+                if filter_type == 'combo':
+                    combo = QComboBox()
+                    combo.addItems(filter_config['options'])
+                    combo.setCurrentIndex(filter_config.get('default_index', 0))
+                    combo.currentIndexChanged.connect(
+                        lambda idx, cb=filter_config['on_change']: cb(idx)
+                    )
+                    combo.setToolTip(filter_config.get('tooltip', ''))
+                    combo.setFixedHeight(36)  # Altura unificada
+                    combo.setStyleSheet(self._get_unified_combo_style())
+                    combo.setMinimumWidth(filter_config.get('min_width', 150))
+                    v_box.addWidget(combo)
+                    filter_widgets[filter_id] = combo
+                    
+                elif filter_type == 'type_buttons':
+                    # Botones para filtro de tipo (imágenes/vídeos/todo)
+                    type_container = QFrame()
+                    type_container.setObjectName("TypeButtonsContainer")
+                    type_container.setFixedHeight(36)  # Altura unificada
+                    type_container.setStyleSheet(f"""
+                        QFrame#TypeButtonsContainer {{
+                            background-color: {DesignSystem.COLOR_BG_1};
+                            border: 2px solid {DesignSystem.COLOR_BORDER};
+                            border-radius: {DesignSystem.RADIUS_BASE}px;
+                            padding: 2px;
+                        }}
+                    """)
+                    type_layout = QHBoxLayout(type_container)
+                    type_layout.setSpacing(2)
+                    type_layout.setContentsMargins(2, 2, 2, 2)
+                    
+                    type_buttons = {}
+                    for btn_id, icon_name, tooltip in filter_config['options']:
+                        btn = QPushButton()
+                        btn.setCheckable(True)
+                        btn.setChecked(btn_id == filter_config.get('default', 'all'))
+                        btn.setToolTip(tooltip)
+                        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                        icon_manager.set_button_icon(btn, icon_name, size=16)
+                        btn.setFixedSize(32, 28)  # Más compacto
+                        btn.setStyleSheet(f"""
+                            QPushButton {{
+                                background-color: transparent;
+                                border: none;
+                                border-radius: {DesignSystem.RADIUS_SM}px;
+                                padding: 2px;
+                            }}
+                            QPushButton:hover {{
+                                background-color: {DesignSystem.COLOR_SURFACE};
+                            }}
+                            QPushButton:checked {{
+                                background-color: {DesignSystem.COLOR_PRIMARY};
+                            }}
+                        """)
+                        btn.clicked.connect(
+                            lambda checked, bid=btn_id, cb=filter_config['on_change'], btns=type_buttons:
+                            self._handle_type_button_click(bid, btns, cb)
+                        )
+                        type_layout.addWidget(btn)
+                        type_buttons[btn_id] = btn
+                    
+                    v_box.addWidget(type_container)
+                    filter_widgets[filter_id] = type_buttons
+                
+                # Guardar referencia especial al combo de tamaño
+                if filter_id == 'size' and filter_type == 'combo':
+                    size_filter_combo = filter_widgets.get('size')
+                
+                expandable_layout.addLayout(v_box)
+            
+            expandable_layout.addStretch()
+            main_layout.addWidget(expandable_container)
+            
+            # Conectar botón expandir
+            def toggle_expandable():
+                is_expanded = expand_btn.isChecked()
+                expandable_container.setVisible(is_expanded)
+                icon_name = 'filter-variant-remove' if is_expanded else 'filter-variant'
+                icon_manager.set_button_icon(expand_btn, icon_name, size=16)
+                expand_btn.setToolTip(
+                    "Ocultar filtros adicionales" if is_expanded else "Mostrar filtros adicionales"
+                )
+            
+            expand_btn.clicked.connect(toggle_expandable)
+        
+        # Guardar referencias
+        main_frame.search_input = search_input
+        main_frame.size_filter_combo = size_filter_combo
+        main_frame.status_chip = status_chip
+        main_frame.expand_btn = expand_btn
+        main_frame.expandable_container = expandable_container
+        main_frame.filter_widgets = filter_widgets
+        main_frame._is_files_mode = is_files_mode
+        
+        return main_frame
+    
+    def _handle_type_button_click(self, clicked_id: str, buttons: dict, callback: callable):
+        """Maneja click en botones de tipo (todo/imágenes/vídeos).
+        
+        Asegura que solo un botón esté seleccionado y llama al callback.
+        """
+        # Actualizar estado visual de todos los botones
+        for btn_id, btn in buttons.items():
+            btn.setChecked(btn_id == clicked_id)
+        
+        # Llamar al callback
+        callback(clicked_id)
+    
+    def _get_unified_combo_style(self) -> str:
+        """Retorna estilo CSS unificado para ComboBox en barras de filtros."""
+        return f"""
+            QComboBox {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                border: 2px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_TEXT};
+            }}
+            QComboBox:hover {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+            QComboBox::drop-down {{
+                border: none;
+                padding-right: {DesignSystem.SPACE_8}px;
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                selection-background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
+                selection-color: {DesignSystem.COLOR_TEXT};
+                padding: {DesignSystem.SPACE_4}px;
+            }}
+        """
+    
+    def _update_filter_chip(
+        self,
+        status_chip: 'QLabel',
+        filtered_count: int,
+        total_count: int,
+        loaded_count: Optional[int] = None,
+        is_files_mode: bool = False
+    ):
+        """Actualiza el chip de estado de filtros con estilo unificado.
+        
+        Args:
+            status_chip: QLabel del chip
+            filtered_count: Elementos después de filtrar
+            total_count: Total de elementos sin filtrar
+            loaded_count: Elementos cargados en la vista (para tooltip)
+            is_files_mode: Si True, el tooltip dice "archivos" en vez de "grupos"
+        """
+        entity = "archivos" if is_files_mode else "grupos"
+        status_chip.setObjectName("StatusChip")
+        
+        if filtered_count != total_count:
+            # Hay filtros activos - color warning/accent
+            status_chip.setText(f"{filtered_count}/{total_count}")
+            status_chip.setStyleSheet(f"""
+                QLabel#StatusChip {{
+                    background-color: {DesignSystem.COLOR_WARNING};
+                    color: {DesignSystem.COLOR_SURFACE};
+                    border-radius: 18px;
+                    padding: 0px 14px;
+                    font-size: {DesignSystem.FONT_SIZE_SM}px;
+                    font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+                    min-width: 70px;
+                }}
+            """)
+            tooltip = f"{entity.capitalize()} filtrados: {filtered_count}\nTotal de {entity}: {total_count}"
+            if loaded_count is not None:
+                tooltip += f"\n(Cargados en lista: {loaded_count} de {filtered_count})"
+            status_chip.setToolTip(tooltip)
+        else:
+            # Sin filtros - color primario más sutil o neutro
+            status_chip.setText(f"{total_count}/{total_count}")
+            status_chip.setStyleSheet(f"""
+                QLabel#StatusChip {{
+                    background-color: {DesignSystem.COLOR_BG_1};
+                    color: {DesignSystem.COLOR_PRIMARY};
+                    border: 2px solid {DesignSystem.COLOR_PRIMARY};
+                    border-radius: 18px;
+                    padding: 0px 14px;
+                    font-size: {DesignSystem.FONT_SIZE_SM}px;
+                    font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+                    min-width: 70px;
+                }}
+            """)
+            status_chip.setToolTip(f"Mostrando todos los {entity}: {total_count}")
+    
+    # Constantes para filtros de origen de fecha
+    # Nombres reales usados por select_best_date_from_file() y select_best_date_from_common_date_to_2_files()
+    DATE_SOURCE_FILTER_ALL = "Todos"
+    DATE_SOURCE_FILTER_OPTIONS = [
+        "Todos",
+        "EXIF",           # Agrupa todos los EXIF (DateTimeOriginal, CreateDate, etc.)
+        "Filename",       # Fecha extraída del nombre de archivo
+        "Filesystem",     # Agrupa mtime, ctime, atime
+    ]
+    
+    def _matches_source_filter(self, date_source: str, filter_value: str) -> bool:
+        """Verifica si el origen de fecha coincide con el filtro seleccionado.
+        
+        Método centralizado para evitar duplicación entre diálogos.
+        Soporta agrupación de fuentes relacionadas (EXIF, Filesystem).
+        
+        Args:
+            date_source: Origen de la fecha del archivo. Valores posibles:
+                - De select_best_date_from_file(): 'EXIF DateTimeOriginal', 'EXIF DateTimeOriginal (+02:00)',
+                  'EXIF CreateDate', 'EXIF DateTimeDigitized', 'Filename', 'Video Metadata', 'mtime', 'ctime', 'birth'
+                - De select_best_date_from_common_date_to_2_files(): 'exif_date_time_original', 'exif_create_date',
+                  'exif_modify_date', 'fs_mtime', 'fs_ctime', 'fs_atime'
+            filter_value: Valor seleccionado en el filtro
+            
+        Returns:
+            True si coincide con el filtro
+        """
+        if not date_source or filter_value == self.DATE_SOURCE_FILTER_ALL:
+            return True
+        
+        source_lower = date_source.lower()
+        
+        # Filtro EXIF: agrupa todos los tipos de EXIF
+        if filter_value == "EXIF":
+            return 'exif' in source_lower or 'video metadata' in source_lower
+        
+        # Filtro Filename
+        if filter_value == "Filename":
+            return 'filename' in source_lower
+        
+        # Filtro Filesystem: agrupa mtime, ctime, atime, birth
+        if filter_value == "Filesystem":
+            filesystem_keywords = ['mtime', 'ctime', 'atime', 'birth', 'fs_']
+            return any(kw in source_lower for kw in filesystem_keywords)
+        
+        # Coincidencia exacta como fallback
+        return date_source == filter_value

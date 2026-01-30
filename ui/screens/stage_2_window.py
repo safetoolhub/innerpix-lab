@@ -60,7 +60,6 @@ class Stage2Window(BaseStage):
 
         # Crear y mostrar header con pequeño margen superior
         self.header = self.create_header(
-            subtitle_text="Análisis de tu carpeta",
             show_settings_button=False,
             show_about_button=False
         )
@@ -127,6 +126,7 @@ class Stage2Window(BaseStage):
         self.analysis_worker.progress_update.connect(self._on_analysis_progress)
         self.analysis_worker.phase_started.connect(self._on_phase_started)
         self.analysis_worker.phase_completed.connect(self._on_phase_completed)
+        self.analysis_worker.phase_skipped.connect(self._on_phase_skipped)
         self.analysis_worker.stats_update.connect(self._on_analysis_stats)
         self.analysis_worker.finished.connect(self._on_analysis_finished)
         self.analysis_worker.error.connect(self._on_analysis_error)
@@ -182,6 +182,22 @@ class Stage2Window(BaseStage):
 
         # Marcar la fase como completada
         self.progress_card.set_phase_status(phase_id, 'completed')
+
+    def _on_phase_skipped(self, phase_id: str, reason: str):
+        """
+        Callback cuando una fase se salta (ej: herramientas no instaladas).
+        
+        Args:
+            phase_id: ID de la fase que se saltó
+            reason: Razón por la que se saltó
+        """
+        self.logger.warning(f"Phase skipped: {phase_id} - {reason}")
+        
+        if not self.progress_card:
+            return
+
+        # Marcar la fase como saltada
+        self.progress_card.set_phase_status(phase_id, 'skipped')
 
     def _on_analysis_stats(self, stats):
         """

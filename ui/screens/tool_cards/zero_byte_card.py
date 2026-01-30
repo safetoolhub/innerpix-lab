@@ -3,6 +3,7 @@ Crea la card de Archivos vacíos para el grid de herramientas.
 """
 
 from ui.screens.tool_card import ToolCard
+from ui.tools_definitions import TOOL_ZERO_BYTE
 
 
 def create_zero_byte_card(analysis_results, on_click_callback) -> ToolCard:
@@ -21,10 +22,9 @@ def create_zero_byte_card(analysis_results, on_click_callback) -> ToolCard:
                    analysis_results.zero_byte is not None)
     
     card = ToolCard(
-        icon_name='file-x',
-        title='Archivos vacíos',
-        description='Detecta archivos de 0 bytes que no contienen datos útiles. '
-                   'Elimínalos de forma segura para mantener tu biblioteca limpia y ordenada.',
+        icon_name=TOOL_ZERO_BYTE.icon_name,
+        title=TOOL_ZERO_BYTE.title,
+        description=TOOL_ZERO_BYTE.long_description,
         action_text='Gestionar ahora' if has_analysis else 'Analizar ahora'
     )
 

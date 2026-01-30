@@ -57,8 +57,6 @@ class Stage1Window(BaseStage):
 
         # Crear widgets del estado
         self.header = self.create_header(
-            title_text=f"Bienvenido a {Config.APP_NAME}",
-            subtitle_text="Gestiona y optimiza tu colección de fotos y vídeos de manera segura y privada",
             on_settings_clicked=self._on_settings_clicked,
             on_about_clicked=self._on_about_clicked
         )
@@ -66,9 +64,9 @@ class Stage1Window(BaseStage):
         self.next_step_card = self._create_next_step_card()
 
         # Agregar al layout principal
-        self.main_layout.addSpacing(DesignSystem.SPACE_8)
+        self.main_layout.addSpacing(2)
         self.main_layout.addWidget(self.header)
-        self.main_layout.addSpacing(DesignSystem.SPACE_16)
+        self.main_layout.addSpacing(DesignSystem.SPACE_4)
         self.main_layout.addWidget(self.folder_selection_card)
         self.main_layout.addSpacing(DesignSystem.SPACE_20)
         self.main_layout.addWidget(self.next_step_card)

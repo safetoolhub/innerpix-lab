@@ -249,6 +249,105 @@ class TestLivePhotoServiceExecution:
         assert result.items_processed == 0
         assert result.videos_deleted == 0
     
+    def test_execute_protects_video_with_long_duration(
+        self, live_photos_service, mock_repo, temp_dir
+    ):
+        """Videos con duración > 3.2s no se eliminan (salvaguarda)."""
+        from config import Config
+        
+        # Crear archivo de video real
+        vid_path = temp_dir / "IMG_LONG.mov"
+        vid_path.write_bytes(b'\x00' * 1024)
+        
+        # Mock del repositorio que devuelve duración > 3.2s
+        long_video_meta = MagicMock(spec=FileMetadata)
+        long_video_meta.path = vid_path
+        long_video_meta.exif_VideoDurationSeconds = 5.0  # 5 segundos > 3.2s
+        long_video_meta.extension = '.mov'
+        
+        mock_repo.get_file_metadata.return_value = long_video_meta
+        mock_repo.get_all_files.return_value = []
+        
+        group = LivePhotoGroup(
+            video_path=vid_path,
+            video_size=1024,
+            images=[LivePhotoImageInfo(
+                path=temp_dir / "IMG_LONG.heic",
+                size=5000,
+                date=datetime.now(),
+                date_source="test"
+            )],
+            base_name="IMG_LONG",
+            directory=temp_dir,
+            video_date=datetime.now(),
+            video_date_source="test",
+            date_source="test",
+            date_difference=0.0
+        )
+        
+        analysis = LivePhotosAnalysisResult(
+            groups=[group],
+            rejected_groups=[],
+            items_count=1,
+            bytes_total=6024,
+            total_space=6024
+        )
+        
+        result = live_photos_service.execute(analysis, dry_run=False, create_backup=False)
+        
+        assert result.success is True
+        assert result.videos_deleted == 0  # No se eliminó
+        assert vid_path.exists()  # El archivo sigue existiendo
+        assert "protegidos" in result.message.lower() or "protected" in result.message.lower()
+    
+    def test_execute_deletes_video_with_short_duration(
+        self, live_photos_service, mock_repo, temp_dir
+    ):
+        """Videos con duración <= 3.2s sí se eliminan."""
+        # Crear archivo de video real
+        vid_path = temp_dir / "IMG_SHORT.mov"
+        vid_path.write_bytes(b'\x00' * 1024)
+        
+        # Mock del repositorio que devuelve duración corta
+        short_video_meta = MagicMock(spec=FileMetadata)
+        short_video_meta.path = vid_path
+        short_video_meta.exif_VideoDurationSeconds = 2.5  # 2.5 segundos <= 3.2s
+        short_video_meta.extension = '.mov'
+        
+        mock_repo.get_file_metadata.return_value = short_video_meta
+        mock_repo.get_all_files.return_value = []
+        
+        group = LivePhotoGroup(
+            video_path=vid_path,
+            video_size=1024,
+            images=[LivePhotoImageInfo(
+                path=temp_dir / "IMG_SHORT.heic",
+                size=5000,
+                date=datetime.now(),
+                date_source="test"
+            )],
+            base_name="IMG_SHORT",
+            directory=temp_dir,
+            video_date=datetime.now(),
+            video_date_source="test",
+            date_source="test",
+            date_difference=0.0
+        )
+        
+        analysis = LivePhotosAnalysisResult(
+            groups=[group],
+            rejected_groups=[],
+            items_count=1,
+            bytes_total=6024,
+            total_space=6024
+        )
+        
+        result = live_photos_service.execute(analysis, dry_run=False, create_backup=False)
+        
+        assert result.success is True
+        assert result.videos_deleted == 1  # Sí se eliminó
+        assert not vid_path.exists()  # El archivo fue eliminado
+    
     def test_execute_dry_run_does_not_delete_files(
         self, live_photos_service, mock_repo, temp_dir
     ):

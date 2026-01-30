@@ -43,7 +43,7 @@ Detecta fotos y vídeos que son muy parecidos pero no idénticos. Esto es perfec
 - Detectar copias de baja resolución.
 
 ### 7. Organización Inteligente
-Pone orden en el caos. Esta herramienta analiza sus archivos y propone una nueva estructura de carpetas organizada lógicamente (por ejemplo, por Año/Mes/Día), permitiéndole reubicar miles de fotos con un solo clic y mantener su biblioteca impecable.
+Pone orden en el caos. Esta herramienta analiza sus archivos y propone una nueva estructura de carpetas organizada lógicamente (por ejemplo, por Año/Mes), permitiéndole reubicar miles de fotos con un solo clic y mantener su biblioteca impecable.
 
 ### 8. Renombrado Masivo
 Estandarice los nombres de sus archivos de forma profesional. Puede cambiar nombres crípticos como `IMG_8823.JPG` a formatos útiles y legibles como `20241231_112300_PHOTO.jpg`, utilizando fechas y secuencias automáticas para evitar conflictos.

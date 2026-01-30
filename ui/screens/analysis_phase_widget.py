@@ -35,31 +35,6 @@ class AnalysisPhaseWidget(QFrame):
         layout.setSpacing(DesignSystem.SPACE_4)
         layout.setContentsMargins(0, 0, 0, 0)
         
-        # Header del panel de fases
-        header_layout = QHBoxLayout()
-        header_layout.setSpacing(DesignSystem.SPACE_8)
-        header_layout.setContentsMargins(0, 0, 0, DesignSystem.SPACE_8)
-        
-        header_icon = QLabel()
-        icon_manager.set_label_icon(
-            header_icon,
-            'chart-bar',
-            color=DesignSystem.COLOR_TEXT_SECONDARY,
-            size=18
-        )
-        header_layout.addWidget(header_icon)
-        
-        header_text = QLabel("Progreso del análisis")
-        header_text.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-            color: {DesignSystem.COLOR_TEXT};
-        """)
-        header_layout.addWidget(header_text)
-        header_layout.addStretch()
-        
-        layout.addLayout(header_layout)
-        
         # Definir las fases con sus IDs y textos
         phases = [
             (InitialScanner.PHASE_FILE_CLASSIFICATION, "Escaneando estructura de carpetas", 1),
@@ -214,7 +189,7 @@ class AnalysisPhaseWidget(QFrame):
             status_icon.hide()
         
         elif status == 'skipped':
-            # Fase omitida
+            # Fase omitida (por falta de herramientas o configuración)
             container.setStyleSheet(DesignSystem.get_phase_item_style('skipped'))
             
             number_label.setText(str(number_value))
@@ -222,8 +197,8 @@ class AnalysisPhaseWidget(QFrame):
             
             text_label.setStyleSheet(DesignSystem.get_phase_title_style('skipped'))
             
-            # Mostrar texto "se realizará más adelante"
-            counter_label.setText("(más adelante)")
+            # Mostrar texto indicando que se saltó
+            counter_label.setText("(omitida)")
             counter_label.setStyleSheet(f"""
                 font-size: {DesignSystem.FONT_SIZE_XS}px;
                 color: {DesignSystem.COLOR_TEXT_SECONDARY};

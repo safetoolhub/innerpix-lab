@@ -29,7 +29,7 @@ Uso básico:
 Categorías de iconos disponibles:
 - Configuración y sistema: cog, information, devices, monitor, etc.
 - Estados y notificaciones: alert, check, close, shield, etc.
-- Archivos y carpetas: folder, file, open-in-new, magnify, etc.
+- Archivos y carpetas: folder, file, open-in-new, magnify, view-grid, etc.
 - Operaciones: delete, content-save, backup-restore, refresh, etc.
 - Multimedia: image, video, camera, eye, etc.
 - Duplicados: content-copy
@@ -94,6 +94,8 @@ class IconManager:
         'file-check': 'mdi6.file-check',
         'file-plus': 'mdi6.file-plus',
         'file-edit': 'mdi6.file-edit',
+        'file-jpg-box': 'mdi6.file-jpg-box',
+        'view-grid': 'mdi6.view-grid',
         
         # === OPERACIONES DE ARCHIVOS ===
         'open-in-new': 'mdi6.open-in-new',
@@ -106,6 +108,8 @@ class IconManager:
         'content-save': 'mdi6.content-save',
         'backup-restore': 'mdi6.backup-restore',
         'history': 'mdi6.history',
+        'filter-variant': 'mdi6.filter-variant',
+        'filter-variant-remove': 'mdi6.filter-variant-remove',
         
         # === TIEMPO Y ESTADÍSTICAS ===
         'chart-bar': 'mdi6.chart-bar',
@@ -148,6 +152,7 @@ class IconManager:
         'skip-next': 'mdi6.skip-next',
         'chevron-left': 'mdi6.chevron-left',
         'chevron-right': 'mdi6.chevron-right',
+        'numeric-1-circle': 'mdi6.numeric-1-circle',
         
         # === METADATOS Y PROPIEDADES ===
         'ruler': 'mdi6.ruler',

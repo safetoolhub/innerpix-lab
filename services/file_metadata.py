@@ -49,7 +49,7 @@ class FileMetadata:
     # Best date available (fecha más representativa calculada)
     # Calculada en Phase 5 del InitialScanner usando select_best_date_from_file()
     best_date: Optional[datetime] = None
-    best_date_source: Optional[str] = None  # Fuente de la fecha (ej: 'exif_datetime_original', 'mtime')
+    best_date_source: Optional[str] = None  # Fuente de la fecha (ej: 'EXIF DateTimeOriginal', 'mtime')
     
     # Metadatos EXIF (opcionales)
     exif_ImageWidth: Optional[int] = None
@@ -63,7 +63,39 @@ class FileMetadata:
     exif_SubSecTimeOriginal: Optional[str] = None
     exif_OffsetTimeOriginal: Optional[str] = None
     exif_Software: Optional[str] = None
-    exif_VideoDuration: Optional[str] = None  # Duración de video (ej: "5:23 min")
+    exif_VideoDurationSeconds: Optional[float] = None
+    
+    @property
+    def video_duration_formatted(self) -> Optional[str]:
+        """
+        Duración del video formateada como string con precisión adaptativa.
+        
+        Formato según duración:
+        - < 10 segundos: "1.2 seg" (con decimales para precisión)
+        - 10-59 segundos: "45 seg" (sin decimales)
+        - >= 60 segundos: "1:23 min" (minutos:segundos)
+        
+        Generado dinámicamente desde exif_VideoDurationSeconds.
+        
+        Returns:
+            String formateado o None si no hay duración disponible
+        """
+        if self.exif_VideoDurationSeconds is None:
+            return None
+        
+        seconds = self.exif_VideoDurationSeconds
+        
+        if seconds < 10:
+            # Duración muy corta: mostrar con 1 decimal para precisión
+            return f"{seconds:.1f} seg"
+        elif seconds < 60:
+            # Menos de un minuto: mostrar segundos enteros
+            return f"{int(seconds)} seg"
+        else:
+            # Un minuto o más: formato mm:ss
+            minutes = int(seconds // 60)
+            secs = int(seconds % 60)
+            return f"{minutes}:{secs:02d} min"
     
     @property
     def extension(self) -> str:
@@ -85,7 +117,7 @@ class FileMetadata:
             self.exif_SubSecTimeOriginal is not None,
             self.exif_OffsetTimeOriginal is not None,
             self.exif_Software is not None,
-            self.exif_VideoDuration is not None
+            self.exif_VideoDurationSeconds is not None
         ])
     
     @property
@@ -170,7 +202,7 @@ class FileMetadata:
             'exif_SubSecTimeOriginal': self.exif_SubSecTimeOriginal,
             'exif_OffsetTimeOriginal': self.exif_OffsetTimeOriginal,
             'exif_Software': self.exif_Software,
-            'exif_VideoDuration': self.exif_VideoDuration,
+            'exif_VideoDurationSeconds': self.exif_VideoDurationSeconds,
         }
     
     @classmethod
@@ -215,7 +247,7 @@ class FileMetadata:
             exif_SubSecTimeOriginal=data.get('exif_SubSecTimeOriginal'),
             exif_OffsetTimeOriginal=data.get('exif_OffsetTimeOriginal'),
             exif_Software=data.get('exif_Software'),
-            exif_VideoDuration=data.get('exif_VideoDuration'),
+            exif_VideoDurationSeconds=data.get('exif_VideoDurationSeconds'),
         )
     
     def get_summary(self, verbose: bool = False) -> str:

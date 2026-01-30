@@ -19,7 +19,7 @@ class InitialAnalysisWorker(BaseWorker):
     Worker for Stage 2: Multi-phase Initial Directory Scan.
     
     Emits signals for:
-    - Phase transitions (phase_started, phase_completed)
+    - Phase transitions (phase_started, phase_completed, phase_skipped)
     - Progress updates within each phase
     - Scan statistics
     - Final result (ScanSnapshot)
@@ -29,6 +29,7 @@ class InitialAnalysisWorker(BaseWorker):
     finished = pyqtSignal(object)  # ScanSnapshot
     phase_started = pyqtSignal(str, str)  # phase_id, phase_message
     phase_completed = pyqtSignal(str)  # phase_id
+    phase_skipped = pyqtSignal(str, str)  # phase_id, reason
     stats_update = pyqtSignal(object)  # Dict with scan statistics
     
     def __init__(self, directory: Path):
@@ -71,6 +72,12 @@ class InitialAnalysisWorker(BaseWorker):
                 if not self._stop_requested:
                     self.phase_completed.emit(phase_id)
             
+            # Define phase skipped callback
+            def phase_skipped_callback(phase_id: str, reason: str):
+                """Called when a phase is skipped (e.g., missing tools)."""
+                if not self._stop_requested:
+                    self.phase_skipped.emit(phase_id, reason)
+            
             # Define progress callback
             def progress_callback(phase_progress: PhaseProgress) -> bool:
                 """Called for progress updates within a phase."""
@@ -91,6 +98,7 @@ class InitialAnalysisWorker(BaseWorker):
                 directory=self.directory,
                 phase_callback=phase_callback,
                 phase_completed_callback=phase_completed_callback,
+                phase_skipped_callback=phase_skipped_callback,
                 progress_callback=progress_callback,
                 calculate_hashes=precalculate_hashes,
                 extract_image_exif=precalculate_image_exif,

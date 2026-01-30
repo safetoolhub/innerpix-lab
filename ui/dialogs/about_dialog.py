@@ -19,6 +19,9 @@ from PyQt6.QtCore import Qt
 from config import Config
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
+from ui.tools_definitions import (
+    TOOL_CATEGORIES, get_tools_by_category
+)
 
 
 class AboutDialog(QDialog):
@@ -42,6 +45,9 @@ class AboutDialog(QDialog):
         self.setModal(True)
         self.setMinimumSize(1100, 780)
         self.resize(1100, 780)
+        
+        # Aplicar estilo global de tooltips
+        self.setStyleSheet(DesignSystem.get_tooltip_style())
 
         # Layout principal sin márgenes
         main_layout = QVBoxLayout(self)
@@ -63,10 +69,10 @@ class AboutDialog(QDialog):
         self.tab_widget.setStyleSheet(DesignSystem.get_tutorial_tab_widget_style())
         
         # Crear las pestañas (nombres compactos)
-        self.tab_widget.addTab(self._create_welcome_tab(), "🏠 Inicio")
-        self.tab_widget.addTab(self._create_privacy_tab(), "🛡️ Seguridad")
-        self.tab_widget.addTab(self._create_tools_tab(), "🔧 Herramientas")
-        self.tab_widget.addTab(self._create_tech_tab(), "ℹ️ Info")
+        self.tab_widget.addTab(self._create_welcome_tab(), "Inicio")
+        self.tab_widget.addTab(self._create_tools_tab(), "Herramientas")
+        self.tab_widget.addTab(self._create_privacy_tab(), "Seguridad")
+        self.tab_widget.addTab(self._create_tech_tab(), "Info")
 
         content_layout.addWidget(self.tab_widget)
         main_layout.addWidget(content_widget, 1)
@@ -110,7 +116,7 @@ class AboutDialog(QDialog):
         header_layout.addStretch()
         
         # Lado derecho: Badge de privacidad
-        privacy_badge = QLabel("🔒 100% Privado • Sin conexión a internet")
+        privacy_badge = QLabel("100% Privado • Sin conexión a internet")
         privacy_badge.setStyleSheet(f"""
             QLabel {{
                 background-color: rgba(255, 255, 255, 0.2);
@@ -139,7 +145,7 @@ class AboutDialog(QDialog):
         footer_layout.setContentsMargins(24, 10, 24, 10)
         
         # Créditos
-        credits = QLabel("Desarrollado con ❤️ para simplificar la gestión de fotos")
+        credits = QLabel("Desarrollado para simplificar la gestión de fotos")
         credits.setStyleSheet(f"""
             color: {DesignSystem.COLOR_TEXT_SECONDARY};
             font-size: {DesignSystem.FONT_SIZE_SM}px;
@@ -189,39 +195,47 @@ class AboutDialog(QDialog):
         description.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT}; font-size: {DesignSystem.FONT_SIZE_BASE}px;")
         layout.addWidget(description)
         
-        # Flujo en grid horizontal (2x2)
-        workflow_title = QLabel("Cómo funciona")
+        # Flujo en lista vertical (4 pasos secuenciales)
+        workflow_title = QLabel("Proceso de trabajo (Pasos a seguir en orden)")
         workflow_title.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_MD}px;
             font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-            color: {DesignSystem.COLOR_TEXT};
+            color: {DesignSystem.COLOR_PRIMARY};
+            margin-top: {DesignSystem.SPACE_8}px;
         """)
         layout.addWidget(workflow_title)
+
+        workflow_desc = QLabel(
+            "InnerPix Lab está diseñado para seguir un flujo lógico y optimizar tu colección de manera progresiva. "
+            "Sigue estos 4 pasos para obtener el mejor resultado:"
+        )
+        workflow_desc.setWordWrap(True)
+        workflow_desc.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_SM}px; margin-bottom: {DesignSystem.SPACE_4}px;")
+        layout.addWidget(workflow_desc)
         
-        steps_grid = QGridLayout()
-        steps_grid.setSpacing(DesignSystem.SPACE_8)
+        steps_container = QVBoxLayout()
+        steps_container.setSpacing(DesignSystem.SPACE_8)
         
         steps = [
-            ("1", "Selecciona carpeta", "Elige la carpeta con tus fotos"),
-            ("2", "Análisis automático", "Escaneo de archivos y metadatos"),
-            ("3", "Usa las herramientas", "Cada tool analiza y optimiza"),
-            ("4", "Revisa y ejecuta", "Previsualiza antes de aplicar"),
+            ("1", "Selección del Origen", "El primer paso es elegir la carpeta que contiene tus fotos y vídeos. El sistema trabajará de forma recursiva."),
+            ("2", "Análisis Profundo", "Automáticamente escaneamos archivos, extraemos metadatos EXIF y calculamos firmas digitales (hashes)."),
+            ("3", "Uso de Herramientas", "Entra en cada herramienta para detectar duplicados, organizar por fechas o limpiar archivos innecesarios."),
+            ("4", "Ejecución de Cambios", "Tras revisar los planes de acción propuestos, confirma la ejecución. Recomendamos usar el Modo Simulación primero."),
         ]
         
-        for i, (num, title, desc) in enumerate(steps):
-            row, col = i // 2, i % 2
+        for num, title, desc in steps:
             step_widget = self._create_step_widget_compact(num, title, desc)
-            steps_grid.addWidget(step_widget, row, col)
+            steps_container.addWidget(step_widget)
         
-        layout.addLayout(steps_grid)
+        layout.addLayout(steps_container)
         
         # Tips en horizontal
         tips_layout = QHBoxLayout()
         tips_layout.setSpacing(DesignSystem.SPACE_8)
         
-        tip1 = self._create_mini_tip("💡", "Modo Simulación", "Prueba sin modificar archivos")
-        tip2 = self._create_mini_tip("📦", "Backup Automático", "Siempre hay copia de seguridad")
-        tip3 = self._create_mini_tip("📋", "Logs Detallados", "Registro de todas las operaciones")
+        tip1 = self._create_mini_tip("Modo Simulación", "Prueba sin modificar archivos")
+        tip2 = self._create_mini_tip("Backup Automático", "Siempre hay copia de seguridad")
+        tip3 = self._create_mini_tip("Logs Detallados", "Registro de todas las operaciones")
         
         tips_layout.addWidget(tip1)
         tips_layout.addWidget(tip2)
@@ -311,7 +325,7 @@ class AboutDialog(QDialog):
         layout.addWidget(guarantees_container)
         
         # === FOOTER DE CONFIANZA ===
-        trust_footer = QLabel("🔒 Todo tu contenido está a salvo y bajo tu control exclusivo.")
+        trust_footer = QLabel("Todo tu contenido está a salvo y bajo tu control exclusivo.")
         trust_footer.setAlignment(Qt.AlignmentFlag.AlignCenter)
         trust_footer.setStyleSheet(f"""
             color: {DesignSystem.COLOR_SUCCESS};
@@ -335,66 +349,35 @@ class AboutDialog(QDialog):
         title.setStyleSheet(DesignSystem.get_tutorial_section_header_style())
         layout.addWidget(title)
         
-        # === SECCIÓN 1: LIMPIEZA (4 tools en grid 2x2) ===
-        cleanup_header = self._create_category_header("🧹 Limpieza y Espacio", "Libera espacio eliminando archivos innecesarios")
-        layout.addWidget(cleanup_header)
-        
-        cleanup_grid = QGridLayout()
-        cleanup_grid.setSpacing(DesignSystem.SPACE_8)
-        
-        cleanup_tools = [
-            ("file-x", "Archivos Vacíos", "Busca 'archivos fantasma' (0 bytes) que ensucian su sistema y los elimina de forma segura."),
-            ("file-image", "HEIC/JPG", "Identifica fotos guardadas en HEIC y JPG. Ayuda a eliminar versiones redundantes para ahorrar espacio."),
-            ("camera-burst", "Live Photos", "Gestiona inteligentemente las 'Live Photos' (imagen + vídeo) y permite limpiar el vídeo si solo desea la foto."),
-            ("content-copy", "Copias Exactas", "Analiza su colección bit a bit para encontrar archivos matemáticamente idénticos. La forma más segura."),
-        ]
-        
-        for i, (icon, name, desc) in enumerate(cleanup_tools):
-            row, col = i // 2, i % 2
-            card = self._create_tool_mini_card(icon, name, desc)
-            cleanup_grid.addWidget(card, row, col)
-        
-        layout.addLayout(cleanup_grid)
-        
-        # === SECCIÓN 2: DETECCIÓN VISUAL (2 tools) ===
-        visual_header = self._create_category_header("🔍 Detección Visual", "Encuentra imágenes visualmente similares")
-        layout.addWidget(visual_header)
-        
-        visual_grid = QGridLayout()
-        visual_grid.setSpacing(DesignSystem.SPACE_8)
-        
-        visual_tools = [
-            ("image-multiple", "Copias Idénticas", "Identifica imágenes visualmente indistinguibles aunque sean archivos diferentes (ej: original vs copia web)."),
-            ("image-search", "Archivos Similares", "Detecta fotos y vídeos parecidos pero no idénticos. Perfecto para elegir la mejor toma de ráfagas."),
-        ]
-        
-        for i, (icon, name, desc) in enumerate(visual_tools):
-            card = self._create_tool_mini_card(icon, name, desc)
-            visual_grid.addWidget(card, 0, i)
-        
-        layout.addLayout(visual_grid)
-        
-        # === SECCIÓN 3: ORGANIZACIÓN (2 tools) ===
-        org_header = self._create_category_header("📁 Organización", "Ordena y renombra tu colección")
-        layout.addWidget(org_header)
-        
-        org_grid = QGridLayout()
-        org_grid.setSpacing(DesignSystem.SPACE_8)
-        
-        org_tools = [
-            ("folder-move", "Organizar", "Analiza sus archivos y propone una estructura lógica (Año/Mes/Día). Reubica miles de fotos con un clic."),
-            ("rename-box", "Renombrar", "Estandariza nombres crípticos a formatos legibles como 20241231_PHOTO.jpg, usando fechas y secuencias."),
-        ]
-        
-        for i, (icon, name, desc) in enumerate(org_tools):
-            card = self._create_tool_mini_card(icon, name, desc)
-            org_grid.addWidget(card, 0, i)
-        
-        layout.addLayout(org_grid)
+        # Crear secciones dinámicamente usando tools_definitions
+        for category in TOOL_CATEGORIES:
+            # Header de la categoría
+            header = self._create_category_header(category.title, category.description)
+            layout.addWidget(header)
+            
+            # Grid de herramientas
+            tools = get_tools_by_category(category.id)
+            grid = QGridLayout()
+            grid.setSpacing(DesignSystem.SPACE_8)
+            
+            # Determinar layout: 2 columnas para categorías con 4+ tools, 1 fila para categorías con 2
+            if len(tools) > 2:
+                # Grid 2x2 (ej: Limpieza con 4 tools)
+                for i, tool in enumerate(tools):
+                    row, col = i // 2, i % 2
+                    card = self._create_tool_mini_card(tool.icon_name, tool.title, tool.long_description)
+                    grid.addWidget(card, row, col)
+            else:
+                # Una fila horizontal (ej: Visual y Organización con 2 tools)
+                for i, tool in enumerate(tools):
+                    card = self._create_tool_mini_card(tool.icon_name, tool.title, tool.long_description)
+                    grid.addWidget(card, 0, i)
+            
+            layout.addLayout(grid)
         
         # Nota técnica compacta
         tech_note = QLabel(
-            "💡 <b>Hash perceptual</b>: La detección visual usa algoritmos que generan "
+            "<b>Hash perceptual</b>: La detección visual usa algoritmos que generan "
             "valores similares para imágenes parecidas, detectando duplicados aunque tengan "
             "diferente resolución o metadatos."
         )
@@ -437,7 +420,7 @@ class AboutDialog(QDialog):
         
         # Ubicaciones
         locations_box = self._create_highlight_box(
-            "📂 Ubicaciones del Sistema",
+            "Ubicaciones del Sistema",
             "<b>Logs:</b> ~/Documents/Innerpix_Lab/logs/<br>"
             "<b>Backups:</b> Configurables desde el menú de Ajustes",
             DesignSystem.COLOR_PRIMARY_LIGHT,
@@ -480,7 +463,7 @@ class AboutDialog(QDialog):
         layout.addLayout(content, 1)
         return frame
 
-    def _create_mini_tip(self, emoji: str, title: str, desc: str) -> QFrame:
+    def _create_mini_tip(self, title: str, desc: str) -> QFrame:
         """Crea un mini tip horizontal."""
         frame = QFrame()
         frame.setStyleSheet(DesignSystem.get_tutorial_tip_card_style())
@@ -489,7 +472,7 @@ class AboutDialog(QDialog):
         layout.setContentsMargins(12, 10, 12, 10)
         layout.setSpacing(4)
         
-        header = QLabel(f"{emoji} {title}")
+        header = QLabel(title)
         header.setStyleSheet(DesignSystem.get_tutorial_card_title_style())
         layout.addWidget(header)
         

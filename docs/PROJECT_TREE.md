@@ -1,12 +1,13 @@
-# Innerpix Lab - Project Structure
+# InnerPix Lab - Project Structure
 
 PyQt6 desktop application for photo/video management.
 
-**Note:** Folders `__pycache__/`, files `__init__.py`, `tests/` and `.gitignore` elements are excluded for clarity.
+**Note:** Folders `__pycache__/`, files `__init__.py`, `.venv/` and `.gitignore` elements are excluded for clarity.
 
 ```
 .
 ├── AGENTS.md
+├── LICENSE
 ├── config.py
 ├── dev-tools/
 │   ├── benchmark_clustering.py
@@ -17,27 +18,21 @@ PyQt6 desktop application for photo/video management.
 │   ├── test_image_dimensions.py
 │   └── verify_heic_bug_fix.py
 ├── docs/
-│   ├── OPTIMIZATION_SIMILAR_FILES.md
-│   ├── OPTIMIZATION_SIMILAR_FILES_OLD.md
-│   ├── PLAN_DUPLICATES_SIMILAR_REFACTOR.md
-│   ├── PLAN_SIMILAR_sonnet.md
 │   ├── PROJECT_FUNCTIONALITIES.md
 │   ├── PROJECT_TREE.md
-│   ├── SIMILAR_FILES_SIZE_PRIORITIZATION.md
+│   ├── prompt_nombres_unificados.md
 │   └── TODO.txt
-├── LICENSE
 ├── main.py
 ├── pytest.ini
 ├── requirements-dev.txt
 ├── requirements.txt
 ├── services/
-│   ├── analysis_orchestrator.py
 │   ├── base_service.py
 │   ├── duplicates_base_service.py
 │   ├── duplicates_exact_service.py
 │   ├── duplicates_similar_service.py
-│   ├── file_metadata_repository_cache.py
 │   ├── file_metadata.py
+│   ├── file_metadata_repository_cache.py
 │   ├── file_organizer_service.py
 │   ├── file_renamer_service.py
 │   ├── heic_service.py
@@ -47,43 +42,44 @@ PyQt6 desktop application for photo/video management.
 │   ├── visual_identical_service.py
 │   └── zero_byte_service.py
 ├── tests/
+│   ├── README.md
 │   ├── conftest.py
 │   ├── integration/
 │   │   └── test_live_photos_integration.py
 │   ├── performance/
 │   │   ├── test_bktree_performance.py
 │   │   └── test_large_dataset.py
-│   ├── README.md
 │   ├── test_base_service.py
 │   ├── test_heic_service_refactor.py
 │   ├── test_window_size.py
 │   ├── ui/
 │   │   ├── test_duplicates_similar_dialog.py
 │   │   └── test_zero_byte_dialog.py
-│   ├── unit/
-│   │   ├── README_DYNAMIC_CONFIG_TESTS.md
-│   │   ├── services/
-│   │   │   ├── test_duplicates_exact_service.py
-│   │   │   ├── test_duplicates_similar_service.py
-│   │   │   ├── test_file_metadata_repository_cache.py
-│   │   │   ├── test_file_renamer_service.py
-│   │   │   ├── test_live_photos_service.py
-│   │   │   ├── test_perceptual_hash_algorithms.py
-│   │   │   ├── test_size_prioritization.py
-│   │   │   ├── test_visual_identical_service.py
-│   │   │   └── test_zero_byte_service.py
-│   │   ├── test_dynamic_config.py
-│   │   └── utils/
-│   │       ├── test_callback_utils.py
-│   │       ├── test_date_utils_force_search.py
-│   │       ├── test_date_utils.py
-│   │       ├── test_file_utils.py
-│   │       ├── test_format_utils.py
-│   │       ├── test_log_rotation_production.py
-│   │       ├── test_log_rotation.py
-│   │       ├── test_platform_utils.py
-│   │       ├── test_screen_utils.py
-│   │       └── test_storage.py
+│   └── unit/
+│       ├── README_DYNAMIC_CONFIG_TESTS.md
+│       ├── services/
+│       │   ├── test_duplicates_exact_service.py
+│       │   ├── test_duplicates_similar_service.py
+│       │   ├── test_file_metadata_repository_cache.py
+│       │   ├── test_file_renamer_service.py
+│       │   ├── test_initial_scanner.py
+│       │   ├── test_live_photos_service.py
+│       │   ├── test_perceptual_hash_algorithms.py
+│       │   ├── test_size_prioritization.py
+│       │   ├── test_visual_identical_service.py
+│       │   └── test_zero_byte_service.py
+│       ├── test_dynamic_config.py
+│       └── utils/
+│           ├── test_callback_utils.py
+│           ├── test_date_utils_force_search.py
+│           ├── test_date_utils.py
+│           ├── test_file_utils.py
+│           ├── test_format_utils.py
+│           ├── test_log_rotation_production.py
+│           ├── test_log_rotation.py
+│           ├── test_platform_utils.py
+│           ├── test_screen_utils.py
+│           └── test_storage.py
 ├── ui/
 │   ├── dialogs/
 │   │   ├── about_dialog.py
@@ -123,6 +119,7 @@ PyQt6 desktop application for photo/video management.
 │   ├── styles/
 │   │   ├── design_system.py
 │   │   └── icons.py
+│   ├── tools_definitions.py
 │   └── workers/
 │       ├── analysis_workers.py
 │       ├── base_worker.py

@@ -58,6 +58,7 @@ class DesignSystem:
     COLOR_DANGER_BG = "#F8D7DA"
     COLOR_INFO = "#0DCAF0"
     COLOR_INFO_BG = "#CFF4FC"
+    COLOR_INFO_TEXT = "#055160"  # Texto legible sobre fondo info
     
     # Bordes
     COLOR_BORDER = "#DEE2E6"
@@ -278,24 +279,59 @@ class DesignSystem:
         """
     
     @staticmethod
+    def get_filter_label_style():
+        """Retorna el estilo para etiquetas de filtros.
+        
+        Diseño minimalista y compacto: texto muy pequeño, discreto.
+        Sin bordes y con espaciado mínimo.
+        """
+        return f"""
+            QLabel {{
+                font-size: 9px;
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                background: transparent;
+                border: none;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                margin: 0px;
+                padding: 0px 0px 2px 0px;
+            }}
+        """
+    
+    @staticmethod
+    def get_filter_container_style():
+        """Estilo para contenedores de inputs dentro de la barra de filtros."""
+        return f"""
+            QWidget {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                border: 2px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+            }}
+            QWidget:hover {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+        """
+    
+    @staticmethod
     def get_tooltip_style():
         """Retorna el estilo QSS para tooltips.
         
         TODOS los tooltips de la aplicación deben usar este estilo.
-        Sigue Material Design: fondo oscuro semitransparente, texto claro.
+        Diseño profesional: fondo oscuro, texto claro, compacto.
         
         Returns:
             str: Estilo QSS para tooltips.
         """
         return f"""
             QToolTip {{
-                background-color: rgba(97, 97, 97, 0.95);
-                color: #FFFFFF;
+                background-color: #2D3436;
+                color: #F5F6FA;
                 border: none;
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
+                border-radius: {DesignSystem.RADIUS_SM}px;
+                padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_8}px;
                 font-size: {DesignSystem.FONT_SIZE_SM}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                font-weight: {DesignSystem.FONT_WEIGHT_NORMAL};
                 font-family: {DesignSystem.FONT_FAMILY_BASE};
             }}
         """
@@ -753,6 +789,23 @@ class DesignSystem:
                 border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
                 border-radius: {DesignSystem.RADIUS_LG}px;
                 padding: 10px {DesignSystem.SPACE_20}px;
+            }}
+        """
+
+    @staticmethod
+    def get_status_frame_style(color: str):
+        """Retorna el estilo para un frame de estado con borde lateral coloreado.
+        
+        Diseño profesional: fondo de superficie, borde sutil y un acento
+        específico de color en el lateral izquierdo para indicar el estado.
+        """
+        return f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-left: 5px solid {color};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_8}px;
             }}
         """
     

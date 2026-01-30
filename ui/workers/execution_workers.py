@@ -205,7 +205,8 @@ class DuplicatesExecutionWorker(BaseWorker):
         keep_strategy: str,
         create_backup: bool = True,
         dry_run: bool = False,
-        metadata_cache = None
+        metadata_cache = None,
+        files_to_delete: Optional[List[Path]] = None
     ):
         super().__init__()
         self.detector = detector
@@ -214,6 +215,7 @@ class DuplicatesExecutionWorker(BaseWorker):
         self.create_backup = create_backup
         self.dry_run = dry_run
         self.metadata_cache = metadata_cache
+        self.files_to_delete = files_to_delete
     
     def run(self) -> None:
         try:
@@ -226,7 +228,8 @@ class DuplicatesExecutionWorker(BaseWorker):
                 create_backup=self.create_backup,
                 dry_run=self.dry_run,
                 progress_callback=self._create_progress_callback(emit_numbers=True),
-                metadata_cache=self.metadata_cache
+                metadata_cache=self.metadata_cache,
+                files_to_delete=self.files_to_delete
             )
             
             if not self._stop_requested:

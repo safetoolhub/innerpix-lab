@@ -109,6 +109,10 @@ class DuplicatesBaseService(BaseService):
         groups = analysis_result.groups
         keep_strategy = kwargs.get('keep_strategy', 'oldest')
         
+        # Obtener lista de archivos específicos a eliminar (para modo manual desde UI)
+        files_to_delete_list = kwargs.get('files_to_delete', None)
+        files_to_delete_set = set(files_to_delete_list) if files_to_delete_list is not None else None
+        
         # Header con información de operación
         mode = "SIMULACIÓN" if dry_run else ""
         log_section_header_relevant(
@@ -126,6 +130,64 @@ class DuplicatesBaseService(BaseService):
                 keep_strategy=keep_strategy,
                 dry_run=dry_run,
                 message="No hay duplicados para eliminar"
+            )
+        
+        # =====================================================================
+        # FILTRAR ARCHIVOS INEXISTENTES DE LOS GRUPOS
+        # Esto previene errores cuando otro servicio eliminó archivos entre
+        # el análisis y la ejecución (ej: Live Photos elimina MOVs que también
+        # aparecen como duplicados exactos)
+        # =====================================================================
+        filtered_groups = []
+        total_missing_files = 0
+        
+        for group in groups:
+            existing_files = [f for f in group.files if f.exists()]
+            missing_count = len(group.files) - len(existing_files)
+            
+            if missing_count > 0:
+                total_missing_files += missing_count
+                self.logger.debug(
+                    f"Grupo {group.hash_value[:8]}...: {missing_count} archivos ya no existen"
+                )
+            
+            # Solo mantener el grupo si tiene al menos 2 archivos existentes
+            # (un duplicado necesita al menos 2 archivos)
+            if len(existing_files) >= 2:
+                # Crear nuevo grupo con solo los archivos existentes
+                from services.result_types import DuplicateGroup
+                updated_group = DuplicateGroup(
+                    hash_value=group.hash_value,
+                    files=existing_files,
+                    total_size=sum(f.stat().st_size for f in existing_files),
+                    similarity_score=group.similarity_score
+                )
+                filtered_groups.append(updated_group)
+            elif len(existing_files) == 1:
+                # Solo queda 1 archivo, ya no es duplicado
+                self.logger.debug(
+                    f"Grupo {group.hash_value[:8]}... descartado: "
+                    f"solo queda 1 archivo ({existing_files[0].name})"
+                )
+        
+        if total_missing_files > 0:
+            self.logger.warning(
+                f"⚠️ {total_missing_files} archivos ya no existen "
+                f"(posiblemente eliminados por otra operación). "
+                f"Grupos reducidos: {len(groups)} → {len(filtered_groups)}"
+            )
+        
+        groups = filtered_groups
+        
+        if not groups:
+            self.logger.info("Todos los grupos fueron filtrados (archivos ya no existen)")
+            return DuplicateExecutionResult(
+                success=True,
+                items_processed=0,
+                bytes_processed=0,
+                keep_strategy=keep_strategy,
+                dry_run=dry_run,
+                message="No hay duplicados para eliminar (archivos ya procesados)"
             )
         
         # Crear backup una sola vez (común para todos los archivos)
@@ -170,7 +232,11 @@ class DuplicatesBaseService(BaseService):
         
         # Calcular total de operaciones para progress
         if keep_strategy == 'manual':
-            total_operations = sum(len(g.files) for g in groups)
+            if files_to_delete_set is not None:
+                # Contar solo los archivos que están en la lista de eliminación
+                total_operations = len(files_to_delete_set)
+            else:
+                total_operations = sum(len(g.files) for g in groups)
         else:
             total_operations = sum(len(g.files) - 1 for g in groups)
         
@@ -184,7 +250,8 @@ class DuplicatesBaseService(BaseService):
                 backup_path=backup_path,
                 progress_callback=progress_callback,
                 processed_count=items_processed,
-                total_count=total_operations
+                total_count=total_operations,
+                files_to_delete_set=files_to_delete_set
             )
             
             files_affected.extend(result_group.deleted)
@@ -248,7 +315,8 @@ class DuplicatesBaseService(BaseService):
         backup_path: Optional[Path],
         progress_callback: Optional[Callable],
         processed_count: int,
-        total_count: int
+        total_count: int,
+        files_to_delete_set: Optional[set] = None
     ) -> GroupDeletionResult:
         """
         Procesa eliminación de un grupo de duplicados.
@@ -264,6 +332,7 @@ class DuplicatesBaseService(BaseService):
             progress_callback: Callback de progreso
             processed_count: Archivos procesados hasta ahora
             total_count: Total de archivos a procesar
+            files_to_delete_set: (Optional) Set de archivos específicos a eliminar en modo manual
         
         Returns:
             GroupDeletionResult con archivos procesados y estadísticas
@@ -283,9 +352,16 @@ class DuplicatesBaseService(BaseService):
         keep_file_info = None  # Para incluir en logs de eliminación
         
         if keep_strategy == 'manual':
-            # Modo manual: eliminar todos
-            files_to_delete = group.files
-            self.logger.info(f"  Grupo (manual): {len(group.files)} archivos a eliminar")
+            # Modo manual: eliminar archivos específicos (si se proporciona lista) o todos
+            if files_to_delete_set is not None:
+                # Filtrar solo los archivos de este grupo que están en la lista de eliminación
+                files_to_delete = [f for f in group.files if f in files_to_delete_set]
+                kept.extend([f for f in group.files if f not in files_to_delete_set])
+                self.logger.info(f"  Grupo (manual): {len(files_to_delete)}/{len(group.files)} archivos a eliminar")
+            else:
+                # Sin lista específica: eliminar todos
+                files_to_delete = group.files
+                self.logger.info(f"  Grupo (manual): {len(group.files)} archivos a eliminar")
         else:
             # Modo automático: seleccionar uno para mantener
             try:

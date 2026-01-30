@@ -633,9 +633,9 @@ class FileInfoRepositoryCache:
                 if 'encoder' in video_metadata and video_metadata['encoder']:
                     target_metadata.exif_Software = video_metadata['encoder']
                 
-                # Mapear duración del video
-                if 'duration' in video_metadata and video_metadata['duration']:
-                    target_metadata.exif_VideoDuration = video_metadata['duration']
+                # Mapear duración en segundos
+                if 'duration_seconds' in video_metadata and video_metadata['duration_seconds']:
+                    target_metadata.exif_VideoDurationSeconds = video_metadata['duration_seconds']
                 
                 if not cached_metadata:
                     # Si no estaba en caché, agregarlo
@@ -673,7 +673,7 @@ class FileInfoRepositoryCache:
         
         Es una operación rápida porque solo consulta datos ya en caché.
         """
-        from utils.date_utils import select_best_date_from_file, _normalize_date_source
+        from utils.date_utils import select_best_date_from_file
         
         path = path.resolve()
         
@@ -694,18 +694,18 @@ class FileInfoRepositoryCache:
         selected_date, selected_source = select_best_date_from_file(file_metadata)
         
         if selected_date:
-            # Normalizar el nombre de la fuente
-            normalized_source = _normalize_date_source(selected_source) if selected_source else 'unknown'
+            # Usar el source original sin normalizar
+            source = selected_source if selected_source else 'unknown'
             
             # Actualizar metadata con lock
             with self._lock:
                 cached_metadata = self._cache.get(path)
                 if cached_metadata:
                     cached_metadata.best_date = selected_date
-                    cached_metadata.best_date_source = normalized_source
+                    cached_metadata.best_date_source = source
                     self._logger.debug(
                         f"best_date calculado para {path.name}: "
-                        f"{selected_date.strftime('%Y-%m-%d %H:%M:%S')} ({normalized_source})"
+                        f"{selected_date.strftime('%Y-%m-%d %H:%M:%S')} ({source})"
                     )
                     return cached_metadata
         else:
@@ -819,7 +819,7 @@ class FileInfoRepositoryCache:
         Returns:
             Tuple (datetime, source) donde:
             - datetime: La mejor fecha disponible, o None si no está calculada
-            - source: Fuente de la fecha ('exif_datetime_original', 'mtime', etc.)
+            - source: Fuente de la fecha (ej: 'EXIF DateTimeOriginal', 'mtime', 'exif_date_time_original')
         """
         path = path.resolve()
         metadata = self.get_file_metadata(path)
@@ -932,7 +932,7 @@ class FileInfoRepositoryCache:
         Args:
             path: Ruta del archivo
             best_date: La fecha calculada como la mejor disponible
-            source: Fuente de la fecha ('exif_datetime_original', 'mtime', etc.)
+            source: Fuente de la fecha (ej: 'EXIF DateTimeOriginal', 'mtime', 'exif_date_time_original')
             
         Returns:
             bool: True si se actualizó, False si el archivo no está en caché

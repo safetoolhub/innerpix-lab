@@ -18,6 +18,7 @@ import logging
 from config import Config
 from utils.logger import get_logger
 from utils.file_utils import validate_directory_exists, is_image_file, is_video_file
+from utils.platform_utils import are_video_tools_available
 from services.file_metadata_repository_cache import FileInfoRepositoryCache, PopulationStrategy
 from services.result_types import DirectoryScanResult
 
@@ -67,6 +68,7 @@ class InitialScanner:
         directory: Path,
         phase_callback: Optional[Callable[[str, str], None]] = None,
         phase_completed_callback: Optional[Callable[[str], None]] = None,
+        phase_skipped_callback: Optional[Callable[[str, str], None]] = None,
         progress_callback: Optional[Callable[[PhaseProgress], bool]] = None,
         calculate_hashes: bool = True,
         extract_image_exif: bool = True,
@@ -79,6 +81,7 @@ class InitialScanner:
             directory: Directory to scan
             phase_callback: Called when a phase starts: (phase_id, phase_message)
             phase_completed_callback: Called when a phase completes: (phase_id)
+            phase_skipped_callback: Called when a phase is skipped: (phase_id, reason)
             progress_callback: Called with PhaseProgress for each file processed.
                              Returns False to cancel.
             calculate_hashes: Whether to calculate SHA256 hashes (Phase 2)
@@ -358,58 +361,66 @@ class InitialScanner:
         # ==================== PHASE 5: VIDEO EXIF ====================
         if extract_video_exif and videos and not self._should_stop:
             phase_id = self.PHASE_EXIF_VIDEOS
-            phase_msg = "Obteniendo metadatos de los videos"
             
-            if phase_callback:
-                phase_callback(phase_id, phase_msg)
-            
-            self.logger.info(f"Phase 5: {phase_msg}")
-            
-            # Track percentage for logging
-            last_logged_percentage = 0
-            
-            def video_exif_progress(current: int, total: int) -> bool:
-                nonlocal last_logged_percentage
-                if self._should_stop:
-                    return False
-                
-                # Log progress every 10% at INFO level
-                current_percentage = (current * 100) // total
-                if current_percentage >= last_logged_percentage + 10 and current_percentage < 100:
-                    self.logger.info(f"Phase 5 (EXIF_VIDEOS) progreso: {current_percentage}% ({current:,}/{total:,} videos)")
-                    last_logged_percentage = current_percentage
-                
-                if progress_callback:
-                    phase_progress = PhaseProgress(
-                        phase_id=phase_id,
-                        phase_name=phase_msg,
-                        current=current,
-                        total=total,
-                        message=phase_msg
-                    )
-                    return progress_callback(phase_progress)
-                return True
-            
-            repo.populate_from_scan(
-                files=videos,
-                strategy=PopulationStrategy.EXIF_VIDEOS,
-                progress_callback=video_exif_progress,
-                stop_check_callback=lambda: self._should_stop
-            )
-            
-            if self._should_stop:
-                self.logger.info("Phase 5 (EXIF_VIDEOS) cancelada por el usuario")
+            # Check if video tools are available (using unified function from platform_utils)
+            if not are_video_tools_available():
+                skip_reason = "ffprobe/exiftool no instalados"
+                self.logger.warning(f"Phase 5 (EXIF_VIDEOS) SALTADA: {skip_reason}")
+                if phase_skipped_callback:
+                    phase_skipped_callback(phase_id, skip_reason)
             else:
-                self.logger.info("Phase 5 (EXIF_VIDEOS) complete: Video EXIF extracted")
-            
-            # Notify phase 5 completion
-            if phase_completed_callback and not self._should_stop:
-                phase_completed_callback(self.PHASE_EXIF_VIDEOS)
-            
-            # Log repository stats after Phase 5 (DEBUG)
-            if self.logger.isEnabledFor(logging.DEBUG):
-                self.logger.debug("=== Repository Stats after Phase 5 (EXIF_VIDEOS) ===")
-                repo.log_cache_statistics(level=logging.DEBUG)  # DEBUG
+                phase_msg = "Obteniendo metadatos de los videos"
+                
+                if phase_callback:
+                    phase_callback(phase_id, phase_msg)
+                
+                self.logger.info(f"Phase 5: {phase_msg}")
+                
+                # Track percentage for logging
+                last_logged_percentage = 0
+                
+                def video_exif_progress(current: int, total: int) -> bool:
+                    nonlocal last_logged_percentage
+                    if self._should_stop:
+                        return False
+                    
+                    # Log progress every 10% at INFO level
+                    current_percentage = (current * 100) // total
+                    if current_percentage >= last_logged_percentage + 10 and current_percentage < 100:
+                        self.logger.info(f"Phase 5 (EXIF_VIDEOS) progreso: {current_percentage}% ({current:,}/{total:,} videos)")
+                        last_logged_percentage = current_percentage
+                    
+                    if progress_callback:
+                        phase_progress = PhaseProgress(
+                            phase_id=phase_id,
+                            phase_name=phase_msg,
+                            current=current,
+                            total=total,
+                            message=phase_msg
+                        )
+                        return progress_callback(phase_progress)
+                    return True
+                
+                repo.populate_from_scan(
+                    files=videos,
+                    strategy=PopulationStrategy.EXIF_VIDEOS,
+                    progress_callback=video_exif_progress,
+                    stop_check_callback=lambda: self._should_stop
+                )
+                
+                if self._should_stop:
+                    self.logger.info("Phase 5 (EXIF_VIDEOS) cancelada por el usuario")
+                else:
+                    self.logger.info("Phase 5 (EXIF_VIDEOS) complete: Video EXIF extracted")
+                
+                # Notify phase 5 completion
+                if phase_completed_callback and not self._should_stop:
+                    phase_completed_callback(self.PHASE_EXIF_VIDEOS)
+                
+                # Log repository stats after Phase 5 (DEBUG)
+                if self.logger.isEnabledFor(logging.DEBUG):
+                    self.logger.debug("=== Repository Stats after Phase 5 (EXIF_VIDEOS) ===")
+                    repo.log_cache_statistics(level=logging.DEBUG)  # DEBUG
         
         # ==================== PHASE 6: BEST DATE CALCULATION ====================
         if supported_files and not self._should_stop:

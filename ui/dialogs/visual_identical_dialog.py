@@ -26,6 +26,7 @@ from utils.format_utils import format_size
 from utils.logger import get_logger
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
+from ui.tools_definitions import TOOL_VISUAL_IDENTICAL
 from .base_dialog import BaseDialog
 from .dialog_utils import (
     show_file_details_dialog, 
@@ -72,8 +73,9 @@ class VisualIdenticalDialog(BaseDialog):
         self.tree_widget = None
         self.search_input = None
         self.filter_combo = None
-        self.loaded_chip = None
-        self.filtered_chip = None
+        self.status_chip = None  # Chip único de estado
+        self.source_combo = None  # Filtro de origen de fecha
+        self.filter_bar = None  # Barra de filtros unificada
         self.load_more_btn = None
         self.load_all_btn = None
         self.progress_indicator = None
@@ -136,10 +138,10 @@ class VisualIdenticalDialog(BaseDialog):
     
     def _init_ui(self):
         """Configura la interfaz del diálogo."""
-        self.setWindowTitle("Gestionar copias visuales idénticas")
+        self.setWindowTitle(TOOL_VISUAL_IDENTICAL.title)
         self.setModal(True)
-        self.resize(1200, 900)
-        self.setMinimumSize(1000, 700)
+        self.resize(1350, 900)
+        self.setMinimumSize(1150, 700)
         
         layout = QVBoxLayout(self)
         layout.setSpacing(int(DesignSystem.SPACE_12))
@@ -147,10 +149,9 @@ class VisualIdenticalDialog(BaseDialog):
         
         # Header compacto con métricas
         self.header_frame = self._create_compact_header_with_metrics(
-            icon_name='image-multiple',
-            title='Copias visuales idénticas',
-            description='Archivos visualmente idénticos aunque tengan diferente resolución, '
-                       'compresión o metadatos. Típico de fotos enviadas por WhatsApp o copias redimensionadas.',
+            icon_name=TOOL_VISUAL_IDENTICAL.icon_name,
+            title=TOOL_VISUAL_IDENTICAL.title,
+            description=TOOL_VISUAL_IDENTICAL.short_description,
             metrics=[
                 {
                     'value': str(self.analysis.total_groups),
@@ -208,9 +209,9 @@ class VisualIdenticalDialog(BaseDialog):
             """)
             content_layout.addWidget(warning)
         
-        # Barra de búsqueda y filtros
-        search_card = self._create_search_bar()
-        content_layout.addWidget(search_card)
+        # Barra de filtros unificada
+        self.filter_bar = self._create_filter_bar()
+        content_layout.addWidget(self.filter_bar)
         
         # Árbol de grupos
         self.tree_widget = self._create_tree_widget()
@@ -242,39 +243,7 @@ class VisualIdenticalDialog(BaseDialog):
         self._load_initial_groups()
     
     def _create_strategy_selector(self) -> QFrame:
-        """Crea el selector de estrategia de conservación."""
-        frame = QFrame()
-        frame.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: {DesignSystem.SPACE_16}px;
-            }}
-        """)
-        
-        layout = QVBoxLayout(frame)
-        layout.setSpacing(int(DesignSystem.SPACE_12))
-        layout.setContentsMargins(0, 0, 0, 0)
-        
-        # Título
-        title = QLabel("Estrategia de conservación")
-        title.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_MD}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-            color: {DesignSystem.COLOR_TEXT};
-        """)
-        layout.addWidget(title)
-        
-        # Descripción
-        desc = QLabel("Elige qué archivo conservar de cada grupo de duplicados:")
-        desc.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_SM}px;")
-        layout.addWidget(desc)
-        
-        # Botones de estrategia
-        buttons_layout = QHBoxLayout()
-        buttons_layout.setSpacing(int(DesignSystem.SPACE_12))
-        
+        """Crea el selector de estrategia de conservación usando método centralizado."""
         strategies = [
             ('largest', 'arrow-expand-all', 'Mejor calidad', 'Conserva el archivo más grande (mejor resolución)'),
             ('smallest', 'arrow-collapse-all', 'Menor tamaño', 'Conserva el archivo más pequeño (ahorra espacio)'),
@@ -282,156 +251,98 @@ class VisualIdenticalDialog(BaseDialog):
             ('newest', 'clock-fast', 'Más reciente', 'Conserva el archivo con fecha más reciente'),
         ]
         
-        self.strategy_buttons = {}
+        frame = self._create_compact_strategy_selector(
+            title="Conservar:",
+            description="Elige qué archivo mantener de cada grupo",
+            strategies=strategies,
+            current_strategy=self.keep_strategy,
+            on_strategy_changed=self._on_strategy_changed
+        )
         
-        for strategy_id, icon_name, label, tooltip in strategies:
-            btn = QPushButton(label)
-            btn.setCheckable(True)
-            btn.setChecked(strategy_id == self.keep_strategy)
-            btn.setToolTip(tooltip)
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            icon_manager.set_button_icon(btn, icon_name, size=18)
-            
-            btn.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: {DesignSystem.COLOR_BG_1};
-                    border: 2px solid {DesignSystem.COLOR_BORDER};
-                    border-radius: {DesignSystem.RADIUS_BASE}px;
-                    padding: {DesignSystem.SPACE_12}px {DesignSystem.SPACE_20}px;
-                    font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                    font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-                    color: {DesignSystem.COLOR_TEXT};
-                }}
-                QPushButton:hover {{
-                    border-color: {DesignSystem.COLOR_PRIMARY};
-                    background-color: {DesignSystem.COLOR_SURFACE};
-                }}
-                QPushButton:checked {{
-                    background-color: {DesignSystem.COLOR_PRIMARY};
-                    border-color: {DesignSystem.COLOR_PRIMARY};
-                    color: {DesignSystem.COLOR_PRIMARY_TEXT};
-                }}
-            """)
-            
-            btn.clicked.connect(lambda checked, s=strategy_id: self._on_strategy_changed(s))
-            buttons_layout.addWidget(btn)
-            self.strategy_buttons[strategy_id] = btn
-        
-        layout.addLayout(buttons_layout)
+        # Guardar referencia a los botones para actualizarlos posteriormente
+        self.strategy_buttons = frame.strategy_buttons
         
         return frame
     
-    def _create_search_bar(self) -> QFrame:
-        """Crea la barra de búsqueda y filtros."""
-        search_card = QFrame()
-        search_card.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: {DesignSystem.SPACE_12}px;
-            }}
-        """)
+    def _create_filter_bar(self) -> QFrame:
+        """Crea la barra de filtros unificada."""
+        # Opciones para filtro de origen de fecha (usar constantes de BaseDialog)
+        source_options = self.DATE_SOURCE_FILTER_OPTIONS
         
-        search_layout = QHBoxLayout(search_card)
-        search_layout.setSpacing(int(DesignSystem.SPACE_12))
-        search_layout.setContentsMargins(0, 0, 0, 0)
+        # Diccionario de etiquetas
+        labels = {
+            'search': 'Buscar por nombre',
+            'size': 'Tamaño / Cantidad',
+            'groups': 'Grupos seleccionados',
+            'source': 'Origen de la fecha'
+        }
         
-        # Input de búsqueda
-        search_container = QWidget()
-        search_container_layout = QHBoxLayout(search_container)
-        search_container_layout.setContentsMargins(
-            int(DesignSystem.SPACE_12), 
-            int(DesignSystem.SPACE_8),
-            int(DesignSystem.SPACE_12),
-            int(DesignSystem.SPACE_8)
+        # Configuración de filtros expandibles
+        expandable_filters = [
+            {
+                'id': 'source',
+                'type': 'combo',
+                'label': labels['source'],
+                'tooltip': 'Filtrar por origen de la fecha',
+                'options': source_options,
+                'on_change': self._on_source_filter_changed,
+                'default_index': 0,
+                'min_width': 200
+            }
+        ]
+        
+        # Opciones de filtro de tamaño específicas para este diálogo
+        size_options = [
+            "Todos",
+            ">10 MB",
+            ">50 MB",
+            "Variación >50%",
+            "3+ copias",
+            "5+ copias"
+        ]
+        
+        filter_bar = self._create_unified_filter_bar(
+            on_search_changed=self._on_search_changed,
+            on_size_filter_changed=self._on_filter_changed,
+            expandable_filters=expandable_filters,
+            size_filter_options=size_options,
+            is_files_mode=False,
+            labels=labels
         )
-        search_container_layout.setSpacing(int(DesignSystem.SPACE_8))
         
-        search_icon = QLabel()
-        icon_manager.set_label_icon(search_icon, 'magnify', size=18)
-        search_container_layout.addWidget(search_icon)
+        # Guardar referencias a los widgets
+        self.search_input = filter_bar.search_input
+        self.filter_combo = filter_bar.size_filter_combo
+        self.status_chip = filter_bar.status_chip
+        self.source_combo = filter_bar.filter_widgets.get('source')
         
-        self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Buscar por nombre o ruta...")
-        self.search_input.textChanged.connect(self._on_search_changed)
-        self.search_input.setStyleSheet(f"""
-            QLineEdit {{
-                border: none;
-                background: transparent;
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                color: {DesignSystem.COLOR_TEXT};
-            }}
-        """)
-        search_container_layout.addWidget(self.search_input, 1)
+        return filter_bar
+    
+    def _on_source_filter_changed(self, index: int):
+        """Maneja cambios en el filtro de origen de fecha."""
+        self._apply_filters()
+    
+    def _group_matches_source_filter(self, group: VisualIdenticalGroup) -> bool:
+        """Verifica si un grupo coincide con el filtro de origen de fecha."""
+        if not self.source_combo:
+            return True
         
-        search_container.setStyleSheet(f"""
-            QWidget {{
-                background-color: {DesignSystem.COLOR_BG_1};
-                border: 2px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-            }}
-        """)
-        search_layout.addWidget(search_container, 3)
+        source_filter = self.source_combo.currentText()
+        if source_filter == self.DATE_SOURCE_FILTER_ALL:
+            return True
         
-        # Filtro por tamaño
-        self.filter_combo = QComboBox()
-        self.filter_combo.addItems([
-            "Todos los grupos",
-            "Grupos grandes (>10 MB)",
-            "Grupos muy grandes (>50 MB)",
-            "Mucha variación de tamaño (>50%)",
-            "Muchas copias (3+)",
-            "Muchas copias (5+)"
-        ])
-        self.filter_combo.currentIndexChanged.connect(self._on_filter_changed)
-        self.filter_combo.setStyleSheet(f"""
-            QComboBox {{
-                background-color: {DesignSystem.COLOR_BG_1};
-                border: 2px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                color: {DesignSystem.COLOR_TEXT};
-                min-width: 220px;
-            }}
-        """)
-        search_layout.addWidget(self.filter_combo, 2)
+        # Verificar si algún archivo del grupo tiene el origen de fecha seleccionado
+        for file_path in group.files:
+            _, source = self.repo.get_best_date(file_path) if self.repo else (None, None)
+            if source and self._matches_source_filter(source, source_filter):
+                return True
         
-        # Chips de conteo
-        self.loaded_chip = QLabel()
-        self.loaded_chip.setStyleSheet(f"""
-            QLabel {{
-                background-color: {DesignSystem.COLOR_PRIMARY};
-                color: {DesignSystem.COLOR_PRIMARY_TEXT};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
-            }}
-        """)
-        search_layout.addWidget(self.loaded_chip)
-        
-        self.filtered_chip = QLabel()
-        self.filtered_chip.setStyleSheet(f"""
-            QLabel {{
-                background-color: {DesignSystem.COLOR_WARNING};
-                color: {DesignSystem.COLOR_SURFACE};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
-            }}
-        """)
-        self.filtered_chip.hide()
-        search_layout.addWidget(self.filtered_chip)
-        
-        return search_card
+        return False
     
     def _create_tree_widget(self) -> QTreeWidget:
         """Crea el widget de árbol para mostrar grupos."""
-        headers = ["Grupos / Archivos", "Tamaño", "Fecha", "Ubicación", "Estado"]
-        column_widths = [350, 100, 150, 250, 120]
+        headers = ["Grupos / Archivos", "Tamaño", "Fecha", "Origen Fecha", "Ubicación", "Estado"]
+        column_widths = [300, 90, 140, 140, 200, 100]
         
         return create_groups_tree_widget(
             headers=headers,
@@ -627,11 +538,17 @@ class VisualIdenticalDialog(BaseDialog):
         else:
             file_item.setText(2, "-")
         
+        # Origen Fecha
+        if source:
+            file_item.setText(3, source)
+        else:
+            file_item.setText(3, "-")
+        
         # Ubicación
-        file_item.setText(3, str(file_path.parent))
+        file_item.setText(4, str(file_path.parent))
         
         # Estado (conservar/eliminar) - usar función común
-        apply_file_item_status(file_item, is_keep, status_column=4)
+        apply_file_item_status(file_item, is_keep, status_column=5)
         
         file_item.setData(0, Qt.ItemDataRole.UserRole, file_path)
         parent_item.addChild(file_item)
@@ -663,14 +580,16 @@ class VisualIdenticalDialog(BaseDialog):
         """Actualiza la UI de paginación."""
         total = len(self.filtered_groups)
         loaded = self.loaded_count
+        all_total = len(self.all_groups)
         
-        self.loaded_chip.setText(f"{loaded} cargados")
-        
-        if total != len(self.all_groups):
-            self.filtered_chip.setText(f"{total} de {len(self.all_groups)}")
-            self.filtered_chip.show()
-        else:
-            self.filtered_chip.hide()
+        # Usar método unificado para actualizar chip
+        self._update_filter_chip(
+            self.status_chip,
+            total,
+            all_total,
+            loaded,
+            is_files_mode=False
+        )
         
         # Progreso
         if total > 0:
@@ -681,6 +600,9 @@ class VisualIdenticalDialog(BaseDialog):
             bar_width = self.progress_bar_container.width()
             fill_width = int(bar_width * loaded / total)
             self.progress_bar_fill.setGeometry(0, 0, fill_width, 8)
+        else:
+            self.progress_indicator.setText("Sin grupos que mostrar")
+            self.progress_bar_fill.setGeometry(0, 0, 0, 8)
         
         # Mostrar/ocultar botones
         has_more = loaded < total
@@ -718,13 +640,17 @@ class VisualIdenticalDialog(BaseDialog):
         self._apply_filters()
     
     def _apply_filters(self):
-        """Aplica filtros de búsqueda y tamaño."""
+        """Aplica filtros de búsqueda, tamaño y origen."""
         search_text = self.search_input.text().lower()
         filter_index = self.filter_combo.currentIndex()
         
         filtered = []
         
         for group in self.all_groups:
+            # Filtro por origen de fecha
+            if not self._group_matches_source_filter(group):
+                continue
+            
             # Filtro de búsqueda
             if search_text:
                 matches = False
@@ -802,30 +728,12 @@ class VisualIdenticalDialog(BaseDialog):
                     files_to_delete.append(f)
         
         if not files_to_delete:
-            QMessageBox.information(
-                self,
-                "Sin cambios",
-                "No hay archivos para eliminar."
-            )
+            self.show_no_items_message("archivos")
             return
         
-        # Confirmar
-        total_size = sum(f.stat().st_size for f in files_to_delete if f.exists())
-        reply = QMessageBox.question(
-            self,
-            "Confirmar eliminación",
-            f"Se eliminarán {len(files_to_delete)} archivos "
-            f"({format_size(total_size)}).\n\n"
-            f"Estrategia: Conservar {self._strategy_name()}\n\n"
-            f"¿Continuar?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
-        
-        if reply != QMessageBox.StandardButton.Yes:
-            return
-        
-        # Guardar plan para ejecución
+        # Guardar plan para ejecución (incluye analysis para consistencia)
         self.accepted_plan = {
+            'analysis': self.analysis,  # Añadido para consistencia con otros diálogos
             'groups': self.filtered_groups,  # Grupos para referencia
             'files_to_delete': files_to_delete,
             'keep_strategy': self.keep_strategy,

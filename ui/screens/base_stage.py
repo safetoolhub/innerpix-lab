@@ -217,6 +217,66 @@ class BaseStage(QObject):
         except Exception as e:
             self.logger.error(f"Error invalidando caché de metadatos: {e}")
 
+    def _invalidate_related_analysis_results(self, executed_tool_id: str) -> None:
+        """
+        Invalida los analysis_results de servicios relacionados después de una operación destructiva.
+        
+        Cuando una herramienta elimina archivos, los análisis de otras herramientas pueden
+        quedar obsoletos porque contienen referencias a archivos que ya no existen.
+        
+        Este método limpia selectivamente los analysis_results que podrían verse afectados.
+        
+        Args:
+            executed_tool_id: ID de la herramienta que acaba de ejecutarse
+            
+        Ejemplo:
+            - Si se ejecuta 'live_photos' (elimina MOVs), los análisis de 'duplicates_exact',
+              'duplicates_similar' y 'visual_identical' pueden tener grupos con esos MOVs.
+        """
+        if not hasattr(self, 'analysis_results') or self.analysis_results is None:
+            return
+        
+        # Mapeo de qué análisis invalidar según la herramienta ejecutada
+        # Las herramientas destructivas pueden afectar a cualquier otro análisis que trabaje con archivos
+        destructive_tools = {
+            'live_photos',      # Elimina MOV
+            'heic',             # Elimina HEIC o JPG
+            'duplicates_exact', # Elimina duplicados
+            'duplicates_similar', # Elimina similares
+            'visual_identical', # Elimina visualmente idénticos
+            'zero_byte',        # Elimina archivos vacíos
+        }
+        
+        # Si no es una herramienta destructiva, no hay nada que invalidar
+        if executed_tool_id not in destructive_tools:
+            return
+        
+        # Atributos de analysis_results que contienen datos de análisis de cada servicio
+        analysis_attrs = {
+            'live_photos': 'live_photos',
+            'heic': 'heic',
+            'duplicates_exact': 'duplicates',
+            'duplicates_similar': 'duplicates_similar',
+            'visual_identical': 'visual_identical',
+            'zero_byte': 'zero_byte',
+        }
+        
+        # Invalidar TODOS los análisis de herramientas destructivas excepto el que acaba de ejecutarse
+        # (el que acaba de ejecutarse puede re-analizarse si el usuario lo desea)
+        invalidated = []
+        for tool_id, attr_name in analysis_attrs.items():
+            if tool_id != executed_tool_id and hasattr(self.analysis_results, attr_name):
+                current_value = getattr(self.analysis_results, attr_name, None)
+                if current_value is not None:
+                    setattr(self.analysis_results, attr_name, None)
+                    invalidated.append(tool_id)
+        
+        if invalidated:
+            self.logger.info(
+                f"📋 Análisis invalidados después de {executed_tool_id}: {', '.join(invalidated)}. "
+                f"Se re-analizarán al hacer clic en cada herramienta."
+            )
+
     def get_analysis_summary(self) -> Optional[dict]:
         """
         Obtiene el resumen del último análisis desde la configuración.
@@ -337,7 +397,7 @@ class BaseStage(QObject):
         if show_about_button and on_about_clicked:
             btn_about = QToolButton()
             btn_about.setAutoRaise(True)
-            btn_about.setToolTip("Acerca de")
+            btn_about.setToolTip("Acerca de - Instrucciones y capacidades de la aplicación")
             icon_manager.set_button_icon(btn_about, 'information-outline', color=DesignSystem.COLOR_TEXT_SECONDARY, size=20)
             btn_about.setIconSize(QSize(20, 20))
             btn_about.clicked.connect(on_about_clicked)

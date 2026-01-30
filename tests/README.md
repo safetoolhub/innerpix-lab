@@ -1,8 +1,8 @@
-# Tests de Pixaro Lab# Suite de Tests - Pixaro Lab
+# Tests de Innerpix Lab# Suite de Tests - Innerpix Lab
 
 
 
-Sistema de testing profesional con pytest para garantizar la calidad del código.Esta carpeta contiene la suite de tests automatizados para Pixaro Lab.
+Sistema de testing profesional con pytest para garantizar la calidad del código.Esta carpeta contiene la suite de tests automatizados para Innerpix Lab.
 
 
 

@@ -234,31 +234,40 @@ class TestInitialScannerPhaseCallbacks:
         assert InitialScanner.PHASE_FILESYSTEM_METADATA in completed_phases
     
     def test_all_six_phases_called_when_enabled(self, temp_dir, create_test_image, create_test_video):
-        """Todas las 6 fases deben ejecutarse cuando están habilitadas"""
+        """Todas las 6 fases deben ejecutarse cuando están habilitadas (o saltarse si faltan herramientas)"""
         create_test_image(temp_dir / "photo.jpg")
         create_test_video(temp_dir / "video.mp4")
         
         phase_callback = Mock()
         phase_completed = Mock()
+        phase_skipped = Mock()
         scanner = InitialScanner()
         
         scanner.scan(
             temp_dir,
             phase_callback=phase_callback,
             phase_completed_callback=phase_completed,
+            phase_skipped_callback=phase_skipped,
             calculate_hashes=True,
             extract_image_exif=True,
             extract_video_exif=True
         )
         
-        # Verificar que se iniciaron las 6 fases
+        # Verificar que se iniciaron las fases principales
         started_phases = [call[0][0] for call in phase_callback.call_args_list]
         assert InitialScanner.PHASE_FILE_CLASSIFICATION in started_phases
         assert InitialScanner.PHASE_FILESYSTEM_METADATA in started_phases
         assert InitialScanner.PHASE_HASH in started_phases
         assert InitialScanner.PHASE_EXIF_IMAGES in started_phases
-        assert InitialScanner.PHASE_EXIF_VIDEOS in started_phases
         assert InitialScanner.PHASE_BEST_DATE in started_phases
+        
+        # La fase de video EXIF puede estar en started_phases O haber sido saltada
+        skipped_phases = [call[0][0] for call in phase_skipped.call_args_list]
+        video_phase_handled = (
+            InitialScanner.PHASE_EXIF_VIDEOS in started_phases or 
+            InitialScanner.PHASE_EXIF_VIDEOS in skipped_phases
+        )
+        assert video_phase_handled, "Video EXIF phase should be either started or skipped"
 
 
 class TestInitialScannerProgressCallback:
@@ -674,25 +683,40 @@ class TestInitialScannerPhaseOrder:
         FileInfoRepositoryCache.reset_instance()
     
     def test_phases_execute_in_correct_order(self, temp_dir, create_test_image, create_test_video):
-        """Las fases deben ejecutarse en el orden correcto 1-6"""
+        """Las fases deben ejecutarse en el orden correcto 1-6 (video EXIF puede saltarse si no hay herramientas)"""
         create_test_image(temp_dir / "photo.jpg")
         create_test_video(temp_dir / "video.mp4")
         
         phase_order = []
+        skipped_phases = []
         
         def phase_callback(phase_id, phase_msg):
             phase_order.append(phase_id)
+        
+        def phase_skipped_callback(phase_id, reason):
+            skipped_phases.append(phase_id)
         
         scanner = InitialScanner()
         scanner.scan(
             temp_dir,
             phase_callback=phase_callback,
+            phase_skipped_callback=phase_skipped_callback,
             calculate_hashes=True,
             extract_image_exif=True,
             extract_video_exif=True
         )
         
-        expected_order = [
+        # El orden esperado sin video EXIF (si las herramientas no están disponibles)
+        expected_order_without_video = [
+            InitialScanner.PHASE_FILE_CLASSIFICATION,
+            InitialScanner.PHASE_FILESYSTEM_METADATA,
+            InitialScanner.PHASE_HASH,
+            InitialScanner.PHASE_EXIF_IMAGES,
+            InitialScanner.PHASE_BEST_DATE,
+        ]
+        
+        # El orden esperado con video EXIF
+        expected_order_with_video = [
             InitialScanner.PHASE_FILE_CLASSIFICATION,
             InitialScanner.PHASE_FILESYSTEM_METADATA,
             InitialScanner.PHASE_HASH,
@@ -701,7 +725,11 @@ class TestInitialScannerPhaseOrder:
             InitialScanner.PHASE_BEST_DATE,
         ]
         
-        assert phase_order == expected_order
+        # Verificar que las fases están en el orden correcto
+        if InitialScanner.PHASE_EXIF_VIDEOS in skipped_phases:
+            assert phase_order == expected_order_without_video
+        else:
+            assert phase_order == expected_order_with_video
     
     def test_phase_completed_follows_phase_started(self, temp_dir, create_test_image):
         """Cada phase_completed debe seguir a su phase_started correspondiente"""

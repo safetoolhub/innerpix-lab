@@ -7,15 +7,18 @@ Prueba el diálogo de gestión de archivos vacíos (0 bytes):
 - Opciones de backup y dry-run
 - Aceptación y construcción del plan de ejecución
 - Actualización de UI según selección
+
+El diálogo usa QTreeWidget con archivos agrupados por carpeta.
 """
 
 import pytest
 from pathlib import Path
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication, QTreeWidgetItem
 from PyQt6.QtCore import Qt
 
 from services.result_types import ZeroByteAnalysisResult
 from ui.dialogs.zero_byte_dialog import ZeroByteDialog
+from ui.tools_definitions import TOOL_ZERO_BYTE
 
 
 @pytest.fixture(scope='module')
@@ -25,6 +28,43 @@ def qapp():
     if app is None:
         app = QApplication([])
     yield app
+
+
+def _get_all_file_items(dialog: ZeroByteDialog) -> list:
+    """
+    Helper para obtener todos los items de archivo del tree widget.
+    Los archivos son items hijos de los nodos de carpeta.
+    """
+    file_items = []
+    root = dialog.tree_widget.invisibleRootItem()
+    for i in range(root.childCount()):
+        folder_item = root.child(i)
+        for j in range(folder_item.childCount()):
+            file_items.append(folder_item.child(j))
+    return file_items
+
+
+def _get_file_count(dialog: ZeroByteDialog) -> int:
+    """Helper para contar archivos totales en el árbol."""
+    return len(_get_all_file_items(dialog))
+
+
+def _get_checked_count(dialog: ZeroByteDialog) -> int:
+    """Helper para contar archivos seleccionados."""
+    return sum(
+        1 for item in _get_all_file_items(dialog)
+        if item.checkState(0) == Qt.CheckState.Checked
+    )
+
+
+def _get_file_paths(dialog: ZeroByteDialog) -> set:
+    """Helper para obtener todos los paths de archivo del árbol."""
+    paths = set()
+    for item in _get_all_file_items(dialog):
+        path = item.data(0, Qt.ItemDataRole.UserRole)
+        if path:
+            paths.add(path)
+    return paths
 
 
 @pytest.mark.ui
@@ -42,7 +82,7 @@ class TestZeroByteDialogBasics:
         
         assert dialog is not None
         assert dialog.analysis_result == analysis
-        assert dialog.windowTitle() == "Archivos Vacíos (0 bytes)"
+        assert dialog.windowTitle() == TOOL_ZERO_BYTE.title
     
     def test_dialog_inherits_base_dialog(self, qapp, temp_dir):
         """Test que el diálogo hereda de BaseDialog."""
@@ -60,31 +100,33 @@ class TestZeroByteDialogBasics:
         analysis = ZeroByteAnalysisResult(files=files, items_count=3)
         dialog = ZeroByteDialog(analysis)
         
-        # Verificar widgets principales
-        assert hasattr(dialog, 'files_list')
+        # Verificar widgets principales (nueva API con QTreeWidget)
+        assert hasattr(dialog, 'tree_widget')
         assert hasattr(dialog, 'ok_button')
         assert hasattr(dialog, 'buttons')
-        assert dialog.files_list is not None
+        assert dialog.tree_widget is not None
         assert dialog.ok_button is not None
     
     def test_dialog_populates_file_list(self, qapp, temp_dir):
         """Test que el diálogo puebla la lista de archivos correctamente."""
         files = [
             temp_dir / "empty1.txt",
-            temp_dir / "subdir/empty2.jpg",
+            temp_dir / "subdir" / "empty2.jpg",
             temp_dir / "empty3.png"
         ]
         analysis = ZeroByteAnalysisResult(files=files, items_count=3)
         dialog = ZeroByteDialog(analysis)
         
+        # Cargar todos los grupos para test completo
+        dialog._load_all_groups()
+        
         # Verificar cantidad de items
-        assert dialog.files_list.count() == 3
+        file_count = _get_file_count(dialog)
+        assert file_count == 3
         
         # Verificar que cada archivo está en la lista
-        list_items = [dialog.files_list.item(i) for i in range(dialog.files_list.count())]
-        list_paths = [item.data(Qt.ItemDataRole.UserRole) for item in list_items]
-        
-        assert set(list_paths) == set(files)
+        list_paths = _get_file_paths(dialog)
+        assert list_paths == set(files)
     
     def test_dialog_all_files_checked_by_default(self, qapp, temp_dir):
         """Test que todos los archivos están marcados por defecto."""
@@ -92,10 +134,12 @@ class TestZeroByteDialogBasics:
         analysis = ZeroByteAnalysisResult(files=files, items_count=5)
         dialog = ZeroByteDialog(analysis)
         
+        # Cargar todos los grupos
+        dialog._load_all_groups()
+        
         # Todos deben estar checked
-        for i in range(dialog.files_list.count()):
-            item = dialog.files_list.item(i)
-            assert item.checkState() == Qt.CheckState.Checked
+        for item in _get_all_file_items(dialog):
+            assert item.checkState(0) == Qt.CheckState.Checked
 
 
 @pytest.mark.ui
@@ -107,55 +151,61 @@ class TestZeroByteDialogSelection:
         files = [temp_dir / f"empty{i}.txt" for i in range(5)]
         analysis = ZeroByteAnalysisResult(files=files, items_count=5)
         dialog = ZeroByteDialog(analysis)
+        dialog._load_all_groups()
         
         # Primero deseleccionar algunos
-        dialog.files_list.item(0).setCheckState(Qt.CheckState.Unchecked)
-        dialog.files_list.item(2).setCheckState(Qt.CheckState.Unchecked)
+        items = _get_all_file_items(dialog)
+        items[0].setCheckState(0, Qt.CheckState.Unchecked)
+        items[2].setCheckState(0, Qt.CheckState.Unchecked)
+        dialog.selected_files.discard(items[0].data(0, Qt.ItemDataRole.UserRole))
+        dialog.selected_files.discard(items[2].data(0, Qt.ItemDataRole.UserRole))
         
         # Verificar que algunos están desmarcados
-        assert dialog.files_list.item(0).checkState() == Qt.CheckState.Unchecked
-        assert dialog.files_list.item(2).checkState() == Qt.CheckState.Unchecked
+        assert items[0].checkState(0) == Qt.CheckState.Unchecked
+        assert items[2].checkState(0) == Qt.CheckState.Unchecked
         
-        # Llamar a select_all
-        dialog.select_all()
+        # Llamar a _select_all (método privado)
+        dialog._select_all()
         
         # Ahora todos deben estar marcados
-        for i in range(dialog.files_list.count()):
-            assert dialog.files_list.item(i).checkState() == Qt.CheckState.Checked
+        for item in _get_all_file_items(dialog):
+            assert item.checkState(0) == Qt.CheckState.Checked
     
     def test_select_none_button(self, qapp, temp_dir):
         """Test botón de deseleccionar todos."""
         files = [temp_dir / f"empty{i}.txt" for i in range(5)]
         analysis = ZeroByteAnalysisResult(files=files, items_count=5)
         dialog = ZeroByteDialog(analysis)
+        dialog._load_all_groups()
         
         # Por defecto todos están marcados
-        for i in range(dialog.files_list.count()):
-            assert dialog.files_list.item(i).checkState() == Qt.CheckState.Checked
+        for item in _get_all_file_items(dialog):
+            assert item.checkState(0) == Qt.CheckState.Checked
         
-        # Llamar a select_none
-        dialog.select_none()
+        # Llamar a _select_none (método privado)
+        dialog._select_none()
         
         # Ahora todos deben estar desmarcados
-        for i in range(dialog.files_list.count()):
-            assert dialog.files_list.item(i).checkState() == Qt.CheckState.Unchecked
+        for item in _get_all_file_items(dialog):
+            assert item.checkState(0) == Qt.CheckState.Unchecked
     
     def test_partial_selection(self, qapp, temp_dir):
         """Test selección parcial de archivos."""
         files = [temp_dir / f"empty{i}.txt" for i in range(5)]
         analysis = ZeroByteAnalysisResult(files=files, items_count=5)
         dialog = ZeroByteDialog(analysis)
+        dialog._load_all_groups()
+        
+        items = _get_all_file_items(dialog)
         
         # Deseleccionar algunos
-        dialog.files_list.item(1).setCheckState(Qt.CheckState.Unchecked)
-        dialog.files_list.item(3).setCheckState(Qt.CheckState.Unchecked)
+        items[1].setCheckState(0, Qt.CheckState.Unchecked)
+        items[3].setCheckState(0, Qt.CheckState.Unchecked)
+        dialog.selected_files.discard(items[1].data(0, Qt.ItemDataRole.UserRole))
+        dialog.selected_files.discard(items[3].data(0, Qt.ItemDataRole.UserRole))
         
         # Contar seleccionados
-        selected_count = sum(
-            1 for i in range(dialog.files_list.count())
-            if dialog.files_list.item(i).checkState() == Qt.CheckState.Checked
-        )
-        
+        selected_count = _get_checked_count(dialog)
         assert selected_count == 3
 
 
@@ -168,14 +218,18 @@ class TestZeroByteDialogButtonUpdate:
         files = [temp_dir / f"empty{i}.txt" for i in range(5)]
         analysis = ZeroByteAnalysisResult(files=files, items_count=5)
         dialog = ZeroByteDialog(analysis)
+        dialog._load_all_groups()
         
         # Inicialmente debe mostrar 5 archivos
         assert "5" in dialog.ok_button.text()
         
-        # Deseleccionar algunos
-        dialog.files_list.item(0).setCheckState(Qt.CheckState.Unchecked)
-        dialog.files_list.item(1).setCheckState(Qt.CheckState.Unchecked)
-        dialog.update_button_text()
+        # Deseleccionar algunos vía el set interno
+        items = _get_all_file_items(dialog)
+        items[0].setCheckState(0, Qt.CheckState.Unchecked)
+        items[1].setCheckState(0, Qt.CheckState.Unchecked)
+        dialog.selected_files.discard(items[0].data(0, Qt.ItemDataRole.UserRole))
+        dialog.selected_files.discard(items[1].data(0, Qt.ItemDataRole.UserRole))
+        dialog._update_button_text()
         
         # Debe mostrar 3 archivos
         assert "3" in dialog.ok_button.text()
@@ -185,13 +239,14 @@ class TestZeroByteDialogButtonUpdate:
         files = [temp_dir / f"empty{i}.txt" for i in range(3)]
         analysis = ZeroByteAnalysisResult(files=files, items_count=3)
         dialog = ZeroByteDialog(analysis)
+        dialog._load_all_groups()
         
         # Inicialmente debe estar habilitado
         assert dialog.ok_button.isEnabled()
         
         # Deseleccionar todos
-        dialog.select_none()
-        dialog.update_button_text()
+        dialog._select_none()
+        dialog._update_button_text()
         
         # Debe estar deshabilitado
         assert not dialog.ok_button.isEnabled()
@@ -201,15 +256,18 @@ class TestZeroByteDialogButtonUpdate:
         files = [temp_dir / f"empty{i}.txt" for i in range(3)]
         analysis = ZeroByteAnalysisResult(files=files, items_count=3)
         dialog = ZeroByteDialog(analysis)
+        dialog._load_all_groups()
         
         # Deseleccionar todos
-        dialog.select_none()
-        dialog.update_button_text()
+        dialog._select_none()
+        dialog._update_button_text()
         assert not dialog.ok_button.isEnabled()
         
         # Seleccionar uno
-        dialog.files_list.item(0).setCheckState(Qt.CheckState.Checked)
-        dialog.update_button_text()
+        items = _get_all_file_items(dialog)
+        items[0].setCheckState(0, Qt.CheckState.Checked)
+        dialog.selected_files.add(items[0].data(0, Qt.ItemDataRole.UserRole))
+        dialog._update_button_text()
         
         # Debe estar habilitado
         assert dialog.ok_button.isEnabled()
@@ -270,6 +328,7 @@ class TestZeroByteDialogAccept:
         files = [temp_dir / f"empty{i}.txt" for i in range(3)]
         analysis = ZeroByteAnalysisResult(files=files, items_count=3)
         dialog = ZeroByteDialog(analysis)
+        dialog._load_all_groups()
         
         # Aceptar
         dialog.accept()
@@ -289,10 +348,15 @@ class TestZeroByteDialogAccept:
         files = [temp_dir / f"empty{i}.txt" for i in range(5)]
         analysis = ZeroByteAnalysisResult(files=files, items_count=5)
         dialog = ZeroByteDialog(analysis)
+        dialog._load_all_groups()
         
-        # Deseleccionar algunos
-        dialog.files_list.item(1).setCheckState(Qt.CheckState.Unchecked)
-        dialog.files_list.item(3).setCheckState(Qt.CheckState.Unchecked)
+        items = _get_all_file_items(dialog)
+        
+        # Deseleccionar algunos (items 1 y 3)
+        items[1].setCheckState(0, Qt.CheckState.Unchecked)
+        items[3].setCheckState(0, Qt.CheckState.Unchecked)
+        dialog.selected_files.discard(items[1].data(0, Qt.ItemDataRole.UserRole))
+        dialog.selected_files.discard(items[3].data(0, Qt.ItemDataRole.UserRole))
         
         # Aceptar
         dialog.accept()
@@ -309,9 +373,10 @@ class TestZeroByteDialogAccept:
         files = [temp_dir / f"empty{i}.txt" for i in range(3)]
         analysis = ZeroByteAnalysisResult(files=files, items_count=3)
         dialog = ZeroByteDialog(analysis)
+        dialog._load_all_groups()
         
         # Deseleccionar todos
-        dialog.select_none()
+        dialog._select_none()
         
         # Aceptar
         dialog.accept()
@@ -354,8 +419,10 @@ class TestZeroByteDialogEdgeCases:
         files = [temp_dir / "empty.txt"]
         analysis = ZeroByteAnalysisResult(files=files, items_count=1)
         dialog = ZeroByteDialog(analysis)
+        dialog._load_all_groups()
         
-        assert dialog.files_list.count() == 1
+        file_count = _get_file_count(dialog)
+        assert file_count == 1
         assert dialog.ok_button.isEnabled()
         assert "1" in dialog.ok_button.text()
     
@@ -364,8 +431,10 @@ class TestZeroByteDialogEdgeCases:
         files = [temp_dir / f"empty{i}.txt" for i in range(100)]
         analysis = ZeroByteAnalysisResult(files=files, items_count=100)
         dialog = ZeroByteDialog(analysis)
+        dialog._load_all_groups()
         
-        assert dialog.files_list.count() == 100
+        file_count = _get_file_count(dialog)
+        assert file_count == 100
         assert "100" in dialog.ok_button.text()
     
     def test_dialog_with_long_file_paths(self, qapp, temp_dir):
@@ -375,10 +444,14 @@ class TestZeroByteDialogEdgeCases:
         files = [long_path]
         analysis = ZeroByteAnalysisResult(files=files, items_count=1)
         dialog = ZeroByteDialog(analysis)
+        dialog._load_all_groups()
         
-        assert dialog.files_list.count() == 1
-        item = dialog.files_list.item(0)
-        assert item.data(Qt.ItemDataRole.UserRole) == long_path
+        file_count = _get_file_count(dialog)
+        assert file_count == 1
+        
+        # Verificar que el path se guarda correctamente
+        file_paths = _get_file_paths(dialog)
+        assert long_path in file_paths
     
     def test_dialog_with_special_characters_in_names(self, qapp, temp_dir):
         """Test diálogo con caracteres especiales en nombres."""
@@ -389,15 +462,14 @@ class TestZeroByteDialogEdgeCases:
         ]
         analysis = ZeroByteAnalysisResult(files=files, items_count=3)
         dialog = ZeroByteDialog(analysis)
+        dialog._load_all_groups()
         
-        assert dialog.files_list.count() == 3
+        file_count = _get_file_count(dialog)
+        assert file_count == 3
         
         # Verificar que los paths se guardan correctamente
-        list_paths = [
-            dialog.files_list.item(i).data(Qt.ItemDataRole.UserRole)
-            for i in range(dialog.files_list.count())
-        ]
-        assert set(list_paths) == set(files)
+        file_paths = _get_file_paths(dialog)
+        assert file_paths == set(files)
 
 
 @pytest.mark.ui
@@ -421,7 +493,7 @@ class TestZeroByteDialogUX:
         dialog = ZeroByteDialog(analysis)
         
         title = dialog.windowTitle()
-        assert "Vacíos" in title or "0 bytes" in title
+        assert title == TOOL_ZERO_BYTE.title
     
     def test_dialog_has_reasonable_size(self, qapp, temp_dir):
         """Test que el diálogo tiene un tamaño razonable."""
@@ -453,6 +525,7 @@ class TestZeroByteDialogIntegration:
         files = [temp_dir / f"empty{i}.txt" for i in range(3)]
         analysis = ZeroByteAnalysisResult(files=files, items_count=3)
         dialog = ZeroByteDialog(analysis)
+        dialog._load_all_groups()
         
         # Aceptar
         dialog.accept()

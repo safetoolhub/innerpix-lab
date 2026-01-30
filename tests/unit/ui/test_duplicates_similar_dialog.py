@@ -18,6 +18,7 @@ from PyQt6.QtCore import Qt
 from services.duplicates_similar_service import DuplicatesSimilarAnalysis
 from services.result_types import DuplicateGroup
 from ui.dialogs.duplicates_similar_dialog import DuplicatesSimilarDialog
+from ui.tools_definitions import TOOL_DUPLICATES_SIMILAR
 
 
 def create_mock_analysis(num_files: int = 10) -> DuplicatesSimilarAnalysis:
@@ -47,7 +48,7 @@ class TestDuplicatesSimilarDialogBasics:
         
         assert dialog is not None
         assert dialog.analysis == analysis
-        assert "Archivos Similares" in dialog.windowTitle()
+        assert TOOL_DUPLICATES_SIMILAR.title in dialog.windowTitle()
     
     def test_dialog_inherits_base_dialog(self, qtbot):
         """Test que el diálogo hereda de BaseDialog."""
@@ -229,6 +230,48 @@ class TestLoadingState:
         # Verificamos que durante la inicialización está deshabilitado
         # (será habilitado después de _initial_load)
         assert dialog.sensitivity_slider.isEnabled() is False
+    
+    def test_slider_enabled_after_regenerate(self, qtbot):
+        """Test que el slider se habilita después de regenerar grupos."""
+        analysis = create_mock_analysis(4)
+        dialog = DuplicatesSimilarDialog(analysis)
+        
+        # Simular que ya se cargó inicialmente
+        dialog._is_loading = False
+        dialog.sensitivity_slider.setEnabled(True)
+        
+        # Cambiar sensibilidad y regenerar usando el wrapper
+        dialog.current_sensitivity = 80
+        dialog._do_regenerate_groups()
+        
+        # Verificar que el slider sigue habilitado después de la regeneración
+        assert dialog.sensitivity_slider.isEnabled() is True
+        assert dialog._is_loading is False
+    
+    def test_slider_enabled_after_multiple_regenerations(self, qtbot):
+        """Test que el slider se habilita después de múltiples regeneraciones."""
+        analysis = create_mock_analysis(4)
+        dialog = DuplicatesSimilarDialog(analysis)
+        
+        # Simular que ya se cargó inicialmente
+        dialog._is_loading = False
+        dialog.sensitivity_slider.setEnabled(True)
+        
+        # Primera regeneración
+        dialog.current_sensitivity = 75
+        dialog._do_regenerate_groups()
+        assert dialog.sensitivity_slider.isEnabled() is True
+        
+        # Segunda regeneración
+        dialog.current_sensitivity = 90
+        dialog._do_regenerate_groups()
+        assert dialog.sensitivity_slider.isEnabled() is True
+        
+        # Tercera regeneración
+        dialog.current_sensitivity = 70
+        dialog._do_regenerate_groups()
+        assert dialog.sensitivity_slider.isEnabled() is True
+        assert dialog._is_loading is False
 
 
 @pytest.mark.ui

@@ -13,8 +13,10 @@ from PyQt6.QtGui import QColor, QFont, QCursor
 from PyQt6.QtCore import Qt, QTimer
 from config import Config
 from utils.format_utils import format_size
+from utils.platform_utils import are_video_tools_available
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
+from ui.tools_definitions import TOOL_LIVE_PHOTOS
 from services.result_types import LivePhotosAnalysisResult, LivePhotoGroup
 from .base_dialog import BaseDialog
 
@@ -22,32 +24,36 @@ from .base_dialog import BaseDialog
 class LivePhotosDialog(BaseDialog):
     """Diálogo para limpieza de Live Photos con vista de grupos expandibles"""
     
-    # Configuración de paginación
-    ITEMS_PER_PAGE = 200
-    MAX_ITEMS_WITHOUT_PAGINATION = 500
+    # Constantes para carga progresiva
+    INITIAL_LOAD = 100
+    LOAD_INCREMENT = 100
+    WARNING_THRESHOLD = 500
 
     def __init__(self, analysis: LivePhotosAnalysisResult, parent=None):
         super().__init__(parent)
         self.analysis = analysis
         self.accepted_plan = None
         
-        # Datos filtrados
+        # Datos de grupos
+        self.all_groups = list(analysis.groups)
         self.filtered_groups = list(analysis.groups)
-        
-        # Paginación
-        self.current_page = 0
-        self.total_pages = 0
+        self.loaded_count = 0
         
         # Referencias a widgets
         self.tree_widget = None
         self.search_input = None
+        self.filter_combo = None
+        self.status_chip = None
+        self.filter_bar = None
+        self.expand_button = None
+        self.source_combo = None
         self.dir_combo = None
-        self.counter_label = None
+        self.pagination_bar = None
         
         self.init_ui()
 
     def init_ui(self):
-        self.setWindowTitle("Limpieza de Live Photos")
+        self.setWindowTitle(TOOL_LIVE_PHOTOS.title)
         self.setModal(True)
         self.resize(1200, 800)
         main_layout = QVBoxLayout(self)
@@ -59,9 +65,9 @@ class LivePhotosDialog(BaseDialog):
         
         # Header compacto integrado con métricas inline
         self.header_frame = self._create_compact_header_with_metrics(
-            icon_name='camera',
-            title='Live Photos detectadas',
-            description='Live Photos de iPhone (Imagen + MOV). Los videos MOV serán eliminados para liberar espacio.',
+            icon_name=TOOL_LIVE_PHOTOS.icon_name,
+            title=TOOL_LIVE_PHOTOS.title,
+            description=TOOL_LIVE_PHOTOS.short_description,
             metrics=[
                 {
                     'value': str(self.analysis.items_count),
@@ -82,8 +88,11 @@ class LivePhotosDialog(BaseDialog):
         )
         main_layout.addWidget(self.header_frame)
         
-        # Warning sobre metadata de video desactivado
-        if not Config.USE_VIDEO_METADATA:
+        # Warning sobre metadata de video no disponible
+        # Prioridad: 1) Herramientas no instaladas, 2) Configuración desactivada
+        video_tools_available = are_video_tools_available()
+        
+        if not video_tools_available or not Config.USE_VIDEO_METADATA:
             warning_container = QWidget()
             warning_container_layout = QVBoxLayout(warning_container)
             warning_container_layout.setContentsMargins(
@@ -94,14 +103,29 @@ class LivePhotosDialog(BaseDialog):
             )
             warning_container_layout.setSpacing(0)
             
-            warning_banner = self._create_warning_banner(
-                title='Detección sin validación temporal',
-                message='La extracción de metadata de video está desactivada. Los Live Photos se detectan '
-                        'solo por coincidencia de nombres, validando únicamente las fechas provenientes del sistema. '
-                        'Esto puede incluir falsos positivos.',
-                action_text='Activar en Configuración',
-                action_callback=self._open_settings
-            )
+            if not video_tools_available:
+                # Herramientas no instaladas - warning más importante
+                warning_banner = self._create_warning_banner(
+                    title='Herramientas de video no disponibles',
+                    message='No se detectaron <b>ffprobe</b> ni <b>exiftool</b> en el sistema. '
+                            'Sin estas herramientas, no es posible validar la duración ni fechas de los videos. '
+                            'Los Live Photos se detectan solo por coincidencia de nombres, lo que puede incluir falsos positivos.',
+                    icon='alert-circle',
+                    action_text='Ver cómo instalar',
+                    action_callback=self._open_settings,
+                    bg_color=DesignSystem.COLOR_DANGER_BG,
+                    border_color=DesignSystem.COLOR_ERROR
+                )
+            else:
+                # Herramientas disponibles pero configuración desactivada
+                warning_banner = self._create_warning_banner(
+                    title='Detección sin validación temporal',
+                    message='La extracción de metadata de video está desactivada. Los Live Photos se detectan '
+                            'solo por coincidencia de nombres, validando únicamente las fechas provenientes del sistema. '
+                            'Esto puede incluir falsos positivos.',
+                    action_text='Activar en Configuración',
+                    action_callback=self._open_settings
+                )
             warning_container_layout.addWidget(warning_banner)
             main_layout.addWidget(warning_container)
         
@@ -117,17 +141,20 @@ class LivePhotosDialog(BaseDialog):
         )
         main_layout.addWidget(content_container)
         
-        # Barra de herramientas (filtros y búsqueda)
-        toolbar = self._create_toolbar()
-        content_layout.addLayout(toolbar)
+        # Barra de filtros unificada
+        self.filter_bar = self._create_filter_bar()
+        content_layout.addWidget(self.filter_bar)
         
         # TreeWidget de grupos expandibles
         self.tree_widget = self._create_files_tree()
         content_layout.addWidget(self.tree_widget)
         
-        # Controles de paginación
-        self.pagination_widget = self._create_pagination_controls()
-        content_layout.addWidget(self.pagination_widget)
+        # Barra de carga progresiva
+        self.pagination_bar = self._create_progressive_loading_bar(
+            on_load_more=self._load_more_groups,
+            on_load_all=self._load_all_groups
+        )
+        content_layout.addWidget(self.pagination_bar)
         
         # Opciones de seguridad
         options_group = self._create_options_group()
@@ -144,166 +171,69 @@ class LivePhotosDialog(BaseDialog):
             self._update_button_text()
         content_layout.addWidget(self.buttons)
         
-        # Actualizar vista inicial
-        self._update_tree()
-        
-        # Aplicar estilo global de tooltips
-        self.setStyleSheet(DesignSystem.get_tooltip_style())
+        # Cargar grupos iniciales
+        self._load_initial_groups()
 
-    def _create_toolbar(self):
-        """Crea barra de herramientas con filtros estilo Material Design"""
-        toolbar = QHBoxLayout()
-        toolbar.setSpacing(int(DesignSystem.SPACE_12))
-        toolbar.setContentsMargins(0, 0, 0, 0)
-        
-        # Búsqueda
-        search_container = QWidget()
-        search_layout = QHBoxLayout(search_container)
-        search_layout.setContentsMargins(0, 0, 0, 0)
-        search_layout.setSpacing(DesignSystem.SPACE_8)
-        
-        search_icon = QLabel()
-        icon_manager.set_label_icon(search_icon, 'magnify', size=DesignSystem.ICON_SIZE_SM, color=DesignSystem.COLOR_TEXT_SECONDARY)
-        
-        self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Buscar por nombre...")
-        self.search_input.textChanged.connect(self._apply_filters)
-        self.search_input.setMinimumWidth(250)
-        self.search_input.setStyleSheet(f"""
-            QLineEdit {{
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                background-color: {DesignSystem.COLOR_SURFACE};
-            }}
-            QLineEdit:focus {{
-                border-color: {DesignSystem.COLOR_PRIMARY};
-            }}
-        """)
-        self.search_input.setToolTip("Buscar grupos por nombre de archivo base")
-        
-        search_layout.addWidget(search_icon)
-        search_layout.addWidget(self.search_input)
-        toolbar.addWidget(search_container)
-        
-        # Filtro por directorio (sin etiqueta, estilo Material)
-        self.dir_combo = QComboBox()
-        directories = ["Todos los directorios"] + sorted(list(set(
+    def _create_filter_bar(self):
+        """Crea barra de filtros unificada usando método base"""
+        # Preparar directorios únicos
+        directories = sorted(list(set(
             str(group.directory) for group in self.analysis.groups
         )))
-        self.dir_combo.addItems(directories)
-        self.dir_combo.currentTextChanged.connect(self._apply_filters)
-        self.dir_combo.setMinimumWidth(200)
-        self.dir_combo.setStyleSheet(f"""
-            QComboBox {{
-                background-color: {DesignSystem.COLOR_BG_1};
-                border: 2px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                color: {DesignSystem.COLOR_TEXT};
-            }}
-            QComboBox:hover {{
-                border-color: {DesignSystem.COLOR_PRIMARY};
-                background-color: {DesignSystem.COLOR_SURFACE};
-            }}
-            QComboBox::drop-down {{
-                border: none;
-                padding-right: {DesignSystem.SPACE_8}px;
-            }}
-            QComboBox QAbstractItemView {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                selection-background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
-                selection-color: {DesignSystem.COLOR_TEXT};
-                padding: {DesignSystem.SPACE_4}px;
-            }}
-        """)
-        self.dir_combo.setToolTip("Filtrar grupos por directorio")
-        toolbar.addWidget(self.dir_combo)
         
-        # Filtro por origen de fecha (sin etiqueta, estilo Material)
-        self.source_combo = QComboBox()
-        self.source_combo.addItems([
-            "Todos los orígenes de fecha",
-            "EXIF DateTimeOriginal",
-            "EXIF CreateDate",
-            "EXIF ModifyDate",
-            "Filesystem (mtime)",
-            "Filesystem (ctime)",
-            "Filesystem (atime)"
-        ])
-        self.source_combo.currentTextChanged.connect(self._apply_filters)
-        self.source_combo.setMinimumWidth(200)
-        self.source_combo.setStyleSheet(f"""
-            QComboBox {{
-                background-color: {DesignSystem.COLOR_BG_1};
-                border: 2px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_12}px;
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                color: {DesignSystem.COLOR_TEXT};
-            }}
-            QComboBox:hover {{
-                border-color: {DesignSystem.COLOR_PRIMARY};
-                background-color: {DesignSystem.COLOR_SURFACE};
-            }}
-            QComboBox::drop-down {{
-                border: none;
-                padding-right: {DesignSystem.SPACE_8}px;
-            }}
-            QComboBox QAbstractItemView {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                selection-background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
-                selection-color: {DesignSystem.COLOR_TEXT};
-                padding: {DesignSystem.SPACE_4}px;
-            }}
-        """)
-        self.source_combo.setToolTip("Filtrar grupos por origen de la fecha de comparación")
-        toolbar.addWidget(self.source_combo)
+        # Diccionario de etiquetas
+        labels = {
+            'search': 'Buscar por nombre',
+            'size': 'Mínimo tamaño',
+            'groups': 'Grupos seleccionados',
+            'source': 'Origen de la fecha',
+            'directory': 'Directorio'
+        }
         
-        toolbar.addStretch()
+        # Configuración de filtros expandibles
+        expandable_filters = [
+            {
+                'id': 'source',
+                'type': 'combo',
+                'label': labels['source'],
+                'tooltip': 'Filtrar grupos por origen de la fecha de comparación',
+                'options': self.DATE_SOURCE_FILTER_OPTIONS,
+                'on_change': lambda idx: self._apply_filters(),
+                'default_index': 0,
+                'min_width': 200
+            },
+            {
+                'id': 'directory',
+                'type': 'combo',
+                'label': labels['directory'],
+                'tooltip': 'Filtrar grupos por directorio',
+                'options': ["Todos los directorios"] + directories,
+                'on_change': lambda idx: self._apply_filters(),
+                'default_index': 0,
+                'min_width': 200
+            }
+        ]
         
-        # Botón limpiar filtros
-        clear_btn = QPushButton("Limpiar Filtros")
-        clear_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                color: {DesignSystem.COLOR_TEXT};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-            }}
-            QPushButton:hover {{
-                background-color: {DesignSystem.COLOR_BG_2};
-                border-color: {DesignSystem.COLOR_PRIMARY};
-                color: {DesignSystem.COLOR_PRIMARY};
-            }}
-        """)
-        icon_manager.set_button_icon(clear_btn, 'close', size=DesignSystem.ICON_SIZE_SM)
-        clear_btn.clicked.connect(self._clear_filters)
-        clear_btn.setToolTip("Limpiar todos los filtros")
-        toolbar.addWidget(clear_btn)
+        # Crear barra unificada
+        filter_bar = self._create_unified_filter_bar(
+            on_search_changed=self._apply_filters,
+            on_size_filter_changed=lambda idx: self._apply_filters(),
+            expandable_filters=expandable_filters,
+            is_files_mode=False,
+            labels=labels
+        )
         
-        # Contador de grupos (Estilo Badge Azul para homogeneizar)
-        self.counter_label = QLabel()
-        self.counter_label.setStyleSheet(f"""
-            QLabel {{
-                background-color: {DesignSystem.COLOR_PRIMARY};
-                color: {DesignSystem.COLOR_PRIMARY_TEXT};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_12}px;
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
-                margin-left: {DesignSystem.SPACE_8}px;
-            }}
-        """)
-        toolbar.addWidget(self.counter_label)
+        # Guardar referencias a componentes
+        self.search_input = filter_bar.search_input
+        self.filter_combo = filter_bar.size_filter_combo
+        self.status_chip = filter_bar.status_chip
+        self.expand_button = filter_bar.expand_btn
+        self.source_combo = filter_bar.filter_widgets.get('source')
+        self.dir_combo = filter_bar.filter_widgets.get('directory')
         
-        return toolbar
+        return filter_bar
+        
+        return filter_bar
     
     def _create_files_tree(self):
         """Crea TreeWidget con grupos expandibles estilo Material Design"""
@@ -316,92 +246,6 @@ class LivePhotosDialog(BaseDialog):
             context_menu_handler=self._show_context_menu
         )
     
-    def _create_pagination_controls(self):
-        """Crea controles de paginación con estilo Material Design"""
-        widget = QFrame()
-        widget.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_4}px;
-            }}
-        """)
-        layout = QHBoxLayout(widget)
-        layout.setSpacing(DesignSystem.SPACE_8)
-        layout.setContentsMargins(DesignSystem.SPACE_8, DesignSystem.SPACE_4, DesignSystem.SPACE_8, DesignSystem.SPACE_4)
-        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        # Botones de navegación con iconos - Tamaño 40x40 para coincidir con ComboBox (premium height)
-        self.first_page_btn = QPushButton()
-        self.first_page_btn.setToolTip("Primera página")
-        icon_manager.set_button_icon(self.first_page_btn, 'skip-previous', size=DesignSystem.ICON_SIZE_MD)
-        self.first_page_btn.clicked.connect(self._go_first_page)
-        self.first_page_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
-        self.first_page_btn.setFixedSize(40, 40)
-        layout.addWidget(self.first_page_btn, 0, Qt.AlignmentFlag.AlignVCenter)
-        
-        self.prev_page_btn = QPushButton()
-        self.prev_page_btn.setToolTip("Página anterior")
-        icon_manager.set_button_icon(self.prev_page_btn, 'chevron-left', size=DesignSystem.ICON_SIZE_MD)
-        self.prev_page_btn.clicked.connect(self._go_prev_page)
-        self.prev_page_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
-        self.prev_page_btn.setFixedSize(40, 40)
-        layout.addWidget(self.prev_page_btn, 0, Qt.AlignmentFlag.AlignVCenter)
-        
-        # Indicador de página (Estilo caja/input para coherencia con la imagen)
-        self.page_label = QLabel()
-        self.page_label.setStyleSheet(f"""
-            QLabel {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: 0px {DesignSystem.SPACE_16}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-                font-size: {DesignSystem.FONT_SIZE_BASE}px;
-                color: {DesignSystem.COLOR_TEXT};
-                min-height: 40px;
-                max-height: 40px;
-            }}
-        """)
-        self.page_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self.page_label, 0, Qt.AlignmentFlag.AlignVCenter)
-        
-        self.next_page_btn = QPushButton()
-        self.next_page_btn.setToolTip("Página siguiente")
-        icon_manager.set_button_icon(self.next_page_btn, 'chevron-right', size=DesignSystem.ICON_SIZE_MD)
-        self.next_page_btn.clicked.connect(self._go_next_page)
-        self.next_page_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
-        self.next_page_btn.setFixedSize(40, 40)
-        layout.addWidget(self.next_page_btn, 0, Qt.AlignmentFlag.AlignVCenter)
-        
-        self.last_page_btn = QPushButton()
-        self.last_page_btn.setToolTip("Última página")
-        icon_manager.set_button_icon(self.last_page_btn, 'skip-next', size=DesignSystem.ICON_SIZE_MD)
-        self.last_page_btn.clicked.connect(self._go_last_page)
-        self.last_page_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
-        self.last_page_btn.setFixedSize(40, 40)
-        layout.addWidget(self.last_page_btn, 0, Qt.AlignmentFlag.AlignVCenter)
-        
-        layout.addStretch()
-        
-        # Items per page
-        items_label = QLabel("Items por página:")
-        items_label.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_SM}px;")
-        layout.addWidget(items_label, 0, Qt.AlignmentFlag.AlignVCenter)
-        
-        self.items_per_page_combo = QComboBox()
-        self.items_per_page_combo.addItems(["100", "200", "500", "Todos"])
-        self.items_per_page_combo.setCurrentText("200")
-        self.items_per_page_combo.currentTextChanged.connect(self._change_items_per_page)
-        self.items_per_page_combo.setFixedWidth(100)
-        # El estilo de DesignSystem ya tiene 40px de min-height
-        self.items_per_page_combo.setStyleSheet(DesignSystem.get_combobox_style())
-        layout.addWidget(self.items_per_page_combo, 0, Qt.AlignmentFlag.AlignVCenter)
-        
-        widget.setVisible(False)
-        return widget
-    
     def _create_options_group(self):
         """Crea grupo de opciones de seguridad usando método centralizado"""
         return self._create_security_options_section(
@@ -413,15 +257,20 @@ class LivePhotosDialog(BaseDialog):
     
     def _apply_filters(self):
         """Aplica filtros a la lista de grupos"""
-        search_text = self.search_input.text().lower()
-        dir_filter = self.dir_combo.currentText()
-        source_filter = self.source_combo.currentText()
+        search_text = self.search_input.text().lower() if self.search_input else ""
+        size_filter = self.filter_combo.currentText() if self.filter_combo else "Todos los tamaños"
+        dir_filter = self.dir_combo.currentText() if self.dir_combo else "Todos los directorios"
+        source_filter = self.source_combo.currentText() if self.source_combo else self.DATE_SOURCE_FILTER_ALL
         
         self.filtered_groups = []
         
-        for group in self.analysis.groups:
+        for group in self.all_groups:
             # Filtro de búsqueda
             if search_text and search_text not in group.base_name.lower():
+                continue
+            
+            # Filtro por tamaño del video
+            if not self._matches_size_filter(group.video_size, size_filter):
                 continue
             
             # Filtro por directorio
@@ -434,127 +283,105 @@ class LivePhotosDialog(BaseDialog):
             
             self.filtered_groups.append(group)
         
-        self.current_page = 0
-        self._update_tree()
+        # Reiniciar carga progresiva
+        self._load_initial_groups()
     
-    def _matches_source_filter(self, date_source: str, filter_value: str) -> bool:
-        """Verifica si el origen de fecha coincide con el filtro seleccionado.
+    def _matches_size_filter(self, file_size: int, filter_value: str) -> bool:
+        """Verifica si el tamaño del archivo coincide con el filtro seleccionado.
         
         Args:
-            date_source: Origen de la fecha (ej: 'exif_date_time_original', 'fs_mtime')
+            file_size: Tamaño del archivo en bytes
             filter_value: Valor del filtro seleccionado
             
         Returns:
             True si coincide con el filtro
         """
-        if not date_source or filter_value == "Todos los orígenes de fecha":
+        if filter_value == "Todos los tamaños":
             return True
         
-        source_lower = date_source.lower()
+        mb = file_size / (1024 * 1024)
         
-        # Mapeo de filtros a patrones de búsqueda
-        if filter_value == "EXIF DateTimeOriginal":
-            return "exif_date_time_original" in source_lower or "exif_datetimeoriginal" in source_lower
-        elif filter_value == "EXIF CreateDate":
-            return "exif_create_date" in source_lower or "exif_createdate" in source_lower
-        elif filter_value == "EXIF ModifyDate":
-            return "exif_modify_date" in source_lower or "exif_modifydate" in source_lower or "exif_datetime" in source_lower
-        elif filter_value == "Filesystem (mtime)":
-            return "fs_mtime" in source_lower or "mtime" in source_lower
-        elif filter_value == "Filesystem (ctime)":
-            return "fs_ctime" in source_lower or "ctime" in source_lower
-        elif filter_value == "Filesystem (atime)":
-            return "fs_atime" in source_lower or "atime" in source_lower
+        if filter_value == "< 1 MB":
+            return mb < 1
+        elif filter_value == "1 - 10 MB":
+            return 1 <= mb < 10
+        elif filter_value == "10 - 100 MB":
+            return 10 <= mb < 100
+        elif filter_value == "> 100 MB":
+            return mb >= 100
         
-        return False
+        return True
     
     def _clear_filters(self):
         """Limpia todos los filtros"""
-        self.search_input.clear()
-        self.dir_combo.setCurrentIndex(0)
-        self.source_combo.setCurrentIndex(0)
+        if self.search_input:
+            self.search_input.clear()
+        if self.filter_combo:
+            self.filter_combo.setCurrentIndex(0)
+        if self.dir_combo:
+            self.dir_combo.setCurrentIndex(0)
+        if self.source_combo:
+            self.source_combo.setCurrentIndex(0)
     
-    def _go_first_page(self):
-        self.current_page = 0
-        QTimer.singleShot(0, self._update_tree)
+    # ========================================================================
+    # LÓGICA DE CARGA PROGRESIVA
+    # ========================================================================
     
-    def _go_prev_page(self):
-        if self.current_page > 0:
-            self.current_page -= 1
-            QTimer.singleShot(0, self._update_tree)
+    def _load_initial_groups(self):
+        """Carga los grupos iniciales en el árbol."""
+        self.loaded_count = 0
+        self.tree_widget.clear()
+        self._load_more_groups()
     
-    def _go_next_page(self):
-        if self.current_page < self.total_pages - 1:
-            self.current_page += 1
-            QTimer.singleShot(0, self._update_tree)
-    
-    def _go_last_page(self):
-        self.current_page = max(0, self.total_pages - 1)
-        QTimer.singleShot(0, self._update_tree)
-    
-    def _change_items_per_page(self, text):
-        if text == "Todos":
-            self.ITEMS_PER_PAGE = len(self.filtered_groups)
-        else:
-            self.ITEMS_PER_PAGE = int(text)
-        self.current_page = 0
-        QTimer.singleShot(0, self._update_tree)
-    
-    def _update_tree(self):
-        """Actualiza el TreeWidget con grupos expandibles"""
-        QApplication.setOverrideCursor(QCursor(Qt.CursorShape.WaitCursor))
+    def _load_more_groups(self):
+        """Carga más grupos en el árbol."""
+        start = self.loaded_count
+        end = min(start + self.LOAD_INCREMENT, len(self.filtered_groups))
         
-        try:
-            total_filtered = len(self.filtered_groups)
-            # Usar paginación si el dataset ORIGINAL era grande, no el filtrado
-            total_items = len(self.analysis.groups)
-            use_pagination = total_items > self.MAX_ITEMS_WITHOUT_PAGINATION
-            
-            if use_pagination:
-                self.total_pages = (total_filtered + self.ITEMS_PER_PAGE - 1) // self.ITEMS_PER_PAGE
-                start_idx = self.current_page * self.ITEMS_PER_PAGE
-                end_idx = min(start_idx + self.ITEMS_PER_PAGE, total_filtered)
-                items_to_show = self.filtered_groups[start_idx:end_idx]
-                
-                self.pagination_widget.setVisible(True)
-                self.page_label.setText(
-                    f"Página {self.current_page + 1} de {self.total_pages} "
-                    f"(mostrando {start_idx + 1}-{end_idx} de {total_filtered})"
-                )
-                
-                self.first_page_btn.setEnabled(self.current_page > 0)
-                self.prev_page_btn.setEnabled(self.current_page > 0)
-                self.next_page_btn.setEnabled(self.current_page < self.total_pages - 1)
-                self.last_page_btn.setEnabled(self.current_page < self.total_pages - 1)
-            else:
-                items_to_show = self.filtered_groups
-                self.pagination_widget.setVisible(False)
-            
-            # Limpiar tree
-            self.tree_widget.clear()
-            
-            # Añadir grupos
-            for group_number, group in enumerate(items_to_show, start=1):
-                self._add_group_to_tree(group, group_number)
-                
-                # Procesar eventos cada 20 grupos
-                if group_number % 20 == 0:
-                    QApplication.processEvents()
-            
-            # Actualizar contador
-            total = len(self.analysis.groups)
-            if use_pagination:
-                self.counter_label.setText(
-                    f"Mostrando {len(items_to_show)} de {total_filtered} grupos filtrados ({total} total)"
-                )
-            else:
-                if total_filtered == total:
-                    self.counter_label.setText(f"Mostrando {total_filtered} grupos")
-                else:
-                    self.counter_label.setText(f"Mostrando {total_filtered} de {total} grupos")
+        for i in range(start, end):
+            group = self.filtered_groups[i]
+            self._add_group_to_tree(group, i + 1)
         
-        finally:
-            QApplication.restoreOverrideCursor()
+        self.loaded_count = end
+        self._update_pagination_ui()
+    
+    def _load_all_groups(self):
+        """Carga todos los grupos restantes."""
+        from PyQt6.QtWidgets import QMessageBox
+        
+        if len(self.filtered_groups) > 1000:
+            reply = QMessageBox.question(
+                self,
+                "Cargar todos los grupos",
+                f"Hay {len(self.filtered_groups)} grupos. ¿Seguro que quieres cargarlos todos?\n"
+                "Esto puede tardar y consumir memoria.",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+        
+        while self.loaded_count < len(self.filtered_groups):
+            self._load_more_groups()
+    
+    def _update_pagination_ui(self):
+        """Actualiza la UI de la barra de carga progresiva."""
+        if self.pagination_bar:
+            self._update_progressive_loading_ui(
+                pagination_bar=self.pagination_bar,
+                loaded_count=self.loaded_count,
+                filtered_count=len(self.filtered_groups),
+                total_count=len(self.all_groups),
+                load_increment=self.LOAD_INCREMENT
+            )
+        
+        # Actualizar chip de estado (independiente del loaded_count)
+        self._update_filter_chip(
+            status_chip=self.status_chip,
+            filtered_count=len(self.filtered_groups),
+            total_count=len(self.all_groups),
+            loaded_count=self.loaded_count,
+            is_files_mode=False
+        )
     
     def _add_group_to_tree(self, group: LivePhotoGroup, group_number: int):
         """Añade un grupo como nodo padre expandible con archivos de imagen y video"""
@@ -577,11 +404,11 @@ class LivePhotosDialog(BaseDialog):
         apply_group_item_style(group_item, num_columns=6)
         
         # Tooltip informativo
-        extra_info = f"📷 {group.image_count} imagen(es) + 1 video MOV"
+        extra_info = f"{group.image_count} imagen(es) + 1 video MOV"
         if group.date_source:
-            extra_info += f"\n📅 Fecha común: {group.date_source}"
+            extra_info += f"\nFecha común: {group.date_source}"
             if group.date_difference is not None:
-                extra_info += f"\n⏱️ Diferencia: {group.date_difference:.3f}s"
+                extra_info += f"\nDiferencia: {group.date_difference:.3f}s"
         
         group_item.setToolTip(0, create_group_tooltip(
             group_number,
@@ -609,11 +436,11 @@ class LivePhotosDialog(BaseDialog):
             try:
                 img_mtime = datetime.fromtimestamp(img_info.path.stat().st_mtime)
                 img_tooltip = (f"<b>{img_info.path.name}</b><br>"
-                               f"📂 {img_info.path.parent}<br>"
-                               f"📊 {format_size(img_info.size)}<br>"
-                               f"📅 {img_mtime.strftime('%d/%m/%Y %H:%M:%S')}<br>")
+                               f"Carpeta: {img_info.path.parent}<br>"
+                               f"Tamaño: {format_size(img_info.size)}<br>"
+                               f"Fecha: {img_mtime.strftime('%d/%m/%Y %H:%M:%S')}<br>")
                 if img_info.date_source:
-                    img_tooltip += f"🔍 Origen fecha: {img_info.date_source}<br>"
+                    img_tooltip += f"Origen fecha: {img_info.date_source}<br>"
                 img_tooltip += "✓ Se conservará"
                 img_item.setToolTip(0, img_tooltip)
             except Exception:
@@ -638,11 +465,11 @@ class LivePhotosDialog(BaseDialog):
         try:
             video_mtime = datetime.fromtimestamp(group.video_path.stat().st_mtime)
             video_tooltip = (f"<b>{group.video_path.name}</b><br>"
-                             f"📂 {group.video_path.parent}<br>"
-                             f"📊 {format_size(group.video_size)}<br>"
-                             f"📅 {video_mtime.strftime('%d/%m/%Y %H:%M:%S')}<br>")
+                             f"Carpeta: {group.video_path.parent}<br>"
+                             f"Tamaño: {format_size(group.video_size)}<br>"
+                             f"Fecha: {video_mtime.strftime('%d/%m/%Y %H:%M:%S')}<br>")
             if group.video_date_source:
-                video_tooltip += f"🔍 Origen fecha: {group.video_date_source}<br>"
+                video_tooltip += f"Origen fecha: {group.video_date_source}<br>"
             video_tooltip += "✗ Se eliminará"
             video_item.setToolTip(0, video_tooltip)
         except Exception:
@@ -669,6 +496,11 @@ class LivePhotosDialog(BaseDialog):
 
     def accept(self):
         """Acepta el diálogo y prepara los datos para la ejecución"""
+        # Validar que hay grupos para procesar
+        if not self.analysis.groups:
+            self.show_no_items_message("Live Photos")
+            return
+        
         # Pasar el analysis completo + parámetros por separado
         self.accepted_plan = {
             'analysis': self.analysis,  # Ya es un LivePhotosAnalysisResult dataclass
@@ -678,7 +510,7 @@ class LivePhotosDialog(BaseDialog):
         super().accept()
     
     def _open_settings(self):
-        """Abre el diálogo de configuración en la pestaña General"""
+        """Abre el diálogo de configuración en la pestaña Análisis inicial"""
         from .settings_dialog import SettingsDialog
-        settings_dialog = SettingsDialog(self, initial_tab=0)  # 0 = General tab
+        settings_dialog = SettingsDialog(self, initial_tab=1)  # 1 = Análisis inicial tab
         settings_dialog.exec()

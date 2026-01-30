@@ -17,7 +17,10 @@ class ImagePreviewDialog(QDialog):
         self.setWindowTitle(f"Vista previa - {image_path.name}")
         self.setModal(True)
         self.resize(1000, 800)
-        self.setStyleSheet(f"background-color: {DesignSystem.COLOR_BACKGROUND};")
+        self.setStyleSheet(
+            f"background-color: {DesignSystem.COLOR_BACKGROUND};"
+            + DesignSystem.get_tooltip_style()
+        )
 
         layout = QVBoxLayout(self)
         layout.setSpacing(0)

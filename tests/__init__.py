@@ -1,3 +1,3 @@
 """
-Suite de tests para Pixaro Lab
+Suite de tests para Innerpix Lab
 """

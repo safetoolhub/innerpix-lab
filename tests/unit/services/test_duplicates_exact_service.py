@@ -583,3 +583,168 @@ class TestDuplicatesExactServiceIntegration:
         # Verificar que quedan solo 2 archivos (uno de cada grupo)
         remaining_files = list(tmp_path.glob("*.jpg"))
         assert len(remaining_files) == 2
+
+
+class TestDuplicatesExecuteFiltersMissingFiles:
+    """Tests para validar que execute() filtra archivos que ya no existen.
+    
+    Este escenario ocurre cuando otro servicio (ej: Live Photos) elimina
+    archivos entre el momento del análisis y la ejecución de duplicados.
+    """
+    
+    def setup_method(self):
+        """Limpiar el repositorio antes de cada test"""
+        repo = FileInfoRepositoryCache.get_instance()
+        repo.clear()
+    
+    def test_execute_filters_missing_files_from_groups(self, tmp_path):
+        """Execute debe filtrar archivos eliminados después del análisis."""
+        repo = FileInfoRepositoryCache.get_instance()
+        service = DuplicatesExactService()
+        
+        # Crear 4 archivos duplicados
+        files = []
+        for i in range(4):
+            test_file = tmp_path / f"file{i}.jpg"
+            test_file.write_bytes(b"same content")
+            files.append(test_file)
+            
+            metadata = FileMetadata(
+                path=test_file,
+                fs_size=12,
+                fs_ctime=1000.0 + i,
+                fs_mtime=1000.0 + i,
+                fs_atime=1000.0,
+                sha256="abc123"
+            )
+            repo.add_file(test_file, metadata)
+        
+        # Analizar primero
+        analysis = service.analyze()
+        assert len(analysis.groups) == 1
+        assert len(analysis.groups[0].files) == 4
+        
+        # Simular que otro servicio eliminó 2 archivos después del análisis
+        files[1].unlink()
+        files[2].unlink()
+        
+        # Ejecutar - debe filtrar los archivos eliminados
+        exec_result = service.execute(
+            analysis_result=analysis,
+            keep_strategy='oldest',
+            create_backup=False,
+            dry_run=False
+        )
+        
+        # La ejecución debe ser exitosa
+        assert exec_result.success is True
+        
+        # Solo debe quedar 1 archivo (el más antiguo de los 2 restantes)
+        remaining = [f for f in files if f.exists()]
+        assert len(remaining) == 1
+        assert remaining[0] == files[0]  # El más antiguo
+    
+    def test_execute_handles_all_files_missing_in_group(self, tmp_path):
+        """Si todos los archivos de un grupo fueron eliminados, el grupo se descarta."""
+        repo = FileInfoRepositoryCache.get_instance()
+        service = DuplicatesExactService()
+        
+        # Crear grupo 1 (3 archivos)
+        group1_files = []
+        for i in range(3):
+            test_file = tmp_path / f"group1_{i}.jpg"
+            test_file.write_bytes(b"content1")
+            group1_files.append(test_file)
+            
+            metadata = FileMetadata(
+                path=test_file,
+                fs_size=8,
+                fs_ctime=1000.0 + i,
+                fs_mtime=1000.0 + i,
+                fs_atime=1000.0,
+                sha256="hash1"
+            )
+            repo.add_file(test_file, metadata)
+        
+        # Crear grupo 2 (2 archivos)
+        group2_files = []
+        for i in range(2):
+            test_file = tmp_path / f"group2_{i}.jpg"
+            test_file.write_bytes(b"content2")
+            group2_files.append(test_file)
+            
+            metadata = FileMetadata(
+                path=test_file,
+                fs_size=8,
+                fs_ctime=2000.0 + i,
+                fs_mtime=2000.0 + i,
+                fs_atime=2000.0,
+                sha256="hash2"
+            )
+            repo.add_file(test_file, metadata)
+        
+        # Analizar
+        analysis = service.analyze()
+        assert len(analysis.groups) == 2
+        
+        # Eliminar todos los archivos del grupo 1
+        for f in group1_files:
+            f.unlink()
+        
+        # Ejecutar - grupo 1 debe ser descartado
+        exec_result = service.execute(
+            analysis_result=analysis,
+            keep_strategy='oldest',
+            create_backup=False,
+            dry_run=False
+        )
+        
+        assert exec_result.success is True
+        
+        # Solo debe quedar 1 archivo del grupo 2
+        remaining_group2 = [f for f in group2_files if f.exists()]
+        assert len(remaining_group2) == 1
+    
+    def test_execute_handles_group_reduced_to_single_file(self, tmp_path):
+        """Si un grupo queda con solo 1 archivo existente, se descarta (no hay duplicado)."""
+        repo = FileInfoRepositoryCache.get_instance()
+        service = DuplicatesExactService()
+        
+        # Crear 3 archivos duplicados
+        files = []
+        for i in range(3):
+            test_file = tmp_path / f"dup{i}.jpg"
+            test_file.write_bytes(b"same")
+            files.append(test_file)
+            
+            metadata = FileMetadata(
+                path=test_file,
+                fs_size=4,
+                fs_ctime=1000.0 + i,
+                fs_mtime=1000.0 + i,
+                fs_atime=1000.0,
+                sha256="hash"
+            )
+            repo.add_file(test_file, metadata)
+        
+        # Analizar
+        analysis = service.analyze()
+        assert len(analysis.groups) == 1
+        
+        # Eliminar 2 archivos, dejando solo 1 (ya no es duplicado)
+        files[1].unlink()
+        files[2].unlink()
+        
+        # Ejecutar - el grupo debe ser descartado
+        exec_result = service.execute(
+            analysis_result=analysis,
+            keep_strategy='oldest',
+            create_backup=False,
+            dry_run=False
+        )
+        
+        assert exec_result.success is True
+        # El archivo restante NO debe ser eliminado
+        assert files[0].exists()
+        # No se procesó ningún archivo (el grupo fue filtrado)
+        assert exec_result.items_processed == 0
