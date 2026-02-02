@@ -12,11 +12,11 @@ Flujo:
 """
 
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QLabel, QFrame, QSlider, QPushButton,
     QDialogButtonBox, QCheckBox, QScrollArea, QWidget,
-    QGridLayout, QProgressBar, QMenu
+    QGridLayout, QProgressBar, QMenu, QLineEdit, QComboBox
 )
 from PyQt6.QtCore import Qt, QSize, QTimer
 from PyQt6.QtGui import QPixmap, QCursor, QPainter, QColor
@@ -27,6 +27,7 @@ from utils.format_utils import format_size
 from utils.image_loader import load_image_as_qpixmap
 from utils.video_thumbnail import get_video_thumbnail
 from utils.platform_utils import open_file_with_default_app
+from utils.file_utils import is_image_file, is_video_file
 from utils.logger import get_logger
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
@@ -62,6 +63,15 @@ class DuplicatesSimilarDialog(BaseDialog):
         self._is_loading = True
         self.keep_strategy = None  # Ninguna estrategia por defecto
         self.strategy_buttons = {}
+        
+        # Referencias a widgets de filtros
+        self.search_input = None
+        self.filter_combo = None
+        self.type_combo = None
+        self.source_combo = None
+        self.status_chip = None
+        self.filter_bar = None
+        self.filtered_groups = []  # Grupos filtrados
         
         self._setup_ui()
         self._show_loading_state()
@@ -106,7 +116,11 @@ class DuplicatesSimilarDialog(BaseDialog):
         self.sensitivity_bar = self._create_sensitivity_bar()
         content_layout.addWidget(self.sensitivity_bar)
         
-        # Área de trabajo
+        # Barra de filtros (debajo de la sensibilidad, para coherencia)
+        self.filter_bar = self._create_filter_bar()
+        content_layout.addWidget(self.filter_bar)
+        
+        # Área de trabajo (workspace_card)
         workspace_card = QFrame()
         workspace_card.setObjectName("workspace_card")
         workspace_card.setStyleSheet(f"""
@@ -120,8 +134,8 @@ class DuplicatesSimilarDialog(BaseDialog):
         workspace_layout.setSpacing(0)
         workspace_layout.setContentsMargins(0, 0, 0, 0)
         
-        # Toolbar de navegación
-        self.workspace_toolbar = self._create_navigation_toolbar()
+        # Toolbar del grupo: navegación + info de similitud + estrategias
+        self.workspace_toolbar = self._create_group_toolbar()
         workspace_layout.addWidget(self.workspace_toolbar)
         
         # Separador
@@ -130,7 +144,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         separator.setStyleSheet(f"color: {DesignSystem.COLOR_BORDER_LIGHT};")
         workspace_layout.addWidget(separator)
         
-        # Contenedor de grupos
+        # Contenedor de grupos (grid de imágenes)
         self.group_container = QWidget()
         self.group_layout = QVBoxLayout(self.group_container)
         self.group_layout.setContentsMargins(
@@ -264,6 +278,208 @@ class DuplicatesSimilarDialog(BaseDialog):
         
         return frame
     
+    def _create_filter_bar(self) -> QFrame:
+        """Crea la barra de filtros unificada para buscar y filtrar grupos."""
+        # Opciones para filtro de origen de fecha (usar constantes de BaseDialog)
+        source_options = self.DATE_SOURCE_FILTER_OPTIONS
+        
+        # Diccionario de etiquetas
+        labels = {
+            'search': 'Buscar por nombre',
+            'size': 'Tamaño / Cantidad',
+            'groups': 'Grupos filtrados',
+            'source': 'Origen de la fecha',
+            'type': 'Tipo de archivo'
+        }
+        
+        # Opciones de filtro de tamaño específicas para este diálogo
+        size_options = [
+            "Todos",
+            ">10 MB",
+            ">50 MB",
+            "3+ copias",
+            "5+ copias"
+        ]
+        
+        # Configuración de filtros expandibles
+        expandable_filters = [
+            {
+                'id': 'source',
+                'type': 'combo',
+                'label': labels['source'],
+                'tooltip': 'Filtrar por origen de la fecha',
+                'options': source_options,
+                'on_change': self._on_source_filter_changed,
+                'default_index': 0,
+                'min_width': 200
+            },
+            {
+                'id': 'type',
+                'type': 'combo',
+                'label': labels['type'],
+                'tooltip': 'Filtrar por tipo de archivo',
+                'options': ["Todos", "Fotos", "Videos"],
+                'on_change': self._on_type_filter_changed,
+                'default_index': 0,
+                'min_width': 120
+            }
+        ]
+        
+        filter_bar = self._create_unified_filter_bar(
+            on_search_changed=self._on_search_changed,
+            on_size_filter_changed=self._on_size_filter_changed,
+            expandable_filters=expandable_filters,
+            size_filter_options=size_options,
+            is_files_mode=False,
+            labels=labels
+        )
+        
+        # Guardar referencias a los widgets
+        self.search_input = filter_bar.search_input
+        self.filter_combo = filter_bar.size_filter_combo
+        self.status_chip = filter_bar.status_chip
+        self.source_combo = filter_bar.filter_widgets.get('source')
+        self.type_combo = filter_bar.filter_widgets.get('type')
+        
+        return filter_bar
+    
+    # ================= FILTER HANDLERS =================
+    
+    def _on_search_changed(self, text: str):
+        """Maneja cambios en la búsqueda."""
+        self._apply_filters()
+    
+    def _on_size_filter_changed(self, index: int):
+        """Maneja cambios en el filtro de tamaño."""
+        self._apply_filters()
+    
+    def _on_type_filter_changed(self, index: int):
+        """Maneja cambios en el filtro de tipo de archivo."""
+        self._apply_filters()
+    
+    def _on_source_filter_changed(self, index: int):
+        """Maneja cambios en el filtro de origen de fecha."""
+        self._apply_filters()
+    
+    def _group_matches_type_filter(self, group: DuplicateGroup) -> bool:
+        """
+        Verifica si un grupo coincide con el filtro de tipo de archivo.
+        
+        Un grupo coincide si AL MENOS UN archivo del grupo es del tipo seleccionado.
+        """
+        if not self.type_combo:
+            return True
+            
+        type_filter = self.type_combo.currentText()
+        if type_filter == "Todos":
+            return True
+        
+        for file_path in group.files:
+            if type_filter == 'Fotos' and is_image_file(file_path):
+                return True
+            elif type_filter == 'Videos' and is_video_file(file_path):
+                return True
+        
+        return False
+    
+    def _group_matches_source_filter(self, group: DuplicateGroup) -> bool:
+        """Verifica si un grupo coincide con el filtro de origen de fecha."""
+        if not self.source_combo:
+            return True
+        
+        source_filter = self.source_combo.currentText()
+        if source_filter == self.DATE_SOURCE_FILTER_ALL:
+            return True
+        
+        # Verificar si algún archivo del grupo tiene el origen de fecha seleccionado
+        for file_path in group.files:
+            _, source = self.repo.get_best_date(file_path) if self.repo else (None, None)
+            if source and self._matches_source_filter(source, source_filter):
+                return True
+        
+        return False
+    
+    def _apply_filters(self):
+        """Aplica todos los filtros activos y actualiza la vista."""
+        if not self.all_groups or self._is_loading:
+            return
+        
+        search_text = self.search_input.text().lower() if self.search_input else ""
+        filter_index = self.filter_combo.currentIndex() if self.filter_combo else 0
+        
+        filtered = []
+        
+        for group in self.all_groups:
+            # Filtro por tipo de archivo (imágenes/vídeos)
+            if not self._group_matches_type_filter(group):
+                continue
+            
+            # Filtro por origen de fecha
+            if not self._group_matches_source_filter(group):
+                continue
+            
+            # Filtro de búsqueda por texto
+            if search_text:
+                matches = False
+                for f in group.files:
+                    if search_text in str(f).lower():
+                        matches = True
+                        break
+                if not matches:
+                    continue
+            
+            # Filtro por tamaño/cantidad
+            if filter_index == 1:  # >10 MB
+                if group.total_size < 10 * 1024 * 1024:
+                    continue
+            elif filter_index == 2:  # >50 MB
+                if group.total_size < 50 * 1024 * 1024:
+                    continue
+            elif filter_index == 3:  # 3+ copias
+                if len(group.files) < 3:
+                    continue
+            elif filter_index == 4:  # 5+ copias
+                if len(group.files) < 5:
+                    continue
+            
+            filtered.append(group)
+        
+        self.filtered_groups = filtered
+        
+        # Actualizar el chip de estado
+        self._update_filter_chip(
+            self.status_chip, 
+            len(self.filtered_groups), 
+            len(self.all_groups)
+        )
+        
+        # Actualizar métricas del header
+        self._update_header_metrics_for_filtered()
+        
+        # Recargar la vista con grupos filtrados
+        if self.filtered_groups:
+            self.current_group_index = 0
+            self._load_group(0)
+        else:
+            self._show_no_groups_message()
+
+    def _update_header_metrics_for_filtered(self):
+        """Actualiza las métricas del header basadas en los grupos filtrados."""
+        groups_to_use = self.filtered_groups if self.filtered_groups else self.all_groups
+        
+        total_groups = len(groups_to_use)
+        total_similar = sum(len(g.files) - 1 for g in groups_to_use)
+        space_potential = sum(
+            (len(g.files) - 1) * (g.total_size // len(g.files))
+            for g in groups_to_use if g.files
+        )
+        
+        self._update_header_metric(self.header_frame, 'Grupos', str(total_groups))
+        self._update_header_metric(self.header_frame, 'Similares', str(total_similar))
+        self._update_header_metric(self.header_frame, 'Recuperable', format_size(space_potential))
+    
+    # ================= STRATEGY BUTTONS =================
+    
     def _create_strategy_buttons(self, parent_layout: QHBoxLayout):
         """Crea los botones de estrategia inline para la toolbar."""
         self.strategy_buttons = {}
@@ -381,46 +597,166 @@ class DuplicatesSimilarDialog(BaseDialog):
         if msg.exec() == QMessageBox.StandardButton.Yes:
             self._apply_strategy_to_all_groups()
 
-    def _create_navigation_toolbar(self) -> QWidget:
-        """Crea la barra de navegación con estrategia y tip integrados."""
+    def _create_group_toolbar(self) -> QWidget:
+        """
+        Crea la barra de grupo unificada con:
+        - Navegación (anterior/siguiente)
+        - Info de similitud del grupo actual
+        - Estrategias de conservación
+        - Contador de selección
+        
+        Todo junto en una toolbar compacta y profesional.
+        """
         container = QWidget()
+        container.setObjectName("group_toolbar")
+        container.setStyleSheet(f"""
+            QWidget#group_toolbar {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                border-bottom: 1px solid {DesignSystem.COLOR_BORDER_LIGHT};
+            }}
+        """)
+        
         layout = QHBoxLayout(container)
         layout.setContentsMargins(
-            DesignSystem.SPACE_16, DesignSystem.SPACE_10,
-            DesignSystem.SPACE_16, DesignSystem.SPACE_10
+            DesignSystem.SPACE_16, DesignSystem.SPACE_12,
+            DesignSystem.SPACE_16, DesignSystem.SPACE_12
         )
         layout.setSpacing(DesignSystem.SPACE_12)
         
-        # Navegación
-        self.prev_btn = self.make_styled_button(icon_name='chevron-left', button_style='secondary', tooltip="Anterior")
+        # === SECCIÓN IZQUIERDA: Navegación ===
+        nav_frame = QFrame()
+        nav_frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: 2px;
+            }}
+        """)
+        nav_layout = QHBoxLayout(nav_frame)
+        nav_layout.setContentsMargins(4, 4, 4, 4)
+        nav_layout.setSpacing(4)
+        
+        self.prev_btn = QPushButton()
+        icon_manager.set_button_icon(self.prev_btn, 'chevron-left', size=18)
+        self.prev_btn.setToolTip("Grupo anterior")
+        self.prev_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.prev_btn.setFixedSize(32, 32)
         self.prev_btn.clicked.connect(self._previous_group)
         self.prev_btn.setEnabled(False)
+        self.prev_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                border: none;
+                border-radius: {DesignSystem.RADIUS_SM}px;
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_BG_1};
+            }}
+            QPushButton:disabled {{
+                opacity: 0.4;
+            }}
+        """)
+        nav_layout.addWidget(self.prev_btn)
         
         self.group_counter_label = QLabel("Cargando...")
-        self.group_counter_label.setMinimumWidth(140)
+        self.group_counter_label.setMinimumWidth(100)
         self.group_counter_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.group_counter_label.setStyleSheet(f"font-weight: {DesignSystem.FONT_WEIGHT_BOLD}; color: {DesignSystem.COLOR_TEXT};")
+        self.group_counter_label.setStyleSheet(f"""
+            font-weight: {DesignSystem.FONT_WEIGHT_BOLD}; 
+            color: {DesignSystem.COLOR_TEXT};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+        """)
+        nav_layout.addWidget(self.group_counter_label)
         
-        self.next_btn = self.make_styled_button(icon_name='chevron-right', button_style='secondary', tooltip="Siguiente")
+        self.next_btn = QPushButton()
+        icon_manager.set_button_icon(self.next_btn, 'chevron-right', size=18)
+        self.next_btn.setToolTip("Grupo siguiente")
+        self.next_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.next_btn.setFixedSize(32, 32)
         self.next_btn.clicked.connect(self._next_group)
         self.next_btn.setEnabled(False)
-        
-        nav_layout = QHBoxLayout()
-        nav_layout.setSpacing(DesignSystem.SPACE_8)
-        nav_layout.addWidget(self.prev_btn)
-        nav_layout.addWidget(self.group_counter_label)
+        self.next_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                border: none;
+                border-radius: {DesignSystem.RADIUS_SM}px;
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_BG_1};
+            }}
+            QPushButton:disabled {{
+                opacity: 0.4;
+            }}
+        """)
         nav_layout.addWidget(self.next_btn)
         
-        layout.addLayout(nav_layout)
+        layout.addWidget(nav_frame)
         
-        # Separador visual
-        sep = QFrame()
-        sep.setFixedWidth(1)
-        sep.setFixedHeight(24)
-        sep.setStyleSheet(f"background-color: {DesignSystem.COLOR_BORDER};")
-        layout.addWidget(sep)
+        # Separador
+        sep1 = QFrame()
+        sep1.setFixedWidth(1)
+        sep1.setFixedHeight(28)
+        sep1.setStyleSheet(f"background-color: {DesignSystem.COLOR_BORDER};")
+        layout.addWidget(sep1)
         
-        # Botones de estrategia inline
+        # === SECCIÓN CENTRO: Similitud del grupo actual ===
+        self.similarity_container = QWidget()
+        sim_layout = QHBoxLayout(self.similarity_container)
+        sim_layout.setContentsMargins(0, 0, 0, 0)
+        sim_layout.setSpacing(DesignSystem.SPACE_8)
+        
+        # Badge de similitud
+        self.similarity_badge = QLabel("-")
+        self.similarity_badge.setStyleSheet(f"""
+            background-color: {DesignSystem.COLOR_PRIMARY}20;
+            color: {DesignSystem.COLOR_PRIMARY};
+            border: 1px solid {DesignSystem.COLOR_PRIMARY}40;
+            border-radius: 12px;
+            padding: 4px 12px;
+            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+        """)
+        sim_layout.addWidget(self.similarity_badge)
+        
+        # Barra de progreso de similitud
+        self.similarity_progress = QProgressBar()
+        self.similarity_progress.setRange(0, 100)
+        self.similarity_progress.setValue(0)
+        self.similarity_progress.setFixedWidth(100)
+        self.similarity_progress.setFixedHeight(6)
+        self.similarity_progress.setTextVisible(False)
+        self.similarity_progress.setStyleSheet(f"""
+            QProgressBar {{
+                border: none;
+                background-color: {DesignSystem.COLOR_BORDER_LIGHT};
+                border-radius: 3px;
+            }}
+            QProgressBar::chunk {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                border-radius: 3px;
+            }}
+        """)
+        sim_layout.addWidget(self.similarity_progress)
+        
+        # Info de archivos del grupo
+        self.group_files_info = QLabel("-")
+        self.group_files_info.setStyleSheet(f"""
+            color: {DesignSystem.COLOR_TEXT_SECONDARY}; 
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+        """)
+        sim_layout.addWidget(self.group_files_info)
+        
+        layout.addWidget(self.similarity_container)
+        
+        # Separador
+        sep2 = QFrame()
+        sep2.setFixedWidth(1)
+        sep2.setFixedHeight(28)
+        sep2.setStyleSheet(f"background-color: {DesignSystem.COLOR_BORDER};")
+        layout.addWidget(sep2)
+        
+        # === SECCIÓN DERECHA: Estrategias y acciones ===
         strategy_label = QLabel("Conservar:")
         strategy_label.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_SM}px;
@@ -439,7 +775,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         )
         layout.addWidget(self.tip_btn)
         
-        # Contador de selección
+        # Contador de selección global
         self.global_summary_label = QLabel("0 seleccionados")
         self.global_summary_label.setMinimumWidth(120)
         self.global_summary_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
@@ -451,6 +787,53 @@ class DuplicatesSimilarDialog(BaseDialog):
         layout.addWidget(self.global_summary_label)
         
         return container
+    
+    def _update_group_similarity_display(self, group):
+        """Actualiza los indicadores de similitud del grupo actual."""
+        if not group:
+            self.similarity_badge.setText("-")
+            self.similarity_progress.setValue(0)
+            self.group_files_info.setText("-")
+            return
+        
+        score = group.similarity_score
+        
+        # Determinar color según el nivel de similitud
+        if score >= 95:
+            color = DesignSystem.COLOR_SUCCESS
+        elif score >= 85:
+            color = DesignSystem.COLOR_PRIMARY
+        else:
+            color = DesignSystem.COLOR_WARNING
+        
+        # Actualizar badge
+        self.similarity_badge.setText(f"{score:.1f}% Similitud")
+        self.similarity_badge.setStyleSheet(f"""
+            background-color: {color}20;
+            color: {color};
+            border: 1px solid {color}40;
+            border-radius: 12px;
+            padding: 4px 12px;
+            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+        """)
+        
+        # Actualizar barra de progreso
+        self.similarity_progress.setValue(int(score))
+        self.similarity_progress.setStyleSheet(f"""
+            QProgressBar {{
+                border: none;
+                background-color: {DesignSystem.COLOR_BORDER_LIGHT};
+                border-radius: 3px;
+            }}
+            QProgressBar::chunk {{
+                background-color: {color};
+                border-radius: 3px;
+            }}
+        """)
+        
+        # Actualizar info de archivos
+        self.group_files_info.setText(f"{len(group.files)} archivos · {format_size(group.total_size)}")
 
     # ================= LOADING STATE =================
 
@@ -643,11 +1026,19 @@ class DuplicatesSimilarDialog(BaseDialog):
             
             self.current_result = result
             self.all_groups = result.groups.copy()
+            self.filtered_groups = self.all_groups.copy()  # Inicialmente todos los grupos están filtrados
             
             self.logger.info(f"Encontrados {len(self.all_groups)} grupos")
             
             self.selections.clear()
             self._update_header_metrics()
+            
+            # Actualizar el chip de estado de filtros
+            self._update_filter_chip(
+                self.status_chip,
+                len(self.filtered_groups),
+                len(self.all_groups)
+            )
             
             if self.all_groups:
                 self.current_group_index = 0
@@ -672,7 +1063,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         self._update_header_metric(self.header_frame, 'Recuperable', format_size(space_potential))
 
     def _show_no_groups_message(self):
-        """Muestra mensaje cuando no hay grupos."""
+        """Muestra mensaje cuando no hay grupos (ya sea por filtros o sin coincidencias)."""
         for i in reversed(range(self.group_layout.count())):
             item = self.group_layout.itemAt(i)
             if item and item.widget():
@@ -686,12 +1077,24 @@ class DuplicatesSimilarDialog(BaseDialog):
         icon_label = icon_manager.create_icon_label('check-circle', size=64, color=DesignSystem.COLOR_SUCCESS)
         layout.addWidget(icon_label, alignment=Qt.AlignmentFlag.AlignCenter)
         
-        msg = QLabel(
-            f"No se encontraron archivos similares\n"
-            f"con sensibilidad {self.current_sensitivity}%\n\n"
-            "Reduce la sensibilidad para detectar\n"
-            "archivos con más diferencias."
-        )
+        # Mensaje diferente según si hay grupos totales o no
+        if self.all_groups and not self.filtered_groups:
+            # Hay grupos pero los filtros los ocultaron
+            msg_text = (
+                "No se encontraron grupos que coincidan\n"
+                "con los filtros seleccionados.\n\n"
+                "Prueba a modificar los filtros para ver más resultados."
+            )
+        else:
+            # No hay grupos en absoluto
+            msg_text = (
+                f"No se encontraron archivos similares\n"
+                f"con sensibilidad {self.current_sensitivity}%\n\n"
+                "Reduce la sensibilidad para detectar\n"
+                "archivos con más diferencias."
+            )
+        
+        msg = QLabel(msg_text)
         msg.setAlignment(Qt.AlignmentFlag.AlignCenter)
         msg.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_MD}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
         layout.addWidget(msg)
@@ -701,33 +1104,38 @@ class DuplicatesSimilarDialog(BaseDialog):
         self.group_counter_label.setText("0 de 0")
         self.prev_btn.setEnabled(False)
         self.next_btn.setEnabled(False)
+        
+        # Resetear indicadores de similitud
+        self._update_group_similarity_display(None)
 
     def _load_group(self, index: int):
-        """Carga y muestra un grupo específico."""
-        if not 0 <= index < len(self.all_groups):
+        """Carga y muestra un grupo específico de los grupos filtrados."""
+        groups_to_show = self.filtered_groups if self.filtered_groups else self.all_groups
+        
+        if not 0 <= index < len(groups_to_show):
             return
         
         self.current_group_index = index
-        group = self.all_groups[index]
+        group = groups_to_show[index]
         
-        self.group_counter_label.setText(f"Grupo {index + 1} de {len(self.all_groups)}")
-        self.prev_btn.setEnabled(len(self.all_groups) > 1)
-        self.next_btn.setEnabled(len(self.all_groups) > 1)
+        # Actualizar contador de navegación
+        self.group_counter_label.setText(f"Grupo {index + 1} de {len(groups_to_show)}")
+        self.prev_btn.setEnabled(index > 0)
+        self.next_btn.setEnabled(index < len(groups_to_show) - 1)
+        
+        # Actualizar indicadores de similitud en la toolbar
+        self._update_group_similarity_display(group)
         
         # Resetear botones de estrategia (ninguno seleccionado)
         self._reset_strategy_buttons()
         
-        # Limpiar
+        # Limpiar contenedor de grupo
         for i in reversed(range(self.group_layout.count())):
             item = self.group_layout.itemAt(i)
             if item and item.widget():
                 item.widget().setParent(None)  # type: ignore[union-attr]
         
-        # Info de similitud
-        sim_info = self._create_group_similarity_info(group)
-        self.group_layout.addWidget(sim_info)
-        
-        # Grid
+        # Grid de imágenes
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setStyleSheet("background: transparent; border: none;")
@@ -750,54 +1158,6 @@ class DuplicatesSimilarDialog(BaseDialog):
         
         scroll.setWidget(grid_widget)
         self.group_layout.addWidget(scroll)
-
-    def _create_group_similarity_info(self, group) -> QWidget:
-        """Crea widget con info de similitud."""
-        container = QWidget()
-        layout = QHBoxLayout(container)
-        layout.setContentsMargins(0, 0, 0, DesignSystem.SPACE_12)
-        layout.setSpacing(DesignSystem.SPACE_12)
-        
-        score = group.similarity_score
-        color = (
-            DesignSystem.COLOR_SUCCESS if score >= 95 else
-            DesignSystem.COLOR_PRIMARY if score >= 85 else
-            DesignSystem.COLOR_WARNING
-        )
-        
-        badge = QLabel(f"{score:.1f}% Similitud")
-        badge.setStyleSheet(f"""
-            background-color: {color}20; color: {color};
-            border: 1px solid {color}40; border-radius: 12px;
-            padding: 4px 12px;
-            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-        """)
-        layout.addWidget(badge)
-        
-        progress = QProgressBar()
-        progress.setRange(0, 100)
-        progress.setValue(int(score))
-        progress.setFixedWidth(120)
-        progress.setTextVisible(False)
-        progress.setStyleSheet(f"""
-            QProgressBar {{
-                border: none;
-                background-color: {DesignSystem.COLOR_BORDER_LIGHT};
-                border-radius: 2px; height: 4px;
-            }}
-            QProgressBar::chunk {{
-                background-color: {color}; border-radius: 2px;
-            }}
-        """)
-        layout.addWidget(progress)
-        
-        files_info = QLabel(f"{len(group.files)} archivos · {format_size(group.total_size)}")
-        files_info.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_SM}px;")
-        layout.addWidget(files_info)
-        
-        layout.addStretch()
-        return container
 
     def _create_file_card(self, file_path: Path, is_selected: bool, will_be_kept: bool = False) -> QFrame:
         """Crea tarjeta para un archivo."""
@@ -971,19 +1331,24 @@ class DuplicatesSimilarDialog(BaseDialog):
             self.delete_btn.setText(f"Eliminar {total_files} Archivos")
 
     def _previous_group(self):
-        if self.all_groups:
-            self._load_group((self.current_group_index - 1) % len(self.all_groups))
+        """Navega al grupo anterior (dentro de los grupos filtrados)."""
+        groups_to_show = self.filtered_groups if self.filtered_groups else self.all_groups
+        if groups_to_show and self.current_group_index > 0:
+            self._load_group(self.current_group_index - 1)
 
     def _next_group(self):
-        if self.all_groups:
-            self._load_group((self.current_group_index + 1) % len(self.all_groups))
+        """Navega al grupo siguiente (dentro de los grupos filtrados)."""
+        groups_to_show = self.filtered_groups if self.filtered_groups else self.all_groups
+        if groups_to_show and self.current_group_index < len(groups_to_show) - 1:
+            self._load_group(self.current_group_index + 1)
 
     def _apply_strategy(self, strategy: str):
         """Aplica estrategia al grupo actual."""
-        if not self.all_groups:
+        groups_to_show = self.filtered_groups if self.filtered_groups else self.all_groups
+        if not groups_to_show:
             return
         
-        group = self.all_groups[self.current_group_index]
+        group = groups_to_show[self.current_group_index]
         files = group.files
         if len(files) < 2:
             return
