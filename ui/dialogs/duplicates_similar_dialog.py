@@ -1156,7 +1156,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         except:
             size_text = "?"
         size_lbl = QLabel(size_text)
-        size_lbl.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_XS}px;")
+        size_lbl.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_XS}px; border: none; background: transparent;")
         header.addWidget(size_lbl)
         
         layout.addLayout(header)
@@ -1171,7 +1171,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         name_lbl = QLabel(file_path.name)
         name_lbl.setWordWrap(True)
         name_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        name_lbl.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT};")
+        name_lbl.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_TEXT}; border: none; background: transparent;")
         layout.addWidget(name_lbl)
         
         # Fecha
@@ -1180,7 +1180,7 @@ class DuplicatesSimilarDialog(BaseDialog):
             date_lbl = QLabel(date_info)
             date_lbl.setWordWrap(True)
             date_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            date_lbl.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_XS}px; color: {DesignSystem.COLOR_TEXT_SECONDARY};")
+            date_lbl.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_XS}px; color: {DesignSystem.COLOR_TEXT_SECONDARY}; border: none; background: transparent;")
             layout.addWidget(date_lbl)
         
         card.setProperty("file_path", str(file_path))
@@ -1214,7 +1214,7 @@ class DuplicatesSimilarDialog(BaseDialog):
             width = 2
         elif will_be_kept:
             border_color = DesignSystem.COLOR_SUCCESS
-            bg_color = f"{DesignSystem.COLOR_SUCCESS}15"  # Verde muy suave
+            bg_color = DesignSystem.COLOR_SUCCESS_SOFT_BG
             width = 2
         else:
             border_color = DesignSystem.COLOR_BORDER

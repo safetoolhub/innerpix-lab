@@ -51,6 +51,7 @@ class DesignSystem:
     # Estados semánticos
     COLOR_SUCCESS = "#198754"
     COLOR_SUCCESS_BG = "#D1E7DD"
+    COLOR_SUCCESS_SOFT_BG = "#E6F4EA"  # Verde muy suave y agradable
     COLOR_WARNING = "#FFC107"
     COLOR_WARNING_BG = "#FFF3CD"
     COLOR_DANGER = "#DC3545"
@@ -728,6 +729,7 @@ class DesignSystem:
         return f"""
             QLabel {{
                 background-color: transparent;
+                border: none;
                 border-radius: 10px;
             }}
             QLabel:hover {{
