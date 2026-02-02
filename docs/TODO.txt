@@ -1,15 +1,18 @@
 Innerpix lab
 ---------------
 
-Bug: con RAW_1_2_3_4_5 en analisis de simialres el filtro de mayor tamaño no funciona bien
+Hay que revisar duplciados similares, el codigo enlazado de todos los duplciados no sienta bien
+Hay que hacer pruebas cambiando umbral y sobre todo tests especificaos de modo automatico (que es lo neuvo, que engancha mal con el codigo normal
+Auqnue funciona mas o menos bien. He visto que al pasarlo 2 veces s eha dejado un par de fotos
+Cuando se baja batante la sensibilidad, tarda bastante en calcular nuevos gurpos con el dataset grande y parece que queda medio colgado sin ser verdad
+)
+
 
 Revisar en algun momento los nombres de los metadatos, que aprecen de formas diferentes en los detalles del archivo y otros sitios, aquqnu emas o menos funciona
 
-Meter en duplicados exactos filtro por imagen o video para poder ver los videos y comprobar si se detectan
-
 Tenemos que poner en las cards avisos antes del analisis de que si hay metadatos que serian muy utiles tener avisar al usuario. Ejemplo, lo de best date es critico para organizar arhivos, así que debemos avisarlo. 
 
-COn videos creo que no se hace nada en los de similares. Se gestioann imagenes solo
+COn videos creo que no se hace nada en los de similares ni en visual_exact Se gestionan imagenes solo
 
 Revisar ls clases de servicio de duplciados que aun tienen herencia de cuando estaban juntos
 
