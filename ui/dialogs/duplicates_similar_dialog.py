@@ -175,6 +175,9 @@ class DuplicatesSimilarDialog(BaseDialog):
         )
         self.delete_btn: Optional[QPushButton] = button_box.button(QDialogButtonBox.StandardButton.Ok)
         content_layout.addWidget(button_box)
+        
+        # Maximizar el diálogo para aprovechar el espacio
+        self.showMaximized()
 
     def _create_sensitivity_bar(self) -> QFrame:
         """Crea la barra de control de sensibilidad con diseño unificado."""
@@ -486,7 +489,6 @@ class DuplicatesSimilarDialog(BaseDialog):
         
         strategies = [
             ('keep_largest', 'arrow-expand-all', 'Mayor tamaño', 'Conservar archivo de mayor tamaño'),
-            ('keep_highest_res', 'ruler', 'Mayor res.', 'Conservar archivo con mayor resolución'),
             ('keep_oldest', 'clock-outline', 'Más antigua', 'Conservar archivo más antiguo'),
         ]
         
@@ -709,35 +711,15 @@ class DuplicatesSimilarDialog(BaseDialog):
         # Badge de similitud
         self.similarity_badge = QLabel("-")
         self.similarity_badge.setStyleSheet(f"""
-            background-color: {DesignSystem.COLOR_PRIMARY}20;
-            color: {DesignSystem.COLOR_PRIMARY};
-            border: 1px solid {DesignSystem.COLOR_PRIMARY}40;
+            background-color: {DesignSystem.COLOR_PRIMARY};
+            color: white;
+            border: none;
             border-radius: 12px;
             padding: 4px 12px;
             font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
             font-size: {DesignSystem.FONT_SIZE_SM}px;
         """)
         sim_layout.addWidget(self.similarity_badge)
-        
-        # Barra de progreso de similitud
-        self.similarity_progress = QProgressBar()
-        self.similarity_progress.setRange(0, 100)
-        self.similarity_progress.setValue(0)
-        self.similarity_progress.setFixedWidth(100)
-        self.similarity_progress.setFixedHeight(6)
-        self.similarity_progress.setTextVisible(False)
-        self.similarity_progress.setStyleSheet(f"""
-            QProgressBar {{
-                border: none;
-                background-color: {DesignSystem.COLOR_BORDER_LIGHT};
-                border-radius: 3px;
-            }}
-            QProgressBar::chunk {{
-                background-color: {DesignSystem.COLOR_PRIMARY};
-                border-radius: 3px;
-            }}
-        """)
-        sim_layout.addWidget(self.similarity_progress)
         
         # Info de archivos del grupo
         self.group_files_info = QLabel("-")
@@ -792,44 +774,29 @@ class DuplicatesSimilarDialog(BaseDialog):
         """Actualiza los indicadores de similitud del grupo actual."""
         if not group:
             self.similarity_badge.setText("-")
-            self.similarity_progress.setValue(0)
             self.group_files_info.setText("-")
             return
         
         score = group.similarity_score
         
-        # Determinar color según el nivel de similitud
+        # Determinar color según el nivel de similitud (colores sólidos más elegantes)
         if score >= 95:
-            color = DesignSystem.COLOR_SUCCESS
+            bg_color = "#10b981"  # Verde elegante
         elif score >= 85:
-            color = DesignSystem.COLOR_PRIMARY
+            bg_color = DesignSystem.COLOR_PRIMARY  # Azul primary
         else:
-            color = DesignSystem.COLOR_WARNING
+            bg_color = "#f59e0b"  # Ámbar/naranja elegante
         
-        # Actualizar badge
-        self.similarity_badge.setText(f"{score:.1f}% Similitud")
+        # Actualizar badge con texto abreviado
+        self.similarity_badge.setText(f"{score:.1f}% Sim.")
         self.similarity_badge.setStyleSheet(f"""
-            background-color: {color}20;
-            color: {color};
-            border: 1px solid {color}40;
+            background-color: {bg_color};
+            color: white;
+            border: none;
             border-radius: 12px;
             padding: 4px 12px;
             font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
             font-size: {DesignSystem.FONT_SIZE_SM}px;
-        """)
-        
-        # Actualizar barra de progreso
-        self.similarity_progress.setValue(int(score))
-        self.similarity_progress.setStyleSheet(f"""
-            QProgressBar {{
-                border: none;
-                background-color: {DesignSystem.COLOR_BORDER_LIGHT};
-                border-radius: 3px;
-            }}
-            QProgressBar::chunk {{
-                background-color: {color};
-                border-radius: 3px;
-            }}
         """)
         
         # Actualizar info de archivos
@@ -1356,9 +1323,6 @@ class DuplicatesSimilarDialog(BaseDialog):
         if strategy == 'keep_largest':
             # Conservar el de mayor tamaño
             to_delete = self._get_files_to_delete_by_size(files, keep_largest=True)
-        elif strategy == 'keep_highest_res':
-            # Conservar el de mayor resolución
-            to_delete = self._get_files_to_delete_by_resolution(files)
         elif strategy == 'keep_oldest':
             # Conservar el más antiguo
             to_delete = self._get_files_to_delete_by_date(files, keep_oldest=True)
@@ -1397,23 +1361,6 @@ class DuplicatesSimilarDialog(BaseDialog):
         except Exception:
             return float('inf')
     
-    def _get_file_resolution(self, file_path: Path) -> int:
-        """Obtiene la resolución del archivo desde el repositorio o fallback."""
-        if self.repo:
-            meta = self.repo.get_file_metadata(file_path)
-            if meta and meta.exif_ImageWidth and meta.exif_ImageLength:
-                return meta.exif_ImageWidth * meta.exif_ImageLength
-        
-        # Fallback: leer con PIL directamente
-        self.logger.warning(f"Resolución no encontrada en caché, leyendo con PIL: {file_path}")
-        try:
-            from PIL import Image
-            with Image.open(file_path) as img:
-                width, height = img.size
-                return width * height
-        except Exception:
-            return 0
-    
     def _get_files_to_delete_by_size(self, files: list, keep_largest: bool = True) -> list:
         """Determina qué archivos eliminar según tamaño."""
         sizes = [(f, self._get_file_size(f)) for f in files]
@@ -1424,12 +1371,6 @@ class DuplicatesSimilarDialog(BaseDialog):
         """Determina qué archivos eliminar según fecha."""
         dates = [(f, self._get_file_best_date(f)) for f in files]
         sorted_files = sorted(dates, key=lambda x: x[1], reverse=not keep_oldest)
-        return [f for f, _ in sorted_files[1:]]
-    
-    def _get_files_to_delete_by_resolution(self, files: list) -> list:
-        """Determina qué archivos eliminar conservando el de mayor resolución."""
-        resolutions = [(f, self._get_file_resolution(f)) for f in files]
-        sorted_files = sorted(resolutions, key=lambda x: x[1], reverse=True)
         return [f for f, _ in sorted_files[1:]]
     
     def _apply_strategy_to_all_groups(self):

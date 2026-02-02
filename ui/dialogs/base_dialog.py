@@ -1587,19 +1587,21 @@ class BaseDialog(QDialog):
         tip_btn.setToolTip("Mostrar/ocultar consejo")
         tip_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         tip_btn.setCheckable(True)
-        icon_manager.set_button_icon(tip_btn, 'information-outline', size=18)
+        icon_manager.set_button_icon(tip_btn, 'information-outline', size=20)
+        tip_btn.setFixedSize(32, 32)
         tip_btn.setStyleSheet(f"""
             QPushButton {{
-                background-color: transparent;
+                background-color: {DesignSystem.COLOR_INFO};
                 border: none;
                 padding: {DesignSystem.SPACE_4}px;
-                border-radius: {DesignSystem.RADIUS_BASE}px;
+                border-radius: {DesignSystem.RADIUS_FULL}px;
             }}
             QPushButton:hover {{
-                background-color: {DesignSystem.COLOR_INFO_BG};
+                background-color: {DesignSystem.COLOR_PRIMARY_HOVER};
+                transform: scale(1.05);
             }}
             QPushButton:checked {{
-                background-color: {DesignSystem.COLOR_INFO_BG};
+                background-color: {DesignSystem.COLOR_PRIMARY_HOVER};
             }}
         """)
         
