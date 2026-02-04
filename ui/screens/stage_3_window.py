@@ -1198,25 +1198,6 @@ class Stage3Window(BaseStage):
         worker.start()
         progress.exec()
 
-    def _get_updated_service_analysis(self, tool_id: str):
-        """
-        DEPRECATED: Este método ejecutaba análisis de forma síncrona, congelando la UI.
-        
-        Usar _run_analysis_for_stats_update() en su lugar, que usa workers con
-        diálogo de progreso.
-        """
-        self.logger.warning(
-            f"_get_updated_service_analysis está deprecated. "
-            f"Usar _run_analysis_for_stats_update() para {tool_id}"
-        )
-        return None
-    
-    def _update_tool_card_ui(self, tool_id: str, analysis_result) -> None:
-        """
-        Método legacy - ahora usamos _refresh_stage_3_ui() para actualizar todo.
-        """
-        pass  # Implementación movida a _refresh_stage_3_ui
-
     def _sync_scan_results_with_cache(self) -> None:
         """
         Sincroniza los resultados del escaneo inicial con el estado actual de la caché.

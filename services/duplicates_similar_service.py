@@ -1,8 +1,10 @@
 """
 Servicio de detección de archivos similares mediante perceptual hashing.
+
 Identifica fotos y vídeos visualmente similares: recortes, rotaciones,
 ediciones o diferentes resoluciones.
-Refactorizado para usar MetadataCache.
+
+Usa FileInfoRepositoryCache como única fuente de metadatos.
 Optimizado con BK-Tree para clustering O(N log N).
 """
 
@@ -14,10 +16,18 @@ import os
 
 from config import Config
 from utils.logger import get_logger, log_section_header_discrete, log_section_footer_discrete
-from services.result_types import DuplicateAnalysisResult, DuplicateExecutionResult, DuplicateGroup
-from services.duplicates_base_service import DuplicatesBaseService
-from services.base_service import ProgressCallback
+from services.result_types import (
+    SimilarDuplicateGroup,
+    SimilarDuplicateAnalysisResult,
+    SimilarDuplicateExecutionResult
+)
+from services.base_service import BaseService, BackupCreationError, ProgressCallback
 from services.file_metadata_repository_cache import FileInfoRepositoryCache
+from utils.format_utils import format_size
+
+
+# Estrategias de selección soportadas
+KEEP_STRATEGIES = ['oldest', 'newest', 'largest', 'smallest', 'manual']
 
 
 class BKTreeNode:
@@ -139,7 +149,7 @@ class DuplicatesSimilarAnalysis:
         self, 
         sensitivity: int,
         progress_callback: Optional[Any] = None
-    ) -> DuplicateAnalysisResult:
+    ) -> SimilarDuplicateAnalysisResult:
         """
         Genera grupos con la sensibilidad especificada.
         
@@ -157,7 +167,7 @@ class DuplicatesSimilarAnalysis:
                 Si retorna False, el proceso debe detenerse.
         
         Returns:
-            DuplicateAnalysisResult con grupos detectados
+            SimilarDuplicateAnalysisResult con grupos detectados
         """
         import time
         start_time = time.time()
@@ -184,36 +194,26 @@ class DuplicatesSimilarAnalysis:
         
         # Calcular estadísticas
         total_groups = len(groups)
-        total_duplicates = sum(len(g.files) - 1 for g in groups) # Using total_duplicates for generic compat
-        # Also maintain total_similar for specific logic if needed, but AnalysisResult uses generic fields mainly
+        total_similar = sum(len(g.files) - 1 for g in groups)
+        space_recoverable = sum(g.space_recoverable for g in groups)
         
-        space_potential = sum(
-            (len(g.files) - 1) * (g.total_size // len(g.files)) for g in groups
-        )
-        
-        min_similarity = (
-            min(g.similarity_score for g in groups)
-            if groups else 0
-        )
-        max_similarity = (
-            max(g.similarity_score for g in groups)
-            if groups else 0
-        )
+        min_similarity = min(g.similarity_score for g in groups) if groups else 0
+        max_similarity = max(g.similarity_score for g in groups) if groups else 0
         
         self._logger.info(
             f"Grupos generados: {total_groups}, "
-            f"Duplicados: {total_duplicates}, "
+            f"Similares: {total_similar}, "
             f"Similitud: {min_similarity:.0f}%-{max_similarity:.0f}%"
         )
         
-        return DuplicateAnalysisResult(
+        return SimilarDuplicateAnalysisResult(
             success=True,
-            mode='perceptual',
             groups=groups,
-            total_files=self.total_files,
+            total_files_analyzed=self.total_files,
             total_groups=total_groups,
-            total_duplicates=total_duplicates, # Generic field
-            space_wasted=space_potential
+            total_similar=total_similar,
+            space_recoverable=space_recoverable,
+            sensitivity=sensitivity
         )
     
     def _sensitivity_to_threshold(self, sensitivity: int) -> int:
@@ -231,7 +231,7 @@ class DuplicatesSimilarAnalysis:
         threshold: int,
         distance_cache: Dict[Tuple[int, int], int],
         progress_callback: Optional[Any] = None
-    ) -> List[DuplicateGroup]:
+    ) -> List[SimilarDuplicateGroup]:
         """
         Agrupa archivos por similitud usando threshold de Hamming distance.
         
@@ -306,11 +306,13 @@ class DuplicatesSimilarAnalysis:
             
             # Construir grupo con archivos similares no procesados
             similar_files = []
+            file_sizes = []
             hamming_distances = []
             
             for match_path, distance in similar_matches:
                 if match_path not in processed:
                     similar_files.append(Path(match_path))
+                    file_sizes.append(hashes[match_path]['size'])
                     if match_path != path1:  # No contar distancia a sí mismo
                         hamming_distances.append(distance)
                     processed.add(match_path)
@@ -334,30 +336,13 @@ class DuplicatesSimilarAnalysis:
                     if similarity_percentage < min_similarity_from_threshold:
                         continue
                     
-                    total_size = 0
-                    valid_files = []
-                    for f in similar_files:
-                        try:
-                            # Try to get size from hashes dict first if available
-                            size = hashes[str(f)]['size']
-                            total_size += size
-                            valid_files.append(f)
-                        except (FileNotFoundError, PermissionError, KeyError):
-                            # Fallback to disk or skip
-                            if f.exists():
-                                size = f.stat().st_size
-                                total_size += size
-                                valid_files.append(f)
-                            continue
-                    
-                    if len(valid_files) > 1:
-                        group = DuplicateGroup(
-                            hash_value=str(hash1),
-                            files=valid_files,
-                            total_size=total_size,
-                            similarity_score=similarity_percentage
-                        )
-                        groups.append(group)
+                    group = SimilarDuplicateGroup(
+                        hash_value=str(hash1),
+                        files=similar_files,
+                        file_sizes=file_sizes,
+                        similarity_score=similarity_percentage
+                    )
+                    groups.append(group)
                 except Exception as e:
                     self._logger.warning(f"Error procesando grupo para {path1}: {e}")
                     continue
@@ -367,48 +352,14 @@ class DuplicatesSimilarAnalysis:
             f"  🔎 Búsquedas: {total_searches} archivos, {total_matches} matches totales en {search_time:.3f}s"
         )
         
-        # Ordenar grupos priorizando aquellos con mayor diferencia de tamaño
-        # Los grupos con imágenes de diferentes tamaños (ej. WhatsApp vs originales) son más relevantes
-        def calculate_size_variation_score(group: DuplicateGroup) -> float:
-            """
-            Calcula un score basado en la variación de tamaño entre archivos del grupo.
-            Retorna el porcentaje de diferencia entre el archivo más grande y el más pequeño.
-            Score más alto = mayor prioridad.
-            """
-            if len(group.files) < 2:
-                return 0.0
-            
-            # Obtener tamaños de todos los archivos
-            sizes = []
-            for f in group.files:
-                try:
-                    size = hashes[str(f)]['size']
-                    sizes.append(size)
-                except (KeyError, FileNotFoundError):
-                    continue
-            
-            if len(sizes) < 2:
-                return 0.0
-            
-            min_size = min(sizes)
-            max_size = max(sizes)
-            
-            # Evitar división por cero
-            if min_size == 0:
-                return 0.0
-            
-            # Calcular y retornar diferencia porcentual
-            size_diff_percent = ((max_size - min_size) / min_size) * 100
-            return size_diff_percent
-        
-        # Ordenar grupos: primero los de mayor variación de tamaño
-        groups.sort(key=calculate_size_variation_score, reverse=True)
+        # Ordenar grupos por variación de tamaño (más variación = más relevante)
+        groups.sort(key=lambda g: g.size_variation_percent, reverse=True)
         
         # Log de estadísticas de variación
         if groups:
-            scores = [calculate_size_variation_score(g) for g in groups]
-            max_variation = max(scores) if scores else 0
-            avg_variation = sum(scores) / len(scores) if scores else 0
+            variations = [g.size_variation_percent for g in groups]
+            max_variation = max(variations) if variations else 0
+            avg_variation = sum(variations) / len(variations) if variations else 0
             self._logger.info(
                 f"  📊 Variación de tamaño - Máx: {max_variation:.1f}%, Promedio: {avg_variation:.1f}%"
             )
@@ -418,78 +369,6 @@ class DuplicatesSimilarAnalysis:
     def _hamming_distance(self, hash1: Any, hash2: Any) -> int:
         return hash1 - hash2
     
-    def find_new_groups(
-        self,
-        new_hashes: Dict[str, Dict[str, Any]],
-        existing_hashes: Dict[str, Dict[str, Any]],
-        sensitivity: int
-    ) -> DuplicateAnalysisResult:
-        """
-        Encuentra grupos que incluyan archivos del batch nuevo.
-        
-        Compara archivos nuevos contra existentes para análisis incremental
-        sin reprocesar todo el dataset. Usado para carga progresiva en UI.
-        
-        Args:
-            new_hashes: Hashes del batch actual a procesar
-            existing_hashes: Hashes ya procesados previamente
-            sensitivity: Sensibilidad de detección (30-100)
-        
-        Returns:
-            DuplicateAnalysisResult con grupos que incluyen archivos nuevos
-        """
-        if not new_hashes:
-            return DuplicateAnalysisResult(
-                success=True,
-                mode='perceptual',
-                groups=[],
-                total_files=0,
-                total_groups=0,
-                total_duplicates=0,
-                space_wasted=0
-            )
-        
-        # Combinar hashes para clustering
-        all_hashes = {**existing_hashes, **new_hashes}
-        
-        # Convertir sensibilidad a threshold
-        threshold = self._sensitivity_to_threshold(sensitivity)
-        
-        # Hacer clustering de todos los hashes
-        all_groups = self._cluster_by_similarity(
-            all_hashes,
-            threshold,
-            self._distance_cache
-        )
-        
-        # Filtrar solo grupos que contengan al menos un archivo del batch nuevo
-        new_paths = set(new_hashes.keys())
-        filtered_groups = []
-        
-        for group in all_groups:
-            # Verificar si algún archivo del grupo pertenece al batch nuevo
-            group_paths = {str(f) for f in group.files}
-            if group_paths & new_paths:  # Intersección no vacía
-                filtered_groups.append(group)
-        
-        # Calcular estadísticas
-        total_groups = len(filtered_groups)
-        total_duplicates = sum(len(g.files) - 1 for g in filtered_groups)
-        space_wasted = sum(
-            (len(g.files) - 1) * (g.total_size // len(g.files))
-            for g in filtered_groups
-        )
-        
-        return DuplicateAnalysisResult(
-            success=True,
-            mode='perceptual',
-            groups=filtered_groups,
-            total_files=len(new_hashes),
-            total_groups=total_groups,
-            total_duplicates=total_duplicates,
-            space_wasted=space_wasted
-        )
-        
     def save_to_file(self, filepath: Path) -> None:
         """Guarda el análisis en un archivo para carga rápida posterior."""
         import pickle
@@ -557,13 +436,16 @@ class DuplicatesSimilarAnalysis:
         return analysis
 
 
-class DuplicatesSimilarService(DuplicatesBaseService):
+class DuplicatesSimilarService(BaseService):
     """
-    Servicio de detección de archivos similares mediante perceptual hashing.
+    Servicio de detección y eliminación de archivos similares mediante perceptual hashing.
+    
+    Identifica fotos y vídeos visualmente similares, incluyendo recortes,
+    rotaciones, ediciones o diferentes resoluciones.
     """
 
     def __init__(self):
-        """Inicializa el detector de archivos similares"""
+        """Inicializa el detector de archivos similares."""
         super().__init__('DuplicatesSimilarService')
         self._cached_analysis: Optional[DuplicatesSimilarAnalysis] = None
     
@@ -572,7 +454,7 @@ class DuplicatesSimilarService(DuplicatesBaseService):
         sensitivity: int = 85,
         progress_callback: Optional[ProgressCallback] = None,
         **kwargs
-    ) -> DuplicateAnalysisResult:
+    ) -> SimilarDuplicateAnalysisResult:
         """
         Analiza buscando duplicados similares (perceptual hash).
         
@@ -589,7 +471,7 @@ class DuplicatesSimilarService(DuplicatesBaseService):
             **kwargs: Args adicionales
             
         Returns:
-            DuplicateAnalysisResult con grupos detectados
+            SimilarDuplicateAnalysisResult con grupos detectados
         """
         log_section_header_discrete(self.logger, "ANÁLISIS DE DUPLICADOS SIMILARES")
         self.logger.info(f"Sensibilidad configurada: {sensitivity}%")
@@ -644,6 +526,322 @@ class DuplicatesSimilarService(DuplicatesBaseService):
         
         return self._cached_analysis
 
+    def execute(
+        self,
+        analysis_result: SimilarDuplicateAnalysisResult,
+        keep_strategy: str = 'largest',
+        files_to_delete: Optional[List[Path]] = None,
+        create_backup: bool = True,
+        dry_run: bool = False,
+        progress_callback: Optional[ProgressCallback] = None,
+        **kwargs
+    ) -> SimilarDuplicateExecutionResult:
+        """
+        Ejecuta la eliminación de duplicados similares.
+        
+        Args:
+            analysis_result: Resultado del análisis
+            keep_strategy: Estrategia de conservación ('oldest', 'newest', 'largest', 'smallest', 'manual')
+            files_to_delete: Lista específica de archivos a eliminar (para modo manual)
+            create_backup: Si crear backup antes de eliminar
+            dry_run: Si es simulación
+            progress_callback: Callback de progreso
+            
+        Returns:
+            SimilarDuplicateExecutionResult con resultados de la operación
+        """
+        from utils.logger import log_section_header_relevant, log_section_footer_relevant
+        
+        mode = "SIMULACIÓN" if dry_run else ""
+        log_section_header_relevant(
+            self.logger,
+            f"ELIMINACIÓN DE DUPLICADOS SIMILARES - Estrategia: {keep_strategy}",
+            mode=mode
+        )
+        
+        if keep_strategy not in KEEP_STRATEGIES:
+            raise ValueError(f"Estrategia no válida: {keep_strategy}. Opciones: {KEEP_STRATEGIES}")
+        
+        groups = analysis_result.groups
+        files_to_delete_set = set(files_to_delete) if files_to_delete else None
+        
+        if not groups:
+            self.logger.info("No hay grupos para procesar")
+            return SimilarDuplicateExecutionResult(
+                success=True,
+                items_processed=0,
+                bytes_processed=0,
+                keep_strategy=keep_strategy,
+                dry_run=dry_run,
+                message="No hay archivos similares para eliminar"
+            )
+        
+        # Filtrar grupos con archivos que aún existen
+        filtered_groups = self._filter_existing_groups(groups)
+        
+        if not filtered_groups:
+            self.logger.info("Todos los grupos fueron filtrados (archivos ya no existen)")
+            return SimilarDuplicateExecutionResult(
+                success=True,
+                items_processed=0,
+                bytes_processed=0,
+                keep_strategy=keep_strategy,
+                dry_run=dry_run,
+                message="No hay archivos similares para eliminar (archivos ya procesados)"
+            )
+        
+        # Crear backup si es necesario
+        backup_path = None
+        if create_backup and not dry_run:
+            all_files = [f for g in filtered_groups for f in g.files]
+            try:
+                backup_path = self._create_backup_for_operation(
+                    all_files,
+                    'similar_duplicates_deletion',
+                    progress_callback
+                )
+                if not backup_path:
+                    return SimilarDuplicateExecutionResult(
+                        success=False,
+                        errors=["No se pudo crear el backup"],
+                        keep_strategy=keep_strategy,
+                        dry_run=dry_run
+                    )
+            except BackupCreationError as e:
+                return SimilarDuplicateExecutionResult(
+                    success=False,
+                    errors=[f"Error creando backup: {e}"],
+                    keep_strategy=keep_strategy,
+                    dry_run=dry_run
+                )
+        
+        # Procesar eliminaciones
+        repo = FileInfoRepositoryCache.get_instance()
+        files_affected = []
+        files_kept = 0
+        errors = []
+        bytes_processed = 0
+        
+        # Calcular total de operaciones
+        if keep_strategy == 'manual' and files_to_delete_set:
+            total_operations = len(files_to_delete_set)
+        elif keep_strategy == 'manual':
+            # Modo manual sin archivos especificados: no borrar nada
+            total_operations = 0
+        else:
+            total_operations = sum(len(g.files) - 1 for g in filtered_groups)
+        
+        processed = 0
+        
+        for group in filtered_groups:
+            # Determinar qué archivo conservar y cuáles eliminar
+            if keep_strategy == 'manual':
+                if files_to_delete_set:
+                    to_delete = [f for f in group.files if f in files_to_delete_set]
+                    files_kept += len(group.files) - len(to_delete)
+                else:
+                    # Modo manual sin archivos especificados: no borrar nada de este grupo
+                    to_delete = []
+                    files_kept += len(group.files)
+            else:
+                keep_file = self._select_file_to_keep(group, keep_strategy, repo)
+                to_delete = [f for f in group.files if f != keep_file]
+                files_kept += 1
+                
+                # Log del archivo que se conserva
+                self.logger.debug(
+                    f"Conservando: {keep_file.name} | Similitud: {group.similarity_score:.0f}%"
+                )
+            
+            # Eliminar archivos seleccionados
+            for file_path in to_delete:
+                try:
+                    meta = repo.get_file_metadata(file_path)
+                    file_size = meta.fs_size if meta else (file_path.stat().st_size if file_path.exists() else 0)
+                    file_date = self._get_best_date_for_file(file_path, repo)
+                    
+                    if dry_run:
+                        self.logger.info(
+                            f"FILE_DELETED_SIMULATION: {file_path} | "
+                            f"Size: {format_size(file_size)} | "
+                            f"Date: {file_date} | "
+                            f"Type: similar_duplicate | "
+                            f"Similarity: {group.similarity_score:.0f}% | "
+                            f"Strategy: {keep_strategy}"
+                        )
+                    else:
+                        file_path.unlink()
+                        repo.remove_file(file_path)
+                        self.logger.info(
+                            f"FILE_DELETED: {file_path} | "
+                            f"Size: {format_size(file_size)} | "
+                            f"Date: {file_date} | "
+                            f"Type: similar_duplicate | "
+                            f"Similarity: {group.similarity_score:.0f}% | "
+                            f"Strategy: {keep_strategy}"
+                        )
+                    
+                    files_affected.append(file_path)
+                    bytes_processed += file_size
+                    processed += 1
+                    
+                    if not self._report_progress(
+                        progress_callback,
+                        processed,
+                        total_operations,
+                        f"{'[Simulación] ' if dry_run else ''}Eliminando: {file_path.name}"
+                    ):
+                        break
+                        
+                except FileNotFoundError:
+                    self.logger.warning(f"Archivo no encontrado: {file_path}")
+                except Exception as e:
+                    errors.append(f"{file_path}: {e}")
+                    self.logger.error(f"Error eliminando {file_path}: {e}")
+        
+        # Construir resultado
+        result = SimilarDuplicateExecutionResult(
+            success=len(errors) == 0,
+            items_processed=processed,
+            bytes_processed=bytes_processed,
+            files_affected=files_affected,
+            files_kept=files_kept,
+            backup_path=backup_path,
+            keep_strategy=keep_strategy,
+            dry_run=dry_run,
+            errors=errors
+        )
+        
+        # Mensaje de resumen
+        result.message = self._format_operation_summary(
+            "Eliminación de duplicados similares",
+            processed,
+            bytes_processed,
+            dry_run
+        )
+        
+        if backup_path:
+            result.message += f"\n\nBackup creado en:\n{backup_path}"
+        
+        log_section_footer_relevant(self.logger, result.message)
+        
+        return result
+
+    def _filter_existing_groups(
+        self,
+        groups: List[SimilarDuplicateGroup]
+    ) -> List[SimilarDuplicateGroup]:
+        """
+        Filtra grupos para incluir solo archivos que aún existen.
+        
+        Previene errores cuando otro servicio eliminó archivos entre
+        el análisis y la ejecución.
+        """
+        filtered = []
+        total_missing = 0
+        
+        for group in groups:
+            existing_files = []
+            existing_sizes = []
+            
+            for i, f in enumerate(group.files):
+                if f.exists():
+                    existing_files.append(f)
+                    if group.file_sizes and i < len(group.file_sizes):
+                        existing_sizes.append(group.file_sizes[i])
+            
+            missing = len(group.files) - len(existing_files)
+            if missing > 0:
+                total_missing += missing
+                self.logger.debug(f"Grupo {group.hash_value[:8]}...: {missing} archivos ya no existen")
+            
+            if len(existing_files) >= 2:
+                filtered.append(SimilarDuplicateGroup(
+                    hash_value=group.hash_value,
+                    files=existing_files,
+                    file_sizes=existing_sizes,
+                    similarity_score=group.similarity_score
+                ))
+        
+        if total_missing > 0:
+            self.logger.warning(
+                f"⚠️ {total_missing} archivos ya no existen. "
+                f"Grupos: {len(groups)} → {len(filtered)}"
+            )
+        
+        return filtered
+
+    def _select_file_to_keep(
+        self,
+        group: SimilarDuplicateGroup,
+        strategy: str,
+        repo: FileInfoRepositoryCache
+    ) -> Path:
+        """
+        Selecciona qué archivo conservar según la estrategia.
+        
+        IMPORTANTE: Usa FileInfoRepositoryCache para obtener fechas,
+        NO accede directamente al disco con stat().
+        """
+        files = group.files
+        
+        if strategy == 'oldest':
+            return min(files, key=lambda f: self._get_best_date_timestamp(f, repo))
+        elif strategy == 'newest':
+            return max(files, key=lambda f: self._get_best_date_timestamp(f, repo))
+        elif strategy == 'largest':
+            return max(files, key=lambda f: self._get_file_size(f, repo, group))
+        elif strategy == 'smallest':
+            return min(files, key=lambda f: self._get_file_size(f, repo, group))
+        else:
+            raise ValueError(f"Estrategia no válida para selección: {strategy}")
+
+    def _get_best_date_timestamp(self, file_path: Path, repo: FileInfoRepositoryCache) -> float:
+        """Obtiene timestamp de la mejor fecha disponible desde el repositorio."""
+        best_date, _ = repo.get_best_date(file_path)
+        if best_date:
+            return best_date.timestamp()
+        
+        # Fallback a fecha de modificación del filesystem
+        meta = repo.get_file_metadata(file_path)
+        if meta and meta.fs_mtime:
+            return meta.fs_mtime
+        
+        return 0.0
+
+    def _get_best_date_for_file(self, file_path: Path, repo: FileInfoRepositoryCache) -> str:
+        """Obtiene string formateado de la mejor fecha disponible."""
+        best_date, source = repo.get_best_date(file_path)
+        if best_date:
+            return f"{best_date.strftime('%Y-%m-%d %H:%M:%S')} ({source or 'unknown'})"
+        
+        meta = repo.get_file_metadata(file_path)
+        if meta and meta.fs_mtime:
+            dt = datetime.fromtimestamp(meta.fs_mtime)
+            return f"{dt.strftime('%Y-%m-%d %H:%M:%S')} (filesystem)"
+        
+        return "fecha desconocida"
+
+    def _get_file_size(
+        self,
+        file_path: Path,
+        repo: FileInfoRepositoryCache,
+        group: Optional[SimilarDuplicateGroup] = None
+    ) -> int:
+        """Obtiene tamaño del archivo, primero del grupo, luego del repositorio."""
+        # Intentar desde el grupo (más eficiente)
+        if group and group.file_sizes:
+            try:
+                idx = group.files.index(file_path)
+                if idx < len(group.file_sizes):
+                    return group.file_sizes[idx]
+            except ValueError:
+                pass
+        
+        # Fallback al repositorio
+        meta = repo.get_file_metadata(file_path)
+        return meta.fs_size if meta else 0
+
     def _calculate_perceptual_hashes(
         self,
         repo: FileInfoRepositoryCache,
@@ -677,7 +875,7 @@ class DuplicatesSimilarService(DuplicatesBaseService):
         
         import time
         
-        log_section_header_discrete(self.logger, "INICIANDO ANÁLISIS INICIAL DE ARCHIVOS SIMILARES")
+        log_section_header_discrete(self.logger, "CÁLCULO DE HASHES PERCEPTUALES")
         hash_calc_start = time.time()
         self.logger.info(
             f"⏳ Calculando hashes perceptuales (algoritmo={algorithm}, "
@@ -792,7 +990,7 @@ class DuplicatesSimilarService(DuplicatesBaseService):
         hash_calc_time = time.time() - hash_calc_start
         self.logger.info(
             f"✅ Hashes calculados: {analysis.total_files} en {hash_calc_time:.1f}s "
-            f"({analysis.total_files/hash_calc_time:.1f} archivos/s)"
+            f"({analysis.total_files/max(hash_calc_time, 0.1):.1f} archivos/s)"
         )
         
         if errors > 0:
@@ -809,15 +1007,6 @@ class DuplicatesSimilarService(DuplicatesBaseService):
     ) -> Optional[Any]:
         """
         Calcula hash perceptual de una imagen.
-        
-        Args:
-            file_path: Ruta al archivo de imagen
-            algorithm: Algoritmo de hash ("dhash", "phash", "ahash")
-            hash_size: Tamaño del hash (8, 16, 32). Mayor = más preciso pero más lento
-            highfreq_factor: Factor de alta frecuencia para phash (solo aplica a phash)
-        
-        Returns:
-            Hash perceptual de la imagen o None si hay error
         """
         try:
             import imagehash
@@ -847,15 +1036,6 @@ class DuplicatesSimilarService(DuplicatesBaseService):
     ) -> Optional[Any]:
         """
         Calcula hash perceptual de un video extrayendo el frame central.
-        
-        Args:
-            file_path: Ruta al archivo de video
-            algorithm: Algoritmo de hash ("dhash", "phash", "ahash")
-            hash_size: Tamaño del hash (8, 16, 32). Mayor = más preciso pero más lento
-            highfreq_factor: Factor de alta frecuencia para phash (solo aplica a phash)
-        
-        Returns:
-            Hash perceptual del video (basado en frame central) o None si hay error
         """
         try:
             import cv2

@@ -260,38 +260,132 @@ class VisualIdenticalExecutionResult(ExecutionResult):
     keep_strategy: Optional[str] = None  # 'largest', 'smallest', 'oldest', 'newest'
 
 
-# --- Duplicates (Exact & Similar) ---
+# --- Exact Duplicates (SHA256) ---
 @dataclass
-class DuplicateGroup:
-    hash_value: str
+class ExactDuplicateGroup:
+    """
+    Grupo de archivos exactamente idénticos (mismo SHA256).
+    
+    Estos archivos son copias bit a bit, incluso si tienen nombres diferentes.
+    """
+    hash_value: str  # SHA256 hash
     files: List[Path]
-    total_size: int
-    file_sizes: List[int] = field(default_factory=list) # Size of each file
-    similarity_score: float = 100.0
+    file_size: int = 0  # Tamaño de cada archivo (todos iguales)
+    
+    @property
+    def file_count(self) -> int:
+        return len(self.files)
+    
+    @property
+    def total_size(self) -> int:
+        """Tamaño total del grupo (file_size * file_count)."""
+        return self.file_size * len(self.files)
+    
+    @property
+    def space_recoverable(self) -> int:
+        """Espacio que se puede recuperar (total - 1 archivo)."""
+        return self.file_size * max(0, len(self.files) - 1)
+
 
 @dataclass
-class DuplicateAnalysisResult(AnalysisResult):
-    """Result for duplicate detection analysis (exact or similar)."""
-    groups: List[DuplicateGroup] = field(default_factory=list)
-    mode: str = 'exact'  # 'exact' or 'perceptual'
-    total_duplicates: int = 0
+class ExactDuplicateAnalysisResult(AnalysisResult):
+    """Result for exact duplicate detection analysis (SHA256)."""
+    groups: List[ExactDuplicateGroup] = field(default_factory=list)
+    total_files_scanned: int = 0
     total_groups: int = 0
-    total_files: int = 0
-    space_wasted: int = 0
+    total_duplicates: int = 0  # Archivos duplicados (total files - 1 por grupo)
+    space_recoverable: int = 0
     
     def __post_init__(self):
         if not self.items_count and self.groups:
             self.items_count = len(self.groups)
         if not self.total_groups and self.groups:
             self.total_groups = len(self.groups)
-        if not self.bytes_total and self.space_wasted:
-            self.bytes_total = self.space_wasted
+        if not self.bytes_total and self.space_recoverable:
+            self.bytes_total = self.space_recoverable
+
 
 @dataclass
-class DuplicateExecutionResult(ExecutionResult):
-    """Result for duplicate deletion execution."""
+class ExactDuplicateExecutionResult(ExecutionResult):
+    """Result for exact duplicate deletion execution."""
     files_kept: int = 0
-    keep_strategy: Optional[str] = None
+    keep_strategy: Optional[str] = None  # 'oldest', 'newest', 'largest', 'smallest', 'manual'
+
+
+# --- Similar Duplicates (Perceptual Hash) ---
+@dataclass
+class SimilarDuplicateGroup:
+    """
+    Grupo de archivos visualmente similares (perceptual hash).
+    
+    Archivos que son similares visualmente pero pueden tener diferente
+    tamaño, resolución, compresión o metadatos.
+    """
+    hash_value: str  # Perceptual hash representativo del grupo
+    files: List[Path]
+    file_sizes: List[int] = field(default_factory=list)
+    similarity_score: float = 0.0  # Porcentaje de similitud (70-100%)
+    
+    @property
+    def file_count(self) -> int:
+        return len(self.files)
+    
+    @property
+    def total_size(self) -> int:
+        """Tamaño total de todos los archivos del grupo."""
+        return sum(self.file_sizes) if self.file_sizes else 0
+    
+    @property
+    def space_recoverable(self) -> int:
+        """Espacio recuperable (todo menos el archivo más grande)."""
+        if not self.file_sizes or len(self.file_sizes) < 2:
+            return 0
+        return self.total_size - max(self.file_sizes)
+    
+    @property
+    def largest_file(self) -> Optional[Path]:
+        """Devuelve el archivo más grande del grupo."""
+        if not self.files or not self.file_sizes:
+            return self.files[0] if self.files else None
+        max_idx = self.file_sizes.index(max(self.file_sizes))
+        return self.files[max_idx]
+    
+    @property
+    def size_variation_percent(self) -> float:
+        """Variación porcentual entre el archivo más grande y más pequeño."""
+        if not self.file_sizes or len(self.file_sizes) < 2:
+            return 0.0
+        min_size = min(self.file_sizes)
+        max_size = max(self.file_sizes)
+        if min_size == 0:
+            return 0.0
+        return ((max_size - min_size) / min_size) * 100
+
+
+@dataclass
+class SimilarDuplicateAnalysisResult(AnalysisResult):
+    """Result for similar duplicate detection analysis (perceptual hash)."""
+    groups: List[SimilarDuplicateGroup] = field(default_factory=list)
+    total_files_analyzed: int = 0
+    total_groups: int = 0
+    total_similar: int = 0  # Archivos similares (total files - 1 por grupo)
+    space_recoverable: int = 0
+    sensitivity: int = 85  # Sensibilidad usada para generar estos grupos
+    
+    def __post_init__(self):
+        if not self.items_count and self.groups:
+            self.items_count = len(self.groups)
+        if not self.total_groups and self.groups:
+            self.total_groups = len(self.groups)
+        if not self.bytes_total and self.space_recoverable:
+            self.bytes_total = self.space_recoverable
+
+
+@dataclass
+class SimilarDuplicateExecutionResult(ExecutionResult):
+    """Result for similar duplicate deletion execution."""
+    files_kept: int = 0
+    keep_strategy: Optional[str] = None  # 'largest', 'smallest', 'oldest', 'newest', 'manual'
 
 
 # --- Organization Service ---

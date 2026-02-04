@@ -11,7 +11,7 @@ import shutil
 import os
 
 from services.duplicates_similar_service import DuplicatesSimilarService
-from services.result_types import DuplicateGroup, DuplicateAnalysisResult
+from services.result_types import SimilarDuplicateGroup, SimilarDuplicateAnalysisResult
 
 class TestDuplicatesSimilarExecution:
     """Tests de ejecución con escenarios complejos."""
@@ -51,11 +51,11 @@ class TestDuplicatesSimilarExecution:
             file_path = self.create_real_file(f"group{group_id}_file{i}.jpg")
             files.append(file_path)
         
-        return DuplicateGroup(
+        return SimilarDuplicateGroup(
             hash_value=f"hash_{group_id}",
             files=files,
-            total_size=1000 * num_files,
-            similarity_score=90
+            file_sizes=[1000] * num_files,
+            similarity_score=90.0
         )
 
     def test_execute_manual_specific_files_multiple_groups(self):
@@ -67,12 +67,10 @@ class TestDuplicatesSimilarExecution:
         group1 = self.create_mock_group(1, num_files=3)
         group2 = self.create_mock_group(2, num_files=3)
         
-        analysis = DuplicateAnalysisResult(
+        analysis = SimilarDuplicateAnalysisResult(
             groups=[group1, group2],
-            mode='perceptual',
-            items_count=2,
             total_groups=2,
-            space_wasted=0
+            space_recoverable=0
         )
         
         # Seleccionar borrar: g1_f1 y g2_f2
@@ -107,12 +105,12 @@ class TestDuplicatesSimilarExecution:
         # Auto selecciona g1_f1 y g1_f2 para borrar
         files_to_delete = [group1.files[1], group1.files[2]]
         
-        analysis = DuplicateAnalysisResult(
+        analysis = SimilarDuplicateAnalysisResult(
             groups=[group1],
-            mode='perceptual',
-            items_count=1,
+            
+            
             total_groups=1,
-            space_wasted=0
+            space_recoverable=0
         )
         
         result = self.service.execute(
@@ -137,12 +135,12 @@ class TestDuplicatesSimilarExecution:
         
         files_to_delete = []
         
-        analysis = DuplicateAnalysisResult(
+        analysis = SimilarDuplicateAnalysisResult(
             groups=[group1],
-            mode='perceptual',
-            items_count=1,
+            
+            
             total_groups=1,
-            space_wasted=0
+            space_recoverable=0
         )
         
         result = self.service.execute(
@@ -167,12 +165,12 @@ class TestDuplicatesSimilarExecution:
         
         files_to_delete = group1.files
         
-        analysis = DuplicateAnalysisResult(
+        analysis = SimilarDuplicateAnalysisResult(
             groups=[group1],
-            mode='perceptual',
-            items_count=1,
+            
+            
             total_groups=1,
-            space_wasted=0
+            space_recoverable=0
         )
         
         result = self.service.execute(

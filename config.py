@@ -77,10 +77,6 @@ class Config:
             return min(override, cls.MAX_WORKER_THREADS)
         return cls.get_optimal_worker_threads() if io_bound else cls.get_cpu_bound_workers()
 
-    # Legacy attributes for compatibility (deprecated)
-    MAX_WORKERS = None 
-    DEFAULT_WORKER_THREADS = None
-
     # ========================================================================
     # 5. EXTENSIONES SOPORTADAS
     # ========================================================================
@@ -182,7 +178,7 @@ class Config:
     # ========================================================================
     # 9. DESARROLLO
     # ========================================================================
-    DEVELOPMENT_MODE = False
+    DEVELOPMENT_MODE = True
     SAVED_CACHE_DEV_MODE_PATH = "/home/ed/Documents/Innerpix_Lab/cache_saved/RAW_1_2_3_4_5.json"
     
     @classmethod

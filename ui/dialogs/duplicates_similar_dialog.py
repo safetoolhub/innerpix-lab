@@ -22,7 +22,7 @@ from PyQt6.QtCore import Qt, QSize, QTimer
 from PyQt6.QtGui import QPixmap, QCursor, QPainter, QColor
 from services.duplicates_similar_service import DuplicatesSimilarAnalysis
 from services.file_metadata_repository_cache import FileInfoRepositoryCache
-from services.result_types import DuplicateGroup
+from services.result_types import SimilarDuplicateGroup
 from utils.format_utils import format_size
 from utils.image_loader import load_image_as_qpixmap
 from utils.video_thumbnail import get_video_thumbnail
@@ -364,7 +364,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         """Maneja cambios en el filtro de origen de fecha."""
         self._apply_filters()
     
-    def _group_matches_type_filter(self, group: DuplicateGroup) -> bool:
+    def _group_matches_type_filter(self, group: SimilarDuplicateGroup) -> bool:
         """
         Verifica si un grupo coincide con el filtro de tipo de archivo.
         
@@ -385,7 +385,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         
         return False
     
-    def _group_matches_source_filter(self, group: DuplicateGroup) -> bool:
+    def _group_matches_source_filter(self, group: SimilarDuplicateGroup) -> bool:
         """Verifica si un grupo coincide con el filtro de origen de fecha."""
         if not self.source_combo:
             return True

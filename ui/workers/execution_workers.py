@@ -1,7 +1,7 @@
 """
 Execution Workers for performing destructive/modification actions.
 """
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, List, Optional, Union
 from pathlib import Path
 from PyQt6.QtCore import pyqtSignal
 
@@ -16,7 +16,10 @@ if TYPE_CHECKING:
         LivePhotosAnalysisResult,
         HeicExecutionResult,
         HeicAnalysisResult,
-        DuplicateExecutionResult,
+        ExactDuplicateAnalysisResult,
+        ExactDuplicateExecutionResult,
+        SimilarDuplicateAnalysisResult,
+        SimilarDuplicateExecutionResult,
         ZeroByteExecutionResult
     )
     from services.file_renamer_service import FileRenamerService
@@ -194,14 +197,14 @@ class HeicExecutionWorker(BaseWorker):
 
 class DuplicatesExecutionWorker(BaseWorker):
     """
-    Worker para eliminación de duplicados
+    Worker para eliminación de duplicados (exactos o similares)
     """
-    finished = pyqtSignal(object)  # DuplicateExecutionResult
+    finished = pyqtSignal(object)  # ExactDuplicateExecutionResult | SimilarDuplicateExecutionResult
     
     def __init__(
         self,
         detector: 'DuplicatesExactService | DuplicatesSimilarService',
-        analysis: 'DuplicateAnalysisResult',
+        analysis: 'ExactDuplicateAnalysisResult | SimilarDuplicateAnalysisResult',
         keep_strategy: str,
         create_backup: bool = True,
         dry_run: bool = False,

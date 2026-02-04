@@ -331,20 +331,6 @@ class BaseService(ABC):
         else:
             return f"{operation_name} completado: {files_count} archivos {mode_verb}"
     
-    def _handle_cancellation(self, executor=None):
-        """
-        Manejo estándar de cancelación de operaciones.
-        
-        DEPRECATED: No usar con ThreadPoolExecutor dentro de with statement.
-        Dejar que el with maneje el shutdown automáticamente.
-        
-        Args:
-            executor: ThreadPoolExecutor opcional a detener (OBSOLETO)
-        """
-        self.logger.info("Operación cancelada por el usuario")
-        # NO llamar executor.shutdown() dentro de un with statement
-        # El with ya maneja el shutdown limpiamente
-    
     def _execute_operation(
         self,
         files: Iterable[Union[Path, dict, Any]],

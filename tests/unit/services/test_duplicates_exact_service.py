@@ -8,7 +8,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 from services.duplicates_exact_service import DuplicatesExactService
-from services.result_types import DuplicateAnalysisResult, DuplicateGroup, DuplicateExecutionResult
+from services.result_types import ExactDuplicateAnalysisResult, ExactDuplicateGroup, ExactDuplicateExecutionResult
 from services.file_metadata_repository_cache import FileInfoRepositoryCache, PopulationStrategy
 from services.file_metadata import FileMetadata
 from config import Config
@@ -25,10 +25,10 @@ class TestDuplicatesExactServiceBasics:
         assert hasattr(service, 'execute')
     
     def test_service_inherits_from_base(self):
-        """Debe heredar de DuplicatesBaseService"""
-        from services.duplicates_base_service import DuplicatesBaseService
+        """Debe heredar de BaseService"""
+        from services.base_service import BaseService
         service = DuplicatesExactService()
-        assert isinstance(service, DuplicatesBaseService)
+        assert isinstance(service, BaseService)
 
 
 class TestDuplicatesExactServiceAnalyze:
@@ -44,7 +44,7 @@ class TestDuplicatesExactServiceAnalyze:
         service = DuplicatesExactService()
         result = service.analyze()
         
-        assert isinstance(result, DuplicateAnalysisResult)
+        assert isinstance(result, ExactDuplicateAnalysisResult)
         assert len(result.groups) == 0
         assert result.total_duplicates == 0
         assert result.total_groups == 0
@@ -175,9 +175,9 @@ class TestDuplicatesExactServiceAnalyze:
         
         result = service.analyze()
         
-        # Espacio desperdiciado = (num_duplicates - 1) * file_size
+        # Espacio recuperable = (num_duplicates - 1) * file_size
         expected_waste = (num_duplicates - 1) * file_size
-        assert result.space_wasted == expected_waste
+        assert result.space_recoverable == expected_waste
     
     def test_analyze_with_progress_callback(self, tmp_path):
         """Debe llamar al callback de progreso durante el análisis"""
@@ -394,7 +394,7 @@ class TestDuplicatesExactServiceEdgeCases:
         
         # No debe crashear
         result = service.analyze()
-        assert isinstance(result, DuplicateAnalysisResult)
+        assert isinstance(result, ExactDuplicateAnalysisResult)
     
     def test_analyze_single_file(self, tmp_path):
         """Un solo archivo no puede tener duplicados"""
@@ -423,7 +423,7 @@ class TestDuplicatesExactServiceEdgeCases:
         """Ejecutar con análisis vacío no debe causar errores"""
         service = DuplicatesExactService()
         
-        empty_analysis = DuplicateAnalysisResult(groups=[])
+        empty_analysis = ExactDuplicateAnalysisResult(groups=[])
         
         
         exec_result = service.execute(
