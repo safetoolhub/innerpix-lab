@@ -852,37 +852,45 @@ class DuplicatesSimilarDialog(BaseDialog):
             parent_layout.addWidget(btn)
             self.strategy_buttons[strategy_id] = btn
         
-        # Separador antes del botón de selección masiva
-        sep = QFrame()
-        sep.setFixedWidth(1)
-        sep.setFixedHeight(20)
-        sep.setStyleSheet(f"background-color: {DesignSystem.COLOR_BORDER};")
-        parent_layout.addWidget(sep)
+        # Separador antes de acciones globales
+        sep_global = QFrame()
+        sep_global.setFixedWidth(1)
+        sep_global.setFixedHeight(20)
+        sep_global.setStyleSheet(f"background-color: {DesignSystem.COLOR_BORDER};")
+        parent_layout.addWidget(sep_global)
         
-        # Botón de selección masiva (estilo diferenciado - warning sutil)
-        self.auto_select_all_btn = QPushButton("Auto")
-        self.auto_select_all_btn.setToolTip(
-            "Seleccionar automáticamente en TODOS los grupos.\n"
-            "⚠️ Requiere confirmación - los archivos NO son idénticos."
-        )
-        self.auto_select_all_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        icon_manager.set_button_icon(self.auto_select_all_btn, 'delete-sweep', size=14)
-        self.auto_select_all_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: transparent;
-                border: 1px solid {DesignSystem.COLOR_WARNING};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_8}px;
-                font-size: {DesignSystem.FONT_SIZE_XS}px;
-                color: {DesignSystem.COLOR_WARNING};
-            }}
-            QPushButton:hover {{
-                background-color: {DesignSystem.COLOR_WARNING};
-                color: white;
-            }}
+        # Etiqueta de sección global
+        global_label = QLabel("Auto (Todos):")
+        global_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_XS}px;
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
         """)
-        self.auto_select_all_btn.clicked.connect(self._on_auto_select_all_clicked)
-        parent_layout.addWidget(self.auto_select_all_btn)
+        parent_layout.addWidget(global_label)
+        
+        # Botón Auto: Conservar Mayor
+        self.auto_largest_btn = QPushButton("Mayor Tamaño")
+        self.auto_largest_btn.setToolTip(
+            "Seleccionar automáticamente en TODOS los grupos conservando el archivo más grande.\n"
+            "⚠️ Sobreescribirá selecciones manuales."
+        )
+        self.auto_largest_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.auto_largest_btn.setStyleSheet(DesignSystem.get_warning_button_style())
+        icon_manager.set_button_icon(self.auto_largest_btn, 'arrow-expand-all', size=14, color=DesignSystem.COLOR_WARNING)
+        self.auto_largest_btn.clicked.connect(lambda: self._on_auto_select_click('keep_largest'))
+        parent_layout.addWidget(self.auto_largest_btn)
+        
+        # Botón Auto: Conservar Mejor Fecha
+        self.auto_oldest_btn = QPushButton("Mejor Fecha")
+        self.auto_oldest_btn.setToolTip(
+            "Seleccionar automáticamente en TODOS los grupos conservando el archivo más antiguo (mejor fecha).\n"
+            "⚠️ Sobreescribirá selecciones manuales."
+        )
+        self.auto_oldest_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.auto_oldest_btn.setStyleSheet(DesignSystem.get_warning_button_style())
+        icon_manager.set_button_icon(self.auto_oldest_btn, 'clock-outline', size=14, color=DesignSystem.COLOR_WARNING)
+        self.auto_oldest_btn.clicked.connect(lambda: self._on_auto_select_click('keep_oldest'))
+        parent_layout.addWidget(self.auto_oldest_btn)
     
     def _on_strategy_changed(self, strategy_id: str):
         """Maneja el cambio de estrategia de conservación."""
@@ -901,33 +909,36 @@ class DuplicatesSimilarDialog(BaseDialog):
         for btn in self.strategy_buttons.values():
             btn.setChecked(False)
     
-    def _on_auto_select_all_clicked(self):
-        """Maneja el clic en el botón de selección automática masiva."""
+    def _on_auto_select_click(self, strategy: str):
+        """Maneja el clic en los botones de selección automática masiva."""
         from PyQt6.QtWidgets import QMessageBox
+        
+        strategy_name = "Mayor Tamaño" if strategy == 'keep_largest' else "Mejor Fecha (Más antiguo)"
         
         # Diálogo de confirmación
         msg = QMessageBox(self)
         msg.setIcon(QMessageBox.Icon.Warning)
-        msg.setWindowTitle("Confirmar selección automática")
+        msg.setWindowTitle(f"Confirmar Auto-Selección: {strategy_name}")
         msg.setText(
-            "<b>¿Seleccionar automáticamente en todos los grupos?</b>"
+            f"<b>¿Aplicar selección '{strategy_name}' a TODOS los grupos?</b>"
         )
         msg.setInformativeText(
-            "⚠️ <b>Atención:</b> Los archivos similares <i>no son idénticos</i>.\n\n"
-            "Esta acción marcará para eliminación archivos que pueden tener "
-            "diferencias visuales (recortes, ediciones, resoluciones distintas).\n\n"
-            "Se recomienda revisar cada grupo individualmente."
+            "⚠️ <b>ADVERTENCIA DE SOBREESCRITURA</b>\n\n"
+            "Esta acción realizará lo siguiente:\n"
+            "1. Eliminará <b>CUALQUIER selección manual</b> que hayas hecho previamente en otros grupos.\n"
+            "2. Seleccionará archivos automáticamente en <b>TODOS</b> los grupos visibles.\n\n"
+            "Revisa los grupos importantes después de esta acción."
         )
         msg.setStandardButtons(
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel
         )
-        msg.setDefaultButton(QMessageBox.StandardButton.No)
+        msg.setDefaultButton(QMessageBox.StandardButton.Cancel)
         
         # Estilo del diálogo
         msg.setStyleSheet(DesignSystem.get_stylesheet())
         
         if msg.exec() == QMessageBox.StandardButton.Yes:
-            self._apply_strategy_to_all_groups()
+            self._apply_strategy_to_all_groups(strategy)
 
     def _create_group_toolbar(self) -> QWidget:
         """
@@ -1118,7 +1129,7 @@ class DuplicatesSimilarDialog(BaseDialog):
             bg_color = "#f59e0b"  # Ámbar/naranja elegante
         
         # Actualizar badge con texto abreviado
-        self.similarity_badge.setText(f"{score:.1f}% Sim.")
+        self.similarity_badge.setText(f"{score:.1f}% Similitud")
         self.similarity_badge.setStyleSheet(f"""
             background-color: {bg_color};
             color: white;
@@ -1703,16 +1714,26 @@ class DuplicatesSimilarDialog(BaseDialog):
         sorted_files = sorted(dates, key=lambda x: x[1], reverse=not keep_oldest)
         return [f for f, _ in sorted_files[1:]]
     
-    def _apply_strategy_to_all_groups(self):
-        """Aplica la estrategia 'keep_largest' a todos los grupos."""
+    def _apply_strategy_to_all_groups(self, strategy: str):
+        """Aplica una estrategia a todos los grupos, sobreescribiendo selecciones manuales."""
+        self.logger.info(f"Aplicando estrategia global: {strategy} a {len(self.all_groups)} grupos")
+        
+        # Limpiar selecciones previas (modo automático reinicia todo)
+        self.selections.clear()
+        
         for idx, group in enumerate(self.all_groups):
             files = group.files
             if len(files) < 2:
                 continue
             
-            # Usar estrategia de mayor tamaño por defecto para selección masiva
-            to_delete = self._get_files_to_delete_by_size(files, keep_largest=True)
-            self.selections[idx] = list(to_delete)
+            to_delete = []
+            if strategy == 'keep_largest':
+                to_delete = self._get_files_to_delete_by_size(files, keep_largest=True)
+            elif strategy == 'keep_oldest':
+                to_delete = self._get_files_to_delete_by_date(files, keep_oldest=True)
+            
+            if to_delete:
+                self.selections[idx] = list(to_delete)
         
         # Recargar grupo actual y actualizar resumen
         self._load_group(self.current_group_index)
