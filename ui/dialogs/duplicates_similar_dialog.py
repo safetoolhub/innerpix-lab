@@ -286,7 +286,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         main_layout.setSpacing(0)
         main_layout.setContentsMargins(0, 0, 0, 0)
         
-        # Header
+        # Header con tip integrado
         self.header_frame = self._create_compact_header_with_metrics(
             icon_name=TOOL_DUPLICATES_SIMILAR.icon_name,
             title=TOOL_DUPLICATES_SIMILAR.title,
@@ -295,7 +295,11 @@ class DuplicatesSimilarDialog(BaseDialog):
                 {'value': '-', 'label': 'Grupos', 'color': DesignSystem.COLOR_PRIMARY},
                 {'value': '-', 'label': 'Similares', 'color': DesignSystem.COLOR_WARNING},
                 {'value': '-', 'label': 'Recuperable', 'color': DesignSystem.COLOR_SUCCESS}
-            ]
+            ],
+            tip_message=(
+                "<b>Tip:</b> Esta herramienta detecta imágenes <i>similares</i> (recortes, ediciones). "
+                "Para copias <i>idénticas</i> visualmente, usa \"Copias Visuales Idénticas\"."
+            )
         )
         main_layout.addWidget(self.header_frame)
         
@@ -1012,13 +1016,6 @@ class DuplicatesSimilarDialog(BaseDialog):
         self._create_strategy_buttons(layout)
         
         layout.addStretch()
-        
-        # Tip de ayuda colapsable
-        self.tip_btn = self.create_tip_button(
-            "<b>Tip:</b> Esta herramienta detecta imágenes <i>similares</i> (recortes, ediciones). "
-            "Para copias <i>idénticas</i> visualmente, usa \"Copias Visuales Idénticas\"."
-        )
-        layout.addWidget(self.tip_btn)
         
         # Contador de selección global
         self.global_summary_label = QLabel("0 seleccionados")

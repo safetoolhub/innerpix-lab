@@ -258,12 +258,14 @@ class BaseDialog(QDialog):
         icon_name: str,
         title: str,
         description: str,
-        metrics: List[Dict[str, str]]
+        metrics: List[Dict[str, str]],
+        tip_message: Optional[str] = None
     ) -> 'QFrame':
         """Crea header compacto integrado con métricas inline estilo Material Design.
         
         Combina icono, título, descripción y métricas en un diseño horizontal compacto
         que ahorra espacio vertical. Las métricas aparecen alineadas a la derecha.
+        Opcionalmente incluye un botón de tip junto al título.
 
         Args:
             icon_name: Nombre del icono de icon_manager (ej: 'content-copy')
@@ -275,6 +277,8 @@ class BaseDialog(QDialog):
                     {'value': '120', 'label': 'Copias', 'color': COLOR_WARNING},
                     {'value': '2.5 GB', 'label': 'Espacio', 'color': COLOR_SUCCESS}
                 ]
+            tip_message: Mensaje HTML opcional para mostrar en un botón de ayuda
+                         junto al título. Puede usar etiquetas <b>, <i>, etc.
         
         Returns:
             QFrame con header compacto y profesional
@@ -336,7 +340,11 @@ class BaseDialog(QDialog):
         text_container = QVBoxLayout()
         text_container.setSpacing(int(DesignSystem.SPACE_2))
         
-        # Título
+        # Título con tip opcional (horizontal)
+        title_row = QHBoxLayout()
+        title_row.setSpacing(int(DesignSystem.SPACE_8))
+        title_row.setContentsMargins(0, 0, 0, 0)
+        
         title_label = QLabel(title)
         title_label.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_XL}px;
@@ -345,7 +353,15 @@ class BaseDialog(QDialog):
             border: none;
             background: transparent;
         """)
-        text_container.addWidget(title_label)
+        title_row.addWidget(title_label)
+        
+        # Botón de tip junto al título (si se proporciona mensaje)
+        if tip_message:
+            self._header_tip_btn = self.create_tip_button(tip_message, width=450)
+            title_row.addWidget(self._header_tip_btn)
+        
+        title_row.addStretch()  # Empujar tip al lado del título
+        text_container.addLayout(title_row)
         
         # Descripción
         desc_label = QLabel(description)
@@ -1690,9 +1706,9 @@ class BaseDialog(QDialog):
         popup.setFixedWidth(tip_btn._tip_width)
         popup.adjustSize()
         
-        # Posicionar debajo y a la derecha del botón
-        btn_pos = tip_btn.mapTo(self, tip_btn.rect().bottomRight())
-        popup_x = btn_pos.x() - popup.width() + 30
+        # Posicionar debajo y a la derecha del botón (alineado con el borde izquierdo del botón)
+        btn_pos = tip_btn.mapTo(self, tip_btn.rect().bottomLeft())
+        popup_x = btn_pos.x()
         popup_y = btn_pos.y() + 8
         
         popup.move(popup_x, popup_y)
