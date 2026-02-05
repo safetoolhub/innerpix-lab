@@ -240,7 +240,7 @@ class DuplicatesSimilarDialog(BaseDialog):
     Para copias idénticas, usar el diálogo "Copias Visuales Idénticas".
     """
     
-    DEFAULT_SENSITIVITY = 85
+    DEFAULT_SENSITIVITY = 70
     
     def __init__(self, analysis: DuplicatesSimilarAnalysis, parent=None):
         super().__init__(parent)
@@ -308,9 +308,9 @@ class DuplicatesSimilarDialog(BaseDialog):
             DesignSystem.SPACE_24, DesignSystem.SPACE_20
         )
         
-        # Barra de sensibilidad
-        self.sensitivity_bar = self._create_sensitivity_bar()
-        content_layout.addWidget(self.sensitivity_bar)
+        # Barra de acciones globales (antes sensibilidad)
+        self.global_actions_bar = self._create_global_actions_bar()
+        content_layout.addWidget(self.global_actions_bar)
         
         # Barra de filtros (debajo de la sensibilidad, para coherencia)
         self.filter_bar = self._create_filter_bar()
@@ -375,105 +375,23 @@ class DuplicatesSimilarDialog(BaseDialog):
         # Maximizar el diálogo para aprovechar el espacio
         self.showMaximized()
 
-    def _create_sensitivity_bar(self) -> QFrame:
-        """Crea la barra de control de sensibilidad con diseño unificado."""
-        frame = QFrame()
-        frame.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: {DesignSystem.SPACE_12}px {DesignSystem.SPACE_16}px;
-            }}
-        """)
+    def _create_global_actions_bar(self) -> QFrame:
+        """Crea la barra de acciones globales con estilo unificado (Chips)."""
+        strategies = [
+            ('keep_largest', 'arrow-expand-all', 'Mayor Tamaño', 'Seleccionar archivo más grande en todos los grupos'),
+            ('keep_oldest', 'clock-outline', 'Mejor Fecha', 'Seleccionar archivo más antiguo (mejor fecha) en todos los grupos')
+        ]
         
-        layout = QHBoxLayout(frame)
-        layout.setSpacing(int(DesignSystem.SPACE_16))
-        layout.setContentsMargins(0, 0, 0, 0)
-        
-        # Título + Descripción en línea
-        title_desc = QLabel("<b>Sensibilidad:</b> Ajusta lo parecidas que deben ser las imágenes para mostrarlas")
-        title_desc.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            color: {DesignSystem.COLOR_TEXT};
-        """)
-        layout.addWidget(title_desc)
-        
-        layout.addStretch()
-        
-        # Contenedor del slider con labels
-        slider_container = QHBoxLayout()
-        slider_container.setSpacing(int(DesignSystem.SPACE_8))
-        
-        # Marcador baja
-        low_label = QLabel("Baja")
-        low_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_XS}px;
-            color: {DesignSystem.COLOR_TEXT_SECONDARY};
-        """)
-        slider_container.addWidget(low_label)
-        
-        # Slider (70-95%)
-        self.sensitivity_slider = QSlider(Qt.Orientation.Horizontal)
-        self.sensitivity_slider.setRange(70, 95)
-        self.sensitivity_slider.setValue(self.current_sensitivity)
-        self.sensitivity_slider.setFixedWidth(180)
-        self.sensitivity_slider.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.sensitivity_slider.setToolTip(
-            "Ajusta el umbral de simulitud de las imágenes.\n"
-            "• 95%: Muy similares\n• 85%: Similar (recomendado)\n• 70%: Más tolerante"
+        frame = self._create_compact_strategy_selector(
+            title="Selección Automática Global:",
+            description="Aplica una estrategia a TODOS los grupos",
+            strategies=strategies,
+            current_strategy=self.keep_strategy,
+            on_strategy_changed=self._on_global_strategy_changed
         )
-        self.sensitivity_slider.setStyleSheet(f"""
-            QSlider::groove:horizontal {{
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                height: 6px;
-                background: {DesignSystem.COLOR_BG_1};
-                border-radius: 3px;
-            }}
-            QSlider::handle:horizontal {{
-                background: {DesignSystem.COLOR_PRIMARY};
-                border: 2px solid {DesignSystem.COLOR_SURFACE};
-                width: 18px; height: 18px;
-                margin: -7px 0;
-                border-radius: 10px;
-            }}
-            QSlider::handle:horizontal:hover {{
-                background: {DesignSystem.COLOR_PRIMARY_HOVER};
-            }}
-            QSlider::sub-page:horizontal {{
-                background: {DesignSystem.COLOR_PRIMARY};
-                border-radius: 3px;
-            }}
-        """)
-        slider_container.addWidget(self.sensitivity_slider)
         
-        # Marcador alta
-        high_label = QLabel("Alta")
-        high_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_XS}px;
-            color: {DesignSystem.COLOR_TEXT_SECONDARY};
-        """)
-        slider_container.addWidget(high_label)
-        
-        # Valor actual
-        self.sensitivity_value_label = QLabel(f"{self.current_sensitivity}%")
-        self.sensitivity_value_label.setFixedWidth(45)
-        self.sensitivity_value_label.setStyleSheet(f"""
-            background-color: {DesignSystem.COLOR_PRIMARY};
-            color: {DesignSystem.COLOR_PRIMARY_TEXT};
-            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_8}px;
-            border-radius: {DesignSystem.RADIUS_BASE}px;
-        """)
-        self.sensitivity_value_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        slider_container.addWidget(self.sensitivity_value_label)
-        
-        layout.addLayout(slider_container)
-        
-        # Conexiones
-        self.sensitivity_slider.valueChanged.connect(self._on_slider_changed)
-        self.sensitivity_slider.sliderReleased.connect(self._on_slider_released)
+        # Guardar referencia a botones globales
+        self.global_strategy_buttons = getattr(frame, 'strategy_buttons', {})
         
         return frame
     
@@ -500,7 +418,7 @@ class DuplicatesSimilarDialog(BaseDialog):
             "5+ copias"
         ]
         
-        # Configuración de filtros expandibles (similitud va al final)
+        # Configuración de filtros expandibles (similitud eliminada de aquí, va arriba)
         expandable_filters = [
             {
                 'id': 'source',
@@ -521,14 +439,6 @@ class DuplicatesSimilarDialog(BaseDialog):
                 'on_change': self._on_type_filter_changed,
                 'default_index': 0,
                 'min_width': 120
-            },
-            {
-                'id': 'similarity',
-                'type': 'partial_slider',
-                'label': 'Rango de similitud',
-                'tooltip': 'Ajusta el rango de similitud para filtrar grupos',
-                'widget_factory': self._create_similarity_range_widget,
-                'min_width': 280
             }
         ]
         
@@ -541,13 +451,31 @@ class DuplicatesSimilarDialog(BaseDialog):
             labels=labels
         )
         
+        # Inject Similarity Slider into Primary Bar
+        # Get Primary Bar layout (it is the first item in the main layout of filter_bar)
+        main_layout = filter_bar.layout() # QVBoxLayout
+        if main_layout and main_layout.count() > 0:
+            primary_bar = main_layout.itemAt(0).layout() # QHBoxLayout
+            if primary_bar:
+                # Create the widget
+                similarity_widget = self._create_similarity_range_widget()
+                
+                # Insert at index 1 (after Search, before Stretch which is at index 1 before insertion)
+                # Primary Bar structure: Search | Stretch | Status | Expand
+                primary_bar.insertWidget(1, similarity_widget)
+                
+                # Note: The widget itself should have a fixed width or max width to avoid taking too much space
+                similarity_widget.setFixedWidth(320)
+                
+                # Save reference (the widget inside is already self.range_slider)
+                self.similarity_range_slider = similarity_widget
+        
         # Guardar referencias a los widgets
         self.search_input = filter_bar.search_input
         self.filter_combo = filter_bar.size_filter_combo
         self.status_chip = filter_bar.status_chip
         self.source_combo = filter_bar.filter_widgets.get('source')
         self.type_combo = filter_bar.filter_widgets.get('type')
-        self.similarity_range_slider = filter_bar.filter_widgets.get('similarity')
         
         return filter_bar
     
@@ -851,46 +779,6 @@ class DuplicatesSimilarDialog(BaseDialog):
             btn.clicked.connect(lambda checked, s=strategy_id: self._on_strategy_changed(s))
             parent_layout.addWidget(btn)
             self.strategy_buttons[strategy_id] = btn
-        
-        # Separador antes de acciones globales
-        sep_global = QFrame()
-        sep_global.setFixedWidth(1)
-        sep_global.setFixedHeight(20)
-        sep_global.setStyleSheet(f"background-color: {DesignSystem.COLOR_BORDER};")
-        parent_layout.addWidget(sep_global)
-        
-        # Etiqueta de sección global
-        global_label = QLabel("Auto (Todos):")
-        global_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_XS}px;
-            color: {DesignSystem.COLOR_TEXT_SECONDARY};
-            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-        """)
-        parent_layout.addWidget(global_label)
-        
-        # Botón Auto: Conservar Mayor
-        self.auto_largest_btn = QPushButton("Mayor Tamaño")
-        self.auto_largest_btn.setToolTip(
-            "Seleccionar automáticamente en TODOS los grupos conservando el archivo más grande.\n"
-            "⚠️ Sobreescribirá selecciones manuales."
-        )
-        self.auto_largest_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.auto_largest_btn.setStyleSheet(DesignSystem.get_warning_button_style())
-        icon_manager.set_button_icon(self.auto_largest_btn, 'arrow-expand-all', size=14, color=DesignSystem.COLOR_WARNING)
-        self.auto_largest_btn.clicked.connect(lambda: self._on_auto_select_click('keep_largest'))
-        parent_layout.addWidget(self.auto_largest_btn)
-        
-        # Botón Auto: Conservar Mejor Fecha
-        self.auto_oldest_btn = QPushButton("Mejor Fecha")
-        self.auto_oldest_btn.setToolTip(
-            "Seleccionar automáticamente en TODOS los grupos conservando el archivo más antiguo (mejor fecha).\n"
-            "⚠️ Sobreescribirá selecciones manuales."
-        )
-        self.auto_oldest_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.auto_oldest_btn.setStyleSheet(DesignSystem.get_warning_button_style())
-        icon_manager.set_button_icon(self.auto_oldest_btn, 'clock-outline', size=14, color=DesignSystem.COLOR_WARNING)
-        self.auto_oldest_btn.clicked.connect(lambda: self._on_auto_select_click('keep_oldest'))
-        parent_layout.addWidget(self.auto_oldest_btn)
     
     def _on_strategy_changed(self, strategy_id: str):
         """Maneja el cambio de estrategia de conservación."""
@@ -909,11 +797,17 @@ class DuplicatesSimilarDialog(BaseDialog):
         for btn in self.strategy_buttons.values():
             btn.setChecked(False)
     
-    def _on_auto_select_click(self, strategy: str):
-        """Maneja el clic en los botones de selección automática masiva."""
+    def _on_global_strategy_changed(self, strategy: str):
+        """Maneja cambios en la estrategia global (selección automática masiva)."""
+        # Si ya está seleccionada esta estrategia, no hacer nada (o quizás reaplicar?)
+        # En este caso, como es una acción, permitimos reaplicar pero preguntando.
+        
+        # Primero reseteamos visualmente para que no parezca activado hasta que confirmen
+        self._update_global_buttons_state(None) # Uncheck all temporarily
+        
         from PyQt6.QtWidgets import QMessageBox
         
-        strategy_name = "Mayor Tamaño" if strategy == 'keep_largest' else "Mejor Fecha (Más antiguo)"
+        strategy_name = "Mayor Tamaño" if strategy == 'keep_largest' else "Mejor Fecha"
         
         # Diálogo de confirmación
         msg = QMessageBox(self)
@@ -933,12 +827,25 @@ class DuplicatesSimilarDialog(BaseDialog):
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel
         )
         msg.setDefaultButton(QMessageBox.StandardButton.Cancel)
-        
-        # Estilo del diálogo
         msg.setStyleSheet(DesignSystem.get_stylesheet())
         
         if msg.exec() == QMessageBox.StandardButton.Yes:
+            self.keep_strategy = strategy
             self._apply_strategy_to_all_groups(strategy)
+            self._update_global_buttons_state(strategy)
+        else:
+            # Si cancela, restauramos el estado visual anterior (que probablemente era None o el anterior)
+            self._update_global_buttons_state(self.keep_strategy)
+
+    def _update_global_buttons_state(self, current_strategy):
+        """Actualiza el estado visual de los botones globales."""
+        if hasattr(self, 'global_strategy_buttons'):
+            for s, btn in self.global_strategy_buttons.items():
+                btn.setChecked(s == current_strategy)
+    
+    def _on_auto_select_click(self, strategy: str):
+        """DEPRECATED: Mantenido por si acaso, redirige a _on_global_strategy_changed."""
+        self._on_global_strategy_changed(strategy)
 
     def _create_group_toolbar(self) -> QWidget:
         """
@@ -1222,7 +1129,6 @@ class DuplicatesSimilarDialog(BaseDialog):
         self.group_layout.addWidget(container)
         
         # Deshabilitar controles durante carga
-        self.sensitivity_slider.setEnabled(False)
         self.prev_btn.setEnabled(False)
         self.next_btn.setEnabled(False)
 
@@ -1273,34 +1179,10 @@ class DuplicatesSimilarDialog(BaseDialog):
         
         self._regenerate_groups()
         self._is_loading = False
-        self.sensitivity_slider.setEnabled(True)
 
     # ================= LÓGICA =================
 
-    def _on_slider_changed(self, value: int):
-        """Actualiza el label mientras se mueve el slider."""
-        self.current_sensitivity = value
-        self.sensitivity_value_label.setText(f"{value}%")
 
-    def _on_slider_released(self):
-        """Regenera grupos cuando se suelta el slider."""
-        if not self._is_loading:
-            self._is_loading = True
-            self._show_loading_state()
-            # Pequeño delay para que la UI se actualice antes del procesamiento
-            QTimer.singleShot(50, self._do_regenerate_groups)
-
-    def _do_regenerate_groups(self):
-        """Ejecuta la regeneración de grupos y restaura el estado de la UI.
-        
-        Wrapper que llama a _regenerate_groups y luego restaura el slider.
-        """
-        try:
-            self._regenerate_groups()
-        finally:
-            # SIEMPRE restaurar el estado de la UI
-            self._is_loading = False
-            self.sensitivity_slider.setEnabled(True)
 
     def _regenerate_groups(self):
         """Regenera los grupos con la sensibilidad actual.
