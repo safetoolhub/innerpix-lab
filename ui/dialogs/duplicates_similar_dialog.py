@@ -309,16 +309,21 @@ class DuplicatesSimilarDialog(BaseDialog):
         similarity_options = [
             "Todos",
             "100%",
+            ">99 y ≤100",
+            ">98 y ≤99",
+            ">97 y ≤98",
+            ">96 y ≤97",
+            ">95 y ≤96",
             ">98%",
-            ">95 y <100",
+            ">95 y ≤100",
             ">95%",
-            ">90 y <95",
+            ">90 y ≤95",
             ">90%",
-            ">85 y <90",
+            ">85 y ≤90",
             ">85%",
-            ">80 y <85",
+            ">80 y ≤85",
             ">80%",
-            ">75 y <80",
+            ">75 y ≤80",
             ">75%",
             "≤70%"
         ]
@@ -418,24 +423,35 @@ class DuplicatesSimilarDialog(BaseDialog):
             return score == 100
         elif similarity_filter == ">98%":
             return score > 98
-        # Rangos
-        elif similarity_filter == ">95 y <100":
-            return 95 < score < 100
+        # Rangos precisos superiores (99-100)
+        elif similarity_filter == ">99 y ≤100":
+            return 99 < score <= 100
+        elif similarity_filter == ">98 y ≤99":
+            return 98 < score <= 99
+        elif similarity_filter == ">97 y ≤98":
+            return 97 < score <= 98
+        elif similarity_filter == ">96 y ≤97":
+            return 96 < score <= 97
+        elif similarity_filter == ">95 y ≤96":
+            return 95 < score <= 96
+        # Rangos amplios
+        elif similarity_filter == ">95 y ≤100":
+            return 95 < score <= 100
         elif similarity_filter == ">95%":
             return score > 95
-        elif similarity_filter == ">90 y <95":
+        elif similarity_filter == ">90 y ≤95":
             return 90 < score <= 95
         elif similarity_filter == ">90%":
             return score > 90
-        elif similarity_filter == ">85 y <90":
+        elif similarity_filter == ">85 y ≤90":
             return 85 < score <= 90
         elif similarity_filter == ">85%":
             return score > 85
-        elif similarity_filter == ">80 y <85":
+        elif similarity_filter == ">80 y ≤85":
             return 80 < score <= 85
         elif similarity_filter == ">80%":
             return score > 80
-        elif similarity_filter == ">75 y <80":
+        elif similarity_filter == ">75 y ≤80":
             return 75 < score <= 80
         elif similarity_filter == ">75%":
             return score > 75

@@ -185,10 +185,15 @@ class MainWindow(QMainWindow):
         """
         Carga la caché desde disco y transiciona a Stage 3.
         Reconstruye la estructura de resultados esperada por Stage 3.
+        
+        IMPORTANTE: En modo desarrollo, también actualiza la última carpeta
+        usada en settings_manager para mantener consistencia con los datos
+        del caché cargado.
         """
         try:
             from services.file_metadata_repository_cache import FileInfoRepositoryCache
             from services.result_types import ScanSnapshot, DirectoryScanResult
+            from utils.settings_manager import settings_manager
             
             repo = FileInfoRepositoryCache.get_instance()
             repo.clear()
@@ -231,6 +236,14 @@ class MainWindow(QMainWindow):
                     self.logger.warning(f"No se pudo inferir directorio raíz: {e}")
                     # Fallback al directorio del primer archivo
                     folder_path = all_files[0].path.parent
+            
+            # CRÍTICO: En modo desarrollo, actualizar la última carpeta usada
+            # para mantener consistencia entre los datos del caché y la carpeta
+            # que el sistema considera activa. Sin esto, los servicios pueden
+            # operar sobre una carpeta diferente a la de los datos cargados.
+            if Config.DEVELOPMENT_MODE:
+                settings_manager.set('last_analyzed_folder', str(folder_path))
+                self.logger.info(f"🔧 Modo desarrollo: Carpeta activa actualizada a: {folder_path}")
             
             for metadata in all_files:
                 path = metadata.path
