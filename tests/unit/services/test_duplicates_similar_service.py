@@ -110,7 +110,7 @@ class TestDuplicatesSimilarAnalysis:
         
         assert result.success is True
         assert len(result.groups) == 0
-        assert result.total_files == 0
+        assert result.total_files_analyzed == 0
     
     def test_sensitivity_to_threshold_conversion(self):
         """Test conversión de sensibilidad a threshold."""

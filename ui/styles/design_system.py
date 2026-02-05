@@ -51,6 +51,7 @@ class DesignSystem:
     # Estados semánticos
     COLOR_SUCCESS = "#198754"
     COLOR_SUCCESS_BG = "#D1E7DD"
+    COLOR_SUCCESS_SOFT_BG = "#E6F4EA"  # Verde muy suave y agradable
     COLOR_WARNING = "#FFC107"
     COLOR_WARNING_BG = "#FFF3CD"
     COLOR_DANGER = "#DC3545"
@@ -168,6 +169,32 @@ class DesignSystem:
         """
     
     # ==================== MÉTODOS DE AYUDA ====================
+    
+    @staticmethod
+    def hex_to_qcolor(hex_color: str):
+        """Convierte un color hexadecimal a QColor.
+        
+        Args:
+            hex_color: Color en formato hexadecimal (#RRGGBB o rgba(r, g, b, a))
+            
+        Returns:
+            QColor: Objeto QColor correspondiente
+        """
+        from PyQt6.QtGui import QColor
+        
+        # Manejar colores rgba
+        if hex_color.startswith('rgba'):
+            # Extraer valores de rgba(r, g, b, a)
+            import re
+            match = re.match(r'rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)', hex_color)
+            if match:
+                r, g, b, a = match.groups()
+                color = QColor(int(r), int(g), int(b))
+                color.setAlpha(int(float(a) * 255))
+                return color
+        
+        # Colores hexadecimales estándar
+        return QColor(hex_color)
     
     @staticmethod
     def get_stylesheet():
@@ -716,6 +743,64 @@ class DesignSystem:
         """
 
     @staticmethod
+    def get_warning_button_style():
+        """Retorna el estilo para botón de advertencia/acción importante.
+        
+        Uso recomendado: Acciones automáticas masivas que requieren atención.
+        
+        Returns:
+            str: Estilo QSS con borde e icono de alerta.
+        """
+        return f"""
+            QPushButton {{
+                background-color: transparent;
+                border: 1px solid {DesignSystem.COLOR_WARNING};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_16}px;
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                color: {DesignSystem.COLOR_WARNING};
+                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_WARNING};
+                color: {DesignSystem.COLOR_PRIMARY_TEXT};
+            }}
+            QPushButton:pressed {{
+                background-color: #e0a800; /* Darker warning */
+                border-color: #e0a800;
+            }}
+        """ + DesignSystem._get_button_disabled_style()
+
+    @staticmethod
+    def get_outline_button_style():
+        """Retorna el estilo para botón con borde (outline).
+        
+        Uso recomendado: Acciones secundarias que necesitan destacar más que un botón plano
+        pero menos que uno primario.
+        
+        Returns:
+            str: Estilo QSS.
+        """
+        return f"""
+            QPushButton {{
+                background-color: transparent;
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_16}px;
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                color: {DesignSystem.COLOR_TEXT};
+            }}
+            QPushButton:hover {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+                color: {DesignSystem.COLOR_PRIMARY};
+                background-color: {DesignSystem.COLOR_BG_1};
+            }}
+            QPushButton:pressed {{
+                background-color: {DesignSystem.COLOR_BORDER_LIGHT};
+            }}
+        """ + DesignSystem._get_button_disabled_style()
+
+    @staticmethod
     def get_info_badge_style():
         """Retorna el estilo para badges de información.
         
@@ -728,6 +813,7 @@ class DesignSystem:
         return f"""
             QLabel {{
                 background-color: transparent;
+                border: none;
                 border-radius: 10px;
             }}
             QLabel:hover {{

@@ -19,7 +19,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QDesktopServices, QColor, QShowEvent
 
-from services.result_types import DuplicateGroup
+from services.result_types import ExactDuplicateGroup
 from services.file_metadata_repository_cache import FileInfoRepositoryCache
 from utils.format_utils import format_size
 from utils.file_utils import is_image_file, is_video_file
@@ -132,7 +132,7 @@ class DuplicatesExactDialog(BaseDialog):
         
         return total_recoverable
     
-    def _get_file_to_keep(self, group: DuplicateGroup) -> Path:
+    def _get_file_to_keep(self, group: ExactDuplicateGroup) -> Path:
         """Determina qué archivo conservar según la estrategia."""
         if not group.files:
             return None
@@ -533,7 +533,7 @@ class DuplicatesExactDialog(BaseDialog):
         self.loaded_count = end
         self._update_pagination_ui()
     
-    def _add_group_to_tree(self, group: DuplicateGroup, group_num: int):
+    def _add_group_to_tree(self, group: ExactDuplicateGroup, group_num: int):
         """Añade un grupo al árbol con estilo Material Design."""
         # Determinar archivo a conservar
         keep_file = self._get_file_to_keep(group)
@@ -682,7 +682,7 @@ class DuplicatesExactDialog(BaseDialog):
         """Maneja cambios en el filtro de origen de fecha."""
         self._apply_filters()
     
-    def _group_matches_type_filter(self, group: DuplicateGroup) -> bool:
+    def _group_matches_type_filter(self, group: ExactDuplicateGroup) -> bool:
         """
         Verifica si un grupo coincide con el filtro de tipo de archivo.
         
@@ -703,7 +703,7 @@ class DuplicatesExactDialog(BaseDialog):
         
         return False
     
-    def _group_matches_source_filter(self, group: DuplicateGroup) -> bool:
+    def _group_matches_source_filter(self, group: ExactDuplicateGroup) -> bool:
         """Verifica si un grupo coincide con el filtro de origen de fecha."""
         if not self.source_combo:
             return True

@@ -39,28 +39,17 @@ def create_duplicates_similar_card(analysis_results, on_click_callback) -> ToolC
             if len(similar_data.perceptual_hashes) > 0:
                 # Obtener grupos con sensibilidad por defecto para mostrar estadísticas
                 groups_result = similar_data.get_groups(sensitivity=85)
-                if groups_result.total_duplicates > 0:
-                    size_text = f"~{format_size(groups_result.space_wasted)} desperdiciados"
+                if groups_result.total_similar > 0:
+                    size_text = f"~{format_size(groups_result.space_recoverable)} desperdiciados"
                     card.set_status_with_results(
                         f"{groups_result.total_groups} grupos de archivos similares encontrados",
                         size_text,
-                        badge_count=groups_result.total_duplicates
+                        badge_count=groups_result.total_similar
                     )
                 else:
                     card.set_status_no_results("No se encontraron archivos similares")
             else:
                 card.set_status_no_results("No se encontraron archivos para analizar")
-        elif hasattr(similar_data, 'total_duplicates'):
-            # Es DuplicateAnalysisResult - usar directamente
-            if similar_data.total_duplicates > 0:
-                size_text = f"~{format_size(similar_data.space_wasted)} desperdiciados"
-                card.set_status_with_results(
-                    f"{similar_data.total_groups} grupos de archivos similares encontrados",
-                    size_text,
-                    badge_count=similar_data.total_duplicates
-                )
-            else:
-                card.set_status_no_results("No se encontraron archivos similares")
         else:
             card.set_status_no_results("No se encontraron archivos similares")
     else:

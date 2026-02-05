@@ -5,7 +5,7 @@ Este módulo expone todos los servicios y tipos de datos principales
 utilizados en la aplicación, incluyendo:
 
 - Servicios principales: FileRenamer, LivePhotoService, FileOrganizer, etc.
-- Servicios base: BaseService, DuplicatesBaseService
+- Servicios base: BaseService
 - Tipos de resultado: Todas las dataclasses de resultado de operaciones
 - Utilidades: Funciones helper y tipos de datos auxiliares
 """
@@ -22,7 +22,6 @@ from .zero_byte_service import ZeroByteService
 
 # Servicios base
 from .base_service import BaseService, BackupCreationError, ProgressCallback
-from .duplicates_base_service import DuplicatesBaseService
 
 # Utilidades de file_utils
 # (none currently)
@@ -39,12 +38,16 @@ from .result_types import (
     # Organization
     OrganizationAnalysisResult,
     OrganizationExecutionResult,
-    # Duplicates
-    DuplicateGroup,
-    HEICDuplicatePair,
-    DuplicateAnalysisResult,
-    DuplicateExecutionResult,
+    # Exact Duplicates (SHA256)
+    ExactDuplicateGroup,
+    ExactDuplicateAnalysisResult,
+    ExactDuplicateExecutionResult,
+    # Similar Duplicates (Perceptual Hash)
+    SimilarDuplicateGroup,
+    SimilarDuplicateAnalysisResult,
+    SimilarDuplicateExecutionResult,
     # HEIC
+    HEICDuplicatePair,
     HeicAnalysisResult,
     HeicExecutionResult,
     # Live Photos
@@ -73,7 +76,6 @@ __all__ = [
     'ZeroByteService',
     # Servicios base
     'BaseService',
-    'DuplicatesBaseService',
     # Excepciones
     'BackupCreationError',
     # Type aliases
@@ -85,12 +87,16 @@ __all__ = [
     'LivePhotoImageInfo',
     'FileMove',
     'HEICDuplicatePair',
-    'DuplicateGroup',
     'DuplicatesSimilarAnalysis',
     'VisualIdenticalGroup',
-    # Utilidades de file_utils
-    # (none currently)
-    # Orquestador results
+    # Exact Duplicates
+    'ExactDuplicateGroup',
+    'ExactDuplicateAnalysisResult',
+    'ExactDuplicateExecutionResult',
+    # Similar Duplicates
+    'SimilarDuplicateGroup',
+    'SimilarDuplicateAnalysisResult',
+    'SimilarDuplicateExecutionResult',
     # Tipos de resultado base
     'BaseResult',
     'AnalysisResult',
@@ -99,8 +105,6 @@ __all__ = [
     'RenameExecutionResult',
     'OrganizationAnalysisResult',
     'OrganizationExecutionResult',
-    'DuplicateAnalysisResult',
-    'DuplicateExecutionResult',
     'HeicAnalysisResult',
     'HeicExecutionResult',
     'LivePhotosAnalysisResult',

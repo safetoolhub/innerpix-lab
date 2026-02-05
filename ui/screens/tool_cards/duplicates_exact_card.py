@@ -34,7 +34,7 @@ def create_duplicates_exact_card(analysis_results, on_click_callback) -> ToolCar
     if has_analysis:
         dup_data = analysis_results.duplicates
         if dup_data.total_duplicates > 0:
-            size_text = f"~{format_size(dup_data.space_wasted)} desperdiciados"
+            size_text = f"~{format_size(dup_data.space_recoverable)} desperdiciados"
             card.set_status_with_results(
                 f"{dup_data.total_duplicates} archivos duplicados encontrados",
                 size_text,

@@ -149,6 +149,61 @@ def check_all_video_tools() -> Tuple[ToolStatus, ToolStatus]:
     return check_ffprobe(), check_exiftool()
 
 
+# =============================================================================
+# CLIPBOARD OPERATIONS
+# =============================================================================
+
+def copy_to_clipboard(text: str, error_callback: Optional[Callable[[str], None]] = None) -> bool:
+    """
+    Copia texto al portapapeles de forma multiplataforma.
+    
+    Usa PyQt6 QClipboard internamente, que funciona en Linux, Windows y macOS.
+    
+    Args:
+        text: Texto a copiar al portapapeles
+        error_callback: Función opcional para manejar errores. Recibe el mensaje de error.
+                       Si no se proporciona, los errores se registran en el log.
+    
+    Returns:
+        True si se copió correctamente, False si hubo error
+        
+    Example:
+        >>> from utils.platform_utils import copy_to_clipboard
+        >>> copy_to_clipboard("/home/user/photos/IMG_001.jpg")
+        True
+    """
+    try:
+        from PyQt6.QtWidgets import QApplication
+        from PyQt6.QtGui import QClipboard
+        
+        # QApplication debe existir para acceder al clipboard
+        app = QApplication.instance()
+        if app is None:
+            error_msg = "No hay instancia de QApplication disponible"
+            logger.warning(error_msg)
+            if error_callback:
+                error_callback(error_msg)
+            return False
+        
+        clipboard = app.clipboard()
+        clipboard.setText(text)
+        logger.debug(f"Texto copiado al portapapeles: {text[:50]}..." if len(text) > 50 else f"Texto copiado al portapapeles: {text}")
+        return True
+        
+    except ImportError as e:
+        error_msg = f"PyQt6 no está disponible para operaciones de clipboard: {e}"
+        logger.error(error_msg)
+        if error_callback:
+            error_callback(error_msg)
+        return False
+    except Exception as e:
+        error_msg = f"Error al copiar al portapapeles: {e}"
+        logger.error(error_msg)
+        if error_callback:
+            error_callback(error_msg)
+        return False
+
+
 def get_install_instructions() -> Dict[str, str]:
     """
     Obtiene instrucciones de instalación de herramientas según el SO.

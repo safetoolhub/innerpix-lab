@@ -6,7 +6,7 @@ ordena correctamente los grupos basándose en la diferencia de tamaño entre arc
 """
 
 from pathlib import Path
-from services.result_types import DuplicateGroup
+from services.result_types import SimilarDuplicateGroup
 
 
 class TestSizePrioritization:
@@ -22,15 +22,15 @@ class TestSizePrioritization:
             '/photos/WhatsApp_001.jpg': {'hash': 12346, 'size': 1_200_000, 'modified': 1.0},  # 1.2 MB
         }
         
-        group = DuplicateGroup(
+        group = SimilarDuplicateGroup(
             hash_value='12345',
             files=[Path('/photos/IMG_001.jpg'), Path('/photos/WhatsApp_001.jpg')],
-            total_size=5_700_000,
+            file_sizes=[4_500_000, 1_200_000],
             similarity_score=95.0
         )
         
         # Función de cálculo de score (copiada del servicio)
-        def calculate_size_variation_score(group: DuplicateGroup) -> float:
+        def calculate_size_variation_score(group: SimilarDuplicateGroup) -> float:
             """Calcula un score basado en la variación de tamaño."""
             if len(group.files) < 2:
                 return 0.0
@@ -85,28 +85,28 @@ class TestSizePrioritization:
         
         # Crear grupos
         groups = [
-            DuplicateGroup(
+            SimilarDuplicateGroup(
                 hash_value='12345',
                 files=[Path('/photos/IMG_001.jpg'), Path('/photos/WhatsApp_001.jpg')],
-                total_size=5_700_000,
+                file_sizes=[4_500_000, 1_200_000],
                 similarity_score=95.0
             ),
-            DuplicateGroup(
+            SimilarDuplicateGroup(
                 hash_value='22345',
                 files=[Path('/photos/IMG_002.jpg'), Path('/photos/IMG_002_edited.jpg')],
-                total_size=4_100_000,
+                file_sizes=[2_100_000, 2_000_000],
                 similarity_score=92.0
             ),
-            DuplicateGroup(
+            SimilarDuplicateGroup(
                 hash_value='32345',
                 files=[Path('/photos/DSC_0001.jpg'), Path('/photos/DSC_0001_email.jpg')],
-                total_size=4_400_000,
+                file_sizes=[3_800_000, 600_000],
                 similarity_score=88.0
             ),
         ]
         
         # Función de cálculo de score
-        def calculate_size_variation_score(group: DuplicateGroup) -> float:
+        def calculate_size_variation_score(group: SimilarDuplicateGroup) -> float:
             """Calcula un score basado en la variación de tamaño."""
             if len(group.files) < 2:
                 return 0.0
@@ -166,14 +166,14 @@ class TestSizePrioritization:
     def test_edge_cases(self):
         """Verifica casos extremos del algoritmo de priorización."""
         # Caso 1: Grupo con un solo archivo (debe retornar 0)
-        single_file_group = DuplicateGroup(
+        single_file_group = SimilarDuplicateGroup(
             hash_value='99999',
             files=[Path('/photos/single.jpg')],
-            total_size=1_000_000,
+            file_sizes=[1_000_000],
             similarity_score=100.0
         )
         
-        def calculate_size_variation_score(group: DuplicateGroup) -> float:
+        def calculate_size_variation_score(group: SimilarDuplicateGroup) -> float:
             """Calcula un score basado en la variación de tamaño."""
             if len(group.files) < 2:
                 return 0.0
@@ -183,10 +183,10 @@ class TestSizePrioritization:
         assert score == 0.0, "Single file group should have score 0.0"
         
         # Caso 2: Grupo sin archivos (debe retornar 0)
-        empty_group = DuplicateGroup(
+        empty_group = SimilarDuplicateGroup(
             hash_value='00000',
             files=[],
-            total_size=0,
+            file_sizes=[],
             similarity_score=0.0
         )
         
@@ -210,21 +210,21 @@ class TestSizePrioritization:
         }
         
         groups = [
-            DuplicateGroup(
+            SimilarDuplicateGroup(
                 hash_value='a', files=[Path('/a1.jpg'), Path('/a2.jpg')],
-                total_size=9_900_000, similarity_score=99.0
+                file_sizes=[5_000_000, 4_900_000], similarity_score=99.0
             ),
-            DuplicateGroup(
+            SimilarDuplicateGroup(
                 hash_value='b', files=[Path('/b1.jpg'), Path('/b2.jpg')],
-                total_size=4_000_000, similarity_score=85.0
+                file_sizes=[3_000_000, 1_000_000], similarity_score=85.0
             ),
-            DuplicateGroup(
+            SimilarDuplicateGroup(
                 hash_value='c', files=[Path('/c1.jpg'), Path('/c2.jpg')],
-                total_size=2_500_000, similarity_score=90.0
+                file_sizes=[2_000_000, 500_000], similarity_score=90.0
             ),
         ]
         
-        def calculate_size_variation_score(group: DuplicateGroup) -> float:
+        def calculate_size_variation_score(group: SimilarDuplicateGroup) -> float:
             if len(group.files) < 2:
                 return 0.0
             sizes = [hashes[str(f)]['size'] for f in group.files]

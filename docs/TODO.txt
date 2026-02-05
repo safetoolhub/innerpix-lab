@@ -1,17 +1,19 @@
 Innerpix lab
 ---------------
 
-Bug: con RAW_1_2_3_4_5 en analisis de simialres el filtro de mayor tamaño no funciona bien
+Hay que hacer pruebas cambiando umbral y sobre todo tests especificaos de modo automatico (que es lo neuvo, que engancha mal con el codigo normal
+Auqnue funciona mas o menos bien. He visto que al pasarlo 2 veces s eha dejado un par de fotos
+Cuando se baja batante la sensibilidad, tarda bastante en calcular nuevos gurpos con el dataset grande y parece que queda medio colgado sin ser verdad
+)
+
 
 Revisar en algun momento los nombres de los metadatos, que aprecen de formas diferentes en los detalles del archivo y otros sitios, aquqnu emas o menos funciona
 
-Meter en duplicados exactos filtro por imagen o video para poder ver los videos y comprobar si se detectan
-
 Tenemos que poner en las cards avisos antes del analisis de que si hay metadatos que serian muy utiles tener avisar al usuario. Ejemplo, lo de best date es critico para organizar arhivos, así que debemos avisarlo. 
 
-COn videos creo que no se hace nada en los de similares. Se gestioann imagenes solo
+COn videos creo que no se hace nada en los de similares ni en visual_exact Se gestionan imagenes solo
 
-Revisar ls clases de servicio de duplciados que aun tienen herencia de cuando estaban juntos
+✅  Revisar ls clases de servicio de duplciados que aun tienen herencia de cuando estaban juntos
 
 ✅ RESUELTO: Duración de videos unificada - ahora solo exif_VideoDurationSeconds + property video_duration_formatted
    Formato adaptativo: <10s muestra "1.2 seg", 10-59s muestra "45 seg", >=60s muestra "1:23 min"
@@ -25,7 +27,7 @@ Revisar y homogeniezar los logs que salen en debug e info
 BUG: si se va a similar duplciates, se borra 1 y se vuelve a stage 3, y se le da de nuevo se queda colgado. Seguramente 
 
 Podria hacer el caluclo del perceptual has tambien al inicio si el usuario loquieres (con una opcion en settings_dialog. Eso me permitiriía usar la cache  tambien con similar duplicates. )
-HACER: hacer un modo para similar duplicates muy seguro, que sea el de mostrar grupos con el 100% de similaridad y que además la diferencia en tamaño sea superior al 50% , así quitariamos las que son rafagas muy parecidas. 
+
 
 Antiguas versiones
 --------------------

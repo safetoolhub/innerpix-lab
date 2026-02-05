@@ -1587,19 +1587,21 @@ class BaseDialog(QDialog):
         tip_btn.setToolTip("Mostrar/ocultar consejo")
         tip_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         tip_btn.setCheckable(True)
-        icon_manager.set_button_icon(tip_btn, 'information-outline', size=18)
+        icon_manager.set_button_icon(tip_btn, 'information-outline', size=22, color=DesignSystem.COLOR_INFO)
+        tip_btn.setFixedSize(32, 32)
         tip_btn.setStyleSheet(f"""
             QPushButton {{
                 background-color: transparent;
-                border: none;
+                border: 1px solid transparent;
                 padding: {DesignSystem.SPACE_4}px;
-                border-radius: {DesignSystem.RADIUS_BASE}px;
+                border-radius: {DesignSystem.RADIUS_FULL}px;
             }}
             QPushButton:hover {{
                 background-color: {DesignSystem.COLOR_INFO_BG};
             }}
             QPushButton:checked {{
                 background-color: {DesignSystem.COLOR_INFO_BG};
+                border: 1px solid {DesignSystem.COLOR_INFO};
             }}
         """)
         
@@ -2003,6 +2005,16 @@ class BaseDialog(QDialog):
                     
                     v_box.addWidget(type_container)
                     filter_widgets[filter_id] = type_buttons
+                
+                elif filter_type in ['custom', 'partial_slider']:
+                    # Widget personalizado usando factory
+                    if 'widget_factory' in filter_config:
+                        custom_widget = filter_config['widget_factory']()
+                        custom_widget.setToolTip(filter_config.get('tooltip', ''))
+                        if 'min_width' in filter_config:
+                            custom_widget.setMinimumWidth(filter_config['min_width'])
+                        v_box.addWidget(custom_widget)
+                        filter_widgets[filter_id] = custom_widget
                 
                 # Guardar referencia especial al combo de tamaño
                 if filter_id == 'size' and filter_type == 'combo':

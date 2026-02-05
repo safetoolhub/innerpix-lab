@@ -23,6 +23,7 @@ from PyQt6.QtGui import QDesktopServices, QColor, QShowEvent
 from services.result_types import VisualIdenticalAnalysisResult, VisualIdenticalGroup
 from services.file_metadata_repository_cache import FileInfoRepositoryCache
 from utils.format_utils import format_size
+from utils.file_utils import is_image_file, is_video_file
 from utils.logger import get_logger
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
@@ -73,6 +74,7 @@ class VisualIdenticalDialog(BaseDialog):
         self.tree_widget = None
         self.search_input = None
         self.filter_combo = None
+        self.type_combo = None  # Combo de filtro de tipo
         self.status_chip = None  # Chip único de estado
         self.source_combo = None  # Filtro de origen de fecha
         self.filter_bar = None  # Barra de filtros unificada
@@ -274,7 +276,8 @@ class VisualIdenticalDialog(BaseDialog):
             'search': 'Buscar por nombre',
             'size': 'Tamaño / Cantidad',
             'groups': 'Grupos seleccionados',
-            'source': 'Origen de la fecha'
+            'source': 'Origen de la fecha',
+            'type': 'Tipo de archivo'
         }
         
         # Configuración de filtros expandibles
@@ -288,6 +291,16 @@ class VisualIdenticalDialog(BaseDialog):
                 'on_change': self._on_source_filter_changed,
                 'default_index': 0,
                 'min_width': 200
+            },
+            {
+                'id': 'type',
+                'type': 'combo',
+                'label': labels['type'],
+                'tooltip': 'Filtrar por tipo de archivo',
+                'options': ["Todos", "Fotos", "Videos"],
+                'on_change': self._on_type_filter_changed,
+                'default_index': 0,
+                'min_width': 120
             }
         ]
         
@@ -315,12 +328,38 @@ class VisualIdenticalDialog(BaseDialog):
         self.filter_combo = filter_bar.size_filter_combo
         self.status_chip = filter_bar.status_chip
         self.source_combo = filter_bar.filter_widgets.get('source')
+        self.type_combo = filter_bar.filter_widgets.get('type')
         
         return filter_bar
     
     def _on_source_filter_changed(self, index: int):
         """Maneja cambios en el filtro de origen de fecha."""
         self._apply_filters()
+    
+    def _on_type_filter_changed(self, index: int):
+        """Maneja cambios en el filtro de tipo de archivo."""
+        self._apply_filters()
+    
+    def _group_matches_type_filter(self, group: VisualIdenticalGroup) -> bool:
+        """
+        Verifica si un grupo coincide con el filtro de tipo de archivo.
+        
+        Un grupo coincide si AL MENOS UN archivo del grupo es del tipo seleccionado.
+        """
+        if not self.type_combo:
+            return True
+            
+        type_filter = self.type_combo.currentText()
+        if type_filter == "Todos":
+            return True
+        
+        for file_path in group.files:
+            if type_filter == 'Fotos' and is_image_file(file_path):
+                return True
+            elif type_filter == 'Videos' and is_video_file(file_path):
+                return True
+        
+        return False
     
     def _group_matches_source_filter(self, group: VisualIdenticalGroup) -> bool:
         """Verifica si un grupo coincide con el filtro de origen de fecha."""
@@ -640,13 +679,17 @@ class VisualIdenticalDialog(BaseDialog):
         self._apply_filters()
     
     def _apply_filters(self):
-        """Aplica filtros de búsqueda, tamaño y origen."""
+        """Aplica filtros de búsqueda, tamaño, origen y tipo."""
         search_text = self.search_input.text().lower()
         filter_index = self.filter_combo.currentIndex()
         
         filtered = []
         
         for group in self.all_groups:
+            # Filtro por tipo de archivo (imágenes/vídeos)
+            if not self._group_matches_type_filter(group):
+                continue
+            
             # Filtro por origen de fecha
             if not self._group_matches_source_filter(group):
                 continue

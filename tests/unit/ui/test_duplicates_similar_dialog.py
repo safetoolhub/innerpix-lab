@@ -16,7 +16,7 @@ from pathlib import Path
 from PyQt6.QtCore import Qt
 
 from services.duplicates_similar_service import DuplicatesSimilarAnalysis
-from services.result_types import DuplicateGroup
+from services.result_types import SimilarDuplicateGroup
 from ui.dialogs.duplicates_similar_dialog import DuplicatesSimilarDialog
 from ui.tools_definitions import TOOL_DUPLICATES_SIMILAR
 
@@ -164,10 +164,10 @@ class TestDuplicatesSimilarDialogAccept:
         dialog = DuplicatesSimilarDialog(analysis)
         
         # Simular que hay grupos y selecciones
-        mock_group = DuplicateGroup(
+        mock_group = SimilarDuplicateGroup(
             hash_value="test",
             files=[Path("/tmp/file1.jpg"), Path("/tmp/file2.jpg")],
-            total_size=2000,
+            file_sizes=[1000, 1000],
             similarity_score=90.0
         )
         dialog.all_groups = [mock_group]
