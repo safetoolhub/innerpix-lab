@@ -833,10 +833,10 @@ class DuplicatesSimilarDialog(BaseDialog):
             f"<b>¿Aplicar selección '{strategy_name}' a TODOS los grupos?</b>"
         )
         msg.setInformativeText(
-            "⚠️ <b>ADVERTENCIA DE SOBREESCRITURA</b>\n\n"
-            "Esta acción realizará lo siguiente:\n"
-            "1. Eliminará <b>CUALQUIER selección manual</b> que hayas hecho previamente en otros grupos.\n"
-            "2. Seleccionará archivos automáticamente en <b>TODOS</b> los grupos visibles.\n\n"
+            "⚠️ <b>ADVERTENCIA DE SOBREESCRITURA</b><br><br>"
+            "Esta acción realizará lo siguiente:<br>"
+            "1. Eliminará <b>CUALQUIER selección manual</b> que hayas hecho previamente en otros grupos.<br>"
+            "2. Seleccionará archivos automáticamente en <b>TODOS</b> los grupos visibles.<br><br>"
             "Revisa los grupos importantes después de esta acción."
         )
         msg.setStandardButtons(
