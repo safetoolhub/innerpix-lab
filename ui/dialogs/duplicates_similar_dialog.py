@@ -379,7 +379,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         """Crea la barra de acciones globales con estilo unificado (Chips)."""
         strategies = [
             ('keep_largest', 'arrow-expand-all', 'Mayor Tamaño', 'Seleccionar archivo más grande en todos los grupos'),
-            ('keep_oldest', 'clock-outline', 'Mejor Fecha', 'Seleccionar archivo más antiguo (mejor fecha) en todos los grupos')
+            ('keep_oldest', 'clock-outline', 'Más antigua', 'Seleccionar archivo más antiguo (mejor fecha) en todos los grupos')
         ]
         
         frame = self._create_compact_strategy_selector(
@@ -807,7 +807,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         
         from PyQt6.QtWidgets import QMessageBox
         
-        strategy_name = "Mayor Tamaño" if strategy == 'keep_largest' else "Mejor Fecha"
+        strategy_name = "Mayor Tamaño" if strategy == 'keep_largest' else "Más antigua"
         
         # Diálogo de confirmación
         msg = QMessageBox(self)
