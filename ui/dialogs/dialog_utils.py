@@ -430,15 +430,19 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     
     # SECCIÓN: INFORMACIÓN GENERAL
     general_items = [
-        ("Ubicación", str(file_path.parent), "Directorio donde se encuentra el archivo", 'folder', DesignSystem.COLOR_INFO),
-        ("Nombre de archivo", file_path.name, "Nombre completo con extensión", 'file-document-outline', DesignSystem.COLOR_INFO),
-        ("Tamaño en disco", format_size(metadata.fs_size), "Espacio que ocupa en el sistema de archivos", 'harddisk', DesignSystem.COLOR_INFO),
-        ("Tipo de archivo", _get_file_type_display(file_path), "Categoría detectada por extensión", 'file-check', DesignSystem.COLOR_INFO),
+        ("Ruta completa", str(file_path), "Ubicación completa del archivo en el sistema", 'folder-open', DesignSystem.COLOR_INFO),
+        ("Tamaño", format_size(metadata.fs_size), "Espacio que ocupa en el sistema de archivos", 'harddisk', DesignSystem.COLOR_INFO),
+        ("Tipo", _get_file_type_display(file_path), "Categoría detectada por extensión", 'file-check', DesignSystem.COLOR_INFO),
     ]
     if metadata.sha256:
         general_items.append(("Hash SHA256", metadata.sha256, "Huella digital única del contenido del archivo", 'fingerprint', DesignSystem.COLOR_INFO))
     
-    scroll_layout.addWidget(_create_enhanced_section("Información General", general_items))
+    scroll_layout.addWidget(_create_enhanced_section_with_copy(
+        "Información General", 
+        general_items,
+        copy_field_index=0,  # Copiar la ruta completa (primer campo)
+        parent_widget=dialog
+    ))
     
     # SECCIÓN: MEJOR FECHA DISPONIBLE (Segunda posición - solo si existe)
     if metadata.best_date:
@@ -695,6 +699,72 @@ def _create_enhanced_section(title: str, items: list):
     
     for i, (label_text, value_text, description, icon_name, accent_color) in enumerate(items):
         row = _create_info_row(label_text, value_text, description, icon_name, accent_color)
+        layout.addWidget(row)
+        
+        # Agregar separador entre items (excepto el último)
+        if i < len(items) - 1:
+            separator = QWidget()
+            separator.setFixedHeight(1)
+            separator.setStyleSheet(f"background-color: {DesignSystem.COLOR_CARD_BORDER}; margin: {DesignSystem.SPACE_4}px 0;")
+            layout.addWidget(separator)
+    
+    group.setLayout(layout)
+    return group
+
+
+def _create_enhanced_section_with_copy(
+    title: str, 
+    items: list, 
+    copy_field_index: int = 0,
+    parent_widget=None
+):
+    """Crea una sección mejorada con un campo que tiene botón de copiar al portapapeles.
+    
+    Args:
+        title: Título de la sección
+        items: Lista de tuplas (título, valor, descripción, icono, color)
+        copy_field_index: Índice del campo que tendrá el botón de copiar (default: 0)
+        parent_widget: Widget padre para mostrar tooltips/feedback
+    """
+    from PyQt6.QtWidgets import QGroupBox, QVBoxLayout, QWidget
+    from ui.styles.design_system import DesignSystem
+    
+    group = QGroupBox(title)
+    group.setStyleSheet(f"""
+        QGroupBox {{
+            font-size: {DesignSystem.FONT_SIZE_LG}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            color: {DesignSystem.COLOR_TEXT};
+            border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
+            border-radius: {DesignSystem.RADIUS_LG}px;
+            padding: {DesignSystem.SPACE_16}px;
+            margin: 0;
+            background-color: {DesignSystem.COLOR_SURFACE};
+        }}
+        QGroupBox::title {{
+            subcontrol-origin: margin;
+            left: {DesignSystem.SPACE_12}px;
+            padding: 0 {DesignSystem.SPACE_8}px;
+            color: {DesignSystem.COLOR_PRIMARY};
+            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+        }}
+    """)
+    
+    layout = QVBoxLayout()
+    layout.setContentsMargins(
+        DesignSystem.SPACE_16, DesignSystem.SPACE_24, 
+        DesignSystem.SPACE_16, DesignSystem.SPACE_16
+    )
+    layout.setSpacing(DesignSystem.SPACE_12)
+    
+    for i, (label_text, value_text, description, icon_name, accent_color) in enumerate(items):
+        if i == copy_field_index:
+            # Campo con botón de copiar
+            row = _create_info_row_with_copy(
+                label_text, value_text, description, icon_name, accent_color, parent_widget
+            )
+        else:
+            row = _create_info_row(label_text, value_text, description, icon_name, accent_color)
         layout.addWidget(row)
         
         # Agregar separador entre items (excepto el último)
@@ -965,6 +1035,123 @@ def _create_info_row(title: str, value_text: str, description: str, icon_name: s
     content_layout.addWidget(desc_label)
     
     main_layout.addLayout(content_layout, 1)
+    
+    return widget
+
+
+def _create_info_row_with_copy(
+    title: str, 
+    value_text: str, 
+    description: str, 
+    icon_name: str, 
+    accent_color: str = None,
+    parent_widget=None
+):
+    """Crea una fila con información y un botón para copiar el valor al portapapeles.
+    
+    Args:
+        title: Título del campo
+        value_text: Valor a mostrar y copiar
+        description: Descripción explicativa
+        icon_name: Nombre del icono MDI
+        accent_color: Color del icono (opcional, por defecto COLOR_ACCENT)
+        parent_widget: Widget padre para feedback visual
+    """
+    from PyQt6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton
+    from PyQt6.QtCore import Qt, QSize, QTimer
+    from ui.styles.design_system import DesignSystem
+    from ui.styles.icons import icon_manager
+    from utils.platform_utils import copy_to_clipboard
+    
+    if accent_color is None:
+        accent_color = DesignSystem.COLOR_ACCENT
+    
+    widget = QWidget()
+    main_layout = QHBoxLayout(widget)
+    main_layout.setContentsMargins(0, 0, 0, 0)
+    main_layout.setSpacing(DesignSystem.SPACE_12)
+    
+    # Icono principal
+    icon = icon_manager.get_icon(icon_name, size=DesignSystem.ICON_SIZE_MD, color=accent_color)
+    icon_label = QLabel()
+    icon_label.setPixmap(icon.pixmap(DesignSystem.ICON_SIZE_MD, DesignSystem.ICON_SIZE_MD))
+    icon_label.setFixedSize(DesignSystem.ICON_SIZE_MD + 4, DesignSystem.ICON_SIZE_MD + 4)
+    main_layout.addWidget(icon_label)
+    
+    # Contenido de información
+    content_layout = QVBoxLayout()
+    content_layout.setContentsMargins(0, 0, 0, 0)
+    content_layout.setSpacing(DesignSystem.SPACE_2)
+    
+    # Título y valor
+    title_label = QLabel(f"{title}: {value_text}")
+    title_label.setStyleSheet(f"""
+        color: {DesignSystem.COLOR_TEXT};
+        font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+        font-size: {DesignSystem.FONT_SIZE_BASE}px;
+    """)
+    title_label.setWordWrap(True)
+    content_layout.addWidget(title_label)
+    
+    # Descripción
+    desc_label = QLabel(description)
+    desc_label.setStyleSheet(f"""
+        color: {DesignSystem.COLOR_TEXT_SECONDARY};
+        font-size: {DesignSystem.FONT_SIZE_SM}px;
+    """)
+    desc_label.setWordWrap(True)
+    content_layout.addWidget(desc_label)
+    
+    main_layout.addLayout(content_layout, 1)
+    
+    # Botón de copiar
+    copy_btn = QPushButton()
+    copy_btn.setToolTip("Copiar ruta al portapapeles")
+    copy_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+    icon_manager.set_button_icon(copy_btn, 'content-copy', size=16)
+    copy_btn.setFixedSize(32, 32)
+    copy_btn.setStyleSheet(f"""
+        QPushButton {{
+            background-color: transparent;
+            border: 1px solid {DesignSystem.COLOR_BORDER};
+            border-radius: {DesignSystem.RADIUS_SM}px;
+            padding: 4px;
+        }}
+        QPushButton:hover {{
+            background-color: {DesignSystem.COLOR_BG_1};
+            border-color: {DesignSystem.COLOR_PRIMARY};
+        }}
+        QPushButton:pressed {{
+            background-color: {DesignSystem.COLOR_PRIMARY};
+        }}
+    """)
+    
+    def on_copy_clicked():
+        """Copia el valor al portapapeles y muestra feedback visual."""
+        if copy_to_clipboard(value_text):
+            # Feedback visual: cambiar icono temporalmente a check
+            icon_manager.set_button_icon(copy_btn, 'check', size=16, color=DesignSystem.COLOR_SUCCESS)
+            copy_btn.setToolTip("¡Copiado!")
+            
+            # Restaurar icono original después de 1.5 segundos
+            def restore_icon():
+                icon_manager.set_button_icon(copy_btn, 'content-copy', size=16)
+                copy_btn.setToolTip("Copiar ruta al portapapeles")
+            
+            QTimer.singleShot(1500, restore_icon)
+        else:
+            # Error: mostrar icono de error
+            icon_manager.set_button_icon(copy_btn, 'alert-circle', size=16, color=DesignSystem.COLOR_ERROR)
+            copy_btn.setToolTip("Error al copiar")
+            
+            def restore_icon():
+                icon_manager.set_button_icon(copy_btn, 'content-copy', size=16)
+                copy_btn.setToolTip("Copiar ruta al portapapeles")
+            
+            QTimer.singleShot(2000, restore_icon)
+    
+    copy_btn.clicked.connect(on_copy_clicked)
+    main_layout.addWidget(copy_btn)
     
     return widget
 

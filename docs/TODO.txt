@@ -1,8 +1,6 @@
 Innerpix lab
 ---------------
 
-Hay que revisar duplciados similares, el codigo enlazado de todos los duplciados no sienta bien
-
 Hay que hacer pruebas cambiando umbral y sobre todo tests especificaos de modo automatico (que es lo neuvo, que engancha mal con el codigo normal
 Auqnue funciona mas o menos bien. He visto que al pasarlo 2 veces s eha dejado un par de fotos
 Cuando se baja batante la sensibilidad, tarda bastante en calcular nuevos gurpos con el dataset grande y parece que queda medio colgado sin ser verdad

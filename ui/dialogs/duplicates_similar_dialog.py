@@ -69,6 +69,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         self.filter_combo = None
         self.type_combo = None
         self.source_combo = None
+        self.similarity_filter_combo = None
         self.status_chip = None
         self.filter_bar = None
         self.filtered_groups = []  # Grupos filtrados
@@ -304,8 +305,31 @@ class DuplicatesSimilarDialog(BaseDialog):
             "5+ copias"
         ]
         
+        # Opciones de filtro de similitud
+        similarity_options = [
+            "Todos",
+            "100%",
+            ">98%",
+            ">95%",
+            ">90%",
+            ">85%",
+            ">80%",
+            ">75%",
+            "≤70%"
+        ]
+        
         # Configuración de filtros expandibles
         expandable_filters = [
+            {
+                'id': 'similarity',
+                'type': 'combo',
+                'label': 'Similitud',
+                'tooltip': 'Filtrar grupos por umbral de similitud',
+                'options': similarity_options,
+                'on_change': self._on_similarity_filter_changed,
+                'default_index': 0,
+                'min_width': 100
+            },
             {
                 'id': 'source',
                 'type': 'combo',
@@ -343,6 +367,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         self.status_chip = filter_bar.status_chip
         self.source_combo = filter_bar.filter_widgets.get('source')
         self.type_combo = filter_bar.filter_widgets.get('type')
+        self.similarity_filter_combo = filter_bar.filter_widgets.get('similarity')
         
         return filter_bar
     
@@ -363,6 +388,44 @@ class DuplicatesSimilarDialog(BaseDialog):
     def _on_source_filter_changed(self, index: int):
         """Maneja cambios en el filtro de origen de fecha."""
         self._apply_filters()
+    
+    def _on_similarity_filter_changed(self, index: int):
+        """Maneja cambios en el filtro de similitud."""
+        self._apply_filters()
+    
+    def _group_matches_similarity_filter(self, group: SimilarDuplicateGroup) -> bool:
+        """
+        Verifica si un grupo coincide con el filtro de similitud.
+        
+        Filtra grupos según su porcentaje de similitud.
+        """
+        if not self.similarity_filter_combo:
+            return True
+        
+        similarity_filter = self.similarity_filter_combo.currentText()
+        if similarity_filter == "Todos":
+            return True
+        
+        score = group.similarity_score
+        
+        if similarity_filter == "100%":
+            return score == 100
+        elif similarity_filter == ">98%":
+            return score > 98
+        elif similarity_filter == ">95%":
+            return score > 95
+        elif similarity_filter == ">90%":
+            return score > 90
+        elif similarity_filter == ">85%":
+            return score > 85
+        elif similarity_filter == ">80%":
+            return score > 80
+        elif similarity_filter == ">75%":
+            return score > 75
+        elif similarity_filter == "≤70%":
+            return score <= 70
+        
+        return True
     
     def _group_matches_type_filter(self, group: SimilarDuplicateGroup) -> bool:
         """
@@ -413,6 +476,10 @@ class DuplicatesSimilarDialog(BaseDialog):
         filtered = []
         
         for group in self.all_groups:
+            # Filtro por similitud
+            if not self._group_matches_similarity_filter(group):
+                continue
+            
             # Filtro por tipo de archivo (imágenes/vídeos)
             if not self._group_matches_type_filter(group):
                 continue
