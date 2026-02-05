@@ -970,9 +970,8 @@ class DuplicatesSimilarDialog(BaseDialog):
         nav_frame = QFrame()
         nav_frame.setStyleSheet(f"""
             QFrame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
+                background-color: transparent;
+                border: none;
                 padding: 2px;
             }}
         """)

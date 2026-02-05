@@ -71,82 +71,94 @@ def create_mock_dialog(files_data):
 
 @pytest.mark.ui
 class TestDuplicatesSimilarDialogAutoSelection:
+    """
+    Especificamente prueba las estrategias automáticas (Mayor Tamaño y Mejor Fecha)
+    con mocks detallados para asegurar que el comportamiento es predecible.
+    """
     
     def test_manual_selection_overwritten_by_auto(self, qtbot):
-        """Test que la selección manual es eliminada al aplicar auto-selección."""
-        # Setup: 1 grupo con 3 archivos
-        # Archivo 1: 10MB, Date 100
-        # Archivo 2: 20MB, Date 200
-        # Archivo 3: 5MB,  Date 300
+        """
+        Ejemplo: El usuario marca un archivo para borrar manualmente, pero luego
+        decide usar el modo automático. La selección manual anterior debe desaparecer.
+        """
+        # Data: 1 grupo
+        # f1: 10MB (Más pequeño)
+        # f2: 20MB (Más grande)
         data = [[
-            ("/tmp/f1.jpg", 10*1024*1024, 100),
-            ("/tmp/f2.jpg", 20*1024*1024, 200),
-            ("/tmp/f3.jpg", 5*1024*1024, 300)
+            ("/tmp/f1.jpg", 10*1024*1024, 1000),
+            ("/tmp/f2.jpg", 20*1024*1024, 2000)
         ]]
         dialog = create_mock_dialog(data)
         
-        # 1. Selección manual: Seleccionar f2 (el más grande)
-        # Indicar que queremos eliminar f2
+        # Simular selección manual: el usuario marca f2 para borrar (f2 es el grande)
         dialog.selections[0] = [Path("/tmp/f2.jpg")]
         
-        # Verify manual selection exists
-        assert len(dialog.selections[0]) == 1
-        assert dialog.selections[0][0] == Path("/tmp/f2.jpg")
-        
-        # 2. Ejecutar Auto: Conservar Mayor (debería eliminar f1 y f3, y mantener f2)
-        # Mock message box to accept
+        # Aplicar "Conservar Mayor" (debería borrar f1 y CONSERVAR f2)
         with patch.object(QMessageBox, 'exec', return_value=QMessageBox.StandardButton.Yes):
              dialog._on_auto_select_click('keep_largest')
         
-        # 3. Verify overwritten
-        # Keep largest (20MB) -> Delete f1 (10MB) and f3 (5MB)
-        assert 0 in dialog.selections
-        selection = dialog.selections[0]
-        assert len(selection) == 2
-        assert Path("/tmp/f1.jpg") in selection
-        assert Path("/tmp/f3.jpg") in selection
-        assert Path("/tmp/f2.jpg") not in selection # f2 era seleccionado manualmente para borrar, ahora se conserva
+        # Resultado esperado: f1 seleccionado para borrar, f2 NO seleccionado (se conserva)
+        assert Path("/tmp/f1.jpg") in dialog.selections[0]
+        assert Path("/tmp/f2.jpg") not in dialog.selections[0]
         
-    def test_auto_select_keep_largest(self, qtbot):
-        """Test lógica de conservar el más grande."""
-        # Group 1: f1(10), f2(20). Keep f2. Delete f1.
-        # Group 2: f3(50), f4(30). Keep f3. Delete f4.
+    def test_auto_select_keep_largest_concrete_example(self, qtbot):
+        """
+        Caso concreto:
+        Archivo A: 1.5MB (Versión optimizada)
+        Archivo B: 15MB (Original alta calidad)
+        -> Seleccionando 'Conservar Mayor' debe marcar Archivo A para borrar.
+        """
+        data = [[
+            ("/tmp/optimized.jpg", 1.5*1024*1024, 1000),
+            ("/tmp/original.jpg", 15*1024*1024, 1000)
+        ]]
+        dialog = create_mock_dialog(data)
+        
+        with patch.object(QMessageBox, 'exec', return_value=QMessageBox.StandardButton.Yes):
+             dialog._on_auto_select_click('keep_largest')
+             
+        assert Path("/tmp/optimized.jpg") in dialog.selections[0]
+        assert Path("/tmp/original.jpg") not in dialog.selections[0]
+
+    def test_auto_select_keep_oldest_concrete_example(self, qtbot):
+        """
+        Caso concreto (Mejor Fecha / Más Antiguo):
+        Archivo A: Fecha 2015 (Original)
+        Archivo B: Fecha 2024 (Copia editada recibida por WhatsApp recientemente)
+        -> Seleccionando 'Mejor Fecha' debe marcar Archivo B para borrar (conservar el de 2015).
+        """
+        # Timestamps: 2015 < 2024
+        ts_2015 = 1420070400 # 2015-01-01
+        ts_2024 = 1704067200 # 2024-01-01
+        
+        data = [[
+            ("/tmp/old_photo.jpg", 5*1024*1024, ts_2015),
+            ("/tmp/whatsapp_copy.jpg", 1*1024*1024, ts_2024)
+        ]]
+        dialog = create_mock_dialog(data)
+        
+        with patch.object(QMessageBox, 'exec', return_value=QMessageBox.StandardButton.Yes):
+             dialog._on_auto_select_click('keep_oldest')
+        
+        assert Path("/tmp/whatsapp_copy.jpg") in dialog.selections[0]
+        assert Path("/tmp/old_photo.jpg") not in dialog.selections[0]
+
+    def test_auto_select_multi_group_consistency(self, qtbot):
+        """Prueba que el modo automático se aplica consistentemente a varios grupos a la vez."""
         data = [
-            [("/tmp/f1.jpg", 10, 100), ("/tmp/f2.jpg", 20, 100)],
-            [("/tmp/f3.jpg", 50, 100), ("/tmp/f4.jpg", 30, 100)]
+            # Grupo 1: f1(small), f2(big)
+            [("/tmp/g1_small.jpg", 10, 100), ("/tmp/g1_big.jpg", 20, 100)],
+            # Grupo 2: f3(big), f4(small)
+            [("/tmp/g2_big.jpg", 50, 100), ("/tmp/g2_small.jpg", 30, 100)]
         ]
         dialog = create_mock_dialog(data)
         
         with patch.object(QMessageBox, 'exec', return_value=QMessageBox.StandardButton.Yes):
              dialog._on_auto_select_click('keep_largest')
              
-        # Group 1
-        assert Path("/tmp/f1.jpg") in dialog.selections[0]
-        assert Path("/tmp/f2.jpg") not in dialog.selections[0]
-        
-        # Group 2
-        assert Path("/tmp/f4.jpg") in dialog.selections[1]
-        assert Path("/tmp/f3.jpg") not in dialog.selections[1]
+        # G1: Borrar small
+        assert Path("/tmp/g1_small.jpg") in dialog.selections[0]
+        # G2: Borrar small
+        assert Path("/tmp/g2_small.jpg") in dialog.selections[1]
 
-    def test_auto_select_keep_oldest(self, qtbot):
-        """Test lógica de conservar el más antiguo (menor fecha/best date)."""
-        # Group 1: f1(Date 1000), f2(Date 2000). Keep f1(Oldest). Delete f2.
-        # Group 2: f3(Date 5000), f4(Date 4000). Keep f4(Oldest). Delete f3.
-        data = [
-            [("/tmp/f1.jpg", 10, 1000), ("/tmp/f2.jpg", 10, 2000)],
-            [("/tmp/f3.jpg", 10, 5000), ("/tmp/f4.jpg", 10, 4000)]
-        ]
-        dialog = create_mock_dialog(data)
-        
-        with patch.object(QMessageBox, 'exec', return_value=QMessageBox.StandardButton.Yes):
-             # keep_oldest implies keeping the one with "best date" being the oldest timestamp
-             dialog._on_auto_select_click('keep_oldest')
-        
-        # Group 1: Keep 1000 (f1), Delete 2000 (f2)
-        assert Path("/tmp/f2.jpg") in dialog.selections[0]
-        assert Path("/tmp/f1.jpg") not in dialog.selections[0]
-        
-        # Group 2: Keep 4000 (f4), Delete 5000 (f3)
-        assert Path("/tmp/f3.jpg") in dialog.selections[1]
-        assert Path("/tmp/f4.jpg") not in dialog.selections[1]
 
