@@ -2006,6 +2006,16 @@ class BaseDialog(QDialog):
                     v_box.addWidget(type_container)
                     filter_widgets[filter_id] = type_buttons
                 
+                elif filter_type in ['custom', 'partial_slider']:
+                    # Widget personalizado usando factory
+                    if 'widget_factory' in filter_config:
+                        custom_widget = filter_config['widget_factory']()
+                        custom_widget.setToolTip(filter_config.get('tooltip', ''))
+                        if 'min_width' in filter_config:
+                            custom_widget.setMinimumWidth(filter_config['min_width'])
+                        v_box.addWidget(custom_widget)
+                        filter_widgets[filter_id] = custom_widget
+                
                 # Guardar referencia especial al combo de tamaño
                 if filter_id == 'size' and filter_type == 'combo':
                     size_filter_combo = filter_widgets.get('size')

@@ -16,9 +16,9 @@ from typing import Optional, List
 from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QLabel, QFrame, QSlider, QPushButton,
     QDialogButtonBox, QCheckBox, QScrollArea, QWidget,
-    QGridLayout, QProgressBar, QMenu, QLineEdit, QComboBox
+    QGridLayout, QProgressBar, QMenu, QLineEdit, QComboBox, QSpinBox
 )
-from PyQt6.QtCore import Qt, QSize, QTimer
+from PyQt6.QtCore import Qt, QSize, QTimer, pyqtSignal
 from PyQt6.QtGui import QPixmap, QCursor, QPainter, QColor
 from services.duplicates_similar_service import DuplicatesSimilarAnalysis
 from services.file_metadata_repository_cache import FileInfoRepositoryCache
@@ -29,12 +29,207 @@ from utils.video_thumbnail import get_video_thumbnail
 from utils.platform_utils import open_file_with_default_app
 from utils.file_utils import is_image_file, is_video_file
 from utils.logger import get_logger
+from PyQt6.QtGui import QPainter, QPen
+from PyQt6.QtCore import QRect
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
 from ui.tools_definitions import TOOL_DUPLICATES_SIMILAR
 from .base_dialog import BaseDialog
 from .dialog_utils import show_file_details_dialog
 from .image_preview_dialog import ImagePreviewDialog
+
+
+L_DUPLICATES_SIMILAR = get_logger('DuplicatesSimilarDialog')
+
+
+class DualRangeSlider(QWidget):
+    """Widget de slider con rango dual (min-max) para filtrar similitud.
+    
+    Permite seleccionar un rango de valores con dos handles independientes.
+    Diseñado con estilo moderno y profesional usando DesignSystem.
+    """
+    
+    def __init__(self, minimum=0, maximum=100, parent=None):
+        super().__init__(parent)
+        self.minimum = minimum
+        self.maximum = maximum
+        self.lower_value = minimum
+        self.upper_value = maximum
+        self.handle_radius = 9
+        self.handle_hover_radius = 11
+        self.track_height = 6
+        self.active_handle = None  # 'lower', 'upper', or None
+        self.hover_handle = None   # 'lower', 'upper', or None
+        
+        self.setMinimumHeight(40)  # Reduced height since labels are removed
+        self.setMinimumWidth(200)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        
+    valueChanged = pyqtSignal(int, int)  # Signal emitting (lower, upper)
+        
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        width = self.width()
+        height = self.height()
+        
+        # Calcular posiciones
+        track_y = height // 2
+        track_x_start = self.handle_radius + 5
+        track_x_end = width - self.handle_radius - 5
+        track_width = track_x_end - track_x_start
+        
+        lower_pos = track_x_start + (self.lower_value - self.minimum) / (self.maximum - self.minimum) * track_width
+        upper_pos = track_x_start + (self.upper_value - self.minimum) / (self.maximum - self.minimum) * track_width
+        
+        # Dibujar track de fondo
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(DesignSystem.hex_to_qcolor(DesignSystem.COLOR_BORDER_LIGHT))
+        track_rect = QRect(track_x_start, track_y - self.track_height // 2, track_width, self.track_height)
+        painter.drawRoundedRect(track_rect, self.track_height // 2, self.track_height // 2)
+        
+        # Dibujar track activo (rango seleccionado)
+        painter.setBrush(DesignSystem.hex_to_qcolor(DesignSystem.COLOR_PRIMARY))
+        active_width = int(upper_pos - lower_pos)
+        active_rect = QRect(int(lower_pos), track_y - self.track_height // 2, active_width, self.track_height)
+        painter.drawRoundedRect(active_rect, self.track_height // 2, self.track_height // 2)
+        
+        # Dibujar handles
+        for handle_type in ['lower', 'upper']:
+            pos = lower_pos if handle_type == 'lower' else upper_pos
+            is_hover = self.hover_handle == handle_type
+            is_active = self.active_handle == handle_type
+            radius = self.handle_hover_radius if (is_hover or is_active) else self.handle_radius
+            
+            # Sombra del handle
+            shadow_color = DesignSystem.hex_to_qcolor("#000000")
+            shadow_color.setAlpha(30)
+            painter.setBrush(shadow_color)
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.drawEllipse(int(pos - radius + 1), track_y - radius + 2, radius * 2, radius * 2)
+            
+            # Handle principal
+            handle_color = DesignSystem.COLOR_PRIMARY_HOVER if (is_hover or is_active) else DesignSystem.COLOR_PRIMARY
+            painter.setBrush(DesignSystem.hex_to_qcolor(handle_color))
+            pen = QPen(DesignSystem.hex_to_qcolor(DesignSystem.COLOR_SURFACE))
+            pen.setWidth(3)
+            painter.setPen(pen)
+            painter.drawEllipse(int(pos - radius), track_y - radius, radius * 2, radius * 2)
+        
+        # Labels removed as they are redundant with SpinBoxes and to improve alignment
+    
+    def mousePressEvent(self, event):
+        pos = event.pos().x()
+        width = self.width()
+        track_x_start = self.handle_radius + 5
+        track_x_end = width - self.handle_radius - 5
+        track_width = track_x_end - track_x_start
+        
+        lower_pos = track_x_start + (self.lower_value - self.minimum) / (self.maximum - self.minimum) * track_width
+        upper_pos = track_x_start + (self.upper_value - self.minimum) / (self.maximum - self.minimum) * track_width
+        
+        # Determinar cuál handle está más cerca
+        dist_lower = abs(pos - lower_pos)
+        dist_upper = abs(pos - upper_pos)
+        
+        if dist_lower < dist_upper and dist_lower < 20:
+            self.active_handle = 'lower'
+        elif dist_upper < dist_lower and dist_upper < 20:
+            self.active_handle = 'upper'
+        elif dist_upper == dist_lower and dist_lower < 20:
+             # Handles are overlapping or very close at the click point
+             # Determine direction based on click relative to handles center or just default to moving the one that expands/contracts logically
+             # Simpler approach: if clicking exactly on them, check if we are closer to left or right bound of track to decide?
+             # Or just check which direction user drags. For now, let's pick 'upper' if moving right, 'lower' if moving left? 
+             # Initial click doesn't have direction yet.
+             # Strategy: Default to 'upper' if value is expanding, but here we are just selecting the handle.
+             # Let's pick the one that allows moving towards the mouse cursor if they were slightly separate?
+             # Actually if they are at same spot, standard logic might fail.
+             # If pos > lower_pos (calculated), pick upper. If pos < lower_pos, pick lower
+             if pos > lower_pos:
+                 self.active_handle = 'upper'
+             else:
+                 self.active_handle = 'lower'
+        else:
+            # Click on track - move closest handle
+            if dist_lower < dist_upper:
+                self.active_handle = 'lower'
+            else:
+                self.active_handle = 'upper'
+            self._update_value_from_pos(pos)
+        
+        self.update()
+    
+    def mouseMoveEvent(self, event):
+        pos = event.pos().x()
+        
+        if self.active_handle:
+            self._update_value_from_pos(pos)
+        else:
+            # Detectar hover
+            width = self.width()
+            track_x_start = self.handle_radius + 5
+            track_x_end = width - self.handle_radius - 5
+            track_width = track_x_end - track_x_start
+            
+            lower_pos = track_x_start + (self.lower_value - self.minimum) / (self.maximum - self.minimum) * track_width
+            upper_pos = track_x_start + (self.upper_value - self.minimum) / (self.maximum - self.minimum) * track_width
+            
+            if abs(pos - lower_pos) < 15:
+                self.hover_handle = 'lower'
+            elif abs(pos - upper_pos) < 15:
+                self.hover_handle = 'upper'
+            else:
+                self.hover_handle = None
+            
+            self.update()
+    
+    def mouseReleaseEvent(self, event):
+        self.active_handle = None
+        self.update()
+    
+    def leaveEvent(self, event):
+        self.hover_handle = None
+        self.active_handle = None
+        self.update()
+    
+    def _update_value_from_pos(self, pos):
+        width = self.width()
+        track_x_start = self.handle_radius + 5
+        track_x_end = width - self.handle_radius - 5
+        track_width = track_x_end - track_x_start
+        
+        # Calcular valor
+        ratio = (pos - track_x_start) / track_width
+        value = int(self.minimum + ratio * (self.maximum - self.minimum))
+        value = max(self.minimum, min(self.maximum, value))
+        
+        if self.active_handle == 'lower':
+            self.lower_value = min(value, self.upper_value)  # Allow equal values
+        elif self.active_handle == 'upper':
+            self.upper_value = max(value, self.lower_value)  # Allow equal values
+        
+        self.update()
+        self.valueChanged.emit(self.lower_value, self.upper_value)
+    
+    def get_range(self):
+        """Retorna tupla (lower_value, upper_value)."""
+        return (self.lower_value, self.upper_value)
+    
+    def set_range(self, lower, upper):
+        """Establece el rango de valores."""
+        self.lower_value = max(self.minimum, min(lower, self.maximum))
+        self.upper_value = max(self.minimum, min(upper, self.maximum))
+        if self.lower_value > self.upper_value:
+             # Swap if crossed, or enforce constraint? usually enforce lower <= upper
+             self.upper_value = self.lower_value
+             # Or just swap them? default implementation often clamps.
+             # Let's trust the input slightly but ensure order.
+             # If lower > upper, valid behavior is lower=upper.
+             pass
+        self.update()
+        self.valueChanged.emit(self.lower_value, self.upper_value)
 
 
 class DuplicatesSimilarDialog(BaseDialog):
@@ -69,7 +264,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         self.filter_combo = None
         self.type_combo = None
         self.source_combo = None
-        self.similarity_filter_combo = None
+        self.similarity_range_slider = None  # Cambiado de combo a slider de rango
         self.status_chip = None
         self.filter_bar = None
         self.filtered_groups = []  # Grupos filtrados
@@ -305,41 +500,8 @@ class DuplicatesSimilarDialog(BaseDialog):
             "5+ copias"
         ]
         
-        # Opciones de filtro de similitud
-        similarity_options = [
-            "Todos",
-            "100%",
-            ">99 y ≤100",
-            ">98 y ≤99",
-            ">97 y ≤98",
-            ">96 y ≤97",
-            ">95 y ≤96",
-            ">98%",
-            ">95 y ≤100",
-            ">95%",
-            ">90 y ≤95",
-            ">90%",
-            ">85 y ≤90",
-            ">85%",
-            ">80 y ≤85",
-            ">80%",
-            ">75 y ≤80",
-            ">75%",
-            "≤70%"
-        ]
-        
-        # Configuración de filtros expandibles
+        # Configuración de filtros expandibles (similitud va al final)
         expandable_filters = [
-            {
-                'id': 'similarity',
-                'type': 'combo',
-                'label': 'Similitud',
-                'tooltip': 'Filtrar grupos por umbral de similitud',
-                'options': similarity_options,
-                'on_change': self._on_similarity_filter_changed,
-                'default_index': 0,
-                'min_width': 100
-            },
             {
                 'id': 'source',
                 'type': 'combo',
@@ -359,6 +521,14 @@ class DuplicatesSimilarDialog(BaseDialog):
                 'on_change': self._on_type_filter_changed,
                 'default_index': 0,
                 'min_width': 120
+            },
+            {
+                'id': 'similarity',
+                'type': 'partial_slider',
+                'label': 'Rango de similitud',
+                'tooltip': 'Ajusta el rango de similitud para filtrar grupos',
+                'widget_factory': self._create_similarity_range_widget,
+                'min_width': 280
             }
         ]
         
@@ -377,7 +547,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         self.status_chip = filter_bar.status_chip
         self.source_combo = filter_bar.filter_widgets.get('source')
         self.type_combo = filter_bar.filter_widgets.get('type')
-        self.similarity_filter_combo = filter_bar.filter_widgets.get('similarity')
+        self.similarity_range_slider = filter_bar.filter_widgets.get('similarity')
         
         return filter_bar
     
@@ -399,66 +569,126 @@ class DuplicatesSimilarDialog(BaseDialog):
         """Maneja cambios en el filtro de origen de fecha."""
         self._apply_filters()
     
+    def _create_similarity_range_widget(self) -> QWidget:
+        """Crea el widget de rango dual para filtro de similitud con spinboxes."""
+        from ui.styles.design_system import DesignSystem
+        
+        # Container style
+        widget = QFrame()
+        widget.setObjectName("similarity_range_widget")
+        widget.setStyleSheet(f"""
+            QFrame#similarity_range_widget {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+            }}
+            QSpinBox {{
+                border: none;
+                background: transparent;
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                color: {DesignSystem.COLOR_TEXT};
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            }}
+        """)
+        
+        layout = QHBoxLayout(widget)
+        layout.setContentsMargins(DesignSystem.SPACE_8, 2, DesignSystem.SPACE_8, 2)
+        layout.setSpacing(DesignSystem.SPACE_4)
+        
+        # SpinBox Min
+        self.min_spin = QSpinBox()
+        self.min_spin.setRange(70, 100)
+        self.min_spin.setSuffix("%")
+        self.min_spin.setFixedWidth(55)
+        self.min_spin.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.min_spin.setButtonSymbols(QSpinBox.ButtonSymbols.NoButtons) # Cleaner look
+        self.min_spin.setToolTip("Valor mínimo de similitud")
+        
+        # Slider
+        self.range_slider = DualRangeSlider(minimum=70, maximum=100, parent=self)
+        self.range_slider.set_range(70, 100)
+        
+        # SpinBox Max
+        self.max_spin = QSpinBox()
+        self.max_spin.setRange(70, 100)
+        self.max_spin.setSuffix("%")
+        self.max_spin.setFixedWidth(55)
+        self.max_spin.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.max_spin.setButtonSymbols(QSpinBox.ButtonSymbols.NoButtons) # Cleaner look
+        self.max_spin.setToolTip("Valor máximo de similitud")
+        
+        # Valores iniciales
+        self.min_spin.setValue(70)
+        self.max_spin.setValue(100)
+        
+        layout.addWidget(self.min_spin)
+        layout.addWidget(self.range_slider, stretch=1) # Give slider stretch
+        layout.addWidget(self.max_spin)
+        
+        # Conexiones bidireccionales
+        
+        # Slider -> SpinBoxes
+        def on_slider_change(lower, upper):
+            self.min_spin.blockSignals(True)
+            self.max_spin.blockSignals(True)
+            self.min_spin.setValue(lower)
+            self.max_spin.setValue(upper)
+            self.min_spin.blockSignals(False)
+            self.max_spin.blockSignals(False)
+            
+        self.range_slider.valueChanged.connect(on_slider_change)
+        
+        # SpinBoxes -> Slider
+        def on_spins_change():
+            low = self.min_spin.value()
+            high = self.max_spin.value()
+            
+            # Validar cruces
+            if low > high:
+                if self.sender() == self.min_spin:
+                    high = low  # Empujar el max si subimos el min
+                    self.max_spin.setValue(high)
+                else:
+                    low = high  # Empujar el min si bajamos el max
+                    self.min_spin.setValue(low)
+            
+            self.range_slider.set_range(low, high)
+            
+            # Aplicar filtro
+            if hasattr(self, '_apply_filters'):
+                self._apply_filters()
+                
+        self.min_spin.valueChanged.connect(on_spins_change)
+        self.max_spin.valueChanged.connect(on_spins_change)
+        
+        # Guardar callback para aplicar filtros cuando se suelte el mouse del slider
+        # (para no filtrar excesivamente mientras se arrastra)
+        original_release = self.range_slider.mouseReleaseEvent
+        def on_release(event):
+            original_release(event)
+            if hasattr(self, '_apply_filters'):
+                self._apply_filters()
+        self.range_slider.mouseReleaseEvent = on_release
+        
+        return widget
+    
     def _on_similarity_filter_changed(self, index: int):
-        """Maneja cambios en el filtro de similitud."""
+        """Maneja cambios en el filtro de similitud (legacy - ahora usa slider)."""
         self._apply_filters()
     
     def _group_matches_similarity_filter(self, group: SimilarDuplicateGroup) -> bool:
-        """
-        Verifica si un grupo coincide con el filtro de similitud.
+        """Verifica si un grupo coincide con el filtro de similitud.
         
-        Filtra grupos según su porcentaje de similitud.
+        Filtra grupos según su porcentaje de similitud usando el rango del slider.
         """
-        if not self.similarity_filter_combo:
-            return True
-        
-        similarity_filter = self.similarity_filter_combo.currentText()
-        if similarity_filter == "Todos":
+        if not hasattr(self, 'range_slider') or not self.range_slider:
             return True
         
         score = group.similarity_score
+        lower, upper = self.range_slider.get_range()
         
-        # Valores exactos
-        if similarity_filter == "100%":
-            return score == 100
-        elif similarity_filter == ">98%":
-            return score > 98
-        # Rangos precisos superiores (99-100)
-        elif similarity_filter == ">99 y ≤100":
-            return 99 < score <= 100
-        elif similarity_filter == ">98 y ≤99":
-            return 98 < score <= 99
-        elif similarity_filter == ">97 y ≤98":
-            return 97 < score <= 98
-        elif similarity_filter == ">96 y ≤97":
-            return 96 < score <= 97
-        elif similarity_filter == ">95 y ≤96":
-            return 95 < score <= 96
-        # Rangos amplios
-        elif similarity_filter == ">95 y ≤100":
-            return 95 < score <= 100
-        elif similarity_filter == ">95%":
-            return score > 95
-        elif similarity_filter == ">90 y ≤95":
-            return 90 < score <= 95
-        elif similarity_filter == ">90%":
-            return score > 90
-        elif similarity_filter == ">85 y ≤90":
-            return 85 < score <= 90
-        elif similarity_filter == ">85%":
-            return score > 85
-        elif similarity_filter == ">80 y ≤85":
-            return 80 < score <= 85
-        elif similarity_filter == ">80%":
-            return score > 80
-        elif similarity_filter == ">75 y ≤80":
-            return 75 < score <= 80
-        elif similarity_filter == ">75%":
-            return score > 75
-        elif similarity_filter == "≤70%":
-            return score <= 70
-        
-        return True
+        # El grupo debe estar dentro del rango [lower, upper]
+        return lower <= score <= upper
     
     def _group_matches_type_filter(self, group: SimilarDuplicateGroup) -> bool:
         """

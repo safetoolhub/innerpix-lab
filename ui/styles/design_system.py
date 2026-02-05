@@ -171,6 +171,32 @@ class DesignSystem:
     # ==================== MÉTODOS DE AYUDA ====================
     
     @staticmethod
+    def hex_to_qcolor(hex_color: str):
+        """Convierte un color hexadecimal a QColor.
+        
+        Args:
+            hex_color: Color en formato hexadecimal (#RRGGBB o rgba(r, g, b, a))
+            
+        Returns:
+            QColor: Objeto QColor correspondiente
+        """
+        from PyQt6.QtGui import QColor
+        
+        # Manejar colores rgba
+        if hex_color.startswith('rgba'):
+            # Extraer valores de rgba(r, g, b, a)
+            import re
+            match = re.match(r'rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)', hex_color)
+            if match:
+                r, g, b, a = match.groups()
+                color = QColor(int(r), int(g), int(b))
+                color.setAlpha(int(float(a) * 255))
+                return color
+        
+        # Colores hexadecimales estándar
+        return QColor(hex_color)
+    
+    @staticmethod
     def get_stylesheet():
         """Retorna el stylesheet QSS global de la aplicación.
         
