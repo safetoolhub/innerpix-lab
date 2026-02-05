@@ -498,17 +498,31 @@ class DuplicatesSimilarDialog(BaseDialog):
         self._apply_filters()
     
     def _create_similarity_range_widget(self) -> QWidget:
-        """Crea el widget de rango dual para filtro de similitud con spinboxes."""
+        """Crea el widget de rango dual para filtro de similitud con spinboxes y etiqueta."""
         from ui.styles.design_system import DesignSystem
         
-        # Container style
-        widget = QFrame()
-        widget.setObjectName("similarity_range_widget")
-        widget.setStyleSheet(f"""
-            QFrame#similarity_range_widget {{
+        # Container principal (Vertical para incluir etiqueta)
+        container = QWidget()
+        v_layout = QVBoxLayout(container)
+        v_layout.setContentsMargins(0, 0, 0, 0)
+        v_layout.setSpacing(2)
+        
+        # Etiqueta consistente con el sistema de filtros
+        label = QLabel("Sensibilidad")
+        label.setStyleSheet(DesignSystem.get_filter_label_style())
+        v_layout.addWidget(label)
+        
+        # Frame del control
+        frame = QFrame()
+        frame.setObjectName("similarity_range_control")
+        frame.setStyleSheet(f"""
+            QFrame#similarity_range_control {{
                 background-color: {DesignSystem.COLOR_BG_1};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border: 2px solid {DesignSystem.COLOR_BORDER};
                 border-radius: {DesignSystem.RADIUS_BASE}px;
+            }}
+            QFrame#similarity_range_control:hover {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
             }}
             QSpinBox {{
                 border: none;
@@ -519,7 +533,7 @@ class DuplicatesSimilarDialog(BaseDialog):
             }}
         """)
         
-        layout = QHBoxLayout(widget)
+        layout = QHBoxLayout(frame)
         layout.setContentsMargins(DesignSystem.SPACE_8, 2, DesignSystem.SPACE_8, 2)
         layout.setSpacing(DesignSystem.SPACE_4)
         
@@ -552,6 +566,8 @@ class DuplicatesSimilarDialog(BaseDialog):
         layout.addWidget(self.min_spin)
         layout.addWidget(self.range_slider, stretch=1) # Give slider stretch
         layout.addWidget(self.max_spin)
+        
+        v_layout.addWidget(frame)
         
         # Conexiones bidireccionales
         
@@ -598,7 +614,7 @@ class DuplicatesSimilarDialog(BaseDialog):
                 self._apply_filters()
         self.range_slider.mouseReleaseEvent = on_release
         
-        return widget
+        return container
     
     def _on_similarity_filter_changed(self, index: int):
         """Maneja cambios en el filtro de similitud (legacy - ahora usa slider)."""
