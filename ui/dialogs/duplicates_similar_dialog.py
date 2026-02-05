@@ -310,10 +310,15 @@ class DuplicatesSimilarDialog(BaseDialog):
             "Todos",
             "100%",
             ">98%",
+            ">95 y <100",
             ">95%",
+            ">90 y <95",
             ">90%",
+            ">85 y <90",
             ">85%",
+            ">80 y <85",
             ">80%",
+            ">75 y <80",
             ">75%",
             "≤70%"
         ]
@@ -408,18 +413,30 @@ class DuplicatesSimilarDialog(BaseDialog):
         
         score = group.similarity_score
         
+        # Valores exactos
         if similarity_filter == "100%":
             return score == 100
         elif similarity_filter == ">98%":
             return score > 98
+        # Rangos
+        elif similarity_filter == ">95 y <100":
+            return 95 < score < 100
         elif similarity_filter == ">95%":
             return score > 95
+        elif similarity_filter == ">90 y <95":
+            return 90 < score <= 95
         elif similarity_filter == ">90%":
             return score > 90
+        elif similarity_filter == ">85 y <90":
+            return 85 < score <= 90
         elif similarity_filter == ">85%":
             return score > 85
+        elif similarity_filter == ">80 y <85":
+            return 80 < score <= 85
         elif similarity_filter == ">80%":
             return score > 80
+        elif similarity_filter == ">75 y <80":
+            return 75 < score <= 80
         elif similarity_filter == ">75%":
             return score > 75
         elif similarity_filter == "≤70%":
