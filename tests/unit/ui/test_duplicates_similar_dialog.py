@@ -59,29 +59,29 @@ class TestDuplicatesSimilarDialogBasics:
         
         assert isinstance(dialog, BaseDialog)
     
-    def test_dialog_has_sensitivity_slider(self, qtbot):
-        """Test que el diálogo tiene slider de sensibilidad."""
+    def test_dialog_has_sensitivity_range_slider(self, qtbot):
+        """Test que el diálogo tiene slider de rango para sensibilidad."""
         analysis = create_mock_analysis(4)
         dialog = DuplicatesSimilarDialog(analysis)
         
-        assert hasattr(dialog, 'sensitivity_slider')
-        assert dialog.sensitivity_slider is not None
+        assert hasattr(dialog, 'range_slider')
+        assert dialog.range_slider is not None
     
-    def test_default_sensitivity_is_85(self, qtbot):
-        """Test que la sensibilidad por defecto es 85%."""
+    def test_default_sensitivity_is_70(self, qtbot):
+        """Test que la sensibilidad por defecto es 70%."""
         analysis = create_mock_analysis(4)
         dialog = DuplicatesSimilarDialog(analysis)
         
-        assert dialog.DEFAULT_SENSITIVITY == 85
-        assert dialog.current_sensitivity == 85
+        assert dialog.DEFAULT_SENSITIVITY == 70
+        assert dialog.current_sensitivity == 70
     
-    def test_sensitivity_slider_range(self, qtbot):
-        """Test que el slider tiene rango correcto (70-95%)."""
+    def test_sensitivity_range_slider_range(self, qtbot):
+        """Test que el slider tiene rango correcto (70-100%)."""
         analysis = create_mock_analysis(4)
         dialog = DuplicatesSimilarDialog(analysis)
         
-        assert dialog.sensitivity_slider.minimum() == 70
-        assert dialog.sensitivity_slider.maximum() == 95
+        assert dialog.range_slider.minimum == 70
+        assert dialog.range_slider.maximum == 100
 
 
 @pytest.mark.ui
@@ -190,25 +190,27 @@ class TestDuplicatesSimilarDialogAccept:
 class TestSensitivitySliderBehavior:
     """Tests del comportamiento del slider de sensibilidad."""
     
-    def test_slider_updates_label(self, qtbot):
-        """Test que mover el slider actualiza el label."""
+    def test_spinbox_updates_slider(self, qtbot):
+        """Test que cambiar el spinbox actualiza el slider."""
         analysis = create_mock_analysis(4)
         dialog = DuplicatesSimilarDialog(analysis)
         
-        # Simular cambio de valor
-        dialog.sensitivity_slider.setValue(75)
+        # Simular cambio de valor en spinbox min
+        dialog.min_spin.setValue(75)
         
-        # Verificar que el label se actualiza
-        assert "75%" in dialog.sensitivity_value_label.text()
+        # Verificar que el slider se actualiza
+        lower, _ = dialog.range_slider.get_range()
+        assert lower == 75
     
-    def test_slider_updates_current_sensitivity(self, qtbot):
-        """Test que mover el slider actualiza current_sensitivity."""
+    def test_max_spinbox_updates_slider(self, qtbot):
+        """Test que cambiar el spinbox max actualiza el slider."""
         analysis = create_mock_analysis(4)
         dialog = DuplicatesSimilarDialog(analysis)
         
-        dialog.sensitivity_slider.setValue(90)
+        dialog.max_spin.setValue(90)
         
-        assert dialog.current_sensitivity == 90
+        _, upper = dialog.range_slider.get_range()
+        assert upper == 90
 
 
 @pytest.mark.ui
@@ -222,56 +224,39 @@ class TestLoadingState:
         
         assert dialog._is_loading is True
     
-    def test_slider_disabled_during_loading(self, qtbot):
-        """Test que el slider está deshabilitado durante carga."""
+    def test_range_slider_exists(self, qtbot):
+        """Test que el range_slider existe y tiene valores iniciales."""
         analysis = create_mock_analysis(4)
         dialog = DuplicatesSimilarDialog(analysis)
         
-        # Verificamos que durante la inicialización está deshabilitado
-        # (será habilitado después de _initial_load)
-        assert dialog.sensitivity_slider.isEnabled() is False
+        assert hasattr(dialog, 'range_slider')
+        lower, upper = dialog.range_slider.get_range()
+        assert lower == 70
+        assert upper == 100
     
-    def test_slider_enabled_after_regenerate(self, qtbot):
-        """Test que el slider se habilita después de regenerar grupos."""
+    def test_spinboxes_exist_and_synced(self, qtbot):
+        """Test que los spinboxes existen y están sincronizados con el slider."""
         analysis = create_mock_analysis(4)
         dialog = DuplicatesSimilarDialog(analysis)
         
-        # Simular que ya se cargó inicialmente
-        dialog._is_loading = False
-        dialog.sensitivity_slider.setEnabled(True)
+        assert hasattr(dialog, 'min_spin')
+        assert hasattr(dialog, 'max_spin')
         
-        # Cambiar sensibilidad y regenerar usando el wrapper
-        dialog.current_sensitivity = 80
-        dialog._do_regenerate_groups()
-        
-        # Verificar que el slider sigue habilitado después de la regeneración
-        assert dialog.sensitivity_slider.isEnabled() is True
-        assert dialog._is_loading is False
+        # Valores iniciales sincronizados
+        assert dialog.min_spin.value() == 70
+        assert dialog.max_spin.value() == 100
     
-    def test_slider_enabled_after_multiple_regenerations(self, qtbot):
-        """Test que el slider se habilita después de múltiples regeneraciones."""
+    def test_spinbox_range_validation(self, qtbot):
+        """Test que los spinboxes tienen validación de rango."""
         analysis = create_mock_analysis(4)
         dialog = DuplicatesSimilarDialog(analysis)
         
-        # Simular que ya se cargó inicialmente
-        dialog._is_loading = False
-        dialog.sensitivity_slider.setEnabled(True)
+        # min_spin no puede superar max_spin
+        dialog.min_spin.setValue(95)
+        dialog.max_spin.setValue(90)  # Esto debe ajustar min_spin
         
-        # Primera regeneración
-        dialog.current_sensitivity = 75
-        dialog._do_regenerate_groups()
-        assert dialog.sensitivity_slider.isEnabled() is True
-        
-        # Segunda regeneración
-        dialog.current_sensitivity = 90
-        dialog._do_regenerate_groups()
-        assert dialog.sensitivity_slider.isEnabled() is True
-        
-        # Tercera regeneración
-        dialog.current_sensitivity = 70
-        dialog._do_regenerate_groups()
-        assert dialog.sensitivity_slider.isEnabled() is True
-        assert dialog._is_loading is False
+        # Verificar que se mantiene consistencia
+        assert dialog.min_spin.value() <= dialog.max_spin.value()
 
 
 @pytest.mark.ui
