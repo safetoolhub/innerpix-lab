@@ -1558,6 +1558,12 @@ class BaseDialog(QDialog):
                     border-color: {DesignSystem.COLOR_PRIMARY};
                     color: {DesignSystem.COLOR_PRIMARY_TEXT};
                 }}
+                QPushButton:disabled {{
+                    background-color: {DesignSystem.COLOR_BG_2}; /* Slightly darker/different bg for disabled */
+                    border-color: {DesignSystem.COLOR_BORDER_LIGHT};
+                    color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                    border-style: dashed; /* Visual cue for disabled */
+                }}
             """)
             
             btn.clicked.connect(lambda checked, s=strategy_id: on_strategy_changed(s))
