@@ -96,8 +96,15 @@ class MockDialog:
         return [f for f, _ in sorted_files[1:]]
     
     def _apply_strategy_to_filtered_groups(self, strategy: str):
-        """Aplica estrategia SOLO a los grupos filtrados actualmente."""
-        groups_to_apply = self.filtered_groups if self.filtered_groups else self.all_groups
+        """Aplica estrategia SOLO a los grupos filtrados actualmente.
+        
+        IMPORTANTE: Si filtered_groups está vacío, NO hace nada (no usa all_groups como fallback).
+        """
+        # Si no hay grupos filtrados, no hacer nada
+        if not self.filtered_groups:
+            return
+        
+        groups_to_apply = self.filtered_groups
         filtered_groups_set = set(id(g) for g in groups_to_apply)
         
         for idx, group in enumerate(self.all_groups):
@@ -221,6 +228,60 @@ class TestAutoSelectionAppliesToFilteredGroupsOnly:
         
         # G2 sigue sin selección
         assert 1 not in dialog.selections
+    
+    def test_auto_selection_with_no_filtered_groups_does_nothing(self):
+        """Test: selección automática con 0 grupos filtrados NO modifica nada.
+        
+        Este test verifica el bug donde, si los filtros hacían que no hubiera
+        ningún grupo visible, la selección automática aplicaba a todos los grupos
+        en lugar de no hacer nada.
+        """
+        groups = [
+            create_mock_group("G1", ["/tmp/g1_a.jpg", "/tmp/g1_b.jpg"], [2000, 1000], 90.0),
+            create_mock_group("G2", ["/tmp/g2_a.jpg", "/tmp/g2_b.jpg"], [3000, 1500], 85.0),
+            create_mock_group("G3", ["/tmp/g3_a.jpg", "/tmp/g3_b.jpg"], [1000, 500], 75.0),
+        ]
+        dialog = MockDialog(groups)
+        
+        # Filtrar con rango que no incluye ningún grupo (50-60%)
+        dialog.apply_filter(50.0, 60.0)
+        assert len(dialog.filtered_groups) == 0  # Ningún grupo
+        
+        # Aplicar estrategia automática
+        dialog._apply_strategy_to_filtered_groups('keep_largest')
+        
+        # NINGÚN grupo debe tener selecciones
+        assert len(dialog.selections) == 0
+        assert 0 not in dialog.selections
+        assert 1 not in dialog.selections
+        assert 2 not in dialog.selections
+    
+    def test_auto_selection_with_no_filtered_preserves_existing_selections(self):
+        """Test: selección automática con 0 grupos filtrados preserva selecciones existentes."""
+        groups = [
+            create_mock_group("G1", ["/tmp/g1_a.jpg", "/tmp/g1_b.jpg"], [2000, 1000], 90.0),
+            create_mock_group("G2", ["/tmp/g2_a.jpg", "/tmp/g2_b.jpg"], [3000, 1500], 85.0),
+        ]
+        dialog = MockDialog(groups)
+        
+        # Paso 1: Hacer selecciones con todos los grupos visibles
+        dialog.apply_filter(70.0, 100.0)
+        dialog._apply_strategy_to_filtered_groups('keep_largest')
+        
+        # Verificar que hay selecciones
+        assert 0 in dialog.selections
+        assert 1 in dialog.selections
+        original_selections = {k: list(v) for k, v in dialog.selections.items()}
+        
+        # Paso 2: Aplicar filtro que excluye todos los grupos
+        dialog.apply_filter(50.0, 60.0)
+        assert len(dialog.filtered_groups) == 0
+        
+        # Paso 3: Intentar aplicar selección automática
+        dialog._apply_strategy_to_filtered_groups('keep_largest')
+        
+        # Las selecciones existentes deben mantenerse intactas
+        assert dialog.selections == original_selections
 
 
 class TestManualSelectionPersistence:

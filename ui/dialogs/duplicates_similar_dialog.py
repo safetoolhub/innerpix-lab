@@ -736,6 +736,9 @@ class DuplicatesSimilarDialog(BaseDialog):
         # Actualizar métricas del header
         self._update_header_metrics_for_filtered()
         
+        # Actualizar estado de botones de selección automática (deshabilitar si no hay grupos)
+        self._update_global_buttons_enabled_state()
+        
         # Recargar la vista con grupos filtrados
         if self.filtered_groups:
             self.current_group_index = 0
@@ -826,15 +829,19 @@ class DuplicatesSimilarDialog(BaseDialog):
         IMPORTANTE: Solo aplica a los grupos actualmente filtrados (visibles).
         Los grupos que no coinciden con los filtros actuales conservan su selección.
         """
+        # Verificar que hay grupos filtrados disponibles
+        filtered_count = len(self.filtered_groups)
+        if filtered_count == 0:
+            # No hay grupos filtrados, no hacer nada
+            self.logger.info("No hay grupos filtrados disponibles para selección automática")
+            return
+        
         # Primero reseteamos visualmente para que no parezca activado hasta que confirmen
         self._update_global_buttons_state(None) # Uncheck all temporarily
         
         from PyQt6.QtWidgets import QMessageBox
         
         strategy_name = "Selección Automática (Mejores Imágenes)"
-        
-        # Determinar cuántos grupos están filtrados
-        filtered_count = len(self.filtered_groups) if self.filtered_groups else len(self.all_groups)
         total_count = len(self.all_groups)
         
         # Diálogo de confirmación
@@ -884,6 +891,21 @@ class DuplicatesSimilarDialog(BaseDialog):
         if hasattr(self, 'global_strategy_buttons'):
             for s, btn in self.global_strategy_buttons.items():
                 btn.setChecked(s == current_strategy)
+    
+    def _update_global_buttons_enabled_state(self):
+        """Actualiza el estado habilitado/deshabilitado de los botones de selección automática.
+        
+        Deshabilita los botones cuando no hay grupos filtrados disponibles.
+        """
+        has_filtered_groups = len(self.filtered_groups) > 0
+        
+        if hasattr(self, 'global_strategy_buttons'):
+            for btn in self.global_strategy_buttons.values():
+                btn.setEnabled(has_filtered_groups)
+                if not has_filtered_groups:
+                    btn.setToolTip("No hay grupos disponibles con los filtros actuales")
+                else:
+                    btn.setToolTip("Seleccionar los mejores archivos disponibles de cada grupo")
     
     def _on_auto_select_click(self, strategy: str):
         """DEPRECATED: Mantenido por si acaso, redirige a _on_global_strategy_changed."""
@@ -1263,6 +1285,9 @@ class DuplicatesSimilarDialog(BaseDialog):
                 len(self.filtered_groups),
                 len(self.all_groups)
             )
+            
+            # Actualizar estado de botones de selección automática
+            self._update_global_buttons_enabled_state()
             
             if self.all_groups:
                 self.current_group_index = 0
@@ -1703,8 +1728,15 @@ class DuplicatesSimilarDialog(BaseDialog):
         1. Filtrar por sensibilidad/tipo
         2. Aplicar selección automática solo a esos grupos
         3. Cambiar filtros y repetir para otros grupos
+        
+        IMPORTANTE: Si filtered_groups está vacío, NO hace nada (no usa all_groups como fallback).
         """
-        groups_to_apply = self.filtered_groups if self.filtered_groups else self.all_groups
+        # Si no hay grupos filtrados, no hacer nada
+        if not self.filtered_groups:
+            self.logger.info("No hay grupos filtrados, no se aplica ningún cambio")
+            return
+        
+        groups_to_apply = self.filtered_groups
         
         self.logger.info(
             f"Aplicando estrategia '{strategy}' a {len(groups_to_apply)} grupos filtrados "
