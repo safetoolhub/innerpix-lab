@@ -382,7 +382,7 @@ class DuplicatesSimilarDialog(BaseDialog):
     def _create_global_actions_bar(self) -> QFrame:
         """Crea la barra de acciones globales con estilo unificado (Chips)."""
         strategies = [
-            ('keep_largest', 'arrow-expand-all', 'Mejor imagen (mayor tamaño)', 'Seleccionar archivo más grande en todos los grupos filtrados')
+            ('keep_largest', 'arrow-expand-all', 'Seleccionar automáticamente mejores imágenes', 'Seleccionar los mejores archivos disponibles de cada grupo')
         ]
         
         frame = self._create_compact_strategy_selector(
@@ -831,7 +831,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         
         from PyQt6.QtWidgets import QMessageBox
         
-        strategy_name = "Mejor imagen (mayor tamaño)"
+        strategy_name = "Selección Automática (Mejores Imágenes)"
         
         # Determinar cuántos grupos están filtrados
         filtered_count = len(self.filtered_groups) if self.filtered_groups else len(self.all_groups)
@@ -1351,8 +1351,11 @@ class DuplicatesSimilarDialog(BaseDialog):
         
         # Actualizar contador de navegación
         self.group_counter_label.setText(f"Grupo {index + 1} de {len(groups_to_show)}")
-        self.prev_btn.setEnabled(index > 0)
-        self.next_btn.setEnabled(index < len(groups_to_show) - 1)
+        
+        # Habilitar navegación cíclica si hay más de un grupo
+        has_multiple_groups = len(groups_to_show) > 1
+        self.prev_btn.setEnabled(has_multiple_groups)
+        self.next_btn.setEnabled(has_multiple_groups)
         
         # Actualizar indicadores de similitud en la toolbar
         self._update_group_similarity_display(group)
@@ -1575,16 +1578,28 @@ class DuplicatesSimilarDialog(BaseDialog):
             self.delete_btn.setText(f"Eliminar {total_files} Archivos")
 
     def _previous_group(self):
-        """Navega al grupo anterior (dentro de los grupos filtrados)."""
+        """Navega al grupo anterior (ciclíco)."""
         groups_to_show = self.filtered_groups if self.filtered_groups else self.all_groups
-        if groups_to_show and self.current_group_index > 0:
-            self._load_group(self.current_group_index - 1)
+        if not groups_to_show:
+            return
+            
+        new_index = self.current_group_index - 1
+        if new_index < 0:
+            new_index = len(groups_to_show) - 1  # Ir al último
+            
+        self._load_group(new_index)
 
     def _next_group(self):
-        """Navega al grupo siguiente (dentro de los grupos filtrados)."""
+        """Navega al grupo siguiente (ciclíco)."""
         groups_to_show = self.filtered_groups if self.filtered_groups else self.all_groups
-        if groups_to_show and self.current_group_index < len(groups_to_show) - 1:
-            self._load_group(self.current_group_index + 1)
+        if not groups_to_show:
+            return
+            
+        new_index = self.current_group_index + 1
+        if new_index >= len(groups_to_show):
+            new_index = 0  # Ir al primero
+            
+        self._load_group(new_index)
 
     def _apply_strategy(self, strategy: str):
         """Aplica estrategia al grupo actual."""
