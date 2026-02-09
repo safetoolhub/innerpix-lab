@@ -150,18 +150,18 @@ class TestSelectEarliestDate:
         assert result_source == 'EXIF DateTimeDigitized'
     
     def test_exif_date_original_has_priority_over_digitized(self):
-        """Cuando hay múltiples fechas EXIF, se selecciona la más antigua"""
+        """DateTimeOriginal tiene prioridad estricta sobre DateTimeDigitized"""
         metadata = _create_test_metadata(
-            exif_DateTimeOriginal='2023:05:20 10:30:00',
+            exif_DateTimeOriginal='2023:05:20 10:30:00',  # Primera prioridad
             exif_DateTime='2023:05:20 10:35:00',
-            exif_DateTimeDigitized='2023:05:15 08:00:00',  # Más antigua
+            exif_DateTimeDigitized='2023:05:15 08:00:00',  # Más antigua, pero menor prioridad
         )
         
         result_date, result_source = select_best_date_from_file(metadata)
         
-        # Se selecciona la fecha EXIF más antigua (DateTimeDigitized)
-        assert result_date == datetime(2023, 5, 15, 8, 0)
-        assert result_source == 'EXIF DateTimeDigitized'
+        # Se selecciona DateTimeOriginal por prioridad estricta, no la más antigua
+        assert result_date == datetime(2023, 5, 20, 10, 30)
+        assert result_source == 'EXIF DateTimeOriginal'
     
     def test_epoch_zero_exif_dates_are_ignored(self):
         """Fechas EXIF de epoch 0 (1970-01-01 00:00:00) deben ignorarse y usar siguiente prioridad"""
@@ -692,6 +692,99 @@ class TestIsRenamedFilename:
 
 
 @pytest.mark.unit
+class TestFilenameDateVsMtimePrecision:
+    """Tests para validar que mtime tiene prioridad sobre filename cuando es más precisa"""
+    
+    def test_filename_date_with_zeros_and_matching_mtime_day_prefers_mtime(self):
+        """Cuando filename tiene fecha sin hora (00:00:00) y mtime coincide en día, preferir mtime"""
+        # Caso: IMG_20230515.jpg (sin hora) → 2023-05-15 00:00:00
+        # mtime: 2023-05-15 14:30:45 (más precisa)
+        metadata = _create_test_metadata(
+            path=Path('/test/IMG-20230515-WA0001.jpg'),  # Patrón WhatsApp sin hora
+            fs_mtime=datetime(2023, 5, 15, 14, 30, 45).timestamp(),
+            fs_ctime=datetime(2023, 5, 15, 14, 30, 45).timestamp(),
+        )
+        
+        result_date, result_source = select_best_date_from_file(metadata)
+        
+        # Debe preferir mtime porque tiene hora precisa
+        assert result_date == datetime(2023, 5, 15, 14, 30, 45)
+        assert result_source == 'mtime (more precise than filename)'
+    
+    def test_filename_date_with_time_keeps_filename(self):
+        """Cuando filename tiene hora completa, mantener filename aunque mtime coincida"""
+        # Caso: IMG_20230515_143045.jpg (con hora) → 2023-05-15 14:30:45
+        # mtime: 2023-05-15 14:30:47 (diferencia menor)
+        metadata = _create_test_metadata(
+            path=Path('/test/IMG_20230515_143045.jpg'),  # Patrón con hora completa
+            fs_mtime=datetime(2023, 5, 15, 14, 30, 47).timestamp(),
+            fs_ctime=datetime(2023, 5, 15, 14, 30, 47).timestamp(),
+        )
+        
+        result_date, result_source = select_best_date_from_file(metadata)
+        
+        # Debe mantener filename porque ya tiene hora precisa
+        assert result_date == datetime(2023, 5, 15, 14, 30, 45)
+        assert result_source == 'Filename'
+    
+    def test_filename_date_zeros_different_day_than_mtime_keeps_filename(self):
+        """Si filename y mtime tienen diferente día, usar filename aunque tenga 00:00:00"""
+        # Caso: IMG_20230515.jpg → 2023-05-15 00:00:00
+        # mtime: 2023-05-20 10:00:00 (día diferente)
+        metadata = _create_test_metadata(
+            path=Path('/test/IMG-20230515-WA0001.jpg'),
+            fs_mtime=datetime(2023, 5, 20, 10, 0, 0).timestamp(),
+            fs_ctime=datetime(2023, 5, 20, 10, 0, 0).timestamp(),
+        )
+        
+        result_date, result_source = select_best_date_from_file(metadata)
+        
+        # Debe mantener filename aunque tenga 00:00:00 porque el día no coincide
+        assert result_date == datetime(2023, 5, 15, 0, 0, 0)
+        assert result_source == 'Filename'
+    
+    def test_filename_date_zeros_no_mtime_keeps_filename(self):
+        """Si no hay mtime disponible, usar filename aunque tenga 00:00:00"""
+        metadata = _create_test_metadata(
+            path=Path('/test/IMG-20230515-WA0001.jpg'),
+            fs_ctime=datetime(2023, 5, 15, 10, 0, 0).timestamp(),
+            # Sin mtime
+        )
+        
+        result_date, result_source = select_best_date_from_file(metadata)
+        
+        # Debe usar filename porque no hay mtime
+        assert result_date == datetime(2023, 5, 15, 0, 0, 0)
+        assert result_source == 'Filename'
+    
+    def test_filename_with_partial_time_keeps_filename(self):
+        """Filename con hora parcial (ej: solo hora, minutos=00) debe mantenerse"""
+        # Caso hipotético: nombre personalizado con solo hora
+        # Creamos metadata manualmente sin path para simular
+        from services.file_metadata import FileMetadata
+        
+        metadata = FileMetadata(
+            path=Path('/test/custom_file.jpg'),
+            fs_size=1000,
+            fs_ctime=datetime(2023, 5, 15, 14, 0, 0).timestamp(),
+            fs_mtime=datetime(2023, 5, 15, 14, 30, 45).timestamp(),
+            fs_atime=datetime(2023, 5, 15, 14, 30, 45).timestamp(),
+        )
+        
+        # Simular fecha extraída con hora no-cero (ej: 14:00:00)
+        # Para esto necesitamos mockear extract_date_from_filename
+        from unittest.mock import patch
+        with patch('utils.date_utils.extract_date_from_filename') as mock_extract:
+            mock_extract.return_value = datetime(2023, 5, 15, 14, 0, 0)  # Hora 14:00:00
+            
+            result_date, result_source = select_best_date_from_file(metadata)
+            
+            # Como la hora NO es 00:00:00, debe mantener filename
+            assert result_date == datetime(2023, 5, 15, 14, 0, 0)
+            assert result_source == 'Filename'
+
+
+@pytest.mark.unit
 class TestEdgeCasesAndCorruptedData:
     """Tests para casos edge y datos corruptos"""
     
@@ -793,17 +886,17 @@ class TestSelectChosenDateCombinatorial:
         assert result_source == 'EXIF DateTimeDigitized'
     
     def test_all_three_exif_dates_returns_earliest(self):
-        """Con las 3 fechas EXIF, debe devolver la más antigua"""
+        """Con las 3 fechas EXIF, debe devolver DateTimeOriginal (prioridad estricta)"""
         metadata = _create_test_metadata(
-            exif_DateTimeOriginal='2023:05:10 14:00:00',
-            exif_DateTime='2023:05:10 12:00:00',  # Más antigua
+            exif_DateTimeOriginal='2023:05:10 14:00:00',  # Primera prioridad
+            exif_DateTime='2023:05:10 12:00:00',  # Más antigua, pero menor prioridad
             exif_DateTimeDigitized='2023:05:10 16:00:00',
         )
         
         result_date, result_source = select_best_date_from_file(metadata)
         
-        assert result_date == datetime(2023, 5, 10, 12, 0)
-        assert result_source == 'EXIF CreateDate'
+        assert result_date == datetime(2023, 5, 10, 14, 0)
+        assert result_source == 'EXIF DateTimeOriginal'
     
     # === TESTS DE GPS DATESTAMP (Solo validación) ===
     
@@ -931,11 +1024,11 @@ class TestSelectChosenDateCombinatorial:
     # === TESTS DE CASOS COMPLEJOS (Combinatoria completa) ===
     
     def test_all_sources_available_exif_wins(self):
-        """Con todas las fuentes, EXIF tiene prioridad máxima"""
+        """Con todas las fuentes, DateTimeOriginal tiene prioridad absoluta"""
         metadata = _create_test_metadata(
             path=Path('/test/IMG-20241113-WA0001.jpg'),  # Tiene fecha en filename
-            exif_DateTimeOriginal='2023:05:10 14:30:00',
-            exif_DateTime='2023:05:10 12:00:00',  # Más antigua EXIF
+            exif_DateTimeOriginal='2023:05:10 14:30:00',  # Primera prioridad
+            exif_DateTime='2023:05:10 12:00:00',  # Más antigua EXIF, pero menor prioridad
             exif_DateTimeDigitized='2023:05:10 16:00:00',
             exif_GPSDateStamp='2023:05:10 10:00:00',  # Más antigua global pero GPS ignorado
             fs_ctime=datetime(2022, 1, 1, 12, 0).timestamp(),  # Más antigua filesystem
@@ -944,9 +1037,9 @@ class TestSelectChosenDateCombinatorial:
         
         result_date, result_source = select_best_date_from_file(metadata)
         
-        # Debe seleccionar la EXIF más antigua
-        assert result_date == datetime(2023, 5, 10, 12, 0)
-        assert result_source == 'EXIF CreateDate'
+        # Debe seleccionar DateTimeOriginal por prioridad estricta
+        assert result_date == datetime(2023, 5, 10, 14, 30)
+        assert result_source == 'EXIF DateTimeOriginal'
     
     def test_completely_empty_returns_none(self):
         """Sin ninguna fecha disponible debe devolver None"""
@@ -974,18 +1067,18 @@ class TestSelectChosenDateCombinatorial:
         assert 'EXIF' in result_source
     
     def test_extreme_date_differences_handled_correctly(self):
-        """Diferencias extremas de fechas deben manejarse correctamente"""
+        """Diferencias extremas de fechas: prioridad estricta evita fechas corruptas"""
         metadata = _create_test_metadata(
-            exif_DateTimeOriginal='2023:05:10 14:30:00',
-            exif_DateTime='1990:01:01 00:00:00',  # 33 años antes
+            exif_DateTimeOriginal='2023:05:10 14:30:00',  # Primera prioridad
+            exif_DateTime='1990:01:01 00:00:00',  # 33 años antes (posible corrupción)
             fs_ctime=datetime(2024, 12, 31, 23, 59).timestamp(),  # En el futuro
         )
         
         result_date, result_source = select_best_date_from_file(metadata)
         
-        # Debe devolver la EXIF más antigua sin error
-        assert result_date == datetime(1990, 1, 1, 0, 0)
-        assert result_source == 'EXIF CreateDate'
+        # Debe devolver DateTimeOriginal, no la fecha corrupta de 1990
+        assert result_date == datetime(2023, 5, 10, 14, 30)
+        assert result_source == 'EXIF DateTimeOriginal'
 
 
 @pytest.mark.unit

@@ -9,7 +9,11 @@ y parece que queda medio colgado sin ser verdad)
 
 ¿Poner un contador de memoria libre?
 
-Mejora en seleccion de mejor fecha. Si la fecha del nombre es igual que mtime pero con hh_mm_ss acabado en todo ceros, es mejor coger mtime (que es algo mas precisa), y poner tests adecuados
+✅ Mejora en seleccion de mejor fecha implementada:
+   - Prioridad estricta: DateTimeOriginal siempre gana sobre fechas corruptas
+   - Precisión horaria: Si filename tiene 00:00:00 y mismo día que mtime, preferir mtime (más precisa)
+   - 95 tests unitarios validando comportamiento
+   - Documentación completa en docs/best_date_calculation.md
 
 
 Revisar en algun momento los nombres de los metadatos, que aprecen de formas diferentes en los detalles del archivo y otros sitios, aquqnu emas o menos funciona
@@ -23,7 +27,7 @@ COn videos creo que no se hace nada en los de similares ni en visual_exact Se ge
 ✅ RESUELTO: Duración de videos unificada - ahora solo exif_VideoDurationSeconds + property video_duration_formatted
    Formato adaptativo: <10s muestra "1.2 seg", 10-59s muestra "45 seg", >=60s muestra "1:23 min"
 
-Podriamos para live photos comprobar que el video es mas corto de 5 segundos
+✅Podriamos para live photos comprobar que el video es mas corto de 3.5 segundos
 
 ✅ Revisar y unificar los mensajes que se muestran en stage 3 tras el uso de una tool_name
 
