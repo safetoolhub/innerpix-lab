@@ -390,7 +390,7 @@ def select_best_date_from_file(file_metadata: 'FileMetadata') -> tuple[Optional[
     
     # Loguear warnings si existen
     if validation['warnings']:
-        _logger.debug(f"Warnings de coherencia: {', '.join(validation['warnings'])} (confidence: {validation['confidence']})")
+        _logger.debug(f"Warnings de coherencia para {file_metadata.path}: {', '.join(validation['warnings'])} (confidence: {validation['confidence']})")
     
     # ============================================================================
     # PASO 1: PRIORIDAD MÁXIMA - Fechas EXIF de cámara (primera válida en orden)

@@ -3,11 +3,14 @@ Innerpix lab
 
 Hay que hacer pruebas cambiando umbral y sobre todo tests especificaos de modo automatico 
 (que es lo neuvo, que engancha mal con el codigo normal
-Auqnue funciona mas o menos bien. He visto que al pasarlo 2 veces s eha dejado un par de fotos
+Auqnue funciona mas o menos bien. He visto que al pasarlo 2 veces se ha dejado un par de fotos
 Cuando se baja batante la sensibilidad, tarda bastante en calcular nuevos gurpos con el dataset grande 
 y parece que queda medio colgado sin ser verdad)
 
 ¿Poner un contador de memoria libre?
+
+Revisar lo de confidence_medium que sale en logs para qué vale:
+2026-02-12 13:00:47 - InnerpixLab.DateUtils - DEBUG - Warnings de coherencia: RECENT_TRANSFER, SOFTWARE_DETECTED (confidence: medium)
 
 ✅ Mejora en seleccion de mejor fecha implementada:
    - Prioridad estricta: DateTimeOriginal siempre gana sobre fechas corruptas
