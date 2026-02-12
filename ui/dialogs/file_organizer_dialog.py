@@ -1792,6 +1792,9 @@ class FileOrganizerDialog(BaseDialog):
                 QApplication.processEvents()
         
         root_parent.setExpanded(True)
+        
+        # Colapsar todos los nodos para mostrar solo la estructura general
+        self.files_tree.collapseAll()
     
     def _populate_tree_by_temporal(self, moves):
         """Poblar tree para organizaciones temporales (BY_MONTH, BY_YEAR, BY_YEAR_MONTH)"""
@@ -1860,6 +1863,9 @@ class FileOrganizerDialog(BaseDialog):
             
             if self.files_tree.topLevelItemCount() % 10 == 0:
                 QApplication.processEvents()
+        
+        # Colapsar todos los nodos para mostrar solo la estructura general
+        self.files_tree.collapseAll()
     
     def _populate_tree_by_category(self, moves):
         """Poblar tree para organizaciones por categoría (BY_TYPE, BY_SOURCE)"""
@@ -1947,6 +1953,9 @@ class FileOrganizerDialog(BaseDialog):
             
             if self.files_tree.topLevelItemCount() % 10 == 0:
                 QApplication.processEvents()
+        
+        # Colapsar todos los nodos para mostrar solo la estructura general
+        self.files_tree.collapseAll()
     
     # === EVENTOS ===
     

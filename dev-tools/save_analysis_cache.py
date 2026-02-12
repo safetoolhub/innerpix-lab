@@ -9,7 +9,7 @@ later for testing or development purposes without re-scanning.
 Usage:    
     source .venv/bin/activate && python dev-tools/save_analysis_cache.py --folder <PATH_TO_FOLDER_WITH_PHOTOS>
     source .venv/bin/activate && python dev-tools/save_analysis_cache.py --folder /home/ed/Pictures/RAW_TODO
-    source .venv/bin/activate && python dev-tools/save_analysis_cache.py --folder /home/ed/Pictures/RAW_1_2_3_4_5
+    source .venv/bin/activate && python dev-tools/save_analysis_cache.py --folder /home/ed/Pictures/RAW_1_2_3_4_5_6
     
 The cache file will be saved in the configured DEFAULT_CACHE_SAVED_DIR.
 """
