@@ -29,21 +29,6 @@ class DateCoherenceResult:
     confidence: str  # 'high', 'medium', 'low'
 
 
-# Protocolo para definir la estructura esperada de FileInfo/FileMetadata
-# según la especificación del usuario
-@runtime_checkable
-class FileInfoProtocol(Protocol):
-    path: Path
-    # Campos EXIF (opcionales, datetime)
-    exif_date_time_original: Optional[datetime]
-    exif_create_date: Optional[datetime]
-    exif_modify_date: Optional[datetime]
-    # Timestamps del filesystem (opcionales, datetime)
-    atime: Optional[datetime]
-    ctime: Optional[datetime]
-    mtime: Optional[datetime]
-
-
 def _parse_timezone_offset(offset_str: Optional[str]) -> Optional[int]:
     """
     Parsea un string de offset de timezone y retorna el offset en segundos.
