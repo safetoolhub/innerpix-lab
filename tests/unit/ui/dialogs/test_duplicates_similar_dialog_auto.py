@@ -2,8 +2,8 @@
 Tests específicos para la nueva funcionalidad de selección automática en DuplicatesSimilarDialog.
 Cubre:
 - Sobreescritura de selecciones manuales.
-- Selección automática conservando el mayor (keep_largest).
-- Selección automática conservando el más antiguo (keep_oldest).
+- Selección automática conservando el mayor (keep_largest / Mejor imagen).
+- Selección automática con filtros activos (solo afecta grupos filtrados).
 """
 
 import pytest
@@ -106,7 +106,7 @@ class TestDuplicatesSimilarDialogAutoSelection:
         Caso concreto:
         Archivo A: 1.5MB (Versión optimizada)
         Archivo B: 15MB (Original alta calidad)
-        -> Seleccionando 'Conservar Mayor' debe marcar Archivo A para borrar.
+        -> Seleccionando 'Mejor imagen (mayor tamaño)' debe marcar Archivo A para borrar.
         """
         data = [[
             ("/tmp/optimized.jpg", 1.5*1024*1024, 1000),
@@ -120,28 +120,36 @@ class TestDuplicatesSimilarDialogAutoSelection:
         assert Path("/tmp/optimized.jpg") in dialog.selections[0]
         assert Path("/tmp/original.jpg") not in dialog.selections[0]
 
-    def test_auto_select_keep_oldest_concrete_example(self, qtbot):
+    def test_auto_select_only_applies_to_filtered_groups(self, qtbot):
         """
-        Caso concreto (Mejor Fecha / Más Antiguo):
-        Archivo A: Fecha 2015 (Original)
-        Archivo B: Fecha 2024 (Copia editada recibida por WhatsApp recientemente)
-        -> Seleccionando 'Mejor Fecha' debe marcar Archivo B para borrar (conservar el de 2015).
+        Caso: Hay 3 grupos pero solo 2 están en el filtro activo.
+        La selección automática solo debe afectar a los 2 grupos filtrados.
+        El tercer grupo debe conservar su estado (sin selección).
         """
-        # Timestamps: 2015 < 2024
-        ts_2015 = 1420070400 # 2015-01-01
-        ts_2024 = 1704067200 # 2024-01-01
-        
-        data = [[
-            ("/tmp/old_photo.jpg", 5*1024*1024, ts_2015),
-            ("/tmp/whatsapp_copy.jpg", 1*1024*1024, ts_2024)
-        ]]
+        # Grupo 1 y 2 estarán filtrados, Grupo 3 no
+        data = [
+            [("/tmp/g1_a.jpg", 2000, 100), ("/tmp/g1_b.jpg", 1000, 100)],  # G1: filtrado
+            [("/tmp/g2_a.jpg", 3000, 100), ("/tmp/g2_b.jpg", 1500, 100)],  # G2: filtrado
+            [("/tmp/g3_a.jpg", 1000, 100), ("/tmp/g3_b.jpg", 500, 100)],   # G3: NO filtrado
+        ]
         dialog = create_mock_dialog(data)
         
-        with patch.object(QMessageBox, 'exec', return_value=QMessageBox.StandardButton.Yes):
-             dialog._on_auto_select_click('keep_oldest')
+        # Simular que solo G1 y G2 están en filtered_groups
+        dialog.filtered_groups = dialog.all_groups[:2]  # Solo primeros 2 grupos
         
-        assert Path("/tmp/whatsapp_copy.jpg") in dialog.selections[0]
-        assert Path("/tmp/old_photo.jpg") not in dialog.selections[0]
+        with patch.object(QMessageBox, 'exec', return_value=QMessageBox.StandardButton.Yes):
+            dialog._on_auto_select_click('keep_largest')
+        
+        # G1: archivo pequeño seleccionado para borrar
+        assert 0 in dialog.selections
+        assert Path("/tmp/g1_b.jpg") in dialog.selections[0]
+        
+        # G2: archivo pequeño seleccionado para borrar
+        assert 1 in dialog.selections
+        assert Path("/tmp/g2_b.jpg") in dialog.selections[1]
+        
+        # G3: NO debe tener selección (no estaba en filtered_groups)
+        assert 2 not in dialog.selections
 
     def test_auto_select_multi_group_consistency(self, qtbot):
         """Prueba que el modo automático se aplica consistentemente a varios grupos a la vez."""

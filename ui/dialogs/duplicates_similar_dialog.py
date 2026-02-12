@@ -286,7 +286,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         main_layout.setSpacing(0)
         main_layout.setContentsMargins(0, 0, 0, 0)
         
-        # Header
+        # Header con tip integrado
         self.header_frame = self._create_compact_header_with_metrics(
             icon_name=TOOL_DUPLICATES_SIMILAR.icon_name,
             title=TOOL_DUPLICATES_SIMILAR.title,
@@ -295,7 +295,11 @@ class DuplicatesSimilarDialog(BaseDialog):
                 {'value': '-', 'label': 'Grupos', 'color': DesignSystem.COLOR_PRIMARY},
                 {'value': '-', 'label': 'Similares', 'color': DesignSystem.COLOR_WARNING},
                 {'value': '-', 'label': 'Recuperable', 'color': DesignSystem.COLOR_SUCCESS}
-            ]
+            ],
+            tip_message=(
+                "<b>Tip:</b> Esta herramienta detecta imágenes <i>similares</i> (recortes, ediciones). "
+                "Para copias <i>idénticas</i> visualmente, usa \"Copias Visuales Idénticas\"."
+            )
         )
         main_layout.addWidget(self.header_frame)
         
@@ -378,13 +382,12 @@ class DuplicatesSimilarDialog(BaseDialog):
     def _create_global_actions_bar(self) -> QFrame:
         """Crea la barra de acciones globales con estilo unificado (Chips)."""
         strategies = [
-            ('keep_largest', 'arrow-expand-all', 'Mayor Tamaño', 'Seleccionar archivo más grande en todos los grupos'),
-            ('keep_oldest', 'clock-outline', 'Más antigua', 'Seleccionar archivo más antiguo (mejor fecha) en todos los grupos')
+            ('keep_largest', 'arrow-expand-all', 'Seleccionar automáticamente mejores imágenes', 'Seleccionar los mejores archivos disponibles de cada grupo')
         ]
         
         frame = self._create_compact_strategy_selector(
-            title="Selección Automática Global:",
-            description="Aplica una estrategia a TODOS los grupos",
+            title="Selección Automática:",
+            description="Aplica a los grupos visibles actualmente",
             strategies=strategies,
             current_strategy=self.keep_strategy,
             on_strategy_changed=self._on_global_strategy_changed
@@ -733,6 +736,9 @@ class DuplicatesSimilarDialog(BaseDialog):
         # Actualizar métricas del header
         self._update_header_metrics_for_filtered()
         
+        # Actualizar estado de botones de selección automática (deshabilitar si no hay grupos)
+        self._update_global_buttons_enabled_state()
+        
         # Recargar la vista con grupos filtrados
         if self.filtered_groups:
             self.current_group_index = 0
@@ -741,8 +747,13 @@ class DuplicatesSimilarDialog(BaseDialog):
             self._show_no_groups_message()
 
     def _update_header_metrics_for_filtered(self):
-        """Actualiza las métricas del header basadas en los grupos filtrados."""
-        groups_to_use = self.filtered_groups if self.filtered_groups else self.all_groups
+        """Actualiza las métricas del header basadas en los grupos filtrados.
+        
+        IMPORTANTE: Si no hay grupos filtrados, muestra 0 en todas las métricas,
+        NO los valores del total de all_groups.
+        """
+        # Usar filtered_groups directamente, NO fallback a all_groups
+        groups_to_use = self.filtered_groups
         
         total_groups = len(groups_to_use)
         total_similar = sum(len(g.files) - 1 for g in groups_to_use)
@@ -762,8 +773,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         self.strategy_buttons = {}
         
         strategies = [
-            ('keep_largest', 'arrow-expand-all', 'Mayor tamaño', 'Conservar archivo de mayor tamaño'),
-            ('keep_oldest', 'clock-outline', 'Más antigua', 'Conservar archivo más antiguo'),
+            ('keep_largest', 'arrow-expand-all', 'Mejor imagen', 'Conservar archivo de mayor tamaño'),
         ]
         
         for strategy_id, icon_name, label, tooltip in strategies:
@@ -814,31 +824,54 @@ class DuplicatesSimilarDialog(BaseDialog):
             btn.setChecked(False)
     
     def _on_global_strategy_changed(self, strategy: str):
-        """Maneja cambios en la estrategia global (selección automática masiva)."""
-        # Si ya está seleccionada esta estrategia, no hacer nada (o quizás reaplicar?)
-        # En este caso, como es una acción, permitimos reaplicar pero preguntando.
+        """Maneja cambios en la estrategia global (selección automática).
+        
+        IMPORTANTE: Solo aplica a los grupos actualmente filtrados (visibles).
+        Los grupos que no coinciden con los filtros actuales conservan su selección.
+        """
+        # Verificar que hay grupos filtrados disponibles
+        filtered_count = len(self.filtered_groups)
+        if filtered_count == 0:
+            # No hay grupos filtrados, no hacer nada
+            self.logger.info("No hay grupos filtrados disponibles para selección automática")
+            return
         
         # Primero reseteamos visualmente para que no parezca activado hasta que confirmen
         self._update_global_buttons_state(None) # Uncheck all temporarily
         
         from PyQt6.QtWidgets import QMessageBox
         
-        strategy_name = "Mayor Tamaño" if strategy == 'keep_largest' else "Más antigua"
+        strategy_name = "Selección Automática (Mejores Imágenes)"
+        total_count = len(self.all_groups)
         
         # Diálogo de confirmación
         msg = QMessageBox(self)
-        msg.setIcon(QMessageBox.Icon.Warning)
+        msg.setIcon(QMessageBox.Icon.Question)
         msg.setWindowTitle(f"Confirmar Auto-Selección: {strategy_name}")
-        msg.setText(
-            f"<b>¿Aplicar selección '{strategy_name}' a TODOS los grupos?</b>"
-        )
-        msg.setInformativeText(
-            "⚠️ <b>ADVERTENCIA DE SOBREESCRITURA</b><br><br>"
-            "Esta acción realizará lo siguiente:<br>"
-            "1. Eliminará <b>CUALQUIER selección manual</b> que hayas hecho previamente en otros grupos.<br>"
-            "2. Seleccionará archivos automáticamente en <b>TODOS</b> los grupos visibles.<br><br>"
-            "Revisa los grupos importantes después de esta acción."
-        )
+        
+        if filtered_count < total_count:
+            # Hay filtros aplicados
+            msg.setText(
+                f"<b>¿Aplicar selección '{strategy_name}' a los {filtered_count} grupos filtrados?</b>"
+            )
+            msg.setInformativeText(
+                f"ℹ️ <b>NOTA:</b><br><br>"
+                f"Esta acción se aplicará <b>únicamente</b> a los <b>{filtered_count} grupos</b> "
+                f"que coinciden con los filtros actuales.<br><br>"
+                f"Los <b>{total_count - filtered_count} grupos restantes</b> "
+                f"<b>conservarán su selección actual</b> sin cambios.<br><br>"
+                f"Puedes cambiar los filtros y repetir la operación para otros grupos."
+            )
+        else:
+            # No hay filtros, se aplica a todos
+            msg.setText(
+                f"<b>¿Aplicar selección '{strategy_name}' a todos los {total_count} grupos?</b>"
+            )
+            msg.setInformativeText(
+                "Esta acción seleccionará el archivo de mayor tamaño como el que se "
+                "<b>conservará</b> en cada grupo.<br><br>"
+                "Los demás archivos del grupo serán marcados para <b>eliminación</b>."
+            )
         msg.setStandardButtons(
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel
         )
@@ -847,10 +880,10 @@ class DuplicatesSimilarDialog(BaseDialog):
         
         if msg.exec() == QMessageBox.StandardButton.Yes:
             self.keep_strategy = strategy
-            self._apply_strategy_to_all_groups(strategy)
+            self._apply_strategy_to_filtered_groups(strategy)
             self._update_global_buttons_state(strategy)
         else:
-            # Si cancela, restauramos el estado visual anterior (que probablemente era None o el anterior)
+            # Si cancela, restauramos el estado visual anterior
             self._update_global_buttons_state(self.keep_strategy)
 
     def _update_global_buttons_state(self, current_strategy):
@@ -858,6 +891,21 @@ class DuplicatesSimilarDialog(BaseDialog):
         if hasattr(self, 'global_strategy_buttons'):
             for s, btn in self.global_strategy_buttons.items():
                 btn.setChecked(s == current_strategy)
+    
+    def _update_global_buttons_enabled_state(self):
+        """Actualiza el estado habilitado/deshabilitado de los botones de selección automática.
+        
+        Deshabilita los botones cuando no hay grupos filtrados disponibles.
+        """
+        has_filtered_groups = len(self.filtered_groups) > 0
+        
+        if hasattr(self, 'global_strategy_buttons'):
+            for btn in self.global_strategy_buttons.values():
+                btn.setEnabled(has_filtered_groups)
+                if not has_filtered_groups:
+                    btn.setToolTip("No hay grupos disponibles con los filtros actuales")
+                else:
+                    btn.setToolTip("Seleccionar los mejores archivos disponibles de cada grupo")
     
     def _on_auto_select_click(self, strategy: str):
         """DEPRECATED: Mantenido por si acaso, redirige a _on_global_strategy_changed."""
@@ -1012,13 +1060,6 @@ class DuplicatesSimilarDialog(BaseDialog):
         self._create_strategy_buttons(layout)
         
         layout.addStretch()
-        
-        # Tip de ayuda colapsable
-        self.tip_btn = self.create_tip_button(
-            "<b>Tip:</b> Esta herramienta detecta imágenes <i>similares</i> (recortes, ediciones). "
-            "Para copias <i>idénticas</i> visualmente, usa \"Copias Visuales Idénticas\"."
-        )
-        layout.addWidget(self.tip_btn)
         
         # Contador de selección global
         self.global_summary_label = QLabel("0 seleccionados")
@@ -1245,6 +1286,9 @@ class DuplicatesSimilarDialog(BaseDialog):
                 len(self.all_groups)
             )
             
+            # Actualizar estado de botones de selección automática
+            self._update_global_buttons_enabled_state()
+            
             if self.all_groups:
                 self.current_group_index = 0
                 self._load_group(0)
@@ -1314,7 +1358,11 @@ class DuplicatesSimilarDialog(BaseDialog):
         self._update_group_similarity_display(None)
 
     def _load_group(self, index: int):
-        """Carga y muestra un grupo específico de los grupos filtrados."""
+        """Carga y muestra un grupo específico de los grupos filtrados.
+        
+        NOTA: El índice se refiere a filtered_groups. Las selecciones se almacenan
+        usando el índice real en all_groups para persistir entre cambios de filtro.
+        """
         groups_to_show = self.filtered_groups if self.filtered_groups else self.all_groups
         
         if not 0 <= index < len(groups_to_show):
@@ -1323,10 +1371,16 @@ class DuplicatesSimilarDialog(BaseDialog):
         self.current_group_index = index
         group = groups_to_show[index]
         
+        # Obtener el índice real en all_groups para acceder a selections
+        real_index = self._get_real_group_index(index)
+        
         # Actualizar contador de navegación
         self.group_counter_label.setText(f"Grupo {index + 1} de {len(groups_to_show)}")
-        self.prev_btn.setEnabled(index > 0)
-        self.next_btn.setEnabled(index < len(groups_to_show) - 1)
+        
+        # Habilitar navegación cíclica si hay más de un grupo
+        has_multiple_groups = len(groups_to_show) > 1
+        self.prev_btn.setEnabled(has_multiple_groups)
+        self.next_btn.setEnabled(has_multiple_groups)
         
         # Actualizar indicadores de similitud en la toolbar
         self._update_group_similarity_display(group)
@@ -1350,7 +1404,8 @@ class DuplicatesSimilarDialog(BaseDialog):
         grid_layout.setSpacing(DesignSystem.SPACE_16)
         grid_layout.setContentsMargins(0, 0, 0, 0)
         
-        current_selection = self.selections.get(index, [])
+        # Usar el índice real para obtener la selección
+        current_selection = self.selections.get(real_index, []) if real_index is not None else []
         
         cols = 3
         # Determinar qué archivos se van a conservar (los NO seleccionados cuando hay selección)
@@ -1469,21 +1524,31 @@ class DuplicatesSimilarDialog(BaseDialog):
         """
 
     def _toggle_selection(self, file_path: Path, checked: bool):
-        """Toggle selección."""
-        if self.current_group_index not in self.selections:
-            self.selections[self.current_group_index] = []
+        """Toggle selección de un archivo para eliminación.
         
-        if checked and file_path not in self.selections[self.current_group_index]:
-            self.selections[self.current_group_index].append(file_path)
-        elif not checked and file_path in self.selections[self.current_group_index]:
-            self.selections[self.current_group_index].remove(file_path)
+        Usa el índice real en all_groups para almacenar la selección,
+        permitiendo persistencia entre cambios de filtro.
+        """
+        # Obtener índice real para almacenar selección
+        real_index = self._get_real_group_index(self.current_group_index)
+        if real_index is None:
+            return
+        
+        if real_index not in self.selections:
+            self.selections[real_index] = []
+        
+        if checked and file_path not in self.selections[real_index]:
+            self.selections[real_index].append(file_path)
+        elif not checked and file_path in self.selections[real_index]:
+            self.selections[real_index].remove(file_path)
         
         self._update_summary()
         
         # Refrescar TODAS las tarjetas del grupo para actualizar estados verde/rojo/blanco
-        group = self.all_groups[self.current_group_index]
+        groups_to_show = self.filtered_groups if self.filtered_groups else self.all_groups
+        group = groups_to_show[self.current_group_index]
         for file in group.files:
-            is_selected = file in self.selections[self.current_group_index]
+            is_selected = file in self.selections[real_index]
             self._update_card_visual(file, is_selected)
 
     def _update_card_visual(self, file_path: Path, is_selected: bool):
@@ -1506,7 +1571,9 @@ class DuplicatesSimilarDialog(BaseDialog):
             return
         
         # Determinar si hay selección en el grupo actual para calcular will_be_kept
-        current_selection = self.selections.get(self.current_group_index, [])
+        # Usar índice real para acceder a selections
+        real_index = self._get_real_group_index(self.current_group_index)
+        current_selection = self.selections.get(real_index, []) if real_index is not None else []
         has_selection = len(current_selection) > 0
         will_be_kept = has_selection and not is_selected
         
@@ -1536,16 +1603,28 @@ class DuplicatesSimilarDialog(BaseDialog):
             self.delete_btn.setText(f"Eliminar {total_files} Archivos")
 
     def _previous_group(self):
-        """Navega al grupo anterior (dentro de los grupos filtrados)."""
+        """Navega al grupo anterior (ciclíco)."""
         groups_to_show = self.filtered_groups if self.filtered_groups else self.all_groups
-        if groups_to_show and self.current_group_index > 0:
-            self._load_group(self.current_group_index - 1)
+        if not groups_to_show:
+            return
+            
+        new_index = self.current_group_index - 1
+        if new_index < 0:
+            new_index = len(groups_to_show) - 1  # Ir al último
+            
+        self._load_group(new_index)
 
     def _next_group(self):
-        """Navega al grupo siguiente (dentro de los grupos filtrados)."""
+        """Navega al grupo siguiente (ciclíco)."""
         groups_to_show = self.filtered_groups if self.filtered_groups else self.all_groups
-        if groups_to_show and self.current_group_index < len(groups_to_show) - 1:
-            self._load_group(self.current_group_index + 1)
+        if not groups_to_show:
+            return
+            
+        new_index = self.current_group_index + 1
+        if new_index >= len(groups_to_show):
+            new_index = 0  # Ir al primero
+            
+        self._load_group(new_index)
 
     def _apply_strategy(self, strategy: str):
         """Aplica estrategia al grupo actual."""
@@ -1561,13 +1640,14 @@ class DuplicatesSimilarDialog(BaseDialog):
         if strategy == 'keep_largest':
             # Conservar el de mayor tamaño
             to_delete = self._get_files_to_delete_by_size(files, keep_largest=True)
-        elif strategy == 'keep_oldest':
-            # Conservar el más antiguo
-            to_delete = self._get_files_to_delete_by_date(files, keep_oldest=True)
         else:
             to_delete = []
         
-        self.selections[self.current_group_index] = list(to_delete)
+        # Obtener el índice real en all_groups
+        real_index = self._get_real_group_index(self.current_group_index)
+        if real_index is not None:
+            self.selections[real_index] = list(to_delete)
+        
         self._load_group(self.current_group_index)
         self._update_summary()
     
@@ -1611,14 +1691,67 @@ class DuplicatesSimilarDialog(BaseDialog):
         sorted_files = sorted(dates, key=lambda x: x[1], reverse=not keep_oldest)
         return [f for f, _ in sorted_files[1:]]
     
-    def _apply_strategy_to_all_groups(self, strategy: str):
-        """Aplica una estrategia a todos los grupos, sobreescribiendo selecciones manuales."""
-        self.logger.info(f"Aplicando estrategia global: {strategy} a {len(self.all_groups)} grupos")
+    def _get_real_group_index(self, filtered_index: int) -> Optional[int]:
+        """Obtiene el índice real en all_groups a partir del índice en filtered_groups.
         
-        # Limpiar selecciones previas (modo automático reinicia todo)
-        self.selections.clear()
+        Esto es necesario porque self.selections usa índices de all_groups para
+        persistir selecciones entre cambios de filtro.
+        
+        Args:
+            filtered_index: Índice del grupo en filtered_groups
+            
+        Returns:
+            Índice correspondiente en all_groups, o None si no se encuentra
+        """
+        groups_to_show = self.filtered_groups if self.filtered_groups else self.all_groups
+        
+        if not 0 <= filtered_index < len(groups_to_show):
+            return None
+        
+        # Si no hay filtros, el índice es el mismo
+        if not self.filtered_groups or self.filtered_groups == self.all_groups:
+            return filtered_index
+        
+        # Buscar el grupo en all_groups
+        target_group = groups_to_show[filtered_index]
+        for idx, group in enumerate(self.all_groups):
+            if id(group) == id(target_group):
+                return idx
+        
+        return None
+    
+    def _apply_strategy_to_filtered_groups(self, strategy: str):
+        """Aplica estrategia SOLO a los grupos filtrados actualmente.
+        
+        Los grupos que no están en filtered_groups conservan su selección previa.
+        Esto permite al usuario:
+        1. Filtrar por sensibilidad/tipo
+        2. Aplicar selección automática solo a esos grupos
+        3. Cambiar filtros y repetir para otros grupos
+        
+        IMPORTANTE: Si filtered_groups está vacío, NO hace nada (no usa all_groups como fallback).
+        """
+        # Si no hay grupos filtrados, no hacer nada
+        if not self.filtered_groups:
+            self.logger.info("No hay grupos filtrados, no se aplica ningún cambio")
+            return
+        
+        groups_to_apply = self.filtered_groups
+        
+        self.logger.info(
+            f"Aplicando estrategia '{strategy}' a {len(groups_to_apply)} grupos filtrados "
+            f"(de {len(self.all_groups)} totales)"
+        )
+        
+        # Crear un set de los grupos filtrados para búsqueda rápida
+        filtered_groups_set = set(id(g) for g in groups_to_apply)
         
         for idx, group in enumerate(self.all_groups):
+            # Solo procesar si este grupo está en los filtrados
+            if id(group) not in filtered_groups_set:
+                # Grupo no filtrado: conservar selección existente (no hacer nada)
+                continue
+            
             files = group.files
             if len(files) < 2:
                 continue
@@ -1626,11 +1759,13 @@ class DuplicatesSimilarDialog(BaseDialog):
             to_delete = []
             if strategy == 'keep_largest':
                 to_delete = self._get_files_to_delete_by_size(files, keep_largest=True)
-            elif strategy == 'keep_oldest':
-                to_delete = self._get_files_to_delete_by_date(files, keep_oldest=True)
             
             if to_delete:
                 self.selections[idx] = list(to_delete)
+            else:
+                # Si no hay archivos para eliminar, limpiar selección previa
+                if idx in self.selections:
+                    del self.selections[idx]
         
         # Recargar grupo actual y actualizar resumen
         self._load_group(self.current_group_index)

@@ -1238,7 +1238,7 @@ class FileInfoRepositoryCache:
             
             try:
                 with open(path, 'w', encoding='utf-8') as f:
-                    json.dump(cache_data, f, indent=2, default=str)
+                    json.dump(cache_data, f, indent=2, default=str, ensure_ascii=False)
                 
                 self._logger.info(
                     f"Repositorio guardado a disco: {path} "

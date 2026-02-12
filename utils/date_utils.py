@@ -390,57 +390,62 @@ def select_best_date_from_file(file_metadata: 'FileMetadata') -> tuple[Optional[
     
     # Loguear warnings si existen
     if validation['warnings']:
-        _logger.debug(f"Warnings de coherencia: {', '.join(validation['warnings'])} (confidence: {validation['confidence']})")
+        _logger.debug(f"Warnings de coherencia para {file_metadata.path}: {', '.join(validation['warnings'])} (confidence: {validation['confidence']})")
     
     # ============================================================================
-    # PASO 1: PRIORIDAD MÁXIMA - Fechas EXIF de cámara (devolver la más antigua)
+    # PASO 1: PRIORIDAD MÁXIMA - Fechas EXIF de cámara (primera válida en orden)
     # ============================================================================
-    exif_camera_dates = []
+    # IMPORTANTE: Se devuelve la PRIMERA fecha válida según orden de prioridad,
+    # NO la más antigua. Esto evita que fechas corruptas (ej: DateTimeDigitized=2002)
+    # tengan precedencia sobre DateTimeOriginal correcta.
     
-    # DateTimeOriginal con zona horaria
+    # Priority 1: DateTimeOriginal con zona horaria (la más precisa)
     if exif_date_time_original and not _is_epoch_zero_date(exif_date_time_original) and exif_offset_time:
-        exif_camera_dates.append((
-            exif_date_time_original,
-            f"EXIF DateTimeOriginal ({exif_offset_time})"
-        ))
-    
-    # DateTimeOriginal sin zona horaria
-    elif exif_date_time_original and not _is_epoch_zero_date(exif_date_time_original):
-        exif_camera_dates.append((
-            exif_date_time_original,
-            'EXIF DateTimeOriginal'
-        ))
-    
-    # CreateDate
-    if exif_create_date and not _is_epoch_zero_date(exif_create_date):
-        exif_camera_dates.append((
-            exif_create_date,
-            'EXIF CreateDate'
-        ))
-    
-    # DateTimeDigitized
-    if exif_date_digitized and not _is_epoch_zero_date(exif_date_digitized):
-        exif_camera_dates.append((
-            exif_date_digitized,
-            'EXIF DateTimeDigitized'
-        ))
-    
-    # Si hay al menos una fecha EXIF de cámara, devolver la más antigua
-    if exif_camera_dates:
-        earliest_exif = min(exif_camera_dates, key=lambda x: x[0])
-        selected_date, source = earliest_exif
-        
-        # Validar coherencia GPS vs DateTimeOriginal
+        selected_date = exif_date_time_original
+        source = f"EXIF DateTimeOriginal ({exif_offset_time})"
         _validate_gps_coherence(file_metadata, selected_date)
-        
+        return selected_date, source
+    
+    # Priority 2: DateTimeOriginal sin zona horaria
+    if exif_date_time_original and not _is_epoch_zero_date(exif_date_time_original):
+        selected_date = exif_date_time_original
+        source = 'EXIF DateTimeOriginal'
+        _validate_gps_coherence(file_metadata, selected_date)
+        return selected_date, source
+    
+    # Priority 3: CreateDate
+    if exif_create_date and not _is_epoch_zero_date(exif_create_date):
+        selected_date = exif_create_date
+        source = 'EXIF CreateDate'
+        _validate_gps_coherence(file_metadata, selected_date)
+        return selected_date, source
+    
+    # Priority 4: DateTimeDigitized (último recurso EXIF)
+    if exif_date_digitized and not _is_epoch_zero_date(exif_date_digitized):
+        selected_date = exif_date_digitized
+        source = 'EXIF DateTimeDigitized'
+        _validate_gps_coherence(file_metadata, selected_date)
         return selected_date, source
     
     # ============================================================================
     # PASO 2: PRIORIDAD SECUNDARIA - Fechas alternativas
     # ============================================================================
     
-    # Fecha del nombre de archivo
+    # Fecha del nombre de archivo con validación de precisión
+    # Si filename_date tiene el mismo año-mes-día que mtime pero con hora 00:00:00,
+    # es mejor usar mtime (más precisa) ya que el nombre probablemente no incluía hora
     if filename_date:
+        # Verificar si filename_date tiene hora 00:00:00 (sin información horaria)
+        if filename_date.hour == 0 and filename_date.minute == 0 and filename_date.second == 0:
+            # Comparar con mtime si está disponible
+            if fs_mtime:
+                # Si tienen el mismo año-mes-día, preferir mtime (más precisa)
+                if (filename_date.year == fs_mtime.year and 
+                    filename_date.month == fs_mtime.month and 
+                    filename_date.day == fs_mtime.day):
+                    return fs_mtime, 'mtime (more precise than filename)'
+        
+        # En cualquier otro caso, usar filename_date
         return filename_date, 'Filename'
     
     # Video metadata
