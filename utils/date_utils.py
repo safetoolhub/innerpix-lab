@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from typing import Optional, Tuple, Protocol, Any, runtime_checkable
 
 from functools import lru_cache
+from services.file_metadata import FileMetadata
 from utils.logger import get_logger
 
 _logger = get_logger("DateUtils")
