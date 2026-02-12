@@ -2,6 +2,7 @@
 Utilidades para extracción de fechas de archivos multimedia
 """
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import Optional, Tuple, Protocol, Any, runtime_checkable
@@ -10,6 +11,22 @@ from functools import lru_cache
 from utils.logger import get_logger
 
 _logger = get_logger("DateUtils")
+
+
+@dataclass(frozen=True)
+class DateCoherenceResult:
+    """Resultado de la validación de coherencia de fechas.
+    
+    Frozen dataclass inmutable con el resultado de _validate_date_coherence().
+    
+    Attributes:
+        is_valid: True si pasa todas las validaciones críticas
+        warnings: Tupla de códigos de advertencia (inmutable)
+        confidence: Nivel de confianza: 'high', 'medium', 'low'
+    """
+    is_valid: bool
+    warnings: tuple[str, ...]
+    confidence: str  # 'high', 'medium', 'low'
 
 
 # Protocolo para definir la estructura esperada de FileInfo/FileMetadata
@@ -389,8 +406,8 @@ def select_best_date_from_file(file_metadata: 'FileMetadata') -> tuple[Optional[
     validation = _validate_date_coherence(file_metadata)
     
     # Loguear warnings si existen
-    if validation['warnings']:
-        _logger.debug(f"Warnings de coherencia para {file_metadata.path}: {', '.join(validation['warnings'])} (confidence: {validation['confidence']})")
+    if validation.warnings:
+        _logger.debug(f"Warnings de coherencia para {file_metadata.path}: {', '.join(validation.warnings)} (confidence: {validation.confidence})")
     
     # ============================================================================
     # PASO 1: PRIORIDAD MÁXIMA - Fechas EXIF de cámara (primera válida en orden)
@@ -983,7 +1000,7 @@ def _validate_gps_coherence(file_metadata: 'FileMetadata', selected_date: dateti
         )
 
 
-def _validate_date_coherence(file_metadata: 'FileMetadata') -> dict:
+def _validate_date_coherence(file_metadata: 'FileMetadata') -> DateCoherenceResult:
     """
     Valida coherencia entre fechas y detecta anomalías en metadatos.
     
@@ -1103,8 +1120,8 @@ def _validate_date_coherence(file_metadata: 'FileMetadata') -> dict:
     else:
         confidence = 'high'
     
-    return {
-        'is_valid': is_valid,
-        'warnings': warnings,
-        'confidence': confidence
-    }
+    return DateCoherenceResult(
+        is_valid=is_valid,
+        warnings=tuple(warnings),
+        confidence=confidence
+    )

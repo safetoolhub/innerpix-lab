@@ -1,22 +1,10 @@
 Innerpix lab
 ---------------
 
-Hay que hacer pruebas cambiando umbral y sobre todo tests especificaos de modo automatico 
-(que es lo neuvo, que engancha mal con el codigo normal
-Auqnue funciona mas o menos bien. He visto que al pasarlo 2 veces se ha dejado un par de fotos
-Cuando se baja batante la sensibilidad, tarda bastante en calcular nuevos gurpos con el dataset grande 
-y parece que queda medio colgado sin ser verdad)
 
 ¿Poner un contador de memoria libre?
 
-Revisar lo de confidence_medium que sale en logs para qué vale:
-2026-02-12 13:00:47 - InnerpixLab.DateUtils - DEBUG - Warnings de coherencia: RECENT_TRANSFER, SOFTWARE_DETECTED (confidence: medium)
-
-✅ Mejora en seleccion de mejor fecha implementada:
-   - Prioridad estricta: DateTimeOriginal siempre gana sobre fechas corruptas
-   - Precisión horaria: Si filename tiene 00:00:00 y mismo día que mtime, preferir mtime (más precisa)
-   - 95 tests unitarios validando comportamiento
-   - Documentación completa en docs/best_date_calculation.md
+Mejora en seleccion de mejor fecha. Si la fecha del nombre es igual que mtime pero con hh_mm_ss acabado en todo ceros, es mejor coger mtime (que es algo mas precisa), y poner tests adecuados
 
 
 Revisar en algun momento los nombres de los metadatos, que aprecen de formas diferentes en los detalles del archivo y otros sitios, aquqnu emas o menos funciona
@@ -30,7 +18,7 @@ COn videos creo que no se hace nada en los de similares ni en visual_exact Se ge
 ✅ RESUELTO: Duración de videos unificada - ahora solo exif_VideoDurationSeconds + property video_duration_formatted
    Formato adaptativo: <10s muestra "1.2 seg", 10-59s muestra "45 seg", >=60s muestra "1:23 min"
 
-✅Podriamos para live photos comprobar que el video es mas corto de 3.5 segundos
+Podriamos para live photos comprobar que el video es mas corto de 5 segundos
 
 ✅ Revisar y unificar los mensajes que se muestran en stage 3 tras el uso de una tool_name
 
@@ -39,6 +27,8 @@ Revisar y homogeniezar los logs que salen en debug e info
 BUG: si se va a similar duplciates, se borra 1 y se vuelve a stage 3, y se le da de nuevo se queda colgado. Seguramente 
 
 Podria hacer el caluclo del perceptual has tambien al inicio si el usuario loquieres (con una opcion en settings_dialog. Eso me permitiriía usar la cache  tambien con similar duplicates. )
+
+Quiero que la aplicaicon sea consistente con snake_case. No quiero camelcase en ningun sitio. Revisa la clase FileMetadata y especialmente los campos exif. Quiero consistencia entre filemetadata y date_utils usando snake_case siempre
 
 
 Antiguas versiones

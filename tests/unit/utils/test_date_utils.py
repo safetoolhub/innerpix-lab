@@ -15,6 +15,8 @@ from utils.date_utils import (
     parse_renamed_name,
     is_renamed_filename,
     get_all_metadata_from_file,
+    _validate_date_coherence,
+    DateCoherenceResult,
 )
 from services.file_metadata import FileMetadata
 from utils.file_utils import (
@@ -30,18 +32,21 @@ def _create_test_metadata(
     fs_ctime: float = 0.0,
     fs_mtime: float = 0.0,
     fs_atime: float = 0.0,
-    exif_DateTimeOriginal: str = None,
-    exif_DateTime: str = None,
-    exif_DateTimeDigitized: str = None,
-    exif_OffsetTimeOriginal: str = None,
-    exif_GPSDateStamp: str = None,
-    exif_Software: str = None,
+    exif_date_time_original: str = None,
+    exif_date_time: str = None,
+    exif_date_time_digitized: str = None,
+    exif_offset_time_original: str = None,
+    exif_gps_date_stamp: str = None,
+    exif_software: str = None,
 ) -> FileMetadata:
     """Helper para crear FileMetadata para tests.
     
     Por defecto todos los timestamps son 0.0 (sin fecha).
     Para tests que necesitan fechas filesystem, pasar explícitamente:
         fs_ctime=datetime(...).timestamp()
+    
+    Nota: Los parámetros usan snake_case por conveniencia, pero se mapean
+    a los nombres camelCase reales de FileMetadata.
     """
     return FileMetadata(
         path=path or Path('/test/file.jpg'),
@@ -49,13 +54,14 @@ def _create_test_metadata(
         fs_ctime=fs_ctime,
         fs_mtime=fs_mtime,
         fs_atime=fs_atime,
-        exif_DateTimeOriginal=exif_DateTimeOriginal,
-        exif_DateTime=exif_DateTime,
-        exif_DateTimeDigitized=exif_DateTimeDigitized,
-        exif_OffsetTimeOriginal=exif_OffsetTimeOriginal,
-        exif_GPSDateStamp=exif_GPSDateStamp,
-        exif_Software=exif_Software,
+        exif_DateTimeOriginal=exif_date_time_original,
+        exif_DateTime=exif_date_time,
+        exif_DateTimeDigitized=exif_date_time_digitized,
+        exif_OffsetTimeOriginal=exif_offset_time_original,
+        exif_GPSDateStamp=exif_gps_date_stamp,
+        exif_Software=exif_software,
     )
+
 
 
 @pytest.mark.unit
@@ -65,9 +71,9 @@ class TestSelectEarliestDate:
     def test_all_exif_dates_available_returns_earliest(self):
         """Debe devolver la fecha EXIF más antigua cuando todas están disponibles"""
         metadata = _create_test_metadata(
-            exif_DateTimeOriginal='2023:01:15 10:30:00',  # Más antigua
-            exif_DateTime='2023:01:15 10:31:00',
-            exif_DateTimeDigitized='2023:01:15 10:32:00',
+            exif_date_time_original='2023:01:15 10:30:00',  # Más antigua
+            exif_date_time='2023:01:15 10:31:00',
+            exif_date_time_digitized='2023:01:15 10:32:00',
         )
         
         result_date, result_source = select_best_date_from_file(metadata)
@@ -78,7 +84,7 @@ class TestSelectEarliestDate:
     def test_only_exif_create_date_available(self):
         """Debe devolver CreateDate cuando es la única fecha EXIF"""
         metadata = _create_test_metadata(
-            exif_DateTime='2023:03:20 14:45:00',
+            exif_date_time='2023:03:20 14:45:00',
         )
         
         result_date, result_source = select_best_date_from_file(metadata)
@@ -89,9 +95,9 @@ class TestSelectEarliestDate:
     def test_gps_date_has_highest_priority(self):
         """EXIF DateTimeOriginal tiene prioridad sobre GPS DateStamp"""
         metadata = _create_test_metadata(
-            exif_DateTimeOriginal='2023:01:15 10:31:00',
-            exif_DateTime='2023:01:15 10:32:00',
-            exif_GPSDateStamp='2023:01:15 10:30:00',
+            exif_date_time_original='2023:01:15 10:31:00',
+            exif_date_time='2023:01:15 10:32:00',
+            exif_gps_date_stamp='2023:01:15 10:30:00',
         )
 
         result_date, result_source = select_best_date_from_file(metadata)
@@ -103,8 +109,8 @@ class TestSelectEarliestDate:
     def test_datetimeoriginal_with_offset_has_higher_priority(self):
         """DateTimeOriginal con OffsetTimeOriginal debe preferirse y mostrar tz en la fuente"""
         metadata = _create_test_metadata(
-            exif_DateTimeOriginal='2023:06:01 09:00:00',
-            exif_OffsetTimeOriginal='+02:00',
+            exif_date_time_original='2023:06:01 09:00:00',
+            exif_offset_time_original='+02:00',
         )
 
         result_date, result_source = select_best_date_from_file(metadata)
@@ -126,22 +132,22 @@ class TestSelectEarliestDate:
         assert result_source == 'Filename'
 
     def test_video_metadata_used_when_is_video(self):
-        """Si es video, usar exif_DateTime como Video Metadata"""
-        # Para videos, exif_DateTime contiene la fecha del video
+        """Si es video, usar exif_date_time como Video Metadata"""
+        # Para videos, exif_date_time contiene la fecha del video
         metadata = _create_test_metadata(
             path=Path('/test/video.mp4'),  # Extensión de video
-            exif_DateTime='2024:01:15 14:30:00',
+            exif_date_time='2024:01:15 14:30:00',
         )
 
         result_date, result_source = select_best_date_from_file(metadata)
 
-        # Para videos, exif_DateTime se usa como EXIF CreateDate o Video Metadata
+        # Para videos, exif_date_time se usa como EXIF CreateDate o Video Metadata
         assert result_date == datetime(2024, 1, 15, 14, 30)
     
     def test_only_exif_date_digitized_available(self):
         """Debe devolver DateTimeDigitized cuando es la única fecha EXIF"""
         metadata = _create_test_metadata(
-            exif_DateTimeDigitized='2023:05:10 09:00:00',
+            exif_date_time_digitized='2023:05:10 09:00:00',
         )
         
         result_date, result_source = select_best_date_from_file(metadata)
@@ -152,9 +158,9 @@ class TestSelectEarliestDate:
     def test_exif_date_original_has_priority_over_digitized(self):
         """DateTimeOriginal tiene prioridad estricta sobre DateTimeDigitized"""
         metadata = _create_test_metadata(
-            exif_DateTimeOriginal='2023:05:20 10:30:00',  # Primera prioridad
-            exif_DateTime='2023:05:20 10:35:00',
-            exif_DateTimeDigitized='2023:05:15 08:00:00',  # Más antigua, pero menor prioridad
+            exif_date_time_original='2023:05:20 10:30:00',  # Primera prioridad
+            exif_date_time='2023:05:20 10:35:00',
+            exif_date_time_digitized='2023:05:15 08:00:00',  # Más antigua, pero menor prioridad
         )
         
         result_date, result_source = select_best_date_from_file(metadata)
@@ -166,9 +172,9 @@ class TestSelectEarliestDate:
     def test_epoch_zero_exif_dates_are_ignored(self):
         """Fechas EXIF de epoch 0 (1970-01-01 00:00:00) deben ignorarse y usar siguiente prioridad"""
         metadata = _create_test_metadata(
-            exif_DateTimeOriginal='1970:01:01 00:00:00',  # Epoch zero - debe ignorarse
-            exif_DateTime='1970:01:01 00:00:00',  # Epoch zero - debe ignorarse
-            exif_DateTimeDigitized='1970:01:01 00:00:00',  # Epoch zero - debe ignorarse
+            exif_date_time_original='1970:01:01 00:00:00',  # Epoch zero - debe ignorarse
+            exif_date_time='1970:01:01 00:00:00',  # Epoch zero - debe ignorarse
+            exif_date_time_digitized='1970:01:01 00:00:00',  # Epoch zero - debe ignorarse
             path=Path('/test/20230115_103045_VIDEO.mp4'),  # Fecha en nombre de archivo
         )
         
@@ -206,7 +212,7 @@ class TestSelectEarliestDate:
     def test_exif_priority_over_older_filesystem_dates(self):
         """EXIF debe tener prioridad incluso si fechas del sistema son más antiguas"""
         metadata = _create_test_metadata(
-            exif_DateTime='2023:06:15 10:00:00',  # EXIF más reciente
+            exif_date_time='2023:06:15 10:00:00',  # EXIF más reciente
             fs_ctime=datetime(2020, 1, 1, 12, 0).timestamp(),  # Más antigua pero ignorada
             fs_mtime=datetime(2019, 6, 15, 8, 0).timestamp(),  # Más antigua pero ignorada
         )
@@ -392,9 +398,9 @@ class TestGetAllFileDates:
             file_metadata = get_all_metadata_from_file(image_path)
             
             # Verificar atributos directamente en FileMetadata
-            assert file_metadata.exif_DateTimeOriginal is not None
-            assert file_metadata.exif_DateTime is not None  # CreateDate se mapea a DateTime
-            assert file_metadata.exif_DateTimeDigitized is not None
+            assert file_metadata.exif_date_time_original is not None
+            assert file_metadata.exif_date_time is not None  # CreateDate se mapea a DateTime
+            assert file_metadata.exif_date_time_digitized is not None
             assert file_metadata.fs_mtime > 0
             assert file_metadata.fs_ctime > 0
     
@@ -416,9 +422,9 @@ class TestGetAllFileDates:
         patch('utils.settings_manager.settings_manager.get_precalculate_video_exif', return_value=False):
             file_metadata = get_all_metadata_from_file(image_path)
             
-            assert file_metadata.exif_DateTimeOriginal is None
-            assert file_metadata.exif_DateTime is None
-            assert file_metadata.exif_DateTimeDigitized is None
+            assert file_metadata.exif_date_time_original is None
+            assert file_metadata.exif_date_time is None
+            assert file_metadata.exif_date_time_digitized is None
             assert file_metadata.fs_mtime > 0
     
     def test_nonexistent_file_returns_empty_dates(self):
@@ -426,9 +432,9 @@ class TestGetAllFileDates:
         file_metadata = get_all_metadata_from_file(Path('/nonexistent/file.jpg'))
         
         # Como el archivo no existe, debe tener valores por defecto (0.0 o None)
-        assert file_metadata.exif_DateTimeOriginal is None
-        assert file_metadata.exif_DateTime is None
-        assert file_metadata.exif_DateTimeDigitized is None
+        assert file_metadata.exif_date_time_original is None
+        assert file_metadata.exif_date_time is None
+        assert file_metadata.exif_date_time_digitized is None
 
     def test_video_metadata_disabled_by_config(self, temp_dir, create_test_video):
         """Cuando get_precalculate_video_exif es False, no debe llamar a get_exif_from_video"""
@@ -443,8 +449,8 @@ class TestGetAllFileDates:
             # No debe llamar a get_exif_from_video
             mock_get_video_metadata.assert_not_called()
 
-            # exif_DateTime (que almacena video metadata) debe ser None
-            assert file_metadata.exif_DateTime is None
+            # exif_date_time (que almacena video metadata) debe ser None
+            assert file_metadata.exif_date_time is None
 
     def test_video_metadata_enabled_by_config(self, temp_dir, create_test_video):
         """Cuando get_precalculate_video_exif es True, debe llamar a get_exif_from_video"""
@@ -460,8 +466,8 @@ class TestGetAllFileDates:
             # Debe llamar a get_exif_from_video
             mock_get_video_metadata.assert_called_once_with(video_path)
 
-            # Para videos, la fecha se guarda en exif_DateTime como string ISO
-            assert file_metadata.exif_DateTime is not None
+            # Para videos, la fecha se guarda en exif_date_time como string ISO
+            assert file_metadata.exif_date_time is not None
 
     def test_video_metadata_enabled_but_no_metadata_available(self, temp_dir, create_test_video):
         """Cuando get_precalculate_video_exif es True pero no hay metadatos, debe devolver None"""
@@ -476,8 +482,8 @@ class TestGetAllFileDates:
             # Debe llamar a get_exif_from_video
             mock_get_video_metadata.assert_called_once_with(video_path)
 
-            # exif_DateTime debe ser None
-            assert file_metadata.exif_DateTime is None
+            # exif_date_time debe ser None
+            assert file_metadata.exif_date_time is None
 
 
 @pytest.mark.unit
@@ -497,8 +503,8 @@ class TestGetDateFromFile:
             fs_ctime=datetime(2024, 1, 1, 12, 0).timestamp(),
             fs_mtime=datetime(2024, 1, 2, 14, 0).timestamp(),
             fs_atime=datetime(2024, 1, 3, 16, 0).timestamp(),
-            exif_DateTimeOriginal='2023-01-15T10:30:00',
-            exif_DateTime='2023-01-15T10:31:00'
+            exif_date_time_original='2023-01-15T10:30:00',
+            exif_date_time='2023-01-15T10:31:00'
         )
         
         result_date, result_source = select_best_date_from_file(mock_metadata)
@@ -791,7 +797,7 @@ class TestEdgeCasesAndCorruptedData:
     def test_select_earliest_with_all_none_except_one_exif(self):
         """Una sola fecha EXIF disponible debe ser seleccionada"""
         metadata = _create_test_metadata(
-            exif_DateTimeDigitized='2023:01:15 10:30:00',
+            exif_date_time_digitized='2023:01:15 10:30:00',
         )
         
         result_date, result_source = select_best_date_from_file(metadata)
@@ -804,9 +810,9 @@ class TestEdgeCasesAndCorruptedData:
         same_date_str = '2023:01:15 10:30:00'
         same_ts = datetime(2023, 1, 15, 10, 30).timestamp()
         metadata = _create_test_metadata(
-            exif_DateTimeOriginal=same_date_str,
-            exif_DateTime=same_date_str,
-            exif_DateTimeDigitized=same_date_str,
+            exif_date_time_original=same_date_str,
+            exif_date_time=same_date_str,
+            exif_date_time_digitized=same_date_str,
             fs_ctime=same_ts,
             fs_mtime=same_ts,
         )
@@ -842,7 +848,7 @@ class TestSelectChosenDateCombinatorial:
     def test_datetime_original_only(self):
         """Solo DateTimeOriginal disponible"""
         metadata = _create_test_metadata(
-            exif_DateTimeOriginal='2023:05:10 14:30:00',
+            exif_date_time_original='2023:05:10 14:30:00',
         )
         
         result_date, result_source = select_best_date_from_file(metadata)
@@ -853,8 +859,8 @@ class TestSelectChosenDateCombinatorial:
     def test_datetime_original_with_offset(self):
         """DateTimeOriginal con OffsetTimeOriginal tiene nombre descriptivo"""
         metadata = _create_test_metadata(
-            exif_DateTimeOriginal='2023:05:10 14:30:00',
-            exif_OffsetTimeOriginal='+02:00',
+            exif_date_time_original='2023:05:10 14:30:00',
+            exif_offset_time_original='+02:00',
         )
         
         result_date, result_source = select_best_date_from_file(metadata)
@@ -864,9 +870,9 @@ class TestSelectChosenDateCombinatorial:
         assert 'DateTimeOriginal' in result_source
     
     def test_create_date_only(self):
-        """Solo CreateDate disponible (mapeado a exif_DateTime)"""
+        """Solo CreateDate disponible (mapeado a exif_date_time)"""
         metadata = _create_test_metadata(
-            exif_DateTime='2023:06:15 09:00:00',
+            exif_date_time='2023:06:15 09:00:00',
         )
         
         result_date, result_source = select_best_date_from_file(metadata)
@@ -877,7 +883,7 @@ class TestSelectChosenDateCombinatorial:
     def test_date_digitized_only(self):
         """Solo DateTimeDigitized disponible"""
         metadata = _create_test_metadata(
-            exif_DateTimeDigitized='2023:07:20 11:45:00',
+            exif_date_time_digitized='2023:07:20 11:45:00',
         )
         
         result_date, result_source = select_best_date_from_file(metadata)
@@ -888,9 +894,9 @@ class TestSelectChosenDateCombinatorial:
     def test_all_three_exif_dates_returns_earliest(self):
         """Con las 3 fechas EXIF, debe devolver DateTimeOriginal (prioridad estricta)"""
         metadata = _create_test_metadata(
-            exif_DateTimeOriginal='2023:05:10 14:00:00',  # Primera prioridad
-            exif_DateTime='2023:05:10 12:00:00',  # Más antigua, pero menor prioridad
-            exif_DateTimeDigitized='2023:05:10 16:00:00',
+            exif_date_time_original='2023:05:10 14:00:00',  # Primera prioridad
+            exif_date_time='2023:05:10 12:00:00',  # Más antigua, pero menor prioridad
+            exif_date_time_digitized='2023:05:10 16:00:00',
         )
         
         result_date, result_source = select_best_date_from_file(metadata)
@@ -903,8 +909,8 @@ class TestSelectChosenDateCombinatorial:
     def test_gps_with_exif_original_gps_ignored(self):
         """GPS DateStamp es ignorado cuando hay EXIF DateTimeOriginal"""
         metadata = _create_test_metadata(
-            exif_DateTimeOriginal='2023:08:04 18:49:23',
-            exif_GPSDateStamp='2023:08:04 20:00:00',
+            exif_date_time_original='2023:08:04 18:49:23',
+            exif_gps_date_stamp='2023:08:04 20:00:00',
         )
         
         result_date, result_source = select_best_date_from_file(metadata)
@@ -916,7 +922,7 @@ class TestSelectChosenDateCombinatorial:
     def test_gps_only_not_selected(self):
         """GPS DateStamp solo (sin EXIF) no se selecciona, cae a filesystem"""
         metadata = _create_test_metadata(
-            exif_GPSDateStamp='2023:08:04 20:00:00',
+            exif_gps_date_stamp='2023:08:04 20:00:00',
             fs_ctime=datetime(2024, 1, 1, 12, 0).timestamp(),
             fs_mtime=datetime(2024, 1, 2, 14, 0).timestamp(),
         )
@@ -946,7 +952,7 @@ class TestSelectChosenDateCombinatorial:
         """Filename date es ignorado cuando hay EXIF"""
         metadata = _create_test_metadata(
             path=Path('/test/IMG-20241113-WA0001.jpg'),
-            exif_DateTimeOriginal='2023:05:10 14:30:00',
+            exif_date_time_original='2023:05:10 14:30:00',
         )
         
         result_date, result_source = select_best_date_from_file(metadata)
@@ -958,17 +964,17 @@ class TestSelectChosenDateCombinatorial:
     # === TESTS DE VIDEO METADATA ===
     
     def test_video_metadata_when_no_exif_no_filename(self):
-        """Video metadata (exif_DateTime para videos) es seleccionado cuando no hay EXIF fecha original"""
+        """Video metadata (exif_date_time para videos) es seleccionado cuando no hay EXIF fecha original"""
         metadata = _create_test_metadata(
             path=Path('/test/video.mp4'),
-            exif_DateTime='2024:01:15 14:30:00',
+            exif_date_time='2024:01:15 14:30:00',
             fs_ctime=datetime(2024, 1, 15, 12, 0).timestamp(),
             fs_mtime=datetime(2024, 1, 15, 16, 0).timestamp(),
         )
         
         result_date, result_source = select_best_date_from_file(metadata)
         
-        # Para videos sin DateTimeOriginal, usa exif_DateTime
+        # Para videos sin DateTimeOriginal, usa exif_date_time
         assert result_date == datetime(2024, 1, 15, 14, 30)
     
     # === TESTS DE FILESYSTEM DATES (Último recurso) ===
@@ -1010,7 +1016,7 @@ class TestSelectChosenDateCombinatorial:
     def test_filesystem_ignored_when_exif_exists(self):
         """Fechas filesystem son ignoradas cuando hay EXIF"""
         metadata = _create_test_metadata(
-            exif_DateTimeOriginal='2023:05:10 14:30:00',
+            exif_date_time_original='2023:05:10 14:30:00',
             fs_ctime=datetime(2022, 1, 1, 12, 0).timestamp(),  # Más antigua pero ignorada
             fs_mtime=datetime(2021, 6, 15, 8, 0).timestamp(),  # Mucho más antigua
         )
@@ -1027,10 +1033,10 @@ class TestSelectChosenDateCombinatorial:
         """Con todas las fuentes, DateTimeOriginal tiene prioridad absoluta"""
         metadata = _create_test_metadata(
             path=Path('/test/IMG-20241113-WA0001.jpg'),  # Tiene fecha en filename
-            exif_DateTimeOriginal='2023:05:10 14:30:00',  # Primera prioridad
-            exif_DateTime='2023:05:10 12:00:00',  # Más antigua EXIF, pero menor prioridad
-            exif_DateTimeDigitized='2023:05:10 16:00:00',
-            exif_GPSDateStamp='2023:05:10 10:00:00',  # Más antigua global pero GPS ignorado
+            exif_date_time_original='2023:05:10 14:30:00',  # Primera prioridad
+            exif_date_time='2023:05:10 12:00:00',  # Más antigua EXIF, pero menor prioridad
+            exif_date_time_digitized='2023:05:10 16:00:00',
+            exif_gps_date_stamp='2023:05:10 10:00:00',  # Más antigua global pero GPS ignorado
             fs_ctime=datetime(2022, 1, 1, 12, 0).timestamp(),  # Más antigua filesystem
             fs_mtime=datetime(2021, 6, 15, 8, 0).timestamp(),
         )
@@ -1056,7 +1062,7 @@ class TestSelectChosenDateCombinatorial:
         same_ts = datetime(2023, 5, 10, 12, 0).timestamp()
         metadata = _create_test_metadata(
             path=Path('/test/IMG-20230510-WA0001.jpg'),  # Misma fecha en filename
-            exif_DateTimeOriginal=same_date_str,
+            exif_date_time_original=same_date_str,
             fs_ctime=same_ts,
             fs_mtime=same_ts,
         )
@@ -1069,8 +1075,8 @@ class TestSelectChosenDateCombinatorial:
     def test_extreme_date_differences_handled_correctly(self):
         """Diferencias extremas de fechas: prioridad estricta evita fechas corruptas"""
         metadata = _create_test_metadata(
-            exif_DateTimeOriginal='2023:05:10 14:30:00',  # Primera prioridad
-            exif_DateTime='1990:01:01 00:00:00',  # 33 años antes (posible corrupción)
+            exif_date_time_original='2023:05:10 14:30:00',  # Primera prioridad
+            exif_date_time='1990:01:01 00:00:00',  # 33 años antes (posible corrupción)
             fs_ctime=datetime(2024, 12, 31, 23, 59).timestamp(),  # En el futuro
         )
         
@@ -1262,7 +1268,7 @@ class TestGetBestCommonCreationDate2FilesComprehensive:
         """
         BUG FIX: EXIF dates como strings deben ser parseados correctamente.
         
-        Antes del fix, cuando FileMetadata tenía exif_DateTimeOriginal como string
+        Antes del fix, cuando FileMetadata tenía exif_date_time_original como string
         "2023:08:10 15:41:34", la función _to_dt() no podía convertirlo y caía
         a filesystem timestamps (mtime/ctime).
         
@@ -1274,8 +1280,8 @@ class TestGetBestCommonCreationDate2FilesComprehensive:
         # Simular FileMetadata con EXIF como strings (formato real del caché)
         file1 = SimpleNamespace(
             path="/home/ed/Pictures/RAW/iPhoneC_hasta_202311/IMG_0022.HEIC",
-            exif_DateTimeOriginal="2023:08:10 15:41:34",  # String EXIF, NO datetime
-            exif_DateTime="2023:08:10 15:41:34",
+            exif_date_time_original="2023:08:10 15:41:34",  # String EXIF, NO datetime
+            exif_date_time="2023:08:10 15:41:34",
             fs_mtime=1691703949.0,  # 2023-08-10 pero hora diferente
             fs_ctime=1766818401.512191,
             fs_atime=1766832805.0878773
@@ -1283,8 +1289,8 @@ class TestGetBestCommonCreationDate2FilesComprehensive:
         
         file2 = SimpleNamespace(
             path="/home/ed/Pictures/RAW/iPhoneC_hasta_202311/IMG_0022.jpg",
-            exif_DateTimeOriginal="2023:08:10 15:41:34",  # String EXIF, NO datetime
-            exif_DateTime="2023:08:10 15:41:34",
+            exif_date_time_original="2023:08:10 15:41:34",  # String EXIF, NO datetime
+            exif_date_time="2023:08:10 15:41:34",
             fs_mtime=1691703949.0,
             fs_ctime=1766818401.5821912,
             fs_atime=1766832805.0838773
@@ -1306,14 +1312,14 @@ class TestGetBestCommonCreationDate2FilesComprehensive:
         
         file1 = SimpleNamespace(
             path="/test/file1.jpg",
-            exif_DateTimeOriginal="2023:08:10 15:41:34",  # String EXIF
+            exif_date_time_original="2023:08:10 15:41:34",  # String EXIF
             fs_mtime=datetime(2020, 1, 1).timestamp(),  # Mucho más antiguo
             fs_ctime=datetime(2020, 1, 1).timestamp()
         )
         
         file2 = SimpleNamespace(
             path="/test/file2.jpg",
-            exif_DateTimeOriginal="2023:08:10 15:41:35",  # String EXIF
+            exif_date_time_original="2023:08:10 15:41:35",  # String EXIF
             fs_mtime=datetime(2020, 1, 1).timestamp(),
             fs_ctime=datetime(2020, 1, 1).timestamp()
         )
@@ -1333,7 +1339,7 @@ class TestGetBestCommonCreationDate2FilesComprehensive:
         file1 = SimpleNamespace(
             path="/test/file1.mp4",
             exif_date_time_original=datetime(1970, 1, 1, 0, 0, 0),  # Epoch zero - debe ignorarse
-            exif_DateTime=datetime(1970, 1, 1, 0, 0, 0),  # Epoch zero - debe ignorarse
+            exif_date_time=datetime(1970, 1, 1, 0, 0, 0),  # Epoch zero - debe ignorarse
             fs_mtime=datetime(2021, 9, 4, 11, 56, 41).timestamp(),  # Fecha real del filesystem
             fs_ctime=datetime(2021, 9, 4, 11, 56, 41).timestamp()
         )
@@ -1342,7 +1348,7 @@ class TestGetBestCommonCreationDate2FilesComprehensive:
         file2 = SimpleNamespace(
             path="/test/file2.jpg",
             exif_date_time_original=datetime(1970, 1, 1, 0, 0, 0),  # Epoch zero - debe ignorarse
-            exif_DateTime=datetime(1970, 1, 1, 0, 0, 0),  # Epoch zero - debe ignorarse
+            exif_date_time=datetime(1970, 1, 1, 0, 0, 0),  # Epoch zero - debe ignorarse
             fs_mtime=datetime(2021, 9, 4, 11, 56, 42).timestamp(),  # Fecha real del filesystem
             fs_ctime=datetime(2021, 9, 4, 11, 56, 42).timestamp()
         )
@@ -1377,14 +1383,14 @@ class TestTimezoneNormalization:
         # Imagen iPhone con hora local y offset
         image = SimpleNamespace(
             path="/test/IMG_3831.JPG",
-            exif_DateTimeOriginal="2021:07:06 15:37:26",  # Hora local
-            exif_OffsetTimeOriginal="+02:00"  # UTC+2
+            exif_date_time_original="2021:07:06 15:37:26",  # Hora local
+            exif_offset_time_original="+02:00"  # UTC+2
         )
         
         # Video ffprobe (siempre en UTC)
         video = SimpleNamespace(
             path="/test/IMG_3831.MOV",
-            exif_DateTimeOriginal="2021:07:06 13:37:26"  # UTC
+            exif_date_time_original="2021:07:06 13:37:26"  # UTC
         )
         
         vid_date, img_date, source = select_best_date_from_common_date_to_2_files(video, image)
@@ -1405,14 +1411,14 @@ class TestTimezoneNormalization:
         # Archivo 1 con offset negativo (ej: Nueva York en verano)
         file1 = SimpleNamespace(
             path="/test/file1.jpg",
-            exif_DateTimeOriginal="2023:08:10 10:00:00",  # Hora local NYC
-            exif_OffsetTimeOriginal="-04:00"  # EDT
+            exif_date_time_original="2023:08:10 10:00:00",  # Hora local NYC
+            exif_offset_time_original="-04:00"  # EDT
         )
         
         # Archivo 2 en UTC
         file2 = SimpleNamespace(
             path="/test/file2.mov",
-            exif_DateTimeOriginal="2023:08:10 14:00:00"  # UTC (10:00 + 4h)
+            exif_date_time_original="2023:08:10 14:00:00"  # UTC (10:00 + 4h)
         )
         
         d1, d2, source = select_best_date_from_common_date_to_2_files(file1, file2)
@@ -1431,15 +1437,15 @@ class TestTimezoneNormalization:
         # Archivo 1 en UTC+2
         file1 = SimpleNamespace(
             path="/test/file1.jpg",
-            exif_DateTimeOriginal="2023:08:10 16:00:00",
-            exif_OffsetTimeOriginal="+02:00"
+            exif_date_time_original="2023:08:10 16:00:00",
+            exif_offset_time_original="+02:00"
         )
         
         # Archivo 2 en UTC+9 (Japón)
         file2 = SimpleNamespace(
             path="/test/file2.jpg",
-            exif_DateTimeOriginal="2023:08:10 23:00:00",
-            exif_OffsetTimeOriginal="+09:00"
+            exif_date_time_original="2023:08:10 23:00:00",
+            exif_offset_time_original="+09:00"
         )
         
         d1, d2, source = select_best_date_from_common_date_to_2_files(file1, file2)
@@ -1455,13 +1461,13 @@ class TestTimezoneNormalization:
         
         file1 = SimpleNamespace(
             path="/test/file1.jpg",
-            exif_DateTimeOriginal="2023:08:10 15:00:00"
-            # Sin exif_OffsetTimeOriginal
+            exif_date_time_original="2023:08:10 15:00:00"
+            # Sin exif_offset_time_original
         )
         
         file2 = SimpleNamespace(
             path="/test/file2.jpg",
-            exif_DateTimeOriginal="2023:08:10 15:00:05"
+            exif_date_time_original="2023:08:10 15:00:05"
         )
         
         d1, d2, source = select_best_date_from_common_date_to_2_files(file1, file2)
@@ -1492,3 +1498,141 @@ class TestTimezoneNormalization:
         assert _parse_timezone_offset(None) is None
         assert _parse_timezone_offset("") is None
         assert _parse_timezone_offset("invalid") is None
+
+
+@pytest.mark.unit
+class TestValidateDateCoherence:
+    """Tests para _validate_date_coherence — debe devolver DateCoherenceResult (frozen dataclass)."""
+
+    def test_returns_dataclass_not_dict(self):
+        """El resultado debe ser DateCoherenceResult, no un dict."""
+        metadata = _create_test_metadata(
+            exif_date_time_original='2023:01:15 10:30:00',
+            fs_mtime=datetime(2024, 1, 1, 12, 0).timestamp(),
+        )
+        result = _validate_date_coherence(metadata)
+
+        assert isinstance(result, DateCoherenceResult)
+        assert not isinstance(result, dict)
+
+    def test_warnings_is_tuple(self):
+        """warnings debe ser una tupla (inmutable) para frozen dataclass."""
+        metadata = _create_test_metadata()
+        result = _validate_date_coherence(metadata)
+
+        assert isinstance(result.warnings, tuple)
+
+    def test_clean_file_high_confidence(self):
+        """Archivo sin anomalías debe tener is_valid=True y confidence='high'."""
+        metadata = _create_test_metadata(
+            exif_date_time_original='2023:01:15 10:30:00',
+            fs_mtime=datetime(2024, 1, 1, 12, 0).timestamp(),
+            fs_ctime=datetime(2023, 1, 15, 10, 30, 0).timestamp(),
+        )
+        result = _validate_date_coherence(metadata)
+
+        assert result.is_valid is True
+        assert result.warnings == ()
+        assert result.confidence == 'high'
+
+    def test_exif_after_mtime_warning(self):
+        """EXIF posterior a mtime debe generar EXIF_AFTER_MTIME y is_valid=False."""
+        metadata = _create_test_metadata(
+            exif_date_time_original='2025:06:01 10:00:00',
+            fs_mtime=datetime(2023, 1, 1, 12, 0).timestamp(),
+        )
+        result = _validate_date_coherence(metadata)
+
+        assert 'EXIF_AFTER_MTIME' in result.warnings
+        assert result.is_valid is False
+
+    def test_exif_divergence_warning(self):
+        """Divergencia mayor a 1 año entre campos EXIF genera EXIF_DIVERGENCE."""
+        metadata = _create_test_metadata(
+            exif_date_time_original='2023:01:15 10:30:00',
+            exif_date_time='2021:01:15 10:30:00',  # >1 año de diferencia
+            fs_mtime=datetime(2024, 1, 1, 12, 0).timestamp(),
+        )
+        result = _validate_date_coherence(metadata)
+
+        assert 'EXIF_DIVERGENCE' in result.warnings
+        assert result.is_valid is False
+
+    def test_digitized_before_original_warning(self):
+        """DateTimeDigitized anterior a DateTimeOriginal genera DIGITIZED_BEFORE_ORIGINAL."""
+        metadata = _create_test_metadata(
+            exif_date_time_original='2023:06:01 10:00:00',
+            exif_date_time_digitized='2023:01:01 10:00:00',  # 5 meses antes
+            fs_mtime=datetime(2024, 1, 1, 12, 0).timestamp(),
+        )
+        result = _validate_date_coherence(metadata)
+
+        assert 'DIGITIZED_BEFORE_ORIGINAL' in result.warnings
+        assert result.is_valid is False
+
+    def test_software_detected_warning(self):
+        """Campo Software presente genera SOFTWARE_DETECTED (solo informativo)."""
+        metadata = _create_test_metadata(
+            exif_date_time_original='2023:01:15 10:30:00',
+            exif_software='Adobe Photoshop',
+            fs_mtime=datetime(2024, 1, 1, 12, 0).timestamp(),
+            fs_ctime=datetime(2023, 1, 15, 10, 30, 0).timestamp(),
+        )
+        result = _validate_date_coherence(metadata)
+
+        assert 'SOFTWARE_DETECTED' in result.warnings
+        assert result.confidence == 'medium'  # 1 warning → medium
+
+    def test_recent_transfer_warning(self):
+        """ctime muy diferente de EXIF genera RECENT_TRANSFER."""
+        metadata = _create_test_metadata(
+            exif_date_time_original='2020:01:15 10:30:00',
+            fs_mtime=datetime(2024, 1, 1, 12, 0).timestamp(),
+            fs_ctime=datetime(2024, 1, 1, 12, 0).timestamp(),  # 4 años después
+        )
+        result = _validate_date_coherence(metadata)
+
+        assert 'RECENT_TRANSFER' in result.warnings
+
+    def test_gps_divergence_warning(self):
+        """GPS date >1 día diferente de EXIF genera GPS_DIVERGENCE."""
+        metadata = _create_test_metadata(
+            exif_date_time_original='2023:01:15 10:30:00',
+            exif_gps_date_stamp='2023:02:20 10:30:00',  # >1 mes
+            fs_mtime=datetime(2024, 1, 1, 12, 0).timestamp(),
+            fs_ctime=datetime(2023, 1, 15, 10, 30, 0).timestamp(),
+        )
+        result = _validate_date_coherence(metadata)
+
+        assert 'GPS_DIVERGENCE' in result.warnings
+
+    def test_multiple_warnings_low_confidence(self):
+        """Múltiples warnings con is_valid=False dan confidence='low'."""
+        metadata = _create_test_metadata(
+            exif_date_time_original='2025:06:01 10:00:00',  # Futuro (EXIF_AFTER_MTIME)
+            exif_date_time='2021:01:01 10:00:00',          # >1 año (EXIF_DIVERGENCE)
+            fs_mtime=datetime(2023, 1, 1, 12, 0).timestamp(),
+        )
+        result = _validate_date_coherence(metadata)
+
+        assert result.is_valid is False
+        assert result.confidence == 'low'
+        assert len(result.warnings) >= 2
+
+    def test_no_exif_dates_returns_valid(self):
+        """Sin fechas EXIF debe devolver is_valid=True (nada que validar)."""
+        metadata = _create_test_metadata(
+            fs_mtime=datetime(2024, 1, 1, 12, 0).timestamp(),
+        )
+        result = _validate_date_coherence(metadata)
+
+        assert result.is_valid is True
+        assert result.confidence == 'high'
+
+    def test_frozen_dataclass_is_immutable(self):
+        """DateCoherenceResult debe ser inmutable (frozen)."""
+        metadata = _create_test_metadata()
+        result = _validate_date_coherence(metadata)
+
+        with pytest.raises(AttributeError):
+            result.is_valid = False  # type: ignore
