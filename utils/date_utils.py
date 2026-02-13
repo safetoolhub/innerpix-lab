@@ -8,10 +8,115 @@ from datetime import datetime, timezone
 from typing import Optional, Tuple, Protocol, Any, runtime_checkable
 
 from functools import lru_cache
-from services.file_metadata import FileMetadata
 from utils.logger import get_logger
 
 _logger = get_logger("DateUtils")
+
+# Constante para fecha epoch zero
+_EPOCH_ZERO = datetime(1970, 1, 1, 0, 0, 0)
+
+
+# ==============================================================================
+# HELPER FUNCTIONS - Funciones de parseo reutilizables
+# ==============================================================================
+
+def _parse_exif_date(date_str: Optional[str]) -> Optional[datetime]:
+    """
+    Parsea un string de fecha EXIF a datetime.
+    
+    Soporta dos formatos comunes:
+    - Formato EXIF estándar: "2023:01:15 10:30:00"
+    - Formato ISO 8601: "2023-01-15T10:30:00Z" o "2023-01-15T10:30:00+02:00"
+    
+    Args:
+        date_str: String de fecha EXIF o None
+        
+    Returns:
+        datetime parseado o None si el string es inválido
+        
+    Examples:
+        >>> _parse_exif_date("2023:01:15 10:30:00")
+        datetime.datetime(2023, 1, 15, 10, 30)
+        
+        >>> _parse_exif_date("2023-01-15T10:30:00Z")
+        datetime.datetime(2023, 1, 15, 10, 30, tzinfo=datetime.timezone.utc)
+        
+        >>> _parse_exif_date(None)
+        None
+    """
+    if not date_str:
+        return None
+    try:
+        # Formato típico EXIF: "2023:01:15 10:30:00"
+        if ':' in date_str[:10]:
+            return datetime.strptime(date_str[:19], '%Y:%m:%d %H:%M:%S')
+        # Formato ISO
+        elif 'T' in date_str:
+            return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+        return None
+    except (ValueError, TypeError):
+        return None
+
+
+def _is_epoch_zero_date(dt: datetime) -> bool:
+    """
+    Verifica si un datetime es la fecha de epoch 0 (1970-01-01 00:00:00).
+    
+    Esta fecha representa "no hay fecha" en muchos sistemas y debe ser
+    tratada como inválida para propósitos de selección de mejor fecha.
+    
+    Args:
+        dt: datetime a verificar
+        
+    Returns:
+        True si es epoch 0, False en caso contrario
+        
+    Examples:
+        >>> _is_epoch_zero_date(datetime(1970, 1, 1, 0, 0, 0))
+        True
+        
+        >>> _is_epoch_zero_date(datetime(2023, 1, 15, 10, 30, 0))
+        False
+    """
+    return dt == _EPOCH_ZERO
+
+
+def _parse_gps_datetime(gps_datestamp: Optional[str], gps_timestamp: Optional[str]) -> Optional[datetime]:
+    """
+    Combina GPSDateStamp y GPSTimeStamp en un solo datetime.
+    
+    Los metadatos GPS almacenan fecha y hora en campos separados.
+    Esta función los combina cuando ambos están presentes,
+    o intenta parsear solo la fecha si está disponible.
+    
+    Args:
+        gps_datestamp: String de fecha GPS "YYYY:MM:DD"
+        gps_timestamp: String de hora GPS "HH:MM:SS"
+        
+    Returns:
+        datetime combinado o None si no se puede parsear
+        
+    Examples:
+        >>> _parse_gps_datetime("2023:01:15", "10:30:00")
+        datetime.datetime(2023, 1, 15, 10, 30)
+        
+        >>> _parse_gps_datetime("2023:01:15", None)
+        datetime.datetime(2023, 1, 15, 0, 0)
+        
+        >>> _parse_gps_datetime(None, "10:30:00")
+        None
+    """
+    if gps_datestamp and gps_timestamp:
+        try:
+            gps_datetime_str = f"{gps_datestamp} {gps_timestamp}"
+            return datetime.strptime(gps_datetime_str, '%Y:%m:%d %H:%M:%S')
+        except (ValueError, TypeError):
+            pass
+    elif gps_datestamp:
+        # Solo fecha GPS disponible
+        return _parse_exif_date(gps_datestamp)
+    
+    return None
 
 
 @dataclass(frozen=True)
@@ -132,17 +237,9 @@ def select_best_date_from_common_date_to_2_files(
         if val is None: return None
         if isinstance(val, datetime): return val
         if isinstance(val, (int, float)): return datetime.fromtimestamp(val)
-        # Parse EXIF string format: "2023:08:10 15:41:34"
+        # Parse EXIF string format usando helper global
         if isinstance(val, str):
-            try:
-                # Formato típico EXIF: "2023:01:15 10:30:00"
-                if ':' in val[:10]:
-                    return datetime.strptime(val[:19], '%Y:%m:%d %H:%M:%S')
-                # Formato ISO
-                elif 'T' in val:
-                    return datetime.fromisoformat(val.replace('Z', '+00:00'))
-            except (ValueError, TypeError, IndexError):
-                pass
+            return _parse_exif_date(val)
         return None
     
     def _normalize_to_utc(dt: datetime, offset_str: Optional[str]) -> datetime:
@@ -169,9 +266,7 @@ def select_best_date_from_common_date_to_2_files(
     def _fmt(dt):
         return dt.strftime('%Y-%m-%d %H:%M:%S.%f') if dt else 'None'
 
-    # Helper para verificar si una fecha es la de epoch 0 (1970-01-01 00:00:00)
-    def _is_epoch_zero_date(dt: datetime) -> bool:
-        return dt == datetime(1970, 1, 1, 0, 0, 0)
+    # Nota: _is_epoch_zero_date está definido a nivel de módulo
 
     if verbose:
         _logger.debug(f"DEBUG: Comparing dates for {getattr(file1, 'path', 'f1')} and {getattr(file2, 'path', 'f2')}")
@@ -337,41 +432,19 @@ def select_best_date_from_file(file_metadata: 'FileMetadata') -> tuple[Optional[
     import platform
     from services.file_metadata import FileMetadata
     
-    # Helper para parsear fechas EXIF string a datetime
-    def _parse_exif_date(date_str: Optional[str]) -> Optional[datetime]:
-        if not date_str:
-            return None
-        try:
-            # Formato típico EXIF: "2023:01:15 10:30:00"
-            if ':' in date_str[:10]:
-                return datetime.strptime(date_str[:19], '%Y:%m:%d %H:%M:%S')
-            # Formato ISO
-            elif 'T' in date_str:
-                return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-            return None
-        except (ValueError, TypeError):
-            return None
-    
-    # Helper para verificar si una fecha es la de epoch 0 (1970-01-01 00:00:00)
-    def _is_epoch_zero_date(dt: datetime) -> bool:
-        return dt == datetime(1970, 1, 1, 0, 0, 0)
+    # Nota: _parse_exif_date, _is_epoch_zero_date y _parse_gps_datetime 
+    # están definidos a nivel de módulo
     
     # Extraer fechas de FileMetadata
     exif_date_time_original = _parse_exif_date(file_metadata.exif_DateTimeOriginal)
     exif_create_date = _parse_exif_date(file_metadata.exif_DateTime)  # CreateDate mapea a DateTime
     exif_date_digitized = _parse_exif_date(file_metadata.exif_DateTimeDigitized)
     
-    # GPS Date: Combinar GPSDateStamp y GPSTimeStamp si ambos están presentes
-    exif_gps_date = None
-    if file_metadata.exif_GPSDateStamp and file_metadata.exif_GPSTimeStamp:
-        try:
-            gps_datetime_str = f"{file_metadata.exif_GPSDateStamp} {file_metadata.exif_GPSTimeStamp}"
-            exif_gps_date = datetime.strptime(gps_datetime_str, '%Y:%m:%d %H:%M:%S')
-        except (ValueError, TypeError):
-            pass
-    elif file_metadata.exif_GPSDateStamp:
-        # Solo fecha GPS disponible
-        exif_gps_date = _parse_exif_date(file_metadata.exif_GPSDateStamp)
+    # GPS Date: Combinar GPSDateStamp y GPSTimeStamp usando helper global
+    exif_gps_date = _parse_gps_datetime(
+        file_metadata.exif_GPSDateStamp, 
+        file_metadata.exif_GPSTimeStamp
+    )
     
     exif_offset_time = file_metadata.exif_OffsetTimeOriginal
     
@@ -942,32 +1015,11 @@ def _validate_gps_coherence(file_metadata: 'FileMetadata', selected_date: dateti
         file_metadata: FileMetadata con los metadatos del archivo
         selected_date: Fecha seleccionada (normalmente DateTimeOriginal)
     """
-    # Helper para parsear fechas EXIF string a datetime
-    def _parse_exif_date(date_str: Optional[str]) -> Optional[datetime]:
-        if not date_str:
-            return None
-        try:
-            # Formato típico EXIF: "2023:01:15 10:30:00"
-            if ':' in date_str[:10]:
-                return datetime.strptime(date_str[:19], '%Y:%m:%d %H:%M:%S')
-            # Formato ISO
-            elif 'T' in date_str:
-                return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-            return None
-        except (ValueError, TypeError):
-            return None
-    
-    # GPS Date: Combinar GPSDateStamp y GPSTimeStamp si ambos están presentes
-    gps_date = None
-    if file_metadata.exif_GPSDateStamp and file_metadata.exif_GPSTimeStamp:
-        try:
-            gps_datetime_str = f"{file_metadata.exif_GPSDateStamp} {file_metadata.exif_GPSTimeStamp}"
-            gps_date = datetime.strptime(gps_datetime_str, '%Y:%m:%d %H:%M:%S')
-        except (ValueError, TypeError):
-            pass
-    elif file_metadata.exif_GPSDateStamp:
-        # Solo fecha GPS disponible
-        gps_date = _parse_exif_date(file_metadata.exif_GPSDateStamp)
+    # Nota: _parse_gps_datetime está definido a nivel de módulo
+    gps_date = _parse_gps_datetime(
+        file_metadata.exif_GPSDateStamp,
+        file_metadata.exif_GPSTimeStamp
+    )
     
     if not gps_date:
         return
@@ -1017,20 +1069,7 @@ def _validate_date_coherence(file_metadata: 'FileMetadata') -> DateCoherenceResu
     """
     from datetime import timedelta
     
-    # Helper para parsear fechas EXIF string a datetime
-    def _parse_exif_date(date_str: Optional[str]) -> Optional[datetime]:
-        if not date_str:
-            return None
-        try:
-            # Formato típico EXIF: "2023:01:15 10:30:00"
-            if ':' in date_str[:10]:
-                return datetime.strptime(date_str[:19], '%Y:%m:%d %H:%M:%S')
-            # Formato ISO
-            elif 'T' in date_str:
-                return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-            return None
-        except (ValueError, TypeError):
-            return None
+    # Nota: _parse_exif_date y _parse_gps_datetime están definidos a nivel de módulo
     
     warnings = []
     is_valid = True
@@ -1040,17 +1079,11 @@ def _validate_date_coherence(file_metadata: 'FileMetadata') -> DateCoherenceResu
     exif_create_date = _parse_exif_date(file_metadata.exif_DateTime)
     exif_date_digitized = _parse_exif_date(file_metadata.exif_DateTimeDigitized)
     
-    # GPS Date: Combinar GPSDateStamp y GPSTimeStamp si ambos están presentes
-    exif_gps_date = None
-    if file_metadata.exif_GPSDateStamp and file_metadata.exif_GPSTimeStamp:
-        try:
-            gps_datetime_str = f"{file_metadata.exif_GPSDateStamp} {file_metadata.exif_GPSTimeStamp}"
-            exif_gps_date = datetime.strptime(gps_datetime_str, '%Y:%m:%d %H:%M:%S')
-        except (ValueError, TypeError):
-            pass
-    elif file_metadata.exif_GPSDateStamp:
-        # Solo fecha GPS disponible
-        exif_gps_date = _parse_exif_date(file_metadata.exif_GPSDateStamp)
+    # GPS Date: Combinar GPSDateStamp y GPSTimeStamp usando helper global
+    exif_gps_date = _parse_gps_datetime(
+        file_metadata.exif_GPSDateStamp,
+        file_metadata.exif_GPSTimeStamp
+    )
     
     exif_software = file_metadata.exif_Software
     fs_mtime_date = datetime.fromtimestamp(file_metadata.fs_mtime) if file_metadata.fs_mtime else None
