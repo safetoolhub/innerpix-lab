@@ -794,7 +794,7 @@ class Stage3Window(BaseStage):
                 # Build standardized success message
                 was_simulation = plan.get('dry_run', False)
                 has_backup = plan.get('create_backup', False)
-                message, title = self._build_success_message(result, was_simulation, has_backup)
+                message, title = self._build_success_message(result, was_simulation, has_backup, tool_id)
                 
                 # Show success message using standard QMessageBox
                 QMessageBox.information(
@@ -978,7 +978,10 @@ class Stage3Window(BaseStage):
             f"Nota: Esta operación es rápida y solo afecta a {service_name}."
         )
     
-    def _build_success_message(self, result, was_simulation: bool, has_backup: bool) -> tuple:
+    # Herramientas que NO liberan espacio (solo mueven/renombran archivos)
+    _NON_SPACE_FREEING_TOOLS = {'file_organizer', 'file_renamer'}
+
+    def _build_success_message(self, result, was_simulation: bool, has_backup: bool, tool_id: str = '') -> tuple:
         """
         Construye mensaje de éxito estandarizado para todas las herramientas.
         
@@ -986,6 +989,7 @@ class Stage3Window(BaseStage):
             result: ExecutionResult del servicio
             was_simulation: Si la operación fue en modo simulación (dry_run)
             has_backup: Si el usuario solicitó crear backup
+            tool_id: Identificador de la herramienta (para personalizar el mensaje)
             
         Returns:
             Tuple (message, title) con el mensaje y título formateados
@@ -1008,12 +1012,14 @@ class Stage3Window(BaseStage):
             else:
                 summary_lines.append(f"• Archivos procesados: {result.items_processed}")
         
-        # Espacio liberado/que se liberaría
-        if hasattr(result, 'bytes_processed') and result.bytes_processed > 0:
-            if was_simulation:
-                summary_lines.append(f"• Espacio que se liberaría: {format_size(result.bytes_processed)}")
-            else:
-                summary_lines.append(f"• Espacio liberado: {format_size(result.bytes_processed)}")
+        # Espacio liberado/que se liberaría (solo para herramientas que realmente eliminan archivos)
+        # Las herramientas de organización y renombrado solo mueven/renombran, no liberan espacio
+        if tool_id not in self._NON_SPACE_FREEING_TOOLS:
+            if hasattr(result, 'bytes_processed') and result.bytes_processed > 0:
+                if was_simulation:
+                    summary_lines.append(f"• Espacio que se liberaría: {format_size(result.bytes_processed)}")
+                else:
+                    summary_lines.append(f"• Espacio liberado: {format_size(result.bytes_processed)}")
         
         # Contenido adicional del mensaje del servicio (si existe y no está vacío)
         service_message = ""
