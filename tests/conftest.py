@@ -14,6 +14,28 @@ from typing import Tuple
 from PIL import Image
 
 
+# ==================== PYQT6 / PYTEST-QT FIX (SEGFAULT PREVENTION) ====================
+# PyQt6 segfaults when QApplication is destroyed during pytest-qt teardown.
+# This happens because Qt C++ objects are freed in an unpredictable order
+# when the Python process exits. The fix: create a single, session-scoped
+# QApplication that is NEVER deleted during the test session.
+
+@pytest.fixture(scope='session')
+def qapp():
+    """Session-scoped QApplication that prevents segfault on teardown.
+    
+    Overrides pytest-qt's default qapp fixture to avoid PyQt6 segfaults
+    caused by QApplication destruction during process exit.
+    """
+    from PyQt6.QtWidgets import QApplication
+    app = QApplication.instance()
+    if app is None:
+        app = QApplication([])
+    yield app
+    # Intentionally do NOT delete or quit the QApplication.
+    # Python's process exit will handle cleanup safely.
+
+
 # ==================== FIXTURES DE DIRECTORIOS ====================
 
 @pytest.fixture
