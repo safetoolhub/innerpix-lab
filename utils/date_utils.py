@@ -5,10 +5,13 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 from datetime import datetime, timezone
-from typing import Optional, Tuple, Protocol, Any, runtime_checkable
+from typing import Optional, Tuple, Protocol, Any, runtime_checkable, TYPE_CHECKING
 
 from functools import lru_cache
 from utils.logger import get_logger
+
+if TYPE_CHECKING:
+    from services.file_metadata import FileMetadata
 
 _logger = get_logger("DateUtils")
 
