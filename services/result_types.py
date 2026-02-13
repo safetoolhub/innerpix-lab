@@ -401,6 +401,7 @@ class OrganizationAnalysisResult(AnalysisResult):
     group_by_source: bool = False  # Whether to group by source (WhatsApp, Camera, etc.)
     group_by_type: bool = False    # Whether to group by type (Photos/Videos)
     date_grouping_type: Optional[str] = None  # Secondary date grouping: 'month', 'year', 'year_month'
+    move_unsupported_to_other: bool = False  # Whether to move unsupported files to 'other/' folder
     
     @property
     def files_to_move(self) -> int:

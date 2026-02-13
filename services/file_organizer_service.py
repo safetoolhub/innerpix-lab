@@ -70,6 +70,7 @@ class FileOrganizerService(BaseService):
                 group_by_source: bool = False,
                 group_by_type: bool = False,
                 date_grouping_type: Optional[str] = None,
+                move_unsupported_to_other: bool = False,
                 **kwargs) -> OrganizationAnalysisResult:
         """
         Analiza el directorio y genera un plan de organización usando metadatos.
@@ -119,7 +120,7 @@ class FileOrganizerService(BaseService):
                     self.logger.info(f"Organizador: Clasificando archivos {idx}/{total_files}")
                     
                 if not self._report_progress(progress_callback, idx, total_files, "Clasificando archivos"):
-                    return self._create_empty_result(root_directory, organization_type, group_by_source, group_by_type, date_grouping_type)
+                    return self._create_empty_result(root_directory, organization_type, group_by_source, group_by_type, date_grouping_type, move_unsupported_to_other)
 
             file_path = meta.path
             parent_dir = file_path.parent
@@ -171,6 +172,12 @@ class FileOrganizerService(BaseService):
             )
              potential_conflicts = sum(1 for move in move_plan if move.has_conflict)
         
+        # Mover archivos no soportados a carpeta 'other/' si está activado
+        if move_unsupported_to_other:
+            other_moves = self._generate_other_files_moves(root_directory, all_files, progress_callback)
+            move_plan.extend(other_moves)
+            self.logger.info(f"Archivos no soportados a mover a 'other/': {len(other_moves)}")
+
         log_section_footer_discrete(self.logger, f"Plan generado: {len(move_plan)} movimientos")
 
         # Recalcular dumps finales para result
@@ -207,7 +214,8 @@ class FileOrganizerService(BaseService):
             bytes_total=total_scanned_size,
             group_by_source=group_by_source,
             group_by_type=group_by_type,
-            date_grouping_type=date_grouping_type
+            date_grouping_type=date_grouping_type,
+            move_unsupported_to_other=move_unsupported_to_other
         )
     
     def execute(self, 
@@ -293,9 +301,10 @@ class FileOrganizerService(BaseService):
                          files_affected.append(target)
                          self.logger.info(f"FILE_MOVED: {move.source_path} -> {target}")
                          
-                         # Actualizar caché moviendo el archivo
-                         repo = FileInfoRepositoryCache.get_instance()
-                         repo.move_file(move.source_path, target)
+                         # Actualizar caché moviendo el archivo (solo si está en caché)
+                         if move.file_type != 'OTHER':
+                             repo = FileInfoRepositoryCache.get_instance()
+                             repo.move_file(move.source_path, target)
 
                  except Exception as e:
                      result.add_error(f"Error {move.source_path.name}: {e}")
@@ -324,7 +333,7 @@ class FileOrganizerService(BaseService):
     def _get_default_subdir_info(self):
         return {'path': '', 'file_count': 0, 'total_size': 0, 'files': []}
         
-    def _create_empty_result(self, root, type_, group_by_source=False, group_by_type=False, date_grouping_type=None):
+    def _create_empty_result(self, root, type_, group_by_source=False, group_by_type=False, date_grouping_type=None, move_unsupported_to_other=False):
         return OrganizationAnalysisResult(
             move_plan=[],
             root_directory=str(root),
@@ -332,7 +341,8 @@ class FileOrganizerService(BaseService):
             subdirectories={},
             group_by_source=group_by_source,
             group_by_type=group_by_type,
-            date_grouping_type=date_grouping_type
+            date_grouping_type=date_grouping_type,
+            move_unsupported_to_other=move_unsupported_to_other
         )
 
     # --- MÉTODOS DE GENERACIÓN DE PLAN (Idénticos a original, simplificados llamada) ---
@@ -408,6 +418,77 @@ class FileOrganizerService(BaseService):
                 move = FileMove(fpath, root_directory/fname, fname, fname, subdir_name, file_info['type'], file_info['size'], conflict, source=detect_file_source(fname, fpath))
                 name_conflicts[fname].append(move)
         return self._resolve_conflicts_in_folder(name_conflicts, root_directory)
+
+    def _generate_other_files_moves(self, root_directory: Path, cached_files: list, progress_callback=None) -> List[FileMove]:
+        """
+        Genera plan de movimiento para archivos no soportados a carpeta 'other/'.
+        Preserva la estructura de carpetas relativa dentro de 'other/'.
+        
+        Args:
+            root_directory: Directorio raíz del proyecto
+            cached_files: Lista de FileMetadata de archivos soportados (ya en caché)
+            progress_callback: Callback de progreso opcional
+            
+        Returns:
+            Lista de FileMove para archivos no soportados
+        """
+        move_plan = []
+        cached_paths = {meta.path.resolve() for meta in cached_files}
+        other_dir = root_directory / "other"
+        
+        # Escanear filesystem para encontrar archivos no soportados
+        unsupported_files = []
+        for f in root_directory.rglob('*'):
+            if not f.is_file():
+                continue
+            # Saltar archivos que ya están en la caché (soportados)
+            if f.resolve() in cached_paths:
+                continue
+            # Saltar archivos que ya están dentro de la carpeta 'other/'
+            try:
+                if f.is_relative_to(other_dir):
+                    continue
+            except (ValueError, TypeError):
+                pass
+            unsupported_files.append(f)
+        
+        if not unsupported_files:
+            return move_plan
+        
+        self.logger.info(f"Archivos no soportados encontrados: {len(unsupported_files)}")
+        
+        total = len(unsupported_files)
+        for idx, f in enumerate(unsupported_files):
+            if idx % 500 == 0 and progress_callback:
+                self._report_progress(progress_callback, idx, total, "Clasificando archivos no soportados")
+            
+            relative = f.relative_to(root_directory)
+            target_path = other_dir / relative
+            target_folder_str = str(Path("other") / relative.parent) if str(relative.parent) != '.' else "other"
+            
+            try:
+                size = f.stat().st_size
+            except OSError:
+                size = 0
+            
+            # Verificar conflicto (archivo ya existe en destino)
+            has_conflict = target_path.exists()
+            
+            move = FileMove(
+                source_path=f,
+                target_path=target_path,
+                original_name=f.name,
+                new_name=f.name,
+                subdirectory=str(relative.parent) if str(relative.parent) != '.' else '<root>',
+                file_type='OTHER',
+                size=size,
+                has_conflict=has_conflict,
+                target_folder=target_folder_str,
+                source="Otros"
+            )
+            move_plan.append(move)
+        
+        return move_plan
 
     def _generate_move_plan_by_month(self, subdirs, root_files, root_dir, group_src, group_type, progress_callback=None):
         return self._generic_date_plan(subdirs, root_files, root_dir, group_src, group_type, "%Y_%m", progress_callback)
