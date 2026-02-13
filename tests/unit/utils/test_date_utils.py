@@ -398,9 +398,9 @@ class TestGetAllFileDates:
             file_metadata = get_all_metadata_from_file(image_path)
             
             # Verificar atributos directamente en FileMetadata
-            assert file_metadata.exif_date_time_original is not None
-            assert file_metadata.exif_date_time is not None  # CreateDate se mapea a DateTime
-            assert file_metadata.exif_date_time_digitized is not None
+            assert file_metadata.exif_DateTimeOriginal is not None
+            assert file_metadata.exif_DateTime is not None  # CreateDate se mapea a DateTime
+            assert file_metadata.exif_DateTimeDigitized is not None
             assert file_metadata.fs_mtime > 0
             assert file_metadata.fs_ctime > 0
     
@@ -422,9 +422,9 @@ class TestGetAllFileDates:
         patch('utils.settings_manager.settings_manager.get_precalculate_video_exif', return_value=False):
             file_metadata = get_all_metadata_from_file(image_path)
             
-            assert file_metadata.exif_date_time_original is None
-            assert file_metadata.exif_date_time is None
-            assert file_metadata.exif_date_time_digitized is None
+            assert file_metadata.exif_DateTimeOriginal is None
+            assert file_metadata.exif_DateTime is None
+            assert file_metadata.exif_DateTimeDigitized is None
             assert file_metadata.fs_mtime > 0
     
     def test_nonexistent_file_returns_empty_dates(self):
@@ -432,9 +432,9 @@ class TestGetAllFileDates:
         file_metadata = get_all_metadata_from_file(Path('/nonexistent/file.jpg'))
         
         # Como el archivo no existe, debe tener valores por defecto (0.0 o None)
-        assert file_metadata.exif_date_time_original is None
-        assert file_metadata.exif_date_time is None
-        assert file_metadata.exif_date_time_digitized is None
+        assert file_metadata.exif_DateTimeOriginal is None
+        assert file_metadata.exif_DateTime is None
+        assert file_metadata.exif_DateTimeDigitized is None
 
     def test_video_metadata_disabled_by_config(self, temp_dir, create_test_video):
         """Cuando get_precalculate_video_exif es False, no debe llamar a get_exif_from_video"""
@@ -449,8 +449,8 @@ class TestGetAllFileDates:
             # No debe llamar a get_exif_from_video
             mock_get_video_metadata.assert_not_called()
 
-            # exif_date_time (que almacena video metadata) debe ser None
-            assert file_metadata.exif_date_time is None
+            # exif_DateTime (que almacena video metadata) debe ser None
+            assert file_metadata.exif_DateTime is None
 
     def test_video_metadata_enabled_by_config(self, temp_dir, create_test_video):
         """Cuando get_precalculate_video_exif es True, debe llamar a get_exif_from_video"""
@@ -466,8 +466,8 @@ class TestGetAllFileDates:
             # Debe llamar a get_exif_from_video
             mock_get_video_metadata.assert_called_once_with(video_path)
 
-            # Para videos, la fecha se guarda en exif_date_time como string ISO
-            assert file_metadata.exif_date_time is not None
+            # Para videos, la fecha se guarda en exif_DateTime como string ISO
+            assert file_metadata.exif_DateTime is not None
 
     def test_video_metadata_enabled_but_no_metadata_available(self, temp_dir, create_test_video):
         """Cuando get_precalculate_video_exif es True pero no hay metadatos, debe devolver None"""
@@ -482,8 +482,8 @@ class TestGetAllFileDates:
             # Debe llamar a get_exif_from_video
             mock_get_video_metadata.assert_called_once_with(video_path)
 
-            # exif_date_time debe ser None
-            assert file_metadata.exif_date_time is None
+            # exif_DateTime debe ser None
+            assert file_metadata.exif_DateTime is None
 
 
 @pytest.mark.unit
@@ -503,8 +503,8 @@ class TestGetDateFromFile:
             fs_ctime=datetime(2024, 1, 1, 12, 0).timestamp(),
             fs_mtime=datetime(2024, 1, 2, 14, 0).timestamp(),
             fs_atime=datetime(2024, 1, 3, 16, 0).timestamp(),
-            exif_date_time_original='2023-01-15T10:30:00',
-            exif_date_time='2023-01-15T10:31:00'
+            exif_DateTimeOriginal='2023-01-15T10:30:00',
+            exif_DateTime='2023-01-15T10:31:00'
         )
         
         result_date, result_source = select_best_date_from_file(mock_metadata)

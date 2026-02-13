@@ -192,7 +192,7 @@ def reset_file_info_repository():
 try:
     from services.file_metadata_repository_cache import FileInfoRepositoryCache
     from services.file_metadata import FileMetadata
-    from services.result_types import LivePhotosAnalysisResult, HeicAnalysisResult, DuplicateAnalysisResult
+    from services.result_types import LivePhotosAnalysisResult, HeicAnalysisResult, ExactDuplicateAnalysisResult
 
     class _MetadataCacheProxy:
         def __getattr__(self, item):
@@ -286,11 +286,11 @@ try:
             return self.bytes_processed
         LivePhotosExecutionResult.space_freed = _space_freed
 
-    if not hasattr(DuplicateExecutionResult, 'files_deleted'):
+    if not hasattr(ExactDuplicateExecutionResult, 'files_deleted'):
         @property
         def _files_deleted_dup(self):
             return self.files_affected
-        DuplicateExecutionResult.files_deleted = _files_deleted_dup
+        ExactDuplicateExecutionResult.files_deleted = _files_deleted_dup
 
     # Monkeypatch analyze methods to accept old signature (directory first)
     import services.live_photos_service
@@ -298,7 +298,7 @@ try:
     import services.duplicates_similar_service
     import services.heic_service
     from services.file_metadata import FileMetadata
-    from services.result_types import LivePhotosExecutionResult, DuplicateExecutionResult
+    from services.result_types import LivePhotosExecutionResult, ExactDuplicateExecutionResult
     from services.file_metadata_repository_cache import PopulationStrategy
 
     def _populate_cache_from_directory(directory: Path, repo):
