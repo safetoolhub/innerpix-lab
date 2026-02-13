@@ -1461,9 +1461,11 @@ class FileOrganizerDialog(BaseDialog):
             icon_name='folder-remove',
             label="Limpiar carpetas vacías",
             checked=False,  # Default deshabilitado para ser conservador
-            tooltip="Elimina automáticamente las carpetas que queden vacías\n"
-                    "después de mover los archivos durante la organización.\n\n"
-                    "Solo aplica a carpetas dentro de la ruta seleccionada."
+            tooltip="Elimina todas las carpetas vacías dentro de la ruta\n"
+                    "seleccionada tras organizar los archivos.\n\n"
+                    "Incluye tanto las carpetas que queden vacías después\n"
+                    "de mover archivos como las que ya estuvieran vacías\n"
+                    "antes de ejecutar la organización."
         )
         options_row.addWidget(self.cleanup_checkbox)
         

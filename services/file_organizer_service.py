@@ -313,10 +313,12 @@ class FileOrganizerService(BaseService):
              result.bytes_processed = bytes_processed
              result.files_affected = files_affected
 
-             # Limpieza directorios vacios
+             # Limpieza directorios vacíos (incluye preexistentes)
              if cleanup_empty_dirs and not dry_run:
                  removed = cleanup_empty_directories(root_directory)
                  result.empty_directories_removed = removed
+                 if removed > 0:
+                     self.logger.info(f"Carpetas vacías eliminadas: {removed}")
                  
              summary = self._format_operation_summary("Organización", items_processed, 0, dry_run)
              log_section_footer_relevant(self.logger, summary)
