@@ -1465,7 +1465,10 @@ class FileOrganizerDialog(BaseDialog):
                     "seleccionada tras organizar los archivos.\n\n"
                     "Incluye tanto las carpetas que queden vacías después\n"
                     "de mover archivos como las que ya estuvieran vacías\n"
-                    "antes de ejecutar la organización."
+                    "antes de ejecutar la organización.\n\n"
+                    "Las carpetas que solo contengan archivos de sistema\n"
+                    "(.nomedia, .DS_Store, Thumbs.db, etc.) también se\n"
+                    "consideran vacías y se eliminarán."
         )
         options_row.addWidget(self.cleanup_checkbox)
         

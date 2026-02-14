@@ -513,16 +513,40 @@ def launch_backup_creation(
 def cleanup_empty_directories(root_directory: Path) -> int:
     """Remove empty directories under root_directory (excluding root).
 
+    A directory is considered empty if it contains no files, or only
+    system junk files (.nomedia, .DS_Store, Thumbs.db, .thumbnails, desktop.ini).
+    Those junk files are deleted before removing the directory.
+
     Returns the number of directories removed.
     """
+    # Archivos de sistema que no cuentan como contenido real
+    JUNK_FILES = {'.nomedia', '.ds_store', 'thumbs.db', '.thumbnails', 'desktop.ini'}
+    
     removed_count = 0
     logger = get_logger('file_utils')
     for item in sorted(root_directory.rglob("*"), key=lambda p: len(p.parts), reverse=True):
         if item.is_dir() and item != root_directory:
             try:
-                if not any(item.iterdir()):
+                contents = list(item.iterdir())
+                if not contents:
+                    # Directorio realmente vacío
                     item.rmdir()
                     removed_count += 1
+                elif all(
+                    c.is_file() and c.name.lower() in JUNK_FILES
+                    for c in contents
+                ):
+                    # Solo contiene archivos de sistema → eliminarlos y luego el directorio
+                    for junk in contents:
+                        try:
+                            junk.unlink()
+                            logger.debug(f"Archivo de sistema eliminado: {junk}")
+                        except OSError:
+                            pass
+                    # Verificar que quedó vacío tras eliminar junk
+                    if not any(item.iterdir()):
+                        item.rmdir()
+                        removed_count += 1
             except PermissionError:
                 logger.debug(f"Permiso denegado al eliminar directorio: {item.name}")
             except OSError as e:
