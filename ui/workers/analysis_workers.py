@@ -143,7 +143,8 @@ class FileOrganizerAnalysisWorker(BaseWorker):
         organization_type=None,
         group_by_source: bool = False,
         group_by_type: bool = False,
-        date_grouping_type: Optional[str] = None
+        date_grouping_type: Optional[str] = None,
+        move_unsupported_to_other: bool = False
     ):
         super().__init__()
         self.directory = directory
@@ -151,6 +152,7 @@ class FileOrganizerAnalysisWorker(BaseWorker):
         self.group_by_source = group_by_source
         self.group_by_type = group_by_type
         self.date_grouping_type = date_grouping_type
+        self.move_unsupported_to_other = move_unsupported_to_other
         
     def run(self):
         try:
@@ -172,7 +174,8 @@ class FileOrganizerAnalysisWorker(BaseWorker):
                 progress_callback=self._create_progress_callback(emit_numbers=True),
                 group_by_source=self.group_by_source,
                 group_by_type=self.group_by_type,
-                date_grouping_type=self.date_grouping_type
+                date_grouping_type=self.date_grouping_type,
+                move_unsupported_to_other=self.move_unsupported_to_other
             )
             if not self._stop_requested:
                 self.finished.emit(result)

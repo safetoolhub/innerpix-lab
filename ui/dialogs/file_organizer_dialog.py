@@ -979,6 +979,47 @@ class FileOrganizerDialog(BaseDialog):
         icon_manager.set_label_icon(self.indicator_icon, info['icon'], size=DesignSystem.ICON_SIZE_MD, color=DesignSystem.COLOR_PRIMARY)
         self.indicator_text.setText(info['text'])
 
+    def is_move_unsupported_enabled(self) -> bool:
+        """Devuelve True si el checkbox de mover no soportados está marcado."""
+        if not hasattr(self, 'move_unsupported_checkbox') or not self.move_unsupported_checkbox:
+            return False
+        if hasattr(self.move_unsupported_checkbox, '_checkbox'):
+            return self.move_unsupported_checkbox._checkbox.isChecked()
+        return self.move_unsupported_checkbox.isChecked()
+
+    def _on_move_unsupported_changed(self):
+        """Maneja el cambio en la opción de mover archivos no soportados.
+        Re-lanza el análisis actual con la nueva configuración."""
+        if not self.ui_initialized or self.dialog_state != 'preview':
+            return
+        # Re-disparar el análisis actual con la nueva configuración
+        self._retrigger_current_analysis()
+
+    def _retrigger_current_analysis(self):
+        """Re-ejecuta el análisis con la configuración actual del panel de opciones."""
+        if not hasattr(self, 'selected_strategy_key'):
+            return
+        key = self.selected_strategy_key
+        if key == 'date':
+            self._trigger_date_analysis()
+        elif key == 'type':
+            # Obtener valor actual del filtro de tipo
+            value = None
+            for btn in self.type_date_buttons:
+                if btn.isChecked():
+                    value = btn.property("value")
+                    break
+            self._start_analysis(OrganizationType.BY_TYPE, False, False, value)
+        elif key == 'source':
+            value = None
+            for btn in self.source_date_buttons:
+                if btn.isChecked():
+                    value = btn.property("value")
+                    break
+            self._start_analysis(OrganizationType.BY_SOURCE, False, False, value)
+        elif key == 'cleanup':
+            self._start_analysis(OrganizationType.TO_ROOT, False, False, None)
+
     def _start_analysis(self, org_type: OrganizationType, group_by_source=False, group_by_type=False, date_grouping_type: Optional[str] = None):
         """Inicia análisis en background"""
         if self.is_analyzing and self.worker and self.worker.isRunning():
@@ -1000,7 +1041,8 @@ class FileOrganizerDialog(BaseDialog):
             organization_type=org_type,
             group_by_source=group_by_source,
             group_by_type=group_by_type,
-            date_grouping_type=date_grouping_type
+            date_grouping_type=date_grouping_type,
+            move_unsupported_to_other=self.is_move_unsupported_enabled()
         )
         self.worker.finished.connect(self._on_analysis_finished)
         self.worker.progress_update.connect(self._on_analysis_progress)
@@ -1419,11 +1461,30 @@ class FileOrganizerDialog(BaseDialog):
             icon_name='folder-remove',
             label="Limpiar carpetas vacías",
             checked=False,  # Default deshabilitado para ser conservador
-            tooltip="Elimina automáticamente las carpetas que queden vacías\n"
-                    "después de mover los archivos durante la organización.\n\n"
-                    "Solo aplica a carpetas dentro de la ruta seleccionada."
+            tooltip="Elimina todas las carpetas vacías dentro de la ruta\n"
+                    "seleccionada tras organizar los archivos.\n\n"
+                    "Incluye tanto las carpetas que queden vacías después\n"
+                    "de mover archivos como las que ya estuvieran vacías\n"
+                    "antes de ejecutar la organización.\n\n"
+                    "Las carpetas que solo contengan archivos de sistema\n"
+                    "(.nomedia, .DS_Store, Thumbs.db, etc.) también se\n"
+                    "consideran vacías y se eliminarán."
         )
         options_row.addWidget(self.cleanup_checkbox)
+        
+        # Chip de mover archivos no soportados a 'other/' (específico de organización)
+        self.move_unsupported_checkbox = self._create_inline_chip_checkbox(
+            icon_name='folder-move',
+            label="Mover no soportados a 'other/'",
+            checked=True,  # Default habilitado para dejar estructura limpia
+            tooltip="Mueve los archivos no soportados (GIF, documentos, etc.)\n"
+                    "a una carpeta 'other/' en el directorio raíz,\n"
+                    "conservando su estructura de subcarpetas original.\n\n"
+                    "Esto evita que queden archivos sueltos fuera de la\n"
+                    "organización elegida."
+        )
+        self.move_unsupported_checkbox._checkbox.toggled.connect(self._on_move_unsupported_changed)
+        options_row.addWidget(self.move_unsupported_checkbox)
         
         options_row.addStretch()
         container_layout.addLayout(options_row)

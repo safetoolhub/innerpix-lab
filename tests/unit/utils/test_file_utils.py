@@ -306,3 +306,155 @@ class TestWhatsAppUUIDRegexFix:
             assert detect_file_source(f"{uuid}.{ext}") == "WhatsApp"
             # With suffix
             assert detect_file_source(f"{uuid}_001.{ext}") == "WhatsApp"
+
+
+class TestCleanupEmptyDirectories:
+    """Test suite for cleanup_empty_directories function"""
+
+    def test_removes_truly_empty_directory(self, tmp_path):
+        """Removes a directory that is completely empty"""
+        from utils.file_utils import cleanup_empty_directories
+        empty_dir = tmp_path / "empty"
+        empty_dir.mkdir()
+        
+        removed = cleanup_empty_directories(tmp_path)
+        
+        assert removed == 1
+        assert not empty_dir.exists()
+
+    def test_does_not_remove_root(self, tmp_path):
+        """Root directory itself is never removed"""
+        from utils.file_utils import cleanup_empty_directories
+        
+        removed = cleanup_empty_directories(tmp_path)
+        
+        assert removed == 0
+        assert tmp_path.exists()
+
+    def test_does_not_remove_directory_with_real_files(self, tmp_path):
+        """Directory with real files is not removed"""
+        from utils.file_utils import cleanup_empty_directories
+        d = tmp_path / "has_content"
+        d.mkdir()
+        (d / "real_file.txt").write_text("content")
+        
+        removed = cleanup_empty_directories(tmp_path)
+        
+        assert removed == 0
+        assert d.exists()
+
+    def test_removes_directory_with_only_nomedia(self, tmp_path):
+        """Directory containing only .nomedia is treated as empty"""
+        from utils.file_utils import cleanup_empty_directories
+        d = tmp_path / "with_nomedia"
+        d.mkdir()
+        (d / ".nomedia").write_bytes(b"")
+        
+        removed = cleanup_empty_directories(tmp_path)
+        
+        assert removed == 1
+        assert not d.exists()
+
+    def test_removes_directory_with_only_ds_store(self, tmp_path):
+        """Directory containing only .DS_Store is treated as empty"""
+        from utils.file_utils import cleanup_empty_directories
+        d = tmp_path / "with_ds_store"
+        d.mkdir()
+        (d / ".DS_Store").write_bytes(b"\x00\x00")
+        
+        removed = cleanup_empty_directories(tmp_path)
+        
+        assert removed == 1
+        assert not d.exists()
+
+    def test_removes_directory_with_only_thumbs_db(self, tmp_path):
+        """Directory containing only Thumbs.db is treated as empty"""
+        from utils.file_utils import cleanup_empty_directories
+        d = tmp_path / "with_thumbs"
+        d.mkdir()
+        (d / "Thumbs.db").write_bytes(b"\x00")
+        
+        removed = cleanup_empty_directories(tmp_path)
+        
+        assert removed == 1
+        assert not d.exists()
+
+    def test_removes_directory_with_only_desktop_ini(self, tmp_path):
+        """Directory containing only desktop.ini is treated as empty"""
+        from utils.file_utils import cleanup_empty_directories
+        d = tmp_path / "with_desktop_ini"
+        d.mkdir()
+        (d / "desktop.ini").write_text("[.ShellClassInfo]")
+        
+        removed = cleanup_empty_directories(tmp_path)
+        
+        assert removed == 1
+        assert not d.exists()
+
+    def test_removes_directory_with_multiple_junk_files(self, tmp_path):
+        """Directory containing only multiple junk files is treated as empty"""
+        from utils.file_utils import cleanup_empty_directories
+        d = tmp_path / "multi_junk"
+        d.mkdir()
+        (d / ".nomedia").write_bytes(b"")
+        (d / ".DS_Store").write_bytes(b"\x00")
+        (d / "Thumbs.db").write_bytes(b"\x00")
+        
+        removed = cleanup_empty_directories(tmp_path)
+        
+        assert removed == 1
+        assert not d.exists()
+
+    def test_does_not_remove_directory_with_junk_and_real_files(self, tmp_path):
+        """Directory with junk + real files is NOT removed"""
+        from utils.file_utils import cleanup_empty_directories
+        d = tmp_path / "mixed"
+        d.mkdir()
+        (d / ".nomedia").write_bytes(b"")
+        (d / "photo.jpg").write_bytes(b"fake jpg")
+        
+        removed = cleanup_empty_directories(tmp_path)
+        
+        assert removed == 0
+        assert d.exists()
+        assert (d / "photo.jpg").exists()
+
+    def test_removes_nested_empty_directories_bottom_up(self, tmp_path):
+        """Nested directories are removed bottom-up"""
+        from utils.file_utils import cleanup_empty_directories
+        deep = tmp_path / "a" / "b" / "c"
+        deep.mkdir(parents=True)
+        (deep / ".nomedia").write_bytes(b"")
+        
+        removed = cleanup_empty_directories(tmp_path)
+        
+        # All 3 levels should be removed (c first, then b, then a)
+        assert removed == 3
+        assert not (tmp_path / "a").exists()
+
+    def test_junk_file_names_are_case_insensitive(self, tmp_path):
+        """Junk file matching is case-insensitive (.NOMEDIA, .ds_store, etc.)"""
+        from utils.file_utils import cleanup_empty_directories
+        d = tmp_path / "case_test"
+        d.mkdir()
+        (d / ".NOMEDIA").write_bytes(b"")
+        
+        removed = cleanup_empty_directories(tmp_path)
+        
+        assert removed == 1
+        assert not d.exists()
+
+    def test_does_not_remove_dir_with_junk_subdirectory(self, tmp_path):
+        """Directory with a non-junk subdirectory containing files is not removed"""
+        from utils.file_utils import cleanup_empty_directories
+        parent = tmp_path / "parent"
+        child = parent / "child"
+        child.mkdir(parents=True)
+        (child / "real.txt").write_text("data")
+        (parent / ".nomedia").write_bytes(b"")
+        
+        removed = cleanup_empty_directories(tmp_path)
+        
+        assert removed == 0
+        assert parent.exists()
+        assert child.exists()

@@ -784,20 +784,7 @@ def _create_dates_section(metadata: 'FileMetadata'):
     from ui.styles.design_system import DesignSystem
     from ui.styles.icons import icon_manager
     from datetime import datetime
-    from utils.date_utils import extract_date_from_filename
-    
-    # Helper para parsear fechas EXIF string a datetime
-    def _parse_exif_date(date_str):
-        if not date_str:
-            return None
-        try:
-            if ':' in date_str[:10]:
-                return datetime.strptime(date_str[:19], '%Y:%m:%d %H:%M:%S')
-            elif 'T' in date_str:
-                return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-            return None
-        except (ValueError, TypeError):
-            return None
+    from utils.date_utils import extract_date_from_filename, _parse_exif_date
     
     group = QGroupBox("Fechas EXIF")
     group.setStyleSheet(f"""
