@@ -2,7 +2,7 @@ Innerpix lab
 ---------------
 A comprobar: que tal funciona todo cuando no se ha hecho todo el analisis
 
-IOnconsistencia:
+Inconsistencia:
 1. Dicts vs Dataclasses
 file_renamer_service.py
 renaming_plan en result_types.py:437 está explícitamente tipado como List[Dict] — una violación directa del principio del proyecto

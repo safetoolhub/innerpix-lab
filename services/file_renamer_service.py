@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from config import Config
 from utils.logger import get_logger, log_section_header_relevant, log_section_footer_relevant, log_section_header_discrete, log_section_footer_discrete
-from services.result_types import RenameExecutionResult, RenameAnalysisResult
+from services.result_types import RenameExecutionResult, RenameAnalysisResult, RenamePlanItem, RenamedFileItem
 from services.base_service import BaseService, ProgressCallback
 from utils.date_utils import (
     select_best_date_from_file,
@@ -132,14 +132,14 @@ class FileRenamerService(BaseService):
         for renamed_name, file_list in renaming_map.items():
             if len(file_list) == 1:
                 file_info = file_list[0]
-                renaming_plan.append({
-                    'original_path': file_info['original_path'],
-                    'new_name': renamed_name,
-                    'date': file_info['date'],
-                    'date_source': file_info['date_source'],
-                    'has_conflict': False,
-                    'sequence': None
-                })
+                renaming_plan.append(RenamePlanItem(
+                    original_path=file_info['original_path'],
+                    new_name=renamed_name,
+                    date=file_info['date'],
+                    date_source=file_info['date_source'],
+                    has_conflict=False,
+                    sequence=None
+                ))
             else:
                 conflicts += len(file_list) - 1
                 file_list.sort(key=lambda x: x['original_path'].stat().st_mtime)
@@ -152,14 +152,14 @@ class FileRenamerService(BaseService):
                         sequence=i
                     )
 
-                    renaming_plan.append({
-                        'original_path': file_info['original_path'],
-                        'new_name': sequenced_name,
-                        'date': file_info['date'],
-                        'date_source': file_info['date_source'],
-                        'has_conflict': True,
-                        'sequence': i
-                    })
+                    renaming_plan.append(RenamePlanItem(
+                        original_path=file_info['original_path'],
+                        new_name=sequenced_name,
+                        date=file_info['date'],
+                        date_source=file_info['date_source'],
+                        has_conflict=True,
+                        sequence=i
+                    ))
 
         log_section_footer_discrete(self.logger, f"Análisis completado: {len(renaming_plan)} archivos para renombrar")
         
@@ -198,7 +198,7 @@ class FileRenamerService(BaseService):
             )
 
         return self._execute_operation(
-            files=[item['original_path'] for item in renaming_plan],
+            files=[item.original_path for item in renaming_plan],
             operation_name='renaming',
             execute_fn=lambda dry: self._do_renaming(
                 renaming_plan,
@@ -212,7 +212,7 @@ class FileRenamerService(BaseService):
     
     def _do_renaming(
         self,
-        renaming_plan: List[Dict],
+        renaming_plan: List[RenamePlanItem],
         dry_run: bool,
         progress_callback: Optional[ProgressCallback]
     ) -> RenameExecutionResult:
@@ -232,8 +232,8 @@ class FileRenamerService(BaseService):
         files_affected = []
         
         for item in renaming_plan:
-            original_path = item['original_path']
-            new_name = item['new_name']
+            original_path = item.original_path
+            new_name = item.new_name
             new_path = original_path.parent / new_name
 
             try:
@@ -276,21 +276,21 @@ class FileRenamerService(BaseService):
                 items_processed += 1
                 files_affected.append(original_path)
                 
-                date_str = item['date'].strftime('%Y-%m-%d %H:%M:%S') if item.get('date') else ''
+                date_str = item.date.strftime('%Y-%m-%d %H:%M:%S') if item.date else ''
                 
-                result.renamed_files.append({
-                    'original': original_path.name,
-                    'new_name': new_name,
-                    'date': date_str,
-                    'had_conflict': item.get('has_conflict', False)
-                })
+                result.renamed_files.append(RenamedFileItem(
+                    original=original_path.name,
+                    new_name=new_name,
+                    date=date_str,
+                    had_conflict=item.has_conflict
+                ))
 
                 if items_processed % Config.UI_UPDATE_INTERVAL == 0:
                     if not self._report_progress(progress_callback, items_processed, total_files, f"{'Simulando' if dry_run else 'Renombrando'}... {items_processed}/{total_files}"):
                          break
 
                 log_prefix = "FILE_RENAMED_SIMULATION" if dry_run else "FILE_RENAMED"
-                date_source = item.get('date_source', 'unknown')
+                date_source = item.date_source or 'unknown'
                 conflict_info = f" | Conflict: {conflict_sequence}" if had_conflict else ""
                 self.logger.info(f"{log_prefix}: {original_path} -> {new_name} | Date: {date_str} ({date_source}){conflict_info}")
 

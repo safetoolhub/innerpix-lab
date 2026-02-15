@@ -16,6 +16,7 @@ from utils.format_utils import format_size
 from utils.settings_manager import settings_manager
 from utils.file_utils import get_file_type, is_image_file, is_video_file
 from config import Config
+from services.result_types import RenamePlanItem
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
 from ui.tools_definitions import TOOL_FILE_RENAMER
@@ -180,11 +181,11 @@ class FileRenamerDialog(BaseDialog):
         """Crea barra de filtros unificada usando método base"""
         # Preparar opciones para filtros dinámicos
         file_types = sorted(list(set(
-            get_file_type(item['original_path'].name) 
+            get_file_type(item.original_path.name) 
             for item in self.analysis_results.renaming_plan
         )))
         date_sources = sorted(list(set(
-            item.get('date_source', 'Desconocido') 
+            item.date_source or 'Desconocido' 
             for item in self.analysis_results.renaming_plan
         )))
         years = [str(year) for year in sorted(self.analysis_results.files_by_year.keys(), reverse=True)]
@@ -335,7 +336,7 @@ class FileRenamerDialog(BaseDialog):
         """Organiza los archivos por carpeta para el TreeWidget."""
         folders = defaultdict(list)
         for item in self.filtered_plan:
-            folder = item['original_path'].parent
+            folder = item.original_path.parent
             folders[folder].append(item)
         
         # Ordenar carpetas y crear lista de grupos
@@ -354,28 +355,28 @@ class FileRenamerDialog(BaseDialog):
         
         for item in self.all_items:
             # Filtro de búsqueda
-            if search_text and search_text not in item['original_path'].name.lower():
+            if search_text and search_text not in item.original_path.name.lower():
                 continue
             
             # Filtro por conflicto
-            if filter_option == "Solo conflictos" and not item['has_conflict']:
+            if filter_option == "Solo conflictos" and not item.has_conflict:
                 continue
-            elif filter_option == "Sin conflictos" and item['has_conflict']:
+            elif filter_option == "Sin conflictos" and item.has_conflict:
                 continue
             
             # Filtro por año
-            if year_filter != "Todos" and str(item['date'].year) != year_filter:
+            if year_filter != "Todos" and str(item.date.year) != year_filter:
                 continue
             
             # Filtro por tipo de archivo
             if type_filter != "Todos":
-                file_type = get_file_type(item['original_path'].name)
+                file_type = get_file_type(item.original_path.name)
                 if file_type != type_filter:
                     continue
             
             # Filtro por fuente de fecha
             if source_filter != "Todos":
-                item_source = item.get('date_source', 'Desconocido')
+                item_source = item.date_source or 'Desconocido'
                 if item_source != source_filter:
                     continue
             
@@ -426,7 +427,7 @@ class FileRenamerDialog(BaseDialog):
         apply_group_item_style(folder_item, num_columns=5)
         
         # Tooltip del grupo
-        conflicts_in_folder = sum(1 for f in files if f.get('has_conflict', False))
+        conflicts_in_folder = sum(1 for f in files if f.has_conflict)
         tooltip = f"Carpeta: {folder_path}\n{len(files)} archivos a renombrar"
         if conflicts_in_folder:
             tooltip += f"\n⚠️ {conflicts_in_folder} conflictos"
@@ -436,10 +437,10 @@ class FileRenamerDialog(BaseDialog):
         for file_info in files:
             self._add_file_item(folder_item, file_info)
     
-    def _add_file_item(self, parent_item: QTreeWidgetItem, file_info: dict):
+    def _add_file_item(self, parent_item: QTreeWidgetItem, file_info: RenamePlanItem):
         """Añade un archivo como hijo de una carpeta."""
-        file_path = file_info['original_path']
-        has_conflict = file_info.get('has_conflict', False)
+        file_path = file_info.original_path
+        has_conflict = file_info.has_conflict
         
         file_item = QTreeWidgetItem(parent_item)
         
@@ -452,13 +453,13 @@ class FileRenamerDialog(BaseDialog):
         file_item.setIcon(0, icon_manager.get_icon(icon_name, size=16))
         
         # Columna 1: Nuevo nombre
-        file_item.setText(1, file_info['new_name'])
+        file_item.setText(1, file_info.new_name)
         
         # Columna 2: Fecha
-        file_item.setText(2, file_info['date'].strftime('%Y-%m-%d %H:%M:%S'))
+        file_item.setText(2, file_info.date.strftime('%Y-%m-%d %H:%M:%S'))
         
         # Columna 3: Fuente de fecha
-        file_item.setText(3, file_info.get('date_source', 'Desconocido'))
+        file_item.setText(3, file_info.date_source or 'Desconocido')
         
         # Columna 4: Tipo
         file_item.setText(4, get_file_type(file_path.name))
@@ -535,7 +536,7 @@ class FileRenamerDialog(BaseDialog):
         # Buscar información del archivo en filtered_plan
         file_info = None
         for plan_item in self.filtered_plan:
-            if plan_item['original_path'] == file_path:
+            if plan_item.original_path == file_path:
                 file_info = plan_item
                 break
         
@@ -547,20 +548,20 @@ class FileRenamerDialog(BaseDialog):
         
         additional_info = {
             'original_name': file_path.name,
-            'new_name': file_info['new_name'],
+            'new_name': file_info.new_name,
             'file_type': file_type,
-            'conflict': file_info.get('has_conflict', False),
+            'conflict': file_info.has_conflict,
             'metadata': {
-                'Fecha detectada': file_info['date'].strftime('%Y-%m-%d %H:%M:%S'),
-                'Fuente de fecha': file_info.get('date_source', 'Desconocido'),
-                'Año': str(file_info['date'].year),
+                'Fecha detectada': file_info.date.strftime('%Y-%m-%d %H:%M:%S'),
+                'Fuente de fecha': file_info.date_source or 'Desconocido',
+                'Año': str(file_info.date.year),
             }
         }
         
-        if file_info.get('has_conflict'):
+        if file_info.has_conflict:
             additional_info['metadata']['Conflicto'] = 'Sí - Se resolverá con sufijo numérico'
-            if file_info.get('sequence'):
-                additional_info['metadata']['Secuencia'] = f"#{file_info['sequence']}"
+            if file_info.sequence:
+                additional_info['metadata']['Secuencia'] = f"#{file_info.sequence}"
         
         show_file_details_dialog(file_path, self, additional_info)
 

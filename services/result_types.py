@@ -431,10 +431,31 @@ class OrganizationExecutionResult(ExecutionResult):
 
 
 # --- Rename Service ---
+
+@dataclass
+class RenamePlanItem:
+    """Item in a renaming plan - represents a file to be renamed."""
+    original_path: Path
+    new_name: str
+    date: datetime
+    date_source: str
+    has_conflict: bool = False
+    sequence: Optional[int] = None
+
+
+@dataclass
+class RenamedFileItem:
+    """Item representing a file that was renamed during execution."""
+    original: str
+    new_name: str
+    date: str
+    had_conflict: bool = False
+
+
 @dataclass
 class RenameAnalysisResult(AnalysisResult):
     """Result for file renaming analysis."""
-    renaming_plan: List[Dict] = field(default_factory=list)  # List of dicts with 'original_path', 'new_name', etc.
+    renaming_plan: List[RenamePlanItem] = field(default_factory=list)
     already_renamed: int = 0
     conflicts: int = 0
     files_by_year: Dict[int, int] = field(default_factory=dict)
@@ -453,7 +474,7 @@ class RenameAnalysisResult(AnalysisResult):
 @dataclass
 class RenameExecutionResult(ExecutionResult):
     """Result for file renaming execution."""
-    renamed_files: List[dict] = field(default_factory=list)
+    renamed_files: List[RenamedFileItem] = field(default_factory=list)
     conflicts_resolved: int = 0
 
     @property
