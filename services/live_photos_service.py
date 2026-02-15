@@ -94,7 +94,7 @@ class LivePhotoService(BaseService):
         self.logger.info(f"Validación de fechas: {'ACTIVADA' if validate_dates else 'DESACTIVADA'}")
         
         if validate_dates:
-            self.logger.info(f"Tolerancia máxima: {Config.MAX_TIME_DIFFERENCE_SECONDS}s")
+            self.logger.info(f"Tolerancia máxima: {Config.LIVE_PHOTO_MAX_TIME_DIFFERENCE_SECONDS}s")
         
         self._reset_stats()
         
@@ -334,8 +334,8 @@ class LivePhotoService(BaseService):
                 time_diff = abs((vid_date - img_date).total_seconds())
                 
                 # FILTRAR: Si esta imagen específica excede el threshold, descartarla
-                if time_diff > Config.MAX_TIME_DIFFERENCE_SECONDS:
-                    reason = f"diff={format_duration(time_diff)} > {format_duration(Config.MAX_TIME_DIFFERENCE_SECONDS)}"
+                if time_diff > Config.LIVE_PHOTO_MAX_TIME_DIFFERENCE_SECONDS:
+                    reason = f"diff={format_duration(time_diff)} > {format_duration(Config.LIVE_PHOTO_MAX_TIME_DIFFERENCE_SECONDS)}"
                     self.logger.debug(
                         f"Imagen rechazada ({reason}) "
                         f"para {base_name}: {photo_meta.path.name}"

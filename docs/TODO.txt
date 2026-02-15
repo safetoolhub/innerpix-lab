@@ -1,6 +1,7 @@
 Innerpix lab
 ---------------
 
+Bug: en las fotos de Disney de 2025_11 tenemos .MOV de live photos que no han sido borradas
 
 ¿Poner un contador de memoria libre?
 
