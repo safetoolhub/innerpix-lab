@@ -145,6 +145,9 @@ class DuplicatesSimilarAnalysis:
         self.hash_size: int = 8  # Tamaño del hash usado (bits = hash_size²)
         self._distance_cache: Dict[Tuple[int, int], int] = {}
         self._logger = get_logger('DuplicatesSimilarAnalysis')
+        # Cache del último resultado de get_groups para evitar re-clustering costoso
+        self._last_groups_result: Optional[SimilarDuplicateAnalysisResult] = None
+        self._last_groups_sensitivity: Optional[int] = None
     
     def get_groups(
         self, 
@@ -171,6 +174,15 @@ class DuplicatesSimilarAnalysis:
             SimilarDuplicateAnalysisResult con grupos detectados
         """
         import time
+        
+        # Usar resultado cacheado si la sensibilidad no cambió
+        if (self._last_groups_result is not None 
+                and self._last_groups_sensitivity == sensitivity):
+            self._logger.debug(
+                f"Usando resultado cacheado de clustering (sensibilidad {sensitivity}%)"
+            )
+            return self._last_groups_result
+        
         start_time = time.time()
         
         self._logger.info(
@@ -207,7 +219,7 @@ class DuplicatesSimilarAnalysis:
             f"Similitud: {min_similarity:.0f}%-{max_similarity:.0f}%"
         )
         
-        return SimilarDuplicateAnalysisResult(
+        result = SimilarDuplicateAnalysisResult(
             success=True,
             groups=groups,
             total_files_analyzed=self.total_files,
@@ -216,6 +228,21 @@ class DuplicatesSimilarAnalysis:
             space_recoverable=space_recoverable,
             sensitivity=sensitivity
         )
+        
+        # Cachear resultado para evitar re-clustering costoso en la UI
+        self._last_groups_result = result
+        self._last_groups_sensitivity = sensitivity
+        
+        return result
+    
+    def get_last_groups_result(self) -> Optional[SimilarDuplicateAnalysisResult]:
+        """
+        Retorna el último resultado de get_groups() sin recalcular.
+        
+        Útil para mostrar estadísticas en la UI sin bloquear el hilo principal.
+        Retorna None si get_groups() nunca ha sido llamado.
+        """
+        return self._last_groups_result
     
     def _sensitivity_to_threshold(self, sensitivity: int) -> int:
         """
