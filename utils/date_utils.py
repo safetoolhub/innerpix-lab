@@ -860,11 +860,15 @@ def is_renamed_filename(filename: str) -> bool:
         
         >>> is_renamed_filename('IMG_1234.JPG')
         False
+        
+        >>> is_renamed_filename('20230115_103045_VIDEO.MP4')
+        True
     """
     import re
     
     # Patrón: YYYYMMDD_HHMMSS_TYPE[_SEQ].EXT
-    pattern = r'^\d{8}_\d{6}_[A-Z]+(?:_\d{3})?\.[A-Z]{2,4}$'
+    # Nota: extensiones pueden incluir dígitos (ej: MP4, M4V, 3GP)
+    pattern = r'^\d{8}_\d{6}_[A-Z]+(?:_\d{3})?\.[A-Z0-9]{2,4}$'
     return bool(re.match(pattern, filename))
 
 
