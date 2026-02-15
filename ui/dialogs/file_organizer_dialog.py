@@ -149,31 +149,18 @@ class FileOrganizerDialog(BaseDialog):
         
         # Header simple
         header = QFrame()
-        header.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_PRIMARY};
-                padding: {DesignSystem.SPACE_24}px;
-            }}
-        """)
+        header.setStyleSheet(DesignSystem.get_organizer_header_style())
         header_layout = QVBoxLayout(header)
         header_layout.setSpacing(DesignSystem.SPACE_8)
         
         # Título
         title = QLabel("¿Cómo quieres organizar tus archivos?")
-        title.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_2XL}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
-            color: {DesignSystem.COLOR_PRIMARY_TEXT};
-        """)
+        title.setStyleSheet(DesignSystem.get_organizer_header_title_style())
         header_layout.addWidget(title)
         
         # Subtítulo
         subtitle = QLabel("Selecciona una estrategia de organización")
-        subtitle.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            color: {DesignSystem.COLOR_PRIMARY_TEXT};
-            opacity: 0.9;
-        """)
+        subtitle.setStyleSheet(DesignSystem.get_organizer_header_subtitle_style())
         header_layout.addWidget(subtitle)
         
         layout.addWidget(header)
@@ -264,28 +251,7 @@ class FileOrganizerDialog(BaseDialog):
         card.setCursor(Qt.CursorShape.PointingHandCursor)
         card.setMinimumHeight(190)
         card.setObjectName("strategyCard")
-        card.setStyleSheet(f"""
-            QFrame#strategyCard {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 2px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-            }}
-            QFrame#strategyCard:hover {{
-                border-color: {DesignSystem.COLOR_PRIMARY};
-                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
-            }}
-            QFrame#strategyCard QWidget {{
-                background: transparent;
-                border: none;
-            }}
-            QFrame#strategyCard QLabel {{
-                background: transparent;
-                border: none;
-            }}
-            QFrame#strategyCard QFrame {{
-                border: none;
-            }}
-        """)
+        card.setStyleSheet(DesignSystem.get_strategy_card_style())
         
         # Layout horizontal principal
         main_layout = QHBoxLayout(card)
@@ -305,24 +271,13 @@ class FileOrganizerDialog(BaseDialog):
         
         # Título
         title_label = QLabel(title)
-        title_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_LG}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
-            color: {DesignSystem.COLOR_TEXT};
-            background: transparent;
-            border: none;
-        """)
+        title_label.setStyleSheet(DesignSystem.get_strategy_card_title_style())
         left_layout.addWidget(title_label)
         
         # Descripción
         desc_label = QLabel(description)
         desc_label.setWordWrap(True)
-        desc_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            color: {DesignSystem.COLOR_TEXT_SECONDARY};
-            background: transparent;
-            border: none;
-        """)
+        desc_label.setStyleSheet(DesignSystem.get_strategy_card_description_style())
         left_layout.addWidget(desc_label)
         
         # Hint de opciones adicionales (si existe)
@@ -330,13 +285,7 @@ class FileOrganizerDialog(BaseDialog):
             hint_icon = QLabel()
             icon_manager.set_label_icon(hint_icon, 'cog', size=12, color=DesignSystem.COLOR_PRIMARY)
             hint_text = QLabel(hint)
-            hint_text.setStyleSheet(f"""
-                font-size: {DesignSystem.FONT_SIZE_XS}px;
-                color: {DesignSystem.COLOR_PRIMARY};
-                font-style: italic;
-                background: transparent;
-                border: none;
-            """)
+            hint_text.setStyleSheet(DesignSystem.get_strategy_card_hint_style())
             hint_container = QHBoxLayout()
             hint_container.setContentsMargins(0, int(DesignSystem.SPACE_4), 0, 0)
             hint_container.setSpacing(int(DesignSystem.SPACE_4))
@@ -353,38 +302,18 @@ class FileOrganizerDialog(BaseDialog):
         example_container = QFrame()
         example_container.setObjectName("exampleContainer")
         example_container.setFixedWidth(200)  # Un poco más ancho
-        example_container.setStyleSheet(f"""
-            QFrame#exampleContainer {{
-                background-color: rgba(0, 0, 0, 0.03);
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                border: none;
-            }}
-        """)
+        example_container.setStyleSheet(DesignSystem.get_example_container_style())
         example_layout = QVBoxLayout(example_container)
         example_layout.setContentsMargins(DesignSystem.SPACE_12, DesignSystem.SPACE_12, DesignSystem.SPACE_12, DesignSystem.SPACE_12)
         
         # Título del ejemplo
         example_title = QLabel("Vista previa:")
-        example_title.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_XS}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-            color: {DesignSystem.COLOR_TEXT_SECONDARY};
-            margin-bottom: {DesignSystem.SPACE_4}px;
-            background: transparent;
-            border: none;
-        """)
+        example_title.setStyleSheet(DesignSystem.get_example_title_style())
         example_layout.addWidget(example_title)
         
         # Contenido del ejemplo
         example_label = QLabel(example)
-        example_label.setStyleSheet(f"""
-            font-family: {DesignSystem.FONT_FAMILY_MONO};
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            color: {DesignSystem.COLOR_TEXT};
-            line-height: 1.5;
-            background: transparent;
-            border: none;
-        """)
+        example_label.setStyleSheet(DesignSystem.get_example_content_style())
         example_layout.addWidget(example_label)
         example_layout.addStretch()
         
@@ -489,18 +418,7 @@ class FileOrganizerDialog(BaseDialog):
         content_layout.addWidget(self.pagination_bar)
 
         # === PROGRESS BAR (inicialmente oculto) ===
-        self.progress_bar.setStyleSheet(f"""
-            QProgressBar {{
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                text-align: center;
-                background-color: {DesignSystem.COLOR_BG_1};
-            }}
-            QProgressBar::chunk {{
-                background-color: {DesignSystem.COLOR_PRIMARY};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-            }}
-        """)
+        self.progress_bar.setStyleSheet(DesignSystem.get_organizer_progressbar_style())
         content_layout.addWidget(self.progress_bar)
         
         # === OPCIONES ===
@@ -516,13 +434,7 @@ class FileOrganizerDialog(BaseDialog):
     def _create_organization_options_panel(self) -> QWidget:
         """Crea panel de opciones compacto: [Volver] | Estrategia | Opciones - todo en una línea"""
         container = QFrame()
-        container.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-            }}
-        """)
+        container.setStyleSheet(DesignSystem.get_options_panel_container_style())
         
         layout = QHBoxLayout(container)
         layout.setContentsMargins(DesignSystem.SPACE_12, DesignSystem.SPACE_10, DesignSystem.SPACE_16, DesignSystem.SPACE_10)
@@ -530,21 +442,7 @@ class FileOrganizerDialog(BaseDialog):
         
         # Botón volver (izquierda)
         back_btn = QPushButton("← Cambiar")
-        back_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: transparent;
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
-            }}
-            QPushButton:hover {{
-                background-color: {DesignSystem.COLOR_BG_2};
-                color: {DesignSystem.COLOR_TEXT};
-                border-color: {DesignSystem.COLOR_PRIMARY};
-            }}
-        """)
+        back_btn.setStyleSheet(DesignSystem.get_organizer_back_button_style())
         back_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         back_btn.setToolTip("Volver a elegir otra estrategia de organización")
         back_btn.clicked.connect(self._go_back_to_selection)
@@ -553,7 +451,7 @@ class FileOrganizerDialog(BaseDialog):
         # Separador vertical
         sep = QFrame()
         sep.setFixedWidth(1)
-        sep.setStyleSheet(f"background-color: {DesignSystem.COLOR_BORDER};")
+        sep.setStyleSheet(DesignSystem.get_vertical_separator_style())
         layout.addWidget(sep)
         
         # Stacked widget para opciones según estrategia (ocupa el resto del espacio)
@@ -592,76 +490,11 @@ class FileOrganizerDialog(BaseDialog):
     
     def _get_chip_style(self, selected: bool = False) -> str:
         """Estilo para chips de selección"""
-        if selected:
-            return f"""
-                QPushButton {{
-                    background-color: {DesignSystem.COLOR_PRIMARY};
-                    color: white;
-                    border: 1px solid {DesignSystem.COLOR_PRIMARY};
-                    border-radius: {DesignSystem.RADIUS_BASE}px;
-                    padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
-                    font-size: {DesignSystem.FONT_SIZE_SM}px;
-                    font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-                }}
-                QPushButton:hover {{
-                    background-color: {DesignSystem.COLOR_PRIMARY_HOVER};
-                }}
-            """
-        return f"""
-            QPushButton {{
-                background-color: {DesignSystem.COLOR_BG_1};
-                color: {DesignSystem.COLOR_TEXT};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-            }}
-            QPushButton:hover {{
-                background-color: {DesignSystem.COLOR_PRIMARY_SUBTLE};
-                border-color: {DesignSystem.COLOR_PRIMARY};
-            }}
-            QPushButton:checked {{
-                background-color: {DesignSystem.COLOR_PRIMARY};
-                color: white;
-                border-color: {DesignSystem.COLOR_PRIMARY};
-            }}
-        """
+        return DesignSystem.get_chip_style(selected)
     
     def _get_secondary_chip_style(self, selected: bool = False) -> str:
         """Estilo para chips de opciones secundarias (más sutiles)"""
-        if selected:
-            return f"""
-                QPushButton {{
-                    background-color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                    color: white;
-                    border: none;
-                    border-radius: {DesignSystem.RADIUS_SM}px;
-                    padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_10}px;
-                    font-size: {DesignSystem.FONT_SIZE_XS}px;
-                }}
-                QPushButton:hover {{
-                    background-color: {DesignSystem.COLOR_TEXT};
-                }}
-            """
-        return f"""
-            QPushButton {{
-                background-color: transparent;
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                border: 1px dashed {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_SM}px;
-                padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_10}px;
-                font-size: {DesignSystem.FONT_SIZE_XS}px;
-            }}
-            QPushButton:hover {{
-                background-color: {DesignSystem.COLOR_BG_2};
-                border-style: solid;
-            }}
-            QPushButton:checked {{
-                background-color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                color: white;
-                border: none;
-            }}
-        """
+        return DesignSystem.get_secondary_chip_style(selected)
     
     def _create_date_options(self) -> QWidget:
         """Opciones para organización por fecha - diseño compacto horizontal"""
@@ -676,37 +509,18 @@ class FileOrganizerDialog(BaseDialog):
         layout.addWidget(icon_label)
         
         strategy_label = QLabel("Por Fecha")
-        strategy_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-            color: {DesignSystem.COLOR_TEXT};
-            background: transparent;
-            border: none;
-            padding-right: {DesignSystem.SPACE_12}px;
-        """)
+        strategy_label.setStyleSheet(DesignSystem.get_organizer_strategy_label_style())
         layout.addWidget(strategy_label)
         
         # Opción principal: Granularidad (con fondo sutil para destacar)
         gran_container = QFrame()
-        gran_container.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
-                border-radius: {DesignSystem.RADIUS_SM}px;
-                padding: {DesignSystem.SPACE_2}px {DesignSystem.SPACE_8}px;
-            }}
-        """)
+        gran_container.setStyleSheet(DesignSystem.get_granularity_container_style())
         gran_layout = QHBoxLayout(gran_container)
         gran_layout.setContentsMargins(8, 4, 8, 4)
         gran_layout.setSpacing(6)
         
         gran_label = QLabel("Carpetas por:")
-        gran_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            color: {DesignSystem.COLOR_PRIMARY};
-            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-            background: transparent;
-            border: none;
-        """)
+        gran_label.setStyleSheet(DesignSystem.get_granularity_label_style())
         gran_layout.addWidget(gran_label)
         
         self.date_granularity_buttons = []
@@ -724,12 +538,7 @@ class FileOrganizerDialog(BaseDialog):
         
         # Opciones secundarias: Subcarpetas (más sutiles)
         sub_label = QLabel("Subcarpetas:")
-        sub_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            color: {DesignSystem.COLOR_TEXT_SECONDARY};
-            background: transparent;
-            border: none;
-        """)
+        sub_label.setStyleSheet(DesignSystem.get_subcarpetas_label_style())
         layout.addWidget(sub_label)
         
         self.chk_date_source_btn = QPushButton("+ Fuente")
@@ -764,24 +573,12 @@ class FileOrganizerDialog(BaseDialog):
         layout.addWidget(icon_label)
         
         strategy_label = QLabel("Por Tipo")
-        strategy_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-            color: {DesignSystem.COLOR_TEXT};
-            background: transparent;
-            border: none;
-            padding-right: {DesignSystem.SPACE_12}px;
-        """)
+        strategy_label.setStyleSheet(DesignSystem.get_organizer_strategy_label_style())
         layout.addWidget(strategy_label)
         
         # Opciones secundarias: Subcarpetas por fecha
         sub_label = QLabel("Subcarpetas por fecha:")
-        sub_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            color: {DesignSystem.COLOR_TEXT_SECONDARY};
-            background: transparent;
-            border: none;
-        """)
+        sub_label.setStyleSheet(DesignSystem.get_subcarpetas_label_style())
         layout.addWidget(sub_label)
         
         self.type_date_buttons = []
@@ -808,24 +605,12 @@ class FileOrganizerDialog(BaseDialog):
         layout.addWidget(icon_label)
         
         strategy_label = QLabel("Por Fuente")
-        strategy_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-            color: {DesignSystem.COLOR_TEXT};
-            background: transparent;
-            border: none;
-            padding-right: {DesignSystem.SPACE_12}px;
-        """)
+        strategy_label.setStyleSheet(DesignSystem.get_organizer_strategy_label_style())
         layout.addWidget(strategy_label)
         
         # Subcarpetas por fecha
         sub_label = QLabel("Subcarpetas por fecha:")
-        sub_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            color: {DesignSystem.COLOR_TEXT_SECONDARY};
-            background: transparent;
-            border: none;
-        """)
+        sub_label.setStyleSheet(DesignSystem.get_subcarpetas_label_style())
         layout.addWidget(sub_label)
         
         self.source_date_buttons = []
@@ -852,24 +637,12 @@ class FileOrganizerDialog(BaseDialog):
         layout.addWidget(icon_label)
         
         strategy_label = QLabel("Mover al Raíz")
-        strategy_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-            color: {DesignSystem.COLOR_TEXT};
-            background: transparent;
-            border: none;
-            padding-right: {DesignSystem.SPACE_12}px;
-        """)
+        strategy_label.setStyleSheet(DesignSystem.get_organizer_strategy_label_style())
         layout.addWidget(strategy_label)
         
         # Descripción
         info_label = QLabel("Todos los archivos se moverán al directorio principal, sin subcarpetas")
-        info_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            color: {DesignSystem.COLOR_TEXT_SECONDARY};
-            background: transparent;
-            border: none;
-        """)
+        info_label.setStyleSheet(DesignSystem.get_subcarpetas_label_style())
         layout.addWidget(info_label)
         
         layout.addStretch()
@@ -936,14 +709,7 @@ class FileOrganizerDialog(BaseDialog):
     def _create_strategy_indicator(self) -> QWidget:
         """Crea un indicador simple de la estrategia seleccionada"""
         container = QFrame()
-        container.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
-                border-left: 3px solid {DesignSystem.COLOR_PRIMARY};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_12}px;
-            }}
-        """)
+        container.setStyleSheet(DesignSystem.get_strategy_indicator_container_style())
         
         layout = QHBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -956,11 +722,7 @@ class FileOrganizerDialog(BaseDialog):
         
         # Texto
         self.indicator_text = QLabel("Organizando por fecha")
-        self.indicator_text.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-            color: {DesignSystem.COLOR_TEXT};
-        """)
+        self.indicator_text.setStyleSheet(DesignSystem.get_strategy_indicator_text_style())
         layout.addWidget(self.indicator_text, 1)
         
         layout.addStretch()
@@ -1193,14 +955,7 @@ class FileOrganizerDialog(BaseDialog):
             return None
         
         self.folders_info_container = QFrame()
-        self.folders_info_container.setStyleSheet(f"""
-            QFrame {{ 
-                background-color: {DesignSystem.COLOR_INFO_BG}; 
-                border: 1px solid {DesignSystem.COLOR_INFO};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_12}px;
-            }}
-        """)
+        self.folders_info_container.setStyleSheet(DesignSystem.get_folders_info_container_style())
         
         layout = QHBoxLayout(self.folders_info_container)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -1214,12 +969,7 @@ class FileOrganizerDialog(BaseDialog):
         self.folders_info_label = QLabel()
         self.folders_info_label.setWordWrap(True)
         self.folders_info_label.setTextFormat(Qt.TextFormat.RichText)
-        self.folders_info_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            color: {DesignSystem.COLOR_INFO_TEXT};
-            border: none;
-            background: transparent;
-        """)
+        self.folders_info_label.setStyleSheet(DesignSystem.get_folders_info_label_style())
         layout.addWidget(self.folders_info_label, 1)
         
         self._update_folders_info()
@@ -1327,37 +1077,7 @@ class FileOrganizerDialog(BaseDialog):
         tree.itemDoubleClicked.connect(self._on_file_double_clicked)
         tree.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         tree.customContextMenuRequested.connect(self._show_context_menu)
-        tree.setStyleSheet(f"""
-            QTreeWidget {{
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                outline: none;
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_4}px;
-            }}
-            QTreeWidget::item {{
-                border: none;
-                outline: none;
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_4}px;
-                border-bottom: 1px solid {DesignSystem.COLOR_BORDER_LIGHT};
-            }}
-            QTreeWidget::item:hover {{
-                background-color: {DesignSystem.COLOR_BG_2};
-            }}
-            QTreeWidget::item:selected {{
-                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
-                color: {DesignSystem.COLOR_TEXT};
-            }}
-            QHeaderView::section {{
-                background-color: {DesignSystem.COLOR_BG_1};
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                padding: {DesignSystem.SPACE_8}px;
-                border: none;
-                border-bottom: 2px solid {DesignSystem.COLOR_BORDER};
-                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-            }}
-        """)
+        tree.setStyleSheet(DesignSystem.get_tree_widget_style())
         tree.setToolTip(
             "Doble clic en archivo para abrirlo\n"
             "Clic derecho para ver detalles y opciones"
@@ -1387,14 +1107,7 @@ class FileOrganizerDialog(BaseDialog):
         # Crear contenedor principal con estilo consistente
         container = QFrame()
         container.setObjectName("options-container")
-        container.setStyleSheet(f"""
-            QFrame#options-container {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_12}px {DesignSystem.SPACE_16}px;
-            }}
-        """)
+        container.setStyleSheet(DesignSystem.get_options_container_style())
         
         container_layout = QVBoxLayout(container)
         container_layout.setSpacing(int(DesignSystem.SPACE_8))
@@ -1407,11 +1120,7 @@ class FileOrganizerDialog(BaseDialog):
         
         # Label "Opciones:"
         options_label = QLabel("Opciones:")
-        options_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-            color: {DesignSystem.COLOR_TEXT_SECONDARY};
-        """)
+        options_label.setStyleSheet(DesignSystem.get_options_label_style())
         options_row.addWidget(options_label)
         
         # Obtener configuración de backup
@@ -1518,10 +1227,7 @@ class FileOrganizerDialog(BaseDialog):
         path_layout.addWidget(self._backup_folder_icon)
         
         self._backup_path_label = QLabel(f"Carpeta donde se guardarán los archivos movidos: {display_path}")
-        self._backup_path_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_XS}px;
-            color: {DesignSystem.COLOR_TEXT_SECONDARY};
-        """)
+        self._backup_path_label.setStyleSheet(DesignSystem.get_backup_path_label_style())
         self._backup_path_label.setToolTip(
             f"Ruta completa: {backup_path_str}\n\n"
             f"Puedes cambiar esta carpeta desde Configuración."
