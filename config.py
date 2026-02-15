@@ -179,7 +179,7 @@ class Config:
     # ========================================================================
     # 9. DESARROLLO
     # ========================================================================
-    DEVELOPMENT_MODE = True
+    DEVELOPMENT_MODE = False
     SAVED_CACHE_DEV_MODE_PATH = "/home/ed/Documents/Innerpix_Lab/cache_saved/RAW_1_2_3_4_5_6.json"
     
     @classmethod
