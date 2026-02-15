@@ -45,6 +45,8 @@ class FileMove:
     sequence: Optional[int] = None
     target_folder: Optional[str] = None
     source: str = "Unknown"
+    best_date: Optional[datetime] = None
+    best_date_source: Optional[str] = None
 
     def __post_init__(self):
         if not self.source_path.exists():
@@ -126,11 +128,15 @@ class FileOrganizerService(BaseService):
             parent_dir = file_path.parent
             
             # Info dict para compatibilidad con lógica existente
+            # Incluir best_date del cache (calculado en Phase 6 del scanner)
+            # para evitar recalcularla en los generadores de plan
             info = {
                     'path': file_path,
                     'name': file_path.name,
                     'size': meta.fs_size,
-                    'type': get_file_type(file_path.name) # Recalcular o usar meta.file_type si confiamos
+                    'type': get_file_type(file_path.name),
+                    '_best_date': meta.best_date,
+                    '_best_date_source': meta.best_date_source,
             }
             files_by_type[info['type']] += 1
 
@@ -370,30 +376,32 @@ class FileOrganizerService(BaseService):
     # pero asegurando que select_best_date_from_file use FileInfoRepository)
     
     def _resolve_conflicts_in_folder(self, name_conflicts: Dict, target_folder: Path) -> List[FileMove]:
-        # Logica identica a original (ver lectura previa)
         move_plan = []
+        
+        # Pre-scan existing files ONCE for the entire folder (avoid repeated iterdir)
+        existing_names = set()
+        if target_folder.exists():
+            try:
+                existing_names = {item.name for item in target_folder.iterdir() if item.is_file()}
+            except OSError:
+                pass
+        
         for file_name, moves in name_conflicts.items():
             if len(moves) == 1 and not moves[0].has_conflict:
                 move_plan.append(moves[0])
             else:
                 base_name = Path(file_name).stem
                 extension = Path(file_name).suffix
-                # Lógica de secuencia simple
                 seq = 1
-                # Encontrar seq inicial escaneando target_folder si existe
-                existing_seqs = set()
-                if target_folder.exists():
-                     for item in target_folder.iterdir():
-                         if item.is_file() and item.stem.startswith(base_name):
-                             # Try parse seq
-                             pass # (Simplificado)
                 
                 for move in moves:
                     new_name = f"{base_name}_{seq:03d}{extension}"
-                    while (target_folder / new_name).exists(): # Check simple
+                    # Check against pre-scanned names and dynamically added names
+                    while new_name in existing_names:
                         seq += 1
                         new_name = f"{base_name}_{seq:03d}{extension}"
                     
+                    existing_names.add(new_name)  # Track newly assigned names
                     move.new_name = new_name
                     move.target_path = target_folder / new_name
                     move.has_conflict = True
@@ -417,7 +425,14 @@ class FileOrganizerService(BaseService):
                 fname = file_info['name']
                 fpath = Path(file_info['path'])
                 conflict = fname in existing_files
-                move = FileMove(fpath, root_directory/fname, fname, fname, subdir_name, file_info['type'], file_info['size'], conflict, source=detect_file_source(fname, fpath))
+                # Usar best_date pre-calculada del cache (almacenada en info dict)
+                file_date = file_info.get('_best_date')
+                file_date_source = file_info.get('_best_date_source')
+                if file_date is None:
+                    # Fallback: calcular si no disponible en cache
+                    file_metadata = get_all_metadata_from_file(fpath)
+                    file_date, file_date_source = select_best_date_from_file(file_metadata)
+                move = FileMove(fpath, root_directory/fname, fname, fname, subdir_name, file_info['type'], file_info['size'], conflict, source=detect_file_source(fname, fpath), best_date=file_date, best_date_source=file_date_source)
                 name_conflicts[fname].append(move)
         return self._resolve_conflicts_in_folder(name_conflicts, root_directory)
 
@@ -511,8 +526,6 @@ class FileOrganizerService(BaseService):
         
         def process(files, subdir_name):
             nonlocal processed_count
-            # Avoid reporting too frequently inside the loop if not needed, 
-            # but since we process one by one, we check modulo.
             
             for info in files:
                 processed_count += 1
@@ -520,10 +533,19 @@ class FileOrganizerService(BaseService):
                    self._report_progress(progress_callback, processed_count, total_files, "Analizando fechas")
                 
                 path = Path(info['path'])
-                file_metadata = get_all_metadata_from_file(path)
-                date, _ = select_best_date_from_file(file_metadata)
+                
+                # Usar best_date pre-calculada del cache (Phase 6 del scanner)
+                # Solo recalcular si no está disponible (fallback)
+                date = info.get('_best_date')
+                date_source = info.get('_best_date_source')
                 if not date:
-                    date = datetime.now()
+                    file_metadata = get_all_metadata_from_file(path)
+                    date, date_source = select_best_date_from_file(file_metadata)
+                    if not date:
+                        date = datetime.now()
+                        date_source = None
+                    info['_best_date'] = date
+                    info['_best_date_source'] = date_source
                 folder = date.strftime(date_fmt)
                 if group_src: folder += f"/{detect_file_source(info['name'], path)}"
                 if group_type:
@@ -549,7 +571,12 @@ class FileOrganizerService(BaseService):
             for item in items:
                 info = item['info']
                 fname = info['name']
-                move = FileMove(Path(info['path']), target_folder/fname, fname, fname, item['subdir'], info['type'], info['size'], fname in exist, target_folder=folder)
+                move = FileMove(
+                    Path(info['path']), target_folder/fname, fname, fname, item['subdir'],
+                    info['type'], info['size'], fname in exist, target_folder=folder,
+                    best_date=info.get('_best_date'),
+                    best_date_source=info.get('_best_date_source')
+                )
                 conflicts[fname].append(move)
             move_plan.extend(self._resolve_conflicts_in_folder(conflicts, target_folder))
         return move_plan
@@ -584,10 +611,17 @@ class FileOrganizerService(BaseService):
                     folder_name = f"{folder_name}/{source}"
                 
                 if date_grouping_type:
-                    file_metadata = get_all_metadata_from_file(file_path)
-                    file_date, _ = select_best_date_from_file(file_metadata)
+                    # Usar best_date pre-calculada del cache
+                    file_date = info.get('_best_date')
+                    file_date_source = info.get('_best_date_source')
                     if not file_date:
-                        file_date = datetime.now()
+                        file_metadata = get_all_metadata_from_file(file_path)
+                        file_date, file_date_source = select_best_date_from_file(file_metadata)
+                        if not file_date:
+                            file_date = datetime.now()
+                            file_date_source = None
+                        info['_best_date'] = file_date
+                        info['_best_date_source'] = file_date_source
                     date_folder = ""
                     if date_grouping_type == 'month': date_folder = file_date.strftime('%Y_%m')
                     elif date_grouping_type == 'year': date_folder = file_date.strftime('%Y')
@@ -616,7 +650,9 @@ class FileOrganizerService(BaseService):
                     Path(info['path']), target_folder / fname, fname, fname,
                     item['subdir'], info['type'], info['size'], fname in existing,
                     target_folder=folder_name,
-                    source=detect_file_source(fname, Path(info['path']))
+                    source=detect_file_source(fname, Path(info['path'])),
+                    best_date=info.get('_best_date'),
+                    best_date_source=info.get('_best_date_source')
                 )
                 name_conflicts[fname].append(move)
             
@@ -645,10 +681,17 @@ class FileOrganizerService(BaseService):
                 source = detect_file_source(info['name'], file_path)
 
                 if date_grouping_type:
-                     file_metadata = get_all_metadata_from_file(file_path)
-                     file_date, _ = select_best_date_from_file(file_metadata)
+                     # Usar best_date pre-calculada del cache
+                     file_date = info.get('_best_date')
+                     file_date_source = info.get('_best_date_source')
                      if not file_date:
-                         file_date = datetime.now()
+                         file_metadata = get_all_metadata_from_file(file_path)
+                         file_date, file_date_source = select_best_date_from_file(file_metadata)
+                         if not file_date:
+                             file_date = datetime.now()
+                             file_date_source = None
+                         info['_best_date'] = file_date
+                         info['_best_date_source'] = file_date_source
                      date_folder = ""
                      if date_grouping_type == 'month': date_folder = file_date.strftime('%Y_%m')
                      elif date_grouping_type == 'year': date_folder = file_date.strftime('%Y')
@@ -675,7 +718,9 @@ class FileOrganizerService(BaseService):
                     Path(info['path']), target_folder / fname, fname, fname,
                     item['subdir'], info['type'], info['size'], fname in existing,
                     target_folder=source_name,
-                    source=source_name
+                    source=source_name,
+                    best_date=info.get('_best_date'),
+                    best_date_source=info.get('_best_date_source')
                 )
                 name_conflicts[fname].append(move)
             move_plan.extend(self._resolve_conflicts_in_folder(name_conflicts, target_folder))
