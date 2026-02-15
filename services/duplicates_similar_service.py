@@ -142,6 +142,7 @@ class DuplicatesSimilarAnalysis:
         self.workspace_path: Optional[str] = None
         self.total_files: int = 0
         self.analysis_timestamp: Optional[datetime] = None
+        self.hash_size: int = 8  # Tamaño del hash usado (bits = hash_size²)
         self._distance_cache: Dict[Tuple[int, int], int] = {}
         self._logger = get_logger('DuplicatesSimilarAnalysis')
     
@@ -326,7 +327,7 @@ class DuplicatesSimilarAnalysis:
                         if hamming_distances else 0
                     )
                     
-                    max_theoretical_dist = 64
+                    max_theoretical_dist = self.hash_size * self.hash_size
                     similarity_percentage = 100 - (avg_hamming / max_theoretical_dist * 100)
                     similarity_percentage = max(0, min(100, similarity_percentage))
                     
@@ -379,6 +380,7 @@ class DuplicatesSimilarAnalysis:
             'workspace_path': self.workspace_path,
             'total_files': self.total_files,
             'analysis_timestamp': self.analysis_timestamp,
+            'hash_size': self.hash_size,
         }
         
         # Convertir hashes a formato serializable
@@ -417,6 +419,7 @@ class DuplicatesSimilarAnalysis:
         analysis.workspace_path = data['workspace_path']
         analysis.total_files = data['total_files']
         analysis.analysis_timestamp = data['analysis_timestamp']
+        analysis.hash_size = data.get('hash_size', 8)  # Compatibilidad con caches antiguos
         
         # Reconstruir hashes desde strings
         for path, hash_data in data['perceptual_hashes'].items():
@@ -985,6 +988,7 @@ class DuplicatesSimilarService(BaseService):
         analysis.perceptual_hashes = perceptual_hashes
         analysis.total_files = len(perceptual_hashes)
         analysis.analysis_timestamp = datetime.now()
+        analysis.hash_size = hash_size
         
         # Log stats
         hash_calc_time = time.time() - hash_calc_start
