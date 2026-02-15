@@ -21,6 +21,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError
 
 from config import Config
 from utils.logger import get_logger, log_section_header_discrete, log_section_footer_discrete
+from utils.format_utils import format_size
 from services.result_types import VisualIdenticalAnalysisResult, VisualIdenticalGroup
 from services.base_service import BaseService, ProgressCallback
 from services.file_metadata_repository_cache import FileInfoRepositoryCache
@@ -399,6 +400,12 @@ class VisualIdenticalService(BaseService):
                     deleted_bytes += file_size
                     files_affected.append(file_path)
                 else:
+                    self.logger.warning(
+                        f"ARCHIVO_DESCARTADO: {file_path} | "
+                        f"Size: {format_size(file_size)} | "
+                        f"Type: visual_identical | "
+                        f"Motivo: No se pudo eliminar el archivo"
+                    )
                     errors.append(f"No se pudo eliminar: {file_path}")
                 
                 if self._should_report_progress(i, interval=10):
@@ -412,6 +419,13 @@ class VisualIdenticalService(BaseService):
             except Exception as e:
                 errors.append(f"{file_path}: {str(e)}")
                 self.logger.error(f"Error eliminando {file_path}: {e}")
+        
+        # Resumen de archivos descartados
+        total_descartados = total - deleted_count
+        if total_descartados > 0:
+            self.logger.warning(
+                f"RESUMEN_DESCARTADOS: {total_descartados}/{total} archivos no pudieron ser eliminados"
+            )
         
         log_section_footer_discrete(self.logger, "ELIMINACIÓN DE COPIAS IDÉNTICAS COMPLETADA")
         

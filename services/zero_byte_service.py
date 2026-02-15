@@ -141,6 +141,11 @@ class ZeroByteService(BaseService):
                     items_processed += 1
                     files_affected.append(file_path)
                 else:
+                    self.logger.warning(
+                        f"ARCHIVO_DESCARTADO: {file_path} | "
+                        f"Size: 0 B | Type: {file_type} | "
+                        f"Motivo: No se pudo eliminar el archivo"
+                    )
                     result.add_error(f"No se pudo eliminar: {file_path}")
                         
             except Exception as e:
@@ -148,6 +153,13 @@ class ZeroByteService(BaseService):
         
         result.items_processed = items_processed
         result.files_affected = files_affected
+        
+        # Resumen de archivos descartados
+        total_descartados = total - items_processed
+        if total_descartados > 0:
+            self.logger.warning(
+                f"RESUMEN_DESCARTADOS: {total_descartados}/{total} archivos no pudieron ser eliminados"
+            )
         
         # Usar _format_operation_summary de BaseService
         summary = self._format_operation_summary(
