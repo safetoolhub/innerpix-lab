@@ -383,6 +383,13 @@ class HeicService(BaseService):
                      items_processed += 1
                      bytes_processed += file_size
                      files_affected.append(file_to_delete)
+                 else:
+                     self.logger.warning(
+                         f"ARCHIVO_DESCARTADO: {file_to_delete} | "
+                         f"Size: {format_size(file_size)} | "
+                         f"Type: {format_deleted} | "
+                         f"Motivo: No se pudo eliminar el archivo"
+                     )
                      
              except Exception as e:
                  err = f"Error eliminando {file_to_delete}: {e}"
@@ -393,6 +400,13 @@ class HeicService(BaseService):
         result.items_processed = items_processed
         result.bytes_processed = bytes_processed
         result.files_affected = files_affected
+
+        # Resumen de archivos descartados
+        total_descartados = total_pairs - items_processed
+        if total_descartados > 0:
+            self.logger.warning(
+                f"RESUMEN_DESCARTADOS: {total_descartados}/{total_pairs} archivos no pudieron ser eliminados"
+            )
 
         # Resumen
         summary = self._format_operation_summary("Eliminación HEIC/JPG", items_processed, bytes_processed, dry_run)

@@ -695,6 +695,18 @@ class TestIsRenamedFilename:
     def test_partial_match_returns_false(self):
         """Debe rechazar coincidencia parcial"""
         assert is_renamed_filename('20230115_PHOTO.JPG') is False
+    
+    def test_extension_with_digits_mp4(self):
+        """Debe reconocer nombres con extensión MP4 (contiene dígito)"""
+        assert is_renamed_filename('20230115_103045_VIDEO.MP4') is True
+    
+    def test_extension_with_digits_m4v(self):
+        """Debe reconocer nombres con extensión M4V (contiene dígito)"""
+        assert is_renamed_filename('20230115_103045_VIDEO.M4V') is True
+    
+    def test_extension_with_sequence_and_digits(self):
+        """Debe reconocer nombres con secuencia y extensión con dígitos"""
+        assert is_renamed_filename('20230115_103045_VIDEO_001.MP4') is True
 
 
 @pytest.mark.unit

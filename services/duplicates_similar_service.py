@@ -142,8 +142,12 @@ class DuplicatesSimilarAnalysis:
         self.workspace_path: Optional[str] = None
         self.total_files: int = 0
         self.analysis_timestamp: Optional[datetime] = None
+        self.hash_size: int = 8  # Tamaño del hash usado (bits = hash_size²)
         self._distance_cache: Dict[Tuple[int, int], int] = {}
         self._logger = get_logger('DuplicatesSimilarAnalysis')
+        # Cache del último resultado de get_groups para evitar re-clustering costoso
+        self._last_groups_result: Optional[SimilarDuplicateAnalysisResult] = None
+        self._last_groups_sensitivity: Optional[int] = None
     
     def get_groups(
         self, 
@@ -170,6 +174,15 @@ class DuplicatesSimilarAnalysis:
             SimilarDuplicateAnalysisResult con grupos detectados
         """
         import time
+        
+        # Usar resultado cacheado si la sensibilidad no cambió
+        if (self._last_groups_result is not None 
+                and self._last_groups_sensitivity == sensitivity):
+            self._logger.debug(
+                f"Usando resultado cacheado de clustering (sensibilidad {sensitivity}%)"
+            )
+            return self._last_groups_result
+        
         start_time = time.time()
         
         self._logger.info(
@@ -206,7 +219,7 @@ class DuplicatesSimilarAnalysis:
             f"Similitud: {min_similarity:.0f}%-{max_similarity:.0f}%"
         )
         
-        return SimilarDuplicateAnalysisResult(
+        result = SimilarDuplicateAnalysisResult(
             success=True,
             groups=groups,
             total_files_analyzed=self.total_files,
@@ -215,6 +228,21 @@ class DuplicatesSimilarAnalysis:
             space_recoverable=space_recoverable,
             sensitivity=sensitivity
         )
+        
+        # Cachear resultado para evitar re-clustering costoso en la UI
+        self._last_groups_result = result
+        self._last_groups_sensitivity = sensitivity
+        
+        return result
+    
+    def get_last_groups_result(self) -> Optional[SimilarDuplicateAnalysisResult]:
+        """
+        Retorna el último resultado de get_groups() sin recalcular.
+        
+        Útil para mostrar estadísticas en la UI sin bloquear el hilo principal.
+        Retorna None si get_groups() nunca ha sido llamado.
+        """
+        return self._last_groups_result
     
     def _sensitivity_to_threshold(self, sensitivity: int) -> int:
         """
@@ -326,7 +354,7 @@ class DuplicatesSimilarAnalysis:
                         if hamming_distances else 0
                     )
                     
-                    max_theoretical_dist = 64
+                    max_theoretical_dist = self.hash_size * self.hash_size
                     similarity_percentage = 100 - (avg_hamming / max_theoretical_dist * 100)
                     similarity_percentage = max(0, min(100, similarity_percentage))
                     
@@ -379,6 +407,7 @@ class DuplicatesSimilarAnalysis:
             'workspace_path': self.workspace_path,
             'total_files': self.total_files,
             'analysis_timestamp': self.analysis_timestamp,
+            'hash_size': self.hash_size,
         }
         
         # Convertir hashes a formato serializable
@@ -417,6 +446,7 @@ class DuplicatesSimilarAnalysis:
         analysis.workspace_path = data['workspace_path']
         analysis.total_files = data['total_files']
         analysis.analysis_timestamp = data['analysis_timestamp']
+        analysis.hash_size = data.get('hash_size', 8)  # Compatibilidad con caches antiguos
         
         # Reconstruir hashes desde strings
         for path, hash_data in data['perceptual_hashes'].items():
@@ -985,6 +1015,7 @@ class DuplicatesSimilarService(BaseService):
         analysis.perceptual_hashes = perceptual_hashes
         analysis.total_files = len(perceptual_hashes)
         analysis.analysis_timestamp = datetime.now()
+        analysis.hash_size = hash_size
         
         # Log stats
         hash_calc_time = time.time() - hash_calc_start

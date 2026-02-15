@@ -1,6 +1,20 @@
 Innerpix lab
 ---------------
+A comprobar: que tal funciona todo cuando no se ha hecho todo el analisis
 
+IOnconsistencia:
+1. Dicts vs Dataclasses
+file_renamer_service.py
+renaming_plan en result_types.py:437 está explícitamente tipado como List[Dict] — una violación directa del principio del proyecto
+renamed_files en result_types.py:456 igual: List[dict]
+El servicio crea dicts con keys como original_path, new_name, date, date_source, has_conflict, sequence — esto es un candidato perfecto para un RenamePlanItem dataclass
+El diálogo accede a estos dicts con item['original_path'], item['date'], item['has_conflict'] etc.
+Mi opinión: El renamer es el caso más claro para corregir — esos dicts cruzan la frontera servicio→UI vía result_types.py, que es exactamente donde el proyecto exige dataclasses. El organizer es menos urgente porque los dicts son inter
+
+
+
+
+Bug: en las fotos de Disney de 2025_11 tenemos .MOV de live photos que no han sido borradas
 
 ¿Poner un contador de memoria libre?
 

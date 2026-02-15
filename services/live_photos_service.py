@@ -94,7 +94,7 @@ class LivePhotoService(BaseService):
         self.logger.info(f"Validación de fechas: {'ACTIVADA' if validate_dates else 'DESACTIVADA'}")
         
         if validate_dates:
-            self.logger.info(f"Tolerancia máxima: {Config.MAX_TIME_DIFFERENCE_SECONDS}s")
+            self.logger.info(f"Tolerancia máxima: {Config.LIVE_PHOTO_MAX_TIME_DIFFERENCE_SECONDS}s")
         
         self._reset_stats()
         
@@ -334,8 +334,8 @@ class LivePhotoService(BaseService):
                 time_diff = abs((vid_date - img_date).total_seconds())
                 
                 # FILTRAR: Si esta imagen específica excede el threshold, descartarla
-                if time_diff > Config.MAX_TIME_DIFFERENCE_SECONDS:
-                    reason = f"diff={format_duration(time_diff)} > {format_duration(Config.MAX_TIME_DIFFERENCE_SECONDS)}"
+                if time_diff > Config.LIVE_PHOTO_MAX_TIME_DIFFERENCE_SECONDS:
+                    reason = f"diff={format_duration(time_diff)} > {format_duration(Config.LIVE_PHOTO_MAX_TIME_DIFFERENCE_SECONDS)}"
                     self.logger.debug(
                         f"Imagen rechazada ({reason}) "
                         f"para {base_name}: {photo_meta.path.name}"
@@ -507,11 +507,25 @@ class LivePhotoService(BaseService):
                                 f"⚠️ SOSPECHA: Video grande {'en' if dry_run else 'eliminado en'} "
                                 f"Live Photo: {video_path} ({format_size(video_size)})"
                             )
+                    else:
+                        self.logger.warning(
+                            f"ARCHIVO_DESCARTADO: {video_path} | "
+                            f"Size: {format_size(video_size)} | "
+                            f"Motivo: No se pudo eliminar el archivo"
+                        )
 
                 except Exception as e:
                     error_msg = f"Error procesando {video_path.name}: {str(e)}"
                     result.add_error(error_msg)
                     self.logger.error(error_msg)
+
+            # Resumen de archivos descartados
+            total_descartados = total - videos_deleted - videos_protected
+            if total_descartados > 0:
+                self.logger.warning(
+                    f"RESUMEN_DESCARTADOS: {total_descartados}/{total} archivos no pudieron ser eliminados "
+                    f"(protegidos por duración: {videos_protected}, no encontrados o fallos: {total_descartados})"
+                )
 
             # Actualizar estadísticas
             self.stats['protected_by_duration'] = videos_protected

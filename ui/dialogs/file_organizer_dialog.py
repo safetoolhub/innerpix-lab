@@ -17,7 +17,6 @@ from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QThread
 
 from config import Config
 from utils.format_utils import format_size
-from utils.date_utils import select_best_date_from_file, get_all_metadata_from_file
 from utils.file_utils import is_whatsapp_file
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
@@ -42,7 +41,7 @@ class FileOrganizerDialog(BaseDialog):
     
     # Constantes para carga progresiva
     INITIAL_LOAD = 100
-    LOAD_INCREMENT = 100
+    LOAD_INCREMENT = 2000
     WARNING_THRESHOLD = 500
 
     def __init__(self, initial_analysis: Optional[OrganizationAnalysisResult], parent=None):
@@ -70,6 +69,8 @@ class FileOrganizerDialog(BaseDialog):
         self.all_moves = []
         self.filtered_moves = []
         self.loaded_count = 0
+        self._paginated_groups = []
+        self._current_group_index = 0
         
         # Worker para análisis
         self.worker: Optional[FileOrganizerAnalysisWorker] = None
@@ -1690,6 +1691,8 @@ class FileOrganizerDialog(BaseDialog):
     def _load_initial_items(self):
         """Carga los items iniciales en el árbol."""
         self.loaded_count = 0
+        self._current_group_index = 0
+        self._paginated_groups = []
         self.files_tree.clear()
         
         # Reconfigurar columnas si cambió el tipo
@@ -1698,31 +1701,40 @@ class FileOrganizerDialog(BaseDialog):
         self._load_more_items()
     
     def _load_more_items(self):
-        """Carga más items en el árbol."""
+        """Carga más items en el árbol usando paginación por grupos."""
         if not self.filtered_moves:
             self._update_pagination_ui()
             return
-            
-        start = self.loaded_count
-        end = min(start + self.LOAD_INCREMENT, len(self.filtered_moves))
         
-        items_to_load = self.filtered_moves[start:end]
-        
-        # Poblar según tipo - para carga incremental, solo añadir archivos directamente
         org_type = self.current_organization_type
         
-        # En la primera carga, crear la estructura de grupos
-        if start == 0:
-            if org_type == OrganizationType.TO_ROOT:
-                self._populate_tree_to_root(self.filtered_moves)
-            elif org_type in (OrganizationType.BY_MONTH, OrganizationType.BY_YEAR, OrganizationType.BY_YEAR_MONTH):
-                self._populate_tree_by_temporal(self.filtered_moves)
-            elif org_type in (OrganizationType.BY_TYPE, OrganizationType.BY_SOURCE):
-                self._populate_tree_by_category(self.filtered_moves)
-            self.loaded_count = len(self.filtered_moves)
-        else:
-            self.loaded_count = end
+        # En la primera carga, preparar los grupos ordenados
+        if self.loaded_count == 0:
+            self._prepare_groups_for_pagination(org_type)
         
+        # Cargar siguiente bloque de grupos
+        groups_loaded = 0
+        items_loaded = 0
+        
+        self.files_tree.setUpdatesEnabled(False)
+        
+        while self._current_group_index < len(self._paginated_groups) and items_loaded < self.LOAD_INCREMENT:
+            folder, moves_in_folder = self._paginated_groups[self._current_group_index]
+            
+            if org_type == OrganizationType.TO_ROOT:
+                self._add_tree_group_to_root(folder, moves_in_folder)
+            elif org_type in (OrganizationType.BY_MONTH, OrganizationType.BY_YEAR, OrganizationType.BY_YEAR_MONTH):
+                self._add_tree_group_temporal(folder, moves_in_folder)
+            elif org_type in (OrganizationType.BY_TYPE, OrganizationType.BY_SOURCE):
+                self._add_tree_group_category(folder, moves_in_folder)
+            
+            items_loaded += len(moves_in_folder)
+            groups_loaded += 1
+            self._current_group_index += 1
+        
+        self.files_tree.setUpdatesEnabled(True)
+        
+        self.loaded_count += items_loaded
         self._update_pagination_ui()
     
     def _load_all_items(self):
@@ -1743,6 +1755,154 @@ class FileOrganizerDialog(BaseDialog):
         while self.loaded_count < len(self.filtered_moves):
             self._load_more_items()
     
+    def _prepare_groups_for_pagination(self, org_type):
+        """Prepara los grupos ordenados para paginación incremental."""
+        self._paginated_groups = []
+        self._current_group_index = 0
+        
+        if org_type == OrganizationType.TO_ROOT:
+            by_subdir = defaultdict(list)
+            for move in self.filtered_moves:
+                by_subdir[move.subdirectory].append(move)
+            self._paginated_groups = sorted(by_subdir.items(), key=lambda x: str(x[0]))
+            
+        elif org_type in (OrganizationType.BY_MONTH, OrganizationType.BY_YEAR, OrganizationType.BY_YEAR_MONTH):
+            by_folder = defaultdict(list)
+            for move in self.filtered_moves:
+                folder = move.target_folder or "Sin fecha"
+                by_folder[folder].append(move)
+            self._paginated_groups = sorted(by_folder.items(), key=lambda x: x[0], reverse=True)
+            
+        elif org_type in (OrganizationType.BY_TYPE, OrganizationType.BY_SOURCE):
+            by_category = defaultdict(list)
+            for move in self.filtered_moves:
+                category = move.target_folder or "Sin categoría"
+                by_category[category].append(move)
+            
+            def category_sort_key(item):
+                cat = item[0]
+                if cat == "Unknown":
+                    return (1, cat)
+                return (0, cat)
+            self._paginated_groups = sorted(by_category.items(), key=category_sort_key)
+    
+    def _add_tree_group_to_root(self, subdir: str, moves_in_subdir: list):
+        """Añade un grupo de subdirectorio al tree para TO_ROOT."""
+        total_size = sum(m.size for m in moves_in_subdir)
+        
+        subdir_node = QTreeWidgetItem()
+        subdir_node.setText(0, f"Desde: {subdir} ({len(moves_in_subdir)} archivos)")
+        subdir_node.setText(1, "")
+        subdir_node.setText(2, "")
+        subdir_node.setText(3, "")
+        subdir_node.setText(4, format_size(total_size))
+        
+        subdir_font = QFont()
+        subdir_font.setBold(True)
+        subdir_node.setFont(0, subdir_font)
+        subdir_node.setForeground(0, QColor(DesignSystem.COLOR_PRIMARY))
+        
+        self.files_tree.addTopLevelItem(subdir_node)
+        
+        for move in sorted(moves_in_subdir, key=lambda m: m.original_name):
+            child = self._create_file_tree_item(move)
+            subdir_node.addChild(child)
+        
+        if len(moves_in_subdir) <= 20:
+            subdir_node.setExpanded(True)
+    
+    def _add_tree_group_temporal(self, folder: str, moves_in_folder: list):
+        """Añade un grupo temporal (mes/año) al tree."""
+        total_size = sum(m.size for m in moves_in_folder)
+        
+        parent = QTreeWidgetItem()
+        parent.setText(0, f"{folder}/ ({len(moves_in_folder)} archivos)")
+        parent.setText(1, "")
+        parent.setText(2, "")
+        parent.setText(3, "")
+        parent.setText(4, format_size(total_size))
+        
+        parent_font = QFont()
+        parent_font.setBold(True)
+        parent.setFont(0, parent_font)
+        parent.setForeground(0, QColor(DesignSystem.COLOR_PRIMARY))
+        
+        self.files_tree.addTopLevelItem(parent)
+        
+        for move in sorted(moves_in_folder, key=lambda m: m.original_name):
+            child = self._create_file_tree_item(move)
+            parent.addChild(child)
+        
+        if len(moves_in_folder) <= 20:
+            parent.setExpanded(True)
+    
+    def _add_tree_group_category(self, category: str, moves_in_category: list):
+        """Añade un grupo de categoría al tree."""
+        total_size = sum(m.size for m in moves_in_category)
+        
+        parent = QTreeWidgetItem()
+        parent.setText(0, f"{category}/ ({len(moves_in_category)} archivos)")
+        parent.setText(1, "")
+        parent.setText(2, "")
+        parent.setText(3, "")
+        parent.setText(4, format_size(total_size))
+        
+        parent_font = QFont()
+        parent_font.setBold(True)
+        parent.setFont(0, parent_font)
+        
+        # Colores especiales para categorías conocidas
+        if category == "WhatsApp":
+            parent.setForeground(0, QColor("#25d366"))
+        elif category in ("iPhone", "Android"):
+            parent.setForeground(0, QColor("#2196f3"))
+        elif category in ("Camera", "Scanner"):
+            parent.setForeground(0, QColor("#ff9800"))
+        elif category == "Screenshot":
+            parent.setForeground(0, QColor("#9c27b0"))
+        elif category in ("Fotos", "Videos"):
+            parent.setForeground(0, QColor(DesignSystem.COLOR_PRIMARY))
+        else:
+            parent.setForeground(0, QColor(DesignSystem.COLOR_TEXT_SECONDARY))
+        
+        self.files_tree.addTopLevelItem(parent)
+        
+        for move in sorted(moves_in_category, key=lambda m: m.original_name):
+            child = self._create_file_tree_item(move)
+            parent.addChild(child)
+        
+        if len(moves_in_category) <= 20:
+            parent.setExpanded(True)
+    
+    def _create_file_tree_item(self, move) -> QTreeWidgetItem:
+        """Crea un QTreeWidgetItem para un archivo individual."""
+        child = QTreeWidgetItem()
+        child.setText(0, f"  {move.source_path}")
+        
+        if move.has_conflict:
+            child.setText(1, move.new_name)
+            child.setForeground(1, QColor(DesignSystem.COLOR_ERROR))
+        else:
+            child.setText(1, "Igual")
+            child.setForeground(1, QColor(DesignSystem.COLOR_TEXT_SECONDARY))
+        
+        file_date = getattr(move, 'best_date', None)
+        date_source = getattr(move, 'best_date_source', None)
+        if file_date:
+            child.setText(2, file_date.strftime("%Y-%m-%d %H:%M:%S"))
+            child.setText(3, date_source if date_source else "-")
+        else:
+            child.setText(2, "-")
+            child.setText(3, "-")
+        
+        child.setText(4, format_size(move.size))
+        
+        if move.has_conflict:
+            child.setForeground(0, QColor(DesignSystem.COLOR_ERROR))
+        
+        child.setData(0, Qt.ItemDataRole.UserRole, move.source_path)
+        return child
+    
     def _update_pagination_ui(self):
         """Actualiza la UI de la barra de carga progresiva."""
         if self.pagination_bar and self.analysis:
@@ -1762,261 +1922,6 @@ class FileOrganizerDialog(BaseDialog):
             loaded_count=self.loaded_count,
             is_files_mode=True
         )
-    
-    def _populate_tree_to_root(self, moves):
-        """Poblar tree para TO_ROOT"""
-        # Agrupar por subdirectorio
-        by_subdir = defaultdict(list)
-        for move in moves:
-            by_subdir[move.subdirectory].append(move)
-        
-        # Crear nodo raíz
-        total_moves = len(moves)
-        total_size_all = sum(m.size for m in moves)
-        total_conflicts = sum(1 for m in moves if m.has_conflict)
-        
-        root_parent = QTreeWidgetItem()
-        root_parent.setText(0, f"Raíz del directorio ({total_moves} archivos)")
-        root_parent.setText(1, "") # Nuevo Nombre
-        root_parent.setText(2, "") # Fecha
-        root_parent.setText(3, "") # Origen
-        root_parent.setText(4, format_size(total_size_all))
-        
-        root_font = QFont()
-        root_font.setBold(True)
-        root_font.setPointSize(11)
-        root_parent.setFont(0, root_font)
-        root_parent.setForeground(0, QColor(DesignSystem.COLOR_PRIMARY))
-        
-        self.files_tree.addTopLevelItem(root_parent)
-        
-        # Subnodos por subdirectorio
-        for subdir in sorted(by_subdir.keys()):
-            moves_in_subdir = by_subdir[subdir]
-            total_size = sum(m.size for m in moves_in_subdir)
-            conflicts = sum(1 for m in moves_in_subdir if m.has_conflict)
-            
-            subdir_node = QTreeWidgetItem()
-            subdir_node.setText(0, f"  Desde: {subdir} ({len(moves_in_subdir)} archivos)")
-            subdir_node.setText(1, "")
-            subdir_node.setText(2, "")
-            subdir_node.setText(3, "")
-            subdir_node.setText(4, format_size(total_size))
-            
-            subdir_font = QFont()
-            subdir_font.setBold(True)
-            subdir_node.setFont(0, subdir_font)
-            subdir_node.setForeground(0, QColor(DesignSystem.COLOR_TEXT_SECONDARY))
-            
-            root_parent.addChild(subdir_node)
-            
-            # Archivos
-            for move in sorted(moves_in_subdir, key=lambda m: m.original_name):
-                child = QTreeWidgetItem()
-                child.setText(0, f"    {move.source_path}")
-                
-                # Nuevo Nombre
-                if move.has_conflict:
-                    child.setText(1, move.new_name)
-                    child.setForeground(1, QColor(DesignSystem.COLOR_ERROR))
-                else:
-                    child.setText(1, "Igual")
-                    child.setForeground(1, QColor(DesignSystem.COLOR_TEXT_SECONDARY))
-                
-                # Fecha y Origen
-                try:
-                    file_metadata = get_all_metadata_from_file(move.source_path)
-                    file_date, date_source = select_best_date_from_file(file_metadata)
-                    if file_date:
-                        child.setText(2, file_date.strftime("%Y-%m-%d %H:%M:%S"))
-                        child.setText(3, date_source if date_source else "-")
-                    else:
-                        child.setText(2, "-")
-                        child.setText(3, "-")
-                except:
-                    child.setText(2, "-")
-                    child.setText(3, "-")
-
-                child.setText(4, format_size(move.size))
-                
-                # Marcado visual de conflictos (texto en rojo)
-                if move.has_conflict:
-                    child.setForeground(0, QColor(DesignSystem.COLOR_ERROR))
-                
-                child.setData(0, Qt.ItemDataRole.UserRole, move.source_path)
-                subdir_node.addChild(child)
-            
-            if len(moves_in_subdir) <= 20:
-                subdir_node.setExpanded(True)
-            
-            if root_parent.childCount() % 10 == 0:
-                QApplication.processEvents()
-        
-        root_parent.setExpanded(True)
-        
-        # Colapsar todos los nodos para mostrar solo la estructura general
-        self.files_tree.collapseAll()
-    
-    def _populate_tree_by_temporal(self, moves):
-        """Poblar tree para organizaciones temporales (BY_MONTH, BY_YEAR, BY_YEAR_MONTH)"""
-        # Agrupar por carpeta destino
-        by_folder = defaultdict(list)
-        for move in moves:
-            folder = move.target_folder or "Sin fecha"
-            by_folder[folder].append(move)
-        
-        for folder in sorted(by_folder.keys(), reverse=True):
-            moves_in_folder = by_folder[folder]
-            total_size = sum(m.size for m in moves_in_folder)
-            
-            parent = QTreeWidgetItem()
-            parent.setText(0, f"{folder}/ ({len(moves_in_folder)} archivos)")
-            parent.setText(1, "")
-            parent.setText(2, "")
-            parent.setText(3, "")
-            parent.setText(4, format_size(total_size))
-            
-            parent_font = QFont()
-            parent_font.setBold(True)
-            parent.setFont(0, parent_font)
-            parent.setForeground(0, QColor(DesignSystem.COLOR_PRIMARY))
-            
-            self.files_tree.addTopLevelItem(parent)
-            
-            for move in sorted(moves_in_folder, key=lambda m: m.original_name):
-                child = QTreeWidgetItem()
-                child.setText(0, f"  {move.source_path}")
-                
-                # Nuevo Nombre
-                if move.has_conflict:
-                    child.setText(1, move.new_name)
-                    child.setForeground(1, QColor(DesignSystem.COLOR_ERROR))
-                else:
-                    child.setText(1, "Igual")
-                    child.setForeground(1, QColor(DesignSystem.COLOR_TEXT_SECONDARY))
-                
-                # Fecha y Origen
-                try:
-                    file_metadata = get_all_metadata_from_file(move.source_path)
-                    file_date, date_source = select_best_date_from_file(file_metadata)
-                    if file_date:
-                        child.setText(2, file_date.strftime("%Y-%m-%d %H:%M:%S"))
-                        child.setText(3, date_source if date_source else "-")
-                    else:
-                        child.setText(2, "Sin fecha")
-                        child.setText(3, "-")
-                except Exception:
-                    child.setText(2, "Error")
-                    child.setText(3, "-")
-                
-                child.setText(4, format_size(move.size))
-                
-                # Marcado visual de conflictos (texto en rojo)
-                if move.has_conflict:
-                    child.setForeground(0, QColor(DesignSystem.COLOR_ERROR))
-                
-                child.setData(0, Qt.ItemDataRole.UserRole, move.source_path)
-                
-                parent.addChild(child)
-            
-            if len(moves_in_folder) <= 20:
-                parent.setExpanded(True)
-            
-            if self.files_tree.topLevelItemCount() % 10 == 0:
-                QApplication.processEvents()
-        
-        # Colapsar todos los nodos para mostrar solo la estructura general
-        self.files_tree.collapseAll()
-    
-    def _populate_tree_by_category(self, moves):
-        """Poblar tree para organizaciones por categoría (BY_TYPE, BY_SOURCE)"""
-        # Agrupar por carpeta destino (target_folder contiene el tipo o fuente)
-        by_category = defaultdict(list)
-        for move in moves:
-            category = move.target_folder or "Sin categoría"
-            by_category[category].append(move)
-        
-        # Ordenar categorías: primero las conocidas, luego "Unknown" al final
-        def category_sort_key(cat):
-            if cat == "Unknown":
-                return (1, cat)
-            return (0, cat)
-        
-        for category in sorted(by_category.keys(), key=category_sort_key):
-            moves_in_category = by_category[category]
-            total_size = sum(m.size for m in moves_in_category)
-            
-            parent = QTreeWidgetItem()
-            parent.setText(0, f"{category}/ ({len(moves_in_category)} archivos)")
-            parent.setText(1, "")
-            parent.setText(2, "")
-            parent.setText(3, "")
-            parent.setText(4, format_size(total_size))
-            
-            parent_font = QFont()
-            parent_font.setBold(True)
-            parent.setFont(0, parent_font)
-            
-            # Colores especiales para categorías conocidas
-            if category == "WhatsApp":
-                parent.setForeground(0, QColor("#25d366"))  # Verde WhatsApp
-            elif category in ("iPhone", "Android"):
-                parent.setForeground(0, QColor("#2196f3"))  # Azul dispositivos
-            elif category in ("Camera", "Scanner"):
-                parent.setForeground(0, QColor("#ff9800"))  # Naranja cámaras
-            elif category == "Screenshot":
-                parent.setForeground(0, QColor("#9c27b0"))  # Púrpura screenshots
-            elif category in ("Fotos", "Videos"):
-                parent.setForeground(0, QColor(DesignSystem.COLOR_PRIMARY))
-            else:
-                parent.setForeground(0, QColor(DesignSystem.COLOR_TEXT_SECONDARY))
-            
-            self.files_tree.addTopLevelItem(parent)
-            
-            for move in sorted(moves_in_category, key=lambda m: m.original_name):
-                child = QTreeWidgetItem()
-                child.setText(0, f"  {move.source_path}")
-                
-                # Nuevo Nombre
-                if move.has_conflict:
-                    child.setText(1, move.new_name)
-                    child.setForeground(1, QColor(DesignSystem.COLOR_ERROR))
-                else:
-                    child.setText(1, "Igual")
-                    child.setForeground(1, QColor(DesignSystem.COLOR_TEXT_SECONDARY))
-                
-                # Fecha y Origen
-                try:
-                    file_metadata = get_all_metadata_from_file(move.source_path)
-                    file_date, date_source = select_best_date_from_file(file_metadata)
-                    if file_date:
-                        child.setText(2, file_date.strftime("%Y-%m-%d %H:%M:%S"))
-                        child.setText(3, date_source if date_source else "-")
-                    else:
-                        child.setText(2, "-")
-                        child.setText(3, "-")
-                except:
-                    child.setText(2, "-")
-                    child.setText(3, "-")
-
-                child.setText(4, format_size(move.size))
-                
-                # Marcado visual de conflictos (texto en rojo)
-                if move.has_conflict:
-                    child.setForeground(0, QColor(DesignSystem.COLOR_ERROR))
-                
-                child.setData(0, Qt.ItemDataRole.UserRole, move.source_path)
-                
-                parent.addChild(child)
-            
-            if len(moves_in_category) <= 20:
-                parent.setExpanded(True)
-            
-            if self.files_tree.topLevelItemCount() % 10 == 0:
-                QApplication.processEvents()
-        
-        # Colapsar todos los nodos para mostrar solo la estructura general
-        self.files_tree.collapseAll()
     
     # === EVENTOS ===
     

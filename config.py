@@ -107,8 +107,9 @@ class Config:
     MAX_TIME_DIFFERENCE_SECONDS = 1  # Tolerancia máxima de tiempo entre archivos duplicados (segundos)
     
     # Live Photos
+    LIVE_PHOTO_MAX_TIME_DIFFERENCE_SECONDS = 50  # Tolerancia máxima entre imagen y video de Live Photo (segundos)
     LIVE_PHOTO_MAX_VIDEO_SIZE = 8 * 1024 * 1024  # 8 MB (solo para warning, no para filtrado)
-    LIVE_PHOTO_MAX_VIDEO_DURATION_SECONDS = 3.5  # Videos > 3.4s no se eliminan (Live Photos alrededor de 3s)
+    LIVE_PHOTO_MAX_VIDEO_DURATION_SECONDS = 3.6  # Videos > 3.6s no se eliminan (Live Photos alrededor de 3s)
 
     # Archivos Similares (Clustering)
     MAX_HAMMING_THRESHOLD = 20  # Máximo threshold de distancia de Hamming (0-20)
@@ -179,7 +180,7 @@ class Config:
     # 9. DESARROLLO
     # ========================================================================
     DEVELOPMENT_MODE = True
-    SAVED_CACHE_DEV_MODE_PATH = "/home/ed/Documents/Innerpix_Lab/cache_saved/RAW_1_2_3_4_5_6.json"
+    SAVED_CACHE_DEV_MODE_PATH = "/home/ed/Documents/Innerpix_Lab/cache_saved/RAW_TODO.json"
     
     @classmethod
     def get_system_info(cls) -> Dict:

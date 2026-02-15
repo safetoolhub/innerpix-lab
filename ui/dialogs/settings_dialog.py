@@ -1221,7 +1221,7 @@ class SettingsDialog(QDialog):
             self.confirm_reanalyze_checkbox.setChecked(True)
             self.show_full_path_checkbox.setChecked(True)
             self.dry_run_default_checkbox.setChecked(False)
-            self.max_workers_spin.setValue(Config.MAX_WORKERS)
+            self.max_workers_spin.setValue(Config.MAX_WORKER_THREADS)
             
             # Restaurar opciones de análisis inicial
             self.precalculate_hashes_checkbox.setChecked(False)
@@ -1248,7 +1248,7 @@ class SettingsDialog(QDialog):
             current_confirm_delete = settings_manager.get_confirm_delete()
             current_confirm_reanalyze = settings_manager.get_confirm_reanalyze()
             current_show_path = settings_manager.get_show_full_path()
-            current_max_workers = settings_manager.get_max_workers(Config.MAX_WORKERS)
+            current_max_workers = settings_manager.get_max_workers(Config.MAX_WORKER_THREADS)
             current_dry_run = settings_manager.get_bool(settings_manager.KEY_DRY_RUN_DEFAULT, False)
             current_ui_update = settings_manager.get_int("ui_update_interval", Config.UI_UPDATE_INTERVAL)
             current_precalculate_hashes = settings_manager.get_precalculate_hashes()

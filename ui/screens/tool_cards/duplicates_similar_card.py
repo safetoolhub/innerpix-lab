@@ -32,22 +32,32 @@ def create_duplicates_similar_card(analysis_results, on_click_callback) -> ToolC
     # Configurar estado según datos
     if has_analysis:
         similar_data = analysis_results.duplicates_similar
-        # DuplicatesSimilarAnalysis contiene perceptual_hashes, necesitamos get_groups()
-        # para obtener estadísticas. Usar sensibilidad por defecto (85) para la card.
         if hasattr(similar_data, 'perceptual_hashes'):
-            # Es DuplicatesSimilarAnalysis - calcular grupos con sensibilidad default
             if len(similar_data.perceptual_hashes) > 0:
-                # Obtener grupos con sensibilidad por defecto para mostrar estadísticas
-                groups_result = similar_data.get_groups(sensitivity=85)
-                if groups_result.total_similar > 0:
-                    size_text = f"~{format_size(groups_result.space_recoverable)} desperdiciados"
+                # Intentar usar resultado cacheado para no bloquear la UI.
+                # get_groups() con BK-Tree puede tardar ~50s para 50K+ archivos,
+                # así que NUNCA lo llamamos desde el hilo principal de la UI.
+                cached_result = (
+                    similar_data.get_last_groups_result() 
+                    if hasattr(similar_data, 'get_last_groups_result') 
+                    else None
+                )
+                if cached_result and cached_result.total_similar > 0:
+                    size_text = f"~{format_size(cached_result.space_recoverable)} desperdiciados"
                     card.set_status_with_results(
-                        f"{groups_result.total_groups} grupos de archivos similares encontrados",
+                        f"{cached_result.total_groups} grupos de archivos similares encontrados",
                         size_text,
-                        badge_count=groups_result.total_similar
+                        badge_count=cached_result.total_similar
                     )
-                else:
+                elif cached_result and cached_result.total_similar == 0:
                     card.set_status_no_results("No se encontraron archivos similares")
+                else:
+                    # Hay hashes pero no se ha hecho clustering aún (o no hay cache)
+                    # Mostrar info ligera sin bloquear la UI
+                    from utils.format_utils import format_file_count
+                    card.set_status_pending(
+                        f"{format_file_count(len(similar_data.perceptual_hashes))} analizados · Clic para agrupar"
+                    )
             else:
                 card.set_status_no_results("No se encontraron archivos para analizar")
         else:
