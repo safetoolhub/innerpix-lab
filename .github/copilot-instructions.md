@@ -173,7 +173,52 @@ class SomeWorker(BaseWorker):
 - Definitions: `ToolDefinition` dataclass (id, title, short_description, long_description, icon_name)
 - Categories: `ToolCategory` dataclass (id, title, description, tool_ids)
 
-### 5. Result Types
+### 5. Tools Definitions
+**Location**: `ui/tools_definitions.py`
+
+**Purpose**: Centralized configuration system for all analysis tools in Stage 3.
+
+**Data Structures**:
+```python
+@dataclass
+class ToolDefinition:
+    id: str                    # Unique identifier (e.g., 'zero_byte', 'duplicates_exact')
+    title: str                 # Display name (e.g., 'Archivos vacíos')
+    short_description: str     # Brief description for tool cards
+    long_description: str      # Detailed description for dialogs
+    icon_name: str            # Icon identifier from icon_manager
+
+@dataclass  
+class ToolCategory:
+    id: str                    # Category identifier ('cleanup', 'visual', 'organization')
+    title: str                 # Category display name
+    description: str           # Category description
+    tool_ids: List[str]        # List of tool IDs in this category
+```
+
+**Categories**:
+- **cleanup**: Space-saving tools (zero_byte, live_photos, heic, duplicates_exact)
+- **visual**: Visual similarity detection (visual_identical, duplicates_similar)  
+- **organization**: File organization tools (file_organizer, file_renamer)
+
+**Usage**:
+```python
+from ui.tools_definitions import TOOL_CATEGORIES, get_tools_by_category
+
+# Get all categories
+for category in TOOL_CATEGORIES:
+    tools = get_tools_by_category(category.id)
+    # Create UI cards for each tool
+```
+
+**Adding New Tools**:
+1. Create service in `services/` with `analyze()` and `execute()` methods
+2. Add result types to `services/result_types.py`
+3. Add `ToolDefinition` to appropriate category in `tools_definitions.py`
+4. Create dialog in `ui/dialogs/`
+5. Create worker in `ui/workers/` if needed
+
+### 6. Result Types
 **Location**: `services/result_types.py`
 
 **Base Classes**:
@@ -185,7 +230,7 @@ class SomeWorker(BaseWorker):
 
 **Rule**: ALL services return dataclasses (never dicts or tuples)
 
-### 6. Utilities
+### 7. Utilities
 
 #### File Utils (`utils/file_utils.py`)
 Organized by thematic categories:
@@ -222,7 +267,7 @@ Organized by thematic categories:
 - **Grep-friendly**: `grep "FILE_DELETED:" logs/*.log` finds all deletions
 - **Runtime Control**: `set_dual_log_enabled(bool)` to toggle on/off
 
-### 7. Dialogs
+### 8. Dialogs
 **Base**: All dialogs extend `BaseDialog` from `ui/dialogs/base_dialog.py`
 
 **Common Methods**:
