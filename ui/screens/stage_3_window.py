@@ -471,6 +471,11 @@ class Stage3Window(BaseStage):
             # Si el usuario aceptó el diálogo, ejecutar las acciones
             if result == QDialog.DialogCode.Accepted:
                 self._execute_tool_action(tool_id, dialog)
+            else:
+                # Diálogo cancelado: refrescar el grid para actualizar estados de las cards.
+                # Necesario porque algunos diálogos modifican el estado interno del análisis
+                # durante su ejecución (ej: duplicates_similar caching de clustering).
+                self._create_tools_grid()
             
     def _run_analysis_and_open_dialog(self, tool_id: str):
         """
