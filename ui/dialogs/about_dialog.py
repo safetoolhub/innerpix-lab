@@ -66,8 +66,8 @@ class AboutDialog(QDialog):
         """Inicializa la interfaz del diálogo."""
         self.setWindowTitle(f"Acerca de {Config.APP_NAME}")
         self.setModal(True)
-        self.setMinimumSize(1100, 780)
-        self.resize(1100, 780)
+        self.setMinimumSize(1100, 900)
+        self.resize(1100, 900)
         
         # Aplicar estilo global de tooltips
         self.setStyleSheet(DesignSystem.get_tooltip_style())
@@ -207,7 +207,7 @@ class AboutDialog(QDialog):
         container = QWidget()
         layout = QVBoxLayout(container)
         layout.setContentsMargins(DesignSystem.SPACE_24, DesignSystem.SPACE_16, DesignSystem.SPACE_24, DesignSystem.SPACE_16)
-        layout.setSpacing(DesignSystem.SPACE_12)
+        layout.setSpacing(DesignSystem.SPACE_10)
         
         # Título + descripción en la misma sección
         welcome_title = QLabel("Bienvenido a InnerPix Lab")
@@ -282,7 +282,7 @@ class AboutDialog(QDialog):
         container = QWidget()
         layout = QVBoxLayout(container)
         layout.setContentsMargins(DesignSystem.SPACE_24, DesignSystem.SPACE_16, DesignSystem.SPACE_24, DesignSystem.SPACE_16)
-        layout.setSpacing(DesignSystem.SPACE_12)
+        layout.setSpacing(DesignSystem.SPACE_10)
         
         # === HERO SECTION: PRIVACIDAD TOTAL ===
         hero_frame = QFrame()
@@ -488,23 +488,13 @@ class AboutDialog(QDialog):
         container = QWidget()
         layout = QVBoxLayout(container)
         layout.setContentsMargins(DesignSystem.SPACE_24, DesignSystem.SPACE_16, DesignSystem.SPACE_24, DesignSystem.SPACE_16)
-        layout.setSpacing(DesignSystem.SPACE_20)
+        layout.setSpacing(DesignSystem.SPACE_12)
         
         # === HEADER SECTION ===
-        header_layout = QVBoxLayout()
-        header_layout.setSpacing(DesignSystem.SPACE_4)
-        
         title = QLabel("Información del Sistema")
         title.setStyleSheet(DesignSystem.get_tutorial_section_header_style())
         title.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
-        header_layout.addWidget(title)
-        
-        subtitle = QLabel("Detalles técnicos y créditos de la aplicación.")
-        subtitle.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_SM}px;")
-        subtitle.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
-        header_layout.addWidget(subtitle)
-        
-        layout.addLayout(header_layout)
+        layout.addWidget(title)
         
         # === DEVELOPER HERO SECTION ===
         dev_hero = self._create_developer_hero()
@@ -542,98 +532,123 @@ class AboutDialog(QDialog):
     # ==================== SECCIÓN HERO DEL DESARROLLADOR ====================
 
     def _create_developer_hero(self) -> QFrame:
-        """Crea la sección hero del desarrollador con diseño impactante."""
+        """Crea la sección del desarrollador con diseño moderno."""
         outer_frame = QFrame()
-        outer_frame.setStyleSheet(DesignSystem.get_about_developer_hero_style())
+        outer_frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_BACKGROUND};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+            }}
+        """)
         
         outer_layout = QVBoxLayout(outer_frame)
         outer_layout.setSpacing(DesignSystem.SPACE_12)
         outer_layout.setContentsMargins(
-            DesignSystem.SPACE_32, DesignSystem.SPACE_24,
-            DesignSystem.SPACE_32, DesignSystem.SPACE_24
+            DesignSystem.SPACE_20, DesignSystem.SPACE_16,
+            DesignSystem.SPACE_20, DesignSystem.SPACE_16
         )
-        outer_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
-        # Icono de escudo
+        # Header con icono y nombre
+        header_layout = QHBoxLayout()
+        header_layout.setSpacing(DesignSystem.SPACE_10)
+        
         shield_icon = QLabel()
-        icon_manager.set_label_icon(shield_icon, "shield", color="#FFFFFF", size=36)
-        outer_layout.addWidget(shield_icon, 0, Qt.AlignmentFlag.AlignCenter)
+        icon_manager.set_label_icon(shield_icon, "shield", color=DesignSystem.COLOR_PRIMARY, size=28)
+        header_layout.addWidget(shield_icon)
         
-        # Nombre de la organización
+        header_text_layout = QVBoxLayout()
+        header_text_layout.setSpacing(2)
+        
         org_name = QLabel("safetoolhub.org")
         org_name.setStyleSheet(f"""
-            color: white;
-            font-size: {DesignSystem.FONT_SIZE_XL}px;
+            color: {DesignSystem.COLOR_TEXT};
+            font-size: {DesignSystem.FONT_SIZE_LG}px;
             font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
         """)
-        org_name.setAlignment(Qt.AlignmentFlag.AlignCenter)
         org_name.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
-        outer_layout.addWidget(org_name)
+        header_text_layout.addWidget(org_name)
         
-        # Subtítulo / tagline
         tagline = QLabel("Software 100% privado, gratuito y sin rastreo")
         tagline.setStyleSheet(f"""
-            color: rgba(255, 255, 255, 0.85);
-            font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
         """)
-        tagline.setAlignment(Qt.AlignmentFlag.AlignCenter)
         tagline.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
-        outer_layout.addWidget(tagline)
+        header_text_layout.addWidget(tagline)
         
-        # Separador sutil
-        sep_line = QFrame()
-        sep_line.setFixedHeight(1)
-        sep_line.setStyleSheet("background-color: rgba(255, 255, 255, 0.2);")
-        outer_layout.addWidget(sep_line)
+        header_layout.addLayout(header_text_layout)
+        header_layout.addStretch()
         
-        # Tres badges de valores en horizontal
-        badges_layout = QHBoxLayout()
-        badges_layout.setSpacing(DesignSystem.SPACE_12)
-        badges_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        outer_layout.addLayout(header_layout)
         
-        badge_items = [
-            ("wifi-off", "100% Offline"),
-            ("eye-off", "Sin Rastreo"),
-            ("shield", "Código Abierto"),
+        # Separador horizontal
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.HLine)
+        sep.setStyleSheet(f"background-color: {DesignSystem.COLOR_BORDER_LIGHT}; max-height: 1px;")
+        outer_layout.addWidget(sep)
+        
+        # Grid de valores en 3 columnas
+        values_layout = QHBoxLayout()
+        values_layout.setSpacing(DesignSystem.SPACE_16)
+        
+        value_items = [
+            ("wifi-off", "100% Offline", "Sin conexión a internet"),
+            ("eye-off", "Sin Rastreo", "Privacidad absoluta"),
+            ("shield", "Código Abierto", "Transparente y auditable"),
         ]
         
-        for icon_name, text in badge_items:
-            badge = self._create_hero_badge(icon_name, text)
-            badges_layout.addWidget(badge)
+        for icon_name, title, desc in value_items:
+            value_card = self._create_value_card(icon_name, title, desc)
+            values_layout.addWidget(value_card, 1)
         
-        outer_layout.addLayout(badges_layout)
+        outer_layout.addLayout(values_layout)
         
         return outer_frame
 
-    def _create_hero_badge(self, icon_name: str, text: str) -> QWidget:
-        """Crea un badge dentro del hero del desarrollador."""
-        widget = QWidget()
-        widget.setStyleSheet(f"""
-            QWidget {{
-                background-color: rgba(255, 255, 255, 0.15);
-                border-radius: {DesignSystem.RADIUS_FULL}px;
+    def _create_value_card(self, icon_name: str, title: str, desc: str) -> QFrame:
+        """Crea una card de valor para la sección de desarrollador."""
+        frame = QFrame()
+        frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER_LIGHT};
+                border-radius: {DesignSystem.RADIUS_MD}px;
+                padding: {DesignSystem.SPACE_12}px;
             }}
         """)
         
-        layout = QHBoxLayout(widget)
+        layout = QVBoxLayout(frame)
         layout.setSpacing(DesignSystem.SPACE_6)
-        layout.setContentsMargins(DesignSystem.SPACE_12, DesignSystem.SPACE_6, DesignSystem.SPACE_12, DesignSystem.SPACE_6)
+        layout.setContentsMargins(DesignSystem.SPACE_12, DesignSystem.SPACE_10, DesignSystem.SPACE_12, DesignSystem.SPACE_10)
+        layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         
+        # Icono
         icon_label = QLabel()
-        icon_manager.set_label_icon(icon_label, icon_name, color="rgba(255,255,255,0.9)", size=14)
-        layout.addWidget(icon_label)
+        icon_manager.set_label_icon(icon_label, icon_name, color=DesignSystem.COLOR_PRIMARY, size=20)
+        layout.addWidget(icon_label, 0, Qt.AlignmentFlag.AlignLeft)
         
-        text_label = QLabel(text)
-        text_label.setStyleSheet(f"""
-            color: rgba(255, 255, 255, 0.9);
-            font-size: {DesignSystem.FONT_SIZE_XS}px;
+        # Título
+        title_label = QLabel(title)
+        title_label.setStyleSheet(f"""
+            color: {DesignSystem.COLOR_TEXT};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
             font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
         """)
-        text_label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
-        layout.addWidget(text_label)
+        title_label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
+        layout.addWidget(title_label)
         
-        return widget
+        # Descripción
+        desc_label = QLabel(desc)
+        desc_label.setStyleSheet(f"""
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            font-size: {DesignSystem.FONT_SIZE_XS}px;
+        """)
+        desc_label.setWordWrap(True)
+        desc_label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
+        layout.addWidget(desc_label)
+        
+        return frame
 
     # ==================== WIDGETS AUXILIARES COMPACTOS ====================
 
