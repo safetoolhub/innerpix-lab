@@ -1783,7 +1783,7 @@ class DesignSystem:
         return f"""
             QFrame {{
                 background-color: {bg_color};
-                border: 1px solid {border_color};
+                border: none;
                 border-radius: {DesignSystem.RADIUS_LG}px;
             }}
         """
@@ -1806,9 +1806,9 @@ class DesignSystem:
         return f"""
             QFrame {{
                 background-color: transparent;
-                border-bottom: 2px solid {accent_color};
-                padding-bottom: {DesignSystem.SPACE_6}px;
-                margin-bottom: {DesignSystem.SPACE_4}px;
+                border: none;
+                padding-bottom: {DesignSystem.SPACE_2}px;
+                margin-bottom: {DesignSystem.SPACE_6}px;
             }}
         """
 

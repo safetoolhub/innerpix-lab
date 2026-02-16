@@ -379,7 +379,7 @@ class AboutDialog(QDialog):
         container = QWidget()
         layout = QVBoxLayout(container)
         layout.setContentsMargins(DesignSystem.SPACE_24, DesignSystem.SPACE_16, DesignSystem.SPACE_24, DesignSystem.SPACE_16)
-        layout.setSpacing(DesignSystem.SPACE_20)
+        layout.setSpacing(DesignSystem.SPACE_12)
         
         title = QLabel("Herramientas Disponibles")
         title.setStyleSheet(DesignSystem.get_tutorial_section_header_style())
@@ -416,12 +416,6 @@ class AboutDialog(QDialog):
                 grid.addWidget(spacer, len(tools) // 2, 1)
             
             layout.addLayout(grid)
-            
-            # Espaciador sutil entre categorías (excepto la última)
-            if category != TOOL_CATEGORIES[-1]:
-                spacer_widget = QWidget()
-                spacer_widget.setFixedHeight(DesignSystem.SPACE_4)
-                layout.addWidget(spacer_widget)
 
         layout.addStretch()
         return self._create_scroll_content(container)
@@ -434,7 +428,7 @@ class AboutDialog(QDialog):
         frame.setStyleSheet(DesignSystem.get_about_category_header_style(accent_color))
         
         layout = QHBoxLayout(frame)
-        layout.setContentsMargins(0, DesignSystem.SPACE_4, 0, DesignSystem.SPACE_6)
+        layout.setContentsMargins(0, 0, 0, DesignSystem.SPACE_2)
         layout.setSpacing(DesignSystem.SPACE_8)
         
         title_label = QLabel(title)
