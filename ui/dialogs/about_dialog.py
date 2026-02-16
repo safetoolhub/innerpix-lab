@@ -217,9 +217,9 @@ class AboutDialog(QDialog):
         steps_container.setSpacing(DesignSystem.SPACE_8)
         
         steps = [
-            ("1", "Selección del Origen", "El primer paso es elegir la carpeta que contiene tus fotos y vídeos. El sistema trabajará de forma recursiva."),
-            ("2", "Análisis Profundo", "Automáticamente escaneamos archivos, extraemos metadatos EXIF y calculamos firmas digitales (hashes)."),
-            ("3", "Uso de Herramientas", "Entra en cada herramienta para detectar duplicados, organizar por fechas o limpiar archivos innecesarios."),
+            ("1", "Selección de carpeta", "El primer paso es elegir la carpeta que contiene tus fotos y vídeos. El sistema trabajará de forma recursiva."),
+            ("2", "Análisis", "Automáticamente escaneamos archivos, extraemos metadatos EXIF y calculamos firmas digitales (hashes)."),
+            ("3", "Selección de Herramienta", "Entra en cada herramienta para detectar duplicados, organizar por fechas o limpiar archivos innecesarios."),
             ("4", "Ejecución de Cambios", "Tras revisar los planes de acción propuestos, confirma la ejecución. Recomendamos usar el Modo Simulación primero."),
         ]
         
@@ -234,7 +234,7 @@ class AboutDialog(QDialog):
         tips_layout.setSpacing(DesignSystem.SPACE_8)
         
         tip1 = self._create_mini_tip("Modo Simulación", "Prueba sin modificar archivos")
-        tip2 = self._create_mini_tip("Backup Automático", "Siempre hay copia de seguridad")
+        tip2 = self._create_mini_tip("Backup Disponible", "Copia de seguridad de ficheros eliminados")
         tip3 = self._create_mini_tip("Logs Detallados", "Registro de todas las operaciones")
         
         tips_layout.addWidget(tip1)
@@ -375,15 +375,7 @@ class AboutDialog(QDialog):
             
             layout.addLayout(grid)
         
-        # Nota técnica compacta
-        tech_note = QLabel(
-            "<b>Hash perceptual</b>: La detección visual usa algoritmos que generan "
-            "valores similares para imágenes parecidas, detectando duplicados aunque tengan "
-            "diferente resolución o metadatos."
-        )
-        tech_note.setWordWrap(True)
-        tech_note.setStyleSheet(DesignSystem.get_tutorial_note_style())
-        layout.addWidget(tech_note)
+
         
         layout.addStretch()
         return self._create_scroll_content(container)
@@ -418,16 +410,7 @@ class AboutDialog(QDialog):
         
         layout.addLayout(info_grid)
         
-        # Ubicaciones
-        locations_box = self._create_highlight_box(
-            "Ubicaciones del Sistema",
-            "<b>Logs:</b> ~/Documents/Innerpix_Lab/logs/<br>"
-            "<b>Backups:</b> Configurables desde el menú de Ajustes",
-            DesignSystem.COLOR_PRIMARY_LIGHT,
-            DesignSystem.COLOR_PRIMARY
-        )
-        layout.addWidget(locations_box)
-        
+       
         layout.addStretch()
         return self._create_scroll_content(container)
 
