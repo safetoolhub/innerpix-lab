@@ -554,9 +554,11 @@ class AboutDialog(QDialog):
         header_text_layout = QVBoxLayout()
         header_text_layout.setSpacing(2)
         
-        org_name = QLabel("safetoolhub.org")
+        org_name = QLabel('<a href="https://safetoolhub.org" style="text-decoration: none;">safetoolhub.org</a>')
         org_name.setStyleSheet(DesignSystem.get_about_dev_org_name_style())
-        org_name.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
+        org_name.setOpenExternalLinks(True)
+        org_name.setTextInteractionFlags(Qt.TextInteractionFlag.LinksAccessibleByMouse)
+        org_name.setCursor(Qt.CursorShape.PointingHandCursor)
         header_text_layout.addWidget(org_name)
         
         tagline = QLabel("Software 100% privado, gratuito y sin rastreo")

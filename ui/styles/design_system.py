@@ -1775,6 +1775,7 @@ class DesignSystem:
         """Retorna estilo para card de herramienta con color de categoría.
         
         Card sin hover (no interactiva) con fondo sutil de categoría.
+        Incluye estilo para QLabel para evitar diferencias de background.
         
         Args:
             bg_color: Color de fondo sutil (rgba).
@@ -1785,6 +1786,9 @@ class DesignSystem:
                 background-color: {bg_color};
                 border: none;
                 border-radius: {DesignSystem.RADIUS_LG}px;
+            }}
+            QLabel {{
+                background-color: transparent;
             }}
         """
 
@@ -1874,12 +1878,16 @@ class DesignSystem:
 
     @staticmethod
     def get_about_info_card_style():
-        """Retorna estilo para info cards (sin bordes)."""
+        """Retorna estilo para info cards."""
         return f"""
             QFrame {{
-                background-color: transparent;
+                background-color: {DesignSystem.COLOR_BACKGROUND};
                 border: none;
                 border-radius: {DesignSystem.RADIUS_MD}px;
+                padding: {DesignSystem.SPACE_2}px;
+            }}
+            QLabel {{
+                background-color: transparent;
             }}
         """
 
