@@ -66,8 +66,8 @@ class AboutDialog(QDialog):
         """Inicializa la interfaz del diálogo."""
         self.setWindowTitle(f"Acerca de {Config.APP_NAME}")
         self.setModal(True)
-        self.setMinimumSize(1100, 900)
-        self.resize(1100, 900)
+        self.setMinimumSize(1100, 825)
+        self.resize(1100, 825)
         
         # Aplicar estilo global de tooltips
         self.setStyleSheet(DesignSystem.get_tooltip_style())
@@ -272,6 +272,11 @@ class AboutDialog(QDialog):
         tips_layout.addWidget(tip3)
         
         layout.addLayout(tips_layout)
+        
+        # Navegación sutil
+        nav_widget = self._create_tab_navigation(next_tab=1, next_label="Ver Herramientas")
+        layout.addWidget(nav_widget)
+        
         layout.addStretch()
         
         return self._create_scroll_content(container)
@@ -282,8 +287,8 @@ class AboutDialog(QDialog):
         """Crea la pestaña de herramientas (8 tools organizadas por categoría con colores)."""
         container = QWidget()
         layout = QVBoxLayout(container)
-        layout.setContentsMargins(DesignSystem.SPACE_24, DesignSystem.SPACE_16, DesignSystem.SPACE_24, DesignSystem.SPACE_16)
-        layout.setSpacing(DesignSystem.SPACE_12)
+        layout.setContentsMargins(DesignSystem.SPACE_16, DesignSystem.SPACE_8, DesignSystem.SPACE_16, DesignSystem.SPACE_8)
+        layout.setSpacing(DesignSystem.SPACE_6)
         
         title = QLabel("Herramientas Disponibles")
         title.setStyleSheet(DesignSystem.get_tutorial_section_header_style())
@@ -301,7 +306,7 @@ class AboutDialog(QDialog):
             # Grid de herramientas (2 columnas alineadas)
             tools = get_tools_by_category(category.id)
             grid = QGridLayout()
-            grid.setSpacing(DesignSystem.SPACE_12)
+            grid.setSpacing(DesignSystem.SPACE_8)
             grid.setColumnStretch(0, 1)
             grid.setColumnStretch(1, 1)
             
@@ -321,10 +326,85 @@ class AboutDialog(QDialog):
             
             layout.addLayout(grid)
 
+        # Navegación sutil
+        nav_widget = self._create_tab_navigation(prev_tab=0, prev_label="Inicio", next_tab=2, next_label="Ver Info")
+        layout.addWidget(nav_widget)
+
         layout.addStretch()
         return self._create_scroll_content(container)
 
     # ==================== WIDGETS AUXILIARES ====================
+
+    def _create_tab_navigation(self, prev_tab=None, prev_label=None, next_tab=None, next_label=None) -> QFrame:
+        """Crea widget de navegación sutil entre pestañas.
+        
+        Args:
+            prev_tab: Índice de la pestaña anterior (opcional)
+            prev_label: Texto para el botón anterior
+            next_tab: Índice de la pestaña siguiente (opcional)
+            next_label: Texto para el botón siguiente
+        """
+        frame = QFrame()
+        frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: transparent;
+                border: none;
+                margin-top: {DesignSystem.SPACE_16}px;
+            }}
+        """)
+        
+        layout = QHBoxLayout(frame)
+        layout.setContentsMargins(0, DesignSystem.SPACE_12, 0, 0)
+        layout.setSpacing(DesignSystem.SPACE_8)
+        
+        # Botón anterior
+        if prev_tab is not None and prev_label:
+            prev_btn = QPushButton(f"← {prev_label}")
+            prev_btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: transparent;
+                    color: {DesignSystem.COLOR_PRIMARY};
+                    border: 1px solid {DesignSystem.COLOR_BORDER};
+                    border-radius: {DesignSystem.RADIUS_MD}px;
+                    padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_16}px;
+                    font-size: {DesignSystem.FONT_SIZE_SM}px;
+                    font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                }}
+                QPushButton:hover {{
+                    background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
+                    border-color: {DesignSystem.COLOR_PRIMARY};
+                }}
+            """)
+            prev_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            prev_btn.clicked.connect(lambda: self.tab_widget.setCurrentIndex(prev_tab))
+            layout.addWidget(prev_btn)
+        
+        layout.addStretch()
+        
+        # Botón siguiente
+        if next_tab is not None and next_label:
+            next_btn = QPushButton(f"{next_label} →")
+            next_btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {DesignSystem.COLOR_PRIMARY};
+                    color: white;
+                    border: none;
+                    border-radius: {DesignSystem.RADIUS_MD}px;
+                    padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_16}px;
+                    font-size: {DesignSystem.FONT_SIZE_SM}px;
+                    font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                }}
+                QPushButton:hover {{
+                    background-color: {DesignSystem.COLOR_PRIMARY_HOVER};
+                }}
+            """)
+            next_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            next_btn.clicked.connect(lambda: self.tab_widget.setCurrentIndex(next_tab))
+            layout.addWidget(next_btn)
+        
+        return frame
+
+    # ==================== WIDGETS AUXILIARES (CONTINUACIÓN) ====================
 
     def _create_category_header(self, title: str, subtitle: str, accent_color: str) -> QFrame:
         """Crea un header de categoría de herramientas con acento de color."""
@@ -360,18 +440,18 @@ class AboutDialog(QDialog):
         frame.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         
         layout = QHBoxLayout(frame)
-        layout.setSpacing(DesignSystem.SPACE_12)
-        layout.setContentsMargins(DesignSystem.SPACE_16, DesignSystem.SPACE_12, DesignSystem.SPACE_16, DesignSystem.SPACE_12)
+        layout.setSpacing(DesignSystem.SPACE_10)
+        layout.setContentsMargins(DesignSystem.SPACE_12, DesignSystem.SPACE_8, DesignSystem.SPACE_12, DesignSystem.SPACE_8)
         
         # Icono
         icon_label = QLabel()
-        icon_manager.set_label_icon(icon_label, icon_name, color=icon_color, size=24)
-        icon_label.setFixedSize(28, 28)
+        icon_manager.set_label_icon(icon_label, icon_name, color=icon_color, size=20)
+        icon_label.setFixedSize(24, 24)
         layout.addWidget(icon_label, 0, Qt.AlignmentFlag.AlignTop)
         
         # Contenido
         content = QVBoxLayout()
-        content.setSpacing(4)
+        content.setSpacing(2)
         
         title_label = QLabel(title)
         title_label.setStyleSheet(DesignSystem.get_tutorial_card_title_style())
@@ -429,6 +509,10 @@ class AboutDialog(QDialog):
         # === FORMATS SECTION ===
         formats_card = self._create_formats_card()
         layout.addWidget(formats_card)
+        
+        # Navegación sutil
+        nav_widget = self._create_tab_navigation(prev_tab=1, prev_label="Ver Herramientas")
+        layout.addWidget(nav_widget)
         
         layout.addStretch()
         return self._create_scroll_content(container)
