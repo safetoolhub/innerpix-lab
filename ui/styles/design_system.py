@@ -1812,7 +1812,8 @@ class DesignSystem:
                 background-color: transparent;
                 border: none;
                 padding-bottom: {DesignSystem.SPACE_2}px;
-                margin-bottom: {DesignSystem.SPACE_6}px;
+                margin-top: {DesignSystem.SPACE_8}px;
+                margin-bottom: {DesignSystem.SPACE_2}px;
             }}
         """
 

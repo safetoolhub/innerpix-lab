@@ -66,8 +66,8 @@ class AboutDialog(QDialog):
         """Inicializa la interfaz del diálogo."""
         self.setWindowTitle(f"Acerca de {Config.APP_NAME}")
         self.setModal(True)
-        self.setMinimumSize(1100, 825)
-        self.resize(1100, 825)
+        self.setMinimumSize(1100, 850)
+        self.resize(1100, 850)
         
         # Aplicar estilo global de tooltips
         self.setStyleSheet(DesignSystem.get_tooltip_style())
