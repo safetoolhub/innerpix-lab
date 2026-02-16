@@ -1646,7 +1646,7 @@ class DesignSystem:
     def get_tutorial_feature_card_accent_style(accent_color: str):
         """Retorna el estilo para cards de features con acento de color.
         
-        Sin borde exterior, solo el acento lateral.
+        Sin borde exterior, solo el acento lateral. Sin hover (no interactivo).
         """
         return f"""
             QFrame {{
@@ -1655,9 +1655,6 @@ class DesignSystem:
                 border-left: 4px solid {accent_color};
                 border-radius: {DesignSystem.RADIUS_MD}px;
                 padding: {DesignSystem.SPACE_16}px;
-            }}
-            QFrame:hover {{
-                background-color: {DesignSystem.COLOR_PRIMARY_SUBTLE};
             }}
         """
     
@@ -1732,16 +1729,13 @@ class DesignSystem:
         """Retorna el estilo para cards de pasos numerados en tutoriales.
         
         Card limpia sin bordes, usando el fondo base para contraste.
-        También usado para mini cards de herramientas.
+        Sin hover ya que no son elementos interactivos.
         """
         return f"""
             QFrame {{
                 background-color: {DesignSystem.COLOR_BACKGROUND};
                 border: none;
                 border-radius: {DesignSystem.RADIUS_LG}px;
-            }}
-            QFrame:hover {{
-                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
             }}
         """
     
@@ -1759,6 +1753,76 @@ class DesignSystem:
     
     # Alias para retrocompatibilidad - idéntico a get_tutorial_step_card_style
     get_tutorial_tool_card_style = get_tutorial_step_card_style
+
+    @staticmethod
+    def get_tutorial_tool_card_variant_style(accent_color: str):
+        """Retorna estilo para card de herramienta con color de acento.
+        
+        Args:
+            accent_color: Hex color string para el borde lateral.
+        """
+        return f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER_LIGHT};
+                border-left: 3px solid {accent_color};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+            }}
+        """
+
+    @staticmethod
+    def get_about_tool_card_category_style(bg_color: str, border_color: str):
+        """Retorna estilo para card de herramienta con color de categoría.
+        
+        Card sin hover (no interactiva) con fondo sutil de categoría.
+        
+        Args:
+            bg_color: Color de fondo sutil (rgba).
+            border_color: Color de borde sutil (rgba).
+        """
+        return f"""
+            QFrame {{
+                background-color: {bg_color};
+                border: 1px solid {border_color};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+            }}
+        """
+
+    @staticmethod
+    def get_about_developer_hero_style():
+        """Retorna estilo para la sección hero del desarrollador en About."""
+        return f"""
+            QFrame {{
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                    stop:0 {DesignSystem.COLOR_PRIMARY}, stop:1 {DesignSystem.COLOR_PRIMARY_HOVER});
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                padding: {DesignSystem.SPACE_24}px;
+            }}
+        """
+
+    @staticmethod
+    def get_about_category_header_style(accent_color: str):
+        """Retorna estilo para header de categoría en la pestaña Herramientas."""
+        return f"""
+            QFrame {{
+                background-color: transparent;
+                border-bottom: 2px solid {accent_color};
+                padding-bottom: {DesignSystem.SPACE_6}px;
+                margin-bottom: {DesignSystem.SPACE_4}px;
+            }}
+        """
+
+    @staticmethod
+    def get_developer_info_style():
+        """Retorna el estilo para la sección de desarrollador."""
+        return f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                padding: {DesignSystem.SPACE_16}px;
+                border: 1px solid {DesignSystem.COLOR_BORDER_LIGHT};
+            }}
+        """
     
     @staticmethod
     def get_tutorial_note_style():
