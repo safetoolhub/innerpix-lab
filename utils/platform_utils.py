@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Optional, Callable, Dict, Any, Tuple
 from dataclasses import dataclass
 from utils.logger import get_logger
+from utils.i18n import tr
 
 
 logger = get_logger('PlatformUtils')
@@ -83,7 +84,7 @@ def check_ffprobe() -> ToolStatus:
         return ToolStatus(
             name='ffprobe',
             available=False,
-            error='No instalado - Necesario para duración de videos'
+            error=tr("platform.tool.ffprobe_not_installed")
         )
     
     version_output = get_tool_version('ffprobe', ['-version'])
@@ -113,7 +114,7 @@ def check_exiftool() -> ToolStatus:
         return ToolStatus(
             name='exiftool',
             available=False,
-            error='No instalado - Necesario para fechas de Live Photos'
+            error=tr("platform.tool.exiftool_not_installed")
         )
     
     version = get_tool_version('exiftool', ['-ver'])
@@ -179,7 +180,7 @@ def copy_to_clipboard(text: str, error_callback: Optional[Callable[[str], None]]
         # QApplication debe existir para acceder al clipboard
         app = QApplication.instance()
         if app is None:
-            error_msg = "No hay instancia de QApplication disponible"
+            error_msg = "No QApplication instance available"
             logger.warning(error_msg)
             if error_callback:
                 error_callback(error_msg)
@@ -187,17 +188,17 @@ def copy_to_clipboard(text: str, error_callback: Optional[Callable[[str], None]]
         
         clipboard = app.clipboard()
         clipboard.setText(text)
-        logger.debug(f"Texto copiado al portapapeles: {text[:50]}..." if len(text) > 50 else f"Texto copiado al portapapeles: {text}")
+        logger.debug(f"Text copied to clipboard: {text[:50]}..." if len(text) > 50 else f"Text copied to clipboard: {text}")
         return True
         
     except ImportError as e:
-        error_msg = f"PyQt6 no está disponible para operaciones de clipboard: {e}"
+        error_msg = f"PyQt6 not available for clipboard operations: {e}"
         logger.error(error_msg)
         if error_callback:
             error_callback(error_msg)
         return False
     except Exception as e:
-        error_msg = f"Error al copiar al portapapeles: {e}"
+        error_msg = f"Error copying to clipboard: {e}"
         logger.error(error_msg)
         if error_callback:
             error_callback(error_msg)
@@ -216,7 +217,7 @@ def get_install_instructions() -> Dict[str, str]:
         'linux_fedora': 'sudo dnf install ffmpeg perl-Image-ExifTool',
         'linux_arch': 'sudo pacman -S ffmpeg perl-image-exiftool',
         'macos': 'brew install ffmpeg exiftool',
-        'windows': 'Descargar desde ffmpeg.org y exiftool.org'
+        'windows': tr("platform.install.windows_instructions")
     }
 
 
@@ -246,9 +247,9 @@ def get_current_os_install_hint() -> str:
     elif system == 'Darwin':
         return 'brew install ffmpeg exiftool'
     elif system == 'Windows':
-        return 'Descargar desde ffmpeg.org y exiftool.org'
+        return tr("platform.install.windows_instructions")
     else:
-        return 'Consulta la documentación de tu sistema operativo'
+        return tr("platform.install.generic_instructions")
 
 
 # =============================================================================
@@ -286,22 +287,22 @@ def open_file_with_default_app(file_path: Path,
     file_path = Path(file_path)
     
     if not file_path.exists():
-        error_msg = f"El archivo no existe: {file_path}"
-        logger.warning(error_msg)
+        error_msg = tr("platform.error.file_not_found", path=str(file_path))
+        logger.warning(f"File does not exist: {file_path}")
         if error_callback:
             error_callback(error_msg)
         return False
     
     if not file_path.is_file():
-        error_msg = f"La ruta no es un archivo: {file_path}"
-        logger.warning(error_msg)
+        error_msg = tr("platform.error.path_not_a_file", path=str(file_path))
+        logger.warning(f"Path is not a file: {file_path}")
         if error_callback:
             error_callback(error_msg)
         return False
     
     try:
         system = platform.system()
-        logger.debug(f"Abriendo archivo en {system}: {file_path}")
+        logger.debug(f"Opening file on {system}: {file_path}")
         
         if system == 'Linux':
             subprocess.Popen(['xdg-open', str(file_path)], 
@@ -316,18 +317,18 @@ def open_file_with_default_app(file_path: Path,
                            stdout=subprocess.DEVNULL,
                            stderr=subprocess.DEVNULL)
         else:
-            error_msg = f"Sistema operativo no soportado: {system}"
-            logger.error(error_msg)
+            error_msg = tr("platform.error.unsupported_os", system=system)
+            logger.error(f"Unsupported operating system: {system}")
             if error_callback:
                 error_callback(error_msg)
             return False
         
-        logger.info(f"Archivo abierto correctamente: {file_path.name}")
+        logger.info(f"File opened successfully: {file_path.name}")
         return True
         
     except Exception as e:
-        error_msg = f"Error al abrir archivo: {str(e)}"
-        logger.error(error_msg)
+        error_msg = tr("platform.error.open_file_failed", error=str(e))
+        logger.error(f"Error opening file: {e}")
         if error_callback:
             error_callback(error_msg)
         return False
@@ -364,22 +365,22 @@ def open_folder_in_explorer(folder_path: Path,
     folder_path = Path(folder_path)
     
     if not folder_path.exists():
-        error_msg = f"La carpeta no existe: {folder_path}"
-        logger.warning(error_msg)
+        error_msg = tr("platform.error.folder_not_found", path=str(folder_path))
+        logger.warning(f"Folder does not exist: {folder_path}")
         if error_callback:
             error_callback(error_msg)
         return False
     
     if not folder_path.is_dir():
-        error_msg = f"La ruta no es una carpeta: {folder_path}"
-        logger.warning(error_msg)
+        error_msg = tr("platform.error.path_not_a_folder", path=str(folder_path))
+        logger.warning(f"Path is not a folder: {folder_path}")
         if error_callback:
             error_callback(error_msg)
         return False
     
     try:
         system = platform.system()
-        logger.debug(f"Abriendo carpeta en {system}: {folder_path}")
+        logger.debug(f"Opening folder on {system}: {folder_path}")
         
         if system == 'Linux':
             # En Linux, xdg-open no soporta selección de archivo directamente
@@ -422,18 +423,18 @@ def open_folder_in_explorer(folder_path: Path,
                                stdout=subprocess.DEVNULL,
                                stderr=subprocess.DEVNULL)
         else:
-            error_msg = f"Sistema operativo no soportado: {system}"
-            logger.error(error_msg)
+            error_msg = tr("platform.error.unsupported_os", system=system)
+            logger.error(f"Unsupported operating system: {system}")
             if error_callback:
                 error_callback(error_msg)
             return False
         
-        logger.info(f"Carpeta abierta correctamente: {folder_path.name}")
+        logger.info(f"Folder opened successfully: {folder_path.name}")
         return True
         
     except Exception as e:
-        error_msg = f"Error al abrir carpeta: {str(e)}"
-        logger.error(error_msg)
+        error_msg = tr("platform.error.open_folder_failed", error=str(e))
+        logger.error(f"Error opening folder: {e}")
         if error_callback:
             error_callback(error_msg)
         return False

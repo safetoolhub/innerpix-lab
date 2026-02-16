@@ -13,6 +13,7 @@ from PyQt6.QtGui import QColor, QFont, QCursor
 from PyQt6.QtCore import Qt, QTimer
 from config import Config
 from utils.format_utils import format_size
+from utils.i18n import tr
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
 from ui.tools_definitions import TOOL_HEIC
@@ -68,12 +69,12 @@ class HeicDialog(BaseDialog):
             metrics=[
                 {
                     'value': str(self.analysis.items_count),
-                    'label': 'Grupos',
+                    'label': tr("dialogs.heic.metric_groups"),
                     'color': DesignSystem.COLOR_PRIMARY
                 },
                 {
                     'value': format_size(initial_recoverable),
-                    'label': 'Recuperable',
+                    'label': tr("dialogs.heic.metric_recoverable"),
                     'color': DesignSystem.COLOR_SUCCESS
                 }
             ]
@@ -132,15 +133,15 @@ class HeicDialog(BaseDialog):
     def _create_format_selector(self) -> QFrame:
         """Crea selector de formato usando el diseño compacto horizontal."""
         formats = [
-            ('jpg', 'file-jpg-box', 'Mantener JPG', 
-             f'Máxima compatibilidad. Liberarás {format_size(self.analysis.potential_savings_keep_jpg)}'),
-            ('heic', 'file-image', 'Mantener HEIC', 
-             f'Archivos más pequeños. Liberarás {format_size(self.analysis.potential_savings_keep_heic)}')
+            ('jpg', 'file-jpg-box', tr("dialogs.heic.strategy.jpg_title"), 
+             tr("dialogs.heic.strategy.jpg_desc", size=format_size(self.analysis.potential_savings_keep_jpg))),
+            ('heic', 'file-image', tr("dialogs.heic.strategy.heic_title"), 
+             tr("dialogs.heic.strategy.heic_desc", size=format_size(self.analysis.potential_savings_keep_heic)))
         ]
         
         frame = self._create_compact_strategy_selector(
-            title="Conservar:",
-            description="Elige qué formato mantener de cada par HEIC/JPG",
+            title=tr("dialogs.heic.strategy.title"),
+            description=tr("dialogs.heic.strategy.description"),
             strategies=formats,
             current_strategy=self.selected_format,
             on_strategy_changed=self._on_format_changed
@@ -169,7 +170,7 @@ class HeicDialog(BaseDialog):
         
         # Actualizar métrica de espacio recuperable en el header
         recoverable_space = self.analysis.potential_savings_keep_jpg if new_format == 'jpg' else self.analysis.potential_savings_keep_heic
-        self._update_header_metric(self.header_frame, 'Recuperable', format_size(recoverable_space))
+        self._update_header_metric(self.header_frame, tr("dialogs.heic.metric_recoverable"), format_size(recoverable_space))
         
         # Actualizar texto del botón OK
         self._update_button_text()
@@ -183,18 +184,18 @@ class HeicDialog(BaseDialog):
         directories = sorted(list(set(
             str(pair.directory) for pair in self.analysis.duplicate_pairs
         )))
-        dir_options = ["Todos los directorios"] + directories
+        dir_options = [tr("common.filter.all_directories")] + directories
         
         # Opciones para filtro de origen de fecha (usar constantes de BaseDialog)
         source_options = self.DATE_SOURCE_FILTER_OPTIONS
         
         # Diccionario de etiquetas
         labels = {
-            'search': 'Buscar por nombre',
-            'size': 'Mínimo tamaño',
-            'groups': 'Grupos seleccionados',
-            'source': 'Origen de la fecha',
-            'directory': 'Directorio'
+            'search': tr("dialogs.heic.filter.search"),
+            'size': tr("dialogs.heic.filter.size"),
+            'groups': tr("dialogs.heic.filter.groups"),
+            'source': tr("dialogs.heic.filter.source"),
+            'directory': tr("dialogs.heic.filter.directory")
         }
         
         # Configuración de filtros expandibles
@@ -203,7 +204,7 @@ class HeicDialog(BaseDialog):
                 'id': 'source',
                 'type': 'combo',
                 'label': labels['source'],
-                'tooltip': 'Filtrar por origen de la fecha',
+                'tooltip': tr("dialogs.heic.filter.source_tooltip"),
                 'options': source_options,
                 'on_change': self._on_source_filter_changed,
                 'default_index': 0,
@@ -213,7 +214,7 @@ class HeicDialog(BaseDialog):
                 'id': 'directory',
                 'type': 'combo',
                 'label': labels['directory'],
-                'tooltip': 'Filtrar por directorio',
+                'tooltip': tr("dialogs.heic.filter.dir_tooltip"),
                 'options': dir_options,
                 'on_change': self._on_dir_filter_changed,
                 'default_index': 0,
@@ -259,7 +260,7 @@ class HeicDialog(BaseDialog):
         from .dialog_utils import create_groups_tree_widget
         
         return create_groups_tree_widget(
-            headers=["Grupos / Archivos", "Tamaño", "Tipo", "Fecha", "Origen Fecha", "Estado"],
+            headers=[tr("common.tree_header.groups_files"), tr("common.tree_header.size"), tr("common.tree_header.type"), tr("common.tree_header.date"), tr("common.tree_header.date_source"), tr("common.tree_header.status")],
             column_widths=[300, 100, 80, 160, 150, 120],
             double_click_handler=self._on_item_double_clicked,
             context_menu_handler=self._show_context_menu
@@ -270,8 +271,8 @@ class HeicDialog(BaseDialog):
         return self._create_security_options_section(
             show_backup=True,
             show_dry_run=True,
-            backup_label="Crear backup antes de eliminar",
-            dry_run_label="Modo simulación (no eliminar realmente)"
+            backup_label=tr("dialogs.heic.option_backup"),
+            dry_run_label=tr("dialogs.heic.option_dry_run")
         )
     
     def _apply_filters(self):
@@ -280,7 +281,7 @@ class HeicDialog(BaseDialog):
         size_filter_index = self.filter_combo.currentIndex()
         
         # Obtener valores de filtros expandibles
-        dir_filter = self.dir_combo.currentText() if self.dir_combo else "Todos los directorios"
+        dir_filter = self.dir_combo.currentText() if self.dir_combo else tr("common.filter.all_directories")
         source_filter = self.source_combo.currentText() if self.source_combo else self.DATE_SOURCE_FILTER_ALL
         
         self.filtered_pairs = []
@@ -291,7 +292,7 @@ class HeicDialog(BaseDialog):
                 continue
             
             # Filtro por directorio
-            if dir_filter != "Todos los directorios" and str(pair.directory) != dir_filter:
+            if dir_filter != tr("common.filter.all_directories") and str(pair.directory) != dir_filter:
                 continue
             
             # Filtro por origen de fecha
@@ -347,9 +348,8 @@ class HeicDialog(BaseDialog):
         if len(self.filtered_pairs) > 1000:
             reply = QMessageBox.question(
                 self,
-                "Cargar todos los grupos",
-                f"Hay {len(self.filtered_pairs)} grupos. ¿Seguro que quieres cargarlos todos?\n"
-                "Esto puede tardar y consumir memoria.",
+                tr("common.dialog.load_all_groups_title"),
+                tr("common.dialog.load_all_groups_msg", count=len(self.filtered_pairs)),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
             )
             if reply != QMessageBox.StandardButton.Yes:
@@ -387,7 +387,7 @@ class HeicDialog(BaseDialog):
         group_item = QTreeWidgetItem(self.tree_widget)
         
         # Texto del grupo - Solo columna 0
-        group_item.setText(0, f"Grupo #{group_number} • {pair.base_name}")
+        group_item.setText(0, tr("dialogs.heic.tree.group_label", num=group_number, name=pair.base_name))
         
         # Fecha y origen en el grupo
         group_date = pair.heic_date or pair.jpg_date
@@ -401,13 +401,13 @@ class HeicDialog(BaseDialog):
         # Tooltip informativo
         extra_info = ""
         if pair.date_source:
-            extra_info = f"Fecha común: {pair.date_source}"
+            extra_info = tr("dialogs.heic.tooltip.common_date", source=pair.date_source)
             if pair.date_difference is not None:
-                extra_info += f"\nDiferencia: {pair.date_difference:.3f}s"
+                extra_info += "\n" + tr("dialogs.heic.tooltip.date_diff", diff=pair.date_difference)
         
         group_item.setToolTip(0, create_group_tooltip(
             group_number, 
-            f"par HEIC/JPG: {pair.base_name}",
+            tr("dialogs.heic.tooltip.group_desc", name=pair.base_name),
             extra_info
         ))
         
@@ -422,10 +422,10 @@ class HeicDialog(BaseDialog):
         heic_item.setText(4, pair.date_source or "")
         
         if format_to_delete == "HEIC":
-            heic_item.setText(5, "✗ Eliminar")
+            heic_item.setText(5, tr("common.status.mark_delete"))
             heic_item.setForeground(5, QColor(DesignSystem.COLOR_ERROR))
         else:
-            heic_item.setText(5, "✓ Conservar")
+            heic_item.setText(5, tr("common.status.mark_keep"))
             heic_item.setForeground(5, QColor(DesignSystem.COLOR_SUCCESS))
         
         # Guardar referencia al archivo HEIC
@@ -434,14 +434,14 @@ class HeicDialog(BaseDialog):
         # Tooltip para HEIC
         heic_mtime = datetime.fromtimestamp(pair.heic_path.stat().st_mtime)
         heic_tooltip = (f"<b>{pair.heic_path.name}</b><br>"
-                       f"Carpeta: {pair.heic_path.parent}<br>"
-                       f"Tamaño: {format_size(pair.heic_size)}<br>"
-                       f"Fecha: {heic_mtime.strftime('%d/%m/%Y %H:%M:%S')}<br>")
+                       f"{tr('common.tooltip.folder')} {pair.heic_path.parent}<br>"
+                       f"{tr('common.tooltip.size')} {format_size(pair.heic_size)}<br>"
+                       f"{tr('common.tooltip.date')} {heic_mtime.strftime('%d/%m/%Y %H:%M:%S')}<br>")
         
         if pair.date_source:
-             heic_tooltip += f"Origen fecha: {pair.date_source}<br>"
+             heic_tooltip += f"{tr('common.tooltip.date_source')} {pair.date_source}<br>"
              
-        heic_tooltip += f"{'✓ Se conservará' if format_to_delete == 'JPG' else '✗ Se eliminará'}"
+        heic_tooltip += f"{tr('common.tooltip.will_keep') if format_to_delete == 'JPG' else tr('common.tooltip.will_delete')}"
         heic_item.setToolTip(0, heic_tooltip)
         
         # Añadir archivo JPG como hijo
@@ -455,10 +455,10 @@ class HeicDialog(BaseDialog):
         jpg_item.setText(4, pair.date_source or "")
         
         if format_to_delete == "JPG":
-            jpg_item.setText(5, "✗ Eliminar")
+            jpg_item.setText(5, tr("common.status.mark_delete"))
             jpg_item.setForeground(5, QColor(DesignSystem.COLOR_ERROR))
         else:
-            jpg_item.setText(5, "✓ Conservar")
+            jpg_item.setText(5, tr("common.status.mark_keep"))
             jpg_item.setForeground(5, QColor(DesignSystem.COLOR_SUCCESS))
         
         # Guardar referencia al archivo JPG
@@ -467,14 +467,14 @@ class HeicDialog(BaseDialog):
         # Tooltip para JPG
         jpg_mtime = datetime.fromtimestamp(pair.jpg_path.stat().st_mtime)
         jpg_tooltip = (f"<b>{pair.jpg_path.name}</b><br>"
-                       f"Carpeta: {pair.jpg_path.parent}<br>"
-                       f"Tamaño: {format_size(pair.jpg_size)}<br>"
-                       f"Fecha: {jpg_mtime.strftime('%d/%m/%Y %H:%M:%S')}<br>")
+                       f"{tr('common.tooltip.folder')} {pair.jpg_path.parent}<br>"
+                       f"{tr('common.tooltip.size')} {format_size(pair.jpg_size)}<br>"
+                       f"{tr('common.tooltip.date')} {jpg_mtime.strftime('%d/%m/%Y %H:%M:%S')}<br>")
         
         if pair.date_source:
-             jpg_tooltip += f"Origen fecha: {pair.date_source}<br>"
+             jpg_tooltip += f"{tr('common.tooltip.date_source')} {pair.date_source}<br>"
              
-        jpg_tooltip += f"{'✓ Se conservará' if format_to_delete == 'HEIC' else '✗ Se eliminará'}"
+        jpg_tooltip += f"{tr('common.tooltip.will_keep') if format_to_delete == 'HEIC' else tr('common.tooltip.will_delete')}"
         jpg_item.setToolTip(0, jpg_tooltip)
     
     def _on_item_double_clicked(self, item, column):
@@ -497,13 +497,13 @@ class HeicDialog(BaseDialog):
 
             space_formatted = format_size(savings)
             self.ok_button.setText(
-                f"Eliminar Duplicados ({self.analysis.items_count} grupos, {space_formatted})"
+                tr("dialogs.heic.button_delete", count=self.analysis.items_count, size=space_formatted)
             )
 
     def accept(self):
         # Validar que hay pares para procesar
         if not self.analysis.duplicate_pairs:
-            self.show_no_items_message("pares HEIC/JPG")
+            self.show_no_items_message(tr("dialogs.heic.no_items_type"))
             return
         
         # Pasar el analysis completo + parámetros por separado

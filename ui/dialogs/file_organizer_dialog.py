@@ -18,6 +18,7 @@ from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QThread
 from config import Config
 from utils.format_utils import format_size
 from utils.file_utils import is_whatsapp_file
+from utils.i18n import tr
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
 from ui.tools_definitions import TOOL_FILE_ORGANIZER
@@ -57,7 +58,7 @@ class FileOrganizerDialog(BaseDialog):
             if hasattr(parent, 'current_stage') and hasattr(parent.current_stage, 'selected_folder'):
                 self.root_directory = Path(parent.current_stage.selected_folder)
             else:
-                raise ValueError("No se pudo determinar el directorio raíz para organizar archivos")
+                raise ValueError(tr("dialogs.file_organizer.error_no_root"))
         
         # Datos principales
         self.initial_analysis = initial_analysis  # Puede ser None
@@ -154,12 +155,12 @@ class FileOrganizerDialog(BaseDialog):
         header_layout.setSpacing(DesignSystem.SPACE_8)
         
         # Título
-        title = QLabel("¿Cómo quieres organizar tus archivos?")
+        title = QLabel(tr("dialogs.file_organizer.selection.title"))
         title.setStyleSheet(DesignSystem.get_organizer_header_title_style())
         header_layout.addWidget(title)
         
         # Subtítulo
-        subtitle = QLabel("Selecciona una estrategia de organización")
+        subtitle = QLabel(tr("dialogs.file_organizer.selection.subtitle"))
         subtitle.setStyleSheet(DesignSystem.get_organizer_header_subtitle_style())
         header_layout.addWidget(subtitle)
         
@@ -180,35 +181,35 @@ class FileOrganizerDialog(BaseDialog):
             {
                 'key': 'date',
                 'icon': 'calendar-month',
-                'title': 'Organizar por Fecha',
-                'description': 'Crea carpetas cronológicas basadas en la fecha de cada archivo',
-                'hint': 'Granularidad: mes, año o ambos · Subcarpetas: fuente, tipo',
+                'title': tr("dialogs.file_organizer.strategy.date.title"),
+                'description': tr("dialogs.file_organizer.strategy.date.desc"),
+                'hint': tr("dialogs.file_organizer.strategy.date.hint"),
                 'example': '📁 2024_01/\n📁 2024_02/\n📁 2024_03/\n📁 2025_12/',
                 'row': 0, 'col': 0
             },
             {
                 'key': 'type',
                 'icon': 'image',
-                'title': 'Organizar por Tipo',
-                'description': 'Separa archivos en carpetas según su tipo',
-                'hint': 'Subcarpetas opcionales: por fecha',
+                'title': tr("dialogs.file_organizer.strategy.type.title"),
+                'description': tr("dialogs.file_organizer.strategy.type.desc"),
+                'hint': tr("dialogs.file_organizer.strategy.type.hint"),
                 'example': '📁 Fotos/\n📁 Videos/\n📁 Otros/',
                 'row': 0, 'col': 1
             },
             {
                 'key': 'source',
                 'icon': 'devices',
-                'title': 'Organizar por Fuente',
-                'description': 'Agrupa por origen del archivo',
-                'hint': 'Subcarpetas opcionales: por fecha',
+                'title': tr("dialogs.file_organizer.strategy.source.title"),
+                'description': tr("dialogs.file_organizer.strategy.source.desc"),
+                'hint': tr("dialogs.file_organizer.strategy.type.hint"),
                 'example': '📁 Cámara/\n📁 WhatsApp/\n📁 Instagram/\n📁 Otros/',
                 'row': 1, 'col': 0
             },
             {
                 'key': 'cleanup',
                 'icon': 'folder-open',
-                'title': 'Mover Todo al Raíz',
-                'description': 'Elimina subcarpetas y mueve todo al directorio principal',
+                'title': tr("dialogs.file_organizer.strategy.cleanup.title"),
+                'description': tr("dialogs.file_organizer.strategy.cleanup.desc"),
                 'hint': '',
                 'example': '📄 IMG_001.jpg\n📄 VID_002.mp4\n📄 photo.heic\n(sin subcarpetas)',
                 'row': 1, 'col': 1
@@ -230,7 +231,7 @@ class FileOrganizerDialog(BaseDialog):
         content_layout.addStretch()
         
         # Botón cancelar al final
-        cancel_btn = QPushButton("Cancelar")
+        cancel_btn = QPushButton(tr("common.cancel"))
         cancel_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
         cancel_btn.clicked.connect(self.reject)
         cancel_btn.setFixedWidth(120)
@@ -307,7 +308,7 @@ class FileOrganizerDialog(BaseDialog):
         example_layout.setContentsMargins(DesignSystem.SPACE_12, DesignSystem.SPACE_12, DesignSystem.SPACE_12, DesignSystem.SPACE_12)
         
         # Título del ejemplo
-        example_title = QLabel("Vista previa:")
+        example_title = QLabel(tr("dialogs.file_organizer.example_title"))
         example_title.setStyleSheet(DesignSystem.get_example_title_style())
         example_layout.addWidget(example_title)
         
@@ -326,7 +327,7 @@ class FileOrganizerDialog(BaseDialog):
     
     def _on_strategy_selection(self, key: str):
         """Maneja la selección de una estrategia desde la pantalla inicial"""
-        self.logger.info(f"Estrategia seleccionada: {key}")
+        self.logger.info(f"Strategy selected: {key}")
         
         # Mapear key a tipo de organización y página de opciones
         strategy_config = {
@@ -374,9 +375,9 @@ class FileOrganizerDialog(BaseDialog):
             title=TOOL_FILE_ORGANIZER.title,
             description=TOOL_FILE_ORGANIZER.short_description,
             metrics=[
-                {'label': 'Total', 'value': '0'},
-                {'label': 'Organizar', 'value': '0'},
-                {'label': 'Tamaño', 'value': '0 B'}
+                {'label': tr("dialogs.file_organizer.metric_total"), 'value': '0'},
+                {'label': tr("dialogs.file_organizer.metric_organize"), 'value': '0'},
+                {'label': tr("dialogs.file_organizer.metric_size"), 'value': '0 B'}
             ]
         )
         layout.addWidget(self.header_frame)
@@ -441,10 +442,10 @@ class FileOrganizerDialog(BaseDialog):
         layout.setSpacing(DesignSystem.SPACE_12)
         
         # Botón volver (izquierda)
-        back_btn = QPushButton("← Cambiar")
+        back_btn = QPushButton(tr("dialogs.file_organizer.button_back"))
         back_btn.setStyleSheet(DesignSystem.get_organizer_back_button_style())
         back_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        back_btn.setToolTip("Volver a elegir otra estrategia de organización")
+        back_btn.setToolTip(tr("dialogs.file_organizer.button_back_tooltip"))
         back_btn.clicked.connect(self._go_back_to_selection)
         layout.addWidget(back_btn)
         
@@ -508,7 +509,7 @@ class FileOrganizerDialog(BaseDialog):
         icon_manager.set_label_icon(icon_label, 'calendar-month', size=20, color=DesignSystem.COLOR_PRIMARY)
         layout.addWidget(icon_label)
         
-        strategy_label = QLabel("Por Fecha")
+        strategy_label = QLabel(tr("dialogs.file_organizer.options.date_label"))
         strategy_label.setStyleSheet(DesignSystem.get_organizer_strategy_label_style())
         layout.addWidget(strategy_label)
         
@@ -519,12 +520,12 @@ class FileOrganizerDialog(BaseDialog):
         gran_layout.setContentsMargins(8, 4, 8, 4)
         gran_layout.setSpacing(6)
         
-        gran_label = QLabel("Carpetas por:")
+        gran_label = QLabel(tr("dialogs.file_organizer.options.granularity_label"))
         gran_label.setStyleSheet(DesignSystem.get_granularity_label_style())
         gran_layout.addWidget(gran_label)
         
         self.date_granularity_buttons = []
-        granularities = [("Mes", 0), ("Año", 1), ("Año/Mes", 2)]
+        granularities = [(tr("dialogs.file_organizer.options.month"), 0), (tr("dialogs.file_organizer.options.year"), 1), (tr("dialogs.file_organizer.options.year_month"), 2)]
         for text, value in granularities:
             btn = self._create_chip_button(text, "date_granularity", value, value == 0)
             btn.clicked.connect(lambda checked, v=value: self._on_date_granularity_changed(v))
@@ -537,22 +538,22 @@ class FileOrganizerDialog(BaseDialog):
         layout.addSpacing(8)
         
         # Opciones secundarias: Subcarpetas (más sutiles)
-        sub_label = QLabel("Subcarpetas:")
+        sub_label = QLabel(tr("dialogs.file_organizer.options.subfolders_label"))
         sub_label.setStyleSheet(DesignSystem.get_subcarpetas_label_style())
         layout.addWidget(sub_label)
         
-        self.chk_date_source_btn = QPushButton("+ Fuente")
+        self.chk_date_source_btn = QPushButton(tr("dialogs.file_organizer.options.add_source"))
         self.chk_date_source_btn.setCheckable(True)
         self.chk_date_source_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.chk_date_source_btn.setToolTip("Añadir subcarpetas por fuente (WhatsApp, Cámara...)")
+        self.chk_date_source_btn.setToolTip(tr("dialogs.file_organizer.options.add_source_tooltip"))
         self.chk_date_source_btn.setStyleSheet(self._get_secondary_chip_style(False))
         self.chk_date_source_btn.clicked.connect(self._on_date_extra_changed)
         layout.addWidget(self.chk_date_source_btn)
         
-        self.chk_date_type_btn = QPushButton("+ Tipo")
+        self.chk_date_type_btn = QPushButton(tr("dialogs.file_organizer.options.add_type"))
         self.chk_date_type_btn.setCheckable(True)
         self.chk_date_type_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.chk_date_type_btn.setToolTip("Añadir subcarpetas por tipo (Fotos/Videos)")
+        self.chk_date_type_btn.setToolTip(tr("dialogs.file_organizer.options.add_type_tooltip"))
         self.chk_date_type_btn.setStyleSheet(self._get_secondary_chip_style(False))
         self.chk_date_type_btn.clicked.connect(self._on_date_extra_changed)
         layout.addWidget(self.chk_date_type_btn)
@@ -572,17 +573,17 @@ class FileOrganizerDialog(BaseDialog):
         icon_manager.set_label_icon(icon_label, 'image', size=20, color=DesignSystem.COLOR_PRIMARY)
         layout.addWidget(icon_label)
         
-        strategy_label = QLabel("Por Tipo")
+        strategy_label = QLabel(tr("dialogs.file_organizer.options.type_label"))
         strategy_label.setStyleSheet(DesignSystem.get_organizer_strategy_label_style())
         layout.addWidget(strategy_label)
         
         # Opciones secundarias: Subcarpetas por fecha
-        sub_label = QLabel("Subcarpetas por fecha:")
+        sub_label = QLabel(tr("dialogs.file_organizer.options.subfolders_by_date_label"))
         sub_label.setStyleSheet(DesignSystem.get_subcarpetas_label_style())
         layout.addWidget(sub_label)
         
         self.type_date_buttons = []
-        options = [("Ninguna", None), ("Mes", "month"), ("Año", "year"), ("Año/Mes", "year_month")]
+        options = [(tr("dialogs.file_organizer.options.none"), None), (tr("dialogs.file_organizer.options.month"), "month"), (tr("dialogs.file_organizer.options.year"), "year"), (tr("dialogs.file_organizer.options.year_month"), "year_month")]
         for text, value in options:
             btn = self._create_chip_button(text, "type_date", value, value is None)
             btn.clicked.connect(lambda checked, v=value: self._on_type_date_changed(v))
@@ -604,17 +605,17 @@ class FileOrganizerDialog(BaseDialog):
         icon_manager.set_label_icon(icon_label, 'devices', size=20, color=DesignSystem.COLOR_PRIMARY)
         layout.addWidget(icon_label)
         
-        strategy_label = QLabel("Por Fuente")
+        strategy_label = QLabel(tr("dialogs.file_organizer.options.source_label"))
         strategy_label.setStyleSheet(DesignSystem.get_organizer_strategy_label_style())
         layout.addWidget(strategy_label)
         
         # Subcarpetas por fecha
-        sub_label = QLabel("Subcarpetas por fecha:")
+        sub_label = QLabel(tr("dialogs.file_organizer.options.subfolders_by_date_label"))
         sub_label.setStyleSheet(DesignSystem.get_subcarpetas_label_style())
         layout.addWidget(sub_label)
         
         self.source_date_buttons = []
-        options = [("Ninguna", None), ("Mes", "month"), ("Año", "year"), ("Año/Mes", "year_month")]
+        options = [(tr("dialogs.file_organizer.options.none"), None), (tr("dialogs.file_organizer.options.month"), "month"), (tr("dialogs.file_organizer.options.year"), "year"), (tr("dialogs.file_organizer.options.year_month"), "year_month")]
         for text, value in options:
             btn = self._create_chip_button(text, "source_date", value, value is None)
             btn.clicked.connect(lambda checked, v=value: self._on_source_date_changed(v))
@@ -636,12 +637,12 @@ class FileOrganizerDialog(BaseDialog):
         icon_manager.set_label_icon(icon_label, 'folder-open', size=20, color=DesignSystem.COLOR_PRIMARY)
         layout.addWidget(icon_label)
         
-        strategy_label = QLabel("Mover al Raíz")
+        strategy_label = QLabel(tr("dialogs.file_organizer.options.cleanup_label"))
         strategy_label.setStyleSheet(DesignSystem.get_organizer_strategy_label_style())
         layout.addWidget(strategy_label)
         
         # Descripción
-        info_label = QLabel("Todos los archivos se moverán al directorio principal, sin subcarpetas")
+        info_label = QLabel(tr("dialogs.file_organizer.options.cleanup_desc"))
         info_label.setStyleSheet(DesignSystem.get_subcarpetas_label_style())
         layout.addWidget(info_label)
         
@@ -721,7 +722,7 @@ class FileOrganizerDialog(BaseDialog):
         layout.addWidget(self.indicator_icon)
         
         # Texto
-        self.indicator_text = QLabel("Organizando por fecha")
+        self.indicator_text = QLabel(tr("dialogs.file_organizer.indicator.date"))
         self.indicator_text.setStyleSheet(DesignSystem.get_strategy_indicator_text_style())
         layout.addWidget(self.indicator_text, 1)
         
@@ -732,10 +733,10 @@ class FileOrganizerDialog(BaseDialog):
     def _update_strategy_indicator(self, key: str):
         """Actualiza el indicador de estrategia"""
         strategy_info = {
-            'date': {'icon': 'calendar-month', 'text': 'Organizando por fecha'},
-            'type': {'icon': 'image', 'text': 'Organizando por tipo de archivo'},
-            'source': {'icon': 'devices', 'text': 'Organizando por fuente'},
-            'cleanup': {'icon': 'folder-open', 'text': 'Moviendo todo al raíz'}
+            'date': {'icon': 'calendar-month', 'text': tr("dialogs.file_organizer.indicator.date")},
+            'type': {'icon': 'image', 'text': tr("dialogs.file_organizer.indicator.type")},
+            'source': {'icon': 'devices', 'text': tr("dialogs.file_organizer.indicator.source")},
+            'cleanup': {'icon': 'folder-open', 'text': tr("dialogs.file_organizer.indicator.cleanup")}
         }
         
         info = strategy_info.get(key, strategy_info['date'])
@@ -789,7 +790,7 @@ class FileOrganizerDialog(BaseDialog):
             # Cancelar worker anterior si es posible o esperar
             # Por simplicidad, bloqueamos nueva solicitud si ya hay una (pero idealmente deberíamos cancelar)
             # En este caso, permitiremos que termine y el usuario tendrá que esperar un poco
-            self.logger.warning("Ya hay un análisis en curso")
+            self.logger.warning("Analysis already in progress")
             return
         
         # CRÍTICO: Guardar el tipo de organización actual para los treeviews
@@ -816,7 +817,7 @@ class FileOrganizerDialog(BaseDialog):
     
     def _on_analysis_finished(self, result: OrganizationAnalysisResult):
         """Maneja la finalización del análisis"""
-        self.logger.info(f"Análisis completado: {result.items_count} archivos (tipo: {result.organization_type})")
+        self.logger.info(f"Analysis completed: {result.items_count} files (type: {result.organization_type})")
         self.analysis = result
         
         # Actualizar chip de estado
@@ -849,10 +850,10 @@ class FileOrganizerDialog(BaseDialog):
     def _on_analysis_error(self, error_msg: str):
         """Maneja errores en el análisis"""
         from PyQt6.QtWidgets import QMessageBox
-        self.logger.error(f"Error en análisis: {error_msg}")
+        self.logger.error(f"Analysis error: {error_msg}")
         self._set_ui_loading_state(False)
         self.is_analyzing = False
-        QMessageBox.critical(self, "Error", f"Error al analizar:\n{error_msg}")
+        QMessageBox.critical(self, tr("common.error"), tr("dialogs.file_organizer.error_analysis_failed", error=error_msg))
     
     def _set_ui_loading_state(self, loading: bool):
         """Activa/desactiva el estado de carga"""
@@ -994,19 +995,19 @@ class FileOrganizerDialog(BaseDialog):
         if count <= 10:
             folders_text = ", ".join(folders)
         else:
-            folders_text = ", ".join(folders[:10]) + f"... (+{count - 10} más)"
+            folders_text = ", ".join(folders[:10]) + tr("dialogs.file_organizer.folders_info_more", count=count - 10)
         
-        self.folders_info_label.setText(f"Se crearán {count} carpetas: <b>{folders_text}</b>")
+        self.folders_info_label.setText(tr("dialogs.file_organizer.folders_info_label", count=count, list=folders_text))
     
     def _create_filter_bar(self) -> QWidget:
         """Crea barra de filtros unificada usando método base"""
         # Diccionario de etiquetas
         labels = {
-            'search': 'Buscar por nombre',
-            'groups': 'Archivos seleccionados',
-            'category': 'Tipo de archivo',
-            'status': 'Estado',
-            'source': 'Origen de la fecha'
+            'search': tr("dialogs.file_organizer.filter.search"),
+            'groups': tr("dialogs.file_organizer.filter.groups"),
+            'category': tr("dialogs.file_organizer.filter.category"),
+            'status': tr("dialogs.file_organizer.filter.status"),
+            'source': tr("dialogs.file_organizer.filter.source")
         }
         
         # Configuración de filtros expandibles
@@ -1015,7 +1016,7 @@ class FileOrganizerDialog(BaseDialog):
                 'id': 'source',
                 'type': 'combo',
                 'label': labels['source'],
-                'tooltip': 'Filtrar por origen de la fecha',
+                'tooltip': tr("dialogs.file_organizer.filter.source_tooltip"),
                 'options': self.DATE_SOURCE_FILTER_OPTIONS,
                 'on_change': self._on_source_filter_changed,
                 'default_index': 0,
@@ -1025,8 +1026,8 @@ class FileOrganizerDialog(BaseDialog):
                 'id': 'category',
                 'type': 'combo',
                 'label': labels['category'],
-                'tooltip': 'Filtrar por tipo de archivo (Fotos/Videos)',
-                'options': ["Todos"],  # Se actualiza dinámicamente
+                'tooltip': tr("dialogs.file_organizer.filter.category_tooltip"),
+                'options': [tr("common.filter.all")],  # Se actualiza dinámicamente
                 'on_change': lambda idx: self._apply_filters(),
                 'default_index': 0,
                 'min_width': 120
@@ -1035,8 +1036,8 @@ class FileOrganizerDialog(BaseDialog):
                 'id': 'status',
                 'type': 'combo',
                 'label': labels['status'],
-                'tooltip': 'Filtrar por estado (Con/Sin conflictos)',
-                'options': ["Todos"],  # Se actualiza dinámicamente
+                'tooltip': tr("dialogs.file_organizer.filter.status_tooltip"),
+                'options': [tr("common.filter.all")],  # Se actualiza dinámicamente
                 'on_change': lambda idx: self._apply_filters(),
                 'default_index': 0,
                 'min_width': 150
@@ -1079,8 +1080,7 @@ class FileOrganizerDialog(BaseDialog):
         tree.customContextMenuRequested.connect(self._show_context_menu)
         tree.setStyleSheet(DesignSystem.get_tree_widget_style())
         tree.setToolTip(
-            "Doble clic en archivo para abrirlo\n"
-            "Clic derecho para ver detalles y opciones"
+            tr("dialogs.file_organizer.tree_tooltip")
         )
         
         return tree
@@ -1088,7 +1088,7 @@ class FileOrganizerDialog(BaseDialog):
     def _configure_tree_columns(self, tree: QTreeWidget):
         """Configura las columnas del tree de forma estandarizada"""
         # Estándar: Nombre Original, Nuevo Nombre, Fecha, Origen, Tamaño
-        headers = ["Nombre Original", "Nuevo Nombre", "Fecha", "Origen", "Tamaño"]
+        headers = [tr("dialogs.file_organizer.tree_header.original_name"), tr("dialogs.file_organizer.tree_header.new_name"), tr("common.tree_header.date"), tr("common.tree_header.date_source"), tr("common.tree_header.size")]
         tree.setHeaderLabels(headers)
         
         # Ajustar anchos
@@ -1119,7 +1119,7 @@ class FileOrganizerDialog(BaseDialog):
         options_row.setContentsMargins(0, 0, 0, 0)
         
         # Label "Opciones:"
-        options_label = QLabel("Opciones:")
+        options_label = QLabel(tr("dialogs.file_organizer.options.label"))
         options_label.setStyleSheet(DesignSystem.get_options_label_style())
         options_row.addWidget(options_label)
         
@@ -1135,12 +1135,9 @@ class FileOrganizerDialog(BaseDialog):
         
         self.backup_checkbox = self._create_inline_chip_checkbox(
             icon_name='content-save',
-            label="Crear backup antes de mover",
+            label=tr("dialogs.file_organizer.options.backup_label"),
             checked=backup_checked,
-            tooltip=f"Crea una copia de seguridad antes de mover archivos.\n"
-                    f"Recomendado para operaciones destructivas.\n\n"
-                    f"Carpeta de backups: {backup_path_str}\n\n"
-                    f"Puedes cambiar la carpeta desde Configuración."
+            tooltip=tr("dialogs.file_organizer.options.backup_tooltip", path=backup_path_str)
         )
         options_row.addWidget(self.backup_checkbox)
         
@@ -1151,12 +1148,9 @@ class FileOrganizerDialog(BaseDialog):
         
         self.dry_run_checkbox = self._create_inline_chip_checkbox(
             icon_name='eye',
-            label="Modo simulación",
+            label=tr("dialogs.file_organizer.options.dry_run_label"),
             checked=bool(dry_run_default),
-            tooltip="Simula la operación sin mover archivos realmente.\n"
-                    "Útil para verificar qué archivos se moverían.\n\n"
-                    "Al activar modo simulación, el backup se deshabilita\n"
-                    "automáticamente ya que no se realizarán cambios reales."
+            tooltip=tr("dialogs.file_organizer.options.dry_run_tooltip")
         )
         options_row.addWidget(self.dry_run_checkbox)
         
@@ -1169,29 +1163,18 @@ class FileOrganizerDialog(BaseDialog):
         # Chip de cleanup carpetas vacías (específico de organización)
         self.cleanup_checkbox = self._create_inline_chip_checkbox(
             icon_name='folder-remove',
-            label="Limpiar carpetas vacías",
+            label=tr("dialogs.file_organizer.options.cleanup_empty_label"),
             checked=False,  # Default deshabilitado para ser conservador
-            tooltip="Elimina todas las carpetas vacías dentro de la ruta\n"
-                    "seleccionada tras organizar los archivos.\n\n"
-                    "Incluye tanto las carpetas que queden vacías después\n"
-                    "de mover archivos como las que ya estuvieran vacías\n"
-                    "antes de ejecutar la organización.\n\n"
-                    "Las carpetas que solo contengan archivos de sistema\n"
-                    "(.nomedia, .DS_Store, Thumbs.db, etc.) también se\n"
-                    "consideran vacías y se eliminarán."
+            tooltip=tr("dialogs.file_organizer.options.cleanup_empty_tooltip")
         )
         options_row.addWidget(self.cleanup_checkbox)
         
         # Chip de mover archivos no soportados a 'other/' (específico de organización)
         self.move_unsupported_checkbox = self._create_inline_chip_checkbox(
             icon_name='folder-move',
-            label="Mover no soportados a 'other/'",
+            label=tr("dialogs.file_organizer.options.move_unsupported_label"),
             checked=True,  # Default habilitado para dejar estructura limpia
-            tooltip="Mueve los archivos no soportados (GIF, documentos, etc.)\n"
-                    "a una carpeta 'other/' en el directorio raíz,\n"
-                    "conservando su estructura de subcarpetas original.\n\n"
-                    "Esto evita que queden archivos sueltos fuera de la\n"
-                    "organización elegida."
+            tooltip=tr("dialogs.file_organizer.options.move_unsupported_tooltip")
         )
         self.move_unsupported_checkbox._checkbox.toggled.connect(self._on_move_unsupported_changed)
         options_row.addWidget(self.move_unsupported_checkbox)
@@ -1226,11 +1209,10 @@ class FileOrganizerDialog(BaseDialog):
         )
         path_layout.addWidget(self._backup_folder_icon)
         
-        self._backup_path_label = QLabel(f"Carpeta donde se guardarán los archivos movidos: {display_path}")
+        self._backup_path_label = QLabel(tr("dialogs.file_organizer.options.backup_path_label", path=display_path))
         self._backup_path_label.setStyleSheet(DesignSystem.get_backup_path_label_style())
         self._backup_path_label.setToolTip(
-            f"Ruta completa: {backup_path_str}\n\n"
-            f"Puedes cambiar esta carpeta desde Configuración."
+            tr("dialogs.file_organizer.options.backup_path_tooltip", path=backup_path_str)
         )
         path_layout.addWidget(self._backup_path_label)
         path_layout.addStretch()
@@ -1252,9 +1234,9 @@ class FileOrganizerDialog(BaseDialog):
         
         if ok_enabled:
             size_formatted = format_size(self.analysis.bytes_to_move)
-            ok_text = f"Organizar Archivos ({self.analysis.files_to_move} archivos, {size_formatted})"
+            ok_text = tr("dialogs.file_organizer.button.organize", count=self.analysis.files_to_move, size=size_formatted)
         else:
-            ok_text = "Selecciona una opción"
+            ok_text = tr("dialogs.file_organizer.button.select_option")
         
         buttons = self.make_ok_cancel_buttons(
             ok_text=ok_text,
@@ -1273,7 +1255,7 @@ class FileOrganizerDialog(BaseDialog):
         # Verificar si tenemos análisis disponible
         if not self.analysis:
             self.ok_button.setEnabled(False)
-            self.ok_button.setText("Esperando análisis...")
+            self.ok_button.setText(tr("dialogs.file_organizer.button.waiting"))
             return
         
         ok_enabled = self.analysis.files_to_move > 0
@@ -1283,9 +1265,9 @@ class FileOrganizerDialog(BaseDialog):
         
         if ok_enabled:
             size_formatted = format_size(self.analysis.bytes_to_move)
-            ok_text = f"Organizar Archivos ({self.analysis.files_to_move} archivos, {size_formatted})"
+            ok_text = tr("dialogs.file_organizer.button.organize", count=self.analysis.files_to_move, size=size_formatted)
         else:
-            ok_text = "Sin archivos para organizar"
+            ok_text = tr("dialogs.file_organizer.button.no_files")
         
         self.ok_button.setText(ok_text)
     
@@ -1297,16 +1279,16 @@ class FileOrganizerDialog(BaseDialog):
             return
 
         # 1. Categorías
-        type_map = {'PHOTO': 'Fotos', 'VIDEO': 'Videos'}
+        type_map = {'PHOTO': tr("common.filter.photos"), 'VIDEO': tr("common.filter.videos")}
         categories = set()
         for move in self.analysis.move_plan:
-            categories.add(type_map.get(move.file_type, 'Otros'))
+            categories.add(type_map.get(move.file_type, tr("common.filter.others")))
         
         current_cat = self.category_combo.currentText()
         self.category_combo.blockSignals(True)
         self.category_combo.clear()
-        self.category_combo.addItems(["Todos"] + sorted(list(categories)))
-        if current_cat in ["Todos"] + sorted(list(categories)):
+        self.category_combo.addItems([tr("common.filter.all")] + sorted(list(categories)))
+        if current_cat in [tr("common.filter.all")] + sorted(list(categories)):
             self.category_combo.setCurrentText(current_cat)
         else:
             self.category_combo.setCurrentIndex(0)
@@ -1320,9 +1302,9 @@ class FileOrganizerDialog(BaseDialog):
         current_status = self.status_combo.currentText()
         self.status_combo.blockSignals(True)
         self.status_combo.clear()
-        status_items = ["Todos"]
+        status_items = [tr("common.filter.all")]
         if has_conflicts:
-            status_items.extend(["Con Conflictos", "Sin Conflictos"])
+            status_items.extend([tr("dialogs.file_organizer.filter.with_conflicts"), tr("dialogs.file_organizer.filter.without_conflicts")])
         
         self.status_combo.addItems(status_items)
         if current_status in status_items:
@@ -1342,13 +1324,13 @@ class FileOrganizerDialog(BaseDialog):
             
         search_text = self.search_input.text().lower() if self.search_input else ""
         source_filter = self.source_combo.currentText() if self.source_combo else self.DATE_SOURCE_FILTER_ALL
-        category_filter = self.category_combo.currentText() if self.category_combo else "Todos"
-        status_filter = self.status_combo.currentText() if self.status_combo else "Todos"
+        category_filter = self.category_combo.currentText() if self.category_combo else tr("common.filter.all")
+        status_filter = self.status_combo.currentText() if self.status_combo else tr("common.filter.all")
         
         self.filtered_moves = []
         
         # Mapeo de categorías
-        type_map = {'PHOTO': 'Fotos', 'VIDEO': 'Videos'}
+        type_map = {'PHOTO': tr("common.filter.photos"), 'VIDEO': tr("common.filter.videos")}
         
         for move in self.all_moves:
             # Filtro de búsqueda
@@ -1363,15 +1345,15 @@ class FileOrganizerDialog(BaseDialog):
                     continue
             
             # Filtro por Categoría
-            if category_filter != "Todos":
-                move_cat = type_map.get(move.file_type, 'Otros')
+            if category_filter != tr("common.filter.all"):
+                move_cat = type_map.get(move.file_type, tr("common.filter.others"))
                 if move_cat != category_filter:
                     continue
             
             # Filtro por Estado
-            if status_filter == "Con Conflictos" and not move.has_conflict:
+            if status_filter == tr("dialogs.file_organizer.filter.with_conflicts") and not move.has_conflict:
                 continue
-            if status_filter == "Sin Conflictos" and move.has_conflict:
+            if status_filter == tr("dialogs.file_organizer.filter.without_conflicts") and move.has_conflict:
                 continue
             
             self.filtered_moves.append(move)
@@ -1450,9 +1432,8 @@ class FileOrganizerDialog(BaseDialog):
         if len(self.filtered_moves) > 1000:
             reply = QMessageBox.question(
                 self,
-                "Cargar todos los archivos",
-                f"Hay {len(self.filtered_moves)} archivos. ¿Seguro que quieres cargarlos todos?\n"
-                "Esto puede tardar y consumir memoria.",
+                tr("dialogs.file_organizer.dialog_load_all_title"),
+                tr("dialogs.file_organizer.dialog_load_all_msg", count=len(self.filtered_moves)),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
             )
             if reply != QMessageBox.StandardButton.Yes:
@@ -1475,14 +1456,14 @@ class FileOrganizerDialog(BaseDialog):
         elif org_type in (OrganizationType.BY_MONTH, OrganizationType.BY_YEAR, OrganizationType.BY_YEAR_MONTH):
             by_folder = defaultdict(list)
             for move in self.filtered_moves:
-                folder = move.target_folder or "Sin fecha"
+                folder = move.target_folder or tr("dialogs.file_organizer.tree.no_date")
                 by_folder[folder].append(move)
             self._paginated_groups = sorted(by_folder.items(), key=lambda x: x[0], reverse=True)
             
         elif org_type in (OrganizationType.BY_TYPE, OrganizationType.BY_SOURCE):
             by_category = defaultdict(list)
             for move in self.filtered_moves:
-                category = move.target_folder or "Sin categoría"
+                category = move.target_folder or tr("dialogs.file_organizer.tree.no_category")
                 by_category[category].append(move)
             
             def category_sort_key(item):
@@ -1497,7 +1478,7 @@ class FileOrganizerDialog(BaseDialog):
         total_size = sum(m.size for m in moves_in_subdir)
         
         subdir_node = QTreeWidgetItem()
-        subdir_node.setText(0, f"Desde: {subdir} ({len(moves_in_subdir)} archivos)")
+        subdir_node.setText(0, tr("dialogs.file_organizer.tree.from_subdir", subdir=subdir, count=len(moves_in_subdir)))
         subdir_node.setText(1, "")
         subdir_node.setText(2, "")
         subdir_node.setText(3, "")
@@ -1522,7 +1503,7 @@ class FileOrganizerDialog(BaseDialog):
         total_size = sum(m.size for m in moves_in_folder)
         
         parent = QTreeWidgetItem()
-        parent.setText(0, f"{folder}/ ({len(moves_in_folder)} archivos)")
+        parent.setText(0, tr("dialogs.file_organizer.tree.folder_group", folder=folder, count=len(moves_in_folder)))
         parent.setText(1, "")
         parent.setText(2, "")
         parent.setText(3, "")
@@ -1547,7 +1528,7 @@ class FileOrganizerDialog(BaseDialog):
         total_size = sum(m.size for m in moves_in_category)
         
         parent = QTreeWidgetItem()
-        parent.setText(0, f"{category}/ ({len(moves_in_category)} archivos)")
+        parent.setText(0, tr("dialogs.file_organizer.tree.folder_group", folder=category, count=len(moves_in_category)))
         parent.setText(1, "")
         parent.setText(2, "")
         parent.setText(3, "")
@@ -1589,7 +1570,7 @@ class FileOrganizerDialog(BaseDialog):
             child.setText(1, move.new_name)
             child.setForeground(1, QColor(DesignSystem.COLOR_ERROR))
         else:
-            child.setText(1, "Igual")
+            child.setText(1, tr("dialogs.file_organizer.tree.unchanged"))
             child.setForeground(1, QColor(DesignSystem.COLOR_TEXT_SECONDARY))
         
         file_date = getattr(move, 'best_date', None)

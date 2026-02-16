@@ -21,6 +21,7 @@ from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
 from ui.tools_definitions import TOOL_FILE_RENAMER
 from utils.logger import get_logger
+from utils.i18n import tr
 from .base_dialog import BaseDialog
 from .dialog_utils import (
     open_file, show_file_context_menu, show_file_details_dialog,
@@ -89,22 +90,22 @@ class FileRenamerDialog(BaseDialog):
             metrics=[
                 {
                     'value': str(self.analysis_results.items_count),
-                    'label': 'Total',
+                    'label': tr("dialogs.file_renamer.metric_total"),
                     'color': DesignSystem.COLOR_PRIMARY
                 },
                 {
                     'value': str(self.analysis_results.already_renamed),
-                    'label': 'OK',
+                    'label': tr("dialogs.file_renamer.metric_ok"),
                     'color': DesignSystem.COLOR_SUCCESS
                 },
                 {
                     'value': str(self.analysis_results.need_renaming),
-                    'label': 'Renombrar',
+                    'label': tr("dialogs.file_renamer.metric_rename"),
                     'color': DesignSystem.COLOR_WARNING
                 },
                 {
                     'value': str(self.analysis_results.conflicts),
-                    'label': 'Conflictos',
+                    'label': tr("dialogs.file_renamer.metric_conflicts"),
                     'color': DesignSystem.COLOR_ERROR
                 }
             ]
@@ -153,7 +154,7 @@ class FileRenamerDialog(BaseDialog):
         
         # Botones con estilo Material Design
         ok_enabled = self.analysis_results.need_renaming > 0
-        ok_text = f"Proceder ({self.analysis_results.need_renaming})" if ok_enabled else None
+        ok_text = tr("dialogs.file_renamer.button_proceed", count=self.analysis_results.need_renaming) if ok_enabled else None
         buttons = self.make_ok_cancel_buttons(
             ok_text=ok_text,
             ok_enabled=ok_enabled,
@@ -165,15 +166,10 @@ class FileRenamerDialog(BaseDialog):
 
     def _create_info_section(self):
         """Crea sección de información y advertencias"""
-        message = (
-            "El renombrado de archivos puede afectar a pares de archivos como Live Photos o HEIC+JPG "
-            "si no se renombran juntos.<br><br>"
-            "Los conflictos de nombre se resolverán añadiendo un sufijo numérico (ej: _1, _2) "
-            "para evitar sobrescrituras."
-        )
+        message = tr("dialogs.file_renamer.info.message")
         
         return self._create_info_banner(
-            title="Nota Importante",
+            title=tr("dialogs.file_renamer.info.title"),
             message=message
         )
 
@@ -185,19 +181,19 @@ class FileRenamerDialog(BaseDialog):
             for item in self.analysis_results.renaming_plan
         )))
         date_sources = sorted(list(set(
-            item.date_source or 'Desconocido' 
+            item.date_source or tr("common.unknown") 
             for item in self.analysis_results.renaming_plan
         )))
         years = [str(year) for year in sorted(self.analysis_results.files_by_year.keys(), reverse=True)]
         
         # Diccionario de etiquetas
         labels = {
-            'search': 'Buscar por nombre',
-            'groups': 'Archivos seleccionados',
-            'conflict': 'Conflicto',
-            'file_type': 'Tipo archivo',
-            'source': 'Origen de la fecha',
-            'year': 'Año'
+            'search': tr("dialogs.file_renamer.filter.search"),
+            'groups': tr("dialogs.file_renamer.filter.groups"),
+            'conflict': tr("dialogs.file_renamer.filter.conflict"),
+            'file_type': tr("dialogs.file_renamer.filter.file_type"),
+            'source': tr("dialogs.file_renamer.filter.source"),
+            'year': tr("dialogs.file_renamer.filter.year")
         }
         
         # Configuración de filtros expandibles
@@ -206,8 +202,8 @@ class FileRenamerDialog(BaseDialog):
                 'id': 'conflict',
                 'type': 'combo',
                 'label': labels['conflict'],
-                'tooltip': 'Filtrar por estado de conflicto',
-                'options': ["Todos", "Solo conflictos", "Sin conflictos"],
+                'tooltip': tr("dialogs.file_renamer.filter.conflict_tooltip"),
+                'options': [tr("common.filter.all"), tr("dialogs.file_renamer.filter.only_conflicts"), tr("dialogs.file_renamer.filter.no_conflicts")],
                 'on_change': lambda idx: self._apply_filters(),
                 'default_index': 0,
                 'min_width': 150
@@ -216,8 +212,8 @@ class FileRenamerDialog(BaseDialog):
                 'id': 'file_type',
                 'type': 'combo',
                 'label': labels['file_type'],
-                'tooltip': 'Filtrar por tipo de archivo',
-                'options': ["Todos"] + file_types,
+                'tooltip': tr("dialogs.file_renamer.filter.type_tooltip"),
+                'options': [tr("common.filter.all")] + file_types,
                 'on_change': lambda idx: self._apply_filters(),
                 'default_index': 0,
                 'min_width': 120
@@ -226,8 +222,8 @@ class FileRenamerDialog(BaseDialog):
                 'id': 'source',
                 'type': 'combo',
                 'label': labels['source'],
-                'tooltip': 'Filtrar por fuente de la fecha',
-                'options': ["Todos"] + date_sources,
+                'tooltip': tr("dialogs.file_renamer.filter.source_tooltip"),
+                'options': [tr("common.filter.all")] + date_sources,
                 'on_change': lambda idx: self._apply_filters(),
                 'default_index': 0,
                 'min_width': 180
@@ -236,8 +232,8 @@ class FileRenamerDialog(BaseDialog):
                 'id': 'year',
                 'type': 'combo',
                 'label': labels['year'],
-                'tooltip': 'Filtrar por año',
-                'options': ["Todos"] + years,
+                'tooltip': tr("dialogs.file_renamer.filter.year_tooltip"),
+                'options': [tr("common.filter.all")] + years,
                 'on_change': lambda idx: self._apply_filters(),
                 'default_index': 0,
                 'min_width': 100
@@ -269,7 +265,7 @@ class FileRenamerDialog(BaseDialog):
     
     def _create_tree_widget(self) -> QTreeWidget:
         """Crea el widget de árbol para mostrar archivos agrupados por carpeta."""
-        headers = ["Carpeta / Archivo", "Nuevo nombre", "Fecha", "Fuente", "Tipo"]
+        headers = [tr("dialogs.file_renamer.tree_header.folder_file"), tr("dialogs.file_renamer.tree_header.new_name"), tr("common.tree_header.date"), tr("dialogs.file_renamer.tree_header.source"), tr("common.tree_header.type")]
         column_widths = [350, 250, 140, 120, 80]
         
         return create_groups_tree_widget(
@@ -281,7 +277,7 @@ class FileRenamerDialog(BaseDialog):
 
     def _create_problems_section(self):
         """Crea sección colapsable de problemas"""
-        group = QGroupBox(f"Archivos con Problemas ({len(self.analysis_results.issues)})")
+        group = QGroupBox(tr("dialogs.file_renamer.problems.title", count=len(self.analysis_results.issues)))
         group.setCheckable(True)
         group.setChecked(False)  # Colapsado por defecto
         group.setMaximumHeight(150)
@@ -302,14 +298,14 @@ class FileRenamerDialog(BaseDialog):
         
         layout = QVBoxLayout()
         
-        info = QLabel("Estos archivos no pueden procesarse y serán ignorados:")
+        info = QLabel(tr("dialogs.file_renamer.problems.description"))
         info.setStyleSheet(f"color: {DesignSystem.COLOR_WARNING}; font-size: {DesignSystem.FONT_SIZE_SM}px;")
         layout.addWidget(info)
         
         # Lista simple de problemas
         problems_text = "\n".join(self.analysis_results.issues[:10])
         if len(self.analysis_results.issues) > 10:
-            problems_text += f"\n... y {len(self.analysis_results.issues) - 10} más"
+            problems_text += tr("dialogs.file_renamer.problems.and_more", count=len(self.analysis_results.issues) - 10)
         
         problems_label = QLabel(problems_text)
         problems_label.setWordWrap(True)
@@ -324,8 +320,8 @@ class FileRenamerDialog(BaseDialog):
         return self._create_security_options_section(
             show_backup=True,
             show_dry_run=True,
-            backup_label="Crear backup antes de renombrar",
-            dry_run_label="Modo simulación (no renombrar realmente)"
+            backup_label=tr("dialogs.file_renamer.option_backup"),
+            dry_run_label=tr("dialogs.file_renamer.option_dry_run")
         )
 
     # ========================================================================
@@ -346,10 +342,10 @@ class FileRenamerDialog(BaseDialog):
     def _apply_filters(self):
         """Aplica los filtros y reorganiza por carpetas"""
         search_text = self.search_input.text().lower() if self.search_input else ""
-        filter_option = self.filter_combo.currentText() if self.filter_combo else "Todos"
-        year_filter = self.year_combo.currentText() if self.year_combo else "Todos"
-        type_filter = self.type_combo.currentText() if self.type_combo else "Todos"
-        source_filter = self.source_combo.currentText() if self.source_combo else "Todos"
+        filter_option = self.filter_combo.currentText() if self.filter_combo else tr("common.filter.all")
+        year_filter = self.year_combo.currentText() if self.year_combo else tr("common.filter.all")
+        type_filter = self.type_combo.currentText() if self.type_combo else tr("common.filter.all")
+        source_filter = self.source_combo.currentText() if self.source_combo else tr("common.filter.all")
         
         self.filtered_plan = []
         
@@ -359,24 +355,24 @@ class FileRenamerDialog(BaseDialog):
                 continue
             
             # Filtro por conflicto
-            if filter_option == "Solo conflictos" and not item.has_conflict:
+            if filter_option == tr("dialogs.file_renamer.filter.only_conflicts") and not item.has_conflict:
                 continue
-            elif filter_option == "Sin conflictos" and item.has_conflict:
+            elif filter_option == tr("dialogs.file_renamer.filter.no_conflicts") and item.has_conflict:
                 continue
             
             # Filtro por año
-            if year_filter != "Todos" and str(item.date.year) != year_filter:
+            if year_filter != tr("common.filter.all") and str(item.date.year) != year_filter:
                 continue
             
             # Filtro por tipo de archivo
-            if type_filter != "Todos":
+            if type_filter != tr("common.filter.all"):
                 file_type = get_file_type(item.original_path.name)
                 if file_type != type_filter:
                     continue
             
             # Filtro por fuente de fecha
-            if source_filter != "Todos":
-                item_source = item.date_source or 'Desconocido'
+            if source_filter != tr("common.filter.all"):
+                item_source = item.date_source or tr("common.unknown")
                 if item_source != source_filter:
                     continue
             
@@ -420,7 +416,7 @@ class FileRenamerDialog(BaseDialog):
         # Crear nodo de carpeta
         folder_item = QTreeWidgetItem(self.tree_widget)
         folder_name = str(folder_path.relative_to(folder_path.anchor)) if folder_path.anchor else str(folder_path)
-        folder_item.setText(0, f"📁 {folder_name} ({len(files)} archivos)")
+        folder_item.setText(0, tr("dialogs.file_renamer.tree.folder_label", name=folder_name, count=len(files)))
         folder_item.setExpanded(True)
         
         # Aplicar estilo de grupo
@@ -428,9 +424,9 @@ class FileRenamerDialog(BaseDialog):
         
         # Tooltip del grupo
         conflicts_in_folder = sum(1 for f in files if f.has_conflict)
-        tooltip = f"Carpeta: {folder_path}\n{len(files)} archivos a renombrar"
+        tooltip = tr("dialogs.file_renamer.tree.folder_tooltip", path=folder_path, count=len(files))
         if conflicts_in_folder:
-            tooltip += f"\n⚠️ {conflicts_in_folder} conflictos"
+            tooltip += "\n" + tr("dialogs.file_renamer.tree.conflicts_tooltip", count=conflicts_in_folder)
         folder_item.setToolTip(0, tooltip)
         
         # Añadir archivos como hijos
@@ -459,7 +455,7 @@ class FileRenamerDialog(BaseDialog):
         file_item.setText(2, file_info.date.strftime('%Y-%m-%d %H:%M:%S'))
         
         # Columna 3: Fuente de fecha
-        file_item.setText(3, file_info.date_source or 'Desconocido')
+        file_item.setText(3, file_info.date_source or tr("common.unknown"))
         
         # Columna 4: Tipo
         file_item.setText(4, get_file_type(file_path.name))
@@ -469,7 +465,7 @@ class FileRenamerDialog(BaseDialog):
             conflict_color = QColor(255, 200, 200)
             for col in range(5):
                 file_item.setBackground(col, conflict_color)
-            file_item.setToolTip(0, f"⚠️ Conflicto: Se añadirá sufijo numérico")
+            file_item.setToolTip(0, tr("dialogs.file_renamer.tree.conflict_file_tooltip"))
     
     def _load_all_groups(self):
         """Carga todos los grupos restantes."""
@@ -479,9 +475,9 @@ class FileRenamerDialog(BaseDialog):
         if total_files > 1000:
             reply = QMessageBox.question(
                 self,
-                "Cargar todos los archivos",
-                f"Hay {total_files} archivos en {len(self.filtered_groups)} carpetas. "
-                "¿Seguro que quieres cargarlos todos?\nEsto puede tardar y consumir memoria.",
+                tr("dialogs.file_renamer.dialog_load_all_title"),
+                tr("dialogs.file_renamer.dialog_load_all_msg",
+                   count=total_files, folders=len(self.filtered_groups)),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
             )
             if reply != QMessageBox.StandardButton.Yes:
@@ -544,7 +540,7 @@ class FileRenamerDialog(BaseDialog):
             show_file_details_dialog(file_path, self)
             return
         
-        file_type = 'Imagen' if is_image_file(file_path) else 'Video' if is_video_file(file_path) else 'Desconocido'
+        file_type = tr("common.file_type.image") if is_image_file(file_path) else tr("common.file_type.video") if is_video_file(file_path) else tr("common.unknown")
         
         additional_info = {
             'original_name': file_path.name,
@@ -552,23 +548,23 @@ class FileRenamerDialog(BaseDialog):
             'file_type': file_type,
             'conflict': file_info.has_conflict,
             'metadata': {
-                'Fecha detectada': file_info.date.strftime('%Y-%m-%d %H:%M:%S'),
-                'Fuente de fecha': file_info.date_source or 'Desconocido',
-                'Año': str(file_info.date.year),
+                tr("dialogs.file_renamer.details.detected_date"): file_info.date.strftime('%Y-%m-%d %H:%M:%S'),
+                tr("dialogs.file_renamer.details.date_source"): file_info.date_source or tr("common.unknown"),
+                tr("dialogs.file_renamer.details.year"): str(file_info.date.year),
             }
         }
         
         if file_info.has_conflict:
-            additional_info['metadata']['Conflicto'] = 'Sí - Se resolverá con sufijo numérico'
+            additional_info['metadata'][tr("dialogs.file_renamer.details.conflict_key")] = tr("dialogs.file_renamer.details.conflict_value")
             if file_info.sequence:
-                additional_info['metadata']['Secuencia'] = f"#{file_info.sequence}"
+                additional_info['metadata'][tr("dialogs.file_renamer.details.sequence")] = f"#{file_info.sequence}"
         
         show_file_details_dialog(file_path, self, additional_info)
 
     def accept(self):
         # Validar que hay archivos para renombrar
         if not self.analysis_results or not self.analysis_results.renaming_plan:
-            self.show_no_items_message("archivos para renombrar")
+            self.show_no_items_message(tr("dialogs.file_renamer.no_items_type"))
             return
         
         self.accepted_plan = {

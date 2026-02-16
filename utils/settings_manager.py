@@ -49,6 +49,7 @@ class SettingsManager:
     KEY_SHOW_FULL_PATH = "interface/show_full_directory_path"
     KEY_DIRECTORY_HISTORY = "interface/directory_history"
     KEY_ANALYSIS_TIMESTAMP = "interface/analysis_timestamp"  # Timestamp del último análisis
+    KEY_LANGUAGE = "interface/language"
 
     def __init__(self, backend: Optional[StorageBackend] = None,
                  organization: str = "InnerpixLab", application: str = "Innerpix Lab"):
@@ -312,6 +313,14 @@ class SettingsManager:
     def set_last_folder(self, folder_path: str) -> None:
         """Establece la última carpeta analizada"""
         self.set('last_analyzed_folder', folder_path)
+
+    def get_language(self, default: str = "es") -> str:
+        """Get the configured UI language code (default: 'es')."""
+        return str(self.get(self.KEY_LANGUAGE, default))
+
+    def set_language(self, lang: str) -> None:
+        """Set the UI language code."""
+        self.set(self.KEY_LANGUAGE, lang)
 
 
 # Instancia global del gestor de configuración

@@ -12,6 +12,7 @@ from .base_stage import BaseStage
 from ui.styles.design_system import DesignSystem
 from ui.screens.progress_card import ProgressCard
 from ui.workers.initial_analysis_worker import InitialAnalysisWorker
+from utils.i18n import tr
 # Los servicios se importan lazy en _start_analysis() para evitar bloquear la UI
 
 
@@ -47,7 +48,7 @@ class Stage2Window(BaseStage):
 
     def setup_ui(self) -> None:
         """Configura la interfaz de usuario del Stage 2."""
-        self.logger.debug("Configurando UI del Stage 2")
+        self.logger.debug("Setting up Stage 2 UI")
 
         # Limpiar el layout principal para evitar espacios residuales de otras stages
         if self.main_layout:
@@ -82,11 +83,11 @@ class Stage2Window(BaseStage):
         # Usar un delay mayor para dar tiempo a que la UI se renderice completamente
         QTimer.singleShot(100, self._start_analysis)
 
-        self.logger.debug("UI del Estado 2 configurada")
+        self.logger.debug("Stage 2 UI configured")
 
     def cleanup(self) -> None:
         """Limpia los recursos del Estado 2."""
-        self.logger.debug("Limpiando Estado 2")
+        self.logger.debug("Cleaning up Stage 2")
 
         # Detener worker si está ejecutándose
         if self.analysis_worker and self.analysis_worker.isRunning():
@@ -132,7 +133,7 @@ class Stage2Window(BaseStage):
         self.analysis_worker.error.connect(self._on_analysis_error)
 
         # Iniciar análisis
-        self.logger.debug("Iniciando worker de análisis inicial")
+        self.logger.debug("Starting initial analysis worker")
         self.analysis_worker.start()
 
     def _on_analysis_progress(self, current: int, total: int, message: str):
@@ -216,7 +217,7 @@ class Stage2Window(BaseStage):
         Args:
             results: Diccionario con todos los resultados
         """
-        self.logger.info("Análisis completado exitosamente")
+        self.logger.info("Analysis completed successfully")
         self.analysis_results = results
 
         # Logging detallado de extensiones de archivos
@@ -244,7 +245,7 @@ class Stage2Window(BaseStage):
     
     def _perform_stage_3_transition(self):
         """Realiza la transición a Fase 3"""
-        self.logger.debug("Realizando transición a Stage 3")
+        self.logger.debug("Transitioning to Stage 3")
         self.main_window._transition_to_state_3(self.analysis_results)
 
     def _on_analysis_error(self, error_msg: str):
@@ -254,7 +255,7 @@ class Stage2Window(BaseStage):
         Args:
             error_msg: Mensaje de error
         """
-        self.logger.error(f"Error en análisis: {error_msg}")
+        self.logger.error(f"Analysis error: {error_msg}")
 
         # Detener el worker si está corriendo
         if hasattr(self, 'analysis_worker') and self.analysis_worker:
@@ -273,33 +274,33 @@ class Stage2Window(BaseStage):
         # Mostrar diálogo de error con opciones
         msg = QMessageBox(self.main_window)
         msg.setIcon(QMessageBox.Icon.Critical)
-        msg.setWindowTitle("Error en el análisis")
-        msg.setText("Ocurrió un error durante el análisis de la carpeta.")
-        msg.setInformativeText(f"Detalles del error:\n{error_msg}")
+        msg.setWindowTitle(tr("stage2.error.analysis_title"))
+        msg.setText(tr("stage2.error.analysis_msg"))
+        msg.setInformativeText(tr("stage2.error.analysis_details", error=error_msg))
         msg.setDetailedText(f"Carpeta: {self.selected_folder}\n\nError: {error_msg}")
 
         # Botones de acción
-        retry_btn = msg.addButton("Reintentar", QMessageBox.ButtonRole.ActionRole)
-        change_btn = msg.addButton("Cambiar carpeta", QMessageBox.ButtonRole.ActionRole)
-        exit_btn = msg.addButton("Salir", QMessageBox.ButtonRole.RejectRole)
+        retry_btn = msg.addButton(tr("stage2.button.retry"), QMessageBox.ButtonRole.ActionRole)
+        change_btn = msg.addButton(tr("stage2.button.change_folder"), QMessageBox.ButtonRole.ActionRole)
+        exit_btn = msg.addButton(tr("stage2.button.exit"), QMessageBox.ButtonRole.RejectRole)
         msg.setDefaultButton(retry_btn)
 
         msg.exec()
 
         # Manejar la respuesta del usuario
         if msg.clickedButton() == retry_btn:
-            self.logger.info("Usuario eligió reintentar el análisis")
+            self.logger.info("User chose to retry analysis")
             self._restart_analysis()
         elif msg.clickedButton() == change_btn:
-            self.logger.info("Usuario eligió cambiar de carpeta")
+            self.logger.info("User chose to change folder")
             self._return_to_state_1()
         else:  # exit_btn o cerrar diálogo
-            self.logger.info("Usuario eligió salir - volviendo a Stage 1")
+            self.logger.info("User chose to exit - returning to Stage 1")
             self._return_to_state_1()
 
     def _restart_analysis(self):
         """Reinicia el análisis de la carpeta actual"""
-        self.logger.info("Reiniciando análisis...")
+        self.logger.info("Restarting analysis...")
 
         # Limpiar estado de análisis previo
         if self.progress_card:
@@ -313,7 +314,7 @@ class Stage2Window(BaseStage):
 
     def _return_to_state_1(self):
         """Vuelve al Estado 1 para seleccionar otra carpeta"""
-        self.logger.info("Volviendo a Estado 1")
+        self.logger.info("Returning to State 1")
 
         # Limpiar datos del análisis
         self.analysis_results = None
@@ -339,10 +340,10 @@ class Stage2Window(BaseStage):
         
         # Si ya tiene los datos de extensiones, no hacer nada
         if hasattr(scan, 'image_extensions') and scan.image_extensions:
-            self.logger.debug("Caché ya contiene información de extensiones")
+            self.logger.debug("Cache already contains extension information")
             return
         
-        self.logger.info("Enriqueciendo caché con información de extensiones...")
+        self.logger.info("Enriching cache with extension information...")
         
         # Inicializar dictionaries
         image_extensions = {}
@@ -434,20 +435,20 @@ class Stage2Window(BaseStage):
     
     def _on_cancel_requested(self):
         """Usuario solicitó cancelar el análisis"""
-        self.logger.info("Usuario solicitó cancelar el análisis")
+        self.logger.info("User requested analysis cancellation")
         
         # Marcar que el diálogo está abierto
         self.cancel_dialog_open = True
         
         msg = QMessageBox(self.main_window)
         msg.setIcon(QMessageBox.Icon.Question)
-        msg.setWindowTitle("Cancelar análisis")
-        msg.setText("¿Estás seguro de que quieres cancelar el análisis?")
-        msg.setInformativeText("Se perderá el progreso actual.")
+        msg.setWindowTitle(tr("stage2.cancel.title"))
+        msg.setText(tr("stage2.cancel.confirm_msg"))
+        msg.setInformativeText(tr("stage2.cancel.warning_msg"))
         
         # Botones con roles claros
-        continue_btn = msg.addButton("Continuar análisis", QMessageBox.ButtonRole.RejectRole)
-        change_btn = msg.addButton("Seleccionar otra carpeta", QMessageBox.ButtonRole.ActionRole)
+        continue_btn = msg.addButton(tr("stage2.button.continue_analysis"), QMessageBox.ButtonRole.RejectRole)
+        change_btn = msg.addButton(tr("stage2.button.select_other_folder"), QMessageBox.ButtonRole.ActionRole)
         msg.setDefaultButton(continue_btn)
         
         msg.exec()
@@ -457,10 +458,10 @@ class Stage2Window(BaseStage):
         
         # Manejar respuesta
         if msg.clickedButton() == change_btn:
-            self.logger.info("Usuario eligió seleccionar otra carpeta")
+            self.logger.info("User chose to select another folder")
             self._cancel_and_return_to_stage_1()
         else:
-            self.logger.info("Usuario eligió continuar el análisis")
+            self.logger.info("User chose to continue analysis")
             # Si el análisis terminó mientras el diálogo estaba abierto, hacer la transición ahora
             if self.analysis_completed_while_cancel_dialog_open:
                 self.logger.info("Análisis terminó mientras diálogo estaba abierto, haciendo transición ahora")
@@ -471,11 +472,11 @@ class Stage2Window(BaseStage):
     
     def _cancel_and_return_to_stage_1(self):
         """Cancela el análisis y vuelve a Fase 1"""
-        self.logger.info("Cancelando análisis y volviendo a Fase 1")
+        self.logger.info("Cancelling analysis and returning to Stage 1")
         
         # Detener worker si está ejecutándose
         if self.analysis_worker and self.analysis_worker.isRunning():
-            self.logger.info("Solicitando cancelación del worker de análisis...")
+            self.logger.info("Requesting analysis worker cancellation...")
             self.analysis_worker.stop()
             
             # Esperar con timeout generoso para datasets grandes (100k+ archivos)

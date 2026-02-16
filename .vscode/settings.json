@@ -8,5 +8,8 @@
       "priority": 1
     }
   ],
-  "kiroAgent.configureMCP": "Disabled"
+  "kiroAgent.configureMCP": "Disabled",
+  "chat.tools.terminal.autoApprove": {
+    "pytest": true
+  }
 }

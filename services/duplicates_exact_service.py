@@ -24,6 +24,7 @@ from utils.logger import (
     log_section_footer_relevant
 )
 from utils.format_utils import format_size
+from utils.i18n import tr
 
 
 # Estrategias de selección soportadas
@@ -59,11 +60,11 @@ class DuplicatesExactService(BaseService):
         """
         repo = FileInfoRepositoryCache.get_instance()
         
-        log_section_header_discrete(self.logger, "ANÁLISIS DE DUPLICADOS EXACTOS (SHA256)")
+        log_section_header_discrete(self.logger, "EXACT DUPLICATES ANALYSIS (SHA256)")
         
         all_files = repo.get_all_files()
         total_files = len(all_files)
-        self.logger.info(f"Escaneando {total_files} archivos para detección de duplicados")
+        self.logger.info(f"Scanning {total_files} files for duplicate detection")
         
         if total_files == 0:
             return ExactDuplicateAnalysisResult(
@@ -84,7 +85,7 @@ class DuplicatesExactService(BaseService):
                     if meta.extension in supported_exts:
                         files_to_hash.append(meta)
         
-        self.logger.info(f"Candidatos a duplicados (por coincidencia de tamaño): {len(files_to_hash)}")
+        self.logger.info(f"Duplicate candidates (by size match): {len(files_to_hash)}")
         
         # Verificar y calcular hashes faltantes
         if files_to_hash:
@@ -92,17 +93,17 @@ class DuplicatesExactService(BaseService):
             files_cached_hash = len(files_to_hash) - len(files_missing_hash)
             
             if files_cached_hash > 0:
-                self.logger.info(f"Hashes en caché: {files_cached_hash}")
+                self.logger.info(f"Cached hashes: {files_cached_hash}")
             
             if files_missing_hash:
-                self.logger.info(f"Calculando hashes para {len(files_missing_hash)} archivos")
+                self.logger.info(f"Calculating hashes for {len(files_missing_hash)} files")
                 
                 def repo_progress_callback(processed_count, total_count):
                     return self._report_progress(
                         progress_callback,
                         processed_count,
                         total_count,
-                        "Calculando firmas digitales..."
+                        tr("services.progress.calculating_signatures")
                     )
                 
                 repo.populate_from_scan(
@@ -144,10 +145,10 @@ class DuplicatesExactService(BaseService):
         total_duplicates = sum(g.file_count - 1 for g in groups)
         space_recoverable = sum(g.space_recoverable for g in groups)
         
-        self.logger.info(f"Grupos encontrados: {total_groups}")
-        self.logger.info(f"Espacio recuperable: {format_size(space_recoverable)}")
+        self.logger.info(f"Groups found: {total_groups}")
+        self.logger.info(f"Recoverable space: {format_size(space_recoverable)}")
         
-        log_section_footer_discrete(self.logger, "ANÁLISIS COMPLETADO")
+        log_section_footer_discrete(self.logger, "ANALYSIS COMPLETED")
         
         return ExactDuplicateAnalysisResult(
             success=True,
@@ -182,42 +183,42 @@ class DuplicatesExactService(BaseService):
         Returns:
             ExactDuplicateExecutionResult con resultados de la operación
         """
-        mode = "SIMULACIÓN" if dry_run else ""
+        mode = "SIMULATION" if dry_run else ""
         log_section_header_relevant(
             self.logger,
-            f"ELIMINACIÓN DE DUPLICADOS EXACTOS - Estrategia: {keep_strategy}",
+            f"EXACT DUPLICATES DELETION - Strategy: {keep_strategy}",
             mode=mode
         )
         
         if keep_strategy not in KEEP_STRATEGIES:
-            raise ValueError(f"Estrategia no válida: {keep_strategy}. Opciones: {KEEP_STRATEGIES}")
+            raise ValueError(f"Invalid strategy: {keep_strategy}. Options: {KEEP_STRATEGIES}")
         
         groups = analysis_result.groups
         files_to_delete_set = set(files_to_delete) if files_to_delete else None
         
         if not groups:
-            self.logger.info("No hay grupos para procesar")
+            self.logger.info("No groups to process")
             return ExactDuplicateExecutionResult(
                 success=True,
                 items_processed=0,
                 bytes_processed=0,
                 keep_strategy=keep_strategy,
                 dry_run=dry_run,
-                message="No hay duplicados para eliminar"
+                message=tr("services.result.no_duplicates_to_delete")
             )
         
         # Filtrar grupos con archivos que aún existen
         filtered_groups = self._filter_existing_groups(groups)
         
         if not filtered_groups:
-            self.logger.info("Todos los grupos fueron filtrados (archivos ya no existen)")
+            self.logger.info("All groups were filtered out (files no longer exist)")
             return ExactDuplicateExecutionResult(
                 success=True,
                 items_processed=0,
                 bytes_processed=0,
                 keep_strategy=keep_strategy,
                 dry_run=dry_run,
-                message="No hay duplicados para eliminar (archivos ya procesados)"
+                message=tr("services.result.no_duplicates_already_processed")
             )
         
         # Crear backup si es necesario
@@ -233,14 +234,14 @@ class DuplicatesExactService(BaseService):
                 if not backup_path:
                     return ExactDuplicateExecutionResult(
                         success=False,
-                        errors=["No se pudo crear el backup"],
+                        errors=[tr("services.error.backup_creation_failed")],
                         keep_strategy=keep_strategy,
                         dry_run=dry_run
                     )
             except BackupCreationError as e:
                 return ExactDuplicateExecutionResult(
                     success=False,
-                    errors=[f"Error creando backup: {e}"],
+                    errors=[f"Error creating backup: {e}"],
                     keep_strategy=keep_strategy,
                     dry_run=dry_run
                 )
@@ -279,9 +280,9 @@ class DuplicatesExactService(BaseService):
                 keep_meta = repo.get_file_metadata(keep_file)
                 keep_date = self._get_best_date_for_file(keep_file, repo)
                 self.logger.debug(
-                    f"Conservando: {keep_file.name} | "
-                    f"Tamaño: {format_size(keep_meta.fs_size if keep_meta else 0)} | "
-                    f"Fecha: {keep_date}"
+                    f"Keeping: {keep_file.name} | "
+                    f"Size: {format_size(keep_meta.fs_size if keep_meta else 0)} | "
+                    f"Date: {keep_date}"
                 )
             
             # Eliminar archivos seleccionados
@@ -316,15 +317,15 @@ class DuplicatesExactService(BaseService):
                         progress_callback,
                         processed,
                         total_operations,
-                        f"{'[Simulación] ' if dry_run else ''}Eliminando: {file_path.name}"
+                        f"{tr('services.progress.simulation_prefix') if dry_run else ''}{tr('services.progress.deleting_file', name=file_path.name)}"
                     ):
                         break
                         
                 except FileNotFoundError:
-                    self.logger.warning(f"Archivo no encontrado: {file_path}")
+                    self.logger.warning(f"File not found: {file_path}")
                 except Exception as e:
                     errors.append(f"{file_path}: {e}")
-                    self.logger.error(f"Error eliminando {file_path}: {e}")
+                    self.logger.error(f"Error deleting {file_path}: {e}")
         
         # Construir resultado
         result = ExactDuplicateExecutionResult(
@@ -341,7 +342,7 @@ class DuplicatesExactService(BaseService):
         
         # Mensaje de resumen
         result.message = self._format_operation_summary(
-            "Eliminación de duplicados exactos",
+            tr("services.operation.exact_duplicate_deletion"),
             processed,
             bytes_processed,
             dry_run
@@ -373,7 +374,7 @@ class DuplicatesExactService(BaseService):
             
             if missing > 0:
                 total_missing += missing
-                self.logger.debug(f"Grupo {group.hash_value[:8]}...: {missing} archivos ya no existen")
+                self.logger.debug(f"Group {group.hash_value[:8]}...: {missing} files no longer exist")
             
             if len(existing_files) >= 2:
                 filtered.append(ExactDuplicateGroup(
@@ -384,8 +385,8 @@ class DuplicatesExactService(BaseService):
         
         if total_missing > 0:
             self.logger.warning(
-                f"⚠️ {total_missing} archivos ya no existen. "
-                f"Grupos: {len(groups)} → {len(filtered)}"
+                f"⚠️ {total_missing} files no longer exist. "
+                f"Groups: {len(groups)} → {len(filtered)}"
             )
         
         return filtered
@@ -411,7 +412,7 @@ class DuplicatesExactService(BaseService):
         elif strategy == 'smallest':
             return min(files, key=lambda f: self._get_file_size(f, repo))
         else:
-            raise ValueError(f"Estrategia no válida para selección: {strategy}")
+            raise ValueError(f"Invalid strategy for selection: {strategy}")
 
     def _get_best_date_timestamp(self, file_path: Path, repo: FileInfoRepositoryCache) -> float:
         """Obtiene timestamp de la mejor fecha disponible desde el repositorio."""
@@ -438,7 +439,7 @@ class DuplicatesExactService(BaseService):
             dt = datetime.fromtimestamp(meta.fs_mtime)
             return f"{dt.strftime('%Y-%m-%d %H:%M:%S')} (filesystem)"
         
-        return "fecha desconocida"
+        return "unknown date"
 
     def _get_file_size(self, file_path: Path, repo: FileInfoRepositoryCache) -> int:
         """Obtiene tamaño del archivo desde el repositorio."""

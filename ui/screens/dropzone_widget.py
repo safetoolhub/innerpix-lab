@@ -8,6 +8,7 @@ from PyQt6.QtGui import QDragEnterEvent, QDropEvent
 
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
+from utils.i18n import tr
 
 
 class DropzoneWidget(QFrame):
@@ -50,14 +51,14 @@ class DropzoneWidget(QFrame):
         layout.addWidget(self.icon_label)
         
         # Texto principal (más corto)
-        self.main_text = QLabel("Arrastra una carpeta aquí")
+        self.main_text = QLabel(tr("dropzone.main_text"))
         self.main_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.main_text.setFixedWidth(250)  # Ancho fijo para evitar movimiento del layout al cambiar texto
         self.main_text.setStyleSheet(DesignSystem.get_dropzone_main_text_style())
         layout.addWidget(self.main_text)
         
         # Texto secundario (hint sutil, más corto)
-        self.hint_text = QLabel("o usa el botón de debajo")
+        self.hint_text = QLabel(tr("dropzone.hint_text"))
         self.hint_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.hint_text.setStyleSheet(DesignSystem.get_dropzone_hint_text_style())
         # Mantener referencia a un efecto de opacidad para poder ocultarlo
@@ -93,7 +94,7 @@ class DropzoneWidget(QFrame):
         """Actualiza la apariencia según el estado"""
         if dragging:
             self.setStyleSheet(DesignSystem.get_dropzone_style(dragging=True))
-            self.main_text.setText("Suelta para analizar")
+            self.main_text.setText(tr("dropzone.drop_text"))
             # No ocultar el hint_text ya que provoca que el layout se encoja
             # (al ocultarlo quedan solo 2 QLabel). En su lugar dejamos el
             # texto original pero lo hacemos invisible mediante opacidad=0.
@@ -103,7 +104,7 @@ class DropzoneWidget(QFrame):
             # No necesitamos update() ya que Qt repinta automáticamente con los cambios de texto
         else:
             self.setStyleSheet(DesignSystem.get_dropzone_style(dragging=False))
-            self.main_text.setText("Arrastra una carpeta aquí")
+            self.main_text.setText(tr("dropzone.main_text"))
             # Restaurar la visibilidad del hint estableciendo opacidad a 1
             if hasattr(self, '_hint_opacity_effect'):
                 self._hint_opacity_effect.setOpacity(1.0)

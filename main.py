@@ -1,12 +1,12 @@
 """
-Innerpix Lab - Punto de entrada de la aplicación
+Innerpix Lab - Application entry point
 
-Aplicación de gestión de archivos multimedia con herramientas para la organización y limpieza de duplicados
+Multimedia file management application with tools for organizing and cleaning duplicates
 """
 import sys
 import os
 
-# Configurar Qt para evitar warnings de Wayland
+# Configure Qt to avoid Wayland warnings
 os.environ['QT_LOGGING_RULES'] = 'qt.qpa.wayland=false'
 
 from PyQt6.QtWidgets import QApplication
@@ -16,33 +16,35 @@ from config import Config
 from utils.logger import configure_logging, get_logger
 from utils import get_optimal_window_config
 from utils.settings_manager import settings_manager
+from utils.i18n import init_i18n
 import logging
 
 import argparse
 
 def main():
-    """Punto de entrada principal de la aplicación"""
-    
-    # Parsear argumentos de línea de comandos
-    # (Ya no se usan argumentos, se configura directamente en config.py)
+    """Main application entry point"""
+
+    # Initialize internationalization before anything else
+    language = settings_manager.get_language()
+    init_i18n(language)
 
     if Config.DEVELOPMENT_MODE:
-        print(f"🔧 MODO DESARROLLADOR ACTIVADO")
+        print(f"🔧 DEVELOPMENT MODE ENABLED")
         if Config.SAVED_CACHE_DEV_MODE_PATH:
-             print(f"🔧 Cargando caché desde: {Config.SAVED_CACHE_DEV_MODE_PATH}")
+             print(f"🔧 Loading cache from: {Config.SAVED_CACHE_DEV_MODE_PATH}")
 
-    # Leer nivel de log desde configuración persistente
-    saved_log_level = settings_manager.get_log_level("INFO")  # INFO por defecto
-    saved_dual_log = settings_manager.get_dual_log_enabled()  # True por defecto
+    # Read log level from persistent settings
+    saved_log_level = settings_manager.get_log_level("INFO")  # INFO by default
+    saved_dual_log = settings_manager.get_dual_log_enabled()  # True by default
     
-    # Configurar sistema de logging con nivel guardado
+    # Configure logging system with saved level
     log_file, logs_dir = configure_logging(
         logs_dir=Config.DEFAULT_LOG_DIR,
         level=saved_log_level,
         dual_log_enabled=saved_dual_log
     )
     
-    # Leer configuraciones de precálculo para mostrar en log
+    # Read precalculation settings for log output
     precalc_hashes = settings_manager.get_precalculate_hashes()
     precalc_image_exif = settings_manager.get_precalculate_image_exif()
     precalc_video_exif = settings_manager.get_precalculate_video_exif()
@@ -50,70 +52,73 @@ def main():
     logger = get_logger()
     log_level = logging.getLevelName(logger.logger.level)
     
-    # Obtener información del sistema
+    # Get system info
     sys_info = Config.get_system_info()
     
     logger.info("=" * 80)
-    logger.info(f"Iniciando {Config.APP_NAME} v{Config.APP_VERSION}")
+    logger.info(f"Starting {Config.APP_NAME} v{Config.APP_VERSION}")
     logger.info("=" * 80)
     logger.info("")
-    logger.info("📊 CONFIGURACIÓN DEL SISTEMA:")
-    logger.info(f"  • RAM Total: {sys_info['ram_total_gb']:.2f} GB")
+    logger.info("📊 SYSTEM CONFIGURATION:")
+    logger.info(f"  • Total RAM: {sys_info['ram_total_gb']:.2f} GB")
     if sys_info['ram_available_gb']:
-        logger.info(f"  • RAM Disponible: {sys_info['ram_available_gb']:.2f} GB")
+        logger.info(f"  • Available RAM: {sys_info['ram_available_gb']:.2f} GB")
     logger.info(f"  • CPU Cores: {sys_info['cpu_count']}")
-    logger.info(f"  • Workers I/O (hashing): {sys_info['io_workers']}")
-    logger.info(f"  • Workers CPU (imágenes): {sys_info['cpu_workers']}")
+    logger.info(f"  • I/O Workers (hashing): {sys_info['io_workers']}")
+    logger.info(f"  • CPU Workers (images): {sys_info['cpu_workers']}")
     if not sys_info['psutil_available']:
-        logger.info("  ⚠️  psutil no disponible, usando valores por defecto")
+        logger.info("  ⚠️  psutil not available, using default values")
     logger.info("")
-    logger.info("💾 CONFIGURACIÓN DE MEMORIA:")
-    logger.info(f"  • Máx. entradas en caché (inicial): {sys_info['max_cache_entries']:,}")
-    logger.info(f"  • Umbral dataset grande: {sys_info['large_dataset_threshold']:,} archivos")
-    logger.info(f"  • Apertura auto diálogo: {sys_info['auto_open_threshold']:,} archivos")
+    logger.info("💾 MEMORY CONFIGURATION:")
+    logger.info(f"  • Max cache entries (initial): {sys_info['max_cache_entries']:,}")
+    logger.info(f"  • Large dataset threshold: {sys_info['large_dataset_threshold']:,} files")
+    logger.info(f"  • Auto-open dialog threshold: {sys_info['auto_open_threshold']:,} files")
     logger.info("")
-    logger.info("📁 CONFIGURACIÓN DE LOGS:")
-    logger.info(f"  • Nivel de log: {log_level}")
-    logger.info(f"  • Archivo de log: {log_file}")
-    logger.info(f"  • Directorio de logs: {logs_dir}")
+    logger.info("📁 LOG CONFIGURATION:")
+    logger.info(f"  • Log level: {log_level}")
+    logger.info(f"  • Log file: {log_file}")
+    logger.info(f"  • Log directory: {logs_dir}")
     if saved_dual_log and saved_log_level in ('INFO', 'DEBUG'):
-        logger.info(f"  • Dual logging: activado (se creará archivo adicional _WARNERROR)")
+        logger.info(f"  • Dual logging: enabled (additional _WARNERROR file will be created)")
     else:
-        logger.info(f"  • Dual logging: {'desactivado' if not saved_dual_log else 'no aplicable (nivel WARNING/ERROR)'}")
+        logger.info(f"  • Dual logging: {'disabled' if not saved_dual_log else 'not applicable (WARNING/ERROR level)'}")
     logger.info("")
-    logger.info("⚙️  CONFIGURACIÓN DE ANÁLISIS INICIAL:")
-    logger.info(f"  • Cálculo de hashes SHA256: {'habilitado' if precalc_hashes else 'deshabilitado (bajo demanda)'}")
-    logger.info(f"  • Metadatos de imágenes (EXIF): {'habilitado' if precalc_image_exif else 'deshabilitado (bajo demanda)'}")
-    logger.info(f"  • Metadatos de videos (EXIF): {'habilitado' if precalc_video_exif else 'deshabilitado (bajo demanda)'}")
+    logger.info("🌐 LANGUAGE:")
+    logger.info(f"  • UI Language: {language}")
+    logger.info("")
+    logger.info("⚙️  INITIAL ANALYSIS CONFIGURATION:")
+    logger.info(f"  • SHA256 hash calculation: {'enabled' if precalc_hashes else 'disabled (on demand)'}")
+    logger.info(f"  • Image metadata (EXIF): {'enabled' if precalc_image_exif else 'disabled (on demand)'}")
+    logger.info(f"  • Video metadata (EXIF): {'enabled' if precalc_video_exif else 'disabled (on demand)'}")
     logger.info("=" * 80)
     logger.info("")
     
     app = QApplication(sys.argv)
 
-    # Configurar la aplicación
+    # Configure the application
     app.setApplicationName(Config.APP_NAME)
     app.setApplicationVersion(Config.APP_VERSION)
     app.setOrganizationName("InnerpixLab")
 
-    # Crear y mostrar ventana principal (nueva implementación)
+    # Create and show main window
     window = MainWindow()
     
-    # Configurar tamaño de ventana usando utilidad desacoplada
+    # Configure window size using decoupled utility
     action, window_size, center_pos = get_optimal_window_config()
     
     if action == 'resize' and window_size and center_pos:
-        # Monitor 2K+ o superior: mostrar en FullHD centrado
+        # 2K+ monitor: show in FullHD centered
         window.resize(window_size.width, window_size.height)
         window.move(center_pos[0], center_pos[1])
-        logger.info(f"Ventana configurada en FullHD ({window_size}) centrada en pantalla")
+        logger.info(f"Window configured in FullHD ({window_size}) centered on screen")
     else:
-        # Monitor FullHD o inferior: maximizar
+        # FullHD or lower monitor: maximize
         window.showMaximized()
-        logger.info("Ventana maximizada")
+        logger.info("Window maximized")
     
     window.show()
     
-    logger.debug("Ventana principal mostrada")
+    logger.debug("Main window shown")
 
     return app.exec()
 

@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from PyQt6.QtWidgets import QFrame, QRadioButton
 
 from ui.styles.design_system import DesignSystem
+from utils.i18n import tr
 from utils.settings_manager import settings_manager
 
 
@@ -104,16 +105,16 @@ class BaseDialog(QDialog):
         else:
             size_info = ""
         
-        message = f"Se {operation_verb} {files_count} archivos{size_info}."
+        message = tr("common.confirm_operation_message", operation_verb=operation_verb, files_count=files_count, size_info=size_info)
         
         if extra_info:
             message += f"\n\n{extra_info}"
         
-        message += "\n\n¿Continuar?"
+        message += "\n\n" + tr("common.confirm_continue")
         
         reply = QMessageBox.question(
             self,
-            "Confirmar operación",
+            tr("common.confirm_operation_title"),
             message,
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No  # Default seguro
@@ -129,8 +130,8 @@ class BaseDialog(QDialog):
         """
         QMessageBox.information(
             self,
-            "Sin cambios",
-            f"No hay {item_type} para procesar."
+            tr("common.no_items_title"),
+            tr("common.no_items_message", item_type=item_type)
         )
 
 
@@ -160,7 +161,7 @@ class BaseDialog(QDialog):
         # Aplicar textos personalizados
         if ok_text is not None:
             ok_btn.setText(ok_text)
-        cancel_btn.setText("Cancelar")
+        cancel_btn.setText(tr("common.cancel"))
         
         # Eliminar iconos automáticos de Qt que no respetan los colores personalizados
         from PyQt6.QtGui import QIcon
@@ -825,7 +826,7 @@ class BaseDialog(QDialog):
         chips_layout.setContentsMargins(0, 0, 0, 0)
         
         # Label "Opciones:" inline minimalista
-        options_label = QLabel("Opciones:")
+        options_label = QLabel(tr("dialogs.base.options_label"))
         options_label.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_SM}px;
             font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
@@ -847,10 +848,7 @@ class BaseDialog(QDialog):
                 icon_name='content-save',
                 label=backup_label,
                 checked=backup_checked,
-                tooltip=f"Crea una copia de seguridad antes de realizar cambios.\n"
-                        f"Recomendado para operaciones destructivas.\n\n"
-                        f"Carpeta de backups: {backup_path_str}\n\n"
-                        f"Puedes cambiar la carpeta desde Configuración."
+                tooltip=tr("dialogs.base.backup_tooltip", path=backup_path_str)
             )
             chips_layout.addWidget(self.backup_checkbox)
         
@@ -864,10 +862,7 @@ class BaseDialog(QDialog):
                 icon_name='eye',
                 label=dry_run_label,
                 checked=bool(dry_run_default),
-                tooltip="Simula la operación sin realizar cambios reales.\n"
-                        "Útil para verificar qué archivos se verían afectados.\n\n"
-                        "Al activar modo simulación, el backup se deshabilita\n"
-                        "automáticamente ya que no se realizarán cambios reales."
+                tooltip=tr("dialogs.base.dry_run_tooltip")
             )
             chips_layout.addWidget(self.dry_run_checkbox)
         
@@ -903,14 +898,13 @@ class BaseDialog(QDialog):
             )
             path_layout.addWidget(self._backup_folder_icon)
             
-            self._backup_path_label = QLabel(f"Carpeta donde se guardarán los archivos eliminados: {display_path}")
+            self._backup_path_label = QLabel(tr("dialogs.base.backup_path_label", path=display_path))
             self._backup_path_label.setStyleSheet(f"""
                 font-size: {DesignSystem.FONT_SIZE_XS}px;
                 color: {DesignSystem.COLOR_TEXT_SECONDARY};
             """)
             self._backup_path_label.setToolTip(
-                f"Ruta completa: {backup_path_str}\n\n"
-                f"Puedes cambiar esta carpeta desde Configuración."
+                tr("dialogs.base.backup_path_tooltip", path=backup_path_str)
             )
             path_layout.addWidget(self._backup_path_label)
             path_layout.addStretch()
@@ -1084,8 +1078,7 @@ class BaseDialog(QDialog):
                 # Deshabilitar visualmente el widget
                 backup_widget.setEnabled(False)
                 backup_widget.setToolTip(
-                    "El backup está deshabilitado porque el modo simulación está activo.\n"
-                    "No se realizarán cambios reales, por lo que no es necesario crear backup."
+                    tr("dialogs.base.backup_disabled_tooltip")
                 )
                 
                 # Actualizar el estado visual del chip
@@ -1107,10 +1100,7 @@ class BaseDialog(QDialog):
                 backup_path_str = str(backup_dir) if backup_dir else str(Config.DEFAULT_BACKUP_DIR)
                 
                 backup_widget.setToolTip(
-                    f"Crea una copia de seguridad antes de realizar cambios.\n"
-                    f"Recomendado para operaciones destructivas.\n\n"
-                    f"Carpeta de backups: {backup_path_str}\n\n"
-                    f"Puedes cambiar la carpeta desde Configuración."
+                    tr("dialogs.base.backup_tooltip", path=backup_path_str)
                 )
                 
                 # Actualizar el estado visual del chip
@@ -1341,9 +1331,7 @@ class BaseDialog(QDialog):
             }}
         """)
         progress_indicator.setToolTip(
-            "Muestra cuántos elementos se han cargado en la lista.\n"
-            "Por rendimiento, los elementos se cargan en lotes.\n"
-            "Usa 'Cargar más' para ver elementos adicionales."
+            tr("dialogs.base.progress.indicator_tooltip")
         )
         pagination_layout.addWidget(progress_indicator)
         
@@ -1369,10 +1357,10 @@ class BaseDialog(QDialog):
         pagination_layout.addWidget(progress_bar_container, 1)
         
         # Botón cargar todos
-        load_all_btn = QPushButton("Cargar todos")
+        load_all_btn = QPushButton(tr("dialogs.base.progress.load_all"))
         icon_manager.set_button_icon(load_all_btn, 'download', size=16)
         load_all_btn.clicked.connect(on_load_all)
-        load_all_btn.setToolTip("Cargar todos los elementos restantes de una vez")
+        load_all_btn.setToolTip(tr("dialogs.base.progress.load_all_tooltip"))
         load_all_btn.setStyleSheet(f"""
             QPushButton {{
                 background-color: transparent;
@@ -1391,7 +1379,7 @@ class BaseDialog(QDialog):
         pagination_layout.addWidget(load_all_btn)
         
         # Botón cargar más
-        load_more_btn = QPushButton("Cargar más")
+        load_more_btn = QPushButton(tr("dialogs.base.progress.load_more"))
         icon_manager.set_button_icon(load_more_btn, 'refresh', size=18)
         load_more_btn.clicked.connect(on_load_more)
         load_more_btn.setStyleSheet(f"""
@@ -1443,7 +1431,7 @@ class BaseDialog(QDialog):
         if filtered_count > 0:
             percent = (loaded_count / filtered_count) * 100
             pagination_bar.progress_indicator.setText(
-                f"{percent:.0f}% cargado en lista ({loaded_count} de {filtered_count})"
+                tr("dialogs.base.progress.loaded_text", percent=f"{percent:.0f}", loaded=loaded_count, total=filtered_count)
             )
             
             # Actualizar barra
@@ -1451,7 +1439,7 @@ class BaseDialog(QDialog):
             fill_width = int(bar_width * loaded_count / filtered_count) if bar_width > 0 else 0
             pagination_bar.progress_bar_fill.setGeometry(0, 0, fill_width, 8)
         else:
-            pagination_bar.progress_indicator.setText("Sin elementos que mostrar")
+            pagination_bar.progress_indicator.setText(tr("dialogs.base.progress.no_items"))
             pagination_bar.progress_bar_fill.setGeometry(0, 0, 0, 8)
         
         # Mostrar/ocultar botones según estado
@@ -1463,10 +1451,10 @@ class BaseDialog(QDialog):
         if has_more:
             remaining = filtered_count - loaded_count
             to_load = min(load_increment, remaining)
-            pagination_bar.load_more_btn.setText(f"Cargar {to_load} más")
-            pagination_bar.load_more_btn.setToolTip(f"Cargar {to_load} elementos más ({remaining} pendientes)")
+            pagination_bar.load_more_btn.setText(tr("dialogs.base.progress.load_n_more", count=to_load))
+            pagination_bar.load_more_btn.setToolTip(tr("dialogs.base.progress.load_n_more_tooltip", count=to_load, remaining=remaining))
         else:
-            pagination_bar.load_more_btn.setText("✓ Todos cargados")
+            pagination_bar.load_more_btn.setText(tr("dialogs.base.progress.all_loaded"))
 
     def _create_compact_strategy_selector(
         self,
@@ -1606,7 +1594,7 @@ class BaseDialog(QDialog):
         from ui.styles.icons import icon_manager
         
         tip_btn = QPushButton()
-        tip_btn.setToolTip("Mostrar/ocultar consejo")
+        tip_btn.setToolTip(tr("dialogs.base.tip_toggle_tooltip"))
         tip_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         tip_btn.setCheckable(True)
         icon_manager.set_button_icon(tip_btn, 'information-outline', size=22, color=DesignSystem.COLOR_INFO)
@@ -1773,12 +1761,12 @@ class BaseDialog(QDialog):
         # Default size filter options
         if size_filter_options is None:
             size_filter_options = [
-                "Todos",
-                ">10 MB",
-                ">50 MB",
-                ">100 MB",
-                "3+ copias",
-                "5+ copias"
+                tr("common.filter.all"),
+                tr("common.filter.gt_10mb"),
+                tr("common.filter.gt_50mb"),
+                tr("common.filter.gt_100mb"),
+                tr("common.filter.3_plus_copies"),
+                tr("common.filter.5_plus_copies")
             ]
         
         # Frame principal - más compacto
@@ -1835,7 +1823,7 @@ class BaseDialog(QDialog):
         search_container_layout.addWidget(search_icon)
         
         search_input = QLineEdit()
-        search_input.setPlaceholderText("Buscar...")
+        search_input.setPlaceholderText(tr("dialogs.base.filter.search_placeholder"))
         search_input.textChanged.connect(on_search_changed)
         search_input.setStyleSheet(f"""
             QLineEdit {{
@@ -1860,7 +1848,7 @@ class BaseDialog(QDialog):
         status_vlayout.setContentsMargins(0, 0, 0, 0)
         
         # Etiqueta de grupos - ahora alineada a la izquierda
-        entity_label_text = labels.get('groups', "Archivos seleccionados" if is_files_mode else "Grupos seleccionados")
+        entity_label_text = labels.get('groups', tr("dialogs.base.filter.files_selected") if is_files_mode else tr("dialogs.base.filter.groups_selected"))
         groups_label = QLabel(entity_label_text)
         groups_label.setStyleSheet(DesignSystem.get_filter_label_style())
         groups_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
@@ -1892,7 +1880,7 @@ class BaseDialog(QDialog):
             expand_btn = QPushButton()
             expand_btn.setCheckable(True)
             expand_btn.setChecked(False)
-            expand_btn.setToolTip("Más filtros")
+            expand_btn.setToolTip(tr("dialogs.base.filter.more_filters"))
             icon_manager.set_button_icon(expand_btn, 'filter-variant', size=16)
             expand_btn.setFixedSize(36, 36)  # Altura unificada
             expand_btn.setStyleSheet(f"""
@@ -1929,8 +1917,8 @@ class BaseDialog(QDialog):
             size_filter_config = {
                 'id': 'size',
                 'type': 'combo',
-                'label': labels.get('size', 'Tamaño / Cantidad'),
-                'tooltip': 'Filtrar por tamaño o cantidad',
+                'label': labels.get('size', tr("dialogs.base.filter.size_quantity_label")),
+                'tooltip': tr("dialogs.base.filter.size_quantity_tooltip"),
                 'options': size_filter_options,
                 'on_change': on_size_filter_changed,
                 'default_index': 0,
@@ -2054,7 +2042,7 @@ class BaseDialog(QDialog):
                 icon_name = 'filter-variant-remove' if is_expanded else 'filter-variant'
                 icon_manager.set_button_icon(expand_btn, icon_name, size=16)
                 expand_btn.setToolTip(
-                    "Ocultar filtros adicionales" if is_expanded else "Mostrar filtros adicionales"
+                    tr("dialogs.base.filter.hide_extra") if is_expanded else tr("dialogs.base.filter.show_extra")
                 )
             
             expand_btn.clicked.connect(toggle_expandable)
@@ -2143,7 +2131,7 @@ class BaseDialog(QDialog):
                     min-width: 70px;
                 }}
             """)
-            tooltip = f"{entity.capitalize()} filtrados: {filtered_count}\nTotal de {entity}: {total_count}"
+            tooltip = tr("dialogs.base.filter.filtered_tooltip", entity=entity, filtered=filtered_count, total=total_count)
             if loaded_count is not None:
                 tooltip += f"\n(Cargados en lista: {loaded_count} de {filtered_count})"
             status_chip.setToolTip(tooltip)
@@ -2162,16 +2150,16 @@ class BaseDialog(QDialog):
                     min-width: 70px;
                 }}
             """)
-            status_chip.setToolTip(f"Mostrando todos los {entity}: {total_count}")
+            status_chip.setToolTip(tr("dialogs.base.filter.showing_all", entity=entity, count=total_count))
     
     # Constantes para filtros de origen de fecha
     # Nombres reales usados por select_best_date_from_file() y select_best_date_from_common_date_to_2_files()
-    DATE_SOURCE_FILTER_ALL = "Todos"
+    DATE_SOURCE_FILTER_ALL = tr("dialogs.base.date_source.all")
     DATE_SOURCE_FILTER_OPTIONS = [
-        "Todos",
-        "EXIF",           # Agrupa todos los EXIF (DateTimeOriginal, CreateDate, etc.)
-        "Filename",       # Fecha extraída del nombre de archivo
-        "Filesystem",     # Agrupa mtime, ctime, atime
+        tr("dialogs.base.date_source.all"),
+        tr("dialogs.base.date_source.exif"),
+        tr("dialogs.base.date_source.filename"),
+        tr("dialogs.base.date_source.filesystem"),
     ]
     
     def _matches_source_filter(self, date_source: str, filter_value: str) -> bool:
@@ -2197,15 +2185,15 @@ class BaseDialog(QDialog):
         source_lower = date_source.lower()
         
         # Filtro EXIF: agrupa todos los tipos de EXIF
-        if filter_value == "EXIF":
+        if filter_value == tr("dialogs.base.date_source.exif"):
             return 'exif' in source_lower or 'video metadata' in source_lower
         
         # Filtro Filename
-        if filter_value == "Filename":
+        if filter_value == tr("dialogs.base.date_source.filename"):
             return 'filename' in source_lower
         
         # Filtro Filesystem: agrupa mtime, ctime, atime, birth
-        if filter_value == "Filesystem":
+        if filter_value == tr("dialogs.base.date_source.filesystem"):
             filesystem_keywords = ['mtime', 'ctime', 'atime', 'birth', 'fs_']
             return any(kw in source_lower for kw in filesystem_keywords)
         

@@ -631,8 +631,8 @@ class TestInitialScannerEdgeCases:
         
         assert result.total_files == 1
         assert len(result.others) == 1
-        # Debe contar como '(sin extensión)'
-        assert '(sin extensión)' in result.unsupported_extensions
+        # Debe contar como '(no extension)'
+        assert '(no extension)' in result.unsupported_extensions
     
     def test_scan_nonexistent_directory_raises_error(self):
         """Debe lanzar error para directorio inexistente"""

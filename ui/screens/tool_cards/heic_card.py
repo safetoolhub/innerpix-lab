@@ -5,6 +5,7 @@ Crea la card de HEIC/JPG Duplicados para el grid de herramientas.
 from ui.screens.tool_card import ToolCard
 from ui.tools_definitions import TOOL_HEIC
 from utils.format_utils import format_size
+from utils.i18n import tr
 
 
 def create_heic_card(analysis_results, on_click_callback) -> ToolCard:
@@ -26,7 +27,7 @@ def create_heic_card(analysis_results, on_click_callback) -> ToolCard:
         icon_name=TOOL_HEIC.icon_name,
         title=TOOL_HEIC.title,
         description=TOOL_HEIC.long_description,
-        action_text='Gestionar ahora' if has_analysis else 'Analizar ahora'
+        action_text=tr("cards.action_manage") if has_analysis else tr("cards.action_analyze")
     )
     
     if has_analysis:
@@ -36,15 +37,15 @@ def create_heic_card(analysis_results, on_click_callback) -> ToolCard:
             savings_heic = heic_data.potential_savings_keep_heic or 0
             max_savings = max(savings_jpg, savings_heic)
             card.set_status_with_results(
-                f"{heic_data.items_count} grupos de duplicados HEIC/JPG encontrados",
-                f"~{format_size(max_savings)} recuperables",
+                tr("cards.heic_groups_found", count=heic_data.items_count),
+                tr("cards.space_recoverable", size=format_size(max_savings)),
                 badge_count=heic_data.items_count
             )
         else:
-            card.set_status_no_results("No se encontraron pares HEIC/JPG")
+            card.set_status_no_results(tr("cards.no_heic_pairs_found"))
     else:
         # Estado pendiente de análisis
-        card.set_status_pending("Analizar para detectar duplicados HEIC/JPG")
+        card.set_status_pending(tr("cards.pending_heic"))
 
     card.clicked.connect(lambda: on_click_callback('heic'))
     return card

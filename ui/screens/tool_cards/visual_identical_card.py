@@ -5,6 +5,7 @@ Crea la card de Copias Visuales Idénticas para el grid de herramientas.
 from ui.screens.tool_card import ToolCard
 from ui.tools_definitions import TOOL_VISUAL_IDENTICAL
 from utils.format_utils import format_size
+from utils.i18n import tr
 
 
 def create_visual_identical_card(analysis_results, on_click_callback) -> ToolCard:
@@ -26,24 +27,24 @@ def create_visual_identical_card(analysis_results, on_click_callback) -> ToolCar
         icon_name=TOOL_VISUAL_IDENTICAL.icon_name,
         title=TOOL_VISUAL_IDENTICAL.title,
         description=TOOL_VISUAL_IDENTICAL.long_description,
-        action_text='Gestionar ahora' if has_analysis else 'Analizar ahora'
+        action_text=tr("cards.action_manage") if has_analysis else tr("cards.action_analyze")
     )
     
     # Configurar estado según datos
     if has_analysis:
         vi_data = analysis_results.visual_identical
         if vi_data.total_groups > 0:
-            size_text = f"~{format_size(vi_data.space_recoverable)} recuperables"
+            size_text = tr("cards.space_recoverable", size=format_size(vi_data.space_recoverable))
             card.set_status_with_results(
-                f"{vi_data.total_groups} grupos detectados",
+                tr("cards.groups_detected", count=vi_data.total_groups),
                 size_text,
                 badge_count=vi_data.total_duplicates
             )
         else:
-            card.set_status_no_results("No se encontraron copias visuales idénticas")
+            card.set_status_no_results(tr("cards.no_visual_identical_found"))
     else:
         # Estado pendiente de análisis
-        card.set_status_pending("Analizar para detectar copias visuales idénticas")
+        card.set_status_pending(tr("cards.pending_visual_identical"))
     
     card.clicked.connect(lambda: on_click_callback('visual_identical'))
     return card

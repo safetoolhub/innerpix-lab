@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Optional, Iterable, Callable, Union, Any, TypeAlias
 from contextlib import contextmanager
 from utils.logger import get_logger, log_section_header_discrete, log_section_footer_discrete, log_section_header_relevant, log_section_footer_relevant
+from utils.i18n import tr
 
 
 # Type alias para callbacks de progreso estandarizados
@@ -153,7 +154,7 @@ class BaseService(ABC):
             # Si el callback retorna explícitamente False, cancelar
             if result is False:
                 self._cancelled = True
-                self.logger.info(f"Operación cancelada por el usuario en {current}/{total}")
+                self.logger.info(f"Operation cancelled by user at {current}/{total}")
                 return False
             
             # None o True: continuar
@@ -161,7 +162,7 @@ class BaseService(ABC):
             
         except Exception as e:
             # No interrumpir operación por errores en callback
-            self.logger.warning(f"Error en callback de progreso: {e}")
+            self.logger.warning(f"Error in progress callback: {e}")
             return True
     
     def cancel(self):
@@ -178,7 +179,7 @@ class BaseService(ABC):
             >>> # La operación se detendrá en el siguiente _report_progress()
         """
         self._cancelled = True
-        self.logger.info("Cancelación solicitada")
+        self.logger.info("Cancellation requested")
     
     def _create_backup_for_operation(
         self,
@@ -246,14 +247,14 @@ class BaseService(ABC):
                     else:
                         skipped_missing.append(file_path)
             except Exception as e:
-                self.logger.warning(f"No se pudo extraer path de {item}: {e}")
+                self.logger.warning(f"Could not extract path from {item}: {e}")
                 continue
         
         # Log de archivos omitidos por no existir
         if skipped_missing:
             self.logger.warning(
-                f"⚠️ {len(skipped_missing)} archivos omitidos del backup (ya no existen, "
-                f"posiblemente eliminados por otra operación):"
+                f"⚠️ {len(skipped_missing)} files skipped from backup (no longer exist, "
+                f"possibly deleted by another operation):"
             )
             for missing_path in skipped_missing[:10]:  # Mostrar máximo 10
                 self.logger.warning(f"   - {missing_path}")
@@ -261,7 +262,7 @@ class BaseService(ABC):
                 self.logger.warning(f"   ... y {len(skipped_missing) - 10} más")
         
         if not file_list:
-            self.logger.warning("No hay archivos para backup (todos fueron omitidos o no existen)")
+            self.logger.warning("No files for backup (all were skipped or don't exist)")
             return None
         
         # Encontrar directorio común
@@ -272,8 +273,8 @@ class BaseService(ABC):
             except ValueError:
                 # No hay path común (ej: diferentes drives en Windows)
                 self.logger.warning(
-                    f"No hay path común entre {base_dir} y {file_path.parent}, "
-                    f"usando {base_dir}"
+                    f"No common path between {base_dir} and {file_path.parent}, "
+                    f"using {base_dir}"
                 )
                 break
         
@@ -287,10 +288,10 @@ class BaseService(ABC):
                 metadata_name=f'{operation_name}_metadata.txt'
             )
             self.backup_dir = backup_path
-            self.logger.info(f"Backup creado en: {backup_path}")
+            self.logger.info(f"Backup created at: {backup_path}")
             return backup_path
         except Exception as e:
-            error_msg = f"Fallo creando backup para {operation_name}: {e}"
+            error_msg = f"Failed creating backup for {operation_name}: {e}"
             self.logger.error(error_msg)
             raise BackupCreationError(error_msg) from e
     
@@ -319,17 +320,17 @@ class BaseService(ABC):
         """
         from utils.format_utils import format_size
         
-        mode_verb = "se procesarían" if dry_run else "procesados"
+        mode_verb = tr("services.result.would_be_processed") if dry_run else tr("services.result.processed")
         
         if space_amount > 0:
-            space_verb = "se liberarían" if dry_run else "liberados"
+            space_verb = tr("services.result.would_be_freed") if dry_run else tr("services.result.freed")
             return (
-                f"{operation_name} completado: "
-                f"{files_count} archivos {mode_verb}, "
+                f"{operation_name} {tr('services.result.completed')}: "
+                f"{files_count} {tr('services.unit.files')} {mode_verb}, "
                 f"{format_size(space_amount)} {space_verb}"
             )
         else:
-            return f"{operation_name} completado: {files_count} archivos {mode_verb}"
+            return f"{operation_name} {tr('services.result.completed')}: {files_count} {tr('services.unit.files')} {mode_verb}"
     
     def _execute_operation(
         self,
@@ -392,7 +393,7 @@ class BaseService(ABC):
                 )
             except BackupCreationError as e:
                 # Error crítico de backup: retornar resultado de error sin ejecutar
-                self.logger.error(f"Operación abortada debido a fallo en backup: {e}")
+                self.logger.error(f"Operation aborted due to backup failure: {e}")
                 
                 # Importar aquí para evitar dependencia circular
                 from services.result_types import BaseResult
@@ -401,7 +402,7 @@ class BaseService(ABC):
                 # El servicio específico debería manejar esto mejor con su tipo de resultado
                 return BaseResult(
                     success=False,
-                    message=f"Fallo al crear backup: {str(e)}. Operación no ejecutada."
+                    message=tr("services.error.backup_failed_operation_aborted", error=str(e))
                 )
         
         # Ejecutar operación real
@@ -415,7 +416,7 @@ class BaseService(ABC):
             return result
             
         except Exception as e:
-            self.logger.error(f"Error ejecutando {operation_name}: {e}")
+            self.logger.error(f"Error executing {operation_name}: {e}")
             raise
     
     def _get_max_workers(self, io_bound: bool = True) -> int:
@@ -544,10 +545,10 @@ class BaseService(ABC):
             ...     # Continuar con análisis...
         """
         if must_exist and not directory.exists():
-            raise ValueError(f"Directorio no existe: {directory}")
+            raise ValueError(f"Directory does not exist: {directory}")
         
         if must_exist and not directory.is_dir():
-            raise ValueError(f"No es un directorio: {directory}")
+            raise ValueError(f"Not a directory: {directory}")
     
     def _get_supported_files(
         self,
@@ -596,7 +597,7 @@ class BaseService(ABC):
                     progress_callback,
                     processed,
                     -1,  # Total desconocido en scan
-                    f"Escaneando: {filepath.name}"
+                    tr("services.progress.scanning_file", name=filepath.name)
                 ):
                     break  # Cancelado
         
@@ -652,5 +653,5 @@ class BaseService(ABC):
                 repo.remove_file(file_path)
                 return True
             else:
-                self.logger.error(f"No se pudo eliminar: {file_path}")
+                self.logger.error(f"Could not delete: {file_path}")
                 return False

@@ -7,6 +7,7 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from ui.styles.design_system import DesignSystem
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
+from utils.i18n import tr
 from utils.settings_manager import settings_manager
 from pathlib import Path
 
@@ -58,7 +59,7 @@ class SummaryCard(QFrame):
         header_layout.addWidget(header_icon)
         
         # 2. Etiqueta "Carpeta:"
-        header_text = QLabel("Carpeta:")
+        header_text = QLabel(tr("summary_card.label_folder"))
         header_text.setStyleSheet(DesignSystem.get_label_secondary_style())
         header_layout.addWidget(header_text)
         
@@ -73,9 +74,9 @@ class SummaryCard(QFrame):
         header_layout.addStretch()
         
         # 5. Botón "Cambiar"
-        self.btn_change = QPushButton("Cambiar")
+        self.btn_change = QPushButton(tr("summary_card.button_change"))
         self.btn_change.setProperty("class", "secondary-small")
-        self.btn_change.setToolTip("Seleccionar otra carpeta")
+        self.btn_change.setToolTip(tr("summary_card.tooltip_change"))
         self.btn_change.clicked.connect(self._on_change_clicked)
         self.btn_change.setStyleSheet(DesignSystem.get_small_button_style("secondary"))
         header_layout.addWidget(self.btn_change)
@@ -100,7 +101,7 @@ class SummaryCard(QFrame):
         info_layout.addWidget(stats_icon)
         
         # 1. Estadísticas (Archivos totales y Tamaño)
-        self.stats_label = QLabel("Calculando...")
+        self.stats_label = QLabel(tr("summary_card.stats_calculating"))
         self.stats_label.setStyleSheet(DesignSystem.get_stats_label_style())
         info_layout.addWidget(self.stats_label)
         
@@ -137,7 +138,7 @@ class SummaryCard(QFrame):
             color=DesignSystem.COLOR_TEXT_SECONDARY,
             size=14
         )
-        self.btn_reanalyze.setText("Reanalizar")
+        self.btn_reanalyze.setText(tr("summary_card.button_reanalyze"))
         self.btn_reanalyze.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_reanalyze.setStyleSheet(DesignSystem.get_small_button_style("link"))
         self.btn_reanalyze.clicked.connect(self._on_reanalyze_clicked)
@@ -167,23 +168,23 @@ class SummaryCard(QFrame):
         
         # Asegurar que total_size no sea None
         size_value = total_size if total_size is not None else 0
-        stats_text = f"{format_file_count(total_files)} archivos • {format_size(size_value)}"
+        stats_text = tr("summary_card.stats_total", count=format_file_count(total_files), size=format_size(size_value))
         
         self.stats_label.setText(stats_text)
         
         # Actualizar desglose de tipos
         breakdown_parts = []
         if num_images > 0:
-            breakdown_parts.append(f"{format_file_count(num_images)} imágenes")
+            breakdown_parts.append(tr("summary_card.stats_images", count=format_file_count(num_images)))
         if num_videos > 0:
-            breakdown_parts.append(f"{format_file_count(num_videos)} videos")
+            breakdown_parts.append(tr("summary_card.stats_videos", count=format_file_count(num_videos)))
         if num_others > 0:
-            breakdown_parts.append(f"{format_file_count(num_others)} ficheros no soportados")
+            breakdown_parts.append(tr("summary_card.stats_unsupported", count=format_file_count(num_others)))
         
         if breakdown_parts:
             self.breakdown_label.setText(" • ".join(breakdown_parts))
         else:
-            self.breakdown_label.setText("No hay archivos para mostrar")
+            self.breakdown_label.setText(tr("summary_card.stats_empty"))
             
         # Actualizar barra visual
         self._update_visual_bar()

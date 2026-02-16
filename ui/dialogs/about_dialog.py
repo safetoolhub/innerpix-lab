@@ -23,6 +23,7 @@ from ui.styles.icons import icon_manager
 from ui.tools_definitions import (
     TOOL_CATEGORIES, get_tools_by_category
 )
+from utils.i18n import tr
 
 # Colores sutiles por categoría de herramientas
 _CATEGORY_COLORS = {
@@ -64,7 +65,7 @@ class AboutDialog(QDialog):
 
     def _init_ui(self):
         """Inicializa la interfaz del diálogo."""
-        self.setWindowTitle(f"Acerca de {Config.APP_NAME}")
+        self.setWindowTitle(tr("about.title", name=Config.APP_NAME))
         self.setModal(True)
         self.setMinimumSize(1100, 850)
         self.resize(1100, 850)
@@ -92,9 +93,9 @@ class AboutDialog(QDialog):
         self.tab_widget.setStyleSheet(DesignSystem.get_tutorial_tab_widget_style())
         
         # Crear las pestañas (nombres compactos)
-        self.tab_widget.addTab(self._create_welcome_tab(), "Inicio")
-        self.tab_widget.addTab(self._create_tools_tab(), "Herramientas")
-        self.tab_widget.addTab(self._create_tech_tab(), "Info")
+        self.tab_widget.addTab(self._create_welcome_tab(), tr("about.tab.welcome"))
+        self.tab_widget.addTab(self._create_tools_tab(), tr("about.tab.tools"))
+        self.tab_widget.addTab(self._create_tech_tab(), tr("about.tab.info"))
 
         content_layout.addWidget(self.tab_widget)
         main_layout.addWidget(content_widget, 1)
@@ -128,7 +129,7 @@ class AboutDialog(QDialog):
         title.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         left_layout.addWidget(title)
         
-        version = QLabel(f"Versión {Config.APP_VERSION}")
+        version = QLabel(tr("about.header.version", version=Config.APP_VERSION))
         version.setStyleSheet(f"""
             color: rgba(255, 255, 255, 0.9);
             font-size: {DesignSystem.FONT_SIZE_SM}px;
@@ -140,7 +141,7 @@ class AboutDialog(QDialog):
         header_layout.addStretch()
         
         # Lado derecho: Badge de privacidad
-        privacy_badge = QLabel("100% Privado • Sin conexión a internet")
+        privacy_badge = QLabel(tr("about.header.privacy_badge"))
         privacy_badge.setStyleSheet(f"""
             QLabel {{
                 background-color: rgba(255, 255, 255, 0.2);
@@ -170,7 +171,7 @@ class AboutDialog(QDialog):
         footer_layout.setContentsMargins(24, 10, 24, 10)
         
         # Créditos
-        credits = QLabel("Desarrollado para simplificar la gestión de fotos")
+        credits = QLabel(tr("about.footer.credits"))
         credits.setStyleSheet(f"""
             color: {DesignSystem.COLOR_TEXT_SECONDARY};
             font-size: {DesignSystem.FONT_SIZE_SM}px;
@@ -181,7 +182,7 @@ class AboutDialog(QDialog):
         footer_layout.addStretch()
         
         # Botón cerrar
-        close_btn = QPushButton("Cerrar")
+        close_btn = QPushButton(tr("common.close"))
         close_btn.setStyleSheet(DesignSystem.get_primary_button_style())
         close_btn.clicked.connect(self.accept)
         close_btn.setDefault(True)
@@ -209,22 +210,19 @@ class AboutDialog(QDialog):
         layout.setSpacing(DesignSystem.SPACE_10)
         
         # Título + descripción en la misma sección
-        welcome_title = QLabel("Bienvenido a InnerPix Lab")
+        welcome_title = QLabel(tr("about.welcome.title"))
         welcome_title.setStyleSheet(DesignSystem.get_tutorial_section_header_style())
         welcome_title.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         layout.addWidget(welcome_title)
         
-        description = QLabel(
-            "Suite de herramientas para gestionar, optimizar y organizar tus fotos y vídeos. "
-            "<b>Privacidad absoluta</b>: todo el procesamiento es 100% local en tu computadora."
-        )
+        description = QLabel(tr("about.welcome.description"))
         description.setWordWrap(True)
         description.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT}; font-size: {DesignSystem.FONT_SIZE_BASE}px;")
         description.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         layout.addWidget(description)
         
         # Flujo en lista vertical (4 pasos secuenciales)
-        workflow_title = QLabel("Proceso de trabajo (Pasos a seguir en orden)")
+        workflow_title = QLabel(tr("about.welcome.workflow_title"))
         workflow_title.setStyleSheet(f"""
             font-size: {DesignSystem.FONT_SIZE_MD}px;
             font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
@@ -234,10 +232,7 @@ class AboutDialog(QDialog):
         workflow_title.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         layout.addWidget(workflow_title)
 
-        workflow_desc = QLabel(
-            "InnerPix Lab está diseñado para seguir un flujo lógico y optimizar tu colección de manera progresiva. "
-            "Sigue estos 4 pasos para obtener el mejor resultado:"
-        )
+        workflow_desc = QLabel(tr("about.welcome.workflow_description"))
         workflow_desc.setWordWrap(True)
         workflow_desc.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_SM}px; margin-bottom: {DesignSystem.SPACE_4}px;")
         workflow_desc.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
@@ -247,10 +242,10 @@ class AboutDialog(QDialog):
         steps_container.setSpacing(DesignSystem.SPACE_8)
         
         steps = [
-            ("1", "Selección de carpeta", "El primer paso es elegir la carpeta que contiene tus fotos y vídeos. El sistema trabajará de forma recursiva."),
-            ("2", "Análisis", "Automáticamente escaneamos archivos, extraemos metadatos EXIF y calculamos firmas digitales (hashes)."),
-            ("3", "Selección de Herramienta", "Entra en cada herramienta para detectar duplicados, organizar por fechas o limpiar archivos innecesarios."),
-            ("4", "Ejecución de Cambios", "Tras revisar los planes de acción propuestos, confirma la ejecución. Recomendamos usar el Modo Simulación primero."),
+            ("1", tr("about.welcome.steps.1.title"), tr("about.welcome.steps.1.description")),
+            ("2", tr("about.welcome.steps.2.title"), tr("about.welcome.steps.2.description")),
+            ("3", tr("about.welcome.steps.3.title"), tr("about.welcome.steps.3.description")),
+            ("4", tr("about.welcome.steps.4.title"), tr("about.welcome.steps.4.description")),
         ]
         
         for num, title, desc in steps:
@@ -263,9 +258,9 @@ class AboutDialog(QDialog):
         tips_layout = QHBoxLayout()
         tips_layout.setSpacing(DesignSystem.SPACE_8)
         
-        tip1 = self._create_mini_tip("Modo Simulación", "Prueba sin modificar archivos")
-        tip2 = self._create_mini_tip("Backup Disponible", "Copia de seguridad de ficheros eliminados")
-        tip3 = self._create_mini_tip("Logs Detallados", "Registro de todas las operaciones")
+        tip1 = self._create_mini_tip(tr("about.welcome.tips.simulation.title"), tr("about.welcome.tips.simulation.description"))
+        tip2 = self._create_mini_tip(tr("about.welcome.tips.backup.title"), tr("about.welcome.tips.backup.description"))
+        tip3 = self._create_mini_tip(tr("about.welcome.tips.logs.title"), tr("about.welcome.tips.logs.description"))
         
         tips_layout.addWidget(tip1)
         tips_layout.addWidget(tip2)
@@ -274,7 +269,7 @@ class AboutDialog(QDialog):
         layout.addLayout(tips_layout)
         
         # Navegación sutil
-        nav_widget = self._create_tab_navigation(next_tab=1, next_label="Ver Herramientas")
+        nav_widget = self._create_tab_navigation(next_tab=1, next_label=tr("about.nav.view_tools"))
         layout.addWidget(nav_widget)
         
         layout.addStretch()
@@ -290,7 +285,7 @@ class AboutDialog(QDialog):
         layout.setContentsMargins(DesignSystem.SPACE_16, DesignSystem.SPACE_8, DesignSystem.SPACE_16, DesignSystem.SPACE_8)
         layout.setSpacing(DesignSystem.SPACE_6)
         
-        title = QLabel("Herramientas Disponibles")
+        title = QLabel(tr("about.tools_section.title"))
         title.setStyleSheet(DesignSystem.get_tutorial_section_header_style())
         title.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         layout.addWidget(title)
@@ -327,7 +322,7 @@ class AboutDialog(QDialog):
             layout.addLayout(grid)
 
         # Navegación sutil
-        nav_widget = self._create_tab_navigation(prev_tab=0, prev_label="Inicio", next_tab=2, next_label="Ver Info")
+        nav_widget = self._create_tab_navigation(prev_tab=0, prev_label=tr("about.nav.home"), next_tab=2, next_label=tr("about.nav.view_info"))
         layout.addWidget(nav_widget)
 
         layout.addStretch()
@@ -475,7 +470,7 @@ class AboutDialog(QDialog):
         layout.setSpacing(DesignSystem.SPACE_10)
         
         # === HEADER SECTION ===
-        title = QLabel("Acerca de")
+        title = QLabel(tr("about.info.title"))
         title.setStyleSheet(DesignSystem.get_tutorial_section_header_style())
         title.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         layout.addWidget(title)
@@ -489,18 +484,18 @@ class AboutDialog(QDialog):
         info_grid.setSpacing(DesignSystem.SPACE_8)
         
         # Card 1: App Info
-        app_card = self._create_info_card("Aplicación", [
-            ("Nombre", Config.APP_NAME),
-            ("Versión", Config.APP_VERSION),
-            ("Plataformas", "Windows • Linux • macOS"),
+        app_card = self._create_info_card(tr("about.info.app_card.title"), [
+            (tr("about.info.app_card.name"), Config.APP_NAME),
+            (tr("about.info.app_card.version"), Config.APP_VERSION),
+            (tr("about.info.app_card.platforms"), tr("about.info.app_card.platforms_value")),
         ])
         info_grid.addWidget(app_card, 0, 0)
         
         # Card 2: Environment
-        env_card = self._create_info_card("Tecnología", [
-            ("Lenguaje", "Python 3.x"),
-            ("Interfaz", "PyQt6"),
-            ("Arquitectura", "Modular / Local-First"),
+        env_card = self._create_info_card(tr("about.info.tech_card.title"), [
+            (tr("about.info.tech_card.language"), "Python 3.x"),
+            (tr("about.info.tech_card.ui"), "PyQt6"),
+            (tr("about.info.tech_card.architecture"), tr("about.info.tech_card.architecture_value")),
         ])
         info_grid.addWidget(env_card, 0, 1)
 
@@ -511,7 +506,7 @@ class AboutDialog(QDialog):
         layout.addWidget(formats_card)
         
         # Navegación sutil
-        nav_widget = self._create_tab_navigation(prev_tab=1, prev_label="Ver Herramientas")
+        nav_widget = self._create_tab_navigation(prev_tab=1, prev_label=tr("about.nav.view_tools"))
         layout.addWidget(nav_widget)
         
         layout.addStretch()
@@ -549,7 +544,7 @@ class AboutDialog(QDialog):
         org_name.setCursor(Qt.CursorShape.PointingHandCursor)
         header_text_layout.addWidget(org_name)
         
-        tagline = QLabel("Software 100% privado, gratuito y sin rastreo")
+        tagline = QLabel(tr("about.dev.tagline"))
         tagline.setStyleSheet(DesignSystem.get_about_dev_tagline_style())
         tagline.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         header_text_layout.addWidget(tagline)
@@ -560,7 +555,7 @@ class AboutDialog(QDialog):
         outer_layout.addLayout(header_layout)
         
         # Subtítulo explicativo
-        subtitle = QLabel("Tus archivos nunca salen de tu dispositivo. Todas las operaciones son 100% locales.")
+        subtitle = QLabel(tr("about.dev.subtitle"))
         subtitle.setAlignment(Qt.AlignmentFlag.AlignLeft)
         subtitle.setStyleSheet(f"""
             color: {DesignSystem.COLOR_TEXT_SECONDARY};
@@ -582,10 +577,10 @@ class AboutDialog(QDialog):
         values_grid.setSpacing(DesignSystem.SPACE_12)
         
         value_items = [
-            ("wifi-off", "100% Offline", "Sin conexión a internet"),
-            ("eye-off", "Sin Rastreo", "Privacidad absoluta"),
-            ("backup-restore", "Copias de Seguridad", "Protección de datos"),
-            ("shield", "Código Abierto", "Transparente y auditable"),
+            ("wifi-off", tr("about.dev.values.offline.title"), tr("about.dev.values.offline.description")),
+            ("eye-off", tr("about.dev.values.no_tracking.title"), tr("about.dev.values.no_tracking.description")),
+            ("backup-restore", tr("about.dev.values.backup.title"), tr("about.dev.values.backup.description")),
+            ("shield", tr("about.dev.values.open_source.title"), tr("about.dev.values.open_source.description")),
         ]
         
         for i, (icon_name, title, desc) in enumerate(value_items):
@@ -596,7 +591,7 @@ class AboutDialog(QDialog):
         outer_layout.addLayout(values_grid)
         
         # Footer de confianza
-        trust_footer = QLabel("Todo tu contenido está a salvo y bajo tu control exclusivo.")
+        trust_footer = QLabel(tr("about.dev.trust_footer"))
         trust_footer.setAlignment(Qt.AlignmentFlag.AlignCenter)
         trust_footer.setStyleSheet(f"""
             color: {DesignSystem.COLOR_SUCCESS};
@@ -772,14 +767,14 @@ class AboutDialog(QDialog):
         layout.setSpacing(DesignSystem.SPACE_2)
         layout.setContentsMargins(DesignSystem.SPACE_10, DesignSystem.SPACE_8, DesignSystem.SPACE_10, DesignSystem.SPACE_8)
         
-        title_label = QLabel("Formatos Soportados")
+        title_label = QLabel(tr("about.info.formats.title"))
         title_label.setStyleSheet(DesignSystem.get_tutorial_card_title_style())
         title_label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         layout.addWidget(title_label)
         
         formats = [
-            ("image", "Imágenes", "JPG, PNG, HEIC, WEBP, GIF, BMP, TIFF"),
-            ("video", "Vídeos", "MP4, MOV, AVI, MKV, WEBM, M4V"),
+            ("image", tr("about.info.formats.images"), "JPG, PNG, HEIC, WEBP, GIF, BMP, TIFF"),
+            ("video", tr("about.info.formats.videos"), "MP4, MOV, AVI, MKV, WEBM, M4V"),
         ]
         
         for icon_name, fmt_title, fmt_list in formats:

@@ -19,6 +19,7 @@ from config import Config
 from utils.logger import get_logger
 from utils.file_utils import validate_directory_exists, is_image_file, is_video_file
 from utils.platform_utils import are_video_tools_available
+from utils.i18n import tr
 from services.file_metadata_repository_cache import FileInfoRepositoryCache, PopulationStrategy
 from services.result_types import DirectoryScanResult
 
@@ -102,7 +103,7 @@ class InitialScanner:
         
         # ==================== PHASE 1: FILE CLASSIFICATION ====================
         phase_id = self.PHASE_FILE_CLASSIFICATION
-        phase_msg = "Escaneando estructura de carpetas"
+        phase_msg = tr("services.phase.file_classification")
         
         if phase_callback:
             phase_callback(phase_id, phase_msg)
@@ -142,7 +143,7 @@ class InitialScanner:
                 break
             
             # Classify by type
-            ext = f.suffix.lower() if f.suffix else '(sin extensión)'
+            ext = f.suffix.lower() if f.suffix else '(no extension)'
             
             if is_image_file(f.name):
                 images.append(f)
@@ -190,7 +191,7 @@ class InitialScanner:
             phase_completed_callback(self.PHASE_FILE_CLASSIFICATION)
         
         if self._should_stop:
-            self.logger.info(f"Scan cancelado después de fase 1 (FILE_CLASSIFICATION) - Archivos clasificados: {total_files}")
+            self.logger.info(f"Scan cancelled after phase 1 (FILE_CLASSIFICATION) - Files classified: {total_files}")
             return self._create_result_from_data(
                 total_files, images, videos, others,
                 image_extensions, video_extensions, unsupported_extensions
@@ -198,7 +199,7 @@ class InitialScanner:
         
         # ==================== PHASE 2: FILESYSTEM METADATA ====================
         phase_id = self.PHASE_FILESYSTEM_METADATA
-        phase_msg = "Obteniendo información de archivos"
+        phase_msg = tr("services.phase.filesystem_metadata")
         
         if phase_callback:
             phase_callback(phase_id, phase_msg)
@@ -233,7 +234,7 @@ class InitialScanner:
         )
         
         if self._should_stop:
-            self.logger.info("Phase 2 (FILESYSTEM_METADATA) cancelada por el usuario")
+            self.logger.info("Phase 2 (FILESYSTEM_METADATA) cancelled by user")
         else:
             self.logger.info("Phase 2 (FILESYSTEM_METADATA) complete: Metadata collected")
         
@@ -249,7 +250,7 @@ class InitialScanner:
         # ==================== PHASE 3: HASH CALCULATION ====================
         if calculate_hashes and supported_files and not self._should_stop:
             phase_id = self.PHASE_HASH
-            phase_msg = "Calculando hashes de los archivos"
+            phase_msg = tr("services.phase.hash")
             
             if phase_callback:
                 phase_callback(phase_id, phase_msg)
@@ -267,7 +268,7 @@ class InitialScanner:
                 # Log progress every 10% at INFO level
                 current_percentage = (current * 100) // total
                 if current_percentage >= last_logged_percentage + 10 and current_percentage < 100:
-                    self.logger.info(f"Phase 3 (HASH) progreso: {current_percentage}% ({current:,}/{total:,} archivos)")
+                    self.logger.info(f"Phase 3 (HASH) progress: {current_percentage}% ({current:,}/{total:,} files)")
                     last_logged_percentage = current_percentage
                 
                 if progress_callback:
@@ -289,7 +290,7 @@ class InitialScanner:
             )
             
             if self._should_stop:
-                self.logger.info("Phase 3 (HASH) cancelada por el usuario")
+                self.logger.info("Phase 3 (HASH) cancelled by user")
             else:
                 self.logger.info("Phase 3 (HASH) complete: Hashes calculated")
             
@@ -305,7 +306,7 @@ class InitialScanner:
         # ==================== PHASE 4: IMAGE EXIF ====================
         if extract_image_exif and images and not self._should_stop:
             phase_id = self.PHASE_EXIF_IMAGES
-            phase_msg = "Obteniendo metadatos de las imagenes"
+            phase_msg = tr("services.phase.exif_images")
             
             if phase_callback:
                 phase_callback(phase_id, phase_msg)
@@ -323,7 +324,7 @@ class InitialScanner:
                 # Log progress every 10% at INFO level
                 current_percentage = (current * 100) // total
                 if current_percentage >= last_logged_percentage + 10 and current_percentage < 100:
-                    self.logger.info(f"Phase 4 (EXIF_IMAGES) progreso: {current_percentage}% ({current:,}/{total:,} imágenes)")
+                    self.logger.info(f"Phase 4 (EXIF_IMAGES) progress: {current_percentage}% ({current:,}/{total:,} images)")
                     last_logged_percentage = current_percentage
                 
                 if progress_callback:
@@ -345,7 +346,7 @@ class InitialScanner:
             )
             
             if self._should_stop:
-                self.logger.info("Phase 4 (EXIF_IMAGES) cancelada por el usuario")
+                self.logger.info("Phase 4 (EXIF_IMAGES) cancelled by user")
             else:
                 self.logger.info("Phase 4 (EXIF_IMAGES) complete: Image EXIF extracted")
             
@@ -364,12 +365,11 @@ class InitialScanner:
             
             # Check if video tools are available (using unified function from platform_utils)
             if not are_video_tools_available():
-                skip_reason = "ffprobe/exiftool no instalados"
-                self.logger.warning(f"Phase 5 (EXIF_VIDEOS) SALTADA: {skip_reason}")
+                self.logger.warning("Phase 5 (EXIF_VIDEOS) SKIPPED: ffprobe/exiftool not installed")
                 if phase_skipped_callback:
-                    phase_skipped_callback(phase_id, skip_reason)
+                    phase_skipped_callback(phase_id, tr("services.phase.video_tools_missing"))
             else:
-                phase_msg = "Obteniendo metadatos de los videos"
+                phase_msg = tr("services.phase.exif_videos")
                 
                 if phase_callback:
                     phase_callback(phase_id, phase_msg)
@@ -387,7 +387,7 @@ class InitialScanner:
                     # Log progress every 10% at INFO level
                     current_percentage = (current * 100) // total
                     if current_percentage >= last_logged_percentage + 10 and current_percentage < 100:
-                        self.logger.info(f"Phase 5 (EXIF_VIDEOS) progreso: {current_percentage}% ({current:,}/{total:,} videos)")
+                        self.logger.info(f"Phase 5 (EXIF_VIDEOS) progress: {current_percentage}% ({current:,}/{total:,} videos)")
                         last_logged_percentage = current_percentage
                     
                     if progress_callback:
@@ -409,7 +409,7 @@ class InitialScanner:
                 )
                 
                 if self._should_stop:
-                    self.logger.info("Phase 5 (EXIF_VIDEOS) cancelada por el usuario")
+                    self.logger.info("Phase 5 (EXIF_VIDEOS) cancelled by user")
                 else:
                     self.logger.info("Phase 5 (EXIF_VIDEOS) complete: Video EXIF extracted")
                 
@@ -425,7 +425,7 @@ class InitialScanner:
         # ==================== PHASE 6: BEST DATE CALCULATION ====================
         if supported_files and not self._should_stop:
             phase_id = self.PHASE_BEST_DATE
-            phase_msg = "Calculando mejor fecha disponible"
+            phase_msg = tr("services.phase.best_date")
             
             if phase_callback:
                 phase_callback(phase_id, phase_msg)
@@ -443,7 +443,7 @@ class InitialScanner:
                 # Log progress every 10% at INFO level
                 current_percentage = (current * 100) // total
                 if current_percentage >= last_logged_percentage + 10 and current_percentage < 100:
-                    self.logger.info(f"Phase 6 (BEST_DATE) progreso: {current_percentage}% ({current:,}/{total:,} archivos)")
+                    self.logger.info(f"Phase 6 (BEST_DATE) progress: {current_percentage}% ({current:,}/{total:,} files)")
                     last_logged_percentage = current_percentage
                 
                 if progress_callback:
@@ -465,7 +465,7 @@ class InitialScanner:
             )
             
             if self._should_stop:
-                self.logger.info("Phase 6 (BEST_DATE) cancelada por el usuario")
+                self.logger.info("Phase 6 (BEST_DATE) cancelled by user")
             else:
                 self.logger.info("Phase 6 (BEST_DATE) complete: Best dates calculated")
             
@@ -486,7 +486,7 @@ class InitialScanner:
         
         # Log statistics
 
-        scan_status = "cancelado" if self._should_stop else "completado"
+        scan_status = "cancelled" if self._should_stop else "completed"
         self.logger.info(
             f"Scan {scan_status}")
         repo.log_cache_statistics(level=logging.DEBUG)

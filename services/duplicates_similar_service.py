@@ -24,6 +24,7 @@ from services.result_types import (
 from services.base_service import BaseService, BackupCreationError, ProgressCallback
 from services.file_metadata_repository_cache import FileInfoRepositoryCache
 from utils.format_utils import format_size
+from utils.i18n import tr
 
 
 # Estrategias de selección soportadas
@@ -179,14 +180,14 @@ class DuplicatesSimilarAnalysis:
         if (self._last_groups_result is not None 
                 and self._last_groups_sensitivity == sensitivity):
             self._logger.debug(
-                f"Usando resultado cacheado de clustering (sensibilidad {sensitivity}%)"
+                f"Using cached clustering result (sensitivity {sensitivity}%)"
             )
             return self._last_groups_result
         
         start_time = time.time()
         
         self._logger.info(
-            f"🔍 Iniciando clustering con sensibilidad {sensitivity}% para {len(self.perceptual_hashes)} archivos..."
+            f"🔍 Starting clustering with sensitivity {sensitivity}% for {len(self.perceptual_hashes)} files..."
         )
         
         # Convertir sensibilidad a threshold de Hamming distance
@@ -202,7 +203,7 @@ class DuplicatesSimilarAnalysis:
         
         elapsed = time.time() - start_time
         self._logger.info(
-            f"⚡ Clustering completado en {elapsed:.3f}s ({len(groups)} grupos encontrados)"
+            f"⚡ Clustering completed in {elapsed:.3f}s ({len(groups)} groups found)"
         )
         
         # Calcular estadísticas
@@ -214,9 +215,9 @@ class DuplicatesSimilarAnalysis:
         max_similarity = max(g.similarity_score for g in groups) if groups else 0
         
         self._logger.info(
-            f"Grupos generados: {total_groups}, "
-            f"Similares: {total_similar}, "
-            f"Similitud: {min_similarity:.0f}%-{max_similarity:.0f}%"
+            f"Groups generated: {total_groups}, "
+            f"Similar: {total_similar}, "
+            f"Similarity: {min_similarity:.0f}%-{max_similarity:.0f}%"
         )
         
         result = SimilarDuplicateAnalysisResult(
@@ -292,13 +293,13 @@ class DuplicatesSimilarAnalysis:
             if progress_callback and i % max(1, total_files // 20) == 0:
                 should_continue = progress_callback(
                     i, total_files, 
-                    f"Construyendo índice... ({i:,}/{total_files:,})"
+                    tr("services.progress.building_index", current=f"{i:,}", total=f"{total_files:,}")
                 )
                 if should_continue is False:
                     return []
         
         tree_time = time.time() - tree_start
-        self._logger.info(f"  🌲 BK-Tree construido: {len(bk_tree)} nodos en {tree_time:.3f}s")
+        self._logger.info(f"  🌲 BK-Tree built: {len(bk_tree)} nodes in {tree_time:.3f}s")
         
         # Fase 2: Búsqueda y agrupación
         search_start = time.time()
@@ -324,7 +325,7 @@ class DuplicatesSimilarAnalysis:
             if progress_callback and files_searched % max(1, total_files // 20) == 0:
                 should_continue = progress_callback(
                     files_searched, total_files,
-                    f"Agrupando archivos similares... ({files_searched:,}/{total_files:,})"
+                    tr("services.progress.grouping_similar", current=f"{files_searched:,}", total=f"{total_files:,}")
                 )
                 if should_continue is False:
                     return groups  # Retornar lo que tengamos hasta ahora
@@ -372,12 +373,12 @@ class DuplicatesSimilarAnalysis:
                     )
                     groups.append(group)
                 except Exception as e:
-                    self._logger.warning(f"Error procesando grupo para {path1}: {e}")
+                    self._logger.warning(f"Error processing group for {path1}: {e}")
                     continue
         
         search_time = time.time() - search_start
         self._logger.info(
-            f"  🔎 Búsquedas: {total_searches} archivos, {total_matches} matches totales en {search_time:.3f}s"
+            f"  🔎 Searches: {total_searches} files, {total_matches} total matches in {search_time:.3f}s"
         )
         
         # Ordenar grupos por variación de tamaño (más variación = más relevante)
@@ -389,7 +390,7 @@ class DuplicatesSimilarAnalysis:
             max_variation = max(variations) if variations else 0
             avg_variation = sum(variations) / len(variations) if variations else 0
             self._logger.info(
-                f"  📊 Variación de tamaño - Máx: {max_variation:.1f}%, Promedio: {avg_variation:.1f}%"
+                f"  📊 Size variation - Max: {max_variation:.1f}%, Average: {avg_variation:.1f}%"
             )
         
         return groups
@@ -424,7 +425,7 @@ class DuplicatesSimilarAnalysis:
             pickle.dump(data, f)
         
         self._logger.info(
-            f"💾 Análisis guardado en {filepath} "
+            f"💾 Analysis saved to {filepath} "
             f"({len(self.perceptual_hashes)} hashes, "
             f"{filepath.stat().st_size / 1024:.1f} KB)"
         )
@@ -458,8 +459,8 @@ class DuplicatesSimilarAnalysis:
         
         logger = get_logger('DuplicatesSimilarAnalysis')
         logger.info(
-            f"✅ Análisis cargado desde {filepath} "
-            f"({analysis.total_files} archivos, "
+            f"✅ Analysis loaded from {filepath} "
+            f"({analysis.total_files} files, "
             f"{filepath.stat().st_size / 1024:.1f} KB)"
         )
         
@@ -503,8 +504,8 @@ class DuplicatesSimilarService(BaseService):
         Returns:
             SimilarDuplicateAnalysisResult con grupos detectados
         """
-        log_section_header_discrete(self.logger, "ANÁLISIS DE DUPLICADOS SIMILARES")
-        self.logger.info(f"Sensibilidad configurada: {sensitivity}%")
+        log_section_header_discrete(self.logger, "SIMILAR DUPLICATES ANALYSIS")
+        self.logger.info(f"Configured sensitivity: {sensitivity}%")
         
         repo = FileInfoRepositoryCache.get_instance()
         if self._cached_analysis is None:
@@ -517,12 +518,12 @@ class DuplicatesSimilarService(BaseService):
                 highfreq_factor=Config.PERCEPTUAL_HASH_HIGHFREQ_FACTOR
             )
         else:
-            self.logger.info("Reutilizando análisis de hashes perceptuales previo en memoria")
+            self.logger.info("Reusing previous perceptual hash analysis from memory")
 
         # Fase 2: Generar grupos con sensibilidad especificada
         result = self._cached_analysis.get_groups(sensitivity)
         
-        log_section_footer_discrete(self.logger, "ANÁLISIS DE DUPLICADOS SIMILARES COMPLETADO")
+        log_section_footer_discrete(self.logger, "SIMILAR DUPLICATES ANALYSIS COMPLETED")
         return result
     
     def get_analysis_for_dialog(
@@ -552,7 +553,7 @@ class DuplicatesSimilarService(BaseService):
                 highfreq_factor=Config.PERCEPTUAL_HASH_HIGHFREQ_FACTOR
             )
         else:
-            self.logger.info("Reutilizando análisis de hashes perceptuales previo en memoria")
+            self.logger.info("Reusing previous perceptual hash analysis from memory")
         
         return self._cached_analysis
 
@@ -582,42 +583,42 @@ class DuplicatesSimilarService(BaseService):
         """
         from utils.logger import log_section_header_relevant, log_section_footer_relevant
         
-        mode = "SIMULACIÓN" if dry_run else ""
+        mode = "SIMULATION" if dry_run else ""
         log_section_header_relevant(
             self.logger,
-            f"ELIMINACIÓN DE DUPLICADOS SIMILARES - Estrategia: {keep_strategy}",
+            f"SIMILAR DUPLICATES DELETION - Strategy: {keep_strategy}",
             mode=mode
         )
         
         if keep_strategy not in KEEP_STRATEGIES:
-            raise ValueError(f"Estrategia no válida: {keep_strategy}. Opciones: {KEEP_STRATEGIES}")
+            raise ValueError(f"Invalid strategy: {keep_strategy}. Options: {KEEP_STRATEGIES}")
         
         groups = analysis_result.groups
         files_to_delete_set = set(files_to_delete) if files_to_delete else None
         
         if not groups:
-            self.logger.info("No hay grupos para procesar")
+            self.logger.info("No groups to process")
             return SimilarDuplicateExecutionResult(
                 success=True,
                 items_processed=0,
                 bytes_processed=0,
                 keep_strategy=keep_strategy,
                 dry_run=dry_run,
-                message="No hay archivos similares para eliminar"
+                message=tr("services.result.no_duplicates_to_delete")
             )
         
         # Filtrar grupos con archivos que aún existen
         filtered_groups = self._filter_existing_groups(groups)
         
         if not filtered_groups:
-            self.logger.info("Todos los grupos fueron filtrados (archivos ya no existen)")
+            self.logger.info("All groups were filtered out (files no longer exist)")
             return SimilarDuplicateExecutionResult(
                 success=True,
                 items_processed=0,
                 bytes_processed=0,
                 keep_strategy=keep_strategy,
                 dry_run=dry_run,
-                message="No hay archivos similares para eliminar (archivos ya procesados)"
+                message=tr("services.result.no_duplicates_already_processed")
             )
         
         # Crear backup si es necesario
@@ -633,14 +634,14 @@ class DuplicatesSimilarService(BaseService):
                 if not backup_path:
                     return SimilarDuplicateExecutionResult(
                         success=False,
-                        errors=["No se pudo crear el backup"],
+                        errors=[tr("services.error.backup_creation_failed")],
                         keep_strategy=keep_strategy,
                         dry_run=dry_run
                     )
             except BackupCreationError as e:
                 return SimilarDuplicateExecutionResult(
                     success=False,
-                    errors=[f"Error creando backup: {e}"],
+                    errors=[f"Error creating backup: {e}"],
                     keep_strategy=keep_strategy,
                     dry_run=dry_run
                 )
@@ -680,7 +681,7 @@ class DuplicatesSimilarService(BaseService):
                 
                 # Log del archivo que se conserva
                 self.logger.debug(
-                    f"Conservando: {keep_file.name} | Similitud: {group.similarity_score:.0f}%"
+                    f"Keeping: {keep_file.name} | Similarity: {group.similarity_score:.0f}%"
                 )
             
             # Eliminar archivos seleccionados
@@ -719,15 +720,15 @@ class DuplicatesSimilarService(BaseService):
                         progress_callback,
                         processed,
                         total_operations,
-                        f"{'[Simulación] ' if dry_run else ''}Eliminando: {file_path.name}"
+                        f"{tr('services.progress.simulation_prefix') if dry_run else ''}{tr('services.progress.deleting_file', name=file_path.name)}"
                     ):
                         break
                         
                 except FileNotFoundError:
-                    self.logger.warning(f"Archivo no encontrado: {file_path}")
+                    self.logger.warning(f"File not found: {file_path}")
                 except Exception as e:
                     errors.append(f"{file_path}: {e}")
-                    self.logger.error(f"Error eliminando {file_path}: {e}")
+                    self.logger.error(f"Error deleting {file_path}: {e}")
         
         # Construir resultado
         result = SimilarDuplicateExecutionResult(
@@ -744,7 +745,7 @@ class DuplicatesSimilarService(BaseService):
         
         # Mensaje de resumen
         result.message = self._format_operation_summary(
-            "Eliminación de duplicados similares",
+            tr("services.operation.similar_duplicate_deletion"),
             processed,
             bytes_processed,
             dry_run
@@ -783,7 +784,7 @@ class DuplicatesSimilarService(BaseService):
             missing = len(group.files) - len(existing_files)
             if missing > 0:
                 total_missing += missing
-                self.logger.debug(f"Grupo {group.hash_value[:8]}...: {missing} archivos ya no existen")
+                self.logger.debug(f"Group {group.hash_value[:8]}...: {missing} files no longer exist")
             
             if len(existing_files) >= 2:
                 filtered.append(SimilarDuplicateGroup(
@@ -795,8 +796,8 @@ class DuplicatesSimilarService(BaseService):
         
         if total_missing > 0:
             self.logger.warning(
-                f"⚠️ {total_missing} archivos ya no existen. "
-                f"Grupos: {len(groups)} → {len(filtered)}"
+                f"⚠️ {total_missing} files no longer exist. "
+                f"Groups: {len(groups)} → {len(filtered)}"
             )
         
         return filtered
@@ -824,7 +825,7 @@ class DuplicatesSimilarService(BaseService):
         elif strategy == 'smallest':
             return min(files, key=lambda f: self._get_file_size(f, repo, group))
         else:
-            raise ValueError(f"Estrategia no válida para selección: {strategy}")
+            raise ValueError(f"Invalid strategy for selection: {strategy}")
 
     def _get_best_date_timestamp(self, file_path: Path, repo: FileInfoRepositoryCache) -> float:
         """Obtiene timestamp de la mejor fecha disponible desde el repositorio."""
@@ -850,7 +851,7 @@ class DuplicatesSimilarService(BaseService):
             dt = datetime.fromtimestamp(meta.fs_mtime)
             return f"{dt.strftime('%Y-%m-%d %H:%M:%S')} (filesystem)"
         
-        return "fecha desconocida"
+        return "unknown date"
 
     def _get_file_size(
         self,
@@ -905,10 +906,10 @@ class DuplicatesSimilarService(BaseService):
         
         import time
         
-        log_section_header_discrete(self.logger, "CÁLCULO DE HASHES PERCEPTUALES")
+        log_section_header_discrete(self.logger, "PERCEPTUAL HASH CALCULATION")
         hash_calc_start = time.time()
         self.logger.info(
-            f"⏳ Calculando hashes perceptuales (algoritmo={algorithm}, "
+            f"⏳ Calculating perceptual hashes (algorithm={algorithm}, "
             f"hash_size={hash_size}, target={target})..."
         )
         
@@ -934,15 +935,15 @@ class DuplicatesSimilarService(BaseService):
         total_files = len(files_to_process_images) + len(files_to_process_videos)
         
         self.logger.info(
-            f"Archivos a procesar: {total_files} "
-            f"({len(files_to_process_images)} imágenes, {len(files_to_process_videos)} videos) "
+            f"Files to process: {total_files} "
+            f"({len(files_to_process_images)} images, {len(files_to_process_videos)} videos) "
             f"[target={target}]"
         )
         
         analysis = DuplicatesSimilarAnalysis()
         
         if total_files == 0:
-            self.logger.warning("No se encontraron archivos soportados para procesar")
+            self.logger.warning("No supported files found for processing")
             analysis.total_files = 0
             analysis.analysis_timestamp = datetime.now()
             return analysis
@@ -1000,13 +1001,13 @@ class DuplicatesSimilarService(BaseService):
                             progress_callback,
                             processed,
                             total_files,
-                            f"Procesado: {file_path.name}"
+                            tr("services.progress.processing_file", name=file_path.name)
                         ):
                             break
                 except TimeoutError:
                     timeouts += 1
                     processed += 1
-                    self.logger.warning(f"Timeout procesando {file_path.name}")
+                    self.logger.warning(f"Timeout processing {file_path.name}")
                 except Exception as e:
                     errors += 1
                     processed += 1
@@ -1020,12 +1021,12 @@ class DuplicatesSimilarService(BaseService):
         # Log stats
         hash_calc_time = time.time() - hash_calc_start
         self.logger.info(
-            f"✅ Hashes calculados: {analysis.total_files} en {hash_calc_time:.1f}s "
-            f"({analysis.total_files/max(hash_calc_time, 0.1):.1f} archivos/s)"
+            f"✅ Hashes calculated: {analysis.total_files} in {hash_calc_time:.1f}s "
+            f"({analysis.total_files/max(hash_calc_time, 0.1):.1f} files/s)"
         )
         
         if errors > 0:
-            self.logger.warning(f"⚠️  Errores: {errors}, Timeouts: {timeouts}")
+            self.logger.warning(f"⚠️  Errors: {errors}, Timeouts: {timeouts}")
         
         return analysis
 
