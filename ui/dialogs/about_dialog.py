@@ -94,7 +94,6 @@ class AboutDialog(QDialog):
         # Crear las pestañas (nombres compactos)
         self.tab_widget.addTab(self._create_welcome_tab(), "Inicio")
         self.tab_widget.addTab(self._create_tools_tab(), "Herramientas")
-        self.tab_widget.addTab(self._create_privacy_tab(), "Privacidad")
         self.tab_widget.addTab(self._create_tech_tab(), "Info")
 
         content_layout.addWidget(self.tab_widget)
@@ -277,102 +276,7 @@ class AboutDialog(QDialog):
         
         return self._create_scroll_content(container)
 
-    def _create_privacy_tab(self) -> QWidget:
-        """Crea la pestaña de privacidad y seguridad con un diseño elegante."""
-        container = QWidget()
-        layout = QVBoxLayout(container)
-        layout.setContentsMargins(DesignSystem.SPACE_24, DesignSystem.SPACE_16, DesignSystem.SPACE_24, DesignSystem.SPACE_16)
-        layout.setSpacing(DesignSystem.SPACE_10)
-        
-        # === HERO SECTION: PRIVACIDAD TOTAL ===
-        hero_frame = QFrame()
-        hero_frame.setStyleSheet(DesignSystem.get_privacy_hero_style())
-        hero_layout = QVBoxLayout(hero_frame)
-        hero_layout.setSpacing(DesignSystem.SPACE_4)
-        hero_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        shield_icon = QLabel()
-        icon_manager.set_label_icon(shield_icon, "shield", color=DesignSystem.COLOR_SUCCESS, size=32)
-        hero_layout.addWidget(shield_icon, 0, Qt.AlignmentFlag.AlignCenter)
-        
-        hero_title = QLabel("Privacidad Absoluta")
-        hero_title.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_LG}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
-            color: {DesignSystem.COLOR_TEXT};
-        """)
-        hero_title.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
-        hero_layout.addWidget(hero_title, 0, Qt.AlignmentFlag.AlignCenter)
-        
-        hero_subtitle = QLabel("Tus archivos nunca salen de tu dispositivo")
-        hero_subtitle.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_SM}px;")
-        hero_subtitle.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
-        hero_layout.addWidget(hero_subtitle, 0, Qt.AlignmentFlag.AlignCenter)
-        
-        layout.addWidget(hero_frame)
-        
-        # === LISTA DE GARANTÍAS ===
-        guarantees_container = QWidget()
-        guarantees_layout = QVBoxLayout(guarantees_container)
-        guarantees_layout.setContentsMargins(DesignSystem.SPACE_8, 0, DesignSystem.SPACE_8, 0)
-        guarantees_layout.setSpacing(DesignSystem.SPACE_8)
-        
-        guarantees = [
-            ("wifi-off", "100% Offline", 
-             "InnerPix Lab funciona completamente sin conexión a internet. "
-             "No enviamos estadísticas, telemetría ni datos de tus archivos a ningún servidor."),
-            ("eye-off", "Sin Rastreo", 
-             "No utilizamos bases de datos externas ni servicios en la nube. "
-             "Todo el procesamiento de imágenes y vídeos es puramente local."),
-            ("backup-restore", "Seguridad de Archivos", 
-             "Protegemos tus datos con un robusto sistema de copias de seguridad. "
-             "Antes de cada operación destructiva, creas un backup para tu tranquilidad.")
-        ]
-        
-        for icon, title, desc in guarantees:
-            item_frame = QFrame()
-            item_frame.setStyleSheet(DesignSystem.get_privacy_item_style())
-            item_layout = QHBoxLayout(item_frame)
-            item_layout.setContentsMargins(0, 0, 0, 0)
-            item_layout.setSpacing(DesignSystem.SPACE_16)
-            
-            icon_lbl = QLabel()
-            icon_manager.set_label_icon(icon_lbl, icon, color=DesignSystem.COLOR_PRIMARY, size=24)
-            item_layout.addWidget(icon_lbl, 0, Qt.AlignmentFlag.AlignTop)
-            
-            text_layout = QVBoxLayout()
-            text_layout.setSpacing(DesignSystem.SPACE_4)
-            
-            title_lbl = QLabel(title)
-            title_lbl.setStyleSheet(DesignSystem.get_tutorial_card_title_style())
-            title_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
-            text_layout.addWidget(title_lbl)
-            
-            desc_lbl = QLabel(desc)
-            desc_lbl.setWordWrap(True)
-            desc_lbl.setStyleSheet(DesignSystem.get_tutorial_card_desc_style())
-            desc_lbl.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
-            text_layout.addWidget(desc_lbl)
-            
-            item_layout.addLayout(text_layout, 1)
-            guarantees_layout.addWidget(item_frame)
-        
-        layout.addWidget(guarantees_container)
-        
-        # === FOOTER DE CONFIANZA ===
-        trust_footer = QLabel("Todo tu contenido está a salvo y bajo tu control exclusivo.")
-        trust_footer.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        trust_footer.setStyleSheet(f"""
-            color: {DesignSystem.COLOR_SUCCESS};
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-            padding-top: {DesignSystem.SPACE_8}px;
-        """)
-        trust_footer.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
-        layout.addWidget(trust_footer)
-        
-        layout.addStretch()
-        return self._create_scroll_content(container)
+
 
     def _create_tools_tab(self) -> QWidget:
         """Crea la pestaña de herramientas (8 tools organizadas por categoría con colores)."""
@@ -571,27 +475,53 @@ class AboutDialog(QDialog):
         
         outer_layout.addLayout(header_layout)
         
+        # Subtítulo explicativo
+        subtitle = QLabel("Tus archivos nunca salen de tu dispositivo. Todas las operaciones son 100% locales.")
+        subtitle.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        subtitle.setStyleSheet(f"""
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            padding-top: {DesignSystem.SPACE_4}px;
+        """)
+        subtitle.setWordWrap(True)
+        subtitle.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
+        outer_layout.addWidget(subtitle)
+        
         # Separador horizontal
         sep = QFrame()
         sep.setFrameShape(QFrame.Shape.HLine)
         sep.setStyleSheet(DesignSystem.get_about_separator_style())
         outer_layout.addWidget(sep)
         
-        # Grid de valores en 3 columnas
-        values_layout = QHBoxLayout()
-        values_layout.setSpacing(DesignSystem.SPACE_12)
+        # Grid de valores en 2x2
+        values_grid = QGridLayout()
+        values_grid.setSpacing(DesignSystem.SPACE_12)
         
         value_items = [
             ("wifi-off", "100% Offline", "Sin conexión a internet"),
             ("eye-off", "Sin Rastreo", "Privacidad absoluta"),
+            ("backup-restore", "Copias de Seguridad", "Protección de datos"),
             ("shield", "Código Abierto", "Transparente y auditable"),
         ]
         
-        for icon_name, title, desc in value_items:
+        for i, (icon_name, title, desc) in enumerate(value_items):
             value_card = self._create_value_card(icon_name, title, desc)
-            values_layout.addWidget(value_card, 1)
+            row, col = i // 2, i % 2
+            values_grid.addWidget(value_card, row, col)
         
-        outer_layout.addLayout(values_layout)
+        outer_layout.addLayout(values_grid)
+        
+        # Footer de confianza
+        trust_footer = QLabel("Todo tu contenido está a salvo y bajo tu control exclusivo.")
+        trust_footer.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        trust_footer.setStyleSheet(f"""
+            color: {DesignSystem.COLOR_SUCCESS};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            padding-top: {DesignSystem.SPACE_8}px;
+        """)
+        trust_footer.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
+        outer_layout.addWidget(trust_footer)
         
         return outer_frame
 
