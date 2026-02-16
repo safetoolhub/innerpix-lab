@@ -1347,8 +1347,6 @@ class SettingsDialog(QDialog):
                 settings_manager.set_precalculate_image_exif(new_precalculate_image_exif)
             if current_precalculate_video_exif != new_precalculate_video_exif:
                 settings_manager.set_precalculate_video_exif(new_precalculate_video_exif)
-                # Actualizar Config.USE_VIDEO_METADATA para que tenga efecto inmediato
-                Config.USE_VIDEO_METADATA = new_precalculate_video_exif
             
             # Dual log (solo si cambió)
             if current_dual_log != new_dual_log:

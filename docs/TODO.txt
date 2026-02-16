@@ -1,8 +1,8 @@
 Innerpix lab
 ---------------
 A comprobar: que tal funciona todo cuando no se ha hecho todo el analisis
-
-
+A comprobar: como se redimensiona en pantallas mas grandes de fullhd y si lo hace bien
+A comprobar: si se cambian los settings despues de haber hecho analisis podrian darse inconsistencia (por ejemplo si se desmarca el uso de exif de video...el programa entenderá que no está auqnue sí se ha ya sacado en el analisis)
 
 Bug: en las fotos de Disney de 2025_11 tenemos .MOV de live photos que no han sido borradas
 

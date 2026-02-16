@@ -42,11 +42,11 @@ def main():
         dual_log_enabled=saved_dual_log
     )
     
-    # Cargar configuración persistente
-    Config.USE_VIDEO_METADATA = settings_manager.get_bool(
-        settings_manager.KEY_PRECALCULATE_VIDEO_EXIF, 
-        False  # Por defecto deshabilitado
-    )
+    # Leer configuraciones de precálculo para mostrar en log
+    precalc_hashes = settings_manager.get_precalculate_hashes()
+    precalc_image_exif = settings_manager.get_precalculate_image_exif()
+    precalc_video_exif = settings_manager.get_precalculate_video_exif()
+    
     logger = get_logger()
     log_level = logging.getLevelName(logger.logger.level)
     
@@ -81,8 +81,10 @@ def main():
     else:
         logger.info(f"  • Dual logging: {'desactivado' if not saved_dual_log else 'no aplicable (nivel WARNING/ERROR)'}")
     logger.info("")
-    logger.info("⚙️  CONFIGURACIÓN DE ANÁLISIS:")
-    logger.info(f"  • Metadatos de video: {'habilitada' if Config.USE_VIDEO_METADATA else 'deshabilitada'}")
+    logger.info("⚙️  CONFIGURACIÓN DE ANÁLISIS INICIAL:")
+    logger.info(f"  • Cálculo de hashes SHA256: {'habilitado' if precalc_hashes else 'deshabilitado (bajo demanda)'}")
+    logger.info(f"  • Metadatos de imágenes (EXIF): {'habilitado' if precalc_image_exif else 'deshabilitado (bajo demanda)'}")
+    logger.info(f"  • Metadatos de videos (EXIF): {'habilitado' if precalc_video_exif else 'deshabilitado (bajo demanda)'}")
     logger.info("=" * 80)
     logger.info("")
     
@@ -111,7 +113,7 @@ def main():
     
     window.show()
     
-    logger.info("Ventana principal mostrada")
+    logger.debug("Ventana principal mostrada")
 
     return app.exec()
 

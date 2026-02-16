@@ -172,9 +172,6 @@ class Config:
     # ========================================================================
     UI_UPDATE_INTERVAL = 10
     FINAL_DELAY_BEFORE_STAGE3_SECONDS = 1.0
-    
-    # Configuración de metadatos
-    USE_VIDEO_METADATA = False  # Por defecto off por rendimiento
 
     # ========================================================================
     # 9. DESARROLLO
