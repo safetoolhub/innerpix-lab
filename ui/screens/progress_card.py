@@ -9,6 +9,7 @@ from ui.styles.icons import icon_manager
 from utils.settings_manager import settings_manager
 from pathlib import Path
 from ui.screens.analysis_phase_widget import AnalysisPhaseWidget
+from utils.i18n import tr
 
 
 class ProgressCard(QFrame):
@@ -60,14 +61,14 @@ class ProgressCard(QFrame):
         header_layout.addWidget(header_icon)
         
         # Título
-        header_title = QLabel("Analizando carpeta")
+        header_title = QLabel(tr("progress_card.header_title"))
         header_title.setStyleSheet(DesignSystem.get_progress_header_style())
         header_layout.addWidget(header_title)
         
         header_layout.addStretch()
         
         # Botón cancelar (discreto)
-        self.cancel_btn = QPushButton("Cancelar")
+        self.cancel_btn = QPushButton(tr("common.cancel"))
         icon_manager.set_button_icon(self.cancel_btn, 'close', size=14)
         self.cancel_btn.setStyleSheet(DesignSystem.get_cancel_button_discrete_style())
         self.cancel_btn.clicked.connect(self.cancel_requested.emit)
@@ -121,7 +122,7 @@ class ProgressCard(QFrame):
         )
         status_inner_layout.addWidget(self.status_icon)
         
-        self.status_label = QLabel("Analizando tu colección...")
+        self.status_label = QLabel(tr("progress_card.status_analyzing"))
         self.status_label.setStyleSheet(DesignSystem.get_progress_status_text_style('running'))
         status_inner_layout.addWidget(self.status_label)
         status_inner_layout.addStretch()
@@ -171,7 +172,7 @@ class ProgressCard(QFrame):
         )
         
         # Cambiar texto
-        self.status_label.setText("✓ Análisis completado — Cargando resultados...")
+        self.status_label.setText(tr("progress_card.status_completed"))
         
         # Completar barra de progreso
         self.progress_bar.setMaximum(100)
@@ -230,7 +231,7 @@ class ProgressCard(QFrame):
         )
         
         # Resetear texto
-        self.status_label.setText("Analizando tu colección...")
+        self.status_label.setText(tr("progress_card.status_analyzing"))
         
         # Mostrar botón cancelar
         self.cancel_btn.show()

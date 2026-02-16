@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, pyqtSignal
 from config import Config
 from ui.styles.design_system import DesignSystem
+from utils.i18n import tr, SUPPORTED_LANGUAGES
 from utils.logger import set_global_log_level, get_logger
 from utils.settings_manager import settings_manager
 from utils.platform_utils import check_ffprobe, check_exiftool, get_current_os_install_hint
@@ -56,7 +57,7 @@ class SettingsDialog(QDialog):
         self._validate_changes()
 
     def init_ui(self):
-        self.setWindowTitle("Configuración")
+        self.setWindowTitle(tr("settings.title"))
         self.setModal(True)
         self.resize(850, 960)  # Aumentado verticalmente para acomodar instrucciones sin scroll
         
@@ -79,19 +80,19 @@ class SettingsDialog(QDialog):
 
         # === PESTAÑA 1: GENERAL ===
         general_tab = self._create_general_tab()
-        self.tabs.addTab(self._wrap_in_scroll_area(general_tab), "General")
+        self.tabs.addTab(self._wrap_in_scroll_area(general_tab), tr("settings.tab.general"))
 
         # === PESTAÑA 2: ANÁLISIS INICIAL ===
         analysis_tab = self._create_analysis_tab()
-        self.tabs.addTab(self._wrap_in_scroll_area(analysis_tab), "Análisis inicial")
+        self.tabs.addTab(self._wrap_in_scroll_area(analysis_tab), tr("settings.tab.analysis"))
 
         # === PESTAÑA 3: BACKUPS ===
         backups_tab = self._create_backups_tab()
-        self.tabs.addTab(self._wrap_in_scroll_area(backups_tab), "Backup y Logs")
+        self.tabs.addTab(self._wrap_in_scroll_area(backups_tab), tr("settings.tab.backup_logs"))
 
         # === PESTAÑA 4: AVANZADO ===
         advanced_tab = self._create_advanced_tab()
-        self.tabs.addTab(self._wrap_in_scroll_area(advanced_tab), "Avanzado")
+        self.tabs.addTab(self._wrap_in_scroll_area(advanced_tab), tr("settings.tab.advanced"))
 
         main_layout.addWidget(self.tabs)
 
@@ -119,7 +120,7 @@ class SettingsDialog(QDialog):
         footer_layout.setSpacing(DesignSystem.SPACE_12)
 
         # Botón restaurar valores por defecto
-        restore_btn = QPushButton("Restaurar valores por defecto")
+        restore_btn = QPushButton(tr("settings.buttons.restore_defaults"))
         restore_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
         restore_btn.clicked.connect(self.restore_defaults)
         restore_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -128,14 +129,14 @@ class SettingsDialog(QDialog):
         footer_layout.addStretch()
 
         # Botón Cancelar - estilo secundario
-        cancel_btn = QPushButton("Cancelar")
+        cancel_btn = QPushButton(tr("common.cancel"))
         cancel_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
         cancel_btn.clicked.connect(self.reject)
         cancel_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         footer_layout.addWidget(cancel_btn)
 
         # Botón Guardar - estilo success (primary)
-        self.save_button = QPushButton("Guardar Cambios")
+        self.save_button = QPushButton(tr("settings.buttons.save_changes"))
         self.save_button.setEnabled(False)
         # Usamos primary button style pero podríamos personalizar si queremos verde específico
         # Por consistencia con el resto de la app, usamos primary (azul) o success (verde)
@@ -218,7 +219,7 @@ class SettingsDialog(QDialog):
 
     def _create_browse_button(self, tooltip: str = "") -> QPushButton:
         """Crea un botón 'Cambiar...' con estilo consistente"""
-        btn = QPushButton("Cambiar...")
+        btn = QPushButton(tr("settings.buttons.browse"))
         btn.setMinimumWidth(120)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         if tooltip:
@@ -241,23 +242,22 @@ class SettingsDialog(QDialog):
         layout.setSpacing(DesignSystem.SPACE_20)
 
         # === CONFIRMACIONES ===
-        confirm_group = self._create_groupbox("Confirmaciones")
+        confirm_group = self._create_groupbox(tr("settings.general.confirmations.title"))
         confirm_layout = QVLayout(confirm_group)
         confirm_layout.setSpacing(DesignSystem.SPACE_12)
 
 
 
-        self.confirm_delete_checkbox = QCheckBox("Pedir confirmación adicional para operaciones de eliminación")
+        self.confirm_delete_checkbox = QCheckBox(tr("settings.general.confirmations.confirm_delete"))
         self.confirm_delete_checkbox.setChecked(True)
-        self.confirm_delete_checkbox.setToolTip("Doble confirmación para operaciones que eliminan archivos")
+        self.confirm_delete_checkbox.setToolTip(tr("settings.general.confirmations.confirm_delete_tooltip"))
         self.confirm_delete_checkbox.setStyleSheet(DesignSystem.get_checkbox_style())
         confirm_layout.addWidget(self.confirm_delete_checkbox)
 
-        self.confirm_reanalyze_checkbox = QCheckBox("Confirmar antes de reanalizar tras ejecutar operaciones")
+        self.confirm_reanalyze_checkbox = QCheckBox(tr("settings.general.confirmations.confirm_reanalyze"))
         self.confirm_reanalyze_checkbox.setChecked(True)
         self.confirm_reanalyze_checkbox.setToolTip(
-            "Si está activado, se pedirá confirmación antes de actualizar las estadísticas.\n"
-            "Si está desactivado, se actualizarán automáticamente tras operaciones destructivas."
+            tr("settings.general.confirmations.confirm_reanalyze_tooltip")
         )
         self.confirm_reanalyze_checkbox.setStyleSheet(DesignSystem.get_checkbox_style())
         confirm_layout.addWidget(self.confirm_reanalyze_checkbox)
@@ -265,15 +265,35 @@ class SettingsDialog(QDialog):
         layout.addWidget(confirm_group)
 
         # === INTERFAZ ===
-        interface_group = self._create_groupbox("Interfaz")
+        interface_group = self._create_groupbox(tr("settings.general.interface.title"))
         interface_layout = QVLayout(interface_group)
         interface_layout.setSpacing(DesignSystem.SPACE_12)
 
-        self.show_full_path_checkbox = QCheckBox("Mostrar ruta completa del directorio en la barra de búsqueda")
+        # Language selector
+        lang_row = QHBoxLayout()
+        lang_row.setSpacing(DesignSystem.SPACE_12)
+        lang_label = QLabel(tr("settings.general.interface.language_label"))
+        lang_label.setMinimumWidth(80)
+        lang_label.setStyleSheet(f"""
+            QLabel {{
+                font-size: {DesignSystem.FONT_SIZE_BASE}px;
+                color: {DesignSystem.COLOR_TEXT};
+            }}
+        """)
+        lang_row.addWidget(lang_label)
+
+        self.language_combo = QComboBox()
+        self._language_codes = list(SUPPORTED_LANGUAGES.keys())
+        self.language_combo.addItems([SUPPORTED_LANGUAGES[c] for c in self._language_codes])
+        self.language_combo.setStyleSheet(DesignSystem.get_combobox_style())
+        lang_row.addWidget(self.language_combo)
+        lang_row.addStretch()
+        interface_layout.addLayout(lang_row)
+
+        self.show_full_path_checkbox = QCheckBox(tr("settings.general.interface.show_full_path"))
         self.show_full_path_checkbox.setChecked(True)
         self.show_full_path_checkbox.setToolTip(
-            "Si está activado, muestra la ruta completa del directorio (ej: /home/usuario/Fotos).\n"
-            "Si está desactivado, solo muestra el nombre de la carpeta (ej: Fotos)."
+            tr("settings.general.interface.show_full_path_tooltip")
         )
         self.show_full_path_checkbox.setStyleSheet(DesignSystem.get_checkbox_style())
         interface_layout.addWidget(self.show_full_path_checkbox)
@@ -281,22 +301,19 @@ class SettingsDialog(QDialog):
         layout.addWidget(interface_group)
 
         # === MODO SIMULACIÓN ===
-        dryrun_group = self._create_groupbox("Modo Simulación (Dry Run)")
+        dryrun_group = self._create_groupbox(tr("settings.general.dry_run.title"))
         dryrun_layout = QVLayout(dryrun_group)
         dryrun_layout.setSpacing(DesignSystem.SPACE_12)
 
         dryrun_info = self._create_info_label(
-            "En modo simulación, las operaciones se analizan y muestran pero <b>no se ejecutan</b> realmente. "
-            "Útil para verificar qué hará la aplicación antes de aplicar cambios."
+            tr("settings.general.dry_run.info")
         )
         dryrun_layout.addWidget(dryrun_info)
 
-        self.dry_run_default_checkbox = QCheckBox("Activar modo simulación por defecto en todas las operaciones")
+        self.dry_run_default_checkbox = QCheckBox(tr("settings.general.dry_run.enable_default"))
         self.dry_run_default_checkbox.setChecked(False)
         self.dry_run_default_checkbox.setToolTip(
-            "Si se activa, todos los diálogos de eliminación (HEIC, Live Photos, Duplicados)\n"
-            "mostrarán el checkbox de 'Modo simulación' marcado por defecto.\n"
-            "Esto añade una capa extra de seguridad para evitar eliminaciones accidentales."
+            tr("settings.general.dry_run.enable_default_tooltip")
         )
         self.dry_run_default_checkbox.setStyleSheet(DesignSystem.get_checkbox_style())
         dryrun_layout.addWidget(self.dry_run_default_checkbox)
@@ -321,13 +338,12 @@ class SettingsDialog(QDialog):
         layout.setSpacing(DesignSystem.SPACE_16)  # Más compacto
 
         # === HERRAMIENTAS DEL SISTEMA ===
-        tools_group = self._create_groupbox("Herramientas del Sistema")
+        tools_group = self._create_groupbox(tr("settings.analysis.system_tools.title"))
         tools_layout = QVLayout(tools_group)
         tools_layout.setSpacing(DesignSystem.SPACE_8)  # Más compacto
 
         tools_info = self._create_info_label(
-            "Para extraer metadatos de videos (duración, fecha de creación) se requieren herramientas externas. "
-            "Sin ellas, la fase de análisis de videos se saltará automáticamente."
+            tr("settings.analysis.system_tools.info")
         )
         tools_layout.addWidget(tools_info)
 
@@ -345,29 +361,29 @@ class SettingsDialog(QDialog):
         tools_status_layout = QVLayout(self.tools_status_frame)
         tools_status_layout.setSpacing(DesignSystem.SPACE_4)
 
-        self.ffprobe_status_label = QLabel("⏳ ffprobe: Verificando...")
+        self.ffprobe_status_label = QLabel(tr("settings.analysis.system_tools.ffprobe_checking"))
         self.ffprobe_status_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px;")
         tools_status_layout.addWidget(self.ffprobe_status_label)
 
-        self.exiftool_status_label = QLabel("⏳ exiftool: Verificando...")
+        self.exiftool_status_label = QLabel(tr("settings.analysis.system_tools.exiftool_checking"))
         self.exiftool_status_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px;")
         tools_status_layout.addWidget(self.exiftool_status_label)
 
         tools_row_layout.addWidget(self.tools_status_frame, 1)
 
         # Botón para verificar herramientas
-        check_tools_btn = QPushButton("Verificar")
+        check_tools_btn = QPushButton(tr("settings.analysis.system_tools.check_button"))
         check_tools_btn.setFixedWidth(120)  # Aumentado para evitar corte de texto
         check_tools_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
         check_tools_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        check_tools_btn.setToolTip("Verificar si las herramientas están instaladas")
+        check_tools_btn.setToolTip(tr("settings.analysis.system_tools.check_button_tooltip"))
         check_tools_btn.clicked.connect(self._check_system_tools)
         tools_row_layout.addWidget(check_tools_btn, 0, Qt.AlignmentFlag.AlignTop)
 
         tools_layout.addWidget(tools_row)
 
         # Info colapsable sobre instalación
-        self.install_info_btn = QPushButton("📦 ¿Cómo instalar estas herramientas?")
+        self.install_info_btn = QPushButton(tr("settings.analysis.system_tools.install_how"))
         self.install_info_btn.setFlat(True)
         self.install_info_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.install_info_btn.setStyleSheet(f"""
@@ -389,12 +405,12 @@ class SettingsDialog(QDialog):
         # Panel de instalación (oculto por defecto) - instrucciones según SO
         current_os_hint = get_current_os_install_hint()
         self.install_info_panel = QLabel(
-            f"<b>Tu sistema:</b> {current_os_hint}<br><br>"
+            f"<b>{tr('settings.analysis.system_tools.install_your_system')}</b> {current_os_hint}<br><br>"
             "• <b>Ubuntu/Debian:</b> sudo apt install ffmpeg libimage-exiftool-perl<br>"
             "• <b>Fedora/RHEL:</b> sudo dnf install ffmpeg perl-Image-ExifTool<br>"
             "• <b>Arch/Manjaro:</b> sudo pacman -S ffmpeg perl-image-exiftool<br>"
             "• <b>macOS:</b> brew install ffmpeg exiftool<br>"
-            "• <b>Windows:</b> Descargar desde ffmpeg.org y exiftool.org"
+            f"• <b>Windows:</b> {tr('settings.analysis.system_tools.install_windows')}"
         )
         self.install_info_panel.setWordWrap(True)
         self.install_info_panel.setOpenExternalLinks(True)
@@ -414,71 +430,38 @@ class SettingsDialog(QDialog):
         layout.addWidget(tools_group)
 
         # === CONFIGURACIÓN DE ANÁLISIS INICIAL ===
-        analysis_group = self._create_groupbox("Configuración de Análisis Inicial")
+        analysis_group = self._create_groupbox(tr("settings.analysis.config.title"))
         analysis_layout = QVLayout(analysis_group)
         analysis_layout.setSpacing(DesignSystem.SPACE_8)  # Más compacto
 
         analysis_info = self._create_info_label(
-            "Controla qué información se extrae durante el escaneo inicial del directorio. "
-            "Desactivar opciones hace el escaneo más rápido, pero el análisis de cada herramienta tomará más tiempo al abrirla."
+            tr("settings.analysis.config.info")
         )
         analysis_layout.addWidget(analysis_info)
 
         # Checkbox para pre-cálculo de hashes
-        self.precalculate_hashes_checkbox = QCheckBox("Pre-calcular hashes SHA256 de todos los archivos")
+        self.precalculate_hashes_checkbox = QCheckBox(tr("settings.analysis.config.precalculate_hashes"))
         self.precalculate_hashes_checkbox.setChecked(False)
         self.precalculate_hashes_checkbox.setToolTip(
-            "Pre-calcula hashes SHA256 de todos los archivos durante el escaneo inicial.\n"
-            "\n"
-            "VENTAJAS:\n"
-            "  • Herramienta 'Duplicados exactos' es INSTANTÁNEA (ya tiene todos los hashes)\n"
-            "  • Ideal si siempre buscas duplicados\n"
-            "\n"
-            "DESVENTAJAS:\n"
-            "  • Hace el escaneo inicial MUY lento (calcula hash de cada archivo)\n"
-            "  • Para 10,000 archivos: escaneo pasa de ~10s a ~2-5 min\n"
-            "\n"
-            "RECOMENDACIÓN: Dejar DESACTIVADO (el análisis bajo demanda es eficiente)."
+            tr("settings.analysis.config.precalculate_hashes_tooltip")
         )
         self.precalculate_hashes_checkbox.setStyleSheet(DesignSystem.get_checkbox_style())
         analysis_layout.addWidget(self.precalculate_hashes_checkbox)
 
         # Checkbox para EXIF de imágenes
-        self.precalculate_image_exif_checkbox = QCheckBox("Extraer metadatos EXIF de imágenes")
+        self.precalculate_image_exif_checkbox = QCheckBox(tr("settings.analysis.config.image_exif"))
         self.precalculate_image_exif_checkbox.setChecked(True)
         self.precalculate_image_exif_checkbox.setToolTip(
-            "Extrae metadatos EXIF de todas las imágenes durante el escaneo inicial.\n"
-            "\n"
-            "VENTAJAS:\n"
-            "  • Herramientas de organización y renombrado son más rápidas\n"
-            "  • Costo moderado en el escaneo inicial (~30-60 seg para 30k fotos)\n"
-            "\n"
-            "DESVENTAJAS:\n"
-            "  • Añade tiempo al escaneo inicial\n"
-            "\n"
-            "RECOMENDACIÓN: Dejar ACTIVADO (el costo es razonable y útil para la mayoría)."
+            tr("settings.analysis.config.image_exif_tooltip")
         )
         self.precalculate_image_exif_checkbox.setStyleSheet(DesignSystem.get_checkbox_style())
         analysis_layout.addWidget(self.precalculate_image_exif_checkbox)
 
         # Checkbox para EXIF de videos
-        self.precalculate_video_exif_checkbox = QCheckBox("Extraer metadatos EXIF de videos (MUY LENTO)")
+        self.precalculate_video_exif_checkbox = QCheckBox(tr("settings.analysis.config.video_exif"))
         self.precalculate_video_exif_checkbox.setChecked(False)
         self.precalculate_video_exif_checkbox.setToolTip(
-            "Extrae metadatos de videos usando ffprobe durante el escaneo inicial.\n"
-            "\n"
-            "⚠️ ADVERTENCIA: Este proceso es EXTREMADAMENTE LENTO\n"
-            "  • Para 5,000 videos: ~3-10 minutos adicionales\n"
-            "  • Bloquea el escaneo inicial\n"
-            "\n"
-            "VENTAJAS:\n"
-            "  • Herramienta de organización de videos tiene datos listos\n"
-            "\n"
-            "DESVENTAJAS:\n"
-            "  • Hace el escaneo inicial MUCHO más lento\n"
-            "  • La mayoría de usuarios no organizan videos por fecha\n"
-            "\n"
-            "RECOMENDACIÓN: Dejar DESACTIVADO (análisis bajo demanda es mucho más eficiente)."
+            tr("settings.analysis.config.video_exif_tooltip")
         )
         self.precalculate_video_exif_checkbox.setStyleSheet(DesignSystem.get_checkbox_style())
         analysis_layout.addWidget(self.precalculate_video_exif_checkbox)
@@ -508,24 +491,20 @@ class SettingsDialog(QDialog):
         layout.setSpacing(DesignSystem.SPACE_20)
 
         # === BACKUPS AUTOMÁTICOS ===
-        auto_backup_group = self._create_groupbox("Backups Automáticos")
+        auto_backup_group = self._create_groupbox(tr("settings.backup.auto.title"))
         auto_backup_layout = QVLayout(auto_backup_group)
         auto_backup_layout.setSpacing(DesignSystem.SPACE_12)
 
         backup_info = self._create_info_label(
-            "<b>Muy Recomendado:</b> Los backups te permiten recuperar archivos en caso de error.",
+            tr("settings.backup.auto.warning_info"),
             warning=True
         )
         auto_backup_layout.addWidget(backup_info)
 
-        self.auto_backup_checkbox = QCheckBox("Crear backup automáticamente antes de cada operación destructiva")
+        self.auto_backup_checkbox = QCheckBox(tr("settings.backup.auto.enable"))
         self.auto_backup_checkbox.setChecked(True)
         self.auto_backup_checkbox.setToolTip(
-            "Si está activado, se creará una copia de seguridad de los archivos antes de:\n"
-            "• Renombrar archivos\n"
-            "• Eliminar Live Photos\n"
-            "• Eliminar duplicados HEIC\n"
-            "• Organizar carpetas"
+            tr("settings.backup.auto.enable_tooltip")
         )
         self.auto_backup_checkbox.setStyleSheet(DesignSystem.get_checkbox_style())
         auto_backup_layout.addWidget(self.auto_backup_checkbox)
@@ -533,17 +512,17 @@ class SettingsDialog(QDialog):
         layout.addWidget(auto_backup_group)
 
         # === DIRECTORIO DE BACKUPS ===
-        backup_dir_group = self._create_groupbox("Directorio de Backups")
+        backup_dir_group = self._create_groupbox(tr("settings.backup.directory.title"))
         backup_dir_layout = QVLayout(backup_dir_group)
         backup_dir_layout.setSpacing(DesignSystem.SPACE_12)
 
-        backup_dir_info = self._create_info_label("Ubicación donde se guardan las copias de seguridad automáticas.")
+        backup_dir_info = self._create_info_label(tr("settings.backup.directory.info"))
         backup_dir_layout.addWidget(backup_dir_info)
 
         backup_row = QHBoxLayout()
         backup_row.setSpacing(DesignSystem.SPACE_12)
         
-        backup_label = QLabel("Carpeta:")
+        backup_label = QLabel(tr("settings.backup.labels.folder"))
         backup_label.setMinimumWidth(80)
         backup_label.setStyleSheet(f"""
             QLabel {{
@@ -556,7 +535,7 @@ class SettingsDialog(QDialog):
         self.backup_edit = self._create_directory_input(str(Config.DEFAULT_BACKUP_DIR))
         backup_row.addWidget(self.backup_edit)
 
-        browse_backup_btn = self._create_browse_button("Cambiar ubicación de backups")
+        browse_backup_btn = self._create_browse_button(tr("settings.backup.directory.browse_tooltip"))
         browse_backup_btn.clicked.connect(self.browse_backup_directory)
         backup_row.addWidget(browse_backup_btn)
 
@@ -564,12 +543,12 @@ class SettingsDialog(QDialog):
         layout.addWidget(backup_dir_group)
 
         # === BACKUP Y LOGS ===
-        logs_group = self._create_groupbox("Logs y diagnóstico")
+        logs_group = self._create_groupbox(tr("settings.logs.title"))
         logs_layout = QVLayout(logs_group)
         logs_layout.setSpacing(DesignSystem.SPACE_12)
 
         logs_info = self._create_info_label(
-            "Los archivos de log registran todas las operaciones para diagnóstico y auditoría."
+            tr("settings.logs.info")
         )
         logs_layout.addWidget(logs_info)
 
@@ -577,7 +556,7 @@ class SettingsDialog(QDialog):
         logs_dir_layout = QHBoxLayout()
         logs_dir_layout.setSpacing(DesignSystem.SPACE_12)
         
-        logs_label = QLabel("Carpeta:")
+        logs_label = QLabel(tr("settings.backup.labels.folder"))
         logs_label.setMinimumWidth(120)
         logs_label.setStyleSheet(f"""
             QLabel {{
@@ -592,7 +571,7 @@ class SettingsDialog(QDialog):
         )
         logs_dir_layout.addWidget(self.logs_edit)
 
-        browse_logs_btn = self._create_browse_button("Cambiar ubicación de logs")
+        browse_logs_btn = self._create_browse_button(tr("settings.logs.browse_tooltip"))
         browse_logs_btn.clicked.connect(self.browse_logs_directory)
         logs_dir_layout.addWidget(browse_logs_btn)
 
@@ -602,7 +581,7 @@ class SettingsDialog(QDialog):
         log_level_layout = QHBoxLayout()
         log_level_layout.setSpacing(DesignSystem.SPACE_12)
         
-        log_level_label = QLabel("Nivel de detalle:")
+        log_level_label = QLabel(tr("settings.logs.level_label"))
         log_level_label.setMinimumWidth(120)
         log_level_label.setStyleSheet(f"""
             QLabel {{
@@ -614,17 +593,14 @@ class SettingsDialog(QDialog):
 
         self.log_level_combo = QComboBox()
         self.log_level_combo.addItems([
-            "DEBUG - Máximo detalle (para desarrollo)",
-            "INFO - Normal (recomendado)",
-            "WARNING - Solo advertencias",
-            "ERROR - Solo errores críticos"
+            tr("settings.logs.level.debug"),
+            tr("settings.logs.level.info"),
+            tr("settings.logs.level.warning"),
+            tr("settings.logs.level.error")
         ])
         self.log_level_combo.setStyleSheet(DesignSystem.get_combobox_style())
         self.log_level_combo.setToolTip(
-            "DEBUG: Toda la información técnica\n"
-            "INFO: Operaciones normales\n"
-            "WARNING: Situaciones inusuales\n"
-            "ERROR: Solo errores graves"
+            tr("settings.logs.level_tooltip")
         )
         self.log_level_combo.currentTextChanged.connect(self.change_log_level)
         log_level_layout.addWidget(self.log_level_combo)
@@ -634,21 +610,17 @@ class SettingsDialog(QDialog):
 
         # Checkbox para dual logging (WARNING/ERROR adicional)
         self.dual_log_checkbox = QCheckBox(
-            "Crear archivo adicional solo con WARNING y ERROR (para datasets grandes)"
+            tr("settings.logs.dual_log")
         )
         self.dual_log_checkbox.setChecked(True)  # Por defecto activado
         self.dual_log_checkbox.setToolTip(
-            "Cuando está activado y el nivel de log es INFO o DEBUG:\n"
-            "• Se creará un archivo principal con TODOS los logs (sufijo: _INFO o _DEBUG)\n"
-            "• Se creará un archivo adicional solo con WARNING y ERROR (sufijo: _WARNERROR)\n\n"
-            "Útil para datasets grandes donde el log completo es muy extenso.\n"
-            "Esta opción se deshabilita automáticamente si el nivel es WARNING o ERROR."
+            tr("settings.logs.dual_log_tooltip")
         )
         self.dual_log_checkbox.setStyleSheet(DesignSystem.get_checkbox_style())
         logs_layout.addWidget(self.dual_log_checkbox)
 
         # Botón abrir carpeta de logs
-        open_logs_btn = QPushButton("Abrir carpeta de logs")
+        open_logs_btn = QPushButton(tr("settings.logs.open_folder"))
         open_logs_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
         open_logs_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         open_logs_btn.clicked.connect(self.open_logs_folder)
@@ -674,16 +646,16 @@ class SettingsDialog(QDialog):
         layout.setSpacing(DesignSystem.SPACE_20)
 
         # === RENDIMIENTO ===
-        perf_group = self._create_groupbox("Rendimiento")
+        perf_group = self._create_groupbox(tr("settings.advanced.performance.title"))
         perf_layout = QVLayout(perf_group)
         perf_layout.setSpacing(DesignSystem.SPACE_12)
         
         # Info de configuración automática
         auto_info = QLabel(
-            f"🤖 Configuración automática basada en tu hardware:\n"
-            f"   • CPU Cores: {Config.get_cpu_count()}\n"
-            f"   • Workers I/O (recomendado): {Config.get_optimal_worker_threads()}\n"
-            f"   • Workers CPU (recomendado): {Config.get_cpu_bound_workers()}"
+            tr("settings.advanced.performance.auto_info",
+               cpu_count=Config.get_cpu_count(),
+               io_workers=Config.get_optimal_worker_threads(),
+               cpu_workers=Config.get_cpu_bound_workers())
         )
         auto_info.setStyleSheet(f"""
             QLabel {{
@@ -705,7 +677,7 @@ class SettingsDialog(QDialog):
         
         # Override manual (opcional)
         override_label = QLabel(
-            "⚠️ Override manual (deja en 0 para usar automático):"
+            tr("settings.advanced.performance.override_label")
         )
         override_label.setStyleSheet(f"""
             QLabel {{
@@ -719,7 +691,7 @@ class SettingsDialog(QDialog):
         workers_layout = QHBoxLayout()
         workers_layout.setSpacing(DesignSystem.SPACE_12)
         
-        workers_label = QLabel("Hilos de procesamiento:")
+        workers_label = QLabel(tr("settings.advanced.performance.workers_label"))
         workers_label.setMinimumWidth(180)
         workers_label.setStyleSheet(f"""
             QLabel {{
@@ -734,16 +706,12 @@ class SettingsDialog(QDialog):
         self.max_workers_spin.setMinimum(0)  # 0 = automático
         self.max_workers_spin.setMaximum(Config.MAX_WORKER_THREADS)
         self.max_workers_spin.setValue(0)  # Por defecto: automático
-        self.max_workers_spin.setSpecialValueText("Automático")
+        self.max_workers_spin.setSpecialValueText(tr("settings.advanced.performance.workers_auto"))
         self.max_workers_spin.setToolTip(
-            f"Número de hilos paralelos para procesar archivos.\n"
-            f"\n"
-            f"• 0 (Automático): Detecta y usa el óptimo para tu hardware\n"
-            f"• I/O workers: {Config.get_optimal_worker_threads()} (lectura/hashing)\n"
-            f"• CPU workers: {Config.get_cpu_bound_workers()} (análisis de imágenes)\n"
-            f"\n"
-            f"Solo cambia esto si experimentas problemas de rendimiento.\n"
-            f"Rango válido: 1-{Config.MAX_WORKER_THREADS}"
+            tr("settings.advanced.performance.workers_tooltip",
+               io_workers=Config.get_optimal_worker_threads(),
+               cpu_workers=Config.get_cpu_bound_workers(),
+               max_workers=Config.MAX_WORKER_THREADS)
         )
         workers_layout.addWidget(self.max_workers_spin)
         workers_layout.addStretch()
@@ -754,7 +722,7 @@ class SettingsDialog(QDialog):
         ui_update_layout = QHBoxLayout()
         ui_update_layout.setSpacing(DesignSystem.SPACE_12)
         
-        ui_update_label = QLabel("Frecuencia de actualización en análisis:")
+        ui_update_label = QLabel(tr("settings.advanced.performance.ui_update_label"))
         ui_update_label.setMinimumWidth(180)
         ui_update_label.setStyleSheet(f"""
             QLabel {{
@@ -769,10 +737,7 @@ class SettingsDialog(QDialog):
         self.ui_update_spin.setMaximum(1000)
         self.ui_update_spin.setValue(Config.UI_UPDATE_INTERVAL)
         self.ui_update_spin.setToolTip(
-            "Cada cuántos archivos se da feeback al usuario en los análisis.\n"
-            "Valores más altos mejoran el rendimiento pero se recibe menos feedback.\n"
-            "Valores más bajos (1) hacen pueden ralentizar el proceso.\n"
-            "Recomendado: 10-50"
+            tr("settings.advanced.performance.ui_update_tooltip")
         )
         ui_update_layout.addWidget(self.ui_update_spin)
         ui_update_layout.addStretch()
@@ -780,25 +745,25 @@ class SettingsDialog(QDialog):
         perf_layout.addLayout(ui_update_layout)
 
         perf_info = self._create_info_label(
-            "Cambiar el número de hilos requiere reiniciar la aplicación para tener efecto completo."
+            tr("settings.advanced.performance.restart_note")
         )
         perf_layout.addWidget(perf_info)
 
         layout.addWidget(perf_group)
 
         # === DEPURACIÓN ===
-        debug_group = self._create_groupbox("Depuración")
+        debug_group = self._create_groupbox(tr("settings.advanced.debug.title"))
         debug_layout = QVLayout(debug_group)
         debug_layout.setSpacing(DesignSystem.SPACE_12)
 
-        clear_settings_btn = QPushButton("Restablecer TODA la configuración guardada")
+        clear_settings_btn = QPushButton(tr("settings.advanced.debug.clear_all"))
         clear_settings_btn.setStyleSheet(DesignSystem.get_danger_button_style())
         clear_settings_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         clear_settings_btn.clicked.connect(self.clear_all_settings)
         debug_layout.addWidget(clear_settings_btn)
 
         debug_info = self._create_info_label(
-            "Esto eliminará todas las preferencias guardadas y volverá a los valores por defecto."
+            tr("settings.advanced.debug.clear_all_info")
         )
         debug_info.setStyleSheet(f"""
             QLabel {{
@@ -837,6 +802,11 @@ class SettingsDialog(QDialog):
             
             self.ui_update_spin.setValue(settings_manager.get_int("ui_update_interval", Config.UI_UPDATE_INTERVAL))
             self.dry_run_default_checkbox.setChecked(settings_manager.get_bool(settings_manager.KEY_DRY_RUN_DEFAULT, False))
+
+            # Language selector
+            saved_lang = settings_manager.get_language()
+            if saved_lang in self._language_codes:
+                self.language_combo.setCurrentIndex(self._language_codes.index(saved_lang))
 
             # Directories tab - Log level
             current_level = settings_manager.get_log_level("INFO")
@@ -883,6 +853,7 @@ class SettingsDialog(QDialog):
             'precalculate_hashes': self.precalculate_hashes_checkbox.isChecked(),
             'precalculate_image_exif': self.precalculate_image_exif_checkbox.isChecked(),
             'precalculate_video_exif': self.precalculate_video_exif_checkbox.isChecked(),
+            'language': self.language_combo.currentIndex(),
         }
         self.logger.debug(f"Valores originales guardados: {self.original_values}")
     
@@ -906,6 +877,7 @@ class SettingsDialog(QDialog):
         
         # Combobox
         self.log_level_combo.currentIndexChanged.connect(lambda: self._on_widget_changed("log_level"))
+        self.language_combo.currentIndexChanged.connect(lambda: self._on_widget_changed("language"))
         
         # Line edits (directorios)
         self.logs_edit.textChanged.connect(lambda: self._on_widget_changed("logs_dir"))
@@ -989,13 +961,17 @@ class SettingsDialog(QDialog):
         original_dual_log = self.original_values['dual_log']
         dual_log_changed = current_dual_log != original_dual_log
         
+        current_language = self.language_combo.currentIndex()
+        original_language = self.original_values['language']
+        language_changed = current_language != original_language
+        
         has_changes = (
             logs_changed or backup_changed or level_changed or auto_backup_changed or
             confirm_delete_changed or confirm_reanalyze_changed or
             show_path_changed or max_workers_changed or dry_run_changed or
             ui_update_changed or precalculate_hashes_changed or
             precalculate_image_exif_changed or precalculate_video_exif_changed or
-            dual_log_changed
+            dual_log_changed or language_changed
         )
         
         # Habilitar/deshabilitar botón según haya cambios
@@ -1046,9 +1022,8 @@ class SettingsDialog(QDialog):
             self.logger.exception(f"Error al reiniciar la aplicación: {e}")
             QMessageBox.critical(
                 self,
-                "Error al Reiniciar",
-                f"No se pudo reiniciar la aplicación:\n{str(e)}\n\n"
-                "Por favor, reinicia manualmente la aplicación."
+                tr("settings.errors.restart_title"),
+                tr("settings.errors.restart_message", error=str(e))
             )
 
     # === MÉTODOS AUXILIARES ===
@@ -1058,7 +1033,7 @@ class SettingsDialog(QDialog):
         from PyQt6.QtWidgets import QFileDialog
         directory = QFileDialog.getExistingDirectory(
             self,
-            "Seleccionar Directorio de Logs",
+            tr("settings.file_dialog.select_logs_dir"),
             self.logs_edit.text()
         )
         if directory:
@@ -1070,7 +1045,7 @@ class SettingsDialog(QDialog):
         from PyQt6.QtWidgets import QFileDialog
         directory = QFileDialog.getExistingDirectory(
             self,
-            "Seleccionar Directorio de Backups",
+            tr("settings.file_dialog.select_backup_dir"),
             self.backup_edit.text()
         )
         if directory:
@@ -1095,22 +1070,16 @@ class SettingsDialog(QDialog):
         except Exception as e:
             QMessageBox.warning(
                 self,
-                "Error",
-                f"No se pudo abrir la carpeta:\n{str(e)}"
+                tr("common.error"),
+                tr("settings.errors.cannot_open_folder", error=str(e))
             )
 
     def clear_all_settings(self):
         """Limpia toda la configuración guardada"""
         reply = QMessageBox.warning(
             self,
-            "Confirmar Eliminacion",
-            "¿Estas seguro de que deseas eliminar TODA la configuracion guardada?\n\n"
-            "Esto incluye:\n"
-            "• Preferencias de backup\n"
-            "• Carpetas personalizadas\n"
-            "• Nivel de logging\n"
-            "• Todas las demas configuraciones\n\n"
-            "La aplicacion volvera a los valores por defecto.",
+            tr("settings.confirm.clear_all_title"),
+            tr("settings.confirm.clear_all_message"),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No
         )
@@ -1121,9 +1090,8 @@ class SettingsDialog(QDialog):
                 self.logger.info("Toda la configuración ha sido eliminada")
                 QMessageBox.information(
                     self,
-                    "Configuracion Eliminada",
-                    "Se ha eliminado toda la configuracion.\n"
-                    "Se recomienda reiniciar la aplicacion."
+                    tr("settings.messages.cleared_title"),
+                    tr("settings.messages.cleared_message")
                 )
                 # Recargar valores por defecto
                 self._load_current_settings()
@@ -1131,8 +1099,8 @@ class SettingsDialog(QDialog):
                 self.logger.exception(f"Error limpiando configuración: {e}")
                 QMessageBox.critical(
                     self,
-                    "Error",
-                    f"No se pudo limpiar la configuración:\n{str(e)}"
+                    tr("common.error"),
+                    tr("settings.errors.cannot_clear", error=str(e))
                 )
 
     def change_log_level(self, level_str):
@@ -1188,25 +1156,20 @@ class SettingsDialog(QDialog):
         # Si se deshabilita, mostrar tooltip explicativo
         if not should_enable:
             self.dual_log_checkbox.setToolTip(
-                "Esta opción solo está disponible para niveles INFO o DEBUG.\n"
-                "Con nivel WARNING o ERROR, todos los logs ya contienen solo advertencias y errores."
+                tr("settings.logs.dual_log_disabled_tooltip")
             )
         else:
             # Restaurar tooltip original
             self.dual_log_checkbox.setToolTip(
-                "Cuando está activado y el nivel de log es INFO o DEBUG:\n"
-                "• Se creará un archivo principal con TODOS los logs (sufijo: _INFO o _DEBUG)\n"
-                "• Se creará un archivo adicional solo con WARNING y ERROR (sufijo: _WARNERROR)\n\n"
-                "Útil para datasets grandes donde el log completo es muy extenso.\n"
-                "Esta opción se deshabilita automáticamente si el nivel es WARNING o ERROR."
+                tr("settings.logs.dual_log_tooltip")
             )
 
     def restore_defaults(self):
         """Restaura valores por defecto"""
         reply = QMessageBox.question(
             self,
-            "Restaurar Valores",
-            "¿Restaurar toda la configuración a los valores por defecto?",
+            tr("settings.confirm.restore_title"),
+            tr("settings.confirm.restore_message"),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No
         )
@@ -1230,8 +1193,7 @@ class SettingsDialog(QDialog):
             
             # Revalidar cambios (las señales ya se dispararán automáticamente)
 
-            QMessageBox.information(self, "Restaurado", "Configuracion restaurada a valores por defecto.\n\n"
-                                   "Presiona 'Guardar Cambios' para aplicar.")
+            QMessageBox.information(self, tr("settings.messages.restored_title"), tr("settings.messages.restored_message"))
 
     def save_settings(self):
         """Guarda la configuración en el settings_manager"""
@@ -1255,6 +1217,7 @@ class SettingsDialog(QDialog):
             current_precalculate_image_exif = settings_manager.get_precalculate_image_exif()
             current_precalculate_video_exif = settings_manager.get_precalculate_video_exif()
             current_dual_log = settings_manager.get_dual_log_enabled()
+            current_language = settings_manager.get_language()
             
             # Valores nuevos (desde UI)
             new_logs_dir = Path(self.logs_edit.text())
@@ -1271,11 +1234,13 @@ class SettingsDialog(QDialog):
             new_precalculate_image_exif = self.precalculate_image_exif_checkbox.isChecked()
             new_precalculate_video_exif = self.precalculate_video_exif_checkbox.isChecked()
             new_dual_log = self.dual_log_checkbox.isChecked()
+            new_language = self._language_codes[self.language_combo.currentIndex()]
             
             # Detectar qué cambió
             logs_dir_changed = (current_logs_dir != new_logs_dir)
             backup_dir_changed = (current_backup_dir != new_backup_dir)
             log_level_changed = (current_log_level != new_log_level)
+            language_changed = (current_language != new_language)
             any_setting_changed = (
                 logs_dir_changed or backup_dir_changed or log_level_changed or
                 current_auto_backup != new_auto_backup or
@@ -1288,7 +1253,8 @@ class SettingsDialog(QDialog):
                 current_precalculate_hashes != new_precalculate_hashes or
                 current_precalculate_image_exif != new_precalculate_image_exif or
                 current_precalculate_video_exif != new_precalculate_video_exif or
-                current_dual_log != new_dual_log
+                current_dual_log != new_dual_log or
+                language_changed
             )
             
             # Si NO hay cambios, cerrar inmediatamente sin operaciones costosas
@@ -1355,6 +1321,11 @@ class SettingsDialog(QDialog):
                 from utils.logger import set_dual_log_enabled
                 set_dual_log_enabled(new_dual_log)
 
+            # Language (solo si cambió)
+            if language_changed:
+                settings_manager.set_language(new_language)
+                self.logger.info(f"Language changed to: {new_language}")
+
             self.logger.info("Configuración guardada exitosamente")
 
             # Emitir señal de cambios guardados
@@ -1369,27 +1340,25 @@ class SettingsDialog(QDialog):
             
             if needs_restart:
                 # Mostrar diálogo de confirmación para reiniciar
-                restart_msg = (
-                    "Se han guardado cambios que requieren reiniciar la aplicación para tomar efecto:\n\n"
-                )
+                restart_msg = tr("settings.messages.restart_required_intro")
                 
                 # Listar qué cambió
                 changes_list = []
                 if self.max_workers_spin.value() != self.original_values['max_workers']:
-                    changes_list.append("• Número de hilos de procesamiento")
+                    changes_list.append(tr("settings.messages.restart_change_workers"))
                 if self.logs_edit.text() != self.original_values['logs_dir']:
-                    changes_list.append("• Directorio de logs")
+                    changes_list.append(tr("settings.messages.restart_change_logs"))
                 if self.backup_edit.text() != self.original_values['backup_dir']:
-                    changes_list.append("• Directorio de backups")
+                    changes_list.append(tr("settings.messages.restart_change_backup"))
                 if self.log_level_combo.currentIndex() != self.original_values['log_level']:
-                    changes_list.append("• Nivel de detalle de logs")
+                    changes_list.append(tr("settings.messages.restart_change_log_level"))
                 
                 restart_msg += "\n".join(changes_list)
-                restart_msg += "\n\n¿Desea reiniciar la aplicación ahora?"
+                restart_msg += "\n\n" + tr("settings.messages.restart_question")
                 
                 reply = QMessageBox.question(
                     self.parent_window if self.parent_window else self,
-                    "Reiniciar Aplicación",
+                    tr("settings.messages.restart_title"),
                     restart_msg,
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                     QMessageBox.StandardButton.Yes
@@ -1402,20 +1371,26 @@ class SettingsDialog(QDialog):
                     # Usuario rechazó reiniciar - mostrar advertencia
                     QMessageBox.warning(
                         self.parent_window if self.parent_window else self,
-                        "Reinicio Requerido",
-                        "Los cambios se han guardado correctamente, pero NO tomarán efecto "
-                        "hasta que reinicie la aplicación.\n\n"
-                        "La aplicación puede no comportarse como espera hasta que se reinicie."
+                        tr("settings.messages.restart_needed_title"),
+                        tr("settings.messages.restart_needed_message")
                     )
             else:
                 # No se requiere reinicio - mensaje informativo normal
-                msg_text = "La configuracion se ha guardado correctamente."
+                msg_text = tr("settings.messages.saved")
                 if logs_dir_changed:
-                    msg_text += "\n\nEl directorio de logs ha cambiado. Los nuevos logs se escribirán en la nueva ubicación."
+                    msg_text += "\n\n" + tr("settings.messages.saved_logs_changed")
+                
+                # Show language restart message if language changed
+                if language_changed:
+                    QMessageBox.information(
+                        self.parent_window if self.parent_window else self,
+                        tr("settings.general.interface.language_restart_title"),
+                        tr("settings.general.interface.language_restart_msg")
+                    )
                 
                 QMessageBox.information(
                     self.parent_window if self.parent_window else self,
-                    "Configuracion Guardada",
+                    tr("settings.messages.saved_title"),
                     msg_text
                 )
 
@@ -1423,18 +1398,18 @@ class SettingsDialog(QDialog):
             self.logger.exception(f"Error guardando configuración: {e}")
             QMessageBox.critical(
                 self,
-                "Error",
-                f"No se pudo guardar la configuración:\n{str(e)}"
+                tr("common.error"),
+                tr("settings.errors.cannot_save", error=str(e))
             )
 
     def _toggle_install_info(self):
         """Muestra u oculta el panel de instrucciones de instalación."""
         if self.install_info_panel.isVisible():
             self.install_info_panel.hide()
-            self.install_info_btn.setText("📦 ¿Cómo instalar estas herramientas?")
+            self.install_info_btn.setText(tr("settings.analysis.system_tools.install_how"))
         else:
             self.install_info_panel.show()
-            self.install_info_btn.setText("📦 Ocultar instrucciones de instalación")
+            self.install_info_btn.setText(tr("settings.analysis.system_tools.install_hide"))
 
     def _check_system_tools(self):
         """
@@ -1450,14 +1425,14 @@ class SettingsDialog(QDialog):
         self.logger.debug(f"Resultado ffprobe: disponible={ffprobe_status.available}, versión={ffprobe_status.version}")
         
         if ffprobe_status.available:
-            display_text = f"✅ ffprobe: {ffprobe_status.version[:40]}" if ffprobe_status.version else "✅ ffprobe: Instalado"
+            display_text = f"✅ ffprobe: {ffprobe_status.version[:40]}" if ffprobe_status.version else tr("settings.analysis.system_tools.ffprobe_installed")
             self.ffprobe_status_label.setText(display_text)
             self.ffprobe_status_label.setStyleSheet(f"""
                 font-size: {DesignSystem.FONT_SIZE_SM}px;
                 color: {DesignSystem.COLOR_SUCCESS};
             """)
         else:
-            self.ffprobe_status_label.setText("❌ ffprobe: No instalado")
+            self.ffprobe_status_label.setText(tr("settings.analysis.system_tools.ffprobe_not_installed"))
             self.ffprobe_status_label.setStyleSheet(f"""
                 font-size: {DesignSystem.FONT_SIZE_SM}px;
                 color: {DesignSystem.COLOR_ERROR};
@@ -1468,14 +1443,14 @@ class SettingsDialog(QDialog):
         self.logger.debug(f"Resultado exiftool: disponible={exiftool_status.available}, versión={exiftool_status.version}")
         
         if exiftool_status.available:
-            display_text = f"✅ exiftool: v{exiftool_status.version}" if exiftool_status.version else "✅ exiftool: Instalado"
+            display_text = f"✅ exiftool: v{exiftool_status.version}" if exiftool_status.version else tr("settings.analysis.system_tools.exiftool_installed")
             self.exiftool_status_label.setText(display_text)
             self.exiftool_status_label.setStyleSheet(f"""
                 font-size: {DesignSystem.FONT_SIZE_SM}px;
                 color: {DesignSystem.COLOR_SUCCESS};
             """)
         else:
-            self.exiftool_status_label.setText("❌ exiftool: No instalado")
+            self.exiftool_status_label.setText(tr("settings.analysis.system_tools.exiftool_not_installed"))
             self.exiftool_status_label.setStyleSheet(f"""
                 font-size: {DesignSystem.FONT_SIZE_SM}px;
                 color: {DesignSystem.COLOR_ERROR};

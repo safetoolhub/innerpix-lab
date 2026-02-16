@@ -44,40 +44,40 @@ class MainWindow(QMainWindow):
             cache_file = Path(Config.SAVED_CACHE_DEV_MODE_PATH)
             
             if cache_file.exists():
-                self.logger.info(f"🔧 Modo desarrollo: Cargando caché específica {cache_file}")
+                self.logger.info(f"🔧 Dev mode: Loading specific cache {cache_file}")
                 # En este caso, no conocemos el folder_path aún, lo inferiremos dentro de _load_cache_and_transition
                 if self._load_cache_and_transition(None, cache_file):
                     return
             else:
-                msg = f"🔧 ERROR CRÍTICO Modo desarrollo: No se encontró archivo de caché en {cache_file}"
+                msg = f"🔧 CRITICAL ERROR Dev mode: Cache file not found at {cache_file}"
                 self.logger.error(msg)
                 print(msg)
-                print("Abortando ejecución debido a configuración de desarrollo inválida.")
+                print("Aborting execution due to invalid dev configuration.")
                 import sys
                 sys.exit(1)
 
         # Inicializar con Estado 1
         self._transition_to_state_1()
 
-        self.logger.info("MainWindow inicializada en Estado 1")
+        self.logger.info("MainWindow initialized in State 1")
 
     # ==================== SISTEMA DE ESTADOS ====================
 
     def _transition_to_state_1(self):
         """Transición al Stage 1 (Selector de carpeta)"""
-        self.logger.info("Transición a Stage 1")
+        self.logger.info("Transition to Stage 1")
         self._change_state(Stage1Window)
 
     def _transition_to_state_2(self, selected_folder: str):
         """Transición al Stage 2 (Análisis)"""
-        self.logger.info(f"Transición a Stage 2 con carpeta: {selected_folder}")
+        self.logger.info(f"Transition to Stage 2 with folder: {selected_folder}")
         # Lazy import para evitar cargar servicios hasta que se necesiten
         from ui.screens.stage_2_window import Stage2Window
         self._change_state(Stage2Window, selected_folder)
 
     def _transition_to_state_3(self, analysis_results: dict):
         """Transición al Stage 3 (Herramientas)"""
-        self.logger.info("Transición a Stage 3")
+        self.logger.info("Transition to Stage 3")
         # Lazy import para evitar cargar diálogos hasta que se necesiten
         from ui.screens.stage_3_window import Stage3Window
         selected_folder = self.current_state.selected_folder if self.current_state else None
@@ -200,10 +200,10 @@ class MainWindow(QMainWindow):
             
             # Cargar caché
             loaded_count = repo.load_from_disk(cache_file, validate=True)
-            self.logger.info(f"Caché cargada: {loaded_count} archivos")
+            self.logger.info(f"Cache loaded: {loaded_count} files")
             
             if loaded_count == 0:
-                self.logger.warning("Caché vacía o inválida")
+                self.logger.warning("Empty or invalid cache")
                 return False
                 
             # Reconstruir resultados del escaneo iterando el repositorio
@@ -231,9 +231,9 @@ class MainWindow(QMainWindow):
                     # Usar commonpath para encontrar la raíz común
                     common_root = os.path.commonpath([str(f.path) for f in all_files])
                     folder_path = Path(common_root)
-                    self.logger.info(f"Directorio inferido desde caché: {folder_path}")
+                    self.logger.info(f"Directory inferred from cache: {folder_path}")
                 except Exception as e:
-                    self.logger.warning(f"No se pudo inferir directorio raíz: {e}")
+                    self.logger.warning(f"Could not infer root directory: {e}")
                     # Fallback al directorio del primer archivo
                     folder_path = all_files[0].path.parent
             
@@ -287,10 +287,10 @@ class MainWindow(QMainWindow):
             self.current_state = DummyState(folder_path)
             
             # Transición directa
-            self.logger.info("Transicionando a Stage 3 con datos de caché")
+            self.logger.info("Transitioning to Stage 3 with cache data")
             self._transition_to_state_3(snapshot)
             return True
             
         except Exception as e:
-            self.logger.error(f"Error cargando caché en modo desarrollo: {e}", exc_info=True)
+            self.logger.error(f"Error loading cache in dev mode: {e}", exc_info=True)
             return False

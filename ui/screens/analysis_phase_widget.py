@@ -6,6 +6,7 @@ from PyQt6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel, QWidget
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
 from services.initial_scanner import InitialScanner
+from utils.i18n import tr
 
 
 class AnalysisPhaseWidget(QFrame):
@@ -37,12 +38,12 @@ class AnalysisPhaseWidget(QFrame):
         
         # Definir las fases con sus IDs y textos
         phases = [
-            (InitialScanner.PHASE_FILE_CLASSIFICATION, "Escaneando estructura de carpetas", 1),
-            (InitialScanner.PHASE_FILESYSTEM_METADATA, "Obteniendo información de archivos", 2),
-            (InitialScanner.PHASE_HASH, "Calculando hashes de archivos", 3),
-            (InitialScanner.PHASE_EXIF_IMAGES, "Extrayendo metadatos de imágenes", 4),
-            (InitialScanner.PHASE_EXIF_VIDEOS, "Extrayendo metadatos de vídeos", 5),
-            (InitialScanner.PHASE_BEST_DATE, "Determinando fecha óptima", 6),
+            (InitialScanner.PHASE_FILE_CLASSIFICATION, tr("analysis_phase.phase1"), 1),
+            (InitialScanner.PHASE_FILESYSTEM_METADATA, tr("analysis_phase.phase2"), 2),
+            (InitialScanner.PHASE_HASH, tr("analysis_phase.phase3"), 3),
+            (InitialScanner.PHASE_EXIF_IMAGES, tr("analysis_phase.phase4"), 4),
+            (InitialScanner.PHASE_EXIF_VIDEOS, tr("analysis_phase.phase5"), 5),
+            (InitialScanner.PHASE_BEST_DATE, tr("analysis_phase.phase6"), 6),
         ]
         
         for phase_id, phase_text, phase_num in phases:
@@ -198,7 +199,7 @@ class AnalysisPhaseWidget(QFrame):
             text_label.setStyleSheet(DesignSystem.get_phase_title_style('skipped'))
             
             # Mostrar texto indicando que se saltó
-            counter_label.setText("(omitida)")
+            counter_label.setText(tr("analysis_phase.skipped"))
             counter_label.setStyleSheet(f"""
                 font-size: {DesignSystem.FONT_SIZE_XS}px;
                 color: {DesignSystem.COLOR_TEXT_SECONDARY};

@@ -301,7 +301,7 @@ class TestValidateDirectory:
         """Directorio inexistente lanza ValueError."""
         non_existent = tmp_path / "no_existe"
         
-        with pytest.raises(ValueError, match="no existe"):
+        with pytest.raises(ValueError, match="does not exist"):
             service._validate_directory(non_existent, must_exist=True)
     
     def test_validate_directory_not_dir(self, service, tmp_path):
@@ -309,7 +309,7 @@ class TestValidateDirectory:
         file_path = tmp_path / "archivo.txt"
         file_path.write_text("contenido")
         
-        with pytest.raises(ValueError, match="No es un directorio"):
+        with pytest.raises(ValueError, match="Not a directory"):
             service._validate_directory(file_path, must_exist=True)
     
     def test_validate_directory_must_exist_false(self, service, tmp_path):
@@ -609,5 +609,5 @@ class TestBackupFiltersMissingFiles:
             )
         
         # Verificar que se logeó el warning
-        assert "archivos omitidos del backup" in caplog.text.lower() or \
-               "ya no existen" in caplog.text.lower()
+        assert "files skipped from backup" in caplog.text.lower() or \
+               "no longer exist" in caplog.text.lower()

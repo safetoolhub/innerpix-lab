@@ -13,6 +13,7 @@ from utils.logger import get_logger
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
 from config import Config
+from utils.i18n import tr
 
 
 class BaseStage(QObject):
@@ -387,7 +388,7 @@ class BaseStage(QObject):
         if show_settings_button and on_settings_clicked:
             btn_settings = QToolButton()
             btn_settings.setAutoRaise(True)
-            btn_settings.setToolTip("Configuración")
+            btn_settings.setToolTip(tr("common.tooltip.settings"))
             icon_manager.set_button_icon(btn_settings, 'cog', color=DesignSystem.COLOR_TEXT_SECONDARY, size=20)
             btn_settings.setIconSize(QSize(20, 20))
             btn_settings.clicked.connect(on_settings_clicked)
@@ -397,7 +398,7 @@ class BaseStage(QObject):
         if show_about_button and on_about_clicked:
             btn_about = QToolButton()
             btn_about.setAutoRaise(True)
-            btn_about.setToolTip("Acerca de - Instrucciones y capacidades de la aplicación")
+            btn_about.setToolTip(tr("common.tooltip.about"))
             icon_manager.set_button_icon(btn_about, 'information-outline', color=DesignSystem.COLOR_TEXT_SECONDARY, size=20)
             btn_about.setIconSize(QSize(20, 20))
             btn_about.clicked.connect(on_about_clicked)

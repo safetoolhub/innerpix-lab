@@ -6,6 +6,7 @@ from pathlib import Path
 from PyQt6.QtWidgets import QVBoxLayout, QHBoxLayout, QLabel, QFrame, QPushButton, QDialog, QScrollArea, QWidget
 from PyQt6.QtCore import Qt
 from utils.image_loader import load_image_as_qpixmap
+from utils.i18n import tr
 from ui.styles.design_system import DesignSystem
 
 
@@ -14,7 +15,7 @@ class ImagePreviewDialog(QDialog):
 
     def __init__(self, image_path: Path, parent=None):
         super().__init__(parent)
-        self.setWindowTitle(f"Vista previa - {image_path.name}")
+        self.setWindowTitle(tr("dialogs.image_preview.window_title", filename=image_path.name))
         self.setModal(True)
         self.resize(1000, 800)
         self.setStyleSheet(
@@ -60,7 +61,7 @@ class ImagePreviewDialog(QDialog):
         if pixmap and not pixmap.isNull():
             image_label.setPixmap(pixmap)
         else:
-            image_label.setText("❌ No se pudo cargar la imagen")
+            image_label.setText(tr("dialogs.image_preview.error_loading"))
             image_label.setStyleSheet(f"""
                 font-size: {DesignSystem.FONT_SIZE_LG}px;
                 color: {DesignSystem.COLOR_TEXT_SECONDARY};
@@ -79,7 +80,7 @@ class ImagePreviewDialog(QDialog):
             DesignSystem.SPACE_16, DesignSystem.SPACE_12
         )
 
-        close_btn = QPushButton("Cerrar")
+        close_btn = QPushButton(tr("dialogs.image_preview.button_close"))
         close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         close_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
         close_btn.clicked.connect(self.accept)

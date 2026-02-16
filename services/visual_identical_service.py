@@ -22,6 +22,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError
 from config import Config
 from utils.logger import get_logger, log_section_header_discrete, log_section_footer_discrete
 from utils.format_utils import format_size
+from utils.i18n import tr
 from services.result_types import VisualIdenticalAnalysisResult, VisualIdenticalGroup
 from services.base_service import BaseService, ProgressCallback
 from services.file_metadata_repository_cache import FileInfoRepositoryCache
@@ -62,7 +63,7 @@ class VisualIdenticalService(BaseService):
         Returns:
             VisualIdenticalAnalysisResult con grupos de idénticos
         """
-        log_section_header_discrete(self.logger, "ANÁLISIS DE COPIAS VISUALES IDÉNTICAS")
+        log_section_header_discrete(self.logger, "VISUAL IDENTICAL COPIES ANALYSIS")
         
         repo = FileInfoRepositoryCache.get_instance()
         
@@ -73,7 +74,7 @@ class VisualIdenticalService(BaseService):
         )
         
         if not perceptual_hashes:
-            self.logger.info("No se encontraron archivos para analizar")
+            self.logger.info("No files found to analyze")
             return VisualIdenticalAnalysisResult(
                 success=True,
                 groups=[],
@@ -92,12 +93,12 @@ class VisualIdenticalService(BaseService):
         space_recoverable = sum(g.space_recoverable for g in groups)
         
         self.logger.info(
-            f"Grupos encontrados: {total_groups}, "
-            f"Duplicados: {total_duplicates}, "
-            f"Espacio recuperable: {space_recoverable / (1024*1024):.1f} MB"
+            f"Groups found: {total_groups}, "
+            f"Duplicates: {total_duplicates}, "
+            f"Recoverable space: {space_recoverable / (1024*1024):.1f} MB"
         )
         
-        log_section_footer_discrete(self.logger, "ANÁLISIS DE COPIAS VISUALES IDÉNTICAS COMPLETADO")
+        log_section_footer_discrete(self.logger, "VISUAL IDENTICAL COPIES ANALYSIS COMPLETED")
         
         return VisualIdenticalAnalysisResult(
             success=True,
@@ -132,7 +133,7 @@ class VisualIdenticalService(BaseService):
         import time
         
         hash_calc_start = time.time()
-        self.logger.info("Calculando hashes perceptuales...")
+        self.logger.info("Calculating perceptual hashes...")
         
         # Obtener archivos desde FileInfoRepository
         all_metadata = repo.get_all_files()
@@ -147,7 +148,7 @@ class VisualIdenticalService(BaseService):
         
         total_files = len(image_files)
         
-        self.logger.info(f"Archivos de imagen a procesar: {total_files}")
+        self.logger.info(f"Image files to process: {total_files}")
         
         if total_files == 0:
             return {}
@@ -201,26 +202,26 @@ class VisualIdenticalService(BaseService):
                             progress_callback,
                             processed,
                             total_files,
-                            f"Procesando: {file_path.name}"
+                            tr("services.progress.processing_file", name=file_path.name)
                         ):
                             break
                 except TimeoutError:
                     processed += 1
-                    self.logger.debug(f"Timeout procesando {file_path.name}")
+                    self.logger.debug(f"Timeout processing {file_path.name}")
                 except Exception as e:
                     errors += 1
                     processed += 1
-                    self.logger.debug(f"Error procesando {file_path.name}: {e}")
+                    self.logger.debug(f"Error processing {file_path.name}: {e}")
         
         # Log stats
         hash_calc_time = time.time() - hash_calc_start
         self.logger.info(
-            f"Hashes calculados: {len(perceptual_hashes)} en {hash_calc_time:.1f}s "
-            f"({len(perceptual_hashes)/max(hash_calc_time, 0.1):.1f} archivos/s)"
+            f"Hashes calculated: {len(perceptual_hashes)} in {hash_calc_time:.1f}s "
+            f"({len(perceptual_hashes)/max(hash_calc_time, 0.1):.1f} files/s)"
         )
         
         if errors > 0:
-            self.logger.warning(f"Errores durante el cálculo: {errors}")
+            self.logger.warning(f"Errors during calculation: {errors}")
         
         return perceptual_hashes
 
@@ -323,8 +324,8 @@ class VisualIdenticalService(BaseService):
         groups.sort(key=lambda g: g.space_recoverable, reverse=True)
         
         self.logger.info(
-            f"Grupos de idénticos encontrados: {len(groups)} "
-            f"(de {len(hash_groups)} hashes únicos)"
+            f"Identical groups found: {len(groups)} "
+            f"(from {len(hash_groups)} unique hashes)"
         )
         
         return groups
@@ -353,10 +354,10 @@ class VisualIdenticalService(BaseService):
         from services.result_types import VisualIdenticalExecutionResult
         from services.base_service import BackupCreationError
         
-        log_section_header_discrete(self.logger, "EJECUTANDO ELIMINACIÓN DE COPIAS IDÉNTICAS")
+        log_section_header_discrete(self.logger, "EXECUTING IDENTICAL COPIES DELETION")
         
         if not files_to_delete:
-            self.logger.info("No hay archivos para eliminar")
+            self.logger.info("No files to delete")
             return VisualIdenticalExecutionResult(
                 success=True,
                 dry_run=dry_run,
@@ -367,7 +368,7 @@ class VisualIdenticalService(BaseService):
         # Crear backup usando método centralizado de BaseService
         backup_path = None
         if create_backup and not dry_run:
-            self.logger.info("Creando backup de archivos...")
+            self.logger.info("Creating backup of files...")
             try:
                 backup_path = self._create_backup_for_operation(
                     files_to_delete,
@@ -375,13 +376,13 @@ class VisualIdenticalService(BaseService):
                     progress_callback
                 )
                 if backup_path:
-                    self.logger.info(f"Backup creado en: {backup_path}")
+                    self.logger.info(f"Backup created at: {backup_path}")
             except BackupCreationError as e:
-                self.logger.error(f"Error creando backup: {e}")
+                self.logger.error(f"Error creating backup: {e}")
                 return VisualIdenticalExecutionResult(
                     success=False,
                     dry_run=dry_run,
-                    errors=[f"Error creando backup: {e}"]
+                    errors=[f"Error creating backup: {e}"]
                 )
         
         # Eliminar archivos usando método centralizado
@@ -401,33 +402,33 @@ class VisualIdenticalService(BaseService):
                     files_affected.append(file_path)
                 else:
                     self.logger.warning(
-                        f"ARCHIVO_DESCARTADO: {file_path} | "
+                        f"FILE_SKIPPED: {file_path} | "
                         f"Size: {format_size(file_size)} | "
                         f"Type: visual_identical | "
-                        f"Motivo: No se pudo eliminar el archivo"
+                        f"Reason: Could not delete file"
                     )
-                    errors.append(f"No se pudo eliminar: {file_path}")
+                    errors.append(f"Could not delete: {file_path}")
                 
                 if self._should_report_progress(i, interval=10):
                     self._report_progress(
                         progress_callback,
                         i + 1,
                         total,
-                        f"Eliminando: {file_path.name}"
+                        tr("services.progress.deleting_file", name=file_path.name)
                     )
                     
             except Exception as e:
                 errors.append(f"{file_path}: {str(e)}")
-                self.logger.error(f"Error eliminando {file_path}: {e}")
+                self.logger.error(f"Error deleting {file_path}: {e}")
         
         # Resumen de archivos descartados
-        total_descartados = total - deleted_count
-        if total_descartados > 0:
+        total_skipped = total - deleted_count
+        if total_skipped > 0:
             self.logger.warning(
-                f"RESUMEN_DESCARTADOS: {total_descartados}/{total} archivos no pudieron ser eliminados"
+                f"SKIPPED_SUMMARY: {total_skipped}/{total} files could not be deleted"
             )
         
-        log_section_footer_discrete(self.logger, "ELIMINACIÓN DE COPIAS IDÉNTICAS COMPLETADA")
+        log_section_footer_discrete(self.logger, "IDENTICAL COPIES DELETION COMPLETED")
         
         result = VisualIdenticalExecutionResult(
             success=len(errors) == 0,

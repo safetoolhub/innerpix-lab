@@ -16,6 +16,7 @@ from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
 from ui.tools_definitions import TOOL_ZERO_BYTE
 from utils.format_utils import format_file_count
+from utils.i18n import tr
 from services.result_types import ZeroByteAnalysisResult
 from .base_dialog import BaseDialog
 from .dialog_utils import (
@@ -67,7 +68,7 @@ class ZeroByteDialog(BaseDialog):
             metrics=[
                 {
                     'value': str(len(self.analysis_result.files)),
-                    'label': 'Archivos',
+                    'label': tr("dialogs.zero_byte.metric_files"),
                     'color': DesignSystem.COLOR_ERROR
                 }
             ]
@@ -100,12 +101,12 @@ class ZeroByteDialog(BaseDialog):
         # Botones de selección
         selection_layout = QHBoxLayout()
         
-        select_all_btn = QPushButton("Seleccionar todos")
+        select_all_btn = QPushButton(tr("dialogs.zero_byte.button_select_all"))
         select_all_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         select_all_btn.clicked.connect(self._select_all)
         select_all_btn.setStyleSheet(f"color: {DesignSystem.COLOR_PRIMARY}; border: none; font-weight: bold;")
         
-        select_none_btn = QPushButton("Deseleccionar todos")
+        select_none_btn = QPushButton(tr("dialogs.zero_byte.button_select_none"))
         select_none_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         select_none_btn.clicked.connect(self._select_none)
         select_none_btn.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; border: none;")
@@ -125,8 +126,8 @@ class ZeroByteDialog(BaseDialog):
         options_group = self._create_security_options_section(
             show_backup=True,
             show_dry_run=True,
-            backup_label="Crear copia de seguridad antes de eliminar",
-            dry_run_label="Modo simulación (no eliminar realmente)"
+            backup_label=tr("dialogs.zero_byte.option_backup"),
+            dry_run_label=tr("dialogs.zero_byte.option_dry_run")
         )
         content_layout.addWidget(options_group)
         
@@ -142,7 +143,7 @@ class ZeroByteDialog(BaseDialog):
     
     def _create_tree_widget(self) -> QTreeWidget:
         """Crea el widget de árbol para mostrar archivos agrupados por carpeta."""
-        headers = ["Carpeta / Archivo", "Ubicación"]
+        headers = [tr("dialogs.zero_byte.tree_header.folder_file"), tr("dialogs.zero_byte.tree_header.location")]
         column_widths = [450, 350]
         
         tree = create_groups_tree_widget(
@@ -200,7 +201,7 @@ class ZeroByteDialog(BaseDialog):
         # Crear nodo de carpeta
         folder_item = QTreeWidgetItem(self.tree_widget)
         folder_name = str(folder_path.relative_to(folder_path.anchor)) if folder_path.anchor else str(folder_path)
-        folder_item.setText(0, f"📁 {folder_name} ({len(files)} archivos)")
+        folder_item.setText(0, tr("dialogs.zero_byte.tree.folder_label", name=folder_name, count=len(files)))
         folder_item.setExpanded(True)
         
         # Checkbox para la carpeta (tri-state)
@@ -210,7 +211,7 @@ class ZeroByteDialog(BaseDialog):
         # Aplicar estilo de grupo
         apply_group_item_style(folder_item, num_columns=2)
         
-        folder_item.setToolTip(0, f"Carpeta: {folder_path}\n{len(files)} archivos vacíos")
+        folder_item.setToolTip(0, tr("dialogs.zero_byte.tooltip.folder", path=str(folder_path), count=len(files)))
         
         # Añadir archivos como hijos
         for file_path in files:
@@ -235,7 +236,7 @@ class ZeroByteDialog(BaseDialog):
         # Columna 1: Ubicación completa
         file_item.setText(1, str(file_path))
         
-        file_item.setToolTip(0, f"Archivo vacío (0 bytes): {file_path}")
+        file_item.setToolTip(0, tr("dialogs.zero_byte.tooltip.file", path=str(file_path)))
     
     def _load_all_groups(self):
         """Carga todos los grupos restantes."""
@@ -304,9 +305,9 @@ class ZeroByteDialog(BaseDialog):
     def _update_button_text(self):
         """Actualiza el texto del botón con el conteo de archivos seleccionados."""
         count = len(self.selected_files)
-        self.ok_button.setText(f"Eliminar {format_file_count(count)}")
+        self.ok_button.setText(f"{tr('common.delete')} {format_file_count(count)}")
         self.ok_button.setEnabled(count > 0)
-        self.selection_label.setText(f"{count} de {len(self.all_files)} seleccionados")
+        self.selection_label.setText(tr("dialogs.zero_byte.selection_count", selected=count, total=len(self.all_files)))
     
     # ========================================================================
     # EVENTOS
@@ -329,8 +330,8 @@ class ZeroByteDialog(BaseDialog):
         """Muestra detalles del archivo."""
         additional_info = {
             'metadata': {
-                'Tamaño': '0 bytes',
-                'Estado': 'Archivo vacío - seguro eliminar',
+                tr("dialogs.zero_byte.details.size_key"): tr("dialogs.zero_byte.details.size_value"),
+                tr("dialogs.zero_byte.details.status_key"): tr("dialogs.zero_byte.details.status_value"),
             }
         }
         show_file_details_dialog(file_path, self, additional_info)
@@ -338,7 +339,7 @@ class ZeroByteDialog(BaseDialog):
     def accept(self):
         # Validar que hay archivos seleccionados
         if not self.selected_files:
-            self.show_no_items_message("archivos vacíos seleccionados")
+            self.show_no_items_message(tr("dialogs.zero_byte.no_items_type"))
             return
         
         # Construir analysis con los archivos seleccionados

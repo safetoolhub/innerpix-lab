@@ -7,6 +7,7 @@ from PyQt6.QtGui import QCursor, QLinearGradient, QBrush, QPalette, QColor
 
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
+from utils.i18n import tr
 
 
 class ToolCard(QFrame):
@@ -157,7 +158,7 @@ class ToolCard(QFrame):
         else:
             self.badge_label.setVisible(False)
             
-        self.set_action_text("Gestionar ahora")
+        self.set_action_text(tr("cards.action_manage"))
         self.action_button.setProperty("class", "primary")
         self.set_enabled(True) 
         self._refresh_style()
@@ -169,11 +170,11 @@ class ToolCard(QFrame):
         self._clear_status()
         
         # Badge ámbar
-        self.badge_label.setText("PENDIENTE")
+        self.badge_label.setText(tr("cards.badge_pending"))
         self._update_badge_style(DesignSystem.COLOR_WARNING)
         self.badge_label.setVisible(True)
         
-        self.set_action_text("Analizar ahora")
+        self.set_action_text(tr("cards.action_analyze"))
         self.action_button.setProperty("class", "warning")
         self.set_enabled(True)
         self._refresh_style()
@@ -184,12 +185,12 @@ class ToolCard(QFrame):
         self._clear_status()
         
         # Badge gris
-        self.badge_label.setText("NADA ENCONTRADO")
+        self.badge_label.setText(tr("cards.badge_nothing_found"))
         self._update_badge_style(DesignSystem.COLOR_TEXT_SECONDARY)
         self.badge_label.setVisible(True)
         
         # Deshabilitar botón y cambiar texto
-        self.set_action_text("No hay nada que eliminar")
+        self.set_action_text(tr("cards.nothing_to_delete"))
         self.set_enabled(False)
         self._refresh_style()
 

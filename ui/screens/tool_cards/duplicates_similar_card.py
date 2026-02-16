@@ -5,6 +5,7 @@ Crea la card de Archivos Similares para el grid de herramientas.
 from ui.screens.tool_card import ToolCard
 from ui.tools_definitions import TOOL_DUPLICATES_SIMILAR
 from utils.format_utils import format_size
+from utils.i18n import tr
 
 
 def create_duplicates_similar_card(analysis_results, on_click_callback) -> ToolCard:
@@ -26,7 +27,7 @@ def create_duplicates_similar_card(analysis_results, on_click_callback) -> ToolC
         icon_name=TOOL_DUPLICATES_SIMILAR.icon_name,
         title=TOOL_DUPLICATES_SIMILAR.title,
         description=TOOL_DUPLICATES_SIMILAR.long_description,
-        action_text='Gestionar ahora' if has_analysis else 'Analizar ahora'
+        action_text=tr("cards.action_manage") if has_analysis else tr("cards.action_analyze")
     )
 
     # Configurar estado según datos
@@ -43,28 +44,28 @@ def create_duplicates_similar_card(analysis_results, on_click_callback) -> ToolC
                     else None
                 )
                 if cached_result and cached_result.total_similar > 0:
-                    size_text = f"~{format_size(cached_result.space_recoverable)} desperdiciados"
+                    size_text = tr("cards.space_wasted", size=format_size(cached_result.space_recoverable))
                     card.set_status_with_results(
-                        f"{cached_result.total_groups} grupos de archivos similares encontrados",
+                        tr("cards.similar_groups_found", count=cached_result.total_groups),
                         size_text,
                         badge_count=cached_result.total_similar
                     )
                 elif cached_result and cached_result.total_similar == 0:
-                    card.set_status_no_results("No se encontraron archivos similares")
+                    card.set_status_no_results(tr("cards.no_similar_found"))
                 else:
                     # Hay hashes pero no se ha hecho clustering aún (o no hay cache)
                     # Mostrar info ligera sin bloquear la UI
                     from utils.format_utils import format_file_count
                     card.set_status_pending(
-                        f"{format_file_count(len(similar_data.perceptual_hashes))} analizados · Clic para agrupar"
+                        tr("cards.analyzed_click_to_group", count=format_file_count(len(similar_data.perceptual_hashes)))
                     )
             else:
-                card.set_status_no_results("No se encontraron archivos para analizar")
+                card.set_status_no_results(tr("cards.no_files_to_analyze"))
         else:
-            card.set_status_no_results("No se encontraron archivos similares")
+            card.set_status_no_results(tr("cards.no_similar_found"))
     else:
         # Estado pendiente de análisis
-        card.set_status_pending("Analizar para detectar archivos similares")
+        card.set_status_pending(tr("cards.pending_similar_files"))
 
     card.clicked.connect(lambda: on_click_callback('duplicates_similar'))
     return card

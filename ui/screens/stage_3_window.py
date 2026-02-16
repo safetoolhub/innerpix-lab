@@ -35,6 +35,7 @@ from ui.dialogs.visual_identical_dialog import VisualIdenticalDialog
 from ui.dialogs.duplicates_similar_dialog import DuplicatesSimilarDialog
 from utils.format_utils import format_size, format_file_count
 from utils.logger import log_section_header_discrete
+from utils.i18n import tr
 from services.file_metadata_repository_cache import FileInfoRepositoryCache
 
 # Importar tool cards
@@ -192,18 +193,14 @@ class Stage3Window(BaseStage):
         layout.addWidget(icon_label)
         
         # Mensaje
-        msg_label = QLabel(
-            "<b>Estadísticas desactualizadas</b><br>"
-            "Se han realizado cambios en los archivos. "
-            "Las estadísticas mostradas pueden no ser precisas."
-        )
+        msg_label = QLabel(tr("stage3.banner.stale_stats"))
         msg_label.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT}; font-size: {DesignSystem.FONT_SIZE_BASE}px;")
         layout.addWidget(msg_label)
         
         layout.addStretch()
         
         # Botón de re-análisis
-        btn = QPushButton("Re-analizar ahora")
+        btn = QPushButton(tr("stage3.button.reanalyze_now"))
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setIcon(qta.icon('fa5s.sync-alt', color=DesignSystem.COLOR_TEXT))
         btn.setStyleSheet(DesignSystem.get_warning_button_style())
@@ -353,7 +350,7 @@ class Stage3Window(BaseStage):
         self.logger.info(f"Clic en herramienta: {tool_id}")
 
         if not self.analysis_results:
-            QMessageBox.warning(self.main_window, "Error", "No hay datos de análisis disponibles")
+            QMessageBox.warning(self.main_window, tr("common.error"), tr("stage3.error.no_analysis_data"))
             return
 
         # Verificar si necesitamos ejecutar análisis primero (usando hasattr)
@@ -402,7 +399,7 @@ class Stage3Window(BaseStage):
                 if live_photo_data.items_count > 0:
                     dialog = LivePhotosDialog(live_photo_data, self.main_window)
                 else:
-                    QMessageBox.information(self.main_window, "Info", "No se encontraron Live Photos.")
+                    QMessageBox.information(self.main_window, tr("common.info"), tr("stage3.info.no_live_photos"))
 
         elif tool_id == 'heic':
             if hasattr(self.analysis_results, 'heic') and self.analysis_results.heic:
@@ -410,7 +407,7 @@ class Stage3Window(BaseStage):
                 if heic_data.items_count > 0:
                     dialog = HeicDialog(heic_data, self.main_window)
                 else:
-                     QMessageBox.information(self.main_window, "Info", "No se encontraron pares HEIC/JPG.")
+                     QMessageBox.information(self.main_window, tr("common.info"), tr("stage3.info.no_heic_pairs"))
 
         elif tool_id == 'duplicates_exact':
             if hasattr(self.analysis_results, 'duplicates') and self.analysis_results.duplicates:
@@ -418,7 +415,7 @@ class Stage3Window(BaseStage):
                 if dup_data.total_groups > 0:
                     dialog = DuplicatesExactDialog(dup_data, self.main_window)
                 else:
-                     QMessageBox.information(self.main_window, "Info", "No se encontraron copias exactas.")
+                     QMessageBox.information(self.main_window, tr("common.info"), tr("stage3.info.no_exact_copies"))
 
         elif tool_id == 'visual_identical':
             if hasattr(self.analysis_results, 'visual_identical') and self.analysis_results.visual_identical:
@@ -428,9 +425,8 @@ class Stage3Window(BaseStage):
                 else:
                     QMessageBox.information(
                         self.main_window, 
-                        "Sin copias visuales idénticas", 
-                        "No se encontraron copias visuales idénticas.\n\n"
-                        "Todas las imágenes son visualmente únicas."
+                        tr("stage3.info.no_visual_identical_title"), 
+                        tr("stage3.info.no_visual_identical_msg")
                     )
 
         elif tool_id == 'duplicates_similar':
@@ -443,9 +439,8 @@ class Stage3Window(BaseStage):
                 else:
                     QMessageBox.information(
                         self.main_window, 
-                        "Sin archivos para analizar", 
-                        "No se encontraron imágenes o videos para analizar.\n\n"
-                        "Asegúrate de que el directorio contenga archivos soportados."
+                        tr("stage3.info.no_files_to_analyze_title"), 
+                        tr("stage3.info.no_files_to_analyze_msg")
                     )
 
         elif tool_id == 'file_organizer':
@@ -464,7 +459,7 @@ class Stage3Window(BaseStage):
                 if zero_byte_data.items_count > 0:
                     dialog = ZeroByteDialog(zero_byte_data, self.main_window)
                 else:
-                     QMessageBox.information(self.main_window, "Info", "No se encontraron archivos vacíos.")
+                     QMessageBox.information(self.main_window, tr("common.info"), tr("stage3.info.no_empty_files"))
 
         if dialog:
             result = dialog.exec()
@@ -495,14 +490,14 @@ class Stage3Window(BaseStage):
         
         # Mapeo de tool_id a Worker Class
         worker_map = {
-            'live_photos': (LivePhotosAnalysisWorker, "Analizando Live Photos..."),
-            'heic': (HeicAnalysisWorker, "Buscando duplicados HEIC/JPG..."),
-            'duplicates_exact': (DuplicatesExactAnalysisWorker, "Buscando copias exactas..."),
-            'visual_identical': (VisualIdenticalAnalysisWorker, "Buscando copias visuales idénticas..."),
-            'duplicates_similar': (DuplicatesSimilarAnalysisWorker, "Analizando archivos similares..."),
-            'zero_byte': (ZeroByteAnalysisWorker, "Buscando archivos vacíos..."),
-            'file_organizer': (FileOrganizerAnalysisWorker, "Analizando estructura..."),
-            'file_renamer': (FileRenamerAnalysisWorker, "Analizando nombres...")
+            'live_photos': (LivePhotosAnalysisWorker, tr("stage3.progress.analyzing_live_photos")),
+            'heic': (HeicAnalysisWorker, tr("stage3.progress.searching_heic")),
+            'duplicates_exact': (DuplicatesExactAnalysisWorker, tr("stage3.progress.searching_exact_copies")),
+            'visual_identical': (VisualIdenticalAnalysisWorker, tr("stage3.progress.searching_visual_identical")),
+            'duplicates_similar': (DuplicatesSimilarAnalysisWorker, tr("stage3.progress.analyzing_similar")),
+            'zero_byte': (ZeroByteAnalysisWorker, tr("stage3.progress.searching_empty_files")),
+            'file_organizer': (FileOrganizerAnalysisWorker, tr("stage3.progress.analyzing_structure")),
+            'file_renamer': (FileRenamerAnalysisWorker, tr("stage3.progress.analyzing_names"))
         }
         
         if tool_id not in worker_map:
@@ -571,7 +566,7 @@ class Stage3Window(BaseStage):
             
         def on_error(msg):
             progress.close()
-            QMessageBox.critical(self.main_window, "Error", f"Error en análisis: {msg}")
+            QMessageBox.critical(self.main_window, tr("common.error"), tr("stage3.error.analysis_failed", msg=msg))
             worker.deleteLater()
             
         def on_progress_update(current, total, msg):
@@ -632,9 +627,8 @@ class Stage3Window(BaseStage):
         if tool_id in destructive_tools and not is_dry_run and settings_manager.get_confirm_delete():
             reply = QMessageBox.question(
                 self.main_window,
-                "Confirmar Eliminación",
-                "Esta operación eliminará archivos de forma permanente.\n\n"
-                "¿Estás seguro de que deseas continuar?",
+                tr("stage3.confirm.delete_title"),
+                tr("stage3.confirm.delete_msg"),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No
             )
@@ -645,12 +639,12 @@ class Stage3Window(BaseStage):
 
         # Crear diálogo de progreso
         progress_dialog = QProgressDialog(
-            "Ejecutando operación...",
-            "Cancelar",
+            tr("stage3.progress.executing_operation"),
+            tr("common.cancel"),
             0, 100,
             self.main_window
         )
-        progress_dialog.setWindowTitle("Procesando")
+        progress_dialog.setWindowTitle(tr("stage3.progress.processing_title"))
         progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
         progress_dialog.setMinimumDuration(0)
         progress_dialog.setValue(0)
@@ -895,8 +889,8 @@ class Stage3Window(BaseStage):
             self.logger.error(f"Error en operación {tool_id}: {error_message}")
             QMessageBox.critical(
                 self.main_window,
-                "Error",
-                f"Ocurrió un error:\n\n{error_message[:500]}"
+                tr("common.error"),
+                tr("stage3.error.operation_failed_msg", error=error_message[:500])
             )
             worker.deleteLater()
         
@@ -915,7 +909,7 @@ class Stage3Window(BaseStage):
                 return
             
             # Actualizar el mensaje del diálogo mientras esperamos
-            progress_dialog.setLabelText("Cancelando operación, por favor espera...")
+            progress_dialog.setLabelText(tr("stage3.progress.cancelling"))
             progress_dialog.setCancelButton(None)  # Deshabilitar el botón de cancelar
             
             # Desconectar señales de procesamiento pero mantener finished para limpieza
@@ -1316,8 +1310,8 @@ class Stage3Window(BaseStage):
         """Maneja el clic en "Cambiar carpeta" """
         reply = QMessageBox.question(
             self.main_window,
-            "Cambiar carpeta",
-            "¿Cambiar de carpeta? Se perderá el análisis actual.",
+            tr("stage3.confirm.change_folder_title"),
+            tr("stage3.confirm.change_folder_msg"),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No
         )

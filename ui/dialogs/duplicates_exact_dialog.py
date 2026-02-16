@@ -24,6 +24,7 @@ from services.file_metadata_repository_cache import FileInfoRepositoryCache
 from utils.format_utils import format_size
 from utils.file_utils import is_image_file, is_video_file
 from utils.logger import get_logger
+from utils.i18n import tr
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
 from ui.tools_definitions import TOOL_DUPLICATES_EXACT
@@ -165,17 +166,17 @@ class DuplicatesExactDialog(BaseDialog):
             metrics=[
                 {
                     'value': str(self.analysis.total_groups),
-                    'label': 'Grupos',
+                    'label': tr("dialogs.duplicates_exact.metric_groups"),
                     'color': DesignSystem.COLOR_PRIMARY
                 },
                 {
                     'value': str(self.analysis.total_duplicates),
-                    'label': 'Copias',
+                    'label': tr("dialogs.duplicates_exact.metric_copies"),
                     'color': DesignSystem.COLOR_WARNING
                 },
                 {
                     'value': format_size(self._calculate_recoverable_space()),
-                    'label': 'Recuperable',
+                    'label': tr("dialogs.duplicates_exact.metric_recoverable"),
                     'color': DesignSystem.COLOR_SUCCESS
                 }
             ]
@@ -201,9 +202,8 @@ class DuplicatesExactDialog(BaseDialog):
         # Advertencia si hay muchos grupos
         if len(self.all_groups) > self.WARNING_THRESHOLD:
             warning = QLabel(
-                f"<b>ℹ️ {len(self.all_groups)} grupos encontrados.</b> "
-                f"Se cargan {self.INITIAL_LOAD} grupos inicialmente. "
-                f"Usa búsqueda y filtros para encontrar grupos específicos."
+                tr("dialogs.duplicates_exact.warning_many_groups",
+                   count=len(self.all_groups), initial=self.INITIAL_LOAD)
             )
             warning.setTextFormat(Qt.TextFormat.RichText)
             warning.setWordWrap(True)
@@ -235,14 +235,14 @@ class DuplicatesExactDialog(BaseDialog):
         security_options = self._create_security_options_section(
             show_backup=True,
             show_dry_run=True,
-            backup_label="Crear backup antes de eliminar",
-            dry_run_label="Modo simulación (no eliminar realmente)"
+            backup_label=tr("dialogs.duplicates_exact.option_backup"),
+            dry_run_label=tr("dialogs.duplicates_exact.option_dry_run")
         )
         content_layout.addWidget(security_options)
         
         # Botones de acción
         button_box = self.make_ok_cancel_buttons(
-            ok_text="Eliminar duplicados",
+            ok_text=tr("dialogs.duplicates_exact.button_delete"),
             ok_enabled=len(self.all_groups) > 0,
             button_style='danger'
         )
@@ -255,13 +255,13 @@ class DuplicatesExactDialog(BaseDialog):
     def _create_strategy_selector(self) -> QFrame:
         """Crea el selector de estrategia de conservación usando método centralizado."""
         strategies = [
-            ('oldest', 'clock-outline', 'Más antiguo', 'Conserva el archivo con fecha más antigua (original)'),
-            ('newest', 'clock-fast', 'Más reciente', 'Conserva el archivo con fecha más reciente'),
+            ('oldest', 'clock-outline', tr("dialogs.duplicates_exact.strategy.oldest_title"), tr("dialogs.duplicates_exact.strategy.oldest_desc")),
+            ('newest', 'clock-fast', tr("dialogs.duplicates_exact.strategy.newest_title"), tr("dialogs.duplicates_exact.strategy.newest_desc")),
         ]
         
         frame = self._create_compact_strategy_selector(
-            title="Conservar:",
-            description="Elige qué archivo mantener de cada grupo",
+            title=tr("dialogs.duplicates_exact.strategy.title"),
+            description=tr("dialogs.duplicates_exact.strategy.description"),
             strategies=strategies,
             current_strategy=self.keep_strategy,
             on_strategy_changed=self._on_strategy_changed
@@ -279,11 +279,11 @@ class DuplicatesExactDialog(BaseDialog):
         
         # Diccionario de etiquetas para el DesignSystem.get_filter_label_style()
         labels = {
-            'search': 'Buscar por nombre',
-            'size': 'Tamaño / Cantidad',
-            'groups': 'Grupos seleccionados',
-            'source': 'Origen de la fecha',
-            'type': 'Tipo de archivo'
+            'search': tr("dialogs.duplicates_exact.filter.search"),
+            'size': tr("dialogs.duplicates_exact.filter.size"),
+            'groups': tr("dialogs.duplicates_exact.filter.groups"),
+            'source': tr("dialogs.duplicates_exact.filter.source"),
+            'type': tr("dialogs.duplicates_exact.filter.type")
         }
         
         # Configuración de filtros expandibles
@@ -292,7 +292,7 @@ class DuplicatesExactDialog(BaseDialog):
                 'id': 'source',
                 'type': 'combo',
                 'label': labels['source'],
-                'tooltip': 'Filtrar por origen de la fecha',
+                'tooltip': tr("dialogs.duplicates_exact.filter.source_tooltip"),
                 'options': source_options,
                 'on_change': self._on_source_filter_changed,
                 'default_index': 0,
@@ -302,8 +302,8 @@ class DuplicatesExactDialog(BaseDialog):
                 'id': 'type',
                 'type': 'combo',
                 'label': labels['type'],
-                'tooltip': 'Filtrar por tipo de archivo',
-                'options': ["Todos", "Fotos", "Videos"],
+                'tooltip': tr("dialogs.duplicates_exact.filter.type_tooltip"),
+                'options': [tr("common.filter.all"), tr("common.filter.photos"), tr("common.filter.videos")],
                 'on_change': self._on_type_filter_changed,
                 'default_index': 0,
                 'min_width': 120
@@ -349,7 +349,7 @@ class DuplicatesExactDialog(BaseDialog):
     
     def _create_tree_widget(self) -> QTreeWidget:
         """Crea el widget de árbol para mostrar grupos."""
-        headers = ["Grupos / Archivos", "Tamaño", "Fecha", "Origen", "Ubicación", "Estado"]
+        headers = [tr("common.tree_header.groups_files"), tr("common.tree_header.size"), tr("common.tree_header.date"), tr("common.tree_header.origin"), tr("common.tree_header.location"), tr("common.tree_header.status")]
         column_widths = [300, 90, 130, 120, 200, 100]
         
         return create_groups_tree_widget(
@@ -394,9 +394,7 @@ class DuplicatesExactDialog(BaseDialog):
             }}
         """)
         self.progress_indicator.setToolTip(
-            "Muestra cuántos grupos se han cargado en la lista.\n"
-            "Por rendimiento, los grupos se cargan en lotes.\n"
-            "Usa 'Cargar más' para ver grupos adicionales."
+            tr("dialogs.duplicates_exact.pagination.tooltip")
         )
         pagination_layout.addWidget(self.progress_indicator)
         
@@ -422,10 +420,10 @@ class DuplicatesExactDialog(BaseDialog):
         pagination_layout.addWidget(self.progress_bar_container, 1)
         
         # Botón cargar todos
-        self.load_all_btn = QPushButton("Cargar todos")
+        self.load_all_btn = QPushButton(tr("common.pagination.load_all"))
         icon_manager.set_button_icon(self.load_all_btn, 'download', size=16)
         self.load_all_btn.clicked.connect(self._load_all_groups)
-        self.load_all_btn.setToolTip("Cargar todos los grupos restantes de una vez")
+        self.load_all_btn.setToolTip(tr("dialogs.duplicates_exact.pagination.load_all_tooltip"))
         self.load_all_btn.setStyleSheet(f"""
             QPushButton {{
                 background-color: transparent;
@@ -444,7 +442,7 @@ class DuplicatesExactDialog(BaseDialog):
         pagination_layout.addWidget(self.load_all_btn)
         
         # Botón cargar más
-        self.load_more_btn = QPushButton("Cargar más")
+        self.load_more_btn = QPushButton(tr("common.pagination.load_more"))
         icon_manager.set_button_icon(self.load_more_btn, 'refresh', size=18)
         self.load_more_btn.clicked.connect(self._load_more_groups)
         self.load_more_btn.setStyleSheet(f"""
@@ -505,10 +503,9 @@ class DuplicatesExactDialog(BaseDialog):
         if remaining > 500:
             reply = QMessageBox.question(
                 self,
-                "Cargar todos los grupos",
-                f"Hay {remaining} grupos pendientes de cargar.\n"
-                "Esto puede tardar y afectar al rendimiento.\n\n"
-                "¿Continuar?",
+                tr("common.dialog.load_all_groups_title"),
+                tr("dialogs.duplicates_exact.pagination.load_all_msg",
+                   count=remaining),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
             )
             if reply != QMessageBox.StandardButton.Yes:
@@ -541,7 +538,7 @@ class DuplicatesExactDialog(BaseDialog):
         
         # Crear item de grupo
         group_item = QTreeWidgetItem()
-        group_item.setText(0, f"Grupo #{group_num} • {file_count} copias")
+        group_item.setText(0, tr("common.tree.group_label", num=group_num, count=file_count))
         
         # Aplicar estilo unificado de grupo
         apply_group_item_style(group_item, num_columns=6)
@@ -549,8 +546,8 @@ class DuplicatesExactDialog(BaseDialog):
         # Tooltip informativo
         group_item.setToolTip(0, create_group_tooltip(
             group_num,
-            f"{file_count} archivos idénticos (mismo SHA256)",
-            f"Tamaño total: {format_size(group.total_size)}"
+            tr("dialogs.duplicates_exact.tooltip.group_desc", count=file_count),
+            tr("dialogs.duplicates_exact.tooltip.total_size", size=format_size(group.total_size))
         ))
         
         group_item.setData(0, Qt.ItemDataRole.UserRole, group)
@@ -616,7 +613,8 @@ class DuplicatesExactDialog(BaseDialog):
         if filtered_count > 0:
             percent = (loaded / filtered_count) * 100
             self.progress_indicator.setText(
-                f"{percent:.0f}% cargado en lista ({loaded} de {filtered_count} grupos)"
+                tr("dialogs.duplicates_exact.pagination.progress_text",
+                   percent=f"{percent:.0f}", loaded=loaded, total=filtered_count)
             )
             
             # Actualizar barra
@@ -624,7 +622,7 @@ class DuplicatesExactDialog(BaseDialog):
             fill_width = int(bar_width * loaded / filtered_count) if bar_width > 0 else 0
             self.progress_bar_fill.setGeometry(0, 0, fill_width, 8)
         else:
-            self.progress_indicator.setText("Sin grupos que mostrar")
+            self.progress_indicator.setText(tr("common.pagination.no_groups"))
             self.progress_bar_fill.setGeometry(0, 0, 0, 8)
         
         # Mostrar/ocultar botones según estado
@@ -636,10 +634,10 @@ class DuplicatesExactDialog(BaseDialog):
         if has_more:
             remaining = filtered_count - loaded
             to_load = min(self.LOAD_INCREMENT, remaining)
-            self.load_more_btn.setText(f"Cargar {to_load} más")
-            self.load_more_btn.setToolTip(f"Cargar {to_load} grupos más ({remaining} pendientes)")
+            self.load_more_btn.setText(tr("common.pagination.load_n_more", count=to_load))
+            self.load_more_btn.setToolTip(tr("dialogs.duplicates_exact.pagination.load_more_tooltip", count=to_load, remaining=remaining))
         else:
-            self.load_more_btn.setText("✓ Todos cargados")
+            self.load_more_btn.setText(tr("dialogs.duplicates_exact.pagination.all_loaded"))
     
     # ========================================================================
     # MANEJADORES DE EVENTOS
@@ -662,7 +660,7 @@ class DuplicatesExactDialog(BaseDialog):
         # Actualizar métrica de espacio recuperable
         self._update_header_metric(
             self.header_frame, 
-            'Recuperable', 
+            tr("dialogs.duplicates_exact.metric_recoverable"), 
             format_size(self._calculate_recoverable_space())
         )
     
@@ -692,13 +690,13 @@ class DuplicatesExactDialog(BaseDialog):
             return True
             
         type_filter = self.type_combo.currentText()
-        if type_filter == "Todos":
+        if type_filter == tr("common.filter.all"):
             return True
         
         for file_path in group.files:
-            if type_filter == 'Fotos' and is_image_file(file_path):
+            if type_filter == tr("common.filter.photos") and is_image_file(file_path):
                 return True
-            elif type_filter == 'Videos' and is_video_file(file_path):
+            elif type_filter == tr("common.filter.videos") and is_video_file(file_path):
                 return True
         
         return False
@@ -770,7 +768,7 @@ class DuplicatesExactDialog(BaseDialog):
         # Actualizar métrica de espacio recuperable
         self._update_header_metric(
             self.header_frame, 
-            'Recuperable', 
+            tr("dialogs.duplicates_exact.metric_recoverable"), 
             format_size(self._calculate_recoverable_space())
         )
         
@@ -799,10 +797,10 @@ class DuplicatesExactDialog(BaseDialog):
                 
                 status_info = {
                     'metadata': {
-                        'Estado': 'Se mantendrá' if is_keep else 'Se eliminará',
-                        'Grupo': f'{len(group.files)} archivos idénticos',
-                        'Espacio grupo': format_size(group.total_size),
-                        'Estrategia': self._strategy_name()
+                        tr("common.details.status"): tr("common.status.will_keep") if is_keep else tr("common.status.will_delete"),
+                        tr("common.groups"): tr("dialogs.duplicates_exact.details.group_desc", count=len(group.files)),
+                        tr("common.details.group_space"): format_size(group.total_size),
+                        tr("common.details.strategy"): self._strategy_name()
                     }
                 }
                 break
@@ -812,8 +810,8 @@ class DuplicatesExactDialog(BaseDialog):
     def _strategy_name(self) -> str:
         """Devuelve el nombre legible de la estrategia."""
         names = {
-            'oldest': 'más antiguo',
-            'newest': 'más reciente'
+            'oldest': tr("common.strategy_name.oldest"),
+            'newest': tr("common.strategy_name.newest")
         }
         return names.get(self.keep_strategy, self.keep_strategy)
     

@@ -10,6 +10,7 @@ from services.base_service import BaseService, ProgressCallback
 from services.result_types import ZeroByteAnalysisResult, ZeroByteExecutionResult
 from services.file_metadata_repository_cache import FileInfoRepositoryCache
 from utils.logger import log_section_header_relevant, log_section_footer_relevant
+from utils.i18n import tr
 
 
 class ZeroByteService(BaseService):
@@ -40,7 +41,7 @@ class ZeroByteService(BaseService):
         repo = FileInfoRepositoryCache.get_instance()
         total = repo.get_file_count()  # O(1) optimizado
         
-        self.logger.info(f"Buscando archivos de 0 bytes en repositorio ({total} archivos)")
+        self.logger.info(f"Searching for 0-byte files in repository ({total} files)")
         
         zero_byte_files = []
         all_files = repo.get_all_files()
@@ -51,10 +52,10 @@ class ZeroByteService(BaseService):
             
             # Reportar progreso periódicamente (intervalo alto, operación en memoria rápida)
             if self._should_report_progress(i, interval=5000):
-                if not self._report_progress(progress_callback, i, total, "Filtrando archivos vacíos..."):
+                if not self._report_progress(progress_callback, i, total, tr("services.progress.filtering_empty_files")):
                     break
                      
-        self.logger.info(f"Encontrados {len(zero_byte_files)} archivos de 0 bytes")
+        self.logger.info(f"Found {len(zero_byte_files)} 0-byte files")
         
         return ZeroByteAnalysisResult(
             files=zero_byte_files,
@@ -115,9 +116,9 @@ class ZeroByteService(BaseService):
         result = ZeroByteExecutionResult(dry_run=dry_run)
         total = len(files_to_delete)
         
-        mode = "SIMULACIÓN" if dry_run else ""
-        log_section_header_relevant(self.logger, "ELIMINACIÓN DE ARCHIVOS VACÍOS", mode=mode)
-        self.logger.info(f"*** Archivos a procesar: {total}")
+        mode = "SIMULATION" if dry_run else ""
+        log_section_header_relevant(self.logger, "EMPTY FILE DELETION", mode=mode)
+        self.logger.info(f"*** Files to process: {total}")
         
         files_affected = []
         items_processed = 0
@@ -127,7 +128,7 @@ class ZeroByteService(BaseService):
                 progress_callback,
                 i,
                 total,
-                f"{'[Simulación] Eliminaría' if dry_run else 'Eliminando'}\n{file_path.name}"
+                f"{tr('services.progress.would_delete') if dry_run else tr('services.progress.deleting')}\n{file_path.name}"
             ):
                 break
             
@@ -142,28 +143,28 @@ class ZeroByteService(BaseService):
                     files_affected.append(file_path)
                 else:
                     self.logger.warning(
-                        f"ARCHIVO_DESCARTADO: {file_path} | "
+                        f"FILE_SKIPPED: {file_path} | "
                         f"Size: 0 B | Type: {file_type} | "
-                        f"Motivo: No se pudo eliminar el archivo"
+                        f"Reason: Could not delete file"
                     )
-                    result.add_error(f"No se pudo eliminar: {file_path}")
+                    result.add_error(f"Could not delete: {file_path}")
                         
             except Exception as e:
-                result.add_error(f"Error procesando {file_path}: {e}")
+                result.add_error(f"Error processing {file_path}: {e}")
         
         result.items_processed = items_processed
         result.files_affected = files_affected
         
         # Resumen de archivos descartados
-        total_descartados = total - items_processed
-        if total_descartados > 0:
+        total_skipped = total - items_processed
+        if total_skipped > 0:
             self.logger.warning(
-                f"RESUMEN_DESCARTADOS: {total_descartados}/{total} archivos no pudieron ser eliminados"
+                f"SKIPPED_SUMMARY: {total_skipped}/{total} files could not be deleted"
             )
         
         # Usar _format_operation_summary de BaseService
         summary = self._format_operation_summary(
-            "Eliminación de archivos vacíos",
+            tr("services.operation.empty_file_deletion"),
             items_processed,
             space_amount=0,  # Son archivos de 0 bytes
             dry_run=dry_run
@@ -176,7 +177,7 @@ class ZeroByteService(BaseService):
         repo = FileInfoRepositoryCache.get_instance()
         repo.log_cache_statistics(level=logging.INFO)
         
-        self._report_progress(progress_callback, total, total, "Operación completada")
+        self._report_progress(progress_callback, total, total, tr("services.progress.operation_completed"))
             
         return result
 

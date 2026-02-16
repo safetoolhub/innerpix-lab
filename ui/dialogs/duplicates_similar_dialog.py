@@ -29,6 +29,7 @@ from utils.video_thumbnail import get_video_thumbnail
 from utils.platform_utils import open_file_with_default_app
 from utils.file_utils import is_image_file, is_video_file
 from utils.logger import get_logger
+from utils.i18n import tr
 from PyQt6.QtGui import QPainter, QPen
 from PyQt6.QtCore import QRect
 from ui.styles.design_system import DesignSystem
@@ -292,14 +293,11 @@ class DuplicatesSimilarDialog(BaseDialog):
             title=TOOL_DUPLICATES_SIMILAR.title,
             description=TOOL_DUPLICATES_SIMILAR.short_description,
             metrics=[
-                {'value': '-', 'label': 'Grupos', 'color': DesignSystem.COLOR_PRIMARY},
-                {'value': '-', 'label': 'Similares', 'color': DesignSystem.COLOR_WARNING},
-                {'value': '-', 'label': 'Recuperable', 'color': DesignSystem.COLOR_SUCCESS}
+                {'value': '-', 'label': tr("dialogs.duplicates_similar.metric_groups"), 'color': DesignSystem.COLOR_PRIMARY},
+                {'value': '-', 'label': tr("dialogs.duplicates_similar.metric_similar"), 'color': DesignSystem.COLOR_WARNING},
+                {'value': '-', 'label': tr("dialogs.duplicates_similar.metric_recoverable"), 'color': DesignSystem.COLOR_SUCCESS}
             ],
-            tip_message=(
-                "<b>Tip:</b> Esta herramienta detecta imágenes (videos próximamente) <i>similares</i> (recortes, ediciones). "
-                "Para copias <i>idénticas</i> visualmente, usa \"Copias Visuales Idénticas\"."
-            )
+            tip_message=tr("dialogs.duplicates_similar.tip_message")
         )
         main_layout.addWidget(self.header_frame)
         
@@ -356,14 +354,14 @@ class DuplicatesSimilarDialog(BaseDialog):
         security_options = self._create_security_options_section(
             show_backup=True,
             show_dry_run=True,
-            backup_label="Crear backup antes de eliminar",
-            dry_run_label="Modo simulación"
+            backup_label=tr("dialogs.duplicates_similar.option_backup"),
+            dry_run_label=tr("dialogs.duplicates_similar.option_dry_run")
         )
         content_layout.addWidget(security_options)
         
         # Botones
         button_box = self.make_ok_cancel_buttons(
-            ok_text="Eliminar Seleccionados",
+            ok_text=tr("dialogs.duplicates_similar.button_delete"),
             ok_enabled=False,
             button_style='danger'
         )
@@ -376,12 +374,12 @@ class DuplicatesSimilarDialog(BaseDialog):
     def _create_global_actions_bar(self) -> QFrame:
         """Crea la barra de acciones globales con estilo unificado (Chips)."""
         strategies = [
-            ('keep_largest', 'arrow-expand-all', 'Seleccionar automáticamente mejores imágenes', 'Seleccionar los mejores archivos disponibles de cada grupo')
+            ('keep_largest', 'arrow-expand-all', tr("dialogs.duplicates_similar.strategy.auto_title"), tr("dialogs.duplicates_similar.strategy.auto_tooltip"))
         ]
         
         frame = self._create_compact_strategy_selector(
-            title="Selección Automática:",
-            description="Aplica a los grupos visibles actualmente",
+            title=tr("dialogs.duplicates_similar.strategy.title"),
+            description=tr("dialogs.duplicates_similar.strategy.description"),
             strategies=strategies,
             current_strategy=self.keep_strategy,
             on_strategy_changed=self._on_global_strategy_changed
@@ -399,20 +397,20 @@ class DuplicatesSimilarDialog(BaseDialog):
         
         # Diccionario de etiquetas
         labels = {
-            'search': 'Buscar por nombre',
-            'size': 'Tamaño / Cantidad',
-            'groups': 'Grupos filtrados',
-            'source': 'Origen de la fecha',
-            'type': 'Tipo de archivo'
+            'search': tr("dialogs.duplicates_similar.filter.search"),
+            'size': tr("dialogs.duplicates_similar.filter.size"),
+            'groups': tr("dialogs.duplicates_similar.filter.groups"),
+            'source': tr("dialogs.duplicates_similar.filter.source"),
+            'type': tr("dialogs.duplicates_similar.filter.type")
         }
         
         # Opciones de filtro de tamaño específicas para este diálogo
         size_options = [
-            "Todos",
-            ">10 MB",
-            ">50 MB",
-            "3+ copias",
-            "5+ copias"
+            tr("common.filter.all"),
+            tr("common.filter.gt_10mb"),
+            tr("common.filter.gt_50mb"),
+            tr("common.filter.3_plus_copies"),
+            tr("common.filter.5_plus_copies")
         ]
         
         # Configuración de filtros expandibles (similitud eliminada de aquí, va arriba)
@@ -421,7 +419,7 @@ class DuplicatesSimilarDialog(BaseDialog):
                 'id': 'source',
                 'type': 'combo',
                 'label': labels['source'],
-                'tooltip': 'Filtrar por origen de la fecha',
+                'tooltip': tr("dialogs.duplicates_similar.filter.source_tooltip"),
                 'options': source_options,
                 'on_change': self._on_source_filter_changed,
                 'default_index': 0,
@@ -431,8 +429,8 @@ class DuplicatesSimilarDialog(BaseDialog):
                 'id': 'type',
                 'type': 'combo',
                 'label': labels['type'],
-                'tooltip': 'Filtrar por tipo de archivo',
-                'options': ["Todos", "Fotos", "Videos"],
+                'tooltip': tr("dialogs.duplicates_similar.filter.type_tooltip"),
+                'options': [tr("common.filter.all"), tr("common.filter.photos"), tr("common.filter.videos")],
                 'on_change': self._on_type_filter_changed,
                 'default_index': 0,
                 'min_width': 120
@@ -505,7 +503,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         v_layout.setSpacing(2)
         
         # Etiqueta consistente con el sistema de filtros
-        label = QLabel("Sensibilidad")
+        label = QLabel(tr("dialogs.duplicates_similar.filter.sensitivity_label"))
         label.setStyleSheet(DesignSystem.get_filter_label_style())
         v_layout.addWidget(label)
         
@@ -525,7 +523,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         self.min_spin.setFixedWidth(55)
         self.min_spin.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.min_spin.setButtonSymbols(QSpinBox.ButtonSymbols.NoButtons) # Cleaner look
-        self.min_spin.setToolTip("Valor mínimo de similitud")
+        self.min_spin.setToolTip(tr("dialogs.duplicates_similar.filter.min_tooltip"))
         
         # Slider
         self.range_slider = DualRangeSlider(minimum=70, maximum=100, parent=self)
@@ -538,7 +536,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         self.max_spin.setFixedWidth(55)
         self.max_spin.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.max_spin.setButtonSymbols(QSpinBox.ButtonSymbols.NoButtons) # Cleaner look
-        self.max_spin.setToolTip("Valor máximo de similitud")
+        self.max_spin.setToolTip(tr("dialogs.duplicates_similar.filter.max_tooltip"))
         
         # Valores iniciales
         self.min_spin.setValue(70)
@@ -740,9 +738,9 @@ class DuplicatesSimilarDialog(BaseDialog):
             for g in groups_to_use if g.files
         )
         
-        self._update_header_metric(self.header_frame, 'Grupos', str(total_groups))
-        self._update_header_metric(self.header_frame, 'Similares', str(total_similar))
-        self._update_header_metric(self.header_frame, 'Recuperable', format_size(space_potential))
+        self._update_header_metric(self.header_frame, tr("dialogs.duplicates_similar.metric_groups"), str(total_groups))
+        self._update_header_metric(self.header_frame, tr("dialogs.duplicates_similar.metric_similar"), str(total_similar))
+        self._update_header_metric(self.header_frame, tr("dialogs.duplicates_similar.metric_recoverable"), format_size(space_potential))
     
     # ================= STRATEGY BUTTONS =================
     
@@ -751,7 +749,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         self.strategy_buttons = {}
         
         strategies = [
-            ('keep_largest', 'arrow-expand-all', 'Mejor imagen', 'Conservar archivo de mayor tamaño'),
+            ('keep_largest', 'arrow-expand-all', tr("dialogs.duplicates_similar.strategy.keep_largest_title"), tr("dialogs.duplicates_similar.strategy.keep_largest_tooltip")),
         ]
         
         for strategy_id, icon_name, label, tooltip in strategies:
@@ -793,7 +791,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         filtered_count = len(self.filtered_groups)
         if filtered_count == 0:
             # No hay grupos filtrados, no hacer nada
-            self.logger.info("No hay grupos filtrados disponibles para selección automática")
+            self.logger.info("No filtered groups available for automatic selection")
             return
         
         # Primero reseteamos visualmente para que no parezca activado hasta que confirmen
@@ -801,36 +799,32 @@ class DuplicatesSimilarDialog(BaseDialog):
         
         from PyQt6.QtWidgets import QMessageBox
         
-        strategy_name = "Selección Automática (Mejores Imágenes)"
+        strategy_name = tr("dialogs.duplicates_similar.auto_select.strategy_name")
         total_count = len(self.all_groups)
         
         # Diálogo de confirmación
         msg = QMessageBox(self)
         msg.setIcon(QMessageBox.Icon.Question)
-        msg.setWindowTitle(f"Confirmar Auto-Selección: {strategy_name}")
+        msg.setWindowTitle(tr("dialogs.duplicates_similar.auto_select.title", name=strategy_name))
         
         if filtered_count < total_count:
             # Hay filtros aplicados
             msg.setText(
-                f"<b>¿Aplicar selección '{strategy_name}' a los {filtered_count} grupos filtrados?</b>"
+                tr("dialogs.duplicates_similar.auto_select.text_filtered",
+                   name=strategy_name, count=filtered_count)
             )
             msg.setInformativeText(
-                f"ℹ️ <b>NOTA:</b><br><br>"
-                f"Esta acción se aplicará <b>únicamente</b> a los <b>{filtered_count} grupos</b> "
-                f"que coinciden con los filtros actuales.<br><br>"
-                f"Los <b>{total_count - filtered_count} grupos restantes</b> "
-                f"<b>conservarán su selección actual</b> sin cambios.<br><br>"
-                f"Puedes cambiar los filtros y repetir la operación para otros grupos."
+                tr("dialogs.duplicates_similar.auto_select.info_filtered",
+                   filtered=filtered_count, remaining=total_count - filtered_count)
             )
         else:
             # No hay filtros, se aplica a todos
             msg.setText(
-                f"<b>¿Aplicar selección '{strategy_name}' a todos los {total_count} grupos?</b>"
+                tr("dialogs.duplicates_similar.auto_select.text_all",
+                   name=strategy_name, count=total_count)
             )
             msg.setInformativeText(
-                "Esta acción seleccionará el archivo de mayor tamaño como el que se "
-                "<b>conservará</b> en cada grupo.<br><br>"
-                "Los demás archivos del grupo serán marcados para <b>eliminación</b>."
+                tr("dialogs.duplicates_similar.auto_select.info_all")
             )
         msg.setStandardButtons(
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel
@@ -863,9 +857,9 @@ class DuplicatesSimilarDialog(BaseDialog):
             for btn in self.global_strategy_buttons.values():
                 btn.setEnabled(has_filtered_groups)
                 if not has_filtered_groups:
-                    btn.setToolTip("No hay grupos disponibles con los filtros actuales")
+                    btn.setToolTip(tr("dialogs.duplicates_similar.strategy.disabled_tooltip"))
                 else:
-                    btn.setToolTip("Seleccionar los mejores archivos disponibles de cada grupo")
+                    btn.setToolTip(tr("dialogs.duplicates_similar.strategy.auto_tooltip"))
     
     def _on_auto_select_click(self, strategy: str):
         """DEPRECATED: Mantenido por si acaso, redirige a _on_global_strategy_changed."""
@@ -901,7 +895,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         
         self.prev_btn = QPushButton()
         icon_manager.set_button_icon(self.prev_btn, 'chevron-left', size=18)
-        self.prev_btn.setToolTip("Grupo anterior")
+        self.prev_btn.setToolTip(tr("dialogs.duplicates_similar.nav.prev_tooltip"))
         self.prev_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.prev_btn.setFixedSize(32, 32)
         self.prev_btn.clicked.connect(self._previous_group)
@@ -909,7 +903,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         self.prev_btn.setStyleSheet(DesignSystem.get_nav_button_style())
         nav_layout.addWidget(self.prev_btn)
         
-        self.group_counter_label = QLabel("Cargando...")
+        self.group_counter_label = QLabel(tr("dialogs.duplicates_similar.loading.counter"))
         self.group_counter_label.setMinimumWidth(100)
         self.group_counter_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.group_counter_label.setStyleSheet(DesignSystem.get_group_counter_label_style())
@@ -917,7 +911,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         
         self.next_btn = QPushButton()
         icon_manager.set_button_icon(self.next_btn, 'chevron-right', size=18)
-        self.next_btn.setToolTip("Grupo siguiente")
+        self.next_btn.setToolTip(tr("dialogs.duplicates_similar.nav.next_tooltip"))
         self.next_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.next_btn.setFixedSize(32, 32)
         self.next_btn.clicked.connect(self._next_group)
@@ -960,7 +954,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         layout.addWidget(sep2)
         
         # === SECCIÓN DERECHA: Estrategias y acciones ===
-        strategy_label = QLabel("Conservar:")
+        strategy_label = QLabel(tr("dialogs.duplicates_similar.toolbar.keep_label"))
         strategy_label.setStyleSheet(DesignSystem.get_strategy_label_style())
         layout.addWidget(strategy_label)
         
@@ -969,7 +963,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         layout.addStretch()
         
         # Contador de selección global
-        self.global_summary_label = QLabel("0 seleccionados")
+        self.global_summary_label = QLabel(tr("dialogs.duplicates_similar.summary.none_selected"))
         self.global_summary_label.setMinimumWidth(120)
         self.global_summary_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self.global_summary_label.setStyleSheet(DesignSystem.get_global_summary_label_style())
@@ -995,11 +989,11 @@ class DuplicatesSimilarDialog(BaseDialog):
             bg_color = "#f59e0b"  # Ámbar/naranja elegante
         
         # Actualizar badge con texto abreviado
-        self.similarity_badge.setText(f"{score:.1f}% Similitud")
+        self.similarity_badge.setText(tr("dialogs.duplicates_similar.badge.similarity", score=score))
         self.similarity_badge.setStyleSheet(DesignSystem.get_similarity_badge_with_color_style(bg_color))
         
         # Actualizar info de archivos
-        self.group_files_info.setText(f"{len(group.files)} archivos · {format_size(group.total_size)}")
+        self.group_files_info.setText(tr("dialogs.duplicates_similar.badge.files_info", count=len(group.files), size=format_size(group.total_size)))
 
     # ================= LOADING STATE =================
 
@@ -1027,7 +1021,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         layout.addWidget(icon_label, alignment=Qt.AlignmentFlag.AlignCenter)
         
         # Mensaje principal (se actualiza dinámicamente)
-        self.loading_label = QLabel("Preparando análisis...")
+        self.loading_label = QLabel(tr("dialogs.duplicates_similar.loading.preparing"))
         self.loading_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.loading_label.setStyleSheet(DesignSystem.get_loading_label_style())
         layout.addWidget(self.loading_label)
@@ -1051,7 +1045,8 @@ class DuplicatesSimilarDialog(BaseDialog):
         
         # Submensaje con detalle de la fase actual
         self.loading_submsg = QLabel(
-            f"Sensibilidad: {self.current_sensitivity}% · {total_files:,} archivos"
+            tr("dialogs.duplicates_similar.loading.submessage",
+               sensitivity=self.current_sensitivity, count=f"{total_files:,}")
         )
         self.loading_submsg.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.loading_submsg.setStyleSheet(DesignSystem.get_loading_submessage_style())
@@ -1124,7 +1119,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         from PyQt6.QtWidgets import QApplication
         from PyQt6.sip import isdeleted
         
-        self.logger.info(f"Regenerando grupos con sensibilidad {self.current_sensitivity}%...")
+        self.logger.info(f"Regenerating groups with sensitivity {self.current_sensitivity}%...")
         
         # Actualizar info de sensibilidad (verificar que el widget existe)
         if (hasattr(self, 'loading_submsg') and 
@@ -1132,7 +1127,8 @@ class DuplicatesSimilarDialog(BaseDialog):
             not isdeleted(self.loading_submsg)):
             total_files = len(self.analysis.perceptual_hashes)
             self.loading_submsg.setText(
-                f"Sensibilidad: {self.current_sensitivity}% · {total_files:,} archivos"
+                tr("dialogs.duplicates_similar.loading.submessage",
+                   sensitivity=self.current_sensitivity, count=f"{total_files:,}")
             )
             QApplication.processEvents()
         
@@ -1148,7 +1144,7 @@ class DuplicatesSimilarDialog(BaseDialog):
             self.all_groups = result.groups.copy()
             self.filtered_groups = self.all_groups.copy()  # Inicialmente todos los grupos están filtrados
             
-            self.logger.info(f"Encontrados {len(self.all_groups)} grupos")
+            self.logger.info(f"Found {len(self.all_groups)} groups")
             
             self.selections.clear()
             self._update_header_metrics()
@@ -1181,9 +1177,9 @@ class DuplicatesSimilarDialog(BaseDialog):
             for g in self.all_groups if g.files
         )
         
-        self._update_header_metric(self.header_frame, 'Grupos', str(total_groups))
-        self._update_header_metric(self.header_frame, 'Similares', str(total_similar))
-        self._update_header_metric(self.header_frame, 'Recuperable', format_size(space_potential))
+        self._update_header_metric(self.header_frame, tr("dialogs.duplicates_similar.metric_groups"), str(total_groups))
+        self._update_header_metric(self.header_frame, tr("dialogs.duplicates_similar.metric_similar"), str(total_similar))
+        self._update_header_metric(self.header_frame, tr("dialogs.duplicates_similar.metric_recoverable"), format_size(space_potential))
 
     def _show_no_groups_message(self):
         """Muestra mensaje cuando no hay grupos (ya sea por filtros o sin coincidencias)."""
@@ -1203,19 +1199,11 @@ class DuplicatesSimilarDialog(BaseDialog):
         # Mensaje diferente según si hay grupos totales o no
         if self.all_groups and not self.filtered_groups:
             # Hay grupos pero los filtros los ocultaron
-            msg_text = (
-                "No se encontraron grupos que coincidan\n"
-                "con los filtros seleccionados.\n\n"
-                "Prueba a modificar los filtros para ver más resultados."
-            )
+            msg_text = tr("dialogs.duplicates_similar.no_groups.filtered")
         else:
             # No hay grupos en absoluto
-            msg_text = (
-                f"No se encontraron archivos similares\n"
-                f"con sensibilidad {self.current_sensitivity}%\n\n"
-                "Reduce la sensibilidad para detectar\n"
-                "archivos con más diferencias."
-            )
+            msg_text = tr("dialogs.duplicates_similar.no_groups.none_found",
+                         pct=self.current_sensitivity)
         
         msg = QLabel(msg_text)
         msg.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -1224,7 +1212,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         
         self.group_layout.addWidget(container)
         
-        self.group_counter_label.setText("0 de 0")
+        self.group_counter_label.setText(tr("dialogs.duplicates_similar.nav.counter_empty"))
         self.prev_btn.setEnabled(False)
         self.next_btn.setEnabled(False)
         
@@ -1249,7 +1237,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         real_index = self._get_real_group_index(index)
         
         # Actualizar contador de navegación
-        self.group_counter_label.setText(f"Grupo {index + 1} de {len(groups_to_show)}")
+        self.group_counter_label.setText(tr("dialogs.duplicates_similar.nav.counter", index=index + 1, total=len(groups_to_show)))
         
         # Habilitar navegación cíclica si hay más de un grupo
         has_multiple_groups = len(groups_to_show) > 1
@@ -1307,7 +1295,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         # Header
         header = QHBoxLayout()
         
-        checkbox = QCheckBox("Eliminar")
+        checkbox = QCheckBox(tr("dialogs.duplicates_similar.card.checkbox_delete"))
         checkbox.setChecked(is_selected)
         checkbox.setStyleSheet(f"QCheckBox {{ color: {DesignSystem.COLOR_DANGER}; font-weight: {DesignSystem.FONT_WEIGHT_BOLD}; }}")
         checkbox.toggled.connect(lambda checked, f=file_path: self._toggle_selection(f, checked))
@@ -1471,10 +1459,10 @@ class DuplicatesSimilarDialog(BaseDialog):
             f.stat().st_size for files in self.selections.values() for f in files if f.exists()
         )
         
-        self.global_summary_label.setText(f"{total_files} archivos seleccionados ({format_size(total_bytes)})")
+        self.global_summary_label.setText(tr("dialogs.duplicates_similar.summary.selected", count=total_files, size=format_size(total_bytes)))
         if self.delete_btn:
             self.delete_btn.setEnabled(total_files > 0)
-            self.delete_btn.setText(f"Eliminar {total_files} Archivos")
+            self.delete_btn.setText(tr("dialogs.duplicates_similar.button_delete_n", count=total_files))
 
     def _previous_group(self):
         """Navega al grupo anterior (ciclíco)."""
@@ -1533,7 +1521,7 @@ class DuplicatesSimilarDialog(BaseDialog):
                 return meta.fs_size
         
         # Fallback: leer del filesystem directamente
-        self.logger.warning(f"Tamaño no encontrado en caché, leyendo de filesystem: {file_path}")
+        self.logger.warning(f"Size not found in cache, reading from filesystem: {file_path}")
         try:
             return file_path.stat().st_size if file_path.exists() else 0
         except Exception:
@@ -1547,7 +1535,7 @@ class DuplicatesSimilarDialog(BaseDialog):
                 return best_date.timestamp()
         
         # Fallback: leer mtime del filesystem directamente
-        self.logger.warning(f"Best_date no encontrada en caché, usando mtime: {file_path}")
+        self.logger.warning(f"Best_date not found in cache, using mtime: {file_path}")
         try:
             return file_path.stat().st_mtime if file_path.exists() else float('inf')
         except Exception:
@@ -1607,14 +1595,14 @@ class DuplicatesSimilarDialog(BaseDialog):
         """
         # Si no hay grupos filtrados, no hacer nada
         if not self.filtered_groups:
-            self.logger.info("No hay grupos filtrados, no se aplica ningún cambio")
+            self.logger.info("No filtered groups, no changes applied")
             return
         
         groups_to_apply = self.filtered_groups
         
         self.logger.info(
-            f"Aplicando estrategia '{strategy}' a {len(groups_to_apply)} grupos filtrados "
-            f"(de {len(self.all_groups)} totales)"
+            f"Applying strategy '{strategy}' to {len(groups_to_apply)} filtered groups "
+            f"(of {len(self.all_groups)} total)"
         )
         
         # Crear un set de los grupos filtrados para búsqueda rápida
@@ -1650,7 +1638,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         menu = QMenu(self)
         menu.setStyleSheet(DesignSystem.get_context_menu_style())
         
-        action = menu.addAction(icon_manager.get_icon('information-outline'), "Ver detalles")
+        action = menu.addAction(icon_manager.get_icon('information-outline'), tr("dialogs.duplicates_similar.context_view_details"))
         if action:
             action.triggered.connect(lambda: show_file_details_dialog(file_path, self))
         
@@ -1667,7 +1655,7 @@ class DuplicatesSimilarDialog(BaseDialog):
 
         # Validar que hay archivos seleccionados
         if not files_to_delete:
-            self.show_no_items_message("archivos similares seleccionados")
+            self.show_no_items_message(tr("dialogs.duplicates_similar.no_items_type"))
             return
 
         # Usar el current_result que contiene los grupos completos (>=2 archivos)

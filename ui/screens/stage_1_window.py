@@ -18,6 +18,7 @@ from ui.dialogs.settings_dialog import SettingsDialog
 from ui.dialogs.about_dialog import AboutDialog
 from ui.styles.icons import icon_manager
 from config import Config
+from utils.i18n import tr
 
 
 class Stage1Window(BaseStage):
@@ -45,7 +46,7 @@ class Stage1Window(BaseStage):
 
     def setup_ui(self) -> None:
         """Configura la interfaz de usuario del Stage 1."""
-        self.logger.debug("Configurando UI del Stage 1")
+        self.logger.debug("Setting up Stage 1 UI")
 
         # Limpiar layout principal
         if self.main_layout:
@@ -72,11 +73,11 @@ class Stage1Window(BaseStage):
         self.main_layout.addWidget(self.next_step_card)
         self.main_layout.addStretch()
 
-        self.logger.debug("UI del Estado 1 configurada")
+        self.logger.debug("Stage 1 UI configured")
 
     def cleanup(self) -> None:
         """Limpia los recursos del Estado 1."""
-        self.logger.debug("Limpiando Estado 1")
+        self.logger.debug("Cleaning up Stage 1")
 
         # Ocultar y desconectar widgets
         widgets_to_cleanup = [
@@ -108,7 +109,7 @@ class Stage1Window(BaseStage):
         layout.setSpacing(DesignSystem.SPACE_16)
 
         # Header de la card
-        header_title = QLabel("Paso 1: selecciona la carpeta con tus fotos")
+        header_title = QLabel(tr("stage1.header_title"))
         header_title.setProperty("class", "header")
         layout.addWidget(header_title)
 
@@ -134,7 +135,7 @@ class Stage1Window(BaseStage):
         btn_container = QHBoxLayout()
         btn_container.addStretch()
 
-        btn_select = QPushButton("Seleccionar carpeta...")
+        btn_select = QPushButton(tr("stage1.button_select_folder"))
         btn_select.setObjectName("primary-button")
         btn_select.setMinimumWidth(200)
         btn_select.setStyleSheet(DesignSystem.get_primary_button_style())
@@ -158,17 +159,14 @@ class Stage1Window(BaseStage):
 
         tips_container.addWidget(self._create_centered_tip(
             "information",
-            "Elige la carpeta donde tengas tus fotos y videos del iPhone, de WhatsApp, "
-            "o cualquier colección que quieras organizar.",
+            tr("stage1.tip_choose_folder"),
             icon_color=DesignSystem.COLOR_PRIMARY,  # Azul para info
             icon_size=DesignSystem.ICON_SIZE_LG
         ))
 
         tips_container.addWidget(self._create_centered_tip(
             "shield",
-            "Innerpix Lab únicamente " \
-            "analizará esa carpeta y todas sus subcarpetas. "
-            "No se modificará nada hasta que tú lo autorices.",
+            tr("stage1.tip_privacy_notice"),
             icon_color=DesignSystem.COLOR_ACCENT,  # Azul acento para resaltar
             icon_size=DesignSystem.ICON_SIZE_LG,
             text_color=DesignSystem.COLOR_ACCENT  # Azul acento para resaltar
@@ -206,14 +204,14 @@ class Stage1Window(BaseStage):
         else:
             display_path = folder_path
 
-        combined_text = f"Última carpeta analizada: {display_path}"
+        combined_text = tr("stage1.last_folder_label", path=display_path)
         info_label = QLabel(combined_text)
         info_label.setStyleSheet(DesignSystem.get_info_text_style())
         info_label.setToolTip(folder_path)
         layout.addWidget(info_label, 1)
 
         # Botón para usar esta carpeta
-        use_btn = QPushButton("Usar esta carpeta")
+        use_btn = QPushButton(tr("stage1.button_use_last_folder"))
         use_btn.setStyleSheet(DesignSystem.get_use_folder_button_style())
         use_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         use_btn.clicked.connect(lambda: self._on_use_last_folder())
@@ -279,13 +277,13 @@ class Stage1Window(BaseStage):
         layout.setSpacing(DesignSystem.SPACE_12)
 
         # Header
-        header_title = QLabel("Paso 2: elige qué quieres hacer")
+        header_title = QLabel(tr("stage1.step2_header"))
         header_title.setProperty("class", "header")
         layout.addWidget(header_title)
 
 
         # Texto centrado
-        empty_text = QLabel("Las herramientas aparecerán aquí después de analizar tu carpeta")
+        empty_text = QLabel(tr("stage1.step2_empty_state"))
         empty_text.setAlignment(Qt.AlignmentFlag.AlignCenter)
         empty_text.setStyleSheet(DesignSystem.get_empty_state_text_style())
         layout.addWidget(empty_text)
@@ -298,7 +296,7 @@ class Stage1Window(BaseStage):
         """Abre el diálogo de selección de carpeta"""
         folder = QFileDialog.getExistingDirectory(
             self.main_window,
-            "Seleccionar carpeta con fotos",
+            tr("stage1.dialog_select_folder"),
             str(Path.home()),
             QFileDialog.Option.ShowDirsOnly
         )
@@ -309,15 +307,14 @@ class Stage1Window(BaseStage):
     def _on_use_last_folder(self):
         """Usa la última carpeta analizada"""
         if self.last_folder and Path(self.last_folder).exists():
-            self.logger.info(f"Usando última carpeta: {self.last_folder}")
+            self.logger.info(f"Using last folder: {self.last_folder}")
             self._on_folder_selected(self.last_folder)
         else:
-            self.logger.warning("La última carpeta ya no existe")
+            self.logger.warning("Last folder no longer exists")
             QMessageBox.warning(
                 self.main_window,
-                "Carpeta no disponible",
-                f"La última carpeta ya no existe:\n{self.last_folder}\n\n"
-                "Por favor selecciona otra carpeta."
+                tr("stage1.error.folder_unavailable_title"),
+                tr("stage1.error.folder_unavailable_msg", path=self.last_folder)
             )
             # Limpiar la última carpeta
             self.last_folder = None
@@ -329,33 +326,31 @@ class Stage1Window(BaseStage):
 
         # Validación 1: La carpeta debe existir
         if not path.exists():
-            self.logger.error(f"La carpeta no existe: {folder_path}")
+            self.logger.error(f"Folder does not exist: {folder_path}")
             QMessageBox.critical(
                 self.main_window,
-                "Error - Carpeta no encontrada",
-                f"La carpeta seleccionada no existe:\n\n{folder_path}\n\n"
-                "Puede haber sido movida o eliminada."
+                tr("stage1.error.folder_not_found_title"),
+                tr("stage1.error.folder_not_found_msg", path=folder_path)
             )
             return
 
         # Validación 2: Debe ser un directorio
         if not path.is_dir():
-            self.logger.error(f"La ruta no es una carpeta: {folder_path}")
+            self.logger.error(f"Path is not a directory: {folder_path}")
             QMessageBox.warning(
                 self.main_window,
-                "Selección inválida",
-                "Por favor selecciona una carpeta, no un archivo individual."
+                tr("stage1.error.invalid_selection_title"),
+                tr("stage1.error.invalid_selection_msg")
             )
             return
 
         # Validación 3: Verificar permisos de lectura
         if not os.access(folder_path, os.R_OK):
-            self.logger.error(f"Sin permisos de lectura: {folder_path}")
+            self.logger.error(f"No read permission: {folder_path}")
             QMessageBox.critical(
                 self.main_window,
-                "Error - Permisos insuficientes",
-                f"No tienes permisos de lectura en esta carpeta:\n\n{folder_path}\n\n"
-                "Por favor selecciona una carpeta donde tengas acceso de lectura."
+                tr("stage1.error.no_permission_title"),
+                tr("stage1.error.no_permission_msg", path=folder_path)
             )
             return
 
@@ -367,24 +362,23 @@ class Stage1Window(BaseStage):
             if not first_items:
                 result = QMessageBox.question(
                     self.main_window,
-                    "Carpeta vacía",
-                    f"La carpeta seleccionada parece estar vacía:\n\n{folder_path}\n\n"
-                    "¿Deseas continuar de todos modos?",
+                    tr("stage1.warning.empty_folder_title"),
+                    tr("stage1.warning.empty_folder_msg", path=folder_path),
                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                     QMessageBox.StandardButton.No
                 )
                 if result == QMessageBox.StandardButton.No:
-                    self.logger.info("Usuario canceló selección de carpeta vacía")
+                    self.logger.info("User cancelled empty folder selection")
                     return
         except PermissionError:
-            self.logger.warning(f"No se pudo verificar contenido de la carpeta: {folder_path}")
+            self.logger.warning(f"Could not verify folder contents: {folder_path}")
             # Continuar de todos modos
         except Exception as e:
-            self.logger.error(f"Error verificando carpeta: {e}")
+            self.logger.error(f"Error verifying folder: {e}")
             # Continuar de todos modos
 
         self.selected_folder = str(path)
-        self.logger.info(f"Carpeta seleccionada: {self.selected_folder}")
+        self.logger.info(f"Folder selected: {self.selected_folder}")
 
         # Guardar como última carpeta
         self.save_last_folder(self.selected_folder)
@@ -396,12 +390,12 @@ class Stage1Window(BaseStage):
 
     def _on_settings_clicked(self):
         """Abre el diálogo de configuración"""
-        self.logger.info("Abriendo configuración")
+        self.logger.info("Opening settings")
         dialog = SettingsDialog(self.main_window)
         dialog.exec()
 
     def _on_about_clicked(self):
         """Abre el diálogo Acerca de"""
-        self.logger.info("Abriendo Acerca de")
+        self.logger.info("Opening About")
         dialog = AboutDialog(self.main_window)
         dialog.exec()

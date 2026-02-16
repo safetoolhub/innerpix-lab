@@ -13,6 +13,7 @@ from PyQt6.QtGui import QColor, QFont, QCursor
 from PyQt6.QtCore import Qt, QTimer
 from config import Config
 from utils.format_utils import format_size
+from utils.i18n import tr
 from utils.platform_utils import are_video_tools_available
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
@@ -71,17 +72,17 @@ class LivePhotosDialog(BaseDialog):
             metrics=[
                 {
                     'value': str(self.analysis.items_count),
-                    'label': 'Grupos',
+                    'label': tr("dialogs.live_photos.metric_groups"),
                     'color': DesignSystem.COLOR_PRIMARY
                 },
                 {
                     'value': str(self.analysis.total_images),
-                    'label': 'Imágenes',
+                    'label': tr("dialogs.live_photos.metric_images"),
                     'color': DesignSystem.COLOR_TEXT_SECONDARY
                 },
                 {
                     'value': format_size(potential_savings),
-                    'label': 'Recuperable',
+                    'label': tr("dialogs.live_photos.metric_recoverable"),
                     'color': DesignSystem.COLOR_SUCCESS
                 }
             ]
@@ -108,12 +109,10 @@ class LivePhotosDialog(BaseDialog):
             if not video_tools_available:
                 # Herramientas no instaladas - warning más importante
                 warning_banner = self._create_warning_banner(
-                    title='Herramientas de video no disponibles',
-                    message='No se detectaron <b>ffprobe</b> ni <b>exiftool</b> en el sistema. '
-                            'Sin estas herramientas, no es posible validar la duración ni fechas de los videos. '
-                            'Los Live Photos se detectan solo por coincidencia de nombres, lo que puede incluir falsos positivos.',
+                    title=tr("dialogs.live_photos.warning.tools_unavailable_title"),
+                    message=tr("dialogs.live_photos.warning.tools_unavailable_msg"),
                     icon='alert-circle',
-                    action_text='Ver cómo instalar',
+                    action_text=tr("dialogs.live_photos.warning.tools_action"),
                     action_callback=self._open_settings,
                     bg_color=DesignSystem.COLOR_DANGER_BG,
                     border_color=DesignSystem.COLOR_ERROR
@@ -121,11 +120,9 @@ class LivePhotosDialog(BaseDialog):
             else:
                 # Herramientas disponibles pero configuración desactivada
                 warning_banner = self._create_warning_banner(
-                    title='Detección sin validación temporal',
-                    message='La extracción de metadata de video está desactivada. Los Live Photos se detectan '
-                            'solo por coincidencia de nombres, validando únicamente las fechas provenientes del sistema. '
-                            'Esto puede incluir falsos positivos.',
-                    action_text='Activar en Configuración',
+                    title=tr("dialogs.live_photos.warning.no_validation_title"),
+                    message=tr("dialogs.live_photos.warning.no_validation_msg"),
+                    action_text=tr("dialogs.live_photos.warning.no_validation_action"),
                     action_callback=self._open_settings
                 )
             warning_container_layout.addWidget(warning_banner)
@@ -185,11 +182,11 @@ class LivePhotosDialog(BaseDialog):
         
         # Diccionario de etiquetas
         labels = {
-            'search': 'Buscar por nombre',
-            'size': 'Mínimo tamaño',
-            'groups': 'Grupos seleccionados',
-            'source': 'Origen de la fecha',
-            'directory': 'Directorio'
+            'search': tr("dialogs.live_photos.filter.search"),
+            'size': tr("dialogs.live_photos.filter.size"),
+            'groups': tr("dialogs.live_photos.filter.groups"),
+            'source': tr("dialogs.live_photos.filter.source"),
+            'directory': tr("dialogs.live_photos.filter.directory")
         }
         
         # Configuración de filtros expandibles
@@ -198,7 +195,7 @@ class LivePhotosDialog(BaseDialog):
                 'id': 'source',
                 'type': 'combo',
                 'label': labels['source'],
-                'tooltip': 'Filtrar grupos por origen de la fecha de comparación',
+                'tooltip': tr("dialogs.live_photos.filter.source_tooltip"),
                 'options': self.DATE_SOURCE_FILTER_OPTIONS,
                 'on_change': lambda idx: self._apply_filters(),
                 'default_index': 0,
@@ -208,8 +205,8 @@ class LivePhotosDialog(BaseDialog):
                 'id': 'directory',
                 'type': 'combo',
                 'label': labels['directory'],
-                'tooltip': 'Filtrar grupos por directorio',
-                'options': ["Todos los directorios"] + directories,
+                'tooltip': tr("dialogs.live_photos.filter.dir_tooltip"),
+                'options': [tr("common.filter.all_directories")] + directories,
                 'on_change': lambda idx: self._apply_filters(),
                 'default_index': 0,
                 'min_width': 200
@@ -242,7 +239,7 @@ class LivePhotosDialog(BaseDialog):
         from .dialog_utils import create_groups_tree_widget
         
         return create_groups_tree_widget(
-            headers=["Grupos / Archivos", "Tamaño", "Tipo", "Fecha", "Origen Fecha", "Estado"],
+            headers=[tr("common.tree_header.groups_files"), tr("common.tree_header.size"), tr("common.tree_header.type"), tr("common.tree_header.date"), tr("common.tree_header.date_source"), tr("common.tree_header.status")],
             column_widths=[350, 100, 80, 160, 150, 120],
             double_click_handler=self._on_item_double_clicked,
             context_menu_handler=self._show_context_menu
@@ -253,15 +250,15 @@ class LivePhotosDialog(BaseDialog):
         return self._create_security_options_section(
             show_backup=True,
             show_dry_run=True,
-            backup_label="Crear backup antes de eliminar",
-            dry_run_label="Modo simulación (no eliminar realmente)"
+            backup_label=tr("dialogs.live_photos.option_backup"),
+            dry_run_label=tr("dialogs.live_photos.option_dry_run")
         )
     
     def _apply_filters(self):
         """Aplica filtros a la lista de grupos"""
         search_text = self.search_input.text().lower() if self.search_input else ""
-        size_filter = self.filter_combo.currentText() if self.filter_combo else "Todos los tamaños"
-        dir_filter = self.dir_combo.currentText() if self.dir_combo else "Todos los directorios"
+        size_filter = self.filter_combo.currentText() if self.filter_combo else tr("common.filter.all_sizes")
+        dir_filter = self.dir_combo.currentText() if self.dir_combo else tr("common.filter.all_directories")
         source_filter = self.source_combo.currentText() if self.source_combo else self.DATE_SOURCE_FILTER_ALL
         
         self.filtered_groups = []
@@ -276,7 +273,7 @@ class LivePhotosDialog(BaseDialog):
                 continue
             
             # Filtro por directorio
-            if dir_filter != "Todos los directorios" and str(group.directory) != dir_filter:
+            if dir_filter != tr("common.filter.all_directories") and str(group.directory) != dir_filter:
                 continue
             
             # Filtro por origen de fecha
