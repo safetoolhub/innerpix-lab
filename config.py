@@ -172,14 +172,11 @@ class Config:
     # ========================================================================
     UI_UPDATE_INTERVAL = 10
     FINAL_DELAY_BEFORE_STAGE3_SECONDS = 1.0
-    
-    # Configuración de metadatos
-    USE_VIDEO_METADATA = False  # Por defecto off por rendimiento
 
     # ========================================================================
     # 9. DESARROLLO
     # ========================================================================
-    DEVELOPMENT_MODE = True
+    DEVELOPMENT_MODE = False
     SAVED_CACHE_DEV_MODE_PATH = "/home/ed/Documents/Innerpix_Lab/cache_saved/RAW_TODO.json"
     
     @classmethod

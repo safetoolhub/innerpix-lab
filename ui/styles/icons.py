@@ -66,6 +66,7 @@ class IconManager:
         'monitor': 'mdi6.monitor',
         'harddisk': 'mdi6.harddisk',
         'speedometer': 'mdi6.speedometer',
+        'code': 'mdi6.xml',
         
         # === ESTADOS Y NOTIFICACIONES ===
         'alert': 'mdi6.alert',

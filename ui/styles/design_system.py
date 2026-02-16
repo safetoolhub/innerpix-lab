@@ -1646,7 +1646,7 @@ class DesignSystem:
     def get_tutorial_feature_card_accent_style(accent_color: str):
         """Retorna el estilo para cards de features con acento de color.
         
-        Sin borde exterior, solo el acento lateral.
+        Sin borde exterior, solo el acento lateral. Sin hover (no interactivo).
         """
         return f"""
             QFrame {{
@@ -1655,9 +1655,6 @@ class DesignSystem:
                 border-left: 4px solid {accent_color};
                 border-radius: {DesignSystem.RADIUS_MD}px;
                 padding: {DesignSystem.SPACE_16}px;
-            }}
-            QFrame:hover {{
-                background-color: {DesignSystem.COLOR_PRIMARY_SUBTLE};
             }}
         """
     
@@ -1732,16 +1729,13 @@ class DesignSystem:
         """Retorna el estilo para cards de pasos numerados en tutoriales.
         
         Card limpia sin bordes, usando el fondo base para contraste.
-        También usado para mini cards de herramientas.
+        Sin hover ya que no son elementos interactivos.
         """
         return f"""
             QFrame {{
                 background-color: {DesignSystem.COLOR_BACKGROUND};
                 border: none;
                 border-radius: {DesignSystem.RADIUS_LG}px;
-            }}
-            QFrame:hover {{
-                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
             }}
         """
     
@@ -1759,6 +1753,175 @@ class DesignSystem:
     
     # Alias para retrocompatibilidad - idéntico a get_tutorial_step_card_style
     get_tutorial_tool_card_style = get_tutorial_step_card_style
+
+    @staticmethod
+    def get_tutorial_tool_card_variant_style(accent_color: str):
+        """Retorna estilo para card de herramienta con color de acento.
+        
+        Args:
+            accent_color: Hex color string para el borde lateral.
+        """
+        return f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER_LIGHT};
+                border-left: 3px solid {accent_color};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+            }}
+        """
+
+    @staticmethod
+    def get_about_tool_card_category_style(bg_color: str, border_color: str):
+        """Retorna estilo para card de herramienta con color de categoría.
+        
+        Card sin hover (no interactiva) con fondo sutil de categoría.
+        Incluye estilo para QLabel para evitar diferencias de background.
+        
+        Args:
+            bg_color: Color de fondo sutil (rgba).
+            border_color: Color de borde sutil (rgba).
+        """
+        return f"""
+            QFrame {{
+                background-color: {bg_color};
+                border: none;
+                border-radius: {DesignSystem.RADIUS_LG}px;
+            }}
+            QLabel {{
+                background-color: transparent;
+            }}
+        """
+
+    @staticmethod
+    def get_about_developer_hero_style():
+        """Retorna estilo para la sección hero del desarrollador en About."""
+        return f"""
+            QFrame {{
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                    stop:0 {DesignSystem.COLOR_PRIMARY}, stop:1 {DesignSystem.COLOR_PRIMARY_HOVER});
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                padding: {DesignSystem.SPACE_24}px;
+            }}
+        """
+
+    @staticmethod
+    def get_about_category_header_style(accent_color: str):
+        """Retorna estilo para header de categoría en la pestaña Herramientas."""
+        return f"""
+            QFrame {{
+                background-color: transparent;
+                border: none;
+                padding-bottom: {DesignSystem.SPACE_2}px;
+                margin-top: {DesignSystem.SPACE_8}px;
+                margin-bottom: {DesignSystem.SPACE_2}px;
+            }}
+        """
+
+    @staticmethod
+    def get_about_dev_section_style():
+        """Retorna estilo para la sección de desarrollador en About (sin bordes)."""
+        return f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_BACKGROUND};
+                border: none;
+                border-radius: {DesignSystem.RADIUS_LG}px;
+            }}
+        """
+
+    @staticmethod
+    def get_about_dev_org_name_style():
+        """Retorna estilo para el nombre de la organización en About."""
+        return f"""
+            color: {DesignSystem.COLOR_TEXT};
+            font-size: {DesignSystem.FONT_SIZE_LG}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+        """
+
+    @staticmethod
+    def get_about_dev_tagline_style():
+        """Retorna estilo para el tagline de la organización en About."""
+        return f"""
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+        """
+
+    @staticmethod
+    def get_about_separator_style():
+        """Retorna estilo para separadores horizontales en About."""
+        return f"background-color: {DesignSystem.COLOR_BORDER_LIGHT}; max-height: 1px;"
+
+    @staticmethod
+    def get_about_value_card_style():
+        """Retorna estilo para value cards en la sección de desarrollador (sin bordes)."""
+        return f"""
+            QFrame {{
+                background-color: transparent;
+                border: none;
+            }}
+        """
+
+    @staticmethod
+    def get_about_value_title_style():
+        """Retorna estilo para títulos en value cards."""
+        return f"""
+            color: {DesignSystem.COLOR_TEXT};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+        """
+
+    @staticmethod
+    def get_about_value_desc_style():
+        """Retorna estilo para descripciones en value cards."""
+        return f"""
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            font-size: {DesignSystem.FONT_SIZE_XS}px;
+        """
+
+    @staticmethod
+    def get_about_info_card_style():
+        """Retorna estilo para info cards."""
+        return f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_BACKGROUND};
+                border: none;
+                border-radius: {DesignSystem.RADIUS_MD}px;
+                padding: {DesignSystem.SPACE_2}px;
+            }}
+            QLabel {{
+                background-color: transparent;
+            }}
+        """
+
+    @staticmethod
+    def get_about_info_label_style():
+        """Retorna estilo para labels en info cards."""
+        return f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_XS}px;"
+
+    @staticmethod
+    def get_about_info_value_style():
+        """Retorna estilo para valores en info cards."""
+        return f"""
+            color: {DesignSystem.COLOR_TEXT};
+            font-size: {DesignSystem.FONT_SIZE_XS}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+        """
+
+    @staticmethod
+    def get_about_formats_text_style():
+        """Retorna estilo para texto en la card de formatos."""
+        return f"color: {DesignSystem.COLOR_TEXT}; font-size: {DesignSystem.FONT_SIZE_XS}px;"
+
+    @staticmethod
+    def get_developer_info_style():
+        """Retorna el estilo para la sección de desarrollador."""
+        return f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                padding: {DesignSystem.SPACE_16}px;
+                border: 1px solid {DesignSystem.COLOR_BORDER_LIGHT};
+            }}
+        """
     
     @staticmethod
     def get_tutorial_note_style():
@@ -2256,4 +2419,732 @@ class DesignSystem:
                 border: none;
                 padding: {DesignSystem.SPACE_8}px 0px;
             }}
+        """
+    
+    # ==================== ESTILOS PARA DUPLICATES SIMILAR DIALOG ====================
+    
+    @staticmethod
+    def get_workspace_card_style():
+        """Estilo para el área de trabajo principal (workspace card)."""
+        return f"""
+            QFrame#workspace_card {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+            }}
+        """
+    
+    @staticmethod
+    def get_horizontal_separator_style():
+        """Estilo para separadores horizontales (QFrame con HLine)."""
+        return f"color: {DesignSystem.COLOR_BORDER_LIGHT};"
+    
+    @staticmethod
+    def get_vertical_separator_style():
+        """Estilo para separadores verticales (QFrame con fondo)."""
+        return f"background-color: {DesignSystem.COLOR_BORDER};"
+    
+    @staticmethod
+    def get_similarity_range_control_style():
+        """Estilo para el control de rango de similitud con spinboxes."""
+        return f"""
+            QFrame#similarity_range_control {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                border: 2px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+            }}
+            QFrame#similarity_range_control:hover {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+            QSpinBox {{
+                border: none;
+                background: transparent;
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                color: {DesignSystem.COLOR_TEXT};
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            }}
+        """
+    
+    @staticmethod
+    def get_strategy_button_style():
+        """Estilo para botones de estrategia de conservación."""
+        return f"""
+            QPushButton {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_8}px;
+                font-size: {DesignSystem.FONT_SIZE_XS}px;
+                color: {DesignSystem.COLOR_TEXT};
+            }}
+            QPushButton:hover {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+                background-color: {DesignSystem.COLOR_SURFACE};
+            }}
+            QPushButton:checked {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                border-color: {DesignSystem.COLOR_PRIMARY};
+                color: {DesignSystem.COLOR_PRIMARY_TEXT};
+            }}
+        """
+    
+    @staticmethod
+    def get_group_toolbar_style():
+        """Estilo para el toolbar de grupo (navegación + info)."""
+        return f"""
+            QWidget#group_toolbar {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                border-bottom: 1px solid {DesignSystem.COLOR_BORDER_LIGHT};
+            }}
+        """
+    
+    @staticmethod
+    def get_nav_frame_style():
+        """Estilo para el frame de navegación (transparente)."""
+        return f"""
+            QFrame {{
+                background-color: transparent;
+                border: none;
+                padding: 2px;
+            }}
+        """
+    
+    @staticmethod
+    def get_nav_button_style():
+        """Estilo para botones de navegación (prev/next)."""
+        return f"""
+            QPushButton {{
+                background-color: transparent;
+                border: none;
+                border-radius: {DesignSystem.RADIUS_SM}px;
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_BG_1};
+            }}
+            QPushButton:disabled {{
+                opacity: 0.4;
+            }}
+        """
+    
+    @staticmethod
+    def get_group_counter_label_style():
+        """Estilo para el contador de grupos."""
+        return f"""
+            font-weight: {DesignSystem.FONT_WEIGHT_BOLD}; 
+            color: {DesignSystem.COLOR_TEXT};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+        """
+    
+    @staticmethod
+    def get_similarity_badge_style():
+        """Estilo para el badge de similitud."""
+        return f"""
+            background-color: {DesignSystem.COLOR_PRIMARY};
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 4px 12px;
+            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+        """
+    
+    @staticmethod
+    def get_group_files_info_style():
+        """Estilo para la información de archivos del grupo."""
+        return f"""
+            color: {DesignSystem.COLOR_TEXT_SECONDARY}; 
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+        """
+    
+    @staticmethod
+    def get_strategy_label_style():
+        """Estilo para la etiqueta de estrategias."""
+        return f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+        """
+    
+    @staticmethod
+    def get_global_summary_label_style():
+        """Estilo para el contador de selección global."""
+        return f"""
+            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD}; 
+            color: {DesignSystem.COLOR_TEXT};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+        """
+    
+    @staticmethod
+    def get_similarity_badge_with_color_style(bg_color: str):
+        """Estilo para el badge de similitud con color personalizado.
+        
+        Args:
+            bg_color: Color de fondo del badge (hexadecimal)
+        """
+        return f"""
+            background-color: {bg_color};
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 4px 12px;
+            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+        """
+    
+    @staticmethod
+    def get_loading_label_style():
+        """Estilo para el mensaje principal en estado de carga."""
+        return f"""
+            font-size: {DesignSystem.FONT_SIZE_LG}px;
+            color: {DesignSystem.COLOR_TEXT};
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+        """
+    
+    @staticmethod
+    def get_loading_progressbar_style():
+        """Estilo para la barra de progreso de carga."""
+        return f"""
+            QProgressBar {{
+                border: none;
+                border-radius: 4px;
+                background-color: {DesignSystem.COLOR_BORDER_LIGHT};
+            }}
+            QProgressBar::chunk {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                border-radius: 4px;
+            }}
+        """
+    
+    @staticmethod
+    def get_loading_percent_style():
+        """Estilo para el porcentaje de progreso."""
+        return f"""
+            font-size: {DesignSystem.FONT_SIZE_MD}px;
+            color: {DesignSystem.COLOR_PRIMARY};
+            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+        """
+    
+    @staticmethod
+    def get_loading_submessage_style():
+        """Estilo para el submensaje en estado de carga."""
+        return f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+        """
+    
+    # ==================== ESTILOS PARA FILE ORGANIZER DIALOG ====================
+    # Estos estilos son específicos para el diálogo de organización de archivos
+    # (FileOrganizerDialog) que permite reorganizar archivos por fecha, tipo, fuente, etc.
+    # ================================================================================
+    
+    # --- HEADER Y TÍTULOS ---
+    
+    @staticmethod
+    def get_organizer_header_style():
+        """Estilo para el header principal del organizador.
+        
+        Header con fondo azul primario usado en la pantalla de selección de estrategia.
+        """
+        return f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                padding: {DesignSystem.SPACE_24}px;
+            }}
+        """
+    
+    @staticmethod
+    def get_organizer_header_title_style():
+        """Estilo para el título del header del organizador.
+        
+        Título grande y bold que pregunta "¿Cómo quieres organizar tus archivos?"
+        """
+        return f"""
+            font-size: {DesignSystem.FONT_SIZE_2XL}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+            color: {DesignSystem.COLOR_PRIMARY_TEXT};
+        """
+    
+    @staticmethod
+    def get_organizer_header_subtitle_style():
+        """Estilo para el subtítulo del header del organizador.
+        
+        Subtítulo que indica "Selecciona una estrategia de organización".
+        """
+        return f"""
+            font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            color: {DesignSystem.COLOR_PRIMARY_TEXT};
+            opacity: 0.9;
+        """
+    
+    # --- TARJETAS DE SELECCIÓN DE ESTRATEGIA ---
+    
+    @staticmethod
+    def get_strategy_card_style():
+        """Estilo para las tarjetas de selección de estrategia.
+        
+        Tarjetas clickeables que muestran las 4 opciones de organización:
+        Por Fecha, Por Tipo, Por Fuente, o Al Raíz. Con hover effect.
+        """
+        return f"""
+            QFrame#strategyCard {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 2px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+            }}
+            QFrame#strategyCard:hover {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
+            }}
+            QFrame#strategyCard QWidget {{
+                background: transparent;
+                border: none;
+            }}
+            QFrame#strategyCard QLabel {{
+                background: transparent;
+                border: none;
+            }}
+            QFrame#strategyCard QFrame {{
+                border: none;
+            }}
+        """
+    
+    @staticmethod
+    def get_strategy_card_title_style():
+        """Estilo para el título dentro de las tarjetas de estrategia.
+        
+        Ej: "Organizar por Fecha", "Organizar por Tipo", etc.
+        """
+        return f"""
+            font-size: {DesignSystem.FONT_SIZE_LG}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+            color: {DesignSystem.COLOR_TEXT};
+            background: transparent;
+            border: none;
+        """
+    
+    @staticmethod
+    def get_strategy_card_description_style():
+        """Estilo para la descripción dentro de las tarjetas de estrategia.
+        
+        Texto explicativo de cada estrategia de organización.
+        """
+        return f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            background: transparent;
+            border: none;
+        """
+    
+    @staticmethod
+    def get_strategy_card_hint_style():
+        """Estilo para el hint dentro de las tarjetas de estrategia.
+        
+        Hint en cursiva que muestra opciones adicionales de cada estrategia.
+        Ej: "Granularidad: mes, año o ambos · Subcarpetas: fuente, tipo"
+        """
+        return f"""
+            font-size: {DesignSystem.FONT_SIZE_XS}px;
+            color: {DesignSystem.COLOR_PRIMARY};
+            font-style: italic;
+            background: transparent;
+            border: none;
+        """
+    
+    # --- EJEMPLOS VISUALES EN TARJETAS ---
+    
+    @staticmethod
+    def get_example_container_style():
+        """Estilo para el contenedor de ejemplos visuales.
+        
+        Contenedor con fondo sutil que muestra una vista previa de 
+        cómo quedaría organizada la estructura de carpetas.
+        """
+        return f"""
+            QFrame#exampleContainer {{
+                background-color: rgba(0, 0, 0, 0.03);
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                border: none;
+            }}
+        """
+    
+    @staticmethod
+    def get_example_title_style():
+        """Estilo para el título de los ejemplos.
+        
+        Label pequeño que dice "Vista previa:".
+        """
+        return f"""
+            font-size: {DesignSystem.FONT_SIZE_XS}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            margin-bottom: {DesignSystem.SPACE_4}px;
+            background: transparent;
+            border: none;
+        """
+    
+    @staticmethod
+    def get_example_content_style():
+        """Estilo para el contenido de los ejemplos.
+        
+        Texto en fuente monoespaciada que muestra estructura de carpetas.
+        Ej: "📁 2024_01/\n📁 2024_02/\n📁 2024_03/"
+        """
+        return f"""
+            font-family: {DesignSystem.FONT_FAMILY_MONO};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_TEXT};
+            line-height: 1.5;
+            background: transparent;
+            border: none;
+        """
+    
+    # --- CONTROLES Y PANEL DE OPCIONES ---
+    
+    @staticmethod
+    def get_organizer_progressbar_style():
+        """Estilo para la barra de progreso del organizador.
+        
+        Muestra el progreso durante el análisis o la ejecución de la organización.
+        """
+        return f"""
+            QProgressBar {{
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                text-align: center;
+                background-color: {DesignSystem.COLOR_BG_1};
+            }}
+            QProgressBar::chunk {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+            }}
+        """
+    
+    @staticmethod
+    def get_options_panel_container_style():
+        """Estilo para el contenedor del panel de opciones.
+        
+        Panel compacto que incluye: [Botón Volver] | Estrategia | Opciones (granularidad, etc).
+        """
+        return f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+            }}
+        """
+    
+    @staticmethod
+    def get_organizer_back_button_style():
+        """Estilo para el botón de volver en el organizador.
+        
+        Botón "← Cambiar" que permite volver a la selección de estrategia.
+        """
+        return f"""
+            QPushButton {{
+                background-color: transparent;
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_BG_2};
+                color: {DesignSystem.COLOR_TEXT};
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+        """
+    
+    @staticmethod
+    def get_organizer_strategy_label_style():
+        """Estilo para la etiqueta de estrategia en el organizador.
+        
+        Label que muestra la estrategia actual: "Por Fecha", "Por Tipo", etc.
+        """
+        return f"""
+            font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            color: {DesignSystem.COLOR_TEXT};
+            background: transparent;
+            border: none;
+            padding-right: {DesignSystem.SPACE_12}px;
+        """
+    
+    # --- OPCIONES DE GRANULARIDAD Y SUBCARPETAS ---
+    
+    @staticmethod
+    def get_granularity_container_style():
+        """Estilo para el contenedor de opciones de granularidad.
+        
+        Contenedor con fondo azul claro para destacar las opciones principales
+        de organización temporal (Mes, Año, Año/Mes).
+        """
+        return f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
+                border-radius: {DesignSystem.RADIUS_SM}px;
+                padding: {DesignSystem.SPACE_2}px {DesignSystem.SPACE_8}px;
+            }}
+        """
+    
+    @staticmethod
+    def get_granularity_label_style():
+        """Estilo para la etiqueta de granularidad.
+        
+        Label "Carpetas por:" que precede a los chips de selección de granularidad.
+        """
+        return f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_PRIMARY};
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            background: transparent;
+            border: none;
+        """
+    
+    @staticmethod
+    def get_subcarpetas_label_style():
+        """Estilo para la etiqueta de subcarpetas.
+        
+        Label más sutil para opciones secundarias: "Subcarpetas:", "Subcarpetas por fecha:", etc.
+        """
+        return f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            background: transparent;
+            border: none;
+        """
+    
+    # --- CHIPS DE SELECCIÓN ---
+    
+    @staticmethod
+    def get_chip_style(selected: bool = False):
+        """Estilo para chips de selección (toggleables).
+        
+        Chips principales para seleccionar opciones como granularidad temporal,
+        subcarpetas por fecha, etc. Con estados normal y seleccionado.
+        
+        Args:
+            selected: Si el chip está seleccionado
+        """
+        if selected:
+            return f"""
+                QPushButton {{
+                    background-color: {DesignSystem.COLOR_PRIMARY};
+                    color: white;
+                    border: 1px solid {DesignSystem.COLOR_PRIMARY};
+                    border-radius: {DesignSystem.RADIUS_BASE}px;
+                    padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
+                    font-size: {DesignSystem.FONT_SIZE_SM}px;
+                    font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                }}
+                QPushButton:hover {{
+                    background-color: {DesignSystem.COLOR_PRIMARY_HOVER};
+                }}
+            """
+        return f"""
+            QPushButton {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                color: {DesignSystem.COLOR_TEXT};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_12}px;
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_PRIMARY_SUBTLE};
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+            QPushButton:checked {{
+                background-color: {DesignSystem.COLOR_PRIMARY};
+                color: white;
+                border-color: {DesignSystem.COLOR_PRIMARY};
+            }}
+        """
+    
+    @staticmethod
+    def get_secondary_chip_style(selected: bool = False):
+        """Estilo para chips secundarios (con borde punteado).
+        
+        Chips más sutiles y pequeños para opciones adicionales como
+        "+ Fuente", "+ Tipo" (subcarpetas opcionales).
+        
+        Args:
+            selected: Si el chip está seleccionado
+        """
+        if selected:
+            return f"""
+                QPushButton {{
+                    background-color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                    color: white;
+                    border: none;
+                    border-radius: {DesignSystem.RADIUS_SM}px;
+                    padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_10}px;
+                    font-size: {DesignSystem.FONT_SIZE_XS}px;
+                }}
+                QPushButton:hover {{
+                    background-color: {DesignSystem.COLOR_TEXT};
+                }}
+            """
+        return f"""
+            QPushButton {{
+                background-color: transparent;
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                border: 1px dashed {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_SM}px;
+                padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_10}px;
+                font-size: {DesignSystem.FONT_SIZE_XS}px;
+            }}
+            QPushButton:hover {{
+                background-color: {DesignSystem.COLOR_BG_2};
+                border-style: solid;
+            }}
+            QPushButton:checked {{
+                background-color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                color: white;
+                border: none;
+            }}
+        """
+    
+    # --- INDICADOR DE ESTRATEGIA ACTUAL ---
+    
+    @staticmethod
+    def get_strategy_indicator_container_style():
+        """Estilo para el contenedor del indicador de estrategia.
+        
+        Banner con borde izquierdo azul que muestra la estrategia de organización actual.
+        Usado después de seleccionar una estrategia.
+        """
+        return f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
+                border-left: 3px solid {DesignSystem.COLOR_PRIMARY};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_12}px;
+            }}
+        """
+    
+    @staticmethod
+    def get_strategy_indicator_text_style():
+        """Estilo para el texto del indicador de estrategia.
+        
+        Texto que indica: "Organizando por fecha", "Organizando por tipo", etc.
+        """
+        return f"""
+            font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            color: {DesignSystem.COLOR_TEXT};
+        """
+    
+    # --- INFORMACIÓN DE CARPETAS Y ARCHIVOS ---
+    
+    @staticmethod
+    def get_folders_info_container_style():
+        """Estilo para el contenedor de información de carpetas.
+        
+        Banner azul informativo que muestra cuántas carpetas se crearán
+        y lista algunas de ellas como ejemplo.
+        """
+        return f"""
+            QFrame {{ 
+                background-color: {DesignSystem.COLOR_INFO_BG}; 
+                border: 1px solid {DesignSystem.COLOR_INFO};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_12}px;
+            }}
+        """
+    
+    @staticmethod
+    def get_folders_info_label_style():
+        """Estilo para la etiqueta de información de carpetas.
+        
+        Texto que lista las carpetas que se crearán durante la organización.
+        """
+        return f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            color: {DesignSystem.COLOR_INFO_TEXT};
+            border: none;
+            background: transparent;
+        """
+    
+    # --- VISTA DE ÁRBOL DE ARCHIVOS ---
+    
+    @staticmethod
+    def get_tree_widget_style():
+        """Estilo completo para QTreeWidget (vista de archivos).
+        
+        Tree widget que muestra la vista previa de todos los archivos que se moverán,
+        con columnas: Nombre Original, Nuevo Nombre, Fecha, Origen, Tamaño.
+        Incluye estilos para el header, items, hover y selección.
+        """
+        return f"""
+            QTreeWidget {{
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                outline: none;
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_4}px;
+            }}
+            QTreeWidget::item {{
+                border: none;
+                outline: none;
+                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_4}px;
+                border-bottom: 1px solid {DesignSystem.COLOR_BORDER_LIGHT};
+            }}
+            QTreeWidget::item:hover {{
+                background-color: {DesignSystem.COLOR_BG_2};
+            }}
+            QTreeWidget::item:selected {{
+                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
+                color: {DesignSystem.COLOR_TEXT};
+            }}
+            QHeaderView::section {{
+                background-color: {DesignSystem.COLOR_BG_1};
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                padding: {DesignSystem.SPACE_8}px;
+                border: none;
+                border-bottom: 2px solid {DesignSystem.COLOR_BORDER};
+                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+            }}
+        """
+    
+    # --- OPCIONES DE EJECUCIÓN (BACKUP Y DRY-RUN) ---
+    
+    @staticmethod
+    def get_options_container_style():
+        """Estilo para el contenedor de opciones generales.
+        
+        Contenedor que agrupa las opciones de seguridad: crear backup,
+        modo de simulación (dry-run), y limpieza de carpetas vacías.
+        """
+        return f"""
+            QFrame#options-container {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_BASE}px;
+                padding: {DesignSystem.SPACE_12}px {DesignSystem.SPACE_16}px;
+            }}
+        """
+    
+    @staticmethod
+    def get_options_label_style():
+        """Estilo para la etiqueta de opciones.
+        
+        Label pequeño y discreto que dice "Opciones:" antes de los checkboxes.
+        """
+        return f"""
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+        """
+    
+    @staticmethod
+    def get_backup_path_label_style():
+        """Estilo para la etiqueta de ruta de backup.
+        
+        Texto muy pequeño que muestra dónde se guardarán los archivos del backup.
+        Ej: "Carpeta donde se guardarán los archivos movidos: ~/Documents/.../backups"
+        """
+        return f"""
+            font-size: {DesignSystem.FONT_SIZE_XS}px;
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
         """

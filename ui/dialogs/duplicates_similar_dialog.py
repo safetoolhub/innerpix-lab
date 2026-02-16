@@ -297,7 +297,7 @@ class DuplicatesSimilarDialog(BaseDialog):
                 {'value': '-', 'label': 'Recuperable', 'color': DesignSystem.COLOR_SUCCESS}
             ],
             tip_message=(
-                "<b>Tip:</b> Esta herramienta detecta imágenes <i>similares</i> (recortes, ediciones). "
+                "<b>Tip:</b> Esta herramienta detecta imágenes (videos próximamente) <i>similares</i> (recortes, ediciones). "
                 "Para copias <i>idénticas</i> visualmente, usa \"Copias Visuales Idénticas\"."
             )
         )
@@ -323,13 +323,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         # Área de trabajo (workspace_card)
         workspace_card = QFrame()
         workspace_card.setObjectName("workspace_card")
-        workspace_card.setStyleSheet(f"""
-            QFrame#workspace_card {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-            }}
-        """)
+        workspace_card.setStyleSheet(DesignSystem.get_workspace_card_style())
         workspace_layout = QVBoxLayout(workspace_card)
         workspace_layout.setSpacing(0)
         workspace_layout.setContentsMargins(0, 0, 0, 0)
@@ -341,7 +335,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         # Separador
         separator = QFrame()
         separator.setFrameShape(QFrame.Shape.HLine)
-        separator.setStyleSheet(f"color: {DesignSystem.COLOR_BORDER_LIGHT};")
+        separator.setStyleSheet(DesignSystem.get_horizontal_separator_style())
         workspace_layout.addWidget(separator)
         
         # Contenedor de grupos (grid de imágenes)
@@ -518,23 +512,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         # Frame del control
         frame = QFrame()
         frame.setObjectName("similarity_range_control")
-        frame.setStyleSheet(f"""
-            QFrame#similarity_range_control {{
-                background-color: {DesignSystem.COLOR_BG_1};
-                border: 2px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-            }}
-            QFrame#similarity_range_control:hover {{
-                border-color: {DesignSystem.COLOR_PRIMARY};
-            }}
-            QSpinBox {{
-                border: none;
-                background: transparent;
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-                color: {DesignSystem.COLOR_TEXT};
-                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-            }}
-        """)
+        frame.setStyleSheet(DesignSystem.get_similarity_range_control_style())
         
         layout = QHBoxLayout(frame)
         layout.setContentsMargins(DesignSystem.SPACE_8, 2, DesignSystem.SPACE_8, 2)
@@ -783,25 +761,7 @@ class DuplicatesSimilarDialog(BaseDialog):
             btn.setToolTip(tooltip)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             icon_manager.set_button_icon(btn, icon_name, size=16)
-            btn.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: {DesignSystem.COLOR_BG_1};
-                    border: 1px solid {DesignSystem.COLOR_BORDER};
-                    border-radius: {DesignSystem.RADIUS_BASE}px;
-                    padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_8}px;
-                    font-size: {DesignSystem.FONT_SIZE_XS}px;
-                    color: {DesignSystem.COLOR_TEXT};
-                }}
-                QPushButton:hover {{
-                    border-color: {DesignSystem.COLOR_PRIMARY};
-                    background-color: {DesignSystem.COLOR_SURFACE};
-                }}
-                QPushButton:checked {{
-                    background-color: {DesignSystem.COLOR_PRIMARY};
-                    border-color: {DesignSystem.COLOR_PRIMARY};
-                    color: {DesignSystem.COLOR_PRIMARY_TEXT};
-                }}
-            """)
+            btn.setStyleSheet(DesignSystem.get_strategy_button_style())
             btn.clicked.connect(lambda checked, s=strategy_id: self._on_strategy_changed(s))
             parent_layout.addWidget(btn)
             self.strategy_buttons[strategy_id] = btn
@@ -923,12 +883,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         """
         container = QWidget()
         container.setObjectName("group_toolbar")
-        container.setStyleSheet(f"""
-            QWidget#group_toolbar {{
-                background-color: {DesignSystem.COLOR_BG_1};
-                border-bottom: 1px solid {DesignSystem.COLOR_BORDER_LIGHT};
-            }}
-        """)
+        container.setStyleSheet(DesignSystem.get_group_toolbar_style())
         
         layout = QHBoxLayout(container)
         layout.setContentsMargins(
@@ -939,13 +894,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         
         # === SECCIÓN IZQUIERDA: Navegación ===
         nav_frame = QFrame()
-        nav_frame.setStyleSheet(f"""
-            QFrame {{
-                background-color: transparent;
-                border: none;
-                padding: 2px;
-            }}
-        """)
+        nav_frame.setStyleSheet(DesignSystem.get_nav_frame_style())
         nav_layout = QHBoxLayout(nav_frame)
         nav_layout.setContentsMargins(4, 4, 4, 4)
         nav_layout.setSpacing(4)
@@ -957,29 +906,13 @@ class DuplicatesSimilarDialog(BaseDialog):
         self.prev_btn.setFixedSize(32, 32)
         self.prev_btn.clicked.connect(self._previous_group)
         self.prev_btn.setEnabled(False)
-        self.prev_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: transparent;
-                border: none;
-                border-radius: {DesignSystem.RADIUS_SM}px;
-            }}
-            QPushButton:hover {{
-                background-color: {DesignSystem.COLOR_BG_1};
-            }}
-            QPushButton:disabled {{
-                opacity: 0.4;
-            }}
-        """)
+        self.prev_btn.setStyleSheet(DesignSystem.get_nav_button_style())
         nav_layout.addWidget(self.prev_btn)
         
         self.group_counter_label = QLabel("Cargando...")
         self.group_counter_label.setMinimumWidth(100)
         self.group_counter_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.group_counter_label.setStyleSheet(f"""
-            font-weight: {DesignSystem.FONT_WEIGHT_BOLD}; 
-            color: {DesignSystem.COLOR_TEXT};
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-        """)
+        self.group_counter_label.setStyleSheet(DesignSystem.get_group_counter_label_style())
         nav_layout.addWidget(self.group_counter_label)
         
         self.next_btn = QPushButton()
@@ -989,19 +922,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         self.next_btn.setFixedSize(32, 32)
         self.next_btn.clicked.connect(self._next_group)
         self.next_btn.setEnabled(False)
-        self.next_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: transparent;
-                border: none;
-                border-radius: {DesignSystem.RADIUS_SM}px;
-            }}
-            QPushButton:hover {{
-                background-color: {DesignSystem.COLOR_BG_1};
-            }}
-            QPushButton:disabled {{
-                opacity: 0.4;
-            }}
-        """)
+        self.next_btn.setStyleSheet(DesignSystem.get_nav_button_style())
         nav_layout.addWidget(self.next_btn)
         
         layout.addWidget(nav_frame)
@@ -1010,7 +931,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         sep1 = QFrame()
         sep1.setFixedWidth(1)
         sep1.setFixedHeight(28)
-        sep1.setStyleSheet(f"background-color: {DesignSystem.COLOR_BORDER};")
+        sep1.setStyleSheet(DesignSystem.get_vertical_separator_style())
         layout.addWidget(sep1)
         
         # === SECCIÓN CENTRO: Similitud del grupo actual ===
@@ -1021,23 +942,12 @@ class DuplicatesSimilarDialog(BaseDialog):
         
         # Badge de similitud
         self.similarity_badge = QLabel("-")
-        self.similarity_badge.setStyleSheet(f"""
-            background-color: {DesignSystem.COLOR_PRIMARY};
-            color: white;
-            border: none;
-            border-radius: 12px;
-            padding: 4px 12px;
-            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-        """)
+        self.similarity_badge.setStyleSheet(DesignSystem.get_similarity_badge_style())
         sim_layout.addWidget(self.similarity_badge)
         
         # Info de archivos del grupo
         self.group_files_info = QLabel("-")
-        self.group_files_info.setStyleSheet(f"""
-            color: {DesignSystem.COLOR_TEXT_SECONDARY}; 
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-        """)
+        self.group_files_info.setStyleSheet(DesignSystem.get_group_files_info_style())
         sim_layout.addWidget(self.group_files_info)
         
         layout.addWidget(self.similarity_container)
@@ -1046,15 +956,12 @@ class DuplicatesSimilarDialog(BaseDialog):
         sep2 = QFrame()
         sep2.setFixedWidth(1)
         sep2.setFixedHeight(28)
-        sep2.setStyleSheet(f"background-color: {DesignSystem.COLOR_BORDER};")
+        sep2.setStyleSheet(DesignSystem.get_vertical_separator_style())
         layout.addWidget(sep2)
         
         # === SECCIÓN DERECHA: Estrategias y acciones ===
         strategy_label = QLabel("Conservar:")
-        strategy_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            color: {DesignSystem.COLOR_TEXT_SECONDARY};
-        """)
+        strategy_label.setStyleSheet(DesignSystem.get_strategy_label_style())
         layout.addWidget(strategy_label)
         
         self._create_strategy_buttons(layout)
@@ -1065,11 +972,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         self.global_summary_label = QLabel("0 seleccionados")
         self.global_summary_label.setMinimumWidth(120)
         self.global_summary_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        self.global_summary_label.setStyleSheet(f"""
-            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD}; 
-            color: {DesignSystem.COLOR_TEXT};
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-        """)
+        self.global_summary_label.setStyleSheet(DesignSystem.get_global_summary_label_style())
         layout.addWidget(self.global_summary_label)
         
         return container
@@ -1093,15 +996,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         
         # Actualizar badge con texto abreviado
         self.similarity_badge.setText(f"{score:.1f}% Similitud")
-        self.similarity_badge.setStyleSheet(f"""
-            background-color: {bg_color};
-            color: white;
-            border: none;
-            border-radius: 12px;
-            padding: 4px 12px;
-            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-        """)
+        self.similarity_badge.setStyleSheet(DesignSystem.get_similarity_badge_with_color_style(bg_color))
         
         # Actualizar info de archivos
         self.group_files_info.setText(f"{len(group.files)} archivos · {format_size(group.total_size)}")
@@ -1134,11 +1029,7 @@ class DuplicatesSimilarDialog(BaseDialog):
         # Mensaje principal (se actualiza dinámicamente)
         self.loading_label = QLabel("Preparando análisis...")
         self.loading_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.loading_label.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_LG}px;
-            color: {DesignSystem.COLOR_TEXT};
-            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-        """)
+        self.loading_label.setStyleSheet(DesignSystem.get_loading_label_style())
         layout.addWidget(self.loading_label)
         
         # Barra de progreso con porcentaje real
@@ -1149,27 +1040,13 @@ class DuplicatesSimilarDialog(BaseDialog):
         self.loading_progress.setFixedWidth(350)
         self.loading_progress.setFixedHeight(8)
         self.loading_progress.setTextVisible(False)
-        self.loading_progress.setStyleSheet(f"""
-            QProgressBar {{
-                border: none;
-                border-radius: 4px;
-                background-color: {DesignSystem.COLOR_BORDER_LIGHT};
-            }}
-            QProgressBar::chunk {{
-                background-color: {DesignSystem.COLOR_PRIMARY};
-                border-radius: 4px;
-            }}
-        """)
+        self.loading_progress.setStyleSheet(DesignSystem.get_loading_progressbar_style())
         layout.addWidget(self.loading_progress, alignment=Qt.AlignmentFlag.AlignCenter)
         
         # Porcentaje y contador
         self.loading_percent = QLabel("0%")
         self.loading_percent.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.loading_percent.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_MD}px;
-            color: {DesignSystem.COLOR_PRIMARY};
-            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
-        """)
+        self.loading_percent.setStyleSheet(DesignSystem.get_loading_percent_style())
         layout.addWidget(self.loading_percent)
         
         # Submensaje con detalle de la fase actual
@@ -1177,10 +1054,7 @@ class DuplicatesSimilarDialog(BaseDialog):
             f"Sensibilidad: {self.current_sensitivity}% · {total_files:,} archivos"
         )
         self.loading_submsg.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.loading_submsg.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            color: {DesignSystem.COLOR_TEXT_SECONDARY};
-        """)
+        self.loading_submsg.setStyleSheet(DesignSystem.get_loading_submessage_style())
         layout.addWidget(self.loading_submsg)
         
         self.group_layout.addWidget(container)

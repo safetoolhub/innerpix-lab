@@ -13,7 +13,7 @@ from datetime import datetime
 sys.path.append(os.getcwd())
 
 from services.duplicates_similar_service import DuplicatesSimilarAnalysis
-from services.result_types import DuplicateGroup
+from services.result_types import SimilarDuplicateGroup
 from config import Config
 
 class TestLargeDatasetPerformance(unittest.TestCase):

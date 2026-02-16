@@ -1103,27 +1103,40 @@ class TestSelectChosenDateCombinatorial:
 class TestVideoMetadataConfiguration:
     """Tests para la configuración de extracción de metadatos de video"""
 
-    def test_config_defaults_to_false(self):
-        """USE_VIDEO_METADATA debe estar por defecto en False"""
-        assert Config.USE_VIDEO_METADATA is False
-
-    @patch('utils.settings_manager.settings_manager.get_precalculate_video_exif')
-    def test_config_loaded_from_settings_manager(self, mock_get_precalculate):
-        """USE_VIDEO_METADATA debe cargarse desde settings_manager al inicio"""
+    def setup_method(self):
+        """Guarda el estado de configuración antes de cada test"""
         from utils.settings_manager import settings_manager
-        from config import Config
+        self.settings_manager = settings_manager
         
-        # Simular que settings_manager devuelve True
-        mock_get_precalculate.return_value = True
+        # Guardar configuraciones originales
+        self.original_video_exif = self.settings_manager.get_precalculate_video_exif()
+        self.original_hashes = self.settings_manager.get_precalculate_hashes()
+        self.original_image_exif = self.settings_manager.get_precalculate_image_exif()
+    
+    def teardown_method(self):
+        """Restaura el estado de configuración después de cada test"""
+        # Restaurar configuraciones originales
+        self.settings_manager.set_precalculate_video_exif(self.original_video_exif)
+        self.settings_manager.set_precalculate_hashes(self.original_hashes)
+        self.settings_manager.set_precalculate_image_exif(self.original_image_exif)
+
+    def test_settings_manager_defaults_to_false(self):
+        """get_precalculate_video_exif debe devolver False por defecto"""
+        # Remover la clave para obtener el valor por defecto
+        self.settings_manager.remove(self.settings_manager.KEY_PRECALCULATE_VIDEO_EXIF)
         
-        # Ejecutar la lógica de carga de configuración como en main.py
-        Config.USE_VIDEO_METADATA = settings_manager.get_precalculate_video_exif()
+        # Verificar que el valor por defecto es False
+        assert self.settings_manager.get_precalculate_video_exif() is False
+
+    def test_settings_manager_can_be_configured(self):
+        """get_precalculate_video_exif debe poder configurarse"""
+        # Establecer a True
+        self.settings_manager.set_precalculate_video_exif(True)
+        assert self.settings_manager.get_precalculate_video_exif() is True
         
-        # Verificar que se llamó a get_precalculate_video_exif
-        mock_get_precalculate.assert_called_once()
-        
-        # Verificar que Config.USE_VIDEO_METADATA se actualizó
-        assert Config.USE_VIDEO_METADATA is True
+        # Establecer a False
+        self.settings_manager.set_precalculate_video_exif(False)
+        assert self.settings_manager.get_precalculate_video_exif() is False
 
 @pytest.mark.unit
 class TestGetBestCommonCreationDate2FilesComprehensive:

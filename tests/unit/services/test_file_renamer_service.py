@@ -7,7 +7,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from services.file_renamer_service import FileRenamerService
-from services.result_types import RenameAnalysisResult, RenameExecutionResult
+from services.result_types import RenameAnalysisResult, RenameExecutionResult, RenamePlanItem
 from services.file_metadata_repository_cache import FileInfoRepositoryCache
 from services.file_metadata import FileMetadata
 
@@ -99,7 +99,7 @@ class TestFileRenamerServiceAnalyze:
         assert result.conflicts == 0
         
         # Verificar plan de renombrado (usar set para orden indeterminado)
-        names = {item['new_name'] for item in result.renaming_plan}
+        names = {item.new_name for item in result.renaming_plan}
         assert '20230115_103000_PHOTO.JPG' in names
         assert '20230220_144500_VIDEO.MP4' in names
     
@@ -172,7 +172,7 @@ class TestFileRenamerServiceAnalyze:
         assert len(result.renaming_plan) == 2
         
         # Uno debe tener secuencia
-        sequences = [item.get('sequence') for item in result.renaming_plan]
+        sequences = [item.sequence for item in result.renaming_plan]
         assert any(s is not None for s in sequences)
     
     def test_analyze_with_no_date_files(self, tmp_path):
@@ -472,14 +472,14 @@ class TestFileRenamerServiceEdgeCases:
         fake_file = test_dir / "IMG_001.jpg"
         
         analysis = RenameAnalysisResult(
-            renaming_plan=[{
-                'original_path': fake_file,
-                'new_name': '20230115_103000_PHOTO.JPG',
-                'date': datetime(2023, 1, 15, 10, 30, 0),
-                'date_source': 'EXIF',
-                'has_conflict': False,
-                'sequence': None
-            }],
+            renaming_plan=[RenamePlanItem(
+                original_path=fake_file,
+                new_name='20230115_103000_PHOTO.JPG',
+                date=datetime(2023, 1, 15, 10, 30, 0),
+                date_source='EXIF',
+                has_conflict=False,
+                sequence=None
+            )],
             already_renamed=0,
             conflicts=0,
             files_by_year={2023: 1},
@@ -531,8 +531,8 @@ class TestFileRenamerServiceIntegration:
         result2 = self.service.analyze(test_dir)
         assert len(result2.renaming_plan) == 3
         # Comparar nombres independientemente del orden
-        names1 = {item['new_name'] for item in result1.renaming_plan}
-        names2 = {item['new_name'] for item in result2.renaming_plan}
+        names1 = {item.new_name for item in result1.renaming_plan}
+        names2 = {item.new_name for item in result2.renaming_plan}
         assert names1 == names2
     
     def test_analyze_execute_analyze_sequence(self, tmp_path):

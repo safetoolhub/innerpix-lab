@@ -13,7 +13,8 @@ navegables, con cards informativas y estilos consistentes del DesignSystem.
 
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
-    QFrame, QWidget, QTabWidget, QScrollArea, QGridLayout
+    QFrame, QWidget, QTabWidget, QScrollArea, QGridLayout,
+    QSizePolicy
 )
 from PyQt6.QtCore import Qt
 from config import Config
@@ -22,6 +23,28 @@ from ui.styles.icons import icon_manager
 from ui.tools_definitions import (
     TOOL_CATEGORIES, get_tools_by_category
 )
+
+# Colores sutiles por categoría de herramientas
+_CATEGORY_COLORS = {
+    'cleanup': {
+        'bg': 'rgba(13, 110, 253, 0.04)',
+        'border': 'rgba(13, 110, 253, 0.12)',
+        'accent': '#0D6EFD',
+        'icon': '#0D6EFD',
+    },
+    'visual': {
+        'bg': 'rgba(111, 66, 193, 0.04)',
+        'border': 'rgba(111, 66, 193, 0.12)',
+        'accent': '#6F42C1',
+        'icon': '#6F42C1',
+    },
+    'organization': {
+        'bg': 'rgba(25, 135, 84, 0.04)',
+        'border': 'rgba(25, 135, 84, 0.12)',
+        'accent': '#198754',
+        'icon': '#198754',
+    },
+}
 
 
 class AboutDialog(QDialog):
@@ -43,8 +66,8 @@ class AboutDialog(QDialog):
         """Inicializa la interfaz del diálogo."""
         self.setWindowTitle(f"Acerca de {Config.APP_NAME}")
         self.setModal(True)
-        self.setMinimumSize(1100, 780)
-        self.resize(1100, 780)
+        self.setMinimumSize(1100, 850)
+        self.resize(1100, 850)
         
         # Aplicar estilo global de tooltips
         self.setStyleSheet(DesignSystem.get_tooltip_style())
@@ -71,7 +94,6 @@ class AboutDialog(QDialog):
         # Crear las pestañas (nombres compactos)
         self.tab_widget.addTab(self._create_welcome_tab(), "Inicio")
         self.tab_widget.addTab(self._create_tools_tab(), "Herramientas")
-        self.tab_widget.addTab(self._create_privacy_tab(), "Seguridad")
         self.tab_widget.addTab(self._create_tech_tab(), "Info")
 
         content_layout.addWidget(self.tab_widget)
@@ -103,6 +125,7 @@ class AboutDialog(QDialog):
             font-size: {DesignSystem.FONT_SIZE_XL}px;
             font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
         """)
+        title.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         left_layout.addWidget(title)
         
         version = QLabel(f"Versión {Config.APP_VERSION}")
@@ -110,6 +133,7 @@ class AboutDialog(QDialog):
             color: rgba(255, 255, 255, 0.9);
             font-size: {DesignSystem.FONT_SIZE_SM}px;
         """)
+        version.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         left_layout.addWidget(version)
         
         header_layout.addLayout(left_layout)
@@ -127,6 +151,7 @@ class AboutDialog(QDialog):
                 border-radius: {DesignSystem.RADIUS_FULL}px;
             }}
         """)
+        privacy_badge.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         header_layout.addWidget(privacy_badge)
         
         return header
@@ -150,6 +175,7 @@ class AboutDialog(QDialog):
             color: {DesignSystem.COLOR_TEXT_SECONDARY};
             font-size: {DesignSystem.FONT_SIZE_SM}px;
         """)
+        credits.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         footer_layout.addWidget(credits)
         
         footer_layout.addStretch()
@@ -180,11 +206,12 @@ class AboutDialog(QDialog):
         container = QWidget()
         layout = QVBoxLayout(container)
         layout.setContentsMargins(DesignSystem.SPACE_24, DesignSystem.SPACE_16, DesignSystem.SPACE_24, DesignSystem.SPACE_16)
-        layout.setSpacing(DesignSystem.SPACE_12)
+        layout.setSpacing(DesignSystem.SPACE_10)
         
         # Título + descripción en la misma sección
         welcome_title = QLabel("Bienvenido a InnerPix Lab")
         welcome_title.setStyleSheet(DesignSystem.get_tutorial_section_header_style())
+        welcome_title.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         layout.addWidget(welcome_title)
         
         description = QLabel(
@@ -193,6 +220,7 @@ class AboutDialog(QDialog):
         )
         description.setWordWrap(True)
         description.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT}; font-size: {DesignSystem.FONT_SIZE_BASE}px;")
+        description.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         layout.addWidget(description)
         
         # Flujo en lista vertical (4 pasos secuenciales)
@@ -203,6 +231,7 @@ class AboutDialog(QDialog):
             color: {DesignSystem.COLOR_PRIMARY};
             margin-top: {DesignSystem.SPACE_8}px;
         """)
+        workflow_title.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         layout.addWidget(workflow_title)
 
         workflow_desc = QLabel(
@@ -211,15 +240,16 @@ class AboutDialog(QDialog):
         )
         workflow_desc.setWordWrap(True)
         workflow_desc.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_SM}px; margin-bottom: {DesignSystem.SPACE_4}px;")
+        workflow_desc.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         layout.addWidget(workflow_desc)
         
         steps_container = QVBoxLayout()
         steps_container.setSpacing(DesignSystem.SPACE_8)
         
         steps = [
-            ("1", "Selección del Origen", "El primer paso es elegir la carpeta que contiene tus fotos y vídeos. El sistema trabajará de forma recursiva."),
-            ("2", "Análisis Profundo", "Automáticamente escaneamos archivos, extraemos metadatos EXIF y calculamos firmas digitales (hashes)."),
-            ("3", "Uso de Herramientas", "Entra en cada herramienta para detectar duplicados, organizar por fechas o limpiar archivos innecesarios."),
+            ("1", "Selección de carpeta", "El primer paso es elegir la carpeta que contiene tus fotos y vídeos. El sistema trabajará de forma recursiva."),
+            ("2", "Análisis", "Automáticamente escaneamos archivos, extraemos metadatos EXIF y calculamos firmas digitales (hashes)."),
+            ("3", "Selección de Herramienta", "Entra en cada herramienta para detectar duplicados, organizar por fechas o limpiar archivos innecesarios."),
             ("4", "Ejecución de Cambios", "Tras revisar los planes de acción propuestos, confirma la ejecución. Recomendamos usar el Modo Simulación primero."),
         ]
         
@@ -234,7 +264,7 @@ class AboutDialog(QDialog):
         tips_layout.setSpacing(DesignSystem.SPACE_8)
         
         tip1 = self._create_mini_tip("Modo Simulación", "Prueba sin modificar archivos")
-        tip2 = self._create_mini_tip("Backup Automático", "Siempre hay copia de seguridad")
+        tip2 = self._create_mini_tip("Backup Disponible", "Copia de seguridad de ficheros eliminados")
         tip3 = self._create_mini_tip("Logs Detallados", "Registro de todas las operaciones")
         
         tips_layout.addWidget(tip1)
@@ -242,89 +272,330 @@ class AboutDialog(QDialog):
         tips_layout.addWidget(tip3)
         
         layout.addLayout(tips_layout)
+        
+        # Navegación sutil
+        nav_widget = self._create_tab_navigation(next_tab=1, next_label="Ver Herramientas")
+        layout.addWidget(nav_widget)
+        
         layout.addStretch()
         
         return self._create_scroll_content(container)
 
-    def _create_privacy_tab(self) -> QWidget:
-        """Crea la pestaña de privacidad y seguridad con un diseño elegante."""
+
+
+    def _create_tools_tab(self) -> QWidget:
+        """Crea la pestaña de herramientas (8 tools organizadas por categoría con colores)."""
         container = QWidget()
         layout = QVBoxLayout(container)
-        layout.setContentsMargins(DesignSystem.SPACE_24, DesignSystem.SPACE_16, DesignSystem.SPACE_24, DesignSystem.SPACE_16)
-        layout.setSpacing(DesignSystem.SPACE_12)
+        layout.setContentsMargins(DesignSystem.SPACE_16, DesignSystem.SPACE_8, DesignSystem.SPACE_16, DesignSystem.SPACE_8)
+        layout.setSpacing(DesignSystem.SPACE_6)
         
-        # === HERO SECTION: PRIVACIDAD TOTAL ===
-        hero_frame = QFrame()
-        hero_frame.setStyleSheet(DesignSystem.get_privacy_hero_style())
-        hero_layout = QVBoxLayout(hero_frame)
-        hero_layout.setSpacing(DesignSystem.SPACE_4)
-        hero_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title = QLabel("Herramientas Disponibles")
+        title.setStyleSheet(DesignSystem.get_tutorial_section_header_style())
+        title.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
+        layout.addWidget(title)
+        
+        # Crear secciones dinámicamente usando tools_definitions
+        for category in TOOL_CATEGORIES:
+            colors = _CATEGORY_COLORS.get(category.id, _CATEGORY_COLORS['cleanup'])
+            
+            # Header de la categoría con acento de color
+            header = self._create_category_header(category.title, category.description, colors['accent'])
+            layout.addWidget(header)
+            
+            # Grid de herramientas (2 columnas alineadas)
+            tools = get_tools_by_category(category.id)
+            grid = QGridLayout()
+            grid.setSpacing(DesignSystem.SPACE_8)
+            grid.setColumnStretch(0, 1)
+            grid.setColumnStretch(1, 1)
+            
+            for i, tool in enumerate(tools):
+                row, col = i // 2, i % 2
+                card = self._create_tool_mini_card(
+                    tool.icon_name, tool.title, tool.long_description,
+                    colors['bg'], colors['border'], colors['icon']
+                )
+                grid.addWidget(card, row, col)
+            
+            # Si hay un número impar de herramientas, añadir spacer en la última celda
+            if len(tools) % 2 != 0:
+                spacer = QWidget()
+                spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+                grid.addWidget(spacer, len(tools) // 2, 1)
+            
+            layout.addLayout(grid)
+
+        # Navegación sutil
+        nav_widget = self._create_tab_navigation(prev_tab=0, prev_label="Inicio", next_tab=2, next_label="Ver Info")
+        layout.addWidget(nav_widget)
+
+        layout.addStretch()
+        return self._create_scroll_content(container)
+
+    # ==================== WIDGETS AUXILIARES ====================
+
+    def _create_tab_navigation(self, prev_tab=None, prev_label=None, next_tab=None, next_label=None) -> QFrame:
+        """Crea widget de navegación sutil entre pestañas.
+        
+        Args:
+            prev_tab: Índice de la pestaña anterior (opcional)
+            prev_label: Texto para el botón anterior
+            next_tab: Índice de la pestaña siguiente (opcional)
+            next_label: Texto para el botón siguiente
+        """
+        frame = QFrame()
+        frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: transparent;
+                border: none;
+                margin-top: {DesignSystem.SPACE_16}px;
+            }}
+        """)
+        
+        layout = QHBoxLayout(frame)
+        layout.setContentsMargins(0, DesignSystem.SPACE_12, 0, 0)
+        layout.setSpacing(DesignSystem.SPACE_8)
+        
+        # Botón anterior
+        if prev_tab is not None and prev_label:
+            prev_btn = QPushButton(f"← {prev_label}")
+            prev_btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: transparent;
+                    color: {DesignSystem.COLOR_PRIMARY};
+                    border: 1px solid {DesignSystem.COLOR_BORDER};
+                    border-radius: {DesignSystem.RADIUS_MD}px;
+                    padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_16}px;
+                    font-size: {DesignSystem.FONT_SIZE_SM}px;
+                    font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                }}
+                QPushButton:hover {{
+                    background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
+                    border-color: {DesignSystem.COLOR_PRIMARY};
+                }}
+            """)
+            prev_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            prev_btn.clicked.connect(lambda: self.tab_widget.setCurrentIndex(prev_tab))
+            layout.addWidget(prev_btn)
+        
+        layout.addStretch()
+        
+        # Botón siguiente
+        if next_tab is not None and next_label:
+            next_btn = QPushButton(f"{next_label} →")
+            next_btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {DesignSystem.COLOR_PRIMARY};
+                    color: white;
+                    border: none;
+                    border-radius: {DesignSystem.RADIUS_MD}px;
+                    padding: {DesignSystem.SPACE_6}px {DesignSystem.SPACE_16}px;
+                    font-size: {DesignSystem.FONT_SIZE_SM}px;
+                    font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+                }}
+                QPushButton:hover {{
+                    background-color: {DesignSystem.COLOR_PRIMARY_HOVER};
+                }}
+            """)
+            next_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            next_btn.clicked.connect(lambda: self.tab_widget.setCurrentIndex(next_tab))
+            layout.addWidget(next_btn)
+        
+        return frame
+
+    # ==================== WIDGETS AUXILIARES (CONTINUACIÓN) ====================
+
+    def _create_category_header(self, title: str, subtitle: str, accent_color: str) -> QFrame:
+        """Crea un header de categoría de herramientas con acento de color."""
+        frame = QFrame()
+        frame.setStyleSheet(DesignSystem.get_about_category_header_style(accent_color))
+        
+        layout = QHBoxLayout(frame)
+        layout.setContentsMargins(0, 0, 0, DesignSystem.SPACE_2)
+        layout.setSpacing(DesignSystem.SPACE_8)
+        
+        title_label = QLabel(title)
+        title_label.setStyleSheet(f"""
+            color: {accent_color};
+            font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+        """)
+        title_label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
+        layout.addWidget(title_label)
+        
+        subtitle_label = QLabel(f"— {subtitle}")
+        subtitle_label.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_SM}px;")
+        subtitle_label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
+        layout.addWidget(subtitle_label)
+        layout.addStretch()
+        
+        return frame
+
+    def _create_tool_mini_card(self, icon_name: str, title: str, description: str,
+                                bg_color: str, border_color: str, icon_color: str) -> QFrame:
+        """Crea una mini card de herramienta con color de categoría."""
+        frame = QFrame()
+        frame.setStyleSheet(DesignSystem.get_about_tool_card_category_style(bg_color, border_color))
+        frame.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        
+        layout = QHBoxLayout(frame)
+        layout.setSpacing(DesignSystem.SPACE_10)
+        layout.setContentsMargins(DesignSystem.SPACE_12, DesignSystem.SPACE_8, DesignSystem.SPACE_12, DesignSystem.SPACE_8)
+        
+        # Icono
+        icon_label = QLabel()
+        icon_manager.set_label_icon(icon_label, icon_name, color=icon_color, size=20)
+        icon_label.setFixedSize(24, 24)
+        layout.addWidget(icon_label, 0, Qt.AlignmentFlag.AlignTop)
+        
+        # Contenido
+        content = QVBoxLayout()
+        content.setSpacing(2)
+        
+        title_label = QLabel(title)
+        title_label.setStyleSheet(DesignSystem.get_tutorial_card_title_style())
+        title_label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
+        content.addWidget(title_label)
+        
+        desc_label = QLabel(description)
+        desc_label.setStyleSheet(DesignSystem.get_tutorial_card_desc_style())
+        desc_label.setWordWrap(True)
+        desc_label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
+        content.addWidget(desc_label)
+        
+        layout.addLayout(content, 1)
+        return frame
+
+    def _create_tech_tab(self) -> QWidget:
+        """Crea la pestaña de información técnica con sección de desarrollador impactante."""
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(DesignSystem.SPACE_24, DesignSystem.SPACE_12, DesignSystem.SPACE_24, DesignSystem.SPACE_12)
+        layout.setSpacing(DesignSystem.SPACE_10)
+        
+        # === HEADER SECTION ===
+        title = QLabel("Acerca de")
+        title.setStyleSheet(DesignSystem.get_tutorial_section_header_style())
+        title.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
+        layout.addWidget(title)
+        
+        # === DEVELOPER HERO SECTION ===
+        dev_hero = self._create_developer_hero()
+        layout.addWidget(dev_hero)
+
+        # === TECH INFO GRID ===
+        info_grid = QGridLayout()
+        info_grid.setSpacing(DesignSystem.SPACE_8)
+        
+        # Card 1: App Info
+        app_card = self._create_info_card("Aplicación", [
+            ("Nombre", Config.APP_NAME),
+            ("Versión", Config.APP_VERSION),
+            ("Plataformas", "Windows • Linux • macOS"),
+        ])
+        info_grid.addWidget(app_card, 0, 0)
+        
+        # Card 2: Environment
+        env_card = self._create_info_card("Tecnología", [
+            ("Lenguaje", "Python 3.x"),
+            ("Interfaz", "PyQt6"),
+            ("Arquitectura", "Modular / Local-First"),
+        ])
+        info_grid.addWidget(env_card, 0, 1)
+
+        layout.addLayout(info_grid)
+        
+        # === FORMATS SECTION ===
+        formats_card = self._create_formats_card()
+        layout.addWidget(formats_card)
+        
+        # Navegación sutil
+        nav_widget = self._create_tab_navigation(prev_tab=1, prev_label="Ver Herramientas")
+        layout.addWidget(nav_widget)
+        
+        layout.addStretch()
+        return self._create_scroll_content(container)
+
+    # ==================== SECCIÓN HERO DEL DESARROLLADOR ====================
+
+    def _create_developer_hero(self) -> QFrame:
+        """Crea la sección del desarrollador con diseño moderno."""
+        outer_frame = QFrame()
+        outer_frame.setStyleSheet(DesignSystem.get_about_dev_section_style())
+        
+        outer_layout = QVBoxLayout(outer_frame)
+        outer_layout.setSpacing(DesignSystem.SPACE_8)
+        outer_layout.setContentsMargins(
+            DesignSystem.SPACE_16, DesignSystem.SPACE_12,
+            DesignSystem.SPACE_16, DesignSystem.SPACE_12
+        )
+        
+        # Header con icono y nombre
+        header_layout = QHBoxLayout()
+        header_layout.setSpacing(DesignSystem.SPACE_10)
         
         shield_icon = QLabel()
-        icon_manager.set_label_icon(shield_icon, "shield", color=DesignSystem.COLOR_SUCCESS, size=32)
-        hero_layout.addWidget(shield_icon, 0, Qt.AlignmentFlag.AlignCenter)
+        icon_manager.set_label_icon(shield_icon, "shield", color=DesignSystem.COLOR_PRIMARY, size=28)
+        header_layout.addWidget(shield_icon)
         
-        hero_title = QLabel("Privacidad Absoluta")
-        hero_title.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_LG}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
-            color: {DesignSystem.COLOR_TEXT};
+        header_text_layout = QVBoxLayout()
+        header_text_layout.setSpacing(2)
+        
+        org_name = QLabel('<a href="https://safetoolhub.org" style="text-decoration: none;">safetoolhub.org</a>')
+        org_name.setStyleSheet(DesignSystem.get_about_dev_org_name_style())
+        org_name.setOpenExternalLinks(True)
+        org_name.setTextInteractionFlags(Qt.TextInteractionFlag.LinksAccessibleByMouse)
+        org_name.setCursor(Qt.CursorShape.PointingHandCursor)
+        header_text_layout.addWidget(org_name)
+        
+        tagline = QLabel("Software 100% privado, gratuito y sin rastreo")
+        tagline.setStyleSheet(DesignSystem.get_about_dev_tagline_style())
+        tagline.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
+        header_text_layout.addWidget(tagline)
+        
+        header_layout.addLayout(header_text_layout)
+        header_layout.addStretch()
+        
+        outer_layout.addLayout(header_layout)
+        
+        # Subtítulo explicativo
+        subtitle = QLabel("Tus archivos nunca salen de tu dispositivo. Todas las operaciones son 100% locales.")
+        subtitle.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        subtitle.setStyleSheet(f"""
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            padding-top: {DesignSystem.SPACE_4}px;
         """)
-        hero_layout.addWidget(hero_title, 0, Qt.AlignmentFlag.AlignCenter)
+        subtitle.setWordWrap(True)
+        subtitle.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
+        outer_layout.addWidget(subtitle)
         
-        hero_subtitle = QLabel("Tus archivos nunca salen de tu computadora")
-        hero_subtitle.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_SM}px;")
-        hero_layout.addWidget(hero_subtitle, 0, Qt.AlignmentFlag.AlignCenter)
+        # Separador horizontal
+        sep = QFrame()
+        sep.setFrameShape(QFrame.Shape.HLine)
+        sep.setStyleSheet(DesignSystem.get_about_separator_style())
+        outer_layout.addWidget(sep)
         
-        layout.addWidget(hero_frame)
+        # Grid de valores en 2x2
+        values_grid = QGridLayout()
+        values_grid.setSpacing(DesignSystem.SPACE_12)
         
-        # === LISTA DE GARANTÍAS ===
-        guarantees_container = QWidget()
-        guarantees_layout = QVBoxLayout(guarantees_container)
-        guarantees_layout.setContentsMargins(DesignSystem.SPACE_8, 0, DesignSystem.SPACE_8, 0)
-        guarantees_layout.setSpacing(DesignSystem.SPACE_8)
-        
-        guarantees = [
-            ("wifi-off", "100% Offline", 
-             "InnerPix Lab funciona completamente sin conexión a internet. "
-             "No enviamos estadísticas, telemetría ni datos de tus archivos a ningún servidor."),
-            ("eye-off", "Sin Rastreo", 
-             "No utilizamos bases de datos externas ni servicios en la nube. "
-             "Todo el procesamiento de imágenes y vídeos es puramente local."),
-            ("backup-restore", "Seguridad de Archivos", 
-             "Protegemos tus datos con un robusto sistema de copias de seguridad. "
-             "Antes de cada operación destructiva, creas un backup para tu tranquilidad.")
+        value_items = [
+            ("wifi-off", "100% Offline", "Sin conexión a internet"),
+            ("eye-off", "Sin Rastreo", "Privacidad absoluta"),
+            ("backup-restore", "Copias de Seguridad", "Protección de datos"),
+            ("shield", "Código Abierto", "Transparente y auditable"),
         ]
         
-        for icon, title, desc in guarantees:
-            item_frame = QFrame()
-            item_frame.setStyleSheet(DesignSystem.get_privacy_item_style())
-            item_layout = QHBoxLayout(item_frame)
-            item_layout.setContentsMargins(0, 0, 0, 0)
-            item_layout.setSpacing(DesignSystem.SPACE_16)
-            
-            icon_lbl = QLabel()
-            icon_manager.set_label_icon(icon_lbl, icon, color=DesignSystem.COLOR_PRIMARY, size=24)
-            item_layout.addWidget(icon_lbl, 0, Qt.AlignmentFlag.AlignTop)
-            
-            text_layout = QVBoxLayout()
-            text_layout.setSpacing(DesignSystem.SPACE_4)
-            
-            title_lbl = QLabel(title)
-            title_lbl.setStyleSheet(DesignSystem.get_tutorial_card_title_style())
-            text_layout.addWidget(title_lbl)
-            
-            desc_lbl = QLabel(desc)
-            desc_lbl.setWordWrap(True)
-            desc_lbl.setStyleSheet(DesignSystem.get_tutorial_card_desc_style())
-            text_layout.addWidget(desc_lbl)
-            
-            item_layout.addLayout(text_layout, 1)
-            guarantees_layout.addWidget(item_frame)
+        for i, (icon_name, title, desc) in enumerate(value_items):
+            value_card = self._create_value_card(icon_name, title, desc)
+            row, col = i // 2, i % 2
+            values_grid.addWidget(value_card, row, col)
         
-        layout.addWidget(guarantees_container)
+        outer_layout.addLayout(values_grid)
         
-        # === FOOTER DE CONFIANZA ===
+        # Footer de confianza
         trust_footer = QLabel("Todo tu contenido está a salvo y bajo tu control exclusivo.")
         trust_footer.setAlignment(Qt.AlignmentFlag.AlignCenter)
         trust_footer.setStyleSheet(f"""
@@ -333,103 +604,40 @@ class AboutDialog(QDialog):
             font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
             padding-top: {DesignSystem.SPACE_8}px;
         """)
-        layout.addWidget(trust_footer)
+        trust_footer.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
+        outer_layout.addWidget(trust_footer)
         
-        layout.addStretch()
-        return self._create_scroll_content(container)
+        return outer_frame
 
-    def _create_tools_tab(self) -> QWidget:
-        """Crea la pestaña de herramientas (8 tools organizadas)."""
-        container = QWidget()
-        layout = QVBoxLayout(container)
-        layout.setContentsMargins(DesignSystem.SPACE_24, DesignSystem.SPACE_16, DesignSystem.SPACE_24, DesignSystem.SPACE_16)
-        layout.setSpacing(DesignSystem.SPACE_12)
+    def _create_value_card(self, icon_name: str, title: str, desc: str) -> QFrame:
+        """Crea una card de valor para la sección de desarrollador."""
+        frame = QFrame()
+        frame.setStyleSheet(DesignSystem.get_about_value_card_style())
         
-        title = QLabel("Herramientas Disponibles")
-        title.setStyleSheet(DesignSystem.get_tutorial_section_header_style())
-        layout.addWidget(title)
+        layout = QVBoxLayout(frame)
+        layout.setSpacing(DesignSystem.SPACE_4)
+        layout.setContentsMargins(DesignSystem.SPACE_8, DesignSystem.SPACE_6, DesignSystem.SPACE_8, DesignSystem.SPACE_6)
+        layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         
-        # Crear secciones dinámicamente usando tools_definitions
-        for category in TOOL_CATEGORIES:
-            # Header de la categoría
-            header = self._create_category_header(category.title, category.description)
-            layout.addWidget(header)
-            
-            # Grid de herramientas
-            tools = get_tools_by_category(category.id)
-            grid = QGridLayout()
-            grid.setSpacing(DesignSystem.SPACE_8)
-            
-            # Determinar layout: 2 columnas para categorías con 4+ tools, 1 fila para categorías con 2
-            if len(tools) > 2:
-                # Grid 2x2 (ej: Limpieza con 4 tools)
-                for i, tool in enumerate(tools):
-                    row, col = i // 2, i % 2
-                    card = self._create_tool_mini_card(tool.icon_name, tool.title, tool.long_description)
-                    grid.addWidget(card, row, col)
-            else:
-                # Una fila horizontal (ej: Visual y Organización con 2 tools)
-                for i, tool in enumerate(tools):
-                    card = self._create_tool_mini_card(tool.icon_name, tool.title, tool.long_description)
-                    grid.addWidget(card, 0, i)
-            
-            layout.addLayout(grid)
+        # Icono
+        icon_label = QLabel()
+        icon_manager.set_label_icon(icon_label, icon_name, color=DesignSystem.COLOR_PRIMARY, size=20)
+        layout.addWidget(icon_label, 0, Qt.AlignmentFlag.AlignLeft)
         
-        # Nota técnica compacta
-        tech_note = QLabel(
-            "<b>Hash perceptual</b>: La detección visual usa algoritmos que generan "
-            "valores similares para imágenes parecidas, detectando duplicados aunque tengan "
-            "diferente resolución o metadatos."
-        )
-        tech_note.setWordWrap(True)
-        tech_note.setStyleSheet(DesignSystem.get_tutorial_note_style())
-        layout.addWidget(tech_note)
+        # Título
+        title_label = QLabel(title)
+        title_label.setStyleSheet(DesignSystem.get_about_value_title_style())
+        title_label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
+        layout.addWidget(title_label)
         
-        layout.addStretch()
-        return self._create_scroll_content(container)
-
-    def _create_tech_tab(self) -> QWidget:
-        """Crea la pestaña de información técnica (compacta)."""
-        container = QWidget()
-        layout = QVBoxLayout(container)
-        layout.setContentsMargins(DesignSystem.SPACE_24, DesignSystem.SPACE_16, DesignSystem.SPACE_24, DesignSystem.SPACE_16)
-        layout.setSpacing(DesignSystem.SPACE_12)
+        # Descripción
+        desc_label = QLabel(desc)
+        desc_label.setStyleSheet(DesignSystem.get_about_value_desc_style())
+        desc_label.setWordWrap(True)
+        desc_label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
+        layout.addWidget(desc_label)
         
-        title = QLabel("Información Técnica")
-        title.setStyleSheet(DesignSystem.get_tutorial_section_header_style())
-        layout.addWidget(title)
-        
-        # Info en grid horizontal
-        info_grid = QGridLayout()
-        info_grid.setSpacing(DesignSystem.SPACE_8)
-        
-        # Card 1: App Info
-        app_card = self._create_info_card("Aplicación", [
-            ("Nombre", Config.APP_NAME),
-            ("Versión", Config.APP_VERSION),
-            ("Tecnología", "PyQt6 • Python 3.x"),
-            ("Plataformas", "Windows • macOS • Linux"),
-        ])
-        info_grid.addWidget(app_card, 0, 0)
-        
-        # Card 2: Formatos
-        formats_card = self._create_formats_card()
-        info_grid.addWidget(formats_card, 0, 1)
-        
-        layout.addLayout(info_grid)
-        
-        # Ubicaciones
-        locations_box = self._create_highlight_box(
-            "Ubicaciones del Sistema",
-            "<b>Logs:</b> ~/Documents/Innerpix_Lab/logs/<br>"
-            "<b>Backups:</b> Configurables desde el menú de Ajustes",
-            DesignSystem.COLOR_PRIMARY_LIGHT,
-            DesignSystem.COLOR_PRIMARY
-        )
-        layout.addWidget(locations_box)
-        
-        layout.addStretch()
-        return self._create_scroll_content(container)
+        return frame
 
     # ==================== WIDGETS AUXILIARES COMPACTOS ====================
 
@@ -446,6 +654,7 @@ class AboutDialog(QDialog):
         num_label = QLabel(number)
         num_label.setFixedSize(24, 24)
         num_label.setStyleSheet(DesignSystem.get_tutorial_step_number_style())
+        num_label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         layout.addWidget(num_label)
         
         # Contenido
@@ -454,10 +663,12 @@ class AboutDialog(QDialog):
         
         title_label = QLabel(title)
         title_label.setStyleSheet(DesignSystem.get_tutorial_card_title_style())
+        title_label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         content.addWidget(title_label)
         
         desc_label = QLabel(description)
         desc_label.setStyleSheet(DesignSystem.get_tutorial_card_desc_style())
+        desc_label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         content.addWidget(desc_label)
         
         layout.addLayout(content, 1)
@@ -474,11 +685,13 @@ class AboutDialog(QDialog):
         
         header = QLabel(title)
         header.setStyleSheet(DesignSystem.get_tutorial_card_title_style())
+        header.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         layout.addWidget(header)
         
         desc_label = QLabel(desc)
         desc_label.setStyleSheet(DesignSystem.get_tutorial_card_desc_style())
         desc_label.setWordWrap(True)
+        desc_label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         layout.addWidget(desc_label)
         
         return frame
@@ -503,6 +716,7 @@ class AboutDialog(QDialog):
         
         title_label = QLabel(title)
         title_label.setStyleSheet(DesignSystem.get_tutorial_card_title_style())
+        title_label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         header.addWidget(title_label)
         header.addStretch()
         
@@ -511,85 +725,37 @@ class AboutDialog(QDialog):
         desc_label = QLabel(description)
         desc_label.setStyleSheet(DesignSystem.get_tutorial_card_desc_style())
         desc_label.setWordWrap(True)
+        desc_label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         layout.addWidget(desc_label)
         
-        return frame
-
-    def _create_category_header(self, title: str, subtitle: str) -> QWidget:
-        """Crea un header de categoría de herramientas."""
-        widget = QWidget()
-        layout = QHBoxLayout(widget)
-        layout.setContentsMargins(0, DesignSystem.SPACE_4, 0, DesignSystem.SPACE_4)
-        layout.setSpacing(DesignSystem.SPACE_8)
-        
-        title_label = QLabel(title)
-        title_label.setStyleSheet(DesignSystem.get_tutorial_card_title_style())
-        layout.addWidget(title_label)
-        
-        subtitle_label = QLabel(f"— {subtitle}")
-        subtitle_label.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_SM}px;")
-        layout.addWidget(subtitle_label)
-        layout.addStretch()
-        
-        return widget
-
-    def _create_tool_mini_card(self, icon_name: str, title: str, description: str) -> QFrame:
-        """Crea una mini card de herramienta."""
-        frame = QFrame()
-        frame.setStyleSheet(DesignSystem.get_tutorial_tool_card_style())
-        
-        layout = QHBoxLayout(frame)
-        layout.setSpacing(DesignSystem.SPACE_8)
-        layout.setContentsMargins(DesignSystem.SPACE_12, DesignSystem.SPACE_12, DesignSystem.SPACE_12, DesignSystem.SPACE_12)
-        
-        # Icono
-        icon_label = QLabel()
-        icon_manager.set_label_icon(icon_label, icon_name, color=DesignSystem.COLOR_PRIMARY, size=22)
-        layout.addWidget(icon_label)
-        
-        # Contenido
-        content = QVBoxLayout()
-        content.setSpacing(4)
-        
-        title_label = QLabel(title)
-        title_label.setStyleSheet(DesignSystem.get_tutorial_card_title_style())
-        content.addWidget(title_label)
-        
-        desc_label = QLabel(description)
-        desc_label.setStyleSheet(DesignSystem.get_tutorial_card_desc_style())
-        desc_label.setWordWrap(True)
-        content.addWidget(desc_label)
-        
-        layout.addLayout(content, 1)
         return frame
 
     def _create_info_card(self, title: str, items: list) -> QFrame:
         """Crea una card de información con items."""
         frame = QFrame()
-        frame.setStyleSheet(DesignSystem.get_tutorial_static_info_card_style())
+        frame.setStyleSheet(DesignSystem.get_about_info_card_style())
         
         layout = QVBoxLayout(frame)
-        layout.setSpacing(DesignSystem.SPACE_4)
-        layout.setContentsMargins(DesignSystem.SPACE_12, DesignSystem.SPACE_12, DesignSystem.SPACE_12, DesignSystem.SPACE_12)
+        layout.setSpacing(DesignSystem.SPACE_2)
+        layout.setContentsMargins(DesignSystem.SPACE_10, DesignSystem.SPACE_8, DesignSystem.SPACE_10, DesignSystem.SPACE_8)
         
         title_label = QLabel(title)
         title_label.setStyleSheet(DesignSystem.get_tutorial_card_title_style())
+        title_label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         layout.addWidget(title_label)
         
         for label, value in items:
             row = QHBoxLayout()
-            row.setSpacing(8)
+            row.setSpacing(6)
             
             lbl = QLabel(f"{label}:")
-            lbl.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_SM}px;")
+            lbl.setStyleSheet(DesignSystem.get_about_info_label_style())
+            lbl.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
             row.addWidget(lbl)
             
             val = QLabel(value)
-            val.setStyleSheet(f"""
-                color: {DesignSystem.COLOR_TEXT};
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-            """)
+            val.setStyleSheet(DesignSystem.get_about_info_value_style())
+            val.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
             row.addWidget(val)
             row.addStretch()
             
@@ -600,14 +766,15 @@ class AboutDialog(QDialog):
     def _create_formats_card(self) -> QFrame:
         """Crea la card de formatos soportados."""
         frame = QFrame()
-        frame.setStyleSheet(DesignSystem.get_tutorial_static_info_card_style())
+        frame.setStyleSheet(DesignSystem.get_about_info_card_style())
         
         layout = QVBoxLayout(frame)
-        layout.setSpacing(DesignSystem.SPACE_4)
-        layout.setContentsMargins(DesignSystem.SPACE_12, DesignSystem.SPACE_12, DesignSystem.SPACE_12, DesignSystem.SPACE_12)
+        layout.setSpacing(DesignSystem.SPACE_2)
+        layout.setContentsMargins(DesignSystem.SPACE_10, DesignSystem.SPACE_8, DesignSystem.SPACE_10, DesignSystem.SPACE_8)
         
         title_label = QLabel("Formatos Soportados")
         title_label.setStyleSheet(DesignSystem.get_tutorial_card_title_style())
+        title_label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         layout.addWidget(title_label)
         
         formats = [
@@ -617,15 +784,16 @@ class AboutDialog(QDialog):
         
         for icon_name, fmt_title, fmt_list in formats:
             row = QHBoxLayout()
-            row.setSpacing(8)
+            row.setSpacing(6)
             
             icon_label = QLabel()
-            icon_manager.set_label_icon(icon_label, icon_name, color=DesignSystem.COLOR_PRIMARY, size=16)
+            icon_manager.set_label_icon(icon_label, icon_name, color=DesignSystem.COLOR_PRIMARY, size=14)
             row.addWidget(icon_label)
             
             text = QLabel(f"<b>{fmt_title}:</b> {fmt_list}")
-            text.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT}; font-size: {DesignSystem.FONT_SIZE_SM}px;")
+            text.setStyleSheet(DesignSystem.get_about_formats_text_style())
             text.setWordWrap(True)
+            text.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
             row.addWidget(text, 1)
             
             layout.addLayout(row)
@@ -644,11 +812,13 @@ class AboutDialog(QDialog):
         
         title_label = QLabel(title)
         title_label.setStyleSheet(DesignSystem.get_tutorial_card_title_style())
+        title_label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         layout.addWidget(title_label)
         
         content_label = QLabel(content)
         content_label.setStyleSheet(DesignSystem.get_tutorial_card_desc_style())
         content_label.setWordWrap(True)
+        content_label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         layout.addWidget(content_label)
         
         return frame

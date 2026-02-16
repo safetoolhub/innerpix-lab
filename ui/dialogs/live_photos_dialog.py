@@ -90,9 +90,11 @@ class LivePhotosDialog(BaseDialog):
         
         # Warning sobre metadata de video no disponible
         # Prioridad: 1) Herramientas no instaladas, 2) Configuración desactivada
+        from utils.settings_manager import settings_manager
         video_tools_available = are_video_tools_available()
+        video_metadata_enabled = settings_manager.get_precalculate_video_exif()
         
-        if not video_tools_available or not Config.USE_VIDEO_METADATA:
+        if not video_tools_available or not video_metadata_enabled:
             warning_container = QWidget()
             warning_container_layout = QVBoxLayout(warning_container)
             warning_container_layout.setContentsMargins(

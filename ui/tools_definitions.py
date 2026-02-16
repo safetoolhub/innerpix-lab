@@ -86,7 +86,7 @@ TOOL_VISUAL_IDENTICAL = ToolDefinition(
     title='Copias visualmente idénticas',
     short_description='Archivos visualmente idénticos, pero con diferentes datos internos. Sucede en fotos enviadas por WhatsApp o redimensionadas.',
     long_description=(
-        'Identifica imágenes que son visualmente indistinguibles para el ojo humano, '
+        'Identifica imágenes (videos en próximas versiones) que son visualmente indistinguibles para el ojo humano, '
         'aunque técnicamente sean archivos diferentes (por ejemplo, una copia descargada de internet, '
         'o la misma foto guardada en diferentes fechas). Ideal para eliminar copias de WhatsApp, '
         'screenshots repetidos o imágenes redimensionadas.'
@@ -99,7 +99,7 @@ TOOL_DUPLICATES_SIMILAR = ToolDefinition(
     title='Archivos similares',
     short_description='Detecta imágenes similares pero no iguales (ediciones, recortes, distinta resolución...)',
     long_description=(
-        'Detecta fotos y vídeos que son muy parecidos pero no idénticos. Esto es perfecto para:\n'
+        'Detecta fotos (videos en próximas versiones) que son muy parecidos pero no idénticos. Esto es perfecto para:\n'
         '• Seleccionar la mejor toma de una ráfaga de fotos.\n'
         '• Eliminar versiones ligeramente editadas o recortadas que ya no necesita.\n'
         '• Detectar copias de baja resolución.'

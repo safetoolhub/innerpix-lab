@@ -9,6 +9,7 @@ import pytest
 from pathlib import Path
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch, PropertyMock
+from config import Config
 from services.live_photos_service import LivePhotoService
 from services.result_types import (
     LivePhotosAnalysisResult, 
@@ -94,9 +95,11 @@ class TestLivePhotoServiceAnalysis:
         mock_repo.get_all_files.return_value = [img_meta, vid_meta]
         mock_repo.get_file_count.return_value = 2
         
-        # Diferencia de 15 segundos (> 10s threshold para Live Photos)
+        # Diferencia que excede el threshold configurado (Config.LIVE_PHOTO_MAX_TIME_DIFFERENCE_SECONDS + 10)
+        threshold = Config.LIVE_PHOTO_MAX_TIME_DIFFERENCE_SECONDS
+        time_diff = threshold + 10  # Supera el threshold
         dt_vid = datetime(2023, 6, 15, 14, 30, 0)
-        dt_img = datetime(2023, 6, 15, 14, 30, 15)
+        dt_img = dt_vid + timedelta(seconds=time_diff)
         with patch('services.live_photos_service.select_best_date_from_common_date_to_2_files', 
                    return_value=(dt_vid, dt_img, 'fs_mtime')):
             result = live_photos_service.analyze(validate_dates=True)
@@ -106,7 +109,7 @@ class TestLivePhotoServiceAnalysis:
         assert len(result.rejected_groups) == 1
         
         rejected = result.rejected_groups[0]
-        assert rejected.date_difference == 15.0
+        assert rejected.date_difference == time_diff
     
     def test_analyze_accepts_group_without_date_validation(
         self, live_photos_service, mock_repo
