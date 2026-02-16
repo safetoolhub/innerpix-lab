@@ -297,7 +297,7 @@ class DuplicatesSimilarDialog(BaseDialog):
                 {'value': '-', 'label': 'Recuperable', 'color': DesignSystem.COLOR_SUCCESS}
             ],
             tip_message=(
-                "<b>Tip:</b> Esta herramienta detecta imágenes <i>similares</i> (recortes, ediciones). "
+                "<b>Tip:</b> Esta herramienta detecta imágenes (videos próximamente) <i>similares</i> (recortes, ediciones). "
                 "Para copias <i>idénticas</i> visualmente, usa \"Copias Visuales Idénticas\"."
             )
         )

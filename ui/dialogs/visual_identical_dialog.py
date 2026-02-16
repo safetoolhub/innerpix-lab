@@ -170,7 +170,11 @@ class VisualIdenticalDialog(BaseDialog):
                     'label': 'Recuperable',
                     'color': DesignSystem.COLOR_SUCCESS
                 }
-            ]
+            ],
+            tip_message=(
+                "<b>Tip:</b> Esta herramienta detecta imágenes (videos próximamente) <i>visualmente idénticas al 100%</i> (mismo contenido visual). "
+                "Para detectar imágenes <i>similares</i> con variaciones (recortes, ediciones, filtros), usa \"Archivos Similares\"."
+            )
         )
         layout.addWidget(self.header_frame)
         
