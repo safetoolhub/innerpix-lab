@@ -304,7 +304,7 @@ class AboutDialog(QDialog):
         hero_title.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         hero_layout.addWidget(hero_title, 0, Qt.AlignmentFlag.AlignCenter)
         
-        hero_subtitle = QLabel("Tus archivos nunca salen de tu computadora")
+        hero_subtitle = QLabel("Tus archivos nunca salen de tu dispositivo")
         hero_subtitle.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_SM}px;")
         hero_subtitle.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         hero_layout.addWidget(hero_subtitle, 0, Qt.AlignmentFlag.AlignCenter)
@@ -487,11 +487,11 @@ class AboutDialog(QDialog):
         """Crea la pestaña de información técnica con sección de desarrollador impactante."""
         container = QWidget()
         layout = QVBoxLayout(container)
-        layout.setContentsMargins(DesignSystem.SPACE_24, DesignSystem.SPACE_16, DesignSystem.SPACE_24, DesignSystem.SPACE_16)
-        layout.setSpacing(DesignSystem.SPACE_12)
+        layout.setContentsMargins(DesignSystem.SPACE_24, DesignSystem.SPACE_12, DesignSystem.SPACE_24, DesignSystem.SPACE_12)
+        layout.setSpacing(DesignSystem.SPACE_10)
         
         # === HEADER SECTION ===
-        title = QLabel("Información del Sistema")
+        title = QLabel("Acerca de")
         title.setStyleSheet(DesignSystem.get_tutorial_section_header_style())
         title.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         layout.addWidget(title)
@@ -502,7 +502,7 @@ class AboutDialog(QDialog):
 
         # === TECH INFO GRID ===
         info_grid = QGridLayout()
-        info_grid.setSpacing(DesignSystem.SPACE_12)
+        info_grid.setSpacing(DesignSystem.SPACE_8)
         
         # Card 1: App Info
         app_card = self._create_info_card("Aplicación", [
@@ -534,19 +534,13 @@ class AboutDialog(QDialog):
     def _create_developer_hero(self) -> QFrame:
         """Crea la sección del desarrollador con diseño moderno."""
         outer_frame = QFrame()
-        outer_frame.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_BACKGROUND};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-            }}
-        """)
+        outer_frame.setStyleSheet(DesignSystem.get_about_dev_section_style())
         
         outer_layout = QVBoxLayout(outer_frame)
-        outer_layout.setSpacing(DesignSystem.SPACE_12)
+        outer_layout.setSpacing(DesignSystem.SPACE_8)
         outer_layout.setContentsMargins(
-            DesignSystem.SPACE_20, DesignSystem.SPACE_16,
-            DesignSystem.SPACE_20, DesignSystem.SPACE_16
+            DesignSystem.SPACE_16, DesignSystem.SPACE_12,
+            DesignSystem.SPACE_16, DesignSystem.SPACE_12
         )
         
         # Header con icono y nombre
@@ -561,19 +555,12 @@ class AboutDialog(QDialog):
         header_text_layout.setSpacing(2)
         
         org_name = QLabel("safetoolhub.org")
-        org_name.setStyleSheet(f"""
-            color: {DesignSystem.COLOR_TEXT};
-            font-size: {DesignSystem.FONT_SIZE_LG}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
-        """)
+        org_name.setStyleSheet(DesignSystem.get_about_dev_org_name_style())
         org_name.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         header_text_layout.addWidget(org_name)
         
         tagline = QLabel("Software 100% privado, gratuito y sin rastreo")
-        tagline.setStyleSheet(f"""
-            color: {DesignSystem.COLOR_TEXT_SECONDARY};
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-        """)
+        tagline.setStyleSheet(DesignSystem.get_about_dev_tagline_style())
         tagline.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         header_text_layout.addWidget(tagline)
         
@@ -585,12 +572,12 @@ class AboutDialog(QDialog):
         # Separador horizontal
         sep = QFrame()
         sep.setFrameShape(QFrame.Shape.HLine)
-        sep.setStyleSheet(f"background-color: {DesignSystem.COLOR_BORDER_LIGHT}; max-height: 1px;")
+        sep.setStyleSheet(DesignSystem.get_about_separator_style())
         outer_layout.addWidget(sep)
         
         # Grid de valores en 3 columnas
         values_layout = QHBoxLayout()
-        values_layout.setSpacing(DesignSystem.SPACE_16)
+        values_layout.setSpacing(DesignSystem.SPACE_12)
         
         value_items = [
             ("wifi-off", "100% Offline", "Sin conexión a internet"),
@@ -609,18 +596,11 @@ class AboutDialog(QDialog):
     def _create_value_card(self, icon_name: str, title: str, desc: str) -> QFrame:
         """Crea una card de valor para la sección de desarrollador."""
         frame = QFrame()
-        frame.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_BORDER_LIGHT};
-                border-radius: {DesignSystem.RADIUS_MD}px;
-                padding: {DesignSystem.SPACE_12}px;
-            }}
-        """)
+        frame.setStyleSheet(DesignSystem.get_about_value_card_style())
         
         layout = QVBoxLayout(frame)
-        layout.setSpacing(DesignSystem.SPACE_6)
-        layout.setContentsMargins(DesignSystem.SPACE_12, DesignSystem.SPACE_10, DesignSystem.SPACE_12, DesignSystem.SPACE_10)
+        layout.setSpacing(DesignSystem.SPACE_4)
+        layout.setContentsMargins(DesignSystem.SPACE_8, DesignSystem.SPACE_6, DesignSystem.SPACE_8, DesignSystem.SPACE_6)
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         
         # Icono
@@ -630,20 +610,13 @@ class AboutDialog(QDialog):
         
         # Título
         title_label = QLabel(title)
-        title_label.setStyleSheet(f"""
-            color: {DesignSystem.COLOR_TEXT};
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-        """)
+        title_label.setStyleSheet(DesignSystem.get_about_value_title_style())
         title_label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         layout.addWidget(title_label)
         
         # Descripción
         desc_label = QLabel(desc)
-        desc_label.setStyleSheet(f"""
-            color: {DesignSystem.COLOR_TEXT_SECONDARY};
-            font-size: {DesignSystem.FONT_SIZE_XS}px;
-        """)
+        desc_label.setStyleSheet(DesignSystem.get_about_value_desc_style())
         desc_label.setWordWrap(True)
         desc_label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         layout.addWidget(desc_label)
@@ -744,11 +717,11 @@ class AboutDialog(QDialog):
     def _create_info_card(self, title: str, items: list) -> QFrame:
         """Crea una card de información con items."""
         frame = QFrame()
-        frame.setStyleSheet(DesignSystem.get_tutorial_static_info_card_style())
+        frame.setStyleSheet(DesignSystem.get_about_info_card_style())
         
         layout = QVBoxLayout(frame)
-        layout.setSpacing(DesignSystem.SPACE_4)
-        layout.setContentsMargins(DesignSystem.SPACE_12, DesignSystem.SPACE_12, DesignSystem.SPACE_12, DesignSystem.SPACE_12)
+        layout.setSpacing(DesignSystem.SPACE_2)
+        layout.setContentsMargins(DesignSystem.SPACE_10, DesignSystem.SPACE_8, DesignSystem.SPACE_10, DesignSystem.SPACE_8)
         
         title_label = QLabel(title)
         title_label.setStyleSheet(DesignSystem.get_tutorial_card_title_style())
@@ -757,19 +730,15 @@ class AboutDialog(QDialog):
         
         for label, value in items:
             row = QHBoxLayout()
-            row.setSpacing(8)
+            row.setSpacing(6)
             
             lbl = QLabel(f"{label}:")
-            lbl.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_SM}px;")
+            lbl.setStyleSheet(DesignSystem.get_about_info_label_style())
             lbl.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
             row.addWidget(lbl)
             
             val = QLabel(value)
-            val.setStyleSheet(f"""
-                color: {DesignSystem.COLOR_TEXT};
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-            """)
+            val.setStyleSheet(DesignSystem.get_about_info_value_style())
             val.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
             row.addWidget(val)
             row.addStretch()
@@ -781,11 +750,11 @@ class AboutDialog(QDialog):
     def _create_formats_card(self) -> QFrame:
         """Crea la card de formatos soportados."""
         frame = QFrame()
-        frame.setStyleSheet(DesignSystem.get_tutorial_static_info_card_style())
+        frame.setStyleSheet(DesignSystem.get_about_info_card_style())
         
         layout = QVBoxLayout(frame)
-        layout.setSpacing(DesignSystem.SPACE_4)
-        layout.setContentsMargins(DesignSystem.SPACE_12, DesignSystem.SPACE_12, DesignSystem.SPACE_12, DesignSystem.SPACE_12)
+        layout.setSpacing(DesignSystem.SPACE_2)
+        layout.setContentsMargins(DesignSystem.SPACE_10, DesignSystem.SPACE_8, DesignSystem.SPACE_10, DesignSystem.SPACE_8)
         
         title_label = QLabel("Formatos Soportados")
         title_label.setStyleSheet(DesignSystem.get_tutorial_card_title_style())
@@ -799,14 +768,14 @@ class AboutDialog(QDialog):
         
         for icon_name, fmt_title, fmt_list in formats:
             row = QHBoxLayout()
-            row.setSpacing(8)
+            row.setSpacing(6)
             
             icon_label = QLabel()
-            icon_manager.set_label_icon(icon_label, icon_name, color=DesignSystem.COLOR_PRIMARY, size=16)
+            icon_manager.set_label_icon(icon_label, icon_name, color=DesignSystem.COLOR_PRIMARY, size=14)
             row.addWidget(icon_label)
             
             text = QLabel(f"<b>{fmt_title}:</b> {fmt_list}")
-            text.setStyleSheet(f"color: {DesignSystem.COLOR_TEXT}; font-size: {DesignSystem.FONT_SIZE_SM}px;")
+            text.setStyleSheet(DesignSystem.get_about_formats_text_style())
             text.setWordWrap(True)
             text.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
             row.addWidget(text, 1)

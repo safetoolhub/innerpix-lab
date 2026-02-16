@@ -1813,6 +1813,96 @@ class DesignSystem:
         """
 
     @staticmethod
+    def get_about_dev_section_style():
+        """Retorna estilo para la sección de desarrollador en About (sin bordes)."""
+        return f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_BACKGROUND};
+                border: none;
+                border-radius: {DesignSystem.RADIUS_LG}px;
+            }}
+        """
+
+    @staticmethod
+    def get_about_dev_org_name_style():
+        """Retorna estilo para el nombre de la organización en About."""
+        return f"""
+            color: {DesignSystem.COLOR_TEXT};
+            font-size: {DesignSystem.FONT_SIZE_LG}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+        """
+
+    @staticmethod
+    def get_about_dev_tagline_style():
+        """Retorna estilo para el tagline de la organización en About."""
+        return f"""
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+        """
+
+    @staticmethod
+    def get_about_separator_style():
+        """Retorna estilo para separadores horizontales en About."""
+        return f"background-color: {DesignSystem.COLOR_BORDER_LIGHT}; max-height: 1px;"
+
+    @staticmethod
+    def get_about_value_card_style():
+        """Retorna estilo para value cards en la sección de desarrollador (sin bordes)."""
+        return f"""
+            QFrame {{
+                background-color: transparent;
+                border: none;
+            }}
+        """
+
+    @staticmethod
+    def get_about_value_title_style():
+        """Retorna estilo para títulos en value cards."""
+        return f"""
+            color: {DesignSystem.COLOR_TEXT};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+        """
+
+    @staticmethod
+    def get_about_value_desc_style():
+        """Retorna estilo para descripciones en value cards."""
+        return f"""
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            font-size: {DesignSystem.FONT_SIZE_XS}px;
+        """
+
+    @staticmethod
+    def get_about_info_card_style():
+        """Retorna estilo para info cards (sin bordes)."""
+        return f"""
+            QFrame {{
+                background-color: transparent;
+                border: none;
+                border-radius: {DesignSystem.RADIUS_MD}px;
+            }}
+        """
+
+    @staticmethod
+    def get_about_info_label_style():
+        """Retorna estilo para labels en info cards."""
+        return f"color: {DesignSystem.COLOR_TEXT_SECONDARY}; font-size: {DesignSystem.FONT_SIZE_XS}px;"
+
+    @staticmethod
+    def get_about_info_value_style():
+        """Retorna estilo para valores en info cards."""
+        return f"""
+            color: {DesignSystem.COLOR_TEXT};
+            font-size: {DesignSystem.FONT_SIZE_XS}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
+        """
+
+    @staticmethod
+    def get_about_formats_text_style():
+        """Retorna estilo para texto en la card de formatos."""
+        return f"color: {DesignSystem.COLOR_TEXT}; font-size: {DesignSystem.FONT_SIZE_XS}px;"
+
+    @staticmethod
     def get_developer_info_style():
         """Retorna el estilo para la sección de desarrollador."""
         return f"""
