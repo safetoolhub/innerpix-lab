@@ -53,10 +53,10 @@ class LivePhotoService(BaseService):
         self.photo_extensions = {'.heic', '.jpg', '.jpeg'}
         self.video_extensions = {'.mov'}
         
-        self.logger.info(f"Extensiones de foto configuradas: {self.photo_extensions}")
-        self.logger.info(f"Extensiones de video configuradas: {self.video_extensions}")
+        self.logger.info(f"Configured photo extensions: {self.photo_extensions}")
+        self.logger.info(f"Configured video extensions: {self.video_extensions}")
         self.logger.info(
-            f"Duración máxima para eliminación: {Config.LIVE_PHOTO_MAX_VIDEO_DURATION_SECONDS}s"
+            f"Max duration for deletion: {Config.LIVE_PHOTO_MAX_VIDEO_DURATION_SECONDS}s"
         )
 
         # Estadísticas
@@ -89,12 +89,12 @@ class LivePhotoService(BaseService):
         """
         repo = FileInfoRepositoryCache.get_instance()
         
-        log_section_header_discrete(self.logger, "ANÁLISIS DE LIVE PHOTOS")
-        self.logger.info(f"Usando FileInfoRepositoryCache con {repo.get_file_count()} archivos")
-        self.logger.info(f"Validación de fechas: {'ACTIVADA' if validate_dates else 'DESACTIVADA'}")
+        log_section_header_discrete(self.logger, "LIVE PHOTOS ANALYSIS")
+        self.logger.info(f"Using FileInfoRepositoryCache with {repo.get_file_count()} files")
+        self.logger.info(f"Date validation: {'ENABLED' if validate_dates else 'DISABLED'}")
         
         if validate_dates:
-            self.logger.info(f"Tolerancia máxima: {Config.LIVE_PHOTO_MAX_TIME_DIFFERENCE_SECONDS}s")
+            self.logger.info(f"Max tolerance: {Config.LIVE_PHOTO_MAX_TIME_DIFFERENCE_SECONDS}s")
         
         self._reset_stats()
         
@@ -131,7 +131,7 @@ class LivePhotoService(BaseService):
                 if meta.exif_VideoDurationSeconds is None:
                     videos_without_duration.append(meta)
         
-        self.logger.info(f"Encontrados: {self.stats['photos_found']} fotos, {self.stats['videos_found']} videos MOV")
+        self.logger.info(f"Found: {self.stats['photos_found']} photos, {self.stats['videos_found']} MOV videos")
         
         # Calcular duración de videos que no la tienen (on-demand)
         if videos_without_duration:
@@ -175,7 +175,7 @@ class LivePhotoService(BaseService):
                 video_meta = video_dict[base_name]
                 photo_metas = photo_dict[base_name]
                 
-                self.logger.debug(f"Analizando grupo: {base_name} en {directory} ({len(photo_metas)} imágenes)")
+                self.logger.debug(f"Analyzing group: {base_name} in {directory} ({len(photo_metas)} images)")
                 
                 try:
                     # Crear grupo con todas las imágenes que coinciden
@@ -205,7 +205,7 @@ class LivePhotoService(BaseService):
                             groups.append(group)
                             
                 except Exception as e:
-                    self.logger.warning(f"Error procesando grupo {base_name}: {e}")
+                    self.logger.warning(f"Error processing group {base_name}: {e}")
                     import traceback
                     self.logger.debug(traceback.format_exc())
                 
@@ -213,8 +213,8 @@ class LivePhotoService(BaseService):
                 if total_possible_groups > 0 and processed_groups % progress_checkpoint == 0:
                     percent = (processed_groups / total_possible_groups) * 100
                     self.logger.info(
-                        f"** Progreso análisis Live Photos: {percent:.0f}% "
-                        f"({processed_groups}/{total_possible_groups} grupos)"
+                        f"** Live Photos analysis progress: {percent:.0f}% "
+                        f"({processed_groups}/{total_possible_groups} groups)"
                     )
         
         self.stats['groups_found'] = len(groups)
@@ -224,7 +224,7 @@ class LivePhotoService(BaseService):
         
         log_section_footer_discrete(
             self.logger, 
-            f"Análisis completado: {len(groups)} grupos aceptados, {len(rejected_groups)} rechazados"
+            f"Analysis completed: {len(groups)} groups accepted, {len(rejected_groups)} rejected"
         )
         
         return LivePhotosAnalysisResult(
@@ -428,11 +428,11 @@ class LivePhotoService(BaseService):
         Salvaguarda: Videos con duración > LIVE_PHOTO_MAX_VIDEO_DURATION_SECONDS
         no se eliminan (los Live Photos reales duran ~3 segundos).
         """
-        mode_label = "SIMULACIÓN" if dry_run else ""
-        log_section_header_relevant(self.logger, "LIMPIEZA DE LIVE PHOTOS", mode=mode_label)
-        self.logger.info(f"Videos a evaluar: {len(videos_to_delete)}")
+        mode_label = "SIMULATION" if dry_run else ""
+        log_section_header_relevant(self.logger, "LIVE PHOTOS CLEANUP", mode=mode_label)
+        self.logger.info(f"Videos to evaluate: {len(videos_to_delete)}")
         self.logger.info(
-            f"Salvaguarda de duración activa: máximo {Config.LIVE_PHOTO_MAX_VIDEO_DURATION_SECONDS}s"
+            f"Duration safeguard active: max {Config.LIVE_PHOTO_MAX_VIDEO_DURATION_SECONDS}s"
         )
 
         result = LivePhotosExecutionResult(success=True, dry_run=dry_run)
@@ -456,12 +456,12 @@ class LivePhotoService(BaseService):
                     total, 
                     f"{'[Simulación] ' if dry_run else ''}Evaluando {video_path.name}"
                 ):
-                    self.logger.info("Limpieza cancelada por el usuario")
+                    self.logger.info("Cleanup cancelled by user")
                     break
 
                 try:
                     if not video_path.exists():
-                        self.logger.warning(f"Video no encontrado: {video_path}")
+                        self.logger.warning(f"Video not found: {video_path}")
                         continue
 
                     # Obtener duración del video desde el repositorio
@@ -482,15 +482,15 @@ class LivePhotoService(BaseService):
                             if video_exif and 'duration_seconds' in video_exif:
                                 video_duration = video_exif['duration_seconds']
                         except Exception as e:
-                            self.logger.debug(f"No se pudo obtener duración de {video_path.name}: {e}")
+                            self.logger.debug(f"Could not get duration of {video_path.name}: {e}")
 
                     # SALVAGUARDA DE DURACIÓN: No eliminar videos > 3.2s
                     if video_duration is not None and video_duration > max_duration:
                         videos_protected += 1
                         self.logger.warning(
-                            f"⛔ VIDEO PROTEGIDO: {video_path} no se eliminará "
-                            f"(duración: {video_duration:.2f}s > {max_duration}s). "
-                            f"Probablemente NO es un Live Photo real."
+                            f"⛔ VIDEO PROTECTED: {video_path} will not be deleted "
+                            f"(duration: {video_duration:.2f}s > {max_duration}s). "
+                            f"Probably NOT a real Live Photo."
                         )
                         continue
 
@@ -504,18 +504,18 @@ class LivePhotoService(BaseService):
                         # Warning si el video es grande (aunque se elimine)
                         if video_size > Config.LIVE_PHOTO_MAX_VIDEO_SIZE:
                             self.logger.warning(
-                                f"⚠️ SOSPECHA: Video grande {'en' if dry_run else 'eliminado en'} "
+                                f"⚠️ SUSPECT: Large video {'in' if dry_run else 'deleted in'} "
                                 f"Live Photo: {video_path} ({format_size(video_size)})"
                             )
                     else:
                         self.logger.warning(
                             f"ARCHIVO_DESCARTADO: {video_path} | "
                             f"Size: {format_size(video_size)} | "
-                            f"Motivo: No se pudo eliminar el archivo"
+                            f"Reason: Could not delete file"
                         )
 
                 except Exception as e:
-                    error_msg = f"Error procesando {video_path.name}: {str(e)}"
+                    error_msg = f"Error processing {video_path.name}: {str(e)}"
                     result.add_error(error_msg)
                     self.logger.error(error_msg)
 
@@ -523,8 +523,8 @@ class LivePhotoService(BaseService):
             total_descartados = total - videos_deleted - videos_protected
             if total_descartados > 0:
                 self.logger.warning(
-                    f"RESUMEN_DESCARTADOS: {total_descartados}/{total} archivos no pudieron ser eliminados "
-                    f"(protegidos por duración: {videos_protected}, no encontrados o fallos: {total_descartados})"
+                    f"RESUMEN_DESCARTADOS: {total_descartados}/{total} files could not be deleted "
+                    f"(protected by duration: {videos_protected}, not found or failed: {total_descartados})"
                 )
 
             # Actualizar estadísticas
@@ -543,14 +543,14 @@ class LivePhotoService(BaseService):
 
             # Resumen
             summary = self._format_operation_summary(
-                "Limpieza Live Photos", 
+                "Live Photos Cleanup", 
                 items_processed, 
                 bytes_processed, 
                 dry_run
             )
             
             if videos_protected > 0:
-                summary += f" | {videos_protected} videos protegidos por duración"
+                summary += f" | {videos_protected} videos protected by duration"
             
             log_section_footer_relevant(self.logger, summary)
             
@@ -562,13 +562,13 @@ class LivePhotoService(BaseService):
                 result.message += f"\n\nBackup: {result.backup_path}"
                 
             if result.errors:
-                result.message += f"\nAdvertencia: {len(result.errors)} errores"
+                result.message += f"\nWarning: {len(result.errors)} errors"
             
             if videos_protected > 0:
-                result.message += f"\n⛔ {videos_protected} videos protegidos (duración > {max_duration}s)"
+                result.message += f"\n⛔ {videos_protected} videos protected (duration > {max_duration}s)"
 
         except Exception as e:
-            error_msg = f"Error durante limpieza: {str(e)}"
+            error_msg = f"Error during cleanup: {str(e)}"
             result.add_error(error_msg)
             result.message = error_msg
             self.logger.error(error_msg)
@@ -602,18 +602,18 @@ class LivePhotoService(BaseService):
         
         if short_videos:
             self.logger.info(
-                f"📋 ANÁLISIS FINAL: {len(short_videos)} videos MOV cortos "
-                f"(≤{max_duration}s) permanecen en el dataset:"
+                f"📋 FINAL ANALYSIS: {len(short_videos)} short MOV videos "
+                f"(≤{max_duration}s) remain in the dataset:"
             )
             for path, duration in sorted(short_videos, key=lambda x: x[0]):
                 self.logger.info(f"   - {path} ({duration:.2f}s)")
             self.logger.info(
-                "   ℹ️ Revisa estos videos: podrían ser Live Photos no detectados "
-                "(nombre base no coincide con imagen o fechas muy diferentes)"
+                "   ℹ️ Review these videos: they could be undetected Live Photos "
+                "(base name doesn't match an image or dates are very different)"
             )
         else:
             self.logger.info(
-                f"✅ No quedan videos MOV cortos (≤{max_duration}s) en el dataset"
+                f"✅ No short MOV videos (≤{max_duration}s) remain in the dataset"
             )
 
     def _ensure_video_durations(
@@ -635,7 +635,7 @@ class LivePhotoService(BaseService):
             return
         
         self.logger.info(
-            f"📹 Calculando duración de {len(videos)} videos sin metadatos..."
+            f"📹 Calculating duration of {len(videos)} videos without metadata..."
         )
         
         # Verificar si hay herramientas disponibles
@@ -645,16 +645,16 @@ class LivePhotoService(BaseService):
         
         if not has_ffprobe and not has_exiftool:
             self.logger.warning(
-                "⚠️ No se encontró ffprobe ni exiftool. "
-                "No se puede calcular la duración de los videos. "
-                "Instale ffmpeg o exiftool para habilitar esta funcionalidad."
+                "⚠️ ffprobe and exiftool not found. "
+                "Cannot calculate video durations. "
+                "Install ffmpeg or exiftool to enable this feature."
             )
             return
         
         try:
             from utils.file_utils import get_exif_from_video
         except ImportError:
-            self.logger.error("No se pudo importar get_exif_from_video")
+            self.logger.error("Could not import get_exif_from_video")
             return
         
         calculated = 0
@@ -677,29 +677,29 @@ class LivePhotoService(BaseService):
                     meta.exif_VideoDurationSeconds = video_exif['duration_seconds']
                     calculated += 1
                     self.logger.debug(
-                        f"Duración calculada para {meta.path.name}: "
+                        f"Duration calculated for {meta.path.name}: "
                         f"{meta.exif_VideoDurationSeconds:.2f}s"
                     )
                 else:
                     failed += 1
                     self.logger.debug(
-                        f"No se pudo obtener duración de {meta.path.name}"
+                        f"Could not get duration of {meta.path.name}"
                     )
                     
             except Exception as e:
                 failed += 1
                 self.logger.debug(
-                    f"Error calculando duración de {meta.path.name}: {e}"
+                    f"Error calculating duration of {meta.path.name}: {e}"
                 )
         
         if calculated > 0:
             self.logger.info(
-                f"✅ Duración calculada para {calculated} videos"
+                f"✅ Duration calculated for {calculated} videos"
             )
         if failed > 0:
             self.logger.warning(
-                f"⚠️ No se pudo obtener duración de {failed} videos "
-                f"(pueden no ser videos válidos o estar corruptos)"
+                f"⚠️ Could not get duration of {failed} videos "
+                f"(may not be valid videos or may be corrupt)"
             )
 
     def _normalize_name(self, name: str) -> str:
@@ -727,7 +727,7 @@ class LivePhotoService(BaseService):
         """Log de metadatos para diagnóstico de grupos rechazados."""
         self.logger.info(f"  Video: {video_meta.get_summary(verbose=True)}")
         for i, photo_meta in enumerate(photo_metas):
-            self.logger.info(f"  Imagen {i+1}: {photo_meta.get_summary(verbose=True)}")
+            self.logger.info(f"  Image {i+1}: {photo_meta.get_summary(verbose=True)}")
 
     def _create_empty_result(self) -> LivePhotosAnalysisResult:
         """Crea un resultado vacío para casos de cancelación o sin datos."""

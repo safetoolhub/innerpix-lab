@@ -126,14 +126,14 @@ class BaseStage(QObject):
         try:
             last_folder = settings_manager.get('last_analyzed_folder')
             if last_folder and Path(last_folder).exists():
-                self.logger.debug(f"Última carpeta cargada: {last_folder}")
+                self.logger.debug(f"Last folder loaded: {last_folder}")
                 return last_folder
             else:
                 if last_folder:
-                    self.logger.debug(f"Última carpeta inválida: {last_folder}")
+                    self.logger.debug(f"Last folder invalid: {last_folder}")
                 return None
         except Exception as e:
-            self.logger.warning(f"Error cargando última carpeta: {e}")
+            self.logger.warning(f"Error loading last folder: {e}")
             return None
 
     def save_last_folder(self, folder_path: str) -> None:
@@ -145,9 +145,9 @@ class BaseStage(QObject):
         """
         try:
             settings_manager.set('last_analyzed_folder', folder_path)
-            self.logger.debug(f"Última carpeta guardada: {folder_path}")
+            self.logger.debug(f"Last folder saved: {folder_path}")
         except Exception as e:
-            self.logger.warning(f"Error guardando última carpeta: {e}")
+            self.logger.warning(f"Error saving last folder: {e}")
 
     def save_analysis_results(self, results) -> None:
         """
@@ -180,9 +180,9 @@ class BaseStage(QObject):
                 results_dict = results
                 
             settings_manager.set('last_analysis_summary', results_dict)
-            self.logger.debug("Resultados del análisis guardados")
+            self.logger.debug("Analysis results saved")
         except Exception as e:
-            self.logger.warning(f"Error guardando resultados del análisis: {e}")
+            self.logger.warning(f"Error saving analysis results: {e}")
     
     def _invalidate_metadata_cache(self) -> None:
         """
@@ -211,12 +211,12 @@ class BaseStage(QObject):
             
             if entries_count > 0:
                 repo.clear()
-                self.logger.warning(f"Caché de metadatos INVALIDADA COMPLETAMENTE ({entries_count} entradas eliminadas)")
+                self.logger.warning(f"Metadata cache FULLY INVALIDATED ({entries_count} entries removed)")
             else:
-                self.logger.debug("Caché de metadatos ya estaba vacía")
+                self.logger.debug("Metadata cache was already empty")
             
         except Exception as e:
-            self.logger.error(f"Error invalidando caché de metadatos: {e}")
+            self.logger.error(f"Error invalidating metadata cache: {e}")
 
     def _invalidate_related_analysis_results(self, executed_tool_id: str) -> None:
         """
@@ -274,8 +274,8 @@ class BaseStage(QObject):
         
         if invalidated:
             self.logger.info(
-                f"📋 Análisis invalidados después de {executed_tool_id}: {', '.join(invalidated)}. "
-                f"Se re-analizarán al hacer clic en cada herramienta."
+                f"📋 Analyses invalidated after {executed_tool_id}: {', '.join(invalidated)}. "
+                f"They will be re-analyzed when clicking on each tool."
             )
 
     def get_analysis_summary(self) -> Optional[dict]:
@@ -288,7 +288,7 @@ class BaseStage(QObject):
         try:
             return settings_manager.get('last_analysis_summary')
         except Exception as e:
-            self.logger.warning(f"Error obteniendo resumen del análisis: {e}")
+            self.logger.warning(f"Error getting analysis summary: {e}")
             return None
 
     def transition_to_state(self, state_class: type, *args, **kwargs) -> None:
@@ -311,7 +311,7 @@ class BaseStage(QObject):
         # Actualizar referencia en main_window
         self.main_window.current_state = new_state
 
-        self.logger.info(f"Transición completada a {state_class.__name__}")
+        self.logger.info(f"Transition completed to {state_class.__name__}")
 
     def create_header(self, 
                            title_text: Optional[str] = None,

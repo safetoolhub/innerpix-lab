@@ -40,7 +40,7 @@ def _extract_video_frame_cached(video_path_str: str, max_w: int, max_h: int, fra
         cap = cv2.VideoCapture(str(video_path))
         
         if not cap.isOpened():
-            logger.debug(f"No se pudo abrir video: {video_path.name}")
+            logger.debug(f"Could not open video: {video_path.name}")
             return None
         
         try:
@@ -48,7 +48,7 @@ def _extract_video_frame_cached(video_path_str: str, max_w: int, max_h: int, fra
             total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
             
             if total_frames <= 0:
-                logger.debug(f"Video sin frames válidos: {video_path.name}")
+                logger.debug(f"Video has no valid frames: {video_path.name}")
                 return None
             
             # Calcular frame a extraer (evitar el primero que suele ser negro)
@@ -61,7 +61,7 @@ def _extract_video_frame_cached(video_path_str: str, max_w: int, max_h: int, fra
             ret, frame = cap.read()
             
             if not ret or frame is None:
-                logger.debug(f"No se pudo leer frame {target_frame} de {video_path.name}")
+                logger.debug(f"Could not read frame {target_frame} from {video_path.name}")
                 return None
             
             # Convertir BGR (OpenCV) a RGB (PIL)
@@ -77,7 +77,7 @@ def _extract_video_frame_cached(video_path_str: str, max_w: int, max_h: int, fra
             buffer = io.BytesIO()
             pil_image.save(buffer, format='PNG', optimize=True)
             
-            logger.debug(f"Thumbnail de video extraído: {video_path.name} (frame {target_frame}/{total_frames})")
+            logger.debug(f"Video thumbnail extracted: {video_path.name} (frame {target_frame}/{total_frames})")
             
             return buffer.getvalue()
             
@@ -85,10 +85,10 @@ def _extract_video_frame_cached(video_path_str: str, max_w: int, max_h: int, fra
             cap.release()
         
     except ImportError:
-        logger.warning("OpenCV (cv2) no disponible, no se pueden generar thumbnails de video")
+        logger.warning("OpenCV (cv2) not available, cannot generate video thumbnails")
         return None
     except Exception as e:
-        logger.debug(f"Error extrayendo frame de {video_path_str}: {e}")
+        logger.debug(f"Error extracting frame from {video_path_str}: {e}")
         return None
 
 
@@ -128,7 +128,7 @@ def get_video_thumbnail(video_path: Path, max_size: tuple = (280, 280), frame_po
         return None
         
     except Exception as e:
-        logger.debug(f"Error obteniendo thumbnail de video {video_path.name}: {e}")
+        logger.debug(f"Error getting video thumbnail for {video_path.name}: {e}")
         return None
 
 

@@ -42,11 +42,11 @@ class FileRenamerService(BaseService):
         """
         Analiza un directorio para renombrado.
         """
-        log_section_header_discrete(self.logger, f"ANALIZANDO DIRECTORIO PARA RENOMBRADO: {directory}")
+        log_section_header_discrete(self.logger, f"ANALYZING DIRECTORY FOR RENAMING: {directory}")
 
         repo = FileInfoRepositoryCache.get_instance()
         all_files = []
-        self.logger.info(f"Usando FileInfoRepositoryCache ({repo.get_file_count()} archivos)")
+        self.logger.info(f"Using FileInfoRepositoryCache ({repo.get_file_count()} files)")
         cached_files = repo.get_all_files()
         for meta in cached_files:
             try:
@@ -56,7 +56,7 @@ class FileRenamerService(BaseService):
                 continue
 
         total_files = len(all_files)
-        self.logger.info(f"Encontrados {total_files} archivos para analizar")
+        self.logger.info(f"Found {total_files} files to analyze")
         renaming_map = {}
         already_renamed = 0
         conflicts = 0
@@ -161,7 +161,7 @@ class FileRenamerService(BaseService):
                         sequence=i
                     ))
 
-        log_section_footer_discrete(self.logger, f"Análisis completado: {len(renaming_plan)} archivos para renombrar")
+        log_section_footer_discrete(self.logger, f"Analysis completed: {len(renaming_plan)} files to rename")
         
         # Calcular totales del análisis
         total_analyzed = len(renaming_plan) + already_renamed + len(issues)
@@ -219,9 +219,9 @@ class FileRenamerService(BaseService):
         """
         Lógica real de renombrado de archivos.
         """
-        mode_label = "SIMULACIÓN" if dry_run else ""
-        log_section_header_relevant(self.logger, "INICIANDO RENOMBRADO DE ARCHIVOS", mode=mode_label)
-        self.logger.info(f"*** Archivos a renombrar: {len(renaming_plan)}")
+        mode_label = "SIMULATION" if dry_run else ""
+        log_section_header_relevant(self.logger, "STARTING FILE RENAMING", mode=mode_label)
+        self.logger.info(f"*** Files to rename: {len(renaming_plan)}")
 
         # Obtener instancia del repositorio para actualizar caché después de renombrar
         repo = FileInfoRepositoryCache.get_instance()
@@ -239,7 +239,7 @@ class FileRenamerService(BaseService):
             try:
                 try:
                     if not original_path.exists():
-                        raise FileNotFoundError(f"Archivo no encontrado: {original_path.name}")
+                        raise FileNotFoundError(f"File not found: {original_path.name}")
                 except FileNotFoundError as e:
                     self.logger.warning(str(e))
                     continue
@@ -295,7 +295,7 @@ class FileRenamerService(BaseService):
                 self.logger.info(f"{log_prefix}: {original_path} -> {new_name} | Date: {date_str} ({date_source}){conflict_info}")
 
             except Exception as e:
-                error_msg = f"Error renombrando {original_path.name}: {str(e)}"
+                error_msg = f"Error renaming {original_path.name}: {str(e)}"
                 self.logger.error(error_msg)
                 result.add_error(f"{original_path.name}: {str(e)}")
 
@@ -305,14 +305,14 @@ class FileRenamerService(BaseService):
         if result.errors:
             result.success = len(result.errors) < len(renaming_plan)
 
-        completion_label = "RENOMBRADO DE ARCHIVOS COMPLETADO"
-        result_verb = "se renombrarían" if dry_run else "renombrados"
-        summary = f"{completion_label}\nResultado: {items_processed} archivos {result_verb}"
+        completion_label = "FILE RENAMING COMPLETED"
+        result_verb = "would be renamed" if dry_run else "renamed"
+        summary = f"{completion_label}\nResult: {items_processed} files {result_verb}"
         log_section_footer_relevant(self.logger, summary)
         
-        result.message = summary if dry_run else f"Renombrados {items_processed} archivos"
+        result.message = summary if dry_run else f"Renamed {items_processed} files"
         if result.backup_path: result.message += f"\nBackup: {result.backup_path}"
-        if result.errors: result.message += f"\nAdvertencia: {len(result.errors)} errores encontrados"
+        if result.errors: result.message += f"\nWarning: {len(result.errors)} errors found"
 
         return result
     

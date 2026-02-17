@@ -91,17 +91,17 @@ class Stage2Window(BaseStage):
 
         # Detener worker si está ejecutándose
         if self.analysis_worker and self.analysis_worker.isRunning():
-            self.logger.info("Deteniendo worker durante cleanup...")
+            self.logger.info("Stopping worker during cleanup...")
             self.analysis_worker.stop()
             
             # Esperar con timeout generoso para datasets grandes (100k+ archivos)
             # 30 segundos permite cancelación cooperativa de workers paralelos
             if not self.analysis_worker.wait(30000):  # 30 segundos de timeout
-                self.logger.warning("Worker no respondió en 30 segundos durante cleanup, terminando forzosamente")
+                self.logger.warning("Worker did not respond in 30 seconds during cleanup, terminating forcefully")
                 self.analysis_worker.terminate()
                 self.analysis_worker.wait(2000)
             else:
-                self.logger.info("Worker detenido correctamente durante cleanup")
+                self.logger.info("Worker stopped correctly during cleanup")
 
         # Limpiar referencias
         if self.header:
@@ -235,7 +235,7 @@ class Stage2Window(BaseStage):
 
         # Verificar si el diálogo de cancelación está abierto
         if self.cancel_dialog_open:
-            self.logger.info("Análisis terminó mientras diálogo de cancelación estaba abierto, esperando...")
+            self.logger.info("Analysis finished while cancel dialog was open, waiting...")
             self.analysis_completed_while_cancel_dialog_open = True
             return
 
@@ -374,8 +374,8 @@ class Stage2Window(BaseStage):
         scan.unsupported_extensions = unsupported_extensions
         scan.unsupported_files = unsupported_files
         
-        self.logger.info(f"✅ Extensiones agregadas: {len(image_extensions)} imágenes, "
-                        f"{len(video_extensions)} videos, {len(unsupported_extensions)} no soportadas")
+        self.logger.info(f"✅ Extensions added: {len(image_extensions)} images, "
+                        f"{len(video_extensions)} videos, {len(unsupported_extensions)} unsupported")
     
     def _log_file_extensions_summary(self, results):
         """
@@ -385,7 +385,7 @@ class Stage2Window(BaseStage):
             results: Objeto con resultados del análisis (scan + directory)
         """
         if not results or not hasattr(results, 'scan'):
-            self.logger.warning("No hay resultados de escaneo disponibles para logging")
+            self.logger.warning("No scan results available for logging")
             return
         
         scan = results.scan
@@ -393,7 +393,7 @@ class Stage2Window(BaseStage):
         # Los campos de extensiones siempre deberían estar presentes gracias a _enrich_scan_with_extensions
         # pero mantener verificación defensiva
         if not hasattr(scan, 'image_extensions'):
-            self.logger.warning("Los resultados no incluyen desglose de extensiones")
+            self.logger.warning("Results do not include extension breakdown")
             return
         
         # INFO: Desglose de imágenes por extensión
@@ -402,9 +402,9 @@ class Stage2Window(BaseStage):
                 f"{ext.upper()} ({count})" 
                 for ext, count in sorted(scan.image_extensions.items())
             )
-            self.logger.info(f"📷 Imágenes por extensión: {image_summary}")
+            self.logger.info(f"📷 Images by extension: {image_summary}")
         else:
-            self.logger.info("📷 Imágenes por extensión: ninguna")
+            self.logger.info("📷 Images by extension: none")
         
         # INFO: Desglose de videos por extensión
         if scan.video_extensions:
@@ -412,9 +412,9 @@ class Stage2Window(BaseStage):
                 f"{ext.upper()} ({count})" 
                 for ext, count in sorted(scan.video_extensions.items())
             )
-            self.logger.info(f"🎥 Videos por extensión: {video_summary}")
+            self.logger.info(f"🎥 Videos by extension: {video_summary}")
         else:
-            self.logger.info("🎥 Videos por extensión: ninguna")
+            self.logger.info("🎥 Videos by extension: none")
         
         # INFO: Recuento de archivos con extensiones no soportadas
         if scan.unsupported_extensions:
@@ -423,15 +423,15 @@ class Stage2Window(BaseStage):
                 f"{ext.upper() if ext != '(sin extensión)' else ext} ({count})" 
                 for ext, count in sorted(scan.unsupported_extensions.items())
             )
-            self.logger.info(f"⚠️  Archivos con extensiones NO SOPORTADAS: {unsupported_count} - {unsupported_summary}")
+            self.logger.info(f"⚠️  Files with UNSUPPORTED extensions: {unsupported_count} - {unsupported_summary}")
             
             # DEBUG: Rutas completas de archivos no soportados
             if scan.unsupported_files:
-                self.logger.debug(f"📁 Rutas completas de archivos NO SOPORTADOS ({len(scan.unsupported_files)} archivos):")
+                self.logger.debug(f"📁 Full paths of UNSUPPORTED files ({len(scan.unsupported_files)} files):")
                 for file_path in scan.unsupported_files:
                     self.logger.debug(f"  - {file_path}")
         else:
-            self.logger.info("✅ Archivos con extensiones NO SOPORTADAS: ninguno")
+            self.logger.info("✅ Files with UNSUPPORTED extensions: none")
     
     def _on_cancel_requested(self):
         """Usuario solicitó cancelar el análisis"""
@@ -464,7 +464,7 @@ class Stage2Window(BaseStage):
             self.logger.info("User chose to continue analysis")
             # Si el análisis terminó mientras el diálogo estaba abierto, hacer la transición ahora
             if self.analysis_completed_while_cancel_dialog_open:
-                self.logger.info("Análisis terminó mientras diálogo estaba abierto, haciendo transición ahora")
+                self.logger.info("Analysis finished while dialog was open, transitioning now")
                 self._perform_stage_3_transition()
         
         # Resetear la bandera
@@ -481,15 +481,15 @@ class Stage2Window(BaseStage):
             
             # Esperar con timeout generoso para datasets grandes (100k+ archivos)
             # 30 segundos permite que los workers paralelos terminen cooperativamente
-            self.logger.debug("Esperando hasta 30 segundos para cancelación cooperativa...")
+            self.logger.debug("Waiting up to 30 seconds for cooperative cancellation...")
             if not self.analysis_worker.wait(30000):  # 30 segundos de timeout
-                self.logger.warning("Worker no respondió en 30 segundos, terminando forzosamente")
+                self.logger.warning("Worker did not respond in 30 seconds, terminating forcefully")
                 self.analysis_worker.terminate()
                 # Esperar un poco más después de terminate
                 self.analysis_worker.wait(2000)
-                self.logger.warning("⚠️ Cancelación forzosa aplicada - puede haber inconsistencias")
+                self.logger.warning("⚠️ Forced cancellation applied - inconsistencies may occur")
             else:
-                self.logger.info("✓ Worker cancelado correctamente de forma cooperativa")
+                self.logger.info("✓ Worker cancelled correctly via cooperative cancellation")
         
         # Volver a Estado 1
         self._return_to_state_1()

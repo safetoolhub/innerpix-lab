@@ -469,7 +469,7 @@ def select_best_date_from_file(file_metadata: 'FileMetadata') -> tuple[Optional[
     
     # Loguear warnings si existen
     if validation.warnings:
-        _logger.debug(f"Warnings de coherencia para {file_metadata.path}: {', '.join(validation.warnings)} (confidence: {validation.confidence})")
+        _logger.debug(f"Coherence warnings for {file_metadata.path}: {', '.join(validation.warnings)} (confidence: {validation.confidence})")
     
     # ============================================================================
     # PASO 1: PRIORIDAD MÁXIMA - Fechas EXIF de cámara (primera válida en orden)
@@ -592,10 +592,10 @@ def get_all_metadata_from_file(file_path: Path, force_search: bool = False) -> '
         if not force_search:
             cached_metadata = repo.get_file_metadata(file_path)
             if cached_metadata:
-                _logger.debug(f"Metadatos completos obtenidos del caché para {file_path.name}")
+                _logger.debug(f"Complete metadata obtained from cache for {file_path.name}")
                 return cached_metadata
         else:
-            _logger.debug(f"force_search=True: ignorando caché, extrayendo metadatos directamente para {file_path.name}")
+            _logger.debug(f"force_search=True: ignoring cache, extracting metadata directly for {file_path.name}")
         
         # 2. Si no está en caché completo, construir metadatos paso a paso
         # usando métodos dedicados del caché cuando sea posible
@@ -603,7 +603,7 @@ def get_all_metadata_from_file(file_path: Path, force_search: bool = False) -> '
         # 2a. Metadatos del filesystem - intentar del caché primero
         fs_metadata = repo.get_filesystem_metadata(file_path)
         if fs_metadata:
-            _logger.debug(f"Metadatos filesystem obtenidos del caché para {file_path.name}")
+            _logger.debug(f"Filesystem metadata obtained from cache for {file_path.name}")
             metadata = FileMetadata(
                 path=file_path.resolve(),
                 fs_size=fs_metadata['fs_size'],
@@ -621,21 +621,21 @@ def get_all_metadata_from_file(file_path: Path, force_search: bool = False) -> '
                 fs_mtime=stat_info['mtime'],
                 fs_atime=stat_info['atime']
             )
-            _logger.debug(f"Metadatos filesystem obtenidos directamente para {file_path.name}")
+            _logger.debug(f"Filesystem metadata obtained directly for {file_path.name}")
         
         # 2b. Hash SHA256 - intentar del caché primero
         cached_hash = repo.get_hash(file_path)
         if cached_hash:
             metadata.sha256 = cached_hash
-            _logger.debug(f"Hash obtenido del caché para {file_path.name}: {cached_hash[:8]}...")
+            _logger.debug(f"Hash obtained from cache for {file_path.name}: {cached_hash[:8]}...")
         elif force_search or settings_manager.get_precalculate_hashes():
             # Si force_search=True o está habilitado en settings, calcular directamente
             try:
                 from utils.file_utils import calculate_file_hash
                 metadata.sha256 = calculate_file_hash(file_path)
-                _logger.debug(f"Hash calculado directamente para {file_path.name}: {metadata.sha256[:8]}...")
+                _logger.debug(f"Hash calculated directly for {file_path.name}: {metadata.sha256[:8]}...")
             except Exception as e:
-                _logger.debug(f"No se pudo calcular hash para {file_path.name}: {e}")
+                _logger.debug(f"Could not calculate hash for {file_path.name}: {e}")
         
         # 2c. EXIF - Con force_search, extraer directamente; sin force_search, intentar caché primero
         if force_search:
@@ -665,9 +665,9 @@ def get_all_metadata_from_file(file_path: Path, force_search: bool = False) -> '
                         metadata.exif_OffsetTimeOriginal = exif_data.get('OffsetTimeOriginal')
                         metadata.exif_Software = exif_data.get('Software')
                         metadata.exif_ExifVersion = exif_data.get('ExifVersion')
-                        _logger.debug(f"EXIF de imagen extraído directamente (force_search) para {file_path.name}")
+                        _logger.debug(f"Image EXIF extracted directly (force_search) for {file_path.name}")
                 except Exception as e:
-                    _logger.debug(f"No se pudo extraer EXIF de imagen para {file_path.name}: {e}")
+                    _logger.debug(f"Could not extract image EXIF for {file_path.name}: {e}")
             
             # 2c.2. EXIF de videos
             elif is_video_file(file_path):
@@ -682,7 +682,7 @@ def get_all_metadata_from_file(file_path: Path, force_search: bool = False) -> '
                                 exif_date_str = creation_time.strftime('%Y:%m:%d %H:%M:%S')
                                 metadata.exif_DateTimeOriginal = exif_date_str
                                 metadata.exif_DateTime = exif_date_str
-                                _logger.debug(f"Video EXIF fecha mapeada: DateTimeOriginal={exif_date_str}, DateTime={exif_date_str}")
+                                _logger.debug(f"Video EXIF date mapped: DateTimeOriginal={exif_date_str}, DateTime={exif_date_str}")
                         
                         # Mapear dimensiones
                         if 'width' in video_metadata and video_metadata['width']:
@@ -698,10 +698,10 @@ def get_all_metadata_from_file(file_path: Path, force_search: bool = False) -> '
                         if 'encoder' in video_metadata and video_metadata['encoder']:
                             metadata.exif_Software = video_metadata['encoder']
                         
-                        _logger.debug(f"EXIF de video extraído directamente (force_search) para {file_path.name}: {len(video_metadata)} campos")
-                        _logger.debug(f"Estado metadata después de mapeo: has_exif={metadata.has_exif}, DateTimeOriginal={metadata.exif_DateTimeOriginal}, DateTime={metadata.exif_DateTime}")
+                        _logger.debug(f"Video EXIF extracted directly (force_search) for {file_path.name}: {len(video_metadata)} fields")
+                        _logger.debug(f"Metadata state after mapping: has_exif={metadata.has_exif}, DateTimeOriginal={metadata.exif_DateTimeOriginal}, DateTime={metadata.exif_DateTime}")
                 except Exception as e:
-                    _logger.debug(f"No se pudo extraer EXIF de video para {file_path.name}: {e}")
+                    _logger.debug(f"Could not extract video EXIF for {file_path.name}: {e}")
         else:
             # SIN FORCE SEARCH: Intentar del caché primero
             cached_exif = repo.get_exif(file_path)
@@ -721,7 +721,7 @@ def get_all_metadata_from_file(file_path: Path, force_search: bool = False) -> '
                 # GPS Date/Time son strings en caché
                 metadata.exif_GPSDateStamp = cached_exif.get('GPSDateStamp')
                 metadata.exif_GPSTimeStamp = cached_exif.get('GPSTimeStamp')
-                _logger.debug(f"EXIF obtenido del caché para {file_path.name}: {len(cached_exif)} campos")
+                _logger.debug(f"EXIF obtained from cache for {file_path.name}: {len(cached_exif)} fields")
             else:
                 # Si no está en caché, extraer según tipo y configuración
                 
@@ -746,9 +746,9 @@ def get_all_metadata_from_file(file_path: Path, force_search: bool = False) -> '
                             # GPS Date/Time son strings, no datetime
                             metadata.exif_GPSDateStamp = exif_data.get('GPSDateStamp')
                             metadata.exif_GPSTimeStamp = exif_data.get('GPSTimeStamp')
-                            _logger.debug(f"EXIF de imagen extraído directamente para {file_path.name}")
+                            _logger.debug(f"Image EXIF extracted directly for {file_path.name}")
                     except Exception as e:
-                        _logger.debug(f"No se pudo extraer EXIF de imagen para {file_path.name}: {e}")
+                        _logger.debug(f"Could not extract image EXIF for {file_path.name}: {e}")
                 
                 # 2c.2. EXIF de videos (si está habilitado)
                 elif is_video_file(file_path) and settings_manager.get_precalculate_video_exif():
@@ -778,14 +778,14 @@ def get_all_metadata_from_file(file_path: Path, force_search: bool = False) -> '
                             if 'encoder' in video_metadata and video_metadata['encoder']:
                                 metadata.exif_Software = video_metadata['encoder']
                             
-                            _logger.debug(f"EXIF de video extraído directamente para {file_path.name}: {len(video_metadata)} campos")
+                            _logger.debug(f"Video EXIF extracted directly for {file_path.name}: {len(video_metadata)} fields")
                     except Exception as e:
-                        _logger.debug(f"No se pudo extraer EXIF de video para {file_path.name}: {e}")
+                        _logger.debug(f"Could not extract video EXIF for {file_path.name}: {e}")
         
         return metadata
         
     except Exception as e:
-        _logger.error(f"Error obteniendo metadatos de {file_path}: {e}")
+        _logger.error(f"Error getting metadata for {file_path}: {e}")
         # Retornar metadatos mínimos en caso de error
         try:
             stat = file_path.stat()

@@ -256,10 +256,10 @@ class BaseService(ABC):
                 f"⚠️ {len(skipped_missing)} files skipped from backup (no longer exist, "
                 f"possibly deleted by another operation):"
             )
-            for missing_path in skipped_missing[:10]:  # Mostrar máximo 10
+            for missing_path in skipped_missing[:10]:  # Show max 10
                 self.logger.warning(f"   - {missing_path}")
             if len(skipped_missing) > 10:
-                self.logger.warning(f"   ... y {len(skipped_missing) - 10} más")
+                self.logger.warning(f"   ... and {len(skipped_missing) - 10} more")
         
         if not file_list:
             self.logger.warning("No files for backup (all were skipped or don't exist)")
@@ -578,7 +578,7 @@ class BaseService(ABC):
             ...     recursive=True,
             ...     progress_callback=progress_callback
             ... )
-            >>> self.logger.info(f"Encontrados {len(files)} archivos soportados")
+            >>> self.logger.info(f"Found {len(files)} supported files")
         """
         from config import Config
         

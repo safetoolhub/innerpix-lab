@@ -69,13 +69,13 @@ class SettingsManager:
             try:
                 from utils.storage import QSettingsBackend
                 backend = QSettingsBackend(organization, application)
-                self.logger.debug("Usando QSettingsBackend")
+                self.logger.debug("Using QSettingsBackend")
             except ImportError:
                 backend = JsonStorageBackend()
-                self.logger.debug("PyQt6 no disponible, usando JsonStorageBackend")
+                self.logger.debug("PyQt6 not available, using JsonStorageBackend")
         
         self.backend = backend
-        self.logger.debug(f"SettingsManager inicializado con {type(backend).__name__}")
+        self.logger.debug(f"SettingsManager initialized with {type(backend).__name__}")
 
     def get(self, key: str, default: Any = None) -> Any:
         """
@@ -165,7 +165,7 @@ class SettingsManager:
 
     def clear_all(self) -> None:
         """Elimina toda la configuración guardada"""
-        self.logger.warning("Limpiando toda la configuración")
+        self.logger.warning("Clearing all settings")
         self.backend.clear()
 
     def has_key(self, key: str) -> bool:

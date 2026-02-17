@@ -96,7 +96,7 @@ class JsonStorageBackend(StorageBackend):
         self._data = {}
         self._load()
         
-        self.logger.debug(f"JsonStorageBackend inicializado. Archivo: {self.file_path}")
+        self.logger.debug(f"JsonStorageBackend initialized. File: {self.file_path}")
 
     def _load(self) -> None:
         """Carga datos desde el archivo JSON."""
@@ -104,12 +104,12 @@ class JsonStorageBackend(StorageBackend):
             try:
                 with open(self.file_path, 'r', encoding='utf-8') as f:
                     self._data = json.load(f)
-                self.logger.debug(f"Datos cargados desde {self.file_path}")
+                self.logger.debug(f"Data loaded from {self.file_path}")
             except (json.JSONDecodeError, IOError) as e:
-                self.logger.error(f"Error cargando {self.file_path}: {e}")
+                self.logger.error(f"Error loading {self.file_path}: {e}")
                 self._data = {}
         else:
-            self.logger.debug(f"Archivo {self.file_path} no existe, iniciando vacío")
+            self.logger.debug(f"File {self.file_path} does not exist, starting empty")
             self._data = {}
 
     def _save(self) -> None:
@@ -118,9 +118,9 @@ class JsonStorageBackend(StorageBackend):
             self.file_path.parent.mkdir(parents=True, exist_ok=True)
             with open(self.file_path, 'w', encoding='utf-8') as f:
                 json.dump(self._data, f, indent=2, ensure_ascii=False)
-            self.logger.debug(f"Datos guardados en {self.file_path}")
+            self.logger.debug(f"Data saved to {self.file_path}")
         except IOError as e:
-            self.logger.error(f"Error guardando {self.file_path}: {e}")
+            self.logger.error(f"Error saving {self.file_path}: {e}")
 
     def get(self, key: str, default: Any = None) -> Any:
         """Obtiene un valor usando notación de punto para claves anidadas.
@@ -212,7 +212,7 @@ class QSettingsBackend(StorageBackend):
         
         self.qsettings = QSettings(organization, application)
         self.logger = get_logger('QSettingsBackend')
-        self.logger.debug(f"QSettingsBackend inicializado. Archivo: {self.qsettings.fileName()}")
+        self.logger.debug(f"QSettingsBackend initialized. File: {self.qsettings.fileName()}")
 
     def get(self, key: str, default: Any = None) -> Any:
         """Obtiene un valor de QSettings."""

@@ -243,7 +243,7 @@ class MainWindow(QMainWindow):
             # operar sobre una carpeta diferente a la de los datos cargados.
             if Config.DEVELOPMENT_MODE:
                 settings_manager.set('last_analyzed_folder', str(folder_path))
-                self.logger.info(f"🔧 Modo desarrollo: Carpeta activa actualizada a: {folder_path}")
+                self.logger.info(f"🔧 Development mode: Active folder updated to: {folder_path}")
             
             for metadata in all_files:
                 path = metadata.path

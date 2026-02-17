@@ -32,11 +32,11 @@ def _ensure_heif_support():
             import pillow_heif
             pillow_heif.register_heif_opener()
             _heif_registered = True
-            logger.debug("Soporte HEIC/HEIF registrado exitosamente")
+            logger.debug("HEIC/HEIF support registered successfully")
         except ImportError:
-            logger.warning("pillow-heif no disponible, archivos HEIC no serán soportados")
+            logger.warning("pillow-heif not available, HEIC files will not be supported")
         except Exception as e:
-            logger.warning(f"Error registrando soporte HEIC: {e}")
+            logger.warning(f"Error registering HEIC support: {e}")
 
 
 def _pil_to_qpixmap_fast(pil_image) -> QPixmap:
@@ -122,7 +122,7 @@ def _load_thumbnail_cached(file_path_str: str, max_w: int, max_h: int) -> Option
         return buffer.getvalue()
         
     except Exception as e:
-        logger.debug(f"Error cargando thumbnail para {file_path_str}: {e}")
+        logger.debug(f"Error loading thumbnail for {file_path_str}: {e}")
         return None
 
 
@@ -186,10 +186,10 @@ def load_image_as_qpixmap(
         return None
         
     except FileNotFoundError:
-        logger.warning(f"Archivo no encontrado: {file_path}")
+        logger.warning(f"File not found: {file_path}")
         return None
     except Exception as e:
-        logger.debug(f"No se pudo cargar imagen {file_path.name}: {e}")
+        logger.debug(f"Could not load image {file_path.name}: {e}")
         return None
 
 

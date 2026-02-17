@@ -830,10 +830,10 @@ class SettingsDialog(QDialog):
             # Guardar valores originales para detectar cambios
             self._save_original_values()
 
-            self.logger.debug("Configuración cargada desde settings_manager")
+            self.logger.debug("Settings loaded from settings_manager")
 
         except Exception as e:
-            self.logger.exception(f"Error cargando configuración: {e}")
+            self.logger.exception(f"Error loading settings: {e}")
     
     def _save_original_values(self):
         """Guarda los valores actuales como originales para detectar cambios"""
@@ -855,7 +855,7 @@ class SettingsDialog(QDialog):
             'precalculate_video_exif': self.precalculate_video_exif_checkbox.isChecked(),
             'language': self.language_combo.currentIndex(),
         }
-        self.logger.debug(f"Valores originales guardados: {self.original_values}")
+        self.logger.debug(f"Original values saved: {self.original_values}")
     
     def _connect_change_signals(self):
         """Conecta señales de cambio de todos los widgets para detectar modificaciones"""
@@ -977,7 +977,7 @@ class SettingsDialog(QDialog):
         
         # Log para debugging (solo si cambia el estado)
         if has_changes != getattr(self, '_last_has_changes', None):
-            self.logger.debug(f"Cambios detectados: {has_changes}")
+            self.logger.debug(f"Changes detected: {has_changes}")
             self._last_has_changes = has_changes
     
     def _requires_restart_changed(self):
@@ -1012,12 +1012,12 @@ class SettingsDialog(QDialog):
         Usa sys.executable para obtener el intérprete de Python y os.execv para reiniciar.
         """
         try:
-            self.logger.info("Reiniciando aplicación...")
+            self.logger.info("Restarting application...")
             python = sys.executable
             # os.execv reemplaza el proceso actual con uno nuevo
             os.execv(python, [python] + sys.argv)
         except Exception as e:
-            self.logger.exception(f"Error al reiniciar la aplicación: {e}")
+            self.logger.exception(f"Error restarting the application: {e}")
             QMessageBox.critical(
                 self,
                 tr("settings.errors.restart_title"),
@@ -1063,7 +1063,7 @@ class SettingsDialog(QDialog):
             else:
                 subprocess.Popen(['xdg-open', logs_dir])
 
-            self.logger.info(f"Carpeta de logs abierta: {logs_dir}")
+            self.logger.info(f"Logs folder opened: {logs_dir}")
 
         except Exception as e:
             QMessageBox.warning(
@@ -1085,7 +1085,7 @@ class SettingsDialog(QDialog):
         if reply == QMessageBox.StandardButton.Yes:
             try:
                 settings_manager.clear_all()
-                self.logger.info("Toda la configuración ha sido eliminada")
+                self.logger.info("All settings have been cleared")
                 QMessageBox.information(
                     self,
                     tr("settings.messages.cleared_title"),
@@ -1094,7 +1094,7 @@ class SettingsDialog(QDialog):
                 # Recargar valores por defecto
                 self._load_current_settings()
             except Exception as e:
-                self.logger.exception(f"Error limpiando configuración: {e}")
+                self.logger.exception(f"Error clearing settings: {e}")
                 QMessageBox.critical(
                     self,
                     tr("common.error"),
@@ -1121,7 +1121,7 @@ class SettingsDialog(QDialog):
             
             # Registrar el cambio
             self.logger.info("=" * 80)
-            self.logger.info(f"Nivel de log cambiado a: {level_name}")
+            self.logger.info(f"Log level changed to: {level_name}")
             self.logger.info("=" * 80)
             
             # Guardar en settings manager
@@ -1134,10 +1134,10 @@ class SettingsDialog(QDialog):
             if self.parent_window and hasattr(self.parent_window, 'log_level'):
                 self.parent_window.log_level = level_name
             
-            self.logger.info(f"Nivel de log cambiado a: {level_name}")
+            self.logger.info(f"Log level changed to: {level_name}")
 
         except Exception as e:
-            self.logger.exception(f"Error cambiando nivel de log: {e}")
+            self.logger.exception(f"Error changing log level: {e}")
 
     def _update_dual_log_enabled_state(self, level_name: str):
         """
@@ -1257,7 +1257,7 @@ class SettingsDialog(QDialog):
             
             # Si NO hay cambios, cerrar inmediatamente sin operaciones costosas
             if not any_setting_changed:
-                self.logger.debug("No hay cambios en la configuración, cerrando diálogo")
+                self.logger.debug("No changes in settings, closing dialog")
                 self.accept()
                 return
             
@@ -1274,10 +1274,10 @@ class SettingsDialog(QDialog):
                         new_logs_dir, 
                         dual_log_enabled=new_dual_log
                     )
-                    self.logger.info(f"Directorio de logs cambiado a: {new_logs_dir_resolved}")
-                    self.logger.info(f"Nuevo archivo de log: {new_log_file}")
+                    self.logger.info(f"Logs directory changed to: {new_logs_dir_resolved}")
+                    self.logger.info(f"New log file: {new_log_file}")
                 except Exception as e:
-                    self.logger.warning(f"No se pudo cambiar directorio de logs: {e}")
+                    self.logger.warning(f"Could not change logs directory: {e}")
             
             if backup_dir_changed:
                 settings_manager.set_backup_directory(new_backup_dir)
@@ -1324,7 +1324,7 @@ class SettingsDialog(QDialog):
                 settings_manager.set_language(new_language)
                 self.logger.info(f"Language changed to: {new_language}")
 
-            self.logger.info("Configuración guardada exitosamente")
+            self.logger.info("Settings saved successfully")
 
             # Emitir señal de cambios guardados
             self.settings_saved.emit()
@@ -1393,7 +1393,7 @@ class SettingsDialog(QDialog):
                 )
 
         except Exception as e:
-            self.logger.exception(f"Error guardando configuración: {e}")
+            self.logger.exception(f"Error saving settings: {e}")
             QMessageBox.critical(
                 self,
                 tr("common.error"),
@@ -1416,11 +1416,11 @@ class SettingsDialog(QDialog):
         Usa las funciones unificadas de utils/platform_utils.py para verificación
         multiplataforma (Windows, Linux, macOS).
         """
-        self.logger.debug("Iniciando verificación de herramientas del sistema (ffprobe, exiftool)...")
+        self.logger.debug("Starting system tools verification (ffprobe, exiftool)...")
         
         # Verificar ffprobe usando función unificada
         ffprobe_status = check_ffprobe()
-        self.logger.debug(f"Resultado ffprobe: disponible={ffprobe_status.available}, versión={ffprobe_status.version}")
+        self.logger.debug(f"ffprobe result: available={ffprobe_status.available}, version={ffprobe_status.version}")
         
         if ffprobe_status.available:
             display_text = f"✅ ffprobe: {ffprobe_status.version[:40]}" if ffprobe_status.version else tr("settings.analysis.system_tools.ffprobe_installed")
@@ -1438,7 +1438,7 @@ class SettingsDialog(QDialog):
         
         # Verificar exiftool usando función unificada
         exiftool_status = check_exiftool()
-        self.logger.debug(f"Resultado exiftool: disponible={exiftool_status.available}, versión={exiftool_status.version}")
+        self.logger.debug(f"exiftool result: available={exiftool_status.available}, version={exiftool_status.version}")
         
         if exiftool_status.available:
             display_text = f"✅ exiftool: v{exiftool_status.version}" if exiftool_status.version else tr("settings.analysis.system_tools.exiftool_installed")

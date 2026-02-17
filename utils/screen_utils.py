@@ -104,14 +104,14 @@ class ScreenDetector:
         try:
             resolution = self._detect_resolution()
             self._cached_resolution = resolution
-            logger.info(f"Resolución de pantalla detectada: {resolution}")
+            logger.info(f"Screen resolution detected: {resolution}")
             return resolution
         except Exception as e:
-            logger.warning(f"Error detectando resolución de pantalla: {e}")
+            logger.warning(f"Error detecting screen resolution: {e}")
             # Fallback a FullHD
             from ui.styles.design_system import DesignSystem
             fallback = ScreenResolution(DesignSystem.FULLHD_WIDTH, DesignSystem.FULLHD_HEIGHT)
-            logger.info(f"Usando resolución fallback: {fallback}")
+            logger.info(f"Using fallback resolution: {fallback}")
             return fallback
 
     def _detect_resolution(self) -> ScreenResolution:
@@ -132,7 +132,7 @@ class ScreenDetector:
         elif system == "darwin":  # macOS
             return self._detect_macos_resolution()
         else:
-            raise NotImplementedError(f"Plataforma no soportada: {system}")
+            raise NotImplementedError(f"Unsupported platform: {system}")
 
     def _detect_linux_resolution(self) -> ScreenResolution:
         """Detección específica para Linux"""
@@ -209,7 +209,7 @@ class ScreenDetector:
             size = screen.size()
             return ScreenResolution(size.width(), size.height())
         except ImportError:
-            raise RuntimeError("No se pudo detectar resolución de pantalla. PyQt6 no disponible.")
+            raise RuntimeError("Could not detect screen resolution. PyQt6 not available.")
 
 
 # Instancia global para uso en la aplicación

@@ -1011,7 +1011,7 @@ class DuplicatesSimilarService(BaseService):
                 except Exception as e:
                     errors += 1
                     processed += 1
-                    self.logger.debug(f"Error procesando {file_path.name}: {e}")
+                    self.logger.debug(f"Error processing {file_path.name}: {e}")
         
         analysis.perceptual_hashes = perceptual_hashes
         analysis.total_files = len(perceptual_hashes)
