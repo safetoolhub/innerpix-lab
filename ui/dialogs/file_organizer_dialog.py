@@ -1494,9 +1494,6 @@ class FileOrganizerDialog(BaseDialog):
         for move in sorted(moves_in_subdir, key=lambda m: m.original_name):
             child = self._create_file_tree_item(move)
             subdir_node.addChild(child)
-        
-        if len(moves_in_subdir) <= 20:
-            subdir_node.setExpanded(True)
     
     def _add_tree_group_temporal(self, folder: str, moves_in_folder: list):
         """Añade un grupo temporal (mes/año) al tree."""
@@ -1519,9 +1516,6 @@ class FileOrganizerDialog(BaseDialog):
         for move in sorted(moves_in_folder, key=lambda m: m.original_name):
             child = self._create_file_tree_item(move)
             parent.addChild(child)
-        
-        if len(moves_in_folder) <= 20:
-            parent.setExpanded(True)
     
     def _add_tree_group_category(self, category: str, moves_in_category: list):
         """Añade un grupo de categoría al tree."""
@@ -1557,9 +1551,6 @@ class FileOrganizerDialog(BaseDialog):
         for move in sorted(moves_in_category, key=lambda m: m.original_name):
             child = self._create_file_tree_item(move)
             parent.addChild(child)
-        
-        if len(moves_in_category) <= 20:
-            parent.setExpanded(True)
     
     def _create_file_tree_item(self, move) -> QTreeWidgetItem:
         """Crea un QTreeWidgetItem para un archivo individual."""
