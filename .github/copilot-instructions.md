@@ -43,6 +43,9 @@ InnerPix Lab is a desktop application for managing, organizing, and optimizing p
 ### Project Structure
 ```
 innerpix-lab/
+├── i18n/              # Translation files (898 keys each)
+│   ├── es.json        # Spanish (base/fallback)
+│   └── en.json        # English
 ├── services/          # Business logic (PyQt6-free)
 │   ├── *_service.py   # Service implementations
 │   └── result_types.py # Dataclass result definitions
@@ -53,6 +56,7 @@ innerpix-lab/
 │   ├── styles/        # DesignSystem + icons
 │   └── tools_definitions.py # Centralized tool metadata
 ├── utils/             # Reusable utilities
+│   └── i18n.py        # Translation system (tr() function)
 └── tests/             # pytest test suites
 ```
 
@@ -180,20 +184,37 @@ class SomeWorker(BaseWorker):
 
 **Data Structures**:
 ```python
-@dataclass
 class ToolDefinition:
-    id: str                    # Unique identifier (e.g., 'zero_byte', 'duplicates_exact')
-    title: str                 # Display name (e.g., 'Archivos vacíos')
-    short_description: str     # Brief description for tool cards
-    long_description: str      # Detailed description for dialogs
-    icon_name: str            # Icon identifier from icon_manager
+    """Tool definition with lazy i18n resolution via @property."""
+    def __init__(self, id: str, icon_name: str):
+        self._id = id
+        self._icon_name = icon_name
+    
+    @property
+    def title(self) -> str:
+        return tr(f"tools.{self._id}.title")
+    
+    @property
+    def short_description(self) -> str:
+        return tr(f"tools.{self._id}.short_description")
+    
+    @property
+    def long_description(self) -> str:
+        return tr(f"tools.{self._id}.long_description")
 
-@dataclass  
 class ToolCategory:
-    id: str                    # Category identifier ('cleanup', 'visual', 'organization')
-    title: str                 # Category display name
-    description: str           # Category description
-    tool_ids: List[str]        # List of tool IDs in this category
+    """Tool category with lazy i18n resolution via @property."""
+    def __init__(self, id: str, tool_ids: List[str]):
+        self._id = id
+        self._tool_ids = tool_ids
+    
+    @property
+    def title(self) -> str:
+        return tr(f"categories.{self._id}.title")
+    
+    @property
+    def description(self) -> str:
+        return tr(f"categories.{self._id}.description")
 ```
 
 **Categories**:
@@ -215,8 +236,9 @@ for category in TOOL_CATEGORIES:
 1. Create service in `services/` with `analyze()` and `execute()` methods
 2. Add result types to `services/result_types.py`
 3. Add `ToolDefinition` to appropriate category in `tools_definitions.py`
-4. Create dialog in `ui/dialogs/`
-5. Create worker in `ui/workers/` if needed
+4. Add translations to `i18n/es.json` and `i18n/en.json` (see section 6 for details)
+5. Create dialog in `ui/dialogs/`
+6. Create worker in `ui/workers/` if needed
 
 ### 6. Result Types
 **Location**: `services/result_types.py`
@@ -230,7 +252,94 @@ for category in TOOL_CATEGORIES:
 
 **Rule**: ALL services return dataclasses (never dicts or tuples)
 
-### 7. Utilities
+### 6. Internationalization (i18n)
+**Location**: `utils/i18n.py`, `i18n/es.json`, `i18n/en.json`
+
+**Architecture**: JSON-based translation system with universal `tr()` function usable everywhere (UI + services).
+
+**Core Module** (`utils/i18n.py`):
+```python
+from utils.i18n import init_i18n, tr, SUPPORTED_LANGUAGES
+
+# Initialize at app startup (before any UI creation)
+init_i18n('es')  # or 'en'
+
+# Use anywhere - UI, services, utilities
+title = tr("tools.zero_byte.title")
+message = tr("stage3.progress.analyzing_live_photos")
+error = tr("services.error.directory_not_found", path="/tmp/foo")
+```
+
+**Translation Files**:
+- `i18n/es.json` - Spanish (base/fallback language, 898 keys)
+- `i18n/en.json` - English (complete translation, 898 keys)
+- Nested structure with dotted keys: `"tools.zero_byte.title"`
+- Placeholders: `{count}`, `{size}`, `{path}`, etc.
+- HTML preserved: `<b>`, `<i>`, `<br>`, emoji, `\n`
+
+**Key Sections in JSON**:
+- `app.*` - Application metadata
+- `common.*` - Shared UI elements (buttons, labels, tooltips, filters, pagination, status)
+- `tools.*` - Tool titles and descriptions (8 tools)
+- `categories.*` - Tool category names (3 categories)
+- `stage1/2/3.*` - Workflow stage screens
+- `settings.*` - Settings dialog (general, analysis, backup, logs, advanced)
+- `about.*` - About dialog
+- `dialogs.*` - All tool dialogs (base, utils, details, and 9 tool-specific dialogs)
+- `cards.*` - Tool card status messages
+- `services.*` - Service progress/result messages, phase names
+- `platform.*` - Platform-specific messages
+
+**Tools Definitions Pattern** (`ui/tools_definitions.py`):
+```python
+class ToolDefinition:
+    """Tool definition with lazy i18n resolution via @property."""
+    def __init__(self, id: str, icon_name: str):
+        self._id = id
+        self._icon_name = icon_name
+    
+    @property
+    def title(self) -> str:
+        return tr(f"tools.{self._id}.title")
+    
+    @property
+    def short_description(self) -> str:
+        return tr(f"tools.{self._id}.short_description")
+
+# Consuming code unchanged - properties resolve automatically
+TOOL_ZERO_BYTE = ToolDefinition(id='zero_byte', icon_name='file-x')
+print(TOOL_ZERO_BYTE.title)  # Auto-translated
+```
+
+**Language Settings**:
+- Selector in Settings → General → Interface
+- Persisted via `settings_manager.get_language()` / `set_language()`
+- Change requires app restart
+- Default: Spanish (`es`)
+
+**Log Messages Policy**:
+- **USER-FACING strings**: Use `tr()` (progress callbacks, result messages shown in UI)
+- **LOG-ONLY messages**: Hardcoded English (logger.info/warning/error/debug)
+- Rationale: Logs are for developers/debugging, always grep-friendly in English
+- Example: `logger.info("Starting analysis")` ✅, NOT `logger.info(tr("..."))`
+
+**Validation**:
+- Script: `dev-tools/validate_translations.py`
+- Checks: Missing keys, extra keys, placeholder mismatches, empty values
+- Run: `python dev-tools/validate_translations.py`
+
+**Fallback Chain**:
+1. Current language (e.g., `en.json`)
+2. Spanish base (`es.json`)
+3. Key itself (if not found)
+
+**Adding New Strings**:
+1. Add key to `i18n/es.json` in appropriate section
+2. Add translation to `i18n/en.json` with same structure
+3. Use `tr("your.new.key")` in code
+4. Run `dev-tools/validate_translations.py` to verify
+
+### 8. Utilities
 
 #### File Utils (`utils/file_utils.py`)
 Organized by thematic categories:
@@ -267,7 +376,7 @@ Organized by thematic categories:
 - **Grep-friendly**: `grep "FILE_DELETED:" logs/*.log` finds all deletions
 - **Runtime Control**: `set_dual_log_enabled(bool)` to toggle on/off
 
-### 8. Dialogs
+### 9. Dialogs
 **Base**: All dialogs extend `BaseDialog` from `ui/dialogs/base_dialog.py`
 
 **Common Methods**:
@@ -319,7 +428,7 @@ python main.py
 ```bash
 source .venv/bin/activate
 
-# Full test suite (~60s, 590+ tests)
+# Full test suite (~60s, 713+ tests)
 pytest
 
 # Ignore performance tests
@@ -351,7 +460,7 @@ uv pip freeze > requirements.txt
 
 ### Framework
 - **pytest 9.0.2** + **pytest-qt 4.5.0** + **pytest-mock 3.15.1**
-- **Coverage**: 590+ tests passing (as of Jan 2026)
+- **Coverage**: 713+ tests passing (as of Jan 2026)
 
 ### Test Organization
 ```
@@ -486,10 +595,11 @@ In `services/` as a PyQt6-free service. UI code should only orchestrate and rend
 1. Create service in `services/` with `analyze()` and `execute()`
 2. Add result types to `services/result_types.py`
 3. Add tool definition to `ui/tools_definitions.py`
-4. Create dialog in `ui/dialogs/`
-5. Create tool card in `ui/cards/`
-6. Add worker in `ui/workers/` if needed
-7. Write tests in `tests/unit/services/`
+4. Add translations to `i18n/es.json` and `i18n/en.json` (title, short_description, long_description)
+5. Create dialog in `ui/dialogs/`
+6. Create tool card in `ui/cards/`
+7. Add worker in `ui/workers/` if needed
+8. Write tests in `tests/unit/services/`
 
 ### How do I handle large datasets?
 - Use cooperative cancellation: Check `stop_check_callback()` in loops
@@ -515,6 +625,6 @@ In `services/` as a PyQt6-free service. UI code should only orchestrate and rend
 ---
 
 **Last Updated**: January 2026  
-**Test Coverage**: 590+ tests passing  
+**Test Coverage**: 713+ tests passing  
 **Python Version**: 3.13+  
 **UI Framework**: PyQt6

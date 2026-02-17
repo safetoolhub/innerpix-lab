@@ -916,9 +916,7 @@ class SettingsDialog(QDialog):
         current_auto_backup = self.auto_backup_checkbox.isChecked()
         original_auto_backup = self.original_values['auto_backup']
         auto_backup_changed = current_auto_backup != original_auto_backup
-        
-
-        
+                
         current_confirm_delete = self.confirm_delete_checkbox.isChecked()
         original_confirm_delete = self.original_values['confirm_delete']
         confirm_delete_changed = current_confirm_delete != original_confirm_delete
