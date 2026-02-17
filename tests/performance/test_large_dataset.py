@@ -14,7 +14,6 @@ sys.path.append(os.getcwd())
 
 from services.duplicates_similar_service import DuplicatesSimilarAnalysis
 from services.result_types import SimilarDuplicateGroup
-from config import Config
 
 class TestLargeDatasetPerformance(unittest.TestCase):
     def setUp(self):
@@ -55,8 +54,8 @@ class TestLargeDatasetPerformance(unittest.TestCase):
         print("\nStarting clustering performance test...")
         start_time = time.time()
         
-        # Test with default sensitivity
-        result = self.analysis.get_groups(sensitivity=Config.SIMILAR_FILES_DEFAULT_SENSITIVITY)
+        # Test with default sensitivity (85%)
+        result = self.analysis.get_groups(sensitivity=85)
         
         end_time = time.time()
         duration = end_time - start_time

@@ -572,16 +572,6 @@ def change_logs_directory(new_dir: Path | str, dual_log_enabled: Optional[bool] 
     return _log_file, _logs_directory
 
 
-def get_log_file() -> Optional[Path]:
-    """Retorna la ruta del archivo de log actual"""
-    return _log_file
-
-
-def get_logs_directory() -> Optional[Path]:
-    """Retorna el directorio de logs actual"""
-    return _logs_directory
-
-
 def is_dual_log_enabled() -> bool:
     """Retorna si el sistema de dual logging está habilitado"""
     return _dual_log_enabled

@@ -893,13 +893,81 @@ def get_exif_from_image(file_path: Path) -> dict:
     return result
 
 
+def _parse_apple_creationdate(value: str) -> Optional[tuple]:
+    """
+    Parsea com.apple.quicktime.creationdate de ffprobe.
+    
+    Formatos conocidos:
+    - "2025-11-30T07:26:47+0100"
+    - "2025-11-30T07:26:47+01:00"  
+    - "2025-11-30T07:26:47Z"
+    
+    Returns:
+        Tuple (datetime_local, offset_str) o None si no se puede parsear.
+        - datetime_local: la fecha/hora local (sin timezone info)
+        - offset_str: el offset original (ej: '+01:00') para propagación
+    """
+    if not value or not isinstance(value, str):
+        return None
+    
+    logger = get_logger('file_utils')
+    
+    try:
+        # Intentar parsear con timezone info
+        # Formato: "2025-11-30T07:26:47+0100" o "2025-11-30T07:26:47+01:00"
+        
+        # Separar la parte de fecha/hora de la parte de timezone
+        # Buscar el offset al final: +HHMM, +HH:MM, -HHMM, -HH:MM, o Z
+        date_part = value
+        offset_str = None
+        
+        if value.endswith('Z'):
+            date_part = value[:-1]
+            offset_str = '+00:00'
+        else:
+            # Buscar +/- seguido de dígitos al final
+            for i in range(len(value) - 1, max(len(value) - 7, 0), -1):
+                if value[i] in ('+', '-') and i > 10:  # No confundir con el - de la fecha
+                    date_part = value[:i]
+                    tz_part = value[i:]
+                    # Normalizar a formato +HH:MM
+                    if len(tz_part) == 5:  # +HHMM
+                        offset_str = f"{tz_part[:3]}:{tz_part[3:]}"
+                    elif len(tz_part) == 6:  # +HH:MM
+                        offset_str = tz_part
+                    else:
+                        offset_str = tz_part
+                    break
+        
+        # Parsear solo la parte de fecha/hora (sin timezone)
+        dt = None
+        for fmt in ['%Y-%m-%dT%H:%M:%S.%f', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S']:
+            try:
+                dt = datetime.strptime(date_part, fmt)
+                break
+            except ValueError:
+                continue
+        
+        if dt is None:
+            logger.debug(f"Could not parse apple.creationdate date part: '{date_part}'")
+            return None
+        
+        logger.debug(f"Parsed apple.creationdate: {dt} (offset={offset_str})")
+        return (dt, offset_str)
+        
+    except Exception as e:
+        logger.debug(f"Error parsing apple.creationdate '{value}': {e}")
+        return None
+
+
 def get_exif_from_video(file_path: Path) -> dict:
     """
     Extrae metadatos completos de archivos de video usando exiftool y ffprobe.
     
     PRIORIDAD PARA FECHA:
     1. exiftool Keys:CreationDate - Para Live Photos de iPhone (campo correcto)
-    2. ffprobe creation_time - Para otros videos
+    2. ffprobe com.apple.quicktime.creationdate - Fecha exacta con timezone (iPhone)
+    3. ffprobe creation_time - Para otros videos (UTC, menos preciso)
     
     METADATOS TÉCNICOS (con ffprobe):
     - Dimensiones (width, height)
@@ -918,8 +986,9 @@ def get_exif_from_video(file_path: Path) -> dict:
     Returns:
         Diccionario con metadatos del video:
         {
-            'creation_time': datetime or None,  # Fecha de creación
-            'width': int or None,               # Ancho en píxeles
+            'creation_time': datetime or None,          # Fecha de creación (hora local)
+            'creation_time_offset': str or None,         # Offset timezone (ej: '+01:00')
+            'width': int or None,                        # Ancho en píxeles
             'height': int or None,              # Alto en píxeles
             'duration': str or None,            # Duración (ej: "5:23 min")
             'duration_seconds': float or None,  # Duración en segundos
@@ -1053,7 +1122,27 @@ def get_exif_from_video(file_path: Path) -> dict:
             if 'tags' in fmt:
                 tags = fmt['tags']
                 
-                # Creation time (solo si no se obtuvo con exiftool)
+                # PRIORIDAD: com.apple.quicktime.creationdate (fecha exacta con timezone)
+                # Esta fecha es la que Apple almacena como fecha real de captura
+                # en hora local CON offset de timezone. Es MUCHO más precisa que
+                # creation_time (que es UTC y puede tener desfase de minutos).
+                apple_creationdate = tags.get('com.apple.quicktime.creationdate')
+                if not creation_date and apple_creationdate:
+                    try:
+                        parsed = _parse_apple_creationdate(apple_creationdate)
+                        if parsed:
+                            creation_date, offset_str = parsed
+                            result['creation_time'] = creation_date
+                            if offset_str:
+                                result['creation_time_offset'] = offset_str
+                            logger.debug(
+                                f"Video {file_path.name}: using apple.creationdate = "
+                                f"{creation_date} (offset={offset_str})"
+                            )
+                    except Exception as e:
+                        logger.debug(f"Error parsing apple.creationdate '{apple_creationdate}': {e}")
+                
+                # Fallback: creation_time genérico (UTC, menos preciso)
                 if not creation_date and 'creation_time' in tags:
                     creation_time_str = tags['creation_time']
                     try:

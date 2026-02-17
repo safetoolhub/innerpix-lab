@@ -6,8 +6,6 @@ from utils.format_utils import (
     format_size,
     format_number,
     format_file_count,
-    format_percentage,
-    truncate_path,
 )
 
 
@@ -95,55 +93,3 @@ class TestFormatFileCount:
     
     def test_invalid_value(self):
         assert format_file_count("invalid") == "0"
-
-
-@pytest.mark.unit
-class TestFormatPercentage:
-    """Tests para format_percentage()"""
-    
-    def test_basic_percentage(self):
-        assert format_percentage(50, 100) == "50.0%"
-        assert format_percentage(1, 4) == "25.0%"
-        assert format_percentage(3, 4) == "75.0%"
-    
-    def test_zero_denominator(self):
-        assert format_percentage(10, 0) == "0%"
-    
-    def test_complete_percentage(self):
-        assert format_percentage(100, 100) == "100.0%"
-    
-    def test_over_hundred_percent(self):
-        assert format_percentage(150, 100) == "150.0%"
-    
-    def test_invalid_values(self):
-        assert format_percentage("invalid", 100) == "0%"
-        assert format_percentage(50, "invalid") == "0%"
-
-
-@pytest.mark.unit
-class TestTruncatePath:
-    """Tests para truncate_path()"""
-    
-    def test_short_path(self):
-        path = "/short/path.txt"
-        assert truncate_path(path, 40) == path
-    
-    def test_long_path(self):
-        path = "/very/long/path/to/some/deep/directory/file.txt"
-        result = truncate_path(path, 30)
-        assert len(result) <= 30  # Can be slightly shorter due to truncation logic
-        assert "..." in result
-    
-    def test_very_short_max_length(self):
-        path = "/some/path.txt"
-        result = truncate_path(path, 5)
-        assert len(result) == 5
-    
-    def test_none_path(self):
-        assert truncate_path(None) == ""
-    
-    def test_exact_length(self):
-        path = "exactly_forty_characters_long_path.txt"
-        assert truncate_path(path, 39) == path
-
-

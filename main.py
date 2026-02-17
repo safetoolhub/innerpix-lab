@@ -19,7 +19,6 @@ from utils.settings_manager import settings_manager
 from utils.i18n import init_i18n
 import logging
 
-import argparse
 
 def main():
     """Main application entry point"""

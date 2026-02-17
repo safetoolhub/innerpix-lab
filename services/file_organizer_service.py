@@ -55,10 +55,6 @@ class FileMove:
             # BaseService original lanzaba ValueError.
             pass
 
-    @property
-    def will_rename(self) -> bool:
-        return self.original_name != self.new_name
-
 class FileOrganizerService(BaseService):
     """Organizador de archivos - Mueve archivos multimedia de subdirectorios al directorio raíz"""
 
@@ -283,6 +279,10 @@ class FileOrganizerService(BaseService):
                  target = move.target_path
                  
                  try:
+                     # Defense in depth: skip no-op moves (source == target)
+                     if move.source_path == target:
+                         continue
+                     
                      if not move.source_path.exists():
                          self.logger.warning(f"Source missing: {move.source_path}")
                          continue
@@ -424,6 +424,12 @@ class FileOrganizerService(BaseService):
                 
                 fname = file_info['name']
                 fpath = Path(file_info['path'])
+                target_path = root_directory / fname
+                
+                # Skip no-op moves: file already in correct destination
+                if fpath == target_path:
+                    continue
+                
                 conflict = fname in existing_files
                 # Usar best_date pre-calculada del cache (almacenada en info dict)
                 file_date = file_info.get('_best_date')
@@ -432,7 +438,7 @@ class FileOrganizerService(BaseService):
                     # Fallback: calcular si no disponible en cache
                     file_metadata = get_all_metadata_from_file(fpath)
                     file_date, file_date_source = select_best_date_from_file(file_metadata)
-                move = FileMove(fpath, root_directory/fname, fname, fname, subdir_name, file_info['type'], file_info['size'], conflict, source=detect_file_source(fname, fpath), best_date=file_date, best_date_source=file_date_source)
+                move = FileMove(fpath, target_path, fname, fname, subdir_name, file_info['type'], file_info['size'], conflict, source=detect_file_source(fname, fpath), best_date=file_date, best_date_source=file_date_source)
                 name_conflicts[fname].append(move)
         return self._resolve_conflicts_in_folder(name_conflicts, root_directory)
 
@@ -481,6 +487,11 @@ class FileOrganizerService(BaseService):
             
             relative = f.relative_to(root_directory)
             target_path = other_dir / relative
+            
+            # Skip no-op moves: file already in correct destination
+            if f == target_path:
+                continue
+            
             target_folder_str = str(Path("other") / relative.parent) if str(relative.parent) != '.' else "other"
             
             try:
@@ -571,8 +582,15 @@ class FileOrganizerService(BaseService):
             for item in items:
                 info = item['info']
                 fname = info['name']
+                source_path = Path(info['path'])
+                target_path = target_folder / fname
+                
+                # Skip no-op moves: file already in correct destination
+                if source_path == target_path:
+                    continue
+                
                 move = FileMove(
-                    Path(info['path']), target_folder/fname, fname, fname, item['subdir'],
+                    source_path, target_path, fname, fname, item['subdir'],
                     info['type'], info['size'], fname in exist, target_folder=folder,
                     best_date=info.get('_best_date'),
                     best_date_source=info.get('_best_date_source')
@@ -646,11 +664,18 @@ class FileOrganizerService(BaseService):
             for item in items:
                 info = item['info']
                 fname = info['name']
+                source_path = Path(info['path'])
+                target_path = target_folder / fname
+                
+                # Skip no-op moves: file already in correct destination
+                if source_path == target_path:
+                    continue
+                
                 move = FileMove(
-                    Path(info['path']), target_folder / fname, fname, fname,
+                    source_path, target_path, fname, fname,
                     item['subdir'], info['type'], info['size'], fname in existing,
                     target_folder=folder_name,
-                    source=detect_file_source(fname, Path(info['path'])),
+                    source=detect_file_source(fname, source_path),
                     best_date=info.get('_best_date'),
                     best_date_source=info.get('_best_date_source')
                 )
@@ -714,8 +739,15 @@ class FileOrganizerService(BaseService):
             for item in items:
                 info = item['info']
                 fname = info['name']
+                source_path = Path(info['path'])
+                target_path = target_folder / fname
+                
+                # Skip no-op moves: file already in correct destination
+                if source_path == target_path:
+                    continue
+                
                 move = FileMove(
-                    Path(info['path']), target_folder / fname, fname, fname,
+                    source_path, target_path, fname, fname,
                     item['subdir'], info['type'], info['size'], fname in existing,
                     target_folder=source_name,
                     source=source_name,

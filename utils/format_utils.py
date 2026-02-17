@@ -1,7 +1,7 @@
 """Utilidades para formateo reutilizables en todo el proyecto.
 
-Contiene funciones puras: format_size, format_file_count, format_percentage,
-y truncate_path. Estas funciones no dependen de la UI y pueden importarse desde
+Contiene funciones puras: format_size, format_number, format_file_count y
+format_duration. Estas funciones no dependen de la UI y pueden importarse desde
 `utils.format_utils` en cualquier módulo.
 """
 from typing import Optional
@@ -91,22 +91,6 @@ def format_file_count(count: Optional[int]) -> str:
         return "0"
 
 
-def format_percentage(numerator: float, denominator: float) -> str:
-    """Devuelve un porcentaje formateado 'xx.x%'.
-
-    - Si denominator es 0 devuelve '0%'.
-    - Maneja entradas inválidas devolviendo '0%'.
-    """
-    if denominator == 0:
-        return "0%"
-    
-    try:
-        pct = (float(numerator) / float(denominator)) * 100
-        return f"{pct:.1f}%"
-    except (TypeError, ValueError, ZeroDivisionError):
-        return "0%"
-
-
 def format_duration(seconds: Optional[float]) -> str:
     """Formatea una duración en segundos a formato legible.
     
@@ -161,22 +145,3 @@ def format_duration(seconds: Optional[float]) -> str:
         parts.append(f"{secs}s")
     
     return " ".join(parts) if parts else "0s"
-
-
-def truncate_path(path: str, max_length: int = 40) -> str:
-    """Trunca rutas largas insertando '...' en el centro para ajustarse a max_length.
-
-    - Si la longitud de la ruta es menor o igual a max_length devuelve la ruta tal cual.
-    - Intenta preservar el inicio y el final de la ruta.
-    """
-    if path is None:
-        return ""
-    
-    s = str(path)
-    if len(s) <= max_length:
-        return s
-    if max_length <= 6:
-        return s[:max_length]
-
-    part = (max_length - 3) // 2
-    return f"{s[:part]}...{s[-part:]}"

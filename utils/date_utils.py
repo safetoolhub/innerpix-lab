@@ -193,10 +193,10 @@ def select_best_date_from_common_date_to_2_files(
     Usado por HEICService y LivePhotoService para determinar la fecha correcta de los pares de archivos.
     
     NORMALIZACIÓN DE TIMEZONE:
-    Cuando se comparan fechas EXIF con offset de timezone (ej: imagen con +02:00)
-    contra fechas sin offset (ej: video en UTC desde ffprobe), se normaliza a UTC
-    para comparación justa. Los datetimes retornados son las fechas originales
-    (hora local), pero la diferencia se calcula considerando el timezone.
+    - Si AMBOS archivos tienen offset de timezone: se normaliza a UTC para comparación justa
+    - Si NINGUNO tiene offset o solo uno tiene offset: se usa hora local sin normalizar
+      (asumiendo que ambos están en la misma zona horaria local)
+    - Esto corrige el bug donde archivos sin offset eran incorrectamente tratados como UTC
     
     Prioriza fidelidad al momento de captura/creación original:
     1. EXIF DateTimeOriginal (Captura exacta)
@@ -245,19 +245,21 @@ def select_best_date_from_common_date_to_2_files(
             return _parse_exif_date(val)
         return None
     
-    def _normalize_to_utc(dt: datetime, offset_str: Optional[str]) -> datetime:
+    def _normalize_to_utc(dt: datetime, offset_str: Optional[str], has_peer_offset: bool = False) -> datetime:
         """
         Normaliza un datetime a UTC usando el offset de timezone si está disponible.
         
         - Si offset_str tiene un valor (ej: '+02:00'), resta el offset para obtener UTC
-        - Si offset_str es None, asume que dt ya está en UTC (como los videos de ffprobe)
+        - Si offset_str es None Y has_peer_offset es False: retorna sin cambios (hora local)
+        - Si offset_str es None Y has_peer_offset es True: retorna sin cambios (no podemos asumir UTC)
         
         Args:
             dt: datetime a normalizar
             offset_str: string de offset de timezone (ej: '+02:00', '-05:00')
+            has_peer_offset: si el archivo par tiene offset (para decisión de normalización)
             
         Returns:
-            datetime normalizado a UTC
+            datetime normalizado a UTC si tiene offset, o sin cambios si no
         """
         offset_seconds = _parse_timezone_offset(offset_str)
         if offset_seconds is not None and offset_seconds != 0:
@@ -288,16 +290,30 @@ def select_best_date_from_common_date_to_2_files(
     
     if verbose: _logger.debug(f"    - EXIF DateTimeOriginal: file1={_fmt(file1_datetime_original)}, file2={_fmt(file2_datetime_original)}")
     if file1_datetime_original is not None and file2_datetime_original is not None and not _is_epoch_zero_date(file1_datetime_original) and not _is_epoch_zero_date(file2_datetime_original):
-        # Normalizar a UTC para comparación justa
-        file1_utc = _normalize_to_utc(file1_datetime_original, file1_offset)
-        file2_utc = _normalize_to_utc(file2_datetime_original, file2_offset)
+        # CORRECCIÓN DE BUG DE TIMEZONE:
+        # Solo normalizar a UTC si AMBOS archivos tienen offset de timezone.
+        # Si alguno no tiene offset, NO normalizar (asumir ambos en hora local).
+        # Esto evita comparar incorrectamente hora local vs UTC.
+        both_have_offset = (file1_offset is not None and file2_offset is not None)
         
-        if verbose:
-            _logger.debug(f"    - Normalized to UTC: file1={_fmt(file1_utc)} (offset={file1_offset}), file2={_fmt(file2_utc)} (offset={file2_offset})")
-            _logger.debug("    => Match found: exif_date_time_original")
-        _logger.debug(f"Source selected: exif_date_time_original for {getattr(file1, 'path', 'f1')} and {getattr(file2, 'path', 'f2')}")
-        # Retornar fechas UTC normalizadas para comparación correcta de diferencias
-        return file1_utc, file2_utc, 'exif_date_time_original'
+        if both_have_offset:
+            # Caso normal: ambos tienen offset, normalizar a UTC
+            file1_utc = _normalize_to_utc(file1_datetime_original, file1_offset)
+            file2_utc = _normalize_to_utc(file2_datetime_original, file2_offset)
+            
+            if verbose:
+                _logger.debug(f"    - Normalized to UTC: file1={_fmt(file1_utc)} (offset={file1_offset}), file2={_fmt(file2_utc)} (offset={file2_offset})")
+                _logger.debug("    => Match found: exif_date_time_original")
+            _logger.debug(f"Source selected: exif_date_time_original for {getattr(file1, 'path', 'f1')} and {getattr(file2, 'path', 'f2')}")
+            return file1_utc, file2_utc, 'exif_date_time_original'
+        else:
+            # Caso de archivos sin offset o mixto: usar hora local directamente
+            # Esto corrige el bug donde videos sin offset eran tratados como UTC
+            if verbose:
+                _logger.debug(f"    - Using local time (no normalization): file1={_fmt(file1_datetime_original)} (offset={file1_offset}), file2={_fmt(file2_datetime_original)} (offset={file2_offset})")
+                _logger.debug("    => Match found: exif_date_time_original (local time)")
+            _logger.debug(f"Source selected: exif_date_time_original (local) for {getattr(file1, 'path', 'f1')} and {getattr(file2, 'path', 'f2')}")
+            return file1_datetime_original, file2_datetime_original, 'exif_date_time_original'
         
     # Priority 2: EXIF CreateDate
     file1_create_date = _to_dt(_get_val(file1, 'exif_create_date', 'exif_CreateDate', 'exif_DateTimeDigitized'))
@@ -870,71 +886,6 @@ def is_renamed_filename(filename: str) -> bool:
     # Nota: extensiones pueden incluir dígitos (ej: MP4, M4V, 3GP)
     pattern = r'^\d{8}_\d{6}_[A-Z]+(?:_\d{3})?\.[A-Z0-9]{2,4}$'
     return bool(re.match(pattern, filename))
-
-
-def parse_renamed_name(filename: str | Path) -> Optional[dict]:
-    """
-    Parsea un nombre de archivo renombrado y extrae sus componentes
-    
-    Args:
-        filename: Nombre del archivo o Path object
-        
-    Returns:
-        Dict con componentes o None si no es un nombre válido:
-        {
-            'date': datetime,
-            'type': str,  # 'PHOTO' o 'VIDEO'
-            'sequence': int or None,
-            'extension': str,  # '.JPG', '.MOV', etc.
-            'is_renamed': bool  # Siempre True si llega aquí
-        }
-        
-    Examples:
-        >>> parse_renamed_name('20230115_103045_PHOTO.JPG')
-        {'date': datetime(2023, 1, 15, 10, 30, 45), 'type': 'PHOTO', 'sequence': None, 'extension': '.JPG', 'is_renamed': True}
-        
-        >>> parse_renamed_name('20230115_103045_VIDEO_042.MOV')
-        {'date': datetime(2023, 1, 15, 10, 30, 45), 'type': 'VIDEO', 'sequence': 42, 'extension': '.MOV', 'is_renamed': True}
-    """
-    if isinstance(filename, Path):
-        filename = filename.name
-    
-    if not is_renamed_filename(filename):
-        return None
-    
-    import re
-    
-    # Patrón con grupos nombrados - solo acepta PHOTO y VIDEO
-    pattern = r'^(?P<date>\d{8}_\d{6})_(?P<type>PHOTO|VIDEO)(?:_(?P<sequence>\d{3}))?\.(?P<ext>[A-Z]{2,4})$'
-    match = re.match(pattern, filename)
-    
-    if not match:
-        return None
-    
-    groups = match.groupdict()
-    
-    # Parsear fecha
-    date_str = groups['date']
-    try:
-        parsed_date = datetime.strptime(date_str, '%Y%m%d_%H%M%S')
-    except ValueError:
-        return None
-    
-    # Parsear secuencia
-    sequence = None
-    if groups['sequence']:
-        try:
-            sequence = int(groups['sequence'])
-        except ValueError:
-            return None
-    
-    return {
-        'date': parsed_date,
-        'type': groups['type'],
-        'sequence': sequence,
-        'extension': f".{groups['ext']}",
-        'is_renamed': True
-    }
 
 
 def extract_date_from_filename(filename: str) -> Optional[datetime]:

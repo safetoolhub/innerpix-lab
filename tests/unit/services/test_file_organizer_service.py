@@ -1,11 +1,13 @@
 """
 Tests para FileOrganizerService
 Verifica la funcionalidad de organización de archivos, incluyendo
-la opción de mover archivos no soportados a 'other/'.
+la opción de mover archivos no soportados a 'other/' y la corrección
+del bug de auto-conflicto (_001 suffix).
 """
 
 import pytest
 from pathlib import Path
+from datetime import datetime
 from unittest.mock import Mock, patch, MagicMock
 from services.file_organizer_service import FileOrganizerService, OrganizationType, FileMove
 from services.result_types import OrganizationAnalysisResult
@@ -387,3 +389,262 @@ class TestFileOrganizerExecuteUnsupported:
         assert gif.exists()
         assert not (tmp_path / "other" / "subdir" / "anim.gif").exists()
         assert result.dry_run is True
+
+
+class TestFileOrganizerSelfConflict:
+    """Tests para el bug de auto-conflicto (_001 suffix).
+    
+    Cuando se ejecuta el organizador dos veces con el mismo modo, los archivos
+    que ya están en su carpeta destino correcta NO deben ser renombrados con
+    sufijo _001. El plan debe excluirlos (movimiento no-op).
+    """
+
+    def setup_method(self):
+        """Limpiar el repositorio antes de cada test"""
+        repo = FileInfoRepositoryCache.get_instance()
+        repo.clear()
+
+    def _register_file_in_cache(self, file_path: Path, best_date: datetime = None):
+        """Helper: registra un archivo en la caché con metadatos mínimos"""
+        repo = FileInfoRepositoryCache.get_instance()
+        metadata = FileMetadata(
+            path=file_path,
+            fs_size=file_path.stat().st_size,
+            fs_ctime=1234567890.0,
+            fs_mtime=1234567890.0,
+            fs_atime=1234567890.0,
+            best_date=best_date,
+            best_date_source='EXIF' if best_date else None,
+        )
+        repo.add_file(file_path, metadata)
+
+    def test_no_self_conflict_by_month_files_already_in_place(self, tmp_path):
+        """Archivos ya en su carpeta by_month correcta no deben generar movimientos"""
+        # Simular estado post-organización: archivos ya en 2025_01/
+        target_dir = tmp_path / "2025_01"
+        target_dir.mkdir()
+        
+        img1 = target_dir / "IMG_001.JPG"
+        img1.write_bytes(b"photo data 1")
+        img2 = target_dir / "IMG_002.JPG"
+        img2.write_bytes(b"photo data 2")
+
+        date_jan = datetime(2025, 1, 15, 10, 0, 0)
+        self._register_file_in_cache(img1, best_date=date_jan)
+        self._register_file_in_cache(img2, best_date=date_jan)
+
+        service = FileOrganizerService()
+        result = service.analyze(
+            root_directory=tmp_path,
+            organization_type=OrganizationType.BY_MONTH,
+        )
+
+        # No debe haber movimientos: archivos ya están donde deben
+        assert len(result.move_plan) == 0
+
+    def test_no_self_conflict_by_year_month_files_already_in_place(self, tmp_path):
+        """Archivos ya en su carpeta by_year_month correcta no deben generar movimientos"""
+        target_dir = tmp_path / "2025" / "01"
+        target_dir.mkdir(parents=True)
+
+        img1 = target_dir / "IMG_001.JPG"
+        img1.write_bytes(b"photo data 1")
+
+        date_jan = datetime(2025, 1, 15, 10, 0, 0)
+        self._register_file_in_cache(img1, best_date=date_jan)
+
+        service = FileOrganizerService()
+        result = service.analyze(
+            root_directory=tmp_path,
+            organization_type=OrganizationType.BY_YEAR_MONTH,
+        )
+
+        assert len(result.move_plan) == 0
+
+    def test_no_self_conflict_by_year_files_already_in_place(self, tmp_path):
+        """Archivos ya en su carpeta by_year correcta no deben generar movimientos"""
+        target_dir = tmp_path / "2025"
+        target_dir.mkdir()
+
+        img1 = target_dir / "IMG_001.JPG"
+        img1.write_bytes(b"photo data 1")
+
+        date_jan = datetime(2025, 1, 15, 10, 0, 0)
+        self._register_file_in_cache(img1, best_date=date_jan)
+
+        service = FileOrganizerService()
+        result = service.analyze(
+            root_directory=tmp_path,
+            organization_type=OrganizationType.BY_YEAR,
+        )
+
+        assert len(result.move_plan) == 0
+
+    def test_no_self_conflict_by_type_files_already_in_place(self, tmp_path):
+        """Archivos ya en su carpeta by_type correcta no deben generar movimientos"""
+        fotos_dir = tmp_path / "Fotos"
+        fotos_dir.mkdir()
+
+        img1 = fotos_dir / "IMG_001.JPG"
+        img1.write_bytes(b"photo data 1")
+
+        self._register_file_in_cache(img1)
+
+        service = FileOrganizerService()
+        result = service.analyze(
+            root_directory=tmp_path,
+            organization_type=OrganizationType.BY_TYPE,
+        )
+
+        assert len(result.move_plan) == 0
+
+    def test_no_self_conflict_to_root_files_already_in_root(self, tmp_path):
+        """Archivos ya en root no deben generar movimientos con TO_ROOT"""
+        img1 = tmp_path / "IMG_001.JPG"
+        img1.write_bytes(b"photo data 1")
+
+        self._register_file_in_cache(img1)
+
+        service = FileOrganizerService()
+        result = service.analyze(
+            root_directory=tmp_path,
+            organization_type=OrganizationType.TO_ROOT,
+        )
+
+        # Archivos ya en root son root_files, no subdirectory files,
+        # por lo que TO_ROOT no los incluye en el plan
+        assert len(result.move_plan) == 0
+
+    def test_files_not_renamed_on_second_run_by_month(self, tmp_path):
+        """Simula ejecutar organización by_month dos veces: la segunda no debe renombrar"""
+        # Primera ejecución: archivos en subdirectorio se mueven a carpeta de fecha
+        subdir = tmp_path / "original_folder"
+        subdir.mkdir()
+
+        img1 = subdir / "IMG_001.JPG"
+        img1.write_bytes(b"photo data 1")
+        img2 = subdir / "IMG_002.JPG"
+        img2.write_bytes(b"photo data 2")
+
+        date_jan = datetime(2025, 1, 15, 10, 0, 0)
+        self._register_file_in_cache(img1, best_date=date_jan)
+        self._register_file_in_cache(img2, best_date=date_jan)
+
+        service = FileOrganizerService()
+
+        # Primera ejecución
+        result1 = service.analyze(
+            root_directory=tmp_path,
+            organization_type=OrganizationType.BY_MONTH,
+        )
+        assert len(result1.move_plan) == 2
+        exec_result1 = service.execute(result1, create_backup=False, dry_run=False)
+        assert exec_result1.success
+
+        # Verificar que los archivos se movieron correctamente
+        target_dir = tmp_path / "2025_01"
+        assert (target_dir / "IMG_001.JPG").exists()
+        assert (target_dir / "IMG_002.JPG").exists()
+
+        # Actualizar caché para segunda ejecución
+        repo = FileInfoRepositoryCache.get_instance()
+        repo.clear()
+        for f in target_dir.iterdir():
+            if f.is_file():
+                self._register_file_in_cache(f, best_date=date_jan)
+
+        # Segunda ejecución: NO debe generar movimientos
+        result2 = service.analyze(
+            root_directory=tmp_path,
+            organization_type=OrganizationType.BY_MONTH,
+        )
+        assert len(result2.move_plan) == 0
+
+        # Verificar que los archivos mantienen su nombre original (sin _001)
+        assert (target_dir / "IMG_001.JPG").exists()
+        assert (target_dir / "IMG_002.JPG").exists()
+        assert not (target_dir / "IMG_001_001.JPG").exists()
+        assert not (target_dir / "IMG_002_001.JPG").exists()
+
+    def test_mixed_self_conflict_and_real_conflict(self, tmp_path):
+        """Archivos ya en destino se omiten, pero archivos nuevos con mismo nombre sí generan conflicto"""
+        target_dir = tmp_path / "2025_01"
+        target_dir.mkdir()
+
+        # Archivo ya en destino correcto
+        existing_img = target_dir / "IMG_001.JPG"
+        existing_img.write_bytes(b"existing photo data")
+
+        # Archivo con mismo nombre en otro subdirectorio (conflicto real)
+        other_subdir = tmp_path / "camera_import"
+        other_subdir.mkdir()
+        new_img = other_subdir / "IMG_001.JPG"
+        new_img.write_bytes(b"new photo data")
+
+        date_jan = datetime(2025, 1, 15, 10, 0, 0)
+        self._register_file_in_cache(existing_img, best_date=date_jan)
+        self._register_file_in_cache(new_img, best_date=date_jan)
+
+        service = FileOrganizerService()
+        result = service.analyze(
+            root_directory=tmp_path,
+            organization_type=OrganizationType.BY_MONTH,
+        )
+
+        # Solo el archivo nuevo debe estar en el plan (el existente es no-op)
+        assert len(result.move_plan) == 1
+        move = result.move_plan[0]
+        assert move.source_path == new_img
+        # Debe tener conflicto y obtener sufijo _001 (conflicto real con el archivo existente)
+        assert move.has_conflict is True
+        assert "_001" in move.new_name
+
+    def test_no_self_conflict_by_source(self, tmp_path):
+        """Archivos ya en su carpeta by_source correcta no deben generar movimientos"""
+        source_dir = tmp_path / "iPhone"
+        source_dir.mkdir()
+
+        img1 = source_dir / "IMG_001.JPG"
+        img1.write_bytes(b"photo data 1")
+
+        self._register_file_in_cache(img1)
+
+        service = FileOrganizerService()
+        with patch('services.file_organizer_service.detect_file_source', return_value='iPhone'):
+            result = service.analyze(
+                root_directory=tmp_path,
+                organization_type=OrganizationType.BY_SOURCE,
+            )
+
+        assert len(result.move_plan) == 0
+
+    def test_execute_skips_noop_moves(self, tmp_path):
+        """Execute debe omitir movimientos donde source == target (defensa en profundidad)"""
+        img1 = tmp_path / "IMG_001.JPG"
+        img1.write_bytes(b"photo data 1")
+
+        # Crear un FileMove artificial donde source == target
+        noop_move = FileMove(
+            source_path=img1,
+            target_path=img1,
+            original_name="IMG_001.JPG",
+            new_name="IMG_001.JPG",
+            subdirectory="<root>",
+            file_type="PHOTO",
+            size=12,
+        )
+
+        analysis = OrganizationAnalysisResult(
+            move_plan=[noop_move],
+            root_directory=str(tmp_path),
+            organization_type="by_month",
+            subdirectories={},
+        )
+
+        service = FileOrganizerService()
+        result = service.execute(analysis, create_backup=False, dry_run=False)
+
+        # El archivo debe seguir existiendo con su nombre original
+        assert img1.exists()
+        assert not (tmp_path / "IMG_001_001.JPG").exists()
+        assert result.success
