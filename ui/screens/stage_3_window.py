@@ -70,7 +70,7 @@ class Stage3Window(BaseStage):
             scan_data = analysis_results.scan
             if hasattr(scan_data, 'metadata_cache') and scan_data.metadata_cache:
                 self.metadata_cache = scan_data.metadata_cache
-                self.logger.debug("Metadata cache disponible desde análisis inicial")
+                self.logger.debug("Metadata cache available from initial analysis")
 
         # Referencias a widgets del estado
         self.header = None
@@ -82,7 +82,7 @@ class Stage3Window(BaseStage):
 
     def setup_ui(self) -> None:
         """Configura la interfaz de usuario del Stage 3."""
-        self.logger.debug("Configurando UI del Stage 3")
+        self.logger.debug("Setting up Stage 3 UI")
 
         # Limpiar el layout principal antes de agregar nuevos widgets
         while self.main_layout.count():
@@ -110,11 +110,11 @@ class Stage3Window(BaseStage):
         self._show_summary_card()
         self._create_tools_grid()
 
-        self.logger.debug("UI del Stage 3 configurada")
+        self.logger.debug("Stage 3 UI configured")
 
     def cleanup(self) -> None:
         """Limpia los recursos del Stage 3."""
-        self.logger.debug("Limpiando Estado 3")
+        self.logger.debug("Cleaning up Stage 3")
 
         # Limpiar referencias
         if self.header:
@@ -347,7 +347,7 @@ class Stage3Window(BaseStage):
         """
         Maneja el clic en una tool card y abre el diálogo correspondiente
         """
-        self.logger.info(f"Clic en herramienta: {tool_id}")
+        self.logger.info(f"Tool clicked: {tool_id}")
 
         if not self.analysis_results:
             QMessageBox.warning(self.main_window, tr("common.error"), tr("stage3.error.no_analysis_data"))
@@ -611,11 +611,11 @@ class Stage3Window(BaseStage):
         from PyQt6.QtCore import Qt
         
         if not hasattr(dialog, 'accepted_plan'):
-            self.logger.warning(f"Diálogo de {tool_id} no tiene accepted_plan")
+            self.logger.warning(f"Dialog for {tool_id} has no accepted_plan")
             return
         
         plan = dialog.accepted_plan
-        self.logger.info(f"Ejecutando acciones de {tool_id} con plan: {list(plan.keys()) if isinstance(plan, dict) else type(plan)}")
+        self.logger.info(f"Executing actions for {tool_id} with plan: {list(plan.keys()) if isinstance(plan, dict) else type(plan)}")
         
         # === VERIFICAR CONFIRMACIÓN ADICIONAL PARA ELIMINACIÓN ===
         # Lista de herramientas destructivas (que eliminan archivos)
@@ -634,7 +634,7 @@ class Stage3Window(BaseStage):
             )
             
             if reply == QMessageBox.StandardButton.No:
-                self.logger.info(f"Operación {tool_id} cancelada por el usuario en confirmación adicional")
+                self.logger.info(f"Operation {tool_id} cancelled by user at additional confirmation")
                 return
 
         # Crear diálogo de progreso
@@ -751,7 +751,7 @@ class Stage3Window(BaseStage):
             )
         
         if not worker:
-            self.logger.error(f"No se pudo crear worker para {tool_id}")
+            self.logger.error(f"Could not create worker for {tool_id}")
             return
         
         # Variable para controlar si ya se canceló
@@ -780,13 +780,13 @@ class Stage3Window(BaseStage):
             progress_dialog.close()
             
             # Registrar resultado
-            log_msg = f"Operación {tool_id} completada"
+            log_msg = f"Operation {tool_id} completed"
             if hasattr(result, 'success'):
                 log_msg += f" (Success={result.success})"
             self.logger.info(log_msg)
             
             # Log detallado en debug para no inundar el info con listas enormes de archivos
-            self.logger.debug(f"Resultado detallado de {tool_id}: {result}")
+            self.logger.debug(f"Detailed result for {tool_id}: {result}")
             
             # Mostrar resultado
             if result and hasattr(result, 'success') and result.success:
@@ -836,13 +836,13 @@ class Stage3Window(BaseStage):
                         
                         if reply == QMessageBox.StandardButton.Yes:
                             # Re-analyze specific service
-                            log_section_header_discrete(self.logger, f"Actualización de estadísticas solicitada para {tool_id}")
+                            log_section_header_discrete(self.logger, f"Statistics update requested for {tool_id}")
                             # NOTA: No invalidamos la caché aquí porque el usuario quiere actualizar estadísticas
                             # La caché ya está actualizada, solo necesitamos recalcular el análisis del servicio
                             QTimer.singleShot(500, lambda: self._update_service_stats(tool_id))
                         else:
                             # User chose to skip re-analysis
-                            self.logger.info("Usuario omitió re-análisis, las estadísticas pueden estar desactualizadas")
+                            self.logger.info("User skipped re-analysis, statistics may be outdated")
                             
                             # NOTA: La caché ya se actualizó automáticamente durante la operación.
                             # Esta invalidación completa es opcional y conservadora por si hubo
@@ -857,14 +857,14 @@ class Stage3Window(BaseStage):
                                     self.main_window.scroll_area.ensureWidgetVisible(self.stale_banner)
                     else:
                         # Actualizar automáticamente sin confirmación
-                        self.logger.info(f"Actualizando estadísticas automáticamente para {tool_id} (sin confirmación)")
-                        log_section_header_discrete(self.logger, f"Actualización automática de estadísticas para {tool_id}")
+                        self.logger.info(f"Automatically updating statistics for {tool_id} (no confirmation)")
+                        log_section_header_discrete(self.logger, f"Automatic statistics update for {tool_id}")
                         # Usar QTimer con lambda que capture excepciones
                         def safe_update():
                             try:
                                 self._update_service_stats(tool_id, auto_update=True)
                             except Exception as e:
-                                self.logger.error(f"Error crítico en actualización automática de {tool_id}: {e}")
+                                self.logger.error(f"Critical error in automatic update of {tool_id}: {e}")
                                 import traceback
                                 self.logger.error(traceback.format_exc())
                                 QMessageBox.critical(
@@ -886,7 +886,7 @@ class Stage3Window(BaseStage):
                 pass
                 
             progress_dialog.close()
-            self.logger.error(f"Error en operación {tool_id}: {error_message}")
+            self.logger.error(f"Error in operation {tool_id}: {error_message}")
             QMessageBox.critical(
                 self.main_window,
                 tr("common.error"),
@@ -905,7 +905,7 @@ class Stage3Window(BaseStage):
             except RuntimeError:
                 # Worker ya fue eliminado, cerrar el diálogo directamente
                 progress_dialog.close()
-                self.logger.info(f"Operación {tool_id} ya finalizada al momento de cancelar")
+                self.logger.info(f"Operation {tool_id} already finished at cancellation time")
                 return
             
             # Actualizar el mensaje del diálogo mientras esperamos
@@ -926,7 +926,7 @@ class Stage3Window(BaseStage):
                     worker.deleteLater()
                 except RuntimeError:
                     pass  # Ya fue eliminado
-                self.logger.info(f"Operación {tool_id} cancelada y limpiada correctamente")
+                self.logger.info(f"Operation {tool_id} cancelled and cleaned up correctly")
             
             # Desconectar handlers anteriores y conectar el de limpieza
             try:
@@ -945,7 +945,7 @@ class Stage3Window(BaseStage):
                 on_cancelled_cleanup()
                 return
             
-            self.logger.info(f"Operación {tool_id} - Cancelación solicitada por el usuario")
+            self.logger.info(f"Operation {tool_id} - Cancellation requested by user")
         
         worker.progress_update.connect(on_progress)
         worker.finished.connect(on_finished)
@@ -956,7 +956,7 @@ class Stage3Window(BaseStage):
         
         # Iniciar worker
         worker.start()
-        self.logger.debug(f"Worker de {tool_id} iniciado")
+        self.logger.debug(f"Worker for {tool_id} started")
     
     def _get_service_update_message(self, tool_id: str) -> str:
         """
@@ -1069,7 +1069,7 @@ class Stage3Window(BaseStage):
             tool_id: ID del servicio a actualizar
             auto_update: Si es True, no muestra mensaje de confirmación al finalizar
         """
-        self.logger.info(f"Actualizando estadísticas para servicio: {tool_id} (auto_update={auto_update})")
+        self.logger.info(f"Updating statistics for service: {tool_id} (auto_update={auto_update})")
         
         # Reutilizar el sistema de workers existente con diálogo de progreso
         self._run_analysis_for_stats_update(tool_id, auto_update)
@@ -1112,7 +1112,7 @@ class Stage3Window(BaseStage):
         }
         
         if tool_id not in worker_map:
-            self.logger.warning(f"Servicio desconocido para actualización: {tool_id}")
+            self.logger.warning(f"Unknown service for update: {tool_id}")
             return
 
         WorkerClass, message = worker_map[tool_id]
@@ -1158,7 +1158,7 @@ class Stage3Window(BaseStage):
                 self.save_analysis_results(self.analysis_results)
                 self._refresh_stage_3_ui()
                 
-                self.logger.info(f"Estadísticas actualizadas exitosamente para {tool_id}")
+                self.logger.info(f"Statistics updated successfully for {tool_id}")
                 
                 # Mostrar mensaje solo si NO es auto_update
                 if not auto_update:
@@ -1169,13 +1169,13 @@ class Stage3Window(BaseStage):
                         f"Las estadísticas de {service_name} han sido actualizadas correctamente."
                     )
             else:
-                self.logger.warning(f"No se pudo obtener análisis actualizado para {tool_id}")
+                self.logger.warning(f"Could not get updated analysis for {tool_id}")
             
             worker.deleteLater()
             
         def on_error(msg):
             progress.close()
-            self.logger.error(f"Error actualizando estadísticas de {tool_id}: {msg}")
+            self.logger.error(f"Error updating statistics for {tool_id}: {msg}")
             QMessageBox.warning(
                 self.main_window,
                 "Error",
@@ -1223,7 +1223,7 @@ class Stage3Window(BaseStage):
         scan.others = [m.path for m in all_metadata if not m.is_image and not m.is_video]
         
         self.logger.debug(
-            f"Escaneo sincronizado con caché: {scan.total_files} archivos, "
+            f"Scan synchronized with cache: {scan.total_files} files, "
             f"{format_size(scan.total_size)}"
         )
     
@@ -1232,7 +1232,7 @@ class Stage3Window(BaseStage):
         Refresca la UI completa de Stage 3 con los analysis_results actualizados.
         """
         try:
-            self.logger.debug("Refrescando UI de Stage 3 con datos actualizados")
+            self.logger.debug("Refreshing Stage 3 UI with updated data")
 
             # Sincronizar estadísticas globales con la caché
             self._sync_scan_results_with_cache()
@@ -1267,23 +1267,23 @@ class Stage3Window(BaseStage):
             self.tool_cards.clear()
             
             # Recrear la UI de forma atómica dentro del results_container
-            self.logger.debug("Recreando UI de Stage 3...")
+            self.logger.debug("Recreating Stage 3 UI...")
             
             # Recrear sin animaciones
             self._show_summary_card()
             self._create_tools_grid()
             
-            self.logger.debug("UI de Stage 3 refrescada exitosamente")
+            self.logger.debug("Stage 3 UI refreshed successfully")
             
         except Exception as e:
-            self.logger.error(f"Error refrescando UI de Stage 3: {e}")
+            self.logger.error(f"Error refreshing Stage 3 UI: {e}")
             import traceback
             self.logger.error(traceback.format_exc())
             raise  # Re-lanzar para que se capture en el nivel superior
     
     def _on_reanalyze(self):
         """Maneja el clic en "Reanalizar" (legacy - ahora debería ser raro usarlo)"""
-        self.logger.info("Reanalizando carpeta completa (modo legacy)")
+        self.logger.info("Re-analyzing full folder (legacy mode)")
 
         # Limpiar widgets del ESTADO 3
         if self.stale_banner:
@@ -1323,7 +1323,7 @@ class Stage3Window(BaseStage):
 
     def _reset_to_state_1(self):
         """Reinicia la ventana al ESTADO 1"""
-        self.logger.info("Reiniciando a ESTADO 1")
+        self.logger.info("Resetting to STAGE 1")
 
         # Limpiar todos los widgets
         if self.summary_card:
@@ -1341,7 +1341,7 @@ class Stage3Window(BaseStage):
 
     def _on_settings_clicked(self):
         """Maneja el clic en el botón de configuración"""
-        self.logger.debug("Abriendo diálogo de configuración")
+        self.logger.debug("Opening settings dialog")
         dialog = SettingsDialog(self.main_window)
         dialog.settings_saved.connect(self._on_settings_saved)
         dialog.exec()
@@ -1353,7 +1353,7 @@ class Stage3Window(BaseStage):
 
     def _on_about_clicked(self):
         """Maneja el clic en el botón 'Acerca de'"""
-        self.logger.debug("Abriendo diálogo 'Acerca de'")
+        self.logger.debug("Opening 'About' dialog")
         dialog = AboutDialog(self.main_window)
         dialog.exec()   
 

@@ -163,8 +163,8 @@ def _ensure_root_logger():
                     file_handler.setFormatter(formatter)
                     _root_logger.addHandler(file_handler)
                 except Exception as e:
-                    # Si falla crear el archivo, solo usar consola
-                    _root_logger.error(f"No se pudo crear archivo de log: {e}")
+                    # If creating file fails, use console only
+                    _root_logger.error(f"Could not create log file: {e}")
             
             # Handler adicional para WARNING/ERROR si está habilitado
             if _log_file_warnings and _dual_log_enabled:
@@ -183,7 +183,7 @@ def _ensure_root_logger():
                     warning_handler.setLevel(logging.WARNING)  # Solo WARNING y ERROR
                     _root_logger.addHandler(warning_handler)
                 except Exception as e:
-                    _root_logger.error(f"No se pudo crear archivo de log de warnings: {e}")
+                    _root_logger.error(f"Could not create warnings log file: {e}")
     
     return _root_logger
 
@@ -359,26 +359,26 @@ def configure_logging(
     try:
         _logs_directory.mkdir(parents=True, exist_ok=True)
     except PermissionError as e:
-        # Error de permisos: el usuario no tiene permisos para crear el directorio
+        # Permission error: user lacks permissions to create directory
         import sys as _sys
-        print(f"⚠️  WARNING: Permisos insuficientes para crear el directorio de logs '{_logs_directory}'", file=_sys.stderr)
-        print(f"⚠️  WARNING: Detalles: {e}", file=_sys.stderr)
-        print(f"⚠️  WARNING: Los logs se guardarán en el directorio actual: {Path.cwd()}", file=_sys.stderr)
+        print(f"⚠️  WARNING: Insufficient permissions to create logs directory '{_logs_directory}'", file=_sys.stderr)
+        print(f"⚠️  WARNING: Details: {e}", file=_sys.stderr)
+        print(f"⚠️  WARNING: Logs will be saved in current directory: {Path.cwd()}", file=_sys.stderr)
         _logs_directory = Path.cwd()
     except OSError as e:
-        # Error del sistema de archivos (disco lleno, nombre inválido, etc.)
+        # Filesystem error (disk full, invalid name, etc.)
         import sys as _sys
-        error_type = "Disco lleno" if e.errno == 28 else "Error del sistema de archivos"
-        print(f"⚠️  WARNING: {error_type} al crear el directorio de logs '{_logs_directory}'", file=_sys.stderr)
-        print(f"⚠️  WARNING: Detalles: {e}", file=_sys.stderr)
-        print(f"⚠️  WARNING: Los logs se guardarán en el directorio actual: {Path.cwd()}", file=_sys.stderr)
+        error_type = "Disk full" if e.errno == 28 else "Filesystem error"
+        print(f"⚠️  WARNING: {error_type} creating logs directory '{_logs_directory}'", file=_sys.stderr)
+        print(f"⚠️  WARNING: Details: {e}", file=_sys.stderr)
+        print(f"⚠️  WARNING: Logs will be saved in current directory: {Path.cwd()}", file=_sys.stderr)
         _logs_directory = Path.cwd()
     except Exception as e:
-        # Otros errores inesperados
+        # Other unexpected errors
         import sys as _sys
-        print(f"⚠️  WARNING: Error inesperado al crear el directorio de logs '{_logs_directory}'", file=_sys.stderr)
-        print(f"⚠️  WARNING: Tipo: {type(e).__name__}, Detalles: {e}", file=_sys.stderr)
-        print(f"⚠️  WARNING: Los logs se guardarán en el directorio actual: {Path.cwd()}", file=_sys.stderr)
+        print(f"⚠️  WARNING: Unexpected error creating logs directory '{_logs_directory}'", file=_sys.stderr)
+        print(f"⚠️  WARNING: Type: {type(e).__name__}, Details: {e}", file=_sys.stderr)
+        print(f"⚠️  WARNING: Logs will be saved in current directory: {Path.cwd()}", file=_sys.stderr)
         _logs_directory = Path.cwd()
     
     # Configurar nivel
@@ -436,7 +436,7 @@ def configure_logging(
         file_handler.setFormatter(formatter)
         _root_logger.addHandler(file_handler)
     except Exception as e:
-        _root_logger.error(f"No se pudo crear archivo de log: {e}")
+        _root_logger.error(f"Could not create log file: {e}")
     
     # Handler adicional para WARNING/ERROR si está habilitado
     if _log_file_warnings:
@@ -455,7 +455,7 @@ def configure_logging(
             warning_handler.setLevel(logging.WARNING)  # Solo WARNING y ERROR
             _root_logger.addHandler(warning_handler)
         except Exception as e:
-            _root_logger.error(f"No se pudo crear archivo de log de warnings: {e}")
+            _root_logger.error(f"Could not create warnings log file: {e}")
     
     # Actualizar todos los loggers hijos que ya existan para que hereden el nuevo nivel
     # Esto es necesario porque módulos pueden haber sido importados antes de configure_logging()
@@ -544,10 +544,10 @@ def change_logs_directory(new_dir: Path | str, dual_log_enabled: Optional[bool] 
         file_handler.setLevel(_current_level)
         root.addHandler(file_handler)
         
-        root.info(f"Directorio de logs cambiado a: {_logs_directory}")
-        root.info(f"Nuevo archivo de log: {_log_file}")
+        root.info(f"Logs directory changed to: {_logs_directory}")
+        root.info(f"New log file: {_log_file}")
     except Exception as e:
-        root.error(f"No se pudo crear nuevo archivo de log: {e}")
+        root.error(f"Could not create new log file: {e}")
     
     # Crear handler adicional para WARNING/ERROR si está habilitado
     if _log_file_warnings:
@@ -565,9 +565,9 @@ def change_logs_directory(new_dir: Path | str, dual_log_enabled: Optional[bool] 
             warning_handler.setFormatter(formatter)
             warning_handler.setLevel(logging.WARNING)
             root.addHandler(warning_handler)
-            root.info(f"Archivo de log de warnings/errors: {_log_file_warnings}")
+            root.info(f"Warnings/errors log file: {_log_file_warnings}")
         except Exception as e:
-            root.error(f"No se pudo crear archivo de log de warnings: {e}")
+            root.error(f"Could not create warnings log file: {e}")
     
     return _log_file, _logs_directory
 
@@ -630,9 +630,9 @@ def set_dual_log_enabled(enabled: bool) -> None:
                 warning_handler.setFormatter(formatter)
                 warning_handler.setLevel(logging.WARNING)
                 root.addHandler(warning_handler)
-                root.info(f"Dual logging activado. Archivo de warnings/errors: {_log_file_warnings}")
+                root.info(f"Dual logging enabled. Warnings/errors file: {_log_file_warnings}")
             except Exception as e:
-                root.error(f"No se pudo crear archivo de log de warnings: {e}")
+                root.error(f"Could not create warnings log file: {e}")
     else:
         # Desactivar: remover handler de warnings
         handlers_to_remove = []
@@ -653,7 +653,7 @@ def set_dual_log_enabled(enabled: bool) -> None:
                 pass
         
         if handlers_to_remove:
-            root.info("Dual logging desactivado")
+            root.info("Dual logging disabled")
         _log_file_warnings = None
 
 

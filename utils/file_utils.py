@@ -304,9 +304,9 @@ def validate_file_exists(path) -> Path:
     """
     p = Path(path)
     if not p.exists():
-        raise FileNotFoundError(f"Archivo no encontrado: {p}")
+        raise FileNotFoundError(f"File not found: {p}")
     if not p.is_file():
-        raise FileNotFoundError(f"No es un archivo válido: {p}")
+        raise FileNotFoundError(f"Not a valid file: {p}")
     return p
 
 
@@ -325,9 +325,9 @@ def validate_directory_exists(path) -> Path:
     """
     p = Path(path)
     if not p.exists():
-        raise FileNotFoundError(f"El directorio no existe: {p}")
+        raise FileNotFoundError(f"Directory does not exist: {p}")
     if not p.is_dir():
-        raise NotADirectoryError(f"La ruta no es un directorio: {p}")
+        raise NotADirectoryError(f"Path is not a directory: {p}")
     return p
 
 
@@ -361,7 +361,7 @@ def to_path(obj, attr_names=('path', 'source_path', 'original_path')) -> Path:
     try:
         return Path(obj)
     except (TypeError, ValueError) as e:
-        raise ValueError(f"No se pudo convertir {type(obj).__name__} a Path") from e
+        raise ValueError(f"Could not convert {type(obj).__name__} to Path") from e
 
 
 # =============================================================================
@@ -395,15 +395,15 @@ def calculate_file_hash(file_path: Path, chunk_size: int = 8192, cache: Optional
         return digest
     except FileNotFoundError:
         logger = get_logger('file_utils')
-        logger.error(f"Archivo no encontrado: {file_path}")
+        logger.error(f"File not found: {file_path}")
         raise
     except PermissionError as e:
         logger = get_logger('file_utils')
-        logger.error(f"Permiso denegado al leer {file_path.name}: {e}")
+        logger.error(f"Permission denied reading {file_path.name}: {e}")
         raise
     except IOError as e:
         logger = get_logger('file_utils')
-        logger.error(f"Error de I/O leyendo {file_path.name}: {e}")
+        logger.error(f"I/O error reading {file_path.name}: {e}")
         raise
 
 
@@ -471,23 +471,23 @@ def launch_backup_creation(
             copied += 1
             total_size += file_path.stat().st_size
 
-            safe_progress_callback(progress_callback, copied, total, f"Creando backup: {backup_path} ({copied}/{total})")
+            safe_progress_callback(progress_callback, copied, total, f"Creating backup: {backup_path} ({copied}/{total})")
 
         except PermissionError as e:
             logger = get_logger('file_utils')
-            logger.error(f"Permiso denegado al copiar {file_path.name}: {e}")
-            raise PermissionError(f"No se pudo crear backup de {file_path.name}: permiso denegado") from e
+            logger.error(f"Permission denied copying {file_path.name}: {e}")
+            raise PermissionError(f"Could not create backup of {file_path.name}: permission denied") from e
         except FileNotFoundError as e:
             logger = get_logger('file_utils')
-            logger.error(f"Archivo no encontrado: {file_path}")
-            raise FileNotFoundError(f"Archivo {file_path.name} no encontrado durante backup") from e
+            logger.error(f"File not found: {file_path}")
+            raise FileNotFoundError(f"File {file_path.name} not found during backup") from e
         except OSError as e:
             logger = get_logger('file_utils')
-            logger.error(f"Error de I/O copiando {file_path.name}: {e}")
-            raise OSError(f"Error creando backup de {file_path.name}: {e}") from e
+            logger.error(f"I/O error copying {file_path.name}: {e}")
+            raise OSError(f"Error creating backup of {file_path.name}: {e}") from e
         except Exception as e:
             logger = get_logger('file_utils')
-            logger.error(f"Error inesperado en backup de {file_path.name}: {type(e).__name__}: {e}")
+            logger.error(f"Unexpected error in backup of {file_path.name}: {type(e).__name__}: {e}")
             raise
 
     # Write metadata
@@ -495,11 +495,11 @@ def launch_backup_creation(
     metadata_path = backup_path / metadata_name
     with open(metadata_path, 'w', encoding='utf-8') as f:
         f.write(f"BACKUP: {backup_prefix}\n")
-        f.write(f"Creado: {datetime.now()}\n")
-        f.write(f"Directorio base: {base_directory}\n")
-        f.write(f"Archivos respaldados: {copied}\n")
-        f.write(f"Tamaño total: {format_size(total_size)}\n")
-        f.write("\nARCHIVOS RESPALDADOS:\n")
+        f.write(f"Created: {datetime.now()}\n")
+        f.write(f"Base directory: {base_directory}\n")
+        f.write(f"Files backed up: {copied}\n")
+        f.write(f"Total size: {format_size(total_size)}\n")
+        f.write("\nBACKED UP FILES:\n")
         for p in files_list:
             f.write(f"- {p}\n")
 
@@ -540,7 +540,7 @@ def cleanup_empty_directories(root_directory: Path) -> int:
                     for junk in contents:
                         try:
                             junk.unlink()
-                            logger.debug(f"Archivo de sistema eliminado: {junk}")
+                            logger.debug(f"System file deleted: {junk}")
                         except OSError:
                             pass
                     # Verificar que quedó vacío tras eliminar junk
@@ -548,9 +548,9 @@ def cleanup_empty_directories(root_directory: Path) -> int:
                         item.rmdir()
                         removed_count += 1
             except PermissionError:
-                logger.debug(f"Permiso denegado al eliminar directorio: {item.name}")
+                logger.debug(f"Permission denied deleting directory: {item.name}")
             except OSError as e:
-                logger.debug(f"No se pudo eliminar directorio {item.name}: {e}")
+                logger.debug(f"Could not delete directory {item.name}: {e}")
     return removed_count
 
 
@@ -570,23 +570,23 @@ def delete_file_securely(file_path: Path) -> bool:
         try:
             from send2trash import send2trash
             send2trash(str(file_path))
-            logger.debug(f"Archivo enviado a papelera: {file_path.name}")
+            logger.debug(f"File sent to trash: {file_path.name}")
         except ImportError:
             # Fallback a eliminación permanente si no hay send2trash
             file_path.unlink()
-            logger.debug(f"Archivo eliminado permanentemente: {file_path.name}")
+            logger.debug(f"File permanently deleted: {file_path.name}")
         return True
     except PermissionError as e:
-        logger.warning(f"Permiso denegado al eliminar {file_path.name}: {e}")
+        logger.warning(f"Permission denied deleting {file_path.name}: {e}")
         return False
     except FileNotFoundError:
-        logger.debug(f"Archivo ya no existe: {file_path.name}")
+        logger.debug(f"File no longer exists: {file_path.name}")
         return False
     except OSError as e:
-        logger.error(f"Error de I/O eliminando {file_path.name}: {e}")
+        logger.error(f"I/O error deleting {file_path.name}: {e}")
         return False
     except Exception as e:
-        logger.error(f"Error inesperado eliminando {file_path.name}: {type(e).__name__}: {e}")
+        logger.error(f"Unexpected error deleting {file_path.name}: {type(e).__name__}: {e}")
         return False
 
 
@@ -666,15 +666,15 @@ def get_file_stat_info(file_path: Path, resolve_path: bool = True) -> dict:
         return result
     except FileNotFoundError:
         logger = get_logger('file_utils')
-        logger.error(f"Archivo no encontrado: {file_path}")
+        logger.error(f"File not found: {file_path}")
         raise
     except PermissionError as e:
         logger = get_logger('file_utils')
-        logger.error(f"Permiso denegado al acceder a {file_path.name}: {e}")
+        logger.error(f"Permission denied accessing {file_path.name}: {e}")
         raise
     except OSError as e:
         logger = get_logger('file_utils')
-        logger.error(f"Error de I/O obteniendo info de {file_path.name}: {e}")
+        logger.error(f"I/O error getting info for {file_path.name}: {e}")
         raise
 
 
@@ -750,7 +750,7 @@ def get_exif_from_image(file_path: Path) -> dict:
                 pillow_heif.register_heif_opener()
             except ImportError:
                 logger = get_logger('file_utils')
-                logger.warning(f"pillow-heif no disponible, no se puede procesar {file_path.name}")
+                logger.warning(f"pillow-heif not available, cannot process {file_path.name}")
                 return result
 
         with Image.open(file_path) as image:
@@ -888,7 +888,7 @@ def get_exif_from_image(file_path: Path) -> dict:
     except Exception as e:
         # Error accediendo a EXIF
         logger = get_logger('file_utils')
-        logger.warning(f"Error extrayendo EXIF de {file_path.name}: {e}")
+        logger.warning(f"Error extracting EXIF from {file_path.name}: {e}")
     
     return result
 
@@ -984,15 +984,15 @@ def get_exif_from_video(file_path: Path) -> dict:
                     
                     creation_date = datetime.strptime(date_part.strip(), '%Y:%m:%d %H:%M:%S')
                     result['creation_time'] = creation_date
-                    logger.debug(f"Video {file_path.name}: usando Keys:CreationDate = {creation_date}")
+                    logger.debug(f"Video {file_path.name}: using Keys:CreationDate = {creation_date}")
                 except ValueError as e:
-                    logger.debug(f"Error parseando Keys:CreationDate '{creation_date_str}': {e}")
+                    logger.debug(f"Error parsing Keys:CreationDate '{creation_date_str}': {e}")
         except (subprocess.TimeoutExpired, subprocess.SubprocessError) as e:
-            logger.debug(f"Error ejecutando exiftool en {file_path.name}: {e}")
+            logger.debug(f"Error running exiftool on {file_path.name}: {e}")
     
     # PRIORIDAD 2: Intentar ffprobe para metadatos técnicos + creation_time
     if not shutil.which('ffprobe'):
-        logger.debug("ffprobe no disponible")
+        logger.debug("ffprobe not available")
         return result
     
     try:
@@ -1062,7 +1062,7 @@ def get_exif_from_video(file_path: Path) -> dict:
                             try:
                                 creation_date = datetime.strptime(creation_time_str, fmt_str)
                                 result['creation_time'] = creation_date
-                                logger.debug(f"Video {file_path.name}: usando ffprobe creation_time = {creation_date}")
+                                logger.debug(f"Video {file_path.name}: using ffprobe creation_time = {creation_date}")
                                 break
                             except ValueError:
                                 continue
@@ -1099,13 +1099,13 @@ def get_exif_from_video(file_path: Path) -> dict:
         return result
         
     except subprocess.TimeoutExpired:
-        logger.debug(f"Timeout ejecutando ffprobe para {file_path.name}")
+        logger.debug(f"Timeout running ffprobe for {file_path.name}")
         return result
     except (subprocess.SubprocessError, json.JSONDecodeError, KeyError) as e:
-        logger.debug(f"Error parseando metadata de {file_path.name}: {e}")
+        logger.debug(f"Error parsing metadata for {file_path.name}: {e}")
         return result
     except Exception as e:
-        logger.debug(f"Error obteniendo metadata de video {file_path.name}: {e}")
+        logger.debug(f"Error getting video metadata for {file_path.name}: {e}")
         return result
 
 
@@ -1165,7 +1165,7 @@ def validate_and_get_file_info(file_path: Path) -> FileInfo:
         size_formatted = format_size(file_size)
     except Exception as e:
         logger = get_logger('ServiceUtils')
-        logger.warning(f"Error obteniendo tamaño de {file_path}: {e}")
+        logger.warning(f"Error getting size of {file_path}: {e}")
         file_size = 0
         size_formatted = "0 B"
     
@@ -1176,13 +1176,13 @@ def validate_and_get_file_info(file_path: Path) -> FileInfo:
         file_date, _ = select_best_date_from_file(file_metadata)
         date_formatted = (
             file_date.strftime('%Y%m%d_%H%M%S')
-            if file_date else 'fecha desconocida'
+            if file_date else 'unknown date'
         )
     except Exception as e:
         logger = get_logger('ServiceUtils')
-        logger.warning(f"Error obteniendo fecha de {file_path}: {e}")
+        logger.warning(f"Error getting date of {file_path}: {e}")
         file_date = None
-        date_formatted = 'fecha desconocida'
+        date_formatted = 'unknown date'
     
     return FileInfo(
         path=file_path,

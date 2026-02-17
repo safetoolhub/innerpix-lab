@@ -77,17 +77,17 @@ class FileOrganizerService(BaseService):
         """
         Analiza el directorio y genera un plan de organización usando metadatos.
         """
-        log_section_header_discrete(self.logger, f"ANALIZANDO ORGANIZACIÓN ({organization_type.value}): {root_directory}")
+        log_section_header_discrete(self.logger, f"ANALYZING ORGANIZATION ({organization_type.value}): {root_directory}")
 
         repo = FileInfoRepositoryCache.get_instance()
-        self.logger.info(f"Usando FileInfoRepositoryCache con {repo.get_file_count()} archivos")
+        self.logger.info(f"Using FileInfoRepositoryCache with {repo.get_file_count()} files")
         
         subdirectories = {}
         root_files = []
         folder_names_in_root = set() # Nombres de carpetas/archivos en root para conflictos
         
         if not root_directory.exists():
-             raise ValueError(f"Directorio no existe: {root_directory}")
+             raise ValueError(f"Directory does not exist: {root_directory}")
 
         # Recopilar nombres existentes en root (para TO_ROOT y check de conflictos)
         try:
@@ -97,7 +97,7 @@ class FileOrganizerService(BaseService):
 
         # Usar caché de metadatos (repositorio pasivo)
         all_files = []
-        self.logger.info(f"Usando caché de metadatos ({repo.get_file_count()} archivos)")
+        self.logger.info(f"Using metadata cache ({repo.get_file_count()} files)")
         
         # Filtrar archivos que pertenecen a root_directory
         cache_files = repo.get_all_files()
@@ -119,7 +119,7 @@ class FileOrganizerService(BaseService):
         for idx, meta in enumerate(all_files):
             if idx % 500 == 0:
                 if idx % 5000 == 0 and idx > 0:
-                    self.logger.info(f"Organizador: Clasificando archivos {idx}/{total_files}")
+                    self.logger.info(f"Organizer: Classifying files {idx}/{total_files}")
                     
                 if not self._report_progress(progress_callback, idx, total_files, "Clasificando archivos"):
                     return self._create_empty_result(root_directory, organization_type, group_by_source, group_by_type, date_grouping_type, move_unsupported_to_other)
@@ -182,7 +182,7 @@ class FileOrganizerService(BaseService):
         if move_unsupported_to_other:
             other_moves = self._generate_other_files_moves(root_directory, all_files, progress_callback)
             move_plan.extend(other_moves)
-            self.logger.info(f"Archivos no soportados a mover a 'other/': {len(other_moves)}")
+            self.logger.info(f"Unsupported files to move to 'other/': {len(other_moves)}")
 
         log_section_footer_discrete(self.logger, f"Plan generado: {len(move_plan)} movimientos")
 
@@ -242,9 +242,9 @@ class FileOrganizerService(BaseService):
 
         root_directory = Path(analysis_result.root_directory)
         
-        mode_label = "SIMULACIÓN" if dry_run else ""
-        log_section_header_relevant(self.logger, "INICIANDO ORGANIZACIÓN DE ARCHIVOS", mode=mode_label)
-        self.logger.info(f"*** Archivos a mover: {len(move_plan)}")
+        mode_label = "SIMULATION" if dry_run else ""
+        log_section_header_relevant(self.logger, "STARTING FILE ORGANIZATION", mode=mode_label)
+        self.logger.info(f"*** Files to move: {len(move_plan)}")
         
         result = OrganizationExecutionResult(success=True, dry_run=dry_run)
         
@@ -324,9 +324,9 @@ class FileOrganizerService(BaseService):
                  removed = cleanup_empty_directories(root_directory)
                  result.empty_directories_removed = removed
                  if removed > 0:
-                     self.logger.info(f"Carpetas vacías eliminadas: {removed}")
+                     self.logger.info(f"Empty folders removed: {removed}")
                  
-             summary = self._format_operation_summary("Organización", items_processed, 0, dry_run)
+             summary = self._format_operation_summary("Organization", items_processed, 0, dry_run)
              log_section_footer_relevant(self.logger, summary)
              result.message = summary
              if result.backup_path:
@@ -334,7 +334,7 @@ class FileOrganizerService(BaseService):
  
         except Exception as e:
             result.add_error(str(e))
-            self.logger.error(f"Error critico: {e}")
+            self.logger.error(f"Critical error: {e}")
             
         return result
 
@@ -370,7 +370,7 @@ class FileOrganizerService(BaseService):
         elif organization_type == OrganizationType.BY_SOURCE:
             return self._generate_move_plan_by_source(subdirectories, root_files, root_directory, date_grouping_type, progress_callback)
         else:
-            raise ValueError(f"Tipo no soportado: {organization_type}")
+            raise ValueError(f"Unsupported type: {organization_type}")
 
     # ... (Copiar todos los métodos _generate_move_plan_* y _resolve_conflicts_in_folder tal cual estaban, 
     # pero asegurando que select_best_date_from_file use FileInfoRepository)
@@ -472,7 +472,7 @@ class FileOrganizerService(BaseService):
         if not unsupported_files:
             return move_plan
         
-        self.logger.info(f"Archivos no soportados encontrados: {len(unsupported_files)}")
+        self.logger.info(f"Unsupported files found: {len(unsupported_files)}")
         
         total = len(unsupported_files)
         for idx, f in enumerate(unsupported_files):

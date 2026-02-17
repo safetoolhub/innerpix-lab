@@ -207,7 +207,7 @@ class FileInfoRepositoryCache:
             self._logger = get_logger('FileInfoRepositoryCache')
             
             self._initialized = True
-            self._logger.info("FileInfoRepositoryCache inicializado (Singleton)")
+            self._logger.info("FileInfoRepositoryCache initialized (Singleton)")
     
     @classmethod
     def get_instance(cls) -> 'FileInfoRepositoryCache':
@@ -275,10 +275,10 @@ class FileInfoRepositoryCache:
             repo.populate_from_scan(files, PopulationStrategy.EXIF_VIDEOS)
         """
         if not files:
-            self._logger.warning("populate_from_scan llamado con lista vacía")
+            self._logger.warning("populate_from_scan called with empty list")
             return
         
-        self._logger.info(f"Iniciando población con estrategia {strategy.value} - {len(files)} archivos")
+        self._logger.info(f"Starting population with strategy {strategy.value} - {len(files)} files")
         
         # Actualizar límite de entradas
         self.update_max_entries(len(files))
@@ -312,7 +312,7 @@ class FileInfoRepositoryCache:
             for future in as_completed(futures):
                 # Check for cancellation request BEFORE processing result
                 if stop_check_callback and stop_check_callback():
-                    self._logger.info(f"Cancelación detectada - Procesados: {processed}/{len(files)}")
+                    self._logger.info(f"Cancellation detected - Processed: {processed}/{len(files)}")
                     # Cancel pending futures cooperatively
                     for pending_future in futures:
                         if not pending_future.done():
@@ -329,13 +329,13 @@ class FileInfoRepositoryCache:
                     else:
                         errors += 1
                 except PermissionError as e:
-                    self._logger.warning(f"Permiso denegado: {file_path.name}")
+                    self._logger.warning(f"Permission denied: {file_path.name}")
                     errors += 1
                 except OSError as e:
-                    self._logger.error(f"Error de I/O procesando {file_path.name}: {e}")
+                    self._logger.error(f"I/O error processing {file_path.name}: {e}")
                     errors += 1
                 except Exception as e:
-                    self._logger.error(f"Error inesperado procesando {file_path.name}: {type(e).__name__}: {e}")
+                    self._logger.error(f"Unexpected error processing {file_path.name}: {type(e).__name__}: {e}")
                     errors += 1
                 
                 # Progress callback with throttling (report every N files or on last file)
@@ -347,18 +347,18 @@ class FileInfoRepositoryCache:
                     )
                     if should_report:
                         if not progress_callback(processed, len(files)):
-                            self._logger.warning("Población cancelada por progress_callback")
+                            self._logger.warning("Population cancelled by progress_callback")
                             break
                         last_progress_report = processed
         
         # Log final con información de cancelación si aplica
         cancelled = (stop_check_callback and stop_check_callback()) or processed < len(files)
-        status = "cancelada" if cancelled else "completada"
+        status = "cancelled" if cancelled else "completed"
         self._logger.info(
-            f"Población {status} - "
-            f"Procesados: {processed}/{len(files)}, "
-            f"Errores: {errors}, "
-            f"Total en caché: {len(self._cache)}"
+            f"Population {status} - "
+            f"Processed: {processed}/{len(files)}, "
+            f"Errors: {errors}, "
+            f"Total in cache: {len(self._cache)}"
         )
     
     def _process_file_filesystem_metadata(self, path: Path) -> Optional[FileMetadata]:
@@ -371,7 +371,7 @@ class FileInfoRepositoryCache:
         
         try:
             if not path.exists():
-                self._logger.debug(f"Archivo no existe: {path}")
+                self._logger.debug(f"File does not exist: {path}")
                 return None
             
             stat_info = get_file_stat_info(path, resolve_path=False)
@@ -382,14 +382,14 @@ class FileInfoRepositoryCache:
                 fs_mtime=stat_info['mtime'],
                 fs_atime=stat_info['atime']
             )
-            self._logger.debug(f"Metadatos básicos procesados para {path.name}: {stat_info['size']} bytes")
+            self._logger.debug(f"Basic metadata processed for {path.name}: {stat_info['size']} bytes")
             return metadata
         except (FileNotFoundError, PermissionError, OSError):
             # Logging detallado ya hecho en get_file_stat_info()
-            self._logger.debug(f"No se puede procesar archivo : {path.name} para obtener su metadata basica")
+            self._logger.debug(f"Cannot process file: {path.name} to get basic metadata")
             return None
         except Exception as e:
-            self._logger.error(f"Error inesperado en _process_file_filesystem_metadata para {path.name}: {type(e).__name__}: {e}")
+            self._logger.error(f"Unexpected error in _process_file_filesystem_metadata for {path.name}: {type(e).__name__}: {e}")
             return None
     
     def _process_file_hash(self, path: Path) -> Optional[FileMetadata]:
@@ -415,19 +415,19 @@ class FileInfoRepositoryCache:
         
         # Ya tiene hash? Skip
         if metadata.sha256:
-            self._logger.debug(f"Hash ya calculado para {path.name}: {metadata.sha256[:8]}...")
+            self._logger.debug(f"Hash already calculated for {path.name}: {metadata.sha256[:8]}...")
             return metadata
         
         # Calcular hash (fuera del lock porque es costoso)
         hash_val = None
         try:
             hash_val = calculate_file_hash(path)
-            self._logger.debug(f"Hash {path.name} calculado:{hash_val[:8]}...")
+            self._logger.debug(f"Hash {path.name} calculated: {hash_val[:8]}...")
         except (PermissionError, FileNotFoundError, IOError):
             # Logging detallado ya hecho en calculate_file_hash()
-            self._logger.debug(f"No se pudo calcular hash: {path.name}")
+            self._logger.debug(f"Could not calculate hash: {path.name}")
         except Exception as e:
-            self._logger.error(f"Error inesperado calculando hash de {path.name}: {type(e).__name__}: {e}")
+            self._logger.error(f"Unexpected error calculating hash for {path.name}: {type(e).__name__}: {e}")
         
         # Actualizar metadata con lock (thread-safe)
         if hash_val:
@@ -436,7 +436,7 @@ class FileInfoRepositoryCache:
                 cached_metadata = self._cache.get(path)
                 if cached_metadata:
                     cached_metadata.sha256 = hash_val
-                    self._logger.debug(f"Hash {path.name} asignado en caché: {hash_val[:8]}...")
+                    self._logger.debug(f"Hash {path.name} assigned in cache: {hash_val[:8]}...")
                 else:
                     # Raro pero posible: se eliminó del caché entre tanto
                     metadata.sha256 = hash_val
@@ -468,12 +468,12 @@ class FileInfoRepositoryCache:
         
         # No es imagen? Skip
         if not metadata.is_image:
-            self._logger.debug(f"No es imagen, skip EXIF: {path.name}")
+            self._logger.debug(f"Not an image, skipping EXIF: {path.name}")
             return metadata
         
         # Ya tiene EXIF? Skip
         if metadata.has_exif:
-            self._logger.debug(f"EXIF ya extraído para imagen {path.name}: {len(metadata.get_exif_dates())} campos")
+            self._logger.debug(f"EXIF already extracted for image {path.name}: {len(metadata.get_exif_dates())} fields")
             return metadata
         
         # Extraer EXIF de imágenes (fuera del lock porque es costoso)
@@ -483,10 +483,10 @@ class FileInfoRepositoryCache:
             
             exif_data_from_image = get_exif_from_image(path)
             exif_count = len(exif_data_from_image)
-            self._logger.debug(f"EXIF extraído para imagen {path.name}: {exif_count} campos")
+            self._logger.debug(f"EXIF extracted for image {path.name}: {exif_count} fields")
                 
         except Exception as e:
-            self._logger.warning(f"Error extrayendo EXIF de {path.name}: {e}")
+            self._logger.warning(f"Error extracting EXIF from {path.name}: {e}")
         
         # Helper para convertir datetime a string EXIF
         def _datetime_to_exif_str(dt: datetime) -> str:
@@ -521,7 +521,7 @@ class FileInfoRepositoryCache:
                         cached_metadata.exif_ImageWidth = exif_data_from_image['ImageWidth']
                     if exif_data_from_image.get('ImageLength'):
                         cached_metadata.exif_ImageLength = exif_data_from_image['ImageLength']
-                    self._logger.debug(f"EXIF asignado en caché para imagen {path.name}: {len(exif_data_from_image)} campos")
+                    self._logger.debug(f"EXIF assigned in cache for image {path.name}: {len(exif_data_from_image)} fields")
                 else:
                     # Raro pero posible: se eliminó del caché entre tanto
                     if exif_data_from_image.get('DateTimeOriginal'):
@@ -573,12 +573,12 @@ class FileInfoRepositoryCache:
         
         # No es video? Skip
         if not metadata.is_video:
-            self._logger.debug(f"No es video, skip EXIF: {path.name}")
+            self._logger.debug(f"Not a video, skipping EXIF: {path.name}")
             return metadata
         
         # Ya tiene EXIF? Skip
         if metadata.has_exif:
-            self._logger.debug(f"EXIF ya extraído para video {path.name}: {len(metadata.get_exif_dates())} campos")
+            self._logger.debug(f"EXIF already extracted for video {path.name}: {len(metadata.get_exif_dates())} fields")
             return metadata
         
         # Extraer EXIF de videos (fuera del lock porque es muy costoso)
@@ -590,12 +590,12 @@ class FileInfoRepositoryCache:
             
             if video_metadata:
                 field_count = len(video_metadata)
-                self._logger.debug(f"Metadatos de video extraídos para {path.name}: {field_count} campos")
+                self._logger.debug(f"Video metadata extracted for {path.name}: {field_count} fields")
             else:
-                self._logger.debug(f"No se encontraron metadatos para video {path.name}")
+                self._logger.debug(f"No metadata found for video {path.name}")
                 
         except Exception as e:
-            self._logger.warning(f"Error extrayendo metadatos de video {path.name}: {e}")
+            self._logger.warning(f"Error extracting video metadata for {path.name}: {e}")
         
         # Helper para convertir datetime a string EXIF
         def _datetime_to_exif_str(dt: datetime) -> str:
@@ -649,8 +649,8 @@ class FileInfoRepositoryCache:
                     1 if 'duration' in video_metadata else 0,
                 ])
                 self._logger.debug(
-                    f"Metadatos de video asignados en caché para {path.name}: "
-                    f"{fields_set} campos mapeados a FileMetadata"
+                    f"Video metadata assigned in cache for {path.name}: "
+                    f"{fields_set} fields mapped to FileMetadata"
                 )
         
         return metadata
@@ -682,12 +682,12 @@ class FileInfoRepositoryCache:
             file_metadata = self._cache.get(path)
         
         if not file_metadata:
-            self._logger.debug(f"No se puede calcular best_date: archivo no en caché: {path.name}")
+            self._logger.debug(f"Cannot calculate best_date: file not in cache: {path.name}")
             return None
         
         # Ya tiene best_date? Skip
         if file_metadata.has_best_date:
-            self._logger.debug(f"best_date ya calculado para {path.name}: {file_metadata.best_date}")
+            self._logger.debug(f"best_date already calculated for {path.name}: {file_metadata.best_date}")
             return file_metadata
         
         # Calcular la mejor fecha pasando directamente el FileMetadata
@@ -704,12 +704,12 @@ class FileInfoRepositoryCache:
                     cached_metadata.best_date = selected_date
                     cached_metadata.best_date_source = source
                     self._logger.debug(
-                        f"best_date calculado para {path.name}: "
+                        f"best_date calculated for {path.name}: "
                         f"{selected_date.strftime('%Y-%m-%d %H:%M:%S')} ({source})"
                     )
                     return cached_metadata
         else:
-            self._logger.debug(f"No se pudo determinar best_date para {path.name}")
+            self._logger.debug(f"Could not determine best_date for {path.name}")
         
         return file_metadata
     
@@ -872,7 +872,7 @@ class FileInfoRepositoryCache:
         with self._lock:
             if path not in self._cache:
                 self._logger.warning(
-                    f"Intento de set_hash para archivo no en caché: {path.name}"
+                    f"Attempt to set_hash for file not in cache: {path.name}"
                 )
                 return False
             
@@ -897,7 +897,7 @@ class FileInfoRepositoryCache:
         with self._lock:
             if path not in self._cache:
                 self._logger.warning(
-                    f"Intento de set_exif para archivo no en caché: {path.name}"
+                    f"Attempt to set_exif for file not in cache: {path.name}"
                 )
                 return False
             
@@ -942,7 +942,7 @@ class FileInfoRepositoryCache:
         with self._lock:
             if path not in self._cache:
                 self._logger.debug(
-                    f"Intento de set_best_date para archivo no en caché: {path.name}"
+                    f"Attempt to set_best_date for file not in cache: {path.name}"
                 )
                 return False
             
@@ -1054,7 +1054,7 @@ class FileInfoRepositoryCache:
             self._max_entries = max(self._max_entries, total_files + 1000)
             if old_max != self._max_entries:
                 self._logger.info(
-                    f"Límite de entradas actualizado: {old_max} -> {self._max_entries}"
+                    f"Entry limit updated: {old_max} -> {self._max_entries}"
                 )
     
     def get_cache_statistics(self) -> RepositoryStats:
@@ -1112,7 +1112,7 @@ class FileInfoRepositoryCache:
             self._cache.clear()
             self._hits = 0
             self._misses = 0
-            self._logger.info(f"Repositorio limpiado - {old_size} archivos eliminados")
+            self._logger.info(f"Repository cleared - {old_size} files removed")
     
     # =========================================================================
     # GESTIÓN DE CACHÉ Y ELIMINACIÓN
@@ -1136,7 +1136,7 @@ class FileInfoRepositoryCache:
         with self._lock:
             if path in self._cache:
                 del self._cache[path]
-                self._logger.debug(f"Archivo eliminado del repositorio: {path.name}")
+                self._logger.debug(f"File removed from repository: {path.name}")
                 return True
             return False
     
@@ -1163,7 +1163,7 @@ class FileInfoRepositoryCache:
                     removed += 1
             
             if removed > 0:
-                self._logger.info(f"Eliminados {removed} archivos del repositorio")
+                self._logger.info(f"Removed {removed} files from repository")
         
         return removed
     
@@ -1204,7 +1204,7 @@ class FileInfoRepositoryCache:
                 # No es necesario enforce_max_entries aquí porque no estamos
                 # añadiendo una nueva entrada, solo moviendo una existente
                 
-                self._logger.debug(f"Archivo movido en repositorio: {old_path.name} -> {new_path.name}")
+                self._logger.debug(f"File moved in repository: {old_path.name} -> {new_path.name}")
                 return True
             return False
     
@@ -1241,18 +1241,18 @@ class FileInfoRepositoryCache:
                     json.dump(cache_data, f, indent=2, default=str, ensure_ascii=False)
                 
                 self._logger.info(
-                    f"Repositorio guardado a disco: {path} "
-                    f"({len(self._cache)} archivos, {path.stat().st_size / 1024 / 1024:.2f} MB)"
+                    f"Repository saved to disk: {path} "
+                    f"({len(self._cache)} files, {path.stat().st_size / 1024 / 1024:.2f} MB)"
                 )
             except PermissionError as e:
-                self._logger.error(f"Permiso denegado al guardar repositorio en {path}: {e}")
-                raise IOError(f"Permiso denegado: {e}") from e
+                self._logger.error(f"Permission denied saving repository to {path}: {e}")
+                raise IOError(f"Permission denied: {e}") from e
             except OSError as e:
-                self._logger.error(f"Error de I/O guardando repositorio: {e}")
-                raise IOError(f"Error de I/O: {e}") from e
+                self._logger.error(f"I/O error saving repository: {e}")
+                raise IOError(f"I/O error: {e}") from e
             except Exception as e:
-                self._logger.error(f"Error inesperado guardando repositorio: {type(e).__name__}: {e}")
-                raise IOError(f"No se pudo guardar el repositorio: {e}") from e
+                self._logger.error(f"Unexpected error saving repository: {type(e).__name__}: {e}")
+                raise IOError(f"Could not save repository: {e}") from e
     
     def load_from_disk(self, path: Path, validate: bool = True) -> int:
         """
@@ -1306,38 +1306,38 @@ class FileInfoRepositoryCache:
                         loaded += 1
                         
                     except (KeyError, ValueError, TypeError) as e:
-                        self._logger.warning(f"Datos inválidos en entrada: {type(e).__name__}: {e}")
+                        self._logger.warning(f"Invalid data in entry: {type(e).__name__}: {e}")
                         skipped += 1
                     except Exception as e:
-                        self._logger.warning(f"Error inesperado cargando entrada: {type(e).__name__}: {e}")
+                        self._logger.warning(f"Unexpected error loading entry: {type(e).__name__}: {e}")
                         skipped += 1
                 
                 # Actualizar límite de entradas
                 self.update_max_entries(loaded)
                 
                 self._logger.info(
-                    f"Repositorio cargado desde disco: {path} "
-                    f"({loaded} archivos cargados, {skipped} omitidos)"
+                    f"Repository loaded from disk: {path} "
+                    f"({loaded} files loaded, {skipped} skipped)"
                 )
                 
                 if validate and skipped > 0:
                     self._logger.warning(
-                        f"Validación: {skipped} archivos ya no existen en disco"
+                        f"Validation: {skipped} files no longer exist on disk"
                     )
             
             return loaded
             
         except json.JSONDecodeError as e:
-            self._logger.error(f"Archivo de caché corrupto: {e}")
-            raise ValueError(f"Archivo de caché corrupto: {e}") from e
+            self._logger.error(f"Corrupt cache file: {e}")
+            raise ValueError(f"Corrupt cache file: {e}") from e
         except PermissionError as e:
-            self._logger.error(f"Permiso denegado al leer {path}: {e}")
+            self._logger.error(f"Permission denied reading {path}: {e}")
             raise
         except OSError as e:
-            self._logger.error(f"Error de I/O leyendo caché: {e}")
+            self._logger.error(f"I/O error reading cache: {e}")
             raise
         except Exception as e:
-            self._logger.error(f"Error inesperado cargando repositorio: {type(e).__name__}: {e}")
+            self._logger.error(f"Unexpected error loading repository: {type(e).__name__}: {e}")
             raise
     
     def set_max_entries(self, max_entries: int) -> None:
@@ -1361,7 +1361,7 @@ class FileInfoRepositoryCache:
             self._max_entries = max_entries
             
             self._logger.info(
-                f"Límite de caché actualizado: {old_max} -> {self._max_entries}"
+                f"Cache limit updated: {old_max} -> {self._max_entries}"
             )
             
             # Si excedemos el límite, aplicar política de eviction
@@ -1389,8 +1389,8 @@ class FileInfoRepositoryCache:
                  break
         
         self._logger.info(
-            f"Política LRU: Eliminadas {evicted} entradas "
-            f"(límite: {self._max_entries}, actual: {len(self._cache)})"
+            f"LRU policy: Evicted {evicted} entries "
+            f"(limit: {self._max_entries}, current: {len(self._cache)})"
         )
     
     def _update_access_order(self, path: Path) -> None:

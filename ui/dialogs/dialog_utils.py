@@ -319,13 +319,13 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     from services.file_metadata_repository_cache import FileInfoRepositoryCache
     from utils.date_utils import get_all_metadata_from_file
     
-    logger.debug(f"Mostrando detalles del archivo: {file_path.name} (force_search={force_metadata_search})")
+    logger.debug(f"Showing file details: {file_path.name} (force_search={force_metadata_search})")
     
     # === 1. RECOPILACIÓN DE DATOS ===
     
     if force_metadata_search:
         # Búsqueda forzada: extraer TODOS los metadatos disponibles (hash + EXIF)
-        logger.info(f"Búsqueda forzada de metadatos completos para: {file_path.name}")
+        logger.info(f"Forced search of complete metadata for: {file_path.name}")
         metadata = get_all_metadata_from_file(file_path, force_search=True)
     else:
         # Búsqueda normal: usar caché primero
@@ -333,11 +333,11 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
         metadata = repo.get_file_metadata(file_path)
         
         if metadata is None:
-            logger.warning(f"No se encontraron metadatos en caché para {file_path}")
+            logger.warning(f"No cached metadata found for {file_path}")
             # Fallback: intentar obtener con get_all_metadata_from_file si no está en caché
             metadata = get_all_metadata_from_file(file_path, force_search=True)
     
-    logger.debug(f"Metadatos obtenidos - Size: {metadata.fs_size}, Hash: {metadata.has_hash}, EXIF: {metadata.has_exif}, Best Date: {metadata.has_best_date}")
+    logger.debug(f"Metadata obtained - Size: {metadata.fs_size}, Hash: {metadata.has_hash}, EXIF: {metadata.has_exif}, Best Date: {metadata.has_best_date}")
     if metadata.is_video:
         logger.debug(f"Video metadata EXIF - DateTimeOriginal: {metadata.exif_DateTimeOriginal}, DateTime: {metadata.exif_DateTime}, Width: {metadata.exif_ImageWidth}, Height: {metadata.exif_ImageLength}, Duration: {metadata.video_duration_formatted}, Seconds: {metadata.exif_VideoDurationSeconds}")
     
@@ -348,9 +348,9 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
             from utils.file_utils import get_exif_from_video
             video_metadata = get_exif_from_video(file_path)
             if video_metadata:
-                logger.debug(f"Metadatos técnicos de video obtenidos via ffprobe: {len(video_metadata)} campos")
+                logger.debug(f"Technical video metadata obtained via ffprobe: {len(video_metadata)} fields")
         except Exception as e:
-            logger.warning(f"Error obteniendo metadatos técnicos de video: {e}")
+            logger.warning(f"Error getting technical video metadata: {e}")
     
     # === 2. CONSTRUCCIÓN DE LA IU ===
     
@@ -821,7 +821,7 @@ def _create_dates_section(metadata: 'FileMetadata'):
     
     # DateTimeOriginal (fecha de captura principal)
     exif_date_time_original = _parse_exif_date(metadata.exif_DateTimeOriginal)
-    logger.debug(f"_parse_exif_date(DateTimeOriginal) retornó: {exif_date_time_original}")
+    logger.debug(f"_parse_exif_date(DateTimeOriginal) returned: {exif_date_time_original}")
     if exif_date_time_original:
         tz_info = ""
         if metadata.exif_OffsetTimeOriginal:
@@ -838,7 +838,7 @@ def _create_dates_section(metadata: 'FileMetadata'):
     
     # CreateDate (DateTime en FileMetadata)
     exif_create_date = _parse_exif_date(metadata.exif_DateTime)
-    logger.debug(f"_parse_exif_date(DateTime/CreateDate) retornó: {exif_create_date}")
+    logger.debug(f"_parse_exif_date(DateTime/CreateDate) returned: {exif_create_date}")
     if exif_create_date:
         exif_row = _create_date_row(
             "EXIF CreateDate", 
@@ -1186,7 +1186,7 @@ def _reload_with_full_metadata(file_path: Path, parent_widget, additional_info, 
         additional_info: Información adicional
         current_dialog: Diálogo actual a cerrar
     """
-    logger.info(f"Recargando diálogo con búsqueda forzada de metadatos para: {file_path.name}")
+    logger.info(f"Reloading dialog with forced metadata search for: {file_path.name}")
     
     # Cerrar el diálogo actual
     current_dialog.accept()
