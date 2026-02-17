@@ -1298,18 +1298,23 @@ class TestGetBestCommonCreationDate2FilesComprehensive:
 class TestTimezoneNormalization:
     """Tests para normalización de timezone en comparación de fechas EXIF.
     
-    Caso típico: imagen iPhone con offset +02:00 (hora local) vs video ffprobe en UTC.
+    COMPORTAMIENTO:
+    - Si AMBOS archivos tienen offset de timezone: normalizar a UTC para comparación justa
+    - Si alguno NO tiene offset: usar hora local sin normalizar (no asumir UTC)
+    - Caso iPhone Live Photo: com.apple.quicktime.creationdate provee offset al video,
+      así que ambos tendrán offset y se normalizarán correctamente
     """
     
     def test_timezone_normalization_image_with_offset_vs_video_utc(self):
         """
-        Imagen con offset +02:00 y video en UTC deben compararse correctamente.
+        Imagen con offset y video SIN offset: NO normalizar, usar hora local.
         
-        Este es el caso real de Live Photos de iPhone:
-        - Imagen EXIF: 2021-07-06 15:37:26 con OffsetTimeOriginal=+02:00 (hora local)
-        - Video ffprobe: 2021-07-06 13:37:26 (UTC sin offset explícito)
+        Cuando solo un archivo tiene offset de timezone, no podemos asumir que
+        el otro está en UTC. Se comparan las horas tal cual (hora local).
         
-        Ambas representan el MISMO momento en el tiempo.
+        En el caso real de iPhone Live Photos, get_exif_from_video() ahora
+        extrae el offset de com.apple.quicktime.creationdate y lo propaga,
+        así que ambos tendrán offset y se normalizarán correctamente.
         """
         from types import SimpleNamespace
         
@@ -1320,25 +1325,55 @@ class TestTimezoneNormalization:
             exif_offset_time_original="+02:00"  # UTC+2
         )
         
-        # Video ffprobe (siempre en UTC)
+        # Video sin offset (caso genérico sin Apple metadata)
         video = SimpleNamespace(
             path="/test/IMG_3831.MOV",
-            exif_date_time_original="2021:07:06 13:37:26"  # UTC
+            exif_date_time_original="2021:07:06 13:37:26"  # Sin offset
         )
         
         vid_date, img_date, source = select_best_date_from_common_date_to_2_files(video, image)
         
-        # Deben ser normalizados a UTC y por tanto iguales
+        # Sin normalización: se usan las horas tal cual
         assert source == 'exif_date_time_original'
-        # Video ya estaba en UTC: 13:37:26
         assert vid_date == datetime(2021, 7, 6, 13, 37, 26)
-        # Imagen normalizada a UTC: 15:37:26 - 2h = 13:37:26
+        assert img_date == datetime(2021, 7, 6, 15, 37, 26)
+        # Diferencia es 2 horas (sin normalización)
+        assert abs((vid_date - img_date).total_seconds()) == 7200
+    
+    def test_timezone_normalization_iphone_live_photo_both_offsets(self):
+        """
+        iPhone Live Photo con com.apple.quicktime.creationdate: ambos tienen offset.
+        
+        Caso real corregido: get_exif_from_video() ahora extrae la fecha
+        precisa de com.apple.quicktime.creationdate y la propaga con offset.
+        Ambos archivos tienen offset → se normalizan a UTC → diferencia ~0.
+        """
+        from types import SimpleNamespace
+        
+        # Imagen iPhone: 2021-07-06 15:37:26 hora local (UTC+2)
+        image = SimpleNamespace(
+            path="/test/IMG_3831.JPG",
+            exif_date_time_original="2021:07:06 15:37:26",
+            exif_offset_time_original="+02:00"
+        )
+        
+        # Video iPhone con offset propagado desde com.apple.quicktime.creationdate
+        video = SimpleNamespace(
+            path="/test/IMG_3831.MOV",
+            exif_date_time_original="2021:07:06 15:37:26",  # Misma hora local
+            exif_OffsetTimeOriginal="+02:00"  # Offset desde apple.creationdate
+        )
+        
+        vid_date, img_date, source = select_best_date_from_common_date_to_2_files(video, image)
+        
+        # Ambos con offset → normalizados a UTC
+        assert source == 'exif_date_time_original'
+        assert vid_date == datetime(2021, 7, 6, 13, 37, 26)  # 15:37:26 - 2h
         assert img_date == datetime(2021, 7, 6, 13, 37, 26)
-        # Diferencia debe ser 0 (mismo momento)
         assert abs((vid_date - img_date).total_seconds()) == 0
     
     def test_timezone_normalization_negative_offset(self):
-        """Offset negativo (ej: -05:00 América) debe normalizarse correctamente"""
+        """Offset negativo (ej: -05:00 América) + archivo sin offset: no normalizar"""
         from types import SimpleNamespace
         
         # Archivo 1 con offset negativo (ej: Nueva York en verano)
@@ -1348,18 +1383,43 @@ class TestTimezoneNormalization:
             exif_offset_time_original="-04:00"  # EDT
         )
         
-        # Archivo 2 en UTC
+        # Archivo 2 sin offset
         file2 = SimpleNamespace(
             path="/test/file2.mov",
-            exif_date_time_original="2023:08:10 14:00:00"  # UTC (10:00 + 4h)
+            exif_date_time_original="2023:08:10 14:00:00"  # Sin offset
         )
         
         d1, d2, source = select_best_date_from_common_date_to_2_files(file1, file2)
         
         assert source == 'exif_date_time_original'
-        # file1: 10:00 local → 10:00 - (-4h) = 14:00 UTC
+        # Sin normalización: se usan horas tal cual
+        assert d1 == datetime(2023, 8, 10, 10, 0, 0)
+        assert d2 == datetime(2023, 8, 10, 14, 0, 0)
+        assert abs((d1 - d2).total_seconds()) == 14400  # 4h en segundos
+    
+    def test_timezone_normalization_both_with_negative_offset(self):
+        """Ambos con offsets negativos diferentes: normalizar a UTC"""
+        from types import SimpleNamespace
+        
+        # Archivo 1 en EDT (-04:00)
+        file1 = SimpleNamespace(
+            path="/test/file1.jpg",
+            exif_date_time_original="2023:08:10 10:00:00",
+            exif_offset_time_original="-04:00"
+        )
+        
+        # Archivo 2 en UTC (+00:00)
+        file2 = SimpleNamespace(
+            path="/test/file2.mov",
+            exif_date_time_original="2023:08:10 14:00:00",
+            exif_offset_time_original="+00:00"  # Explícitamente UTC
+        )
+        
+        d1, d2, source = select_best_date_from_common_date_to_2_files(file1, file2)
+        
+        assert source == 'exif_date_time_original'
+        # Ambos normalizados a UTC: 10:00 - (-4h) = 14:00 UTC
         assert d1 == datetime(2023, 8, 10, 14, 0, 0)
-        # file2: ya en UTC
         assert d2 == datetime(2023, 8, 10, 14, 0, 0)
         assert abs((d1 - d2).total_seconds()) == 0
     

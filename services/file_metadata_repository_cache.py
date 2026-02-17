@@ -614,6 +614,10 @@ class FileInfoRepositoryCache:
                     target_metadata.exif_DateTimeOriginal = creation_date_str
                     target_metadata.exif_DateTime = creation_date_str
                 
+                # Mapear offset de timezone (de com.apple.quicktime.creationdate)
+                if 'creation_time_offset' in video_metadata and video_metadata['creation_time_offset']:
+                    target_metadata.exif_OffsetTimeOriginal = video_metadata['creation_time_offset']
+                
                 # Mapear dimensiones de video
                 if 'width' in video_metadata and video_metadata['width']:
                     target_metadata.exif_ImageWidth = video_metadata['width']
