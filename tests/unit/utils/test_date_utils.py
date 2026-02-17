@@ -12,7 +12,6 @@ from utils.date_utils import (
     select_best_date_from_common_date_to_2_files,
     select_best_date_from_file,
     format_renamed_name,
-    parse_renamed_name,
     is_renamed_filename,
     get_all_metadata_from_file,
     _validate_date_coherence,
@@ -589,90 +588,6 @@ class TestFormatRenamedName:
 
 
 @pytest.mark.unit
-class TestParseRenamedName:
-    """Tests para análisis de nombres en formato renombrado"""
-    
-    def test_valid_photo_name(self):
-        """Debe analizar correctamente nombre de foto válido"""
-        result = parse_renamed_name('20230115_103045_PHOTO.JPG')
-        
-        assert result is not None
-        assert result['date'] == datetime(2023, 1, 15, 10, 30, 45)
-        assert result['type'] == 'PHOTO'
-        assert result['sequence'] is None
-        assert result['extension'] == '.JPG'
-        assert result['is_renamed'] is True
-    
-    def test_valid_video_name(self):
-        """Debe analizar correctamente nombre de video válido"""
-        result = parse_renamed_name('20230115_103045_VIDEO.MOV')
-        
-        assert result is not None
-        assert result['date'] == datetime(2023, 1, 15, 10, 30, 45)
-        assert result['type'] == 'VIDEO'
-        assert result['sequence'] is None
-        assert result['extension'] == '.MOV'
-    
-    def test_name_with_sequence(self):
-        """Debe analizar correctamente nombre con secuencia"""
-        result = parse_renamed_name('20230115_103045_PHOTO_005.JPG')
-        
-        assert result is not None
-        assert result['date'] == datetime(2023, 1, 15, 10, 30, 45)
-        assert result['type'] == 'PHOTO'
-        assert result['sequence'] == 5
-        assert result['extension'] == '.JPG'
-    
-    def test_invalid_date_format(self):
-        """Debe rechazar fecha con formato inválido"""
-        result = parse_renamed_name('2023011_103045_PHOTO.JPG')  # 7 dígitos en fecha
-        
-        assert result is None
-    
-    def test_invalid_time_format(self):
-        """Debe rechazar hora con formato inválido"""
-        result = parse_renamed_name('20230115_10304_PHOTO.JPG')  # 5 dígitos en hora
-        
-        assert result is None
-    
-    def test_invalid_type(self):
-        """Debe rechazar tipo inválido"""
-        result = parse_renamed_name('20230115_103045_IMAGE.JPG')  # Tipo no válido
-        
-        assert result is None
-    
-    def test_invalid_sequence_format(self):
-        """Debe rechazar secuencia con formato inválido"""
-        result = parse_renamed_name('20230115_103045_PHOTO_5.JPG')  # 1 dígito en secuencia
-        
-        assert result is None
-    
-    def test_too_many_parts(self):
-        """Debe rechazar nombre con demasiadas partes"""
-        result = parse_renamed_name('20230115_103045_PHOTO_005_EXTRA.JPG')
-        
-        assert result is None
-    
-    def test_too_few_parts(self):
-        """Debe rechazar nombre con muy pocas partes"""
-        result = parse_renamed_name('20230115_103045.JPG')
-        
-        assert result is None
-    
-    def test_non_numeric_date(self):
-        """Debe rechazar fecha no numérica"""
-        result = parse_renamed_name('2023011A_103045_PHOTO.JPG')
-        
-        assert result is None
-    
-    def test_invalid_datetime_values(self):
-        """Debe rechazar valores de fecha/hora inválidos"""
-        result = parse_renamed_name('20231315_103045_PHOTO.JPG')  # Mes 13
-        
-        assert result is None
-
-
-@pytest.mark.unit
 class TestIsRenamedFilename:
     """Tests para verificación rápida de nombres renombrados"""
     
@@ -842,13 +757,6 @@ class TestEdgeCasesAndCorruptedData:
         
         # sequence=0 es falsy, no debe incluirse
         assert result == '20230115_103045_PHOTO.JPG'
-    
-    def test_parse_renamed_name_with_path_object(self):
-        """Debe manejar Path objects además de strings"""
-        result = parse_renamed_name(Path('20230115_103045_PHOTO.JPG'))
-        
-        assert result is not None
-        assert result['date'] == datetime(2023, 1, 15, 10, 30, 45)
 
 
 @pytest.mark.unit

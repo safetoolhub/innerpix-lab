@@ -327,20 +327,6 @@ class DesignSystem:
         """
     
     @staticmethod
-    def get_filter_container_style():
-        """Estilo para contenedores de inputs dentro de la barra de filtros."""
-        return f"""
-            QWidget {{
-                background-color: {DesignSystem.COLOR_BG_1};
-                border: 2px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-            }}
-            QWidget:hover {{
-                border-color: {DesignSystem.COLOR_PRIMARY};
-            }}
-        """
-    
-    @staticmethod
     def get_tooltip_style():
         """Retorna el estilo QSS para tooltips.
         
@@ -743,64 +729,6 @@ class DesignSystem:
         """
 
     @staticmethod
-    def get_warning_button_style():
-        """Retorna el estilo para botón de advertencia/acción importante.
-        
-        Uso recomendado: Acciones automáticas masivas que requieren atención.
-        
-        Returns:
-            str: Estilo QSS con borde e icono de alerta.
-        """
-        return f"""
-            QPushButton {{
-                background-color: transparent;
-                border: 1px solid {DesignSystem.COLOR_WARNING};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_16}px;
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-                color: {DesignSystem.COLOR_WARNING};
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-            }}
-            QPushButton:hover {{
-                background-color: {DesignSystem.COLOR_WARNING};
-                color: {DesignSystem.COLOR_PRIMARY_TEXT};
-            }}
-            QPushButton:pressed {{
-                background-color: #e0a800; /* Darker warning */
-                border-color: #e0a800;
-            }}
-        """ + DesignSystem._get_button_disabled_style()
-
-    @staticmethod
-    def get_outline_button_style():
-        """Retorna el estilo para botón con borde (outline).
-        
-        Uso recomendado: Acciones secundarias que necesitan destacar más que un botón plano
-        pero menos que uno primario.
-        
-        Returns:
-            str: Estilo QSS.
-        """
-        return f"""
-            QPushButton {{
-                background-color: transparent;
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_16}px;
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-                color: {DesignSystem.COLOR_TEXT};
-            }}
-            QPushButton:hover {{
-                border-color: {DesignSystem.COLOR_PRIMARY};
-                color: {DesignSystem.COLOR_PRIMARY};
-                background-color: {DesignSystem.COLOR_BG_1};
-            }}
-            QPushButton:pressed {{
-                background-color: {DesignSystem.COLOR_BORDER_LIGHT};
-            }}
-        """ + DesignSystem._get_button_disabled_style()
-
-    @staticmethod
     def get_info_badge_style():
         """Retorna el estilo para badges de información.
         
@@ -857,24 +785,6 @@ class DesignSystem:
                 border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
                 border-radius: {DesignSystem.RADIUS_LG}px;
                 padding: 10px;
-            }}
-        """
-    
-    @staticmethod
-    def get_header_card_style():
-        """Retorna el estilo para la card de header.
-        
-        Card del encabezado principal de la aplicación con padding horizontal.
-        
-        Returns:
-            str: Estilo QSS para header.
-        """
-        return f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_CARD_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: 10px {DesignSystem.SPACE_20}px;
             }}
         """
 
@@ -938,21 +848,6 @@ class DesignSystem:
         """
     
     # ==================== ESTILOS DE TEXTO Y LABELS ====================
-    
-    @staticmethod
-    def get_label_title_style():
-        """Retorna el estilo para títulos principales.
-        
-        Usado en welcome title, header title y otros títulos destacados.
-        
-        Returns:
-            str: Estilo CSS para texto de título.
-        """
-        return f"""
-            font-size: {DesignSystem.FONT_SIZE_LG}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
-            color: {DesignSystem.COLOR_TEXT};
-        """
     
     @staticmethod
     def get_label_subtitle_style():
@@ -1064,19 +959,6 @@ class DesignSystem:
             color: {DesignSystem.COLOR_TEXT_SECONDARY};
             letter-spacing: 0.5px;
         """
-    
-    # ==================== OTROS COMPONENTES ====================
-    
-    @staticmethod
-    def get_separator_style():
-        """Retorna el estilo para líneas separadoras.
-        
-        Línea horizontal simple para dividir secciones.
-        
-        Returns:
-            str: Estilo CSS para QFrame tipo separador.
-        """
-        return f"background-color: {DesignSystem.COLOR_BORDER};"
     
     # ==================== DROPZONE ====================
     
@@ -1380,89 +1262,6 @@ class DesignSystem:
                 background-color: {DesignSystem.COLOR_PRIMARY};
             }}
         """
-    
-    # ==================== ESTILOS DE ANÁLISIS Y FASES ====================
-    
-    @staticmethod
-    def get_phase_text_style(status: str = 'pending'):
-        """Retorna el estilo para texto de fases de análisis.
-        
-        Args:
-            status: Estado de la fase ('pending', 'running', 'completed',
-                   'error', 'skipped').
-        
-        Returns:
-            str: Estilo CSS con color según estado.
-        """
-        base_style = f"font-size: {DesignSystem.FONT_SIZE_LG}px; line-height: 1.0;"
-        
-        if status == 'completed':
-            return f"""
-                {base_style}
-                color: {DesignSystem.COLOR_SUCCESS};
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-            """
-        elif status == 'running':
-            return f"""
-                {base_style}
-                color: {DesignSystem.COLOR_PRIMARY};
-                font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};
-            """
-        elif status == 'error':
-            return f"""
-                {base_style}
-                color: {DesignSystem.COLOR_ERROR};
-            """
-        elif status == 'skipped':
-            return f"""
-                {base_style}
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                font-style: italic;
-            """
-        else:  # pending
-            return f"""
-                {base_style}
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-            """
-    
-    @staticmethod
-    def get_phase_counter_style(active: bool = False):
-        """Retorna el estilo para contadores de progreso.
-        
-        Contadores numéricos que muestran progreso de archivos procesados.
-        
-        Args:
-            active: True para fase activa (azul), False para inactiva (gris).
-        
-        Returns:
-            str: Estilo CSS con fuente monoespaciada.
-        """
-        color = DesignSystem.COLOR_PRIMARY if active else DesignSystem.COLOR_TEXT_SECONDARY
-        weight = DesignSystem.FONT_WEIGHT_MEDIUM if active else DesignSystem.FONT_WEIGHT_NORMAL
-        return f"""
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            color: {color};
-            font-family: {DesignSystem.FONT_FAMILY_MONO};
-            line-height: 1.0;
-            font-weight: {weight};
-        """
-    
-    @staticmethod
-    def get_phase_skipped_counter_style():
-        """Retorna el estilo para contador de fase omitida.
-        
-        Texto en itálica gris para indicar que la fase fue saltada.
-        
-        Returns:
-            str: Estilo CSS con font-style italic.
-        """
-        return f"""
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            color: {DesignSystem.COLOR_TEXT_SECONDARY};
-            font-family: {DesignSystem.FONT_FAMILY_BASE};
-            line-height: 1.0;
-            font-style: italic;
-        """
 
     # ==================== ESTILOS DE TEXTO AUXILIARES ====================
     
@@ -1750,25 +1549,6 @@ class DesignSystem:
                 border-radius: {DesignSystem.RADIUS_LG}px;
             }}
         """
-    
-    # Alias para retrocompatibilidad - idéntico a get_tutorial_step_card_style
-    get_tutorial_tool_card_style = get_tutorial_step_card_style
-
-    @staticmethod
-    def get_tutorial_tool_card_variant_style(accent_color: str):
-        """Retorna estilo para card de herramienta con color de acento.
-        
-        Args:
-            accent_color: Hex color string para el borde lateral.
-        """
-        return f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_BORDER_LIGHT};
-                border-left: 3px solid {accent_color};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-            }}
-        """
 
     @staticmethod
     def get_about_tool_card_category_style(bg_color: str, border_color: str):
@@ -1789,18 +1569,6 @@ class DesignSystem:
             }}
             QLabel {{
                 background-color: transparent;
-            }}
-        """
-
-    @staticmethod
-    def get_about_developer_hero_style():
-        """Retorna estilo para la sección hero del desarrollador en About."""
-        return f"""
-            QFrame {{
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                    stop:0 {DesignSystem.COLOR_PRIMARY}, stop:1 {DesignSystem.COLOR_PRIMARY_HOVER});
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: {DesignSystem.SPACE_24}px;
             }}
         """
 
@@ -1911,36 +1679,6 @@ class DesignSystem:
         """Retorna estilo para texto en la card de formatos."""
         return f"color: {DesignSystem.COLOR_TEXT}; font-size: {DesignSystem.FONT_SIZE_XS}px;"
 
-    @staticmethod
-    def get_developer_info_style():
-        """Retorna el estilo para la sección de desarrollador."""
-        return f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_BG_1};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: {DesignSystem.SPACE_16}px;
-                border: 1px solid {DesignSystem.COLOR_BORDER_LIGHT};
-            }}
-        """
-    
-    @staticmethod
-    def get_tutorial_note_style():
-        """Retorna el estilo para notas informativas en tutoriales.
-        
-        Texto con estilo sutil sin fondo destacado.
-        
-        Returns:
-            str: Estilo QSS para QLabel tipo nota.
-        """
-        return f"""
-            QLabel {{
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-                font-style: italic;
-                padding: {DesignSystem.SPACE_4}px 0px;
-            }}
-        """
-
     # ==================== ESTILOS HEADER STAGE ====================
     
     @staticmethod
@@ -1988,37 +1726,6 @@ class DesignSystem:
             font-size: {DesignSystem.FONT_SIZE_BASE}px;
             font-weight: {DesignSystem.FONT_WEIGHT_NORMAL};
             color: {DesignSystem.COLOR_TEXT_SECONDARY};
-        """
-    
-    @staticmethod
-    def get_stage_badge_style(variant: str = 'default'):
-        """Retorna el estilo para badges indicadores de stage.
-        
-        Args:
-            variant: 'default', 'primary', 'success', 'warning'
-        
-        Returns:
-            str: Estilo QSS para QLabel tipo badge.
-        """
-        colors = {
-            'default': (DesignSystem.COLOR_SECONDARY_LIGHT, DesignSystem.COLOR_TEXT_SECONDARY),
-            'primary': (DesignSystem.COLOR_PRIMARY_LIGHT, DesignSystem.COLOR_PRIMARY),
-            'success': (DesignSystem.COLOR_SUCCESS_BG, DesignSystem.COLOR_SUCCESS),
-            'warning': (DesignSystem.COLOR_WARNING_BG, "#856404"),  # Darker warning text
-        }
-        bg_color, text_color = colors.get(variant, colors['default'])
-        
-        return f"""
-            QLabel {{
-                background-color: {bg_color};
-                color: {text_color};
-                font-size: {DesignSystem.FONT_SIZE_XS}px;
-                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-                padding: {DesignSystem.SPACE_4}px {DesignSystem.SPACE_8}px;
-                border-radius: {DesignSystem.RADIUS_FULL}px;
-                text-transform: uppercase;
-                letter-spacing: 0.5px;
-            }}
         """
 
     # ==================== ESTILOS PROGRESS CARD STAGE 2 ====================
@@ -2383,42 +2090,6 @@ class DesignSystem:
             color: {DesignSystem.COLOR_TEXT_SECONDARY};
             font-size: {DesignSystem.FONT_SIZE_XS}px;
             line-height: 1.2;
-        """
-
-    @staticmethod
-    def get_tutorial_static_info_card_style():
-        """Estilo para cards informativas estáticas (sin hover)."""
-        return f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_BACKGROUND};
-                border: none;
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: {DesignSystem.SPACE_12}px;
-            }}
-        """
-
-    @staticmethod
-    def get_privacy_hero_style():
-        """Estilo para el contenedor principal de privacidad (Hero)."""
-        return f"""
-            QFrame {{
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                    stop:0 rgba(25, 135, 84, 0.05), stop:1 rgba(13, 110, 253, 0.05));
-                border: 1px solid rgba(25, 135, 84, 0.1);
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                padding: {DesignSystem.SPACE_16}px;
-            }}
-        """
-
-    @staticmethod
-    def get_privacy_item_style():
-        """Estilo para items de privacidad en la lista vertical."""
-        return f"""
-            QFrame {{
-                background-color: transparent;
-                border: none;
-                padding: {DesignSystem.SPACE_8}px 0px;
-            }}
         """
     
     # ==================== ESTILOS PARA DUPLICATES SIMILAR DIALOG ====================
@@ -3063,48 +2734,6 @@ class DesignSystem:
             color: {DesignSystem.COLOR_INFO_TEXT};
             border: none;
             background: transparent;
-        """
-    
-    # --- VISTA DE ÁRBOL DE ARCHIVOS ---
-    
-    @staticmethod
-    def get_tree_widget_style():
-        """Estilo completo para QTreeWidget (vista de archivos).
-        
-        Tree widget que muestra la vista previa de todos los archivos que se moverán,
-        con columnas: Nombre Original, Nuevo Nombre, Fecha, Origen, Tamaño.
-        Incluye estilos para el header, items, hover y selección.
-        """
-        return f"""
-            QTreeWidget {{
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                outline: none;
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border-radius: {DesignSystem.RADIUS_BASE}px;
-                padding: {DesignSystem.SPACE_4}px;
-            }}
-            QTreeWidget::item {{
-                border: none;
-                outline: none;
-                padding: {DesignSystem.SPACE_8}px {DesignSystem.SPACE_4}px;
-                border-bottom: 1px solid {DesignSystem.COLOR_BORDER_LIGHT};
-            }}
-            QTreeWidget::item:hover {{
-                background-color: {DesignSystem.COLOR_BG_2};
-            }}
-            QTreeWidget::item:selected {{
-                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
-                color: {DesignSystem.COLOR_TEXT};
-            }}
-            QHeaderView::section {{
-                background-color: {DesignSystem.COLOR_BG_1};
-                color: {DesignSystem.COLOR_TEXT_SECONDARY};
-                padding: {DesignSystem.SPACE_8}px;
-                border: none;
-                border-bottom: 2px solid {DesignSystem.COLOR_BORDER};
-                font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
-                font-size: {DesignSystem.FONT_SIZE_SM}px;
-            }}
         """
     
     # --- OPCIONES DE EJECUCIÓN (BACKUP Y DRY-RUN) ---

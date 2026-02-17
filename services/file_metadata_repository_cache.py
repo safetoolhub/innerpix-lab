@@ -90,7 +90,6 @@ class IFileRepository(Protocol):
     # Consultas
     def get_all_files(self) -> List[FileMetadata]: ...
     def get_files_by_size(self, size: int) -> List[FileMetadata]: ...
-    def get_files_by_extension(self, extension: str) -> List[FileMetadata]: ...
     def get_file_metadata(self, path: Path) -> Optional[FileMetadata]: ...
     def get_hash(self, path: Path) -> Optional[str]: ...
     def get_exif(self, path: Path) -> Dict[str, Any]: ...
@@ -983,24 +982,6 @@ class FileInfoRepositoryCache:
                 by_size[metadata.fs_size].append(metadata)
         
         return by_size
-    
-    def get_files_by_extension(self, extension: str) -> List[FileMetadata]:
-        """
-        Obtiene archivos con una extensión específica.
-        
-        Args:
-            extension: Extensión (ej: '.jpg', case-insensitive)
-            
-        Returns:
-            List[FileMetadata]: Archivos con esa extensión
-        """
-        extension = extension.lower()
-        
-        with self._lock:
-            return [
-                metadata for metadata in self._cache.values()
-                if metadata.extension == extension
-            ]
     
     def count(self) -> int:
         """

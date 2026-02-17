@@ -55,10 +55,6 @@ class FileMove:
             # BaseService original lanzaba ValueError.
             pass
 
-    @property
-    def will_rename(self) -> bool:
-        return self.original_name != self.new_name
-
 class FileOrganizerService(BaseService):
     """Organizador de archivos - Mueve archivos multimedia de subdirectorios al directorio raíz"""
 

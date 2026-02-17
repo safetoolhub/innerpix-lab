@@ -440,21 +440,6 @@ def open_folder_in_explorer(folder_path: Path,
         return False
 
 
-def is_linux() -> bool:
-    """Retorna True si el sistema operativo es Linux"""
-    return platform.system() == 'Linux'
-
-
-def is_macos() -> bool:
-    """Retorna True si el sistema operativo es macOS"""
-    return platform.system() == 'Darwin'
-
-
-def is_windows() -> bool:
-    """Retorna True si el sistema operativo es Windows"""
-    return platform.system() == 'Windows'
-
-
 # ============================================================================
 # SYSTEM HARDWARE INFO
 # ============================================================================

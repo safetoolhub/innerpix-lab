@@ -433,6 +433,3 @@ class HeicService(BaseService):
     def _reset_stats(self):
         for key in self.stats:
             self.stats[key] = 0
-            
-    def get_stats(self) -> Dict:
-        return self.stats.copy()

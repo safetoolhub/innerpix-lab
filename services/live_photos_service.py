@@ -743,7 +743,3 @@ class LivePhotoService(BaseService):
         """Reinicia las estadísticas del servicio."""
         for key in self.stats:
             self.stats[key] = 0
-
-    def get_stats(self) -> Dict:
-        """Obtiene una copia de las estadísticas actuales."""
-        return self.stats.copy()

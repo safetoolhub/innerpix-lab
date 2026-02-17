@@ -15,7 +15,6 @@ class Config:
     # ========================================================================
     APP_NAME = "Innerpix Lab"
     APP_VERSION = "0.8"
-    APP_DESCRIPTION = "Organiza, renombra y optimiza tu biblioteca de fotos"
 
     # ========================================================================
     # 2. RUTAS Y DIRECTORIOS
@@ -29,8 +28,6 @@ class Config:
     # 3. LOGGING
     # ========================================================================
     LOG_LEVEL = "INFO"
-    LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    LOG_DATE_FORMAT = "%Y%m%d_%H%M%S"
     
     # Rotación de logs
     MAX_LOG_FILE_SIZE_MB = 10  # 10 MB
@@ -100,9 +97,6 @@ class Config:
     # 6. LÍMITES Y UMBRALES DE ANÁLISIS
     # ========================================================================
     
-    # Análisis general
-    LARGE_DIRECTORY_THRESHOLD = 40000  # Archivos antes de pedir confirmación
-    
     # Configuración para detección de duplicados HEIC/JPG
     MAX_TIME_DIFFERENCE_SECONDS = 1  # Tolerancia máxima de tiempo entre archivos duplicados (segundos)
     
@@ -113,14 +107,6 @@ class Config:
 
     # Archivos Similares (Clustering)
     MAX_HAMMING_THRESHOLD = 20  # Máximo threshold de distancia de Hamming (0-20)
-    SIMILAR_FILES_MAX_GROUPS_WARNING = 500
-    SIMILAR_FILES_MAX_GROUPS_NAVIGABLE = 1000
-    SIMILAR_FILES_LARGE_DATASET_THRESHOLD = 10000
-    
-    # Sensibilidad por defecto: 85% es un buen balance para similares
-    # (No usar 100% porque eso es para idénticos, usar visual_identical para eso)
-    SIMILAR_FILES_DEFAULT_SENSITIVITY = 85
-    SIMILAR_FILES_LARGE_DATASET_SENSITIVITY = 85
     
     # ========================================================================
     # 6.1 CONFIGURACIÓN DE HASH PERCEPTUAL (INTERNO - NO MODIFICAR)
