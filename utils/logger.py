@@ -361,24 +361,24 @@ def configure_logging(
     except PermissionError as e:
         # Permission error: user lacks permissions to create directory
         import sys as _sys
-        print(f"⚠️  WARNING: Insufficient permissions to create logs directory '{_logs_directory}'", file=_sys.stderr)
-        print(f"⚠️  WARNING: Details: {e}", file=_sys.stderr)
-        print(f"⚠️  WARNING: Logs will be saved in current directory: {Path.cwd()}", file=_sys.stderr)
+        print(f"WARNING: Insufficient permissions to create logs directory '{_logs_directory}'", file=_sys.stderr)
+        print(f"WARNING: Details: {e}", file=_sys.stderr)
+        print(f"WARNING: Logs will be saved in current directory: {Path.cwd()}", file=_sys.stderr)
         _logs_directory = Path.cwd()
     except OSError as e:
         # Filesystem error (disk full, invalid name, etc.)
         import sys as _sys
         error_type = "Disk full" if e.errno == 28 else "Filesystem error"
-        print(f"⚠️  WARNING: {error_type} creating logs directory '{_logs_directory}'", file=_sys.stderr)
-        print(f"⚠️  WARNING: Details: {e}", file=_sys.stderr)
-        print(f"⚠️  WARNING: Logs will be saved in current directory: {Path.cwd()}", file=_sys.stderr)
+        print(f"WARNING: {error_type} creating logs directory '{_logs_directory}'", file=_sys.stderr)
+        print(f"WARNING: Details: {e}", file=_sys.stderr)
+        print(f"WARNING: Logs will be saved in current directory: {Path.cwd()}", file=_sys.stderr)
         _logs_directory = Path.cwd()
     except Exception as e:
         # Other unexpected errors
         import sys as _sys
-        print(f"⚠️  WARNING: Unexpected error creating logs directory '{_logs_directory}'", file=_sys.stderr)
-        print(f"⚠️  WARNING: Type: {type(e).__name__}, Details: {e}", file=_sys.stderr)
-        print(f"⚠️  WARNING: Logs will be saved in current directory: {Path.cwd()}", file=_sys.stderr)
+        print(f"WARNING: Unexpected error creating logs directory '{_logs_directory}'", file=_sys.stderr)
+        print(f"WARNING: Type: {type(e).__name__}, Details: {e}", file=_sys.stderr)
+        print(f"WARNING: Logs will be saved in current directory: {Path.cwd()}", file=_sys.stderr)
         _logs_directory = Path.cwd()
     
     # Configurar nivel

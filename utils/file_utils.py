@@ -536,7 +536,7 @@ def cleanup_empty_directories(root_directory: Path) -> int:
                     c.is_file() and c.name.lower() in JUNK_FILES
                     for c in contents
                 ):
-                    # Solo contiene archivos de sistema → eliminarlos y luego el directorio
+                    # Only contains system files -> delete them and then the directory
                     for junk in contents:
                         try:
                             junk.unlink()

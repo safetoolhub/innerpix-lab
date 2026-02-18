@@ -836,7 +836,7 @@ class DuplicatesExactDialog(BaseDialog):
                     files_to_delete.append(f)
         
         if not files_to_delete:
-            self.show_no_items_message("archivos")
+            self.show_no_items_message(tr("common.files"))
             return
         
         # Guardar plan para ejecución

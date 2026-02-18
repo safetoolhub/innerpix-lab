@@ -11,6 +11,7 @@ from PyQt6.QtCore import Qt, QSize, QPoint
 from utils.format_utils import format_size
 from utils.platform_utils import open_file_with_default_app, open_folder_in_explorer
 from utils.logger import get_logger
+from utils.i18n import tr
 
 # Logger del módulo siguiendo el patrón estándar del proyecto
 logger = get_logger('UI.Dialogs.Utils')
@@ -33,7 +34,7 @@ def open_file(file_path: Path, parent_widget=None):
         if parent_widget:
             QMessageBox.warning(
                 parent_widget,
-                "Error al abrir archivo",
+                tr("dialogs.utils.error_open_file"),
                 error_msg
             )
     
@@ -58,7 +59,7 @@ def open_folder(folder_path: Path, parent_widget=None, select_file: Path = None)
         if parent_widget:
             QMessageBox.warning(
                 parent_widget,
-                "Error al abrir carpeta",
+                tr("dialogs.utils.error_open_folder"),
                 error_msg
             )
     
@@ -132,14 +133,13 @@ def create_group_tooltip(group_number: int, description: str, extra_info: str = 
     Returns:
         Texto del tooltip formateado
     """
-    tooltip = (f"Grupo #{group_number} con {description}\n"
-               f"Doble clic para expandir y ver detalles de archivos\n"
-               f"Las columnas muestran información de cada archivo individual")
+    tooltip = (f"{tr('dialogs.utils.group_tooltip_expand')}\n"
+               f"{tr('dialogs.utils.group_tooltip_columns')}")
     
     if extra_info:
         tooltip += f"\n{extra_info}"
     
-    return tooltip
+    return f"#{group_number} - {description}\n{tooltip}"
 
 
 def apply_file_item_status(file_item, is_keep: bool, status_column: int = 4) -> None:
@@ -155,10 +155,10 @@ def apply_file_item_status(file_item, is_keep: bool, status_column: int = 4) -> 
     from ui.styles.design_system import DesignSystem
     
     if is_keep:
-        file_item.setText(status_column, "✓ Conservar")
+        file_item.setText(status_column, tr("dialogs.utils.status_keep"))
         file_item.setForeground(status_column, QColor(DesignSystem.COLOR_SUCCESS))
     else:
-        file_item.setText(status_column, "✗ Eliminar")
+        file_item.setText(status_column, tr("dialogs.utils.status_delete"))
         file_item.setForeground(status_column, QColor(DesignSystem.COLOR_ERROR))
 
 
@@ -277,17 +277,17 @@ def show_file_context_menu(
     menu.setStyleSheet(DesignSystem.get_context_menu_style())
     
     # Opción: Abrir archivo
-    open_action = menu.addAction(icon_manager.get_icon('open-in-new'), "Abrir archivo")
+    open_action = menu.addAction(icon_manager.get_icon('open-in-new'), tr("dialogs.utils.menu.open_file"))
     open_action.triggered.connect(lambda: open_file(file_path, parent_widget))
     
     # Opción: Abrir carpeta contenedora
-    open_folder_action = menu.addAction(icon_manager.get_icon('folder-open'), "Abrir carpeta contenedora")
+    open_folder_action = menu.addAction(icon_manager.get_icon('folder-open'), tr("dialogs.utils.menu.open_folder"))
     open_folder_action.triggered.connect(lambda: open_folder(file_path.parent, parent_widget))
     
     menu.addSeparator()
     
     # Opción: Ver detalles del archivo
-    details_action = menu.addAction(icon_manager.get_icon('information'), "Ver detalles del archivo")
+    details_action = menu.addAction(icon_manager.get_icon('information'), tr("dialogs.utils.menu.view_details"))
     if details_callback:
         details_action.triggered.connect(lambda: details_callback(file_path))
     else:
@@ -355,7 +355,7 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     # === 2. CONSTRUCCIÓN DE LA IU ===
     
     dialog = QDialog(parent_widget)
-    dialog.setWindowTitle("Detalles del Archivo")
+    dialog.setWindowTitle(tr("dialogs.details.title"))
     dialog.setModal(True)
     dialog.setMinimumWidth(900)
     dialog.setMaximumWidth(950)
@@ -387,9 +387,7 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
         refresh_btn.setIconSize(QSize(DesignSystem.ICON_SIZE_MD, DesignSystem.ICON_SIZE_MD))
         refresh_btn.setFixedSize(DesignSystem.ICON_SIZE_LG + 8, DesignSystem.ICON_SIZE_LG + 8)
         refresh_btn.setToolTip(
-            "Buscar todos los metadatos disponibles\n"
-            "Extrae hash SHA256 y metadatos EXIF completos\n"
-            "aunque no se hayan obtenido en el análisis inicial"
+            tr("dialogs.details.refresh_tooltip")
         )
         refresh_btn.setStyleSheet(f"""
             QPushButton {{
@@ -413,7 +411,7 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
         search_indicator = QLabel()
         search_icon = icon_manager.get_icon('database-check', size=DesignSystem.ICON_SIZE_MD, color=DesignSystem.COLOR_SUCCESS)
         search_indicator.setPixmap(search_icon.pixmap(DesignSystem.ICON_SIZE_MD, DesignSystem.ICON_SIZE_MD))
-        search_indicator.setToolTip("Metadatos completos cargados (búsqueda forzada)")
+        search_indicator.setToolTip(tr("dialogs.details.full_metadata_loaded"))
         header_layout.addWidget(search_indicator)
     
     main_layout.addLayout(header_layout)
@@ -430,17 +428,17 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     
     # SECCIÓN: INFORMACIÓN GENERAL
     general_items = [
-        ("Ruta completa", str(file_path), "Ubicación completa del archivo en el sistema", 'folder-open', DesignSystem.COLOR_INFO),
-        ("Tamaño", format_size(metadata.fs_size), "Espacio que ocupa en el sistema de archivos", 'harddisk', DesignSystem.COLOR_INFO),
-        ("Tipo", _get_file_type_display(file_path), "Categoría detectada por extensión", 'file-check', DesignSystem.COLOR_INFO),
+        (tr("dialogs.details.general.full_path"), str(file_path), tr("dialogs.details.general.full_path_desc"), 'folder-open', DesignSystem.COLOR_INFO),
+        (tr("dialogs.details.general.size"), format_size(metadata.fs_size), tr("dialogs.details.general.size_desc"), 'harddisk', DesignSystem.COLOR_INFO),
+        (tr("dialogs.details.general.type"), _get_file_type_display(file_path), tr("dialogs.details.general.type_desc"), 'file-check', DesignSystem.COLOR_INFO),
     ]
     if metadata.sha256:
-        general_items.append(("Hash SHA256", metadata.sha256, "Huella digital única del contenido del archivo", 'fingerprint', DesignSystem.COLOR_INFO))
+        general_items.append((tr("dialogs.details.general.hash"), metadata.sha256, tr("dialogs.details.general.hash_desc"), 'fingerprint', DesignSystem.COLOR_INFO))
     
     scroll_layout.addWidget(_create_enhanced_section_with_copy(
-        "Información General", 
+        tr("dialogs.details.section.general"), 
         general_items,
-        copy_field_index=0,  # Copiar la ruta completa (primer campo)
+        copy_field_index=0,
         parent_widget=dialog
     ))
     
@@ -450,11 +448,11 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     
     # SECCIÓN: FECHAS DEL SISTEMA (RAW FileMetadata)
     fs_dates = [
-        ("Creación (ctime)", datetime.fromtimestamp(metadata.fs_ctime).strftime('%Y-%m-%d %H:%M:%S'), "Fecha de creación del archivo en el sistema de archivos", 'file-plus', DesignSystem.COLOR_WARNING),
-        ("Modificación (mtime)", datetime.fromtimestamp(metadata.fs_mtime).strftime('%Y-%m-%d %H:%M:%S'), "Última modificación del contenido del archivo", 'file-edit', DesignSystem.COLOR_WARNING),
-        ("Último acceso (atime)", datetime.fromtimestamp(metadata.fs_atime).strftime('%Y-%m-%d %H:%M:%S'), "Última vez que se abrió o leyó el archivo", 'eye', DesignSystem.COLOR_WARNING),
+        (tr("dialogs.details.fs_dates.ctime"), datetime.fromtimestamp(metadata.fs_ctime).strftime('%Y-%m-%d %H:%M:%S'), tr("dialogs.details.fs_dates.ctime_desc"), 'file-plus', DesignSystem.COLOR_WARNING),
+        (tr("dialogs.details.fs_dates.mtime"), datetime.fromtimestamp(metadata.fs_mtime).strftime('%Y-%m-%d %H:%M:%S'), tr("dialogs.details.fs_dates.mtime_desc"), 'file-edit', DesignSystem.COLOR_WARNING),
+        (tr("dialogs.details.fs_dates.atime"), datetime.fromtimestamp(metadata.fs_atime).strftime('%Y-%m-%d %H:%M:%S'), tr("dialogs.details.fs_dates.atime_desc"), 'eye', DesignSystem.COLOR_WARNING),
     ]
-    scroll_layout.addWidget(_create_enhanced_section("Fechas del Sistema de Archivos", fs_dates))
+    scroll_layout.addWidget(_create_enhanced_section(tr("dialogs.details.section.filesystem_dates"), fs_dates))
     
     # SECCIÓN: CONTEXTO DE LA OPERACIÓN (Si hay información adicional del diálogo)
     if additional_info:
@@ -471,12 +469,11 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
                 icon = 'alert'
                 color = DesignSystem.COLOR_ERROR
             
-            # Generar descripción genérica
-            description = f"Información adicional del contexto de la operación"
+            description = tr("dialogs.details.operation_context.generic_desc")
             add_items.append((key.replace('_', ' ').title(), str(val), description, icon, color))
         
         if add_items:
-            scroll_layout.addWidget(_create_enhanced_section("Contexto de la Operación", add_items))
+            scroll_layout.addWidget(_create_enhanced_section(tr("dialogs.details.section.operation_context"), add_items))
     
     # SECCIÓN: METADATOS TÉCNICOS DE VIDEO (desde FileMetadata o ffprobe)
     # Posicionada ANTES de las fechas para mayor visibilidad
@@ -487,23 +484,23 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
         if metadata.exif_ImageWidth and metadata.exif_ImageLength:
             resolution = f"{metadata.exif_ImageWidth} × {metadata.exif_ImageLength}"
             video_tech_items.append((
-                "Resolución",
+                tr("dialogs.details.video.resolution"),
                 resolution,
-                "Dimensiones del video en píxeles",
+                tr("dialogs.details.video.resolution_desc"),
                 'monitor',
                 DesignSystem.COLOR_INFO
             ))
         elif metadata.exif_ImageWidth:
-            video_tech_items.append(("Ancho", f"{metadata.exif_ImageWidth} píxeles", "Ancho del video", 'ruler', DesignSystem.COLOR_INFO))
+            video_tech_items.append((tr("dialogs.details.video.width"), f"{metadata.exif_ImageWidth} px", tr("dialogs.details.video.width_desc"), 'ruler', DesignSystem.COLOR_INFO))
         elif metadata.exif_ImageLength:
-            video_tech_items.append(("Alto", f"{metadata.exif_ImageLength} píxeles", "Alto del video", 'ruler', DesignSystem.COLOR_INFO))
+            video_tech_items.append((tr("dialogs.details.video.height"), f"{metadata.exif_ImageLength} px", tr("dialogs.details.video.height_desc"), 'ruler', DesignSystem.COLOR_INFO))
         
         # Duración del video (desde FileMetadata)
         if metadata.video_duration_formatted:
             video_tech_items.append((
-                "Duración",
+                tr("dialogs.details.video.duration"),
                 metadata.video_duration_formatted,
-                "Duración total del video",
+                tr("dialogs.details.video.duration_desc"),
                 'clock-outline',
                 DesignSystem.COLOR_INFO
             ))
@@ -513,9 +510,9 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
             # Frame rate
             if 'fps' in video_metadata:
                 video_tech_items.append((
-                    "Frames por segundo",
+                    tr("dialogs.details.video.fps"),
                     video_metadata['fps'],
-                    "Tasa de fotogramas del video",
+                    tr("dialogs.details.video.fps_desc"),
                     'speedometer',
                     DesignSystem.COLOR_INFO
                 ))
@@ -526,9 +523,9 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
                 if 'video_codec_long' in video_metadata:
                     codec_display = f"{codec_display} ({video_metadata['video_codec_long']})"
                 video_tech_items.append((
-                    "Códec de video",
+                    tr("dialogs.details.video.codec"),
                     codec_display,
-                    "Códec utilizado para comprimir el video",
+                    tr("dialogs.details.video.codec_desc"),
                     'file-video',
                     DesignSystem.COLOR_INFO
                 ))
@@ -536,9 +533,9 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
             # Bitrate
             if 'bitrate' in video_metadata:
                 video_tech_items.append((
-                    "Bitrate",
+                    tr("dialogs.details.video.bitrate"),
                     video_metadata['bitrate'],
-                    "Tasa de bits del video",
+                    tr("dialogs.details.video.bitrate_desc"),
                     'speedometer',
                     DesignSystem.COLOR_INFO
                 ))
@@ -546,17 +543,17 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
             # Formato
             if 'format_long' in video_metadata:
                 video_tech_items.append((
-                    "Formato contenedor",
+                    tr("dialogs.details.video.format_container"),
                     video_metadata['format_long'],
-                    "Formato del archivo contenedor",
+                    tr("dialogs.details.video.format_container_desc"),
                     'folder-zip',
                     DesignSystem.COLOR_INFO
                 ))
             elif 'format' in video_metadata:
                 video_tech_items.append((
-                    "Formato",
+                    tr("dialogs.details.video.format"),
                     video_metadata['format'],
-                    "Formato del archivo",
+                    tr("dialogs.details.video.format_desc"),
                     'folder-zip',
                     DesignSystem.COLOR_INFO
                 ))
@@ -564,9 +561,9 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
             # Pixel format
             if 'pixel_format' in video_metadata:
                 video_tech_items.append((
-                    "Formato de píxel",
+                    tr("dialogs.details.video.pixel_format"),
                     video_metadata['pixel_format'],
-                    "Formato de representación de color",
+                    tr("dialogs.details.video.pixel_format_desc"),
                     'palette',
                     DesignSystem.COLOR_INFO
                 ))
@@ -574,15 +571,15 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
             # Encoder
             if 'encoder' in video_metadata:
                 video_tech_items.append((
-                    "Codificador",
+                    tr("dialogs.details.video.encoder"),
                     video_metadata['encoder'],
-                    "Software usado para codificar el video",
+                    tr("dialogs.details.video.encoder_desc"),
                     'cog',
                     DesignSystem.COLOR_INFO
                 ))
         
         if video_tech_items:
-            section_title = "Metadatos Técnicos de Video"
+            section_title = tr("dialogs.details.section.video_tech")
             if video_metadata:
                 section_title += " (ffprobe)"
             scroll_layout.addWidget(_create_enhanced_section(section_title, video_tech_items))
@@ -596,28 +593,28 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
         
         # Dimensiones
         if metadata.exif_ImageWidth:
-            exif_items.append(("Ancho", f"{metadata.exif_ImageWidth} píxeles", "Ancho de la imagen original", 'ruler', DesignSystem.COLOR_ACCENT))
+            exif_items.append((tr("dialogs.details.exif_tech.width_desc"), f"{metadata.exif_ImageWidth} px", tr("dialogs.details.exif_tech.width_desc"), 'ruler', DesignSystem.COLOR_ACCENT))
         if metadata.exif_ImageLength:
-            exif_items.append(("Alto", f"{metadata.exif_ImageLength} píxeles", "Alto de la imagen original", 'ruler', DesignSystem.COLOR_ACCENT))
+            exif_items.append((tr("dialogs.details.exif_tech.height_desc"), f"{metadata.exif_ImageLength} px", tr("dialogs.details.exif_tech.height_desc"), 'ruler', DesignSystem.COLOR_ACCENT))
         
         # Versión EXIF
         if metadata.exif_ExifVersion:
-            exif_items.append(("Versión EXIF", str(metadata.exif_ExifVersion), "Versión del estándar EXIF usado", 'information', DesignSystem.COLOR_ACCENT))
+            exif_items.append((tr("dialogs.details.exif_tech.version"), str(metadata.exif_ExifVersion), tr("dialogs.details.exif_tech.version_desc"), 'information', DesignSystem.COLOR_ACCENT))
         
         # Software (solo si existe y es relevante - no duplicado)
         if metadata.exif_Software:
-            exif_items.append(("Software", metadata.exif_Software, "Aplicación que creó o modificó el archivo", 'cog', DesignSystem.COLOR_ACCENT))
+            exif_items.append((tr("dialogs.details.exif_tech.software"), metadata.exif_Software, tr("dialogs.details.exif_tech.software_desc"), 'cog', DesignSystem.COLOR_ACCENT))
         
         # Subsegundos
         if metadata.exif_SubSecTimeOriginal:
-            exif_items.append(("Subsegundos", metadata.exif_SubSecTimeOriginal, "Fracción de segundo en la captura original", 'timer-sand', DesignSystem.COLOR_ACCENT))
+            exif_items.append((tr("dialogs.details.exif_tech.subseconds"), metadata.exif_SubSecTimeOriginal, tr("dialogs.details.exif_tech.subseconds_desc"), 'timer-sand', DesignSystem.COLOR_ACCENT))
         
-        # Zona horaria
+        # Timezone
         if metadata.exif_OffsetTimeOriginal:
-            exif_items.append(("Zona horaria", metadata.exif_OffsetTimeOriginal, "Desplazamiento UTC en el momento de captura", 'clock-time-four', DesignSystem.COLOR_ACCENT))
+            exif_items.append((tr("dialogs.details.exif_tech.timezone"), metadata.exif_OffsetTimeOriginal, tr("dialogs.details.exif_tech.timezone_desc"), 'clock-time-four', DesignSystem.COLOR_ACCENT))
         
         if exif_items:
-            scroll_layout.addWidget(_create_enhanced_section("Metadatos Técnicos (EXIF)", exif_items))
+            scroll_layout.addWidget(_create_enhanced_section(tr("dialogs.details.section.exif_tech"), exif_items))
 
     scroll_layout.addStretch()
     scroll_area.setWidget(scroll_widget)
@@ -635,13 +632,13 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     buttons_layout.setSpacing(DesignSystem.SPACE_12)
     
     # Botón de abrir archivo
-    open_file_btn = QPushButton("Abrir Archivo")
+    open_file_btn = QPushButton(tr("dialogs.details.buttons.open_file"))
     open_file_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
     open_file_btn.clicked.connect(lambda: _open_file_and_close(file_path, dialog))
     buttons_layout.addWidget(open_file_btn)
     
     # Botón de abrir carpeta
-    open_folder_btn = QPushButton("Abrir Carpeta")
+    open_folder_btn = QPushButton(tr("dialogs.details.buttons.open_folder"))
     open_folder_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
     open_folder_btn.clicked.connect(lambda: _open_folder_and_close(file_path, dialog))
     buttons_layout.addWidget(open_folder_btn)
@@ -649,7 +646,7 @@ def show_file_details_dialog(file_path: Path, parent_widget=None, additional_inf
     buttons_layout.addStretch()
     
     # Botón cerrar
-    close_btn = QPushButton("Cerrar")
+    close_btn = QPushButton(tr("common.close"))
     close_btn.setStyleSheet(DesignSystem.get_primary_button_style())
     close_btn.clicked.connect(dialog.accept)
     buttons_layout.addWidget(close_btn)
@@ -786,7 +783,7 @@ def _create_dates_section(metadata: 'FileMetadata'):
     from datetime import datetime
     from utils.date_utils import extract_date_from_filename, _parse_exif_date
     
-    group = QGroupBox("Fechas EXIF")
+    group = QGroupBox(tr("dialogs.details.section.exif_dates"))
     group.setStyleSheet(f"""
         QGroupBox {{
             font-size: {DesignSystem.FONT_SIZE_LG}px;
@@ -825,11 +822,11 @@ def _create_dates_section(metadata: 'FileMetadata'):
     if exif_date_time_original:
         tz_info = ""
         if metadata.exif_OffsetTimeOriginal:
-            tz_info = f" (Zona horaria: {metadata.exif_OffsetTimeOriginal})"
+            tz_info = f" (Timezone: {metadata.exif_OffsetTimeOriginal})"
         exif_row = _create_date_row(
             "EXIF DateTimeOriginal", 
             exif_date_time_original.strftime("%Y-%m-%d %H:%M:%S"),
-            f"Fecha de captura original{tz_info}",
+            tr("dialogs.details.exif_dates.original_desc") + tz_info,
             'camera',
             DesignSystem.COLOR_ACCENT
         )
@@ -843,7 +840,7 @@ def _create_dates_section(metadata: 'FileMetadata'):
         exif_row = _create_date_row(
             "EXIF CreateDate", 
             exif_create_date.strftime("%Y-%m-%d %H:%M:%S"),
-            "Fecha de creación del archivo según EXIF",
+            tr("dialogs.details.exif_dates.create_desc"),
             'camera',
             DesignSystem.COLOR_ACCENT
         )
@@ -856,7 +853,7 @@ def _create_dates_section(metadata: 'FileMetadata'):
         exif_row = _create_date_row(
             "EXIF DateTimeDigitized", 
             exif_date_digitized.strftime("%Y-%m-%d %H:%M:%S"),
-            "Fecha de digitalización",
+            tr("dialogs.details.exif_dates.digitized_desc"),
             'camera',
             DesignSystem.COLOR_ACCENT
         )
@@ -869,7 +866,7 @@ def _create_dates_section(metadata: 'FileMetadata'):
         exif_row = _create_date_row(
             "EXIF GPS DateStamp", 
             exif_gps_date.strftime("%Y-%m-%d %H:%M:%S"),
-            "Fecha GPS del archivo",
+            tr("dialogs.details.exif_dates.gps_desc"),
             'map-marker',
             DesignSystem.COLOR_ACCENT
         )
@@ -887,9 +884,9 @@ def _create_dates_section(metadata: 'FileMetadata'):
     filename_date = extract_date_from_filename(metadata.path.name)
     if filename_date:
         filename_row = _create_date_row(
-            "Fecha del nombre", 
+            tr("dialogs.details.exif_dates.filename_label"), 
             filename_date.strftime("%Y-%m-%d %H:%M:%S"),
-            "Extraída del nombre del archivo (WhatsApp, etc.)",
+            tr("dialogs.details.exif_dates.filename_desc"),
             'file-document-outline',
             DesignSystem.COLOR_INFO
         )
@@ -899,9 +896,9 @@ def _create_dates_section(metadata: 'FileMetadata'):
     # Para videos, exif_DateTime contiene la fecha de creación del video
     if metadata.is_video and exif_create_date:
         video_row = _create_date_row(
-            "Metadata de video", 
+            tr("dialogs.details.exif_dates.video_metadata"), 
             exif_create_date.strftime("%Y-%m-%d %H:%M:%S"),
-            "Fecha de creación del video (ffprobe)",
+            tr("dialogs.details.exif_dates.video_metadata_desc"),
             'video',
             DesignSystem.COLOR_INFO
         )
@@ -927,7 +924,7 @@ def _create_best_date_section(metadata: 'FileMetadata'):
     from PyQt6.QtWidgets import QGroupBox, QVBoxLayout
     from ui.styles.design_system import DesignSystem
     
-    group = QGroupBox("Mejor Fecha Disponible")
+    group = QGroupBox(tr("dialogs.details.section.best_date"))
     group.setStyleSheet(f"""
         QGroupBox {{
             font-size: {DesignSystem.FONT_SIZE_LG}px;
@@ -956,9 +953,9 @@ def _create_best_date_section(metadata: 'FileMetadata'):
     layout.setSpacing(DesignSystem.SPACE_12)
     
     best_date_row = _create_date_row(
-        "Fecha seleccionada", 
+        tr("dialogs.details.best_date.label"), 
         metadata.best_date.strftime("%Y-%m-%d %H:%M:%S"),
-        f"Fecha más representativa seleccionada automáticamente (Origen: {metadata.best_date_source})",
+        tr("dialogs.details.best_date.description", source=metadata.best_date_source),
         'calendar-check',
         DesignSystem.COLOR_SUCCESS
     )
@@ -1118,22 +1115,22 @@ def _create_info_row_with_copy(
         if copy_to_clipboard(value_text):
             # Feedback visual: cambiar icono temporalmente a check
             icon_manager.set_button_icon(copy_btn, 'check', size=16, color=DesignSystem.COLOR_SUCCESS)
-            copy_btn.setToolTip("¡Copiado!")
+            copy_btn.setToolTip(tr("dialogs.details.copy_success"))
             
             # Restaurar icono original después de 1.5 segundos
             def restore_icon():
                 icon_manager.set_button_icon(copy_btn, 'content-copy', size=16)
-                copy_btn.setToolTip("Copiar ruta al portapapeles")
+                copy_btn.setToolTip(tr("dialogs.details.copy_path_tooltip"))
             
             QTimer.singleShot(1500, restore_icon)
         else:
             # Error: mostrar icono de error
             icon_manager.set_button_icon(copy_btn, 'alert-circle', size=16, color=DesignSystem.COLOR_ERROR)
-            copy_btn.setToolTip("Error al copiar")
+            copy_btn.setToolTip(tr("dialogs.details.copy_error"))
             
             def restore_icon():
                 icon_manager.set_button_icon(copy_btn, 'content-copy', size=16)
-                copy_btn.setToolTip("Copiar ruta al portapapeles")
+                copy_btn.setToolTip(tr("dialogs.details.copy_path_tooltip"))
             
             QTimer.singleShot(2000, restore_icon)
     

@@ -75,7 +75,7 @@ def validate() -> int:
     # Check for empty values in base
     empty_base = [k for k, v in base.items() if not v.strip()]
     if empty_base:
-        print(f"\n⚠ Empty values in {BASE_LANGUAGE}.json:")
+        print(f"\n[WARNING] Empty values in {BASE_LANGUAGE}.json:")
         for k in sorted(empty_base):
             print(f"  - {k}")
             issues += 1
@@ -92,22 +92,22 @@ def validate() -> int:
         # Missing keys
         missing = base_keys - target_keys
         if missing:
-            print(f"\n❌ Missing keys in {lang}.json ({len(missing)}):")
+            print(f"\n[ERROR] Missing keys in {lang}.json ({len(missing)}):")
             for k in sorted(missing):
                 print(f"  - {k}")
                 issues += 1
         else:
-            print(f"✅ No missing keys")
+            print(f"[OK] No missing keys")
 
         # Extra keys
         extra = target_keys - base_keys
         if extra:
-            print(f"\n⚠ Extra keys in {lang}.json (not in {BASE_LANGUAGE}): ({len(extra)})")
+            print(f"\n[WARNING] Extra keys in {lang}.json (not in {BASE_LANGUAGE}): ({len(extra)})")
             for k in sorted(extra):
                 print(f"  + {k}")
                 issues += 1
         else:
-            print(f"✅ No extra keys")
+            print(f"[OK] No extra keys")
 
         # Placeholder mismatches
         placeholder_issues = []
@@ -118,31 +118,31 @@ def validate() -> int:
                 placeholder_issues.append((key, base_ph, target_ph))
 
         if placeholder_issues:
-            print(f"\n❌ Placeholder mismatches ({len(placeholder_issues)}):")
+            print(f"\n[ERROR] Placeholder mismatches ({len(placeholder_issues)}):")
             for key, base_ph, target_ph in sorted(placeholder_issues):
                 print(f"  {key}:")
                 print(f"    {BASE_LANGUAGE}: {base_ph}")
                 print(f"    {lang}: {target_ph}")
                 issues += 1
         else:
-            print(f"✅ All placeholders match")
+            print(f"[OK] All placeholders match")
 
         # Empty values
         empty = [k for k in target_keys & base_keys if not target[k].strip()]
         if empty:
-            print(f"\n⚠ Empty values in {lang}.json ({len(empty)}):")
+            print(f"\n[WARNING] Empty values in {lang}.json ({len(empty)}):")
             for k in sorted(empty):
                 print(f"  - {k}")
                 issues += 1
         else:
-            print(f"✅ No empty values")
+            print(f"[OK] No empty values")
 
     # Summary
     print("\n" + "=" * 50)
     if issues == 0:
-        print("✅ All translations are valid!")
+        print("[OK] All translations are valid!")
     else:
-        print(f"❌ Found {issues} issue(s)")
+        print(f"[ERROR] Found {issues} issue(s)")
     print("=" * 50)
 
     return issues

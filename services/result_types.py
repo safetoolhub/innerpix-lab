@@ -519,7 +519,7 @@ class DirectoryScanResult:
 
 @dataclass
 class ScanSnapshot:
-    """Simple snapshot of scan results for Stage 2 → Stage 3 transition."""
+    """Simple snapshot of scan results for Stage 2 -> Stage 3 transition."""
     directory: Path
     scan: DirectoryScanResult
     

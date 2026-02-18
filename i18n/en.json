@@ -57,15 +57,15 @@
       "no_groups": "No groups to display",
       "load_n_more": "Load {count} more",
       "load_n_more_tooltip": "Load {count} more items ({remaining} remaining)",
-      "all_loaded": "✓ All loaded",
+      "all_loaded": "All loaded",
       "progress_text": "{percent}% loaded in list ({loaded} of {total})",
       "no_items": "No items to display"
     },
     "status": {
       "will_keep": "Will be kept",
       "will_delete": "Will be deleted",
-      "mark_keep": "✓ Keep",
-      "mark_delete": "✗ Delete"
+      "mark_keep": "Keep",
+      "mark_delete": "Delete"
     },
     "tooltip": {
       "settings": "Settings",
@@ -74,8 +74,8 @@
       "size": "Size:",
       "date": "Date:",
       "date_source": "Date source:",
-      "will_keep": "✓ Will be kept",
-      "will_delete": "✗ Will be deleted"
+      "will_keep": "Will be kept",
+      "will_delete": "Will be deleted"
     },
     "details": {
       "group_space": "Group space",
@@ -277,7 +277,7 @@
   "progress_card": {
     "header_title": "Analyzing folder",
     "status_analyzing": "Analyzing your collection...",
-    "status_completed": "✓ Analysis completed — Loading results..."
+    "status_completed": "Analysis completed - Loading results..."
   },
   "summary_card": {
     "label_folder": "Folder:",
@@ -351,10 +351,10 @@
         "check_button_tooltip": "Check if the tools are installed",
         "install_how": "📦 How to install these tools?",
         "install_hide": "📦 Hide installation instructions",
-        "ffprobe_installed": "✅ ffprobe: Installed",
-        "ffprobe_not_installed": "❌ ffprobe: Not installed",
-        "exiftool_installed": "✅ exiftool: Installed",
-        "exiftool_not_installed": "❌ exiftool: Not installed",
+        "ffprobe_installed": "ffprobe: Installed",
+        "ffprobe_not_installed": "ffprobe: Not installed",
+        "exiftool_installed": "exiftool: Installed",
+        "exiftool_not_installed": "exiftool: Not installed",
         "install_your_system": "Your system:",
         "install_windows": "Download from ffmpeg.org and exiftool.org"
       },
@@ -366,7 +366,7 @@
         "image_exif": "Extract EXIF metadata from images",
         "image_exif_tooltip": "Extracts EXIF metadata from all images during the initial scan.\n\nADVANTAGES:\n  • Organization and rename tools are faster\n  • Moderate cost during initial scan (~30-60 sec for 30k photos)\n\nDISADVANTAGES:\n  • Adds time to the initial scan\n\nRECOMMENDATION: Leave ENABLED (the cost is reasonable and useful for most users).",
         "video_exif": "Extract EXIF metadata from videos (VERY SLOW)",
-        "video_exif_tooltip": "Extracts video metadata using ffprobe during the initial scan.\n\n⚠️ WARNING: This process is EXTREMELY SLOW\n  • For 5,000 videos: ~3-10 additional minutes\n  • Blocks the initial scan\n\nADVANTAGES:\n  • Video organization tool has data ready\n\nDISADVANTAGES:\n  • Makes the initial scan MUCH slower\n  • Most users don't organize videos by date\n\nRECOMMENDATION: Leave DISABLED (on-demand analysis is much more efficient)."
+        "video_exif_tooltip": "Extracts video metadata using ffprobe during the initial scan.\n\nWARNING: This process is EXTREMELY SLOW\n  • For 5,000 videos: ~3-10 additional minutes\n  • Blocks the initial scan\n\nADVANTAGES:\n  • Video organization tool has data ready\n\nDISADVANTAGES:\n  • Makes the initial scan MUCH slower\n  • Most users don't organize videos by date\n\nRECOMMENDATION: Leave DISABLED (on-demand analysis is much more efficient)."
       }
     },
     "backup": {
@@ -406,7 +406,7 @@
       "performance": {
         "title": "Performance",
         "auto_info": "🤖 Automatic configuration based on your hardware:\n   • CPU Cores: {cpu_count}\n   • I/O Workers (recommended): {io_workers}\n   • CPU Workers (recommended): {cpu_workers}",
-        "override_label": "⚠️ Manual override (set to 0 for automatic):",
+        "override_label": "Manual override (set to 0 for automatic):",
         "workers_label": "Processing threads:",
         "workers_auto": "Automatic",
         "workers_tooltip": "Number of parallel threads for processing files.\n\n• 0 (Automatic): Detects and uses the optimal number for your hardware\n• I/O workers: {io_workers} (reading/hashing)\n• CPU workers: {cpu_workers} (image analysis)\n\nOnly change this if you experience performance issues.\nValid range: 1-{max_workers}",
@@ -583,7 +583,8 @@
         "size_quantity_label": "Size / Quantity",
         "size_quantity_tooltip": "Filter by size or quantity",
         "showing_all": "Showing all {entity}: {count}",
-        "filtered_tooltip": "Filtered {entity}: {filtered}\nTotal {entity}: {total}"
+        "filtered_tooltip": "Filtered {entity}: {filtered}\nTotal {entity}: {total}",
+        "loaded_in_list": "(Loaded in list: {loaded} of {total})"
       },
       "progress": {
         "indicator_tooltip": "Shows how many items have been loaded in the list.\nFor performance, items are loaded in batches.\nUse 'Load more' to see additional items.",
@@ -594,7 +595,7 @@
         "no_items": "No items to display",
         "load_n_more": "Load {count} more",
         "load_n_more_tooltip": "Load {count} more items ({remaining} remaining)",
-        "all_loaded": "✓ All loaded"
+        "all_loaded": "All loaded"
       },
       "date_source": {
         "all": "All",
@@ -608,8 +609,8 @@
       "error_open_folder": "Error opening folder",
       "group_tooltip_expand": "Double-click to expand and view file details",
       "group_tooltip_columns": "Columns show information for each individual file",
-      "status_keep": "✓ Keep",
-      "status_delete": "✗ Delete",
+      "status_keep": "Keep",
+      "status_delete": "Delete",
       "menu": {
         "open_file": "Open file",
         "open_folder": "Open containing folder",
@@ -713,7 +714,7 @@
       "metric_duplicates": "Duplicates",
       "metric_recoverable": "Recoverable",
       "tip_message": "<b>Tip:</b> This tool detects images (videos coming soon) that are <i>100% visually identical</i> (same visual content). To detect <i>similar</i> images with variations (crops, edits, filters), use \"Similar Files\".",
-      "warning_many_groups": "<b>ℹ️ {count} groups found.</b> {initial} groups are loaded initially. Use search and filters to find specific groups.",
+      "warning_many_groups": "<b>{count} groups found.</b> {initial} groups are loaded initially. Use search and filters to find specific groups.",
       "option_backup": "Create backup before deleting",
       "option_dry_run": "Simulation mode (don't actually delete)",
       "button_delete": "Delete duplicates",
@@ -741,7 +742,7 @@
       },
       "tooltip": {
         "group_desc": "{count} visually identical files",
-        "size_variation": "⚠ Size variation: {pct:.0f}%"
+        "size_variation": "Size variation: {pct:.0f}%"
       },
       "details": {
         "group_desc": "{count} visually identical files"
@@ -751,7 +752,7 @@
       "metric_groups": "Groups",
       "metric_copies": "Copies",
       "metric_recoverable": "Recoverable",
-      "warning_many_groups": "<b>ℹ️ {count} groups found.</b> {initial} groups are loaded initially. Use search and filters to find specific groups.",
+      "warning_many_groups": "<b>{count} groups found.</b> {initial} groups are loaded initially. Use search and filters to find specific groups.",
       "option_backup": "Create backup before deleting",
       "option_dry_run": "Simulation mode (don't actually delete)",
       "button_delete": "Delete duplicates",
@@ -784,7 +785,7 @@
         "load_all_tooltip": "Load all remaining groups at once",
         "progress_text": "{percent}% loaded in list ({loaded} of {total} groups)",
         "load_more_tooltip": "Load {count} more groups ({remaining} remaining)",
-        "all_loaded": "✓ All loaded",
+        "all_loaded": "All loaded",
         "load_all_msg": "There are {count} groups pending to load.\nThis may take a while and affect performance.\n\nContinue?"
       }
     },
@@ -922,8 +923,8 @@
       "tree": {
         "folder_label": "📁 {name} ({count} files)",
         "folder_tooltip": "Folder: {path}\n{count} files to rename",
-        "conflicts_tooltip": "⚠️ {count} conflicts",
-        "conflict_file_tooltip": "⚠️ Conflict: A numeric suffix will be added"
+        "conflicts_tooltip": "{count} conflicts",
+        "conflict_file_tooltip": "Conflict: A numeric suffix will be added"
       },
       "dialog_load_all_title": "Load all files",
       "dialog_load_all_msg": "There are {count} files in {folders} folders. Are you sure you want to load them all?\nThis may take a while and consume memory.",
@@ -963,7 +964,7 @@
         }
       },
       "example_title": "Preview:",
-      "button_back": "← Change",
+      "button_back": "< Change",
       "button_back_tooltip": "Go back to choose another organization strategy",
       "options": {
         "date_label": "By Date",
@@ -1107,7 +1108,7 @@
         "strategy_name": "Auto-Selection (Best Images)",
         "title": "Confirm Auto-Selection: {name}",
         "text_filtered": "<b>Apply '{name}' selection to the {count} filtered groups?</b>",
-        "info_filtered": "ℹ️ <b>NOTE:</b><br><br>This action will be applied <b>only</b> to the <b>{filtered} groups</b> that match the current filters.<br><br>The <b>{remaining} remaining groups</b> will <b>keep their current selection</b> unchanged.<br><br>You can change the filters and repeat the operation for other groups.",
+        "info_filtered": "<b>NOTE:</b><br><br>This action will be applied <b>only</b> to the <b>{filtered} groups</b> that match the current filters.<br><br>The <b>{remaining} remaining groups</b> will <b>keep their current selection</b> unchanged.<br><br>You can change the filters and repeat the operation for other groups.",
         "text_all": "<b>Apply '{name}' selection to all {count} groups?</b>",
         "info_all": "This action will select the largest file as the one to <b>keep</b> in each group.<br><br>The other files in the group will be marked for <b>deletion</b>."
       },
@@ -1117,7 +1118,7 @@
     },
     "image_preview": {
       "window_title": "Preview - {filename}",
-      "error_loading": "❌ Could not load the image",
+      "error_loading": "Could not load the image",
       "button_close": "Close"
     }
   },

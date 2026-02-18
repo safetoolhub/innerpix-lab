@@ -188,7 +188,7 @@ class BaseStage(QObject):
         """
         Invalida completamente la caché de metadatos del singleton FileInfoRepositoryCache.
         
-        ⚠️  ATENCIÓN: Este método debe usarse CON MUCHA PRECAUCIÓN.
+                CAUTION: This method should be used WITH GREAT CARE.
         
         Solo debe llamarse en situaciones excepcionales donde:
         - Ha ocurrido un error grave durante operaciones destructivas
@@ -274,7 +274,7 @@ class BaseStage(QObject):
         
         if invalidated:
             self.logger.info(
-                f"📋 Analyses invalidated after {executed_tool_id}: {', '.join(invalidated)}. "
+                f"Analyses invalidated after {executed_tool_id}: {', '.join(invalidated)}. "
                 f"They will be re-analyzed when clicking on each tool."
             )
 

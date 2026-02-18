@@ -111,7 +111,7 @@ class HeicService(BaseService):
         # Clasificar archivos
         for i, meta in enumerate(all_files):
             try:
-                if i % 1000 == 0 and not self._report_progress(progress_callback, i, total_files, "Clasificando archivos HEIC/JPG"):
+                if i % 1000 == 0 and not self._report_progress(progress_callback, i, total_files, "Classifying HEIC/JPG files"):
                     return self._create_empty_result()
                     
                 extension = meta.extension
@@ -155,7 +155,7 @@ class HeicService(BaseService):
         for directory, heic_dict in heic_by_dir.items():
             processed_dirs += 1
             if processed_dirs % 10 == 0: # Report less frequently
-                 self._report_progress(progress_callback, processed_dirs, total_dirs, "Emparejando archivos...")
+                 self._report_progress(progress_callback, processed_dirs, total_dirs, "Matching files...")
 
             if directory not in jpg_by_dir:
                 continue
@@ -317,7 +317,7 @@ class HeicService(BaseService):
                 success=True,
                 items_processed=0,
                 bytes_processed=0,
-                message='No hay archivos duplicados para eliminar',
+                message='No duplicate files to delete',
                 format_kept=keep_format,
                 dry_run=dry_run
             )
@@ -365,7 +365,7 @@ class HeicService(BaseService):
         bytes_processed = 0
         
         for idx, pair in enumerate(duplicate_pairs):
-             if not self._report_progress(progress_callback, idx+1, total_pairs, f"Procesando par {idx+1}/{total_pairs}"):
+             if not self._report_progress(progress_callback, idx+1, total_pairs, f"Processing pair {idx+1}/{total_pairs}"):
                  break
                  
              file_to_delete = pair.heic_path if keep_format.lower() == 'jpg' else pair.jpg_path
@@ -385,7 +385,7 @@ class HeicService(BaseService):
                      files_affected.append(file_to_delete)
                  else:
                      self.logger.warning(
-                         f"ARCHIVO_DESCARTADO: {file_to_delete} | "
+                         f"FILE_DISCARDED: {file_to_delete} | "
                          f"Size: {format_size(file_size)} | "
                          f"Type: {format_deleted} | "
                          f"Reason: Could not delete file"
@@ -405,7 +405,7 @@ class HeicService(BaseService):
         total_descartados = total_pairs - items_processed
         if total_descartados > 0:
             self.logger.warning(
-                f"RESUMEN_DESCARTADOS: {total_descartados}/{total_pairs} files could not be deleted"
+                f"DISCARDED_SUMMARY: {total_descartados}/{total_pairs} files could not be deleted"
             )
 
         # Resumen

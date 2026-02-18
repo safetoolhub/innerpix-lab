@@ -184,7 +184,7 @@ class FileOrganizerDialog(BaseDialog):
                 'title': tr("dialogs.file_organizer.strategy.date.title"),
                 'description': tr("dialogs.file_organizer.strategy.date.desc"),
                 'hint': tr("dialogs.file_organizer.strategy.date.hint"),
-                'example': '📁 2024_01/\n📁 2024_02/\n📁 2024_03/\n📁 2025_12/',
+                'example': '2024_01/\n2024_02/\n2024_03/\n2025_12/',
                 'row': 0, 'col': 0
             },
             {
@@ -193,7 +193,7 @@ class FileOrganizerDialog(BaseDialog):
                 'title': tr("dialogs.file_organizer.strategy.type.title"),
                 'description': tr("dialogs.file_organizer.strategy.type.desc"),
                 'hint': tr("dialogs.file_organizer.strategy.type.hint"),
-                'example': '📁 Fotos/\n📁 Videos/\n📁 Otros/',
+                'example': 'Photos/\nVideos/\nOthers/',
                 'row': 0, 'col': 1
             },
             {
@@ -202,7 +202,7 @@ class FileOrganizerDialog(BaseDialog):
                 'title': tr("dialogs.file_organizer.strategy.source.title"),
                 'description': tr("dialogs.file_organizer.strategy.source.desc"),
                 'hint': tr("dialogs.file_organizer.strategy.type.hint"),
-                'example': '📁 Cámara/\n📁 WhatsApp/\n📁 Instagram/\n📁 Otros/',
+                'example': 'Camera/\nWhatsApp/\nInstagram/\nOthers/',
                 'row': 1, 'col': 0
             },
             {
@@ -211,7 +211,7 @@ class FileOrganizerDialog(BaseDialog):
                 'title': tr("dialogs.file_organizer.strategy.cleanup.title"),
                 'description': tr("dialogs.file_organizer.strategy.cleanup.desc"),
                 'hint': '',
-                'example': '📄 IMG_001.jpg\n📄 VID_002.mp4\n📄 photo.heic\n(sin subcarpetas)',
+                'example': 'IMG_001.jpg\nVID_002.mp4\nphoto.heic\n(no subfolders)',
                 'row': 1, 'col': 1
             }
         ]
@@ -1541,7 +1541,7 @@ class FileOrganizerDialog(BaseDialog):
             parent.setForeground(0, QColor("#ff9800"))
         elif category == "Screenshot":
             parent.setForeground(0, QColor("#9c27b0"))
-        elif category in ("Fotos", "Videos"):
+        elif category in ("Photos", "Videos"):
             parent.setForeground(0, QColor(DesignSystem.COLOR_PRIMARY))
         else:
             parent.setForeground(0, QColor(DesignSystem.COLOR_TEXT_SECONDARY))
@@ -1634,12 +1634,12 @@ class FileOrganizerDialog(BaseDialog):
             'conflict': move.has_conflict,
             'sequence': move.sequence if move.has_conflict else None,
             'metadata': {
-                'Subdirectorio origen': move.subdirectory,
+                tr('dialogs.file_organizer.details.subdir'): move.subdirectory,
             }
         }
         
         if move.target_folder:
-            additional_info['metadata']['Carpeta destino'] = move.target_folder
+            additional_info['metadata'][tr('dialogs.file_organizer.details.target_folder')] = move.target_folder
         
         show_file_details_dialog(file_path, self, additional_info)
     
@@ -1654,7 +1654,7 @@ class FileOrganizerDialog(BaseDialog):
         """Acepta el diálogo y construye el plan"""
         # Validar que hay archivos para mover
         if not self.analysis or not self.analysis.move_plan:
-            self.show_no_items_message("archivos para organizar")
+            self.show_no_items_message(tr("dialogs.file_organizer.no_items_type"))
             return
         
         # Pasar el analysis completo + parámetros por separado

@@ -44,12 +44,12 @@ class MainWindow(QMainWindow):
             cache_file = Path(Config.SAVED_CACHE_DEV_MODE_PATH)
             
             if cache_file.exists():
-                self.logger.info(f"🔧 Dev mode: Loading specific cache {cache_file}")
+                self.logger.info(f"Dev mode: Loading specific cache {cache_file}")
                 # En este caso, no conocemos el folder_path aún, lo inferiremos dentro de _load_cache_and_transition
                 if self._load_cache_and_transition(None, cache_file):
                     return
             else:
-                msg = f"🔧 CRITICAL ERROR Dev mode: Cache file not found at {cache_file}"
+                msg = f"CRITICAL ERROR Dev mode: Cache file not found at {cache_file}"
                 self.logger.error(msg)
                 print(msg)
                 print("Aborting execution due to invalid dev configuration.")
@@ -270,7 +270,7 @@ class MainWindow(QMainWindow):
             # operar sobre una carpeta diferente a la de los datos cargados.
             if Config.DEVELOPMENT_MODE:
                 settings_manager.set('last_analyzed_folder', str(folder_path))
-                self.logger.info(f"🔧 Development mode: Active folder updated to: {folder_path}")
+                self.logger.info(f"Development mode: Active folder updated to: {folder_path}")
             
             for metadata in all_files:
                 path = metadata.path

@@ -110,7 +110,7 @@ class LivePhotoService(BaseService):
         videos_without_duration = []
         for i, meta in enumerate(all_files):
             if i % 1000 == 0 and not self._report_progress(
-                progress_callback, i, total_files, "Clasificando archivos..."
+                progress_callback, i, total_files, "Classifying files..."
             ):
                 return self._create_empty_result()
             
@@ -159,7 +159,7 @@ class LivePhotoService(BaseService):
             processed_dirs += 1
             if processed_dirs % 10 == 0:
                 self._report_progress(
-                    progress_callback, processed_dirs, total_dirs, "Emparejando Live Photos..."
+                    progress_callback, processed_dirs, total_dirs, "Matching Live Photos..."
                 )
             
             if directory not in photos_by_dir:
@@ -200,7 +200,7 @@ class LivePhotoService(BaseService):
                             self.logger.debug(
                                 f"Grupo admitido {base_name}: "
                                 f"source={group.date_source}, diff={diff_str}, "
-                                f"imágenes={group.image_count}"
+                                f"images={group.image_count}"
                             )
                             groups.append(group)
                             
@@ -263,7 +263,7 @@ class LivePhotoService(BaseService):
                 success=True,
                 items_processed=0,
                 bytes_processed=0,
-                message='No hay Live Photos para limpiar',
+                message='No Live Photos to clean up',
                 dry_run=dry_run,
                 videos_deleted=0
             )
@@ -323,9 +323,9 @@ class LivePhotoService(BaseService):
                 
                 if not best_date_result:
                     # No hay fecha común válida - rechazar esta imagen
-                    reason = "sin fecha común"
+                    reason = "no common date"
                     self.logger.debug(
-                        f"Imagen rechazada ({reason}) para {base_name}: {photo_meta.path.name}"
+                        f"Image rejected ({reason}) for {base_name}: {photo_meta.path.name}"
                     )
                     rejected_images[photo_meta.path.name] = reason
                     continue
@@ -337,8 +337,8 @@ class LivePhotoService(BaseService):
                 if time_diff > Config.LIVE_PHOTO_MAX_TIME_DIFFERENCE_SECONDS:
                     reason = f"diff={format_duration(time_diff)} > {format_duration(Config.LIVE_PHOTO_MAX_TIME_DIFFERENCE_SECONDS)}"
                     self.logger.debug(
-                        f"Imagen rechazada ({reason}) "
-                        f"para {base_name}: {photo_meta.path.name}"
+                        f"Image rejected ({reason}) "
+                        f"for {base_name}: {photo_meta.path.name}"
                     )
                     rejected_images[photo_meta.path.name] = reason
                     continue
@@ -375,9 +375,9 @@ class LivePhotoService(BaseService):
             accepted_names = [img.path.name for img in images]
             rejected_with_reasons = [f"{name} ({reason})" for name, reason in rejected_images.items()]
             self.logger.info(
-                f"Grupo '{base_name}' en {directory}: "
-                f"{len(images)} aceptadas [{', '.join(accepted_names)}], "
-                f"{len(rejected_images)} rechazadas [{', '.join(rejected_with_reasons)}]"
+                f"Group '{base_name}' in {directory}: "
+                f"{len(images)} accepted [{', '.join(accepted_names)}], "
+                f"{len(rejected_images)} rejected [{', '.join(rejected_with_reasons)}]"
             )
         
         # Si no hay imágenes válidas, crear un grupo vacío para rejected_groups
@@ -454,7 +454,7 @@ class LivePhotoService(BaseService):
                     progress_callback, 
                     idx + 1, 
                     total, 
-                    f"{'[Simulación] ' if dry_run else ''}Evaluando {video_path.name}"
+                    f"{'[Simulation] ' if dry_run else ''}Evaluating {video_path.name}"
                 ):
                     self.logger.info("Cleanup cancelled by user")
                     break
@@ -488,7 +488,7 @@ class LivePhotoService(BaseService):
                     if video_duration is not None and video_duration > max_duration:
                         videos_protected += 1
                         self.logger.warning(
-                            f"⛔ VIDEO PROTECTED: {video_path} will not be deleted "
+                            f"VIDEO PROTECTED: {video_path} will not be deleted "
                             f"(duration: {video_duration:.2f}s > {max_duration}s). "
                             f"Probably NOT a real Live Photo."
                         )
@@ -504,12 +504,12 @@ class LivePhotoService(BaseService):
                         # Warning si el video es grande (aunque se elimine)
                         if video_size > Config.LIVE_PHOTO_MAX_VIDEO_SIZE:
                             self.logger.warning(
-                                f"⚠️ SUSPECT: Large video {'in' if dry_run else 'deleted in'} "
+                                f"SUSPECT: Large video {'in' if dry_run else 'deleted in'} "
                                 f"Live Photo: {video_path} ({format_size(video_size)})"
                             )
                     else:
                         self.logger.warning(
-                            f"ARCHIVO_DESCARTADO: {video_path} | "
+                            f"FILE_DISCARDED: {video_path} | "
                             f"Size: {format_size(video_size)} | "
                             f"Reason: Could not delete file"
                         )
@@ -523,7 +523,7 @@ class LivePhotoService(BaseService):
             total_descartados = total - videos_deleted - videos_protected
             if total_descartados > 0:
                 self.logger.warning(
-                    f"RESUMEN_DESCARTADOS: {total_descartados}/{total} files could not be deleted "
+                    f"DISCARDED_SUMMARY: {total_descartados}/{total} files could not be deleted "
                     f"(protected by duration: {videos_protected}, not found or failed: {total_descartados})"
                 )
 
@@ -565,7 +565,7 @@ class LivePhotoService(BaseService):
                 result.message += f"\nWarning: {len(result.errors)} errors"
             
             if videos_protected > 0:
-                result.message += f"\n⛔ {videos_protected} videos protected (duration > {max_duration}s)"
+                result.message += f"\n{videos_protected} videos protected (duration > {max_duration}s)"
 
         except Exception as e:
             error_msg = f"Error during cleanup: {str(e)}"
@@ -602,18 +602,18 @@ class LivePhotoService(BaseService):
         
         if short_videos:
             self.logger.info(
-                f"📋 FINAL ANALYSIS: {len(short_videos)} short MOV videos "
+                f"FINAL ANALYSIS: {len(short_videos)} short MOV videos "
                 f"(≤{max_duration}s) remain in the dataset:"
             )
             for path, duration in sorted(short_videos, key=lambda x: x[0]):
                 self.logger.info(f"   - {path} ({duration:.2f}s)")
             self.logger.info(
-                "   ℹ️ Review these videos: they could be undetected Live Photos "
+                "   Review these videos: they could be undetected Live Photos "
                 "(base name doesn't match an image or dates are very different)"
             )
         else:
             self.logger.info(
-                f"✅ No short MOV videos (≤{max_duration}s) remain in the dataset"
+                f"No short MOV videos (<={max_duration}s) remain in the dataset"
             )
 
     def _ensure_video_durations(
@@ -635,7 +635,7 @@ class LivePhotoService(BaseService):
             return
         
         self.logger.info(
-            f"📹 Calculating duration of {len(videos)} videos without metadata..."
+            f"Calculating duration of {len(videos)} videos without metadata..."
         )
         
         # Verificar si hay herramientas disponibles
@@ -645,7 +645,7 @@ class LivePhotoService(BaseService):
         
         if not has_ffprobe and not has_exiftool:
             self.logger.warning(
-                "⚠️ ffprobe and exiftool not found. "
+                "ffprobe and exiftool not found. "
                 "Cannot calculate video durations. "
                 "Install ffmpeg or exiftool to enable this feature."
             )
@@ -666,7 +666,7 @@ class LivePhotoService(BaseService):
                     progress_callback, 
                     i, 
                     len(videos), 
-                    f"Extrayendo duración de videos ({i}/{len(videos)})..."
+                    f"Extracting video duration ({i}/{len(videos)})..."
                 )
             
             try:
@@ -694,11 +694,11 @@ class LivePhotoService(BaseService):
         
         if calculated > 0:
             self.logger.info(
-                f"✅ Duration calculated for {calculated} videos"
+                f"Duration calculated for {calculated} videos"
             )
         if failed > 0:
             self.logger.warning(
-                f"⚠️ Could not get duration of {failed} videos "
+                f"Could not get duration of {failed} videos "
                 f"(may not be valid videos or may be corrupt)"
             )
 

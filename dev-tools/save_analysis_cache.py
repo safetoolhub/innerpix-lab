@@ -92,7 +92,7 @@ def run_analysis_and_save(folder_path, logger):
         logger.info(f"CONFIGURATION LOADED FROM SETTINGS:")
         logger.info(f"  - Hashes: {calculate_hashes}")
         logger.info(f"  - Image EXIF: {extract_image_exif}")
-        logger.info(f"  - Video EXIF: {extract_video_exif} ← CHECK THIS")
+        logger.info(f"  - Video EXIF: {extract_video_exif} <-- CHECK THIS")
         logger.info("="*60)
         
         # Configure what to scan (respecting user settings)
@@ -124,7 +124,7 @@ def run_analysis_and_save(folder_path, logger):
         logger.info(f"Saving cache to: {output_file}")
         repo.save_to_disk(output_file)
         
-        logger.info("✓ Cache saved successfully")
+        logger.info("Cache saved successfully")
         return True
         
     except Exception as e:

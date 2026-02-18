@@ -253,7 +253,7 @@ class BaseService(ABC):
         # Log de archivos omitidos por no existir
         if skipped_missing:
             self.logger.warning(
-                f"⚠️ {len(skipped_missing)} files skipped from backup (no longer exist, "
+                f"{len(skipped_missing)} files skipped from backup (no longer exist, "
                 f"possibly deleted by another operation):"
             )
             for missing_path in skipped_missing[:10]:  # Show max 10

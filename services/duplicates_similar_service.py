@@ -187,7 +187,7 @@ class DuplicatesSimilarAnalysis:
         start_time = time.time()
         
         self._logger.info(
-            f"🔍 Starting clustering with sensitivity {sensitivity}% for {len(self.perceptual_hashes)} files..."
+            f"Starting clustering with sensitivity {sensitivity}% for {len(self.perceptual_hashes)} files..."
         )
         
         # Convertir sensibilidad a threshold de Hamming distance
@@ -203,7 +203,7 @@ class DuplicatesSimilarAnalysis:
         
         elapsed = time.time() - start_time
         self._logger.info(
-            f"⚡ Clustering completed in {elapsed:.3f}s ({len(groups)} groups found)"
+            f"Clustering completed in {elapsed:.3f}s ({len(groups)} groups found)"
         )
         
         # Calcular estadísticas
@@ -299,7 +299,7 @@ class DuplicatesSimilarAnalysis:
                     return []
         
         tree_time = time.time() - tree_start
-        self._logger.info(f"  🌲 BK-Tree built: {len(bk_tree)} nodes in {tree_time:.3f}s")
+        self._logger.info(f"  BK-Tree built: {len(bk_tree)} nodes in {tree_time:.3f}s")
         
         # Fase 2: Búsqueda y agrupación
         search_start = time.time()
@@ -378,7 +378,7 @@ class DuplicatesSimilarAnalysis:
         
         search_time = time.time() - search_start
         self._logger.info(
-            f"  🔎 Searches: {total_searches} files, {total_matches} total matches in {search_time:.3f}s"
+            f"  Searches: {total_searches} files, {total_matches} total matches in {search_time:.3f}s"
         )
         
         # Ordenar grupos por variación de tamaño (más variación = más relevante)
@@ -390,7 +390,7 @@ class DuplicatesSimilarAnalysis:
             max_variation = max(variations) if variations else 0
             avg_variation = sum(variations) / len(variations) if variations else 0
             self._logger.info(
-                f"  📊 Size variation - Max: {max_variation:.1f}%, Average: {avg_variation:.1f}%"
+                f"  Size variation - Max: {max_variation:.1f}%, Average: {avg_variation:.1f}%"
             )
         
         return groups
@@ -684,7 +684,7 @@ class DuplicatesSimilarService(BaseService):
         )
         
         if backup_path:
-            result.message += f"\n\nBackup creado en:\n{backup_path}"
+            result.message += f"\n\nBackup created at:\n{backup_path}"
         
         log_section_footer_relevant(self.logger, result.message)
         
@@ -728,8 +728,8 @@ class DuplicatesSimilarService(BaseService):
         
         if total_missing > 0:
             self.logger.warning(
-                f"⚠️ {total_missing} files no longer exist. "
-                f"Groups: {len(groups)} → {len(filtered)}"
+                f"{total_missing} files no longer exist. "
+                f"Groups: {len(groups)} -> {len(filtered)}"
             )
         
         return filtered
@@ -841,7 +841,7 @@ class DuplicatesSimilarService(BaseService):
         log_section_header_discrete(self.logger, "PERCEPTUAL HASH CALCULATION")
         hash_calc_start = time.time()
         self.logger.info(
-            f"⏳ Calculating perceptual hashes (algorithm={algorithm}, "
+            f"Calculating perceptual hashes (algorithm={algorithm}, "
             f"hash_size={hash_size}, target={target})..."
         )
         
@@ -953,12 +953,12 @@ class DuplicatesSimilarService(BaseService):
         # Log stats
         hash_calc_time = time.time() - hash_calc_start
         self.logger.info(
-            f"✅ Hashes calculated: {analysis.total_files} in {hash_calc_time:.1f}s "
+            f"Hashes calculated: {analysis.total_files} in {hash_calc_time:.1f}s "
             f"({analysis.total_files/max(hash_calc_time, 0.1):.1f} files/s)"
         )
         
         if errors > 0:
-            self.logger.warning(f"⚠️  Errors: {errors}, Timeouts: {timeouts}")
+            self.logger.warning(f"Errors: {errors}, Timeouts: {timeouts}")
         
         return analysis
 

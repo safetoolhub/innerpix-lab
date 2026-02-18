@@ -57,15 +57,15 @@
       "no_groups": "Sin grupos que mostrar",
       "load_n_more": "Cargar {count} más",
       "load_n_more_tooltip": "Cargar {count} elementos más ({remaining} pendientes)",
-      "all_loaded": "✓ Todos cargados",
+      "all_loaded": "Todos cargados",
       "progress_text": "{percent}% cargado en lista ({loaded} de {total})",
       "no_items": "Sin elementos que mostrar"
     },
     "status": {
       "will_keep": "Se mantendrá",
       "will_delete": "Se eliminará",
-      "mark_keep": "✓ Conservar",
-      "mark_delete": "✗ Eliminar"
+      "mark_keep": "Conservar",
+      "mark_delete": "Eliminar"
     },
     "tooltip": {
       "settings": "Configuración",
@@ -74,8 +74,8 @@
       "size": "Tamaño:",
       "date": "Fecha:",
       "date_source": "Origen fecha:",
-      "will_keep": "✓ Se conservará",
-      "will_delete": "✗ Se eliminará"
+      "will_keep": "Se conservará",
+      "will_delete": "Se eliminará"
     },
     "details": {
       "group_space": "Espacio grupo",
@@ -277,7 +277,7 @@
   "progress_card": {
     "header_title": "Analizando carpeta",
     "status_analyzing": "Analizando tu colección...",
-    "status_completed": "✓ Análisis completado — Cargando resultados..."
+    "status_completed": "Análisis completado - Cargando resultados..."
   },
   "summary_card": {
     "label_folder": "Carpeta:",
@@ -351,10 +351,10 @@
         "check_button_tooltip": "Verificar si las herramientas están instaladas",
         "install_how": "📦 ¿Cómo instalar estas herramientas?",
         "install_hide": "📦 Ocultar instrucciones de instalación",
-        "ffprobe_installed": "✅ ffprobe: Instalado",
-        "ffprobe_not_installed": "❌ ffprobe: No instalado",
-        "exiftool_installed": "✅ exiftool: Instalado",
-        "exiftool_not_installed": "❌ exiftool: No instalado",
+        "ffprobe_installed": "ffprobe: Instalado",
+        "ffprobe_not_installed": "ffprobe: No instalado",
+        "exiftool_installed": "exiftool: Instalado",
+        "exiftool_not_installed": "exiftool: No instalado",
         "install_your_system": "Tu sistema:",
         "install_windows": "Descargar desde ffmpeg.org y exiftool.org"
       },
@@ -366,7 +366,7 @@
         "image_exif": "Extraer metadatos EXIF de imágenes",
         "image_exif_tooltip": "Extrae metadatos EXIF de todas las imágenes durante el escaneo inicial.\n\nVENTAJAS:\n  • Herramientas de organización y renombrado son más rápidas\n  • Costo moderado en el escaneo inicial (~30-60 seg para 30k fotos)\n\nDESVENTAJAS:\n  • Añade tiempo al escaneo inicial\n\nRECOMENDACIÓN: Dejar ACTIVADO (el costo es razonable y útil para la mayoría).",
         "video_exif": "Extraer metadatos EXIF de videos (MUY LENTO)",
-        "video_exif_tooltip": "Extrae metadatos de videos usando ffprobe durante el escaneo inicial.\n\n⚠️ ADVERTENCIA: Este proceso es EXTREMADAMENTE LENTO\n  • Para 5,000 videos: ~3-10 minutos adicionales\n  • Bloquea el escaneo inicial\n\nVENTAJAS:\n  • Herramienta de organización de videos tiene datos listos\n\nDESVENTAJAS:\n  • Hace el escaneo inicial MUCHO más lento\n  • La mayoría de usuarios no organizan videos por fecha\n\nRECOMENDACIÓN: Dejar DESACTIVADO (análisis bajo demanda es mucho más eficiente)."
+        "video_exif_tooltip": "Extrae metadatos de videos usando ffprobe durante el escaneo inicial.\n\nADVERTENCIA: Este proceso es EXTREMADAMENTE LENTO\n  • Para 5,000 videos: ~3-10 minutos adicionales\n  • Bloquea el escaneo inicial\n\nVENTAJAS:\n  • Herramienta de organización de videos tiene datos listos\n\nDESVENTAJAS:\n  • Hace el escaneo inicial MUCHO más lento\n  • La mayoría de usuarios no organizan videos por fecha\n\nRECOMENDACIÓN: Dejar DESACTIVADO (análisis bajo demanda es mucho más eficiente)."
       }
     },
     "backup": {
@@ -406,7 +406,7 @@
       "performance": {
         "title": "Rendimiento",
         "auto_info": "🤖 Configuración automática basada en tu hardware:\n   • CPU Cores: {cpu_count}\n   • Workers I/O (recomendado): {io_workers}\n   • Workers CPU (recomendado): {cpu_workers}",
-        "override_label": "⚠️ Override manual (deja en 0 para usar automático):",
+        "override_label": "Override manual (deja en 0 para usar automático):",
         "workers_label": "Hilos de procesamiento:",
         "workers_auto": "Automático",
         "workers_tooltip": "Número de hilos paralelos para procesar archivos.\n\n• 0 (Automático): Detecta y usa el óptimo para tu hardware\n• I/O workers: {io_workers} (lectura/hashing)\n• CPU workers: {cpu_workers} (análisis de imágenes)\n\nSolo cambia esto si experimentas problemas de rendimiento.\nRango válido: 1-{max_workers}",
@@ -583,7 +583,8 @@
         "size_quantity_label": "Tamaño / Cantidad",
         "size_quantity_tooltip": "Filtrar por tamaño o cantidad",
         "showing_all": "Mostrando todos los {entity}: {count}",
-        "filtered_tooltip": "{entity} filtrados: {filtered}\nTotal de {entity}: {total}"
+        "filtered_tooltip": "{entity} filtrados: {filtered}\nTotal de {entity}: {total}",
+        "loaded_in_list": "(Cargados en lista: {loaded} de {total})"
       },
       "progress": {
         "indicator_tooltip": "Muestra cuántos elementos se han cargado en la lista.\nPor rendimiento, los elementos se cargan en lotes.\nUsa 'Cargar más' para ver elementos adicionales.",
@@ -594,7 +595,7 @@
         "no_items": "Sin elementos que mostrar",
         "load_n_more": "Cargar {count} más",
         "load_n_more_tooltip": "Cargar {count} elementos más ({remaining} pendientes)",
-        "all_loaded": "✓ Todos cargados"
+        "all_loaded": "Todos cargados"
       },
       "date_source": {
         "all": "Todos",
@@ -608,8 +609,8 @@
       "error_open_folder": "Error al abrir carpeta",
       "group_tooltip_expand": "Doble clic para expandir y ver detalles de archivos",
       "group_tooltip_columns": "Las columnas muestran información de cada archivo individual",
-      "status_keep": "✓ Conservar",
-      "status_delete": "✗ Eliminar",
+      "status_keep": "Conservar",
+      "status_delete": "Eliminar",
       "menu": {
         "open_file": "Abrir archivo",
         "open_folder": "Abrir carpeta contenedora",
@@ -713,7 +714,7 @@
       "metric_duplicates": "Duplicados",
       "metric_recoverable": "Recuperable",
       "tip_message": "<b>Tip:</b> Esta herramienta detecta imágenes (videos próximamente) <i>visualmente idénticas al 100%</i> (mismo contenido visual). Para detectar imágenes <i>similares</i> con variaciones (recortes, ediciones, filtros), usa \"Archivos Similares\".",
-      "warning_many_groups": "<b>ℹ️ {count} grupos encontrados.</b> Se cargan {initial} grupos inicialmente. Usa búsqueda y filtros para encontrar grupos específicos.",
+      "warning_many_groups": "<b>{count} grupos encontrados.</b> Se cargan {initial} grupos inicialmente. Usa búsqueda y filtros para encontrar grupos específicos.",
       "option_backup": "Crear backup antes de eliminar",
       "option_dry_run": "Modo simulación (no eliminar realmente)",
       "button_delete": "Eliminar duplicados",
@@ -741,7 +742,7 @@
       },
       "tooltip": {
         "group_desc": "{count} archivos visualmente idénticos",
-        "size_variation": "⚠ Variación de tamaño: {pct:.0f}%"
+        "size_variation": "Variación de tamaño: {pct:.0f}%"
       },
       "details": {
         "group_desc": "{count} archivos visualmente idénticos"
@@ -751,7 +752,7 @@
       "metric_groups": "Grupos",
       "metric_copies": "Copias",
       "metric_recoverable": "Recuperable",
-      "warning_many_groups": "<b>ℹ️ {count} grupos encontrados.</b> Se cargan {initial} grupos inicialmente. Usa búsqueda y filtros para encontrar grupos específicos.",
+      "warning_many_groups": "<b>{count} grupos encontrados.</b> Se cargan {initial} grupos inicialmente. Usa búsqueda y filtros para encontrar grupos específicos.",
       "option_backup": "Crear backup antes de eliminar",
       "option_dry_run": "Modo simulación (no eliminar realmente)",
       "button_delete": "Eliminar duplicados",
@@ -784,7 +785,7 @@
         "load_all_tooltip": "Cargar todos los grupos restantes de una vez",
         "progress_text": "{percent}% cargado en lista ({loaded} de {total} grupos)",
         "load_more_tooltip": "Cargar {count} grupos más ({remaining} pendientes)",
-        "all_loaded": "✓ Todos cargados",
+        "all_loaded": "Todos cargados",
         "load_all_msg": "Hay {count} grupos pendientes de cargar.\nEsto puede tardar y afectar al rendimiento.\n\n¿Continuar?"
       }
     },
@@ -922,8 +923,8 @@
       "tree": {
         "folder_label": "📁 {name} ({count} archivos)",
         "folder_tooltip": "Carpeta: {path}\n{count} archivos a renombrar",
-        "conflicts_tooltip": "⚠️ {count} conflictos",
-        "conflict_file_tooltip": "⚠️ Conflicto: Se añadirá sufijo numérico"
+        "conflicts_tooltip": "{count} conflictos",
+        "conflict_file_tooltip": "Conflicto: Se añadirá sufijo numérico"
       },
       "dialog_load_all_title": "Cargar todos los archivos",
       "dialog_load_all_msg": "Hay {count} archivos en {folders} carpetas. ¿Seguro que quieres cargarlos todos?\nEsto puede tardar y consumir memoria.",
@@ -963,7 +964,7 @@
         }
       },
       "example_title": "Vista previa:",
-      "button_back": "← Cambiar",
+      "button_back": "< Cambiar",
       "button_back_tooltip": "Volver a elegir otra estrategia de organización",
       "options": {
         "date_label": "Por Fecha",
@@ -1107,7 +1108,7 @@
         "strategy_name": "Selección Automática (Mejores Imágenes)",
         "title": "Confirmar Auto-Selección: {name}",
         "text_filtered": "<b>¿Aplicar selección '{name}' a los {count} grupos filtrados?</b>",
-        "info_filtered": "ℹ️ <b>NOTA:</b><br><br>Esta acción se aplicará <b>únicamente</b> a los <b>{filtered} grupos</b> que coinciden con los filtros actuales.<br><br>Los <b>{remaining} grupos restantes</b> <b>conservarán su selección actual</b> sin cambios.<br><br>Puedes cambiar los filtros y repetir la operación para otros grupos.",
+        "info_filtered": "<b>NOTA:</b><br><br>Esta acción se aplicará <b>únicamente</b> a los <b>{filtered} grupos</b> que coinciden con los filtros actuales.<br><br>Los <b>{remaining} grupos restantes</b> <b>conservarán su selección actual</b> sin cambios.<br><br>Puedes cambiar los filtros y repetir la operación para otros grupos.",
         "text_all": "<b>¿Aplicar selección '{name}' a todos los {count} grupos?</b>",
         "info_all": "Esta acción seleccionará el archivo de mayor tamaño como el que se <b>conservará</b> en cada grupo.<br><br>Los demás archivos del grupo serán marcados para <b>eliminación</b>."
       },
@@ -1117,7 +1118,7 @@
     },
     "image_preview": {
       "window_title": "Vista previa - {filename}",
-      "error_loading": "❌ No se pudo cargar la imagen",
+      "error_loading": "No se pudo cargar la imagen",
       "button_close": "Cerrar"
     }
   },

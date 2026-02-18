@@ -354,7 +354,7 @@ class AboutDialog(QDialog):
         
         # Botón anterior
         if prev_tab is not None and prev_label:
-            prev_btn = QPushButton(f"← {prev_label}")
+            prev_btn = QPushButton(f"< {prev_label}")
             prev_btn.setStyleSheet(f"""
                 QPushButton {{
                     background-color: transparent;
@@ -378,7 +378,7 @@ class AboutDialog(QDialog):
         
         # Botón siguiente
         if next_tab is not None and next_label:
-            next_btn = QPushButton(f"{next_label} →")
+            next_btn = QPushButton(f"{next_label} >")
             next_btn.setStyleSheet(f"""
                 QPushButton {{
                     background-color: {DesignSystem.COLOR_PRIMARY};

@@ -25,6 +25,7 @@ from services.file_metadata_repository_cache import FileInfoRepositoryCache
 from utils.format_utils import format_size
 from utils.file_utils import is_image_file, is_video_file
 from utils.logger import get_logger
+from utils.i18n import tr
 from ui.styles.design_system import DesignSystem
 from ui.styles.icons import icon_manager
 from ui.tools_definitions import TOOL_VISUAL_IDENTICAL
@@ -157,24 +158,21 @@ class VisualIdenticalDialog(BaseDialog):
             metrics=[
                 {
                     'value': str(self.analysis.total_groups),
-                    'label': 'Grupos',
+                    'label': tr("dialogs.visual_identical.metric_groups"),
                     'color': DesignSystem.COLOR_PRIMARY
                 },
                 {
                     'value': str(self.analysis.total_duplicates),
-                    'label': 'Duplicados',
+                    'label': tr("dialogs.visual_identical.metric_duplicates"),
                     'color': DesignSystem.COLOR_WARNING
                 },
                 {
                     'value': format_size(self._calculate_recoverable_space()),
-                    'label': 'Recuperable',
+                    'label': tr("dialogs.visual_identical.metric_recoverable"),
                     'color': DesignSystem.COLOR_SUCCESS
                 }
             ],
-            tip_message=(
-                "<b>Tip:</b> Esta herramienta detecta imágenes (videos próximamente) <i>visualmente idénticas al 100%</i> (mismo contenido visual). "
-                "Para detectar imágenes <i>similares</i> con variaciones (recortes, ediciones, filtros), usa \"Archivos Similares\"."
-            )
+            tip_message=tr("dialogs.visual_identical.tip_message")
         )
         layout.addWidget(self.header_frame)
         
@@ -197,9 +195,8 @@ class VisualIdenticalDialog(BaseDialog):
         # Advertencia si hay muchos grupos
         if len(self.all_groups) > self.WARNING_THRESHOLD:
             warning = QLabel(
-                f"<b>ℹ️ {len(self.all_groups)} grupos encontrados.</b> "
-                f"Se cargan {self.INITIAL_LOAD} grupos inicialmente. "
-                f"Usa búsqueda y filtros para encontrar grupos específicos."
+                tr("dialogs.visual_identical.warning_many_groups", 
+                   count=len(self.all_groups), initial=self.INITIAL_LOAD)
             )
             warning.setTextFormat(Qt.TextFormat.RichText)
             warning.setWordWrap(True)
@@ -231,14 +228,14 @@ class VisualIdenticalDialog(BaseDialog):
         security_options = self._create_security_options_section(
             show_backup=True,
             show_dry_run=True,
-            backup_label="Crear backup antes de eliminar",
-            dry_run_label="Modo simulación (no eliminar realmente)"
+            backup_label=tr("dialogs.visual_identical.option_backup"),
+            dry_run_label=tr("dialogs.visual_identical.option_dry_run")
         )
         content_layout.addWidget(security_options)
         
         # Botones de acción
         button_box = self.make_ok_cancel_buttons(
-            ok_text="Eliminar duplicados",
+            ok_text=tr("dialogs.visual_identical.button_delete"),
             ok_enabled=len(self.all_groups) > 0,
             button_style='danger'
         )
@@ -251,15 +248,15 @@ class VisualIdenticalDialog(BaseDialog):
     def _create_strategy_selector(self) -> QFrame:
         """Crea el selector de estrategia de conservación usando método centralizado."""
         strategies = [
-            ('largest', 'arrow-expand-all', 'Mejor calidad', 'Conserva el archivo más grande (mejor resolución)'),
-            ('smallest', 'arrow-collapse-all', 'Menor tamaño', 'Conserva el archivo más pequeño (ahorra espacio)'),
-            ('oldest', 'clock-outline', 'Más antiguo', 'Conserva el archivo con fecha más antigua'),
-            ('newest', 'clock-fast', 'Más reciente', 'Conserva el archivo con fecha más reciente'),
+            ('largest', 'arrow-expand-all', tr("dialogs.visual_identical.strategy.largest_title"), tr("dialogs.visual_identical.strategy.largest_desc")),
+            ('smallest', 'arrow-collapse-all', tr("dialogs.visual_identical.strategy.smallest_title"), tr("dialogs.visual_identical.strategy.smallest_desc")),
+            ('oldest', 'clock-outline', tr("dialogs.visual_identical.strategy.oldest_title"), tr("dialogs.visual_identical.strategy.oldest_desc")),
+            ('newest', 'clock-fast', tr("dialogs.visual_identical.strategy.newest_title"), tr("dialogs.visual_identical.strategy.newest_desc")),
         ]
         
         frame = self._create_compact_strategy_selector(
-            title="Conservar:",
-            description="Elige qué archivo mantener de cada grupo",
+            title=tr("dialogs.visual_identical.strategy.title"),
+            description=tr("dialogs.visual_identical.strategy.description"),
             strategies=strategies,
             current_strategy=self.keep_strategy,
             on_strategy_changed=self._on_strategy_changed
@@ -277,11 +274,11 @@ class VisualIdenticalDialog(BaseDialog):
         
         # Diccionario de etiquetas
         labels = {
-            'search': 'Buscar por nombre',
-            'size': 'Tamaño / Cantidad',
-            'groups': 'Grupos seleccionados',
-            'source': 'Origen de la fecha',
-            'type': 'Tipo de archivo'
+            'search': tr("dialogs.visual_identical.filter.search"),
+            'size': tr("dialogs.visual_identical.filter.size"),
+            'groups': tr("dialogs.visual_identical.filter.groups"),
+            'source': tr("dialogs.visual_identical.filter.source"),
+            'type': tr("dialogs.visual_identical.filter.type")
         }
         
         # Configuración de filtros expandibles
@@ -290,7 +287,7 @@ class VisualIdenticalDialog(BaseDialog):
                 'id': 'source',
                 'type': 'combo',
                 'label': labels['source'],
-                'tooltip': 'Filtrar por origen de la fecha',
+                'tooltip': tr("dialogs.visual_identical.filter.source_tooltip"),
                 'options': source_options,
                 'on_change': self._on_source_filter_changed,
                 'default_index': 0,
@@ -300,8 +297,8 @@ class VisualIdenticalDialog(BaseDialog):
                 'id': 'type',
                 'type': 'combo',
                 'label': labels['type'],
-                'tooltip': 'Filtrar por tipo de archivo',
-                'options': ["Todos", "Fotos", "Videos"],
+                'tooltip': tr("dialogs.visual_identical.filter.type_tooltip"),
+                'options': [tr("common.filter.all"), tr("common.filter.photos"), tr("common.filter.videos")],
                 'on_change': self._on_type_filter_changed,
                 'default_index': 0,
                 'min_width': 120
@@ -310,12 +307,12 @@ class VisualIdenticalDialog(BaseDialog):
         
         # Opciones de filtro de tamaño específicas para este diálogo
         size_options = [
-            "Todos",
-            ">10 MB",
-            ">50 MB",
-            "Variación >50%",
-            "3+ copias",
-            "5+ copias"
+            tr("common.filter.all"),
+            tr("common.filter.gt_10mb"),
+            tr("common.filter.gt_50mb"),
+            tr("dialogs.visual_identical.filter.size_variation"),
+            tr("common.filter.3_plus_copies"),
+            tr("common.filter.5_plus_copies")
         ]
         
         filter_bar = self._create_unified_filter_bar(
@@ -354,13 +351,13 @@ class VisualIdenticalDialog(BaseDialog):
             return True
             
         type_filter = self.type_combo.currentText()
-        if type_filter == "Todos":
+        if type_filter == tr("common.filter.all"):
             return True
         
         for file_path in group.files:
-            if type_filter == 'Fotos' and is_image_file(file_path):
+            if type_filter == tr("common.filter.photos") and is_image_file(file_path):
                 return True
-            elif type_filter == 'Videos' and is_video_file(file_path):
+            elif type_filter == tr("common.filter.videos") and is_video_file(file_path):
                 return True
         
         return False
@@ -384,7 +381,7 @@ class VisualIdenticalDialog(BaseDialog):
     
     def _create_tree_widget(self) -> QTreeWidget:
         """Crea el widget de árbol para mostrar grupos."""
-        headers = ["Grupos / Archivos", "Tamaño", "Fecha", "Origen Fecha", "Ubicación", "Estado"]
+        headers = [tr("common.tree_header.groups_files"), tr("common.tree_header.size"), tr("common.tree_header.date"), tr("common.tree_header.date_source"), tr("common.tree_header.location"), tr("common.tree_header.status")]
         column_widths = [300, 90, 140, 140, 200, 100]
         
         return create_groups_tree_widget(
@@ -442,7 +439,7 @@ class VisualIdenticalDialog(BaseDialog):
         pagination_layout.addWidget(self.progress_bar_container, 1)
         
         # Botón cargar todos
-        self.load_all_btn = QPushButton("Cargar todos")
+        self.load_all_btn = QPushButton(tr("common.pagination.load_all"))
         icon_manager.set_button_icon(self.load_all_btn, 'download', size=16)
         self.load_all_btn.clicked.connect(self._load_all_groups)
         self.load_all_btn.setStyleSheet(f"""
@@ -463,7 +460,7 @@ class VisualIdenticalDialog(BaseDialog):
         pagination_layout.addWidget(self.load_all_btn)
         
         # Botón cargar más
-        self.load_more_btn = QPushButton("Cargar más")
+        self.load_more_btn = QPushButton(tr("common.pagination.load_more"))
         icon_manager.set_button_icon(self.load_more_btn, 'refresh', size=18)
         self.load_more_btn.clicked.connect(self._load_more_groups)
         self.load_more_btn.setStyleSheet(f"""
@@ -506,9 +503,8 @@ class VisualIdenticalDialog(BaseDialog):
         if len(self.filtered_groups) > 1000:
             reply = QMessageBox.question(
                 self,
-                "Cargar todos los grupos",
-                f"Hay {len(self.filtered_groups)} grupos. ¿Seguro que quieres cargarlos todos?\n"
-                "Esto puede tardar y consumir memoria.",
+                tr("common.dialog.load_all_groups_title"),
+                tr("common.dialog.load_all_groups_msg", count=len(self.filtered_groups)),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
             )
             if reply != QMessageBox.StandardButton.Yes:
@@ -527,7 +523,7 @@ class VisualIdenticalDialog(BaseDialog):
         
         # Crear item de grupo
         group_item = QTreeWidgetItem()
-        group_item.setText(0, f"Grupo #{group_num} • {file_count} copias")
+        group_item.setText(0, tr("common.tree.group_label", num=group_num, count=file_count))
         # Las otras columnas quedan vacías para grupos - solo se usan para archivos
         
         # Aplicar estilo unificado de grupo
@@ -536,11 +532,11 @@ class VisualIdenticalDialog(BaseDialog):
         # Tooltip informativo sobre doble click
         extra_info = ""
         if group.size_variation_percent > 10:
-            extra_info = f"⚠ Variación de tamaño: {group.size_variation_percent:.0f}%"
+            extra_info = tr("dialogs.visual_identical.tooltip.size_variation", pct=group.size_variation_percent)
         
         group_item.setToolTip(0, create_group_tooltip(
             group_num,
-            f"{file_count} archivos visualmente idénticos",
+            tr("dialogs.visual_identical.tooltip.group_desc", count=file_count),
             extra_info
         ))
         
@@ -637,14 +633,14 @@ class VisualIdenticalDialog(BaseDialog):
         # Progreso
         if total > 0:
             percent = (loaded / total) * 100
-            self.progress_indicator.setText(f"{percent:.0f}% cargado ({loaded}/{total})")
+            self.progress_indicator.setText(tr("common.pagination.progress_text", percent=f"{percent:.0f}", loaded=loaded, total=total))
             
             # Actualizar barra
             bar_width = self.progress_bar_container.width()
             fill_width = int(bar_width * loaded / total)
             self.progress_bar_fill.setGeometry(0, 0, fill_width, 8)
         else:
-            self.progress_indicator.setText("Sin grupos que mostrar")
+            self.progress_indicator.setText(tr("common.pagination.no_groups"))
             self.progress_bar_fill.setGeometry(0, 0, 0, 8)
         
         # Mostrar/ocultar botones
@@ -654,7 +650,7 @@ class VisualIdenticalDialog(BaseDialog):
         
         if has_more:
             remaining = total - loaded
-            self.load_more_btn.setText(f"Cargar {min(self.LOAD_INCREMENT, remaining)} más")
+            self.load_more_btn.setText(tr("common.pagination.load_n_more", count=min(self.LOAD_INCREMENT, remaining)))
     
     def _on_strategy_changed(self, strategy: str):
         """Maneja el cambio de estrategia."""
@@ -670,7 +666,7 @@ class VisualIdenticalDialog(BaseDialog):
         # Actualizar métrica de espacio recuperable
         self._update_header_metric(
             self.header_frame, 
-            'Recuperable', 
+            tr("dialogs.visual_identical.metric_recoverable"), 
             format_size(self._calculate_recoverable_space())
         )
     
@@ -753,10 +749,9 @@ class VisualIdenticalDialog(BaseDialog):
                 is_keep = file_path == keep_file
                 status_info = {
                     'metadata': {
-                        'Estado': 'Se mantendrá' if is_keep else 'Se eliminará',
-                        'Grupo': f'{len(group.files)} archivos visualmente idénticos',
-                        'Espacio grupo': format_size(group.total_size),
-                        'Estrategia': self._strategy_name()
+                        tr("common.details.status"): tr("common.status.will_keep") if is_keep else tr("common.status.will_delete"),
+                        tr("common.details.group_space"): format_size(group.total_size),
+                        tr("common.details.strategy"): self._strategy_name()
                     }
                 }
                 break
@@ -775,7 +770,7 @@ class VisualIdenticalDialog(BaseDialog):
                     files_to_delete.append(f)
         
         if not files_to_delete:
-            self.show_no_items_message("archivos")
+            self.show_no_items_message(tr("common.files"))
             return
         
         # Guardar plan para ejecución (incluye analysis para consistencia)
@@ -791,11 +786,11 @@ class VisualIdenticalDialog(BaseDialog):
         super().accept()
     
     def _strategy_name(self) -> str:
-        """Devuelve el nombre legible de la estrategia."""
+        """Returns human-readable strategy name."""
         names = {
-            'largest': 'mejor calidad (más grande)',
-            'smallest': 'menor tamaño',
-            'oldest': 'más antiguo',
-            'newest': 'más reciente'
+            'largest': tr("common.strategy_name.largest"),
+            'smallest': tr("common.strategy_name.smallest"),
+            'oldest': tr("common.strategy_name.oldest"),
+            'newest': tr("common.strategy_name.newest")
         }
         return names.get(self.keep_strategy, self.keep_strategy)

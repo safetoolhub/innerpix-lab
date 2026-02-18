@@ -239,8 +239,8 @@ class TestBKTreePerformanceBenchmark:
         ratio_500_to_1000 = times[3] / times[2]
         
         print(f"\nGrowth ratios:")
-        print(f"  100→200:  {ratio_100_to_200:.2f}x")
-        print(f"  500→1000: {ratio_500_to_1000:.2f}x")
+        print(f"  100->200:  {ratio_100_to_200:.2f}x")
+        print(f"  500->1000: {ratio_500_to_1000:.2f}x")
         
         # Si fuera O(N²), estos ratios serían ~4x
         # Con O(N log N), deberían ser ~2-2.5x

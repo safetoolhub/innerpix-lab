@@ -45,7 +45,7 @@ def test_rotation_with_production_backup_count():
         rotation_count = 0
         target_rotations = 3
         
-        print(f"\n📊 Provocando {target_rotations} rotaciones con backupCount={Config.MAX_LOG_BACKUP_COUNT}")
+        print(f"\nTriggering {target_rotations} rotations with backupCount={Config.MAX_LOG_BACKUP_COUNT}")
         
         for i in range(messages_per_rotation * target_rotations):
             logger.info(f"[{i:06d}] " + "x" * 200)
@@ -59,7 +59,7 @@ def test_rotation_with_production_backup_count():
                 
                 if new_count > rotation_count:
                     rotation_count = new_count
-                    print(f"✅ Rotación #{rotation_count} detectada (mensaje {i})")
+                    print(f"Rotation #{rotation_count} detected (message {i})")
                 
                 # Detener cuando alcancemos el objetivo
                 if rotation_count >= target_rotations:
@@ -71,7 +71,7 @@ def test_rotation_with_production_backup_count():
             if Path(f"{log_file}.{i}").exists()
         ]
         
-        print(f"\n📁 Archivos creados: {existing_backups}")
+        print(f"\nFiles created: {existing_backups}")
         
         assert len(existing_backups) == target_rotations, \
             f"Deben existir {target_rotations} backups, encontrados: {existing_backups}"
@@ -89,15 +89,15 @@ def test_rotation_with_production_backup_count():
             assert size_mb >= Config.MAX_LOG_FILE_SIZE_MB * 0.95, \
                 f"El backup .{i} debe ser >= {Config.MAX_LOG_FILE_SIZE_MB * 0.95} MB, fue {size_mb:.2f} MB"
             
-            print(f"✅ Backup .{i}: {size_mb:.2f} MB")
+            print(f"Backup .{i}: {size_mb:.2f} MB")
         
         # Verificar archivo actual
         current_size_mb = log_file.stat().st_size / (1024 * 1024)
         assert current_size_mb < Config.MAX_LOG_FILE_SIZE_MB, \
             f"El archivo actual debe ser < {Config.MAX_LOG_FILE_SIZE_MB} MB, fue {current_size_mb:.2f} MB"
         
-        print(f"✅ Archivo actual: {current_size_mb:.2f} MB")
-        print(f"\n🎉 Test exitoso con MAX_LOG_BACKUP_COUNT = {Config.MAX_LOG_BACKUP_COUNT}")
+        print(f"Current file: {current_size_mb:.2f} MB")
+        print(f"\nTest passed with MAX_LOG_BACKUP_COUNT = {Config.MAX_LOG_BACKUP_COUNT}")
 
 
 def test_high_number_backup_numbering():
@@ -129,7 +129,7 @@ def test_high_number_backup_numbering():
         test_logger.addHandler(handler)
         test_logger.setLevel(logging.INFO)
         
-        print(f"\n📊 Provocando rotaciones con backupCount=9999")
+        print(f"\nTriggering rotations with backupCount=9999")
         
         # Provocar 3 rotaciones
         target_rotations = 3
@@ -147,7 +147,7 @@ def test_high_number_backup_numbering():
                 
                 if new_count > rotation_count:
                     rotation_count = new_count
-                    print(f"✅ Rotación #{rotation_count} detectada")
+                    print(f"Rotation #{rotation_count} detected")
                 
                 if rotation_count >= target_rotations:
                     break
@@ -160,10 +160,10 @@ def test_high_number_backup_numbering():
         for i in range(1, target_rotations + 1):
             backup = Path(f"{log_file}.{i}")
             assert backup.exists(), f"El backup .{i} debe existir"
-            print(f"✅ Backup .{i} creado correctamente")
+            print(f"Backup .{i} created successfully")
         
-        print(f"\n✅ Sistema funciona correctamente con backupCount=9999")
-        print(f"✅ {rotation_count} rotaciones exitosas sin errores")
+        print(f"\nSystem works correctly with backupCount=9999")
+        print(f"{rotation_count} successful rotations without errors")
         
         handler.close()
 
@@ -190,7 +190,7 @@ def test_backup_count_limit_enforcement():
         max_expected_rotations_per_session = 100
         total_space_gb = (Config.MAX_LOG_BACKUP_COUNT * Config.MAX_LOG_FILE_SIZE_MB) / 1024
         
-        print(f"\n📊 Análisis de límites:")
+        print(f"\nLimit analysis:")
         print(f"   MAX_LOG_BACKUP_COUNT: {Config.MAX_LOG_BACKUP_COUNT}")
         print(f"   MAX_LOG_FILE_SIZE_MB: {Config.MAX_LOG_FILE_SIZE_MB} MB")
         print(f"   Espacio total teórico: {total_space_gb:.1f} GB")
@@ -200,7 +200,7 @@ def test_backup_count_limit_enforcement():
         assert Config.MAX_LOG_BACKUP_COUNT >= max_expected_rotations_per_session * 10, \
             f"El límite debe ser al menos 10x las rotaciones esperadas por sesión"
         
-        print(f"\n✅ El límite de {Config.MAX_LOG_BACKUP_COUNT} backups es adecuado para producción")
+        print(f"\nThe limit of {Config.MAX_LOG_BACKUP_COUNT} backups is adequate for production")
 
 
 def test_rotation_consistency_across_restarts():
@@ -230,7 +230,7 @@ def test_rotation_consistency_across_restarts():
             handler.close()
             root_logger.removeHandler(handler)
         
-        print(f"\n📊 Después de sesión 1:")
+        print(f"\nAfter session 1:")
         backups_after_s1 = [i for i in range(1, 5) if Path(f"{log_file1}.{i}").exists()]
         print(f"   Backups existentes: {backups_after_s1}")
         
@@ -243,7 +243,7 @@ def test_rotation_consistency_across_restarts():
             if i % 5000 == 0 and Path(f"{log_file2}.3").exists():
                 break
         
-        print(f"\n📊 Después de sesión 2:")
+        print(f"\nAfter session 2:")
         backups_after_s2 = [i for i in range(1, 6) if Path(f"{log_file2}.{i}").exists()]
         print(f"   Backups existentes: {backups_after_s2}")
         
@@ -256,7 +256,7 @@ def test_rotation_consistency_across_restarts():
             assert backups_after_s2 == list(range(1, len(backups_after_s2) + 1)), \
                 f"Deben ser consecutivos: {backups_after_s2}"
         
-        print(f"\n✅ Numeración consistente después de múltiples sesiones")
+        print(f"\nConsistent numbering after multiple sessions")
 
 
 if __name__ == "__main__":
@@ -276,4 +276,4 @@ if __name__ == "__main__":
     test_rotation_consistency_across_restarts()
     print("\n" + "=" * 70)
     
-    print("\n🎉 TODOS LOS TESTS DE PRODUCCIÓN PASARON EXITOSAMENTE")
+    print("\nALL PRODUCTION TESTS PASSED SUCCESSFULLY")

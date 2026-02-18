@@ -1329,7 +1329,7 @@ class SettingsDialog(QDialog):
             # Emitir señal de cambios guardados
             self.settings_saved.emit()
 
-            # ✅ IMPORTANTE: Cerrar el diálogo ANTES de mostrar el mensaje
+            # IMPORTANT: Close the dialog BEFORE showing the message
             # Esto evita problemas con la pila modal
             self.accept()
 
@@ -1423,7 +1423,7 @@ class SettingsDialog(QDialog):
         self.logger.debug(f"ffprobe result: available={ffprobe_status.available}, version={ffprobe_status.version}")
         
         if ffprobe_status.available:
-            display_text = f"✅ ffprobe: {ffprobe_status.version[:40]}" if ffprobe_status.version else tr("settings.analysis.system_tools.ffprobe_installed")
+            display_text = f"ffprobe: {ffprobe_status.version[:40]}" if ffprobe_status.version else tr("settings.analysis.system_tools.ffprobe_installed")
             self.ffprobe_status_label.setText(display_text)
             self.ffprobe_status_label.setStyleSheet(f"""
                 font-size: {DesignSystem.FONT_SIZE_SM}px;
@@ -1441,7 +1441,7 @@ class SettingsDialog(QDialog):
         self.logger.debug(f"exiftool result: available={exiftool_status.available}, version={exiftool_status.version}")
         
         if exiftool_status.available:
-            display_text = f"✅ exiftool: v{exiftool_status.version}" if exiftool_status.version else tr("settings.analysis.system_tools.exiftool_installed")
+            display_text = f"exiftool: v{exiftool_status.version}" if exiftool_status.version else tr("settings.analysis.system_tools.exiftool_installed")
             self.exiftool_status_label.setText(display_text)
             self.exiftool_status_label.setStyleSheet(f"""
                 font-size: {DesignSystem.FONT_SIZE_SM}px;

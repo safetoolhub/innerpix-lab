@@ -349,7 +349,7 @@ class DuplicatesExactService(BaseService):
         )
         
         if backup_path:
-            result.message += f"\n\nBackup creado en:\n{backup_path}"
+            result.message += f"\n\nBackup created at:\n{backup_path}"
         
         log_section_footer_relevant(self.logger, result.message)
         
@@ -385,8 +385,8 @@ class DuplicatesExactService(BaseService):
         
         if total_missing > 0:
             self.logger.warning(
-                f"⚠️ {total_missing} files no longer exist. "
-                f"Groups: {len(groups)} → {len(filtered)}"
+                f"{total_missing} files no longer exist. "
+                f"Groups: {len(groups)} -> {len(filtered)}"
             )
         
         return filtered

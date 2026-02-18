@@ -54,7 +54,7 @@ class IconManager:
     iconos a widgets sin afectar las fuentes de texto de la aplicación.
     """
     
-    # Diccionario de mapeo: nombre lógico → nombre de icono Material Design en QtAwesome
+    # Mapping dictionary: logical name -> Material Design icon name in QtAwesome
     # Iconos organizados por categorías funcionales
     ICON_MAP = {
         # === CONFIGURACIÓN Y SISTEMA ===
@@ -199,8 +199,8 @@ class IconManager:
         # Validar que el icono existe
         if name not in self.ICON_MAP:
             raise ValueError(
-                f"Icono '{name}' no encontrado. "
-                f"Iconos disponibles: {', '.join(sorted(self.ICON_MAP.keys()))}"
+                f"Icon '{name}' not found. "
+                f"Available icons: {', '.join(sorted(self.ICON_MAP.keys()))}"
             )
         
         # Crear clave de caché única

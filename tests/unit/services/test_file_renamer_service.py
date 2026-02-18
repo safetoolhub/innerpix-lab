@@ -536,7 +536,7 @@ class TestFileRenamerServiceIntegration:
         assert names1 == names2
     
     def test_analyze_execute_analyze_sequence(self, tmp_path):
-        """Test: analizar → ejecutar → analizar nuevamente"""
+        """Test: analyze -> execute -> analyze again"""
         test_dir = tmp_path / "sequence"
         test_dir.mkdir()
         
