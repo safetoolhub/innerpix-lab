@@ -99,6 +99,7 @@ jobs:
           uv run python dev-tools/build.py
         env:
           APP_VERSION: ${{ steps.version.outputs.tag }}
+          PYTHONUTF8: "1"
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4

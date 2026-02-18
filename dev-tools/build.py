@@ -27,6 +27,11 @@ import sys
 import textwrap
 from pathlib import Path
 
+# Windows terminals may use cp1252 — force UTF-8 for Unicode box chars and emoji
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 ROOT = Path(__file__).resolve().parent.parent
 SPEC_FILE = ROOT / "build" / "innerpix-lab.spec"
 DIST_DIR = ROOT / "dist"
