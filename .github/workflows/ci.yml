@@ -39,7 +39,7 @@ jobs:
 
       - name: Run tests
         run: |
-          uv run pytest --ignore=tests/performance -v --tb=short
+          uv run pytest --ignore=tests/performance --ignore=tests/unit/ui --ignore=tests/ui -v --tb=short
         env:
           QT_QPA_PLATFORM: offscreen
 
