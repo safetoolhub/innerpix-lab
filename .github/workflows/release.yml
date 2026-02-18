@@ -1,0 +1,215 @@
+name: Release
+
+# Builds binaries for all platforms and creates a DRAFT GitHub Release.
+# The release stays PRIVATE until you manually publish it from the GitHub UI.
+# This gives you full control over what gets released and when.
+#
+# Nothing is public until YOU click "Publish" on the draft release.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  # ──────────────────────────────────────────────────────────────────────────
+  # Build: Linux (.deb + .rpm via dpkg-deb and rpmbuild)
+  # ──────────────────────────────────────────────────────────────────────────
+  build-linux:
+    name: Build Linux
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install Python dependencies
+        run: |
+          uv venv
+          uv pip install -r requirements.txt
+
+      - name: Install packaging tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm
+
+      - name: Build with PyInstaller + package
+        run: |
+          uv run python dev-tools/build.py
+        env:
+          QT_QPA_PLATFORM: offscreen
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-artifacts
+          path: |
+            dist/InnerPixLab-*-linux-*.deb
+            dist/InnerPixLab-*-linux-*.rpm
+          if-no-files-found: warn
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Build: Windows (Inno Setup installer)
+  # ──────────────────────────────────────────────────────────────────────────
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install Python dependencies
+        run: |
+          uv venv
+          uv pip install -r requirements.txt
+
+      - name: Install Inno Setup
+        run: |
+          choco install innosetup -y
+
+      - name: Extract version from tag
+        id: version
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF#refs/tags/v}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Build with PyInstaller + package
+        run: |
+          uv run python dev-tools/build.py
+        env:
+          APP_VERSION: ${{ steps.version.outputs.tag }}
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-artifacts
+          path: dist/InnerPixLab-*-windows-setup.exe
+          if-no-files-found: warn
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Build: macOS (.dmg)
+  # ──────────────────────────────────────────────────────────────────────────
+  build-macos:
+    name: Build macOS
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install Python dependencies
+        run: |
+          uv venv
+          uv pip install -r requirements.txt
+
+      - name: Install create-dmg
+        run: brew install create-dmg
+
+      - name: Generate macOS icon (.icns)
+        run: |
+          ICONSET="assets/icon.iconset"
+          mkdir -p "$ICONSET"
+          for size in 16 32 64 128 256 512; do
+            sips -z $size $size assets/icon.png --out "$ICONSET/icon_${size}x${size}.png"
+          done
+          for size in 32 64 256 512 1024; do
+            half=$((size / 2))
+            sips -z $size $size assets/icon.png --out "$ICONSET/icon_${half}x${half}@2x.png"
+          done
+          iconutil -c icns "$ICONSET" -o assets/icon.icns
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          TAG="${GITHUB_REF#refs/tags/v}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Build with PyInstaller + package
+        run: |
+          uv run python dev-tools/build.py
+        env:
+          APP_VERSION: ${{ steps.version.outputs.tag }}
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-artifacts
+          path: dist/InnerPixLab-*-macos.dmg
+          if-no-files-found: warn
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Create DRAFT Release (NOT public until you manually publish)
+  # ──────────────────────────────────────────────────────────────────────────
+  release:
+    name: Create Draft Release
+    needs: [build-linux, build-windows, build-macos]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: List artifacts
+        run: |
+          echo "Release artifacts:"
+          find release-assets -type f | sort
+
+      - name: Determine pre-release status
+        id: prerelease
+        run: |
+          TAG="${GITHUB_REF#refs/tags/v}"
+          if echo "$TAG" | grep -qE '(alpha|beta|rc|dev)'; then
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Create DRAFT GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Innerpix Lab v${{ steps.prerelease.outputs.tag }}"
+          draft: true
+          prerelease: ${{ steps.prerelease.outputs.is_prerelease }}
+          generate_release_notes: true
+          files: |
+            release-assets/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,62 +1,12 @@
-Proprietary Software License (Standard)
+## Licencia
 
-Copyright (c) 2025 SafeToolHub. All rights reserved.
+Innerpix Lab © 2026 Carlos Calvo (https://safetoolhub.org)
 
-This Software and its associated documentation (the "Software") are the
-proprietary and confidential property of the copyright holder. Access to and
-use of the Software is subject to a license granted in a separate written
-agreement. Except as expressly permitted in such a written license, no part of
-the Software may be copied, distributed, published, displayed, modified,
-reproduced, sublicensed, assigned, sold or otherwise exploited for any
-purpose.
+Este proyecto se publica bajo PolyForm Noncommercial License 1.0.0:
+- Permitido: uso personal/no comercial.
+- No permitido: uso profesional/empresarial o cualquier uso con finalidad comercial.
+- Atribución obligatoria: si copias, redistribuyes o modificas, debes mantener el aviso de copyright y enlazar a https://safetoolhub.org (y al repositorio).
 
-Permitted Use
----------------
-The licensee may use the Software only as expressly authorized by the
-copyright holder in a written license. Any use not expressly permitted,
-including but not limited to distribution, public performance, creation of
-derivative works, or sublicensing, is strictly prohibited without prior
-written consent of the copyright holder.
+Licencia comercial: para uso profesional/empresarial, contacta con Carlos Calvo (https://safetoolhub.org) para obtener una licencia de pago.
 
-Restrictions
-------------
-- No reverse engineering, decompilation, or disassembly of the Software is
-	permitted unless expressly authorized by applicable law or by the copyright
-	holder in writing.
-- No distribution, sale, lease, transfer or assignment of the Software or any
-	portion thereof is permitted without prior written permission from the
-	copyright holder.
-
-Warranty and Liability
-----------------------
-THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. TO THE EXTENT
-PERMITTED BY LAW, THE COPYRIGHT HOLDER DISCLAIMS ALL WARRANTIES, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT. IN NO EVENT SHALL THE
-COPYRIGHT HOLDER BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, OR
-CONSEQUENTIAL DAMAGES ARISING OUT OF THE USE OF OR INABILITY TO USE THE
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES, EXCEPT AS MAY BE
-LIMITED BY APPLICABLE LAW.
-
-Termination
------------
-This license is terminable by the copyright holder upon breach of any term
-hereof by the licensee. Upon termination, the licensee must cease all use of
-the Software and destroy or return all copies in its possession or control.
-
-Governing Law
--------------
-This Agreement shall be governed by and construed in accordance with the laws
-of the jurisdiction in which the copyright holder is located, without regard
-to conflict of laws principles.
-
-Contact for Permissions
------------------------
-Requests for permission to use, distribute, modify or otherwise exploit the
-Software should be submitted in writing to the copyright holder:
-
-		Photokit Manager
-		Contact: Safetoolhub
-
-Effective date: 2025-10-23
-
+Sin garantía: el software se proporciona “AS IS”, sin garantías y sin responsabilidad en la medida permitida por la ley.

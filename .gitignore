@@ -27,10 +27,10 @@ share/python-wheels/
 MANIFEST
 
 # PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
-*.spec
+# Note: build/innerpix-lab.spec is tracked (not auto-generated)
+# Only ignore auto-generated .spec files in root
+/*.spec
 
 # Installer logs
 pip-log.txt
@@ -210,3 +210,9 @@ __marimo__/
 
 # VS Code
 .vscode/
+
+# PyInstaller work directory
+build/pyinstaller-work/
+
+# Website build artifacts
+website/_site/

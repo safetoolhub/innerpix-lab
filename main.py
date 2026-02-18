@@ -55,7 +55,7 @@ def main():
     sys_info = Config.get_system_info()
     
     logger.info("=" * 80)
-    logger.info(f"Starting {Config.APP_NAME} v{Config.APP_VERSION}")
+    logger.info(f"Starting {Config.APP_NAME} v{Config.get_full_version()}")
     logger.info("=" * 80)
     logger.info("")
     logger.info("📊 SYSTEM CONFIGURATION:")
@@ -96,7 +96,7 @@ def main():
 
     # Configure the application
     app.setApplicationName(Config.APP_NAME)
-    app.setApplicationVersion(Config.APP_VERSION)
+    app.setApplicationVersion(Config.get_full_version())
     app.setOrganizationName("InnerpixLab")
 
     # Create and show main window

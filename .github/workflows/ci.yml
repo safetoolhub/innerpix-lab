@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Create venv & install deps
+        run: |
+          uv venv
+          uv pip install -r requirements.txt
+          uv pip install -r requirements-dev.txt
+
+      - name: Run tests
+        run: |
+          uv run pytest --ignore=tests/performance -v --tb=short
+        env:
+          QT_QPA_PLATFORM: offscreen
+
+      - name: Check imports
+        run: |
+          uv run python -c "from config import Config; print(f'v{Config.get_full_version()}')"

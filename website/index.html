@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Innerpix Lab — Privacy-First Photo &amp; Video Management</title>
+  <meta name="description" content="Manage, organize, and clean your photo and video collections with absolute privacy. 100% local processing. No cloud. No telemetry. No tracking. Ever.">
+  <meta name="author" content="SafeToolHub">
+
+  <meta property="og:title" content="Innerpix Lab">
+  <meta property="og:description" content="Privacy-first photo & video management. 100% local. No cloud. No telemetry.">
+  <meta property="og:type" content="website">
+
+  <link rel="icon" type="image/png" href="assets/img/icon.png">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+  <!-- Navigation -->
+  <nav id="nav">
+    <div class="nav-inner">
+      <a href="#" class="nav-logo">
+        <img src="assets/img/icon.png" alt="" width="28" height="28">
+        <span>Innerpix Lab</span>
+      </a>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#privacy">Privacy</a>
+        <a href="#download">Download</a>
+        <a href="#docs">Docs</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <header id="hero">
+    <div class="container">
+      <h1>Innerpix Lab</h1>
+      <p class="tagline">Your photos. Your computer. Your privacy.</p>
+      <p class="subtitle">
+        Manage, organize, and clean your photo &amp; video collections
+        with <strong>absolute privacy</strong>.<br>
+        100% local processing. No cloud. No telemetry. No tracking. <em>Ever.</em>
+      </p>
+      <a href="#download" class="btn btn-primary btn-large">Download Free</a>
+    </div>
+  </header>
+
+  <!-- Privacy Commitment -->
+  <section id="privacy">
+    <div class="container">
+      <h2>Our Privacy Commitment</h2>
+      <div class="privacy-pledge">
+        <div class="pledge-icon">🔒</div>
+        <div class="pledge-text">
+          <p>
+            <strong>SafeToolHub builds software that respects your privacy by design.</strong>
+          </p>
+          <p>
+            Innerpix Lab makes <strong>zero network connections</strong>. It cannot connect to
+            the internet. There is no cloud sync, no analytics, no crash reporting, no update
+            checking, no account system, no login — <strong>nothing leaves your machine</strong>.
+          </p>
+          <p>
+            Your photos and videos are deeply personal. We believe you should never have to
+            trust a third party — including us — with access to them. That's why every single
+            operation runs entirely on your computer, with your files, under your control.
+          </p>
+          <ul>
+            <li><strong>No network access</strong> — The application has no HTTP client, no socket code, no API calls</li>
+            <li><strong>No telemetry</strong> — No usage data, analytics, or crash reports are collected or sent</li>
+            <li><strong>No cloud</strong> — Files are never uploaded, synced, or shared anywhere</li>
+            <li><strong>No accounts</strong> — No login, no registration, no email required</li>
+            <li><strong>Open build pipeline</strong> — Binaries are built transparently via GitHub Actions from source</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section id="features">
+    <div class="container">
+      <h2>What It Does</h2>
+      <div class="features-grid">
+
+        <div class="card">
+          <h3>🧹 Smart Cleanup</h3>
+          <p>Find and remove exact duplicates (SHA256), zero-byte files, HEIC/JPG pairs, and iPhone Live Photo remnants.</p>
+        </div>
+
+        <div class="card">
+          <h3>👁️ Visual Detection</h3>
+          <p>Detect visually identical and similar images using perceptual hashing. Adjustable 70–95% similarity threshold.</p>
+        </div>
+
+        <div class="card">
+          <h3>📁 Smart Organization</h3>
+          <p>Reorganize files into clean date-based folder structures. Standardize filenames with EXIF-aware date renaming.</p>
+        </div>
+
+        <div class="card">
+          <h3>💾 Backup First</h3>
+          <p>Every destructive operation offers backup creation and dry-run simulation. Your files are always safe.</p>
+        </div>
+
+        <div class="card">
+          <h3>🌍 Cross-Platform</h3>
+          <p>Runs natively on Linux, Windows, and macOS. Available as .deb, .rpm, Windows installer, and macOS DMG.</p>
+        </div>
+
+        <div class="card">
+          <h3>🔒 Zero Network</h3>
+          <p>The application contains no networking code. It physically cannot connect to the internet or send data anywhere.</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- How It Works -->
+  <section id="how-it-works">
+    <div class="container">
+      <h2>How It Works</h2>
+      <ol class="steps">
+        <li><strong>Select your folder</strong> — Point Innerpix Lab to any photo/video directory</li>
+        <li><strong>Automatic analysis</strong> — Multi-phase scanning indexes file types, metadata, hashes, and EXIF data</li>
+        <li><strong>Choose your tools</strong> — 8 specialized tools in 3 categories: Cleanup, Visual Detection, Organization</li>
+        <li><strong>Preview &amp; execute</strong> — Every action shows a preview first. Back up before you delete.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- Download -->
+  <section id="download">
+    <div class="container">
+      <h2>Download</h2>
+      <p class="section-subtitle">Choose the package for your platform. All builds are created automatically from source via GitHub Actions.</p>
+
+      <div class="download-grid">
+        <a href="#" class="btn btn-download btn-disabled" data-platform="linux-deb">
+          <span class="btn-icon">🐧</span>
+          <span class="btn-text">
+            <strong>Linux</strong>
+            <small>.deb (Debian / Ubuntu)</small>
+          </span>
+        </a>
+
+        <a href="#" class="btn btn-download btn-disabled" data-platform="linux-rpm">
+          <span class="btn-icon">🐧</span>
+          <span class="btn-text">
+            <strong>Linux</strong>
+            <small>.rpm (Fedora / openSUSE)</small>
+          </span>
+        </a>
+
+        <a href="#" class="btn btn-download btn-disabled" data-platform="windows">
+          <span class="btn-icon">🪟</span>
+          <span class="btn-text">
+            <strong>Windows</strong>
+            <small>Installer (.exe)</small>
+          </span>
+        </a>
+
+        <a href="#" class="btn btn-download btn-disabled" data-platform="macos">
+          <span class="btn-icon">🍎</span>
+          <span class="btn-text">
+            <strong>macOS</strong>
+            <small>Disk Image (.dmg)</small>
+          </span>
+        </a>
+      </div>
+
+      <p class="download-meta">
+        Latest release: <strong id="release-version">—</strong>
+        · <a id="releases-link" href="https://github.com/safetoolhub/innerpix-lab/releases">All releases</a>
+      </p>
+
+      <h3>System Requirements</h3>
+      <table>
+        <tr><th>Component</th><th>Requirement</th></tr>
+        <tr><td>OS</td><td>Linux (x86_64), Windows 10+ (64-bit), macOS 12+</td></tr>
+        <tr><td>RAM</td><td>4 GB minimum, 8 GB+ recommended</td></tr>
+        <tr><td>Optional</td><td>FFmpeg (video metadata), ExifTool (advanced EXIF)</td></tr>
+      </table>
+
+      <h3>Linux Quick Start (.deb)</h3>
+      <pre><code>sudo dpkg -i InnerPixLab-*-linux-amd64.deb</code></pre>
+
+      <h3>Linux Quick Start (.rpm)</h3>
+      <pre><code>sudo rpm -i InnerPixLab-*-linux-x86_64.rpm</code></pre>
+    </div>
+  </section>
+
+  <!-- Docs -->
+  <section id="docs">
+    <div class="container">
+      <h2>Documentation</h2>
+
+      <h3>Tools Overview</h3>
+      <table>
+        <tr><th>Category</th><th>Tool</th><th>Description</th></tr>
+        <tr><td rowspan="4">Cleanup</td><td>Zero-byte files</td><td>Find and safely remove 0-byte empty files</td></tr>
+        <tr><td>Live Photos</td><td>Detect iPhone Live Photo pairs (image + MOV)</td></tr>
+        <tr><td>HEIC/JPG Duplicates</td><td>Find HEIC/JPG duplicate pairs from iOS cameras</td></tr>
+        <tr><td>Exact Copies</td><td>100% identical files via SHA256 hash comparison</td></tr>
+        <tr><td rowspan="2">Visual Detection</td><td>Visually Identical</td><td>Perceptual hash matching at threshold 0</td></tr>
+        <tr><td>Similar Files</td><td>70–95% similarity with adjustable sensitivity</td></tr>
+        <tr><td rowspan="2">Organization</td><td>Smart Organizer</td><td>Date-based folder reorganization</td></tr>
+        <tr><td>Complete Renamer</td><td>YYYYMMDD_HHMMSS filename standardization</td></tr>
+      </table>
+
+      <h3>Optional Dependencies</h3>
+      <table>
+        <tr><th>Tool</th><th>Debian/Ubuntu</th><th>Fedora</th><th>Windows</th><th>macOS</th></tr>
+        <tr>
+          <td>FFmpeg</td>
+          <td><code>sudo apt install ffmpeg</code></td>
+          <td><code>sudo dnf install ffmpeg</code></td>
+          <td><a href="https://ffmpeg.org/download.html">ffmpeg.org</a></td>
+          <td><code>brew install ffmpeg</code></td>
+        </tr>
+        <tr>
+          <td>ExifTool</td>
+          <td><code>sudo apt install libimage-exiftool-perl</code></td>
+          <td><code>sudo dnf install perl-Image-ExifTool</code></td>
+          <td><a href="https://exiftool.org/">exiftool.org</a></td>
+          <td><code>brew install exiftool</code></td>
+        </tr>
+      </table>
+
+      <h3>FAQ</h3>
+      <details><summary>Does Innerpix Lab connect to the internet?</summary>
+        <p>No. The application contains no networking code. It makes zero network connections.</p>
+      </details>
+      <details><summary>Is it safe to delete files?</summary>
+        <p>Yes. Every tool offers backup creation and dry-run simulation. Deleted files can go to your system trash for additional safety.</p>
+      </details>
+      <details><summary>What formats are supported?</summary>
+        <p>Images: JPEG, PNG, HEIC, HEIF, TIFF, BMP, WebP. Videos: MP4, MOV, AVI, MKV, WMV, FLV (metadata requires FFmpeg).</p>
+      </details>
+      <details><summary>Can I undo changes?</summary>
+        <p>Operations using the backup option can be restored. All deletions are logged with full paths to <code>~/Documents/Innerpix_Lab/logs/</code>.</p>
+      </details>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <p>&copy; 2026 SafeToolHub. All rights reserved.</p>
+      <p class="footer-privacy">Built with privacy as the foundation, not an afterthought.</p>
+    </div>
+  </footer>
+
+  <!-- Auto-update download links from GitHub Releases API -->
+  <script>
+    (function () {
+      var API = 'https://api.github.com/repos/safetoolhub/innerpix-lab/releases/latest';
+      var buttons = document.querySelectorAll('[data-platform]');
+      var versionEl = document.getElementById('release-version');
+
+      if (!buttons.length) return;
+
+      var xhr = new XMLHttpRequest();
+      xhr.open('GET', API);
+      xhr.onload = function () {
+        if (xhr.status !== 200) return;
+        var release;
+        try { release = JSON.parse(xhr.responseText); } catch (e) { return; }
+        if (!release.assets) return;
+
+        if (versionEl) versionEl.textContent = release.tag_name;
+
+        buttons.forEach(function (btn) {
+          var p = btn.getAttribute('data-platform');
+          var asset = release.assets.find(function (a) {
+            var n = a.name.toLowerCase();
+            if (p === 'linux-deb') return n.includes('linux') && n.endsWith('.deb');
+            if (p === 'linux-rpm') return n.includes('linux') && n.endsWith('.rpm');
+            if (p === 'windows') return n.includes('windows') && n.endsWith('.exe');
+            if (p === 'macos') return n.includes('macos') && n.endsWith('.dmg');
+            return false;
+          });
+          if (asset) {
+            btn.href = asset.browser_download_url;
+            btn.classList.remove('btn-disabled');
+          }
+        });
+      };
+      xhr.send();
+    })();
+  </script>
+
+</body>
+</html>
