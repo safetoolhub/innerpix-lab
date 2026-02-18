@@ -50,6 +50,7 @@ class SettingsManager:
     KEY_DIRECTORY_HISTORY = "interface/directory_history"
     KEY_ANALYSIS_TIMESTAMP = "interface/analysis_timestamp"  # Timestamp del último análisis
     KEY_LANGUAGE = "interface/language"
+    KEY_FIRST_LAUNCH_SHOWN = "interface/first_launch_about_shown"  # Si ya se mostró el about en el primer lanzamiento
 
     def __init__(self, backend: Optional[StorageBackend] = None,
                  organization: str = "InnerpixLab", application: str = "Innerpix Lab"):
