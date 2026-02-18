@@ -129,7 +129,7 @@ class AboutDialog(QDialog):
         title.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         left_layout.addWidget(title)
         
-        version = QLabel(tr("about.header.version", version=Config.APP_VERSION))
+        version = QLabel(tr("about.header.version", version=Config.get_full_version()))
         version.setStyleSheet(f"""
             color: rgba(255, 255, 255, 0.9);
             font-size: {DesignSystem.FONT_SIZE_SM}px;
@@ -486,7 +486,7 @@ class AboutDialog(QDialog):
         # Card 1: App Info
         app_card = self._create_info_card(tr("about.info.app_card.title"), [
             (tr("about.info.app_card.name"), Config.APP_NAME),
-            (tr("about.info.app_card.version"), Config.APP_VERSION),
+            (tr("about.info.app_card.version"), Config.get_full_version()),
             (tr("about.info.app_card.platforms"), tr("about.info.app_card.platforms_value")),
         ])
         info_grid.addWidget(app_card, 0, 0)
