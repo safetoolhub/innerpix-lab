@@ -379,7 +379,7 @@ class BaseStage(QObject):
         welcome_title.setStyleSheet(DesignSystem.get_stage_title_style())
         title_row_layout.addWidget(welcome_title)
 
-        version_label = QLabel(Config.get_full_version())
+        version_label = QLabel(f"v{Config.get_full_version()}")
         version_label.setStyleSheet(
             f"color: {DesignSystem.COLOR_TEXT_SECONDARY};"
             f"font-size: {DesignSystem.FONT_SIZE_XS}px;"
