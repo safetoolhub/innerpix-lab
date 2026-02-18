@@ -35,12 +35,14 @@ def main():
     # Read log level from persistent settings
     saved_log_level = settings_manager.get_log_level("INFO")  # INFO by default
     saved_dual_log = settings_manager.get_dual_log_enabled()  # True by default
+    saved_disable_file_logging = settings_manager.get_disable_file_logging()  # False by default
     
     # Configure logging system with saved level
     log_file, logs_dir = configure_logging(
         logs_dir=Config.DEFAULT_LOG_DIR,
         level=saved_log_level,
-        dual_log_enabled=saved_dual_log
+        dual_log_enabled=saved_dual_log,
+        disable_file_logging=saved_disable_file_logging,
     )
     
     # Read precalculation settings for log output
@@ -74,13 +76,16 @@ def main():
     logger.info(f"  • Auto-open dialog threshold: {sys_info['auto_open_threshold']:,} files")
     logger.info("")
     logger.info("LOG CONFIGURATION:")
-    logger.info(f"  • Log level: {log_level}")
-    logger.info(f"  • Log file: {log_file}")
-    logger.info(f"  • Log directory: {logs_dir}")
-    if saved_dual_log and saved_log_level in ('INFO', 'DEBUG'):
-        logger.info(f"  • Dual logging: enabled (additional _WARNERROR file will be created)")
+    if saved_disable_file_logging:
+        logger.info(f"  • File logging: DISABLED (only WARNING/ERROR on console)")
     else:
-        logger.info(f"  • Dual logging: {'disabled' if not saved_dual_log else 'not applicable (WARNING/ERROR level)'}")
+        logger.info(f"  • Log level: {log_level}")
+        logger.info(f"  • Log file: {log_file}")
+        logger.info(f"  • Log directory: {logs_dir}")
+        if saved_dual_log and saved_log_level in ('INFO', 'DEBUG'):
+            logger.info(f"  • Dual logging: enabled (additional _WARNERROR file will be created)")
+        else:
+            logger.info(f"  • Dual logging: {'disabled' if not saved_dual_log else 'not applicable (WARNING/ERROR level)'}")
     logger.info("")
     logger.info("LANGUAGE:")
     logger.info(f"  • UI Language: {language}")

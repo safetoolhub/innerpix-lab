@@ -608,6 +608,21 @@ class SettingsDialog(QDialog):
 
         logs_layout.addLayout(log_level_layout)
 
+        # Checkbox para deshabilitar escritura de logs en disco
+        self.disable_file_logging_checkbox = QCheckBox(
+            tr("settings.logs.disable_file_logging")
+        )
+        self.disable_file_logging_checkbox.setChecked(False)  # Por defecto desactivado
+        self.disable_file_logging_checkbox.setToolTip(
+            tr("settings.logs.disable_file_logging_tooltip")
+        )
+        self.disable_file_logging_checkbox.setStyleSheet(DesignSystem.get_checkbox_style())
+        logs_layout.addWidget(self.disable_file_logging_checkbox)
+
+        # Guardar referencias a widgets que se deshabilitan cuando file logging está desactivado
+        self._logs_dir_layout_widgets = [logs_label, self.logs_edit, browse_logs_btn]
+        self._log_level_layout_widgets = [log_level_label, self.log_level_combo]
+
         # Checkbox para dual logging (WARNING/ERROR adicional)
         self.dual_log_checkbox = QCheckBox(
             tr("settings.logs.dual_log")
@@ -815,7 +830,14 @@ class SettingsDialog(QDialog):
             
             # Dual log checkbox
             self.dual_log_checkbox.setChecked(settings_manager.get_dual_log_enabled())
-            # Deshabilitar si el nivel es WARNING o ERROR
+            
+            # Disable file logging checkbox
+            self.disable_file_logging_checkbox.setChecked(settings_manager.get_disable_file_logging())
+            
+            # Actualizar estado de widgets dependientes
+            self._update_file_logging_disabled_state()
+            
+            # Deshabilitar dual log si el nivel es WARNING o ERROR
             self._update_dual_log_enabled_state(current_level)
 
             # Directories
@@ -842,6 +864,7 @@ class SettingsDialog(QDialog):
             'backup_dir': self.backup_edit.text(),
             'log_level': self.log_level_combo.currentIndex(),
             'dual_log': self.dual_log_checkbox.isChecked(),
+            'disable_file_logging': self.disable_file_logging_checkbox.isChecked(),
             'auto_backup': self.auto_backup_checkbox.isChecked(),
 
             'confirm_delete': self.confirm_delete_checkbox.isChecked(),
@@ -870,6 +893,7 @@ class SettingsDialog(QDialog):
         self.precalculate_image_exif_checkbox.stateChanged.connect(lambda: self._on_widget_changed("precalculate_image_exif"))
         self.precalculate_video_exif_checkbox.stateChanged.connect(lambda: self._on_widget_changed("precalculate_video_exif"))
         self.dual_log_checkbox.stateChanged.connect(lambda: self._on_widget_changed("dual_log"))
+        self.disable_file_logging_checkbox.stateChanged.connect(self._on_disable_file_logging_changed)
         
         # Spinbox
         self.max_workers_spin.valueChanged.connect(lambda: self._on_widget_changed("max_workers"))
@@ -887,6 +911,11 @@ class SettingsDialog(QDialog):
         """Manejador común para cambios en widgets"""
         self.logger.debug(f"Widget changed: {widget_name}")
         self._validate_changes()
+    
+    def _on_disable_file_logging_changed(self):
+        """Manejador para cambios en el checkbox de deshabilitar file logging"""
+        self._update_file_logging_disabled_state()
+        self._on_widget_changed("disable_file_logging")
     
     def _validate_changes(self):
         """
@@ -959,6 +988,10 @@ class SettingsDialog(QDialog):
         original_dual_log = self.original_values['dual_log']
         dual_log_changed = current_dual_log != original_dual_log
         
+        current_disable_file_logging = self.disable_file_logging_checkbox.isChecked()
+        original_disable_file_logging = self.original_values['disable_file_logging']
+        disable_file_logging_changed = current_disable_file_logging != original_disable_file_logging
+        
         current_language = self.language_combo.currentIndex()
         original_language = self.original_values['language']
         language_changed = current_language != original_language
@@ -969,7 +1002,7 @@ class SettingsDialog(QDialog):
             show_path_changed or max_workers_changed or dry_run_changed or
             ui_update_changed or precalculate_hashes_changed or
             precalculate_image_exif_changed or precalculate_video_exif_changed or
-            dual_log_changed or language_changed
+            dual_log_changed or disable_file_logging_changed or language_changed
         )
         
         # Habilitar/deshabilitar botón según haya cambios
@@ -1148,11 +1181,17 @@ class SettingsDialog(QDialog):
             level_name: Nombre del nivel de log (DEBUG, INFO, WARNING, ERROR)
         """
         # Deshabilitar si el nivel es WARNING o ERROR (no tiene sentido logs duplicados)
-        should_enable = level_name in ('DEBUG', 'INFO')
+        # o si file logging está completamente deshabilitado
+        file_logging_disabled = self.disable_file_logging_checkbox.isChecked()
+        should_enable = level_name in ('DEBUG', 'INFO') and not file_logging_disabled
         self.dual_log_checkbox.setEnabled(should_enable)
         
         # Si se deshabilita, mostrar tooltip explicativo
-        if not should_enable:
+        if file_logging_disabled:
+            self.dual_log_checkbox.setToolTip(
+                tr("settings.logs.disable_file_logging_tooltip")
+            )
+        elif not should_enable:
             self.dual_log_checkbox.setToolTip(
                 tr("settings.logs.dual_log_disabled_tooltip")
             )
@@ -1161,6 +1200,35 @@ class SettingsDialog(QDialog):
             self.dual_log_checkbox.setToolTip(
                 tr("settings.logs.dual_log_tooltip")
             )
+
+    def _update_file_logging_disabled_state(self):
+        """
+        Actualiza el estado de los widgets relacionados con logging en disco
+        según si la escritura de archivos está deshabilitada.
+        
+        Cuando file logging está deshabilitado, deshabilita:
+        - Directorio de logs + botón browse
+        - Selector de nivel de log
+        - Checkbox de dual log
+        - Botón de abrir carpeta de logs
+        """
+        disabled = self.disable_file_logging_checkbox.isChecked()
+        
+        # Deshabilitar widgets de directorio de logs
+        for widget in self._logs_dir_layout_widgets:
+            widget.setEnabled(not disabled)
+        
+        # Deshabilitar selector de nivel de log
+        for widget in self._log_level_layout_widgets:
+            widget.setEnabled(not disabled)
+        
+        # Deshabilitar dual log checkbox
+        if disabled:
+            self.dual_log_checkbox.setEnabled(False)
+        else:
+            # Restaurar estado según nivel de log actual
+            level_name = self.log_level_combo.currentText().split()[0].split(" - ")[0].upper()
+            self._update_dual_log_enabled_state(level_name)
 
     def restore_defaults(self):
         """Restaura valores por defecto"""
@@ -1182,6 +1250,7 @@ class SettingsDialog(QDialog):
             self.confirm_reanalyze_checkbox.setChecked(True)
             self.show_full_path_checkbox.setChecked(True)
             self.dry_run_default_checkbox.setChecked(False)
+            self.disable_file_logging_checkbox.setChecked(False)
             self.max_workers_spin.setValue(Config.MAX_WORKER_THREADS)
             
             # Restaurar opciones de análisis inicial
@@ -1215,6 +1284,7 @@ class SettingsDialog(QDialog):
             current_precalculate_image_exif = settings_manager.get_precalculate_image_exif()
             current_precalculate_video_exif = settings_manager.get_precalculate_video_exif()
             current_dual_log = settings_manager.get_dual_log_enabled()
+            current_disable_file_logging = settings_manager.get_disable_file_logging()
             current_language = settings_manager.get_language()
             
             # Valores nuevos (desde UI)
@@ -1232,6 +1302,7 @@ class SettingsDialog(QDialog):
             new_precalculate_image_exif = self.precalculate_image_exif_checkbox.isChecked()
             new_precalculate_video_exif = self.precalculate_video_exif_checkbox.isChecked()
             new_dual_log = self.dual_log_checkbox.isChecked()
+            new_disable_file_logging = self.disable_file_logging_checkbox.isChecked()
             new_language = self._language_codes[self.language_combo.currentIndex()]
             
             # Detectar qué cambió
@@ -1252,6 +1323,7 @@ class SettingsDialog(QDialog):
                 current_precalculate_image_exif != new_precalculate_image_exif or
                 current_precalculate_video_exif != new_precalculate_video_exif or
                 current_dual_log != new_dual_log or
+                current_disable_file_logging != new_disable_file_logging or
                 language_changed
             )
             
@@ -1318,6 +1390,13 @@ class SettingsDialog(QDialog):
                 # Actualizar el sistema de logging
                 from utils.logger import set_dual_log_enabled
                 set_dual_log_enabled(new_dual_log)
+
+            # Disable file logging (solo si cambió)
+            if current_disable_file_logging != new_disable_file_logging:
+                settings_manager.set_disable_file_logging(new_disable_file_logging)
+                # Actualizar el sistema de logging en runtime
+                from utils.logger import set_file_logging_disabled
+                set_file_logging_disabled(new_disable_file_logging)
 
             # Language (solo si cambió)
             if language_changed:

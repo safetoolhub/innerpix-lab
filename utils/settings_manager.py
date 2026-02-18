@@ -31,6 +31,7 @@ class SettingsManager:
     # === LOGGING ===
     KEY_LOG_LEVEL = "logging/level"
     KEY_DUAL_LOG_ENABLED = "logging/dual_log_enabled"
+    KEY_DISABLE_FILE_LOGGING = "logging/disable_file_logging"
 
     # === AVANZADO ===
     KEY_DRY_RUN_DEFAULT = "advanced/dry_run_default"
@@ -206,6 +207,18 @@ class SettingsManager:
     def set_dual_log_enabled(self, enabled: bool) -> None:
         """Establece si el log dual (warnings/errors) está habilitado"""
         self.set(self.KEY_DUAL_LOG_ENABLED, enabled)
+
+    def get_disable_file_logging(self) -> bool:
+        """Obtiene si la escritura de logs en disco está deshabilitada (por defecto False).
+        
+        Cuando True: no se escriben archivos de log, solo WARNING/ERROR en consola.
+        Cuando False (default): comportamiento normal de logging.
+        """
+        return self.get_bool(self.KEY_DISABLE_FILE_LOGGING, False)
+
+    def set_disable_file_logging(self, disabled: bool) -> None:
+        """Establece si la escritura de logs en disco debe deshabilitarse"""
+        self.set(self.KEY_DISABLE_FILE_LOGGING, disabled)
 
     def get_logs_directory(self, default: Optional[Path] = None) -> Optional[Path]:
         """Obtiene el directorio de logs configurado"""

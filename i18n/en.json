@@ -400,6 +400,8 @@
       "dual_log": "Create additional file with WARNING and ERROR only (for large datasets)",
       "dual_log_tooltip": "When enabled and the log level is INFO or DEBUG:\n• A main file will be created with ALL logs (suffix: _INFO or _DEBUG)\n• An additional file will be created with WARNING and ERROR only (suffix: _WARNERROR)\n\nUseful for large datasets where the full log is very extensive.\nThis option is automatically disabled if the level is WARNING or ERROR.",
       "dual_log_disabled_tooltip": "This option is only available for INFO or DEBUG levels.\nWith WARNING or ERROR level, all logs already contain only warnings and errors.",
+      "disable_file_logging": "Do not write log files to disk",
+      "disable_file_logging_tooltip": "When enabled:\n• No log files will be written to disk\n• Only WARNING and ERROR messages will be shown in the console\n• DEBUG and INFO messages will be completely discarded\n\nRecommended if you don't need to keep operation records.\nThis option disables the logs directory, detail level and dual logging.",
       "open_folder": "Open logs folder"
     },
     "advanced": {
