@@ -467,7 +467,7 @@
     "tab": {
       "welcome": "Home",
       "tools": "Tools",
-      "info": "Info"
+      "info": "Information"
     },
     "footer": {
       "credits": "Developed to simplify photo management"
@@ -519,13 +519,16 @@
       "title": "Available Tools"
     },
     "info": {
-      "title": "About",
+      "title": "Information",
       "app_card": {
         "title": "Application",
         "name": "Name",
         "version": "Version",
         "platforms": "Platforms",
         "platforms_value": "Windows • Linux • macOS"
+      },
+      "contact": {
+        "title": "Contact"
       },
       "tech_card": {
         "title": "Technology",

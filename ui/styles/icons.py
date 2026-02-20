@@ -137,6 +137,7 @@ class IconManager:
         'eye-off': 'mdi6.eye-off',
         'movie-open': 'mdi6.movie-open',
         'play-circle': 'mdi6.play-circle',
+        'mail': 'mdi6.email',
         
         # === DUPLICADOS Y COPIAS ===
         'content-copy': 'mdi6.content-copy',

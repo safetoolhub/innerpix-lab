@@ -17,6 +17,7 @@ class Config:
     APP_VERSION = "0.8.0"
     APP_VERSION_SUFFIX = "alpha"  # "beta", "rc1", "" (empty for stable)
     APP_AUTHOR = "SafeToolHub"
+    APP_CONTACT = "safetoolhub@protonmail.com"
     APP_WEBSITE = "https://safetoolhub.org"
     APP_REPO = "https://github.com/safetoolhub/innerpix-lab"
     APP_DESCRIPTION = "Privacy-first photo and video management. 100% local, no cloud."

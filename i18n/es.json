@@ -467,7 +467,7 @@
     "tab": {
       "welcome": "Inicio",
       "tools": "Herramientas",
-      "info": "Info"
+      "info": "Información"
     },
     "footer": {
       "credits": "Desarrollado para simplificar la gestión de fotos"
@@ -519,13 +519,16 @@
       "title": "Herramientas Disponibles"
     },
     "info": {
-      "title": "Acerca de",
+      "title": "Información",
       "app_card": {
         "title": "Aplicación",
         "name": "Nombre",
         "version": "Versión",
         "platforms": "Plataformas",
         "platforms_value": "Windows • Linux • macOS"
+      },
+      "contact": {
+        "title": "Contacto"
       },
       "tech_card": {
         "title": "Tecnología",
