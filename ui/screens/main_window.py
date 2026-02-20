@@ -44,12 +44,12 @@ class MainWindow(QMainWindow):
             cache_file = Path(Config.SAVED_CACHE_DEV_MODE_PATH)
             
             if cache_file.exists():
-                self.logger.info(f"🔧 Dev mode: Loading specific cache {cache_file}")
+                self.logger.info(f"Dev mode: Loading specific cache {cache_file}")
                 # En este caso, no conocemos el folder_path aún, lo inferiremos dentro de _load_cache_and_transition
                 if self._load_cache_and_transition(None, cache_file):
                     return
             else:
-                msg = f"🔧 CRITICAL ERROR Dev mode: Cache file not found at {cache_file}"
+                msg = f"CRITICAL ERROR Dev mode: Cache file not found at {cache_file}"
                 self.logger.error(msg)
                 print(msg)
                 print("Aborting execution due to invalid dev configuration.")
@@ -59,9 +59,36 @@ class MainWindow(QMainWindow):
         # Inicializar con Estado 1
         self._transition_to_state_1()
 
+        # Marcar si hay que mostrar el about al primer lanzamiento (se dispara en showEvent)
+        self._pending_first_launch_about = False
+        if not Config.SKIP_FIRST_LAUNCH_ABOUT:
+            from utils.settings_manager import settings_manager
+            if Config.DEV_RESET_FIRST_LAUNCH:
+                settings_manager.set(settings_manager.KEY_FIRST_LAUNCH_SHOWN, False)
+            if not settings_manager.get_bool(settings_manager.KEY_FIRST_LAUNCH_SHOWN, default=False):
+                settings_manager.set(settings_manager.KEY_FIRST_LAUNCH_SHOWN, True)
+                self._pending_first_launch_about = True
+
         self.logger.info("MainWindow initialized in State 1")
 
     # ==================== SISTEMA DE ESTADOS ====================
+
+    def showEvent(self, event):
+        """Aprovecha el primer show de la ventana para lanzar el about de bienvenida."""
+        super().showEvent(event)
+        if getattr(self, '_pending_first_launch_about', False):
+            self._pending_first_launch_about = False
+            from PyQt6.QtCore import QTimer
+            QTimer.singleShot(400, self._show_first_launch_about)
+
+    def _show_first_launch_about(self):
+        """Muestra el diálogo About en el primer lanzamiento de la aplicación."""
+        try:
+            from ui.dialogs.about_dialog import AboutDialog
+            dialog = AboutDialog(self)
+            dialog.exec()
+        except Exception as e:
+            self.logger.warning(f"Could not show first-launch about dialog: {e}")
 
     def _transition_to_state_1(self):
         """Transición al Stage 1 (Selector de carpeta)"""
@@ -243,7 +270,7 @@ class MainWindow(QMainWindow):
             # operar sobre una carpeta diferente a la de los datos cargados.
             if Config.DEVELOPMENT_MODE:
                 settings_manager.set('last_analyzed_folder', str(folder_path))
-                self.logger.info(f"🔧 Development mode: Active folder updated to: {folder_path}")
+                self.logger.info(f"Development mode: Active folder updated to: {folder_path}")
             
             for metadata in all_files:
                 path = metadata.path

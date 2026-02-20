@@ -374,7 +374,7 @@ class Stage2Window(BaseStage):
         scan.unsupported_extensions = unsupported_extensions
         scan.unsupported_files = unsupported_files
         
-        self.logger.info(f"✅ Extensions added: {len(image_extensions)} images, "
+        self.logger.info(f"Extensions added: {len(image_extensions)} images, "
                         f"{len(video_extensions)} videos, {len(unsupported_extensions)} unsupported")
     
     def _log_file_extensions_summary(self, results):
@@ -402,9 +402,9 @@ class Stage2Window(BaseStage):
                 f"{ext.upper()} ({count})" 
                 for ext, count in sorted(scan.image_extensions.items())
             )
-            self.logger.info(f"📷 Images by extension: {image_summary}")
+            self.logger.info(f"Images by extension: {image_summary}")
         else:
-            self.logger.info("📷 Images by extension: none")
+            self.logger.info("Images by extension: none")
         
         # INFO: Desglose de videos por extensión
         if scan.video_extensions:
@@ -412,9 +412,9 @@ class Stage2Window(BaseStage):
                 f"{ext.upper()} ({count})" 
                 for ext, count in sorted(scan.video_extensions.items())
             )
-            self.logger.info(f"🎥 Videos by extension: {video_summary}")
+            self.logger.info(f"Videos by extension: {video_summary}")
         else:
-            self.logger.info("🎥 Videos by extension: none")
+            self.logger.info("Videos by extension: none")
         
         # INFO: Recuento de archivos con extensiones no soportadas
         if scan.unsupported_extensions:
@@ -423,15 +423,15 @@ class Stage2Window(BaseStage):
                 f"{ext.upper() if ext != '(sin extensión)' else ext} ({count})" 
                 for ext, count in sorted(scan.unsupported_extensions.items())
             )
-            self.logger.info(f"⚠️  Files with UNSUPPORTED extensions: {unsupported_count} - {unsupported_summary}")
+            self.logger.info(f"Files with UNSUPPORTED extensions: {unsupported_count} - {unsupported_summary}")
             
             # DEBUG: Rutas completas de archivos no soportados
             if scan.unsupported_files:
-                self.logger.debug(f"📁 Full paths of UNSUPPORTED files ({len(scan.unsupported_files)} files):")
+                self.logger.debug(f"Full paths of UNSUPPORTED files ({len(scan.unsupported_files)} files):")
                 for file_path in scan.unsupported_files:
                     self.logger.debug(f"  - {file_path}")
         else:
-            self.logger.info("✅ Files with UNSUPPORTED extensions: none")
+            self.logger.info("Files with UNSUPPORTED extensions: none")
     
     def _on_cancel_requested(self):
         """Usuario solicitó cancelar el análisis"""
@@ -487,9 +487,9 @@ class Stage2Window(BaseStage):
                 self.analysis_worker.terminate()
                 # Esperar un poco más después de terminate
                 self.analysis_worker.wait(2000)
-                self.logger.warning("⚠️ Forced cancellation applied - inconsistencies may occur")
+                self.logger.warning("Forced cancellation applied - inconsistencies may occur")
             else:
-                self.logger.info("✓ Worker cancelled correctly via cooperative cancellation")
+                self.logger.info("Worker cancelled correctly via cooperative cancellation")
         
         # Volver a Estado 1
         self._return_to_state_1()

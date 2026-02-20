@@ -630,7 +630,7 @@ class TestFilenameDateVsMtimePrecision:
     
     def test_filename_date_with_zeros_and_matching_mtime_day_prefers_mtime(self):
         """Cuando filename tiene fecha sin hora (00:00:00) y mtime coincide en día, preferir mtime"""
-        # Caso: IMG_20230515.jpg (sin hora) → 2023-05-15 00:00:00
+        # Caso: IMG_20230515.jpg (sin hora) -> 2023-05-15 00:00:00
         # mtime: 2023-05-15 14:30:45 (más precisa)
         metadata = _create_test_metadata(
             path=Path('/test/IMG-20230515-WA0001.jpg'),  # Patrón WhatsApp sin hora
@@ -646,7 +646,7 @@ class TestFilenameDateVsMtimePrecision:
     
     def test_filename_date_with_time_keeps_filename(self):
         """Cuando filename tiene hora completa, mantener filename aunque mtime coincida"""
-        # Caso: IMG_20230515_143045.jpg (con hora) → 2023-05-15 14:30:45
+        # Caso: IMG_20230515_143045.jpg (con hora) -> 2023-05-15 14:30:45
         # mtime: 2023-05-15 14:30:47 (diferencia menor)
         metadata = _create_test_metadata(
             path=Path('/test/IMG_20230515_143045.jpg'),  # Patrón con hora completa
@@ -662,7 +662,7 @@ class TestFilenameDateVsMtimePrecision:
     
     def test_filename_date_zeros_different_day_than_mtime_keeps_filename(self):
         """Si filename y mtime tienen diferente día, usar filename aunque tenga 00:00:00"""
-        # Caso: IMG_20230515.jpg → 2023-05-15 00:00:00
+        # Caso: IMG_20230515.jpg -> 2023-05-15 00:00:00
         # mtime: 2023-05-20 10:00:00 (día diferente)
         metadata = _create_test_metadata(
             path=Path('/test/IMG-20230515-WA0001.jpg'),
@@ -1346,7 +1346,7 @@ class TestTimezoneNormalization:
         
         Caso real corregido: get_exif_from_video() ahora extrae la fecha
         precisa de com.apple.quicktime.creationdate y la propaga con offset.
-        Ambos archivos tienen offset → se normalizan a UTC → diferencia ~0.
+        Ambos archivos tienen offset -> se normalizan a UTC -> diferencia ~0.
         """
         from types import SimpleNamespace
         
@@ -1366,7 +1366,7 @@ class TestTimezoneNormalization:
         
         vid_date, img_date, source = select_best_date_from_common_date_to_2_files(video, image)
         
-        # Ambos con offset → normalizados a UTC
+        # Ambos con offset -> normalizados a UTC
         assert source == 'exif_date_time_original'
         assert vid_date == datetime(2021, 7, 6, 13, 37, 26)  # 15:37:26 - 2h
         assert img_date == datetime(2021, 7, 6, 13, 37, 26)
@@ -1574,7 +1574,7 @@ class TestValidateDateCoherence:
         result = _validate_date_coherence(metadata)
 
         assert 'SOFTWARE_DETECTED' in result.warnings
-        assert result.confidence == 'medium'  # 1 warning → medium
+        assert result.confidence == 'medium'  # 1 warning -> medium
 
     def test_recent_transfer_warning(self):
         """ctime muy diferente de EXIF genera RECENT_TRANSFER."""

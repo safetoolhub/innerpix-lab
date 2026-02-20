@@ -295,7 +295,7 @@ class LivePhotosDialog(BaseDialog):
         Returns:
             True si coincide con el filtro
         """
-        if filter_value == "Todos los tamaños":
+        if filter_value == tr("common.filter.all_sizes"):
             return True
         
         mb = file_size / (1024 * 1024)
@@ -351,9 +351,8 @@ class LivePhotosDialog(BaseDialog):
         if len(self.filtered_groups) > 1000:
             reply = QMessageBox.question(
                 self,
-                "Cargar todos los grupos",
-                f"Hay {len(self.filtered_groups)} grupos. ¿Seguro que quieres cargarlos todos?\n"
-                "Esto puede tardar y consumir memoria.",
+                tr("common.dialog.load_all_groups_title"),
+                tr("common.dialog.load_all_groups_msg", count=len(self.filtered_groups)),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
             )
             if reply != QMessageBox.StandardButton.Yes:
@@ -390,8 +389,8 @@ class LivePhotosDialog(BaseDialog):
         group_item = QTreeWidgetItem(self.tree_widget)
         
         # Texto del grupo - Solo columna 0
-        images_info = f"{group.image_count} imagen{'es' if group.image_count > 1 else ''}"
-        group_item.setText(0, f"Grupo #{group_number} • {group.base_name} ({images_info})")
+        images_info = tr("dialogs.live_photos.tree.image_count_plural", count=group.image_count) if group.image_count > 1 else tr("dialogs.live_photos.tree.image_count_singular", count=group.image_count)
+        group_item.setText(0, tr("dialogs.live_photos.tree.group_label", num=group_number, name=group.base_name, images=images_info))
         
         # Fecha y origen en el grupo
         group_date = group.best_date
@@ -403,11 +402,11 @@ class LivePhotosDialog(BaseDialog):
         apply_group_item_style(group_item, num_columns=6)
         
         # Tooltip informativo
-        extra_info = f"{group.image_count} imagen(es) + 1 video MOV"
+        extra_info = tr("dialogs.live_photos.tooltip.group_desc", count=group.image_count)
         if group.date_source:
-            extra_info += f"\nFecha común: {group.date_source}"
+            extra_info += "\n" + tr("dialogs.live_photos.tooltip.common_date", source=group.date_source)
             if group.date_difference is not None:
-                extra_info += f"\nDiferencia: {group.date_difference:.3f}s"
+                extra_info += "\n" + tr("dialogs.live_photos.tooltip.date_diff", diff=group.date_difference)
         
         group_item.setToolTip(0, create_group_tooltip(
             group_number,
@@ -425,7 +424,7 @@ class LivePhotosDialog(BaseDialog):
             if img_info.date:
                 img_item.setText(3, img_info.date.strftime('%d/%m/%Y %H:%M:%S'))
             img_item.setText(4, img_info.date_source or "")
-            img_item.setText(5, "✓ Conservar")
+            img_item.setText(5, tr("common.status.mark_keep"))
             img_item.setForeground(5, QColor(DesignSystem.COLOR_SUCCESS))
             
             # Guardar referencia al archivo
@@ -435,12 +434,12 @@ class LivePhotosDialog(BaseDialog):
             try:
                 img_mtime = datetime.fromtimestamp(img_info.path.stat().st_mtime)
                 img_tooltip = (f"<b>{img_info.path.name}</b><br>"
-                               f"Carpeta: {img_info.path.parent}<br>"
-                               f"Tamaño: {format_size(img_info.size)}<br>"
-                               f"Fecha: {img_mtime.strftime('%d/%m/%Y %H:%M:%S')}<br>")
+                               f"{tr('common.tooltip.folder')} {img_info.path.parent}<br>"
+                               f"{tr('common.tooltip.size')} {format_size(img_info.size)}<br>"
+                               f"{tr('common.tooltip.date')} {img_mtime.strftime('%d/%m/%Y %H:%M:%S')}<br>")
                 if img_info.date_source:
-                    img_tooltip += f"Origen fecha: {img_info.date_source}<br>"
-                img_tooltip += "✓ Se conservará"
+                    img_tooltip += f"{tr('common.tooltip.date_source')} {img_info.date_source}<br>"
+                img_tooltip += tr("common.tooltip.will_keep")
                 img_item.setToolTip(0, img_tooltip)
             except Exception:
                 pass
@@ -454,7 +453,7 @@ class LivePhotosDialog(BaseDialog):
         if group.video_date:
             video_item.setText(3, group.video_date.strftime('%d/%m/%Y %H:%M:%S'))
         video_item.setText(4, group.video_date_source or "")
-        video_item.setText(5, "✗ Eliminar")
+        video_item.setText(5, tr("common.status.mark_delete"))
         video_item.setForeground(5, QColor(DesignSystem.COLOR_ERROR))
         
         # Guardar referencia al video
@@ -464,12 +463,12 @@ class LivePhotosDialog(BaseDialog):
         try:
             video_mtime = datetime.fromtimestamp(group.video_path.stat().st_mtime)
             video_tooltip = (f"<b>{group.video_path.name}</b><br>"
-                             f"Carpeta: {group.video_path.parent}<br>"
-                             f"Tamaño: {format_size(group.video_size)}<br>"
-                             f"Fecha: {video_mtime.strftime('%d/%m/%Y %H:%M:%S')}<br>")
+                             f"{tr('common.tooltip.folder')} {group.video_path.parent}<br>"
+                             f"{tr('common.tooltip.size')} {format_size(group.video_size)}<br>"
+                             f"{tr('common.tooltip.date')} {video_mtime.strftime('%d/%m/%Y %H:%M:%S')}<br>")
             if group.video_date_source:
-                video_tooltip += f"Origen fecha: {group.video_date_source}<br>"
-            video_tooltip += "✗ Se eliminará"
+                video_tooltip += f"{tr('common.tooltip.date_source')} {group.video_date_source}<br>"
+            video_tooltip += tr("common.tooltip.will_delete")
             video_item.setToolTip(0, video_tooltip)
         except Exception:
             pass
@@ -490,7 +489,7 @@ class LivePhotosDialog(BaseDialog):
             savings = self.analysis.potential_savings
             space_formatted = format_size(savings)
             self.ok_button.setText(
-                f"Eliminar Videos ({self.analysis.items_count} grupos, {space_formatted})"
+                tr("dialogs.live_photos.button_delete", count=self.analysis.items_count, size=space_formatted)
             )
 
     def accept(self):

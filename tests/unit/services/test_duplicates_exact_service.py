@@ -475,7 +475,7 @@ class TestDuplicatesExactServiceIntegration:
         assert result1.total_duplicates == result2.total_duplicates == result3.total_duplicates == 2
     
     def test_analyze_execute_analyze_sequence(self, tmp_path):
-        """Secuencia: analizar → ejecutar → analizar debe reflejar cambios"""
+        """Sequence: analyze -> execute -> analyze should reflect changes"""
         repo = FileInfoRepositoryCache.get_instance()
         service = DuplicatesExactService()
         

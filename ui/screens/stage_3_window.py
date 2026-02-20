@@ -869,8 +869,8 @@ class Stage3Window(BaseStage):
                                 self.logger.error(traceback.format_exc())
                                 QMessageBox.critical(
                                     self.main_window,
-                                    "Error en actualización",
-                                    f"Error actualizando estadísticas de {tool_id}:\n\n{str(e)[:300]}"
+                                    tr("stage3.error.update_failed_title"),
+                                    tr("stage3.error.update_failed_msg", tool_id=tool_id, error=str(e)[:300])
                                 )
                         QTimer.singleShot(500, safe_update)
         
@@ -971,10 +971,7 @@ class Stage3Window(BaseStage):
         service_name = get_tool_title(tool_id)
         
         return (
-            f"¿Deseas actualizar las estadísticas de {service_name}?\n\n"
-            f"Esto recalculará únicamente el análisis de {service_name} para reflejar "
-            f"los cambios realizados. La caché de metadatos ya está actualizada.\n\n"
-            f"Nota: Esta operación es rápida y solo afecta a {service_name}."
+            tr("stage3.confirm.update_stats_msg", name=service_name)
         )
     
     # Herramientas que NO liberan espacio (solo mueven/renombran archivos)
@@ -995,65 +992,63 @@ class Stage3Window(BaseStage):
         """
         from utils.format_utils import format_size
         
-        # Título según modo
+        # Title based on mode
         if was_simulation:
-            title = "Simulación Completada"
+            title = tr("stage3.result.simulation_title")
         else:
-            title = "Operación Completada"
+            title = tr("stage3.result.operation_title")
         
-        # Construir resumen detallado
+        # Build detailed summary
         summary_lines = []
         
-        # Estadísticas de archivos procesados
+        # File processing statistics
         if hasattr(result, 'items_processed') and result.items_processed > 0:
             if was_simulation:
-                summary_lines.append(f"• Archivos que se procesarían: {result.items_processed}")
+                summary_lines.append(tr("stage3.result.files_would_process", count=result.items_processed))
             else:
-                summary_lines.append(f"• Archivos procesados: {result.items_processed}")
+                summary_lines.append(tr("stage3.result.files_processed", count=result.items_processed))
         
-        # Espacio liberado/que se liberaría (solo para herramientas que realmente eliminan archivos)
-        # Las herramientas de organización y renombrado solo mueven/renombran, no liberan espacio
+        # Space freed/would be freed (only for tools that actually delete files)
         if tool_id not in self._NON_SPACE_FREEING_TOOLS:
             if hasattr(result, 'bytes_processed') and result.bytes_processed > 0:
                 if was_simulation:
-                    summary_lines.append(f"• Espacio que se liberaría: {format_size(result.bytes_processed)}")
+                    summary_lines.append(tr("stage3.result.space_would_free", size=format_size(result.bytes_processed)))
                 else:
-                    summary_lines.append(f"• Espacio liberado: {format_size(result.bytes_processed)}")
+                    summary_lines.append(tr("stage3.result.space_freed", size=format_size(result.bytes_processed)))
         
-        # Contenido adicional del mensaje del servicio (si existe y no está vacío)
+        # Additional service message content
         service_message = ""
         if hasattr(result, 'message') and result.message:
-            # Evitar duplicar info que ya mostramos
             service_message = result.message.strip()
         
-        # Info de backup (siempre mostrar si se solicitó)
+        # Backup info
         backup_info = ""
         if has_backup:
             if was_simulation:
-                backup_info = "\n📁 Backup: No se crea en modo simulación"
+                backup_info = "\n" + tr("stage3.result.backup_simulation")
             elif hasattr(result, 'backup_path') and result.backup_path:
-                backup_info = f"\n\n📁 Backup creado en:\n{result.backup_path}"
+                backup_info = "\n\n" + tr("stage3.result.backup_created", path=result.backup_path)
             else:
-                backup_info = "\n\n📁 Backup: Solicitado pero no se encontraron archivos para respaldar"
+                backup_info = "\n\n" + tr("stage3.result.backup_no_files")
         
-        # Advertencias de errores
+        # Error warnings
         errors_info = ""
         if hasattr(result, 'errors') and result.errors:
-            errors_info = f"\n\n⚠️ Advertencia: Se encontraron {len(result.errors)} errores durante la operación."
+            errors_info = "\n\n" + tr("stage3.result.errors_warning", count=len(result.errors))
         
-        # Nota de simulación
+        # Simulation note
         simulation_note = ""
         if was_simulation:
-            simulation_note = "\n\n📋 MODO SIMULACIÓN: No se realizaron cambios reales en los archivos."
+            simulation_note = "\n\n" + tr("stage3.result.simulation_note")
         
-        # Construir mensaje final
+        # Build final message
         if summary_lines:
             summary = "\n".join(summary_lines)
             message = f"{summary}{backup_info}{errors_info}{simulation_note}"
         elif service_message:
             message = f"{service_message}{backup_info}{errors_info}{simulation_note}"
         else:
-            base = "La simulación se completó." if was_simulation else "La operación se completó exitosamente."
+            base = tr("stage3.result.simulation_completed") if was_simulation else tr("stage3.result.operation_completed")
             message = f"{base}{backup_info}{errors_info}{simulation_note}"
         
         return message, title
@@ -1101,14 +1096,14 @@ class Stage3Window(BaseStage):
         
         # Mapeo de tool_id a Worker Class y mensaje
         worker_map = {
-            'live_photos': (LivePhotosAnalysisWorker, "Actualizando Live Photos..."),
-            'heic': (HeicAnalysisWorker, "Actualizando duplicados HEIC/JPG..."),
-            'duplicates_exact': (DuplicatesExactAnalysisWorker, "Actualizando copias exactas..."),
-            'visual_identical': (VisualIdenticalAnalysisWorker, "Actualizando copias visuales..."),
-            'duplicates_similar': (DuplicatesSimilarAnalysisWorker, "Actualizando archivos similares..."),
-            'zero_byte': (ZeroByteAnalysisWorker, "Actualizando archivos vacíos..."),
-            'file_organizer': (FileOrganizerAnalysisWorker, "Actualizando estructura..."),
-            'file_renamer': (FileRenamerAnalysisWorker, "Actualizando nombres...")
+            'live_photos': (LivePhotosAnalysisWorker, tr("stage3.progress.updating_live_photos")),
+            'heic': (HeicAnalysisWorker, tr("stage3.progress.updating_heic")),
+            'duplicates_exact': (DuplicatesExactAnalysisWorker, tr("stage3.progress.updating_exact_copies")),
+            'visual_identical': (VisualIdenticalAnalysisWorker, tr("stage3.progress.updating_visual")),
+            'duplicates_similar': (DuplicatesSimilarAnalysisWorker, tr("stage3.progress.updating_similar")),
+            'zero_byte': (ZeroByteAnalysisWorker, tr("stage3.progress.updating_empty")),
+            'file_organizer': (FileOrganizerAnalysisWorker, tr("stage3.progress.updating_structure")),
+            'file_renamer': (FileRenamerAnalysisWorker, tr("stage3.progress.updating_names"))
         }
         
         if tool_id not in worker_map:
@@ -1165,8 +1160,8 @@ class Stage3Window(BaseStage):
                     service_name = get_tool_title(tool_id)
                     QMessageBox.information(
                         self.main_window,
-                        "Estadísticas actualizadas",
-                        f"Las estadísticas de {service_name} han sido actualizadas correctamente."
+                        tr("stage3.info.stats_updated_title"),
+                        tr("stage3.info.stats_updated_msg", name=service_name)
                     )
             else:
                 self.logger.warning(f"Could not get updated analysis for {tool_id}")
@@ -1178,8 +1173,8 @@ class Stage3Window(BaseStage):
             self.logger.error(f"Error updating statistics for {tool_id}: {msg}")
             QMessageBox.warning(
                 self.main_window,
-                "Error",
-                f"No se pudieron actualizar las estadísticas de {get_tool_title(tool_id)}.\n\n{msg}"
+                tr("common.error"),
+                tr("stage3.error.stats_update_failed_msg", name=get_tool_title(tool_id), msg=msg)
             )
             worker.deleteLater()
             

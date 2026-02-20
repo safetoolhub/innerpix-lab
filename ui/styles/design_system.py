@@ -2457,7 +2457,7 @@ class DesignSystem:
         """Estilo para el contenido de los ejemplos.
         
         Texto en fuente monoespaciada que muestra estructura de carpetas.
-        Ej: "📁 2024_01/\n📁 2024_02/\n📁 2024_03/"
+        Ej: "2024_01/\n2024_02/\n2024_03/"
         """
         return f"""
             font-family: {DesignSystem.FONT_FAMILY_MONO};
@@ -2507,7 +2507,7 @@ class DesignSystem:
     def get_organizer_back_button_style():
         """Estilo para el botón de volver en el organizador.
         
-        Botón "← Cambiar" que permite volver a la selección de estrategia.
+        Button "< Change" that allows going back to strategy selection.
         """
         return f"""
             QPushButton {{

@@ -73,7 +73,7 @@ class FileRenamerService(BaseService):
             # Obtener metadata del repositorio (debe estar precargada)
             file_metadata = repo.get_file_metadata(file_path)
             if not file_metadata:
-                return ('no_metadata', file_path, f"Metadata no disponible: {file_path.name}")
+                return ('no_metadata', file_path, f"Metadata not available: {file_path.name}")
             
             # Obtener fecha usando la mejor fecha calculada o calcularla
             file_date, date_source = repo.get_best_date(file_path)
@@ -81,11 +81,11 @@ class FileRenamerService(BaseService):
                 # Intentar calcular fecha ahora si no está en caché
                 file_date, date_source = select_best_date_from_file(file_metadata)
                 if not file_date:
-                    return ('no_date', file_path, f"No se pudo obtener fecha: {file_path.name}")
+                    return ('no_date', file_path, f"Could not obtain date: {file_path.name}")
             
             file_type = get_file_type(file_path.name)
             if file_type == 'OTHER':
-                return ('unsupported', file_path, f"Tipo de archivo no soportado: {file_path.name}")
+                return ('unsupported', file_path, f"Unsupported file type: {file_path.name}")
             
             extension = file_path.suffix
             renamed_name = format_renamed_name(file_date, file_type, extension)
@@ -109,7 +109,7 @@ class FileRenamerService(BaseService):
                 processed += 1
                 
                 if processed % progress_interval == 0:
-                    if not self._report_progress(progress_callback, processed, total_files, "Analizando nombres de archivos"):
+                    if not self._report_progress(progress_callback, processed, total_files, "Analyzing file names"):
                          return self._create_empty_result(total_files) # Cancelled
                 
                 status, file_path, data = future.result()
@@ -193,7 +193,7 @@ class FileRenamerService(BaseService):
             return RenameExecutionResult(
                 success=True,
                 items_processed=0,
-                message='No hay archivos para renombrar',
+                message='No files to rename',
                 dry_run=dry_run
             )
 

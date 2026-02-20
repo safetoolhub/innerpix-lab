@@ -14,7 +14,20 @@ class Config:
     # 1. INFORMACIÓN DE LA APLICACIÓN
     # ========================================================================
     APP_NAME = "Innerpix Lab"
-    APP_VERSION = "0.8"
+    APP_VERSION = "0.8.0"
+    APP_VERSION_SUFFIX = "alpha"  # "beta", "rc1", "" (empty for stable)
+    APP_AUTHOR = "SafeToolHub"
+    APP_CONTACT = "safetoolhub@protonmail.com"
+    APP_WEBSITE = "https://safetoolhub.org"
+    APP_REPO = "https://github.com/safetoolhub/innerpix-lab"
+    APP_DESCRIPTION = "Privacy-first photo and video management. 100% local, no cloud."
+
+    @classmethod
+    def get_full_version(cls) -> str:
+        """Returns full version string, e.g. '0.8.0-beta' or '1.0.0'."""
+        if cls.APP_VERSION_SUFFIX:
+            return f"{cls.APP_VERSION}-{cls.APP_VERSION_SUFFIX}"
+        return cls.APP_VERSION
 
     # ========================================================================
     # 2. RUTAS Y DIRECTORIOS
@@ -164,6 +177,8 @@ class Config:
     # ========================================================================
     DEVELOPMENT_MODE = False
     SAVED_CACHE_DEV_MODE_PATH = "/home/ed/Documents/Innerpix_Lab/cache_saved/RAW_TODO.json"
+    SKIP_FIRST_LAUNCH_ABOUT = False  # Si True, nunca muestra el about_dialog automático al primer lanzamiento
+    DEV_RESET_FIRST_LAUNCH = False   # TEMPORAL: Si True, resetea el flag para que el about vuelva a aparecer
     
     @classmethod
     def get_system_info(cls) -> Dict:

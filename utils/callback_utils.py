@@ -41,7 +41,7 @@ def safe_progress_callback(
             if result is False:
                 return False
         except Exception as e:
-            logger.warning(f"Error en progress callback: {e}")
+            logger.warning(f"Error in progress callback: {e}")
     
     # Por defecto, continuar el proceso
     return True

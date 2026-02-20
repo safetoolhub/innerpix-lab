@@ -129,7 +129,7 @@ class AboutDialog(QDialog):
         title.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         left_layout.addWidget(title)
         
-        version = QLabel(tr("about.header.version", version=Config.APP_VERSION))
+        version = QLabel(tr("about.header.version", version=Config.get_full_version()))
         version.setStyleSheet(f"""
             color: rgba(255, 255, 255, 0.9);
             font-size: {DesignSystem.FONT_SIZE_SM}px;
@@ -354,7 +354,7 @@ class AboutDialog(QDialog):
         
         # Botón anterior
         if prev_tab is not None and prev_label:
-            prev_btn = QPushButton(f"← {prev_label}")
+            prev_btn = QPushButton(f"< {prev_label}")
             prev_btn.setStyleSheet(f"""
                 QPushButton {{
                     background-color: transparent;
@@ -378,7 +378,7 @@ class AboutDialog(QDialog):
         
         # Botón siguiente
         if next_tab is not None and next_label:
-            next_btn = QPushButton(f"{next_label} →")
+            next_btn = QPushButton(f"{next_label} >")
             next_btn.setStyleSheet(f"""
                 QPushButton {{
                     background-color: {DesignSystem.COLOR_PRIMARY};
@@ -479,6 +479,10 @@ class AboutDialog(QDialog):
         dev_hero = self._create_developer_hero()
         layout.addWidget(dev_hero)
 
+        # === CONTACT SECTION ===
+        contact_card = self._create_contact_card()
+        layout.addWidget(contact_card)
+
         # === TECH INFO GRID ===
         info_grid = QGridLayout()
         info_grid.setSpacing(DesignSystem.SPACE_8)
@@ -486,7 +490,7 @@ class AboutDialog(QDialog):
         # Card 1: App Info
         app_card = self._create_info_card(tr("about.info.app_card.title"), [
             (tr("about.info.app_card.name"), Config.APP_NAME),
-            (tr("about.info.app_card.version"), Config.APP_VERSION),
+            (tr("about.info.app_card.version"), Config.get_full_version()),
             (tr("about.info.app_card.platforms"), tr("about.info.app_card.platforms_value")),
         ])
         info_grid.addWidget(app_card, 0, 0)
@@ -585,8 +589,7 @@ class AboutDialog(QDialog):
         
         for i, (icon_name, title, desc) in enumerate(value_items):
             value_card = self._create_value_card(icon_name, title, desc)
-            row, col = i // 2, i % 2
-            values_grid.addWidget(value_card, row, col)
+            values_grid.addWidget(value_card, 0, i)
         
         outer_layout.addLayout(values_grid)
         
@@ -609,28 +612,85 @@ class AboutDialog(QDialog):
         frame = QFrame()
         frame.setStyleSheet(DesignSystem.get_about_value_card_style())
         
-        layout = QVBoxLayout(frame)
-        layout.setSpacing(DesignSystem.SPACE_4)
-        layout.setContentsMargins(DesignSystem.SPACE_8, DesignSystem.SPACE_6, DesignSystem.SPACE_8, DesignSystem.SPACE_6)
+        layout = QHBoxLayout(frame)
+        layout.setSpacing(DesignSystem.SPACE_10)
+        layout.setContentsMargins(DesignSystem.SPACE_10, DesignSystem.SPACE_6, DesignSystem.SPACE_10, DesignSystem.SPACE_6)
         layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         
         # Icono
         icon_label = QLabel()
-        icon_manager.set_label_icon(icon_label, icon_name, color=DesignSystem.COLOR_PRIMARY, size=20)
-        layout.addWidget(icon_label, 0, Qt.AlignmentFlag.AlignLeft)
+        icon_manager.set_label_icon(icon_label, icon_name, color=DesignSystem.COLOR_PRIMARY, size=18)
+        layout.addWidget(icon_label, 0, Qt.AlignmentFlag.AlignVCenter)
+        
+        # Contenido
+        content = QVBoxLayout()
+        content.setSpacing(1)
         
         # Título
         title_label = QLabel(title)
         title_label.setStyleSheet(DesignSystem.get_about_value_title_style())
         title_label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
-        layout.addWidget(title_label)
+        content.addWidget(title_label)
         
         # Descripción
         desc_label = QLabel(desc)
         desc_label.setStyleSheet(DesignSystem.get_about_value_desc_style())
         desc_label.setWordWrap(True)
         desc_label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
-        layout.addWidget(desc_label)
+        content.addWidget(desc_label)
+        
+        layout.addLayout(content, 1)
+        return frame
+
+    def _create_contact_card(self) -> QFrame:
+        """Crea una card de contacto directo."""
+        frame = QFrame()
+        frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px dashed {DesignSystem.COLOR_PRIMARY}44;
+                border-radius: {DesignSystem.RADIUS_MD}px;
+            }}
+            QFrame:hover {{
+                border-color: {DesignSystem.COLOR_PRIMARY};
+                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT}11;
+            }}
+        """)
+        
+        layout = QHBoxLayout(frame)
+        layout.setContentsMargins(DesignSystem.SPACE_16, DesignSystem.SPACE_12, DesignSystem.SPACE_16, DesignSystem.SPACE_12)
+        layout.setSpacing(DesignSystem.SPACE_16)
+        
+        # Icono de contacto
+        icon_label = QLabel()
+        icon_manager.set_label_icon(icon_label, "information-outline", color=DesignSystem.COLOR_PRIMARY, size=24)
+        layout.addWidget(icon_label)
+        
+        # Texto
+        text_layout = QVBoxLayout()
+        text_layout.setSpacing(2)
+        
+        contact_title = QLabel(tr("about.info.contact.title"))
+        contact_title.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
+            color: {DesignSystem.COLOR_PRIMARY};
+        """)
+        text_layout.addWidget(contact_title)
+        
+        email_link = f'<a href="mailto:{Config.APP_CONTACT}" style="color: {DesignSystem.COLOR_TEXT}; text-decoration: none; font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};">{Config.APP_CONTACT}</a>'
+        email_label = QLabel(email_link)
+        email_label.setOpenExternalLinks(True)
+        email_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_MD}px;")
+        email_label.setCursor(Qt.CursorShape.PointingHandCursor)
+        text_layout.addWidget(email_label)
+        
+        layout.addLayout(text_layout)
+        layout.addStretch()
+        
+        # Badge de soporte
+        support_badge = QLabel(tr("about.info.contact.support_badge") if False else "Direct Support") # Fallback to hardcoded for now or add to json
+        # Let's just use a simple label or omit it if not in i18n
         
         return frame
 

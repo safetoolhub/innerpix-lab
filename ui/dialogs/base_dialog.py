@@ -79,7 +79,7 @@ class BaseDialog(QDialog):
         self,
         files_count: int,
         total_size: int = 0,
-        operation_verb: str = "eliminarán",
+        operation_verb: str = "deleted",
         extra_info: str = ""
     ) -> bool:
         """
@@ -121,7 +121,7 @@ class BaseDialog(QDialog):
         )
         return reply == QMessageBox.StandardButton.Yes
     
-    def show_no_items_message(self, item_type: str = "archivos") -> None:
+    def show_no_items_message(self, item_type: str = "files") -> None:
         """
         Muestra mensaje informativo cuando no hay items para procesar.
         
@@ -781,8 +781,8 @@ class BaseDialog(QDialog):
         self,
         show_backup: bool = True,
         show_dry_run: bool = False,
-        backup_label: str = "Crear backup",
-        dry_run_label: str = "Modo simulación"
+        backup_label: str = tr("dialogs.base.backup_label"),
+        dry_run_label: str = tr("dialogs.base.dry_run_label")
     ) -> 'QFrame':
         """Crea sección de opciones con diseño Material Design 3.
         
@@ -2114,7 +2114,7 @@ class BaseDialog(QDialog):
             loaded_count: Elementos cargados en la vista (para tooltip)
             is_files_mode: Si True, el tooltip dice "archivos" en vez de "grupos"
         """
-        entity = "archivos" if is_files_mode else "grupos"
+        entity = tr("common.files") if is_files_mode else tr("common.groups")
         status_chip.setObjectName("StatusChip")
         
         if filtered_count != total_count:
@@ -2133,7 +2133,7 @@ class BaseDialog(QDialog):
             """)
             tooltip = tr("dialogs.base.filter.filtered_tooltip", entity=entity, filtered=filtered_count, total=total_count)
             if loaded_count is not None:
-                tooltip += f"\n(Cargados en lista: {loaded_count} de {filtered_count})"
+                tooltip += "\n" + tr("dialogs.base.filter.loaded_in_list", loaded=loaded_count, total=filtered_count)
             status_chip.setToolTip(tooltip)
         else:
             # Sin filtros - color primario más sutil o neutro

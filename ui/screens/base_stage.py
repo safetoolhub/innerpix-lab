@@ -6,7 +6,7 @@ Proporciona utilidades comunes como animaciones, persistencia y navegación.
 from typing import Optional, Callable, Any
 from pathlib import Path
 from PyQt6.QtWidgets import QWidget, QMainWindow, QGraphicsOpacityEffect, QFrame, QHBoxLayout, QVBoxLayout, QLabel, QToolButton
-from PyQt6.QtCore import QPropertyAnimation, QEasingCurve, QTimer, QObject, QSize
+from PyQt6.QtCore import QPropertyAnimation, QEasingCurve, QTimer, QObject, QSize, Qt
 
 from utils.settings_manager import settings_manager
 from utils.logger import get_logger
@@ -188,7 +188,7 @@ class BaseStage(QObject):
         """
         Invalida completamente la caché de metadatos del singleton FileInfoRepositoryCache.
         
-        ⚠️  ATENCIÓN: Este método debe usarse CON MUCHA PRECAUCIÓN.
+                CAUTION: This method should be used WITH GREAT CARE.
         
         Solo debe llamarse en situaciones excepcionales donde:
         - Ha ocurrido un error grave durante operaciones destructivas
@@ -274,7 +274,7 @@ class BaseStage(QObject):
         
         if invalidated:
             self.logger.info(
-                f"📋 Analyses invalidated after {executed_tool_id}: {', '.join(invalidated)}. "
+                f"Analyses invalidated after {executed_tool_id}: {', '.join(invalidated)}. "
                 f"They will be re-analyzed when clicking on each tool."
             )
 
@@ -367,11 +367,31 @@ class BaseStage(QObject):
         text_layout.setContentsMargins(0, 0, 0, 0)
         text_layout.setSpacing(2)
 
-        # Título principal
+        # Título principal con versión pequeña a la derecha
         title = title_text if title_text is not None else Config.APP_NAME
+        title_row = QWidget()
+        title_row_layout = QHBoxLayout(title_row)
+        title_row_layout.setContentsMargins(0, 0, 0, 0)
+        title_row_layout.setSpacing(6)
+        title_row_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
+
         welcome_title = QLabel(title)
         welcome_title.setStyleSheet(DesignSystem.get_stage_title_style())
-        text_layout.addWidget(welcome_title)
+        title_row_layout.addWidget(welcome_title)
+
+        version_label = QLabel(f"v{Config.get_full_version()}")
+        version_label.setStyleSheet(
+            f"color: {DesignSystem.COLOR_TEXT_SECONDARY};"
+            f"font-size: {DesignSystem.FONT_SIZE_XS}px;"
+            f"padding-bottom: 1px;"
+            f"border: none;"
+            f"background: transparent;"
+        )
+        version_label.setAlignment(Qt.AlignmentFlag.AlignBottom)
+        title_row_layout.addWidget(version_label)
+        title_row_layout.addStretch()
+
+        text_layout.addWidget(title_row)
 
         # Subtítulo (si se proporciona)
         if subtitle_text:

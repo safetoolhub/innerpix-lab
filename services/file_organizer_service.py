@@ -117,7 +117,7 @@ class FileOrganizerService(BaseService):
                 if idx % 5000 == 0 and idx > 0:
                     self.logger.info(f"Organizer: Classifying files {idx}/{total_files}")
                     
-                if not self._report_progress(progress_callback, idx, total_files, "Clasificando archivos"):
+                if not self._report_progress(progress_callback, idx, total_files, "Classifying files"):
                     return self._create_empty_result(root_directory, organization_type, group_by_source, group_by_type, date_grouping_type, move_unsupported_to_other)
 
             file_path = meta.path
@@ -234,7 +234,7 @@ class FileOrganizerService(BaseService):
         cleanup_empty_dirs = kwargs.get('cleanup_empty_dirs', True)
         
         if not move_plan:
-            return OrganizationExecutionResult(success=True, message='No hay archivos para mover')
+            return OrganizationExecutionResult(success=True, message='No files to move')
 
         root_directory = Path(analysis_result.root_directory)
         
@@ -254,7 +254,7 @@ class FileOrganizerService(BaseService):
              
              # Backup
              if create_backup and not dry_run:
-                 self._report_progress(progress_callback, 0, len(move_plan), "Creando backup...")
+                 self._report_progress(progress_callback, 0, len(move_plan), "Creating backup...")
                  files = [m.source_path for m in move_plan]
                  bk_path = self._create_backup_for_operation(
                      files, 'organization', progress_callback
@@ -268,12 +268,12 @@ class FileOrganizerService(BaseService):
              bytes_processed = 0
              files_affected = []
              
-             self._report_progress(progress_callback, 0, total, "Organizando...")
+             self._report_progress(progress_callback, 0, total, "Organizing...")
              
              for move in move_plan:
                  items_processed += 1
                  if items_processed % Config.UI_UPDATE_INTERVAL == 0:
-                      if not self._report_progress(progress_callback, items_processed, total, f"Procesando {items_processed}/{total}"):
+                      if not self._report_progress(progress_callback, items_processed, total, f"Processing {items_processed}/{total}"):
                           break
                  
                  target = move.target_path
@@ -420,7 +420,7 @@ class FileOrganizerService(BaseService):
             for file_info in subdir_data['files']:
                 processed += 1
                 if processed % 1000 == 0:
-                     self._report_progress(progress_callback, processed, total_items, "Analizando")
+                     self._report_progress(progress_callback, processed, total_items, "Analyzing")
                 
                 fname = file_info['name']
                 fpath = Path(file_info['path'])
@@ -483,7 +483,7 @@ class FileOrganizerService(BaseService):
         total = len(unsupported_files)
         for idx, f in enumerate(unsupported_files):
             if idx % 500 == 0 and progress_callback:
-                self._report_progress(progress_callback, idx, total, "Clasificando archivos no soportados")
+                self._report_progress(progress_callback, idx, total, "Classifying unsupported files")
             
             relative = f.relative_to(root_directory)
             target_path = other_dir / relative
@@ -512,7 +512,7 @@ class FileOrganizerService(BaseService):
                 size=size,
                 has_conflict=has_conflict,
                 target_folder=target_folder_str,
-                source="Otros"
+                source="Others"
             )
             move_plan.append(move)
         
@@ -541,7 +541,7 @@ class FileOrganizerService(BaseService):
             for info in files:
                 processed_count += 1
                 if processed_count % 500 == 0:
-                   self._report_progress(progress_callback, processed_count, total_files, "Analizando fechas")
+                   self._report_progress(progress_callback, processed_count, total_files, "Analyzing dates")
                 
                 path = Path(info['path'])
                 
@@ -560,7 +560,7 @@ class FileOrganizerService(BaseService):
                 folder = date.strftime(date_fmt)
                 if group_src: folder += f"/{detect_file_source(info['name'], path)}"
                 if group_type:
-                    t = 'Fotos' if info['type'] == 'PHOTO' else 'Videos' if info['type'] == 'VIDEO' else 'Otros'
+                    t = 'Photos' if info['type'] == 'PHOTO' else 'Videos' if info['type'] == 'VIDEO' else 'Others'
                     folder += f"/{t}"
                 files_map[folder].append({'info': info, 'subdir': subdir_name})
 
@@ -603,7 +603,7 @@ class FileOrganizerService(BaseService):
         """Genera plan de movimiento separando por tipo de archivo (Fotos/Videos)"""
         move_plan = []
         files_by_type = defaultdict(list)
-        type_folder_map = {'PHOTO': 'Fotos', 'VIDEO': 'Videos'}
+        type_folder_map = {'PHOTO': 'Photos', 'VIDEO': 'Videos'}
 
         # Calculate total files for global progress
         total_files = len(root_files) + sum(len(d['files']) for d in subdirectories.values())
@@ -615,14 +615,14 @@ class FileOrganizerService(BaseService):
             for info in file_list:
                 processed_count += 1
                 if processed_count % 500 == 0:
-                     self._report_progress(progress_callback, processed_count, total_files, "Analizando tipos")
+                     self._report_progress(progress_callback, processed_count, total_files, "Analyzing types")
                 
                 path = Path(info['path'])
                 info['path'] = str(path) # Ensure string for consistency if needed, though previously it was mixed usage
                 
                 file_path = Path(info['path'])
                 file_type = info['type']
-                folder_name = type_folder_map.get(file_type, 'Otros')
+                folder_name = type_folder_map.get(file_type, 'Others')
 
                 if group_by_source:
                     source = detect_file_source(info['name'], file_path)
@@ -700,7 +700,7 @@ class FileOrganizerService(BaseService):
             for info in file_list:
                 processed_count += 1
                 if processed_count % 500 == 0:
-                     self._report_progress(progress_callback, processed_count, total_files, "Analizando fuentes")
+                     self._report_progress(progress_callback, processed_count, total_files, "Analyzing sources")
                 
                 file_path = Path(info['path'])
                 source = detect_file_source(info['name'], file_path)

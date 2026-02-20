@@ -540,7 +540,7 @@ class TestSettingsDialogIntegration:
     """Tests de integración end-to-end"""
     
     def test_full_flow_load_change_save(self, qtbot, mock_settings_manager):
-        """Test flujo completo: cargar → cambiar → guardar"""
+        """Test complete flow: load -> change -> save"""
         dialog = SettingsDialog()
         qtbot.addWidget(dialog)
         

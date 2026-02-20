@@ -1257,7 +1257,7 @@ class FileInfoRepositoryCache:
         import json
         
         if not path.exists():
-            raise FileNotFoundError(f"Archivo de caché no encontrado: {path}")
+            raise FileNotFoundError(f"Cache file not found: {path}")
         
         try:
             with open(path, 'r', encoding='utf-8') as f:
@@ -1266,7 +1266,7 @@ class FileInfoRepositoryCache:
             # Validar versión
             version = cache_data.get('version', 0)
             if version != 1:
-                raise ValueError(f"Versión de caché incompatible: {version}")
+                raise ValueError(f"Incompatible cache version: {version}")
             
             # Cargar archivos
             files_data = cache_data.get('files', [])

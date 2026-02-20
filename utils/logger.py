@@ -37,6 +37,7 @@ _log_file: Optional[Path] = None
 _log_file_warnings: Optional[Path] = None  # Archivo solo para WARNING/ERROR
 _logs_directory: Optional[Path] = None
 _dual_log_enabled = True  # Por defecto habilitado
+_file_logging_disabled = False  # Cuando True, no se escriben archivos y solo WARNING/ERROR en consola
 
 
 class ThreadSafeHandler(logging.Handler):
@@ -133,7 +134,10 @@ def _ensure_root_logger():
     
     if _root_logger is None:
         _root_logger = logging.getLogger(_ROOT_LOGGER_NAME)
-        _root_logger.setLevel(_current_level)
+        
+        # Si file logging está deshabilitado, forzar WARNING
+        effective_level = logging.WARNING if _file_logging_disabled else _current_level
+        _root_logger.setLevel(effective_level)
         
         if not _root_logger.handlers:
             # Formato mejorado con nombre del módulo para mejor trazabilidad
@@ -145,45 +149,49 @@ def _ensure_root_logger():
             # Handler thread-safe para consola
             stream_handler = ThreadSafeStreamHandler(sys.stdout)
             stream_handler.setFormatter(formatter)
+            if _file_logging_disabled:
+                stream_handler.setLevel(logging.WARNING)
             _root_logger.addHandler(stream_handler)
             
-            # Handler thread-safe para archivo (si se ha configurado)
-            if _log_file:
-                try:
-                    from config import Config
-                    max_bytes = Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024  # Convertir MB a bytes
-                    backup_count = Config.MAX_LOG_BACKUP_COUNT
-                    
-                    file_handler = ThreadSafeRotatingFileHandler(
-                        _log_file, 
-                        maxBytes=max_bytes,
-                        backupCount=backup_count,
-                        encoding='utf-8'
-                    )
-                    file_handler.setFormatter(formatter)
-                    _root_logger.addHandler(file_handler)
-                except Exception as e:
-                    # If creating file fails, use console only
-                    _root_logger.error(f"Could not create log file: {e}")
-            
-            # Handler adicional para WARNING/ERROR si está habilitado
-            if _log_file_warnings and _dual_log_enabled:
-                try:
-                    from config import Config
-                    max_bytes = Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024
-                    backup_count = Config.MAX_LOG_BACKUP_COUNT
-                    
-                    warning_handler = ThreadSafeRotatingFileHandler(
-                        _log_file_warnings,
-                        maxBytes=max_bytes,
-                        backupCount=backup_count,
-                        encoding='utf-8'
-                    )
-                    warning_handler.setFormatter(formatter)
-                    warning_handler.setLevel(logging.WARNING)  # Solo WARNING y ERROR
-                    _root_logger.addHandler(warning_handler)
-                except Exception as e:
-                    _root_logger.error(f"Could not create warnings log file: {e}")
+            # File handlers solo si file logging está habilitado
+            if not _file_logging_disabled:
+                # Handler thread-safe para archivo (si se ha configurado)
+                if _log_file:
+                    try:
+                        from config import Config
+                        max_bytes = Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024  # Convertir MB a bytes
+                        backup_count = Config.MAX_LOG_BACKUP_COUNT
+                        
+                        file_handler = ThreadSafeRotatingFileHandler(
+                            _log_file, 
+                            maxBytes=max_bytes,
+                            backupCount=backup_count,
+                            encoding='utf-8'
+                        )
+                        file_handler.setFormatter(formatter)
+                        _root_logger.addHandler(file_handler)
+                    except Exception as e:
+                        # If creating file fails, use console only
+                        _root_logger.error(f"Could not create log file: {e}")
+                
+                # Handler adicional para WARNING/ERROR si está habilitado
+                if _log_file_warnings and _dual_log_enabled:
+                    try:
+                        from config import Config
+                        max_bytes = Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024
+                        backup_count = Config.MAX_LOG_BACKUP_COUNT
+                        
+                        warning_handler = ThreadSafeRotatingFileHandler(
+                            _log_file_warnings,
+                            maxBytes=max_bytes,
+                            backupCount=backup_count,
+                            encoding='utf-8'
+                        )
+                        warning_handler.setFormatter(formatter)
+                        warning_handler.setLevel(logging.WARNING)  # Solo WARNING y ERROR
+                        _root_logger.addHandler(warning_handler)
+                    except Exception as e:
+                        _root_logger.error(f"Could not create warnings log file: {e}")
     
     return _root_logger
 
@@ -324,6 +332,7 @@ def configure_logging(
     logs_dir: Optional[Path | str] = None,
     level: str = "INFO",
     dual_log_enabled: bool = True,
+    disable_file_logging: bool = False,
 ) -> tuple[Path, Path]:
     """
     Configura el sistema de logging con archivo y directorio.
@@ -337,6 +346,7 @@ def configure_logging(
         logs_dir: Directorio donde guardar logs. Si es None, usa el directorio actual
         level: Nivel de logging ("DEBUG", "INFO", "WARNING", "ERROR")
         dual_log_enabled: Si True, crea archivo adicional para WARNING/ERROR (solo si level=INFO/DEBUG)
+        disable_file_logging: Si True, no crea archivos de log y solo muestra WARNING/ERROR en consola
         
     Returns:
         tuple: (ruta_archivo_log, directorio_logs)
@@ -348,7 +358,9 @@ def configure_logging(
             dual_log_enabled=True
         )
     """
-    global _log_file, _log_file_warnings, _logs_directory, _current_level, _root_logger, _dual_log_enabled
+    global _log_file, _log_file_warnings, _logs_directory, _current_level, _root_logger, _dual_log_enabled, _file_logging_disabled
+    
+    _file_logging_disabled = disable_file_logging
     
     # Configurar directorio
     if logs_dir:
@@ -361,24 +373,24 @@ def configure_logging(
     except PermissionError as e:
         # Permission error: user lacks permissions to create directory
         import sys as _sys
-        print(f"⚠️  WARNING: Insufficient permissions to create logs directory '{_logs_directory}'", file=_sys.stderr)
-        print(f"⚠️  WARNING: Details: {e}", file=_sys.stderr)
-        print(f"⚠️  WARNING: Logs will be saved in current directory: {Path.cwd()}", file=_sys.stderr)
+        print(f"WARNING: Insufficient permissions to create logs directory '{_logs_directory}'", file=_sys.stderr)
+        print(f"WARNING: Details: {e}", file=_sys.stderr)
+        print(f"WARNING: Logs will be saved in current directory: {Path.cwd()}", file=_sys.stderr)
         _logs_directory = Path.cwd()
     except OSError as e:
         # Filesystem error (disk full, invalid name, etc.)
         import sys as _sys
         error_type = "Disk full" if e.errno == 28 else "Filesystem error"
-        print(f"⚠️  WARNING: {error_type} creating logs directory '{_logs_directory}'", file=_sys.stderr)
-        print(f"⚠️  WARNING: Details: {e}", file=_sys.stderr)
-        print(f"⚠️  WARNING: Logs will be saved in current directory: {Path.cwd()}", file=_sys.stderr)
+        print(f"WARNING: {error_type} creating logs directory '{_logs_directory}'", file=_sys.stderr)
+        print(f"WARNING: Details: {e}", file=_sys.stderr)
+        print(f"WARNING: Logs will be saved in current directory: {Path.cwd()}", file=_sys.stderr)
         _logs_directory = Path.cwd()
     except Exception as e:
         # Other unexpected errors
         import sys as _sys
-        print(f"⚠️  WARNING: Unexpected error creating logs directory '{_logs_directory}'", file=_sys.stderr)
-        print(f"⚠️  WARNING: Type: {type(e).__name__}, Details: {e}", file=_sys.stderr)
-        print(f"⚠️  WARNING: Logs will be saved in current directory: {Path.cwd()}", file=_sys.stderr)
+        print(f"WARNING: Unexpected error creating logs directory '{_logs_directory}'", file=_sys.stderr)
+        print(f"WARNING: Type: {type(e).__name__}, Details: {e}", file=_sys.stderr)
+        print(f"WARNING: Logs will be saved in current directory: {Path.cwd()}", file=_sys.stderr)
         _logs_directory = Path.cwd()
     
     # Configurar nivel
@@ -386,15 +398,21 @@ def configure_logging(
     _current_level = getattr(logging, level_upper, logging.INFO)
     _dual_log_enabled = dual_log_enabled
     
-    # Crear archivo de log con timestamp y sufijo de nivel
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    _log_file = _logs_directory / f"innerpix_lab_{timestamp}_{level_upper}.log"
-    
-    # Crear archivo adicional para WARNING/ERROR si está habilitado
-    # Solo para niveles INFO o DEBUG (WARNING/ERROR ya tienen todo en el log principal)
-    _log_file_warnings = None
-    if _dual_log_enabled and level_upper in ('INFO', 'DEBUG'):
-        _log_file_warnings = _logs_directory / f"innerpix_lab_{timestamp}_WARNERROR.log"
+    # Si file logging está deshabilitado, forzar nivel WARNING para consola
+    # y no crear archivos de log
+    if _file_logging_disabled:
+        _log_file = None
+        _log_file_warnings = None
+    else:
+        # Crear archivo de log con timestamp y sufijo de nivel
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        _log_file = _logs_directory / f"innerpix_lab_{timestamp}_{level_upper}.log"
+        
+        # Crear archivo adicional para WARNING/ERROR si está habilitado
+        # Solo para niveles INFO o DEBUG (WARNING/ERROR ya tienen todo en el log principal)
+        _log_file_warnings = None
+        if _dual_log_enabled and level_upper in ('INFO', 'DEBUG'):
+            _log_file_warnings = _logs_directory / f"innerpix_lab_{timestamp}_WARNERROR.log"
     
     # Si el logger ya existe, limpiar handlers viejos
     if _root_logger is not None:
@@ -407,7 +425,6 @@ def configure_logging(
     
     # Crear/configurar logger raíz
     _root_logger = logging.getLogger(_ROOT_LOGGER_NAME)
-    _root_logger.setLevel(_current_level)
     _root_logger.handlers = []  # Limpiar cualquier handler previo
     
     # Formato mejorado con nombre del módulo para mejor trazabilidad
@@ -419,48 +436,57 @@ def configure_logging(
     # Handler thread-safe para consola
     stream_handler = ThreadSafeStreamHandler(sys.stdout)
     stream_handler.setFormatter(formatter)
+    if _file_logging_disabled:
+        # Solo WARNING y ERROR en consola cuando file logging está deshabilitado
+        stream_handler.setLevel(logging.WARNING)
+        _root_logger.setLevel(logging.WARNING)
+    else:
+        _root_logger.setLevel(_current_level)
     _root_logger.addHandler(stream_handler)
     
-    # Handler thread-safe para archivo principal
-    try:
-        from config import Config
-        max_bytes = Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024  # Convertir MB a bytes
-        backup_count = Config.MAX_LOG_BACKUP_COUNT
-        
-        file_handler = ThreadSafeRotatingFileHandler(
-            _log_file,
-            maxBytes=max_bytes,
-            backupCount=backup_count,
-            encoding='utf-8'
-        )
-        file_handler.setFormatter(formatter)
-        _root_logger.addHandler(file_handler)
-    except Exception as e:
-        _root_logger.error(f"Could not create log file: {e}")
-    
-    # Handler adicional para WARNING/ERROR si está habilitado
-    if _log_file_warnings:
+    # File handlers solo si file logging está habilitado
+    if not _file_logging_disabled:
+        # Handler thread-safe para archivo principal
         try:
             from config import Config
-            max_bytes = Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024
+            max_bytes = Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024  # Convertir MB a bytes
             backup_count = Config.MAX_LOG_BACKUP_COUNT
             
-            warning_handler = ThreadSafeRotatingFileHandler(
-                _log_file_warnings,
+            file_handler = ThreadSafeRotatingFileHandler(
+                _log_file,
                 maxBytes=max_bytes,
                 backupCount=backup_count,
                 encoding='utf-8'
             )
-            warning_handler.setFormatter(formatter)
-            warning_handler.setLevel(logging.WARNING)  # Solo WARNING y ERROR
-            _root_logger.addHandler(warning_handler)
+            file_handler.setFormatter(formatter)
+            _root_logger.addHandler(file_handler)
         except Exception as e:
-            _root_logger.error(f"Could not create warnings log file: {e}")
+            _root_logger.error(f"Could not create log file: {e}")
+        
+        # Handler adicional para WARNING/ERROR si está habilitado
+        if _log_file_warnings:
+            try:
+                from config import Config
+                max_bytes = Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024
+                backup_count = Config.MAX_LOG_BACKUP_COUNT
+                
+                warning_handler = ThreadSafeRotatingFileHandler(
+                    _log_file_warnings,
+                    maxBytes=max_bytes,
+                    backupCount=backup_count,
+                    encoding='utf-8'
+                )
+                warning_handler.setFormatter(formatter)
+                warning_handler.setLevel(logging.WARNING)  # Solo WARNING y ERROR
+                _root_logger.addHandler(warning_handler)
+            except Exception as e:
+                _root_logger.error(f"Could not create warnings log file: {e}")
     
     # Actualizar todos los loggers hijos que ya existan para que hereden el nuevo nivel
     # Esto es necesario porque módulos pueden haber sido importados antes de configure_logging()
     # y sus loggers habrían sido creados con el nivel por defecto (INFO)
-    set_global_log_level(_current_level)
+    effective_level = logging.WARNING if _file_logging_disabled else _current_level
+    set_global_log_level(effective_level)
     
     return _log_file, _logs_directory
 
@@ -645,6 +671,77 @@ def set_dual_log_enabled(enabled: bool) -> None:
         if handlers_to_remove:
             root.info("Dual logging disabled")
         _log_file_warnings = None
+
+
+def is_file_logging_disabled() -> bool:
+    """Retorna si la escritura de logs en disco está deshabilitada"""
+    return _file_logging_disabled
+
+
+def set_file_logging_disabled(disabled: bool) -> None:
+    """
+    Activa o desactiva la escritura de logs en disco en runtime.
+    
+    Cuando se desactiva la escritura en disco:
+    - Se eliminan todos los file handlers
+    - Se configura el console handler para solo WARNING y ERROR
+    - Los mensajes DEBUG e INFO se descartan completamente
+    
+    Cuando se reactiva:
+    - Se reconfiguran los file handlers según la configuración actual
+    - Se restaura el nivel de log original en consola
+    
+    Args:
+        disabled: True para deshabilitar escritura en disco, False para habilitarla
+    """
+    global _file_logging_disabled
+    
+    if _file_logging_disabled == disabled:
+        return  # No hay cambio
+    
+    _file_logging_disabled = disabled
+    root = _ensure_root_logger()
+    
+    if disabled:
+        # Deshabilitar: remover todos los file handlers y limitar consola a WARNING
+        file_handlers = [
+            h for h in root.handlers[:]
+            if isinstance(h, (logging.FileHandler, ThreadSafeFileHandler, ThreadSafeRotatingFileHandler))
+        ]
+        for handler in file_handlers:
+            root.removeHandler(handler)
+            try:
+                handler.close()
+            except Exception:
+                pass
+        
+        # Configurar consola solo para WARNING y ERROR
+        for handler in root.handlers[:]:
+            if isinstance(handler, (ThreadSafeStreamHandler, logging.StreamHandler)):
+                handler.setLevel(logging.WARNING)
+        root.setLevel(logging.WARNING)
+        
+        # Actualizar todos los loggers hijos
+        set_global_log_level(logging.WARNING)
+        
+        root.warning("File logging disabled - only WARNING and ERROR will be shown in console")
+    else:
+        # Rehabilitar: reconfigurar con la configuración actual
+        # Restaurar nivel original en consola
+        for handler in root.handlers[:]:
+            if isinstance(handler, (ThreadSafeStreamHandler, logging.StreamHandler)):
+                handler.setLevel(logging.NOTSET)  # Hereda del logger padre
+        root.setLevel(_current_level)
+        
+        # Recrear file handlers si hay directorio configurado
+        if _logs_directory:
+            from utils.logger import change_logs_directory
+            change_logs_directory(_logs_directory, dual_log_enabled=_dual_log_enabled)
+        
+        # Actualizar todos los loggers hijos
+        set_global_log_level(_current_level)
+        
+        root.info("File logging re-enabled")
 
 
 # Funciones utilitarias para logging discreto (disponibles globalmente)

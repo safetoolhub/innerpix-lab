@@ -481,11 +481,11 @@ class TestFileOrganizerSelfConflict:
         assert len(result.move_plan) == 0
 
     def test_no_self_conflict_by_type_files_already_in_place(self, tmp_path):
-        """Archivos ya en su carpeta by_type correcta no deben generar movimientos"""
-        fotos_dir = tmp_path / "Fotos"
-        fotos_dir.mkdir()
+        """Files already in their correct by_type folder should not generate moves"""
+        photos_dir = tmp_path / "Photos"
+        photos_dir.mkdir()
 
-        img1 = fotos_dir / "IMG_001.JPG"
+        img1 = photos_dir / "IMG_001.JPG"
         img1.write_bytes(b"photo data 1")
 
         self._register_file_in_cache(img1)

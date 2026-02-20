@@ -28,19 +28,21 @@ def main():
     init_i18n(language)
 
     if Config.DEVELOPMENT_MODE:
-        print(f"🔧 DEVELOPMENT MODE ENABLED")
+        print(f"DEVELOPMENT MODE ENABLED")
         if Config.SAVED_CACHE_DEV_MODE_PATH:
-             print(f"🔧 Loading cache from: {Config.SAVED_CACHE_DEV_MODE_PATH}")
+             print(f"Loading cache from: {Config.SAVED_CACHE_DEV_MODE_PATH}")
 
     # Read log level from persistent settings
     saved_log_level = settings_manager.get_log_level("INFO")  # INFO by default
     saved_dual_log = settings_manager.get_dual_log_enabled()  # True by default
+    saved_disable_file_logging = settings_manager.get_disable_file_logging()  # False by default
     
     # Configure logging system with saved level
     log_file, logs_dir = configure_logging(
         logs_dir=Config.DEFAULT_LOG_DIR,
         level=saved_log_level,
-        dual_log_enabled=saved_dual_log
+        dual_log_enabled=saved_dual_log,
+        disable_file_logging=saved_disable_file_logging,
     )
     
     # Read precalculation settings for log output
@@ -55,10 +57,10 @@ def main():
     sys_info = Config.get_system_info()
     
     logger.info("=" * 80)
-    logger.info(f"Starting {Config.APP_NAME} v{Config.APP_VERSION}")
+    logger.info(f"Starting {Config.APP_NAME} v{Config.get_full_version()}")
     logger.info("=" * 80)
     logger.info("")
-    logger.info("📊 SYSTEM CONFIGURATION:")
+    logger.info("SYSTEM CONFIGURATION:")
     logger.info(f"  • Total RAM: {sys_info['ram_total_gb']:.2f} GB")
     if sys_info['ram_available_gb']:
         logger.info(f"  • Available RAM: {sys_info['ram_available_gb']:.2f} GB")
@@ -66,26 +68,29 @@ def main():
     logger.info(f"  • I/O Workers (hashing): {sys_info['io_workers']}")
     logger.info(f"  • CPU Workers (images): {sys_info['cpu_workers']}")
     if not sys_info['psutil_available']:
-        logger.info("  ⚠️  psutil not available, using default values")
+        logger.info("  psutil not available, using default values")
     logger.info("")
-    logger.info("💾 MEMORY CONFIGURATION:")
+    logger.info("MEMORY CONFIGURATION:")
     logger.info(f"  • Max cache entries (initial): {sys_info['max_cache_entries']:,}")
     logger.info(f"  • Large dataset threshold: {sys_info['large_dataset_threshold']:,} files")
     logger.info(f"  • Auto-open dialog threshold: {sys_info['auto_open_threshold']:,} files")
     logger.info("")
-    logger.info("📁 LOG CONFIGURATION:")
-    logger.info(f"  • Log level: {log_level}")
-    logger.info(f"  • Log file: {log_file}")
-    logger.info(f"  • Log directory: {logs_dir}")
-    if saved_dual_log and saved_log_level in ('INFO', 'DEBUG'):
-        logger.info(f"  • Dual logging: enabled (additional _WARNERROR file will be created)")
+    logger.info("LOG CONFIGURATION:")
+    if saved_disable_file_logging:
+        logger.info(f"  • File logging: DISABLED (only WARNING/ERROR on console)")
     else:
-        logger.info(f"  • Dual logging: {'disabled' if not saved_dual_log else 'not applicable (WARNING/ERROR level)'}")
+        logger.info(f"  • Log level: {log_level}")
+        logger.info(f"  • Log file: {log_file}")
+        logger.info(f"  • Log directory: {logs_dir}")
+        if saved_dual_log and saved_log_level in ('INFO', 'DEBUG'):
+            logger.info(f"  • Dual logging: enabled (additional _WARNERROR file will be created)")
+        else:
+            logger.info(f"  • Dual logging: {'disabled' if not saved_dual_log else 'not applicable (WARNING/ERROR level)'}")
     logger.info("")
-    logger.info("🌐 LANGUAGE:")
+    logger.info("LANGUAGE:")
     logger.info(f"  • UI Language: {language}")
     logger.info("")
-    logger.info("⚙️  INITIAL ANALYSIS CONFIGURATION:")
+    logger.info("INITIAL ANALYSIS CONFIGURATION:")
     logger.info(f"  • SHA256 hash calculation: {'enabled' if precalc_hashes else 'disabled (on demand)'}")
     logger.info(f"  • Image metadata (EXIF): {'enabled' if precalc_image_exif else 'disabled (on demand)'}")
     logger.info(f"  • Video metadata (EXIF): {'enabled' if precalc_video_exif else 'disabled (on demand)'}")
@@ -96,7 +101,7 @@ def main():
 
     # Configure the application
     app.setApplicationName(Config.APP_NAME)
-    app.setApplicationVersion(Config.APP_VERSION)
+    app.setApplicationVersion(Config.get_full_version())
     app.setOrganizationName("InnerpixLab")
 
     # Create and show main window
