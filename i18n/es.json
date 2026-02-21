@@ -106,7 +106,7 @@
     "zero_byte": {
       "title": "Archivos vacíos",
       "short_description": "Estos archivos ocupan 0 bytes y no contienen información. Es 100% seguro eliminarlos",
-      "long_description": "Escanea sus carpetas en busca de \"archivos fantasma\" (archivos de 0 bytes) que no contienen datos útiles. Elimínalos de forma segura."
+      "long_description": "Analiza tus carpetas en busca de \"archivos fantasma\" (archivos de 0 bytes o corruptos) que no contienen datos útiles. Pueden eliminarse de forma segura porque son inútiles."
     },
     "live_photos": {
       "title": "Live Photos",

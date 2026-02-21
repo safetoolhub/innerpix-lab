@@ -106,7 +106,7 @@
     "zero_byte": {
       "title": "Empty files",
       "short_description": "These files are 0 bytes and contain no information. It is 100% safe to delete them",
-      "long_description": "Scans your folders for \"ghost files\" (0-byte files) that contain no useful data. Delete them safely."
+      "long_description": "Scans your folders for \"ghost files\" (0-byte or corrupted files) that contain no useful data. They can be safely removed because they are useless."
     },
     "live_photos": {
       "title": "Live Photos",

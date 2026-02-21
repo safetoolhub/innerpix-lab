@@ -479,10 +479,6 @@ class AboutDialog(QDialog):
         dev_hero = self._create_developer_hero()
         layout.addWidget(dev_hero)
 
-        # === CONTACT SECTION ===
-        contact_card = self._create_contact_card()
-        layout.addWidget(contact_card)
-
         # === TECH INFO GRID ===
         info_grid = QGridLayout()
         info_grid.setSpacing(DesignSystem.SPACE_8)
@@ -558,17 +554,24 @@ class AboutDialog(QDialog):
         
         outer_layout.addLayout(header_layout)
         
-        # Subtítulo explicativo
-        subtitle = QLabel(tr("about.dev.subtitle"))
-        subtitle.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        subtitle.setStyleSheet(f"""
-            color: {DesignSystem.COLOR_TEXT_SECONDARY};
-            font-size: {DesignSystem.FONT_SIZE_SM}px;
-            padding-top: {DesignSystem.SPACE_4}px;
-        """)
-        subtitle.setWordWrap(True)
-        subtitle.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
-        outer_layout.addWidget(subtitle)
+        # Contacto (Nuevo: debajo de la card, sin marcos ni hover)
+        contact_layout = QHBoxLayout()
+        contact_layout.setSpacing(DesignSystem.SPACE_8)
+        contact_layout.setContentsMargins(0, DesignSystem.SPACE_4, 0, DesignSystem.SPACE_4)
+        
+        email_icon = QLabel()
+        icon_manager.set_label_icon(email_icon, "mail", color=DesignSystem.COLOR_PRIMARY, size=16)
+        contact_layout.addWidget(email_icon)
+        
+        email_link = f'<a href="mailto:{Config.APP_CONTACT}" style="color: {DesignSystem.COLOR_PRIMARY}; text-decoration: none; font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};">{Config.APP_CONTACT}</a>'
+        email_label = QLabel(email_link)
+        email_label.setOpenExternalLinks(True)
+        email_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_SM}px;")
+        email_label.setCursor(Qt.CursorShape.PointingHandCursor)
+        contact_layout.addWidget(email_label)
+        contact_layout.addStretch()
+        
+        outer_layout.addLayout(contact_layout)
         
         # Separador horizontal
         sep = QFrame()
@@ -642,57 +645,6 @@ class AboutDialog(QDialog):
         layout.addLayout(content, 1)
         return frame
 
-    def _create_contact_card(self) -> QFrame:
-        """Crea una card de contacto directo."""
-        frame = QFrame()
-        frame.setStyleSheet(f"""
-            QFrame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px dashed {DesignSystem.COLOR_PRIMARY}44;
-                border-radius: {DesignSystem.RADIUS_MD}px;
-            }}
-            QFrame:hover {{
-                border-color: {DesignSystem.COLOR_PRIMARY};
-                background-color: {DesignSystem.COLOR_PRIMARY_LIGHT}11;
-            }}
-        """)
-        
-        layout = QHBoxLayout(frame)
-        layout.setContentsMargins(DesignSystem.SPACE_16, DesignSystem.SPACE_12, DesignSystem.SPACE_16, DesignSystem.SPACE_12)
-        layout.setSpacing(DesignSystem.SPACE_16)
-        
-        # Icono de contacto
-        icon_label = QLabel()
-        icon_manager.set_label_icon(icon_label, "information-outline", color=DesignSystem.COLOR_PRIMARY, size=24)
-        layout.addWidget(icon_label)
-        
-        # Texto
-        text_layout = QVBoxLayout()
-        text_layout.setSpacing(2)
-        
-        contact_title = QLabel(tr("about.info.contact.title"))
-        contact_title.setStyleSheet(f"""
-            font-size: {DesignSystem.FONT_SIZE_BASE}px;
-            font-weight: {DesignSystem.FONT_WEIGHT_BOLD};
-            color: {DesignSystem.COLOR_PRIMARY};
-        """)
-        text_layout.addWidget(contact_title)
-        
-        email_link = f'<a href="mailto:{Config.APP_CONTACT}" style="color: {DesignSystem.COLOR_TEXT}; text-decoration: none; font-weight: {DesignSystem.FONT_WEIGHT_MEDIUM};">{Config.APP_CONTACT}</a>'
-        email_label = QLabel(email_link)
-        email_label.setOpenExternalLinks(True)
-        email_label.setStyleSheet(f"font-size: {DesignSystem.FONT_SIZE_MD}px;")
-        email_label.setCursor(Qt.CursorShape.PointingHandCursor)
-        text_layout.addWidget(email_label)
-        
-        layout.addLayout(text_layout)
-        layout.addStretch()
-        
-        # Badge de soporte
-        support_badge = QLabel(tr("about.info.contact.support_badge") if False else "Direct Support") # Fallback to hardcoded for now or add to json
-        # Let's just use a simple label or omit it if not in i18n
-        
-        return frame
 
     # ==================== WIDGETS AUXILIARES COMPACTOS ====================
 
