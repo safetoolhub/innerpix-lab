@@ -412,10 +412,12 @@ Organized by thematic categories:
 ```bash
 # Create virtual environment with Python 3.12
 uv venv --python 3.12
-source .venv/bin/activate
+source .venv/bin/activate (linux)
+.venv\Scripts\activate (windows)
 
 # Install dependencies
 uv pip install -r requirements.txt
+uv pip install -r requirements-dev.txt (for development only)
 ```
 
 ### Running the Application

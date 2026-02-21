@@ -17,7 +17,7 @@ Cuando estés listo para probar o lanzar una nueva versión (por ejemplo, `v0.8.
 2. (Opcional pero recomendado) Actualiza la versión en el archivo `config.py` y haz un commit:
    ```bash
    git add config.py
-   git commit -m "Bump version to v0.8.1"
+   git commit -m "Upgrade version to v0.8.5"
    git push origin main
    ```
 

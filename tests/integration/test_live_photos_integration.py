@@ -88,7 +88,9 @@ class TestLivePhotoServiceIntegration:
         assert len(result.groups) == 1
         
         group = result.groups[0]
-        assert group.video_path == vid_path
+        # Use resolve() on both sides to normalize Windows 8.3 short-name
+        # aliases (e.g. RUNNER~1 vs runneradmin) that appear on CI runners.
+        assert group.video_path.resolve() == vid_path.resolve()
         assert group.base_name == "img_0001"  # normalizado a minúsculas
     
     def test_analyze_detects_multiple_live_photo_pairs(
