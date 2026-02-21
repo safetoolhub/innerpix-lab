@@ -20,53 +20,65 @@ ASSETS = ROOT / "assets"
 
 
 def create_master_png(size: int = 512) -> Image.Image:
-    """Create a 512x512 placeholder icon with gradient and 'IP' text."""
-    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    """Create a premium 512x512 SafeToolHub logo using supersampling for perfect antialiasing."""
+    # Draw at 4x resolution
+    scale = 4
+    canvas_size = size * scale
+    
+    img = Image.new("RGBA", (canvas_size, canvas_size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
-    # Rounded rectangle background with gradient-like effect
-    # Dark teal to blue gradient (simplified as solid for reliability)
-    bg_color = (13, 110, 193)  # Brand blue
-    corner_radius = size // 8
+    corner_radius = canvas_size // 4
 
-    # Draw rounded rectangle
+    # Base background: Deep sleek gradient simulation
+    bg_color = (8, 10, 15)
     draw.rounded_rectangle(
-        [(0, 0), (size - 1, size - 1)],
+        [(0, 0), (canvas_size - 1, canvas_size - 1)],
         radius=corner_radius,
         fill=bg_color,
     )
 
-    # Subtle lighter accent stripe
-    accent_color = (30, 144, 220, 60)
-    draw.rounded_rectangle(
-        [(size // 6, size // 6), (size - size // 6, size - size // 6)],
-        radius=corner_radius // 2,
-        fill=accent_color,
+    # Outer elegant thin ring
+    center = canvas_size // 2
+    ring_radius = int(canvas_size * 0.35)
+    ring_width = canvas_size // 50
+    
+    draw.ellipse(
+        [(center - ring_radius, center - ring_radius), 
+         (center + ring_radius, center + ring_radius)],
+        outline=(99, 102, 241), width=ring_width
     )
 
-    # Draw "IP" initials
-    font_size = size // 3
-    try:
-        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
-    except (OSError, IOError):
-        try:
-            font = ImageFont.truetype("Arial Bold", font_size)
-        except (OSError, IOError):
-            font = ImageFont.load_default()
+    # Inner minimalistic lock/shield geometric shape
+    inner_w = int(canvas_size * 0.15)
+    inner_h = int(canvas_size * 0.18)
+    
+    # The lock body
+    draw.rounded_rectangle(
+        [(center - inner_w, center), (center + inner_w, center + inner_h)],
+        radius=canvas_size // 60,
+        fill=(168, 85, 247)
+    )
 
-    text = "Innerpix Lab"
-    bbox = draw.textbbox((0, 0), text, font=font)
-    text_w = bbox[2] - bbox[0]
-    text_h = bbox[3] - bbox[1]
-    x = (size - text_w) // 2
-    y = (size - text_h) // 2 - bbox[1]
+    # The lock arch
+    arch_radius = inner_w
+    draw.arc(
+        [(center - arch_radius, center - arch_radius - inner_h//2),
+         (center + arch_radius, center + arch_radius - inner_h//2)],
+        start=180, end=0, fill=(168, 85, 247), width=ring_width
+    )
+    
+    # Small dot in the lock
+    dot_r = canvas_size // 80
+    draw.ellipse(
+        [(center - dot_r, center + inner_h//2 - dot_r),
+         (center + dot_r, center + inner_h//2 + dot_r)],
+        fill=(8, 10, 15)
+    )
 
-    # Text shadow
-    draw.text((x + 2, y + 2), text, fill=(0, 0, 0, 80), font=font)
-    # Main text
-    draw.text((x, y), text, fill=(255, 255, 255), font=font)
-
-    return img
+    # Downsample with high-quality Lanczos filter
+    final_img = img.resize((size, size), Image.Resampling.LANCZOS)
+    return final_img
 
 
 def create_ico(master: Image.Image, output: Path) -> None:

@@ -1,12 +1,30 @@
-## Licencia
+                    GNU GENERAL PUBLIC LICENSE
+                       Version 3, 29 June 2007
 
-Innerpix Lab © 2026 Carlos Calvo (https://safetoolhub.org)
+ Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
+ Everyone is permitted to copy and distribute verbatim copies
+ of this license document, but changing it is not allowed.
 
-Este proyecto se publica bajo PolyForm Noncommercial License 1.0.0:
-- Permitido: uso personal/no comercial.
-- No permitido: uso profesional/empresarial o cualquier uso con finalidad comercial.
-- Atribución obligatoria: si copias, redistribuyes o modificas, debes mantener el aviso de copyright y enlazar a https://safetoolhub.org (y al repositorio).
+[... Full GPLv3 terms apply ...]
 
-Licencia comercial: para uso profesional/empresarial, contacta con Carlos Calvo (https://safetoolhub.org) para obtener una licencia de pago.
+For the complete text of the GNU General Public License version 3,
+please see: https://www.gnu.org/licenses/gpl-3.0.txt
 
-Sin garantía: el software se proporciona “AS IS”, sin garantías y sin responsabilidad en la medida permitida por la ley.
+=================================================================
+             ADDITIONAL TERMS UNDER SECTION 7 OF GPLv3
+=================================================================
+
+This project, Innerpix Lab, and the SafeToolHub portfolio is distributed 
+under the GNU General Public License version 3 (GPLv3) with the following 
+additional terms applied in accordance with Section 7(b):
+
+1. MANDATORY ATTRIBUTION: You must retain appropriate attribution to the 
+original author (SafeToolHub) and include a visible, clickable link to 
+the official project website (https://safetoolhub.org) in any public 
+distribution, derivative work, or software built upon this source code. 
+This attribution must remain visible in the software's UI (e.g., About dialog, footer).
+
+2. LOGO AND TRADEMARK RESTRICTIONS: This license does not grant permission 
+to use the trade names, trademarks, service marks, or product names of 
+the Licensor (SafeToolHub, Innerpix Lab), except as required for reasonable 
+and customary use in describing the origin of the Work.
