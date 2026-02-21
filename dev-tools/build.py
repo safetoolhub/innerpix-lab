@@ -186,7 +186,7 @@ def package_linux(output_dir: Path, full_version: str) -> list[Path]:
         # Create tarball for rpmbuild
         tarball_name = f"{app_name}-{full_version}"
         tarball_src = rpm_topdir / "SOURCES" / tarball_name
-        shutil.copytree(staging, tarball_src)
+        shutil.copytree(staging, tarball_src, symlinks=True)
 
         spec_content = textwrap.dedent(f"""\
             Name:           {app_name}
