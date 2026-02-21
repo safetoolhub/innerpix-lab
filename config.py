@@ -21,7 +21,9 @@ class Config:
     APP_WEBSITE = "https://safetoolhub.org"
     APP_REPO = "https://github.com/safetoolhub/innerpix-lab"
     APP_DESCRIPTION = "Privacy-first photo and video management. 100% local, no cloud."
-
+    APP_LICENSE = "GPLv3"
+    APP_ATTRIBUTION_REQUIREMENT = "Mandatory attribution to SafeToolHub and safetoolhub.org"
+    
     @classmethod
     def get_full_version(cls) -> str:
         """Returns full version string, e.g. '0.8.0-beta' or '1.0.0'."""
