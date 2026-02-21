@@ -25,7 +25,7 @@ class TestImagePerceptualHashAlgorithms:
         self.service = DuplicatesSimilarService()
         
         # Crear directorio temporal con imagen de prueba
-        self.temp_dir = Path(tempfile.mkdtemp())
+        self.temp_dir = Path(tempfile.mkdtemp()).resolve()
         self._create_test_image()
     
     def teardown_method(self):
@@ -352,7 +352,7 @@ class TestVideoPerceptualHashAlgorithms:
         self.service = DuplicatesSimilarService()
         
         # Crear directorio temporal
-        self.temp_dir = Path(tempfile.mkdtemp())
+        self.temp_dir = Path(tempfile.mkdtemp()).resolve()
     
     def teardown_method(self):
         """Cleanup después de cada test."""
@@ -574,7 +574,7 @@ class TestHashTargetFiltering:
         self.repo.clear()
         
         # Crear directorio temporal
-        self.temp_dir = Path(tempfile.mkdtemp())
+        self.temp_dir = Path(tempfile.mkdtemp()).resolve()
     
     def teardown_method(self):
         """Cleanup después de cada test."""

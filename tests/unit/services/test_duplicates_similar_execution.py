@@ -19,7 +19,7 @@ class TestDuplicatesSimilarExecution:
     def setup_method(self):
         """Setup antes de cada test."""
         self.service = DuplicatesSimilarService()
-        self.temp_dir = Path(tempfile.mkdtemp())
+        self.temp_dir = Path(tempfile.mkdtemp()).resolve()
         
         # Mock SOLO de funciones auxiliares que no afectan el sistema de archivos base
         # Como get_all_metadata_from_file que podría intentar leer exif y fallar o ser lento

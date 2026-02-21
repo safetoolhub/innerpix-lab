@@ -43,7 +43,7 @@ def temp_dir():
     """
     Crea un directorio temporal que se limpia automáticamente después del test.
     """
-    temp_path = Path(tempfile.mkdtemp())
+    temp_path = Path(tempfile.mkdtemp()).resolve()
     yield temp_path
     if temp_path.exists():
         shutil.rmtree(temp_path)

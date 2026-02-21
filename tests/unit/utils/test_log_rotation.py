@@ -539,4 +539,4 @@ def cleanup_log_handlers(temp_dir):
 def temp_dir():
     """Crea un directorio temporal para los tests."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        yield Path(tmpdir)
+        yield Path(tmpdir).resolve()

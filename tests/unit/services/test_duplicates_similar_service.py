@@ -135,7 +135,7 @@ class TestDuplicatesSimilarService:
         self.repo.clear()
         
         # Crear directorio temporal
-        self.temp_dir = Path(tempfile.mkdtemp())
+        self.temp_dir = Path(tempfile.mkdtemp()).resolve()
     
     def teardown_method(self):
         """Cleanup después de cada test."""

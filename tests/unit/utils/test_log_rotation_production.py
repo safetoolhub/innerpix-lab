@@ -24,7 +24,7 @@ def test_rotation_with_production_backup_count():
     - No hay degradación con múltiples rotaciones
     """
     with tempfile.TemporaryDirectory() as tmpdir:
-        temp_dir = Path(tmpdir)
+        temp_dir = Path(tmpdir).resolve()
         
         # Usar el valor real de producción
         assert Config.MAX_LOG_BACKUP_COUNT == 9999, \
@@ -119,7 +119,7 @@ def test_high_number_backup_numbering():
     permite rotaciones múltiples sin errores.
     """
     with tempfile.TemporaryDirectory() as tmpdir:
-        temp_dir = Path(tmpdir)
+        temp_dir = Path(tmpdir).resolve()
         
         from utils.logger import ThreadSafeRotatingFileHandler
         import logging
@@ -185,7 +185,7 @@ def test_backup_count_limit_enforcement():
     sin llegar al límite (test de estrés ligero).
     """
     with tempfile.TemporaryDirectory() as tmpdir:
-        temp_dir = Path(tmpdir)
+        temp_dir = Path(tmpdir).resolve()
         
         # Este test toma mucho tiempo, solo verificamos que el límite es suficientemente alto
         # para producción (donde 9999 es prácticamente ilimitado)
@@ -220,7 +220,7 @@ def test_rotation_consistency_across_restarts():
     reiniciar el logger múltiples veces.
     """
     with tempfile.TemporaryDirectory() as tmpdir:
-        temp_dir = Path(tmpdir)
+        temp_dir = Path(tmpdir).resolve()
         
         max_bytes = Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024
         messages_per_rotation = (max_bytes // 250) + 500
