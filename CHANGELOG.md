@@ -29,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Technical
 - PyQt6 desktop application with strict UI/logic separation
 - 713+ passing tests (unit, integration, performance)
-- Python 3.13+ with comprehensive type hints
+- Python 3.12+ with comprehensive type hints
 - Automated release pipeline with GitHub Actions (Linux .deb/.rpm, Windows installer, macOS DMG)
 
 [Unreleased]: https://github.com/safetoolhub/innerpix-lab/compare/v0.8.0-beta...HEAD

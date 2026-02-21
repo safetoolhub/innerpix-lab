@@ -1,5 +1,5 @@
 # Innerpix Lab - Gestor de archivos multimedia
-# Python 3.9+
+# Python 3.12+
 
 # ============================================================================
 # GUI Framework
@@ -12,7 +12,6 @@ PyQt6-sip>=13.6.0
 # Procesamiento de Imágenes (Opcional - para EXIF)
 # ============================================================================
 Pillow>=10.0.0
-Pillow>=9.5.0
 pillow-heif>=0.10.1
 
 # ============================================================================
@@ -24,7 +23,6 @@ numpy>=1.24.3
 scipy>=1.10.1
 requests>=2.31.0
 psutil>=5.9.5
-pathlib2>=2.3.7
 typing-extensions>=4.6.3
 opencv-python>=4.8.0
 send2trash>=1.8.0

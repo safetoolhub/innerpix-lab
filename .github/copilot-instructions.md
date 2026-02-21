@@ -1,7 +1,7 @@
 # InnerPix Lab - Development Guide
 
 > **Privacy-first photo/video management desktop application**  
-> PyQt6 • Python 3.13+ • Cross-platform (Linux, Windows, macOS)
+> PyQt6 • Python 3.12+ • Cross-platform (Linux, Windows, macOS)
 
 ---
 
@@ -23,7 +23,7 @@
 InnerPix Lab is a desktop application for managing, organizing, and optimizing photo/video collections with absolute privacy. All processing is 100% local—no cloud, no telemetry, no external connections.
 
 ### Tech Stack
-- **Language**: Python 3.13+
+- **Language**: Python 3.12+
 - **UI Framework**: PyQt6
 - **Package Manager**: uv
 - **Testing**: pytest 9.0.2 + pytest-qt 4.5.0 + pytest-mock 3.15.1
@@ -410,8 +410,8 @@ Organized by thematic categories:
 
 ### Environment Setup
 ```bash
-# Create virtual environment with Python 3.13
-uv venv --python 3.13
+# Create virtual environment with Python 3.12
+uv venv --python 3.12
 source .venv/bin/activate
 
 # Install dependencies
@@ -626,5 +626,5 @@ In `services/` as a PyQt6-free service. UI code should only orchestrate and rend
 
 **Last Updated**: January 2026  
 **Test Coverage**: 713+ tests passing  
-**Python Version**: 3.13+  
+**Python Version**: 3.12+  
 **UI Framework**: PyQt6

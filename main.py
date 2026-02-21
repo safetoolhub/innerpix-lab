@@ -127,5 +127,8 @@ def main():
     return app.exec()
 
 
+import multiprocessing
+
 if __name__ == '__main__':
+    multiprocessing.freeze_support()
     sys.exit(main())

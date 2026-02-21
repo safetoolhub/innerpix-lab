@@ -68,7 +68,7 @@ Create `build/installer.iss`:
 Create `.github/workflows/ci.yml`:
 - **Triggers**: Push to `main`/`develop`, Pull Requests
 - **Matrix**: `ubuntu-latest`, `windows-latest`, `macos-latest`
-- **Steps**: checkout → setup Python 3.13 → install deps via `uv` → run `pytest --ignore=tests/performance`
+- **Steps**: checkout → setup Python 3.12 → install deps via `uv` → run `pytest --ignore=tests/performance`
 - Purpose: Validate every commit, gate PRs
 
 ### 7. Create GitHub Actions Release workflow
@@ -85,7 +85,7 @@ Create `.github/workflows/release.yml` — the core automation:
 
 - **Each job**:
   1. Checkout code
-  2. Setup Python 3.13 + `uv`
+  2. Setup Python 3.12 + `uv`
   3. Install dependencies
   4. Install platform tools (`appimagetool`/`fpm` on Linux, Inno Setup on Windows, `create-dmg` on macOS)
   5. Run PyInstaller with spec file
